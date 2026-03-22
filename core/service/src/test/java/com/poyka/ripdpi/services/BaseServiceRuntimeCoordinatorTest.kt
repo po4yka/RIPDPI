@@ -1,3 +1,5 @@
+@file:Suppress("MaxLineLength", "UnusedParameter", "UseCheckOrError")
+
 package com.poyka.ripdpi.services
 
 import com.poyka.ripdpi.data.FailureReason
@@ -120,9 +122,7 @@ class BaseServiceRuntimeCoordinatorTest {
             assertEquals(1, env.handoverEvents.published.size)
         }
 
-    private fun TestScope.newEnv(
-        fingerprint: NetworkFingerprint? = sampleFingerprint(),
-    ): Env {
+    private fun TestScope.newEnv(fingerprint: NetworkFingerprint? = sampleFingerprint()): Env {
         val dispatcher = StandardTestDispatcher(testScheduler)
         val host = TestProxyServiceHost(backgroundScope)
         val resolver = TestConnectionPolicyResolver(sampleResolution(mode = Mode.Proxy))
@@ -193,7 +193,8 @@ private class TestCoordinator(
 
     override fun createRuntimeSession(): ProxyRuntimeSession = ProxyRuntimeSession()
 
-    override suspend fun resolveInitialConnectionPolicy(): ConnectionPolicyResolution = sampleResolution(mode = Mode.Proxy)
+    override suspend fun resolveInitialConnectionPolicy(): ConnectionPolicyResolution =
+        sampleResolution(mode = Mode.Proxy)
 
     override suspend fun resolveHandoverConnectionPolicy(
         fingerprint: NetworkFingerprint,

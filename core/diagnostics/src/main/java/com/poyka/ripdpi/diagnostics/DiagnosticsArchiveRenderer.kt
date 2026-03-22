@@ -1,3 +1,5 @@
+@file:Suppress("CyclomaticComplexMethod", "LongMethod", "MagicNumber", "MaxLineLength")
+
 package com.poyka.ripdpi.diagnostics
 
 import com.poyka.ripdpi.data.diagnostics.NativeSessionEventEntity
@@ -6,8 +8,8 @@ import com.poyka.ripdpi.data.diagnostics.retryCount
 import com.poyka.ripdpi.data.diagnostics.rttBand
 import com.poyka.ripdpi.data.diagnostics.winningStrategyFamily
 import kotlinx.serialization.builtins.ListSerializer
-import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import javax.inject.Inject
@@ -48,22 +50,24 @@ class DiagnosticsArchiveRenderer
                     DiagnosticsArchiveEntry(
                         name = "report.json",
                         bytes =
-                            json.encodeToString(
-                                DiagnosticsArchivePayload.serializer(),
-                                redactedPayload,
-                            ).toByteArray(),
+                            json
+                                .encodeToString(
+                                    DiagnosticsArchivePayload.serializer(),
+                                    redactedPayload,
+                                ).toByteArray(),
                     ),
                     DiagnosticsArchiveEntry(
                         name = "strategy-matrix.json",
                         bytes =
-                            json.encodeToString(
-                                StrategyMatrixArchivePayload.serializer(),
-                                StrategyMatrixArchivePayload(
-                                    sessionId = selection.primarySession?.id,
-                                    profileId = selection.primarySession?.profileId,
-                                    strategyProbeReport = selection.primaryReport?.strategyProbeReport,
-                                ),
-                            ).toByteArray(),
+                            json
+                                .encodeToString(
+                                    StrategyMatrixArchivePayload.serializer(),
+                                    StrategyMatrixArchivePayload(
+                                        sessionId = selection.primarySession?.id,
+                                        profileId = selection.primarySession?.profileId,
+                                        strategyProbeReport = selection.primaryReport?.strategyProbeReport,
+                                    ),
+                                ).toByteArray(),
                     ),
                     DiagnosticsArchiveEntry(
                         name = "probe-results.csv",
@@ -80,32 +84,39 @@ class DiagnosticsArchiveRenderer
                     DiagnosticsArchiveEntry(
                         name = "network-snapshots.json",
                         bytes =
-                            json.encodeToString(
-                                DiagnosticsArchiveSnapshotPayload.serializer(),
-                                DiagnosticsArchiveSnapshotPayload(
-                                    sessionSnapshots =
-                                        selection.primarySnapshots.mapNotNull(redactor::decodeNetworkSnapshot)
-                                            .map(redactor::redact),
-                                    latestPassiveSnapshot =
-                                        redactor.decodeNetworkSnapshot(selection.latestPassiveSnapshot)?.let(redactor::redact),
-                                ),
-                            ).toByteArray(),
+                            json
+                                .encodeToString(
+                                    DiagnosticsArchiveSnapshotPayload.serializer(),
+                                    DiagnosticsArchiveSnapshotPayload(
+                                        sessionSnapshots =
+                                            selection.primarySnapshots
+                                                .mapNotNull(redactor::decodeNetworkSnapshot)
+                                                .map(redactor::redact),
+                                        latestPassiveSnapshot =
+                                            redactor
+                                                .decodeNetworkSnapshot(
+                                                    selection.latestPassiveSnapshot,
+                                                )?.let(redactor::redact),
+                                    ),
+                                ).toByteArray(),
                     ),
                     DiagnosticsArchiveEntry(
                         name = "diagnostic-context.json",
                         bytes =
-                            json.encodeToString(
-                                DiagnosticsArchiveContextPayload.serializer(),
-                                DiagnosticsArchiveContextPayload(
-                                    sessionContexts =
-                                        selection.primaryContexts.mapNotNull(redactor::decodeDiagnosticContext)
-                                            .map(redactor::redact),
-                                    latestPassiveContext =
-                                        redactor
-                                            .decodeDiagnosticContext(selection.latestPassiveContext)
-                                            ?.let(redactor::redact),
-                                ),
-                            ).toByteArray(),
+                            json
+                                .encodeToString(
+                                    DiagnosticsArchiveContextPayload.serializer(),
+                                    DiagnosticsArchiveContextPayload(
+                                        sessionContexts =
+                                            selection.primaryContexts
+                                                .mapNotNull(redactor::decodeDiagnosticContext)
+                                                .map(redactor::redact),
+                                        latestPassiveContext =
+                                            redactor
+                                                .decodeDiagnosticContext(selection.latestPassiveContext)
+                                                ?.let(redactor::redact),
+                                    ),
+                                ).toByteArray(),
                     ),
                 )
             selection.logcatSnapshot?.let { snapshot ->
@@ -149,7 +160,10 @@ class DiagnosticsArchiveRenderer
                         (selection.sessionContextModel ?: selection.latestContextModel)
                             ?.let(redactor::redact)
                             ?.toRedactedSummary(),
-                    latestTelemetrySummary = selection.payload.telemetry.firstOrNull()?.toArchiveTelemetrySummary(),
+                    latestTelemetrySummary =
+                        selection.payload.telemetry
+                            .firstOrNull()
+                            ?.toArchiveTelemetrySummary(),
                     includedFiles = selection.includedFiles,
                     logcatIncluded = selection.logcatSnapshot != null,
                     logcatCaptureScope = LogcatSnapshotCollector.AppVisibleSnapshotScope,

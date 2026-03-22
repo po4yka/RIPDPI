@@ -1,3 +1,5 @@
+@file:Suppress("LongMethod", "LongParameterList")
+
 package com.poyka.ripdpi.activities
 
 import com.poyka.ripdpi.diagnostics.BypassApproachSummary

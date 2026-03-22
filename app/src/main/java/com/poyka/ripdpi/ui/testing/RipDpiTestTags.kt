@@ -1,3 +1,5 @@
+@file:Suppress("TooManyFunctions")
+
 package com.poyka.ripdpi.ui.testing
 
 import androidx.compose.ui.Modifier

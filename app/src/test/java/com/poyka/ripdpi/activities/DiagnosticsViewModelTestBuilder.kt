@@ -6,14 +6,14 @@ import com.poyka.ripdpi.data.DefaultServiceStateStore
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.diagnostics.DiagnosticActiveConnectionPolicy
-import com.poyka.ripdpi.diagnostics.DiagnosticsBootstrapper
 import com.poyka.ripdpi.diagnostics.DiagnosticsActiveConnectionPolicySource
+import com.poyka.ripdpi.diagnostics.DiagnosticsBootstrapper
 import com.poyka.ripdpi.diagnostics.DiagnosticsDetailLoader
+import com.poyka.ripdpi.diagnostics.DiagnosticsRememberedPolicy
 import com.poyka.ripdpi.diagnostics.DiagnosticsRememberedPolicySource
 import com.poyka.ripdpi.diagnostics.DiagnosticsResolverActions
 import com.poyka.ripdpi.diagnostics.DiagnosticsScanController
 import com.poyka.ripdpi.diagnostics.DiagnosticsShareService
-import com.poyka.ripdpi.diagnostics.DiagnosticsRememberedPolicy
 import com.poyka.ripdpi.diagnostics.DiagnosticsTimelineSource
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow

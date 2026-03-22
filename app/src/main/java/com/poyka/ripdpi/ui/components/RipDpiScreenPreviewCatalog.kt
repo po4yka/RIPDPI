@@ -3,10 +3,10 @@ package com.poyka.ripdpi.ui.components
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.tooling.preview.Preview
 import com.poyka.ripdpi.activities.ConnectionState
+import com.poyka.ripdpi.activities.DnsUiState
 import com.poyka.ripdpi.activities.HomeApproachSummaryUiState
 import com.poyka.ripdpi.activities.MainUiState
 import com.poyka.ripdpi.activities.OnboardingUiState
-import com.poyka.ripdpi.activities.DnsUiState
 import com.poyka.ripdpi.activities.SettingsUiState
 import com.poyka.ripdpi.activities.hashPin
 import com.poyka.ripdpi.data.AppStatus

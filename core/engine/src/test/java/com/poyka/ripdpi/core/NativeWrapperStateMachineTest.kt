@@ -1,3 +1,5 @@
+@file:Suppress("MaxLineLength")
+
 package com.poyka.ripdpi.core
 
 import com.poyka.ripdpi.data.NativeError
@@ -188,7 +190,9 @@ class NativeWrapperStateMachineTest {
                     -> {
                         val error =
                             runCatching {
-                                harness.proxy.startProxy(RipDpiProxyUIPreferences(listen = RipDpiListenConfig(port = 1101)))
+                                harness.proxy.startProxy(
+                                    RipDpiProxyUIPreferences(listen = RipDpiListenConfig(port = 1101)),
+                                )
                             }.exceptionOrNull()
                         assertTrue(error is NativeError.AlreadyRunning)
                         state
@@ -208,7 +212,9 @@ class NativeWrapperStateMachineTest {
                     -> {
                         val error =
                             runCatching {
-                                harness.proxy.startProxy(RipDpiProxyUIPreferences(listen = RipDpiListenConfig(port = 1102)))
+                                harness.proxy.startProxy(
+                                    RipDpiProxyUIPreferences(listen = RipDpiListenConfig(port = 1102)),
+                                )
                             }.exceptionOrNull()
                         assertTrue(error is NativeError.AlreadyRunning)
                         state

@@ -1,3 +1,5 @@
+@file:Suppress("CyclomaticComplexMethod", "LargeClass", "LongMethod", "MagicNumber", "MaxLineLength")
+
 package com.poyka.ripdpi.ui.screens.settings
 
 import com.poyka.ripdpi.activities.AdaptiveFakeTtlModeAdaptive
@@ -55,45 +57,96 @@ internal class AdvancedSettingsBinder(
         enabled: Boolean,
     ) {
         when (setting) {
-            AdvancedToggleSetting.UseCommandLine -> updateBoolean("enableCmdSettings", enabled) { setEnableCmdSettings(enabled) }
-            AdvancedToggleSetting.DiagnosticsMonitorEnabled ->
+            AdvancedToggleSetting.UseCommandLine -> {
+                updateBoolean("enableCmdSettings", enabled) { setEnableCmdSettings(enabled) }
+            }
+
+            AdvancedToggleSetting.DiagnosticsMonitorEnabled -> {
                 updateBoolean("diagnosticsMonitorEnabled", enabled) { setDiagnosticsMonitorEnabled(enabled) }
+            }
 
-            AdvancedToggleSetting.DiagnosticsExportIncludeHistory ->
-                updateBoolean("diagnosticsExportIncludeHistory", enabled) { setDiagnosticsExportIncludeHistory(enabled) }
+            AdvancedToggleSetting.DiagnosticsExportIncludeHistory -> {
+                updateBoolean(
+                    "diagnosticsExportIncludeHistory",
+                    enabled,
+                ) { setDiagnosticsExportIncludeHistory(enabled) }
+            }
 
-            AdvancedToggleSetting.NoDomain -> updateBoolean("noDomain", enabled) { setNoDomain(enabled) }
-            AdvancedToggleSetting.TcpFastOpen -> updateBoolean("tcpFastOpen", enabled) { setTcpFastOpen(enabled) }
-            AdvancedToggleSetting.DropSack -> updateBoolean("dropSack", enabled) { setDropSack(enabled) }
-            AdvancedToggleSetting.FakeTlsRandomize ->
+            AdvancedToggleSetting.NoDomain -> {
+                updateBoolean("noDomain", enabled) { setNoDomain(enabled) }
+            }
+
+            AdvancedToggleSetting.TcpFastOpen -> {
+                updateBoolean("tcpFastOpen", enabled) { setTcpFastOpen(enabled) }
+            }
+
+            AdvancedToggleSetting.DropSack -> {
+                updateBoolean("dropSack", enabled) { setDropSack(enabled) }
+            }
+
+            AdvancedToggleSetting.FakeTlsRandomize -> {
                 updateBoolean("fakeTlsRandomize", enabled) { setFakeTlsRandomize(enabled) }
+            }
 
-            AdvancedToggleSetting.FakeTlsDupSessionId ->
+            AdvancedToggleSetting.FakeTlsDupSessionId -> {
                 updateBoolean("fakeTlsDupSessionId", enabled) { setFakeTlsDupSessionId(enabled) }
+            }
 
-            AdvancedToggleSetting.FakeTlsPadEncap ->
+            AdvancedToggleSetting.FakeTlsPadEncap -> {
                 updateBoolean("fakeTlsPadEncap", enabled) { setFakeTlsPadEncap(enabled) }
+            }
 
-            AdvancedToggleSetting.DesyncHttp -> updateBoolean("desyncHttp", enabled) { setDesyncHttp(enabled) }
-            AdvancedToggleSetting.DesyncHttps -> updateBoolean("desyncHttps", enabled) { setDesyncHttps(enabled) }
-            AdvancedToggleSetting.DesyncUdp -> updateBoolean("desyncUdp", enabled) { setDesyncUdp(enabled) }
-            AdvancedToggleSetting.HostMixedCase -> updateBoolean("hostMixedCase", enabled) { setHostMixedCase(enabled) }
-            AdvancedToggleSetting.DomainMixedCase ->
+            AdvancedToggleSetting.DesyncHttp -> {
+                updateBoolean("desyncHttp", enabled) { setDesyncHttp(enabled) }
+            }
+
+            AdvancedToggleSetting.DesyncHttps -> {
+                updateBoolean("desyncHttps", enabled) { setDesyncHttps(enabled) }
+            }
+
+            AdvancedToggleSetting.DesyncUdp -> {
+                updateBoolean("desyncUdp", enabled) { setDesyncUdp(enabled) }
+            }
+
+            AdvancedToggleSetting.HostMixedCase -> {
+                updateBoolean("hostMixedCase", enabled) { setHostMixedCase(enabled) }
+            }
+
+            AdvancedToggleSetting.DomainMixedCase -> {
                 updateBoolean("domainMixedCase", enabled) { setDomainMixedCase(enabled) }
+            }
 
-            AdvancedToggleSetting.HostRemoveSpaces ->
+            AdvancedToggleSetting.HostRemoveSpaces -> {
                 updateBoolean("hostRemoveSpaces", enabled) { setHostRemoveSpaces(enabled) }
+            }
 
-            AdvancedToggleSetting.HttpMethodEol -> updateBoolean("httpMethodEol", enabled) { setHttpMethodEol(enabled) }
-            AdvancedToggleSetting.HttpUnixEol -> updateBoolean("httpUnixEol", enabled) { setHttpUnixEol(enabled) }
-            AdvancedToggleSetting.TlsrecEnabled -> updateBoolean("tlsrecEnabled", enabled) { setTlsrecEnabled(enabled) }
-            AdvancedToggleSetting.QuicSupportV1 -> updateBoolean("quicSupportV1", enabled) { setQuicSupportV1(enabled) }
-            AdvancedToggleSetting.QuicSupportV2 -> updateBoolean("quicSupportV2", enabled) { setQuicSupportV2(enabled) }
-            AdvancedToggleSetting.HostAutolearnEnabled ->
+            AdvancedToggleSetting.HttpMethodEol -> {
+                updateBoolean("httpMethodEol", enabled) { setHttpMethodEol(enabled) }
+            }
+
+            AdvancedToggleSetting.HttpUnixEol -> {
+                updateBoolean("httpUnixEol", enabled) { setHttpUnixEol(enabled) }
+            }
+
+            AdvancedToggleSetting.TlsrecEnabled -> {
+                updateBoolean("tlsrecEnabled", enabled) { setTlsrecEnabled(enabled) }
+            }
+
+            AdvancedToggleSetting.QuicSupportV1 -> {
+                updateBoolean("quicSupportV1", enabled) { setQuicSupportV1(enabled) }
+            }
+
+            AdvancedToggleSetting.QuicSupportV2 -> {
+                updateBoolean("quicSupportV2", enabled) { setQuicSupportV2(enabled) }
+            }
+
+            AdvancedToggleSetting.HostAutolearnEnabled -> {
                 updateBoolean("hostAutolearnEnabled", enabled) { setHostAutolearnEnabled(enabled) }
+            }
 
-            AdvancedToggleSetting.NetworkStrategyMemoryEnabled ->
+            AdvancedToggleSetting.NetworkStrategyMemoryEnabled -> {
                 updateBoolean("networkStrategyMemoryEnabled", enabled) { setNetworkStrategyMemoryEnabled(enabled) }
+            }
         }
     }
 
@@ -119,8 +172,14 @@ internal class AdvancedSettingsBinder(
                 }
             }
 
-            AdvancedTextSetting.CommandLineArgs -> updateSetting("cmdArgs", value) { setCmdArgs(value) }
-            AdvancedTextSetting.ProxyIp -> updateSetting("proxyIp", value) { setProxyIp(value) }
+            AdvancedTextSetting.CommandLineArgs -> {
+                updateSetting("cmdArgs", value) { setCmdArgs(value) }
+            }
+
+            AdvancedTextSetting.ProxyIp -> {
+                updateSetting("proxyIp", value) { setProxyIp(value) }
+            }
+
             AdvancedTextSetting.ProxyPort -> {
                 value.toIntOrNull()?.let { port ->
                     updateSetting("proxyPort", value) {
@@ -168,53 +227,59 @@ internal class AdvancedSettingsBinder(
                 }
             }
 
-            AdvancedTextSetting.ActivationRoundFrom ->
+            AdvancedTextSetting.ActivationRoundFrom -> {
                 updateRoundRangeBoundary(
                     uiState = uiState,
                     key = "groupActivationFilter.round.start",
                     value = value,
                     updateStart = true,
                 )
+            }
 
-            AdvancedTextSetting.ActivationRoundTo ->
+            AdvancedTextSetting.ActivationRoundTo -> {
                 updateRoundRangeBoundary(
                     uiState = uiState,
                     key = "groupActivationFilter.round.end",
                     value = value,
                     updateStart = false,
                 )
+            }
 
-            AdvancedTextSetting.ActivationPayloadSizeFrom ->
+            AdvancedTextSetting.ActivationPayloadSizeFrom -> {
                 updatePayloadSizeRangeBoundary(
                     uiState = uiState,
                     key = "groupActivationFilter.payloadSize.start",
                     value = value,
                     updateStart = true,
                 )
+            }
 
-            AdvancedTextSetting.ActivationPayloadSizeTo ->
+            AdvancedTextSetting.ActivationPayloadSizeTo -> {
                 updatePayloadSizeRangeBoundary(
                     uiState = uiState,
                     key = "groupActivationFilter.payloadSize.end",
                     value = value,
                     updateStart = false,
                 )
+            }
 
-            AdvancedTextSetting.ActivationStreamBytesFrom ->
+            AdvancedTextSetting.ActivationStreamBytesFrom -> {
                 updateStreamBytesRangeBoundary(
                     uiState = uiState,
                     key = "groupActivationFilter.streamBytes.start",
                     value = value,
                     updateStart = true,
                 )
+            }
 
-            AdvancedTextSetting.ActivationStreamBytesTo ->
+            AdvancedTextSetting.ActivationStreamBytesTo -> {
                 updateStreamBytesRangeBoundary(
                     uiState = uiState,
                     key = "groupActivationFilter.streamBytes.end",
                     value = value,
                     updateStart = false,
                 )
+            }
 
             AdvancedTextSetting.SplitMarker -> {
                 val marker = normalizeOffsetExpression(value, DefaultSplitMarker)
@@ -266,7 +331,10 @@ internal class AdvancedSettingsBinder(
                 }
             }
 
-            AdvancedTextSetting.FakeSni -> updateSetting("fakeSni", value) { setFakeSni(value) }
+            AdvancedTextSetting.FakeSni -> {
+                updateSetting("fakeSni", value) { setFakeSni(value) }
+            }
+
             AdvancedTextSetting.FakeOffsetMarker -> {
                 val marker = normalizeOffsetExpression(value, DefaultFakeOffsetMarker)
                 updateSetting("fakeOffsetMarker", marker) {
@@ -366,8 +434,13 @@ internal class AdvancedSettingsBinder(
                 }
             }
 
-            AdvancedTextSetting.HostsBlacklist -> updateSetting("hostsBlacklist", value) { setHostsBlacklist(value) }
-            AdvancedTextSetting.HostsWhitelist -> updateSetting("hostsWhitelist", value) { setHostsWhitelist(value) }
+            AdvancedTextSetting.HostsBlacklist -> {
+                updateSetting("hostsBlacklist", value) { setHostsBlacklist(value) }
+            }
+
+            AdvancedTextSetting.HostsWhitelist -> {
+                updateSetting("hostsWhitelist", value) { setHostsWhitelist(value) }
+            }
         }
     }
 
@@ -377,35 +450,47 @@ internal class AdvancedSettingsBinder(
         uiState: SettingsUiState,
     ) {
         when (setting) {
-            AdvancedOptionSetting.DesyncMethod -> updateSetting("desyncMethod", value) { setDesyncMethod(value) }
+            AdvancedOptionSetting.DesyncMethod -> {
+                updateSetting("desyncMethod", value) { setDesyncMethod(value) }
+            }
+
             AdvancedOptionSetting.AdaptiveSplitPreset -> {
                 when (value) {
-                    AdaptiveSplitPresetCustom -> Unit
-                    AdaptiveSplitPresetManual ->
+                    AdaptiveSplitPresetCustom -> {
+                        Unit
+                    }
+
+                    AdaptiveSplitPresetManual -> {
                         updatePrimarySplitMarker(
                             uiState = uiState,
                             key = "splitMarker",
                             marker = manualSplitMarkerFallback(uiState),
                         )
+                    }
 
-                    else ->
+                    else -> {
                         updatePrimarySplitMarker(
                             uiState = uiState,
                             key = "splitMarker",
                             marker = value,
                         )
+                    }
                 }
             }
 
             AdvancedOptionSetting.AdaptiveFakeTtlMode -> {
                 when (value) {
-                    AdaptiveFakeTtlModeCustom -> Unit
-                    AdaptiveFakeTtlModeFixed ->
+                    AdaptiveFakeTtlModeCustom -> {
+                        Unit
+                    }
+
+                    AdaptiveFakeTtlModeFixed -> {
                         updateSetting("adaptiveFakeTtlEnabled", "false") {
                             setAdaptiveFakeTtlEnabled(false)
                         }
+                    }
 
-                    AdaptiveFakeTtlModeAdaptive ->
+                    AdaptiveFakeTtlModeAdaptive -> {
                         updateSetting("adaptiveFakeTtlEnabled", "true") {
                             setAdaptiveFakeTtlEnabled(true)
                             setAdaptiveFakeTtlDelta(-1)
@@ -420,18 +505,23 @@ internal class AdvancedSettingsBinder(
                                 uiState.fake.fakeTtl.takeIf { it in 1..255 } ?: DefaultAdaptiveFakeTtlFallback,
                             )
                         }
+                    }
                 }
             }
 
-            AdvancedOptionSetting.TlsPreludeMode ->
+            AdvancedOptionSetting.TlsPreludeMode -> {
                 updateTlsPreludeProfile(
                     uiState = uiState,
                     key = "tlsPreludeMode",
                     value = value,
                     mode = value,
                 )
+            }
 
-            AdvancedOptionSetting.HttpFakeProfile -> updateSetting("httpFakeProfile", value) { setHttpFakeProfile(value) }
+            AdvancedOptionSetting.HttpFakeProfile -> {
+                updateSetting("httpFakeProfile", value) { setHttpFakeProfile(value) }
+            }
+
             AdvancedOptionSetting.FakeTlsBase -> {
                 val useOriginal = value == "original"
                 updateSetting("fakeTlsUseOriginal", useOriginal.toString()) {
@@ -439,12 +529,29 @@ internal class AdvancedSettingsBinder(
                 }
             }
 
-            AdvancedOptionSetting.FakeTlsSniMode -> updateSetting("fakeTlsSniMode", value) { setFakeTlsSniMode(value) }
-            AdvancedOptionSetting.TlsFakeProfile -> updateSetting("tlsFakeProfile", value) { setTlsFakeProfile(value) }
-            AdvancedOptionSetting.HostsMode -> updateSetting("hostsMode", value) { setHostsMode(value) }
-            AdvancedOptionSetting.QuicInitialMode -> updateSetting("quicInitialMode", value) { setQuicInitialMode(value) }
-            AdvancedOptionSetting.UdpFakeProfile -> updateSetting("udpFakeProfile", value) { setUdpFakeProfile(value) }
-            AdvancedOptionSetting.QuicFakeProfile -> updateSetting("quicFakeProfile", value) { setQuicFakeProfile(value) }
+            AdvancedOptionSetting.FakeTlsSniMode -> {
+                updateSetting("fakeTlsSniMode", value) { setFakeTlsSniMode(value) }
+            }
+
+            AdvancedOptionSetting.TlsFakeProfile -> {
+                updateSetting("tlsFakeProfile", value) { setTlsFakeProfile(value) }
+            }
+
+            AdvancedOptionSetting.HostsMode -> {
+                updateSetting("hostsMode", value) { setHostsMode(value) }
+            }
+
+            AdvancedOptionSetting.QuicInitialMode -> {
+                updateSetting("quicInitialMode", value) { setQuicInitialMode(value) }
+            }
+
+            AdvancedOptionSetting.UdpFakeProfile -> {
+                updateSetting("udpFakeProfile", value) { setUdpFakeProfile(value) }
+            }
+
+            AdvancedOptionSetting.QuicFakeProfile -> {
+                updateSetting("quicFakeProfile", value) { setQuicFakeProfile(value) }
+            }
         }
     }
 
@@ -455,7 +562,7 @@ internal class AdvancedSettingsBinder(
         uiState: SettingsUiState,
     ) {
         when (dimension) {
-            ActivationWindowDimension.Round ->
+            ActivationWindowDimension.Round -> {
                 updateGroupActivationFilter(
                     key = "groupActivationFilter.round",
                     value = listOfNotNull(start, end).joinToString("-"),
@@ -464,8 +571,9 @@ internal class AdvancedSettingsBinder(
                             round = normalizeRoundRange(start, end),
                         ),
                 )
+            }
 
-            ActivationWindowDimension.PayloadSize ->
+            ActivationWindowDimension.PayloadSize -> {
                 updateGroupActivationFilter(
                     key = "groupActivationFilter.payloadSize",
                     value = listOfNotNull(start, end).joinToString("-"),
@@ -474,8 +582,9 @@ internal class AdvancedSettingsBinder(
                             payloadSize = normalizePayloadSizeRange(start, end),
                         ),
                 )
+            }
 
-            ActivationWindowDimension.StreamBytes ->
+            ActivationWindowDimension.StreamBytes -> {
                 updateGroupActivationFilter(
                     key = "groupActivationFilter.streamBytes",
                     value = listOfNotNull(start, end).joinToString("-"),
@@ -484,6 +593,7 @@ internal class AdvancedSettingsBinder(
                             streamBytes = normalizeStreamBytesRange(start, end),
                         ),
                 )
+            }
         }
     }
 

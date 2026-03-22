@@ -1,3 +1,5 @@
+@file:Suppress("LongMethod")
+
 package com.poyka.ripdpi.diagnostics
 
 import com.poyka.ripdpi.data.AppSettingsRepository
@@ -9,9 +11,9 @@ import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.NativeRuntimeEvent
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
 import com.poyka.ripdpi.data.NetworkFingerprintSummary
+import com.poyka.ripdpi.data.RememberedNetworkPolicyJson
 import com.poyka.ripdpi.data.RememberedNetworkPolicyProofDurationMs
 import com.poyka.ripdpi.data.RememberedNetworkPolicyProofTransferBytes
-import com.poyka.ripdpi.data.RememberedNetworkPolicyJson
 import com.poyka.ripdpi.data.RememberedNetworkPolicySourceManualSession
 import com.poyka.ripdpi.data.RememberedNetworkPolicyStatusValidated
 import com.poyka.ripdpi.data.RttBand

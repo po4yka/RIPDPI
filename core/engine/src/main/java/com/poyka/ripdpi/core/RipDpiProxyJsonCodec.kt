@@ -1,3 +1,5 @@
+@file:Suppress("TooManyFunctions")
+
 package com.poyka.ripdpi.core
 
 import com.poyka.ripdpi.data.ActivationFilterModel
@@ -145,12 +147,13 @@ internal object RipDpiProxyJsonCodec {
         runtimeContext: RipDpiRuntimeContext?,
     ): String =
         when (val payload = decode(configJson)) {
-            is NativeProxyConfig.CommandLine ->
+            is NativeProxyConfig.CommandLine -> {
                 encode(
                     payload.copy(
                         runtimeContext = runtimeContext.toNative() ?: payload.runtimeContext,
                     ),
                 )
+            }
 
             is NativeProxyConfig.Ui -> {
                 val preferences =

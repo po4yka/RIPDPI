@@ -208,8 +208,7 @@ class DiagnosticsBoundaryMapper
                 handoverClassification = policy.handoverClassification,
             )
 
-        fun decodeScanReport(payload: String?): ScanReport? =
-            decodeOrNull(ScanReport.serializer(), payload)
+        fun decodeScanReport(payload: String?): ScanReport? = decodeOrNull(ScanReport.serializer(), payload)
 
         fun decodeStrategySignature(payload: String?): BypassStrategySignature? =
             decodeOrNull(BypassStrategySignature.serializer(), payload)

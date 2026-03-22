@@ -1,3 +1,5 @@
+@file:Suppress("LongMethod", "LongParameterList")
+
 package com.poyka.ripdpi.diagnostics
 
 import android.content.Context
@@ -12,9 +14,9 @@ import com.poyka.ripdpi.data.ResolverOverrideStore
 import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.data.diagnostics.ActiveConnectionPolicy
 import com.poyka.ripdpi.data.diagnostics.ActiveConnectionPolicyStore
-import com.poyka.ripdpi.data.diagnostics.DiagnosticsHistoryClock
 import com.poyka.ripdpi.data.diagnostics.DefaultNetworkDnsPathPreferenceStore
 import com.poyka.ripdpi.data.diagnostics.DefaultRememberedNetworkPolicyStore
+import com.poyka.ripdpi.data.diagnostics.DiagnosticsHistoryClock
 import com.poyka.ripdpi.data.diagnostics.NetworkDnsPathPreferenceStore
 import com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyStore
 import kotlinx.coroutines.CoroutineScope
@@ -100,7 +102,12 @@ internal fun createDiagnosticsServices(
                     clock = DiagnosticsArchiveClock { System.currentTimeMillis() },
                 ),
             zipWriter = DiagnosticsArchiveZipWriter(),
-            idGenerator = DiagnosticsArchiveIdGenerator { java.util.UUID.randomUUID().toString() },
+            idGenerator =
+                DiagnosticsArchiveIdGenerator {
+                    java.util.UUID
+                        .randomUUID()
+                        .toString()
+                },
         ),
     scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.IO),
 ): DiagnosticsServicesBundle {
@@ -193,7 +200,7 @@ internal fun createDiagnosticsServices(
                 automaticProbeScheduler = scheduler,
                 importBundledProfilesOnInitialize = importBundledProfilesOnInitialize,
                 scope = scope,
-        ),
+            ),
         timelineSource = timelineSource,
         scanController = scanController,
         detailLoader =

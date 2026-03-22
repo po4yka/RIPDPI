@@ -104,7 +104,9 @@ internal data class ConnectionRuntimeState(
 )
 
 internal data class PermissionRuntimeState(
-    val snapshot: com.poyka.ripdpi.permissions.PermissionSnapshot = com.poyka.ripdpi.permissions.PermissionSnapshot(),
+    val snapshot: com.poyka.ripdpi.permissions.PermissionSnapshot =
+        com.poyka.ripdpi.permissions
+            .PermissionSnapshot(),
     val issue: PermissionIssueUiState? = null,
 )
 
@@ -158,11 +160,12 @@ class MainViewModel
                 initialValue = com.poyka.ripdpi.data.AppSettingsSerializer.defaultValue,
             )
 
-        private val mutations = MainMutationRunner(
-            scope = viewModelScope,
-            effects = _effects,
-            currentUiState = { uiState.value },
-        )
+        private val mutations =
+            MainMutationRunner(
+                scope = viewModelScope,
+                effects = _effects,
+                currentUiState = { uiState.value },
+            )
 
         private val connectionActions: MainConnectionActions by lazy {
             MainConnectionActions(
@@ -270,31 +273,30 @@ class MainViewModel
                 ConnectionState.Error,
                 -> {
                     when (uiState.value.appStatus) {
-                        AppStatus.Halted ->
+                        AppStatus.Halted -> {
                             permissionActions.resolvePermissionAction(PermissionAction.StartConfiguredMode)
-                        AppStatus.Running -> connectionActions.stop()
+                        }
+
+                        AppStatus.Running -> {
+                            connectionActions.stop()
+                        }
                     }
                 }
             }
         }
 
-        fun onVpnPermissionContinueRequested() =
-            permissionActions.onVpnPermissionContinueRequested()
+        fun onVpnPermissionContinueRequested() = permissionActions.onVpnPermissionContinueRequested()
 
-        fun onOpenVpnPermissionRequested() =
-            permissionActions.onOpenVpnPermissionRequested()
+        fun onOpenVpnPermissionRequested() = permissionActions.onOpenVpnPermissionRequested()
 
-        fun onRepairPermissionRequested(kind: PermissionKind) =
-            permissionActions.onRepairPermissionRequested(kind)
+        fun onRepairPermissionRequested(kind: PermissionKind) = permissionActions.onRepairPermissionRequested(kind)
 
         fun onPermissionResult(
             kind: PermissionKind,
             result: PermissionResult,
         ) = permissionActions.onPermissionResult(kind, result)
 
-        fun refreshPermissionSnapshot() =
-            permissionActions.refreshPermissionSnapshot()
+        fun refreshPermissionSnapshot() = permissionActions.refreshPermissionSnapshot()
 
-        fun dismissError() =
-            connectionActions.dismissError()
+        fun dismissError() = connectionActions.dismissError()
     }

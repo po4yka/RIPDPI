@@ -1,3 +1,5 @@
+@file:Suppress("MaxLineLength")
+
 package com.poyka.ripdpi.services
 
 import com.poyka.ripdpi.core.RipDpiProxyFactory
@@ -82,8 +84,14 @@ internal class TestServiceStateStore(
                     },
                 restartCount =
                     when {
-                        status == AppStatus.Running && previousStatus != AppStatus.Running -> currentTelemetry.restartCount + 1
-                        else -> currentTelemetry.restartCount
+                        status == AppStatus.Running && previousStatus != AppStatus.Running -> {
+                            currentTelemetry.restartCount +
+                                1
+                        }
+
+                        else -> {
+                            currentTelemetry.restartCount
+                        }
                     },
             )
     }
@@ -209,7 +217,11 @@ internal class TestAppSettingsRepository(
     override suspend fun snapshot(): AppSettings = state.value
 
     override suspend fun update(transform: AppSettings.Builder.() -> Unit) {
-        state.value = state.value.toBuilder().apply(transform).build()
+        state.value =
+            state.value
+                .toBuilder()
+                .apply(transform)
+                .build()
     }
 
     override suspend fun replace(settings: AppSettings) {
@@ -426,7 +438,7 @@ internal class TestVpnTunnelSessionProvider(
 
 internal class TestProxyServiceHost(
     override val serviceScope: CoroutineScope,
-): ServiceCoordinatorHost {
+) : ServiceCoordinatorHost {
     val notifications = mutableListOf<NativeRuntimeSnapshot>()
     val stopRequests = mutableListOf<Int?>()
 
@@ -444,7 +456,7 @@ internal class TestProxyServiceHost(
 
 internal class TestVpnServiceHost(
     override val serviceScope: CoroutineScope,
-): VpnCoordinatorHost {
+) : VpnCoordinatorHost {
     val notifications = mutableListOf<Pair<TunnelStats, NativeRuntimeSnapshot>>()
     val stopRequests = mutableListOf<Int?>()
     var underlyingNetworkSyncs: Int = 0

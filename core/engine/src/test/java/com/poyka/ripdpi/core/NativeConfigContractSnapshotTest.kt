@@ -1,3 +1,5 @@
+@file:Suppress("LongParameterList")
+
 package com.poyka.ripdpi.core
 
 import com.poyka.ripdpi.data.ActivationFilterModel

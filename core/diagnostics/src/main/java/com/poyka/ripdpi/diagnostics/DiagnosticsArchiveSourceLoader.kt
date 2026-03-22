@@ -1,3 +1,5 @@
+@file:Suppress("MaxLineLength")
+
 package com.poyka.ripdpi.diagnostics
 
 import com.poyka.ripdpi.data.diagnostics.BypassUsageHistoryStore
@@ -23,7 +25,10 @@ class DiagnosticsArchiveSourceLoader
         internal suspend fun load(): DiagnosticsArchiveSourceData {
             val sessions = scanRecordStore.observeRecentScanSessions(limit = 50).first()
             val usageSessions =
-                bypassUsageHistoryStore.observeBypassUsageSessions(limit = DiagnosticsArchiveFormat.telemetryLimit).first()
+                bypassUsageHistoryStore
+                    .observeBypassUsageSessions(
+                        limit = DiagnosticsArchiveFormat.telemetryLimit,
+                    ).first()
             val snapshots =
                 artifactReadStore.observeSnapshots(limit = DiagnosticsArchiveFormat.snapshotLimit).first()
             val telemetry =

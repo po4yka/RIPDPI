@@ -170,7 +170,12 @@ class VpnServiceRuntimeCoordinatorTest {
             repeat(3) { runCurrent() }
 
             assertEquals(2, env.factory.runtimes.size)
-            assertEquals("handover", env.handoverEvents.published.single().policySignature)
+            assertEquals(
+                "handover",
+                env.handoverEvents.published
+                    .single()
+                    .policySignature,
+            )
         }
 
     private fun TestScope.newEnv(

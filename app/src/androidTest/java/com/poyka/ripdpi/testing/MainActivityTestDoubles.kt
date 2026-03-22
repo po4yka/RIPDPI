@@ -12,14 +12,6 @@ import com.poyka.ripdpi.data.Sender
 import com.poyka.ripdpi.data.ServiceEvent
 import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.data.ServiceTelemetrySnapshot
-import com.poyka.ripdpi.permissions.PermissionSnapshot
-import com.poyka.ripdpi.permissions.PermissionStatusProvider
-import com.poyka.ripdpi.platform.HostAutolearnStoreController
-import com.poyka.ripdpi.platform.LauncherIconController
-import com.poyka.ripdpi.platform.PermissionPlatformBridge
-import com.poyka.ripdpi.platform.StringResolver
-import com.poyka.ripdpi.proto.AppSettings
-import com.poyka.ripdpi.services.ServiceController
 import com.poyka.ripdpi.diagnostics.BypassApproachSummary
 import com.poyka.ripdpi.diagnostics.DiagnosticContextSnapshot
 import com.poyka.ripdpi.diagnostics.DiagnosticEvent
@@ -34,6 +26,14 @@ import com.poyka.ripdpi.diagnostics.DiagnosticsResolverActions
 import com.poyka.ripdpi.diagnostics.DiagnosticsScanController
 import com.poyka.ripdpi.diagnostics.DiagnosticsShareService
 import com.poyka.ripdpi.diagnostics.DiagnosticsTimelineSource
+import com.poyka.ripdpi.permissions.PermissionSnapshot
+import com.poyka.ripdpi.permissions.PermissionStatusProvider
+import com.poyka.ripdpi.platform.HostAutolearnStoreController
+import com.poyka.ripdpi.platform.LauncherIconController
+import com.poyka.ripdpi.platform.PermissionPlatformBridge
+import com.poyka.ripdpi.platform.StringResolver
+import com.poyka.ripdpi.proto.AppSettings
+import com.poyka.ripdpi.services.ServiceController
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -149,7 +149,11 @@ internal class RecordingMainActivityHost : MainActivityHost {
     ) {
         viewModel?.onPermissionResult(
             kind = com.poyka.ripdpi.permissions.PermissionKind.Notifications,
-            result = com.poyka.ripdpi.activities.MainActivity.mapNotificationPermissionResult(granted, shouldShowRationale),
+            result =
+                com.poyka.ripdpi.activities.MainActivity.mapNotificationPermissionResult(
+                    granted,
+                    shouldShowRationale,
+                ),
         )
     }
 

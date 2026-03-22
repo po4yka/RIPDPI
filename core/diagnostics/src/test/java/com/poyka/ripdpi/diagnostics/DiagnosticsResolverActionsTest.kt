@@ -1,3 +1,5 @@
+@file:Suppress("MaxLineLength")
+
 package com.poyka.ripdpi.diagnostics
 
 import com.poyka.ripdpi.data.DnsModeEncrypted
@@ -48,23 +50,24 @@ class DiagnosticsResolverActionsTest {
             val session = diagnosticsSessionWithResolverRecommendation(sessionId = "session-1")
             stores.sessionsState.value = listOf(session)
             val appSettingsRepository = FakeAppSettingsRepository()
-            val resolverOverrideStore = FakeResolverOverrideStore().apply {
-                setTemporaryOverride(
-                    TemporaryResolverOverride(
-                        resolverId = "temp",
-                        protocol = "dot",
-                        host = "temp.example",
-                        port = 853,
-                        tlsServerName = "temp.example",
-                        bootstrapIps = listOf("9.9.9.9"),
-                        dohUrl = "",
-                        dnscryptProviderName = "",
-                        dnscryptPublicKey = "",
-                        reason = "temporary",
-                        appliedAt = 1L,
-                    ),
-                )
-            }
+            val resolverOverrideStore =
+                FakeResolverOverrideStore().apply {
+                    setTemporaryOverride(
+                        TemporaryResolverOverride(
+                            resolverId = "temp",
+                            protocol = "dot",
+                            host = "temp.example",
+                            port = 853,
+                            tlsServerName = "temp.example",
+                            bootstrapIps = listOf("9.9.9.9"),
+                            dohUrl = "",
+                            dnscryptProviderName = "",
+                            dnscryptPublicKey = "",
+                            reason = "temporary",
+                            appliedAt = 1L,
+                        ),
+                    )
+                }
             val actions =
                 DefaultDiagnosticsResolverActions(
                     appSettingsRepository = appSettingsRepository,
@@ -128,7 +131,9 @@ class DiagnosticsResolverActionsTest {
         }
 }
 
-private fun diagnosticsSessionWithResolverRecommendation(sessionId: String): com.poyka.ripdpi.data.diagnostics.ScanSessionEntity {
+private fun diagnosticsSessionWithResolverRecommendation(
+    sessionId: String,
+): com.poyka.ripdpi.data.diagnostics.ScanSessionEntity {
     val json = diagnosticsTestJson()
     return diagnosticsSession(
         id = sessionId,

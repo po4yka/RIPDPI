@@ -1,3 +1,5 @@
+@file:Suppress("LongMethod", "LongParameterList")
+
 package com.poyka.ripdpi.ui.navigation
 
 import androidx.compose.animation.EnterTransition

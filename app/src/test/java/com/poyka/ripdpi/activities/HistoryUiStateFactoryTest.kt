@@ -79,6 +79,9 @@ class HistoryUiStateFactoryTest {
         assertEquals(listOf("event-1"), state.events.events.map { it.id })
         assertEquals("event-2", state.events.focusedEventId)
         assertEquals("event-2", state.selectedEvent?.id)
-        assertTrue(state.events.filters.autoScroll.not())
+        assertTrue(
+            state.events.filters.autoScroll
+                .not(),
+        )
     }
 }

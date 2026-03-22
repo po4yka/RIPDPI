@@ -33,7 +33,12 @@ class HistoryActionsTest {
             assertNull(filters.value.modeFilter)
             assertEquals("Running", filters.value.statusFilter)
             assertEquals("wifi", filters.value.search)
-            assertEquals("connection-1", details.value.selectedConnectionDetail?.session?.id)
+            assertEquals(
+                "connection-1",
+                details.value.selectedConnectionDetail
+                    ?.session
+                    ?.id,
+            )
 
             actions.dismissDetail()
             assertNull(details.value.selectedConnectionDetail)
@@ -62,7 +67,12 @@ class HistoryActionsTest {
             assertEquals("RAW_PATH", filters.value.pathModeFilter)
             assertNull(filters.value.statusFilter)
             assertEquals("scan", filters.value.search)
-            assertEquals("scan-1", details.value.selectedDiagnosticsDetail?.session?.id)
+            assertEquals(
+                "scan-1",
+                details.value.selectedDiagnosticsDetail
+                    ?.session
+                    ?.id,
+            )
 
             actions.dismissDetail()
             assertNull(details.value.selectedDiagnosticsDetail)

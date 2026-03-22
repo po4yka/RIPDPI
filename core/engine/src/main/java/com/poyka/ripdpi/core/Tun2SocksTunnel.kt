@@ -79,7 +79,11 @@ class Tun2SocksNativeBindings
 class Tun2SocksTunnel(
     private val nativeBindings: Tun2SocksBindings,
 ) {
-    private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
+    private val json =
+        Json {
+            ignoreUnknownKeys = true
+            encodeDefaults = true
+        }
     private val mutex = Mutex()
     private var handle = 0L
 

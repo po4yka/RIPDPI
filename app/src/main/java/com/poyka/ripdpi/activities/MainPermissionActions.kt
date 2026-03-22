@@ -1,3 +1,5 @@
+@file:Suppress("TooManyFunctions")
+
 package com.poyka.ripdpi.activities
 
 import android.content.Intent
@@ -543,6 +545,5 @@ internal class MainPermissionActions(
 
     private fun createAppSettingsIntent(): Intent = permissionPlatformBridge.createAppSettingsIntent()
 
-    private fun createBatteryOptimizationIntent(): Intent =
-        permissionPlatformBridge.createBatteryOptimizationIntent()
+    private fun createBatteryOptimizationIntent(): Intent = permissionPlatformBridge.createBatteryOptimizationIntent()
 }

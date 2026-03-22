@@ -6,8 +6,8 @@ import com.poyka.ripdpi.data.diagnostics.DiagnosticsHistoryClock
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsProfileCatalog
 import com.poyka.ripdpi.data.diagnostics.TargetPackVersionEntity
 import dagger.Binds
-import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.InstallIn
+import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json

@@ -1,3 +1,5 @@
+@file:Suppress("ComplexCondition", "ReturnCount")
+
 package com.poyka.ripdpi.diagnostics
 
 import com.poyka.ripdpi.data.RememberedNetworkPolicyProofDurationMs

@@ -1,3 +1,5 @@
+@file:Suppress("LongMethod", "MagicNumber")
+
 package com.poyka.ripdpi.activities
 
 import com.poyka.ripdpi.diagnostics.DiagnosticConnectionDetail
@@ -37,7 +39,11 @@ internal class HistoryConnectionDetailUiFactory
                     listOf(
                         DiagnosticsMetricUiModel("Duration", formatDurationMs(durationMs)),
                         DiagnosticsMetricUiModel("TX", coreSupport.formatBytes(session.txBytes), DiagnosticsTone.Info),
-                        DiagnosticsMetricUiModel("RX", coreSupport.formatBytes(session.rxBytes), DiagnosticsTone.Positive),
+                        DiagnosticsMetricUiModel(
+                            "RX",
+                            coreSupport.formatBytes(session.rxBytes),
+                            DiagnosticsTone.Positive,
+                        ),
                         DiagnosticsMetricUiModel(
                             "Errors",
                             session.totalErrors.toString(),
@@ -63,7 +69,13 @@ internal class HistoryConnectionDetailUiFactory
                                 toneForConnection(detail.session),
                             ),
                         )
-                        add(DiagnosticsMetricUiModel("TX", coreSupport.formatBytes(detail.session.txBytes), DiagnosticsTone.Info))
+                        add(
+                            DiagnosticsMetricUiModel(
+                                "TX",
+                                coreSupport.formatBytes(detail.session.txBytes),
+                                DiagnosticsTone.Info,
+                            ),
+                        )
                         add(
                             DiagnosticsMetricUiModel(
                                 "RX",
@@ -75,7 +87,13 @@ internal class HistoryConnectionDetailUiFactory
                             DiagnosticsMetricUiModel(
                                 "Errors",
                                 detail.session.totalErrors.toString(),
-                                if (detail.session.totalErrors > 0) DiagnosticsTone.Warning else DiagnosticsTone.Neutral,
+                                if (detail.session.totalErrors >
+                                    0
+                                ) {
+                                    DiagnosticsTone.Warning
+                                } else {
+                                    DiagnosticsTone.Neutral
+                                },
                             ),
                         )
                         add(
@@ -88,8 +106,17 @@ internal class HistoryConnectionDetailUiFactory
                         (latestTelemetry?.failureClass ?: detail.session.failureClass)?.let { failure ->
                             add(DiagnosticsMetricUiModel("Failure class", failure, DiagnosticsTone.Warning))
                         }
-                        (latestTelemetry?.winningStrategyFamily() ?: detail.session.winningStrategyFamily())?.let { winningStrategy ->
-                            add(DiagnosticsMetricUiModel("Strategy", winningStrategy, DiagnosticsTone.Positive))
+                        (
+                            latestTelemetry?.winningStrategyFamily()
+                                ?: detail.session.winningStrategyFamily()
+                        )?.let { winningStrategy ->
+                            add(
+                                DiagnosticsMetricUiModel(
+                                    "Strategy",
+                                    winningStrategy,
+                                    DiagnosticsTone.Positive,
+                                ),
+                            )
                         }
                         add(
                             DiagnosticsMetricUiModel(

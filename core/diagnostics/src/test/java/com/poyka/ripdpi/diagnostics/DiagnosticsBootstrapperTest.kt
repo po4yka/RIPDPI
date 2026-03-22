@@ -148,9 +148,7 @@ private object NoopAutomaticProbeLauncher : AutomaticProbeLauncher {
     ): Boolean = false
 }
 
-private fun constantProvider(
-    launcher: AutomaticProbeLauncher,
-): Provider<AutomaticProbeLauncher> =
+private fun constantProvider(launcher: AutomaticProbeLauncher): Provider<AutomaticProbeLauncher> =
     object : Provider<AutomaticProbeLauncher> {
         override fun get(): AutomaticProbeLauncher = launcher
     }

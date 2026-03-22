@@ -1,3 +1,5 @@
+@file:Suppress("MaxLineLength")
+
 package com.poyka.ripdpi.diagnostics
 
 import android.content.Context
@@ -87,27 +89,19 @@ interface DiagnosticsResolverActions {
 abstract class DiagnosticsManagerModule {
     @Binds
     @Singleton
-    abstract fun bindDiagnosticsBootstrapper(
-        bootstrapper: DefaultDiagnosticsBootstrapper,
-    ): DiagnosticsBootstrapper
+    abstract fun bindDiagnosticsBootstrapper(bootstrapper: DefaultDiagnosticsBootstrapper): DiagnosticsBootstrapper
 
     @Binds
     @Singleton
-    abstract fun bindDiagnosticsTimelineSource(
-        source: DefaultDiagnosticsTimelineSource,
-    ): DiagnosticsTimelineSource
+    abstract fun bindDiagnosticsTimelineSource(source: DefaultDiagnosticsTimelineSource): DiagnosticsTimelineSource
 
     @Binds
     @Singleton
-    abstract fun bindDiagnosticsScanController(
-        controller: DefaultDiagnosticsScanController,
-    ): DiagnosticsScanController
+    abstract fun bindDiagnosticsScanController(controller: DefaultDiagnosticsScanController): DiagnosticsScanController
 
     @Binds
     @Singleton
-    abstract fun bindDiagnosticsHistorySource(
-        source: DefaultDiagnosticsHistorySource,
-    ): DiagnosticsHistorySource
+    abstract fun bindDiagnosticsHistorySource(source: DefaultDiagnosticsHistorySource): DiagnosticsHistorySource
 
     @Binds
     @Singleton
@@ -123,27 +117,19 @@ abstract class DiagnosticsManagerModule {
 
     @Binds
     @Singleton
-    abstract fun bindAutomaticProbeLauncher(
-        controller: DefaultDiagnosticsScanController,
-    ): AutomaticProbeLauncher
+    abstract fun bindAutomaticProbeLauncher(controller: DefaultDiagnosticsScanController): AutomaticProbeLauncher
 
     @Binds
     @Singleton
-    abstract fun bindDiagnosticsDetailLoader(
-        loader: DefaultDiagnosticsDetailLoader,
-    ): DiagnosticsDetailLoader
+    abstract fun bindDiagnosticsDetailLoader(loader: DefaultDiagnosticsDetailLoader): DiagnosticsDetailLoader
 
     @Binds
     @Singleton
-    abstract fun bindDiagnosticsShareService(
-        service: DefaultDiagnosticsShareService,
-    ): DiagnosticsShareService
+    abstract fun bindDiagnosticsShareService(service: DefaultDiagnosticsShareService): DiagnosticsShareService
 
     @Binds
     @Singleton
-    abstract fun bindDiagnosticsResolverActions(
-        actions: DefaultDiagnosticsResolverActions,
-    ): DiagnosticsResolverActions
+    abstract fun bindDiagnosticsResolverActions(actions: DefaultDiagnosticsResolverActions): DiagnosticsResolverActions
 
     @Binds
     @Singleton
@@ -165,7 +151,8 @@ abstract class DiagnosticsManagerModule {
 
         @Provides
         @Singleton
-        fun provideDiagnosticsArchiveClock(): DiagnosticsArchiveClock = DiagnosticsArchiveClock { System.currentTimeMillis() }
+        fun provideDiagnosticsArchiveClock(): DiagnosticsArchiveClock =
+            DiagnosticsArchiveClock { System.currentTimeMillis() }
 
         @Provides
         @Singleton
