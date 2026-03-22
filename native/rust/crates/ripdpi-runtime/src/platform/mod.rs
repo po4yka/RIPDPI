@@ -2,7 +2,7 @@ use std::io;
 use std::net::{SocketAddr, TcpStream};
 use std::time::Duration;
 
-use ciadpi_desync::TcpSegmentHint;
+use ripdpi_desync::TcpSegmentHint;
 use socket2::{Domain, Protocol, Socket, Type};
 
 #[cfg(target_os = "linux")]

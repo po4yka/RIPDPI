@@ -9,7 +9,7 @@ use std::sync::{Arc, Condvar, Mutex, MutexGuard, OnceLock};
 use std::thread;
 use std::time::Duration;
 
-use ciadpi_config::{parse_cli, DesyncGroup, ParseResult, QuicInitialMode, RuntimeConfig, StartupEnv};
+use ripdpi_config::{parse_cli, DesyncGroup, ParseResult, QuicInitialMode, RuntimeConfig, StartupEnv};
 use ripdpi_packets::IS_UDP;
 use local_network_fixture::{
     FixtureConfig, FixtureEvent, FixtureFaultOutcome, FixtureFaultScope, FixtureFaultSpec, FixtureFaultTarget,
@@ -20,7 +20,7 @@ use ripdpi_runtime::runtime::{create_listener, run_proxy_with_embedded_control};
 use ripdpi_runtime::{clear_runtime_telemetry, EmbeddedProxyControl, RuntimeTelemetrySink};
 
 #[allow(dead_code)]
-#[path = "../../../third_party/byedpi/tests/rust_packet_seeds.rs"]
+#[path = "../../ripdpi-packets/tests/rust_packet_seeds.rs"]
 mod rust_packet_seeds;
 
 static TEST_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
@@ -336,7 +336,7 @@ impl Drop for RunningProxy {
     }
 }
 
-fn start_proxy(config: ciadpi_config::RuntimeConfig, telemetry: Option<Arc<RecordingTelemetry>>) -> RunningProxy {
+fn start_proxy(config: ripdpi_config::RuntimeConfig, telemetry: Option<Arc<RecordingTelemetry>>) -> RunningProxy {
     prepare_embedded();
     clear_runtime_telemetry();
     let startup = Arc::new(StartupLatch::default());
@@ -350,7 +350,7 @@ fn start_proxy(config: ciadpi_config::RuntimeConfig, telemetry: Option<Arc<Recor
     RunningProxy { port, control, thread: Some(thread) }
 }
 
-fn proxy_config(args: &[&str]) -> ciadpi_config::RuntimeConfig {
+fn proxy_config(args: &[&str]) -> ripdpi_config::RuntimeConfig {
     let args = args.iter().map(|value| (*value).to_string()).collect::<Vec<_>>();
     match parse_cli(&args, &StartupEnv::default()).expect("parse runtime config") {
         ParseResult::Run(config) => config,
@@ -358,7 +358,7 @@ fn proxy_config(args: &[&str]) -> ciadpi_config::RuntimeConfig {
     }
 }
 
-fn ephemeral_proxy_config(args: &[&str]) -> ciadpi_config::RuntimeConfig {
+fn ephemeral_proxy_config(args: &[&str]) -> ripdpi_config::RuntimeConfig {
     let mut config = proxy_config(args);
     config.listen.listen_port = 0;
     config
@@ -948,7 +948,7 @@ fn upstream_silent_drop_fault_is_classified_end_to_end() {
     let telemetry = Arc::new(RecordingTelemetry::default());
     // Enable silent drop detection
     let mut config = ephemeral_proxy_config(&["--ip", "127.0.0.1"]);
-    config.groups[0].detect = ciadpi_config::DETECT_SILENT_DROP | ciadpi_config::DETECT_TCP_RESET;
+    config.groups[0].detect = ripdpi_config::DETECT_SILENT_DROP | ripdpi_config::DETECT_TCP_RESET;
     config.timeout_ms = 500;
     let proxy = start_proxy(config, Some(telemetry.clone()));
 

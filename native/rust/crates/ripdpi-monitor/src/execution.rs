@@ -22,7 +22,7 @@ use crate::transport::{
 use crate::types::{DomainTarget, ProbeDetail, ProbeResult, QuicTarget, StrategyProbeCandidateSummary};
 use crate::util::{now_ms, stable_probe_hash};
 
-use ciadpi_config::RuntimeConfig;
+use ripdpi_config::RuntimeConfig;
 
 // --- Types ---
 

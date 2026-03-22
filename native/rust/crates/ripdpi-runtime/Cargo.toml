@@ -8,8 +8,8 @@ license.workspace = true
 workspace = true
 
 [dependencies]
-ciadpi-config = { workspace = true }
-ciadpi-desync = { workspace = true }
+ripdpi-config = { workspace = true }
+ripdpi-desync = { workspace = true }
 ripdpi-packets = { workspace = true }
 ripdpi-session = { workspace = true }
 log = { workspace = true }
@@ -32,8 +32,8 @@ loom = ["dep:loom"]
 [dev-dependencies]
 aes = { workspace = true }
 aes-gcm = { workspace = true }
-ciadpi-config = { workspace = true }
-ciadpi-packets = { workspace = true }
+ripdpi-config = { workspace = true }
+ripdpi-packets = { workspace = true }
 hkdf = { workspace = true }
 local-network-fixture = { workspace = true }
 native-soak-support = { workspace = true }

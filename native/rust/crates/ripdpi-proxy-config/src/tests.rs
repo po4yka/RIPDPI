@@ -1,8 +1,8 @@
-use ciadpi_config::{
+use ripdpi_config::{
     AutoTtlConfig, DesyncMode, QuicFakeProfile, TcpChainStepKind, WsTunnelMode, FM_DUPSID, FM_ORIG,
     HOST_AUTOLEARN_DEFAULT_MAX_HOSTS,
 };
-use ciadpi_packets::{HttpFakeProfile, TlsFakeProfile, UdpFakeProfile};
+use ripdpi_packets::{HttpFakeProfile, TlsFakeProfile, UdpFakeProfile};
 use ripdpi_packets::{MH_DMIX, MH_HMIX, MH_METHODEOL, MH_SPACE, MH_UNIXEOL};
 
 use super::*;

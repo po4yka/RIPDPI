@@ -7,7 +7,7 @@ use std::ptr;
 use std::thread;
 use std::time::{Duration, Instant};
 
-use ciadpi_desync::TcpSegmentHint;
+use ripdpi_desync::TcpSegmentHint;
 use socket2::SockRef;
 
 use super::TcpStageWait;

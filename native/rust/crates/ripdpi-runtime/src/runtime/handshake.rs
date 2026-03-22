@@ -8,7 +8,7 @@ use crate::platform;
 use crate::runtime_policy::{
     extract_host, group_requires_payload, route_matches_payload, ConnectionRoute, TransportProtocol,
 };
-use ciadpi_config::RuntimeConfig;
+use ripdpi_config::RuntimeConfig;
 use ripdpi_session::{
     encode_http_connect_reply, encode_socks4_reply, encode_socks5_reply, parse_http_connect_request,
     parse_socks4_request, parse_socks5_request, ClientRequest, SessionConfig, SessionError, SocketType, S_ATP_I4,
@@ -56,7 +56,7 @@ fn classify_telegram_target(target: SocketAddr) -> Option<u8> {
 
 /// Check if WS tunnel should be tried first (Always mode).
 fn should_ws_tunnel_first(target: SocketAddr, state: &RuntimeState) -> Option<u8> {
-    if state.config.ws_tunnel_mode != ciadpi_config::WsTunnelMode::Always {
+    if state.config.ws_tunnel_mode != ripdpi_config::WsTunnelMode::Always {
         return None;
     }
     let dc = classify_telegram_target(target)?;
@@ -66,7 +66,7 @@ fn should_ws_tunnel_first(target: SocketAddr, state: &RuntimeState) -> Option<u8
 
 /// Check if WS tunnel should be tried as a last resort (Fallback mode).
 fn should_ws_tunnel_fallback(target: SocketAddr, state: &RuntimeState) -> Option<u8> {
-    if state.config.ws_tunnel_mode != ciadpi_config::WsTunnelMode::Fallback {
+    if state.config.ws_tunnel_mode != ripdpi_config::WsTunnelMode::Fallback {
         return None;
     }
     classify_telegram_target(target)
@@ -755,7 +755,7 @@ fn parse_shadowsocks_target(packet: &[u8], config: &RuntimeConfig) -> Option<(So
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ciadpi_config::RuntimeConfig;
+    use ripdpi_config::RuntimeConfig;
     use ripdpi_session::{S_CMD_CONN, S_VER5};
     use std::io::{Read, Write};
     use std::net::{Ipv4Addr, TcpListener, TcpStream};

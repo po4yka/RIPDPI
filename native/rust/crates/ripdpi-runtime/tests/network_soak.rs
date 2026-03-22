@@ -9,7 +9,7 @@ use std::sync::{Arc, Condvar, Mutex};
 use std::thread;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
-use ciadpi_config::{parse_cli, ParseResult, StartupEnv};
+use ripdpi_config::{parse_cli, ParseResult, StartupEnv};
 use local_network_fixture::{
     FixtureConfig, FixtureEvent, FixtureFaultOutcome, FixtureFaultScope, FixtureFaultSpec, FixtureFaultTarget,
     FixtureManifest, FixtureStack,
@@ -461,7 +461,7 @@ impl Drop for RunningProxy {
     }
 }
 
-fn start_proxy(config: ciadpi_config::RuntimeConfig, telemetry: Option<Arc<RecordingTelemetry>>) -> RunningProxy {
+fn start_proxy(config: ripdpi_config::RuntimeConfig, telemetry: Option<Arc<RecordingTelemetry>>) -> RunningProxy {
     prepare_embedded();
     clear_runtime_telemetry();
     let startup = Arc::new(StartupLatch::default());
@@ -476,7 +476,7 @@ fn start_proxy(config: ciadpi_config::RuntimeConfig, telemetry: Option<Arc<Recor
     RunningProxy { port, control, thread: Some(thread) }
 }
 
-fn proxy_config(args: &[&str]) -> ciadpi_config::RuntimeConfig {
+fn proxy_config(args: &[&str]) -> ripdpi_config::RuntimeConfig {
     let args = args.iter().map(|value| (*value).to_string()).collect::<Vec<_>>();
     match parse_cli(&args, &StartupEnv::default()).expect("parse runtime config") {
         ParseResult::Run(config) => config,
@@ -484,7 +484,7 @@ fn proxy_config(args: &[&str]) -> ciadpi_config::RuntimeConfig {
     }
 }
 
-fn ephemeral_proxy_config(args: &[&str]) -> ciadpi_config::RuntimeConfig {
+fn ephemeral_proxy_config(args: &[&str]) -> ripdpi_config::RuntimeConfig {
     let mut config = proxy_config(args);
     config.listen.listen_port = 0;
     config

@@ -1,8 +1,8 @@
 use std::io;
 use std::net::SocketAddr;
 
-use ciadpi_config::{DesyncGroup, RuntimeConfig};
-use ciadpi_desync::AdaptivePlannerHints;
+use ripdpi_config::{DesyncGroup, RuntimeConfig};
+use ripdpi_desync::AdaptivePlannerHints;
 
 use super::state::RuntimeState;
 

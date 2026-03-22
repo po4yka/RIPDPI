@@ -6,7 +6,7 @@ use crate::adaptive_tuning::AdaptivePlannerResolver;
 use crate::retry_stealth::RetryPacer;
 use crate::runtime_policy::RuntimePolicy;
 use crate::RuntimeTelemetrySink;
-use ciadpi_config::RuntimeConfig;
+use ripdpi_config::RuntimeConfig;
 use ripdpi_proxy_config::ProxyRuntimeContext;
 
 use mio::Token;

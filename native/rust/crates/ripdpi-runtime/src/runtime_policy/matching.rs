@@ -1,6 +1,6 @@
 use std::net::SocketAddr;
 
-use ciadpi_config::{DesyncGroup, QuicInitialMode, RuntimeConfig};
+use ripdpi_config::{DesyncGroup, QuicInitialMode, RuntimeConfig};
 use ripdpi_packets::{
     is_http, is_tls_client_hello, parse_http, parse_quic_initial, parse_tls, IS_HTTP, IS_HTTPS, IS_IPV4, IS_TCP, IS_UDP,
 };

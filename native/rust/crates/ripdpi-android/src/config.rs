@@ -1,5 +1,5 @@
 #[cfg(test)]
-use ciadpi_config::RuntimeConfig;
+use ripdpi_config::RuntimeConfig;
 use ripdpi_proxy_config::{
     parse_proxy_config_json as shared_parse_proxy_config_json,
     runtime_config_envelope_from_payload as shared_runtime_config_envelope_from_payload, ProxyConfigError,
@@ -57,7 +57,7 @@ mod tests {
     use std::net::IpAddr;
     use std::str::FromStr;
 
-    use ciadpi_config::{
+    use ripdpi_config::{
         QuicFakeProfile, QuicInitialMode, TcpChainStepKind, FM_DUPSID, FM_ORIG, FM_PADENCAP, FM_RAND, FM_RNDSNI,
     };
     use proptest::collection::vec;
@@ -336,7 +336,7 @@ mod tests {
         assert!(matches!(group.tcp_chain[0].kind, TcpChainStepKind::HostFake));
         assert_eq!(
             group.tcp_chain[0].midhost_offset,
-            Some(ciadpi_config::OffsetExpr::marker(ciadpi_config::OffsetBase::MidSld, 0))
+            Some(ripdpi_config::OffsetExpr::marker(ripdpi_config::OffsetBase::MidSld, 0))
         );
         assert_eq!(group.tcp_chain[0].fake_host_template.as_deref(), Some("googlevideo.com"));
     }

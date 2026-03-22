@@ -13,7 +13,7 @@ use std::net::TcpListener;
 
 use crate::sync::Arc;
 
-use ciadpi_config::RuntimeConfig;
+use ripdpi_config::RuntimeConfig;
 
 use self::listeners::{build_listener, run_proxy_with_listener_internal};
 use crate::EmbeddedProxyControl;
@@ -43,7 +43,7 @@ pub fn run_proxy_with_embedded_control(
 mod tests {
     #[cfg(not(feature = "loom"))]
     use super::state::ClientSlotGuard;
-    use ciadpi_config::{DETECT_CONNECT, DETECT_HTTP_LOCAT};
+    use ripdpi_config::{DETECT_CONNECT, DETECT_HTTP_LOCAT};
     use ripdpi_session::{
         encode_http_connect_reply, encode_socks4_reply, encode_socks5_reply, S_ATP_I4, S_ATP_I6, S_CMD_CONN, S_ER_CONN,
         S_VER5,
@@ -140,7 +140,7 @@ mod tests {
 
     #[test]
     fn failure_trigger_mask_covers_all_detection_classes() {
-        use ciadpi_config::{
+        use ripdpi_config::{
             DETECT_DNS_TAMPER, DETECT_HTTP_BLOCKPAGE, DETECT_SILENT_DROP, DETECT_TCP_RESET, DETECT_TLS_ALERT,
             DETECT_TLS_HANDSHAKE_FAILURE,
         };

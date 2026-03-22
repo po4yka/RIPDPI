@@ -4,7 +4,7 @@ use std::process;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::runtime_policy::RetrySelectionPenalty;
-use ciadpi_desync::AdaptivePlannerHints;
+use ripdpi_desync::AdaptivePlannerHints;
 
 const FNV_OFFSET: u64 = 0xcbf29ce484222325;
 const FNV_PRIME: u64 = 0x100000001b3;

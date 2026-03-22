@@ -6,7 +6,7 @@ use std::time::{Duration, Instant};
 
 use crate::platform;
 use crate::runtime_policy::{extract_host, ConnectionRoute, TransportProtocol};
-use ciadpi_config::{
+use ripdpi_config::{
     RuntimeConfig, DETECT_DNS_TAMPER, DETECT_HTTP_BLOCKPAGE, DETECT_HTTP_LOCAT, DETECT_SILENT_DROP, DETECT_TCP_RESET,
     DETECT_TLS_ALERT, DETECT_TLS_HANDSHAKE_FAILURE, DETECT_TORST,
 };
@@ -385,7 +385,7 @@ fn timeout_count_limit(config: &RuntimeConfig) -> i32 {
 
 #[cfg(test)]
 fn response_trigger_supported(config: &RuntimeConfig, trigger: ripdpi_session::TriggerEvent) -> bool {
-    use ciadpi_config::DETECT_CONNECT;
+    use ripdpi_config::DETECT_CONNECT;
     let flag = match trigger {
         ripdpi_session::TriggerEvent::Redirect => DETECT_HTTP_LOCAT,
         ripdpi_session::TriggerEvent::SslErr => DETECT_TLS_HANDSHAKE_FAILURE,
@@ -551,7 +551,7 @@ mod tests {
     #[cfg(test)]
     use super::super::routing::trigger_flag;
     use super::*;
-    use ciadpi_config::{RuntimeConfig, DETECT_CONNECT, DETECT_HTTP_LOCAT};
+    use ripdpi_config::{RuntimeConfig, DETECT_CONNECT, DETECT_HTTP_LOCAT};
     use ripdpi_packets::DEFAULT_FAKE_TLS;
     use ripdpi_session::TriggerEvent;
 

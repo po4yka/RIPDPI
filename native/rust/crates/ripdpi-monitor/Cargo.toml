@@ -8,7 +8,7 @@ license.workspace = true
 workspace = true
 
 [dependencies]
-ciadpi-config = { workspace = true }
+ripdpi-config = { workspace = true }
 ripdpi-packets = { workspace = true }
 ripdpi-dns-resolver = { workspace = true }
 ripdpi-failure-classifier = { workspace = true }

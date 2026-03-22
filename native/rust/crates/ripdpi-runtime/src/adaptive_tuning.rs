@@ -2,8 +2,8 @@ use std::collections::HashMap;
 use std::net::{IpAddr, SocketAddr};
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use ciadpi_config::{DesyncGroup, OffsetBase, QuicFakeProfile, TcpChainStepKind, UdpChainStepKind};
-use ciadpi_desync::{AdaptivePlannerHints, AdaptiveTlsRandRecProfile, AdaptiveUdpBurstProfile};
+use ripdpi_config::{DesyncGroup, OffsetBase, QuicFakeProfile, TcpChainStepKind, UdpChainStepKind};
+use ripdpi_desync::{AdaptivePlannerHints, AdaptiveTlsRandRecProfile, AdaptiveUdpBurstProfile};
 use ripdpi_packets::{is_tls_client_hello, parse_quic_initial};
 
 const ADAPTIVE_RETRY_WINDOW_MS: u64 = 15_000;
@@ -500,7 +500,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ciadpi_config::{OffsetExpr, TcpChainStep, UdpChainStep};
+    use ripdpi_config::{OffsetExpr, TcpChainStep, UdpChainStep};
     use ripdpi_packets::{build_realistic_quic_initial, QUIC_V2_VERSION};
 
     fn addr(port: u16) -> SocketAddr {

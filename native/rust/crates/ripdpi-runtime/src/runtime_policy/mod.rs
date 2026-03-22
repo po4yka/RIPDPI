@@ -55,7 +55,7 @@ mod tests {
     use std::env;
     use std::fs;
 
-    use ciadpi_config::DesyncGroup;
+    use ripdpi_config::DesyncGroup;
 
     use super::test_support::{autolearn_config, sample_dest};
     use super::{ConnectionRoute, RouteAdvance, RuntimePolicy, TransportProtocol};
@@ -64,7 +64,7 @@ mod tests {
     fn facade_select_advance_and_note_success_preserves_flow() {
         let mut config = autolearn_config(2, 16);
         let mut second = DesyncGroup::new(1);
-        second.detect = ciadpi_config::DETECT_RECONN;
+        second.detect = ripdpi_config::DETECT_RECONN;
         config.groups[1] = second;
         let dest = sample_dest(443);
         let mut policy = RuntimePolicy::load(&config);
@@ -81,7 +81,7 @@ mod tests {
                     dest,
                     payload: None,
                     transport: TransportProtocol::Tcp,
-                    trigger: ciadpi_config::DETECT_RECONN,
+                    trigger: ripdpi_config::DETECT_RECONN,
                     can_reconnect: true,
                     host: Some("example.org".to_string()),
                     penalize_strategy_failure: true,

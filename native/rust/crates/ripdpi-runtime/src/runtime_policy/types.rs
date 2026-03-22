@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 use std::net::SocketAddr;
 
-use ciadpi_config::CacheEntry;
+use ripdpi_config::CacheEntry;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone)]

@@ -2,7 +2,7 @@ use std::collections::BTreeMap;
 use std::io;
 use std::net::SocketAddr;
 
-use ciadpi_config::{RuntimeConfig, AUTO_NOPOST, AUTO_SORT, DETECT_RECONN};
+use ripdpi_config::{RuntimeConfig, AUTO_NOPOST, AUTO_SORT, DETECT_RECONN};
 
 use super::autolearn::normalize_learned_host;
 use super::matching::group_matches;
@@ -394,7 +394,7 @@ fn retry_penalty(
 mod tests {
     use std::collections::BTreeMap;
 
-    use ciadpi_config::{DesyncGroup, DETECT_RECONN};
+    use ripdpi_config::{DesyncGroup, DETECT_RECONN};
 
     use super::*;
     use crate::runtime_policy::test_support::{autolearn_config, config_with_groups, sample_dest};

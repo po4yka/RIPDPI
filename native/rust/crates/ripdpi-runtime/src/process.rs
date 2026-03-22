@@ -7,7 +7,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 #[cfg(test)]
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use ciadpi_config::RuntimeConfig;
+use ripdpi_config::RuntimeConfig;
 
 static SHUTDOWN: AtomicBool = AtomicBool::new(false);
 
