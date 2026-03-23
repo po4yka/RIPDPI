@@ -371,7 +371,7 @@ private fun ConnectionsSection(
                 )
             }
         } else {
-            items(uiState.connections.sessions, key = { it.id }) { session ->
+            items(uiState.connections.sessions, key = { it.id }, contentType = { "connection_session" }) { session ->
                 ConnectionSessionCard(
                     session = session,
                     onClick = { onSelectConnection(session.id) },
@@ -438,7 +438,7 @@ private fun DiagnosticsSection(
                 )
             }
         } else {
-            items(uiState.diagnostics.sessions, key = { it.id }) { session ->
+            items(uiState.diagnostics.sessions, key = { it.id }, contentType = { "diagnostics_session" }) { session ->
                 DiagnosticsSessionCard(
                     session = session,
                     onClick = { onSelectSession(session.id) },
@@ -532,7 +532,7 @@ private fun EventsSection(
                 )
             }
         } else {
-            items(uiState.events.events, key = { it.id }) { event ->
+            items(uiState.events.events, key = { it.id }, contentType = { "event" }) { event ->
                 EventRow(
                     event = event,
                     onClick = { onSelectEvent(event.id) },
