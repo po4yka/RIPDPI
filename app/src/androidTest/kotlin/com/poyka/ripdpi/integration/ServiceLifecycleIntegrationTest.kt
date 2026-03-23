@@ -3,7 +3,6 @@ package com.poyka.ripdpi.integration
 import android.Manifest
 import android.content.Context
 import android.content.Intent
-import android.net.VpnService
 import androidx.core.content.ContextCompat
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.rule.GrantPermissionRule
@@ -47,7 +46,6 @@ import kotlinx.coroutines.withTimeout
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
-import org.junit.Assume.assumeTrue
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
@@ -112,6 +110,10 @@ class ServiceLifecycleIntegrationTest {
         serviceStateStore = IntegrationTestOverrides.serviceStateStore
         vpnTunnelSessionProvider = IntegrationTestOverrides.vpnTunnelSessionProvider
         hiltRule.inject()
+        assertTrue(
+            "VPN integration tests must use IntegrationTestOverrides.vpnTunnelSessionProvider and not platform consent UX.",
+            vpnTunnelSessionProvider === IntegrationTestOverrides.vpnTunnelSessionProvider,
+        )
     }
 
     @After
@@ -234,7 +236,6 @@ class ServiceLifecycleIntegrationTest {
 
     @Test
     fun vpnServiceStartsInExpectedOrderAndStopsTunnelBeforeProxy() {
-        assumeVpnPrepared()
         runBlocking {
             IntegrationTestOverrides.appSettingsRepository.update {
                 proxyPort = 1091
@@ -271,7 +272,6 @@ class ServiceLifecycleIntegrationTest {
 
     @Test
     fun vpnServicePublishesActivePolicyProjectionAndClearsOnStop() {
-        assumeVpnPrepared()
         runBlocking {
             startService(RipDpiVpnService::class.java)
 
@@ -288,7 +288,6 @@ class ServiceLifecycleIntegrationTest {
 
     @Test
     fun vpnServicePublishesTunnelTelemetry() {
-        assumeVpnPrepared()
         runBlocking {
             val expectedStats =
                 com.poyka.ripdpi.data.TunnelStats(
@@ -311,7 +310,6 @@ class ServiceLifecycleIntegrationTest {
 
     @Test
     fun vpnServiceFallsBackToZeroTelemetryWhenStatsFail() {
-        assumeVpnPrepared()
         runBlocking {
             IntegrationTestOverrides.tun2SocksBridgeFactory.bridge.failOnStats =
                 IOException("stats unavailable")
@@ -330,7 +328,6 @@ class ServiceLifecycleIntegrationTest {
 
     @Test
     fun vpnServiceTunnelStartFailureEmitsFailureAndCleansUp() {
-        assumeVpnPrepared()
         runBlocking {
             IntegrationTestOverrides.tun2SocksBridgeFactory.bridge.failOnStart =
                 IllegalStateException("boom")
@@ -352,7 +349,6 @@ class ServiceLifecycleIntegrationTest {
 
     @Test
     fun vpnServiceEstablishFailureEmitsFailureAndStopsProxy() {
-        assumeVpnPrepared()
         runBlocking {
             IntegrationTestOverrides.vpnTunnelSessionProvider.establishFailure =
                 IllegalStateException("no session")
@@ -372,7 +368,6 @@ class ServiceLifecycleIntegrationTest {
 
     @Test
     fun vpnServiceProxyStartupFailureEmitsFailureBeforeTunnelStarts() {
-        assumeVpnPrepared()
         runBlocking {
             IntegrationTestOverrides.proxyFactory.lastRuntime.startFailure = IOException("proxy boom")
 
@@ -389,7 +384,6 @@ class ServiceLifecycleIntegrationTest {
 
     @Test
     fun vpnServiceProxyFailureEmitsFailureAndStopsTunnel() {
-        assumeVpnPrepared()
         runBlocking {
             startService(RipDpiVpnService::class.java)
             awaitStatus(AppStatus.Running, Mode.VPN)
@@ -409,7 +403,6 @@ class ServiceLifecycleIntegrationTest {
 
     @Test
     fun vpnServiceUnexpectedTunnelExitEmitsFailureAndStopsProxy() {
-        assumeVpnPrepared()
         runBlocking {
             startService(RipDpiVpnService::class.java)
             awaitStatus(AppStatus.Running, Mode.VPN)
@@ -436,7 +429,6 @@ class ServiceLifecycleIntegrationTest {
 
     @Test
     fun vpnServiceRepeatedStopDoesNotDuplicateTunnelOrProxyShutdown() {
-        assumeVpnPrepared()
         runBlocking {
             startService(RipDpiVpnService::class.java)
             awaitStatus(AppStatus.Running, Mode.VPN)
@@ -516,7 +508,6 @@ class ServiceLifecycleIntegrationTest {
 
     @Test
     fun vpnServiceTunnelStopFailureStillClosesSessionAndHalts() {
-        assumeVpnPrepared()
         runBlocking {
             startService(RipDpiVpnService::class.java)
             awaitStatus(AppStatus.Running, Mode.VPN)
@@ -540,7 +531,6 @@ class ServiceLifecycleIntegrationTest {
 
     @Test
     fun vpnServiceTelemetryFailureFallsBackToIdleTunnelSnapshot() {
-        assumeVpnPrepared()
         runBlocking {
             IntegrationTestOverrides.tun2SocksBridgeFactory.bridge.telemetryValue =
                 NativeRuntimeSnapshot(
@@ -671,7 +661,4 @@ class ServiceLifecycleIntegrationTest {
         assertEquals("Expected ordered subsequence $expected in $actual", expected.size, currentIndex)
     }
 
-    private fun assumeVpnPrepared() {
-        assumeTrue("VPN consent is not prepared on this device", VpnService.prepare(appContext) == null)
-    }
 }

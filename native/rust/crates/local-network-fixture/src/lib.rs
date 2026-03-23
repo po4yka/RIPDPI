@@ -296,7 +296,8 @@ impl FixtureStack {
             faults.clone(),
             config.dns_answer_ipv4.clone(),
         )?;
-        let (socks5_handle, socks5_port) = start_socks5_server(config.clone(), stop.clone(), events.clone(), faults.clone())?;
+        let (socks5_handle, socks5_port) =
+            start_socks5_server(config.clone(), stop.clone(), events.clone(), faults.clone())?;
 
         let mut manifest = FixtureManifest {
             bind_host: config.bind_host.clone(),
@@ -385,72 +386,75 @@ fn start_tcp_echo_server(
     let listener = TcpListener::bind((bind_host.as_str(), port))?;
     listener.set_nonblocking(true)?;
     let local_port = listener.local_addr()?.port();
-    Ok((thread::spawn(move || {
-        while !stop.load(Ordering::Relaxed) {
-            match listener.accept() {
-                Ok((mut stream, peer)) => {
-                    let events = events.clone();
-                    let faults = faults.clone();
-                    thread::spawn(move || {
-                        if let Some(fault) = faults.take_matching(FixtureFaultTarget::TcpEcho, |outcome| {
-                            matches!(outcome, FixtureFaultOutcome::TcpReset | FixtureFaultOutcome::TcpTruncate)
-                        }) {
-                            events.record(event(
-                                "tcp_echo",
-                                "tcp",
-                                peer,
-                                stream.local_addr().ok(),
-                                &format!("fault:{:?}", fault.outcome),
-                                0,
-                                None,
-                            ));
-                            match fault.outcome {
-                                FixtureFaultOutcome::TcpReset => {
-                                    let _ = stream.shutdown(Shutdown::Both);
-                                    return;
-                                }
-                                FixtureFaultOutcome::TcpTruncate => {
-                                    let mut buf = [0u8; 4096];
-                                    if let Ok(read) = stream.read(&mut buf) {
-                                        let truncated = read.min(4);
-                                        let _ = stream.write_all(&buf[..truncated]);
-                                        let _ = stream.flush();
-                                    }
-                                    let _ = stream.shutdown(Shutdown::Both);
-                                    return;
-                                }
-                                _ => {}
-                            }
-                        }
-                        let mut buf = [0u8; 4096];
-                        loop {
-                            match stream.read(&mut buf) {
-                                Ok(0) => return,
-                                Ok(read) => {
-                                    events.record(event(
-                                        "tcp_echo",
-                                        "tcp",
-                                        peer,
-                                        stream.local_addr().ok(),
-                                        "echo",
-                                        read,
-                                        None,
-                                    ));
-                                    if stream.write_all(&buf[..read]).is_err() {
+    Ok((
+        thread::spawn(move || {
+            while !stop.load(Ordering::Relaxed) {
+                match listener.accept() {
+                    Ok((mut stream, peer)) => {
+                        let events = events.clone();
+                        let faults = faults.clone();
+                        thread::spawn(move || {
+                            if let Some(fault) = faults.take_matching(FixtureFaultTarget::TcpEcho, |outcome| {
+                                matches!(outcome, FixtureFaultOutcome::TcpReset | FixtureFaultOutcome::TcpTruncate)
+                            }) {
+                                events.record(event(
+                                    "tcp_echo",
+                                    "tcp",
+                                    peer,
+                                    stream.local_addr().ok(),
+                                    &format!("fault:{:?}", fault.outcome),
+                                    0,
+                                    None,
+                                ));
+                                match fault.outcome {
+                                    FixtureFaultOutcome::TcpReset => {
+                                        let _ = stream.shutdown(Shutdown::Both);
                                         return;
                                     }
+                                    FixtureFaultOutcome::TcpTruncate => {
+                                        let mut buf = [0u8; 4096];
+                                        if let Ok(read) = stream.read(&mut buf) {
+                                            let truncated = read.min(4);
+                                            let _ = stream.write_all(&buf[..truncated]);
+                                            let _ = stream.flush();
+                                        }
+                                        let _ = stream.shutdown(Shutdown::Both);
+                                        return;
+                                    }
+                                    _ => {}
                                 }
-                                Err(err) if err.kind() == ErrorKind::Interrupted => {}
-                                Err(_) => return,
                             }
-                        }
-                    });
+                            let mut buf = [0u8; 4096];
+                            loop {
+                                match stream.read(&mut buf) {
+                                    Ok(0) => return,
+                                    Ok(read) => {
+                                        events.record(event(
+                                            "tcp_echo",
+                                            "tcp",
+                                            peer,
+                                            stream.local_addr().ok(),
+                                            "echo",
+                                            read,
+                                            None,
+                                        ));
+                                        if stream.write_all(&buf[..read]).is_err() {
+                                            return;
+                                        }
+                                    }
+                                    Err(err) if err.kind() == ErrorKind::Interrupted => {}
+                                    Err(_) => return,
+                                }
+                            }
+                        });
+                    }
+                    Err(err) if err.kind() == ErrorKind::WouldBlock => thread::sleep(IO_POLL_DELAY),
+                    Err(_) => break,
                 }
-                Err(err) if err.kind() == ErrorKind::WouldBlock => thread::sleep(IO_POLL_DELAY),
-                Err(_) => break,
             }
-        }
-    }), local_port))
+        }),
+        local_port,
+    ))
 }
 
 fn start_udp_echo_server(
@@ -464,39 +468,42 @@ fn start_udp_echo_server(
     socket.set_read_timeout(Some(IO_TIMEOUT))?;
     let local_port = socket.local_addr()?.port();
     let local = socket.local_addr().ok();
-    Ok((thread::spawn(move || {
-        let mut buf = [0u8; 4096];
-        while !stop.load(Ordering::Relaxed) {
-            match socket.recv_from(&mut buf) {
-                Ok((read, peer)) => {
-                    if let Some(fault) = faults.take_matching(FixtureFaultTarget::UdpEcho, |outcome| {
-                        matches!(outcome, FixtureFaultOutcome::UdpDrop | FixtureFaultOutcome::UdpDelay)
-                    }) {
-                        events.record(event(
-                            "udp_echo",
-                            "udp",
-                            peer,
-                            local,
-                            &format!("fault:{:?}", fault.outcome),
-                            read,
-                            None,
-                        ));
-                        match fault.outcome {
-                            FixtureFaultOutcome::UdpDrop => continue,
-                            FixtureFaultOutcome::UdpDelay => {
-                                thread::sleep(Duration::from_millis(fault.delay_ms.unwrap_or(1_500)));
+    Ok((
+        thread::spawn(move || {
+            let mut buf = [0u8; 4096];
+            while !stop.load(Ordering::Relaxed) {
+                match socket.recv_from(&mut buf) {
+                    Ok((read, peer)) => {
+                        if let Some(fault) = faults.take_matching(FixtureFaultTarget::UdpEcho, |outcome| {
+                            matches!(outcome, FixtureFaultOutcome::UdpDrop | FixtureFaultOutcome::UdpDelay)
+                        }) {
+                            events.record(event(
+                                "udp_echo",
+                                "udp",
+                                peer,
+                                local,
+                                &format!("fault:{:?}", fault.outcome),
+                                read,
+                                None,
+                            ));
+                            match fault.outcome {
+                                FixtureFaultOutcome::UdpDrop => continue,
+                                FixtureFaultOutcome::UdpDelay => {
+                                    thread::sleep(Duration::from_millis(fault.delay_ms.unwrap_or(1_500)));
+                                }
+                                _ => {}
                             }
-                            _ => {}
                         }
+                        events.record(event("udp_echo", "udp", peer, local, "echo", read, None));
+                        let _ = socket.send_to(&buf[..read], peer);
                     }
-                    events.record(event("udp_echo", "udp", peer, local, "echo", read, None));
-                    let _ = socket.send_to(&buf[..read], peer);
+                    Err(err) if matches!(err.kind(), ErrorKind::WouldBlock | ErrorKind::TimedOut) => {}
+                    Err(_) => break,
                 }
-                Err(err) if matches!(err.kind(), ErrorKind::WouldBlock | ErrorKind::TimedOut) => {}
-                Err(_) => break,
             }
-        }
-    }), local_port))
+        }),
+        local_port,
+    ))
 }
 
 fn start_tls_echo_server(
@@ -510,56 +517,58 @@ fn start_tls_echo_server(
     let listener = TcpListener::bind((bind_host.as_str(), port))?;
     listener.set_nonblocking(true)?;
     let local_port = listener.local_addr()?.port();
-    Ok((thread::spawn(move || {
-        while !stop.load(Ordering::Relaxed) {
-            match listener.accept() {
-                Ok((mut stream, peer)) => {
-                    let config = server_config.clone();
-                    let events = events.clone();
-                    let faults = faults.clone();
-                    thread::spawn(move || {
-                        if let Some(_fault) = faults.take_matching(FixtureFaultTarget::TlsEcho, |outcome| {
-                            matches!(outcome, FixtureFaultOutcome::TlsAbort)
-                        }) {
-                            events.record(event(
-                                "tls_echo",
-                                "tls",
-                                peer,
-                                stream.local_addr().ok(),
-                                "fault:tls_abort",
-                                0,
-                                None,
-                            ));
-                            let _ = stream.shutdown(Shutdown::Both);
-                            return;
-                        }
-                        let mut connection = match ServerConnection::new(config) {
-                            Ok(connection) => connection,
-                            Err(_) => return,
-                        };
-                        while connection.is_handshaking() {
-                            if connection.complete_io(&mut stream).is_err() {
+    Ok((
+        thread::spawn(move || {
+            while !stop.load(Ordering::Relaxed) {
+                match listener.accept() {
+                    Ok((mut stream, peer)) => {
+                        let config = server_config.clone();
+                        let events = events.clone();
+                        let faults = faults.clone();
+                        thread::spawn(move || {
+                            let _ = stream.set_nonblocking(false);
+                            let local = stream.local_addr().ok();
+                            events.record(event("tls_echo", "tls", peer, local, "accept", 0, None));
+                            if let Some(_fault) = faults.take_matching(FixtureFaultTarget::TlsEcho, |outcome| {
+                                matches!(outcome, FixtureFaultOutcome::TlsAbort)
+                            }) {
+                                events.record(event("tls_echo", "tls", peer, local, "fault:tls_abort", 0, None));
+                                let _ = stream.shutdown(Shutdown::Both);
                                 return;
                             }
-                        }
-                        let sni = connection.server_name().map(ToOwned::to_owned);
-                        let mut tls = StreamOwned::new(connection, stream);
-                        events.record(event("tls_echo", "tls", peer, tls.sock.local_addr().ok(), "handshake", 0, sni));
-                        let body = b"fixture tls ok";
-                        let response = format!(
-                            "HTTP/1.1 200 OK\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
-                            body.len(),
-                            String::from_utf8_lossy(body)
-                        );
-                        let _ = tls.write_all(response.as_bytes());
-                        let _ = tls.flush();
-                    });
+                            let mut connection = match ServerConnection::new(config) {
+                                Ok(connection) => connection,
+                                Err(_) => return,
+                            };
+                            while connection.is_handshaking() {
+                                if let Err(err) = connection.complete_io(&mut stream) {
+                                    let detail = format!("handshake_error:{err}");
+                                    events.record(event("tls_echo", "tls", peer, local, &detail, 0, None));
+                                    return;
+                                }
+                            }
+                            let sni = connection.server_name().map(ToOwned::to_owned);
+                            let mut tls = StreamOwned::new(connection, stream);
+                            events.record(event("tls_echo", "tls", peer, local, "handshake", 0, sni));
+                            let body = b"fixture tls ok";
+                            let response = format!(
+                                "HTTP/1.1 200 OK\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+                                body.len(),
+                                String::from_utf8_lossy(body)
+                            );
+                            let _ = tls.write_all(response.as_bytes());
+                            let _ = tls.flush();
+                            tls.conn.send_close_notify();
+                            let _ = tls.flush();
+                        });
+                    }
+                    Err(err) if err.kind() == ErrorKind::WouldBlock => thread::sleep(IO_POLL_DELAY),
+                    Err(_) => break,
                 }
-                Err(err) if err.kind() == ErrorKind::WouldBlock => thread::sleep(IO_POLL_DELAY),
-                Err(_) => break,
             }
-        }
-    }), local_port))
+        }),
+        local_port,
+    ))
 }
 
 fn start_dns_udp_server(
@@ -576,53 +585,56 @@ fn start_dns_udp_server(
     socket.set_read_timeout(Some(IO_TIMEOUT))?;
     let local_port = socket.local_addr()?.port();
     let local = socket.local_addr().ok();
-    Ok((thread::spawn(move || {
-        let mut buf = [0u8; 512];
-        while !stop.load(Ordering::Relaxed) {
-            match socket.recv_from(&mut buf) {
-                Ok((read, peer)) => {
-                    let query_name = parse_dns_question_name(&buf[..read]).unwrap_or_else(|| "unknown".to_string());
-                    events.record(event("dns_udp", "udp", peer, local, &query_name, read, None));
-                    if let Some(fault) = faults.take_matching(FixtureFaultTarget::DnsUdp, |outcome| {
-                        matches!(
-                            outcome,
-                            FixtureFaultOutcome::DnsNxDomain
-                                | FixtureFaultOutcome::DnsServFail
-                                | FixtureFaultOutcome::DnsTimeout
-                        )
-                    }) {
-                        events.record(event(
-                            "dns_udp",
-                            "udp",
-                            peer,
-                            local,
-                            &format!("fault:{:?}", fault.outcome),
-                            read,
-                            None,
-                        ));
-                        match fault.outcome {
-                            FixtureFaultOutcome::DnsTimeout => continue,
-                            FixtureFaultOutcome::DnsNxDomain => {
-                                if let Ok(response) = build_udp_dns_error_response(&buf[..read], 3) {
-                                    let _ = socket.send_to(&response, peer);
+    Ok((
+        thread::spawn(move || {
+            let mut buf = [0u8; 512];
+            while !stop.load(Ordering::Relaxed) {
+                match socket.recv_from(&mut buf) {
+                    Ok((read, peer)) => {
+                        let query_name = parse_dns_question_name(&buf[..read]).unwrap_or_else(|| "unknown".to_string());
+                        events.record(event("dns_udp", "udp", peer, local, &query_name, read, None));
+                        if let Some(fault) = faults.take_matching(FixtureFaultTarget::DnsUdp, |outcome| {
+                            matches!(
+                                outcome,
+                                FixtureFaultOutcome::DnsNxDomain
+                                    | FixtureFaultOutcome::DnsServFail
+                                    | FixtureFaultOutcome::DnsTimeout
+                            )
+                        }) {
+                            events.record(event(
+                                "dns_udp",
+                                "udp",
+                                peer,
+                                local,
+                                &format!("fault:{:?}", fault.outcome),
+                                read,
+                                None,
+                            ));
+                            match fault.outcome {
+                                FixtureFaultOutcome::DnsTimeout => continue,
+                                FixtureFaultOutcome::DnsNxDomain => {
+                                    if let Ok(response) = build_udp_dns_error_response(&buf[..read], 3) {
+                                        let _ = socket.send_to(&response, peer);
+                                    }
                                 }
-                            }
-                            FixtureFaultOutcome::DnsServFail => {
-                                if let Ok(response) = build_udp_dns_error_response(&buf[..read], 2) {
-                                    let _ = socket.send_to(&response, peer);
+                                FixtureFaultOutcome::DnsServFail => {
+                                    if let Ok(response) = build_udp_dns_error_response(&buf[..read], 2) {
+                                        let _ = socket.send_to(&response, peer);
+                                    }
                                 }
+                                _ => {}
                             }
-                            _ => {}
+                        } else if let Ok(response) = build_udp_dns_answer(&buf[..read], answer_ip) {
+                            let _ = socket.send_to(&response, peer);
                         }
-                    } else if let Ok(response) = build_udp_dns_answer(&buf[..read], answer_ip) {
-                        let _ = socket.send_to(&response, peer);
                     }
+                    Err(err) if matches!(err.kind(), ErrorKind::WouldBlock | ErrorKind::TimedOut) => {}
+                    Err(_) => break,
                 }
-                Err(err) if matches!(err.kind(), ErrorKind::WouldBlock | ErrorKind::TimedOut) => {}
-                Err(_) => break,
             }
-        }
-    }), local_port))
+        }),
+        local_port,
+    ))
 }
 
 fn start_dns_http_server(
@@ -773,32 +785,35 @@ where
     listener.set_nonblocking(true)?;
     let local_port = listener.local_addr()?.port();
     let handler = Arc::new(handler);
-    Ok((thread::spawn(move || {
-        while !stop.load(Ordering::Relaxed) {
-            match listener.accept() {
-                Ok((mut stream, peer)) => {
-                    let handler = handler.clone();
-                    let events = events.clone();
-                    thread::spawn(move || {
-                        let local = stream.local_addr().ok();
-                        let request = parse_http_request(&mut stream);
-                        let response = match request {
-                            Ok(request) => handler(request, peer, local),
-                            Err(err) => {
-                                events.record(event("http_error", "http", peer, local, &err.to_string(), 0, None));
-                                HttpResponse::not_found()
-                            }
-                        };
-                        let _ = stream.write_all(&response.to_bytes());
-                        let _ = stream.flush();
-                        let _ = stream.shutdown(Shutdown::Both);
-                    });
+    Ok((
+        thread::spawn(move || {
+            while !stop.load(Ordering::Relaxed) {
+                match listener.accept() {
+                    Ok((mut stream, peer)) => {
+                        let handler = handler.clone();
+                        let events = events.clone();
+                        thread::spawn(move || {
+                            let local = stream.local_addr().ok();
+                            let request = parse_http_request(&mut stream);
+                            let response = match request {
+                                Ok(request) => handler(request, peer, local),
+                                Err(err) => {
+                                    events.record(event("http_error", "http", peer, local, &err.to_string(), 0, None));
+                                    HttpResponse::not_found()
+                                }
+                            };
+                            let _ = stream.write_all(&response.to_bytes());
+                            let _ = stream.flush();
+                            let _ = stream.shutdown(Shutdown::Both);
+                        });
+                    }
+                    Err(err) if err.kind() == ErrorKind::WouldBlock => thread::sleep(IO_POLL_DELAY),
+                    Err(_) => break,
                 }
-                Err(err) if err.kind() == ErrorKind::WouldBlock => thread::sleep(IO_POLL_DELAY),
-                Err(_) => break,
             }
-        }
-    }), local_port))
+        }),
+        local_port,
+    ))
 }
 
 fn start_socks5_server(
@@ -814,179 +829,203 @@ fn start_socks5_server(
     udp_socket.set_read_timeout(Some(IO_TIMEOUT))?;
     let udp_local = udp_socket.local_addr().ok();
     let udp_shared = Arc::new(udp_socket);
-    Ok((thread::spawn(move || {
-        let udp_worker = {
-            let udp_socket = udp_shared.clone();
-            let stop = stop.clone();
-            let events = events.clone();
-            let config = config.clone();
-            thread::spawn(move || {
-                let mut frame = [0u8; 65535];
-                while !stop.load(Ordering::Relaxed) {
-                    match udp_socket.recv_from(&mut frame) {
-                        Ok((size, peer)) => {
-                            if let Ok((destination, payload)) = decode_socks5_udp_frame(&frame[..size]) {
-                                let mapped = map_socket_addr(destination, &config);
-                                events.record(event(
-                                    "socks5_relay",
-                                    "udp",
-                                    peer,
-                                    udp_local,
-                                    &mapped.to_string(),
-                                    payload.len(),
-                                    None,
-                                ));
-                                if let Ok(forward) = UdpSocket::bind((config.bind_host.as_str(), 0)) {
-                                    let _ = forward.set_read_timeout(Some(SOCKS_IO_TIMEOUT));
-                                    let _ = forward.send_to(&payload, mapped);
-                                    let mut response = [0u8; 4096];
-                                    if let Ok((read, from)) = forward.recv_from(&mut response) {
-                                        let reply = encode_socks5_udp_frame(from, &response[..read]);
-                                        let _ = udp_socket.send_to(&reply, peer);
+    Ok((
+        thread::spawn(move || {
+            let udp_worker = {
+                let udp_socket = udp_shared.clone();
+                let stop = stop.clone();
+                let events = events.clone();
+                let config = config.clone();
+                thread::spawn(move || {
+                    let mut frame = [0u8; 65535];
+                    while !stop.load(Ordering::Relaxed) {
+                        match udp_socket.recv_from(&mut frame) {
+                            Ok((size, peer)) => {
+                                if let Ok((destination, payload)) = decode_socks5_udp_frame(&frame[..size]) {
+                                    let mapped = map_socket_addr(destination, &config);
+                                    events.record(event(
+                                        "socks5_relay",
+                                        "udp",
+                                        peer,
+                                        udp_local,
+                                        &mapped.to_string(),
+                                        payload.len(),
+                                        None,
+                                    ));
+                                    if let Ok(forward) = UdpSocket::bind((config.bind_host.as_str(), 0)) {
+                                        let _ = forward.set_read_timeout(Some(SOCKS_IO_TIMEOUT));
+                                        let _ = forward.send_to(&payload, mapped);
+                                        let mut response = [0u8; 4096];
+                                        if let Ok((read, from)) = forward.recv_from(&mut response) {
+                                            let reply = encode_socks5_udp_frame(from, &response[..read]);
+                                            let _ = udp_socket.send_to(&reply, peer);
+                                        }
                                     }
                                 }
                             }
+                            Err(err) if matches!(err.kind(), ErrorKind::WouldBlock | ErrorKind::TimedOut) => {}
+                            Err(_) => break,
                         }
-                        Err(err) if matches!(err.kind(), ErrorKind::WouldBlock | ErrorKind::TimedOut) => {}
-                        Err(_) => break,
                     }
-                }
-            })
-        };
+                })
+            };
 
-        while !stop.load(Ordering::Relaxed) {
-            match listener.accept() {
-                Ok((mut stream, peer)) => {
-                    let config = config.clone();
-                    let events = events.clone();
-                    let udp_shared = udp_shared.clone();
-                    let faults = faults.clone();
-                    thread::spawn(move || {
-                        let local = stream.local_addr().ok();
-                        let _ = stream.set_read_timeout(Some(SOCKS_IO_TIMEOUT));
-                        let _ = stream.set_write_timeout(Some(SOCKS_IO_TIMEOUT));
-                        if let Err(err) = read_socks_greeting(&mut stream) {
-                            events.record(event(
-                                "socks5_error",
-                                "tcp",
-                                peer,
-                                local,
-                                &format!("greeting:{err}"),
-                                0,
-                                None,
-                            ));
-                            return;
-                        }
-                        if let Err(err) = stream.write_all(&[0x05, 0x00]) {
-                            events.record(event(
-                                "socks5_error",
-                                "tcp",
-                                peer,
-                                local,
-                                &format!("greeting_reply:{err}"),
-                                0,
-                                None,
-                            ));
-                            return;
-                        }
+            while !stop.load(Ordering::Relaxed) {
+                match listener.accept() {
+                    Ok((mut stream, peer)) => {
+                        let config = config.clone();
+                        let events = events.clone();
+                        let udp_shared = udp_shared.clone();
+                        let faults = faults.clone();
+                        thread::spawn(move || {
+                            let local = stream.local_addr().ok();
+                            let _ = stream.set_read_timeout(Some(SOCKS_IO_TIMEOUT));
+                            let _ = stream.set_write_timeout(Some(SOCKS_IO_TIMEOUT));
+                            if let Err(err) = read_socks_greeting(&mut stream) {
+                                events.record(event(
+                                    "socks5_error",
+                                    "tcp",
+                                    peer,
+                                    local,
+                                    &format!("greeting:{err}"),
+                                    0,
+                                    None,
+                                ));
+                                return;
+                            }
+                            if let Err(err) = stream.write_all(&[0x05, 0x00]) {
+                                events.record(event(
+                                    "socks5_error",
+                                    "tcp",
+                                    peer,
+                                    local,
+                                    &format!("greeting_reply:{err}"),
+                                    0,
+                                    None,
+                                ));
+                                return;
+                            }
 
-                        let mut header = [0u8; 4];
-                        if let Err(err) = read_exact_with_retry(&mut stream, &mut header) {
-                            events.record(event("socks5_error", "tcp", peer, local, &format!("header:{err}"), 0, None));
-                            return;
-                        }
+                            let mut header = [0u8; 4];
+                            if let Err(err) = read_exact_with_retry(&mut stream, &mut header) {
+                                events.record(event(
+                                    "socks5_error",
+                                    "tcp",
+                                    peer,
+                                    local,
+                                    &format!("header:{err}"),
+                                    0,
+                                    None,
+                                ));
+                                return;
+                            }
 
-                        match header[1] {
-                            0x01 => {
-                                let target = match read_socks_target(&mut stream, header[3]) {
-                                    Ok(target) => target,
-                                    Err(err) => {
+                            match header[1] {
+                                0x01 => {
+                                    let target = match read_socks_target(&mut stream, header[3]) {
+                                        Ok(target) => target,
+                                        Err(err) => {
+                                            events.record(event(
+                                                "socks5_error",
+                                                "tcp",
+                                                peer,
+                                                local,
+                                                &format!("target:{err}"),
+                                                0,
+                                                None,
+                                            ));
+                                            return;
+                                        }
+                                    };
+                                    let mapped =
+                                        map_target(target, &config).and_then(|target| resolve_socket_addr(&target));
+                                    let Some(mapped) = mapped.ok() else {
                                         events.record(event(
                                             "socks5_error",
                                             "tcp",
                                             peer,
                                             local,
-                                            &format!("target:{err}"),
+                                            "mapped_target_unavailable",
                                             0,
                                             None,
                                         ));
+                                        let _ = stream.write_all(&encode_socks_reply_failure());
+                                        return;
+                                    };
+                                    if let Some(_fault) = faults
+                                        .take_matching(FixtureFaultTarget::Socks5Relay, |outcome| {
+                                            matches!(outcome, FixtureFaultOutcome::SocksRejectConnect)
+                                        })
+                                    {
+                                        events.record(event(
+                                            "socks5_relay",
+                                            "tcp",
+                                            peer,
+                                            local,
+                                            &format!("fault:{mapped}"),
+                                            0,
+                                            None,
+                                        ));
+                                        let _ = stream.write_all(&encode_socks_reply_failure());
                                         return;
                                     }
-                                };
-                                let mapped =
-                                    map_target(target, &config).and_then(|target| resolve_socket_addr(&target));
-                                let Some(mapped) = mapped.ok() else {
-                                    events.record(event(
-                                        "socks5_error",
-                                        "tcp",
-                                        peer,
-                                        local,
-                                        "mapped_target_unavailable",
-                                        0,
-                                        None,
-                                    ));
-                                    let _ = stream.write_all(&encode_socks_reply_failure());
-                                    return;
-                                };
-                                if let Some(_fault) = faults.take_matching(FixtureFaultTarget::Socks5Relay, |outcome| {
-                                    matches!(outcome, FixtureFaultOutcome::SocksRejectConnect)
-                                }) {
                                     events.record(event(
                                         "socks5_relay",
                                         "tcp",
                                         peer,
                                         local,
-                                        &format!("fault:{mapped}"),
+                                        &mapped.to_string(),
                                         0,
                                         None,
                                     ));
+                                    match TcpStream::connect_timeout(&mapped, SOCKS_IO_TIMEOUT) {
+                                        Ok(upstream) => {
+                                            let _ = stream.write_all(&encode_socks_reply(mapped));
+                                            relay_bidirectional(stream, upstream);
+                                        }
+                                        Err(_) => {
+                                            let _ = stream.write_all(&encode_socks_reply_failure());
+                                        }
+                                    }
+                                }
+                                0x03 => {
+                                    if consume_socks_addr(&mut stream, header[3]).is_err() {
+                                        return;
+                                    }
+                                    events.record(event("socks5_relay", "udp", peer, local, "udp_associate", 0, None));
+                                    if let Ok(udp_local) = udp_shared.local_addr() {
+                                        let _ = stream.write_all(&encode_socks_reply(udp_local));
+                                    }
+                                    let mut buf = [0u8; 16];
+                                    loop {
+                                        match stream.read(&mut buf) {
+                                            Ok(0) => break,
+                                            Ok(_) => {}
+                                            Err(err)
+                                                if matches!(
+                                                    err.kind(),
+                                                    ErrorKind::WouldBlock | ErrorKind::TimedOut
+                                                ) => {}
+                                            Err(_) => break,
+                                        }
+                                        thread::sleep(IO_POLL_DELAY);
+                                    }
+                                }
+                                _ => {
                                     let _ = stream.write_all(&encode_socks_reply_failure());
-                                    return;
-                                }
-                                events.record(event("socks5_relay", "tcp", peer, local, &mapped.to_string(), 0, None));
-                                match TcpStream::connect_timeout(&mapped, SOCKS_IO_TIMEOUT) {
-                                    Ok(upstream) => {
-                                        let _ = stream.write_all(&encode_socks_reply(mapped));
-                                        relay_bidirectional(stream, upstream);
-                                    }
-                                    Err(_) => {
-                                        let _ = stream.write_all(&encode_socks_reply_failure());
-                                    }
                                 }
                             }
-                            0x03 => {
-                                if consume_socks_addr(&mut stream, header[3]).is_err() {
-                                    return;
-                                }
-                                events.record(event("socks5_relay", "udp", peer, local, "udp_associate", 0, None));
-                                if let Ok(udp_local) = udp_shared.local_addr() {
-                                    let _ = stream.write_all(&encode_socks_reply(udp_local));
-                                }
-                                let mut buf = [0u8; 16];
-                                loop {
-                                    match stream.read(&mut buf) {
-                                        Ok(0) => break,
-                                        Ok(_) => {}
-                                        Err(err)
-                                            if matches!(err.kind(), ErrorKind::WouldBlock | ErrorKind::TimedOut) => {}
-                                        Err(_) => break,
-                                    }
-                                    thread::sleep(IO_POLL_DELAY);
-                                }
-                            }
-                            _ => {
-                                let _ = stream.write_all(&encode_socks_reply_failure());
-                            }
-                        }
-                    });
+                        });
+                    }
+                    Err(err) if err.kind() == ErrorKind::WouldBlock => thread::sleep(IO_POLL_DELAY),
+                    Err(_) => break,
                 }
-                Err(err) if err.kind() == ErrorKind::WouldBlock => thread::sleep(IO_POLL_DELAY),
-                Err(_) => break,
             }
-        }
 
-        let _ = udp_worker.join();
-    }), local_port))
+            let _ = udp_worker.join();
+        }),
+        local_port,
+    ))
 }
 
 #[derive(Debug, Clone)]
@@ -1427,8 +1466,14 @@ where
 mod tests {
     use super::*;
     use std::io::{Read, Write};
-    use std::net::{SocketAddr, TcpStream, UdpSocket};
+    use std::net::{Shutdown, SocketAddr, TcpStream, UdpSocket};
     use std::sync::Mutex;
+
+    use rustls::client::danger::{HandshakeSignatureValid, ServerCertVerified, ServerCertVerifier};
+    use rustls::pki_types::{CertificateDer, ServerName, UnixTime};
+    use rustls::{
+        ClientConfig, ClientConnection, DigitallySignedStruct, Error as TlsError, SignatureScheme, StreamOwned,
+    };
 
     static FIXTURE_STACK_TEST_MUTEX: Mutex<()> = Mutex::new(());
 
@@ -1601,8 +1646,7 @@ mod tests {
 
         let udp = UdpSocket::bind((DEFAULT_BIND_HOST, 0)).expect("bind udp client");
         udp.set_read_timeout(Some(Duration::from_secs(1))).expect("set udp timeout");
-        udp.send_to(b"ping", (&stack.manifest().bind_host[..], stack.manifest().udp_echo_port))
-            .expect("send udp echo");
+        udp.send_to(b"ping", (&stack.manifest().bind_host[..], stack.manifest().udp_echo_port)).expect("send udp echo");
         let mut udp_buf = [0u8; 16];
         let (udp_read, _) = udp.recv_from(&mut udp_buf).expect("receive udp echo");
         assert_eq!(&udp_buf[..udp_read], b"ping");
@@ -1622,7 +1666,10 @@ mod tests {
             .expect("send dns udp query");
         let mut dns_buf = [0u8; 512];
         let (dns_read, _) = dns_udp.recv_from(&mut dns_buf).expect("receive dns udp response");
-        assert_eq!(parse_dns_question_name(&dns_buf[..dns_read]).as_deref(), Some(stack.manifest().fixture_domain.as_str()));
+        assert_eq!(
+            parse_dns_question_name(&dns_buf[..dns_read]).as_deref(),
+            Some(stack.manifest().fixture_domain.as_str())
+        );
 
         let events = stack.events().snapshot();
         assert!(events.iter().any(|event| event.service == "tcp_echo" && event.detail == "echo"));
@@ -1674,11 +1721,7 @@ mod tests {
             "GET /manifest HTTP/1.1\r\nHost: fixture.test\r\nConnection: close\r\n\r\n",
         );
         assert_eq!(
-            http_body(
-                &stack.manifest().bind_host,
-                stack.manifest().control_port,
-                &http_post_json("/events/reset", ""),
-            ),
+            http_body(&stack.manifest().bind_host, stack.manifest().control_port, &http_post_json("/events/reset", ""),),
             "reset",
         );
         let events: Vec<FixtureEvent> = serde_json::from_str(&http_body(
@@ -1692,11 +1735,7 @@ mod tests {
         assert_eq!(events[0].detail, "events");
 
         assert_eq!(
-            http_body(
-                &stack.manifest().bind_host,
-                stack.manifest().control_port,
-                &http_post_json("/faults/reset", ""),
-            ),
+            http_body(&stack.manifest().bind_host, stack.manifest().control_port, &http_post_json("/faults/reset", ""),),
             "reset",
         );
         let faults_after_reset: Vec<FixtureFaultSpec> = serde_json::from_str(&http_body(
@@ -1748,8 +1787,7 @@ mod tests {
 
         let udp = UdpSocket::bind((DEFAULT_BIND_HOST, 0)).expect("bind udp client");
         udp.set_read_timeout(Some(Duration::from_millis(200))).expect("set udp timeout");
-        udp.send_to(b"drop", (&stack.manifest().bind_host[..], stack.manifest().udp_echo_port))
-            .expect("send udp echo");
+        udp.send_to(b"drop", (&stack.manifest().bind_host[..], stack.manifest().udp_echo_port)).expect("send udp echo");
         let mut udp_buf = [0u8; 16];
         let udp_err = udp.recv_from(&mut udp_buf).expect_err("udp drop should time out");
         assert!(matches!(udp_err.kind(), ErrorKind::WouldBlock | ErrorKind::TimedOut));
@@ -1779,6 +1817,35 @@ mod tests {
     }
 
     #[test]
+    fn fixture_stack_tls_echo_records_accept_success_and_handshake_errors() {
+        let _serial = lock_fixture_stack_tests();
+        let stack = FixtureStack::start(dynamic_fixture_config()).expect("start fixture stack");
+
+        let response = tls_echo_request(stack.manifest()).expect("tls echo request");
+        assert!(
+            response.contains("fixture tls ok"),
+            "unexpected tls response: {response:?}; events: {:?}",
+            stack.events().snapshot()
+        );
+
+        let mut raw = TcpStream::connect((&stack.manifest().bind_host[..], stack.manifest().tls_echo_port))
+            .expect("connect tls echo");
+        raw.write_all(&[0x16, 0x03, 0x03, 0x00, 0x10, 0x01, 0x00]).expect("write partial tls record");
+        raw.shutdown(Shutdown::Write).expect("shutdown partial tls writer");
+
+        wait_for_event(&stack.events(), |events| {
+            events.iter().any(|event| event.service == "tls_echo" && event.detail.starts_with("handshake_error:"))
+        });
+
+        let events = stack.events().snapshot();
+        assert!(events.iter().any(|event| event.service == "tls_echo" && event.detail == "accept"));
+        assert!(events.iter().any(|event| {
+            event.service == "tls_echo" && event.detail == "handshake" && event.sni.as_deref() == Some("fixture.test")
+        }));
+        assert!(events.iter().any(|event| event.service == "tls_echo" && event.detail.starts_with("handshake_error:")));
+    }
+
+    #[test]
     fn fixture_stack_socks5_connect_and_udp_associate_round_trip() {
         let _serial = lock_fixture_stack_tests();
         let stack = FixtureStack::start(dynamic_fixture_config()).expect("start fixture stack");
@@ -1790,11 +1857,7 @@ mod tests {
         tcp_stream.read_exact(&mut greeting_reply).expect("read socks greeting reply");
         assert_eq!(greeting_reply, [0x05, 0x00]);
 
-        let fixture_ip = stack
-            .manifest()
-            .fixture_ipv4
-            .parse::<Ipv4Addr>()
-            .expect("fixture ipv4 address");
+        let fixture_ip = stack.manifest().fixture_ipv4.parse::<Ipv4Addr>().expect("fixture ipv4 address");
         let mut connect_request = vec![0x05, 0x01, 0x00, 0x01];
         connect_request.extend_from_slice(&fixture_ip.octets());
         connect_request.extend_from_slice(&stack.manifest().tcp_echo_port.to_be_bytes());
@@ -1809,9 +1872,7 @@ mod tests {
         udp_assoc.write_all(&[0x05, 0x01, 0x00]).expect("write udp greeting");
         udp_assoc.read_exact(&mut greeting_reply).expect("read udp greeting reply");
         assert_eq!(greeting_reply, [0x05, 0x00]);
-        udp_assoc
-            .write_all(&[0x05, 0x03, 0x00, 0x01, 0, 0, 0, 0, 0, 0])
-            .expect("write udp associate request");
+        udp_assoc.write_all(&[0x05, 0x03, 0x00, 0x01, 0, 0, 0, 0, 0, 0]).expect("write udp associate request");
         let mut udp_reply = [0u8; 10];
         udp_assoc.read_exact(&mut udp_reply).expect("read udp associate reply");
         assert_eq!(udp_reply[1], 0x00);
@@ -1882,6 +1943,58 @@ mod tests {
         FIXTURE_STACK_TEST_MUTEX.lock().unwrap_or_else(std::sync::PoisonError::into_inner)
     }
 
+    fn tls_echo_request(manifest: &FixtureManifest) -> Result<String, String> {
+        let stream =
+            TcpStream::connect((&manifest.bind_host[..], manifest.tls_echo_port)).map_err(|err| err.to_string())?;
+        stream.set_read_timeout(Some(Duration::from_secs(1))).map_err(|err| err.to_string())?;
+        stream.set_write_timeout(Some(Duration::from_secs(1))).map_err(|err| err.to_string())?;
+
+        let config = ClientConfig::builder()
+            .dangerous()
+            .with_custom_certificate_verifier(Arc::new(NoCertificateVerification))
+            .with_no_client_auth();
+        let server_name = ServerName::try_from(manifest.fixture_domain.clone()).map_err(|err| err.to_string())?;
+        let connection = ClientConnection::new(Arc::new(config), server_name).map_err(|err| err.to_string())?;
+        let mut tls = StreamOwned::new(connection, stream);
+
+        while tls.conn.is_handshaking() {
+            tls.conn.complete_io(&mut tls.sock).map_err(|err| err.to_string())?;
+        }
+
+        let mut response = Vec::new();
+        let mut chunk = [0u8; 256];
+        loop {
+            match tls.read(&mut chunk) {
+                Ok(0) => break,
+                Ok(read) => response.extend_from_slice(&chunk[..read]),
+                Err(err)
+                    if err.to_string().to_ascii_lowercase().contains("unexpected eof")
+                        || err.kind() == ErrorKind::UnexpectedEof =>
+                {
+                    break;
+                }
+                Err(err) => return Err(err.to_string()),
+            }
+        }
+
+        String::from_utf8(response).map_err(|err| err.to_string())
+    }
+
+    fn wait_for_event<F>(events: &EventLog, predicate: F)
+    where
+        F: Fn(&[FixtureEvent]) -> bool,
+    {
+        let started = std::time::Instant::now();
+        while started.elapsed() < Duration::from_secs(1) {
+            let snapshot = events.snapshot();
+            if predicate(&snapshot) {
+                return;
+            }
+            std::thread::sleep(Duration::from_millis(20));
+        }
+        panic!("fixture event predicate was not satisfied within timeout");
+    }
+
     fn test_dns_query(domain: &str) -> Vec<u8> {
         let mut query = Vec::new();
         query.extend_from_slice(&0x1234u16.to_be_bytes());
@@ -1902,5 +2015,51 @@ mod tests {
 
     fn dns_rcode(response: &[u8]) -> Option<u16> {
         (response.len() >= 4).then(|| u16::from_be_bytes([response[2], response[3]]) & 0x000f)
+    }
+
+    #[derive(Debug)]
+    struct NoCertificateVerification;
+
+    impl ServerCertVerifier for NoCertificateVerification {
+        fn verify_server_cert(
+            &self,
+            _end_entity: &CertificateDer<'_>,
+            _intermediates: &[CertificateDer<'_>],
+            _server_name: &ServerName<'_>,
+            _ocsp_response: &[u8],
+            _now: UnixTime,
+        ) -> Result<ServerCertVerified, TlsError> {
+            Ok(ServerCertVerified::assertion())
+        }
+
+        fn verify_tls12_signature(
+            &self,
+            _message: &[u8],
+            _cert: &CertificateDer<'_>,
+            _dss: &DigitallySignedStruct,
+        ) -> Result<HandshakeSignatureValid, TlsError> {
+            Ok(HandshakeSignatureValid::assertion())
+        }
+
+        fn verify_tls13_signature(
+            &self,
+            _message: &[u8],
+            _cert: &CertificateDer<'_>,
+            _dss: &DigitallySignedStruct,
+        ) -> Result<HandshakeSignatureValid, TlsError> {
+            Ok(HandshakeSignatureValid::assertion())
+        }
+
+        fn supported_verify_schemes(&self) -> Vec<SignatureScheme> {
+            vec![
+                SignatureScheme::ECDSA_NISTP256_SHA256,
+                SignatureScheme::ECDSA_NISTP384_SHA384,
+                SignatureScheme::RSA_PSS_SHA256,
+                SignatureScheme::RSA_PSS_SHA384,
+                SignatureScheme::RSA_PKCS1_SHA256,
+                SignatureScheme::RSA_PKCS1_SHA384,
+                SignatureScheme::ED25519,
+            ]
+        }
     }
 }

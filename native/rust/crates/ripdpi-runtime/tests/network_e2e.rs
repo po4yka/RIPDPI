@@ -15,9 +15,13 @@ use local_network_fixture::{
 };
 use ripdpi_config::{parse_cli, DesyncGroup, ParseResult, QuicInitialMode, RuntimeConfig, StartupEnv};
 use ripdpi_packets::IS_UDP;
+use ripdpi_proxy_config::{runtime_config_from_ui, ProxyUiConfig};
 use ripdpi_runtime::process::prepare_embedded;
 use ripdpi_runtime::runtime::{create_listener, run_proxy_with_embedded_control};
 use ripdpi_runtime::{clear_runtime_telemetry, EmbeddedProxyControl, RuntimeTelemetrySink};
+use rustls::client::danger::{HandshakeSignatureValid, ServerCertVerified, ServerCertVerifier};
+use rustls::pki_types::{CertificateDer, ServerName, UnixTime};
+use rustls::{ClientConfig, ClientConnection, DigitallySignedStruct, Error as TlsError, SignatureScheme, StreamOwned};
 
 #[allow(dead_code)]
 #[path = "../../ripdpi-packets/tests/rust_packet_seeds.rs"]
@@ -47,6 +51,20 @@ fn socks5_udp_round_trip_reaches_fixture() {
     let _guard = test_guard();
     let fixture = FixtureStack::start(ephemeral_fixture_config()).expect("start fixture");
     socks5_udp_round_trip(&fixture);
+}
+
+#[test]
+fn socks5_tls_round_trip_reaches_fixture() {
+    let _guard = test_guard();
+    let fixture = FixtureStack::start(ephemeral_fixture_config()).expect("start fixture");
+    socks5_tls_round_trip(&fixture, None);
+}
+
+#[test]
+fn socks5_tls_fragmented_client_hello_reaches_fixture() {
+    let _guard = test_guard();
+    let fixture = FixtureStack::start(ephemeral_fixture_config()).expect("start fixture");
+    socks5_tls_round_trip(&fixture, Some(FragmentingProfile::default()));
 }
 
 #[test]
@@ -220,6 +238,36 @@ fn socks5_udp_round_trip(fixture: &FixtureStack) {
     drop(proxy);
 }
 
+fn socks5_tls_round_trip(fixture: &FixtureStack, fragmented: Option<FragmentingProfile>) {
+    let telemetry = Arc::new(RecordingTelemetry::default());
+    let proxy = start_proxy(ui_proxy_config(), Some(telemetry.clone()));
+
+    let response = socks5_tls_round_trip_with_retry(proxy.port, fixture, fragmented.as_ref());
+    assert!(
+        response.contains("fixture tls ok"),
+        "unexpected tls response: {response:?}; events: {:?}",
+        fixture.events().snapshot()
+    );
+
+    drop(proxy);
+
+    let snapshot = telemetry.snapshot();
+    assert!(snapshot.accepted >= 1);
+    assert!(snapshot
+        .routes
+        .iter()
+        .any(|route| route.target.port() == fixture.manifest().tls_echo_port && route.phase == "initial"));
+
+    let events = fixture.events().snapshot();
+    assert!(events.iter().any(|event| event.service == "tls_echo" && event.detail == "accept"));
+    assert!(events.iter().any(|event| {
+        event.service == "tls_echo"
+            && event.detail == "handshake"
+            && event.sni.as_deref() == Some(fixture.manifest().fixture_domain.as_str())
+    }));
+    assert!(!events.iter().any(|event| event.service == "tls_echo" && event.detail.starts_with("handshake_error:")));
+}
+
 fn http_connect_round_trip(fixture: &FixtureStack) {
     let proxy = start_proxy(ephemeral_proxy_config(&["--http-connect", "--ip", "127.0.0.1"]), None);
     assert_eq!(
@@ -364,6 +412,20 @@ fn ephemeral_proxy_config(args: &[&str]) -> ripdpi_config::RuntimeConfig {
     config
 }
 
+fn ui_proxy_config() -> RuntimeConfig {
+    let mut ui = ProxyUiConfig::default();
+    ui.listen.ip = "127.0.0.1".to_string();
+    ui.protocols.desync_http = false;
+    ui.protocols.desync_https = false;
+    ui.protocols.desync_udp = false;
+    ui.chains.tcp_steps.clear();
+    ui.chains.udp_steps.clear();
+
+    let mut config = runtime_config_from_ui(ui).expect("ui runtime config");
+    config.listen.listen_port = 0;
+    config
+}
+
 fn quic_udp_host_filter_config(mode: QuicInitialMode, support_v1: bool, support_v2: bool) -> RuntimeConfig {
     let mut config = ephemeral_proxy_config(&["--ip", "127.0.0.1"]);
 
@@ -451,6 +513,40 @@ fn attempt_socks_connect_domain_round_trip(
     Ok(body)
 }
 
+fn socks5_tls_round_trip_with_retry(
+    proxy_port: u16,
+    fixture: &FixtureStack,
+    fragmented: Option<&FragmentingProfile>,
+) -> String {
+    let mut last_error = None;
+    for _ in 0..3 {
+        match attempt_socks5_tls_round_trip(proxy_port, fixture, fragmented) {
+            Ok(body) => return body,
+            Err(error) => {
+                last_error = Some(error);
+                thread::sleep(Duration::from_millis(50));
+            }
+        }
+    }
+    panic!(
+        "socks5 tls round trip failed after retries: {}",
+        last_error.unwrap_or_else(|| "unknown socks5 tls error".to_string())
+    );
+}
+
+fn attempt_socks5_tls_round_trip(
+    proxy_port: u16,
+    fixture: &FixtureStack,
+    fragmented: Option<&FragmentingProfile>,
+) -> Result<String, String> {
+    let (stream, reply) = socks_connect_domain(proxy_port, "127.0.0.1", fixture.manifest().tls_echo_port);
+    if reply.get(1).copied() != Some(0x00) {
+        return Err(format!("SOCKS5 domain connect failed: {reply:?}"));
+    }
+
+    tls_probe(stream, &fixture.manifest().fixture_domain, fragmented.copied())
+}
+
 fn socks_connect_ip_round_trip_with_retry(proxy_port: u16, dst_port: u16, payload: &[u8]) -> Vec<u8> {
     let mut last_error = None;
     for _ in 0..3 {
@@ -521,6 +617,44 @@ fn attempt_http_connect_round_trip(proxy_port: u16, dst_port: u16, payload: &[u8
     let mut body = vec![0u8; payload.len()];
     stream.read_exact(&mut body).map_err(|error| format!("read http connect payload failed: {error}"))?;
     Ok(body)
+}
+
+fn tls_probe(stream: TcpStream, server_name: &str, fragmented: Option<FragmentingProfile>) -> Result<String, String> {
+    let config = ClientConfig::builder()
+        .dangerous()
+        .with_custom_certificate_verifier(Arc::new(NoCertificateVerification))
+        .with_no_client_auth();
+    let server_name = ServerName::try_from(server_name.to_string()).map_err(|err| err.to_string())?;
+    let connection = ClientConnection::new(Arc::new(config), server_name).map_err(|err| err.to_string())?;
+
+    let stream = if let Some(profile) = fragmented {
+        FragmentingStream::new(stream, profile)
+    } else {
+        FragmentingStream::passthrough(stream)
+    };
+    let mut tls = StreamOwned::new(connection, stream);
+
+    while tls.conn.is_handshaking() {
+        tls.conn.complete_io(&mut tls.sock).map_err(|err| err.to_string())?;
+    }
+
+    let mut response = Vec::new();
+    let mut chunk = [0u8; 256];
+    loop {
+        match tls.read(&mut chunk) {
+            Ok(0) => break,
+            Ok(read) => response.extend_from_slice(&chunk[..read]),
+            Err(err)
+                if err.to_string().to_ascii_lowercase().contains("unexpected eof")
+                    || err.kind() == io::ErrorKind::UnexpectedEof =>
+            {
+                break;
+            }
+            Err(err) => return Err(err.to_string()),
+        }
+    }
+
+    String::from_utf8(response).map_err(|err| err.to_string())
 }
 
 fn socks_udp_associate(proxy_port: u16) -> (TcpStream, SocketAddr) {
@@ -642,6 +776,58 @@ fn ephemeral_fixture_config() -> FixtureConfig {
         socks5_port: FIXTURE_SOCKS5_PORT,
         control_port: FIXTURE_CONTROL_PORT,
         ..FixtureConfig::default()
+    }
+}
+
+#[derive(Clone, Copy)]
+struct FragmentingProfile {
+    max_write: usize,
+    delay: Duration,
+}
+
+impl Default for FragmentingProfile {
+    fn default() -> Self {
+        Self { max_write: 32, delay: Duration::from_millis(5) }
+    }
+}
+
+struct FragmentingStream {
+    inner: TcpStream,
+    profile: Option<FragmentingProfile>,
+}
+
+impl FragmentingStream {
+    fn new(inner: TcpStream, profile: FragmentingProfile) -> Self {
+        Self { inner, profile: Some(profile) }
+    }
+
+    fn passthrough(inner: TcpStream) -> Self {
+        Self { inner, profile: None }
+    }
+}
+
+impl Read for FragmentingStream {
+    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+        self.inner.read(buf)
+    }
+}
+
+impl Write for FragmentingStream {
+    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+        if let Some(profile) = self.profile {
+            let capped = profile.max_write.max(1).min(buf.len());
+            let written = self.inner.write(&buf[..capped])?;
+            if written > 0 && written < buf.len() {
+                thread::sleep(profile.delay);
+            }
+            Ok(written)
+        } else {
+            self.inner.write(buf)
+        }
+    }
+
+    fn flush(&mut self) -> io::Result<()> {
+        self.inner.flush()
     }
 }
 
@@ -851,6 +1037,52 @@ impl RuntimeTelemetrySink for ProxyHarnessTelemetry {
         if let Some(delegate) = self.delegate() {
             delegate.on_host_autolearn_event(action, host, group_index);
         }
+    }
+}
+
+#[derive(Debug)]
+struct NoCertificateVerification;
+
+impl ServerCertVerifier for NoCertificateVerification {
+    fn verify_server_cert(
+        &self,
+        _end_entity: &CertificateDer<'_>,
+        _intermediates: &[CertificateDer<'_>],
+        _server_name: &ServerName<'_>,
+        _ocsp_response: &[u8],
+        _now: UnixTime,
+    ) -> Result<ServerCertVerified, TlsError> {
+        Ok(ServerCertVerified::assertion())
+    }
+
+    fn verify_tls12_signature(
+        &self,
+        _message: &[u8],
+        _cert: &CertificateDer<'_>,
+        _dss: &DigitallySignedStruct,
+    ) -> Result<HandshakeSignatureValid, TlsError> {
+        Ok(HandshakeSignatureValid::assertion())
+    }
+
+    fn verify_tls13_signature(
+        &self,
+        _message: &[u8],
+        _cert: &CertificateDer<'_>,
+        _dss: &DigitallySignedStruct,
+    ) -> Result<HandshakeSignatureValid, TlsError> {
+        Ok(HandshakeSignatureValid::assertion())
+    }
+
+    fn supported_verify_schemes(&self) -> Vec<SignatureScheme> {
+        vec![
+            SignatureScheme::ECDSA_NISTP256_SHA256,
+            SignatureScheme::ECDSA_NISTP384_SHA384,
+            SignatureScheme::RSA_PSS_SHA256,
+            SignatureScheme::RSA_PSS_SHA384,
+            SignatureScheme::RSA_PKCS1_SHA256,
+            SignatureScheme::RSA_PKCS1_SHA384,
+            SignatureScheme::ED25519,
+        ]
     }
 }
 

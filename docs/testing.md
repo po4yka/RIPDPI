@@ -153,6 +153,23 @@ adb reverse tcp:46054 tcp:46054
   -Pandroid.testInstrumentationRunnerArguments.package=com.poyka.ripdpi.e2e
 ```
 
+When the E2E package starts VPN-mode tests on an Android 15/16 physical device, the shared
+UiAutomator helper now auto-confirms the real system VPN consent dialog. This applies only to the
+real E2E/device flows; the service integration suite uses a fake `VpnTunnelSessionProvider` and does
+not exercise platform consent UX.
+
+Optional runner args for physical-device VPN consent handling:
+
+- `-Pandroid.testInstrumentationRunnerArguments.ripdpi.vpnConsentTimeoutMs=25000`
+- `-Pandroid.testInstrumentationRunnerArguments.ripdpi.vpnConsentPackageHints=com.vendor.vpndialogs,com.oem.permissioncontroller`
+
+If the system dialog shape changes and consent is not confirmed, rerun the failing E2E class and
+collect the paths emitted by the assertion message for:
+
+- the dumped UI hierarchy XML
+- the captured screenshot PNG
+- the active package / visible package list / selector matches embedded in the failure text
+
 CI and release still build the full ABI set from `ripdpi.nativeAbis`.
 
 ## External UI automation
