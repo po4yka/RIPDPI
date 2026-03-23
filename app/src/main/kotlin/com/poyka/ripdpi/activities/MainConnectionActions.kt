@@ -149,12 +149,13 @@ internal class MainConnectionActions(
 
     private fun startConnectingTimeout() {
         connectingTimeoutJob?.cancel()
-        connectingTimeoutJob = mutations.launch {
-            delay(CONNECTING_TIMEOUT)
-            if (runtimeState.value.connectionState == ConnectionState.Connecting) {
-                showError(stringResolver.getString(R.string.connection_timed_out))
+        connectingTimeoutJob =
+            mutations.launch {
+                delay(CONNECTING_TIMEOUT)
+                if (runtimeState.value.connectionState == ConnectionState.Connecting) {
+                    showError(stringResolver.getString(R.string.connection_timed_out))
+                }
             }
-        }
     }
 
     private fun cancelConnectingTimeout() {

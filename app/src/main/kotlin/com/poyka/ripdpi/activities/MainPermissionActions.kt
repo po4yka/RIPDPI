@@ -3,8 +3,8 @@ package com.poyka.ripdpi.activities
 import android.content.Intent
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.data.Mode
-import com.poyka.ripdpi.permissions.BatteryOptimizationGuidance
 import com.poyka.ripdpi.permissions.BackgroundGuidanceUiState
+import com.poyka.ripdpi.permissions.BatteryOptimizationGuidance
 import com.poyka.ripdpi.permissions.PermissionAction
 import com.poyka.ripdpi.permissions.PermissionCoordinator
 import com.poyka.ripdpi.permissions.PermissionIssueUiState
@@ -531,8 +531,11 @@ internal fun buildPermissionSummary(
         issue = issue,
         recommendedIssue = recommendedIssue,
         backgroundGuidance =
-            if (backgroundGuidanceDismissed) null
-            else buildBackgroundGuidance(stringResolver, deviceManufacturer),
+            if (backgroundGuidanceDismissed) {
+                null
+            } else {
+                buildBackgroundGuidance(stringResolver, deviceManufacturer)
+            },
         items =
             listOf(
                 buildNotificationPermissionItem(snapshot.notifications, stringResolver),

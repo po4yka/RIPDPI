@@ -221,13 +221,20 @@ class MainViewModel
                 diagnosticsTimelineSource.approachStats,
             ) { settings, (status, activeMode), runtime, permissions, approachStats ->
                 val configuredMode = Mode.fromString(settings.ripdpiMode.ifEmpty { "vpn" })
-                val effectiveConnectionState = when {
-                    status == AppStatus.Halted && runtime.connectionState == ConnectionState.Connected ->
-                        ConnectionState.Disconnected
-                    status == AppStatus.Running && runtime.connectionState == ConnectionState.Disconnected ->
-                        ConnectionState.Connecting
-                    else -> runtime.connectionState
-                }
+                val effectiveConnectionState =
+                    when {
+                        status == AppStatus.Halted && runtime.connectionState == ConnectionState.Connected -> {
+                            ConnectionState.Disconnected
+                        }
+
+                        status == AppStatus.Running && runtime.connectionState == ConnectionState.Disconnected -> {
+                            ConnectionState.Connecting
+                        }
+
+                        else -> {
+                            runtime.connectionState
+                        }
+                    }
                 MainUiState(
                     appStatus = status,
                     activeMode = activeMode,
