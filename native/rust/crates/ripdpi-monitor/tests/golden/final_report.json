@@ -98,5 +98,5 @@
   "sessionId": "session-golden",
   "startedAt": 0,
   "strategyProbeReport": null,
-  "summary": "0/1 probes succeeded"
+  "summary": "1 completed · 0 healthy · 1 failed"
 }

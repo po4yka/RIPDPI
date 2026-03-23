@@ -43,8 +43,9 @@ internal fun DiagnosticsUiFactorySupport.toSessionRowUiModel(
 
 internal fun DiagnosticsUiFactorySupport.toProbeResultUiModel(
     index: Int,
+    pathMode: com.poyka.ripdpi.diagnostics.ScanPathMode,
     result: com.poyka.ripdpi.diagnostics.ProbeResult,
-): DiagnosticsProbeResultUiModel = core.toProbeResultUiModel(index, result)
+): DiagnosticsProbeResultUiModel = core.toProbeResultUiModel(index, pathMode, result)
 
 internal fun DiagnosticsUiFactorySupport.toDiagnosisUiModel(diagnosis: Diagnosis): DiagnosticsDiagnosisUiModel =
     DiagnosticsDiagnosisUiModel(
@@ -180,8 +181,6 @@ internal fun DiagnosticsUiFactorySupport.toProgressUiModel(
         completedProbes = completedProbes,
     )
 }
-
-internal fun DiagnosticsUiFactorySupport.toneForOutcome(value: String): DiagnosticsTone = core.toneForOutcome(value)
 
 internal fun scanCompletedTone(latestSession: DiagnosticsSessionRowUiModel?): DiagnosticsTone =
     latestSession?.tone ?: DiagnosticsTone.Neutral

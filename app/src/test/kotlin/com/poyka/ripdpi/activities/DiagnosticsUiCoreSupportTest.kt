@@ -1,5 +1,9 @@
 package com.poyka.ripdpi.activities
 
+import com.poyka.ripdpi.diagnostics.DiagnosticScanSession
+import com.poyka.ripdpi.diagnostics.ProbeResult
+import com.poyka.ripdpi.diagnostics.ScanPathMode
+import com.poyka.ripdpi.diagnostics.presentation.DiagnosticsSessionProjection
 import org.junit.Assert.assertEquals
 import org.junit.Test
 import java.time.ZoneId
@@ -32,5 +36,61 @@ class DiagnosticsUiCoreSupportTest {
         assertEquals("1,5 KB", support.formatBytes(1_500L))
         assertEquals("1,5 Kbps", support.formatBps(1_500L))
         assertEquals("2h 05m", support.formatDurationMs(7_500_000L))
+    }
+
+    @Test
+    fun `probe tone uses canonical taxonomy`() {
+        val support = DiagnosticsUiCoreSupport()
+
+        assertEquals(
+            DiagnosticsTone.Positive,
+            support.toneForProbeOutcome("dns_integrity", ScanPathMode.RAW_PATH, "dns_match"),
+        )
+        assertEquals(
+            DiagnosticsTone.Warning,
+            support.toneForProbeOutcome("dns_integrity", ScanPathMode.RAW_PATH, "udp_blocked"),
+        )
+        assertEquals(
+            DiagnosticsTone.Negative,
+            support.toneForProbeOutcome("network_environment", ScanPathMode.RAW_PATH, "network_unavailable"),
+        )
+    }
+
+    @Test
+    fun `session row tone comes from report results before status`() {
+        val support = DiagnosticsUiCoreSupport()
+        val session =
+            DiagnosticScanSession(
+                id = "session-1",
+                profileId = "profile-1",
+                pathMode = ScanPathMode.RAW_PATH.name,
+                serviceMode = "VPN",
+                status = "completed",
+                summary = "Completed",
+                report =
+                    DiagnosticsSessionProjection(
+                        results =
+                            listOf(
+                                ProbeResult(
+                                    probeType = "tcp_fat_header",
+                                    target = "1.1.1.1:443 (Cloudflare)",
+                                    outcome = "whitelist_sni_failed",
+                                ),
+                            ),
+                    ),
+                startedAt = 0L,
+                finishedAt = 1L,
+            )
+
+        assertEquals(DiagnosticsTone.Negative, support.toSessionRowUiModel(session).tone)
+    }
+
+    @Test
+    fun `event level tone uses explicit mapping`() {
+        val support = DiagnosticsUiCoreSupport()
+
+        assertEquals(DiagnosticsTone.Info, support.toneForEventLevel("info"))
+        assertEquals(DiagnosticsTone.Warning, support.toneForEventLevel("warn"))
+        assertEquals(DiagnosticsTone.Negative, support.toneForEventLevel("error"))
     }
 }

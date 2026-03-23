@@ -12,6 +12,7 @@ import com.poyka.ripdpi.diagnostics.BypassStrategySignature
 import com.poyka.ripdpi.diagnostics.ProbeResult
 import com.poyka.ripdpi.diagnostics.ResolverRecommendation
 import com.poyka.ripdpi.diagnostics.ScanKind
+import com.poyka.ripdpi.diagnostics.ScanPathMode
 import com.poyka.ripdpi.diagnostics.StrategyProbeCandidateSummary
 import com.poyka.ripdpi.diagnostics.StrategyProbeRecommendation
 import com.poyka.ripdpi.diagnostics.StrategyProbeReport
@@ -444,7 +445,13 @@ private fun DiagnosticsUiFactorySupport.buildStrategyProbeResultGroups(
 ): List<DiagnosticsProbeGroupUiModel> =
     reportResults
         .filter { result -> result.detailValue("candidateId") == candidateId }
-        .mapIndexed(::toProbeResultUiModel)
+        .mapIndexed { index, result ->
+            toProbeResultUiModel(
+                index = index,
+                pathMode = ScanPathMode.RAW_PATH,
+                result = result,
+            )
+        }
         .groupBy { probe ->
             probe.details
                 .firstOrNull { it.label == "protocol" }

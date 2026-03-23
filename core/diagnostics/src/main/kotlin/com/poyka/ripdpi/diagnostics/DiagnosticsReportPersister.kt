@@ -123,12 +123,18 @@ internal object DiagnosticsReportPersister {
         artifactWriteStore: DiagnosticsArtifactWriteStore,
     ) {
         report.results.forEach { result ->
+            val classification =
+                DiagnosticsOutcomeTaxonomy.classifyProbeOutcome(
+                    probeType = result.probeType,
+                    pathMode = report.pathMode,
+                    outcome = result.outcome,
+                )
             artifactWriteStore.insertNativeSessionEvent(
                 NativeSessionEventEntity(
                     id = UUID.randomUUID().toString(),
                     sessionId = report.sessionId,
                     source = result.probeType,
-                    level = if (result.outcome.contains("ok", ignoreCase = true)) "info" else "warn",
+                    level = classification.eventLevel,
                     message = "${result.target}: ${result.outcome}",
                     createdAt = report.finishedAt,
                 ),

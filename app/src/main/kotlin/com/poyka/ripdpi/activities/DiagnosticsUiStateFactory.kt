@@ -13,6 +13,8 @@ import com.poyka.ripdpi.diagnostics.DiagnosticScanSession
 import com.poyka.ripdpi.diagnostics.DiagnosticSessionDetail
 import com.poyka.ripdpi.diagnostics.DiagnosticTelemetrySample
 import com.poyka.ripdpi.diagnostics.DiagnosticsRememberedPolicy
+import com.poyka.ripdpi.diagnostics.ScanKind
+import com.poyka.ripdpi.diagnostics.ScanPathMode
 import com.poyka.ripdpi.diagnostics.ScanProgress
 import com.poyka.ripdpi.diagnostics.presentation.DiagnosticsProfileProjection
 import com.poyka.ripdpi.diagnostics.presentation.DiagnosticsSessionProjection
@@ -147,10 +149,25 @@ internal class DiagnosticsUiStateFactory
         ): DiagnosticsApproachDetailUiModel = support.toApproachDetailUiModel(detail)
 
         fun toCompletedProbeUiModel(
+            phase: String,
             target: String,
             outcome: String,
+            pathMode: ScanPathMode,
+            scanKind: ScanKind,
         ): CompletedProbeUiModel =
-            CompletedProbeUiModel(target = target, outcome = outcome, tone = support.toneForOutcome(outcome))
+            CompletedProbeUiModel(
+                target = target,
+                outcome = outcome,
+                tone =
+                    when (scanKind) {
+                        ScanKind.STRATEGY_PROBE -> strategyProgressTone(outcome)
+
+                        ScanKind.CONNECTIVITY ->
+                            phaseToConnectivityProbeType(phase)
+                                ?.let { probeType -> support.core.toneForProbeOutcome(probeType, pathMode, outcome) }
+                                ?: DiagnosticsTone.Neutral
+                    },
+            )
 
         private fun resolveUiInput(
             input: DiagnosticsUiStateInput,
@@ -182,7 +199,16 @@ internal class DiagnosticsUiStateFactory
                 latestCompletedSession = latestCompletedSession,
                 latestProfileSession = latestProfileSession,
                 latestReport = latestCompletedSession?.report,
-                latestReportResults = latestProfileReport?.results?.mapIndexed(support::toProbeResultUiModel).orEmpty(),
+                latestReportResults =
+                    latestProfileReport
+                        ?.results
+                        ?.mapIndexed { index, result ->
+                            support.toProbeResultUiModel(
+                                index = index,
+                                pathMode = support.parsePathMode(latestProfileSession.pathMode),
+                                result = result,
+                            )
+                        }.orEmpty(),
                 latestResolverRecommendation =
                     latestProfileReport?.resolverRecommendation?.let(support::toResolverRecommendationUiModel),
                 latestStrategyProbeReport = latestStrategyProbeReport,
@@ -248,6 +274,7 @@ internal class DiagnosticsUiStateFactory
                 activeProfile = resolvedInput.activeProfile,
                 activeProfileRequest = resolvedInput.activeProfileRequest,
                 latestProfileSession = resolvedInput.latestProfileSession,
+                activeScanPathMode = input.activeScanPathMode,
                 latestReportResults = resolvedInput.latestReportResults,
                 latestResolverRecommendation = resolvedInput.latestResolverRecommendation,
                 latestStrategyProbeReport = resolvedInput.latestStrategyProbeReport,
@@ -438,5 +465,30 @@ internal data class DiagnosticsUiStateInput(
     val sensitiveSessionDetailsVisible: Boolean,
     val archiveActionState: ArchiveActionState,
     val scanStartedAt: Long?,
+    val activeScanPathMode: ScanPathMode?,
     val completedProbes: List<CompletedProbeUiModel> = emptyList(),
 )
+
+private fun phaseToConnectivityProbeType(phase: String): String? =
+    when (phase) {
+        "environment" -> "network_environment"
+        "dns" -> "dns_integrity"
+        "reachability" -> "domain_reachability"
+        "quic" -> "quic_reachability"
+        "tcp" -> "tcp_fat_header"
+        "service" -> "service_reachability"
+        "circumvention" -> "circumvention_reachability"
+        "telegram" -> "telegram_availability"
+        "throughput" -> "throughput_window"
+        else -> null
+    }
+
+private fun strategyProgressTone(outcome: String): DiagnosticsTone =
+    when {
+        outcome.equals("success", ignoreCase = true) -> DiagnosticsTone.Positive
+        outcome.equals("partial", ignoreCase = true) -> DiagnosticsTone.Warning
+        outcome.equals("skipped", ignoreCase = true) || outcome.equals("not_applicable", ignoreCase = true) -> {
+            DiagnosticsTone.Neutral
+        }
+        else -> DiagnosticsTone.Negative
+    }

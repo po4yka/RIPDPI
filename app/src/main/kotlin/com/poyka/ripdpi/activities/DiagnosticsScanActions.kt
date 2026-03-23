@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.activities
 
+import com.poyka.ripdpi.diagnostics.ScanKind
 import com.poyka.ripdpi.diagnostics.ScanPathMode
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.combine
@@ -22,9 +23,23 @@ internal class DiagnosticsScanActions(
                             tone = scanCompletedTone(latestSession),
                         ),
                     )
-                    scanLifecycle.update { it.copy(scanStartedAt = null, accumulatedProbes = emptyList()) }
+                    scanLifecycle.update {
+                        it.copy(
+                            scanStartedAt = null,
+                            activeScanPathMode = null,
+                            activeScanKind = null,
+                            accumulatedProbes = emptyList(),
+                        )
+                    }
                 } else if (progress == null) {
-                    scanLifecycle.update { it.copy(scanStartedAt = null, accumulatedProbes = emptyList()) }
+                    scanLifecycle.update {
+                        it.copy(
+                            scanStartedAt = null,
+                            activeScanPathMode = null,
+                            activeScanKind = null,
+                            accumulatedProbes = emptyList(),
+                        )
+                    }
                 }
                 prevProgress = progress
             }
@@ -43,7 +58,13 @@ internal class DiagnosticsScanActions(
                     it.copy(
                         accumulatedProbes =
                             it.accumulatedProbes +
-                                uiStateFactory.toCompletedProbeUiModel(target, outcome),
+                                uiStateFactory.toCompletedProbeUiModel(
+                                    phase = progress.phase,
+                                    target = target,
+                                    outcome = outcome,
+                                    pathMode = it.activeScanPathMode ?: ScanPathMode.RAW_PATH,
+                                    scanKind = it.activeScanKind ?: ScanKind.CONNECTIVITY,
+                                ),
                     )
                 }
             }
@@ -69,7 +90,14 @@ internal class DiagnosticsScanActions(
     }
 
     fun startRawScan() {
-        scanLifecycle.update { it.copy(scanStartedAt = System.currentTimeMillis()) }
+        val scanKind = mutations.currentUiState().scan.selectedProfile?.kind ?: ScanKind.CONNECTIVITY
+        scanLifecycle.update {
+            it.copy(
+                scanStartedAt = System.currentTimeMillis(),
+                activeScanPathMode = ScanPathMode.RAW_PATH,
+                activeScanKind = scanKind,
+            )
+        }
         mutations.launch {
             val profileName = currentUiState().scan.selectedProfile?.name ?: "Scan"
             emit(DiagnosticsEffect.ScanStarted(scanTypeLabel = profileName))
@@ -81,7 +109,14 @@ internal class DiagnosticsScanActions(
     }
 
     fun startInPathScan() {
-        scanLifecycle.update { it.copy(scanStartedAt = System.currentTimeMillis()) }
+        val scanKind = mutations.currentUiState().scan.selectedProfile?.kind ?: ScanKind.CONNECTIVITY
+        scanLifecycle.update {
+            it.copy(
+                scanStartedAt = System.currentTimeMillis(),
+                activeScanPathMode = ScanPathMode.IN_PATH,
+                activeScanKind = scanKind,
+            )
+        }
         mutations.launch {
             val profileName = currentUiState().scan.selectedProfile?.name ?: "Scan"
             emit(DiagnosticsEffect.ScanStarted(scanTypeLabel = profileName))
@@ -90,7 +125,14 @@ internal class DiagnosticsScanActions(
     }
 
     fun cancelScan() {
-        scanLifecycle.update { it.copy(scanStartedAt = null) }
+        scanLifecycle.update {
+            it.copy(
+                scanStartedAt = null,
+                activeScanPathMode = null,
+                activeScanKind = null,
+                accumulatedProbes = emptyList(),
+            )
+        }
         mutations.launch {
             scanLifecycle.update { it.copy(pendingAutoOpenAuditSessionId = null) }
             diagnosticsScanController.cancelActiveScan()

@@ -32,7 +32,7 @@ use crate::types::{
     NativeSessionEvent, ProbeObservation, ProbeResult, ProbeTaskFamily, ScanKind, ScanProgress, ScanReport,
     ScanRequest, SharedState, StrategyProbeCandidateSummary, StrategyProbeRecommendation, StrategyProbeReport,
 };
-use crate::util::{event_level_for_outcome, now_ms, probe_session_seed, stable_probe_hash};
+use crate::util::{classify_probe_outcome, event_level_for_outcome, now_ms, probe_session_seed, stable_probe_hash};
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub(crate) enum ExecutionStageId {
@@ -64,7 +64,8 @@ pub(crate) struct RunnerArtifacts {
 }
 
 impl RunnerArtifacts {
-    fn from_probe(probe: ProbeResult, source: &str) -> Self {
+    fn from_probe(probe: ProbeResult, source: &str, path_mode: &crate::types::ScanPathMode) -> Self {
+        let probe_type = probe.probe_type.clone();
         let outcome = probe.outcome.clone();
         let message = summarize_probe_event(&probe);
         Self {
@@ -72,7 +73,7 @@ impl RunnerArtifacts {
             probe_results: vec![probe],
             events: vec![NativeSessionEvent {
                 source: source.to_string(),
-                level: event_level_for_outcome(&outcome).to_string(),
+                level: event_level_for_outcome(&probe_type, path_mode, &outcome).to_string(),
                 message,
                 created_at: now_ms(),
             }],
@@ -370,8 +371,7 @@ pub(crate) fn run_engine_scan(
         RunnerOutcome::Completed => {
             let summary = match plan.request.kind {
                 ScanKind::Connectivity => {
-                    let success_count = runtime.results.iter().filter(|result| result.outcome.contains("ok")).count();
-                    connectivity_summary(success_count, runtime.results.len())
+                    connectivity_summary(&runtime.results, &plan.request.path_mode)
                 }
                 ScanKind::StrategyProbe => {
                     runtime.strategy.summary.clone().unwrap_or_else(|| "Automatic probing finished".to_string())
@@ -559,7 +559,7 @@ impl ExecutionStageRunner for EnvironmentRunner {
             return RunnerOutcome::Completed;
         };
         let probe = build_network_environment_probe(Some(snapshot)).expect("snapshot probe");
-        let artifacts = RunnerArtifacts::from_probe(probe.clone(), "network_environment");
+        let artifacts = RunnerArtifacts::from_probe(probe.clone(), "network_environment", &plan.request.path_mode);
         runtime.record_step(
             plan,
             self.phase(),
@@ -582,7 +582,7 @@ impl ExecutionStageRunner for EnvironmentRunner {
                 plan.session_id.clone(),
                 plan.request.clone(),
                 plan.started_at,
-                "network_unavailable".to_string(),
+                connectivity_summary(&runtime.results, &plan.request.path_mode),
                 runtime.results.clone(),
                 runtime.observations.clone(),
                 None,
@@ -634,7 +634,7 @@ macro_rules! connectivity_runner {
                     let label = $label(item.clone());
                     let probe = $body(item, plan, tls_verifier);
                     let outcome = probe.outcome.clone();
-                    let artifacts = RunnerArtifacts::from_probe(probe, $source);
+                    let artifacts = RunnerArtifacts::from_probe(probe, $source, &plan.request.path_mode);
                     runtime.record_step(plan, self.phase(), label.clone(), Some(label), Some(outcome), artifacts);
                 }
                 RunnerOutcome::Completed
@@ -759,7 +759,7 @@ impl ExecutionStageRunner for TelegramRunner {
             "Telegram availability checked".to_string(),
             Some("telegram.org".to_string()),
             Some(outcome),
-            RunnerArtifacts::from_probe(probe, "telegram"),
+            RunnerArtifacts::from_probe(probe, "telegram", &plan.request.path_mode),
         );
         RunnerOutcome::Completed
     }
@@ -1228,6 +1228,66 @@ fn execution_coordinator() -> ExecutionCoordinator {
     ])
 }
 
-fn connectivity_summary(success_count: usize, result_count: usize) -> String {
-    format!("{success_count}/{result_count} probes succeeded")
+fn connectivity_summary(
+    results: &[ProbeResult],
+    path_mode: &crate::types::ScanPathMode,
+) -> String {
+    let mut healthy = 0usize;
+    let mut attention = 0usize;
+    let mut failed = 0usize;
+    let mut inconclusive = 0usize;
+
+    for result in results {
+        match classify_probe_outcome(&result.probe_type, path_mode, &result.outcome).bucket {
+            crate::util::ProbeOutcomeBucket::Healthy => healthy += 1,
+            crate::util::ProbeOutcomeBucket::Attention => attention += 1,
+            crate::util::ProbeOutcomeBucket::Failed => failed += 1,
+            crate::util::ProbeOutcomeBucket::Inconclusive => inconclusive += 1,
+        }
+    }
+
+    let mut parts = vec![format!("{} completed", results.len()), format!("{healthy} healthy")];
+    if attention > 0 {
+        parts.push(format!("{attention} attention"));
+    }
+    if failed > 0 {
+        parts.push(format!("{failed} failed"));
+    }
+    if inconclusive > 0 {
+        parts.push(format!("{inconclusive} inconclusive"));
+    }
+    parts.join(" · ")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn connectivity_summary_reports_bucket_breakdown() {
+        let mut results = vec![probe("network_environment", "wifi", "network_available")];
+        results.extend((0..24).map(|index| probe("dns_integrity", format!("dns-{index}"), "dns_match")));
+        results.extend((0..4).map(|index| probe("domain_reachability", format!("tls-{index}"), "tls_ok")));
+        results.push(probe("tcp_fat_header", "16.15.219.241:443 (AWS)", "whitelist_sni_ok"));
+        results.push(probe("tcp_fat_header", "172.67.70.222:443 (Cloudflare)", "whitelist_sni_failed"));
+
+        assert_eq!(
+            connectivity_summary(&results, &crate::types::ScanPathMode::RawPath),
+            "31 completed · 30 healthy · 1 failed",
+        );
+    }
+
+    #[test]
+    fn connectivity_summary_omits_zero_value_non_healthy_buckets() {
+        assert_eq!(connectivity_summary(&[], &crate::types::ScanPathMode::RawPath), "0 completed · 0 healthy");
+    }
+
+    fn probe(probe_type: &str, target: impl Into<String>, outcome: &str) -> ProbeResult {
+        ProbeResult {
+            probe_type: probe_type.to_string(),
+            target: target.into(),
+            outcome: outcome.to_string(),
+            details: Vec::new(),
+        }
+    }
 }
