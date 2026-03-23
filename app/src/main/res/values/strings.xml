@@ -1131,6 +1131,10 @@ Source: %2$s</string>
     <string name="settings_biometric_body_with_pin">Biometric unlock is enabled with a local backup PIN fallback.</string>
     <string name="settings_biometric_body_without_pin">Biometric unlock is enabled. Add a backup PIN for fallback access.</string>
     <string name="settings_biometric_body_disabled">Ask for biometric authentication before opening the dashboard.</string>
+    <string name="settings_biometric_confirm_title">Enable authentication?</string>
+    <string name="settings_biometric_confirm_message">You\'ll need to verify your identity each time you open the dashboard.</string>
+    <string name="settings_biometric_confirm_enable">Enable</string>
+    <string name="settings_biometric_confirm_cancel">Cancel</string>
     <string name="settings_warning_backup_pin_title">Backup PIN recommended</string>
     <string name="settings_warning_backup_pin_body">Set a four-digit fallback PIN so you can still unlock RIPDPI if biometrics are unavailable.</string>
     <string name="settings_backup_pin_body">Store a four-digit PIN on this device for fallback authentication.</string>
