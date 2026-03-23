@@ -56,7 +56,7 @@ pub(crate) fn strategy_probe_config_json(config: &ProxyUiConfig) -> String {
 
 pub(crate) fn default_runtime_encrypted_dns_context() -> ProxyEncryptedDnsContext {
     ProxyEncryptedDnsContext {
-        resolver_id: Some("google".to_string()),
+        resolver_id: Some("cloudflare".to_string()),
         protocol: "doh".to_string(),
         host: DEFAULT_DOH_HOST.to_string(),
         port: DEFAULT_DOH_PORT,
@@ -515,19 +515,20 @@ mod tests {
     }
 
     #[test]
-    fn default_runtime_encrypted_dns_context_returns_google_doh() {
+    fn default_runtime_encrypted_dns_context_returns_cloudflare_doh() {
         let ctx = default_runtime_encrypted_dns_context();
         assert_eq!(ctx.protocol, "doh");
-        assert_eq!(ctx.host, "dns.google");
-        assert!(ctx.doh_url.as_deref().unwrap_or("").contains("dns.google"));
+        assert_eq!(ctx.host, "cloudflare-dns.com");
+        assert!(ctx.doh_url.as_deref().unwrap_or("").contains("cloudflare-dns.com"));
         assert!(!ctx.bootstrap_ips.is_empty());
+        assert!(ctx.bootstrap_ips.iter().any(|ip| ip == "1.1.1.1"));
     }
 
     #[test]
     fn strategy_probe_encrypted_dns_label_uses_doh_url_when_present() {
         let ctx = default_runtime_encrypted_dns_context();
         let label = strategy_probe_encrypted_dns_label(&ctx);
-        assert!(label.contains("dns.google"));
+        assert!(label.contains("cloudflare-dns.com"));
     }
 
     #[test]

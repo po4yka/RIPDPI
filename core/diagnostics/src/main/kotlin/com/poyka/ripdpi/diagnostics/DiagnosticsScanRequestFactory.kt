@@ -1,9 +1,16 @@
 package com.poyka.ripdpi.diagnostics
 
+import com.poyka.ripdpi.core.RipDpiProxyUIPreferences
+import com.poyka.ripdpi.core.toRipDpiRuntimeContext
+import com.poyka.ripdpi.data.EncryptedDnsPathCandidate
+import com.poyka.ripdpi.data.activeDnsSettings
+import com.poyka.ripdpi.data.canonicalDefaultEncryptedDnsSettings
 import com.poyka.ripdpi.data.diagnostics.DiagnosticContextEntity
 import com.poyka.ripdpi.data.diagnostics.DiagnosticProfileEntity
 import com.poyka.ripdpi.data.diagnostics.NetworkSnapshotEntity
 import com.poyka.ripdpi.data.diagnostics.ScanSessionEntity
+import com.poyka.ripdpi.data.toActiveDnsSettings
+import com.poyka.ripdpi.diagnostics.contract.engine.EngineScanRequestWire
 import com.poyka.ripdpi.diagnostics.domain.DiagnosticsIntent
 import com.poyka.ripdpi.diagnostics.domain.ScanContext
 import com.poyka.ripdpi.diagnostics.domain.ScanPlan
@@ -52,7 +59,13 @@ internal class DiagnosticsScanRequestFactory
             val intent = intentResolver.resolve(profile.id, pathMode).copy(settings = settings)
             val scanContext = scanContextCollector.collect(intent)
             val plan = diagnosticsPlanner.plan(intent, scanContext)
-            val engineRequest = engineRequestEncoder.encode(plan)
+            val engineRequest =
+                engineRequestEncoder
+                    .encode(plan)
+                    .withStrategyProbeBaseConfig(
+                        settings = settings,
+                        preferredDnsPath = scanContext.preferredDnsPath,
+                    )
             val sessionId = UUID.randomUUID().toString()
             val now = System.currentTimeMillis()
             return PreparedDiagnosticsScan(
@@ -116,3 +129,33 @@ internal class DiagnosticsScanRequestFactory
             )
         }
     }
+
+private fun EngineScanRequestWire.withStrategyProbeBaseConfig(
+    settings: com.poyka.ripdpi.proto.AppSettings,
+    preferredDnsPath: EncryptedDnsPathCandidate?,
+): EngineScanRequestWire {
+    val strategyProbe = strategyProbe ?: return this
+    if (!strategyProbe.baseProxyConfigJson.isNullOrBlank()) {
+        return this
+    }
+    return copy(
+        strategyProbe =
+            strategyProbe.copy(
+                baseProxyConfigJson =
+                    RipDpiProxyUIPreferences
+                        .fromSettings(
+                            settings = settings,
+                            runtimeContext = resolveStrategyProbeRuntimeContext(settings, preferredDnsPath),
+                        ).toNativeConfigJson(),
+            ),
+    )
+}
+
+private fun resolveStrategyProbeRuntimeContext(
+    settings: com.poyka.ripdpi.proto.AppSettings,
+    preferredDnsPath: EncryptedDnsPathCandidate?,
+) = settings
+    .activeDnsSettings()
+    .toRipDpiRuntimeContext()
+    ?: preferredDnsPath?.toActiveDnsSettings()?.toRipDpiRuntimeContext()
+    ?: canonicalDefaultEncryptedDnsSettings().toRipDpiRuntimeContext()

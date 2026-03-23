@@ -120,6 +120,19 @@ val BuiltInDnsProviders: List<DnsProviderDefinition> =
         ),
     )
 
+fun canonicalDefaultDnsProviderDefinition(): DnsProviderDefinition =
+    BuiltInDnsProviders.firstOrNull() ?: error("BuiltInDnsProviders must not be empty")
+
+fun canonicalDefaultPlainDnsIp(): String = canonicalDefaultDnsProviderDefinition().primaryIp
+
+fun canonicalDefaultUdpDnsServer(): String = "${canonicalDefaultPlainDnsIp()}:53"
+
+fun canonicalDefaultEncryptedDnsSettings(): ActiveDnsSettings =
+    defaultEncryptedSettingsForBuiltIn(canonicalDefaultDnsProviderDefinition())
+
+fun canonicalDefaultEncryptedDnsPathCandidate(): EncryptedDnsPathCandidate =
+    requireNotNull(canonicalDefaultEncryptedDnsSettings().toEncryptedDnsPathCandidate())
+
 fun dnsProviderById(providerId: String): DnsProviderDefinition? =
     BuiltInDnsProviders.firstOrNull { it.providerId == providerId }
 
@@ -174,7 +187,7 @@ private fun plainDnsSettings(dnsIp: String): ActiveDnsSettings =
     ActiveDnsSettings(
         mode = DnsModePlainUdp,
         providerId = DnsProviderCustom,
-        dnsIp = dnsIp.ifBlank { AppSettingsSerializer.defaultValue.dnsIp },
+        dnsIp = dnsIp.ifBlank { canonicalDefaultPlainDnsIp() },
         encryptedDnsProtocol = "",
         encryptedDnsHost = "",
         encryptedDnsPort = 0,
@@ -186,7 +199,7 @@ private fun plainDnsSettings(dnsIp: String): ActiveDnsSettings =
     )
 
 private fun legacyDnsSettings(dnsIp: String): ActiveDnsSettings {
-    val normalizedDnsIp = dnsIp.ifBlank { AppSettingsSerializer.defaultValue.dnsIp }
+    val normalizedDnsIp = dnsIp.ifBlank { canonicalDefaultPlainDnsIp() }
     val builtIn = BuiltInDnsProviders.firstOrNull { it.primaryIp == normalizedDnsIp }
     return builtIn?.let(::defaultEncryptedSettingsForBuiltIn) ?: plainDnsSettings(normalizedDnsIp)
 }
@@ -256,7 +269,7 @@ fun activeDnsSettings(
         )
     val effectiveDnsIp =
         normalizedBootstrapIps.firstOrNull()
-            ?: dnsIp.ifBlank { AppSettingsSerializer.defaultValue.dnsIp }
+            ?: dnsIp.ifBlank { canonicalDefaultPlainDnsIp() }
     val effectiveDohUrl = firstNonBlank(encryptedDnsDohUrl, dnsDohUrl)
     val derivedHost =
         when (normalizedProtocol) {

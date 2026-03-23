@@ -8,22 +8,24 @@ import java.io.InputStream
 import java.io.OutputStream
 
 object AppSettingsSerializer : Serializer<AppSettings> {
+    private val defaultDns = canonicalDefaultEncryptedDnsSettings()
+
     override val defaultValue: AppSettings =
         AppSettings
             .newBuilder()
             .setAppTheme("system")
             .setRipdpiMode("vpn")
-            .setDnsIp("1.1.1.1")
-            .setDnsMode(DnsModeEncrypted)
-            .setDnsProviderId(DnsProviderCloudflare)
-            .setDnsDohUrl("https://cloudflare-dns.com/dns-query")
-            .addAllDnsDohBootstrapIps(listOf("1.1.1.1", "1.0.0.1"))
-            .setEncryptedDnsProtocol(EncryptedDnsProtocolDoh)
-            .setEncryptedDnsHost("cloudflare-dns.com")
-            .setEncryptedDnsPort(443)
-            .setEncryptedDnsTlsServerName("cloudflare-dns.com")
-            .addAllEncryptedDnsBootstrapIps(listOf("1.1.1.1", "1.0.0.1"))
-            .setEncryptedDnsDohUrl("https://cloudflare-dns.com/dns-query")
+            .setDnsIp(defaultDns.dnsIp)
+            .setDnsMode(defaultDns.mode)
+            .setDnsProviderId(defaultDns.providerId)
+            .setDnsDohUrl(defaultDns.encryptedDnsDohUrl)
+            .addAllDnsDohBootstrapIps(defaultDns.encryptedDnsBootstrapIps)
+            .setEncryptedDnsProtocol(defaultDns.encryptedDnsProtocol)
+            .setEncryptedDnsHost(defaultDns.encryptedDnsHost)
+            .setEncryptedDnsPort(defaultDns.encryptedDnsPort)
+            .setEncryptedDnsTlsServerName(defaultDns.encryptedDnsTlsServerName)
+            .addAllEncryptedDnsBootstrapIps(defaultDns.encryptedDnsBootstrapIps)
+            .setEncryptedDnsDohUrl(defaultDns.encryptedDnsDohUrl)
             .setProxyIp("127.0.0.1")
             .setProxyPort(1080)
             .setMaxConnections(512)
