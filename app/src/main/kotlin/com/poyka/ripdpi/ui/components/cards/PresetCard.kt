@@ -20,6 +20,7 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.ui.components.RipDpiComponentPreview
@@ -113,6 +114,8 @@ fun PresetCard(
             text = description,
             style = type.secondaryBody,
             color = colors.mutedForeground,
+            maxLines = 3,
+            overflow = TextOverflow.Ellipsis,
         )
     }
 }

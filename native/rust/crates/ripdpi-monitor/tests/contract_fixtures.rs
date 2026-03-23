@@ -58,8 +58,7 @@ fn engine_schema_version_matches_kotlin_contract_constant() {
 
 #[test]
 fn outcome_fixture_covers_emitted_native_outcome_tokens() {
-    let fixture_tokens =
-        outcome_fixture_tokens("diagnostics-contract-fixtures/outcome_taxonomy_current.json");
+    let fixture_tokens = outcome_fixture_tokens("diagnostics-contract-fixtures/outcome_taxonomy_current.json");
     let emitted_tokens = emitted_native_outcome_tokens();
 
     assert_eq!(fixture_tokens, emitted_tokens);
@@ -95,13 +94,11 @@ fn emitted_native_outcome_tokens() -> BTreeSet<String> {
     ] {
         tokens.extend(quoted_outcome_tokens(&function_body(&repo.join(path), signature)));
     }
-    tokens.extend(quoted_outcome_tokens(
-        &section(
-            &repo.join("native/rust/crates/ripdpi-failure-classifier/src/lib.rs"),
-            "impl FailureClass",
-            "impl FailureStage",
-        ),
-    ));
+    tokens.extend(quoted_outcome_tokens(&section(
+        &repo.join("native/rust/crates/ripdpi-failure-classifier/src/lib.rs"),
+        "impl FailureClass",
+        "impl FailureStage",
+    )));
     tokens
 }
 
@@ -182,7 +179,7 @@ fn is_outcome_token(value: &str) -> bool {
     if matches!(value, "ok" | "slow" | "partial" | "blocked" | "error" | "unknown" | "redirect" | "unreachable") {
         return true;
     }
-    !value.is_empty() &&
-        value.chars().all(|ch| ch.is_ascii_lowercase() || ch.is_ascii_digit() || ch == '_') &&
-        value.contains('_')
+    !value.is_empty()
+        && value.chars().all(|ch| ch.is_ascii_lowercase() || ch.is_ascii_digit() || ch == '_')
+        && value.contains('_')
 }
