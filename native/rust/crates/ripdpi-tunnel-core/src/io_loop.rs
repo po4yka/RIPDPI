@@ -1237,6 +1237,20 @@ mod tests {
         pkt
     }
 
+    fn ipv4_tcp_ack(dst_port: u16) -> Vec<u8> {
+        let mut pkt = vec![0u8; 40];
+        pkt[0] = 0x45;
+        pkt[3] = 40;
+        pkt[9] = 6;
+        pkt[12..16].copy_from_slice(&[10, 0, 0, 1]);
+        pkt[16..20].copy_from_slice(&[10, 0, 0, 2]);
+        pkt[20..22].copy_from_slice(&12345u16.to_be_bytes());
+        pkt[22..24].copy_from_slice(&dst_port.to_be_bytes());
+        pkt[32] = 0x50;
+        pkt[33] = 0x10; // ACK
+        pkt
+    }
+
     fn ipv6_tcp_syn(dst_port: u16) -> Vec<u8> {
         let mut pkt = vec![0u8; 60];
         pkt[0] = 0x60;
@@ -1294,8 +1308,36 @@ mod tests {
     }
 
     #[test]
+    fn ipv4_transport_helpers_reject_wrong_protocol_and_extract_ports() {
+        let mut udp_packet = ipv4_tcp_syn();
+        udp_packet[9] = 17;
+
+        assert_eq!(ipv4_transport_offset(&ipv4_tcp_syn(), 6), Some(20));
+        assert_eq!(ipv4_transport_offset(&udp_packet, 6), None);
+        assert_eq!(tcp_dst_port(&ipv4_tcp_ack(8443)), Some(8443));
+        assert!(!is_tcp_syn(&ipv4_tcp_ack(8443)));
+    }
+
+    #[test]
     fn tcp_dst_port_extracts_ipv6_destination_port() {
         assert_eq!(tcp_dst_port(&ipv6_tcp_syn(8443)), Some(8443));
+    }
+
+    #[test]
+    fn build_udp_response_supports_ipv4() {
+        let src = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(198, 18, 0, 10)), 53);
+        let dst = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(10, 0, 0, 2)), 5353);
+        let payload = b"dns";
+
+        let pkt = build_udp_response(src, dst, payload);
+
+        assert_eq!(pkt.len(), 20 + 8 + payload.len());
+        assert_eq!(pkt[0] >> 4, 4);
+        assert_eq!(pkt[9], 17);
+        assert_eq!(u16::from_be_bytes([pkt[20], pkt[21]]), 53);
+        assert_eq!(u16::from_be_bytes([pkt[22], pkt[23]]), 5353);
+        assert_ne!(u16::from_be_bytes([pkt[26], pkt[27]]), 0);
+        assert_eq!(&pkt[28..], payload);
     }
 
     #[test]
@@ -1313,5 +1355,14 @@ mod tests {
         assert_eq!(u16::from_be_bytes([pkt[42], pkt[43]]), 5353);
         assert_ne!(u16::from_be_bytes([pkt[46], pkt[47]]), 0);
         assert_eq!(&pkt[48..], payload);
+    }
+
+    #[test]
+    fn build_udp_response_rejects_oversized_payloads() {
+        let payload = vec![0u8; usize::from(u16::MAX)];
+        let src = SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 53);
+        let dst = SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 5353);
+
+        assert!(build_udp_response(src, dst, &payload).is_empty());
     }
 }

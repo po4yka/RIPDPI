@@ -15,7 +15,7 @@ MODULE_THRESHOLDS = {
     "core:service": 70.0,
 }
 AGGREGATE_THRESHOLD = 65.0
-RUST_THRESHOLD = 70.0
+RUST_THRESHOLD = 78.0
 
 
 def parse_args() -> argparse.Namespace:

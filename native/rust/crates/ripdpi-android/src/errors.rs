@@ -43,3 +43,66 @@ pub(crate) fn extract_panic_message(payload: Box<dyn Any + Send>) -> String {
         .unwrap_or("unknown panic")
         .to_string()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    use android_support::describe_exception;
+    use jni::JNIEnv;
+    use std::io;
+    use std::sync::MutexGuard;
+
+    #[test]
+    fn throw_maps_argument_errors_to_illegal_argument_exception() {
+        let _serial = lock_jni_tests();
+
+        with_env(|env| {
+            JniProxyError::InvalidConfig("bad settings".to_string()).throw(env);
+            assert_eq!(
+                take_exception(env),
+                "java.lang.IllegalArgumentException: invalid configuration: bad settings",
+            );
+
+            JniProxyError::InvalidArgument("bad handle".to_string()).throw(env);
+            assert_eq!(take_exception(env), "java.lang.IllegalArgumentException: bad handle");
+        });
+    }
+
+    #[test]
+    fn throw_maps_state_io_and_serialization_errors_to_expected_java_classes() {
+        let _serial = lock_jni_tests();
+
+        with_env(|env| {
+            JniProxyError::IllegalState("proxy running").throw(env);
+            assert_eq!(take_exception(env), "java.lang.IllegalStateException: proxy running");
+
+            JniProxyError::Io(io::Error::new(io::ErrorKind::BrokenPipe, "socket boom")).throw(env);
+            assert_eq!(take_exception(env), "java.io.IOException: I/O failure: socket boom");
+
+            let json_err = serde_json::from_str::<serde_json::Value>("{").expect_err("json error");
+            JniProxyError::Serialization(json_err).throw(env);
+            assert!(take_exception(env).starts_with("java.lang.RuntimeException:"));
+        });
+    }
+
+    #[test]
+    fn extract_panic_message_handles_string_str_and_unknown_payloads() {
+        assert_eq!(extract_panic_message(Box::new(String::from("owned panic"))), "owned panic");
+        assert_eq!(extract_panic_message(Box::new("borrowed panic")), "borrowed panic");
+        assert_eq!(extract_panic_message(Box::new(42usize)), "unknown panic");
+    }
+
+    fn lock_jni_tests() -> MutexGuard<'static, ()> {
+        crate::shared_jni_test_mutex().lock().unwrap_or_else(std::sync::PoisonError::into_inner)
+    }
+
+    fn with_env<R>(f: impl FnOnce(&mut JNIEnv<'_>) -> R) -> R {
+        let mut env = crate::shared_test_jvm().attach_current_thread().expect("attach current thread to test JVM");
+        f(&mut env)
+    }
+
+    fn take_exception(env: &mut JNIEnv<'_>) -> String {
+        describe_exception(env).expect("expected Java exception")
+    }
+}
