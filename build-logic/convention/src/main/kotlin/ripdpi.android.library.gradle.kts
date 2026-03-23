@@ -6,11 +6,16 @@ plugins {
     id("ripdpi.android.native")
 }
 
+val consumerProguardRules = project.layout.projectDirectory.file("consumer-rules.pro").asFile
+
 extensions.configure<LibraryExtension> {
     compileSdk = providers.gradleProperty("ripdpi.compileSdk").get().toInt()
 
     defaultConfig {
         minSdk = providers.gradleProperty("ripdpi.minSdk").get().toInt()
+        if (consumerProguardRules.isFile) {
+            consumerProguardFiles(consumerProguardRules)
+        }
     }
 
     compileOptions {
