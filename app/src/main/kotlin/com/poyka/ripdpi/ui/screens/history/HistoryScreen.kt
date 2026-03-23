@@ -565,7 +565,7 @@ private fun EventsSection(
             )
         }
 
-        if (uiState.events.events.isEmpty()) {
+        if (uiState.groupedEvents.isEmpty()) {
             item {
                 EmptyStateCard(
                     title = stringResource(R.string.history_events_empty_title),
@@ -574,11 +574,19 @@ private fun EventsSection(
                 )
             }
         } else {
-            items(uiState.events.events, key = { it.id }, contentType = { "event" }) { event ->
+            items(
+                uiState.groupedEvents,
+                key = { it.representative.id },
+                contentType = { "event" },
+            ) { grouped ->
                 EventRow(
-                    event = event,
-                    onClick = { onSelectEvent(event.id) },
-                    modifier = Modifier.ripDpiTestTag(RipDpiTestTags.historyEvent(event.id)),
+                    event = grouped.representative,
+                    occurrenceCount = grouped.count,
+                    lastTimestampLabel = grouped.lastTimestampLabel,
+                    onClick = { onSelectEvent(grouped.representative.id) },
+                    modifier = Modifier.ripDpiTestTag(
+                        RipDpiTestTags.historyEvent(grouped.representative.id),
+                    ),
                 )
             }
         }
@@ -742,25 +750,62 @@ private fun EventRow(
     event: DiagnosticsEventUiModel,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    occurrenceCount: Int = 1,
+    lastTimestampLabel: String? = null,
 ) {
+    val colors = RipDpiThemeTokens.colors
+    val components = RipDpiThemeTokens.components
+    val type = RipDpiThemeTokens.type
+
     RipDpiCard(
         modifier = modifier,
         onClick = onClick,
         variant = RipDpiCardVariant.Outlined,
     ) {
-        StatusIndicator(
-            label = event.severity,
-            tone = statusTone(event.tone),
-        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            StatusIndicator(
+                label = event.severity,
+                tone = statusTone(event.tone),
+            )
+            if (occurrenceCount > 1) {
+                Box(
+                    modifier =
+                        Modifier
+                            .background(
+                                color = colors.inputBackground,
+                                shape = RipDpiThemeTokens.shapes.xxl,
+                            ).padding(
+                                horizontal = components.compactPillHorizontalPadding,
+                                vertical = components.compactPillVerticalPadding,
+                            ),
+                ) {
+                    Text(
+                        text = "x$occurrenceCount",
+                        style = type.smallLabel,
+                        color = colors.mutedForeground,
+                    )
+                }
+            }
+        }
+        val timestampText =
+            if (lastTimestampLabel != null) {
+                "${event.source} · ${event.createdAtLabel} - $lastTimestampLabel"
+            } else {
+                "${event.source} · ${event.createdAtLabel}"
+            }
         Text(
-            text = "${event.source} · ${event.createdAtLabel}",
-            style = RipDpiThemeTokens.type.secondaryBody,
-            color = RipDpiThemeTokens.colors.mutedForeground,
+            text = timestampText,
+            style = type.secondaryBody,
+            color = colors.mutedForeground,
         )
         Text(
             text = event.message,
-            style = RipDpiThemeTokens.type.body,
-            color = RipDpiThemeTokens.colors.foreground,
+            style = type.body,
+            color = colors.foreground,
         )
     }
 }
