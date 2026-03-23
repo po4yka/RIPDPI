@@ -48,11 +48,19 @@ data class HistoryConnectionsUiModel(
 )
 
 @Immutable
+data class GroupedEventUiModel(
+    val representative: DiagnosticsEventUiModel,
+    val count: Int,
+    val lastTimestampLabel: String?,
+)
+
+@Immutable
 data class HistoryUiState(
     val selectedSection: HistorySection = HistorySection.Connections,
     val connections: HistoryConnectionsUiModel = HistoryConnectionsUiModel(),
     val diagnostics: DiagnosticsSessionsUiModel = DiagnosticsSessionsUiModel(),
     val events: DiagnosticsEventsUiModel = DiagnosticsEventsUiModel(),
+    val groupedEvents: List<GroupedEventUiModel> = emptyList(),
     val selectedConnectionDetail: HistoryConnectionDetailUiModel? = null,
     val selectedDiagnosticsDetail: DiagnosticsSessionDetailUiModel? = null,
     val selectedEvent: DiagnosticsEventUiModel? = null,
