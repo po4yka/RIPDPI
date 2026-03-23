@@ -2,7 +2,6 @@ package com.poyka.ripdpi.ui.navigation
 
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
-import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -50,6 +49,7 @@ import com.poyka.ripdpi.ui.screens.permissions.BiometricPromptRoute
 import com.poyka.ripdpi.ui.screens.settings.AdvancedSettingsRoute
 import com.poyka.ripdpi.ui.screens.settings.DataTransparencyRoute
 import com.poyka.ripdpi.ui.screens.settings.SettingsRoute
+import com.poyka.ripdpi.ui.theme.RipDpiMotion
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
 private const val ConfigGraphRoute = "config_graph"
@@ -379,11 +379,11 @@ private fun routeEnterTransition(
         EnterTransition.None
     } else {
         fadeIn(
-            animationSpec = tween(durationMillis = routeDurationMillis, easing = FastOutSlowInEasing),
+            animationSpec = tween(durationMillis = routeDurationMillis, easing = RipDpiMotion.EmphasizedDecelerate),
         ) +
             scaleIn(
                 initialScale = 0.985f,
-                animationSpec = tween(durationMillis = routeDurationMillis, easing = FastOutSlowInEasing),
+                animationSpec = tween(durationMillis = routeDurationMillis, easing = RipDpiMotion.EmphasizedDecelerate),
             )
     }
 
@@ -395,7 +395,7 @@ private fun routeExitTransition(
         ExitTransition.None
     } else {
         fadeOut(
-            animationSpec = tween(durationMillis = quickDurationMillis, easing = FastOutSlowInEasing),
+            animationSpec = tween(durationMillis = quickDurationMillis, easing = RipDpiMotion.EmphasizedAccelerate),
         )
     }
 
@@ -407,11 +407,11 @@ private fun routePopEnterTransition(
         EnterTransition.None
     } else {
         fadeIn(
-            animationSpec = tween(durationMillis = routeDurationMillis, easing = FastOutSlowInEasing),
+            animationSpec = tween(durationMillis = routeDurationMillis, easing = RipDpiMotion.EmphasizedDecelerate),
         ) +
             scaleIn(
                 initialScale = 0.992f,
-                animationSpec = tween(durationMillis = routeDurationMillis, easing = FastOutSlowInEasing),
+                animationSpec = tween(durationMillis = routeDurationMillis, easing = RipDpiMotion.EmphasizedDecelerate),
             )
     }
 
@@ -423,11 +423,11 @@ private fun routePopExitTransition(
         ExitTransition.None
     } else {
         fadeOut(
-            animationSpec = tween(durationMillis = quickDurationMillis, easing = FastOutSlowInEasing),
+            animationSpec = tween(durationMillis = quickDurationMillis, easing = RipDpiMotion.EmphasizedAccelerate),
         ) +
             scaleOut(
                 targetScale = 0.992f,
-                animationSpec = tween(durationMillis = quickDurationMillis, easing = FastOutSlowInEasing),
+                animationSpec = tween(durationMillis = quickDurationMillis, easing = RipDpiMotion.EmphasizedAccelerate),
             )
     }
 

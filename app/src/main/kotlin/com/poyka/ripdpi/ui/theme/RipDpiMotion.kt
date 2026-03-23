@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.ui.theme
 
 import android.animation.ValueAnimator
+import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.staticCompositionLocalOf
@@ -36,6 +37,17 @@ data class RipDpiMotion(
 
     val allowsInfiniteMotion: Boolean
         get() = animationsEnabled && !reducedMotion
+
+    companion object {
+        /** M3 emphasized decelerate -- use for entering elements. */
+        val EmphasizedDecelerate = CubicBezierEasing(0.05f, 0.7f, 0.1f, 1.0f)
+
+        /** M3 emphasized accelerate -- use for exiting elements. */
+        val EmphasizedAccelerate = CubicBezierEasing(0.3f, 0.0f, 0.8f, 0.15f)
+
+        /** M3 standard -- use for on-screen property changes (color, opacity). */
+        val StandardEasing = CubicBezierEasing(0.2f, 0.0f, 0.0f, 1.0f)
+    }
 }
 
 val DefaultRipDpiMotion = RipDpiMotion()
