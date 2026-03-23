@@ -950,6 +950,7 @@ private fun DiagnosticsPerformanceCard(
             style = RipDpiThemeTokens.type.monoSmall,
             color = colors.foreground,
         )
+        HorizontalDivider(color = colors.divider)
         slowestStage?.let { (label, duration) ->
             Text(
                 text = "Slowest stage: $label ${formatDuration(duration)}",

@@ -105,7 +105,7 @@ val RipDpiTypeScale =
         sheetTitle = sansStyle(fontSize = 18, lineHeight = 24, fontWeight = FontWeight.Medium),
         sectionTitle =
             sansStyle(
-                fontSize = 12,
+                fontSize = 13,
                 lineHeight = 18,
                 fontWeight = FontWeight.Medium,
                 letterSpacing = 0.72f,
@@ -120,11 +120,11 @@ val RipDpiTypeScale =
         smallLabel = sansStyle(fontSize = 12, lineHeight = 16, fontWeight = FontWeight.Medium),
         button = sansStyle(fontSize = 15, lineHeight = 20, fontWeight = FontWeight.Medium),
         navLabel = sansStyle(fontSize = 12, lineHeight = 16, fontWeight = FontWeight.Medium),
-        monoValue = monoStyle(fontSize = 13, lineHeight = 20),
-        monoConfig = monoStyle(fontSize = 13, lineHeight = 20),
-        monoInline = monoStyle(fontSize = 12, lineHeight = 20),
-        monoLog = monoStyle(fontSize = 11, lineHeight = 20),
-        monoSmall = monoStyle(fontSize = 11, lineHeight = 16),
+        monoValue = monoStyle(fontSize = 14, lineHeight = 20),
+        monoConfig = monoStyle(fontSize = 14, lineHeight = 20),
+        monoInline = monoStyle(fontSize = 13, lineHeight = 20),
+        monoLog = monoStyle(fontSize = 12, lineHeight = 20),
+        monoSmall = monoStyle(fontSize = 12, lineHeight = 16),
         brandMark = pixelStyle(fontSize = 32, lineHeight = 48, letterSpacing = 0.8f),
         brandStatus = monoStyle(fontSize = 13, lineHeight = 18, fontWeight = FontWeight.Medium),
     )

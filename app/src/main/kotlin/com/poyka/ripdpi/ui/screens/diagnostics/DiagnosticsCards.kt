@@ -565,6 +565,9 @@ internal fun SessionRow(
                 tone = statusTone(session.tone),
             )
         }
+        if (session.metrics.isNotEmpty()) {
+            HorizontalDivider(color = RipDpiThemeTokens.colors.divider)
+        }
         MetricsRow(metrics = session.metrics)
     }
 }
@@ -748,12 +751,15 @@ internal fun ProbeResultRow(
                 tone = statusTone(probe.tone),
             )
         }
-        probe.details.take(2).forEach { detail ->
-            SettingsRow(
-                title = detail.label,
-                value = detail.value,
-                monospaceValue = true,
-            )
+        if (probe.details.isNotEmpty()) {
+            HorizontalDivider(color = colors.divider)
+            probe.details.take(2).forEach { detail ->
+                SettingsRow(
+                    title = detail.label,
+                    value = detail.value,
+                    monospaceValue = true,
+                )
+            }
         }
     }
 }
