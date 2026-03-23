@@ -10,6 +10,8 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
@@ -82,13 +84,15 @@ fun PresetCard(
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
+            horizontalArrangement = Arrangement.spacedBy(spacing.sm),
             verticalAlignment = Alignment.CenterVertically,
         ) {
+            RadioIndicator(selected = selected)
             Text(
                 text = title,
                 style = type.bodyEmphasis,
                 color = surfaceStyle.content,
+                modifier = Modifier.weight(1f),
             )
             badgeText?.let {
                 Box(
@@ -117,6 +121,37 @@ fun PresetCard(
             maxLines = 3,
             overflow = TextOverflow.Ellipsis,
         )
+    }
+}
+
+private val RadioIndicatorSize = 18.dp
+private val RadioIndicatorDotSize = 8.dp
+private val RadioIndicatorBorderWidth = 2.dp
+
+@Composable
+private fun RadioIndicator(selected: Boolean) {
+    val colors = RipDpiThemeTokens.colors
+    val outerColor = if (selected) colors.foreground else colors.mutedForeground
+
+    Box(
+        modifier =
+            Modifier
+                .size(RadioIndicatorSize)
+                .border(
+                    width = RadioIndicatorBorderWidth,
+                    color = outerColor,
+                    shape = CircleShape,
+                ),
+        contentAlignment = Alignment.Center,
+    ) {
+        if (selected) {
+            Box(
+                modifier =
+                    Modifier
+                        .size(RadioIndicatorDotSize)
+                        .background(color = outerColor, shape = CircleShape),
+            )
+        }
     }
 }
 
