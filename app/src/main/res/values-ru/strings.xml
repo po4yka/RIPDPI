@@ -1126,6 +1126,10 @@ fakeddisorder endhost</string>
     <string name="settings_biometric_body_with_pin">Биометрическая разблокировка включена с резервным PIN-кодом.</string>
     <string name="settings_biometric_body_without_pin">Биометрическая разблокировка включена. Добавьте резервный PIN-код для запасного доступа.</string>
     <string name="settings_biometric_body_disabled">Запрашивать биометрическую аутентификацию перед открытием панели управления.</string>
+    <string name="settings_biometric_confirm_title">Включить аутентификацию?</string>
+    <string name="settings_biometric_confirm_message">Вам потребуется подтверждать личность каждый раз при открытии панели управления.</string>
+    <string name="settings_biometric_confirm_enable">Включить</string>
+    <string name="settings_biometric_confirm_cancel">Отмена</string>
     <string name="settings_warning_backup_pin_title">Рекомендуется установить резервный PIN-код</string>
     <string name="settings_warning_backup_pin_body">Установите четырёхзначный резервный PIN-код, чтобы иметь доступ к RIPDPI в случае недоступности биометрии.</string>
     <string name="settings_backup_pin_body">Сохраните четырёхзначный PIN-код на этом устройстве для резервной аутентификации.</string>

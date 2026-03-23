@@ -41,6 +41,9 @@ import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.cards.SettingsRow
+import com.poyka.ripdpi.ui.components.feedback.RipDpiDialog
+import com.poyka.ripdpi.ui.components.feedback.RipDpiDialogAction
+import com.poyka.ripdpi.ui.components.feedback.RipDpiDialogVisuals
 import com.poyka.ripdpi.ui.components.feedback.WarningBanner
 import com.poyka.ripdpi.ui.components.feedback.WarningBannerTone
 import com.poyka.ripdpi.ui.components.inputs.RipDpiDropdown
@@ -124,6 +127,7 @@ internal fun SettingsScreen(
                 RipDpiDropdownOption(value = value, label = label)
             }
         }
+    var showBiometricConfirmDialog by rememberSaveable { mutableStateOf(false) }
     var backupPinDraft by rememberSaveable { mutableStateOf("") }
     val pinErrorText =
         when {
@@ -137,6 +141,33 @@ internal fun SettingsScreen(
         }
     val canSaveBackupPin = backupPinDraft.length == 4
     val showBackupPinEditor = uiState.biometricEnabled || uiState.hasBackupPin || backupPinDraft.isNotBlank()
+
+    if (showBiometricConfirmDialog) {
+        RipDpiDialog(
+            onDismissRequest = { showBiometricConfirmDialog = false },
+            title = stringResource(R.string.settings_biometric_confirm_title),
+            dialogTestTag = RipDpiTestTags.SettingsBiometricConfirmDialog,
+            dismissAction =
+                RipDpiDialogAction(
+                    label = stringResource(R.string.settings_biometric_confirm_cancel),
+                    onClick = { showBiometricConfirmDialog = false },
+                    testTag = RipDpiTestTags.SettingsBiometricConfirmCancel,
+                ),
+            confirmAction =
+                RipDpiDialogAction(
+                    label = stringResource(R.string.settings_biometric_confirm_enable),
+                    onClick = {
+                        showBiometricConfirmDialog = false
+                        onBiometricChanged(true)
+                    },
+                    testTag = RipDpiTestTags.SettingsBiometricConfirmEnable,
+                ),
+            visuals =
+                RipDpiDialogVisuals(
+                    message = stringResource(R.string.settings_biometric_confirm_message),
+                ),
+        )
+    }
 
     RipDpiSettingsScaffold(
         modifier =
@@ -250,7 +281,13 @@ internal fun SettingsScreen(
                                 },
                             ),
                         checked = uiState.biometricEnabled,
-                        onCheckedChange = onBiometricChanged,
+                        onCheckedChange = { enabled ->
+                            if (enabled) {
+                                showBiometricConfirmDialog = true
+                            } else {
+                                onBiometricChanged(false)
+                            }
+                        },
                         showDivider = showBackupPinEditor,
                         testTag = RipDpiTestTags.SettingsBiometric,
                     )
