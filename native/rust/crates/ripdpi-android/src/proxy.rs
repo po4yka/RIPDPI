@@ -6,7 +6,7 @@ use android_support::{
     init_android_logging, set_android_log_scope_level, throw_illegal_argument, throw_illegal_state, throw_io_exception,
     throw_runtime_exception, HandleRegistry,
 };
-use jni::objects::JString;
+use jni::objects::{JObject, JString};
 use jni::sys::{jint, jlong, jstring};
 use jni::JNIEnv;
 use ripdpi_config::RuntimeConfig;
@@ -277,19 +277,25 @@ pub(crate) fn lookup_proxy_session(handle: jlong) -> Result<Arc<ProxySession>, J
 }
 
 fn poll_proxy_telemetry(env: &mut JNIEnv, handle: jlong) -> jstring {
-    let session = match lookup_proxy_session(handle) {
-        Ok(session) => session,
-        Err(err) => {
-            err.throw(env);
-            return std::ptr::null_mut();
+    let result = env.with_local_frame_returning_local(4, |env| {
+        let session = match lookup_proxy_session(handle) {
+            Ok(session) => session,
+            Err(err) => {
+                err.throw(env);
+                return Ok(JObject::null());
+            }
+        };
+        match serde_json::to_string(&session.telemetry.snapshot()) {
+            Ok(value) => env.new_string(value).map(|s| s.into()),
+            Err(err) => {
+                JniProxyError::Serialization(err).throw(env);
+                Ok(JObject::null())
+            }
         }
-    };
-    match serde_json::to_string(&session.telemetry.snapshot()) {
-        Ok(value) => env.new_string(value).map(jni::objects::JString::into_raw).unwrap_or(std::ptr::null_mut()),
-        Err(err) => {
-            JniProxyError::Serialization(err).throw(env);
-            std::ptr::null_mut()
-        }
+    });
+    match result {
+        Ok(obj) => obj.into_raw(),
+        Err(_) => std::ptr::null_mut(),
     }
 }
 
