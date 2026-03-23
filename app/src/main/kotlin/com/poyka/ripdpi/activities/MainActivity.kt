@@ -2,6 +2,7 @@ package com.poyka.ripdpi.activities
 
 import android.content.Context
 import android.content.Intent
+import android.net.VpnService
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -59,6 +60,13 @@ class MainActivity : ComponentActivity() {
                 granted -> PermissionResult.Granted
                 shouldShowRationale -> PermissionResult.Denied
                 else -> PermissionResult.DeniedPermanently
+            }
+
+        internal fun mapVpnPermissionResult(context: Context): PermissionResult =
+            if (VpnService.prepare(context) == null) {
+                PermissionResult.Granted
+            } else {
+                PermissionResult.Denied
             }
     }
 

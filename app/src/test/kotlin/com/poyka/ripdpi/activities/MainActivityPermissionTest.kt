@@ -1,6 +1,8 @@
 package com.poyka.ripdpi.activities
 
+import android.content.Context
 import android.content.Intent
+import android.net.VpnService
 import com.poyka.ripdpi.permissions.PermissionResult
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -8,8 +10,13 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
+import org.robolectric.annotation.Config
+import org.robolectric.annotation.Implementation
+import org.robolectric.annotation.Implements
+import org.robolectric.annotation.Resetter
 
 @RunWith(RobolectricTestRunner::class)
+@Config(shadows = [ShadowVpnPrepareService::class])
 class MainActivityPermissionTest {
     @Test
     fun `notification result maps granted denied and permanent denial`() {
@@ -47,5 +54,42 @@ class MainActivityPermissionTest {
 
         assertEquals(false, MainActivity.requestsHomeTab(intent))
         assertEquals(false, MainActivity.requestsConfiguredStart(intent))
+    }
+
+    @Test
+    fun `vpn result maps granted when system no longer requires consent`() {
+        ShadowVpnPrepareService.prepareIntent = null
+
+        assertEquals(
+            PermissionResult.Granted,
+            MainActivity.mapVpnPermissionResult(RuntimeEnvironment.getApplication()),
+        )
+    }
+
+    @Test
+    fun `vpn result maps denied when system still requires consent`() {
+        ShadowVpnPrepareService.prepareIntent = Intent("shadow.vpn.permission")
+
+        assertEquals(
+            PermissionResult.Denied,
+            MainActivity.mapVpnPermissionResult(RuntimeEnvironment.getApplication()),
+        )
+    }
+}
+
+@Implements(VpnService::class)
+class ShadowVpnPrepareService {
+    companion object {
+        var prepareIntent: Intent? = Intent("shadow.vpn.permission")
+
+        @Implementation
+        @JvmStatic
+        fun prepare(@Suppress("UNUSED_PARAMETER") context: Context): Intent? = prepareIntent
+
+        @Resetter
+        @JvmStatic
+        fun reset() {
+            prepareIntent = Intent("shadow.vpn.permission")
+        }
     }
 }
