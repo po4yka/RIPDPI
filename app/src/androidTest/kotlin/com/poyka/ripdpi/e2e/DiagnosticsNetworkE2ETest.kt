@@ -182,7 +182,7 @@ class DiagnosticsNetworkE2ETest {
 
     @Test
     fun inPathScanSucceedsWhileVpnServiceIsRunning() {
-        ensureVpnPrepared(appContext)
+        ensureVpnConsentGranted(appContext)
 
         val listenPort = reserveLoopbackPort()
         runBlocking {
@@ -259,7 +259,7 @@ class DiagnosticsNetworkE2ETest {
 
     @Test
     fun inPathVpnScanAppliesTemporaryResolverOverrideFromConnectivityRecommendation() {
-        ensureVpnPrepared(appContext)
+        ensureVpnConsentGranted(appContext)
         runBlocking {
             appSettingsRepository.update {
                 diagnosticsActiveProfileId = "resolver-recommendation"

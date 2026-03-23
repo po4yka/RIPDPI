@@ -8,8 +8,10 @@ import android.os.SystemClock
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.uiautomator.By
 import androidx.test.uiautomator.UiDevice
+import androidx.test.uiautomator.UiObject2
 import androidx.test.uiautomator.Until
 import java.io.BufferedReader
+import java.io.File
 import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.InetSocketAddress
@@ -29,6 +31,11 @@ private const val LoopbackFixtureHost = "127.0.0.1"
 private const val DefaultFixtureControlPort = 46090
 private const val FixtureControlRetryCount = 3
 private const val FixtureControlRetryDelayMs = 100L
+private const val PhysicalDeviceVpnConsentTimeoutMs = 20_000L
+private const val EmulatorVpnConsentTimeoutMs = 10_000L
+private const val VpnConsentRetryCount = 2
+private const val VpnConsentTimeoutArg = "ripdpi.vpnConsentTimeoutMs"
+private const val VpnConsentPackageHintsArg = "ripdpi.vpnConsentPackageHints"
 
 data class FixtureManifestDto(
     val bindHost: String,
@@ -242,47 +249,285 @@ fun awaitUntil(
     throw AssertionError("Timed out after ${timeoutMs}ms")
 }
 
-fun ensureVpnPrepared(context: Context) {
+private data class VpnConsentUiObjectCandidate(
+    val candidate: VpnConsentUiCandidate,
+    val uiObject: UiObject2,
+)
+
+private data class VpnConsentAttemptSnapshot(
+    val attempt: Int,
+    val note: String,
+    val activePackage: String?,
+    val visiblePackages: List<String>,
+    val attemptedSelectors: List<String>,
+    val selectorMatches: List<String>,
+    val fallbackCandidateCount: Int,
+)
+
+private data class VpnConsentArtifacts(
+    val hierarchyPath: String?,
+    val screenshotPath: String?,
+)
+
+fun ensureVpnConsentGranted(context: Context) {
     if (VpnService.prepare(context) == null) {
         return
     }
 
-    val consentIntent =
-        requireNotNull(VpnService.prepare(context)) {
-            "VPN consent intent disappeared unexpectedly"
-        }.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-
-    context.startActivity(consentIntent)
     val device = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
-    val deadline = SystemClock.elapsedRealtime() + 10_000
-    val vpnDialogPackages = listOf("com.android.vpndialogs", "com.android.permissioncontroller")
+    val timeoutMs = vpnConsentTimeoutMs()
+    val dialogPackages = vpnDialogPackages()
+    val attempts = mutableListOf<VpnConsentAttemptSnapshot>()
 
-    while (SystemClock.elapsedRealtime() < deadline) {
-        vpnDialogPackages.forEach { packageName ->
-            device.wait(Until.hasObject(By.pkg(packageName)), 500)
-        }
-        val positive =
-            device.findObject(By.res("android:id/button1"))
-                ?: device.findObject(By.res("com.android.vpndialogs:id/button1"))
-                ?: device.findObject(By.res("com.android.permissioncontroller:id/permission_allow_button"))
-                ?: device.findObject(By.text(Pattern.compile("(?i)ok|allow|continue")))
-                ?: device
-                    .findObjects(By.clickable(true))
-                    .lastOrNull { candidate ->
-                        val packageName = candidate.applicationPackage
-                        packageName != null && packageName in vpnDialogPackages
-                    }
-        if (positive != null) {
-            positive.click()
-            awaitUntil(timeoutMs = 10_000) {
-                VpnService.prepare(context) == null
-            }
+    repeat(VpnConsentRetryCount) { attemptIndex ->
+        if (VpnService.prepare(context) == null) {
             return
         }
+
+        val consentIntent =
+            requireNotNull(VpnService.prepare(context)) {
+                "VPN consent intent disappeared unexpectedly"
+            }.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        context.startActivity(consentIntent)
+
+        attemptGrantVpnConsent(
+            context = context,
+            device = device,
+            dialogPackages = dialogPackages,
+            timeoutMs = timeoutMs,
+            attempt = attemptIndex + 1,
+        )?.let(attempts::add) ?: return
+    }
+
+    val artifacts = captureVpnConsentArtifacts(context, device)
+    throw AssertionError(
+        buildString {
+            appendLine("VPN consent dialog was not confirmed after $VpnConsentRetryCount attempts.")
+            appendLine("dialogPackages=$dialogPackages")
+            appendLine("timeoutMs=$timeoutMs")
+            attempts.forEach { attempt ->
+                appendLine(
+                    "attempt ${attempt.attempt}: ${attempt.note}; " +
+                        "activePackage=${attempt.activePackage ?: "<none>"}; " +
+                        "visiblePackages=${attempt.visiblePackages}; " +
+                        "attemptedSelectors=${attempt.attemptedSelectors}; " +
+                        "selectorMatches=${attempt.selectorMatches}; " +
+                        "fallbackCandidateCount=${attempt.fallbackCandidateCount}",
+                )
+            }
+            artifacts.hierarchyPath?.let { appendLine("uiHierarchy=$it") }
+            artifacts.screenshotPath?.let { appendLine("screenshot=$it") }
+        }
+    )
+}
+
+private fun attemptGrantVpnConsent(
+    context: Context,
+    device: UiDevice,
+    dialogPackages: List<String>,
+    timeoutMs: Long,
+    attempt: Int,
+): VpnConsentAttemptSnapshot? {
+    val deadline = SystemClock.elapsedRealtime() + timeoutMs
+    var lastSnapshot =
+        VpnConsentAttemptSnapshot(
+            attempt = attempt,
+            note = "VPN consent dialog not observed yet.",
+            activePackage = null,
+            visiblePackages = emptyList(),
+            attemptedSelectors = VpnConsentUiSelector.defaultPositiveButtonResources,
+            selectorMatches = emptyList(),
+            fallbackCandidateCount = 0,
+        )
+
+    while (SystemClock.elapsedRealtime() < deadline) {
+        if (VpnService.prepare(context) == null) {
+            return null
+        }
+
+        dialogPackages.forEach { packageName ->
+            device.wait(Until.hasObject(By.pkg(packageName)), 250)
+        }
+
+        val activePackage = activeVpnDialogPackage(device, dialogPackages)
+        val knownCandidates = resolveKnownPositiveButtonCandidates(device)
+        val fallbackCandidates = resolveFallbackCandidates(device)
+        val selectorMatches = knownCandidates.mapNotNull { it.candidate.resourceName }.distinct()
+        val visiblePackages = visiblePackages(device, activePackage)
+        val positive =
+            selectKnownPositiveButton(activePackage, knownCandidates)
+                ?: selectFallbackPositiveButton(activePackage, fallbackCandidates)
+
+        lastSnapshot =
+            VpnConsentAttemptSnapshot(
+                attempt = attempt,
+                note =
+                    when {
+                        activePackage == null -> "Waiting for VPN dialog package to become active."
+                        positive == null -> "Dialog is visible, but no positive action candidate matched yet."
+                        else -> "Positive action candidate resolved for VPN consent dialog."
+                    },
+                activePackage = activePackage,
+                visiblePackages = visiblePackages,
+                attemptedSelectors = VpnConsentUiSelector.defaultPositiveButtonResources,
+                selectorMatches = selectorMatches,
+                fallbackCandidateCount = fallbackCandidates.count { it.candidate.packageName == activePackage },
+            )
+
+        if (positive != null) {
+            positive.click()
+            val granted =
+                runCatching {
+                    awaitUntil(timeoutMs = 10_000) {
+                        VpnService.prepare(context) == null
+                    }
+                    true
+                }.getOrDefault(false)
+            if (granted) {
+                return null
+            }
+            return lastSnapshot.copy(
+                note = "Clicked candidate ${describeCandidate(positive)} but VPN consent remained required.",
+            )
+        }
+
         device.waitForIdle(250)
     }
 
-    throw AssertionError("VPN consent dialog was not confirmed")
+    return lastSnapshot.copy(
+        note = "${lastSnapshot.note} Timed out after ${timeoutMs}ms.",
+    )
+}
+
+private fun selectKnownPositiveButton(
+    activePackage: String?,
+    candidates: List<VpnConsentUiObjectCandidate>,
+): UiObject2? {
+    val selected =
+        VpnConsentUiSelector.selectKnownPositiveButton(
+            activeDialogPackage = activePackage,
+            candidates = candidates.map(VpnConsentUiObjectCandidate::candidate),
+        ) ?: return null
+    return candidates.firstOrNull { it.candidate == selected }?.uiObject
+}
+
+private fun selectFallbackPositiveButton(
+    activePackage: String?,
+    candidates: List<VpnConsentUiObjectCandidate>,
+): UiObject2? {
+    val selected =
+        VpnConsentUiSelector.selectFallbackPositiveButton(
+            activeDialogPackage = activePackage,
+            candidates = candidates.map(VpnConsentUiObjectCandidate::candidate),
+        ) ?: return null
+    return candidates.firstOrNull { it.candidate == selected }?.uiObject
+}
+
+private fun resolveKnownPositiveButtonCandidates(device: UiDevice): List<VpnConsentUiObjectCandidate> =
+    VpnConsentUiSelector.defaultPositiveButtonResources.mapNotNull { resourceName ->
+        device.findObject(By.res(resourceName))?.let { uiObject ->
+            VpnConsentUiObjectCandidate(
+                candidate = uiCandidate(uiObject),
+                uiObject = uiObject,
+            )
+        }
+    }
+
+private fun resolveFallbackCandidates(device: UiDevice): List<VpnConsentUiObjectCandidate> =
+    device.findObjects(By.clickable(true)).map { uiObject ->
+        VpnConsentUiObjectCandidate(
+            candidate = uiCandidate(uiObject),
+            uiObject = uiObject,
+        )
+    }
+
+private fun uiCandidate(uiObject: UiObject2): VpnConsentUiCandidate {
+    val bounds = uiObject.visibleBounds
+    return VpnConsentUiCandidate(
+        packageName = uiObject.applicationPackage,
+        resourceName = uiObject.resourceName,
+        clickable = uiObject.isClickable,
+        enabled = uiObject.isEnabled,
+        bottom = bounds.bottom,
+        right = bounds.right,
+    )
+}
+
+private fun activeVpnDialogPackage(
+    device: UiDevice,
+    dialogPackages: List<String>,
+): String? {
+    val currentPackage = runCatching { device.currentPackageName }.getOrNull()
+    if (currentPackage != null && currentPackage in dialogPackages) {
+        return currentPackage
+    }
+
+    return dialogPackages.firstOrNull { packageName ->
+        device.findObject(By.pkg(packageName)) != null
+    }
+}
+
+private fun visiblePackages(
+    device: UiDevice,
+    activePackage: String?,
+): List<String> =
+    buildSet {
+        activePackage?.let(::add)
+        device.findObjects(By.clickable(true)).mapNotNullTo(this) { it.applicationPackage }
+    }.toList().sorted()
+
+private fun describeCandidate(candidate: UiObject2): String =
+    buildString {
+        append("package=${candidate.applicationPackage ?: "<unknown>"}")
+        append(", resource=${candidate.resourceName ?: "<none>"}")
+        candidate.text?.takeIf { it.isNotBlank() }?.let { append(", text=$it") }
+    }
+
+private fun vpnConsentTimeoutMs(): Long {
+    val configuredTimeout =
+        InstrumentationRegistry
+            .getArguments()
+            .getString(VpnConsentTimeoutArg)
+            ?.toLongOrNull()
+    return configuredTimeout ?: if (isLikelyEmulator()) EmulatorVpnConsentTimeoutMs else PhysicalDeviceVpnConsentTimeoutMs
+}
+
+private fun vpnConsentPackageHints(): List<String> =
+    InstrumentationRegistry
+        .getArguments()
+        .getString(VpnConsentPackageHintsArg)
+        ?.split(',')
+        .orEmpty()
+
+private fun vpnDialogPackages(): List<String> =
+    VpnConsentUiSelector.orderedDialogPackages(vpnConsentPackageHints())
+
+private fun captureVpnConsentArtifacts(
+    context: Context,
+    device: UiDevice,
+): VpnConsentArtifacts {
+    val directory = File(context.cacheDir, "vpn-consent-diagnostics").apply { mkdirs() }
+    val prefix = "vpn-consent-${System.currentTimeMillis()}"
+    val hierarchyPath =
+        File(directory, "$prefix.xml").let { file ->
+            if (runCatching { device.dumpWindowHierarchy(file) }.isSuccess) {
+                file.absolutePath
+            } else {
+                null
+            }
+        }
+    val screenshotPath =
+        File(directory, "$prefix.png").let { file ->
+            if (runCatching { device.takeScreenshot(file) }.getOrDefault(false)) {
+                file.absolutePath
+            } else {
+                null
+            }
+        }
+    return VpnConsentArtifacts(
+        hierarchyPath = hierarchyPath,
+        screenshotPath = screenshotPath,
+    )
 }
 
 fun socksTcpRoundTrip(

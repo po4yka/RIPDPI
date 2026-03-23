@@ -1,8 +1,8 @@
 use crate::sync::{Arc, Mutex};
 use std::io::{self, Read, Write};
 use std::net::{Shutdown, SocketAddr, TcpStream};
-use std::thread;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::thread;
 use std::time::{Duration, Instant};
 
 use crate::platform;
@@ -184,6 +184,8 @@ pub(super) fn relay(
 /// peer goes silent (e.g. network partition, Android doze). Deliberately
 /// generous to avoid killing legitimate idle connections (SSH, long-polling).
 const RELAY_IDLE_TIMEOUT: Duration = Duration::from_secs(60);
+const FIRST_TLS_RECORD_ASSEMBLY_TIMEOUT: Duration = Duration::from_millis(75);
+const FIRST_TLS_RECORD_BYTES_LIMIT: usize = 16_384;
 
 fn relay_streams(
     client: TcpStream,
@@ -280,7 +282,7 @@ fn read_first_response(
     let _ = platform::enable_recv_ttl(upstream);
     let mut collected = Vec::new();
     let mut chunk = vec![0u8; config.buffer_size.max(16_384)];
-    let mut tls_partial = TlsRecordTracker::new(request, config);
+    let mut tls_partial = TlsRecordBoundaryTracker::for_first_response(request, config);
     let mut timeout_count = 0i32;
     let mut observed_server_ttl: Option<u8> = None;
 
@@ -369,7 +371,7 @@ fn read_first_response(
     }
 }
 
-fn first_response_timeout(config: &RuntimeConfig, tls_partial: &TlsRecordTracker) -> Option<Duration> {
+fn first_response_timeout(config: &RuntimeConfig, tls_partial: &TlsRecordBoundaryTracker) -> Option<Duration> {
     if tls_partial.active() {
         Some(Duration::from_millis(config.partial_timeout_ms as u64))
     } else if config.timeout_ms != 0 {
@@ -406,7 +408,7 @@ fn response_trigger_supported(config: &RuntimeConfig, trigger: ripdpi_session::T
 }
 
 #[derive(Default)]
-struct TlsRecordTracker {
+struct TlsRecordBoundaryTracker {
     enabled: bool,
     disabled: bool,
     record_pos: usize,
@@ -416,21 +418,42 @@ struct TlsRecordTracker {
     bytes_limit: usize,
 }
 
-impl TlsRecordTracker {
-    fn new(request: &[u8], config: &RuntimeConfig) -> Self {
+impl TlsRecordBoundaryTracker {
+    fn for_first_response(request: &[u8], config: &RuntimeConfig) -> Self {
+        if !ripdpi_packets::is_tls_client_hello(request) || config.partial_timeout_ms == 0 {
+            return Self::default();
+        }
+        Self::enabled(config.timeout_bytes_limit.max(0) as usize)
+    }
+
+    fn enabled(bytes_limit: usize) -> Self {
         Self {
-            enabled: ripdpi_packets::is_tls_client_hello(request) && config.partial_timeout_ms != 0,
+            enabled: true,
             disabled: false,
             record_pos: 0,
             record_size: 0,
             header: [0; 5],
             total_bytes: 0,
-            bytes_limit: config.timeout_bytes_limit.max(0) as usize,
+            bytes_limit,
+        }
+    }
+
+    fn looks_like_client_hello_prefix(bytes: &[u8]) -> bool {
+        match bytes {
+            [] => false,
+            [0x16] => true,
+            [0x16, 0x03] => true,
+            [0x16, 0x03, minor, ..] => *minor <= 0x04,
+            _ => false,
         }
     }
 
     fn active(&self) -> bool {
         self.enabled && !self.disabled
+    }
+
+    fn record_complete(&self) -> bool {
+        self.active() && self.record_pos != 0 && self.record_pos == self.record_size
     }
 
     fn waiting_for_tls_record(&self) -> bool {
@@ -458,8 +481,7 @@ impl TlsRecordTracker {
                     continue;
                 }
                 self.record_size = usize::from(u16::from_be_bytes([self.header[3], self.header[4]])) + 5;
-                let rec_type = self.header[0];
-                if !(0x14..=0x18).contains(&rec_type) {
+                if !valid_tls_record_header(&self.header) {
                     self.disabled = true;
                     return;
                 }
@@ -480,6 +502,69 @@ impl TlsRecordTracker {
             self.record_pos += take;
             pos += take;
         }
+    }
+}
+
+fn valid_tls_record_header(header: &[u8; 5]) -> bool {
+    let rec_type = header[0];
+    (0x14..=0x18).contains(&rec_type) && header[1] == 0x03 && header[2] <= 0x04
+}
+
+struct OutboundTlsFirstRecordAssembler {
+    tracker: Option<TlsRecordBoundaryTracker>,
+    buffer: Vec<u8>,
+    started_at: Option<Instant>,
+}
+
+impl OutboundTlsFirstRecordAssembler {
+    fn new() -> Self {
+        Self { tracker: None, buffer: Vec::new(), started_at: None }
+    }
+
+    fn push(&mut self, chunk: &[u8], now: Instant) -> Option<Vec<u8>> {
+        if self.buffer.is_empty() && self.tracker.is_none() {
+            if !TlsRecordBoundaryTracker::looks_like_client_hello_prefix(chunk) {
+                return Some(chunk.to_vec());
+            }
+            self.tracker = Some(TlsRecordBoundaryTracker::enabled(FIRST_TLS_RECORD_BYTES_LIMIT));
+            self.started_at = Some(now);
+        }
+
+        self.buffer.extend_from_slice(chunk);
+        let tracker = self.tracker.as_mut().expect("tls first-record tracker");
+        tracker.observe(chunk);
+        if !tracker.active() || tracker.record_complete() {
+            return self.take();
+        }
+        None
+    }
+
+    fn timeout(&self, now: Instant) -> Option<Duration> {
+        let started_at = self.started_at?;
+        self.is_buffering()
+            .then(|| FIRST_TLS_RECORD_ASSEMBLY_TIMEOUT.saturating_sub(now.saturating_duration_since(started_at)))
+            .map(|timeout| timeout.max(Duration::from_millis(1)))
+    }
+
+    fn flush_on_timeout(&mut self, now: Instant) -> Option<Vec<u8>> {
+        let started_at = self.started_at?;
+        (self.is_buffering() && now.saturating_duration_since(started_at) >= FIRST_TLS_RECORD_ASSEMBLY_TIMEOUT)
+            .then(|| self.take())
+            .flatten()
+    }
+
+    fn finish(&mut self) -> Option<Vec<u8>> {
+        self.take()
+    }
+
+    fn is_buffering(&self) -> bool {
+        !self.buffer.is_empty() && self.tracker.as_ref().is_some_and(TlsRecordBoundaryTracker::waiting_for_tls_record)
+    }
+
+    fn take(&mut self) -> Option<Vec<u8>> {
+        self.tracker = None;
+        self.started_at = None;
+        (!self.buffer.is_empty()).then(|| std::mem::take(&mut self.buffer))
     }
 }
 
@@ -520,6 +605,42 @@ fn copy_inbound_half(
     Ok(())
 }
 
+fn flush_outbound_payload(
+    writer: &mut TcpStream,
+    state: &RuntimeState,
+    group_index: usize,
+    session: &Arc<Mutex<SessionState>>,
+    remembered_host: &mut Option<String>,
+    payload: &[u8],
+) -> io::Result<usize> {
+    let progress = {
+        let mut state = session.lock().map_err(|_| io::Error::other("session mutex poisoned"))?;
+        state.observe_outbound(payload)
+    };
+    let parsed_host = extract_host(&state.config, payload);
+    if parsed_host.is_some() {
+        *remembered_host = parsed_host.clone();
+    }
+    let group = state
+        .config
+        .groups
+        .get(group_index)
+        .cloned()
+        .ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, "missing desync group"))?;
+    let peer_addr = writer.peer_addr()?;
+    send_with_group(
+        writer,
+        state,
+        group_index,
+        &group,
+        payload,
+        progress,
+        parsed_host.as_deref().or(remembered_host.as_deref()),
+        peer_addr,
+    )?;
+    Ok(payload.len())
+}
+
 fn copy_outbound_half(
     mut reader: TcpStream,
     mut writer: TcpStream,
@@ -530,38 +651,48 @@ fn copy_outbound_half(
 ) -> io::Result<()> {
     let mut buffer = [0u8; 16_384];
     let mut remembered_host = None::<String>;
+    let mut first_tls_record = OutboundTlsFirstRecordAssembler::new();
+    let mut forwarded_payload = false;
     loop {
+        let read_timeout = first_tls_record.timeout(Instant::now()).unwrap_or(RELAY_IDLE_TIMEOUT);
+        reader.set_read_timeout(Some(read_timeout))?;
         match reader.read(&mut buffer) {
-            Ok(0) => break,
-            Ok(n) => {
-                let payload = &buffer[..n];
-                let progress = {
-                    let mut state = session.lock().map_err(|_| io::Error::other("session mutex poisoned"))?;
-                    state.observe_outbound(payload)
-                };
-                let parsed_host = extract_host(&state.config, payload);
-                if parsed_host.is_some() {
-                    remembered_host = parsed_host.clone();
+            Ok(0) => {
+                if let Some(payload) = first_tls_record.finish() {
+                    flush_outbound_payload(&mut writer, &state, group_index, &session, &mut remembered_host, &payload)?;
                 }
-                let group = state
-                    .config
-                    .groups
-                    .get(group_index)
-                    .cloned()
-                    .ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, "missing desync group"))?;
-                let peer_addr = writer.peer_addr()?;
-                send_with_group(
-                    &mut writer,
-                    &state,
-                    group_index,
-                    &group,
-                    payload,
-                    progress,
-                    parsed_host.as_deref().or(remembered_host.as_deref()),
-                    peer_addr,
-                )?;
+                break;
+            }
+            Ok(n) => {
+                if !forwarded_payload {
+                    if let Some(payload) = first_tls_record.push(&buffer[..n], Instant::now()) {
+                        flush_outbound_payload(
+                            &mut writer,
+                            &state,
+                            group_index,
+                            &session,
+                            &mut remembered_host,
+                            &payload,
+                        )?;
+                        forwarded_payload = true;
+                    }
+                } else {
+                    flush_outbound_payload(
+                        &mut writer,
+                        &state,
+                        group_index,
+                        &session,
+                        &mut remembered_host,
+                        &buffer[..n],
+                    )?;
+                }
             }
             Err(err) if matches!(err.kind(), io::ErrorKind::WouldBlock | io::ErrorKind::TimedOut) => {
+                if let Some(payload) = first_tls_record.flush_on_timeout(Instant::now()) {
+                    flush_outbound_payload(&mut writer, &state, group_index, &session, &mut remembered_host, &payload)?;
+                    forwarded_payload = true;
+                    continue;
+                }
                 if peer_done.load(Ordering::Acquire) {
                     break;
                 }
@@ -629,11 +760,11 @@ mod tests {
     #[test]
     fn timeout_and_trigger_helpers_follow_runtime_configuration() {
         let mut config = RuntimeConfig { partial_timeout_ms: 75, timeout_ms: 900, ..RuntimeConfig::default() };
-        let tls_tracker = TlsRecordTracker::new(DEFAULT_FAKE_TLS, &config);
+        let tls_tracker = TlsRecordBoundaryTracker::for_first_response(DEFAULT_FAKE_TLS, &config);
         assert_eq!(first_response_timeout(&config, &tls_tracker), Some(Duration::from_millis(75)));
 
         config.partial_timeout_ms = 0;
-        let inactive_tracker = TlsRecordTracker::new(DEFAULT_FAKE_TLS, &config);
+        let inactive_tracker = TlsRecordBoundaryTracker::for_first_response(DEFAULT_FAKE_TLS, &config);
         assert_eq!(first_response_timeout(&config, &inactive_tracker), Some(Duration::from_millis(900)));
 
         config.timeout_ms = 0;
@@ -654,7 +785,7 @@ mod tests {
     fn tls_record_tracker_handles_partial_records_and_limits() {
         let config = RuntimeConfig { partial_timeout_ms: 50, ..RuntimeConfig::default() };
 
-        let mut tracker = TlsRecordTracker::new(DEFAULT_FAKE_TLS, &config);
+        let mut tracker = TlsRecordBoundaryTracker::for_first_response(DEFAULT_FAKE_TLS, &config);
         assert!(tracker.active());
         tracker.observe(&[0x16, 0x03, 0x03, 0x00, 0x05, 0xaa]);
         assert!(tracker.waiting_for_tls_record());
@@ -663,11 +794,11 @@ mod tests {
 
         let limited_config =
             RuntimeConfig { partial_timeout_ms: 50, timeout_bytes_limit: 3, ..RuntimeConfig::default() };
-        let mut limited = TlsRecordTracker::new(DEFAULT_FAKE_TLS, &limited_config);
+        let mut limited = TlsRecordBoundaryTracker::for_first_response(DEFAULT_FAKE_TLS, &limited_config);
         limited.observe(&[0x16, 0x03, 0x03, 0x00]);
         assert!(!limited.active());
 
-        let mut invalid = TlsRecordTracker::new(DEFAULT_FAKE_TLS, &config);
+        let mut invalid = TlsRecordBoundaryTracker::for_first_response(DEFAULT_FAKE_TLS, &config);
         invalid.observe(&[0x13, 0x03, 0x03, 0x00, 0x01, 0x00]);
         assert!(!invalid.active());
     }
@@ -677,7 +808,7 @@ mod tests {
     #[test]
     fn tls_record_tracker_inactive_without_partial_timeout() {
         let config = RuntimeConfig { partial_timeout_ms: 0, ..RuntimeConfig::default() };
-        let tracker = TlsRecordTracker::new(DEFAULT_FAKE_TLS, &config);
+        let tracker = TlsRecordBoundaryTracker::for_first_response(DEFAULT_FAKE_TLS, &config);
         assert!(!tracker.active());
         assert!(!tracker.waiting_for_tls_record());
     }
@@ -686,14 +817,14 @@ mod tests {
     fn tls_record_tracker_inactive_for_non_tls_request() {
         let config = RuntimeConfig { partial_timeout_ms: 50, ..RuntimeConfig::default() };
         let non_tls = b"GET / HTTP/1.1\r\n";
-        let tracker = TlsRecordTracker::new(non_tls, &config);
+        let tracker = TlsRecordBoundaryTracker::for_first_response(non_tls, &config);
         assert!(!tracker.active());
     }
 
     #[test]
     fn tls_record_tracker_multi_record_observation() {
         let config = RuntimeConfig { partial_timeout_ms: 50, ..RuntimeConfig::default() };
-        let mut tracker = TlsRecordTracker::new(DEFAULT_FAKE_TLS, &config);
+        let mut tracker = TlsRecordBoundaryTracker::for_first_response(DEFAULT_FAKE_TLS, &config);
         assert!(tracker.active());
 
         // First record: content type 0x16 (handshake), size 3
@@ -706,5 +837,46 @@ mod tests {
         tracker.observe(&[0x14, 0x03, 0x03, 0x00, 0x01, 0xff]);
         assert!(!tracker.waiting_for_tls_record());
         assert!(tracker.active());
+    }
+
+    #[test]
+    fn outbound_tls_first_record_assembler_buffers_partial_client_hello_until_complete() {
+        let mut assembler = OutboundTlsFirstRecordAssembler::new();
+        let start = Instant::now();
+
+        assert!(assembler.push(&[0x16, 0x03, 0x03, 0x00], start).is_none());
+        assert!(assembler.is_buffering());
+        let payload = assembler
+            .push(&[0x05, 0x01, 0x00, 0x00, 0x00, 0x00], start + Duration::from_millis(10))
+            .expect("completed tls record");
+
+        assert_eq!(payload, vec![0x16, 0x03, 0x03, 0x00, 0x05, 0x01, 0x00, 0x00, 0x00, 0x00]);
+        assert!(!assembler.is_buffering());
+    }
+
+    #[test]
+    fn outbound_tls_first_record_assembler_falls_back_for_invalid_header() {
+        let mut assembler = OutboundTlsFirstRecordAssembler::new();
+        let payload =
+            assembler.push(&[0x16, 0x00, 0x00, 0x00, 0x01, 0xff], Instant::now()).expect("invalid header should flush");
+
+        assert_eq!(payload, vec![0x16, 0x00, 0x00, 0x00, 0x01, 0xff]);
+        assert!(!assembler.is_buffering());
+    }
+
+    #[test]
+    fn outbound_tls_first_record_assembler_flushes_partial_record_after_timeout() {
+        let mut assembler = OutboundTlsFirstRecordAssembler::new();
+        let start = Instant::now();
+
+        assert!(assembler.push(&[0x16, 0x03], start).is_none());
+        assert!(assembler.is_buffering());
+        assert!(assembler.flush_on_timeout(start + Duration::from_millis(50)).is_none());
+
+        let payload = assembler
+            .flush_on_timeout(start + FIRST_TLS_RECORD_ASSEMBLY_TIMEOUT + Duration::from_millis(1))
+            .expect("partial tls record should flush on timeout");
+        assert_eq!(payload, vec![0x16, 0x03]);
+        assert!(!assembler.is_buffering());
     }
 }
