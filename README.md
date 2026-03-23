@@ -77,6 +77,25 @@ Implementation details and the native call path are documented in [docs/native/p
 2. Add RIPDPI to AdGuard exceptions.
 3. In AdGuard settings, set proxy: SOCKS5, host `127.0.0.1`, port `1080`.
 
+## User Guide Generator
+
+The repository includes a script that automates creation of annotated PDF user guides from live app screenshots.
+
+```bash
+# One-time setup
+uv venv scripts/guide/.venv
+uv pip install -r scripts/guide/requirements.txt --python scripts/guide/.venv/bin/python
+
+# Generate guide (device or emulator must be connected)
+scripts/guide/.venv/bin/python scripts/guide/generate_guide.py \
+  --spec scripts/guide/specs/user-guide.yaml \
+  --output build/guide/ripdpi-user-guide.pdf
+```
+
+The script navigates the app via the debug automation contract, captures screenshots with ADB, annotates them with red arrows/circles/brackets (Pillow), and assembles everything into an A4 PDF with explanatory text (fpdf2). Guide content is defined in YAML spec files under `scripts/guide/specs/` using relative coordinates for portability across device resolutions.
+
+Options: `--device <serial>` to target a specific device, `--skip-capture` to re-annotate from cached screenshots, `--pages <id,id>` to filter pages.
+
 ## Documentation
 
 - [Native integration and module usage](docs/native/README.md)
