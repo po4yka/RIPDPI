@@ -521,6 +521,7 @@ internal data class ScanLifecycleState(
 
 internal data class LiveDataSnapshot(
     val activeConnectionSession: DiagnosticConnectionSession?,
+    val currentTelemetry: DiagnosticTelemetrySample?,
     val telemetry: List<DiagnosticTelemetrySample>,
     val nativeEvents: List<DiagnosticEvent>,
     val progress: com.poyka.ripdpi.diagnostics.ScanProgress?,
@@ -535,6 +536,7 @@ internal data class LiveDataSnapshot(
         val EMPTY =
             LiveDataSnapshot(
                 activeConnectionSession = null,
+                currentTelemetry = null,
                 telemetry = emptyList(),
                 nativeEvents = emptyList(),
                 progress = null,
