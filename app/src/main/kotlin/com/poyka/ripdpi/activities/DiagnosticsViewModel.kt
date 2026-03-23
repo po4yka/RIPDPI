@@ -157,6 +157,7 @@ class DiagnosticsViewModel
                         sensitiveSessionDetailsVisible = ui.sessionDetail.sensitiveSessionDetailsVisible,
                         archiveActionState = ui.scanLifecycle.archiveActionState,
                         scanStartedAt = ui.scanLifecycle.scanStartedAt,
+                        activeScanPathMode = ui.scanLifecycle.activeScanPathMode,
                         completedProbes = ui.scanLifecycle.accumulatedProbes,
                     ),
                 )

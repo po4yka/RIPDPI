@@ -512,7 +512,7 @@ pub(crate) fn run_quic_strategy_probe(
             ("quic_response".to_string(), "quic_response".to_string(), "none".to_string())
         }
         Ok(_) => ("quic_empty".to_string(), "quic_empty".to_string(), "none".to_string()),
-        Err(err) => (err.clone(), "quic_error".to_string(), err),
+        Err(err) => ("quic_error".to_string(), "quic_error".to_string(), err),
     };
     ProbeSample {
         result: ProbeResult {

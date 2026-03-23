@@ -15,6 +15,7 @@ import com.poyka.ripdpi.diagnostics.DiagnosticTelemetrySample
 import com.poyka.ripdpi.diagnostics.DiagnosticsArchive
 import com.poyka.ripdpi.diagnostics.DiagnosticsRememberedPolicy
 import com.poyka.ripdpi.diagnostics.ScanKind
+import com.poyka.ripdpi.diagnostics.ScanPathMode
 
 internal const val StrategyProbeSuiteQuickV1 = "quick_v1"
 internal const val StrategyProbeSuiteFullMatrixV1 = "full_matrix_v1"
@@ -506,6 +507,8 @@ internal data class SessionDetailState(
 
 internal data class ScanLifecycleState(
     val scanStartedAt: Long? = null,
+    val activeScanPathMode: ScanPathMode? = null,
+    val activeScanKind: ScanKind? = null,
     val accumulatedProbes: List<CompletedProbeUiModel> = emptyList(),
     val pendingAutoOpenAuditSessionId: String? = null,
     val archiveActionState: ArchiveActionState = ArchiveActionState(),

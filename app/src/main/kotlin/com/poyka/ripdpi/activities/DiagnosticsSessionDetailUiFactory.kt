@@ -22,7 +22,13 @@ internal class DiagnosticsSessionDetailUiFactory
             val report = detail.session.report
             val probeGroups =
                 detail.results
-                    .mapIndexed(support::toProbeResultUiModel)
+                    .mapIndexed { index, result ->
+                        support.toProbeResultUiModel(
+                            index = index,
+                            pathMode = support.parsePathMode(detail.session.pathMode),
+                            result = result,
+                        )
+                    }
                     .groupBy { it.probeType }
                     .map { (title, items) ->
                         DiagnosticsProbeGroupUiModel(

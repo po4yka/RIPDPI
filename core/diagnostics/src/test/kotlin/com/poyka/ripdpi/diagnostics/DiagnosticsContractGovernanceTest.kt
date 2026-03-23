@@ -8,6 +8,8 @@ import com.poyka.ripdpi.diagnostics.contract.profile.BundledDiagnosticsCatalogSc
 import com.poyka.ripdpi.diagnostics.contract.profile.BundledDiagnosticsCatalogWire
 import com.poyka.ripdpi.diagnostics.contract.profile.ProfileSpecWire
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
@@ -42,12 +44,17 @@ class DiagnosticsContractGovernanceTest {
                 EngineProgressWire.serializer(),
                 repoFixture("diagnostics-contract-fixtures/engine_progress_current.json").readText(),
             )
+        val outcomeTaxonomy =
+            json.parseToJsonElement(
+                repoFixture("diagnostics-contract-fixtures/outcome_taxonomy_current.json").readText(),
+            ).jsonObject
 
         assertNotNull(currentProfileSpec.executionPolicy)
         assertTrue(legacyProfileSpec.executionPolicyOrCompat().requiresRawPath)
         assertEquals(DiagnosticsEngineSchemaVersion, engineRequest.schemaVersion)
         assertEquals(DiagnosticsEngineSchemaVersion, engineReport.schemaVersion)
         assertEquals(DiagnosticsEngineSchemaVersion, engineProgress.schemaVersion)
+        assertEquals(1, outcomeTaxonomy["schemaVersion"]?.jsonPrimitive?.content?.toInt())
     }
 
     @Test
