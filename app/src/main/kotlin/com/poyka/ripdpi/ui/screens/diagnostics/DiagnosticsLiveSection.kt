@@ -150,7 +150,7 @@ internal fun LiveHeroCard(
             ) {
                 StatusIndicator(
                     label = live.statusLabel,
-                    tone = health.statusTone(),
+                    tone = statusTone(live.statusTone),
                 )
                 EventBadge(
                     text = liveBadgeText,
