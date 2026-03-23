@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -53,6 +54,7 @@ import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.cards.RipDpiCardVariant
 import com.poyka.ripdpi.ui.components.cards.SettingsRow
+import com.poyka.ripdpi.ui.components.navigation.SettingsCategoryHeader
 import com.poyka.ripdpi.ui.components.indicators.StatusIndicator
 import com.poyka.ripdpi.ui.components.indicators.StatusIndicatorTone
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
@@ -71,6 +73,7 @@ private const val SparklineDividerStrokeWidth = 1f
 
 @Composable
 internal fun SnapshotCard(snapshot: DiagnosticsNetworkSnapshotUiModel) {
+    val spacing = RipDpiThemeTokens.spacing
     RipDpiCard {
         Text(
             text = snapshot.title,
@@ -82,13 +85,21 @@ internal fun SnapshotCard(snapshot: DiagnosticsNetworkSnapshotUiModel) {
             style = RipDpiThemeTokens.type.secondaryBody,
             color = RipDpiThemeTokens.colors.foreground,
         )
-        snapshot.fields.forEachIndexed { index, field ->
-            SettingsRow(
-                title = field.label,
-                value = field.value,
-                monospaceValue = field.value.length > 18,
-                showDivider = index != snapshot.fields.lastIndex,
-            )
+        snapshot.fieldGroups.forEachIndexed { groupIndex, group ->
+            if (groupIndex > 0) {
+                Spacer(modifier = Modifier.height(spacing.sm))
+            }
+            if (snapshot.fieldGroups.size > 1) {
+                SettingsCategoryHeader(title = group.header, showDivider = true)
+            }
+            group.fields.forEachIndexed { fieldIndex, field ->
+                SettingsRow(
+                    title = field.label,
+                    value = field.value,
+                    monospaceValue = field.value.length > 18,
+                    showDivider = fieldIndex != group.fields.lastIndex,
+                )
+            }
         }
     }
 }

@@ -75,12 +75,20 @@ data class DiagnosticsFieldUiModel(
     val value: String,
 )
 
+@Immutable
+data class DiagnosticsFieldGroupUiModel(
+    val header: String,
+    val fields: List<DiagnosticsFieldUiModel>,
+)
+
 @Stable
 data class DiagnosticsNetworkSnapshotUiModel(
     val title: String,
     val subtitle: String,
-    val fields: List<DiagnosticsFieldUiModel>,
-)
+    val fieldGroups: List<DiagnosticsFieldGroupUiModel>,
+) {
+    val fields: List<DiagnosticsFieldUiModel> get() = fieldGroups.flatMap { it.fields }
+}
 
 @Stable
 data class DiagnosticsContextGroupUiModel(

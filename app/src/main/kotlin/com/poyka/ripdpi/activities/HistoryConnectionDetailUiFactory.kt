@@ -122,13 +122,25 @@ internal class HistoryConnectionDetailUiFactory
             return DiagnosticsNetworkSnapshotUiModel(
                 title = snapshotEntity.snapshotKind.replace('_', ' ').replaceFirstChar { it.uppercase() },
                 subtitle = "${snapshot.transport} · ${coreSupport.formatTimestamp(snapshot.capturedAt)}",
-                fields =
+                fieldGroups =
                     listOf(
-                        DiagnosticsFieldUiModel("DNS", snapshot.dnsServers.joinToString().ifBlank { "Unknown" }),
-                        DiagnosticsFieldUiModel("Private DNS", snapshot.privateDnsMode),
-                        DiagnosticsFieldUiModel("Public IP", snapshot.publicIp ?: "Unknown"),
-                        DiagnosticsFieldUiModel("Validated", snapshot.networkValidated.toString()),
-                        DiagnosticsFieldUiModel("Captive portal", snapshot.captivePortalDetected.toString()),
+                        DiagnosticsFieldGroupUiModel(
+                            header = "",
+                            fields =
+                                listOf(
+                                    DiagnosticsFieldUiModel(
+                                        "DNS",
+                                        snapshot.dnsServers.joinToString().ifBlank { "Unknown" },
+                                    ),
+                                    DiagnosticsFieldUiModel("Private DNS", snapshot.privateDnsMode),
+                                    DiagnosticsFieldUiModel("Public IP", snapshot.publicIp ?: "Unknown"),
+                                    DiagnosticsFieldUiModel("Validated", snapshot.networkValidated.toString()),
+                                    DiagnosticsFieldUiModel(
+                                        "Captive portal",
+                                        snapshot.captivePortalDetected.toString(),
+                                    ),
+                                ),
+                        ),
                     ),
             )
         }

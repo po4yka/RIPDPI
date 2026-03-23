@@ -11,71 +11,91 @@ internal fun DiagnosticsUiFactorySupport.toNetworkSnapshotUiModel(
     showSensitiveDetails: Boolean,
 ): DiagnosticsNetworkSnapshotUiModel? {
     val snapshot = entity.snapshot ?: return null
+    val networkFields =
+        listOf(
+            DiagnosticsFieldUiModel(
+                context.getString(R.string.diagnostics_field_capabilities),
+                snapshot.capabilities
+                    .joinToString()
+                    .ifBlank { context.getString(R.string.diagnostics_field_unknown) },
+            ),
+            DiagnosticsFieldUiModel(
+                context.getString(R.string.diagnostics_field_dns),
+                if (showSensitiveDetails) {
+                    snapshot.dnsServers
+                        .joinToString()
+                        .ifBlank { context.getString(R.string.diagnostics_field_unknown) }
+                } else {
+                    redactCollection(
+                        snapshot.dnsServers,
+                    )
+                },
+            ),
+            DiagnosticsFieldUiModel(
+                context.getString(R.string.diagnostics_field_private_dns),
+                snapshot.privateDnsMode,
+            ),
+            DiagnosticsFieldUiModel(
+                context.getString(R.string.diagnostics_field_mtu),
+                snapshot.mtu?.toString() ?: context.getString(R.string.diagnostics_field_unknown),
+            ),
+            DiagnosticsFieldUiModel(
+                context.getString(R.string.diagnostics_field_local),
+                if (showSensitiveDetails) {
+                    snapshot.localAddresses
+                        .joinToString()
+                        .ifBlank { context.getString(R.string.diagnostics_field_unknown) }
+                } else {
+                    redactCollection(
+                        snapshot.localAddresses,
+                    )
+                },
+            ),
+            DiagnosticsFieldUiModel(
+                context.getString(R.string.diagnostics_field_public_ip),
+                if (showSensitiveDetails) {
+                    snapshot.publicIp
+                        ?: context.getString(R.string.diagnostics_field_unknown)
+                } else {
+                    redactValue(snapshot.publicIp)
+                },
+            ),
+            DiagnosticsFieldUiModel(
+                context.getString(R.string.diagnostics_field_asn),
+                snapshot.publicAsn ?: context.getString(R.string.diagnostics_field_unknown),
+            ),
+            DiagnosticsFieldUiModel(
+                context.getString(R.string.diagnostics_field_validated),
+                snapshot.networkValidated.toString(),
+            ),
+            DiagnosticsFieldUiModel(
+                context.getString(R.string.diagnostics_field_captive_portal),
+                snapshot.captivePortalDetected.toString(),
+            ),
+        )
+    val transportFields = transportSpecificFields(snapshot, showSensitiveDetails)
+    val transportHeader = transportSectionHeader(snapshot)
+    val groups =
+        buildList {
+            add(
+                DiagnosticsFieldGroupUiModel(
+                    header = context.getString(R.string.diagnostics_section_network),
+                    fields = networkFields,
+                ),
+            )
+            if (transportFields.isNotEmpty()) {
+                add(
+                    DiagnosticsFieldGroupUiModel(
+                        header = transportHeader,
+                        fields = transportFields,
+                    ),
+                )
+            }
+        }
     return DiagnosticsNetworkSnapshotUiModel(
         title = entity.snapshotKind.replace('_', ' ').replaceFirstChar { it.uppercase() },
         subtitle = "${snapshot.transport} · ${formatTimestamp(snapshot.capturedAt)}",
-        fields =
-            listOf(
-                DiagnosticsFieldUiModel(
-                    context.getString(R.string.diagnostics_field_capabilities),
-                    snapshot.capabilities
-                        .joinToString()
-                        .ifBlank { context.getString(R.string.diagnostics_field_unknown) },
-                ),
-                DiagnosticsFieldUiModel(
-                    context.getString(R.string.diagnostics_field_dns),
-                    if (showSensitiveDetails) {
-                        snapshot.dnsServers
-                            .joinToString()
-                            .ifBlank { context.getString(R.string.diagnostics_field_unknown) }
-                    } else {
-                        redactCollection(
-                            snapshot.dnsServers,
-                        )
-                    },
-                ),
-                DiagnosticsFieldUiModel(
-                    context.getString(R.string.diagnostics_field_private_dns),
-                    snapshot.privateDnsMode,
-                ),
-                DiagnosticsFieldUiModel(
-                    context.getString(R.string.diagnostics_field_mtu),
-                    snapshot.mtu?.toString() ?: context.getString(R.string.diagnostics_field_unknown),
-                ),
-                DiagnosticsFieldUiModel(
-                    context.getString(R.string.diagnostics_field_local),
-                    if (showSensitiveDetails) {
-                        snapshot.localAddresses
-                            .joinToString()
-                            .ifBlank { context.getString(R.string.diagnostics_field_unknown) }
-                    } else {
-                        redactCollection(
-                            snapshot.localAddresses,
-                        )
-                    },
-                ),
-                DiagnosticsFieldUiModel(
-                    context.getString(R.string.diagnostics_field_public_ip),
-                    if (showSensitiveDetails) {
-                        snapshot.publicIp
-                            ?: context.getString(R.string.diagnostics_field_unknown)
-                    } else {
-                        redactValue(snapshot.publicIp)
-                    },
-                ),
-                DiagnosticsFieldUiModel(
-                    context.getString(R.string.diagnostics_field_asn),
-                    snapshot.publicAsn ?: context.getString(R.string.diagnostics_field_unknown),
-                ),
-                DiagnosticsFieldUiModel(
-                    context.getString(R.string.diagnostics_field_validated),
-                    snapshot.networkValidated.toString(),
-                ),
-                DiagnosticsFieldUiModel(
-                    context.getString(R.string.diagnostics_field_captive_portal),
-                    snapshot.captivePortalDetected.toString(),
-                ),
-            ) + transportSpecificFields(snapshot, showSensitiveDetails),
+        fieldGroups = groups,
     )
 }
 
@@ -83,7 +103,7 @@ internal fun DiagnosticsUiFactorySupport.toOverviewContextGroup(
     context: DiagnosticContextModel,
 ): DiagnosticsContextGroupUiModel =
     DiagnosticsContextGroupUiModel(
-        title = this.context.getString(R.string.diagnostics_field_support_context),
+        title = this.context.getString(R.string.diagnostics_section_device),
         fields =
             listOf(
                 DiagnosticsFieldUiModel(
@@ -427,6 +447,13 @@ internal fun DiagnosticsUiFactorySupport.toContextUiGroups(
                 ),
         ),
     )
+
+private fun DiagnosticsUiFactorySupport.transportSectionHeader(snapshot: NetworkSnapshotModel): String =
+    when {
+        snapshot.wifiDetails != null -> context.getString(R.string.diagnostics_section_wifi)
+        snapshot.cellularDetails != null -> context.getString(R.string.diagnostics_section_carrier)
+        else -> context.getString(R.string.diagnostics_section_transport)
+    }
 
 private fun DiagnosticsUiFactorySupport.transportSpecificFields(
     snapshot: NetworkSnapshotModel,
