@@ -17,9 +17,9 @@ use smoltcp::iface::{Interface, SocketHandle, SocketSet};
 use smoltcp::socket::tcp::{self, Socket as TcpSocket};
 use smoltcp::socket::Socket;
 use smoltcp::time::Instant;
-use smoltcp::wire::IpAddress;
+use smoltcp::wire::{IpAddress, IpListenEndpoint};
 use tokio::io::unix::AsyncFd;
-use tokio::io::{AsyncRead, AsyncWriteExt, Interest, ReadBuf};
+use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt, Interest, ReadBuf};
 use tokio_util::sync::CancellationToken;
 use tracing::{debug, error, info, warn};
 
@@ -85,6 +85,49 @@ fn try_read_duplex(stream: &mut tokio::io::DuplexStream, buf: &mut [u8]) -> Opti
     }
 }
 
+fn try_write_duplex(stream: &mut tokio::io::DuplexStream, buf: &[u8]) -> Option<io::Result<usize>> {
+    let waker = Waker::from(Arc::new(NoopWaker));
+    let mut cx = Context::from_waker(&waker);
+    match Pin::new(stream).poll_write(&mut cx, buf) {
+        Poll::Ready(Ok(n)) => Some(Ok(n)),
+        Poll::Ready(Err(e)) => Some(Err(e)),
+        Poll::Pending => None,
+    }
+}
+
+fn flush_pending_to_session(
+    stream: &mut tokio::io::DuplexStream,
+    pending: &mut Vec<u8>,
+) -> Option<io::Result<()>> {
+    while !pending.is_empty() {
+        match try_write_duplex(stream, pending) {
+            Some(Ok(0)) => {
+                return Some(Err(io::Error::new(
+                    io::ErrorKind::WriteZero,
+                    "session duplex stream accepted zero bytes",
+                )));
+            }
+            Some(Ok(sent)) => {
+                pending.drain(..sent);
+            }
+            Some(Err(e)) => return Some(Err(e)),
+            None => return None,
+        }
+    }
+    Some(Ok(()))
+}
+
+fn flush_pending_to_smoltcp(tcp: &mut TcpSocket, pending: &mut Vec<u8>) -> Result<(), tcp::SendError> {
+    while !pending.is_empty() {
+        let sent = tcp.send_slice(pending)?;
+        if sent == 0 {
+            break;
+        }
+        pending.drain(..sent);
+    }
+    Ok(())
+}
+
 // ── Packet helpers ────────────────────────────────────────────────────────────
 
 fn ipv4_transport_offset(pkt: &[u8], protocol: u8) -> Option<usize> {
@@ -119,11 +162,44 @@ fn tcp_header_offset(pkt: &[u8]) -> Option<usize> {
     }
 }
 
+fn tcp_packet_endpoints(pkt: &[u8]) -> Option<(SocketAddr, SocketAddr)> {
+    match pkt.first().map(|value| value >> 4) {
+        Some(4) => {
+            let offset = ipv4_transport_offset(pkt, 6)?;
+            if pkt.len() < offset + 4 {
+                return None;
+            }
+            let src_ip = Ipv4Addr::new(pkt[12], pkt[13], pkt[14], pkt[15]);
+            let dst_ip = Ipv4Addr::new(pkt[16], pkt[17], pkt[18], pkt[19]);
+            let src_port = u16::from_be_bytes([pkt[offset], pkt[offset + 1]]);
+            let dst_port = u16::from_be_bytes([pkt[offset + 2], pkt[offset + 3]]);
+            Some((SocketAddr::new(IpAddr::V4(src_ip), src_port), SocketAddr::new(IpAddr::V4(dst_ip), dst_port)))
+        }
+        Some(6) => {
+            let offset = ipv6_transport_offset(pkt, 6)?;
+            if pkt.len() < offset + 4 {
+                return None;
+            }
+            let mut src_ip = [0u8; 16];
+            src_ip.copy_from_slice(&pkt[8..24]);
+            let mut dst_ip = [0u8; 16];
+            dst_ip.copy_from_slice(&pkt[24..40]);
+            let src_port = u16::from_be_bytes([pkt[offset], pkt[offset + 1]]);
+            let dst_port = u16::from_be_bytes([pkt[offset + 2], pkt[offset + 3]]);
+            Some((
+                SocketAddr::new(IpAddr::V6(src_ip.into()), src_port),
+                SocketAddr::new(IpAddr::V6(dst_ip.into()), dst_port),
+            ))
+        }
+        _ => None,
+    }
+}
+
 /// Extract the TCP destination port from a raw IPv4 or IPv6 packet, or `None`
 /// if the packet is not a plain TCP transport packet.
+#[cfg(test)]
 fn tcp_dst_port(pkt: &[u8]) -> Option<u16> {
-    let offset = tcp_header_offset(pkt)?;
-    Some(u16::from_be_bytes([pkt[offset + 2], pkt[offset + 3]]))
+    Some(tcp_packet_endpoints(pkt)?.1.port())
 }
 
 /// Return `true` if the raw IPv4 or IPv6 packet is a pure TCP SYN
@@ -133,6 +209,20 @@ fn is_tcp_syn(pkt: &[u8]) -> bool {
         return false;
     };
     pkt[offset + 13] & 0x12 == 0x02
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+struct TcpFlowKey {
+    src: SocketAddr,
+    dst: SocketAddr,
+}
+
+fn tcp_syn_flow_key(pkt: &[u8]) -> Option<TcpFlowKey> {
+    if !is_tcp_syn(pkt) {
+        return None;
+    }
+    let (src, dst) = tcp_packet_endpoints(pkt)?;
+    Some(TcpFlowKey { src, dst })
 }
 
 /// Return `true` if the raw IPv4 packet looks like an injected TCP RST.
@@ -202,6 +292,17 @@ fn udp_checksum_ipv6(src_ip: [u8; 16], dst_ip: [u8; 16], udp_packet: &[u8]) -> u
     normalize_udp_checksum(finalize_checksum(sum))
 }
 
+#[cfg(test)]
+fn icmpv6_checksum(src_ip: [u8; 16], dst_ip: [u8; 16], payload: &[u8]) -> u16 {
+    let payload_len = u32::try_from(payload.len()).unwrap_or(u32::MAX);
+    let mut sum = checksum_sum(&src_ip);
+    sum += checksum_sum(&dst_ip);
+    sum += (payload_len >> 16) + (payload_len & 0xFFFF);
+    sum += u32::from(58u16);
+    sum += checksum_sum(payload);
+    finalize_checksum(sum)
+}
+
 /// Build a raw IPv4/UDP or IPv6/UDP packet for a tunnel response.
 ///
 /// `src` — the mapdns address (e.g. 198.18.0.0:53)
@@ -269,6 +370,78 @@ fn build_udp_response(src: SocketAddr, dst: SocketAddr, payload: &[u8]) -> Vec<u
     }
 }
 
+#[cfg(test)]
+fn build_udp_port_unreachable(src: SocketAddr, dst: SocketAddr, payload: &[u8]) -> Vec<u8> {
+    const QUOTED_UDP_PAYLOAD_LEN: usize = 8;
+
+    let original = build_udp_response(src, dst, payload);
+    if original.is_empty() {
+        return Vec::new();
+    }
+
+    match (src, dst) {
+        (SocketAddr::V4(src), SocketAddr::V4(dst)) => {
+            let quoted_len = original.len().min(20 + 8 + QUOTED_UDP_PAYLOAD_LEN);
+            let icmp_len = 8usize + quoted_len;
+            let total_len = 20usize + icmp_len;
+            let total_len_u16 = match u16::try_from(total_len) {
+                Ok(value) => value,
+                Err(_) => return Vec::new(),
+            };
+            let mut pkt = vec![0u8; total_len];
+            let outer_src = dst.ip().octets();
+            let outer_dst = src.ip().octets();
+
+            pkt[0] = 0x45;
+            pkt[2..4].copy_from_slice(&total_len_u16.to_be_bytes());
+            pkt[8] = 64;
+            pkt[9] = 1;
+            pkt[12..16].copy_from_slice(&outer_src);
+            pkt[16..20].copy_from_slice(&outer_dst);
+
+            pkt[20] = 3;
+            pkt[21] = 3;
+            pkt[28..28 + quoted_len].copy_from_slice(&original[..quoted_len]);
+
+            let icmp_checksum = finalize_checksum(checksum_sum(&pkt[20..]));
+            pkt[22..24].copy_from_slice(&icmp_checksum.to_be_bytes());
+
+            let header_checksum = finalize_checksum(checksum_sum(&pkt[..20]));
+            pkt[10..12].copy_from_slice(&header_checksum.to_be_bytes());
+
+            pkt
+        }
+        (SocketAddr::V6(src), SocketAddr::V6(dst)) => {
+            let quoted_len = original.len().min(40 + 8 + QUOTED_UDP_PAYLOAD_LEN);
+            let icmp_len = 8usize + quoted_len;
+            let icmp_len_u16 = match u16::try_from(icmp_len) {
+                Ok(value) => value,
+                Err(_) => return Vec::new(),
+            };
+            let mut pkt = vec![0u8; 40 + icmp_len];
+            let outer_src = dst.ip().octets();
+            let outer_dst = src.ip().octets();
+
+            pkt[0] = 0x60;
+            pkt[4..6].copy_from_slice(&icmp_len_u16.to_be_bytes());
+            pkt[6] = 58;
+            pkt[7] = 64;
+            pkt[8..24].copy_from_slice(&outer_src);
+            pkt[24..40].copy_from_slice(&outer_dst);
+
+            pkt[40] = 1;
+            pkt[41] = 4;
+            pkt[48..48 + quoted_len].copy_from_slice(&original[..quoted_len]);
+
+            let icmp_checksum = icmpv6_checksum(outer_src, outer_dst, &pkt[40..]);
+            pkt[42..44].copy_from_slice(&icmp_checksum.to_be_bytes());
+
+            pkt
+        }
+        _ => Vec::new(),
+    }
+}
+
 /// Convert a smoltcp `IpEndpoint` to a std `SocketAddr`.
 fn endpoint_to_socketaddr(ep: smoltcp::wire::IpEndpoint) -> SocketAddr {
     let ip: IpAddr = match ep.addr {
@@ -276,6 +449,24 @@ fn endpoint_to_socketaddr(ep: smoltcp::wire::IpEndpoint) -> SocketAddr {
         IpAddress::Ipv6(v6) => IpAddr::V6(v6),
     };
     SocketAddr::new(ip, ep.port)
+}
+
+fn tcp_target_endpoint(tcp: &TcpSocket) -> Option<SocketAddr> {
+    tcp.local_endpoint().map(endpoint_to_socketaddr)
+}
+
+fn socketaddr_to_listen_endpoint(addr: SocketAddr) -> IpListenEndpoint {
+    let ip = match addr.ip() {
+        IpAddr::V4(v4) => {
+            let [a, b, c, d] = v4.octets();
+            IpAddress::v4(a, b, c, d)
+        }
+        IpAddr::V6(v6) => {
+            let [a, b, c, d, e, f, g, h] = v6.segments();
+            IpAddress::v6(a, b, c, d, e, f, g, h)
+        }
+    };
+    IpListenEndpoint { addr: Some(ip), port: addr.port() }
 }
 
 /// Build `Auth` from config credentials.
@@ -697,11 +888,11 @@ pub async fn io_loop_task(
     let filter_injected_resets = config.misc.filter_injected_resets;
     let udp_idle_timeout = Duration::from_millis(u64::from(config.misc.udp_read_write_timeout));
 
-    // Tracks pending LISTEN sockets added on-demand per TCP SYN.
-    // Key: TCP destination port, Value: (smoltcp SocketHandle, creation time).
-    // When the socket transitions to ESTABLISHED, the entry is removed.
-    // Entries older than PENDING_LISTEN_TIMEOUT are garbage-collected.
-    let mut pending_listens: HashMap<u16, (SocketHandle, StdInstant)> = HashMap::new();
+    // Tracks pending LISTEN sockets added on-demand per TCP flow.
+    // Key: observed SYN flow tuple, Value: (smoltcp SocketHandle, creation time).
+    // Retransmitted SYNs reuse the same entry, while concurrent HTTPS flows are
+    // allowed to allocate independent LISTEN sockets even on the same dst port.
+    let mut pending_listens: HashMap<TcpFlowKey, (SocketHandle, StdInstant)> = HashMap::new();
     let mut loop_iteration: u32 = 0;
 
     // Channel for UDP associations to return packets and lifecycle events.
@@ -787,20 +978,23 @@ pub async fn io_loop_task(
                         // Drop injected RST before it reaches smoltcp
                     } else {
                         // On-demand LISTEN socket creation for new TCP flows.
-                        if is_tcp_syn(pkt) {
-                            if let Some(dst_port) = tcp_dst_port(pkt) {
-                                if let std::collections::hash_map::Entry::Vacant(e) = pending_listens.entry(dst_port) {
-                                    let mut sock = TcpSocket::new(
-                                        tcp::SocketBuffer::new(vec![0u8; TCP_SOCKET_BUF]),
-                                        tcp::SocketBuffer::new(vec![0u8; TCP_SOCKET_BUF]),
+                        if let Some(flow_key) = tcp_syn_flow_key(pkt) {
+                            if let std::collections::hash_map::Entry::Vacant(e) = pending_listens.entry(flow_key) {
+                                let mut sock = TcpSocket::new(
+                                    tcp::SocketBuffer::new(vec![0u8; TCP_SOCKET_BUF]),
+                                    tcp::SocketBuffer::new(vec![0u8; TCP_SOCKET_BUF]),
+                                );
+                                if sock.listen(socketaddr_to_listen_endpoint(flow_key.dst)).is_ok() {
+                                    let h = socket_set.add(sock);
+                                    e.insert((h, StdInstant::now()));
+                                    debug!("Added LISTEN socket for flow {} -> {}", flow_key.src, flow_key.dst);
+                                } else {
+                                    warn!(
+                                        "listen({}) failed for flow {} -> {}",
+                                        flow_key.dst.port(),
+                                        flow_key.src,
+                                        flow_key.dst
                                     );
-                                    if sock.listen(dst_port).is_ok() {
-                                        let h = socket_set.add(sock);
-                                        e.insert((h, StdInstant::now()));
-                                        debug!("Added LISTEN socket for port {}", dst_port);
-                                    } else {
-                                        warn!("listen({}) failed (port already bound?)", dst_port);
-                                    }
                                 }
                             }
                         }
@@ -980,9 +1174,14 @@ pub async fn io_loop_task(
         loop_iteration = loop_iteration.wrapping_add(1);
         if loop_iteration.is_multiple_of(PENDING_LISTEN_GC_INTERVAL) {
             let now = StdInstant::now();
-            pending_listens.retain(|port, (handle, created_at)| {
+            pending_listens.retain(|flow_key, (handle, created_at)| {
                 if now.duration_since(*created_at) > PENDING_LISTEN_TIMEOUT {
-                    debug!("GC stale LISTEN socket for port {} (age {:?})", port, now.duration_since(*created_at));
+                    debug!(
+                        "GC stale LISTEN socket for flow {} -> {} (age {:?})",
+                        flow_key.src,
+                        flow_key.dst,
+                        now.duration_since(*created_at)
+                    );
                     socket_set.remove(*handle);
                     false
                 } else {
@@ -999,12 +1198,12 @@ pub async fn io_loop_task(
             for (handle, socket) in socket_set.iter_mut() {
                 if let Socket::Tcp(tcp) = socket {
                     if tcp.is_active() && !sessions.contains(handle) {
-                        match tcp.remote_endpoint() {
-                            Some(remote) => {
-                                new_sessions.push((handle, endpoint_to_socketaddr(remote)));
+                        match tcp_target_endpoint(tcp) {
+                            Some(target) => {
+                                new_sessions.push((handle, target));
                             }
                             None => {
-                                error!("TCP socket {:?} active but remote_endpoint is None — skipped", handle);
+                                error!("TCP socket {:?} active but local_endpoint is None — skipped", handle);
                             }
                         }
                     }
@@ -1012,13 +1211,17 @@ pub async fn io_loop_task(
             }
 
             // Spawn a TcpSession for each newly active socket (Decision C).
-            for (handle, remote_addr) in new_sessions {
-                // Remove the LISTEN tracking entry for this port.
-                let port = socket_set.get_mut::<TcpSocket>(handle).local_endpoint().map_or(0, |e| e.port);
-                pending_listens.remove(&port);
+            for (handle, target_addr) in new_sessions {
+                // Remove the LISTEN tracking entry for this socket handle.
+                let pending_key = pending_listens
+                    .iter()
+                    .find_map(|(key, (pending_handle, _))| (*pending_handle == handle).then_some(*key));
+                if let Some(pending_key) = pending_key {
+                    pending_listens.remove(&pending_key);
+                }
 
-                let resolved_remote = resolve_mapped_target(&stats, &mut dns_cache, remote_addr);
-                let target = TargetAddr::Ip(resolved_remote);
+                let resolved_target = resolve_mapped_target(&stats, &mut dns_cache, target_addr);
+                let target = TargetAddr::Ip(resolved_target);
                 let (smoltcp_side, session_side) = tokio::io::duplex(DUPLEX_BUF);
                 let child_cancel = cancel.child_token();
                 let session_inst = TcpSession::new(proxy_sockaddr, auth.clone(), target);
@@ -1028,12 +1231,20 @@ pub async fn io_loop_task(
                     session_inst.run(&mut session_side, child_cancel_clone).await
                 });
 
-                let entry = SessionEntry { smoltcp_side, cancel: child_cancel, handle: jh };
+                let entry =
+                    SessionEntry {
+                        smoltcp_side,
+                        cancel: child_cancel,
+                        handle: jh,
+                        pending_to_session: Vec::new(),
+                        pending_to_smoltcp: Vec::new(),
+                        upstream_closed: false,
+                    };
                 if let Some(evicted_h) = sessions.insert(handle, entry) {
                     socket_set.remove(evicted_h);
                     debug!("Evicted session socket {:?} removed from socket_set", evicted_h);
                 }
-                info!("TCP session spawned: remote={}", resolved_remote);
+                info!("TCP session spawned: remote={}", resolved_target);
             }
         }
 
@@ -1046,60 +1257,103 @@ pub async fn io_loop_task(
 
         to_remove.clear();
 
-        // 4a: synchronous pumping.
-        let mut smoltcp_to_session: Vec<(SocketHandle, Vec<u8>)> = Vec::new();
-
         for (handle, session) in sessions.iter_mut() {
             let tcp = socket_set.get_mut::<TcpSocket>(handle);
 
-            // smoltcp → session: read from smoltcp, buffer for async write.
-            let mut tmp = [0u8; PUMP_CHUNK];
-            if let Ok(n) = tcp.recv_slice(&mut tmp) {
-                if n > 0 {
-                    smoltcp_to_session.push((handle, tmp[..n].to_vec()));
+            if let Some(result) =
+                flush_pending_to_session(&mut session.smoltcp_side, &mut session.pending_to_session)
+            {
+                if let Err(e) = result {
+                    debug!("session pending flush error: {} — closing session {:?}", e, handle);
+                    to_remove.push(handle);
+                    continue;
                 }
             }
 
-            // session → smoltcp: non-blocking read from DuplexStream.
-            let mut tmp2 = [0u8; PUMP_CHUNK];
-            match try_read_duplex(&mut session.smoltcp_side, &mut tmp2) {
-                Some(Ok(0)) => {
-                    // session_side EOF → TcpSession task has exited.
-                    tcp.close();
-                    to_remove.push(handle);
+            if session.pending_to_session.is_empty() {
+                // smoltcp → session: read from smoltcp and push to the session
+                // duplex stream without stalling the entire io loop.
+                let mut tmp = [0u8; PUMP_CHUNK];
+                if let Ok(n) = tcp.recv_slice(&mut tmp) {
+                    if n > 0 {
+                        match try_write_duplex(&mut session.smoltcp_side, &tmp[..n]) {
+                            Some(Ok(0)) => {
+                                debug!("session duplex stream accepted zero bytes — closing session {:?}", handle);
+                                to_remove.push(handle);
+                                continue;
+                            }
+                            Some(Ok(sent)) => {
+                                if sent < n {
+                                    session.pending_to_session.extend_from_slice(&tmp[sent..n]);
+                                }
+                            }
+                            Some(Err(e)) => {
+                                debug!("smoltcp_side write error: {} — closing session {:?}", e, handle);
+                                to_remove.push(handle);
+                                continue;
+                            }
+                            None => {
+                                session.pending_to_session.extend_from_slice(&tmp[..n]);
+                            }
+                        }
+                    }
                 }
-                Some(Ok(n)) => {
-                    tcp.send_slice(&tmp2[..n]).ok();
+            }
+
+            if let Err(e) = flush_pending_to_smoltcp(tcp, &mut session.pending_to_smoltcp) {
+                debug!("smoltcp pending flush error: {} — closing session {:?}", e, handle);
+                to_remove.push(handle);
+                continue;
+            }
+
+            if session.upstream_closed && session.pending_to_smoltcp.is_empty() && tcp.is_open() {
+                tcp.close();
+            }
+
+            if session.pending_to_smoltcp.is_empty() && !session.upstream_closed {
+                // session → smoltcp: non-blocking read from DuplexStream.
+                let mut tmp2 = [0u8; PUMP_CHUNK];
+                match try_read_duplex(&mut session.smoltcp_side, &mut tmp2) {
+                    Some(Ok(0)) => {
+                        // session_side EOF → TcpSession task has finished sending bytes to the client.
+                        session.upstream_closed = true;
+                        if tcp.is_open() {
+                            tcp.close();
+                        }
+                    }
+                    Some(Ok(n)) => match tcp.send_slice(&tmp2[..n]) {
+                        Ok(sent) => {
+                            if sent < n {
+                                session.pending_to_smoltcp.extend_from_slice(&tmp2[sent..n]);
+                            }
+                        }
+                        Err(e) => {
+                            debug!("smoltcp send error: {} — closing session {:?}", e, handle);
+                            to_remove.push(handle);
+                            continue;
+                        }
+                    },
+                    Some(Err(e)) => {
+                        debug!("smoltcp_side read error: {} — closing session {:?}", e, handle);
+                        to_remove.push(handle);
+                        continue;
+                    }
+                    None => {} // no data yet
                 }
-                Some(Err(e)) => {
-                    debug!("smoltcp_side read error: {} — closing session {:?}", e, handle);
-                    tcp.close();
-                    to_remove.push(handle);
-                }
-                None => {} // no data yet
             }
 
             // smoltcp socket closed by remote side.
-            if !tcp.is_active() && !to_remove.contains(&handle) {
+            if !tcp.is_active() &&
+                session.pending_to_session.is_empty() &&
+                session.pending_to_smoltcp.is_empty() &&
+                !to_remove.contains(&handle)
+            {
                 to_remove.push(handle);
             }
         }
         // sessions.iter_mut() borrow ends here.
 
-        // 4b: async write buffered smoltcp→session data.
-        for (handle, data) in smoltcp_to_session {
-            if to_remove.contains(&handle) {
-                continue;
-            }
-            if let Some(entry) = sessions.get_mut(handle) {
-                if let Err(e) = entry.smoltcp_side.write_all(&data).await {
-                    debug!("smoltcp_side write error: {} — closing session {:?}", e, handle);
-                    to_remove.push(handle);
-                }
-            }
-        }
-
-        // 4c: close and remove ended sessions.
+        // 4b: close and remove ended sessions.
         for h in to_remove.drain(..) {
             if let Some(mut entry) = sessions.remove(h) {
                 // Shutdown smoltcp_side → session_side sees EOF (belt-and-suspenders).
@@ -1209,6 +1463,7 @@ pub async fn io_loop_task(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::net::Ipv6Addr;
 
     fn ipv4_tcp_rst(ip_id: u16) -> Vec<u8> {
         let mut pkt = vec![0u8; 40];
@@ -1226,15 +1481,36 @@ mod tests {
     }
 
     fn ipv4_tcp_syn() -> Vec<u8> {
+        ipv4_tcp_syn_with_ports(12345, 443)
+    }
+
+    fn build_ipv4_tcp_syn_packet(src_ip: Ipv4Addr, dst_ip: Ipv4Addr, src_port: u16, dst_port: u16) -> Vec<u8> {
         let mut pkt = vec![0u8; 40];
         pkt[0] = 0x45;
         pkt[3] = 40;
         pkt[9] = 6;
-        pkt[12..16].copy_from_slice(&[10, 0, 0, 1]);
-        pkt[16..20].copy_from_slice(&[10, 0, 0, 2]);
+        pkt[12..16].copy_from_slice(&src_ip.octets());
+        pkt[16..20].copy_from_slice(&dst_ip.octets());
+        pkt[20..22].copy_from_slice(&src_port.to_be_bytes());
+        pkt[22..24].copy_from_slice(&dst_port.to_be_bytes());
         pkt[32] = 0x50;
         pkt[33] = 0x02; // SYN
+        let ip_checksum = finalize_checksum(checksum_sum(&pkt[..20]));
+        pkt[10..12].copy_from_slice(&ip_checksum.to_be_bytes());
+        let tcp_checksum = {
+            let mut sum = checksum_sum(&src_ip.octets());
+            sum += checksum_sum(&dst_ip.octets());
+            sum += u32::from(6u16);
+            sum += u32::from((pkt.len() - 20) as u16);
+            sum += checksum_sum(&pkt[20..]);
+            finalize_checksum(sum)
+        };
+        pkt[36..38].copy_from_slice(&tcp_checksum.to_be_bytes());
         pkt
+    }
+
+    fn ipv4_tcp_syn_with_ports(src_port: u16, dst_port: u16) -> Vec<u8> {
+        build_ipv4_tcp_syn_packet(Ipv4Addr::new(10, 0, 0, 1), Ipv4Addr::new(10, 0, 0, 2), src_port, dst_port)
     }
 
     fn ipv4_tcp_ack(dst_port: u16) -> Vec<u8> {
@@ -1252,6 +1528,10 @@ mod tests {
     }
 
     fn ipv6_tcp_syn(dst_port: u16) -> Vec<u8> {
+        ipv6_tcp_syn_with_ports(12345, dst_port)
+    }
+
+    fn ipv6_tcp_syn_with_ports(src_port: u16, dst_port: u16) -> Vec<u8> {
         let mut pkt = vec![0u8; 60];
         pkt[0] = 0x60;
         pkt[4..6].copy_from_slice(&20u16.to_be_bytes());
@@ -1259,7 +1539,7 @@ mod tests {
         pkt[7] = 64;
         pkt[8..24].copy_from_slice(&std::net::Ipv6Addr::LOCALHOST.octets());
         pkt[24..40].copy_from_slice(&std::net::Ipv6Addr::LOCALHOST.octets());
-        pkt[40..42].copy_from_slice(&12345u16.to_be_bytes());
+        pkt[40..42].copy_from_slice(&src_port.to_be_bytes());
         pkt[42..44].copy_from_slice(&dst_port.to_be_bytes());
         pkt[52] = 0x50;
         pkt[53] = 0x02;
@@ -1324,6 +1604,109 @@ mod tests {
     }
 
     #[test]
+    fn tcp_syn_flow_key_extracts_ipv4_endpoints() {
+        let key = tcp_syn_flow_key(&ipv4_tcp_syn_with_ports(51000, 443)).expect("ipv4 syn flow key");
+
+        assert_eq!(key.src, SocketAddr::new(IpAddr::V4(Ipv4Addr::new(10, 0, 0, 1)), 51000));
+        assert_eq!(key.dst, SocketAddr::new(IpAddr::V4(Ipv4Addr::new(10, 0, 0, 2)), 443));
+    }
+
+    #[test]
+    fn tcp_syn_flow_key_distinguishes_parallel_https_flows() {
+        let first = tcp_syn_flow_key(&ipv4_tcp_syn_with_ports(51000, 443)).expect("first flow");
+        let second = tcp_syn_flow_key(&ipv4_tcp_syn_with_ports(51001, 443)).expect("second flow");
+
+        assert_ne!(first, second);
+    }
+
+    #[test]
+    fn tcp_syn_flow_key_extracts_ipv6_endpoints() {
+        let key = tcp_syn_flow_key(&ipv6_tcp_syn_with_ports(51000, 443)).expect("ipv6 syn flow key");
+
+        assert_eq!(key.src, SocketAddr::new(IpAddr::V6(Ipv6Addr::LOCALHOST), 51000));
+        assert_eq!(key.dst, SocketAddr::new(IpAddr::V6(Ipv6Addr::LOCALHOST), 443));
+    }
+
+    #[test]
+    fn socketaddr_to_listen_endpoint_preserves_ip_and_port() {
+        let ipv4 = socketaddr_to_listen_endpoint(SocketAddr::new(IpAddr::V4(Ipv4Addr::new(203, 0, 113, 10)), 443));
+        let ipv6 = socketaddr_to_listen_endpoint(SocketAddr::new(IpAddr::V6(Ipv6Addr::LOCALHOST), 8443));
+
+        assert_eq!(ipv4.addr, Some(IpAddress::v4(203, 0, 113, 10)));
+        assert_eq!(ipv4.port, 443);
+        assert_eq!(ipv6.addr, Some(IpAddress::v6(0, 0, 0, 0, 0, 0, 0, 1)));
+        assert_eq!(ipv6.port, 8443);
+    }
+
+    #[test]
+    fn listeners_bound_to_different_destination_ips_do_not_steal_https_flows() {
+        let mut device = TunDevice::new(1500);
+        let config = smoltcp::iface::Config::new(smoltcp::wire::HardwareAddress::Ip);
+        let mut iface = Interface::new(config, &mut device, Instant::now());
+        iface.update_ip_addrs(|addrs| {
+            addrs.push(smoltcp::wire::IpCidr::new(IpAddress::v4(10, 0, 0, 2), 24)).unwrap();
+        });
+        iface
+            .routes_mut()
+            .add_default_ipv4_route(smoltcp::wire::Ipv4Address::new(10, 0, 0, 2))
+            .expect("default ipv4 route");
+        iface.set_any_ip(true);
+        let mut socket_set = SocketSet::new(vec![]);
+
+        let mut first = TcpSocket::new(
+            tcp::SocketBuffer::new(vec![0u8; TCP_SOCKET_BUF]),
+            tcp::SocketBuffer::new(vec![0u8; TCP_SOCKET_BUF]),
+        );
+        let mut second = TcpSocket::new(
+            tcp::SocketBuffer::new(vec![0u8; TCP_SOCKET_BUF]),
+            tcp::SocketBuffer::new(vec![0u8; TCP_SOCKET_BUF]),
+        );
+
+        first
+            .listen(socketaddr_to_listen_endpoint(SocketAddr::new(
+                IpAddr::V4(Ipv4Addr::new(203, 0, 113, 10)),
+                443,
+            )))
+            .expect("first listener");
+        second
+            .listen(socketaddr_to_listen_endpoint(SocketAddr::new(
+                IpAddr::V4(Ipv4Addr::new(203, 0, 113, 20)),
+                443,
+            )))
+            .expect("second listener");
+
+        let first_handle = socket_set.add(first);
+        let second_handle = socket_set.add(second);
+
+        let syn = build_ipv4_tcp_syn_packet(
+            Ipv4Addr::new(10, 0, 0, 1),
+            Ipv4Addr::new(203, 0, 113, 20),
+            51000,
+            443,
+        );
+        device.rx_queue.push_back(syn);
+
+        iface.poll(Instant::now(), &mut device, &mut socket_set);
+
+        let first_socket = socket_set.get::<TcpSocket>(first_handle);
+        let second_socket = socket_set.get::<TcpSocket>(second_handle);
+        assert_eq!(first_socket.state(), tcp::State::Listen);
+        assert_eq!(second_socket.state(), tcp::State::SynReceived);
+        assert_eq!(
+            second_socket.local_endpoint().map(endpoint_to_socketaddr),
+            Some(SocketAddr::new(IpAddr::V4(Ipv4Addr::new(203, 0, 113, 20)), 443))
+        );
+        assert_eq!(
+            second_socket.remote_endpoint().map(endpoint_to_socketaddr),
+            Some(SocketAddr::new(IpAddr::V4(Ipv4Addr::new(10, 0, 0, 1)), 51000))
+        );
+        assert_eq!(
+            tcp_target_endpoint(second_socket),
+            Some(SocketAddr::new(IpAddr::V4(Ipv4Addr::new(203, 0, 113, 20)), 443))
+        );
+    }
+
+    #[test]
     fn build_udp_response_supports_ipv4() {
         let src = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(198, 18, 0, 10)), 53);
         let dst = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(10, 0, 0, 2)), 5353);
@@ -1365,4 +1748,43 @@ mod tests {
 
         assert!(build_udp_response(src, dst, &payload).is_empty());
     }
+
+    #[test]
+    fn build_udp_port_unreachable_supports_ipv4() {
+        let src = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(10, 0, 0, 2)), 53000);
+        let dst = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(157, 240, 229, 174)), 443);
+        let expected_src = match dst.ip() {
+            IpAddr::V4(value) => value.octets(),
+            _ => panic!("expected ipv4"),
+        };
+        let expected_dst = match src.ip() {
+            IpAddr::V4(value) => value.octets(),
+            _ => panic!("expected ipv4"),
+        };
+
+        let pkt = build_udp_port_unreachable(src, dst, b"quic");
+
+        assert_eq!(pkt[0] >> 4, 4);
+        assert_eq!(pkt[9], 1);
+        assert_eq!(pkt[20], 3);
+        assert_eq!(pkt[21], 3);
+        assert_eq!(&pkt[12..16], &expected_src);
+        assert_eq!(&pkt[16..20], &expected_dst);
+        assert!(!pkt[28..].is_empty());
+    }
+
+    #[test]
+    fn build_udp_port_unreachable_supports_ipv6() {
+        let src = SocketAddr::new(IpAddr::V6(Ipv6Addr::LOCALHOST), 53000);
+        let dst = SocketAddr::new(IpAddr::V6(Ipv6Addr::LOCALHOST), 443);
+
+        let pkt = build_udp_port_unreachable(src, dst, b"quic");
+
+        assert_eq!(pkt[0] >> 4, 6);
+        assert_eq!(pkt[6], 58);
+        assert_eq!(pkt[40], 1);
+        assert_eq!(pkt[41], 4);
+        assert!(!pkt[48..].is_empty());
+    }
+
 }

@@ -41,7 +41,13 @@ internal class VpnTunnelRuntime(
         val port = if (settings.proxyPort > 0) settings.proxyPort else DefaultProxyPort
         val dns = if (activeDns.mode == DnsModeEncrypted) MapDnsAddress else activeDns.dnsIp
         val ipv6 = settings.ipv6Enable
-        val config = RipDpiVpnService.buildTun2SocksConfig(activeDns, overrideReason, port, ipv6)
+        val config =
+            RipDpiVpnService.buildTun2SocksConfig(
+                activeDns = activeDns,
+                overrideReason = overrideReason,
+                socks5Port = port,
+                ipv6Enabled = ipv6,
+            )
 
         val tunnelSession = vpnTunnelSessionProvider.establish(vpnHost, dns, ipv6)
         try {

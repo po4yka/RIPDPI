@@ -1,4 +1,4 @@
-use smoltcp::phy::{ChecksumCapabilities, Device, DeviceCapabilities, Medium, RxToken, TxToken};
+use smoltcp::phy::{Device, DeviceCapabilities, Medium, RxToken, TxToken};
 use smoltcp::time::Instant;
 use std::collections::VecDeque;
 
@@ -78,9 +78,6 @@ impl Device for TunDevice {
         let mut caps = DeviceCapabilities::default();
         caps.medium = Medium::Ip;
         caps.max_transmission_unit = self.mtu;
-        // Disable checksum verification so tests can inject hand-crafted packets
-        // without computing correct checksums.
-        caps.checksum = ChecksumCapabilities::ignored();
         caps
     }
 }
@@ -94,10 +91,35 @@ mod tests {
 
     // ── Test helpers ─────────────────────────────────────────────────────────
 
-    /// Build a raw IPv4/TCP SYN packet (no payload, no checksum).
-    ///
-    /// `caps.checksum = ChecksumCapabilities::ignored()` means smoltcp won't
-    /// reject it due to a bad checksum.
+    fn checksum_sum(bytes: &[u8]) -> u32 {
+        let mut sum = 0u32;
+        let mut chunks = bytes.chunks_exact(2);
+        for chunk in &mut chunks {
+            sum += u32::from(u16::from_be_bytes([chunk[0], chunk[1]]));
+        }
+        if let Some(last) = chunks.remainder().first() {
+            sum += u32::from(*last) << 8;
+        }
+        sum
+    }
+
+    fn finalize_checksum(mut sum: u32) -> u16 {
+        while sum >> 16 != 0 {
+            sum = (sum & 0xFFFF) + (sum >> 16);
+        }
+        !(sum as u16)
+    }
+
+    fn tcp_checksum_ipv4(src_ip: [u8; 4], dst_ip: [u8; 4], payload: &[u8]) -> u16 {
+        let mut sum = checksum_sum(&src_ip);
+        sum += checksum_sum(&dst_ip);
+        sum += u32::from(6u16);
+        sum += u32::from(payload.len() as u16);
+        sum += checksum_sum(payload);
+        finalize_checksum(sum)
+    }
+
+    /// Build a raw IPv4/TCP SYN packet (no payload, with valid checksums).
     fn build_tcp_syn(src_ip: [u8; 4], dst_ip: [u8; 4], src_port: u16, dst_port: u16) -> Vec<u8> {
         let mut pkt = vec![0u8; 40]; // 20-byte IPv4 header + 20-byte TCP header
         pkt[0] = 0x45; // version=4, IHL=5
@@ -117,6 +139,10 @@ mod tests {
         pkt[33] = 0x02; // SYN flag
         pkt[34] = 0xff;
         pkt[35] = 0xff; // window = 65535
+        let ip_checksum = finalize_checksum(checksum_sum(&pkt[..20]));
+        pkt[10..12].copy_from_slice(&ip_checksum.to_be_bytes());
+        let tcp_checksum = tcp_checksum_ipv4(src_ip, dst_ip, &pkt[20..]);
+        pkt[36..38].copy_from_slice(&tcp_checksum.to_be_bytes());
         pkt
     }
 
@@ -138,6 +164,10 @@ mod tests {
         pkt[33] = 0x10; // ACK flag
         pkt[34] = 0xff;
         pkt[35] = 0xff;
+        let ip_checksum = finalize_checksum(checksum_sum(&pkt[..20]));
+        pkt[10..12].copy_from_slice(&ip_checksum.to_be_bytes());
+        let tcp_checksum = tcp_checksum_ipv4(src_ip, dst_ip, &pkt[20..]);
+        pkt[36..38].copy_from_slice(&tcp_checksum.to_be_bytes());
         pkt
     }
 
