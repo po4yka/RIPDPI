@@ -135,7 +135,7 @@ fun RipDpiSnackbarHost(
                 modifier =
                     Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = layout.screenHorizontalPadding, vertical = spacing.sm),
+                        .padding(horizontal = layout.horizontalPadding, vertical = spacing.sm),
                 contentAlignment = Alignment.BottomCenter,
             ) {
                 RipDpiSnackbar(
