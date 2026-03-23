@@ -5,7 +5,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -192,9 +191,11 @@ internal fun AdvancedSettingsScreen(
     modifier: Modifier = Modifier,
 ) {
     val contentState = rememberAdvancedSettingsContentState(uiState)
-    var pendingHostPack by remember { mutableStateOf<HostPackPreset?>(null) }
+    var pendingHostPackId by rememberSaveable { mutableStateOf<String?>(null) }
     var selectedHostPackTargetMode by rememberSaveable { mutableStateOf(defaultHostPackTargetMode(uiState)) }
     var selectedHostPackApplyMode by rememberSaveable { mutableStateOf(HostPackApplyDialogDefaultMode) }
+
+    val pendingHostPack = pendingHostPackId?.let { id -> hostPackCatalog.presets.find { it.id == id } }
 
     pendingHostPack?.let { preset ->
         HostPackApplyDialog(
@@ -203,14 +204,14 @@ internal fun AdvancedSettingsScreen(
             applyMode = selectedHostPackApplyMode,
             onTargetModeChanged = { selectedHostPackTargetMode = it },
             onApplyModeChanged = { selectedHostPackApplyMode = it },
-            onDismiss = { pendingHostPack = null },
+            onDismiss = { pendingHostPackId = null },
             onApply = {
                 actions.onApplyHostPackPreset(
                     preset,
                     selectedHostPackTargetMode,
                     selectedHostPackApplyMode,
                 )
-                pendingHostPack = null
+                pendingHostPackId = null
             },
         )
     }
@@ -225,7 +226,7 @@ internal fun AdvancedSettingsScreen(
         onPresetSelected = { preset ->
             selectedHostPackTargetMode = defaultHostPackTargetMode(uiState)
             selectedHostPackApplyMode = HostPackApplyDialogDefaultMode
-            pendingHostPack = preset
+            pendingHostPackId = preset.id
         },
         modifier = modifier,
     )
