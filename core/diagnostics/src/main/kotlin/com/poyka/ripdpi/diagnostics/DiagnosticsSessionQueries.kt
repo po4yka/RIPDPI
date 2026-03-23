@@ -9,7 +9,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
-import java.util.Locale
 
 internal object DiagnosticsSessionQueries {
     suspend fun loadSessionDetail(
@@ -75,7 +74,14 @@ internal object DiagnosticsSessionQueries {
                         decodeScanReport(json, session.reportJson)
                             ?.results
                             .orEmpty()
-                            .filterNot { it.outcome.isSuccessfulOutcome() }
+                            .filterNot { result ->
+                                DiagnosticsOutcomeTaxonomy
+                                    .classifyProbeOutcome(
+                                        probeType = result.probeType,
+                                        pathMode = parsePathModeOrDefault(session.pathMode),
+                                        outcome = result.outcome,
+                                    ).healthyEnoughForSummary
+                            }
                             .map { result -> "${result.probeType}:${result.target}=${result.outcome}" }
                     }.take(8)
             val strategySignature =
@@ -212,13 +218,33 @@ internal object DiagnosticsSessionQueries {
         val successfulReports =
             validatedReports.count { (_, report) ->
                 report.results.isNotEmpty() &&
-                    report.results.all { it.outcome.isSuccessfulOutcome() }
+                    report.results.all { result ->
+                        DiagnosticsOutcomeTaxonomy
+                            .classifyProbeOutcome(
+                                probeType = result.probeType,
+                                pathMode = report.pathMode,
+                                outcome = result.outcome,
+                            ).healthyEnoughForSummary
+                    }
             }
-        val allResults = validatedReports.flatMap { it.second.results }
+        val allResults =
+            validatedReports.flatMap { (_, report) ->
+                report.results.map { result ->
+                    ClassifiedReportResult(
+                        result = result,
+                        classification =
+                            DiagnosticsOutcomeTaxonomy.classifyProbeOutcome(
+                                probeType = result.probeType,
+                                pathMode = report.pathMode,
+                                outcome = result.outcome,
+                            ),
+                    )
+                }
+            }
         val failureOutcomes =
             allResults
-                .filterNot { it.outcome.isSuccessfulOutcome() }
-                .groupingBy { it.outcome }
+                .filterNot { it.classification.healthyEnoughForSummary }
+                .groupingBy { it.result.outcome }
                 .eachCount()
                 .entries
                 .sortedByDescending { it.value }
@@ -226,17 +252,23 @@ internal object DiagnosticsSessionQueries {
                 .take(3)
         val outcomeBreakdown =
             allResults
-                .groupBy { it.probeType }
+                .groupBy { it.result.probeType }
                 .map { (probeType, results) ->
-                    val failures = results.filterNot { it.outcome.isSuccessfulOutcome() }
+                    val unhealthy = results.filterNot { it.classification.healthyEnoughForSummary }
                     BypassOutcomeBreakdown(
                         probeType = probeType,
-                        successCount = results.count { it.outcome.isSuccessfulOutcome() },
-                        warningCount = results.count { it.outcome.isWarningOutcome() },
-                        failureCount = failures.size,
+                        successCount =
+                            results.count { it.classification.bucket == DiagnosticsOutcomeBucket.Healthy },
+                        warningCount =
+                            results.count { it.classification.bucket == DiagnosticsOutcomeBucket.Attention },
+                        failureCount =
+                            results.count {
+                                it.classification.bucket == DiagnosticsOutcomeBucket.Failed ||
+                                    it.classification.bucket == DiagnosticsOutcomeBucket.Inconclusive
+                            },
                         dominantFailureOutcome =
-                            failures
-                                .groupingBy { it.outcome }
+                            unhealthy
+                                .groupingBy { it.result.outcome }
                                 .eachCount()
                                 .maxByOrNull { it.value }
                                 ?.key,
@@ -278,22 +310,10 @@ internal object DiagnosticsSessionQueries {
     }
 }
 
-private fun String.isSuccessfulOutcome(): Boolean {
-    val normalized = lowercase(Locale.US)
-    return normalized.contains("ok") ||
-        normalized.contains("success") ||
-        normalized.contains("completed") ||
-        normalized.contains("reachable") ||
-        normalized.contains("allowed")
-}
+private data class ClassifiedReportResult(
+    val result: ProbeResult,
+    val classification: DiagnosticsOutcomeClassification,
+)
 
-private fun String.isWarningOutcome(): Boolean {
-    if (isSuccessfulOutcome()) {
-        return false
-    }
-    val normalized = lowercase(Locale.US)
-    return normalized.contains("timeout") ||
-        normalized.contains("partial") ||
-        normalized.contains("mixed") ||
-        normalized.contains("warn")
-}
+private fun parsePathModeOrDefault(value: String): ScanPathMode =
+    runCatching { ScanPathMode.valueOf(value) }.getOrDefault(ScanPathMode.RAW_PATH)

@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.activities
 
 import com.poyka.ripdpi.diagnostics.ScanKind
+import com.poyka.ripdpi.diagnostics.ScanPathMode
 import com.poyka.ripdpi.diagnostics.ScanProgress
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
@@ -368,18 +369,27 @@ class DiagnosticsProgressModelTest {
     // --- Probe outcome tone ---
 
     @Test
-    fun `probe outcome tone - ok maps to Positive`() {
-        assertEquals(DiagnosticsTone.Positive, support.toneForOutcome("ok"))
+    fun `probe outcome tone - dns match maps to Positive`() {
+        assertEquals(
+            DiagnosticsTone.Positive,
+            support.core.toneForProbeOutcome("dns_integrity", ScanPathMode.RAW_PATH, "dns_match"),
+        )
     }
 
     @Test
-    fun `probe outcome tone - failed maps to Negative`() {
-        assertEquals(DiagnosticsTone.Negative, support.toneForOutcome("failed"))
+    fun `probe outcome tone - udp blocked maps to Warning`() {
+        assertEquals(
+            DiagnosticsTone.Warning,
+            support.core.toneForProbeOutcome("dns_integrity", ScanPathMode.RAW_PATH, "udp_blocked"),
+        )
     }
 
     @Test
-    fun `probe outcome tone - skipped maps to Neutral`() {
-        assertEquals(DiagnosticsTone.Neutral, support.toneForOutcome("skipped"))
+    fun `probe outcome tone - whitelist sni failed maps to Negative`() {
+        assertEquals(
+            DiagnosticsTone.Negative,
+            support.core.toneForProbeOutcome("tcp_fat_header", ScanPathMode.RAW_PATH, "whitelist_sni_failed"),
+        )
     }
 
     // --- Scan completed tone ---

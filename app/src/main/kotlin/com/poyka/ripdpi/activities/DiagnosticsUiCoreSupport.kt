@@ -2,6 +2,9 @@ package com.poyka.ripdpi.activities
 
 import com.poyka.ripdpi.diagnostics.DiagnosticEvent
 import com.poyka.ripdpi.diagnostics.DiagnosticScanSession
+import com.poyka.ripdpi.diagnostics.DiagnosticsOutcomeBucket
+import com.poyka.ripdpi.diagnostics.DiagnosticsOutcomeTaxonomy
+import com.poyka.ripdpi.diagnostics.DiagnosticsOutcomeTone
 import com.poyka.ripdpi.diagnostics.ProbeResult
 import com.poyka.ripdpi.diagnostics.ScanPathMode
 import com.poyka.ripdpi.diagnostics.deriveProbeRetryCount
@@ -72,6 +75,7 @@ internal fun DiagnosticsUiCoreSupport.toSessionRowUiModel(
     session: DiagnosticScanSession,
 ): DiagnosticsSessionRowUiModel {
     val report = session.report
+    val pathMode = parsePathMode(session.pathMode)
     return DiagnosticsSessionRowUiModel(
         id = session.id,
         profileId = session.profileId,
@@ -90,12 +94,18 @@ internal fun DiagnosticsUiCoreSupport.toSessionRowUiModel(
                     add(DiagnosticsMetricUiModel(label = "Probes", value = it.toString()))
                 }
             },
-        tone = toneForOutcome(session.status),
+        tone =
+            report
+                ?.results
+                ?.takeIf { it.isNotEmpty() }
+                ?.let { results -> toneForAggregatedProbeResults(pathMode, results) }
+                ?: toneForSessionStatus(session.status),
     )
 }
 
 internal fun DiagnosticsUiCoreSupport.toProbeResultUiModel(
     index: Int,
+    pathMode: ScanPathMode,
     result: ProbeResult,
 ): DiagnosticsProbeResultUiModel =
     DiagnosticsProbeResultUiModel(
@@ -104,7 +114,7 @@ internal fun DiagnosticsUiCoreSupport.toProbeResultUiModel(
         target = result.target,
         outcome = result.outcome,
         probeRetryCount = result.probeRetryCount ?: deriveProbeRetryCount(result.details),
-        tone = toneForOutcome(result.outcome),
+        tone = toneForProbeOutcome(result.probeType, pathMode, result.outcome),
         details = result.details.map { DiagnosticsFieldUiModel(it.key, it.value) },
     )
 
@@ -115,41 +125,35 @@ internal fun DiagnosticsUiCoreSupport.toEventUiModel(event: DiagnosticEvent): Di
         severity = event.level.uppercase(formatter.locale),
         message = event.message,
         createdAtLabel = formatTimestamp(event.createdAt),
-        tone = toneForOutcome(event.level),
+        tone = toneForEventLevel(event.level),
     )
 
-internal fun DiagnosticsUiCoreSupport.toneForOutcome(value: String): DiagnosticsTone {
-    val normalized = value.lowercase(formatter.locale)
-    return when {
-        normalized.contains("ok") || normalized.contains("success") || normalized.contains("completed") -> {
-            DiagnosticsTone.Positive
-        }
+internal fun DiagnosticsUiCoreSupport.toneForProbeOutcome(
+    probeType: String,
+    pathMode: ScanPathMode,
+    outcome: String,
+): DiagnosticsTone =
+    DiagnosticsOutcomeTaxonomy
+        .classifyProbeOutcome(probeType = probeType, pathMode = pathMode, outcome = outcome)
+        .uiTone
+        .toUiTone()
 
-        normalized.contains("warn") ||
-            normalized.contains("timeout") ||
-            normalized.contains("partial") ||
-            normalized.contains("running") ||
-            normalized.contains("slow") ||
-            normalized.contains("stalled") -> {
-            DiagnosticsTone.Warning
-        }
-
-        normalized.contains("error") ||
-            normalized.contains("failed") ||
-            normalized.contains("blocked") ||
-            normalized.contains("reset") -> {
-            DiagnosticsTone.Negative
-        }
-
-        normalized.contains("info") -> {
-            DiagnosticsTone.Info
-        }
-
-        else -> {
-            DiagnosticsTone.Neutral
-        }
+internal fun DiagnosticsUiCoreSupport.toneForEventLevel(level: String): DiagnosticsTone =
+    when (level.lowercase(formatter.locale)) {
+        "info" -> DiagnosticsTone.Info
+        "warn", "warning" -> DiagnosticsTone.Warning
+        "error", "failed" -> DiagnosticsTone.Negative
+        else -> DiagnosticsTone.Neutral
     }
-}
+
+internal fun DiagnosticsUiCoreSupport.toneForSessionStatus(status: String): DiagnosticsTone =
+    when (status.lowercase(formatter.locale)) {
+        "completed", "finished" -> DiagnosticsTone.Positive
+        "running", "started" -> DiagnosticsTone.Warning
+        "failed" -> DiagnosticsTone.Negative
+        "cancelled" -> DiagnosticsTone.Neutral
+        else -> DiagnosticsTone.Neutral
+    }
 
 internal fun DiagnosticsUiCoreSupport.parsePathMode(value: String): ScanPathMode =
     runCatching { ScanPathMode.valueOf(value) }.getOrDefault(ScanPathMode.RAW_PATH)
@@ -170,4 +174,29 @@ internal fun DiagnosticsUiCoreSupport.redactCollection(values: List<String>): St
         "Unknown"
     } else {
         "redacted(${values.size})"
+    }
+
+internal fun DiagnosticsUiCoreSupport.aggregateBucketForProbeResults(
+    pathMode: ScanPathMode,
+    results: List<ProbeResult>,
+): DiagnosticsOutcomeBucket? = DiagnosticsOutcomeTaxonomy.aggregateBucket(pathMode = pathMode, results = results)
+
+private fun DiagnosticsUiCoreSupport.toneForAggregatedProbeResults(
+    pathMode: ScanPathMode,
+    results: List<ProbeResult>,
+): DiagnosticsTone =
+    when (aggregateBucketForProbeResults(pathMode, results)) {
+        DiagnosticsOutcomeBucket.Healthy -> DiagnosticsTone.Positive
+        DiagnosticsOutcomeBucket.Attention -> DiagnosticsTone.Warning
+        DiagnosticsOutcomeBucket.Failed -> DiagnosticsTone.Negative
+        DiagnosticsOutcomeBucket.Inconclusive -> DiagnosticsTone.Neutral
+        null -> DiagnosticsTone.Neutral
+    }
+
+private fun DiagnosticsOutcomeTone.toUiTone(): DiagnosticsTone =
+    when (this) {
+        DiagnosticsOutcomeTone.Positive -> DiagnosticsTone.Positive
+        DiagnosticsOutcomeTone.Warning -> DiagnosticsTone.Warning
+        DiagnosticsOutcomeTone.Negative -> DiagnosticsTone.Negative
+        DiagnosticsOutcomeTone.Neutral -> DiagnosticsTone.Neutral
     }

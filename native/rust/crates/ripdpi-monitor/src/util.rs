@@ -3,7 +3,7 @@ use std::net::SocketAddr;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use super::ScanKind;
-use crate::types::DiagnosticProfileFamily;
+use crate::types::{DiagnosticProfileFamily, ScanPathMode};
 
 // --- Constants ---
 
@@ -149,29 +149,150 @@ pub(crate) fn late_stage_cutoff(bytes_sent: usize, responses_seen: usize) -> boo
 
 // --- Probe outcome helpers ---
 
-pub(crate) fn probe_is_success(outcome: &str) -> bool {
-    matches!(
-        outcome,
-        "dns_match"
-            | "dns_expected_mismatch"
-            | "tls_ok"
-            | "tls_version_split"
-            | "http_ok"
-            | "tcp_fat_header_ok"
-            | "whitelist_sni_ok"
-            | "quic_initial_response"
-            | "quic_response"
-            | "service_ok"
-            | "circumvention_ok"
-            | "throughput_measured"
-    )
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum ProbeOutcomeBucket {
+    Healthy,
+    Attention,
+    Failed,
+    Inconclusive,
 }
 
-pub(crate) fn event_level_for_outcome(outcome: &str) -> &'static str {
-    if probe_is_success(outcome) {
-        "info"
-    } else {
-        "warn"
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct ProbeOutcomeClassification {
+    pub(crate) bucket: ProbeOutcomeBucket,
+    pub(crate) event_level: &'static str,
+    pub(crate) healthy_enough_for_summary: bool,
+}
+
+pub(crate) fn classify_probe_outcome(
+    probe_type: &str,
+    path_mode: &ScanPathMode,
+    outcome: &str,
+) -> ProbeOutcomeClassification {
+    let bucket = probe_outcome_bucket(probe_type, path_mode, outcome);
+    ProbeOutcomeClassification {
+        bucket,
+        event_level: match bucket {
+            ProbeOutcomeBucket::Healthy => "info",
+            ProbeOutcomeBucket::Attention | ProbeOutcomeBucket::Failed | ProbeOutcomeBucket::Inconclusive => "warn",
+        },
+        healthy_enough_for_summary: matches!(bucket, ProbeOutcomeBucket::Healthy),
+    }
+}
+
+pub(crate) fn event_level_for_outcome(
+    probe_type: &str,
+    path_mode: &ScanPathMode,
+    outcome: &str,
+) -> &'static str {
+    classify_probe_outcome(probe_type, path_mode, outcome).event_level
+}
+
+fn probe_outcome_bucket(
+    probe_type: &str,
+    path_mode: &ScanPathMode,
+    outcome: &str,
+) -> ProbeOutcomeBucket {
+    match probe_type {
+        "network_environment" => match outcome {
+            "network_available" => ProbeOutcomeBucket::Healthy,
+            "network_unavailable" => ProbeOutcomeBucket::Failed,
+            _ => legacy_outcome_bucket(outcome),
+        },
+        "dns_integrity" => match outcome {
+            "dns_match" => ProbeOutcomeBucket::Healthy,
+            "dns_expected_mismatch" => ProbeOutcomeBucket::Attention,
+            "udp_blocked" if matches!(path_mode, ScanPathMode::RawPath) => ProbeOutcomeBucket::Attention,
+            "udp_blocked" => ProbeOutcomeBucket::Inconclusive,
+            "udp_skipped_or_blocked" if matches!(path_mode, ScanPathMode::InPath) => ProbeOutcomeBucket::Attention,
+            "udp_skipped_or_blocked" => ProbeOutcomeBucket::Inconclusive,
+            "dns_substitution" | "encrypted_dns_blocked" | "dns_unavailable" => ProbeOutcomeBucket::Failed,
+            _ => legacy_outcome_bucket(outcome),
+        },
+        "domain_reachability" => match outcome {
+            "tls_ok" => ProbeOutcomeBucket::Healthy,
+            "tls_version_split" | "http_ok" => ProbeOutcomeBucket::Attention,
+            "tls_cert_invalid" | "http_blockpage" | "unreachable" => ProbeOutcomeBucket::Failed,
+            _ => legacy_outcome_bucket(outcome),
+        },
+        "tcp_fat_header" => match outcome {
+            "tcp_fat_header_ok" | "tcp_ok" | "fat_ok" | "whitelist_sni_ok" => ProbeOutcomeBucket::Healthy,
+            "tcp_16kb_blocked" => ProbeOutcomeBucket::Attention,
+            "whitelist_sni_failed" | "tcp_reset" | "tcp_timeout" | "tcp_connect_failed" | "tls_handshake_failed" => {
+                ProbeOutcomeBucket::Failed
+            }
+            _ => legacy_outcome_bucket(outcome),
+        },
+        "quic_reachability" => match outcome {
+            "quic_initial_response" | "quic_response" => ProbeOutcomeBucket::Healthy,
+            "quic_empty" | "quic_error" => ProbeOutcomeBucket::Failed,
+            _ => legacy_outcome_bucket(outcome),
+        },
+        "service_reachability" => match outcome {
+            "service_ok" => ProbeOutcomeBucket::Healthy,
+            "service_partial" => ProbeOutcomeBucket::Attention,
+            "service_blocked" => ProbeOutcomeBucket::Failed,
+            _ => legacy_outcome_bucket(outcome),
+        },
+        "circumvention_reachability" => match outcome {
+            "circumvention_ok" => ProbeOutcomeBucket::Healthy,
+            "circumvention_blocked" => ProbeOutcomeBucket::Failed,
+            _ => legacy_outcome_bucket(outcome),
+        },
+        "telegram_availability" => match outcome {
+            "ok" => ProbeOutcomeBucket::Healthy,
+            "slow" | "partial" => ProbeOutcomeBucket::Attention,
+            "blocked" | "error" => ProbeOutcomeBucket::Failed,
+            _ => legacy_outcome_bucket(outcome),
+        },
+        "throughput_window" => match outcome {
+            "throughput_measured" => ProbeOutcomeBucket::Healthy,
+            "throughput_failed" => ProbeOutcomeBucket::Failed,
+            _ => legacy_outcome_bucket(outcome),
+        },
+        "strategy_http" => match outcome {
+            "http_ok" => ProbeOutcomeBucket::Healthy,
+            "http_blockpage" | "http_unreachable" => ProbeOutcomeBucket::Failed,
+            _ => legacy_outcome_bucket(outcome),
+        },
+        "strategy_https" => match outcome {
+            "tls_ok" => ProbeOutcomeBucket::Healthy,
+            "tls_version_split" => ProbeOutcomeBucket::Attention,
+            "tls_cert_invalid" | "tls_handshake_failed" => ProbeOutcomeBucket::Failed,
+            _ => legacy_outcome_bucket(outcome),
+        },
+        "strategy_quic" => match outcome {
+            "quic_initial_response" | "quic_response" => ProbeOutcomeBucket::Healthy,
+            "quic_empty" | "quic_error" => ProbeOutcomeBucket::Failed,
+            _ => legacy_outcome_bucket(outcome),
+        },
+        "strategy_failure_classification" => match outcome {
+            "unknown"
+            | "dns_tampering"
+            | "tcp_reset"
+            | "silent_drop"
+            | "tls_alert"
+            | "http_blockpage"
+            | "quic_breakage"
+            | "redirect"
+            | "tls_handshake_failure"
+            | "connect_failure"
+            | "strategy_execution_failure" => ProbeOutcomeBucket::Failed,
+            _ => ProbeOutcomeBucket::Inconclusive,
+        },
+        _ => legacy_outcome_bucket(outcome),
+    }
+}
+
+fn legacy_outcome_bucket(outcome: &str) -> ProbeOutcomeBucket {
+    match outcome {
+        "ok" | "success" | "completed" | "reachable" | "allowed" => ProbeOutcomeBucket::Healthy,
+        "partial" | "mixed" | "timeout" | "slow" | "stalled" => ProbeOutcomeBucket::Attention,
+        "failed" | "blocked" | "error" | "reset" | "unreachable" | "dns_blocked" | "substituted" => {
+            ProbeOutcomeBucket::Failed
+        }
+        "skipped" | "not_applicable" => ProbeOutcomeBucket::Inconclusive,
+        _ => ProbeOutcomeBucket::Inconclusive,
     }
 }
 
@@ -183,7 +304,11 @@ pub(crate) fn now_ms() -> u64 {
 
 #[cfg(test)]
 mod tests {
+    use std::fs;
+    use std::path::{Path, PathBuf};
+
     use super::*;
+    use serde::Deserialize;
 
     #[test]
     fn stable_probe_hash_is_deterministic() {
@@ -275,31 +400,80 @@ mod tests {
     }
 
     #[test]
-    fn probe_is_success_recognizes_all_success_outcomes() {
-        assert!(probe_is_success("dns_match"));
-        assert!(probe_is_success("dns_expected_mismatch"));
-        assert!(probe_is_success("tls_ok"));
-        assert!(probe_is_success("http_ok"));
-        assert!(probe_is_success("tcp_fat_header_ok"));
-        assert!(probe_is_success("whitelist_sni_ok"));
+    fn classify_probe_outcome_marks_expected_health_buckets() {
+        assert_eq!(
+            classify_probe_outcome("network_environment", &ScanPathMode::RawPath, "network_available").bucket,
+            ProbeOutcomeBucket::Healthy,
+        );
+        assert_eq!(
+            classify_probe_outcome("dns_integrity", &ScanPathMode::RawPath, "dns_match").bucket,
+            ProbeOutcomeBucket::Healthy,
+        );
+        assert_eq!(
+            classify_probe_outcome("dns_integrity", &ScanPathMode::RawPath, "dns_expected_mismatch").bucket,
+            ProbeOutcomeBucket::Attention,
+        );
+        assert_eq!(
+            classify_probe_outcome("dns_integrity", &ScanPathMode::RawPath, "udp_blocked").bucket,
+            ProbeOutcomeBucket::Attention,
+        );
+        assert_eq!(
+            classify_probe_outcome("dns_integrity", &ScanPathMode::InPath, "udp_skipped_or_blocked").bucket,
+            ProbeOutcomeBucket::Attention,
+        );
+        assert_eq!(
+            classify_probe_outcome("dns_integrity", &ScanPathMode::RawPath, "encrypted_dns_blocked").bucket,
+            ProbeOutcomeBucket::Failed,
+        );
+        assert_eq!(
+            classify_probe_outcome("tcp_fat_header", &ScanPathMode::RawPath, "whitelist_sni_ok").bucket,
+            ProbeOutcomeBucket::Healthy,
+        );
+        assert_eq!(
+            classify_probe_outcome("tcp_fat_header", &ScanPathMode::RawPath, "whitelist_sni_failed").bucket,
+            ProbeOutcomeBucket::Failed,
+        );
     }
 
     #[test]
-    fn probe_is_success_rejects_failure_outcomes() {
-        assert!(!probe_is_success("dns_mismatch"));
-        assert!(!probe_is_success("tls_error"));
-        assert!(!probe_is_success("timeout"));
-        assert!(!probe_is_success(""));
+    fn classify_probe_outcome_returns_inconclusive_for_unknown_token() {
+        assert_eq!(
+            classify_probe_outcome("domain_reachability", &ScanPathMode::RawPath, "tls_experimental").bucket,
+            ProbeOutcomeBucket::Inconclusive,
+        );
     }
 
     #[test]
     fn event_level_for_outcome_returns_info_for_success() {
-        assert_eq!(event_level_for_outcome("tls_ok"), "info");
+        assert_eq!(event_level_for_outcome("domain_reachability", &ScanPathMode::RawPath, "tls_ok"), "info");
     }
 
     #[test]
     fn event_level_for_outcome_returns_warn_for_failure() {
-        assert_eq!(event_level_for_outcome("tls_error"), "warn");
+        assert_eq!(
+            event_level_for_outcome("domain_reachability", &ScanPathMode::RawPath, "tls_handshake_failed"),
+            "warn",
+        );
+    }
+
+    #[test]
+    fn fixture_driven_outcome_taxonomy_matches_classifier() {
+        let fixture: OutcomeTaxonomyFixture = serde_json::from_str(
+            &fs::read_to_string(
+                repo_root().join("diagnostics-contract-fixtures/outcome_taxonomy_current.json"),
+            )
+            .expect("fixture"),
+        )
+        .expect("outcome taxonomy");
+
+        assert_eq!(fixture.schema_version, 1);
+        for entry in fixture.outcomes {
+            let classification = classify_probe_outcome(&entry.probe_type, &entry.path_mode, &entry.outcome);
+            assert_eq!(bucket_name(classification.bucket), entry.bucket);
+            assert_eq!(ui_tone_name(classification.bucket), entry.ui_tone);
+            assert_eq!(classification.event_level, entry.event_level);
+            assert_eq!(classification.healthy_enough_for_summary, entry.healthy_enough_for_summary);
+        }
     }
 
     #[test]
@@ -326,5 +500,46 @@ mod tests {
         let with_none = probe_session_seed(None, "session-1");
         let with_default = probe_session_seed(Some("default"), "session-1");
         assert_eq!(with_none, with_default);
+    }
+
+    fn repo_root() -> PathBuf {
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../../").canonicalize().expect("repo root")
+    }
+
+    fn bucket_name(bucket: ProbeOutcomeBucket) -> &'static str {
+        match bucket {
+            ProbeOutcomeBucket::Healthy => "Healthy",
+            ProbeOutcomeBucket::Attention => "Attention",
+            ProbeOutcomeBucket::Failed => "Failed",
+            ProbeOutcomeBucket::Inconclusive => "Inconclusive",
+        }
+    }
+
+    fn ui_tone_name(bucket: ProbeOutcomeBucket) -> &'static str {
+        match bucket {
+            ProbeOutcomeBucket::Healthy => "Positive",
+            ProbeOutcomeBucket::Attention => "Warning",
+            ProbeOutcomeBucket::Failed => "Negative",
+            ProbeOutcomeBucket::Inconclusive => "Neutral",
+        }
+    }
+
+    #[derive(Debug, Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    struct OutcomeTaxonomyFixture {
+        schema_version: u32,
+        outcomes: Vec<OutcomeTaxonomyFixtureEntry>,
+    }
+
+    #[derive(Debug, Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    struct OutcomeTaxonomyFixtureEntry {
+        probe_type: String,
+        path_mode: ScanPathMode,
+        outcome: String,
+        bucket: String,
+        ui_tone: String,
+        event_level: String,
+        healthy_enough_for_summary: bool,
     }
 }

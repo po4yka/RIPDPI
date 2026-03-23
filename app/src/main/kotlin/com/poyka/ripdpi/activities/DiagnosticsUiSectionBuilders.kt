@@ -52,6 +52,7 @@ internal fun DiagnosticsUiFactorySupport.buildScanUiModel(
     activeProfile: DiagnosticProfile?,
     activeProfileRequest: DiagnosticsProfileProjection?,
     latestProfileSession: DiagnosticScanSession?,
+    activeScanPathMode: ScanPathMode?,
     latestReportResults: List<DiagnosticsProbeResultUiModel>,
     latestResolverRecommendation: DiagnosticsResolverRecommendationUiModel?,
     latestStrategyProbeReport: DiagnosticsStrategyProbeReportUiModel?,
@@ -99,7 +100,7 @@ internal fun DiagnosticsUiFactorySupport.buildScanUiModel(
         profiles = profiles.map(::toProfileOptionUiModel),
         selectedProfileId = activeProfile?.id,
         selectedProfile = selectedProfile,
-        activePathMode = latestProfileSession?.pathMode?.let(::parsePathMode) ?: ScanPathMode.RAW_PATH,
+        activePathMode = activeScanPathMode ?: latestProfileSession?.pathMode?.let(::parsePathMode) ?: ScanPathMode.RAW_PATH,
         activeProgress =
             progress?.let { p ->
                 toProgressUiModel(
@@ -309,12 +310,25 @@ internal fun DiagnosticsUiFactorySupport.deriveHealth(
 ): DiagnosticsHealth {
     val hasError = nativeEvents.any { it.level.equals("error", ignoreCase = true) }
     val hasWarning = nativeEvents.any { it.level.equals("warn", ignoreCase = true) }
+    val latestSessionBucket =
+        latestSession
+            ?.report
+            ?.results
+            ?.takeIf { it.isNotEmpty() }
+            ?.let { results ->
+                core.aggregateBucketForProbeResults(parsePathMode(latestSession.pathMode), results)
+            }
     return when {
         progress != null -> DiagnosticsHealth.Attention
         latestSession == null && latestTelemetry == null && nativeEvents.isEmpty() -> DiagnosticsHealth.Idle
         hasError -> DiagnosticsHealth.Degraded
-        latestSession?.status?.contains("failed", ignoreCase = true) == true -> DiagnosticsHealth.Degraded
+        latestSessionBucket == com.poyka.ripdpi.diagnostics.DiagnosticsOutcomeBucket.Failed -> DiagnosticsHealth.Degraded
+        latestSession?.status.equals("failed", ignoreCase = true) -> DiagnosticsHealth.Degraded
         hasWarning -> DiagnosticsHealth.Attention
+        latestSessionBucket == com.poyka.ripdpi.diagnostics.DiagnosticsOutcomeBucket.Attention ||
+            latestSessionBucket == com.poyka.ripdpi.diagnostics.DiagnosticsOutcomeBucket.Inconclusive -> {
+            DiagnosticsHealth.Attention
+        }
         else -> DiagnosticsHealth.Healthy
     }
 }

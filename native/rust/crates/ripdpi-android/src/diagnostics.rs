@@ -321,7 +321,7 @@ mod tests {
         let report: ScanReport = serde_json::from_str(&report_json).expect("decode report");
         assert_eq!(report.session_id, session_id);
         assert_eq!(report.profile_id, "jni-test-profile");
-        assert!(report.summary.contains("/0 probes succeeded"));
+        assert_eq!(report.summary, "0 completed · 0 healthy");
     }
 
     #[test]
