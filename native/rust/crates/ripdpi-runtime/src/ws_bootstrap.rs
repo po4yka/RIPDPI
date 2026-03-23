@@ -122,8 +122,8 @@ fn select_first_resolved_addr(answers: &[String], port: u16) -> io::Result<Socke
 mod tests {
     use super::*;
 
-    use local_network_fixture::{FixtureConfig, FixtureStack, DEFAULT_BIND_HOST};
-    use std::net::{Ipv4Addr, TcpListener, UdpSocket};
+    use local_network_fixture::{FixtureConfig, FixtureStack};
+    use std::net::Ipv4Addr;
 
     #[test]
     fn resolve_ws_tunnel_addr_uses_runtime_context_when_present() {

@@ -254,70 +254,84 @@ impl FixtureStack {
         let stop = Arc::new(AtomicBool::new(false));
         let events = EventLog::new();
         let faults = FaultController::new();
-
-        let manifest = FixtureManifest {
-            bind_host: config.bind_host.clone(),
-            android_host: "10.0.2.2".to_string(),
-            tcp_echo_port: config.tcp_echo_port,
-            udp_echo_port: config.udp_echo_port,
-            tls_echo_port: config.tls_echo_port,
-            dns_udp_port: config.dns_udp_port,
-            dns_http_port: config.dns_http_port,
-            socks5_port: config.socks5_port,
-            control_port: config.control_port,
-            fixture_domain: config.fixture_domain.clone(),
-            fixture_ipv4: config.fixture_ipv4.clone(),
-            dns_answer_ipv4: config.dns_answer_ipv4.clone(),
-            tls_certificate_pem: cert_pem,
-        };
-
-        let mut handles = vec![start_tcp_echo_server(
+        let (tcp_echo_handle, tcp_echo_port) = start_tcp_echo_server(
             config.bind_host.clone(),
             config.tcp_echo_port,
             stop.clone(),
             events.clone(),
             faults.clone(),
-        )?];
-        handles.push(start_udp_echo_server(
+        )?;
+        let (udp_echo_handle, udp_echo_port) = start_udp_echo_server(
             config.bind_host.clone(),
             config.udp_echo_port,
             stop.clone(),
             events.clone(),
             faults.clone(),
-        )?);
-        handles.push(start_tls_echo_server(
+        )?;
+        let (tls_echo_handle, tls_echo_port) = start_tls_echo_server(
             config.bind_host.clone(),
             config.tls_echo_port,
             stop.clone(),
             events.clone(),
             faults.clone(),
             tls_server_config.clone(),
-        )?);
-        handles.push(start_dns_udp_server(
+        )?;
+        let (dns_udp_handle, dns_udp_port) = start_dns_udp_server(
             config.bind_host.clone(),
             config.dns_udp_port,
             stop.clone(),
             events.clone(),
             faults.clone(),
             config.dns_answer_ipv4.clone(),
-        )?);
-        handles.push(start_dns_http_server(
+        )?;
+        let (dns_http_handle, dns_http_port) = start_dns_http_server(
             config.bind_host.clone(),
             config.dns_http_port,
             stop.clone(),
             events.clone(),
             faults.clone(),
             config.dns_answer_ipv4.clone(),
-        )?);
-        handles.push(start_socks5_server(config.clone(), stop.clone(), events.clone(), faults.clone())?);
-        handles.push(start_control_server(
+        )?;
+        let (socks5_handle, socks5_port) = start_socks5_server(config.clone(), stop.clone(), events.clone(), faults.clone())?;
+
+        let mut manifest = FixtureManifest {
+            bind_host: config.bind_host.clone(),
+            android_host: "10.0.2.2".to_string(),
+            tcp_echo_port,
+            udp_echo_port,
+            tls_echo_port,
+            dns_udp_port,
+            dns_http_port,
+            socks5_port,
+            control_port: 0,
+            fixture_domain: config.fixture_domain.clone(),
+            fixture_ipv4: config.fixture_ipv4.clone(),
+            dns_answer_ipv4: config.dns_answer_ipv4.clone(),
+            tls_certificate_pem: cert_pem,
+        };
+        let shared_manifest = Arc::new(Mutex::new(manifest.clone()));
+        let (control_handle, control_port) = start_control_server(
             config.bind_host,
             config.control_port,
             stop.clone(),
             events.clone(),
             faults.clone(),
-            manifest.clone(),
-        )?);
+            shared_manifest.clone(),
+        )?;
+        manifest.control_port = control_port;
+        if let Ok(mut current) = shared_manifest.lock() {
+            *current = manifest.clone();
+        }
+
+        let handles = vec![
+            tcp_echo_handle,
+            udp_echo_handle,
+            tls_echo_handle,
+            dns_udp_handle,
+            dns_http_handle,
+            socks5_handle,
+            control_handle,
+        ];
 
         Ok(Self { manifest, events, faults, stop, handles })
     }
@@ -363,10 +377,11 @@ fn start_tcp_echo_server(
     stop: Arc<AtomicBool>,
     events: EventLog,
     faults: FaultController,
-) -> io::Result<JoinHandle<()>> {
+) -> io::Result<(JoinHandle<()>, u16)> {
     let listener = TcpListener::bind((bind_host.as_str(), port))?;
     listener.set_nonblocking(true)?;
-    Ok(thread::spawn(move || {
+    let local_port = listener.local_addr()?.port();
+    Ok((thread::spawn(move || {
         while !stop.load(Ordering::Relaxed) {
             match listener.accept() {
                 Ok((mut stream, peer)) => {
@@ -431,7 +446,7 @@ fn start_tcp_echo_server(
                 Err(_) => break,
             }
         }
-    }))
+    }), local_port))
 }
 
 fn start_udp_echo_server(
@@ -440,11 +455,12 @@ fn start_udp_echo_server(
     stop: Arc<AtomicBool>,
     events: EventLog,
     faults: FaultController,
-) -> io::Result<JoinHandle<()>> {
+) -> io::Result<(JoinHandle<()>, u16)> {
     let socket = UdpSocket::bind((bind_host.as_str(), port))?;
     socket.set_read_timeout(Some(IO_TIMEOUT))?;
+    let local_port = socket.local_addr()?.port();
     let local = socket.local_addr().ok();
-    Ok(thread::spawn(move || {
+    Ok((thread::spawn(move || {
         let mut buf = [0u8; 4096];
         while !stop.load(Ordering::Relaxed) {
             match socket.recv_from(&mut buf) {
@@ -476,7 +492,7 @@ fn start_udp_echo_server(
                 Err(_) => break,
             }
         }
-    }))
+    }), local_port))
 }
 
 fn start_tls_echo_server(
@@ -486,10 +502,11 @@ fn start_tls_echo_server(
     events: EventLog,
     faults: FaultController,
     server_config: Arc<ServerConfig>,
-) -> io::Result<JoinHandle<()>> {
+) -> io::Result<(JoinHandle<()>, u16)> {
     let listener = TcpListener::bind((bind_host.as_str(), port))?;
     listener.set_nonblocking(true)?;
-    Ok(thread::spawn(move || {
+    let local_port = listener.local_addr()?.port();
+    Ok((thread::spawn(move || {
         while !stop.load(Ordering::Relaxed) {
             match listener.accept() {
                 Ok((mut stream, peer)) => {
@@ -538,7 +555,7 @@ fn start_tls_echo_server(
                 Err(_) => break,
             }
         }
-    }))
+    }), local_port))
 }
 
 fn start_dns_udp_server(
@@ -548,13 +565,14 @@ fn start_dns_udp_server(
     events: EventLog,
     faults: FaultController,
     answer_ip: String,
-) -> io::Result<JoinHandle<()>> {
+) -> io::Result<(JoinHandle<()>, u16)> {
     let answer_ip =
         Ipv4Addr::from_str(&answer_ip).map_err(|err| io::Error::new(ErrorKind::InvalidInput, err.to_string()))?;
     let socket = UdpSocket::bind((bind_host.as_str(), port))?;
     socket.set_read_timeout(Some(IO_TIMEOUT))?;
+    let local_port = socket.local_addr()?.port();
     let local = socket.local_addr().ok();
-    Ok(thread::spawn(move || {
+    Ok((thread::spawn(move || {
         let mut buf = [0u8; 512];
         while !stop.load(Ordering::Relaxed) {
             match socket.recv_from(&mut buf) {
@@ -600,7 +618,7 @@ fn start_dns_udp_server(
                 Err(_) => break,
             }
         }
-    }))
+    }), local_port))
 }
 
 fn start_dns_http_server(
@@ -610,7 +628,7 @@ fn start_dns_http_server(
     events: EventLog,
     faults: FaultController,
     answer_ip: String,
-) -> io::Result<JoinHandle<()>> {
+) -> io::Result<(JoinHandle<()>, u16)> {
     start_http_server(bind_host, port, stop, events.clone(), move |request, peer, local| {
         let path = request.path.clone();
         let binary_query =
@@ -686,14 +704,18 @@ fn start_control_server(
     stop: Arc<AtomicBool>,
     events: EventLog,
     faults: FaultController,
-    manifest: FixtureManifest,
-) -> io::Result<JoinHandle<()>> {
+    manifest: Arc<Mutex<FixtureManifest>>,
+) -> io::Result<(JoinHandle<()>, u16)> {
     start_http_server(bind_host, port, stop, events.clone(), move |request, peer, local| {
         match (request.method.as_str(), request.path.as_str()) {
             ("GET", "/health") => HttpResponse::text("ok"),
             ("GET", "/manifest") => {
                 events.record(event("control", "http", peer, local, "manifest", request.raw.len(), None));
-                HttpResponse::json(serde_json::to_string(&manifest).unwrap_or_else(|_| "{}".to_string()))
+                let snapshot = manifest
+                    .lock()
+                    .map(|manifest| manifest.clone())
+                    .unwrap_or_else(|poisoned| poisoned.into_inner().clone());
+                HttpResponse::json(serde_json::to_string(&snapshot).unwrap_or_else(|_| "{}".to_string()))
             }
             ("GET", "/events") => {
                 events.record(event("control", "http", peer, local, "events", request.raw.len(), None));
@@ -739,14 +761,15 @@ fn start_http_server<F>(
     stop: Arc<AtomicBool>,
     events: EventLog,
     handler: F,
-) -> io::Result<JoinHandle<()>>
+) -> io::Result<(JoinHandle<()>, u16)>
 where
     F: Fn(HttpRequest, SocketAddr, Option<SocketAddr>) -> HttpResponse + Send + Sync + 'static,
 {
     let listener = TcpListener::bind((bind_host.as_str(), port))?;
     listener.set_nonblocking(true)?;
+    let local_port = listener.local_addr()?.port();
     let handler = Arc::new(handler);
-    Ok(thread::spawn(move || {
+    Ok((thread::spawn(move || {
         while !stop.load(Ordering::Relaxed) {
             match listener.accept() {
                 Ok((mut stream, peer)) => {
@@ -771,7 +794,7 @@ where
                 Err(_) => break,
             }
         }
-    }))
+    }), local_port))
 }
 
 fn start_socks5_server(
@@ -779,14 +802,15 @@ fn start_socks5_server(
     stop: Arc<AtomicBool>,
     events: EventLog,
     faults: FaultController,
-) -> io::Result<JoinHandle<()>> {
+) -> io::Result<(JoinHandle<()>, u16)> {
     let listener = TcpListener::bind((config.bind_host.as_str(), config.socks5_port))?;
     listener.set_nonblocking(true)?;
+    let local_port = listener.local_addr()?.port();
     let udp_socket = UdpSocket::bind((config.bind_host.as_str(), 0))?;
     udp_socket.set_read_timeout(Some(IO_TIMEOUT))?;
     let udp_local = udp_socket.local_addr().ok();
     let udp_shared = Arc::new(udp_socket);
-    Ok(thread::spawn(move || {
+    Ok((thread::spawn(move || {
         let udp_worker = {
             let udp_socket = udp_shared.clone();
             let stop = stop.clone();
@@ -958,7 +982,7 @@ fn start_socks5_server(
         }
 
         let _ = udp_worker.join();
-    }))
+    }), local_port))
 }
 
 #[derive(Debug, Clone)]
@@ -1399,7 +1423,7 @@ where
 mod tests {
     use super::*;
     use std::io::{Read, Write};
-    use std::net::{SocketAddr, TcpListener, TcpStream, UdpSocket};
+    use std::net::{SocketAddr, TcpStream, UdpSocket};
     use std::sync::Mutex;
 
     static FIXTURE_STACK_TEST_MUTEX: Mutex<()> = Mutex::new(());
@@ -1528,7 +1552,7 @@ mod tests {
 
     #[test]
     fn fixture_stack_control_routes_expose_manifest_and_events_on_dynamic_ports() {
-        let _serial = FIXTURE_STACK_TEST_MUTEX.lock().expect("lock fixture stack tests");
+        let _serial = lock_fixture_stack_tests();
         let stack = FixtureStack::start(dynamic_fixture_config()).expect("start fixture stack");
 
         let manifest_body = http_body(
@@ -1551,37 +1575,320 @@ mod tests {
         assert!(events.iter().any(|event| event.service == "control" && event.detail == "events"));
     }
 
-    fn dynamic_fixture_config() -> FixtureConfig {
-        let tcp_echo = TcpListener::bind((DEFAULT_BIND_HOST, 0)).expect("reserve tcp echo port");
-        let tls_echo = TcpListener::bind((DEFAULT_BIND_HOST, 0)).expect("reserve tls echo port");
-        let dns_http = TcpListener::bind((DEFAULT_BIND_HOST, 0)).expect("reserve dns http port");
-        let socks5 = TcpListener::bind((DEFAULT_BIND_HOST, 0)).expect("reserve socks5 port");
-        let control = TcpListener::bind((DEFAULT_BIND_HOST, 0)).expect("reserve control port");
-        let udp_echo = UdpSocket::bind((DEFAULT_BIND_HOST, 0)).expect("reserve udp echo port");
-        let dns_udp = UdpSocket::bind((DEFAULT_BIND_HOST, 0)).expect("reserve dns udp port");
+    #[test]
+    fn fixture_stack_services_round_trip_and_record_events() {
+        let _serial = lock_fixture_stack_tests();
+        let stack = FixtureStack::start(dynamic_fixture_config()).expect("start fixture stack");
 
-        let config = FixtureConfig {
-            tcp_echo_port: tcp_echo.local_addr().expect("tcp echo addr").port(),
-            udp_echo_port: udp_echo.local_addr().expect("udp echo addr").port(),
-            tls_echo_port: tls_echo.local_addr().expect("tls echo addr").port(),
-            dns_udp_port: dns_udp.local_addr().expect("dns udp addr").port(),
-            dns_http_port: dns_http.local_addr().expect("dns http addr").port(),
-            socks5_port: socks5.local_addr().expect("socks5 addr").port(),
-            control_port: control.local_addr().expect("control addr").port(),
-            ..FixtureConfig::default()
+        let mut tcp = TcpStream::connect((&stack.manifest().bind_host[..], stack.manifest().tcp_echo_port))
+            .expect("connect tcp echo");
+        tcp.write_all(b"hello").expect("write tcp echo");
+        let mut tcp_buf = [0u8; 5];
+        tcp.read_exact(&mut tcp_buf).expect("read tcp echo");
+        assert_eq!(&tcp_buf, b"hello");
+
+        let udp = UdpSocket::bind((DEFAULT_BIND_HOST, 0)).expect("bind udp client");
+        udp.set_read_timeout(Some(Duration::from_secs(1))).expect("set udp timeout");
+        udp.send_to(b"ping", (&stack.manifest().bind_host[..], stack.manifest().udp_echo_port))
+            .expect("send udp echo");
+        let mut udp_buf = [0u8; 16];
+        let (udp_read, _) = udp.recv_from(&mut udp_buf).expect("receive udp echo");
+        assert_eq!(&udp_buf[..udp_read], b"ping");
+
+        let dns_http_body = http_body(
+            &stack.manifest().bind_host,
+            stack.manifest().dns_http_port,
+            "GET /dns-query?name=fixture.test HTTP/1.1\r\nHost: fixture.test\r\nConnection: close\r\n\r\n",
+        );
+        assert!(dns_http_body.contains(&stack.manifest().dns_answer_ipv4));
+
+        let dns_udp = UdpSocket::bind((DEFAULT_BIND_HOST, 0)).expect("bind dns udp client");
+        dns_udp.set_read_timeout(Some(Duration::from_secs(1))).expect("set dns udp timeout");
+        let query = test_dns_query(&stack.manifest().fixture_domain);
+        dns_udp
+            .send_to(&query, (&stack.manifest().bind_host[..], stack.manifest().dns_udp_port))
+            .expect("send dns udp query");
+        let mut dns_buf = [0u8; 512];
+        let (dns_read, _) = dns_udp.recv_from(&mut dns_buf).expect("receive dns udp response");
+        assert_eq!(parse_dns_question_name(&dns_buf[..dns_read]).as_deref(), Some(stack.manifest().fixture_domain.as_str()));
+
+        let events = stack.events().snapshot();
+        assert!(events.iter().any(|event| event.service == "tcp_echo" && event.detail == "echo"));
+        assert!(events.iter().any(|event| event.service == "udp_echo" && event.detail == "echo"));
+        assert!(events.iter().any(|event| event.service == "dns_http"));
+        assert!(events.iter().any(|event| event.service == "dns_udp"));
+    }
+
+    #[test]
+    fn fixture_stack_control_routes_manage_faults_and_event_resets() {
+        let _serial = lock_fixture_stack_tests();
+        let stack = FixtureStack::start(dynamic_fixture_config()).expect("start fixture stack");
+
+        assert_eq!(
+            http_body(
+                &stack.manifest().bind_host,
+                stack.manifest().control_port,
+                "GET /health HTTP/1.1\r\nHost: fixture.test\r\nConnection: close\r\n\r\n",
+            ),
+            "ok",
+        );
+
+        let fault = FixtureFaultSpec {
+            target: FixtureFaultTarget::UdpEcho,
+            outcome: FixtureFaultOutcome::UdpDrop,
+            scope: FixtureFaultScope::OneShot,
+            delay_ms: None,
         };
+        assert_eq!(
+            http_body(
+                &stack.manifest().bind_host,
+                stack.manifest().control_port,
+                &http_post_json("/faults", &serde_json::to_string(&fault).expect("fault json")),
+            ),
+            "ok",
+        );
 
-        drop((tcp_echo, tls_echo, dns_http, socks5, control, udp_echo, dns_udp));
-        config
+        let faults_body = http_body(
+            &stack.manifest().bind_host,
+            stack.manifest().control_port,
+            "GET /faults HTTP/1.1\r\nHost: fixture.test\r\nConnection: close\r\n\r\n",
+        );
+        let faults: Vec<FixtureFaultSpec> = serde_json::from_str(&faults_body).expect("decode faults");
+        assert_eq!(faults, vec![fault.clone()]);
+
+        let _ = http_body(
+            &stack.manifest().bind_host,
+            stack.manifest().control_port,
+            "GET /manifest HTTP/1.1\r\nHost: fixture.test\r\nConnection: close\r\n\r\n",
+        );
+        assert_eq!(
+            http_body(
+                &stack.manifest().bind_host,
+                stack.manifest().control_port,
+                &http_post_json("/events/reset", ""),
+            ),
+            "reset",
+        );
+        let events: Vec<FixtureEvent> = serde_json::from_str(&http_body(
+            &stack.manifest().bind_host,
+            stack.manifest().control_port,
+            "GET /events HTTP/1.1\r\nHost: fixture.test\r\nConnection: close\r\n\r\n",
+        ))
+        .expect("decode events");
+        assert_eq!(events.len(), 1);
+        assert_eq!(events[0].service, "control");
+        assert_eq!(events[0].detail, "events");
+
+        assert_eq!(
+            http_body(
+                &stack.manifest().bind_host,
+                stack.manifest().control_port,
+                &http_post_json("/faults/reset", ""),
+            ),
+            "reset",
+        );
+        let faults_after_reset: Vec<FixtureFaultSpec> = serde_json::from_str(&http_body(
+            &stack.manifest().bind_host,
+            stack.manifest().control_port,
+            "GET /faults HTTP/1.1\r\nHost: fixture.test\r\nConnection: close\r\n\r\n",
+        ))
+        .expect("decode faults after reset");
+        assert!(faults_after_reset.is_empty());
+    }
+
+    #[test]
+    fn fixture_stack_faults_affect_echo_and_dns_services() {
+        let _serial = lock_fixture_stack_tests();
+        let stack = FixtureStack::start(dynamic_fixture_config()).expect("start fixture stack");
+
+        stack.faults().set(FixtureFaultSpec {
+            target: FixtureFaultTarget::TcpEcho,
+            outcome: FixtureFaultOutcome::TcpTruncate,
+            scope: FixtureFaultScope::OneShot,
+            delay_ms: None,
+        });
+        stack.faults().set(FixtureFaultSpec {
+            target: FixtureFaultTarget::UdpEcho,
+            outcome: FixtureFaultOutcome::UdpDrop,
+            scope: FixtureFaultScope::OneShot,
+            delay_ms: None,
+        });
+        stack.faults().set(FixtureFaultSpec {
+            target: FixtureFaultTarget::DnsHttp,
+            outcome: FixtureFaultOutcome::DnsNxDomain,
+            scope: FixtureFaultScope::OneShot,
+            delay_ms: None,
+        });
+        stack.faults().set(FixtureFaultSpec {
+            target: FixtureFaultTarget::DnsUdp,
+            outcome: FixtureFaultOutcome::DnsServFail,
+            scope: FixtureFaultScope::OneShot,
+            delay_ms: None,
+        });
+
+        let mut tcp = TcpStream::connect((&stack.manifest().bind_host[..], stack.manifest().tcp_echo_port))
+            .expect("connect tcp echo");
+        tcp.write_all(b"abcdefgh").expect("write tcp echo");
+        tcp.shutdown(Shutdown::Write).expect("shutdown tcp echo writer");
+        let mut truncated = Vec::new();
+        tcp.read_to_end(&mut truncated).expect("read truncated tcp echo");
+        assert_eq!(truncated, b"abcd");
+
+        let udp = UdpSocket::bind((DEFAULT_BIND_HOST, 0)).expect("bind udp client");
+        udp.set_read_timeout(Some(Duration::from_millis(200))).expect("set udp timeout");
+        udp.send_to(b"drop", (&stack.manifest().bind_host[..], stack.manifest().udp_echo_port))
+            .expect("send udp echo");
+        let mut udp_buf = [0u8; 16];
+        let udp_err = udp.recv_from(&mut udp_buf).expect_err("udp drop should time out");
+        assert!(matches!(udp_err.kind(), ErrorKind::WouldBlock | ErrorKind::TimedOut));
+
+        let dns_http_body = http_body(
+            &stack.manifest().bind_host,
+            stack.manifest().dns_http_port,
+            "GET /dns-query?name=fixture.test HTTP/1.1\r\nHost: fixture.test\r\nConnection: close\r\n\r\n",
+        );
+        assert_eq!(dns_http_body, r#"{"Status":3,"Answer":[]}"#);
+
+        let dns_udp = UdpSocket::bind((DEFAULT_BIND_HOST, 0)).expect("bind dns udp client");
+        dns_udp.set_read_timeout(Some(Duration::from_secs(1))).expect("set dns udp timeout");
+        let query = test_dns_query(&stack.manifest().fixture_domain);
+        dns_udp
+            .send_to(&query, (&stack.manifest().bind_host[..], stack.manifest().dns_udp_port))
+            .expect("send dns udp query");
+        let mut dns_buf = [0u8; 512];
+        let (dns_read, _) = dns_udp.recv_from(&mut dns_buf).expect("receive dns udp response");
+        assert_eq!(dns_rcode(&dns_buf[..dns_read]), Some(2));
+
+        let events = stack.events().snapshot();
+        assert!(events.iter().any(|event| event.detail.contains("fault:TcpTruncate")));
+        assert!(events.iter().any(|event| event.detail.contains("fault:UdpDrop")));
+        assert!(events.iter().any(|event| event.detail.contains("fault:DnsNxDomain")));
+        assert!(events.iter().any(|event| event.detail.contains("fault:DnsServFail")));
+    }
+
+    #[test]
+    fn fixture_stack_socks5_connect_and_udp_associate_round_trip() {
+        let _serial = lock_fixture_stack_tests();
+        let stack = FixtureStack::start(dynamic_fixture_config()).expect("start fixture stack");
+
+        let mut tcp_stream = TcpStream::connect((&stack.manifest().bind_host[..], stack.manifest().socks5_port))
+            .expect("connect socks5 server");
+        tcp_stream.write_all(&[0x05, 0x01, 0x00]).expect("write socks greeting");
+        let mut greeting_reply = [0u8; 2];
+        tcp_stream.read_exact(&mut greeting_reply).expect("read socks greeting reply");
+        assert_eq!(greeting_reply, [0x05, 0x00]);
+
+        let fixture_ip = stack
+            .manifest()
+            .fixture_ipv4
+            .parse::<Ipv4Addr>()
+            .expect("fixture ipv4 address");
+        let mut connect_request = vec![0x05, 0x01, 0x00, 0x01];
+        connect_request.extend_from_slice(&fixture_ip.octets());
+        connect_request.extend_from_slice(&stack.manifest().tcp_echo_port.to_be_bytes());
+        tcp_stream.write_all(&connect_request).expect("write socks connect request");
+        let mut connect_reply = [0u8; 10];
+        tcp_stream.read_exact(&mut connect_reply).expect("read socks connect reply");
+        assert_eq!(connect_reply[1], 0x00);
+        tcp_stream.shutdown(Shutdown::Both).expect("shutdown socks connect stream");
+
+        let mut udp_assoc = TcpStream::connect((&stack.manifest().bind_host[..], stack.manifest().socks5_port))
+            .expect("connect socks5 server for udp associate");
+        udp_assoc.write_all(&[0x05, 0x01, 0x00]).expect("write udp greeting");
+        udp_assoc.read_exact(&mut greeting_reply).expect("read udp greeting reply");
+        assert_eq!(greeting_reply, [0x05, 0x00]);
+        udp_assoc
+            .write_all(&[0x05, 0x03, 0x00, 0x01, 0, 0, 0, 0, 0, 0])
+            .expect("write udp associate request");
+        let mut udp_reply = [0u8; 10];
+        udp_assoc.read_exact(&mut udp_reply).expect("read udp associate reply");
+        assert_eq!(udp_reply[1], 0x00);
+        let relay_addr = SocketAddr::new(
+            IpAddr::V4(Ipv4Addr::new(udp_reply[4], udp_reply[5], udp_reply[6], udp_reply[7])),
+            u16::from_be_bytes([udp_reply[8], udp_reply[9]]),
+        );
+
+        let udp_client = UdpSocket::bind((DEFAULT_BIND_HOST, 0)).expect("bind udp client");
+        udp_client.set_read_timeout(Some(Duration::from_secs(1))).expect("set udp timeout");
+        let frame = encode_socks5_udp_frame(
+            SocketAddr::new(IpAddr::V4(Ipv4Addr::new(198, 18, 0, 10)), stack.manifest().udp_echo_port),
+            b"socks-udp",
+        );
+        udp_client.send_to(&frame, relay_addr).expect("send socks udp frame");
+        let mut udp_buf = [0u8; 128];
+        let (udp_read, _) = udp_client.recv_from(&mut udp_buf).expect("receive socks udp reply");
+        let (destination, payload) = decode_socks5_udp_frame(&udp_buf[..udp_read]).expect("decode socks udp reply");
+        assert_eq!(destination.port(), stack.manifest().udp_echo_port);
+        assert_eq!(payload, b"socks-udp");
+
+        let events = stack.events().snapshot();
+        assert!(events.iter().any(|event| event.service == "socks5_relay" && event.protocol == "tcp"));
+        assert!(events.iter().any(|event| event.service == "socks5_relay" && event.protocol == "udp"));
+    }
+
+    fn dynamic_fixture_config() -> FixtureConfig {
+        FixtureConfig {
+            tcp_echo_port: 0,
+            udp_echo_port: 0,
+            tls_echo_port: 0,
+            dns_udp_port: 0,
+            dns_http_port: 0,
+            socks5_port: 0,
+            control_port: 0,
+            ..FixtureConfig::default()
+        }
     }
 
     fn http_body(host: &str, port: u16, request: &str) -> String {
         let mut stream = TcpStream::connect((host, port)).expect("connect control endpoint");
         stream.write_all(request.as_bytes()).expect("write http request");
         stream.flush().expect("flush http request");
+        stream.shutdown(Shutdown::Write).expect("shutdown control request writer");
 
-        let mut response = String::new();
-        stream.read_to_string(&mut response).expect("read http response");
-        response.split_once("\r\n\r\n").map(|(_, body)| body.to_string()).expect("split response body")
+        let headers = read_until_marker(&mut stream, b"\r\n\r\n");
+        let headers_text = String::from_utf8(headers).expect("decode response headers");
+        let content_length = headers_text
+            .lines()
+            .find_map(|line| {
+                let (name, value) = line.split_once(':')?;
+                name.eq_ignore_ascii_case("content-length").then(|| value.trim().parse::<usize>().ok()).flatten()
+            })
+            .expect("response content-length");
+        let mut body = vec![0u8; content_length];
+        stream.read_exact(&mut body).expect("read response body");
+        String::from_utf8(body).expect("decode response body")
+    }
+
+    fn http_post_json(path: &str, body: &str) -> String {
+        format!(
+            "POST {path} HTTP/1.1\r\nHost: fixture.test\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
+            body.len()
+        )
+    }
+
+    fn lock_fixture_stack_tests() -> std::sync::MutexGuard<'static, ()> {
+        FIXTURE_STACK_TEST_MUTEX.lock().unwrap_or_else(std::sync::PoisonError::into_inner)
+    }
+
+    fn test_dns_query(domain: &str) -> Vec<u8> {
+        let mut query = Vec::new();
+        query.extend_from_slice(&0x1234u16.to_be_bytes());
+        query.extend_from_slice(&0x0100u16.to_be_bytes());
+        query.extend_from_slice(&1u16.to_be_bytes());
+        query.extend_from_slice(&0u16.to_be_bytes());
+        query.extend_from_slice(&0u16.to_be_bytes());
+        query.extend_from_slice(&0u16.to_be_bytes());
+        for label in domain.split('.') {
+            query.push(label.len() as u8);
+            query.extend_from_slice(label.as_bytes());
+        }
+        query.push(0);
+        query.extend_from_slice(&1u16.to_be_bytes());
+        query.extend_from_slice(&1u16.to_be_bytes());
+        query
+    }
+
+    fn dns_rcode(response: &[u8]) -> Option<u16> {
+        (response.len() >= 4).then(|| u16::from_be_bytes([response[2], response[3]]) & 0x000f)
     }
 }
