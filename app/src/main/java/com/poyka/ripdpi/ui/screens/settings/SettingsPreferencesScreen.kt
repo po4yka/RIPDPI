@@ -11,6 +11,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -107,15 +108,13 @@ internal fun SettingsScreen(
 ) {
     val colors = RipDpiThemeTokens.colors
     val spacing = RipDpiThemeTokens.spacing
-    val themeOptions =
-        stringArrayResource(R.array.themes)
-            .zip(stringArrayResource(R.array.themes_entries))
-            .map { (label, value) ->
-                RipDpiDropdownOption(
-                    value = value,
-                    label = label,
-                )
-            }
+    val themeLabels = stringArrayResource(R.array.themes)
+    val themeEntries = stringArrayResource(R.array.themes_entries)
+    val themeOptions = remember(themeLabels, themeEntries) {
+        themeLabels.zip(themeEntries).map { (label, value) ->
+            RipDpiDropdownOption(value = value, label = label)
+        }
+    }
     var backupPinDraft by rememberSaveable { mutableStateOf("") }
     val pinErrorText =
         when {
