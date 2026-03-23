@@ -52,7 +52,6 @@ import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.normalizeDnsBootstrapIps
 import com.poyka.ripdpi.data.protocolDisplayName
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
-import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.cards.RipDpiCardVariant
 import com.poyka.ripdpi.ui.components.cards.SettingsRow
@@ -611,8 +610,10 @@ internal fun DnsSettingsScreen(
                             text = stringResource(R.string.config_save),
                             onClick = { onSavePlainDns(trimmedPlainDns) },
                             enabled = plainDnsValid && plainDnsDirty,
-                            modifier = Modifier.ripDpiTestTag(RipDpiTestTags.DnsPlainSave),
-                            trailingIcon = RipDpiIcons.Check,
+                            modifier =
+                                Modifier
+                                    .fillMaxWidth()
+                                    .ripDpiTestTag(RipDpiTestTags.DnsPlainSave),
                         )
                     }
 
@@ -1054,8 +1055,10 @@ private fun CustomEncryptedDnsSection(
                 text = stringResource(R.string.config_save),
                 onClick = onSaveCustomDot,
                 enabled = customDotValid && customDotDirty,
-                modifier = Modifier.ripDpiTestTag(RipDpiTestTags.DnsCustomSave),
-                trailingIcon = RipDpiIcons.Check,
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .ripDpiTestTag(RipDpiTestTags.DnsCustomSave),
             )
         }
 
@@ -1144,8 +1147,10 @@ private fun CustomEncryptedDnsSection(
                 text = stringResource(R.string.config_save),
                 onClick = onSaveCustomDnsCrypt,
                 enabled = customDnsCryptValid && customDnsCryptDirty,
-                modifier = Modifier.ripDpiTestTag(RipDpiTestTags.DnsCustomSave),
-                trailingIcon = RipDpiIcons.Check,
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .ripDpiTestTag(RipDpiTestTags.DnsCustomSave),
             )
         }
 
@@ -1222,14 +1227,10 @@ private fun CustomEncryptedDnsSection(
                 text = stringResource(R.string.config_save),
                 onClick = onSaveCustomDoh,
                 enabled = customDohValid && customDohDirty,
-                modifier = Modifier.ripDpiTestTag(RipDpiTestTags.DnsCustomSave),
-                variant =
-                    if (uiState.dns.dnsProviderId == DnsProviderCustom) {
-                        RipDpiButtonVariant.Primary
-                    } else {
-                        RipDpiButtonVariant.Outline
-                    },
-                trailingIcon = RipDpiIcons.Check,
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .ripDpiTestTag(RipDpiTestTags.DnsCustomSave),
             )
         }
     }
