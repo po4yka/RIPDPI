@@ -57,7 +57,9 @@ pub fn open_ws_tunnel(dc: u8, protect_path: Option<&str>) -> io::Result<WsStream
 
     // Build WS request with binary subprotocol
     let mut request = url.as_str().into_client_request().map_err(|e| io::Error::new(io::ErrorKind::InvalidInput, e))?;
-    request.headers_mut().insert("Sec-WebSocket-Protocol", "binary".parse().unwrap());
+    request
+        .headers_mut()
+        .insert("Sec-WebSocket-Protocol", tungstenite::http::HeaderValue::from_static("binary"));
 
     // Perform WS handshake; tungstenite handles TLS via rustls for wss:// URLs
     let (ws, _response) = tungstenite::client_tls(request, tcp)

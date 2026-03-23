@@ -19,6 +19,10 @@ use crate::types::{
     TLS_RANDREC_DEFAULT_MAX_FRAGMENT_SIZE, TLS_RANDREC_DEFAULT_MIN_FRAGMENT_SIZE,
 };
 
+fn trim_non_empty(opt: Option<String>) -> Option<String> {
+    opt.map(|s| s.trim().to_string()).filter(|s| !s.is_empty())
+}
+
 fn sanitize_runtime_context(runtime_context: Option<ProxyRuntimeContext>) -> Option<ProxyRuntimeContext> {
     let mut runtime_context = runtime_context?;
     runtime_context.encrypted_dns = runtime_context.encrypted_dns.and_then(|mut value| {
@@ -28,20 +32,17 @@ fn sanitize_runtime_context(runtime_context: Option<ProxyRuntimeContext>) -> Opt
             return None;
         }
         value.port = if value.port == 0 { 443 } else { value.port };
-        value.tls_server_name =
-            value.tls_server_name.map(|entry| entry.trim().to_string()).filter(|entry| !entry.is_empty());
+        value.tls_server_name = trim_non_empty(value.tls_server_name);
         value.bootstrap_ips = value
             .bootstrap_ips
             .into_iter()
             .map(|entry| entry.trim().to_string())
             .filter(|entry| !entry.is_empty())
             .collect();
-        value.doh_url = value.doh_url.map(|entry| entry.trim().to_string()).filter(|entry| !entry.is_empty());
-        value.dnscrypt_provider_name =
-            value.dnscrypt_provider_name.map(|entry| entry.trim().to_string()).filter(|entry| !entry.is_empty());
-        value.dnscrypt_public_key =
-            value.dnscrypt_public_key.map(|entry| entry.trim().to_string()).filter(|entry| !entry.is_empty());
-        value.resolver_id = value.resolver_id.map(|entry| entry.trim().to_string()).filter(|entry| !entry.is_empty());
+        value.doh_url = trim_non_empty(value.doh_url);
+        value.dnscrypt_provider_name = trim_non_empty(value.dnscrypt_provider_name);
+        value.dnscrypt_public_key = trim_non_empty(value.dnscrypt_public_key);
+        value.resolver_id = trim_non_empty(value.resolver_id);
         Some(value)
     });
     runtime_context.encrypted_dns.as_ref()?;
