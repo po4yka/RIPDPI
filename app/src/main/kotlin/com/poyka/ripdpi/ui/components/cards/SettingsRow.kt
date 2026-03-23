@@ -246,7 +246,7 @@ private fun RowScope.SettingsRowTrailing(
             ) {
                 Text(
                     text = value,
-                    style = if (monospaceValue) type.monoValue else type.caption,
+                    style = if (monospaceValue) type.monoValue else type.secondaryBody,
                     color = colors.mutedForeground,
                     maxLines = 3,
                     overflow = TextOverflow.Ellipsis,
