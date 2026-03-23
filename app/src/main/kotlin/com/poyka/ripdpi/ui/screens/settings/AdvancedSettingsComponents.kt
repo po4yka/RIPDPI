@@ -129,6 +129,7 @@ internal fun AdvancedTextSetting(
     onConfirm: (AdvancedTextSetting, String) -> Unit,
     modifier: Modifier = Modifier,
     description: String? = null,
+    descriptionContent: @Composable (() -> Unit)? = null,
     placeholder: String? = null,
     enabled: Boolean = true,
     multiline: Boolean = false,
@@ -166,12 +167,16 @@ internal fun AdvancedTextSetting(
             style = type.bodyEmphasis,
             color = colors.foreground,
         )
-        description?.let {
-            Text(
-                text = it,
-                style = type.secondaryBody,
-                color = colors.mutedForeground,
-            )
+        if (descriptionContent != null) {
+            descriptionContent()
+        } else {
+            description?.let {
+                Text(
+                    text = it,
+                    style = type.secondaryBody,
+                    color = colors.mutedForeground,
+                )
+            }
         }
         RipDpiConfigTextField(
             value = input,

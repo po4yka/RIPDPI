@@ -229,6 +229,10 @@
     <string name="config_chain_summary_label">Цепочка стратегий: %1$s</string>
     <string name="config_chain_editor_label">Цепочка стратегий</string>
     <string name="config_chain_editor_helper">Используйте секции [tcp] и [udp]. Маркеры принимают числовые или семантические смещения. Секция HTTPS ниже позволяет визуально создавать отдельные шаги tlsrec и случайного tlsrandrec, а карточки Hostfake и приближения fake описывают ложные фрагменты с таргетингом на имя хоста и приближения в стиле повторной передачи. Приближения только для Linux/Android доступны как fakedsplit host+1 и fakeddisorder endhost для HTTP или полезных нагрузок, смежных с TLS SNI.</string>
+    <string name="config_chain_editor_helper_brief">Используйте секции [tcp] и [udp] с числовыми или семантическими маркерами смещения.</string>
+    <string name="config_chain_editor_helper_full">Секция HTTPS ниже позволяет визуально создавать отдельные шаги tlsrec и случайного tlsrandrec, а карточки Hostfake и приближения fake описывают ложные фрагменты с таргетингом на имя хоста и приближения в стиле повторной передачи. Приближения только для Linux/Android доступны как fakedsplit host+1 и fakeddisorder endhost для HTTP или полезных нагрузок, смежных с TLS SNI.</string>
+    <string name="action_learn_more">Подробнее</string>
+    <string name="action_show_less">Свернуть</string>
     <string name="config_split_marker_helper">Ручные маркеры принимают смещения вида 1, host, method+2, midsld-1 или 1+s. Используйте адаптивный селектор пресетов или DSL цепочки для auto(...).</string>
     <string name="config_fake_offset_marker_helper">Принимает числовые или семантические смещения вида 0, host+1, endhost-2 или 1+se. Адаптивные маркеры auto(...) здесь не поддерживаются.</string>
     <string name="config_fake_tls_size_helper">0 = размер входных данных, положительное = точное целевое количество байт, отрицательное = входные данные минус N.</string>
