@@ -21,6 +21,10 @@ internal class HistoryConnectionActions(
         connectionFilters.update { it.copy(search = query) }
     }
 
+    fun clearFilters() {
+        connectionFilters.update { it.copy(modeFilter = null, statusFilter = null) }
+    }
+
     fun selectConnection(sessionId: String) {
         mutations.launch {
             val detail = loadConnectionDetail(sessionId)
@@ -49,6 +53,10 @@ internal class HistoryDiagnosticsActions(
 
     fun setSearch(query: String) {
         diagnosticsFilters.update { it.copy(search = query) }
+    }
+
+    fun clearFilters() {
+        diagnosticsFilters.update { it.copy(pathModeFilter = null, statusFilter = null) }
     }
 
     fun selectSession(sessionId: String) {
@@ -84,6 +92,10 @@ internal class HistoryEventActions(
 
     fun setSearch(query: String) {
         eventFilters.update { it.copy(search = query) }
+    }
+
+    fun clearFilters() {
+        eventFilters.update { it.copy(sourceFilter = null, severityFilter = null) }
     }
 
     fun setAutoScroll(enabled: Boolean) {
