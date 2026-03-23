@@ -111,6 +111,42 @@ class StrategyChainsTest {
     }
 
     @Test
+    fun `legacy disoob defaults to tls host split marker`() {
+        val settings =
+            AppSettings
+                .newBuilder()
+                .setDesyncMethod("disoob")
+                .setSplitMarker(DefaultSplitMarker)
+                .setSplitPosition(1)
+                .setSplitAtHost(false)
+                .build()
+
+        assertEquals(
+            listOf(
+                TcpChainStepModel(TcpChainStepKind.Disoob, DefaultDisoobSplitMarker),
+            ),
+            settings.effectiveTcpChainSteps(),
+        )
+    }
+
+    @Test
+    fun `legacy disoob preserves explicit custom split marker`() {
+        val settings =
+            AppSettings
+                .newBuilder()
+                .setDesyncMethod("disoob")
+                .setSplitMarker("host+1")
+                .build()
+
+        assertEquals(
+            listOf(
+                TcpChainStepModel(TcpChainStepKind.Disoob, "host+1"),
+            ),
+            settings.effectiveTcpChainSteps(),
+        )
+    }
+
+    @Test
     fun `setting strategy chains projects legacy compatibility fields`() {
         val settings =
             AppSettings
