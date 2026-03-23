@@ -136,6 +136,23 @@ For local debug builds you can narrow native compilation to one ABI:
 ./gradlew :app:connectedDebugAndroidTest -Pripdpi.localNativeAbis=arm64-v8a
 ```
 
+For physical devices, expose the host fixture over `adb reverse` and point the fixture manifest at
+loopback before running the E2E package:
+
+```bash
+export ANDROID_SERIAL=<device-serial>
+export RIPDPI_FIXTURE_ANDROID_HOST=127.0.0.1
+bash scripts/ci/start-local-network-fixture.sh
+adb reverse tcp:46090 tcp:46090
+adb reverse tcp:46001 tcp:46001
+adb reverse tcp:46003 tcp:46003
+adb reverse tcp:46053 tcp:46053
+adb reverse tcp:46054 tcp:46054
+./gradlew :app:connectedDebugAndroidTest \
+  -Pripdpi.localNativeAbis=arm64-v8a \
+  -Pandroid.testInstrumentationRunnerArguments.package=com.poyka.ripdpi.e2e
+```
+
 CI and release still build the full ABI set from `ripdpi.nativeAbis`.
 
 ## External UI automation

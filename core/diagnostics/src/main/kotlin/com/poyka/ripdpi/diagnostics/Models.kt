@@ -2,6 +2,7 @@ package com.poyka.ripdpi.diagnostics
 
 import com.poyka.ripdpi.data.NativeNetworkSnapshot
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
 
@@ -201,6 +202,7 @@ enum class TlsProbeStatus {
 enum class TcpProbeStatus {
     OK,
     CONNECT_FAILED,
+    @SerialName("BLOCKED16_KB")
     BLOCKED_16KB,
     WHITELIST_SNI_OK,
     ERROR,

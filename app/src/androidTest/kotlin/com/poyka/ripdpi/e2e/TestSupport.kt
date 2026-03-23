@@ -3,12 +3,14 @@ package com.poyka.ripdpi.e2e
 import android.content.Context
 import android.content.Intent
 import android.net.VpnService
+import android.os.Build
 import android.os.SystemClock
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.uiautomator.By
 import androidx.test.uiautomator.UiDevice
+import androidx.test.uiautomator.Until
 import java.io.BufferedReader
-import java.io.InputStream
+import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.InetSocketAddress
 import java.net.ServerSocket
@@ -23,7 +25,10 @@ import javax.net.ssl.SSLSocket
 import javax.net.ssl.X509TrustManager
 
 private const val DefaultFixtureControlHost = "10.0.2.2"
+private const val LoopbackFixtureHost = "127.0.0.1"
 private const val DefaultFixtureControlPort = 46090
+private const val FixtureControlRetryCount = 3
+private const val FixtureControlRetryDelayMs = 100L
 
 data class FixtureManifestDto(
     val bindHost: String,
@@ -91,7 +96,7 @@ class LocalFixtureClient(
 ) {
     fun manifest(): FixtureManifestDto =
         request("/manifest") { body ->
-            parseManifest(body)
+            parseManifest(body).normalizeForControlHost(controlHost)
         }
 
     fun events(): List<FixtureEventDto> =
@@ -100,51 +105,58 @@ class LocalFixtureClient(
         }
 
     fun resetEvents() {
-        val connection = openConnection("/events/reset", method = "POST")
-        connection.outputStream.use { output ->
-            output.write(ByteArray(0))
+        withRetry {
+            val connection = openConnection("/events/reset", method = "POST")
+            connection.outputStream.use { output ->
+                output.write(ByteArray(0))
+            }
+            connection.inputStream.close()
+            connection.disconnect()
         }
-        connection.inputStream.close()
-        connection.disconnect()
     }
 
     fun setFault(spec: FixtureFaultSpecDto) {
-        val connection = openConnection("/faults", method = "POST")
-        connection.outputStream.use { output ->
-            val body =
-                org.json
-                    .JSONObject()
-                    .put("target", spec.target.name.lowercase())
-                    .put("outcome", spec.outcome.name.lowercase())
-                    .put("scope", spec.scope.name.lowercase())
-                    .apply {
-                        spec.delayMs?.let { put("delayMs", it) }
-                    }.toString()
-            output.write(body.toByteArray(StandardCharsets.UTF_8))
+        withRetry {
+            val connection = openConnection("/faults", method = "POST")
+            connection.outputStream.use { output ->
+                val body =
+                    org.json
+                        .JSONObject()
+                        .put("target", spec.target.name.lowercase())
+                        .put("outcome", spec.outcome.name.lowercase())
+                        .put("scope", spec.scope.name.lowercase())
+                        .apply {
+                            spec.delayMs?.let { put("delayMs", it) }
+                        }.toString()
+                output.write(body.toByteArray(StandardCharsets.UTF_8))
+            }
+            connection.inputStream.close()
+            connection.disconnect()
         }
-        connection.inputStream.close()
-        connection.disconnect()
     }
 
     fun resetFaults() {
-        val connection = openConnection("/faults/reset", method = "POST")
-        connection.outputStream.use { output ->
-            output.write(ByteArray(0))
+        withRetry {
+            val connection = openConnection("/faults/reset", method = "POST")
+            connection.outputStream.use { output ->
+                output.write(ByteArray(0))
+            }
+            connection.inputStream.close()
+            connection.disconnect()
         }
-        connection.inputStream.close()
-        connection.disconnect()
     }
 
     private fun <T> request(
         path: String,
         decode: (String) -> T,
-    ): T {
-        val connection = openConnection(path)
-        val body =
-            connection.inputStream.bufferedReader().use { reader -> reader.readText() }
-        connection.disconnect()
-        return decode(body)
-    }
+    ): T =
+        withRetry {
+            val connection = openConnection(path)
+            val body =
+                connection.inputStream.bufferedReader().use { reader -> reader.readText() }
+            connection.disconnect()
+            decode(body)
+        }
 
     private fun openConnection(
         path: String,
@@ -163,11 +175,51 @@ class LocalFixtureClient(
     companion object {
         fun fromInstrumentationArgs(): LocalFixtureClient {
             val args = InstrumentationRegistry.getArguments()
-            val host = args.getString("ripdpi.fixtureControlHost") ?: DefaultFixtureControlHost
+            val host = args.getString("ripdpi.fixtureControlHost") ?: defaultFixtureControlHost()
             val port = args.getString("ripdpi.fixtureControlPort")?.toIntOrNull() ?: DefaultFixtureControlPort
             return LocalFixtureClient(host, port)
         }
     }
+}
+
+private inline fun <T> withRetry(block: () -> T): T {
+    repeat(FixtureControlRetryCount - 1) {
+        try {
+            return block()
+        } catch (_: IOException) {
+            Thread.sleep(FixtureControlRetryDelayMs)
+        }
+    }
+    return block()
+}
+
+private fun FixtureManifestDto.normalizeForControlHost(controlHost: String): FixtureManifestDto {
+    if (androidHost == DefaultFixtureControlHost && controlHost != DefaultFixtureControlHost) {
+        return copy(androidHost = controlHost)
+    }
+    return this
+}
+
+private fun defaultFixtureControlHost(): String =
+    if (isLikelyEmulator()) {
+        DefaultFixtureControlHost
+    } else {
+        LoopbackFixtureHost
+    }
+
+private fun isLikelyEmulator(): Boolean {
+    val fingerprint = Build.FINGERPRINT.lowercase()
+    val hardware = Build.HARDWARE.lowercase()
+    val model = Build.MODEL.lowercase()
+    val product = Build.PRODUCT.lowercase()
+    return "generic" in fingerprint ||
+        "emulator" in fingerprint ||
+        "ranchu" in hardware ||
+        "goldfish" in hardware ||
+        "sdk" in product ||
+        "sdk_gphone" in product ||
+        "emulator" in model ||
+        "android sdk built for" in model
 }
 
 fun reserveLoopbackPort(): Int =
@@ -203,11 +255,23 @@ fun ensureVpnPrepared(context: Context) {
     context.startActivity(consentIntent)
     val device = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
     val deadline = SystemClock.elapsedRealtime() + 10_000
+    val vpnDialogPackages = listOf("com.android.vpndialogs", "com.android.permissioncontroller")
 
     while (SystemClock.elapsedRealtime() < deadline) {
+        vpnDialogPackages.forEach { packageName ->
+            device.wait(Until.hasObject(By.pkg(packageName)), 500)
+        }
         val positive =
             device.findObject(By.res("android:id/button1"))
+                ?: device.findObject(By.res("com.android.vpndialogs:id/button1"))
+                ?: device.findObject(By.res("com.android.permissioncontroller:id/permission_allow_button"))
                 ?: device.findObject(By.text(Pattern.compile("(?i)ok|allow|continue")))
+                ?: device
+                    .findObjects(By.clickable(true))
+                    .lastOrNull { candidate ->
+                        val packageName = candidate.applicationPackage
+                        packageName != null && packageName in vpnDialogPackages
+                    }
         if (positive != null) {
             positive.click()
             awaitUntil(timeoutMs = 10_000) {
@@ -233,21 +297,45 @@ fun socksTcpRoundTrip(
     return socket.inputStream.readNBytes(payload.size).also { socket.close() }
 }
 
-fun httpConnectTlsHandshake(
+fun directTcpRoundTrip(
+    host: String,
+    port: Int,
+    payload: ByteArray,
+): ByteArray {
+    val socket = Socket()
+    socket.connect(InetSocketAddress(host, port), 5_000)
+    socket.soTimeout = 5_000
+    socket.getOutputStream().write(payload)
+    socket.getOutputStream().flush()
+    return socket.inputStream.readNBytes(payload.size).also { socket.close() }
+}
+
+fun socksTlsHandshake(
     proxyPort: Int,
     targetHost: String,
     targetPort: Int,
     sniHost: String,
 ): String {
-    val socket = Socket()
-    socket.connect(InetSocketAddress("127.0.0.1", proxyPort), 5_000)
-    socket.soTimeout = 5_000
-    socket.getOutputStream().write(
-        "CONNECT $targetHost:$targetPort HTTP/1.1\r\nHost: $targetHost:$targetPort\r\n\r\n".toByteArray(),
-    )
-    val headers = readHttpHeaders(socket.getInputStream())
-    check(headers.contains("HTTP/1.1 200 OK")) { "CONNECT failed: $headers" }
+    val socket = socksConnect(proxyPort, targetHost, targetPort)
+    return tlsHandshake(socket, sniHost, targetPort)
+}
 
+fun directTlsHandshake(
+    targetHost: String,
+    targetPort: Int,
+    sniHost: String,
+): String {
+    val socket = Socket()
+    socket.connect(InetSocketAddress(targetHost, targetPort), 5_000)
+    socket.soTimeout = 5_000
+    return tlsHandshake(socket, sniHost, targetPort)
+}
+
+private fun tlsHandshake(
+    socket: Socket,
+    sniHost: String,
+    targetPort: Int,
+): String {
     val trustAll =
         object : X509TrustManager {
             override fun checkClientTrusted(
@@ -358,17 +446,4 @@ private fun socksConnect(
         }
     }
     return socket
-}
-
-private fun readHttpHeaders(input: InputStream): String {
-    val buffer = StringBuilder()
-    val bytes = ByteArray(1)
-    while (!buffer.endsWith("\r\n\r\n")) {
-        val read = input.read(bytes)
-        if (read <= 0) {
-            break
-        }
-        buffer.append(String(bytes, 0, read, StandardCharsets.UTF_8))
-    }
-    return buffer.toString()
 }

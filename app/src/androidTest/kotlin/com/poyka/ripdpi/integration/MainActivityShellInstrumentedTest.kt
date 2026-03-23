@@ -9,15 +9,22 @@ import androidx.compose.ui.test.performScrollToNode
 import com.poyka.ripdpi.activities.MainActivity
 import com.poyka.ripdpi.activities.MainActivityHost
 import com.poyka.ripdpi.activities.MainActivityHostCommand
+import com.poyka.ripdpi.core.ProxyPreferencesResolver
 import com.poyka.ripdpi.core.ProxyPreferencesResolverModule
+import com.poyka.ripdpi.core.RipDpiProxyFactory
 import com.poyka.ripdpi.core.RipDpiProxyFactoryModule
+import com.poyka.ripdpi.core.Tun2SocksBridgeFactory
 import com.poyka.ripdpi.core.Tun2SocksBridgeFactoryModule
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.AppSettingsRepositoryModule
+import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.data.ServiceStateStoreModule
+import com.poyka.ripdpi.diagnostics.DiagnosticsActiveConnectionPolicySource
 import com.poyka.ripdpi.diagnostics.DiagnosticsBootstrapper
 import com.poyka.ripdpi.diagnostics.DiagnosticsDetailLoader
+import com.poyka.ripdpi.diagnostics.DiagnosticsHistorySource
 import com.poyka.ripdpi.diagnostics.DiagnosticsManagerModule
+import com.poyka.ripdpi.diagnostics.DiagnosticsRememberedPolicySource
 import com.poyka.ripdpi.diagnostics.DiagnosticsResolverActions
 import com.poyka.ripdpi.diagnostics.DiagnosticsScanController
 import com.poyka.ripdpi.diagnostics.DiagnosticsShareService
@@ -34,21 +41,30 @@ import com.poyka.ripdpi.platform.StringResolver
 import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.services.ServiceController
 import com.poyka.ripdpi.services.ServiceControllerModule
+import com.poyka.ripdpi.services.VpnTunnelSessionProvider
 import com.poyka.ripdpi.services.VpnTunnelSessionProviderModule
 import com.poyka.ripdpi.testing.FakeInstrumentedAppSettingsRepository
 import com.poyka.ripdpi.testing.FakeInstrumentedHostAutolearnStoreController
 import com.poyka.ripdpi.testing.FakeInstrumentedLauncherIconController
 import com.poyka.ripdpi.testing.FakeInstrumentedPermissionPlatformBridge
+import com.poyka.ripdpi.testing.FakeInstrumentedServiceStateStore
 import com.poyka.ripdpi.testing.FakeInstrumentedStringResolver
 import com.poyka.ripdpi.testing.MutablePermissionStatusProvider
 import com.poyka.ripdpi.testing.RecordingInstrumentedServiceController
 import com.poyka.ripdpi.testing.RecordingMainActivityHost
+import com.poyka.ripdpi.testing.StubInstrumentedDiagnosticsActiveConnectionPolicySource
 import com.poyka.ripdpi.testing.StubInstrumentedDiagnosticsBootstrapper
 import com.poyka.ripdpi.testing.StubInstrumentedDiagnosticsDetailLoader
+import com.poyka.ripdpi.testing.StubInstrumentedDiagnosticsHistorySource
+import com.poyka.ripdpi.testing.StubInstrumentedDiagnosticsRememberedPolicySource
 import com.poyka.ripdpi.testing.StubInstrumentedDiagnosticsResolverActions
 import com.poyka.ripdpi.testing.StubInstrumentedDiagnosticsScanController
 import com.poyka.ripdpi.testing.StubInstrumentedDiagnosticsShareService
 import com.poyka.ripdpi.testing.StubInstrumentedDiagnosticsTimelineSource
+import com.poyka.ripdpi.testing.StubInstrumentedProxyPreferencesResolver
+import com.poyka.ripdpi.testing.StubInstrumentedRipDpiProxyFactory
+import com.poyka.ripdpi.testing.StubInstrumentedTun2SocksBridgeFactory
+import com.poyka.ripdpi.testing.StubInstrumentedVpnTunnelSessionProvider
 import com.poyka.ripdpi.ui.navigation.Route
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import dagger.hilt.android.testing.BindValue
@@ -95,6 +111,26 @@ class MainActivityShellInstrumentedTest {
 
     @BindValue
     @JvmField
+    var proxyPreferencesResolver: ProxyPreferencesResolver = StubInstrumentedProxyPreferencesResolver()
+
+    @BindValue
+    @JvmField
+    var proxyFactory: RipDpiProxyFactory = StubInstrumentedRipDpiProxyFactory()
+
+    @BindValue
+    @JvmField
+    var tun2SocksBridgeFactory: Tun2SocksBridgeFactory = StubInstrumentedTun2SocksBridgeFactory()
+
+    @BindValue
+    @JvmField
+    var serviceStateStore: ServiceStateStore = FakeInstrumentedServiceStateStore()
+
+    @BindValue
+    @JvmField
+    var vpnTunnelSessionProvider: VpnTunnelSessionProvider = StubInstrumentedVpnTunnelSessionProvider()
+
+    @BindValue
+    @JvmField
     var serviceController: ServiceController = RecordingInstrumentedServiceController()
 
     @BindValue
@@ -120,6 +156,20 @@ class MainActivityShellInstrumentedTest {
     @BindValue
     @JvmField
     var diagnosticsResolverActions: DiagnosticsResolverActions = StubInstrumentedDiagnosticsResolverActions()
+
+    @BindValue
+    @JvmField
+    var diagnosticsHistorySource: DiagnosticsHistorySource = StubInstrumentedDiagnosticsHistorySource()
+
+    @BindValue
+    @JvmField
+    var diagnosticsRememberedPolicySource: DiagnosticsRememberedPolicySource =
+        StubInstrumentedDiagnosticsRememberedPolicySource()
+
+    @BindValue
+    @JvmField
+    var diagnosticsActiveConnectionPolicySource: DiagnosticsActiveConnectionPolicySource =
+        StubInstrumentedDiagnosticsActiveConnectionPolicySource()
 
     @BindValue
     @JvmField
