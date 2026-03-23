@@ -47,7 +47,8 @@ fun IconPickerGrid(
         modifier = modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(spacing.lg),
     ) {
-        options.chunked(3).forEach { row ->
+        val rows = remember(options) { options.chunked(3) }
+        rows.forEach { row ->
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(spacing.md),
