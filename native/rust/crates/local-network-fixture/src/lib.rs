@@ -27,11 +27,13 @@ pub const DEFAULT_CONTROL_PORT: u16 = 46090;
 pub const DEFAULT_FIXTURE_DOMAIN: &str = "fixture.test";
 pub const DEFAULT_FIXTURE_IPV4: &str = "198.18.0.10";
 pub const DEFAULT_DNS_ANSWER_IPV4: &str = "198.18.0.10";
+pub const DEFAULT_ANDROID_HOST: &str = "10.0.2.2";
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct FixtureConfig {
     pub bind_host: String,
+    pub android_host: String,
     pub tcp_echo_port: u16,
     pub udp_echo_port: u16,
     pub tls_echo_port: u16,
@@ -48,6 +50,7 @@ impl Default for FixtureConfig {
     fn default() -> Self {
         Self {
             bind_host: DEFAULT_BIND_HOST.to_string(),
+            android_host: DEFAULT_ANDROID_HOST.to_string(),
             tcp_echo_port: DEFAULT_TCP_ECHO_PORT,
             udp_echo_port: DEFAULT_UDP_ECHO_PORT,
             tls_echo_port: DEFAULT_TLS_ECHO_PORT,
@@ -66,6 +69,7 @@ impl FixtureConfig {
     pub fn from_env() -> Self {
         let mut config = Self::default();
         config.bind_host = env_string("RIPDPI_FIXTURE_BIND_HOST", &config.bind_host);
+        config.android_host = env_string("RIPDPI_FIXTURE_ANDROID_HOST", &config.android_host);
         config.tcp_echo_port = env_u16("RIPDPI_FIXTURE_TCP_ECHO_PORT", config.tcp_echo_port);
         config.udp_echo_port = env_u16("RIPDPI_FIXTURE_UDP_ECHO_PORT", config.udp_echo_port);
         config.tls_echo_port = env_u16("RIPDPI_FIXTURE_TLS_ECHO_PORT", config.tls_echo_port);
@@ -296,7 +300,7 @@ impl FixtureStack {
 
         let mut manifest = FixtureManifest {
             bind_host: config.bind_host.clone(),
-            android_host: "10.0.2.2".to_string(),
+            android_host: config.android_host.clone(),
             tcp_echo_port,
             udp_echo_port,
             tls_echo_port,
@@ -1434,6 +1438,14 @@ mod tests {
         let config = FixtureConfig::from_env();
         assert_eq!(config.tcp_echo_port, 47001);
         std::env::remove_var("RIPDPI_FIXTURE_TCP_ECHO_PORT");
+    }
+
+    #[test]
+    fn fixture_config_reads_android_host_override() {
+        std::env::set_var("RIPDPI_FIXTURE_ANDROID_HOST", "127.0.0.1");
+        let config = FixtureConfig::from_env();
+        assert_eq!(config.android_host, "127.0.0.1");
+        std::env::remove_var("RIPDPI_FIXTURE_ANDROID_HOST");
     }
 
     #[test]

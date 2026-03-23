@@ -229,6 +229,53 @@ class DiagnosticsScanExecutionCoordinatorTest {
         }
 
     @Test
+    fun `delayed finished report is tolerated after finished progress`() =
+        runTest {
+            val stores = FakeDiagnosticsHistoryStores()
+            val clock = TestDiagnosticsHistoryClock()
+            val timelineSource = DefaultDiagnosticsTimelineSource(stores, stores, stores, stores, json)
+            val fixtures =
+                executionCoordinatorFixtures(
+                    stores = stores,
+                    timelineSource = timelineSource,
+                    serviceStateStore = FakeServiceStateStore(initialStatus = AppStatus.Running to Mode.VPN),
+                    preferredPathStore = DefaultNetworkDnsPathPreferenceStore(stores, clock),
+                    rememberedNetworkPolicyStore = DefaultRememberedNetworkPolicyStore(stores, clock),
+                    json = json,
+                )
+            val prepared =
+                preparedDiagnosticsScan(sessionId = "session-delayed-report", settings = defaultDiagnosticsAppSettings())
+            seedPreparedScan(stores, prepared)
+            fixtures.activeScanRegistry.rememberPreparedScan(prepared)
+            val bridge =
+                FakeNetworkDiagnosticsBridge(json).apply {
+                    autoCompleteOnStart = false
+                    enqueueProgress(
+                        ScanProgress(
+                            sessionId = prepared.sessionId,
+                            phase = "complete",
+                            completedSteps = 1,
+                            totalSteps = 1,
+                            message = "complete",
+                            isFinished = true,
+                        ),
+                    )
+                    repeat(8) {
+                        enqueueReport(null)
+                    }
+                    enqueueReport(scanReportWithResolverRecommendation(prepared.sessionId))
+                }
+            fixtures.activeScanRegistry.registerBridge(bridge, prepared.registerActiveBridge)
+            val handle = BridgeSessionHandle(bridge, prepared.sessionId, prepared.registerActiveBridge)
+
+            fixtures.coordinator.execute(prepared, handle, rawPathRunner = { block -> block() })
+
+            val session = requireNotNull(stores.getScanSession(prepared.sessionId))
+            assertEquals("completed", session.status)
+            assertNotNull(session.reportJson)
+        }
+
+    @Test
     fun `strategy probe completion remembers validated network policy`() =
         runTest {
             val stores = FakeDiagnosticsHistoryStores()
