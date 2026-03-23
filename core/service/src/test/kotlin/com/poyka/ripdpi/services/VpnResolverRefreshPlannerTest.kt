@@ -4,6 +4,7 @@ import com.poyka.ripdpi.data.AppSettingsSerializer
 import com.poyka.ripdpi.data.DnsModeEncrypted
 import com.poyka.ripdpi.data.DnsModePlainUdp
 import com.poyka.ripdpi.data.DnsProviderCloudflare
+import com.poyka.ripdpi.data.DnsProviderGoogle
 import com.poyka.ripdpi.data.EncryptedDnsProtocolDoh
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.TemporaryResolverOverride
@@ -70,6 +71,51 @@ class VpnResolverRefreshPlannerTest {
 
             assertTrue(plan.requiresTunnelRebuild)
             assertEquals("8.8.8.8", plan.connectionPolicy?.activeDns?.dnsIp)
+        }
+
+    @Test
+    fun resolvedPreferredDnsPathDoesNotTriggerRebuildLoop() =
+        runTest {
+            val persistedSettings = AppSettingsSerializer.defaultValue
+            val preferredSettings =
+                AppSettingsSerializer.defaultValue
+                    .toBuilder()
+                    .setDnsMode(DnsModeEncrypted)
+                    .setDnsProviderId(DnsProviderGoogle)
+                    .setDnsIp("8.8.8.8")
+                    .setEncryptedDnsProtocol(EncryptedDnsProtocolDoh)
+                    .setEncryptedDnsHost("dns.google")
+                    .setEncryptedDnsPort(443)
+                    .setEncryptedDnsTlsServerName("dns.google")
+                    .addAllEncryptedDnsBootstrapIps(listOf("8.8.8.8", "8.8.4.4"))
+                    .setEncryptedDnsDohUrl("https://dns.google/dns-query")
+                    .build()
+            val planner =
+                VpnResolverRefreshPlanner(
+                    connectionPolicyResolver =
+                        TestConnectionPolicyResolver(
+                            sampleResolution(
+                                mode = Mode.VPN,
+                                settings = persistedSettings,
+                                activeDns = preferredSettings.activeDnsSettings(),
+                            ),
+                        ),
+                    resolverOverrideStore = TestResolverOverrideStore(),
+                )
+
+            val plan =
+                planner.plan(
+                    currentSignature =
+                        dnsSignature(
+                            activeDns = preferredSettings.activeDnsSettings(),
+                            overrideReason = null,
+                        ),
+                    tunnelRunning = true,
+                )
+
+            assertFalse(plan.requiresTunnelRebuild)
+            assertEquals(DnsProviderGoogle, plan.connectionPolicy?.activeDns?.providerId)
+            assertEquals(DnsProviderCloudflare, plan.resolution.activeDns.providerId)
         }
 
     @Test
