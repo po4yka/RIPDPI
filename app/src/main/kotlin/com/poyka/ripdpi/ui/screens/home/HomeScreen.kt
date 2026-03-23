@@ -41,6 +41,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
@@ -705,6 +706,7 @@ private fun HomeConnectionButton(
                         translationX = shakeOffset.value
                     }.background(animatedContainerColor, CircleShape)
                     .border(width = 1.dp, color = animatedBorderColor, shape = CircleShape)
+                    .clip(CircleShape)
                     .ripDpiClickable(
                         enabled = state != ConnectionState.Connecting,
                         role = androidx.compose.ui.semantics.Role.Button,
