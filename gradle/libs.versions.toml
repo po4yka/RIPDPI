@@ -1,5 +1,6 @@
 [versions]
 agp = "9.1.0"
+benchmark = "1.4.0"
 kotlin-compose = "2.3.20"
 ksp = "2.3.6"
 hilt = "2.59.2"
@@ -32,8 +33,10 @@ robolectric = "4.16.1"
 roborazzi = "1.59.0"
 retrofit = "3.0.0"
 okhttp = "5.3.2"
+profileinstaller = "1.4.1"
 
 [libraries]
+androidx-benchmark-macro-junit4 = { module = "androidx.benchmark:benchmark-macro-junit4", version.ref = "benchmark" }
 androidx-core-ktx = { module = "androidx.core:core-ktx", version.ref = "core-ktx" }
 androidx-appcompat = { module = "androidx.appcompat:appcompat", version.ref = "appcompat" }
 androidx-lifecycle-runtime-ktx = { module = "androidx.lifecycle:lifecycle-runtime-ktx", version.ref = "lifecycle" }
@@ -72,6 +75,7 @@ detekt-test = { module = "io.gitlab.arturbosch.detekt:detekt-test", version.ref 
 detekt-compose-rules = { module = "io.nlopez.compose.rules:detekt", version.ref = "detekt-compose-rules" }
 logcat = { module = "com.squareup.logcat:logcat", version.ref = "logcat" }
 androidx-core-splashscreen = { module = "androidx.core:core-splashscreen", version.ref = "splashscreen" }
+androidx-profileinstaller = { module = "androidx.profileinstaller:profileinstaller", version.ref = "profileinstaller" }
 kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "kotlinx-serialization" }
 hilt-android = { module = "com.google.dagger:hilt-android", version.ref = "hilt" }
 hilt-android-testing = { module = "com.google.dagger:hilt-android-testing", version.ref = "hilt" }
@@ -110,6 +114,7 @@ room = [
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
+android-test = { id = "com.android.test", version.ref = "agp" }
 android-library = { id = "com.android.library", version.ref = "agp" }
 kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin-compose" }
 kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin-compose" }
