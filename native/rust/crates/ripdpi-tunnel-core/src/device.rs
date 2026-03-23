@@ -121,14 +121,7 @@ mod tests {
     }
 
     /// Build an IPv4/TCP ACK packet given the SYN-ACK's seq number.
-    fn build_tcp_ack(
-        src_ip: [u8; 4],
-        dst_ip: [u8; 4],
-        src_port: u16,
-        dst_port: u16,
-        seq: u32,
-        ack: u32,
-    ) -> Vec<u8> {
+    fn build_tcp_ack(src_ip: [u8; 4], dst_ip: [u8; 4], src_port: u16, dst_port: u16, seq: u32, ack: u32) -> Vec<u8> {
         let mut pkt = vec![0u8; 40];
         pkt[0] = 0x45;
         pkt[2] = 0;
