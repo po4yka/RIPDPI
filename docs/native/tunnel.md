@@ -6,7 +6,7 @@ The TUN-to-SOCKS tunnel is used only in VPN mode. It takes the Android TUN file 
 
 When encrypted DNS is enabled, the tunnel also intercepts DNS with a mapped-DNS listener (`198.18.0.53` over the synthetic `198.18.0.0/15` pool), resolves those queries through the shared encrypted resolver, and rewrites follow-up traffic back to the real upstream IPv4 targets before opening SOCKS sessions. The active encrypted DNS path can come from the user's current settings or from a validated remembered VPN policy that replays an exact DoH/DoT/DNSCrypt endpoint for the current network.
 
-The built shared library is `libhev-socks5-tunnel.so`.
+The built shared library is `libripdpi-tunnel.so`.
 
 ## App Call Chain
 
@@ -20,9 +20,9 @@ Stop path:
 
 Relevant sources:
 
-- `core/service/src/main/java/com/poyka/ripdpi/services/RipDpiVpnService.kt`
-- `core/engine/src/main/java/com/poyka/ripdpi/core/Tun2SocksTunnel.kt`
-- `native/rust/crates/hs5t-android/src/lib.rs`
+- `core/service/src/main/kotlin/com/poyka/ripdpi/services/RipDpiVpnService.kt`
+- `core/engine/src/main/kotlin/com/poyka/ripdpi/core/Tun2SocksTunnel.kt`
+- `native/rust/crates/ripdpi-tunnel-android/src/lib.rs`
 
 ## Methods Actually Used
 
@@ -31,7 +31,7 @@ Relevant sources:
 | `ripdpi_tunnel_core::run_tunnel` | `native/rust/crates/ripdpi-tunnel-core/src/tunnel_api.rs` | `jniStart(handle, tunFd)` worker thread | Used | Runs the tunnel runtime from the in-memory config and Android TUN fd. |
 | `CancellationToken::cancel` | `tokio-util` | `jniStop(handle)` | Used | Requests tunnel shutdown from another thread. |
 | `Stats::snapshot` | `native/rust/crates/ripdpi-tunnel-core/src/stats.rs` | `jniGetStats(handle)` | Used | Returns packet and byte counters. |
-| tunnel telemetry snapshot assembly | `native/rust/crates/hs5t-android/src/lib.rs` | `jniGetTelemetry(handle)` | Used | Returns tunnel lifecycle, counters, last error, resolver endpoint/latency/fallback fields, and a bounded drained event ring. |
+| tunnel telemetry snapshot assembly | `native/rust/crates/ripdpi-tunnel-android/src/lib.rs` | `jniGetTelemetry(handle)` | Used | Returns tunnel lifecycle, counters, last error, resolver endpoint/latency/fallback fields, and a bounded drained event ring. |
 
 ## JNI Surface Exposed to Kotlin
 
@@ -75,7 +75,7 @@ The Rust crate graph is centered on:
 - In encrypted DNS mode the config also enables `mapdns` on `198.18.0.53:53` with a synthetic `198.18.0.0/15` address pool and passes the active encrypted resolver definition into native code.
 - `RipDpiVpnService` resolves connection policy before startup and can overlay a remembered VPN-only DNS policy without changing the user's selected app mode.
 - Actionable handovers now trigger a full proxy+tunnel restart under the service mutex instead of a DNS-only refresh path, so the SOCKS listener, mapped-DNS resolver, and tunnel are rebound together on the new network.
-- `libhev-socks5-tunnel.so` therefore still depends on `libripdpi.so` already being active.
+- `libripdpi-tunnel.so` therefore still depends on `libripdpi.so` already being active.
 - `RipDpiVpnService` polls tunnel telemetry while the VPN is running and merges it with proxy telemetry from `libripdpi.so`.
 
 ## Passive Tunnel Runtime Telemetry
@@ -104,7 +104,7 @@ The drained event ring records:
 
 The tunnel stack is currently covered by:
 
-- Rust unit, property-based, state-machine, fault-injection, and telemetry-golden tests in `hs5t-android`
+- Rust unit, property-based, state-machine, fault-injection, and telemetry-golden tests in `ripdpi-tunnel-android`
 - Android instrumentation integration tests for tunnel lifecycle, JNI error paths, and VPN-service restart flows
 - local-network Android E2E that exercises VPN mode against the shared fixture stack
 - Linux-only privileged real-TUN E2E and TUN soak runs

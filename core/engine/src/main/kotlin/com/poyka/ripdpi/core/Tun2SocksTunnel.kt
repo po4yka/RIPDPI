@@ -35,7 +35,7 @@ class Tun2SocksNativeBindings
     constructor() : Tun2SocksBindings {
         companion object {
             init {
-                System.loadLibrary("hev-socks5-tunnel")
+                System.loadLibrary("ripdpi-tunnel")
             }
         }
 

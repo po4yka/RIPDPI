@@ -129,7 +129,7 @@ mod tests {
 
     fn temp_pid_path() -> PathBuf {
         let stamp = SystemTime::now().duration_since(UNIX_EPOCH).expect("system clock before unix epoch").as_nanos();
-        std::env::temp_dir().join(format!("ciadpi-process-{stamp}.pid"))
+        std::env::temp_dir().join(format!("ripdpi-process-{stamp}.pid"))
     }
 
     #[test]

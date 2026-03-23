@@ -166,7 +166,7 @@ Workflow может сохранять golden diffs, Android reports, fixture lo
 ## Native-модули
 
 - `native/rust/crates/ripdpi-android`: JNI bridge прокси и поверхность proxy runtime telemetry
-- `native/rust/crates/hs5t-android`: JNI bridge TUN-to-SOCKS и поверхность tunnel telemetry
+- `native/rust/crates/ripdpi-tunnel-android`: JNI bridge TUN-to-SOCKS и поверхность tunnel telemetry
 - `native/rust/crates/ripdpi-monitor`: активные diagnostics scans и passive diagnostics events
 - `native/rust/crates/ripdpi-dns-resolver`: общий encrypted DNS resolver для диагностики и VPN mode
 - `native/rust/crates/ripdpi-runtime`: общий proxy runtime layer, используемый `libripdpi.so`

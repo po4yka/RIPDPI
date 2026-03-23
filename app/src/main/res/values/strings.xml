@@ -477,8 +477,8 @@
     <string name="quic_fake_preset_recommended">Recommended</string>
     <string name="quic_fake_preset_off_title">Off</string>
     <string name="quic_fake_preset_off_body">Keep the existing raw UDP fake payload path. Use this when you only want transport-level fake bursts.</string>
-    <string name="quic_fake_preset_compat_title">Zapret compatibility</string>
-    <string name="quic_fake_preset_compat_body">Emit a fixed 620-byte compatibility blob that matches zapret-style QUIC fake payload behavior.</string>
+    <string name="quic_fake_preset_compat_title">Compatibility blob</string>
+    <string name="quic_fake_preset_compat_body">Emit a fixed 620-byte compatibility blob for QUIC fake payloads.</string>
     <string name="quic_fake_preset_realistic_title">Realistic Initial</string>
     <string name="quic_fake_preset_realistic_body">Build a valid IETF QUIC Initial, mirror v1 or v2 when possible, and optionally override the embedded host.</string>
     <string name="quic_fake_profile_cli_title">Controlled by command line</string>
@@ -498,7 +498,7 @@
     <string name="quic_fake_profile_summary_label_scope">Scope</string>
     <string name="quic_fake_profile_summary_label_burst">UDP burst</string>
     <string name="quic_fake_profile_summary_off">Off</string>
-    <string name="quic_fake_profile_summary_compat">Zapret compatibility</string>
+    <string name="quic_fake_profile_summary_compat">Compatibility blob</string>
     <string name="quic_fake_profile_summary_realistic">Realistic Initial</string>
     <string name="quic_fake_profile_host_unused">Not used for this preset</string>
     <string name="quic_fake_profile_badge_initial_only">QUIC Initial only</string>
@@ -690,7 +690,7 @@ hostfake endhost host=cdn.discordapp.net</string>
     <string name="ripdpi_fake_approx_example_http">fakedsplit host+1</string>
     <string name="ripdpi_fake_approx_example_tls">tlsrec extlen
 fakeddisorder endhost</string>
-    <string name="ripdpi_fake_approx_scope_note">These are Linux/Android-first approximations, not raw zapret parity. They reuse RIPDPI fake payloads and fake transport instead of sequence overlap or duplicate raw sends.</string>
+    <string name="ripdpi_fake_approx_scope_note">These are Linux/Android-first approximations, not raw wire-parity implementations. They reuse RIPDPI fake payloads and fake transport instead of sequence overlap or duplicate raw sends.</string>
     <string name="ripdpi_fake_approx_badge_available">Available</string>
     <string name="ripdpi_fake_approx_badge_configured">Configured</string>
     <string name="ripdpi_fake_approx_badge_linux_android">Linux/Android only</string>

@@ -1676,7 +1676,7 @@ mod tests {
     }
 
     #[test]
-    fn compat_default_quic_fake_matches_zapret_layout() {
+    fn compat_default_quic_fake_matches_fixed_compatibility_layout() {
         let packet = default_fake_quic_compat();
 
         assert_eq!(packet.len(), DEFAULT_FAKE_QUIC_COMPAT_LEN);

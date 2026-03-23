@@ -352,7 +352,7 @@ val buildRustNativeLibs =
         artifactSpecs.set(
             listOf(
                 "ripdpi-android|libripdpi_android.so|libripdpi.so",
-                "hs5t-android|libhs5t_android.so|libhev-socks5-tunnel.so",
+                "ripdpi-tunnel-android|libripdpi_tunnel_android.so|libripdpi-tunnel.so",
             ),
         )
         cargoTargetDir.set(rustNativeBuildDir)

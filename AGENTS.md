@@ -2,7 +2,7 @@
 
 ## Project
 
-RIPDPI is an Android VPN/proxy application for DPI (Deep Packet Inspection) bypass. It runs a local SOCKS5 proxy and VPN tunnel through in-repository Rust native modules derived from ByeDPI and hev-socks5-tunnel.
+RIPDPI is an Android VPN/proxy application for DPI (Deep Packet Inspection) bypass. It runs a local SOCKS5 proxy and VPN tunnel through in-repository Rust native modules.
 
 ## Setup
 
@@ -34,7 +34,7 @@ RIPDPI is an Android VPN/proxy application for DPI (Deep Packet Inspection) bypa
 
 - **`:app`** -- Jetpack Compose UI with Material 3, navigation, ViewModels
 - **`:core:data`** -- App settings via Protobuf (schema: `core/data/src/main/proto/app_settings.proto`) and Jetpack DataStore
-- **`:core:engine`** -- Native proxy and tunnel engine with JNI bridge, built from vendored Rust crates
+- **`:core:engine`** -- Native proxy and tunnel engine with JNI bridge, built from repo-owned Rust crates
 - **`:core:service`** -- Android VPN and proxy foreground services
 
 ## Native Code
@@ -44,10 +44,10 @@ Two native libraries are built from repo-owned Android adapter crates in the nat
 | Library | Build system | Source | Output |
 |---------|-------------|--------|--------|
 | `libripdpi.so` | Cargo + Android NDK linker via `:core:engine:buildRustNativeLibs` | `native/rust/crates/ripdpi-android/` | `core/engine/build/generated/jniLibs/` |
-| `libhev-socks5-tunnel.so` | Cargo + Android NDK linker via `:core:engine:buildRustNativeLibs` | `native/rust/crates/hs5t-android/` | `core/engine/build/generated/jniLibs/` |
+| `libripdpi-tunnel.so` | Cargo + Android NDK linker via `:core:engine:buildRustNativeLibs` | `native/rust/crates/ripdpi-tunnel-android/` | `core/engine/build/generated/jniLibs/` |
 
-- Kotlin bridge for `libripdpi.so`: `core/engine/src/main/java/com/poyka/ripdpi/core/RipDpiProxy.kt`
-- Kotlin bridge for `libhev-socks5-tunnel.so`: `core/engine/src/main/java/com/poyka/ripdpi/core/Tun2SocksTunnel.kt`
+- Kotlin bridge for `libripdpi.so`: `core/engine/src/main/kotlin/com/poyka/ripdpi/core/RipDpiProxy.kt`
+- Kotlin bridge for `libripdpi-tunnel.so`: `core/engine/src/main/kotlin/com/poyka/ripdpi/core/Tun2SocksTunnel.kt`
 - Supported ABIs: armeabi-v7a, arm64-v8a, x86, x86_64
 - Never edit `.so` files -- they are compiled from source
 - Local non-release builds default to `ripdpi.localNativeAbisDefault=arm64-v8a`.

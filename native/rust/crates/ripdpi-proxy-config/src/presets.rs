@@ -12,7 +12,7 @@ pub fn apply_preset(preset_id: &str, config: &mut ProxyUiConfig) -> Result<(), P
         "russia_rostelecom" => apply_russia_rostelecom(config),
         "russia_mgts" => apply_russia_mgts(config),
         "russia_mts_mobile" => apply_russia_mts_mobile(config),
-        "byedpi_default" => apply_byedpi_default(config),
+        "ripdpi_default" => apply_ripdpi_default(config),
         other => Err(ProxyConfigError::InvalidConfig(format!("Unknown strategyPreset: {other}"))),
     }
 }
@@ -58,9 +58,9 @@ fn apply_russia_mts_mobile(c: &mut ProxyUiConfig) -> Result<(), ProxyConfigError
     Ok(())
 }
 
-/// ByeDPI default -- broad Russian ISP compatibility using disorder (more
+/// RIPDPI default -- broad Russian ISP compatibility using disorder (more
 /// reliable than split on modern middlebox) with adaptive fake TTL enabled.
-fn apply_byedpi_default(c: &mut ProxyUiConfig) -> Result<(), ProxyConfigError> {
+fn apply_ripdpi_default(c: &mut ProxyUiConfig) -> Result<(), ProxyConfigError> {
     c.protocols.desync_https = true;
     c.protocols.desync_http = true;
     c.protocols.desync_udp = true;
@@ -129,7 +129,7 @@ mod tests {
     #[test]
     fn all_presets_produce_valid_runtime_config() {
         use crate::runtime_config_from_ui;
-        for preset in &["russia_rostelecom", "russia_mgts", "russia_mts_mobile", "byedpi_default"] {
+        for preset in &["russia_rostelecom", "russia_mgts", "russia_mts_mobile", "ripdpi_default"] {
             let mut c = base();
             apply_preset(preset, &mut c).unwrap();
             runtime_config_from_ui(c).unwrap_or_else(|e| panic!("preset {preset} failed validation: {e}"));
