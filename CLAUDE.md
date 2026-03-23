@@ -30,8 +30,19 @@ Android VPN/proxy app for network optimization using in-repository Rust native m
 ./gradlew staticAnalysis         # detekt + ktlint + Android lint
 ```
 
+### Desktop CLI (native proxy without Android)
+
+```bash
+cd native/rust
+cargo build -p ripdpi-cli                    # Build the CLI binary
+cargo run -p ripdpi-cli -- -p 1080 -x 1      # Run proxy on port 1080, info logging
+cargo run -p ripdpi-cli -- -h                 # Show all CLI flags
+RUST_LOG=debug cargo run -p ripdpi-cli       # Override log filter via env
+```
+
 ## Native Code Rules
 
+- `ripdpi` CLI binary is built from `native/rust/crates/ripdpi-cli` (macOS/Linux, no Android deps)
 - `libripdpi.so` is built from `native/rust/crates/ripdpi-android`
 - `libripdpi-tunnel.so` is built from `native/rust/crates/ripdpi-tunnel-android`
 - `:core:engine:buildRustNativeLibs` builds both libraries from the `native/rust` workspace into `core/engine/build/generated/jniLibs/`
