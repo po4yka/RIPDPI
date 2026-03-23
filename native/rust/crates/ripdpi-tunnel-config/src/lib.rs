@@ -67,7 +67,7 @@ fn default_tun_name() -> String {
     "tun0".to_string()
 }
 fn default_tun_mtu() -> u32 {
-    8500
+    1500
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -275,7 +275,7 @@ socks5:
     const FULL_YAML: &str = r#"
 tunnel:
   name: tun0
-  mtu: 8500
+  mtu: 1500
   multi-queue: false
   ipv4: 198.18.0.1
   ipv6: 'fc00::1'
@@ -314,7 +314,7 @@ misc:
         let cfg = Config::from_file(&conf_path).expect("should parse conf/main.yml");
         assert_eq!(cfg.socks5.port, 1080);
         assert_eq!(cfg.socks5.address, "127.0.0.1");
-        assert_eq!(cfg.tunnel.mtu, 8500);
+        assert_eq!(cfg.tunnel.mtu, 1500);
         assert_eq!(cfg.tunnel.name, "tun0");
         assert!(!cfg.tunnel.multi_queue);
         assert_eq!(cfg.tunnel.ipv4.as_deref(), Some("198.18.0.1"));
@@ -527,7 +527,7 @@ mod proptest_tests {
             let yaml = build_minimal_yaml(port, &address);
             let cfg = Config::from_str(&yaml).unwrap();
             prop_assert_eq!(cfg.tunnel.name.as_str(), "tun0");
-            prop_assert_eq!(cfg.tunnel.mtu, 8500);
+            prop_assert_eq!(cfg.tunnel.mtu, 1500);
             prop_assert!(!cfg.tunnel.multi_queue);
             prop_assert!(cfg.tunnel.ipv4.is_none());
             prop_assert!(cfg.tunnel.ipv6.is_none());

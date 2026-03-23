@@ -12,6 +12,15 @@ pub struct SessionEntry {
     pub cancel: CancellationToken,
     /// Handle to the spawned session task.
     pub handle: JoinHandle<io::Result<()>>,
+    /// Bytes read from the smoltcp socket that have not yet been accepted by
+    /// the session-side duplex stream.
+    pub pending_to_session: Vec<u8>,
+    /// Bytes read from the upstream session that have not yet been accepted by
+    /// smoltcp's transmit buffer.
+    pub pending_to_smoltcp: Vec<u8>,
+    /// The upstream session has closed its write side; the smoltcp socket
+    /// should half-close only after `pending_to_smoltcp` has been flushed.
+    pub upstream_closed: bool,
 }
 
 /// Ordered map of active sessions, supporting oldest-first eviction.
@@ -109,7 +118,15 @@ mod tests {
         let child = parent.child_token();
         let (smoltcp_side, _session_side) = tokio::io::duplex(256);
         let handle: JoinHandle<io::Result<()>> = tokio::spawn(async { Ok(()) });
-        let entry = SessionEntry { smoltcp_side, cancel: child.clone(), handle };
+        let entry =
+            SessionEntry {
+                smoltcp_side,
+                cancel: child.clone(),
+                handle,
+                pending_to_session: Vec::new(),
+                pending_to_smoltcp: Vec::new(),
+                upstream_closed: false,
+            };
         (entry, child)
     }
 

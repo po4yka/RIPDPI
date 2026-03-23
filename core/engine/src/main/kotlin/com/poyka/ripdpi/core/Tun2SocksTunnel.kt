@@ -170,10 +170,12 @@ class Tun2SocksTunnel(
         }
 }
 
+const val DEFAULT_TUN2SOCKS_TUNNEL_MTU: Int = 1500
+
 @Serializable
 data class Tun2SocksConfig(
     val tunnelName: String = "tun0",
-    val tunnelMtu: Int = 8500,
+    val tunnelMtu: Int = DEFAULT_TUN2SOCKS_TUNNEL_MTU,
     val multiQueue: Boolean = false,
     val tunnelIpv4: String? = null,
     val tunnelIpv6: String? = null,

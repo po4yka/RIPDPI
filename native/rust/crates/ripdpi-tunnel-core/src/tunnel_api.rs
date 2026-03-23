@@ -88,6 +88,12 @@ pub async fn run_tunnel(
             iface.update_ip_addrs(|addrs| {
                 let _ = addrs.push(IpCidr::new(ip, prefix));
             });
+            if let IpAddress::Ipv4(v4) = ip {
+                iface
+                    .routes_mut()
+                    .add_default_ipv4_route(v4)
+                    .map_err(|err| io::Error::new(io::ErrorKind::Other, err.to_string()))?;
+            }
         }
     }
 
@@ -96,6 +102,12 @@ pub async fn run_tunnel(
             iface.update_ip_addrs(|addrs| {
                 let _ = addrs.push(IpCidr::new(ip, prefix));
             });
+            if let IpAddress::Ipv6(v6) = ip {
+                iface
+                    .routes_mut()
+                    .add_default_ipv6_route(v6)
+                    .map_err(|err| io::Error::new(io::ErrorKind::Other, err.to_string()))?;
+            }
         }
     }
 
@@ -139,5 +151,36 @@ mod tests {
     #[test]
     fn parse_tunnel_address_returns_none_for_invalid_ip() {
         assert!(parse_tunnel_address("not-an-ip").is_none());
+    }
+
+    #[test]
+    fn any_ip_routes_are_installed_for_configured_tunnel_addresses() {
+        let iface_cfg = IfaceConfig::new(HardwareAddress::Ip);
+        let mut device = TunDevice::new(1500);
+        let mut iface = Interface::new(iface_cfg, &mut device, Instant::now());
+        iface.set_any_ip(true);
+
+        let (ipv4, ipv4_prefix) = parse_tunnel_address("10.0.0.2/24").expect("ipv4");
+        let (ipv6, ipv6_prefix) = parse_tunnel_address("fd00::1/128").expect("ipv6");
+
+        iface.update_ip_addrs(|addrs| {
+            let _ = addrs.push(IpCidr::new(ipv4, ipv4_prefix));
+            let _ = addrs.push(IpCidr::new(ipv6, ipv6_prefix));
+        });
+        iface
+            .routes_mut()
+            .add_default_ipv4_route(smoltcp::wire::Ipv4Address::new(10, 0, 0, 2))
+            .expect("ipv4 route");
+        iface
+            .routes_mut()
+            .add_default_ipv6_route(smoltcp::wire::Ipv6Address::new(0xfd00, 0, 0, 0, 0, 0, 0, 1))
+            .expect("ipv6 route");
+
+        assert!(iface.any_ip());
+        assert_eq!(iface.ipv4_addr(), Some(smoltcp::wire::Ipv4Address::new(10, 0, 0, 2)));
+        assert_eq!(
+            iface.ipv6_addr(),
+            Some(smoltcp::wire::Ipv6Address::new(0xfd00, 0, 0, 0, 0, 0, 0, 1))
+        );
     }
 }

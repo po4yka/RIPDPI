@@ -12,6 +12,7 @@ import android.net.ConnectivityManager
 import android.os.Build
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
+import com.poyka.ripdpi.core.DEFAULT_TUN2SOCKS_TUNNEL_MTU
 import com.poyka.ripdpi.core.Tun2SocksConfig
 import com.poyka.ripdpi.core.service.R
 import com.poyka.ripdpi.data.ActiveDnsSettings
@@ -171,6 +172,7 @@ class RipDpiVpnService :
         logcat { "DNS: $dns" }
         val builder = Builder()
         builder.setSession("RIPDPI")
+        builder.setMtu(DEFAULT_TUN2SOCKS_TUNNEL_MTU)
         builder.setConfigureIntent(
             PendingIntent.getActivity(
                 this,
@@ -231,9 +233,11 @@ class RipDpiVpnService :
             ipv6Enabled: Boolean,
         ): Tun2SocksConfig =
             Tun2SocksConfig(
+                tunnelMtu = DEFAULT_TUN2SOCKS_TUNNEL_MTU,
                 tunnelIpv4 = TUNNEL_IPV4_CIDR,
                 tunnelIpv6 = if (ipv6Enabled) TUNNEL_IPV6_CIDR else null,
                 socks5Port = socks5Port,
+                socks5Udp = "udp",
                 mapdnsAddress = if (activeDns.mode == DnsModeEncrypted) MAPDNS_ADDRESS else null,
                 mapdnsPort = if (activeDns.mode == DnsModeEncrypted) MAPDNS_PORT else null,
                 mapdnsNetwork = if (activeDns.mode == DnsModeEncrypted) MAPDNS_NETWORK else null,

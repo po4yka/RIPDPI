@@ -160,7 +160,7 @@ pub(crate) fn mapdns_resolver_protocol(mapdns: &MapDnsConfig) -> Option<String> 
 pub(crate) fn sample_payload() -> TunnelConfigPayload {
     TunnelConfigPayload {
         tunnel_name: "tun0".to_string(),
-        tunnel_mtu: 8500,
+        tunnel_mtu: 1500,
         multi_queue: false,
         tunnel_ipv4: None,
         tunnel_ipv6: None,

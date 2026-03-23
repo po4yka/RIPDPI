@@ -116,4 +116,43 @@ class VpnTunnelRuntimeTest {
             assertTrue(session.closed)
             assertFalse(runtime.isRunning)
         }
+
+    @Test
+    fun startKeepsUdpRelayWhenQuicBypassStrategyIsDisabled() =
+        runTest {
+            val bridge = TestTun2SocksBridge()
+            val runtime =
+                VpnTunnelRuntime(
+                    vpnHost = TestVpnServiceHost(backgroundScope),
+                    appSettingsRepository = TestAppSettingsRepository(),
+                    tun2SocksBridgeFactory = TestTun2SocksBridgeFactory(bridge),
+                    vpnTunnelSessionProvider = TestVpnTunnelSessionProvider(session = TestVpnTunnelSession()),
+                )
+
+            runtime.start(AppSettingsSerializer.defaultValue.activeDnsSettings(), overrideReason = null)
+
+            assertEquals("udp", bridge.startedConfig?.socks5Udp)
+        }
+
+    @Test
+    fun startKeepsUdpRelayWhenQuicBypassStrategyIsEnabled() =
+        runTest {
+            val settings =
+                AppSettingsSerializer.defaultValue
+                    .toBuilder()
+                    .setDesyncUdp(true)
+                    .build()
+            val bridge = TestTun2SocksBridge()
+            val runtime =
+                VpnTunnelRuntime(
+                    vpnHost = TestVpnServiceHost(backgroundScope),
+                    appSettingsRepository = TestAppSettingsRepository(settings),
+                    tun2SocksBridgeFactory = TestTun2SocksBridgeFactory(bridge),
+                    vpnTunnelSessionProvider = TestVpnTunnelSessionProvider(session = TestVpnTunnelSession()),
+                )
+
+            runtime.start(settings.activeDnsSettings(), overrideReason = null)
+
+            assertEquals("udp", bridge.startedConfig?.socks5Udp)
+        }
 }
