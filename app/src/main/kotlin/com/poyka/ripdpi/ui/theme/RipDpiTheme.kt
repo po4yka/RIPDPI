@@ -34,7 +34,13 @@ fun RipDpiTheme(
     val colorScheme = if (isDark) ripDpiDarkColorScheme() else ripDpiLightColorScheme()
     val extendedColors = if (isDark) DarkRipDpiExtendedColors else LightRipDpiExtendedColors
     val density = LocalDensity.current
-    val screenWidthDp = with(density) { LocalWindowInfo.current.containerSize.width.toDp().value.toInt() }
+    val screenWidthDp =
+        with(density) {
+            LocalWindowInfo.current.containerSize.width
+                .toDp()
+                .value
+                .toInt()
+        }
     val layout = ripDpiLayoutForWidth(screenWidthDp = screenWidthDp)
     val motion = rememberRipDpiMotion()
 
