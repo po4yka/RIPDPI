@@ -7,6 +7,9 @@
 # Local machine configuration
 /local.properties
 
+# Python virtual environments
+.venv/
+
 # Build and tool caches
 .gradle/
 .kotlin/
@@ -21,5 +24,5 @@ target/
 ralph.yml
 hats.yml
 PROMPT.md
-specs/
+/specs/
 .worktrees/
