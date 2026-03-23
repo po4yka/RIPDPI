@@ -46,6 +46,9 @@ if third_party_members:
     sys.exit(1)
 PY
 
+echo "==> native hotspot budgets"
+python3 "$repo_root/scripts/ci/check_native_hotspot_budgets.py"
+
 echo "==> tests (workspace)"
 cargo nextest run --manifest-path "$workspace_manifest" -p local-network-fixture "${NEXTEST_ARGS[@]}"
 cargo nextest run --manifest-path "$workspace_manifest" -p ripdpi-tunnel-android "${NEXTEST_ARGS[@]}"

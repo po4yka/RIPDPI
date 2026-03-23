@@ -1966,6 +1966,40 @@ mod tests {
     }
 
     #[test]
+    fn parse_cli_uses_shadowsocks_startup_port_and_protect_path() {
+        let startup = StartupEnv {
+            ss_local_port: Some("15432".to_string()),
+            ss_plugin_options: None,
+            protect_path_present: true,
+        };
+
+        let ParseResult::Run(config) = parse_cli(&[], &startup).expect("parse cli") else {
+            panic!("expected runnable config");
+        };
+
+        assert_eq!(config.listen.listen_port, 15432);
+        assert!(config.shadowsocks);
+        assert_eq!(config.protect_path.as_deref(), Some("protect_path"));
+    }
+
+    #[test]
+    fn parse_cli_prefers_ss_plugin_options_over_explicit_args() {
+        let startup = StartupEnv {
+            ss_local_port: None,
+            ss_plugin_options: Some("--port 2442 --debug 3".to_string()),
+            protect_path_present: false,
+        };
+        let args = vec!["--port".to_string(), "1080".to_string()];
+
+        let ParseResult::Run(config) = parse_cli(&args, &startup).expect("parse cli") else {
+            panic!("expected runnable config");
+        };
+
+        assert_eq!(config.listen.listen_port, 2442);
+        assert_eq!(config.debug, 3);
+    }
+
+    #[test]
     fn parse_numeric_addr_ipv6_bracket_forms() {
         let (ip, port) = parse_numeric_addr("[::1]:8080").unwrap();
         assert_eq!(ip, IpAddr::from_str("::1").unwrap());
