@@ -186,7 +186,7 @@ internal fun TelemetrySparkline(trend: com.poyka.ripdpi.activities.DiagnosticsSp
 
     var selectedIndex by remember(trend.label) { mutableIntStateOf(-1) }
 
-    LaunchedEffect(trend.values) {
+    LaunchedEffect(trend.label, trend.values) {
         selectedIndex = -1
         previousValues = currentValues.ifEmpty { trend.values }
         currentValues = trend.values
