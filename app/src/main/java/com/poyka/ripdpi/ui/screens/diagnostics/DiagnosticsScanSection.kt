@@ -590,7 +590,7 @@ internal fun DiagnosticsScanWorkflowCard(
             color = colors.foreground,
         )
         LazyRow(horizontalArrangement = Arrangement.spacedBy(spacing.xs)) {
-            items(badges) { badge ->
+            items(badges, key = { it.text }) { badge ->
                 EventBadge(text = badge.text, tone = badge.tone)
             }
         }
