@@ -54,6 +54,7 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.map
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
 import java.io.File
@@ -138,7 +139,9 @@ internal class FakeDiagnosticsHistoryStores :
         connectionSessionId: String,
         limit: Int,
     ): Flow<List<NetworkSnapshotEntity>> =
-        MutableStateFlow(snapshotsState.value.filter { it.connectionSessionId == connectionSessionId }.take(limit))
+        snapshotsState.map { snapshots ->
+            snapshots.filter { it.connectionSessionId == connectionSessionId }.take(limit)
+        }
 
     override fun observeContexts(limit: Int): Flow<List<DiagnosticContextEntity>> = contextsState
 
@@ -151,7 +154,9 @@ internal class FakeDiagnosticsHistoryStores :
         connectionSessionId: String,
         limit: Int,
     ): Flow<List<DiagnosticContextEntity>> =
-        MutableStateFlow(contextsState.value.filter { it.connectionSessionId == connectionSessionId }.take(limit))
+        contextsState.map { contexts ->
+            contexts.filter { it.connectionSessionId == connectionSessionId }.take(limit)
+        }
 
     override fun observeTelemetry(limit: Int): Flow<List<TelemetrySampleEntity>> = telemetryState
 
@@ -159,7 +164,9 @@ internal class FakeDiagnosticsHistoryStores :
         connectionSessionId: String,
         limit: Int,
     ): Flow<List<TelemetrySampleEntity>> =
-        MutableStateFlow(telemetryState.value.filter { it.connectionSessionId == connectionSessionId }.take(limit))
+        telemetryState.map { telemetry ->
+            telemetry.filter { it.connectionSessionId == connectionSessionId }.take(limit)
+        }
 
     override fun observeNativeEvents(limit: Int): Flow<List<NativeSessionEventEntity>> = nativeEventsState
 
@@ -172,7 +179,9 @@ internal class FakeDiagnosticsHistoryStores :
         connectionSessionId: String,
         limit: Int,
     ): Flow<List<NativeSessionEventEntity>> =
-        MutableStateFlow(nativeEventsState.value.filter { it.connectionSessionId == connectionSessionId }.take(limit))
+        nativeEventsState.map { events ->
+            events.filter { it.connectionSessionId == connectionSessionId }.take(limit)
+        }
 
     override fun observeExportRecords(limit: Int): Flow<List<ExportRecordEntity>> = exportsState
 
