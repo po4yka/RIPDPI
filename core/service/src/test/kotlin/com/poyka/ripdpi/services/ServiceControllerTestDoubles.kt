@@ -30,6 +30,8 @@ import com.poyka.ripdpi.data.TemporaryResolverOverride
 import com.poyka.ripdpi.data.TunnelStats
 import com.poyka.ripdpi.data.WifiNetworkIdentityTuple
 import com.poyka.ripdpi.data.activeDnsSettings
+import com.poyka.ripdpi.data.diagnostics.NetworkDnsPathPreferenceEntity
+import com.poyka.ripdpi.data.diagnostics.NetworkDnsPathPreferenceStore
 import com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyEntity
 import com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyStore
 import com.poyka.ripdpi.proto.AppSettings
@@ -43,6 +45,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.emptyFlow
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 
 internal class TestServiceClock(
     var now: Long = 1_000L,
@@ -161,13 +165,14 @@ internal class TestResolverOverrideStore(
 
 internal class TestRememberedNetworkPolicyStore : RememberedNetworkPolicyStore {
     val failures = mutableListOf<RememberedNetworkPolicyEntity>()
+    var validatedMatch: RememberedNetworkPolicyEntity? = null
 
     override fun observePolicies(limit: Int): Flow<List<RememberedNetworkPolicyEntity>> = emptyFlow()
 
     override suspend fun findValidatedMatch(
         fingerprintHash: String,
         mode: Mode,
-    ): RememberedNetworkPolicyEntity? = null
+    ): RememberedNetworkPolicyEntity? = validatedMatch
 
     override suspend fun upsertObservedPolicy(
         policy: RememberedNetworkPolicyJson,
@@ -203,6 +208,35 @@ internal class TestRememberedNetworkPolicyStore : RememberedNetworkPolicyStore {
     }
 
     override suspend fun clearAll() = Unit
+}
+
+internal class TestNetworkDnsPathPreferenceStore : NetworkDnsPathPreferenceStore {
+    private val preferences = linkedMapOf<String, com.poyka.ripdpi.data.EncryptedDnsPathCandidate>()
+
+    override suspend fun getPreferredPath(fingerprintHash: String): com.poyka.ripdpi.data.EncryptedDnsPathCandidate? =
+        preferences[fingerprintHash]
+
+    override suspend fun rememberPreferredPath(
+        fingerprint: NetworkFingerprint,
+        path: com.poyka.ripdpi.data.EncryptedDnsPathCandidate,
+        recordedAt: Long?,
+    ): NetworkDnsPathPreferenceEntity {
+        val fingerprintHash = fingerprint.scopeKey()
+        preferences[fingerprintHash] = path
+        return NetworkDnsPathPreferenceEntity(
+            fingerprintHash = fingerprintHash,
+            summaryJson = Json.encodeToString(fingerprint.summary()),
+            pathJson = Json.encodeToString(path),
+            updatedAt = recordedAt ?: 0L,
+        )
+    }
+
+    fun setPreferredPath(
+        fingerprintHash: String,
+        path: com.poyka.ripdpi.data.EncryptedDnsPathCandidate,
+    ) {
+        preferences[fingerprintHash] = path
+    }
 }
 
 internal class TestAppSettingsRepository(
@@ -256,7 +290,15 @@ internal class TestConnectionPolicyResolver(
         handoverClassification: String?,
     ): ConnectionPolicyResolution {
         calls += ResolveCall(mode, resolverOverride, fingerprint, handoverClassification)
-        return queuedResolutions.removeFirstOrNull() ?: fallbackResolution
+        queuedResolutions.removeFirstOrNull()?.let { return it }
+        return if (resolverOverride != null) {
+            fallbackResolution.copy(
+                activeDns = resolverOverride.toActiveDnsSettings(),
+                resolverFallbackReason = resolverOverride.reason,
+            )
+        } else {
+            fallbackResolution
+        }
     }
 }
 
@@ -515,7 +557,7 @@ internal fun sampleRememberedPolicyEntity(mode: Mode = Mode.Proxy): RememberedNe
     RememberedNetworkPolicyEntity(
         fingerprintHash = "fingerprint",
         mode = mode.preferenceValue,
-        summaryJson = "{}",
+        summaryJson = Json.encodeToString(sampleFingerprint().summary()),
         proxyConfigJson = "{}",
         source = "test",
         status = "validated",

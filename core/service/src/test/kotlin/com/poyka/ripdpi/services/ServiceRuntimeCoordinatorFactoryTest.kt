@@ -62,6 +62,7 @@ class ServiceRuntimeCoordinatorFactoryTest {
                     networkHandoverMonitor = TestNetworkHandoverMonitor(),
                     policyHandoverEventStore = TestPolicyHandoverEventStore(),
                     networkSnapshotProvider = TestNativeNetworkSnapshotProvider(),
+                    networkDnsPathPreferenceStore = TestNetworkDnsPathPreferenceStore(),
                     resolverRefreshPlanner =
                         VpnResolverRefreshPlanner(
                             connectionPolicyResolver = resolver,

@@ -12,12 +12,14 @@ import com.poyka.ripdpi.core.stripRipDpiRuntimeContext
 import com.poyka.ripdpi.core.toRipDpiRuntimeContext
 import com.poyka.ripdpi.data.ActiveDnsSettings
 import com.poyka.ripdpi.data.AppSettingsRepository
+import com.poyka.ripdpi.data.EncryptedDnsPathCandidate
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.NetworkFingerprint
 import com.poyka.ripdpi.data.NetworkFingerprintProvider
 import com.poyka.ripdpi.data.RememberedNetworkPolicyJson
 import com.poyka.ripdpi.data.TemporaryResolverOverride
 import com.poyka.ripdpi.data.VpnDnsPolicyJson
+import com.poyka.ripdpi.data.diagnostics.NetworkDnsPathPreferenceStore
 import com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyEntity
 import com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyStore
 import com.poyka.ripdpi.data.diagnostics.toPolicyJson
@@ -48,6 +50,12 @@ data class ConnectionPolicyResolution(
     val handoverClassification: String? = null,
 )
 
+internal data class VpnDnsSelection(
+    val activeDns: ActiveDnsSettings,
+    val preferredPath: EncryptedDnsPathCandidate? = null,
+    val rememberedVpnDnsPolicy: VpnDnsPolicyJson? = null,
+)
+
 interface ConnectionPolicyResolver {
     suspend fun resolve(
         mode: Mode,
@@ -64,6 +72,7 @@ class DefaultConnectionPolicyResolver
         @param:ApplicationContext private val context: Context,
         private val appSettingsRepository: AppSettingsRepository,
         private val networkFingerprintProvider: NetworkFingerprintProvider,
+        private val networkDnsPathPreferenceStore: NetworkDnsPathPreferenceStore,
         private val rememberedNetworkPolicyStore: RememberedNetworkPolicyStore,
     ) : ConnectionPolicyResolver {
         override suspend fun resolve(
@@ -75,8 +84,20 @@ class DefaultConnectionPolicyResolver
             val settings = appSettingsRepository.snapshot()
             val dnsResolution = resolveEffectiveDns(settings, resolverOverride)
             val fingerprintSnapshot = fingerprint ?: networkFingerprintProvider.capture()
-            val runtimeContext = dnsResolution.activeDns.toRipDpiRuntimeContext()
             val networkScopeKey = fingerprintSnapshot?.scopeKey()
+            val preferredVpnDnsPath =
+                resolvePreferredVpnDnsPath(
+                    mode = mode,
+                    dnsResolution = dnsResolution,
+                    networkScopeKey = networkScopeKey,
+                )
+            val baselineVpnDnsSelection =
+                resolveVpnDnsSelection(
+                    mode = mode,
+                    baseDns = dnsResolution.activeDns,
+                    preferredPath = preferredVpnDnsPath,
+                )
+            val runtimeContext = baselineVpnDnsSelection.activeDns.toRipDpiRuntimeContext()
             val hostAutolearnStorePath =
                 settings
                     .takeIf { it.hostAutolearnEnabled }
@@ -95,7 +116,7 @@ class DefaultConnectionPolicyResolver
                 }
             val baselineLaneFamilies =
                 (baselinePreferences as? RipDpiProxyUIPreferences)?.deriveStrategyLaneFamilies(
-                    activeDns = dnsResolution.activeDns,
+                    activeDns = baselineVpnDnsSelection.activeDns,
                 )
 
             val baselinePolicy =
@@ -107,7 +128,7 @@ class DefaultConnectionPolicyResolver
                         proxyConfigJson = stripRipDpiRuntimeContext(baselinePreferences.toNativeConfigJson()),
                         vpnDnsPolicy =
                             if (mode == Mode.VPN) {
-                                dnsResolution.activeDns.toVpnDnsPolicyJson()
+                                baselineVpnDnsSelection.activeDns.toVpnDnsPolicyJson()
                             } else {
                                 null
                             },
@@ -122,7 +143,7 @@ class DefaultConnectionPolicyResolver
                 buildConnectionPolicySignature(
                     mode = mode,
                     proxyPreferences = baselinePreferences,
-                    activeDns = dnsResolution.activeDns,
+                    activeDns = baselineVpnDnsSelection.activeDns,
                     resolverFallbackReason = dnsResolution.override?.reason,
                     matchedPolicy = null,
                 )
@@ -131,7 +152,7 @@ class DefaultConnectionPolicyResolver
                 return ConnectionPolicyResolution(
                     settings = settings,
                     proxyPreferences = baselinePreferences,
-                    activeDns = dnsResolution.activeDns,
+                    activeDns = baselineVpnDnsSelection.activeDns,
                     vpnDnsOverride = null,
                     matchedNetworkPolicy = null,
                     appliedPolicy = baselinePolicy,
@@ -151,7 +172,7 @@ class DefaultConnectionPolicyResolver
                     ?: return ConnectionPolicyResolution(
                         settings = settings,
                         proxyPreferences = baselinePreferences,
-                        activeDns = dnsResolution.activeDns,
+                        activeDns = baselineVpnDnsSelection.activeDns,
                         vpnDnsOverride = null,
                         matchedNetworkPolicy = null,
                         appliedPolicy = baselinePolicy,
@@ -165,12 +186,17 @@ class DefaultConnectionPolicyResolver
             val rememberedPolicy = matchedPolicy.toPolicyJson()
             val rememberedLaneFamilies =
                 decodeRipDpiProxyUiPreferences(matchedPolicy.proxyConfigJson)?.deriveStrategyLaneFamilies(
-                    activeDns = dnsResolution.activeDns,
+                    activeDns = baselineVpnDnsSelection.activeDns,
                 )
-            val vpnDnsOverride = if (mode == Mode.VPN) rememberedPolicy?.vpnDnsPolicy else null
-            val effectiveDns =
-                vpnDnsOverride?.toActiveDnsSettings()
-                    ?: dnsResolution.activeDns
+            val vpnDnsSelection =
+                resolveVpnDnsSelection(
+                    mode = mode,
+                    baseDns = baselineVpnDnsSelection.activeDns,
+                    preferredPath = baselineVpnDnsSelection.preferredPath,
+                    rememberedVpnDnsPolicy = rememberedPolicy?.vpnDnsPolicy,
+                    resolverOverride = dnsResolution.override,
+                )
+            val effectiveDns = vpnDnsSelection.activeDns
             val proxyPreferences =
                 RipDpiProxyJsonPreferences(
                     configJson = matchedPolicy.proxyConfigJson,
@@ -192,34 +218,63 @@ class DefaultConnectionPolicyResolver
                     mode = mode,
                     proxyPreferences = proxyPreferences,
                     activeDns = effectiveDns,
-                    resolverFallbackReason =
-                        if (vpnDnsOverride == null) {
-                            dnsResolution.override?.reason
-                        } else {
-                            null
-                        },
+                    resolverFallbackReason = dnsResolution.override?.reason,
                     matchedPolicy = matchedPolicy,
                 )
             return ConnectionPolicyResolution(
                 settings = settings,
                 proxyPreferences = proxyPreferences,
                 activeDns = effectiveDns,
-                vpnDnsOverride = vpnDnsOverride,
+                vpnDnsOverride = vpnDnsSelection.rememberedVpnDnsPolicy,
                 matchedNetworkPolicy = matchedPolicy,
                 appliedPolicy = appliedPolicy,
                 networkScopeKey = networkScopeKey,
                 fingerprintHash = networkScopeKey,
                 policySignature = policySignature,
-                resolverFallbackReason =
-                    if (vpnDnsOverride == null) {
-                        dnsResolution.override?.reason
-                    } else {
-                        null
-                    },
+                resolverFallbackReason = dnsResolution.override?.reason,
                 handoverClassification = handoverClassification,
             )
         }
+
+        private suspend fun resolvePreferredVpnDnsPath(
+            mode: Mode,
+            dnsResolution: EffectiveDnsResolution,
+            networkScopeKey: String?,
+        ): EncryptedDnsPathCandidate? {
+            if (mode != Mode.VPN || dnsResolution.override != null || !dnsResolution.activeDns.isEncrypted) {
+                return null
+            }
+            val scopeKey = networkScopeKey ?: return null
+            return networkDnsPathPreferenceStore.getPreferredPath(scopeKey)
+        }
     }
+
+internal fun resolveVpnDnsSelection(
+    mode: Mode,
+    baseDns: ActiveDnsSettings,
+    preferredPath: EncryptedDnsPathCandidate? = null,
+    rememberedVpnDnsPolicy: VpnDnsPolicyJson? = null,
+    resolverOverride: TemporaryResolverOverride? = null,
+): VpnDnsSelection {
+    if (mode != Mode.VPN) {
+        return VpnDnsSelection(activeDns = baseDns)
+    }
+    if (resolverOverride != null) {
+        return VpnDnsSelection(activeDns = resolverOverride.toActiveDnsSettings())
+    }
+    if (baseDns.isEncrypted && preferredPath != null) {
+        return VpnDnsSelection(
+            activeDns = preferredPath.toActiveDnsSettings(),
+            preferredPath = preferredPath,
+        )
+    }
+    val rememberedDns = rememberedVpnDnsPolicy?.toActiveDnsSettings()
+    return VpnDnsSelection(
+        activeDns = rememberedDns ?: baseDns,
+        preferredPath = preferredPath,
+        rememberedVpnDnsPolicy = rememberedVpnDnsPolicy?.takeIf { preferredPath == null },
+    )
+}
 
 internal fun buildConnectionPolicySignature(
     mode: Mode,

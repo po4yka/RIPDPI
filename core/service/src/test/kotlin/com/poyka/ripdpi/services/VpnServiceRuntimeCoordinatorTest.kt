@@ -4,6 +4,7 @@ import com.poyka.ripdpi.data.AppSettingsSerializer
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.DnsModePlainUdp
 import com.poyka.ripdpi.data.Mode
+import com.poyka.ripdpi.data.NativeRuntimeSnapshot
 import com.poyka.ripdpi.data.ServiceEvent
 import com.poyka.ripdpi.data.activeDnsSettings
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -33,6 +34,7 @@ class VpnServiceRuntimeCoordinatorTest {
         val handoverMonitor: TestNetworkHandoverMonitor,
         val handoverEvents: TestPolicyHandoverEventStore,
         val resolverOverrides: TestResolverOverrideStore,
+        val preferredPaths: TestNetworkDnsPathPreferenceStore,
         val events: MutableList<String>,
     )
 
@@ -142,6 +144,48 @@ class VpnServiceRuntimeCoordinatorTest {
         }
 
     @Test
+    fun dnsFailoverRestartsOnlyTunnelAndKeepsProxyRuntimeAlive() =
+        runTest {
+            val env = newEnv()
+
+            env.coordinator.start()
+            runCurrent()
+            env.bridgeFactory.bridge.telemetry =
+                NativeRuntimeSnapshot(
+                    source = "tunnel",
+                    state = "running",
+                    health = "healthy",
+                    dnsQueriesTotal = 1,
+                    dnsFailuresTotal = 1,
+                    lastDnsError = "resolver timeout",
+                )
+
+            advanceTimeBy(1_000L)
+            repeat(3) { runCurrent() }
+
+            env.bridgeFactory.bridge.telemetry =
+                NativeRuntimeSnapshot(
+                    source = "tunnel",
+                    state = "running",
+                    health = "healthy",
+                    dnsQueriesTotal = 2,
+                    dnsFailuresTotal = 2,
+                    lastDnsError = "resolver timeout",
+                )
+
+            advanceTimeBy(1_000L)
+            repeat(3) { runCurrent() }
+
+            val override = env.resolverOverrides.override.value
+            assertEquals(1, env.factory.runtimes.size)
+            assertEquals(1, env.bridgeFactory.bridge.stopCount)
+            assertNotNull(override)
+            assertEquals("vpn_encrypted_dns_auto_failover: resolver timeout", override?.reason)
+            assertEquals(override?.resolverId, env.bridgeFactory.bridge.startedConfig?.encryptedDnsResolverId)
+            assertEquals(override?.protocol, env.bridgeFactory.bridge.startedConfig?.encryptedDnsProtocol)
+        }
+
+    @Test
     fun handoverRestartPublishesPolicyEvent() =
         runTest {
             val initialFingerprint = sampleFingerprint()
@@ -202,6 +246,7 @@ class VpnServiceRuntimeCoordinatorTest {
         val handoverMonitor = TestNetworkHandoverMonitor()
         val handoverEvents = TestPolicyHandoverEventStore()
         val overrides = TestResolverOverrideStore()
+        val preferredPaths = TestNetworkDnsPathPreferenceStore()
         val clock = TestServiceClock(now = 1_000L)
         val tunnelRuntime =
             VpnTunnelRuntime(
@@ -224,6 +269,13 @@ class VpnServiceRuntimeCoordinatorTest {
                     VpnResolverRefreshPlanner(
                         connectionPolicyResolver = resolver,
                         resolverOverrideStore = overrides,
+                    ),
+                encryptedDnsFailoverController =
+                    VpnEncryptedDnsFailoverController(
+                        resolverOverrideStore = overrides,
+                        networkDnsPathPreferenceStore = preferredPaths,
+                        networkFingerprintProvider = fingerprintProvider,
+                        clock = clock,
                     ),
                 proxyRuntimeSupervisor =
                     ProxyRuntimeSupervisor(
@@ -256,6 +308,7 @@ class VpnServiceRuntimeCoordinatorTest {
             handoverMonitor = handoverMonitor,
             handoverEvents = handoverEvents,
             resolverOverrides = overrides,
+            preferredPaths = preferredPaths,
             events = events,
         )
     }
