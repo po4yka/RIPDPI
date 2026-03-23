@@ -1,6 +1,5 @@
 package com.poyka.ripdpi.activities
 
-import android.app.Activity
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
@@ -106,15 +105,10 @@ internal class DefaultMainActivityHost
             this.activity = activity
             this.viewModel = viewModel
             vpnPermissionLauncher =
-                activity.registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+                activity.registerForActivityResult(ActivityResultContracts.StartActivityForResult()) {
                     viewModel.onPermissionResult(
                         kind = com.poyka.ripdpi.permissions.PermissionKind.VpnConsent,
-                        result =
-                            if (result.resultCode == Activity.RESULT_OK) {
-                                com.poyka.ripdpi.permissions.PermissionResult.Granted
-                            } else {
-                                com.poyka.ripdpi.permissions.PermissionResult.Denied
-                            },
+                        result = MainActivity.mapVpnPermissionResult(activity),
                     )
                 }
             notificationPermissionLauncher =
