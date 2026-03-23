@@ -140,6 +140,7 @@ internal object RipDpiTestTags {
     const val HistoryDiagnosticsSearch = "history-diagnostics-search"
     const val HistoryEventsSearch = "history-events-search"
     const val HistoryEventsAutoScroll = "history-events-auto-scroll"
+    const val HistoryFilterClearAll = "history-filter-clear-all"
     const val HistoryConnectionsStateEmpty = "history-connections-state-empty"
     const val HistoryConnectionsStateContent = "history-connections-state-content"
     const val HistoryDiagnosticsStateEmpty = "history-diagnostics-state-empty"

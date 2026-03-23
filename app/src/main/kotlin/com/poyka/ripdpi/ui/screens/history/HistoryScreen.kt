@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -84,15 +85,18 @@ fun HistoryRoute(
         onConnectionModeFilter = viewModel::setConnectionModeFilter,
         onConnectionStatusFilter = viewModel::setConnectionStatusFilter,
         onConnectionSearch = viewModel::setConnectionSearch,
+        onClearConnectionFilters = viewModel::clearConnectionFilters,
         onSelectConnection = viewModel::selectConnection,
         onDismissConnectionDetail = viewModel::dismissConnectionDetail,
         onDiagnosticsPathFilter = viewModel::setDiagnosticsPathModeFilter,
         onDiagnosticsStatusFilter = viewModel::setDiagnosticsStatusFilter,
         onDiagnosticsSearch = viewModel::setDiagnosticsSearch,
+        onClearDiagnosticsFilters = viewModel::clearDiagnosticsFilters,
         onSelectDiagnosticsSession = viewModel::selectDiagnosticsSession,
         onDismissDiagnosticsDetail = viewModel::dismissDiagnosticsDetail,
         onToggleEventFilter = viewModel::toggleEventFilter,
         onEventSearch = viewModel::setEventSearch,
+        onClearEventFilters = viewModel::clearEventFilters,
         onEventAutoScroll = viewModel::setEventAutoScroll,
         onSelectEvent = viewModel::selectEvent,
         onDismissEventDetail = viewModel::dismissEventDetail,
@@ -109,15 +113,18 @@ internal fun HistoryScreen(
     onConnectionModeFilter: (String?) -> Unit,
     onConnectionStatusFilter: (String?) -> Unit,
     onConnectionSearch: (String) -> Unit,
+    onClearConnectionFilters: () -> Unit,
     onSelectConnection: (String) -> Unit,
     onDismissConnectionDetail: () -> Unit,
     onDiagnosticsPathFilter: (String?) -> Unit,
     onDiagnosticsStatusFilter: (String?) -> Unit,
     onDiagnosticsSearch: (String) -> Unit,
+    onClearDiagnosticsFilters: () -> Unit,
     onSelectDiagnosticsSession: (String) -> Unit,
     onDismissDiagnosticsDetail: () -> Unit,
     onToggleEventFilter: (String?, String?) -> Unit,
     onEventSearch: (String) -> Unit,
+    onClearEventFilters: () -> Unit,
     onEventAutoScroll: (Boolean) -> Unit,
     onSelectEvent: (String) -> Unit,
     onDismissEventDetail: () -> Unit,
@@ -199,6 +206,7 @@ internal fun HistoryScreen(
                                 onModeFilter = onConnectionModeFilter,
                                 onStatusFilter = onConnectionStatusFilter,
                                 onSearch = onConnectionSearch,
+                                onClearFilters = onClearConnectionFilters,
                                 onSelectConnection = onSelectConnection,
                             )
                         }
@@ -209,6 +217,7 @@ internal fun HistoryScreen(
                                 onPathFilter = onDiagnosticsPathFilter,
                                 onStatusFilter = onDiagnosticsStatusFilter,
                                 onSearch = onDiagnosticsSearch,
+                                onClearFilters = onClearDiagnosticsFilters,
                                 onSelectSession = onSelectDiagnosticsSession,
                             )
                         }
@@ -218,6 +227,7 @@ internal fun HistoryScreen(
                                 uiState = uiState,
                                 onToggleFilter = onToggleEventFilter,
                                 onSearch = onEventSearch,
+                                onClearFilters = onClearEventFilters,
                                 onAutoScroll = onEventAutoScroll,
                                 onSelectEvent = onSelectEvent,
                             )
@@ -363,6 +373,7 @@ private fun ConnectionsSection(
     onModeFilter: (String?) -> Unit,
     onStatusFilter: (String?) -> Unit,
     onSearch: (String) -> Unit,
+    onClearFilters: () -> Unit,
     onSelectConnection: (String) -> Unit,
 ) {
     val spacing = RipDpiThemeTokens.spacing
@@ -401,6 +412,7 @@ private fun ConnectionsSection(
                         onSelect = onStatusFilter,
                         tagForOption = { RipDpiTestTags.historyConnectionsStatusFilter(it) },
                     ),
+                onClearFilters = onClearFilters,
             )
         }
 
@@ -430,6 +442,7 @@ private fun DiagnosticsSection(
     onPathFilter: (String?) -> Unit,
     onStatusFilter: (String?) -> Unit,
     onSearch: (String) -> Unit,
+    onClearFilters: () -> Unit,
     onSelectSession: (String) -> Unit,
 ) {
     val spacing = RipDpiThemeTokens.spacing
@@ -468,6 +481,7 @@ private fun DiagnosticsSection(
                         onSelect = onStatusFilter,
                         tagForOption = { RipDpiTestTags.historyDiagnosticsStatusFilter(it) },
                     ),
+                onClearFilters = onClearFilters,
             )
         }
 
@@ -497,6 +511,7 @@ private fun EventsSection(
     uiState: HistoryUiState,
     onToggleFilter: (String?, String?) -> Unit,
     onSearch: (String) -> Unit,
+    onClearFilters: () -> Unit,
     onAutoScroll: (Boolean) -> Unit,
     onSelectEvent: (String) -> Unit,
 ) {
@@ -559,6 +574,7 @@ private fun EventsSection(
                         onSelect = { onToggleFilter(null, it) },
                         tagForOption = { RipDpiTestTags.historyEventSeverityFilter(it) },
                     ),
+                onClearFilters = onClearFilters,
                 autoScroll = uiState.events.filters.autoScroll,
                 onAutoScroll = onAutoScroll,
                 autoScrollTestTag = RipDpiTestTags.HistoryEventsAutoScroll,
@@ -603,18 +619,38 @@ private fun FilterCard(
     searchTestTag: String,
     primaryFilter: HistoryFilterChipsConfig,
     secondaryFilter: HistoryFilterChipsConfig,
+    onClearFilters: () -> Unit = {},
     autoScroll: Boolean? = null,
     onAutoScroll: ((Boolean) -> Unit)? = null,
     autoScrollTestTag: String? = null,
 ) {
     val spacing = RipDpiThemeTokens.spacing
+    val hasActiveFilters = primaryFilter.selected != null || secondaryFilter.selected != null
 
     RipDpiCard(modifier = modifier) {
-        Text(
-            text = title,
-            style = RipDpiThemeTokens.type.sectionTitle,
-            color = RipDpiThemeTokens.colors.mutedForeground,
-        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = title,
+                style = RipDpiThemeTokens.type.sectionTitle,
+                color = RipDpiThemeTokens.colors.mutedForeground,
+            )
+            if (hasActiveFilters) {
+                Text(
+                    text = stringResource(R.string.history_filter_clear_all),
+                    style = RipDpiThemeTokens.type.secondaryBody,
+                    color = RipDpiThemeTokens.colors.accent,
+                    modifier =
+                        Modifier
+                            .clickable(onClick = onClearFilters)
+                            .padding(horizontal = spacing.sm, vertical = spacing.xs)
+                            .ripDpiTestTag(RipDpiTestTags.HistoryFilterClearAll),
+                )
+            }
+        }
         RipDpiTextField(
             value = searchValue,
             onValueChange = onSearch,

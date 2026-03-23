@@ -109,11 +109,15 @@ class HistoryViewModel
 
         fun setConnectionSearch(query: String) = connectionActions.setSearch(query)
 
+        fun clearConnectionFilters() = connectionActions.clearFilters()
+
         fun setDiagnosticsPathModeFilter(pathMode: String?) = diagnosticsActions.setPathModeFilter(pathMode)
 
         fun setDiagnosticsStatusFilter(status: String?) = diagnosticsActions.setStatusFilter(status)
 
         fun setDiagnosticsSearch(query: String) = diagnosticsActions.setSearch(query)
+
+        fun clearDiagnosticsFilters() = diagnosticsActions.clearFilters()
 
         fun toggleEventFilter(
             source: String? = null,
@@ -121,6 +125,8 @@ class HistoryViewModel
         ) = eventActions.toggleFilter(source, severity)
 
         fun setEventSearch(query: String) = eventActions.setSearch(query)
+
+        fun clearEventFilters() = eventActions.clearFilters()
 
         fun setEventAutoScroll(enabled: Boolean) = eventActions.setAutoScroll(enabled)
 

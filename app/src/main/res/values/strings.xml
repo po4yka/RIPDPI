@@ -137,6 +137,7 @@
     <string name="diagnostics_search_label">Search</string>
     <string name="diagnostics_search_placeholder">Search sessions</string>
     <string name="diagnostics_events_search_placeholder">Search events</string>
+    <string name="history_filter_clear_all">Clear all</string>
     <string name="history_connections_section">Connections</string>
     <string name="history_diagnostics_section">Diagnostics</string>
     <string name="history_events_section">Events</string>
