@@ -1259,6 +1259,13 @@ Source: %2$s</string>
     <string name="diagnostics_warn_notification_permission">Notification permission is disabled, so service issues may be harder to notice.</string>
     <string name="diagnostics_warn_power_restriction">Power or background restrictions may interfere with stable diagnostics.</string>
 
+    <!-- Diagnostics snapshot section headers -->
+    <string name="diagnostics_section_network">Network</string>
+    <string name="diagnostics_section_carrier">Carrier</string>
+    <string name="diagnostics_section_wifi">Wi-Fi</string>
+    <string name="diagnostics_section_transport">Transport</string>
+    <string name="diagnostics_section_device">Device</string>
+
     <!-- Diagnostics context field labels -->
     <string name="diagnostics_field_capabilities">Capabilities</string>
     <string name="diagnostics_field_dns">DNS</string>
