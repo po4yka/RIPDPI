@@ -1775,6 +1775,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "ripdpi-cli"
+version = "0.1.0"
+dependencies = [
+ "log",
+ "ripdpi-config",
+ "ripdpi-failure-classifier",
+ "ripdpi-runtime",
+ "tracing",
+ "tracing-log",
+ "tracing-subscriber",
+]
+
+[[package]]
 name = "ripdpi-config"
 version = "0.1.0"
 dependencies = [

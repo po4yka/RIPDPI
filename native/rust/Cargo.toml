@@ -21,6 +21,7 @@ members = [
     "crates/ripdpi-tun-driver",
     "crates/ripdpi-tunnel-core",
     "crates/ripdpi-tunnel-android",
+    "crates/ripdpi-cli",
 ]
 
 [workspace.package]
@@ -44,6 +45,7 @@ ripdpi-session = { path = "crates/ripdpi-session" }
 ripdpi-ws-tunnel = { path = "crates/ripdpi-ws-tunnel" }
 ripdpi-config = { path = "crates/ripdpi-config" }
 ripdpi-desync = { path = "crates/ripdpi-desync" }
+ripdpi-cli = { path = "crates/ripdpi-cli" }
 
 ripdpi-tun-driver = { path = "crates/ripdpi-tun-driver" }
 ripdpi-tunnel-config = { path = "crates/ripdpi-tunnel-config" }
