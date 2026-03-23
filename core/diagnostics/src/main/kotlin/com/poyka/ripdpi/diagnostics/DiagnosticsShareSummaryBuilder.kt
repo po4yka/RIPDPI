@@ -7,6 +7,9 @@ import kotlinx.coroutines.flow.first
 import kotlinx.serialization.json.Json
 
 internal object DiagnosticsShareSummaryBuilder {
+    private const val SessionArtifactLimit = 200
+    private const val WarningLimit = 50
+
     @Suppress("CyclomaticComplexMethod")
     suspend fun build(
         sessionId: String?,
@@ -15,17 +18,21 @@ internal object DiagnosticsShareSummaryBuilder {
         json: Json,
         projector: DiagnosticsSummaryProjector = DiagnosticsSummaryProjector(),
     ): ShareSummary {
+        val requestedSessionId = sessionId
         val selectedSession =
-            sessionId
+            requestedSessionId
                 ?.let { id -> scanRecordStore.getScanSession(id) }
                 ?: scanRecordStore.observeRecentScanSessions(limit = 1).first().firstOrNull()
+        if (requestedSessionId != null && selectedSession == null) {
+            return missingSessionSummary(requestedSessionId)
+        }
         val selectedResults =
             selectedSession?.id?.let { id -> scanRecordStore.getProbeResults(id) }.orEmpty()
         val latestSnapshot =
             selectedSession
                 ?.id
                 ?.let { id ->
-                    artifactReadStore.observeSnapshots(limit = 200).first().firstOrNull { it.sessionId == id }
+                    artifactReadStore.getSnapshotsForSession(id, limit = SessionArtifactLimit).firstOrNull()
                 }
                 ?: artifactReadStore.observeSnapshots(limit = 1).first().firstOrNull()
         val latestSnapshotModel =
@@ -38,7 +45,7 @@ internal object DiagnosticsShareSummaryBuilder {
             selectedSession
                 ?.id
                 ?.let { id ->
-                    artifactReadStore.observeContexts(limit = 200).first().firstOrNull { it.sessionId == id }
+                    artifactReadStore.getContextsForSession(id, limit = SessionArtifactLimit).firstOrNull()
                 }
                 ?: artifactReadStore.observeContexts(limit = 1).first().firstOrNull()
         val latestContextModel =
@@ -47,10 +54,20 @@ internal object DiagnosticsShareSummaryBuilder {
                 ?.let { payload ->
                     runCatching { json.decodeFromString(DiagnosticContextModel.serializer(), payload) }.getOrNull()
                 }
-        val latestTelemetry = artifactReadStore.observeTelemetry(limit = 1).first().firstOrNull()
+        val latestTelemetry =
+            selectedSession
+                ?.id
+                ?.let { id ->
+                    artifactReadStore.observeTelemetry(limit = SessionArtifactLimit).first().firstOrNull { it.sessionId == id }
+                }
+                ?: artifactReadStore.observeTelemetry(limit = 1).first().firstOrNull()
         val latestWarnings =
-            artifactReadStore.observeNativeEvents(limit = 50).first().filter {
-                it.level.equals("warn", ignoreCase = true) || it.level.equals("error", ignoreCase = true)
+            if (selectedSession != null) {
+                artifactReadStore.getNativeEventsForSession(selectedSession.id, limit = WarningLimit)
+            } else {
+                artifactReadStore.observeNativeEvents(limit = WarningLimit).first()
+            }.filter { event ->
+                event.level.equals("warn", ignoreCase = true) || event.level.equals("error", ignoreCase = true)
             }
         val selectedReport =
             selectedSession
@@ -93,4 +110,16 @@ internal object DiagnosticsShareSummaryBuilder {
                 ),
         )
     }
+
+    private fun missingSessionSummary(requestedSessionId: String): ShareSummary =
+        ShareSummary(
+            title = "RIPDPI diagnostics ${requestedSessionId.take(8)}",
+            body =
+                listOf(
+                    "RIPDPI diagnostics summary",
+                    "session=$requestedSessionId",
+                    "status=session_unavailable",
+                ).joinToString(separator = "\n"),
+            compactMetrics = emptyList(),
+        )
 }
