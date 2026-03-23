@@ -309,7 +309,7 @@ private fun HomeApproachCard(
         Spacer(modifier = Modifier.height(spacing.xs))
         Text(
             text = summary.supportingText,
-            style = RipDpiThemeTokens.type.body,
+            style = RipDpiThemeTokens.type.monoConfig,
             color = colors.foreground,
         )
         Spacer(modifier = Modifier.height(spacing.sm))
