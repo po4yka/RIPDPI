@@ -455,6 +455,14 @@ fn tcp_target_endpoint(tcp: &TcpSocket) -> Option<SocketAddr> {
     tcp.local_endpoint().map(endpoint_to_socketaddr)
 }
 
+fn tcp_session_target_addr(
+    stats: &Arc<Stats>,
+    dns_cache: &mut Option<DnsCache>,
+    tcp: &TcpSocket,
+) -> Option<SocketAddr> {
+    tcp_target_endpoint(tcp).map(|target| resolve_mapped_target(stats, dns_cache, target))
+}
+
 fn socketaddr_to_listen_endpoint(addr: SocketAddr) -> IpListenEndpoint {
     let ip = match addr.ip() {
         IpAddr::V4(v4) => {
@@ -1198,7 +1206,7 @@ pub async fn io_loop_task(
             for (handle, socket) in socket_set.iter_mut() {
                 if let Socket::Tcp(tcp) = socket {
                     if tcp.is_active() && !sessions.contains(handle) {
-                        match tcp_target_endpoint(tcp) {
+                        match tcp_session_target_addr(&stats, &mut dns_cache, tcp) {
                             Some(target) => {
                                 new_sessions.push((handle, target));
                             }
@@ -1220,8 +1228,7 @@ pub async fn io_loop_task(
                     pending_listens.remove(&pending_key);
                 }
 
-                let resolved_target = resolve_mapped_target(&stats, &mut dns_cache, target_addr);
-                let target = TargetAddr::Ip(resolved_target);
+                let target = TargetAddr::Ip(target_addr);
                 let (smoltcp_side, session_side) = tokio::io::duplex(DUPLEX_BUF);
                 let child_cancel = cancel.child_token();
                 let session_inst = TcpSession::new(proxy_sockaddr, auth.clone(), target);
@@ -1244,7 +1251,7 @@ pub async fn io_loop_task(
                     socket_set.remove(evicted_h);
                     debug!("Evicted session socket {:?} removed from socket_set", evicted_h);
                 }
-                info!("TCP session spawned: remote={}", resolved_target);
+                info!("TCP session spawned: remote={}", target_addr);
             }
         }
 
@@ -1531,19 +1538,31 @@ mod tests {
         ipv6_tcp_syn_with_ports(12345, dst_port)
     }
 
-    fn ipv6_tcp_syn_with_ports(src_port: u16, dst_port: u16) -> Vec<u8> {
+    fn build_ipv6_tcp_syn_packet(src_ip: Ipv6Addr, dst_ip: Ipv6Addr, src_port: u16, dst_port: u16) -> Vec<u8> {
         let mut pkt = vec![0u8; 60];
         pkt[0] = 0x60;
         pkt[4..6].copy_from_slice(&20u16.to_be_bytes());
         pkt[6] = 6;
         pkt[7] = 64;
-        pkt[8..24].copy_from_slice(&std::net::Ipv6Addr::LOCALHOST.octets());
-        pkt[24..40].copy_from_slice(&std::net::Ipv6Addr::LOCALHOST.octets());
+        pkt[8..24].copy_from_slice(&src_ip.octets());
+        pkt[24..40].copy_from_slice(&dst_ip.octets());
         pkt[40..42].copy_from_slice(&src_port.to_be_bytes());
         pkt[42..44].copy_from_slice(&dst_port.to_be_bytes());
         pkt[52] = 0x50;
         pkt[53] = 0x02;
+        let tcp_len = u32::try_from(pkt.len() - 40).expect("tcp length");
+        let mut sum = checksum_sum(&src_ip.octets());
+        sum += checksum_sum(&dst_ip.octets());
+        sum += (tcp_len >> 16) + (tcp_len & 0xFFFF);
+        sum += u32::from(6u16);
+        sum += checksum_sum(&pkt[40..]);
+        let tcp_checksum = finalize_checksum(sum);
+        pkt[56..58].copy_from_slice(&tcp_checksum.to_be_bytes());
         pkt
+    }
+
+    fn ipv6_tcp_syn_with_ports(src_port: u16, dst_port: u16) -> Vec<u8> {
+        build_ipv6_tcp_syn_packet(Ipv6Addr::LOCALHOST, Ipv6Addr::LOCALHOST, src_port, dst_port)
     }
 
     #[test]
@@ -1690,6 +1709,8 @@ mod tests {
 
         let first_socket = socket_set.get::<TcpSocket>(first_handle);
         let second_socket = socket_set.get::<TcpSocket>(second_handle);
+        let stats = Arc::new(Stats::default());
+        let mut dns_cache = None;
         assert_eq!(first_socket.state(), tcp::State::Listen);
         assert_eq!(second_socket.state(), tcp::State::SynReceived);
         assert_eq!(
@@ -1701,9 +1722,108 @@ mod tests {
             Some(SocketAddr::new(IpAddr::V4(Ipv4Addr::new(10, 0, 0, 1)), 51000))
         );
         assert_eq!(
-            tcp_target_endpoint(second_socket),
+            tcp_session_target_addr(&stats, &mut dns_cache, second_socket),
             Some(SocketAddr::new(IpAddr::V4(Ipv4Addr::new(203, 0, 113, 20)), 443))
         );
+    }
+
+    #[test]
+    fn tcp_session_target_addr_prefers_intercepted_ipv4_destination_over_client_source() {
+        let mut device = TunDevice::new(1500);
+        let config = smoltcp::iface::Config::new(smoltcp::wire::HardwareAddress::Ip);
+        let mut iface = Interface::new(config, &mut device, Instant::now());
+        iface.update_ip_addrs(|addrs| {
+            addrs.push(smoltcp::wire::IpCidr::new(IpAddress::v4(10, 10, 10, 10), 24)).unwrap();
+        });
+        iface
+            .routes_mut()
+            .add_default_ipv4_route(smoltcp::wire::Ipv4Address::new(10, 10, 10, 10))
+            .expect("default ipv4 route");
+        iface.set_any_ip(true);
+        let mut socket_set = SocketSet::new(vec![]);
+
+        let mut socket = TcpSocket::new(
+            tcp::SocketBuffer::new(vec![0u8; TCP_SOCKET_BUF]),
+            tcp::SocketBuffer::new(vec![0u8; TCP_SOCKET_BUF]),
+        );
+        socket
+            .listen(socketaddr_to_listen_endpoint(SocketAddr::new(
+                IpAddr::V4(Ipv4Addr::new(203, 0, 113, 20)),
+                443,
+            )))
+            .expect("listener");
+
+        let handle = socket_set.add(socket);
+        let client = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(10, 10, 10, 10)), 51000);
+        let destination = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(203, 0, 113, 20)), 443);
+        device.rx_queue.push_back(build_ipv4_tcp_syn_packet(
+            Ipv4Addr::new(10, 10, 10, 10),
+            Ipv4Addr::new(203, 0, 113, 20),
+            51000,
+            443,
+        ));
+
+        iface.poll(Instant::now(), &mut device, &mut socket_set);
+
+        let socket = socket_set.get::<TcpSocket>(handle);
+        let stats = Arc::new(Stats::default());
+        let mut dns_cache = None;
+        let target = tcp_session_target_addr(&stats, &mut dns_cache, socket).expect("session target");
+
+        assert_eq!(
+            socket.remote_endpoint().map(endpoint_to_socketaddr),
+            Some(client),
+        );
+        assert_eq!(target, destination);
+        assert_ne!(target, client);
+    }
+
+    #[test]
+    fn tcp_session_target_addr_prefers_intercepted_ipv6_destination_over_client_source() {
+        let mut device = TunDevice::new(1500);
+        let config = smoltcp::iface::Config::new(smoltcp::wire::HardwareAddress::Ip);
+        let mut iface = Interface::new(config, &mut device, Instant::now());
+        let destination_ip = Ipv6Addr::new(0xfd00, 0, 0, 0, 0, 0, 0, 1);
+        let client_ip = Ipv6Addr::new(0xfd00, 0, 0, 0, 0, 0, 0, 2);
+        let [a, b, c, d, e, f, g, h] = destination_ip.segments();
+        iface.update_ip_addrs(|addrs| {
+            addrs
+                .push(smoltcp::wire::IpCidr::new(IpAddress::v6(a, b, c, d, e, f, g, h), 128))
+                .unwrap();
+        });
+        iface
+            .routes_mut()
+            .add_default_ipv6_route(smoltcp::wire::Ipv6Address::new(a, b, c, d, e, f, g, h))
+            .expect("default ipv6 route");
+        iface.set_any_ip(true);
+        let mut socket_set = SocketSet::new(vec![]);
+
+        let mut socket = TcpSocket::new(
+            tcp::SocketBuffer::new(vec![0u8; TCP_SOCKET_BUF]),
+            tcp::SocketBuffer::new(vec![0u8; TCP_SOCKET_BUF]),
+        );
+        let destination = SocketAddr::new(IpAddr::V6(destination_ip), 443);
+        let client = SocketAddr::new(IpAddr::V6(client_ip), 51000);
+        socket
+            .listen(socketaddr_to_listen_endpoint(destination))
+            .expect("listener");
+
+        let handle = socket_set.add(socket);
+        device.rx_queue.push_back(build_ipv6_tcp_syn_packet(client_ip, destination_ip, 51000, 443));
+
+        iface.poll(Instant::now(), &mut device, &mut socket_set);
+
+        let socket = socket_set.get::<TcpSocket>(handle);
+        let stats = Arc::new(Stats::default());
+        let mut dns_cache = None;
+        let target = tcp_session_target_addr(&stats, &mut dns_cache, &socket).expect("session target");
+
+        assert_eq!(
+            socket.remote_endpoint().map(endpoint_to_socketaddr),
+            Some(client),
+        );
+        assert_eq!(target, destination);
+        assert_ne!(target, client);
     }
 
     #[test]

@@ -572,6 +572,7 @@ internal fun sampleResolution(
     policySignature: String = "policy-signature",
     appliedPolicy: RememberedNetworkPolicyJson? = sampleRememberedPolicyJson(mode),
     matchedPolicy: RememberedNetworkPolicyEntity? = null,
+    networkScopeKey: String? = sampleFingerprint().scopeKey(),
     resolverFallbackReason: String? = null,
 ): ConnectionPolicyResolution =
     ConnectionPolicyResolution(
@@ -580,7 +581,8 @@ internal fun sampleResolution(
         activeDns = activeDns,
         matchedNetworkPolicy = matchedPolicy,
         appliedPolicy = appliedPolicy,
-        fingerprintHash = sampleFingerprint().scopeKey(),
+        networkScopeKey = networkScopeKey,
+        fingerprintHash = networkScopeKey,
         policySignature = policySignature,
         resolverFallbackReason = resolverFallbackReason,
     )

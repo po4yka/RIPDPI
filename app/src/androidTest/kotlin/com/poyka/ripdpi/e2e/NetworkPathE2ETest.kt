@@ -196,6 +196,96 @@ class NetworkPathE2ETest {
     }
 
     @Test
+    fun vpnServiceRoutesHostnameTrafficThroughEncryptedDnsWithoutRestartLoop() {
+        ensureVpnConsentGranted(appContext)
+
+        val listenPort = reserveLoopbackPort()
+        runBlocking {
+            appSettingsRepository.applyFixtureEncryptedDns(
+                fixture = fixture,
+                proxyPort = listenPort,
+            )
+        }
+
+        startService(RipDpiVpnService::class.java)
+        awaitServiceStatus(AppStatus.Running, Mode.VPN)
+
+        val baselineRestartCount = serviceStateStore.telemetry.value.restartCount
+        val payload = httpEchoPayloadShellLiteral("vpn-hostname")
+        val output = shellTcpRoundTrip(fixture.fixtureDomain, fixture.tcpEchoPort, payload)
+        assertTrue("Expected VPN hostname shell round-trip, got: $output", output.contains("GET /vpn-hostname HTTP/1.1"))
+
+        awaitUntil(timeoutMs = 20_000L) {
+            val snapshot = serviceStateStore.telemetry.value
+            val events = fixtureClient.events()
+            snapshot.mode == Mode.VPN &&
+                snapshot.status == AppStatus.Running &&
+                snapshot.tunnelTelemetry.dnsFailuresTotal == 0L &&
+                snapshot.tunnelTelemetry.lastDnsError.isNullOrBlank() &&
+                snapshot.proxyTelemetry.totalSessions > 0 &&
+                events.any { it.service == "dns_http" && it.detail.contains(fixture.fixtureDomain) } &&
+                events.any { it.service == "tcp_echo" && it.detail == "echo" }
+        }
+
+        val events = fixtureClient.events()
+        assertTrue(
+            "Expected encrypted DNS fixture event for ${fixture.fixtureDomain}, got: $events",
+            events.any { it.service == "dns_http" && it.detail.contains(fixture.fixtureDomain) },
+        )
+        assertTrue(
+            "Expected hostname TCP echo fixture event, got: $events",
+            events.any { it.service == "tcp_echo" && it.detail == "echo" },
+        )
+
+        Thread.sleep(2_000L)
+        val stableSnapshot = serviceStateStore.telemetry.value
+        assertEquals(AppStatus.Running, stableSnapshot.status)
+        assertEquals(Mode.VPN, stableSnapshot.mode)
+        assertEquals(0L, stableSnapshot.tunnelTelemetry.dnsFailuresTotal)
+        assertTrue(stableSnapshot.tunnelTelemetry.lastDnsError.isNullOrBlank())
+        assertEquals(
+            "VPN restart count increased after successful hostname traffic",
+            baselineRestartCount,
+            stableSnapshot.restartCount,
+        )
+    }
+
+    @Test
+    fun vpnServiceEncryptedDnsFaultBreaksHostnameShellRoundTrip() {
+        ensureVpnConsentGranted(appContext)
+
+        val listenPort = reserveLoopbackPort()
+        runBlocking {
+            appSettingsRepository.applyFixtureEncryptedDns(
+                fixture = fixture,
+                proxyPort = listenPort,
+            )
+        }
+
+        startService(RipDpiVpnService::class.java)
+        awaitServiceStatus(AppStatus.Running, Mode.VPN)
+        fixtureClient.setFault(
+            FixtureFaultSpecDto(
+                target = FixtureFaultTargetDto.DNS_HTTP,
+                outcome = FixtureFaultOutcomeDto.DNS_TIMEOUT,
+            ),
+        )
+
+        val payload = httpEchoPayloadShellLiteral("vpn-dns-timeout")
+        val output = shellTcpRoundTrip(fixture.fixtureDomain, fixture.tcpEchoPort, payload)
+
+        assertFalse(output.contains("GET /vpn-dns-timeout HTTP/1.1"))
+        awaitUntil(timeoutMs = 20_000L) {
+            val snapshot = serviceStateStore.telemetry.value
+            val events = fixtureClient.events()
+            snapshot.tunnelTelemetry.dnsFailuresTotal > 0L &&
+                !snapshot.tunnelTelemetry.lastDnsError.isNullOrBlank() &&
+                events.any { it.service == "dns_http" } &&
+                events.none { it.service == "tcp_echo" && it.detail == "echo" }
+        }
+    }
+
+    @Test
     fun proxyServicePropagatesTcpResetFaultFromFixture() {
         val listenPort = reserveLoopbackPort()
         runBlocking {
@@ -321,6 +411,15 @@ class NetworkPathE2ETest {
             serviceStateStore.status.value == status to mode
         }
     }
+
+    private fun shellTcpRoundTrip(
+        host: String,
+        port: Int,
+        payload: String,
+    ): String =
+        execShell(
+            "sh -c 'printf %b \"$payload\" | toybox nc -w 5 $host $port'",
+        )
 
     private fun httpEchoPayload(pathToken: String): ByteArray =
         "GET /$pathToken HTTP/1.1\r\nHost: ${fixture.fixtureDomain}\r\nConnection: close\r\n\r\n".encodeToByteArray()

@@ -2,7 +2,10 @@ package com.poyka.ripdpi.services
 
 import com.poyka.ripdpi.data.AppSettingsSerializer
 import com.poyka.ripdpi.data.AppStatus
+import com.poyka.ripdpi.data.DnsModeEncrypted
 import com.poyka.ripdpi.data.DnsModePlainUdp
+import com.poyka.ripdpi.data.DnsProviderGoogle
+import com.poyka.ripdpi.data.EncryptedDnsProtocolDoh
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
 import com.poyka.ripdpi.data.ServiceEvent
@@ -127,6 +130,53 @@ class VpnServiceRuntimeCoordinatorTest {
         }
 
     @Test
+    fun preferredEncryptedDnsPathDoesNotTriggerTunnelRebuildLoopOrFallbackWarning() =
+        runTest {
+            val persistedSettings = AppSettingsSerializer.defaultValue
+            val preferredSettings =
+                persistedSettings
+                    .toBuilder()
+                    .setDnsMode(DnsModeEncrypted)
+                    .setDnsProviderId(DnsProviderGoogle)
+                    .setDnsIp("8.8.8.8")
+                    .setEncryptedDnsProtocol(EncryptedDnsProtocolDoh)
+                    .setEncryptedDnsHost("dns.google")
+                    .setEncryptedDnsPort(443)
+                    .setEncryptedDnsTlsServerName("dns.google")
+                    .clearEncryptedDnsBootstrapIps()
+                    .addAllEncryptedDnsBootstrapIps(listOf("8.8.8.8", "8.8.4.4"))
+                    .setEncryptedDnsDohUrl("https://dns.google/dns-query")
+                    .build()
+            val env =
+                newEnv(
+                    resolutions =
+                        listOf(
+                            sampleResolution(
+                                mode = Mode.VPN,
+                                settings = persistedSettings,
+                                activeDns = preferredSettings.activeDnsSettings(),
+                                networkScopeKey = sampleFingerprint().scopeKey(),
+                            ),
+                        ),
+                )
+
+            env.coordinator.start()
+            runCurrent()
+
+            val initialConfig = env.bridgeFactory.bridge.startedConfig
+            assertEquals("dns.google", initialConfig?.encryptedDnsHost)
+            assertEquals(false, initialConfig?.resolverFallbackActive)
+            assertEquals(null, initialConfig?.resolverFallbackReason)
+
+            advanceTimeBy(3_000L)
+            repeat(3) { runCurrent() }
+
+            assertEquals(1, env.factory.runtimes.size)
+            assertEquals(0, env.bridgeFactory.bridge.stopCount)
+            assertEquals("198.18.0.53", env.tunnelProvider.lastDns)
+        }
+
+    @Test
     fun tunnelTelemetryFailureTransitionsToFailedThenStopped() =
         runTest {
             val env = newEnv()
@@ -183,6 +233,91 @@ class VpnServiceRuntimeCoordinatorTest {
             assertEquals("vpn_encrypted_dns_auto_failover: resolver timeout", override?.reason)
             assertEquals(override?.resolverId, env.bridgeFactory.bridge.startedConfig?.encryptedDnsResolverId)
             assertEquals(override?.protocol, env.bridgeFactory.bridge.startedConfig?.encryptedDnsProtocol)
+        }
+
+    @Test
+    fun dnsFailoverSuccessPersistsWinningPathWithoutRestartingProxy() =
+        runTest {
+            val scopeKey = sampleFingerprint().scopeKey()
+            val env =
+                newEnv(
+                    resolutions =
+                        listOf(
+                            sampleResolution(
+                                mode = Mode.VPN,
+                                networkScopeKey = scopeKey,
+                            ),
+                        ),
+                )
+
+            env.coordinator.start()
+            runCurrent()
+
+            env.bridgeFactory.bridge.telemetry =
+                NativeRuntimeSnapshot(
+                    source = "tunnel",
+                    state = "running",
+                    health = "healthy",
+                    dnsQueriesTotal = 1,
+                    dnsFailuresTotal = 1,
+                    lastDnsError = "resolver timeout",
+                )
+
+            advanceTimeBy(1_000L)
+            repeat(3) { runCurrent() }
+
+            env.bridgeFactory.bridge.telemetry =
+                NativeRuntimeSnapshot(
+                    source = "tunnel",
+                    state = "running",
+                    health = "healthy",
+                    dnsQueriesTotal = 2,
+                    dnsFailuresTotal = 2,
+                    lastDnsError = "resolver timeout",
+                )
+
+            advanceTimeBy(1_000L)
+            repeat(3) { runCurrent() }
+
+            val override = requireNotNull(env.resolverOverrides.override.value)
+            assertEquals(1, env.factory.runtimes.size)
+            assertEquals(true, env.bridgeFactory.bridge.startedConfig?.resolverFallbackActive)
+            assertEquals(override.reason, env.bridgeFactory.bridge.startedConfig?.resolverFallbackReason)
+
+            env.bridgeFactory.bridge.telemetry =
+                NativeRuntimeSnapshot(
+                    source = "tunnel",
+                    state = "running",
+                    health = "healthy",
+                    dnsQueriesTotal = 1,
+                    dnsFailuresTotal = 0,
+                    lastDnsError = null,
+                )
+            advanceTimeBy(1_000L)
+            repeat(3) { runCurrent() }
+
+            env.bridgeFactory.bridge.telemetry =
+                NativeRuntimeSnapshot(
+                    source = "tunnel",
+                    state = "running",
+                    health = "healthy",
+                    dnsQueriesTotal = 2,
+                    dnsFailuresTotal = 0,
+                    lastDnsError = null,
+                )
+            advanceTimeBy(1_000L)
+            repeat(3) { runCurrent() }
+
+            assertEquals(1, env.factory.runtimes.size)
+            assertEquals(1, env.bridgeFactory.bridge.stopCount)
+            assertEquals(
+                env.bridgeFactory.bridge.startedConfig?.encryptedDnsHost,
+                env.preferredPaths.getPreferredPath(scopeKey)?.host,
+            )
+            assertEquals(
+                env.bridgeFactory.bridge.startedConfig?.encryptedDnsDohUrl,
+                env.preferredPaths.getPreferredPath(scopeKey)?.dohUrl,
+            )
         }
 
     @Test
