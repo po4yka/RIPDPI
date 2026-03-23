@@ -22,16 +22,20 @@ internal class VpnResolverRefreshPlanner
                     mode = Mode.VPN,
                     resolverOverride = resolverOverride,
                 )
-            val plan =
-                planResolverRefresh(
-                    settings = connectionPolicy.settings,
-                    override = resolverOverride,
-                    currentSignature = currentSignature,
-                    tunnelRunning = tunnelRunning,
-                ).copy(connectionPolicy = connectionPolicy)
-            if (plan.resolution.shouldClearOverride && resolverOverride != null) {
+            val resolution = resolveEffectiveDns(connectionPolicy.settings, resolverOverride)
+            if (resolution.shouldClearOverride && resolverOverride != null) {
                 resolverOverrideStore.clear()
             }
-            return plan
+            val signature =
+                dnsSignature(
+                    activeDns = connectionPolicy.activeDns,
+                    overrideReason = connectionPolicy.resolverFallbackReason,
+                )
+            return ResolverRefreshPlan(
+                resolution = resolution,
+                signature = signature,
+                requiresTunnelRebuild = tunnelRunning && currentSignature != signature,
+                connectionPolicy = connectionPolicy,
+            )
         }
     }
