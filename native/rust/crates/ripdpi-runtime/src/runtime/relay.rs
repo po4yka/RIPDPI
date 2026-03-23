@@ -2,6 +2,7 @@ use crate::sync::{Arc, Mutex};
 use std::io::{self, Read, Write};
 use std::net::{Shutdown, SocketAddr, TcpStream};
 use std::thread;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Duration, Instant};
 
 use crate::platform;
@@ -179,6 +180,11 @@ pub(super) fn relay(
     Ok(())
 }
 
+/// Read timeout during the relay phase. Prevents indefinite blocking when a
+/// peer goes silent (e.g. network partition, Android doze). Deliberately
+/// generous to avoid killing legitimate idle connections (SSH, long-polling).
+const RELAY_IDLE_TIMEOUT: Duration = Duration::from_secs(60);
+
 fn relay_streams(
     client: TcpStream,
     upstream: TcpStream,
@@ -186,9 +192,9 @@ fn relay_streams(
     group_index: usize,
     session_seed: SessionState,
 ) -> io::Result<SessionState> {
-    client.set_read_timeout(None)?;
+    client.set_read_timeout(Some(RELAY_IDLE_TIMEOUT))?;
     client.set_write_timeout(None)?;
-    upstream.set_read_timeout(None)?;
+    upstream.set_read_timeout(Some(RELAY_IDLE_TIMEOUT))?;
     upstream.set_write_timeout(None)?;
 
     let client_reader = client.try_clone()?;
@@ -206,15 +212,18 @@ fn relay_streams(
         .cloned()
         .ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, "missing desync group"))?;
     let drop_sack = group.drop_sack;
+    let peer_done = Arc::new(AtomicBool::new(false));
 
+    let down_done = peer_done.clone();
+    let up_done = peer_done.clone();
     let down = thread::Builder::new()
         .name("ripdpi-dn".into())
-        .spawn(move || copy_inbound_half(upstream_reader, client_writer, inbound_session))
+        .spawn(move || copy_inbound_half(upstream_reader, client_writer, inbound_session, down_done))
         .map_err(|err| io::Error::other(format!("failed to spawn inbound relay thread: {err}")))?;
     let up = thread::Builder::new()
         .name("ripdpi-up".into())
         .spawn(move || {
-            copy_outbound_half(client_reader, upstream_writer, outbound_state, group_index, outbound_session)
+            copy_outbound_half(client_reader, upstream_writer, outbound_state, group_index, outbound_session, up_done)
         })
         .map_err(|err| io::Error::other(format!("failed to spawn outbound relay thread: {err}")))?;
 
@@ -484,18 +493,28 @@ fn copy_inbound_half(
     mut reader: TcpStream,
     mut writer: TcpStream,
     session: Arc<Mutex<SessionState>>,
+    peer_done: Arc<AtomicBool>,
 ) -> io::Result<()> {
     let mut buffer = [0u8; 16_384];
     loop {
-        let n = reader.read(&mut buffer)?;
-        if n == 0 {
-            break;
+        match reader.read(&mut buffer) {
+            Ok(0) => break,
+            Ok(n) => {
+                if let Ok(mut state) = session.lock() {
+                    state.observe_inbound(&buffer[..n]);
+                }
+                writer.write_all(&buffer[..n])?;
+            }
+            Err(err) if matches!(err.kind(), io::ErrorKind::WouldBlock | io::ErrorKind::TimedOut) => {
+                if peer_done.load(Ordering::Acquire) {
+                    break;
+                }
+                continue;
+            }
+            Err(err) => return Err(err),
         }
-        if let Ok(mut state) = session.lock() {
-            state.observe_inbound(&buffer[..n]);
-        }
-        writer.write_all(&buffer[..n])?;
     }
+    peer_done.store(true, Ordering::Release);
     let _ = writer.shutdown(Shutdown::Write);
     let _ = reader.shutdown(Shutdown::Read);
     Ok(())
@@ -507,41 +526,51 @@ fn copy_outbound_half(
     state: RuntimeState,
     group_index: usize,
     session: Arc<Mutex<SessionState>>,
+    peer_done: Arc<AtomicBool>,
 ) -> io::Result<()> {
     let mut buffer = [0u8; 16_384];
     let mut remembered_host = None::<String>;
     loop {
-        let n = reader.read(&mut buffer)?;
-        if n == 0 {
-            break;
+        match reader.read(&mut buffer) {
+            Ok(0) => break,
+            Ok(n) => {
+                let payload = &buffer[..n];
+                let progress = {
+                    let mut state = session.lock().map_err(|_| io::Error::other("session mutex poisoned"))?;
+                    state.observe_outbound(payload)
+                };
+                let parsed_host = extract_host(&state.config, payload);
+                if parsed_host.is_some() {
+                    remembered_host = parsed_host.clone();
+                }
+                let group = state
+                    .config
+                    .groups
+                    .get(group_index)
+                    .cloned()
+                    .ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, "missing desync group"))?;
+                let peer_addr = writer.peer_addr()?;
+                send_with_group(
+                    &mut writer,
+                    &state,
+                    group_index,
+                    &group,
+                    payload,
+                    progress,
+                    parsed_host.as_deref().or(remembered_host.as_deref()),
+                    peer_addr,
+                )?;
+            }
+            Err(err) if matches!(err.kind(), io::ErrorKind::WouldBlock | io::ErrorKind::TimedOut) => {
+                if peer_done.load(Ordering::Acquire) {
+                    break;
+                }
+                continue;
+            }
+            Err(err) => return Err(err),
         }
-        let payload = &buffer[..n];
-        let progress = {
-            let mut state = session.lock().map_err(|_| io::Error::other("session mutex poisoned"))?;
-            state.observe_outbound(payload)
-        };
-        let parsed_host = extract_host(&state.config, payload);
-        if parsed_host.is_some() {
-            remembered_host = parsed_host.clone();
-        }
-        let group = state
-            .config
-            .groups
-            .get(group_index)
-            .cloned()
-            .ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, "missing desync group"))?;
-        let peer_addr = writer.peer_addr()?;
-        send_with_group(
-            &mut writer,
-            &state,
-            group_index,
-            &group,
-            payload,
-            progress,
-            parsed_host.as_deref().or(remembered_host.as_deref()),
-            peer_addr,
-        )?;
     }
+    peer_done.store(true, Ordering::Release);
     let _ = writer.shutdown(Shutdown::Write);
     let _ = reader.shutdown(Shutdown::Read);
     Ok(())

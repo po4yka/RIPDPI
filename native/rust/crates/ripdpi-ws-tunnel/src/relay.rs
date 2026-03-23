@@ -3,7 +3,7 @@ use std::net::TcpStream;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::thread;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use tungstenite::protocol::Message;
 use tungstenite::WebSocket;
@@ -53,11 +53,15 @@ pub fn ws_relay<S: Read + Write + Send + 'static>(
     shutdown.store(true, Ordering::Release);
     let _ = uplink.join();
 
-    // Try to close the WebSocket cleanly
+    // Try to close the WebSocket cleanly (bounded to avoid hanging on
+    // unresponsive peers).
     if let Ok(mut ws_guard) = ws.lock() {
         let _ = ws_guard.close(None);
-        // Drain any remaining frames to complete the close handshake
+        let deadline = Instant::now() + Duration::from_secs(5);
         loop {
+            if Instant::now() >= deadline {
+                break;
+            }
             match ws_guard.read() {
                 Ok(Message::Close(_)) | Err(_) => break,
                 _ => {}
