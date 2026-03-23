@@ -9,6 +9,7 @@ import com.poyka.ripdpi.data.StrategyChainSet
 import com.poyka.ripdpi.data.TcpChainStepModel
 import com.poyka.ripdpi.data.UdpChainStepModel
 import com.poyka.ripdpi.data.activeDnsSettings
+import com.poyka.ripdpi.data.canonicalDefaultEncryptedDnsSettings
 import com.poyka.ripdpi.data.effectiveTcpChainSteps
 import com.poyka.ripdpi.data.effectiveUdpChainSteps
 import com.poyka.ripdpi.data.formatChainSummary
@@ -34,10 +35,12 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
+private val DefaultConfigDnsSeed = canonicalDefaultEncryptedDnsSettings()
+
 data class ConfigDraft(
     val mode: Mode = Mode.VPN,
-    val dnsIp: String = "1.1.1.1",
-    val dnsSummary: String = "Encrypted DNS · Cloudflare (DoH)",
+    val dnsIp: String = DefaultConfigDnsSeed.dnsIp,
+    val dnsSummary: String = DefaultConfigDnsSeed.summary(),
     val proxyIp: String = "127.0.0.1",
     val proxyPort: String = "1080",
     val maxConnections: String = "512",

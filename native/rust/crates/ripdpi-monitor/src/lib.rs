@@ -922,10 +922,15 @@ mod tests {
     }
 
     #[test]
-    fn default_runtime_encrypted_dns_context_uses_google() {
+    fn default_runtime_encrypted_dns_context_uses_cloudflare() {
         let ctx = default_runtime_encrypted_dns_context();
-        assert_eq!(ctx.resolver_id.as_deref(), Some("google"));
-        assert!(ctx.doh_url.as_deref().unwrap_or("").contains("dns.google"));
-        assert!(ctx.bootstrap_ips.iter().any(|ip| ip == "8.8.8.8"));
+        assert_eq!(ctx.resolver_id.as_deref(), Some("cloudflare"));
+        assert!(ctx.doh_url.as_deref().unwrap_or("").contains("cloudflare-dns.com"));
+        assert!(ctx.bootstrap_ips.iter().any(|ip| ip == "1.1.1.1"));
+    }
+
+    #[test]
+    fn default_udp_dns_server_uses_cloudflare() {
+        assert_eq!(DEFAULT_DNS_SERVER, "1.1.1.1:53");
     }
 }

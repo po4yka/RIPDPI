@@ -6,6 +6,28 @@ import org.junit.Test
 
 class DnsResolverConfigTest {
     @Test
+    fun `canonical defaults use first built in resolver`() {
+        val defaultProvider = canonicalDefaultDnsProviderDefinition()
+        val defaultSettings = canonicalDefaultEncryptedDnsSettings()
+        val defaultPath = canonicalDefaultEncryptedDnsPathCandidate()
+
+        assertEquals(BuiltInDnsProviders.first(), defaultProvider)
+        assertEquals("1.1.1.1", canonicalDefaultPlainDnsIp())
+        assertEquals("1.1.1.1:53", canonicalDefaultUdpDnsServer())
+        assertEquals(defaultProvider.providerId, defaultSettings.providerId)
+        assertEquals(defaultSettings.providerId, defaultPath.resolverId)
+        assertEquals(defaultSettings.encryptedDnsHost, defaultPath.host)
+    }
+
+    @Test
+    fun `serializer default dns matches canonical encrypted settings`() {
+        val defaultSettings = canonicalDefaultEncryptedDnsSettings()
+        val persistedDefaults = AppSettingsSerializer.defaultValue.activeDnsSettings()
+
+        assertEquals(defaultSettings, persistedDefaults)
+    }
+
+    @Test
     fun `built in encrypted dns summary uses provider display name`() {
         val active =
             activeDnsSettings(

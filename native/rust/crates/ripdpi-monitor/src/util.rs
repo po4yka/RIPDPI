@@ -7,10 +7,10 @@ use crate::types::DiagnosticProfileFamily;
 
 // --- Constants ---
 
-pub(crate) const DEFAULT_DNS_SERVER: &str = "8.8.8.8:53";
-pub(crate) const DEFAULT_DOH_URL: &str = "https://dns.google/dns-query";
-pub(crate) const DEFAULT_DOH_BOOTSTRAP_IPS: &[&str] = &["8.8.8.8", "8.8.4.4"];
-pub(crate) const DEFAULT_DOH_HOST: &str = "dns.google";
+pub(crate) const DEFAULT_DNS_SERVER: &str = "1.1.1.1:53";
+pub(crate) const DEFAULT_DOH_URL: &str = "https://cloudflare-dns.com/dns-query";
+pub(crate) const DEFAULT_DOH_BOOTSTRAP_IPS: &[&str] = &["1.1.1.1", "1.0.0.1"];
+pub(crate) const DEFAULT_DOH_HOST: &str = "cloudflare-dns.com";
 pub(crate) const DEFAULT_DOH_PORT: u16 = 443;
 pub(crate) const CONNECT_TIMEOUT: Duration = Duration::from_secs(4);
 pub(crate) const IO_TIMEOUT: Duration = Duration::from_millis(1200);

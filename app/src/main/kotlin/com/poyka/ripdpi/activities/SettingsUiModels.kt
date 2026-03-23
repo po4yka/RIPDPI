@@ -34,12 +34,15 @@ import com.poyka.ripdpi.data.QuicInitialModeRouteAndCache
 import com.poyka.ripdpi.data.TcpChainStepKind
 import com.poyka.ripdpi.data.TcpChainStepModel
 import com.poyka.ripdpi.data.UdpChainStepModel
+import com.poyka.ripdpi.data.canonicalDefaultEncryptedDnsSettings
 import com.poyka.ripdpi.data.formatActivationFilterSummary
 import com.poyka.ripdpi.data.isAdaptiveOffsetExpression
 import com.poyka.ripdpi.data.primaryTcpChainStep
 import com.poyka.ripdpi.data.supportsAdaptiveMarker
 import com.poyka.ripdpi.proto.AppSettings
 import java.security.MessageDigest
+
+private val DefaultDnsUiSeed = canonicalDefaultEncryptedDnsSettings()
 
 internal const val AdaptiveSplitPresetManual = "manual"
 internal const val AdaptiveSplitPresetCustom = "custom"
@@ -75,20 +78,20 @@ enum class SettingsNoticeTone {
 
 @Stable
 data class DnsUiState(
-    val dnsIp: String = "1.1.1.1",
-    val dnsMode: String = "encrypted",
-    val dnsProviderId: String = "cloudflare",
-    val dnsDohUrl: String = "https://cloudflare-dns.com/dns-query",
-    val dnsDohBootstrapIps: List<String> = listOf("1.1.1.1", "1.0.0.1"),
-    val encryptedDnsProtocol: String = com.poyka.ripdpi.data.EncryptedDnsProtocolDoh,
-    val encryptedDnsHost: String = "cloudflare-dns.com",
-    val encryptedDnsPort: Int = 443,
-    val encryptedDnsTlsServerName: String = "cloudflare-dns.com",
-    val encryptedDnsBootstrapIps: List<String> = listOf("1.1.1.1", "1.0.0.1"),
-    val encryptedDnsDohUrl: String = "https://cloudflare-dns.com/dns-query",
+    val dnsIp: String = DefaultDnsUiSeed.dnsIp,
+    val dnsMode: String = DefaultDnsUiSeed.mode,
+    val dnsProviderId: String = DefaultDnsUiSeed.providerId,
+    val dnsDohUrl: String = DefaultDnsUiSeed.encryptedDnsDohUrl,
+    val dnsDohBootstrapIps: List<String> = DefaultDnsUiSeed.encryptedDnsBootstrapIps,
+    val encryptedDnsProtocol: String = DefaultDnsUiSeed.encryptedDnsProtocol,
+    val encryptedDnsHost: String = DefaultDnsUiSeed.encryptedDnsHost,
+    val encryptedDnsPort: Int = DefaultDnsUiSeed.encryptedDnsPort,
+    val encryptedDnsTlsServerName: String = DefaultDnsUiSeed.encryptedDnsTlsServerName,
+    val encryptedDnsBootstrapIps: List<String> = DefaultDnsUiSeed.encryptedDnsBootstrapIps,
+    val encryptedDnsDohUrl: String = DefaultDnsUiSeed.encryptedDnsDohUrl,
     val encryptedDnsDnscryptProviderName: String = "",
     val encryptedDnsDnscryptPublicKey: String = "",
-    val dnsSummary: String = "Encrypted DNS · Cloudflare (DoH)",
+    val dnsSummary: String = DefaultDnsUiSeed.summary(),
 )
 
 @Stable
