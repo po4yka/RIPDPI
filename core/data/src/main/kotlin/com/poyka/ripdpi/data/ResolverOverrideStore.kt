@@ -45,3 +45,21 @@ interface ResolverOverrideStore {
 
     fun clear()
 }
+
+fun EncryptedDnsPathCandidate.toTemporaryResolverOverride(
+    reason: String,
+    appliedAt: Long = System.currentTimeMillis(),
+): TemporaryResolverOverride =
+    TemporaryResolverOverride(
+        resolverId = resolverId.ifBlank { DnsProviderCustom },
+        protocol = protocol,
+        host = host,
+        port = port,
+        tlsServerName = tlsServerName,
+        bootstrapIps = normalizeDnsBootstrapIps(bootstrapIps),
+        dohUrl = dohUrl,
+        dnscryptProviderName = dnscryptProviderName,
+        dnscryptPublicKey = dnscryptPublicKey,
+        reason = reason,
+        appliedAt = appliedAt,
+    )

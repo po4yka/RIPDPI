@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.services
 
+import com.poyka.ripdpi.data.ActiveDnsSettings
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.diagnostics.ActiveConnectionPolicy
 import dagger.Binds
@@ -54,6 +55,10 @@ class VpnRuntimeSession(
     override var pendingNetworkHandoverClass: String? = null
     override var lastSuccessfulHandoverFingerprintHash: String? = null
     override var lastSuccessfulHandoverAt: Long = 0L
+    var currentDns: ActiveDnsSettings? = null
+    var currentDnsSignature: String? = null
+    var currentNetworkScopeKey: String? = null
+    internal val encryptedDnsFailoverState = VpnEncryptedDnsFailoverState()
 }
 
 class ProxyRuntimeSession(

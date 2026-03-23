@@ -14,6 +14,7 @@ import com.poyka.ripdpi.data.TemporaryResolverOverride
 import com.poyka.ripdpi.data.activeDnsSettings
 import com.poyka.ripdpi.data.strategyFamily
 import com.poyka.ripdpi.data.strategyLabel
+import com.poyka.ripdpi.data.toTemporaryResolverOverride
 import com.poyka.ripdpi.data.toVpnDnsPolicyJson
 import kotlinx.serialization.json.Json
 
@@ -86,16 +87,7 @@ internal object DiagnosticsScanWorkflow {
 
     fun buildTemporaryResolverOverride(recommendation: ResolverRecommendation): TemporaryResolverOverride {
         val selectedPath = with(ResolverRecommendationEngine) { recommendation.toEncryptedDnsPathCandidate() }
-        return TemporaryResolverOverride(
-            resolverId = selectedPath.resolverId,
-            protocol = selectedPath.protocol,
-            host = selectedPath.host,
-            port = selectedPath.port,
-            tlsServerName = selectedPath.tlsServerName,
-            bootstrapIps = selectedPath.bootstrapIps,
-            dohUrl = selectedPath.dohUrl,
-            dnscryptProviderName = selectedPath.dnscryptProviderName,
-            dnscryptPublicKey = selectedPath.dnscryptPublicKey,
+        return selectedPath.toTemporaryResolverOverride(
             reason = recommendation.rationale,
             appliedAt = System.currentTimeMillis(),
         )
