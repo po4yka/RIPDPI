@@ -141,6 +141,11 @@ internal fun DiagnosticsUiFactorySupport.buildLiveUiModel(
 ): DiagnosticsLiveUiModel =
     DiagnosticsLiveUiModel(
         statusLabel = currentTelemetry?.connectionState ?: context.getString(R.string.diagnostics_metric_idle),
+        statusTone = when {
+            currentTelemetry?.connectionState.equals("running", ignoreCase = true) -> DiagnosticsTone.Positive
+            currentTelemetry != null -> DiagnosticsTone.Neutral
+            else -> DiagnosticsTone.Neutral
+        },
         freshnessLabel =
             currentTelemetry?.createdAt?.let {
                 context.getString(
@@ -156,7 +161,7 @@ internal fun DiagnosticsUiFactorySupport.buildLiveUiModel(
         signalLabel = buildLiveSignalLabel(currentTelemetry),
         eventSummaryLabel = buildLiveEventSummaryLabel(nativeEvents),
         highlights = buildLiveHighlights(currentTelemetry, nativeEvents),
-        metrics = buildLiveMetrics(currentTelemetry, nativeEvents),
+        metrics = buildLiveMetrics(currentTelemetry),
         trends = buildLiveTrends(telemetry),
         snapshot = latestSnapshot,
         contextGroups = latestContext?.let(::toLiveContextGroups).orEmpty(),
@@ -438,25 +443,8 @@ private fun DiagnosticsUiFactorySupport.overviewBody(
 
 private fun DiagnosticsUiFactorySupport.buildLiveMetrics(
     telemetry: DiagnosticTelemetrySample?,
-    events: List<DiagnosticEvent>,
 ): List<DiagnosticsMetricUiModel> =
-    buildList {
-        telemetry?.let { addAll(buildTelemetryLiveMetrics(it)) }
-        add(
-            DiagnosticsMetricUiModel(
-                label = context.getString(R.string.diagnostics_metric_warnings),
-                value = events.count { it.level.equals("warn", ignoreCase = true) }.toString(),
-                tone = DiagnosticsTone.Warning,
-            ),
-        )
-        add(
-            DiagnosticsMetricUiModel(
-                label = context.getString(R.string.diagnostics_metric_errors),
-                value = events.count { it.level.equals("error", ignoreCase = true) }.toString(),
-                tone = DiagnosticsTone.Negative,
-            ),
-        )
-    }
+    telemetry?.let { buildTelemetryLiveMetrics(it) }.orEmpty()
 
 private fun DiagnosticsUiFactorySupport.buildTelemetryLiveMetrics(
     telemetry: DiagnosticTelemetrySample,

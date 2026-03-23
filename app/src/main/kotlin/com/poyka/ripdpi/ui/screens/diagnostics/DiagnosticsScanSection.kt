@@ -218,7 +218,15 @@ internal fun ScanSection(
             items(
                 items = scan.latestResults,
                 key = { it.id },
-                contentType = { probe -> if (probe.probeType == "telegram_availability") "telegram_probe" else "probe" },
+                contentType = { probe ->
+                    if (probe.probeType ==
+                        "telegram_availability"
+                    ) {
+                        "telegram_probe"
+                    } else {
+                        "probe"
+                    }
+                },
             ) { probe ->
                 if (probe.probeType == "telegram_availability") {
                     TelegramResultCard(
@@ -322,8 +330,12 @@ private fun ScanProgressCard(
             )
         }
         if (progress.phaseSteps.isNotEmpty()) {
-            Row(horizontalArrangement = Arrangement.spacedBy(spacing.xs)) {
-                progress.phaseSteps.forEach { step ->
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(spacing.xs)) {
+                items(
+                    items = progress.phaseSteps,
+                    key = { it.label },
+                    contentType = { "phase_chip" },
+                ) { step ->
                     PhaseChip(step = step)
                 }
             }

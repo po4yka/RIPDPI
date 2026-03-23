@@ -320,6 +320,7 @@ data class DiagnosticsScanUiModel(
 @Stable
 data class DiagnosticsLiveUiModel(
     val statusLabel: String = "Idle",
+    val statusTone: DiagnosticsTone = DiagnosticsTone.Neutral,
     val freshnessLabel: String = "No live telemetry",
     val headline: String = "Live monitor standing by",
     val body: String = "Continuous monitor is waiting for an active RIPDPI session.",
