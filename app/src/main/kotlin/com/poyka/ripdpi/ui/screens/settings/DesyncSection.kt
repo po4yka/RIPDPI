@@ -1,10 +1,22 @@
 package com.poyka.ripdpi.ui.screens.settings
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyListScope
+import androidx.compose.runtime.Composable
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Text
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
@@ -126,19 +138,10 @@ internal fun LazyListScope.desyncSection(
                 } else {
                     HorizontalDivider(color = colors.divider)
                 }
-                AdvancedTextSetting(
-                    title = stringResource(R.string.config_chain_editor_label),
-                    description = stringResource(R.string.config_chain_editor_helper),
-                    value = uiState.desync.chainDsl,
-                    placeholder = stringResource(R.string.config_placeholder_chain_dsl),
-                    enabled = visualEditorEnabled,
-                    multiline = true,
-                    validator = { parseStrategyChainDsl(it).isSuccess },
-                    invalidMessage = stringResource(R.string.config_error_invalid_chain),
-                    disabledMessage = stringResource(R.string.advanced_settings_visual_controls_disabled),
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Ascii, imeAction = ImeAction.Done),
-                    setting = AdvancedTextSetting.ChainDsl,
-                    onConfirm = onTextConfirmed,
+                ChainEditorWithCollapsibleHelp(
+                    uiState = uiState,
+                    visualEditorEnabled = visualEditorEnabled,
+                    onTextConfirmed = onTextConfirmed,
                     showDivider =
                         showHostFakeSection ||
                             showFakeApproxSection ||
@@ -691,6 +694,71 @@ internal fun LazyListScope.desyncSection(
                 )
             }
         }
+    }
+}
+
+@Composable
+private fun ChainEditorWithCollapsibleHelp(
+    uiState: SettingsUiState,
+    visualEditorEnabled: Boolean,
+    onTextConfirmed: (AdvancedTextSetting, String) -> Unit,
+    showDivider: Boolean,
+) {
+    AdvancedTextSetting(
+        title = stringResource(R.string.config_chain_editor_label),
+        descriptionContent = { ChainEditorCollapsibleDescription() },
+        value = uiState.desync.chainDsl,
+        placeholder = stringResource(R.string.config_placeholder_chain_dsl),
+        enabled = visualEditorEnabled,
+        multiline = true,
+        validator = { parseStrategyChainDsl(it).isSuccess },
+        invalidMessage = stringResource(R.string.config_error_invalid_chain),
+        disabledMessage = stringResource(R.string.advanced_settings_visual_controls_disabled),
+        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Ascii, imeAction = ImeAction.Done),
+        setting = AdvancedTextSetting.ChainDsl,
+        onConfirm = onTextConfirmed,
+        showDivider = showDivider,
+    )
+}
+
+@Composable
+private fun ChainEditorCollapsibleDescription() {
+    val colors = RipDpiThemeTokens.colors
+    val spacing = RipDpiThemeTokens.spacing
+    var expanded by rememberSaveable { mutableStateOf(false) }
+
+    Column {
+        Text(
+            text = stringResource(R.string.config_chain_editor_helper_brief),
+            style = RipDpiThemeTokens.type.secondaryBody,
+            color = colors.mutedForeground,
+        )
+        AnimatedVisibility(
+            visible = expanded,
+            enter = expandVertically() + fadeIn(),
+            exit = shrinkVertically() + fadeOut(),
+        ) {
+            Text(
+                text = stringResource(R.string.config_chain_editor_helper_full),
+                style = RipDpiThemeTokens.type.secondaryBody,
+                color = colors.mutedForeground,
+                modifier = Modifier.padding(top = spacing.xs),
+            )
+        }
+        Text(
+            text =
+                if (expanded) {
+                    stringResource(R.string.action_show_less)
+                } else {
+                    stringResource(R.string.action_learn_more)
+                },
+            style = RipDpiThemeTokens.type.secondaryBody,
+            color = colors.accent,
+            modifier =
+                Modifier
+                    .clickable { expanded = !expanded }
+                    .padding(vertical = spacing.xs),
+        )
     }
 }
 
