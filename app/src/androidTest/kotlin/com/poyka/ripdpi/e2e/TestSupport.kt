@@ -10,6 +10,10 @@ import androidx.test.uiautomator.By
 import androidx.test.uiautomator.UiDevice
 import androidx.test.uiautomator.UiObject2
 import androidx.test.uiautomator.Until
+import com.poyka.ripdpi.data.AppSettingsRepository
+import com.poyka.ripdpi.data.DnsModeEncrypted
+import com.poyka.ripdpi.data.DnsProviderCustom
+import com.poyka.ripdpi.data.EncryptedDnsProtocolDoh
 import java.io.BufferedReader
 import java.io.File
 import java.io.IOException
@@ -227,6 +231,32 @@ private fun isLikelyEmulator(): Boolean {
         "sdk_gphone" in product ||
         "emulator" in model ||
         "android sdk built for" in model
+}
+
+suspend fun AppSettingsRepository.applyFixtureEncryptedDns(
+    fixture: FixtureManifestDto,
+    proxyPort: Int,
+) {
+    val dohUrl = "http://${fixture.androidHost}:${fixture.dnsHttpPort}/dns-query"
+    update {
+        proxyIp = "127.0.0.1"
+        this.proxyPort = proxyPort
+        setDnsMode(DnsModeEncrypted)
+        setDnsProviderId(DnsProviderCustom)
+        setDnsIp(fixture.androidHost)
+        setDnsDohUrl(dohUrl)
+        clearDnsDohBootstrapIps()
+        addAllDnsDohBootstrapIps(listOf(fixture.androidHost))
+        setEncryptedDnsProtocol(EncryptedDnsProtocolDoh)
+        setEncryptedDnsHost(fixture.androidHost)
+        setEncryptedDnsPort(fixture.dnsHttpPort)
+        setEncryptedDnsTlsServerName(fixture.androidHost)
+        clearEncryptedDnsBootstrapIps()
+        addAllEncryptedDnsBootstrapIps(listOf(fixture.androidHost))
+        setEncryptedDnsDohUrl(dohUrl)
+        setEncryptedDnsDnscryptProviderName("")
+        setEncryptedDnsDnscryptPublicKey("")
+    }
 }
 
 fun reserveLoopbackPort(): Int =
