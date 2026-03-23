@@ -254,7 +254,7 @@ private fun ScanProfilePickerCard(
     val spacing = RipDpiThemeTokens.spacing
     RipDpiCard(variant = RipDpiCardVariant.Elevated) {
         Text(
-            text = stringResource(R.string.diagnostics_profiles_title),
+            text = stringResource(R.string.diagnostics_profiles_title).uppercase(),
             style = RipDpiThemeTokens.type.sectionTitle,
             color = RipDpiThemeTokens.colors.mutedForeground,
         )
@@ -897,7 +897,7 @@ private fun DiagnosisSummaryCard(
     val spacing = RipDpiThemeTokens.spacing
     RipDpiCard(variant = RipDpiCardVariant.Elevated) {
         Text(
-            text = title,
+            text = title.uppercase(),
             style = RipDpiThemeTokens.type.sectionTitle,
             color = colors.foreground,
         )
@@ -1010,7 +1010,7 @@ internal fun StrategyProbeReportCard(
                     stringResource(R.string.diagnostics_audit_matrix_title)
                 } else {
                     stringResource(R.string.diagnostics_probe_recommendation_title)
-                },
+                }.uppercase(),
             style = RipDpiThemeTokens.type.sectionTitle,
             color = colors.foreground,
         )
