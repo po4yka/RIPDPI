@@ -1509,4 +1509,7 @@ Source: %2$s</string>
     <string name="diagnostics_error_timeout">Connection timed out</string>
     <string name="diagnostics_error_dns_failure">DNS resolution failed</string>
     <string name="diagnostics_error_unknown">Connection error</string>
+
+    <!-- Accessibility -->
+    <string name="status_indicator_description">Status: %1$s</string>
 </resources>
