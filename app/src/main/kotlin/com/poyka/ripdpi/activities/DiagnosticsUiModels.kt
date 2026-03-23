@@ -4,6 +4,7 @@ import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.Stable
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.diagnostics.DiagnosticActiveConnectionPolicy
+import com.poyka.ripdpi.diagnostics.DiagnosticConnectionSession
 import com.poyka.ripdpi.diagnostics.DiagnosticContextSnapshot
 import com.poyka.ripdpi.diagnostics.DiagnosticEvent
 import com.poyka.ripdpi.diagnostics.DiagnosticExportRecord
@@ -319,6 +320,7 @@ data class DiagnosticsScanUiModel(
 
 @Stable
 data class DiagnosticsLiveUiModel(
+    val health: DiagnosticsHealth = DiagnosticsHealth.Idle,
     val statusLabel: String = "Idle",
     val statusTone: DiagnosticsTone = DiagnosticsTone.Neutral,
     val freshnessLabel: String = "No live telemetry",
@@ -518,20 +520,49 @@ internal data class ScanLifecycleState(
 // -- Intermediate snapshot data classes for layered combine architecture --
 
 internal data class LiveDataSnapshot(
+    val activeConnectionSession: DiagnosticConnectionSession?,
     val telemetry: List<DiagnosticTelemetrySample>,
     val nativeEvents: List<DiagnosticEvent>,
     val progress: com.poyka.ripdpi.diagnostics.ScanProgress?,
     val snapshots: List<DiagnosticNetworkSnapshot>,
     val contexts: List<DiagnosticContextSnapshot>,
+    val liveTelemetry: List<DiagnosticTelemetrySample>,
+    val liveNativeEvents: List<DiagnosticEvent>,
+    val liveSnapshots: List<DiagnosticNetworkSnapshot>,
+    val liveContexts: List<DiagnosticContextSnapshot>,
 ) {
     companion object {
         val EMPTY =
             LiveDataSnapshot(
+                activeConnectionSession = null,
                 telemetry = emptyList(),
                 nativeEvents = emptyList(),
                 progress = null,
                 snapshots = emptyList(),
                 contexts = emptyList(),
+                liveTelemetry = emptyList(),
+                liveNativeEvents = emptyList(),
+                liveSnapshots = emptyList(),
+                liveContexts = emptyList(),
+            )
+    }
+}
+
+internal data class LiveRuntimeSnapshot(
+    val activeConnectionSession: DiagnosticConnectionSession?,
+    val liveSnapshots: List<DiagnosticNetworkSnapshot>,
+    val liveContexts: List<DiagnosticContextSnapshot>,
+    val liveTelemetry: List<DiagnosticTelemetrySample>,
+    val liveNativeEvents: List<DiagnosticEvent>,
+) {
+    companion object {
+        val EMPTY =
+            LiveRuntimeSnapshot(
+                activeConnectionSession = null,
+                liveSnapshots = emptyList(),
+                liveContexts = emptyList(),
+                liveTelemetry = emptyList(),
+                liveNativeEvents = emptyList(),
             )
     }
 }

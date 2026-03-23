@@ -36,8 +36,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.poyka.ripdpi.R
 import com.poyka.ripdpi.BuildConfig
+import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.DiagnosticsApproachMode
 import com.poyka.ripdpi.activities.DiagnosticsApproachesUiModel
 import com.poyka.ripdpi.activities.DiagnosticsEffect
@@ -330,7 +330,6 @@ fun DiagnosticsScreen(
                         DiagnosticsSection.Live -> {
                             LiveSection(
                                 live = uiState.live,
-                                health = uiState.overview.health,
                             )
                         }
 
@@ -790,7 +789,11 @@ private fun EventsSection(
                     }
                 }
                 LazyRow(horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
-                    items(uiState.events.availableSeverities, key = { it }, contentType = { "severity_chip" }) { severity ->
+                    items(
+                        uiState.events.availableSeverities,
+                        key = { it },
+                        contentType = { "severity_chip" },
+                    ) { severity ->
                         RipDpiChip(
                             text = severity,
                             selected = uiState.events.filters.severity == severity,

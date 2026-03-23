@@ -3,6 +3,7 @@ package com.poyka.ripdpi.activities
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.diagnostics.BypassApproachKind
 import com.poyka.ripdpi.diagnostics.BypassApproachSummary
+import com.poyka.ripdpi.diagnostics.DiagnosticConnectionSession
 import com.poyka.ripdpi.diagnostics.DiagnosticContextModel
 import com.poyka.ripdpi.diagnostics.DiagnosticEvent
 import com.poyka.ripdpi.diagnostics.DiagnosticExportRecord
@@ -131,21 +132,24 @@ internal fun DiagnosticsUiFactorySupport.buildScanUiModel(
 }
 
 internal fun DiagnosticsUiFactorySupport.buildLiveUiModel(
-    health: DiagnosticsHealth,
+    activeConnectionSession: DiagnosticConnectionSession?,
     telemetry: List<DiagnosticTelemetrySample>,
     currentTelemetry: DiagnosticTelemetrySample?,
     nativeEvents: List<DiagnosticEvent>,
     latestSnapshot: DiagnosticsNetworkSnapshotUiModel?,
     latestContext: DiagnosticContextModel?,
-    eventModels: List<DiagnosticsEventUiModel>,
-): DiagnosticsLiveUiModel =
-    DiagnosticsLiveUiModel(
-        statusLabel = currentTelemetry?.connectionState ?: context.getString(R.string.diagnostics_metric_idle),
-        statusTone = when {
-            currentTelemetry?.connectionState.equals("running", ignoreCase = true) -> DiagnosticsTone.Positive
-            currentTelemetry != null -> DiagnosticsTone.Neutral
-            else -> DiagnosticsTone.Neutral
-        },
+): DiagnosticsLiveUiModel {
+    val health = deriveLiveHealth(activeConnectionSession, currentTelemetry, nativeEvents)
+    return DiagnosticsLiveUiModel(
+        health = health,
+        statusLabel =
+            currentTelemetry?.connectionState
+                ?: activeConnectionSession?.connectionState
+                ?: context.getString(R.string.diagnostics_metric_idle),
+        statusTone =
+            liveStatusTone(
+                currentTelemetry?.connectionState ?: activeConnectionSession?.connectionState,
+            ),
         freshnessLabel =
             currentTelemetry?.createdAt?.let {
                 context.getString(
@@ -156,8 +160,8 @@ internal fun DiagnosticsUiFactorySupport.buildLiveUiModel(
                 ?: context.getString(R.string.diagnostics_live_no_telemetry),
         headline = buildLiveHeadline(health, currentTelemetry, nativeEvents),
         body = buildLiveBody(currentTelemetry, nativeEvents),
-        networkLabel = currentTelemetry?.networkType,
-        modeLabel = currentTelemetry?.activeMode,
+        networkLabel = currentTelemetry?.networkType ?: activeConnectionSession?.networkType,
+        modeLabel = currentTelemetry?.activeMode ?: activeConnectionSession?.serviceMode,
         signalLabel = buildLiveSignalLabel(currentTelemetry),
         eventSummaryLabel = buildLiveEventSummaryLabel(nativeEvents),
         highlights = buildLiveHighlights(currentTelemetry, nativeEvents),
@@ -165,8 +169,9 @@ internal fun DiagnosticsUiFactorySupport.buildLiveUiModel(
         trends = buildLiveTrends(telemetry),
         snapshot = latestSnapshot,
         contextGroups = latestContext?.let(::toLiveContextGroups).orEmpty(),
-        passiveEvents = eventModels.take(8),
+        passiveEvents = nativeEvents.take(8).map(::toEventUiModel),
     )
+}
 
 internal fun DiagnosticsUiFactorySupport.buildSessionsUiModel(
     sessions: List<DiagnosticScanSession>,
@@ -334,6 +339,28 @@ internal fun DiagnosticsUiFactorySupport.deriveHealth(
             latestSessionBucket == com.poyka.ripdpi.diagnostics.DiagnosticsOutcomeBucket.Inconclusive -> {
             DiagnosticsHealth.Attention
         }
+        else -> DiagnosticsHealth.Healthy
+    }
+}
+
+internal fun DiagnosticsUiFactorySupport.deriveLiveHealth(
+    activeConnectionSession: DiagnosticConnectionSession?,
+    latestTelemetry: DiagnosticTelemetrySample?,
+    nativeEvents: List<DiagnosticEvent>,
+): DiagnosticsHealth {
+    if (activeConnectionSession == null) {
+        return DiagnosticsHealth.Idle
+    }
+
+    val hasError = nativeEvents.any { it.level.equals("error", ignoreCase = true) }
+    val hasWarning = nativeEvents.any { it.level.equals("warn", ignoreCase = true) }
+    return when {
+        hasError -> DiagnosticsHealth.Degraded
+        activeConnectionSession.connectionState.equals("failed", ignoreCase = true) -> DiagnosticsHealth.Degraded
+        activeConnectionSession.health.equals("degraded", ignoreCase = true) -> DiagnosticsHealth.Degraded
+        latestTelemetry?.connectionState.equals("failed", ignoreCase = true) -> DiagnosticsHealth.Degraded
+        hasWarning -> DiagnosticsHealth.Attention
+        latestTelemetry == null -> DiagnosticsHealth.Idle
         else -> DiagnosticsHealth.Healthy
     }
 }
@@ -666,9 +693,9 @@ private fun DiagnosticsUiFactorySupport.buildLiveHeadline(
             ignoreCase = true,
         ) == true -> context.getString(R.string.diagnostics_live_headline_error)
 
-        health == DiagnosticsHealth.Attention -> context.getString(R.string.diagnostics_live_headline_attention)
-
         telemetry == null -> context.getString(R.string.diagnostics_live_headline_standby)
+
+        health == DiagnosticsHealth.Attention -> context.getString(R.string.diagnostics_live_headline_attention)
 
         telemetry.connectionState.equals(
             "running",
@@ -678,6 +705,14 @@ private fun DiagnosticsUiFactorySupport.buildLiveHeadline(
         else -> telemetry.connectionState.replaceFirstChar { it.uppercase() }
     }
 }
+
+private fun DiagnosticsUiFactorySupport.liveStatusTone(connectionState: String?): DiagnosticsTone =
+    when {
+        connectionState.equals("running", ignoreCase = true) -> DiagnosticsTone.Positive
+        connectionState.equals("failed", ignoreCase = true) -> DiagnosticsTone.Negative
+        connectionState.isNullOrBlank() -> DiagnosticsTone.Neutral
+        else -> DiagnosticsTone.Neutral
+    }
 
 private fun DiagnosticsUiFactorySupport.buildLiveBody(
     telemetry: DiagnosticTelemetrySample?,
