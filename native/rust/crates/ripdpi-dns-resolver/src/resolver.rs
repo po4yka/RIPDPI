@@ -1,5 +1,5 @@
 use std::sync::{Arc, Mutex};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use crypto_box::aead::Aead;
 use crypto_box::{ChaChaBox, PublicKey as CryptoPublicKey, SecretKey as CryptoSecretKey};
@@ -23,10 +23,16 @@ use crate::transport::*;
 use crate::types::*;
 
 type DotTlsStream = TokioTlsStream<TokioTcpStream>;
+const MAX_POOLED_IDLE_DURATION: Duration = Duration::from_secs(20);
 
 enum PooledConnection {
     Dot(Box<DotTlsStream>),
     DnsCrypt(TokioTcpStream),
+}
+
+struct IdlePooledConnection {
+    connection: PooledConnection,
+    idle_since: Instant,
 }
 
 impl std::fmt::Debug for PooledConnection {
@@ -40,16 +46,25 @@ impl std::fmt::Debug for PooledConnection {
 
 #[derive(Default)]
 struct ConnectionPool {
-    idle: AsyncMutex<Option<PooledConnection>>,
+    idle: AsyncMutex<Option<IdlePooledConnection>>,
 }
 
 impl ConnectionPool {
     async fn take(&self) -> Option<PooledConnection> {
-        self.idle.lock().await.take()
+        let pooled = self.idle.lock().await.take()?;
+        if pooled.idle_since.elapsed() > MAX_POOLED_IDLE_DURATION {
+            return None;
+        }
+        Some(pooled.connection)
     }
 
     async fn put(&self, connection: PooledConnection) {
-        *self.idle.lock().await = Some(connection);
+        *self.idle.lock().await = Some(IdlePooledConnection { connection, idle_since: Instant::now() });
+    }
+
+    #[cfg(test)]
+    async fn put_with_idle_since(&self, connection: PooledConnection, idle_since: Instant) {
+        *self.idle.lock().await = Some(IdlePooledConnection { connection, idle_since });
     }
 }
 
@@ -515,5 +530,53 @@ impl EncryptedDnsResolver {
         }
 
         Ok(proxy_stream)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::net::{Ipv4Addr, TcpListener};
+    use std::time::Instant;
+
+    #[tokio::test]
+    async fn connection_pool_discards_expired_idle_entry() {
+        let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("listener");
+        let address = listener.local_addr().expect("local addr");
+
+        let accept_handle = std::thread::spawn(move || listener.accept().expect("accept"));
+        let stream = TokioTcpStream::connect(address).await.expect("connect");
+        let _accepted = accept_handle.join().expect("accept thread");
+
+        let pool = ConnectionPool::default();
+        pool.put_with_idle_since(
+            PooledConnection::DnsCrypt(stream),
+            Instant::now() - MAX_POOLED_IDLE_DURATION - Duration::from_secs(1),
+        )
+        .await;
+
+        assert!(pool.take().await.is_none(), "expired pooled entries should be discarded instead of reused",);
+    }
+
+    #[tokio::test]
+    async fn connection_pool_reuses_fresh_idle_entry() {
+        let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("listener");
+        let address = listener.local_addr().expect("local addr");
+
+        let accept_handle = std::thread::spawn(move || listener.accept().expect("accept"));
+        let stream = TokioTcpStream::connect(address).await.expect("connect");
+        let _accepted = accept_handle.join().expect("accept thread");
+
+        let pool = ConnectionPool::default();
+        pool.put_with_idle_since(
+            PooledConnection::DnsCrypt(stream),
+            Instant::now() - MAX_POOLED_IDLE_DURATION + Duration::from_secs(1),
+        )
+        .await;
+
+        assert!(
+            matches!(pool.take().await, Some(PooledConnection::DnsCrypt(_))),
+            "fresh pooled entries should still be reused",
+        );
     }
 }
