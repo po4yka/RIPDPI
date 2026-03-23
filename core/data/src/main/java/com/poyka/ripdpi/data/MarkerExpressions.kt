@@ -3,6 +3,7 @@ package com.poyka.ripdpi.data
 import com.poyka.ripdpi.proto.AppSettings
 
 const val DefaultSplitMarker = "1"
+const val DefaultDisoobSplitMarker = "3+s"
 const val DefaultFakeOffsetMarker = "0"
 const val DefaultTlsRecordMarker = "0"
 const val DefaultTlsRandRecFragmentCount = 4
@@ -27,6 +28,12 @@ private val AdaptiveOffsetPresetPattern =
 fun AppSettings.effectiveSplitMarker(): String =
     splitMarker.normalizedOrElse {
         legacyMarkerExpression(splitPosition, splitAtHost)
+    }.let { marker ->
+        if (shouldUseLegacyDisoobDefaultMarker(marker)) {
+            DefaultDisoobSplitMarker
+        } else {
+            marker
+        }
     }
 
 fun AppSettings.effectiveFakeOffsetMarker(): String = fakeOffsetMarker.normalizedOrElse { fakeOffset.toString() }
@@ -95,6 +102,13 @@ fun formatOffsetExpressionLabel(value: String): String =
     }
 
 private fun String.normalizedOrElse(fallback: () -> String): String = trim().ifEmpty(fallback)
+
+private fun AppSettings.shouldUseLegacyDisoobDefaultMarker(marker: String): Boolean =
+    tcpChainStepsCount == 0 &&
+        desyncMethod.equals("disoob", ignoreCase = true) &&
+        marker == DefaultSplitMarker &&
+        splitPosition == 1 &&
+        !splitAtHost
 
 private fun legacyMarkerExpression(
     position: Int,
