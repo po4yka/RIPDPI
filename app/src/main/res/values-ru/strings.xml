@@ -1011,7 +1011,7 @@ fakeddisorder endhost</string>
     <string name="ripdpi_tlsrec_at_sni_setting">Разбивать TLS-запись по SNI</string>
     <string name="version">Версия</string>
     <string name="source_code_link">Исходный код</string>
-    <string name="ripdpi_readme_link">Что всё это значит?</string>
+    <string name="ripdpi_readme_link">Как работает RIPDPI</string>
     <string name="failed_to_start">Не удалось запустить %1$s</string>
     <string name="general_category">Общие</string>
     <string name="ripdpi_category">RIPDPI</string>
