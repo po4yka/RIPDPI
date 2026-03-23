@@ -6,6 +6,7 @@ This directory documents the in-repository Rust native modules used by RIPDPI an
 
 | Native module | Built artifact | Used in app | Main Kotlin bridge | Methods actually reached from app |
 | --- | --- | --- | --- | --- |
+| `native/rust/crates/ripdpi-cli` | `ripdpi` binary | Desktop development (macOS/Linux) | N/A -- standalone CLI | `ripdpi_config::parse_cli`, `runtime::run_proxy`, `ProcessGuard::prepare`, `install_runtime_telemetry` |
 | `native/rust/crates/ripdpi-android` | `libripdpi.so` | Proxy mode, VPN mode, diagnostics | `core/engine/src/main/kotlin/com/poyka/ripdpi/core/RipDpiProxy.kt`, `core/engine/src/main/kotlin/com/poyka/ripdpi/core/NetworkDiagnostics.kt` | `ripdpi_config::parse_cli`, `ripdpi_config::parse_hosts_spec`, `runtime::create_listener`, `runtime::run_proxy_with_embedded_control`, `EmbeddedProxyControl::request_shutdown`, `platform::detect_default_ttl`, `MonitorSession::*`, proxy telemetry polling |
 | `native/rust/crates/ripdpi-tunnel-android` | `libripdpi-tunnel.so` | VPN mode only | `core/engine/src/main/kotlin/com/poyka/ripdpi/core/Tun2SocksTunnel.kt` | `ripdpi_tunnel_core::run_tunnel`, `CancellationToken::cancel`, `Stats::snapshot`, tunnel telemetry polling |
 | `native/rust/crates/ripdpi-monitor` | linked into `libripdpi.so` | Diagnostics scans | `core/engine/src/main/kotlin/com/poyka/ripdpi/core/NetworkDiagnostics.kt` | DNS integrity probes across UDP and encrypted resolvers, TLS/HTTP reachability probes, TCP fat-header probes, whitelist-SNI retries, diagnostics session state |
@@ -45,6 +46,8 @@ flowchart LR
   I --> D
   J["Passive monitor"] --> B
   J --> E
+  K["ripdpi CLI (desktop)"] --> L["ripdpi-runtime"]
+  L --> M["ripdpi-config"]
 ```
 
 ## Diagnostics and Telemetry
@@ -130,6 +133,7 @@ Structured telemetry and diagnostics-event payloads are treated as compatibility
 
 ## Direct Native Modules
 
+- `native/rust/crates/ripdpi-cli` (desktop CLI binary -- macOS/Linux)
 - `native/rust/crates/ripdpi-android`
 - `native/rust/crates/ripdpi-tunnel-android`
 - `native/rust/crates/ripdpi-monitor`

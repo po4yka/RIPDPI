@@ -20,13 +20,29 @@ The diagnostics path also links the shared `ripdpi-dns-resolver` crate, so encry
 
 That means `libripdpi.so` is no longer only the proxy engine. It is also the diagnostics entry point used by the Diagnostics screen.
 
-## App Call Chain
+## Call Chains
 
-### Proxy mode
+### Desktop CLI (macOS/Linux)
+
+`main()` -> `ripdpi_config::parse_cli(args)` -> `ProcessGuard::prepare()` -> `runtime::run_proxy(config)`
+
+The CLI binary (`ripdpi`) wraps the same `ripdpi-runtime` and `ripdpi-config` used by Android, with no JNI. Signal handling (SIGINT/SIGTERM/SIGHUP) uses the existing `ProcessGuard`. Telemetry is emitted via `tracing` to stderr.
+
+```bash
+cargo run -p ripdpi-cli -- -p 1080 -x 1      # info logging
+RUST_LOG=debug cargo run -p ripdpi-cli       # override via env
+```
+
+Relevant sources:
+
+- `native/rust/crates/ripdpi-cli/src/main.rs`
+- `native/rust/crates/ripdpi-cli/src/telemetry.rs`
+
+### Android Proxy mode
 
 `RipDpiProxyService.startProxy()` -> `ConnectionPolicyResolver.resolve()` -> `RipDpiProxy.startProxy()` -> `jniCreate(configJson)` -> `jniStart(handle)` -> `runtime::create_listener()` -> `runtime::run_proxy_with_embedded_control()`
 
-### VPN mode
+### Android VPN mode
 
 `RipDpiVpnService.startProxy()` -> `ConnectionPolicyResolver.resolve()` -> `RipDpiProxy.startProxy()` -> `jniCreate(configJson)` -> `jniStart(handle)` -> `runtime::create_listener()` -> `runtime::run_proxy_with_embedded_control()`
 
