@@ -4,8 +4,9 @@ use std::str::FromStr;
 use ripdpi_config::{
     parse_http_fake_profile as parse_http_fake_profile_id, parse_tls_fake_profile as parse_tls_fake_profile_id,
     parse_udp_fake_profile as parse_udp_fake_profile_id, ActivationFilter, DesyncGroup, DesyncMode, NumericRange,
-    OffsetExpr, QuicFakeProfile, QuicInitialMode, RuntimeConfig, StartupEnv, TcpChainStep, TcpChainStepKind,
-    UdpChainStep, UdpChainStepKind, DETECT_CONNECT, FM_DUPSID, FM_ORIG, FM_PADENCAP, FM_RAND, FM_RNDSNI,
+    OffsetBase, OffsetExpr, QuicFakeProfile, QuicInitialMode, RuntimeConfig, StartupEnv, TcpChainStep,
+    TcpChainStepKind, UdpChainStep, UdpChainStepKind, DETECT_CONNECT, FM_DUPSID, FM_ORIG, FM_PADENCAP, FM_RAND,
+    FM_RNDSNI,
 };
 use ripdpi_packets::{HttpFakeProfile, TlsFakeProfile, UdpFakeProfile};
 use ripdpi_packets::{IS_HTTP, IS_HTTPS, IS_UDP, MH_DMIX, MH_HMIX, MH_METHODEOL, MH_SPACE, MH_UNIXEOL};
@@ -51,6 +52,28 @@ fn sanitize_runtime_context(runtime_context: Option<ProxyRuntimeContext>) -> Opt
 
 fn group_needs_delayed_connect(group: &DesyncGroup) -> bool {
     !group.filters.hosts.is_empty() || (group.proto & (IS_HTTP | IS_HTTPS)) != 0
+}
+
+fn synthesize_tlsrec_prelude_for_bare_hostfake(chain: &mut Vec<TcpChainStep>) {
+    let has_hostfake = chain.iter().any(|step| step.kind == TcpChainStepKind::HostFake);
+    let has_tls_prelude = chain.iter().any(|step| step.kind.is_tls_prelude());
+    if !has_hostfake || has_tls_prelude {
+        return;
+    }
+
+    chain.insert(
+        0,
+        TcpChainStep {
+            kind: TcpChainStepKind::TlsRec,
+            offset: OffsetExpr::tls_marker(OffsetBase::ExtLen, 0),
+            activation_filter: None,
+            midhost_offset: None,
+            fake_host_template: None,
+            fragment_count: 0,
+            min_fragment_size: 0,
+            max_fragment_size: 0,
+        },
+    );
 }
 
 fn parse_proxy_numeric_range(
@@ -447,6 +470,7 @@ pub fn runtime_config_from_ui(payload: ProxyUiConfig) -> Result<RuntimeConfig, P
             max_fragment_size,
         });
     }
+    synthesize_tlsrec_prelude_for_bare_hostfake(&mut group.tcp_chain);
     validate_tcp_chain(&group.tcp_chain)?;
 
     for step in &chains.udp_steps {

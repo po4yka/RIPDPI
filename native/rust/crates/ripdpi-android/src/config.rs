@@ -332,13 +332,18 @@ mod tests {
         let config = runtime_config_from_payload(ui_payload(ui)).expect("hostfake ui config");
         let group = &config.groups[0];
 
-        assert_eq!(group.tcp_chain.len(), 1);
-        assert!(matches!(group.tcp_chain[0].kind, TcpChainStepKind::HostFake));
+        assert_eq!(group.tcp_chain.len(), 2);
+        assert!(matches!(group.tcp_chain[0].kind, TcpChainStepKind::TlsRec));
         assert_eq!(
-            group.tcp_chain[0].midhost_offset,
+            group.tcp_chain[0].offset,
+            ripdpi_config::OffsetExpr::tls_marker(ripdpi_config::OffsetBase::ExtLen, 0)
+        );
+        assert!(matches!(group.tcp_chain[1].kind, TcpChainStepKind::HostFake));
+        assert_eq!(
+            group.tcp_chain[1].midhost_offset,
             Some(ripdpi_config::OffsetExpr::marker(ripdpi_config::OffsetBase::MidSld, 0))
         );
-        assert_eq!(group.tcp_chain[0].fake_host_template.as_deref(), Some("googlevideo.com"));
+        assert_eq!(group.tcp_chain[1].fake_host_template.as_deref(), Some("googlevideo.com"));
     }
 
     #[test]
