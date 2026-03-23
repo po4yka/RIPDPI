@@ -203,6 +203,8 @@ class StubInstrumentedDiagnosticsBootstrapper : DiagnosticsBootstrapper {
 
 class StubInstrumentedDiagnosticsTimelineSource : DiagnosticsTimelineSource {
     override val activeScanProgress = MutableStateFlow<com.poyka.ripdpi.diagnostics.ScanProgress?>(null)
+    override val activeConnectionSession =
+        MutableStateFlow<com.poyka.ripdpi.diagnostics.DiagnosticConnectionSession?>(null)
     override val profiles = MutableStateFlow(emptyList<DiagnosticProfile>())
     override val sessions = MutableStateFlow(emptyList<DiagnosticScanSession>())
     override val approachStats = MutableStateFlow(emptyList<BypassApproachSummary>())
@@ -210,6 +212,10 @@ class StubInstrumentedDiagnosticsTimelineSource : DiagnosticsTimelineSource {
     override val contexts = MutableStateFlow(emptyList<DiagnosticContextSnapshot>())
     override val telemetry = MutableStateFlow(emptyList<DiagnosticTelemetrySample>())
     override val nativeEvents = MutableStateFlow(emptyList<DiagnosticEvent>())
+    override val liveSnapshots = MutableStateFlow(emptyList<DiagnosticNetworkSnapshot>())
+    override val liveContexts = MutableStateFlow(emptyList<DiagnosticContextSnapshot>())
+    override val liveTelemetry = MutableStateFlow(emptyList<DiagnosticTelemetrySample>())
+    override val liveNativeEvents = MutableStateFlow(emptyList<DiagnosticEvent>())
     override val exports = MutableStateFlow(emptyList<DiagnosticExportRecord>())
 }
 

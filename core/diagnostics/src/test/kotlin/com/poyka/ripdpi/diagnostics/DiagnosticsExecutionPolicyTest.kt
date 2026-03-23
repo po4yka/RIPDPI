@@ -172,6 +172,7 @@ class DiagnosticsExecutionPolicyTest {
                                 artifactReadStore = stores,
                                 bypassUsageHistoryStore = stores,
                                 mapper = DiagnosticsBoundaryMapper(json),
+                                scope = backgroundScope,
                                 json = json,
                             ),
                         ),

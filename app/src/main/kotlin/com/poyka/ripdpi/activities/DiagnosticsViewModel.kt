@@ -61,7 +61,46 @@ class DiagnosticsViewModel
                 diagnosticsTimelineSource.snapshots,
                 diagnosticsTimelineSource.contexts,
             ) { telemetry, nativeEvents, progress, snapshots, contexts ->
-                LiveDataSnapshot(telemetry, nativeEvents, progress, snapshots, contexts)
+                LiveDataSnapshot(
+                    activeConnectionSession = null,
+                    telemetry = telemetry,
+                    nativeEvents = nativeEvents,
+                    progress = progress,
+                    snapshots = snapshots,
+                    contexts = contexts,
+                    liveTelemetry = emptyList(),
+                    liveNativeEvents = emptyList(),
+                    liveSnapshots = emptyList(),
+                    liveContexts = emptyList(),
+                )
+            }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), LiveDataSnapshot.EMPTY)
+
+        private val liveRuntimeData: StateFlow<LiveRuntimeSnapshot> =
+            combine(
+                diagnosticsTimelineSource.activeConnectionSession,
+                diagnosticsTimelineSource.liveSnapshots,
+                diagnosticsTimelineSource.liveContexts,
+                diagnosticsTimelineSource.liveTelemetry,
+                diagnosticsTimelineSource.liveNativeEvents,
+            ) { activeConnectionSession, liveSnapshots, liveContexts, liveTelemetry, liveNativeEvents ->
+                LiveRuntimeSnapshot(
+                    activeConnectionSession = activeConnectionSession,
+                    liveSnapshots = liveSnapshots,
+                    liveContexts = liveContexts,
+                    liveTelemetry = liveTelemetry,
+                    liveNativeEvents = liveNativeEvents,
+                )
+            }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), LiveRuntimeSnapshot.EMPTY)
+
+        private val combinedLiveData: StateFlow<LiveDataSnapshot> =
+            combine(liveData, liveRuntimeData) { live, runtime ->
+                live.copy(
+                    activeConnectionSession = runtime.activeConnectionSession,
+                    liveTelemetry = runtime.liveTelemetry,
+                    liveNativeEvents = runtime.liveNativeEvents,
+                    liveSnapshots = runtime.liveSnapshots,
+                    liveContexts = runtime.liveContexts,
+                )
             }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), LiveDataSnapshot.EMPTY)
 
         private val scanData: StateFlow<ScanDataSnapshot> =
@@ -99,7 +138,7 @@ class DiagnosticsViewModel
         // --- Tier 2: Merge tiers for final assembly ---
 
         private val combinedData: StateFlow<Triple<LiveDataSnapshot, ScanDataSnapshot, ConfigSnapshot>> =
-            combine(liveData, scanData, configData) { live, scan, config ->
+            combine(combinedLiveData, scanData, configData) { live, scan, config ->
                 Triple(live, scan, config)
             }.stateIn(
                 viewModelScope,
@@ -136,6 +175,11 @@ class DiagnosticsViewModel
                         contexts = live.contexts,
                         telemetry = live.telemetry,
                         nativeEvents = live.nativeEvents,
+                        activeConnectionSession = live.activeConnectionSession,
+                        liveSnapshots = live.liveSnapshots,
+                        liveContexts = live.liveContexts,
+                        liveTelemetry = live.liveTelemetry,
+                        liveNativeEvents = live.liveNativeEvents,
                         exports = scan.exports,
                         rememberedPolicies = config.rememberedPolicies,
                         activeConnectionPolicy = config.activeConnectionPolicy,

@@ -120,6 +120,7 @@ internal fun createDiagnosticsServices(
             artifactReadStore = stores,
             bypassUsageHistoryStore = stores,
             mapper = mapper,
+            scope = scope,
             json = json,
         )
     val requestFactory =

@@ -21,6 +21,7 @@ interface DiagnosticsBootstrapper {
 
 interface DiagnosticsTimelineSource {
     val activeScanProgress: StateFlow<ScanProgress?>
+    val activeConnectionSession: StateFlow<DiagnosticConnectionSession?>
     val profiles: Flow<List<DiagnosticProfile>>
     val sessions: Flow<List<DiagnosticScanSession>>
     val approachStats: Flow<List<BypassApproachSummary>>
@@ -28,6 +29,10 @@ interface DiagnosticsTimelineSource {
     val contexts: Flow<List<DiagnosticContextSnapshot>>
     val telemetry: Flow<List<DiagnosticTelemetrySample>>
     val nativeEvents: Flow<List<DiagnosticEvent>>
+    val liveSnapshots: Flow<List<DiagnosticNetworkSnapshot>>
+    val liveContexts: Flow<List<DiagnosticContextSnapshot>>
+    val liveTelemetry: Flow<List<DiagnosticTelemetrySample>>
+    val liveNativeEvents: Flow<List<DiagnosticEvent>>
     val exports: Flow<List<DiagnosticExportRecord>>
 }
 

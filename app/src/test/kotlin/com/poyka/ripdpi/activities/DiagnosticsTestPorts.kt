@@ -41,6 +41,8 @@ internal class FakeDiagnosticsManager(
     val resolverActions = FakeDiagnosticsResolverActions()
 
     val progressState: MutableStateFlow<ScanProgress?> = timelineSource.activeScanProgress
+    val activeConnectionSessionState: MutableStateFlow<DiagnosticConnectionSession?> =
+        timelineSource.activeConnectionSession
     val profilesState: MutableStateFlow<List<DiagnosticProfile>> = timelineSource.profiles
     val sessionsState: MutableStateFlow<List<DiagnosticScanSession>> = timelineSource.sessions
     val snapshotsState: MutableStateFlow<List<DiagnosticNetworkSnapshot>> = timelineSource.snapshots
@@ -48,6 +50,10 @@ internal class FakeDiagnosticsManager(
         timelineSource.contexts
     val telemetryState: MutableStateFlow<List<DiagnosticTelemetrySample>> = timelineSource.telemetry
     val nativeEventsState: MutableStateFlow<List<DiagnosticEvent>> = timelineSource.nativeEvents
+    val liveSnapshotsState: MutableStateFlow<List<DiagnosticNetworkSnapshot>> = timelineSource.liveSnapshots
+    val liveContextsState: MutableStateFlow<List<DiagnosticContextSnapshot>> = timelineSource.liveContexts
+    val liveTelemetryState: MutableStateFlow<List<DiagnosticTelemetrySample>> = timelineSource.liveTelemetry
+    val liveNativeEventsState: MutableStateFlow<List<DiagnosticEvent>> = timelineSource.liveNativeEvents
     val exportsState: MutableStateFlow<List<DiagnosticExportRecord>> = timelineSource.exports
     val approachStatsState: MutableStateFlow<List<BypassApproachSummary>> = timelineSource.approachStats
 
@@ -138,6 +144,7 @@ internal class FakeDiagnosticsBootstrapper : DiagnosticsBootstrapper {
 
 internal class FakeDiagnosticsTimelineSource : DiagnosticsTimelineSource {
     override val activeScanProgress = MutableStateFlow<ScanProgress?>(null)
+    override val activeConnectionSession = MutableStateFlow<DiagnosticConnectionSession?>(null)
     override val profiles = MutableStateFlow<List<DiagnosticProfile>>(emptyList())
     override val sessions = MutableStateFlow<List<DiagnosticScanSession>>(emptyList())
     override val approachStats = MutableStateFlow<List<BypassApproachSummary>>(emptyList())
@@ -145,6 +152,10 @@ internal class FakeDiagnosticsTimelineSource : DiagnosticsTimelineSource {
     override val contexts = MutableStateFlow<List<DiagnosticContextSnapshot>>(emptyList())
     override val telemetry = MutableStateFlow<List<DiagnosticTelemetrySample>>(emptyList())
     override val nativeEvents = MutableStateFlow<List<DiagnosticEvent>>(emptyList())
+    override val liveSnapshots = MutableStateFlow<List<DiagnosticNetworkSnapshot>>(emptyList())
+    override val liveContexts = MutableStateFlow<List<DiagnosticContextSnapshot>>(emptyList())
+    override val liveTelemetry = MutableStateFlow<List<DiagnosticTelemetrySample>>(emptyList())
+    override val liveNativeEvents = MutableStateFlow<List<DiagnosticEvent>>(emptyList())
     override val exports = MutableStateFlow<List<DiagnosticExportRecord>>(emptyList())
 }
 
