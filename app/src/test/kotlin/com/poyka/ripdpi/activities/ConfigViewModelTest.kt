@@ -7,6 +7,7 @@ import com.poyka.ripdpi.data.DnsProviderCustom
 import com.poyka.ripdpi.data.EncryptedDnsProtocolDnsCrypt
 import com.poyka.ripdpi.data.EncryptedDnsProtocolDot
 import com.poyka.ripdpi.data.Mode
+import com.poyka.ripdpi.data.canonicalDefaultEncryptedDnsSettings
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -14,6 +15,15 @@ import org.junit.Test
 
 class ConfigViewModelTest {
     private val defaultDraft = AppSettingsSerializer.defaultValue.toConfigDraft()
+
+    @Test
+    fun `config draft defaults match canonical encrypted dns settings`() {
+        val defaultDns = canonicalDefaultEncryptedDnsSettings()
+        val draft = ConfigDraft()
+
+        assertEquals(defaultDns.dnsIp, draft.dnsIp)
+        assertEquals(defaultDns.summary(), draft.dnsSummary)
+    }
 
     @Test
     fun `default draft marks recommended preset as selected`() {

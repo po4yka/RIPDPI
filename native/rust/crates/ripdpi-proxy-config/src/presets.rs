@@ -46,7 +46,7 @@ fn apply_russia_mgts(c: &mut ProxyUiConfig) -> Result<(), ProxyConfigError> {
 
 /// MTS/Tele2/Beeline mobile -- whitelist mode default-deny; Cloudflare 1.1.1.1
 /// is blocked. Focus on QUIC compat to avoid >1001-byte QUIC fake drop.
-/// DNS is handled by the monitor layer (already switched to dns.google after the P0 fix).
+/// DNS is handled by the monitor layer and now defaults to Cloudflare when no override is supplied.
 fn apply_russia_mts_mobile(c: &mut ProxyUiConfig) -> Result<(), ProxyConfigError> {
     c.protocols.desync_https = true;
     c.protocols.desync_http = true;
