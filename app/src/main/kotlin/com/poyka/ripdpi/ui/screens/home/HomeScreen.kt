@@ -4,7 +4,12 @@ import android.text.format.Formatter
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -497,6 +502,28 @@ private fun HomeConnectionButton(
         animationSpec = tween(durationMillis = motion.duration(motion.quickDurationMillis)),
         label = "homeConnectionBorder",
     )
+    val connectingPulse =
+        if (state == ConnectionState.Connecting && motion.allowsInfiniteMotion) {
+            rememberInfiniteTransition(label = "connectingPulse")
+        } else {
+            null
+        }
+    val connectingHaloAlpha by (
+        connectingPulse?.animateFloat(
+            initialValue = 1f,
+            targetValue = 0.5f,
+            animationSpec =
+                infiniteRepeatable(
+                    animation = tween(durationMillis = motion.duration(1200), easing = LinearEasing),
+                    repeatMode = RepeatMode.Reverse,
+                ),
+            label = "connectingHaloAlpha",
+        ) ?: animateFloatAsState(
+            targetValue = 1f,
+            animationSpec = tween(durationMillis = motion.duration(motion.stateDurationMillis)),
+            label = "connectingHaloAlphaStatic",
+        )
+    )
 
     LaunchedEffect(state, motion.animationsEnabled) {
         val priorState = previousState.value
@@ -660,6 +687,7 @@ private fun HomeConnectionButton(
                     .graphicsLayer {
                         scaleX = haloScale.value
                         scaleY = haloScale.value
+                        alpha = connectingHaloAlpha
                         translationX = shakeOffset.value * 0.2f
                     }.background(animatedHaloColor, CircleShape),
         )
