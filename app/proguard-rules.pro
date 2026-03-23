@@ -1,21 +1,10 @@
-# Add project specific ProGuard rules here.
-# You can control the set of applied configuration files using the
-# proguardFiles setting in build.gradle.
+# App-only shrinker rules live here.
 #
-# For more details, see
-#   http://developer.android.com/guide/developing/tools/proguard.html
-
-# If your project uses WebView with JS, uncomment the following
-# and specify the fully qualified class name to the JavaScript interface
-# class:
-#-keepclassmembers class fqcn.of.javascript.interface.for.webview {
-#   public *;
-#}
-
-# Uncomment this to preserve the line number information for
-# debugging stack traces.
-#-keepattributes SourceFile,LineNumberTable
-
-# If you keep the line number information, uncomment this to
-# hide the original source file name.
-#-renamesourcefileattribute SourceFile
+# Keep this file intentionally small:
+# - Manifest entry points keep their own names through the Android manifest.
+# - Hilt, Compose, Room, and Retrofit should rely on generated/library rules.
+# - Engine/Data compatibility boundaries belong in module-level consumer rules.
+#
+# If a future minified build fails, add the smallest rule that names the exact
+# compatibility boundary. Do not paste missing_rules.txt suggestions verbatim
+# and do not add blanket -dontwarn or -keep rules.
