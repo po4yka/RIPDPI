@@ -85,6 +85,24 @@ abstract class CheckFileLocLimitsTask
         }
     }
 
+@CacheableTask
+abstract class CheckNoTrackedJavaSourcesTask : DefaultTask() {
+    @get:InputFiles
+    @get:PathSensitive(PathSensitivity.RELATIVE)
+    abstract val sourceFiles: ConfigurableFileCollection
+
+    @TaskAction
+    fun verify() {
+        val javaSources = sourceFiles.files.sorted().map { it.relativeTo(project.rootDir).path }
+
+        if (javaSources.isNotEmpty()) {
+            throw GradleException(
+                "Handwritten Java sources are not allowed:\n${javaSources.joinToString(separator = "\n")}",
+            )
+        }
+    }
+}
+
 val coverageModulePaths =
     listOf(
         ":app",
@@ -137,6 +155,17 @@ fun kotlinDebugCoverageExecutionData(modulePath: String) =
         include("outputs/unit_test_code_coverage/debugUnitTest/testDebugUnitTest.exec")
     }
 
+fun handwrittenJavaSources() =
+    fileTree(layout.projectDirectory) {
+        include("app/src/**/*.java")
+        include("baselineprofile/src/**/*.java")
+        include("core/**/src/**/*.java")
+        include("quality/**/src/**/*.java")
+        include("build-logic/**/src/**/*.java")
+        exclude("**/build/**")
+        exclude("**/generated/**")
+    }
+
 tasks.register<JacocoReport>("kotlinCoverageReport") {
     group = "verification"
     description = "Aggregates Kotlin debug unit test JaCoCo reports across Android modules."
@@ -185,12 +214,19 @@ tasks.register<CheckFileLocLimitsTask>("checkFileLocLimits") {
     )
 }
 
+tasks.register<CheckNoTrackedJavaSourcesTask>("checkNoTrackedJavaSources") {
+    group = "verification"
+    description = "Fails if handwritten Java sources exist in repo-owned source sets."
+    sourceFiles.from(handwrittenJavaSources())
+}
+
 tasks.register("staticAnalysis") {
     group = "verification"
     description = "Runs detekt, ktlint, Android Lint, and file LoC checks across all modules"
     dependsOn(
         ":quality:detekt-rules:test",
         tasks.named("checkFileLocLimits"),
+        tasks.named("checkNoTrackedJavaSources"),
         qualityModulePaths.map { "$it:detekt" },
         lintModulePaths.map { "$it:lintDebug" },
         qualityModulePaths.map { "$it:ktlintCheck" },

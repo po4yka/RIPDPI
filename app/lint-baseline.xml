@@ -7,7 +7,7 @@
         errorLine1="                dataNetworkType = telephony.dataNetworkType,"
         errorLine2="                                  ~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
-            file="src/main/java/com/poyka/ripdpi/services/NetworkFingerprintProvider.kt"
+            file="src/main/kotlin/com/poyka/ripdpi/services/NetworkFingerprintProvider.kt"
             line="146"
             column="35"/>
     </issue>
@@ -18,7 +18,7 @@
         errorLine1="                dataNetworkType = telephony.dataNetworkType,"
         errorLine2="                                  ~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
-            file="src/main/java/com/poyka/ripdpi/services/NetworkFingerprintProvider.kt"
+            file="src/main/kotlin/com/poyka/ripdpi/services/NetworkFingerprintProvider.kt"
             line="146"
             column="35"/>
     </issue>
@@ -29,7 +29,7 @@
         errorLine1="            val serviceState = runCatching { telephony.serviceState }.getOrNull()"
         errorLine2="                                             ~~~~~~~~~~~~~~~~~~~~~~">
         <location
-            file="src/main/java/com/poyka/ripdpi/diagnostics/NetworkMetadataProvider.kt"
+            file="src/main/kotlin/com/poyka/ripdpi/diagnostics/NetworkMetadataProvider.kt"
             line="194"
             column="46"/>
     </issue>
@@ -40,7 +40,7 @@
         errorLine1="            val serviceState = runCatching { telephony.serviceState }.getOrNull()"
         errorLine2="                                             ~~~~~~~~~~~~~~~~~~~~~~">
         <location
-            file="src/main/java/com/poyka/ripdpi/diagnostics/NetworkMetadataProvider.kt"
+            file="src/main/kotlin/com/poyka/ripdpi/diagnostics/NetworkMetadataProvider.kt"
             line="194"
             column="46"/>
     </issue>
@@ -51,7 +51,7 @@
         errorLine1="                dataNetworkType = describeMobileNetworkType(telephony.dataNetworkType),"
         errorLine2="                                                            ~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
-            file="src/main/java/com/poyka/ripdpi/diagnostics/NetworkMetadataProvider.kt"
+            file="src/main/kotlin/com/poyka/ripdpi/diagnostics/NetworkMetadataProvider.kt"
             line="207"
             column="61"/>
     </issue>
@@ -62,7 +62,7 @@
         errorLine1="                dataNetworkType = describeMobileNetworkType(telephony.dataNetworkType),"
         errorLine2="                                                            ~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
-            file="src/main/java/com/poyka/ripdpi/diagnostics/NetworkMetadataProvider.kt"
+            file="src/main/kotlin/com/poyka/ripdpi/diagnostics/NetworkMetadataProvider.kt"
             line="207"
             column="61"/>
     </issue>
@@ -73,7 +73,7 @@
         errorLine1="                voiceNetworkType = describeMobileNetworkType(telephony.voiceNetworkType),"
         errorLine2="                                                             ~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
-            file="src/main/java/com/poyka/ripdpi/diagnostics/NetworkMetadataProvider.kt"
+            file="src/main/kotlin/com/poyka/ripdpi/diagnostics/NetworkMetadataProvider.kt"
             line="208"
             column="62"/>
     </issue>
@@ -84,7 +84,7 @@
         errorLine1="                voiceNetworkType = describeMobileNetworkType(telephony.voiceNetworkType),"
         errorLine2="                                                             ~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
-            file="src/main/java/com/poyka/ripdpi/diagnostics/NetworkMetadataProvider.kt"
+            file="src/main/kotlin/com/poyka/ripdpi/diagnostics/NetworkMetadataProvider.kt"
             line="208"
             column="62"/>
     </issue>
@@ -95,7 +95,7 @@
         errorLine1="                    notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)"
         errorLine2="                                                          ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
-            file="src/main/java/com/poyka/ripdpi/activities/MainActivityHost.kt"
+            file="src/main/kotlin/com/poyka/ripdpi/activities/MainActivityHost.kt"
             line="162"
             column="59"/>
     </issue>
@@ -106,7 +106,7 @@
         errorLine1="                privateDnsServerName = linkProperties?.privateDnsServerName,"
         errorLine2="                                                       ~~~~~~~~~~~~~~~~~~~~">
         <location
-            file="src/main/java/com/poyka/ripdpi/services/NetworkFingerprintProvider.kt"
+            file="src/main/kotlin/com/poyka/ripdpi/services/NetworkFingerprintProvider.kt"
             line="86"
             column="56"/>
     </issue>
@@ -117,7 +117,7 @@
         errorLine1="                mtu = linkProperties?.mtu?.takeIf { it > 0 },"
         errorLine2="                                      ~~~">
         <location
-            file="src/main/java/com/poyka/ripdpi/diagnostics/NetworkMetadataProvider.kt"
+            file="src/main/kotlin/com/poyka/ripdpi/diagnostics/NetworkMetadataProvider.kt"
             line="85"
             column="39"/>
     </issue>
@@ -128,7 +128,7 @@
         errorLine1="            val privateDnsServerName = linkProperties?.privateDnsServerName"
         errorLine2="                                                       ~~~~~~~~~~~~~~~~~~~~">
         <location
-            file="src/main/java/com/poyka/ripdpi/diagnostics/NetworkMetadataProvider.kt"
+            file="src/main/kotlin/com/poyka/ripdpi/diagnostics/NetworkMetadataProvider.kt"
             line="132"
             column="56"/>
     </issue>
@@ -139,7 +139,7 @@
         errorLine1="            val signalStrength = runCatching { telephony.signalStrength }.getOrNull()"
         errorLine2="                                                         ~~~~~~~~~~~~~~">
         <location
-            file="src/main/java/com/poyka/ripdpi/diagnostics/NetworkMetadataProvider.kt"
+            file="src/main/kotlin/com/poyka/ripdpi/diagnostics/NetworkMetadataProvider.kt"
             line="195"
             column="58"/>
     </issue>
@@ -150,7 +150,7 @@
         errorLine1="                        telephony.simCarrierIdName?.toString() ?: telephony.networkOperatorName,"
         errorLine2="                                  ~~~~~~~~~~~~~~~~">
         <location
-            file="src/main/java/com/poyka/ripdpi/diagnostics/NetworkMetadataProvider.kt"
+            file="src/main/kotlin/com/poyka/ripdpi/diagnostics/NetworkMetadataProvider.kt"
             line="199"
             column="35"/>
     </issue>
@@ -161,7 +161,7 @@
         errorLine1="                signalDbm = signalStrength?.cellSignalStrengths?.firstOrNull()?.dbm,"
         errorLine2="                                            ~~~~~~~~~~~~~~~~~~~">
         <location
-            file="src/main/java/com/poyka/ripdpi/diagnostics/NetworkMetadataProvider.kt"
+            file="src/main/kotlin/com/poyka/ripdpi/diagnostics/NetworkMetadataProvider.kt"
             line="215"
             column="45"/>
     </issue>
@@ -172,7 +172,7 @@
         errorLine1="                    action = Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS,"
         errorLine2="                                      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
-            file="src/main/java/com/poyka/ripdpi/permissions/BatteryOptimizationIntents.kt"
+            file="src/main/kotlin/com/poyka/ripdpi/permissions/BatteryOptimizationIntents.kt"
             line="27"
             column="39"/>
     </issue>
@@ -183,7 +183,7 @@
         errorLine1="        if (canHandleAction(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS)) {"
         errorLine2="                                     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
-            file="src/main/java/com/poyka/ripdpi/permissions/BatteryOptimizationIntents.kt"
+            file="src/main/kotlin/com/poyka/ripdpi/permissions/BatteryOptimizationIntents.kt"
             line="53"
             column="38"/>
     </issue>
@@ -194,7 +194,7 @@
         errorLine1="            if (action == Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS) {"
         errorLine2="                                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
-            file="src/main/java/com/poyka/ripdpi/permissions/BatteryOptimizationIntents.kt"
+            file="src/main/kotlin/com/poyka/ripdpi/permissions/BatteryOptimizationIntents.kt"
             line="67"
             column="36"/>
     </issue>
@@ -216,7 +216,7 @@
         errorLine1="                            intent.resolveActivity(context.packageManager) != null"
         errorLine2="                                   ~~~~~~~~~~~~~~~">
         <location
-            file="src/main/java/com/poyka/ripdpi/platform/AppPlatformDependencies.kt"
+            file="src/main/kotlin/com/poyka/ripdpi/platform/AppPlatformDependencies.kt"
             line="104"
             column="36"/>
     </issue>
@@ -227,7 +227,7 @@
         errorLine1="                        intent.resolveActivity(context.packageManager) != null"
         errorLine2="                               ~~~~~~~~~~~~~~~">
         <location
-            file="src/main/java/com/poyka/ripdpi/platform/AppPlatformDependencies.kt"
+            file="src/main/kotlin/com/poyka/ripdpi/platform/AppPlatformDependencies.kt"
             line="109"
             column="32"/>
     </issue>
@@ -260,7 +260,7 @@
         errorLine1="                settings.toUiState("
         errorLine2="                         ~~~~~~~~~">
         <location
-            file="src/main/java/com/poyka/ripdpi/activities/SettingsViewModel.kt"
+            file="src/main/kotlin/com/poyka/ripdpi/activities/SettingsViewModel.kt"
             line="55"
             column="26"/>
     </issue>
@@ -271,7 +271,7 @@
         errorLine1="                    AppSettingsSerializer.defaultValue.toUiState("
         errorLine2="                                                       ~~~~~~~~~">
         <location
-            file="src/main/java/com/poyka/ripdpi/activities/SettingsViewModel.kt"
+            file="src/main/kotlin/com/poyka/ripdpi/activities/SettingsViewModel.kt"
             line="65"
             column="56"/>
     </issue>
@@ -282,7 +282,7 @@
         errorLine1="    val layout = ripDpiLayoutForWidth(screenWidthDp = LocalConfiguration.current.screenWidthDp)"
         errorLine2="                                                      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
-            file="src/main/java/com/poyka/ripdpi/ui/theme/RipDpiTheme.kt"
+            file="src/main/kotlin/com/poyka/ripdpi/ui/theme/RipDpiTheme.kt"
             line="36"
             column="55"/>
     </issue>
@@ -293,7 +293,7 @@
         errorLine1="    buttonModifier: Modifier = Modifier,"
         errorLine2="    ~~~~~~~~~~~~~~">
         <location
-            file="src/main/java/com/poyka/ripdpi/ui/screens/diagnostics/DiagnosticsCards.kt"
+            file="src/main/kotlin/com/poyka/ripdpi/ui/screens/diagnostics/DiagnosticsCards.kt"
             line="773"
             column="5"/>
     </issue>
@@ -304,7 +304,7 @@
         errorLine1="    buttonModifier: Modifier = Modifier,"
         errorLine2="    ~~~~~~~~~~~~~~">
         <location
-            file="src/main/java/com/poyka/ripdpi/ui/screens/diagnostics/DiagnosticsCards.kt"
+            file="src/main/kotlin/com/poyka/ripdpi/ui/screens/diagnostics/DiagnosticsCards.kt"
             line="773"
             column="5"/>
     </issue>
@@ -315,7 +315,7 @@
         errorLine1="    modifier: Modifier = Modifier,"
         errorLine2="    ~~~~~~~~">
         <location
-            file="src/main/java/com/poyka/ripdpi/ui/screens/diagnostics/DiagnosticsScreen.kt"
+            file="src/main/kotlin/com/poyka/ripdpi/ui/screens/diagnostics/DiagnosticsScreen.kt"
             line="79"
             column="5"/>
     </issue>
@@ -326,7 +326,7 @@
         errorLine1="    modifier: Modifier = Modifier,"
         errorLine2="    ~~~~~~~~">
         <location
-            file="src/main/java/com/poyka/ripdpi/ui/screens/diagnostics/DiagnosticsScreen.kt"
+            file="src/main/kotlin/com/poyka/ripdpi/ui/screens/diagnostics/DiagnosticsScreen.kt"
             line="222"
             column="5"/>
     </issue>
@@ -337,7 +337,7 @@
         errorLine1="                        navController.getBackStackEntry(Route.Config.route)"
         errorLine2="                                      ~~~~~~~~~~~~~~~~~">
         <location
-            file="src/main/java/com/poyka/ripdpi/ui/navigation/RipDpiNavHost.kt"
+            file="src/main/kotlin/com/poyka/ripdpi/ui/navigation/RipDpiNavHost.kt"
             line="294"
             column="39"/>
     </issue>
@@ -348,7 +348,7 @@
         errorLine1="                            navController.getBackStackEntry(SettingsGraphRoute)"
         errorLine2="                                          ~~~~~~~~~~~~~~~~~">
         <location
-            file="src/main/java/com/poyka/ripdpi/ui/navigation/RipDpiNavHost.kt"
+            file="src/main/kotlin/com/poyka/ripdpi/ui/navigation/RipDpiNavHost.kt"
             line="320"
             column="43"/>
     </issue>
@@ -359,7 +359,7 @@
         errorLine1="                            navController.getBackStackEntry(SettingsGraphRoute)"
         errorLine2="                                          ~~~~~~~~~~~~~~~~~">
         <location
-            file="src/main/java/com/poyka/ripdpi/ui/navigation/RipDpiNavHost.kt"
+            file="src/main/kotlin/com/poyka/ripdpi/ui/navigation/RipDpiNavHost.kt"
             line="339"
             column="43"/>
     </issue>
@@ -370,7 +370,7 @@
         errorLine1="                            navController.getBackStackEntry(SettingsGraphRoute)"
         errorLine2="                                          ~~~~~~~~~~~~~~~~~">
         <location
-            file="src/main/java/com/poyka/ripdpi/ui/navigation/RipDpiNavHost.kt"
+            file="src/main/kotlin/com/poyka/ripdpi/ui/navigation/RipDpiNavHost.kt"
             line="350"
             column="43"/>
     </issue>
@@ -381,7 +381,7 @@
         errorLine1="                            navController.getBackStackEntry(SettingsGraphRoute)"
         errorLine2="                                          ~~~~~~~~~~~~~~~~~">
         <location
-            file="src/main/java/com/poyka/ripdpi/ui/navigation/RipDpiNavHost.kt"
+            file="src/main/kotlin/com/poyka/ripdpi/ui/navigation/RipDpiNavHost.kt"
             line="361"
             column="43"/>
     </issue>
@@ -711,7 +711,7 @@
         errorLine1="            if (Build.VERSION.SDK_INT &lt; Build.VERSION_CODES.M) {"
         errorLine2="                ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
-            file="src/main/java/com/poyka/ripdpi/diagnostics/DiagnosticsContextProvider.kt"
+            file="src/main/kotlin/com/poyka/ripdpi/diagnostics/DiagnosticsContextProvider.kt"
             line="146"
             column="17"/>
     </issue>
@@ -722,7 +722,7 @@
         errorLine1="                                if (Build.VERSION.SDK_INT &lt; Build.VERSION_CODES.M) {"
         errorLine2="                                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
-            file="src/main/java/com/poyka/ripdpi/permissions/PermissionOrchestration.kt"
+            file="src/main/kotlin/com/poyka/ripdpi/permissions/PermissionOrchestration.kt"
             line="149"
             column="37"/>
     </issue>
@@ -733,7 +733,7 @@
         errorLine1="                            if (Build.VERSION.SDK_INT &lt; Build.VERSION_CODES.M) {"
         errorLine2="                                ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
-            file="src/main/java/com/poyka/ripdpi/permissions/PermissionOrchestration.kt"
+            file="src/main/kotlin/com/poyka/ripdpi/permissions/PermissionOrchestration.kt"
             line="183"
             column="33"/>
     </issue>
@@ -744,7 +744,7 @@
         errorLine1="                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {"
         errorLine2="                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
-            file="src/main/java/com/poyka/ripdpi/ui/components/RipDpiInteraction.kt"
+            file="src/main/kotlin/com/poyka/ripdpi/ui/components/RipDpiInteraction.kt"
             line="69"
             column="21"/>
     </issue>
@@ -1697,7 +1697,7 @@
         errorLine1="                        .offset(x = components.switchThumbPadding + thumbOffset)"
         errorLine2="                         ~~~~~~">
         <location
-            file="src/main/java/com/poyka/ripdpi/ui/components/inputs/RipDpiSwitch.kt"
+            file="src/main/kotlin/com/poyka/ripdpi/ui/components/inputs/RipDpiSwitch.kt"
             line="209"
             column="26"/>
     </issue>
@@ -1969,7 +1969,7 @@
         errorLine1="    private fun packageUri(packageName: String): Uri = Uri.parse(&quot;package:$packageName&quot;)"
         errorLine2="                                                       ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
-            file="src/main/java/com/poyka/ripdpi/permissions/BatteryOptimizationIntents.kt"
+            file="src/main/kotlin/com/poyka/ripdpi/permissions/BatteryOptimizationIntents.kt"
             line="72"
             column="56"/>
     </issue>

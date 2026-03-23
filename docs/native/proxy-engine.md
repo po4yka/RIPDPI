@@ -32,10 +32,10 @@ That means `libripdpi.so` is no longer only the proxy engine. It is also the dia
 
 Relevant sources:
 
-- `core/service/src/main/java/com/poyka/ripdpi/services/RipDpiProxyService.kt`
-- `core/service/src/main/java/com/poyka/ripdpi/services/RipDpiVpnService.kt`
-- `core/engine/src/main/java/com/poyka/ripdpi/core/RipDpiProxy.kt`
-- `core/engine/src/main/java/com/poyka/ripdpi/core/NetworkDiagnostics.kt`
+- `core/service/src/main/kotlin/com/poyka/ripdpi/services/RipDpiProxyService.kt`
+- `core/service/src/main/kotlin/com/poyka/ripdpi/services/RipDpiVpnService.kt`
+- `core/engine/src/main/kotlin/com/poyka/ripdpi/core/RipDpiProxy.kt`
+- `core/engine/src/main/kotlin/com/poyka/ripdpi/core/NetworkDiagnostics.kt`
 - `native/rust/crates/ripdpi-android/src/lib.rs`
 - `native/rust/crates/ripdpi-runtime/src/runtime.rs`
 - `native/rust/crates/ripdpi-monitor/src/lib.rs`

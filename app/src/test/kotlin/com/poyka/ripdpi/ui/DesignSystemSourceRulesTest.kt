@@ -7,7 +7,7 @@ import java.io.File
 class DesignSystemSourceRulesTest {
     @Test
     fun `ui sources only import icons through RipDpiIcons`() {
-        val uiRoot = File("app/src/main/java/com/poyka/ripdpi/ui")
+        val uiRoot = File("app/src/main/kotlin/com/poyka/ripdpi/ui")
         val offendingFiles =
             uiRoot
                 .walkTopDown()

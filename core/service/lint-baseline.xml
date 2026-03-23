@@ -7,7 +7,7 @@
         errorLine1="            val network = connectivityManager.activeNetwork ?: return null"
         errorLine2="                          ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
-            file="src/main/java/com/poyka/ripdpi/services/NetworkFingerprintProvider.kt"
+            file="src/main/kotlin/com/poyka/ripdpi/services/NetworkFingerprintProvider.kt"
             line="77"
             column="27"/>
     </issue>
@@ -18,7 +18,7 @@
         errorLine1="            val capabilities = connectivityManager.getNetworkCapabilities(network)"
         errorLine2="                               ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
-            file="src/main/java/com/poyka/ripdpi/services/NetworkFingerprintProvider.kt"
+            file="src/main/kotlin/com/poyka/ripdpi/services/NetworkFingerprintProvider.kt"
             line="78"
             column="32"/>
     </issue>
@@ -29,7 +29,7 @@
         errorLine1="            val linkProperties = connectivityManager.getLinkProperties(network)"
         errorLine2="                                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
-            file="src/main/java/com/poyka/ripdpi/services/NetworkFingerprintProvider.kt"
+            file="src/main/kotlin/com/poyka/ripdpi/services/NetworkFingerprintProvider.kt"
             line="79"
             column="34"/>
     </issue>
@@ -40,7 +40,7 @@
         errorLine1="                dataNetworkType = telephony.dataNetworkType,"
         errorLine2="                                  ~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
-            file="src/main/java/com/poyka/ripdpi/services/NetworkFingerprintProvider.kt"
+            file="src/main/kotlin/com/poyka/ripdpi/services/NetworkFingerprintProvider.kt"
             line="146"
             column="35"/>
     </issue>
@@ -51,7 +51,7 @@
         errorLine1="                dataNetworkType = telephony.dataNetworkType,"
         errorLine2="                                  ~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
-            file="src/main/java/com/poyka/ripdpi/services/NetworkFingerprintProvider.kt"
+            file="src/main/kotlin/com/poyka/ripdpi/services/NetworkFingerprintProvider.kt"
             line="146"
             column="35"/>
     </issue>
@@ -62,7 +62,7 @@
         errorLine1="                    connectivityManager.registerDefaultNetworkCallback(callback)"
         errorLine2="                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
-            file="src/main/java/com/poyka/ripdpi/services/NetworkHandoverMonitor.kt"
+            file="src/main/kotlin/com/poyka/ripdpi/services/NetworkHandoverMonitor.kt"
             line="101"
             column="21"/>
     </issue>
@@ -73,7 +73,7 @@
         errorLine1="        val activeNetwork = connectivityManager.activeNetwork"
         errorLine2="                            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
-            file="src/main/java/com/poyka/ripdpi/services/RipDpiVpnService.kt"
+            file="src/main/kotlin/com/poyka/ripdpi/services/RipDpiVpnService.kt"
             line="130"
             column="29"/>
     </issue>
@@ -84,7 +84,7 @@
         errorLine1="                privateDnsServerName = linkProperties?.privateDnsServerName,"
         errorLine2="                                                       ~~~~~~~~~~~~~~~~~~~~">
         <location
-            file="src/main/java/com/poyka/ripdpi/services/NetworkFingerprintProvider.kt"
+            file="src/main/kotlin/com/poyka/ripdpi/services/NetworkFingerprintProvider.kt"
             line="86"
             column="56"/>
     </issue>
