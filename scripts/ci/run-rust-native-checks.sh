@@ -12,6 +12,12 @@ cargo fmt --manifest-path "$workspace_manifest" --all --check
 echo "==> clippy"
 cargo clippy --manifest-path "$workspace_manifest" --workspace --all-targets -- -D warnings
 
+echo "==> cross-target check (Android ABIs)"
+for target in aarch64-linux-android armv7-linux-androideabi i686-linux-android x86_64-linux-android; do
+  echo "  -> $target"
+  cargo check --manifest-path "$workspace_manifest" --workspace --target "$target" --locked
+done
+
 echo "==> cargo-deny (workspace)"
 cargo deny --manifest-path "$workspace_manifest" check
 
