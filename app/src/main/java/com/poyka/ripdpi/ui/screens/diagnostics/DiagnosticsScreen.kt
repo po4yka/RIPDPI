@@ -774,7 +774,7 @@ private fun EventsSection(
                     testTag = RipDpiTestTags.DiagnosticsEventsAutoScroll,
                 )
                 LazyRow(horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
-                    items(uiState.events.availableSources, key = { it }) { source ->
+                    items(uiState.events.availableSources, key = { it }, contentType = { "source_chip" }) { source ->
                         RipDpiChip(
                             text = source,
                             selected = uiState.events.filters.source == source,
@@ -787,7 +787,7 @@ private fun EventsSection(
                     }
                 }
                 LazyRow(horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
-                    items(uiState.events.availableSeverities, key = { it }) { severity ->
+                    items(uiState.events.availableSeverities, key = { it }, contentType = { "severity_chip" }) { severity ->
                         RipDpiChip(
                             text = severity,
                             selected = uiState.events.filters.severity == severity,
@@ -810,7 +810,7 @@ private fun EventsSection(
                 )
             }
         } else {
-            items(uiState.events.events, key = { it.id }) { event ->
+            items(uiState.events.events, key = { it.id }, contentType = { "event" }) { event ->
                 EventRow(
                     event = event,
                     onClick = { onSelectEvent(event.id) },
