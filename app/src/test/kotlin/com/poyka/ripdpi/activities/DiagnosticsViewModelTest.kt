@@ -17,6 +17,7 @@ import com.poyka.ripdpi.diagnostics.BypassRuntimeHealthSummary
 import com.poyka.ripdpi.diagnostics.BypassStrategySignature
 import com.poyka.ripdpi.diagnostics.CellularNetworkDetails
 import com.poyka.ripdpi.diagnostics.DeviceContextModel
+import com.poyka.ripdpi.diagnostics.DiagnosticConnectionSession
 import com.poyka.ripdpi.diagnostics.DiagnosticContextModel
 import com.poyka.ripdpi.diagnostics.DiagnosticSessionDetail
 import com.poyka.ripdpi.diagnostics.DiagnosticsArchive
@@ -135,15 +136,12 @@ class DiagnosticsViewModelTest {
                                 sessionId = "session-1",
                             ),
                         )
+                    activeConnectionSessionState.value = connectionSession(id = "connection-1")
                     telemetryState.value =
                         listOf(
-                            TelemetrySampleEntity(
+                            telemetry(
                                 id = "telemetry-1",
-                                sessionId = null,
-                                activeMode = "VPN",
-                                connectionState = "Running",
-                                networkType = "wifi",
-                                publicIp = "198.51.100.8",
+                                connectionSessionId = "connection-1",
                                 lastFailureClass = "dns_tampering",
                                 lastFallbackAction = "resolver_override_recommended",
                                 txPackets = 3,
@@ -153,6 +151,7 @@ class DiagnosticsViewModelTest {
                                 createdAt = 20L,
                             ),
                         )
+                    liveTelemetryState.value = telemetryState.value
                     contextsState.value =
                         listOf(
                             context(
@@ -160,11 +159,39 @@ class DiagnosticsViewModelTest {
                                 sessionId = null,
                             ),
                         )
+                    liveContextsState.value =
+                        listOf(
+                            context(
+                                id = "live-context-1",
+                                sessionId = null,
+                                connectionSessionId = "connection-1",
+                            ),
+                        )
+                    liveSnapshotsState.value =
+                        listOf(
+                            snapshot(
+                                id = "live-snapshot-1",
+                                sessionId = null,
+                                connectionSessionId = "connection-1",
+                            ),
+                        )
                     nativeEventsState.value =
                         listOf(
                             NativeSessionEventEntity(
                                 id = "event-1",
                                 sessionId = "session-1",
+                                source = "proxy",
+                                level = "warn",
+                                message = "Route advanced",
+                                createdAt = 30L,
+                            ),
+                        )
+                    liveNativeEventsState.value =
+                        listOf(
+                            NativeSessionEventEntity(
+                                id = "event-live-1",
+                                sessionId = null,
+                                connectionSessionId = "connection-1",
                                 source = "proxy",
                                 level = "warn",
                                 message = "Route advanced",
@@ -212,6 +239,206 @@ class DiagnosticsViewModelTest {
                     .severity
                     .contains("WARN"),
             )
+            collector.cancel()
+        }
+
+    @Test
+    fun `live state stays standby without an active connection session`() =
+        runTest {
+            val manager =
+                FakeDiagnosticsManager().apply {
+                    profilesState.value =
+                        listOf(
+                            DiagnosticProfileEntity(
+                                id = "default",
+                                name = "Default",
+                                source = "bundled",
+                                version = 1,
+                                requestJson = """{"profileId":"default","displayName":"Default"}""",
+                                updatedAt = 1L,
+                            ),
+                        )
+                    sessionsState.value =
+                        listOf(
+                            session(
+                                id = "session-failed",
+                                profileId = "default",
+                                pathMode = "RAW_PATH",
+                                summary = "Failed report",
+                                reportJson =
+                                    json.encodeToString(
+                                        scanReport(
+                                            id = "session-failed",
+                                            profileId = "default",
+                                            summary = "Failed report",
+                                            probes =
+                                                listOf(
+                                                    ProbeResultEntity(
+                                                        probeType = "tcp_fat_header",
+                                                        target = "rutor.info",
+                                                        outcome = "whitelist_sni_failed",
+                                                    ),
+                                                ),
+                                        ),
+                                    ),
+                            ),
+                        )
+                    telemetryState.value =
+                        listOf(
+                            telemetry(
+                                id = "historical-telemetry",
+                                connectionSessionId = "connection-old",
+                                networkType = "cellular",
+                                activeMode = "PROXY",
+                            ),
+                        )
+                    nativeEventsState.value =
+                        listOf(
+                            NativeSessionEventEntity(
+                                id = "historical-event",
+                                sessionId = "session-failed",
+                                source = "tcp_fat_header",
+                                level = "warn",
+                                message = "rutor.info: whitelist_sni_failed",
+                                createdAt = 50L,
+                            ),
+                        )
+                    snapshotsState.value =
+                        listOf(
+                            snapshot(
+                                id = "post-scan-snapshot",
+                                sessionId = "session-failed",
+                                transport = "cellular",
+                            ),
+                        )
+                }
+
+            val viewModel =
+                createDiagnosticsViewModel(RuntimeEnvironment.getApplication(), manager, FakeAppSettingsRepository())
+            val collector = backgroundScope.launch { viewModel.uiState.collect {} }
+            advanceUntilIdle()
+
+            val state = viewModel.uiState.value
+            assertEquals(DiagnosticsHealth.Degraded, state.overview.health)
+            assertEquals(DiagnosticsHealth.Idle, state.live.health)
+            assertEquals("Idle", state.live.statusLabel)
+            assertEquals("Live monitor standing by", state.live.headline)
+            assertEquals("Runtime feed is quiet", state.live.eventSummaryLabel)
+            assertTrue(state.live.passiveEvents.isEmpty())
+            assertNull(state.live.snapshot)
+            assertTrue(state.live.contextGroups.isEmpty())
+            collector.cancel()
+        }
+
+    @Test
+    fun `live state uses scoped artifacts from the active connection session`() =
+        runTest {
+            val manager =
+                FakeDiagnosticsManager().apply {
+                    activeConnectionSessionState.value =
+                        connectionSession(
+                            id = "connection-a",
+                            serviceMode = "VPN",
+                            networkType = "wifi",
+                        )
+                    telemetryState.value =
+                        listOf(
+                            telemetry(
+                                id = "historical-telemetry",
+                                connectionSessionId = "connection-b",
+                                networkType = "cellular",
+                                activeMode = "PROXY",
+                                txBytes = 9_000,
+                                rxBytes = 12_000,
+                            ),
+                        )
+                    nativeEventsState.value =
+                        listOf(
+                            NativeSessionEventEntity(
+                                id = "historical-event",
+                                sessionId = null,
+                                connectionSessionId = "connection-b",
+                                source = "proxy",
+                                level = "warn",
+                                message = "Historical runtime warning",
+                                createdAt = 60L,
+                            ),
+                        )
+                    liveTelemetryState.value =
+                        listOf(
+                            telemetry(
+                                id = "live-telemetry",
+                                connectionSessionId = "connection-a",
+                                networkType = "wifi",
+                                activeMode = "VPN",
+                                txBytes = 1_000,
+                                rxBytes = 2_000,
+                            ),
+                        )
+                    liveNativeEventsState.value =
+                        listOf(
+                            NativeSessionEventEntity(
+                                id = "live-event",
+                                sessionId = null,
+                                connectionSessionId = "connection-a",
+                                source = "proxy",
+                                level = "warn",
+                                message = "Active runtime warning",
+                                createdAt = 61L,
+                            ),
+                        )
+                }
+
+            val viewModel =
+                createDiagnosticsViewModel(RuntimeEnvironment.getApplication(), manager, FakeAppSettingsRepository())
+            val collector = backgroundScope.launch { viewModel.uiState.collect {} }
+            advanceUntilIdle()
+
+            val state = viewModel.uiState.value
+            assertEquals("wifi", state.live.networkLabel)
+            assertEquals("VPN", state.live.modeLabel)
+            assertEquals("Active runtime warning", state.live.passiveEvents.single().message)
+            assertTrue(
+                state.live.body.contains("3.0 KB transferred") || state.live.signalLabel.contains("1.0 KB sent"),
+            )
+            collector.cancel()
+        }
+
+    @Test
+    fun `live state falls back to active session labels when scoped telemetry is missing`() =
+        runTest {
+            val manager =
+                FakeDiagnosticsManager().apply {
+                    activeConnectionSessionState.value =
+                        connectionSession(
+                            id = "connection-live",
+                            connectionState = "Running",
+                            serviceMode = "VPN",
+                            networkType = "wifi",
+                        )
+                    telemetryState.value =
+                        listOf(
+                            telemetry(
+                                id = "historical-telemetry",
+                                connectionSessionId = "connection-old",
+                                networkType = "cellular",
+                                activeMode = "PROXY",
+                            ),
+                        )
+                }
+
+            val viewModel =
+                createDiagnosticsViewModel(RuntimeEnvironment.getApplication(), manager, FakeAppSettingsRepository())
+            val collector = backgroundScope.launch { viewModel.uiState.collect {} }
+            advanceUntilIdle()
+
+            val state = viewModel.uiState.value
+            assertEquals(DiagnosticsHealth.Idle, state.live.health)
+            assertEquals("Running", state.live.statusLabel)
+            assertEquals("wifi", state.live.networkLabel)
+            assertEquals("VPN", state.live.modeLabel)
+            assertEquals("No live telemetry", state.live.freshnessLabel)
+            assertEquals("Live monitor standing by", state.live.headline)
             collector.cancel()
         }
 
@@ -2218,12 +2445,14 @@ class DiagnosticsViewModelTest {
     private fun snapshot(
         id: String,
         sessionId: String?,
+        connectionSessionId: String? = null,
         transport: String = "wifi",
         cellularDetails: CellularNetworkDetails? = null,
     ): NetworkSnapshotEntity =
         NetworkSnapshotEntity(
             id = id,
             sessionId = sessionId,
+            connectionSessionId = connectionSessionId,
             snapshotKind = "passive",
             payloadJson =
                 json.encodeToString(
@@ -2274,11 +2503,18 @@ class DiagnosticsViewModelTest {
     private fun context(
         id: String,
         sessionId: String?,
+        connectionSessionId: String? = null,
     ): DiagnosticContextEntity =
         DiagnosticContextEntity(
             id = id,
             sessionId = sessionId,
-            contextKind = if (sessionId == null) "passive" else "post_scan",
+            connectionSessionId = connectionSessionId,
+            contextKind =
+                when {
+                    connectionSessionId != null -> "connection_sample"
+                    sessionId == null -> "passive"
+                    else -> "post_scan"
+                },
             payloadJson =
                 json.encodeToString(
                     DiagnosticContextModel(
@@ -2334,5 +2570,66 @@ class DiagnosticsViewModelTest {
                     ),
                 ),
             capturedAt = 12L,
+        )
+
+    private fun telemetry(
+        id: String,
+        sessionId: String? = null,
+        connectionSessionId: String? = null,
+        activeMode: String? = "VPN",
+        connectionState: String = "Running",
+        networkType: String = "wifi",
+        publicIp: String? = "198.51.100.8",
+        lastFailureClass: String? = null,
+        lastFallbackAction: String? = null,
+        txPackets: Long = 3,
+        txBytes: Long = 4_000,
+        rxPackets: Long = 5,
+        rxBytes: Long = 6_000,
+        createdAt: Long = 20L,
+    ): TelemetrySampleEntity =
+        TelemetrySampleEntity(
+            id = id,
+            sessionId = sessionId,
+            connectionSessionId = connectionSessionId,
+            activeMode = activeMode,
+            connectionState = connectionState,
+            networkType = networkType,
+            publicIp = publicIp,
+            lastFailureClass = lastFailureClass,
+            lastFallbackAction = lastFallbackAction,
+            txPackets = txPackets,
+            txBytes = txBytes,
+            rxPackets = rxPackets,
+            rxBytes = rxBytes,
+            createdAt = createdAt,
+        )
+
+    private fun connectionSession(
+        id: String,
+        connectionState: String = "Running",
+        health: String = "active",
+        serviceMode: String = "VPN",
+        networkType: String = "wifi",
+    ): DiagnosticConnectionSession =
+        DiagnosticConnectionSession(
+            id = id,
+            startedAt = 10L,
+            finishedAt = null,
+            updatedAt = 20L,
+            serviceMode = serviceMode,
+            connectionState = connectionState,
+            health = health,
+            approachProfileId = null,
+            approachProfileName = null,
+            strategyId = "strategy-default",
+            strategyLabel = "Strategy Default",
+            networkType = networkType,
+            txBytes = 1_000L,
+            rxBytes = 2_000L,
+            totalErrors = 0L,
+            routeChanges = 0L,
+            restartCount = 0,
+            endedReason = null,
         )
 }

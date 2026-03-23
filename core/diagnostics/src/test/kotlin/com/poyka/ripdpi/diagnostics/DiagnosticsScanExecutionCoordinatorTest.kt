@@ -12,6 +12,7 @@ import com.poyka.ripdpi.diagnostics.domain.DiagnosticsIntent
 import com.poyka.ripdpi.diagnostics.domain.ExecutionPolicy
 import com.poyka.ripdpi.diagnostics.domain.ScanContext
 import com.poyka.ripdpi.diagnostics.domain.ScanPlan
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.advanceUntilIdle
@@ -34,7 +35,7 @@ class DiagnosticsScanExecutionCoordinatorTest {
         runTest {
             val stores = FakeDiagnosticsHistoryStores()
             val clock = TestDiagnosticsHistoryClock()
-            val timelineSource = DefaultDiagnosticsTimelineSource(stores, stores, stores, stores, json)
+            val timelineSource = timelineSource(stores, backgroundScope)
             val resolverOverrideStore = FakeResolverOverrideStore()
             val serviceStateStore = FakeServiceStateStore(initialStatus = AppStatus.Running to Mode.VPN)
             val networkFingerprintProvider = FakeNetworkFingerprintProvider()
@@ -131,7 +132,7 @@ class DiagnosticsScanExecutionCoordinatorTest {
         runTest {
             val stores = FakeDiagnosticsHistoryStores()
             val clock = TestDiagnosticsHistoryClock()
-            val timelineSource = DefaultDiagnosticsTimelineSource(stores, stores, stores, stores, json)
+            val timelineSource = timelineSource(stores, backgroundScope)
             val fixtures =
                 executionCoordinatorFixtures(
                     stores = stores,
@@ -188,7 +189,7 @@ class DiagnosticsScanExecutionCoordinatorTest {
         runTest {
             val stores = FakeDiagnosticsHistoryStores()
             val clock = TestDiagnosticsHistoryClock()
-            val timelineSource = DefaultDiagnosticsTimelineSource(stores, stores, stores, stores, json)
+            val timelineSource = timelineSource(stores, backgroundScope)
             val fixtures =
                 executionCoordinatorFixtures(
                     stores = stores,
@@ -233,7 +234,7 @@ class DiagnosticsScanExecutionCoordinatorTest {
         runTest {
             val stores = FakeDiagnosticsHistoryStores()
             val clock = TestDiagnosticsHistoryClock()
-            val timelineSource = DefaultDiagnosticsTimelineSource(stores, stores, stores, stores, json)
+            val timelineSource = timelineSource(stores, backgroundScope)
             val fixtures =
                 executionCoordinatorFixtures(
                     stores = stores,
@@ -280,7 +281,7 @@ class DiagnosticsScanExecutionCoordinatorTest {
         runTest {
             val stores = FakeDiagnosticsHistoryStores()
             val clock = TestDiagnosticsHistoryClock()
-            val timelineSource = DefaultDiagnosticsTimelineSource(stores, stores, stores, stores, json)
+            val timelineSource = timelineSource(stores, backgroundScope)
             val serviceStateStore = FakeServiceStateStore(initialStatus = AppStatus.Running to Mode.VPN)
             val settings =
                 defaultDiagnosticsAppSettings()
@@ -329,6 +330,20 @@ class DiagnosticsScanExecutionCoordinatorTest {
                     .status,
             )
         }
+
+    private fun timelineSource(
+        stores: FakeDiagnosticsHistoryStores,
+        scope: CoroutineScope,
+    ): DefaultDiagnosticsTimelineSource =
+        DefaultDiagnosticsTimelineSource(
+            profileCatalog = stores,
+            scanRecordStore = stores,
+            artifactReadStore = stores,
+            bypassUsageHistoryStore = stores,
+            mapper = DiagnosticsBoundaryMapper(json),
+            scope = scope,
+            json = json,
+        )
 }
 
 private data class ExecutionCoordinatorFixtures(
