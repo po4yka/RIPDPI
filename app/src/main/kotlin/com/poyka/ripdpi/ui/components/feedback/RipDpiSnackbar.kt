@@ -125,13 +125,17 @@ fun RipDpiSnackbarHost(
     modifier: Modifier = Modifier,
 ) {
     val layout = RipDpiThemeTokens.layout
+    val spacing = RipDpiThemeTokens.spacing
 
     SnackbarHost(
         hostState = hostState,
         modifier = modifier,
         snackbar = { data ->
             Box(
-                modifier = Modifier.fillMaxWidth(),
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = layout.screenHorizontalPadding, vertical = spacing.sm),
                 contentAlignment = Alignment.BottomCenter,
             ) {
                 RipDpiSnackbar(
