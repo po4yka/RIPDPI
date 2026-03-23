@@ -158,7 +158,7 @@ class NetworkPathE2ETest {
 
     @Test
     fun vpnServiceRoutesShellTrafficThroughTunnelAndUpdatesTelemetry() {
-        ensureVpnPrepared(appContext)
+        ensureVpnConsentGranted(appContext)
 
         val listenPort = reserveLoopbackPort()
         runBlocking {
@@ -268,7 +268,7 @@ class NetworkPathE2ETest {
 
     @Test
     fun vpnServiceSurfacedFixtureFaultBreaksShellRoundTrip() {
-        ensureVpnPrepared(appContext)
+        ensureVpnConsentGranted(appContext)
 
         val listenPort = reserveLoopbackPort()
         runBlocking {
