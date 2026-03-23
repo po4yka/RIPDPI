@@ -1253,6 +1253,13 @@ fakeddisorder endhost</string>
     <string name="diagnostics_warn_notification_permission">Разрешение на уведомления отключено, поэтому проблемы сервиса могут быть менее заметны.</string>
     <string name="diagnostics_warn_power_restriction">Ограничения питания или фоновой работы могут мешать стабильной диагностике.</string>
 
+    <!-- Diagnostics snapshot section headers -->
+    <string name="diagnostics_section_network">Сеть</string>
+    <string name="diagnostics_section_carrier">Оператор</string>
+    <string name="diagnostics_section_wifi">Wi-Fi</string>
+    <string name="diagnostics_section_transport">Транспорт</string>
+    <string name="diagnostics_section_device">Устройство</string>
+
     <!-- Diagnostics context field labels -->
     <string name="diagnostics_field_capabilities">Возможности</string>
     <string name="diagnostics_field_dns">DNS</string>
