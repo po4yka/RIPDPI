@@ -38,7 +38,7 @@ fn shared_contract_fixtures_decode_successfully() {
 #[test]
 fn engine_schema_version_matches_kotlin_contract_constant() {
     let kotlin_engine_contract =
-        fixture("core/diagnostics/src/main/java/com/poyka/ripdpi/diagnostics/contract/engine/EngineContract.kt");
+        fixture("core/diagnostics/src/main/kotlin/com/poyka/ripdpi/diagnostics/contract/engine/EngineContract.kt");
     let kotlin_version = kotlin_engine_contract
         .lines()
         .find_map(|line| {

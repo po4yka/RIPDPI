@@ -1,55 +1,55 @@
 {
   "entries": [
     {
-      "path": "app/src/main/java/com/poyka/ripdpi/activities/DiagnosticsUiSectionBuilders.kt",
+      "path": "app/src/main/kotlin/com/poyka/ripdpi/activities/DiagnosticsUiSectionBuilders.kt",
       "kind": "kotlin",
       "measuredLoc": 831,
       "limit": 700
     },
     {
-      "path": "app/src/main/java/com/poyka/ripdpi/activities/HistoryViewModel.kt",
+      "path": "app/src/main/kotlin/com/poyka/ripdpi/activities/HistoryViewModel.kt",
       "kind": "kotlin",
       "measuredLoc": 715,
       "limit": 700
     },
     {
-      "path": "app/src/main/java/com/poyka/ripdpi/activities/MainViewModel.kt",
+      "path": "app/src/main/kotlin/com/poyka/ripdpi/activities/MainViewModel.kt",
       "kind": "kotlin",
       "measuredLoc": 863,
       "limit": 700
     },
     {
-      "path": "app/src/main/java/com/poyka/ripdpi/ui/screens/dns/DnsSettingsScreen.kt",
+      "path": "app/src/main/kotlin/com/poyka/ripdpi/ui/screens/dns/DnsSettingsScreen.kt",
       "kind": "compose",
       "measuredLoc": 1219,
       "limit": 1000
     },
     {
-      "path": "core/diagnostics/src/main/java/com/poyka/ripdpi/diagnostics/DiagnosticsArchiveBuilder.kt",
+      "path": "core/diagnostics/src/main/kotlin/com/poyka/ripdpi/diagnostics/DiagnosticsArchiveBuilder.kt",
       "kind": "kotlin",
       "measuredLoc": 710,
       "limit": 700
     },
     {
-      "path": "core/diagnostics-data/src/main/java/com/poyka/ripdpi/data/diagnostics/DiagnosticsDatabase.kt",
+      "path": "core/diagnostics-data/src/main/kotlin/com/poyka/ripdpi/data/diagnostics/DiagnosticsDatabase.kt",
       "kind": "kotlin",
       "measuredLoc": 982,
       "limit": 700
     },
     {
-      "path": "core/diagnostics/src/main/java/com/poyka/ripdpi/diagnostics/DiagnosticsManager.kt",
+      "path": "core/diagnostics/src/main/kotlin/com/poyka/ripdpi/diagnostics/DiagnosticsManager.kt",
       "kind": "kotlin",
       "measuredLoc": 814,
       "limit": 700
     },
     {
-      "path": "core/engine/src/main/java/com/poyka/ripdpi/core/RipDpiProxyPreferences.kt",
+      "path": "core/engine/src/main/kotlin/com/poyka/ripdpi/core/RipDpiProxyPreferences.kt",
       "kind": "kotlin",
       "measuredLoc": 883,
       "limit": 700
     },
     {
-      "path": "core/service/src/main/java/com/poyka/ripdpi/services/RipDpiVpnService.kt",
+      "path": "core/service/src/main/kotlin/com/poyka/ripdpi/services/RipDpiVpnService.kt",
       "kind": "kotlin",
       "measuredLoc": 797,
       "limit": 700

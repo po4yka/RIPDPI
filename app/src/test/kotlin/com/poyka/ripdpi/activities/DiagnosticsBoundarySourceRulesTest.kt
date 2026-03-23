@@ -7,7 +7,7 @@ import java.io.File
 class DiagnosticsBoundarySourceRulesTest {
     @Test
     fun `app main sources do not import diagnostics data package`() {
-        val appRoot = File("app/src/main/java")
+        val appRoot = File("app/src/main/kotlin")
         val offendingFiles =
             appRoot
                 .walkTopDown()

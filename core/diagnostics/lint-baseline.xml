@@ -7,7 +7,7 @@
         errorLine1="                        networkMeteredState = booleanState(connectivityManager.isActiveNetworkMetered),"
         errorLine2="                                                           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
-            file="src/main/java/com/poyka/ripdpi/diagnostics/DiagnosticsContextProvider.kt"
+            file="src/main/kotlin/com/poyka/ripdpi/diagnostics/DiagnosticsContextProvider.kt"
             line="127"
             column="60"/>
     </issue>
@@ -18,7 +18,7 @@
         errorLine1="                connectivityManager.getNetworkCapabilities(connectivityManager.activeNetwork) ?: return &quot;unknown&quot;"
         errorLine2="                                                           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
-            file="src/main/java/com/poyka/ripdpi/diagnostics/DiagnosticsContextProvider.kt"
+            file="src/main/kotlin/com/poyka/ripdpi/diagnostics/DiagnosticsContextProvider.kt"
             line="162"
             column="60"/>
     </issue>
@@ -29,7 +29,7 @@
         errorLine1="                connectivityManager.getNetworkCapabilities(connectivityManager.activeNetwork) ?: return &quot;unknown&quot;"
         errorLine2="                ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
-            file="src/main/java/com/poyka/ripdpi/diagnostics/DiagnosticsContextProvider.kt"
+            file="src/main/kotlin/com/poyka/ripdpi/diagnostics/DiagnosticsContextProvider.kt"
             line="162"
             column="17"/>
     </issue>
@@ -40,7 +40,7 @@
         errorLine1="            val network = connectivityManager.activeNetwork"
         errorLine2="                          ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
-            file="src/main/java/com/poyka/ripdpi/diagnostics/NetworkMetadataProvider.kt"
+            file="src/main/kotlin/com/poyka/ripdpi/diagnostics/NetworkMetadataProvider.kt"
             line="75"
             column="27"/>
     </issue>
@@ -51,7 +51,7 @@
         errorLine1="            val capabilities = connectivityManager.getNetworkCapabilities(network)"
         errorLine2="                               ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
-            file="src/main/java/com/poyka/ripdpi/diagnostics/NetworkMetadataProvider.kt"
+            file="src/main/kotlin/com/poyka/ripdpi/diagnostics/NetworkMetadataProvider.kt"
             line="76"
             column="32"/>
     </issue>
@@ -62,7 +62,7 @@
         errorLine1="            val linkProperties = connectivityManager.getLinkProperties(network)"
         errorLine2="                                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
-            file="src/main/java/com/poyka/ripdpi/diagnostics/NetworkMetadataProvider.kt"
+            file="src/main/kotlin/com/poyka/ripdpi/diagnostics/NetworkMetadataProvider.kt"
             line="77"
             column="34"/>
     </issue>
@@ -73,7 +73,7 @@
         errorLine1="            val serviceState = runCatching { telephony.serviceState }.getOrNull()"
         errorLine2="                                             ~~~~~~~~~~~~~~~~~~~~~~">
         <location
-            file="src/main/java/com/poyka/ripdpi/diagnostics/NetworkMetadataProvider.kt"
+            file="src/main/kotlin/com/poyka/ripdpi/diagnostics/NetworkMetadataProvider.kt"
             line="194"
             column="46"/>
     </issue>
@@ -84,7 +84,7 @@
         errorLine1="            val serviceState = runCatching { telephony.serviceState }.getOrNull()"
         errorLine2="                                             ~~~~~~~~~~~~~~~~~~~~~~">
         <location
-            file="src/main/java/com/poyka/ripdpi/diagnostics/NetworkMetadataProvider.kt"
+            file="src/main/kotlin/com/poyka/ripdpi/diagnostics/NetworkMetadataProvider.kt"
             line="194"
             column="46"/>
     </issue>
@@ -95,7 +95,7 @@
         errorLine1="                dataNetworkType = describeMobileNetworkType(telephony.dataNetworkType),"
         errorLine2="                                                            ~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
-            file="src/main/java/com/poyka/ripdpi/diagnostics/NetworkMetadataProvider.kt"
+            file="src/main/kotlin/com/poyka/ripdpi/diagnostics/NetworkMetadataProvider.kt"
             line="207"
             column="61"/>
     </issue>
@@ -106,7 +106,7 @@
         errorLine1="                dataNetworkType = describeMobileNetworkType(telephony.dataNetworkType),"
         errorLine2="                                                            ~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
-            file="src/main/java/com/poyka/ripdpi/diagnostics/NetworkMetadataProvider.kt"
+            file="src/main/kotlin/com/poyka/ripdpi/diagnostics/NetworkMetadataProvider.kt"
             line="207"
             column="61"/>
     </issue>
@@ -117,7 +117,7 @@
         errorLine1="                voiceNetworkType = describeMobileNetworkType(telephony.voiceNetworkType),"
         errorLine2="                                                             ~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
-            file="src/main/java/com/poyka/ripdpi/diagnostics/NetworkMetadataProvider.kt"
+            file="src/main/kotlin/com/poyka/ripdpi/diagnostics/NetworkMetadataProvider.kt"
             line="208"
             column="62"/>
     </issue>
@@ -128,7 +128,7 @@
         errorLine1="                voiceNetworkType = describeMobileNetworkType(telephony.voiceNetworkType),"
         errorLine2="                                                             ~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
-            file="src/main/java/com/poyka/ripdpi/diagnostics/NetworkMetadataProvider.kt"
+            file="src/main/kotlin/com/poyka/ripdpi/diagnostics/NetworkMetadataProvider.kt"
             line="208"
             column="62"/>
     </issue>
@@ -139,7 +139,7 @@
         errorLine1="                mtu = linkProperties?.mtu?.takeIf { it > 0 },"
         errorLine2="                                      ~~~">
         <location
-            file="src/main/java/com/poyka/ripdpi/diagnostics/NetworkMetadataProvider.kt"
+            file="src/main/kotlin/com/poyka/ripdpi/diagnostics/NetworkMetadataProvider.kt"
             line="85"
             column="39"/>
     </issue>
@@ -150,7 +150,7 @@
         errorLine1="            val privateDnsServerName = linkProperties?.privateDnsServerName"
         errorLine2="                                                       ~~~~~~~~~~~~~~~~~~~~">
         <location
-            file="src/main/java/com/poyka/ripdpi/diagnostics/NetworkMetadataProvider.kt"
+            file="src/main/kotlin/com/poyka/ripdpi/diagnostics/NetworkMetadataProvider.kt"
             line="132"
             column="56"/>
     </issue>
@@ -161,7 +161,7 @@
         errorLine1="            val signalStrength = runCatching { telephony.signalStrength }.getOrNull()"
         errorLine2="                                                         ~~~~~~~~~~~~~~">
         <location
-            file="src/main/java/com/poyka/ripdpi/diagnostics/NetworkMetadataProvider.kt"
+            file="src/main/kotlin/com/poyka/ripdpi/diagnostics/NetworkMetadataProvider.kt"
             line="195"
             column="58"/>
     </issue>
@@ -172,7 +172,7 @@
         errorLine1="                        telephony.simCarrierIdName?.toString() ?: telephony.networkOperatorName,"
         errorLine2="                                  ~~~~~~~~~~~~~~~~">
         <location
-            file="src/main/java/com/poyka/ripdpi/diagnostics/NetworkMetadataProvider.kt"
+            file="src/main/kotlin/com/poyka/ripdpi/diagnostics/NetworkMetadataProvider.kt"
             line="199"
             column="35"/>
     </issue>
@@ -183,7 +183,7 @@
         errorLine1="                signalDbm = signalStrength?.cellSignalStrengths?.firstOrNull()?.dbm,"
         errorLine2="                                            ~~~~~~~~~~~~~~~~~~~">
         <location
-            file="src/main/java/com/poyka/ripdpi/diagnostics/NetworkMetadataProvider.kt"
+            file="src/main/kotlin/com/poyka/ripdpi/diagnostics/NetworkMetadataProvider.kt"
             line="215"
             column="45"/>
     </issue>
@@ -194,7 +194,7 @@
         errorLine1="            if (Build.VERSION.SDK_INT &lt; Build.VERSION_CODES.M) {"
         errorLine2="                ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
-            file="src/main/java/com/poyka/ripdpi/diagnostics/DiagnosticsContextProvider.kt"
+            file="src/main/kotlin/com/poyka/ripdpi/diagnostics/DiagnosticsContextProvider.kt"
             line="146"
             column="17"/>
     </issue>
