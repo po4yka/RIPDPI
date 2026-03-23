@@ -1,6 +1,6 @@
 use ripdpi_config::{
-    AutoTtlConfig, DesyncMode, QuicFakeProfile, TcpChainStepKind, WsTunnelMode, DETECT_CONNECT, FM_DUPSID, FM_ORIG,
-    HOST_AUTOLEARN_DEFAULT_MAX_HOSTS,
+    AutoTtlConfig, DesyncMode, OffsetBase, OffsetProto, QuicFakeProfile, TcpChainStepKind, WsTunnelMode,
+    DETECT_CONNECT, FM_DUPSID, FM_ORIG, HOST_AUTOLEARN_DEFAULT_MAX_HOSTS,
 };
 use ripdpi_packets::{HttpFakeProfile, TlsFakeProfile, UdpFakeProfile};
 use ripdpi_packets::{MH_DMIX, MH_HMIX, MH_METHODEOL, MH_SPACE, MH_UNIXEOL};
@@ -61,8 +61,36 @@ fn ui_payload_parses_hostfake_and_quic_profile() {
     assert_eq!(config.groups[0].udp_fake_profile, UdpFakeProfile::CompatDefault);
     assert_eq!(config.groups[0].quic_fake_profile, QuicFakeProfile::RealisticInitial);
     assert_eq!(config.groups[0].quic_fake_host.as_deref(), Some("example.com"));
-    assert_eq!(config.groups[0].tcp_chain[0].kind, TcpChainStepKind::HostFake);
+    assert_eq!(config.groups[0].tcp_chain.len(), 2);
+    assert_eq!(config.groups[0].tcp_chain[0].kind, TcpChainStepKind::TlsRec);
+    assert_eq!(config.groups[0].tcp_chain[0].offset.base, OffsetBase::ExtLen);
+    assert_eq!(config.groups[0].tcp_chain[0].offset.proto, OffsetProto::TlsOnly);
+    assert_eq!(config.groups[0].tcp_chain[1].kind, TcpChainStepKind::HostFake);
     assert_eq!(config.groups[0].udp_chain[0].count, 3);
+}
+
+#[test]
+fn ui_payload_preserves_explicit_tlsrec_before_hostfake() {
+    let mut ui = minimal_ui();
+    ui.chains.tcp_steps = vec![
+        tcp_step("tlsrec", "extlen"),
+        ProxyUiTcpChainStep {
+            kind: "hostfake".to_string(),
+            marker: "endhost+8".to_string(),
+            midhost_marker: "midsld".to_string(),
+            fake_host_template: "googlevideo.com".to_string(),
+            fragment_count: 0,
+            min_fragment_size: 0,
+            max_fragment_size: 0,
+            activation_filter: None,
+        },
+    ];
+
+    let config = runtime_config_from_payload(ui_payload(ui)).expect("runtime config");
+
+    assert_eq!(config.groups[0].tcp_chain.len(), 2);
+    assert_eq!(config.groups[0].tcp_chain[0].kind, TcpChainStepKind::TlsRec);
+    assert_eq!(config.groups[0].tcp_chain[1].kind, TcpChainStepKind::HostFake);
 }
 
 #[test]
