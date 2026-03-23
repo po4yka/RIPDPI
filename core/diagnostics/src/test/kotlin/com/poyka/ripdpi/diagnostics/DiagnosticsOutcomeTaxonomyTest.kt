@@ -166,7 +166,7 @@ class DiagnosticsOutcomeTaxonomyTest {
             )
 
             val sessionEvents = stores.nativeEventsState.value.filter { it.sessionId == "session-1" }
-            assertEquals(listOf("info", "info", "warn"), sessionEvents.map { it.level })
+            assertEquals(listOf("info", "info", "error"), sessionEvents.map { it.level })
             assertEquals(
                 listOf("dns_integrity", "network_environment", "tcp_fat_header"),
                 sessionEvents.map { it.source },

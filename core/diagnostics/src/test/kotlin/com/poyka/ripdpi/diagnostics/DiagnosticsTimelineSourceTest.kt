@@ -193,6 +193,43 @@ class DiagnosticsTimelineSourceTest {
             }
         }
 
+    @Test
+    fun `live runtime artifacts exclude scan snapshots and contexts`() =
+        runTest {
+            val stores = FakeDiagnosticsHistoryStores()
+            val timelineScope = timelineScope()
+            try {
+                val timelineSource = timelineSource(stores, timelineScope)
+                stores.usageSessionsState.value =
+                    listOf(
+                        usageSession(id = "connection-a", startedAt = 10L, updatedAt = 20L, finishedAt = null),
+                    )
+                stores.snapshotsState.value =
+                    listOf(
+                        snapshotSample(id = "scan-snapshot", connectionSessionId = "connection-a", snapshotKind = "post_scan"),
+                        snapshotSample(
+                            id = "runtime-snapshot",
+                            connectionSessionId = "connection-a",
+                            snapshotKind = "connection_sample",
+                        ),
+                    )
+                stores.contextsState.value =
+                    listOf(
+                        contextSample(id = "scan-context", connectionSessionId = "connection-a", contextKind = "post_scan"),
+                        contextSample(
+                            id = "runtime-context",
+                            connectionSessionId = "connection-a",
+                            contextKind = "connection_sample",
+                        ),
+                    )
+
+                assertEquals(listOf("runtime-snapshot"), timelineSource.liveSnapshots.first().map { it.id })
+                assertEquals(listOf("runtime-context"), timelineSource.liveContexts.first().map { it.id })
+            } finally {
+                timelineScope.cancel()
+            }
+        }
+
     private fun usageSession(
         id: String,
         startedAt: Long,
@@ -238,6 +275,106 @@ class DiagnosticsTimelineSourceTest {
             rxPackets = 3,
             rxBytes = 4,
             createdAt = 100L,
+        )
+
+    private fun snapshotSample(
+        id: String,
+        connectionSessionId: String,
+        snapshotKind: String,
+    ): com.poyka.ripdpi.data.diagnostics.NetworkSnapshotEntity =
+        com.poyka.ripdpi.data.diagnostics.NetworkSnapshotEntity(
+            id = id,
+            sessionId = null,
+            connectionSessionId = connectionSessionId,
+            snapshotKind = snapshotKind,
+            payloadJson =
+                json.encodeToString(
+                    NetworkSnapshotModel.serializer(),
+                    NetworkSnapshotModel(
+                        transport = "wifi",
+                        capabilities = listOf("validated"),
+                        dnsServers = listOf("1.1.1.1"),
+                        privateDnsMode = "strict",
+                        mtu = 1500,
+                        localAddresses = listOf("192.168.1.2"),
+                        publicIp = "198.51.100.8",
+                        publicAsn = "AS64500",
+                        captivePortalDetected = false,
+                        networkValidated = true,
+                        wifiDetails = null,
+                        cellularDetails = null,
+                        capturedAt = 100L,
+                    ),
+                ),
+            capturedAt = 100L,
+        )
+
+    private fun contextSample(
+        id: String,
+        connectionSessionId: String,
+        contextKind: String,
+    ): com.poyka.ripdpi.data.diagnostics.DiagnosticContextEntity =
+        com.poyka.ripdpi.data.diagnostics.DiagnosticContextEntity(
+            id = id,
+            sessionId = null,
+            connectionSessionId = connectionSessionId,
+            contextKind = contextKind,
+            payloadJson =
+                json.encodeToString(
+                    DiagnosticContextModel.serializer(),
+                    DiagnosticContextModel(
+                        service =
+                            ServiceContextModel(
+                                serviceStatus = "Running",
+                                configuredMode = "VPN",
+                                activeMode = "VPN",
+                                selectedProfileId = "default",
+                                selectedProfileName = "Default",
+                                configSource = "ui",
+                                proxyEndpoint = "127.0.0.1:1080",
+                                desyncMethod = "split",
+                                chainSummary = "tcp: split(1)",
+                                routeGroup = "3",
+                                sessionUptimeMs = 10_000L,
+                                lastNativeErrorHeadline = "none",
+                                restartCount = 0,
+                                hostAutolearnEnabled = "enabled",
+                                learnedHostCount = 0,
+                                penalizedHostCount = 0,
+                                lastAutolearnHost = "none",
+                                lastAutolearnGroup = "0",
+                                lastAutolearnAction = "none",
+                            ),
+                        permissions =
+                            PermissionContextModel(
+                                vpnPermissionState = "enabled",
+                                notificationPermissionState = "enabled",
+                                batteryOptimizationState = "whitelisted",
+                                dataSaverState = "disabled",
+                            ),
+                        device =
+                            DeviceContextModel(
+                                appVersionName = "0.0.1",
+                                appVersionCode = 1L,
+                                buildType = "debug",
+                                androidVersion = "16",
+                                apiLevel = 36,
+                                manufacturer = "Google",
+                                model = "Pixel",
+                                primaryAbi = "arm64-v8a",
+                                locale = "en-US",
+                                timezone = "UTC",
+                            ),
+                        environment =
+                            EnvironmentContextModel(
+                                networkMeteredState = "false",
+                                roamingState = "false",
+                                powerSaveModeState = "disabled",
+                                batterySaverState = "disabled",
+                            ),
+                    ),
+                ),
+            capturedAt = 100L,
         )
 
     private fun timelineSource(

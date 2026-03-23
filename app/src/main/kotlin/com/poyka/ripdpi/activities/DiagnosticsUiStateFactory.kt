@@ -294,9 +294,12 @@ internal class DiagnosticsUiStateFactory
                 nativeEvents = input.liveNativeEvents,
                 latestSnapshot =
                     input.liveSnapshots
-                        .firstOrNull()
+                        .firstOrNull { it.snapshotKind == ConnectionSampleArtifactKind }
                         ?.let { support.toNetworkSnapshotUiModel(it, showSensitiveDetails = false) },
-                latestContext = input.liveContexts.firstOrNull()?.context,
+                latestContext =
+                    input.liveContexts
+                        .firstOrNull { it.contextKind == ConnectionSampleArtifactKind }
+                        ?.context,
             )
 
         private fun buildSessionsState(
@@ -497,3 +500,5 @@ private fun strategyProgressTone(outcome: String): DiagnosticsTone =
         }
         else -> DiagnosticsTone.Negative
     }
+
+private const val ConnectionSampleArtifactKind = "connection_sample"
