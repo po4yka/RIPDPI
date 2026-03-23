@@ -409,30 +409,28 @@ private fun HostPackApplyDialogContent(
 }
 
 @Composable
-private fun rememberHostPackTargetOptions(): List<RipDpiDropdownOption<String>> =
-    listOf(
-        RipDpiDropdownOption(
-            value = HostPackTargetBlacklist,
-            label = stringResource(R.string.host_pack_target_blacklist),
-        ),
-        RipDpiDropdownOption(
-            value = HostPackTargetWhitelist,
-            label = stringResource(R.string.host_pack_target_whitelist),
-        ),
-    )
+private fun rememberHostPackTargetOptions(): List<RipDpiDropdownOption<String>> {
+    val blacklistLabel = stringResource(R.string.host_pack_target_blacklist)
+    val whitelistLabel = stringResource(R.string.host_pack_target_whitelist)
+    return remember(blacklistLabel, whitelistLabel) {
+        listOf(
+            RipDpiDropdownOption(value = HostPackTargetBlacklist, label = blacklistLabel),
+            RipDpiDropdownOption(value = HostPackTargetWhitelist, label = whitelistLabel),
+        )
+    }
+}
 
 @Composable
-private fun rememberHostPackApplyModeOptions(): List<RipDpiDropdownOption<String>> =
-    listOf(
-        RipDpiDropdownOption(
-            value = HostPackApplyModeMerge,
-            label = stringResource(R.string.host_pack_apply_merge),
-        ),
-        RipDpiDropdownOption(
-            value = HostPackApplyModeReplace,
-            label = stringResource(R.string.host_pack_apply_replace),
-        ),
-    )
+private fun rememberHostPackApplyModeOptions(): List<RipDpiDropdownOption<String>> {
+    val mergeLabel = stringResource(R.string.host_pack_apply_merge)
+    val replaceLabel = stringResource(R.string.host_pack_apply_replace)
+    return remember(mergeLabel, replaceLabel) {
+        listOf(
+            RipDpiDropdownOption(value = HostPackApplyModeMerge, label = mergeLabel),
+            RipDpiDropdownOption(value = HostPackApplyModeReplace, label = replaceLabel),
+        )
+    }
+}
 
 @Composable
 private fun hostPackApplySummary(preset: HostPackPreset): String {

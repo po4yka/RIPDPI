@@ -9,6 +9,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
@@ -402,12 +403,17 @@ internal fun LazyListScope.wsTunnelSection(
             testTag = RipDpiTestTags.advancedSection("ws_tunnel"),
         ) {
             RipDpiCard {
+                val offLabel = stringResource(R.string.ws_tunnel_mode_off)
+                val alwaysLabel = stringResource(R.string.ws_tunnel_mode_always)
+                val fallbackLabel = stringResource(R.string.ws_tunnel_mode_fallback)
                 val options =
-                    listOf(
-                        RipDpiDropdownOption("off", stringResource(R.string.ws_tunnel_mode_off)),
-                        RipDpiDropdownOption("always", stringResource(R.string.ws_tunnel_mode_always)),
-                        RipDpiDropdownOption("fallback", stringResource(R.string.ws_tunnel_mode_fallback)),
-                    )
+                    remember(offLabel, alwaysLabel, fallbackLabel) {
+                        listOf(
+                            RipDpiDropdownOption("off", offLabel),
+                            RipDpiDropdownOption("always", alwaysLabel),
+                            RipDpiDropdownOption("fallback", fallbackLabel),
+                        )
+                    }
                 RipDpiDropdown(
                     options = options,
                     selectedValue = uiState.autolearn.wsTunnelMode,
