@@ -104,7 +104,7 @@ internal fun DiagnosticsUiFactorySupport.toApproachRowUiModel(
                     DiagnosticsMetricUiModel(
                         label = "Success",
                         value = summary.validatedSuccessRate?.let { "${(it * 100).toInt()}%" } ?: "Unverified",
-                        tone = summary.toDiagnosticsTone(),
+                        tone = summary.successMetricTone(),
                     ),
                 )
                 add(
