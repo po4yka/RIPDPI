@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.ui.screens.diagnostics
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
@@ -26,8 +27,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -915,6 +918,7 @@ private fun DiagnosticsPerformanceCard(
     modifier: Modifier = Modifier,
 ) {
     val colors = RipDpiThemeTokens.colors
+    var expanded by remember { mutableStateOf(false) }
     val timingBreakdown =
         remember(performance) {
             listOf(
@@ -940,42 +944,40 @@ private fun DiagnosticsPerformanceCard(
     RipDpiCard(
         modifier = modifier,
         variant = RipDpiCardVariant.Outlined,
+        onClick = { expanded = !expanded },
     ) {
         Text(
-            text = "Debug performance",
-            style = RipDpiThemeTokens.type.sectionTitle,
+            text =
+                "Debug #${performance.buildSequence} · ${selectedSection.name.lowercase(Locale.US)} · " +
+                    formatDuration(performance.totalDurationMillis),
+            style = RipDpiThemeTokens.type.monoSmall,
             color = colors.mutedForeground,
         )
-        Text(
-            text =
-                "Build #${performance.buildSequence} · ${selectedSection.name.lowercase(Locale.US)} · total ${
-                    formatDuration(
-                        performance.totalDurationMillis,
+        AnimatedVisibility(visible = expanded) {
+            Column(verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.xs)) {
+                HorizontalDivider(color = colors.divider)
+                slowestStage?.let { (label, duration) ->
+                    Text(
+                        text = "Slowest stage: $label ${formatDuration(duration)}",
+                        style = RipDpiThemeTokens.type.secondaryBody,
+                        color = colors.mutedForeground,
                     )
-                }",
-            style = RipDpiThemeTokens.type.monoSmall,
-            color = colors.foreground,
-        )
-        HorizontalDivider(color = colors.divider)
-        slowestStage?.let { (label, duration) ->
-            Text(
-                text = "Slowest stage: $label ${formatDuration(duration)}",
-                style = RipDpiThemeTokens.type.secondaryBody,
-                color = colors.mutedForeground,
-            )
+                }
+                Text(
+                    text =
+                        "Input: ${performance.telemetryCount} telemetry · " +
+                            "${performance.nativeEventCount} events · " +
+                            "${performance.sessionCount} sessions",
+                    style = RipDpiThemeTokens.type.secondaryBody,
+                    color = colors.mutedForeground,
+                )
+                Text(
+                    text = timingSummary,
+                    style = RipDpiThemeTokens.type.monoSmall,
+                    color = colors.foreground,
+                )
+            }
         }
-        Text(
-            text =
-                "Input: ${performance.telemetryCount} telemetry · ${performance.nativeEventCount} events · " +
-                    "${performance.sessionCount} sessions",
-            style = RipDpiThemeTokens.type.secondaryBody,
-            color = colors.mutedForeground,
-        )
-        Text(
-            text = timingSummary,
-            style = RipDpiThemeTokens.type.monoSmall,
-            color = colors.foreground,
-        )
     }
 }
 
