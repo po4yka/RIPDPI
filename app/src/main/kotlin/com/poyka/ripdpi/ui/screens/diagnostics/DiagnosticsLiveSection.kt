@@ -22,7 +22,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.R
-import com.poyka.ripdpi.activities.DiagnosticsHealth
 import com.poyka.ripdpi.activities.DiagnosticsLiveUiModel
 import com.poyka.ripdpi.activities.DiagnosticsMetricUiModel
 import com.poyka.ripdpi.activities.DiagnosticsTone
@@ -33,18 +32,15 @@ import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 @Composable
 internal fun LiveSection(
     live: DiagnosticsLiveUiModel,
-    health: DiagnosticsHealth,
 ) {
     LiveSectionContent(
         live = live,
-        health = health,
     )
 }
 
 @Composable
 private fun LiveSectionContent(
     live: DiagnosticsLiveUiModel,
-    health: DiagnosticsHealth,
 ) {
     val spacing = RipDpiThemeTokens.spacing
     val layout = RipDpiThemeTokens.layout
@@ -60,7 +56,6 @@ private fun LiveSectionContent(
         item {
             LiveHeroCard(
                 live = live,
-                health = health,
             )
         }
         if (live.metrics.isNotEmpty()) {
@@ -113,12 +108,11 @@ private fun LiveSectionContent(
 @Composable
 internal fun LiveHeroCard(
     live: DiagnosticsLiveUiModel,
-    health: DiagnosticsHealth,
 ) {
     val colors = RipDpiThemeTokens.colors
     val spacing = RipDpiThemeTokens.spacing
     val motion = RipDpiThemeTokens.motion
-    val palette = liveHeroPalette(health)
+    val palette = liveHeroPalette(live.health)
     val liveBadgeText = live.networkLabel ?: live.modeLabel ?: "Standby"
     val animatedContainer by animateColorAsState(
         targetValue = palette.container,

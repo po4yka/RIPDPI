@@ -76,7 +76,7 @@ internal class DiagnosticsUiStateFactory
                 measureDuration(record = { duration ->
                     liveDurationNs = duration
                 }) {
-                    buildLiveState(input, resolvedInput, eventModels)
+                    buildLiveState(input)
                 }
             val sessions =
                 measureDuration(record = { duration ->
@@ -286,17 +286,17 @@ internal class DiagnosticsUiStateFactory
 
         private fun buildLiveState(
             input: DiagnosticsUiStateInput,
-            resolvedInput: ResolvedDiagnosticsUiInput,
-            eventModels: List<DiagnosticsEventUiModel>,
         ): DiagnosticsLiveUiModel =
             support.buildLiveUiModel(
-                health = resolvedInput.health,
-                telemetry = input.telemetry,
-                currentTelemetry = resolvedInput.currentTelemetry,
-                nativeEvents = input.nativeEvents,
-                latestSnapshot = resolvedInput.latestSnapshot,
-                latestContext = resolvedInput.latestContext,
-                eventModels = eventModels,
+                activeConnectionSession = input.activeConnectionSession,
+                telemetry = input.liveTelemetry,
+                currentTelemetry = input.liveTelemetry.firstOrNull(),
+                nativeEvents = input.liveNativeEvents,
+                latestSnapshot =
+                    input.liveSnapshots
+                        .firstOrNull()
+                        ?.let { support.toNetworkSnapshotUiModel(it, showSensitiveDetails = false) },
+                latestContext = input.liveContexts.firstOrNull()?.context,
             )
 
         private fun buildSessionsState(
@@ -444,6 +444,11 @@ internal data class DiagnosticsUiStateInput(
     val contexts: List<DiagnosticContextSnapshot>,
     val telemetry: List<DiagnosticTelemetrySample>,
     val nativeEvents: List<DiagnosticEvent>,
+    val activeConnectionSession: com.poyka.ripdpi.diagnostics.DiagnosticConnectionSession?,
+    val liveSnapshots: List<DiagnosticNetworkSnapshot>,
+    val liveContexts: List<DiagnosticContextSnapshot>,
+    val liveTelemetry: List<DiagnosticTelemetrySample>,
+    val liveNativeEvents: List<DiagnosticEvent>,
     val exports: List<DiagnosticExportRecord>,
     val rememberedPolicies: List<DiagnosticsRememberedPolicy>,
     val activeConnectionPolicy: DiagnosticActiveConnectionPolicy?,
