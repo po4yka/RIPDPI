@@ -294,7 +294,7 @@ mod tests {
     #[test]
     #[ignore = "requires CAP_NET_ADMIN; run: sudo cargo test -p ripdpi-tun-driver -- --include-ignored"]
     fn open_tun_fd_is_valid() {
-        let tun = LinuxTunnel::open(Some("tun-hs5t-t0"), false).expect("open should succeed with CAP_NET_ADMIN");
+        let tun = LinuxTunnel::open(Some("tun-ripdpi-t0"), false).expect("open should succeed with CAP_NET_ADMIN");
         assert!(tun.fd() >= 0, "fd must be non-negative");
         assert!(tun.index() > 0, "interface index must be positive");
         let name = tun.name();
@@ -306,7 +306,7 @@ mod tests {
     #[test]
     #[ignore = "requires CAP_NET_ADMIN; run: sudo cargo test -p ripdpi-tun-driver -- --include-ignored"]
     fn set_mtu_succeeds() {
-        let tun = LinuxTunnel::open(Some("tun-hs5t-t1"), false).expect("open should succeed with CAP_NET_ADMIN");
+        let tun = LinuxTunnel::open(Some("tun-ripdpi-t1"), false).expect("open should succeed with CAP_NET_ADMIN");
         tun.set_mtu(1500).expect("set_mtu(1500) must succeed");
     }
 
@@ -314,7 +314,7 @@ mod tests {
     #[test]
     #[ignore = "requires CAP_NET_ADMIN; run: sudo cargo test -p ripdpi-tun-driver -- --include-ignored"]
     fn set_ipv4_address_visible() {
-        let tun = LinuxTunnel::open(Some("tun-hs5t-t2"), false).expect("open should succeed with CAP_NET_ADMIN");
+        let tun = LinuxTunnel::open(Some("tun-ripdpi-t2"), false).expect("open should succeed with CAP_NET_ADMIN");
         let addr: Ipv4Addr = "198.18.0.1".parse().unwrap();
         tun.set_ipv4(addr, 32).expect("set_ipv4 must succeed");
 
@@ -330,7 +330,7 @@ mod tests {
     #[test]
     #[ignore = "requires CAP_NET_ADMIN; run: sudo cargo test -p ripdpi-tun-driver -- --include-ignored"]
     fn set_up_down_toggles_link_state() {
-        let tun = LinuxTunnel::open(Some("tun-hs5t-t3"), false).expect("open should succeed with CAP_NET_ADMIN");
+        let tun = LinuxTunnel::open(Some("tun-ripdpi-t3"), false).expect("open should succeed with CAP_NET_ADMIN");
 
         tun.set_up().expect("set_up must succeed");
         let out = std::process::Command::new("ip")
@@ -353,7 +353,7 @@ mod tests {
     #[test]
     #[ignore = "requires CAP_NET_ADMIN; run: sudo cargo test -p ripdpi-tun-driver -- --include-ignored"]
     fn drop_closes_fd() {
-        let tun = LinuxTunnel::open(Some("tun-hs5t-t4"), false).expect("open should succeed with CAP_NET_ADMIN");
+        let tun = LinuxTunnel::open(Some("tun-ripdpi-t4"), false).expect("open should succeed with CAP_NET_ADMIN");
         let raw: RawFd = tun.fd();
         assert!(raw >= 0);
 

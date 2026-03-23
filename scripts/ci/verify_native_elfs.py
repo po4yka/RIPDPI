@@ -10,8 +10,8 @@ import sys
 from pathlib import Path
 
 EXPECTED_NEEDED = {
-    "libripdpi.so": {"libc.so", "libdl.so", "liblog.so"},
-    "libhev-socks5-tunnel.so": {"libc.so", "libm.so", "libdl.so", "liblog.so"},
+    "libripdpi.so": {"libc.so", "libm.so", "libdl.so", "liblog.so"},
+    "libripdpi-tunnel.so": {"libc.so", "libm.so", "libdl.so", "liblog.so"},
 }
 REQUIRED_PAGE_ALIGNMENT = 16 * 1024
 

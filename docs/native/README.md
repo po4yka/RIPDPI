@@ -6,9 +6,9 @@ This directory documents the in-repository Rust native modules used by RIPDPI an
 
 | Native module | Built artifact | Used in app | Main Kotlin bridge | Methods actually reached from app |
 | --- | --- | --- | --- | --- |
-| `native/rust/crates/ripdpi-android` | `libripdpi.so` | Proxy mode, VPN mode, diagnostics | `core/engine/src/main/java/com/poyka/ripdpi/core/RipDpiProxy.kt`, `core/engine/src/main/java/com/poyka/ripdpi/core/NetworkDiagnostics.kt` | `ripdpi_config::parse_cli`, `ripdpi_config::parse_hosts_spec`, `runtime::create_listener`, `runtime::run_proxy_with_embedded_control`, `EmbeddedProxyControl::request_shutdown`, `platform::detect_default_ttl`, `MonitorSession::*`, proxy telemetry polling |
-| `native/rust/crates/hs5t-android` | `libhev-socks5-tunnel.so` | VPN mode only | `core/engine/src/main/java/com/poyka/ripdpi/core/Tun2SocksTunnel.kt` | `ripdpi_tunnel_core::run_tunnel`, `CancellationToken::cancel`, `Stats::snapshot`, tunnel telemetry polling |
-| `native/rust/crates/ripdpi-monitor` | linked into `libripdpi.so` | Diagnostics scans | `core/engine/src/main/java/com/poyka/ripdpi/core/NetworkDiagnostics.kt` | DNS integrity probes across UDP and encrypted resolvers, TLS/HTTP reachability probes, TCP fat-header probes, whitelist-SNI retries, diagnostics session state |
+| `native/rust/crates/ripdpi-android` | `libripdpi.so` | Proxy mode, VPN mode, diagnostics | `core/engine/src/main/kotlin/com/poyka/ripdpi/core/RipDpiProxy.kt`, `core/engine/src/main/kotlin/com/poyka/ripdpi/core/NetworkDiagnostics.kt` | `ripdpi_config::parse_cli`, `ripdpi_config::parse_hosts_spec`, `runtime::create_listener`, `runtime::run_proxy_with_embedded_control`, `EmbeddedProxyControl::request_shutdown`, `platform::detect_default_ttl`, `MonitorSession::*`, proxy telemetry polling |
+| `native/rust/crates/ripdpi-tunnel-android` | `libripdpi-tunnel.so` | VPN mode only | `core/engine/src/main/kotlin/com/poyka/ripdpi/core/Tun2SocksTunnel.kt` | `ripdpi_tunnel_core::run_tunnel`, `CancellationToken::cancel`, `Stats::snapshot`, tunnel telemetry polling |
+| `native/rust/crates/ripdpi-monitor` | linked into `libripdpi.so` | Diagnostics scans | `core/engine/src/main/kotlin/com/poyka/ripdpi/core/NetworkDiagnostics.kt` | DNS integrity probes across UDP and encrypted resolvers, TLS/HTTP reachability probes, TCP fat-header probes, whitelist-SNI retries, diagnostics session state |
 | `native/rust/crates/ripdpi-dns-resolver` | linked into existing native libraries | Diagnostics scans, VPN-mode encrypted DNS | none directly | `EncryptedDnsResolver::*` through `ripdpi-monitor` and `ripdpi-tunnel-core` for DoH/DoT/DNSCrypt exchange, metadata collection, and IP answer extraction |
 
 ## Shared Strategy Bridge
@@ -38,7 +38,7 @@ flowchart LR
   C["VPN mode service"] --> B
   B --> D["libripdpi.so"]
   C --> E["Tun2SocksTunnel.kt"]
-  E --> F["libhev-socks5-tunnel.so"]
+  E --> F["libripdpi-tunnel.so"]
   F --> G["Android TUN fd"]
   F --> D
   H["Diagnostics screen"] --> I["NetworkDiagnostics.kt"]
@@ -53,7 +53,7 @@ Diagnostics in the Android app are split across three native paths:
 
 - `ripdpi-monitor` performs active scans and produces structured scan reports and scan-time passive events
 - `ripdpi-runtime` emits passive proxy runtime telemetry for the long-running local SOCKS5 proxy
-- `hs5t-android` exposes tunnel runtime telemetry for the long-running TUN-to-SOCKS bridge
+- `ripdpi-tunnel-android` exposes tunnel runtime telemetry for the long-running TUN-to-SOCKS bridge
 
 The service layer polls those native snapshots once per second while the service is running and stores only metadata:
 - listener and tunnel lifecycle changes
@@ -131,7 +131,7 @@ Structured telemetry and diagnostics-event payloads are treated as compatibility
 ## Direct Native Modules
 
 - `native/rust/crates/ripdpi-android`
-- `native/rust/crates/hs5t-android`
+- `native/rust/crates/ripdpi-tunnel-android`
 - `native/rust/crates/ripdpi-monitor`
 - `native/rust/crates/ripdpi-dns-resolver`
 - `native/rust/crates/ripdpi-proxy-config`
@@ -147,7 +147,7 @@ Structured telemetry and diagnostics-event payloads are treated as compatibility
 ## Runtime ELF Dependencies
 
 - `libripdpi.so` links against `libc.so`, `libdl.so`, and `liblog.so`.
-- `libhev-socks5-tunnel.so` links against `libc.so`, `libdl.so`, `liblog.so`, and `libm.so`.
+- `libripdpi-tunnel.so` links against `libc.so`, `libdl.so`, `liblog.so`, and `libm.so`.
 
 ## Documents
 

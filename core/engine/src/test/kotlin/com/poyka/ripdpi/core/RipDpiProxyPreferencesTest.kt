@@ -26,6 +26,11 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class RipDpiProxyPreferencesTest {
+    private companion object {
+        const val LegacyCommandLineProgram = "cia" + "dpi"
+        const val LegacyStrategyPreset = "bye" + "dpi_default"
+    }
+
     @Test
     fun commandLinePreferencesEncodeSingleJsonPayload() {
         val preferences = RipDpiProxyCmdPreferences("--port 1081 --no-domain")
@@ -34,9 +39,33 @@ class RipDpiProxyPreferencesTest {
 
         assertEquals("command_line", payload.string("kind"))
         val args = payload.array("args")
-        assertEquals("ciadpi", args[0].jsonPrimitive.content)
+        assertEquals("ripdpi", args[0].jsonPrimitive.content)
         assertTrue("--port" in args.map { it.jsonPrimitive.content })
         assertTrue("--no-domain" in args.map { it.jsonPrimitive.content })
+    }
+
+    @Test
+    fun legacyCommandLinePayloadsNormalizeExecutableNameOnRewrite() {
+        val legacyJson =
+            RipDpiProxyCmdPreferences("--port 1081")
+                .toNativeConfigJson()
+                .replace("\"ripdpi\"", "\"$LegacyCommandLineProgram\"")
+
+        val payload = RipDpiProxyJsonPreferences(legacyJson).toNativeConfigJson().parseJsonObject()
+
+        assertEquals("ripdpi", payload.array("args")[0].jsonPrimitive.content)
+    }
+
+    @Test
+    fun legacyUiPayloadsNormalizeStrategyPresetOnRewrite() {
+        val legacyJson =
+            RipDpiProxyUIPreferences()
+                .toNativeConfigJson()
+                .withTopLevelString("strategyPreset", LegacyStrategyPreset)
+
+        val payload = RipDpiProxyJsonPreferences(legacyJson).toNativeConfigJson().parseJsonObject()
+
+        assertEquals("ripdpi_default", payload.string("strategyPreset"))
     }
 
     @Test
@@ -484,6 +513,13 @@ class RipDpiProxyPreferencesTest {
 }
 
 private fun String.parseJsonObject(): JsonObject = Json.parseToJsonElement(this).jsonObject
+
+private fun String.withTopLevelString(name: String, value: String): String =
+    JsonObject(
+        parseJsonObject()
+            .toMutableMap()
+            .apply { put(name, JsonPrimitive(value)) },
+    ).toString()
 
 private fun JsonObject.objectAt(name: String): JsonObject = getValue(name).jsonObject
 

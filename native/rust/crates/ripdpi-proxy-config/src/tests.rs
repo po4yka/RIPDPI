@@ -172,7 +172,7 @@ fn legacy_flat_ui_json_is_rejected() {
 #[test]
 fn command_line_payload_requires_runnable_config() {
     let err = runtime_config_from_payload(ProxyConfigPayload::CommandLine {
-        args: vec!["ciadpi".to_string(), "--help".to_string()],
+        args: vec!["ripdpi".to_string(), "--help".to_string()],
         runtime_context: None,
     })
     .expect_err("help should not produce runnable config");
@@ -310,7 +310,7 @@ fn russia_mgts_preset_produces_valid_runtime_config() {
 fn preset_field_in_ui_config_round_trips_json() {
     let cfg = minimal_ui();
     let payload = ProxyConfigPayload::Ui {
-        strategy_preset: Some("byedpi_default".to_string()),
+        strategy_preset: Some("ripdpi_default".to_string()),
         config: cfg,
         runtime_context: None,
     };
@@ -318,7 +318,7 @@ fn preset_field_in_ui_config_round_trips_json() {
     let decoded: ProxyConfigPayload = serde_json::from_str(&json).unwrap();
     match decoded {
         ProxyConfigPayload::Ui { strategy_preset, .. } => {
-            assert_eq!(strategy_preset.as_deref(), Some("byedpi_default"));
+            assert_eq!(strategy_preset.as_deref(), Some("ripdpi_default"));
         }
         other => panic!("expected ui payload, got {other:?}"),
     }

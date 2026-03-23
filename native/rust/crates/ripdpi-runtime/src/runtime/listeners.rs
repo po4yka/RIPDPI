@@ -206,7 +206,7 @@ fn process_client_job(job: ClientJob) {
     let _slot = slot;
     let result = super::handshake::handle_client(client, &state);
     if let Err(err) = &result {
-        log::error!("ciadpi client error: {err}");
+        log::error!("ripdpi client error: {err}");
         if let Some(telemetry) = &state.telemetry {
             telemetry.on_client_error(err);
         }

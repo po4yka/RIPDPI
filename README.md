@@ -166,7 +166,7 @@ To enable signed release builds, configure these repository secrets:
 ## Native Modules
 
 - `native/rust/crates/ripdpi-android`: proxy JNI bridge and proxy runtime telemetry surface
-- `native/rust/crates/hs5t-android`: TUN-to-SOCKS JNI bridge and tunnel telemetry surface
+- `native/rust/crates/ripdpi-tunnel-android`: TUN-to-SOCKS JNI bridge and tunnel telemetry surface
 - `native/rust/crates/ripdpi-monitor`: active diagnostics scans and passive diagnostics events
 - `native/rust/crates/ripdpi-dns-resolver`: shared encrypted DNS resolver used by diagnostics and VPN mode
 - `native/rust/crates/ripdpi-runtime`: shared proxy runtime layer used by `libripdpi.so`

@@ -8,7 +8,7 @@ html_dir="$target_dir/html"
 lcov_path="$target_dir/lcov.info"
 summary_txt="$target_dir/summary.txt"
 metrics_env="$target_dir/metrics.env"
-ignore_regex="${RIPDPI_RUST_COVERAGE_IGNORE_REGEX:-.*/third_party/byedpi/.*}"
+ignore_regex="${RIPDPI_RUST_COVERAGE_IGNORE_REGEX:-.*/third_party/.*}"
 min_line="${RIPDPI_RUST_COVERAGE_MIN_LINE:-70}"
 enforce="${RIPDPI_ENFORCE_COVERAGE_THRESHOLDS:-0}"
 

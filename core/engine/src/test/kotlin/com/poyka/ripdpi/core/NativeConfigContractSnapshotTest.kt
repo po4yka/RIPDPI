@@ -30,7 +30,7 @@ class NativeConfigContractSnapshotTest {
         val payload =
             RipDpiProxyCmdPreferences(
                 arrayOf(
-                    "ciadpi",
+                    "ripdpi",
                     "--ip",
                     "127.0.0.1",
                     "--port",
@@ -50,7 +50,7 @@ class NativeConfigContractSnapshotTest {
                     put(
                         "args",
                         buildJsonArray {
-                            add(JsonPrimitive("ciadpi"))
+                            add(JsonPrimitive("ripdpi"))
                             add(JsonPrimitive("--ip"))
                             add(JsonPrimitive("127.0.0.1"))
                             add(JsonPrimitive("--port"))

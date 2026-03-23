@@ -41,7 +41,7 @@ class RipDpiProxyCmdPreferences(
         private fun cmdToArgs(cmd: String): Array<String> {
             val firstArgIndex = cmd.indexOf("-")
             val argsStr = (if (firstArgIndex > 0) cmd.substring(firstArgIndex) else cmd).trim()
-            return arrayOf("ciadpi") + shellSplit(argsStr)
+            return arrayOf("ripdpi") + shellSplit(argsStr)
         }
     }
 

@@ -3,19 +3,19 @@
   "libraries": {
     "arm64-v8a": {
       "libripdpi.so": 782792,
-      "libhev-socks5-tunnel.so": 1147456
+      "libripdpi-tunnel.so": 1147456
     },
     "armeabi-v7a": {
       "libripdpi.so": 554092,
-      "libhev-socks5-tunnel.so": 808020
+      "libripdpi-tunnel.so": 808020
     },
     "x86": {
       "libripdpi.so": 861184,
-      "libhev-socks5-tunnel.so": 1259696
+      "libripdpi-tunnel.so": 1259696
     },
     "x86_64": {
       "libripdpi.so": 863944,
-      "libhev-socks5-tunnel.so": 1271784
+      "libripdpi-tunnel.so": 1271784
     }
   }
 }

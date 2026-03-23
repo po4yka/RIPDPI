@@ -20,7 +20,7 @@ members = [
     "crates/ripdpi-tunnel-config",
     "crates/ripdpi-tun-driver",
     "crates/ripdpi-tunnel-core",
-    "crates/hs5t-android",
+    "crates/ripdpi-tunnel-android",
 ]
 
 [workspace.package]

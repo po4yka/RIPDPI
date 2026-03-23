@@ -83,20 +83,20 @@ class CheckFileLocLimitsTest(unittest.TestCase):
         self.assertTrue(check_file_loc_limits.is_compose_source(activity_source))
         self.assertFalse(check_file_loc_limits.is_compose_source(plain_source))
 
-    def test_scope_filters_exclude_tests_vendored_and_build_outputs(self) -> None:
+    def test_scope_filters_exclude_tests_non_crate_and_build_outputs(self) -> None:
         tracked = [
-            "app/src/main/java/com/poyka/ripdpi/ui/screens/HomeScreen.kt",
-            "app/src/test/java/com/poyka/ripdpi/ui/screens/HomeScreenTest.kt",
+            "app/src/main/kotlin/com/poyka/ripdpi/ui/screens/HomeScreen.kt",
+            "app/src/test/kotlin/com/poyka/ripdpi/ui/screens/HomeScreenTest.kt",
             "core/service/build/generated/Test.kt",
             "native/rust/crates/ripdpi-runtime/src/lib.rs",
-            "native/rust/third_party/byedpi/crates/ciadpi-bin/src/runtime.rs",
+            "native/rust/vendor/example/src/runtime.rs",
         ]
 
         paths = check_file_loc_limits.iter_source_paths(Path("/repo"), tracked)
 
         self.assertEqual(
             [
-                Path("app/src/main/java/com/poyka/ripdpi/ui/screens/HomeScreen.kt"),
+                Path("app/src/main/kotlin/com/poyka/ripdpi/ui/screens/HomeScreen.kt"),
                 Path("native/rust/crates/ripdpi-runtime/src/lib.rs"),
             ],
             paths,
@@ -105,13 +105,13 @@ class CheckFileLocLimitsTest(unittest.TestCase):
     def test_baseline_exempts_known_violations_and_flags_new_ones(self) -> None:
         measurements = [
             check_file_loc_limits.SourceMeasurement(
-                path="app/src/main/java/com/poyka/ripdpi/ui/screens/DnsSettingsScreen.kt",
+                path="app/src/main/kotlin/com/poyka/ripdpi/ui/screens/DnsSettingsScreen.kt",
                 kind="compose",
                 measured_loc=1200,
                 limit=1000,
             ),
             check_file_loc_limits.SourceMeasurement(
-                path="core/data/src/main/java/com/poyka/ripdpi/data/diagnostics/DiagnosticsDatabase.kt",
+                path="core/data/src/main/kotlin/com/poyka/ripdpi/data/diagnostics/DiagnosticsDatabase.kt",
                 kind="kotlin",
                 measured_loc=900,
                 limit=700,
@@ -119,11 +119,11 @@ class CheckFileLocLimitsTest(unittest.TestCase):
         ]
         baseline = {
             (
-                "app/src/main/java/com/poyka/ripdpi/ui/screens/DnsSettingsScreen.kt",
+                "app/src/main/kotlin/com/poyka/ripdpi/ui/screens/DnsSettingsScreen.kt",
                 "compose",
                 1000,
             ): check_file_loc_limits.BaselineEntry(
-                path="app/src/main/java/com/poyka/ripdpi/ui/screens/DnsSettingsScreen.kt",
+                path="app/src/main/kotlin/com/poyka/ripdpi/ui/screens/DnsSettingsScreen.kt",
                 kind="compose",
                 measured_loc=1180,
                 limit=1000,
@@ -135,23 +135,23 @@ class CheckFileLocLimitsTest(unittest.TestCase):
         self.assertEqual(1, len(results["baselineExemptions"]))
         self.assertEqual(1, len(results["newViolations"]))
         self.assertEqual(
-            "core/data/src/main/java/com/poyka/ripdpi/data/diagnostics/DiagnosticsDatabase.kt",
+            "core/data/src/main/kotlin/com/poyka/ripdpi/data/diagnostics/DiagnosticsDatabase.kt",
             results["newViolations"][0]["path"],
         )
 
     def test_stale_and_missing_baseline_entries_are_reported(self) -> None:
         measurements = [
             check_file_loc_limits.SourceMeasurement(
-                path="app/src/main/java/com/poyka/ripdpi/activities/MainViewModel.kt",
+                path="app/src/main/kotlin/com/poyka/ripdpi/activities/MainViewModel.kt",
                 kind="kotlin",
                 measured_loc=650,
                 limit=700,
             ),
         ]
         baseline = {
-            ("app/src/main/java/com/poyka/ripdpi/activities/MainViewModel.kt", "kotlin", 700):
+            ("app/src/main/kotlin/com/poyka/ripdpi/activities/MainViewModel.kt", "kotlin", 700):
                 check_file_loc_limits.BaselineEntry(
-                    path="app/src/main/java/com/poyka/ripdpi/activities/MainViewModel.kt",
+                    path="app/src/main/kotlin/com/poyka/ripdpi/activities/MainViewModel.kt",
                     kind="kotlin",
                     measured_loc=720,
                     limit=700,

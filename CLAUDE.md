@@ -33,7 +33,7 @@ Android VPN/proxy app for network optimization using in-repository Rust native m
 ## Native Code Rules
 
 - `libripdpi.so` is built from `native/rust/crates/ripdpi-android`
-- `libhev-socks5-tunnel.so` is built from `native/rust/crates/hs5t-android`
+- `libripdpi-tunnel.so` is built from `native/rust/crates/ripdpi-tunnel-android`
 - `:core:engine:buildRustNativeLibs` builds both libraries from the `native/rust` workspace into `core/engine/build/generated/jniLibs/`
 - NDK version and ABI filters are in `gradle.properties` (single source of truth)
 - Never edit `.so` files directly -- they are built from source
@@ -76,7 +76,7 @@ Android VPN/proxy app for network optimization using in-repository Rust native m
 
 - TDD is the default workflow for features, bugfixes, and refactors. Use the `tdd` skill (`.github/skills/tdd/SKILL.md`).
 - Test doubles are hand-written `Fake*` classes in `TestDoubles.kt`. No mocking frameworks (MockK, Mockito).
-- Fault injection uses `FaultQueue<T>` + `FaultSpec` from `core/engine/src/main/java/com/poyka/ripdpi/core/testing/FaultModel.kt`.
+- Fault injection uses `FaultQueue<T>` + `FaultSpec` from `core/engine/src/main/kotlin/com/poyka/ripdpi/core/testing/FaultModel.kt`.
 - Kotlin test names use backticks: `` `proxy start propagates exception` ``. Rust uses `snake_case`.
 - Prefer single-module test commands for fast iteration: `./gradlew :core:engine:testDebugUnitTest --tests "ClassName"`.
 - `./gradlew staticAnalysis` applies to test code -- run it before committing.

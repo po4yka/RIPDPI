@@ -478,8 +478,8 @@
     <string name="quic_fake_preset_recommended">Рекомендуется</string>
     <string name="quic_fake_preset_off_title">Выключено</string>
     <string name="quic_fake_preset_off_body">Сохранить существующий путь сырой UDP fake-нагрузки. Используйте это, если нужны только fake-пачки на транспортном уровне.</string>
-    <string name="quic_fake_preset_compat_title">Совместимость с Zapret</string>
-    <string name="quic_fake_preset_compat_body">Генерировать фиксированный 620-байтный blob совместимости, соответствующий поведению fake-нагрузки QUIC в стиле zapret.</string>
+    <string name="quic_fake_preset_compat_title">Blob совместимости</string>
+    <string name="quic_fake_preset_compat_body">Генерировать фиксированный 620-байтный blob совместимости для fake-нагрузок QUIC.</string>
     <string name="quic_fake_preset_realistic_title">Реалистичный Initial</string>
     <string name="quic_fake_preset_realistic_body">Собирать корректный IETF QUIC Initial, при возможности зеркалировать v1 или v2 и при необходимости переопределять встроенный хост.</string>
     <string name="quic_fake_profile_cli_title">Управляется командной строкой</string>
@@ -499,7 +499,7 @@
     <string name="quic_fake_profile_summary_label_scope">Область применения</string>
     <string name="quic_fake_profile_summary_label_burst">UDP-пачка</string>
     <string name="quic_fake_profile_summary_off">Выключено</string>
-    <string name="quic_fake_profile_summary_compat">Совместимость с Zapret</string>
+    <string name="quic_fake_profile_summary_compat">Blob совместимости</string>
     <string name="quic_fake_profile_summary_realistic">Реалистичный Initial</string>
     <string name="quic_fake_profile_host_unused">Не используется для этого пресета</string>
     <string name="quic_fake_profile_badge_initial_only">Только QUIC Initial</string>
@@ -691,7 +691,7 @@ hostfake endhost host=cdn.discordapp.net</string>
     <string name="ripdpi_fake_approx_example_http">fakedsplit host+1</string>
     <string name="ripdpi_fake_approx_example_tls">tlsrec extlen
 fakeddisorder endhost</string>
-    <string name="ripdpi_fake_approx_scope_note">Это приближения для Linux/Android, а не полный аналог zapret. Они повторно используют фейковые полезные нагрузки RIPDPI и фейковый транспорт вместо перекрытия порядковых номеров или дублирования сырых отправок.</string>
+    <string name="ripdpi_fake_approx_scope_note">Это приближения для Linux/Android, а не реализации с побайтовым паритетом. Они повторно используют фейковые полезные нагрузки RIPDPI и фейковый транспорт вместо перекрытия порядковых номеров или дублирования сырых отправок.</string>
     <string name="ripdpi_fake_approx_badge_available">Доступно</string>
     <string name="ripdpi_fake_approx_badge_configured">Настроено</string>
     <string name="ripdpi_fake_approx_badge_linux_android">Только Linux/Android</string>

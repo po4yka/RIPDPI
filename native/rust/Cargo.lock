@@ -841,32 +841,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "hs5t-android"
-version = "0.1.0"
-dependencies = [
- "android-support",
- "golden-test-support",
- "jni",
- "libc",
- "local-network-fixture",
- "log",
- "loom",
- "native-soak-support",
- "nix",
- "once_cell",
- "proptest",
- "ripdpi-telemetry",
- "ripdpi-tun-driver",
- "ripdpi-tunnel-config",
- "ripdpi-tunnel-core",
- "serde",
- "serde_json",
- "tokio",
- "tokio-util",
- "tracing",
-]
-
-[[package]]
 name = "http"
 version = "1.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1952,6 +1926,32 @@ dependencies = [
  "libc",
  "nix",
  "thiserror 2.0.18",
+]
+
+[[package]]
+name = "ripdpi-tunnel-android"
+version = "0.1.0"
+dependencies = [
+ "android-support",
+ "golden-test-support",
+ "jni",
+ "libc",
+ "local-network-fixture",
+ "log",
+ "loom",
+ "native-soak-support",
+ "nix",
+ "once_cell",
+ "proptest",
+ "ripdpi-telemetry",
+ "ripdpi-tun-driver",
+ "ripdpi-tunnel-config",
+ "ripdpi-tunnel-core",
+ "serde",
+ "serde_json",
+ "tokio",
+ "tokio-util",
+ "tracing",
 ]
 
 [[package]]

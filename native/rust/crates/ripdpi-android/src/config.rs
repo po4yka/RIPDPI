@@ -395,7 +395,7 @@ mod tests {
     #[test]
     fn parses_command_line_payloads_for_runtime_config() {
         let config = runtime_config_from_payload(command_line_payload(vec![
-            "ciadpi".to_string(),
+            "ripdpi".to_string(),
             "--ip".to_string(),
             "127.0.0.1".to_string(),
             "--port".to_string(),
@@ -411,7 +411,7 @@ mod tests {
 
     #[test]
     fn rejects_non_runnable_command_line_payloads() {
-        let err = runtime_config_from_command_line(vec!["ciadpi".to_string(), "--help".to_string()])
+        let err = runtime_config_from_command_line(vec!["ripdpi".to_string(), "--help".to_string()])
             .expect_err("help payload should not run");
 
         assert!(err.to_string().contains("runnable config"));

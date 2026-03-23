@@ -39,7 +39,7 @@ fn build_shared_tunnel_runtime() -> io::Result<Arc<Runtime>> {
     tokio::runtime::Builder::new_multi_thread()
         .worker_threads(2)
         .thread_stack_size(1024 * 1024)
-        .thread_name("hs5t-tokio")
+        .thread_name("ripdpi-tunnel-tokio")
         .enable_all()
         .build()
         .map(Arc::new)
@@ -50,7 +50,7 @@ fn shared_tunnel_runtime() -> io::Result<Arc<Runtime>> {
 }
 
 pub(crate) fn tunnel_create_entry(mut env: JNIEnv, config_json: JString) -> jlong {
-    android_support::init_android_logging("hs5t-native");
+    android_support::init_android_logging("ripdpi-tunnel-native");
     std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| create_session(&mut env, config_json))).unwrap_or_else(
         |_| {
             throw_runtime_exception(&mut env, "Tunnel session creation panicked");
@@ -60,19 +60,19 @@ pub(crate) fn tunnel_create_entry(mut env: JNIEnv, config_json: JString) -> jlon
 }
 
 pub(crate) fn tunnel_start_entry(mut env: JNIEnv, handle: jlong, tun_fd: jint) {
-    android_support::init_android_logging("hs5t-native");
+    android_support::init_android_logging("ripdpi-tunnel-native");
     let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| start_session(&mut env, handle, tun_fd)))
         .map_err(|_| throw_runtime_exception(&mut env, "Tunnel session start panicked"));
 }
 
 pub(crate) fn tunnel_stop_entry(mut env: JNIEnv, handle: jlong) {
-    android_support::init_android_logging("hs5t-native");
+    android_support::init_android_logging("ripdpi-tunnel-native");
     let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| stop_session(&mut env, handle)))
         .map_err(|_| throw_runtime_exception(&mut env, "Tunnel session stop panicked"));
 }
 
 pub(crate) fn tunnel_stats_entry(mut env: JNIEnv, handle: jlong) -> jlongArray {
-    android_support::init_android_logging("hs5t-native");
+    android_support::init_android_logging("ripdpi-tunnel-native");
     std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| stats_session(&mut env, handle))).unwrap_or_else(|_| {
         throw_runtime_exception(&mut env, "Tunnel stats retrieval panicked");
         std::ptr::null_mut()
@@ -80,7 +80,7 @@ pub(crate) fn tunnel_stats_entry(mut env: JNIEnv, handle: jlong) -> jlongArray {
 }
 
 pub(crate) fn tunnel_telemetry_entry(mut env: JNIEnv, handle: jlong) -> jni::sys::jstring {
-    android_support::init_android_logging("hs5t-native");
+    android_support::init_android_logging("ripdpi-tunnel-native");
     std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| telemetry_session(&mut env, handle))).unwrap_or_else(
         |_| {
             throw_runtime_exception(&mut env, "Tunnel telemetry retrieval panicked");
@@ -90,7 +90,7 @@ pub(crate) fn tunnel_telemetry_entry(mut env: JNIEnv, handle: jlong) -> jni::sys
 }
 
 pub(crate) fn tunnel_destroy_entry(mut env: JNIEnv, handle: jlong) {
-    android_support::init_android_logging("hs5t-native");
+    android_support::init_android_logging("ripdpi-tunnel-native");
     let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| destroy_session(&mut env, handle)))
         .map_err(|_| throw_runtime_exception(&mut env, "Tunnel session destroy panicked"));
 }
@@ -200,7 +200,7 @@ fn start_session(env: &mut JNIEnv, handle: jlong, tun_fd: jint) {
 
     let worker_cancel = cancel.clone();
     let worker_stats = stats.clone();
-    let worker = match std::thread::Builder::new().name("hs5t-worker".into()).spawn(move || {
+    let worker = match std::thread::Builder::new().name("ripdpi-tunnel-worker".into()).spawn(move || {
         let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
             runtime.block_on(ripdpi_tunnel_core::run_tunnel(
                 config,

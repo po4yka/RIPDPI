@@ -74,7 +74,7 @@ class NativeTelemetryGoldenSmokeTest {
             bindings.start(handle, pipe[0].fd)
 
             awaitUntil(timeoutMs = 10_000) {
-                val logcat = execShell("logcat -d -s hs5t-native:I")
+                val logcat = execShell("logcat -d -s ripdpi-tunnel-native:I")
                 logcat.contains("tunnel started upstream=127.0.0.1:1080") &&
                     (logcat.contains("tunnel error:") || logcat.contains("tunnel worker exited with error"))
             }
