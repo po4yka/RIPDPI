@@ -1,0 +1,162 @@
+title: "RIPDPI User Guide"
+
+defaults:
+  permission_preset: "granted"
+  service_preset: "idle"
+  data_preset: "settings_ready"
+  settle_ms: 1500
+
+pages:
+  - id: home_overview
+    title: "Home Screen"
+    route: "home"
+    description: |
+      The home screen shows your current connection status, the selected
+      approach card, and a history shortcut. Tap the large connection button
+      to start or stop the VPN/proxy service.
+    annotations:
+      - type: arrow
+        from: [0.85, 0.20]
+        to: [0.50, 0.32]
+        label: "Connection button"
+      - type: arrow
+        from: [0.15, 0.55]
+        to: [0.40, 0.48]
+        label: "Approach card"
+      - type: circle
+        center: [0.50, 0.72]
+        radius: 0.10
+        label: "Stats grid"
+
+  - id: config_screen
+    title: "Configuration"
+    route: "config"
+    description: |
+      The configuration screen lets you pick a preset or edit the active
+      mode. Tap "Edit current" to open the mode editor, or select a
+      preset card to apply it.
+    annotations:
+      - type: arrow
+        from: [0.85, 0.15]
+        to: [0.60, 0.22]
+        label: "Edit current mode"
+      - type: arrow
+        from: [0.15, 0.55]
+        to: [0.40, 0.48]
+        label: "Preset cards"
+
+  - id: mode_editor
+    title: "Mode Editor"
+    route: "mode_editor"
+    description: |
+      The mode editor lets you tweak proxy settings like IP, port,
+      buffer size, and the chain DSL. Hit Save when done.
+    annotations:
+      - type: arrow
+        from: [0.85, 0.12]
+        to: [0.70, 0.08]
+        label: "Save"
+      - type: bracket
+        y_range: [0.15, 0.50]
+        side: "left"
+        label: "Core settings"
+      - type: arrow
+        from: [0.85, 0.60]
+        to: [0.50, 0.55]
+        label: "Chain DSL field"
+
+  - id: settings_main
+    title: "Settings"
+    route: "settings"
+    description: |
+      Access DNS configuration, advanced settings, biometric lock,
+      theming, and diagnostic tools from the settings screen.
+    annotations:
+      - type: arrow
+        from: [0.85, 0.22]
+        to: [0.50, 0.28]
+        label: "DNS Settings"
+      - type: arrow
+        from: [0.85, 0.34]
+        to: [0.50, 0.40]
+        label: "Advanced Settings"
+      - type: arrow
+        from: [0.15, 0.70]
+        to: [0.40, 0.76]
+        label: "Support Bundle"
+
+  - id: dns_settings
+    title: "DNS Settings"
+    route: "dns_settings"
+    description: |
+      Choose a DNS resolver or configure a custom one. Supported
+      protocols include plain DNS, DoH, DoT, and DNSCrypt.
+    annotations:
+      - type: bracket
+        y_range: [0.12, 0.45]
+        side: "right"
+        label: "Resolver list"
+      - type: arrow
+        from: [0.15, 0.65]
+        to: [0.40, 0.58]
+        label: "Custom DNS fields"
+
+  - id: advanced_settings
+    title: "Advanced Settings"
+    route: "advanced_settings"
+    description: |
+      Fine-tune desync parameters, HTTPS handling, QUIC blocking,
+      and host autolearn behavior. Scroll down for activation
+      window and per-network settings.
+    annotations:
+      - type: bracket
+        y_range: [0.12, 0.50]
+        side: "right"
+        label: "Desync options"
+
+  - id: advanced_settings_scroll
+    title: "Advanced Settings (scrolled)"
+    route: "advanced_settings"
+    scroll_to: "advanced-section-activation-window"
+    description: |
+      The activation window lets you schedule when the proxy is
+      active. Configure start and end times per day.
+    annotations:
+      - type: circle
+        center: [0.50, 0.35]
+        radius: 0.15
+        label: "Activation window"
+
+  - id: diagnostics_overview
+    title: "Diagnostics"
+    route: "diagnostics"
+    data_preset: "diagnostics_demo"
+    description: |
+      Run diagnostic scans to find the best bypass strategy for
+      your network. Review past sessions and share results with
+      the developer for troubleshooting.
+    annotations:
+      - type: arrow
+        from: [0.85, 0.18]
+        to: [0.50, 0.25]
+        label: "Scan controls"
+      - type: arrow
+        from: [0.15, 0.70]
+        to: [0.40, 0.78]
+        label: "Share archive"
+
+  - id: history_screen
+    title: "History"
+    route: "history"
+    description: |
+      View connection history, past diagnostic sessions, and event
+      logs. Use the search bar to filter entries.
+    annotations:
+      - type: arrow
+        from: [0.85, 0.15]
+        to: [0.60, 0.10]
+        label: "Search"
+      - type: bracket
+        y_range: [0.20, 0.70]
+        side: "right"
+        label: "Session list"
