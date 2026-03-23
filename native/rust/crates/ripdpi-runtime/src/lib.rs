@@ -17,6 +17,7 @@ pub mod process;
 pub mod retry_stealth;
 pub mod runtime;
 pub mod runtime_policy;
+pub mod ws_bootstrap;
 
 pub trait RuntimeTelemetrySink: Send + Sync {
     fn on_listener_started(&self, bind_addr: SocketAddr, max_clients: usize, group_count: usize);
