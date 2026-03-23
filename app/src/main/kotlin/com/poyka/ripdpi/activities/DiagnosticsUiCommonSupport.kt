@@ -213,6 +213,22 @@ internal fun BypassApproachSummary.toDiagnosticsTone(): DiagnosticsTone =
         else -> DiagnosticsTone.Negative
     }
 
+/**
+ * Tone for the SUCCESS metric badge specifically.
+ *
+ * Unlike [toDiagnosticsTone] (used for the overall row), this treats
+ * unverified and 0 % success as neutral states rather than failures.
+ * Red / Negative is reserved for genuine error indicators elsewhere.
+ */
+internal fun BypassApproachSummary.successMetricTone(): DiagnosticsTone {
+    val rate = validatedSuccessRate ?: return DiagnosticsTone.Neutral
+    return when {
+        rate >= 0.75f -> DiagnosticsTone.Positive
+        rate > 0f -> DiagnosticsTone.Warning
+        else -> DiagnosticsTone.Neutral // 0 % -- not yet proven, not an error
+    }
+}
+
 internal fun DiagnosticsUiFactorySupport.parsePathMode(value: String) = core.parsePathMode(value)
 
 internal fun DiagnosticsUiFactorySupport.formatTimestamp(timestamp: Long): String = core.formatTimestamp(timestamp)
