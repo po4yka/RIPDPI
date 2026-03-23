@@ -1,5 +1,11 @@
 package com.poyka.ripdpi.ui.screens.settings
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -47,6 +53,7 @@ import com.poyka.ripdpi.ui.components.scaffold.RipDpiSettingsScaffold
 import com.poyka.ripdpi.ui.navigation.Route
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
+import com.poyka.ripdpi.ui.theme.RipDpiMotion
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
@@ -107,14 +114,16 @@ internal fun SettingsScreen(
     modifier: Modifier = Modifier,
 ) {
     val colors = RipDpiThemeTokens.colors
+    val motion = RipDpiThemeTokens.motion
     val spacing = RipDpiThemeTokens.spacing
     val themeLabels = stringArrayResource(R.array.themes)
     val themeEntries = stringArrayResource(R.array.themes_entries)
-    val themeOptions = remember(themeLabels, themeEntries) {
-        themeLabels.zip(themeEntries).map { (label, value) ->
-            RipDpiDropdownOption(value = value, label = label)
+    val themeOptions =
+        remember(themeLabels, themeEntries) {
+            themeLabels.zip(themeEntries).map { (label, value) ->
+                RipDpiDropdownOption(value = value, label = label)
+            }
         }
-    }
     var backupPinDraft by rememberSaveable { mutableStateOf("") }
     val pinErrorText =
         when {
@@ -172,7 +181,39 @@ internal fun SettingsScreen(
                     title = stringResource(R.string.settings_security_section),
                 )
 
-                if (uiState.biometricEnabled && !uiState.hasBackupPin && backupPinDraft.isBlank()) {
+                AnimatedVisibility(
+                    visible = uiState.biometricEnabled && !uiState.hasBackupPin && backupPinDraft.isBlank(),
+                    enter =
+                        expandVertically(
+                            animationSpec =
+                                tween(
+                                    motion.duration(motion.emphasizedDurationMillis),
+                                    easing = RipDpiMotion.EmphasizedDecelerate,
+                                ),
+                        ) +
+                            fadeIn(
+                                animationSpec =
+                                    tween(
+                                        motion.duration(motion.stateDurationMillis),
+                                        easing = RipDpiMotion.EmphasizedDecelerate,
+                                    ),
+                            ),
+                    exit =
+                        shrinkVertically(
+                            animationSpec =
+                                tween(
+                                    motion.duration(motion.quickDurationMillis),
+                                    easing = RipDpiMotion.EmphasizedAccelerate,
+                                ),
+                        ) +
+                            fadeOut(
+                                animationSpec =
+                                    tween(
+                                        motion.duration(motion.quickDurationMillis),
+                                        easing = RipDpiMotion.EmphasizedAccelerate,
+                                    ),
+                            ),
+                ) {
                     WarningBanner(
                         title = stringResource(R.string.settings_warning_backup_pin_title),
                         message = stringResource(R.string.settings_warning_backup_pin_body),
@@ -214,7 +255,39 @@ internal fun SettingsScreen(
                         testTag = RipDpiTestTags.SettingsBiometric,
                     )
 
-                    if (showBackupPinEditor) {
+                    AnimatedVisibility(
+                        visible = showBackupPinEditor,
+                        enter =
+                            expandVertically(
+                                animationSpec =
+                                    tween(
+                                        motion.duration(motion.emphasizedDurationMillis),
+                                        easing = RipDpiMotion.EmphasizedDecelerate,
+                                    ),
+                            ) +
+                                fadeIn(
+                                    animationSpec =
+                                        tween(
+                                            motion.duration(motion.stateDurationMillis),
+                                            easing = RipDpiMotion.EmphasizedDecelerate,
+                                        ),
+                                ),
+                        exit =
+                            shrinkVertically(
+                                animationSpec =
+                                    tween(
+                                        motion.duration(motion.quickDurationMillis),
+                                        easing = RipDpiMotion.EmphasizedAccelerate,
+                                    ),
+                            ) +
+                                fadeOut(
+                                    animationSpec =
+                                        tween(
+                                            motion.duration(motion.quickDurationMillis),
+                                            easing = RipDpiMotion.EmphasizedAccelerate,
+                                        ),
+                                ),
+                    ) {
                         BackupPinEditor(
                             value = backupPinDraft,
                             errorText = pinErrorText,
@@ -273,15 +346,51 @@ internal fun SettingsScreen(
             SettingsSection(
                 title = stringResource(R.string.settings_permissions_section),
             ) {
-                permissionSummary.backgroundGuidance?.let { guidance ->
-                    WarningBanner(
-                        title = guidance.title,
-                        message = guidance.message,
-                        tone = WarningBannerTone.Info,
-                        testTag = RipDpiTestTags.SettingsBackgroundGuidanceBanner,
-                        onDismiss = onDismissBackgroundGuidance,
-                    )
-                    HorizontalDivider(color = colors.divider)
+                AnimatedVisibility(
+                    visible = permissionSummary.backgroundGuidance != null,
+                    enter =
+                        expandVertically(
+                            animationSpec =
+                                tween(
+                                    motion.duration(motion.emphasizedDurationMillis),
+                                    easing = RipDpiMotion.EmphasizedDecelerate,
+                                ),
+                        ) +
+                            fadeIn(
+                                animationSpec =
+                                    tween(
+                                        motion.duration(motion.stateDurationMillis),
+                                        easing = RipDpiMotion.EmphasizedDecelerate,
+                                    ),
+                            ),
+                    exit =
+                        shrinkVertically(
+                            animationSpec =
+                                tween(
+                                    motion.duration(motion.quickDurationMillis),
+                                    easing = RipDpiMotion.EmphasizedAccelerate,
+                                ),
+                        ) +
+                            fadeOut(
+                                animationSpec =
+                                    tween(
+                                        motion.duration(motion.quickDurationMillis),
+                                        easing = RipDpiMotion.EmphasizedAccelerate,
+                                    ),
+                            ),
+                ) {
+                    permissionSummary.backgroundGuidance?.let { guidance ->
+                        Column {
+                            WarningBanner(
+                                title = guidance.title,
+                                message = guidance.message,
+                                tone = WarningBannerTone.Info,
+                                testTag = RipDpiTestTags.SettingsBackgroundGuidanceBanner,
+                                onDismiss = onDismissBackgroundGuidance,
+                            )
+                            HorizontalDivider(color = colors.divider)
+                        }
+                    }
                 }
                 permissionSummary.items.forEachIndexed { index, item ->
                     SettingsRow(

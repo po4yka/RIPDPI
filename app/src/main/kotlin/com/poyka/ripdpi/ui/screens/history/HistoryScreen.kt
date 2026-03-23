@@ -1,5 +1,12 @@
 package com.poyka.ripdpi.ui.screens.history
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -56,6 +63,7 @@ import com.poyka.ripdpi.ui.navigation.Route
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
+import com.poyka.ripdpi.ui.theme.RipDpiMotion
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
 @Composable
@@ -151,35 +159,69 @@ internal fun HistoryScreen(
                     selectedSection = uiState.selectedSection,
                     onSelectSection = onSelectSection,
                 )
-                when (uiState.selectedSection) {
-                    HistorySection.Connections -> {
-                        ConnectionsSection(
-                            uiState = uiState,
-                            onModeFilter = onConnectionModeFilter,
-                            onStatusFilter = onConnectionStatusFilter,
-                            onSearch = onConnectionSearch,
-                            onSelectConnection = onSelectConnection,
-                        )
-                    }
+                val motion = RipDpiThemeTokens.motion
+                AnimatedContent(
+                    targetState = uiState.selectedSection,
+                    transitionSpec = {
+                        val direction = targetState.ordinal.compareTo(initialState.ordinal)
+                        val enterSlide =
+                            slideInHorizontally(
+                                initialOffsetX = { fullWidth -> fullWidth / 4 * if (direction >= 0) 1 else -1 },
+                                animationSpec =
+                                    tween(
+                                        motion.duration(motion.stateDurationMillis),
+                                        easing = RipDpiMotion.EmphasizedDecelerate,
+                                    ),
+                            ) +
+                                fadeIn(
+                                    animationSpec = tween(motion.duration(motion.stateDurationMillis)),
+                                )
+                        val exitSlide =
+                            slideOutHorizontally(
+                                targetOffsetX = { fullWidth -> fullWidth / 4 * if (direction >= 0) -1 else 1 },
+                                animationSpec =
+                                    tween(
+                                        motion.duration(motion.quickDurationMillis),
+                                        easing = RipDpiMotion.EmphasizedAccelerate,
+                                    ),
+                            ) +
+                                fadeOut(
+                                    animationSpec = tween(motion.duration(motion.quickDurationMillis)),
+                                )
+                        enterSlide togetherWith exitSlide
+                    },
+                    label = "historySectionContent",
+                ) { section ->
+                    when (section) {
+                        HistorySection.Connections -> {
+                            ConnectionsSection(
+                                uiState = uiState,
+                                onModeFilter = onConnectionModeFilter,
+                                onStatusFilter = onConnectionStatusFilter,
+                                onSearch = onConnectionSearch,
+                                onSelectConnection = onSelectConnection,
+                            )
+                        }
 
-                    HistorySection.Diagnostics -> {
-                        DiagnosticsSection(
-                            uiState = uiState,
-                            onPathFilter = onDiagnosticsPathFilter,
-                            onStatusFilter = onDiagnosticsStatusFilter,
-                            onSearch = onDiagnosticsSearch,
-                            onSelectSession = onSelectDiagnosticsSession,
-                        )
-                    }
+                        HistorySection.Diagnostics -> {
+                            DiagnosticsSection(
+                                uiState = uiState,
+                                onPathFilter = onDiagnosticsPathFilter,
+                                onStatusFilter = onDiagnosticsStatusFilter,
+                                onSearch = onDiagnosticsSearch,
+                                onSelectSession = onSelectDiagnosticsSession,
+                            )
+                        }
 
-                    HistorySection.Events -> {
-                        EventsSection(
-                            uiState = uiState,
-                            onToggleFilter = onToggleEventFilter,
-                            onSearch = onEventSearch,
-                            onAutoScroll = onEventAutoScroll,
-                            onSelectEvent = onSelectEvent,
-                        )
+                        HistorySection.Events -> {
+                            EventsSection(
+                                uiState = uiState,
+                                onToggleFilter = onToggleEventFilter,
+                                onSearch = onEventSearch,
+                                onAutoScroll = onEventAutoScroll,
+                                onSelectEvent = onSelectEvent,
+                            )
+                        }
                     }
                 }
             }
