@@ -317,8 +317,12 @@ fn telemetry_session(env: &mut JNIEnv, handle: jlong) -> jni::sys::jstring {
         };
         let resolver_id = session.config.mapdns.as_ref().and_then(|mapdns| mapdns.resolver_id.clone());
         let resolver_protocol = session.config.mapdns.as_ref().and_then(mapdns_resolver_protocol);
-        match serde_json::to_string(&session.telemetry.snapshot(traffic_stats, dns_stats, resolver_id, resolver_protocol))
-        {
+        match serde_json::to_string(&session.telemetry.snapshot(
+            traffic_stats,
+            dns_stats,
+            resolver_id,
+            resolver_protocol,
+        )) {
             Ok(value) => env.new_string(value).map(|s| s.into()),
             Err(err) => {
                 throw_runtime_exception(env, err.to_string());
@@ -822,7 +826,7 @@ mod tests {
     fn sample_payload_json() -> String {
         r#"{
             "tunnelName": "tun0",
-            "tunnelMtu": 8500,
+            "tunnelMtu": 1500,
             "multiQueue": false,
             "tunnelIpv4": null,
             "tunnelIpv6": null,
