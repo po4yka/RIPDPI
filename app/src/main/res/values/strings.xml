@@ -1482,4 +1482,11 @@ Source: %2$s</string>
     <string name="dns_placeholder_doh_url">https://resolver.example/dns-query</string>
     <string name="dns_placeholder_bootstrap_ips">1.1.1.1, 1.0.0.1</string>
     <string name="dns_placeholder_port">443</string>
+
+    <!-- Live monitor friendly error summaries -->
+    <string name="diagnostics_error_connect_failure">Connection failed</string>
+    <string name="diagnostics_error_silent_drop">Connection silently dropped</string>
+    <string name="diagnostics_error_timeout">Connection timed out</string>
+    <string name="diagnostics_error_dns_failure">DNS resolution failed</string>
+    <string name="diagnostics_error_unknown">Connection error</string>
 </resources>

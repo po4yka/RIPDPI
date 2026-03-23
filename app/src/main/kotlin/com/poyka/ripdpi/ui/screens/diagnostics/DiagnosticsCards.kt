@@ -771,6 +771,7 @@ internal fun EventRow(
     modifier: Modifier = Modifier,
 ) {
     val colors = RipDpiThemeTokens.colors
+    val friendlySummary = friendlyErrorSummary(event.message)
     RipDpiCard(
         modifier = modifier,
         onClick = onClick,
@@ -794,11 +795,18 @@ internal fun EventRow(
                     EventBadge(text = event.source, tone = event.tone)
                     EventBadge(text = event.severity, tone = event.tone)
                 }
+                if (friendlySummary != null) {
+                    Text(
+                        text = friendlySummary,
+                        style = RipDpiThemeTokens.type.bodyEmphasis,
+                        color = colors.foreground,
+                    )
+                }
                 Text(
                     text = event.message,
-                    style = RipDpiThemeTokens.type.body,
-                    color = colors.foreground,
-                    maxLines = 2,
+                    style = RipDpiThemeTokens.type.secondaryBody,
+                    color = colors.mutedForeground,
+                    maxLines = 3,
                     overflow = TextOverflow.Ellipsis,
                 )
             }
@@ -808,6 +816,21 @@ internal fun EventRow(
                 color = colors.mutedForeground,
             )
         }
+    }
+}
+
+private val errorClassPattern = Regex("""class=(\S+)""")
+
+@Composable
+private fun friendlyErrorSummary(message: String): String? {
+    val match = errorClassPattern.find(message) ?: return null
+    val errorClass = match.groupValues[1]
+    return when (errorClass) {
+        "connect_failure" -> stringResource(R.string.diagnostics_error_connect_failure)
+        "silent_drop" -> stringResource(R.string.diagnostics_error_silent_drop)
+        "timeout" -> stringResource(R.string.diagnostics_error_timeout)
+        "dns_failure" -> stringResource(R.string.diagnostics_error_dns_failure)
+        else -> stringResource(R.string.diagnostics_error_unknown)
     }
 }
 
