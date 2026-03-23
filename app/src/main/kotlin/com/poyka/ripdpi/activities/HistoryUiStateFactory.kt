@@ -24,6 +24,8 @@ internal class HistoryUiStateFactory
             val eventModels = repositorySnapshot.nativeEvents.map(coreSupport::toEventUiModel)
             val filteredEvents = eventModels.filter { it.matches(eventFilters) }
 
+            val groupedEvents = groupConsecutiveEvents(filteredEvents)
+
             return HistoryUiState(
                 selectedSection = selectedSection,
                 connections =
@@ -66,6 +68,7 @@ internal class HistoryUiStateFactory
                         availableSeverities = eventModels.map { it.severity }.distinct(),
                         focusedEventId = detailState.selectedEventId,
                     ),
+                groupedEvents = groupedEvents,
                 selectedConnectionDetail = detailState.selectedConnectionDetail,
                 selectedDiagnosticsDetail = detailState.selectedDiagnosticsDetail,
                 selectedEvent = eventModels.firstOrNull { it.id == detailState.selectedEventId },
@@ -87,3 +90,55 @@ private fun DiagnosticsEventUiModel.matches(filters: HistoryEventFilterState): B
     (filters.sourceFilter == null || source.equals(filters.sourceFilter, ignoreCase = true)) &&
         (filters.severityFilter == null || severity.equals(filters.severityFilter, ignoreCase = true)) &&
         matchesQuery(filters.search)
+
+/**
+ * Collapses consecutive events that share the same severity, source, and message
+ * into [GroupedEventUiModel] entries. Single occurrences get count = 1 and no
+ * last-timestamp label.
+ */
+internal fun groupConsecutiveEvents(events: List<DiagnosticsEventUiModel>): List<GroupedEventUiModel> {
+    if (events.isEmpty()) return emptyList()
+
+    val result = mutableListOf<GroupedEventUiModel>()
+    var currentFirst = events.first()
+    var currentLast = currentFirst
+    var count = 1
+
+    for (i in 1 until events.size) {
+        val event = events[i]
+        if (event.severity == currentFirst.severity &&
+            event.source == currentFirst.source &&
+            event.message == currentFirst.message
+        ) {
+            count++
+            currentLast = event
+        } else {
+            result +=
+                GroupedEventUiModel(
+                    representative = currentFirst,
+                    count = count,
+                    lastTimestampLabel =
+                        if (count > 1 && currentLast.createdAtLabel != currentFirst.createdAtLabel) {
+                            currentLast.createdAtLabel
+                        } else {
+                            null
+                        },
+                )
+            currentFirst = event
+            currentLast = event
+            count = 1
+        }
+    }
+    result +=
+        GroupedEventUiModel(
+            representative = currentFirst,
+            count = count,
+            lastTimestampLabel =
+                if (count > 1 && currentLast.createdAtLabel != currentFirst.createdAtLabel) {
+                    currentLast.createdAtLabel
+                } else {
+                    null
+                },
+        )
+    return result
+}
