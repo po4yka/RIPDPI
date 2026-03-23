@@ -1,0 +1,21 @@
+[package]
+name = "ripdpi-cli"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "ripdpi"
+path = "src/main.rs"
+
+[lints]
+workspace = true
+
+[dependencies]
+ripdpi-config = { workspace = true }
+ripdpi-runtime = { workspace = true }
+ripdpi-failure-classifier = { workspace = true }
+log = { workspace = true }
+tracing = { workspace = true }
+tracing-log = { workspace = true }
+tracing-subscriber = { workspace = true }
