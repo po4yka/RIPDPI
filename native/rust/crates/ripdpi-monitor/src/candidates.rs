@@ -237,7 +237,7 @@ pub(crate) fn build_quic_candidates(base_tcp: &ProxyUiConfig) -> Vec<StrategyCan
             "QUIC compat burst",
             "quic_burst",
             build_quic_candidate(base_tcp, true, "compat_default"),
-            vec!["Uses Zapret-style compatibility QUIC fake packets"],
+            vec!["Uses fixed compatibility QUIC fake packets"],
         ),
         candidate_spec_with_notes(
             "quic_realistic_burst",

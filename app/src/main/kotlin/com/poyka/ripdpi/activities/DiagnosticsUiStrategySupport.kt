@@ -651,7 +651,7 @@ private fun formatFakePayloadSource(value: String): String =
 
 private fun formatQuicFakeProfile(value: String): String =
     when (value.lowercase(Locale.US)) {
-        "compat_default" -> "Zapret compatibility"
+        "compat_default" -> "Compatibility blob"
         "realistic_initial" -> "Realistic Initial"
         "disabled" -> "Off"
         else -> value

@@ -10,7 +10,7 @@ export RIPDPI_GOLDEN_ARTIFACT_DIR="${RIPDPI_GOLDEN_ARTIFACT_DIR:-$repo_root/nati
 echo "==> bless Rust telemetry/logging goldens"
 cargo test --manifest-path "$workspace_manifest" -p android-support
 cargo test --manifest-path "$workspace_manifest" -p ripdpi-android
-cargo test --manifest-path "$workspace_manifest" -p hs5t-android
+cargo test --manifest-path "$workspace_manifest" -p ripdpi-tunnel-android
 cargo test --manifest-path "$workspace_manifest" -p ripdpi-monitor
 
 echo "==> bless JVM telemetry/logging goldens"
@@ -18,9 +18,7 @@ echo "==> bless JVM telemetry/logging goldens"
   :core:engine:testDebugUnitTest \
   --tests com.poyka.ripdpi.core.NativeTelemetryGoldenTest \
   :core:service:testDebugUnitTest \
-  --tests com.poyka.ripdpi.services.ServiceTelemetryGoldenTest \
-  :core:diagnostics:testDebugUnitTest \
-  --tests com.poyka.ripdpi.diagnostics.DiagnosticsManagerTest)
+  --tests com.poyka.ripdpi.services.ServiceTelemetryGoldenTest)
 
 echo "==> sync Android instrumentation goldens from JVM fixtures"
 cp \

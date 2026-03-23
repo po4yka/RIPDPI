@@ -577,7 +577,7 @@ mod tests {
             suite_id: "quick_v1".to_string(),
             base_proxy_config_json: Some(
                 serde_json::to_string(&ProxyConfigPayload::CommandLine {
-                    args: vec!["ciadpi".to_string(), "--split".to_string()],
+                    args: vec!["ripdpi".to_string(), "--split".to_string()],
                     runtime_context: None,
                 })
                 .expect("serialize command line payload"),

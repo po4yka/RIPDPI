@@ -1,5 +1,5 @@
 [package]
-name = "hs5t-android"
+name = "ripdpi-tunnel-android"
 version.workspace = true
 edition.workspace = true
 license.workspace = true

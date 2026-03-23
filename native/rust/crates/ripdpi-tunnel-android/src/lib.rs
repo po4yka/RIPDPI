@@ -15,7 +15,7 @@ use session::{
 #[unsafe(no_mangle)]
 pub extern "system" fn JNI_OnLoad(_vm: JavaVM, _reserved: *mut std::ffi::c_void) -> jint {
     android_support::ignore_sigpipe();
-    init_android_logging("hs5t-native");
+    init_android_logging("ripdpi-tunnel-native");
     JNI_VERSION
 }
 

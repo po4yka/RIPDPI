@@ -3,7 +3,6 @@ set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")"/../.. && pwd)"
 workspace_manifest="$repo_root/native/rust/Cargo.toml"
-byedpi_manifest="$repo_root/native/rust/third_party/byedpi/Cargo.toml"
 
 TEST_TOOL="${MUTANTS_TEST_TOOL:-nextest}"
 PACKAGES="${MUTANTS_PACKAGES:-}"
@@ -60,6 +59,5 @@ run_workspace_mutants() {
 }
 
 run_workspace_mutants "main workspace" "$workspace_manifest" "$@"
-run_workspace_mutants "byedpi workspace" "$byedpi_manifest" "$@"
 
 echo "==> Results: $repo_root/target/mutants-output/"
