@@ -168,6 +168,7 @@ fun ConfigScreen(
             RipDpiCard {
                 SettingsRow(
                     title = stringResource(R.string.mode_setting),
+                    subtitle = stringResource(R.string.config_mode_summary),
                     value = stringResource(modeLabelRes(uiState.draft.mode)),
                     showDivider = true,
                 )
@@ -188,6 +189,7 @@ fun ConfigScreen(
                 )
                 SettingsRow(
                     title = stringResource(R.string.bye_dpi_proxy_ip_setting),
+                    subtitle = stringResource(R.string.config_listen_address_summary),
                     value =
                         stringResource(
                             R.string.proxy_address,
@@ -199,12 +201,14 @@ fun ConfigScreen(
                 )
                 SettingsRow(
                     title = stringResource(R.string.ripdpi_desync_method_setting),
+                    subtitle = stringResource(R.string.config_desync_method_summary),
                     value = desyncSummary,
                     showDivider = uiState.draft.defaultTtl.isNotBlank(),
                 )
                 if (uiState.draft.defaultTtl.isNotBlank()) {
                     SettingsRow(
                         title = stringResource(R.string.ripdpi_default_ttl_setting),
+                        subtitle = stringResource(R.string.config_default_ttl_summary),
                         value = uiState.draft.defaultTtl,
                         monospaceValue = true,
                     )

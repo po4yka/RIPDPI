@@ -209,8 +209,12 @@
     <string name="config_preset_proxy_body">Use the local proxy path with the same baseline tuning when VPN mode is not desired.</string>
     <string name="config_preset_custom_title">Custom</string>
     <string name="config_preset_custom_body">Manual tuning for DNS, proxy endpoint, engine values, and optional command line overrides.</string>
+    <string name="config_mode_summary">Local VPN or proxy routing path</string>
     <string name="config_dns_summary_enabled">Applied inside local VPN mode</string>
     <string name="config_dns_summary_disabled">Saved now and applied the next time local VPN mode is active</string>
+    <string name="config_listen_address_summary">Where the local proxy listener binds</string>
+    <string name="config_desync_method_summary">Active packet transformation strategy</string>
+    <string name="config_default_ttl_summary">Time-to-live override for outgoing packets</string>
     <string name="config_placeholder_dns">1.1.1.1</string>
     <string name="config_placeholder_proxy_ip">127.0.0.1</string>
     <string name="config_placeholder_proxy_port">1080</string>
