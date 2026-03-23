@@ -469,19 +469,13 @@ mod tests {
     #[test]
     fn build_udp_relay_sockets_keep_client_loopback() {
         let sockets = build_udp_relay_sockets(IpAddr::V4(Ipv4Addr::LOCALHOST), None).expect("udp relay sockets");
-        assert_eq!(
-            sockets.client.local_addr().expect("client relay addr").ip(),
-            IpAddr::V4(Ipv4Addr::LOCALHOST)
-        );
+        assert_eq!(sockets.client.local_addr().expect("client relay addr").ip(), IpAddr::V4(Ipv4Addr::LOCALHOST));
     }
 
     #[test]
     fn build_udp_upstream_socket_connects_ipv4_targets() {
-        let upstream = build_udp_upstream_socket(
-            SocketAddr::new(IpAddr::V4(Ipv4Addr::new(192, 0, 2, 10)), 443),
-            None,
-        )
-        .expect("udp upstream socket");
+        let upstream = build_udp_upstream_socket(SocketAddr::new(IpAddr::V4(Ipv4Addr::new(192, 0, 2, 10)), 443), None)
+            .expect("udp upstream socket");
         assert!(upstream.local_addr().expect("upstream relay addr").is_ipv4());
     }
 }
