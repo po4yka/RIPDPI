@@ -104,7 +104,9 @@ class DefaultDiagnosticsTimelineSource
                     flowOf(emptyList())
                 } else {
                     artifactReadStore.observeConnectionSnapshots(connectionSessionId).map { snapshots ->
-                        snapshots.map(mapper::toDiagnosticNetworkSnapshot)
+                        snapshots
+                            .filter { snapshot -> snapshot.snapshotKind == ConnectionSampleArtifactKind }
+                            .map(mapper::toDiagnosticNetworkSnapshot)
                     }
                 }
             }
@@ -114,7 +116,9 @@ class DefaultDiagnosticsTimelineSource
                     flowOf(emptyList())
                 } else {
                     artifactReadStore.observeConnectionContexts(connectionSessionId).map { contexts ->
-                        contexts.map(mapper::toDiagnosticContextSnapshot)
+                        contexts
+                            .filter { context -> context.contextKind == ConnectionSampleArtifactKind }
+                            .map(mapper::toDiagnosticContextSnapshot)
                     }
                 }
             }
@@ -145,3 +149,5 @@ class DefaultDiagnosticsTimelineSource
             activeProgressState.value = progress
         }
     }
+
+private const val ConnectionSampleArtifactKind = "connection_sample"

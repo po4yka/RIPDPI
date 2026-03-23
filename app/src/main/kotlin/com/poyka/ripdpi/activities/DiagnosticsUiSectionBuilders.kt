@@ -693,6 +693,8 @@ private fun DiagnosticsUiFactorySupport.buildLiveHeadline(
             ignoreCase = true,
         ) == true -> context.getString(R.string.diagnostics_live_headline_error)
 
+        health == DiagnosticsHealth.Degraded -> context.getString(R.string.diagnostics_live_headline_error)
+
         telemetry == null -> context.getString(R.string.diagnostics_live_headline_standby)
 
         health == DiagnosticsHealth.Attention -> context.getString(R.string.diagnostics_live_headline_attention)
