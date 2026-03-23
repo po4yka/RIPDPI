@@ -1,4 +1,4 @@
-use std::io::{ErrorKind, Read, Write};
+use std::io::{self, ErrorKind, Read, Write};
 use std::net::{IpAddr, Shutdown, SocketAddr, TcpStream};
 use std::time::Duration;
 
@@ -483,8 +483,30 @@ fn telegram_dc_probe(target: &TelegramTarget) -> TelegramDcResult {
 /// (DC2 is the default/most common). Does not send any MTProto data -- only
 /// verifies that the WSS endpoint accepts connections.
 fn telegram_ws_tunnel_probe() -> TelegramWsProbeResult {
+    telegram_ws_tunnel_probe_with(
+        || ripdpi_runtime::ws_bootstrap::resolve_ws_tunnel_addr(2, None),
+        |resolved_addr| ripdpi_ws_tunnel::probe_ws_tunnel_with_addr(2, resolved_addr),
+    )
+}
+
+fn telegram_ws_tunnel_probe_with<ResolveWsAddr, ProbeWs>(
+    resolve_ws_addr: ResolveWsAddr,
+    probe_ws: ProbeWs,
+) -> TelegramWsProbeResult
+where
+    ResolveWsAddr: FnOnce() -> io::Result<SocketAddr>,
+    ProbeWs: FnOnce(Option<SocketAddr>) -> io::Result<()>,
+{
     let start = std::time::Instant::now();
-    match ripdpi_ws_tunnel::probe_ws_tunnel(2) {
+    let resolved_addr = match resolve_ws_addr() {
+        Ok(addr) => Some(addr),
+        Err(err) => {
+            log::warn!("Telegram WS tunnel encrypted DNS bootstrap failed: {err}");
+            None
+        }
+    };
+
+    match probe_ws(resolved_addr) {
         Ok(()) => {
             let rtt_ms = start.elapsed().as_millis() as u64;
             TelegramWsProbeResult { status: "ok".to_string(), rtt_ms, error: None }
@@ -499,6 +521,9 @@ fn telegram_ws_tunnel_probe() -> TelegramWsProbeResult {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    use std::cell::Cell;
+    use std::net::Ipv4Addr;
 
     #[test]
     fn verdict_blocked_when_both_transfers_blocked_and_no_dc() {
@@ -676,5 +701,40 @@ mod tests {
             "error"
         };
         assert_eq!(verdict, "ok");
+    }
+
+    #[test]
+    fn telegram_ws_tunnel_probe_passes_resolved_addr_to_probe() {
+        let expected = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(198, 18, 0, 10)), 443);
+        let captured_addr = Cell::new(None);
+
+        let result = telegram_ws_tunnel_probe_with(
+            || Ok(expected),
+            |resolved_addr| {
+                captured_addr.set(resolved_addr);
+                Ok(())
+            },
+        );
+
+        assert_eq!(captured_addr.get(), Some(expected));
+        assert_eq!(result.status, "ok");
+        assert!(result.error.is_none());
+    }
+
+    #[test]
+    fn telegram_ws_tunnel_probe_falls_back_to_unresolved_probe_when_lookup_fails() {
+        let captured_addr = Cell::new(Some(SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 443)));
+
+        let result = telegram_ws_tunnel_probe_with(
+            || Err(io::Error::new(io::ErrorKind::TimedOut, "dns timed out")),
+            |resolved_addr| {
+                captured_addr.set(resolved_addr);
+                Ok(())
+            },
+        );
+
+        assert_eq!(captured_addr.get(), None);
+        assert_eq!(result.status, "ok");
+        assert!(result.error.is_none());
     }
 }
