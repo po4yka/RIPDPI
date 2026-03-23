@@ -166,7 +166,6 @@ jobs:
           retention-days: 7
 
   rust-network-e2e:
-    if: github.event_name != 'schedule'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -195,7 +194,7 @@ jobs:
     needs: [build, static-analysis]
     runs-on: ubuntu-latest
     env:
-      RIPDPI_ENFORCE_COVERAGE_THRESHOLDS: "0"
+      RIPDPI_ENFORCE_COVERAGE_THRESHOLDS: "1"
     steps:
       - uses: actions/checkout@v4
 
@@ -335,8 +334,70 @@ jobs:
             ${{ runner.temp }}/native-soak-artifacts/
           retention-days: 7
 
+  nightly-rust-coverage:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    env:
+      RIPDPI_ENFORCE_COVERAGE_THRESHOLDS: "1"
+      RIPDPI_RUST_COVERAGE_INCLUDE_IGNORED: "1"
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      # Keep in sync with native/rust/rust-toolchain.toml
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: "1.94.0"
+          components: rustfmt, clippy, llvm-tools
+
+      - uses: android-actions/setup-android@v3
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: native/rust -> target
+          cache-on-failure: true
+
+      - name: Read native toolchain policy
+        id: nightly-native-toolchain
+        run: |
+          echo "ndk=$(grep '^ripdpi.nativeNdkVersion=' gradle.properties | cut -d= -f2-)" >> "$GITHUB_OUTPUT"
+
+      - name: Install Rust Android targets
+        run: rustup target add aarch64-linux-android armv7-linux-androideabi i686-linux-android x86_64-linux-android
+
+      - name: Install NDK
+        run: sdkmanager --install "ndk;${{ steps.nightly-native-toolchain.outputs.ndk }}"
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Install cargo-llvm-cov
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-llvm-cov
+
+      - name: Generate Kotlin coverage reports
+        run: ./gradlew coverageReport
+
+      - name: Generate Rust coverage reports with ignored tests
+        run: bash scripts/ci/run-rust-coverage.sh
+
+      - name: Upload nightly coverage artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: nightly-coverage-artifacts
+          path: |
+            build/reports/jacoco/
+            app/build/reports/jacoco/
+            core/**/build/reports/jacoco/
+            native/rust/target/coverage/
+          retention-days: 7
+
   android-network-e2e:
-    if: github.event_name != 'schedule'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

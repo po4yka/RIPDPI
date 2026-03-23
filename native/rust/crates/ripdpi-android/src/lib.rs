@@ -22,12 +22,36 @@ use proxy::{
 
 static JVM: OnceCell<JavaVM> = OnceCell::new();
 
-#[unsafe(no_mangle)]
-pub extern "system" fn JNI_OnLoad(vm: JavaVM, _reserved: *mut std::ffi::c_void) -> jint {
-    let _ = JVM.set(vm);
+fn jni_on_load_impl() -> jint {
     android_support::ignore_sigpipe();
     init_android_logging("ripdpi-native");
     JNI_VERSION
+}
+
+#[cfg(test)]
+pub(crate) fn shared_test_jvm() -> &'static JavaVM {
+    static TEST_JVM: OnceCell<JavaVM> = OnceCell::new();
+    TEST_JVM.get_or_init(|| {
+        let args = jni::InitArgsBuilder::new()
+            .version(jni::JNIVersion::V8)
+            .option("-Xcheck:jni")
+            .build()
+            .expect("build test JVM init args");
+        JavaVM::new(args).expect("create in-process test JVM")
+    })
+}
+
+#[cfg(test)]
+pub(crate) fn shared_jni_test_mutex() -> &'static std::sync::Mutex<()> {
+    static JNI_TEST_MUTEX: once_cell::sync::Lazy<std::sync::Mutex<()>> =
+        once_cell::sync::Lazy::new(|| std::sync::Mutex::new(()));
+    &JNI_TEST_MUTEX
+}
+
+#[unsafe(no_mangle)]
+pub extern "system" fn JNI_OnLoad(vm: JavaVM, _reserved: *mut std::ffi::c_void) -> jint {
+    let _ = JVM.set(vm);
+    jni_on_load_impl()
 }
 
 macro_rules! export_diagnostics_jni {
@@ -144,4 +168,21 @@ export_diagnostics_jni!(
 
 pub(crate) fn to_handle(value: jlong) -> Option<u64> {
     u64::try_from(value).ok().filter(|handle| *handle != 0)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn jni_on_load_impl_returns_supported_jni_version() {
+        assert_eq!(jni_on_load_impl(), JNI_VERSION);
+    }
+
+    #[test]
+    fn to_handle_accepts_positive_values_only() {
+        assert_eq!(to_handle(0), None);
+        assert_eq!(to_handle(-1), None);
+        assert_eq!(to_handle(7), Some(7));
+    }
 }

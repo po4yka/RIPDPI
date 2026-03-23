@@ -127,4 +127,17 @@ mod tests {
         assert_eq!(ipv6.to_string(), "2001:db8::10");
         assert_eq!(prefix, 128);
     }
+
+    #[test]
+    fn parse_tunnel_address_defaults_ipv4_prefix_to_lan_route() {
+        let (ipv4, prefix) = parse_tunnel_address("10.0.0.7").expect("ipv4 address");
+
+        assert_eq!(ipv4.to_string(), "10.0.0.7");
+        assert_eq!(prefix, 24);
+    }
+
+    #[test]
+    fn parse_tunnel_address_returns_none_for_invalid_ip() {
+        assert!(parse_tunnel_address("not-an-ip").is_none());
+    }
 }

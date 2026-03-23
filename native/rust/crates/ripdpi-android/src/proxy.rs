@@ -364,10 +364,14 @@ mod tests {
     use std::net::{IpAddr, Ipv4Addr, TcpListener};
     use std::sync::Mutex;
 
+    use android_support::describe_exception;
+    use jni::objects::{JObject, JString};
     use jni::sys::jlong;
+    use jni::{JNIEnv, sys::jstring};
     use proptest::collection::vec;
     use proptest::prelude::*;
     use ripdpi_config::RuntimeConfig;
+    use ripdpi_proxy_config::{NetworkSnapshot, ProxyConfigPayload, ProxyUiConfig};
     use ripdpi_runtime::EmbeddedProxyControl;
 
     use crate::telemetry::ProxyTelemetryState;
@@ -460,6 +464,79 @@ mod tests {
             },
             "Unknown proxy handle",
         );
+    }
+
+    #[test]
+    fn exported_jni_create_poll_update_and_destroy_round_trip_without_exception() {
+        let _serial = lock_jni_tests();
+        let mut handle = ProxyHandle::new();
+
+        with_env(|env| {
+            let telemetry = jni_poll_telemetry(env, handle.raw());
+            let telemetry_json = decode_jstring(env, telemetry).expect("telemetry json");
+            assert!(telemetry_json.contains("\"source\":\"proxy\""));
+            assert!(telemetry_json.contains("\"state\":\"idle\""));
+            assert_no_exception(env);
+
+            let snapshot_json = serde_json::to_string(&NetworkSnapshot::default()).expect("snapshot json");
+            jni_update_network_snapshot(env, handle.raw(), &snapshot_json);
+            assert_no_exception(env);
+
+            jni_destroy(env, handle.raw());
+            assert_no_exception(env);
+        });
+        handle.disarm();
+    }
+
+    #[test]
+    fn exported_jni_rejects_malformed_config_and_snapshot_json() {
+        let _serial = lock_jni_tests();
+
+        with_env(|env| {
+            let handle = jni_create(env, "{");
+            assert_eq!(handle, 0);
+            assert!(take_exception(env).starts_with("java.lang.IllegalArgumentException:"));
+        });
+
+        let handle = ProxyHandle::new();
+        with_env(|env| {
+            jni_update_network_snapshot(env, handle.raw(), "{");
+            assert!(take_exception(env).starts_with("java.lang.IllegalArgumentException: Failed to parse network snapshot:"));
+        });
+    }
+
+    #[test]
+    fn exported_jni_invalid_handles_throw_and_reference_calls_return_null() {
+        let _serial = lock_jni_tests();
+        let snapshot_json = serde_json::to_string(&NetworkSnapshot::default()).expect("snapshot json");
+
+        for handle in [0, -1] {
+            with_env(|env| {
+                assert_eq!(jni_start(env, handle), libc::EINVAL);
+                assert_eq!(take_exception(env), "java.lang.IllegalArgumentException: Invalid proxy handle");
+            });
+
+            with_env(|env| {
+                jni_stop(env, handle);
+                assert_eq!(take_exception(env), "java.lang.IllegalArgumentException: Invalid proxy handle");
+            });
+
+            with_env(|env| {
+                let telemetry = jni_poll_telemetry(env, handle);
+                assert!(decode_jstring(env, telemetry).is_none());
+                assert_eq!(take_exception(env), "java.lang.IllegalArgumentException: Invalid proxy handle");
+            });
+
+            with_env(|env| {
+                jni_update_network_snapshot(env, handle, &snapshot_json);
+                assert_eq!(take_exception(env), "java.lang.IllegalArgumentException: Invalid proxy handle");
+            });
+
+            with_env(|env| {
+                jni_destroy(env, handle);
+                assert_eq!(take_exception(env), "java.lang.IllegalArgumentException: Invalid proxy handle");
+            });
+        }
     }
 
     #[derive(Clone, Copy, Debug)]
@@ -557,6 +634,44 @@ mod tests {
         }
     }
 
+    struct ProxyHandle {
+        raw: jlong,
+    }
+
+    impl ProxyHandle {
+        fn new() -> Self {
+            let raw = with_env(|env| {
+                let handle = jni_create(env, &minimal_proxy_config_json());
+                assert_no_exception(env);
+                handle
+            });
+            assert_ne!(raw, 0, "jniCreate should return a non-zero proxy handle");
+            Self { raw }
+        }
+
+        fn raw(&self) -> jlong {
+            self.raw
+        }
+
+        fn disarm(&mut self) -> jlong {
+            let raw = self.raw;
+            self.raw = 0;
+            raw
+        }
+    }
+
+    impl Drop for ProxyHandle {
+        fn drop(&mut self) {
+            if self.raw == 0 {
+                return;
+            }
+            with_env(|env| {
+                jni_destroy(env, self.raw);
+                let _ = describe_exception(env);
+            });
+        }
+    }
+
     fn proxy_absent_error(handle: jlong) -> String {
         if to_handle(handle).is_some() {
             "Unknown proxy handle".to_string()
@@ -575,6 +690,101 @@ mod tests {
             ],
             1..32,
         )
+    }
+
+    fn minimal_proxy_config_json() -> String {
+        serde_json::to_string(&ProxyConfigPayload::Ui {
+            strategy_preset: None,
+            config: test_ui_config(),
+            runtime_context: None,
+        })
+        .expect("proxy config json")
+    }
+
+    fn test_ui_config() -> ProxyUiConfig {
+        let mut config = ProxyUiConfig::default();
+        config.protocols.desync_udp = true;
+        config.chains.tcp_steps = vec![];
+        config.fake_packets.fake_sni = "www.wikipedia.org".to_string();
+        config
+    }
+
+    fn lock_jni_tests() -> std::sync::MutexGuard<'static, ()> {
+        crate::shared_jni_test_mutex().lock().unwrap_or_else(std::sync::PoisonError::into_inner)
+    }
+
+    fn with_env<R>(f: impl FnOnce(&mut JNIEnv<'_>) -> R) -> R {
+        let mut env = crate::shared_test_jvm().attach_current_thread().expect("attach current thread to test JVM");
+        f(&mut env)
+    }
+
+    fn jni_create(env: &mut JNIEnv<'_>, config_json: &str) -> jlong {
+        let config_json = env.new_string(config_json).expect("create config json");
+        crate::Java_com_poyka_ripdpi_core_RipDpiProxyNativeBindings_jniCreate(
+            unsafe { env.unsafe_clone() },
+            JObject::null(),
+            config_json,
+        )
+    }
+
+    fn jni_start(env: &mut JNIEnv<'_>, handle: jlong) -> i32 {
+        crate::Java_com_poyka_ripdpi_core_RipDpiProxyNativeBindings_jniStart(
+            unsafe { env.unsafe_clone() },
+            JObject::null(),
+            handle,
+        )
+    }
+
+    fn jni_stop(env: &mut JNIEnv<'_>, handle: jlong) {
+        crate::Java_com_poyka_ripdpi_core_RipDpiProxyNativeBindings_jniStop(
+            unsafe { env.unsafe_clone() },
+            JObject::null(),
+            handle,
+        );
+    }
+
+    fn jni_poll_telemetry(env: &mut JNIEnv<'_>, handle: jlong) -> jstring {
+        crate::Java_com_poyka_ripdpi_core_RipDpiProxyNativeBindings_jniPollTelemetry(
+            unsafe { env.unsafe_clone() },
+            JObject::null(),
+            handle,
+        )
+    }
+
+    fn jni_destroy(env: &mut JNIEnv<'_>, handle: jlong) {
+        crate::Java_com_poyka_ripdpi_core_RipDpiProxyNativeBindings_jniDestroy(
+            unsafe { env.unsafe_clone() },
+            JObject::null(),
+            handle,
+        );
+    }
+
+    fn jni_update_network_snapshot(env: &mut JNIEnv<'_>, handle: jlong, snapshot_json: &str) {
+        let snapshot_json = env.new_string(snapshot_json).expect("create snapshot json");
+        crate::Java_com_poyka_ripdpi_core_RipDpiProxyNativeBindings_jniUpdateNetworkSnapshot(
+            unsafe { env.unsafe_clone() },
+            JObject::null(),
+            handle,
+            snapshot_json,
+        );
+    }
+
+    fn decode_jstring(env: &mut JNIEnv<'_>, value: jstring) -> Option<String> {
+        (!value.is_null()).then(|| {
+            let value = unsafe { JString::from_raw(value) };
+            let text = env.get_string(&value).expect("decode jstring");
+            text.into()
+        })
+    }
+
+    fn assert_no_exception(env: &mut JNIEnv<'_>) {
+        if let Some(exception) = describe_exception(env) {
+            panic!("unexpected Java exception: {exception}");
+        }
+    }
+
+    fn take_exception(env: &mut JNIEnv<'_>) -> String {
+        describe_exception(env).expect("expected Java exception")
     }
 
     proptest! {

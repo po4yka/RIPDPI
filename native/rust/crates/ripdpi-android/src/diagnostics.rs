@@ -200,18 +200,14 @@ fn destroy_diagnostics_session(env: &mut JNIEnv, handle: jlong) {
 mod tests {
     use super::*;
 
-    use std::sync::{Mutex, MutexGuard};
+    use std::sync::MutexGuard;
     use std::thread::sleep;
     use std::time::{Duration, Instant};
 
     use android_support::describe_exception;
     use jni::objects::{JObject, JString};
-    use jni::{InitArgsBuilder, JNIEnv, JNIVersion, JavaVM};
-    use once_cell::sync::{Lazy, OnceCell};
+    use jni::JNIEnv;
     use ripdpi_monitor::{NativeSessionEvent, ScanProgress, ScanReport};
-
-    static TEST_JVM: OnceCell<JavaVM> = OnceCell::new();
-    static JNI_TEST_MUTEX: Lazy<Mutex<()>> = Lazy::new(|| Mutex::new(()));
 
     struct DiagnosticsHandle {
         raw: jlong,
@@ -310,7 +306,7 @@ mod tests {
             assert_no_exception(env);
         });
 
-        let progress_json = wait_for_json(handle.raw(), jni_poll_progress);
+        let progress_json = wait_for_finished_progress(handle.raw());
         let progress: ScanProgress = serde_json::from_str(&progress_json).expect("decode progress");
         assert_eq!(progress.session_id, session_id);
         assert!(progress.is_finished);
@@ -402,22 +398,11 @@ mod tests {
     }
 
     fn lock_jni_tests() -> MutexGuard<'static, ()> {
-        JNI_TEST_MUTEX.lock().expect("lock JNI diagnostics tests")
-    }
-
-    fn test_jvm() -> &'static JavaVM {
-        TEST_JVM.get_or_init(|| {
-            let args = InitArgsBuilder::new()
-                .version(JNIVersion::V8)
-                .option("-Xcheck:jni")
-                .build()
-                .expect("build test JVM init args");
-            JavaVM::new(args).expect("create in-process test JVM")
-        })
+        crate::shared_jni_test_mutex().lock().unwrap_or_else(std::sync::PoisonError::into_inner)
     }
 
     fn with_env<R>(f: impl FnOnce(&mut JNIEnv<'_>) -> R) -> R {
-        let mut env = test_jvm().attach_current_thread().expect("attach current thread to test JVM");
+        let mut env = crate::shared_test_jvm().attach_current_thread().expect("attach current thread to test JVM");
         f(&mut env)
     }
 
@@ -509,6 +494,19 @@ mod tests {
                 return json;
             }
             assert!(Instant::now() < deadline, "timed out waiting for diagnostics JSON");
+            sleep(Duration::from_millis(10));
+        }
+    }
+
+    fn wait_for_finished_progress(handle: jlong) -> String {
+        let deadline = Instant::now() + Duration::from_secs(2);
+        loop {
+            let progress_json = wait_for_json(handle, jni_poll_progress);
+            let progress: ScanProgress = serde_json::from_str(&progress_json).expect("decode progress");
+            if progress.is_finished {
+                return progress_json;
+            }
+            assert!(Instant::now() < deadline, "timed out waiting for finished diagnostics progress");
             sleep(Duration::from_millis(10));
         }
     }
