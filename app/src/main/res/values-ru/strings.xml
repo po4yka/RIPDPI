@@ -136,12 +136,12 @@
     <string name="diagnostics_sensitive_show">Показать чувствительные данные</string>
     <string name="diagnostics_sensitive_hide">Скрыть чувствительные данные</string>
     <string name="diagnostics_search_label">Поиск</string>
-    <string name="diagnostics_search_placeholder">Найти сессию, режим пути или вердикт</string>
-    <string name="diagnostics_events_search_placeholder">Фильтр по источнику, серьёзности или сообщению</string>
+    <string name="diagnostics_search_placeholder">Поиск сессий</string>
+    <string name="diagnostics_events_search_placeholder">Поиск событий</string>
     <string name="history_connections_section">Подключения</string>
     <string name="history_diagnostics_section">Диагностика</string>
     <string name="history_events_section">События</string>
-    <string name="history_connection_search_placeholder">Найти режим, сеть, состояние или сбой</string>
+    <string name="history_connection_search_placeholder">Поиск соединений</string>
     <string name="history_connections_empty_title">История подключений пока пуста</string>
     <string name="history_connections_empty_body">Запустите RIPDPI хотя бы раз, чтобы зафиксировать долговременные сессии, образцы и сбои.</string>
     <string name="history_diagnostics_empty_title">История диагностики пока пуста</string>
