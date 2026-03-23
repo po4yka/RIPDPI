@@ -180,19 +180,11 @@ pub(crate) fn classify_probe_outcome(
     }
 }
 
-pub(crate) fn event_level_for_outcome(
-    probe_type: &str,
-    path_mode: &ScanPathMode,
-    outcome: &str,
-) -> &'static str {
+pub(crate) fn event_level_for_outcome(probe_type: &str, path_mode: &ScanPathMode, outcome: &str) -> &'static str {
     classify_probe_outcome(probe_type, path_mode, outcome).event_level
 }
 
-fn probe_outcome_bucket(
-    probe_type: &str,
-    path_mode: &ScanPathMode,
-    outcome: &str,
-) -> ProbeOutcomeBucket {
+fn probe_outcome_bucket(probe_type: &str, path_mode: &ScanPathMode, outcome: &str) -> ProbeOutcomeBucket {
     match probe_type {
         "network_environment" => match outcome {
             "network_available" => ProbeOutcomeBucket::Healthy,
@@ -459,10 +451,8 @@ mod tests {
     #[test]
     fn fixture_driven_outcome_taxonomy_matches_classifier() {
         let fixture: OutcomeTaxonomyFixture = serde_json::from_str(
-            &fs::read_to_string(
-                repo_root().join("diagnostics-contract-fixtures/outcome_taxonomy_current.json"),
-            )
-            .expect("fixture"),
+            &fs::read_to_string(repo_root().join("diagnostics-contract-fixtures/outcome_taxonomy_current.json"))
+                .expect("fixture"),
         )
         .expect("outcome taxonomy");
 

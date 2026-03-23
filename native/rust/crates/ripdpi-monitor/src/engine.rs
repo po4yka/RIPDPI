@@ -370,9 +370,7 @@ pub(crate) fn run_engine_scan(
         }
         RunnerOutcome::Completed => {
             let summary = match plan.request.kind {
-                ScanKind::Connectivity => {
-                    connectivity_summary(&runtime.results, &plan.request.path_mode)
-                }
+                ScanKind::Connectivity => connectivity_summary(&runtime.results, &plan.request.path_mode),
                 ScanKind::StrategyProbe => {
                     runtime.strategy.summary.clone().unwrap_or_else(|| "Automatic probing finished".to_string())
                 }
@@ -1228,10 +1226,7 @@ fn execution_coordinator() -> ExecutionCoordinator {
     ])
 }
 
-fn connectivity_summary(
-    results: &[ProbeResult],
-    path_mode: &crate::types::ScanPathMode,
-) -> String {
+fn connectivity_summary(results: &[ProbeResult], path_mode: &crate::types::ScanPathMode) -> String {
     let mut healthy = 0usize;
     let mut attention = 0usize;
     let mut failed = 0usize;

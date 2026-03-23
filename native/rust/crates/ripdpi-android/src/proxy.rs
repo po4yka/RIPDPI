@@ -373,7 +373,7 @@ mod tests {
     use android_support::describe_exception;
     use jni::objects::{JObject, JString};
     use jni::sys::jlong;
-    use jni::{JNIEnv, sys::jstring};
+    use jni::{sys::jstring, JNIEnv};
     use proptest::collection::vec;
     use proptest::prelude::*;
     use ripdpi_config::RuntimeConfig;
@@ -507,7 +507,8 @@ mod tests {
         let handle = ProxyHandle::new();
         with_env(|env| {
             jni_update_network_snapshot(env, handle.raw(), "{");
-            assert!(take_exception(env).starts_with("java.lang.IllegalArgumentException: Failed to parse network snapshot:"));
+            assert!(take_exception(env)
+                .starts_with("java.lang.IllegalArgumentException: Failed to parse network snapshot:"));
         });
     }
 

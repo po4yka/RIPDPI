@@ -59,10 +59,7 @@ mod tests {
 
         with_env(|env| {
             JniProxyError::InvalidConfig("bad settings".to_string()).throw(env);
-            assert_eq!(
-                take_exception(env),
-                "java.lang.IllegalArgumentException: invalid configuration: bad settings",
-            );
+            assert_eq!(take_exception(env), "java.lang.IllegalArgumentException: invalid configuration: bad settings",);
 
             JniProxyError::InvalidArgument("bad handle".to_string()).throw(env);
             assert_eq!(take_exception(env), "java.lang.IllegalArgumentException: bad handle");

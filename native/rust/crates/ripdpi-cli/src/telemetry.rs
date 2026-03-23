@@ -12,10 +12,7 @@ pub struct TracingTelemetrySink {
 
 impl TracingTelemetrySink {
     pub fn new() -> Self {
-        Self {
-            total_sessions: AtomicU64::new(0),
-            total_errors: AtomicU64::new(0),
-        }
+        Self { total_sessions: AtomicU64::new(0), total_errors: AtomicU64::new(0) }
     }
 
     pub fn print_summary(&self) {
@@ -45,22 +42,11 @@ impl RuntimeTelemetrySink for TracingTelemetrySink {
         tracing::warn!(%error, "client error");
     }
 
-    fn on_route_selected(
-        &self,
-        target: SocketAddr,
-        group_index: usize,
-        host: Option<&str>,
-        phase: &'static str,
-    ) {
+    fn on_route_selected(&self, target: SocketAddr, group_index: usize, host: Option<&str>, phase: &'static str) {
         tracing::debug!(%target, group_index, host, phase, "route selected");
     }
 
-    fn on_failure_classified(
-        &self,
-        target: SocketAddr,
-        failure: &ClassifiedFailure,
-        host: Option<&str>,
-    ) {
+    fn on_failure_classified(&self, target: SocketAddr, failure: &ClassifiedFailure, host: Option<&str>) {
         self.total_errors.fetch_add(1, Ordering::Relaxed);
         tracing::warn!(%target, class = failure.class.as_str(), host, "failure classified");
     }
@@ -80,12 +66,7 @@ impl RuntimeTelemetrySink for TracingTelemetrySink {
         tracing::debug!(enabled, learned, penalized, "autolearn state");
     }
 
-    fn on_host_autolearn_event(
-        &self,
-        action: &'static str,
-        host: Option<&str>,
-        group: Option<usize>,
-    ) {
+    fn on_host_autolearn_event(&self, action: &'static str, host: Option<&str>, group: Option<usize>) {
         tracing::debug!(action, host, group, "autolearn event");
     }
 }
