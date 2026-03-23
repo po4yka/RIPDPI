@@ -8,6 +8,7 @@ use crate::platform;
 use crate::runtime_policy::{
     extract_host, group_requires_payload, route_matches_payload, ConnectionRoute, TransportProtocol,
 };
+use crate::ws_bootstrap;
 use ripdpi_config::RuntimeConfig;
 use ripdpi_session::{
     encode_http_connect_reply, encode_socks4_reply, encode_socks5_reply, parse_http_connect_request,
@@ -111,7 +112,14 @@ enum WsTunnelResult {
 /// Execute the WebSocket tunnel relay for a classified Telegram connection.
 /// On failure, returns `Fallback` with the consumed init packet for desync retry.
 fn run_ws_tunnel(client: TcpStream, dc: u8, target: SocketAddr, state: &RuntimeState) -> WsTunnelResult {
-    let config = WsTunnelConfig { protect_path: state.config.protect_path.clone() };
+    let resolved_addr = match ws_bootstrap::resolve_ws_tunnel_addr(dc, state.runtime_context.as_ref()) {
+        Ok(addr) => Some(addr),
+        Err(err) => {
+            log::warn!("WS tunnel encrypted DNS bootstrap failed for DC{dc}: {err}");
+            None
+        }
+    };
+    let config = WsTunnelConfig { protect_path: state.config.protect_path.clone(), resolved_addr };
     match ripdpi_ws_tunnel::relay_ws_tunnel(client, dc, target, &config) {
         Ok(()) => WsTunnelResult::Ok,
         Err(err) => {
