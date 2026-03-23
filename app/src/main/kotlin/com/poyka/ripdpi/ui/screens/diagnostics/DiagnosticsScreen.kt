@@ -30,6 +30,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
@@ -287,7 +289,7 @@ fun DiagnosticsScreen(
                                 Modifier.padding(
                                     start = layout.horizontalPadding,
                                     end = layout.horizontalPadding,
-                                    bottom = spacing.xs,
+                                    bottom = spacing.sm,
                                 ),
                         )
                     }
@@ -297,7 +299,8 @@ fun DiagnosticsScreen(
                     modifier =
                         Modifier
                             .fillMaxWidth()
-                            .weight(1f),
+                            .weight(1f)
+                            .clip(RectangleShape),
                 ) { page ->
                     when (DiagnosticsSection.entries[page]) {
                         DiagnosticsSection.Overview -> {
