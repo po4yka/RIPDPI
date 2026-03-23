@@ -151,4 +151,39 @@ class DiagnosticsModelsCompatibilityTest {
         assertEquals("dns_tampering", decoded.diagnoses.single().code)
         assertEquals(1, decoded.packVersions["ru-independent-media"])
     }
+
+    @Test
+    fun `engine scan report decodes tcp blocked16 status emitted by rust engine`() {
+        val report =
+            json.decodeEngineScanReportWireCompat(
+                """
+                {
+                  "schemaVersion": 2,
+                  "sessionId": "session-1",
+                  "profileId": "default",
+                  "pathMode": "RAW_PATH",
+                  "startedAt": 1,
+                  "finishedAt": 2,
+                  "summary": "done",
+                  "results": [],
+                  "observations": [
+                    {
+                      "kind": "TCP",
+                      "target": "fixture-http",
+                      "tcp": {
+                        "provider": "fixture-http",
+                        "status": "BLOCKED16_KB",
+                        "bytesSent": 16384,
+                        "responsesSeen": 0
+                      }
+                    }
+                  ]
+                }
+                """.trimIndent(),
+            )
+
+        val observation = report.observations.single()
+        assertEquals(ObservationKind.TCP, observation.kind)
+        assertEquals(TcpProbeStatus.BLOCKED_16KB, observation.tcp?.status)
+    }
 }

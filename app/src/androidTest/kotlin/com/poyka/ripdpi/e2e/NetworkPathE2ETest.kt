@@ -12,6 +12,7 @@ import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.START_ACTION
 import com.poyka.ripdpi.data.STOP_ACTION
 import com.poyka.ripdpi.data.ServiceStateStore
+import com.poyka.ripdpi.data.setStrategyChains
 import com.poyka.ripdpi.services.RipDpiProxyService
 import com.poyka.ripdpi.services.RipDpiVpnService
 import dagger.hilt.android.testing.HiltAndroidRule
@@ -63,6 +64,12 @@ class NetworkPathE2ETest {
                 dnsIp = "1.1.1.1"
                 ipv6Enable = false
                 enableCmdSettings = false
+                desyncMethod = "none"
+                desyncHttp = false
+                desyncHttps = false
+                desyncUdp = false
+                tlsrecEnabled = false
+                setStrategyChains(emptyList(), emptyList())
             }
         }
     }
@@ -87,21 +94,52 @@ class NetworkPathE2ETest {
             }
         }
 
+        val socksPayload = httpEchoPayload("fixture-proxy")
+        val directTcpEcho = directTcpRoundTrip(fixture.androidHost, fixture.tcpEchoPort, socksPayload)
+        assertEquals(
+            "Direct fixture TCP path failed before proxy routing was exercised",
+            socksPayload.decodeToString(),
+            directTcpEcho.decodeToString(),
+        )
+        val directTlsResponse =
+            directTlsHandshake(
+                targetHost = fixture.androidHost,
+                targetPort = fixture.tlsEchoPort,
+                sniHost = fixture.fixtureDomain,
+            )
+        assertTrue(
+            "Direct fixture TLS path failed before proxy routing was exercised: $directTlsResponse",
+            directTlsResponse.contains("fixture tls ok"),
+        )
+        val directEvents = fixtureClient.events()
+        assertTrue(
+            "Direct fixture TCP path was not observed in fixture events: $directEvents",
+            directEvents.any { it.service == "tcp_echo" && it.detail == "echo" },
+        )
+        assertTrue(
+            "Direct fixture TLS path was not observed in fixture events: $directEvents",
+            directEvents.any { it.service == "tls_echo" && it.sni == fixture.fixtureDomain },
+        )
+        fixtureClient.resetEvents()
+
         startService(RipDpiProxyService::class.java)
         awaitServiceStatus(AppStatus.Running, Mode.Proxy)
 
-        val socksPayload = "fixture-proxy".encodeToByteArray()
         val socksEcho = socksTcpRoundTrip(listenPort, fixture.androidHost, fixture.tcpEchoPort, socksPayload)
-        assertEquals("fixture-proxy", socksEcho.decodeToString())
+        assertEquals(socksPayload.decodeToString(), socksEcho.decodeToString())
 
         val tlsResponse =
-            httpConnectTlsHandshake(
+            socksTlsHandshake(
                 proxyPort = listenPort,
                 targetHost = fixture.androidHost,
                 targetPort = fixture.tlsEchoPort,
                 sniHost = fixture.fixtureDomain,
             )
-        assertTrue(tlsResponse.contains("fixture tls ok"))
+        val tlsEvents = fixtureClient.events()
+        assertTrue(
+            "Expected fixture TLS response, got: $tlsResponse; fixture events: $tlsEvents",
+            tlsResponse.contains("fixture tls ok"),
+        )
 
         awaitUntil {
             val snapshot = serviceStateStore.telemetry.value
@@ -110,7 +148,7 @@ class NetworkPathE2ETest {
                 snapshot.proxyTelemetry.totalSessions > 0
         }
 
-        val events = fixtureClient.events()
+        val events = tlsEvents
         assertTrue(events.any { it.service == "tcp_echo" && it.detail == "echo" })
         assertTrue(events.any { it.service == "tls_echo" && it.sni == fixture.fixtureDomain })
 
@@ -134,11 +172,12 @@ class NetworkPathE2ETest {
         startService(RipDpiVpnService::class.java)
         awaitServiceStatus(AppStatus.Running, Mode.VPN)
 
+        val payload = httpEchoPayloadShellLiteral("vpn-e2e")
         val output =
             execShell(
-                "sh -c 'printf vpn-e2e | toybox nc -w 5 ${fixture.fixtureIpv4} ${fixture.tcpEchoPort}'",
-            ).trim()
-        assertTrue("Expected VPN shell round-trip, got: $output", output.contains("vpn-e2e"))
+                "sh -c 'printf %b \"$payload\" | toybox nc -w 5 ${fixture.fixtureIpv4} ${fixture.tcpEchoPort}'",
+            )
+        assertTrue("Expected VPN shell round-trip, got: $output", output.contains("GET /vpn-e2e HTTP/1.1"))
 
         awaitUntil {
             val snapshot = serviceStateStore.telemetry.value
@@ -175,7 +214,7 @@ class NetworkPathE2ETest {
             ),
         )
 
-        val payload = "fixture-reset".encodeToByteArray()
+        val payload = httpEchoPayload("fixture-reset")
         val result = runCatching { socksTcpRoundTrip(listenPort, fixture.androidHost, fixture.tcpEchoPort, payload) }
 
         if (result.isSuccess) {
@@ -211,7 +250,7 @@ class NetworkPathE2ETest {
 
         val error =
             runCatching {
-                httpConnectTlsHandshake(
+                socksTlsHandshake(
                     proxyPort = listenPort,
                     targetHost = fixture.androidHost,
                     targetPort = fixture.tlsEchoPort,
@@ -249,12 +288,13 @@ class NetworkPathE2ETest {
             ),
         )
 
+        val payload = httpEchoPayloadShellLiteral("vpn-reset")
         val output =
             execShell(
-                "sh -c 'printf vpn-reset | toybox nc -w 5 ${fixture.fixtureIpv4} ${fixture.tcpEchoPort}'",
-            ).trim()
+                "sh -c 'printf %b \"$payload\" | toybox nc -w 5 ${fixture.fixtureIpv4} ${fixture.tcpEchoPort}'",
+            )
 
-        assertFalse(output.contains("vpn-reset"))
+        assertFalse(output.contains("GET /vpn-reset HTTP/1.1"))
         assertTrue(
             fixtureClient.events().any { event ->
                 event.service == "tcp_echo" && event.detail.contains("TcpReset", ignoreCase = true)
@@ -281,4 +321,10 @@ class NetworkPathE2ETest {
             serviceStateStore.status.value == status to mode
         }
     }
+
+    private fun httpEchoPayload(pathToken: String): ByteArray =
+        "GET /$pathToken HTTP/1.1\r\nHost: ${fixture.fixtureDomain}\r\nConnection: close\r\n\r\n".encodeToByteArray()
+
+    private fun httpEchoPayloadShellLiteral(pathToken: String): String =
+        "GET /$pathToken HTTP/1.1\\r\\nHost: ${fixture.fixtureDomain}\\r\\nConnection: close\\r\\n\\r\\n"
 }

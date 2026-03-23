@@ -61,6 +61,40 @@ class ConnectivityDnsTargetPlannerTest {
     }
 
     @Test
+    fun `target with plain doh url passes through unchanged`() {
+        val target =
+            DnsTarget(
+                domain = "example.com",
+                dohUrl = "http://127.0.0.1:46054/dns-query",
+            )
+        val result =
+            ConnectivityDnsTargetPlanner.expandTargets(
+                targets = listOf(target),
+                activeDns = plainUdpDns(),
+                preferredPath = null,
+            )
+        assertEquals(1, result.size)
+        assertEquals(target, result.first())
+    }
+
+    @Test
+    fun `target with plain doh bootstrap ips passes through unchanged`() {
+        val target =
+            DnsTarget(
+                domain = "example.com",
+                dohBootstrapIps = listOf("127.0.0.1"),
+            )
+        val result =
+            ConnectivityDnsTargetPlanner.expandTargets(
+                targets = listOf(target),
+                activeDns = plainUdpDns(),
+                preferredPath = null,
+            )
+        assertEquals(1, result.size)
+        assertEquals(target, result.first())
+    }
+
+    @Test
     fun `generic target expands to diversified candidates`() {
         val target = DnsTarget(domain = "example.com")
         val result =

@@ -4,14 +4,27 @@ import android.content.Intent
 import com.poyka.ripdpi.activities.MainActivityHost
 import com.poyka.ripdpi.activities.MainActivityHostCommand
 import com.poyka.ripdpi.activities.MainViewModel
+import com.poyka.ripdpi.core.ProxyPreferencesResolver
+import com.poyka.ripdpi.core.RipDpiProxyFactory
+import com.poyka.ripdpi.core.RipDpiProxyRuntime
+import com.poyka.ripdpi.core.RipDpiProxyUIPreferences
+import com.poyka.ripdpi.core.Tun2SocksBridge
+import com.poyka.ripdpi.core.Tun2SocksBridgeFactory
+import com.poyka.ripdpi.core.Tun2SocksConfig
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.FailureReason
 import com.poyka.ripdpi.data.Mode
+import com.poyka.ripdpi.data.NativeNetworkSnapshot
+import com.poyka.ripdpi.data.NativeRuntimeSnapshot
 import com.poyka.ripdpi.data.Sender
 import com.poyka.ripdpi.data.ServiceEvent
 import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.data.ServiceTelemetrySnapshot
+import com.poyka.ripdpi.data.TunnelStats
+import com.poyka.ripdpi.diagnostics.DiagnosticActiveConnectionPolicy
+import com.poyka.ripdpi.diagnostics.DiagnosticConnectionDetail
+import com.poyka.ripdpi.diagnostics.DiagnosticConnectionSession
 import com.poyka.ripdpi.diagnostics.BypassApproachSummary
 import com.poyka.ripdpi.diagnostics.DiagnosticContextSnapshot
 import com.poyka.ripdpi.diagnostics.DiagnosticEvent
@@ -20,8 +33,12 @@ import com.poyka.ripdpi.diagnostics.DiagnosticNetworkSnapshot
 import com.poyka.ripdpi.diagnostics.DiagnosticProfile
 import com.poyka.ripdpi.diagnostics.DiagnosticScanSession
 import com.poyka.ripdpi.diagnostics.DiagnosticTelemetrySample
+import com.poyka.ripdpi.diagnostics.DiagnosticsActiveConnectionPolicySource
 import com.poyka.ripdpi.diagnostics.DiagnosticsBootstrapper
 import com.poyka.ripdpi.diagnostics.DiagnosticsDetailLoader
+import com.poyka.ripdpi.diagnostics.DiagnosticsHistorySource
+import com.poyka.ripdpi.diagnostics.DiagnosticsRememberedPolicy
+import com.poyka.ripdpi.diagnostics.DiagnosticsRememberedPolicySource
 import com.poyka.ripdpi.diagnostics.DiagnosticsResolverActions
 import com.poyka.ripdpi.diagnostics.DiagnosticsScanController
 import com.poyka.ripdpi.diagnostics.DiagnosticsShareService
@@ -34,6 +51,9 @@ import com.poyka.ripdpi.platform.PermissionPlatformBridge
 import com.poyka.ripdpi.platform.StringResolver
 import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.services.ServiceController
+import com.poyka.ripdpi.services.VpnTunnelBuilderHost
+import com.poyka.ripdpi.services.VpnTunnelSession
+import com.poyka.ripdpi.services.VpnTunnelSessionProvider
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -230,6 +250,31 @@ class StubInstrumentedDiagnosticsResolverActions : DiagnosticsResolverActions {
     override suspend fun saveResolverRecommendation(sessionId: String) = Unit
 }
 
+class StubInstrumentedDiagnosticsHistorySource : DiagnosticsHistorySource {
+    override fun observeConnectionSessions(limit: Int): Flow<List<DiagnosticConnectionSession>> =
+        MutableStateFlow(emptyList())
+
+    override fun observeDiagnosticsSessions(limit: Int): Flow<List<DiagnosticScanSession>> =
+        MutableStateFlow(emptyList())
+
+    override fun observeNativeEvents(limit: Int): Flow<List<DiagnosticEvent>> =
+        MutableStateFlow(emptyList())
+
+    override suspend fun loadConnectionDetail(sessionId: String): DiagnosticConnectionDetail? = null
+}
+
+class StubInstrumentedDiagnosticsRememberedPolicySource : DiagnosticsRememberedPolicySource {
+    override fun observePolicies(limit: Int): Flow<List<DiagnosticsRememberedPolicy>> =
+        MutableStateFlow(emptyList())
+
+    override suspend fun clearAll() = Unit
+}
+
+class StubInstrumentedDiagnosticsActiveConnectionPolicySource : DiagnosticsActiveConnectionPolicySource {
+    override val activePolicies: StateFlow<Map<Mode, DiagnosticActiveConnectionPolicy>> =
+        MutableStateFlow(emptyMap())
+}
+
 class FakeInstrumentedServiceStateStore(
     initialStatus: Pair<AppStatus, Mode> = AppStatus.Halted to Mode.VPN,
 ) : ServiceStateStore {
@@ -258,4 +303,55 @@ class FakeInstrumentedServiceStateStore(
     override fun updateTelemetry(snapshot: ServiceTelemetrySnapshot) {
         telemetryState.value = snapshot
     }
+}
+
+class StubInstrumentedProxyPreferencesResolver : ProxyPreferencesResolver {
+    override suspend fun resolve(): com.poyka.ripdpi.core.RipDpiProxyPreferences = RipDpiProxyUIPreferences()
+}
+
+class StubInstrumentedRipDpiProxyRuntime : RipDpiProxyRuntime {
+    override suspend fun startProxy(preferences: com.poyka.ripdpi.core.RipDpiProxyPreferences): Int = 0
+
+    override suspend fun awaitReady(timeoutMillis: Long) = Unit
+
+    override suspend fun stopProxy() = Unit
+
+    override suspend fun pollTelemetry(): NativeRuntimeSnapshot = NativeRuntimeSnapshot.idle(source = "proxy")
+
+    override suspend fun updateNetworkSnapshot(snapshot: NativeNetworkSnapshot) = Unit
+}
+
+class StubInstrumentedRipDpiProxyFactory : RipDpiProxyFactory {
+    override fun create(): RipDpiProxyRuntime = StubInstrumentedRipDpiProxyRuntime()
+}
+
+class StubInstrumentedTun2SocksBridge : Tun2SocksBridge {
+    override suspend fun start(
+        config: Tun2SocksConfig,
+        tunFd: Int,
+    ) = Unit
+
+    override suspend fun stop() = Unit
+
+    override suspend fun stats(): TunnelStats = TunnelStats()
+
+    override suspend fun telemetry(): NativeRuntimeSnapshot = NativeRuntimeSnapshot.idle(source = "tunnel")
+}
+
+class StubInstrumentedTun2SocksBridgeFactory : Tun2SocksBridgeFactory {
+    override fun create(): Tun2SocksBridge = StubInstrumentedTun2SocksBridge()
+}
+
+class StubInstrumentedVpnTunnelSession : VpnTunnelSession {
+    override val tunFd: Int = -1
+
+    override fun close() = Unit
+}
+
+class StubInstrumentedVpnTunnelSessionProvider : VpnTunnelSessionProvider {
+    override fun establish(
+        host: VpnTunnelBuilderHost,
+        dns: String,
+        ipv6: Boolean,
+    ): VpnTunnelSession = StubInstrumentedVpnTunnelSession()
 }

@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.e2e
 
 import android.os.ParcelFileDescriptor
+import com.poyka.ripdpi.core.RipDpiListenConfig
 import com.poyka.ripdpi.core.RipDpiProxy
 import com.poyka.ripdpi.core.RipDpiProxyNativeBindings
 import com.poyka.ripdpi.core.RipDpiProxyUIPreferences

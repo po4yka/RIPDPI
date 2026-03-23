@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.integration
 
 import com.poyka.ripdpi.core.NetworkDiagnosticsNativeBindings
+import com.poyka.ripdpi.core.RipDpiListenConfig
 import com.poyka.ripdpi.core.RipDpiProxy
 import com.poyka.ripdpi.core.RipDpiProxyCmdPreferences
 import com.poyka.ripdpi.core.RipDpiProxyNativeBindings

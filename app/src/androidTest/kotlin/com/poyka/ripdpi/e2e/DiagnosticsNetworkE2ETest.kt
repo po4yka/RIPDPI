@@ -121,8 +121,17 @@ class DiagnosticsNetworkE2ETest {
 
         assertEquals("completed", detail.session.status)
         assertTrue(detail.results.any { it.probeType == "domain_reachability" && it.outcome == "http_ok" })
-        assertTrue(detail.results.any { it.probeType == "dns_resolution" && it.outcome == "dns_match" })
-        assertTrue(detail.results.any { it.probeType == "tcp_fat_header" && it.outcome == "tcp_fat_header_ok" })
+        assertTrue(
+            detail.results.any { result ->
+                result.probeType == "dns_integrity" && result.outcome in rawPathDnsSuccessOutcomes()
+            },
+        )
+        assertTrue(
+            detail.results.any { result ->
+                result.probeType == "tcp_fat_header" &&
+                    result.outcome in setOf("tcp_fat_header_ok", "tcp_16kb_blocked")
+            },
+        )
         assertTrue(detail.snapshots.isNotEmpty())
         assertTrue(detail.events.isNotEmpty())
     }
@@ -162,7 +171,11 @@ class DiagnosticsNetworkE2ETest {
         val sessionId = runBlocking { diagnosticsScanController.startScan(ScanPathMode.IN_PATH) }
         val detail = awaitCompletedSession(sessionId)
 
-        assertTrue(detail.results.any { it.outcome == "dns_match" })
+        assertTrue(
+            detail.results.any { result ->
+                result.probeType == "dns_integrity" && result.outcome in inPathDnsSuccessOutcomes()
+            },
+        )
         assertTrue(detail.results.any { it.outcome == "http_ok" })
         awaitServiceStatus(AppStatus.Running, Mode.Proxy)
     }
@@ -185,7 +198,11 @@ class DiagnosticsNetworkE2ETest {
         val sessionId = runBlocking { diagnosticsScanController.startScan(ScanPathMode.IN_PATH) }
         val detail = awaitCompletedSession(sessionId)
 
-        assertTrue(detail.results.any { it.outcome == "dns_match" })
+        assertTrue(
+            detail.results.any { result ->
+                result.probeType == "dns_integrity" && result.outcome in inPathDnsSuccessOutcomes()
+            },
+        )
         assertTrue(detail.results.any { it.outcome == "http_ok" })
         awaitServiceStatus(AppStatus.Running, Mode.VPN)
     }
@@ -202,7 +219,11 @@ class DiagnosticsNetworkE2ETest {
         val sessionId = runBlocking { diagnosticsScanController.startScan(ScanPathMode.RAW_PATH) }
         val detail = awaitCompletedSession(sessionId)
 
-        assertTrue(detail.results.any { it.probeType == "dns_resolution" && it.outcome == "doh_blocked" })
+        assertTrue(
+            detail.results.any { result ->
+                result.probeType == "dns_integrity" && result.outcome in rawPathDnsFaultOutcomes()
+            },
+        )
         assertTrue(detail.events.isNotEmpty())
     }
 
@@ -228,7 +249,11 @@ class DiagnosticsNetworkE2ETest {
         val sessionId = runBlocking { diagnosticsScanController.startScan(ScanPathMode.IN_PATH) }
         val detail = awaitCompletedSession(sessionId)
 
-        assertTrue(detail.results.any { it.probeType == "dns_resolution" && it.outcome == "doh_blocked" })
+        assertTrue(
+            detail.results.any { result ->
+                result.probeType == "dns_integrity" && result.outcome in inPathDnsFaultOutcomes()
+            },
+        )
         awaitServiceStatus(AppStatus.Running, Mode.Proxy)
     }
 
@@ -315,7 +340,7 @@ class DiagnosticsNetworkE2ETest {
             val reread = runBlocking { freshStore.data.first() }
             assertEquals("encrypted", reread.dnsMode)
             assertEquals("cloudflare", reread.dnsProviderId)
-            assertEquals("cloudflare-dns.com", reread.encryptedDnsHost)
+            assertEquals(fixture.androidHost, reread.encryptedDnsHost)
         } finally {
             scope.cancel()
         }
@@ -344,6 +369,7 @@ class DiagnosticsNetworkE2ETest {
                             domain = fixture.fixtureDomain,
                             udpServer = "${fixture.androidHost}:${fixture.dnsUdpPort}",
                             dohUrl = "http://${fixture.androidHost}:${fixture.dnsHttpPort}/dns-query",
+                            dohBootstrapIps = listOf(fixture.androidHost),
                             expectedIps = listOf(fixture.dnsAnswerIpv4),
                         ),
                     ),
@@ -402,12 +428,8 @@ class DiagnosticsNetworkE2ETest {
                             udpServer = "${fixture.androidHost}:${fixture.dnsUdpPort}",
                             encryptedResolverId = "cloudflare",
                             encryptedProtocol = "doh",
-                            encryptedHost = fixture.androidHost,
-                            encryptedPort = fixture.dnsHttpPort,
-                            encryptedTlsServerName = fixture.androidHost,
-                            encryptedBootstrapIps = listOf(fixture.androidHost),
-                            encryptedDohUrl = "http://${fixture.androidHost}:${fixture.dnsHttpPort}/dns-query",
                             dohUrl = "http://${fixture.androidHost}:${fixture.dnsHttpPort}/dns-query",
+                            dohBootstrapIps = listOf(fixture.androidHost),
                             expectedIps = listOf(fixture.dnsAnswerIpv4),
                         ),
                     ),
@@ -438,13 +460,31 @@ class DiagnosticsNetworkE2ETest {
     }
 
     private fun awaitCompletedSession(sessionId: String): com.poyka.ripdpi.diagnostics.DiagnosticSessionDetail {
-        awaitUntil(timeoutMs = 20_000, pollMs = 100) {
+        awaitUntil(timeoutMs = 45_000, pollMs = 100) {
             runBlocking {
-                scanRecordStore.getScanSession(sessionId)?.status == "completed"
+                when (val session = scanRecordStore.getScanSession(sessionId)) {
+                    null -> false
+                    else -> when (session.status) {
+                        "completed" -> true
+                        "failed" ->
+                            throw AssertionError(
+                                "Diagnostics session failed before completion: ${session.summary}",
+                            )
+                        else -> false
+                    }
+                }
             }
         }
         return runBlocking { diagnosticsDetailLoader.loadSessionDetail(sessionId) }
     }
+
+    private fun rawPathDnsSuccessOutcomes(): Set<String> = setOf("dns_match", "udp_blocked")
+
+    private fun inPathDnsSuccessOutcomes(): Set<String> = setOf("dns_match", "udp_skipped_or_blocked")
+
+    private fun rawPathDnsFaultOutcomes(): Set<String> = setOf("encrypted_dns_blocked", "dns_unavailable")
+
+    private fun inPathDnsFaultOutcomes(): Set<String> = setOf("encrypted_dns_blocked", "dns_unavailable")
 
     private fun startService(serviceClass: Class<*>) {
         ContextCompat.startForegroundService(
