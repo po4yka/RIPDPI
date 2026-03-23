@@ -79,17 +79,52 @@ class FakeServiceStateStore(
         mode: Mode,
     ) {
         statusState.value = status to mode
+        val now = System.currentTimeMillis()
+        val currentTelemetry = telemetryState.value
+        telemetryState.value =
+            currentTelemetry.copy(
+                mode = mode,
+                status = status,
+                serviceStartedAt =
+                    when {
+                        status == AppStatus.Running && currentTelemetry.status != AppStatus.Running -> now
+                        status == AppStatus.Running -> currentTelemetry.serviceStartedAt
+                        else -> null
+                    },
+                restartCount =
+                    when {
+                        status == AppStatus.Running && currentTelemetry.status != AppStatus.Running -> {
+                            currentTelemetry.restartCount + 1
+                        }
+                        else -> currentTelemetry.restartCount
+                    },
+                updatedAt = now,
+            )
     }
 
     override fun emitFailed(
         sender: Sender,
         reason: FailureReason,
     ) {
+        val now = System.currentTimeMillis()
+        telemetryState.value =
+            telemetryState.value.copy(
+                lastFailureSender = sender,
+                lastFailureAt = now,
+                updatedAt = now,
+            )
         eventFlow.tryEmit(ServiceEvent.Failed(sender, reason))
     }
 
     override fun updateTelemetry(snapshot: ServiceTelemetrySnapshot) {
-        telemetryState.value = snapshot
+        val currentTelemetry = telemetryState.value
+        telemetryState.value =
+            snapshot.copy(
+                serviceStartedAt = snapshot.serviceStartedAt ?: currentTelemetry.serviceStartedAt,
+                restartCount = maxOf(snapshot.restartCount, currentTelemetry.restartCount),
+                lastFailureSender = snapshot.lastFailureSender ?: currentTelemetry.lastFailureSender,
+                lastFailureAt = snapshot.lastFailureAt ?: currentTelemetry.lastFailureAt,
+            )
     }
 }
 

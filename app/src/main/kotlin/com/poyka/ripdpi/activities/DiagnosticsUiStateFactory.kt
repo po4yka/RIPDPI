@@ -212,12 +212,12 @@ internal class DiagnosticsUiStateFactory
                 latestResolverRecommendation =
                     latestProfileReport?.resolverRecommendation?.let(support::toResolverRecommendationUiModel),
                 latestStrategyProbeReport = latestStrategyProbeReport,
-                currentTelemetry = input.telemetry.firstOrNull(),
+                currentTelemetry = input.currentTelemetry,
                 health =
                     support.deriveHealth(
                         input.progress,
                         latestCompletedSession,
-                        input.telemetry.firstOrNull(),
+                        input.currentTelemetry,
                         input.nativeEvents,
                     ),
                 warnings =
@@ -445,6 +445,7 @@ internal data class DiagnosticsUiStateInput(
     val approachStats: List<BypassApproachSummary>,
     val snapshots: List<DiagnosticNetworkSnapshot>,
     val contexts: List<DiagnosticContextSnapshot>,
+    val currentTelemetry: DiagnosticTelemetrySample?,
     val telemetry: List<DiagnosticTelemetrySample>,
     val nativeEvents: List<DiagnosticEvent>,
     val activeConnectionSession: com.poyka.ripdpi.diagnostics.DiagnosticConnectionSession?,

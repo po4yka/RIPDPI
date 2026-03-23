@@ -215,11 +215,22 @@ class RuntimeHistoryMonitorTest {
                     .single()
                     .finishedAt != null
             }
+            waitUntil {
+                stores.telemetryState.value.any { sample ->
+                    sample.connectionSessionId == session.id && sample.connectionState == "Stopped"
+                }
+            }
+            val stoppedTelemetrySample =
+                stores.telemetryState.value.last { sample ->
+                    sample.connectionSessionId == session.id && sample.connectionState == "Stopped"
+                }
             assertFalse(
                 stores.usageSessionsState.value
                     .single()
                     .finishedAt == null,
             )
+            assertEquals(1_024L, stoppedTelemetrySample.txBytes)
+            assertEquals(2_048L, stoppedTelemetrySample.rxBytes)
         }
 
     @Test

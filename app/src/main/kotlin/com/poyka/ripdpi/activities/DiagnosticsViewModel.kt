@@ -3,9 +3,14 @@ package com.poyka.ripdpi.activities
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.poyka.ripdpi.data.AppSettingsRepository
+import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.AppSettingsSerializer
+import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.ServiceStateStore
+import com.poyka.ripdpi.data.ServiceTelemetrySnapshot
+import com.poyka.ripdpi.diagnostics.DiagnosticConnectionSession
 import com.poyka.ripdpi.diagnostics.DiagnosticActiveConnectionPolicy
+import com.poyka.ripdpi.diagnostics.DiagnosticTelemetrySample
 import com.poyka.ripdpi.diagnostics.DiagnosticsActiveConnectionPolicySource
 import com.poyka.ripdpi.diagnostics.DiagnosticsBootstrapper
 import com.poyka.ripdpi.diagnostics.DiagnosticsDetailLoader
@@ -63,6 +68,7 @@ class DiagnosticsViewModel
             ) { telemetry, nativeEvents, progress, snapshots, contexts ->
                 LiveDataSnapshot(
                     activeConnectionSession = null,
+                    currentTelemetry = null,
                     telemetry = telemetry,
                     nativeEvents = nativeEvents,
                     progress = progress,
@@ -74,6 +80,20 @@ class DiagnosticsViewModel
                     liveContexts = emptyList(),
                 )
             }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), LiveDataSnapshot.EMPTY)
+
+        private val currentTelemetryData: StateFlow<DiagnosticTelemetrySample?> =
+            combine(
+                serviceStateStore.status,
+                serviceStateStore.telemetry,
+                diagnosticsTimelineSource.activeConnectionSession,
+            ) { (status, mode), telemetry, activeConnectionSession ->
+                buildCurrentServiceTelemetry(
+                    status = status,
+                    mode = mode,
+                    telemetry = telemetry,
+                    activeConnectionSession = activeConnectionSession,
+                )
+            }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
         private val liveRuntimeData: StateFlow<LiveRuntimeSnapshot> =
             combine(
@@ -93,9 +113,10 @@ class DiagnosticsViewModel
             }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), LiveRuntimeSnapshot.EMPTY)
 
         private val combinedLiveData: StateFlow<LiveDataSnapshot> =
-            combine(liveData, liveRuntimeData) { live, runtime ->
+            combine(liveData, liveRuntimeData, currentTelemetryData) { live, runtime, currentTelemetry ->
                 live.copy(
                     activeConnectionSession = runtime.activeConnectionSession,
+                    currentTelemetry = currentTelemetry,
                     liveTelemetry = runtime.liveTelemetry,
                     liveNativeEvents = runtime.liveNativeEvents,
                     liveSnapshots = runtime.liveSnapshots,
@@ -173,6 +194,7 @@ class DiagnosticsViewModel
                         approachStats = scan.approachStats,
                         snapshots = live.snapshots,
                         contexts = live.contexts,
+                        currentTelemetry = live.currentTelemetry,
                         telemetry = live.telemetry,
                         nativeEvents = live.nativeEvents,
                         activeConnectionSession = live.activeConnectionSession,
@@ -324,3 +346,86 @@ class DiagnosticsViewModel
 
         fun saveArchive(sessionId: String? = null) = shareActions.saveArchive(sessionId)
     }
+
+private fun buildCurrentServiceTelemetry(
+    status: AppStatus,
+    mode: Mode,
+    telemetry: ServiceTelemetrySnapshot,
+    activeConnectionSession: DiagnosticConnectionSession?,
+): DiagnosticTelemetrySample? {
+    if (!hasCurrentServiceTelemetry(status, telemetry, activeConnectionSession)) {
+        return null
+    }
+
+    val createdAt =
+        listOfNotNull(
+            telemetry.updatedAt.takeIf { it > 0L },
+            telemetry.lastFailureAt,
+            activeConnectionSession?.updatedAt?.takeIf { it > 0L },
+            telemetry.serviceStartedAt,
+        ).maxOrNull() ?: 0L
+    return DiagnosticTelemetrySample(
+        id = "service-state:${activeConnectionSession?.id ?: mode.name.lowercase()}:$createdAt",
+        sessionId = null,
+        connectionSessionId = activeConnectionSession?.id,
+        activeMode = telemetry.mode?.name ?: activeConnectionSession?.serviceMode ?: mode.name,
+        connectionState = resolveCurrentConnectionState(status, activeConnectionSession),
+        networkType = activeConnectionSession?.networkType ?: UnknownCurrentNetworkType,
+        publicIp = activeConnectionSession?.publicIp,
+        failureClass = telemetry.runtimeFieldTelemetry.failureClass?.wireValue,
+        telemetryNetworkFingerprintHash = telemetry.runtimeFieldTelemetry.telemetryNetworkFingerprintHash,
+        winningTcpStrategyFamily = telemetry.runtimeFieldTelemetry.winningTcpStrategyFamily,
+        winningQuicStrategyFamily = telemetry.runtimeFieldTelemetry.winningQuicStrategyFamily,
+        proxyRttBand = telemetry.runtimeFieldTelemetry.proxyRttBand.wireValue,
+        resolverRttBand = telemetry.runtimeFieldTelemetry.resolverRttBand.wireValue,
+        proxyRouteRetryCount = telemetry.runtimeFieldTelemetry.proxyRouteRetryCount,
+        tunnelRecoveryRetryCount = telemetry.runtimeFieldTelemetry.tunnelRecoveryRetryCount,
+        resolverId = telemetry.tunnelTelemetry.resolverId,
+        resolverProtocol = telemetry.tunnelTelemetry.resolverProtocol,
+        resolverEndpoint = telemetry.tunnelTelemetry.resolverEndpoint,
+        resolverLatencyMs = telemetry.tunnelTelemetry.resolverLatencyMs,
+        dnsFailuresTotal = telemetry.tunnelTelemetry.dnsFailuresTotal,
+        resolverFallbackActive = telemetry.tunnelTelemetry.resolverFallbackActive,
+        resolverFallbackReason = telemetry.tunnelTelemetry.resolverFallbackReason,
+        networkHandoverClass = telemetry.tunnelTelemetry.networkHandoverClass,
+        lastFailureClass = telemetry.proxyTelemetry.lastFailureClass,
+        lastFallbackAction = telemetry.proxyTelemetry.lastFallbackAction,
+        txPackets = telemetry.tunnelStats.txPackets,
+        txBytes = telemetry.tunnelStats.txBytes,
+        rxPackets = telemetry.tunnelStats.rxPackets,
+        rxBytes = telemetry.tunnelStats.rxBytes,
+        createdAt = createdAt,
+    )
+}
+
+private fun hasCurrentServiceTelemetry(
+    status: AppStatus,
+    telemetry: ServiceTelemetrySnapshot,
+    activeConnectionSession: DiagnosticConnectionSession?,
+): Boolean =
+    status == AppStatus.Running ||
+        activeConnectionSession != null ||
+        telemetry.updatedAt > 0L ||
+        telemetry.serviceStartedAt != null ||
+        telemetry.restartCount > 0 ||
+        telemetry.lastFailureAt != null ||
+        telemetry.tunnelStats.txPackets > 0L ||
+        telemetry.tunnelStats.txBytes > 0L ||
+        telemetry.tunnelStats.rxPackets > 0L ||
+        telemetry.tunnelStats.rxBytes > 0L
+
+private fun resolveCurrentConnectionState(
+    status: AppStatus,
+    activeConnectionSession: DiagnosticConnectionSession?,
+): String =
+    when (status) {
+        AppStatus.Running -> activeConnectionSession?.connectionState ?: AppStatus.Running.name
+        AppStatus.Halted ->
+            if (activeConnectionSession?.connectionState.equals("Failed", ignoreCase = true)) {
+                "Failed"
+            } else {
+                "Stopped"
+            }
+    }
+
+private const val UnknownCurrentNetworkType = "unknown"

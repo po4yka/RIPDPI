@@ -70,6 +70,7 @@ class DefaultServiceStateStore
             mode: Mode,
         ) {
             val previousStatus = _status.value.first
+            val now = System.currentTimeMillis()
             _status.value = status to mode
             val currentTelemetry = _telemetry.value
             _telemetry.value =
@@ -79,8 +80,7 @@ class DefaultServiceStateStore
                     serviceStartedAt =
                         when {
                             status == AppStatus.Running && previousStatus != AppStatus.Running -> {
-                                System
-                                    .currentTimeMillis()
+                                now
                             }
 
                             status == AppStatus.Running -> {
@@ -102,6 +102,7 @@ class DefaultServiceStateStore
                                 currentTelemetry.restartCount
                             }
                         },
+                    updatedAt = now,
                 )
         }
 
@@ -109,6 +110,7 @@ class DefaultServiceStateStore
             sender: Sender,
             reason: FailureReason,
         ) {
+            val now = System.currentTimeMillis()
             val currentTelemetry = _telemetry.value
             _telemetry.value =
                 currentTelemetry.copy(
@@ -127,9 +129,10 @@ class DefaultServiceStateStore
                             tunnelRecoveryRetryCount =
                                 currentTelemetry.runtimeFieldTelemetry.tunnelRecoveryRetryCount,
                             failureReason = reason,
-                        ),
+                    ),
                     lastFailureSender = sender,
-                    lastFailureAt = System.currentTimeMillis(),
+                    lastFailureAt = now,
+                    updatedAt = now,
                 )
             _events.tryEmit(ServiceEvent.Failed(sender, reason))
         }

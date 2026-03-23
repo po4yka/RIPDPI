@@ -256,6 +256,16 @@ class RuntimeSessionCoordinator
         private suspend fun finalizeActiveUsageSession(telemetry: ServiceTelemetrySnapshot) {
             val current = activeUsageSession ?: return
             val finalizedAt = maxOf(System.currentTimeMillis(), telemetry.updatedAt)
+            if (current.failureMessage.isNullOrBlank()) {
+                artifactPersister.persistTerminalTelemetrySample(
+                    connectionSessionId = current.id,
+                    telemetry = telemetry,
+                    createdAt = finalizedAt,
+                    networkTypeFallback = current.networkType,
+                    publicIpFallback = current.publicIp,
+                    connectionState = "Stopped",
+                )
+            }
             val finishedSession =
                 RuntimeUsageSessionBuilder.finalizeSession(
                     current = current,

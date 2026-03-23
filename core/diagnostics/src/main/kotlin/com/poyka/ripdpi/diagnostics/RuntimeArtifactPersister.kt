@@ -126,6 +126,26 @@ class RuntimeArtifactPersister
             )
         }
 
+        suspend fun persistTerminalTelemetrySample(
+            connectionSessionId: String,
+            telemetry: ServiceTelemetrySnapshot,
+            createdAt: Long,
+            networkTypeFallback: String,
+            publicIpFallback: String?,
+            connectionState: String,
+        ) {
+            artifactWriteStore.insertTelemetrySample(
+                buildTelemetrySampleEntity(
+                    connectionSessionId = connectionSessionId,
+                    networkType = networkTypeFallback,
+                    publicIp = publicIpFallback,
+                    telemetry = telemetry,
+                    createdAt = createdAt,
+                    connectionStateOverride = connectionState,
+                ),
+            )
+        }
+
         suspend fun trimHistory(retentionDays: Int) {
             historyRetentionStore.trimOldData(retentionDays)
         }
