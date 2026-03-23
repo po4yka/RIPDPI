@@ -205,9 +205,9 @@ private fun DiagnosticsOutcomeBucket.eventLevel(): String =
     when (this) {
         DiagnosticsOutcomeBucket.Healthy -> "info"
         DiagnosticsOutcomeBucket.Attention,
-        DiagnosticsOutcomeBucket.Failed,
         DiagnosticsOutcomeBucket.Inconclusive,
         -> "warn"
+        DiagnosticsOutcomeBucket.Failed -> "error"
     }
 
 private fun DiagnosticsOutcomeBucket.uiTone(): DiagnosticsOutcomeTone =

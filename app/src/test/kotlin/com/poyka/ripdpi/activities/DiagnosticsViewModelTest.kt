@@ -387,6 +387,33 @@ class DiagnosticsViewModelTest {
                                 createdAt = 61L,
                             ),
                         )
+                    liveSnapshotsState.value =
+                        listOf(
+                            snapshot(
+                                id = "scan-snapshot",
+                                sessionId = null,
+                                connectionSessionId = "connection-a",
+                                snapshotKind = "post_scan",
+                                transport = "cellular",
+                            ),
+                            snapshot(
+                                id = "runtime-snapshot",
+                                sessionId = null,
+                                connectionSessionId = "connection-a",
+                                snapshotKind = "connection_sample",
+                                transport = "wifi",
+                            ),
+                        )
+                    liveContextsState.value =
+                        listOf(
+                            context(
+                                id = "scan-context",
+                                sessionId = null,
+                                connectionSessionId = "connection-a",
+                                contextKind = "post_scan",
+                                serviceStatus = "Stopped",
+                            ),
+                        )
                 }
 
             val viewModel =
@@ -398,9 +425,38 @@ class DiagnosticsViewModelTest {
             assertEquals("wifi", state.live.networkLabel)
             assertEquals("VPN", state.live.modeLabel)
             assertEquals("Active runtime warning", state.live.passiveEvents.single().message)
+            assertEquals("Connection sample", state.live.snapshot?.title)
+            assertTrue(state.live.contextGroups.isEmpty())
             assertTrue(
                 state.live.body.contains("3.0 KB transferred") || state.live.signalLabel.contains("1.0 KB sent"),
             )
+            collector.cancel()
+        }
+
+    @Test
+    fun `live state uses error headline for degraded active sessions without telemetry`() =
+        runTest {
+            val manager =
+                FakeDiagnosticsManager().apply {
+                    activeConnectionSessionState.value =
+                        connectionSession(
+                            id = "connection-degraded",
+                            connectionState = "Failed",
+                            health = "degraded",
+                            serviceMode = "VPN",
+                            networkType = "wifi",
+                        )
+                }
+
+            val viewModel =
+                createDiagnosticsViewModel(RuntimeEnvironment.getApplication(), manager, FakeAppSettingsRepository())
+            val collector = backgroundScope.launch { viewModel.uiState.collect {} }
+            advanceUntilIdle()
+
+            val state = viewModel.uiState.value
+            assertEquals(DiagnosticsHealth.Degraded, state.live.health)
+            assertEquals("Failed", state.live.statusLabel)
+            assertEquals("Runtime needs intervention", state.live.headline)
             collector.cancel()
         }
 
@@ -2446,6 +2502,12 @@ class DiagnosticsViewModelTest {
         id: String,
         sessionId: String?,
         connectionSessionId: String? = null,
+        snapshotKind: String =
+            when {
+                connectionSessionId != null -> "connection_sample"
+                sessionId == null -> "passive"
+                else -> "post_scan"
+            },
         transport: String = "wifi",
         cellularDetails: CellularNetworkDetails? = null,
     ): NetworkSnapshotEntity =
@@ -2453,7 +2515,7 @@ class DiagnosticsViewModelTest {
             id = id,
             sessionId = sessionId,
             connectionSessionId = connectionSessionId,
-            snapshotKind = "passive",
+            snapshotKind = snapshotKind,
             payloadJson =
                 json.encodeToString(
                     NetworkSnapshotModel(
@@ -2504,23 +2566,25 @@ class DiagnosticsViewModelTest {
         id: String,
         sessionId: String?,
         connectionSessionId: String? = null,
+        contextKind: String =
+            when {
+                connectionSessionId != null -> "connection_sample"
+                sessionId == null -> "passive"
+                else -> "post_scan"
+            },
+        serviceStatus: String = "Running",
     ): DiagnosticContextEntity =
         DiagnosticContextEntity(
             id = id,
             sessionId = sessionId,
             connectionSessionId = connectionSessionId,
-            contextKind =
-                when {
-                    connectionSessionId != null -> "connection_sample"
-                    sessionId == null -> "passive"
-                    else -> "post_scan"
-                },
+            contextKind = contextKind,
             payloadJson =
                 json.encodeToString(
                     DiagnosticContextModel(
                         service =
                             ServiceContextModel(
-                                serviceStatus = "Running",
+                                serviceStatus = serviceStatus,
                                 configuredMode = "VPN",
                                 activeMode = "VPN",
                                 selectedProfileId = "default",
