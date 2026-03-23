@@ -10,6 +10,8 @@ the<CommonExtension>().apply {
 }
 
 extensions.findByType<ComposeCompilerGradlePluginExtension>()?.apply {
+    stabilityConfigurationFile.set(project.rootProject.layout.projectDirectory.file("app/compose-stability.conf"))
+
     if (providers.environmentVariable("CI").isPresent) {
         reportsDestination.set(layout.buildDirectory.dir("compose-reports"))
         metricsDestination.set(layout.buildDirectory.dir("compose-metrics"))
