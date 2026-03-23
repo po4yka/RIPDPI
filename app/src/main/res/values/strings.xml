@@ -152,6 +152,7 @@
     <string name="diagnostics_open_history_title">Persistent history moved out of Diagnostics</string>
     <string name="diagnostics_open_history_body">Use the dedicated History screen for saved connection sessions, previous scans, and the durable event feed.</string>
     <string name="diagnostics_open_history_action">Open History</string>
+    <string name="diagnostics_overview_run_scan_action">Run scan</string>
     <string name="diagnostics_share_summary_title">Share readable summary</string>
     <string name="diagnostics_share_summary_body">Build a concise incident brief from the latest or selected diagnostics session and send it through the Android share sheet.</string>
     <string name="diagnostics_share_summary_action">Share summary</string>

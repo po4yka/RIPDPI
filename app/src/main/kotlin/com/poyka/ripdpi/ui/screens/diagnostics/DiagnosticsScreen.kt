@@ -44,6 +44,7 @@ import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.DiagnosticsApproachMode
 import com.poyka.ripdpi.activities.DiagnosticsApproachesUiModel
 import com.poyka.ripdpi.activities.DiagnosticsEffect
+import com.poyka.ripdpi.activities.DiagnosticsHealth
 import com.poyka.ripdpi.activities.DiagnosticsOverviewUiModel
 import com.poyka.ripdpi.activities.DiagnosticsPerformanceUiModel
 import com.poyka.ripdpi.activities.DiagnosticsProbeResultUiModel
@@ -599,6 +600,14 @@ private fun DiagnosticsHealthHero(
                     null
                 },
         )
+        if (!isActiveScan && overview.health in setOf(DiagnosticsHealth.Attention, DiagnosticsHealth.Degraded)) {
+            RipDpiButton(
+                text = stringResource(R.string.diagnostics_overview_run_scan_action),
+                onClick = { onSelectSection(DiagnosticsSection.Scan) },
+                variant = RipDpiButtonVariant.Outline,
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
         RipDpiCard(variant = RipDpiCardVariant.Elevated) {
             StatusIndicator(
                 label = overview.health.displayLabel(),
