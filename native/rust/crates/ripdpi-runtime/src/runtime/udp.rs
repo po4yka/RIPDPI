@@ -177,11 +177,7 @@ pub(super) fn udp_associate_loop(
             Err(err) => return Err(err),
         }
 
-        let keys = flow_state.keys().copied().collect::<Vec<_>>();
-        for (client_addr, sender) in keys {
-            let Some(entry) = flow_state.get_mut(&(client_addr, sender)) else {
-                continue;
-            };
+        for (&(client_addr, sender), entry) in flow_state.iter_mut() {
             match entry.upstream.recv(&mut upstream_buffer) {
                 Ok(n) => {
                     made_progress = true;
