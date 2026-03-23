@@ -3,10 +3,14 @@ package com.poyka.ripdpi.activities
 import com.poyka.ripdpi.core.RipDpiChainConfig
 import com.poyka.ripdpi.core.RipDpiProxyUIPreferences
 import com.poyka.ripdpi.core.RipDpiQuicConfig
+import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.HttpFakeProfileCloudflareGet
+import com.poyka.ripdpi.data.Mode
+import com.poyka.ripdpi.data.ServiceTelemetrySnapshot
 import com.poyka.ripdpi.data.TcpChainStepKind
 import com.poyka.ripdpi.data.TcpChainStepModel
 import com.poyka.ripdpi.data.TlsFakeProfileGoogleChrome
+import com.poyka.ripdpi.data.TunnelStats
 import com.poyka.ripdpi.data.UdpFakeProfileDnsQuery
 import com.poyka.ripdpi.diagnostics.BypassApproachDetail
 import com.poyka.ripdpi.diagnostics.BypassApproachId
@@ -495,6 +499,64 @@ class DiagnosticsViewModelTest {
             assertEquals("VPN", state.live.modeLabel)
             assertEquals("No live telemetry", state.live.freshnessLabel)
             assertEquals("Live monitor standing by", state.live.headline)
+            collector.cancel()
+        }
+
+    @Test
+    fun `overview and share use current service telemetry instead of historical samples`() =
+        runTest {
+            val manager =
+                FakeDiagnosticsManager().apply {
+                    activeConnectionSessionState.value =
+                        connectionSession(
+                            id = "connection-live",
+                            connectionState = "Running",
+                            serviceMode = "VPN",
+                            networkType = "wifi",
+                        )
+                    telemetryState.value =
+                        listOf(
+                            telemetry(
+                                id = "historical-telemetry",
+                                connectionSessionId = "connection-old",
+                                networkType = "cellular",
+                                activeMode = "PROXY",
+                                txBytes = 9_000,
+                                rxBytes = 12_000,
+                                createdAt = 40L,
+                            ),
+                        )
+                }
+            val serviceStateStore =
+                FakeServiceStateStore().apply {
+                    setStatus(AppStatus.Running, Mode.VPN)
+                    updateTelemetry(
+                        ServiceTelemetrySnapshot(
+                            mode = Mode.VPN,
+                            status = AppStatus.Running,
+                            tunnelStats = TunnelStats(txPackets = 4, txBytes = 1_024, rxPackets = 5, rxBytes = 2_048),
+                            updatedAt = 120L,
+                        ),
+                    )
+                }
+
+            val viewModel =
+                createDiagnosticsViewModel(
+                    appContext = RuntimeEnvironment.getApplication(),
+                    diagnosticsManager = manager,
+                    appSettingsRepository = FakeAppSettingsRepository(),
+                    serviceStateStore = serviceStateStore,
+                )
+            val collector = backgroundScope.launch { viewModel.uiState.collect {} }
+            advanceUntilIdle()
+
+            val state = viewModel.uiState.value
+            assertTrue(state.overview.metrics.any { it.label == "TX" && it.value == "1.0 KB" })
+            assertTrue(state.overview.metrics.any { it.label == "RX" && it.value == "2.0 KB" })
+            assertFalse(state.overview.metrics.any { it.value == "8.8 KB" || it.value == "11.7 KB" })
+            assertTrue(state.share.previewBody.contains("Live running"))
+            assertTrue(state.share.previewBody.contains("wifi"))
+            assertFalse(state.share.previewBody.contains("cellular"))
             collector.cancel()
         }
 
