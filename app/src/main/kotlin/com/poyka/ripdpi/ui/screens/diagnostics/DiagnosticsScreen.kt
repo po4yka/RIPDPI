@@ -434,7 +434,7 @@ private fun OverviewSection(
             item {
                 RipDpiCard {
                     Text(
-                        text = stringResource(R.string.diagnostics_profiles_title),
+                        text = stringResource(R.string.diagnostics_profiles_title).uppercase(),
                         style = RipDpiThemeTokens.type.sectionTitle,
                         color = RipDpiThemeTokens.colors.mutedForeground,
                     )
@@ -497,7 +497,7 @@ private fun RememberedNetworkPoliciesCard(policies: List<DiagnosticsRememberedNe
     val type = RipDpiThemeTokens.type
     RipDpiCard {
         Text(
-            text = stringResource(R.string.diagnostics_remembered_networks_title),
+            text = stringResource(R.string.diagnostics_remembered_networks_title).uppercase(),
             style = type.sectionTitle,
             color = colors.mutedForeground,
         )
@@ -614,7 +614,7 @@ private fun DiagnosticsHealthHero(
                 tone = overview.health.statusTone(),
             )
             Text(
-                text = stringResource(R.string.diagnostics_overview_section),
+                text = stringResource(R.string.diagnostics_overview_section).uppercase(),
                 style = RipDpiThemeTokens.type.sectionTitle,
                 color = colors.mutedForeground,
             )
@@ -643,7 +643,7 @@ private fun ApproachesSection(
         item {
             RipDpiCard(variant = RipDpiCardVariant.Elevated) {
                 Text(
-                    text = stringResource(R.string.diagnostics_approaches_title),
+                    text = stringResource(R.string.diagnostics_approaches_title).uppercase(),
                     style = RipDpiThemeTokens.type.sectionTitle,
                     color = RipDpiThemeTokens.colors.mutedForeground,
                 )
@@ -765,7 +765,7 @@ private fun EventsSection(
                     ),
             ) {
                 Text(
-                    text = stringResource(R.string.diagnostics_events_title),
+                    text = stringResource(R.string.diagnostics_events_title).uppercase(),
                     style = RipDpiThemeTokens.type.sectionTitle,
                     color = RipDpiThemeTokens.colors.mutedForeground,
                 )

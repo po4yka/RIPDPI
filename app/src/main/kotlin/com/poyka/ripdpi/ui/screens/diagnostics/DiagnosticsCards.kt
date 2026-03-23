@@ -79,7 +79,7 @@ internal fun SnapshotCard(snapshot: DiagnosticsNetworkSnapshotUiModel) {
     val spacing = RipDpiThemeTokens.spacing
     RipDpiCard {
         Text(
-            text = snapshot.title,
+            text = snapshot.title.uppercase(),
             style = RipDpiThemeTokens.type.sectionTitle,
             color = RipDpiThemeTokens.colors.mutedForeground,
         )
@@ -111,7 +111,7 @@ internal fun SnapshotCard(snapshot: DiagnosticsNetworkSnapshotUiModel) {
 internal fun ContextGroupCard(group: DiagnosticsContextGroupUiModel) {
     RipDpiCard {
         Text(
-            text = group.title,
+            text = group.title.uppercase(),
             style = RipDpiThemeTokens.type.sectionTitle,
             color = RipDpiThemeTokens.colors.mutedForeground,
         )
