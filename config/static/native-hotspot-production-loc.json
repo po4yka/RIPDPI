@@ -18,7 +18,31 @@
     },
     {
       "path": "native/rust/crates/ripdpi-monitor/src/engine.rs",
-      "maxProductionLoc": 1200
+      "maxProductionLoc": 220
+    },
+    {
+      "path": "native/rust/crates/ripdpi-monitor/src/engine/plan.rs",
+      "maxProductionLoc": 110
+    },
+    {
+      "path": "native/rust/crates/ripdpi-monitor/src/engine/report.rs",
+      "maxProductionLoc": 80
+    },
+    {
+      "path": "native/rust/crates/ripdpi-monitor/src/engine/runners/connectivity.rs",
+      "maxProductionLoc": 260
+    },
+    {
+      "path": "native/rust/crates/ripdpi-monitor/src/engine/runners/mod.rs",
+      "maxProductionLoc": 40
+    },
+    {
+      "path": "native/rust/crates/ripdpi-monitor/src/engine/runners/strategy.rs",
+      "maxProductionLoc": 500
+    },
+    {
+      "path": "native/rust/crates/ripdpi-monitor/src/engine/runtime.rs",
+      "maxProductionLoc": 240
     },
     {
       "path": "native/rust/crates/ripdpi-packets/src/lib.rs",
