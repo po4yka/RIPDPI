@@ -71,4 +71,4 @@ Use the raw tag values from `RipDpiTestTags` as your locator contract.
   `vpn-permission-dialog-dismiss`
 
 For the full registry, use
-[`RipDpiTestTags.kt`](../../app/src/main/java/com/poyka/ripdpi/ui/testing/RipDpiTestTags.kt).
+[`RipDpiTestTags.kt`](../../app/src/main/kotlin/com/poyka/ripdpi/ui/testing/RipDpiTestTags.kt).

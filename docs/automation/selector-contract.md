@@ -5,7 +5,7 @@ This document defines the stable selector rules for external UI automation.
 ## Source Of Truth
 
 All stable IDs live in
-[`RipDpiTestTags.kt`](../../app/src/main/java/com/poyka/ripdpi/ui/testing/RipDpiTestTags.kt).
+[`RipDpiTestTags.kt`](../../app/src/main/kotlin/com/poyka/ripdpi/ui/testing/RipDpiTestTags.kt).
 New Maestro/Appium flows should reuse those IDs instead of inventing local selectors.
 
 ## Rules

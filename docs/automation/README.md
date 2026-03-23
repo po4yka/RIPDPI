@@ -8,7 +8,7 @@ live VPN/native services.
 
 - The contract is available only in `debug` builds.
 - Release builds ignore all automation extras.
-- The selector surface is backed by [`RipDpiTestTags.kt`](../../app/src/main/java/com/poyka/ripdpi/ui/testing/RipDpiTestTags.kt).
+- The selector surface is backed by [`RipDpiTestTags.kt`](../../app/src/main/kotlin/com/poyka/ripdpi/ui/testing/RipDpiTestTags.kt).
 - Compose `testTag` values are exposed as Android resource IDs through the automation tree root.
 
 ## Documents
