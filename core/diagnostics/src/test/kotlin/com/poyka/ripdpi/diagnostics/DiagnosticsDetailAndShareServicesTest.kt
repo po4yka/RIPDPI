@@ -7,6 +7,7 @@ import com.poyka.ripdpi.data.diagnostics.ProbeResultEntity
 import com.poyka.ripdpi.data.diagnostics.TelemetrySampleEntity
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -221,6 +222,173 @@ class DiagnosticsDetailAndShareServicesTest {
             assertSame(expectedArchive, archive)
             assertEquals(session.id, archiveExporter.requestedSessionId)
         }
+
+    @Test
+    fun `share summary stays scoped to the requested session`() =
+        runTest {
+            val stores = FakeDiagnosticsHistoryStores()
+            val selectedSession =
+                diagnosticsSession(
+                    id = "session-1",
+                    profileId = "default",
+                    pathMode = ScanPathMode.RAW_PATH.name,
+                    summary = "Selected session",
+                )
+            val newerSession =
+                diagnosticsSession(
+                    id = "session-2",
+                    profileId = "default",
+                    pathMode = ScanPathMode.IN_PATH.name,
+                    summary = "Newer session",
+                )
+            stores.sessionsState.value = listOf(newerSession, selectedSession)
+            stores.replaceProbeResults(
+                sessionId = selectedSession.id,
+                results =
+                    listOf(
+                        ProbeResultEntity(
+                            id = "probe-1",
+                            sessionId = selectedSession.id,
+                            probeType = "dns",
+                            target = "blocked.example",
+                            outcome = "dns_blocked",
+                            detailJson = "[]",
+                            createdAt = 20L,
+                        ),
+                    ),
+            )
+            stores.snapshotsState.value =
+                listOf(
+                    NetworkSnapshotEntity(
+                        id = "snap-1",
+                        sessionId = selectedSession.id,
+                        snapshotKind = "post_scan",
+                        payloadJson = json.encodeToString(NetworkSnapshotModel.serializer(), networkSnapshotModelForTest()),
+                        capturedAt = 20L,
+                    ),
+                )
+            stores.contextsState.value =
+                listOf(
+                    DiagnosticContextEntity(
+                        id = "ctx-1",
+                        sessionId = selectedSession.id,
+                        contextKind = "post_scan",
+                        payloadJson = json.encodeToString(DiagnosticContextModel.serializer(), captureContextForTest()),
+                        capturedAt = 21L,
+                    ),
+                )
+            stores.telemetryState.value =
+                listOf(
+                    TelemetrySampleEntity(
+                        id = "telemetry-new",
+                        sessionId = newerSession.id,
+                        activeMode = "VPN",
+                        connectionState = "Running",
+                        networkType = "cellular",
+                        publicIp = "198.51.100.9",
+                        txPackets = 9L,
+                        txBytes = 999L,
+                        rxPackets = 10L,
+                        rxBytes = 1111L,
+                        createdAt = 30L,
+                    ),
+                    TelemetrySampleEntity(
+                        id = "telemetry-selected",
+                        sessionId = selectedSession.id,
+                        activeMode = "VPN",
+                        connectionState = "Running",
+                        networkType = "wifi",
+                        publicIp = "198.51.100.8",
+                        txPackets = 1L,
+                        txBytes = 64L,
+                        rxPackets = 2L,
+                        rxBytes = 128L,
+                        createdAt = 22L,
+                    ),
+                )
+            stores.nativeEventsState.value =
+                listOf(
+                    NativeSessionEventEntity(
+                        id = "warn-new",
+                        sessionId = newerSession.id,
+                        source = "proxy",
+                        level = "warn",
+                        message = "newer warning",
+                        createdAt = 31L,
+                    ),
+                    NativeSessionEventEntity(
+                        id = "warn-selected",
+                        sessionId = selectedSession.id,
+                        source = "dns",
+                        level = "warn",
+                        message = "selected warning",
+                        createdAt = 23L,
+                    ),
+                )
+            val shareService =
+                DefaultDiagnosticsShareService(
+                    scanRecordStore = stores,
+                    artifactReadStore = stores,
+                    archiveExporter = RecordingDiagnosticsArchiveExporter(unusedArchive(selectedSession.id)),
+                    json = json,
+                )
+
+            val summary = shareService.buildShareSummary(selectedSession.id)
+
+            assertTrue(summary.body.contains("session=${selectedSession.id}"))
+            assertTrue(summary.body.contains("txBytes=64"))
+            assertFalse(summary.body.contains("txBytes=999"))
+            assertTrue(summary.body.contains("dns: selected warning"))
+            assertFalse(summary.body.contains("proxy: newer warning"))
+        }
+
+    @Test
+    fun `share summary reports requested session as unavailable instead of falling back`() =
+        runTest {
+            val stores = FakeDiagnosticsHistoryStores().apply {
+                sessionsState.value =
+                    listOf(
+                        diagnosticsSession(
+                            id = "session-2",
+                            profileId = "default",
+                            pathMode = ScanPathMode.IN_PATH.name,
+                            summary = "Newest session",
+                        ),
+                    )
+                telemetryState.value =
+                    listOf(
+                        TelemetrySampleEntity(
+                            id = "telemetry-new",
+                            sessionId = "session-2",
+                            activeMode = "VPN",
+                            connectionState = "Running",
+                            networkType = "cellular",
+                            publicIp = "198.51.100.9",
+                            txPackets = 9L,
+                            txBytes = 999L,
+                            rxPackets = 10L,
+                            rxBytes = 1111L,
+                            createdAt = 30L,
+                        ),
+                    )
+            }
+            val shareService =
+                DefaultDiagnosticsShareService(
+                    scanRecordStore = stores,
+                    artifactReadStore = stores,
+                    archiveExporter = RecordingDiagnosticsArchiveExporter(unusedArchive("session-2")),
+                    json = json,
+                )
+
+            val summary = shareService.buildShareSummary("missing-session")
+
+            assertEquals("RIPDPI diagnostics missing-", summary.title)
+            assertTrue(summary.body.contains("session=missing-session"))
+            assertTrue(summary.body.contains("status=session_unavailable"))
+            assertFalse(summary.body.contains("session=session-2"))
+            assertFalse(summary.body.contains("txBytes=999"))
+            assertTrue(summary.compactMetrics.isEmpty())
+        }
 }
 
 private class RecordingDiagnosticsArchiveExporter(
@@ -237,6 +405,17 @@ private class RecordingDiagnosticsArchiveExporter(
 }
 
 private fun captureContextForTest(): DiagnosticContextModel = FakeDiagnosticsContextProvider().captureContextForTest()
+
+private fun unusedArchive(sessionId: String?) =
+    DiagnosticsArchive(
+        fileName = "unused.zip",
+        absolutePath = "/tmp/unused.zip",
+        sessionId = sessionId,
+        createdAt = 0L,
+        scope = "hybrid",
+        schemaVersion = 2,
+        privacyMode = "split_output",
+    )
 
 private fun diagnosticsUsageSession(
     id: String,
