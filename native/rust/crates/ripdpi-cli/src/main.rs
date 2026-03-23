@@ -72,14 +72,9 @@ fn init_logging(debug_level: i32) {
         _ => "debug",
     };
 
-    let env_filter =
-        EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new(default_filter));
+    let env_filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new(default_filter));
 
-    fmt()
-        .with_env_filter(env_filter)
-        .with_writer(std::io::stderr)
-        .with_target(false)
-        .init();
+    fmt().with_env_filter(env_filter).with_writer(std::io::stderr).with_target(false).init();
 
     tracing_log::LogTracer::init().ok();
 }
