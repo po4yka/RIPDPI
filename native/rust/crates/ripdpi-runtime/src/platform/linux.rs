@@ -1,3 +1,13 @@
+//! Linux/Android platform socket operations.
+//!
+//! This module intentionally uses raw `libc::setsockopt`/`getsockopt` for
+//! kernel-specific options not available in `socket2` (as of 0.5):
+//! TCP_INFO, TCP_MD5SIG, TCP_FASTOPEN_CONNECT, SO_ATTACH_FILTER,
+//! SO_ORIGINAL_DST, IP_RECVTTL, and `recvmsg` with CMSG ancillary data.
+//!
+//! Standard socket options use `socket2::SockRef` (see [`set_stream_ttl`]).
+//! Last audited: 2026-03-24 against socket2 0.5.10.
+
 use std::io::{self, Read};
 use std::mem::{size_of, zeroed};
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, TcpStream};
@@ -11,6 +21,41 @@ use ripdpi_desync::TcpSegmentHint;
 use socket2::SockRef;
 
 use super::TcpStageWait;
+
+/// Thin wrapper around `libc::setsockopt` that handles the return-code check
+/// and `io::Error` conversion.
+///
+/// # Safety
+/// `fd` must be a live socket descriptor; `val` must be a valid payload for the
+/// given `level`/`name` combination per the Linux kernel ABI.
+unsafe fn setsockopt_raw<T>(fd: libc::c_int, level: libc::c_int, name: libc::c_int, val: &T) -> io::Result<()> {
+    let rc =
+        unsafe { libc::setsockopt(fd, level, name, (val as *const T).cast(), size_of::<T>() as libc::socklen_t) };
+    if rc == 0 {
+        Ok(())
+    } else {
+        Err(io::Error::last_os_error())
+    }
+}
+
+/// Thin wrapper around `libc::getsockopt` that handles zero-init, the
+/// return-code check, and `io::Error` conversion. Returns the value together
+/// with the actual byte length written by the kernel (useful for variable-size
+/// structs like `tcp_info`).
+///
+/// # Safety
+/// `fd` must be a live socket descriptor; `T` must match the kernel's expected
+/// output layout for the given `level`/`name` combination.
+unsafe fn getsockopt_raw<T>(fd: libc::c_int, level: libc::c_int, name: libc::c_int) -> io::Result<(T, libc::socklen_t)> {
+    let mut val: T = unsafe { zeroed() };
+    let mut len = size_of::<T>() as libc::socklen_t;
+    let rc = unsafe { libc::getsockopt(fd, level, name, (&mut val as *mut T).cast(), &mut len) };
+    if rc == 0 {
+        Ok((val, len))
+    } else {
+        Err(io::Error::last_os_error())
+    }
+}
 
 #[repr(C)]
 struct TcpMd5Sig {
@@ -69,21 +114,8 @@ struct LinuxTcpInfo {
 }
 
 pub fn enable_tcp_fastopen_connect<T: AsRawFd>(socket: &T) -> io::Result<()> {
-    let yes = 1i32;
-    let rc = unsafe {
-        libc::setsockopt(
-            socket.as_raw_fd(),
-            libc::IPPROTO_TCP,
-            libc::TCP_FASTOPEN_CONNECT,
-            (&yes as *const i32).cast(),
-            size_of::<i32>() as libc::socklen_t,
-        )
-    };
-    if rc == 0 {
-        Ok(())
-    } else {
-        Err(io::Error::last_os_error())
-    }
+    // SAFETY: live TCP socket; `1i32` is valid for TCP_FASTOPEN_CONNECT.
+    unsafe { setsockopt_raw(socket.as_raw_fd(), libc::IPPROTO_TCP, libc::TCP_FASTOPEN_CONNECT, &1i32) }
 }
 
 pub fn set_tcp_md5sig(stream: &TcpStream, key_len: u16) -> io::Result<()> {
@@ -95,22 +127,9 @@ pub fn set_tcp_md5sig(stream: &TcpStream, key_len: u16) -> io::Result<()> {
     let addr = peer_addr(fd)?;
     let md5 = TcpMd5Sig { addr, pad1: 0, key_len, pad2: 0, key: [0; 80] };
 
-    // SAFETY: `md5` is a valid `tcp_md5sig`-compatible buffer and the file
-    // descriptor refers to a live TCP socket owned by `stream`.
-    let rc = unsafe {
-        libc::setsockopt(
-            fd,
-            libc::IPPROTO_TCP,
-            libc::TCP_MD5SIG,
-            (&md5 as *const TcpMd5Sig).cast(),
-            size_of::<TcpMd5Sig>() as libc::socklen_t,
-        )
-    };
-    if rc == 0 {
-        Ok(())
-    } else {
-        Err(io::Error::last_os_error())
-    }
+    // SAFETY: `md5` is a valid `tcp_md5sig`-compatible buffer and `fd` is a
+    // live TCP socket owned by `stream`.
+    unsafe { setsockopt_raw(fd, libc::IPPROTO_TCP, libc::TCP_MD5SIG, &md5) }
 }
 
 pub fn protect_socket<T: AsRawFd>(socket: &T, path: &str) -> io::Result<()> {
@@ -136,39 +155,17 @@ pub fn protect_socket<T: AsRawFd>(socket: &T, path: &str) -> io::Result<()> {
 
 pub fn original_dst(stream: &TcpStream) -> io::Result<SocketAddr> {
     let fd = stream.as_raw_fd();
-    let mut storage = unsafe { zeroed::<libc::sockaddr_storage>() };
-    let mut len = size_of::<libc::sockaddr_storage>() as libc::socklen_t;
 
-    // SAFETY: `storage` is valid writable storage and `fd` is a live TCP socket.
-    let rc4 = unsafe {
-        libc::getsockopt(
-            fd,
-            libc::IPPROTO_IP,
-            SO_ORIGINAL_DST,
-            (&mut storage as *mut libc::sockaddr_storage).cast(),
-            &mut len,
-        )
-    };
-    if rc4 == 0 {
+    // SAFETY: `fd` is a live TCP socket; the kernel writes a `sockaddr_storage`
+    // for SO_ORIGINAL_DST / IP6T_SO_ORIGINAL_DST.
+    if let Ok((storage, _)) =
+        unsafe { getsockopt_raw::<libc::sockaddr_storage>(fd, libc::IPPROTO_IP, SO_ORIGINAL_DST) }
+    {
         return storage_to_socket_addr(&storage);
     }
-
-    len = size_of::<libc::sockaddr_storage>() as libc::socklen_t;
-    // SAFETY: same as above, using the IPv6 original-destination option.
-    let rc6 = unsafe {
-        libc::getsockopt(
-            fd,
-            libc::IPPROTO_IPV6,
-            IP6T_SO_ORIGINAL_DST,
-            (&mut storage as *mut libc::sockaddr_storage).cast(),
-            &mut len,
-        )
-    };
-    if rc6 == 0 {
-        storage_to_socket_addr(&storage)
-    } else {
-        Err(io::Error::last_os_error())
-    }
+    let (storage, _) =
+        unsafe { getsockopt_raw::<libc::sockaddr_storage>(fd, libc::IPPROTO_IPV6, IP6T_SO_ORIGINAL_DST) }?;
+    storage_to_socket_addr(&storage)
 }
 
 pub fn attach_drop_sack(stream: &TcpStream) -> io::Result<()> {
@@ -184,76 +181,25 @@ pub fn attach_drop_sack(stream: &TcpStream) -> io::Result<()> {
     ];
     let prog = libc::sock_fprog { len: code.len() as u16, filter: code.as_mut_ptr() };
 
-    // SAFETY: `prog` points to a live in-process BPF program definition and
-    // `fd` is a valid TCP socket descriptor owned by `stream`.
-    let rc = unsafe {
-        libc::setsockopt(
-            fd,
-            libc::SOL_SOCKET,
-            libc::SO_ATTACH_FILTER,
-            (&prog as *const libc::sock_fprog).cast(),
-            size_of::<libc::sock_fprog>() as libc::socklen_t,
-        )
-    };
-    if rc == 0 {
-        Ok(())
-    } else {
-        Err(io::Error::last_os_error())
-    }
+    // SAFETY: `prog` points to a live in-process BPF program and `fd` is a
+    // valid TCP socket descriptor owned by `stream`.
+    unsafe { setsockopt_raw(fd, libc::SOL_SOCKET, libc::SO_ATTACH_FILTER, &prog) }
 }
 
 pub fn detach_drop_sack(stream: &TcpStream) -> io::Result<()> {
-    let fd = stream.as_raw_fd();
-    let nop = 0i32;
-    // SAFETY: `nop` is a valid pointer-sized payload for `SO_DETACH_FILTER`
-    // and `fd` is a live TCP socket descriptor.
-    let rc = unsafe {
-        libc::setsockopt(
-            fd,
-            libc::SOL_SOCKET,
-            libc::SO_DETACH_FILTER,
-            (&nop as *const i32).cast(),
-            size_of::<i32>() as libc::socklen_t,
-        )
-    };
-    if rc == 0 {
-        Ok(())
-    } else {
-        Err(io::Error::last_os_error())
-    }
+    // SAFETY: `0i32` is a valid payload for SO_DETACH_FILTER and `stream` is a
+    // live TCP socket.
+    unsafe { setsockopt_raw(stream.as_raw_fd(), libc::SOL_SOCKET, libc::SO_DETACH_FILTER, &0i32) }
 }
 
 pub fn enable_recv_ttl(stream: &TcpStream) -> io::Result<()> {
     let fd = stream.as_raw_fd();
-    let yes = 1i32;
-    // SAFETY: `yes` is a valid c_int payload for IP_RECVTTL / IPV6_RECVHOPLIMIT
-    // and `stream` is a live TCP socket.
-    let rc4 = unsafe {
-        libc::setsockopt(
-            fd,
-            libc::IPPROTO_IP,
-            libc::IP_RECVTTL,
-            (&yes as *const i32).cast(),
-            size_of::<i32>() as libc::socklen_t,
-        )
-    };
-    if rc4 == 0 {
+    // SAFETY: `1i32` enables IP_RECVTTL / IPV6_RECVHOPLIMIT and `stream` is a
+    // live TCP socket.
+    if unsafe { setsockopt_raw(fd, libc::IPPROTO_IP, libc::IP_RECVTTL, &1i32) }.is_ok() {
         return Ok(());
     }
-    let rc6 = unsafe {
-        libc::setsockopt(
-            fd,
-            libc::IPPROTO_IPV6,
-            libc::IPV6_RECVHOPLIMIT,
-            (&yes as *const i32).cast(),
-            size_of::<i32>() as libc::socklen_t,
-        )
-    };
-    if rc6 == 0 {
-        Ok(())
-    } else {
-        Err(io::Error::last_os_error())
-    }
+    unsafe { setsockopt_raw(fd, libc::IPPROTO_IPV6, libc::IPV6_RECVHOPLIMIT, &1i32) }
 }
 
 pub fn read_chunk_with_ttl(stream: &TcpStream, buf: &mut [u8]) -> io::Result<(usize, Option<u8>)> {
@@ -437,17 +383,10 @@ fn tcp_has_notsent(fd: libc::c_int) -> io::Result<bool> {
 }
 
 fn read_tcp_info(fd: libc::c_int) -> io::Result<Option<LinuxTcpInfo>> {
-    let mut info = unsafe { zeroed::<LinuxTcpInfo>() };
-    let mut info_len = size_of::<LinuxTcpInfo>() as libc::socklen_t;
-    // SAFETY: `info` is writable storage for the Linux `tcp_info` prefix that
-    // includes `tcpi_notsent_bytes`, and `fd` is a live TCP socket descriptor.
-    let rc = unsafe {
-        libc::getsockopt(fd, libc::IPPROTO_TCP, libc::TCP_INFO, (&mut info as *mut LinuxTcpInfo).cast(), &mut info_len)
-    };
-    if rc != 0 {
-        return Err(io::Error::last_os_error());
-    }
-    if (info_len as usize) < size_of::<LinuxTcpInfo>() {
+    // SAFETY: `fd` is a live TCP socket; `LinuxTcpInfo` is a `#[repr(C)]`
+    // prefix of the kernel `tcp_info` struct.
+    let (info, len) = unsafe { getsockopt_raw::<LinuxTcpInfo>(fd, libc::IPPROTO_TCP, libc::TCP_INFO) }?;
+    if (len as usize) < size_of::<LinuxTcpInfo>() {
         return Ok(None);
     }
     Ok(Some(info))
