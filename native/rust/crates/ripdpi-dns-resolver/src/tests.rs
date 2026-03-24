@@ -2,7 +2,7 @@ use super::*;
 
 use crypto_box::aead::Aead;
 use crypto_box::{ChaChaBox, PublicKey as CryptoPublicKey, SecretKey as CryptoSecretKey};
-use ed25519_dalek::Signer;
+use ring::signature::{Ed25519KeyPair, KeyPair};
 use hickory_proto::op::{Message, MessageType, OpCode, Query, ResponseCode};
 use hickory_proto::rr::rdata::{A, TXT};
 use hickory_proto::rr::{Name, RData, Record, RecordType};
@@ -484,10 +484,10 @@ fn error_kind_maps_common_failures() {
 
 impl DnsCryptTestServer {
     fn new(provider_suffix: &str) -> Self {
-        use ed25519_dalek::{SigningKey, VerifyingKey};
-
-        let provider_secret = SigningKey::from_bytes(&[7u8; 32]);
-        let provider_public = VerifyingKey::from(&provider_secret);
+        let provider_key_pair =
+            Ed25519KeyPair::from_seed_unchecked(&[7u8; 32]).expect("ed25519 key pair from seed");
+        let provider_public_bytes: [u8; 32] =
+            provider_key_pair.public_key().as_ref().try_into().expect("ed25519 public key is 32 bytes");
         let resolver_secret = CryptoSecretKey::from([9u8; 32]);
         let resolver_public = resolver_secret.public_key();
         let valid_from = unix_time_secs().saturating_sub(60);
@@ -501,20 +501,20 @@ impl DnsCryptTestServer {
         inner[40..44].copy_from_slice(&1u32.to_be_bytes());
         inner[44..48].copy_from_slice(&valid_from.to_be_bytes());
         inner[48..52].copy_from_slice(&valid_until.to_be_bytes());
-        let signature = provider_secret.sign(&inner).to_bytes();
+        let signature = provider_key_pair.sign(&inner);
 
         let mut cert_bytes = Vec::with_capacity(DNSCRYPT_CERT_SIZE);
         cert_bytes.extend_from_slice(&DNSCRYPT_CERT_MAGIC);
         cert_bytes.extend_from_slice(&DNSCRYPT_ES_VERSION.to_be_bytes());
         cert_bytes.extend_from_slice(&0u16.to_be_bytes());
-        cert_bytes.extend_from_slice(&signature);
+        cert_bytes.extend_from_slice(signature.as_ref());
         cert_bytes.extend_from_slice(&inner);
         let certificate =
-            parse_dnscrypt_certificate(&cert_bytes, &provider_public, &format!("2.dnscrypt-cert.{provider_suffix}"))
+            parse_dnscrypt_certificate(&cert_bytes, &provider_public_bytes, &format!("2.dnscrypt-cert.{provider_suffix}"))
                 .expect("certificate parses");
 
         Self {
-            provider_public_key_hex: hex::encode(provider_public.as_bytes()),
+            provider_public_key_hex: hex::encode(provider_public_bytes),
             provider_name: format!("2.dnscrypt-cert.{provider_suffix}"),
             certificate,
             resolver_secret,
@@ -528,13 +528,13 @@ impl DnsCryptTestServer {
         inner[40..44].copy_from_slice(&1u32.to_be_bytes());
         inner[44..48].copy_from_slice(&self.certificate.valid_from.to_be_bytes());
         inner[48..52].copy_from_slice(&self.certificate.valid_until.to_be_bytes());
-        let signing = ed25519_dalek::SigningKey::from_bytes(&[7u8; 32]);
-        let signature = signing.sign(&inner).to_bytes();
+        let signing = Ed25519KeyPair::from_seed_unchecked(&[7u8; 32]).expect("ed25519 key pair from seed");
+        let signature = signing.sign(&inner);
         let mut cert_bytes = Vec::with_capacity(DNSCRYPT_CERT_SIZE);
         cert_bytes.extend_from_slice(&DNSCRYPT_CERT_MAGIC);
         cert_bytes.extend_from_slice(&DNSCRYPT_ES_VERSION.to_be_bytes());
         cert_bytes.extend_from_slice(&0u16.to_be_bytes());
-        cert_bytes.extend_from_slice(&signature);
+        cert_bytes.extend_from_slice(signature.as_ref());
         cert_bytes.extend_from_slice(&inner);
         cert_bytes
     }

@@ -5,7 +5,7 @@ use crypto_box::aead::Aead;
 use crypto_box::{ChaChaBox, PublicKey as CryptoPublicKey, SecretKey as CryptoSecretKey};
 use hickory_proto::op::Message;
 use hickory_proto::rr::{RData, RecordType};
-use rand::RngCore;
+use ring::rand::{SecureRandom, SystemRandom};
 use reqwest::header::{ACCEPT, CONTENT_TYPE};
 use rustls::client::danger::ServerCertVerifier;
 use rustls::pki_types::{CertificateDer, ServerName};
@@ -381,15 +381,18 @@ impl EncryptedDnsResolver {
         certificate: &DnsCryptCachedCertificate,
         query_bytes: &[u8],
     ) -> Result<Vec<u8>, EncryptedDnsError> {
+        let rng = SystemRandom::new();
         let mut client_secret = [0u8; 32];
-        rand::rngs::OsRng.fill_bytes(&mut client_secret);
+        rng.fill(&mut client_secret)
+            .map_err(|_| EncryptedDnsError::Request("failed to generate random client secret".to_string()))?;
         let client_secret = CryptoSecretKey::from(client_secret);
         let client_public = client_secret.public_key();
         let resolver_public = CryptoPublicKey::from(certificate.resolver_public_key);
         let crypto_box = ChaChaBox::new(&resolver_public, &client_secret);
 
         let mut full_nonce = [0u8; DNSCRYPT_NONCE_SIZE];
-        rand::rngs::OsRng.fill_bytes(&mut full_nonce[..DNSCRYPT_QUERY_NONCE_HALF]);
+        rng.fill(&mut full_nonce[..DNSCRYPT_QUERY_NONCE_HALF])
+            .map_err(|_| EncryptedDnsError::Request("failed to generate random nonce".to_string()))?;
         let padded_query = dnscrypt_pad(query_bytes);
         let ciphertext = crypto_box
             .encrypt((&full_nonce).into(), padded_query.as_slice())
