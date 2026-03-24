@@ -86,7 +86,27 @@
     },
     {
       "path": "native/rust/crates/ripdpi-tunnel-core/src/io_loop.rs",
-      "maxProductionLoc": 1300
+      "maxProductionLoc": 330
+    },
+    {
+      "path": "native/rust/crates/ripdpi-tunnel-core/src/io_loop/bridge.rs",
+      "maxProductionLoc": 220
+    },
+    {
+      "path": "native/rust/crates/ripdpi-tunnel-core/src/io_loop/dns_intercept.rs",
+      "maxProductionLoc": 240
+    },
+    {
+      "path": "native/rust/crates/ripdpi-tunnel-core/src/io_loop/packet.rs",
+      "maxProductionLoc": 270
+    },
+    {
+      "path": "native/rust/crates/ripdpi-tunnel-core/src/io_loop/tcp_accept.rs",
+      "maxProductionLoc": 160
+    },
+    {
+      "path": "native/rust/crates/ripdpi-tunnel-core/src/io_loop/udp_assoc.rs",
+      "maxProductionLoc": 190
     }
   ]
 }
