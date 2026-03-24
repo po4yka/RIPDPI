@@ -1,0 +1,179 @@
+use std::io::{self, Read, Write};
+use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, TcpStream, ToSocketAddrs};
+
+use ripdpi_config::RuntimeConfig;
+use ripdpi_session::{
+    encode_http_connect_reply, encode_socks4_reply, encode_socks5_reply, SocketType, S_ATP_I4, S_ATP_I6, S_AUTH_BAD,
+    S_AUTH_NONE, S_VER5,
+};
+
+#[derive(Clone, Copy)]
+pub(super) enum HandshakeKind {
+    Socks4,
+    Socks5,
+    HttpConnect,
+}
+
+pub(super) fn negotiate_socks5(client: &mut TcpStream) -> io::Result<()> {
+    let mut count = [0u8; 1];
+    client.read_exact(&mut count)?;
+    let mut methods = vec![0u8; count[0] as usize];
+    client.read_exact(&mut methods)?;
+    let method = if methods.contains(&S_AUTH_NONE) { S_AUTH_NONE } else { S_AUTH_BAD };
+    client.write_all(&[S_VER5, method])?;
+    if method == S_AUTH_BAD {
+        return Err(io::Error::new(io::ErrorKind::PermissionDenied, "no supported socks auth method"));
+    }
+    Ok(())
+}
+
+pub(super) fn read_socks5_request(client: &mut TcpStream) -> io::Result<Vec<u8>> {
+    let mut header = [0u8; 4];
+    client.read_exact(&mut header)?;
+    let mut out = header.to_vec();
+    match header[3] {
+        S_ATP_I4 => {
+            let mut tail = [0u8; 6];
+            client.read_exact(&mut tail)?;
+            out.extend_from_slice(&tail);
+        }
+        S_ATP_I6 => {
+            let mut tail = [0u8; 18];
+            client.read_exact(&mut tail)?;
+            out.extend_from_slice(&tail);
+        }
+        0x03 => {
+            let mut len = [0u8; 1];
+            client.read_exact(&mut len)?;
+            out.extend_from_slice(&len);
+            let mut tail = vec![0u8; len[0] as usize + 2];
+            client.read_exact(&mut tail)?;
+            out.extend_from_slice(&tail);
+        }
+        _ => {}
+    }
+    Ok(out)
+}
+
+pub(super) fn read_socks4_request(client: &mut TcpStream, version: u8) -> io::Result<Vec<u8>> {
+    let mut out = vec![version];
+    let mut fixed = [0u8; 7];
+    client.read_exact(&mut fixed)?;
+    out.extend_from_slice(&fixed);
+
+    read_until_nul(client, &mut out)?;
+    let is_domain = out[4] == 0 && out[5] == 0 && out[6] == 0 && out[7] != 0;
+    if is_domain {
+        read_until_nul(client, &mut out)?;
+    }
+    Ok(out)
+}
+
+fn read_until_nul(client: &mut TcpStream, out: &mut Vec<u8>) -> io::Result<()> {
+    loop {
+        let mut byte = [0u8; 1];
+        client.read_exact(&mut byte)?;
+        out.push(byte[0]);
+        if byte[0] == 0 {
+            return Ok(());
+        }
+        if out.len() > 4096 {
+            return Err(io::Error::new(io::ErrorKind::InvalidData, "request too large"));
+        }
+    }
+}
+
+pub(super) fn read_http_connect_request(client: &mut TcpStream) -> io::Result<Vec<u8>> {
+    let mut out = Vec::new();
+    let mut chunk = [0u8; 512];
+    loop {
+        let n = client.read(&mut chunk)?;
+        if n == 0 {
+            return Err(io::Error::new(io::ErrorKind::UnexpectedEof, "unexpected eof during http connect request"));
+        }
+        out.extend_from_slice(&chunk[..n]);
+        if out.windows(4).any(|window| window == b"\r\n\r\n") {
+            return Ok(out);
+        }
+        if out.len() > 64 * 1024 {
+            return Err(io::Error::new(io::ErrorKind::InvalidData, "http connect request too large"));
+        }
+    }
+}
+
+pub(in crate::runtime) fn resolve_name(host: &str, _socket_type: SocketType, config: &RuntimeConfig) -> Option<SocketAddr> {
+    if let Ok(ip) = host.parse::<IpAddr>() {
+        return Some(SocketAddr::new(ip, 0));
+    }
+    if !config.network.resolve {
+        return None;
+    }
+    (host, 0).to_socket_addrs().ok()?.find(|addr| config.network.ipv6 || addr.is_ipv4())
+}
+
+pub(super) fn send_success_reply(client: &mut TcpStream, handshake: HandshakeKind) -> io::Result<()> {
+    match handshake {
+        HandshakeKind::Socks4 => client.write_all(encode_socks4_reply(true).as_bytes()),
+        HandshakeKind::Socks5 => {
+            let addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::UNSPECIFIED), 0);
+            client.write_all(encode_socks5_reply(0, addr).as_bytes())
+        }
+        HandshakeKind::HttpConnect => client.write_all(encode_http_connect_reply(true).as_bytes()),
+    }
+}
+
+pub(super) fn read_shadowsocks_request(
+    client: &mut TcpStream,
+    first_byte: u8,
+    config: &RuntimeConfig,
+) -> io::Result<(SocketAddr, Vec<u8>)> {
+    let mut request = vec![first_byte];
+    let mut chunk = [0u8; 4096];
+    loop {
+        if let Some((target, header_len)) = parse_shadowsocks_target(&request, config) {
+            return Ok((target, request[header_len..].to_vec()));
+        }
+        let n = client.read(&mut chunk)?;
+        if n == 0 {
+            return Err(io::Error::new(io::ErrorKind::UnexpectedEof, "unexpected eof during shadowsocks request"));
+        }
+        request.extend_from_slice(&chunk[..n]);
+        if request.len() > 64 * 1024 {
+            return Err(io::Error::new(io::ErrorKind::InvalidData, "shadowsocks request too large"));
+        }
+    }
+}
+
+pub(super) fn parse_shadowsocks_target(packet: &[u8], config: &RuntimeConfig) -> Option<(SocketAddr, usize)> {
+    let atyp = *packet.first()?;
+    match atyp {
+        S_ATP_I4 => {
+            if packet.len() < 7 {
+                return None;
+            }
+            let ip = Ipv4Addr::new(packet[1], packet[2], packet[3], packet[4]);
+            let port = u16::from_be_bytes([packet[5], packet[6]]);
+            Some((SocketAddr::new(IpAddr::V4(ip), port), 7))
+        }
+        S_ATP_I6 => {
+            if packet.len() < 19 || !config.network.ipv6 {
+                return None;
+            }
+            let mut raw = [0u8; 16];
+            raw.copy_from_slice(&packet[1..17]);
+            let port = u16::from_be_bytes([packet[17], packet[18]]);
+            Some((SocketAddr::new(IpAddr::V6(Ipv6Addr::from(raw)), port), 19))
+        }
+        0x03 => {
+            let len = *packet.get(1)? as usize;
+            if packet.len() < 2 + len + 2 || !config.network.resolve {
+                return None;
+            }
+            let host = std::str::from_utf8(&packet[2..2 + len]).ok()?;
+            let port = u16::from_be_bytes([packet[2 + len], packet[3 + len]]);
+            let resolved = resolve_name(host, SocketType::Stream, config)?;
+            Some((SocketAddr::new(resolved.ip(), port), 2 + len + 2))
+        }
+        _ => None,
+    }
+}

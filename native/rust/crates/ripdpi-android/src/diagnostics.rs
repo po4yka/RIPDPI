@@ -89,14 +89,15 @@ pub(crate) fn diagnostics_destroy_entry(mut env: JNIEnv, handle: jlong) {
 mod tests {
     use super::*;
 
-    use std::sync::MutexGuard;
     use std::thread::sleep;
     use std::time::{Duration, Instant};
 
     use android_support::describe_exception;
-    use jni::objects::{JObject, JString};
+    use jni::objects::JObject;
     use jni::JNIEnv;
     use ripdpi_monitor::{NativeSessionEvent, ScanProgress, ScanReport};
+
+    use crate::support::{assert_no_exception, decode_jstring, lock_jni_tests, take_exception, with_env};
 
     struct DiagnosticsHandle {
         raw: jlong,
@@ -286,15 +287,6 @@ mod tests {
         });
     }
 
-    fn lock_jni_tests() -> MutexGuard<'static, ()> {
-        crate::shared_jni_test_mutex().lock().unwrap_or_else(std::sync::PoisonError::into_inner)
-    }
-
-    fn with_env<R>(f: impl FnOnce(&mut JNIEnv<'_>) -> R) -> R {
-        let mut env = crate::shared_test_jvm().attach_current_thread().expect("attach current thread to test JVM");
-        f(&mut env)
-    }
-
     fn jni_create(env: &mut JNIEnv<'_>) -> jlong {
         crate::Java_com_poyka_ripdpi_core_NetworkDiagnosticsNativeBindings_jniCreate(
             unsafe { env.unsafe_clone() },
@@ -352,22 +344,6 @@ mod tests {
             JObject::null(),
             handle,
         );
-    }
-
-    fn assert_no_exception(env: &mut JNIEnv<'_>) {
-        assert!(describe_exception(env).is_none(), "unexpected pending Java exception");
-    }
-
-    fn take_exception(env: &mut JNIEnv<'_>) -> String {
-        describe_exception(env).expect("expected Java exception")
-    }
-
-    fn decode_jstring(env: &mut JNIEnv<'_>, raw: jstring) -> Option<String> {
-        if raw.is_null() {
-            return None;
-        }
-        let string = unsafe { JString::from_raw(raw) };
-        Some(env.get_string(&string).expect("read jstring").into())
     }
 
     fn wait_for_json(handle: jlong, op: fn(&mut JNIEnv<'_>, jlong) -> jstring) -> String {

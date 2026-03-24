@@ -2,6 +2,8 @@ mod config;
 mod diagnostics;
 mod errors;
 mod proxy;
+#[cfg(test)]
+mod support;
 mod telemetry;
 
 use android_support::{init_android_logging, JNI_VERSION};
