@@ -4,8 +4,8 @@ use std::io;
 use std::net::IpAddr;
 use std::path::Path;
 
-use ripdpi_config::RuntimeConfig;
 use ring::digest;
+use ripdpi_config::RuntimeConfig;
 
 use super::types::{LearnedHostRecord, LearnedHostStore, LearnedNetworkScopeStore, LoadLearnedHostStoreError};
 use super::{

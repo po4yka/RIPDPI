@@ -341,10 +341,8 @@ mod tests {
         use ripdpi_proxy_config::NetworkSnapshot;
         let control = EmbeddedProxyControl::default();
 
-        control.update_network_snapshot(NetworkSnapshot {
-            transport: "wifi".to_string(),
-            ..NetworkSnapshot::default()
-        });
+        control
+            .update_network_snapshot(NetworkSnapshot { transport: "wifi".to_string(), ..NetworkSnapshot::default() });
         control.update_network_snapshot(NetworkSnapshot {
             transport: "cellular".to_string(),
             metered: true,

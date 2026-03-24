@@ -28,11 +28,7 @@ pub struct InMemoryRecorder {
 
 impl InMemoryRecorder {
     fn new() -> Self {
-        Self {
-            counters: RwLock::new(Vec::new()),
-            gauges: RwLock::new(Vec::new()),
-            histograms: RwLock::new(Vec::new()),
-        }
+        Self { counters: RwLock::new(Vec::new()), gauges: RwLock::new(Vec::new()), histograms: RwLock::new(Vec::new()) }
     }
 
     fn total_keys(&self) -> usize {
@@ -73,41 +69,17 @@ pub struct RecorderSnapshot {
 /// been installed.
 pub fn snapshot() -> Option<RecorderSnapshot> {
     let rec = RECORDER.get()?;
-    let captured_at = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map(|d| d.as_millis() as u64)
-        .unwrap_or(0);
+    let captured_at =
+        std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_millis() as u64).unwrap_or(0);
 
-    let counters = rec
-        .counters
-        .read()
-        .ok()?
-        .iter()
-        .map(|(k, v)| (k.clone(), v.load(Ordering::Relaxed)))
-        .collect();
+    let counters = rec.counters.read().ok()?.iter().map(|(k, v)| (k.clone(), v.load(Ordering::Relaxed))).collect();
 
-    let gauges = rec
-        .gauges
-        .read()
-        .ok()?
-        .iter()
-        .map(|(k, v)| (k.clone(), v.load(Ordering::Relaxed)))
-        .collect();
+    let gauges = rec.gauges.read().ok()?.iter().map(|(k, v)| (k.clone(), v.load(Ordering::Relaxed))).collect();
 
-    let histograms = rec
-        .histograms
-        .read()
-        .ok()?
-        .iter()
-        .filter_map(|(k, h)| h.snapshot().map(|s| (k.clone(), s)))
-        .collect();
+    let histograms =
+        rec.histograms.read().ok()?.iter().filter_map(|(k, h)| h.snapshot().map(|s| (k.clone(), s))).collect();
 
-    Some(RecorderSnapshot {
-        counters,
-        gauges,
-        histograms,
-        captured_at,
-    })
+    Some(RecorderSnapshot { counters, gauges, histograms, captured_at })
 }
 
 /// Resets all histogram data. Call on session stop to avoid stale history
@@ -265,10 +237,7 @@ mod tests {
     #[test]
     fn key_name_with_labels() {
         let key = Key::from_parts("my_counter", &[("env", "prod"), ("host", "a")]);
-        assert_eq!(
-            InMemoryRecorder::key_name(&key),
-            "my_counter{env=prod}{host=a}"
-        );
+        assert_eq!(InMemoryRecorder::key_name(&key), "my_counter{env=prod}{host=a}");
     }
 
     #[test]
@@ -343,10 +312,7 @@ mod tests {
         metrics::histogram!("test_reset_h").record(0.100);
         reset_histograms();
         if let Some(snap) = snapshot() {
-            assert!(
-                !snap.histograms.contains_key("test_reset_h"),
-                "histogram should be empty after reset"
-            );
+            assert!(!snap.histograms.contains_key("test_reset_h"), "histogram should be empty after reset");
         }
     }
 }

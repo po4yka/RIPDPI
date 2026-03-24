@@ -54,7 +54,9 @@ pub(super) fn try_ws_tunnel_fallback(
     dc: u8,
     state: &RuntimeState,
 ) -> Option<io::Result<()>> {
-    tracing::info!("WS tunnel fallback: desync exhausted for DC{dc}, escalating to wss://kws{dc}.web.telegram.org/apiws");
+    tracing::info!(
+        "WS tunnel fallback: desync exhausted for DC{dc}, escalating to wss://kws{dc}.web.telegram.org/apiws"
+    );
     let cloned = client.try_clone().ok()?;
     match run_ws_tunnel(cloned, dc, target, state) {
         WsTunnelResult::Ok => {

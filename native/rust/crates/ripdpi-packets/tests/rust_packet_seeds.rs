@@ -272,9 +272,8 @@ fn quic_initial_from_tls(version: u32, client_hello: &[u8], gap_after_split: usi
     let sealing_key = LessSafeKey::new(unbound);
     let nonce = aead::Nonce::try_assume_unique_for_key(&iv).expect("quic seed nonce");
     let mut ciphertext = plaintext;
-    let tag = sealing_key
-        .seal_in_place_separate_tag(nonce, Aad::from(&aad), &mut ciphertext)
-        .expect("quic seed encrypt");
+    let tag =
+        sealing_key.seal_in_place_separate_tag(nonce, Aad::from(&aad), &mut ciphertext).expect("quic seed encrypt");
 
     let hp_cipher = Aes128::new_from_slice(&hp).expect("quic seed hp");
     let mut sample = GenericArray::clone_from_slice(&ciphertext[..16]);
