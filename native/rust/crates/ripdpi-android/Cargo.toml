@@ -12,6 +12,7 @@ crate-type = ["cdylib"]
 
 [dependencies]
 android-support = { workspace = true }
+arc-swap = { workspace = true }
 ripdpi-config = { workspace = true }
 ripdpi-desync = { workspace = true }
 ripdpi-packets = { workspace = true }
