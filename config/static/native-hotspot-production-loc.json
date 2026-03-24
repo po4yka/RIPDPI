@@ -22,7 +22,27 @@
     },
     {
       "path": "native/rust/crates/ripdpi-config/src/lib.rs",
-      "maxProductionLoc": 1580
+      "maxProductionLoc": 30
+    },
+    {
+      "path": "native/rust/crates/ripdpi-config/src/cache.rs",
+      "maxProductionLoc": 70
+    },
+    {
+      "path": "native/rust/crates/ripdpi-config/src/model.rs",
+      "maxProductionLoc": 900
+    },
+    {
+      "path": "native/rust/crates/ripdpi-config/src/parse/cli.rs",
+      "maxProductionLoc": 580
+    },
+    {
+      "path": "native/rust/crates/ripdpi-config/src/parse/fake_profiles.rs",
+      "maxProductionLoc": 200
+    },
+    {
+      "path": "native/rust/crates/ripdpi-config/src/parse/offsets.rs",
+      "maxProductionLoc": 170
     },
     {
       "path": "native/rust/crates/ripdpi-desync/src/lib.rs",
