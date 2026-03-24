@@ -293,38 +293,38 @@ pub fn runtime_config_from_ui(payload: ProxyUiConfig) -> Result<RuntimeConfig, P
     let listen_ip =
         IpAddr::from_str(&listen.ip).map_err(|_| ProxyConfigError::InvalidConfig("Invalid proxy IP".to_string()))?;
     let mut config = RuntimeConfig::default();
-    config.listen.listen_ip = listen_ip;
-    config.listen.listen_port =
+    config.network.listen.listen_ip = listen_ip;
+    config.network.listen.listen_port =
         u16::try_from(listen.port).map_err(|_| ProxyConfigError::InvalidConfig("Invalid proxy port".to_string()))?;
-    if config.listen.listen_port == 0 {
+    if config.network.listen.listen_port == 0 {
         return Err(ProxyConfigError::InvalidConfig("Invalid proxy port".to_string()));
     }
     if listen.max_connections <= 0 {
         return Err(ProxyConfigError::InvalidConfig("maxConnections must be positive".to_string()));
     }
-    config.max_open = listen.max_connections;
-    config.buffer_size = usize::try_from(listen.buffer_size)
+    config.network.max_open = listen.max_connections;
+    config.network.buffer_size = usize::try_from(listen.buffer_size)
         .map_err(|_| ProxyConfigError::InvalidConfig("Invalid bufferSize".to_string()))?;
-    if config.buffer_size == 0 {
+    if config.network.buffer_size == 0 {
         return Err(ProxyConfigError::InvalidConfig("bufferSize must be positive".to_string()));
     }
-    config.resolve = protocols.resolve_domains;
-    config.tfo = listen.tcp_fast_open;
-    config.quic_initial_mode = parse_quic_initial_mode(&quic.initial_mode)?;
-    config.quic_support_v1 = quic.support_v1;
-    config.quic_support_v2 = quic.support_v2;
-    config.host_autolearn_enabled = host_autolearn.enabled;
-    config.host_autolearn_penalty_ttl_secs = host_autolearn.penalty_ttl_hours.max(1).saturating_mul(3600);
-    config.host_autolearn_max_hosts = host_autolearn.max_hosts.max(1);
-    config.host_autolearn_store_path =
+    config.network.resolve = protocols.resolve_domains;
+    config.network.tfo = listen.tcp_fast_open;
+    config.quic.initial_mode = parse_quic_initial_mode(&quic.initial_mode)?;
+    config.quic.support_v1 = quic.support_v1;
+    config.quic.support_v2 = quic.support_v2;
+    config.host_autolearn.enabled = host_autolearn.enabled;
+    config.host_autolearn.penalty_ttl_secs = host_autolearn.penalty_ttl_hours.max(1).saturating_mul(3600);
+    config.host_autolearn.max_hosts = host_autolearn.max_hosts.max(1);
+    config.host_autolearn.store_path =
         host_autolearn.store_path.as_deref().map(str::trim).filter(|value| !value.is_empty()).map(ToOwned::to_owned);
-    config.network_scope_key = host_autolearn
+    config.adaptive.network_scope_key = host_autolearn
         .network_scope_key
         .as_deref()
         .map(str::trim)
         .filter(|value| !value.is_empty())
         .map(ToOwned::to_owned);
-    config.ws_tunnel_mode = match ws_tunnel.mode.as_deref() {
+    config.adaptive.ws_tunnel_mode = match ws_tunnel.mode.as_deref() {
         Some("fallback") => ripdpi_config::WsTunnelMode::Fallback,
         Some("always") => ripdpi_config::WsTunnelMode::Always,
         Some("off" | _) => ripdpi_config::WsTunnelMode::Off,
@@ -344,8 +344,8 @@ pub fn runtime_config_from_ui(payload: ProxyUiConfig) -> Result<RuntimeConfig, P
                 "defaultTtl must be positive when customTtl is enabled".to_string(),
             ));
         }
-        config.default_ttl = ttl;
-        config.custom_ttl = true;
+        config.network.default_ttl = ttl;
+        config.network.custom_ttl = true;
     }
 
     let mut groups = Vec::new();
@@ -543,11 +543,11 @@ pub fn runtime_config_from_ui(payload: ProxyUiConfig) -> Result<RuntimeConfig, P
     }
 
     config.groups = groups;
-    config.delay_conn = config.groups.iter().any(group_needs_delayed_connect);
-    if !matches!(config.listen.bind_ip, IpAddr::V6(_)) {
-        config.ipv6 = false;
+    config.network.delay_conn = config.groups.iter().any(group_needs_delayed_connect);
+    if !matches!(config.network.listen.bind_ip, IpAddr::V6(_)) {
+        config.network.ipv6 = false;
     }
-    if config.host_autolearn_enabled && config.host_autolearn_store_path.is_none() {
+    if config.host_autolearn.enabled && config.host_autolearn.store_path.is_none() {
         return Err(ProxyConfigError::InvalidConfig(
             "hostAutolearn.storePath is required when hostAutolearn.enabled is true".to_string(),
         ));

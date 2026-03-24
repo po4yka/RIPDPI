@@ -108,7 +108,7 @@ impl RuntimePolicy {
         route: &ConnectionRoute,
         request: RouteAdvance<'_>,
     ) -> io::Result<Option<ConnectionRoute>> {
-        if !request.can_reconnect && (config.auto_level & AUTO_NOPOST) != 0 {
+        if !request.can_reconnect && (config.adaptive.auto_level & AUTO_NOPOST) != 0 {
             return Ok(None);
         }
 
@@ -136,7 +136,7 @@ impl RuntimePolicy {
             request.retry_penalties,
         );
 
-        if (config.auto_level & AUTO_SORT) != 0 {
+        if (config.adaptive.auto_level & AUTO_SORT) != 0 {
             if let Some(ref next_route) = next {
                 let current_pri = self.groups.get(route.group_index).map(|group| group.pri).unwrap_or_default();
                 let next_pri = self.groups.get(next_route.group_index).map(|group| group.pri).unwrap_or_default();

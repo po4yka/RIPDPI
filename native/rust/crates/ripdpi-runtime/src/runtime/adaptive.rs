@@ -7,7 +7,7 @@ use ripdpi_desync::AdaptivePlannerHints;
 use super::state::RuntimeState;
 
 pub(super) fn network_scope_key(config: &RuntimeConfig) -> Option<&str> {
-    config.network_scope_key.as_deref().map(str::trim).filter(|value| !value.is_empty())
+    config.adaptive.network_scope_key.as_deref().map(str::trim).filter(|value| !value.is_empty())
 }
 
 pub(super) fn resolve_adaptive_fake_ttl(

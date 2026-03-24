@@ -460,7 +460,7 @@ fn ws_tunnel_mode_fallback() {
     let mut ui = minimal_ui();
     ui.ws_tunnel.mode = Some("fallback".to_string());
     let config = runtime_config_from_ui(ui).expect("runtime config");
-    assert_eq!(config.ws_tunnel_mode, WsTunnelMode::Fallback);
+    assert_eq!(config.adaptive.ws_tunnel_mode, WsTunnelMode::Fallback);
 }
 
 #[test]
@@ -468,7 +468,7 @@ fn ws_tunnel_mode_always() {
     let mut ui = minimal_ui();
     ui.ws_tunnel.mode = Some("always".to_string());
     let config = runtime_config_from_ui(ui).expect("runtime config");
-    assert_eq!(config.ws_tunnel_mode, WsTunnelMode::Always);
+    assert_eq!(config.adaptive.ws_tunnel_mode, WsTunnelMode::Always);
 }
 
 #[test]
@@ -476,7 +476,7 @@ fn ws_tunnel_mode_off() {
     let mut ui = minimal_ui();
     ui.ws_tunnel.mode = Some("off".to_string());
     let config = runtime_config_from_ui(ui).expect("runtime config");
-    assert_eq!(config.ws_tunnel_mode, WsTunnelMode::Off);
+    assert_eq!(config.adaptive.ws_tunnel_mode, WsTunnelMode::Off);
 }
 
 #[test]
@@ -484,7 +484,7 @@ fn ws_tunnel_mode_unknown_string_maps_to_off() {
     let mut ui = minimal_ui();
     ui.ws_tunnel.mode = Some("unknown_string".to_string());
     let config = runtime_config_from_ui(ui).expect("runtime config");
-    assert_eq!(config.ws_tunnel_mode, WsTunnelMode::Off);
+    assert_eq!(config.adaptive.ws_tunnel_mode, WsTunnelMode::Off);
 }
 
 #[test]
@@ -493,7 +493,7 @@ fn ws_tunnel_mode_none_enabled_true_maps_to_always() {
     ui.ws_tunnel.mode = None;
     ui.ws_tunnel.enabled = true;
     let config = runtime_config_from_ui(ui).expect("runtime config");
-    assert_eq!(config.ws_tunnel_mode, WsTunnelMode::Always);
+    assert_eq!(config.adaptive.ws_tunnel_mode, WsTunnelMode::Always);
 }
 
 #[test]
@@ -502,7 +502,7 @@ fn ws_tunnel_mode_none_enabled_false_maps_to_off() {
     ui.ws_tunnel.mode = None;
     ui.ws_tunnel.enabled = false;
     let config = runtime_config_from_ui(ui).expect("runtime config");
-    assert_eq!(config.ws_tunnel_mode, WsTunnelMode::Off);
+    assert_eq!(config.adaptive.ws_tunnel_mode, WsTunnelMode::Off);
 }
 
 #[test]
@@ -513,7 +513,7 @@ fn ui_http_strategy_enables_delay_connect() {
 
     let config = runtime_config_from_ui(ui).expect("runtime config");
 
-    assert!(config.delay_conn);
+    assert!(config.network.delay_conn);
 }
 
 #[test]
@@ -524,7 +524,7 @@ fn ui_host_filters_enable_delay_connect() {
 
     let config = runtime_config_from_ui(ui).expect("runtime config");
 
-    assert!(config.delay_conn);
+    assert!(config.network.delay_conn);
 }
 
 #[test]
@@ -535,7 +535,7 @@ fn ui_udp_only_strategy_keeps_delay_connect_disabled() {
 
     let config = runtime_config_from_ui(ui).expect("runtime config");
 
-    assert!(!config.delay_conn);
+    assert!(!config.network.delay_conn);
 }
 
 #[test]

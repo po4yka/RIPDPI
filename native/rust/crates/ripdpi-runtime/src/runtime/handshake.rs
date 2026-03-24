@@ -57,7 +57,7 @@ fn classify_telegram_target(target: SocketAddr) -> Option<u8> {
 
 /// Check if WS tunnel should be tried first (Always mode).
 fn should_ws_tunnel_first(target: SocketAddr, state: &RuntimeState) -> Option<u8> {
-    if state.config.ws_tunnel_mode != ripdpi_config::WsTunnelMode::Always {
+    if state.config.adaptive.ws_tunnel_mode != ripdpi_config::WsTunnelMode::Always {
         return None;
     }
     let dc = classify_telegram_target(target)?;
@@ -67,7 +67,7 @@ fn should_ws_tunnel_first(target: SocketAddr, state: &RuntimeState) -> Option<u8
 
 /// Check if WS tunnel should be tried as a last resort (Fallback mode).
 fn should_ws_tunnel_fallback(target: SocketAddr, state: &RuntimeState) -> Option<u8> {
-    if state.config.ws_tunnel_mode != ripdpi_config::WsTunnelMode::Fallback {
+    if state.config.adaptive.ws_tunnel_mode != ripdpi_config::WsTunnelMode::Fallback {
         return None;
     }
     classify_telegram_target(target)
@@ -119,7 +119,7 @@ fn run_ws_tunnel(client: TcpStream, dc: u8, target: SocketAddr, state: &RuntimeS
             None
         }
     };
-    let config = WsTunnelConfig { protect_path: state.config.protect_path.clone(), resolved_addr };
+    let config = WsTunnelConfig { protect_path: state.config.process.protect_path.clone(), resolved_addr };
     match ripdpi_ws_tunnel::relay_ws_tunnel(client, dc, target, &config) {
         Ok(()) => WsTunnelResult::Ok,
         Err(err) => {
@@ -135,16 +135,16 @@ fn run_ws_tunnel(client: TcpStream, dc: u8, target: SocketAddr, state: &RuntimeS
 pub(super) fn handle_client(mut client: TcpStream, state: &RuntimeState) -> io::Result<()> {
     client.set_read_timeout(Some(HANDSHAKE_TIMEOUT))?;
     client.set_write_timeout(Some(HANDSHAKE_TIMEOUT))?;
-    if state.config.transparent {
+    if state.config.network.transparent {
         return handle_transparent(client, state);
     }
-    if state.config.http_connect {
+    if state.config.network.http_connect {
         return handle_http_connect(client, state);
     }
 
     let mut first = [0u8; 1];
     client.read_exact(&mut first)?;
-    if state.config.shadowsocks {
+    if state.config.network.shadowsocks {
         return handle_shadowsocks(client, state, first[0]);
     }
     match first[0] {
@@ -205,7 +205,7 @@ fn handle_transparent(client: TcpStream, state: &RuntimeState) -> io::Result<()>
 
 fn handle_socks4(mut client: TcpStream, state: &RuntimeState, version: u8) -> io::Result<()> {
     let request = read_socks4_request(&mut client, version)?;
-    let session = SessionConfig { resolve: state.config.resolve, ipv6: state.config.ipv6 };
+    let session = SessionConfig { resolve: state.config.network.resolve, ipv6: state.config.network.ipv6 };
     let resolver = |host: &str, socket_type: SocketType| resolve_name(host, socket_type, &state.config);
     let parsed = parse_socks4_request(&request, session, &resolver);
     match parsed {
@@ -298,7 +298,7 @@ fn handle_socks5(mut client: TcpStream, state: &RuntimeState, version: u8) -> io
     }
     negotiate_socks5(&mut client)?;
     let request = read_socks5_request(&mut client)?;
-    let session = SessionConfig { resolve: state.config.resolve, ipv6: state.config.ipv6 };
+    let session = SessionConfig { resolve: state.config.network.resolve, ipv6: state.config.network.ipv6 };
     let resolver = |host: &str, socket_type: SocketType| resolve_name(host, socket_type, &state.config);
 
     match parse_socks5_request(&request, SocketType::Stream, session, &resolver) {
@@ -382,7 +382,7 @@ fn handle_socks5(mut client: TcpStream, state: &RuntimeState, version: u8) -> io
             }
         }
         Ok(ClientRequest::Socks5UdpAssociate(_target)) => {
-            if !state.config.udp {
+            if !state.config.network.udp {
                 let fail = SocketAddr::new(IpAddr::V4(Ipv4Addr::UNSPECIFIED), 0);
                 client.write_all(encode_socks5_reply(S_ER_CMD, fail).as_bytes())?;
                 return Ok(());
@@ -504,14 +504,14 @@ fn handle_shadowsocks(mut client: TcpStream, state: &RuntimeState, first_byte: u
 
 fn handle_socks5_udp_associate(mut client: TcpStream, state: &RuntimeState) -> io::Result<()> {
     let local_ip = client.local_addr()?.ip();
-    let relay = super::udp::build_udp_relay_sockets(local_ip, state.config.protect_path.as_deref())?;
+    let relay = super::udp::build_udp_relay_sockets(local_ip, state.config.process.protect_path.as_deref())?;
     let reply_addr = relay.client.local_addr()?;
     client.write_all(encode_socks5_reply(0, reply_addr).as_bytes())?;
 
     let running = Arc::new(AtomicBool::new(true));
     let worker_running = running.clone();
     let worker_state = state.clone();
-    let worker_protect_path = state.config.protect_path.clone();
+    let worker_protect_path = state.config.process.protect_path.clone();
     let worker = thread::Builder::new()
         .name("ripdpi-udp".into())
         .spawn(move || super::udp::udp_associate_loop(relay.client, worker_protect_path, worker_state, worker_running))
@@ -626,10 +626,10 @@ pub(super) fn resolve_name(host: &str, _socket_type: SocketType, config: &Runtim
     if let Ok(ip) = host.parse::<IpAddr>() {
         return Some(SocketAddr::new(ip, 0));
     }
-    if !config.resolve {
+    if !config.network.resolve {
         return None;
     }
-    (host, 0).to_socket_addrs().ok()?.find(|addr| config.ipv6 || addr.is_ipv4())
+    (host, 0).to_socket_addrs().ok()?.find(|addr| config.network.ipv6 || addr.is_ipv4())
 }
 
 fn maybe_delay_connect(
@@ -638,7 +638,7 @@ fn maybe_delay_connect(
     target: SocketAddr,
     handshake: HandshakeKind,
 ) -> io::Result<DelayConnect> {
-    if !state.config.delay_conn {
+    if !state.config.network.delay_conn {
         return Ok(DelayConnect::Immediate);
     }
     let route = super::routing::select_route(state, target, None, None, true)?;
@@ -652,7 +652,7 @@ fn maybe_delay_connect(
     }
 
     send_success_reply(client, handshake)?;
-    let Some(payload) = read_blocking_first_request(client, state.config.buffer_size)? else {
+    let Some(payload) = read_blocking_first_request(client, state.config.network.buffer_size)? else {
         return Ok(DelayConnect::Closed);
     };
 
@@ -744,7 +744,7 @@ fn parse_shadowsocks_target(packet: &[u8], config: &RuntimeConfig) -> Option<(So
             Some((SocketAddr::new(IpAddr::V4(ip), port), 7))
         }
         S_ATP_I6 => {
-            if packet.len() < 19 || !config.ipv6 {
+            if packet.len() < 19 || !config.network.ipv6 {
                 return None;
             }
             let mut raw = [0u8; 16];
@@ -754,7 +754,7 @@ fn parse_shadowsocks_target(packet: &[u8], config: &RuntimeConfig) -> Option<(So
         }
         0x03 => {
             let len = *packet.get(1)? as usize;
-            if packet.len() < 2 + len + 2 || !config.resolve {
+            if packet.len() < 2 + len + 2 || !config.network.resolve {
                 return None;
             }
             let host = std::str::from_utf8(&packet[2..2 + len]).ok()?;
@@ -836,7 +836,9 @@ mod tests {
 
     #[test]
     fn parse_shadowsocks_target_respects_ipv6_and_resolve_flags() {
-        let config = RuntimeConfig { ipv6: false, resolve: false, ..RuntimeConfig::default() };
+        let mut config = RuntimeConfig::default();
+        config.network.ipv6 = false;
+        config.network.resolve = false;
         let ipv6_packet = [S_ATP_I6, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 53];
         let domain_packet = [0x03, 9, b'1', b'2', b'7', b'.', b'0', b'.', b'0', b'.', b'1', 0, 80];
 

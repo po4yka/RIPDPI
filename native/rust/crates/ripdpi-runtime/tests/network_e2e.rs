@@ -408,7 +408,7 @@ fn proxy_config(args: &[&str]) -> ripdpi_config::RuntimeConfig {
 
 fn ephemeral_proxy_config(args: &[&str]) -> ripdpi_config::RuntimeConfig {
     let mut config = proxy_config(args);
-    config.listen.listen_port = 0;
+    config.network.listen.listen_port = 0;
     config
 }
 
@@ -422,7 +422,7 @@ fn ui_proxy_config() -> RuntimeConfig {
     ui.chains.udp_steps.clear();
 
     let mut config = runtime_config_from_ui(ui).expect("ui runtime config");
-    config.listen.listen_port = 0;
+    config.network.listen.listen_port = 0;
     config
 }
 
@@ -437,9 +437,9 @@ fn quic_udp_host_filter_config(mode: QuicInitialMode, support_v1: bool, support_
     fallback.proto = IS_UDP;
 
     config.groups = vec![filtered, fallback];
-    config.quic_initial_mode = mode;
-    config.quic_support_v1 = support_v1;
-    config.quic_support_v2 = support_v2;
+    config.quic.initial_mode = mode;
+    config.quic.support_v1 = support_v1;
+    config.quic.support_v2 = support_v2;
     config
 }
 
@@ -1181,7 +1181,7 @@ fn upstream_silent_drop_fault_is_classified_end_to_end() {
     // Enable silent drop detection
     let mut config = ephemeral_proxy_config(&["--ip", "127.0.0.1"]);
     config.groups[0].detect = ripdpi_config::DETECT_SILENT_DROP | ripdpi_config::DETECT_TCP_RESET;
-    config.timeout_ms = 500;
+    config.timeouts.timeout_ms = 500;
     let proxy = start_proxy(config, Some(telemetry.clone()));
 
     let mut stream = socks_connect(proxy.port, fixture.manifest().tcp_echo_port);

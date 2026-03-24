@@ -22,7 +22,7 @@ impl RuntimePolicy {
         let now_ms = now_millis();
         let penalized =
             self.learned_hosts(config).values().filter(|record| host_has_active_penalty(record, now_ms)).count();
-        (config.host_autolearn_enabled, self.learned_hosts(config).len(), penalized)
+        (config.host_autolearn.enabled, self.learned_hosts(config).len(), penalized)
     }
 
     pub(super) fn learned_hosts(&self, config: &RuntimeConfig) -> &BTreeMap<String, LearnedHostRecord> {
@@ -39,7 +39,7 @@ impl RuntimePolicy {
         host: &str,
         group_index: usize,
     ) -> io::Result<()> {
-        if !config.host_autolearn_enabled {
+        if !config.host_autolearn.enabled {
             return Ok(());
         }
         let Some(host) = normalize_learned_host(host) else {
@@ -50,7 +50,7 @@ impl RuntimePolicy {
         let stats = record.group_stats.entry(group_index).or_default();
         stats.failure_count = stats.failure_count.saturating_add(1);
         stats.last_failure_at_ms = now_ms;
-        stats.penalty_until_ms = now_ms.saturating_add(config.host_autolearn_penalty_ttl_secs.max(1) as u64 * 1_000);
+        stats.penalty_until_ms = now_ms.saturating_add(config.host_autolearn.penalty_ttl_secs.max(1) as u64 * 1_000);
         record.updated_at_ms = now_ms;
         ensure_host_order(record, group_index);
         self.enforce_autolearn_limit(config, now_ms);
@@ -69,7 +69,7 @@ impl RuntimePolicy {
         host: &str,
         group_index: usize,
     ) -> io::Result<()> {
-        if !config.host_autolearn_enabled {
+        if !config.host_autolearn.enabled {
             return Ok(());
         }
         let now_ms = now_millis();
@@ -91,7 +91,7 @@ impl RuntimePolicy {
     }
 
     fn enforce_autolearn_limit(&mut self, config: &RuntimeConfig, now_ms: u64) {
-        let max_hosts = config.host_autolearn_max_hosts.max(1);
+        let max_hosts = config.host_autolearn.max_hosts.max(1);
         while self.learned_hosts(config).len() > max_hosts {
             let host_to_remove = {
                 let hosts = self.learned_hosts(config);
@@ -110,10 +110,10 @@ impl RuntimePolicy {
     }
 
     fn persist_host_store(&self, config: &RuntimeConfig) -> io::Result<()> {
-        if !config.host_autolearn_enabled {
+        if !config.host_autolearn.enabled {
             return Ok(());
         }
-        let Some(path) = config.host_autolearn_store_path.as_deref() else {
+        let Some(path) = config.host_autolearn.store_path.as_deref() else {
             return Ok(());
         };
         let store = LearnedHostStore {
@@ -134,7 +134,7 @@ impl RuntimePolicy {
 pub(super) fn load_learned_host_store(
     config: &RuntimeConfig,
 ) -> Result<BTreeMap<String, BTreeMap<String, LearnedHostRecord>>, LoadLearnedHostStoreError> {
-    let Some(path) = config.host_autolearn_store_path.as_deref() else {
+    let Some(path) = config.host_autolearn.store_path.as_deref() else {
         return Ok(BTreeMap::new());
     };
     let path = Path::new(path);
@@ -204,6 +204,7 @@ fn config_fingerprint(config: &RuntimeConfig) -> String {
 
 fn network_scope_key(config: &RuntimeConfig) -> &str {
     config
+        .adaptive
         .network_scope_key
         .as_deref()
         .map(str::trim)
@@ -368,8 +369,8 @@ mod tests {
     #[test]
     fn host_autolearn_is_scoped_by_network_scope_key() {
         let mut config_a = autolearn_config(1, 32);
-        let path = config_a.host_autolearn_store_path.clone().expect("store path");
-        config_a.network_scope_key = Some("scope-a".to_string());
+        let path = config_a.host_autolearn.store_path.clone().expect("store path");
+        config_a.adaptive.network_scope_key = Some("scope-a".to_string());
         let dest = sample_dest(443);
 
         let mut policy_a = RuntimePolicy::load(&config_a);
@@ -383,8 +384,8 @@ mod tests {
             .expect("learn scope a host");
 
         let mut config_b = autolearn_config(1, 32);
-        config_b.host_autolearn_store_path = Some(path);
-        config_b.network_scope_key = Some("scope-b".to_string());
+        config_b.host_autolearn.store_path = Some(path);
+        config_b.adaptive.network_scope_key = Some("scope-b".to_string());
         let mut policy_b = RuntimePolicy::load(&config_b);
         assert!(policy_b.learned_hosts(&config_b).is_empty());
         policy_b
@@ -408,7 +409,7 @@ mod tests {
     #[test]
     fn legacy_v1_host_autolearn_store_is_invalidated() {
         let config = autolearn_config(1, 32);
-        let path = config.host_autolearn_store_path.clone().expect("store path");
+        let path = config.host_autolearn.store_path.clone().expect("store path");
         let payload = json!({
             "version": 1,
             "fingerprint": config_fingerprint(&config),

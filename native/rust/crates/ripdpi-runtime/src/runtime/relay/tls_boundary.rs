@@ -18,10 +18,10 @@ pub(super) struct TlsRecordBoundaryTracker {
 
 impl TlsRecordBoundaryTracker {
     pub(super) fn for_first_response(request: &[u8], config: &RuntimeConfig) -> Self {
-        if !ripdpi_packets::is_tls_client_hello(request) || config.partial_timeout_ms == 0 {
+        if !ripdpi_packets::is_tls_client_hello(request) || config.timeouts.partial_timeout_ms == 0 {
             return Self::default();
         }
-        Self::enabled(config.timeout_bytes_limit.max(0) as usize)
+        Self::enabled(config.timeouts.timeout_bytes_limit.max(0) as usize)
     }
 
     fn enabled(bytes_limit: usize) -> Self {

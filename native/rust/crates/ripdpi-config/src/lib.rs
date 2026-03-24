@@ -311,9 +311,9 @@ mod tests {
             panic!("expected runnable config");
         };
 
-        assert_eq!(config.listen.listen_port, 15432);
-        assert!(config.shadowsocks);
-        assert_eq!(config.protect_path.as_deref(), Some("protect_path"));
+        assert_eq!(config.network.listen.listen_port, 15432);
+        assert!(config.network.shadowsocks);
+        assert_eq!(config.process.protect_path.as_deref(), Some("protect_path"));
     }
 
     #[test]
@@ -329,8 +329,8 @@ mod tests {
             panic!("expected runnable config");
         };
 
-        assert_eq!(config.listen.listen_port, 2442);
-        assert_eq!(config.debug, 3);
+        assert_eq!(config.network.listen.listen_port, 2442);
+        assert_eq!(config.process.debug, 3);
     }
 
     #[test]
@@ -442,19 +442,19 @@ mod tests {
             store_path: Some("hosts.json".to_string()),
         };
 
-        config.apply_network_settings(network.clone());
-        config.apply_timeout_settings(timeouts);
-        config.apply_process_settings(process.clone());
-        config.apply_quic_settings(quic);
-        config.apply_adaptive_settings(adaptive.clone());
-        config.apply_host_autolearn_settings(autolearn.clone());
+        config.network = network.clone();
+        config.timeouts = timeouts;
+        config.process = process.clone();
+        config.quic = quic;
+        config.adaptive = adaptive.clone();
+        config.host_autolearn = autolearn.clone();
 
-        assert_eq!(config.network_settings(), network);
-        assert_eq!(config.timeout_settings(), timeouts);
-        assert_eq!(config.process_settings(), process);
-        assert_eq!(config.quic_settings(), quic);
-        assert_eq!(config.adaptive_settings(), adaptive);
-        assert_eq!(config.host_autolearn_settings(), autolearn);
+        assert_eq!(config.network, network);
+        assert_eq!(config.timeouts, timeouts);
+        assert_eq!(config.process, process);
+        assert_eq!(config.quic, quic);
+        assert_eq!(config.adaptive, adaptive);
+        assert_eq!(config.host_autolearn, autolearn);
     }
 
     #[test]

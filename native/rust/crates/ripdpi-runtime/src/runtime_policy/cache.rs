@@ -32,7 +32,7 @@ impl RuntimePolicy {
             .map(|group| GroupPolicy { detect: group.detect, fail_count: group.fail_count, pri: group.pri })
             .collect();
         let order = (0..config.groups.len()).collect();
-        if config.host_autolearn_enabled {
+        if config.host_autolearn.enabled {
             match load_learned_host_store(config) {
                 Ok(hosts) => learned_hosts_by_scope = hosts,
                 Err(super::types::LoadLearnedHostStoreError::Invalidated) => {
@@ -182,13 +182,13 @@ fn is_expired(config: &RuntimeConfig, record: &CacheRecord, now: i64) -> bool {
     let Some(group) = config.groups.get(record.group_index) else {
         return true;
     };
-    let ttl = if group.cache_ttl != 0 { group.cache_ttl } else { config.cache_ttl };
+    let ttl = if group.cache_ttl != 0 { group.cache_ttl } else { config.adaptive.cache_ttl };
     ttl != 0 && now > record.entry.time + ttl
 }
 
 fn cache_bits(config: &RuntimeConfig, ip: IpAddr) -> u16 {
     match ip {
-        IpAddr::V4(_) if config.cache_prefix != 0 => (32 - config.cache_prefix as u16).max(1),
+        IpAddr::V4(_) if config.adaptive.cache_prefix != 0 => (32 - config.adaptive.cache_prefix as u16).max(1),
         IpAddr::V4(_) => 32,
         IpAddr::V6(_) => 128,
     }
@@ -231,7 +231,8 @@ mod tests {
 
     #[test]
     fn cache_bits_with_prefix() {
-        let config = RuntimeConfig { cache_prefix: 8, ..RuntimeConfig::default() };
+        let mut config = RuntimeConfig::default();
+        config.adaptive.cache_prefix = 8;
         assert_eq!(cache_bits(&config, IpAddr::from([192, 168, 1, 1])), 24);
         let config = RuntimeConfig::default();
         assert_eq!(cache_bits(&config, IpAddr::from([192, 168, 1, 1])), 32);
@@ -261,7 +262,7 @@ mod tests {
         assert!(is_expired(&config, &record, 1101));
         let mut config2 = config.clone();
         config2.groups[0].cache_ttl = 0;
-        config2.cache_ttl = 0;
+        config2.adaptive.cache_ttl = 0;
         assert!(!is_expired(&config2, &record, 999_999));
     }
 

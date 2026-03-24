@@ -299,20 +299,20 @@ mod tests {
 
         let config = runtime_config_from_payload(ui_payload(ui)).expect("ui config");
 
-        assert_eq!(config.listen.listen_port, 1080);
+        assert_eq!(config.network.listen.listen_port, 1080);
         assert_eq!(config.groups.len(), 2);
-        assert_eq!(config.quic_initial_mode, QuicInitialMode::Route);
-        assert!(!config.quic_support_v1);
-        assert!(config.quic_support_v2);
+        assert_eq!(config.quic.initial_mode, QuicInitialMode::Route);
+        assert!(!config.quic.support_v1);
+        assert!(config.quic.support_v2);
         assert_eq!(config.groups[0].quic_fake_profile, QuicFakeProfile::RealisticInitial);
         assert_eq!(config.groups[0].quic_fake_host.as_deref(), Some("video.example.test"));
         assert_eq!(config.groups[0].fake_mod, FM_ORIG | FM_RAND | FM_DUPSID | FM_PADENCAP | FM_RNDSNI);
         assert_eq!(config.groups[0].fake_tls_size, 192);
         assert!(config.groups[0].fake_sni_list.is_empty());
-        assert!(config.host_autolearn_enabled);
-        assert_eq!(config.host_autolearn_penalty_ttl_secs, 3_600);
-        assert_eq!(config.host_autolearn_max_hosts, 128);
-        assert_eq!(config.host_autolearn_store_path.as_deref(), Some("/tmp/host-autolearn-v1.json"));
+        assert!(config.host_autolearn.enabled);
+        assert_eq!(config.host_autolearn.penalty_ttl_secs, 3_600);
+        assert_eq!(config.host_autolearn.max_hosts, 128);
+        assert_eq!(config.host_autolearn.store_path.as_deref(), Some("/tmp/host-autolearn-v1.json"));
     }
 
     #[test]
@@ -405,8 +405,8 @@ mod tests {
         ]))
         .expect("command-line config");
 
-        assert_eq!(config.listen.listen_ip, IpAddr::from_str("127.0.0.1").unwrap());
-        assert_eq!(config.listen.listen_port, 2080);
+        assert_eq!(config.network.listen.listen_ip, IpAddr::from_str("127.0.0.1").unwrap());
+        assert_eq!(config.network.listen.listen_port, 2080);
     }
 
     #[test]
@@ -435,9 +435,9 @@ mod tests {
         let payload = parse_proxy_config_json(&value.to_string()).expect("parse ui payload");
         let config = runtime_config_from_payload(payload).expect("ui config");
 
-        assert_eq!(config.quic_initial_mode, QuicInitialMode::RouteAndCache);
-        assert!(config.quic_support_v1);
-        assert!(config.quic_support_v2);
+        assert_eq!(config.quic.initial_mode, QuicInitialMode::RouteAndCache);
+        assert!(config.quic.support_v1);
+        assert!(config.quic.support_v2);
         assert_eq!(config.groups[0].quic_fake_profile, QuicFakeProfile::Disabled);
         assert_eq!(config.groups[0].quic_fake_host, None);
     }
@@ -568,11 +568,11 @@ mod tests {
 
             let config = runtime_config_from_ui(ui).expect("valid payload");
 
-            prop_assert_eq!(config.listen.listen_ip, IpAddr::from_str(&ip).expect("valid ip"));
-            prop_assert_eq!(config.listen.listen_port, u16::try_from(port).expect("valid port"));
-            prop_assert_eq!(config.max_open, max_connections);
-            prop_assert_eq!(config.buffer_size, usize::try_from(buffer_size).expect("valid buffer size"));
-            prop_assert_eq!(config.tfo, tcp_fast_open);
+            prop_assert_eq!(config.network.listen.listen_ip, IpAddr::from_str(&ip).expect("valid ip"));
+            prop_assert_eq!(config.network.listen.listen_port, u16::try_from(port).expect("valid port"));
+            prop_assert_eq!(config.network.max_open, max_connections);
+            prop_assert_eq!(config.network.buffer_size, usize::try_from(buffer_size).expect("valid buffer size"));
+            prop_assert_eq!(config.network.tfo, tcp_fast_open);
             prop_assert!(!config.groups.is_empty());
         }
     }

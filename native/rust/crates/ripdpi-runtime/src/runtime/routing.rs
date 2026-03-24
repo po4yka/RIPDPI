@@ -333,12 +333,17 @@ pub(super) fn connect_target_via_group(
         connect_via_socks(
             target,
             upstream.addr,
-            state.config.listen.bind_ip,
-            state.config.protect_path.as_deref(),
-            state.config.tfo,
+            state.config.network.listen.bind_ip,
+            state.config.process.protect_path.as_deref(),
+            state.config.network.tfo,
         )
     } else {
-        connect_socket(target, state.config.listen.bind_ip, state.config.protect_path.as_deref(), state.config.tfo)
+        connect_socket(
+            target,
+            state.config.network.listen.bind_ip,
+            state.config.process.protect_path.as_deref(),
+            state.config.network.tfo,
+        )
     }?;
 
     if group.drop_sack {

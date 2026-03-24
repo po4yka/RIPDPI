@@ -101,14 +101,14 @@ fn matches_payload(config: &RuntimeConfig, group: &DesyncGroup, payload: &[u8]) 
 }
 
 fn extract_quic_host(config: &RuntimeConfig, payload: &[u8]) -> Option<ExtractedHost> {
-    if matches!(config.quic_initial_mode, QuicInitialMode::Disabled)
-        || (!config.quic_support_v1 && !config.quic_support_v2)
+    if matches!(config.quic.initial_mode, QuicInitialMode::Disabled)
+        || (!config.quic.support_v1 && !config.quic.support_v2)
     {
         return None;
     }
     let info = parse_quic_initial(payload)?;
-    let allowed = (info.version == 0x0000_0001 && config.quic_support_v1)
-        || (info.version == 0x6b33_43cf && config.quic_support_v2);
+    let allowed = (info.version == 0x0000_0001 && config.quic.support_v1)
+        || (info.version == 0x6b33_43cf && config.quic.support_v2);
     allowed.then(|| ExtractedHost { host: String::from_utf8_lossy(info.host()).into_owned(), source: HostSource::Quic })
 }
 
@@ -231,7 +231,8 @@ mod tests {
     #[test]
     fn extract_host_skips_quic_when_disabled() {
         let packet = rust_packet_seeds::quic_initial_v1();
-        let config = RuntimeConfig { quic_initial_mode: QuicInitialMode::Disabled, ..RuntimeConfig::default() };
+        let mut config = RuntimeConfig::default();
+        config.quic.initial_mode = QuicInitialMode::Disabled;
 
         assert_eq!(extract_host(&config, &packet), None);
     }
@@ -239,7 +240,8 @@ mod tests {
     #[test]
     fn extract_host_respects_quic_version_toggles() {
         let packet = rust_packet_seeds::quic_initial_v2();
-        let config = RuntimeConfig { quic_support_v2: false, ..RuntimeConfig::default() };
+        let mut config = RuntimeConfig::default();
+        config.quic.support_v2 = false;
 
         assert_eq!(extract_host(&config, &packet), None);
     }

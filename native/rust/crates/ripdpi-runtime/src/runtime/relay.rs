@@ -83,15 +83,17 @@ mod tests {
 
     #[test]
     fn timeout_and_trigger_helpers_follow_runtime_configuration() {
-        let mut config = RuntimeConfig { partial_timeout_ms: 75, timeout_ms: 900, ..RuntimeConfig::default() };
+        let mut config = RuntimeConfig::default();
+        config.timeouts.partial_timeout_ms = 75;
+        config.timeouts.timeout_ms = 900;
         let tls_tracker = TlsRecordBoundaryTracker::for_first_response(DEFAULT_FAKE_TLS, &config);
         assert_eq!(first_response_timeout(&config, &tls_tracker), Some(Duration::from_millis(75)));
 
-        config.partial_timeout_ms = 0;
+        config.timeouts.partial_timeout_ms = 0;
         let inactive_tracker = TlsRecordBoundaryTracker::for_first_response(DEFAULT_FAKE_TLS, &config);
         assert_eq!(first_response_timeout(&config, &inactive_tracker), Some(Duration::from_millis(900)));
 
-        config.timeout_ms = 0;
+        config.timeouts.timeout_ms = 0;
         config.groups[0].detect = DETECT_HTTP_LOCAT | DETECT_CONNECT;
         assert_eq!(first_response_timeout(&config, &inactive_tracker), Some(Duration::from_millis(250)));
         assert_eq!(timeout_count_limit(&config), 1);
@@ -107,7 +109,8 @@ mod tests {
 
     #[test]
     fn tls_record_tracker_handles_partial_records_and_limits() {
-        let config = RuntimeConfig { partial_timeout_ms: 50, ..RuntimeConfig::default() };
+        let mut config = RuntimeConfig::default();
+        config.timeouts.partial_timeout_ms = 50;
 
         let mut tracker = TlsRecordBoundaryTracker::for_first_response(DEFAULT_FAKE_TLS, &config);
         assert!(tracker.active());
@@ -116,8 +119,9 @@ mod tests {
         tracker.observe(&[0xbb, 0xcc, 0xdd, 0xee]);
         assert!(!tracker.waiting_for_tls_record());
 
-        let limited_config =
-            RuntimeConfig { partial_timeout_ms: 50, timeout_bytes_limit: 3, ..RuntimeConfig::default() };
+        let mut limited_config = RuntimeConfig::default();
+        limited_config.timeouts.partial_timeout_ms = 50;
+        limited_config.timeouts.timeout_bytes_limit = 3;
         let mut limited = TlsRecordBoundaryTracker::for_first_response(DEFAULT_FAKE_TLS, &limited_config);
         limited.observe(&[0x16, 0x03, 0x03, 0x00]);
         assert!(!limited.active());
@@ -131,7 +135,8 @@ mod tests {
 
     #[test]
     fn tls_record_tracker_inactive_without_partial_timeout() {
-        let config = RuntimeConfig { partial_timeout_ms: 0, ..RuntimeConfig::default() };
+        let mut config = RuntimeConfig::default();
+        config.timeouts.partial_timeout_ms = 0;
         let tracker = TlsRecordBoundaryTracker::for_first_response(DEFAULT_FAKE_TLS, &config);
         assert!(!tracker.active());
         assert!(!tracker.waiting_for_tls_record());
@@ -139,7 +144,8 @@ mod tests {
 
     #[test]
     fn tls_record_tracker_inactive_for_non_tls_request() {
-        let config = RuntimeConfig { partial_timeout_ms: 50, ..RuntimeConfig::default() };
+        let mut config = RuntimeConfig::default();
+        config.timeouts.partial_timeout_ms = 50;
         let non_tls = b"GET / HTTP/1.1\r\n";
         let tracker = TlsRecordBoundaryTracker::for_first_response(non_tls, &config);
         assert!(!tracker.active());
@@ -147,7 +153,8 @@ mod tests {
 
     #[test]
     fn tls_record_tracker_multi_record_observation() {
-        let config = RuntimeConfig { partial_timeout_ms: 50, ..RuntimeConfig::default() };
+        let mut config = RuntimeConfig::default();
+        config.timeouts.partial_timeout_ms = 50;
         let mut tracker = TlsRecordBoundaryTracker::for_first_response(DEFAULT_FAKE_TLS, &config);
         assert!(tracker.active());
 

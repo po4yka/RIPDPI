@@ -79,16 +79,16 @@ pub(super) fn send_with_group(
     );
     if should_desync_tcp(group, context) {
         let seed = DESYNC_SEED_BASE + progress.round.saturating_sub(1);
-        match plan_tcp(group, payload, seed, state.config.default_ttl, context) {
+        match plan_tcp(group, payload, seed, state.config.network.default_ttl, context) {
             Ok(plan) if requires_special_tcp_execution(group) => {
                 execute_tcp_plan(writer, &state.config, group, &plan, seed, resolved_fake_ttl)?;
             }
             Ok(plan) => execute_tcp_actions(
                 writer,
                 &plan.actions,
-                state.config.default_ttl,
-                state.config.wait_send,
-                Duration::from_millis(state.config.await_interval.max(1) as u64),
+                state.config.network.default_ttl,
+                state.config.timeouts.wait_send,
+                Duration::from_millis(state.config.timeouts.await_interval.max(1) as u64),
             )?,
             Err(_) => writer.write_all(payload)?,
         }
@@ -182,16 +182,16 @@ fn execute_tcp_plan(
                 writer.write_all(chunk)?;
                 await_writable_action(
                     writer,
-                    config.wait_send,
-                    Duration::from_millis(config.await_interval.max(1) as u64),
+                    config.timeouts.wait_send,
+                    Duration::from_millis(config.timeouts.await_interval.max(1) as u64),
                 )?;
             }
             TcpChainStepKind::Oob => {
                 send_oob_action(writer, chunk, group.oob_data.unwrap_or(b'a'))?;
                 await_writable_action(
                     writer,
-                    config.wait_send,
-                    Duration::from_millis(config.await_interval.max(1) as u64),
+                    config.timeouts.wait_send,
+                    Duration::from_millis(config.timeouts.await_interval.max(1) as u64),
                 )?;
             }
             TcpChainStepKind::Disorder => {
@@ -199,11 +199,11 @@ fn execute_tcp_plan(
                 writer.write_all(chunk)?;
                 await_writable_action(
                     writer,
-                    config.wait_send,
-                    Duration::from_millis(config.await_interval.max(1) as u64),
+                    config.timeouts.wait_send,
+                    Duration::from_millis(config.timeouts.await_interval.max(1) as u64),
                 )?;
-                if config.default_ttl != 0 {
-                    restore_default_ttl_action(writer, config.default_ttl)?;
+                if config.network.default_ttl != 0 {
+                    restore_default_ttl_action(writer, config.network.default_ttl)?;
                 }
             }
             TcpChainStepKind::Disoob => {
@@ -211,11 +211,11 @@ fn execute_tcp_plan(
                 send_oob_action(writer, chunk, group.oob_data.unwrap_or(b'a'))?;
                 await_writable_action(
                     writer,
-                    config.wait_send,
-                    Duration::from_millis(config.await_interval.max(1) as u64),
+                    config.timeouts.wait_send,
+                    Duration::from_millis(config.timeouts.await_interval.max(1) as u64),
                 )?;
-                if config.default_ttl != 0 {
-                    restore_default_ttl_action(writer, config.default_ttl)?;
+                if config.network.default_ttl != 0 {
+                    restore_default_ttl_action(writer, config.network.default_ttl)?;
                 }
             }
             TcpChainStepKind::Fake => {
@@ -236,8 +236,8 @@ fn execute_tcp_plan(
                     fake_chunk,
                     resolved_fake_ttl.or(group.ttl).unwrap_or(8),
                     group.md5sig,
-                    config.default_ttl,
-                    (config.wait_send, Duration::from_millis(config.await_interval.max(1) as u64)),
+                    config.network.default_ttl,
+                    (config.timeouts.wait_send, Duration::from_millis(config.timeouts.await_interval.max(1) as u64)),
                 )?;
             }
             TcpChainStepKind::FakeSplit => {
@@ -246,8 +246,8 @@ fn execute_tcp_plan(
                     writer.write_all(chunk)?;
                     await_writable_action(
                         writer,
-                        config.wait_send,
-                        Duration::from_millis(config.await_interval.max(1) as u64),
+                        config.timeouts.wait_send,
+                        Duration::from_millis(config.timeouts.await_interval.max(1) as u64),
                     )?;
                     cursor = end;
                     continue;
@@ -263,8 +263,8 @@ fn execute_tcp_plan(
                     &first_fake,
                     fake_ttl,
                     group.md5sig,
-                    config.default_ttl,
-                    (config.wait_send, Duration::from_millis(config.await_interval.max(1) as u64)),
+                    config.network.default_ttl,
+                    (config.timeouts.wait_send, Duration::from_millis(config.timeouts.await_interval.max(1) as u64)),
                 )?;
                 platform::send_fake_tcp(
                     writer,
@@ -272,8 +272,8 @@ fn execute_tcp_plan(
                     &second_fake,
                     fake_ttl,
                     group.md5sig,
-                    config.default_ttl,
-                    (config.wait_send, Duration::from_millis(config.await_interval.max(1) as u64)),
+                    config.network.default_ttl,
+                    (config.timeouts.wait_send, Duration::from_millis(config.timeouts.await_interval.max(1) as u64)),
                 )?;
                 cursor = plan.tampered.len();
                 break;
@@ -285,11 +285,11 @@ fn execute_tcp_plan(
                     writer.write_all(chunk)?;
                     await_writable_action(
                         writer,
-                        config.wait_send,
-                        Duration::from_millis(config.await_interval.max(1) as u64),
+                        config.timeouts.wait_send,
+                        Duration::from_millis(config.timeouts.await_interval.max(1) as u64),
                     )?;
-                    if config.default_ttl != 0 {
-                        restore_default_ttl_action(writer, config.default_ttl)?;
+                    if config.network.default_ttl != 0 {
+                        restore_default_ttl_action(writer, config.network.default_ttl)?;
                     }
                     cursor = end;
                     continue;
@@ -305,8 +305,8 @@ fn execute_tcp_plan(
                     &first_fake,
                     1,
                     group.md5sig,
-                    config.default_ttl,
-                    (config.wait_send, Duration::from_millis(config.await_interval.max(1) as u64)),
+                    config.network.default_ttl,
+                    (config.timeouts.wait_send, Duration::from_millis(config.timeouts.await_interval.max(1) as u64)),
                 )?;
                 platform::send_fake_tcp(
                     writer,
@@ -314,8 +314,8 @@ fn execute_tcp_plan(
                     &second_fake,
                     fake_ttl,
                     group.md5sig,
-                    config.default_ttl,
-                    (config.wait_send, Duration::from_millis(config.await_interval.max(1) as u64)),
+                    config.network.default_ttl,
+                    (config.timeouts.wait_send, Duration::from_millis(config.timeouts.await_interval.max(1) as u64)),
                 )?;
                 cursor = plan.tampered.len();
                 break;
@@ -325,8 +325,8 @@ fn execute_tcp_plan(
                     writer.write_all(chunk)?;
                     await_writable_action(
                         writer,
-                        config.wait_send,
-                        Duration::from_millis(config.await_interval.max(1) as u64),
+                        config.timeouts.wait_send,
+                        Duration::from_millis(config.timeouts.await_interval.max(1) as u64),
                     )?;
                     cursor = end;
                     continue;
@@ -336,8 +336,8 @@ fn execute_tcp_plan(
                     writer.write_all(&plan.tampered[start..span.host_start])?;
                     await_writable_action(
                         writer,
-                        config.wait_send,
-                        Duration::from_millis(config.await_interval.max(1) as u64),
+                        config.timeouts.wait_send,
+                        Duration::from_millis(config.timeouts.await_interval.max(1) as u64),
                     )?;
                 }
 
@@ -349,29 +349,29 @@ fn execute_tcp_plan(
                     &fake_host,
                     resolved_fake_ttl.or(group.ttl).unwrap_or(8),
                     group.md5sig,
-                    config.default_ttl,
-                    (config.wait_send, Duration::from_millis(config.await_interval.max(1) as u64)),
+                    config.network.default_ttl,
+                    (config.timeouts.wait_send, Duration::from_millis(config.timeouts.await_interval.max(1) as u64)),
                 )?;
 
                 if let Some(midhost) = span.midhost {
                     writer.write_all(&plan.tampered[span.host_start..midhost])?;
                     await_writable_action(
                         writer,
-                        config.wait_send,
-                        Duration::from_millis(config.await_interval.max(1) as u64),
+                        config.timeouts.wait_send,
+                        Duration::from_millis(config.timeouts.await_interval.max(1) as u64),
                     )?;
                     writer.write_all(&plan.tampered[midhost..span.host_end])?;
                     await_writable_action(
                         writer,
-                        config.wait_send,
-                        Duration::from_millis(config.await_interval.max(1) as u64),
+                        config.timeouts.wait_send,
+                        Duration::from_millis(config.timeouts.await_interval.max(1) as u64),
                     )?;
                 } else {
                     writer.write_all(real_host)?;
                     await_writable_action(
                         writer,
-                        config.wait_send,
-                        Duration::from_millis(config.await_interval.max(1) as u64),
+                        config.timeouts.wait_send,
+                        Duration::from_millis(config.timeouts.await_interval.max(1) as u64),
                     )?;
                 }
 
@@ -381,16 +381,16 @@ fn execute_tcp_plan(
                     &fake_host,
                     resolved_fake_ttl.or(group.ttl).unwrap_or(8),
                     group.md5sig,
-                    config.default_ttl,
-                    (config.wait_send, Duration::from_millis(config.await_interval.max(1) as u64)),
+                    config.network.default_ttl,
+                    (config.timeouts.wait_send, Duration::from_millis(config.timeouts.await_interval.max(1) as u64)),
                 )?;
 
                 if span.host_end < end {
                     writer.write_all(&plan.tampered[span.host_end..end])?;
                     await_writable_action(
                         writer,
-                        config.wait_send,
-                        Duration::from_millis(config.await_interval.max(1) as u64),
+                        config.timeouts.wait_send,
+                        Duration::from_millis(config.timeouts.await_interval.max(1) as u64),
                     )?;
                 }
             }
