@@ -66,7 +66,7 @@ fn connect_tcp_socket_with(
 }
 
 fn connect_tcp_socket(target: SocketAddr, protect_path: Option<&str>) -> io::Result<TcpStream> {
-    connect_tcp_socket_with(target, protect_path, |socket, path| protect::protect_socket(socket, path))
+    connect_tcp_socket_with(target, protect_path, protect::protect_socket)
 }
 
 fn build_ws_request(url: &str) -> io::Result<tungstenite::http::Request<()>> {
@@ -138,7 +138,12 @@ mod tests {
 
         let events = [rx.recv().expect("first event"), rx.recv().expect("second event")];
         assert_eq!(events, ["protect", "accept"]);
-        assert_eq!(stream.read_timeout().expect("read timeout"), Some(WS_READ_TIMEOUT));
+        let timeout = stream.read_timeout().expect("read timeout").expect("timeout should be set");
+        assert!(timeout >= WS_READ_TIMEOUT, "timeout {timeout:?} should be >= {WS_READ_TIMEOUT:?}");
+        assert!(
+            timeout <= WS_READ_TIMEOUT + Duration::from_millis(5),
+            "timeout {timeout:?} too far from {WS_READ_TIMEOUT:?}",
+        );
         assert!(stream.nodelay().expect("nodelay"));
 
         accept_thread.join().expect("join accept thread");

@@ -78,17 +78,18 @@ fn emitted_native_outcome_tokens() -> BTreeSet<String> {
     let repo = repo_root();
     let mut tokens = BTreeSet::new();
     for (path, signature) in [
-        ("native/rust/crates/ripdpi-monitor/src/connectivity.rs", "pub(crate) fn run_dns_probe"),
-        ("native/rust/crates/ripdpi-monitor/src/connectivity.rs", "pub(crate) fn run_domain_probe"),
-        ("native/rust/crates/ripdpi-monitor/src/connectivity.rs", "pub(crate) fn run_tcp_probe"),
-        ("native/rust/crates/ripdpi-monitor/src/connectivity.rs", "pub(crate) fn run_quic_probe"),
-        ("native/rust/crates/ripdpi-monitor/src/connectivity.rs", "pub(crate) fn run_service_probe"),
-        ("native/rust/crates/ripdpi-monitor/src/connectivity.rs", "pub(crate) fn run_circumvention_probe"),
-        ("native/rust/crates/ripdpi-monitor/src/connectivity.rs", "pub(crate) fn run_throughput_probe"),
-        ("native/rust/crates/ripdpi-monitor/src/connectivity.rs", "pub(crate) fn build_network_environment_probe"),
+        ("native/rust/crates/ripdpi-monitor/src/connectivity/probes.rs", "pub(crate) fn run_dns_probe"),
+        ("native/rust/crates/ripdpi-monitor/src/connectivity/probes.rs", "pub(crate) fn run_domain_probe"),
+        ("native/rust/crates/ripdpi-monitor/src/connectivity/probes.rs", "pub(crate) fn run_tcp_probe"),
+        ("native/rust/crates/ripdpi-monitor/src/connectivity/probes.rs", "pub(crate) fn run_quic_probe"),
+        ("native/rust/crates/ripdpi-monitor/src/connectivity/probes.rs", "pub(crate) fn run_service_probe"),
+        ("native/rust/crates/ripdpi-monitor/src/connectivity/probes.rs", "pub(crate) fn run_circumvention_probe"),
+        ("native/rust/crates/ripdpi-monitor/src/connectivity/probes.rs", "pub(crate) fn run_throughput_probe"),
+        ("native/rust/crates/ripdpi-monitor/src/connectivity/report.rs", "pub(crate) fn build_network_environment_probe"),
         ("native/rust/crates/ripdpi-monitor/src/execution.rs", "pub(crate) fn run_http_strategy_probe"),
         ("native/rust/crates/ripdpi-monitor/src/execution.rs", "pub(crate) fn run_https_strategy_probe"),
         ("native/rust/crates/ripdpi-monitor/src/execution.rs", "pub(crate) fn run_quic_strategy_probe"),
+        ("native/rust/crates/ripdpi-monitor/src/telegram.rs", "fn classify_telegram_verdict"),
         ("native/rust/crates/ripdpi-monitor/src/telegram.rs", "pub(crate) fn run_telegram_probe"),
         ("native/rust/crates/ripdpi-monitor/src/fat_header.rs", "pub(crate) fn classify_fat_header_outcome"),
     ] {
