@@ -80,8 +80,11 @@ struct ResolverInner {
     endpoint: EncryptedDnsEndpoint,
     transport: EncryptedDnsTransport,
     timeout: Duration,
+    #[cfg_attr(feature = "hickory-backend", allow(dead_code))]
     doh_client: Option<reqwest::Client>,
     dot_tls_config: Arc<ClientConfig>,
+    tls_roots: Vec<CertificateDer<'static>>,
+    tls_verifier: Option<Arc<dyn ServerCertVerifier>>,
     dnscrypt_state: Mutex<Option<DnsCryptCachedCertificate>>,
     connection_pool: ConnectionPool,
     health: Option<HealthRegistry>,
@@ -152,6 +155,8 @@ impl EncryptedDnsResolver {
                 timeout,
                 doh_client,
                 dot_tls_config,
+                tls_roots,
+                tls_verifier,
                 dnscrypt_state: Mutex::new(None),
                 connection_pool: ConnectionPool::default(),
                 health,
@@ -169,8 +174,46 @@ impl EncryptedDnsResolver {
     ) -> Result<EncryptedDnsExchangeSuccess, EncryptedDnsError> {
         let started = std::time::Instant::now();
         let response_bytes = match self.inner.endpoint.protocol {
-            EncryptedDnsProtocol::Doh => self.exchange_doh(query_bytes).await,
-            EncryptedDnsProtocol::Dot => self.exchange_dot(query_bytes).await,
+            EncryptedDnsProtocol::Doh => {
+                #[cfg(feature = "hickory-backend")]
+                {
+                    if self.can_use_hickory() {
+                        crate::hickory_backend::exchange_doh(
+                            &self.inner.endpoint,
+                            query_bytes,
+                            self.inner.timeout,
+                        )
+                        .await
+                    } else {
+                        self.exchange_doh(query_bytes).await
+                    }
+                }
+                #[cfg(not(feature = "hickory-backend"))]
+                {
+                    self.exchange_doh(query_bytes).await
+                }
+            }
+            EncryptedDnsProtocol::Dot => {
+                #[cfg(feature = "hickory-backend")]
+                {
+                    if self.can_use_hickory()
+                        && matches!(self.inner.transport, EncryptedDnsTransport::Direct)
+                    {
+                        crate::hickory_backend::exchange_dot(
+                            &self.inner.endpoint,
+                            query_bytes,
+                            self.inner.timeout,
+                        )
+                        .await
+                    } else {
+                        self.exchange_dot(query_bytes).await
+                    }
+                }
+                #[cfg(not(feature = "hickory-backend"))]
+                {
+                    self.exchange_dot(query_bytes).await
+                }
+            }
             EncryptedDnsProtocol::DnsCrypt => self.exchange_dnscrypt(query_bytes).await,
         }?;
 
@@ -213,6 +256,15 @@ impl EncryptedDnsResolver {
             .clone()
             .filter(|value| !value.trim().is_empty())
             .unwrap_or_else(|| format!("{}:{}", self.inner.endpoint.host, self.inner.endpoint.port))
+    }
+
+    /// Returns `true` when the hickory-resolver backend can handle this resolver's
+    /// configuration. Falls back to the manual path when custom TLS roots or a custom
+    /// certificate verifier are configured, because hickory-resolver manages its own
+    /// TLS stack using system/webpki roots and cannot honor those overrides.
+    #[cfg(feature = "hickory-backend")]
+    fn can_use_hickory(&self) -> bool {
+        self.inner.tls_roots.is_empty() && self.inner.tls_verifier.is_none()
     }
 
     async fn exchange_doh(&self, query_bytes: &[u8]) -> Result<Vec<u8>, EncryptedDnsError> {

@@ -1,5 +1,7 @@
 mod dnscrypt;
 mod health;
+#[cfg(feature = "hickory-backend")]
+mod hickory_backend;
 mod pool;
 mod resolver;
 mod transport;
