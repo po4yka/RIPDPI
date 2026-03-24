@@ -123,15 +123,18 @@ pub(crate) fn parse_numeric_addr(spec: &str) -> Result<(IpAddr, Option<u16>), Co
 
 fn parse_timeout(spec: &str, config: &mut RuntimeConfig) -> Result<(), ConfigError> {
     let mut parts = spec.split(':');
-    config.timeout_ms = seconds_to_millis(parts.next().ok_or_else(|| ConfigError::invalid("--timeout", Some(spec)))?)?;
+    config.timeouts.timeout_ms =
+        seconds_to_millis(parts.next().ok_or_else(|| ConfigError::invalid("--timeout", Some(spec)))?)?;
     if let Some(value) = parts.next() {
-        config.partial_timeout_ms = seconds_to_millis(value)?;
+        config.timeouts.partial_timeout_ms = seconds_to_millis(value)?;
     }
     if let Some(value) = parts.next() {
-        config.timeout_count_limit = value.parse::<i32>().map_err(|_| ConfigError::invalid("--timeout", Some(spec)))?;
+        config.timeouts.timeout_count_limit =
+            value.parse::<i32>().map_err(|_| ConfigError::invalid("--timeout", Some(spec)))?;
     }
     if let Some(value) = parts.next() {
-        config.timeout_bytes_limit = value.parse::<i32>().map_err(|_| ConfigError::invalid("--timeout", Some(spec)))?;
+        config.timeouts.timeout_bytes_limit =
+            value.parse::<i32>().map_err(|_| ConfigError::invalid("--timeout", Some(spec)))?;
     }
     if parts.next().is_some() {
         return Err(ConfigError::invalid("--timeout", Some(spec)));
@@ -169,13 +172,13 @@ pub fn parse_cli(args: &[String], startup: &StartupEnv) -> Result<ParseResult, C
     let mut config = RuntimeConfig::default();
     if let Some(port) = &startup.ss_local_port {
         if let Ok(port) = port.parse::<u16>() {
-            config.listen.listen_port = port;
+            config.network.listen.listen_port = port;
         } else {
-            config.listen.listen_port = 0;
+            config.network.listen.listen_port = 0;
         }
-        config.shadowsocks = true;
+        config.network.shadowsocks = true;
         if startup.protect_path_present {
-            config.protect_path = Some("protect_path".to_owned());
+            config.process.protect_path = Some("protect_path".to_owned());
         }
     }
 
@@ -197,26 +200,26 @@ pub fn parse_cli(args: &[String], startup: &StartupEnv) -> Result<ParseResult, C
         match arg.as_str() {
             "-h" | "--help" => return Ok(ParseResult::Help),
             "-v" | "--version" => return Ok(ParseResult::Version),
-            "-N" | "--no-domain" => config.resolve = false,
-            "-X" => config.ipv6 = false,
-            "-U" | "--no-udp" => config.udp = false,
-            "-G" | "--http-connect" => config.http_connect = true,
-            "-E" | "--transparent" => config.transparent = true,
-            "-D" | "--daemon" => config.daemonize = true,
+            "-N" | "--no-domain" => config.network.resolve = false,
+            "-X" => config.network.ipv6 = false,
+            "-U" | "--no-udp" => config.network.udp = false,
+            "-G" | "--http-connect" => config.network.http_connect = true,
+            "-E" | "--transparent" => config.network.transparent = true,
+            "-D" | "--daemon" => config.process.daemonize = true,
             "-w" | "--pidfile" => {
                 let value = next_value(&effective_args, &mut idx, arg)?;
-                config.pid_file = Some(value.to_owned());
+                config.process.pid_file = Some(value.to_owned());
             }
-            "-F" | "--tfo" => config.tfo = true,
+            "-F" | "--tfo" => config.network.tfo = true,
             "-S" | "--md5sig" => group!().md5sig = true,
             "-Y" | "--drop-sack" => group!().drop_sack = true,
-            "-Z" | "--wait-send" => config.wait_send = true,
+            "-Z" | "--wait-send" => config.timeouts.wait_send = true,
             "-i" | "--ip" => {
                 let value = next_value(&effective_args, &mut idx, arg)?;
                 let (ip, port) = parse_numeric_addr(value)?;
-                config.listen.listen_ip = ip;
+                config.network.listen.listen_ip = ip;
                 if let Some(port) = port {
-                    config.listen.listen_port = port;
+                    config.network.listen.listen_port = port;
                 }
             }
             "-p" | "--port" => {
@@ -225,12 +228,12 @@ pub fn parse_cli(args: &[String], startup: &StartupEnv) -> Result<ParseResult, C
                 if port == 0 {
                     return Err(ConfigError::invalid(arg, Some(value)));
                 }
-                config.listen.listen_port = port;
+                config.network.listen.listen_port = port;
             }
             "-I" | "--conn-ip" => {
                 let value = next_value(&effective_args, &mut idx, arg)?;
                 let (ip, _) = parse_numeric_addr(value)?;
-                config.listen.bind_ip = ip;
+                config.network.listen.bind_ip = ip;
             }
             "-b" | "--buf-size" => {
                 let value = next_value(&effective_args, &mut idx, arg)?;
@@ -238,7 +241,7 @@ pub fn parse_cli(args: &[String], startup: &StartupEnv) -> Result<ParseResult, C
                 if size == 0 || size >= (i32::MAX as usize) / 4 {
                     return Err(ConfigError::invalid(arg, Some(value)));
                 }
-                config.buffer_size = size;
+                config.network.buffer_size = size;
             }
             "-c" | "--max-conn" => {
                 let value = next_value(&effective_args, &mut idx, arg)?;
@@ -246,7 +249,7 @@ pub fn parse_cli(args: &[String], startup: &StartupEnv) -> Result<ParseResult, C
                 if count <= 0 || count >= (0xffff / 2) {
                     return Err(ConfigError::invalid(arg, Some(value)));
                 }
-                config.max_open = count;
+                config.network.max_open = count;
             }
             "-x" | "--debug" => {
                 let value = next_value(&effective_args, &mut idx, arg)?;
@@ -254,7 +257,7 @@ pub fn parse_cli(args: &[String], startup: &StartupEnv) -> Result<ParseResult, C
                 if level < 0 {
                     return Err(ConfigError::invalid(arg, Some(value)));
                 }
-                config.debug = level;
+                config.process.debug = level;
             }
             "-y" | "--cache-file" => {
                 let value = next_value(&effective_args, &mut idx, arg)?;
@@ -265,14 +268,14 @@ pub fn parse_cli(args: &[String], startup: &StartupEnv) -> Result<ParseResult, C
                 for token in value.split(',') {
                     match token.chars().next() {
                         Some('0' | '2') => {
-                            config.auto_level |= AUTO_NOPOST;
+                            config.adaptive.auto_level |= AUTO_NOPOST;
                             if token.starts_with('2') {
-                                config.auto_level |= AUTO_SORT;
+                                config.adaptive.auto_level |= AUTO_SORT;
                             }
                         }
                         Some('1') => {}
-                        Some('3' | 's') => config.auto_level |= AUTO_SORT,
-                        Some('r') => config.auto_level = 0,
+                        Some('3' | 's') => config.adaptive.auto_level |= AUTO_SORT,
+                        Some('r') => config.adaptive.auto_level = 0,
                         _ => return Err(ConfigError::invalid(arg, Some(value))),
                     }
                 }
@@ -306,7 +309,7 @@ pub fn parse_cli(args: &[String], startup: &StartupEnv) -> Result<ParseResult, C
                     }
                 }
                 if group!().detect != 0 {
-                    config.auto_level |= AUTO_RECONN;
+                    config.adaptive.auto_level |= AUTO_RECONN;
                 }
             }
             "-u" | "--cache-ttl" => {
@@ -315,8 +318,8 @@ pub fn parse_cli(args: &[String], startup: &StartupEnv) -> Result<ParseResult, C
                 if ttl <= 0 {
                     return Err(ConfigError::invalid(arg, Some(value)));
                 }
-                if config.cache_ttl == 0 {
-                    config.cache_ttl = ttl;
+                if config.adaptive.cache_ttl == 0 {
+                    config.adaptive.cache_ttl = ttl;
                 }
                 group!().cache_ttl = ttl;
             }
@@ -326,10 +329,10 @@ pub fn parse_cli(args: &[String], startup: &StartupEnv) -> Result<ParseResult, C
                 if merge > 32 {
                     return Err(ConfigError::invalid(arg, Some(value)));
                 }
-                config.cache_prefix = 32 - merge;
+                config.adaptive.cache_prefix = 32 - merge;
             }
             "--host-autolearn" => {
-                config.host_autolearn_enabled = true;
+                config.host_autolearn.enabled = true;
             }
             "--host-autolearn-penalty-ttl" => {
                 let value = next_value(&effective_args, &mut idx, arg)?;
@@ -337,8 +340,8 @@ pub fn parse_cli(args: &[String], startup: &StartupEnv) -> Result<ParseResult, C
                 if ttl <= 0 {
                     return Err(ConfigError::invalid(arg, Some(value)));
                 }
-                config.host_autolearn_enabled = true;
-                config.host_autolearn_penalty_ttl_secs = ttl;
+                config.host_autolearn.enabled = true;
+                config.host_autolearn.penalty_ttl_secs = ttl;
             }
             "--host-autolearn-max-hosts" => {
                 let value = next_value(&effective_args, &mut idx, arg)?;
@@ -346,16 +349,16 @@ pub fn parse_cli(args: &[String], startup: &StartupEnv) -> Result<ParseResult, C
                 if max_hosts == 0 {
                     return Err(ConfigError::invalid(arg, Some(value)));
                 }
-                config.host_autolearn_enabled = true;
-                config.host_autolearn_max_hosts = max_hosts;
+                config.host_autolearn.enabled = true;
+                config.host_autolearn.max_hosts = max_hosts;
             }
             "--host-autolearn-file" => {
                 let value = next_value(&effective_args, &mut idx, arg)?;
                 if value.trim().is_empty() {
                     return Err(ConfigError::invalid(arg, Some(value)));
                 }
-                config.host_autolearn_enabled = true;
-                config.host_autolearn_store_path = Some(value.to_owned());
+                config.host_autolearn.enabled = true;
+                config.host_autolearn.store_path = Some(value.to_owned());
             }
             "-T" | "--timeout" => {
                 let value = next_value(&effective_args, &mut idx, arg)?;
@@ -544,23 +547,24 @@ pub fn parse_cli(args: &[String], startup: &StartupEnv) -> Result<ParseResult, C
                 if ttl == 0 || ttl > 255 {
                     return Err(ConfigError::invalid(arg, Some(value)));
                 }
-                config.default_ttl = ttl as u8;
-                config.custom_ttl = true;
+                config.network.default_ttl = ttl as u8;
+                config.network.custom_ttl = true;
             }
             "-W" | "--await-int" => {
                 let value = next_value(&effective_args, &mut idx, arg)?;
-                config.await_interval = value.parse::<i32>().map_err(|_| ConfigError::invalid(arg, Some(value)))?;
+                config.timeouts.await_interval =
+                    value.parse::<i32>().map_err(|_| ConfigError::invalid(arg, Some(value)))?;
             }
             "-C" | "--to-socks5" => {
                 let value = next_value(&effective_args, &mut idx, arg)?;
                 let (ip, port) = parse_numeric_addr(value)?;
                 let port = port.ok_or_else(|| ConfigError::invalid(arg, Some(value)))?;
                 group!().ext_socks = Some(UpstreamSocksConfig { addr: SocketAddr::new(ip, port) });
-                config.delay_conn = true;
+                config.network.delay_conn = true;
             }
             "-P" | "--protect-path" => {
                 let value = next_value(&effective_args, &mut idx, arg)?;
-                config.protect_path = Some(value.to_owned());
+                config.process.protect_path = Some(value.to_owned());
             }
             "--comment" => {
                 let value = next_value(&effective_args, &mut idx, arg)?;
@@ -575,11 +579,11 @@ pub fn parse_cli(args: &[String], startup: &StartupEnv) -> Result<ParseResult, C
     if all_limited {
         add_group(&mut config.groups)?;
     }
-    if !matches!(config.listen.bind_ip, IpAddr::V6(_)) {
-        config.ipv6 = false;
+    if !matches!(config.network.listen.bind_ip, IpAddr::V6(_)) {
+        config.network.ipv6 = false;
     }
-    if config.host_autolearn_enabled && config.host_autolearn_store_path.is_none() {
-        config.host_autolearn_store_path = Some(HOST_AUTOLEARN_DEFAULT_STORE_FILE.to_owned());
+    if config.host_autolearn.enabled && config.host_autolearn.store_path.is_none() {
+        config.host_autolearn.store_path = Some(HOST_AUTOLEARN_DEFAULT_STORE_FILE.to_owned());
     }
 
     Ok(ParseResult::Run(Box::new(config)))

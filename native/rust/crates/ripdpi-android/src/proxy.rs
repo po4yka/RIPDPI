@@ -112,8 +112,8 @@ mod tests {
     fn open_proxy_listener_records_telemetry_when_bind_fails() {
         let busy = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("bind busy listener");
         let mut config = RuntimeConfig::default();
-        config.listen.listen_ip = IpAddr::V4(Ipv4Addr::LOCALHOST);
-        config.listen.listen_port = busy.local_addr().expect("busy listener addr").port();
+        config.network.listen.listen_ip = IpAddr::V4(Ipv4Addr::LOCALHOST);
+        config.network.listen.listen_port = busy.local_addr().expect("busy listener addr").port();
         let telemetry = ProxyTelemetryState::new();
 
         let err = open_proxy_listener(&config, &telemetry).expect_err("listener bind should fail");

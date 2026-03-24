@@ -29,7 +29,7 @@ pub(super) fn needs_first_exchange(state: &RuntimeState) -> io::Result<bool> {
         || runtime_supports_trigger(state, DETECT_TCP_RESET)?
         || runtime_supports_trigger(state, DETECT_SILENT_DROP)?
         || runtime_supports_trigger(state, DETECT_DNS_TAMPER)?
-        || state.config.host_autolearn_enabled)
+        || state.config.host_autolearn.enabled)
 }
 
 pub(super) fn read_optional_first_request(
@@ -61,7 +61,7 @@ pub(super) fn read_first_response(
 ) -> io::Result<FirstResponse> {
     let _ = platform::enable_recv_ttl(upstream);
     let mut collected = Vec::new();
-    let mut chunk = vec![0u8; config.buffer_size.max(16_384)];
+    let mut chunk = vec![0u8; config.network.buffer_size.max(16_384)];
     let mut tls_partial = TlsRecordBoundaryTracker::for_first_response(request, config);
     let mut timeout_count = 0i32;
     let mut observed_server_ttl: Option<u8> = None;
@@ -118,7 +118,7 @@ pub(super) fn read_first_response(
                     } else {
                         continue;
                     }
-                } else if config.timeout_ms != 0 {
+                } else if config.timeouts.timeout_ms != 0 {
                     Ok(FirstResponse::Failure {
                         failure: classify_transport_error(FailureStage::FirstResponse, &err),
                         response_bytes: None,
@@ -156,9 +156,9 @@ pub(super) fn first_response_timeout(
     tls_partial: &TlsRecordBoundaryTracker,
 ) -> Option<Duration> {
     if tls_partial.active() {
-        Some(Duration::from_millis(config.partial_timeout_ms as u64))
-    } else if config.timeout_ms != 0 {
-        Some(Duration::from_millis(config.timeout_ms as u64))
+        Some(Duration::from_millis(config.timeouts.partial_timeout_ms as u64))
+    } else if config.timeouts.timeout_ms != 0 {
+        Some(Duration::from_millis(config.timeouts.timeout_ms as u64))
     } else if config.groups.iter().any(|group| {
         group.detect
             & (DETECT_HTTP_LOCAT
@@ -175,7 +175,7 @@ pub(super) fn first_response_timeout(
 }
 
 pub(super) fn timeout_count_limit(config: &RuntimeConfig) -> i32 {
-    config.timeout_count_limit.max(1)
+    config.timeouts.timeout_count_limit.max(1)
 }
 
 #[cfg(test)]

@@ -228,7 +228,7 @@ fn baseline_worker_count(max_workers: usize, parallelism: usize) -> usize {
 }
 
 pub(super) fn build_listener(config: &RuntimeConfig) -> io::Result<TcpListener> {
-    let listen_addr = SocketAddr::new(config.listen.listen_ip, config.listen.listen_port);
+    let listen_addr = SocketAddr::new(config.network.listen.listen_ip, config.network.listen.listen_port);
     let domain = match listen_addr {
         SocketAddr::V4(_) => Domain::IPV4,
         SocketAddr::V6(_) => Domain::IPV6,
@@ -248,8 +248,8 @@ pub(super) fn run_proxy_with_listener_internal(
     control: Option<Arc<EmbeddedProxyControl>>,
 ) -> io::Result<()> {
     let mut config = config;
-    if config.default_ttl == 0 {
-        config.default_ttl = platform::detect_default_ttl()?;
+    if config.network.default_ttl == 0 {
+        config.network.default_ttl = platform::detect_default_ttl()?;
     }
     let cache = RuntimePolicy::load(&config);
     let state = RuntimeState {
@@ -263,7 +263,7 @@ pub(super) fn run_proxy_with_listener_internal(
         runtime_context: control.as_ref().and_then(|value| value.runtime_context()),
     };
     let _cleanup = RuntimeCleanup { config: state.config.clone(), cache: state.cache.clone() };
-    let worker_pool = ClientWorkerPool::new(state.config.max_open.max(1) as usize)?;
+    let worker_pool = ClientWorkerPool::new(state.config.network.max_open.max(1) as usize)?;
     listener.set_nonblocking(true)?;
     let mut listener = MioTcpListener::from_std(listener);
     let mut poll = Poll::new()?;
@@ -271,8 +271,8 @@ pub(super) fn run_proxy_with_listener_internal(
     let mut events = Events::with_capacity(256);
     if let Some(telemetry) = &state.telemetry {
         telemetry.on_listener_started(
-            SocketAddr::new(state.config.listen.listen_ip, state.config.listen.listen_port),
-            state.config.max_open as usize,
+            SocketAddr::new(state.config.network.listen.listen_ip, state.config.network.listen.listen_port),
+            state.config.network.max_open as usize,
             state.config.groups.len(),
         );
     }
@@ -301,9 +301,10 @@ pub(super) fn run_proxy_with_listener_internal(
                         let state = state.clone();
                         let client = mio_to_std_stream(stream);
                         client.set_nonblocking(false)?;
-                        let Some(_slot) =
-                            ClientSlotGuard::acquire(state.active_clients.clone(), state.config.max_open as usize)
-                        else {
+                        let Some(_slot) = ClientSlotGuard::acquire(
+                            state.active_clients.clone(),
+                            state.config.network.max_open as usize,
+                        ) else {
                             log::warn!("client connection rejected: at capacity");
                             if let Some(telemetry) = &state.telemetry {
                                 telemetry.on_client_slot_exhausted();

@@ -18,11 +18,11 @@ pub struct ProcessGuard {
 impl ProcessGuard {
     pub fn prepare(config: &RuntimeConfig) -> io::Result<Self> {
         SHUTDOWN.store(false, Ordering::Release);
-        if config.daemonize {
+        if config.process.daemonize {
             daemonize()?;
         }
         install_signal_handlers()?;
-        let pid_file = match config.pid_file.as_deref() {
+        let pid_file = match config.process.pid_file.as_deref() {
             Some(path) => Some(PidFileGuard::create(Path::new(path))?),
             None => None,
         };
@@ -146,7 +146,8 @@ mod tests {
     #[test]
     fn prepare_with_pid_file_writes_and_removes_pidfile() {
         let path = temp_pid_path();
-        let config = RuntimeConfig { pid_file: Some(path.display().to_string()), ..RuntimeConfig::default() };
+        let mut config = RuntimeConfig::default();
+        config.process.pid_file = Some(path.display().to_string());
 
         {
             let guard = ProcessGuard::prepare(&config).expect("prepare process guard with pidfile");
