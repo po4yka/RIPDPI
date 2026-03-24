@@ -13,7 +13,7 @@ ripdpi-config = { workspace = true }
 ripdpi-desync = { workspace = true }
 ripdpi-packets = { workspace = true }
 ripdpi-session = { workspace = true }
-log = { workspace = true }
+tracing = { workspace = true }
 mio = { workspace = true }
 ripdpi-dns-resolver = { workspace = true }
 ripdpi-failure-classifier = { workspace = true }
@@ -21,7 +21,7 @@ ripdpi-proxy-config = { workspace = true }
 ripdpi-ws-tunnel = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
-sha2 = { workspace = true }
+ring = { workspace = true }
 socket2 = { workspace = true }
 libc = { workspace = true }
 loom = { workspace = true, optional = true }
@@ -32,12 +32,10 @@ loom = ["dep:loom"]
 
 [dev-dependencies]
 aes = { workspace = true }
-aes-gcm = { workspace = true }
 ripdpi-config = { workspace = true }
 ripdpi-packets = { workspace = true }
-hkdf = { workspace = true }
+ring = { workspace = true }
 local-network-fixture = { workspace = true }
 native-soak-support = { workspace = true }
 rustls = { workspace = true }
 serde_json = { workspace = true }
-sha2 = { workspace = true }

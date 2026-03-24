@@ -5,7 +5,7 @@ use std::net::IpAddr;
 use std::path::Path;
 
 use ripdpi_config::RuntimeConfig;
-use sha2::{Digest, Sha256};
+use ring::digest;
 
 use super::types::{LearnedHostRecord, LearnedHostStore, LearnedNetworkScopeStore, LoadLearnedHostStoreError};
 use super::{
@@ -196,10 +196,14 @@ pub(super) fn normalize_learned_host(host: &str) -> Option<String> {
 }
 
 fn config_fingerprint(config: &RuntimeConfig) -> String {
-    let mut hasher = Sha256::new();
-    hasher.update(format!("{:?}", config.groups).as_bytes());
-    hasher.update(format!("|{}", config.groups.len()).as_bytes());
-    format!("{:x}", hasher.finalize())
+    let mut input = format!("{:?}", config.groups);
+    input.push_str(&format!("|{}", config.groups.len()));
+    let d = digest::digest(&digest::SHA256, input.as_bytes());
+    d.as_ref().iter().fold(String::new(), |mut s, b| {
+        use std::fmt::Write;
+        write!(s, "{b:02x}").unwrap();
+        s
+    })
 }
 
 fn network_scope_key(config: &RuntimeConfig) -> &str {

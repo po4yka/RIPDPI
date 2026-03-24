@@ -9,13 +9,12 @@ workspace = true
 
 [dependencies]
 crypto_box = { workspace = true }
-ed25519-dalek = { workspace = true }
 hex = { workspace = true }
 hickory-proto = { workspace = true }
 hickory-resolver = { workspace = true, optional = true }
 lru = { workspace = true }
 once_cell = { workspace = true }
-rand = { workspace = true }
+ring = { workspace = true }
 reqwest = { workspace = true }
 rustls = { workspace = true }
 thiserror = { workspace = true }
