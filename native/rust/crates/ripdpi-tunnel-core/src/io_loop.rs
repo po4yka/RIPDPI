@@ -187,10 +187,10 @@ pub async fn io_loop_task(
                 }
 
                 IpClass::UdpDns { src, payload } => {
-                    let host = dns_query_name(&payload);
+                    let host = dns_query_name(payload);
                     match (&mapdns_runtime, dns_cache.as_ref(), dns_req_tx.as_ref()) {
                         (Some(_), Some(_), Some(request_tx)) => {
-                            let request = DnsRequest { src, query: payload, host };
+                            let request = DnsRequest { src, query: payload.to_vec(), host };
                             match request_tx.try_send(request) {
                                 Ok(()) => {}
                                 Err(tokio::sync::mpsc::error::TrySendError::Full(request)) => {
@@ -232,7 +232,7 @@ pub async fn io_loop_task(
                                 *mapdns,
                                 cache,
                                 src,
-                                &payload,
+                                payload,
                                 host.as_deref(),
                                 "encrypted DNS resolver is not configured",
                             );
@@ -250,7 +250,7 @@ pub async fn io_loop_task(
                         &auth,
                         src,
                         resolved_dst,
-                        &payload,
+                        payload,
                         &mut udp_associations,
                         &mut next_udp_association_id,
                         udp_idle_timeout,

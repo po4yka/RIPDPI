@@ -59,6 +59,7 @@ android_logger = "0.14"
 anyhow = "1"
 crypto_box = { version = "0.9", features = ["chacha20"] }
 ed25519-dalek = "2"
+etherparse = "0.19"
 fast-socks5 = "0.9"
 hex = "0.4"
 hkdf = "0.12"
