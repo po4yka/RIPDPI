@@ -1,7 +1,5 @@
-use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, TcpListener};
-use std::path::Path;
-
 use ripdpi_packets::{HttpFakeProfile, TlsFakeProfile, UdpFakeProfile};
+use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, TcpListener};
 
 use crate::{
     HOST_AUTOLEARN_DEFAULT_MAX_HOSTS, HOST_AUTOLEARN_DEFAULT_PENALTY_TTL_SECS, HOST_AUTOLEARN_DEFAULT_STORE_FILE,
@@ -888,23 +886,6 @@ impl RuntimeConfig {
         self.host_autolearn_max_hosts = settings.max_hosts;
         self.host_autolearn_store_path =
             settings.store_path.or_else(|| settings.enabled.then(|| HOST_AUTOLEARN_DEFAULT_STORE_FILE.to_owned()));
-    }
-}
-
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
-pub struct StartupEnv {
-    pub ss_local_port: Option<String>,
-    pub ss_plugin_options: Option<String>,
-    pub protect_path_present: bool,
-}
-
-impl StartupEnv {
-    pub fn from_env_and_cwd(cwd: &Path) -> Self {
-        Self {
-            ss_local_port: std::env::var("SS_LOCAL_PORT").ok(),
-            ss_plugin_options: std::env::var("SS_PLUGIN_OPTIONS").ok(),
-            protect_path_present: cwd.join("protect_path").exists(),
-        }
     }
 }
 
