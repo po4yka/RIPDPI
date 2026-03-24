@@ -430,11 +430,11 @@ fn quic_udp_host_filter_config(mode: QuicInitialMode, support_v1: bool, support_
     let mut config = ephemeral_proxy_config(&["--ip", "127.0.0.1"]);
 
     let mut filtered = DesyncGroup::new(0);
-    filtered.proto = IS_UDP;
-    filtered.filters.hosts.push("docs.example.test".to_string());
+    filtered.matches.proto = IS_UDP;
+    filtered.matches.filters.hosts.push("docs.example.test".to_string());
 
     let mut fallback = DesyncGroup::new(1);
-    fallback.proto = IS_UDP;
+    fallback.matches.proto = IS_UDP;
 
     config.groups = vec![filtered, fallback];
     config.quic.initial_mode = mode;
@@ -1180,7 +1180,7 @@ fn upstream_silent_drop_fault_is_classified_end_to_end() {
     let telemetry = Arc::new(RecordingTelemetry::default());
     // Enable silent drop detection
     let mut config = ephemeral_proxy_config(&["--ip", "127.0.0.1"]);
-    config.groups[0].detect = ripdpi_config::DETECT_SILENT_DROP | ripdpi_config::DETECT_TCP_RESET;
+    config.groups[0].matches.detect = ripdpi_config::DETECT_SILENT_DROP | ripdpi_config::DETECT_TCP_RESET;
     config.timeouts.timeout_ms = 500;
     let proxy = start_proxy(config, Some(telemetry.clone()));
 

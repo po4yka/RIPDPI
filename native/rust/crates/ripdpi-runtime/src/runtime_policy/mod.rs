@@ -64,7 +64,7 @@ mod tests {
     fn facade_select_advance_and_note_success_preserves_flow() {
         let mut config = autolearn_config(2, 16);
         let mut second = DesyncGroup::new(1);
-        second.detect = ripdpi_config::DETECT_RECONN;
+        second.matches.detect = ripdpi_config::DETECT_RECONN;
         config.groups[1] = second;
         let dest = sample_dest(443);
         let mut policy = RuntimePolicy::load(&config);
@@ -104,7 +104,7 @@ mod tests {
     fn facade_reload_preserves_cache_and_autolearn_state() {
         let mut config = autolearn_config(2, 16);
         let cache_path = env::temp_dir().join(format!("ripdpi-runtime-cache-{}.txt", super::next_temp_file_nonce()));
-        config.groups[1].cache_file = Some(cache_path.to_string_lossy().into_owned());
+        config.groups[1].policy.cache_file = Some(cache_path.to_string_lossy().into_owned());
         let dest = sample_dest(443);
         let mut policy = RuntimePolicy::load(&config);
         let route = ConnectionRoute { group_index: 1, attempted_mask: 0 };

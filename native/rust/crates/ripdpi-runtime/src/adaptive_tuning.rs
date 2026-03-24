@@ -461,7 +461,7 @@ fn quic_fake_profile_candidates(group: &DesyncGroup, payload: &[u8]) -> Vec<Quic
     if parse_quic_initial(payload).is_none() {
         return Vec::new();
     }
-    match group.quic_fake_profile {
+    match group.actions.quic_fake_profile {
         QuicFakeProfile::Disabled => Vec::new(),
         QuicFakeProfile::CompatDefault => vec![QuicFakeProfile::CompatDefault, QuicFakeProfile::RealisticInitial],
         QuicFakeProfile::RealisticInitial => {
@@ -511,7 +511,7 @@ mod tests {
     fn tcp_failure_rotates_one_adaptive_dimension_at_a_time() {
         let payload = b"GET / HTTP/1.1\r\nHost: video.example.test\r\n\r\n";
         let mut group = DesyncGroup::new(0);
-        group.tcp_chain = vec![
+        group.actions.tcp_chain = vec![
             TcpChainStep::new(TcpChainStepKind::Split, OffsetExpr::adaptive(OffsetBase::AutoHost)),
             TcpChainStep {
                 kind: TcpChainStepKind::TlsRandRec,
@@ -555,7 +555,8 @@ mod tests {
     fn tcp_success_pins_current_candidate_until_next_failure() {
         let payload = b"GET / HTTP/1.1\r\nHost: docs.example.test\r\n\r\n";
         let mut group = DesyncGroup::new(0);
-        group.tcp_chain = vec![TcpChainStep::new(TcpChainStepKind::Split, OffsetExpr::adaptive(OffsetBase::AutoHost))];
+        group.actions.tcp_chain =
+            vec![TcpChainStep::new(TcpChainStepKind::Split, OffsetExpr::adaptive(OffsetBase::AutoHost))];
 
         let mut resolver = AdaptivePlannerResolver::default();
         let target = addr(80);
@@ -577,8 +578,9 @@ mod tests {
         let payload =
             build_realistic_quic_initial(QUIC_V2_VERSION, Some("media.example.test")).expect("quic initial payload");
         let mut group = DesyncGroup::new(0);
-        group.quic_fake_profile = QuicFakeProfile::RealisticInitial;
-        group.udp_chain = vec![UdpChainStep { kind: UdpChainStepKind::FakeBurst, count: 2, activation_filter: None }];
+        group.actions.quic_fake_profile = QuicFakeProfile::RealisticInitial;
+        group.actions.udp_chain =
+            vec![UdpChainStep { kind: UdpChainStepKind::FakeBurst, count: 2, activation_filter: None }];
 
         let mut resolver = AdaptivePlannerResolver::default();
         let target = addr(443);
@@ -605,7 +607,8 @@ mod tests {
     fn tcp_feedback_is_scoped_by_network_scope_key() {
         let payload = b"GET / HTTP/1.1\r\nHost: video.example.test\r\n\r\n";
         let mut group = DesyncGroup::new(0);
-        group.tcp_chain = vec![TcpChainStep::new(TcpChainStepKind::Split, OffsetExpr::adaptive(OffsetBase::AutoHost))];
+        group.actions.tcp_chain =
+            vec![TcpChainStep::new(TcpChainStepKind::Split, OffsetExpr::adaptive(OffsetBase::AutoHost))];
 
         let mut resolver = AdaptivePlannerResolver::default();
         let target = addr(443);
@@ -626,7 +629,7 @@ mod tests {
     fn adaptive_dimension_order_is_stable_within_same_scope() {
         let payload = b"GET / HTTP/1.1\r\nHost: docs.example.test\r\n\r\n";
         let mut group = DesyncGroup::new(0);
-        group.tcp_chain = vec![
+        group.actions.tcp_chain = vec![
             TcpChainStep::new(TcpChainStepKind::Split, OffsetExpr::adaptive(OffsetBase::AutoHost)),
             TcpChainStep {
                 kind: TcpChainStepKind::TlsRandRec,

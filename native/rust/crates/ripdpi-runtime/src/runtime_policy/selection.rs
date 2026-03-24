@@ -405,7 +405,7 @@ mod tests {
     #[test]
     fn select_initial_group_skips_detect_only_groups() {
         let mut first = DesyncGroup::new(0);
-        first.detect = DETECT_RECONN;
+        first.matches.detect = DETECT_RECONN;
         let second = DesyncGroup::new(1);
         let config = config_with_groups(vec![first, second]);
         let mut policy = RuntimePolicy::load(&config);
@@ -422,7 +422,7 @@ mod tests {
     fn select_next_group_advances_to_matching_trigger_group() {
         let first = DesyncGroup::new(0);
         let mut second = DesyncGroup::new(1);
-        second.detect = DETECT_RECONN;
+        second.matches.detect = DETECT_RECONN;
         let config = config_with_groups(vec![first, second]);
         let policy = RuntimePolicy::load(&config);
         let route = ConnectionRoute { group_index: 0, attempted_mask: 0 };
@@ -449,9 +449,9 @@ mod tests {
     fn select_next_group_prefers_non_cooled_candidate_when_retry_penalties_exist() {
         let first = DesyncGroup::new(0);
         let mut second = DesyncGroup::new(1);
-        second.detect = DETECT_RECONN;
+        second.matches.detect = DETECT_RECONN;
         let mut third = DesyncGroup::new(2);
-        third.detect = DETECT_RECONN;
+        third.matches.detect = DETECT_RECONN;
         let config = config_with_groups(vec![first, second, third]);
         let policy = RuntimePolicy::load(&config);
         let route = ConnectionRoute { group_index: 0, attempted_mask: 0 };
@@ -495,9 +495,9 @@ mod tests {
     fn select_next_group_uses_diversification_rank_as_tiebreaker() {
         let first = DesyncGroup::new(0);
         let mut second = DesyncGroup::new(1);
-        second.detect = DETECT_RECONN;
+        second.matches.detect = DETECT_RECONN;
         let mut third = DesyncGroup::new(2);
-        third.detect = DETECT_RECONN;
+        third.matches.detect = DETECT_RECONN;
         let config = config_with_groups(vec![first, second, third]);
         let policy = RuntimePolicy::load(&config);
         let route = ConnectionRoute { group_index: 0, attempted_mask: 0 };

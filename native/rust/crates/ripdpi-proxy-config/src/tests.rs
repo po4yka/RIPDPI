@@ -56,17 +56,17 @@ fn ui_payload_parses_hostfake_and_quic_profile() {
 
     let config = runtime_config_from_payload(ui_payload(ui)).expect("runtime config");
 
-    assert_eq!(config.groups[0].http_fake_profile, HttpFakeProfile::CompatDefault);
-    assert_eq!(config.groups[0].tls_fake_profile, TlsFakeProfile::CompatDefault);
-    assert_eq!(config.groups[0].udp_fake_profile, UdpFakeProfile::CompatDefault);
-    assert_eq!(config.groups[0].quic_fake_profile, QuicFakeProfile::RealisticInitial);
-    assert_eq!(config.groups[0].quic_fake_host.as_deref(), Some("example.com"));
-    assert_eq!(config.groups[0].tcp_chain.len(), 2);
-    assert_eq!(config.groups[0].tcp_chain[0].kind, TcpChainStepKind::TlsRec);
-    assert_eq!(config.groups[0].tcp_chain[0].offset.base, OffsetBase::ExtLen);
-    assert_eq!(config.groups[0].tcp_chain[0].offset.proto, OffsetProto::TlsOnly);
-    assert_eq!(config.groups[0].tcp_chain[1].kind, TcpChainStepKind::HostFake);
-    assert_eq!(config.groups[0].udp_chain[0].count, 3);
+    assert_eq!(config.groups[0].actions.http_fake_profile, HttpFakeProfile::CompatDefault);
+    assert_eq!(config.groups[0].actions.tls_fake_profile, TlsFakeProfile::CompatDefault);
+    assert_eq!(config.groups[0].actions.udp_fake_profile, UdpFakeProfile::CompatDefault);
+    assert_eq!(config.groups[0].actions.quic_fake_profile, QuicFakeProfile::RealisticInitial);
+    assert_eq!(config.groups[0].actions.quic_fake_host.as_deref(), Some("example.com"));
+    assert_eq!(config.groups[0].actions.tcp_chain.len(), 2);
+    assert_eq!(config.groups[0].actions.tcp_chain[0].kind, TcpChainStepKind::TlsRec);
+    assert_eq!(config.groups[0].actions.tcp_chain[0].offset.base, OffsetBase::ExtLen);
+    assert_eq!(config.groups[0].actions.tcp_chain[0].offset.proto, OffsetProto::TlsOnly);
+    assert_eq!(config.groups[0].actions.tcp_chain[1].kind, TcpChainStepKind::HostFake);
+    assert_eq!(config.groups[0].actions.udp_chain[0].count, 3);
 }
 
 #[test]
@@ -88,9 +88,9 @@ fn ui_payload_preserves_explicit_tlsrec_before_hostfake() {
 
     let config = runtime_config_from_payload(ui_payload(ui)).expect("runtime config");
 
-    assert_eq!(config.groups[0].tcp_chain.len(), 2);
-    assert_eq!(config.groups[0].tcp_chain[0].kind, TcpChainStepKind::TlsRec);
-    assert_eq!(config.groups[0].tcp_chain[1].kind, TcpChainStepKind::HostFake);
+    assert_eq!(config.groups[0].actions.tcp_chain.len(), 2);
+    assert_eq!(config.groups[0].actions.tcp_chain[0].kind, TcpChainStepKind::TlsRec);
+    assert_eq!(config.groups[0].actions.tcp_chain[1].kind, TcpChainStepKind::HostFake);
 }
 
 #[test]
@@ -107,10 +107,10 @@ fn ui_payload_treats_fake_approx_steps_as_fake_payload_consumers() {
 
         let expected_mode = if kind == "fakedsplit" { DesyncMode::Fake } else { DesyncMode::Disorder };
 
-        assert_eq!(group.tcp_chain[0].kind.as_mode(), Some(expected_mode));
-        assert_eq!(group.fake_offset.map(|offset| offset.delta), Some(1));
-        assert_ne!(group.fake_mod & FM_ORIG, 0);
-        assert_ne!(group.fake_mod & FM_DUPSID, 0);
+        assert_eq!(group.actions.tcp_chain[0].kind.as_mode(), Some(expected_mode));
+        assert_eq!(group.actions.fake_offset.map(|offset| offset.delta), Some(1));
+        assert_ne!(group.actions.fake_mod & FM_ORIG, 0);
+        assert_ne!(group.actions.fake_mod & FM_DUPSID, 0);
     }
 }
 
@@ -134,9 +134,9 @@ fn ui_payload_parses_fake_payload_profiles() {
 
     let config = runtime_config_from_payload(ui_payload(ui)).expect("runtime config");
 
-    assert_eq!(config.groups[0].http_fake_profile, HttpFakeProfile::CloudflareGet);
-    assert_eq!(config.groups[0].tls_fake_profile, TlsFakeProfile::GoogleChrome);
-    assert_eq!(config.groups[0].udp_fake_profile, UdpFakeProfile::DnsQuery);
+    assert_eq!(config.groups[0].actions.http_fake_profile, HttpFakeProfile::CloudflareGet);
+    assert_eq!(config.groups[0].actions.tls_fake_profile, TlsFakeProfile::GoogleChrome);
+    assert_eq!(config.groups[0].actions.udp_fake_profile, UdpFakeProfile::DnsQuery);
 }
 
 #[test]
@@ -150,7 +150,7 @@ fn ui_payload_maps_extended_http_parser_evasions_into_mod_http() {
 
     let config = runtime_config_from_payload(ui_payload(ui)).expect("runtime config");
 
-    assert_eq!(config.groups[0].mod_http, MH_HMIX | MH_DMIX | MH_SPACE | MH_METHODEOL | MH_UNIXEOL);
+    assert_eq!(config.groups[0].actions.mod_http, MH_HMIX | MH_DMIX | MH_SPACE | MH_METHODEOL | MH_UNIXEOL);
 }
 
 #[test]
@@ -253,8 +253,8 @@ fn ui_payload_maps_adaptive_fake_ttl_and_fallback() {
     let config = runtime_config_from_payload(ui_payload(ui)).expect("adaptive fake ttl config");
     let group = &config.groups[0];
 
-    assert_eq!(group.auto_ttl, Some(AutoTtlConfig { delta: -1, min_ttl: 3, max_ttl: 12 }),);
-    assert_eq!(group.ttl, Some(9));
+    assert_eq!(group.actions.auto_ttl, Some(AutoTtlConfig { delta: -1, min_ttl: 3, max_ttl: 12 }),);
+    assert_eq!(group.actions.ttl, Some(9));
 }
 
 #[test]
@@ -279,8 +279,8 @@ fn ui_payload_uses_fixed_fake_ttl_when_adaptive_is_disabled() {
     let config = runtime_config_from_payload(ui_payload(ui)).expect("fixed fake ttl config");
     let group = &config.groups[0];
 
-    assert_eq!(group.auto_ttl, None);
-    assert_eq!(group.ttl, Some(13));
+    assert_eq!(group.actions.auto_ttl, None);
+    assert_eq!(group.actions.ttl, Some(13));
 }
 
 #[test]
@@ -543,11 +543,11 @@ fn actionable_ui_strategy_synthesizes_detect_connect_plain_fallback_group() {
     let config = runtime_config_from_ui(minimal_ui()).expect("runtime config");
 
     assert_eq!(config.groups.len(), 2);
-    assert_eq!(config.groups[0].detect, 0);
-    assert_eq!(config.groups[1].detect, DETECT_CONNECT);
-    assert!(config.groups[1].tcp_chain.is_empty());
-    assert!(config.groups[1].udp_chain.is_empty());
-    assert_eq!(config.groups[1].proto, 0);
+    assert_eq!(config.groups[0].matches.detect, 0);
+    assert_eq!(config.groups[1].matches.detect, DETECT_CONNECT);
+    assert!(config.groups[1].actions.tcp_chain.is_empty());
+    assert!(config.groups[1].actions.udp_chain.is_empty());
+    assert_eq!(config.groups[1].matches.proto, 0);
 }
 
 // --- Validation edge-case tests ---
@@ -626,7 +626,7 @@ fn empty_tcp_chain_is_accepted() {
     let mut ui = minimal_ui();
     ui.chains.tcp_steps = vec![];
     let config = runtime_config_from_payload(ui_payload(ui)).expect("empty chain should be valid");
-    assert!(config.groups[0].tcp_chain.is_empty());
+    assert!(config.groups[0].actions.tcp_chain.is_empty());
 }
 
 #[test]

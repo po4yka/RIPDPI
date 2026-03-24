@@ -40,7 +40,7 @@ pub(super) fn relay_streams(
         .get(group_index)
         .cloned()
         .ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, "missing desync group"))?;
-    let drop_sack = group.drop_sack;
+    let drop_sack = group.actions.drop_sack;
     let peer_done = Arc::new(AtomicBool::new(false));
 
     let down_done = peer_done.clone();

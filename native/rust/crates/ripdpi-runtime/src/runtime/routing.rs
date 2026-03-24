@@ -329,7 +329,7 @@ pub(super) fn connect_target_via_group(
         .groups
         .get(group_index)
         .ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, "missing desync group"))?;
-    let stream = if let Some(upstream) = group.ext_socks {
+    let stream = if let Some(upstream) = group.policy.ext_socks {
         connect_via_socks(
             target,
             upstream.addr,
@@ -346,7 +346,7 @@ pub(super) fn connect_target_via_group(
         )
     }?;
 
-    if group.drop_sack {
+    if group.actions.drop_sack {
         platform::attach_drop_sack(&stream)?;
     }
     if let Some(telemetry) = &state.telemetry {
