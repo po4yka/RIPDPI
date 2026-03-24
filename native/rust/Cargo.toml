@@ -81,6 +81,7 @@ proptest = "1"
 rcgen = "0.13"
 rustls = { version = "0.23.37", default-features = false, features = ["ring", "std", "tls12"] }
 hickory-proto = "0.25"
+hickory-resolver = { version = "0.25", default-features = false, features = ["tls-ring", "https-ring", "tokio", "webpki-roots"] }
 sha2 = "0.10"
 smoltcp = { version = "0.12", features = ["async", "proto-ipv4", "proto-ipv6", "socket-tcp", "socket-udp"] }
 thiserror = "2"

@@ -338,3 +338,157 @@ mod tests {
         assert!(parse_bootstrap_ips(&input).is_err());
     }
 }
+
+// ---------------------------------------------------------------------------
+// hickory-resolver probe (feature-gated)
+// ---------------------------------------------------------------------------
+
+#[cfg(feature = "hickory")]
+mod hickory_probe {
+    use std::net::SocketAddr;
+
+    use hickory_resolver::config::{NameServerConfig, NameServerConfigGroup, ResolverConfig};
+    use hickory_resolver::name_server::TokioConnectionProvider;
+    use hickory_resolver::proto::xfer::Protocol;
+    use hickory_resolver::Resolver;
+
+    use ripdpi_dns_resolver::{EncryptedDnsEndpoint, EncryptedDnsProtocol};
+
+    /// Build a [`ResolverConfig`] targeting the given encrypted-DNS endpoint.
+    ///
+    /// Only Direct transport is supported (no SOCKS5) because this is a
+    /// diagnostic probe, not the production resolver path.
+    fn resolver_config_for_endpoint(endpoint: &EncryptedDnsEndpoint) -> Result<ResolverConfig, String> {
+        let protocol = match endpoint.protocol {
+            EncryptedDnsProtocol::Doh => Protocol::Https,
+            EncryptedDnsProtocol::Dot => Protocol::Tls,
+            EncryptedDnsProtocol::DnsCrypt => {
+                return Err("hickory-resolver does not support DNSCrypt".to_string());
+            }
+        };
+
+        if endpoint.bootstrap_ips.is_empty() {
+            return Err("at least one bootstrap IP is required".to_string());
+        }
+
+        let tls_name = endpoint.tls_server_name.clone().unwrap_or_else(|| endpoint.host.clone());
+
+        let servers: Vec<NameServerConfig> = endpoint
+            .bootstrap_ips
+            .iter()
+            .map(|ip| {
+                let mut ns = NameServerConfig::new(SocketAddr::new(*ip, endpoint.port), protocol);
+                ns.tls_dns_name = Some(tls_name.clone());
+                if matches!(protocol, Protocol::Https) {
+                    ns.http_endpoint = endpoint
+                        .doh_url
+                        .as_deref()
+                        .and_then(|u| u.find("/dns-query").map(|idx| u[idx..].to_string()))
+                        .or_else(|| Some("/dns-query".to_string()));
+                }
+                ns
+            })
+            .collect();
+
+        let group = NameServerConfigGroup::from(servers);
+        Ok(ResolverConfig::from_parts(None, vec![], group))
+    }
+
+    /// Resolve `domain` via `hickory-resolver` using the supplied encrypted-DNS
+    /// endpoint.  This is a blocking wrapper around the async resolver, intended
+    /// for diagnostic probing only.
+    pub(crate) fn resolve_via_hickory_dns(
+        domain: &str,
+        endpoint: EncryptedDnsEndpoint,
+    ) -> Result<Vec<String>, String> {
+        let config = resolver_config_for_endpoint(&endpoint)?;
+        let rt = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .map_err(|e| format!("tokio runtime: {e}"))?;
+
+        rt.block_on(async {
+            let resolver = Resolver::builder_with_config(config, TokioConnectionProvider::default()).build();
+            let response = resolver.lookup_ip(domain).await.map_err(|e| e.to_string())?;
+            let ips: Vec<String> = response.iter().map(|ip| ip.to_string()).collect();
+            if ips.is_empty() {
+                return Err("hickory: no addresses returned".to_string());
+            }
+            Ok(ips)
+        })
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use super::*;
+        use std::net::IpAddr;
+
+        fn make_doh_endpoint(bootstrap_ips: Vec<IpAddr>) -> EncryptedDnsEndpoint {
+            EncryptedDnsEndpoint {
+                protocol: EncryptedDnsProtocol::Doh,
+                resolver_id: Some("doh".to_string()),
+                host: "dns.google".to_string(),
+                port: 443,
+                tls_server_name: Some("dns.google".to_string()),
+                bootstrap_ips,
+                doh_url: Some("https://dns.google/dns-query".to_string()),
+                dnscrypt_provider_name: None,
+                dnscrypt_public_key: None,
+            }
+        }
+
+        fn make_dot_endpoint(bootstrap_ips: Vec<IpAddr>) -> EncryptedDnsEndpoint {
+            EncryptedDnsEndpoint {
+                protocol: EncryptedDnsProtocol::Dot,
+                resolver_id: Some("dot".to_string()),
+                host: "dns.google".to_string(),
+                port: 853,
+                tls_server_name: Some("dns.google".to_string()),
+                bootstrap_ips,
+                doh_url: None,
+                dnscrypt_provider_name: None,
+                dnscrypt_public_key: None,
+            }
+        }
+
+        #[test]
+        fn resolver_config_builds_for_doh() {
+            let endpoint = make_doh_endpoint(vec!["8.8.8.8".parse().unwrap()]);
+            let config = resolver_config_for_endpoint(&endpoint).unwrap();
+            let ns = &config.name_servers()[0];
+            assert_eq!(ns.socket_addr.port(), 443);
+            assert_eq!(ns.tls_dns_name.as_deref(), Some("dns.google"));
+            assert_eq!(ns.http_endpoint.as_deref(), Some("/dns-query"));
+        }
+
+        #[test]
+        fn resolver_config_builds_for_dot() {
+            let endpoint = make_dot_endpoint(vec!["8.8.8.8".parse().unwrap()]);
+            let config = resolver_config_for_endpoint(&endpoint).unwrap();
+            let ns = &config.name_servers()[0];
+            assert_eq!(ns.socket_addr.port(), 853);
+            assert_eq!(ns.tls_dns_name.as_deref(), Some("dns.google"));
+            assert!(ns.http_endpoint.is_none());
+        }
+
+        #[test]
+        fn resolver_config_rejects_dnscrypt() {
+            let endpoint = EncryptedDnsEndpoint {
+                protocol: EncryptedDnsProtocol::DnsCrypt,
+                resolver_id: None,
+                host: String::new(),
+                port: 443,
+                tls_server_name: None,
+                bootstrap_ips: vec!["1.1.1.1".parse().unwrap()],
+                doh_url: None,
+                dnscrypt_provider_name: None,
+                dnscrypt_public_key: None,
+            };
+            let err = resolver_config_for_endpoint(&endpoint).unwrap_err();
+            assert!(err.contains("DNSCrypt"), "expected DNSCrypt error, got: {err}");
+        }
+    }
+}
+
+#[cfg(feature = "hickory")]
+pub(crate) use hickory_probe::resolve_via_hickory_dns;
