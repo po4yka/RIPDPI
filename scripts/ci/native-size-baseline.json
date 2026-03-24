@@ -1,21 +1,23 @@
 {
-  "maxGrowthPercent": 15,
+  "maxPerLibraryGrowthBytes": 131072,
+  "maxTotalGrowthPercent": 2.0,
+  "maxTotalGrowthBytes": 262144,
   "libraries": {
     "arm64-v8a": {
-      "libripdpi.so": 782792,
-      "libripdpi-tunnel.so": 1147456
+      "libripdpi.so": 5026400,
+      "libripdpi-tunnel.so": 3847456
     },
     "armeabi-v7a": {
-      "libripdpi.so": 554092,
-      "libripdpi-tunnel.so": 808020
+      "libripdpi.so": 3232348,
+      "libripdpi-tunnel.so": 2432964
     },
     "x86": {
-      "libripdpi.so": 861184,
-      "libripdpi-tunnel.so": 1259696
+      "libripdpi.so": 5585440,
+      "libripdpi-tunnel.so": 4155520
     },
     "x86_64": {
-      "libripdpi.so": 863944,
-      "libripdpi-tunnel.so": 1271784
+      "libripdpi.so": 5789144,
+      "libripdpi-tunnel.so": 4411760
     }
   }
 }

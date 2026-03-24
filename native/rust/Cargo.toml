@@ -80,13 +80,13 @@ socket2 = "0.5"
 proptest = "1"
 rcgen = "0.13"
 rustls = { version = "0.23.37", default-features = false, features = ["ring", "std", "tls12"] }
-hickory-proto = "0.25"
+hickory-proto = { version = "0.25", default-features = false, features = ["std"] }
 hickory-resolver = { version = "0.25", default-features = false, features = ["tls-ring", "https-ring", "tokio", "webpki-roots"] }
-smoltcp = { version = "0.12", features = ["async", "proto-ipv4", "proto-ipv6", "socket-tcp", "socket-udp"] }
+smoltcp = { version = "0.12", default-features = false, features = ["std", "async", "medium-ip", "proto-ipv4", "proto-ipv6", "socket-tcp", "socket-udp"] }
 thiserror = "2"
-tokio = { version = "1", features = ["macros", "rt-multi-thread", "net", "io-util", "sync", "time"] }
+tokio = { version = "1", default-features = false }
 tokio-rustls = { version = "0.26", default-features = false }
-tokio-util = "0.7"
+tokio-util = { version = "0.7", default-features = false }
 tracing = "0.1"
 tracing-log = "0.2"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "std"] }
@@ -140,6 +140,7 @@ codegen-units = 1
 
 [profile.android-jni]
 inherits = "release"
+opt-level = "z"
 panic = "unwind"
 
 [profile.android-jni-dev]

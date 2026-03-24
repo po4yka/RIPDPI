@@ -26,7 +26,7 @@ rustls = { workspace = true }
 webpki-roots = { workspace = true }
 hickory-resolver = { workspace = true, optional = true }
 quinn = { workspace = true, optional = true }
-tokio = { workspace = true, optional = true }
+tokio = { workspace = true, optional = true, features = ["net", "rt", "time"] }
 loom = { workspace = true, optional = true }
 
 [dev-dependencies]

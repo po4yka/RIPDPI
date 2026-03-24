@@ -1,5 +1,6 @@
 use std::net::IpAddr;
 use std::str::FromStr;
+use std::{fmt, mem};
 
 use ripdpi_config::{
     parse_http_fake_profile as parse_http_fake_profile_id, parse_tls_fake_profile as parse_tls_fake_profile_id,
@@ -10,7 +11,7 @@ use ripdpi_config::{
 };
 use ripdpi_packets::{HttpFakeProfile, TlsFakeProfile, UdpFakeProfile};
 use ripdpi_packets::{IS_HTTP, IS_HTTPS, IS_UDP, MH_DMIX, MH_HMIX, MH_METHODEOL, MH_SPACE, MH_UNIXEOL};
-use serde_json::Value;
+use serde::de::{Deserializer, IgnoredAny, MapAccess, Visitor};
 
 use crate::presets;
 use crate::types::{
@@ -131,10 +132,8 @@ pub fn normalize_fake_tls_sni_mode(value: &str) -> &'static str {
 }
 
 pub fn parse_proxy_config_json(json: &str) -> Result<ProxyConfigPayload, ProxyConfigError> {
-    let value = serde_json::from_str::<Value>(json)
-        .map_err(|err| ProxyConfigError::InvalidConfig(format!("Invalid proxy config JSON: {err}")))?;
-    validate_ui_payload_shape(&value)?;
-    serde_json::from_value::<ProxyConfigPayload>(value)
+    validate_ui_payload_shape(json)?;
+    serde_json::from_str::<ProxyConfigPayload>(json)
         .map_err(|err| ProxyConfigError::InvalidConfig(format!("Invalid proxy config JSON: {err}")))
 }
 
@@ -165,14 +164,7 @@ pub fn runtime_config_envelope_from_payload(
     }
 }
 
-fn validate_ui_payload_shape(value: &Value) -> Result<(), ProxyConfigError> {
-    let Some(object) = value.as_object() else {
-        return Ok(());
-    };
-    if object.get("kind").and_then(Value::as_str) != Some("ui") {
-        return Ok(());
-    }
-
+fn validate_ui_payload_shape(json: &str) -> Result<(), ProxyConfigError> {
     const GROUPED_UI_KEYS: &[&str] = &[
         "listen",
         "protocols",
@@ -247,17 +239,146 @@ fn validate_ui_payload_shape(value: &Value) -> Result<(), ProxyConfigError> {
         "networkScopeKey",
     ];
 
-    if let Some(legacy_key) = object.keys().find(|key| LEGACY_FLAT_UI_KEYS.contains(&key.as_str())) {
+    let shape = serde_json::Deserializer::from_str(json)
+        .deserialize_any(UiPayloadShapeVisitor)
+        .map_err(|err| ProxyConfigError::InvalidConfig(format!("Invalid proxy config JSON: {err}")))?;
+
+    if !shape.is_ui {
+        return Ok(());
+    }
+
+    if let Some(legacy_key) = shape.legacy_key {
         return Err(ProxyConfigError::InvalidConfig(format!(
             "Legacy flat UI config JSON is not supported: {legacy_key}"
         )));
     }
-    if object.keys().all(|key| !GROUPED_UI_KEYS.contains(&key.as_str())) {
+    if !shape.has_grouped_key {
         return Err(ProxyConfigError::InvalidConfig(
             "Grouped UI config JSON must include at least one nested section".to_string(),
         ));
     }
+
+    let _ = GROUPED_UI_KEYS;
+    let _ = LEGACY_FLAT_UI_KEYS;
     Ok(())
+}
+
+#[derive(Default)]
+struct UiPayloadShape {
+    is_ui: bool,
+    has_grouped_key: bool,
+    legacy_key: Option<String>,
+}
+
+struct UiPayloadShapeVisitor;
+
+impl<'de> Visitor<'de> for UiPayloadShapeVisitor {
+    type Value = UiPayloadShape;
+
+    fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.write_str("a proxy config JSON object")
+    }
+
+    fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
+    where
+        A: MapAccess<'de>,
+    {
+        const GROUPED_UI_KEYS: &[&str] = &[
+            "listen",
+            "protocols",
+            "chains",
+            "fakePackets",
+            "parserEvasions",
+            "quic",
+            "hosts",
+            "hostAutolearn",
+            "wsTunnel",
+        ];
+        const LEGACY_FLAT_UI_KEYS: &[&str] = &[
+            "ip",
+            "port",
+            "maxConnections",
+            "bufferSize",
+            "tcpFastOpen",
+            "defaultTtl",
+            "customTtl",
+            "noDomain",
+            "desyncHttp",
+            "desyncHttps",
+            "desyncUdp",
+            "desyncMethod",
+            "splitMarker",
+            "tcpChainSteps",
+            "groupActivationFilter",
+            "splitPosition",
+            "splitAtHost",
+            "fakeTtl",
+            "adaptiveFakeTtlEnabled",
+            "adaptiveFakeTtlDelta",
+            "adaptiveFakeTtlMin",
+            "adaptiveFakeTtlMax",
+            "adaptiveFakeTtlFallback",
+            "fakeSni",
+            "httpFakeProfile",
+            "fakeTlsUseOriginal",
+            "fakeTlsRandomize",
+            "fakeTlsDupSessionId",
+            "fakeTlsPadEncap",
+            "fakeTlsSize",
+            "fakeTlsSniMode",
+            "tlsFakeProfile",
+            "oobChar",
+            "hostMixedCase",
+            "domainMixedCase",
+            "hostRemoveSpaces",
+            "httpMethodEol",
+            "httpUnixEol",
+            "tlsRecordSplit",
+            "tlsRecordSplitMarker",
+            "tlsRecordSplitPosition",
+            "tlsRecordSplitAtSni",
+            "hostsMode",
+            "udpFakeCount",
+            "udpChainSteps",
+            "udpFakeProfile",
+            "dropSack",
+            "fakeOffsetMarker",
+            "fakeOffset",
+            "quicInitialMode",
+            "quicSupportV1",
+            "quicSupportV2",
+            "quicFakeProfile",
+            "quicFakeHost",
+            "hostAutolearnEnabled",
+            "hostAutolearnPenaltyTtlSecs",
+            "hostAutolearnPenaltyTtlHours",
+            "hostAutolearnMaxHosts",
+            "hostAutolearnStorePath",
+            "networkScopeKey",
+        ];
+
+        let mut shape = UiPayloadShape::default();
+        while let Some(mut key) = map.next_key::<String>()? {
+            if key == "kind" {
+                let kind = map.next_value::<serde_json::Value>()?;
+                if kind.as_str() == Some("ui") {
+                    shape.is_ui = true;
+                }
+                continue;
+            }
+
+            if GROUPED_UI_KEYS.contains(&key.as_str()) {
+                shape.has_grouped_key = true;
+            }
+            if shape.legacy_key.is_none() && LEGACY_FLAT_UI_KEYS.contains(&key.as_str()) {
+                shape.legacy_key = Some(mem::take(&mut key));
+            }
+
+            map.next_value::<IgnoredAny>()?;
+        }
+
+        Ok(shape)
+    }
 }
 
 pub fn runtime_config_from_command_line(mut args: Vec<String>) -> Result<RuntimeConfig, ProxyConfigError> {
