@@ -9,4 +9,5 @@ workspace = true
 
 [dependencies]
 hdrhistogram = { workspace = true }
+metrics = { workspace = true }
 serde = { workspace = true }

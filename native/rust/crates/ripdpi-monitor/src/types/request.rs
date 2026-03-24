@@ -1,6 +1,7 @@
 use std::collections::BTreeMap;
 
 use ripdpi_proxy_config::NetworkSnapshot;
+use ripdpi_telemetry::recorder::RecorderSnapshot;
 use serde::{Deserialize, Serialize};
 
 use crate::util::*;
@@ -106,6 +107,8 @@ pub struct ScanReport {
     pub pack_versions: BTreeMap<String, u32>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub strategy_probe_report: Option<StrategyProbeReport>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub metrics_summary: Option<RecorderSnapshot>,
 }
 
 #[cfg(test)]

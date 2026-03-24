@@ -2,6 +2,7 @@ use crate::classification::pack_versions_from_refs;
 use crate::observations::ENGINE_ANALYSIS_VERSION;
 use crate::types::{ProbeObservation, ProbeResult, ScanReport, ScanRequest, StrategyProbeReport};
 use crate::util::classify_probe_outcome;
+use ripdpi_telemetry::recorder;
 
 pub(super) fn build_report(
     session_id: String,
@@ -27,6 +28,7 @@ pub(super) fn build_report(
         classifier_version,
         pack_versions: pack_versions_from_refs(&request.pack_refs),
         strategy_probe_report,
+        metrics_summary: recorder::snapshot(),
     }
 }
 

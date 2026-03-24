@@ -13,6 +13,7 @@ hex = { workspace = true }
 hickory-proto = { workspace = true }
 hickory-resolver = { workspace = true, optional = true }
 lru = { workspace = true }
+metrics = { workspace = true }
 once_cell = { workspace = true }
 ring = { workspace = true }
 reqwest = { workspace = true }

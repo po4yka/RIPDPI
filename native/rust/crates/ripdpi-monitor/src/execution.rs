@@ -121,6 +121,7 @@ pub(crate) fn execute_tcp_candidate(
     if targets.is_empty() {
         return not_applicable_candidate_execution(spec, 0, 3, "No HTTP or HTTPS targets configured");
     }
+    let probe_started = std::time::Instant::now();
     match probe_runtime_transport(spec, runtime_context) {
         Ok(runtime) => {
             let transport = runtime.transport();
@@ -137,6 +138,13 @@ pub(crate) fn execute_tcp_candidate(
                 score.add(run_https_strategy_probe(&transport, target, spec, tls_verifier));
             }
             drop(runtime);
+            let candidate_id = spec.id.to_string();
+            metrics::histogram!(
+                "ripdpi_strategy_probe_duration_seconds",
+                "candidate_id" => candidate_id,
+                "family" => "tcp",
+            )
+            .record(probe_started.elapsed().as_secs_f64());
             build_candidate_execution(spec, score, 3)
         }
         Err(err) => failed_candidate_execution(spec, targets.len() * 2, 3, err),
@@ -152,6 +160,7 @@ pub(crate) fn execute_quic_candidate(
     if targets.is_empty() {
         return not_applicable_candidate_execution(spec, 0, 2, "No QUIC targets configured");
     }
+    let probe_started = std::time::Instant::now();
     match probe_runtime_transport(spec, runtime_context) {
         Ok(runtime) => {
             let transport = runtime.transport();
@@ -166,6 +175,13 @@ pub(crate) fn execute_quic_candidate(
                 score.add(run_quic_strategy_probe(&transport, target, spec));
             }
             drop(runtime);
+            let candidate_id = spec.id.to_string();
+            metrics::histogram!(
+                "ripdpi_strategy_probe_duration_seconds",
+                "candidate_id" => candidate_id,
+                "family" => "quic",
+            )
+            .record(probe_started.elapsed().as_secs_f64());
             build_candidate_execution(spec, score, 2)
         }
         Err(err) => failed_candidate_execution(spec, targets.len(), 2, err),

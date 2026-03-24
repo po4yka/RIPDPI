@@ -30,6 +30,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "ahash"
+version = "0.8.12"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5a15f179cd60c4584b8a8c596927aadc462e27f2ca70c04e0071964a73ba7a75"
+dependencies = [
+ "cfg-if",
+ "once_cell",
+ "version_check",
+ "zerocopy",
+]
+
+[[package]]
 name = "aho-corasick"
 version = "1.1.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1399,6 +1411,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "metrics"
+version = "0.24.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5d5312e9ba3771cfa961b585728215e3d972c950a3eed9252aa093d6301277e8"
+dependencies = [
+ "ahash",
+ "portable-atomic",
+]
+
+[[package]]
 name = "minimal-lexical"
 version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2071,6 +2093,7 @@ dependencies = [
  "ripdpi-config",
  "ripdpi-failure-classifier",
  "ripdpi-runtime",
+ "ripdpi-telemetry",
  "tracing",
  "tracing-log",
  "tracing-subscriber",
@@ -2106,6 +2129,7 @@ dependencies = [
  "hickory-resolver",
  "local-network-fixture",
  "lru",
+ "metrics",
  "once_cell",
  "rcgen",
  "reqwest",
@@ -2136,6 +2160,7 @@ dependencies = [
  "local-network-fixture",
  "log",
  "loom",
+ "metrics",
  "native-soak-support",
  "quinn",
  "rcgen",
@@ -2145,6 +2170,7 @@ dependencies = [
  "ripdpi-packets",
  "ripdpi-proxy-config",
  "ripdpi-runtime",
+ "ripdpi-telemetry",
  "ripdpi-ws-tunnel",
  "rustls",
  "serde",
@@ -2187,6 +2213,7 @@ dependencies = [
  "libc",
  "local-network-fixture",
  "loom",
+ "metrics",
  "mio 0.8.11",
  "native-soak-support",
  "nix",
@@ -2218,6 +2245,7 @@ name = "ripdpi-telemetry"
 version = "0.1.0"
 dependencies = [
  "hdrhistogram",
+ "metrics",
  "serde",
 ]
 

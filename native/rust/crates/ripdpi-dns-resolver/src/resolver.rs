@@ -227,10 +227,20 @@ impl EncryptedDnsResolver {
             EncryptedDnsProtocol::DnsCrypt => self.exchange_dnscrypt(query_bytes).await,
         }?;
 
+        let elapsed = started.elapsed();
+        let protocol_str = self.inner.endpoint.protocol.as_str();
+        let label = self.endpoint_label();
+        metrics::histogram!(
+            "ripdpi_dns_resolution_duration_seconds",
+            "resolver_id" => label.clone(),
+            "protocol" => protocol_str.to_string(),
+        )
+        .record(elapsed.as_secs_f64());
+
         Ok(EncryptedDnsExchangeSuccess {
             response_bytes,
-            endpoint_label: self.endpoint_label(),
-            latency_ms: started.elapsed().as_millis().try_into().unwrap_or(u64::MAX),
+            endpoint_label: label,
+            latency_ms: elapsed.as_millis().try_into().unwrap_or(u64::MAX),
         })
     }
 
