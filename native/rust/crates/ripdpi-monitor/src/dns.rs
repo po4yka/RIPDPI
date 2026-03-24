@@ -487,6 +487,52 @@ mod hickory_probe {
             let err = resolver_config_for_endpoint(&endpoint).unwrap_err();
             assert!(err.contains("DNSCrypt"), "expected DNSCrypt error, got: {err}");
         }
+
+        #[test]
+        fn resolver_config_rejects_empty_bootstrap_ips() {
+            let endpoint = make_doh_endpoint(vec![]);
+            let err = resolver_config_for_endpoint(&endpoint).unwrap_err();
+            assert!(err.contains("bootstrap IP"), "expected bootstrap IP error, got: {err}");
+        }
+
+        #[test]
+        fn resolver_config_doh_url_without_dns_query_defaults_path() {
+            let mut endpoint = make_doh_endpoint(vec!["8.8.8.8".parse().unwrap()]);
+            endpoint.doh_url = Some("https://dns.example/custom".to_string());
+            let config = resolver_config_for_endpoint(&endpoint).unwrap();
+            let ns = &config.name_servers()[0];
+            assert_eq!(ns.http_endpoint.as_deref(), Some("/dns-query"));
+        }
+
+        #[test]
+        fn resolver_config_doh_url_none_defaults_path() {
+            let mut endpoint = make_doh_endpoint(vec!["8.8.8.8".parse().unwrap()]);
+            endpoint.doh_url = None;
+            let config = resolver_config_for_endpoint(&endpoint).unwrap();
+            let ns = &config.name_servers()[0];
+            assert_eq!(ns.http_endpoint.as_deref(), Some("/dns-query"));
+        }
+
+        #[test]
+        fn resolver_config_uses_host_as_tls_name_fallback() {
+            let mut endpoint = make_dot_endpoint(vec!["8.8.8.8".parse().unwrap()]);
+            endpoint.tls_server_name = None;
+            endpoint.host = "my-resolver.example".to_string();
+            let config = resolver_config_for_endpoint(&endpoint).unwrap();
+            let ns = &config.name_servers()[0];
+            assert_eq!(ns.tls_dns_name.as_deref(), Some("my-resolver.example"));
+        }
+
+        #[test]
+        fn resolver_config_multiple_bootstrap_ips_creates_multiple_servers() {
+            let endpoint = make_dot_endpoint(vec![
+                "8.8.8.8".parse().unwrap(),
+                "8.8.4.4".parse().unwrap(),
+                "2001:4860:4860::8888".parse().unwrap(),
+            ]);
+            let config = resolver_config_for_endpoint(&endpoint).unwrap();
+            assert_eq!(config.name_servers().len(), 3);
+        }
     }
 }
 
