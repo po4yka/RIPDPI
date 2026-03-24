@@ -10,7 +10,6 @@ workspace = true
 [dependencies]
 ripdpi-config = { workspace = true }
 ripdpi-packets = { workspace = true }
-ripdpi-session = { workspace = true }
 
 [dev-dependencies]
 aes = { workspace = true }
