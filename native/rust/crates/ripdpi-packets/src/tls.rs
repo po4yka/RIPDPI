@@ -23,27 +23,6 @@ fn find_tls_ext_offset(kind: u16, data: &[u8], mut skip: usize) -> Option<usize>
     None
 }
 
-fn find_tls_ext_len_offset_in_handshake(data: &[u8]) -> Option<usize> {
-    let mut offset = 1 + 3 + 2 + 32;
-    let sid_len = *data.get(offset)? as usize;
-    offset += 1 + sid_len;
-    let cipher_len = read_u16(data, offset)?;
-    offset += 2 + cipher_len;
-    let compression_len = *data.get(offset)? as usize;
-    offset += 1 + compression_len;
-    if offset + 1 >= data.len() {
-        return None;
-    }
-    Some(offset)
-}
-
-fn find_tls_ext_len_offset(data: &[u8]) -> Option<usize> {
-    Some(find_tls_ext_len_offset_in_handshake(data.get(TLS_RECORD_HEADER_LEN..)?)? + TLS_RECORD_HEADER_LEN)
-}
-
-fn find_ext_block(data: &[u8]) -> Option<usize> {
-    find_tls_ext_len_offset(data)
-}
 
 fn adjust_tls_lengths(buffer: &mut [u8], ext_len_start: usize, delta: isize) -> bool {
     let Some(record_len) = read_u16(buffer, 3).map(|value| value as isize) else {
@@ -621,8 +600,8 @@ mod tests {
     #[test]
     fn padencap_tls_updates_padding_and_lengths() {
         let mutation = padencap_tls_like_c(DEFAULT_FAKE_TLS, 24);
-        let ext_len_start = find_tls_ext_len_offset(&mutation.bytes).expect("ext len offset");
-        let pad_offs = find_tls_ext_offset(0x0015, &mutation.bytes, ext_len_start).expect("padding ext");
+        let parsed = crate::tls_nom::parse_client_hello_record(&mutation.bytes).expect("nom parse");
+        let pad_offs = crate::tls_nom::find_extension_offset(&parsed, 0x0015).expect("padding ext");
         let pad_len = read_u16(&mutation.bytes, pad_offs + 2).expect("pad len");
 
         assert_eq!(mutation.rc, 0);

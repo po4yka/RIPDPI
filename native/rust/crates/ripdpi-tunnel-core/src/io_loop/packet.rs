@@ -1,70 +1,31 @@
-use std::net::{IpAddr, Ipv4Addr, SocketAddr};
+use std::net::{IpAddr, SocketAddr};
+#[cfg(test)]
+use std::net::Ipv4Addr;
 
+use etherparse::{NetSlice, SlicedPacket, TransportSlice};
 use smoltcp::wire::IpAddress;
 
-pub(super) fn ipv4_transport_offset(pkt: &[u8], protocol: u8) -> Option<usize> {
-    if pkt.len() < 20 || pkt[0] >> 4 != 4 || pkt[9] != protocol {
-        return None;
-    }
-    let ihl = ((pkt[0] & 0x0f) as usize) * 4;
-    if ihl < 20 || pkt.len() < ihl {
-        return None;
-    }
-    Some(ihl)
-}
-
-pub(super) fn ipv6_transport_offset(pkt: &[u8], next_header: u8) -> Option<usize> {
-    if pkt.len() < 40 || pkt[0] >> 4 != 6 || pkt[6] != next_header {
-        return None;
-    }
-    Some(40)
-}
-
-pub(super) fn tcp_header_offset(pkt: &[u8]) -> Option<usize> {
-    match pkt.first().map(|value| value >> 4) {
-        Some(4) => {
-            let offset = ipv4_transport_offset(pkt, 6)?;
-            (pkt.len() >= offset + 14).then_some(offset)
-        }
-        Some(6) => {
-            let offset = ipv6_transport_offset(pkt, 6)?;
-            (pkt.len() >= offset + 14).then_some(offset)
-        }
+/// Parse a raw IP packet and extract the network and TCP slices.
+fn parse_tcp_slices(pkt: &[u8]) -> Option<(NetSlice<'_>, etherparse::TcpSlice<'_>)> {
+    let parsed = SlicedPacket::from_ip(pkt).ok()?;
+    let net = parsed.net?;
+    match parsed.transport? {
+        TransportSlice::Tcp(tcp) => Some((net, tcp)),
         _ => None,
     }
 }
 
 fn tcp_packet_endpoints(pkt: &[u8]) -> Option<(SocketAddr, SocketAddr)> {
-    match pkt.first().map(|value| value >> 4) {
-        Some(4) => {
-            let offset = ipv4_transport_offset(pkt, 6)?;
-            if pkt.len() < offset + 4 {
-                return None;
-            }
-            let src_ip = Ipv4Addr::new(pkt[12], pkt[13], pkt[14], pkt[15]);
-            let dst_ip = Ipv4Addr::new(pkt[16], pkt[17], pkt[18], pkt[19]);
-            let src_port = u16::from_be_bytes([pkt[offset], pkt[offset + 1]]);
-            let dst_port = u16::from_be_bytes([pkt[offset + 2], pkt[offset + 3]]);
-            Some((SocketAddr::new(IpAddr::V4(src_ip), src_port), SocketAddr::new(IpAddr::V4(dst_ip), dst_port)))
-        }
-        Some(6) => {
-            let offset = ipv6_transport_offset(pkt, 6)?;
-            if pkt.len() < offset + 4 {
-                return None;
-            }
-            let mut src_ip = [0u8; 16];
-            src_ip.copy_from_slice(&pkt[8..24]);
-            let mut dst_ip = [0u8; 16];
-            dst_ip.copy_from_slice(&pkt[24..40]);
-            let src_port = u16::from_be_bytes([pkt[offset], pkt[offset + 1]]);
-            let dst_port = u16::from_be_bytes([pkt[offset + 2], pkt[offset + 3]]);
-            Some((
-                SocketAddr::new(IpAddr::V6(src_ip.into()), src_port),
-                SocketAddr::new(IpAddr::V6(dst_ip.into()), dst_port),
-            ))
-        }
-        _ => None,
-    }
+    let (net, tcp) = parse_tcp_slices(pkt)?;
+    let (src_ip, dst_ip): (IpAddr, IpAddr) = match &net {
+        NetSlice::Ipv4(v4) => (v4.header().source_addr().into(), v4.header().destination_addr().into()),
+        NetSlice::Ipv6(v6) => (v6.header().source_addr().into(), v6.header().destination_addr().into()),
+        NetSlice::Arp(_) => return None,
+    };
+    Some((
+        SocketAddr::new(src_ip, tcp.source_port()),
+        SocketAddr::new(dst_ip, tcp.destination_port()),
+    ))
 }
 
 #[cfg(test)]
@@ -73,10 +34,10 @@ pub(super) fn tcp_dst_port(pkt: &[u8]) -> Option<u16> {
 }
 
 pub(super) fn is_tcp_syn(pkt: &[u8]) -> bool {
-    let Some(offset) = tcp_header_offset(pkt) else {
+    let Some((_, tcp)) = parse_tcp_slices(pkt) else {
         return false;
     };
-    pkt[offset + 13] & 0x12 == 0x02
+    tcp.syn() && !tcp.ack()
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -94,19 +55,21 @@ pub(super) fn tcp_syn_flow_key(pkt: &[u8]) -> Option<TcpFlowKey> {
 }
 
 pub(super) fn is_injected_rst(pkt: &[u8]) -> bool {
-    let Some(ihl) = ipv4_transport_offset(pkt, 6) else {
+    let Ok(parsed) = SlicedPacket::from_ip(pkt) else {
         return false;
     };
-    if pkt.len() < ihl + 14 {
+    let Some(NetSlice::Ipv4(ipv4)) = parsed.net else {
         return false;
-    }
-    if pkt[ihl + 13] & 0x04 == 0 {
+    };
+    let Some(TransportSlice::Tcp(tcp)) = parsed.transport else {
         return false;
-    }
-    let ip_id = u16::from_be_bytes([pkt[4], pkt[5]]);
-    ip_id <= 1
+    };
+    tcp.rst() && ipv4.header().identification() <= 1
 }
 
+// ── Checksum helpers (test-only: used by ICMP construction and TCP test packets) ──
+
+#[cfg(test)]
 pub(super) fn checksum_sum(bytes: &[u8]) -> u32 {
     let mut sum = 0u32;
     let mut chunks = bytes.chunks_exact(2);
@@ -119,39 +82,12 @@ pub(super) fn checksum_sum(bytes: &[u8]) -> u32 {
     sum
 }
 
+#[cfg(test)]
 pub(super) fn finalize_checksum(mut sum: u32) -> u16 {
     while sum > 0xFFFF {
         sum = (sum & 0xFFFF) + (sum >> 16);
     }
     !(sum as u16)
-}
-
-fn normalize_udp_checksum(checksum: u16) -> u16 {
-    if checksum == 0 {
-        0xFFFF
-    } else {
-        checksum
-    }
-}
-
-fn udp_checksum_ipv4(src_ip: [u8; 4], dst_ip: [u8; 4], udp_packet: &[u8]) -> u16 {
-    let udp_len = u16::try_from(udp_packet.len()).unwrap_or(u16::MAX);
-    let mut sum = checksum_sum(&src_ip);
-    sum += checksum_sum(&dst_ip);
-    sum += u32::from(17u16);
-    sum += u32::from(udp_len);
-    sum += checksum_sum(udp_packet);
-    normalize_udp_checksum(finalize_checksum(sum))
-}
-
-fn udp_checksum_ipv6(src_ip: [u8; 16], dst_ip: [u8; 16], udp_packet: &[u8]) -> u16 {
-    let udp_len = u32::try_from(udp_packet.len()).unwrap_or(u32::MAX);
-    let mut sum = checksum_sum(&src_ip);
-    sum += checksum_sum(&dst_ip);
-    sum += (udp_len >> 16) + (udp_len & 0xFFFF);
-    sum += u32::from(17u16);
-    sum += checksum_sum(udp_packet);
-    normalize_udp_checksum(finalize_checksum(sum))
 }
 
 #[cfg(test)]
@@ -166,61 +102,65 @@ fn icmpv6_checksum(src_ip: [u8; 16], dst_ip: [u8; 16], payload: &[u8]) -> u16 {
 }
 
 pub(super) fn build_udp_response(src: SocketAddr, dst: SocketAddr, payload: &[u8]) -> Vec<u8> {
-    let Ok(udp_len) = u16::try_from(8usize + payload.len()) else {
-        return Vec::new();
-    };
-
     match (src, dst) {
         (SocketAddr::V4(src), SocketAddr::V4(dst)) => {
-            let Ok(total_len) = u16::try_from(20usize + usize::from(udp_len)) else {
+            let Ok(udp_total) = u16::try_from(etherparse::UdpHeader::LEN + payload.len()) else {
                 return Vec::new();
             };
-            let mut pkt = vec![0u8; usize::from(total_len)];
-            let src_ip = src.ip().octets();
-            let dst_ip = dst.ip().octets();
-
-            pkt[0] = 0x45;
-            pkt[2..4].copy_from_slice(&total_len.to_be_bytes());
-            pkt[8] = 64;
-            pkt[9] = 17;
-            pkt[12..16].copy_from_slice(&src_ip);
-            pkt[16..20].copy_from_slice(&dst_ip);
-
-            pkt[20..22].copy_from_slice(&src.port().to_be_bytes());
-            pkt[22..24].copy_from_slice(&dst.port().to_be_bytes());
-            pkt[24..26].copy_from_slice(&udp_len.to_be_bytes());
-            pkt[28..28 + payload.len()].copy_from_slice(payload);
-
-            let header_checksum = finalize_checksum(checksum_sum(&pkt[..20]));
-            pkt[10..12].copy_from_slice(&header_checksum.to_be_bytes());
-
-            let udp_checksum = udp_checksum_ipv4(src_ip, dst_ip, &pkt[20..]);
-            pkt[26..28].copy_from_slice(&udp_checksum.to_be_bytes());
-
-            pkt
+            let Ok(ip) = etherparse::Ipv4Header::new(
+                udp_total,
+                64,
+                etherparse::IpNumber::UDP,
+                src.ip().octets(),
+                dst.ip().octets(),
+            ) else {
+                return Vec::new();
+            };
+            let Ok(udp) = etherparse::UdpHeader::with_ipv4_checksum(
+                src.port(),
+                dst.port(),
+                &ip,
+                payload,
+            ) else {
+                return Vec::new();
+            };
+            let mut buf = Vec::with_capacity(
+                etherparse::Ipv4Header::MIN_LEN + etherparse::UdpHeader::LEN + payload.len(),
+            );
+            let _ = ip.write(&mut buf);
+            let _ = udp.write(&mut buf);
+            buf.extend_from_slice(payload);
+            buf
         }
         (SocketAddr::V6(src), SocketAddr::V6(dst)) => {
-            let total_len = 40usize + usize::from(udp_len);
-            let mut pkt = vec![0u8; total_len];
-            let src_ip = src.ip().octets();
-            let dst_ip = dst.ip().octets();
-
-            pkt[0] = 0x60;
-            pkt[4..6].copy_from_slice(&udp_len.to_be_bytes());
-            pkt[6] = 17;
-            pkt[7] = 64;
-            pkt[8..24].copy_from_slice(&src_ip);
-            pkt[24..40].copy_from_slice(&dst_ip);
-
-            pkt[40..42].copy_from_slice(&src.port().to_be_bytes());
-            pkt[42..44].copy_from_slice(&dst.port().to_be_bytes());
-            pkt[44..46].copy_from_slice(&udp_len.to_be_bytes());
-            pkt[48..48 + payload.len()].copy_from_slice(payload);
-
-            let udp_checksum = udp_checksum_ipv6(src_ip, dst_ip, &pkt[40..]);
-            pkt[46..48].copy_from_slice(&udp_checksum.to_be_bytes());
-
-            pkt
+            let udp_total = etherparse::UdpHeader::LEN + payload.len();
+            let Ok(payload_length) = u16::try_from(udp_total) else {
+                return Vec::new();
+            };
+            let ip = etherparse::Ipv6Header {
+                traffic_class: 0,
+                flow_label: etherparse::Ipv6FlowLabel::ZERO,
+                payload_length,
+                next_header: etherparse::IpNumber::UDP,
+                hop_limit: 64,
+                source: src.ip().octets(),
+                destination: dst.ip().octets(),
+            };
+            let Ok(udp) = etherparse::UdpHeader::with_ipv6_checksum(
+                src.port(),
+                dst.port(),
+                &ip,
+                payload,
+            ) else {
+                return Vec::new();
+            };
+            let mut buf = Vec::with_capacity(
+                etherparse::Ipv6Header::LEN + etherparse::UdpHeader::LEN + payload.len(),
+            );
+            let _ = ip.write(&mut buf);
+            let _ = udp.write(&mut buf);
+            buf.extend_from_slice(payload);
+            buf
         }
         _ => Vec::new(),
     }
@@ -454,11 +394,7 @@ mod tests {
 
     #[test]
     fn ipv4_transport_helpers_reject_wrong_protocol_and_extract_ports() {
-        let mut udp_packet = ipv4_tcp_syn();
-        udp_packet[9] = 17;
-
-        assert_eq!(ipv4_transport_offset(&ipv4_tcp_syn(), 6), Some(20));
-        assert_eq!(ipv4_transport_offset(&udp_packet, 6), None);
+        assert_eq!(tcp_dst_port(&ipv4_tcp_syn()), Some(443));
         assert_eq!(tcp_dst_port(&ipv4_tcp_ack(8443)), Some(8443));
         assert!(!is_tcp_syn(&ipv4_tcp_ack(8443)));
     }

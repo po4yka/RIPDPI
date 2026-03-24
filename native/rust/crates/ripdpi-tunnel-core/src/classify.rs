@@ -1,90 +1,69 @@
-use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
+use std::net::{IpAddr, SocketAddr};
+
+use etherparse::{NetSlice, SlicedPacket, TransportSlice};
 
 #[derive(Debug)]
-pub enum IpClass {
+pub enum IpClass<'a> {
     TcpOrOther,
-    UdpDns { src: SocketAddr, payload: Vec<u8> },
-    Udp { src: SocketAddr, dst: SocketAddr, payload: Vec<u8> },
+    UdpDns { src: SocketAddr, payload: &'a [u8] },
+    Udp { src: SocketAddr, dst: SocketAddr, payload: &'a [u8] },
 }
 
 /// Classify a raw IPv4 or IPv6 packet.
 ///
 /// When `mapdns` is `None`, DNS interception is disabled and all UDP packets
 /// are returned as `IpClass::Udp`.
-pub fn classify_ip_packet(pkt: &[u8], mapdns: Option<(u32, u32, u16)>) -> IpClass {
-    match pkt.first().map(|value| value >> 4) {
-        Some(4) => classify_ipv4_udp(pkt, mapdns),
-        Some(6) => classify_ipv6_udp(pkt),
-        _ => IpClass::TcpOrOther,
-    }
-}
-
-fn classify_ipv4_udp(pkt: &[u8], mapdns: Option<(u32, u32, u16)>) -> IpClass {
-    if pkt.len() < 20 {
+pub fn classify_ip_packet<'a>(pkt: &'a [u8], mapdns: Option<(u32, u32, u16)>) -> IpClass<'a> {
+    let Ok(parsed) = SlicedPacket::from_ip(pkt) else {
         return IpClass::TcpOrOther;
-    }
+    };
 
-    let ihl = ((pkt[0] & 0x0f) as usize) * 4;
-    if ihl < 20 || pkt.len() < ihl + 8 || pkt[9] != 17 {
+    let Some(TransportSlice::Udp(udp)) = parsed.transport else {
         return IpClass::TcpOrOther;
-    }
+    };
 
-    let src_ip = u32::from_be_bytes([pkt[12], pkt[13], pkt[14], pkt[15]]);
-    let dst_ip = u32::from_be_bytes([pkt[16], pkt[17], pkt[18], pkt[19]]);
-    let src_port = u16::from_be_bytes([pkt[ihl], pkt[ihl + 1]]);
-    let dst_port = u16::from_be_bytes([pkt[ihl + 2], pkt[ihl + 3]]);
-    let udp_length = u16::from_be_bytes([pkt[ihl + 4], pkt[ihl + 5]]) as usize;
+    let Some(net) = parsed.net else {
+        return IpClass::TcpOrOther;
+    };
 
-    let payload_start = ihl + 8;
-    let payload_end = (ihl + udp_length).min(pkt.len());
-    let payload = if payload_end > payload_start { pkt[payload_start..payload_end].to_vec() } else { Vec::new() };
+    let src_port = udp.source_port();
+    let dst_port = udp.destination_port();
+    let payload = udp.payload();
 
-    let src = SocketAddr::new(IpAddr::V4(Ipv4Addr::from(src_ip)), src_port);
-    let dst = SocketAddr::new(IpAddr::V4(Ipv4Addr::from(dst_ip)), dst_port);
+    match net {
+        NetSlice::Ipv4(ipv4) => {
+            let src_ip = ipv4.header().source_addr();
+            let dst_ip = ipv4.header().destination_addr();
+            let src = SocketAddr::new(IpAddr::V4(src_ip), src_port);
+            let dst = SocketAddr::new(IpAddr::V4(dst_ip), dst_port);
 
-    if let Some((mapdns_net, mapdns_mask, mapdns_port)) = mapdns {
-        if dst_ip & mapdns_mask == mapdns_net && dst_port == mapdns_port {
-            return IpClass::UdpDns { src, payload };
+            if let Some((mapdns_net, mapdns_mask, mapdns_port)) = mapdns {
+                let dst_ip_u32 = u32::from(dst_ip);
+                if dst_ip_u32 & mapdns_mask == mapdns_net && dst_port == mapdns_port {
+                    return IpClass::UdpDns { src, payload };
+                }
+            }
+
+            IpClass::Udp { src, dst, payload }
         }
-    }
+        NetSlice::Ipv6(ipv6) => {
+            let src_ip = ipv6.header().source_addr();
+            let dst_ip = ipv6.header().destination_addr();
 
-    IpClass::Udp { src, dst, payload }
-}
-
-fn classify_ipv6_udp(pkt: &[u8]) -> IpClass {
-    if pkt.len() < 48 || pkt[6] != 17 {
-        return IpClass::TcpOrOther;
-    }
-
-    let payload_length = u16::from_be_bytes([pkt[4], pkt[5]]) as usize;
-    let udp_start = 40usize;
-    let udp_end = (udp_start + payload_length).min(pkt.len());
-    if udp_end < udp_start + 8 {
-        return IpClass::TcpOrOther;
-    }
-
-    let mut src_ip = [0u8; 16];
-    src_ip.copy_from_slice(&pkt[8..24]);
-    let mut dst_ip = [0u8; 16];
-    dst_ip.copy_from_slice(&pkt[24..40]);
-
-    let src_port = u16::from_be_bytes([pkt[udp_start], pkt[udp_start + 1]]);
-    let dst_port = u16::from_be_bytes([pkt[udp_start + 2], pkt[udp_start + 3]]);
-    let udp_length = u16::from_be_bytes([pkt[udp_start + 4], pkt[udp_start + 5]]) as usize;
-    let payload_start = udp_start + 8;
-    let payload_end = (udp_start + udp_length).min(udp_end);
-    let payload = if payload_end > payload_start { pkt[payload_start..payload_end].to_vec() } else { Vec::new() };
-
-    IpClass::Udp {
-        src: SocketAddr::new(IpAddr::V6(Ipv6Addr::from(src_ip)), src_port),
-        dst: SocketAddr::new(IpAddr::V6(Ipv6Addr::from(dst_ip)), dst_port),
-        payload,
+            IpClass::Udp {
+                src: SocketAddr::new(IpAddr::V6(src_ip), src_port),
+                dst: SocketAddr::new(IpAddr::V6(dst_ip), dst_port),
+                payload,
+            }
+        }
+        NetSlice::Arp(_) => IpClass::TcpOrOther,
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::net::Ipv6Addr;
 
     const MAPDNS_NET: u32 = 0xC612_0000;
     const MAPDNS_MASK: u32 = 0xFFFE_0000;

@@ -20,6 +20,7 @@ anyhow = { workspace = true }
 nix = { workspace = true }
 hickory-proto = { workspace = true }
 lru = { workspace = true }
+etherparse = { workspace = true }
 fast-socks5 = { workspace = true }
 
 [dev-dependencies]
