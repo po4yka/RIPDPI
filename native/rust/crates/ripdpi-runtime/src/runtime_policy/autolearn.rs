@@ -433,4 +433,49 @@ mod tests {
         assert!(policy.learned_hosts(&config).is_empty());
         assert!(policy.drain_autolearn_events().iter().any(|event| event.action == "store_reset"));
     }
+
+    // -- config_fingerprint unit tests --
+
+    #[test]
+    fn config_fingerprint_is_deterministic() {
+        let config = autolearn_config(2, 32);
+        let fp1 = config_fingerprint(&config);
+        let fp2 = config_fingerprint(&config);
+        assert_eq!(fp1, fp2);
+    }
+
+    #[test]
+    fn config_fingerprint_differs_for_different_group_counts() {
+        let config_1 = autolearn_config(1, 32);
+        let config_2 = autolearn_config(2, 32);
+        assert_ne!(config_fingerprint(&config_1), config_fingerprint(&config_2));
+    }
+
+    #[test]
+    fn config_fingerprint_is_64_char_lowercase_hex() {
+        let config = autolearn_config(1, 32);
+        let fp = config_fingerprint(&config);
+        assert_eq!(fp.len(), 64, "SHA-256 hex digest must be 64 chars");
+        assert!(fp.chars().all(|c| c.is_ascii_hexdigit()), "must be hex");
+        assert_eq!(fp, fp.to_lowercase(), "must be lowercase hex");
+    }
+
+    #[test]
+    fn config_fingerprint_handles_empty_groups() {
+        let config = autolearn_config(0, 32);
+        let fp = config_fingerprint(&config);
+        assert_eq!(fp.len(), 64, "empty groups must still produce valid SHA-256 hex");
+        assert!(fp.chars().all(|c| c.is_ascii_hexdigit()));
+    }
+
+    #[test]
+    fn config_fingerprint_golden_value_one_group() {
+        // Two configs with identical group structure must produce the same fingerprint,
+        // regardless of other RuntimeConfig fields (store_path, max_hosts, etc.).
+        let config_a = autolearn_config(1, 32);
+        let config_b = autolearn_config(1, 64);
+        let fp_a = config_fingerprint(&config_a);
+        let fp_b = config_fingerprint(&config_b);
+        assert_eq!(fp_a, fp_b, "fingerprint must depend only on groups, not on other config fields");
+    }
 }
