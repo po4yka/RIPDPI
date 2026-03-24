@@ -48,7 +48,10 @@ impl AdaptiveFakeTtlResolver {
             let detected = state.detected_fallback;
             *state = AdaptiveFakeTtlState::new(config, fallback_ttl, detected);
         }
-        state.current_ttl()
+        let ttl = state.current_ttl();
+        let group_label = format!("{group_index}");
+        metrics::gauge!("ripdpi_fake_ttl_effective", "group" => group_label).set(f64::from(ttl));
+        ttl
     }
 
     pub fn note_success(&mut self, group_index: usize, dest: SocketAddr, host: Option<&str>) {
@@ -67,6 +70,8 @@ impl AdaptiveFakeTtlResolver {
         }) {
             state.pinned_ttl = None;
             state.advance();
+            let group_label = format!("{group_index}");
+            metrics::counter!("ripdpi_fake_ttl_advances_total", "group" => group_label).increment(1);
         }
     }
 

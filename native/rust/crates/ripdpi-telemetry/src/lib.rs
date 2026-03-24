@@ -1,3 +1,5 @@
+pub mod recorder;
+
 use std::sync::{Arc, Mutex};
 
 use hdrhistogram::Histogram;
@@ -63,7 +65,7 @@ impl Default for LatencyHistogram {
     }
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct LatencyPercentiles {
     pub p50: u64,
