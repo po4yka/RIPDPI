@@ -1,0 +1,11 @@
+#![allow(dead_code)]
+
+pub mod proxy;
+pub mod socks5;
+pub mod telemetry;
+pub mod tls;
+
+use std::time::Duration;
+
+pub const START_TIMEOUT: Duration = Duration::from_secs(5);
+pub const SOCKET_TIMEOUT: Duration = Duration::from_secs(5);
