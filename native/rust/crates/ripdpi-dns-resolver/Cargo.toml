@@ -19,7 +19,7 @@ ring = { workspace = true }
 reqwest = { workspace = true }
 rustls = { workspace = true }
 thiserror = { workspace = true }
-tokio = { workspace = true }
+tokio = { workspace = true, features = ["io-util", "net", "rt", "sync", "time"] }
 tokio-rustls = { workspace = true }
 url = { workspace = true }
 webpki-roots = { workspace = true }
@@ -31,5 +31,5 @@ hickory-backend = ["dep:hickory-resolver"]
 local-network-fixture = { workspace = true }
 rcgen = { workspace = true }
 rustls = { workspace = true }
-tokio = { workspace = true }
+tokio = { workspace = true, features = ["io-util", "macros", "net", "rt", "sync", "time"] }
 turmoil = "0.7"

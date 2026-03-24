@@ -12,8 +12,8 @@ ripdpi-tunnel-config = { workspace = true }
 ripdpi-tun-driver = { workspace = true }
 ripdpi-dns-resolver = { workspace = true }
 smoltcp = { workspace = true }
-tokio = { workspace = true }
-tokio-util = { workspace = true }
+tokio = { workspace = true, features = ["io-util", "macros", "net", "rt", "sync", "time"] }
+tokio-util = { workspace = true, features = ["rt"] }
 thiserror = { workspace = true }
 tracing = { workspace = true }
 anyhow = { workspace = true }
@@ -24,7 +24,7 @@ etherparse = { workspace = true }
 fast-socks5 = { workspace = true }
 
 [dev-dependencies]
-tokio = { workspace = true, features = ["test-util", "macros"] }
+tokio = { workspace = true, features = ["test-util"] }
 tokio-test = "0.4"
 proptest = { workspace = true }
 turmoil = "0.7"

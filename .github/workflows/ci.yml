@@ -58,6 +58,11 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y binutils
 
+      - name: Install cargo-bloat
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-bloat
+
       - name: Read native toolchain policy
         id: native-toolchain
         run: |
@@ -83,6 +88,9 @@ jobs:
 
       - name: Verify packaged native library sizes
         run: python3 scripts/ci/verify_native_sizes.py
+
+      - name: Verify representative native bloat hotspots
+        run: python3 scripts/ci/verify_native_bloat.py
 
       - name: Upload test results
         if: always()

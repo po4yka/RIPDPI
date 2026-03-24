@@ -159,6 +159,7 @@ pub(crate) fn write_length_prefixed_frame(stream: &mut impl Write, payload: &[u8
     stream.flush().map_err(|err| EncryptedDnsError::Request(err.to_string()))
 }
 
+#[inline(never)]
 pub(crate) async fn write_length_prefixed_frame_async(
     stream: &mut (impl AsyncWrite + Unpin),
     payload: &[u8],
@@ -180,6 +181,7 @@ pub(crate) fn read_length_prefixed_frame(stream: &mut impl Read) -> Result<Vec<u
     Ok(payload)
 }
 
+#[inline(never)]
 pub(crate) async fn read_length_prefixed_frame_async(
     stream: &mut (impl AsyncRead + Unpin),
 ) -> Result<Vec<u8>, EncryptedDnsError> {
@@ -191,6 +193,7 @@ pub(crate) async fn read_length_prefixed_frame_async(
     Ok(payload)
 }
 
+#[inline(never)]
 pub(crate) async fn consume_socks5_bind_address_async(
     stream: &mut (impl AsyncRead + Unpin),
     atyp: u8,

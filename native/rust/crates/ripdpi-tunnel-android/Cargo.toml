@@ -23,8 +23,8 @@ once_cell = { workspace = true }
 ripdpi-telemetry = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
-tokio = { workspace = true }
-tokio-util = { workspace = true }
+tokio = { workspace = true, features = ["rt-multi-thread"] }
+tokio-util = { workspace = true, features = ["rt"] }
 tracing = { workspace = true }
 
 [dev-dependencies]
