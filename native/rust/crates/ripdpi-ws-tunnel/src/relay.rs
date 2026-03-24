@@ -389,7 +389,7 @@ mod tests {
         writer_thread.join().expect("join benchmark writer");
         let elapsed = started.elapsed();
         let throughput_mib = payload_len as f64 / elapsed.as_secs_f64() / (1024.0 * 1024.0);
-        println!("WS relay uplink benchmark: {} bytes in {:?} ({throughput_mib:.2} MiB/s)", payload_len, elapsed);
+        println!("WS relay uplink benchmark: {payload_len} bytes in {elapsed:?} ({throughput_mib:.2} MiB/s)");
 
         assert_eq!(received.len(), payload_len);
         wait_for_close(&mut peer);

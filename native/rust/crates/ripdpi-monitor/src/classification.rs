@@ -1,6 +1,6 @@
-mod strategy;
 #[cfg(test)]
 mod diagnosis;
+mod strategy;
 
 pub(crate) use strategy::{
     classified_failure_probe_result, classify_strategy_probe_baseline_observations, filter_quic_candidates_for_failure,
@@ -8,10 +8,7 @@ pub(crate) use strategy::{
 };
 
 #[cfg(test)]
-pub(crate) use diagnosis::{
-    classify_connectivity_diagnoses, classify_strategy_probe_baseline_results, classify_transport_failure_text,
-    failure_detail_value, strategy_probe_failure_weight,
-};
+pub(crate) use diagnosis::classify_strategy_probe_baseline_results;
 
 use std::collections::BTreeMap;
 

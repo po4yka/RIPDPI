@@ -89,10 +89,7 @@ pub async fn run_tunnel(
                 let _ = addrs.push(IpCidr::new(ip, prefix));
             });
             if let IpAddress::Ipv4(v4) = ip {
-                iface
-                    .routes_mut()
-                    .add_default_ipv4_route(v4)
-                    .map_err(|err| io::Error::new(io::ErrorKind::Other, err.to_string()))?;
+                iface.routes_mut().add_default_ipv4_route(v4).map_err(|err| io::Error::other(err.to_string()))?;
             }
         }
     }
@@ -103,10 +100,7 @@ pub async fn run_tunnel(
                 let _ = addrs.push(IpCidr::new(ip, prefix));
             });
             if let IpAddress::Ipv6(v6) = ip {
-                iface
-                    .routes_mut()
-                    .add_default_ipv6_route(v6)
-                    .map_err(|err| io::Error::new(io::ErrorKind::Other, err.to_string()))?;
+                iface.routes_mut().add_default_ipv6_route(v6).map_err(|err| io::Error::other(err.to_string()))?;
             }
         }
     }
@@ -167,10 +161,7 @@ mod tests {
             let _ = addrs.push(IpCidr::new(ipv4, ipv4_prefix));
             let _ = addrs.push(IpCidr::new(ipv6, ipv6_prefix));
         });
-        iface
-            .routes_mut()
-            .add_default_ipv4_route(smoltcp::wire::Ipv4Address::new(10, 0, 0, 2))
-            .expect("ipv4 route");
+        iface.routes_mut().add_default_ipv4_route(smoltcp::wire::Ipv4Address::new(10, 0, 0, 2)).expect("ipv4 route");
         iface
             .routes_mut()
             .add_default_ipv6_route(smoltcp::wire::Ipv6Address::new(0xfd00, 0, 0, 0, 0, 0, 0, 1))
@@ -178,9 +169,6 @@ mod tests {
 
         assert!(iface.any_ip());
         assert_eq!(iface.ipv4_addr(), Some(smoltcp::wire::Ipv4Address::new(10, 0, 0, 2)));
-        assert_eq!(
-            iface.ipv6_addr(),
-            Some(smoltcp::wire::Ipv6Address::new(0xfd00, 0, 0, 0, 0, 0, 0, 1))
-        );
+        assert_eq!(iface.ipv6_addr(), Some(smoltcp::wire::Ipv6Address::new(0xfd00, 0, 0, 0, 0, 0, 0, 1)));
     }
 }

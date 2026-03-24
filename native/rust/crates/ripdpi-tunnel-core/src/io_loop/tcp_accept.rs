@@ -333,7 +333,7 @@ mod tests {
         let socket = socket_set.get::<TcpSocket>(handle);
         let stats = Arc::new(Stats::default());
         let mut dns_cache = None;
-        let target = tcp_session_target_addr(&stats, &mut dns_cache, &socket).expect("session target");
+        let target = tcp_session_target_addr(&stats, &mut dns_cache, socket).expect("session target");
 
         assert_eq!(socket.remote_endpoint().map(endpoint_to_socketaddr), Some(client),);
         assert_eq!(target, destination);

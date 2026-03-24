@@ -13,9 +13,9 @@ pub use plan_tcp::plan_tcp;
 pub use plan_udp::plan_udp;
 pub use tls_prelude::apply_tamper;
 pub use types::{
-    activation_filter_matches, ActivationContext, ActivationTransport, AdaptivePlannerHints,
-    AdaptiveTlsRandRecProfile, AdaptiveUdpBurstProfile, DesyncAction, DesyncError, DesyncPlan, FakePacketPlan,
-    HostFakeSpan, PlannedStep, ProtoInfo, TamperResult, TcpSegmentHint,
+    activation_filter_matches, ActivationContext, ActivationTransport, AdaptivePlannerHints, AdaptiveTlsRandRecProfile,
+    AdaptiveUdpBurstProfile, DesyncAction, DesyncError, DesyncPlan, FakePacketPlan, HostFakeSpan, PlannedStep,
+    ProtoInfo, TamperResult, TcpSegmentHint,
 };
 
 #[cfg(test)]

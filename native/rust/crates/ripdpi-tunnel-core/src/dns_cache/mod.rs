@@ -116,6 +116,7 @@ impl DnsCache {
     }
 
     pub fn servfail_response(&self, query: &[u8]) -> Result<Vec<u8>, DnsCacheError> {
+        let _ = self;
         if query.len() < 12 {
             return Err(DnsCacheError::Truncated);
         }

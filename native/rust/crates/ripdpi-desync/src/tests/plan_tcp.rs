@@ -17,8 +17,7 @@ fn tcp_segment_hint_budget_uses_fallback_order() {
         120,
     );
     assert_eq!(
-        TcpSegmentHint { snd_mss: None, advmss: Some(63), pmtu: Some(1500), ip_header_overhead: 40 }
-            .adaptive_budget(),
+        TcpSegmentHint { snd_mss: None, advmss: Some(63), pmtu: Some(1500), ip_header_overhead: 40 }.adaptive_budget(),
         1460,
     );
     assert_eq!(
@@ -51,10 +50,7 @@ fn plan_tcp_auto_host_uses_hint_budget_and_semantic_markers() {
     )
     .expect("adaptive host plan");
 
-    assert_eq!(
-        plan.steps,
-        vec![PlannedStep { kind: TcpChainStepKind::Split, start: 0, end: markers.host_end as i64 }]
-    );
+    assert_eq!(plan.steps, vec![PlannedStep { kind: TcpChainStepKind::Split, start: 0, end: markers.host_end as i64 }]);
 }
 
 #[test]
@@ -73,13 +69,9 @@ fn plan_tcp_auto_marker_is_cursor_aware_across_chain_steps() {
         TcpChainStep::new(TcpChainStepKind::Split, OffsetExpr::adaptive(OffsetBase::AutoHost)),
     ];
 
-    let plan =
-        plan_tcp(&group, DEFAULT_FAKE_HTTP, 7, 64, tcp_context(DEFAULT_FAKE_HTTP)).expect("cursor-aware plan");
+    let plan = plan_tcp(&group, DEFAULT_FAKE_HTTP, 7, 64, tcp_context(DEFAULT_FAKE_HTTP)).expect("cursor-aware plan");
 
-    assert_eq!(
-        plan.steps[0],
-        PlannedStep { kind: TcpChainStepKind::Split, start: 0, end: markers.host_start as i64 }
-    );
+    assert_eq!(plan.steps[0], PlannedStep { kind: TcpChainStepKind::Split, start: 0, end: markers.host_start as i64 });
     assert_eq!(
         plan.steps[1],
         PlannedStep { kind: TcpChainStepKind::Split, start: markers.host_start as i64, end: expected_second_end },
@@ -276,11 +268,7 @@ fn plan_tcp_fakedsplit_keeps_fake_step_when_split_is_valid() {
     assert_eq!(plan.steps, vec![PlannedStep { kind: TcpChainStepKind::FakeSplit, start: 0, end: 4 }]);
     assert_eq!(
         plan.actions,
-        vec![
-            DesyncAction::Write(b"abcd".to_vec()),
-            DesyncAction::AwaitWritable,
-            DesyncAction::Write(b"efgh".to_vec()),
-        ]
+        vec![DesyncAction::Write(b"abcd".to_vec()), DesyncAction::AwaitWritable, DesyncAction::Write(b"efgh".to_vec()),]
     );
 }
 
@@ -577,8 +565,7 @@ fn plan_tcp_supports_mixed_tls_preludes_before_send_steps() {
         TcpChainStep::new(TcpChainStepKind::Split, split_expr(4)),
     ];
 
-    let plan =
-        plan_tcp(&group, DEFAULT_FAKE_TLS, 7, 64, tcp_context(DEFAULT_FAKE_TLS)).expect("mixed tls preludes");
+    let plan = plan_tcp(&group, DEFAULT_FAKE_TLS, 7, 64, tcp_context(DEFAULT_FAKE_TLS)).expect("mixed tls preludes");
 
     assert_eq!(plan.steps, vec![PlannedStep { kind: TcpChainStepKind::Split, start: 0, end: 4 }]);
     assert_eq!(tls_record_lengths(&plan.tampered), vec![payload_len - 96, 32, 32, 32]);
@@ -615,10 +602,7 @@ fn plan_tcp_hostfake_emits_fake_real_fake_sequence_for_http_host() {
 
     let plan = plan_tcp(&group, payload, 23, 32, tcp_context(payload)).expect("plan hostfake");
 
-    assert_eq!(
-        plan.steps,
-        vec![PlannedStep { kind: TcpChainStepKind::HostFake, start: 0, end: payload.len() as i64 }]
-    );
+    assert_eq!(plan.steps, vec![PlannedStep { kind: TcpChainStepKind::HostFake, start: 0, end: payload.len() as i64 }]);
     assert_eq!(
         plan.actions,
         vec![

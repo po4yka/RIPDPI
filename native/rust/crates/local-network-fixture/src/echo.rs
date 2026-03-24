@@ -171,9 +171,8 @@ pub(crate) fn start_tls_echo_server(
                                 let _ = stream.shutdown(Shutdown::Both);
                                 return;
                             }
-                            let mut connection = match ServerConnection::new(config) {
-                                Ok(connection) => connection,
-                                Err(_) => return,
+                            let Ok(mut connection) = ServerConnection::new(config) else {
+                                return;
                             };
                             while connection.is_handshaking() {
                                 if let Err(err) = connection.complete_io(&mut stream) {

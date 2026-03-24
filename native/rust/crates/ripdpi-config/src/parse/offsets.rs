@@ -94,9 +94,8 @@ fn parse_legacy_offset_expr(spec: &str) -> Result<Option<OffsetExpr>, ConfigErro
     let Some((prefix, suffix)) = spec.split_once('+') else {
         return Ok(None);
     };
-    let delta = match prefix.parse::<i64>() {
-        Ok(value) => value,
-        Err(_) => return Ok(None),
+    let Ok(delta) = prefix.parse::<i64>() else {
+        return Ok(None);
     };
     if suffix.is_empty() || suffix.len() > 2 {
         return Err(ConfigError::invalid("offset", Some(spec)));

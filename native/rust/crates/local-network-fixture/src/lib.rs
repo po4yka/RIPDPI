@@ -185,7 +185,7 @@ mod tests {
 
     use crate::dns::parse_dns_question_name;
     use crate::http::read_until_marker;
-    use crate::socks::{SocksTarget, map_socket_addr, map_target};
+    use crate::socks::{map_socket_addr, map_target, SocksTarget};
 
     static FIXTURE_STACK_TEST_MUTEX: Mutex<()> = Mutex::new(());
 

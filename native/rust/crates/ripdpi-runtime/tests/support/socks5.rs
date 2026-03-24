@@ -97,11 +97,7 @@ pub fn socks_connect_ip_round_trip_with_retry(proxy_port: u16, dst_port: u16, pa
     );
 }
 
-pub fn attempt_socks_connect_ip_round_trip(
-    proxy_port: u16,
-    dst_port: u16,
-    payload: &[u8],
-) -> Result<Vec<u8>, String> {
+pub fn attempt_socks_connect_ip_round_trip(proxy_port: u16, dst_port: u16, payload: &[u8]) -> Result<Vec<u8>, String> {
     let mut stream = socks_connect(proxy_port, dst_port);
     stream.write_all(payload).map_err(|error| format!("write ip payload failed: {error}"))?;
     let mut body = vec![0u8; payload.len()];
@@ -194,11 +190,7 @@ pub fn recv_exact(stream: &mut TcpStream, size: usize) -> Vec<u8> {
     buf
 }
 
-pub fn wait_for_accepted_connections(
-    telemetry: &dyn AcceptedCounter,
-    minimum: usize,
-    timeout: Duration,
-) -> bool {
+pub fn wait_for_accepted_connections(telemetry: &dyn AcceptedCounter, minimum: usize, timeout: Duration) -> bool {
     let started = std::time::Instant::now();
     while started.elapsed() < timeout {
         if telemetry.accepted_count() >= minimum {

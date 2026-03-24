@@ -1,6 +1,8 @@
 use crate::types::{activation_filter_matches, ActivationContext, AdaptiveUdpBurstProfile, DesyncAction};
 use ripdpi_config::{DesyncGroup, QuicFakeProfile, UdpChainStepKind};
-use ripdpi_packets::{build_realistic_quic_initial, default_fake_quic_compat, parse_quic_initial, udp_fake_profile_bytes};
+use ripdpi_packets::{
+    build_realistic_quic_initial, default_fake_quic_compat, parse_quic_initial, udp_fake_profile_bytes,
+};
 
 pub fn plan_udp(group: &DesyncGroup, payload: &[u8], default_ttl: u8, context: ActivationContext) -> Vec<DesyncAction> {
     if !activation_filter_matches(group.activation_filter(), context) {
@@ -55,7 +57,9 @@ fn udp_fake_payload(group: &DesyncGroup, payload: &[u8], context: ActivationCont
                 QuicFakeProfile::Disabled => {}
                 QuicFakeProfile::CompatDefault => return default_fake_quic_compat(),
                 QuicFakeProfile::RealisticInitial => {
-                    if let Some(fake) = build_realistic_quic_initial(quic.version, group.actions.quic_fake_host.as_deref()) {
+                    if let Some(fake) =
+                        build_realistic_quic_initial(quic.version, group.actions.quic_fake_host.as_deref())
+                    {
                         return fake;
                     }
                 }
@@ -63,7 +67,11 @@ fn udp_fake_payload(group: &DesyncGroup, payload: &[u8], context: ActivationCont
         }
     }
 
-    let mut fake = group.actions.fake_data.clone().unwrap_or_else(|| udp_fake_profile_bytes(group.actions.udp_fake_profile).to_vec());
+    let mut fake = group
+        .actions
+        .fake_data
+        .clone()
+        .unwrap_or_else(|| udp_fake_profile_bytes(group.actions.udp_fake_profile).to_vec());
     if let Some(offset) = group.actions.fake_offset {
         if let Some(pos) = offset.absolute_positive().filter(|pos| (*pos as usize) < fake.len()) {
             fake = fake[pos as usize..].to_vec();

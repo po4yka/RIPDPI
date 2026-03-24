@@ -8,7 +8,7 @@ use std::time::Duration;
 
 use crate::event::{event, EventLog};
 use crate::fault::FaultController;
-use crate::http::{HttpResponse, start_http_server};
+use crate::http::{start_http_server, HttpResponse};
 use crate::types::{FixtureFaultOutcome, FixtureFaultTarget, IO_TIMEOUT};
 
 pub(crate) fn start_dns_udp_server(
