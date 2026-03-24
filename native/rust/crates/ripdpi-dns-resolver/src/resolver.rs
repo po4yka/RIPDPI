@@ -1,3 +1,6 @@
+use std::future::Future;
+use std::io;
+use std::net::SocketAddr;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
@@ -5,8 +8,8 @@ use crypto_box::aead::Aead;
 use crypto_box::{ChaChaBox, PublicKey as CryptoPublicKey, SecretKey as CryptoSecretKey};
 use hickory_proto::op::Message;
 use hickory_proto::rr::{RData, RecordType};
-use ring::rand::{SecureRandom, SystemRandom};
 use reqwest::header::{ACCEPT, CONTENT_TYPE};
+use ring::rand::{SecureRandom, SystemRandom};
 use rustls::client::danger::ServerCertVerifier;
 use rustls::pki_types::{CertificateDer, ServerName};
 use rustls::ClientConfig;
@@ -25,6 +28,22 @@ use crate::types::*;
 
 type DotTlsStream = TokioTlsStream<TokioTcpStream>;
 const MAX_POOLED_IDLE_DURATION: Duration = Duration::from_secs(20);
+
+trait TcpClientStream: tokio::io::AsyncRead + tokio::io::AsyncWrite + Unpin {
+    fn set_nodelay_if_supported(&self, enabled: bool) -> io::Result<()> {
+        let _ = enabled;
+        Ok(())
+    }
+}
+
+impl TcpClientStream for TokioTcpStream {
+    fn set_nodelay_if_supported(&self, enabled: bool) -> io::Result<()> {
+        self.set_nodelay(enabled)
+    }
+}
+
+#[cfg(test)]
+impl TcpClientStream for turmoil::net::TcpStream {}
 
 enum PooledConnection {
     Dot(Box<DotTlsStream>),
@@ -188,12 +207,8 @@ impl EncryptedDnsResolver {
                 #[cfg(feature = "hickory-backend")]
                 {
                     if self.can_use_hickory() {
-                        crate::hickory_backend::exchange_doh(
-                            &self.inner.endpoint,
-                            query_bytes,
-                            self.inner.timeout,
-                        )
-                        .await
+                        crate::hickory_backend::exchange_doh(&self.inner.endpoint, query_bytes, self.inner.timeout)
+                            .await
                     } else {
                         self.exchange_doh(query_bytes).await
                     }
@@ -206,15 +221,9 @@ impl EncryptedDnsResolver {
             EncryptedDnsProtocol::Dot => {
                 #[cfg(feature = "hickory-backend")]
                 {
-                    if self.can_use_hickory()
-                        && matches!(self.inner.transport, EncryptedDnsTransport::Direct)
-                    {
-                        crate::hickory_backend::exchange_dot(
-                            &self.inner.endpoint,
-                            query_bytes,
-                            self.inner.timeout,
-                        )
-                        .await
+                    if self.can_use_hickory() && matches!(self.inner.transport, EncryptedDnsTransport::Direct) {
+                        crate::hickory_backend::exchange_dot(&self.inner.endpoint, query_bytes, self.inner.timeout)
+                            .await
                     } else {
                         self.exchange_dot(query_bytes).await
                     }
@@ -516,6 +525,15 @@ impl EncryptedDnsResolver {
     }
 
     async fn connect_direct_tcp(&self) -> Result<TokioTcpStream, EncryptedDnsError> {
+        self.connect_direct_tcp_with(|address| TokioTcpStream::connect(address)).await
+    }
+
+    async fn connect_direct_tcp_with<S, C, F>(&self, mut connect: C) -> Result<S, EncryptedDnsError>
+    where
+        S: TcpClientStream,
+        C: FnMut(SocketAddr) -> F,
+        F: Future<Output = io::Result<S>>,
+    {
         let endpoint = &self.inner.endpoint;
         let ips = if let Some(health) = &self.inner.health {
             health.rank_bootstrap_ips(&endpoint.bootstrap_ips)
@@ -526,9 +544,9 @@ impl EncryptedDnsResolver {
         for ip in ips {
             let address = std::net::SocketAddr::new(ip, endpoint.port);
             let started = std::time::Instant::now();
-            match timeout(self.inner.timeout, TokioTcpStream::connect(address)).await {
+            match timeout(self.inner.timeout, connect(address)).await {
                 Ok(Ok(stream)) => {
-                    let _ = stream.set_nodelay(true);
+                    let _ = stream.set_nodelay_if_supported(true);
                     if let Some(health) = &self.inner.health {
                         let latency_ms = started.elapsed().as_millis().try_into().unwrap_or(u64::MAX);
                         health.record_bootstrap_outcome(ip, true, latency_ms);
@@ -556,14 +574,27 @@ impl EncryptedDnsResolver {
 
     async fn connect_socks5_tcp(&self, proxy_host: &str, proxy_port: u16) -> Result<TokioTcpStream, EncryptedDnsError> {
         let proxy_target = resolve_socket_addr(proxy_host, proxy_port)?;
-        let mut proxy_stream = match timeout(self.inner.timeout, TokioTcpStream::connect(proxy_target)).await {
+        self.connect_socks5_tcp_with(proxy_target, |address| TokioTcpStream::connect(address)).await
+    }
+
+    async fn connect_socks5_tcp_with<S, C, F>(
+        &self,
+        proxy_target: SocketAddr,
+        mut connect: C,
+    ) -> Result<S, EncryptedDnsError>
+    where
+        S: TcpClientStream,
+        C: FnMut(SocketAddr) -> F,
+        F: Future<Output = io::Result<S>>,
+    {
+        let mut proxy_stream = match timeout(self.inner.timeout, connect(proxy_target)).await {
             Ok(Ok(stream)) => stream,
             Ok(Err(err)) => return Err(EncryptedDnsError::Socks5(err.to_string())),
             Err(_) => {
                 return Err(EncryptedDnsError::Socks5("SOCKS5 connect timed out".to_string()));
             }
         };
-        let _ = proxy_stream.set_nodelay(true);
+        let _ = proxy_stream.set_nodelay_if_supported(true);
 
         let host_bytes = self.inner.endpoint.host.as_bytes();
         if host_bytes.len() > u8::MAX as usize {
@@ -610,7 +641,7 @@ impl EncryptedDnsResolver {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::net::{Ipv4Addr, TcpListener};
+    use std::net::{IpAddr, Ipv4Addr, TcpListener};
     use std::time::Instant;
 
     #[tokio::test]
@@ -652,5 +683,103 @@ mod tests {
             matches!(pool.take().await, Some(PooledConnection::DnsCrypt(_))),
             "fresh pooled entries should still be reused",
         );
+    }
+
+    fn turmoil_test_endpoint(host: &str, port: u16, bootstrap_ips: Vec<IpAddr>) -> EncryptedDnsEndpoint {
+        EncryptedDnsEndpoint {
+            protocol: EncryptedDnsProtocol::Dot,
+            resolver_id: Some("turmoil".to_string()),
+            host: host.to_string(),
+            port,
+            tls_server_name: Some(host.to_string()),
+            bootstrap_ips,
+            doh_url: None,
+            dnscrypt_provider_name: None,
+            dnscrypt_public_key: None,
+        }
+    }
+
+    #[test]
+    fn turmoil_direct_tcp_falls_back_after_partitioned_bootstrap() -> turmoil::Result {
+        let mut sim = turmoil::Builder::new().build();
+
+        sim.host("primary", || async move {
+            let _listener = turmoil::net::TcpListener::bind((IpAddr::V4(Ipv4Addr::UNSPECIFIED), 853)).await?;
+            tokio::time::sleep(Duration::from_secs(1)).await;
+            Ok(())
+        });
+
+        sim.host("secondary", || async move {
+            let listener = turmoil::net::TcpListener::bind((IpAddr::V4(Ipv4Addr::UNSPECIFIED), 853)).await?;
+            let (mut stream, _) = listener.accept().await?;
+            stream.write_all(b"ok").await?;
+            Ok(())
+        });
+
+        sim.client("client", async move {
+            turmoil::partition("client", "primary");
+
+            let resolver = EncryptedDnsResolver::with_timeout(
+                turmoil_test_endpoint(
+                    "fixture.test",
+                    853,
+                    vec![turmoil::lookup("primary"), turmoil::lookup("secondary")],
+                ),
+                EncryptedDnsTransport::Direct,
+                Duration::from_millis(100),
+            )
+            .expect("resolver builds");
+
+            let mut stream = resolver
+                .connect_direct_tcp_with(|address| turmoil::net::TcpStream::connect(address))
+                .await
+                .expect("resolver should fall back to the second bootstrap address");
+
+            let mut buf = [0u8; 2];
+            stream.read_exact(&mut buf).await.expect("secondary server reply");
+            assert_eq!(&buf, b"ok");
+            Ok(())
+        });
+
+        sim.run()
+    }
+
+    #[test]
+    fn turmoil_socks5_handshake_timeout_is_deterministic() -> turmoil::Result {
+        let mut sim = turmoil::Builder::new().build();
+
+        sim.host("proxy", || async move {
+            let listener = turmoil::net::TcpListener::bind((IpAddr::V4(Ipv4Addr::UNSPECIFIED), 1080)).await?;
+            let (_stream, _) = listener.accept().await?;
+            tokio::time::sleep(Duration::from_secs(1)).await;
+            Ok(())
+        });
+
+        sim.client("client", async move {
+            let proxy_ip = turmoil::lookup("proxy");
+            let resolver = EncryptedDnsResolver::with_timeout(
+                turmoil_test_endpoint("fixture.test", 853, vec![IpAddr::V4(Ipv4Addr::new(198, 18, 0, 30))]),
+                EncryptedDnsTransport::Socks5 { host: proxy_ip.to_string(), port: 1080 },
+                Duration::from_millis(50),
+            )
+            .expect("resolver builds");
+
+            let err = resolver
+                .connect_socks5_tcp_with(SocketAddr::new(proxy_ip, 1080), |address| {
+                    turmoil::net::TcpStream::connect(address)
+                })
+                .await
+                .expect_err("stalled SOCKS5 proxy should time out");
+
+            match err {
+                EncryptedDnsError::Socks5(message) => {
+                    assert!(message.contains("timed out"), "expected a timeout error, got: {message}");
+                }
+                other => panic!("expected SOCKS5 timeout, got {other:?}"),
+            }
+            Ok(())
+        });
+
+        sim.run()
     }
 }
