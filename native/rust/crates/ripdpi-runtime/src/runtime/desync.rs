@@ -122,14 +122,23 @@ fn execute_tcp_actions(
     wait_send: bool,
     await_interval: Duration,
 ) -> io::Result<()> {
+    // When default_ttl is 0 (auto-detect), lazily read the current TTL on
+    // the first RestoreDefaultTtl action so we always have a value to restore.
+    let mut cached_restore_ttl: Option<u8> = if default_ttl != 0 { Some(default_ttl) } else { None };
     for action in actions {
         match action {
             DesyncAction::Write(bytes) => writer.write_all(bytes)?,
             DesyncAction::WriteUrgent { prefix, urgent_byte } => send_oob_action(writer, prefix, *urgent_byte)?,
-            DesyncAction::SetTtl(ttl) => set_ttl_action(writer, *ttl)?,
+            DesyncAction::SetTtl(ttl) => {
+                // Capture current TTL before first modification when auto-detecting.
+                if cached_restore_ttl.is_none() {
+                    cached_restore_ttl = platform::detect_default_ttl().ok();
+                }
+                set_ttl_action(writer, *ttl)?;
+            }
             DesyncAction::RestoreDefaultTtl => {
-                if default_ttl != 0 {
-                    restore_default_ttl_action(writer, default_ttl)?;
+                if let Some(restore) = cached_restore_ttl {
+                    restore_default_ttl_action(writer, restore)?;
                 }
             }
             DesyncAction::SetMd5Sig { key_len } => set_md5sig_action(writer, *key_len)?,
@@ -159,6 +168,13 @@ fn execute_tcp_plan(
         } else {
             None
         };
+    // When default_ttl is 0 (auto-detect), use the system default so that
+    // Disorder/Disoob/FakeDisorder handlers always restore the TTL.
+    let restore_ttl = if config.network.default_ttl != 0 {
+        config.network.default_ttl
+    } else {
+        platform::detect_default_ttl().unwrap_or(64)
+    };
     let send_steps =
         group.effective_tcp_chain().into_iter().filter(|step| !step.kind.is_tls_prelude()).collect::<Vec<_>>();
     if send_steps.len() < plan.steps.len() {
@@ -202,9 +218,7 @@ fn execute_tcp_plan(
                     config.timeouts.wait_send,
                     Duration::from_millis(config.timeouts.await_interval.max(1) as u64),
                 )?;
-                if config.network.default_ttl != 0 {
-                    restore_default_ttl_action(writer, config.network.default_ttl)?;
-                }
+                restore_default_ttl_action(writer, restore_ttl)?;
             }
             TcpChainStepKind::Disoob => {
                 set_ttl_action(writer, 1)?;
@@ -214,9 +228,7 @@ fn execute_tcp_plan(
                     config.timeouts.wait_send,
                     Duration::from_millis(config.timeouts.await_interval.max(1) as u64),
                 )?;
-                if config.network.default_ttl != 0 {
-                    restore_default_ttl_action(writer, config.network.default_ttl)?;
-                }
+                restore_default_ttl_action(writer, restore_ttl)?;
             }
             TcpChainStepKind::Fake => {
                 let fake =
@@ -288,9 +300,7 @@ fn execute_tcp_plan(
                         config.timeouts.wait_send,
                         Duration::from_millis(config.timeouts.await_interval.max(1) as u64),
                     )?;
-                    if config.network.default_ttl != 0 {
-                        restore_default_ttl_action(writer, config.network.default_ttl)?;
-                    }
+                    restore_default_ttl_action(writer, restore_ttl)?;
                     cursor = end;
                     continue;
                 }

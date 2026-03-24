@@ -170,6 +170,14 @@ pub fn original_dst(stream: &TcpStream) -> io::Result<SocketAddr> {
     storage_to_socket_addr(&storage)
 }
 
+/// Attach a BPF filter that drops incoming TCP segments containing a SACK
+/// option.
+///
+/// **Limitation:** The filter checks a fixed offset (0x22) for the SACK option
+/// kind byte rather than performing a full TLV scan of the TCP options field.
+/// This works for the vast majority of Linux TCP stacks where SACK appears at a
+/// predictable position, but may miss SACK placed at non-standard offsets by
+/// unusual middleboxes or custom stacks.
 pub fn attach_drop_sack(stream: &TcpStream) -> io::Result<()> {
     let fd = stream.as_raw_fd();
     let mut code = [
@@ -196,12 +204,16 @@ pub fn detach_drop_sack(stream: &TcpStream) -> io::Result<()> {
 
 pub fn enable_recv_ttl(stream: &TcpStream) -> io::Result<()> {
     let fd = stream.as_raw_fd();
+    // On dual-stack sockets both options may be valid, so attempt both and
+    // succeed if at least one takes effect (mirrors `set_stream_ttl` pattern).
     // SAFETY: `1i32` enables IP_RECVTTL / IPV6_RECVHOPLIMIT and `stream` is a
     // live TCP socket.
-    if unsafe { setsockopt_raw(fd, libc::IPPROTO_IP, libc::IP_RECVTTL, &1i32) }.is_ok() {
-        return Ok(());
+    let ipv4 = unsafe { setsockopt_raw(fd, libc::IPPROTO_IP, libc::IP_RECVTTL, &1i32) };
+    let ipv6 = unsafe { setsockopt_raw(fd, libc::IPPROTO_IPV6, libc::IPV6_RECVHOPLIMIT, &1i32) };
+    match (ipv4, ipv6) {
+        (Ok(()), _) | (_, Ok(())) => Ok(()),
+        (Err(err), _) => Err(err),
     }
-    unsafe { setsockopt_raw(fd, libc::IPPROTO_IPV6, libc::IPV6_RECVHOPLIMIT, &1i32) }
 }
 
 pub fn read_chunk_with_ttl(stream: &TcpStream, buf: &mut [u8]) -> io::Result<(usize, Option<u8>)> {
@@ -265,11 +277,15 @@ pub fn send_fake_tcp(
     let region_len = original_prefix.len().max(fake_prefix.len());
     let region = alloc_region(region_len)?;
 
+    // When default_ttl is 0 (auto-detect), read the current TTL before
+    // modifying so we can always restore the original value afterward.
+    let restore_ttl = if default_ttl != 0 { default_ttl } else { get_stream_ttl(stream).unwrap_or(64) };
+
     let result = (|| {
         write_region(region, fake_prefix, region_len);
 
         let (pipe_r, pipe_w) = nix::unistd::pipe().map_err(|e| io::Error::from_raw_os_error(e as i32))?;
-        // pipe_r and pipe_w are OwnedFd — closed automatically on drop.
+        // pipe_r and pipe_w are OwnedFd -- closed automatically on drop.
 
         set_stream_ttl(stream, ttl)?;
         if md5sig {
@@ -308,9 +324,12 @@ pub fn send_fake_tcp(
         if md5sig {
             set_tcp_md5sig(stream, 0)?;
         }
-        if default_ttl != 0 {
-            set_stream_ttl(stream, default_ttl)?;
-        }
+        set_stream_ttl(stream, restore_ttl)?;
+        // INTENTIONAL DATA RACE: The vmsplice with SPLICE_F_GIFT transferred
+        // page ownership to the kernel. Overwriting the region here relies on
+        // the kernel retransmitting from the updated page content (which now
+        // holds the real `original_prefix` bytes). This is the core mechanism
+        // that makes the fake-retransmit desync strategy work on Linux.
         write_region(region, original_prefix, region_len);
         Ok(())
     })();
@@ -318,9 +337,7 @@ pub fn send_fake_tcp(
     if md5sig {
         let _ = set_tcp_md5sig(stream, 0);
     }
-    if default_ttl != 0 {
-        let _ = set_stream_ttl(stream, default_ttl);
-    }
+    let _ = set_stream_ttl(stream, restore_ttl);
     free_region(region, region_len);
     result
 }
@@ -364,6 +381,19 @@ fn storage_to_socket_addr(storage: &libc::sockaddr_storage) -> io::Result<Socket
     }
 }
 
+/// Read the current TTL (IPv4) or hop limit (IPv6) from a TCP socket.
+/// Tries IPv4 first; falls back to IPv6. Returns the value from whichever
+/// succeeds first.
+fn get_stream_ttl(stream: &TcpStream) -> io::Result<u8> {
+    let socket = SockRef::from(stream);
+    if let Ok(ttl) = socket.ttl() {
+        return u8::try_from(ttl)
+            .map_err(|_| io::Error::new(io::ErrorKind::InvalidData, "socket ttl exceeds u8"));
+    }
+    let hops = socket.unicast_hops_v6()?;
+    u8::try_from(hops).map_err(|_| io::Error::new(io::ErrorKind::InvalidData, "socket hop limit exceeds u8"))
+}
+
 fn set_stream_ttl(stream: &TcpStream, ttl: u8) -> io::Result<()> {
     let socket = SockRef::from(stream);
     let ipv4 = socket.set_ttl(ttl as u32);
@@ -398,6 +428,9 @@ pub fn tcp_segment_hint(stream: &TcpStream) -> io::Result<Option<TcpSegmentHint>
     let Some(info) = read_tcp_info(stream.as_raw_fd())? else {
         return Ok(None);
     };
+    // Combined IP + TCP header overhead (IPv4: 20+20=40, IPv6: 40+20=60).
+    // Named `ip_header_overhead` for historical reasons; the value includes
+    // the minimum TCP header as well.
     let ip_header_overhead = match stream.peer_addr()? {
         SocketAddr::V4(_) => 40,
         SocketAddr::V6(_) => 60,
@@ -560,6 +593,13 @@ mod tests {
         assert_eq!(n, 5);
         assert_eq!(&buf[..n], b"hello");
         // TTL may or may not be populated for loopback; just verify no panic
+    }
+
+    #[test]
+    fn get_stream_ttl_returns_valid_value_for_connected_socket() {
+        let (client, _server) = connected_pair();
+        let ttl = get_stream_ttl(&client).expect("read ttl from connected socket");
+        assert!(ttl > 0, "default TTL should be positive");
     }
 
     #[test]

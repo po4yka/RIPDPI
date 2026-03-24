@@ -75,8 +75,6 @@ fn udp_fake_payload(group: &DesyncGroup, payload: &[u8], context: ActivationCont
     if let Some(offset) = group.actions.fake_offset {
         if let Some(pos) = offset.absolute_positive().filter(|pos| (*pos as usize) < fake.len()) {
             fake = fake[pos as usize..].to_vec();
-        } else {
-            fake.clear();
         }
     }
     fake
