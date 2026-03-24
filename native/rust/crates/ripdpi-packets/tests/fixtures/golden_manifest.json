@@ -1,0 +1,26 @@
+[
+  {
+    "file": "curl_tls12_example_com.bin",
+    "description": "Python ssl TLS 1.2-only ClientHello to example.com",
+    "expected_sni": "example.com",
+    "is_client_hello": true
+  },
+  {
+    "file": "curl_tls13_example_com.bin",
+    "description": "Python ssl TLS 1.3 ClientHello to example.com",
+    "expected_sni": "example.com",
+    "is_client_hello": true
+  },
+  {
+    "file": "curl_auto_cloudflare_com.bin",
+    "description": "Python ssl auto-negotiation ClientHello to cloudflare.com",
+    "expected_sni": "cloudflare.com",
+    "is_client_hello": true
+  },
+  {
+    "file": "curl_tls13_github_com.bin",
+    "description": "Python ssl TLS 1.3 ClientHello to github.com",
+    "expected_sni": "github.com",
+    "is_client_hello": true
+  }
+]
