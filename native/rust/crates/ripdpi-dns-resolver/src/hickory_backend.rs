@@ -40,8 +40,7 @@ async fn exchange_via_hickory(
     protocol: Protocol,
 ) -> Result<Vec<u8>, EncryptedDnsError> {
     // 1. Parse the incoming raw DNS query to extract the name and record type.
-    let query_msg =
-        Message::from_vec(query_bytes).map_err(|e| EncryptedDnsError::DnsParse(e.to_string()))?;
+    let query_msg = Message::from_vec(query_bytes).map_err(|e| EncryptedDnsError::DnsParse(e.to_string()))?;
     let query = query_msg
         .queries()
         .first()
@@ -50,17 +49,13 @@ async fn exchange_via_hickory(
     let record_type: RecordType = query.query_type();
 
     // 2. Build NameServerConfig from endpoint bootstrap IPs.
-    let tls_name = endpoint
-        .tls_server_name
-        .clone()
-        .unwrap_or_else(|| endpoint.host.clone());
+    let tls_name = endpoint.tls_server_name.clone().unwrap_or_else(|| endpoint.host.clone());
 
     let servers: Vec<NameServerConfig> = endpoint
         .bootstrap_ips
         .iter()
         .map(|ip| {
-            let mut ns =
-                NameServerConfig::new(SocketAddr::new(*ip, endpoint.port), protocol);
+            let mut ns = NameServerConfig::new(SocketAddr::new(*ip, endpoint.port), protocol);
             ns.tls_dns_name = Some(tls_name.clone());
             if matches!(protocol, Protocol::Https) {
                 // Extract the path component from the DoH URL, or default to /dns-query.
@@ -85,15 +80,11 @@ async fn exchange_via_hickory(
     opts.use_hosts_file = Default::default();
     opts.recursion_desired = query_msg.recursion_desired();
 
-    let resolver = Resolver::builder_with_config(config, TokioConnectionProvider::default())
-        .with_options(opts)
-        .build();
+    let resolver = Resolver::builder_with_config(config, TokioConnectionProvider::default()).with_options(opts).build();
 
     // 4. Perform the lookup via hickory-resolver.
-    let lookup = resolver
-        .lookup(name.clone(), record_type)
-        .await
-        .map_err(|e| EncryptedDnsError::Request(e.to_string()))?;
+    let lookup =
+        resolver.lookup(name.clone(), record_type).await.map_err(|e| EncryptedDnsError::Request(e.to_string()))?;
 
     // 5. Reconstruct a DNS wire-format response from the parsed records.
     //    This is the key challenge: hickory-resolver returns parsed Record objects,
@@ -117,7 +108,5 @@ async fn exchange_via_hickory(
         response.add_answer(record.clone());
     }
 
-    response
-        .to_vec()
-        .map_err(|e| EncryptedDnsError::DnsParse(e.to_string()))
+    response.to_vec().map_err(|e| EncryptedDnsError::DnsParse(e.to_string()))
 }

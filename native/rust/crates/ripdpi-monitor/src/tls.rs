@@ -393,9 +393,7 @@ mod tests {
         let profile = TlsClientProfile::Tls13WithEchStub;
         let _builder = match profile {
             TlsClientProfile::Auto => ClientConfig::builder(),
-            TlsClientProfile::Tls12Only => {
-                ClientConfig::builder_with_protocol_versions(&[&rustls::version::TLS12])
-            }
+            TlsClientProfile::Tls12Only => ClientConfig::builder_with_protocol_versions(&[&rustls::version::TLS12]),
             TlsClientProfile::Tls13Only | TlsClientProfile::Tls13WithEchStub => {
                 ClientConfig::builder_with_protocol_versions(&[&rustls::version::TLS13])
             }

@@ -221,9 +221,7 @@ mod tests {
 
     #[test]
     fn verifying_key_parses_valid_hex() {
-        let endpoint = make_endpoint(Some(
-            "0102030405060708091011121314151617181920212223242526272829303132",
-        ));
+        let endpoint = make_endpoint(Some("0102030405060708091011121314151617181920212223242526272829303132"));
         let key = dnscrypt_verifying_key(&endpoint).expect("valid key");
         assert_eq!(key[0], 0x01);
         assert_eq!(key[31], 0x32);
@@ -248,15 +246,8 @@ mod tests {
         for size in [0, 1, 10, 63, 64, 65, 127, 128] {
             let payload: Vec<u8> = (0..size).map(|i: usize| (i % 255) as u8).collect();
             let padded = dnscrypt_pad(&payload);
-            assert_eq!(
-                padded.len() % DNSCRYPT_PADDING_BLOCK_SIZE,
-                0,
-                "padded size for input len {size}"
-            );
-            assert!(
-                padded.len() >= payload.len() + 1,
-                "room for marker at len {size}"
-            );
+            assert_eq!(padded.len() % DNSCRYPT_PADDING_BLOCK_SIZE, 0, "padded size for input len {size}");
+            assert!(padded.len() >= payload.len() + 1, "room for marker at len {size}");
             let unpadded = dnscrypt_unpad(&padded).expect("unpad");
             assert_eq!(unpadded, payload, "round-trip at len {size}");
         }

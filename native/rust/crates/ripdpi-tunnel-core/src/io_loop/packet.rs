@@ -1,6 +1,6 @@
-use std::net::{IpAddr, SocketAddr};
 #[cfg(test)]
 use std::net::Ipv4Addr;
+use std::net::{IpAddr, SocketAddr};
 
 use etherparse::{NetSlice, SlicedPacket, TransportSlice};
 use smoltcp::wire::IpAddress;
@@ -22,10 +22,7 @@ fn tcp_packet_endpoints(pkt: &[u8]) -> Option<(SocketAddr, SocketAddr)> {
         NetSlice::Ipv6(v6) => (v6.header().source_addr().into(), v6.header().destination_addr().into()),
         NetSlice::Arp(_) => return None,
     };
-    Some((
-        SocketAddr::new(src_ip, tcp.source_port()),
-        SocketAddr::new(dst_ip, tcp.destination_port()),
-    ))
+    Some((SocketAddr::new(src_ip, tcp.source_port()), SocketAddr::new(dst_ip, tcp.destination_port())))
 }
 
 #[cfg(test)]
@@ -116,17 +113,11 @@ pub(super) fn build_udp_response(src: SocketAddr, dst: SocketAddr, payload: &[u8
             ) else {
                 return Vec::new();
             };
-            let Ok(udp) = etherparse::UdpHeader::with_ipv4_checksum(
-                src.port(),
-                dst.port(),
-                &ip,
-                payload,
-            ) else {
+            let Ok(udp) = etherparse::UdpHeader::with_ipv4_checksum(src.port(), dst.port(), &ip, payload) else {
                 return Vec::new();
             };
-            let mut buf = Vec::with_capacity(
-                etherparse::Ipv4Header::MIN_LEN + etherparse::UdpHeader::LEN + payload.len(),
-            );
+            let mut buf =
+                Vec::with_capacity(etherparse::Ipv4Header::MIN_LEN + etherparse::UdpHeader::LEN + payload.len());
             let _ = ip.write(&mut buf);
             let _ = udp.write(&mut buf);
             buf.extend_from_slice(payload);
@@ -146,17 +137,10 @@ pub(super) fn build_udp_response(src: SocketAddr, dst: SocketAddr, payload: &[u8
                 source: src.ip().octets(),
                 destination: dst.ip().octets(),
             };
-            let Ok(udp) = etherparse::UdpHeader::with_ipv6_checksum(
-                src.port(),
-                dst.port(),
-                &ip,
-                payload,
-            ) else {
+            let Ok(udp) = etherparse::UdpHeader::with_ipv6_checksum(src.port(), dst.port(), &ip, payload) else {
                 return Vec::new();
             };
-            let mut buf = Vec::with_capacity(
-                etherparse::Ipv6Header::LEN + etherparse::UdpHeader::LEN + payload.len(),
-            );
+            let mut buf = Vec::with_capacity(etherparse::Ipv6Header::LEN + etherparse::UdpHeader::LEN + payload.len());
             let _ = ip.write(&mut buf);
             let _ = udp.write(&mut buf);
             buf.extend_from_slice(payload);
@@ -556,7 +540,7 @@ mod tests {
         pkt[24..40].copy_from_slice(&Ipv6Addr::LOCALHOST.octets());
         pkt[52] = 0x50;
         pkt[53] = 0x04; // RST
-        // IP ID equivalent = 0 (IPv6 has no IP ID, so this should not match)
+                        // IP ID equivalent = 0 (IPv6 has no IP ID, so this should not match)
 
         assert!(!is_injected_rst(&pkt));
     }
@@ -700,11 +684,7 @@ mod tests {
 
         // IP header checksum: sum of all 16-bit words in header should be 0xFFFF
         let ip_check = checksum_sum(&pkt[..20]);
-        assert_eq!(
-            finalize_checksum(ip_check),
-            0,
-            "IP header checksum should validate to zero"
-        );
+        assert_eq!(finalize_checksum(ip_check), 0, "IP header checksum should validate to zero");
     }
 
     #[test]
