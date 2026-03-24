@@ -525,7 +525,7 @@ impl EncryptedDnsResolver {
     }
 
     async fn connect_direct_tcp(&self) -> Result<TokioTcpStream, EncryptedDnsError> {
-        self.connect_direct_tcp_with(|address| TokioTcpStream::connect(address)).await
+        self.connect_direct_tcp_with(TokioTcpStream::connect).await
     }
 
     async fn connect_direct_tcp_with<S, C, F>(&self, mut connect: C) -> Result<S, EncryptedDnsError>
@@ -574,7 +574,7 @@ impl EncryptedDnsResolver {
 
     async fn connect_socks5_tcp(&self, proxy_host: &str, proxy_port: u16) -> Result<TokioTcpStream, EncryptedDnsError> {
         let proxy_target = resolve_socket_addr(proxy_host, proxy_port)?;
-        self.connect_socks5_tcp_with(proxy_target, |address| TokioTcpStream::connect(address)).await
+        self.connect_socks5_tcp_with(proxy_target, TokioTcpStream::connect).await
     }
 
     async fn connect_socks5_tcp_with<S, C, F>(
@@ -731,7 +731,7 @@ mod tests {
             .expect("resolver builds");
 
             let mut stream = resolver
-                .connect_direct_tcp_with(|address| turmoil::net::TcpStream::connect(address))
+                .connect_direct_tcp_with(turmoil::net::TcpStream::connect)
                 .await
                 .expect("resolver should fall back to the second bootstrap address");
 

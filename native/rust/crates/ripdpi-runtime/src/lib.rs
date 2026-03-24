@@ -75,9 +75,9 @@ pub struct EmbeddedProxyControl {
     runtime_context: Option<ProxyRuntimeContext>,
     /// Live OS network state snapshot, pushed from Kotlin on each NetworkCallback event.
     /// Uses `ArcSwap` for lock-free reads on the per-connection hot path.
-    /// Not behind the loom-abstracted `sync` module: arc-swap is not loom-compatible,
+    /// Uses `std::sync::Arc` explicitly: arc-swap is not loom-compatible,
     /// and no loom tests exercise this field.
-    network_snapshot: Arc<ArcSwap<Option<NetworkSnapshot>>>,
+    network_snapshot: std::sync::Arc<ArcSwap<Option<NetworkSnapshot>>>,
 }
 
 impl std::fmt::Debug for EmbeddedProxyControl {
@@ -110,7 +110,7 @@ impl EmbeddedProxyControl {
             shutdown: Arc::new(AtomicBool::new(false)),
             telemetry,
             runtime_context,
-            network_snapshot: Arc::new(ArcSwap::from_pointee(None)),
+            network_snapshot: std::sync::Arc::new(ArcSwap::from_pointee(None)),
         }
     }
 
@@ -136,7 +136,7 @@ impl EmbeddedProxyControl {
 
     /// Push a fresh OS network state snapshot. Safe to call from any thread while the proxy runs.
     pub fn update_network_snapshot(&self, snapshot: NetworkSnapshot) {
-        self.network_snapshot.store(Arc::new(Some(snapshot)));
+        self.network_snapshot.store(std::sync::Arc::new(Some(snapshot)));
     }
 
     /// Read the most recently pushed OS network state snapshot, if any.
