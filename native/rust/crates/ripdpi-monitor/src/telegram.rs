@@ -419,7 +419,7 @@ where
     let resolved_addr = match resolve_ws_addr() {
         Ok(addr) => Some(addr),
         Err(err) => {
-            log::warn!("Telegram WS tunnel encrypted DNS bootstrap failed: {err}");
+            tracing::warn!("Telegram WS tunnel encrypted DNS bootstrap failed: {err}");
             None
         }
     };

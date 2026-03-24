@@ -10,6 +10,7 @@ workspace = true
 [dependencies]
 android-support = { workspace = true }
 log = { workspace = true }
+tracing = { workspace = true }
 ripdpi-config = { workspace = true }
 ripdpi-packets = { workspace = true }
 ripdpi-dns-resolver = { workspace = true }
