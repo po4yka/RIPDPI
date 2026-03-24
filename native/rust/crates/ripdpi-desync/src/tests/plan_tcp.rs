@@ -295,7 +295,7 @@ fn plan_tcp_fakeddisorder_keeps_fake_step_when_split_is_valid() {
     assert_eq!(
         plan.actions,
         vec![
-            DesyncAction::SetTtl(1),
+            DesyncAction::SetTtl(8),
             DesyncAction::Write(b"abc".to_vec()),
             DesyncAction::AwaitWritable,
             DesyncAction::RestoreDefaultTtl,
@@ -379,7 +379,7 @@ fn plan_tcp_disorder_emits_ttl_write_await_restore() {
     assert_eq!(
         plan.actions,
         vec![
-            DesyncAction::SetTtl(1),
+            DesyncAction::SetTtl(8),
             DesyncAction::Write(b"abc".to_vec()),
             DesyncAction::AwaitWritable,
             DesyncAction::RestoreDefaultTtl,
@@ -419,7 +419,7 @@ fn plan_tcp_disoob_combines_ttl_and_urgent() {
     assert_eq!(
         plan.actions,
         vec![
-            DesyncAction::SetTtl(1),
+            DesyncAction::SetTtl(8),
             DesyncAction::WriteUrgent { prefix: b"ab".to_vec(), urgent_byte: b'X' },
             DesyncAction::AwaitWritable,
             DesyncAction::RestoreDefaultTtl,

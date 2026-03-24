@@ -172,6 +172,9 @@ pub(crate) fn resolve_offset(
 }
 
 pub(crate) fn insert_boundary(boundaries: &mut Vec<usize>, pos: usize) {
+    if boundaries.contains(&pos) {
+        return;
+    }
     let idx = boundaries.iter().position(|&end| end > pos).unwrap_or(boundaries.len());
     boundaries.insert(idx, pos);
 }

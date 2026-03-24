@@ -20,13 +20,14 @@ fn push_fake_actions(
     default_ttl: u8,
     fake_ttl: u8,
 ) {
+    if original.is_empty() {
+        return;
+    }
     actions.push(DesyncAction::SetTtl(fake_ttl));
     if group.actions.md5sig {
         actions.push(DesyncAction::SetMd5Sig { key_len: 5 });
     }
-    if !original.is_empty() {
-        actions.push(DesyncAction::Write(fake));
-    }
+    actions.push(DesyncAction::Write(fake));
     if group.actions.md5sig {
         actions.push(DesyncAction::SetMd5Sig { key_len: 0 });
     }
@@ -59,6 +60,12 @@ fn split_tcp_chain(chain: &[TcpChainStep]) -> Result<(Vec<TcpChainStep>, Vec<Tcp
     }
 
     Ok((prelude_steps, send_steps))
+}
+
+/// Effective TTL for disorder-family steps: use the configured fake_ttl,
+/// falling back to 1 when fake_ttl is zero (unconfigured).
+fn disorder_ttl(fake_ttl: u8) -> u8 {
+    if fake_ttl == 0 { 1 } else { fake_ttl }
 }
 
 pub fn plan_tcp(
@@ -125,13 +132,13 @@ pub fn plan_tcp(
                 });
             }
             TcpChainStepKind::Disorder => {
-                actions.push(DesyncAction::SetTtl(1));
+                actions.push(DesyncAction::SetTtl(disorder_ttl(fake_ttl)));
                 actions.push(DesyncAction::Write(chunk));
                 actions.push(DesyncAction::AwaitWritable);
                 actions.push(DesyncAction::RestoreDefaultTtl);
             }
             TcpChainStepKind::Disoob => {
-                actions.push(DesyncAction::SetTtl(1));
+                actions.push(DesyncAction::SetTtl(disorder_ttl(fake_ttl)));
                 actions.push(DesyncAction::WriteUrgent {
                     prefix: chunk,
                     urgent_byte: group.actions.oob_data.unwrap_or(b'a'),
@@ -153,16 +160,26 @@ pub fn plan_tcp(
                 );
             }
             TcpChainStepKind::FakeSplit => {
+                // Graceful degradation: when the offset falls at a boundary
+                // (pos <= lp or pos >= total), FakeSplit cannot inject a fake
+                // copy of the second segment. Fall back to plain Split which
+                // still provides packet-level evasion without the fake
+                // injection property.
                 if pos <= lp || pos >= tampered.bytes.len() as i64 {
                     planned_kind = TcpChainStepKind::Split;
                 }
                 push_split_actions(&mut actions, chunk);
             }
             TcpChainStepKind::FakeDisorder => {
+                // Graceful degradation: when the offset falls at a boundary
+                // (pos <= lp or pos >= total), FakeDisorder cannot inject a
+                // fake copy of the second segment. Fall back to plain Disorder
+                // which still provides packet-level evasion without the fake
+                // injection property.
                 if pos <= lp || pos >= tampered.bytes.len() as i64 {
                     planned_kind = TcpChainStepKind::Disorder;
                 }
-                actions.push(DesyncAction::SetTtl(1));
+                actions.push(DesyncAction::SetTtl(disorder_ttl(fake_ttl)));
                 actions.push(DesyncAction::Write(chunk));
                 actions.push(DesyncAction::AwaitWritable);
                 actions.push(DesyncAction::RestoreDefaultTtl);
@@ -172,9 +189,6 @@ pub fn plan_tcp(
                     planned_kind = TcpChainStepKind::Split;
                     push_split_actions(&mut actions, chunk);
                     steps.push(PlannedStep { kind: planned_kind, start: lp, end: pos });
-                    if matches!(planned_kind, TcpChainStepKind::Oob) {
-                        actions.push(DesyncAction::AwaitWritable);
-                    }
                     lp = pos;
                     continue;
                 };
