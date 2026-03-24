@@ -241,4 +241,204 @@ mod tests {
             assert_eq!(r.type_offset, h.type_offset + 5);
         }
     }
+
+    // --- Helper functions for building synthetic ClientHello records ---
+
+    fn build_client_hello_record(extensions: &[u8]) -> Vec<u8> {
+        let mut buf = Vec::new();
+        // TLS record header
+        buf.push(0x16); // Handshake
+        buf.extend_from_slice(&[0x03, 0x01]); // TLS 1.0
+        buf.extend_from_slice(&[0x00, 0x00]); // placeholder record length
+        // Handshake header
+        buf.push(0x01); // ClientHello
+        buf.extend_from_slice(&[0x00, 0x00, 0x00]); // placeholder hs length
+        // Version
+        buf.extend_from_slice(&[0x03, 0x03]);
+        // Random (32 bytes)
+        buf.extend_from_slice(&[0xAA; 32]);
+        // Session ID (length 0)
+        buf.push(0x00);
+        // Cipher suites (2 bytes)
+        buf.extend_from_slice(&[0x00, 0x02, 0x00, 0xFF]);
+        // Compression (1 method, null)
+        buf.extend_from_slice(&[0x01, 0x00]);
+        // Extensions
+        let ext_len = extensions.len() as u16;
+        buf.extend_from_slice(&ext_len.to_be_bytes());
+        buf.extend_from_slice(extensions);
+        // Patch lengths
+        let hs_len = (buf.len() - 9) as u32;
+        buf[6] = (hs_len >> 16) as u8;
+        buf[7] = (hs_len >> 8) as u8;
+        buf[8] = hs_len as u8;
+        let record_len = (buf.len() - 5) as u16;
+        buf[3..5].copy_from_slice(&record_len.to_be_bytes());
+        buf
+    }
+
+    fn build_sni_extension(hostname: &[u8]) -> Vec<u8> {
+        let host_len = hostname.len() as u16;
+        let list_len = 1 + 2 + host_len;
+        let ext_data_len = 2 + list_len;
+        let mut ext = Vec::new();
+        ext.extend_from_slice(&0x0000u16.to_be_bytes()); // SNI type
+        ext.extend_from_slice(&ext_data_len.to_be_bytes());
+        ext.extend_from_slice(&list_len.to_be_bytes());
+        ext.push(0x00); // host_name type
+        ext.extend_from_slice(&host_len.to_be_bytes());
+        ext.extend_from_slice(hostname);
+        ext
+    }
+
+    /// Build a padding extension (type 0x0015) with the given number of zero bytes.
+    fn build_padding_extension(pad_len: usize) -> Vec<u8> {
+        let mut ext = Vec::new();
+        ext.extend_from_slice(&0x0015u16.to_be_bytes()); // padding type
+        ext.extend_from_slice(&(pad_len as u16).to_be_bytes());
+        ext.resize(ext.len() + pad_len, 0x00);
+        ext
+    }
+
+    #[test]
+    fn no_sni_extension_returns_none_marker() {
+        let padding = build_padding_extension(8);
+        let data = build_client_hello_record(&padding);
+        let parsed = parse_client_hello_record(&data).expect("should parse successfully");
+        assert!(!parsed.extensions.is_empty(), "should have at least the padding extension");
+        assert!(to_marker_info(&parsed, data.len()).is_none(), "no SNI means marker should be None");
+    }
+
+    #[test]
+    fn zero_extensions_returns_none_marker() {
+        let data = build_client_hello_record(&[]);
+        let parsed = parse_client_hello_record(&data).expect("should parse with zero extensions");
+        assert!(parsed.extensions.is_empty(), "extensions vec should be empty");
+        assert!(to_marker_info(&parsed, data.len()).is_none(), "no extensions means marker should be None");
+    }
+
+    #[test]
+    fn sni_data_too_short_returns_none_marker() {
+        // Build an SNI extension with only 3 bytes of data (less than the 5 needed for host_len)
+        let mut ext = Vec::new();
+        ext.extend_from_slice(&0x0000u16.to_be_bytes()); // SNI type
+        ext.extend_from_slice(&0x0003u16.to_be_bytes()); // data length = 3
+        ext.extend_from_slice(&[0x00, 0x01, 0x00]); // 3 bytes of truncated SNI body
+
+        let data = build_client_hello_record(&ext);
+        let parsed = parse_client_hello_record(&data).expect("should parse");
+        // The SNI extension exists but its data is too short for to_marker_info
+        assert!(find_extension(&parsed, 0x0000).is_some(), "SNI extension should be found");
+        assert!(to_marker_info(&parsed, data.len()).is_none(), "short SNI data should yield None marker");
+    }
+
+    #[test]
+    fn be_u24_parses_correctly() {
+        let (_, val) = be_u24(&[0x00, 0x01, 0xfc]).expect("should parse");
+        assert_eq!(val, 508);
+
+        let (_, val) = be_u24(&[0x00, 0x00, 0x00]).expect("should parse");
+        assert_eq!(val, 0);
+
+        let (_, val) = be_u24(&[0xff, 0xff, 0xff]).expect("should parse");
+        assert_eq!(val, 16_777_215);
+    }
+
+    #[test]
+    fn extension_type_offsets_point_to_correct_bytes() {
+        let fixtures: &[(&[u8], &str)] = &[
+            (include_bytes!("../tests/fixtures/curl_tls12_example_com.bin"), "tls12_example"),
+            (include_bytes!("../tests/fixtures/curl_tls13_example_com.bin"), "tls13_example"),
+            (include_bytes!("../tests/fixtures/curl_auto_cloudflare_com.bin"), "auto_cloudflare"),
+            (include_bytes!("../tests/fixtures/curl_tls13_github_com.bin"), "tls13_github"),
+        ];
+
+        for (data, name) in fixtures {
+            let parsed = parse_client_hello_record(*data)
+                .unwrap_or_else(|| panic!("{name}: nom parse failed"));
+            assert!(!parsed.extensions.is_empty(), "{name}: should have extensions");
+            for ext in &parsed.extensions {
+                let actual_type =
+                    u16::from_be_bytes([data[ext.type_offset], data[ext.type_offset + 1]]);
+                assert_eq!(
+                    actual_type, ext.ext_type,
+                    "{name}: type_offset mismatch for ext 0x{:04x}",
+                    ext.ext_type
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn not_client_hello_returns_none() {
+        // Build a buffer that looks like a TLS record but with ServerHello (0x02) handshake type
+        let mut buf = Vec::new();
+        buf.push(0x16); // Handshake content type
+        buf.extend_from_slice(&[0x03, 0x01]); // TLS 1.0
+        // Handshake body: type 0x02 (ServerHello) + minimal garbage
+        let hs_body: &[u8] = &[0x02, 0x00, 0x00, 0x04, 0x03, 0x03, 0x00, 0x00];
+        let record_len = hs_body.len() as u16;
+        buf.extend_from_slice(&record_len.to_be_bytes());
+        buf.extend_from_slice(hs_body);
+
+        assert!(
+            parse_client_hello_record(&buf).is_none(),
+            "ServerHello handshake type should not parse as ClientHello"
+        );
+    }
+
+    proptest::proptest! {
+        #[test]
+        fn proptest_nom_matches_manual_on_valid_input(
+            random in proptest::collection::vec(proptest::prelude::any::<u8>(), 32..=32usize),
+            hostname_chars in proptest::collection::vec(b'a'..=b'z', 4..=20usize),
+            dot_pos in 1..19usize,
+        ) {
+            // Build a minimal valid ClientHello with a single SNI extension.
+            // Insert a dot into the hostname to guarantee at least one.
+            let mut hostname = hostname_chars;
+            // Clamp dot_pos to valid range within the generated hostname
+            let pos = dot_pos % (hostname.len().saturating_sub(1)).max(1);
+            let pos = pos.max(1); // never at index 0
+            hostname[pos] = b'.';
+
+            let sni_ext = build_sni_extension(&hostname);
+            let mut buf = Vec::with_capacity(256);
+            // TLS record header
+            buf.push(0x16);
+            buf.extend_from_slice(&[0x03, 0x01]);
+            buf.extend_from_slice(&[0x00, 0x00]); // placeholder record length
+            // Handshake header
+            buf.push(0x01); // ClientHello
+            buf.extend_from_slice(&[0x00, 0x00, 0x00]); // placeholder hs length
+            // Version
+            buf.extend_from_slice(&[0x03, 0x03]);
+            // Random
+            buf.extend_from_slice(&random);
+            // Session ID (length 0)
+            buf.push(0x00);
+            // Cipher suites: 1 suite
+            buf.extend_from_slice(&[0x00, 0x02, 0x00, 0xFF]);
+            // Compression: 1 method, null
+            buf.extend_from_slice(&[0x01, 0x00]);
+            // Extensions
+            let ext_len = sni_ext.len() as u16;
+            buf.extend_from_slice(&ext_len.to_be_bytes());
+            buf.extend_from_slice(&sni_ext);
+            // Patch handshake length
+            let hs_len = (buf.len() - 9) as u32;
+            buf[6] = (hs_len >> 16) as u8;
+            buf[7] = (hs_len >> 8) as u8;
+            buf[8] = hs_len as u8;
+            // Patch record length
+            let record_len = (buf.len() - 5) as u16;
+            buf[3..5].copy_from_slice(&record_len.to_be_bytes());
+
+            let manual = tls_marker_info(&buf);
+            let nom_result = parse_client_hello_record(&buf)
+                .and_then(|p| to_marker_info(&p, buf.len()));
+            proptest::prop_assert_eq!(manual, nom_result,
+                "manual and nom parsers disagree on generated ClientHello");
+        }
+    }
 }
