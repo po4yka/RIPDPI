@@ -22,7 +22,7 @@ pub(crate) fn extract_host(config: &RuntimeConfig, payload: &[u8]) -> Option<Str
 }
 
 pub(crate) fn group_requires_payload(group: &DesyncGroup) -> bool {
-    !group.filters.hosts.is_empty() || (group.proto & (IS_HTTP | IS_HTTPS)) != 0
+    !group.matches.filters.hosts.is_empty() || (group.matches.proto & (IS_HTTP | IS_HTTPS)) != 0
 }
 
 pub(crate) fn route_matches_payload(
@@ -52,39 +52,39 @@ pub(super) fn group_matches(
     match payload {
         Some(payload) => matches_payload(config, group, payload),
         None if allow_unknown_payload => true,
-        None => group.filters.hosts.is_empty() && payload_proto_known(group),
+        None => group.matches.filters.hosts.is_empty() && payload_proto_known(group),
     }
 }
 
 fn payload_proto_known(group: &DesyncGroup) -> bool {
-    group.proto == 0 || (group.proto & (IS_HTTP | IS_HTTPS)) == 0
+    group.matches.proto == 0 || (group.matches.proto & (IS_HTTP | IS_HTTPS)) == 0
 }
 
 fn matches_l34(group: &DesyncGroup, dest: SocketAddr, transport: TransportProtocol) -> bool {
-    if (group.proto & IS_UDP) != 0 && transport != TransportProtocol::Udp {
+    if (group.matches.proto & IS_UDP) != 0 && transport != TransportProtocol::Udp {
         return false;
     }
-    if (group.proto & IS_TCP) != 0 && transport != TransportProtocol::Tcp {
+    if (group.matches.proto & IS_TCP) != 0 && transport != TransportProtocol::Tcp {
         return false;
     }
-    if (group.proto & IS_IPV4) != 0 && !dest.is_ipv4() {
+    if (group.matches.proto & IS_IPV4) != 0 && !dest.is_ipv4() {
         return false;
     }
-    if let Some((start, end)) = group.port_filter {
+    if let Some((start, end)) = group.matches.port_filter {
         let port = dest.port();
         if port < start || port > end {
             return false;
         }
     }
-    if !group.filters.ipset.is_empty() && !group.filters.ipset_match(dest.ip()) {
+    if !group.matches.filters.ipset.is_empty() && !group.matches.filters.ipset_match(dest.ip()) {
         return false;
     }
     true
 }
 
 fn matches_payload(config: &RuntimeConfig, group: &DesyncGroup, payload: &[u8]) -> bool {
-    if group.proto != 0 {
-        let l7 = group.proto & !(IS_TCP | IS_UDP | IS_IPV4);
+    if group.matches.proto != 0 {
+        let l7 = group.matches.proto & !(IS_TCP | IS_UDP | IS_IPV4);
         if l7 != 0 {
             let http = is_http(payload);
             let tls = is_tls_client_hello(payload);
@@ -94,10 +94,10 @@ fn matches_payload(config: &RuntimeConfig, group: &DesyncGroup, payload: &[u8]) 
             }
         }
     }
-    if group.filters.hosts.is_empty() {
+    if group.matches.filters.hosts.is_empty() {
         return true;
     }
-    extract_host(config, payload).as_deref().is_some_and(|host| group.filters.hosts_match(host))
+    extract_host(config, payload).as_deref().is_some_and(|host| group.matches.filters.hosts_match(host))
 }
 
 fn extract_quic_host(config: &RuntimeConfig, payload: &[u8]) -> Option<ExtractedHost> {
@@ -122,7 +122,7 @@ mod tests {
     #[test]
     fn matches_l34_rejects_udp_proto() {
         let mut group = DesyncGroup::new(0);
-        group.proto = IS_UDP;
+        group.matches.proto = IS_UDP;
         assert!(!matches_l34(&group, sample_dest(443), TransportProtocol::Tcp));
         assert!(matches_l34(&group, sample_dest(443), TransportProtocol::Udp));
     }
@@ -130,7 +130,7 @@ mod tests {
     #[test]
     fn matches_l34_port_filter_boundaries() {
         let mut group = DesyncGroup::new(0);
-        group.port_filter = Some((80, 443));
+        group.matches.port_filter = Some((80, 443));
         assert!(matches_l34(&group, sample_dest(80), TransportProtocol::Tcp));
         assert!(matches_l34(&group, sample_dest(443), TransportProtocol::Tcp));
         assert!(!matches_l34(&group, sample_dest(79), TransportProtocol::Tcp));
@@ -140,7 +140,7 @@ mod tests {
     #[test]
     fn matches_l34_ipv4_only_filter() {
         let mut group = DesyncGroup::new(0);
-        group.proto = IS_IPV4;
+        group.matches.proto = IS_IPV4;
         assert!(matches_l34(&group, sample_dest(443), TransportProtocol::Tcp));
         let ipv6_dest = SocketAddr::from(([0, 0, 0, 0, 0, 0, 0, 1], 443));
         assert!(!matches_l34(&group, ipv6_dest, TransportProtocol::Tcp));
@@ -150,9 +150,9 @@ mod tests {
     fn payload_proto_known_values() {
         let mut group = DesyncGroup::new(0);
         assert!(payload_proto_known(&group));
-        group.proto = IS_TCP;
+        group.matches.proto = IS_TCP;
         assert!(payload_proto_known(&group));
-        group.proto = IS_HTTP;
+        group.matches.proto = IS_HTTP;
         assert!(!payload_proto_known(&group));
     }
 
@@ -161,14 +161,14 @@ mod tests {
         let mut group = DesyncGroup::new(0);
         let config = RuntimeConfig::default();
         assert!(group_matches(&config, &group, sample_dest(80), None, false, TransportProtocol::Tcp));
-        group.filters.hosts.push("example.com".to_string());
+        group.matches.filters.hosts.push("example.com".to_string());
         assert!(!group_matches(&config, &group, sample_dest(80), None, false, TransportProtocol::Tcp));
     }
 
     #[test]
     fn matches_payload_l7_proto_filtering() {
         let mut group = DesyncGroup::new(0);
-        group.proto = IS_TCP | IS_HTTP;
+        group.matches.proto = IS_TCP | IS_HTTP;
         let config = RuntimeConfig::default();
         let http_payload = b"GET / HTTP/1.1\r\nHost: example.com\r\n\r\n";
         let tls_payload = ripdpi_packets::DEFAULT_FAKE_TLS;
@@ -179,7 +179,7 @@ mod tests {
     #[test]
     fn route_matches_payload_checks_host_filters() {
         let mut group = DesyncGroup::new(0);
-        group.filters.hosts.push("example.com".to_string());
+        group.matches.filters.hosts.push("example.com".to_string());
         let config = config_with_groups(vec![group]);
         let matching = b"GET / HTTP/1.1\r\nHost: example.com\r\n\r\n";
         let non_matching = b"GET / HTTP/1.1\r\nHost: other.example\r\n\r\n";
@@ -198,8 +198,8 @@ mod tests {
     #[test]
     fn udp_host_filters_match_quic_initial_payloads() {
         let mut group = DesyncGroup::new(0);
-        group.proto = IS_UDP;
-        group.filters.hosts.push("docs.example.test".to_string());
+        group.matches.proto = IS_UDP;
+        group.matches.filters.hosts.push("docs.example.test".to_string());
         let config = config_with_groups(vec![group]);
         let packet = rust_packet_seeds::quic_initial_v1();
 
@@ -211,20 +211,20 @@ mod tests {
         let mut group = DesyncGroup::new(0);
         assert!(!group_requires_payload(&group));
 
-        group.proto = IS_TCP;
+        group.matches.proto = IS_TCP;
         assert!(!group_requires_payload(&group));
 
-        group.proto = IS_UDP;
+        group.matches.proto = IS_UDP;
         assert!(!group_requires_payload(&group));
 
-        group.proto = IS_HTTP;
+        group.matches.proto = IS_HTTP;
         assert!(group_requires_payload(&group));
 
-        group.proto = IS_HTTPS | IS_TCP;
+        group.matches.proto = IS_HTTPS | IS_TCP;
         assert!(group_requires_payload(&group));
 
-        group.proto = 0;
-        group.filters.hosts.push("example.com".to_string());
+        group.matches.proto = 0;
+        group.matches.filters.hosts.push("example.com".to_string());
         assert!(group_requires_payload(&group));
     }
 

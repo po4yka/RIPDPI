@@ -225,11 +225,11 @@ mod tests {
         });
 
         let mut primary = DesyncGroup::new(0);
-        primary.proto = IS_HTTPS;
-        primary.tcp_chain.push(TcpChainStep::new(TcpChainStepKind::Disorder, OffsetExpr::tls_host(1)));
+        primary.matches.proto = IS_HTTPS;
+        primary.actions.tcp_chain.push(TcpChainStep::new(TcpChainStepKind::Disorder, OffsetExpr::tls_host(1)));
 
         let mut fallback = DesyncGroup::new(1);
-        fallback.detect = DETECT_CONNECT;
+        fallback.matches.detect = DETECT_CONNECT;
 
         let mut config = ripdpi_config::RuntimeConfig::default();
         config.groups = vec![primary, fallback];

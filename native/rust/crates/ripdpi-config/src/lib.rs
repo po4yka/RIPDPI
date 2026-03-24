@@ -181,7 +181,7 @@ mod tests {
         let group = &config.groups[0];
         let activation = group.activation_filter().expect("group activation filter");
 
-        assert_eq!(group.rounds, [2, 4]);
+        assert_eq!(group.matches.activation_filter.and_then(|filter| filter.round), Some(NumericRange::new(2, 4)));
         assert_eq!(activation.round, Some(NumericRange::new(2, 4)));
         assert_eq!(activation.payload_size, Some(NumericRange::new(64, 512)));
         assert_eq!(activation.stream_bytes, Some(NumericRange::new(0, 2047)));
@@ -196,8 +196,8 @@ mod tests {
         };
         let group = &config.groups[0];
 
-        assert_eq!(group.ttl, Some(9));
-        assert_eq!(group.auto_ttl, Some(AutoTtlConfig { delta: -1, min_ttl: 3, max_ttl: 12 }));
+        assert_eq!(group.actions.ttl, Some(9));
+        assert_eq!(group.actions.auto_ttl, Some(AutoTtlConfig { delta: -1, min_ttl: 3, max_ttl: 12 }));
     }
 
     #[test]
@@ -250,9 +250,16 @@ mod tests {
         };
         let group = &config.groups[0];
 
-        assert_eq!(group.quic_fake_profile, QuicFakeProfile::RealisticInitial);
-        assert_eq!(group.quic_fake_host.as_deref(), Some("video.example.test"));
-        assert_eq!(group.udp_fake_count, 2);
+        assert_eq!(group.actions.quic_fake_profile, QuicFakeProfile::RealisticInitial);
+        assert_eq!(group.actions.quic_fake_host.as_deref(), Some("video.example.test"));
+        assert_eq!(
+            group.actions.udp_chain,
+            vec![UdpChainStep {
+                kind: UdpChainStepKind::FakeBurst,
+                count: 2,
+                activation_filter: None,
+            }]
+        );
     }
 
     #[test]
@@ -273,9 +280,9 @@ mod tests {
         };
         let group = &config.groups[0];
 
-        assert_eq!(group.http_fake_profile, HttpFakeProfile::CloudflareGet);
-        assert_eq!(group.tls_fake_profile, TlsFakeProfile::GoogleChrome);
-        assert_eq!(group.udp_fake_profile, UdpFakeProfile::DnsQuery);
+        assert_eq!(group.actions.http_fake_profile, HttpFakeProfile::CloudflareGet);
+        assert_eq!(group.actions.tls_fake_profile, TlsFakeProfile::GoogleChrome);
+        assert_eq!(group.actions.udp_fake_profile, UdpFakeProfile::DnsQuery);
     }
 
     #[test]
@@ -287,7 +294,7 @@ mod tests {
         };
         let group = &config.groups[0];
 
-        assert_eq!(group.mod_http, MH_HMIX | MH_DMIX | MH_SPACE | MH_METHODEOL | MH_UNIXEOL);
+        assert_eq!(group.actions.mod_http, MH_HMIX | MH_DMIX | MH_SPACE | MH_METHODEOL | MH_UNIXEOL);
     }
 
     #[test]
@@ -458,7 +465,7 @@ mod tests {
     }
 
     #[test]
-    fn desync_group_adapter_views_round_trip() {
+    fn desync_group_nested_buckets_round_trip() {
         let mut group = DesyncGroup::new(2);
         let match_settings = DesyncGroupMatchSettings {
             detect: DETECT_CONNECT | DETECT_HTTP_LOCAT,
@@ -473,7 +480,6 @@ mod tests {
                 payload_size: Some(NumericRange::new(64, 512)),
                 stream_bytes: Some(NumericRange::new(0, 2048)),
             }),
-            rounds: [2, 4],
         };
         let split_offset = OffsetExpr::marker(OffsetBase::Host, 1);
         let tls_record = OffsetExpr::absolute(5);
@@ -482,7 +488,6 @@ mod tests {
             auto_ttl: Some(AutoTtlConfig { delta: -1, min_ttl: 3, max_ttl: 12 }),
             md5sig: true,
             fake_data: Some(vec![0x16, 0x03, 0x01]),
-            udp_fake_count: 2,
             fake_offset: Some(OffsetExpr::absolute(3)),
             fake_sni_list: vec!["cdn.example.test".to_string()],
             fake_mod: 3,
@@ -494,17 +499,15 @@ mod tests {
             quic_fake_host: Some("quic.example.test".to_string()),
             drop_sack: true,
             oob_data: Some(0x42),
-            parts: vec![PartSpec { mode: DesyncMode::Split, offset: split_offset }],
             tcp_chain: vec![
                 TcpChainStep::new(TcpChainStepKind::TlsRec, tls_record),
                 TcpChainStep::new(TcpChainStepKind::Split, split_offset),
             ],
             udp_chain: vec![UdpChainStep { kind: UdpChainStepKind::FakeBurst, count: 2, activation_filter: None }],
             mod_http: MH_HMIX | MH_SPACE,
-            tls_records: vec![tls_record],
             tlsminor: Some(1),
         };
-        let cache_settings = DesyncGroupCacheSettings {
+        let policy_settings = DesyncGroupPolicySettings {
             ext_socks: Some(UpstreamSocksConfig {
                 addr: SocketAddr::new(IpAddr::from_str("127.0.0.1").expect("proxy ip"), 1081),
             }),
@@ -515,13 +518,20 @@ mod tests {
             cache_file: Some("cache.txt".to_string()),
         };
 
-        group.apply_match_settings(match_settings.clone());
-        group.apply_action_settings(action_settings.clone());
-        group.apply_cache_settings(cache_settings.clone());
+        group.matches = match_settings.clone();
+        group.actions = action_settings.clone();
+        group.policy = policy_settings.clone();
 
-        assert_eq!(group.match_settings(), match_settings);
-        assert_eq!(group.action_settings(), action_settings);
-        assert_eq!(group.cache_settings(), cache_settings);
-        assert_eq!(group.rounds, [2, 4]);
+        assert_eq!(group.matches, match_settings);
+        assert_eq!(group.actions, action_settings);
+        assert_eq!(group.policy, policy_settings);
+        assert_eq!(
+            group.activation_filter(),
+            Some(ActivationFilter {
+                round: Some(NumericRange::new(2, 4)),
+                payload_size: Some(NumericRange::new(64, 512)),
+                stream_bytes: Some(NumericRange::new(0, 2048)),
+            })
+        );
     }
 }
