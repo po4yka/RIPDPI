@@ -835,3 +835,159 @@ fn serve_h2_doh(stream: TcpStream, config: Arc<ServerConfig>, expected_query: &[
     tls_stream.write_all(&data_frame).expect("write data frame");
     tls_stream.flush().expect("flush h2 response");
 }
+
+// ---------------------------------------------------------------------------
+// hickory-backend feature-gated tests
+// ---------------------------------------------------------------------------
+
+#[cfg(feature = "hickory-backend")]
+mod hickory_backend_tests {
+    use super::*;
+
+    /// When the resolver has custom TLS roots (as all test fixtures do), the
+    /// hickory backend is bypassed and the manual DoT path is used. This test
+    /// verifies that the SOCKS5 DoT path continues to use the manual
+    /// implementation even when the hickory-backend feature is enabled.
+    #[test]
+    fn dot_socks5_falls_back_to_manual_with_hickory_feature() {
+        let query = build_query("fixture.test");
+        let answer_ip = Ipv4Addr::new(198, 18, 0, 99);
+        let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("listener");
+        let port = listener.local_addr().expect("local addr").port();
+        let certificate = rcgen::generate_simple_self_signed(vec!["fixture.test".to_string()]).expect("certificate");
+        let certificate_der: CertificateDer<'static> = certificate.cert.der().clone();
+        let key_der = PrivateKeyDer::Pkcs8(PrivatePkcs8KeyDer::from(certificate.key_pair.serialize_der()));
+        let server_config = Arc::new(
+            ServerConfig::builder()
+                .with_no_client_auth()
+                .with_single_cert(vec![certificate_der.clone()], key_der)
+                .expect("server config"),
+        );
+        let server_query = query.clone();
+        let server_response = build_response(&query, answer_ip);
+        let server = thread::spawn(move || {
+            let (stream, _) = listener.accept().expect("accept");
+            serve_dot(stream, server_config, &server_query, &server_response);
+        });
+        let (proxy_port, proxy_handle) = start_socks_proxy("fixture.test", port, 1);
+
+        let resolver = EncryptedDnsResolver::with_extra_tls_roots(
+            EncryptedDnsEndpoint {
+                protocol: EncryptedDnsProtocol::Dot,
+                resolver_id: Some("fixture".to_string()),
+                host: "fixture.test".to_string(),
+                port,
+                tls_server_name: Some("fixture.test".to_string()),
+                bootstrap_ips: Vec::new(),
+                doh_url: None,
+                dnscrypt_provider_name: None,
+                dnscrypt_public_key: None,
+            },
+            EncryptedDnsTransport::Socks5 { host: "127.0.0.1".to_string(), port: proxy_port },
+            DEFAULT_TIMEOUT,
+            vec![certificate_der],
+        )
+        .expect("resolver builds");
+
+        let response = resolver.exchange_blocking(&query).expect("DoT SOCKS5 response");
+        let answers = extract_ip_answers(&response).expect("answers parse");
+        assert_eq!(answers, vec![answer_ip.to_string()]);
+        drop(resolver);
+        proxy_handle.join().expect("proxy thread completes");
+        server.join().expect("server thread completes");
+    }
+
+    /// Verify that custom-TLS-root resolvers fall back to the manual DoH path
+    /// even when the hickory-backend feature is enabled.
+    #[tokio::test]
+    async fn doh_falls_back_to_manual_when_custom_tls_roots_present() {
+        let query = build_query("fixture.test");
+        let answer_ip = Ipv4Addr::new(198, 18, 0, 100);
+        let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("listener");
+        let port = listener.local_addr().expect("local addr").port();
+        let certificate = rcgen::generate_simple_self_signed(vec!["fixture.test".to_string()]).expect("certificate");
+        let certificate_der: CertificateDer<'static> = certificate.cert.der().clone();
+        let key_der = PrivateKeyDer::Pkcs8(PrivatePkcs8KeyDer::from(certificate.key_pair.serialize_der()));
+        let server_config = Arc::new(
+            ServerConfig::builder()
+                .with_no_client_auth()
+                .with_single_cert(vec![certificate_der.clone()], key_der)
+                .expect("server config"),
+        );
+        let response_body = build_response(&query, answer_ip);
+        let server_query = query.clone();
+        let server_response = response_body.clone();
+        let server = thread::spawn(move || {
+            let (stream, _) = listener.accept().expect("accept");
+            serve_https_doh(stream, server_config, &server_query, &server_response);
+        });
+
+        // Has custom TLS roots -> hickory backend is bypassed, manual DoH is used.
+        let resolver = EncryptedDnsResolver::with_extra_tls_roots(
+            EncryptedDnsEndpoint {
+                protocol: EncryptedDnsProtocol::Doh,
+                resolver_id: Some("fixture".to_string()),
+                host: "fixture.test".to_string(),
+                port,
+                tls_server_name: Some("fixture.test".to_string()),
+                bootstrap_ips: vec![IpAddr::V4(Ipv4Addr::LOCALHOST)],
+                doh_url: Some(format!("https://fixture.test:{port}/dns-query")),
+                dnscrypt_provider_name: None,
+                dnscrypt_public_key: None,
+            },
+            EncryptedDnsTransport::Direct,
+            DEFAULT_TIMEOUT,
+            vec![certificate_der],
+        )
+        .expect("resolver builds");
+
+        let response = resolver.exchange(&query).await.expect("DoH response");
+        let answers = extract_ip_answers(&response).expect("answers parse");
+        assert_eq!(answers, vec![answer_ip.to_string()]);
+        server.join().expect("server joins");
+    }
+
+    /// The hickory_backend module functions should produce valid DNS wire bytes
+    /// from a well-formed query. We call the module against a public resolver
+    /// (if reachable) or verify that it returns the expected error shape.
+    #[tokio::test]
+    async fn hickory_backend_module_produces_valid_wire_bytes() {
+        use crate::hickory_backend;
+
+        let query = build_query("example.com");
+        let endpoint = EncryptedDnsEndpoint {
+            protocol: EncryptedDnsProtocol::Dot,
+            resolver_id: None,
+            host: "1.1.1.1".to_string(),
+            port: 853,
+            tls_server_name: Some("cloudflare-dns.com".to_string()),
+            bootstrap_ips: vec!["1.1.1.1".parse().expect("ip")],
+            doh_url: None,
+            dnscrypt_provider_name: None,
+            dnscrypt_public_key: None,
+        };
+
+        // This test tries to reach the real Cloudflare DNS. If the network is
+        // unreachable (CI sandbox, offline machine), the error is accepted.
+        let result = hickory_backend::exchange_dot(&endpoint, &query, Duration::from_secs(5)).await;
+
+        match result {
+            Ok(response_bytes) => {
+                // Must be parseable DNS wire format.
+                let msg = Message::from_vec(&response_bytes).expect("response parses as DNS");
+                assert!(msg.answer_count() > 0, "expected at least one answer record");
+                // Verify we can also extract IPs from the response.
+                let ips = extract_ip_answers(&response_bytes).expect("IP extraction works");
+                assert!(!ips.is_empty(), "expected at least one IP answer");
+            }
+            Err(EncryptedDnsError::Request(msg)) => {
+                // Network unreachable is acceptable in CI/offline environments.
+                assert!(
+                    msg.contains("io error") || msg.contains("timeout") || msg.contains("connection"),
+                    "unexpected error: {msg}"
+                );
+            }
+            Err(other) => panic!("unexpected error type: {other}"),
+        }
+    }
+}

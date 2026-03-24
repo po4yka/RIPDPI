@@ -12,6 +12,7 @@ crypto_box = { workspace = true }
 ed25519-dalek = { workspace = true }
 hex = { workspace = true }
 hickory-proto = { workspace = true }
+hickory-resolver = { workspace = true, optional = true }
 lru = { workspace = true }
 once_cell = { workspace = true }
 rand = { workspace = true }
@@ -22,6 +23,9 @@ tokio = { workspace = true }
 tokio-rustls = { workspace = true }
 url = { workspace = true }
 webpki-roots = { workspace = true }
+
+[features]
+hickory-backend = ["dep:hickory-resolver"]
 
 [dev-dependencies]
 local-network-fixture = { workspace = true }
