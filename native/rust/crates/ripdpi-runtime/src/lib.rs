@@ -5,6 +5,8 @@ use std::net::SocketAddr;
 #[cfg(not(feature = "loom"))]
 use std::sync::OnceLock;
 
+use arc_swap::ArcSwap;
+
 use crate::sync::{Arc, AtomicBool, Ordering};
 
 use ripdpi_failure_classifier::ClassifiedFailure;
@@ -72,7 +74,10 @@ pub struct EmbeddedProxyControl {
     telemetry: Option<Arc<dyn RuntimeTelemetrySink>>,
     runtime_context: Option<ProxyRuntimeContext>,
     /// Live OS network state snapshot, pushed from Kotlin on each NetworkCallback event.
-    network_snapshot: Arc<std::sync::Mutex<Option<NetworkSnapshot>>>,
+    /// Uses `ArcSwap` for lock-free reads on the per-connection hot path.
+    /// Not behind the loom-abstracted `sync` module: arc-swap is not loom-compatible,
+    /// and no loom tests exercise this field.
+    network_snapshot: Arc<ArcSwap<Option<NetworkSnapshot>>>,
 }
 
 impl std::fmt::Debug for EmbeddedProxyControl {
@@ -105,7 +110,7 @@ impl EmbeddedProxyControl {
             shutdown: Arc::new(AtomicBool::new(false)),
             telemetry,
             runtime_context,
-            network_snapshot: Arc::new(std::sync::Mutex::new(None)),
+            network_snapshot: Arc::new(ArcSwap::from_pointee(None)),
         }
     }
 
@@ -131,14 +136,12 @@ impl EmbeddedProxyControl {
 
     /// Push a fresh OS network state snapshot. Safe to call from any thread while the proxy runs.
     pub fn update_network_snapshot(&self, snapshot: NetworkSnapshot) {
-        if let Ok(mut slot) = self.network_snapshot.lock() {
-            *slot = Some(snapshot);
-        }
+        self.network_snapshot.store(Arc::new(Some(snapshot)));
     }
 
     /// Read the most recently pushed OS network state snapshot, if any.
     pub fn current_network_snapshot(&self) -> Option<NetworkSnapshot> {
-        self.network_snapshot.lock().ok().and_then(|slot| slot.clone())
+        (**self.network_snapshot.load()).clone()
     }
 }
 

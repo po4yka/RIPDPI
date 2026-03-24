@@ -8,6 +8,7 @@ license.workspace = true
 workspace = true
 
 [dependencies]
+arc-swap = { workspace = true }
 ripdpi-config = { workspace = true }
 ripdpi-desync = { workspace = true }
 ripdpi-packets = { workspace = true }
