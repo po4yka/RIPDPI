@@ -2,6 +2,8 @@ use std::collections::VecDeque;
 use std::sync::atomic::{AtomicBool, AtomicI64, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, PoisonError};
 
+use arc_swap::ArcSwap;
+
 use android_support::log_with_level;
 use ripdpi_failure_classifier::ClassifiedFailure;
 use ripdpi_runtime::RuntimeTelemetrySink;
@@ -87,6 +89,7 @@ pub(crate) struct NativeRuntimeSnapshot {
     pub(crate) captured_at: u64,
 }
 
+#[derive(Clone)]
 struct TelemetryStrings {
     listener_address: Option<String>,
     upstream_address: Option<String>,
@@ -99,7 +102,6 @@ struct TelemetryStrings {
     last_retry_reason: Option<String>,
     last_autolearn_host: Option<String>,
     last_autolearn_action: Option<String>,
-    events: VecDeque<NativeRuntimeEvent>,
 }
 
 pub(crate) struct ProxyTelemetryState {
@@ -120,7 +122,8 @@ pub(crate) struct ProxyTelemetryState {
     penalized_host_count: AtomicU64,
     last_autolearn_group: AtomicI64,
     slot_exhaustions: AtomicU64,
-    strings: Mutex<TelemetryStrings>,
+    strings: ArcSwap<TelemetryStrings>,
+    events: Mutex<VecDeque<NativeRuntimeEvent>>,
     tcp_connect_histogram: LatencyHistogram,
     tls_handshake_histogram: LatencyHistogram,
 }
@@ -147,7 +150,7 @@ impl ProxyTelemetryState {
             penalized_host_count: AtomicU64::new(0),
             last_autolearn_group: AtomicI64::new(-1),
             slot_exhaustions: AtomicU64::new(0),
-            strings: Mutex::new(TelemetryStrings {
+            strings: ArcSwap::from_pointee(TelemetryStrings {
                 listener_address: None,
                 upstream_address: None,
                 upstream_rtt_ms: None,
@@ -159,8 +162,8 @@ impl ProxyTelemetryState {
                 last_retry_reason: None,
                 last_autolearn_host: None,
                 last_autolearn_action: None,
-                events: VecDeque::with_capacity(MAX_PROXY_EVENTS),
             }),
+            events: Mutex::new(VecDeque::with_capacity(MAX_PROXY_EVENTS)),
             tcp_connect_histogram: LatencyHistogram::new(),
             tls_handshake_histogram: LatencyHistogram::new(),
         }
@@ -174,15 +177,22 @@ impl ProxyTelemetryState {
         log_with_level(level, format!("subsystem=proxy session={} source={} {}", self.session_id, source, message));
     }
 
+    /// Atomically update string fields using compare-and-swap.
+    /// Retries on concurrent modification (rare at observed write frequencies).
+    fn update_strings<F: Fn(&mut TelemetryStrings)>(&self, f: F) {
+        self.strings.rcu(|current| {
+            let mut next = (**current).clone();
+            f(&mut next);
+            next
+        });
+    }
+
     pub(crate) fn mark_running(&self, bind_addr: String, max_clients: usize, group_count: usize) {
         self.running.store(true, Ordering::Relaxed);
         let message = format!("listener started addr={bind_addr} maxClients={max_clients} groups={group_count}");
         self.log_line("proxy", "info", &message);
-        {
-            let mut guard = self.strings.lock().unwrap_or_else(PoisonError::into_inner);
-            guard.listener_address = Some(bind_addr);
-            Self::push_event_to(&mut guard.events, "proxy", "info", message);
-        }
+        self.update_strings(|s| s.listener_address = Some(bind_addr.clone()));
+        self.push_event_internal("proxy", "info", message);
     }
 
     pub(crate) fn mark_stopped(&self) {
@@ -190,10 +200,7 @@ impl ProxyTelemetryState {
         self.active_sessions.store(0, Ordering::Relaxed);
         let message = "listener stopped".to_string();
         self.log_line("proxy", "info", &message);
-        {
-            let mut guard = self.strings.lock().unwrap_or_else(PoisonError::into_inner);
-            Self::push_event_to(&mut guard.events, "proxy", "info", message);
-        }
+        self.push_event_internal("proxy", "info", message);
     }
 
     pub(crate) fn on_client_accepted(&self) {
@@ -211,11 +218,8 @@ impl ProxyTelemetryState {
         self.total_errors.fetch_add(1, Ordering::Relaxed);
         let message = format!("client error: {error}");
         self.log_line("proxy", "warn", &message);
-        {
-            let mut guard = self.strings.lock().unwrap_or_else(PoisonError::into_inner);
-            guard.last_error = Some(error);
-            Self::push_event_to(&mut guard.events, "proxy", "warn", message);
-        }
+        self.update_strings(|s| s.last_error = Some(error.clone()));
+        self.push_event_internal("proxy", "warn", message);
     }
 
     pub(crate) fn on_client_io_error(&self, error: &std::io::Error) {
@@ -226,11 +230,8 @@ impl ProxyTelemetryState {
         let error_str = error.to_string();
         let message = format!("client error: {error_str}");
         self.log_line("proxy", "warn", &message);
-        {
-            let mut guard = self.strings.lock().unwrap_or_else(PoisonError::into_inner);
-            guard.last_error = Some(error_str);
-            Self::push_event_to(&mut guard.events, "proxy", "warn", message);
-        }
+        self.update_strings(|s| s.last_error = Some(error_str.clone()));
+        self.push_event_internal("proxy", "warn", message);
     }
 
     pub(crate) fn on_route_selected(&self, target: String, group_index: usize, host: Option<String>, phase: &str) {
@@ -243,12 +244,11 @@ impl ProxyTelemetryState {
             host.as_deref().unwrap_or("<none>")
         );
         self.log_line("proxy", "info", &message);
-        {
-            let mut guard = self.strings.lock().unwrap_or_else(PoisonError::into_inner);
-            guard.last_target = Some(target);
-            guard.last_host = host;
-            Self::push_event_to(&mut guard.events, "proxy", "info", message);
-        }
+        self.update_strings(|s| {
+            s.last_target = Some(target.clone());
+            s.last_host = host.clone();
+        });
+        self.push_event_internal("proxy", "info", message);
     }
 
     pub(crate) fn on_route_advanced(
@@ -270,12 +270,11 @@ impl ProxyTelemetryState {
             host.as_deref().unwrap_or("<none>")
         );
         self.log_line("proxy", "warn", &message);
-        {
-            let mut guard = self.strings.lock().unwrap_or_else(PoisonError::into_inner);
-            guard.last_target = Some(target);
-            guard.last_host = host;
-            Self::push_event_to(&mut guard.events, "proxy", "warn", message);
-        }
+        self.update_strings(|s| {
+            s.last_target = Some(target.clone());
+            s.last_host = host.clone();
+        });
+        self.push_event_internal("proxy", "warn", message);
     }
 
     pub(crate) fn on_failure_classified(&self, target: String, failure: &ClassifiedFailure, host: Option<String>) {
@@ -291,14 +290,18 @@ impl ProxyTelemetryState {
         );
         self.log_line("proxy", level, &message);
         {
-            let mut guard = self.strings.lock().unwrap_or_else(PoisonError::into_inner);
-            guard.last_target = Some(target);
-            guard.last_host = host;
-            guard.last_error = Some(failure.evidence.summary.clone());
-            guard.last_failure_class = Some(failure.class.as_str().to_string());
-            guard.last_fallback_action = Some(failure.action.as_str().to_string());
-            Self::push_event_to(&mut guard.events, "proxy", level, message);
+            let evidence = failure.evidence.summary.clone();
+            let class = failure.class.as_str().to_string();
+            let action = failure.action.as_str().to_string();
+            self.update_strings(|s| {
+                s.last_target = Some(target.clone());
+                s.last_host = host.clone();
+                s.last_error = Some(evidence.clone());
+                s.last_failure_class = Some(class.clone());
+                s.last_fallback_action = Some(action.clone());
+            });
         }
+        self.push_event_internal("proxy", level, message);
     }
 
     pub(crate) fn on_retry_paced(&self, target: String, group_index: usize, reason: &'static str, backoff_ms: u64) {
@@ -313,22 +316,23 @@ impl ProxyTelemetryState {
             format!("retry pacing target={target} group={group_index} reason={reason} backoffMs={backoff_ms}");
         self.log_line("proxy", "info", &message);
         {
-            let mut guard = self.strings.lock().unwrap_or_else(PoisonError::into_inner);
-            guard.last_target = Some(target);
-            guard.last_retry_reason = Some(reason.to_string());
-            Self::push_event_to(&mut guard.events, "proxy", "info", message);
+            let reason_str = reason.to_string();
+            self.update_strings(|s| {
+                s.last_target = Some(target.clone());
+                s.last_retry_reason = Some(reason_str.clone());
+            });
         }
+        self.push_event_internal("proxy", "info", message);
     }
 
     pub(crate) fn on_upstream_connected(&self, upstream_address: String, upstream_rtt_ms: Option<u64>) {
         if let Some(rtt_ms) = upstream_rtt_ms {
             self.tcp_connect_histogram.record(rtt_ms);
         }
-        {
-            let mut guard = self.strings.lock().unwrap_or_else(PoisonError::into_inner);
-            guard.upstream_address = Some(upstream_address);
-            guard.upstream_rtt_ms = upstream_rtt_ms;
-        }
+        self.update_strings(|s| {
+            s.upstream_address = Some(upstream_address.clone());
+            s.upstream_rtt_ms = upstream_rtt_ms;
+        });
     }
 
     pub(crate) fn on_tls_handshake_completed(&self, latency_ms: u64) {
@@ -353,43 +357,31 @@ impl ProxyTelemetryState {
         );
         self.log_line("autolearn", level, &message);
         {
-            let mut guard = self.strings.lock().unwrap_or_else(PoisonError::into_inner);
-            guard.last_autolearn_host = host;
-            guard.last_autolearn_action = Some(action.to_string());
-            Self::push_event_to(&mut guard.events, "autolearn", level, message);
+            let action_str = action.to_string();
+            self.update_strings(|s| {
+                s.last_autolearn_host = host.clone();
+                s.last_autolearn_action = Some(action_str.clone());
+            });
         }
+        self.push_event_internal("autolearn", level, message);
     }
 
     pub(crate) fn snapshot(&self) -> NativeRuntimeSnapshot {
-        let (
-            listener_address,
-            upstream_address,
-            upstream_rtt_ms,
-            last_target,
-            last_host,
-            last_error,
-            last_failure_class,
-            last_fallback_action,
-            last_retry_reason,
-            last_autolearn_host,
-            last_autolearn_action,
-            native_events,
-        ) = {
-            let mut guard = self.strings.lock().unwrap_or_else(PoisonError::into_inner);
-            (
-                guard.listener_address.clone(),
-                guard.upstream_address.clone(),
-                guard.upstream_rtt_ms,
-                guard.last_target.clone(),
-                guard.last_host.clone(),
-                guard.last_error.clone(),
-                guard.last_failure_class.clone(),
-                guard.last_fallback_action.clone(),
-                guard.last_retry_reason.clone(),
-                guard.last_autolearn_host.clone(),
-                guard.last_autolearn_action.clone(),
-                guard.events.drain(..).collect(),
-            )
+        let strings = self.strings.load();
+        let listener_address = strings.listener_address.clone();
+        let upstream_address = strings.upstream_address.clone();
+        let upstream_rtt_ms = strings.upstream_rtt_ms;
+        let last_target = strings.last_target.clone();
+        let last_host = strings.last_host.clone();
+        let last_error = strings.last_error.clone();
+        let last_failure_class = strings.last_failure_class.clone();
+        let last_fallback_action = strings.last_fallback_action.clone();
+        let last_retry_reason = strings.last_retry_reason.clone();
+        let last_autolearn_host = strings.last_autolearn_host.clone();
+        let last_autolearn_action = strings.last_autolearn_action.clone();
+        let native_events: Vec<NativeRuntimeEvent> = {
+            let mut guard = self.events.lock().unwrap_or_else(PoisonError::into_inner);
+            guard.drain(..).collect()
         };
 
         NativeRuntimeSnapshot {
@@ -451,21 +443,20 @@ impl ProxyTelemetryState {
     }
 
     pub(crate) fn clear_last_error(&self) {
-        let mut guard = self.strings.lock().unwrap_or_else(PoisonError::into_inner);
-        guard.last_error = None;
+        self.update_strings(|s| s.last_error = None);
     }
 
     pub(crate) fn push_event(&self, source: &str, level: &str, message: String) {
         self.log_line(source, level, &message);
-        let mut guard = self.strings.lock().unwrap_or_else(PoisonError::into_inner);
-        Self::push_event_to(&mut guard.events, source, level, message);
+        self.push_event_internal(source, level, message);
     }
 
-    fn push_event_to(events: &mut VecDeque<NativeRuntimeEvent>, source: &str, level: &str, message: String) {
-        if events.len() >= MAX_PROXY_EVENTS {
-            events.pop_front();
+    fn push_event_internal(&self, source: &str, level: &str, message: String) {
+        let mut guard = self.events.lock().unwrap_or_else(PoisonError::into_inner);
+        if guard.len() >= MAX_PROXY_EVENTS {
+            guard.pop_front();
         }
-        events.push_back(NativeRuntimeEvent {
+        guard.push_back(NativeRuntimeEvent {
             source: source.to_string(),
             level: level.to_string(),
             message,
