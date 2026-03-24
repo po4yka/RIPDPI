@@ -68,41 +68,16 @@ fn adjust_tls_lengths(buffer: &mut [u8], ext_len_start: usize, delta: isize) -> 
 }
 
 pub(crate) fn tls_client_hello_marker_info_in_handshake(buffer: &[u8]) -> Option<TlsMarkerInfo> {
-    if buffer.first().copied() != Some(0x01) {
-        return None;
-    }
-    let handshake_len = read_u24(buffer, 1)?;
-    let client_hello = buffer.get(..4 + handshake_len)?;
-    let ext_len_start = find_tls_ext_len_offset_in_handshake(client_hello)?;
-    let sni_ext_offset = find_tls_ext_offset(0x0000, client_hello, ext_len_start)?;
-    if sni_ext_offset + 12 >= client_hello.len() {
-        return None;
-    }
-    let host_len = read_u16(client_hello, sni_ext_offset + 7)?;
-    let host_start = sni_ext_offset + 9;
-    let host_end = host_start + host_len;
-    if host_end > client_hello.len() {
-        return None;
-    }
-    Some(TlsMarkerInfo { ext_len_start, sni_ext_start: sni_ext_offset + 4, host_start, host_end })
+    let parsed = crate::tls_nom::parse_client_hello_handshake(buffer)?;
+    crate::tls_nom::to_marker_info(&parsed, buffer.len())
 }
 
 fn tls_client_hello_marker_info_in_record(buffer: &[u8]) -> Option<TlsMarkerInfo> {
     if !is_tls_client_hello(buffer) {
         return None;
     }
-    let ext_len_start = find_tls_ext_len_offset(buffer)?;
-    let sni_ext_offset = find_tls_ext_offset(0x0000, buffer, ext_len_start)?;
-    if sni_ext_offset + 12 >= buffer.len() {
-        return None;
-    }
-    let host_len = read_u16(buffer, sni_ext_offset + 7)?;
-    let host_start = sni_ext_offset + 9;
-    let host_end = host_start + host_len;
-    if host_end > buffer.len() {
-        return None;
-    }
-    Some(TlsMarkerInfo { ext_len_start, sni_ext_start: sni_ext_offset + 4, host_start, host_end })
+    let parsed = crate::tls_nom::parse_client_hello_record(buffer)?;
+    crate::tls_nom::to_marker_info(&parsed, buffer.len())
 }
 
 fn merge_tls_records(buffer: &mut [u8], n: usize) -> usize {
