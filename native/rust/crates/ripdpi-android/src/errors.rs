@@ -48,10 +48,9 @@ pub(crate) fn extract_panic_message(payload: Box<dyn Any + Send>) -> String {
 mod tests {
     use super::*;
 
-    use android_support::describe_exception;
-    use jni::JNIEnv;
     use std::io;
-    use std::sync::MutexGuard;
+
+    use crate::support::{lock_jni_tests, take_exception, with_env};
 
     #[test]
     fn throw_maps_argument_errors_to_illegal_argument_exception() {
@@ -88,18 +87,5 @@ mod tests {
         assert_eq!(extract_panic_message(Box::new(String::from("owned panic"))), "owned panic");
         assert_eq!(extract_panic_message(Box::new("borrowed panic")), "borrowed panic");
         assert_eq!(extract_panic_message(Box::new(42usize)), "unknown panic");
-    }
-
-    fn lock_jni_tests() -> MutexGuard<'static, ()> {
-        crate::shared_jni_test_mutex().lock().unwrap_or_else(std::sync::PoisonError::into_inner)
-    }
-
-    fn with_env<R>(f: impl FnOnce(&mut JNIEnv<'_>) -> R) -> R {
-        let mut env = crate::shared_test_jvm().attach_current_thread().expect("attach current thread to test JVM");
-        f(&mut env)
-    }
-
-    fn take_exception(env: &mut JNIEnv<'_>) -> String {
-        describe_exception(env).expect("expected Java exception")
     }
 }
