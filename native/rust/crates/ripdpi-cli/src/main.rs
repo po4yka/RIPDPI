@@ -34,7 +34,7 @@ fn main() -> ExitCode {
 }
 
 fn run_proxy(config: ripdpi_config::RuntimeConfig) -> ExitCode {
-    init_logging(config.debug);
+    init_logging(config.process.debug);
 
     let sink = Arc::new(TracingTelemetrySink::new());
     install_runtime_telemetry(sink.clone());
@@ -48,8 +48,8 @@ fn run_proxy(config: ripdpi_config::RuntimeConfig) -> ExitCode {
     };
 
     tracing::info!(
-        ip = %config.listen.listen_ip,
-        port = config.listen.listen_port,
+        ip = %config.network.listen.listen_ip,
+        port = config.network.listen.listen_port,
         groups = config.groups.len(),
         "starting proxy"
     );

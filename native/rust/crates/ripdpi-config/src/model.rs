@@ -1,9 +1,7 @@
 use ripdpi_packets::{HttpFakeProfile, TlsFakeProfile, UdpFakeProfile};
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, TcpListener};
 
-use crate::{
-    HOST_AUTOLEARN_DEFAULT_MAX_HOSTS, HOST_AUTOLEARN_DEFAULT_PENALTY_TTL_SECS, HOST_AUTOLEARN_DEFAULT_STORE_FILE,
-};
+use crate::{HOST_AUTOLEARN_DEFAULT_MAX_HOSTS, HOST_AUTOLEARN_DEFAULT_PENALTY_TTL_SECS};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct NumericRange<T> {
@@ -619,41 +617,12 @@ pub struct ListenConfig {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RuntimeConfig {
-    pub listen: ListenConfig,
-    pub resolve: bool,
-    pub ipv6: bool,
-    pub udp: bool,
-    pub transparent: bool,
-    pub http_connect: bool,
-    pub shadowsocks: bool,
-    pub delay_conn: bool,
-    pub tfo: bool,
-    pub max_open: i32,
-    pub debug: i32,
-    pub buffer_size: usize,
-    pub default_ttl: u8,
-    pub custom_ttl: bool,
-    pub timeout_ms: u32,
-    pub partial_timeout_ms: u32,
-    pub timeout_count_limit: i32,
-    pub timeout_bytes_limit: i32,
-    pub auto_level: u32,
-    pub cache_ttl: i64,
-    pub cache_prefix: u8,
-    pub wait_send: bool,
-    pub await_interval: i32,
-    pub protect_path: Option<String>,
-    pub daemonize: bool,
-    pub pid_file: Option<String>,
-    pub quic_initial_mode: QuicInitialMode,
-    pub quic_support_v1: bool,
-    pub quic_support_v2: bool,
-    pub host_autolearn_enabled: bool,
-    pub host_autolearn_penalty_ttl_secs: i64,
-    pub host_autolearn_max_hosts: usize,
-    pub host_autolearn_store_path: Option<String>,
-    pub network_scope_key: Option<String>,
-    pub ws_tunnel_mode: WsTunnelMode,
+    pub network: RuntimeNetworkSettings,
+    pub timeouts: RuntimeTimeoutSettings,
+    pub process: RuntimeProcessSettings,
+    pub quic: RuntimeQuicSettings,
+    pub adaptive: RuntimeAdaptiveSettings,
+    pub host_autolearn: HostAutolearnSettings,
     pub groups: Vec<DesyncGroup>,
 }
 
@@ -716,7 +685,7 @@ pub struct HostAutolearnSettings {
     pub store_path: Option<String>,
 }
 
-impl Default for RuntimeConfig {
+impl Default for RuntimeNetworkSettings {
     fn default() -> Self {
         let ipv6 = ipv6_supported();
         Self {
@@ -734,31 +703,70 @@ impl Default for RuntimeConfig {
             delay_conn: false,
             tfo: false,
             max_open: 512,
-            debug: 0,
             buffer_size: 16_384,
             default_ttl: 0,
             custom_ttl: false,
+        }
+    }
+}
+
+impl Default for RuntimeTimeoutSettings {
+    fn default() -> Self {
+        Self {
             timeout_ms: 0,
             partial_timeout_ms: 0,
             timeout_count_limit: 0,
             timeout_bytes_limit: 0,
+            wait_send: false,
+            await_interval: 10,
+        }
+    }
+}
+
+impl Default for RuntimeProcessSettings {
+    fn default() -> Self {
+        Self { debug: 0, protect_path: None, daemonize: false, pid_file: None }
+    }
+}
+
+impl Default for RuntimeQuicSettings {
+    fn default() -> Self {
+        Self { initial_mode: QuicInitialMode::RouteAndCache, support_v1: true, support_v2: true }
+    }
+}
+
+impl Default for RuntimeAdaptiveSettings {
+    fn default() -> Self {
+        Self {
             auto_level: 0,
             cache_ttl: 0,
             cache_prefix: 0,
-            wait_send: false,
-            await_interval: 10,
-            protect_path: None,
-            daemonize: false,
-            pid_file: None,
-            quic_initial_mode: QuicInitialMode::RouteAndCache,
-            quic_support_v1: true,
-            quic_support_v2: true,
-            host_autolearn_enabled: false,
-            host_autolearn_penalty_ttl_secs: HOST_AUTOLEARN_DEFAULT_PENALTY_TTL_SECS,
-            host_autolearn_max_hosts: HOST_AUTOLEARN_DEFAULT_MAX_HOSTS,
-            host_autolearn_store_path: None,
             network_scope_key: None,
             ws_tunnel_mode: WsTunnelMode::Off,
+        }
+    }
+}
+
+impl Default for HostAutolearnSettings {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            penalty_ttl_secs: HOST_AUTOLEARN_DEFAULT_PENALTY_TTL_SECS,
+            max_hosts: HOST_AUTOLEARN_DEFAULT_MAX_HOSTS,
+            store_path: None,
+        }
+    }
+}
+
+impl Default for RuntimeConfig {
+    fn default() -> Self {
+        Self {
+            network: RuntimeNetworkSettings::default(),
+            timeouts: RuntimeTimeoutSettings::default(),
+            process: RuntimeProcessSettings::default(),
+            quic: RuntimeQuicSettings::default(),
+            adaptive: RuntimeAdaptiveSettings::default(),
+            host_autolearn: HostAutolearnSettings::default(),
             groups: vec![DesyncGroup::new(0)],
         }
     }
@@ -767,125 +775,6 @@ impl Default for RuntimeConfig {
 impl RuntimeConfig {
     pub fn actionable_group(&self) -> usize {
         self.groups.iter().position(DesyncGroup::is_actionable).unwrap_or(0)
-    }
-
-    pub fn network_settings(&self) -> RuntimeNetworkSettings {
-        RuntimeNetworkSettings {
-            listen: self.listen.clone(),
-            resolve: self.resolve,
-            ipv6: self.ipv6,
-            udp: self.udp,
-            transparent: self.transparent,
-            http_connect: self.http_connect,
-            shadowsocks: self.shadowsocks,
-            delay_conn: self.delay_conn,
-            tfo: self.tfo,
-            max_open: self.max_open,
-            buffer_size: self.buffer_size,
-            default_ttl: self.default_ttl,
-            custom_ttl: self.custom_ttl,
-        }
-    }
-
-    pub fn apply_network_settings(&mut self, settings: RuntimeNetworkSettings) {
-        self.listen = settings.listen;
-        self.resolve = settings.resolve;
-        self.ipv6 = settings.ipv6;
-        self.udp = settings.udp;
-        self.transparent = settings.transparent;
-        self.http_connect = settings.http_connect;
-        self.shadowsocks = settings.shadowsocks;
-        self.delay_conn = settings.delay_conn;
-        self.tfo = settings.tfo;
-        self.max_open = settings.max_open;
-        self.buffer_size = settings.buffer_size;
-        self.default_ttl = settings.default_ttl;
-        self.custom_ttl = settings.custom_ttl;
-    }
-
-    pub fn timeout_settings(&self) -> RuntimeTimeoutSettings {
-        RuntimeTimeoutSettings {
-            timeout_ms: self.timeout_ms,
-            partial_timeout_ms: self.partial_timeout_ms,
-            timeout_count_limit: self.timeout_count_limit,
-            timeout_bytes_limit: self.timeout_bytes_limit,
-            wait_send: self.wait_send,
-            await_interval: self.await_interval,
-        }
-    }
-
-    pub fn apply_timeout_settings(&mut self, settings: RuntimeTimeoutSettings) {
-        self.timeout_ms = settings.timeout_ms;
-        self.partial_timeout_ms = settings.partial_timeout_ms;
-        self.timeout_count_limit = settings.timeout_count_limit;
-        self.timeout_bytes_limit = settings.timeout_bytes_limit;
-        self.wait_send = settings.wait_send;
-        self.await_interval = settings.await_interval;
-    }
-
-    pub fn process_settings(&self) -> RuntimeProcessSettings {
-        RuntimeProcessSettings {
-            debug: self.debug,
-            protect_path: self.protect_path.clone(),
-            daemonize: self.daemonize,
-            pid_file: self.pid_file.clone(),
-        }
-    }
-
-    pub fn apply_process_settings(&mut self, settings: RuntimeProcessSettings) {
-        self.debug = settings.debug;
-        self.protect_path = settings.protect_path;
-        self.daemonize = settings.daemonize;
-        self.pid_file = settings.pid_file;
-    }
-
-    pub fn quic_settings(&self) -> RuntimeQuicSettings {
-        RuntimeQuicSettings {
-            initial_mode: self.quic_initial_mode,
-            support_v1: self.quic_support_v1,
-            support_v2: self.quic_support_v2,
-        }
-    }
-
-    pub fn apply_quic_settings(&mut self, settings: RuntimeQuicSettings) {
-        self.quic_initial_mode = settings.initial_mode;
-        self.quic_support_v1 = settings.support_v1;
-        self.quic_support_v2 = settings.support_v2;
-    }
-
-    pub fn adaptive_settings(&self) -> RuntimeAdaptiveSettings {
-        RuntimeAdaptiveSettings {
-            auto_level: self.auto_level,
-            cache_ttl: self.cache_ttl,
-            cache_prefix: self.cache_prefix,
-            network_scope_key: self.network_scope_key.clone(),
-            ws_tunnel_mode: self.ws_tunnel_mode,
-        }
-    }
-
-    pub fn apply_adaptive_settings(&mut self, settings: RuntimeAdaptiveSettings) {
-        self.auto_level = settings.auto_level;
-        self.cache_ttl = settings.cache_ttl;
-        self.cache_prefix = settings.cache_prefix;
-        self.network_scope_key = settings.network_scope_key;
-        self.ws_tunnel_mode = settings.ws_tunnel_mode;
-    }
-
-    pub fn host_autolearn_settings(&self) -> HostAutolearnSettings {
-        HostAutolearnSettings {
-            enabled: self.host_autolearn_enabled,
-            penalty_ttl_secs: self.host_autolearn_penalty_ttl_secs,
-            max_hosts: self.host_autolearn_max_hosts,
-            store_path: self.host_autolearn_store_path.clone(),
-        }
-    }
-
-    pub fn apply_host_autolearn_settings(&mut self, settings: HostAutolearnSettings) {
-        self.host_autolearn_enabled = settings.enabled;
-        self.host_autolearn_penalty_ttl_secs = settings.penalty_ttl_secs;
-        self.host_autolearn_max_hosts = settings.max_hosts;
-        self.host_autolearn_store_path =
-            settings.store_path.or_else(|| settings.enabled.then(|| HOST_AUTOLEARN_DEFAULT_STORE_FILE.to_owned()));
     }
 }
 

@@ -486,7 +486,7 @@ fn proxy_config(args: &[&str]) -> ripdpi_config::RuntimeConfig {
 
 fn ephemeral_proxy_config(args: &[&str]) -> ripdpi_config::RuntimeConfig {
     let mut config = proxy_config(args);
-    config.listen.listen_port = 0;
+    config.network.listen.listen_port = 0;
     config
 }
 

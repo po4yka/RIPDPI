@@ -166,7 +166,7 @@ pub(super) fn udp_associate_loop(
                             adaptive_hints,
                         )
                     };
-                    let actions = plan_udp(group, payload, state.config.default_ttl, activation);
+                    let actions = plan_udp(group, payload, state.config.network.default_ttl, activation);
                     let entry = flow_state
                         .get(&(sender, target))
                         .ok_or_else(|| io::Error::other("udp flow entry missing after insert"))?;
@@ -311,7 +311,7 @@ pub(super) fn parse_socks5_udp_packet<'a>(packet: &'a [u8], config: &RuntimeConf
             Some((SocketAddr::new(IpAddr::V4(ip), port), &packet[10..]))
         }
         S_ATP_I6 => {
-            if packet.len() < 22 || !config.ipv6 {
+            if packet.len() < 22 || !config.network.ipv6 {
                 return None;
             }
             let mut raw = [0u8; 16];
@@ -322,7 +322,7 @@ pub(super) fn parse_socks5_udp_packet<'a>(packet: &'a [u8], config: &RuntimeConf
         0x03 => {
             let len = *packet.get(4)? as usize;
             let offset = 5 + len;
-            if packet.len() < offset + 2 || !config.resolve {
+            if packet.len() < offset + 2 || !config.network.resolve {
                 return None;
             }
             let host = std::str::from_utf8(&packet[5..offset]).ok()?;
@@ -381,7 +381,7 @@ fn set_udp_ttl(relay: &UdpSocket, target: SocketAddr, ttl: u8) -> io::Result<()>
 
 fn should_cache_udp_host(config: &RuntimeConfig, host: Option<&crate::runtime_policy::ExtractedHost>) -> bool {
     match host.map(|value| value.source) {
-        Some(HostSource::Quic) => matches!(config.quic_initial_mode, QuicInitialMode::RouteAndCache),
+        Some(HostSource::Quic) => matches!(config.quic.initial_mode, QuicInitialMode::RouteAndCache),
         Some(HostSource::Http | HostSource::Tls) => true,
         None => false,
     }
@@ -413,17 +413,18 @@ mod tests {
         let tls =
             crate::runtime_policy::ExtractedHost { host: "docs.example.test".to_string(), source: HostSource::Tls };
 
-        config.quic_initial_mode = QuicInitialMode::Route;
+        config.quic.initial_mode = QuicInitialMode::Route;
         assert!(!should_cache_udp_host(&config, Some(&quic)));
         assert!(should_cache_udp_host(&config, Some(&tls)));
 
-        config.quic_initial_mode = QuicInitialMode::RouteAndCache;
+        config.quic.initial_mode = QuicInitialMode::RouteAndCache;
         assert!(should_cache_udp_host(&config, Some(&quic)));
     }
 
     #[test]
     fn udp_packet_round_trip_preserves_ipv6_sender_and_payload() {
-        let mut config = RuntimeConfig { ipv6: true, ..RuntimeConfig::default() };
+        let mut config = RuntimeConfig::default();
+        config.network.ipv6 = true;
         let sender = SocketAddr::new(IpAddr::V6(Ipv6Addr::new(0x2001, 0xdb8, 0, 0, 0, 0, 0, 1)), 8443);
         let payload = b"quic-initial-stub";
         let packet = encode_socks5_udp_packet(sender, payload);
@@ -434,7 +435,7 @@ mod tests {
         assert_eq!(decoded_payload, payload);
 
         // IPv6 rejected when ipv6 disabled
-        config.ipv6 = false;
+        config.network.ipv6 = false;
         assert!(parse_socks5_udp_packet(&packet, &config).is_none());
     }
 
