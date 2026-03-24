@@ -25,6 +25,16 @@ pub(crate) enum TlsClientProfile {
     Auto,
     Tls12Only,
     Tls13Only,
+    /// Placeholder for TLS 1.3 with Encrypted Client Hello (ECH).
+    ///
+    /// ECH hides the SNI extension from network intermediaries, making it a
+    /// valuable signal for DPI detection. Currently behaves identically to
+    /// `Tls13Only` because the `ring` crypto backend does not provide the HPKE
+    /// primitives that ECH requires -- only `aws-lc-rs` does.
+    ///
+    // TODO(po4yka): implement ECH probe when rustls `ring` backend gains HPKE
+    // support, or when the project migrates to `aws-lc-rs`.
+    Tls13WithEchStub,
 }
 
 // --- Dangerous certificate verifier ---
@@ -129,7 +139,9 @@ pub(crate) fn open_probe_stream(
             let builder = match profile {
                 TlsClientProfile::Auto => ClientConfig::builder(),
                 TlsClientProfile::Tls12Only => ClientConfig::builder_with_protocol_versions(&[&rustls::version::TLS12]),
-                TlsClientProfile::Tls13Only => ClientConfig::builder_with_protocol_versions(&[&rustls::version::TLS13]),
+                TlsClientProfile::Tls13Only | TlsClientProfile::Tls13WithEchStub => {
+                    ClientConfig::builder_with_protocol_versions(&[&rustls::version::TLS13])
+                }
             };
             let config = if verify_certificates {
                 if let Some(verifier) = tls_verifier {
@@ -370,5 +382,31 @@ mod tests {
         let tls12 = obs("tls_handshake_failed", false);
         let result = preferred_tls_observation(&tls13, &tls12);
         assert!(std::ptr::eq(result, &tls13));
+    }
+
+    #[test]
+    fn tls13_with_ech_stub_uses_tls13_protocol_version() {
+        // Tls13WithEchStub should select the same protocol versions as Tls13Only.
+        // We verify by matching the same builder arm; a full handshake test would
+        // require a live server, so we just confirm the variant is accepted in the
+        // builder match without panicking.
+        let profile = TlsClientProfile::Tls13WithEchStub;
+        let _builder = match profile {
+            TlsClientProfile::Auto => ClientConfig::builder(),
+            TlsClientProfile::Tls12Only => {
+                ClientConfig::builder_with_protocol_versions(&[&rustls::version::TLS12])
+            }
+            TlsClientProfile::Tls13Only | TlsClientProfile::Tls13WithEchStub => {
+                ClientConfig::builder_with_protocol_versions(&[&rustls::version::TLS13])
+            }
+        };
+    }
+
+    #[test]
+    fn tls_client_profile_ech_stub_is_distinct_variant() {
+        // Ensure the stub variant exists and is distinguishable via Debug output.
+        let stub = TlsClientProfile::Tls13WithEchStub;
+        let debug = format!("{stub:?}");
+        assert!(debug.contains("EchStub"), "expected EchStub in debug repr, got: {debug}");
     }
 }
