@@ -147,13 +147,11 @@ impl Socks5RelayServer {
                                     }
                                 }
                                 0x01 => {
-                                    let target = match read_socks_target(&mut stream, header[3]) {
-                                        Ok(target) => target,
-                                        Err(_) => return,
+                                    let Ok(target) = read_socks_target(&mut stream, header[3]) else {
+                                        return;
                                     };
-                                    let upstream = match TcpStream::connect_timeout(&target, CONNECT_TIMEOUT) {
-                                        Ok(stream) => stream,
-                                        Err(_) => return,
+                                    let Ok(upstream) = TcpStream::connect_timeout(&target, CONNECT_TIMEOUT) else {
+                                        return;
                                     };
                                     let reply_addr = upstream
                                         .local_addr()
@@ -406,6 +404,31 @@ pub(crate) fn assert_monitor_json_golden(name: &str, actual_json: &str, http_por
     assert_text_golden(env!("CARGO_MANIFEST_DIR"), &format!("tests/golden/{name}.json"), &actual);
 }
 
+/// Replace `(os error <number>)` with `(os error _)` so goldens are
+/// platform-independent (macOS uses error 61, Linux uses 111, etc.).
+fn scrub_os_error_numbers(text: &str) -> String {
+    let marker = "(os error ";
+    let mut result = String::with_capacity(text.len());
+    let mut remaining = text;
+    while let Some(start) = remaining.find(marker) {
+        result.push_str(&remaining[..start]);
+        let after_marker = &remaining[start + marker.len()..];
+        if let Some(end) = after_marker.find(')') {
+            let digits = &after_marker[..end];
+            if !digits.is_empty() && digits.bytes().all(|b| b.is_ascii_digit()) {
+                result.push_str("(os error _)");
+                remaining = &after_marker[end + 1..];
+                continue;
+            }
+        }
+        // Not a match -- copy the marker literally and keep scanning.
+        result.push_str(marker);
+        remaining = after_marker;
+    }
+    result.push_str(remaining);
+    result
+}
+
 pub(crate) fn scrub_monitor_json(value: &mut Value, http_port: u16) {
     match value {
         Value::Array(items) => {
@@ -424,6 +447,7 @@ pub(crate) fn scrub_monitor_json(value: &mut Value, http_port: u16) {
         }
         Value::String(text) => {
             *text = text.replace(&format!("127.0.0.1:{http_port}"), "127.0.0.1:<port>");
+            *text = scrub_os_error_numbers(text);
         }
         _ => {}
     }
@@ -479,6 +503,7 @@ impl TlsHttpServer {
             while !stop_flag.load(Ordering::Relaxed) {
                 match listener.accept() {
                     Ok((stream, _)) => {
+                        stream.set_nonblocking(false).expect("set accepted tls stream blocking");
                         let config = config.clone();
                         let fat_mode = fat_mode.clone();
                         thread::spawn(move || {
@@ -519,21 +544,22 @@ pub(crate) struct PlainFatHeaderServer {
 impl PlainFatHeaderServer {
     pub(crate) fn start(mode: FatServerMode) -> Self {
         let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("bind plain fat");
-        listener.set_nonblocking(true).expect("set plain fat nonblocking");
         let addr = listener.local_addr().expect("plain fat addr");
         let stop = Arc::new(AtomicBool::new(false));
         let stop_flag = stop.clone();
+        // Use blocking accept + inline handling to avoid thread-starvation
+        // timeouts on resource-constrained hosts (e.g., Raspberry Pi running
+        // the full test suite in parallel). Non-blocking accept with a 20 ms
+        // poll sleep plus a per-connection thread::spawn added enough latency
+        // that clients hit IO_TIMEOUT (1.2 s) before the server responded.
         let handle = thread::spawn(move || {
             while !stop_flag.load(Ordering::Relaxed) {
                 match listener.accept() {
                     Ok((mut stream, _)) => {
-                        let mode = mode.clone();
-                        thread::spawn(move || {
-                            handle_plain_fat_client(&mut stream, mode);
-                        });
-                    }
-                    Err(err) if err.kind() == ErrorKind::WouldBlock => {
-                        thread::sleep(Duration::from_millis(20));
+                        if stop_flag.load(Ordering::Relaxed) {
+                            break;
+                        }
+                        handle_plain_fat_client(&mut stream, mode.clone());
                     }
                     Err(_) => break,
                 }
@@ -558,15 +584,18 @@ impl Drop for PlainFatHeaderServer {
 }
 
 pub(crate) fn handle_tls_client(stream: TcpStream, config: Arc<ServerConfig>, fat_mode: FatServerMode) {
-    let connection = match ServerConnection::new(config) {
-        Ok(connection) => connection,
-        Err(_) => return,
+    let Ok(connection) = ServerConnection::new(config) else {
+        return;
     };
     let mut stream = StreamOwned::new(connection, stream);
     handle_fat_http_stream(&mut stream, fat_mode);
 }
 
 pub(crate) fn handle_plain_fat_client(stream: &mut TcpStream, fat_mode: FatServerMode) {
+    // Ensure the stream is blocking with TCP_NODELAY for reliable handling
+    // under heavy CPU load (e.g., full workspace test suite on Raspberry Pi).
+    stream.set_nonblocking(false).ok();
+    stream.set_nodelay(true).ok();
     handle_fat_http_stream(stream, fat_mode);
 }
 
@@ -599,11 +628,16 @@ impl<T: Read + Write> ReadWrite for T {}
 
 pub(crate) fn read_until_marker(stream: &mut impl Read, marker: &[u8]) -> Vec<u8> {
     let mut buf = Vec::new();
-    let mut chunk = [0u8; 1];
-    while !buf.windows(marker.len()).any(|window| window == marker) {
-        match stream.read(&mut chunk) {
+    let mut byte = [0u8; 1];
+    loop {
+        match stream.read(&mut byte) {
             Ok(0) => break,
-            Ok(read) => buf.extend_from_slice(&chunk[..read]),
+            Ok(_) => {
+                buf.push(byte[0]);
+                if buf.len() >= marker.len() && buf[buf.len() - marker.len()..] == *marker {
+                    break;
+                }
+            }
             Err(_) => break,
         }
     }

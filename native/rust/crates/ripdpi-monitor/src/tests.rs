@@ -21,8 +21,16 @@ use ripdpi_failure_classifier::{FailureAction, FailureClass};
 use ripdpi_proxy_config::{ProxyConfigPayload, ProxyEncryptedDnsContext, ProxyRuntimeContext, ProxyUiConfig};
 
 use std::net::{IpAddr, Ipv4Addr};
+use std::sync::{Mutex, MutexGuard};
 use std::thread;
 use std::time::Duration;
+
+/// Serializes tests that spawn local TCP/TLS servers to avoid thread-starvation
+/// timeouts on resource-constrained hosts (e.g., Raspberry Pi).
+static NETWORK_PROBE_LOCK: Mutex<()> = Mutex::new(());
+fn lock_network_probes() -> MutexGuard<'static, ()> {
+    NETWORK_PROBE_LOCK.lock().unwrap_or_else(std::sync::PoisonError::into_inner)
+}
 
 fn minimal_ui_config() -> ProxyUiConfig {
     let mut config = ProxyUiConfig::default();
@@ -111,6 +119,7 @@ fn probe_transport_uses_fake_ttl_when_adaptive_fallback_is_invalid() {
 
 #[test]
 fn dns_probe_reports_substitution_when_udp_and_doh_differ() {
+    let _serial = lock_network_probes();
     let udp = UdpDnsServer::start("203.0.113.10");
     let doh = HttpTextServer::start_dns_message("198.51.100.77");
     let target = DnsTarget {
@@ -136,6 +145,7 @@ fn dns_probe_reports_substitution_when_udp_and_doh_differ() {
 
 #[test]
 fn dns_probe_reports_doh_blocked_when_udp_works_and_doh_fails() {
+    let _serial = lock_network_probes();
     let udp = UdpDnsServer::start("203.0.113.10");
     let target = DnsTarget {
         domain: "blocked.example".to_string(),
@@ -160,6 +170,7 @@ fn dns_probe_reports_doh_blocked_when_udp_works_and_doh_fails() {
 
 #[test]
 fn dns_probe_reports_match_over_socks5_udp_and_doh() {
+    let _serial = lock_network_probes();
     let udp = UdpDnsServer::start("203.0.113.10");
     let doh = HttpTextServer::start_dns_message("203.0.113.10");
     let proxy = Socks5RelayServer::start();
@@ -193,6 +204,7 @@ fn dns_probe_reports_match_over_socks5_udp_and_doh() {
 
 #[test]
 fn domain_probe_reports_tls_certificate_anomaly() {
+    let _serial = lock_network_probes();
     let server = TlsHttpServer::start(TlsMode::Single("localhost".to_string()), FatServerMode::AlwaysOk);
     let target = DomainTarget {
         host: "localhost".to_string(),
@@ -226,6 +238,7 @@ fn tls_signal_reports_version_split_low_confidence() {
 
 #[test]
 fn try_tls_handshake_forces_tls_on_non_default_https_port() {
+    let _serial = lock_network_probes();
     let server = TlsHttpServer::start(TlsMode::Single("localhost".to_string()), FatServerMode::AlwaysOk);
     let target = TargetAddress::Ip(IpAddr::V4(Ipv4Addr::LOCALHOST));
     let mut tls = try_tls_handshake(
@@ -259,6 +272,7 @@ fn try_tls_handshake_forces_tls_on_non_default_https_port() {
 
 #[test]
 fn domain_probe_reports_http_blockpage() {
+    let _serial = lock_network_probes();
     let server = HttpTextServer::start_text("HTTP/1.1 403 Forbidden", "Access denied by upstream filtering");
     let target = DomainTarget {
         host: "127.0.0.1".to_string(),
@@ -274,6 +288,7 @@ fn domain_probe_reports_http_blockpage() {
 
 #[test]
 fn tcp_probe_reports_threshold_cutoff() {
+    let _serial = lock_network_probes();
     let server = PlainFatHeaderServer::start(FatServerMode::CutoffAtThreshold);
     let target = TcpTarget {
         id: "test".to_string(),
@@ -296,6 +311,7 @@ fn tcp_probe_reports_threshold_cutoff() {
 
 #[test]
 fn tcp_probe_reports_whitelist_sni_success() {
+    let _serial = lock_network_probes();
     let server = PlainFatHeaderServer::start(FatServerMode::AllowHost("allow.example".to_string()));
     let target = TcpTarget {
         id: "test".to_string(),
@@ -318,6 +334,7 @@ fn tcp_probe_reports_whitelist_sni_success() {
 
 #[test]
 fn tcp_probe_reports_whitelist_sni_failure() {
+    let _serial = lock_network_probes();
     let server = PlainFatHeaderServer::start(FatServerMode::AllowHost("allow.example".to_string()));
     let target = TcpTarget {
         id: "test".to_string(),
@@ -490,6 +507,7 @@ fn target_probe_pause_is_deterministic_for_same_seed_candidate_and_target() {
 
 #[test]
 fn baseline_dns_tampering_uses_runtime_context_before_candidate_trials() {
+    let _serial = lock_network_probes();
     let doh = HttpTextServer::start_dns_message("198.51.100.11");
     let runtime_context = ProxyRuntimeContext {
         encrypted_dns: Some(ProxyEncryptedDnsContext {
@@ -571,6 +589,7 @@ fn parser_only_candidate_keeps_aggressive_http_evasions_disabled() {
 
 #[test]
 fn monitor_session_strategy_probe_returns_structured_recommendation() {
+    let _serial = lock_network_probes();
     let server = HttpTextServer::start_text("HTTP/1.1 200 OK", "probe");
     let mut request = strategy_probe_request(minimal_ui_config());
     request.domain_targets[0].http_port = Some(server.port());
@@ -594,6 +613,7 @@ fn monitor_session_strategy_probe_returns_structured_recommendation() {
 
 #[test]
 fn monitor_session_drains_passive_events_with_probe_details() {
+    let _serial = lock_network_probes();
     let server = HttpTextServer::start_text("HTTP/1.1 403 Forbidden", "Access denied by upstream filtering");
     let request = ScanRequest {
         profile_id: "default".to_string(),
@@ -643,6 +663,7 @@ fn monitor_session_drains_passive_events_with_probe_details() {
 
 #[test]
 fn monitor_json_contracts_match_goldens() {
+    let _serial = lock_network_probes();
     let server = HttpTextServer::start(move |_request| {
         thread::sleep(Duration::from_millis(60));
         b"HTTP/1.1 403 Forbidden\r\nContent-Length: 35\r\nConnection: close\r\n\r\nAccess denied by upstream filtering"
