@@ -26,3 +26,4 @@ hats.yml
 PROMPT.md
 /specs/
 .worktrees/
+.claude/worktrees/
