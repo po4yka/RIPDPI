@@ -663,4 +663,171 @@ mod tests {
             let _ = tls_session_id_mismatch(&data, &data);
         }
     }
+
+    /// Use `tls-parser` as an independent oracle to extract the SNI hostname
+    /// from a TLS record. Returns `None` when the record is malformed or does
+    /// not contain an SNI extension.
+    fn extract_sni_via_tls_parser(data: &[u8]) -> Option<Vec<u8>> {
+        use tls_parser::{parse_tls_plaintext, TlsMessage, TlsMessageHandshake};
+
+        let (_, record) = parse_tls_plaintext(data).ok()?;
+        for msg in &record.msg {
+            if let TlsMessage::Handshake(TlsMessageHandshake::ClientHello(ch)) = msg {
+                if let Some(ext_data) = ch.ext {
+                    let (_, exts) = tls_parser::parse_tls_client_hello_extensions(ext_data).ok()?;
+                    for ext in &exts {
+                        if let tls_parser::TlsExtension::SNI(sni_list) = ext {
+                            for (name_type, name) in sni_list {
+                                if *name_type == tls_parser::SNIType::HostName {
+                                    return Some(name.to_vec());
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        None
+    }
+
+    /// Strategy that produces structurally valid TLS ClientHello records with
+    /// random but well-formed fields, exercising the parser on inputs that
+    /// look like real TLS traffic with varied field sizes.
+    fn arb_client_hello() -> impl proptest::strategy::Strategy<Value = Vec<u8>> {
+        use proptest::prelude::*;
+        use proptest::collection::vec as arb_vec;
+
+        // Hostname: 3..=63 ASCII lowercase letters/dots, must contain at least
+        // one dot, must not start/end with dot, no consecutive dots.
+        let hostname_strategy = arb_vec(
+            prop_oneof![
+                8 => b'a'..=b'z',
+                1 => Just(b'.'),
+            ],
+            3..=63usize,
+        )
+        .prop_filter("hostname must contain at least one dot", |h| h.contains(&b'.'))
+        .prop_filter("hostname must not start or end with dot", |h| {
+            h[0] != b'.' && h[h.len() - 1] != b'.'
+        })
+        .prop_filter("hostname must not have consecutive dots", |h| {
+            !h.windows(2).any(|w| w[0] == b'.' && w[1] == b'.')
+        });
+
+        (
+            arb_vec(any::<u8>(), 32..=32usize),   // random (32 bytes)
+            0..=32u8,                               // session_id length
+            arb_vec(any::<u8>(), 32..=32usize),    // session_id bytes pool
+            1..=15u16,                              // cipher_suites pair count
+            arb_vec(any::<u8>(), 30..=30usize),    // cipher_suites bytes pool
+            1..=3u8,                                // compression_methods length
+            arb_vec(any::<u8>(), 3..=3usize),      // compression_methods bytes pool
+            hostname_strategy,
+            0..=50usize,                            // padding extension data length
+        )
+            .prop_map(
+                |(random, sid_len, sid_pool, cs_pairs, cs_pool, comp_len, comp_pool, hostname, pad_len)| {
+                    let mut buf = Vec::with_capacity(512);
+
+                    // TLS record header (5 bytes) -- placeholder lengths
+                    buf.extend_from_slice(&[0x16, 0x03, 0x01, 0x00, 0x00]);
+
+                    // Handshake header
+                    buf.push(0x01); // ClientHello type
+                    buf.extend_from_slice(&[0x00, 0x00, 0x00]); // placeholder length
+
+                    // Client version: TLS 1.2
+                    buf.extend_from_slice(&[0x03, 0x03]);
+
+                    // Random (32 bytes)
+                    buf.extend_from_slice(&random);
+
+                    // Session ID
+                    let sid_actual_len = sid_len as usize;
+                    buf.push(sid_len);
+                    buf.extend_from_slice(&sid_pool[..sid_actual_len]);
+
+                    // Cipher suites
+                    let cs_byte_len = (cs_pairs as usize) * 2;
+                    buf.extend_from_slice(&(cs_byte_len as u16).to_be_bytes());
+                    buf.extend_from_slice(&cs_pool[..cs_byte_len]);
+
+                    // Compression methods (first byte is always 0x00 = null)
+                    let comp_actual_len = comp_len as usize;
+                    buf.push(comp_len);
+                    buf.push(0x00);
+                    if comp_actual_len > 1 {
+                        buf.extend_from_slice(&comp_pool[..comp_actual_len - 1]);
+                    }
+
+                    // Extensions block
+                    let ext_block_start = buf.len();
+                    buf.extend_from_slice(&[0x00, 0x00]); // placeholder extensions length
+
+                    // SNI extension (type 0x0000)
+                    let host_len = hostname.len() as u16;
+                    let sni_list_len: u16 = 1 + 2 + host_len;
+                    let sni_ext_data_len: u16 = 2 + sni_list_len;
+                    buf.extend_from_slice(&0x0000u16.to_be_bytes());
+                    buf.extend_from_slice(&sni_ext_data_len.to_be_bytes());
+                    buf.extend_from_slice(&sni_list_len.to_be_bytes());
+                    buf.push(0x00); // host_name type
+                    buf.extend_from_slice(&host_len.to_be_bytes());
+                    buf.extend_from_slice(&hostname);
+
+                    // Optional padding extension (type 0x0015)
+                    if pad_len > 0 {
+                        buf.extend_from_slice(&0x0015u16.to_be_bytes());
+                        buf.extend_from_slice(&(pad_len as u16).to_be_bytes());
+                        buf.resize(buf.len() + pad_len, 0x00);
+                    }
+
+                    // Patch extensions length
+                    let ext_data_len = (buf.len() - ext_block_start - 2) as u16;
+                    buf[ext_block_start..ext_block_start + 2]
+                        .copy_from_slice(&ext_data_len.to_be_bytes());
+
+                    // Patch handshake length (bytes 6-8)
+                    let hs_body_len = (buf.len() - 9) as u32;
+                    buf[6] = (hs_body_len >> 16) as u8;
+                    buf[7] = (hs_body_len >> 8) as u8;
+                    buf[8] = hs_body_len as u8;
+
+                    // Patch record length (bytes 3-4)
+                    let record_payload_len = (buf.len() - 5) as u16;
+                    buf[3..5].copy_from_slice(&record_payload_len.to_be_bytes());
+
+                    buf
+                },
+            )
+    }
+
+    proptest::proptest! {
+        #[test]
+        fn structurally_valid_client_hello_cross_validation(data in arb_client_hello()) {
+            // 1. Must be recognized as a ClientHello
+            proptest::prop_assert!(is_tls_client_hello(&data));
+
+            // 2. Manual parser must extract SNI
+            let manual_sni = parse_tls(&data);
+            proptest::prop_assert!(manual_sni.is_some(), "manual parser failed on valid ClientHello");
+
+            // 3. tls-parser must also extract SNI (record is well-formed)
+            let oracle_sni = extract_sni_via_tls_parser(&data);
+            proptest::prop_assert!(oracle_sni.is_some(), "tls-parser failed on valid ClientHello");
+            let oracle_bytes = oracle_sni.unwrap();
+
+            // 4. Both must agree
+            let manual_bytes = manual_sni.unwrap();
+            proptest::prop_assert_eq!(manual_bytes, oracle_bytes.as_slice());
+
+            // 5. TlsMarkerInfo structural invariants
+            let info = tls_marker_info(&data).unwrap();
+            proptest::prop_assert!(info.ext_len_start < info.sni_ext_start);
+            proptest::prop_assert!(info.sni_ext_start < info.host_start);
+            proptest::prop_assert!(info.host_start < info.host_end);
+            proptest::prop_assert!(info.host_end <= data.len());
+            proptest::prop_assert_eq!(&data[info.host_start..info.host_end], manual_bytes);
+        }
+    }
 }
