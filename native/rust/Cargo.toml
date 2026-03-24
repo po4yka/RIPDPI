@@ -53,6 +53,7 @@ ripdpi-tunnel-core = { path = "crates/ripdpi-tunnel-core" }
 
 hdrhistogram = "7"
 aes = "0.8"
+arc-swap = "1"
 aes-gcm = "0.10"
 android_logger = "0.14"
 anyhow = "1"
