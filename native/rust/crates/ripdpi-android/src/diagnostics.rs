@@ -14,13 +14,11 @@ use scan::{cancel_diagnostics_scan, start_diagnostics_scan};
 
 pub(crate) fn diagnostics_create_entry(mut env: JNIEnv) -> jlong {
     init_android_logging("ripdpi-native");
-    std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| create_diagnostics_session())).unwrap_or_else(
-        |panic_payload| {
-            let msg = extract_panic_message(panic_payload);
-            throw_runtime_exception(&mut env, format!("Diagnostics session creation panicked: {msg}"));
-            0
-        },
-    )
+    std::panic::catch_unwind(std::panic::AssertUnwindSafe(create_diagnostics_session)).unwrap_or_else(|panic_payload| {
+        let msg = extract_panic_message(panic_payload);
+        throw_runtime_exception(&mut env, format!("Diagnostics session creation panicked: {msg}"));
+        0
+    })
 }
 
 pub(crate) fn diagnostics_start_scan_entry(mut env: JNIEnv, handle: jlong, request_json: JString, session_id: JString) {

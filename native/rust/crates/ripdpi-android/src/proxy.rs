@@ -2,10 +2,10 @@ mod lifecycle;
 mod registry;
 mod telemetry;
 
-#[cfg(test)]
-mod tests;
 #[cfg(feature = "loom")]
 mod loom_tests;
+#[cfg(test)]
+mod tests;
 
 use android_support::{init_android_logging, throw_runtime_exception};
 use jni::objects::JString;

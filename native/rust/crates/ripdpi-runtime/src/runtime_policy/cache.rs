@@ -1,4 +1,4 @@
-use std::collections::VecDeque;
+use std::collections::{BTreeMap, VecDeque};
 use std::fs;
 use std::io::{self, Write};
 use std::net::{IpAddr, SocketAddr};
@@ -13,7 +13,7 @@ use super::{now_unix, HostAutolearnEvent, RuntimePolicy};
 impl RuntimePolicy {
     pub fn load(config: &RuntimeConfig) -> Self {
         let mut records = Vec::new();
-        let mut learned_hosts_by_scope = Default::default();
+        let mut learned_hosts_by_scope = BTreeMap::default();
         let mut autolearn_events = VecDeque::new();
         for (group_index, group) in config.groups.iter().enumerate() {
             let Some(path) = group.policy.cache_file.as_deref() else {
@@ -139,9 +139,7 @@ impl RuntimePolicy {
     }
 
     pub(crate) fn detect_for(&self, config: &RuntimeConfig, group_index: usize) -> u32 {
-        self.groups
-            .get(group_index)
-            .map_or_else(|| config.groups[group_index].matches.detect, |group| group.detect)
+        self.groups.get(group_index).map_or_else(|| config.groups[group_index].matches.detect, |group| group.detect)
     }
 
     pub(crate) fn ordered_indices(&self) -> &[usize] {
@@ -227,8 +225,8 @@ mod tests {
             }],
             groups: vec![GroupPolicy { detect: 0, fail_count: 0, pri: 0 }],
             order: vec![0],
-            learned_hosts_by_scope: Default::default(),
-            autolearn_events: Default::default(),
+            learned_hosts_by_scope: BTreeMap::default(),
+            autolearn_events: VecDeque::default(),
         };
 
         assert!(policy.lookup_and_prune(&config, dest).is_none());

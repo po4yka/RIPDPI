@@ -27,7 +27,7 @@ where
             return Ok(JObject::null());
         };
         match op(&session) {
-            Ok(Some(value)) => env.new_string(value).map(|s| s.into()),
+            Ok(Some(value)) => env.new_string(value).map(std::convert::Into::into),
             Ok(None) => Ok(JObject::null()),
             Err(err) => {
                 throw_runtime_exception(env, err);

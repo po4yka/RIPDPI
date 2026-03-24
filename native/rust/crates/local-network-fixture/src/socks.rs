@@ -6,7 +6,9 @@ use std::thread::{self, JoinHandle};
 
 use crate::event::{event, EventLog};
 use crate::fault::FaultController;
-use crate::types::{FixtureConfig, FixtureFaultOutcome, FixtureFaultTarget, IO_POLL_DELAY, IO_TIMEOUT, SOCKS_IO_TIMEOUT};
+use crate::types::{
+    FixtureConfig, FixtureFaultOutcome, FixtureFaultTarget, IO_POLL_DELAY, IO_TIMEOUT, SOCKS_IO_TIMEOUT,
+};
 
 pub(crate) fn start_socks5_server(
     config: FixtureConfig,
@@ -364,14 +366,12 @@ fn relay_bidirectional(client: TcpStream, upstream: TcpStream) {
     let _ = client.set_write_timeout(None);
     let _ = upstream.set_read_timeout(None);
     let _ = upstream.set_write_timeout(None);
-    let mut client_reader = match client.try_clone() {
-        Ok(stream) => stream,
-        Err(_) => return,
+    let Ok(mut client_reader) = client.try_clone() else {
+        return;
     };
     let mut client_writer = client;
-    let mut upstream_reader = match upstream.try_clone() {
-        Ok(stream) => stream,
-        Err(_) => return,
+    let Ok(mut upstream_reader) = upstream.try_clone() else {
+        return;
     };
     let mut upstream_writer = upstream;
     let to_upstream = thread::spawn(move || {

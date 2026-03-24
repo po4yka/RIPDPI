@@ -89,9 +89,7 @@ fn build_hostfake_bytes_preserves_length_and_template_suffix() {
     let fake = build_hostfake_bytes(b"video.example.com", Some("googlevideo.com"), 17);
 
     assert_eq!(fake.len(), b"video.example.com".len());
-    assert!(fake
-        .iter()
-        .all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit() || matches!(byte, b'.' | b'-')));
+    assert!(fake.iter().all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit() || matches!(byte, b'.' | b'-')));
     assert!(std::str::from_utf8(&fake).unwrap().ends_with("video.com"));
 }
 

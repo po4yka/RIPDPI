@@ -308,8 +308,8 @@ fn proxy_fault_recovery_soak() {
     while started.elapsed() < duration {
         let (fault, probe) = fault_sequence[fault_index % fault_sequence.len()].clone();
         fixture.faults().set(fault);
-        assert_fault_is_observed(&fixture, &probe, &socks, &connect, &chained);
-        recover_clean_traffic_within(Duration::from_secs(5), &fixture, &probe, &socks, &connect, &chained);
+        assert_fault_is_observed(&fixture, probe, &socks, &connect, &chained);
+        recover_clean_traffic_within(Duration::from_secs(5), &fixture, probe, &socks, &connect, &chained);
         fault_index += 1;
         thread::sleep(Duration::from_secs(60).min(duration.saturating_sub(started.elapsed())));
     }
@@ -360,7 +360,7 @@ enum FaultProbe {
 
 fn assert_fault_is_observed(
     fixture: &FixtureStack,
-    probe: &FaultProbe,
+    probe: FaultProbe,
     socks: &RunningProxy,
     connect: &RunningProxy,
     chained: &RunningProxy,
@@ -407,7 +407,7 @@ fn assert_fault_is_observed(
 fn recover_clean_traffic_within(
     timeout: Duration,
     fixture: &FixtureStack,
-    probe: &FaultProbe,
+    probe: FaultProbe,
     socks: &RunningProxy,
     connect: &RunningProxy,
     chained: &RunningProxy,

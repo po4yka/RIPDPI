@@ -52,9 +52,8 @@ fn rejects_invalid_handle() {
 
 #[test]
 fn rejects_unknown_proxy_handle_lookup() {
-    let err = match lookup_proxy_session(99) {
-        Ok(_) => panic!("expected unknown handle error"),
-        Err(err) => err,
+    let Err(err) = lookup_proxy_session(99) else {
+        panic!("expected unknown handle error");
     };
 
     assert_eq!(err.to_string(), "Unknown proxy handle");
@@ -145,8 +144,9 @@ fn exported_jni_rejects_malformed_config_and_snapshot_json() {
     let handle = ProxyHandle::new();
     with_env(|env| {
         jni_update_network_snapshot(env, handle.raw(), "{");
-        assert!(take_exception(env)
-            .starts_with("java.lang.IllegalArgumentException: Failed to parse network snapshot:"));
+        assert!(
+            take_exception(env).starts_with("java.lang.IllegalArgumentException: Failed to parse network snapshot:")
+        );
     });
 }
 

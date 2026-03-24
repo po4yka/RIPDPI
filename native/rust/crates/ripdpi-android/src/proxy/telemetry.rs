@@ -16,7 +16,7 @@ pub(crate) fn poll_proxy_telemetry(env: &mut JNIEnv, handle: jlong) -> jstring {
             }
         };
         match serde_json::to_string(&session.telemetry.snapshot()) {
-            Ok(value) => env.new_string(value).map(|s| s.into()),
+            Ok(value) => env.new_string(value).map(std::convert::Into::into),
             Err(err) => {
                 JniProxyError::Serialization(err).throw(env);
                 Ok(JObject::null())

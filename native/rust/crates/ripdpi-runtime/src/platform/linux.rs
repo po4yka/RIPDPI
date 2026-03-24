@@ -29,8 +29,7 @@ use super::TcpStageWait;
 /// `fd` must be a live socket descriptor; `val` must be a valid payload for the
 /// given `level`/`name` combination per the Linux kernel ABI.
 unsafe fn setsockopt_raw<T>(fd: libc::c_int, level: libc::c_int, name: libc::c_int, val: &T) -> io::Result<()> {
-    let rc =
-        unsafe { libc::setsockopt(fd, level, name, (val as *const T).cast(), size_of::<T>() as libc::socklen_t) };
+    let rc = unsafe { libc::setsockopt(fd, level, name, (val as *const T).cast(), size_of::<T>() as libc::socklen_t) };
     if rc == 0 {
         Ok(())
     } else {
@@ -46,7 +45,11 @@ unsafe fn setsockopt_raw<T>(fd: libc::c_int, level: libc::c_int, name: libc::c_i
 /// # Safety
 /// `fd` must be a live socket descriptor; `T` must match the kernel's expected
 /// output layout for the given `level`/`name` combination.
-unsafe fn getsockopt_raw<T>(fd: libc::c_int, level: libc::c_int, name: libc::c_int) -> io::Result<(T, libc::socklen_t)> {
+unsafe fn getsockopt_raw<T>(
+    fd: libc::c_int,
+    level: libc::c_int,
+    name: libc::c_int,
+) -> io::Result<(T, libc::socklen_t)> {
     let mut val: T = unsafe { zeroed() };
     let mut len = size_of::<T>() as libc::socklen_t;
     let rc = unsafe { libc::getsockopt(fd, level, name, (&mut val as *mut T).cast(), &mut len) };
@@ -158,8 +161,7 @@ pub fn original_dst(stream: &TcpStream) -> io::Result<SocketAddr> {
 
     // SAFETY: `fd` is a live TCP socket; the kernel writes a `sockaddr_storage`
     // for SO_ORIGINAL_DST / IP6T_SO_ORIGINAL_DST.
-    if let Ok((storage, _)) =
-        unsafe { getsockopt_raw::<libc::sockaddr_storage>(fd, libc::IPPROTO_IP, SO_ORIGINAL_DST) }
+    if let Ok((storage, _)) = unsafe { getsockopt_raw::<libc::sockaddr_storage>(fd, libc::IPPROTO_IP, SO_ORIGINAL_DST) }
     {
         return storage_to_socket_addr(&storage);
     }

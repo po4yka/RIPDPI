@@ -4,10 +4,6 @@
 
 mod support;
 
-use std::io::{Read, Write};
-use std::net::{Ipv4Addr, SocketAddr, TcpStream};
-use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::{Arc, Mutex, MutexGuard, OnceLock, PoisonError};
 use local_network_fixture::{
     FixtureConfig, FixtureEvent, FixtureFaultOutcome, FixtureFaultScope, FixtureFaultSpec, FixtureFaultTarget,
     FixtureStack,
@@ -16,17 +12,19 @@ use ripdpi_config::{DesyncGroup, QuicInitialMode, RuntimeConfig};
 use ripdpi_packets::IS_UDP;
 use ripdpi_proxy_config::{runtime_config_from_ui, ProxyUiConfig};
 use ripdpi_runtime::RuntimeTelemetrySink;
+use std::io::{Read, Write};
+use std::net::{Ipv4Addr, SocketAddr, TcpStream};
+use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::{Arc, Mutex, MutexGuard, OnceLock, PoisonError};
 
 use support::proxy::{ephemeral_proxy_config, start_proxy};
 use support::socks5::{
-    recv_exact, socks_connect, socks_connect_domain, socks_connect_domain_round_trip_with_retry,
-    socks_connect_domain_round_trip_via_upstream_with_retry, socks_connect_ip_reply,
-    socks_connect_ip_round_trip_with_retry, socks_udp_associate, udp_proxy_client, udp_proxy_roundtrip,
-    udp_proxy_roundtrip_with_socket, wait_for_accepted_connections,
+    recv_exact, socks_connect, socks_connect_domain, socks_connect_domain_round_trip_via_upstream_with_retry,
+    socks_connect_domain_round_trip_with_retry, socks_connect_ip_reply, socks_connect_ip_round_trip_with_retry,
+    socks_udp_associate, udp_proxy_client, udp_proxy_roundtrip, udp_proxy_roundtrip_with_socket,
+    wait_for_accepted_connections,
 };
-use support::tls::{
-    http_connect_round_trip_with_retry, socks5_tls_round_trip_with_retry, FragmentingProfile,
-};
+use support::tls::{http_connect_round_trip_with_retry, socks5_tls_round_trip_with_retry, FragmentingProfile};
 use support::START_TIMEOUT;
 
 #[allow(dead_code)]

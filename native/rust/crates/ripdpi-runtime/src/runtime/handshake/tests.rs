@@ -41,10 +41,8 @@ fn send_success_reply_emits_protocol_specific_payloads() {
 #[test]
 fn read_socks5_request_reads_domain_target() {
     let (mut reader, mut writer) = connected_pair();
-    let request = [
-        S_VER5, S_CMD_CONN, 0, 0x03, 11, b'e', b'x', b'a', b'm', b'p', b'l', b'e', b'.', b'c', b'o', b'm', 0x01,
-        0xbb,
-    ];
+    let request =
+        [S_VER5, S_CMD_CONN, 0, 0x03, 11, b'e', b'x', b'a', b'm', b'p', b'l', b'e', b'.', b'c', b'o', b'm', 0x01, 0xbb];
     writer.write_all(&request).expect("write socks5 request");
 
     assert_eq!(read_socks5_request(&mut reader).expect("read socks5 request"), request);
@@ -54,8 +52,7 @@ fn read_socks5_request_reads_domain_target() {
 fn parse_shadowsocks_target_handles_ipv4_and_resolved_domain_targets() {
     let config = RuntimeConfig::default();
     let ipv4_packet = [S_ATP_I4, 127, 0, 0, 1, 0x01, 0xbb];
-    let (ipv4_target, ipv4_header_len) =
-        parse_shadowsocks_target(&ipv4_packet, &config).expect("parse ipv4 target");
+    let (ipv4_target, ipv4_header_len) = parse_shadowsocks_target(&ipv4_packet, &config).expect("parse ipv4 target");
     assert_eq!(ipv4_target, SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 443));
     assert_eq!(ipv4_header_len, ipv4_packet.len());
 

@@ -254,11 +254,7 @@ mod tests {
         assert_eq!(group.actions.quic_fake_host.as_deref(), Some("video.example.test"));
         assert_eq!(
             group.actions.udp_chain,
-            vec![UdpChainStep {
-                kind: UdpChainStepKind::FakeBurst,
-                count: 2,
-                activation_filter: None,
-            }]
+            vec![UdpChainStep { kind: UdpChainStepKind::FakeBurst, count: 2, activation_filter: None }]
         );
     }
 

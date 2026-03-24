@@ -21,7 +21,14 @@ struct TelegramTransferResult {
 
 impl TelegramTransferResult {
     fn blocked(error: String) -> Self {
-        Self { status: "blocked".to_string(), avg_bps: 0, peak_bps: 0, bytes_total: 0, duration_ms: 0, error: Some(error) }
+        Self {
+            status: "blocked".to_string(),
+            avg_bps: 0,
+            peak_bps: 0,
+            bytes_total: 0,
+            duration_ms: 0,
+            error: Some(error),
+        }
     }
 
     fn from_transfer(
@@ -151,9 +158,8 @@ fn compute_telegram_quality_score(
 }
 
 fn telegram_download_probe(target: &TelegramTarget, transport: &TransportConfig) -> TelegramTransferResult {
-    let host = match extract_host_from_url(&target.media_url) {
-        Some(h) => h,
-        None => return TelegramTransferResult::blocked("invalid media_url".to_string()),
+    let Some(host) = extract_host_from_url(&target.media_url) else {
+        return TelegramTransferResult::blocked("invalid media_url".to_string());
     };
     let path = extract_path_from_url(&target.media_url);
 
@@ -183,12 +189,9 @@ fn telegram_download_probe(target: &TelegramTarget, transport: &TransportConfig)
             return TelegramTransferResult::blocked(err);
         }
     };
-    let header_end = match find_headers_end(&header_buf) {
-        Some(idx) => idx,
-        None => {
-            stream.shutdown();
-            return TelegramTransferResult::blocked("response_missing_headers".to_string());
-        }
+    let Some(header_end) = find_headers_end(&header_buf) else {
+        stream.shutdown();
+        return TelegramTransferResult::blocked("response_missing_headers".to_string());
     };
     let body_prefix_len = header_buf.len() - (header_end + 4);
 
@@ -208,7 +211,13 @@ fn telegram_download_probe(target: &TelegramTarget, transport: &TransportConfig)
         }
         if last_data_at.elapsed() > stall_timeout {
             stream.shutdown();
-            return TelegramTransferResult::from_transfer("stalled", bytes_total, peak_bps, start, Some("stall detected".to_string()));
+            return TelegramTransferResult::from_transfer(
+                "stalled",
+                bytes_total,
+                peak_bps,
+                start,
+                Some("stall detected".to_string()),
+            );
         }
 
         match stream.read(&mut buf) {
@@ -236,7 +245,13 @@ fn telegram_download_probe(target: &TelegramTarget, transport: &TransportConfig)
             Err(err) => {
                 stream.shutdown();
                 let status = if bytes_total == 0 { "blocked" } else { "stalled" };
-                return TelegramTransferResult::from_transfer(status, bytes_total, peak_bps, start, Some(err.to_string()));
+                return TelegramTransferResult::from_transfer(
+                    status,
+                    bytes_total,
+                    peak_bps,
+                    start,
+                    Some(err.to_string()),
+                );
             }
         }
     }
@@ -316,7 +331,13 @@ fn telegram_upload_probe(target: &TelegramTarget, transport: &TransportConfig) -
             Err(err) => {
                 stream.shutdown();
                 let status = if bytes_total == 0 { "blocked" } else { "stalled" };
-                return TelegramTransferResult::from_transfer(status, bytes_total, peak_bps, start, Some(err.to_string()));
+                return TelegramTransferResult::from_transfer(
+                    status,
+                    bytes_total,
+                    peak_bps,
+                    start,
+                    Some(err.to_string()),
+                );
             }
         }
 

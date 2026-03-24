@@ -33,7 +33,6 @@ mod test_fixtures;
 #[cfg(test)]
 mod tests;
 
-
 pub use types::{
     CircumventionTarget, Diagnosis, DiagnosticProfileFamily, DnsObservationFact, DnsObservationStatus, DnsTarget,
     DomainObservationFact, DomainTarget, EndpointProbeStatus, HttpProbeStatus, NativeSessionEvent, ObservationKind,
@@ -151,9 +150,8 @@ impl MonitorSession {
     }
 
     fn try_join_worker(&self) {
-        let mut worker_guard = match self.worker.lock() {
-            Ok(guard) => guard,
-            Err(_) => return,
+        let Ok(mut worker_guard) = self.worker.lock() else {
+            return;
         };
         if let Some(handle) = worker_guard.take() {
             let _ = handle.join();
@@ -221,4 +219,3 @@ fn validate_scan_request(request: &EngineScanRequestWire) -> Result<(), String> 
         }
     }
 }
-

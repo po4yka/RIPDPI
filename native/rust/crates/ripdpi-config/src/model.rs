@@ -288,7 +288,7 @@ pub struct DesyncGroup {
     pub policy: DesyncGroupPolicySettings,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct DesyncGroupMatchSettings {
     pub detect: u32,
     pub proto: u32,
@@ -320,7 +320,7 @@ pub struct DesyncGroupActionSettings {
     pub tlsminor: Option<u8>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct DesyncGroupPolicySettings {
     pub ext_socks: Option<UpstreamSocksConfig>,
     pub label: String,
@@ -328,18 +328,6 @@ pub struct DesyncGroupPolicySettings {
     pub fail_count: i32,
     pub cache_ttl: i64,
     pub cache_file: Option<String>,
-}
-
-impl Default for DesyncGroupMatchSettings {
-    fn default() -> Self {
-        Self {
-            detect: 0,
-            proto: 0,
-            filters: FilterSet::default(),
-            port_filter: None,
-            activation_filter: None,
-        }
-    }
 }
 
 impl Default for DesyncGroupActionSettings {
@@ -368,22 +356,15 @@ impl Default for DesyncGroupActionSettings {
     }
 }
 
-impl Default for DesyncGroupPolicySettings {
-    fn default() -> Self {
-        Self {
-            ext_socks: None,
-            label: String::new(),
-            pri: 0,
-            fail_count: 0,
-            cache_ttl: 0,
-            cache_file: None,
-        }
-    }
-}
-
 impl DesyncGroup {
     pub fn new(id: usize) -> Self {
-        Self { id, bit: 1u64 << id, matches: DesyncGroupMatchSettings::default(), actions: DesyncGroupActionSettings::default(), policy: DesyncGroupPolicySettings::default() }
+        Self {
+            id,
+            bit: 1u64 << id,
+            matches: DesyncGroupMatchSettings::default(),
+            actions: DesyncGroupActionSettings::default(),
+            policy: DesyncGroupPolicySettings::default(),
+        }
     }
 
     pub fn is_actionable(&self) -> bool {
@@ -469,7 +450,7 @@ pub struct RuntimeTimeoutSettings {
     pub await_interval: i32,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct RuntimeProcessSettings {
     pub debug: i32,
     pub protect_path: Option<String>,
@@ -536,12 +517,6 @@ impl Default for RuntimeTimeoutSettings {
             wait_send: false,
             await_interval: 10,
         }
-    }
-}
-
-impl Default for RuntimeProcessSettings {
-    fn default() -> Self {
-        Self { debug: 0, protect_path: None, daemonize: false, pid_file: None }
     }
 }
 

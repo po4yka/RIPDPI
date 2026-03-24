@@ -79,7 +79,7 @@ impl TlsRecordBoundaryTracker {
                     continue;
                 }
                 self.record_size = usize::from(u16::from_be_bytes([self.header[3], self.header[4]])) + 5;
-                if !valid_tls_record_header(&self.header) {
+                if !valid_tls_record_header(self.header) {
                     self.disabled = true;
                     return;
                 }
@@ -103,7 +103,7 @@ impl TlsRecordBoundaryTracker {
     }
 }
 
-fn valid_tls_record_header(header: &[u8; 5]) -> bool {
+fn valid_tls_record_header(header: [u8; 5]) -> bool {
     let rec_type = header[0];
     (0x14..=0x18).contains(&rec_type) && header[1] == 0x03 && header[2] <= 0x04
 }

@@ -282,7 +282,6 @@ impl TunnelDriver for LinuxTunnel {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::TunnelDriver;
 
     // Compile-time check: LinuxTunnel must be Send + Sync per TunnelDriver's bounds.
     fn _assert_send_sync<T: Send + Sync>() {}

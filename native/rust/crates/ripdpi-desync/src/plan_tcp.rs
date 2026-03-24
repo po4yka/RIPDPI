@@ -119,7 +119,10 @@ pub fn plan_tcp(
                 push_split_actions(&mut actions, chunk);
             }
             TcpChainStepKind::Oob => {
-                actions.push(DesyncAction::WriteUrgent { prefix: chunk, urgent_byte: group.actions.oob_data.unwrap_or(b'a') });
+                actions.push(DesyncAction::WriteUrgent {
+                    prefix: chunk,
+                    urgent_byte: group.actions.oob_data.unwrap_or(b'a'),
+                });
             }
             TcpChainStepKind::Disorder => {
                 actions.push(DesyncAction::SetTtl(1));
@@ -129,7 +132,10 @@ pub fn plan_tcp(
             }
             TcpChainStepKind::Disoob => {
                 actions.push(DesyncAction::SetTtl(1));
-                actions.push(DesyncAction::WriteUrgent { prefix: chunk, urgent_byte: group.actions.oob_data.unwrap_or(b'a') });
+                actions.push(DesyncAction::WriteUrgent {
+                    prefix: chunk,
+                    urgent_byte: group.actions.oob_data.unwrap_or(b'a'),
+                });
                 actions.push(DesyncAction::AwaitWritable);
                 actions.push(DesyncAction::RestoreDefaultTtl);
             }

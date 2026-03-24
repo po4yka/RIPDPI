@@ -1,7 +1,7 @@
 use crate::offset::{gen_offset, insert_boundary, random_tail_fragment_lengths, resolve_adaptive_offset};
 use crate::types::{
-    activation_filter_matches, ActivationContext, ActivationTransport, AdaptivePlannerHints,
-    AdaptiveTlsRandRecProfile, DesyncError, ProtoInfo, TamperResult, TcpSegmentHint,
+    activation_filter_matches, ActivationContext, ActivationTransport, AdaptivePlannerHints, AdaptiveTlsRandRecProfile,
+    DesyncError, ProtoInfo, TamperResult, TcpSegmentHint,
 };
 use ripdpi_config::{DesyncGroup, TcpChainStep, TcpChainStepKind};
 use ripdpi_packets::{is_http, is_tls_client_hello, mod_http_like_c, OracleRng};

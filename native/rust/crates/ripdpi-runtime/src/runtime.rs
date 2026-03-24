@@ -231,8 +231,8 @@ mod tests {
         let mut fallback = DesyncGroup::new(1);
         fallback.matches.detect = DETECT_CONNECT;
 
-        let mut config = ripdpi_config::RuntimeConfig::default();
-        config.groups = vec![primary, fallback];
+        let config =
+            ripdpi_config::RuntimeConfig { groups: vec![primary, fallback], ..ripdpi_config::RuntimeConfig::default() };
         let state = RuntimeState {
             config: Arc::new(config.clone()),
             cache: Arc::new(Mutex::new(RuntimePolicy::load(&config))),

@@ -1,13 +1,13 @@
-mod lifecycle;
-mod registry;
-mod stats;
-mod telemetry;
 #[cfg(test)]
 mod jni_tests;
-#[cfg(test)]
-mod state_machine;
+mod lifecycle;
 #[cfg(feature = "loom")]
 mod loom;
+mod registry;
+#[cfg(test)]
+mod state_machine;
+mod stats;
+mod telemetry;
 
 use android_support::throw_runtime_exception;
 use jni::objects::JString;
@@ -95,9 +95,8 @@ mod tests {
 
     #[test]
     fn rejects_unknown_tunnel_handle_lookup() {
-        let err = match lookup_tunnel_session(99) {
-            Ok(_) => panic!("expected unknown handle error"),
-            Err(err) => err,
+        let Err(err) = lookup_tunnel_session(99) else {
+            panic!("expected unknown handle error");
         };
 
         assert_eq!(err, "Unknown tunnel handle");

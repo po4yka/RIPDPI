@@ -23,12 +23,11 @@ fn tlsrandrec_profiles_adjust_fragment_lengths() {
     let mut tight_context = tcp_context(DEFAULT_FAKE_TLS);
     tight_context.adaptive.tlsrandrec_profile = Some(AdaptiveTlsRandRecProfile::Tight);
     let tight =
-        apply_tls_prelude_steps(&group, &group.actions.tcp_chain, DEFAULT_FAKE_TLS, 7, tight_context)
-            .expect("tight");
+        apply_tls_prelude_steps(&group, &group.actions.tcp_chain, DEFAULT_FAKE_TLS, 7, tight_context).expect("tight");
     let mut wide_context = tcp_context(DEFAULT_FAKE_TLS);
     wide_context.adaptive.tlsrandrec_profile = Some(AdaptiveTlsRandRecProfile::Wide);
-    let wide = apply_tls_prelude_steps(&group, &group.actions.tcp_chain, DEFAULT_FAKE_TLS, 7, wide_context)
-        .expect("wide");
+    let wide =
+        apply_tls_prelude_steps(&group, &group.actions.tcp_chain, DEFAULT_FAKE_TLS, 7, wide_context).expect("wide");
 
     let balanced_lengths = tls_record_lengths(&balanced.bytes);
     let tight_lengths = tls_record_lengths(&tight.bytes);

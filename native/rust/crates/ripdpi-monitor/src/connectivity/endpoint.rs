@@ -67,17 +67,14 @@ pub(super) fn measure_throughput_window(target: &ThroughputTarget, transport: &T
             return ThroughputSample { status: "http_unreachable".to_string(), bytes_read: 0, bps: 0, error: err };
         }
     };
-    let header_end = match find_headers_end(&headers) {
-        Some(index) => index,
-        None => {
-            stream.shutdown();
-            return ThroughputSample {
-                status: "http_unreachable".to_string(),
-                bytes_read: 0,
-                bps: 0,
-                error: "response_missing_headers".to_string(),
-            };
-        }
+    let Some(header_end) = find_headers_end(&headers) else {
+        stream.shutdown();
+        return ThroughputSample {
+            status: "http_unreachable".to_string(),
+            bytes_read: 0,
+            bps: 0,
+            error: "response_missing_headers".to_string(),
+        };
     };
     let response = match parse_http_response(&headers[..header_end], headers[header_end + 4..].to_vec()) {
         Ok(response) => response,

@@ -177,7 +177,8 @@ pub fn build_fake_packet(group: &DesyncGroup, input: &[u8], seed: u32) -> Result
     };
 
     let fake_tls_target = normalize_fake_tls_size(group.actions.fake_tls_size, input.len());
-    let mut output = if (group.actions.fake_mod & FM_ORIG) != 0 && info.kind == IS_HTTPS { input.to_vec() } else { base };
+    let mut output =
+        if (group.actions.fake_mod & FM_ORIG) != 0 && info.kind == IS_HTTPS { input.to_vec() } else { base };
 
     if is_tls_client_hello(&output) {
         if let Some(sni) = fixed_sni {
@@ -206,8 +207,11 @@ pub fn build_fake_packet(group: &DesyncGroup, input: &[u8], seed: u32) -> Result
         }
     }
 
-    let fake_offset =
-        group.actions.fake_offset.and_then(|expr| gen_offset(expr, input, input.len(), 0, &mut info, &mut rng)).unwrap_or(0);
+    let fake_offset = group
+        .actions
+        .fake_offset
+        .and_then(|expr| gen_offset(expr, input, input.len(), 0, &mut info, &mut rng))
+        .unwrap_or(0);
     let fake_offset = if fake_offset < 0 || fake_offset as usize > output.len() { 0 } else { fake_offset as usize };
 
     Ok(FakePacketPlan { bytes: output, fake_offset, proto: info })

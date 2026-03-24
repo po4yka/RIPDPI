@@ -265,10 +265,7 @@ pub(super) fn resolve_mapped_target(
 pub(super) fn spawn_dns_worker(
     resolver: EncryptedDnsResolver,
     cancel: CancellationToken,
-) -> (
-    tokio::sync::mpsc::Sender<DnsRequest>,
-    tokio::sync::mpsc::Receiver<DnsResponse>,
-) {
+) -> (tokio::sync::mpsc::Sender<DnsRequest>, tokio::sync::mpsc::Receiver<DnsResponse>) {
     let (req_tx, mut req_rx) = tokio::sync::mpsc::channel::<DnsRequest>(super::DNS_QUEUE_CAPACITY);
     let (resp_tx, resp_rx) = tokio::sync::mpsc::channel::<DnsResponse>(super::DNS_QUEUE_CAPACITY);
     tokio::spawn(async move {
@@ -388,9 +385,8 @@ mod tests {
             resolver_fallback_reason: None,
         }));
 
-        let err = match parse_dns_cache(&config, None) {
-            Ok(_) => panic!("zero cache size should fail"),
-            Err(err) => err,
+        let Err(err) = parse_dns_cache(&config, None) else {
+            panic!("zero cache size should fail");
         };
 
         assert_eq!(err.kind(), io::ErrorKind::InvalidInput);

@@ -29,7 +29,7 @@ pub(crate) fn telemetry_session(env: &mut JNIEnv, handle: jlong) -> jni::sys::js
             resolver_id,
             resolver_protocol,
         )) {
-            Ok(value) => env.new_string(value).map(|s| s.into()),
+            Ok(value) => env.new_string(value).map(std::convert::Into::into),
             Err(err) => {
                 throw_runtime_exception(env, err.to_string());
                 Ok(JObject::null())

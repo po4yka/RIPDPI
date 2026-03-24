@@ -100,16 +100,15 @@ pub(super) fn udp_associate_loop(
                     };
                     let host_info = extract_host_info(&state.config, payload);
                     let host = host_info.as_ref().map(|value| value.host.clone());
-                    let route = match select_route_for_transport(
+                    let Ok(route) = select_route_for_transport(
                         &state,
                         target,
                         Some(payload),
                         host.as_deref(),
                         false,
                         TransportProtocol::Udp,
-                    ) {
-                        Ok(route) => route,
-                        Err(_) => continue,
+                    ) else {
+                        continue;
                     };
                     if let Some(telemetry) = &state.telemetry {
                         telemetry.on_route_selected(target, route.group_index, host.as_deref(), "initial");
@@ -134,19 +133,16 @@ pub(super) fn udp_associate_loop(
                             host.as_deref(),
                             payload,
                         )?;
-                        if !flow_state.contains_key(&(sender, target)) {
-                            flow_state.insert(
-                                (sender, target),
-                                UdpFlowActivationState {
-                                    session: SessionState::default(),
-                                    last_used: now,
-                                    route: route.clone(),
-                                    host: host.clone(),
-                                    payload: payload.to_vec(),
-                                    awaiting_response: true,
-                                    upstream: build_udp_upstream_socket(target, protect_path.as_deref())?,
-                                },
-                            );
+                        if let std::collections::hash_map::Entry::Vacant(e) = flow_state.entry((sender, target)) {
+                            e.insert(UdpFlowActivationState {
+                                session: SessionState::default(),
+                                last_used: now,
+                                route: route.clone(),
+                                host: host.clone(),
+                                payload: payload.to_vec(),
+                                awaiting_response: true,
+                                upstream: build_udp_upstream_socket(target, protect_path.as_deref())?,
+                            });
                         }
                         let entry = flow_state
                             .get_mut(&(sender, target))
@@ -177,7 +173,7 @@ pub(super) fn udp_associate_loop(
             Err(err) => return Err(err),
         }
 
-        for (&(client_addr, sender), entry) in flow_state.iter_mut() {
+        for (&(client_addr, sender), entry) in &mut flow_state {
             match entry.upstream.recv(&mut upstream_buffer) {
                 Ok(n) => {
                     made_progress = true;

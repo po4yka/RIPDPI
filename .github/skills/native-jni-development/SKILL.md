@@ -75,3 +75,9 @@ suspend fun startProxy(preferences: RipDpiProxyPreferences): Int = mutex.withLoc
 | Forgetting Mutex on Kotlin side | All JNI calls touching session handles must be wrapped in `mutex.withLock` |
 | Breaking the lifecycle contract | `jniStart(handle)` must stay blocking for proxy; `Tun2SocksTunnel.jniStart(...)` must stay non-blocking |
 | Adding ABI filters in module build file | Use `gradle.properties` -- convention plugin reads it |
+
+## See Also
+
+- `rust-code-style` -- Rust code style rules for the native workspace
+- `rust-lint-config` -- Clippy, rustfmt, and cargo-deny configuration
+- `rust-crate-architecture` -- Crate layering and dependency rules

@@ -11,9 +11,7 @@ pub use fake_profiles::{
     http_fake_profile_bytes, tls_fake_profile_bytes, udp_fake_profile_bytes, HttpFakeProfile, TlsFakeProfile,
     UdpFakeProfile,
 };
-pub use http::{
-    http_marker_info, is_http, is_http_redirect, mod_http_like_c, parse_http, second_level_domain_span,
-};
+pub use http::{http_marker_info, is_http, is_http_redirect, mod_http_like_c, parse_http, second_level_domain_span};
 pub use quic::{
     build_quic_initial_from_tls, build_realistic_quic_initial, default_fake_quic_compat, is_quic_initial,
     parse_quic_initial,

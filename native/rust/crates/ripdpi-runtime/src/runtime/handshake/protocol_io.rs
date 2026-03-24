@@ -101,7 +101,11 @@ pub(super) fn read_http_connect_request(client: &mut TcpStream) -> io::Result<Ve
     }
 }
 
-pub(in crate::runtime) fn resolve_name(host: &str, _socket_type: SocketType, config: &RuntimeConfig) -> Option<SocketAddr> {
+pub(in crate::runtime) fn resolve_name(
+    host: &str,
+    _socket_type: SocketType,
+    config: &RuntimeConfig,
+) -> Option<SocketAddr> {
     if let Ok(ip) = host.parse::<IpAddr>() {
         return Some(SocketAddr::new(ip, 0));
     }

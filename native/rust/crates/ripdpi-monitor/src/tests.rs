@@ -324,11 +324,8 @@ fn tcp_probe_reports_whitelist_sni_success() {
         fat_header_requests: Some(8),
     };
 
-    let result = run_tcp_probe(
-        &target,
-        &["allow.example".to_string(), "other.example".to_string()],
-        &TransportConfig::Direct,
-    );
+    let result =
+        run_tcp_probe(&target, &["allow.example".to_string(), "other.example".to_string()], &TransportConfig::Direct);
     assert_eq!(result.outcome, "whitelist_sni_ok");
 }
 
@@ -406,10 +403,8 @@ fn http_blockpage_reorders_tcp_candidates_toward_parser_families() {
 
 #[test]
 fn tcp_reset_reorders_tcp_candidates_toward_split_families() {
-    let ordered = reorder_tcp_candidates_for_failure(
-        &build_tcp_candidates(&minimal_ui_config()),
-        Some(FailureClass::TcpReset),
-    );
+    let ordered =
+        reorder_tcp_candidates_for_failure(&build_tcp_candidates(&minimal_ui_config()), Some(FailureClass::TcpReset));
     let ids = ordered.iter().take(4).map(|candidate| candidate.id).collect::<Vec<_>>();
 
     assert_eq!(ids, vec!["baseline_current", "split_host", "tlsrec_split_host", "tlsrec_hostfake_split"]);
@@ -417,10 +412,8 @@ fn tcp_reset_reorders_tcp_candidates_toward_split_families() {
 
 #[test]
 fn silent_drop_reorders_tcp_candidates_toward_fake_tls_families() {
-    let ordered = reorder_tcp_candidates_for_failure(
-        &build_tcp_candidates(&minimal_ui_config()),
-        Some(FailureClass::SilentDrop),
-    );
+    let ordered =
+        reorder_tcp_candidates_for_failure(&build_tcp_candidates(&minimal_ui_config()), Some(FailureClass::SilentDrop));
     let ids = ordered.iter().take(4).map(|candidate| candidate.id).collect::<Vec<_>>();
 
     assert_eq!(ids, vec!["baseline_current", "tlsrec_fake_rich", "tlsrec_hostfake", "tlsrec_hostfake_split"]);
@@ -428,10 +421,8 @@ fn silent_drop_reorders_tcp_candidates_toward_fake_tls_families() {
 
 #[test]
 fn tls_alert_reorders_tcp_candidates_away_from_fake_heavy_paths() {
-    let ordered = reorder_tcp_candidates_for_failure(
-        &build_tcp_candidates(&minimal_ui_config()),
-        Some(FailureClass::TlsAlert),
-    );
+    let ordered =
+        reorder_tcp_candidates_for_failure(&build_tcp_candidates(&minimal_ui_config()), Some(FailureClass::TlsAlert));
     let ids = ordered.iter().take(4).map(|candidate| candidate.id).collect::<Vec<_>>();
 
     assert_eq!(ids, vec!["baseline_current", "split_host", "tlsrec_split_host", "tlsrec_hostfake"]);
@@ -577,8 +568,7 @@ fn aggressive_parser_candidates_enable_only_expected_evasion() {
 #[test]
 fn parser_only_candidate_keeps_aggressive_http_evasions_disabled() {
     let candidates = build_tcp_candidates(&minimal_ui_config());
-    let parser_only =
-        candidates.iter().find(|candidate| candidate.id == "parser_only").expect("parser_only candidate");
+    let parser_only = candidates.iter().find(|candidate| candidate.id == "parser_only").expect("parser_only candidate");
 
     assert!(parser_only.config.parser_evasions.host_mixed_case);
     assert!(parser_only.config.parser_evasions.domain_mixed_case);
@@ -600,10 +590,7 @@ fn monitor_session_strategy_probe_returns_structured_recommendation() {
     let strategy_probe = report.strategy_probe_report.expect("strategy probe report");
 
     assert_eq!(report.profile_id, "automatic-probing");
-    assert_eq!(
-        strategy_probe.tcp_candidates.first().map(|candidate| candidate.id.as_str()),
-        Some("baseline_current")
-    );
+    assert_eq!(strategy_probe.tcp_candidates.first().map(|candidate| candidate.id.as_str()), Some("baseline_current"));
     assert_eq!(
         strategy_probe.recommendation.tcp_candidate_id,
         strategy_probe.tcp_candidates.iter().find(|candidate| !candidate.skipped).expect("tcp winner").id
@@ -708,8 +695,7 @@ fn monitor_json_contracts_match_goldens() {
     let report_json = wait_for_report_json(&session);
     assert_monitor_json_golden("final_report", &report_json, server.port());
 
-    let passive_events_json =
-        session.poll_passive_events_json().expect("poll passive events").expect("events json");
+    let passive_events_json = session.poll_passive_events_json().expect("poll passive events").expect("events json");
     assert_monitor_json_golden("passive_events_first_poll", &passive_events_json, server.port());
 
     let drained_json = session.poll_passive_events_json().expect("poll passive events again").expect("events json");

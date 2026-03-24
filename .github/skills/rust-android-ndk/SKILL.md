@@ -97,3 +97,9 @@ rustflags = ["-C", "link-arg=-Wl,-z,max-page-size=16384"]
 | Building with debug profile | Use `--release` for APK; debug `.so` files are huge |
 | Missing `strip = true` in release profile | Without stripping, `.so` files include debug info (~10x larger) |
 | Wrong target triple | Use `armv7-linux-androideabi` (not `armv7a-`) for armeabi-v7a |
+
+## See Also
+
+- `rust-code-style` -- Rust code style rules for the native workspace
+- `rust-lint-config` -- Clippy, rustfmt, and cargo-deny configuration
+- `rust-crate-architecture` -- Crate layering and dependency rules

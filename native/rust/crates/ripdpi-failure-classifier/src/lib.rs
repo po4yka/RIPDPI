@@ -186,7 +186,7 @@ pub fn classify_strategy_execution_failure(
         )
         .with_tag("action", action.to_string())
         .with_tag("kind", format!("{kind:?}"))
-        .with_tag("errno", errno.map(|value| value.to_string()).unwrap_or_else(|| "none".to_string())),
+        .with_tag("errno", errno.map_or_else(|| "none".to_string(), |value| value.to_string())),
     )
 }
 
