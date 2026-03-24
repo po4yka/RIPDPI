@@ -94,7 +94,7 @@ mod tests {
         assert_eq!(first_response_timeout(&config, &inactive_tracker), Some(Duration::from_millis(900)));
 
         config.timeouts.timeout_ms = 0;
-        config.groups[0].detect = DETECT_HTTP_LOCAT | DETECT_CONNECT;
+        config.groups[0].matches.detect = DETECT_HTTP_LOCAT | DETECT_CONNECT;
         assert_eq!(first_response_timeout(&config, &inactive_tracker), Some(Duration::from_millis(250)));
         assert_eq!(timeout_count_limit(&config), 1);
         assert!(response_trigger_supported(&config, TriggerEvent::Redirect));
@@ -103,7 +103,7 @@ mod tests {
         assert_eq!(trigger_flag(TriggerEvent::SslErr), DETECT_TLS_HANDSHAKE_FAILURE);
         assert_eq!(trigger_flag(TriggerEvent::Torst), DETECT_TORST);
 
-        config.groups[0].detect = 0;
+        config.groups[0].matches.detect = 0;
         assert_eq!(first_response_timeout(&config, &inactive_tracker), None);
     }
 

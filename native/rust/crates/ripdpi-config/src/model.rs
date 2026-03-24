@@ -283,40 +283,9 @@ pub enum QuicFakeProfile {
 pub struct DesyncGroup {
     pub id: usize,
     pub bit: u64,
-    pub detect: u32,
-    pub proto: u32,
-    pub ttl: Option<u8>,
-    pub auto_ttl: Option<AutoTtlConfig>,
-    pub md5sig: bool,
-    pub fake_data: Option<Vec<u8>>,
-    pub udp_fake_count: i32,
-    pub fake_offset: Option<OffsetExpr>,
-    pub fake_sni_list: Vec<String>,
-    pub fake_mod: u32,
-    pub fake_tls_size: i32,
-    pub http_fake_profile: HttpFakeProfile,
-    pub tls_fake_profile: TlsFakeProfile,
-    pub udp_fake_profile: UdpFakeProfile,
-    pub quic_fake_profile: QuicFakeProfile,
-    pub quic_fake_host: Option<String>,
-    pub drop_sack: bool,
-    pub oob_data: Option<u8>,
-    pub parts: Vec<PartSpec>,
-    pub tcp_chain: Vec<TcpChainStep>,
-    pub udp_chain: Vec<UdpChainStep>,
-    pub mod_http: u32,
-    pub tls_records: Vec<OffsetExpr>,
-    pub tlsminor: Option<u8>,
-    pub activation_filter: Option<ActivationFilter>,
-    pub filters: FilterSet,
-    pub port_filter: Option<(u16, u16)>,
-    pub rounds: [i32; 2],
-    pub ext_socks: Option<UpstreamSocksConfig>,
-    pub label: String,
-    pub pri: i32,
-    pub fail_count: i32,
-    pub cache_ttl: i64,
-    pub cache_file: Option<String>,
+    pub matches: DesyncGroupMatchSettings,
+    pub actions: DesyncGroupActionSettings,
+    pub policy: DesyncGroupPolicySettings,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -326,7 +295,6 @@ pub struct DesyncGroupMatchSettings {
     pub filters: FilterSet,
     pub port_filter: Option<(u16, u16)>,
     pub activation_filter: Option<ActivationFilter>,
-    pub rounds: [i32; 2],
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -335,7 +303,6 @@ pub struct DesyncGroupActionSettings {
     pub auto_ttl: Option<AutoTtlConfig>,
     pub md5sig: bool,
     pub fake_data: Option<Vec<u8>>,
-    pub udp_fake_count: i32,
     pub fake_offset: Option<OffsetExpr>,
     pub fake_sni_list: Vec<String>,
     pub fake_mod: u32,
@@ -347,16 +314,14 @@ pub struct DesyncGroupActionSettings {
     pub quic_fake_host: Option<String>,
     pub drop_sack: bool,
     pub oob_data: Option<u8>,
-    pub parts: Vec<PartSpec>,
     pub tcp_chain: Vec<TcpChainStep>,
     pub udp_chain: Vec<UdpChainStep>,
     pub mod_http: u32,
-    pub tls_records: Vec<OffsetExpr>,
     pub tlsminor: Option<u8>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct DesyncGroupCacheSettings {
+pub struct DesyncGroupPolicySettings {
     pub ext_socks: Option<UpstreamSocksConfig>,
     pub label: String,
     pub pri: i32,
@@ -365,18 +330,25 @@ pub struct DesyncGroupCacheSettings {
     pub cache_file: Option<String>,
 }
 
-impl DesyncGroup {
-    pub fn new(id: usize) -> Self {
+impl Default for DesyncGroupMatchSettings {
+    fn default() -> Self {
         Self {
-            id,
-            bit: 1u64 << id,
             detect: 0,
             proto: 0,
+            filters: FilterSet::default(),
+            port_filter: None,
+            activation_filter: None,
+        }
+    }
+}
+
+impl Default for DesyncGroupActionSettings {
+    fn default() -> Self {
+        Self {
             ttl: None,
             auto_ttl: None,
             md5sig: false,
             fake_data: None,
-            udp_fake_count: 0,
             fake_offset: None,
             fake_sni_list: Vec::new(),
             fake_mod: 0,
@@ -388,16 +360,17 @@ impl DesyncGroup {
             quic_fake_host: None,
             drop_sack: false,
             oob_data: None,
-            parts: Vec::new(),
             tcp_chain: Vec::new(),
             udp_chain: Vec::new(),
             mod_http: 0,
-            tls_records: Vec::new(),
             tlsminor: None,
-            activation_filter: None,
-            filters: FilterSet::default(),
-            port_filter: None,
-            rounds: [0, 0],
+        }
+    }
+}
+
+impl Default for DesyncGroupPolicySettings {
+    fn default() -> Self {
+        Self {
             ext_socks: None,
             label: String::new(),
             pri: 0,
@@ -406,205 +379,48 @@ impl DesyncGroup {
             cache_file: None,
         }
     }
+}
+
+impl DesyncGroup {
+    pub fn new(id: usize) -> Self {
+        Self { id, bit: 1u64 << id, matches: DesyncGroupMatchSettings::default(), actions: DesyncGroupActionSettings::default(), policy: DesyncGroupPolicySettings::default() }
+    }
 
     pub fn is_actionable(&self) -> bool {
-        !self.tcp_chain.is_empty()
-            || !self.udp_chain.is_empty()
-            || !self.parts.is_empty()
-            || !self.tls_records.is_empty()
-            || self.mod_http != 0
-            || self.tlsminor.is_some()
-            || self.fake_data.is_some()
-            || !self.fake_sni_list.is_empty()
-            || self.fake_offset.is_some()
-            || self.udp_fake_count != 0
-            || self.detect != 0
-            || !self.filters.hosts.is_empty()
-            || !self.filters.ipset.is_empty()
-            || self.port_filter.is_some()
-            || self.ext_socks.is_some()
+        !self.actions.tcp_chain.is_empty()
+            || !self.actions.udp_chain.is_empty()
+            || self.actions.mod_http != 0
+            || self.actions.tlsminor.is_some()
+            || self.actions.fake_data.is_some()
+            || !self.actions.fake_sni_list.is_empty()
+            || self.actions.fake_offset.is_some()
+            || self.matches.detect != 0
+            || !self.matches.filters.hosts.is_empty()
+            || !self.matches.filters.ipset.is_empty()
+            || self.matches.port_filter.is_some()
+            || self.policy.ext_socks.is_some()
     }
 
     pub fn effective_tcp_chain(&self) -> Vec<TcpChainStep> {
-        if !self.tcp_chain.is_empty() {
-            return self.tcp_chain.clone();
-        }
-
-        let mut chain = Vec::with_capacity(self.tls_records.len() + self.parts.len());
-        for offset in &self.tls_records {
-            chain.push(TcpChainStep::new(TcpChainStepKind::TlsRec, *offset));
-        }
-        for part in &self.parts {
-            if let Some(kind) = TcpChainStepKind::from_mode(part.mode) {
-                chain.push(TcpChainStep::new(kind, part.offset));
-            }
-        }
-        chain
+        self.actions.tcp_chain.clone()
     }
 
     pub fn effective_udp_chain(&self) -> Vec<UdpChainStep> {
-        if !self.udp_chain.is_empty() {
-            return self.udp_chain.clone();
-        }
-        if self.udp_fake_count > 0 {
-            vec![UdpChainStep {
-                kind: UdpChainStepKind::FakeBurst,
-                count: self.udp_fake_count,
-                activation_filter: None,
-            }]
-        } else {
-            Vec::new()
-        }
+        self.actions.udp_chain.clone()
     }
 
     pub fn activation_filter(&self) -> Option<ActivationFilter> {
-        self.activation_filter.filter(|filter| !filter.is_unbounded())
+        self.matches.activation_filter.filter(|filter| !filter.is_unbounded())
     }
 
     pub fn set_activation_filter(&mut self, filter: ActivationFilter) {
-        self.activation_filter = (!filter.is_unbounded()).then_some(filter);
-        self.rounds = self
-            .activation_filter
-            .and_then(|value| value.round)
-            .and_then(|range| {
-                let start = i32::try_from(range.start).ok()?;
-                let end = i32::try_from(range.end).ok()?;
-                Some([start, end])
-            })
-            .unwrap_or([0, 0]);
+        self.matches.activation_filter = (!filter.is_unbounded()).then_some(filter);
     }
 
     pub fn set_round_activation(&mut self, range: Option<NumericRange<i64>>) {
-        let mut filter = self.activation_filter.unwrap_or_default();
+        let mut filter = self.matches.activation_filter.unwrap_or_default();
         filter.round = range;
         self.set_activation_filter(filter);
-    }
-
-    pub fn sync_legacy_views_from_chains(&mut self) {
-        if !self.tcp_chain.is_empty() {
-            self.parts.clear();
-            self.tls_records.clear();
-            for step in &self.tcp_chain {
-                match step.kind {
-                    TcpChainStepKind::TlsRec => self.tls_records.push(step.offset),
-                    TcpChainStepKind::TlsRandRec => {}
-                    _ => {
-                        if let Some(mode) = step.kind.as_mode() {
-                            self.parts.push(PartSpec { mode, offset: step.offset });
-                        }
-                    }
-                }
-            }
-        }
-
-        if !self.udp_chain.is_empty() {
-            self.udp_fake_count = self
-                .udp_chain
-                .iter()
-                .filter_map(|step| matches!(step.kind, UdpChainStepKind::FakeBurst).then_some(step.count))
-                .sum();
-        }
-    }
-
-    pub fn match_settings(&self) -> DesyncGroupMatchSettings {
-        DesyncGroupMatchSettings {
-            detect: self.detect,
-            proto: self.proto,
-            filters: self.filters.clone(),
-            port_filter: self.port_filter,
-            activation_filter: self.activation_filter(),
-            rounds: self.rounds,
-        }
-    }
-
-    pub fn apply_match_settings(&mut self, settings: DesyncGroupMatchSettings) {
-        self.detect = settings.detect;
-        self.proto = settings.proto;
-        self.filters = settings.filters;
-        self.port_filter = settings.port_filter;
-        if let Some(filter) = settings.activation_filter {
-            self.set_activation_filter(filter);
-        } else if settings.rounds != [0, 0] {
-            self.set_round_activation(Some(NumericRange::new(
-                i64::from(settings.rounds[0]),
-                i64::from(settings.rounds[1]),
-            )));
-        } else {
-            self.set_round_activation(None);
-        }
-    }
-
-    pub fn action_settings(&self) -> DesyncGroupActionSettings {
-        DesyncGroupActionSettings {
-            ttl: self.ttl,
-            auto_ttl: self.auto_ttl,
-            md5sig: self.md5sig,
-            fake_data: self.fake_data.clone(),
-            udp_fake_count: self.udp_fake_count,
-            fake_offset: self.fake_offset,
-            fake_sni_list: self.fake_sni_list.clone(),
-            fake_mod: self.fake_mod,
-            fake_tls_size: self.fake_tls_size,
-            http_fake_profile: self.http_fake_profile,
-            tls_fake_profile: self.tls_fake_profile,
-            udp_fake_profile: self.udp_fake_profile,
-            quic_fake_profile: self.quic_fake_profile,
-            quic_fake_host: self.quic_fake_host.clone(),
-            drop_sack: self.drop_sack,
-            oob_data: self.oob_data,
-            parts: self.parts.clone(),
-            tcp_chain: self.tcp_chain.clone(),
-            udp_chain: self.udp_chain.clone(),
-            mod_http: self.mod_http,
-            tls_records: self.tls_records.clone(),
-            tlsminor: self.tlsminor,
-        }
-    }
-
-    pub fn apply_action_settings(&mut self, settings: DesyncGroupActionSettings) {
-        self.ttl = settings.ttl;
-        self.auto_ttl = settings.auto_ttl;
-        self.md5sig = settings.md5sig;
-        self.fake_data = settings.fake_data;
-        self.udp_fake_count = settings.udp_fake_count;
-        self.fake_offset = settings.fake_offset;
-        self.fake_sni_list = settings.fake_sni_list;
-        self.fake_mod = settings.fake_mod;
-        self.fake_tls_size = settings.fake_tls_size;
-        self.http_fake_profile = settings.http_fake_profile;
-        self.tls_fake_profile = settings.tls_fake_profile;
-        self.udp_fake_profile = settings.udp_fake_profile;
-        self.quic_fake_profile = settings.quic_fake_profile;
-        self.quic_fake_host = settings.quic_fake_host;
-        self.drop_sack = settings.drop_sack;
-        self.oob_data = settings.oob_data;
-        self.parts = settings.parts;
-        self.tcp_chain = settings.tcp_chain;
-        self.udp_chain = settings.udp_chain;
-        self.mod_http = settings.mod_http;
-        self.tls_records = settings.tls_records;
-        self.tlsminor = settings.tlsminor;
-        self.sync_legacy_views_from_chains();
-    }
-
-    pub fn cache_settings(&self) -> DesyncGroupCacheSettings {
-        DesyncGroupCacheSettings {
-            ext_socks: self.ext_socks,
-            label: self.label.clone(),
-            pri: self.pri,
-            fail_count: self.fail_count,
-            cache_ttl: self.cache_ttl,
-            cache_file: self.cache_file.clone(),
-        }
-    }
-
-    pub fn apply_cache_settings(&mut self, settings: DesyncGroupCacheSettings) {
-        self.ext_socks = settings.ext_socks;
-        self.label = settings.label;
-        self.pri = settings.pri;
-        self.fail_count = settings.fail_count;
-        self.cache_ttl = settings.cache_ttl;
-        self.cache_file = settings.cache_file;
     }
 }
 

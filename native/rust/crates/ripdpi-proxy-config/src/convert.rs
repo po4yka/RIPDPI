@@ -51,7 +51,7 @@ fn sanitize_runtime_context(runtime_context: Option<ProxyRuntimeContext>) -> Opt
 }
 
 fn group_needs_delayed_connect(group: &DesyncGroup) -> bool {
-    !group.filters.hosts.is_empty() || (group.proto & (IS_HTTP | IS_HTTPS)) != 0
+    !group.matches.filters.hosts.is_empty() || (group.matches.proto & (IS_HTTP | IS_HTTPS)) != 0
 }
 
 fn synthesize_tlsrec_prelude_for_bare_hostfake(chain: &mut Vec<TcpChainStep>) {
@@ -351,7 +351,7 @@ pub fn runtime_config_from_ui(payload: ProxyUiConfig) -> Result<RuntimeConfig, P
     let mut groups = Vec::new();
     if hosts.mode == HOSTS_WHITELIST {
         let mut whitelist = DesyncGroup::new(0);
-        whitelist.filters.hosts = parse_hosts(hosts.entries.as_deref())?;
+        whitelist.matches.filters.hosts = parse_hosts(hosts.entries.as_deref())?;
         groups.push(whitelist);
     }
 
@@ -359,7 +359,7 @@ pub fn runtime_config_from_ui(payload: ProxyUiConfig) -> Result<RuntimeConfig, P
     match hosts.mode.as_str() {
         HOSTS_DISABLE | HOSTS_WHITELIST => {}
         HOSTS_BLACKLIST => {
-            group.filters.hosts = parse_hosts(hosts.entries.as_deref())?;
+            group.matches.filters.hosts = parse_hosts(hosts.entries.as_deref())?;
         }
         _ => return Err(ProxyConfigError::InvalidConfig("Unknown hostsMode".to_string())),
     }
@@ -374,7 +374,7 @@ pub fn runtime_config_from_ui(payload: ProxyUiConfig) -> Result<RuntimeConfig, P
         if min_ttl == 0 || max_ttl == 0 || min_ttl > max_ttl {
             return Err(ProxyConfigError::InvalidConfig("Invalid adaptive fake TTL window".to_string()));
         }
-        group.auto_ttl = Some(ripdpi_config::AutoTtlConfig { delta, min_ttl, max_ttl });
+        group.actions.auto_ttl = Some(ripdpi_config::AutoTtlConfig { delta, min_ttl, max_ttl });
         let fallback_ttl = if fake_packets.adaptive_fake_ttl_fallback > 0 {
             fake_packets.adaptive_fake_ttl_fallback
         } else if fake_packets.fake_ttl > 0 {
@@ -382,21 +382,21 @@ pub fn runtime_config_from_ui(payload: ProxyUiConfig) -> Result<RuntimeConfig, P
         } else {
             ADAPTIVE_FAKE_TTL_DEFAULT_FALLBACK
         };
-        group.ttl = Some(
+        group.actions.ttl = Some(
             u8::try_from(fallback_ttl)
                 .map_err(|_| ProxyConfigError::InvalidConfig("Invalid adaptiveFakeTtlFallback".to_string()))?,
         );
     } else if fake_packets.fake_ttl > 0 {
-        group.ttl = Some(
+        group.actions.ttl = Some(
             u8::try_from(fake_packets.fake_ttl)
                 .map_err(|_| ProxyConfigError::InvalidConfig("Invalid fakeTtl".to_string()))?,
         );
     }
-    group.http_fake_profile = parse_http_fake_profile(&fake_packets.http_fake_profile)?;
-    group.tls_fake_profile = parse_tls_fake_profile(&fake_packets.tls_fake_profile)?;
-    group.udp_fake_profile = parse_udp_fake_profile(&fake_packets.udp_fake_profile)?;
-    group.drop_sack = fake_packets.drop_sack;
-    group.proto = (u32::from(protocols.desync_http) * IS_HTTP)
+    group.actions.http_fake_profile = parse_http_fake_profile(&fake_packets.http_fake_profile)?;
+    group.actions.tls_fake_profile = parse_tls_fake_profile(&fake_packets.tls_fake_profile)?;
+    group.actions.udp_fake_profile = parse_udp_fake_profile(&fake_packets.udp_fake_profile)?;
+    group.actions.drop_sack = fake_packets.drop_sack;
+    group.matches.proto = (u32::from(protocols.desync_http) * IS_HTTP)
         | (u32::from(protocols.desync_https) * IS_HTTPS)
         | (u32::from(protocols.desync_udp) * IS_UDP);
     if let Some(filter) =
@@ -404,8 +404,8 @@ pub fn runtime_config_from_ui(payload: ProxyUiConfig) -> Result<RuntimeConfig, P
     {
         group.set_activation_filter(filter);
     }
-    group.quic_fake_profile = parse_quic_fake_profile(&quic.fake_profile)?;
-    group.quic_fake_host = {
+    group.actions.quic_fake_profile = parse_quic_fake_profile(&quic.fake_profile)?;
+    group.actions.quic_fake_host = {
         let host = quic.fake_host.trim();
         if host.is_empty() {
             None
@@ -413,7 +413,7 @@ pub fn runtime_config_from_ui(payload: ProxyUiConfig) -> Result<RuntimeConfig, P
             ripdpi_config::normalize_quic_fake_host(host).ok()
         }
     };
-    group.mod_http = (u32::from(parser_evasions.host_mixed_case) * MH_HMIX)
+    group.actions.mod_http = (u32::from(parser_evasions.host_mixed_case) * MH_HMIX)
         | (u32::from(parser_evasions.domain_mixed_case) * MH_DMIX)
         | (u32::from(parser_evasions.host_remove_spaces) * MH_SPACE)
         | (u32::from(parser_evasions.http_method_eol) * MH_METHODEOL)
@@ -459,7 +459,7 @@ pub fn runtime_config_from_ui(payload: ProxyUiConfig) -> Result<RuntimeConfig, P
         };
         let activation_filter =
             parse_proxy_activation_filter(step.activation_filter.as_ref(), "chains.tcpSteps.activationFilter")?;
-        group.tcp_chain.push(TcpChainStep {
+        group.actions.tcp_chain.push(TcpChainStep {
             kind,
             offset,
             activation_filter,
@@ -470,14 +470,14 @@ pub fn runtime_config_from_ui(payload: ProxyUiConfig) -> Result<RuntimeConfig, P
             max_fragment_size,
         });
     }
-    synthesize_tlsrec_prelude_for_bare_hostfake(&mut group.tcp_chain);
-    validate_tcp_chain(&group.tcp_chain)?;
+    synthesize_tlsrec_prelude_for_bare_hostfake(&mut group.actions.tcp_chain);
+    validate_tcp_chain(&group.actions.tcp_chain)?;
 
     for step in &chains.udp_steps {
         if step.count < 0 {
             return Err(ProxyConfigError::InvalidConfig("udpChainSteps count must be non-negative".to_string()));
         }
-        group.udp_chain.push(UdpChainStep {
+        group.actions.udp_chain.push(UdpChainStep {
             kind: parse_udp_chain_step_kind(&step.kind)?,
             count: step.count,
             activation_filter: parse_proxy_activation_filter(
@@ -507,38 +507,36 @@ pub fn runtime_config_from_ui(payload: ProxyUiConfig) -> Result<RuntimeConfig, P
                 "Adaptive markers are not supported for fakeOffsetMarker".to_string(),
             ));
         }
-        group.fake_offset = Some(fake_offset);
+        group.actions.fake_offset = Some(fake_offset);
         if fake_packets.fake_tls_use_original {
-            group.fake_mod |= FM_ORIG;
+            group.actions.fake_mod |= FM_ORIG;
         }
         if fake_packets.fake_tls_randomize {
-            group.fake_mod |= FM_RAND;
+            group.actions.fake_mod |= FM_RAND;
         }
         if fake_packets.fake_tls_dup_session_id {
-            group.fake_mod |= FM_DUPSID;
+            group.actions.fake_mod |= FM_DUPSID;
         }
         if fake_packets.fake_tls_pad_encap {
-            group.fake_mod |= FM_PADENCAP;
+            group.actions.fake_mod |= FM_PADENCAP;
         }
         if fake_tls_sni_mode == FAKE_TLS_SNI_MODE_RANDOMIZED {
-            group.fake_mod |= FM_RNDSNI;
+            group.actions.fake_mod |= FM_RNDSNI;
         } else {
-            group.fake_sni_list.push(fake_packets.fake_sni);
+            group.actions.fake_sni_list.push(fake_packets.fake_sni);
         }
-        group.fake_tls_size = fake_packets.fake_tls_size;
+        group.actions.fake_tls_size = fake_packets.fake_tls_size;
     }
 
     if has_oob_step {
-        group.oob_data = Some(fake_packets.oob_char);
+        group.actions.oob_data = Some(fake_packets.oob_char);
     }
 
-    group.sync_legacy_views_from_chains();
-
-    let action_proto = group.proto;
+    let action_proto = group.matches.proto;
     groups.push(group);
     if action_proto != 0 {
         let mut fallback = DesyncGroup::new(groups.len());
-        fallback.detect = DETECT_CONNECT;
+        fallback.matches.detect = DETECT_CONNECT;
         groups.push(fallback);
     }
 

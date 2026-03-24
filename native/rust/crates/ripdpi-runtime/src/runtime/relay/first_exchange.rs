@@ -160,7 +160,7 @@ pub(super) fn first_response_timeout(
     } else if config.timeouts.timeout_ms != 0 {
         Some(Duration::from_millis(config.timeouts.timeout_ms as u64))
     } else if config.groups.iter().any(|group| {
-        group.detect
+        group.matches.detect
             & (DETECT_HTTP_LOCAT
                 | DETECT_HTTP_BLOCKPAGE
                 | DETECT_TLS_HANDSHAKE_FAILURE
@@ -188,5 +188,5 @@ pub(super) fn response_trigger_supported(config: &RuntimeConfig, trigger: ripdpi
         ripdpi_session::TriggerEvent::Connect => DETECT_CONNECT,
         ripdpi_session::TriggerEvent::Torst => DETECT_TORST,
     };
-    config.groups.iter().any(|group| group.detect & flag != 0)
+    config.groups.iter().any(|group| group.matches.detect & flag != 0)
 }

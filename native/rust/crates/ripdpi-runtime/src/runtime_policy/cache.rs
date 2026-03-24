@@ -16,7 +16,7 @@ impl RuntimePolicy {
         let mut learned_hosts_by_scope = Default::default();
         let mut autolearn_events = VecDeque::new();
         for (group_index, group) in config.groups.iter().enumerate() {
-            let Some(path) = group.cache_file.as_deref() else {
+            let Some(path) = group.policy.cache_file.as_deref() else {
                 continue;
             };
             if path == "-" {
@@ -29,7 +29,11 @@ impl RuntimePolicy {
         let groups = config
             .groups
             .iter()
-            .map(|group| GroupPolicy { detect: group.detect, fail_count: group.fail_count, pri: group.pri })
+            .map(|group| GroupPolicy {
+                detect: group.matches.detect,
+                fail_count: group.policy.fail_count,
+                pri: group.policy.pri,
+            })
             .collect();
         let order = (0..config.groups.len()).collect();
         if config.host_autolearn.enabled {
@@ -99,7 +103,7 @@ impl RuntimePolicy {
     }
 
     pub(crate) fn persist_group(&self, config: &RuntimeConfig, group_index: usize) -> io::Result<()> {
-        let Some(path) = config.groups[group_index].cache_file.as_deref() else {
+        let Some(path) = config.groups[group_index].policy.cache_file.as_deref() else {
             return Ok(());
         };
         if path == "-" {
@@ -116,7 +120,7 @@ impl RuntimePolicy {
 
     pub fn dump_stdout_groups<W: Write>(&self, config: &RuntimeConfig, mut writer: W) -> io::Result<()> {
         for (group_index, group) in config.groups.iter().enumerate() {
-            if group.cache_file.as_deref() != Some("-") {
+            if group.policy.cache_file.as_deref() != Some("-") {
                 continue;
             }
             let entries: Vec<_> = self
@@ -135,7 +139,9 @@ impl RuntimePolicy {
     }
 
     pub(crate) fn detect_for(&self, config: &RuntimeConfig, group_index: usize) -> u32 {
-        self.groups.get(group_index).map_or_else(|| config.groups[group_index].detect, |group| group.detect)
+        self.groups
+            .get(group_index)
+            .map_or_else(|| config.groups[group_index].matches.detect, |group| group.detect)
     }
 
     pub(crate) fn ordered_indices(&self) -> &[usize] {
@@ -182,7 +188,7 @@ fn is_expired(config: &RuntimeConfig, record: &CacheRecord, now: i64) -> bool {
     let Some(group) = config.groups.get(record.group_index) else {
         return true;
     };
-    let ttl = if group.cache_ttl != 0 { group.cache_ttl } else { config.adaptive.cache_ttl };
+    let ttl = if group.policy.cache_ttl != 0 { group.policy.cache_ttl } else { config.adaptive.cache_ttl };
     ttl != 0 && now > record.entry.time + ttl
 }
 
@@ -205,7 +211,7 @@ mod tests {
     fn lookup_prunes_expired_records() {
         let dest = sample_dest(443);
         let mut group = DesyncGroup::new(0);
-        group.cache_ttl = 1;
+        group.policy.cache_ttl = 1;
         let config = config_with_groups(vec![group]);
         let mut policy = RuntimePolicy {
             records: vec![CacheRecord {
@@ -243,7 +249,7 @@ mod tests {
     fn is_expired_ttl_boundary() {
         let group = {
             let mut g = DesyncGroup::new(0);
-            g.cache_ttl = 100;
+            g.policy.cache_ttl = 100;
             g
         };
         let config = config_with_groups(vec![group]);
@@ -261,7 +267,7 @@ mod tests {
         assert!(!is_expired(&config, &record, 1100));
         assert!(is_expired(&config, &record, 1101));
         let mut config2 = config.clone();
-        config2.groups[0].cache_ttl = 0;
+        config2.groups[0].policy.cache_ttl = 0;
         config2.adaptive.cache_ttl = 0;
         assert!(!is_expired(&config2, &record, 999_999));
     }
@@ -270,7 +276,7 @@ mod tests {
     fn runtime_policy_store_preserves_cached_hostnames() {
         let dest = sample_dest(443);
         let mut group = DesyncGroup::new(0);
-        group.cache_file = Some("-".to_string());
+        group.policy.cache_file = Some("-".to_string());
         let config = config_with_groups(vec![group]);
         let mut policy = RuntimePolicy::load(&config);
 

@@ -17,12 +17,12 @@ pub(super) fn resolve_adaptive_fake_ttl(
     group: &DesyncGroup,
     host: Option<&str>,
 ) -> io::Result<Option<u8>> {
-    let Some(auto_ttl) = group.auto_ttl else {
+    let Some(auto_ttl) = group.actions.auto_ttl else {
         return Ok(None);
     };
     let mut resolver =
         state.adaptive_fake_ttl.lock().map_err(|_| io::Error::other("adaptive fake ttl mutex poisoned"))?;
-    Ok(Some(resolver.resolve(group_index, target, host, auto_ttl, group.ttl)))
+    Ok(Some(resolver.resolve(group_index, target, host, auto_ttl, group.actions.ttl)))
 }
 
 pub(super) fn resolve_adaptive_tcp_hints(

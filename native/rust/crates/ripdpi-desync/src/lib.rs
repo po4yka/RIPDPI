@@ -373,13 +373,13 @@ fn push_fake_actions(
     fake_ttl: u8,
 ) {
     actions.push(DesyncAction::SetTtl(fake_ttl));
-    if group.md5sig {
+    if group.actions.md5sig {
         actions.push(DesyncAction::SetMd5Sig { key_len: 5 });
     }
     if !original.is_empty() {
         actions.push(DesyncAction::Write(fake));
     }
-    if group.md5sig {
+    if group.actions.md5sig {
         actions.push(DesyncAction::SetMd5Sig { key_len: 0 });
     }
     actions.push(DesyncAction::RestoreDefaultTtl);
@@ -744,13 +744,13 @@ fn apply_tls_prelude_steps(
     let mut output = input.to_vec();
     let info = ProtoInfo::default();
 
-    if group.mod_http != 0 && is_http(&output) {
-        let mutation = mod_http_like_c(&output, group.mod_http);
+    if group.actions.mod_http != 0 && is_http(&output) {
+        let mutation = mod_http_like_c(&output, group.actions.mod_http);
         if mutation.rc == 0 {
             output = mutation.bytes;
         }
     }
-    if let Some(tlsminor) = group.tlsminor {
+    if let Some(tlsminor) = group.actions.tlsminor {
         if is_tls_client_hello(&output) && output.len() > 2 {
             output[2] = tlsminor;
         }
@@ -820,10 +820,10 @@ fn tls_sni_capacity(current: &[u8], target_size: usize, new_host: &[u8]) -> usiz
 pub fn build_fake_packet(group: &DesyncGroup, input: &[u8], seed: u32) -> Result<FakePacketPlan, DesyncError> {
     let mut info = ProtoInfo::default();
     let mut rng = OracleRng::seeded(seed);
-    let fixed_sni = if group.fake_sni_list.is_empty() {
+    let fixed_sni = if group.actions.fake_sni_list.is_empty() {
         None
     } else {
-        Some(group.fake_sni_list[rng.next_mod(group.fake_sni_list.len())].as_bytes())
+        Some(group.actions.fake_sni_list[rng.next_mod(group.actions.fake_sni_list.len())].as_bytes())
     };
 
     if info.kind == 0 {
@@ -834,31 +834,31 @@ pub fn build_fake_packet(group: &DesyncGroup, input: &[u8], seed: u32) -> Result
         }
     }
 
-    let base = if let Some(fake) = &group.fake_data {
+    let base = if let Some(fake) = &group.actions.fake_data {
         fake.clone()
     } else if info.kind == IS_HTTP {
-        http_fake_profile_bytes(group.http_fake_profile).to_vec()
+        http_fake_profile_bytes(group.actions.http_fake_profile).to_vec()
     } else {
-        tls_fake_profile_bytes(group.tls_fake_profile).to_vec()
+        tls_fake_profile_bytes(group.actions.tls_fake_profile).to_vec()
     };
 
-    let fake_tls_target = normalize_fake_tls_size(group.fake_tls_size, input.len());
-    let mut output = if (group.fake_mod & FM_ORIG) != 0 && info.kind == IS_HTTPS { input.to_vec() } else { base };
+    let fake_tls_target = normalize_fake_tls_size(group.actions.fake_tls_size, input.len());
+    let mut output = if (group.actions.fake_mod & FM_ORIG) != 0 && info.kind == IS_HTTPS { input.to_vec() } else { base };
 
     if is_tls_client_hello(&output) {
         if let Some(sni) = fixed_sni {
             let mutation =
                 change_tls_sni_seeded_like_c(&output, sni, tls_sni_capacity(&output, fake_tls_target, sni), seed);
             apply_tls_mutation(&mut output, mutation);
-        } else if (group.fake_mod & FM_RNDSNI) != 0 {
+        } else if (group.actions.fake_mod & FM_RNDSNI) != 0 {
             let mutation = randomize_tls_sni_seeded_like_c(&output, seed);
             apply_tls_mutation(&mut output, mutation);
         }
-        if (group.fake_mod & FM_RAND) != 0 {
+        if (group.actions.fake_mod & FM_RAND) != 0 {
             let mutation = randomize_tls_seeded_like_c(&output, seed);
             apply_tls_mutation(&mut output, mutation);
         }
-        if (group.fake_mod & FM_DUPSID) != 0 {
+        if (group.actions.fake_mod & FM_DUPSID) != 0 {
             let mutation = duplicate_tls_session_id_like_c(&output, input);
             apply_tls_mutation(&mut output, mutation);
         }
@@ -866,14 +866,14 @@ pub fn build_fake_packet(group: &DesyncGroup, input: &[u8], seed: u32) -> Result
             let mutation = tune_tls_padding_size_like_c(&output, fake_tls_target);
             apply_tls_mutation(&mut output, mutation);
         }
-        if (group.fake_mod & FM_PADENCAP) != 0 {
+        if (group.actions.fake_mod & FM_PADENCAP) != 0 {
             let mutation = padencap_tls_like_c(&output, input.len());
             apply_tls_mutation(&mut output, mutation);
         }
     }
 
     let fake_offset =
-        group.fake_offset.and_then(|expr| gen_offset(expr, input, input.len(), 0, &mut info, &mut rng)).unwrap_or(0);
+        group.actions.fake_offset.and_then(|expr| gen_offset(expr, input, input.len(), 0, &mut info, &mut rng)).unwrap_or(0);
     let fake_offset = if fake_offset < 0 || fake_offset as usize > output.len() { 0 } else { fake_offset as usize };
 
     Ok(FakePacketPlan { bytes: output, fake_offset, proto: info })
@@ -912,7 +912,7 @@ pub fn plan_tcp(
     let mut steps = Vec::new();
     let mut actions = Vec::new();
     let mut lp = 0i64;
-    let fake_ttl = context.resolved_fake_ttl.or(group.ttl).unwrap_or(8);
+    let fake_ttl = context.resolved_fake_ttl.or(group.actions.ttl).unwrap_or(8);
 
     for step in send_steps {
         if !activation_filter_matches(step.activation_filter, context) {
@@ -947,7 +947,7 @@ pub fn plan_tcp(
                 push_split_actions(&mut actions, chunk);
             }
             TcpChainStepKind::Oob => {
-                actions.push(DesyncAction::WriteUrgent { prefix: chunk, urgent_byte: group.oob_data.unwrap_or(b'a') });
+                actions.push(DesyncAction::WriteUrgent { prefix: chunk, urgent_byte: group.actions.oob_data.unwrap_or(b'a') });
             }
             TcpChainStepKind::Disorder => {
                 actions.push(DesyncAction::SetTtl(1));
@@ -957,7 +957,7 @@ pub fn plan_tcp(
             }
             TcpChainStepKind::Disoob => {
                 actions.push(DesyncAction::SetTtl(1));
-                actions.push(DesyncAction::WriteUrgent { prefix: chunk, urgent_byte: group.oob_data.unwrap_or(b'a') });
+                actions.push(DesyncAction::WriteUrgent { prefix: chunk, urgent_byte: group.actions.oob_data.unwrap_or(b'a') });
                 actions.push(DesyncAction::AwaitWritable);
                 actions.push(DesyncAction::RestoreDefaultTtl);
             }
@@ -1044,7 +1044,7 @@ pub fn plan_udp(group: &DesyncGroup, payload: &[u8], default_ttl: u8, context: A
     }
     let mut actions = Vec::new();
     let chain = group.effective_udp_chain();
-    if group.drop_sack {
+    if group.actions.drop_sack {
         actions.push(DesyncAction::AttachDropSack);
     }
     if !chain.is_empty() {
@@ -1057,7 +1057,7 @@ pub fn plan_udp(group: &DesyncGroup, payload: &[u8], default_ttl: u8, context: A
                 continue;
             }
             let burst_count = adjusted_udp_burst_count(step.count, context);
-            actions.push(DesyncAction::SetTtl(group.ttl.unwrap_or(8)));
+            actions.push(DesyncAction::SetTtl(group.actions.ttl.unwrap_or(8)));
             for _ in 0..burst_count {
                 actions.push(DesyncAction::Write(fake.clone()));
             }
@@ -1068,7 +1068,7 @@ pub fn plan_udp(group: &DesyncGroup, payload: &[u8], default_ttl: u8, context: A
         }
     }
     actions.push(DesyncAction::Write(payload.to_vec()));
-    if group.drop_sack {
+    if group.actions.drop_sack {
         actions.push(DesyncAction::DetachDropSack);
     }
     actions
@@ -1109,14 +1109,14 @@ fn adjusted_udp_burst_count(base_count: i32, context: ActivationContext) -> i32 
 }
 
 fn udp_fake_payload(group: &DesyncGroup, payload: &[u8], context: ActivationContext) -> Vec<u8> {
-    let quic_fake_profile = context.adaptive.quic_fake_profile.unwrap_or(group.quic_fake_profile);
+    let quic_fake_profile = context.adaptive.quic_fake_profile.unwrap_or(group.actions.quic_fake_profile);
     if quic_fake_profile != QuicFakeProfile::Disabled {
         if let Some(quic) = parse_quic_initial(payload) {
             match quic_fake_profile {
                 QuicFakeProfile::Disabled => {}
                 QuicFakeProfile::CompatDefault => return default_fake_quic_compat(),
                 QuicFakeProfile::RealisticInitial => {
-                    if let Some(fake) = build_realistic_quic_initial(quic.version, group.quic_fake_host.as_deref()) {
+                    if let Some(fake) = build_realistic_quic_initial(quic.version, group.actions.quic_fake_host.as_deref()) {
                         return fake;
                     }
                 }
@@ -1124,8 +1124,8 @@ fn udp_fake_payload(group: &DesyncGroup, payload: &[u8], context: ActivationCont
         }
     }
 
-    let mut fake = group.fake_data.clone().unwrap_or_else(|| udp_fake_profile_bytes(group.udp_fake_profile).to_vec());
-    if let Some(offset) = group.fake_offset {
+    let mut fake = group.actions.fake_data.clone().unwrap_or_else(|| udp_fake_profile_bytes(group.actions.udp_fake_profile).to_vec());
+    if let Some(offset) = group.actions.fake_offset {
         if let Some(pos) = offset.absolute_positive().filter(|pos| (*pos as usize) < fake.len()) {
             fake = fake[pos as usize..].to_vec();
         } else {
@@ -1139,8 +1139,7 @@ fn udp_fake_payload(group: &DesyncGroup, payload: &[u8], context: ActivationCont
 mod tests {
     use super::*;
     use ripdpi_config::{
-        DesyncMode, OffsetBase, PartSpec, QuicFakeProfile, TcpChainStep, TcpChainStepKind, UdpChainStep,
-        UdpChainStepKind,
+        OffsetBase, QuicFakeProfile, TcpChainStep, TcpChainStepKind, UdpChainStep, UdpChainStepKind,
     };
     use ripdpi_packets::{
         build_realistic_quic_initial, http_marker_info, parse_http, parse_quic_initial, parse_tls,
@@ -1234,7 +1233,8 @@ mod tests {
     fn plan_tcp_auto_host_uses_hint_budget_and_semantic_markers() {
         let markers = http_marker_info(DEFAULT_FAKE_HTTP).expect("http markers");
         let mut group = DesyncGroup::new(0);
-        group.tcp_chain = vec![TcpChainStep::new(TcpChainStepKind::Split, OffsetExpr::adaptive(OffsetBase::AutoHost))];
+        group.actions.tcp_chain =
+            vec![TcpChainStep::new(TcpChainStepKind::Split, OffsetExpr::adaptive(OffsetBase::AutoHost))];
 
         let plan = plan_tcp(
             &group,
@@ -1270,7 +1270,7 @@ mod tests {
         let expected_second_end = if markers.host_end as i64 <= target_end { markers.host_end as i64 } else { midsld };
 
         let mut group = DesyncGroup::new(0);
-        group.tcp_chain = vec![
+        group.actions.tcp_chain = vec![
             TcpChainStep::new(TcpChainStepKind::Split, OffsetExpr::marker(OffsetBase::Host, 0)),
             TcpChainStep::new(TcpChainStepKind::Split, OffsetExpr::adaptive(OffsetBase::AutoHost)),
         ];
@@ -1293,7 +1293,7 @@ mod tests {
         let payload = b"plain payload without semantic markers";
         let expected = (payload.len() / 2).max(1) as i64;
         let mut group = DesyncGroup::new(0);
-        group.tcp_chain =
+        group.actions.tcp_chain =
             vec![TcpChainStep::new(TcpChainStepKind::Split, OffsetExpr::adaptive(OffsetBase::AutoBalanced))];
 
         let plan = plan_tcp(&group, payload, 7, 64, tcp_context(payload)).expect("fallback plan");
@@ -1305,10 +1305,10 @@ mod tests {
     fn plan_tcp_tlsrec_supports_adaptive_marker_resolution() {
         let markers = tls_marker_info(DEFAULT_FAKE_TLS).expect("tls markers");
         let mut auto_group = DesyncGroup::new(0);
-        auto_group.tcp_chain =
+        auto_group.actions.tcp_chain =
             vec![TcpChainStep::new(TcpChainStepKind::TlsRec, OffsetExpr::adaptive(OffsetBase::AutoSniExt))];
         let mut explicit_group = DesyncGroup::new(0);
-        explicit_group.tcp_chain =
+        explicit_group.actions.tcp_chain =
             vec![TcpChainStep::new(TcpChainStepKind::TlsRec, OffsetExpr::marker(OffsetBase::SniExt, 0))];
 
         let auto_plan = plan_tcp(
@@ -1337,7 +1337,7 @@ mod tests {
     fn plan_tcp_tlsrandrec_supports_adaptive_marker_resolution() {
         let markers = tls_marker_info(DEFAULT_FAKE_TLS).expect("tls markers");
         let mut auto_group = DesyncGroup::new(0);
-        auto_group.tcp_chain = vec![TcpChainStep {
+        auto_group.actions.tcp_chain = vec![TcpChainStep {
             kind: TcpChainStepKind::TlsRandRec,
             offset: OffsetExpr::adaptive(OffsetBase::AutoSniExt),
             activation_filter: None,
@@ -1348,7 +1348,7 @@ mod tests {
             max_fragment_size: 32,
         }];
         let mut explicit_group = DesyncGroup::new(0);
-        explicit_group.tcp_chain = vec![TcpChainStep {
+        explicit_group.actions.tcp_chain = vec![TcpChainStep {
             kind: TcpChainStepKind::TlsRandRec,
             offset: OffsetExpr::marker(OffsetBase::SniExt, 0),
             activation_filter: None,
@@ -1388,7 +1388,8 @@ mod tests {
         let (sld_start, sld_end) = second_level_domain_span(host).expect("sld span");
         let midsld = (markers.host_start + sld_start + ((sld_end - sld_start) / 2)) as i64;
         let mut group = DesyncGroup::new(0);
-        group.tcp_chain = vec![TcpChainStep::new(TcpChainStepKind::Split, OffsetExpr::adaptive(OffsetBase::AutoHost))];
+        group.actions.tcp_chain =
+            vec![TcpChainStep::new(TcpChainStepKind::Split, OffsetExpr::adaptive(OffsetBase::AutoHost))];
         let mut hinted = tcp_context_with_hint(
             DEFAULT_FAKE_HTTP,
             TcpSegmentHint { snd_mss: None, advmss: None, pmtu: Some(midsld + 40), ip_header_overhead: 40 },
@@ -1405,16 +1406,18 @@ mod tests {
         let payload_len = DEFAULT_FAKE_TLS.len() - 5;
         let marker = (payload_len - 96) as i64;
         let mut group = DesyncGroup::new(0);
-        group.tcp_chain = vec![tlsrandrec_step(marker, 3, 24, 40)];
+        group.actions.tcp_chain = vec![tlsrandrec_step(marker, 3, 24, 40)];
 
         let balanced = apply_tamper(&group, DEFAULT_FAKE_TLS, 7).expect("balanced");
         let mut tight_context = tcp_context(DEFAULT_FAKE_TLS);
         tight_context.adaptive.tlsrandrec_profile = Some(AdaptiveTlsRandRecProfile::Tight);
         let tight =
-            apply_tls_prelude_steps(&group, &group.tcp_chain, DEFAULT_FAKE_TLS, 7, tight_context).expect("tight");
+            apply_tls_prelude_steps(&group, &group.actions.tcp_chain, DEFAULT_FAKE_TLS, 7, tight_context)
+                .expect("tight");
         let mut wide_context = tcp_context(DEFAULT_FAKE_TLS);
         wide_context.adaptive.tlsrandrec_profile = Some(AdaptiveTlsRandRecProfile::Wide);
-        let wide = apply_tls_prelude_steps(&group, &group.tcp_chain, DEFAULT_FAKE_TLS, 7, wide_context).expect("wide");
+        let wide = apply_tls_prelude_steps(&group, &group.actions.tcp_chain, DEFAULT_FAKE_TLS, 7, wide_context)
+            .expect("wide");
 
         let balanced_lengths = tls_record_lengths(&balanced.bytes);
         let tight_lengths = tls_record_lengths(&tight.bytes);
@@ -1430,7 +1433,7 @@ mod tests {
     #[test]
     fn plan_tcp_split_emits_chunk_and_tail_actions() {
         let mut group = DesyncGroup::new(0);
-        group.parts.push(PartSpec { mode: DesyncMode::Split, offset: split_expr(5) });
+        group.actions.tcp_chain.push(TcpChainStep::new(TcpChainStepKind::Split, split_expr(5)));
         let payload = b"hello world";
 
         let plan = plan_tcp(&group, payload, 7, 64, tcp_context(payload)).expect("plan split tcp");
@@ -1450,9 +1453,9 @@ mod tests {
     #[test]
     fn plan_tcp_fake_uses_fake_chunk_then_original_tail() {
         let mut group = DesyncGroup::new(0);
-        group.ttl = Some(9);
-        group.fake_data = Some(b"FAKEPAYLOAD".to_vec());
-        group.parts.push(PartSpec { mode: DesyncMode::Fake, offset: split_expr(4) });
+        group.actions.ttl = Some(9);
+        group.actions.fake_data = Some(b"FAKEPAYLOAD".to_vec());
+        group.actions.tcp_chain.push(TcpChainStep::new(TcpChainStepKind::Fake, split_expr(4)));
         let payload = b"hello world";
 
         let plan = plan_tcp(&group, payload, 3, 32, tcp_context(payload)).expect("plan fake tcp");
@@ -1472,9 +1475,9 @@ mod tests {
     #[test]
     fn plan_tcp_fake_prefers_resolved_fake_ttl_over_group_ttl() {
         let mut group = DesyncGroup::new(0);
-        group.ttl = Some(9);
-        group.fake_data = Some(b"FAKEPAYLOAD".to_vec());
-        group.parts.push(PartSpec { mode: DesyncMode::Fake, offset: split_expr(4) });
+        group.actions.ttl = Some(9);
+        group.actions.fake_data = Some(b"FAKEPAYLOAD".to_vec());
+        group.actions.tcp_chain.push(TcpChainStep::new(TcpChainStepKind::Fake, split_expr(4)));
         let payload = b"hello world";
         let mut context = tcp_context(payload);
         context.resolved_fake_ttl = Some(5);
@@ -1512,7 +1515,7 @@ mod tests {
     #[test]
     fn plan_tcp_fakedsplit_keeps_fake_step_when_split_is_valid() {
         let mut group = DesyncGroup::new(0);
-        group.tcp_chain = vec![TcpChainStep::new(TcpChainStepKind::FakeSplit, split_expr(4))];
+        group.actions.tcp_chain = vec![TcpChainStep::new(TcpChainStepKind::FakeSplit, split_expr(4))];
         let payload = b"abcdefgh";
 
         let plan = plan_tcp(&group, payload, 5, 32, tcp_context(payload)).expect("plan fakedsplit tcp");
@@ -1531,7 +1534,7 @@ mod tests {
     #[test]
     fn plan_tcp_fakedsplit_degrades_to_split_when_second_region_is_empty() {
         let mut group = DesyncGroup::new(0);
-        group.tcp_chain = vec![TcpChainStep::new(TcpChainStepKind::FakeSplit, split_expr(8))];
+        group.actions.tcp_chain = vec![TcpChainStep::new(TcpChainStepKind::FakeSplit, split_expr(8))];
         let payload = b"abcdefgh";
 
         let plan = plan_tcp(&group, payload, 5, 32, tcp_context(payload)).expect("plan fakedsplit tcp");
@@ -1542,7 +1545,7 @@ mod tests {
     #[test]
     fn plan_tcp_fakeddisorder_keeps_fake_step_when_split_is_valid() {
         let mut group = DesyncGroup::new(0);
-        group.tcp_chain = vec![TcpChainStep::new(TcpChainStepKind::FakeDisorder, split_expr(3))];
+        group.actions.tcp_chain = vec![TcpChainStep::new(TcpChainStepKind::FakeDisorder, split_expr(3))];
         let payload = b"abcdef";
 
         let plan = plan_tcp(&group, payload, 5, 32, tcp_context(payload)).expect("plan fakeddisorder tcp");
@@ -1563,7 +1566,7 @@ mod tests {
     #[test]
     fn plan_tcp_fakeddisorder_degrades_to_disorder_when_second_region_is_empty() {
         let mut group = DesyncGroup::new(0);
-        group.tcp_chain = vec![TcpChainStep::new(TcpChainStepKind::FakeDisorder, split_expr(6))];
+        group.actions.tcp_chain = vec![TcpChainStep::new(TcpChainStepKind::FakeDisorder, split_expr(6))];
         let payload = b"abcdef";
 
         let plan = plan_tcp(&group, payload, 5, 32, tcp_context(payload)).expect("plan fakeddisorder tcp");
@@ -1575,10 +1578,10 @@ mod tests {
     fn plan_tcp_fake_approx_steps_support_adaptive_markers() {
         let markers = http_marker_info(DEFAULT_FAKE_HTTP).expect("http markers");
         let mut split_group = DesyncGroup::new(0);
-        split_group.tcp_chain =
+        split_group.actions.tcp_chain =
             vec![TcpChainStep::new(TcpChainStepKind::FakeSplit, OffsetExpr::adaptive(OffsetBase::AutoHost))];
         let mut disorder_group = DesyncGroup::new(0);
-        disorder_group.tcp_chain =
+        disorder_group.actions.tcp_chain =
             vec![TcpChainStep::new(TcpChainStepKind::FakeDisorder, OffsetExpr::adaptive(OffsetBase::AutoHost))];
 
         let split_plan = plan_tcp(
@@ -1627,7 +1630,7 @@ mod tests {
     #[test]
     fn plan_tcp_disorder_emits_ttl_write_await_restore() {
         let mut group = DesyncGroup::new(0);
-        group.parts.push(PartSpec { mode: DesyncMode::Disorder, offset: split_expr(3) });
+        group.actions.tcp_chain.push(TcpChainStep::new(TcpChainStepKind::Disorder, split_expr(3)));
         let payload = b"abcdef";
 
         let plan = plan_tcp(&group, payload, 1, 0, tcp_context(payload)).expect("plan disorder tcp");
@@ -1647,8 +1650,8 @@ mod tests {
     #[test]
     fn plan_tcp_oob_emits_write_urgent() {
         let mut group = DesyncGroup::new(0);
-        group.oob_data = Some(b'Z');
-        group.parts.push(PartSpec { mode: DesyncMode::Oob, offset: split_expr(4) });
+        group.actions.oob_data = Some(b'Z');
+        group.actions.tcp_chain.push(TcpChainStep::new(TcpChainStepKind::Oob, split_expr(4)));
         let payload = b"abcdefgh";
 
         let plan = plan_tcp(&group, payload, 2, 0, tcp_context(payload)).expect("plan oob tcp");
@@ -1666,8 +1669,8 @@ mod tests {
     #[test]
     fn plan_tcp_disoob_combines_ttl_and_urgent() {
         let mut group = DesyncGroup::new(0);
-        group.oob_data = Some(b'X');
-        group.parts.push(PartSpec { mode: DesyncMode::Disoob, offset: split_expr(2) });
+        group.actions.oob_data = Some(b'X');
+        group.actions.tcp_chain.push(TcpChainStep::new(TcpChainStepKind::Disoob, split_expr(2)));
         let payload = b"abcdef";
 
         let plan = plan_tcp(&group, payload, 0, 0, tcp_context(payload)).expect("plan disoob tcp");
@@ -1687,9 +1690,9 @@ mod tests {
     #[test]
     fn plan_tcp_chain_preserves_tlsrec_prelude_and_send_step_order() {
         let mut group = DesyncGroup::new(0);
-        group.fake_data = Some(b"FAKEPAYLOAD".to_vec());
-        group.tlsminor = Some(1);
-        group.tcp_chain = vec![
+        group.actions.fake_data = Some(b"FAKEPAYLOAD".to_vec());
+        group.actions.tlsminor = Some(1);
+        group.actions.tcp_chain = vec![
             TcpChainStep::new(TcpChainStepKind::TlsRec, OffsetExpr::marker(OffsetBase::ExtLen, 0)),
             TcpChainStep::new(TcpChainStepKind::Fake, split_expr(4)),
             TcpChainStep::new(TcpChainStepKind::Split, split_expr(7)),
@@ -1716,7 +1719,7 @@ mod tests {
             payload_size: None,
             stream_bytes: None,
         });
-        group.tcp_chain = vec![TcpChainStep::new(TcpChainStepKind::Split, split_expr(5))];
+        group.actions.tcp_chain = vec![TcpChainStep::new(TcpChainStepKind::Split, split_expr(5))];
         let payload = b"hello world";
 
         let plan = plan_tcp(&group, payload, 7, 64, tcp_context(payload)).expect("plan tcp");
@@ -1729,8 +1732,8 @@ mod tests {
     #[test]
     fn plan_tcp_applies_extended_http_parser_evasions_only_to_http_requests() {
         let mut group = DesyncGroup::new(0);
-        group.mod_http = MH_UNIXEOL | MH_METHODEOL;
-        group.tcp_chain = vec![TcpChainStep::new(TcpChainStepKind::Split, split_expr(5))];
+        group.actions.mod_http = MH_UNIXEOL | MH_METHODEOL;
+        group.actions.tcp_chain = vec![TcpChainStep::new(TcpChainStepKind::Split, split_expr(5))];
         let payload = b"GET / HTTP/1.1\r\nHost: example.com\r\nUser-Agent: agent\r\n\r\n";
 
         let plan = plan_tcp(&group, payload, 7, 64, tcp_context(payload)).expect("plan tcp");
@@ -1743,8 +1746,8 @@ mod tests {
     #[test]
     fn plan_tcp_http_parser_evasion_fallback_keeps_payload_when_mutation_cannot_apply() {
         let mut group = DesyncGroup::new(0);
-        group.mod_http = MH_UNIXEOL | MH_METHODEOL;
-        group.tcp_chain = vec![TcpChainStep::new(TcpChainStepKind::Split, split_expr(5))];
+        group.actions.mod_http = MH_UNIXEOL | MH_METHODEOL;
+        group.actions.tcp_chain = vec![TcpChainStep::new(TcpChainStepKind::Split, split_expr(5))];
         let payload = b"GET / HTTP/1.1\r\nHost: example.com\r\n\r\n";
 
         let plan = plan_tcp(&group, payload, 7, 64, tcp_context(payload)).expect("plan tcp");
@@ -1755,8 +1758,8 @@ mod tests {
     #[test]
     fn plan_tcp_ignores_http_parser_evasions_for_non_http_payloads() {
         let mut group = DesyncGroup::new(0);
-        group.mod_http = MH_UNIXEOL | MH_METHODEOL;
-        group.tcp_chain = vec![TcpChainStep::new(TcpChainStepKind::Split, split_expr(5))];
+        group.actions.mod_http = MH_UNIXEOL | MH_METHODEOL;
+        group.actions.tcp_chain = vec![TcpChainStep::new(TcpChainStepKind::Split, split_expr(5))];
         let payload = b"\x16\x03\x01\x00\x10not-http-payload";
 
         let plan = plan_tcp(&group, payload, 7, 64, tcp_context(payload)).expect("plan tcp");
@@ -1775,7 +1778,7 @@ mod tests {
     #[test]
     fn plan_tcp_step_activation_filter_skips_tls_prelude_only() {
         let mut group = DesyncGroup::new(0);
-        group.tcp_chain = vec![
+        group.actions.tcp_chain = vec![
             TcpChainStep {
                 kind: TcpChainStepKind::TlsRec,
                 offset: OffsetExpr::marker(OffsetBase::ExtLen, 0),
@@ -1802,7 +1805,7 @@ mod tests {
     #[test]
     fn plan_tcp_rejects_tlsrec_after_send_step() {
         let mut group = DesyncGroup::new(0);
-        group.tcp_chain = vec![
+        group.actions.tcp_chain = vec![
             TcpChainStep::new(TcpChainStepKind::Split, split_expr(2)),
             TcpChainStep::new(TcpChainStepKind::TlsRec, OffsetExpr::marker(OffsetBase::ExtLen, 0)),
         ];
@@ -1813,7 +1816,7 @@ mod tests {
     #[test]
     fn apply_tamper_tlsrandrec_is_noop_for_non_tls_payloads() {
         let mut group = DesyncGroup::new(0);
-        group.tcp_chain = vec![tlsrandrec_step(0, 4, 16, 32)];
+        group.actions.tcp_chain = vec![tlsrandrec_step(0, 4, 16, 32)];
 
         let tampered = apply_tamper(&group, b"GET / HTTP/1.1\r\nHost: example.com\r\n\r\n", 7).expect("tamper http");
 
@@ -1823,7 +1826,7 @@ mod tests {
     #[test]
     fn apply_tamper_tlsrandrec_is_noop_when_marker_cannot_be_resolved() {
         let mut group = DesyncGroup::new(0);
-        group.tcp_chain = vec![TcpChainStep {
+        group.actions.tcp_chain = vec![TcpChainStep {
             kind: TcpChainStepKind::TlsRandRec,
             offset: OffsetExpr::marker(OffsetBase::Method, 0),
             activation_filter: None,
@@ -1842,7 +1845,7 @@ mod tests {
     #[test]
     fn apply_tamper_tlsrandrec_is_noop_when_layout_is_impossible() {
         let mut group = DesyncGroup::new(0);
-        group.tcp_chain = vec![tlsrandrec_step(0, 16, 4096, 4096)];
+        group.actions.tcp_chain = vec![tlsrandrec_step(0, 16, 4096, 4096)];
 
         let tampered = apply_tamper(&group, DEFAULT_FAKE_TLS, 7).expect("tamper impossible");
 
@@ -1854,7 +1857,7 @@ mod tests {
         let payload_len = DEFAULT_FAKE_TLS.len() - 5;
         let marker = (payload_len - 96) as i64;
         let mut group = DesyncGroup::new(0);
-        group.tcp_chain = vec![tlsrandrec_step(marker, 3, 32, 32)];
+        group.actions.tcp_chain = vec![tlsrandrec_step(marker, 3, 32, 32)];
 
         let tampered = apply_tamper(&group, DEFAULT_FAKE_TLS, 7).expect("tamper tlsrandrec");
 
@@ -1869,7 +1872,7 @@ mod tests {
         let payload_len = DEFAULT_FAKE_TLS.len() - 5;
         let marker = (payload_len - 96) as i64;
         let mut group = DesyncGroup::new(0);
-        group.tcp_chain = vec![tlsrandrec_step(marker, 3, 24, 40)];
+        group.actions.tcp_chain = vec![tlsrandrec_step(marker, 3, 24, 40)];
 
         let seed_a = apply_tamper(&group, DEFAULT_FAKE_TLS, 7).expect("seed a");
         let seed_b = apply_tamper(&group, DEFAULT_FAKE_TLS, 8).expect("seed b");
@@ -1882,7 +1885,7 @@ mod tests {
         let payload_len = DEFAULT_FAKE_TLS.len() - 5;
         let marker = (payload_len - 96) as i64;
         let mut group = DesyncGroup::new(0);
-        group.tcp_chain = vec![
+        group.actions.tcp_chain = vec![
             TcpChainStep::new(TcpChainStepKind::TlsRec, OffsetExpr::marker(OffsetBase::ExtLen, 0)),
             tlsrandrec_step(marker, 3, 32, 32),
             TcpChainStep::new(TcpChainStepKind::Split, split_expr(4)),
@@ -1911,7 +1914,7 @@ mod tests {
     #[test]
     fn build_fake_packet_applies_rndsni_and_dupsid_in_order() {
         let mut group = DesyncGroup::new(0);
-        group.fake_mod = FM_ORIG | FM_RAND | FM_RNDSNI | FM_DUPSID;
+        group.actions.fake_mod = FM_ORIG | FM_RAND | FM_RNDSNI | FM_DUPSID;
         let payload = DEFAULT_FAKE_TLS;
         let expected_sid = payload[44..44 + payload[43] as usize].to_vec();
         let original_host = ripdpi_packets::parse_tls(payload).expect("original tls host").to_vec();
@@ -1926,15 +1929,15 @@ mod tests {
     #[test]
     fn build_fake_packet_applies_fake_tls_size_to_default_and_orig_bases() {
         let mut default_group = DesyncGroup::new(0);
-        default_group.fake_mod = FM_RNDSNI;
-        default_group.fake_tls_size = (DEFAULT_FAKE_TLS.len() + 12) as i32;
+        default_group.actions.fake_mod = FM_RNDSNI;
+        default_group.actions.fake_tls_size = (DEFAULT_FAKE_TLS.len() + 12) as i32;
 
         let default_fake = build_fake_packet(&default_group, DEFAULT_FAKE_TLS, 3).expect("default fake tls");
         assert_eq!(default_fake.bytes.len(), DEFAULT_FAKE_TLS.len() + 12);
 
         let mut orig_group = DesyncGroup::new(0);
-        orig_group.fake_mod = FM_ORIG | FM_RNDSNI;
-        orig_group.fake_tls_size = (DEFAULT_FAKE_TLS.len() + 8) as i32;
+        orig_group.actions.fake_mod = FM_ORIG | FM_RNDSNI;
+        orig_group.actions.fake_tls_size = (DEFAULT_FAKE_TLS.len() + 8) as i32;
 
         let orig_fake = build_fake_packet(&orig_group, DEFAULT_FAKE_TLS, 5).expect("orig fake tls");
         assert_eq!(orig_fake.bytes.len(), DEFAULT_FAKE_TLS.len() + 8);
@@ -1943,7 +1946,7 @@ mod tests {
     #[test]
     fn build_fake_packet_ignores_tls_mods_for_http_payloads() {
         let mut group = DesyncGroup::new(0);
-        group.fake_mod = FM_RAND | FM_RNDSNI | FM_DUPSID | FM_PADENCAP;
+        group.actions.fake_mod = FM_RAND | FM_RNDSNI | FM_DUPSID | FM_PADENCAP;
 
         let fake = build_fake_packet(&group, b"GET / HTTP/1.1\r\nHost: example.com\r\n\r\n", 11).expect("http fake");
 
@@ -1954,7 +1957,7 @@ mod tests {
     #[test]
     fn build_fake_packet_padencap_keeps_valid_tls() {
         let mut group = DesyncGroup::new(0);
-        group.fake_mod = FM_PADENCAP;
+        group.actions.fake_mod = FM_PADENCAP;
 
         let fake = build_fake_packet(&group, DEFAULT_FAKE_TLS, 7).expect("padencap fake");
 
@@ -1966,8 +1969,7 @@ mod tests {
     #[test]
     fn plan_udp_no_fake_only_drop_sack() {
         let mut group = DesyncGroup::new(0);
-        group.drop_sack = true;
-        group.udp_fake_count = 0;
+        group.actions.drop_sack = true;
 
         let actions = plan_udp(&group, b"data", 0, udp_context(b"data"));
 
@@ -2040,8 +2042,8 @@ mod tests {
         let payload = b"GET / HTTP/1.1\r\nHost: sub.example.com\r\n\r\n";
         let markers = http_marker_info(payload).expect("http markers");
         let mut group = DesyncGroup::new(0);
-        group.ttl = Some(9);
-        group.tcp_chain = vec![TcpChainStep {
+        group.actions.ttl = Some(9);
+        group.actions.tcp_chain = vec![TcpChainStep {
             kind: TcpChainStepKind::HostFake,
             offset: OffsetExpr::marker(OffsetBase::PayloadEnd, 0),
             activation_filter: None,
@@ -2094,7 +2096,7 @@ mod tests {
         let payload = b"GET / HTTP/1.1\r\nHost: sub.example.com\r\n\r\n";
         let markers = http_marker_info(payload).expect("http markers");
         let mut group = DesyncGroup::new(0);
-        group.tcp_chain = vec![TcpChainStep {
+        group.actions.tcp_chain = vec![TcpChainStep {
             kind: TcpChainStepKind::HostFake,
             offset: OffsetExpr::marker(OffsetBase::Host, 0),
             activation_filter: None,
@@ -2124,7 +2126,7 @@ mod tests {
     #[test]
     fn unresolved_markers_fail_planning_safely() {
         let mut group = DesyncGroup::new(0);
-        group.parts.push(PartSpec { mode: DesyncMode::Split, offset: OffsetExpr::tls_host(0) });
+        group.actions.tcp_chain.push(TcpChainStep::new(TcpChainStepKind::Split, OffsetExpr::tls_host(0)));
 
         let payload = b"GET / HTTP/1.1\r\nHost: example.com\r\n\r\n";
         assert!(plan_tcp(&group, payload, 7, 64, tcp_context(payload)).is_err());
@@ -2133,13 +2135,13 @@ mod tests {
     #[test]
     fn plan_udp_wraps_fake_burst_and_drop_sack_actions() {
         let mut group = DesyncGroup::new(0);
-        group.drop_sack = true;
-        group.udp_chain = vec![
+        group.actions.drop_sack = true;
+        group.actions.udp_chain = vec![
             UdpChainStep { kind: UdpChainStepKind::FakeBurst, count: 1, activation_filter: None },
             UdpChainStep { kind: UdpChainStepKind::FakeBurst, count: 2, activation_filter: None },
         ];
-        group.ttl = Some(7);
-        group.fake_data = Some(b"udp-fake".to_vec());
+        group.actions.ttl = Some(7);
+        group.actions.fake_data = Some(b"udp-fake".to_vec());
 
         let actions = plan_udp(&group, b"payload", 64, udp_context(b"payload"));
 
@@ -2165,7 +2167,7 @@ mod tests {
     #[test]
     fn plan_udp_step_activation_filter_skips_filtered_fake_bursts() {
         let mut group = DesyncGroup::new(0);
-        group.udp_chain = vec![
+        group.actions.udp_chain = vec![
             UdpChainStep {
                 kind: UdpChainStepKind::FakeBurst,
                 count: 1,
@@ -2177,7 +2179,7 @@ mod tests {
             },
             UdpChainStep { kind: UdpChainStepKind::FakeBurst, count: 2, activation_filter: None },
         ];
-        group.fake_data = Some(b"udp-fake".to_vec());
+        group.actions.fake_data = Some(b"udp-fake".to_vec());
 
         let actions = plan_udp(&group, b"payload", 64, udp_context(b"payload"));
 
@@ -2197,10 +2199,11 @@ mod tests {
     #[test]
     fn plan_udp_uses_generated_quic_fake_initial_when_profile_is_active() {
         let mut group = DesyncGroup::new(0);
-        group.ttl = Some(7);
-        group.quic_fake_profile = QuicFakeProfile::RealisticInitial;
-        group.quic_fake_host = Some("video.example.test".to_string());
-        group.udp_chain = vec![UdpChainStep { kind: UdpChainStepKind::FakeBurst, count: 1, activation_filter: None }];
+        group.actions.ttl = Some(7);
+        group.actions.quic_fake_profile = QuicFakeProfile::RealisticInitial;
+        group.actions.quic_fake_host = Some("video.example.test".to_string());
+        group.actions.udp_chain =
+            vec![UdpChainStep { kind: UdpChainStepKind::FakeBurst, count: 1, activation_filter: None }];
         let payload = build_realistic_quic_initial(QUIC_V2_VERSION, Some("source.example.test")).expect("input quic");
 
         let actions = plan_udp(&group, &payload, 64, udp_context(&payload));
@@ -2217,9 +2220,10 @@ mod tests {
     #[test]
     fn plan_udp_adaptive_profiles_tune_burst_count_and_quic_fake_payload() {
         let mut group = DesyncGroup::new(0);
-        group.quic_fake_profile = QuicFakeProfile::RealisticInitial;
-        group.quic_fake_host = Some("video.example.test".to_string());
-        group.udp_chain = vec![UdpChainStep { kind: UdpChainStepKind::FakeBurst, count: 2, activation_filter: None }];
+        group.actions.quic_fake_profile = QuicFakeProfile::RealisticInitial;
+        group.actions.quic_fake_host = Some("video.example.test".to_string());
+        group.actions.udp_chain =
+            vec![UdpChainStep { kind: UdpChainStepKind::FakeBurst, count: 2, activation_filter: None }];
         let payload = build_realistic_quic_initial(QUIC_V2_VERSION, Some("source.example.test")).expect("input quic");
 
         let balanced = plan_udp(&group, &payload, 64, udp_context(&payload));
@@ -2239,9 +2243,10 @@ mod tests {
     #[test]
     fn plan_udp_falls_back_to_raw_fake_payload_for_non_quic_input() {
         let mut group = DesyncGroup::new(0);
-        group.quic_fake_profile = QuicFakeProfile::CompatDefault;
-        group.udp_chain = vec![UdpChainStep { kind: UdpChainStepKind::FakeBurst, count: 1, activation_filter: None }];
-        group.fake_data = Some(b"udp-fake".to_vec());
+        group.actions.quic_fake_profile = QuicFakeProfile::CompatDefault;
+        group.actions.udp_chain =
+            vec![UdpChainStep { kind: UdpChainStepKind::FakeBurst, count: 1, activation_filter: None }];
+        group.actions.fake_data = Some(b"udp-fake".to_vec());
 
         let actions = plan_udp(&group, b"payload", 64, udp_context(b"payload"));
 
@@ -2260,7 +2265,7 @@ mod tests {
     #[test]
     fn build_fake_packet_uses_selected_http_profile_when_no_raw_fake_is_set() {
         let mut group = DesyncGroup::new(0);
-        group.http_fake_profile = HttpFakeProfile::CloudflareGet;
+        group.actions.http_fake_profile = HttpFakeProfile::CloudflareGet;
 
         let fake = build_fake_packet(&group, b"GET / HTTP/1.1\r\nHost: example.com\r\n\r\n", 7).expect("http fake");
         let parsed = parse_http(&fake.bytes).expect("parse fake http");
@@ -2271,7 +2276,7 @@ mod tests {
     #[test]
     fn build_fake_packet_uses_selected_tls_profile_when_no_raw_fake_is_set() {
         let mut group = DesyncGroup::new(0);
-        group.tls_fake_profile = TlsFakeProfile::GoogleChrome;
+        group.actions.tls_fake_profile = TlsFakeProfile::GoogleChrome;
 
         let fake = build_fake_packet(&group, DEFAULT_FAKE_TLS, 7).expect("tls fake");
         let parsed = parse_tls(&fake.bytes).expect("parse fake tls");
@@ -2282,8 +2287,9 @@ mod tests {
     #[test]
     fn plan_udp_uses_selected_udp_profile_when_no_raw_fake_is_set() {
         let mut group = DesyncGroup::new(0);
-        group.udp_fake_profile = UdpFakeProfile::DnsQuery;
-        group.udp_chain = vec![UdpChainStep { kind: UdpChainStepKind::FakeBurst, count: 1, activation_filter: None }];
+        group.actions.udp_fake_profile = UdpFakeProfile::DnsQuery;
+        group.actions.udp_chain =
+            vec![UdpChainStep { kind: UdpChainStepKind::FakeBurst, count: 1, activation_filter: None }];
 
         let actions = plan_udp(&group, b"payload", 64, udp_context(b"payload"));
 

@@ -194,18 +194,18 @@ pub(crate) fn apply_fake_tls_mod_token(
         return Err(ConfigError::invalid(arg, Some(raw_value)));
     }
     match token {
-        "rand" => group.fake_mod |= FM_RAND,
-        "orig" => group.fake_mod |= FM_ORIG,
-        "rndsni" => group.fake_mod |= FM_RNDSNI,
-        "dupsid" => group.fake_mod |= FM_DUPSID,
-        "padencap" => group.fake_mod |= FM_PADENCAP,
+        "rand" => group.actions.fake_mod |= FM_RAND,
+        "orig" => group.actions.fake_mod |= FM_ORIG,
+        "rndsni" => group.actions.fake_mod |= FM_RNDSNI,
+        "dupsid" => group.actions.fake_mod |= FM_DUPSID,
+        "padencap" => group.actions.fake_mod |= FM_PADENCAP,
         _ => {
             let Some((name, value)) = token.split_once('=') else {
                 return Err(ConfigError::invalid(arg, Some(raw_value)));
             };
             match name {
                 "m" | "msize" => {
-                    group.fake_tls_size =
+                    group.actions.fake_tls_size =
                         value.parse::<i32>().map_err(|_| ConfigError::invalid(arg, Some(raw_value)))?;
                 }
                 _ => return Err(ConfigError::invalid(arg, Some(raw_value))),

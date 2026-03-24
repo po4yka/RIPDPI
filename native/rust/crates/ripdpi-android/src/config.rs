@@ -304,11 +304,11 @@ mod tests {
         assert_eq!(config.quic.initial_mode, QuicInitialMode::Route);
         assert!(!config.quic.support_v1);
         assert!(config.quic.support_v2);
-        assert_eq!(config.groups[0].quic_fake_profile, QuicFakeProfile::RealisticInitial);
-        assert_eq!(config.groups[0].quic_fake_host.as_deref(), Some("video.example.test"));
-        assert_eq!(config.groups[0].fake_mod, FM_ORIG | FM_RAND | FM_DUPSID | FM_PADENCAP | FM_RNDSNI);
-        assert_eq!(config.groups[0].fake_tls_size, 192);
-        assert!(config.groups[0].fake_sni_list.is_empty());
+        assert_eq!(config.groups[0].actions.quic_fake_profile, QuicFakeProfile::RealisticInitial);
+        assert_eq!(config.groups[0].actions.quic_fake_host.as_deref(), Some("video.example.test"));
+        assert_eq!(config.groups[0].actions.fake_mod, FM_ORIG | FM_RAND | FM_DUPSID | FM_PADENCAP | FM_RNDSNI);
+        assert_eq!(config.groups[0].actions.fake_tls_size, 192);
+        assert!(config.groups[0].actions.fake_sni_list.is_empty());
         assert!(config.host_autolearn.enabled);
         assert_eq!(config.host_autolearn.penalty_ttl_secs, 3_600);
         assert_eq!(config.host_autolearn.max_hosts, 128);
@@ -332,18 +332,18 @@ mod tests {
         let config = runtime_config_from_payload(ui_payload(ui)).expect("hostfake ui config");
         let group = &config.groups[0];
 
-        assert_eq!(group.tcp_chain.len(), 2);
-        assert!(matches!(group.tcp_chain[0].kind, TcpChainStepKind::TlsRec));
+        assert_eq!(group.actions.tcp_chain.len(), 2);
+        assert!(matches!(group.actions.tcp_chain[0].kind, TcpChainStepKind::TlsRec));
         assert_eq!(
-            group.tcp_chain[0].offset,
+            group.actions.tcp_chain[0].offset,
             ripdpi_config::OffsetExpr::tls_marker(ripdpi_config::OffsetBase::ExtLen, 0)
         );
-        assert!(matches!(group.tcp_chain[1].kind, TcpChainStepKind::HostFake));
+        assert!(matches!(group.actions.tcp_chain[1].kind, TcpChainStepKind::HostFake));
         assert_eq!(
-            group.tcp_chain[1].midhost_offset,
+            group.actions.tcp_chain[1].midhost_offset,
             Some(ripdpi_config::OffsetExpr::marker(ripdpi_config::OffsetBase::MidSld, 0))
         );
-        assert_eq!(group.tcp_chain[1].fake_host_template.as_deref(), Some("googlevideo.com"));
+        assert_eq!(group.actions.tcp_chain[1].fake_host_template.as_deref(), Some("googlevideo.com"));
     }
 
     #[test]
@@ -363,7 +363,7 @@ mod tests {
 
         let payload = parse_proxy_config_json(&value.to_string()).expect("parse tlsrandrec payload");
         let config = runtime_config_from_payload(payload).expect("tlsrandrec ui config");
-        let step = &config.groups[0].tcp_chain[0];
+        let step = &config.groups[0].actions.tcp_chain[0];
 
         assert!(matches!(step.kind, TcpChainStepKind::TlsRandRec));
         assert_eq!(step.fragment_count, 5);
@@ -438,8 +438,8 @@ mod tests {
         assert_eq!(config.quic.initial_mode, QuicInitialMode::RouteAndCache);
         assert!(config.quic.support_v1);
         assert!(config.quic.support_v2);
-        assert_eq!(config.groups[0].quic_fake_profile, QuicFakeProfile::Disabled);
-        assert_eq!(config.groups[0].quic_fake_host, None);
+        assert_eq!(config.groups[0].actions.quic_fake_profile, QuicFakeProfile::Disabled);
+        assert_eq!(config.groups[0].actions.quic_fake_host, None);
     }
 
     #[test]
@@ -471,8 +471,8 @@ mod tests {
 
         let config = runtime_config_from_payload(ui_payload(ui)).expect("ui config");
 
-        assert_eq!(config.groups[0].quic_fake_profile, QuicFakeProfile::RealisticInitial);
-        assert_eq!(config.groups[0].quic_fake_host, None);
+        assert_eq!(config.groups[0].actions.quic_fake_profile, QuicFakeProfile::RealisticInitial);
+        assert_eq!(config.groups[0].actions.quic_fake_host, None);
     }
 
     #[test]

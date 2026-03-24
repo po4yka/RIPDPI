@@ -211,8 +211,8 @@ pub fn parse_cli(args: &[String], startup: &StartupEnv) -> Result<ParseResult, C
                 config.process.pid_file = Some(value.to_owned());
             }
             "-F" | "--tfo" => config.network.tfo = true,
-            "-S" | "--md5sig" => group!().md5sig = true,
-            "-Y" | "--drop-sack" => group!().drop_sack = true,
+            "-S" | "--md5sig" => group!().actions.md5sig = true,
+            "-Y" | "--drop-sack" => group!().actions.drop_sack = true,
             "-Z" | "--wait-send" => config.timeouts.wait_send = true,
             "-i" | "--ip" => {
                 let value = next_value(&effective_args, &mut idx, arg)?;
@@ -261,7 +261,7 @@ pub fn parse_cli(args: &[String], startup: &StartupEnv) -> Result<ParseResult, C
             }
             "-y" | "--cache-file" => {
                 let value = next_value(&effective_args, &mut idx, arg)?;
-                group!().cache_file = Some(value.to_owned());
+                group!().policy.cache_file = Some(value.to_owned());
             }
             "-L" | "--auto-mode" => {
                 let value = next_value(&effective_args, &mut idx, arg)?;
@@ -283,11 +283,11 @@ pub fn parse_cli(args: &[String], startup: &StartupEnv) -> Result<ParseResult, C
             "-A" | "--auto" => {
                 let value = next_value(&effective_args, &mut idx, arg)?;
                 let current = config.groups.get(current_group_index).expect("group");
-                if current.filters.hosts.is_empty()
-                    && current.proto == 0
-                    && current.port_filter.is_none()
-                    && current.detect == 0
-                    && current.filters.ipset.is_empty()
+                if current.matches.filters.hosts.is_empty()
+                    && current.matches.proto == 0
+                    && current.matches.port_filter.is_none()
+                    && current.matches.detect == 0
+                    && current.matches.filters.ipset.is_empty()
                 {
                     all_limited = false;
                 }
@@ -299,16 +299,16 @@ pub fn parse_cli(args: &[String], startup: &StartupEnv) -> Result<ParseResult, C
                             token.split_once('=').ok_or_else(|| ConfigError::invalid("--auto", Some(token)))?;
                         let pri = pri.parse::<f32>().map_err(|_| ConfigError::invalid("--auto", Some(token)))?;
                         if let Some(prev) = config.groups.get_mut(current_group_index - 1) {
-                            prev.pri = pri as i32;
+                            prev.policy.pri = pri as i32;
                         }
                         continue;
                     }
                     match parse_auto_detect_token(token) {
-                        Some(bits) => group!().detect |= bits,
+                        Some(bits) => group!().matches.detect |= bits,
                         None => return Err(ConfigError::invalid("--auto", Some(token))),
                     }
                 }
-                if group!().detect != 0 {
+                if group!().matches.detect != 0 {
                     config.adaptive.auto_level |= AUTO_RECONN;
                 }
             }
@@ -321,7 +321,7 @@ pub fn parse_cli(args: &[String], startup: &StartupEnv) -> Result<ParseResult, C
                 if config.adaptive.cache_ttl == 0 {
                     config.adaptive.cache_ttl = ttl;
                 }
-                group!().cache_ttl = ttl;
+                group!().policy.cache_ttl = ttl;
             }
             "--cache-merge" => {
                 let value = next_value(&effective_args, &mut idx, arg)?;
@@ -368,10 +368,10 @@ pub fn parse_cli(args: &[String], startup: &StartupEnv) -> Result<ParseResult, C
                 let value = next_value(&effective_args, &mut idx, arg)?;
                 for token in value.split(',') {
                     match token.chars().next() {
-                        Some('t') => group!().proto |= IS_TCP | IS_HTTPS,
-                        Some('h') => group!().proto |= IS_TCP | IS_HTTP,
-                        Some('u') => group!().proto |= IS_UDP,
-                        Some('i') => group!().proto |= IS_IPV4,
+                        Some('t') => group!().matches.proto |= IS_TCP | IS_HTTPS,
+                        Some('h') => group!().matches.proto |= IS_TCP | IS_HTTP,
+                        Some('u') => group!().matches.proto |= IS_UDP,
+                        Some('i') => group!().matches.proto |= IS_IPV4,
                         _ => return Err(ConfigError::invalid(arg, Some(value))),
                     }
                 }
@@ -380,13 +380,13 @@ pub fn parse_cli(args: &[String], startup: &StartupEnv) -> Result<ParseResult, C
                 let value = next_value(&effective_args, &mut idx, arg)?;
                 let data = file_or_inline_bytes(value)?;
                 let text = String::from_utf8_lossy(&data);
-                group!().filters.hosts.extend(parse_hosts_spec(&text)?);
+                group!().matches.filters.hosts.extend(parse_hosts_spec(&text)?);
             }
             "-j" | "--ipset" => {
                 let value = next_value(&effective_args, &mut idx, arg)?;
                 let data = file_or_inline_bytes(value)?;
                 let text = String::from_utf8_lossy(&data);
-                group!().filters.ipset.extend(parse_ipset_spec(&text)?);
+                group!().matches.filters.ipset.extend(parse_ipset_spec(&text)?);
             }
             "-s" | "--split" | "-d" | "--disorder" | "-o" | "--oob" | "-q" | "--disoob" | "-f" | "--fake" => {
                 let value = next_value(&effective_args, &mut idx, arg)?;
@@ -398,9 +398,8 @@ pub fn parse_cli(args: &[String], startup: &StartupEnv) -> Result<ParseResult, C
                     "-q" | "--disoob" => DesyncMode::Disoob,
                     _ => DesyncMode::Fake,
                 };
-                group!().parts.push(crate::PartSpec { mode, offset });
                 if let Some(kind) = TcpChainStepKind::from_mode(mode) {
-                    group!().tcp_chain.push(TcpChainStep::new(kind, offset));
+                    group!().actions.tcp_chain.push(TcpChainStep::new(kind, offset));
                 }
             }
             "-t" | "--ttl" => {
@@ -409,11 +408,11 @@ pub fn parse_cli(args: &[String], startup: &StartupEnv) -> Result<ParseResult, C
                 if ttl == 0 || ttl > 255 {
                     return Err(ConfigError::invalid(arg, Some(value)));
                 }
-                group!().ttl = Some(ttl as u8);
+                group!().actions.ttl = Some(ttl as u8);
             }
             "--auto-ttl" => {
                 let value = next_value(&effective_args, &mut idx, arg)?;
-                group!().auto_ttl = Some(parse_auto_ttl_spec(value)?);
+                group!().actions.auto_ttl = Some(parse_auto_ttl_spec(value)?);
             }
             "-O" | "--fake-offset" => {
                 let value = next_value(&effective_args, &mut idx, arg)?;
@@ -421,7 +420,7 @@ pub fn parse_cli(args: &[String], startup: &StartupEnv) -> Result<ParseResult, C
                 if expr.base.is_adaptive() {
                     return Err(ConfigError::invalid(arg, Some(value)));
                 }
-                group!().fake_offset = Some(expr);
+                group!().actions.fake_offset = Some(expr);
             }
             "-Q" | "--fake-tls-mod" => {
                 let value = next_value(&effective_args, &mut idx, arg)?;
@@ -431,40 +430,40 @@ pub fn parse_cli(args: &[String], startup: &StartupEnv) -> Result<ParseResult, C
             }
             "-n" | "--fake-sni" => {
                 let value = next_value(&effective_args, &mut idx, arg)?;
-                group!().fake_sni_list.push(value.to_owned());
+                group!().actions.fake_sni_list.push(value.to_owned());
             }
             "-l" | "--fake-data" => {
                 let value = next_value(&effective_args, &mut idx, arg)?;
-                if group!().fake_data.is_none() {
-                    group!().fake_data = Some(file_or_inline_bytes(value)?);
+                if group!().actions.fake_data.is_none() {
+                    group!().actions.fake_data = Some(file_or_inline_bytes(value)?);
                 }
             }
             "--fake-http-profile" => {
                 let value = next_value(&effective_args, &mut idx, arg)?;
-                group!().http_fake_profile = parse_http_fake_profile(value)?;
+                group!().actions.http_fake_profile = parse_http_fake_profile(value)?;
             }
             "--fake-tls-profile" => {
                 let value = next_value(&effective_args, &mut idx, arg)?;
-                group!().tls_fake_profile = parse_tls_fake_profile(value)?;
+                group!().actions.tls_fake_profile = parse_tls_fake_profile(value)?;
             }
             "--fake-udp-profile" => {
                 let value = next_value(&effective_args, &mut idx, arg)?;
-                group!().udp_fake_profile = parse_udp_fake_profile(value)?;
+                group!().actions.udp_fake_profile = parse_udp_fake_profile(value)?;
             }
             "-e" | "--oob-data" => {
                 let value = next_value(&effective_args, &mut idx, arg)?;
                 let bytes = super::fake_profiles::data_from_str(value)?;
-                group!().oob_data = bytes.first().copied();
+                group!().actions.oob_data = bytes.first().copied();
             }
             "-M" | "--mod-http" => {
                 let value = next_value(&effective_args, &mut idx, arg)?;
                 for token in value.split(',') {
                     match token.chars().next() {
-                        Some('r') => group!().mod_http |= MH_SPACE,
-                        Some('h') => group!().mod_http |= MH_HMIX,
-                        Some('d') => group!().mod_http |= MH_DMIX,
-                        Some('m') => group!().mod_http |= MH_METHODEOL,
-                        Some('u') => group!().mod_http |= MH_UNIXEOL,
+                        Some('r') => group!().actions.mod_http |= MH_SPACE,
+                        Some('h') => group!().actions.mod_http |= MH_HMIX,
+                        Some('d') => group!().actions.mod_http |= MH_DMIX,
+                        Some('m') => group!().actions.mod_http |= MH_METHODEOL,
+                        Some('u') => group!().actions.mod_http |= MH_UNIXEOL,
                         _ => return Err(ConfigError::invalid(arg, Some(value))),
                     }
                 }
@@ -475,8 +474,7 @@ pub fn parse_cli(args: &[String], startup: &StartupEnv) -> Result<ParseResult, C
                 if expr.absolute_positive().is_some_and(|pos| pos > u16::MAX as i64) {
                     return Err(ConfigError::invalid(arg, Some(value)));
                 }
-                group!().tls_records.push(expr);
-                group!().tcp_chain.push(TcpChainStep::new(TcpChainStepKind::TlsRec, expr));
+                group!().actions.tcp_chain.push(TcpChainStep::new(TcpChainStepKind::TlsRec, expr));
             }
             "-m" | "--tlsminor" => {
                 let value = next_value(&effective_args, &mut idx, arg)?;
@@ -484,7 +482,7 @@ pub fn parse_cli(args: &[String], startup: &StartupEnv) -> Result<ParseResult, C
                 if tlsminor == 0 || tlsminor > 255 {
                     return Err(ConfigError::invalid(arg, Some(value)));
                 }
-                group!().tlsminor = Some(tlsminor as u8);
+                group!().actions.tlsminor = Some(tlsminor as u8);
             }
             "-a" | "--udp-fake" => {
                 let value = next_value(&effective_args, &mut idx, arg)?;
@@ -492,9 +490,8 @@ pub fn parse_cli(args: &[String], startup: &StartupEnv) -> Result<ParseResult, C
                 if count < 0 {
                     return Err(ConfigError::invalid(arg, Some(value)));
                 }
-                group!().udp_fake_count += count;
                 if count > 0 {
-                    group!().udp_chain.push(UdpChainStep {
+                    group!().actions.udp_chain.push(UdpChainStep {
                         kind: UdpChainStepKind::FakeBurst,
                         count,
                         activation_filter: None,
@@ -503,11 +500,11 @@ pub fn parse_cli(args: &[String], startup: &StartupEnv) -> Result<ParseResult, C
             }
             "--fake-quic-profile" => {
                 let value = next_value(&effective_args, &mut idx, arg)?;
-                group!().quic_fake_profile = parse_quic_fake_profile(value)?;
+                group!().actions.quic_fake_profile = parse_quic_fake_profile(value)?;
             }
             "--fake-quic-host" => {
                 let value = next_value(&effective_args, &mut idx, arg)?;
-                group!().quic_fake_host = Some(normalize_quic_fake_host(value)?);
+                group!().actions.quic_fake_host = Some(normalize_quic_fake_host(value)?);
             }
             "-V" | "--pf" => {
                 let value = next_value(&effective_args, &mut idx, arg)?;
@@ -520,7 +517,7 @@ pub fn parse_cli(args: &[String], startup: &StartupEnv) -> Result<ParseResult, C
                 if start == 0 || end == 0 {
                     return Err(ConfigError::invalid(arg, Some(value)));
                 }
-                group!().port_filter = Some((start, end));
+                group!().matches.port_filter = Some((start, end));
             }
             "-R" | "--round" => {
                 let value = next_value(&effective_args, &mut idx, arg)?;
@@ -530,14 +527,14 @@ pub fn parse_cli(args: &[String], startup: &StartupEnv) -> Result<ParseResult, C
             "--payload-size-range" => {
                 let value = next_value(&effective_args, &mut idx, arg)?;
                 let range = parse_payload_size_range_spec(value)?;
-                let mut filter = group!().activation_filter.unwrap_or_default();
+                let mut filter = group!().activation_filter().unwrap_or_default();
                 filter.payload_size = Some(range);
                 group!().set_activation_filter(filter);
             }
             "--stream-byte-range" => {
                 let value = next_value(&effective_args, &mut idx, arg)?;
                 let range = parse_stream_byte_range_spec(value)?;
-                let mut filter = group!().activation_filter.unwrap_or_default();
+                let mut filter = group!().activation_filter().unwrap_or_default();
                 filter.stream_bytes = Some(range);
                 group!().set_activation_filter(filter);
             }
@@ -559,7 +556,7 @@ pub fn parse_cli(args: &[String], startup: &StartupEnv) -> Result<ParseResult, C
                 let value = next_value(&effective_args, &mut idx, arg)?;
                 let (ip, port) = parse_numeric_addr(value)?;
                 let port = port.ok_or_else(|| ConfigError::invalid(arg, Some(value)))?;
-                group!().ext_socks = Some(UpstreamSocksConfig { addr: SocketAddr::new(ip, port) });
+                group!().policy.ext_socks = Some(UpstreamSocksConfig { addr: SocketAddr::new(ip, port) });
                 config.network.delay_conn = true;
             }
             "-P" | "--protect-path" => {
@@ -568,7 +565,7 @@ pub fn parse_cli(args: &[String], startup: &StartupEnv) -> Result<ParseResult, C
             }
             "--comment" => {
                 let value = next_value(&effective_args, &mut idx, arg)?;
-                group!().label = value.to_owned();
+                group!().policy.label = value.to_owned();
             }
             _ => return Err(ConfigError::invalid(arg, Option::<String>::None)),
         }

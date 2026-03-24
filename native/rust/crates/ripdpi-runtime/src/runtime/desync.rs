@@ -103,7 +103,7 @@ fn should_desync_tcp(group: &DesyncGroup, context: ActivationContext) -> bool {
 }
 
 fn has_tcp_actions(group: &DesyncGroup) -> bool {
-    !group.effective_tcp_chain().is_empty() || group.mod_http != 0 || group.tlsminor.is_some()
+    !group.effective_tcp_chain().is_empty() || group.actions.mod_http != 0 || group.actions.tlsminor.is_some()
 }
 
 pub(super) fn requires_special_tcp_execution(group: &DesyncGroup) -> bool {
@@ -187,7 +187,7 @@ fn execute_tcp_plan(
                 )?;
             }
             TcpChainStepKind::Oob => {
-                send_oob_action(writer, chunk, group.oob_data.unwrap_or(b'a'))?;
+                send_oob_action(writer, chunk, group.actions.oob_data.unwrap_or(b'a'))?;
                 await_writable_action(
                     writer,
                     config.timeouts.wait_send,
@@ -208,7 +208,7 @@ fn execute_tcp_plan(
             }
             TcpChainStepKind::Disoob => {
                 set_ttl_action(writer, 1)?;
-                send_oob_action(writer, chunk, group.oob_data.unwrap_or(b'a'))?;
+                send_oob_action(writer, chunk, group.actions.oob_data.unwrap_or(b'a'))?;
                 await_writable_action(
                     writer,
                     config.timeouts.wait_send,
@@ -234,8 +234,8 @@ fn execute_tcp_plan(
                     writer,
                     chunk,
                     fake_chunk,
-                    resolved_fake_ttl.or(group.ttl).unwrap_or(8),
-                    group.md5sig,
+                    resolved_fake_ttl.or(group.actions.ttl).unwrap_or(8),
+                    group.actions.md5sig,
                     config.network.default_ttl,
                     (config.timeouts.wait_send, Duration::from_millis(config.timeouts.await_interval.max(1) as u64)),
                 )?;
@@ -256,13 +256,13 @@ fn execute_tcp_plan(
                     fake.as_ref().ok_or_else(|| io::Error::new(io::ErrorKind::InvalidData, "missing fake packet"))?;
                 let first_fake = build_fake_region_bytes(fake, start, chunk.len());
                 let second_fake = build_fake_region_bytes(fake, end, second.len());
-                let fake_ttl = resolved_fake_ttl.or(group.ttl).unwrap_or(8);
+                let fake_ttl = resolved_fake_ttl.or(group.actions.ttl).unwrap_or(8);
                 platform::send_fake_tcp(
                     writer,
                     chunk,
                     &first_fake,
                     fake_ttl,
-                    group.md5sig,
+                    group.actions.md5sig,
                     config.network.default_ttl,
                     (config.timeouts.wait_send, Duration::from_millis(config.timeouts.await_interval.max(1) as u64)),
                 )?;
@@ -271,7 +271,7 @@ fn execute_tcp_plan(
                     second,
                     &second_fake,
                     fake_ttl,
-                    group.md5sig,
+                    group.actions.md5sig,
                     config.network.default_ttl,
                     (config.timeouts.wait_send, Duration::from_millis(config.timeouts.await_interval.max(1) as u64)),
                 )?;
@@ -298,13 +298,13 @@ fn execute_tcp_plan(
                     fake.as_ref().ok_or_else(|| io::Error::new(io::ErrorKind::InvalidData, "missing fake packet"))?;
                 let first_fake = build_fake_region_bytes(fake, start, chunk.len());
                 let second_fake = build_fake_region_bytes(fake, end, second.len());
-                let fake_ttl = resolved_fake_ttl.or(group.ttl).unwrap_or(8);
+                let fake_ttl = resolved_fake_ttl.or(group.actions.ttl).unwrap_or(8);
                 platform::send_fake_tcp(
                     writer,
                     chunk,
                     &first_fake,
                     1,
-                    group.md5sig,
+                    group.actions.md5sig,
                     config.network.default_ttl,
                     (config.timeouts.wait_send, Duration::from_millis(config.timeouts.await_interval.max(1) as u64)),
                 )?;
@@ -313,7 +313,7 @@ fn execute_tcp_plan(
                     second,
                     &second_fake,
                     fake_ttl,
-                    group.md5sig,
+                    group.actions.md5sig,
                     config.network.default_ttl,
                     (config.timeouts.wait_send, Duration::from_millis(config.timeouts.await_interval.max(1) as u64)),
                 )?;
@@ -347,8 +347,8 @@ fn execute_tcp_plan(
                     writer,
                     real_host,
                     &fake_host,
-                    resolved_fake_ttl.or(group.ttl).unwrap_or(8),
-                    group.md5sig,
+                    resolved_fake_ttl.or(group.actions.ttl).unwrap_or(8),
+                    group.actions.md5sig,
                     config.network.default_ttl,
                     (config.timeouts.wait_send, Duration::from_millis(config.timeouts.await_interval.max(1) as u64)),
                 )?;
@@ -379,8 +379,8 @@ fn execute_tcp_plan(
                     writer,
                     real_host,
                     &fake_host,
-                    resolved_fake_ttl.or(group.ttl).unwrap_or(8),
-                    group.md5sig,
+                    resolved_fake_ttl.or(group.actions.ttl).unwrap_or(8),
+                    group.actions.md5sig,
                     config.network.default_ttl,
                     (config.timeouts.wait_send, Duration::from_millis(config.timeouts.await_interval.max(1) as u64)),
                 )?;
@@ -503,7 +503,7 @@ mod tests {
         assert!(activation_filter_matches(group.activation_filter(), in_range));
         assert!(!activation_filter_matches(group.activation_filter(), out_of_range));
 
-        group.tcp_chain.push(TcpChainStep::new(TcpChainStepKind::Split, test_offset()));
+        group.actions.tcp_chain.push(TcpChainStep::new(TcpChainStepKind::Split, test_offset()));
         assert!(has_tcp_actions(&group));
         assert!(should_desync_tcp(&group, in_range));
         assert!(!should_desync_tcp(&group, out_of_range));
@@ -512,15 +512,15 @@ mod tests {
     #[test]
     fn special_tcp_execution_includes_fake_approximation_steps() {
         let mut group = test_group();
-        group.tcp_chain.push(TcpChainStep::new(TcpChainStepKind::FakeSplit, test_offset()));
+        group.actions.tcp_chain.push(TcpChainStep::new(TcpChainStepKind::FakeSplit, test_offset()));
         assert_eq!(requires_special_tcp_execution(&group), platform::supports_fake_retransmit());
 
-        group.tcp_chain.clear();
-        group.tcp_chain.push(TcpChainStep::new(TcpChainStepKind::FakeDisorder, test_offset()));
+        group.actions.tcp_chain.clear();
+        group.actions.tcp_chain.push(TcpChainStep::new(TcpChainStepKind::FakeDisorder, test_offset()));
         assert_eq!(requires_special_tcp_execution(&group), platform::supports_fake_retransmit());
 
-        group.tcp_chain.clear();
-        group.tcp_chain.push(TcpChainStep::new(TcpChainStepKind::Fake, test_offset()));
+        group.actions.tcp_chain.clear();
+        group.actions.tcp_chain.push(TcpChainStep::new(TcpChainStepKind::Fake, test_offset()));
         assert!(requires_special_tcp_execution(&group));
     }
 
