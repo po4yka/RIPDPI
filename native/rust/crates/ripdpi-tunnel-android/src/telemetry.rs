@@ -317,4 +317,69 @@ mod tests {
         let stopped = state.snapshot((0, 0, 0, 0), DnsStatsSnapshot::default(), None, None);
         assert_tunnel_snapshot_golden("tunnel_stopped", &stopped);
     }
+
+    #[test]
+    fn tunnel_error_overwrite_keeps_latest_value() {
+        let state = TunnelTelemetryState::new();
+        state.record_error("first error".to_string());
+        state.record_error("second error".to_string());
+
+        let snap = state.snapshot((0, 0, 0, 0), DnsStatsSnapshot::default(), None, None);
+        assert_eq!(snap.last_error.as_deref(), Some("second error"));
+        assert_eq!(snap.total_errors, 2);
+    }
+
+    #[test]
+    fn tunnel_upstream_address_updated_on_restart() {
+        let state = TunnelTelemetryState::new();
+        state.mark_started("10.0.0.1:1080".to_string());
+
+        let snap = state.snapshot((0, 0, 0, 0), DnsStatsSnapshot::default(), None, None);
+        assert_eq!(snap.upstream_address.as_deref(), Some("10.0.0.1:1080"));
+
+        state.mark_stopped();
+        state.mark_started("10.0.0.2:1080".to_string());
+
+        let snap2 = state.snapshot((0, 0, 0, 0), DnsStatsSnapshot::default(), None, None);
+        assert_eq!(snap2.upstream_address.as_deref(), Some("10.0.0.2:1080"));
+    }
+
+    #[test]
+    fn tunnel_snapshot_reads_do_not_block_under_concurrent_writes() {
+        use std::sync::{Arc, Barrier};
+
+        let state = Arc::new(TunnelTelemetryState::new());
+        state.mark_started("127.0.0.1:1080".to_string());
+        let barrier = Arc::new(Barrier::new(2));
+        let iterations = 500;
+
+        let writer_state = state.clone();
+        let writer_barrier = barrier.clone();
+        let writer = std::thread::spawn(move || {
+            writer_barrier.wait();
+            for i in 0..iterations {
+                writer_state.record_error(format!("err-{i}"));
+            }
+        });
+
+        let reader_state = state.clone();
+        let reader_barrier = barrier.clone();
+        let reader = std::thread::spawn(move || {
+            reader_barrier.wait();
+            let mut snapshots = 0u32;
+            for _ in 0..iterations {
+                let snap = reader_state.snapshot((0, 0, 0, 0), DnsStatsSnapshot::default(), None, None);
+                if let Some(ref error) = snap.last_error {
+                    assert!(error.starts_with("err-"), "corrupted error: {error}");
+                }
+                assert_eq!(snap.upstream_address.as_deref(), Some("127.0.0.1:1080"));
+                snapshots += 1;
+            }
+            snapshots
+        });
+
+        writer.join().expect("writer panicked");
+        let count = reader.join().expect("reader panicked");
+        assert_eq!(count, iterations as u32);
+    }
 }

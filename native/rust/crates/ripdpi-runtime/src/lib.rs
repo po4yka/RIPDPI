@@ -334,4 +334,86 @@ mod tests {
         assert_eq!(from_clone.transport, "cellular");
         assert!(from_clone.metered);
     }
+
+    #[cfg(not(feature = "loom"))]
+    #[test]
+    fn network_snapshot_update_replaces_previous_value() {
+        use ripdpi_proxy_config::NetworkSnapshot;
+        let control = EmbeddedProxyControl::default();
+
+        control.update_network_snapshot(NetworkSnapshot {
+            transport: "wifi".to_string(),
+            ..NetworkSnapshot::default()
+        });
+        control.update_network_snapshot(NetworkSnapshot {
+            transport: "cellular".to_string(),
+            metered: true,
+            ..NetworkSnapshot::default()
+        });
+
+        let current = control.current_network_snapshot().expect("latest snapshot");
+        assert_eq!(current.transport, "cellular");
+        assert!(current.metered);
+    }
+
+    #[cfg(not(feature = "loom"))]
+    #[test]
+    fn network_snapshot_concurrent_reads_never_block_writer() {
+        use ripdpi_proxy_config::NetworkSnapshot;
+        use std::sync::Barrier;
+
+        let control = Arc::new(EmbeddedProxyControl::default());
+        let barrier = Arc::new(Barrier::new(3));
+        let iterations = 1_000;
+
+        // Writer thread: rapidly updates snapshot
+        let writer_control = control.clone();
+        let writer_barrier = barrier.clone();
+        let writer = std::thread::spawn(move || {
+            writer_barrier.wait();
+            for i in 0..iterations {
+                writer_control.update_network_snapshot(NetworkSnapshot {
+                    transport: format!("net-{i}"),
+                    ..NetworkSnapshot::default()
+                });
+            }
+        });
+
+        // Reader thread 1: polls snapshot in a tight loop
+        let reader1_control = control.clone();
+        let reader1_barrier = barrier.clone();
+        let reader1 = std::thread::spawn(move || {
+            reader1_barrier.wait();
+            let mut reads = 0u64;
+            for _ in 0..iterations {
+                // Should never panic or return corrupted data
+                let _ = reader1_control.current_network_snapshot();
+                reads += 1;
+            }
+            reads
+        });
+
+        // Reader thread 2: polls snapshot concurrently
+        let reader2_control = control.clone();
+        let reader2_barrier = barrier.clone();
+        let reader2 = std::thread::spawn(move || {
+            reader2_barrier.wait();
+            let mut reads = 0u64;
+            for _ in 0..iterations {
+                let _ = reader2_control.current_network_snapshot();
+                reads += 1;
+            }
+            reads
+        });
+
+        writer.join().expect("writer panicked");
+        let r1 = reader1.join().expect("reader1 panicked");
+        let r2 = reader2.join().expect("reader2 panicked");
+        assert_eq!(r1, iterations as u64);
+        assert_eq!(r2, iterations as u64);
+
+        // Final snapshot should reflect the last write
+        let final_snap = control.current_network_snapshot().expect("final snapshot");
+        assert_eq!(final_snap.transport, format!("net-{}", iterations - 1));
+    }
 }
