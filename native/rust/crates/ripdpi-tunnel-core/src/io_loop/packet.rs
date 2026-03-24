@@ -508,4 +508,212 @@ mod tests {
         assert_eq!(pkt[41], 4);
         assert!(!pkt[48..].is_empty());
     }
+
+    // ── Coverage: is_tcp_syn ─────────────────────────────────────────────────
+
+    #[test]
+    fn is_tcp_syn_returns_false_for_udp_packet() {
+        // IPv4 UDP packet -- not TCP at all
+        let mut pkt = vec![0u8; 28];
+        pkt[0] = 0x45;
+        pkt[2..4].copy_from_slice(&28u16.to_be_bytes());
+        pkt[9] = 17; // UDP
+        pkt[12..16].copy_from_slice(&[10, 0, 0, 1]);
+        pkt[16..20].copy_from_slice(&[10, 0, 0, 2]);
+
+        assert!(!is_tcp_syn(&pkt));
+    }
+
+    #[test]
+    fn is_tcp_syn_returns_false_for_empty_input() {
+        assert!(!is_tcp_syn(&[]));
+    }
+
+    #[test]
+    fn is_tcp_syn_returns_false_for_syn_ack() {
+        // SYN+ACK has flags 0x12 (SYN=1, ACK=1)
+        let mut pkt = ipv4_tcp_syn();
+        pkt[33] = 0x12; // SYN+ACK
+        assert!(!is_tcp_syn(&pkt));
+    }
+
+    #[test]
+    fn is_tcp_syn_detects_ipv4_syn() {
+        assert!(is_tcp_syn(&ipv4_tcp_syn()));
+    }
+
+    // ── Coverage: is_injected_rst ────────────────────────────────────────────
+
+    #[test]
+    fn ipv6_rst_is_not_injected() {
+        // is_injected_rst is IPv4-only; IPv6 RST should return false
+        let mut pkt = vec![0u8; 60];
+        pkt[0] = 0x60; // IPv6
+        pkt[4..6].copy_from_slice(&20u16.to_be_bytes());
+        pkt[6] = 6; // TCP
+        pkt[7] = 64;
+        pkt[8..24].copy_from_slice(&Ipv6Addr::LOCALHOST.octets());
+        pkt[24..40].copy_from_slice(&Ipv6Addr::LOCALHOST.octets());
+        pkt[52] = 0x50;
+        pkt[53] = 0x04; // RST
+        // IP ID equivalent = 0 (IPv6 has no IP ID, so this should not match)
+
+        assert!(!is_injected_rst(&pkt));
+    }
+
+    #[test]
+    fn is_injected_rst_returns_false_for_empty_input() {
+        assert!(!is_injected_rst(&[]));
+    }
+
+    // ── Coverage: tcp_syn_flow_key ───────────────────────────────────────────
+
+    #[test]
+    fn tcp_syn_flow_key_returns_none_for_ack() {
+        assert!(tcp_syn_flow_key(&ipv4_tcp_ack(443)).is_none());
+    }
+
+    #[test]
+    fn tcp_syn_flow_key_returns_none_for_rst() {
+        assert!(tcp_syn_flow_key(&ipv4_tcp_rst(0x1234)).is_none());
+    }
+
+    #[test]
+    fn tcp_syn_flow_key_returns_none_for_empty_input() {
+        assert!(tcp_syn_flow_key(&[]).is_none());
+    }
+
+    // ── Coverage: tcp_dst_port edge cases ────────────────────────────────────
+
+    #[test]
+    fn tcp_dst_port_returns_none_for_udp() {
+        let mut pkt = vec![0u8; 28];
+        pkt[0] = 0x45;
+        pkt[2..4].copy_from_slice(&28u16.to_be_bytes());
+        pkt[9] = 17; // UDP
+        assert_eq!(tcp_dst_port(&pkt), None);
+    }
+
+    #[test]
+    fn tcp_dst_port_returns_none_for_empty_input() {
+        assert_eq!(tcp_dst_port(&[]), None);
+    }
+
+    // ── Coverage: build_udp_response ─────────────────────────────────────────
+
+    #[test]
+    fn build_udp_response_mismatched_families_returns_empty() {
+        let src = SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 53);
+        let dst = SocketAddr::new(IpAddr::V6(Ipv6Addr::LOCALHOST), 5353);
+
+        assert!(build_udp_response(src, dst, b"data").is_empty());
+    }
+
+    #[test]
+    fn build_udp_response_empty_payload_ipv4() {
+        let src = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(10, 0, 0, 1)), 53);
+        let dst = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(10, 0, 0, 2)), 5353);
+
+        let pkt = build_udp_response(src, dst, b"");
+
+        assert_eq!(pkt.len(), 20 + 8); // IP header + UDP header, no payload
+        assert_eq!(pkt[9], 17); // UDP protocol
+        assert_eq!(&pkt[28..], b""); // empty payload
+    }
+
+    #[test]
+    fn build_udp_response_empty_payload_ipv6() {
+        let src = SocketAddr::new(IpAddr::V6(Ipv6Addr::LOCALHOST), 53);
+        let dst = SocketAddr::new(IpAddr::V6(Ipv6Addr::LOCALHOST), 5353);
+
+        let pkt = build_udp_response(src, dst, b"");
+
+        assert_eq!(pkt.len(), 40 + 8);
+        assert_eq!(pkt[6], 17);
+        assert_eq!(&pkt[48..], b"");
+    }
+
+    #[test]
+    fn build_udp_response_ipv4_round_trip_parses() {
+        let src = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(192, 168, 1, 1)), 53);
+        let dst = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(10, 0, 0, 2)), 5353);
+        let payload = b"round trip test data";
+
+        let pkt = build_udp_response(src, dst, payload);
+
+        // Re-parse with etherparse to verify structural correctness
+        let parsed = etherparse::SlicedPacket::from_ip(&pkt).expect("parse built packet");
+        let net = parsed.net.expect("has net layer");
+        let ipv4 = match net {
+            etherparse::NetSlice::Ipv4(v4) => v4,
+            other => panic!("expected Ipv4, got {other:?}"),
+        };
+        assert_eq!(ipv4.header().source_addr(), Ipv4Addr::new(192, 168, 1, 1));
+        assert_eq!(ipv4.header().destination_addr(), Ipv4Addr::new(10, 0, 0, 2));
+        assert_eq!(ipv4.header().protocol(), etherparse::IpNumber::UDP);
+        assert_eq!(ipv4.header().ttl(), 64);
+
+        let udp = match parsed.transport.expect("has transport") {
+            etherparse::TransportSlice::Udp(u) => u,
+            other => panic!("expected Udp, got {other:?}"),
+        };
+        assert_eq!(udp.source_port(), 53);
+        assert_eq!(udp.destination_port(), 5353);
+        assert_eq!(udp.payload(), payload);
+    }
+
+    #[test]
+    fn build_udp_response_ipv6_round_trip_parses() {
+        let src_ip = Ipv6Addr::new(0x2001, 0xdb8, 0, 0, 0, 0, 0, 1);
+        let dst_ip = Ipv6Addr::new(0x2001, 0xdb8, 0, 0, 0, 0, 0, 2);
+        let src = SocketAddr::new(IpAddr::V6(src_ip), 53);
+        let dst = SocketAddr::new(IpAddr::V6(dst_ip), 5353);
+        let payload = b"ipv6 round trip";
+
+        let pkt = build_udp_response(src, dst, payload);
+
+        let parsed = etherparse::SlicedPacket::from_ip(&pkt).expect("parse built packet");
+        let net = parsed.net.expect("has net layer");
+        let ipv6 = match net {
+            etherparse::NetSlice::Ipv6(v6) => v6,
+            other => panic!("expected Ipv6, got {other:?}"),
+        };
+        assert_eq!(ipv6.header().source_addr(), src_ip);
+        assert_eq!(ipv6.header().destination_addr(), dst_ip);
+        assert_eq!(ipv6.header().hop_limit(), 64);
+
+        let udp = match parsed.transport.expect("has transport") {
+            etherparse::TransportSlice::Udp(u) => u,
+            other => panic!("expected Udp, got {other:?}"),
+        };
+        assert_eq!(udp.source_port(), 53);
+        assert_eq!(udp.destination_port(), 5353);
+        assert_eq!(udp.payload(), payload);
+    }
+
+    #[test]
+    fn build_udp_response_ipv4_has_valid_checksums() {
+        let src = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(10, 0, 0, 1)), 1234);
+        let dst = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(10, 0, 0, 2)), 5678);
+
+        let pkt = build_udp_response(src, dst, b"checksum test");
+
+        // IP header checksum: sum of all 16-bit words in header should be 0xFFFF
+        let ip_check = checksum_sum(&pkt[..20]);
+        assert_eq!(
+            finalize_checksum(ip_check),
+            0,
+            "IP header checksum should validate to zero"
+        );
+    }
+
+    #[test]
+    fn build_udp_response_ipv6_oversized_rejects() {
+        // UDP payload that would overflow u16 payload_length
+        let payload = vec![0u8; usize::from(u16::MAX)];
+        let src = SocketAddr::new(IpAddr::V6(Ipv6Addr::LOCALHOST), 53);
+        let dst = SocketAddr::new(IpAddr::V6(Ipv6Addr::LOCALHOST), 5353);
+
+        assert!(build_udp_response(src, dst, &payload).is_empty());
+    }
 }
