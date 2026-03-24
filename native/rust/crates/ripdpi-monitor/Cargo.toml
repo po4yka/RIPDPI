@@ -21,6 +21,9 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 rustls = { workspace = true }
 webpki-roots = { workspace = true }
+hickory-resolver = { workspace = true, optional = true }
+quinn = { workspace = true, optional = true }
+tokio = { workspace = true, optional = true }
 loom = { workspace = true, optional = true }
 
 [dev-dependencies]
@@ -30,4 +33,6 @@ native-soak-support = { workspace = true }
 rcgen = { workspace = true }
 
 [features]
+hickory = ["dep:hickory-resolver", "dep:tokio"]
 loom = ["dep:loom"]
+quic-native = ["dep:quinn", "dep:tokio"]
