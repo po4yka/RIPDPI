@@ -163,4 +163,147 @@ mod tests {
 
         assert!(matches!(class, IpClass::Udp { .. }));
     }
+
+    #[test]
+    fn ipv4_udp_extracts_correct_addresses_and_ports() {
+        let pkt = ipv4_udp([192, 168, 1, 100], [10, 0, 0, 1], 54321, 8080, b"data");
+
+        let class = classify_ip_packet(&pkt, None);
+
+        match class {
+            IpClass::Udp { src, dst, .. } => {
+                assert_eq!(src.ip(), IpAddr::V4(std::net::Ipv4Addr::new(192, 168, 1, 100)));
+                assert_eq!(src.port(), 54321);
+                assert_eq!(dst.ip(), IpAddr::V4(std::net::Ipv4Addr::new(10, 0, 0, 1)));
+                assert_eq!(dst.port(), 8080);
+            }
+            other => panic!("expected IpClass::Udp, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn ipv6_udp_extracts_correct_addresses_and_ports() {
+        let src_ip = Ipv6Addr::new(0x2001, 0xdb8, 0, 0, 0, 0, 0, 1);
+        let dst_ip = Ipv6Addr::new(0x2001, 0xdb8, 0, 0, 0, 0, 0, 2);
+        let pkt = ipv6_udp(src_ip, dst_ip, 9000, 443, b"quic");
+
+        let class = classify_ip_packet(&pkt, None);
+
+        match class {
+            IpClass::Udp { src, dst, .. } => {
+                assert_eq!(src.ip(), IpAddr::V6(src_ip));
+                assert_eq!(src.port(), 9000);
+                assert_eq!(dst.ip(), IpAddr::V6(dst_ip));
+                assert_eq!(dst.port(), 443);
+            }
+            other => panic!("expected IpClass::Udp, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn udp_payload_is_preserved_zero_copy() {
+        let payload = b"hello world dns query";
+        let pkt = ipv4_udp([10, 0, 0, 1], [8, 8, 8, 8], 12345, 53, payload);
+
+        let class = classify_ip_packet(&pkt, None);
+
+        match class {
+            IpClass::Udp { payload: p, .. } => assert_eq!(p, payload),
+            other => panic!("expected IpClass::Udp, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn dns_intercept_payload_is_preserved() {
+        let payload = b"\x00\x01dns query data";
+        let pkt = ipv4_udp([10, 0, 0, 1], [198, 18, 0, 0], 54321, 53, payload);
+
+        let class = classify_ip_packet(&pkt, Some((MAPDNS_NET, MAPDNS_MASK, MAPDNS_PORT)));
+
+        match class {
+            IpClass::UdpDns { payload: p, .. } => assert_eq!(p, payload),
+            other => panic!("expected IpClass::UdpDns, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn empty_payload_udp_is_classified() {
+        let pkt = ipv4_udp([10, 0, 0, 1], [10, 0, 0, 2], 1234, 5678, b"");
+
+        let class = classify_ip_packet(&pkt, None);
+
+        match class {
+            IpClass::Udp { payload, .. } => assert!(payload.is_empty()),
+            other => panic!("expected IpClass::Udp, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn empty_input_is_tcp_or_other() {
+        assert!(matches!(classify_ip_packet(&[], None), IpClass::TcpOrOther));
+    }
+
+    #[test]
+    fn ipv6_tcp_is_tcp_or_other() {
+        // IPv6 TCP packet: version=6, next_header=6 (TCP)
+        let mut pkt = vec![0u8; 60];
+        pkt[0] = 0x60;
+        pkt[4..6].copy_from_slice(&20u16.to_be_bytes());
+        pkt[6] = 6; // TCP
+        pkt[7] = 64;
+        pkt[8..24].copy_from_slice(&Ipv6Addr::LOCALHOST.octets());
+        pkt[24..40].copy_from_slice(&Ipv6Addr::LOCALHOST.octets());
+        pkt[52] = 0x50;
+        pkt[53] = 0x02;
+
+        assert!(matches!(classify_ip_packet(&pkt, None), IpClass::TcpOrOther));
+    }
+
+    #[test]
+    fn icmp_packet_is_tcp_or_other() {
+        let mut pkt = vec![0u8; 28];
+        pkt[0] = 0x45;
+        pkt[2..4].copy_from_slice(&28u16.to_be_bytes());
+        pkt[8] = 64;
+        pkt[9] = 1; // ICMP
+        pkt[12..16].copy_from_slice(&[10, 0, 0, 1]);
+        pkt[16..20].copy_from_slice(&[10, 0, 0, 2]);
+
+        assert!(matches!(classify_ip_packet(&pkt, None), IpClass::TcpOrOther));
+    }
+
+    #[test]
+    fn wrong_netmask_does_not_trigger_dns_intercept() {
+        // 172.16.0.1 is outside 198.18.0.0/15 (MAPDNS_NET/MAPDNS_MASK)
+        let pkt = ipv4_udp([10, 0, 0, 1], [172, 16, 0, 1], 12345, 53, b"query");
+
+        let class = classify_ip_packet(&pkt, Some((MAPDNS_NET, MAPDNS_MASK, MAPDNS_PORT)));
+
+        assert!(matches!(class, IpClass::Udp { .. }));
+    }
+
+    #[test]
+    fn dns_intercept_requires_both_mask_and_port() {
+        // Correct netmask range but wrong port
+        let pkt = ipv4_udp([10, 0, 0, 1], [198, 18, 0, 0], 12345, 5353, b"query");
+
+        let class = classify_ip_packet(&pkt, Some((MAPDNS_NET, MAPDNS_MASK, MAPDNS_PORT)));
+
+        assert!(matches!(class, IpClass::Udp { .. }));
+    }
+
+    #[test]
+    fn dns_intercept_src_address_is_correct() {
+        let pkt = ipv4_udp([10, 0, 0, 99], [198, 18, 0, 0], 54321, 53, b"q");
+
+        let class = classify_ip_packet(&pkt, Some((MAPDNS_NET, MAPDNS_MASK, MAPDNS_PORT)));
+
+        match class {
+            IpClass::UdpDns { src, .. } => {
+                assert_eq!(src.ip(), IpAddr::V4(std::net::Ipv4Addr::new(10, 0, 0, 99)));
+                assert_eq!(src.port(), 54321);
+            }
+            other => panic!("expected IpClass::UdpDns, got {other:?}"),
+        }
+    }
 }
