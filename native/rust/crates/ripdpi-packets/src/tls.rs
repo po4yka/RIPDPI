@@ -297,10 +297,10 @@ pub fn randomize_tls_seeded_like_c(input: &[u8], seed: u32) -> PacketMutation {
         *byte = rng.next_u8();
     }
 
-    let Some(skip) = find_ext_block(&output) else {
+    let Some(parsed) = crate::tls_nom::parse_client_hello_record(&output) else {
         return PacketMutation { rc: 0, bytes: output };
     };
-    let Some(ks_offs) = find_tls_ext_offset(0x0033, &output, skip) else {
+    let Some(ks_offs) = crate::tls_nom::find_extension_offset(&parsed, 0x0033) else {
         return PacketMutation { rc: 0, bytes: output };
     };
     if ks_offs + 6 >= output.len() {
@@ -362,12 +362,13 @@ pub fn tune_tls_padding_size_like_c(input: &[u8], target_size: usize) -> PacketM
     if target_size == input.len() {
         return PacketMutation { rc: 0, bytes: input.to_vec() };
     }
-    let Some(ext_len_start) = find_tls_ext_len_offset(input) else {
+    let Some(parsed) = crate::tls_nom::parse_client_hello_record(input) else {
         return PacketMutation { rc: -1, bytes: input.to_vec() };
     };
+    let ext_len_start = parsed.ext_len_offset;
     let mut output = input.to_vec();
     let original_len = output.len();
-    let pad_offs = find_tls_ext_offset(0x0015, &output, ext_len_start);
+    let pad_offs = crate::tls_nom::find_extension_offset(&parsed, 0x0015);
 
     match target_size.cmp(&original_len) {
         std::cmp::Ordering::Equal => PacketMutation { rc: 0, bytes: output },
@@ -409,11 +410,12 @@ pub fn tune_tls_padding_size_like_c(input: &[u8], target_size: usize) -> PacketM
 }
 
 pub fn padencap_tls_like_c(input: &[u8], payload_len: usize) -> PacketMutation {
-    let Some(ext_len_start) = find_tls_ext_len_offset(input) else {
+    let Some(parsed) = crate::tls_nom::parse_client_hello_record(input) else {
         return PacketMutation { rc: -1, bytes: input.to_vec() };
     };
+    let ext_len_start = parsed.ext_len_offset;
     let mut output = input.to_vec();
-    let pad_len_offs = if let Some(pad_offs) = find_tls_ext_offset(0x0015, &output, ext_len_start) {
+    let pad_len_offs = if let Some(pad_offs) = crate::tls_nom::find_extension_offset(&parsed, 0x0015) {
         pad_offs + 2
     } else {
         let pad_offs = output.len();
@@ -448,10 +450,11 @@ pub fn change_tls_sni_seeded_like_c(input: &[u8], host: &[u8], capacity: usize, 
     };
     record_size += avail;
 
-    let Some(skip) = find_ext_block(&output[..n]) else {
+    let Some(parsed) = crate::tls_nom::parse_client_hello_record(&output[..n]) else {
         return PacketMutation { rc: -1, bytes: input.to_vec() };
     };
-    let Some(mut sni_offs) = find_tls_ext_offset(0x0000, &output[..n], skip) else {
+    let skip = parsed.ext_len_offset;
+    let Some(mut sni_offs) = crate::tls_nom::find_extension_offset(&parsed, 0x0000) else {
         return PacketMutation { rc: -1, bytes: input.to_vec() };
     };
     let Some(sni_size) = read_u16(&output, sni_offs + 2) else {

@@ -70,10 +70,11 @@ fn parse_client_hello_handshake_nom<'a>(
         let type_offset = original.offset(ext_data);
         let (rem, ext_type) = be_u16(ext_data)?;
         let (rem, data_len) = be_u16(rem)?;
-        if rem.len() < data_len as usize {
-            break;
-        }
-        let (rem, data) = take(data_len as usize)(rem)?;
+        // Tolerate truncated extensions (declared length > available data).
+        // The manual parser finds extensions even if their payload is cut short,
+        // since write-path functions only need the type_offset to locate the header.
+        let actual_data_len = core::cmp::min(data_len as usize, rem.len());
+        let (rem, data) = take(actual_data_len)(rem)?;
         extensions.push(RawExtension { ext_type, type_offset, data });
         ext_data = rem;
     }
