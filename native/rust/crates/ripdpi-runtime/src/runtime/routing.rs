@@ -545,6 +545,7 @@ mod tests {
 }
 
 #[cfg(test)]
+#[allow(clippy::items_after_test_module)]
 pub(super) fn trigger_flag(trigger: TriggerEvent) -> u32 {
     match trigger {
         TriggerEvent::Redirect => DETECT_HTTP_LOCAT,

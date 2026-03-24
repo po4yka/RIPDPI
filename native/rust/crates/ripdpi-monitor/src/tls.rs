@@ -34,6 +34,7 @@ pub(crate) enum TlsClientProfile {
     ///
     // TODO(po4yka): implement ECH probe when rustls `ring` backend gains HPKE
     // support, or when the project migrates to `aws-lc-rs`.
+    #[allow(dead_code)]
     Tls13WithEchStub,
 }
 
