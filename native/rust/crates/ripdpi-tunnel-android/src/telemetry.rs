@@ -1,6 +1,8 @@
 use std::collections::VecDeque;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
+
+use arc_swap::ArcSwapOption;
 
 use android_support::log_with_level;
 use ripdpi_telemetry::{LatencyDistributions, LatencyHistogram};
@@ -71,8 +73,8 @@ pub(crate) struct TunnelTelemetryState {
     running: AtomicBool,
     total_sessions: AtomicU64,
     total_errors: AtomicU64,
-    upstream_address: Mutex<Option<String>>,
-    last_error: Mutex<Option<String>>,
+    upstream_address: ArcSwapOption<String>,
+    last_error: ArcSwapOption<String>,
     events: Mutex<VecDeque<NativeRuntimeEvent>>,
     pub(crate) dns_histogram: LatencyHistogram,
 }
@@ -87,8 +89,8 @@ impl TunnelTelemetryState {
             running: AtomicBool::new(false),
             total_sessions: AtomicU64::new(0),
             total_errors: AtomicU64::new(0),
-            upstream_address: Mutex::new(None),
-            last_error: Mutex::new(None),
+            upstream_address: ArcSwapOption::empty(),
+            last_error: ArcSwapOption::empty(),
             events: Mutex::new(VecDeque::with_capacity(MAX_TUNNEL_EVENTS)),
             dns_histogram: LatencyHistogram::new(),
         }
@@ -105,9 +107,7 @@ impl TunnelTelemetryState {
     pub(crate) fn mark_started(&self, upstream: String) {
         self.running.store(true, Ordering::Relaxed);
         self.total_sessions.fetch_add(1, Ordering::Relaxed);
-        if let Ok(mut guard) = self.upstream_address.lock() {
-            *guard = Some(upstream.clone());
-        }
+        self.upstream_address.store(Some(Arc::new(upstream.clone())));
         self.push_event("tunnel", "info", format!("tunnel started upstream={upstream}"));
     }
 
@@ -122,9 +122,7 @@ impl TunnelTelemetryState {
 
     pub(crate) fn record_error(&self, error: String) {
         self.total_errors.fetch_add(1, Ordering::Relaxed);
-        if let Ok(mut guard) = self.last_error.lock() {
-            *guard = Some(error.clone());
-        }
+        self.last_error.store(Some(Arc::new(error.clone())));
         self.push_event("tunnel", "warn", format!("tunnel error: {error}"));
     }
 
@@ -153,7 +151,7 @@ impl TunnelTelemetryState {
             route_changes: 0,
             last_route_group: None,
             listener_address: None,
-            upstream_address: self.upstream_address.lock().ok().and_then(|guard| guard.clone()),
+            upstream_address: self.upstream_address.load().as_ref().map(|a| (**a).clone()),
             resolver_id,
             resolver_protocol,
             resolver_endpoint: dns_stats.resolver_endpoint,
@@ -164,7 +162,7 @@ impl TunnelTelemetryState {
             network_handover_class: None,
             last_target: None,
             last_host: dns_stats.last_host,
-            last_error: self.last_error.lock().ok().and_then(|guard| guard.clone()),
+            last_error: self.last_error.load().as_ref().map(|a| (**a).clone()),
             dns_queries_total: dns_stats.dns_queries_total,
             dns_cache_hits: dns_stats.dns_cache_hits,
             dns_cache_misses: dns_stats.dns_cache_misses,
