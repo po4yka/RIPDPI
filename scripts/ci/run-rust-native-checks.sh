@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Native architecture guardrails live here on purpose. Intentional adapter or
+# ownership changes must update both the code and the checked-in CI contracts
+# in the same change.
+
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")"/../.. && pwd)"
 
 workspace_manifest="$repo_root/native/rust/Cargo.toml"
@@ -48,6 +52,12 @@ PY
 
 echo "==> native hotspot budgets"
 python3 "$repo_root/scripts/ci/check_native_hotspot_budgets.py"
+
+echo "==> native architecture checker tests"
+python3 "$repo_root/scripts/ci/test_native_architecture_contracts.py"
+
+echo "==> native architecture contracts"
+python3 "$repo_root/scripts/ci/check_native_architecture_contracts.py"
 
 echo "==> tests (workspace)"
 cargo nextest run --manifest-path "$workspace_manifest" -p local-network-fixture "${NEXTEST_ARGS[@]}"
