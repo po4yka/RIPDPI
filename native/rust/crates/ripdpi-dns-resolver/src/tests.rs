@@ -837,6 +837,202 @@ fn serve_h2_doh(stream: TcpStream, config: Arc<ServerConfig>, expected_query: &[
 }
 
 // ---------------------------------------------------------------------------
+// Health registry tests
+// ---------------------------------------------------------------------------
+
+#[test]
+fn health_ewma_decays_toward_new_observations() {
+    let reg = HealthRegistry::new(Duration::from_millis(100));
+    reg.record_endpoint_outcome("ep", true, 50);
+    std::thread::sleep(Duration::from_millis(150));
+    reg.record_endpoint_outcome("ep", false, 500);
+    let snap = reg.snapshot("ep").expect("snapshot exists");
+    assert!(
+        snap.ewma_success_rate < 1.0,
+        "success rate should decay after failure: {:.3}",
+        snap.ewma_success_rate
+    );
+}
+
+#[test]
+fn health_latency_score_clamps_at_cap() {
+    // Use a very short half-life so EWMA converges quickly to new observations.
+    let reg = HealthRegistry::new(Duration::from_millis(1));
+    for _ in 0..20 {
+        std::thread::sleep(Duration::from_millis(5));
+        reg.record_endpoint_outcome("slow", true, 10_000);
+    }
+    let snap = reg.snapshot("slow").expect("snapshot exists");
+    // With a 1ms half-life and 5ms gaps, alpha is ~0.99 per observation,
+    // so the EWMA should converge close to 10000ms (well above the 2000ms cap).
+    assert!(
+        snap.ewma_latency_ms > 1000.0,
+        "latency should move significantly toward observations: {:.1}",
+        snap.ewma_latency_ms
+    );
+}
+
+#[test]
+fn health_bootstrap_ip_ranking_preserves_all_ips() {
+    let reg = HealthRegistry::new(Duration::from_secs(60));
+    let ip1 = IpAddr::V4(Ipv4Addr::new(10, 0, 0, 1));
+    let ip2 = IpAddr::V4(Ipv4Addr::new(10, 0, 0, 2));
+    let ip3 = IpAddr::V4(Ipv4Addr::new(10, 0, 0, 3));
+    for _ in 0..10 {
+        reg.record_bootstrap_outcome(ip1, false, 800);
+    }
+    for _ in 0..10 {
+        reg.record_bootstrap_outcome(ip2, true, 20);
+    }
+    for _ in 0..10 {
+        reg.record_bootstrap_outcome(ip3, true, 400);
+    }
+    let ranked = reg.rank_bootstrap_ips(&[ip1, ip2, ip3]);
+    assert_eq!(ranked.len(), 3, "all IPs must be returned");
+    let mut sorted = ranked.clone();
+    sorted.sort();
+    let mut expected = vec![ip1, ip2, ip3];
+    expected.sort();
+    assert_eq!(sorted, expected, "no IPs should be dropped");
+}
+
+#[test]
+fn health_bootstrap_ip_ranking_with_equal_scores() {
+    let reg = HealthRegistry::new(Duration::from_secs(60));
+    let ips: Vec<IpAddr> = vec![
+        Ipv4Addr::new(192, 168, 1, 1).into(),
+        Ipv4Addr::new(192, 168, 1, 2).into(),
+        Ipv4Addr::new(192, 168, 1, 3).into(),
+    ];
+    let ranked = reg.rank_bootstrap_ips(&ips);
+    assert_eq!(ranked.len(), 3, "all IPs must be returned with equal scores");
+}
+
+#[test]
+fn health_snapshot_returns_none_for_unknown_endpoint() {
+    let reg = HealthRegistry::new(Duration::from_secs(60));
+    assert!(reg.snapshot("nonexistent").is_none());
+}
+
+#[test]
+fn health_observation_count_increments() {
+    let reg = HealthRegistry::new(Duration::from_secs(60));
+    for i in 0..5 {
+        reg.record_endpoint_outcome("ep", i % 2 == 0, 100);
+    }
+    assert_eq!(reg.observation_count("ep"), 5);
+}
+
+// ---------------------------------------------------------------------------
+// Pool cold-start and fallback-cache tests
+// ---------------------------------------------------------------------------
+
+fn spawn_doh_fixture(
+    query: &[u8],
+    answer_ip: Ipv4Addr,
+    accept_count: usize,
+) -> (u16, CertificateDer<'static>, Vec<thread::JoinHandle<()>>) {
+    let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("listener");
+    let port = listener.local_addr().expect("local addr").port();
+    let certificate = rcgen::generate_simple_self_signed(vec!["fixture.test".to_string()]).expect("certificate");
+    let certificate_der: CertificateDer<'static> = certificate.cert.der().clone();
+    let key_der = PrivateKeyDer::Pkcs8(PrivatePkcs8KeyDer::from(certificate.key_pair.serialize_der()));
+    let server_config = Arc::new(
+        ServerConfig::builder()
+            .with_no_client_auth()
+            .with_single_cert(vec![certificate_der.clone()], key_der)
+            .expect("server config"),
+    );
+    let response_body = build_response(query, answer_ip);
+    let server_query = query.to_vec();
+    let config = server_config;
+    let handle = thread::spawn(move || {
+        for _ in 0..accept_count {
+            let (stream, _) = listener.accept().expect("accept");
+            serve_https_doh(stream, config.clone(), &server_query, &response_body);
+        }
+    });
+    (port, certificate_der, vec![handle])
+}
+
+fn fixture_doh_endpoint(port: u16) -> EncryptedDnsEndpoint {
+    EncryptedDnsEndpoint {
+        protocol: EncryptedDnsProtocol::Doh,
+        resolver_id: Some("fixture".to_string()),
+        host: "fixture.test".to_string(),
+        port,
+        tls_server_name: Some("fixture.test".to_string()),
+        bootstrap_ips: vec![IpAddr::V4(Ipv4Addr::LOCALHOST)],
+        doh_url: Some(format!("https://fixture.test:{port}/dns-query")),
+        dnscrypt_provider_name: None,
+        dnscrypt_public_key: None,
+    }
+}
+
+#[test]
+fn pool_cold_start_with_empty_cache_uses_rank_zero() {
+    let query = build_query("fixture.test");
+    let (port, cert_der, handles) = spawn_doh_fixture(&query, Ipv4Addr::new(198, 18, 0, 50), 1);
+    let health = HealthRegistry::new(Duration::from_secs(60));
+    let pool = ResolverPool::builder()
+        .add_endpoint(fixture_doh_endpoint(port), EncryptedDnsTransport::Direct)
+        .add_endpoint(
+            EncryptedDnsEndpoint {
+                protocol: EncryptedDnsProtocol::Doh,
+                resolver_id: Some("unreachable".to_string()),
+                host: "unreachable.test".to_string(),
+                port: 1,
+                tls_server_name: Some("unreachable.test".to_string()),
+                bootstrap_ips: vec![IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1))],
+                doh_url: Some("https://unreachable.test:1/dns-query".to_string()),
+                dnscrypt_provider_name: None,
+                dnscrypt_public_key: None,
+            },
+            EncryptedDnsTransport::Direct,
+        )
+        .tls_roots(vec![cert_der])
+        .health_registry(health)
+        .build()
+        .unwrap();
+    let result = pool.exchange_blocking(&query);
+    assert!(result.is_ok(), "cold-start exchange should succeed via rank-0");
+    for h in handles {
+        h.join().expect("server join");
+    }
+}
+
+#[test]
+fn pool_records_success_in_shared_health_registry() {
+    let query = build_query("fixture.test");
+    let (port, cert_der, handles) = spawn_doh_fixture(&query, Ipv4Addr::new(198, 18, 0, 51), 2);
+    let shared_health = HealthRegistry::new(Duration::from_secs(60));
+    let pool1 = ResolverPool::builder()
+        .add_endpoint(fixture_doh_endpoint(port), EncryptedDnsTransport::Direct)
+        .tls_roots(vec![cert_der.clone()])
+        .health_registry(shared_health.clone())
+        .build()
+        .unwrap();
+    let result = pool1.exchange_blocking(&query);
+    assert!(result.is_ok(), "first pool exchange should succeed");
+    let label = format!("https://fixture.test:{port}/dns-query");
+    assert!(
+        shared_health.observation_count(&label) > 0,
+        "health registry should have observations after success"
+    );
+    let pool2 = ResolverPool::builder()
+        .add_endpoint(fixture_doh_endpoint(port), EncryptedDnsTransport::Direct)
+        .tls_roots(vec![cert_der])
+        .health_registry(shared_health.clone())
+        .build()
+        .unwrap();
+    let result2 = pool2.exchange_blocking(&query);
+    assert!(result2.is_ok(), "second pool exchange should succeed using shared health");
+    for h in handles {
+        h.join().expect("server join");
+    }
+}
+
+// ---------------------------------------------------------------------------
 // hickory-backend feature-gated tests
 // ---------------------------------------------------------------------------
 
@@ -989,5 +1185,199 @@ mod hickory_backend_tests {
             }
             Err(other) => panic!("unexpected error type: {other}"),
         }
+    }
+
+    // -----------------------------------------------------------------------
+    // hickory_backend error paths and edge cases
+    // -----------------------------------------------------------------------
+
+    #[tokio::test]
+    async fn hickory_rejects_empty_query() {
+        use crate::hickory_backend;
+        let endpoint = EncryptedDnsEndpoint {
+            protocol: EncryptedDnsProtocol::Dot,
+            resolver_id: None,
+            host: "localhost".to_string(),
+            port: 853,
+            tls_server_name: None,
+            bootstrap_ips: vec![IpAddr::V4(Ipv4Addr::LOCALHOST)],
+            doh_url: None,
+            dnscrypt_provider_name: None,
+            dnscrypt_public_key: None,
+        };
+        let result = hickory_backend::exchange_dot(&endpoint, &[], Duration::from_secs(2)).await;
+        assert!(
+            matches!(&result, Err(EncryptedDnsError::DnsParse(_))),
+            "expected DnsParse error for empty query, got: {result:?}"
+        );
+    }
+
+    #[tokio::test]
+    async fn hickory_rejects_query_with_no_questions() {
+        use crate::hickory_backend;
+        let mut msg = Message::new();
+        msg.set_id(0x1234)
+            .set_message_type(MessageType::Query)
+            .set_op_code(OpCode::Query)
+            .set_recursion_desired(true);
+        let wire = msg.to_vec().expect("header-only message serializes");
+        let endpoint = EncryptedDnsEndpoint {
+            protocol: EncryptedDnsProtocol::Dot,
+            resolver_id: None,
+            host: "localhost".to_string(),
+            port: 853,
+            tls_server_name: None,
+            bootstrap_ips: vec![IpAddr::V4(Ipv4Addr::LOCALHOST)],
+            doh_url: None,
+            dnscrypt_provider_name: None,
+            dnscrypt_public_key: None,
+        };
+        let result = hickory_backend::exchange_dot(&endpoint, &wire, Duration::from_secs(2)).await;
+        match &result {
+            Err(EncryptedDnsError::DnsParse(msg)) => {
+                assert!(msg.contains("no questions"), "expected 'no questions', got: {msg}");
+            }
+            other => panic!("expected DnsParse('no questions'), got: {other:?}"),
+        }
+    }
+
+    #[tokio::test]
+    async fn hickory_empty_bootstrap_ips_errors() {
+        use crate::hickory_backend;
+        let query = build_query("example.com");
+        let endpoint = EncryptedDnsEndpoint {
+            protocol: EncryptedDnsProtocol::Doh,
+            resolver_id: None,
+            host: "dns.example".to_string(),
+            port: 443,
+            tls_server_name: Some("dns.example".to_string()),
+            bootstrap_ips: vec![],
+            doh_url: Some("https://dns.example/dns-query".to_string()),
+            dnscrypt_provider_name: None,
+            dnscrypt_public_key: None,
+        };
+        let result = hickory_backend::exchange_doh(&endpoint, &query, Duration::from_secs(2)).await;
+        assert!(result.is_err(), "expected error with empty bootstrap IPs");
+    }
+
+    #[tokio::test]
+    async fn hickory_doh_url_path_defaults_to_dns_query() {
+        use crate::hickory_backend;
+        let query = build_query("example.com");
+        let endpoint = EncryptedDnsEndpoint {
+            protocol: EncryptedDnsProtocol::Doh,
+            resolver_id: None,
+            host: "dns.example".to_string(),
+            port: 443,
+            tls_server_name: Some("dns.example".to_string()),
+            bootstrap_ips: vec![IpAddr::V4(Ipv4Addr::new(192, 0, 2, 1))],
+            doh_url: Some("https://dns.example/custom-path".to_string()),
+            dnscrypt_provider_name: None,
+            dnscrypt_public_key: None,
+        };
+        let result = hickory_backend::exchange_doh(&endpoint, &query, Duration::from_millis(500)).await;
+        assert!(result.is_err(), "expected connection error, got success");
+        match result {
+            Err(EncryptedDnsError::Request(_)) => {}
+            other => panic!("expected Request error, got: {other:?}"),
+        }
+    }
+
+    #[tokio::test]
+    async fn hickory_doh_url_none_defaults_to_dns_query() {
+        use crate::hickory_backend;
+        let query = build_query("example.com");
+        let endpoint = EncryptedDnsEndpoint {
+            protocol: EncryptedDnsProtocol::Doh,
+            resolver_id: None,
+            host: "dns.example".to_string(),
+            port: 443,
+            tls_server_name: Some("dns.example".to_string()),
+            bootstrap_ips: vec![IpAddr::V4(Ipv4Addr::new(192, 0, 2, 1))],
+            doh_url: None,
+            dnscrypt_provider_name: None,
+            dnscrypt_public_key: None,
+        };
+        let result = hickory_backend::exchange_doh(&endpoint, &query, Duration::from_millis(500)).await;
+        assert!(result.is_err(), "expected connection error, got success");
+        match result {
+            Err(EncryptedDnsError::Request(_)) => {}
+            other => panic!("expected Request error, got: {other:?}"),
+        }
+    }
+
+    // -----------------------------------------------------------------------
+    // Dispatch fallback coverage
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn dot_direct_with_custom_tls_roots_falls_back_to_manual() {
+        let query = build_query("fixture.test");
+        let answer_ip = Ipv4Addr::new(198, 18, 0, 101);
+        let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("listener");
+        let port = listener.local_addr().expect("local addr").port();
+        let certificate = rcgen::generate_simple_self_signed(vec!["fixture.test".to_string()]).expect("certificate");
+        let certificate_der: CertificateDer<'static> = certificate.cert.der().clone();
+        let key_der = PrivateKeyDer::Pkcs8(PrivatePkcs8KeyDer::from(certificate.key_pair.serialize_der()));
+        let server_config = Arc::new(
+            ServerConfig::builder()
+                .with_no_client_auth()
+                .with_single_cert(vec![certificate_der.clone()], key_der)
+                .expect("server config"),
+        );
+        let server_query = query.clone();
+        let server_response = build_response(&query, answer_ip);
+        let server = thread::spawn(move || {
+            let (stream, _) = listener.accept().expect("accept");
+            serve_dot(stream, server_config, &server_query, &server_response);
+        });
+        let resolver = EncryptedDnsResolver::with_extra_tls_roots(
+            EncryptedDnsEndpoint {
+                protocol: EncryptedDnsProtocol::Dot,
+                resolver_id: Some("fixture".to_string()),
+                host: "fixture.test".to_string(),
+                port,
+                tls_server_name: Some("fixture.test".to_string()),
+                bootstrap_ips: vec![IpAddr::V4(Ipv4Addr::LOCALHOST)],
+                doh_url: None,
+                dnscrypt_provider_name: None,
+                dnscrypt_public_key: None,
+            },
+            EncryptedDnsTransport::Direct,
+            DEFAULT_TIMEOUT,
+            vec![certificate_der],
+        )
+        .expect("resolver builds");
+        let response = resolver.exchange_blocking(&query).expect("DoT response via manual path");
+        let answers = extract_ip_answers(&response).expect("answers parse");
+        assert_eq!(answers, vec![answer_ip.to_string()]);
+        server.join().expect("server thread completes");
+    }
+
+    #[test]
+    fn dnscrypt_ignores_hickory_backend() {
+        let query = build_query("fixture.test");
+        let answer_ip = Ipv4Addr::new(198, 18, 0, 102);
+        let server = DnsCryptTestServer::new("resolver.test");
+        let (port, handle) = start_dnscrypt_server(server.clone(), build_response(&query, answer_ip));
+        let resolver = EncryptedDnsResolver::new(
+            EncryptedDnsEndpoint {
+                protocol: EncryptedDnsProtocol::DnsCrypt,
+                resolver_id: Some("fixture".to_string()),
+                host: "resolver.test".to_string(),
+                port,
+                tls_server_name: None,
+                bootstrap_ips: vec![IpAddr::V4(Ipv4Addr::LOCALHOST)],
+                doh_url: None,
+                dnscrypt_provider_name: Some(server.provider_name.clone()),
+                dnscrypt_public_key: Some(server.provider_public_key_hex.clone()),
+            },
+            EncryptedDnsTransport::Direct,
+        )
+        .expect("resolver builds");
+        let response = resolver.exchange_blocking(&query).expect("DNSCrypt response");
+        let answers = extract_ip_answers(&response).expect("answers parse");
+        assert_eq!(answers, vec![answer_ip.to_string()]);
+        handle.join().expect("server thread completes");
     }
 }
