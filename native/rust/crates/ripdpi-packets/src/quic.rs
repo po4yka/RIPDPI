@@ -1,0 +1,479 @@
+use aes::cipher::{generic_array::GenericArray, BlockEncrypt, KeyInit as BlockKeyInit};
+use aes::Aes128;
+use aes_gcm::aead::AeadInPlace;
+use aes_gcm::{Aes128Gcm, Nonce, Tag};
+use hkdf::Hkdf;
+use sha2::Sha256;
+
+use crate::tls::{
+    change_tls_sni_seeded_like_c, is_tls_client_hello, tls_client_hello_marker_info_in_handshake, TLS_RECORD_HEADER_LEN,
+};
+use crate::types::{
+    QuicInitialInfo, DEFAULT_FAKE_QUIC_COMPAT_LEN, DEFAULT_FAKE_TLS, QUIC_V1_VERSION, QUIC_V2_VERSION,
+};
+use crate::util::{read_u16, read_u32};
+
+const QUIC_INITIAL_MIN_LEN: usize = 128;
+const QUIC_HP_SAMPLE_LEN: usize = 16;
+const QUIC_TAG_LEN: usize = 16;
+const QUIC_MAX_CID_LEN: usize = 20;
+const QUIC_MAX_CRYPTO_LEN: usize = 64 * 1024;
+const QUIC_FAKE_INITIAL_TARGET_LEN: usize = 1200;
+const QUIC_FAKE_DCID: [u8; 8] = [0x83, 0x94, 0xc8, 0xf0, 0x3e, 0x51, 0x57, 0x08];
+const QUIC_FAKE_SCID: [u8; 4] = [0x11, 0x22, 0x33, 0x44];
+const QUIC_V1_SALT: [u8; 20] = [
+    0x38, 0x76, 0x2c, 0xf7, 0xf5, 0x59, 0x34, 0xb3, 0x4d, 0x17, 0x9a, 0xe6, 0xa4, 0xc8, 0x0c, 0xad, 0xcc, 0xbb,
+    0x7f, 0x0a,
+];
+const QUIC_V2_SALT: [u8; 20] = [
+    0x0d, 0xed, 0xe3, 0xde, 0xf7, 0x00, 0xa6, 0xdb, 0x81, 0x93, 0x81, 0xbe, 0x6e, 0x26, 0x9d, 0xcb, 0xf9, 0xbd,
+    0x2e, 0xd9,
+];
+
+#[derive(Debug, Clone, Copy)]
+struct QuicInitialHeader<'a> {
+    version: u32,
+    dcid: &'a [u8],
+    payload_len: usize,
+    pn_offset: usize,
+}
+
+fn is_quic_v2(version: u32) -> bool {
+    version == QUIC_V2_VERSION
+}
+
+fn supported_quic_version(version: u32) -> bool {
+    matches!(version, QUIC_V1_VERSION | QUIC_V2_VERSION)
+}
+
+fn quic_hkdf_label(label: &str, out_len: usize) -> Option<Vec<u8>> {
+    if out_len > u16::MAX as usize || label.len() > u8::MAX as usize {
+        return None;
+    }
+    let mut info = Vec::with_capacity(2 + 1 + label.len() + 1);
+    info.extend_from_slice(&(out_len as u16).to_be_bytes());
+    info.push(label.len() as u8);
+    info.extend_from_slice(label.as_bytes());
+    info.push(0);
+    Some(info)
+}
+
+fn quic_expand_label(secret: &[u8], label: &str, out: &mut [u8]) -> Option<()> {
+    let info = quic_hkdf_label(label, out.len())?;
+    let hkdf = Hkdf::<Sha256>::from_prk(secret).ok()?;
+    hkdf.expand(&info, out).ok()?;
+    Some(())
+}
+
+fn quic_derive_client_initial_secret(dcid: &[u8], version: u32) -> Option<[u8; 32]> {
+    let salt = match version {
+        QUIC_V1_VERSION => &QUIC_V1_SALT,
+        QUIC_V2_VERSION => &QUIC_V2_SALT,
+        _ => return None,
+    };
+    let hkdf = Hkdf::<Sha256>::new(Some(salt), dcid);
+    let mut secret = [0u8; 32];
+    let info = quic_hkdf_label("tls13 client in", secret.len())?;
+    hkdf.expand(&info, &mut secret).ok()?;
+    Some(secret)
+}
+
+fn read_quic_varint(data: &[u8], offset: usize) -> Option<(u64, usize)> {
+    let first = *data.get(offset)?;
+    let len = 1usize << ((first >> 6) as usize);
+    let bytes = data.get(offset..offset + len)?;
+    let mut value = (bytes[0] & 0x3f) as u64;
+    for byte in &bytes[1..] {
+        value = (value << 8) | u64::from(*byte);
+    }
+    Some((value, len))
+}
+
+fn encode_quic_varint(value: u64) -> Vec<u8> {
+    match value {
+        0..=63 => vec![value as u8],
+        64..=16_383 => ((0x4000 | value as u16).to_be_bytes()).to_vec(),
+        16_384..=1_073_741_823 => ((0x8000_0000 | value as u32).to_be_bytes()).to_vec(),
+        _ => {
+            let mut bytes = value.to_be_bytes();
+            bytes[0] |= 0xc0;
+            bytes.to_vec()
+        }
+    }
+}
+
+fn append_quic_crypto_frame(out: &mut Vec<u8>, offset: u64, data: &[u8]) {
+    out.push(0x06);
+    out.extend_from_slice(&encode_quic_varint(offset));
+    out.extend_from_slice(&encode_quic_varint(data.len() as u64));
+    out.extend_from_slice(data);
+}
+
+pub fn default_fake_quic_compat() -> Vec<u8> {
+    let mut packet = vec![0; DEFAULT_FAKE_QUIC_COMPAT_LEN];
+    packet[0] = 0x40;
+    packet
+}
+
+pub fn build_quic_initial_from_tls(version: u32, tls_client_hello: &[u8], gap_after_split: usize) -> Option<Vec<u8>> {
+    let version = if supported_quic_version(version) { version } else { QUIC_V1_VERSION };
+    if !is_tls_client_hello(tls_client_hello) || tls_client_hello.len() <= TLS_RECORD_HEADER_LEN {
+        return None;
+    }
+
+    let crypto = tls_client_hello.get(TLS_RECORD_HEADER_LEN..)?.to_vec();
+    let split = crypto.len() / 2;
+    let mut plaintext = Vec::new();
+    append_quic_crypto_frame(&mut plaintext, 0, &crypto[..split]);
+    append_quic_crypto_frame(&mut plaintext, (split + gap_after_split) as u64, &crypto[split..]);
+
+    loop {
+        let payload_len = 4 + plaintext.len() + QUIC_TAG_LEN;
+        let payload_len_varint = encode_quic_varint(payload_len as u64);
+        let header_len = 1 + 4 + 1 + QUIC_FAKE_DCID.len() + 1 + QUIC_FAKE_SCID.len() + 1 + payload_len_varint.len();
+        let total_len = header_len + payload_len;
+        if total_len >= QUIC_FAKE_INITIAL_TARGET_LEN {
+            break;
+        }
+        plaintext.extend(std::iter::repeat_n(0u8, QUIC_FAKE_INITIAL_TARGET_LEN - total_len));
+    }
+
+    let payload_len = 4 + plaintext.len() + QUIC_TAG_LEN;
+    let payload_len_varint = encode_quic_varint(payload_len as u64);
+    let first_byte = if version == QUIC_V2_VERSION { 0xd3 } else { 0xc3 };
+
+    let mut header = Vec::new();
+    header.push(first_byte);
+    header.extend_from_slice(&version.to_be_bytes());
+    header.push(QUIC_FAKE_DCID.len() as u8);
+    header.extend_from_slice(&QUIC_FAKE_DCID);
+    header.push(QUIC_FAKE_SCID.len() as u8);
+    header.extend_from_slice(&QUIC_FAKE_SCID);
+    header.push(0);
+    header.extend_from_slice(&payload_len_varint);
+
+    let packet_number = [0u8; 4];
+    let mut aad = header.clone();
+    aad.extend_from_slice(&packet_number);
+
+    let secret = quic_derive_client_initial_secret(&QUIC_FAKE_DCID, version)?;
+    let (key_label, iv_label, hp_label) = if version == QUIC_V2_VERSION {
+        ("tls13 quicv2 key", "tls13 quicv2 iv", "tls13 quicv2 hp")
+    } else {
+        ("tls13 quic key", "tls13 quic iv", "tls13 quic hp")
+    };
+    let mut key = [0u8; 16];
+    let mut iv = [0u8; 12];
+    let mut hp = [0u8; 16];
+    quic_expand_label(&secret, key_label, &mut key)?;
+    quic_expand_label(&secret, iv_label, &mut iv)?;
+    quic_expand_label(&secret, hp_label, &mut hp)?;
+
+    let cipher = Aes128Gcm::new_from_slice(&key).ok()?;
+    let mut ciphertext = plaintext;
+    let tag = cipher.encrypt_in_place_detached(Nonce::from_slice(&iv), &aad, &mut ciphertext).ok()?;
+
+    let hp_cipher = Aes128::new_from_slice(&hp).ok()?;
+    let mut sample = GenericArray::clone_from_slice(ciphertext.get(..QUIC_HP_SAMPLE_LEN)?);
+    hp_cipher.encrypt_block(&mut sample);
+
+    let mut packet = header;
+    packet.extend((0..4).map(|idx| packet_number[idx] ^ sample[1 + idx]));
+    packet.extend_from_slice(&ciphertext);
+    packet.extend_from_slice(&tag);
+    packet[0] ^= sample[0] & 0x0f;
+    Some(packet)
+}
+
+fn padded_default_fake_tls_client_hello() -> Vec<u8> {
+    let mut client_hello = DEFAULT_FAKE_TLS.to_vec();
+    let target_len =
+        read_u16(DEFAULT_FAKE_TLS, 3).map_or(client_hello.len(), |record_len| record_len + TLS_RECORD_HEADER_LEN);
+    if client_hello.len() < target_len {
+        client_hello.resize(target_len, 0);
+    }
+    client_hello
+}
+
+pub fn build_realistic_quic_initial(version: u32, host_override: Option<&str>) -> Option<Vec<u8>> {
+    let mut client_hello = padded_default_fake_tls_client_hello();
+    if let Some(host) = host_override {
+        let capacity = client_hello.len().saturating_add(host.len()).saturating_add(64);
+        let mutation = change_tls_sni_seeded_like_c(&client_hello, host.as_bytes(), capacity, 7);
+        if mutation.rc == 0 && is_tls_client_hello(&mutation.bytes) {
+            client_hello = mutation.bytes;
+        }
+    }
+    build_quic_initial_from_tls(version, &client_hello, 0)
+}
+
+fn parse_quic_initial_header(buffer: &[u8]) -> Option<QuicInitialHeader<'_>> {
+    if buffer.len() < QUIC_INITIAL_MIN_LEN || (buffer[0] & 0x80) == 0 || (buffer[0] & 0x40) == 0 {
+        return None;
+    }
+    let version = read_u32(buffer, 1)?;
+    if !supported_quic_version(version) {
+        return None;
+    }
+    let expected_prefix = if is_quic_v2(version) { 0xd0 } else { 0xc0 };
+    if (buffer[0] & 0xf0) != expected_prefix {
+        return None;
+    }
+
+    let dcid_len = *buffer.get(5)? as usize;
+    if dcid_len == 0 || dcid_len > QUIC_MAX_CID_LEN {
+        return None;
+    }
+    let dcid = buffer.get(6..6 + dcid_len)?;
+
+    let mut offset = 6 + dcid_len;
+    let scid_len = *buffer.get(offset)? as usize;
+    if scid_len > QUIC_MAX_CID_LEN {
+        return None;
+    }
+    offset += 1;
+    buffer.get(offset..offset + scid_len)?;
+    offset += scid_len;
+
+    let (token_len, token_varint_len) = read_quic_varint(buffer, offset)?;
+    offset += token_varint_len;
+    let token_len: usize = token_len.try_into().ok()?;
+    buffer.get(offset..offset + token_len)?;
+    offset += token_len;
+
+    let (payload_len, payload_varint_len) = read_quic_varint(buffer, offset)?;
+    offset += payload_varint_len;
+    let payload_len: usize = payload_len.try_into().ok()?;
+    buffer.get(offset..offset + payload_len)?;
+
+    Some(QuicInitialHeader { version, dcid, payload_len, pn_offset: offset })
+}
+
+fn decrypt_quic_initial_payload(buffer: &[u8], header: QuicInitialHeader<'_>) -> Option<Vec<u8>> {
+    let secret = quic_derive_client_initial_secret(header.dcid, header.version)?;
+    let mut key = [0u8; 16];
+    let mut iv = [0u8; 12];
+    let mut hp = [0u8; 16];
+    let (key_label, iv_label, hp_label) = if is_quic_v2(header.version) {
+        ("tls13 quicv2 key", "tls13 quicv2 iv", "tls13 quicv2 hp")
+    } else {
+        ("tls13 quic key", "tls13 quic iv", "tls13 quic hp")
+    };
+    quic_expand_label(&secret, key_label, &mut key)?;
+    quic_expand_label(&secret, iv_label, &mut iv)?;
+    quic_expand_label(&secret, hp_label, &mut hp)?;
+
+    let sample = buffer.get(header.pn_offset + 4..header.pn_offset + 4 + QUIC_HP_SAMPLE_LEN)?;
+    let hp_cipher = Aes128::new_from_slice(&hp).ok()?;
+    let mut sample_block = GenericArray::clone_from_slice(sample);
+    hp_cipher.encrypt_block(&mut sample_block);
+
+    let unprotected_first = buffer[0] ^ (sample_block[0] & 0x0f);
+    let pn_len = ((unprotected_first & 0x03) + 1) as usize;
+    let protected_pn = buffer.get(header.pn_offset..header.pn_offset + pn_len)?;
+    let mut packet_number_bytes = [0u8; 4];
+    let mut unprotected_pn = [0u8; 4];
+    for idx in 0..pn_len {
+        let value = protected_pn[idx] ^ sample_block[1 + idx];
+        packet_number_bytes[4 - pn_len + idx] = value;
+        unprotected_pn[4 - pn_len + idx] = value;
+    }
+    let packet_number = u32::from_be_bytes(packet_number_bytes);
+
+    let ciphertext_len = header.payload_len.checked_sub(pn_len + QUIC_TAG_LEN)?;
+    let ciphertext = buffer.get(header.pn_offset + pn_len..header.pn_offset + pn_len + ciphertext_len)?.to_vec();
+    let tag = buffer.get(header.pn_offset + pn_len + ciphertext_len..header.pn_offset + header.payload_len)?;
+
+    let mut aad = buffer.get(..header.pn_offset + pn_len)?.to_vec();
+    aad[0] = unprotected_first;
+    aad[header.pn_offset..header.pn_offset + pn_len].copy_from_slice(&unprotected_pn[4 - pn_len..]);
+
+    let mut nonce_bytes = iv;
+    let packet_number = u64::from(packet_number).to_be_bytes();
+    for (slot, byte) in nonce_bytes[4..].iter_mut().zip(packet_number) {
+        *slot ^= byte;
+    }
+
+    let cipher = Aes128Gcm::new_from_slice(&key).ok()?;
+    let mut plaintext = ciphertext;
+    cipher
+        .decrypt_in_place_detached(Nonce::from_slice(&nonce_bytes), &aad, &mut plaintext, Tag::from_slice(tag))
+        .ok()?;
+    Some(plaintext)
+}
+
+fn defrag_quic_crypto_frames(payload: &[u8]) -> Option<(Vec<u8>, bool)> {
+    let mut pieces = Vec::new();
+    let mut cursor = 0usize;
+    let mut max_end = 0usize;
+
+    while cursor < payload.len() {
+        match payload[cursor] {
+            0x00 | 0x01 => {
+                cursor += 1;
+            }
+            0x06 => {
+                cursor += 1;
+                let (offset, offset_len) = read_quic_varint(payload, cursor)?;
+                cursor += offset_len;
+                let (frame_len, frame_len_len) = read_quic_varint(payload, cursor)?;
+                cursor += frame_len_len;
+                let offset: usize = offset.try_into().ok()?;
+                let frame_len: usize = frame_len.try_into().ok()?;
+                let end = cursor.checked_add(frame_len)?;
+                let chunk = payload.get(cursor..end)?;
+                cursor = end;
+                let piece_end = offset.checked_add(frame_len)?;
+                if piece_end > QUIC_MAX_CRYPTO_LEN {
+                    return None;
+                }
+                max_end = max_end.max(piece_end);
+                pieces.push((offset, chunk.to_vec()));
+            }
+            _ => return None,
+        }
+    }
+
+    if pieces.is_empty() || max_end == 0 {
+        return None;
+    }
+
+    let mut data = vec![0u8; max_end];
+    let mut covered = vec![false; max_end];
+    for (offset, chunk) in pieces {
+        let end = offset + chunk.len();
+        data[offset..end].copy_from_slice(&chunk);
+        covered[offset..end].fill(true);
+    }
+
+    Some((data, covered.iter().all(|covered| *covered)))
+}
+
+pub fn is_quic_initial(buffer: &[u8]) -> bool {
+    parse_quic_initial_header(buffer).is_some()
+}
+
+pub fn parse_quic_initial(buffer: &[u8]) -> Option<QuicInitialInfo> {
+    let header = parse_quic_initial_header(buffer)?;
+    let payload = decrypt_quic_initial_payload(buffer, header)?;
+    let (client_hello, is_crypto_complete) = defrag_quic_crypto_frames(&payload)?;
+    if !is_crypto_complete {
+        return None;
+    }
+    let tls_info = tls_client_hello_marker_info_in_handshake(&client_hello)?;
+    Some(QuicInitialInfo { version: header.version, client_hello, tls_info, is_crypto_complete })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[allow(dead_code)]
+    mod rust_packet_seeds {
+        use crate as ripdpi_packets;
+
+        include!(concat!(env!("CARGO_MANIFEST_DIR"), "/tests/rust_packet_seeds.rs"));
+    }
+
+    #[test]
+    fn parse_quic_initial_extracts_v1_sni() {
+        let packet =
+            build_realistic_quic_initial(QUIC_V1_VERSION, Some("docs.example.test")).expect("build quic initial v1");
+        let parsed = parse_quic_initial(&packet).expect("parse quic initial v1");
+
+        assert!(is_quic_initial(&packet));
+        assert_eq!(parsed.version, QUIC_V1_VERSION);
+        assert!(parsed.is_crypto_complete);
+        assert_eq!(parsed.host(), b"docs.example.test");
+    }
+
+    #[test]
+    fn parse_quic_initial_extracts_v2_sni() {
+        let packet =
+            build_realistic_quic_initial(QUIC_V2_VERSION, Some("media.example.test")).expect("build quic initial v2");
+        let parsed = parse_quic_initial(&packet).expect("parse quic initial v2");
+
+        assert!(is_quic_initial(&packet));
+        assert_eq!(parsed.version, QUIC_V2_VERSION);
+        assert!(parsed.is_crypto_complete);
+        assert_eq!(parsed.host(), b"media.example.test");
+    }
+
+    #[test]
+    fn realistic_quic_fake_builder_round_trips_and_uses_default_tls_base() {
+        let packet = build_realistic_quic_initial(QUIC_V1_VERSION, None).expect("build default realistic fake");
+        let parsed = parse_quic_initial(&packet).expect("parse realistic fake");
+
+        assert_eq!(parsed.version, QUIC_V1_VERSION);
+        assert_eq!(parsed.host(), b"www.wikipedia.org");
+        assert_eq!(packet.len(), QUIC_FAKE_INITIAL_TARGET_LEN);
+    }
+
+    #[test]
+    fn realistic_quic_fake_builder_applies_host_override() {
+        let packet =
+            build_realistic_quic_initial(QUIC_V1_VERSION, Some("video.example.test")).expect("build realistic fake");
+        let parsed = parse_quic_initial(&packet).expect("parse realistic fake");
+
+        assert_eq!(parsed.host(), b"video.example.test");
+    }
+
+    #[test]
+    fn realistic_quic_fake_builder_defaults_to_v1_for_unknown_versions() {
+        let packet =
+            build_realistic_quic_initial(0xface_feed, Some("video.example.test")).expect("build realistic fake");
+        let parsed = parse_quic_initial(&packet).expect("parse realistic fake");
+
+        assert_eq!(parsed.version, QUIC_V1_VERSION);
+        assert_eq!(parsed.host(), b"video.example.test");
+    }
+
+    #[test]
+    fn compat_default_quic_fake_matches_fixed_compatibility_layout() {
+        let packet = default_fake_quic_compat();
+
+        assert_eq!(packet.len(), DEFAULT_FAKE_QUIC_COMPAT_LEN);
+        assert_eq!(packet[0], 0x40);
+        assert!(packet[1..].iter().all(|byte| *byte == 0));
+    }
+
+    #[test]
+    fn parse_quic_initial_rejects_unsupported_versions() {
+        let mut packet = rust_packet_seeds::quic_initial_v1();
+        packet[1..5].copy_from_slice(&0x0000_0002u32.to_be_bytes());
+
+        assert!(!is_quic_initial(&packet));
+        assert!(parse_quic_initial(&packet).is_none());
+    }
+
+    #[test]
+    fn parse_quic_initial_rejects_bad_tags() {
+        let mut packet = rust_packet_seeds::quic_initial_v1();
+        let last = packet.len() - 1;
+        packet[last] ^= 0xff;
+
+        assert!(parse_quic_initial(&packet).is_none());
+    }
+
+    #[test]
+    fn parse_quic_initial_rejects_truncated_packets() {
+        let mut packet = rust_packet_seeds::quic_initial_v1();
+        packet.truncate(packet.len() - 32);
+
+        assert!(parse_quic_initial(&packet).is_none());
+    }
+
+    #[test]
+    fn parse_quic_initial_rejects_incomplete_crypto_frames() {
+        let packet = rust_packet_seeds::quic_initial_with_crypto_gap(QUIC_V1_VERSION, "docs.example.test");
+
+        assert!(parse_quic_initial(&packet).is_none());
+    }
+
+    #[test]
+    fn parse_quic_initial_rejects_missing_sni() {
+        let packet = rust_packet_seeds::quic_initial_missing_sni(QUIC_V1_VERSION);
+
+        assert!(parse_quic_initial(&packet).is_none());
+    }
+}
