@@ -83,7 +83,11 @@ struct ResolverInner {
     #[cfg_attr(feature = "hickory-backend", allow(dead_code))]
     doh_client: Option<reqwest::Client>,
     dot_tls_config: Arc<ClientConfig>,
+    /// Stored for `can_use_hickory()` fallback decisions. Only present when the
+    /// hickory-backend feature is enabled; otherwise consumed only by the constructor.
+    #[cfg(feature = "hickory-backend")]
     tls_roots: Vec<CertificateDer<'static>>,
+    #[cfg(feature = "hickory-backend")]
     tls_verifier: Option<Arc<dyn ServerCertVerifier>>,
     dnscrypt_state: Mutex<Option<DnsCryptCachedCertificate>>,
     connection_pool: ConnectionPool,
@@ -155,7 +159,9 @@ impl EncryptedDnsResolver {
                 timeout,
                 doh_client,
                 dot_tls_config,
+                #[cfg(feature = "hickory-backend")]
                 tls_roots,
+                #[cfg(feature = "hickory-backend")]
                 tls_verifier,
                 dnscrypt_state: Mutex::new(None),
                 connection_pool: ConnectionPool::default(),
@@ -173,6 +179,10 @@ impl EncryptedDnsResolver {
         query_bytes: &[u8],
     ) -> Result<EncryptedDnsExchangeSuccess, EncryptedDnsError> {
         let started = std::time::Instant::now();
+        // Protocol dispatch: hickory-resolver handles DoH/DoT when available
+        // (standard webpki roots, Direct transport). Falls back to manual
+        // reqwest/tokio-rustls for custom TLS roots, custom verifiers, or
+        // SOCKS5 transport. DNSCrypt is always manual (unsupported by hickory).
         let response_bytes = match self.inner.endpoint.protocol {
             EncryptedDnsProtocol::Doh => {
                 #[cfg(feature = "hickory-backend")]
