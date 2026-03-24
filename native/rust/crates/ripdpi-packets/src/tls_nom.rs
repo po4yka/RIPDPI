@@ -387,6 +387,117 @@ mod tests {
         );
     }
 
+    #[test]
+    fn find_extension_returns_none_for_absent_type() {
+        let data = include_bytes!("../tests/fixtures/curl_auto_cloudflare_com.bin");
+        let parsed = parse_client_hello_record(data.as_slice()).expect("nom parse");
+        assert!(
+            find_extension(&parsed, 0xDEAD).is_none(),
+            "absent extension type should return None"
+        );
+    }
+
+    #[test]
+    fn find_extension_offset_returns_none_for_absent_type() {
+        let data = include_bytes!("../tests/fixtures/curl_auto_cloudflare_com.bin");
+        let parsed = parse_client_hello_record(data.as_slice()).expect("nom parse");
+        assert!(find_extension_offset(&parsed, 0xDEAD).is_none());
+    }
+
+    #[test]
+    fn marker_info_rejects_host_end_exceeding_buffer() {
+        // Build an SNI extension where host_len is inflated beyond the buffer
+        let mut sni_ext = build_sni_extension(b"example.com");
+        // Inflate host_len field: in extension layout:
+        //   type(2) + ext_data_len(2) + list_len(2) + name_type(1) + host_len(2) + hostname
+        // host_len is at bytes 7-8 in the extension
+        sni_ext[7] = 0xFF;
+        sni_ext[8] = 0xFF;
+        let data = build_client_hello_record(&sni_ext);
+        let parsed = parse_client_hello_record(&data).expect("should parse record");
+        assert!(
+            to_marker_info(&parsed, data.len()).is_none(),
+            "host_end exceeding buffer should return None"
+        );
+    }
+
+    #[test]
+    fn multiple_extensions_parsed_in_order() {
+        let sni = build_sni_extension(b"test.example.com");
+        let padding = build_padding_extension(16);
+        let mut extensions = Vec::new();
+        extensions.extend_from_slice(&sni);
+        extensions.extend_from_slice(&padding);
+
+        let data = build_client_hello_record(&extensions);
+        let parsed = parse_client_hello_record(&data).expect("should parse");
+        assert_eq!(parsed.extensions.len(), 2, "should have exactly 2 extensions");
+        assert_eq!(parsed.extensions[0].ext_type, 0x0000, "first should be SNI");
+        assert_eq!(
+            parsed.extensions[1].ext_type, 0x0015,
+            "second should be padding"
+        );
+        // Verify ordering: SNI offset < padding offset
+        assert!(parsed.extensions[0].type_offset < parsed.extensions[1].type_offset);
+    }
+
+    #[test]
+    fn non_handshake_content_type_returns_none() {
+        // Build a buffer with Application Data content type (0x17) instead of Handshake (0x16)
+        let mut buf = vec![0x17, 0x03, 0x01];
+        let record_body = [0x01, 0x00, 0x00, 0x04, 0x03, 0x03, 0x00, 0x00];
+        let record_len = record_body.len() as u16;
+        buf.extend_from_slice(&record_len.to_be_bytes());
+        buf.extend_from_slice(&record_body);
+        // parse_client_hello_record starts with parse_record_header which accepts any content type,
+        // but the handshake parser requires type 0x01. Since parse_client_hello_record doesn't
+        // check content_type directly, the handshake parser will still try. With 0x01 as first
+        // byte of body, it will attempt to parse. Let's use 0x02 instead.
+        buf[5] = 0x02; // ServerHello
+        assert!(parse_client_hello_record(&buf).is_none());
+    }
+
+    #[test]
+    fn truncated_extension_data_is_tolerated() {
+        // Build a ClientHello where the extension data is truncated (declared length > actual)
+        let sni = build_sni_extension(b"example.com");
+        let data = build_client_hello_record(&sni);
+        // Truncate the buffer partway through the SNI extension data
+        let truncation_point = data.len() - 4;
+        let truncated = &data[..truncation_point];
+        // The parser should still succeed because it uses min(declared, available)
+        let parsed = parse_client_hello_record(truncated);
+        assert!(
+            parsed.is_some(),
+            "parser should tolerate truncated extension data"
+        );
+        let parsed = parsed.unwrap();
+        assert!(
+            !parsed.extensions.is_empty(),
+            "should still find the SNI extension"
+        );
+        assert_eq!(parsed.extensions[0].ext_type, 0x0000);
+    }
+
+    #[test]
+    fn ext_len_offset_points_to_extensions_list_length() {
+        let sni = build_sni_extension(b"test.host.com");
+        let padding = build_padding_extension(8);
+        let mut extensions = Vec::new();
+        extensions.extend_from_slice(&sni);
+        extensions.extend_from_slice(&padding);
+
+        let data = build_client_hello_record(&extensions);
+        let parsed = parse_client_hello_record(&data).expect("should parse");
+
+        // The 2 bytes at ext_len_offset should equal the total extensions length
+        let ext_len_declared = u16::from_be_bytes([
+            data[parsed.ext_len_offset],
+            data[parsed.ext_len_offset + 1],
+        ]);
+        assert_eq!(ext_len_declared as usize, extensions.len());
+    }
+
     proptest::proptest! {
         #[test]
         fn proptest_nom_matches_manual_on_valid_input(

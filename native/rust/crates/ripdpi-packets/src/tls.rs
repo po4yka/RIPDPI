@@ -915,4 +915,250 @@ mod tests {
             proptest::prop_assert_eq!(&data[info.host_start..info.host_end], manual_bytes);
         }
     }
+
+    // ── is_tls_server_hello ─────────────────────────────────────────
+
+    #[test]
+    fn is_tls_server_hello_accepts_valid_server_hello() {
+        // Minimal buffer: 0x16 0x03 (TLS handshake), then version byte, length, then 0x02 (ServerHello type)
+        let buf = [0x16, 0x03, 0x03, 0x00, 0x05, 0x02, 0x00, 0x00, 0x00, 0x00];
+        assert!(is_tls_server_hello(&buf));
+    }
+
+    #[test]
+    fn is_tls_server_hello_rejects_client_hello() {
+        assert!(!is_tls_server_hello(DEFAULT_FAKE_TLS));
+    }
+
+    #[test]
+    fn is_tls_server_hello_rejects_short_input() {
+        assert!(!is_tls_server_hello(&[0x16, 0x03, 0x03, 0x00, 0x05]));
+        assert!(!is_tls_server_hello(&[0x16, 0x03]));
+        assert!(!is_tls_server_hello(&[]));
+    }
+
+    #[test]
+    fn is_tls_server_hello_rejects_non_handshake_content_type() {
+        let buf = [0x17, 0x03, 0x03, 0x00, 0x05, 0x02, 0x00, 0x00, 0x00, 0x00];
+        assert!(!is_tls_server_hello(&buf));
+    }
+
+    // ── tls_session_id_mismatch ─────────────────────────────────────
+
+    /// Build a minimal ServerHello response buffer.
+    ///
+    /// Layout (matching real ServerHello):
+    /// - Bytes 0-4: record header (0x16 0x03 0x03 + 2-byte length)
+    /// - Byte 5: 0x02 (ServerHello handshake type)
+    /// - Bytes 6-8: handshake length (3 bytes)
+    /// - Bytes 9-10: version (0x03 0x03)
+    /// - Bytes 11-42: random (32 bytes)
+    /// - Byte 43: session_id_length
+    /// - Bytes 44..44+sid_len: session_id
+    /// - 2 bytes: cipher suite
+    /// - 1 byte: compression method
+    /// - 2 bytes: extensions list length
+    /// - extensions data
+    fn build_server_hello_resp(sid: &[u8], include_supported_versions: bool) -> Vec<u8> {
+        let mut buf = Vec::with_capacity(128);
+        // Record header
+        buf.extend_from_slice(&[0x16, 0x03, 0x03, 0x00, 0x00]); // placeholder length
+        // Handshake header: ServerHello (0x02)
+        buf.push(0x02);
+        buf.extend_from_slice(&[0x00, 0x00, 0x00]); // placeholder hs length
+        // Version
+        buf.extend_from_slice(&[0x03, 0x03]);
+        // Random (32 bytes)
+        buf.extend_from_slice(&[0xBB; 32]);
+        // Session ID
+        buf.push(sid.len() as u8);
+        buf.extend_from_slice(sid);
+        // Cipher suite (2 bytes)
+        buf.extend_from_slice(&[0x13, 0x01]); // TLS_AES_128_GCM_SHA256
+        // Compression method (1 byte)
+        buf.push(0x00);
+        // Extensions
+        if include_supported_versions {
+            let ext_data: &[u8] = &[0x00, 0x2b, 0x00, 0x02, 0x03, 0x04]; // supported_versions ext
+            let ext_list_len = ext_data.len() as u16;
+            buf.extend_from_slice(&ext_list_len.to_be_bytes());
+            buf.extend_from_slice(ext_data);
+        } else {
+            buf.extend_from_slice(&[0x00, 0x00]); // empty extensions
+        }
+        // Patch lengths
+        let hs_len = (buf.len() - 9) as u32;
+        buf[6] = (hs_len >> 16) as u8;
+        buf[7] = (hs_len >> 8) as u8;
+        buf[8] = hs_len as u8;
+        let record_len = (buf.len() - 5) as u16;
+        buf[3..5].copy_from_slice(&record_len.to_be_bytes());
+        // Ensure minimum length of 75
+        if buf.len() < 75 {
+            buf.resize(75, 0);
+        }
+        buf
+    }
+
+    #[test]
+    fn tls_session_id_mismatch_returns_false_for_short_inputs() {
+        assert!(!tls_session_id_mismatch(&[0; 74], &[0; 74]));
+        assert!(!tls_session_id_mismatch(&[], &[]));
+    }
+
+    #[test]
+    fn tls_session_id_mismatch_returns_false_for_non_client_hello_req() {
+        let non_ch = vec![0; 80];
+        let resp = build_server_hello_resp(&[0; 32], true);
+        assert!(!tls_session_id_mismatch(&non_ch, &resp));
+    }
+
+    #[test]
+    fn tls_session_id_mismatch_returns_false_without_supported_versions() {
+        let sid_len = DEFAULT_FAKE_TLS[43] as usize;
+        let sid = &DEFAULT_FAKE_TLS[44..44 + sid_len];
+        let resp = build_server_hello_resp(sid, false);
+        assert!(!tls_session_id_mismatch(DEFAULT_FAKE_TLS, &resp));
+    }
+
+    #[test]
+    fn tls_session_id_mismatch_detects_different_sid_lengths() {
+        // The function uses req[43] (sid_len) to compute the extension search
+        // offset in resp. When resp has a different sid_len, the extension scan
+        // still starts at 44 + req_sid_len + 3 in resp. We craft a resp where
+        // the supported_versions extension is findable at that offset despite
+        // having a different sid_len byte at resp[43].
+        let req_sid_len = DEFAULT_FAKE_TLS[43] as usize; // 32
+        // Build resp with same-length SID so extensions align, then flip resp[43]
+        let resp_sid = vec![0xAA; req_sid_len];
+        let mut resp = build_server_hello_resp(&resp_sid, true);
+        // Overwrite sid_len byte to a different value while keeping the actual
+        // byte layout (so extensions are still at the right offset).
+        resp[43] = (req_sid_len as u8).wrapping_sub(1);
+        // req[43] != resp[43] => mismatch should be detected
+        assert!(tls_session_id_mismatch(DEFAULT_FAKE_TLS, &resp));
+    }
+
+    #[test]
+    fn tls_session_id_mismatch_detects_different_sid_content() {
+        let sid_len = DEFAULT_FAKE_TLS[43] as usize;
+        if sid_len == 0 {
+            return; // Can't test content mismatch with zero-length SID
+        }
+        let mut sid = DEFAULT_FAKE_TLS[44..44 + sid_len].to_vec();
+        sid[0] ^= 0xFF; // Flip bits in first byte
+        let resp = build_server_hello_resp(&sid, true);
+        assert!(tls_session_id_mismatch(DEFAULT_FAKE_TLS, &resp));
+    }
+
+    #[test]
+    fn tls_session_id_mismatch_returns_false_for_matching_sids() {
+        let sid_len = DEFAULT_FAKE_TLS[43] as usize;
+        let sid = &DEFAULT_FAKE_TLS[44..44 + sid_len];
+        let resp = build_server_hello_resp(sid, true);
+        assert!(!tls_session_id_mismatch(DEFAULT_FAKE_TLS, &resp));
+    }
+
+    // ── merge_tls_records ───────────────────────────────────────────
+
+    #[test]
+    fn merge_tls_records_single_record_removes_nothing() {
+        let mut buf = DEFAULT_FAKE_TLS.to_vec();
+        let n = buf.len();
+        let removed = merge_tls_records(&mut buf, n);
+        assert_eq!(removed, 0);
+    }
+
+    #[test]
+    fn merge_tls_records_short_input_returns_zero() {
+        let mut buf = [0u8; 4];
+        let n = buf.len();
+        assert_eq!(merge_tls_records(&mut buf, n), 0);
+        assert_eq!(merge_tls_records(&mut buf, 0), 0);
+    }
+
+    #[test]
+    fn merge_tls_records_invalid_length_returns_zero() {
+        // Buffer where read_u16 at offset 3 would fail (too short)
+        let mut buf = [0x16, 0x03, 0x01, 0x00];
+        let n = buf.len();
+        assert_eq!(merge_tls_records(&mut buf, n), 0);
+    }
+
+    // ── find_tls_ext_offset and adjust_tls_lengths ──────────────────
+
+    #[test]
+    fn find_tls_ext_offset_locates_sni_in_default_fake() {
+        let markers = tls_marker_info(DEFAULT_FAKE_TLS).unwrap();
+        let found = find_tls_ext_offset(0x0000, DEFAULT_FAKE_TLS, markers.ext_len_start);
+        assert!(found.is_some(), "should find SNI extension");
+    }
+
+    #[test]
+    fn find_tls_ext_offset_returns_none_for_absent_type() {
+        let markers = tls_marker_info(DEFAULT_FAKE_TLS).unwrap();
+        let found = find_tls_ext_offset(0xDEAD, DEFAULT_FAKE_TLS, markers.ext_len_start);
+        assert!(found.is_none());
+    }
+
+    #[test]
+    fn find_tls_ext_offset_returns_none_for_short_data() {
+        assert!(find_tls_ext_offset(0x0000, &[0x00], 0).is_none());
+        assert!(find_tls_ext_offset(0x0000, &[], 0).is_none());
+    }
+
+    #[test]
+    fn adjust_tls_lengths_positive_delta_updates_all_fields() {
+        let mut buf = DEFAULT_FAKE_TLS.to_vec();
+        let markers = tls_marker_info(&buf).unwrap();
+        let orig_record = read_u16(&buf, 3).unwrap();
+        let orig_hs = read_u24(&buf, 6).unwrap();
+        let orig_ext = read_u16(&buf, markers.ext_len_start).unwrap();
+
+        assert!(adjust_tls_lengths(&mut buf, markers.ext_len_start, 10));
+
+        assert_eq!(read_u16(&buf, 3).unwrap(), orig_record + 10);
+        assert_eq!(read_u24(&buf, 6).unwrap(), orig_hs + 10);
+        assert_eq!(read_u16(&buf, markers.ext_len_start).unwrap(), orig_ext + 10);
+    }
+
+    #[test]
+    fn adjust_tls_lengths_negative_delta_updates_all_fields() {
+        let mut buf = DEFAULT_FAKE_TLS.to_vec();
+        let markers = tls_marker_info(&buf).unwrap();
+        let orig_record = read_u16(&buf, 3).unwrap();
+
+        assert!(adjust_tls_lengths(&mut buf, markers.ext_len_start, -5));
+        assert_eq!(read_u16(&buf, 3).unwrap(), orig_record - 5);
+    }
+
+    #[test]
+    fn adjust_tls_lengths_rejects_overflow_negative() {
+        let mut buf = DEFAULT_FAKE_TLS.to_vec();
+        let markers = tls_marker_info(&buf).unwrap();
+        assert!(!adjust_tls_lengths(&mut buf, markers.ext_len_start, -100_000));
+    }
+
+    #[test]
+    fn adjust_tls_lengths_rejects_short_buffer() {
+        let mut buf = [0u8; 4];
+        assert!(!adjust_tls_lengths(&mut buf, 2, 1));
+    }
+
+    // ── tls_client_hello_marker_info_in_handshake ───────────────────
+
+    #[test]
+    fn marker_info_in_handshake_parses_bare_handshake() {
+        // DEFAULT_FAKE_TLS has a 5-byte record header, strip it
+        let handshake = &DEFAULT_FAKE_TLS[5..];
+        let marker = tls_client_hello_marker_info_in_handshake(handshake);
+        assert!(marker.is_some(), "should parse bare handshake");
+
+        // Compare with record-based parse (offsets should differ by 5)
+        let record_marker = tls_marker_info(DEFAULT_FAKE_TLS).unwrap();
+        let hs_marker = marker.unwrap();
+        assert_eq!(record_marker.ext_len_start, hs_marker.ext_len_start + 5);
+        assert_eq!(record_marker.host_start, hs_marker.host_start + 5);
+        assert_eq!(record_marker.host_end, hs_marker.host_end + 5);
+    }
 }
