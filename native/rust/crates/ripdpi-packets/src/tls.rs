@@ -1161,4 +1161,169 @@ mod tests {
         assert_eq!(record_marker.host_start, hs_marker.host_start + 5);
         assert_eq!(record_marker.host_end, hs_marker.host_end + 5);
     }
+
+    // ── build_ext_test_buffer helper ─────────────────────────────────
+
+    /// Build a minimal buffer that simulates a TLS record with an extension list.
+    /// Layout: [record header 5B][handshake header 4B][35B filler][ext_list_len 2B][extensions...]
+    fn build_ext_test_buffer(extensions: &[(u16, &[u8])]) -> (Vec<u8>, usize) {
+        let ext_data_len: usize = extensions.iter().map(|(_, data)| 4 + data.len()).sum();
+        let handshake_len = 35 + 2 + ext_data_len;
+        let record_len = handshake_len + 4;
+        let mut buf = Vec::with_capacity(5 + record_len + 64); // extra capacity for resize tests
+        // Record header: 0x16 0x03 0x03 [len]
+        buf.push(0x16);
+        buf.extend_from_slice(&0x0303u16.to_be_bytes());
+        buf.extend_from_slice(&(record_len as u16).to_be_bytes());
+        // Handshake header: 0x01 [3-byte len]
+        buf.push(0x01);
+        buf.push(0x00);
+        buf.extend_from_slice(&(handshake_len as u16).to_be_bytes());
+        // 35 bytes of ClientHello filler (version + random + session_id_len)
+        buf.extend_from_slice(&[0u8; 35]);
+        let ext_list_offset = buf.len();
+        // Extension list length
+        buf.extend_from_slice(&(ext_data_len as u16).to_be_bytes());
+        for (kind, data) in extensions {
+            buf.extend_from_slice(&kind.to_be_bytes());
+            buf.extend_from_slice(&(data.len() as u16).to_be_bytes());
+            buf.extend_from_slice(data);
+        }
+        (buf, ext_list_offset)
+    }
+
+    // ── remove_tls_ext tests ─────────────────────────────────────────
+
+    #[test]
+    fn remove_tls_ext_removes_known_extension() {
+        let (mut buf, skip) = build_ext_test_buffer(&[
+            (0x0000, b"sni-data"),
+            (0x0010, b"alpn-data"),
+        ]);
+        let n = buf.len();
+        let removed = remove_tls_ext(&mut buf, n, skip, 0x0010);
+        assert_eq!(removed, 4 + 9); // 4-byte header + "alpn-data".len()
+    }
+
+    #[test]
+    fn remove_tls_ext_returns_zero_for_absent_extension() {
+        let (mut buf, skip) = build_ext_test_buffer(&[(0x0000, b"sni")]);
+        let n = buf.len();
+        assert_eq!(remove_tls_ext(&mut buf, n, skip, 0xffff), 0);
+    }
+
+    #[test]
+    fn remove_tls_ext_preserves_remaining_data() {
+        let (mut buf, skip) = build_ext_test_buffer(&[
+            (0x0000, b"sni"),
+            (0x0010, b"alpn"),
+            (0x002b, b"sv"),
+        ]);
+        let n = buf.len();
+        let removed = remove_tls_ext(&mut buf, n, skip, 0x0010);
+        assert!(removed > 0);
+        // After removal, supported_versions (0x002b) should still be findable
+        let new_n = n - removed;
+        assert!(find_tls_ext_offset(0x002b, &buf[..new_n], skip).is_some());
+    }
+
+    // ── remove_ks_group tests ────────────────────────────────────────
+
+    #[test]
+    fn remove_ks_group_removes_matching_group() {
+        let group_x25519: u16 = 0x001d;
+        let group_kyber: u16 = 0x11ec;
+        let key_x25519 = [0xAA; 32];
+        let key_kyber = [0xBB; 64];
+        let mut ks_data = Vec::new();
+        let groups_len = (2 + 2 + key_x25519.len()) + (2 + 2 + key_kyber.len());
+        ks_data.extend_from_slice(&(groups_len as u16).to_be_bytes());
+        ks_data.extend_from_slice(&group_x25519.to_be_bytes());
+        ks_data.extend_from_slice(&(key_x25519.len() as u16).to_be_bytes());
+        ks_data.extend_from_slice(&key_x25519);
+        ks_data.extend_from_slice(&group_kyber.to_be_bytes());
+        ks_data.extend_from_slice(&(key_kyber.len() as u16).to_be_bytes());
+        ks_data.extend_from_slice(&key_kyber);
+        let (mut buf, skip) = build_ext_test_buffer(&[(0x0033, &ks_data)]);
+        let n = buf.len();
+        let removed = remove_ks_group(&mut buf, n, skip, group_kyber);
+        assert_eq!(removed, 4 + key_kyber.len()); // 4-byte group header + 64-byte key
+    }
+
+    #[test]
+    fn remove_ks_group_returns_zero_for_absent_group() {
+        let key = [0xAA; 32];
+        let mut ks_data = Vec::new();
+        ks_data.extend_from_slice(&36u16.to_be_bytes()); // groups_list_len
+        ks_data.extend_from_slice(&0x001du16.to_be_bytes()); // x25519
+        ks_data.extend_from_slice(&(key.len() as u16).to_be_bytes());
+        ks_data.extend_from_slice(&key);
+        let (mut buf, skip) = build_ext_test_buffer(&[(0x0033, &ks_data)]);
+        let n = buf.len();
+        assert_eq!(remove_ks_group(&mut buf, n, skip, 0x11ec), 0);
+    }
+
+    #[test]
+    fn remove_ks_group_returns_zero_without_key_share_ext() {
+        let (mut buf, skip) = build_ext_test_buffer(&[(0x0000, b"sni")]);
+        let n = buf.len();
+        assert_eq!(remove_ks_group(&mut buf, n, skip, 0x001d), 0);
+    }
+
+    // ── resize_sni tests ─────────────────────────────────────────────
+
+    #[test]
+    fn resize_sni_grows_extension() {
+        let sni_name = b"ab";
+        let mut sni_ext_data = Vec::new();
+        sni_ext_data.extend_from_slice(&((sni_name.len() + 3) as u16).to_be_bytes());
+        sni_ext_data.push(0x00);
+        sni_ext_data.extend_from_slice(&(sni_name.len() as u16).to_be_bytes());
+        sni_ext_data.extend_from_slice(sni_name);
+        let sni_size = sni_ext_data.len();
+        let (mut buf, skip) = build_ext_test_buffer(&[(0x0000, &sni_ext_data)]);
+        buf.extend_from_slice(&[0u8; 64]); // extra capacity for growth
+        let n = buf.len() - 64;
+        let sni_offs = find_tls_ext_offset(0x0000, &buf[..n], skip).unwrap();
+        assert!(resize_sni(&mut buf, n, sni_offs, sni_size, 10));
+    }
+
+    #[test]
+    fn resize_sni_shrinks_extension() {
+        let sni_name = b"longexample.com";
+        let mut sni_ext_data = Vec::new();
+        sni_ext_data.extend_from_slice(&((sni_name.len() + 3) as u16).to_be_bytes());
+        sni_ext_data.push(0x00);
+        sni_ext_data.extend_from_slice(&(sni_name.len() as u16).to_be_bytes());
+        sni_ext_data.extend_from_slice(sni_name);
+        let sni_size = sni_ext_data.len();
+        let (mut buf, skip) = build_ext_test_buffer(&[(0x0000, &sni_ext_data)]);
+        let n = buf.len();
+        let sni_offs = find_tls_ext_offset(0x0000, &buf[..n], skip).unwrap();
+        assert!(resize_sni(&mut buf, n, sni_offs, sni_size, 3));
+    }
+
+    #[test]
+    fn resize_sni_rejects_overflow() {
+        let sni_name = b"a";
+        let mut sni_ext_data = Vec::new();
+        sni_ext_data.extend_from_slice(&((sni_name.len() + 3) as u16).to_be_bytes());
+        sni_ext_data.push(0x00);
+        sni_ext_data.extend_from_slice(&(sni_name.len() as u16).to_be_bytes());
+        sni_ext_data.extend_from_slice(sni_name);
+        let sni_size = sni_ext_data.len();
+        let (mut buf, skip) = build_ext_test_buffer(&[(0x0000, &sni_ext_data)]);
+        let n = buf.len();
+        let sni_offs = find_tls_ext_offset(0x0000, &buf[..n], skip).unwrap();
+        assert!(!resize_sni(&mut buf, n, sni_offs, sni_size, 50000));
+    }
+
+    // ── resize_ech_ext tests ─────────────────────────────────────────
+
+    #[test]
+    fn resize_ech_ext_returns_zero_when_absent() {
+        let (mut buf, skip) = build_ext_test_buffer(&[(0x0000, b"sni")]);
+        let n = buf.len();
+        assert_eq!(resize_ech_ext(&mut buf, n, skip, 10), 0);
+    }
 }
