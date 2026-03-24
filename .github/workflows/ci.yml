@@ -251,6 +251,30 @@ jobs:
       - name: Run repo-owned Rust network E2E
         run: bash scripts/ci/run-rust-network-e2e.sh
 
+  rust-turmoil:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Keep in sync with native/rust/rust-toolchain.toml
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: "1.94.0"
+          components: rustfmt, clippy
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: native/rust -> target
+          cache-on-failure: true
+
+      - name: Install cargo-nextest
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-nextest
+
+      - name: Run turmoil-backed deterministic network tests
+        run: bash scripts/ci/run-rust-turmoil-tests.sh
+
   coverage:
     if: github.event_name != 'schedule'
     needs: [build, static-analysis]
@@ -612,7 +636,7 @@ jobs:
             "CARGO_HOME=$HOME/.cargo" \
             "RUSTUP_HOME=$HOME/.rustup" \
             "RIPDPI_RUN_TUN_E2E=1" \
-            cargo test --manifest-path native/rust/Cargo.toml -p hs5t-android --test linux_tun_e2e -- --ignored --nocapture
+            bash scripts/ci/run-linux-tun-e2e.sh
 
   linux-tun-soak:
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
