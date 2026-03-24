@@ -61,11 +61,7 @@ fn extract_sni_via_tls_parser(data: &[u8]) -> Option<Vec<u8>> {
 #[test]
 fn golden_fixtures_are_valid_client_hellos() {
     for fixture in FIXTURES {
-        assert!(
-            is_tls_client_hello(fixture.data),
-            "{}: not recognized as TLS ClientHello",
-            fixture.file
-        );
+        assert!(is_tls_client_hello(fixture.data), "{}: not recognized as TLS ClientHello", fixture.file);
     }
 }
 
@@ -85,8 +81,8 @@ fn golden_manual_parser_extracts_correct_sni() {
 #[test]
 fn golden_tls_parser_extracts_correct_sni() {
     for fixture in FIXTURES {
-        let sni =
-            extract_sni_via_tls_parser(fixture.data).unwrap_or_else(|| panic!("{}: tls-parser returned None", fixture.file));
+        let sni = extract_sni_via_tls_parser(fixture.data)
+            .unwrap_or_else(|| panic!("{}: tls-parser returned None", fixture.file));
         assert_eq!(
             std::str::from_utf8(&sni).unwrap(),
             fixture.expected_sni,
@@ -109,7 +105,8 @@ fn golden_both_parsers_agree_on_sni() {
 #[test]
 fn golden_marker_info_structural_invariants() {
     for fixture in FIXTURES {
-        let info = tls_marker_info(fixture.data).unwrap_or_else(|| panic!("{}: tls_marker_info returned None", fixture.file));
+        let info =
+            tls_marker_info(fixture.data).unwrap_or_else(|| panic!("{}: tls_marker_info returned None", fixture.file));
 
         // Offsets must be ordered: ext_len < sni_ext < host_start < host_end
         assert!(

@@ -23,7 +23,6 @@ fn find_tls_ext_offset(kind: u16, data: &[u8], mut skip: usize) -> Option<usize>
     None
 }
 
-
 fn adjust_tls_lengths(buffer: &mut [u8], ext_len_start: usize, delta: isize) -> bool {
     let Some(record_len) = read_u16(buffer, 3).map(|value| value as isize) else {
         return false;
@@ -651,8 +650,8 @@ mod tests {
     /// random but well-formed fields, exercising the parser on inputs that
     /// look like real TLS traffic with varied field sizes.
     fn arb_client_hello() -> impl proptest::strategy::Strategy<Value = Vec<u8>> {
-        use proptest::prelude::*;
         use proptest::collection::vec as arb_vec;
+        use proptest::prelude::*;
 
         // Hostname: 3..=63 ASCII lowercase letters/dots, must contain at least
         // one dot, must not start/end with dot, no consecutive dots.
@@ -664,23 +663,21 @@ mod tests {
             3..=63usize,
         )
         .prop_filter("hostname must contain at least one dot", |h| h.contains(&b'.'))
-        .prop_filter("hostname must not start or end with dot", |h| {
-            h[0] != b'.' && h[h.len() - 1] != b'.'
-        })
+        .prop_filter("hostname must not start or end with dot", |h| h[0] != b'.' && h[h.len() - 1] != b'.')
         .prop_filter("hostname must not have consecutive dots", |h| {
             !h.windows(2).any(|w| w[0] == b'.' && w[1] == b'.')
         });
 
         (
-            arb_vec(any::<u8>(), 32..=32usize),   // random (32 bytes)
-            0..=32u8,                               // session_id length
-            arb_vec(any::<u8>(), 32..=32usize),    // session_id bytes pool
-            1..=15u16,                              // cipher_suites pair count
-            arb_vec(any::<u8>(), 30..=30usize),    // cipher_suites bytes pool
-            1..=3u8,                                // compression_methods length
-            arb_vec(any::<u8>(), 3..=3usize),      // compression_methods bytes pool
+            arb_vec(any::<u8>(), 32..=32usize), // random (32 bytes)
+            0..=32u8,                           // session_id length
+            arb_vec(any::<u8>(), 32..=32usize), // session_id bytes pool
+            1..=15u16,                          // cipher_suites pair count
+            arb_vec(any::<u8>(), 30..=30usize), // cipher_suites bytes pool
+            1..=3u8,                            // compression_methods length
+            arb_vec(any::<u8>(), 3..=3usize),   // compression_methods bytes pool
             hostname_strategy,
-            0..=50usize,                            // padding extension data length
+            0..=50usize, // padding extension data length
         )
             .prop_map(
                 |(random, sid_len, sid_pool, cs_pairs, cs_pool, comp_len, comp_pool, hostname, pad_len)| {
@@ -741,8 +738,7 @@ mod tests {
 
                     // Patch extensions length
                     let ext_data_len = (buf.len() - ext_block_start - 2) as u16;
-                    buf[ext_block_start..ext_block_start + 2]
-                        .copy_from_slice(&ext_data_len.to_be_bytes());
+                    buf[ext_block_start..ext_block_start + 2].copy_from_slice(&ext_data_len.to_be_bytes());
 
                     // Patch handshake length (bytes 6-8)
                     let hs_body_len = (buf.len() - 9) as u32;
@@ -963,10 +959,10 @@ mod tests {
         let mut buf = Vec::with_capacity(128);
         // Record header
         buf.extend_from_slice(&[0x16, 0x03, 0x03, 0x00, 0x00]); // placeholder length
-        // Handshake header: ServerHello (0x02)
+                                                                // Handshake header: ServerHello (0x02)
         buf.push(0x02);
         buf.extend_from_slice(&[0x00, 0x00, 0x00]); // placeholder hs length
-        // Version
+                                                    // Version
         buf.extend_from_slice(&[0x03, 0x03]);
         // Random (32 bytes)
         buf.extend_from_slice(&[0xBB; 32]);
@@ -975,7 +971,7 @@ mod tests {
         buf.extend_from_slice(sid);
         // Cipher suite (2 bytes)
         buf.extend_from_slice(&[0x13, 0x01]); // TLS_AES_128_GCM_SHA256
-        // Compression method (1 byte)
+                                              // Compression method (1 byte)
         buf.push(0x00);
         // Extensions
         if include_supported_versions {
@@ -1029,7 +1025,7 @@ mod tests {
         // the supported_versions extension is findable at that offset despite
         // having a different sid_len byte at resp[43].
         let req_sid_len = DEFAULT_FAKE_TLS[43] as usize; // 32
-        // Build resp with same-length SID so extensions align, then flip resp[43]
+                                                         // Build resp with same-length SID so extensions align, then flip resp[43]
         let resp_sid = vec![0xAA; req_sid_len];
         let mut resp = build_server_hello_resp(&resp_sid, true);
         // Overwrite sid_len byte to a different value while keeping the actual
@@ -1171,7 +1167,7 @@ mod tests {
         let handshake_len = 35 + 2 + ext_data_len;
         let record_len = handshake_len + 4;
         let mut buf = Vec::with_capacity(5 + record_len + 64); // extra capacity for resize tests
-        // Record header: 0x16 0x03 0x03 [len]
+                                                               // Record header: 0x16 0x03 0x03 [len]
         buf.push(0x16);
         buf.extend_from_slice(&0x0303u16.to_be_bytes());
         buf.extend_from_slice(&(record_len as u16).to_be_bytes());
@@ -1196,10 +1192,7 @@ mod tests {
 
     #[test]
     fn remove_tls_ext_removes_known_extension() {
-        let (mut buf, skip) = build_ext_test_buffer(&[
-            (0x0000, b"sni-data"),
-            (0x0010, b"alpn-data"),
-        ]);
+        let (mut buf, skip) = build_ext_test_buffer(&[(0x0000, b"sni-data"), (0x0010, b"alpn-data")]);
         let n = buf.len();
         let removed = remove_tls_ext(&mut buf, n, skip, 0x0010);
         assert_eq!(removed, 4 + 9); // 4-byte header + "alpn-data".len()
@@ -1214,11 +1207,7 @@ mod tests {
 
     #[test]
     fn remove_tls_ext_preserves_remaining_data() {
-        let (mut buf, skip) = build_ext_test_buffer(&[
-            (0x0000, b"sni"),
-            (0x0010, b"alpn"),
-            (0x002b, b"sv"),
-        ]);
+        let (mut buf, skip) = build_ext_test_buffer(&[(0x0000, b"sni"), (0x0010, b"alpn"), (0x002b, b"sv")]);
         let n = buf.len();
         let removed = remove_tls_ext(&mut buf, n, skip, 0x0010);
         assert!(removed > 0);

@@ -397,10 +397,7 @@ mod hickory_probe {
     /// Resolve `domain` via `hickory-resolver` using the supplied encrypted-DNS
     /// endpoint.  This is a blocking wrapper around the async resolver, intended
     /// for diagnostic probing only.
-    pub(crate) fn resolve_via_hickory_dns(
-        domain: &str,
-        endpoint: EncryptedDnsEndpoint,
-    ) -> Result<Vec<String>, String> {
+    pub(crate) fn resolve_via_hickory_dns(domain: &str, endpoint: EncryptedDnsEndpoint) -> Result<Vec<String>, String> {
         let config = resolver_config_for_endpoint(&endpoint)?;
         let rt = tokio::runtime::Builder::new_current_thread()
             .enable_all()

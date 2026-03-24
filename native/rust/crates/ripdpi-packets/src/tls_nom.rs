@@ -44,7 +44,8 @@ fn parse_client_hello_handshake_nom<'a>(
     let (input, _) = tag(&[0x01])(input)?;
     // Handshake length (3 bytes)
     let (input, hs_len) = be_u24(input)?;
-    let (_, input) = if input.len() >= hs_len { Ok((&input[hs_len..], &input[..hs_len])) } else { Ok((&[][..], input)) }?;
+    let (_, input) =
+        if input.len() >= hs_len { Ok((&input[hs_len..], &input[..hs_len])) } else { Ok((&[][..], input)) }?;
     // Client version (2 bytes)
     let (input, _version) = be_u16(input)?;
     // Random (32 bytes)
@@ -169,8 +170,7 @@ mod tests {
             assert!(is_tls_client_hello(data), "{name}: not a ClientHello");
             let manual = tls_marker_info(data).unwrap_or_else(|| panic!("{name}: manual failed"));
             let parsed = parse_client_hello_record(data).unwrap_or_else(|| panic!("{name}: nom failed"));
-            let nom_marker =
-                to_marker_info(&parsed, data.len()).unwrap_or_else(|| panic!("{name}: nom marker failed"));
+            let nom_marker = to_marker_info(&parsed, data.len()).unwrap_or_else(|| panic!("{name}: nom marker failed"));
             assert_eq!(manual, nom_marker, "{name}: marker info mismatch");
         }
     }
@@ -250,10 +250,10 @@ mod tests {
         buf.push(0x16); // Handshake
         buf.extend_from_slice(&[0x03, 0x01]); // TLS 1.0
         buf.extend_from_slice(&[0x00, 0x00]); // placeholder record length
-        // Handshake header
+                                              // Handshake header
         buf.push(0x01); // ClientHello
         buf.extend_from_slice(&[0x00, 0x00, 0x00]); // placeholder hs length
-        // Version
+                                                    // Version
         buf.extend_from_slice(&[0x03, 0x03]);
         // Random (32 bytes)
         buf.extend_from_slice(&[0xAA; 32]);
@@ -354,17 +354,11 @@ mod tests {
         ];
 
         for (data, name) in fixtures {
-            let parsed = parse_client_hello_record(*data)
-                .unwrap_or_else(|| panic!("{name}: nom parse failed"));
+            let parsed = parse_client_hello_record(*data).unwrap_or_else(|| panic!("{name}: nom parse failed"));
             assert!(!parsed.extensions.is_empty(), "{name}: should have extensions");
             for ext in &parsed.extensions {
-                let actual_type =
-                    u16::from_be_bytes([data[ext.type_offset], data[ext.type_offset + 1]]);
-                assert_eq!(
-                    actual_type, ext.ext_type,
-                    "{name}: type_offset mismatch for ext 0x{:04x}",
-                    ext.ext_type
-                );
+                let actual_type = u16::from_be_bytes([data[ext.type_offset], data[ext.type_offset + 1]]);
+                assert_eq!(actual_type, ext.ext_type, "{name}: type_offset mismatch for ext 0x{:04x}", ext.ext_type);
             }
         }
     }
@@ -375,7 +369,7 @@ mod tests {
         let mut buf = Vec::new();
         buf.push(0x16); // Handshake content type
         buf.extend_from_slice(&[0x03, 0x01]); // TLS 1.0
-        // Handshake body: type 0x02 (ServerHello) + minimal garbage
+                                              // Handshake body: type 0x02 (ServerHello) + minimal garbage
         let hs_body: &[u8] = &[0x02, 0x00, 0x00, 0x04, 0x03, 0x03, 0x00, 0x00];
         let record_len = hs_body.len() as u16;
         buf.extend_from_slice(&record_len.to_be_bytes());
@@ -391,10 +385,7 @@ mod tests {
     fn find_extension_returns_none_for_absent_type() {
         let data = include_bytes!("../tests/fixtures/curl_auto_cloudflare_com.bin");
         let parsed = parse_client_hello_record(data.as_slice()).expect("nom parse");
-        assert!(
-            find_extension(&parsed, 0xDEAD).is_none(),
-            "absent extension type should return None"
-        );
+        assert!(find_extension(&parsed, 0xDEAD).is_none(), "absent extension type should return None");
     }
 
     #[test]
@@ -415,10 +406,7 @@ mod tests {
         sni_ext[8] = 0xFF;
         let data = build_client_hello_record(&sni_ext);
         let parsed = parse_client_hello_record(&data).expect("should parse record");
-        assert!(
-            to_marker_info(&parsed, data.len()).is_none(),
-            "host_end exceeding buffer should return None"
-        );
+        assert!(to_marker_info(&parsed, data.len()).is_none(), "host_end exceeding buffer should return None");
     }
 
     #[test]
@@ -433,10 +421,7 @@ mod tests {
         let parsed = parse_client_hello_record(&data).expect("should parse");
         assert_eq!(parsed.extensions.len(), 2, "should have exactly 2 extensions");
         assert_eq!(parsed.extensions[0].ext_type, 0x0000, "first should be SNI");
-        assert_eq!(
-            parsed.extensions[1].ext_type, 0x0015,
-            "second should be padding"
-        );
+        assert_eq!(parsed.extensions[1].ext_type, 0x0015, "second should be padding");
         // Verify ordering: SNI offset < padding offset
         assert!(parsed.extensions[0].type_offset < parsed.extensions[1].type_offset);
     }
@@ -467,15 +452,9 @@ mod tests {
         let truncated = &data[..truncation_point];
         // The parser should still succeed because it uses min(declared, available)
         let parsed = parse_client_hello_record(truncated);
-        assert!(
-            parsed.is_some(),
-            "parser should tolerate truncated extension data"
-        );
+        assert!(parsed.is_some(), "parser should tolerate truncated extension data");
         let parsed = parsed.unwrap();
-        assert!(
-            !parsed.extensions.is_empty(),
-            "should still find the SNI extension"
-        );
+        assert!(!parsed.extensions.is_empty(), "should still find the SNI extension");
         assert_eq!(parsed.extensions[0].ext_type, 0x0000);
     }
 
@@ -491,10 +470,7 @@ mod tests {
         let parsed = parse_client_hello_record(&data).expect("should parse");
 
         // The 2 bytes at ext_len_offset should equal the total extensions length
-        let ext_len_declared = u16::from_be_bytes([
-            data[parsed.ext_len_offset],
-            data[parsed.ext_len_offset + 1],
-        ]);
+        let ext_len_declared = u16::from_be_bytes([data[parsed.ext_len_offset], data[parsed.ext_len_offset + 1]]);
         assert_eq!(ext_len_declared as usize, extensions.len());
     }
 

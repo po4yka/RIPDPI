@@ -2,11 +2,11 @@ use super::*;
 
 use crypto_box::aead::Aead;
 use crypto_box::{ChaChaBox, PublicKey as CryptoPublicKey, SecretKey as CryptoSecretKey};
-use ring::signature::{Ed25519KeyPair, KeyPair};
 use hickory_proto::op::{Message, MessageType, OpCode, Query, ResponseCode};
 use hickory_proto::rr::rdata::{A, TXT};
 use hickory_proto::rr::{Name, RData, Record, RecordType};
 use rcgen::generate_simple_self_signed;
+use ring::signature::{Ed25519KeyPair, KeyPair};
 use rustls::pki_types::{CertificateDer, PrivateKeyDer, PrivatePkcs8KeyDer};
 use rustls::{ServerConfig, ServerConnection, StreamOwned};
 use std::io::{Read, Write};
@@ -484,8 +484,7 @@ fn error_kind_maps_common_failures() {
 
 impl DnsCryptTestServer {
     fn new(provider_suffix: &str) -> Self {
-        let provider_key_pair =
-            Ed25519KeyPair::from_seed_unchecked(&[7u8; 32]).expect("ed25519 key pair from seed");
+        let provider_key_pair = Ed25519KeyPair::from_seed_unchecked(&[7u8; 32]).expect("ed25519 key pair from seed");
         let provider_public_bytes: [u8; 32] =
             provider_key_pair.public_key().as_ref().try_into().expect("ed25519 public key is 32 bytes");
         let resolver_secret = CryptoSecretKey::from([9u8; 32]);
@@ -509,9 +508,12 @@ impl DnsCryptTestServer {
         cert_bytes.extend_from_slice(&0u16.to_be_bytes());
         cert_bytes.extend_from_slice(signature.as_ref());
         cert_bytes.extend_from_slice(&inner);
-        let certificate =
-            parse_dnscrypt_certificate(&cert_bytes, &provider_public_bytes, &format!("2.dnscrypt-cert.{provider_suffix}"))
-                .expect("certificate parses");
+        let certificate = parse_dnscrypt_certificate(
+            &cert_bytes,
+            &provider_public_bytes,
+            &format!("2.dnscrypt-cert.{provider_suffix}"),
+        )
+        .expect("certificate parses");
 
         Self {
             provider_public_key_hex: hex::encode(provider_public_bytes),
@@ -847,11 +849,7 @@ fn health_ewma_decays_toward_new_observations() {
     std::thread::sleep(Duration::from_millis(150));
     reg.record_endpoint_outcome("ep", false, 500);
     let snap = reg.snapshot("ep").expect("snapshot exists");
-    assert!(
-        snap.ewma_success_rate < 1.0,
-        "success rate should decay after failure: {:.3}",
-        snap.ewma_success_rate
-    );
+    assert!(snap.ewma_success_rate < 1.0, "success rate should decay after failure: {:.3}", snap.ewma_success_rate);
 }
 
 #[test]
@@ -1015,10 +1013,7 @@ fn pool_records_success_in_shared_health_registry() {
     let result = pool1.exchange_blocking(&query);
     assert!(result.is_ok(), "first pool exchange should succeed");
     let label = format!("https://fixture.test:{port}/dns-query");
-    assert!(
-        shared_health.observation_count(&label) > 0,
-        "health registry should have observations after success"
-    );
+    assert!(shared_health.observation_count(&label) > 0, "health registry should have observations after success");
     let pool2 = ResolverPool::builder()
         .add_endpoint(fixture_doh_endpoint(port), EncryptedDnsTransport::Direct)
         .tls_roots(vec![cert_der])
@@ -1216,10 +1211,7 @@ mod hickory_backend_tests {
     async fn hickory_rejects_query_with_no_questions() {
         use crate::hickory_backend;
         let mut msg = Message::new();
-        msg.set_id(0x1234)
-            .set_message_type(MessageType::Query)
-            .set_op_code(OpCode::Query)
-            .set_recursion_desired(true);
+        msg.set_id(0x1234).set_message_type(MessageType::Query).set_op_code(OpCode::Query).set_recursion_desired(true);
         let wire = msg.to_vec().expect("header-only message serializes");
         let endpoint = EncryptedDnsEndpoint {
             protocol: EncryptedDnsProtocol::Dot,
