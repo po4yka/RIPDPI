@@ -759,6 +759,134 @@ mod tests {
             )
     }
 
+    // ── randomize_tls_seeded_like_c ──────────────────────────────────
+
+    #[test]
+    fn randomize_tls_seeded_changes_random_and_key_share() {
+        let mutation = randomize_tls_seeded_like_c(DEFAULT_FAKE_TLS, 42);
+        assert_eq!(mutation.rc, 0);
+        assert_eq!(mutation.bytes.len(), DEFAULT_FAKE_TLS.len());
+        // Random field (bytes 11-43) should differ from original
+        assert_ne!(&mutation.bytes[11..43], &DEFAULT_FAKE_TLS[11..43]);
+        // Session ID should differ (bytes 44..44+sid_len)
+        let sid_len = DEFAULT_FAKE_TLS[43] as usize;
+        assert_ne!(&mutation.bytes[44..44 + sid_len], &DEFAULT_FAKE_TLS[44..44 + sid_len]);
+        // SNI should be preserved
+        assert_eq!(parse_tls(&mutation.bytes), Some(&b"www.wikipedia.org"[..]));
+    }
+
+    #[test]
+    fn randomize_tls_seeded_is_deterministic() {
+        let a = randomize_tls_seeded_like_c(DEFAULT_FAKE_TLS, 42);
+        let b = randomize_tls_seeded_like_c(DEFAULT_FAKE_TLS, 42);
+        assert_eq!(a.bytes, b.bytes);
+    }
+
+    #[test]
+    fn randomize_tls_seeded_different_seeds_differ() {
+        let a = randomize_tls_seeded_like_c(DEFAULT_FAKE_TLS, 1);
+        let b = randomize_tls_seeded_like_c(DEFAULT_FAKE_TLS, 2);
+        assert_ne!(a.bytes, b.bytes);
+    }
+
+    #[test]
+    fn randomize_tls_seeded_handles_short_input() {
+        let mutation = randomize_tls_seeded_like_c(&[0x16, 0x03, 0x01], 1);
+        assert_eq!(mutation.rc, 0);
+        assert_eq!(mutation.bytes, &[0x16, 0x03, 0x01]);
+    }
+
+    // ── change_tls_sni_seeded_like_c ──────────────────────────────────
+
+    #[test]
+    fn change_tls_sni_replaces_hostname() {
+        use crate::fake_profiles::{tls_fake_profile_bytes, TlsFakeProfile};
+        let input = tls_fake_profile_bytes(TlsFakeProfile::GoogleChrome);
+        let new_host = b"test.example.com";
+        let capacity = input.len() + 100; // extra room
+        let mutation = change_tls_sni_seeded_like_c(input, new_host, capacity, 42);
+        assert_eq!(mutation.rc, 0);
+        let sni = parse_tls(&mutation.bytes);
+        // The SNI should contain bytes derived from new_host (copy_name_seeded may alter slightly)
+        assert!(sni.is_some(), "SNI should be extractable after change");
+        assert_eq!(sni.unwrap().len(), new_host.len(), "SNI length should match new host length");
+    }
+
+    #[test]
+    fn change_tls_sni_capacity_too_small_fails() {
+        let mutation = change_tls_sni_seeded_like_c(DEFAULT_FAKE_TLS, b"x.co", DEFAULT_FAKE_TLS.len() - 1, 1);
+        assert_eq!(mutation.rc, -1);
+    }
+
+    #[test]
+    fn change_tls_sni_same_length_host() {
+        use crate::fake_profiles::{tls_fake_profile_bytes, TlsFakeProfile};
+        // Use a well-formed single-record profile to avoid multi-record edge cases
+        let input = tls_fake_profile_bytes(TlsFakeProfile::GoogleChrome);
+        let original_sni = parse_tls(input).unwrap();
+        let new_host = vec![b'a'; original_sni.len()];
+        let capacity = input.len() + 100;
+        let mutation = change_tls_sni_seeded_like_c(input, &new_host, capacity, 7);
+        assert_eq!(mutation.rc, 0);
+        let new_sni = parse_tls(&mutation.bytes);
+        assert!(new_sni.is_some());
+        assert_eq!(new_sni.unwrap().len(), original_sni.len());
+    }
+
+    // ── part_tls_like_c ───────────────────────────────────────────────
+
+    #[test]
+    fn part_tls_splits_record_at_midpoint() {
+        let mutation = part_tls_like_c(DEFAULT_FAKE_TLS, 100);
+        assert_eq!(mutation.rc, 5);
+        // The output should be larger (second record header added)
+        assert!(mutation.bytes.len() > DEFAULT_FAKE_TLS.len());
+        // First record should start with 0x16
+        assert_eq!(mutation.bytes[0], 0x16);
+        // There should be a second record header somewhere
+        // The first record's declared length should be ~100 bytes
+        let first_record_len = u16::from_be_bytes([mutation.bytes[3], mutation.bytes[4]]) as usize;
+        assert!(first_record_len <= 100);
+    }
+
+    #[test]
+    fn part_tls_at_zero_returns_split() {
+        let mutation = part_tls_like_c(DEFAULT_FAKE_TLS, 0);
+        // Position 0 means split at the very beginning
+        assert_eq!(mutation.rc, 5);
+    }
+
+    #[test]
+    fn part_tls_beyond_record_returns_original() {
+        let mutation = part_tls_like_c(DEFAULT_FAKE_TLS, DEFAULT_FAKE_TLS.len() as isize + 100);
+        // Position beyond the record -- should return original unchanged
+        assert_eq!(mutation.bytes.len(), DEFAULT_FAKE_TLS.len());
+    }
+
+    // ── tune_tls_padding_size_like_c on well-formed profiles ──────────
+
+    #[test]
+    fn tune_tls_padding_on_well_formed_profile() {
+        use crate::fake_profiles::{tls_fake_profile_bytes, TlsFakeProfile};
+        let input = tls_fake_profile_bytes(TlsFakeProfile::IanaFirefox);
+        let grown = tune_tls_padding_size_like_c(input, input.len() + 20);
+        assert_eq!(grown.rc, 0);
+        assert_eq!(grown.bytes.len(), input.len() + 20);
+        assert_eq!(parse_tls(&grown.bytes), parse_tls(input));
+    }
+
+    // ── padencap_tls_like_c on well-formed profiles ───────────────────
+
+    #[test]
+    fn padencap_on_well_formed_profile() {
+        use crate::fake_profiles::{tls_fake_profile_bytes, TlsFakeProfile};
+        let input = tls_fake_profile_bytes(TlsFakeProfile::GoogleChrome);
+        let mutation = padencap_tls_like_c(input, 32);
+        assert_eq!(mutation.rc, 0);
+        // SNI should still be extractable
+        assert_eq!(parse_tls(&mutation.bytes), parse_tls(input));
+    }
+
     proptest::proptest! {
         #[test]
         fn structurally_valid_client_hello_cross_validation(data in arb_client_hello()) {
