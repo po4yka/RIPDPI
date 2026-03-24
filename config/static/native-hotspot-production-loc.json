@@ -82,7 +82,23 @@
     },
     {
       "path": "native/rust/crates/ripdpi-runtime/src/runtime/relay.rs",
-      "maxProductionLoc": 680
+      "maxProductionLoc": 60
+    },
+    {
+      "path": "native/rust/crates/ripdpi-runtime/src/runtime/relay/failure_retry.rs",
+      "maxProductionLoc": 190
+    },
+    {
+      "path": "native/rust/crates/ripdpi-runtime/src/runtime/relay/first_exchange.rs",
+      "maxProductionLoc": 190
+    },
+    {
+      "path": "native/rust/crates/ripdpi-runtime/src/runtime/relay/stream_copy.rs",
+      "maxProductionLoc": 200
+    },
+    {
+      "path": "native/rust/crates/ripdpi-runtime/src/runtime/relay/tls_boundary.rs",
+      "maxProductionLoc": 150
     },
     {
       "path": "native/rust/crates/ripdpi-tunnel-android/src/session.rs",
