@@ -487,4 +487,106 @@ mod tests {
 
         assert!(parse_quic_initial(&packet).is_none());
     }
+
+    // ---- Key derivation and label unit tests ----
+
+    #[test]
+    fn quic_hkdf_label_produces_correct_binary_format() {
+        let label = quic_hkdf_label("tls13 quic key", 16).expect("label");
+        // First 2 bytes: output length as u16 big-endian
+        assert_eq!(&label[..2], &16u16.to_be_bytes());
+        // Next byte: label length
+        assert_eq!(label[2], 14); // "tls13 quic key".len()
+        // Then the label bytes
+        assert_eq!(&label[3..17], b"tls13 quic key");
+        // Final byte: empty context (0 length)
+        assert_eq!(label[17], 0);
+        assert_eq!(label.len(), 18);
+    }
+
+    #[test]
+    fn quic_hkdf_label_rejects_oversized_output() {
+        assert!(quic_hkdf_label("x", u16::MAX as usize + 1).is_none());
+    }
+
+    #[test]
+    fn quic_v1_initial_secret_is_deterministic() {
+        let dcid = [0x83, 0x94, 0xc8, 0xf0, 0x3e, 0x51, 0x57, 0x08];
+        let s1 = quic_derive_client_initial_secret(&dcid, QUIC_V1_VERSION).expect("v1 secret first");
+        let s2 = quic_derive_client_initial_secret(&dcid, QUIC_V1_VERSION).expect("v1 secret second");
+        assert_eq!(s1, s2);
+    }
+
+    #[test]
+    fn quic_v1_and_v2_produce_different_secrets_for_same_dcid() {
+        let dcid = [0x83, 0x94, 0xc8, 0xf0, 0x3e, 0x51, 0x57, 0x08];
+        let v1 = quic_derive_client_initial_secret(&dcid, QUIC_V1_VERSION).expect("v1");
+        let v2 = quic_derive_client_initial_secret(&dcid, QUIC_V2_VERSION).expect("v2");
+        assert_ne!(v1, v2);
+    }
+
+    #[test]
+    fn quic_derive_rejects_unsupported_version() {
+        let dcid = [0x83, 0x94, 0xc8, 0xf0];
+        assert!(quic_derive_client_initial_secret(&dcid, 0xdead_beef).is_none());
+    }
+
+    #[test]
+    fn quic_expand_label_produces_correct_sizes() {
+        let dcid = [0x83, 0x94, 0xc8, 0xf0, 0x3e, 0x51, 0x57, 0x08];
+        let secret = quic_derive_client_initial_secret(&dcid, QUIC_V1_VERSION).expect("secret");
+
+        let mut key = [0u8; 16];
+        let mut iv = [0u8; 12];
+        let mut hp = [0u8; 16];
+        quic_expand_label(&secret, "tls13 quic key", &mut key).expect("key");
+        quic_expand_label(&secret, "tls13 quic iv", &mut iv).expect("iv");
+        quic_expand_label(&secret, "tls13 quic hp", &mut hp).expect("hp");
+
+        // key, iv, hp should all be non-zero (overwhelmingly unlikely to be all zeros)
+        assert!(key.iter().any(|b| *b != 0), "key should not be all zeros");
+        assert!(iv.iter().any(|b| *b != 0), "iv should not be all zeros");
+        assert!(hp.iter().any(|b| *b != 0), "hp should not be all zeros");
+        // key and hp are different despite same length
+        assert_ne!(key, hp, "key and hp should differ");
+    }
+
+    #[test]
+    fn quic_v1_initial_secret_matches_rfc_9001_appendix_a() {
+        // RFC 9001, Section A.1: Initial Keys
+        // DCID = 0x8394c8f03e515708
+        let dcid = [0x83, 0x94, 0xc8, 0xf0, 0x3e, 0x51, 0x57, 0x08];
+        let secret = quic_derive_client_initial_secret(&dcid, QUIC_V1_VERSION).expect("v1 secret");
+
+        // Expected client_initial_secret from RFC 9001, Appendix A.1:
+        let expected = [
+            0xc0, 0x0c, 0xf1, 0x51, 0xca, 0x5b, 0xe0, 0x75,
+            0xed, 0x0e, 0xbf, 0xb5, 0xc8, 0x03, 0x23, 0xc4,
+            0x2d, 0x6b, 0x7d, 0xb6, 0x78, 0x81, 0x28, 0x9a,
+            0xf4, 0x00, 0x8f, 0x1f, 0x6c, 0x35, 0x7a, 0xea,
+        ];
+        assert_eq!(secret, expected, "client initial secret must match RFC 9001 Appendix A.1");
+    }
+
+    #[test]
+    fn quic_v2_uses_different_label_namespace() {
+        let dcid = [0x83, 0x94, 0xc8, 0xf0, 0x3e, 0x51, 0x57, 0x08];
+        let v1_secret = quic_derive_client_initial_secret(&dcid, QUIC_V1_VERSION).expect("v1");
+        let v2_secret = quic_derive_client_initial_secret(&dcid, QUIC_V2_VERSION).expect("v2");
+
+        let mut v1_key = [0u8; 16];
+        let mut v2_key = [0u8; 16];
+        quic_expand_label(&v1_secret, "tls13 quic key", &mut v1_key).expect("v1 key");
+        quic_expand_label(&v2_secret, "tls13 quicv2 key", &mut v2_key).expect("v2 key");
+        assert_ne!(v1_key, v2_key);
+    }
+
+    #[test]
+    fn different_dcids_produce_different_secrets() {
+        let dcid_a = [0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08];
+        let dcid_b = [0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18];
+        let sa = quic_derive_client_initial_secret(&dcid_a, QUIC_V1_VERSION).expect("a");
+        let sb = quic_derive_client_initial_secret(&dcid_b, QUIC_V1_VERSION).expect("b");
+        assert_ne!(sa, sb);
+    }
 }
