@@ -3,11 +3,10 @@ use std::collections::{BTreeMap, BTreeSet};
 use ripdpi_failure_classifier::{ClassifiedFailure, FailureAction, FailureClass, FailureStage};
 
 use crate::observations::observation_for_probe;
-use crate::types::{Diagnosis, ProbeObservation, ProbeResult, ScanRequest};
+use crate::types::{Diagnosis, ProbeResult, ScanRequest};
 
 use super::strategy::{
-    classify_strategy_probe_baseline_observations, classify_strategy_probe_observation,
-    strategy_probe_failure_priority, strategy_probe_observation_weight,
+    classify_strategy_probe_baseline_observations, strategy_probe_failure_priority, strategy_probe_observation_weight,
 };
 
 pub(crate) fn failure_detail_value<'a>(result: &'a ProbeResult, key: &str) -> Option<&'a str> {

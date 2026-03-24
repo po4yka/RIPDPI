@@ -101,12 +101,10 @@ pub(super) async fn pump_active_sessions(socket_set: &mut SocketSet<'static>, se
     for (handle, session) in sessions.iter_mut() {
         let tcp = socket_set.get_mut::<TcpSocket>(handle);
 
-        if let Some(result) = flush_pending_to_session(&mut session.smoltcp_side, &mut session.pending_to_session) {
-            if let Err(err) = result {
-                debug!("session pending flush error: {} — closing session {:?}", err, handle);
-                to_remove.push(handle);
-                continue;
-            }
+        if let Some(Err(err)) = flush_pending_to_session(&mut session.smoltcp_side, &mut session.pending_to_session) {
+            debug!("session pending flush error: {} — closing session {:?}", err, handle);
+            to_remove.push(handle);
+            continue;
         }
 
         if session.pending_to_session.is_empty() {

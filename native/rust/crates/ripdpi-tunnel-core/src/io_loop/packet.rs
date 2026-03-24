@@ -166,16 +166,14 @@ fn icmpv6_checksum(src_ip: [u8; 16], dst_ip: [u8; 16], payload: &[u8]) -> u16 {
 }
 
 pub(super) fn build_udp_response(src: SocketAddr, dst: SocketAddr, payload: &[u8]) -> Vec<u8> {
-    let udp_len = match u16::try_from(8usize + payload.len()) {
-        Ok(value) => value,
-        Err(_) => return Vec::new(),
+    let Ok(udp_len) = u16::try_from(8usize + payload.len()) else {
+        return Vec::new();
     };
 
     match (src, dst) {
         (SocketAddr::V4(src), SocketAddr::V4(dst)) => {
-            let total_len = match u16::try_from(20usize + usize::from(udp_len)) {
-                Ok(value) => value,
-                Err(_) => return Vec::new(),
+            let Ok(total_len) = u16::try_from(20usize + usize::from(udp_len)) else {
+                return Vec::new();
             };
             let mut pkt = vec![0u8; usize::from(total_len)];
             let src_ip = src.ip().octets();
@@ -242,9 +240,8 @@ pub(super) fn build_udp_port_unreachable(src: SocketAddr, dst: SocketAddr, paylo
             let quoted_len = original.len().min(20 + 8 + QUOTED_UDP_PAYLOAD_LEN);
             let icmp_len = 8usize + quoted_len;
             let total_len = 20usize + icmp_len;
-            let total_len_u16 = match u16::try_from(total_len) {
-                Ok(value) => value,
-                Err(_) => return Vec::new(),
+            let Ok(total_len_u16) = u16::try_from(total_len) else {
+                return Vec::new();
             };
             let mut pkt = vec![0u8; total_len];
             let outer_src = dst.ip().octets();
@@ -272,9 +269,8 @@ pub(super) fn build_udp_port_unreachable(src: SocketAddr, dst: SocketAddr, paylo
         (SocketAddr::V6(src), SocketAddr::V6(dst)) => {
             let quoted_len = original.len().min(40 + 8 + QUOTED_UDP_PAYLOAD_LEN);
             let icmp_len = 8usize + quoted_len;
-            let icmp_len_u16 = match u16::try_from(icmp_len) {
-                Ok(value) => value,
-                Err(_) => return Vec::new(),
+            let Ok(icmp_len_u16) = u16::try_from(icmp_len) else {
+                return Vec::new();
             };
             let mut pkt = vec![0u8; 40 + icmp_len];
             let outer_src = dst.ip().octets();
@@ -311,12 +307,7 @@ pub(super) fn endpoint_to_socketaddr(ep: smoltcp::wire::IpEndpoint) -> SocketAdd
 // ── Test helpers shared with tcp_accept tests ────────────────────────────────
 
 #[cfg(test)]
-pub(super) fn build_ipv4_tcp_syn_packet(
-    src_ip: Ipv4Addr,
-    dst_ip: Ipv4Addr,
-    src_port: u16,
-    dst_port: u16,
-) -> Vec<u8> {
+pub(super) fn build_ipv4_tcp_syn_packet(src_ip: Ipv4Addr, dst_ip: Ipv4Addr, src_port: u16, dst_port: u16) -> Vec<u8> {
     let mut pkt = vec![0u8; 40];
     pkt[0] = 0x45;
     pkt[3] = 40;
@@ -451,7 +442,7 @@ mod tests {
         pkt[0] = 0x40; // IPv4, IHL=0 (malformed)
         pkt[3] = 40;
         pkt[9] = 6; // TCP
-        // IP ID = 0x0000 (would look like injected without the guard)
+                    // IP ID = 0x0000 (would look like injected without the guard)
         pkt[33] = 0x04; // RST flag (at byte 33, which is IHL+13 only if IHL=20)
         assert!(!is_injected_rst(&pkt), "malformed IHL=0 packet should not be detected as injected RST");
     }
@@ -550,11 +541,11 @@ mod tests {
         let dst = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(157, 240, 229, 174)), 443);
         let expected_src = match dst.ip() {
             IpAddr::V4(value) => value.octets(),
-            _ => panic!("expected ipv4"),
+            IpAddr::V6(_) => panic!("expected ipv4"),
         };
         let expected_dst = match src.ip() {
             IpAddr::V4(value) => value.octets(),
-            _ => panic!("expected ipv4"),
+            IpAddr::V6(_) => panic!("expected ipv4"),
         };
 
         let pkt = build_udp_port_unreachable(src, dst, b"quic");

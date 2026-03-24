@@ -85,7 +85,10 @@ fn emitted_native_outcome_tokens() -> BTreeSet<String> {
         ("native/rust/crates/ripdpi-monitor/src/connectivity/probes.rs", "pub(crate) fn run_service_probe"),
         ("native/rust/crates/ripdpi-monitor/src/connectivity/probes.rs", "pub(crate) fn run_circumvention_probe"),
         ("native/rust/crates/ripdpi-monitor/src/connectivity/probes.rs", "pub(crate) fn run_throughput_probe"),
-        ("native/rust/crates/ripdpi-monitor/src/connectivity/report.rs", "pub(crate) fn build_network_environment_probe"),
+        (
+            "native/rust/crates/ripdpi-monitor/src/connectivity/report.rs",
+            "pub(crate) fn build_network_environment_probe",
+        ),
         ("native/rust/crates/ripdpi-monitor/src/execution.rs", "pub(crate) fn run_http_strategy_probe"),
         ("native/rust/crates/ripdpi-monitor/src/execution.rs", "pub(crate) fn run_https_strategy_probe"),
         ("native/rust/crates/ripdpi-monitor/src/execution.rs", "pub(crate) fn run_quic_strategy_probe"),

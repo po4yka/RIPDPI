@@ -320,7 +320,7 @@ fn preset_field_in_ui_config_round_trips_json() {
         ProxyConfigPayload::Ui { strategy_preset, .. } => {
             assert_eq!(strategy_preset.as_deref(), Some("ripdpi_default"));
         }
-        other => panic!("expected ui payload, got {other:?}"),
+        other @ ProxyConfigPayload::CommandLine { .. } => panic!("expected ui payload, got {other:?}"),
     }
 }
 

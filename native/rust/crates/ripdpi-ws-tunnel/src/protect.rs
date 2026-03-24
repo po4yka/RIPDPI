@@ -38,7 +38,6 @@ pub fn protect_socket<T>(_socket: &T, _path: &str) -> io::Result<()> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
 
     #[cfg(not(any(target_os = "linux", target_os = "android")))]
     #[test]

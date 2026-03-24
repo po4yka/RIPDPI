@@ -5,8 +5,8 @@ use std::thread;
 use std::time::Duration;
 
 use local_network_fixture::FixtureStack;
-use rustls::{ClientConfig, ClientConnection, StreamOwned};
 use rustls::pki_types::ServerName;
+use rustls::{ClientConfig, ClientConnection, StreamOwned};
 
 use super::socks5::socks_connect_domain;
 use super::telemetry::NoCertificateVerification;
@@ -183,11 +183,7 @@ pub fn http_connect_round_trip_with_retry(proxy_port: u16, dst_port: u16, payloa
     );
 }
 
-pub fn attempt_http_connect_round_trip(
-    proxy_port: u16,
-    dst_port: u16,
-    payload: &[u8],
-) -> Result<Vec<u8>, String> {
+pub fn attempt_http_connect_round_trip(proxy_port: u16, dst_port: u16, payload: &[u8]) -> Result<Vec<u8>, String> {
     let mut stream = http_connect(proxy_port, dst_port);
     stream.write_all(payload).map_err(|error| format!("write http connect payload failed: {error}"))?;
     let mut body = vec![0u8; payload.len()];

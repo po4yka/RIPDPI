@@ -171,3 +171,9 @@ UniFFI generates Kotlin classes, enums, and error types automatically. No `exter
 | Panicking across FFI boundary | Catch panics with `std::panic::catch_unwind`; never let panics cross into JVM |
 | Leaking JNI local references | Use `env.auto_local()` or `delete_local_ref` in loops |
 | Not handling JNI exceptions | Check `env.exception_check()` after calling Java methods from Rust |
+
+## See Also
+
+- `rust-code-style` -- Rust code style rules for the native workspace
+- `rust-lint-config` -- Clippy, rustfmt, and cargo-deny configuration
+- `rust-crate-architecture` -- Crate layering and dependency rules

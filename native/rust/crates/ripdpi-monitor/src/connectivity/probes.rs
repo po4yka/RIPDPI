@@ -12,7 +12,9 @@ use crate::transport::*;
 use crate::types::*;
 use crate::util::*;
 
-use super::endpoint::{is_probe_failure, measure_throughput_window, probe_http_url, run_endpoint_probe, run_quic_endpoint_probe};
+use super::endpoint::{
+    is_probe_failure, measure_throughput_window, probe_http_url, run_endpoint_probe, run_quic_endpoint_probe,
+};
 
 pub(crate) fn run_dns_probe(target: &DnsTarget, transport: &TransportConfig, path_mode: &ScanPathMode) -> ProbeResult {
     let udp_server = target.udp_server.clone().unwrap_or_else(|| DEFAULT_DNS_SERVER.to_string());

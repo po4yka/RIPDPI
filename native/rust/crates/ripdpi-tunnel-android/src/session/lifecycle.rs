@@ -39,12 +39,9 @@ pub(crate) fn create_session(env: &mut JNIEnv, config_json: JString) -> jlong {
             return 0;
         }
     };
-    let native_log_level = match android_log_level_from_str(&config.misc.log_level) {
-        Some(level) => level,
-        None => {
-            throw_illegal_argument(env, format!("Unsupported tunnel logLevel: {}", config.misc.log_level));
-            return 0;
-        }
+    let Some(native_log_level) = android_log_level_from_str(&config.misc.log_level) else {
+        throw_illegal_argument(env, format!("Unsupported tunnel logLevel: {}", config.misc.log_level));
+        return 0;
     };
     let runtime = match shared_tunnel_runtime() {
         Ok(runtime) => runtime,

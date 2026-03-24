@@ -5,7 +5,7 @@ use std::thread::JoinHandle;
 
 use crate::event::{event, EventLog};
 use crate::fault::FaultController;
-use crate::http::{HttpResponse, start_http_server};
+use crate::http::{start_http_server, HttpResponse};
 use crate::types::{FixtureFaultSpec, FixtureManifest};
 
 pub(crate) fn start_control_server(
@@ -21,9 +21,8 @@ pub(crate) fn start_control_server(
             ("GET", "/health") => HttpResponse::text("ok"),
             ("GET", "/manifest") => {
                 events.record(event("control", "http", peer, local, "manifest", request.raw.len(), None));
-                let snapshot = manifest
-                    .lock()
-                    .map_or_else(|poisoned| poisoned.into_inner().clone(), |manifest| manifest.clone());
+                let snapshot =
+                    manifest.lock().map_or_else(|poisoned| poisoned.into_inner().clone(), |manifest| manifest.clone());
                 HttpResponse::json(serde_json::to_string(&snapshot).unwrap_or_else(|_| "{}".to_string()))
             }
             ("GET", "/events") => {

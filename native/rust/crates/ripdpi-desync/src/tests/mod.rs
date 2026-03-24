@@ -4,18 +4,18 @@ mod plan_tcp;
 mod plan_udp;
 mod tls_prelude;
 
-use crate::*;
 use crate::fake::normalize_fake_tls_size;
 use crate::offset::gen_offset;
 use crate::tls_prelude::apply_tls_prelude_steps;
+use crate::*;
 use ripdpi_config::{
     ActivationFilter, DesyncGroup, NumericRange, OffsetBase, OffsetExpr, QuicFakeProfile, TcpChainStep,
     TcpChainStepKind, UdpChainStep, UdpChainStepKind, FM_DUPSID, FM_ORIG, FM_PADENCAP, FM_RAND, FM_RNDSNI,
 };
 use ripdpi_packets::{
     build_realistic_quic_initial, default_fake_quic_compat, http_marker_info, parse_http, parse_quic_initial,
-    parse_tls, second_level_domain_span, tls_marker_info, HttpFakeProfile, OracleRng, TlsFakeProfile,
-    UdpFakeProfile, DEFAULT_FAKE_HTTP, DEFAULT_FAKE_TLS, IS_HTTP, MH_METHODEOL, MH_UNIXEOL, QUIC_V2_VERSION,
+    parse_tls, second_level_domain_span, tls_marker_info, HttpFakeProfile, OracleRng, TlsFakeProfile, UdpFakeProfile,
+    DEFAULT_FAKE_HTTP, DEFAULT_FAKE_TLS, IS_HTTP, MH_METHODEOL, MH_UNIXEOL, QUIC_V2_VERSION,
 };
 
 pub(super) fn split_expr(pos: i64) -> OffsetExpr {

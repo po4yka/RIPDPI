@@ -15,12 +15,9 @@ pub(crate) fn create_diagnostics_session() -> jlong {
 }
 
 pub(crate) fn diagnostics_session(env: &mut JNIEnv, handle: jlong) -> Option<Arc<MonitorSession>> {
-    let handle = match to_handle(handle) {
-        Some(handle) => handle,
-        None => {
-            throw_illegal_argument(env, "Invalid diagnostics handle");
-            return None;
-        }
+    let Some(handle) = to_handle(handle) else {
+        throw_illegal_argument(env, "Invalid diagnostics handle");
+        return None;
     };
     let Some(session) = DIAGNOSTIC_SESSIONS.get(handle) else {
         throw_illegal_argument(env, "Unknown diagnostics handle");
@@ -30,12 +27,9 @@ pub(crate) fn diagnostics_session(env: &mut JNIEnv, handle: jlong) -> Option<Arc
 }
 
 pub(crate) fn destroy_diagnostics_session(env: &mut JNIEnv, handle: jlong) {
-    let handle = match to_handle(handle) {
-        Some(handle) => handle,
-        None => {
-            throw_illegal_argument(env, "Invalid diagnostics handle");
-            return;
-        }
+    let Some(handle) = to_handle(handle) else {
+        throw_illegal_argument(env, "Invalid diagnostics handle");
+        return;
     };
     let Some(session) = DIAGNOSTIC_SESSIONS.remove(handle) else {
         throw_illegal_argument(env, "Unknown diagnostics handle");

@@ -277,9 +277,8 @@ proptest! {
             match model {
                 TunnelModelState::Absent => {
                     if to_handle(harness.tracked_handle()).is_some() {
-                        let err = match lookup_tunnel_session(harness.tracked_handle()) {
-                            Ok(_) => panic!("absent tunnel must be removed"),
-                            Err(err) => err,
+                        let Err(err) = lookup_tunnel_session(harness.tracked_handle()) else {
+                            panic!("absent tunnel must be removed");
                         };
                         prop_assert_eq!(err, "Unknown tunnel handle");
                     }

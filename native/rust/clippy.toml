@@ -1,2 +1,6 @@
 too-many-arguments-threshold = 8
 type-complexity-threshold = 300
+
+disallowed-methods = [
+    { path = "std::iter::Iterator::for_each", reason = "Use a `for` loop for side effects (F-COMBINATOR)" },
+]

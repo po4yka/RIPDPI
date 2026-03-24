@@ -12,9 +12,7 @@ pub(super) fn sample_dest(port: u16) -> SocketAddr {
 }
 
 pub(super) fn config_with_groups(groups: Vec<DesyncGroup>) -> RuntimeConfig {
-    let mut config = RuntimeConfig::default();
-    config.groups = groups;
-    config
+    RuntimeConfig { groups, ..RuntimeConfig::default() }
 }
 
 pub(super) fn autolearn_config(group_count: usize, max_hosts: usize) -> RuntimeConfig {

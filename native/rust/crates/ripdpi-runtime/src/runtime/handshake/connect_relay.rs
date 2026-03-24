@@ -2,7 +2,7 @@ use std::io::{self, Read};
 use std::net::{IpAddr, Ipv4Addr, SocketAddr, TcpStream};
 use std::time::Duration;
 
-use ripdpi_session::{encode_socks4_reply, encode_socks5_reply, encode_http_connect_reply};
+use ripdpi_session::{encode_http_connect_reply, encode_socks4_reply, encode_socks5_reply};
 
 use crate::runtime_policy::{extract_host, group_requires_payload, route_matches_payload, TransportProtocol};
 
@@ -175,26 +175,25 @@ fn maybe_delay_connect(
         return Ok(DelayConnect::Closed);
     };
 
-    let route =
-        if route_matches_payload(&state.config, route.group_index, target, &payload, TransportProtocol::Tcp) {
-            route
-        } else {
-            let cache = state.cache.lock().map_err(|_| io::Error::other("cache mutex poisoned"))?;
-            let host = extract_host(&state.config, &payload);
-            cache
-                .select_next(
-                    &state.config,
-                    &route,
-                    target,
-                    Some(&payload),
-                    host.as_deref(),
-                    TransportProtocol::Tcp,
-                    0,
-                    true,
-                    None,
-                )
-                .ok_or_else(|| io::Error::new(io::ErrorKind::PermissionDenied, "no matching desync group"))?
-        };
+    let route = if route_matches_payload(&state.config, route.group_index, target, &payload, TransportProtocol::Tcp) {
+        route
+    } else {
+        let cache = state.cache.lock().map_err(|_| io::Error::other("cache mutex poisoned"))?;
+        let host = extract_host(&state.config, &payload);
+        cache
+            .select_next(
+                &state.config,
+                &route,
+                target,
+                Some(&payload),
+                host.as_deref(),
+                TransportProtocol::Tcp,
+                0,
+                true,
+                None,
+            )
+            .ok_or_else(|| io::Error::new(io::ErrorKind::PermissionDenied, "no matching desync group"))?
+    };
 
     Ok(DelayConnect::Delayed { route, payload })
 }

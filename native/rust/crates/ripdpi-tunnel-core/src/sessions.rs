@@ -118,15 +118,14 @@ mod tests {
         let child = parent.child_token();
         let (smoltcp_side, _session_side) = tokio::io::duplex(256);
         let handle: JoinHandle<io::Result<()>> = tokio::spawn(async { Ok(()) });
-        let entry =
-            SessionEntry {
-                smoltcp_side,
-                cancel: child.clone(),
-                handle,
-                pending_to_session: Vec::new(),
-                pending_to_smoltcp: Vec::new(),
-                upstream_closed: false,
-            };
+        let entry = SessionEntry {
+            smoltcp_side,
+            cancel: child.clone(),
+            handle,
+            pending_to_session: Vec::new(),
+            pending_to_smoltcp: Vec::new(),
+            upstream_closed: false,
+        };
         (entry, child)
     }
 
