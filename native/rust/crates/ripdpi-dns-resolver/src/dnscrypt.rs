@@ -247,7 +247,7 @@ mod tests {
             let payload: Vec<u8> = (0..size).map(|i: usize| (i % 255) as u8).collect();
             let padded = dnscrypt_pad(&payload);
             assert_eq!(padded.len() % DNSCRYPT_PADDING_BLOCK_SIZE, 0, "padded size for input len {size}");
-            assert!(padded.len() >= payload.len() + 1, "room for marker at len {size}");
+            assert!(padded.len() > payload.len(), "room for marker at len {size}");
             let unpadded = dnscrypt_unpad(&padded).expect("unpad");
             assert_eq!(unpadded, payload, "round-trip at len {size}");
         }

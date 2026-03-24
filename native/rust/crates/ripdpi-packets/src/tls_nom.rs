@@ -354,7 +354,7 @@ mod tests {
         ];
 
         for (data, name) in fixtures {
-            let parsed = parse_client_hello_record(*data).unwrap_or_else(|| panic!("{name}: nom parse failed"));
+            let parsed = parse_client_hello_record(data).unwrap_or_else(|| panic!("{name}: nom parse failed"));
             assert!(!parsed.extensions.is_empty(), "{name}: should have extensions");
             for ext in &parsed.extensions {
                 let actual_type = u16::from_be_bytes([data[ext.type_offset], data[ext.type_offset + 1]]);
