@@ -1,0 +1,223 @@
+use std::io::{ErrorKind, Read, Write};
+use std::net::IpAddr;
+use std::sync::Arc;
+
+use ripdpi_packets::{build_realistic_quic_initial, parse_quic_initial, QUIC_V1_VERSION};
+use rustls::client::danger::ServerCertVerifier;
+
+use crate::http::*;
+use crate::tls::*;
+use crate::transport::*;
+use crate::types::*;
+use crate::util::*;
+
+#[derive(Clone)]
+pub(super) struct ThroughputSample {
+    pub(super) status: String,
+    pub(super) bytes_read: usize,
+    pub(super) bps: u64,
+    pub(super) error: String,
+}
+
+struct ParsedHttpTarget {
+    host: String,
+    path: String,
+    port: u16,
+    secure: bool,
+    connect_target: TargetAddress,
+}
+
+pub(super) fn measure_throughput_window(target: &ThroughputTarget, transport: &TransportConfig) -> ThroughputSample {
+    let parsed = match parse_http_target(&target.url, target.connect_ip.as_deref(), target.port) {
+        Ok(parsed) => parsed,
+        Err(err) => {
+            return ThroughputSample { status: "invalid_target".to_string(), bytes_read: 0, bps: 0, error: err }
+        }
+    };
+    let started = std::time::Instant::now();
+    let mut stream = match open_probe_stream(
+        &parsed.connect_target,
+        parsed.port,
+        transport,
+        if parsed.secure { Some(parsed.host.as_str()) } else { None },
+        parsed.secure,
+        TlsClientProfile::Auto,
+        None,
+    ) {
+        Ok(stream) => stream,
+        Err(err) => {
+            return ThroughputSample { status: "http_unreachable".to_string(), bytes_read: 0, bps: 0, error: err }
+        }
+    };
+    let request =
+        format!("GET {} HTTP/1.1\r\nHost: {}\r\nAccept: */*\r\nConnection: close\r\n\r\n", parsed.path, parsed.host);
+    if let Err(err) = stream.write_all(request.as_bytes()).and_then(|_| stream.flush()) {
+        stream.shutdown();
+        return ThroughputSample {
+            status: "http_unreachable".to_string(),
+            bytes_read: 0,
+            bps: 0,
+            error: err.to_string(),
+        };
+    }
+    let headers = match read_http_headers(&mut stream, MAX_HTTP_BYTES) {
+        Ok(headers) => headers,
+        Err(err) => {
+            stream.shutdown();
+            return ThroughputSample { status: "http_unreachable".to_string(), bytes_read: 0, bps: 0, error: err };
+        }
+    };
+    let header_end = match find_headers_end(&headers) {
+        Some(index) => index,
+        None => {
+            stream.shutdown();
+            return ThroughputSample {
+                status: "http_unreachable".to_string(),
+                bytes_read: 0,
+                bps: 0,
+                error: "response_missing_headers".to_string(),
+            };
+        }
+    };
+    let response = match parse_http_response(&headers[..header_end], headers[header_end + 4..].to_vec()) {
+        Ok(response) => response,
+        Err(err) => {
+            stream.shutdown();
+            return ThroughputSample { status: "http_unreachable".to_string(), bytes_read: 0, bps: 0, error: err };
+        }
+    };
+    let status = classify_http_response(&response);
+    let mut bytes_read = response.body.len().min(target.window_bytes);
+    let mut last_error = "none".to_string();
+    while bytes_read < target.window_bytes {
+        let remaining = target.window_bytes - bytes_read;
+        let mut chunk = vec![0u8; remaining.min(16 * 1024)];
+        match stream.read(&mut chunk) {
+            Ok(0) => break,
+            Ok(read) => {
+                bytes_read += read;
+            }
+            Err(err) if matches!(err.kind(), ErrorKind::WouldBlock | ErrorKind::TimedOut) => {
+                last_error = err.to_string();
+                break;
+            }
+            Err(err) => {
+                last_error = err.to_string();
+                break;
+            }
+        }
+    }
+    stream.shutdown();
+    let duration_ms = started.elapsed().as_millis().max(1) as u64;
+    let bps = (bytes_read as u64).saturating_mul(8).saturating_mul(1000) / duration_ms;
+    ThroughputSample { status, bytes_read, bps, error: last_error }
+}
+
+pub(super) fn probe_http_url(
+    url: &str,
+    connect_ip: Option<&str>,
+    port_override: Option<u16>,
+    transport: &TransportConfig,
+) -> HttpObservation {
+    match parse_http_target(url, connect_ip, port_override) {
+        Ok(parsed) => {
+            try_http_request(&parsed.connect_target, parsed.port, transport, &parsed.host, &parsed.path, parsed.secure)
+        }
+        Err(err) => HttpObservation { status: "http_unreachable".to_string(), response: None, error: Some(err) },
+    }
+}
+
+pub(super) fn run_endpoint_probe(
+    host: Option<&str>,
+    connect_ip: Option<&str>,
+    port: u16,
+    tls_name: Option<&str>,
+    transport: &TransportConfig,
+    tls_verifier: Option<&Arc<dyn ServerCertVerifier>>,
+) -> (String, String) {
+    let Some(target) = connect_target_from_parts(host, connect_ip) else {
+        return ("not_run".to_string(), "not_run".to_string());
+    };
+    if tls_name.is_some() || port == 443 {
+        let server_name = tls_name.or(host).unwrap_or_default();
+        let observation =
+            try_tls_handshake(&target, port, transport, server_name, true, TlsClientProfile::Auto, tls_verifier);
+        (observation.status, observation.error.unwrap_or_else(|| "none".to_string()))
+    } else {
+        match connect_transport(&target, port, transport) {
+            Ok(stream) => {
+                let _ = stream.shutdown(std::net::Shutdown::Both);
+                ("tcp_connect_ok".to_string(), "none".to_string())
+            }
+            Err(err) => ("tcp_connect_failed".to_string(), err),
+        }
+    }
+}
+
+pub(super) fn run_quic_endpoint_probe(
+    host: Option<&str>,
+    connect_ip: Option<&str>,
+    port: u16,
+    transport: &TransportConfig,
+) -> (String, String) {
+    let Some(host_name) = host else {
+        return ("not_run".to_string(), "not_run".to_string());
+    };
+    let connect_target = connect_target_from_parts(Some(host_name), connect_ip)
+        .unwrap_or_else(|| TargetAddress::Host(host_name.to_string()));
+    let payload = build_realistic_quic_initial(QUIC_V1_VERSION, Some(host_name)).unwrap_or_default();
+    match relay_udp_payload(&connect_target, port, transport, &payload) {
+        Ok(bytes) if parse_quic_initial(&bytes).is_some() => ("quic_initial_response".to_string(), "none".to_string()),
+        Ok(bytes) if !bytes.is_empty() => ("quic_response".to_string(), "none".to_string()),
+        Ok(_) => ("quic_empty".to_string(), "none".to_string()),
+        Err(err) => ("quic_error".to_string(), err),
+    }
+}
+
+fn parse_http_target(
+    url: &str,
+    connect_ip: Option<&str>,
+    port_override: Option<u16>,
+) -> Result<ParsedHttpTarget, String> {
+    let secure = url.starts_with("https://");
+    let without_scheme = url
+        .strip_prefix("https://")
+        .or_else(|| url.strip_prefix("http://"))
+        .ok_or_else(|| "unsupported_url_scheme".to_string())?;
+    let (authority, path) = match without_scheme.split_once('/') {
+        Some((authority, suffix)) => (authority, format!("/{suffix}")),
+        None => (without_scheme, "/".to_string()),
+    };
+    let (host, parsed_port) = split_host_and_port(authority);
+    if host.is_empty() {
+        return Err("missing_url_host".to_string());
+    }
+    let port = port_override.or(parsed_port).unwrap_or(if secure { 443 } else { 80 });
+    let connect_target =
+        connect_target_from_parts(Some(host.as_str()), connect_ip).unwrap_or_else(|| TargetAddress::Host(host.clone()));
+    Ok(ParsedHttpTarget { host, path, port, secure, connect_target })
+}
+
+fn split_host_and_port(authority: &str) -> (String, Option<u16>) {
+    if authority.starts_with('[') {
+        return (authority.to_string(), None);
+    }
+    match authority.rsplit_once(':') {
+        Some((host, port)) => match port.parse::<u16>() {
+            Ok(parsed_port) => (host.to_string(), Some(parsed_port)),
+            Err(_) => (authority.to_string(), None),
+        },
+        None => (authority.to_string(), None),
+    }
+}
+
+fn connect_target_from_parts(host: Option<&str>, connect_ip: Option<&str>) -> Option<TargetAddress> {
+    connect_ip
+        .and_then(|value| value.parse::<IpAddr>().ok())
+        .map(TargetAddress::Ip)
+        .or_else(|| host.filter(|value| !value.is_empty()).map(|value| TargetAddress::Host(value.to_string())))
+}
+
+pub(super) fn is_probe_failure(status: &str) -> bool {
+    !matches!(status, "not_run" | "http_ok" | "tls_ok" | "tcp_connect_ok" | "quic_initial_response" | "quic_response")
+}
