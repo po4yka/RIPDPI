@@ -1,4 +1,9 @@
 title: "RIPDPI User Guide"
+subtitle: "Step-by-step setup and troubleshooting"
+
+theme:
+  primary: "#1B5E20"
+  accent: "#E65100"
 
 defaults:
   permission_preset: "granted"
@@ -14,6 +19,8 @@ pages:
       The home screen shows your current connection status, the selected
       approach card, and a history shortcut. Tap the large connection button
       to start or stop the VPN/proxy service.
+
+      TIP: Long-press the connection button to access quick settings.
     annotations:
       - type: arrow
         from: [0.85, 0.20]
@@ -135,6 +142,8 @@ pages:
       Run diagnostic scans to find the best bypass strategy for
       your network. Review past sessions and share results with
       the developer for troubleshooting.
+
+      NOTE: Share the diagnostic archive with the developer if asked -- it contains no traffic payloads.
     annotations:
       - type: arrow
         from: [0.85, 0.18]
