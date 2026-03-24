@@ -4,11 +4,16 @@ edition.workspace = true
 version.workspace = true
 license.workspace = true
 
+[features]
+default = []
+chrome-fingerprint = ["dep:boring"]
+
 [dependencies]
 aes = { workspace = true }
+boring = { workspace = true, optional = true }
 ctr = "0.9"
 cipher = "0.4"
-log = { workspace = true }
+tracing = { workspace = true }
 socket2 = { workspace = true }
 tungstenite = { version = "0.24", default-features = false, features = ["handshake", "rustls-tls-webpki-roots"] }
 

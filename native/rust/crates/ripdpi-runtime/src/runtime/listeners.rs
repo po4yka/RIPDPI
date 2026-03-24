@@ -206,7 +206,7 @@ fn process_client_job(job: ClientJob) {
     let _slot = slot;
     let result = super::handshake::handle_client(client, &state);
     if let Err(err) = &result {
-        log::error!("ripdpi client error: {err}");
+        tracing::error!("ripdpi client error: {err}");
         if let Some(telemetry) = &state.telemetry {
             telemetry.on_client_error(err);
         }
@@ -305,7 +305,7 @@ pub(super) fn run_proxy_with_listener_internal(
                             state.active_clients.clone(),
                             state.config.network.max_open as usize,
                         ) else {
-                            log::warn!("client connection rejected: at capacity");
+                            tracing::warn!("client connection rejected: at capacity");
                             if let Some(telemetry) = &state.telemetry {
                                 telemetry.on_client_slot_exhausted();
                             }
@@ -314,7 +314,7 @@ pub(super) fn run_proxy_with_listener_internal(
                             continue;
                         };
                         if let Err(err) = worker_pool.ensure_capacity() {
-                            log::error!("failed to provision client worker: {err}");
+                            tracing::error!("failed to provision client worker: {err}");
                             if !worker_pool.has_live_workers() {
                                 if let Some(telemetry) = &state.telemetry {
                                     telemetry.on_client_error(&err);

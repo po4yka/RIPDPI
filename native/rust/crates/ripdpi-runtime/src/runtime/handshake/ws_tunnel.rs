@@ -34,7 +34,7 @@ pub(super) fn should_ws_tunnel_first(target: SocketAddr, state: &RuntimeState) -
         return None;
     }
     let dc = classify_telegram_target(target)?;
-    log::info!("WS tunnel: routing to DC{dc} via wss://kws{dc}.web.telegram.org/apiws");
+    tracing::info!("WS tunnel: routing to DC{dc} via wss://kws{dc}.web.telegram.org/apiws");
     Some(dc)
 }
 
@@ -54,7 +54,7 @@ pub(super) fn try_ws_tunnel_fallback(
     dc: u8,
     state: &RuntimeState,
 ) -> Option<io::Result<()>> {
-    log::info!("WS tunnel fallback: desync exhausted for DC{dc}, escalating to wss://kws{dc}.web.telegram.org/apiws");
+    tracing::info!("WS tunnel fallback: desync exhausted for DC{dc}, escalating to wss://kws{dc}.web.telegram.org/apiws");
     let cloned = client.try_clone().ok()?;
     match run_ws_tunnel(cloned, dc, target, state) {
         WsTunnelResult::Ok => {
@@ -88,7 +88,7 @@ pub(super) fn run_ws_tunnel(client: TcpStream, dc: u8, target: SocketAddr, state
     let resolved_addr = match ws_bootstrap::resolve_ws_tunnel_addr(dc, state.runtime_context.as_ref()) {
         Ok(addr) => Some(addr),
         Err(err) => {
-            log::warn!("WS tunnel encrypted DNS bootstrap failed for DC{dc}: {err}");
+            tracing::warn!("WS tunnel encrypted DNS bootstrap failed for DC{dc}: {err}");
             None
         }
     };
@@ -96,7 +96,7 @@ pub(super) fn run_ws_tunnel(client: TcpStream, dc: u8, target: SocketAddr, state
     match ripdpi_ws_tunnel::relay_ws_tunnel(client, dc, target, &config) {
         Result::Ok(()) => WsTunnelResult::Ok,
         Err(err) => {
-            log::warn!("WS tunnel failed for DC{dc}, falling back to desync: {}", err.error);
+            tracing::warn!("WS tunnel failed for DC{dc}, falling back to desync: {}", err.error);
             match err.init_packet {
                 Some(init) => WsTunnelResult::Fallback { init_packet: init.to_vec() },
                 None => WsTunnelResult::FallbackNoInit,

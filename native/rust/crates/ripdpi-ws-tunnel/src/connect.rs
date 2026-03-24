@@ -2,8 +2,11 @@ use std::io;
 use std::net::{SocketAddr, TcpStream, ToSocketAddrs};
 use std::time::Duration;
 
+#[cfg(feature = "chrome-fingerprint")]
+use boring::ssl::{SslConnector, SslMethod, SslStream};
 use socket2::{Domain, Protocol, SockAddr, Socket, Type};
 use tungstenite::client::IntoClientRequest;
+#[cfg(not(feature = "chrome-fingerprint"))]
 use tungstenite::stream::MaybeTlsStream;
 use tungstenite::WebSocket;
 
@@ -11,7 +14,16 @@ use crate::dc::ws_url;
 use crate::protect;
 
 /// A connected WebSocket tunnel to a Telegram DC.
+#[cfg(not(feature = "chrome-fingerprint"))]
 pub type WsStream = WebSocket<MaybeTlsStream<TcpStream>>;
+
+/// A connected WebSocket tunnel to a Telegram DC (BoringSSL TLS backend).
+///
+/// When the `chrome-fingerprint` feature is enabled, TLS is handled by
+/// BoringSSL (via the `boring` crate) instead of rustls. This produces a
+/// ClientHello indistinguishable from Chrome, defeating JA3/JA4 fingerprinting.
+#[cfg(feature = "chrome-fingerprint")]
+pub type WsStream = WebSocket<SslStream<TcpStream>>;
 
 /// Read timeout on the WebSocket's underlying TCP socket. The relay now owns
 /// the WebSocket on one thread and uses this timeout as its I/O poll cadence
@@ -83,6 +95,7 @@ fn build_ws_request(url: &str) -> io::Result<tungstenite::http::Request<()>> {
 ///
 /// If `protect_path` is provided, the underlying TCP socket is protected from
 /// Android VPN routing loops before connecting.
+#[cfg(not(feature = "chrome-fingerprint"))]
 pub fn open_ws_tunnel(dc: u8, resolved_addr: Option<SocketAddr>, protect_path: Option<&str>) -> io::Result<WsStream> {
     let url = ws_url(dc);
     let (_host, target) = resolve_ws_target(dc, resolved_addr)?;
@@ -91,6 +104,37 @@ pub fn open_ws_tunnel(dc: u8, resolved_addr: Option<SocketAddr>, protect_path: O
 
     // Perform WS handshake; tungstenite handles TLS via rustls for wss:// URLs
     let (ws, _response) = tungstenite::client_tls(request, tcp)
+        .map_err(|e| io::Error::new(io::ErrorKind::ConnectionRefused, format!("WS handshake: {e}")))?;
+
+    Ok(ws)
+}
+
+/// Open a WebSocket tunnel to the given Telegram DC.
+///
+/// Uses BoringSSL for TLS, producing a Chrome-compatible JA3/JA4 fingerprint
+/// that is indistinguishable from real Chrome traffic to DPI systems.
+///
+/// If `protect_path` is provided, the underlying TCP socket is protected from
+/// Android VPN routing loops before connecting.
+#[cfg(feature = "chrome-fingerprint")]
+pub fn open_ws_tunnel(dc: u8, resolved_addr: Option<SocketAddr>, protect_path: Option<&str>) -> io::Result<WsStream> {
+    let url = ws_url(dc);
+    let (host, target) = resolve_ws_target(dc, resolved_addr)?;
+    let tcp = connect_tcp_socket(target, protect_path)?;
+
+    // BoringSSL TLS handshake -- produces Chrome-native cipher suite ordering,
+    // GREASE values, and extension layout for DPI fingerprint evasion.
+    let connector = SslConnector::builder(SslMethod::tls())
+        .map_err(|e| io::Error::new(io::ErrorKind::Other, format!("boring SSL builder: {e}")))?
+        .build();
+    let tls_stream = connector
+        .connect(&host, tcp)
+        .map_err(|e| io::Error::new(io::ErrorKind::ConnectionRefused, format!("boring TLS: {e}")))?;
+
+    let request = build_ws_request(url.as_str())?;
+
+    // WebSocket handshake over the pre-established BoringSSL stream
+    let (ws, _response) = tungstenite::client(request, tls_stream)
         .map_err(|e| io::Error::new(io::ErrorKind::ConnectionRefused, format!("WS handshake: {e}")))?;
 
     Ok(ws)
