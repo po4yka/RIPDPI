@@ -174,7 +174,8 @@ pub(crate) fn classify_probe_outcome(
         bucket,
         event_level: match bucket {
             ProbeOutcomeBucket::Healthy => "info",
-            ProbeOutcomeBucket::Attention | ProbeOutcomeBucket::Failed | ProbeOutcomeBucket::Inconclusive => "warn",
+            ProbeOutcomeBucket::Failed => "error",
+            ProbeOutcomeBucket::Attention | ProbeOutcomeBucket::Inconclusive => "warn",
         },
         healthy_enough_for_summary: matches!(bucket, ProbeOutcomeBucket::Healthy),
     }
