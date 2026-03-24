@@ -12,6 +12,7 @@ crate-type = ["cdylib"]
 
 [dependencies]
 android-support = { workspace = true }
+arc-swap = { workspace = true }
 ripdpi-tunnel-config = { workspace = true }
 ripdpi-tunnel-core = { workspace = true }
 jni = { workspace = true }
