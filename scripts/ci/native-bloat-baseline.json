@@ -1,0 +1,389 @@
+{
+  "target": "x86_64-linux-android",
+  "profile": "android-jni",
+  "topFunctions": 20,
+  "topCrates": 20,
+  "maxTextSectionGrowthBytes": 131072,
+  "maxFunctionGrowthBytes": 4096,
+  "maxCrateGrowthBytes": 16384,
+  "maxNewFunctionSizeBytes": 12288,
+  "maxNewCrateSizeBytes": 65536,
+  "packages": {
+    "ripdpi-android": {
+      "fileSize": 10382952,
+      "textSectionSize": 3047946,
+      "functions": [
+        {
+          "crate": "ripdpi_android",
+          "name": "ripdpi_android::diagnostics::scan::decode_scan_request",
+          "size": 31401
+        },
+        {
+          "crate": "ripdpi_config",
+          "name": "ripdpi_config::parse::cli::parse_cli",
+          "size": 19571
+        },
+        {
+          "crate": "std",
+          "name": "std::backtrace_rs::symbolize::gimli::Cache::with_global",
+          "size": 19273
+        },
+        {
+          "crate": "ripdpi_dns_resolver",
+          "name": "ripdpi_dns_resolver::resolver::EncryptedDnsResolver::exchange_with_metadata::{{closure}}",
+          "size": 16821
+        },
+        {
+          "crate": "ripdpi_runtime",
+          "name": "ripdpi_runtime::runtime::relay::relay",
+          "size": 15078
+        },
+        {
+          "crate": "h2",
+          "name": "h2::codec::framed_read::decode_frame",
+          "size": 12222
+        },
+        {
+          "crate": "ring",
+          "name": "ring_core_0_17_14__chacha20_poly1305_seal_avx2",
+          "size": 12065
+        },
+        {
+          "crate": "data_encoding",
+          "name": "data_encoding::Encoding::encode_mut",
+          "size": 11802
+        },
+        {
+          "crate": "std",
+          "name": "std::backtrace_rs::symbolize::gimli::Context::new",
+          "size": 11723
+        },
+        {
+          "crate": "hyper_util",
+          "name": "hyper_util::client::legacy::client::Client<C,B>::send_request::{{closure}}",
+          "size": 11717
+        },
+        {
+          "crate": "rustls",
+          "name": "<rustls::client::hs::ExpectServerHello as rustls::common_state::State<rustls::client::client_conn::ClientConnectionData>>::handle",
+          "size": 11635
+        },
+        {
+          "crate": "ripdpi_monitor",
+          "name": "std::sys::backtrace::__rust_begin_short_backtrace",
+          "size": 11074
+        },
+        {
+          "crate": "http",
+          "name": "http::header::name::StandardHeader::from_bytes",
+          "size": 11030
+        },
+        {
+          "crate": "rustls",
+          "name": "rustls::client::hs::emit_client_hello_for_retry",
+          "size": 10964
+        },
+        {
+          "crate": "ripdpi_monitor",
+          "name": "<ripdpi_monitor::engine::runners::connectivity::TelegramRunner as ripdpi_monitor::engine::runtime::ExecutionStageRunner>::run",
+          "size": 10786
+        },
+        {
+          "crate": "ripdpi_monitor",
+          "name": "<ripdpi_monitor::engine::runners::connectivity::DnsRunner as ripdpi_monitor::engine::runtime::ExecutionStageRunner>::run",
+          "size": 10577
+        },
+        {
+          "crate": "reqwest",
+          "name": "reqwest::async_impl::client::ClientBuilder::build",
+          "size": 10121
+        },
+        {
+          "crate": "ripdpi_proxy_config",
+          "name": "ripdpi_proxy_config::convert::runtime_config_from_ui",
+          "size": 9817
+        },
+        {
+          "crate": "ring",
+          "name": "ring_core_0_17_14__chacha20_poly1305_open_avx2",
+          "size": 9678
+        },
+        {
+          "crate": "ripdpi_monitor",
+          "name": "ripdpi_monitor::observations::observation_for_probe",
+          "size": 9412
+        }
+      ],
+      "crates": [
+        {
+          "name": "std",
+          "size": 562763
+        },
+        {
+          "name": "rustls",
+          "size": 278956
+        },
+        {
+          "name": "reqwest",
+          "size": 267274
+        },
+        {
+          "name": "ripdpi_monitor",
+          "size": 263171
+        },
+        {
+          "name": "ripdpi_runtime",
+          "size": 207389
+        },
+        {
+          "name": "ring",
+          "size": 195426
+        },
+        {
+          "name": "h2",
+          "size": 115976
+        },
+        {
+          "name": "ripdpi_proxy_config",
+          "size": 112697
+        },
+        {
+          "name": "ripdpi_dns_resolver",
+          "size": 77094
+        },
+        {
+          "name": "hickory_proto",
+          "size": 76564
+        },
+        {
+          "name": "webpki",
+          "size": 65502
+        },
+        {
+          "name": "[Unknown]",
+          "size": 60036
+        },
+        {
+          "name": "hyper_util",
+          "size": 52949
+        },
+        {
+          "name": "tokio",
+          "size": 47252
+        },
+        {
+          "name": "hyper",
+          "size": 44264
+        },
+        {
+          "name": "ripdpi_android",
+          "size": 41016
+        },
+        {
+          "name": "ripdpi_config",
+          "size": 40878
+        },
+        {
+          "name": "curve25519_dalek",
+          "size": 40646
+        },
+        {
+          "name": "tungstenite",
+          "size": 37209
+        },
+        {
+          "name": "http",
+          "size": 35128
+        }
+      ]
+    },
+    "ripdpi-tunnel-android": {
+      "fileSize": 8404200,
+      "textSectionSize": 2267322,
+      "functions": [
+        {
+          "crate": "std",
+          "name": "std::backtrace_rs::symbolize::gimli::Cache::with_global",
+          "size": 19697
+        },
+        {
+          "crate": "ripdpi_tunnel_core",
+          "name": "ripdpi_tunnel_core::io_loop::dns_intercept::spawn_dns_worker::{{closure}}",
+          "size": 19046
+        },
+        {
+          "crate": "ripdpi_tunnel_core",
+          "name": "ripdpi_tunnel_core::io_loop::io_loop_task::{{closure}}",
+          "size": 18058
+        },
+        {
+          "crate": "ripdpi_tunnel_android?",
+          "name": "<ripdpi_tunnel_android::config::_::<impl serde_core::de::Deserialize for ripdpi_tunnel_android::config::TunnelConfigPayload>::deserialize::__Visitor as serde_core::de::Visitor>::visit_map",
+          "size": 13874
+        },
+        {
+          "crate": "ripdpi_tunnel_android",
+          "name": "ripdpi_tunnel_android::session::lifecycle::create_session",
+          "size": 13250
+        },
+        {
+          "crate": "h2",
+          "name": "h2::codec::framed_read::decode_frame",
+          "size": 12222
+        },
+        {
+          "crate": "ring",
+          "name": "ring_core_0_17_14__chacha20_poly1305_seal_avx2",
+          "size": 12065
+        },
+        {
+          "crate": "data_encoding",
+          "name": "data_encoding::Encoding::encode_mut",
+          "size": 11802
+        },
+        {
+          "crate": "std",
+          "name": "std::backtrace_rs::symbolize::gimli::Context::new",
+          "size": 11723
+        },
+        {
+          "crate": "hyper_util",
+          "name": "hyper_util::client::legacy::client::Client<C,B>::send_request::{{closure}}",
+          "size": 11717
+        },
+        {
+          "crate": "rustls",
+          "name": "<rustls::client::hs::ExpectServerHello as rustls::common_state::State<rustls::client::client_conn::ClientConnectionData>>::handle",
+          "size": 11635
+        },
+        {
+          "crate": "http",
+          "name": "http::header::name::StandardHeader::from_bytes",
+          "size": 11030
+        },
+        {
+          "crate": "rustls",
+          "name": "rustls::client::hs::emit_client_hello_for_retry",
+          "size": 10964
+        },
+        {
+          "crate": "reqwest",
+          "name": "reqwest::async_impl::client::ClientBuilder::build",
+          "size": 10121
+        },
+        {
+          "crate": "ring",
+          "name": "ring_core_0_17_14__chacha20_poly1305_open_avx2",
+          "size": 9678
+        },
+        {
+          "crate": "curve25519_dalek",
+          "name": "<&curve25519_dalek::backend::vector::avx2::field::FieldElement2625x4 as <&curve25519_dalek::backend::vector::avx2::field::FieldElement2625x4 as core::ops::arith::Mul>::mul::__Impl_mul__>::_impl_mul",
+          "size": 9244
+        },
+        {
+          "crate": "std",
+          "name": "gimli::read::dwarf::Unit<R>::new",
+          "size": 9168
+        },
+        {
+          "crate": "reqwest",
+          "name": "<core::pin::Pin<P> as core::future::future::Future>::poll",
+          "size": 9113
+        },
+        {
+          "crate": "ring",
+          "name": "ring_core_0_17_14__chacha20_poly1305_seal_sse41",
+          "size": 8737
+        },
+        {
+          "crate": "std",
+          "name": "core::cell::once::OnceCell<T>::try_init",
+          "size": 8663
+        }
+      ],
+      "crates": [
+        {
+          "name": "std",
+          "size": 439147
+        },
+        {
+          "name": "rustls",
+          "size": 276969
+        },
+        {
+          "name": "reqwest",
+          "size": 268954
+        },
+        {
+          "name": "ring",
+          "size": 196001
+        },
+        {
+          "name": "ripdpi_tunnel_core",
+          "size": 127185
+        },
+        {
+          "name": "h2",
+          "size": 115925
+        },
+        {
+          "name": "hickory_proto",
+          "size": 76494
+        },
+        {
+          "name": "tokio",
+          "size": 72669
+        },
+        {
+          "name": "webpki",
+          "size": 65356
+        },
+        {
+          "name": "hyper_util",
+          "size": 53251
+        },
+        {
+          "name": "[Unknown]",
+          "size": 50939
+        },
+        {
+          "name": "ripdpi_dns_resolver",
+          "size": 50209
+        },
+        {
+          "name": "hyper",
+          "size": 44264
+        },
+        {
+          "name": "curve25519_dalek",
+          "size": 40646
+        },
+        {
+          "name": "smoltcp",
+          "size": 38649
+        },
+        {
+          "name": "http",
+          "size": 33575
+        },
+        {
+          "name": "idna",
+          "size": 29876
+        },
+        {
+          "name": "ripdpi_tunnel_android",
+          "size": 29249
+        },
+        {
+          "name": "url",
+          "size": 26256
+        },
+        {
+          "name": "data_encoding",
+          "size": 19479
+        }
+      ]
+    }
+  }
+}
