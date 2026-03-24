@@ -251,10 +251,10 @@ pub fn extract_ip_answers(packet: &[u8]) -> Result<Vec<String>, EncryptedDnsErro
     let mut answers = BTreeSet::new();
     for record in message.answers() {
         match record.data() {
-            Some(RData::A(address)) => {
+            RData::A(address) => {
                 answers.insert(IpAddr::V4(address.0).to_string());
             }
-            Some(RData::AAAA(address)) => {
+            RData::AAAA(address) => {
                 answers.insert(IpAddr::V6(address.0).to_string());
             }
             _ => {}

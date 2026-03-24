@@ -91,7 +91,7 @@ impl DnsCache {
 
         for record in message.answers_mut().iter_mut() {
             let replacement = match record.data() {
-                Some(RData::A(address)) => {
+                RData::A(address) => {
                     let (mapped, hit) = self.find(&host, u32::from(address.0))?;
                     if hit {
                         cache_hits += 1;
@@ -103,7 +103,7 @@ impl DnsCache {
                 _ => None,
             };
             if let Some(data) = replacement {
-                record.set_data(Some(data));
+                record.set_data(data);
             }
         }
 
@@ -243,15 +243,15 @@ mod tests {
             .add_query(Query::query(Name::from_ascii(name).expect("name"), RecordType::A));
 
         for ip in ips {
-            let mut record = Record::with(Name::from_ascii(name).expect("name"), RecordType::A, 60);
-            record.set_data(Some(RData::A(A(*ip))));
-            message.add_answer(record);
+            message.add_answer(Record::from_rdata(Name::from_ascii(name).expect("name"), 60, RData::A(A(*ip))));
         }
 
         if include_aaaa {
-            let mut record = Record::with(Name::from_ascii(name).expect("name"), RecordType::AAAA, 120);
-            record.set_data(Some(RData::AAAA(AAAA(Ipv6Addr::LOCALHOST))));
-            message.add_answer(record);
+            message.add_answer(Record::from_rdata(
+                Name::from_ascii(name).expect("name"),
+                120,
+                RData::AAAA(AAAA(Ipv6Addr::LOCALHOST)),
+            ));
         }
 
         message.to_vec().expect("response encodes")
@@ -263,7 +263,7 @@ mod tests {
             .answers()
             .iter()
             .filter_map(|record| match record.data() {
-                Some(RData::A(address)) => Some(address.0),
+                RData::A(address) => Some(address.0),
                 _ => None,
             })
             .collect()
@@ -275,7 +275,7 @@ mod tests {
             .answers()
             .iter()
             .filter_map(|record| match record.data() {
-                Some(RData::AAAA(address)) => Some(address.0),
+                RData::AAAA(address) => Some(address.0),
                 _ => None,
             })
             .collect()

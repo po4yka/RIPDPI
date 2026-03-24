@@ -412,7 +412,7 @@ impl EncryptedDnsResolver {
         let mut best: Option<DnsCryptCachedCertificate> = None;
 
         for answer in message.answers() {
-            let Some(RData::TXT(txt)) = answer.data() else {
+            let RData::TXT(txt) = answer.data() else {
                 continue;
             };
             let mut bytes = Vec::new();
