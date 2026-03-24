@@ -9,6 +9,7 @@ use rand::RngCore;
 use reqwest::header::{ACCEPT, CONTENT_TYPE};
 use rustls::client::danger::ServerCertVerifier;
 use rustls::pki_types::{CertificateDer, ServerName};
+use rustls::ClientConfig;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpStream as TokioTcpStream;
 use tokio::runtime::Builder;
@@ -80,8 +81,7 @@ struct ResolverInner {
     transport: EncryptedDnsTransport,
     timeout: Duration,
     doh_client: Option<reqwest::Client>,
-    tls_roots: Vec<CertificateDer<'static>>,
-    tls_verifier: Option<Arc<dyn ServerCertVerifier>>,
+    dot_tls_config: Arc<ClientConfig>,
     dnscrypt_state: Mutex<Option<DnsCryptCachedCertificate>>,
     connection_pool: ConnectionPool,
     health: Option<HealthRegistry>,
@@ -131,6 +131,7 @@ impl EncryptedDnsResolver {
         tls_verifier: Option<Arc<dyn ServerCertVerifier>>,
     ) -> Result<Self, EncryptedDnsError> {
         let normalized = normalize_endpoint(endpoint, &transport)?;
+        let dot_tls_config = build_client_config(tls_verifier.as_ref(), &tls_roots);
         let doh_client = if normalized.protocol == EncryptedDnsProtocol::Doh {
             Some(build_doh_client(
                 &normalized,
@@ -150,8 +151,7 @@ impl EncryptedDnsResolver {
                 transport,
                 timeout,
                 doh_client,
-                tls_roots,
-                tls_verifier,
+                dot_tls_config,
                 dnscrypt_state: Mutex::new(None),
                 connection_pool: ConnectionPool::default(),
                 health,
@@ -287,8 +287,7 @@ impl EncryptedDnsResolver {
         let tcp_stream = self.connect_plain_tcp().await?;
         let tls_name = self.inner.endpoint.tls_server_name.clone().unwrap_or_else(|| self.inner.endpoint.host.clone());
         let server_name = ServerName::try_from(tls_name).map_err(|err| EncryptedDnsError::Tls(err.to_string()))?;
-        let config = build_client_config(self.inner.tls_verifier.as_ref(), &self.inner.tls_roots);
-        let connector = TlsConnector::from(config);
+        let connector = TlsConnector::from(self.inner.dot_tls_config.clone());
         match timeout(self.inner.timeout, connector.connect(server_name, tcp_stream)).await {
             Ok(Ok(stream)) => Ok(stream),
             Ok(Err(err)) => Err(EncryptedDnsError::Tls(err.to_string())),
