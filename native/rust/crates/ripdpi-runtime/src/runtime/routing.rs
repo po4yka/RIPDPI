@@ -445,13 +445,30 @@ pub(super) fn connect_socket(
         platform::protect_socket(&socket, path)?;
     }
     if tfo {
-        platform::enable_tcp_fastopen_connect(&socket)?;
+        enable_tcp_fastopen_if_supported(&socket)?;
     }
     bind_socket(&socket, bind_ip, target)?;
     socket.connect(&SockAddr::from(target))?;
     let stream: TcpStream = socket.into();
     stream.set_nodelay(true)?;
     Ok(stream)
+}
+
+fn enable_tcp_fastopen_if_supported(socket: &Socket) -> io::Result<()> {
+    match platform::enable_tcp_fastopen_connect(socket) {
+        Ok(()) => Ok(()),
+        #[cfg(target_os = "android")]
+        Err(err) if should_ignore_android_tfo_error(&err) => {
+            tracing::debug!("TCP Fast Open unavailable on this Android build: {err}");
+            Ok(())
+        }
+        Err(err) => Err(err),
+    }
+}
+
+#[cfg(any(test, target_os = "android"))]
+fn should_ignore_android_tfo_error(err: &io::Error) -> bool {
+    matches!(err.raw_os_error(), Some(libc::ENOPROTOOPT | libc::EOPNOTSUPP | libc::EPERM | libc::EACCES | libc::EINVAL))
 }
 
 fn bind_socket(socket: &Socket, bind_ip: IpAddr, target: SocketAddr) -> io::Result<()> {
@@ -498,6 +515,31 @@ pub(super) fn reconnect_target(
                 };
                 route = next;
             }
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn android_tfo_capability_errors_are_ignored() {
+        for errno in [libc::ENOPROTOOPT, libc::EOPNOTSUPP, libc::EPERM, libc::EACCES, libc::EINVAL] {
+            assert!(
+                should_ignore_android_tfo_error(&io::Error::from_raw_os_error(errno)),
+                "expected errno {errno} to be ignored on Android",
+            );
+        }
+    }
+
+    #[test]
+    fn android_tfo_runtime_failures_are_not_ignored() {
+        for errno in [libc::ECONNRESET, libc::ETIMEDOUT, libc::EHOSTUNREACH] {
+            assert!(
+                !should_ignore_android_tfo_error(&io::Error::from_raw_os_error(errno)),
+                "expected errno {errno} to remain fatal on Android",
+            );
         }
     }
 }
