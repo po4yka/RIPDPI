@@ -28,3 +28,5 @@ tokio = { workspace = true, features = ["test-util"] }
 tokio-test = "0.4"
 proptest = { workspace = true }
 turmoil = "0.7"
+local-network-fixture = { workspace = true }
+libc = { workspace = true }
