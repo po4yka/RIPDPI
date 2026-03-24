@@ -93,7 +93,7 @@ impl UdpSession {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::net::Ipv4Addr;
+    use std::net::{IpAddr, Ipv4Addr};
     use std::sync::atomic::{AtomicUsize, Ordering};
     use std::sync::Arc;
     use tokio::io::{AsyncReadExt, AsyncWriteExt};
@@ -166,6 +166,91 @@ mod tests {
         });
 
         (proxy_addr, udp_echo_addr, accepted_tcp_connections)
+    }
+
+    async fn read_socks5_assoc_addr<S>(stream: &mut S, atyp: u8) -> io::Result<()>
+    where
+        S: tokio::io::AsyncRead + Unpin,
+    {
+        match atyp {
+            0x01 => {
+                let mut addr = [0u8; 6];
+                stream.read_exact(&mut addr).await?;
+            }
+            0x03 => {
+                let mut len = [0u8; 1];
+                stream.read_exact(&mut len).await?;
+                let mut addr = vec![0u8; usize::from(len[0]) + 2];
+                stream.read_exact(&mut addr).await?;
+            }
+            0x04 => {
+                let mut addr = [0u8; 18];
+                stream.read_exact(&mut addr).await?;
+            }
+            value => panic!("unexpected SOCKS5 atyp {value:#x}"),
+        }
+        Ok(())
+    }
+
+    #[derive(Clone)]
+    struct TurmoilUdpSession {
+        _ctrl: Arc<Mutex<turmoil::net::TcpStream>>,
+        udp: Arc<turmoil::net::UdpSocket>,
+        relay_addr: SocketAddr,
+        recv_timeout: Duration,
+    }
+
+    impl TurmoilUdpSession {
+        async fn connect(proxy_addr: SocketAddr, auth: Auth) -> io::Result<Self> {
+            let mut ctrl = turmoil::net::TcpStream::connect(proxy_addr).await?;
+            handshake(&mut ctrl, &auth).await?;
+            let relay_addr = associate(&mut ctrl).await?;
+
+            let bind_addr: SocketAddr =
+                if relay_addr.is_ipv4() { "0.0.0.0:0".parse().unwrap() } else { "[::]:0".parse().unwrap() };
+            let udp = turmoil::net::UdpSocket::bind(bind_addr).await?;
+
+            Ok(Self {
+                _ctrl: Arc::new(Mutex::new(ctrl)),
+                udp: Arc::new(udp),
+                relay_addr,
+                recv_timeout: DEFAULT_RECV_TIMEOUT,
+            })
+        }
+
+        fn with_recv_timeout(mut self, timeout: Duration) -> Self {
+            self.recv_timeout = timeout;
+            self
+        }
+
+        async fn send_to(&self, dst: SocketAddr, payload: &[u8]) -> io::Result<()> {
+            let frame = encode_udp_frame(dst, payload);
+            let _ = self.udp.send_to(&frame, self.relay_addr).await?;
+            Ok(())
+        }
+
+        async fn recv_from(&self, cancel: CancellationToken) -> io::Result<Option<(Vec<u8>, SocketAddr)>> {
+            let mut buf = vec![0u8; 65535];
+            tokio::select! {
+                result = self.udp.recv_from(&mut buf) => {
+                    let (n, _origin) = result?;
+                    let (from, data) = decode_udp_frame(&buf[..n])?;
+                    Ok(Some((data.to_vec(), from)))
+                }
+                _ = tokio::time::sleep(self.recv_timeout) => Ok(None),
+                _ = cancel.cancelled() => Ok(None),
+            }
+        }
+
+        async fn relay_once(
+            &self,
+            dst: SocketAddr,
+            payload: &[u8],
+            cancel: CancellationToken,
+        ) -> io::Result<Option<(Vec<u8>, SocketAddr)>> {
+            self.send_to(dst, payload).await?;
+            self.recv_from(cancel).await
+        }
     }
 
     // -------------------------------------------------------------------------
@@ -281,5 +366,97 @@ mod tests {
         assert_eq!(first.0, b"ping");
         assert_eq!(second.0, b"push");
         assert_eq!(accepted_tcp_connections.load(Ordering::Relaxed), 1);
+    }
+
+    #[test]
+    fn turmoil_udp_association_recovers_after_partition_repair() -> turmoil::Result {
+        let mut sim = turmoil::Builder::new()
+            .min_message_latency(Duration::from_millis(5))
+            .max_message_latency(Duration::from_millis(5))
+            .build();
+
+        sim.host("proxy", || async move {
+            let relay_port = 5300;
+            let relay = turmoil::net::UdpSocket::bind((IpAddr::V4(Ipv4Addr::UNSPECIFIED), relay_port)).await?;
+            let listener = turmoil::net::TcpListener::bind((IpAddr::V4(Ipv4Addr::UNSPECIFIED), 1080)).await?;
+            let relay_addr = SocketAddr::new(turmoil::lookup("proxy"), relay_port);
+
+            tokio::spawn(async move {
+                let mut buf = vec![0u8; 65535];
+                loop {
+                    let (n, peer) = relay.recv_from(&mut buf).await.expect("udp recv");
+                    let (from, payload) = decode_udp_frame(&buf[..n]).expect("decode udp frame");
+                    let reply = encode_udp_frame(from, payload);
+                    let _ = relay.send_to(&reply, peer).await.expect("udp send");
+                }
+            });
+
+            let (mut stream, _) = listener.accept().await?;
+            let mut greeting = [0u8; 3];
+            stream.read_exact(&mut greeting).await?;
+            assert_eq!(greeting, [0x05, 0x01, 0x00]);
+            stream.write_all(&[0x05, 0x00]).await?;
+
+            let mut header = [0u8; 4];
+            stream.read_exact(&mut header).await?;
+            assert_eq!(&header[..3], &[0x05, 0x03, 0x00]);
+            read_socks5_assoc_addr(&mut stream, header[3]).await?;
+            let port_bytes = relay_addr.port().to_be_bytes();
+            let reply = match relay_addr.ip() {
+                IpAddr::V4(ip) => {
+                    let octets = ip.octets();
+                    vec![
+                        0x05,
+                        0x00,
+                        0x00,
+                        0x01,
+                        octets[0],
+                        octets[1],
+                        octets[2],
+                        octets[3],
+                        port_bytes[0],
+                        port_bytes[1],
+                    ]
+                }
+                IpAddr::V6(ip) => {
+                    let mut bytes = vec![0x05, 0x00, 0x00, 0x04];
+                    bytes.extend_from_slice(&ip.octets());
+                    bytes.extend_from_slice(&port_bytes);
+                    bytes
+                }
+            };
+            stream.write_all(&reply).await?;
+
+            tokio::time::sleep(Duration::from_secs(1)).await;
+            Ok(())
+        });
+
+        sim.client("client", async move {
+            let proxy_addr = SocketAddr::new(turmoil::lookup("proxy"), 1080);
+            let dst = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(198, 18, 0, 25)), 5353);
+            let session = TurmoilUdpSession::connect(proxy_addr, Auth::NoAuth)
+                .await
+                .expect("udp session connects")
+                .with_recv_timeout(Duration::from_millis(50));
+
+            turmoil::partition("client", "proxy");
+            let timed_out = session
+                .relay_once(dst, b"lost", CancellationToken::new())
+                .await
+                .expect("partitioned udp relay should not error");
+            assert!(timed_out.is_none(), "partitioned association should deterministically time out");
+
+            turmoil::repair("client", "proxy");
+            let repaired = session
+                .relay_once(dst, b"repaired", CancellationToken::new())
+                .await
+                .expect("repaired udp relay should succeed")
+                .expect("repaired association should receive a response");
+            assert_eq!(repaired.0, b"repaired");
+            assert_eq!(repaired.1, dst);
+            Ok(())
+        });
+
+        sim.run()
     }
 }

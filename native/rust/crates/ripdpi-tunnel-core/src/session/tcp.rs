@@ -1,3 +1,4 @@
+use std::future::Future;
 use std::io;
 use std::net::SocketAddr;
 use tokio::io::{AsyncRead, AsyncWrite};
@@ -31,11 +32,34 @@ impl TcpSession {
     where
         L: AsyncRead + AsyncWrite + Unpin,
     {
-        let mut proxy = TcpStream::connect(self.proxy_addr).await?;
-        super::socks5::handshake(&mut proxy, &self.auth).await?;
-        super::socks5::connect(&mut proxy, &self.target).await?;
+        self.run_with_connector(local, cancel, TcpStream::connect).await
+    }
+
+    async fn run_with_connector<L, C, F, P>(
+        &self,
+        local: &mut L,
+        cancel: CancellationToken,
+        connect: C,
+    ) -> io::Result<()>
+    where
+        L: AsyncRead + AsyncWrite + Unpin,
+        C: FnOnce(SocketAddr) -> F,
+        F: Future<Output = io::Result<P>>,
+        P: AsyncRead + AsyncWrite + Unpin,
+    {
+        let mut proxy = connect(self.proxy_addr).await?;
+        self.run_with_proxy(local, cancel, &mut proxy).await
+    }
+
+    async fn run_with_proxy<L, P>(&self, local: &mut L, cancel: CancellationToken, proxy: &mut P) -> io::Result<()>
+    where
+        L: AsyncRead + AsyncWrite + Unpin,
+        P: AsyncRead + AsyncWrite + Unpin,
+    {
+        super::socks5::handshake(proxy, &self.auth).await?;
+        super::socks5::connect(proxy, &self.target).await?;
         tokio::select! {
-            result = splice(local, &mut proxy) => result.map(|_| ()),
+            result = splice(local, proxy) => result.map(|_| ()),
             _ = cancel.cancelled() => Ok(()),
         }
     }
@@ -61,7 +85,59 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::net::{IpAddr, Ipv4Addr};
     use tokio::io::{duplex, AsyncReadExt, AsyncWriteExt};
+
+    async fn read_socks5_addr<S>(stream: &mut S, atyp: u8) -> io::Result<()>
+    where
+        S: AsyncRead + Unpin,
+    {
+        match atyp {
+            0x01 => {
+                let mut addr = [0u8; 6];
+                stream.read_exact(&mut addr).await?;
+            }
+            0x03 => {
+                let mut len = [0u8; 1];
+                stream.read_exact(&mut len).await?;
+                let mut addr = vec![0u8; usize::from(len[0]) + 2];
+                stream.read_exact(&mut addr).await?;
+            }
+            0x04 => {
+                let mut addr = [0u8; 18];
+                stream.read_exact(&mut addr).await?;
+            }
+            value => panic!("unexpected SOCKS5 atyp {value:#x}"),
+        }
+        Ok(())
+    }
+
+    async fn serve_socks5_echo<S>(stream: &mut S) -> io::Result<()>
+    where
+        S: AsyncRead + AsyncWrite + Unpin,
+    {
+        let mut greeting = [0u8; 3];
+        stream.read_exact(&mut greeting).await?;
+        assert_eq!(greeting, [0x05, 0x01, 0x00], "unexpected SOCKS5 greeting");
+        stream.write_all(&[0x05, 0x00]).await?;
+
+        let mut header = [0u8; 4];
+        stream.read_exact(&mut header).await?;
+        assert_eq!(&header[..3], &[0x05, 0x01, 0x00], "unexpected CONNECT header");
+        read_socks5_addr(stream, header[3]).await?;
+        stream.write_all(&[0x05, 0x00, 0x00, 0x01, 127, 0, 0, 1, 0, 0]).await?;
+
+        let mut buf = [0u8; 1024];
+        loop {
+            let n = stream.read(&mut buf).await?;
+            if n == 0 {
+                break;
+            }
+            stream.write_all(&buf[..n]).await?;
+        }
+        stream.shutdown().await?;
+        Ok(())
+    }
 
     // ─────────────────────────────────────────────────────────────
     // Helpers
@@ -195,5 +271,84 @@ mod tests {
 
         assert_eq!(fwd, data.len() as u64, "all forward bytes must be counted on local EOF");
         assert_eq!(received, data, "local EOF must not drop in-flight data before delivering to proxy");
+    }
+
+    #[test]
+    fn turmoil_tcp_session_reconnects_after_partition_repair() -> turmoil::Result {
+        let mut sim = turmoil::Builder::new().build();
+
+        sim.host("proxy", || async move {
+            let listener = turmoil::net::TcpListener::bind((IpAddr::V4(Ipv4Addr::UNSPECIFIED), 1080)).await?;
+            for _ in 0..2 {
+                let (mut stream, _) = listener.accept().await?;
+                serve_socks5_echo(&mut stream).await?;
+            }
+            Ok(())
+        });
+
+        sim.client("client", async move {
+            let proxy_addr = SocketAddr::new(turmoil::lookup("proxy"), 1080);
+            let session =
+                TcpSession::new(proxy_addr, Auth::NoAuth, TargetAddr::Domain("fixture.test".to_string(), 443));
+
+            turmoil::partition("client", "proxy");
+            let (mut failed_local, _failed_peer) = tokio::io::duplex(128);
+            let err = session
+                .run_with_connector(&mut failed_local, CancellationToken::new(), turmoil::net::TcpStream::connect)
+                .await
+                .expect_err("partitioned connect must fail");
+            assert_eq!(err.kind(), io::ErrorKind::ConnectionRefused);
+
+            turmoil::repair("client", "proxy");
+
+            let (mut local, mut peer) = tokio::io::duplex(1024);
+            let payload = b"repaired-path";
+            peer.write_all(payload).await.unwrap();
+            peer.shutdown().await.unwrap();
+
+            session
+                .run_with_connector(&mut local, CancellationToken::new(), turmoil::net::TcpStream::connect)
+                .await
+                .expect("session should reconnect after partition repair");
+
+            let mut echoed = Vec::new();
+            peer.read_to_end(&mut echoed).await.unwrap();
+            assert_eq!(echoed, payload);
+            Ok(())
+        });
+
+        sim.run()
+    }
+
+    #[test]
+    fn turmoil_tcp_session_times_out_while_connect_path_is_held() -> turmoil::Result {
+        let mut sim = turmoil::Builder::new().build();
+
+        sim.host("proxy", || async move {
+            let listener = turmoil::net::TcpListener::bind((IpAddr::V4(Ipv4Addr::UNSPECIFIED), 1080)).await?;
+            let (mut stream, _) = listener.accept().await?;
+            serve_socks5_echo(&mut stream).await?;
+            Ok(())
+        });
+
+        sim.client("client", async move {
+            let proxy_addr = SocketAddr::new(turmoil::lookup("proxy"), 1080);
+            let session =
+                TcpSession::new(proxy_addr, Auth::NoAuth, TargetAddr::Ip(SocketAddr::new(proxy_addr.ip(), 80)));
+            let (mut local, _peer) = tokio::io::duplex(128);
+
+            turmoil::hold("client", "proxy");
+            let held = tokio::time::timeout(
+                std::time::Duration::from_secs(1),
+                session.run_with_connector(&mut local, CancellationToken::new(), turmoil::net::TcpStream::connect),
+            )
+            .await;
+            assert!(held.is_err(), "held connect path should block deterministically");
+
+            turmoil::release("client", "proxy");
+            Ok(())
+        });
+
+        sim.run()
     }
 }

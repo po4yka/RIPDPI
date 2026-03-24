@@ -27,3 +27,4 @@ fast-socks5 = { workspace = true }
 tokio = { workspace = true, features = ["test-util", "macros"] }
 tokio-test = "0.4"
 proptest = { workspace = true }
+turmoil = "0.7"

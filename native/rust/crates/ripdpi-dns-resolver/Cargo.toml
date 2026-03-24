@@ -32,3 +32,4 @@ local-network-fixture = { workspace = true }
 rcgen = { workspace = true }
 rustls = { workspace = true }
 tokio = { workspace = true }
+turmoil = "0.7"
