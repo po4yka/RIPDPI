@@ -1,53 +1,41 @@
-use std::io;
-use std::sync::{Arc, Mutex};
-use std::thread::JoinHandle;
+mod lifecycle;
+mod registry;
+mod stats;
+mod telemetry;
 
-use android_support::{
-    android_log_level_from_str, clear_android_log_scope_level, set_android_log_scope_level, throw_illegal_argument,
-    throw_illegal_state, throw_io_exception, throw_runtime_exception, HandleRegistry,
-};
-use jni::objects::{JObject, JString};
+#[cfg(test)]
+use std::sync::{Arc, Mutex};
+
+use android_support::throw_runtime_exception;
+use jni::objects::JString;
 use jni::sys::{jint, jlong, jlongArray};
 use jni::JNIEnv;
-use once_cell::sync::{Lazy, OnceCell};
-use ripdpi_tunnel_core::{DnsStatsSnapshot, Stats};
-use tokio::runtime::Runtime;
+#[cfg(test)]
+use ripdpi_tunnel_core::DnsStatsSnapshot;
+#[cfg(test)]
 use tokio_util::sync::CancellationToken;
 
-use crate::config::{config_from_payload, mapdns_resolver_protocol, parse_tunnel_config_json};
+#[cfg(test)]
+use crate::config::config_from_payload;
+#[cfg(test)]
+use crate::config::mapdns_resolver_protocol;
+#[cfg(test)]
 use crate::telemetry::TunnelTelemetryState;
+#[cfg(test)]
 use crate::to_handle;
 
-pub(crate) static SESSIONS: Lazy<HandleRegistry<TunnelSession>> = Lazy::new(HandleRegistry::new);
-static SHARED_TUNNEL_RUNTIME: OnceCell<Arc<Runtime>> = OnceCell::new();
+use lifecycle::{create_session, destroy_session, start_session, stop_session};
+use stats::stats_session;
+use telemetry::telemetry_session;
 
-pub(crate) struct TunnelSession {
-    pub(crate) runtime: Arc<Runtime>,
-    pub(crate) config: Arc<ripdpi_tunnel_config::Config>,
-    pub(crate) last_error: Arc<Mutex<Option<String>>>,
-    pub(crate) telemetry: Arc<TunnelTelemetryState>,
-    pub(crate) state: Mutex<TunnelSessionState>,
-}
-
-pub(crate) enum TunnelSessionState {
-    Ready,
-    Starting,
-    Running { cancel: Arc<CancellationToken>, stats: Arc<Stats>, worker: JoinHandle<()> },
-}
-
-fn build_shared_tunnel_runtime() -> io::Result<Arc<Runtime>> {
-    tokio::runtime::Builder::new_multi_thread()
-        .worker_threads(2)
-        .thread_stack_size(1024 * 1024)
-        .thread_name("ripdpi-tunnel-tokio")
-        .enable_all()
-        .build()
-        .map(Arc::new)
-}
-
-fn shared_tunnel_runtime() -> io::Result<Arc<Runtime>> {
-    SHARED_TUNNEL_RUNTIME.get_or_try_init(build_shared_tunnel_runtime).map(Arc::clone)
-}
+pub(crate) use lifecycle::{
+    ensure_tunnel_destroyable, ensure_tunnel_start_allowed, rollback_failed_tunnel_start, take_running_tunnel,
+    validate_tun_fd,
+};
+pub(crate) use registry::{
+    lookup_tunnel_session, remove_tunnel_session, shared_tunnel_runtime, TunnelSession, TunnelSessionState, SESSIONS,
+};
+pub(crate) use stats::stats_snapshots_for_state;
 
 pub(crate) fn tunnel_create_entry(mut env: JNIEnv, config_json: JString) -> jlong {
     android_support::init_android_logging("ripdpi-tunnel-native");
@@ -93,330 +81,6 @@ pub(crate) fn tunnel_destroy_entry(mut env: JNIEnv, handle: jlong) {
     android_support::init_android_logging("ripdpi-tunnel-native");
     let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| destroy_session(&mut env, handle)))
         .map_err(|_| throw_runtime_exception(&mut env, "Tunnel session destroy panicked"));
-}
-
-fn create_session(env: &mut JNIEnv, config_json: JString) -> jlong {
-    let json: String = match env.get_string(&config_json) {
-        Ok(value) => value.into(),
-        Err(_) => {
-            throw_illegal_argument(env, "Invalid tunnel config payload");
-            return 0;
-        }
-    };
-    let payload = match parse_tunnel_config_json(&json) {
-        Ok(payload) => payload,
-        Err(err) => {
-            throw_illegal_argument(env, err);
-            return 0;
-        }
-    };
-    let config = match config_from_payload(payload) {
-        Ok(config) => Arc::new(config),
-        Err(message) => {
-            throw_illegal_argument(env, message);
-            return 0;
-        }
-    };
-    let native_log_level = match android_log_level_from_str(&config.misc.log_level) {
-        Some(level) => level,
-        None => {
-            throw_illegal_argument(env, format!("Unsupported tunnel logLevel: {}", config.misc.log_level));
-            return 0;
-        }
-    };
-    let runtime = match shared_tunnel_runtime() {
-        Ok(runtime) => runtime,
-        Err(err) => {
-            throw_io_exception(env, format!("Failed to initialize Tokio runtime: {err}"));
-            return 0;
-        }
-    };
-    let telemetry = Arc::new(TunnelTelemetryState::new());
-    set_android_log_scope_level(telemetry.log_scope().to_string(), native_log_level);
-
-    SESSIONS.insert(TunnelSession {
-        runtime,
-        config,
-        last_error: Arc::new(Mutex::new(None)),
-        telemetry,
-        state: Mutex::new(TunnelSessionState::Ready),
-    }) as jlong
-}
-
-fn start_session(env: &mut JNIEnv, handle: jlong, tun_fd: jint) {
-    let session = match lookup_tunnel_session(handle) {
-        Ok(session) => session,
-        Err(message) => {
-            throw_illegal_argument(env, message);
-            return;
-        }
-    };
-    if let Err(message) = validate_tun_fd(tun_fd) {
-        throw_illegal_argument(env, message);
-        return;
-    }
-    // Duplicate the fd so run_tunnel owns an independent copy.
-    // If VpnService revokes the original fd, the dup'd fd remains valid
-    // until run_tunnel closes it via File::from_raw_fd.
-    let owned_fd = match nix::unistd::dup(tun_fd) {
-        Ok(fd) => fd,
-        Err(err) => {
-            throw_io_exception(env, format!("Failed to dup TUN fd: {err}"));
-            return;
-        }
-    };
-    let runtime = session.runtime.clone();
-
-    let cancel = Arc::new(CancellationToken::new());
-    let stats = Arc::new(Stats::new());
-    let config = session.config.clone();
-    let last_error = session.last_error.clone();
-    let telemetry = session.telemetry.clone();
-
-    // Wire the DNS latency histogram: clone shares the Arc<Mutex<Histogram>>
-    // inside LatencyHistogram so the closure and telemetry state observe the
-    // same underlying data without requiring ripdpi-tunnel-core to import ripdpi-telemetry.
-    let dns_histogram = telemetry.dns_histogram.clone();
-    stats.set_dns_latency_observer(Arc::new(move |ms| dns_histogram.record(ms)));
-
-    {
-        let mut state = session.state.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
-        if let Err(message) = ensure_tunnel_start_allowed(&state) {
-            // Bug H4 fix: close the dup'd fd before returning.
-            let _ = nix::unistd::close(owned_fd);
-            throw_illegal_state(env, message);
-            return;
-        }
-        // Bug H3 fix: atomically transition to Starting while holding the lock,
-        // so no concurrent call can also see Ready.
-        *state = TunnelSessionState::Starting;
-    }
-
-    {
-        let mut guard = session.last_error.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
-        *guard = None;
-    }
-    telemetry.mark_started(format!("{}:{}", session.config.socks5.address, session.config.socks5.port));
-
-    let worker_cancel = cancel.clone();
-    let worker_stats = stats.clone();
-    let worker = match std::thread::Builder::new().name("ripdpi-tunnel-worker".into()).spawn(move || {
-        let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-            runtime.block_on(ripdpi_tunnel_core::run_tunnel(
-                config,
-                owned_fd,
-                (*worker_cancel).clone(),
-                worker_stats.clone(),
-            ))
-        }));
-
-        match result {
-            Ok(Ok(())) => {}
-            Ok(Err(err)) => {
-                telemetry.log_line("worker", "error", &format!("worker exited with error: {err}"));
-                let mut guard = last_error.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
-                *guard = Some(err.to_string());
-                drop(guard);
-                telemetry.record_error(err.to_string());
-            }
-            Err(panic) => {
-                let msg = if let Some(s) = panic.downcast_ref::<&str>() {
-                    s.to_string()
-                } else if let Some(s) = panic.downcast_ref::<String>() {
-                    s.clone()
-                } else {
-                    "unknown panic".to_string()
-                };
-                telemetry.log_line("worker", "error", &format!("worker panicked: {msg}"));
-                let mut guard = last_error.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
-                *guard = Some(format!("Tunnel worker panicked: {msg}"));
-                drop(guard);
-                telemetry.record_error(format!("Tunnel worker panicked: {msg}"));
-            }
-        }
-        telemetry.mark_stopped();
-    }) {
-        Ok(worker) => worker,
-        Err(err) => {
-            rollback_failed_tunnel_start(&session, owned_fd, format!("failed to spawn tunnel worker thread: {err}"));
-            throw_io_exception(env, format!("Failed to spawn tunnel worker thread: {err}"));
-            return;
-        }
-    };
-
-    let mut state = session.state.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
-    *state = TunnelSessionState::Running { cancel, stats, worker };
-}
-
-fn stop_session(env: &mut JNIEnv, handle: jlong) {
-    let session = match lookup_tunnel_session(handle) {
-        Ok(session) => session,
-        Err(message) => {
-            throw_illegal_argument(env, message);
-            return;
-        }
-    };
-
-    let running = {
-        let mut state = session.state.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
-        match take_running_tunnel(&mut state) {
-            Ok(running) => running,
-            Err(message) => {
-                throw_illegal_state(env, message);
-                return;
-            }
-        }
-    };
-
-    running.0.cancel();
-    session.telemetry.mark_stop_requested();
-    if running.1.join().is_err() {
-        session.telemetry.log_line("worker", "error", "tunnel worker panicked during shutdown");
-    }
-}
-
-fn stats_session(env: &mut JNIEnv, handle: jlong) -> jlongArray {
-    let session = match lookup_tunnel_session(handle) {
-        Ok(session) => session,
-        Err(message) => {
-            throw_illegal_argument(env, message);
-            return std::ptr::null_mut();
-        }
-    };
-
-    let snapshot = {
-        let state = session.state.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
-        stats_snapshots_for_state(&state).0
-    };
-
-    match env.new_long_array(4) {
-        Ok(arr) => {
-            let values: [i64; 4] = [snapshot.0 as i64, snapshot.1 as i64, snapshot.2 as i64, snapshot.3 as i64];
-            if env.set_long_array_region(&arr, 0, &values).is_ok() {
-                arr.into_raw()
-            } else {
-                std::ptr::null_mut()
-            }
-        }
-        Err(_) => std::ptr::null_mut(),
-    }
-}
-
-fn telemetry_session(env: &mut JNIEnv, handle: jlong) -> jni::sys::jstring {
-    let result = env.with_local_frame_returning_local(4, |env| {
-        let session = match lookup_tunnel_session(handle) {
-            Ok(session) => session,
-            Err(message) => {
-                throw_illegal_argument(env, message);
-                return Ok(JObject::null());
-            }
-        };
-        let (traffic_stats, dns_stats) = {
-            let state = session.state.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
-            stats_snapshots_for_state(&state)
-        };
-        let resolver_id = session.config.mapdns.as_ref().and_then(|mapdns| mapdns.resolver_id.clone());
-        let resolver_protocol = session.config.mapdns.as_ref().and_then(mapdns_resolver_protocol);
-        match serde_json::to_string(&session.telemetry.snapshot(
-            traffic_stats,
-            dns_stats,
-            resolver_id,
-            resolver_protocol,
-        )) {
-            Ok(value) => env.new_string(value).map(|s| s.into()),
-            Err(err) => {
-                throw_runtime_exception(env, err.to_string());
-                Ok(JObject::null())
-            }
-        }
-    });
-    match result {
-        Ok(obj) => obj.into_raw(),
-        Err(_) => std::ptr::null_mut(),
-    }
-}
-
-fn destroy_session(env: &mut JNIEnv, handle: jlong) {
-    let session = match lookup_tunnel_session(handle) {
-        Ok(session) => session,
-        Err(message) => {
-            throw_illegal_argument(env, message);
-            return;
-        }
-    };
-    let state = session.state.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
-    if let Err(message) = ensure_tunnel_destroyable(&state) {
-        throw_illegal_state(env, message);
-        return;
-    }
-    drop(state);
-    let _ = remove_tunnel_session(handle);
-}
-
-pub(crate) fn lookup_tunnel_session(handle: jlong) -> Result<Arc<TunnelSession>, &'static str> {
-    let handle = to_handle(handle).ok_or("Invalid tunnel handle")?;
-    SESSIONS.get(handle).ok_or("Unknown tunnel handle")
-}
-
-pub(crate) fn remove_tunnel_session(handle: jlong) -> Result<Arc<TunnelSession>, &'static str> {
-    let handle = to_handle(handle).ok_or("Invalid tunnel handle")?;
-    let session = SESSIONS.remove(handle).ok_or("Unknown tunnel handle")?;
-    clear_android_log_scope_level(session.telemetry.log_scope());
-    Ok(session)
-}
-
-pub(crate) fn validate_tun_fd(tun_fd: jint) -> Result<(), &'static str> {
-    if tun_fd < 0 {
-        Err("Invalid TUN file descriptor")
-    } else {
-        Ok(())
-    }
-}
-
-pub(crate) fn ensure_tunnel_start_allowed(state: &TunnelSessionState) -> Result<(), &'static str> {
-    match *state {
-        TunnelSessionState::Ready => Ok(()),
-        TunnelSessionState::Starting => Err("Tunnel session is already starting"),
-        TunnelSessionState::Running { .. } => Err("Tunnel session is already running"),
-    }
-}
-
-pub(crate) fn take_running_tunnel(
-    state: &mut TunnelSessionState,
-) -> Result<(Arc<CancellationToken>, JoinHandle<()>), &'static str> {
-    match std::mem::replace(state, TunnelSessionState::Ready) {
-        TunnelSessionState::Ready | TunnelSessionState::Starting => Err("Tunnel session is not running"),
-        TunnelSessionState::Running { cancel, stats: _, worker } => Ok((cancel, worker)),
-    }
-}
-
-pub(crate) fn stats_snapshots_for_state(state: &TunnelSessionState) -> ((u64, u64, u64, u64), DnsStatsSnapshot) {
-    match state {
-        TunnelSessionState::Ready | TunnelSessionState::Starting => ((0, 0, 0, 0), DnsStatsSnapshot::default()),
-        TunnelSessionState::Running { stats, .. } => (stats.snapshot(), stats.dns_snapshot()),
-    }
-}
-
-pub(crate) fn ensure_tunnel_destroyable(state: &TunnelSessionState) -> Result<(), &'static str> {
-    match *state {
-        TunnelSessionState::Ready => Ok(()),
-        TunnelSessionState::Starting => Err("Cannot destroy a starting tunnel session"),
-        TunnelSessionState::Running { .. } => Err("Cannot destroy a running tunnel session"),
-    }
-}
-
-fn rollback_failed_tunnel_start(session: &TunnelSession, owned_fd: i32, message: String) {
-    let _ = nix::unistd::close(owned_fd);
-    {
-        let mut guard = session.last_error.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
-        *guard = Some(message.clone());
-    }
-    session.telemetry.record_error(message);
-    session.telemetry.mark_stopped();
-    {
-        let mut state = session.state.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
-        *state = TunnelSessionState::Ready;
-    }
 }
 
 #[cfg(test)]

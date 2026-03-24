@@ -6,7 +6,19 @@
     },
     {
       "path": "native/rust/crates/ripdpi-android/src/proxy.rs",
-      "maxProductionLoc": 340
+      "maxProductionLoc": 100
+    },
+    {
+      "path": "native/rust/crates/ripdpi-android/src/proxy/lifecycle.rs",
+      "maxProductionLoc": 230
+    },
+    {
+      "path": "native/rust/crates/ripdpi-android/src/proxy/registry.rs",
+      "maxProductionLoc": 80
+    },
+    {
+      "path": "native/rust/crates/ripdpi-android/src/proxy/telemetry.rs",
+      "maxProductionLoc": 40
     },
     {
       "path": "native/rust/crates/ripdpi-config/src/lib.rs",
@@ -54,7 +66,23 @@
     },
     {
       "path": "native/rust/crates/ripdpi-tunnel-android/src/session.rs",
-      "maxProductionLoc": 390
+      "maxProductionLoc": 100
+    },
+    {
+      "path": "native/rust/crates/ripdpi-tunnel-android/src/session/lifecycle.rs",
+      "maxProductionLoc": 260
+    },
+    {
+      "path": "native/rust/crates/ripdpi-tunnel-android/src/session/registry.rs",
+      "maxProductionLoc": 70
+    },
+    {
+      "path": "native/rust/crates/ripdpi-tunnel-android/src/session/stats.rs",
+      "maxProductionLoc": 50
+    },
+    {
+      "path": "native/rust/crates/ripdpi-tunnel-android/src/session/telemetry.rs",
+      "maxProductionLoc": 60
     },
     {
       "path": "native/rust/crates/ripdpi-tunnel-core/src/io_loop.rs",
