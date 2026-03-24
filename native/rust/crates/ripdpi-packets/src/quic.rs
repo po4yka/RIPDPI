@@ -1,15 +1,20 @@
 use aes::cipher::{generic_array::GenericArray, BlockEncrypt, KeyInit as BlockKeyInit};
 use aes::Aes128;
-use aes_gcm::aead::AeadInPlace;
-use aes_gcm::{Aes128Gcm, Nonce, Tag};
-use hkdf::Hkdf;
-use sha2::Sha256;
+use ring::aead::{self, Aad, LessSafeKey, UnboundKey, AES_128_GCM};
+use ring::hkdf::{self, KeyType, Salt, HKDF_SHA256};
 
 use crate::tls::{
     change_tls_sni_seeded_like_c, is_tls_client_hello, tls_client_hello_marker_info_in_handshake, TLS_RECORD_HEADER_LEN,
 };
 use crate::types::{QuicInitialInfo, DEFAULT_FAKE_QUIC_COMPAT_LEN, DEFAULT_FAKE_TLS, QUIC_V1_VERSION, QUIC_V2_VERSION};
 use crate::util::{read_u16, read_u32};
+
+struct HkdfLen(usize);
+impl KeyType for HkdfLen {
+    fn len(&self) -> usize {
+        self.0
+    }
+}
 
 const QUIC_INITIAL_MIN_LEN: usize = 128;
 const QUIC_HP_SAMPLE_LEN: usize = 16;
@@ -58,21 +63,26 @@ fn quic_hkdf_label(label: &str, out_len: usize) -> Option<Vec<u8>> {
 
 fn quic_expand_label(secret: &[u8], label: &str, out: &mut [u8]) -> Option<()> {
     let info = quic_hkdf_label(label, out.len())?;
-    let hkdf = Hkdf::<Sha256>::from_prk(secret).ok()?;
-    hkdf.expand(&info, out).ok()?;
+    let prk = hkdf::Prk::new_less_safe(HKDF_SHA256, secret);
+    let info_refs: &[&[u8]] = &[&info];
+    let okm = prk.expand(info_refs, HkdfLen(out.len())).ok()?;
+    okm.fill(out).ok()?;
     Some(())
 }
 
 fn quic_derive_client_initial_secret(dcid: &[u8], version: u32) -> Option<[u8; 32]> {
-    let salt = match version {
+    let salt_bytes = match version {
         QUIC_V1_VERSION => &QUIC_V1_SALT,
         QUIC_V2_VERSION => &QUIC_V2_SALT,
         _ => return None,
     };
-    let hkdf = Hkdf::<Sha256>::new(Some(salt), dcid);
+    let salt = Salt::new(HKDF_SHA256, salt_bytes);
+    let prk = salt.extract(dcid);
     let mut secret = [0u8; 32];
     let info = quic_hkdf_label("tls13 client in", secret.len())?;
-    hkdf.expand(&info, &mut secret).ok()?;
+    let info_refs: &[&[u8]] = &[&info];
+    let okm = prk.expand(info_refs, HkdfLen(secret.len())).ok()?;
+    okm.fill(&mut secret).ok()?;
     Some(secret)
 }
 
@@ -167,9 +177,11 @@ pub fn build_quic_initial_from_tls(version: u32, tls_client_hello: &[u8], gap_af
     quic_expand_label(&secret, iv_label, &mut iv)?;
     quic_expand_label(&secret, hp_label, &mut hp)?;
 
-    let cipher = Aes128Gcm::new_from_slice(&key).ok()?;
+    let unbound = UnboundKey::new(&AES_128_GCM, &key).ok()?;
+    let sealing_key = LessSafeKey::new(unbound);
+    let nonce = aead::Nonce::try_assume_unique_for_key(&iv).ok()?;
     let mut ciphertext = plaintext;
-    let tag = cipher.encrypt_in_place_detached(Nonce::from_slice(&iv), &aad, &mut ciphertext).ok()?;
+    let tag = sealing_key.seal_in_place_separate_tag(nonce, Aad::from(&aad), &mut ciphertext).ok()?;
 
     let hp_cipher = Aes128::new_from_slice(&hp).ok()?;
     let mut sample = GenericArray::clone_from_slice(ciphertext.get(..QUIC_HP_SAMPLE_LEN)?);
@@ -178,7 +190,7 @@ pub fn build_quic_initial_from_tls(version: u32, tls_client_hello: &[u8], gap_af
     let mut packet = header;
     packet.extend((0..4).map(|idx| packet_number[idx] ^ sample[1 + idx]));
     packet.extend_from_slice(&ciphertext);
-    packet.extend_from_slice(&tag);
+    packet.extend_from_slice(tag.as_ref());
     packet[0] ^= sample[0] & 0x0f;
     Some(packet)
 }
@@ -292,12 +304,13 @@ fn decrypt_quic_initial_payload(buffer: &[u8], header: QuicInitialHeader<'_>) ->
         *slot ^= byte;
     }
 
-    let cipher = Aes128Gcm::new_from_slice(&key).ok()?;
-    let mut plaintext = ciphertext;
-    cipher
-        .decrypt_in_place_detached(Nonce::from_slice(&nonce_bytes), &aad, &mut plaintext, Tag::from_slice(tag))
-        .ok()?;
-    Some(plaintext)
+    let unbound = UnboundKey::new(&AES_128_GCM, &key).ok()?;
+    let opening_key = LessSafeKey::new(unbound);
+    let nonce = aead::Nonce::try_assume_unique_for_key(&nonce_bytes).ok()?;
+    let mut in_out = ciphertext;
+    in_out.extend_from_slice(tag);
+    let plaintext = opening_key.open_in_place(nonce, Aad::from(&aad), &mut in_out).ok()?;
+    Some(plaintext.to_vec())
 }
 
 fn defrag_quic_crypto_frames(payload: &[u8]) -> Option<(Vec<u8>, bool)> {

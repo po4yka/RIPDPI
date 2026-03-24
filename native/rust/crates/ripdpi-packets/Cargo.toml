@@ -9,10 +9,8 @@ workspace = true
 
 [dependencies]
 aes = { workspace = true }
-aes-gcm = { workspace = true }
-hkdf = { workspace = true }
 nom = { version = "7", default-features = false, features = ["alloc"] }
-sha2 = { workspace = true }
+ring = { workspace = true }
 
 [dev-dependencies]
 proptest = "1.6"

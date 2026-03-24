@@ -1,6 +1,6 @@
 use crypto_box::aead::Aead;
 use crypto_box::ChaChaBox;
-use ed25519_dalek::{Signature as Ed25519Signature, Verifier, VerifyingKey};
+use ring::signature::{self, UnparsedPublicKey};
 
 use crate::types::{DnsCryptCachedCertificate, EncryptedDnsEndpoint, EncryptedDnsError};
 
@@ -22,7 +22,7 @@ pub(crate) fn dnscrypt_provider_name(endpoint: &EncryptedDnsEndpoint) -> Result<
         .ok_or(EncryptedDnsError::MissingDnsCryptProviderName)
 }
 
-pub(crate) fn dnscrypt_verifying_key(endpoint: &EncryptedDnsEndpoint) -> Result<VerifyingKey, EncryptedDnsError> {
+pub(crate) fn dnscrypt_verifying_key(endpoint: &EncryptedDnsEndpoint) -> Result<[u8; 32], EncryptedDnsError> {
     let encoded = endpoint
         .dnscrypt_public_key
         .as_deref()
@@ -30,12 +30,12 @@ pub(crate) fn dnscrypt_verifying_key(endpoint: &EncryptedDnsEndpoint) -> Result<
     let mut bytes = [0u8; 32];
     hex::decode_to_slice(encoded.trim(), &mut bytes)
         .map_err(|err| EncryptedDnsError::InvalidDnsCryptPublicKey(err.to_string()))?;
-    VerifyingKey::from_bytes(&bytes).map_err(|err| EncryptedDnsError::InvalidDnsCryptPublicKey(err.to_string()))
+    Ok(bytes)
 }
 
 pub(crate) fn parse_dnscrypt_certificate(
     bytes: &[u8],
-    verifying_key: &VerifyingKey,
+    verifying_key: &[u8; 32],
     _provider_name: &str,
 ) -> Result<DnsCryptCachedCertificate, EncryptedDnsError> {
     if bytes.len() != DNSCRYPT_CERT_SIZE {
@@ -49,11 +49,12 @@ pub(crate) fn parse_dnscrypt_certificate(
         return Err(EncryptedDnsError::DnsCryptCertificate(format!("unsupported es_version {es_version}")));
     }
 
-    let mut signature = [0u8; 64];
-    signature.copy_from_slice(&bytes[8..72]);
-    let signature = Ed25519Signature::from_bytes(&signature);
+    let signature = &bytes[8..72];
     let signed = &bytes[72..];
-    verifying_key.verify(signed, &signature).map_err(|err| EncryptedDnsError::DnsCryptVerification(err.to_string()))?;
+    let public_key = UnparsedPublicKey::new(&signature::ED25519, verifying_key);
+    public_key
+        .verify(signed, signature)
+        .map_err(|_| EncryptedDnsError::DnsCryptVerification("ed25519 signature verification failed".to_string()))?;
 
     let mut resolver_public_key = [0u8; 32];
     resolver_public_key.copy_from_slice(&bytes[72..104]);

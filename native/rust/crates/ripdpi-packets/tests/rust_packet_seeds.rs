@@ -1,10 +1,15 @@
 use aes::cipher::{generic_array::GenericArray, BlockEncrypt, KeyInit as BlockKeyInit};
 use aes::Aes128;
-use aes_gcm::aead::AeadInPlace;
-use aes_gcm::{Aes128Gcm, Nonce};
-use hkdf::Hkdf;
+use ring::aead::{self, Aad, LessSafeKey, UnboundKey, AES_128_GCM};
+use ring::hkdf::{self, KeyType, Salt, HKDF_SHA256};
 use ripdpi_packets::change_tls_sni_seeded_like_c;
-use sha2::Sha256;
+
+struct HkdfLen(usize);
+impl KeyType for HkdfLen {
+    fn len(&self) -> usize {
+        self.0
+    }
+}
 
 const QUIC_V1_VERSION: u32 = 0x0000_0001;
 const QUIC_V2_VERSION: u32 = 0x6b33_43cf;
@@ -158,19 +163,26 @@ fn quic_hkdf_label(label: &str, out_len: usize) -> Vec<u8> {
 }
 
 fn quic_expand_label(secret: &[u8], label: &str, out: &mut [u8]) {
-    let hkdf = Hkdf::<Sha256>::from_prk(secret).expect("quic seed prk");
-    hkdf.expand(&quic_hkdf_label(label, out.len()), out).expect("quic seed expand");
+    let prk = hkdf::Prk::new_less_safe(HKDF_SHA256, secret);
+    let info = quic_hkdf_label(label, out.len());
+    let info_refs: &[&[u8]] = &[&info];
+    let okm = prk.expand(info_refs, HkdfLen(out.len())).expect("quic seed expand");
+    okm.fill(out).expect("quic seed fill");
 }
 
 fn quic_client_initial_secret(version: u32, dcid: &[u8]) -> [u8; 32] {
-    let salt = match version {
+    let salt_bytes = match version {
         QUIC_V1_VERSION => &QUIC_V1_SALT,
         QUIC_V2_VERSION => &QUIC_V2_SALT,
         _ => panic!("unsupported quic version: {version:#x}"),
     };
-    let hkdf = Hkdf::<Sha256>::new(Some(salt), dcid);
+    let salt = Salt::new(HKDF_SHA256, salt_bytes);
+    let prk = salt.extract(dcid);
     let mut secret = [0u8; 32];
-    hkdf.expand(&quic_hkdf_label("tls13 client in", secret.len()), &mut secret).expect("quic seed initial secret");
+    let info = quic_hkdf_label("tls13 client in", secret.len());
+    let info_refs: &[&[u8]] = &[&info];
+    let okm = prk.expand(info_refs, HkdfLen(secret.len())).expect("quic seed initial secret");
+    okm.fill(&mut secret).expect("quic seed fill");
     secret
 }
 
@@ -256,10 +268,13 @@ fn quic_initial_from_tls(version: u32, client_hello: &[u8], gap_after_split: usi
     quic_expand_label(&secret, iv_label, &mut iv);
     quic_expand_label(&secret, hp_label, &mut hp);
 
-    let cipher = Aes128Gcm::new_from_slice(&key).expect("quic seed aes-gcm");
+    let unbound = UnboundKey::new(&AES_128_GCM, &key).expect("quic seed aes-gcm");
+    let sealing_key = LessSafeKey::new(unbound);
+    let nonce = aead::Nonce::try_assume_unique_for_key(&iv).expect("quic seed nonce");
     let mut ciphertext = plaintext;
-    let tag =
-        cipher.encrypt_in_place_detached(Nonce::from_slice(&iv), &aad, &mut ciphertext).expect("quic seed encrypt");
+    let tag = sealing_key
+        .seal_in_place_separate_tag(nonce, Aad::from(&aad), &mut ciphertext)
+        .expect("quic seed encrypt");
 
     let hp_cipher = Aes128::new_from_slice(&hp).expect("quic seed hp");
     let mut sample = GenericArray::clone_from_slice(&ciphertext[..16]);
@@ -268,7 +283,7 @@ fn quic_initial_from_tls(version: u32, client_hello: &[u8], gap_after_split: usi
     let mut packet = header;
     packet.extend((0..4).map(|idx| packet_number[idx] ^ sample[1 + idx]));
     packet.extend_from_slice(&ciphertext);
-    packet.extend_from_slice(&tag);
+    packet.extend_from_slice(tag.as_ref());
     packet[0] ^= sample[0] & 0x0f;
     packet
 }
