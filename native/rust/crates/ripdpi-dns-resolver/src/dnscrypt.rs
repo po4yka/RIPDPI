@@ -267,4 +267,73 @@ mod tests {
         let bad = vec![0u8; 64];
         assert!(dnscrypt_unpad(&bad).is_err());
     }
+
+    // ---- dnscrypt_provider_name tests ----
+
+    #[test]
+    fn provider_name_extracts_trimmed_name() {
+        let mut ep = make_endpoint(None);
+        ep.dnscrypt_provider_name = Some("  2.dnscrypt-cert.example.com  ".to_string());
+        assert_eq!(dnscrypt_provider_name(&ep).unwrap(), "2.dnscrypt-cert.example.com");
+    }
+
+    #[test]
+    fn provider_name_rejects_none() {
+        let mut ep = make_endpoint(None);
+        ep.dnscrypt_provider_name = None;
+        assert!(dnscrypt_provider_name(&ep).is_err());
+    }
+
+    #[test]
+    fn provider_name_rejects_empty_string() {
+        let mut ep = make_endpoint(None);
+        ep.dnscrypt_provider_name = Some("".to_string());
+        assert!(dnscrypt_provider_name(&ep).is_err());
+    }
+
+    #[test]
+    fn provider_name_rejects_whitespace_only() {
+        let mut ep = make_endpoint(None);
+        ep.dnscrypt_provider_name = Some("   ".to_string());
+        assert!(dnscrypt_provider_name(&ep).is_err());
+    }
+
+    // ---- decrypt_dnscrypt_response tests ----
+
+    #[test]
+    fn decrypt_response_rejects_too_short() {
+        use crypto_box::{PublicKey, SecretKey};
+        let sk = SecretKey::from([1u8; 32]);
+        let pk = PublicKey::from([2u8; 32]);
+        let cbox = ChaChaBox::new(&pk, &sk);
+        let short = vec![0u8; 8 + DNSCRYPT_NONCE_SIZE]; // exactly at boundary, not >
+        let err = decrypt_dnscrypt_response(&cbox, &short, &[0u8; 12]).unwrap_err();
+        assert!(matches!(err, EncryptedDnsError::DnsCryptDecrypt(_)));
+    }
+
+    #[test]
+    fn decrypt_response_rejects_bad_magic() {
+        use crypto_box::{PublicKey, SecretKey};
+        let sk = SecretKey::from([1u8; 32]);
+        let pk = PublicKey::from([2u8; 32]);
+        let cbox = ChaChaBox::new(&pk, &sk);
+        let mut response = vec![0u8; 100];
+        response[..8].copy_from_slice(b"BADMAGIC");
+        let err = decrypt_dnscrypt_response(&cbox, &response, &[0u8; 12]).unwrap_err();
+        assert!(matches!(err, EncryptedDnsError::DnsCryptDecrypt(_)));
+    }
+
+    #[test]
+    fn decrypt_response_rejects_nonce_prefix_mismatch() {
+        use crypto_box::{PublicKey, SecretKey};
+        let sk = SecretKey::from([1u8; 32]);
+        let pk = PublicKey::from([2u8; 32]);
+        let cbox = ChaChaBox::new(&pk, &sk);
+        let mut response = vec![0u8; 100];
+        response[..8].copy_from_slice(&DNSCRYPT_RESPONSE_MAGIC);
+        response[8..20].copy_from_slice(&[0xAA; 12]);
+        let expected_prefix = [0xBB; 12];
+        let err = decrypt_dnscrypt_response(&cbox, &response, &expected_prefix).unwrap_err();
+        assert!(matches!(err, EncryptedDnsError::DnsCryptDecrypt(_)));
+    }
 }

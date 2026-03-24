@@ -241,6 +241,7 @@ mod tests {
     use serde_json::json;
 
     use crate::runtime_policy::test_support::{autolearn_config, sample_dest};
+    use crate::runtime_policy::types::LearnedGroupStats;
     use crate::runtime_policy::{ConnectionRoute, RuntimePolicy};
 
     #[test]
@@ -477,5 +478,78 @@ mod tests {
         let fp_a = config_fingerprint(&config_a);
         let fp_b = config_fingerprint(&config_b);
         assert_eq!(fp_a, fp_b, "fingerprint must depend only on groups, not on other config fields");
+    }
+
+    // ---- normalize_learned_host tests ----
+
+    #[test]
+    fn normalize_host_lowercases_and_trims() {
+        assert_eq!(normalize_learned_host("  Example.COM  "), Some("example.com".to_string()));
+    }
+
+    #[test]
+    fn normalize_host_strips_trailing_dots() {
+        assert_eq!(normalize_learned_host("example.com."), Some("example.com".to_string()));
+    }
+
+    #[test]
+    fn normalize_host_rejects_empty() {
+        assert_eq!(normalize_learned_host(""), None);
+        assert_eq!(normalize_learned_host("   "), None);
+    }
+
+    #[test]
+    fn normalize_host_rejects_ipv4() {
+        assert_eq!(normalize_learned_host("192.168.1.1"), None);
+        assert_eq!(normalize_learned_host("127.0.0.1"), None);
+    }
+
+    #[test]
+    fn normalize_host_rejects_ipv6() {
+        assert_eq!(normalize_learned_host("::1"), None);
+        assert_eq!(normalize_learned_host("fe80::1"), None);
+    }
+
+    #[test]
+    fn normalize_host_rejects_only_dots() {
+        assert_eq!(normalize_learned_host("."), None);
+        assert_eq!(normalize_learned_host("..."), None);
+    }
+
+    // ---- host_has_active_penalty tests ----
+
+    #[test]
+    fn penalty_active_when_expiry_in_future() {
+        let mut record = LearnedHostRecord::default();
+        record.group_stats.insert(0, LearnedGroupStats { penalty_until_ms: 1000, ..Default::default() });
+        assert!(host_has_active_penalty(&record, 500));
+    }
+
+    #[test]
+    fn penalty_expired_when_expiry_equals_now() {
+        let mut record = LearnedHostRecord::default();
+        record.group_stats.insert(0, LearnedGroupStats { penalty_until_ms: 1000, ..Default::default() });
+        assert!(!host_has_active_penalty(&record, 1000));
+    }
+
+    #[test]
+    fn penalty_expired_when_expiry_in_past() {
+        let mut record = LearnedHostRecord::default();
+        record.group_stats.insert(0, LearnedGroupStats { penalty_until_ms: 500, ..Default::default() });
+        assert!(!host_has_active_penalty(&record, 1000));
+    }
+
+    #[test]
+    fn no_penalty_when_group_stats_empty() {
+        let record = LearnedHostRecord::default();
+        assert!(!host_has_active_penalty(&record, 1000));
+    }
+
+    #[test]
+    fn penalty_active_when_any_group_has_future_expiry() {
+        let mut record = LearnedHostRecord::default();
+        record.group_stats.insert(0, LearnedGroupStats { penalty_until_ms: 100, ..Default::default() });
+        record.group_stats.insert(1, LearnedGroupStats { penalty_until_ms: 2000, ..Default::default() });
+        assert!(host_has_active_penalty(&record, 500));
     }
 }

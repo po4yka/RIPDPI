@@ -589,4 +589,156 @@ mod tests {
         let sb = quic_derive_client_initial_secret(&dcid_b, QUIC_V1_VERSION).expect("b");
         assert_ne!(sa, sb);
     }
+
+    // ---- QUIC varint codec unit tests ----
+
+    #[test]
+    fn read_quic_varint_decodes_1_byte_value() {
+        // 0x25 = 0b00_100101, prefix 00 -> 1-byte, value = 37
+        assert_eq!(read_quic_varint(&[0x25], 0), Some((37, 1)));
+    }
+
+    #[test]
+    fn read_quic_varint_decodes_2_byte_value() {
+        // 0x7bbd = 0b01_111011_10111101, prefix 01 -> 2-byte, value = 15293
+        assert_eq!(read_quic_varint(&[0x7b, 0xbd], 0), Some((15293, 2)));
+    }
+
+    #[test]
+    fn read_quic_varint_decodes_4_byte_value() {
+        // 0x9d7f3e7d, prefix 10 -> 4-byte, value = 494878333
+        assert_eq!(read_quic_varint(&[0x9d, 0x7f, 0x3e, 0x7d], 0), Some((494878333, 4)));
+    }
+
+    #[test]
+    fn read_quic_varint_decodes_8_byte_value() {
+        // 0xc2197c5eff14e88c, prefix 11 -> 8-byte, value = 151288809941952652
+        assert_eq!(
+            read_quic_varint(&[0xc2, 0x19, 0x7c, 0x5e, 0xff, 0x14, 0xe8, 0x8c], 0),
+            Some((151288809941952652, 8))
+        );
+    }
+
+    #[test]
+    fn read_quic_varint_respects_offset() {
+        assert_eq!(read_quic_varint(&[0xff, 0x25], 1), Some((37, 1)));
+    }
+
+    #[test]
+    fn read_quic_varint_returns_none_for_empty_slice() {
+        assert_eq!(read_quic_varint(&[], 0), None);
+    }
+
+    #[test]
+    fn read_quic_varint_returns_none_for_truncated_2_byte() {
+        assert_eq!(read_quic_varint(&[0x40], 0), None);
+    }
+
+    #[test]
+    fn read_quic_varint_returns_none_for_offset_beyond_slice() {
+        assert_eq!(read_quic_varint(&[0x25], 5), None);
+    }
+
+    #[test]
+    fn encode_quic_varint_1_byte_boundaries() {
+        assert_eq!(encode_quic_varint(0), vec![0x00]);
+        assert_eq!(encode_quic_varint(63), vec![0x3f]);
+    }
+
+    #[test]
+    fn encode_quic_varint_2_byte_boundaries() {
+        assert_eq!(encode_quic_varint(64), vec![0x40, 0x40]);
+        assert_eq!(encode_quic_varint(16383), vec![0x7f, 0xff]);
+    }
+
+    #[test]
+    fn encode_quic_varint_4_byte_boundaries() {
+        assert_eq!(encode_quic_varint(16384), vec![0x80, 0x00, 0x40, 0x00]);
+        assert_eq!(encode_quic_varint(1_073_741_823), vec![0xbf, 0xff, 0xff, 0xff]);
+    }
+
+    #[test]
+    fn encode_quic_varint_8_byte() {
+        let encoded = encode_quic_varint(1_073_741_824);
+        assert_eq!(encoded.len(), 8);
+        assert_eq!(encoded[0] & 0xc0, 0xc0);
+    }
+
+    #[test]
+    fn quic_varint_round_trips() {
+        for value in [0, 1, 63, 64, 16383, 16384, 1_073_741_823, 1_073_741_824, u64::MAX >> 2] {
+            let encoded = encode_quic_varint(value);
+            let (decoded, len) = read_quic_varint(&encoded, 0).expect("round-trip decode");
+            assert_eq!(decoded, value, "round-trip failed for {value}");
+            assert_eq!(len, encoded.len());
+        }
+    }
+
+    // ---- QUIC crypto frame defragmentation tests ----
+
+    fn make_crypto_frame(offset: u64, data: &[u8]) -> Vec<u8> {
+        let mut frame = Vec::new();
+        append_quic_crypto_frame(&mut frame, offset, data);
+        frame
+    }
+
+    #[test]
+    fn defrag_single_crypto_frame() {
+        let frame = make_crypto_frame(0, b"hello");
+        let (data, complete) = defrag_quic_crypto_frames(&frame).expect("single frame");
+        assert!(complete);
+        assert_eq!(data, b"hello");
+    }
+
+    #[test]
+    fn defrag_two_contiguous_frames() {
+        let mut payload = make_crypto_frame(0, b"hel");
+        payload.extend(make_crypto_frame(3, b"lo"));
+        let (data, complete) = defrag_quic_crypto_frames(&payload).expect("two frames");
+        assert!(complete);
+        assert_eq!(data, b"hello");
+    }
+
+    #[test]
+    fn defrag_frames_with_gap_reports_incomplete() {
+        let mut payload = make_crypto_frame(0, b"AB");
+        payload.extend(make_crypto_frame(4, b"EF"));
+        let (data, complete) = defrag_quic_crypto_frames(&payload).expect("gap");
+        assert!(!complete);
+        assert_eq!(data.len(), 6);
+        assert_eq!(&data[0..2], b"AB");
+        assert_eq!(&data[4..6], b"EF");
+    }
+
+    #[test]
+    fn defrag_skips_padding_frames() {
+        let mut payload = vec![0x00, 0x00, 0x01];
+        payload.extend(make_crypto_frame(0, b"data"));
+        let (data, complete) = defrag_quic_crypto_frames(&payload).expect("with padding");
+        assert!(complete);
+        assert_eq!(data, b"data");
+    }
+
+    #[test]
+    fn defrag_rejects_empty_payload() {
+        assert!(defrag_quic_crypto_frames(&[]).is_none());
+    }
+
+    #[test]
+    fn defrag_rejects_only_padding() {
+        assert!(defrag_quic_crypto_frames(&[0x00, 0x00, 0x01]).is_none());
+    }
+
+    #[test]
+    fn defrag_rejects_unknown_frame_type() {
+        let mut payload = make_crypto_frame(0, b"ok");
+        payload.push(0x42);
+        assert!(defrag_quic_crypto_frames(&payload).is_none());
+    }
+
+    #[test]
+    fn defrag_rejects_oversized_crypto_offset() {
+        let frame = make_crypto_frame(65530, &[0u8; 10]);
+        assert!(defrag_quic_crypto_frames(&frame).is_none());
+    }
 }
