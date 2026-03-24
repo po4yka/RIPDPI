@@ -307,3 +307,278 @@ pub(super) fn endpoint_to_socketaddr(ep: smoltcp::wire::IpEndpoint) -> SocketAdd
     };
     SocketAddr::new(ip, ep.port)
 }
+
+// ── Test helpers shared with tcp_accept tests ────────────────────────────────
+
+#[cfg(test)]
+pub(super) fn build_ipv4_tcp_syn_packet(
+    src_ip: Ipv4Addr,
+    dst_ip: Ipv4Addr,
+    src_port: u16,
+    dst_port: u16,
+) -> Vec<u8> {
+    let mut pkt = vec![0u8; 40];
+    pkt[0] = 0x45;
+    pkt[3] = 40;
+    pkt[9] = 6;
+    pkt[12..16].copy_from_slice(&src_ip.octets());
+    pkt[16..20].copy_from_slice(&dst_ip.octets());
+    pkt[20..22].copy_from_slice(&src_port.to_be_bytes());
+    pkt[22..24].copy_from_slice(&dst_port.to_be_bytes());
+    pkt[32] = 0x50;
+    pkt[33] = 0x02; // SYN
+    let ip_checksum = finalize_checksum(checksum_sum(&pkt[..20]));
+    pkt[10..12].copy_from_slice(&ip_checksum.to_be_bytes());
+    let tcp_checksum = {
+        let mut sum = checksum_sum(&src_ip.octets());
+        sum += checksum_sum(&dst_ip.octets());
+        sum += u32::from(6u16);
+        sum += u32::from((pkt.len() - 20) as u16);
+        sum += checksum_sum(&pkt[20..]);
+        finalize_checksum(sum)
+    };
+    pkt[36..38].copy_from_slice(&tcp_checksum.to_be_bytes());
+    pkt
+}
+
+#[cfg(test)]
+pub(super) fn build_ipv6_tcp_syn_packet(
+    src_ip: std::net::Ipv6Addr,
+    dst_ip: std::net::Ipv6Addr,
+    src_port: u16,
+    dst_port: u16,
+) -> Vec<u8> {
+    let mut pkt = vec![0u8; 60];
+    pkt[0] = 0x60;
+    pkt[4..6].copy_from_slice(&20u16.to_be_bytes());
+    pkt[6] = 6;
+    pkt[7] = 64;
+    pkt[8..24].copy_from_slice(&src_ip.octets());
+    pkt[24..40].copy_from_slice(&dst_ip.octets());
+    pkt[40..42].copy_from_slice(&src_port.to_be_bytes());
+    pkt[42..44].copy_from_slice(&dst_port.to_be_bytes());
+    pkt[52] = 0x50;
+    pkt[53] = 0x02;
+    let tcp_len = u32::try_from(pkt.len() - 40).expect("tcp length");
+    let mut sum = checksum_sum(&src_ip.octets());
+    sum += checksum_sum(&dst_ip.octets());
+    sum += (tcp_len >> 16) + (tcp_len & 0xFFFF);
+    sum += u32::from(6u16);
+    sum += checksum_sum(&pkt[40..]);
+    let tcp_checksum = finalize_checksum(sum);
+    pkt[56..58].copy_from_slice(&tcp_checksum.to_be_bytes());
+    pkt
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
+
+    fn ipv4_tcp_rst(ip_id: u16) -> Vec<u8> {
+        let mut pkt = vec![0u8; 40];
+        pkt[0] = 0x45; // IPv4, IHL=5
+        pkt[3] = 40; // total length
+        pkt[4] = (ip_id >> 8) as u8; // IP ID high
+        pkt[5] = (ip_id & 0xFF) as u8; // IP ID low
+        pkt[8] = 64; // TTL
+        pkt[9] = 6; // TCP
+        pkt[12..16].copy_from_slice(&[10, 0, 0, 1]); // src IP
+        pkt[16..20].copy_from_slice(&[10, 0, 0, 2]); // dst IP
+        pkt[32] = 0x50; // TCP data offset = 5
+        pkt[33] = 0x04; // RST flag
+        pkt
+    }
+
+    fn ipv4_tcp_syn() -> Vec<u8> {
+        ipv4_tcp_syn_with_ports(12345, 443)
+    }
+
+    fn ipv4_tcp_syn_with_ports(src_port: u16, dst_port: u16) -> Vec<u8> {
+        build_ipv4_tcp_syn_packet(Ipv4Addr::new(10, 0, 0, 1), Ipv4Addr::new(10, 0, 0, 2), src_port, dst_port)
+    }
+
+    fn ipv4_tcp_ack(dst_port: u16) -> Vec<u8> {
+        let mut pkt = vec![0u8; 40];
+        pkt[0] = 0x45;
+        pkt[3] = 40;
+        pkt[9] = 6;
+        pkt[12..16].copy_from_slice(&[10, 0, 0, 1]);
+        pkt[16..20].copy_from_slice(&[10, 0, 0, 2]);
+        pkt[20..22].copy_from_slice(&12345u16.to_be_bytes());
+        pkt[22..24].copy_from_slice(&dst_port.to_be_bytes());
+        pkt[32] = 0x50;
+        pkt[33] = 0x10; // ACK
+        pkt
+    }
+
+    fn ipv6_tcp_syn(dst_port: u16) -> Vec<u8> {
+        ipv6_tcp_syn_with_ports(12345, dst_port)
+    }
+
+    fn ipv6_tcp_syn_with_ports(src_port: u16, dst_port: u16) -> Vec<u8> {
+        build_ipv6_tcp_syn_packet(Ipv6Addr::LOCALHOST, Ipv6Addr::LOCALHOST, src_port, dst_port)
+    }
+
+    #[test]
+    fn injected_rst_with_ip_id_zero_is_detected() {
+        assert!(is_injected_rst(&ipv4_tcp_rst(0x0000)));
+    }
+
+    #[test]
+    fn injected_rst_with_ip_id_one_is_detected() {
+        assert!(is_injected_rst(&ipv4_tcp_rst(0x0001)));
+    }
+
+    #[test]
+    fn real_rst_with_normal_ip_id_is_not_injected() {
+        assert!(!is_injected_rst(&ipv4_tcp_rst(0x1234)));
+    }
+
+    #[test]
+    fn tcp_syn_is_not_injected_rst() {
+        assert!(!is_injected_rst(&ipv4_tcp_syn()));
+    }
+
+    #[test]
+    fn short_packet_is_not_injected_rst() {
+        assert!(!is_injected_rst(&[0x45, 0x00, 0x00]));
+    }
+
+    #[test]
+    fn packet_with_zero_ihl_is_not_injected_rst() {
+        let mut pkt = vec![0u8; 40];
+        pkt[0] = 0x40; // IPv4, IHL=0 (malformed)
+        pkt[3] = 40;
+        pkt[9] = 6; // TCP
+        // IP ID = 0x0000 (would look like injected without the guard)
+        pkt[33] = 0x04; // RST flag (at byte 33, which is IHL+13 only if IHL=20)
+        assert!(!is_injected_rst(&pkt), "malformed IHL=0 packet should not be detected as injected RST");
+    }
+
+    #[test]
+    fn tcp_syn_detects_ipv6_packets() {
+        assert!(is_tcp_syn(&ipv6_tcp_syn(443)));
+    }
+
+    #[test]
+    fn ipv4_transport_helpers_reject_wrong_protocol_and_extract_ports() {
+        let mut udp_packet = ipv4_tcp_syn();
+        udp_packet[9] = 17;
+
+        assert_eq!(ipv4_transport_offset(&ipv4_tcp_syn(), 6), Some(20));
+        assert_eq!(ipv4_transport_offset(&udp_packet, 6), None);
+        assert_eq!(tcp_dst_port(&ipv4_tcp_ack(8443)), Some(8443));
+        assert!(!is_tcp_syn(&ipv4_tcp_ack(8443)));
+    }
+
+    #[test]
+    fn tcp_dst_port_extracts_ipv6_destination_port() {
+        assert_eq!(tcp_dst_port(&ipv6_tcp_syn(8443)), Some(8443));
+    }
+
+    #[test]
+    fn tcp_syn_flow_key_extracts_ipv4_endpoints() {
+        let key = tcp_syn_flow_key(&ipv4_tcp_syn_with_ports(51000, 443)).expect("ipv4 syn flow key");
+
+        assert_eq!(key.src, SocketAddr::new(IpAddr::V4(Ipv4Addr::new(10, 0, 0, 1)), 51000));
+        assert_eq!(key.dst, SocketAddr::new(IpAddr::V4(Ipv4Addr::new(10, 0, 0, 2)), 443));
+    }
+
+    #[test]
+    fn tcp_syn_flow_key_distinguishes_parallel_https_flows() {
+        let first = tcp_syn_flow_key(&ipv4_tcp_syn_with_ports(51000, 443)).expect("first flow");
+        let second = tcp_syn_flow_key(&ipv4_tcp_syn_with_ports(51001, 443)).expect("second flow");
+
+        assert_ne!(first, second);
+    }
+
+    #[test]
+    fn tcp_syn_flow_key_extracts_ipv6_endpoints() {
+        let key = tcp_syn_flow_key(&ipv6_tcp_syn_with_ports(51000, 443)).expect("ipv6 syn flow key");
+
+        assert_eq!(key.src, SocketAddr::new(IpAddr::V6(Ipv6Addr::LOCALHOST), 51000));
+        assert_eq!(key.dst, SocketAddr::new(IpAddr::V6(Ipv6Addr::LOCALHOST), 443));
+    }
+
+    #[test]
+    fn build_udp_response_supports_ipv4() {
+        let src = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(198, 18, 0, 10)), 53);
+        let dst = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(10, 0, 0, 2)), 5353);
+        let payload = b"dns";
+
+        let pkt = build_udp_response(src, dst, payload);
+
+        assert_eq!(pkt.len(), 20 + 8 + payload.len());
+        assert_eq!(pkt[0] >> 4, 4);
+        assert_eq!(pkt[9], 17);
+        assert_eq!(u16::from_be_bytes([pkt[20], pkt[21]]), 53);
+        assert_eq!(u16::from_be_bytes([pkt[22], pkt[23]]), 5353);
+        assert_ne!(u16::from_be_bytes([pkt[26], pkt[27]]), 0);
+        assert_eq!(&pkt[28..], payload);
+    }
+
+    #[test]
+    fn build_udp_response_supports_ipv6() {
+        let src = SocketAddr::new(IpAddr::V6(std::net::Ipv6Addr::LOCALHOST), 53);
+        let dst = SocketAddr::new(IpAddr::V6(std::net::Ipv6Addr::LOCALHOST), 5353);
+        let payload = b"dns";
+
+        let pkt = build_udp_response(src, dst, payload);
+
+        assert_eq!(pkt.len(), 40 + 8 + payload.len());
+        assert_eq!(pkt[0] >> 4, 6);
+        assert_eq!(pkt[6], 17);
+        assert_eq!(u16::from_be_bytes([pkt[40], pkt[41]]), 53);
+        assert_eq!(u16::from_be_bytes([pkt[42], pkt[43]]), 5353);
+        assert_ne!(u16::from_be_bytes([pkt[46], pkt[47]]), 0);
+        assert_eq!(&pkt[48..], payload);
+    }
+
+    #[test]
+    fn build_udp_response_rejects_oversized_payloads() {
+        let payload = vec![0u8; usize::from(u16::MAX)];
+        let src = SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 53);
+        let dst = SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 5353);
+
+        assert!(build_udp_response(src, dst, &payload).is_empty());
+    }
+
+    #[test]
+    fn build_udp_port_unreachable_supports_ipv4() {
+        let src = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(10, 0, 0, 2)), 53000);
+        let dst = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(157, 240, 229, 174)), 443);
+        let expected_src = match dst.ip() {
+            IpAddr::V4(value) => value.octets(),
+            _ => panic!("expected ipv4"),
+        };
+        let expected_dst = match src.ip() {
+            IpAddr::V4(value) => value.octets(),
+            _ => panic!("expected ipv4"),
+        };
+
+        let pkt = build_udp_port_unreachable(src, dst, b"quic");
+
+        assert_eq!(pkt[0] >> 4, 4);
+        assert_eq!(pkt[9], 1);
+        assert_eq!(pkt[20], 3);
+        assert_eq!(pkt[21], 3);
+        assert_eq!(&pkt[12..16], &expected_src);
+        assert_eq!(&pkt[16..20], &expected_dst);
+        assert!(!pkt[28..].is_empty());
+    }
+
+    #[test]
+    fn build_udp_port_unreachable_supports_ipv6() {
+        let src = SocketAddr::new(IpAddr::V6(Ipv6Addr::LOCALHOST), 53000);
+        let dst = SocketAddr::new(IpAddr::V6(Ipv6Addr::LOCALHOST), 443);
+
+        let pkt = build_udp_port_unreachable(src, dst, b"quic");
+
+        assert_eq!(pkt[0] >> 4, 6);
+        assert_eq!(pkt[6], 58);
+        assert_eq!(pkt[40], 1);
+        assert_eq!(pkt[41], 4);
+        assert!(!pkt[48..].is_empty());
+    }
+}

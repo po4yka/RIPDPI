@@ -9,6 +9,7 @@ use ripdpi_dns_resolver::{
 };
 use ripdpi_tunnel_config::Config;
 use tokio::io::unix::AsyncFd;
+use tokio_util::sync::CancellationToken;
 use tracing::debug;
 
 use crate::dns_cache::DnsCache;
@@ -259,4 +260,190 @@ pub(super) fn resolve_mapped_target(
     };
     stats.record_last_host(Some(&entry.host));
     SocketAddr::new(IpAddr::V4(Ipv4Addr::from(entry.real_ip)), dst.port())
+}
+
+pub(super) fn spawn_dns_worker(
+    resolver: EncryptedDnsResolver,
+    cancel: CancellationToken,
+) -> (
+    tokio::sync::mpsc::Sender<DnsRequest>,
+    tokio::sync::mpsc::Receiver<DnsResponse>,
+) {
+    let (req_tx, mut req_rx) = tokio::sync::mpsc::channel::<DnsRequest>(super::DNS_QUEUE_CAPACITY);
+    let (resp_tx, resp_rx) = tokio::sync::mpsc::channel::<DnsResponse>(super::DNS_QUEUE_CAPACITY);
+    tokio::spawn(async move {
+        loop {
+            tokio::select! {
+                _ = cancel.cancelled() => break,
+                request = req_rx.recv() => {
+                    let Some(request) = request else {
+                        break;
+                    };
+                    let upstream =
+                        resolver
+                            .exchange_with_metadata(&request.query)
+                            .await
+                            .map_err(|err| {
+                                let kind = err.kind();
+                                (kind, err.to_string())
+                            });
+                    let (resolver_error_kind, upstream) = match upstream {
+                        Ok(success) => (None, Ok(success)),
+                        Err((kind, message)) => (Some(kind), Err(message)),
+                    };
+                    if resp_tx.send(DnsResponse {
+                        src: request.src,
+                        query: request.query,
+                        host: request.host,
+                        upstream,
+                        resolver_error_kind,
+                    }).await.is_err() {
+                        break;
+                    }
+                }
+            }
+        }
+    });
+    (req_tx, resp_rx)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::net::{IpAddr, Ipv4Addr, SocketAddr};
+
+    use ripdpi_dns_resolver::EncryptedDnsProtocol;
+
+    fn tunnel_config_with_mapdns(mapdns: Option<ripdpi_tunnel_config::MapDnsConfig>) -> ripdpi_tunnel_config::Config {
+        ripdpi_tunnel_config::Config {
+            tunnel: ripdpi_tunnel_config::TunnelConfig::default(),
+            socks5: ripdpi_tunnel_config::Socks5Config {
+                port: 1080,
+                address: "127.0.0.1".to_string(),
+                udp: None,
+                udp_address: None,
+                pipeline: None,
+                username: None,
+                password: None,
+                mark: None,
+            },
+            mapdns,
+            misc: ripdpi_tunnel_config::MiscConfig::default(),
+        }
+    }
+
+    #[test]
+    fn parse_mapdns_runtime_uses_address_defaults_for_network_and_mask() {
+        let config = tunnel_config_with_mapdns(Some(ripdpi_tunnel_config::MapDnsConfig {
+            address: "198.18.0.10".to_string(),
+            port: 5300,
+            network: None,
+            netmask: None,
+            cache_size: 8,
+            resolver_id: None,
+            encrypted_dns_protocol: None,
+            encrypted_dns_host: None,
+            encrypted_dns_port: None,
+            encrypted_dns_tls_server_name: None,
+            encrypted_dns_bootstrap_ips: Vec::new(),
+            encrypted_dns_doh_url: None,
+            encrypted_dns_dnscrypt_provider_name: None,
+            encrypted_dns_dnscrypt_public_key: None,
+            doh_url: None,
+            doh_bootstrap_ips: Vec::new(),
+            dns_query_timeout_ms: 4000,
+            resolver_fallback_active: false,
+            resolver_fallback_reason: None,
+        }));
+
+        let runtime = parse_mapdns_runtime(&config).expect("runtime").expect("mapdns runtime");
+
+        assert_eq!(runtime.intercept_addr, SocketAddr::new(IpAddr::V4(Ipv4Addr::new(198, 18, 0, 10)), 5300));
+        assert_eq!(runtime.synthetic_net, u32::from(Ipv4Addr::new(198, 18, 0, 10)));
+        assert_eq!(runtime.synthetic_mask, u32::from(Ipv4Addr::new(255, 254, 0, 0)));
+        assert_eq!(runtime.intercept_port, 5300);
+    }
+
+    #[test]
+    fn parse_dns_cache_rejects_zero_cache_size() {
+        let config = tunnel_config_with_mapdns(Some(ripdpi_tunnel_config::MapDnsConfig {
+            address: "198.18.0.10".to_string(),
+            port: 53,
+            network: None,
+            netmask: None,
+            cache_size: 0,
+            resolver_id: None,
+            encrypted_dns_protocol: None,
+            encrypted_dns_host: None,
+            encrypted_dns_port: None,
+            encrypted_dns_tls_server_name: None,
+            encrypted_dns_bootstrap_ips: Vec::new(),
+            encrypted_dns_doh_url: None,
+            encrypted_dns_dnscrypt_provider_name: None,
+            encrypted_dns_dnscrypt_public_key: None,
+            doh_url: None,
+            doh_bootstrap_ips: Vec::new(),
+            dns_query_timeout_ms: 4000,
+            resolver_fallback_active: false,
+            resolver_fallback_reason: None,
+        }));
+
+        let err = match parse_dns_cache(&config, None) {
+            Ok(_) => panic!("zero cache size should fail"),
+            Err(err) => err,
+        };
+
+        assert_eq!(err.kind(), io::ErrorKind::InvalidInput);
+        assert_eq!(err.to_string(), "mapdns.cache_size must be greater than zero");
+    }
+
+    #[test]
+    fn build_encrypted_dns_resolver_uses_doh_url_defaults() {
+        let config = tunnel_config_with_mapdns(Some(ripdpi_tunnel_config::MapDnsConfig {
+            address: "198.18.0.10".to_string(),
+            port: 53,
+            network: None,
+            netmask: None,
+            cache_size: 16,
+            resolver_id: Some("fixture".to_string()),
+            encrypted_dns_protocol: None,
+            encrypted_dns_host: None,
+            encrypted_dns_port: None,
+            encrypted_dns_tls_server_name: None,
+            encrypted_dns_bootstrap_ips: Vec::new(),
+            encrypted_dns_doh_url: None,
+            encrypted_dns_dnscrypt_provider_name: None,
+            encrypted_dns_dnscrypt_public_key: None,
+            doh_url: Some("https://dns.example.test/dns-query".to_string()),
+            doh_bootstrap_ips: vec!["1.1.1.1".to_string(), "1.0.0.1".to_string()],
+            dns_query_timeout_ms: 2500,
+            resolver_fallback_active: false,
+            resolver_fallback_reason: None,
+        }));
+
+        let resolver = build_encrypted_dns_resolver(&config).expect("resolver build").expect("resolver");
+        let endpoint = resolver.endpoint();
+
+        assert_eq!(endpoint.protocol, EncryptedDnsProtocol::Doh);
+        assert_eq!(endpoint.host, "dns.example.test");
+        assert_eq!(endpoint.port, 443);
+        assert_eq!(endpoint.tls_server_name.as_deref(), Some("dns.example.test"));
+        assert_eq!(
+            endpoint.bootstrap_ips,
+            vec![IpAddr::V4(Ipv4Addr::new(1, 1, 1, 1)), IpAddr::V4(Ipv4Addr::new(1, 0, 0, 1))],
+        );
+        assert_eq!(endpoint.doh_url.as_deref(), Some("https://dns.example.test/dns-query"));
+    }
+
+    #[test]
+    fn dns_query_name_extracts_labels_and_rejects_compression_pointers() {
+        let plain_query = [
+            0x12, 0x34, 0x01, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x03, b'w', b'w', b'w', 0x07, b'e',
+            b'x', b'a', b'm', b'p', b'l', b'e', 0x03, b'c', b'o', b'm', 0x00, 0x00, 0x01, 0x00, 0x01,
+        ];
+        let compressed_query = [0x12, 0x34, 0x01, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xc0, 0x0c];
+
+        assert_eq!(dns_query_name(&plain_query), Some("www.example.com".to_string()));
+        assert_eq!(dns_query_name(&compressed_query), None);
+    }
 }
