@@ -324,6 +324,7 @@ pub(super) fn connect_target_via_group(
     state: &RuntimeState,
     group_index: usize,
 ) -> io::Result<TcpStream> {
+    let started = std::time::Instant::now();
     let group = state
         .config
         .groups
@@ -349,6 +350,9 @@ pub(super) fn connect_target_via_group(
     if group.actions.drop_sack {
         platform::attach_drop_sack(&stream)?;
     }
+    let elapsed = started.elapsed().as_secs_f64();
+    let group_label = format!("{group_index}");
+    metrics::histogram!("ripdpi_connection_setup_duration_seconds", "group" => group_label).record(elapsed);
     if let Some(telemetry) = &state.telemetry {
         let upstream_addr = stream.peer_addr().unwrap_or(target);
         let upstream_rtt_ms = platform::tcp_round_trip_time_ms(&stream).ok().flatten();
