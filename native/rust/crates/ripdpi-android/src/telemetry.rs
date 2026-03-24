@@ -718,4 +718,121 @@ mod tests {
         let stopped = state.snapshot();
         assert_proxy_snapshot_golden("proxy_stopped", &stopped);
     }
+
+    #[test]
+    fn clear_last_error_resets_field_via_arc_swap() {
+        let state = ProxyTelemetryState::new();
+        state.on_client_error("first failure".to_string());
+        assert_eq!(state.snapshot().last_error.as_deref(), Some("first failure"));
+
+        state.clear_last_error();
+        assert!(state.snapshot().last_error.is_none());
+    }
+
+    #[test]
+    fn events_and_strings_are_independent_after_split() {
+        let state = ProxyTelemetryState::new();
+
+        // Push an event without updating any string field
+        state.push_event("test", "info", "standalone event".to_string());
+        let snap = state.snapshot();
+        assert_eq!(snap.native_events.len(), 1);
+        assert!(snap.listener_address.is_none());
+        assert!(snap.last_error.is_none());
+
+        // Update a string field without pushing an event
+        state.on_upstream_connected("10.0.0.1:443".to_string(), Some(42));
+        let snap2 = state.snapshot();
+        assert!(snap2.native_events.is_empty(), "events were drained in previous snapshot");
+        assert_eq!(snap2.upstream_address.as_deref(), Some("10.0.0.1:443"));
+        assert_eq!(snap2.upstream_rtt_ms, Some(42));
+    }
+
+    #[test]
+    fn concurrent_writers_do_not_lose_string_updates() {
+        use std::sync::Barrier;
+
+        let state = Arc::new(ProxyTelemetryState::new());
+        let barrier = Arc::new(Barrier::new(2));
+        let iterations = 500;
+
+        // Thread A: repeatedly sets last_error
+        let state_a = state.clone();
+        let barrier_a = barrier.clone();
+        let thread_a = std::thread::spawn(move || {
+            barrier_a.wait();
+            for i in 0..iterations {
+                state_a.on_client_error(format!("error-{i}"));
+            }
+        });
+
+        // Thread B: repeatedly sets route/target
+        let state_b = state.clone();
+        let barrier_b = barrier.clone();
+        let thread_b = std::thread::spawn(move || {
+            barrier_b.wait();
+            for i in 0..iterations {
+                state_b.on_route_selected(format!("target-{i}"), i % 3, Some(format!("host-{i}")), "connect");
+            }
+        });
+
+        thread_a.join().expect("thread_a panicked");
+        thread_b.join().expect("thread_b panicked");
+
+        // Final snapshot should have the last values from both threads
+        let snap = state.snapshot();
+        assert!(snap.last_error.is_some(), "last_error should be set");
+        assert!(snap.last_target.is_some(), "last_target should be set");
+        assert!(snap.last_host.is_some(), "last_host should be set");
+
+        // Verify values are from the last iterations (rcu ensures no lost updates)
+        assert!(
+            snap.last_error.as_ref().unwrap().starts_with("error-"),
+            "last_error should be from thread_a: {:?}",
+            snap.last_error,
+        );
+        assert!(
+            snap.last_target.as_ref().unwrap().starts_with("target-"),
+            "last_target should be from thread_b: {:?}",
+            snap.last_target,
+        );
+    }
+
+    #[test]
+    fn snapshot_reads_do_not_block_under_concurrent_writes() {
+        use std::sync::Barrier;
+
+        let state = Arc::new(ProxyTelemetryState::new());
+        let barrier = Arc::new(Barrier::new(2));
+        let iterations = 500;
+
+        let writer_state = state.clone();
+        let writer_barrier = barrier.clone();
+        let writer = std::thread::spawn(move || {
+            writer_barrier.wait();
+            for i in 0..iterations {
+                writer_state.on_client_error(format!("err-{i}"));
+            }
+        });
+
+        let reader_state = state.clone();
+        let reader_barrier = barrier.clone();
+        let reader = std::thread::spawn(move || {
+            reader_barrier.wait();
+            let mut snapshots = 0u32;
+            for _ in 0..iterations {
+                let snap = reader_state.snapshot();
+                // String fields should never be partially updated
+                if let Some(ref error) = snap.last_error {
+                    assert!(error.starts_with("err-"), "corrupted error field: {error}");
+                }
+                snapshots += 1;
+            }
+            snapshots
+        });
+
+        writer.join().expect("writer panicked");
+        let count = reader.join().expect("reader panicked");
+        assert_eq!(count, iterations as u32);
+    }
 }
