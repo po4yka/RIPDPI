@@ -4,6 +4,7 @@ mod fake_profiles;
 mod http;
 mod quic;
 mod tls;
+pub(crate) mod tls_nom;
 mod types;
 mod util;
 
