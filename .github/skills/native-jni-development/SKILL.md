@@ -81,3 +81,5 @@ suspend fun startProxy(preferences: RipDpiProxyPreferences): Int = mutex.withLoc
 - `rust-code-style` -- Rust code style rules for the native workspace
 - `rust-lint-config` -- Clippy, rustfmt, and cargo-deny configuration
 - `rust-crate-architecture` -- Crate layering and dependency rules
+- `native-profiling` -- CPU/memory profiling for native Rust code on Android
+- `network-traffic-debug` -- Traffic capture and inspection for SOCKS5 proxy and VPN tunnel

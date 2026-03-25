@@ -298,3 +298,9 @@ avdmanager delete avd -n ripdpi-debug
 | Force stop | `adb shell am force-stop com.poyka.ripdpi` |
 | VPN interface check | `adb shell ip addr show tun0` |
 | Crash logs | `adb logcat -b crash -d` |
+
+## See Also
+
+- `native-profiling` -- CPU flamegraphs with simpleperf, HWASan memory debugging, offline symbolication
+- `network-traffic-debug` -- mitmproxy SOCKS5 inspection, tcpdump on TUN, PCAPdroid, log correlation
+- `native-jni-development` -- Build pipeline, JNI exports, lifecycle rules
