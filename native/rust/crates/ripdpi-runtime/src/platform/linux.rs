@@ -387,8 +387,7 @@ fn storage_to_socket_addr(storage: &libc::sockaddr_storage) -> io::Result<Socket
 fn get_stream_ttl(stream: &TcpStream) -> io::Result<u8> {
     let socket = SockRef::from(stream);
     if let Ok(ttl) = socket.ttl() {
-        return u8::try_from(ttl)
-            .map_err(|_| io::Error::new(io::ErrorKind::InvalidData, "socket ttl exceeds u8"));
+        return u8::try_from(ttl).map_err(|_| io::Error::new(io::ErrorKind::InvalidData, "socket ttl exceeds u8"));
     }
     let hops = socket.unicast_hops_v6()?;
     u8::try_from(hops).map_err(|_| io::Error::new(io::ErrorKind::InvalidData, "socket hop limit exceeds u8"))

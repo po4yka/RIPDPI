@@ -224,6 +224,9 @@ pub fn tls_session_id_mismatch(req: &[u8], resp: &[u8]) -> bool {
         return false;
     }
     let sid_len = req[43] as usize;
+    if 44 + sid_len > req.len() || 44 + sid_len > resp.len() {
+        return false;
+    }
     let skip = 44 + sid_len + 3;
     if find_tls_ext_offset(0x002b, resp, skip).is_none() {
         return false;

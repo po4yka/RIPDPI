@@ -14,6 +14,7 @@ use std::time::Duration;
 use local_network_fixture::{FixtureConfig, FixtureStack};
 use ripdpi_tunnel_core::{run_tunnel, Stats};
 use tokio_util::sync::CancellationToken;
+use tracing_subscriber::EnvFilter;
 
 use support::config::test_tunnel_config;
 use support::fake_tun::socketpair_tun;
@@ -24,12 +25,20 @@ use support::packets::*;
 // The fixture stack binds fixed ports, so tests must not run concurrently.
 
 static TEST_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+static TRACING_INIT: OnceLock<()> = OnceLock::new();
 
 fn test_guard() -> std::sync::MutexGuard<'static, ()> {
-    TEST_LOCK
-        .get_or_init(|| Mutex::new(()))
-        .lock()
-        .unwrap_or_else(std::sync::PoisonError::into_inner)
+    TEST_LOCK.get_or_init(|| Mutex::new(())).lock().unwrap_or_else(std::sync::PoisonError::into_inner)
+}
+
+fn init_test_tracing() {
+    TRACING_INIT.get_or_init(|| {
+        let _ = tracing_subscriber::fmt()
+            .with_env_filter(EnvFilter::new("ripdpi_tunnel_core=debug"))
+            .with_test_writer()
+            .with_ansi(false)
+            .try_init();
+    });
 }
 
 // ── Fixture helpers ──────────────────────────────────────────────────────────
@@ -89,6 +98,16 @@ fn recv_tcp_with_flags(
     None
 }
 
+fn tcp_packet_summary(pkt: &[u8]) -> String {
+    if pkt.len() < 40 {
+        return format!("short_packet(len={})", pkt.len());
+    }
+    let flags = tcp_flags(pkt);
+    let (seq, ack) = tcp_seq_ack(pkt);
+    let payload_len = tcp_payload(pkt).len();
+    format!("flags=0x{flags:02x},seq={seq},ack={ack},payload_len={payload_len},len={}", pkt.len())
+}
+
 // ── Tests ────────────────────────────────────────────────────────────────────
 
 /// E2E-01: TCP round-trip through the full tunnel data path.
@@ -98,12 +117,11 @@ fn recv_tcp_with_flags(
 #[test]
 fn tcp_round_trip_through_tunnel() {
     let _guard = test_guard();
+    init_test_tracing();
 
     let fixture = FixtureStack::start(tun_fixture_config()).expect("start fixture");
     let manifest = fixture.manifest();
-    let socks5_addr = format!("{}:{}", manifest.bind_host, manifest.socks5_port)
-        .parse()
-        .expect("parse socks5 addr");
+    let socks5_addr = format!("{}:{}", manifest.bind_host, manifest.socks5_port).parse().expect("parse socks5 addr");
 
     let (tunnel_fd, harness) = socketpair_tun().expect("create socketpair");
     let config = test_tunnel_config(socks5_addr);
@@ -115,20 +133,16 @@ fn tcp_round_trip_through_tunnel() {
 
     // Run the tunnel on a dedicated tokio runtime (it blocks until cancelled).
     let tunnel_thread = std::thread::spawn(move || {
-        let rt = tokio::runtime::Builder::new_current_thread()
-            .enable_all()
-            .build()
-            .expect("build tokio runtime");
+        let rt = tokio::runtime::Builder::new_current_thread().enable_all().build().expect("build tokio runtime");
         rt.block_on(run_tunnel(config, tunnel_fd, cancel_clone, stats_clone))
     });
 
     // Give the tunnel event loop time to initialize.
     std::thread::sleep(Duration::from_millis(100));
 
-    // The echo server listens on 127.0.0.1:<tcp_echo_port>.
-    // The tunnel intercepts any destination (set_any_ip=true) and forwards
-    // through SOCKS5, so we target 127.0.0.1 directly.
-    let dst_ip: [u8; 4] = [127, 0, 0, 1];
+    // The fixture exposes a synthetic intercept IP that the SOCKS5 relay maps
+    // back onto its loopback echo services.
+    let dst_ip = manifest.fixture_ipv4.parse::<std::net::Ipv4Addr>().expect("fixture ipv4").octets();
     let dst_port = manifest.tcp_echo_port;
 
     // Step 1: SYN
@@ -136,8 +150,8 @@ fn tcp_round_trip_through_tunnel() {
     harness.inject_packet(&syn).expect("inject SYN");
 
     // Step 2: Wait for SYN-ACK from smoltcp
-    let syn_ack = recv_tcp_with_flags(&harness, TCP_SYN | TCP_ACK, Duration::from_secs(3))
-        .expect("expected SYN-ACK from tunnel");
+    let syn_ack =
+        recv_tcp_with_flags(&harness, TCP_SYN | TCP_ACK, Duration::from_secs(3)).expect("expected SYN-ACK from tunnel");
     let (server_seq, _) = tcp_seq_ack(&syn_ack);
 
     // Step 3: Complete 3WHS with ACK
@@ -149,51 +163,45 @@ fn tcp_round_trip_through_tunnel() {
 
     // Step 4: Send data (PSH+ACK)
     let payload = b"hello tunnel e2e";
-    let psh = build_tcp_psh(
-        CLIENT_IP,
-        dst_ip,
-        CLIENT_PORT,
-        dst_port,
-        1,
-        server_seq + 1,
-        payload,
-    );
+    let psh = build_tcp_psh(CLIENT_IP, dst_ip, CLIENT_PORT, dst_port, 1, server_seq + 1, payload);
     harness.inject_packet(&psh).expect("inject PSH");
 
     // Step 5: Read echoed data from tunnel
     // The echo server reflects the payload, so we should see it come back.
     let mut echoed_data = Vec::new();
+    let mut observed_packets = Vec::new();
     let deadline = std::time::Instant::now() + Duration::from_secs(5);
     while echoed_data.len() < payload.len() && std::time::Instant::now() < deadline {
         let remaining = deadline.saturating_duration_since(std::time::Instant::now());
         match harness.recv_packet(remaining.min(Duration::from_millis(200))) {
             Ok(pkt) if pkt.len() > 40 && (tcp_flags(&pkt) & TCP_PSH) != 0 => {
+                observed_packets.push(tcp_packet_summary(&pkt));
                 let data = tcp_payload(&pkt);
                 echoed_data.extend_from_slice(data);
             }
             Ok(pkt) if pkt.len() > 40 && (tcp_flags(&pkt) & TCP_ACK) != 0 => {
+                observed_packets.push(tcp_packet_summary(&pkt));
                 // Pure ACK or data ACK -- check for payload
                 let data = tcp_payload(&pkt);
                 if !data.is_empty() {
                     echoed_data.extend_from_slice(data);
                 }
             }
-            Ok(_) => {} // other packet, ignore
+            Ok(pkt) => observed_packets.push(tcp_packet_summary(&pkt)),
             Err(_) => {}
         }
     }
 
+    let fixture_events = fixture.events().snapshot();
+    let residual_packets = harness.drain();
     assert_eq!(
         echoed_data,
         payload,
-        "echo server must reflect the payload through the tunnel"
+        "echo server must reflect the payload through the tunnel; observed_packets={observed_packets:?}; fixture_events={fixture_events:?}; residual_packets={residual_packets:?}"
     );
 
     // Verify stats were updated
-    assert!(
-        stats.tx_packets.load(Ordering::Relaxed) > 0,
-        "tx_packets must be non-zero after traffic"
-    );
+    assert!(stats.tx_packets.load(Ordering::Relaxed) > 0, "tx_packets must be non-zero after traffic");
 
     // Shutdown
     cancel.cancel();
@@ -205,12 +213,11 @@ fn tcp_round_trip_through_tunnel() {
 #[test]
 fn tunnel_shutdown_on_cancel() {
     let _guard = test_guard();
+    init_test_tracing();
 
     let fixture = FixtureStack::start(tun_fixture_config()).expect("start fixture");
     let manifest = fixture.manifest();
-    let socks5_addr = format!("{}:{}", manifest.bind_host, manifest.socks5_port)
-        .parse()
-        .expect("parse socks5 addr");
+    let socks5_addr = format!("{}:{}", manifest.bind_host, manifest.socks5_port).parse().expect("parse socks5 addr");
 
     let (tunnel_fd, _harness) = socketpair_tun().expect("create socketpair");
     let config = test_tunnel_config(socks5_addr);
@@ -221,10 +228,7 @@ fn tunnel_shutdown_on_cancel() {
     let stats_clone = stats.clone();
 
     let tunnel_thread = std::thread::spawn(move || {
-        let rt = tokio::runtime::Builder::new_current_thread()
-            .enable_all()
-            .build()
-            .expect("build tokio runtime");
+        let rt = tokio::runtime::Builder::new_current_thread().enable_all().build().expect("build tokio runtime");
         rt.block_on(run_tunnel(config, tunnel_fd, cancel_clone, stats_clone))
     });
 
@@ -239,22 +243,18 @@ fn tunnel_shutdown_on_cancel() {
     let elapsed = start.elapsed();
 
     assert!(result.is_ok(), "run_tunnel should return Ok after cancel: {result:?}");
-    assert!(
-        elapsed < Duration::from_secs(2),
-        "tunnel should shut down within 2s, took {elapsed:?}"
-    );
+    assert!(elapsed < Duration::from_secs(2), "tunnel should shut down within 2s, took {elapsed:?}");
 }
 
 /// E2E-03: Stats counters are populated after tunnel traffic.
 #[test]
 fn stats_count_packets_and_bytes() {
     let _guard = test_guard();
+    init_test_tracing();
 
     let fixture = FixtureStack::start(tun_fixture_config()).expect("start fixture");
     let manifest = fixture.manifest();
-    let socks5_addr = format!("{}:{}", manifest.bind_host, manifest.socks5_port)
-        .parse()
-        .expect("parse socks5 addr");
+    let socks5_addr = format!("{}:{}", manifest.bind_host, manifest.socks5_port).parse().expect("parse socks5 addr");
 
     let (tunnel_fd, harness) = socketpair_tun().expect("create socketpair");
     let config = test_tunnel_config(socks5_addr);
@@ -265,17 +265,15 @@ fn stats_count_packets_and_bytes() {
     let stats_clone = stats.clone();
 
     let tunnel_thread = std::thread::spawn(move || {
-        let rt = tokio::runtime::Builder::new_current_thread()
-            .enable_all()
-            .build()
-            .expect("build tokio runtime");
+        let rt = tokio::runtime::Builder::new_current_thread().enable_all().build().expect("build tokio runtime");
         rt.block_on(run_tunnel(config, tunnel_fd, cancel_clone, stats_clone))
     });
 
     std::thread::sleep(Duration::from_millis(100));
 
     // Inject a SYN packet to generate traffic
-    let syn = build_tcp_syn(CLIENT_IP, [127, 0, 0, 1], CLIENT_PORT, manifest.tcp_echo_port);
+    let dst_ip = manifest.fixture_ipv4.parse::<std::net::Ipv4Addr>().expect("fixture ipv4").octets();
+    let syn = build_tcp_syn(CLIENT_IP, dst_ip, CLIENT_PORT, manifest.tcp_echo_port);
     harness.inject_packet(&syn).expect("inject SYN");
 
     // Wait for smoltcp to process and respond

@@ -72,6 +72,7 @@ pub(crate) fn start_socks5_server(
                         let udp_shared = udp_shared.clone();
                         let faults = faults.clone();
                         thread::spawn(move || {
+                            let _ = stream.set_nonblocking(false);
                             let local = stream.local_addr().ok();
                             let _ = stream.set_read_timeout(Some(SOCKS_IO_TIMEOUT));
                             let _ = stream.set_write_timeout(Some(SOCKS_IO_TIMEOUT));
