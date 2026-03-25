@@ -41,7 +41,11 @@ fn udp_checksum_ipv4(src_ip: [u8; 4], dst_ip: [u8; 4], udp_segment: &[u8]) -> u1
     sum += checksum_sum(udp_segment);
     let result = finalize_checksum(sum);
     // UDP checksum of 0 means "no checksum"; use 0xFFFF instead.
-    if result == 0 { 0xFFFF } else { result }
+    if result == 0 {
+        0xFFFF
+    } else {
+        result
+    }
 }
 
 fn set_ip_header_checksum(pkt: &mut [u8]) {
@@ -53,13 +57,7 @@ fn set_ip_header_checksum(pkt: &mut [u8]) {
 
 // ── IPv4 header builder ──────────────────────────────────────────────────────
 
-fn build_ipv4_header(
-    buf: &mut [u8],
-    total_len: u16,
-    protocol: u8,
-    src_ip: [u8; 4],
-    dst_ip: [u8; 4],
-) {
+fn build_ipv4_header(buf: &mut [u8], total_len: u16, protocol: u8, src_ip: [u8; 4], dst_ip: [u8; 4]) {
     buf[0] = 0x45; // version=4, IHL=5
     buf[2..4].copy_from_slice(&total_len.to_be_bytes());
     buf[4] = 0x00;
@@ -75,12 +73,7 @@ fn build_ipv4_header(
 // ── TCP packet builders ──────────────────────────────────────────────────────
 
 /// Build a raw IPv4/TCP SYN packet (no payload, with valid checksums).
-pub fn build_tcp_syn(
-    src_ip: [u8; 4],
-    dst_ip: [u8; 4],
-    src_port: u16,
-    dst_port: u16,
-) -> Vec<u8> {
+pub fn build_tcp_syn(src_ip: [u8; 4], dst_ip: [u8; 4], src_port: u16, dst_port: u16) -> Vec<u8> {
     let mut pkt = vec![0u8; 40]; // 20-byte IPv4 + 20-byte TCP
     build_ipv4_header(&mut pkt, 40, 6, src_ip, dst_ip);
     pkt[20..22].copy_from_slice(&src_port.to_be_bytes());
@@ -97,14 +90,7 @@ pub fn build_tcp_syn(
 }
 
 /// Build an IPv4/TCP ACK packet.
-pub fn build_tcp_ack(
-    src_ip: [u8; 4],
-    dst_ip: [u8; 4],
-    src_port: u16,
-    dst_port: u16,
-    seq: u32,
-    ack: u32,
-) -> Vec<u8> {
+pub fn build_tcp_ack(src_ip: [u8; 4], dst_ip: [u8; 4], src_port: u16, dst_port: u16, seq: u32, ack: u32) -> Vec<u8> {
     let mut pkt = vec![0u8; 40];
     build_ipv4_header(&mut pkt, 40, 6, src_ip, dst_ip);
     pkt[20..22].copy_from_slice(&src_port.to_be_bytes());
@@ -178,13 +164,7 @@ pub const TCP_FIN: u8 = 0x01;
 pub const TCP_RST: u8 = 0x04;
 
 /// Build a raw IPv4/UDP packet.
-pub fn build_udp_packet(
-    src_ip: [u8; 4],
-    dst_ip: [u8; 4],
-    src_port: u16,
-    dst_port: u16,
-    payload: &[u8],
-) -> Vec<u8> {
+pub fn build_udp_packet(src_ip: [u8; 4], dst_ip: [u8; 4], src_port: u16, dst_port: u16, payload: &[u8]) -> Vec<u8> {
     let udp_len = 8 + payload.len();
     let total_len = 20 + udp_len;
     let mut pkt = vec![0u8; total_len];

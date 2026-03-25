@@ -30,3 +30,4 @@ proptest = { workspace = true }
 turmoil = "0.7"
 local-network-fixture = { workspace = true }
 libc = { workspace = true }
+tracing-subscriber = { workspace = true }

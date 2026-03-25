@@ -577,6 +577,10 @@ mod tests {
         let mut connect_reply = [0u8; 10];
         tcp_stream.read_exact(&mut connect_reply).expect("read socks connect reply");
         assert_eq!(connect_reply[1], 0x00);
+        tcp_stream.write_all(b"socks-tcp").expect("write socks tcp payload");
+        let mut echoed = [0u8; 9];
+        tcp_stream.read_exact(&mut echoed).expect("read socks tcp payload");
+        assert_eq!(&echoed, b"socks-tcp");
         tcp_stream.shutdown(Shutdown::Both).expect("shutdown socks connect stream");
 
         let mut udp_assoc = TcpStream::connect((&stack.manifest().bind_host[..], stack.manifest().socks5_port))
@@ -609,6 +613,9 @@ mod tests {
 
         let events = stack.events().snapshot();
         assert!(events.iter().any(|event| event.service == "socks5_relay" && event.protocol == "tcp"));
+        assert!(events
+            .iter()
+            .any(|event| event.service == "tcp_echo" && event.protocol == "tcp" && event.detail == "echo"));
         assert!(events.iter().any(|event| event.service == "socks5_relay" && event.protocol == "udp"));
     }
 

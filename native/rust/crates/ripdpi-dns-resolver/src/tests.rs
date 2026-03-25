@@ -609,7 +609,9 @@ fn serve_dnscrypt_query(
 ) {
     let decrypted = crypto_box.decrypt((&nonce[..]).into(), &packet[52..]).expect("dnscrypt request decrypt");
     let query = dnscrypt_unpad(&decrypted).expect("dnscrypt request unpad");
-    assert_eq!(query, build_query("fixture.test"));
+    let expected = build_query("fixture.test");
+    // Compare queries ignoring the 2-byte transaction ID (now randomized).
+    assert_eq!(query[2..], expected[2..]);
 
     let mut response_nonce = *nonce;
     response_nonce[DNSCRYPT_QUERY_NONCE_HALF..].fill(0x11);
@@ -666,7 +668,8 @@ fn serve_dot_sequence(
     }
     for (expected_query, response_body) in expected_queries.iter().zip(response_bodies) {
         let query = read_length_prefixed_frame(&mut tls_stream).expect("read DoT query");
-        assert_eq!(&query, expected_query);
+        // Compare ignoring the 2-byte transaction ID (now randomized).
+        assert_eq!(query[2..], expected_query[2..]);
         write_length_prefixed_frame(&mut tls_stream, response_body).expect("write DoT response");
     }
 }

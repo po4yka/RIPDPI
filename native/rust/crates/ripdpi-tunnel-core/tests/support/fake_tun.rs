@@ -55,9 +55,7 @@ impl FakeTunHarness {
 
     /// Drain all pending packets (non-blocking). Returns collected packets.
     pub fn drain(&self) -> Vec<Vec<u8>> {
-        self.sock
-            .set_nonblocking(true)
-            .expect("set_nonblocking on harness socket");
+        self.sock.set_nonblocking(true).expect("set_nonblocking on harness socket");
         let mut packets = Vec::new();
         let mut buf = vec![0u8; 65536];
         loop {
@@ -67,9 +65,7 @@ impl FakeTunHarness {
                 Err(_) => break,
             }
         }
-        self.sock
-            .set_nonblocking(false)
-            .expect("restore blocking on harness socket");
+        self.sock.set_nonblocking(false).expect("restore blocking on harness socket");
         packets
     }
 }

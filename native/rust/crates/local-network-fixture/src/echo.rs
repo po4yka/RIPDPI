@@ -29,6 +29,7 @@ pub(crate) fn start_tcp_echo_server(
                         let events = events.clone();
                         let faults = faults.clone();
                         thread::spawn(move || {
+                            let _ = stream.set_nonblocking(false);
                             if let Some(fault) = faults.take_matching(FixtureFaultTarget::TcpEcho, |outcome| {
                                 matches!(outcome, FixtureFaultOutcome::TcpReset | FixtureFaultOutcome::TcpTruncate)
                             }) {
