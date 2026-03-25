@@ -30,10 +30,7 @@ use support::config::test_tunnel_config;
 static TEST_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
 
 fn test_guard() -> std::sync::MutexGuard<'static, ()> {
-    TEST_LOCK
-        .get_or_init(|| Mutex::new(()))
-        .lock()
-        .unwrap_or_else(std::sync::PoisonError::into_inner)
+    TEST_LOCK.get_or_init(|| Mutex::new(())).lock().unwrap_or_else(std::sync::PoisonError::into_inner)
 }
 
 fn require_tun_e2e() {
@@ -77,9 +74,7 @@ fn real_tun_tcp_echo() {
 
     let fixture = FixtureStack::start(linux_tun_fixture_config()).expect("start fixture");
     let manifest = fixture.manifest();
-    let socks5_addr = format!("{}:{}", manifest.bind_host, manifest.socks5_port)
-        .parse()
-        .expect("parse socks5 addr");
+    let socks5_addr = format!("{}:{}", manifest.bind_host, manifest.socks5_port).parse().expect("parse socks5 addr");
 
     // Open a real TUN device (requires CAP_NET_ADMIN).
     let tun = LinuxTunnel::open(None, false).expect("open TUN device");
@@ -96,10 +91,7 @@ fn real_tun_tcp_echo() {
     let stats_clone = stats.clone();
 
     let tunnel_thread = std::thread::spawn(move || {
-        let rt = tokio::runtime::Builder::new_current_thread()
-            .enable_all()
-            .build()
-            .expect("build tokio runtime");
+        let rt = tokio::runtime::Builder::new_current_thread().enable_all().build().expect("build tokio runtime");
         // Note: run_tunnel takes ownership of the fd via from_raw_fd.
         // The LinuxTunnel must be kept alive (it owns the fd via OwnedFd),
         // so we leak it to prevent double-close. The tunnel will close it.

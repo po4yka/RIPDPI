@@ -111,6 +111,7 @@ pub(super) async fn pump_active_sessions(socket_set: &mut SocketSet<'static>, se
             let mut tmp = [0u8; PUMP_CHUNK];
             if let Ok(read) = tcp.recv_slice(&mut tmp) {
                 if read > 0 {
+                    debug!("read {read} bytes from smoltcp socket {:?}", handle);
                     match try_write_duplex(&mut session.smoltcp_side, &tmp[..read]) {
                         Some(Ok(0)) => {
                             debug!("session duplex stream accepted zero bytes — closing session {:?}", handle);
@@ -118,6 +119,7 @@ pub(super) async fn pump_active_sessions(socket_set: &mut SocketSet<'static>, se
                             continue;
                         }
                         Some(Ok(sent)) => {
+                            debug!("wrote {sent} bytes into session duplex {:?}", handle);
                             if sent < read {
                                 session.pending_to_session.extend_from_slice(&tmp[sent..read]);
                             }
@@ -149,6 +151,7 @@ pub(super) async fn pump_active_sessions(socket_set: &mut SocketSet<'static>, se
             let mut tmp = [0u8; PUMP_CHUNK];
             match try_read_duplex(&mut session.smoltcp_side, &mut tmp) {
                 Some(Ok(0)) => {
+                    debug!("session duplex reached EOF {:?}", handle);
                     session.upstream_closed = true;
                     if tcp.is_open() {
                         tcp.close();
@@ -156,6 +159,10 @@ pub(super) async fn pump_active_sessions(socket_set: &mut SocketSet<'static>, se
                 }
                 Some(Ok(read)) => match tcp.send_slice(&tmp[..read]) {
                     Ok(sent) => {
+                        debug!(
+                            "read {read} bytes from session duplex and enqueued {sent} bytes to smoltcp {:?}",
+                            handle
+                        );
                         if sent < read {
                             session.pending_to_smoltcp.extend_from_slice(&tmp[sent..read]);
                         }

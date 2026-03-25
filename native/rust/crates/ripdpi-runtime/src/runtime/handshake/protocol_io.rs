@@ -45,12 +45,17 @@ pub(super) fn read_socks5_request(client: &mut TcpStream) -> io::Result<Vec<u8>>
         0x03 => {
             let mut len = [0u8; 1];
             client.read_exact(&mut len)?;
+            if len[0] == 0 {
+                return Err(io::Error::new(io::ErrorKind::InvalidData, "empty SOCKS5 domain name"));
+            }
             out.extend_from_slice(&len);
             let mut tail = vec![0u8; len[0] as usize + 2];
             client.read_exact(&mut tail)?;
             out.extend_from_slice(&tail);
         }
-        _ => {}
+        _ => {
+            return Err(io::Error::new(io::ErrorKind::InvalidData, "unsupported SOCKS5 address type"));
+        }
     }
     Ok(out)
 }

@@ -65,7 +65,11 @@ fn split_tcp_chain(chain: &[TcpChainStep]) -> Result<(Vec<TcpChainStep>, Vec<Tcp
 /// Effective TTL for disorder-family steps: use the configured fake_ttl,
 /// falling back to 1 when fake_ttl is zero (unconfigured).
 fn disorder_ttl(fake_ttl: u8) -> u8 {
-    if fake_ttl == 0 { 1 } else { fake_ttl }
+    if fake_ttl == 0 {
+        1
+    } else {
+        fake_ttl
+    }
 }
 
 pub fn plan_tcp(
@@ -136,6 +140,9 @@ pub fn plan_tcp(
                 actions.push(DesyncAction::Write(chunk));
                 actions.push(DesyncAction::AwaitWritable);
                 actions.push(DesyncAction::RestoreDefaultTtl);
+                if default_ttl != 0 {
+                    actions.push(DesyncAction::SetTtl(default_ttl));
+                }
             }
             TcpChainStepKind::Disoob => {
                 actions.push(DesyncAction::SetTtl(disorder_ttl(fake_ttl)));
@@ -145,6 +152,9 @@ pub fn plan_tcp(
                 });
                 actions.push(DesyncAction::AwaitWritable);
                 actions.push(DesyncAction::RestoreDefaultTtl);
+                if default_ttl != 0 {
+                    actions.push(DesyncAction::SetTtl(default_ttl));
+                }
             }
             TcpChainStepKind::Fake => {
                 let fake = build_fake_packet(group, &tampered.bytes, seed)?;
@@ -183,6 +193,9 @@ pub fn plan_tcp(
                 actions.push(DesyncAction::Write(chunk));
                 actions.push(DesyncAction::AwaitWritable);
                 actions.push(DesyncAction::RestoreDefaultTtl);
+                if default_ttl != 0 {
+                    actions.push(DesyncAction::SetTtl(default_ttl));
+                }
             }
             TcpChainStepKind::HostFake => {
                 let Some(span) = resolve_hostfake_span(&step, &tampered.bytes, lp as usize, pos as usize, seed) else {

@@ -1,9 +1,10 @@
 use std::future::Future;
 use std::io;
 use std::net::SocketAddr;
-use tokio::io::{AsyncRead, AsyncWrite};
+use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt};
 use tokio::net::TcpStream;
 use tokio_util::sync::CancellationToken;
+use tracing::debug;
 
 use super::socks5::{Auth, TargetAddr};
 
@@ -47,7 +48,9 @@ impl TcpSession {
         F: Future<Output = io::Result<P>>,
         P: AsyncRead + AsyncWrite + Unpin,
     {
+        debug!(proxy = %self.proxy_addr, target = ?self.target, "tcp session connecting to proxy");
         let mut proxy = connect(self.proxy_addr).await?;
+        debug!(proxy = %self.proxy_addr, target = ?self.target, "tcp session connected to proxy");
         self.run_with_proxy(local, cancel, &mut proxy).await
     }
 
@@ -57,9 +60,27 @@ impl TcpSession {
         P: AsyncRead + AsyncWrite + Unpin,
     {
         super::socks5::handshake(proxy, &self.auth).await?;
+        debug!(proxy = %self.proxy_addr, target = ?self.target, "tcp session SOCKS5 handshake complete");
         super::socks5::connect(proxy, &self.target).await?;
+        debug!(proxy = %self.proxy_addr, target = ?self.target, "tcp session SOCKS5 CONNECT complete");
         tokio::select! {
-            result = splice(local, proxy) => result.map(|_| ()),
+            result = splice(local, proxy) => {
+                match &result {
+                    Ok((forward, backward)) => {
+                        debug!(
+                            proxy = %self.proxy_addr,
+                            target = ?self.target,
+                            forward_bytes = *forward,
+                            backward_bytes = *backward,
+                            "tcp session relay completed"
+                        );
+                    }
+                    Err(err) => {
+                        debug!(proxy = %self.proxy_addr, target = ?self.target, error = %err, "tcp session relay failed");
+                    }
+                }
+                result.map(|_| ())
+            },
             _ = cancel.cancelled() => Ok(()),
         }
     }
@@ -79,14 +100,48 @@ where
     L: AsyncRead + AsyncWrite + Unpin,
     P: AsyncRead + AsyncWrite + Unpin,
 {
-    tokio::io::copy_bidirectional(local, proxy).await
+    let (mut local_read, mut local_write) = tokio::io::split(local);
+    let (mut proxy_read, mut proxy_write) = tokio::io::split(proxy);
+
+    let forward = async {
+        let copied = tokio::io::copy(&mut local_read, &mut proxy_write).await?;
+        proxy_write.shutdown().await?;
+        Ok::<u64, io::Error>(copied)
+    };
+
+    let backward = async {
+        let copied = tokio::io::copy(&mut proxy_read, &mut local_write).await?;
+        local_write.shutdown().await?;
+        Ok::<u64, io::Error>(copied)
+    };
+
+    tokio::try_join!(forward, backward)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::session::socks5;
     use std::net::{IpAddr, Ipv4Addr};
+    use std::sync::OnceLock;
+    use std::time::Duration;
     use tokio::io::{duplex, AsyncReadExt, AsyncWriteExt};
+    use tokio::time::{sleep, timeout};
+    use tracing_subscriber::EnvFilter;
+
+    use local_network_fixture::{FixtureConfig, FixtureStack};
+
+    static TRACING_INIT: OnceLock<()> = OnceLock::new();
+
+    fn init_test_tracing() {
+        TRACING_INIT.get_or_init(|| {
+            let _ = tracing_subscriber::fmt()
+                .with_env_filter(EnvFilter::new("ripdpi_tunnel_core=debug"))
+                .with_test_writer()
+                .with_ansi(false)
+                .try_init();
+        });
+    }
 
     async fn read_socks5_addr<S>(stream: &mut S, atyp: u8) -> io::Result<()>
     where
@@ -318,6 +373,168 @@ mod tests {
         });
 
         sim.run()
+    }
+
+    #[tokio::test]
+    async fn fixture_backed_tcp_session_keeps_local_side_open_while_idle() {
+        init_test_tracing();
+        let fixture = FixtureStack::start(FixtureConfig {
+            tcp_echo_port: 0,
+            udp_echo_port: 0,
+            tls_echo_port: 0,
+            dns_udp_port: 0,
+            dns_http_port: 0,
+            socks5_port: 0,
+            control_port: 0,
+            ..FixtureConfig::default()
+        })
+        .expect("start fixture");
+        let manifest = fixture.manifest();
+        let proxy_addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), manifest.socks5_port);
+        let target =
+            SocketAddr::new(manifest.fixture_ipv4.parse::<IpAddr>().expect("fixture ipv4"), manifest.tcp_echo_port);
+        let session = TcpSession::new(proxy_addr, Auth::NoAuth, TargetAddr::Ip(target));
+        let cancel = CancellationToken::new();
+
+        let (mut local, mut peer) = tokio::io::duplex(1024);
+        let cancel_clone = cancel.clone();
+        let join = tokio::spawn(async move { session.run(&mut local, cancel_clone).await });
+
+        sleep(Duration::from_millis(200)).await;
+
+        let mut byte = [0u8; 1];
+        let pending_read = timeout(Duration::from_millis(200), peer.read(&mut byte)).await;
+        assert!(
+            pending_read.is_err(),
+            "fixture-backed session should stay open while upstream is idle, got {pending_read:?}"
+        );
+
+        cancel.cancel();
+        join.await.expect("join tcp session").expect("cancel fixture-backed tcp session");
+    }
+
+    #[tokio::test]
+    async fn fixture_backed_tcp_session_round_trips_payload() {
+        init_test_tracing();
+        let fixture = FixtureStack::start(FixtureConfig {
+            tcp_echo_port: 0,
+            udp_echo_port: 0,
+            tls_echo_port: 0,
+            dns_udp_port: 0,
+            dns_http_port: 0,
+            socks5_port: 0,
+            control_port: 0,
+            ..FixtureConfig::default()
+        })
+        .expect("start fixture");
+        let manifest = fixture.manifest();
+        let proxy_addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), manifest.socks5_port);
+        let target =
+            SocketAddr::new(manifest.fixture_ipv4.parse::<IpAddr>().expect("fixture ipv4"), manifest.tcp_echo_port);
+        let session = TcpSession::new(proxy_addr, Auth::NoAuth, TargetAddr::Ip(target));
+        let cancel = CancellationToken::new();
+
+        let (mut local, mut peer) = tokio::io::duplex(1024);
+        let cancel_clone = cancel.clone();
+        let join = tokio::spawn(async move { session.run(&mut local, cancel_clone).await });
+
+        let payload = b"fixture-round-trip";
+        peer.write_all(payload).await.expect("write fixture payload");
+        let mut echoed = vec![0u8; payload.len()];
+        let echo_result = timeout(Duration::from_secs(1), peer.read_exact(&mut echoed)).await;
+        let fixture_events = fixture.events().snapshot();
+        echo_result
+            .unwrap_or_else(|_| panic!("wait for fixture echo; fixture_events={fixture_events:?}"))
+            .unwrap_or_else(|err| panic!("read fixture echo: {err}; fixture_events={fixture_events:?}"));
+        assert_eq!(echoed, payload);
+
+        cancel.cancel();
+        join.await.expect("join tcp session").expect("cancel fixture-backed tcp session");
+    }
+
+    #[tokio::test]
+    async fn async_socks5_client_round_trips_against_fixture() {
+        init_test_tracing();
+        let fixture = FixtureStack::start(FixtureConfig {
+            tcp_echo_port: 0,
+            udp_echo_port: 0,
+            tls_echo_port: 0,
+            dns_udp_port: 0,
+            dns_http_port: 0,
+            socks5_port: 0,
+            control_port: 0,
+            ..FixtureConfig::default()
+        })
+        .expect("start fixture");
+        let manifest = fixture.manifest();
+        let proxy_addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), manifest.socks5_port);
+        let target =
+            SocketAddr::new(manifest.fixture_ipv4.parse::<IpAddr>().expect("fixture ipv4"), manifest.tcp_echo_port);
+
+        let mut stream = TcpStream::connect(proxy_addr).await.expect("connect fixture socks");
+        socks5::handshake(&mut stream, &Auth::NoAuth).await.expect("async socks handshake");
+        socks5::connect(&mut stream, &TargetAddr::Ip(target)).await.expect("async socks connect");
+
+        let payload = b"fixture-async-client";
+        stream.write_all(payload).await.expect("write fixture async payload");
+        let mut echoed = vec![0u8; payload.len()];
+        let echo_result = timeout(Duration::from_secs(1), stream.read_exact(&mut echoed)).await;
+        let fixture_events = fixture.events().snapshot();
+        echo_result
+            .unwrap_or_else(|_| panic!("wait for async fixture echo; fixture_events={fixture_events:?}"))
+            .unwrap_or_else(|err| panic!("read async fixture echo: {err}; fixture_events={fixture_events:?}"));
+        assert_eq!(echoed, payload);
+    }
+
+    #[tokio::test]
+    async fn splice_with_idle_tcp_peer_keeps_local_side_open() {
+        let listener = std::net::TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("bind idle listener");
+        let addr = listener.local_addr().expect("idle listener addr");
+        let server = std::thread::spawn(move || {
+            let (_stream, _) = listener.accept().expect("accept idle peer");
+            std::thread::sleep(Duration::from_millis(500));
+        });
+
+        let mut proxy = TcpStream::connect(addr).await.expect("connect idle peer");
+        let (mut local, mut peer) = tokio::io::duplex(1024);
+        let join = tokio::spawn(async move { splice(&mut local, &mut proxy).await });
+
+        let mut byte = [0u8; 1];
+        let pending_read = timeout(Duration::from_millis(200), peer.read(&mut byte)).await;
+        assert!(pending_read.is_err(), "plain TCP idle peer should not close the local side, got {pending_read:?}");
+
+        drop(peer);
+        let _ = join.await.expect("join idle splice");
+        server.join().expect("join idle server");
+    }
+
+    #[tokio::test]
+    async fn splice_with_tcp_echo_peer_round_trips_payload() {
+        let listener = std::net::TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("bind echo listener");
+        let addr = listener.local_addr().expect("echo listener addr");
+        let server = std::thread::spawn(move || {
+            let (mut stream, _) = listener.accept().expect("accept echo peer");
+            let mut buf = [0u8; 256];
+            let read = std::io::Read::read(&mut stream, &mut buf).expect("read echo payload");
+            std::io::Write::write_all(&mut stream, &buf[..read]).expect("write echo payload");
+        });
+
+        let mut proxy = TcpStream::connect(addr).await.expect("connect echo peer");
+        let (mut local, mut peer) = tokio::io::duplex(1024);
+        let join = tokio::spawn(async move { splice(&mut local, &mut proxy).await });
+
+        let payload = b"splice-echo";
+        peer.write_all(payload).await.expect("write splice payload");
+        let mut echoed = vec![0u8; payload.len()];
+        timeout(Duration::from_secs(1), peer.read_exact(&mut echoed))
+            .await
+            .expect("wait for splice echo")
+            .expect("read splice echo");
+        assert_eq!(echoed, payload);
+
+        drop(peer);
+        let _ = join.await.expect("join echo splice");
+        server.join().expect("join echo server");
     }
 
     #[test]

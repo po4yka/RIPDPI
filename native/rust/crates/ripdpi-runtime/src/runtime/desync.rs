@@ -123,31 +123,46 @@ fn execute_tcp_actions(
     await_interval: Duration,
 ) -> io::Result<()> {
     // When default_ttl is 0 (auto-detect), lazily read the current TTL on
-    // the first RestoreDefaultTtl action so we always have a value to restore.
+    // the first SetTtl action so we always have a value to restore.
     let mut cached_restore_ttl: Option<u8> = if default_ttl != 0 { Some(default_ttl) } else { None };
-    for action in actions {
-        match action {
-            DesyncAction::Write(bytes) => writer.write_all(bytes)?,
-            DesyncAction::WriteUrgent { prefix, urgent_byte } => send_oob_action(writer, prefix, *urgent_byte)?,
-            DesyncAction::SetTtl(ttl) => {
-                // Capture current TTL before first modification when auto-detecting.
-                if cached_restore_ttl.is_none() {
-                    cached_restore_ttl = platform::detect_default_ttl().ok();
+    let mut ttl_modified = false;
+
+    let result = (|| -> io::Result<()> {
+        for action in actions {
+            match action {
+                DesyncAction::Write(bytes) => writer.write_all(bytes)?,
+                DesyncAction::WriteUrgent { prefix, urgent_byte } => send_oob_action(writer, prefix, *urgent_byte)?,
+                DesyncAction::SetTtl(ttl) => {
+                    // Capture current TTL before first modification when auto-detecting.
+                    if cached_restore_ttl.is_none() {
+                        cached_restore_ttl = platform::detect_default_ttl().ok();
+                    }
+                    set_ttl_action(writer, *ttl)?;
+                    ttl_modified = true;
                 }
-                set_ttl_action(writer, *ttl)?;
-            }
-            DesyncAction::RestoreDefaultTtl => {
-                if let Some(restore) = cached_restore_ttl {
-                    restore_default_ttl_action(writer, restore)?;
+                DesyncAction::RestoreDefaultTtl => {
+                    if let Some(restore) = cached_restore_ttl {
+                        restore_default_ttl_action(writer, restore)?;
+                        ttl_modified = false;
+                    }
                 }
+                DesyncAction::SetMd5Sig { key_len } => set_md5sig_action(writer, *key_len)?,
+                DesyncAction::AttachDropSack => {}
+                DesyncAction::DetachDropSack => {}
+                DesyncAction::AwaitWritable => await_writable_action(writer, wait_send, await_interval)?,
             }
-            DesyncAction::SetMd5Sig { key_len } => set_md5sig_action(writer, *key_len)?,
-            DesyncAction::AttachDropSack => {}
-            DesyncAction::DetachDropSack => {}
-            DesyncAction::AwaitWritable => await_writable_action(writer, wait_send, await_interval)?,
+        }
+        Ok(())
+    })();
+
+    // Safety net: restore TTL even on early error return.
+    if ttl_modified {
+        if let Some(restore) = cached_restore_ttl {
+            let _ = set_stream_ttl(writer, restore);
         }
     }
-    Ok(())
+
+    result
 }
 
 fn execute_tcp_plan(

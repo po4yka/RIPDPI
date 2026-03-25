@@ -2347,6 +2347,7 @@ dependencies = [
  "tokio-test",
  "tokio-util",
  "tracing",
+ "tracing-subscriber",
  "turmoil",
 ]
 

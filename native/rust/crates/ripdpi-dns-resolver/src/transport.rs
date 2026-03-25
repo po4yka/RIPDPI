@@ -227,7 +227,13 @@ pub(crate) fn build_dns_query(name: &str, record_type: RecordType) -> Result<Vec
             Name::from_ascii(name).map_err(|err| EncryptedDnsError::DnsParse(err.to_string()))?,
             record_type,
         ))
-        .set_id(0x1234)
+        .set_id({
+            let rng = ring::rand::SystemRandom::new();
+            let mut buf = [0u8; 2];
+            ring::rand::SecureRandom::fill(&rng, &mut buf)
+                .map_err(|_| EncryptedDnsError::DnsParse("RNG failure".to_string()))?;
+            u16::from_ne_bytes(buf)
+        })
         .set_message_type(MessageType::Query)
         .set_op_code(OpCode::Query)
         .set_recursion_desired(true);

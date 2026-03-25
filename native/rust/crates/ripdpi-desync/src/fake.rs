@@ -143,7 +143,7 @@ fn tls_sni_capacity(current: &[u8], target_size: usize, new_host: &[u8]) -> usiz
 
 pub(crate) fn normalize_fake_tls_size(value: i32, input_len: usize) -> usize {
     if value <= 0 {
-        input_len.saturating_sub((-value) as usize)
+        input_len.saturating_sub(value.unsigned_abs() as usize)
     } else {
         value as usize
     }

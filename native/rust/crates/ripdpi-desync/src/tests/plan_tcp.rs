@@ -299,6 +299,7 @@ fn plan_tcp_fakeddisorder_keeps_fake_step_when_split_is_valid() {
             DesyncAction::Write(b"abc".to_vec()),
             DesyncAction::AwaitWritable,
             DesyncAction::RestoreDefaultTtl,
+            DesyncAction::SetTtl(32),
             DesyncAction::Write(b"def".to_vec()),
         ]
     );
