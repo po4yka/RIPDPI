@@ -65,6 +65,22 @@ impl<T> HandleRegistry<T> {
     }
 }
 
+/// Install a global panic hook that logs the panic message and a full
+/// backtrace via `log::error!`. Must be called **after** `init_android_logging`
+/// so that the log backend is already wired up to logcat (on Android) or
+/// stderr (on other targets).
+///
+/// Guarded by `OnceCell` -- safe to call from multiple `.so` loads.
+pub fn install_panic_hook() {
+    static HOOK: OnceCell<()> = OnceCell::new();
+    HOOK.get_or_init(|| {
+        std::panic::set_hook(Box::new(|info| {
+            let backtrace = std::backtrace::Backtrace::force_capture();
+            log::error!("PANIC: {info}\n{backtrace}");
+        }));
+    });
+}
+
 pub fn init_android_logging(tag: &'static str) {
     static INIT: OnceCell<()> = OnceCell::new();
     INIT.get_or_init(|| {
@@ -293,6 +309,12 @@ mod tests {
     static TEST_JVM: OnceCell<JavaVM> = OnceCell::new();
     static JNI_TEST_MUTEX: Lazy<Mutex<()>> = Lazy::new(|| Mutex::new(()));
     static LOG_LEVEL_TEST_MUTEX: Lazy<Mutex<()>> = Lazy::new(|| Mutex::new(()));
+
+    #[test]
+    fn install_panic_hook_is_idempotent() {
+        install_panic_hook();
+        install_panic_hook(); // second call must not panic
+    }
 
     #[test]
     fn formatter_renders_plain_message_golden() {

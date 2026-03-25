@@ -27,6 +27,7 @@ static JVM: OnceCell<JavaVM> = OnceCell::new();
 fn jni_on_load_impl() -> jint {
     android_support::ignore_sigpipe();
     init_android_logging("ripdpi-native");
+    android_support::install_panic_hook();
     ripdpi_telemetry::recorder::install();
     JNI_VERSION
 }

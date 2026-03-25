@@ -20,6 +20,7 @@ pub extern "system" fn JNI_OnLoad(_vm: JavaVM, _reserved: *mut std::ffi::c_void)
     match std::panic::catch_unwind(|| {
         android_support::ignore_sigpipe();
         init_android_logging("ripdpi-tunnel-native");
+        android_support::install_panic_hook();
         JNI_VERSION
     }) {
         Ok(version) => version,
