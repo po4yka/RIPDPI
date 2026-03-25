@@ -146,6 +146,7 @@ class NativeBridgeWrappersTest {
                 }.exceptionOrNull()
 
             assertTrue(error is NativeError.NotRunning)
+            assertTrue(error is IllegalStateException)
         }
 
     @Test

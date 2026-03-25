@@ -17,7 +17,7 @@ use ripdpi_session::{
 };
 use socket2::SockRef;
 
-use connect_relay::{connect_and_relay, SuccessReply};
+use connect_relay::{connect_and_relay, ConnectRelayError, SuccessReply};
 use protocol_io::{
     negotiate_socks5, read_http_connect_request, read_shadowsocks_request, read_socks4_request, read_socks5_request,
 };
@@ -72,7 +72,7 @@ fn handle_transparent(mut client: TcpStream, state: &RuntimeState) -> io::Result
             if matches!(err.kind(), io::ErrorKind::ConnectionRefused | io::ErrorKind::TimedOut) {
                 let _ = SockRef::from(&client).set_linger(Some(Duration::ZERO));
             }
-            Err(err)
+            Err(err.into_io_error())
         }
     }
 }
@@ -90,7 +90,10 @@ fn handle_socks4(mut client: TcpStream, state: &RuntimeState, version: u8) -> io
                 }
                 telegram_dc_host(dc)
             });
-            connect_and_relay(&mut client, target.addr, state, dc_host, SuccessReply::Socks4)
+            match connect_and_relay(&mut client, target.addr, state, dc_host, SuccessReply::Socks4) {
+                Ok(()) => Ok(()),
+                Err(err) => handle_socks4_connect_error(&mut client, err),
+            }
         }
         Ok(_) => {
             client.write_all(encode_socks4_reply(false).as_bytes())?;
@@ -120,9 +123,10 @@ fn handle_socks5(mut client: TcpStream, state: &RuntimeState, version: u8) -> io
                 }
                 telegram_dc_host(dc)
             });
-            // Swallow relay errors -- client is consumed by relay, can't write error reply
-            let _ = connect_and_relay(&mut client, target.addr, state, dc_host, SuccessReply::Socks5);
-            Ok(())
+            match connect_and_relay(&mut client, target.addr, state, dc_host, SuccessReply::Socks5) {
+                Ok(()) => Ok(()),
+                Err(err) => handle_socks5_connect_error(&mut client, err),
+            }
         }
         Ok(ClientRequest::Socks5UdpAssociate(_target)) => {
             if !state.config.network.udp {
@@ -156,9 +160,10 @@ fn handle_http_connect(mut client: TcpStream, state: &RuntimeState) -> io::Resul
                 }
                 telegram_dc_host(dc)
             });
-            // Swallow relay errors -- client is consumed by relay, can't write error reply
-            let _ = connect_and_relay(&mut client, target.addr, state, dc_host, SuccessReply::HttpConnect);
-            Ok(())
+            match connect_and_relay(&mut client, target.addr, state, dc_host, SuccessReply::HttpConnect) {
+                Ok(()) => Ok(()),
+                Err(err) => handle_http_connect_error(&mut client, err),
+            }
         }
         _ => {
             use ripdpi_session::encode_http_connect_reply;
@@ -214,4 +219,27 @@ fn handle_socks5_udp_associate(mut client: TcpStream, state: &RuntimeState) -> i
 
     running.store(false, Ordering::Relaxed);
     worker.join().map_err(|_| io::Error::other("udp relay thread panicked"))?
+}
+
+fn handle_socks4_connect_error(client: &mut TcpStream, err: ConnectRelayError) -> io::Result<()> {
+    if !err.success_reply_sent() {
+        client.write_all(encode_socks4_reply(false).as_bytes())?;
+    }
+    Err(err.into_io_error())
+}
+
+fn handle_socks5_connect_error(client: &mut TcpStream, err: ConnectRelayError) -> io::Result<()> {
+    if !err.success_reply_sent() {
+        let fail = SocketAddr::new(IpAddr::V4(Ipv4Addr::UNSPECIFIED), 0);
+        client.write_all(encode_socks5_reply(S_ER_GEN, fail).as_bytes())?;
+    }
+    Err(err.into_io_error())
+}
+
+fn handle_http_connect_error(client: &mut TcpStream, err: ConnectRelayError) -> io::Result<()> {
+    if !err.success_reply_sent() {
+        use ripdpi_session::encode_http_connect_reply;
+        client.write_all(encode_http_connect_reply(false).as_bytes())?;
+    }
+    Err(err.into_io_error())
 }

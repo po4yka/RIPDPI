@@ -101,6 +101,7 @@ where
                         let handler = handler.clone();
                         let events = events.clone();
                         thread::spawn(move || {
+                            let _ = stream.set_nonblocking(false);
                             let local = stream.local_addr().ok();
                             let request = parse_http_request(&mut stream);
                             let response = match request {

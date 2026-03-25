@@ -1,7 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
+    <uses-permission
+        android:name="android.permission.NEARBY_WIFI_DEVICES"
+        android:usesPermissionFlags="neverForLocation" />
+
     <application android:usesCleartextTraffic="true">
+        <receiver
+            android:name=".debug.DebugNetworkProbeReceiver"
+            android:enabled="true"
+            android:exported="true" />
+
         <activity android:name=".activities.MainActivity" android:exported="true">
             <intent-filter>
                 <action android:name="com.poyka.ripdpi.automation.LAUNCH" />

@@ -2,24 +2,21 @@ package com.poyka.ripdpi.data
 
 import java.io.IOException
 
-sealed class NativeError(
-    message: String,
-    cause: Throwable? = null,
-) : Exception(message, cause) {
+sealed interface NativeError {
     class AlreadyRunning(
         component: String,
-    ) : NativeError("$component is already running")
+    ) : IllegalStateException("$component is already running"), NativeError
 
     class NotRunning(
         component: String,
-    ) : NativeError("$component is not running")
+    ) : IllegalStateException("$component is not running"), NativeError
 
     class SessionCreationFailed(
         component: String,
-    ) : NativeError("Native $component session was not created")
+    ) : Exception("Native $component session was not created"), NativeError
 
     class NativeIoError(
         message: String,
         cause: IOException,
-    ) : NativeError(message, cause)
+    ) : IOException(message, cause), NativeError
 }

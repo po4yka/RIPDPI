@@ -1,10 +1,16 @@
 package com.poyka.ripdpi.e2e
 
+import android.app.Activity
+import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.os.Bundle
 import android.net.VpnService
 import android.os.Build
+import android.os.ParcelFileDescriptor
 import android.os.SystemClock
+import android.content.pm.PackageManager
+import androidx.core.content.ContextCompat
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.uiautomator.By
 import androidx.test.uiautomator.UiDevice
@@ -18,6 +24,7 @@ import java.io.BufferedReader
 import java.io.File
 import java.io.IOException
 import java.net.HttpURLConnection
+import java.net.Inet6Address
 import java.net.InetSocketAddress
 import java.net.ServerSocket
 import java.net.Socket
@@ -25,6 +32,9 @@ import java.net.URL
 import java.nio.charset.StandardCharsets
 import java.security.SecureRandom
 import java.security.cert.X509Certificate
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicReference
 import java.util.regex.Pattern
 import javax.net.ssl.SSLContext
 import javax.net.ssl.SSLSocket
@@ -38,8 +48,23 @@ private const val FixtureControlRetryDelayMs = 100L
 private const val PhysicalDeviceVpnConsentTimeoutMs = 20_000L
 private const val EmulatorVpnConsentTimeoutMs = 10_000L
 private const val VpnConsentRetryCount = 2
+private const val VpnConsentShellGrantTimeoutMs = 2_000L
+private const val LocalNetworkPermissionGrantTimeoutMs = 2_000L
 private const val VpnConsentTimeoutArg = "ripdpi.vpnConsentTimeoutMs"
 private const val VpnConsentPackageHintsArg = "ripdpi.vpnConsentPackageHints"
+private const val NearbyWifiDevicesPermission = "android.permission.NEARBY_WIFI_DEVICES"
+private const val DebugNetworkProbeAction = "com.poyka.ripdpi.debug.PROBE_TCP"
+private const val DebugNetworkProbeReceiverClass = "com.poyka.ripdpi.debug.DebugNetworkProbeReceiver"
+private const val DebugNetworkProbeExtraHost = "host"
+private const val DebugNetworkProbeExtraPort = "port"
+private const val DebugNetworkProbeExtraConnectTimeoutMs = "connect_timeout_ms"
+private const val DebugNetworkProbeExtraOk = "ok"
+private const val DebugNetworkProbeExtraLocalAddress = "local_address"
+private const val DebugNetworkProbeExtraLocalPort = "local_port"
+private const val DebugNetworkProbeExtraErrorClass = "error_class"
+private const val DebugNetworkProbeExtraErrorMessage = "error_message"
+private const val DebugNetworkProbeTimeoutMs = 3_000L
+private const val DebugNetworkProbeBroadcastTimeoutMs = 10_000L
 
 data class FixtureManifestDto(
     val bindHost: String,
@@ -66,6 +91,16 @@ data class FixtureEventDto(
     val bytes: Int,
     val sni: String? = null,
     val createdAt: Long,
+)
+
+data class AppProcessTcpProbeResult(
+    val host: String,
+    val port: Int,
+    val ok: Boolean,
+    val localAddress: String? = null,
+    val localPort: Int? = null,
+    val errorClass: String? = null,
+    val errorMessage: String? = null,
 )
 
 enum class FixtureFaultScopeDto {
@@ -304,6 +339,11 @@ fun ensureVpnConsentGranted(context: Context) {
         return
     }
 
+    val shellGrantAttempt = tryGrantVpnConsentViaShellAppOps(context)
+    if (VpnService.prepare(context) == null) {
+        return
+    }
+
     val device = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
     val timeoutMs = vpnConsentTimeoutMs()
     val dialogPackages = vpnDialogPackages()
@@ -335,6 +375,7 @@ fun ensureVpnConsentGranted(context: Context) {
             appendLine("VPN consent dialog was not confirmed after $VpnConsentRetryCount attempts.")
             appendLine("dialogPackages=$dialogPackages")
             appendLine("timeoutMs=$timeoutMs")
+            shellGrantAttempt?.let { appendLine("shellGrantAttempt=$it") }
             attempts.forEach { attempt ->
                 appendLine(
                     "attempt ${attempt.attempt}: ${attempt.note}; " +
@@ -349,6 +390,141 @@ fun ensureVpnConsentGranted(context: Context) {
             artifacts.screenshotPath?.let { appendLine("screenshot=$it") }
         }
     )
+}
+
+fun ensureLocalNetworkAccessGranted(context: Context) {
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
+        return
+    }
+    if (ContextCompat.checkSelfPermission(context, NearbyWifiDevicesPermission) == PackageManager.PERMISSION_GRANTED) {
+        return
+    }
+
+    val instrumentation = InstrumentationRegistry.getInstrumentation()
+    val grantCommand = "pm grant ${context.packageName} $NearbyWifiDevicesPermission"
+    val appOpsCommand = "cmd appops set ${context.packageName} NEARBY_WIFI_DEVICES allow"
+    runCatching {
+        val descriptor = instrumentation.uiAutomation.executeShellCommand(grantCommand)
+        ParcelFileDescriptor.AutoCloseInputStream(descriptor).bufferedReader().use(BufferedReader::readText)
+    }
+    runCatching {
+        val descriptor = instrumentation.uiAutomation.executeShellCommand(appOpsCommand)
+        ParcelFileDescriptor.AutoCloseInputStream(descriptor).bufferedReader().use(BufferedReader::readText)
+    }
+    awaitUntil(timeoutMs = LocalNetworkPermissionGrantTimeoutMs, pollMs = 100) {
+        ContextCompat.checkSelfPermission(context, NearbyWifiDevicesPermission) == PackageManager.PERMISSION_GRANTED
+    }
+}
+
+fun selectReachableFixtureManifest(
+    context: Context,
+    fixture: FixtureManifestDto,
+): FixtureManifestDto {
+    val candidates =
+        buildList {
+            if (isLikelyEmulator()) {
+                add(LoopbackFixtureHost)
+            }
+            if (fixture.androidHost != LoopbackFixtureHost) {
+                add(fixture.androidHost)
+            }
+            if (!isLikelyEmulator()) {
+                add(LoopbackFixtureHost)
+            }
+        }
+            .distinct()
+    val probes = candidates.map { host ->
+        probeAppProcessTcpConnect(
+            context = context,
+            host = host,
+            port = fixture.tcpEchoPort,
+        )
+    }
+    val reachable = probes.firstOrNull(AppProcessTcpProbeResult::ok) ?: throw AssertionError(
+        buildString {
+            append("App process could not reach the local fixture TCP endpoint. ")
+            append("Candidates: ")
+            append(
+                probes.joinToString { probe ->
+                    val detail =
+                        if (probe.ok) {
+                            "ok local=${probe.localAddress}:${probe.localPort}"
+                        } else {
+                            "${probe.errorClass}: ${probe.errorMessage}"
+                        }
+                    "${probe.host}:${probe.port} -> $detail"
+                },
+            )
+        },
+    )
+    return if (reachable.host == fixture.androidHost) {
+        fixture
+    } else {
+        fixture.copy(androidHost = reachable.host)
+    }
+}
+
+fun probeAppProcessTcpConnect(
+    context: Context,
+    host: String,
+    port: Int,
+    timeoutMs: Long = DebugNetworkProbeTimeoutMs,
+): AppProcessTcpProbeResult {
+    val latch = CountDownLatch(1)
+    val probeResult = AtomicReference<AppProcessTcpProbeResult?>()
+    val intent =
+        Intent(DebugNetworkProbeAction).apply {
+            setClassName(context.packageName, DebugNetworkProbeReceiverClass)
+            putExtra(DebugNetworkProbeExtraHost, host)
+            putExtra(DebugNetworkProbeExtraPort, port)
+            putExtra(DebugNetworkProbeExtraConnectTimeoutMs, timeoutMs.toInt())
+        }
+    context.sendOrderedBroadcast(
+        intent,
+        null,
+        object : BroadcastReceiver() {
+            override fun onReceive(
+                context: Context?,
+                intent: Intent?,
+            ) {
+                val extras = getResultExtras(false) ?: Bundle.EMPTY
+                probeResult.set(
+                    AppProcessTcpProbeResult(
+                        host = host,
+                        port = port,
+                        ok = resultCode == Activity.RESULT_OK && extras.getBoolean(DebugNetworkProbeExtraOk, false),
+                        localAddress = extras.getString(DebugNetworkProbeExtraLocalAddress),
+                        localPort = extras.getInt(DebugNetworkProbeExtraLocalPort).takeIf { it > 0 },
+                        errorClass = extras.getString(DebugNetworkProbeExtraErrorClass),
+                        errorMessage = extras.getString(DebugNetworkProbeExtraErrorMessage),
+                    ),
+                )
+                latch.countDown()
+            }
+        },
+        null,
+        Activity.RESULT_CANCELED,
+        null,
+        null,
+    )
+    check(latch.await(DebugNetworkProbeBroadcastTimeoutMs, TimeUnit.MILLISECONDS)) {
+        "Timed out waiting for app-process TCP probe for $host:$port"
+    }
+    return requireNotNull(probeResult.get()) {
+        "App-process TCP probe did not deliver a result for $host:$port"
+    }
+}
+
+private fun tryGrantVpnConsentViaShellAppOps(context: Context): String? {
+    val command = "cmd appops set ${context.packageName} ACTIVATE_VPN allow"
+    return runCatching {
+        val descriptor = InstrumentationRegistry.getInstrumentation().uiAutomation.executeShellCommand(command)
+        ParcelFileDescriptor.AutoCloseInputStream(descriptor).bufferedReader().use(BufferedReader::readText)
+        awaitUntil(timeoutMs = VpnConsentShellGrantTimeoutMs, pollMs = 100) {
+            VpnService.prepare(context) == null
+        }
+        command
+    }.getOrNull()
 }
 
 private fun attemptGrantVpnConsent(
@@ -690,15 +866,21 @@ private fun socksConnect(
     output.write(byteArrayOf(0x05, 0x01, 0x00))
     check(input.readNBytes(2).contentEquals(byteArrayOf(0x05, 0x00))) { "SOCKS auth failed" }
 
-    val hostBytes = host.toByteArray(StandardCharsets.UTF_8)
     val request =
         buildList {
             add(0x05)
             add(0x01)
             add(0x00)
-            add(0x03)
-            add(hostBytes.size)
-            hostBytes.forEach { add(it.toInt() and 0xff) }
+            val numericHost = numericHostBytes(host)
+            if (numericHost != null) {
+                add(numericHost.first)
+                numericHost.second.forEach { add(it.toInt() and 0xff) }
+            } else {
+                val hostBytes = host.toByteArray(StandardCharsets.UTF_8)
+                add(0x03)
+                add(hostBytes.size)
+                hostBytes.forEach { add(it.toInt() and 0xff) }
+            }
             add((port shr 8) and 0xff)
             add(port and 0xff)
         }.map(Int::toByte).toByteArray()
@@ -721,4 +903,39 @@ private fun socksConnect(
         }
     }
     return socket
+}
+
+private fun numericHostBytes(host: String): Pair<Int, ByteArray>? {
+    ipv4LiteralBytes(host)?.let { return 0x01 to it }
+    ipv6LiteralBytes(host)?.let { return 0x04 to it }
+    return null
+}
+
+private fun ipv4LiteralBytes(host: String): ByteArray? {
+    val parts = host.split('.')
+    if (parts.size != 4) {
+        return null
+    }
+    val octets = ByteArray(4)
+    for ((index, part) in parts.withIndex()) {
+        val value = part.toIntOrNull() ?: return null
+        if (value !in 0..255) {
+            return null
+        }
+        octets[index] = value.toByte()
+    }
+    return octets
+}
+
+private fun ipv6LiteralBytes(host: String): ByteArray? {
+    if (!host.contains(':')) {
+        return null
+    }
+    return runCatching { java.net.InetAddress.getByName(host) }.getOrNull()?.let { address ->
+        if (address is Inet6Address) {
+            address.address
+        } else {
+            null
+        }
+    }
 }
