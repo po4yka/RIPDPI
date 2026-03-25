@@ -1,3 +1,4 @@
+use std::os::fd::{AsRawFd, FromRawFd, IntoRawFd, OwnedFd};
 use std::sync::{Arc, Mutex};
 
 use android_support::{
@@ -78,12 +79,18 @@ pub(crate) fn start_session(env: &mut JNIEnv, handle: jlong, tun_fd: jint) {
     // If VpnService revokes the original fd, the dup'd fd remains valid
     // until run_tunnel closes it via File::from_raw_fd.
     let owned_fd = match nix::unistd::dup(tun_fd) {
-        Ok(fd) => fd,
+        Ok(fd) => unsafe { OwnedFd::from_raw_fd(fd) },
         Err(err) => {
             throw_io_exception(env, format!("Failed to dup TUN fd: {err}"));
             return;
         }
     };
+    // Verify the dup'd fd is a valid open file descriptor
+    if let Err(err) = nix::sys::stat::fstat(owned_fd.as_raw_fd()) {
+        // OwnedFd drops and closes automatically
+        throw_io_exception(env, format!("TUN fd validation failed: {err}"));
+        return;
+    }
     let runtime = session.runtime.clone();
 
     let cancel = Arc::new(CancellationToken::new());
@@ -101,7 +108,7 @@ pub(crate) fn start_session(env: &mut JNIEnv, handle: jlong, tun_fd: jint) {
     {
         let mut state = session.state.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
         if let Err(message) = ensure_tunnel_start_allowed(&state) {
-            let _ = nix::unistd::close(owned_fd);
+            drop(owned_fd);
             throw_illegal_state(env, message);
             return;
         }
@@ -120,7 +127,7 @@ pub(crate) fn start_session(env: &mut JNIEnv, handle: jlong, tun_fd: jint) {
         let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
             runtime.block_on(ripdpi_tunnel_core::run_tunnel(
                 config,
-                owned_fd,
+                owned_fd.into_raw_fd(),
                 (*worker_cancel).clone(),
                 worker_stats.clone(),
             ))
@@ -154,7 +161,9 @@ pub(crate) fn start_session(env: &mut JNIEnv, handle: jlong, tun_fd: jint) {
     }) {
         Ok(worker) => worker,
         Err(err) => {
-            rollback_failed_tunnel_start(&session, owned_fd, format!("failed to spawn tunnel worker thread: {err}"));
+            // owned_fd was moved into the closure; if spawn failed the closure
+            // is dropped, so OwnedFd::drop closes the fd automatically.
+            rollback_failed_tunnel_start(&session, format!("failed to spawn tunnel worker thread: {err}"));
             throw_io_exception(env, format!("Failed to spawn tunnel worker thread: {err}"));
             return;
         }
@@ -248,8 +257,7 @@ pub(crate) fn ensure_tunnel_destroyable(state: &TunnelSessionState) -> Result<()
     }
 }
 
-pub(crate) fn rollback_failed_tunnel_start(session: &TunnelSession, owned_fd: i32, message: String) {
-    let _ = nix::unistd::close(owned_fd);
+pub(crate) fn rollback_failed_tunnel_start(session: &TunnelSession, message: String) {
     {
         let mut guard = session.last_error.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
         *guard = Some(message.clone());
