@@ -423,6 +423,7 @@ mod tests {
             timeout_bytes_limit: 2048,
             wait_send: true,
             await_interval: 15,
+            connect_timeout_ms: 10_000,
         };
         let process = RuntimeProcessSettings {
             debug: 3,
