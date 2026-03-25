@@ -19,6 +19,7 @@ fun ApplicationExtension.configureNativePolicy() {
     packaging {
         jniLibs {
             useLegacyPackaging = nativeUseLegacyPackaging.get()
+            keepDebugSymbols.addAll("**/*.so")
         }
     }
 }
@@ -36,6 +37,7 @@ fun LibraryExtension.configureNativePolicy() {
     packaging {
         jniLibs {
             useLegacyPackaging = nativeUseLegacyPackaging.get()
+            keepDebugSymbols.addAll("**/*.so")
         }
     }
 }
