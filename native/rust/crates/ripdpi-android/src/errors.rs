@@ -1,5 +1,6 @@
 use std::any::Any;
 
+use android_support::sanitize_error_message;
 use jni::JNIEnv;
 
 #[derive(Debug, thiserror::Error)]
@@ -28,10 +29,16 @@ impl JniProxyError {
                 ("java/lang/IllegalArgumentException", self.to_string())
             }
             Self::IllegalState(_) => ("java/lang/IllegalStateException", self.to_string()),
-            Self::Io(_) => ("java/io/IOException", self.to_string()),
-            Self::Serialization(_) => ("java/lang/RuntimeException", self.to_string()),
+            Self::Io(_) => {
+                ("java/io/IOException", sanitize_error_message(&self.to_string(), "I/O failure"))
+            }
+            Self::Serialization(_) => {
+                ("java/lang/RuntimeException", sanitize_error_message(&self.to_string(), "Serialization failure"))
+            }
         };
-        let _ = env.throw_new(class, &msg);
+        if env.throw_new(class, &msg).is_err() {
+            log::error!("Failed to throw {class}: {msg}");
+        }
     }
 }
 
@@ -74,11 +81,11 @@ mod tests {
             assert_eq!(take_exception(env), "java.lang.IllegalStateException: proxy running");
 
             JniProxyError::Io(io::Error::new(io::ErrorKind::BrokenPipe, "socket boom")).throw(env);
-            assert_eq!(take_exception(env), "java.io.IOException: I/O failure: socket boom");
+            assert_eq!(take_exception(env), "java.io.IOException: I/O failure: I/O failure: socket boom");
 
             let json_err = serde_json::from_str::<serde_json::Value>("{").expect_err("json error");
             JniProxyError::Serialization(json_err).throw(env);
-            assert!(take_exception(env).starts_with("java.lang.RuntimeException:"));
+            assert!(take_exception(env).starts_with("java.lang.RuntimeException: Serialization failure:"));
         });
     }
 
