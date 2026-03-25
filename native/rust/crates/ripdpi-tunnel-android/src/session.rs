@@ -194,7 +194,7 @@ mod tests {
         };
         session.telemetry.mark_started("127.0.0.1:1080".to_string());
 
-        rollback_failed_tunnel_start(&session, -1, "spawn failed".to_string());
+        rollback_failed_tunnel_start(&session, "spawn failed".to_string());
 
         assert!(matches!(*session.state.lock().expect("state lock"), TunnelSessionState::Ready));
         assert_eq!(session.last_error.lock().expect("last error lock").as_deref(), Some("spawn failed"));
