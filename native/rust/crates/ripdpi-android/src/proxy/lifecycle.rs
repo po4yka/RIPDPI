@@ -1,4 +1,3 @@
-use std::os::fd::AsRawFd;
 use std::sync::{Arc, Mutex, PoisonError};
 
 use android_support::{
@@ -17,7 +16,7 @@ use crate::errors::JniProxyError;
 use crate::telemetry::{ProxyTelemetryObserver, ProxyTelemetryState};
 
 use super::registry::{
-    ensure_proxy_destroyable, listener_fd_for_proxy_stop, lookup_proxy_session, remove_proxy_session,
+    control_for_proxy_stop, ensure_proxy_destroyable, lookup_proxy_session, remove_proxy_session,
     try_mark_proxy_running, ProxySession, ProxySessionState, SESSIONS,
 };
 
@@ -75,6 +74,23 @@ pub(crate) fn create_session(env: &mut JNIEnv, config_json: JString) -> jlong {
     }) as jlong
 }
 
+/// Drop guard that resets proxy state to `Idle` if the session is still
+/// `Running` when the guard is dropped (e.g. due to a panic inside the
+/// blocking runtime call). After a normal return the caller must
+/// [`std::mem::forget`] the guard to skip the redundant reset.
+struct IdleGuard<'a> {
+    state: &'a Mutex<ProxySessionState>,
+}
+
+impl Drop for IdleGuard<'_> {
+    fn drop(&mut self) {
+        let mut state = self.state.lock().unwrap_or_else(PoisonError::into_inner);
+        if matches!(*state, ProxySessionState::Running { .. }) {
+            *state = ProxySessionState::Idle;
+        }
+    }
+}
+
 pub(crate) fn start_session(env: &mut JNIEnv, handle: jlong) -> jint {
     let session = match lookup_proxy_session(handle) {
         Ok(session) => session,
@@ -85,8 +101,8 @@ pub(crate) fn start_session(env: &mut JNIEnv, handle: jlong) -> jint {
     };
 
     let config = session.config.clone();
-    let (listener, listener_fd) = match open_proxy_listener(&config, &session.telemetry) {
-        Ok(parts) => parts,
+    let listener = match open_proxy_listener(&config, &session.telemetry) {
+        Ok(listener) => listener,
         Err(err) => {
             throw_io_exception(env, format!("Failed to open proxy listener: {err}"));
             return libc::EINVAL;
@@ -101,16 +117,23 @@ pub(crate) fn start_session(env: &mut JNIEnv, handle: jlong) -> jint {
 
     {
         let mut state = session.state.lock().unwrap_or_else(PoisonError::into_inner);
-        if let Err(message) = try_mark_proxy_running(&mut state, listener_fd, control.clone()) {
+        if let Err(message) = try_mark_proxy_running(&mut state, control.clone()) {
             throw_illegal_state(env, message);
             return libc::EINVAL;
         }
     }
 
+    // Guard ensures state resets to Idle if the runtime call panics.
+    let guard = IdleGuard { state: &session.state };
+
     let result = runtime::run_proxy_with_embedded_control(config, listener, control);
 
+    // Normal exit: reset state ourselves and disarm the guard.
     let mut state = session.state.lock().unwrap_or_else(PoisonError::into_inner);
     *state = ProxySessionState::Idle;
+    drop(state);
+    std::mem::forget(guard);
+
     if let Err(err) = &result {
         session.telemetry.on_client_error(err.to_string());
     }
@@ -130,10 +153,10 @@ pub(crate) fn stop_session(env: &mut JNIEnv, handle: jlong) {
         }
     };
 
-    let (listener_fd, control) = {
+    let control = {
         let state = session.state.lock().unwrap_or_else(PoisonError::into_inner);
-        match listener_fd_for_proxy_stop(&state) {
-            Ok(parts) => parts,
+        match control_for_proxy_stop(&state) {
+            Ok(control) => control,
             Err(message) => {
                 throw_illegal_state(env, message);
                 return;
@@ -142,10 +165,6 @@ pub(crate) fn stop_session(env: &mut JNIEnv, handle: jlong) {
     };
 
     control.request_shutdown();
-    if let Err(err) = shutdown_proxy_listener(listener_fd) {
-        throw_io_exception(env, format!("Failed to stop proxy listener: {err}"));
-        session.telemetry.on_client_error(err.to_string());
-    }
     session.telemetry.push_event("proxy", "info", "stop requested".to_string());
 }
 
@@ -172,10 +191,10 @@ pub(crate) fn update_network_snapshot(env: &mut JNIEnv, handle: jlong, snapshot_
         }
     };
     let state = session.state.lock().unwrap_or_else(PoisonError::into_inner);
-    if let ProxySessionState::Running { control, .. } = &*state {
+    if let ProxySessionState::Running { control } = &*state {
         control.update_network_snapshot(snapshot);
     }
-    // If the session is Idle, ignore: snapshot will be re-pushed on next start.
+    // If the session is Idle or Destroyed, ignore: snapshot will be re-pushed on next start.
 }
 
 pub(crate) fn destroy_session(env: &mut JNIEnv, handle: jlong) {
@@ -186,11 +205,14 @@ pub(crate) fn destroy_session(env: &mut JNIEnv, handle: jlong) {
             return;
         }
     };
-    let state = session.state.lock().unwrap_or_else(PoisonError::into_inner);
+    let mut state = session.state.lock().unwrap_or_else(PoisonError::into_inner);
     if let Err(message) = ensure_proxy_destroyable(&state) {
         throw_illegal_state(env, message);
         return;
     }
+    // Tombstone the session before releasing the lock so concurrent
+    // callers see Destroyed rather than racing on an Idle session.
+    *state = ProxySessionState::Destroyed;
     drop(state);
     let _ = remove_proxy_session(handle);
 }
@@ -202,20 +224,9 @@ fn positive_os_error(err: &std::io::Error, fallback: i32) -> i32 {
 pub(crate) fn open_proxy_listener(
     config: &RuntimeConfig,
     telemetry: &ProxyTelemetryState,
-) -> Result<(std::net::TcpListener, i32), std::io::Error> {
-    match runtime::create_listener(config) {
-        Ok(listener) => {
-            let listener_fd = listener.as_raw_fd();
-            Ok((listener, listener_fd))
-        }
-        Err(err) => {
-            telemetry.on_client_error(format!("listener open failed: {err}"));
-            Err(err)
-        }
-    }
-}
-
-pub(crate) fn shutdown_proxy_listener(listener_fd: i32) -> Result<(), std::io::Error> {
-    nix::sys::socket::shutdown(listener_fd, nix::sys::socket::Shutdown::Both)
-        .map_err(|e| std::io::Error::from_raw_os_error(e as i32))
+) -> Result<std::net::TcpListener, std::io::Error> {
+    runtime::create_listener(config).map_err(|err| {
+        telemetry.on_client_error(format!("listener open failed: {err}"));
+        err
+    })
 }

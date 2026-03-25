@@ -15,9 +15,9 @@ use crate::support::{assert_no_exception, decode_jstring, lock_jni_tests, take_e
 use crate::telemetry::ProxyTelemetryState;
 use crate::to_handle;
 
-use super::lifecycle::{open_proxy_listener, shutdown_proxy_listener};
+use super::lifecycle::open_proxy_listener;
 use super::registry::{
-    ensure_proxy_destroyable, listener_fd_for_proxy_stop, lookup_proxy_session, remove_proxy_session,
+    control_for_proxy_stop, ensure_proxy_destroyable, lookup_proxy_session, remove_proxy_session,
     try_mark_proxy_running, ProxySession, ProxySessionState, SESSIONS,
 };
 
@@ -36,12 +36,6 @@ fn open_proxy_listener_records_telemetry_when_bind_fails() {
     assert_eq!(snapshot.total_errors, 1);
     assert!(snapshot.last_error.expect("listener error").contains("listener open failed"));
     assert_eq!(snapshot.health, "idle");
-}
-
-#[test]
-fn shutdown_proxy_listener_rejects_invalid_descriptor() {
-    let err = shutdown_proxy_listener(-1).expect_err("invalid listener fd should fail");
-    assert!(err.raw_os_error().is_some());
 }
 
 #[test]
@@ -65,15 +59,15 @@ fn proxy_state_rejects_duplicate_start() {
     let first = Arc::new(EmbeddedProxyControl::default());
     let second = Arc::new(EmbeddedProxyControl::default());
 
-    try_mark_proxy_running(&mut state, 7, first).expect("first start");
-    let err = try_mark_proxy_running(&mut state, 8, second).expect_err("duplicate start");
+    try_mark_proxy_running(&mut state, first).expect("first start");
+    let err = try_mark_proxy_running(&mut state, second).expect_err("duplicate start");
 
     assert_eq!(err, "Proxy session is already running");
 }
 
 #[test]
 fn proxy_state_rejects_stop_when_idle() {
-    let err = listener_fd_for_proxy_stop(&ProxySessionState::Idle).expect_err("idle stop");
+    let err = control_for_proxy_stop(&ProxySessionState::Idle).expect_err("idle stop");
 
     assert_eq!(err, "Proxy session is not running");
 }
@@ -81,7 +75,6 @@ fn proxy_state_rejects_stop_when_idle() {
 #[test]
 fn proxy_state_rejects_destroy_when_running() {
     let err = ensure_proxy_destroyable(&ProxySessionState::Running {
-        listener_fd: 9,
         control: Arc::new(EmbeddedProxyControl::default()),
     })
     .expect_err("running destroy");
@@ -202,12 +195,11 @@ enum ProxyModelState {
 struct ProxySessionHarness {
     active_handle: Option<jlong>,
     stale_handle: Option<jlong>,
-    next_listener_fd: i32,
 }
 
 impl Default for ProxySessionHarness {
     fn default() -> Self {
-        Self { active_handle: None, stale_handle: None, next_listener_fd: 32 }
+        Self { active_handle: None, stale_handle: None }
     }
 }
 
@@ -232,21 +224,19 @@ impl ProxySessionHarness {
         handle
     }
 
-    fn start(&mut self) -> Result<i32, String> {
+    fn start(&mut self) -> Result<(), String> {
         let session = lookup_proxy_session(self.tracked_handle()).map_err(|e| e.to_string())?;
-        let listener_fd = self.next_listener_fd;
         let mut state = session.state.lock().expect("proxy state lock");
-        try_mark_proxy_running(&mut state, listener_fd, Arc::new(EmbeddedProxyControl::default()))?;
-        self.next_listener_fd += 1;
-        Ok(listener_fd)
+        try_mark_proxy_running(&mut state, Arc::new(EmbeddedProxyControl::default()))?;
+        Ok(())
     }
 
-    fn stop(&mut self) -> Result<i32, String> {
+    fn stop(&mut self) -> Result<(), String> {
         let session = lookup_proxy_session(self.tracked_handle()).map_err(|e| e.to_string())?;
         let mut state = session.state.lock().expect("proxy state lock");
-        let (listener_fd, _) = listener_fd_for_proxy_stop(&state)?;
+        let _control = control_for_proxy_stop(&state)?;
         *state = ProxySessionState::Idle;
-        Ok(listener_fd)
+        Ok(())
     }
 
     fn destroy(&mut self) -> Result<(), String> {
@@ -421,7 +411,6 @@ proptest! {
     fn proxy_session_state_machine(commands in proxy_state_command_strategy()) {
         let mut harness = ProxySessionHarness::default();
         let mut model = ProxyModelState::Absent;
-        let mut expected_listener_fd = 32;
 
         for command in commands {
             match command {
@@ -439,9 +428,7 @@ proptest! {
                             prop_assert_eq!(err, proxy_absent_error(harness.tracked_handle()));
                         }
                         ProxyModelState::Idle => {
-                            let listener_fd = harness.start().expect("idle start");
-                            prop_assert_eq!(listener_fd, expected_listener_fd);
-                            expected_listener_fd += 1;
+                            harness.start().expect("idle start");
                             model = ProxyModelState::Running;
                         }
                         ProxyModelState::Running => {
@@ -461,8 +448,7 @@ proptest! {
                             prop_assert_eq!(err, "Proxy session is not running");
                         }
                         ProxyModelState::Running => {
-                            let listener_fd = harness.stop().expect("running stop");
-                            prop_assert!(listener_fd >= 32);
+                            harness.stop().expect("running stop");
                             model = ProxyModelState::Idle;
                         }
                     }

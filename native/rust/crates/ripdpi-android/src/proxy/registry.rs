@@ -22,7 +22,8 @@ pub(crate) struct ProxySession {
 
 pub(crate) enum ProxySessionState {
     Idle,
-    Running { listener_fd: i32, control: Arc<EmbeddedProxyControl> },
+    Running { control: Arc<EmbeddedProxyControl> },
+    Destroyed,
 }
 
 pub(crate) fn lookup_proxy_session(handle: jlong) -> Result<Arc<ProxySession>, JniProxyError> {
@@ -40,31 +41,32 @@ pub(crate) fn remove_proxy_session(handle: jlong) -> Result<Arc<ProxySession>, J
 
 pub(crate) fn try_mark_proxy_running(
     state: &mut ProxySessionState,
-    listener_fd: i32,
     control: Arc<EmbeddedProxyControl>,
 ) -> Result<(), &'static str> {
     match *state {
         ProxySessionState::Idle => {
-            *state = ProxySessionState::Running { listener_fd, control };
+            *state = ProxySessionState::Running { control };
             Ok(())
         }
         ProxySessionState::Running { .. } => Err("Proxy session is already running"),
+        ProxySessionState::Destroyed => Err("Proxy session has been destroyed"),
     }
 }
 
-pub(crate) fn listener_fd_for_proxy_stop(
+pub(crate) fn control_for_proxy_stop(
     state: &ProxySessionState,
-) -> Result<(i32, Arc<EmbeddedProxyControl>), &'static str> {
+) -> Result<Arc<EmbeddedProxyControl>, &'static str> {
     match state {
         ProxySessionState::Idle => Err("Proxy session is not running"),
-        ProxySessionState::Running { listener_fd, control } => Ok((*listener_fd, control.clone())),
+        ProxySessionState::Running { control } => Ok(control.clone()),
+        ProxySessionState::Destroyed => Err("Proxy session has been destroyed"),
     }
 }
 
 pub(crate) fn ensure_proxy_destroyable(state: &ProxySessionState) -> Result<(), &'static str> {
-    if matches!(*state, ProxySessionState::Running { .. }) {
-        Err("Cannot destroy a running proxy session")
-    } else {
-        Ok(())
+    match *state {
+        ProxySessionState::Idle => Ok(()),
+        ProxySessionState::Running { .. } => Err("Cannot destroy a running proxy session"),
+        ProxySessionState::Destroyed => Err("Proxy session has already been destroyed"),
     }
 }
