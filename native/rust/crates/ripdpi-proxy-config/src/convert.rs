@@ -420,14 +420,14 @@ pub fn runtime_config_from_ui(payload: ProxyUiConfig) -> Result<RuntimeConfig, P
     if config.network.listen.listen_port == 0 {
         return Err(ProxyConfigError::InvalidConfig("Invalid proxy port".to_string()));
     }
-    if listen.max_connections <= 0 {
-        return Err(ProxyConfigError::InvalidConfig("maxConnections must be positive".to_string()));
+    if listen.max_connections <= 0 || listen.max_connections > 4096 {
+        return Err(ProxyConfigError::InvalidConfig("maxConnections must be in 1..=4096".to_string()));
     }
     config.network.max_open = listen.max_connections;
     config.network.buffer_size = usize::try_from(listen.buffer_size)
         .map_err(|_| ProxyConfigError::InvalidConfig("Invalid bufferSize".to_string()))?;
-    if config.network.buffer_size == 0 {
-        return Err(ProxyConfigError::InvalidConfig("bufferSize must be positive".to_string()));
+    if config.network.buffer_size == 0 || config.network.buffer_size > 1_048_576 {
+        return Err(ProxyConfigError::InvalidConfig("bufferSize must be in 1..=1048576".to_string()));
     }
     config.network.resolve = protocols.resolve_domains;
     config.network.tfo = listen.tcp_fast_open;
@@ -645,6 +645,11 @@ pub fn runtime_config_from_ui(payload: ProxyUiConfig) -> Result<RuntimeConfig, P
             group.actions.fake_mod |= FM_RNDSNI;
         } else {
             group.actions.fake_sni_list.push(fake_packets.fake_sni);
+        }
+        if fake_packets.fake_tls_size < -65535 || fake_packets.fake_tls_size > 65535 {
+            return Err(ProxyConfigError::InvalidConfig(
+                "fakeTlsSize must be in -65535..=65535".to_string(),
+            ));
         }
         group.actions.fake_tls_size = fake_packets.fake_tls_size;
     }
