@@ -51,10 +51,16 @@ pub(crate) fn shared_jni_test_mutex() -> &'static std::sync::Mutex<()> {
     &JNI_TEST_MUTEX
 }
 
+/// # Safety
+/// Called by the JVM when the native library is loaded. Must not unwind across
+/// the FFI boundary -- a panic here would be UB (extern "system" + unwind).
 #[unsafe(no_mangle)]
 pub extern "system" fn JNI_OnLoad(vm: JavaVM, _reserved: *mut std::ffi::c_void) -> jint {
     let _ = JVM.set(vm);
-    jni_on_load_impl()
+    match std::panic::catch_unwind(jni_on_load_impl) {
+        Ok(version) => version,
+        Err(_) => jni::sys::JNI_ERR,
+    }
 }
 
 macro_rules! export_diagnostics_jni {

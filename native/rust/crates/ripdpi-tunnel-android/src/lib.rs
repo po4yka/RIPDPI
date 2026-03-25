@@ -12,11 +12,19 @@ use session::{
     tunnel_telemetry_entry,
 };
 
+/// # Safety
+/// Called by the JVM when the native library is loaded. Must not unwind across
+/// the FFI boundary -- a panic here would be UB (extern "system" + unwind).
 #[unsafe(no_mangle)]
 pub extern "system" fn JNI_OnLoad(_vm: JavaVM, _reserved: *mut std::ffi::c_void) -> jint {
-    android_support::ignore_sigpipe();
-    init_android_logging("ripdpi-tunnel-native");
-    JNI_VERSION
+    match std::panic::catch_unwind(|| {
+        android_support::ignore_sigpipe();
+        init_android_logging("ripdpi-tunnel-native");
+        JNI_VERSION
+    }) {
+        Ok(version) => version,
+        Err(_) => jni::sys::JNI_ERR,
+    }
 }
 
 #[unsafe(no_mangle)]
