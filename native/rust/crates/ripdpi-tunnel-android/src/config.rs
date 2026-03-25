@@ -1,16 +1,49 @@
 use ripdpi_tunnel_config::{Config, MapDnsConfig, MiscConfig, Socks5Config, TunnelConfig};
 use serde::Deserialize;
 
+fn default_tunnel_name() -> String {
+    "tun0".to_string()
+}
+
+fn default_tunnel_mtu() -> u32 {
+    1500
+}
+
+fn default_multi_queue() -> bool {
+    false
+}
+
+fn default_socks5_address() -> String {
+    "127.0.0.1".to_string()
+}
+
+fn default_socks5_udp() -> Option<String> {
+    Some("udp".to_string())
+}
+
+fn default_task_stack_size() -> u32 {
+    81_920
+}
+
+fn default_log_level() -> String {
+    "warn".to_string()
+}
+
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct TunnelConfigPayload {
+    #[serde(default = "default_tunnel_name")]
     pub(crate) tunnel_name: String,
+    #[serde(default = "default_tunnel_mtu")]
     pub(crate) tunnel_mtu: u32,
+    #[serde(default = "default_multi_queue")]
     pub(crate) multi_queue: bool,
     pub(crate) tunnel_ipv4: Option<String>,
     pub(crate) tunnel_ipv6: Option<String>,
+    #[serde(default = "default_socks5_address")]
     pub(crate) socks5_address: String,
     pub(crate) socks5_port: u16,
+    #[serde(default = "default_socks5_udp")]
     pub(crate) socks5_udp: Option<String>,
     pub(crate) socks5_udp_address: Option<String>,
     pub(crate) socks5_pipeline: Option<bool>,
@@ -39,6 +72,7 @@ pub(crate) struct TunnelConfigPayload {
     pub(crate) dns_query_timeout_ms: Option<u32>,
     pub(crate) resolver_fallback_active: Option<bool>,
     pub(crate) resolver_fallback_reason: Option<String>,
+    #[serde(default = "default_task_stack_size")]
     pub(crate) task_stack_size: u32,
     pub(crate) tcp_buffer_size: Option<u32>,
     pub(crate) udp_recv_buffer_size: Option<u32>,
@@ -47,6 +81,7 @@ pub(crate) struct TunnelConfigPayload {
     pub(crate) connect_timeout_ms: Option<u32>,
     pub(crate) tcp_read_write_timeout_ms: Option<u32>,
     pub(crate) udp_read_write_timeout_ms: Option<u32>,
+    #[serde(default = "default_log_level")]
     pub(crate) log_level: String,
     pub(crate) limit_nofile: Option<u32>,
     #[serde(default)]
@@ -627,6 +662,37 @@ mod tests {
         assert!(config_from_payload(payload).is_ok());
     }
 
+    #[test]
+    fn accepts_kotlin_defaulted_tunnel_fields_when_omitted() {
+        let payload =
+            parse_tunnel_config_json(
+                r#"{
+                  "socks5Port": 1080,
+                  "mapdnsAddress": "198.18.0.53",
+                  "mapdnsPort": 53,
+                  "mapdnsNetwork": "198.18.0.0",
+                  "mapdnsNetmask": "255.254.0.0",
+                  "encryptedDnsResolverId": "cloudflare",
+                  "encryptedDnsProtocol": "doh",
+                  "encryptedDnsHost": "cloudflare-dns.com",
+                  "encryptedDnsPort": 443,
+                  "encryptedDnsTlsServerName": "cloudflare-dns.com",
+                  "encryptedDnsBootstrapIps": ["1.1.1.1", "1.0.0.1"],
+                  "encryptedDnsDohUrl": "https://cloudflare-dns.com/dns-query"
+                }"#,
+            )
+                .expect("payload");
+
+        let config = config_from_payload(payload).expect("config");
+
+        assert_eq!(config.tunnel.name, "tun0");
+        assert_eq!(config.tunnel.mtu, 1500);
+        assert!(!config.tunnel.multi_queue);
+        assert_eq!(config.socks5.address, "127.0.0.1");
+        assert_eq!(config.socks5.udp.as_deref(), Some("udp"));
+        assert_eq!(config.misc.task_stack_size, 81_920);
+        assert_eq!(config.misc.log_level, "warn");
+    }
     proptest! {
         #[test]
         fn fuzz_tunnel_json_parser_never_panics(input in vec(any::<u8>(), 0..512)) {
