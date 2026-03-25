@@ -199,11 +199,12 @@ pub(crate) fn destroy_session(env: &mut JNIEnv, handle: jlong) {
             return;
         }
     };
-    let state = session.state.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+    let mut state = session.state.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
     if let Err(message) = ensure_tunnel_destroyable(&state) {
         throw_illegal_state(env, message);
         return;
     }
+    *state = TunnelSessionState::Destroyed;
     drop(state);
     let _ = remove_tunnel_session(handle);
 }
@@ -221,6 +222,7 @@ pub(crate) fn ensure_tunnel_start_allowed(state: &TunnelSessionState) -> Result<
         TunnelSessionState::Ready => Ok(()),
         TunnelSessionState::Starting => Err("Tunnel session is already starting"),
         TunnelSessionState::Running { .. } => Err("Tunnel session is already running"),
+        TunnelSessionState::Destroyed => Err("Tunnel session has been destroyed"),
     }
 }
 
@@ -230,6 +232,10 @@ pub(crate) fn take_running_tunnel(
     match std::mem::replace(state, TunnelSessionState::Ready) {
         TunnelSessionState::Ready | TunnelSessionState::Starting => Err("Tunnel session is not running"),
         TunnelSessionState::Running { cancel, stats: _, worker } => Ok((cancel, worker)),
+        TunnelSessionState::Destroyed => {
+            *state = TunnelSessionState::Destroyed;
+            Err("Tunnel session has been destroyed")
+        }
     }
 }
 
@@ -238,6 +244,7 @@ pub(crate) fn ensure_tunnel_destroyable(state: &TunnelSessionState) -> Result<()
         TunnelSessionState::Ready => Ok(()),
         TunnelSessionState::Starting => Err("Cannot destroy a starting tunnel session"),
         TunnelSessionState::Running { .. } => Err("Cannot destroy a running tunnel session"),
+        TunnelSessionState::Destroyed => Err("Tunnel session has already been destroyed"),
     }
 }
 
