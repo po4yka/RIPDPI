@@ -25,7 +25,7 @@ pub(crate) struct TunnelSession {
 
 pub(crate) enum TunnelSessionState {
     Ready,
-    Starting,
+    Starting { cancel: Arc<CancellationToken> },
     Running { cancel: Arc<CancellationToken>, stats: Arc<Stats>, worker: JoinHandle<()> },
     Destroyed,
 }

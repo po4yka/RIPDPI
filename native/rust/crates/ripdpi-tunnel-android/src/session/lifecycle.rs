@@ -112,7 +112,7 @@ pub(crate) fn start_session(env: &mut JNIEnv, handle: jlong, tun_fd: jint) {
             throw_illegal_state(env, message);
             return;
         }
-        *state = TunnelSessionState::Starting;
+        *state = TunnelSessionState::Starting { cancel: cancel.clone() };
     }
 
     {
@@ -227,9 +227,9 @@ pub(crate) fn validate_tun_fd(tun_fd: jint) -> Result<(), &'static str> {
 }
 
 pub(crate) fn ensure_tunnel_start_allowed(state: &TunnelSessionState) -> Result<(), &'static str> {
-    match *state {
+    match state {
         TunnelSessionState::Ready => Ok(()),
-        TunnelSessionState::Starting => Err("Tunnel session is already starting"),
+        TunnelSessionState::Starting { .. } => Err("Tunnel session is already starting"),
         TunnelSessionState::Running { .. } => Err("Tunnel session is already running"),
         TunnelSessionState::Destroyed => Err("Tunnel session has been destroyed"),
     }
@@ -238,20 +238,33 @@ pub(crate) fn ensure_tunnel_start_allowed(state: &TunnelSessionState) -> Result<
 pub(crate) fn take_running_tunnel(
     state: &mut TunnelSessionState,
 ) -> Result<(Arc<CancellationToken>, std::thread::JoinHandle<()>), &'static str> {
-    match std::mem::replace(state, TunnelSessionState::Ready) {
-        TunnelSessionState::Ready | TunnelSessionState::Starting => Err("Tunnel session is not running"),
-        TunnelSessionState::Running { cancel, stats: _, worker } => Ok((cancel, worker)),
-        TunnelSessionState::Destroyed => {
-            *state = TunnelSessionState::Destroyed;
-            Err("Tunnel session has been destroyed")
+    match state {
+        TunnelSessionState::Running { .. } => {
+            // Only replace when actually Running -- other states must not be mutated.
+            let TunnelSessionState::Running { cancel, worker, .. } =
+                std::mem::replace(state, TunnelSessionState::Ready)
+            else {
+                unreachable!("just matched Running");
+            };
+            Ok((cancel, worker))
         }
+        TunnelSessionState::Starting { cancel } => {
+            // Startup is still in progress -- request cancellation so the worker
+            // thread observes it once it enters the run loop.
+            cancel.cancel();
+            Err("Tunnel session is still starting; cancellation requested")
+        }
+        TunnelSessionState::Ready => {
+            Err("Tunnel session is not running")
+        }
+        TunnelSessionState::Destroyed => Err("Tunnel session has been destroyed"),
     }
 }
 
 pub(crate) fn ensure_tunnel_destroyable(state: &TunnelSessionState) -> Result<(), &'static str> {
-    match *state {
+    match state {
         TunnelSessionState::Ready => Ok(()),
-        TunnelSessionState::Starting => Err("Cannot destroy a starting tunnel session"),
+        TunnelSessionState::Starting { .. } => Err("Cannot destroy a starting tunnel session"),
         TunnelSessionState::Running { .. } => Err("Cannot destroy a running tunnel session"),
         TunnelSessionState::Destroyed => Err("Tunnel session has already been destroyed"),
     }

@@ -1,10 +1,15 @@
 use super::*;
 use loom::sync::{Arc, Mutex};
+use tokio_util::sync::CancellationToken;
+
+fn starting_state() -> TunnelSessionState {
+    TunnelSessionState::Starting { cancel: std::sync::Arc::new(CancellationToken::new()) }
+}
 
 #[test]
 fn loom_starting_blocks_concurrent_start() {
     loom::model(|| {
-        let state = Arc::new(Mutex::new(TunnelSessionState::Starting));
+        let state = Arc::new(Mutex::new(starting_state()));
 
         let state1 = state.clone();
         let t1 = loom::thread::spawn(move || {
@@ -29,7 +34,7 @@ fn loom_starting_blocks_concurrent_start() {
 #[test]
 fn loom_stop_during_starting_returns_not_running() {
     loom::model(|| {
-        let state = Arc::new(Mutex::new(TunnelSessionState::Starting));
+        let state = Arc::new(Mutex::new(starting_state()));
 
         let state1 = state.clone();
         let t_stop = loom::thread::spawn(move || {
@@ -39,9 +44,14 @@ fn loom_stop_during_starting_returns_not_running() {
 
         let stopped = t_stop.join().unwrap();
         assert!(!stopped, "stop during Starting must return not-running");
-        // take_running_tunnel resets Starting -> Ready on non-Running match.
+        // take_running_tunnel cancels the Starting token but does not reset state.
         let s = state.lock().unwrap();
-        assert!(matches!(*s, TunnelSessionState::Ready));
+        match &*s {
+            TunnelSessionState::Starting { cancel } => {
+                assert!(cancel.is_cancelled(), "cancellation must have been requested");
+            }
+            _ => panic!("state must remain Starting after stop-during-startup"),
+        }
     });
 }
 
@@ -55,7 +65,7 @@ fn loom_concurrent_start_check_and_destroy_check() {
         let t_start = loom::thread::spawn(move || {
             let mut s = state1.lock().unwrap();
             if ensure_tunnel_start_allowed(&s).is_ok() {
-                *s = TunnelSessionState::Starting;
+                *s = starting_state();
                 true
             } else {
                 false
@@ -85,7 +95,7 @@ fn loom_concurrent_start_check_and_destroy_check() {
                 assert!(!started);
                 assert!(can_destroy);
             }
-            TunnelSessionState::Starting => {
+            TunnelSessionState::Starting { .. } => {
                 // A won; B's result was valid for whichever state it observed.
                 assert!(started);
                 // B saw either Ready (can_destroy=true) or Starting (can_destroy=false).

@@ -205,7 +205,9 @@ mod tests {
             config: Arc::new(config_from_payload(sample_payload()).expect("config")),
             last_error: Arc::new(Mutex::new(None)),
             telemetry: Arc::new(TunnelTelemetryState::new()),
-            state: Mutex::new(TunnelSessionState::Starting),
+            state: Mutex::new(TunnelSessionState::Starting {
+                cancel: Arc::new(CancellationToken::new()),
+            }),
         };
         session.telemetry.mark_started("127.0.0.1:1080".to_string());
 
