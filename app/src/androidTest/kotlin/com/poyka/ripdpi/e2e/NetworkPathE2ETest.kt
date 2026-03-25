@@ -51,8 +51,9 @@ class NetworkPathE2ETest {
     @Before
     fun setUp() {
         hiltRule.inject()
+        ensureLocalNetworkAccessGranted(appContext)
         fixtureClient = LocalFixtureClient.fromInstrumentationArgs()
-        fixture = fixtureClient.manifest()
+        fixture = selectReachableFixtureManifest(appContext, fixtureClient.manifest())
         fixtureClient.resetEvents()
         fixtureClient.resetFaults()
         runBlocking {
@@ -173,10 +174,7 @@ class NetworkPathE2ETest {
         awaitServiceStatus(AppStatus.Running, Mode.VPN)
 
         val payload = httpEchoPayloadShellLiteral("vpn-e2e")
-        val output =
-            execShell(
-                "sh -c 'printf %b \"$payload\" | toybox nc -w 5 ${fixture.fixtureIpv4} ${fixture.tcpEchoPort}'",
-            )
+        val output = shellTcpRoundTrip(fixture.androidHost, fixture.tcpEchoPort, payload)
         assertTrue("Expected VPN shell round-trip, got: $output", output.contains("GET /vpn-e2e HTTP/1.1"))
 
         awaitUntil {
@@ -379,10 +377,7 @@ class NetworkPathE2ETest {
         )
 
         val payload = httpEchoPayloadShellLiteral("vpn-reset")
-        val output =
-            execShell(
-                "sh -c 'printf %b \"$payload\" | toybox nc -w 5 ${fixture.fixtureIpv4} ${fixture.tcpEchoPort}'",
-            )
+        val output = shellTcpRoundTrip(fixture.androidHost, fixture.tcpEchoPort, payload)
 
         assertFalse(output.contains("GET /vpn-reset HTTP/1.1"))
         assertTrue(
