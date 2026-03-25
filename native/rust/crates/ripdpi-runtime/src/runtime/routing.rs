@@ -1,6 +1,6 @@
 use std::io::{self, Read, Write};
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, TcpStream};
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use ripdpi_config::{
     DETECT_CONNECT, DETECT_DNS_TAMPER, DETECT_HTTP_BLOCKPAGE, DETECT_HTTP_LOCAT, DETECT_SILENT_DROP, DETECT_TCP_RESET,
@@ -330,6 +330,11 @@ pub(super) fn connect_target_via_group(
         .groups
         .get(group_index)
         .ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, "missing desync group"))?;
+    let connect_timeout = if state.config.timeouts.connect_timeout_ms > 0 {
+        Some(Duration::from_millis(state.config.timeouts.connect_timeout_ms as u64))
+    } else {
+        None
+    };
     let stream = if let Some(upstream) = group.policy.ext_socks {
         connect_via_socks(
             target,
@@ -337,6 +342,7 @@ pub(super) fn connect_target_via_group(
             unspecified_ip_for(upstream.addr),
             state.config.process.protect_path.as_deref(),
             state.config.network.tfo,
+            connect_timeout,
         )
     } else {
         connect_socket(
@@ -344,6 +350,7 @@ pub(super) fn connect_target_via_group(
             unspecified_ip_for(target),
             state.config.process.protect_path.as_deref(),
             state.config.network.tfo,
+            connect_timeout,
         )
     }?;
 
@@ -374,8 +381,9 @@ fn connect_via_socks(
     bind_ip: IpAddr,
     protect_path: Option<&str>,
     tfo: bool,
+    connect_timeout: Option<Duration>,
 ) -> io::Result<TcpStream> {
-    let mut stream = connect_socket(upstream, bind_ip, protect_path, tfo)?;
+    let mut stream = connect_socket(upstream, bind_ip, protect_path, tfo, connect_timeout)?;
     stream.write_all(&[S_VER5, 1, S_AUTH_NONE])?;
     let mut auth = [0u8; 2];
     stream.read_exact(&mut auth)?;
@@ -442,6 +450,7 @@ pub(super) fn connect_socket(
     bind_ip: IpAddr,
     protect_path: Option<&str>,
     tfo: bool,
+    connect_timeout: Option<Duration>,
 ) -> io::Result<TcpStream> {
     let domain = match target {
         SocketAddr::V4(_) => Domain::IPV4,
@@ -463,7 +472,12 @@ pub(super) fn connect_socket(
         protected = protect_path.is_some(),
         "ripdpi upstream connect start"
     );
-    if let Err(err) = socket.connect(&SockAddr::from(target)) {
+    let connect_result = if let Some(timeout) = connect_timeout {
+        socket.connect_timeout(&SockAddr::from(target), timeout)
+    } else {
+        socket.connect(&SockAddr::from(target))
+    };
+    if let Err(err) = connect_result {
         tracing::warn!(
             target = %target,
             bind_ip = %bind_ip,

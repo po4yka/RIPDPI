@@ -667,6 +667,7 @@ pub fn runtime_config_from_ui(payload: ProxyUiConfig) -> Result<RuntimeConfig, P
     }
 
     config.groups = groups;
+    config.timeouts.connect_timeout_ms = 10_000;
     config.network.delay_conn = config.groups.iter().any(group_needs_delayed_connect);
     if !matches!(config.network.listen.bind_ip, IpAddr::V6(_)) {
         config.network.ipv6 = false;

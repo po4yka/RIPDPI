@@ -559,6 +559,11 @@ pub fn parse_cli(args: &[String], startup: &StartupEnv) -> Result<ParseResult, C
                 group!().policy.ext_socks = Some(UpstreamSocksConfig { addr: SocketAddr::new(ip, port) });
                 config.network.delay_conn = true;
             }
+            "--connect-timeout" => {
+                let value = next_value(&effective_args, &mut idx, arg)?;
+                config.timeouts.connect_timeout_ms =
+                    seconds_to_millis(value).map_err(|_| ConfigError::invalid(arg, Some(value)))?;
+            }
             "-P" | "--protect-path" => {
                 let value = next_value(&effective_args, &mut idx, arg)?;
                 config.process.protect_path = Some(value.to_owned());

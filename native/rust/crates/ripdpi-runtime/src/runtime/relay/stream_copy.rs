@@ -59,6 +59,12 @@ pub(super) fn relay_streams(
     let up_result = up.join().map_err(|_| io::Error::other("upstream thread panicked"))?;
     let down_result = down.join().map_err(|_| io::Error::other("downstream thread panicked"))?;
 
+    // Ensure both sockets are fully closed regardless of how relay threads exited.
+    // The per-direction shutdown in each thread may be skipped on error paths;
+    // this guarantees FIN is sent so sockets don't linger in CLOSE_WAIT.
+    let _ = upstream.shutdown(Shutdown::Both);
+    let _ = client.shutdown(Shutdown::Both);
+
     if drop_sack {
         let _ = platform::detach_drop_sack(&upstream);
     }

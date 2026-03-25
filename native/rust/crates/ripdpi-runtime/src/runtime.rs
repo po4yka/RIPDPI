@@ -281,4 +281,30 @@ mod tests {
 
         assert_eq!(server.join().expect("join fallback server"), payload);
     }
+
+    #[test]
+    fn connect_socket_respects_timeout() {
+        use super::routing::connect_socket;
+        use std::time::{Duration, Instant};
+
+        // 192.0.2.1 is RFC 5737 TEST-NET-1 — guaranteed non-routable.
+        let target = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(192, 0, 2, 1)), 80);
+        let timeout = Duration::from_secs(1);
+        let start = Instant::now();
+
+        let result = connect_socket(
+            target,
+            IpAddr::V4(Ipv4Addr::UNSPECIFIED),
+            None,
+            false,
+            Some(timeout),
+        );
+        let elapsed = start.elapsed();
+
+        assert!(result.is_err(), "connect to TEST-NET should fail");
+        assert!(
+            elapsed < Duration::from_secs(5),
+            "connect should respect the 1s timeout, but took {elapsed:?}"
+        );
+    }
 }
