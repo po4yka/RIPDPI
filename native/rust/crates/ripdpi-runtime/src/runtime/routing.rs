@@ -1,5 +1,5 @@
 use std::io::{self, Read, Write};
-use std::net::{IpAddr, SocketAddr, TcpStream};
+use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, TcpStream};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use ripdpi_config::{
@@ -334,14 +334,14 @@ pub(super) fn connect_target_via_group(
         connect_via_socks(
             target,
             upstream.addr,
-            state.config.network.listen.bind_ip,
+            unspecified_ip_for(upstream.addr),
             state.config.process.protect_path.as_deref(),
             state.config.network.tfo,
         )
     } else {
         connect_socket(
             target,
-            state.config.network.listen.bind_ip,
+            unspecified_ip_for(target),
             state.config.process.protect_path.as_deref(),
             state.config.network.tfo,
         )
@@ -359,6 +359,13 @@ pub(super) fn connect_target_via_group(
         telemetry.on_upstream_connected(upstream_addr, upstream_rtt_ms);
     }
     Ok(stream)
+}
+
+fn unspecified_ip_for(addr: SocketAddr) -> IpAddr {
+    match addr {
+        SocketAddr::V4(_) => IpAddr::V4(Ipv4Addr::UNSPECIFIED),
+        SocketAddr::V6(_) => IpAddr::V6(Ipv6Addr::UNSPECIFIED),
+    }
 }
 
 fn connect_via_socks(
@@ -448,7 +455,33 @@ pub(super) fn connect_socket(
         enable_tcp_fastopen_if_supported(&socket)?;
     }
     bind_socket(&socket, bind_ip, target)?;
-    socket.connect(&SockAddr::from(target))?;
+    let connect_started = std::time::Instant::now();
+    tracing::debug!(
+        target = %target,
+        bind_ip = %bind_ip,
+        tcp_fast_open = tfo,
+        protected = protect_path.is_some(),
+        "ripdpi upstream connect start"
+    );
+    if let Err(err) = socket.connect(&SockAddr::from(target)) {
+        tracing::warn!(
+            target = %target,
+            bind_ip = %bind_ip,
+            tcp_fast_open = tfo,
+            protected = protect_path.is_some(),
+            elapsed_ms = connect_started.elapsed().as_millis() as u64,
+            "ripdpi upstream connect failed: {err}"
+        );
+        return Err(err);
+    }
+    tracing::debug!(
+        target = %target,
+        bind_ip = %bind_ip,
+        tcp_fast_open = tfo,
+        protected = protect_path.is_some(),
+        elapsed_ms = connect_started.elapsed().as_millis() as u64,
+        "ripdpi upstream connect established"
+    );
     let stream: TcpStream = socket.into();
     stream.set_nodelay(true)?;
     Ok(stream)
@@ -522,6 +555,15 @@ pub(super) fn reconnect_target(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn outbound_connects_do_not_reuse_listener_bind_ip() {
+        assert_eq!(unspecified_ip_for(SocketAddr::from(([203, 0, 113, 7], 443))), IpAddr::V4(Ipv4Addr::UNSPECIFIED),);
+        assert_eq!(
+            unspecified_ip_for(SocketAddr::from(([0u16, 0, 0, 0, 0, 0, 0, 1], 443))),
+            IpAddr::V6(Ipv6Addr::UNSPECIFIED),
+        );
+    }
 
     #[test]
     fn android_tfo_capability_errors_are_ignored() {

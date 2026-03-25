@@ -92,8 +92,9 @@ class DiagnosticsNetworkE2ETest {
     @Before
     fun setUp() {
         hiltRule.inject()
+        ensureLocalNetworkAccessGranted(appContext)
         fixtureClient = LocalFixtureClient.fromInstrumentationArgs()
-        fixture = fixtureClient.manifest()
+        fixture = selectReachableFixtureManifest(appContext, fixtureClient.manifest())
         fixtureClient.resetEvents()
         fixtureClient.resetFaults()
         runBlocking {

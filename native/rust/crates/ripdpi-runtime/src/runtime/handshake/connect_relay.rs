@@ -18,6 +18,53 @@ enum DelayConnect {
     Closed,
 }
 
+pub(super) struct ConnectRelayError {
+    error: io::Error,
+    success_reply_sent: bool,
+}
+
+impl ConnectRelayError {
+    fn new(error: io::Error, success_reply_sent: bool) -> Self {
+        Self { error, success_reply_sent }
+    }
+
+    pub(super) fn kind(&self) -> io::ErrorKind {
+        self.error.kind()
+    }
+
+    pub(super) fn success_reply_sent(&self) -> bool {
+        self.success_reply_sent
+    }
+
+    pub(super) fn into_io_error(self) -> io::Error {
+        self.error
+    }
+}
+
+impl std::fmt::Display for ConnectRelayError {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.error.fmt(formatter)
+    }
+}
+
+impl std::fmt::Debug for ConnectRelayError {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter
+            .debug_struct("ConnectRelayError")
+            .field("error", &self.error)
+            .field("success_reply_sent", &self.success_reply_sent)
+            .finish()
+    }
+}
+
+impl std::error::Error for ConnectRelayError {}
+
+impl From<io::Error> for ConnectRelayError {
+    fn from(error: io::Error) -> Self {
+        Self::new(error, false)
+    }
+}
+
 /// Protocol-specific reply sent to the client on successful upstream connect.
 pub(super) enum SuccessReply {
     /// Transparent proxy: no reply needed.
@@ -46,23 +93,25 @@ pub(super) fn connect_and_relay(
     state: &RuntimeState,
     dc_host: Option<String>,
     reply: SuccessReply,
-) -> io::Result<()> {
+) -> Result<(), ConnectRelayError> {
     // Always mode: try WS tunnel first
     if let Some(dc) = should_ws_tunnel_first(target, state) {
-        write_success_reply(client, &reply, None)?;
-        match run_ws_tunnel(client.try_clone()?, dc, target, state) {
+        write_success_reply(client, &reply, None).map_err(|err| ConnectRelayError::new(err, false))?;
+        match run_ws_tunnel(client.try_clone().map_err(|err| ConnectRelayError::new(err, true))?, dc, target, state) {
             WsTunnelResult::Ok => return Ok(()),
             WsTunnelResult::Fallback { init_packet } => {
                 let (upstream, route) =
-                    super::super::routing::connect_target(target, state, Some(&init_packet), true, dc_host.clone())?;
+                    super::super::routing::connect_target(target, state, Some(&init_packet), true, dc_host.clone())
+                        .map_err(|err| ConnectRelayError::new(err, true))?;
                 return super::super::relay::relay(
-                    client.try_clone()?,
+                    client.try_clone().map_err(|err| ConnectRelayError::new(err, true))?,
                     upstream,
                     state,
                     target,
                     route,
                     Some(init_packet),
-                );
+                )
+                .map_err(|err| ConnectRelayError::new(err, true));
             }
             WsTunnelResult::FallbackNoInit => {
                 // Init read failed; fall through to normal path
@@ -97,7 +146,7 @@ pub(super) fn connect_and_relay(
             if let Some(dc) = should_ws_tunnel_fallback(target, state) {
                 if let Some(ref fallback_client) = ws_fallback_client {
                     if let Some(result) = try_ws_tunnel_fallback(fallback_client, target, dc, state) {
-                        return result;
+                        return result.map_err(ConnectRelayError::from);
                     }
                 }
             }
@@ -112,10 +161,19 @@ fn immediate_connect_relay(
     state: &RuntimeState,
     dc_host: Option<String>,
     reply: &SuccessReply,
-) -> io::Result<()> {
-    let (upstream, route) = super::super::routing::connect_target(target, state, None, false, dc_host)?;
-    write_success_reply(client, reply, Some(&upstream))?;
-    super::super::relay::relay(client.try_clone()?, upstream, state, target, route, None)
+) -> Result<(), ConnectRelayError> {
+    let (upstream, route) = super::super::routing::connect_target(target, state, None, false, dc_host)
+        .map_err(|err| ConnectRelayError::new(err, false))?;
+    write_success_reply(client, reply, Some(&upstream)).map_err(|err| ConnectRelayError::new(err, false))?;
+    super::super::relay::relay(
+        client.try_clone().map_err(|err| ConnectRelayError::new(err, !matches!(reply, SuccessReply::None)))?,
+        upstream,
+        state,
+        target,
+        route,
+        None,
+    )
+    .map_err(|err| ConnectRelayError::new(err, !matches!(reply, SuccessReply::None)))
 }
 
 fn delayed_connect_relay(
@@ -125,11 +183,20 @@ fn delayed_connect_relay(
     dc_host: Option<String>,
     route: crate::runtime_policy::ConnectionRoute,
     payload: Vec<u8>,
-) -> io::Result<()> {
+) -> Result<(), ConnectRelayError> {
     let host = extract_host(&state.config, &payload).or(dc_host);
     let (upstream, route) =
-        super::super::routing::connect_target_with_route(target, state, route, Some(&payload), host)?;
-    super::super::relay::relay(client.try_clone()?, upstream, state, target, route, Some(payload))
+        super::super::routing::connect_target_with_route(target, state, route, Some(&payload), host)
+            .map_err(|err| ConnectRelayError::new(err, true))?;
+    super::super::relay::relay(
+        client.try_clone().map_err(|err| ConnectRelayError::new(err, true))?,
+        upstream,
+        state,
+        target,
+        route,
+        Some(payload),
+    )
+    .map_err(|err| ConnectRelayError::new(err, true))
 }
 
 /// Write the protocol-appropriate success reply to the client.
@@ -156,22 +223,23 @@ fn maybe_delay_connect(
     state: &RuntimeState,
     target: SocketAddr,
     handshake: HandshakeKind,
-) -> io::Result<DelayConnect> {
+) -> Result<DelayConnect, ConnectRelayError> {
     if !state.config.network.delay_conn {
         return Ok(DelayConnect::Immediate);
     }
-    let route = super::super::routing::select_route(state, target, None, None, true)?;
-    let group = state
-        .config
-        .groups
-        .get(route.group_index)
-        .ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, "missing desync group"))?;
+    let route = super::super::routing::select_route(state, target, None, None, true)
+        .map_err(|err| ConnectRelayError::new(err, false))?;
+    let group = state.config.groups.get(route.group_index).ok_or_else(|| {
+        ConnectRelayError::new(io::Error::new(io::ErrorKind::NotFound, "missing desync group"), false)
+    })?;
     if !group_requires_payload(group) {
         return Ok(DelayConnect::Immediate);
     }
 
-    send_success_reply(client, handshake)?;
-    let Some(payload) = read_blocking_first_request(client, state.config.network.buffer_size)? else {
+    send_success_reply(client, handshake).map_err(|err| ConnectRelayError::new(err, false))?;
+    let Some(payload) = read_blocking_first_request(client, state.config.network.buffer_size)
+        .map_err(|err| ConnectRelayError::new(err, true))?
+    else {
         return Ok(DelayConnect::Closed);
     };
 
@@ -192,7 +260,12 @@ fn maybe_delay_connect(
                 true,
                 None,
             )
-            .ok_or_else(|| io::Error::new(io::ErrorKind::PermissionDenied, "no matching desync group"))?
+            .ok_or_else(|| {
+                ConnectRelayError::new(
+                    io::Error::new(io::ErrorKind::PermissionDenied, "no matching desync group"),
+                    true,
+                )
+            })?
     };
 
     Ok(DelayConnect::Delayed { route, payload })

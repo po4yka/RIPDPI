@@ -1,7 +1,14 @@
 use super::protocol_io::*;
-use ripdpi_config::RuntimeConfig;
+use crate::adaptive_fake_ttl::AdaptiveFakeTtlResolver;
+use crate::adaptive_tuning::AdaptivePlannerResolver;
+use crate::retry_stealth::RetryPacer;
+use crate::runtime::state::RuntimeState;
+use crate::runtime_policy::RuntimePolicy;
+use crate::sync::{Arc, AtomicUsize, Mutex};
+use ripdpi_config::{DesyncGroup, RuntimeConfig};
 use ripdpi_session::{
-    encode_http_connect_reply, encode_socks4_reply, encode_socks5_reply, S_ATP_I4, S_ATP_I6, S_CMD_CONN, S_VER5,
+    encode_http_connect_reply, encode_socks4_reply, encode_socks5_reply, S_ATP_I4, S_ATP_I6, S_CMD_CONN, S_ER_GEN,
+    S_VER5,
 };
 use std::io::{Read, Write};
 use std::net::{IpAddr, Ipv4Addr, SocketAddr, TcpListener, TcpStream};
@@ -13,6 +20,19 @@ fn connected_pair() -> (TcpStream, TcpStream) {
     let client = TcpStream::connect(addr).expect("connect client");
     let (server, _) = listener.accept().expect("accept client");
     (client, server)
+}
+
+fn runtime_state(config: RuntimeConfig) -> RuntimeState {
+    RuntimeState {
+        config: Arc::new(config.clone()),
+        cache: Arc::new(Mutex::new(RuntimePolicy::load(&config))),
+        adaptive_fake_ttl: Arc::new(Mutex::new(AdaptiveFakeTtlResolver::default())),
+        adaptive_tuning: Arc::new(Mutex::new(AdaptivePlannerResolver::default())),
+        retry_stealth: Arc::new(Mutex::new(RetryPacer::default())),
+        active_clients: Arc::new(AtomicUsize::new(0)),
+        telemetry: None,
+        runtime_context: None,
+    }
 }
 
 #[test]
@@ -73,4 +93,42 @@ fn parse_shadowsocks_target_respects_ipv6_and_resolve_flags() {
 
     assert!(parse_shadowsocks_target(&ipv6_packet, &config).is_none());
     assert!(parse_shadowsocks_target(&domain_packet, &config).is_none());
+}
+
+#[test]
+fn handle_client_sends_socks5_failure_reply_when_upstream_connect_fails() {
+    let probe = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("bind probe listener");
+    let target = probe.local_addr().expect("probe addr");
+    drop(probe);
+
+    let mut config = RuntimeConfig::default();
+    config.groups = vec![DesyncGroup::new(0)];
+    config.network.resolve = false;
+    let state = runtime_state(config);
+    let (mut client, server) = connected_pair();
+    client.set_read_timeout(Some(Duration::from_secs(1))).expect("set read timeout");
+
+    let mut request = vec![S_VER5, 1, 0];
+    request.extend([S_VER5, S_CMD_CONN, 0, S_ATP_I4]);
+    request.extend_from_slice(&Ipv4Addr::LOCALHOST.octets());
+    request.extend_from_slice(&target.port().to_be_bytes());
+    client.write_all(&request).expect("write socks5 connect request");
+
+    let err = super::handle_client(server, &state).expect_err("upstream connect should fail");
+    assert!(
+        matches!(
+            err.kind(),
+            std::io::ErrorKind::ConnectionRefused | std::io::ErrorKind::ConnectionReset | std::io::ErrorKind::TimedOut
+        ),
+        "unexpected connect failure kind: {err}"
+    );
+
+    let mut auth = [0u8; 2];
+    client.read_exact(&mut auth).expect("read socks5 auth reply");
+    assert_eq!(auth, [S_VER5, 0]);
+
+    let mut failure = [0u8; 10];
+    client.read_exact(&mut failure).expect("read socks5 failure reply");
+    assert_eq!(failure[0], S_VER5);
+    assert_eq!(failure[1], S_ER_GEN);
 }
