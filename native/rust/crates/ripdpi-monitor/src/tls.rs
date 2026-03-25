@@ -38,7 +38,18 @@ pub(crate) enum TlsClientProfile {
     Tls13WithEchStub,
 }
 
-// --- Dangerous certificate verifier ---
+// --- Dangerous certificate verifier (INTENTIONAL, audit-reviewed) ---
+//
+// SECURITY: This verifier is used ONLY by the diagnostic/monitor probe path to
+// detect censorship-induced TLS interception (MITM middleboxes). It is NOT used
+// for any data-carrying connection. The probe result is observational -- it
+// reports whether a TLS handshake succeeds or fails and captures certificate
+// anomalies, but never trusts the connection for user traffic.
+//
+// Removing this would prevent the monitor from detecting TLS-level censorship
+// on networks that inject forged certificates.
+//
+// Reviewed: 2026-03-25, F-009
 
 #[derive(Debug)]
 pub(crate) struct NoCertificateVerification;
