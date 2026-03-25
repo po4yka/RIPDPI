@@ -294,8 +294,10 @@ pub fn send_fake_tcp(
 
         let iov = libc::iovec { iov_base: region.cast(), iov_len: original_prefix.len() };
         // SAFETY: `iov` references an anonymous writable mapping whose lifetime
-        // extends until after the splice completes. vmsplice is not in nix 0.29.
-        let queued = unsafe { libc::vmsplice(pipe_w.as_raw_fd(), &iov, 1, libc::SPLICE_F_GIFT as libc::c_uint) };
+        // extends until after the splice loop completes. We do NOT use
+        // SPLICE_F_GIFT because the caller sends the real data separately;
+        // gifting pages and mutating them afterward is unsound.
+        let queued = unsafe { libc::vmsplice(pipe_w.as_raw_fd(), &iov, 1, 0) };
         if queued < 0 {
             return Err(io::Error::last_os_error());
         }
@@ -325,12 +327,6 @@ pub fn send_fake_tcp(
             set_tcp_md5sig(stream, 0)?;
         }
         set_stream_ttl(stream, restore_ttl)?;
-        // INTENTIONAL DATA RACE: The vmsplice with SPLICE_F_GIFT transferred
-        // page ownership to the kernel. Overwriting the region here relies on
-        // the kernel retransmitting from the updated page content (which now
-        // holds the real `original_prefix` bytes). This is the core mechanism
-        // that makes the fake-retransmit desync strategy work on Linux.
-        write_region(region, original_prefix, region_len);
         Ok(())
     })();
 
