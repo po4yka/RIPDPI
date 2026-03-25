@@ -22,7 +22,8 @@ internal class ServiceShellDelegate(
         startId: Int,
     ): Int =
         when (action) {
-            START_ACTION -> {
+            // null action indicates a sticky restart after process death.
+            null, START_ACTION -> {
                 launchIo(onStart)
                 android.app.Service.START_STICKY
             }
@@ -34,8 +35,7 @@ internal class ServiceShellDelegate(
 
             else -> {
                 logcat(LogPriority.WARN) { "Unknown action for $serviceLabel service: $action" }
-                launchIo { onStop(startId) }
-                android.app.Service.START_NOT_STICKY
+                android.app.Service.START_STICKY
             }
         }
 

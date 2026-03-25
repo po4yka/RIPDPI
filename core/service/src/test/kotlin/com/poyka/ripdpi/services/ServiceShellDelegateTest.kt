@@ -37,27 +37,62 @@ class ServiceShellDelegateTest {
         }
 
     @Test
-    fun vpnShellDelegatesUnknownActionsAndRevokeToStopHandlers() =
+    fun `null action triggers start for sticky service restart`() =
+        runTest {
+            var startCalls = 0
+            val delegate =
+                ServiceShellDelegate(
+                    serviceScope = backgroundScope,
+                    serviceLabel = "vpn",
+                    onStart = { startCalls += 1 },
+                    onStop = {},
+                    ioDispatcher = StandardTestDispatcher(testScheduler),
+                )
+
+            val result = delegate.onStartCommand(null, 1)
+            runCurrent()
+
+            assertEquals(android.app.Service.START_STICKY, result)
+            assertEquals(1, startCalls)
+        }
+
+    @Test
+    fun `unknown action is ignored without stopping service`() =
         runTest {
             val stopIds = mutableListOf<Int?>()
-            var revokeCalls = 0
             val delegate =
                 ServiceShellDelegate(
                     serviceScope = backgroundScope,
                     serviceLabel = "vpn",
                     onStart = {},
                     onStop = { stopIds += it },
-                    onRevoke = { revokeCalls += 1 },
                     ioDispatcher = StandardTestDispatcher(testScheduler),
                 )
 
             val result = delegate.onStartCommand("unknown", 9)
             runCurrent()
+
+            assertEquals(android.app.Service.START_STICKY, result)
+            assertEquals(emptyList<Int?>(), stopIds)
+        }
+
+    @Test
+    fun `onRevoke delegates to revoke handler`() =
+        runTest {
+            var revokeCalls = 0
+            val delegate =
+                ServiceShellDelegate(
+                    serviceScope = backgroundScope,
+                    serviceLabel = "vpn",
+                    onStart = {},
+                    onStop = {},
+                    onRevoke = { revokeCalls += 1 },
+                    ioDispatcher = StandardTestDispatcher(testScheduler),
+                )
+
             delegate.onRevoke()
             runCurrent()
 
-            assertEquals(android.app.Service.START_NOT_STICKY, result)
-            assertEquals(listOf(9), stopIds)
             assertEquals(1, revokeCalls)
         }
 }
