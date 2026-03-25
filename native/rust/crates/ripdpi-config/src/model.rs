@@ -448,6 +448,7 @@ pub struct RuntimeTimeoutSettings {
     pub timeout_bytes_limit: i32,
     pub wait_send: bool,
     pub await_interval: i32,
+    pub connect_timeout_ms: u32,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
@@ -516,6 +517,7 @@ impl Default for RuntimeTimeoutSettings {
             timeout_bytes_limit: 0,
             wait_send: false,
             await_interval: 10,
+            connect_timeout_ms: 10_000,
         }
     }
 }
