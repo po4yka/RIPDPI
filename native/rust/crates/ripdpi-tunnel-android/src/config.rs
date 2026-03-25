@@ -71,6 +71,63 @@ pub(crate) fn config_from_payload(payload: TunnelConfigPayload) -> Result<Config
         return Err("tunnelName must not be blank".to_string());
     }
 
+    // Port validation
+    if payload.socks5_port == 0 {
+        return Err("socks5Port must be non-zero".to_string());
+    }
+
+    // MTU bounds (68 = minimum IPv4 MTU, 65535 = max IP packet)
+    if payload.tunnel_mtu < 68 || payload.tunnel_mtu > 65535 {
+        return Err(format!("tunnelMtu must be between 68 and 65535, got {}", payload.tunnel_mtu));
+    }
+
+    // Task stack size bounds (minimum 8KB, maximum 16MB)
+    if payload.task_stack_size < 8_192 || payload.task_stack_size > 16_777_216 {
+        return Err(format!("taskStackSize must be between 8192 and 16777216, got {}", payload.task_stack_size));
+    }
+
+    // Optional numeric bounds (only validate if present)
+    if let Some(port) = payload.mapdns_port {
+        if port == 0 {
+            return Err("mapdnsPort must be non-zero".to_string());
+        }
+    }
+    if let Some(timeout) = payload.connect_timeout_ms {
+        if timeout == 0 || timeout > 300_000 {
+            return Err(format!("connectTimeoutMs must be between 1 and 300000, got {timeout}"));
+        }
+    }
+    if let Some(timeout) = payload.tcp_read_write_timeout_ms {
+        if timeout == 0 || timeout > 300_000 {
+            return Err(format!("tcpReadWriteTimeoutMs must be between 1 and 300000, got {timeout}"));
+        }
+    }
+    if let Some(timeout) = payload.udp_read_write_timeout_ms {
+        if timeout == 0 || timeout > 300_000 {
+            return Err(format!("udpReadWriteTimeoutMs must be between 1 and 300000, got {timeout}"));
+        }
+    }
+    if let Some(limit) = payload.limit_nofile {
+        if limit < 64 || limit > 1_048_576 {
+            return Err(format!("limitNofile must be between 64 and 1048576, got {limit}"));
+        }
+    }
+    if let Some(max) = payload.max_session_count {
+        if max == 0 || max > 100_000 {
+            return Err(format!("maxSessionCount must be between 1 and 100000, got {max}"));
+        }
+    }
+    if let Some(size) = payload.tcp_buffer_size {
+        if size == 0 || size > 16_777_216 {
+            return Err(format!("tcpBufferSize must be between 1 and 16777216, got {size}"));
+        }
+    }
+    if let Some(size) = payload.udp_recv_buffer_size {
+        if size == 0 || size > 16_777_216 {
+            return Err(format!("udpRecvBufferSize must be between 1 and 16777216, got {size}"));
+        }
+    }
+
     let mut misc =
         MiscConfig { task_stack_size: payload.task_stack_size, log_level: payload.log_level, ..MiscConfig::default() };
     if let Some(value) = payload.tcp_buffer_size {
@@ -229,7 +286,7 @@ mod tests {
         (
             (
                 lossy_string(24),
-                1u32..9001,
+                68u32..65_536,
                 any::<bool>(),
                 prop::option::of(ipv4_address()),
                 prop::option::of(prop_oneof![Just("fd00::1".to_string()), Just("2001:db8::1".to_string())]),
@@ -247,17 +304,17 @@ mod tests {
                 prop::option::of(Just("172.16.0.0".to_string())),
                 prop::option::of(Just("255.240.0.0".to_string())),
                 prop::option::of(1u32..50_001),
-                1u32..262_145,
+                8_192u32..262_145,
                 prop::option::of(1u32..262_145),
                 prop::option::of(1u32..262_145),
                 prop::option::of(1u32..1025),
-                prop::option::of(1u32..120_001),
+                prop::option::of(1u32..100_001),
             ),
             // connect_timeout, tcp/udp rw timeouts, log_level, limit_nofile
             (
-                prop::option::of(1u32..120_001),
-                prop::option::of(1u32..120_001),
-                prop::option::of(1u32..120_001),
+                prop::option::of(1u32..300_001),
+                prop::option::of(1u32..300_001),
+                prop::option::of(1u32..300_001),
                 prop_oneof![
                     Just("trace".to_string()),
                     Just("debug".to_string()),
@@ -349,7 +406,7 @@ mod tests {
         (
             (
                 non_blank_string(24),
-                1u32..9001,
+                68u32..65_536,
                 any::<bool>(),
                 prop::option::of(ipv4_address()),
                 prop::option::of(prop_oneof![Just("fd00::1".to_string()), Just("2001:db8::1".to_string())]),
@@ -367,17 +424,17 @@ mod tests {
                 prop::option::of(Just("172.16.0.0".to_string())),
                 prop::option::of(Just("255.240.0.0".to_string())),
                 prop::option::of(1u32..50_001),
-                1u32..262_145,
+                8_192u32..262_145,
                 prop::option::of(1u32..262_145),
                 prop::option::of(1u32..262_145),
                 prop::option::of(1u32..1025),
-                prop::option::of(1u32..120_001),
+                prop::option::of(1u32..100_001),
             ),
             // connect_timeout, tcp/udp rw timeouts, log_level, limit_nofile
             (
-                prop::option::of(1u32..120_001),
-                prop::option::of(1u32..120_001),
-                prop::option::of(1u32..120_001),
+                prop::option::of(1u32..300_001),
+                prop::option::of(1u32..300_001),
+                prop::option::of(1u32..300_001),
                 prop_oneof![
                     Just("trace".to_string()),
                     Just("debug".to_string()),
@@ -509,6 +566,65 @@ mod tests {
         let err = parse_tunnel_config_json("{").expect_err("invalid json");
 
         assert!(err.contains("Invalid tunnel config JSON"));
+    }
+
+    #[test]
+    fn rejects_zero_socks5_port() {
+        let mut payload = sample_payload();
+        payload.socks5_port = 0;
+        let err = config_from_payload(payload).expect_err("zero port");
+        assert_eq!(err, "socks5Port must be non-zero");
+    }
+
+    #[test]
+    fn rejects_mtu_below_minimum() {
+        let mut payload = sample_payload();
+        payload.tunnel_mtu = 67;
+        let err = config_from_payload(payload).expect_err("low mtu");
+        assert!(err.contains("tunnelMtu must be between"));
+    }
+
+    #[test]
+    fn rejects_mtu_above_maximum() {
+        let mut payload = sample_payload();
+        payload.tunnel_mtu = 65536;
+        let err = config_from_payload(payload).expect_err("high mtu");
+        assert!(err.contains("tunnelMtu must be between"));
+    }
+
+    #[test]
+    fn rejects_task_stack_size_below_minimum() {
+        let mut payload = sample_payload();
+        payload.task_stack_size = 4_096;
+        let err = config_from_payload(payload).expect_err("low stack");
+        assert!(err.contains("taskStackSize must be between"));
+    }
+
+    #[test]
+    fn rejects_zero_connect_timeout() {
+        let mut payload = sample_payload();
+        payload.connect_timeout_ms = Some(0);
+        let err = config_from_payload(payload).expect_err("zero timeout");
+        assert!(err.contains("connectTimeoutMs must be between"));
+    }
+
+    #[test]
+    fn rejects_excessive_limit_nofile() {
+        let mut payload = sample_payload();
+        payload.limit_nofile = Some(2_000_000);
+        let err = config_from_payload(payload).expect_err("high nofile");
+        assert!(err.contains("limitNofile must be between"));
+    }
+
+    #[test]
+    fn accepts_boundary_mtu_values() {
+        let mut payload = sample_payload();
+        payload.tunnel_mtu = 68;
+        assert!(config_from_payload(payload).is_ok());
+
+        let mut payload = sample_payload();
+        payload.tunnel_mtu = 65535;
+        assert!(config_from_payload(payload).is_ok());
     }
 
     proptest! {
