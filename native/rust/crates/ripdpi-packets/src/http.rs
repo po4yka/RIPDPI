@@ -1,6 +1,19 @@
 use crate::types::{HttpHost, HttpMarkerInfo, PacketMutation, MH_DMIX, MH_HMIX, MH_METHODEOL, MH_SPACE, MH_UNIXEOL};
 use crate::util::{parse_u16_ascii, strncase_find};
 
+/// Return the byte offset just past the last header byte, before the blank
+/// line that separates headers from body. Searches for `\r\n\r\n` or `\n\n`.
+/// If no terminator is found the entire buffer is treated as headers.
+fn header_block_end(buffer: &[u8]) -> usize {
+    if let Some(pos) = buffer.windows(4).position(|w| w == b"\r\n\r\n") {
+        return pos + 2;
+    }
+    if let Some(pos) = buffer.windows(2).position(|w| w == b"\n\n") {
+        return pos + 1;
+    }
+    buffer.len()
+}
+
 #[derive(Debug, Clone, Copy)]
 struct HttpParts {
     method_start: usize,
@@ -44,7 +57,10 @@ fn http_method_start(buffer: &[u8]) -> Option<usize> {
 
 fn parse_http_parts(buffer: &[u8]) -> Option<HttpParts> {
     let method_start = http_method_start(buffer)?;
-    let marker = strncase_find(buffer, b"\nHost:")?;
+    // Search only within the header block to prevent body content from
+    // masquerading as a Host header (F-005).
+    let headers = &buffer[..header_block_end(buffer)];
+    let marker = strncase_find(headers, b"\nHost:")?;
     let header_name_start = marker + 1;
     let mut host_start = marker + 6;
     while host_start < buffer.len() && buffer[host_start] == b' ' {
@@ -188,7 +204,10 @@ pub fn is_http_redirect(req: &[u8], resp: &[u8]) -> bool {
     if !(300..=308).contains(&code) {
         return false;
     }
-    let Some(location_marker) = strncase_find(resp, b"\nLocation:") else {
+    // Search only within the header block to prevent body content from
+    // being misinterpreted as a Location header (F-006).
+    let resp_headers = &resp[..header_block_end(resp)];
+    let Some(location_marker) = strncase_find(resp_headers, b"\nLocation:") else {
         return false;
     };
     let mut location_start = location_marker + 11;
@@ -494,6 +513,22 @@ mod tests {
         assert!(output.starts_with("\r\nGET / HTTP/1.1\n"));
         assert!(output.contains("\nhOsT:ExAmPlE.CoM\t\n"));
         assert!(output.contains("\nUser-Agent: agent  \n\n"));
+    }
+
+    #[test]
+    fn parse_http_ignores_host_in_body() {
+        // F-005: Host header in the body must NOT be picked up.
+        let request = b"GET / HTTP/1.1\r\nHost: real.com\r\n\r\n\nHost: evil.com\r\n";
+        let parsed = parse_http(request).expect("should parse real host");
+        assert_eq!(parsed.host, b"real.com");
+    }
+
+    #[test]
+    fn redirect_ignores_location_in_body() {
+        // F-006: Location header in the body must NOT be picked up.
+        let req = b"GET / HTTP/1.1\r\nHost: example.com\r\n\r\n";
+        let resp = b"HTTP/1.1 302 Found\r\nLocation: https://cdn.example.com/ok\r\n\r\n\nLocation: https://evil.net/redir\r\n";
+        assert!(!is_http_redirect(req, resp));
     }
 
     proptest::proptest! {
