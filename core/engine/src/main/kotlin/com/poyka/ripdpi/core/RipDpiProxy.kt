@@ -104,7 +104,7 @@ class RipDpiProxy(
 
     private val json = Json { ignoreUnknownKeys = true }
     private val mutex = Mutex()
-    private var handle = 0L
+    @Volatile private var handle = 0L
     private var readinessSignal: CompletableDeferred<Unit>? = null
 
     override suspend fun startProxy(preferences: RipDpiProxyPreferences): Int {
@@ -143,17 +143,16 @@ class RipDpiProxy(
             val capturedHandle = handle
             val completionHandle =
                 coroutineContext[Job]!!.invokeOnCompletion {
-                    if (mutex.tryLock()) {
-                        try {
-                            if (this@RipDpiProxy.handle == capturedHandle && capturedHandle != 0L) {
-                                nativeBindings.stop(capturedHandle)
-                            }
-                        } finally {
-                            mutex.unlock()
+                    // Always dispatch stop -- do not gate on the mutex.
+                    // The volatile handle field is readable without the lock, and
+                    // nativeBindings.stop() is idempotent on the Rust side.
+                    try {
+                        if (this@RipDpiProxy.handle == capturedHandle && capturedHandle != 0L) {
+                            nativeBindings.stop(capturedHandle)
                         }
+                    } catch (_: IllegalStateException) {
+                        // stop() throws if the proxy is not running -- safe to ignore.
                     }
-                    // else: stopProxy() or the finally block already holds the mutex
-                    // and will handle stop/destroy
                 }
             return try {
                 withContext(Dispatchers.IO) { nativeBindings.start(handle) }
