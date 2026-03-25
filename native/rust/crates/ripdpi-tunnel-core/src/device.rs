@@ -10,15 +10,39 @@ use std::collections::VecDeque;
 /// The TUN fd is owned by `io_loop_task`, not by this device.  All TUN
 /// reads/writes happen in `io_loop_task` code; this struct only mediates between
 /// the raw byte streams and smoltcp's internal state machines.
+/// Hard limit on queued packets per direction. Sized to absorb short bursts
+/// (a few MB at MTU 1500) without allowing unbounded memory growth under flood.
+const DEFAULT_MAX_QUEUE_DEPTH: usize = 4096;
+
 pub struct TunDevice {
     pub rx_queue: VecDeque<Vec<u8>>,
     pub tx_queue: VecDeque<Vec<u8>>,
     pub mtu: usize,
+    max_rx_depth: usize,
+    /// Packets dropped because `rx_queue` was at capacity.
+    pub rx_drops: u64,
 }
 
 impl TunDevice {
     pub fn new(mtu: usize) -> Self {
-        Self { rx_queue: VecDeque::new(), tx_queue: VecDeque::new(), mtu }
+        Self {
+            rx_queue: VecDeque::new(),
+            tx_queue: VecDeque::new(),
+            mtu,
+            max_rx_depth: DEFAULT_MAX_QUEUE_DEPTH,
+            rx_drops: 0,
+        }
+    }
+
+    /// Push a packet onto the RX queue. Returns `false` and increments
+    /// `rx_drops` if the queue is at capacity (tail-drop).
+    pub fn push_rx(&mut self, pkt: Vec<u8>) -> bool {
+        if self.rx_queue.len() >= self.max_rx_depth {
+            self.rx_drops += 1;
+            return false;
+        }
+        self.rx_queue.push_back(pkt);
+        true
     }
 }
 

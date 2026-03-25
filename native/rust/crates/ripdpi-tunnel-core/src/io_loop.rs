@@ -182,7 +182,7 @@ pub async fn io_loop_task(
                         // Drop injected RST before it reaches smoltcp
                     } else {
                         ensure_pending_listen_for_syn(pkt, &mut pending_listens, &mut socket_set);
-                        device.rx_queue.push_back(pkt.to_vec());
+                        device.push_rx(pkt.to_vec());
                     }
                 }
 
