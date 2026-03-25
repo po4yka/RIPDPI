@@ -42,6 +42,16 @@ impl<T> HandleRegistry<T> {
 
     pub fn insert(&self, value: T) -> u64 {
         let handle = fetch_add_u64(&self.next, 1, Ordering::Relaxed);
+        // Ensure handle stays in positive i64 range for JNI compatibility.
+        // Wrap back to 1 if we exceed i64::MAX. In practice this never happens
+        // (would require 9.2 quintillion sessions), but prevents sign mismatch
+        // between Rust u64 handles and Kotlin Long (jlong) values.
+        let handle = if handle > i64::MAX as u64 {
+            self.next.store(2, Ordering::Relaxed);
+            1
+        } else {
+            handle
+        };
         self.inner.lock().unwrap_or_else(PoisonError::into_inner).insert(handle, Arc::new(value));
         handle
     }
