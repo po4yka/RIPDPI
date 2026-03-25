@@ -54,7 +54,7 @@ ripdpi-tunnel-core = { path = "crates/ripdpi-tunnel-core" }
 hdrhistogram = "7"
 aes = "0.8"
 arc-swap = "1"
-android_logger = "0.14"
+android_logger = "0.15"
 anyhow = "1"
 crypto_box = { version = "0.9", features = ["chacha20"] }
 etherparse = "0.19"
