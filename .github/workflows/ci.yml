@@ -548,6 +548,12 @@ jobs:
             set -euo pipefail
             ./gradlew :app:connectedDebugAndroidTest \
               -Pripdpi.localNativeAbis=x86_64 \
+              -Pandroid.testInstrumentationRunnerArguments.package=com.poyka.ripdpi.integration || {
+              adb logcat -d > android-logcat.txt
+              exit 1
+            }
+            ./gradlew :app:connectedDebugAndroidTest \
+              -Pripdpi.localNativeAbis=x86_64 \
               -Pandroid.testInstrumentationRunnerArguments.package=com.poyka.ripdpi.e2e \
               -Pandroid.testInstrumentationRunnerArguments.ripdpi.fixtureControlHost=10.0.2.2 \
               -Pandroid.testInstrumentationRunnerArguments.ripdpi.fixtureControlPort=46090 || {
