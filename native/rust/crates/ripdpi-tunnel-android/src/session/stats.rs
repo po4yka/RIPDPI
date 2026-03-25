@@ -34,7 +34,9 @@ pub(crate) fn stats_session(env: &mut JNIEnv, handle: jlong) -> jlongArray {
 
 pub(crate) fn stats_snapshots_for_state(state: &TunnelSessionState) -> ((u64, u64, u64, u64), DnsStatsSnapshot) {
     match state {
-        TunnelSessionState::Ready | TunnelSessionState::Starting => ((0, 0, 0, 0), DnsStatsSnapshot::default()),
+        TunnelSessionState::Ready | TunnelSessionState::Starting | TunnelSessionState::Destroyed => {
+            ((0, 0, 0, 0), DnsStatsSnapshot::default())
+        }
         TunnelSessionState::Running { stats, .. } => (stats.snapshot(), stats.dns_snapshot()),
     }
 }

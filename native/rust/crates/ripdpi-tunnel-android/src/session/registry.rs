@@ -27,6 +27,7 @@ pub(crate) enum TunnelSessionState {
     Ready,
     Starting,
     Running { cancel: Arc<CancellationToken>, stats: Arc<Stats>, worker: JoinHandle<()> },
+    Destroyed,
 }
 
 fn build_shared_tunnel_runtime() -> io::Result<Arc<Runtime>> {
