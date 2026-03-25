@@ -9,7 +9,7 @@ mod state_machine;
 mod stats;
 mod telemetry;
 
-use android_support::throw_runtime_exception;
+use android_support::{sanitize_error_message, throw_runtime_exception};
 use jni::objects::JString;
 use jni::sys::{jint, jlong, jlongArray};
 use jni::JNIEnv;
@@ -34,7 +34,8 @@ pub(crate) fn tunnel_create_entry(mut env: JNIEnv, config_json: JString) -> jlon
     android_support::init_android_logging("ripdpi-tunnel-native");
     std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| create_session(&mut env, config_json))).unwrap_or_else(
         |_| {
-            throw_runtime_exception(&mut env, "Tunnel session creation panicked");
+            log::error!("Tunnel session creation panicked");
+            throw_runtime_exception(&mut env, sanitize_error_message("panic", "Tunnel session creation failed"));
             0
         },
     )
@@ -43,19 +44,25 @@ pub(crate) fn tunnel_create_entry(mut env: JNIEnv, config_json: JString) -> jlon
 pub(crate) fn tunnel_start_entry(mut env: JNIEnv, handle: jlong, tun_fd: jint) {
     android_support::init_android_logging("ripdpi-tunnel-native");
     let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| start_session(&mut env, handle, tun_fd)))
-        .map_err(|_| throw_runtime_exception(&mut env, "Tunnel session start panicked"));
+        .map_err(|_| {
+            log::error!("Tunnel session start panicked");
+            throw_runtime_exception(&mut env, sanitize_error_message("panic", "Tunnel session start failed"));
+        });
 }
 
 pub(crate) fn tunnel_stop_entry(mut env: JNIEnv, handle: jlong) {
     android_support::init_android_logging("ripdpi-tunnel-native");
-    let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| stop_session(&mut env, handle)))
-        .map_err(|_| throw_runtime_exception(&mut env, "Tunnel session stop panicked"));
+    let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| stop_session(&mut env, handle))).map_err(|_| {
+        log::error!("Tunnel session stop panicked");
+        throw_runtime_exception(&mut env, sanitize_error_message("panic", "Tunnel session stop failed"));
+    });
 }
 
 pub(crate) fn tunnel_stats_entry(mut env: JNIEnv, handle: jlong) -> jlongArray {
     android_support::init_android_logging("ripdpi-tunnel-native");
     std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| stats_session(&mut env, handle))).unwrap_or_else(|_| {
-        throw_runtime_exception(&mut env, "Tunnel stats retrieval panicked");
+        log::error!("Tunnel stats retrieval panicked");
+        throw_runtime_exception(&mut env, sanitize_error_message("panic", "Tunnel stats retrieval failed"));
         std::ptr::null_mut()
     })
 }
@@ -64,7 +71,11 @@ pub(crate) fn tunnel_telemetry_entry(mut env: JNIEnv, handle: jlong) -> jni::sys
     android_support::init_android_logging("ripdpi-tunnel-native");
     std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| telemetry_session(&mut env, handle))).unwrap_or_else(
         |_| {
-            throw_runtime_exception(&mut env, "Tunnel telemetry retrieval panicked");
+            log::error!("Tunnel telemetry retrieval panicked");
+            throw_runtime_exception(
+                &mut env,
+                sanitize_error_message("panic", "Tunnel telemetry retrieval failed"),
+            );
             std::ptr::null_mut()
         },
     )
@@ -72,8 +83,12 @@ pub(crate) fn tunnel_telemetry_entry(mut env: JNIEnv, handle: jlong) -> jni::sys
 
 pub(crate) fn tunnel_destroy_entry(mut env: JNIEnv, handle: jlong) {
     android_support::init_android_logging("ripdpi-tunnel-native");
-    let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| destroy_session(&mut env, handle)))
-        .map_err(|_| throw_runtime_exception(&mut env, "Tunnel session destroy panicked"));
+    let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| destroy_session(&mut env, handle))).map_err(
+        |_| {
+            log::error!("Tunnel session destroy panicked");
+            throw_runtime_exception(&mut env, sanitize_error_message("panic", "Tunnel session destroy failed"));
+        },
+    );
 }
 
 #[cfg(test)]

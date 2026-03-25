@@ -150,19 +150,36 @@ pub fn ignore_sigpipe() {
 }
 
 pub fn throw_illegal_argument(env: &mut JNIEnv, message: impl AsRef<str>) {
-    let _ = env.throw_new("java/lang/IllegalArgumentException", message.as_ref());
+    if env.throw_new("java/lang/IllegalArgumentException", message.as_ref()).is_err() {
+        log::error!("Failed to throw IllegalArgumentException: {}", message.as_ref());
+    }
 }
 
 pub fn throw_illegal_state(env: &mut JNIEnv, message: impl AsRef<str>) {
-    let _ = env.throw_new("java/lang/IllegalStateException", message.as_ref());
+    if env.throw_new("java/lang/IllegalStateException", message.as_ref()).is_err() {
+        log::error!("Failed to throw IllegalStateException: {}", message.as_ref());
+    }
 }
 
 pub fn throw_io_exception(env: &mut JNIEnv, message: impl AsRef<str>) {
-    let _ = env.throw_new("java/io/IOException", message.as_ref());
+    if env.throw_new("java/io/IOException", message.as_ref()).is_err() {
+        log::error!("Failed to throw IOException: {}", message.as_ref());
+    }
 }
 
 pub fn throw_runtime_exception(env: &mut JNIEnv, message: impl AsRef<str>) {
-    let _ = env.throw_new("java/lang/RuntimeException", message.as_ref());
+    if env.throw_new("java/lang/RuntimeException", message.as_ref()).is_err() {
+        log::error!("Failed to throw RuntimeException: {}", message.as_ref());
+    }
+}
+
+/// Produce a user-safe error message, stripping internal details in release builds.
+pub fn sanitize_error_message(detail: &str, user_message: &str) -> String {
+    if cfg!(debug_assertions) {
+        format!("{user_message}: {detail}")
+    } else {
+        user_message.to_string()
+    }
 }
 
 pub fn describe_exception(env: &mut JNIEnv) -> Option<String> {
