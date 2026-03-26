@@ -246,6 +246,11 @@ fn run_capture_scenario<Args, Filter, Drive, Assert>(
 
     let drive_result = catch_unwind(AssertUnwindSafe(|| drive(listen_port, &fixture)));
 
+    // Allow tcpdump to drain its kernel ring buffer before SIGINT.
+    // On Linux TPACKET_V3, packets are delivered in batches; without
+    // this delay, SIGINT can arrive before the batch is flushed.
+    thread::sleep(Duration::from_millis(200));
+
     let capture_stop_result = stop_capture(&mut capture);
     let cli_stop_result = stop_cli_process(&mut cli);
 
