@@ -20,6 +20,12 @@ const MAX_METRIC_KEYS: usize = 256;
 ///
 /// Install once at process startup via [`install()`]. Poll via
 /// [`snapshot()`] from JNI or CLI shutdown.
+enum MetricKind {
+    Counter,
+    Gauge,
+    Histogram,
+}
+
 pub struct InMemoryRecorder {
     counters: RwLock<Vec<(String, Arc<AtomicU64>)>>,
     gauges: RwLock<Vec<(String, Arc<AtomicU64>)>>,
@@ -31,11 +37,41 @@ impl InMemoryRecorder {
         Self { counters: RwLock::new(Vec::new()), gauges: RwLock::new(Vec::new()), histograms: RwLock::new(Vec::new()) }
     }
 
+    /// Returns total number of registered metric keys across all collections.
+    ///
+    /// **Caller must NOT hold any write lock on `counters`, `gauges`, or
+    /// `histograms`**, otherwise this will deadlock on the same-thread
+    /// read lock acquisition.
+    ///
+    /// Use `total_keys_excluding` when called from within a write-lock
+    /// scope on one of the collections.
     fn total_keys(&self) -> usize {
         let c = self.counters.read().map(|v| v.len()).unwrap_or(0);
         let g = self.gauges.read().map(|v| v.len()).unwrap_or(0);
         let h = self.histograms.read().map(|v| v.len()).unwrap_or(0);
         c + g + h
+    }
+
+    /// Returns total keys using `known_len` for one collection (whose write
+    /// lock the caller already holds) and read-locking the other two.
+    fn total_keys_excluding(&self, which: MetricKind, known_len: usize) -> usize {
+        match which {
+            MetricKind::Counter => {
+                let g = self.gauges.read().map(|v| v.len()).unwrap_or(0);
+                let h = self.histograms.read().map(|v| v.len()).unwrap_or(0);
+                known_len + g + h
+            }
+            MetricKind::Gauge => {
+                let c = self.counters.read().map(|v| v.len()).unwrap_or(0);
+                let h = self.histograms.read().map(|v| v.len()).unwrap_or(0);
+                c + known_len + h
+            }
+            MetricKind::Histogram => {
+                let c = self.counters.read().map(|v| v.len()).unwrap_or(0);
+                let g = self.gauges.read().map(|v| v.len()).unwrap_or(0);
+                c + g + known_len
+            }
+        }
     }
 
     fn key_name(key: &Key) -> String {
@@ -137,7 +173,7 @@ impl Recorder for RecorderProxy {
                     return Counter::from_arc(Arc::clone(v));
                 }
             }
-            if rec.total_keys() >= MAX_METRIC_KEYS {
+            if rec.total_keys_excluding(MetricKind::Counter, counters.len()) >= MAX_METRIC_KEYS {
                 return Counter::noop();
             }
             let v = Arc::new(AtomicU64::new(0));
@@ -168,7 +204,7 @@ impl Recorder for RecorderProxy {
                     return Gauge::from_arc(Arc::clone(v));
                 }
             }
-            if rec.total_keys() >= MAX_METRIC_KEYS {
+            if rec.total_keys_excluding(MetricKind::Gauge, gauges.len()) >= MAX_METRIC_KEYS {
                 return Gauge::noop();
             }
             let v = Arc::new(AtomicU64::new(0));
@@ -199,7 +235,7 @@ impl Recorder for RecorderProxy {
                     return Histogram::from_arc(Arc::new(HistogramHandle(h.clone())));
                 }
             }
-            if rec.total_keys() >= MAX_METRIC_KEYS {
+            if rec.total_keys_excluding(MetricKind::Histogram, histograms.len()) >= MAX_METRIC_KEYS {
                 return Histogram::noop();
             }
             let h = LatencyHistogram::new();
