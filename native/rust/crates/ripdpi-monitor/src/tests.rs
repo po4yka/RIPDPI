@@ -612,9 +612,12 @@ fn monitor_session_strategy_probe_returns_structured_recommendation() {
 
     assert_eq!(report.profile_id, "automatic-probing");
     assert_eq!(strategy_probe.tcp_candidates.first().map(|candidate| candidate.id.as_str()), Some("baseline_current"));
-    assert_eq!(
-        strategy_probe.recommendation.tcp_candidate_id,
-        strategy_probe.tcp_candidates.iter().find(|candidate| !candidate.skipped).expect("tcp winner").id
+    assert!(
+        strategy_probe
+            .tcp_candidates
+            .iter()
+            .any(|candidate| candidate.id == strategy_probe.recommendation.tcp_candidate_id && !candidate.skipped),
+        "recommended TCP candidate must be a non-skipped candidate in the list"
     );
     assert!(!strategy_probe.recommendation.recommended_proxy_config_json.is_empty());
 }

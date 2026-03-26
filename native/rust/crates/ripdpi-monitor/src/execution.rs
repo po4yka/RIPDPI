@@ -213,16 +213,14 @@ pub(crate) fn probe_runtime_transport(
 ) -> Result<TemporaryProxyRuntime, String> {
     let mut runtime_config = spec.config.clone();
     runtime_config.listen.ip = "127.0.0.1".to_string();
-    runtime_config.listen.port = 0;
     runtime_config.host_autolearn.enabled = false;
     runtime_config.host_autolearn.store_path = None;
     if !spec.preserve_adaptive_fake_ttl {
         freeze_adaptive_fake_ttl_for_probe(&mut runtime_config);
     }
-    TemporaryProxyRuntime::start(
-        runtime_config_from_ui(runtime_config).map_err(|err| err.to_string())?,
-        runtime_context.cloned(),
-    )
+    let mut config = runtime_config_from_ui(runtime_config).map_err(|err| err.to_string())?;
+    config.network.listen.listen_port = 0;
+    TemporaryProxyRuntime::start(config, runtime_context.cloned())
 }
 
 pub(crate) fn run_candidate_warmup(
@@ -547,11 +545,7 @@ pub(crate) fn run_https_strategy_probe(
                 },
                 ProbeDetail {
                     key: "tlsError".to_string(),
-                    value: tls13
-                        .error
-                        .or(tls12.error)
-                        .or(tls_ech.error)
-                        .unwrap_or_else(|| "none".to_string()),
+                    value: tls13.error.or(tls12.error).or(tls_ech.error).unwrap_or_else(|| "none".to_string()),
                 },
             ],
         },
