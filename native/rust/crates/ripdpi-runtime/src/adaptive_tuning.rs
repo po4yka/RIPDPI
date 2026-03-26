@@ -189,6 +189,7 @@ impl AdaptivePlannerState {
             tlsrandrec_profile: self.tlsrandrec_profile.as_ref().and_then(ChoiceState::current),
             udp_burst_profile: self.udp_burst_profile.as_ref().and_then(ChoiceState::current),
             quic_fake_profile: self.quic_fake_profile.as_ref().and_then(ChoiceState::current),
+            entropy_mode: None,
         }
     }
 

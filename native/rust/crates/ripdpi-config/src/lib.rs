@@ -576,6 +576,8 @@ mod tests {
             strip_timestamps: false,
             entropy_padding_target_permil: None,
             entropy_padding_max: 256,
+            entropy_mode: EntropyMode::Disabled,
+            shannon_entropy_target_permil: None,
         };
         let policy_settings = DesyncGroupPolicySettings {
             ext_socks: Some(UpstreamSocksConfig {
@@ -656,6 +658,34 @@ mod tests {
             ParseResult::Run(config) => {
                 assert_eq!(config.groups[0].actions.entropy_padding_target_permil, Some(3400));
                 assert_eq!(config.groups[0].actions.entropy_padding_max, 128);
+            }
+            _ => panic!("expected Run"),
+        }
+    }
+
+    #[test]
+    fn cli_parses_entropy_mode_shannon() {
+        let args: Vec<String> =
+            vec!["--entropy-mode", "shannon", "--shannon-target", "7.92"].iter().map(|s| s.to_string()).collect();
+        let startup = StartupEnv::default();
+        let result = parse_cli(&args, &startup).expect("parse");
+        match result {
+            ParseResult::Run(config) => {
+                assert_eq!(config.groups[0].actions.entropy_mode, EntropyMode::Shannon);
+                assert_eq!(config.groups[0].actions.shannon_entropy_target_permil, Some(7920));
+            }
+            _ => panic!("expected Run"),
+        }
+    }
+
+    #[test]
+    fn cli_parses_entropy_mode_combined() {
+        let args: Vec<String> = vec!["--entropy-mode", "combined"].iter().map(|s| s.to_string()).collect();
+        let startup = StartupEnv::default();
+        let result = parse_cli(&args, &startup).expect("parse");
+        match result {
+            ParseResult::Run(config) => {
+                assert_eq!(config.groups[0].actions.entropy_mode, EntropyMode::Combined);
             }
             _ => panic!("expected Run"),
         }
