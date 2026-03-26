@@ -2,6 +2,7 @@ package com.poyka.ripdpi.activities
 
 import android.content.Intent
 import com.poyka.ripdpi.data.AppSettingsRepository
+import com.poyka.ripdpi.security.PinVerifier
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.FailureReason
 import com.poyka.ripdpi.data.Mode
@@ -282,4 +283,18 @@ class StubDiagnosticsResolverActions : DiagnosticsResolverActions {
     override suspend fun saveResolverRecommendation(sessionId: String) {
         savedSessionId = sessionId
     }
+}
+
+class FakePinVerifier : PinVerifier {
+    override fun hashPin(pin: String): String {
+        val digest = java.security.MessageDigest.getInstance("SHA-256")
+        return digest.digest(pin.toByteArray()).joinToString("") { "%02x".format(it) }
+    }
+
+    override fun verify(candidatePin: String, storedHash: String): Boolean {
+        if (storedHash.isBlank()) return false
+        return hashPin(candidatePin) == storedHash
+    }
+
+    override fun isKeyAvailable(): Boolean = true
 }

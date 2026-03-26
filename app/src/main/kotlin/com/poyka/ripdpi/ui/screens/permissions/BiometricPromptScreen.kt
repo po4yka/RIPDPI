@@ -23,7 +23,6 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.SettingsUiState
 import com.poyka.ripdpi.activities.SettingsViewModel
-import com.poyka.ripdpi.activities.hashPin
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.feedback.WarningBanner
@@ -82,7 +81,7 @@ fun BiometricPromptRoute(
             pinError = null
         },
         onSubmitPin = {
-            if (uiState.backupPinHash.isNotBlank() && hashPin(pin) == uiState.backupPinHash) {
+            if (viewModel.verifyBackupPin(pin)) {
                 onAuthenticated()
             } else {
                 pinError = pinErrorText
@@ -220,7 +219,7 @@ private fun BiometricPromptScreenPreview() {
             uiState =
                 SettingsUiState(
                     biometricEnabled = true,
-                    backupPinHash = hashPin("1234"),
+                    backupPinHash = "preview_pin_set",
                 ),
             stage = BiometricPromptStage.Biometric,
             pin = "",
@@ -242,7 +241,7 @@ private fun BiometricPromptPinDarkPreview() {
             uiState =
                 SettingsUiState(
                     biometricEnabled = true,
-                    backupPinHash = hashPin("1234"),
+                    backupPinHash = "preview_pin_set",
                 ),
             stage = BiometricPromptStage.Pin,
             pin = "0000",

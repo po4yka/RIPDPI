@@ -1,11 +1,14 @@
 package com.poyka.ripdpi.activities
 
 import com.poyka.ripdpi.platform.LauncherIconController
+import com.poyka.ripdpi.security.PinVerifier
+import java.security.MessageDigest
 
 internal class SettingsCustomizationActions(
     private val mutations: SettingsMutationRunner,
     private val launcherIconController: LauncherIconController,
     private val currentUiState: () -> SettingsUiState,
+    private val pinVerifier: PinVerifier,
 ) {
     fun setWebRtcProtectionEnabled(enabled: Boolean) {
         mutations.updateSetting(
@@ -76,7 +79,7 @@ internal class SettingsCustomizationActions(
     }
 
     fun setBackupPin(pin: String) {
-        val hashed = if (pin.isBlank()) "" else hashPin(pin)
+        val hashed = if (pin.isBlank()) "" else pinVerifier.hashPin(pin)
         mutations.updateSetting(
             key = "backupPin",
             value = hashed,
@@ -87,6 +90,22 @@ internal class SettingsCustomizationActions(
 
     fun verifyBackupPin(pin: String): Boolean {
         val state = currentUiState()
-        return state.backupPinHash.isNotBlank() && hashPin(pin) == state.backupPinHash
+        val storedHash = state.backupPinHash
+        if (storedHash.isBlank()) return false
+
+        if (pinVerifier.verify(pin, storedHash)) return true
+
+        if (legacySha256Hash(pin) == storedHash) {
+            val newHash = pinVerifier.hashPin(pin)
+            mutations.updateSetting(key = "backupPin", value = newHash) { setBackupPin(newHash) }
+            return true
+        }
+
+        return false
+    }
+
+    private fun legacySha256Hash(pin: String): String {
+        val digest = MessageDigest.getInstance("SHA-256")
+        return digest.digest(pin.toByteArray()).joinToString("") { "%02x".format(it) }
     }
 }
