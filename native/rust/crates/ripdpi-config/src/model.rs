@@ -318,6 +318,8 @@ pub struct DesyncGroupActionSettings {
     pub udp_chain: Vec<UdpChainStep>,
     pub mod_http: u32,
     pub tlsminor: Option<u8>,
+    pub window_clamp: Option<u32>,
+    pub strip_timestamps: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
@@ -352,6 +354,8 @@ impl Default for DesyncGroupActionSettings {
             udp_chain: Vec::new(),
             mod_http: 0,
             tlsminor: None,
+            window_clamp: None,
+            strip_timestamps: false,
         }
     }
 }

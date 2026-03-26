@@ -150,6 +150,12 @@ fn execute_tcp_actions(
                 DesyncAction::AttachDropSack => {}
                 DesyncAction::DetachDropSack => {}
                 DesyncAction::AwaitWritable => await_writable_action(writer, wait_send, await_interval)?,
+                DesyncAction::SetWindowClamp(size) => {
+                    let _ = platform::set_tcp_window_clamp(writer, *size);
+                }
+                DesyncAction::RestoreWindowClamp => {
+                    let _ = platform::set_tcp_window_clamp(writer, 0);
+                }
             }
         }
         Ok(())

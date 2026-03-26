@@ -100,6 +100,8 @@ pub enum DesyncAction {
     AttachDropSack,
     DetachDropSack,
     AwaitWritable,
+    SetWindowClamp(u32),
+    RestoreWindowClamp,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

@@ -87,6 +87,16 @@ pub fn detach_drop_sack(_stream: &TcpStream) -> io::Result<()> {
 }
 
 #[cfg(any(target_os = "linux", target_os = "android"))]
+pub fn set_tcp_window_clamp(stream: &TcpStream, size: u32) -> io::Result<()> {
+    linux::set_tcp_window_clamp(stream, size)
+}
+
+#[cfg(not(any(target_os = "linux", target_os = "android")))]
+pub fn set_tcp_window_clamp(_stream: &TcpStream, _size: u32) -> io::Result<()> {
+    Err(io::Error::new(io::ErrorKind::Unsupported, "only supported on Linux/Android"))
+}
+
+#[cfg(any(target_os = "linux", target_os = "android"))]
 pub fn send_fake_tcp(
     stream: &TcpStream,
     original_prefix: &[u8],

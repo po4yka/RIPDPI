@@ -202,6 +202,25 @@ pub fn detach_drop_sack(stream: &TcpStream) -> io::Result<()> {
     unsafe { setsockopt_raw(stream.as_raw_fd(), libc::SOL_SOCKET, libc::SO_DETACH_FILTER, &0i32) }
 }
 
+/// Clamp the TCP receive window to force the server to send small segments.
+///
+/// Setting `size` to a low value (e.g., 1 or 2) causes the kernel to advertise
+/// a tiny window, preventing DPI from reassembling the response stream.
+/// A value of 0 removes the clamp and restores the default window behaviour.
+pub fn set_tcp_window_clamp(stream: &TcpStream, size: u32) -> io::Result<()> {
+    let val = size as libc::c_int;
+    // SAFETY: `TCP_WINDOW_CLAMP` accepts a `c_int` value and `stream` is a
+    // live TCP socket.
+    unsafe { setsockopt_raw(stream.as_raw_fd(), libc::IPPROTO_TCP, libc::TCP_WINDOW_CLAMP, &val) }
+}
+
+/// Read the current `TCP_WINDOW_CLAMP` value on a socket.
+pub fn get_tcp_window_clamp(stream: &TcpStream) -> io::Result<u32> {
+    let (val, _len): (libc::c_int, _) =
+        unsafe { getsockopt_raw(stream.as_raw_fd(), libc::IPPROTO_TCP, libc::TCP_WINDOW_CLAMP) }?;
+    Ok(val as u32)
+}
+
 pub fn enable_recv_ttl(stream: &TcpStream) -> io::Result<()> {
     let fd = stream.as_raw_fd();
     // On dual-stack sockets both options may be valid, so attempt both and

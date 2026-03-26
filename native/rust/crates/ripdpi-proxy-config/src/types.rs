@@ -221,6 +221,10 @@ pub struct ProxyUiFakePacketConfig {
     pub fake_offset_marker: String,
     pub oob_char: u8,
     pub drop_sack: bool,
+    #[serde(default)]
+    pub window_clamp: Option<u32>,
+    #[serde(default)]
+    pub strip_timestamps: bool,
 }
 
 impl Default for ProxyUiFakePacketConfig {
@@ -245,6 +249,8 @@ impl Default for ProxyUiFakePacketConfig {
             fake_offset_marker: default_fake_offset_marker(),
             oob_char: b'a',
             drop_sack: false,
+            window_clamp: None,
+            strip_timestamps: false,
         }
     }
 }

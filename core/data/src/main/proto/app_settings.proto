@@ -142,6 +142,10 @@ message AppSettings {
   bool ws_tunnel_enabled = 112;
   string ws_tunnel_mode = 113;
 
+  // TCP window and timestamp manipulation
+  int32 window_clamp = 116;            // TCP_WINDOW_CLAMP value (0 = disabled)
+  bool strip_timestamps = 117;         // Strip TCP Timestamps option from outgoing segments
+
   // Banner dismiss state
   bool battery_banner_dismissed = 114;
   bool background_guidance_dismissed = 115;
