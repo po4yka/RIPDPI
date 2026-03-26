@@ -360,6 +360,9 @@ pub(super) fn connect_target_via_group(
     if let Some(clamp) = group.actions.window_clamp {
         let _ = platform::set_tcp_window_clamp(&stream, clamp);
     }
+    if group.actions.strip_timestamps {
+        let _ = platform::attach_strip_timestamps(&stream);
+    }
     let elapsed = started.elapsed().as_secs_f64();
     let group_label = format!("{group_index}");
     metrics::histogram!("ripdpi_connection_setup_duration_seconds", "group" => group_label).record(elapsed);
