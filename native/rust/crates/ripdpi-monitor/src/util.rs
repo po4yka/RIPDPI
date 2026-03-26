@@ -270,6 +270,7 @@ fn probe_outcome_bucket(probe_type: &str, path_mode: &ScanPathMode, outcome: &st
             | "redirect"
             | "tls_handshake_failure"
             | "connect_failure"
+            | "connection_freeze"
             | "strategy_execution_failure" => ProbeOutcomeBucket::Failed,
             _ => ProbeOutcomeBucket::Inconclusive,
         },

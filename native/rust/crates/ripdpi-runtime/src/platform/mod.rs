@@ -6,7 +6,7 @@ use ripdpi_desync::TcpSegmentHint;
 use socket2::{Domain, Protocol, Socket, Type};
 
 #[cfg(any(target_os = "linux", target_os = "android"))]
-mod linux;
+pub(crate) mod linux;
 
 pub type TcpStageWait = (bool, Duration);
 
