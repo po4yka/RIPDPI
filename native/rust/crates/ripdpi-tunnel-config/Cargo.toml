@@ -9,7 +9,7 @@ workspace = true
 
 [dependencies]
 serde = { workspace = true }
-serde_yaml = { workspace = true }
+serde_yml = { workspace = true }
 thiserror = { workspace = true }
 
 [dev-dependencies]
