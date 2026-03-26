@@ -92,6 +92,7 @@ impl MonitorSession {
             })
             .transpose()?;
         let mut worker_guard = self.worker.lock().map_err(|_| "monitor worker poisoned".to_string())?;
+        Self::join_finished_worker_locked(&mut worker_guard);
         if worker_guard.is_some() {
             return Err("diagnostics scan already running".to_string());
         }
@@ -179,7 +180,16 @@ impl MonitorSession {
         let Ok(mut worker_guard) = self.worker.lock() else {
             return;
         };
+        Self::join_finished_worker_locked(&mut worker_guard);
         if let Some(handle) = worker_guard.take() {
+            let _ = handle.join();
+        }
+    }
+
+    fn join_finished_worker_locked(worker_guard: &mut Option<JoinHandle<()>>) {
+        let finished = worker_guard.as_ref().is_some_and(JoinHandle::is_finished);
+        if finished {
+            let handle = worker_guard.take().expect("finished worker handle must exist");
             let _ = handle.join();
         }
     }
