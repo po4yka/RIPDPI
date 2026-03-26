@@ -156,4 +156,8 @@ message AppSettings {
   int32 quic_dummy_prepend_size = 120;    // 0 = disabled, >0 = prepend size
   uint32 quic_fake_version = 121;         // 0 = disabled, non-zero = version to use
   bool quic_migrate_after_handshake = 122;
+
+  // Strategy evolution (Geneva-style adaptive exploration)
+  bool strategy_evolution = 123;       // Enable automated combo exploration
+  double evolution_epsilon = 124;      // Exploration rate 0.0-1.0 (default 0.1)
 }

@@ -438,6 +438,8 @@ mod tests {
             cache_prefix: 24,
             network_scope_key: Some("wifi:test".to_string()),
             ws_tunnel_mode: WsTunnelMode::Fallback,
+            strategy_evolution: false,
+            evolution_epsilon_permil: 100,
         };
         let autolearn = HostAutolearnSettings {
             enabled: true,
@@ -622,6 +624,21 @@ mod tests {
         match result {
             ParseResult::Run(config) => {
                 assert!(config.groups[0].actions.strip_timestamps);
+            }
+            _ => panic!("expected Run"),
+        }
+    }
+
+    #[test]
+    fn cli_parses_strategy_evolution() {
+        let args: Vec<String> =
+            vec!["--strategy-evolution", "--evolution-epsilon", "0.2"].iter().map(|s| s.to_string()).collect();
+        let startup = StartupEnv::default();
+        let result = parse_cli(&args, &startup).expect("parse");
+        match result {
+            ParseResult::Run(config) => {
+                assert!(config.adaptive.strategy_evolution);
+                assert_eq!(config.adaptive.evolution_epsilon_permil, 200);
             }
             _ => panic!("expected Run"),
         }

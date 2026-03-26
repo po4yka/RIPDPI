@@ -19,6 +19,7 @@ pub mod process;
 pub mod retry_stealth;
 pub mod runtime;
 pub mod runtime_policy;
+pub mod strategy_evolver;
 pub mod ws_bootstrap;
 
 pub trait RuntimeTelemetrySink: Send + Sync {

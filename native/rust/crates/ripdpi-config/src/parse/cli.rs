@@ -605,6 +605,12 @@ pub fn parse_cli(args: &[String], startup: &StartupEnv) -> Result<ParseResult, C
                 let value = next_value(&effective_args, &mut idx, arg)?;
                 group!().policy.label = value.to_owned();
             }
+            "--strategy-evolution" => config.adaptive.strategy_evolution = true,
+            "--evolution-epsilon" => {
+                let value = next_value(&effective_args, &mut idx, arg)?;
+                let f = value.parse::<f64>().map_err(|_| ConfigError::invalid(arg, Some(value)))?;
+                config.adaptive.evolution_epsilon_permil = (f * 1000.0).clamp(0.0, 1000.0) as u32;
+            }
             _ => return Err(ConfigError::invalid(arg, Option::<String>::None)),
         }
 
