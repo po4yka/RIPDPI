@@ -152,6 +152,7 @@ internal class DefaultAndroidNetworkSnapshotSource
             )
         }
 
+        @Suppress("DEPRECATION")
         @android.annotation.SuppressLint("MissingPermission")
         private fun currentWifiManagerConnectionInfo(): WifiInfo? {
             if (!hasWifiStatePermission()) {
@@ -160,6 +161,7 @@ internal class DefaultAndroidNetworkSnapshotSource
             return runCatching { wifiManager?.connectionInfo }.getOrNull()
         }
 
+        @Suppress("DEPRECATION")
         @android.annotation.SuppressLint("MissingPermission")
         private fun currentWifiGatewayIpv4(): Int? {
             if (!hasWifiStatePermission()) {
@@ -282,6 +284,7 @@ internal class NetworkFingerprintMapper
         private fun sanitizeTelephonyValue(value: String?): String =
             value?.trim()?.takeIf { it.isNotBlank() }?.lowercase(Locale.US) ?: "unknown"
 
+        @Suppress("DEPRECATION")
         private fun describeMobileNetworkType(type: Int): String =
             when (type) {
                 TelephonyManager.NETWORK_TYPE_GPRS -> "gprs"
