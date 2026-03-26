@@ -462,6 +462,70 @@ mod tests {
     }
 
     #[test]
+    fn cli_parses_quic_sni_split() {
+        let args = vec!["--quic-sni-split".to_string()];
+
+        let ParseResult::Run(config) = parse_cli(&args, &StartupEnv::default()).expect("parse cli") else {
+            panic!("expected runnable config");
+        };
+        let group = &config.groups[0];
+
+        assert_eq!(group.actions.udp_chain.len(), 1);
+        assert_eq!(group.actions.udp_chain[0].kind, UdpChainStepKind::QuicSniSplit);
+        assert_eq!(group.actions.udp_chain[0].count, 1);
+    }
+
+    #[test]
+    fn cli_parses_quic_low_port() {
+        let args = vec!["--quic-low-port".to_string()];
+
+        let ParseResult::Run(config) = parse_cli(&args, &StartupEnv::default()).expect("parse cli") else {
+            panic!("expected runnable config");
+        };
+
+        assert!(config.groups[0].actions.quic_bind_low_port);
+    }
+
+    #[test]
+    fn cli_parses_quic_dummy_prepend() {
+        let args = vec!["--quic-dummy-prepend".to_string()];
+
+        let ParseResult::Run(config) = parse_cli(&args, &StartupEnv::default()).expect("parse cli") else {
+            panic!("expected runnable config");
+        };
+        let group = &config.groups[0];
+
+        assert_eq!(group.actions.udp_chain.len(), 1);
+        assert_eq!(group.actions.udp_chain[0].kind, UdpChainStepKind::DummyPrepend);
+        assert_eq!(group.actions.udp_chain[0].count, 1);
+    }
+
+    #[test]
+    fn cli_parses_quic_fake_version() {
+        let args = vec!["--quic-fake-version".to_string(), "0x1a2a3a4a".to_string()];
+
+        let ParseResult::Run(config) = parse_cli(&args, &StartupEnv::default()).expect("parse cli") else {
+            panic!("expected runnable config");
+        };
+        let group = &config.groups[0];
+
+        assert_eq!(group.actions.quic_fake_version, 0x1a2a_3a4a);
+        assert_eq!(group.actions.udp_chain.len(), 1);
+        assert_eq!(group.actions.udp_chain[0].kind, UdpChainStepKind::QuicFakeVersion);
+    }
+
+    #[test]
+    fn cli_parses_quic_migrate() {
+        let args = vec!["--quic-migrate".to_string()];
+
+        let ParseResult::Run(config) = parse_cli(&args, &StartupEnv::default()).expect("parse cli") else {
+            panic!("expected runnable config");
+        };
+
+        assert!(config.groups[0].actions.quic_migrate_after_handshake);
+    }
+
+    #[test]
     fn desync_group_nested_buckets_round_trip() {
         let mut group = DesyncGroup::new(2);
         let match_settings = DesyncGroupMatchSettings {
@@ -495,6 +559,9 @@ mod tests {
             quic_fake_profile: QuicFakeProfile::RealisticInitial,
             quic_fake_host: Some("quic.example.test".to_string()),
             drop_sack: true,
+            quic_bind_low_port: false,
+            quic_migrate_after_handshake: false,
+            quic_fake_version: 0x1a2a_3a4a,
             oob_data: Some(0x42),
             tcp_chain: vec![
                 TcpChainStep::new(TcpChainStepKind::TlsRec, tls_record),

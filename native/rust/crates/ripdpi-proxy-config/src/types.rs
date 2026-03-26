@@ -225,6 +225,12 @@ pub struct ProxyUiFakePacketConfig {
     pub window_clamp: Option<u32>,
     #[serde(default)]
     pub strip_timestamps: bool,
+    #[serde(default)]
+    pub quic_bind_low_port: bool,
+    #[serde(default)]
+    pub quic_migrate_after_handshake: bool,
+    #[serde(default)]
+    pub quic_fake_version: Option<u32>,
 }
 
 impl Default for ProxyUiFakePacketConfig {
@@ -251,6 +257,9 @@ impl Default for ProxyUiFakePacketConfig {
             drop_sack: false,
             window_clamp: None,
             strip_timestamps: false,
+            quic_bind_low_port: false,
+            quic_migrate_after_handshake: false,
+            quic_fake_version: None,
         }
     }
 }

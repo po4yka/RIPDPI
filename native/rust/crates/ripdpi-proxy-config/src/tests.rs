@@ -659,3 +659,23 @@ fn ui_config_maps_strip_timestamps() {
     let config = runtime_config_from_payload(ui_payload(ui)).expect("valid config");
     assert!(config.groups[0].actions.strip_timestamps);
 }
+
+#[test]
+fn ui_config_maps_quic_bind_low_port() {
+    let mut ui = minimal_ui();
+    ui.fake_packets.quic_bind_low_port = true;
+
+    let config = runtime_config_from_payload(ui_payload(ui)).expect("runtime config");
+
+    assert!(config.groups[0].actions.quic_bind_low_port);
+}
+
+#[test]
+fn ui_config_maps_quic_migrate() {
+    let mut ui = minimal_ui();
+    ui.fake_packets.quic_migrate_after_handshake = true;
+
+    let config = runtime_config_from_payload(ui_payload(ui)).expect("runtime config");
+
+    assert!(config.groups[0].actions.quic_migrate_after_handshake);
+}

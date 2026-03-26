@@ -1,5 +1,5 @@
 use std::io;
-use std::net::{SocketAddr, TcpStream};
+use std::net::{IpAddr, SocketAddr, TcpStream, UdpSocket};
 use std::time::Duration;
 
 use ripdpi_desync::TcpSegmentHint;
@@ -93,6 +93,16 @@ pub fn set_tcp_window_clamp(stream: &TcpStream, size: u32) -> io::Result<()> {
 
 #[cfg(not(any(target_os = "linux", target_os = "android")))]
 pub fn set_tcp_window_clamp(_stream: &TcpStream, _size: u32) -> io::Result<()> {
+    Err(io::Error::new(io::ErrorKind::Unsupported, "only supported on Linux/Android"))
+}
+
+#[cfg(any(target_os = "linux", target_os = "android"))]
+pub fn bind_udp_low_port(socket: &UdpSocket, local_ip: IpAddr, max_port: u16) -> io::Result<u16> {
+    linux::bind_udp_low_port(socket, local_ip, max_port)
+}
+
+#[cfg(not(any(target_os = "linux", target_os = "android")))]
+pub fn bind_udp_low_port(_socket: &UdpSocket, _local_ip: IpAddr, _max_port: u16) -> io::Result<u16> {
     Err(io::Error::new(io::ErrorKind::Unsupported, "only supported on Linux/Android"))
 }
 

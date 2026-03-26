@@ -37,6 +37,8 @@ const QUIC_V2_SALT: [u8; 20] = [
 struct QuicInitialHeader<'a> {
     version: u32,
     dcid: &'a [u8],
+    scid: &'a [u8],
+    token: &'a [u8],
     payload_len: usize,
     pn_offset: usize,
 }
@@ -123,27 +125,33 @@ pub fn default_fake_quic_compat() -> Vec<u8> {
     packet
 }
 
-pub fn build_quic_initial_from_tls(version: u32, tls_client_hello: &[u8], gap_after_split: usize) -> Option<Vec<u8>> {
-    let version = if supported_quic_version(version) { version } else { QUIC_V1_VERSION };
-    if !is_tls_client_hello(tls_client_hello) || tls_client_hello.len() <= TLS_RECORD_HEADER_LEN {
-        return None;
-    }
+/// Build and encrypt a QUIC Initial packet from raw parts.
+///
+/// `dcid` and `scid` are the connection IDs to place in the header.
+/// `token` is the retry/initial token (empty slice for none).
+/// `plaintext` is the already-assembled payload (CRYPTO frames + padding).
+/// Keys are derived from `dcid`.
+fn build_quic_initial_raw(
+    version: u32,
+    dcid: &[u8],
+    scid: &[u8],
+    token: &[u8],
+    mut plaintext: Vec<u8>,
+    min_total_len: usize,
+) -> Option<Vec<u8>> {
+    let token_varint = encode_quic_varint(token.len() as u64);
 
-    let crypto = tls_client_hello.get(TLS_RECORD_HEADER_LEN..)?.to_vec();
-    let split = crypto.len() / 2;
-    let mut plaintext = Vec::new();
-    append_quic_crypto_frame(&mut plaintext, 0, &crypto[..split]);
-    append_quic_crypto_frame(&mut plaintext, (split + gap_after_split) as u64, &crypto[split..]);
-
+    // Pad plaintext so the total packet reaches min_total_len.
     loop {
         let payload_len = 4 + plaintext.len() + QUIC_TAG_LEN;
         let payload_len_varint = encode_quic_varint(payload_len as u64);
-        let header_len = 1 + 4 + 1 + QUIC_FAKE_DCID.len() + 1 + QUIC_FAKE_SCID.len() + 1 + payload_len_varint.len();
+        let header_len =
+            1 + 4 + 1 + dcid.len() + 1 + scid.len() + token_varint.len() + payload_len_varint.len();
         let total_len = header_len + payload_len;
-        if total_len >= QUIC_FAKE_INITIAL_TARGET_LEN {
+        if total_len >= min_total_len {
             break;
         }
-        plaintext.extend(std::iter::repeat_n(0u8, QUIC_FAKE_INITIAL_TARGET_LEN - total_len));
+        plaintext.extend(std::iter::repeat_n(0u8, min_total_len - total_len));
     }
 
     let payload_len = 4 + plaintext.len() + QUIC_TAG_LEN;
@@ -153,18 +161,18 @@ pub fn build_quic_initial_from_tls(version: u32, tls_client_hello: &[u8], gap_af
     let mut header = Vec::new();
     header.push(first_byte);
     header.extend_from_slice(&version.to_be_bytes());
-    header.push(QUIC_FAKE_DCID.len() as u8);
-    header.extend_from_slice(&QUIC_FAKE_DCID);
-    header.push(QUIC_FAKE_SCID.len() as u8);
-    header.extend_from_slice(&QUIC_FAKE_SCID);
-    header.push(0);
+    header.push(dcid.len() as u8);
+    header.extend_from_slice(dcid);
+    header.push(scid.len() as u8);
+    header.extend_from_slice(scid);
+    header.extend_from_slice(&token_varint);
     header.extend_from_slice(&payload_len_varint);
 
     let packet_number = [0u8; 4];
     let mut aad = header.clone();
     aad.extend_from_slice(&packet_number);
 
-    let secret = quic_derive_client_initial_secret(&QUIC_FAKE_DCID, version)?;
+    let secret = quic_derive_client_initial_secret(dcid, version)?;
     let (key_label, iv_label, hp_label) = if version == QUIC_V2_VERSION {
         ("tls13 quicv2 key", "tls13 quicv2 iv", "tls13 quicv2 hp")
     } else {
@@ -193,6 +201,28 @@ pub fn build_quic_initial_from_tls(version: u32, tls_client_hello: &[u8], gap_af
     packet.extend_from_slice(tag.as_ref());
     packet[0] ^= sample[0] & 0x0f;
     Some(packet)
+}
+
+pub fn build_quic_initial_from_tls(version: u32, tls_client_hello: &[u8], gap_after_split: usize) -> Option<Vec<u8>> {
+    let version = if supported_quic_version(version) { version } else { QUIC_V1_VERSION };
+    if !is_tls_client_hello(tls_client_hello) || tls_client_hello.len() <= TLS_RECORD_HEADER_LEN {
+        return None;
+    }
+
+    let crypto = tls_client_hello.get(TLS_RECORD_HEADER_LEN..)?.to_vec();
+    let split = crypto.len() / 2;
+    let mut plaintext = Vec::new();
+    append_quic_crypto_frame(&mut plaintext, 0, &crypto[..split]);
+    append_quic_crypto_frame(&mut plaintext, (split + gap_after_split) as u64, &crypto[split..]);
+
+    build_quic_initial_raw(
+        version,
+        &QUIC_FAKE_DCID,
+        &QUIC_FAKE_SCID,
+        &[],
+        plaintext,
+        QUIC_FAKE_INITIAL_TARGET_LEN,
+    )
 }
 
 fn padded_default_fake_tls_client_hello() -> Vec<u8> {
@@ -242,13 +272,13 @@ fn parse_quic_initial_header(buffer: &[u8]) -> Option<QuicInitialHeader<'_>> {
         return None;
     }
     offset += 1;
-    buffer.get(offset..offset + scid_len)?;
+    let scid = buffer.get(offset..offset + scid_len)?;
     offset += scid_len;
 
     let (token_len, token_varint_len) = read_quic_varint(buffer, offset)?;
     offset += token_varint_len;
     let token_len: usize = token_len.try_into().ok()?;
-    buffer.get(offset..offset + token_len)?;
+    let token = buffer.get(offset..offset + token_len)?;
     offset += token_len;
 
     let (payload_len, payload_varint_len) = read_quic_varint(buffer, offset)?;
@@ -256,7 +286,7 @@ fn parse_quic_initial_header(buffer: &[u8]) -> Option<QuicInitialHeader<'_>> {
     let payload_len: usize = payload_len.try_into().ok()?;
     buffer.get(offset..offset + payload_len)?;
 
-    Some(QuicInitialHeader { version, dcid, payload_len, pn_offset: offset })
+    Some(QuicInitialHeader { version, dcid, scid, token, payload_len, pn_offset: offset })
 }
 
 fn decrypt_quic_initial_payload(buffer: &[u8], header: QuicInitialHeader<'_>) -> Option<Vec<u8>> {
@@ -373,6 +403,48 @@ pub fn parse_quic_initial(buffer: &[u8]) -> Option<QuicInitialInfo> {
     }
     let tls_info = tls_client_hello_marker_info_in_handshake(&client_hello)?;
     Some(QuicInitialInfo { version: header.version, client_hello, tls_info, is_crypto_complete })
+}
+
+/// Re-encrypt a QUIC Initial packet with the TLS ClientHello split across
+/// two CRYPTO frames at the given split offset within the ClientHello.
+///
+/// Returns `None` if the packet is not a valid QUIC Initial or cannot be parsed.
+pub fn tamper_quic_initial_split_sni(packet: &[u8], split_offset: usize) -> Option<Vec<u8>> {
+    let header = parse_quic_initial_header(packet)?;
+    let payload = decrypt_quic_initial_payload(packet, header)?;
+    let (client_hello, is_complete) = defrag_quic_crypto_frames(&payload)?;
+    if !is_complete {
+        return None;
+    }
+    if split_offset == 0 || split_offset >= client_hello.len() {
+        return None;
+    }
+
+    let mut plaintext = Vec::new();
+    append_quic_crypto_frame(&mut plaintext, 0, &client_hello[..split_offset]);
+    append_quic_crypto_frame(&mut plaintext, split_offset as u64, &client_hello[split_offset..]);
+
+    build_quic_initial_raw(
+        header.version,
+        header.dcid,
+        header.scid,
+        header.token,
+        plaintext,
+        QUIC_FAKE_INITIAL_TARGET_LEN,
+    )
+}
+
+/// Replace the QUIC version field in a Long Header packet with a different version.
+/// This prevents DPI from deriving the correct decryption keys.
+///
+/// Returns `None` if the packet doesn't have a valid QUIC Long Header.
+pub fn tamper_quic_version(packet: &[u8], fake_version: u32) -> Option<Vec<u8>> {
+    if packet.len() < 5 || (packet[0] & 0x80) == 0 {
+        return None;
+    }
+    let mut tampered = packet.to_vec();
+    tampered[1..5].copy_from_slice(&fake_version.to_be_bytes());
+    Some(tampered)
 }
 
 #[cfg(test)]
@@ -738,5 +810,36 @@ mod tests {
     fn defrag_rejects_oversized_crypto_offset() {
         let frame = make_crypto_frame(65530, &[0u8; 10]);
         assert!(defrag_quic_crypto_frames(&frame).is_none());
+    }
+
+    // ---- DPI evasion tamper function tests ----
+
+    #[test]
+    fn tamper_quic_version_replaces_version_field() {
+        let packet = build_realistic_quic_initial(QUIC_V1_VERSION, None).expect("build packet");
+        let tampered = tamper_quic_version(&packet, 0x1a2a3a4a).expect("tamper version");
+
+        assert_eq!(&tampered[1..5], &[0x1a, 0x2a, 0x3a, 0x4a]);
+        // DPI cannot decrypt with the wrong version salt
+        assert!(parse_quic_initial(&tampered).is_none());
+    }
+
+    #[test]
+    fn tamper_quic_initial_split_sni_produces_valid_packet() {
+        let packet = build_realistic_quic_initial(QUIC_V1_VERSION, None).expect("build packet");
+        let original = parse_quic_initial(&packet).expect("parse original");
+        let split_offset = original.tls_info.host_start;
+
+        let tampered = tamper_quic_initial_split_sni(&packet, split_offset).expect("tamper split");
+        let reparsed = parse_quic_initial(&tampered).expect("parse tampered");
+
+        assert_eq!(reparsed.client_hello, original.client_hello);
+    }
+
+    #[test]
+    fn tamper_quic_version_returns_none_for_short_header() {
+        // Short header: bit 7 = 0
+        let packet = vec![0x40, 0x01, 0x02, 0x03, 0x04, 0x05];
+        assert!(tamper_quic_version(&packet, 0x1a2a3a4a).is_none());
     }
 }
