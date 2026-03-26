@@ -363,16 +363,9 @@ fn tcp_probe_skips_whitelist_when_sni_is_none() {
         fat_header_requests: Some(8),
     };
 
-    let result = run_tcp_probe(
-        &target,
-        &["allow.example".to_string(), "other.example".to_string()],
-        &TransportConfig::Direct,
-    );
-    assert!(
-        !result.outcome.starts_with("whitelist_sni_"),
-        "expected non-whitelist outcome, got: {}",
-        result.outcome
-    );
+    let result =
+        run_tcp_probe(&target, &["allow.example".to_string(), "other.example".to_string()], &TransportConfig::Direct);
+    assert!(!result.outcome.starts_with("whitelist_sni_"), "expected non-whitelist outcome, got: {}", result.outcome);
 }
 
 #[test]
