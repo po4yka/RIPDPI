@@ -517,6 +517,8 @@ pub fn runtime_config_from_ui(payload: ProxyUiConfig) -> Result<RuntimeConfig, P
     group.actions.tls_fake_profile = parse_tls_fake_profile(&fake_packets.tls_fake_profile)?;
     group.actions.udp_fake_profile = parse_udp_fake_profile(&fake_packets.udp_fake_profile)?;
     group.actions.drop_sack = fake_packets.drop_sack;
+    group.actions.window_clamp = fake_packets.window_clamp;
+    group.actions.strip_timestamps = fake_packets.strip_timestamps;
     group.matches.proto = (u32::from(protocols.desync_http) * IS_HTTP)
         | (u32::from(protocols.desync_https) * IS_HTTPS)
         | (u32::from(protocols.desync_udp) * IS_UDP);

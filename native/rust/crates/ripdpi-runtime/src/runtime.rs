@@ -307,4 +307,24 @@ mod tests {
             "connect should respect the 1s timeout, but took {elapsed:?}"
         );
     }
+
+    #[cfg(any(target_os = "linux", target_os = "android"))]
+    #[test]
+    fn window_clamp_applied_on_connected_socket() {
+        use crate::platform::linux::{get_tcp_window_clamp, set_tcp_window_clamp};
+
+        let listener = TcpListener::bind("127.0.0.1:0").expect("bind");
+        let addr = listener.local_addr().expect("local_addr");
+        let client = TcpStream::connect(addr).expect("connect");
+
+        set_tcp_window_clamp(&client, 2).expect("set clamp");
+        let clamp = get_tcp_window_clamp(&client).expect("get clamp");
+        // Kernel may round the value up, but it must be small.
+        assert!(clamp <= 128, "expected small clamp, got {clamp}");
+
+        // Restore: set to 0 (removes clamp).
+        set_tcp_window_clamp(&client, 0).expect("remove clamp");
+        let restored = get_tcp_window_clamp(&client).expect("get restored");
+        assert!(restored == 0 || restored > 128, "expected clamp removed, got {restored}");
+    }
 }

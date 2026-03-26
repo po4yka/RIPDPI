@@ -503,6 +503,8 @@ mod tests {
             udp_chain: vec![UdpChainStep { kind: UdpChainStepKind::FakeBurst, count: 2, activation_filter: None }],
             mod_http: MH_HMIX | MH_SPACE,
             tlsminor: Some(1),
+            window_clamp: Some(2),
+            strip_timestamps: false,
         };
         let policy_settings = DesyncGroupPolicySettings {
             ext_socks: Some(UpstreamSocksConfig {
@@ -530,5 +532,31 @@ mod tests {
                 stream_bytes: Some(NumericRange::new(0, 2048)),
             })
         );
+    }
+
+    #[test]
+    fn cli_parses_window_clamp_flag() {
+        let args: Vec<String> = vec!["--window-clamp", "2"].iter().map(|s| s.to_string()).collect();
+        let startup = StartupEnv::default();
+        let result = parse_cli(&args, &startup).expect("parse");
+        match result {
+            ParseResult::Run(config) => {
+                assert_eq!(config.groups[0].actions.window_clamp, Some(2));
+            }
+            _ => panic!("expected Run"),
+        }
+    }
+
+    #[test]
+    fn cli_parses_strip_timestamps_flag() {
+        let args: Vec<String> = vec!["--strip-timestamps"].iter().map(|s| s.to_string()).collect();
+        let startup = StartupEnv::default();
+        let result = parse_cli(&args, &startup).expect("parse");
+        match result {
+            ParseResult::Run(config) => {
+                assert!(config.groups[0].actions.strip_timestamps);
+            }
+            _ => panic!("expected Run"),
+        }
     }
 }

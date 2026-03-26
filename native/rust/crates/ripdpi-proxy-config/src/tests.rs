@@ -643,3 +643,19 @@ fn fakeddisorder_not_last_is_rejected() {
     let err = runtime_config_from_payload(ui_payload(ui)).expect_err("non-terminal fakeddisorder");
     assert!(err.to_string().contains("fakeddisorder"), "expected fakeddisorder error, got: {err}");
 }
+
+#[test]
+fn ui_config_maps_window_clamp() {
+    let mut ui = minimal_ui();
+    ui.fake_packets.window_clamp = Some(2);
+    let config = runtime_config_from_payload(ui_payload(ui)).expect("valid config");
+    assert_eq!(config.groups[0].actions.window_clamp, Some(2));
+}
+
+#[test]
+fn ui_config_maps_strip_timestamps() {
+    let mut ui = minimal_ui();
+    ui.fake_packets.strip_timestamps = true;
+    let config = runtime_config_from_payload(ui_payload(ui)).expect("valid config");
+    assert!(config.groups[0].actions.strip_timestamps);
+}
