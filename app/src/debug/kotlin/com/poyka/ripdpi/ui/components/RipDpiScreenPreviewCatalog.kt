@@ -131,6 +131,26 @@ internal fun RipDpiHomeDarkPreviewScene() {
     }
 }
 
+@Composable
+internal fun RipDpiHomeConnectingPreviewScene() {
+    RipDpiTheme(themePreference = "light") {
+        HomeScreen(
+            uiState =
+                MainUiState(
+                    appStatus = AppStatus.Running,
+                    activeMode = Mode.VPN,
+                    configuredMode = Mode.VPN,
+                    connectionState = ConnectionState.Connecting,
+                ),
+            onToggleConnection = {},
+            onOpenDiagnostics = {},
+            onOpenHistory = {},
+            onRepairPermission = {},
+            onOpenVpnPermissionDialog = {},
+        )
+    }
+}
+
 @Preview(name = "Settings Medium", showBackground = true, widthDp = 720, heightDp = 1100)
 @Composable
 private fun SettingsMediumPreview() {
