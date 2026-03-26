@@ -97,7 +97,11 @@ fn gen_offset_auto_variants_return_none() {
         OffsetBase::AutoExtLen,
     ] {
         let expr = OffsetExpr::marker(base, 0);
-        assert_eq!(gen_offset(expr, buf, buf.len(), 0, &mut info, &mut rng), None, "Auto variant {base:?} should return None");
+        assert_eq!(
+            gen_offset(expr, buf, buf.len(), 0, &mut info, &mut rng),
+            None,
+            "Auto variant {base:?} should return None"
+        );
     }
 }
 
@@ -126,7 +130,8 @@ fn gen_offset_host_mid_is_between_start_and_end() {
     let mut rng = OracleRng::seeded(0);
 
     let host = gen_offset(OffsetExpr::marker(OffsetBase::Host, 0), http, http.len(), 0, &mut info, &mut rng).unwrap();
-    let endhost = gen_offset(OffsetExpr::marker(OffsetBase::EndHost, 0), http, http.len(), 0, &mut info, &mut rng).unwrap();
+    let endhost =
+        gen_offset(OffsetExpr::marker(OffsetBase::EndHost, 0), http, http.len(), 0, &mut info, &mut rng).unwrap();
     let mid = gen_offset(OffsetExpr::marker(OffsetBase::HostMid, 0), http, http.len(), 0, &mut info, &mut rng).unwrap();
 
     assert!(mid >= host && mid <= endhost, "HostMid {mid} should be between {host} and {endhost}");
@@ -139,12 +144,15 @@ fn gen_offset_host_rand_within_bounds() {
     let mut rng = OracleRng::seeded(42);
 
     let host = gen_offset(OffsetExpr::marker(OffsetBase::Host, 0), http, http.len(), 0, &mut info, &mut rng).unwrap();
-    let endhost = gen_offset(OffsetExpr::marker(OffsetBase::EndHost, 0), http, http.len(), 0, &mut info, &mut rng).unwrap();
+    let endhost =
+        gen_offset(OffsetExpr::marker(OffsetBase::EndHost, 0), http, http.len(), 0, &mut info, &mut rng).unwrap();
 
     for seed in 0..10 {
         let mut rng2 = OracleRng::seeded(seed);
         let mut info2 = ProtoInfo::default();
-        let rand_pos = gen_offset(OffsetExpr::marker(OffsetBase::HostRand, 0), http, http.len(), 0, &mut info2, &mut rng2).unwrap();
+        let rand_pos =
+            gen_offset(OffsetExpr::marker(OffsetBase::HostRand, 0), http, http.len(), 0, &mut info2, &mut rng2)
+                .unwrap();
         assert!(rand_pos >= host && rand_pos < endhost, "seed {seed}: HostRand {rand_pos} out of [{host}, {endhost})");
     }
 }
@@ -157,9 +165,12 @@ fn gen_offset_sld_endsld_midsld_for_http() {
     let mut info = ProtoInfo::default();
     let mut rng = OracleRng::seeded(0);
 
-    let sld = gen_offset(OffsetExpr::marker(OffsetBase::Sld, 0), http, http.len(), 0, &mut info, &mut rng).expect("Sld");
-    let endsld = gen_offset(OffsetExpr::marker(OffsetBase::EndSld, 0), http, http.len(), 0, &mut info, &mut rng).expect("EndSld");
-    let midsld = gen_offset(OffsetExpr::marker(OffsetBase::MidSld, 0), http, http.len(), 0, &mut info, &mut rng).expect("MidSld");
+    let sld =
+        gen_offset(OffsetExpr::marker(OffsetBase::Sld, 0), http, http.len(), 0, &mut info, &mut rng).expect("Sld");
+    let endsld = gen_offset(OffsetExpr::marker(OffsetBase::EndSld, 0), http, http.len(), 0, &mut info, &mut rng)
+        .expect("EndSld");
+    let midsld = gen_offset(OffsetExpr::marker(OffsetBase::MidSld, 0), http, http.len(), 0, &mut info, &mut rng)
+        .expect("MidSld");
 
     assert!(sld < endsld, "Sld {sld} should be before EndSld {endsld}");
     assert!(midsld >= sld && midsld <= endsld, "MidSld {midsld} between [{sld}, {endsld}]");

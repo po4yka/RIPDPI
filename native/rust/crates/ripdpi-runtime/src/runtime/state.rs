@@ -24,7 +24,7 @@ pub(super) struct RuntimeState {
     pub(super) adaptive_tuning: Arc<Mutex<AdaptivePlannerResolver>>,
     pub(super) retry_stealth: Arc<Mutex<RetryPacer>>,
     pub(super) active_clients: Arc<AtomicUsize>,
-    pub(super) telemetry: Option<Arc<dyn RuntimeTelemetrySink>>,
+    pub(super) telemetry: Option<std::sync::Arc<dyn RuntimeTelemetrySink>>,
     pub(super) runtime_context: Option<ProxyRuntimeContext>,
 }
 

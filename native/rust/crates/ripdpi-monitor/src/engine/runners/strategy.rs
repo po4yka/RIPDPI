@@ -103,9 +103,7 @@ impl ExecutionStageRunner for StrategyDnsBaselineRunner {
                 )
             })
             .collect::<Vec<_>>();
-        let Some(fallback_quic) =
-            quic_specs.first().or_else(|| strategy_plan.suite.quic_candidates.first())
-        else {
+        let Some(fallback_quic) = quic_specs.first().or_else(|| strategy_plan.suite.quic_candidates.first()) else {
             return RunnerOutcome::Completed;
         };
         let Some(fallback_tcp) = strategy_plan.suite.tcp_candidates.first() else {

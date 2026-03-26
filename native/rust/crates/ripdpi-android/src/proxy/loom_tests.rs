@@ -1,9 +1,7 @@
 use loom::sync::{Arc, Mutex};
 use ripdpi_runtime::EmbeddedProxyControl;
 
-use super::registry::{
-    control_for_proxy_stop, ensure_proxy_destroyable, try_mark_proxy_running, ProxySessionState,
-};
+use super::registry::{control_for_proxy_stop, ensure_proxy_destroyable, try_mark_proxy_running, ProxySessionState};
 
 #[test]
 fn loom_two_concurrent_starts_one_wins() {

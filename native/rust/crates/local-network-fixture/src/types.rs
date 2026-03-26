@@ -24,8 +24,7 @@ pub const DEFAULT_FIXTURE_IPV4: &str = "198.18.0.10";
 pub const DEFAULT_DNS_ANSWER_IPV4: &str = "198.18.0.10";
 pub const DEFAULT_ANDROID_HOST: &str = "10.0.2.2";
 pub const DEFAULT_DNSCRYPT_PROVIDER_NAME: &str = "2.dnscrypt-cert.fixture.test";
-pub const DEFAULT_DNSCRYPT_PUBLIC_KEY: &str =
-    "ea4a6c63e29c520abef5507b132ec5f9954776aebebe7b92421eea691446d22c";
+pub const DEFAULT_DNSCRYPT_PUBLIC_KEY: &str = "ea4a6c63e29c520abef5507b132ec5f9954776aebebe7b92421eea691446d22c";
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
@@ -84,8 +83,7 @@ impl FixtureConfig {
         config.dns_udp_port = util::env_u16("RIPDPI_FIXTURE_DNS_UDP_PORT", config.dns_udp_port);
         config.dns_http_port = util::env_u16("RIPDPI_FIXTURE_DNS_HTTP_PORT", config.dns_http_port);
         config.dns_dot_port = util::env_u16("RIPDPI_FIXTURE_DNS_DOT_PORT", config.dns_dot_port);
-        config.dns_dnscrypt_port =
-            util::env_u16("RIPDPI_FIXTURE_DNS_DNSCRYPT_PORT", config.dns_dnscrypt_port);
+        config.dns_dnscrypt_port = util::env_u16("RIPDPI_FIXTURE_DNS_DNSCRYPT_PORT", config.dns_dnscrypt_port);
         config.dns_doq_port = util::env_u16("RIPDPI_FIXTURE_DNS_DOQ_PORT", config.dns_doq_port);
         config.socks5_port = util::env_u16("RIPDPI_FIXTURE_SOCKS5_PORT", config.socks5_port);
         config.control_port = util::env_u16("RIPDPI_FIXTURE_CONTROL_PORT", config.control_port);

@@ -21,7 +21,9 @@ use nix::sys::signal::{kill, Signal};
 use nix::unistd::Pid;
 use serde_json::Value;
 
-use support::socks5::{attempt_socks_connect_domain_round_trip, socks_udp_associate, udp_proxy_client, udp_proxy_roundtrip_with_socket};
+use support::socks5::{
+    attempt_socks_connect_domain_round_trip, socks_udp_associate, udp_proxy_client, udp_proxy_roundtrip_with_socket,
+};
 use support::tls::attempt_socks5_tls_round_trip;
 
 static TEST_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
@@ -242,7 +244,8 @@ fn run_capture_scenario<Args, Filter, Drive, Assert>(
     let mut cli = start_cli_process(&cli_args, &paths.cli_stderr).expect("start ripdpi cli");
     wait_for_proxy_listener(listen_port, &mut cli).expect("wait for CLI listener");
 
-    let mut capture = start_capture(&capture_filter(fixture.manifest()), &paths.capture_pcap).expect("start tcpdump capture");
+    let mut capture =
+        start_capture(&capture_filter(fixture.manifest()), &paths.capture_pcap).expect("start tcpdump capture");
 
     let drive_result = catch_unwind(AssertUnwindSafe(|| drive(listen_port, &fixture)));
 
@@ -283,7 +286,8 @@ fn drive_http_echo_strict(proxy_port: u16, fixture: &FixtureStack, path_token: &
 
 fn drive_http_echo_best_effort(proxy_port: u16, fixture: &FixtureStack, path_token: &str) -> Result<(), String> {
     let payload = http_echo_payload(fixture, path_token);
-    let _ = attempt_socks_connect_domain_round_trip(proxy_port, "127.0.0.1", fixture.manifest().tcp_echo_port, &payload);
+    let _ =
+        attempt_socks_connect_domain_round_trip(proxy_port, "127.0.0.1", fixture.manifest().tcp_echo_port, &payload);
     thread::sleep(Duration::from_millis(250));
     Ok(())
 }
@@ -370,16 +374,7 @@ fn wait_for_proxy_listener(port: u16, child: &mut Child) -> io::Result<()> {
 
 fn start_capture(filter: &str, capture_path: &Path) -> io::Result<Child> {
     let mut child = Command::new(tcpdump_bin())
-        .args([
-            "-i",
-            &capture_interface(),
-            "--immediate-mode",
-            "-U",
-            "-n",
-            "-s",
-            "0",
-            "-w",
-        ])
+        .args(["-i", &capture_interface(), "--immediate-mode", "-U", "-n", "-s", "0", "-w"])
         .arg(capture_path)
         .arg(filter)
         .stdout(Stdio::null())
@@ -391,9 +386,7 @@ fn start_capture(filter: &str, capture_path: &Path) -> io::Result<Child> {
     // time to open the socket and attach the BPF filter before traffic starts.
     thread::sleep(Duration::from_millis(500));
     if let Some(status) = child.try_wait()? {
-        return Err(io::Error::other(format!(
-            "tcpdump exited before capture traffic began; status={status}"
-        )));
+        return Err(io::Error::other(format!("tcpdump exited before capture traffic began; status={status}")));
     }
     Ok(child)
 }
@@ -443,10 +436,7 @@ fn decode_capture_json(capture_path: &Path, output_path: &Path) -> Result<Vec<Va
 }
 
 fn packet_smoke_enabled() -> bool {
-    matches!(
-        env::var(ENABLE_ENV).ok().as_deref(),
-        Some("1") | Some("true") | Some("TRUE") | Some("yes") | Some("YES")
-    )
+    matches!(env::var(ENABLE_ENV).ok().as_deref(), Some("1") | Some("true") | Some("TRUE") | Some("yes") | Some("YES"))
 }
 
 fn ensure_capture_tooling() {
@@ -476,13 +466,15 @@ fn tshark_bin() -> String {
 }
 
 fn capture_interface() -> String {
-    env::var(INTERFACE_ENV).unwrap_or_else(|_| {
-        if cfg!(target_os = "macos") {
-            "lo0".to_string()
-        } else {
-            "lo".to_string()
-        }
-    })
+    env::var(INTERFACE_ENV).unwrap_or_else(
+        |_| {
+            if cfg!(target_os = "macos") {
+                "lo0".to_string()
+            } else {
+                "lo".to_string()
+            }
+        },
+    )
 }
 
 fn dynamic_fixture_config() -> FixtureConfig {
@@ -512,11 +504,8 @@ fn reserve_listen_port() -> u16 {
 }
 
 fn http_echo_payload(fixture: &FixtureStack, path_token: &str) -> Vec<u8> {
-    format!(
-        "GET /{path_token} HTTP/1.1\r\nHost: {}\r\nConnection: close\r\n\r\n",
-        fixture.manifest().fixture_domain
-    )
-    .into_bytes()
+    format!("GET /{path_token} HTTP/1.1\r\nHost: {}\r\nConnection: close\r\n\r\n", fixture.manifest().fixture_domain)
+        .into_bytes()
 }
 
 fn assert_fixture_event(run: &ScenarioRun, service: &str) -> Result<(), String> {
@@ -531,10 +520,7 @@ fn assert_stderr_contains(run: &ScenarioRun, needle: &str) -> Result<(), String>
     if run.stderr.contains(needle) {
         Ok(())
     } else {
-        Err(format!(
-            "expected CLI stderr to contain {needle:?}, got:\n{}",
-            run.stderr
-        ))
+        Err(format!("expected CLI stderr to contain {needle:?}, got:\n{}", run.stderr))
     }
 }
 
@@ -585,22 +571,17 @@ fn assert_udp_outbound_count_at_least(run: &ScenarioRun, port: u16, minimum: usi
 
 fn assert_udp_low_source_port(run: &ScenarioRun, port: u16, upper_bound: u16) -> Result<(), String> {
     if run.packets.iter().any(|packet| {
-        is_udp_outbound(packet, port) && field_u64(packet, "udp.srcport").is_some_and(|value| value <= u64::from(upper_bound))
+        is_udp_outbound(packet, port)
+            && field_u64(packet, "udp.srcport").is_some_and(|value| value <= u64::from(upper_bound))
     }) {
         Ok(())
     } else {
-        Err(format!(
-            "expected at least one outbound UDP packet to port {port} with source port <= {upper_bound}"
-        ))
+        Err(format!("expected at least one outbound UDP packet to port {port} with source port <= {upper_bound}"))
     }
 }
 
 fn assert_quic_version_present(run: &ScenarioRun, version: u32) -> Result<(), String> {
-    if run
-        .packets
-        .iter()
-        .any(|packet| field_u64(packet, "quic.version") == Some(u64::from(version)))
-    {
+    if run.packets.iter().any(|packet| field_u64(packet, "quic.version") == Some(u64::from(version))) {
         Ok(())
     } else {
         Err(format!("expected captured QUIC version {version:#x} in {:?}", run.paths.capture_json))
@@ -608,7 +589,8 @@ fn assert_quic_version_present(run: &ScenarioRun, version: u32) -> Result<(), St
 }
 
 fn is_outbound_to_port(packet: &Value, port: u16) -> bool {
-    field_u64(packet, "tcp.dstport") == Some(u64::from(port)) || field_u64(packet, "udp.dstport") == Some(u64::from(port))
+    field_u64(packet, "tcp.dstport") == Some(u64::from(port))
+        || field_u64(packet, "udp.dstport") == Some(u64::from(port))
 }
 
 fn is_tcp_outbound(packet: &Value, port: u16) -> bool {
@@ -706,10 +688,7 @@ impl ScenarioPaths {
         let root = match env::var_os(ARTIFACT_DIR_ENV) {
             Some(path) => PathBuf::from(path),
             None => {
-                let nonce = SystemTime::now()
-                    .duration_since(UNIX_EPOCH)
-                    .unwrap_or_default()
-                    .as_millis();
+                let nonce = SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_millis();
                 env::temp_dir().join(format!("ripdpi-packet-smoke-{id}-{}-{nonce}", std::process::id()))
             }
         };

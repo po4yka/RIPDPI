@@ -72,7 +72,10 @@ pub trait RuntimeTelemetrySink: Send + Sync {
 #[derive(Clone)]
 pub struct EmbeddedProxyControl {
     shutdown: Arc<AtomicBool>,
-    telemetry: Option<Arc<dyn RuntimeTelemetrySink>>,
+    /// Uses `std::sync::Arc` explicitly: the telemetry sink is not exercised by
+    /// loom tests and must stay compatible with downstream crates that always
+    /// use `std::sync::Arc` (ripdpi-android, ripdpi-cli test harnesses).
+    telemetry: Option<std::sync::Arc<dyn RuntimeTelemetrySink>>,
     runtime_context: Option<ProxyRuntimeContext>,
     /// Live OS network state snapshot, pushed from Kotlin on each NetworkCallback event.
     /// Uses `ArcSwap` for lock-free reads on the per-connection hot path.
@@ -99,12 +102,12 @@ impl Default for EmbeddedProxyControl {
 }
 
 impl EmbeddedProxyControl {
-    pub fn new(telemetry: Option<Arc<dyn RuntimeTelemetrySink>>) -> Self {
+    pub fn new(telemetry: Option<std::sync::Arc<dyn RuntimeTelemetrySink>>) -> Self {
         Self::new_with_context(telemetry, None)
     }
 
     pub fn new_with_context(
-        telemetry: Option<Arc<dyn RuntimeTelemetrySink>>,
+        telemetry: Option<std::sync::Arc<dyn RuntimeTelemetrySink>>,
         runtime_context: Option<ProxyRuntimeContext>,
     ) -> Self {
         Self {
@@ -127,7 +130,7 @@ impl EmbeddedProxyControl {
         self.shutdown.load(Ordering::Acquire)
     }
 
-    pub fn telemetry_sink(&self) -> Option<Arc<dyn RuntimeTelemetrySink>> {
+    pub fn telemetry_sink(&self) -> Option<std::sync::Arc<dyn RuntimeTelemetrySink>> {
         self.telemetry.clone()
     }
 
@@ -180,7 +183,7 @@ pub(crate) fn current_runtime_telemetry() -> Option<std::sync::Arc<dyn RuntimeTe
 // current_runtime_telemetry in production code paths get None, which is the
 // correct behaviour for tests that exercise concurrency primitives only.
 #[cfg(feature = "loom")]
-pub(crate) fn current_runtime_telemetry() -> Option<Arc<dyn RuntimeTelemetrySink>> {
+pub(crate) fn current_runtime_telemetry() -> Option<std::sync::Arc<dyn RuntimeTelemetrySink>> {
     None
 }
 

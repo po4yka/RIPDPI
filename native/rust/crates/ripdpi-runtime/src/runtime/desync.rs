@@ -5,11 +5,11 @@ use std::time::Duration;
 
 use crate::platform;
 use ripdpi_config::{DesyncGroup, EntropyMode, RuntimeConfig, TcpChainStepKind};
-use ripdpi_packets::entropy;
 use ripdpi_desync::{
     activation_filter_matches, build_fake_packet, build_fake_region_bytes, build_hostfake_bytes, plan_tcp,
     resolve_hostfake_span, ActivationContext, ActivationTransport, AdaptivePlannerHints, DesyncAction, DesyncPlan,
 };
+use ripdpi_packets::entropy;
 use ripdpi_session::OutboundProgress;
 use socket2::SockRef;
 
@@ -691,7 +691,7 @@ mod tests {
     fn entropy_padding_adaptive_override_takes_precedence() {
         let mut group = test_group();
         group.actions.entropy_mode = EntropyMode::Disabled; // group says disabled
-        // But adaptive override says Shannon
+                                                            // But adaptive override says Shannon
         let payload: Vec<u8> = (0..2048).map(|i| (i % 256) as u8).collect();
         let result = apply_entropy_padding(&group, &payload, Some(EntropyMode::Shannon));
         assert!(matches!(result, Cow::Owned(_)), "adaptive override should enable padding");
@@ -702,7 +702,7 @@ mod tests {
     fn entropy_padding_adaptive_override_can_disable() {
         let mut group = test_group();
         group.actions.entropy_mode = EntropyMode::Shannon; // group says Shannon
-        // But adaptive override says Disabled
+                                                           // But adaptive override says Disabled
         let payload: Vec<u8> = (0..2048).map(|i| (i % 256) as u8).collect();
         let result = apply_entropy_padding(&group, &payload, Some(EntropyMode::Disabled));
         assert!(matches!(result, Cow::Borrowed(_)), "adaptive Disabled should skip padding");

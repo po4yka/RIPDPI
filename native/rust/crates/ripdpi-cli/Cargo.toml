@@ -21,6 +21,9 @@ tracing = { workspace = true }
 tracing-log = { workspace = true }
 tracing-subscriber = { workspace = true }
 
+[features]
+loom = ["ripdpi-runtime/loom"]
+
 [dev-dependencies]
 aes = { workspace = true }
 libc = { workspace = true }

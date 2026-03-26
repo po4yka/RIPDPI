@@ -202,12 +202,7 @@ fn build_structured_padding(len: usize) -> Vec<u8> {
 ///
 /// Returns the larger of the two padding buffers needed, or empty if the
 /// payload already passes both checks.
-pub fn generate_combined_padding(
-    payload: &[u8],
-    popcount_target: f32,
-    shannon_target: f32,
-    max_pad: usize,
-) -> Vec<u8> {
+pub fn generate_combined_padding(payload: &[u8], popcount_target: f32, shannon_target: f32, max_pad: usize) -> Vec<u8> {
     let popcount_pad = generate_entropy_padding(payload, popcount_target, max_pad);
     let shannon_pad = generate_shannon_padding(payload, shannon_target, max_pad);
     if shannon_pad.len() >= popcount_pad.len() {
@@ -268,10 +263,7 @@ mod tests {
         let mut combined = padding.clone();
         combined.extend_from_slice(&encrypted);
         let combined_popcount = popcount_per_byte(&combined);
-        assert!(
-            combined_popcount <= POPCOUNT_EXEMPT_LOW,
-            "expected <= {POPCOUNT_EXEMPT_LOW}, got {combined_popcount}"
-        );
+        assert!(combined_popcount <= POPCOUNT_EXEMPT_LOW, "expected <= {POPCOUNT_EXEMPT_LOW}, got {combined_popcount}");
     }
 
     #[test]
@@ -331,7 +323,7 @@ mod tests {
     fn combined_padding_satisfies_both() {
         // Payload with popcount ~4.0 (in GFW detection window) and high Shannon entropy
         let payload = vec![0xAA; 200]; // popcount=4.0, entropy=0.0 (uniform)
-        // For this uniform payload, Shannon is 0.0 (already low), but popcount is 4.0
+                                       // For this uniform payload, Shannon is 0.0 (already low), but popcount is 4.0
         let padding = generate_combined_padding(&payload, POPCOUNT_EXEMPT_LOW, 7.92, 512);
         if !padding.is_empty() {
             let mut combined = padding.clone();
@@ -409,10 +401,7 @@ mod tests {
 
         let combined = shannon_entropy_combined(&a, &b);
         let direct = shannon_entropy(&concat);
-        assert!(
-            (combined - direct).abs() < 0.001,
-            "combined {combined} vs direct {direct}"
-        );
+        assert!((combined - direct).abs() < 0.001, "combined {combined} vs direct {direct}");
     }
 
     #[test]
@@ -539,7 +528,7 @@ mod tests {
     fn shannon_padding_realistic_tls_payload() {
         // Simulate realistic TLS: structured 5-byte header + encrypted body
         let mut payload = vec![0x17, 0x03, 0x03, 0x05, 0xDC]; // TLS app data header
-        // Body: pseudo-random encrypted content
+                                                              // Body: pseudo-random encrypted content
         for i in 0..1500 {
             payload.push(((i * 7 + 13) % 256) as u8);
         }

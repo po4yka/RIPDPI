@@ -254,9 +254,7 @@ pub(crate) fn take_running_tunnel(
             cancel.cancel();
             Err("Tunnel session is still starting; cancellation requested")
         }
-        TunnelSessionState::Ready => {
-            Err("Tunnel session is not running")
-        }
+        TunnelSessionState::Ready => Err("Tunnel session is not running"),
         TunnelSessionState::Destroyed => Err("Tunnel session has been destroyed"),
     }
 }

@@ -708,16 +708,10 @@ fn _assert_fixture_event_contains(events: &[FixtureEvent], service: &str, detail
 fn tcp_split_desync_round_trip_delivers_payload() {
     let _guard = test_guard();
     let fixture = FixtureStack::start(ephemeral_fixture_config()).expect("start fixture");
-    let proxy = start_proxy(
-        ephemeral_proxy_config(&["--ip", "127.0.0.1", "--split", "5"]),
-        None,
-    );
+    let proxy = start_proxy(ephemeral_proxy_config(&["--ip", "127.0.0.1", "--split", "5"]), None);
 
-    let body = socks_connect_ip_round_trip_with_retry(
-        proxy.port,
-        fixture.manifest().tcp_echo_port,
-        b"split desync payload",
-    );
+    let body =
+        socks_connect_ip_round_trip_with_retry(proxy.port, fixture.manifest().tcp_echo_port, b"split desync payload");
     assert_eq!(body, b"split desync payload");
 
     let events = fixture.events().snapshot();
@@ -730,10 +724,7 @@ fn tcp_split_desync_round_trip_delivers_payload() {
 fn tcp_disorder_desync_round_trip_delivers_payload() {
     let _guard = test_guard();
     let fixture = FixtureStack::start(ephemeral_fixture_config()).expect("start fixture");
-    let proxy = start_proxy(
-        ephemeral_proxy_config(&["--ip", "127.0.0.1", "--disorder", "5"]),
-        None,
-    );
+    let proxy = start_proxy(ephemeral_proxy_config(&["--ip", "127.0.0.1", "--disorder", "5"]), None);
 
     let body = socks_connect_ip_round_trip_with_retry(
         proxy.port,
@@ -752,16 +743,10 @@ fn tcp_disorder_desync_round_trip_delivers_payload() {
 fn tcp_oob_desync_round_trip_delivers_payload() {
     let _guard = test_guard();
     let fixture = FixtureStack::start(ephemeral_fixture_config()).expect("start fixture");
-    let proxy = start_proxy(
-        ephemeral_proxy_config(&["--ip", "127.0.0.1", "--oob", "5"]),
-        None,
-    );
+    let proxy = start_proxy(ephemeral_proxy_config(&["--ip", "127.0.0.1", "--oob", "5"]), None);
 
-    let body = socks_connect_ip_round_trip_with_retry(
-        proxy.port,
-        fixture.manifest().tcp_echo_port,
-        b"oob desync payload",
-    );
+    let body =
+        socks_connect_ip_round_trip_with_retry(proxy.port, fixture.manifest().tcp_echo_port, b"oob desync payload");
     assert_eq!(body, b"oob desync payload");
 
     let events = fixture.events().snapshot();
@@ -779,18 +764,15 @@ fn tls_round_trip_with_split_desync_completes_handshake() {
 
     let mut config = ui_proxy_config();
     config.groups[0].matches.proto = IS_TCP | IS_HTTPS;
-    config.groups[0].actions.tcp_chain.push(TcpChainStep::new(
-        TcpChainStepKind::Split,
-        ripdpi_config::OffsetExpr::absolute(5),
-    ));
+    config.groups[0]
+        .actions
+        .tcp_chain
+        .push(TcpChainStep::new(TcpChainStepKind::Split, ripdpi_config::OffsetExpr::absolute(5)));
     config.network.delay_conn = true;
     let proxy = start_proxy(config, None);
 
     let response = socks5_tls_round_trip_with_retry(proxy.port, &fixture, None);
-    assert!(
-        response.contains("fixture tls ok"),
-        "TLS with split desync should complete: {response:?}"
-    );
+    assert!(response.contains("fixture tls ok"), "TLS with split desync should complete: {response:?}");
 
     let events = fixture.events().snapshot();
     assert!(events.iter().any(|e| e.service == "tls_echo" && e.detail == "handshake"));
@@ -806,18 +788,15 @@ fn tls_round_trip_with_disorder_desync_completes_handshake() {
 
     let mut config = ui_proxy_config();
     config.groups[0].matches.proto = IS_TCP | IS_HTTPS;
-    config.groups[0].actions.tcp_chain.push(TcpChainStep::new(
-        TcpChainStepKind::Disorder,
-        ripdpi_config::OffsetExpr::absolute(5),
-    ));
+    config.groups[0]
+        .actions
+        .tcp_chain
+        .push(TcpChainStep::new(TcpChainStepKind::Disorder, ripdpi_config::OffsetExpr::absolute(5)));
     config.network.delay_conn = true;
     let proxy = start_proxy(config, None);
 
     let response = socks5_tls_round_trip_with_retry(proxy.port, &fixture, None);
-    assert!(
-        response.contains("fixture tls ok"),
-        "TLS with disorder desync should complete: {response:?}"
-    );
+    assert!(response.contains("fixture tls ok"), "TLS with disorder desync should complete: {response:?}");
 
     let events = fixture.events().snapshot();
     assert!(events.iter().any(|e| e.service == "tls_echo" && e.detail == "handshake"));
@@ -830,10 +809,7 @@ fn tls_round_trip_with_disorder_desync_completes_handshake() {
 fn http_mod_mixed_case_host_delivers_payload() {
     let _guard = test_guard();
     let fixture = FixtureStack::start(ephemeral_fixture_config()).expect("start fixture");
-    let proxy = start_proxy(
-        ephemeral_proxy_config(&["--ip", "127.0.0.1", "--mod-http", "h"]),
-        None,
-    );
+    let proxy = start_proxy(ephemeral_proxy_config(&["--ip", "127.0.0.1", "--mod-http", "h"]), None);
 
     let body = socks_connect_ip_round_trip_with_retry(
         proxy.port,
@@ -855,10 +831,7 @@ fn http_mod_mixed_case_host_delivers_payload() {
 fn http_mod_unix_eol_delivers_payload() {
     let _guard = test_guard();
     let fixture = FixtureStack::start(ephemeral_fixture_config()).expect("start fixture");
-    let proxy = start_proxy(
-        ephemeral_proxy_config(&["--ip", "127.0.0.1", "--mod-http", "u"]),
-        None,
-    );
+    let proxy = start_proxy(ephemeral_proxy_config(&["--ip", "127.0.0.1", "--mod-http", "u"]), None);
 
     let body = socks_connect_ip_round_trip_with_retry(
         proxy.port,
@@ -876,10 +849,7 @@ fn http_mod_unix_eol_delivers_payload() {
 fn http_mod_combined_flags_delivers_payload() {
     let _guard = test_guard();
     let fixture = FixtureStack::start(ephemeral_fixture_config()).expect("start fixture");
-    let proxy = start_proxy(
-        ephemeral_proxy_config(&["--ip", "127.0.0.1", "--mod-http", "h,d,u"]),
-        None,
-    );
+    let proxy = start_proxy(ephemeral_proxy_config(&["--ip", "127.0.0.1", "--mod-http", "h,d,u"]), None);
 
     let body = socks_connect_ip_round_trip_with_retry(
         proxy.port,
@@ -910,8 +880,7 @@ fn route_advancement_fires_on_tcp_reset_and_second_group_handles_traffic() {
     // The first connection hits the one-shot TCP reset fault.
     // The proxy should classify the failure and advance to group 1.
     let mut config = ephemeral_proxy_config(&["--ip", "127.0.0.1"]);
-    config.groups[0].matches.detect =
-        ripdpi_config::DETECT_TCP_RESET | ripdpi_config::DETECT_SILENT_DROP;
+    config.groups[0].matches.detect = ripdpi_config::DETECT_TCP_RESET | ripdpi_config::DETECT_SILENT_DROP;
     config.timeouts.timeout_ms = 500;
 
     // Add a second fallback group
@@ -929,11 +898,8 @@ fn route_advancement_fires_on_tcp_reset_and_second_group_handles_traffic() {
     drop(stream);
 
     // Second connection: should succeed (fault was one-shot)
-    let body = socks_connect_ip_round_trip_with_retry(
-        proxy.port,
-        fixture.manifest().tcp_echo_port,
-        b"after advancement",
-    );
+    let body =
+        socks_connect_ip_round_trip_with_retry(proxy.port, fixture.manifest().tcp_echo_port, b"after advancement");
     assert_eq!(body, b"after advancement");
 
     drop(proxy);
@@ -960,10 +926,7 @@ fn route_advancement_fires_on_tcp_reset_and_second_group_handles_traffic() {
 fn tcp_chain_split_then_disorder_delivers_payload() {
     let _guard = test_guard();
     let fixture = FixtureStack::start(ephemeral_fixture_config()).expect("start fixture");
-    let proxy = start_proxy(
-        ephemeral_proxy_config(&["--ip", "127.0.0.1", "--split", "3", "--disorder", "7"]),
-        None,
-    );
+    let proxy = start_proxy(ephemeral_proxy_config(&["--ip", "127.0.0.1", "--split", "3", "--disorder", "7"]), None);
 
     let body = socks_connect_ip_round_trip_with_retry(
         proxy.port,
@@ -981,16 +944,11 @@ fn tcp_chain_split_then_disorder_delivers_payload() {
 fn window_clamp_with_split_desync_delivers_payload() {
     let _guard = test_guard();
     let fixture = FixtureStack::start(ephemeral_fixture_config()).expect("start fixture");
-    let proxy = start_proxy(
-        ephemeral_proxy_config(&["--ip", "127.0.0.1", "--window-clamp", "2", "--split", "5"]),
-        None,
-    );
+    let proxy =
+        start_proxy(ephemeral_proxy_config(&["--ip", "127.0.0.1", "--window-clamp", "2", "--split", "5"]), None);
 
-    let body = socks_connect_ip_round_trip_with_retry(
-        proxy.port,
-        fixture.manifest().tcp_echo_port,
-        b"clamp plus split",
-    );
+    let body =
+        socks_connect_ip_round_trip_with_retry(proxy.port, fixture.manifest().tcp_echo_port, b"clamp plus split");
     assert_eq!(body, b"clamp plus split");
     drop(proxy);
 }
@@ -1002,16 +960,10 @@ fn window_clamp_with_split_desync_delivers_payload() {
 fn drop_sack_and_strip_timestamps_round_trip_succeeds() {
     let _guard = test_guard();
     let fixture = FixtureStack::start(ephemeral_fixture_config()).expect("start fixture");
-    let proxy = start_proxy(
-        ephemeral_proxy_config(&["--ip", "127.0.0.1", "--drop-sack", "--strip-timestamps"]),
-        None,
-    );
+    let proxy = start_proxy(ephemeral_proxy_config(&["--ip", "127.0.0.1", "--drop-sack", "--strip-timestamps"]), None);
 
-    let body = socks_connect_ip_round_trip_with_retry(
-        proxy.port,
-        fixture.manifest().tcp_echo_port,
-        b"sack+timestamps combo",
-    );
+    let body =
+        socks_connect_ip_round_trip_with_retry(proxy.port, fixture.manifest().tcp_echo_port, b"sack+timestamps combo");
     assert_eq!(body, b"sack+timestamps combo");
 
     // Also verify TLS still works with these socket-level manipulations
@@ -1026,21 +978,13 @@ fn drop_sack_and_strip_timestamps_round_trip_succeeds() {
 fn socks5_udp_non_quic_payload_round_trips_without_crash() {
     let _guard = test_guard();
     let fixture = FixtureStack::start(ephemeral_fixture_config()).expect("start fixture");
-    let proxy = start_proxy(
-        ephemeral_proxy_config(&["--ip", "127.0.0.1", "--udp-fake", "2"]),
-        None,
-    );
+    let proxy = start_proxy(ephemeral_proxy_config(&["--ip", "127.0.0.1", "--udp-fake", "2"]), None);
     let (_control, relay) = socks_udp_associate(proxy.port);
     let udp = udp_proxy_client();
 
     // Send non-QUIC UDP payload (plain bytes, not a QUIC Initial)
     let plain_payload = b"not a quic packet at all";
-    let echoed = udp_proxy_roundtrip_with_socket(
-        &udp,
-        relay,
-        fixture.manifest().udp_echo_port,
-        plain_payload,
-    );
+    let echoed = udp_proxy_roundtrip_with_socket(&udp, relay, fixture.manifest().udp_echo_port, plain_payload);
     assert_eq!(echoed, plain_payload, "non-QUIC UDP should echo back intact");
     drop(proxy);
 }

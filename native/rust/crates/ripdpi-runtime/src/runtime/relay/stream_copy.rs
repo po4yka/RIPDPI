@@ -103,11 +103,8 @@ pub(super) fn relay_streams(
     let down = thread::Builder::new()
         .name("ripdpi-dn".into())
         .spawn(move || {
-            let detector = FreezeDetector::new(
-                timeouts.freeze_window_ms,
-                timeouts.freeze_min_bytes,
-                timeouts.freeze_max_stalls,
-            );
+            let detector =
+                FreezeDetector::new(timeouts.freeze_window_ms, timeouts.freeze_min_bytes, timeouts.freeze_max_stalls);
             copy_inbound_half(upstream_reader, client_writer, inbound_session, down_done, detector, freeze_flag)
         })
         .map_err(|err| io::Error::other(format!("failed to spawn inbound relay thread: {err}")))?;

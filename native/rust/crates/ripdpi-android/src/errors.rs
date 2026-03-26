@@ -29,9 +29,7 @@ impl JniProxyError {
                 ("java/lang/IllegalArgumentException", self.to_string())
             }
             Self::IllegalState(_) => ("java/lang/IllegalStateException", self.to_string()),
-            Self::Io(_) => {
-                ("java/io/IOException", sanitize_error_message(&self.to_string(), "I/O failure"))
-            }
+            Self::Io(_) => ("java/io/IOException", sanitize_error_message(&self.to_string(), "I/O failure")),
             Self::Serialization(_) => {
                 ("java/lang/RuntimeException", sanitize_error_message(&self.to_string(), "Serialization failure"))
             }

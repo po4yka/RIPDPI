@@ -1,5 +1,6 @@
 #![allow(dead_code)]
 
+#[cfg(not(feature = "loom"))]
 pub mod proxy;
 pub mod socks5;
 pub mod telemetry;

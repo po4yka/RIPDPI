@@ -57,7 +57,11 @@ fn bind_udp_socket(bind_addr: SocketAddr, protect_path: Option<&str>) -> io::Res
     Ok(socket)
 }
 
-fn build_udp_upstream_socket(target: SocketAddr, protect_path: Option<&str>, bind_low_port: bool) -> io::Result<UdpSocket> {
+fn build_udp_upstream_socket(
+    target: SocketAddr,
+    protect_path: Option<&str>,
+    bind_low_port: bool,
+) -> io::Result<UdpSocket> {
     let domain = match target {
         SocketAddr::V4(_) => Domain::IPV4,
         SocketAddr::V6(_) => Domain::IPV6,
@@ -230,7 +234,9 @@ pub(super) fn udp_associate_loop(
                             .groups
                             .get(entry.route.group_index)
                             .is_some_and(|group| group.actions.quic_bind_low_port);
-                        if let Ok(new_socket) = build_udp_upstream_socket(sender, protect_path.as_deref(), bind_low_port) {
+                        if let Ok(new_socket) =
+                            build_udp_upstream_socket(sender, protect_path.as_deref(), bind_low_port)
+                        {
                             entry.upstream = new_socket;
                             entry.quic_migrated = true;
                             tracing::info!(
@@ -512,8 +518,9 @@ mod tests {
 
     #[test]
     fn build_udp_upstream_socket_connects_ipv4_targets() {
-        let upstream = build_udp_upstream_socket(SocketAddr::new(IpAddr::V4(Ipv4Addr::new(192, 0, 2, 10)), 443), None, false)
-            .expect("udp upstream socket");
+        let upstream =
+            build_udp_upstream_socket(SocketAddr::new(IpAddr::V4(Ipv4Addr::new(192, 0, 2, 10)), 443), None, false)
+                .expect("udp upstream socket");
         assert!(upstream.local_addr().expect("upstream relay addr").is_ipv4());
     }
 }

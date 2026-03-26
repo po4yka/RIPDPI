@@ -145,8 +145,7 @@ fn build_quic_initial_raw(
     loop {
         let payload_len = 4 + plaintext.len() + QUIC_TAG_LEN;
         let payload_len_varint = encode_quic_varint(payload_len as u64);
-        let header_len =
-            1 + 4 + 1 + dcid.len() + 1 + scid.len() + token_varint.len() + payload_len_varint.len();
+        let header_len = 1 + 4 + 1 + dcid.len() + 1 + scid.len() + token_varint.len() + payload_len_varint.len();
         let total_len = header_len + payload_len;
         if total_len >= min_total_len {
             break;
@@ -215,14 +214,7 @@ pub fn build_quic_initial_from_tls(version: u32, tls_client_hello: &[u8], gap_af
     append_quic_crypto_frame(&mut plaintext, 0, &crypto[..split]);
     append_quic_crypto_frame(&mut plaintext, (split + gap_after_split) as u64, &crypto[split..]);
 
-    build_quic_initial_raw(
-        version,
-        &QUIC_FAKE_DCID,
-        &QUIC_FAKE_SCID,
-        &[],
-        plaintext,
-        QUIC_FAKE_INITIAL_TARGET_LEN,
-    )
+    build_quic_initial_raw(version, &QUIC_FAKE_DCID, &QUIC_FAKE_SCID, &[], plaintext, QUIC_FAKE_INITIAL_TARGET_LEN)
 }
 
 fn padded_default_fake_tls_client_hello() -> Vec<u8> {

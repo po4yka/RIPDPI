@@ -18,12 +18,12 @@ use lifecycle::{create_session, destroy_session, start_session, stop_session};
 use stats::stats_session;
 use telemetry::telemetry_session;
 
-#[cfg(test)]
+#[cfg(any(test, feature = "loom"))]
 pub(crate) use lifecycle::{
     ensure_tunnel_destroyable, ensure_tunnel_start_allowed, rollback_failed_tunnel_start, take_running_tunnel,
     validate_tun_fd,
 };
-#[cfg(test)]
+#[cfg(any(test, feature = "loom"))]
 pub(crate) use registry::{
     lookup_tunnel_session, remove_tunnel_session, shared_tunnel_runtime, TunnelSession, TunnelSessionState, SESSIONS,
 };
@@ -43,11 +43,12 @@ pub(crate) fn tunnel_create_entry(mut env: JNIEnv, config_json: JString) -> jlon
 
 pub(crate) fn tunnel_start_entry(mut env: JNIEnv, handle: jlong, tun_fd: jint) {
     android_support::init_android_logging("ripdpi-tunnel-native");
-    let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| start_session(&mut env, handle, tun_fd)))
-        .map_err(|_| {
+    let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| start_session(&mut env, handle, tun_fd))).map_err(
+        |_| {
             log::error!("Tunnel session start panicked");
             throw_runtime_exception(&mut env, sanitize_error_message("panic", "Tunnel session start failed"));
-        });
+        },
+    );
 }
 
 pub(crate) fn tunnel_stop_entry(mut env: JNIEnv, handle: jlong) {
@@ -72,10 +73,7 @@ pub(crate) fn tunnel_telemetry_entry(mut env: JNIEnv, handle: jlong) -> jni::sys
     std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| telemetry_session(&mut env, handle))).unwrap_or_else(
         |_| {
             log::error!("Tunnel telemetry retrieval panicked");
-            throw_runtime_exception(
-                &mut env,
-                sanitize_error_message("panic", "Tunnel telemetry retrieval failed"),
-            );
+            throw_runtime_exception(&mut env, sanitize_error_message("panic", "Tunnel telemetry retrieval failed"));
             std::ptr::null_mut()
         },
     )
@@ -83,12 +81,11 @@ pub(crate) fn tunnel_telemetry_entry(mut env: JNIEnv, handle: jlong) -> jni::sys
 
 pub(crate) fn tunnel_destroy_entry(mut env: JNIEnv, handle: jlong) {
     android_support::init_android_logging("ripdpi-tunnel-native");
-    let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| destroy_session(&mut env, handle))).map_err(
-        |_| {
+    let _ =
+        std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| destroy_session(&mut env, handle))).map_err(|_| {
             log::error!("Tunnel session destroy panicked");
             throw_runtime_exception(&mut env, sanitize_error_message("panic", "Tunnel session destroy failed"));
-        },
-    );
+        });
 }
 
 #[cfg(test)]
@@ -205,9 +202,7 @@ mod tests {
             config: Arc::new(config_from_payload(sample_payload()).expect("config")),
             last_error: Arc::new(Mutex::new(None)),
             telemetry: Arc::new(TunnelTelemetryState::new()),
-            state: Mutex::new(TunnelSessionState::Starting {
-                cancel: Arc::new(CancellationToken::new()),
-            }),
+            state: Mutex::new(TunnelSessionState::Starting { cancel: Arc::new(CancellationToken::new()) }),
         };
         session.telemetry.mark_started("127.0.0.1:1080".to_string());
 

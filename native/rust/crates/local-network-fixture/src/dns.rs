@@ -429,8 +429,9 @@ pub(crate) fn start_dns_doq_server(
             let bind_addr = resolve_bind_addr(&bind_host, port)?;
             let mut doq_tls = (*server_config).clone();
             doq_tls.alpn_protocols = vec![b"doq".to_vec()];
-            let mut quinn_server_config =
-                quinn::ServerConfig::with_crypto(Arc::new(QuicServerConfig::try_from(doq_tls).map_err(util::other_io)?));
+            let mut quinn_server_config = quinn::ServerConfig::with_crypto(Arc::new(
+                QuicServerConfig::try_from(doq_tls).map_err(util::other_io)?,
+            ));
             let transport_config = Arc::get_mut(&mut quinn_server_config.transport).expect("fixture transport config");
             transport_config.max_concurrent_uni_streams(0u8.into());
             let endpoint = quinn::Endpoint::server(quinn_server_config, bind_addr).map_err(util::other_io)?;
@@ -469,9 +470,8 @@ pub(crate) fn start_dns_doq_server(
         }
     });
 
-    let local_port = port_rx
-        .recv()
-        .map_err(|_| io::Error::new(ErrorKind::BrokenPipe, "fixture doq startup channel closed"))??;
+    let local_port =
+        port_rx.recv().map_err(|_| io::Error::new(ErrorKind::BrokenPipe, "fixture doq startup channel closed"))??;
     Ok((handle, local_port))
 }
 
@@ -556,15 +556,7 @@ where
                 | FixtureFaultOutcome::TlsAbort
         )
     }) {
-        events.record(event(
-            service,
-            protocol,
-            peer,
-            local,
-            &format!("fault:{:?}", fault.outcome),
-            query.len(),
-            sni,
-        ));
+        events.record(event(service, protocol, peer, local, &format!("fault:{:?}", fault.outcome), query.len(), sni));
         match fault.outcome {
             FixtureFaultOutcome::DnsTimeout => {
                 thread::sleep(Duration::from_millis(fault.delay_ms.unwrap_or(1_500)));
@@ -705,8 +697,8 @@ fn build_dnscrypt_server_state(
     provider_name: String,
     provider_public_key_hex: String,
 ) -> io::Result<DnsCryptServerState> {
-    let signing_key =
-        Ed25519KeyPair::from_seed_unchecked(&DNSCRYPT_PROVIDER_SEED).map_err(|err| io::Error::other(err.to_string()))?;
+    let signing_key = Ed25519KeyPair::from_seed_unchecked(&DNSCRYPT_PROVIDER_SEED)
+        .map_err(|err| io::Error::other(err.to_string()))?;
     let provider_public_bytes: [u8; 32] =
         signing_key.public_key().as_ref().try_into().map_err(|_| io::Error::other("dnscrypt public key size"))?;
     let derived_public_key_hex = hex::encode(provider_public_bytes);
@@ -741,11 +733,7 @@ fn build_dnscrypt_server_state(
     certificate_bytes.extend_from_slice(signature.as_ref());
     certificate_bytes.extend_from_slice(&inner);
 
-    Ok(DnsCryptServerState {
-        provider_name,
-        resolver_secret,
-        certificate_bytes,
-    })
+    Ok(DnsCryptServerState { provider_name, resolver_secret, certificate_bytes })
 }
 
 fn is_dnscrypt_certificate_query(packet: &[u8]) -> bool {
@@ -798,9 +786,8 @@ fn decrypt_dnscrypt_query(packet: &[u8], resolver_secret: &CryptoSecretKey) -> R
     nonce[..DNSCRYPT_QUERY_NONCE_HALF].copy_from_slice(&packet[40..52]);
 
     let crypto_box = ChaChaBox::new(&CryptoPublicKey::from(client_public), resolver_secret);
-    let plaintext = crypto_box
-        .decrypt((&nonce).into(), &packet[52..])
-        .map_err(|err| format!("dnscrypt_request_decrypt:{err}"))?;
+    let plaintext =
+        crypto_box.decrypt((&nonce).into(), &packet[52..]).map_err(|err| format!("dnscrypt_request_decrypt:{err}"))?;
     let query = dnscrypt_unpad(&plaintext)?;
     Ok(DecryptedDnsCryptQuery { query, client_public, nonce })
 }
@@ -826,7 +813,8 @@ fn encrypt_dnscrypt_response(
 }
 
 fn dnscrypt_pad(payload: &[u8]) -> Vec<u8> {
-    let mut padded = Vec::with_capacity((payload.len() + 1).div_ceil(DNSCRYPT_PADDING_BLOCK_SIZE) * DNSCRYPT_PADDING_BLOCK_SIZE);
+    let mut padded =
+        Vec::with_capacity((payload.len() + 1).div_ceil(DNSCRYPT_PADDING_BLOCK_SIZE) * DNSCRYPT_PADDING_BLOCK_SIZE);
     padded.extend_from_slice(payload);
     padded.push(0x80);
     while padded.len() % DNSCRYPT_PADDING_BLOCK_SIZE != 0 {
@@ -836,10 +824,8 @@ fn dnscrypt_pad(payload: &[u8]) -> Vec<u8> {
 }
 
 fn dnscrypt_unpad(payload: &[u8]) -> Result<Vec<u8>, String> {
-    let marker = payload
-        .iter()
-        .rposition(|byte| *byte != 0x00)
-        .ok_or_else(|| "dnscrypt_padding_marker_missing".to_string())?;
+    let marker =
+        payload.iter().rposition(|byte| *byte != 0x00).ok_or_else(|| "dnscrypt_padding_marker_missing".to_string())?;
     if payload[marker] != 0x80 {
         return Err("dnscrypt_padding_marker_invalid".to_string());
     }
@@ -847,10 +833,5 @@ fn dnscrypt_unpad(payload: &[u8]) -> Result<Vec<u8>, String> {
 }
 
 fn unix_time_secs() -> u32 {
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_secs()
-        .try_into()
-        .unwrap_or(u32::MAX)
+    SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_secs().try_into().unwrap_or(u32::MAX)
 }
