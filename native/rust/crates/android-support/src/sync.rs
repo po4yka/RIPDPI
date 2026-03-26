@@ -4,9 +4,9 @@
 // 64-bit, so it is a safe stand-in for AtomicU64.
 
 #[cfg(feature = "loom")]
-pub(crate) use loom::sync::{Arc, Mutex};
+pub(crate) use loom::sync::Mutex;
 #[cfg(not(feature = "loom"))]
-pub(crate) use std::sync::{Arc, Mutex};
+pub(crate) use std::sync::Mutex;
 
 #[cfg(feature = "loom")]
 pub(crate) use loom::sync::atomic::Ordering;

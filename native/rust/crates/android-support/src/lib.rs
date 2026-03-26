@@ -1,6 +1,8 @@
 mod sync;
 
-use crate::sync::{fetch_add_u64, Arc, AtomicU64, Mutex, Ordering};
+use std::sync::Arc;
+
+use crate::sync::{fetch_add_u64, AtomicU64, Mutex, Ordering};
 use std::collections::HashMap;
 use std::sync::PoisonError;
 
