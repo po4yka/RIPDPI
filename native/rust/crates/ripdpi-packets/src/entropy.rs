@@ -395,4 +395,187 @@ mod tests {
         // Empty is not suspicious
         assert!(!is_shannon_suspicious(&[], 7.96));
     }
+
+    // ---------------------------------------------------------------
+    // shannon_entropy_combined
+    // ---------------------------------------------------------------
+
+    #[test]
+    fn shannon_entropy_combined_matches_concatenated() {
+        let a: Vec<u8> = (0..128).collect();
+        let b: Vec<u8> = (128..=255).collect();
+        let mut concat = a.clone();
+        concat.extend_from_slice(&b);
+
+        let combined = shannon_entropy_combined(&a, &b);
+        let direct = shannon_entropy(&concat);
+        assert!(
+            (combined - direct).abs() < 0.001,
+            "combined {combined} vs direct {direct}"
+        );
+    }
+
+    #[test]
+    fn shannon_entropy_combined_empty_slices() {
+        assert_eq!(shannon_entropy_combined(&[], &[]), 0.0);
+        let data = [0x42; 10];
+        // One empty, one non-empty: should equal single-slice entropy
+        let single = shannon_entropy(&data);
+        assert!((shannon_entropy_combined(&data, &[]) - single).abs() < f32::EPSILON);
+        assert!((shannon_entropy_combined(&[], &data) - single).abs() < f32::EPSILON);
+    }
+
+    // ---------------------------------------------------------------
+    // build_structured_padding
+    // ---------------------------------------------------------------
+
+    #[test]
+    fn build_structured_padding_exact_pattern_length() {
+        let pad = build_structured_padding(5);
+        assert_eq!(pad, TLS_HEADER_PATTERN.to_vec());
+    }
+
+    #[test]
+    fn build_structured_padding_partial_pattern() {
+        let pad = build_structured_padding(3);
+        assert_eq!(pad, &TLS_HEADER_PATTERN[..3]);
+    }
+
+    #[test]
+    fn build_structured_padding_repeats_pattern() {
+        let pad = build_structured_padding(12);
+        assert_eq!(pad.len(), 12);
+        // First 5 bytes = pattern, next 5 = pattern, last 2 = partial
+        assert_eq!(&pad[0..5], &TLS_HEADER_PATTERN);
+        assert_eq!(&pad[5..10], &TLS_HEADER_PATTERN);
+        assert_eq!(&pad[10..12], &TLS_HEADER_PATTERN[..2]);
+    }
+
+    #[test]
+    fn build_structured_padding_zero_length() {
+        assert!(build_structured_padding(0).is_empty());
+    }
+
+    #[test]
+    fn build_structured_padding_has_low_entropy() {
+        // TLS header pattern repeated should have low Shannon entropy
+        let pad = build_structured_padding(100);
+        let e = shannon_entropy(&pad);
+        assert!(e < 3.0, "structured padding entropy should be low, got {e}");
+    }
+
+    // ---------------------------------------------------------------
+    // shannon_entropy edge cases
+    // ---------------------------------------------------------------
+
+    #[test]
+    fn shannon_entropy_single_byte() {
+        // Single byte: only one symbol, entropy = 0
+        assert_eq!(shannon_entropy(&[0xFF]), 0.0);
+    }
+
+    #[test]
+    fn shannon_entropy_two_distinct_values() {
+        // Equal mix of two values: entropy = 1.0 (log2(2))
+        let data: Vec<u8> = (0..1000).map(|i| if i % 2 == 0 { 0 } else { 1 }).collect();
+        let e = shannon_entropy(&data);
+        assert!((e - 1.0).abs() < 0.01, "expected ~1.0, got {e}");
+    }
+
+    #[test]
+    fn shannon_entropy_monotonically_increases_with_diversity() {
+        let e1 = shannon_entropy(&[0; 100]); // 1 symbol
+        let e2 = shannon_entropy(&{
+            let mut v = vec![0u8; 50];
+            v.extend_from_slice(&[1u8; 50]);
+            v
+        }); // 2 symbols
+        let e4: f32 = {
+            let v: Vec<u8> = (0..100).map(|i| (i % 4) as u8).collect();
+            shannon_entropy(&v)
+        }; // 4 symbols
+        assert!(e1 < e2, "1 symbol ({e1}) should be less than 2 symbols ({e2})");
+        assert!(e2 < e4, "2 symbols ({e2}) should be less than 4 symbols ({e4})");
+    }
+
+    // ---------------------------------------------------------------
+    // generate_shannon_padding edge cases
+    // ---------------------------------------------------------------
+
+    #[test]
+    fn shannon_padding_max_pad_zero() {
+        let payload: Vec<u8> = (0..256).map(|i| i as u8).collect();
+        assert!(generate_shannon_padding(&payload, 7.0, 0).is_empty());
+    }
+
+    #[test]
+    fn shannon_padding_target_equals_current() {
+        let payload: Vec<u8> = (0..256).map(|i| i as u8).collect();
+        let current = shannon_entropy(&payload);
+        // Target exactly at current: should be no-op (not <= but already met)
+        assert!(generate_shannon_padding(&payload, current, 512).is_empty());
+    }
+
+    #[test]
+    fn shannon_padding_max_pad_one() {
+        // With max_pad=1, binary search has lo=hi=1
+        let payload: Vec<u8> = (0..4096).map(|i| (i % 256) as u8).collect();
+        let padding = generate_shannon_padding(&payload, 7.92, 1);
+        assert!(padding.len() <= 1);
+    }
+
+    #[test]
+    fn shannon_padding_small_payload() {
+        // Very small high-entropy payload: just 16 bytes cycling through 16 values
+        let payload: Vec<u8> = (0..16).collect();
+        let padding = generate_shannon_padding(&payload, 3.5, 256);
+        if !padding.is_empty() {
+            let combined = shannon_entropy_combined(&payload, &padding);
+            assert!(combined <= 3.5, "expected <= 3.5, got {combined}");
+        }
+    }
+
+    #[test]
+    fn shannon_padding_realistic_tls_payload() {
+        // Simulate realistic TLS: structured 5-byte header + encrypted body
+        let mut payload = vec![0x17, 0x03, 0x03, 0x05, 0xDC]; // TLS app data header
+        // Body: pseudo-random encrypted content
+        for i in 0..1500 {
+            payload.push(((i * 7 + 13) % 256) as u8);
+        }
+        let original = shannon_entropy(&payload);
+        assert!(original > 7.5, "precondition: TLS-like high entropy, got {original}");
+
+        let padding = generate_shannon_padding(&payload, 7.92, 512);
+        if !padding.is_empty() {
+            let combined = shannon_entropy_combined(&payload, &padding);
+            assert!(combined <= 7.92, "expected <= 7.92, got {combined}");
+        }
+    }
+
+    // ---------------------------------------------------------------
+    // generate_combined_padding edge cases
+    // ---------------------------------------------------------------
+
+    #[test]
+    fn combined_padding_empty_payload() {
+        assert!(generate_combined_padding(&[], 3.4, 7.92, 512).is_empty());
+    }
+
+    #[test]
+    fn combined_padding_both_already_satisfied() {
+        // Low popcount (exempt) and low Shannon: both satisfied
+        let payload = vec![0x00; 100]; // popcount 0.0, entropy 0.0
+        assert!(generate_combined_padding(&payload, POPCOUNT_EXEMPT_LOW, 7.92, 512).is_empty());
+    }
+
+    #[test]
+    fn combined_padding_picks_longer_of_two() {
+        // Payload needs popcount padding but not Shannon padding
+        let payload = vec![0xAA; 200]; // popcount 4.0 (needs padding), entropy 0.0 (fine)
+        let popcount_only = generate_entropy_padding(&payload, POPCOUNT_EXEMPT_LOW, 512);
+        let shannon_only = generate_shannon_padding(&payload, 7.92, 512);
+        let combined = generate_combined_padding(&payload, POPCOUNT_EXEMPT_LOW, 7.92, 512);
+        assert_eq!(combined.len(), popcount_only.len().max(shannon_only.len()));
+    }
 }

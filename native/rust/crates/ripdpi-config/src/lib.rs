@@ -424,6 +424,9 @@ mod tests {
             wait_send: true,
             await_interval: 15,
             connect_timeout_ms: 10_000,
+            freeze_window_ms: 5_000,
+            freeze_min_bytes: 512,
+            freeze_max_stalls: 0,
         };
         let process = RuntimeProcessSettings {
             debug: 3,
@@ -686,6 +689,97 @@ mod tests {
         match result {
             ParseResult::Run(config) => {
                 assert_eq!(config.groups[0].actions.entropy_mode, EntropyMode::Combined);
+            }
+            _ => panic!("expected Run"),
+        }
+    }
+
+    #[test]
+    fn cli_parses_entropy_mode_auto_as_combined() {
+        let args: Vec<String> = vec!["--entropy-mode", "auto"].iter().map(|s| s.to_string()).collect();
+        let startup = StartupEnv::default();
+        let result = parse_cli(&args, &startup).expect("parse");
+        match result {
+            ParseResult::Run(config) => {
+                assert_eq!(config.groups[0].actions.entropy_mode, EntropyMode::Combined);
+            }
+            _ => panic!("expected Run"),
+        }
+    }
+
+    #[test]
+    fn cli_parses_entropy_mode_popcount() {
+        let args: Vec<String> = vec!["--entropy-mode", "popcount"].iter().map(|s| s.to_string()).collect();
+        let startup = StartupEnv::default();
+        let result = parse_cli(&args, &startup).expect("parse");
+        match result {
+            ParseResult::Run(config) => {
+                assert_eq!(config.groups[0].actions.entropy_mode, EntropyMode::Popcount);
+            }
+            _ => panic!("expected Run"),
+        }
+    }
+
+    #[test]
+    fn cli_rejects_invalid_entropy_mode() {
+        let args: Vec<String> = vec!["--entropy-mode", "invalid"].iter().map(|s| s.to_string()).collect();
+        let startup = StartupEnv::default();
+        assert!(parse_cli(&args, &startup).is_err());
+    }
+
+    #[test]
+    fn cli_rejects_shannon_target_out_of_range() {
+        // Above 8.0
+        let args: Vec<String> = vec!["--shannon-target", "9.0"].iter().map(|s| s.to_string()).collect();
+        let startup = StartupEnv::default();
+        assert!(parse_cli(&args, &startup).is_err());
+
+        // Negative
+        let args: Vec<String> = vec!["--shannon-target", "-1.0"].iter().map(|s| s.to_string()).collect();
+        assert!(parse_cli(&args, &startup).is_err());
+    }
+
+    #[test]
+    fn cli_accepts_shannon_target_boundary_values() {
+        // 0.0 is valid (extreme but allowed)
+        let args: Vec<String> = vec!["--shannon-target", "0.0"].iter().map(|s| s.to_string()).collect();
+        let startup = StartupEnv::default();
+        let result = parse_cli(&args, &startup).expect("parse");
+        match result {
+            ParseResult::Run(config) => {
+                assert_eq!(config.groups[0].actions.shannon_entropy_target_permil, Some(0));
+            }
+            _ => panic!("expected Run"),
+        }
+
+        // 8.0 is valid
+        let args: Vec<String> = vec!["--shannon-target", "8.0"].iter().map(|s| s.to_string()).collect();
+        let result = parse_cli(&args, &startup).expect("parse");
+        match result {
+            ParseResult::Run(config) => {
+                assert_eq!(config.groups[0].actions.shannon_entropy_target_permil, Some(8000));
+            }
+            _ => panic!("expected Run"),
+        }
+    }
+
+    #[test]
+    fn cli_rejects_non_numeric_shannon_target() {
+        let args: Vec<String> = vec!["--shannon-target", "abc"].iter().map(|s| s.to_string()).collect();
+        let startup = StartupEnv::default();
+        assert!(parse_cli(&args, &startup).is_err());
+    }
+
+    #[test]
+    fn cli_entropy_mode_default_is_disabled() {
+        // No entropy flags: mode should remain Disabled
+        let args: Vec<String> = vec!["-p", "1080"].iter().map(|s| s.to_string()).collect();
+        let startup = StartupEnv::default();
+        let result = parse_cli(&args, &startup).expect("parse");
+        match result {
+            ParseResult::Run(config) => {
+                assert_eq!(config.groups[0].actions.entropy_mode, EntropyMode::Disabled);
+                assert_eq!(config.groups[0].actions.shannon_entropy_target_permil, None);
             }
             _ => panic!("expected Run"),
         }
