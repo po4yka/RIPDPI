@@ -336,19 +336,23 @@ mod tests {
         d.window_start = start;
         d.record_bytes(1024);
 
-        // First stall
-        d.record_bytes(10);
-        d.check(start + Duration::from_millis(100));
-        assert_eq!(d.consecutive_stalls, 1);
+        // Warm-up window passes with good throughput
+        assert!(!d.check(start + Duration::from_millis(100)));
+        assert_eq!(d.consecutive_stalls, 0);
 
-        // Second stall
+        // First stall window: only 10 bytes
         d.record_bytes(10);
         d.check(start + Duration::from_millis(200));
+        assert_eq!(d.consecutive_stalls, 1);
+
+        // Second stall window
+        d.record_bytes(10);
+        d.check(start + Duration::from_millis(300));
         assert_eq!(d.consecutive_stalls, 2);
 
         // Good window -- resets counter
         d.record_bytes(600);
-        assert!(!d.check(start + Duration::from_millis(300)));
+        assert!(!d.check(start + Duration::from_millis(400)));
         assert_eq!(d.consecutive_stalls, 0);
     }
 
