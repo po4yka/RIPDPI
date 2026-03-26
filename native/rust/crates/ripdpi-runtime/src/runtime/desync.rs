@@ -1,9 +1,11 @@
+use std::borrow::Cow;
 use std::io::{self, Write};
 use std::net::{SocketAddr, TcpStream};
 use std::time::Duration;
 
 use crate::platform;
-use ripdpi_config::{DesyncGroup, RuntimeConfig, TcpChainStepKind};
+use ripdpi_config::{DesyncGroup, EntropyMode, RuntimeConfig, TcpChainStepKind};
+use ripdpi_packets::entropy;
 use ripdpi_desync::{
     activation_filter_matches, build_fake_packet, build_fake_region_bytes, build_hostfake_bytes, plan_tcp,
     resolve_hostfake_span, ActivationContext, ActivationTransport, AdaptivePlannerHints, DesyncAction, DesyncPlan,
@@ -58,6 +60,57 @@ pub(super) fn activation_context_from_progress(
     }
 }
 
+/// Prepend entropy-aware padding to the payload if the group's entropy
+/// mode is enabled. An adaptive override (from strategy evolution) takes
+/// precedence over the group's configured mode. Returns `Cow::Borrowed`
+/// (zero allocation) when no padding is needed.
+fn apply_entropy_padding<'a>(
+    group: &DesyncGroup,
+    payload: &'a [u8],
+    adaptive_override: Option<EntropyMode>,
+) -> Cow<'a, [u8]> {
+    let actions = &group.actions;
+    let max_pad = actions.entropy_padding_max as usize;
+    let mode = adaptive_override.unwrap_or(actions.entropy_mode);
+
+    let padding = match mode {
+        EntropyMode::Disabled => return Cow::Borrowed(payload),
+        EntropyMode::Popcount => {
+            let target = match actions.entropy_padding_target_permil {
+                Some(permil) => permil as f32 / 1000.0,
+                None => entropy::POPCOUNT_EXEMPT_LOW,
+            };
+            entropy::generate_entropy_padding(payload, target, max_pad)
+        }
+        EntropyMode::Shannon => {
+            let target = match actions.shannon_entropy_target_permil {
+                Some(permil) => permil as f32 / 1000.0,
+                None => 7.92,
+            };
+            entropy::generate_shannon_padding(payload, target, max_pad)
+        }
+        EntropyMode::Combined => {
+            let pc_target = match actions.entropy_padding_target_permil {
+                Some(permil) => permil as f32 / 1000.0,
+                None => entropy::POPCOUNT_EXEMPT_LOW,
+            };
+            let sh_target = match actions.shannon_entropy_target_permil {
+                Some(permil) => permil as f32 / 1000.0,
+                None => 7.92,
+            };
+            entropy::generate_combined_padding(payload, pc_target, sh_target, max_pad)
+        }
+    };
+
+    if padding.is_empty() {
+        Cow::Borrowed(payload)
+    } else {
+        let mut padded = padding;
+        padded.extend_from_slice(payload);
+        Cow::Owned(padded)
+    }
+}
+
 pub(super) fn send_with_group(
     writer: &mut TcpStream,
     state: &RuntimeState,
@@ -77,9 +130,10 @@ pub(super) fn send_with_group(
         resolved_fake_ttl,
         adaptive_hints,
     );
+    let effective_payload = apply_entropy_padding(group, payload, adaptive_hints.entropy_mode);
     if should_desync_tcp(group, context) {
         let seed = DESYNC_SEED_BASE + progress.round.saturating_sub(1);
-        match plan_tcp(group, payload, seed, state.config.network.default_ttl, context) {
+        match plan_tcp(group, &effective_payload, seed, state.config.network.default_ttl, context) {
             Ok(plan) if requires_special_tcp_execution(group) => {
                 execute_tcp_plan(writer, &state.config, group, &plan, seed, resolved_fake_ttl)?;
             }
@@ -90,10 +144,10 @@ pub(super) fn send_with_group(
                 state.config.timeouts.wait_send,
                 Duration::from_millis(state.config.timeouts.await_interval.max(1) as u64),
             )?,
-            Err(_) => writer.write_all(payload)?,
+            Err(_) => writer.write_all(&effective_payload)?,
         }
     } else {
-        writer.write_all(payload)?;
+        writer.write_all(&effective_payload)?;
     }
     Ok(())
 }

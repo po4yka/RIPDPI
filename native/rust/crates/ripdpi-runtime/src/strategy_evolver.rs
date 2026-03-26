@@ -8,7 +8,7 @@ use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use ripdpi_config::{OffsetBase, QuicFakeProfile};
+use ripdpi_config::{EntropyMode, OffsetBase, QuicFakeProfile};
 use ripdpi_desync::{AdaptivePlannerHints, AdaptiveTlsRandRecProfile, AdaptiveUdpBurstProfile};
 use ripdpi_failure_classifier::FailureClass;
 
@@ -72,6 +72,15 @@ fn udp_burst_disc(u: &AdaptiveUdpBurstProfile) -> u8 {
     }
 }
 
+fn entropy_mode_disc(e: &EntropyMode) -> u8 {
+    match e {
+        EntropyMode::Disabled => 0,
+        EntropyMode::Popcount => 1,
+        EntropyMode::Shannon => 2,
+        EntropyMode::Combined => 3,
+    }
+}
+
 fn hash_option_disc<H: Hasher>(h: &mut H, tag: u8, disc: Option<u8>) {
     h.write_u8(tag);
     match disc {
@@ -97,6 +106,7 @@ pub struct StrategyCombo {
     pub udp_burst_profile: Option<AdaptiveUdpBurstProfile>,
     pub quic_fake_profile: Option<QuicFakeProfile>,
     pub fake_ttl: Option<u8>,
+    pub entropy_mode: Option<EntropyMode>,
 }
 
 impl Hash for StrategyCombo {
@@ -107,6 +117,7 @@ impl Hash for StrategyCombo {
         hash_option_disc(state, 3, self.udp_burst_profile.as_ref().map(udp_burst_disc));
         hash_option_disc(state, 4, self.quic_fake_profile.as_ref().map(quic_fake_disc));
         hash_option_disc(state, 5, self.fake_ttl);
+        hash_option_disc(state, 6, self.entropy_mode.as_ref().map(entropy_mode_disc));
     }
 }
 
@@ -119,6 +130,7 @@ impl StrategyCombo {
             udp_burst_profile: None,
             quic_fake_profile: None,
             fake_ttl: None,
+            entropy_mode: None,
         }
     }
 
@@ -129,6 +141,7 @@ impl StrategyCombo {
             tlsrandrec_profile: self.tlsrandrec_profile,
             udp_burst_profile: self.udp_burst_profile,
             quic_fake_profile: self.quic_fake_profile,
+            entropy_mode: self.entropy_mode,
         }
     }
 }
@@ -172,30 +185,35 @@ impl ComboStats {
 // Combo pool (fixed set of common combinations)
 // ---------------------------------------------------------------------------
 
-/// Pre-defined pool of combos to explore. Each entry is a `(split_offset, fake_ttl)` pair;
-/// all other dimensions are left at None (planner defaults).
-const COMBO_POOL: &[(Option<OffsetBase>, Option<u8>)] = &[
+/// Pre-defined pool of combos to explore. Each entry is
+/// `(split_offset, fake_ttl, entropy_mode)`; all other dimensions are left
+/// at None (planner defaults).
+const COMBO_POOL: &[(Option<OffsetBase>, Option<u8>, Option<EntropyMode>)] = &[
     // Default (all None)
-    (None, None),
+    (None, None, None),
     // AutoHost offset variants
-    (Some(OffsetBase::AutoHost), None),
-    (Some(OffsetBase::AutoHost), Some(6)),
-    (Some(OffsetBase::AutoHost), Some(8)),
-    (Some(OffsetBase::AutoHost), Some(10)),
+    (Some(OffsetBase::AutoHost), None, None),
+    (Some(OffsetBase::AutoHost), Some(6), None),
+    (Some(OffsetBase::AutoHost), Some(8), None),
+    (Some(OffsetBase::AutoHost), Some(10), None),
     // MidSld offset variants
-    (Some(OffsetBase::MidSld), None),
-    (Some(OffsetBase::MidSld), Some(6)),
-    (Some(OffsetBase::MidSld), Some(8)),
-    (Some(OffsetBase::MidSld), Some(10)),
+    (Some(OffsetBase::MidSld), None, None),
+    (Some(OffsetBase::MidSld), Some(6), None),
+    (Some(OffsetBase::MidSld), Some(8), None),
+    (Some(OffsetBase::MidSld), Some(10), None),
     // EndHost offset variants
-    (Some(OffsetBase::EndHost), None),
-    (Some(OffsetBase::EndHost), Some(6)),
-    (Some(OffsetBase::EndHost), Some(8)),
-    (Some(OffsetBase::EndHost), Some(10)),
+    (Some(OffsetBase::EndHost), None, None),
+    (Some(OffsetBase::EndHost), Some(6), None),
+    (Some(OffsetBase::EndHost), Some(8), None),
+    (Some(OffsetBase::EndHost), Some(10), None),
+    // Shannon entropy padding variants
+    (Some(OffsetBase::AutoHost), Some(8), Some(EntropyMode::Shannon)),
+    (Some(OffsetBase::MidSld), Some(8), Some(EntropyMode::Shannon)),
+    (Some(OffsetBase::AutoHost), Some(8), Some(EntropyMode::Combined)),
 ];
 
 fn combo_from_pool(index: usize) -> StrategyCombo {
-    let (offset, ttl) = COMBO_POOL[index % COMBO_POOL.len()];
+    let (offset, ttl, entropy) = COMBO_POOL[index % COMBO_POOL.len()];
     StrategyCombo {
         split_offset_base: offset,
         tls_record_offset_base: None,
@@ -203,6 +221,7 @@ fn combo_from_pool(index: usize) -> StrategyCombo {
         udp_burst_profile: None,
         quic_fake_profile: None,
         fake_ttl: ttl,
+        entropy_mode: entropy,
     }
 }
 
@@ -240,11 +259,14 @@ impl StrategyEvolver {
 
         // If we already have an outstanding experiment, return its hints.
         if let Some(ref combo) = self.current_experiment {
-            return Some(combo.to_hints());
+            let hints = combo.to_hints();
+            tracing::debug!(combo = ?combo, hints = ?hints, "strategy evolution reused pending combo");
+            return Some(hints);
         }
 
         let combo = self.select_next_combo();
         let hints = combo.to_hints();
+        tracing::debug!(combo = ?combo, hints = ?hints, "strategy evolution selected combo");
         self.current_experiment = Some(combo);
         Some(hints)
     }
@@ -255,6 +277,7 @@ impl StrategyEvolver {
             Some(c) => c,
             None => return,
         };
+        tracing::debug!(combo = ?combo, latency_ms, "strategy evolution recorded success");
         self.evict_if_needed(&combo);
         let stats = self.combos.entry(combo).or_insert_with(ComboStats::new);
         stats.attempts += 1;
@@ -270,6 +293,7 @@ impl StrategyEvolver {
             Some(c) => c,
             None => return,
         };
+        tracing::debug!(combo = ?combo, class = class.as_str(), "strategy evolution recorded failure");
         self.evict_if_needed(&combo);
         let stats = self.combos.entry(combo).or_insert_with(ComboStats::new);
         stats.attempts += 1;
@@ -719,6 +743,7 @@ mod tests {
             udp_burst_profile: Some(AdaptiveUdpBurstProfile::Conservative),
             quic_fake_profile: Some(QuicFakeProfile::RealisticInitial),
             fake_ttl: Some(8),
+            entropy_mode: Some(EntropyMode::Shannon),
         };
         let hints = combo.to_hints();
         assert_eq!(hints.split_offset_base, Some(OffsetBase::AutoHost));
@@ -726,5 +751,6 @@ mod tests {
         assert_eq!(hints.tlsrandrec_profile, Some(AdaptiveTlsRandRecProfile::Tight));
         assert_eq!(hints.udp_burst_profile, Some(AdaptiveUdpBurstProfile::Conservative));
         assert_eq!(hints.quic_fake_profile, Some(QuicFakeProfile::RealisticInitial));
+        assert_eq!(hints.entropy_mode, Some(EntropyMode::Shannon));
     }
 }

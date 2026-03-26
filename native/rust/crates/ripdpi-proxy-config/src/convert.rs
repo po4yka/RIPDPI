@@ -4,8 +4,8 @@ use std::{fmt, mem};
 
 use ripdpi_config::{
     parse_http_fake_profile as parse_http_fake_profile_id, parse_tls_fake_profile as parse_tls_fake_profile_id,
-    parse_udp_fake_profile as parse_udp_fake_profile_id, ActivationFilter, DesyncGroup, DesyncMode, NumericRange,
-    OffsetBase, OffsetExpr, QuicFakeProfile, QuicInitialMode, RuntimeConfig, StartupEnv, TcpChainStep,
+    parse_udp_fake_profile as parse_udp_fake_profile_id, ActivationFilter, DesyncGroup, DesyncMode, EntropyMode,
+    NumericRange, OffsetBase, OffsetExpr, QuicFakeProfile, QuicInitialMode, RuntimeConfig, StartupEnv, TcpChainStep,
     TcpChainStepKind, UdpChainStep, UdpChainStepKind, DETECT_CONNECT, FM_DUPSID, FM_ORIG, FM_PADENCAP, FM_RAND,
     FM_RNDSNI,
 };
@@ -523,6 +523,27 @@ pub fn runtime_config_from_ui(payload: ProxyUiConfig) -> Result<RuntimeConfig, P
     group.actions.quic_migrate_after_handshake = fake_packets.quic_migrate_after_handshake;
     if let Some(v) = fake_packets.quic_fake_version {
         group.actions.quic_fake_version = v;
+    }
+    group.actions.entropy_mode = match fake_packets.entropy_mode.as_str() {
+        "popcount" => EntropyMode::Popcount,
+        "shannon" => EntropyMode::Shannon,
+        "combined" => EntropyMode::Combined,
+        _ => EntropyMode::Disabled,
+    };
+    if let Some(v) = fake_packets.entropy_padding_target_permil {
+        if v > 0 {
+            group.actions.entropy_padding_target_permil = Some(v);
+        }
+    }
+    if let Some(v) = fake_packets.entropy_padding_max {
+        if v > 0 {
+            group.actions.entropy_padding_max = v;
+        }
+    }
+    if let Some(v) = fake_packets.shannon_entropy_target_permil {
+        if v > 0 {
+            group.actions.shannon_entropy_target_permil = Some(v);
+        }
     }
     group.matches.proto = (u32::from(protocols.desync_http) * IS_HTTP)
         | (u32::from(protocols.desync_https) * IS_HTTPS)

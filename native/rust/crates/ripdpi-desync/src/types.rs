@@ -1,4 +1,4 @@
-use ripdpi_config::{ActivationFilter, NumericRange, OffsetBase, QuicFakeProfile, TcpChainStepKind};
+use ripdpi_config::{ActivationFilter, EntropyMode, NumericRange, OffsetBase, QuicFakeProfile, TcpChainStepKind};
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct ProtoInfo {
@@ -58,6 +58,7 @@ pub struct AdaptivePlannerHints {
     pub tlsrandrec_profile: Option<AdaptiveTlsRandRecProfile>,
     pub udp_burst_profile: Option<AdaptiveUdpBurstProfile>,
     pub quic_fake_profile: Option<QuicFakeProfile>,
+    pub entropy_mode: Option<EntropyMode>,
 }
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
