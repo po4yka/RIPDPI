@@ -1,6 +1,15 @@
 *.iml
 .DS_Store
 
+# Signing keys and secrets
+*.keystore
+*.jks
+*.pem
+*.key
+*.p12
+.env
+*.env.*
+
 # IDE state
 .idea/
 
