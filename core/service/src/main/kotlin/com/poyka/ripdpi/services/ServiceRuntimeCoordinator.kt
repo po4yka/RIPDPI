@@ -222,8 +222,6 @@ internal abstract class BaseServiceRuntimeCoordinator<TSession>(
         if (!canHandle) {
             return
         }
-        session as TSession
-        currentFingerprint as NetworkFingerprint
         val fingerprintHash = currentFingerprint.scopeKey()
         val now = clock.nowMillis()
         val isCoolingDown =

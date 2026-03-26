@@ -61,6 +61,7 @@ private val WifiStandardLabels =
         7 to "802.11ad",
         8 to "802.11be",
     )
+@Suppress("DEPRECATION")
 private val MobileNetworkTypeLabels =
     mapOf(
         TelephonyManager.NETWORK_TYPE_GPRS to "GPRS",
@@ -205,6 +206,7 @@ class NetworkSnapshotFactory
                 else -> null
             } ?: currentWifiManagerConnectionInfo()
 
+        @Suppress("DEPRECATION")
         @android.annotation.SuppressLint("MissingPermission")
         private fun currentWifiManagerConnectionInfo(): WifiInfo? {
             if (!hasWifiStatePermission()) {
