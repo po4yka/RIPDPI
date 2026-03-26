@@ -31,6 +31,7 @@ struct UdpFlowActivationState {
     payload: Vec<u8>,
     awaiting_response: bool,
     upstream: UdpSocket,
+    quic_migrated: bool,
 }
 
 pub(super) fn build_udp_relay_sockets(ip: IpAddr, _protect_path: Option<&str>) -> io::Result<UdpRelaySockets> {
@@ -142,6 +143,7 @@ pub(super) fn udp_associate_loop(
                                 payload: payload.to_vec(),
                                 awaiting_response: true,
                                 upstream: build_udp_upstream_socket(target, protect_path.as_deref())?,
+                                quic_migrated: false,
                             });
                         }
                         let entry = flow_state
@@ -204,6 +206,24 @@ pub(super) fn udp_associate_loop(
                             TransportProtocol::Udp,
                         )?;
                         entry.awaiting_response = false;
+                    }
+                    // QUIC connection migration: on first short-header (post-handshake)
+                    // response, rebind to a new source port so DPI loses flow tracking.
+                    if !entry.quic_migrated
+                        && n > 0
+                        && (upstream_buffer[0] & 0x80) == 0
+                        && entry.session.round_count >= 2
+                        && should_migrate_quic_flow(&state.config, &entry.route)
+                    {
+                        if let Ok(new_socket) = build_udp_upstream_socket(sender, protect_path.as_deref()) {
+                            entry.upstream = new_socket;
+                            entry.quic_migrated = true;
+                            tracing::info!(
+                                target = %sender,
+                                round = entry.session.round_count,
+                                "QUIC connection migrated to new source port"
+                            );
+                        }
                     }
                     let packet = encode_socks5_udp_packet(sender, &upstream_buffer[..n]);
                     client_relay.send_to(&packet, client_addr)?;
@@ -375,6 +395,10 @@ fn set_udp_ttl(relay: &UdpSocket, target: SocketAddr, ttl: u8) -> io::Result<()>
         SocketAddr::V4(_) => relay.set_ttl(ttl as u32),
         SocketAddr::V6(_) => Ok(()),
     }
+}
+
+fn should_migrate_quic_flow(config: &RuntimeConfig, route: &ConnectionRoute) -> bool {
+    config.groups.get(route.group_index).map_or(false, |group| group.actions.quic_migrate_after_handshake)
 }
 
 fn should_cache_udp_host(config: &RuntimeConfig, host: Option<&crate::runtime_policy::ExtractedHost>) -> bool {
