@@ -244,10 +244,6 @@ pub fn attach_strip_timestamps(stream: &TcpStream) -> io::Result<()> {
     unsafe { setsockopt_raw(fd, libc::SOL_SOCKET, libc::SO_ATTACH_FILTER, &prog) }
 }
 
-pub fn detach_strip_timestamps(stream: &TcpStream) -> io::Result<()> {
-    unsafe { setsockopt_raw(stream.as_raw_fd(), libc::SOL_SOCKET, libc::SO_DETACH_FILTER, &0i32) }
-}
-
 /// Clamp the TCP receive window to force the server to send small segments.
 ///
 /// Setting `size` to a low value (e.g., 1 or 2) causes the kernel to advertise
