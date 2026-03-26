@@ -35,7 +35,6 @@ import com.poyka.ripdpi.ui.navigation.Route
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
-import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
 enum class BiometricPromptStage {
     Biometric,

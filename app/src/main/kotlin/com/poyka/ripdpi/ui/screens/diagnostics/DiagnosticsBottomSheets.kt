@@ -8,16 +8,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.DiagnosticsApproachDetailUiModel
-import com.poyka.ripdpi.activities.DiagnosticsContextGroupUiModel
 import com.poyka.ripdpi.activities.DiagnosticsDiagnosisUiModel
 import com.poyka.ripdpi.activities.DiagnosticsEventUiModel
-import com.poyka.ripdpi.activities.DiagnosticsNetworkSnapshotUiModel
-import com.poyka.ripdpi.activities.DiagnosticsProbeGroupUiModel
 import com.poyka.ripdpi.activities.DiagnosticsProbeResultUiModel
 import com.poyka.ripdpi.activities.DiagnosticsSessionDetailUiModel
-import com.poyka.ripdpi.activities.DiagnosticsSessionRowUiModel
 import com.poyka.ripdpi.activities.DiagnosticsStrategyProbeCandidateDetailUiModel
-import com.poyka.ripdpi.activities.DiagnosticsStrategyProbeReportUiModel
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard

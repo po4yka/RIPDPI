@@ -36,7 +36,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.poyka.ripdpi.BuildConfig
@@ -49,7 +48,6 @@ import com.poyka.ripdpi.activities.DiagnosticsOverviewUiModel
 import com.poyka.ripdpi.activities.DiagnosticsPerformanceUiModel
 import com.poyka.ripdpi.activities.DiagnosticsProbeResultUiModel
 import com.poyka.ripdpi.activities.DiagnosticsRememberedNetworkUiModel
-import com.poyka.ripdpi.activities.DiagnosticsScanUiModel
 import com.poyka.ripdpi.activities.DiagnosticsSection
 import com.poyka.ripdpi.activities.DiagnosticsShareUiModel
 import com.poyka.ripdpi.activities.DiagnosticsStrategyProbeCandidateDetailUiModel

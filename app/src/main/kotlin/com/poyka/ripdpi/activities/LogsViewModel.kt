@@ -65,146 +65,146 @@ internal fun classifyLogType(message: String): LogType {
 
 @HiltViewModel
 class LogsViewModel
-    @Inject
-    constructor(
-        private val serviceStateStore: ServiceStateStore,
-        private val stringResolver: StringResolver,
-    ) : ViewModel() {
-        private val logBuffer = MutableStateFlow<List<LogEntry>>(emptyList())
-        private val activeFilters = MutableStateFlow(LogType.entries.toSet())
-        private val autoScrollEnabled = MutableStateFlow(true)
+@Inject
+constructor(
+    private val serviceStateStore: ServiceStateStore,
+    private val stringResolver: StringResolver,
+) : ViewModel() {
+    private val logBuffer = MutableStateFlow<List<LogEntry>>(emptyList())
+    private val activeFilters = MutableStateFlow(LogType.entries.toSet())
+    private val autoScrollEnabled = MutableStateFlow(true)
 
-        val uiState: StateFlow<LogsUiState> =
-            combine(
-                logBuffer,
-                activeFilters,
-                autoScrollEnabled,
-            ) { logs, filters, autoScroll ->
-                LogsUiState(
-                    logs = logs,
-                    activeFilters = filters,
-                    isAutoScroll = autoScroll,
-                )
-            }.stateIn(
-                scope = viewModelScope,
-                started = SharingStarted.WhileSubscribed(5_000),
-                initialValue = LogsUiState(),
+    val uiState: StateFlow<LogsUiState> =
+        combine(
+            logBuffer,
+            activeFilters,
+            autoScrollEnabled,
+        ) { logs, filters, autoScroll ->
+            LogsUiState(
+                logs = logs,
+                activeFilters = filters,
+                isAutoScroll = autoScroll,
             )
+        }.stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5_000),
+            initialValue = LogsUiState(),
+        )
 
-        init {
-            observeStatusTransitions()
-            observeFailures()
-        }
-
-        fun toggleFilter(type: LogType) {
-            activeFilters.update { filters ->
-                if (type in filters) {
-                    filters - type
-                } else {
-                    filters + type
-                }
-            }
-        }
-
-        fun clearLogs() {
-            logBuffer.value = emptyList()
-        }
-
-        fun setAutoScroll(enabled: Boolean) {
-            autoScrollEnabled.value = enabled
-        }
-
-        fun appendLog(
-            message: String,
-            type: LogType = classifyLogType(message),
-        ) {
-            appendEntry(
-                LogEntry(
-                    id = System.currentTimeMillis(),
-                    timestamp = formatTimestamp(System.currentTimeMillis()),
-                    type = type,
-                    message = message,
-                ),
-            )
-        }
-
-        private fun observeStatusTransitions() {
-            viewModelScope.launch {
-                var previousStatus: Pair<AppStatus, Mode>? = null
-                serviceStateStore.status.collect { currentStatus ->
-                    val lastStatus = previousStatus
-                    previousStatus = currentStatus
-                    if (lastStatus == null || lastStatus == currentStatus) {
-                        return@collect
-                    }
-
-                    when {
-                        currentStatus.first == AppStatus.Running -> {
-                            appendConnectionLog(
-                                mode = currentStatus.second,
-                                action = "started",
-                            )
-                        }
-
-                        lastStatus.first == AppStatus.Running && currentStatus.first == AppStatus.Halted -> {
-                            appendConnectionLog(
-                                mode = lastStatus.second,
-                                action = "stopped",
-                            )
-                        }
-                    }
-                }
-            }
-        }
-
-        private fun observeFailures() {
-            viewModelScope.launch {
-                serviceStateStore.events.collect { event ->
-                    when (event) {
-                        is ServiceEvent.Failed -> appendFailureLog(event.sender, event.reason)
-                    }
-                }
-            }
-        }
-
-        private fun appendConnectionLog(
-            mode: Mode,
-            action: String,
-        ) {
-            appendEntry(
-                LogEntry(
-                    id = System.currentTimeMillis(),
-                    timestamp = formatTimestamp(System.currentTimeMillis()),
-                    type = LogType.CONN,
-                    message = stringResolver.getString(R.string.logs_service_action_format, mode.displayName(), action),
-                ),
-            )
-        }
-
-        private fun appendFailureLog(
-            sender: Sender,
-            reason: FailureReason,
-        ) {
-            val detail = reason.displayMessage
-            appendEntry(
-                LogEntry(
-                    id = System.currentTimeMillis(),
-                    timestamp = formatTimestamp(System.currentTimeMillis()),
-                    type = LogType.ERR,
-                    message = stringResolver.getString(R.string.logs_service_failure_format, sender.senderName, detail),
-                ),
-            )
-        }
-
-        private fun appendEntry(entry: LogEntry) {
-            logBuffer.update { currentLogs ->
-                (currentLogs + entry).takeLast(MaxLogEntries)
-            }
-        }
-
-        private fun formatTimestamp(timestampMs: Long): String =
-            SimpleDateFormat("HH:mm:ss", Locale.US).format(Date(timestampMs))
+    init {
+        observeStatusTransitions()
+        observeFailures()
     }
+
+    fun toggleFilter(type: LogType) {
+        activeFilters.update { filters ->
+            if (type in filters) {
+                filters - type
+            } else {
+                filters + type
+            }
+        }
+    }
+
+    fun clearLogs() {
+        logBuffer.value = emptyList()
+    }
+
+    fun setAutoScroll(enabled: Boolean) {
+        autoScrollEnabled.value = enabled
+    }
+
+    fun appendLog(
+        message: String,
+        type: LogType = classifyLogType(message),
+    ) {
+        appendEntry(
+            LogEntry(
+                id = System.currentTimeMillis(),
+                timestamp = formatTimestamp(System.currentTimeMillis()),
+                type = type,
+                message = message,
+            ),
+        )
+    }
+
+    private fun observeStatusTransitions() {
+        viewModelScope.launch {
+            var previousStatus: Pair<AppStatus, Mode>? = null
+            serviceStateStore.status.collect { currentStatus ->
+                val lastStatus = previousStatus
+                previousStatus = currentStatus
+                if (lastStatus == null || lastStatus == currentStatus) {
+                    return@collect
+                }
+
+                when {
+                    currentStatus.first == AppStatus.Running -> {
+                        appendConnectionLog(
+                            mode = currentStatus.second,
+                            action = "started",
+                        )
+                    }
+
+                    lastStatus.first == AppStatus.Running && currentStatus.first == AppStatus.Halted -> {
+                        appendConnectionLog(
+                            mode = lastStatus.second,
+                            action = "stopped",
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    private fun observeFailures() {
+        viewModelScope.launch {
+            serviceStateStore.events.collect { event ->
+                when (event) {
+                    is ServiceEvent.Failed -> appendFailureLog(event.sender, event.reason)
+                }
+            }
+        }
+    }
+
+    private fun appendConnectionLog(
+        mode: Mode,
+        action: String,
+    ) {
+        appendEntry(
+            LogEntry(
+                id = System.currentTimeMillis(),
+                timestamp = formatTimestamp(System.currentTimeMillis()),
+                type = LogType.CONN,
+                message = stringResolver.getString(R.string.logs_service_action_format, mode.displayName(), action),
+            ),
+        )
+    }
+
+    private fun appendFailureLog(
+        sender: Sender,
+        reason: FailureReason,
+    ) {
+        val detail = reason.displayMessage
+        appendEntry(
+            LogEntry(
+                id = System.currentTimeMillis(),
+                timestamp = formatTimestamp(System.currentTimeMillis()),
+                type = LogType.ERR,
+                message = stringResolver.getString(R.string.logs_service_failure_format, sender.senderName, detail),
+            ),
+        )
+    }
+
+    private fun appendEntry(entry: LogEntry) {
+        logBuffer.update { currentLogs ->
+            (currentLogs + entry).takeLast(MaxLogEntries)
+        }
+    }
+
+    private fun formatTimestamp(timestampMs: Long): String =
+        SimpleDateFormat("HH:mm:ss", Locale.US).format(Date(timestampMs))
+}
 
 private fun Mode.displayName(): String =
     when (this) {

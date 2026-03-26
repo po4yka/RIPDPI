@@ -2,7 +2,6 @@ package com.poyka.ripdpi.services
 
 import android.Manifest
 import android.app.PendingIntent
-import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.VpnService
 import android.os.Build

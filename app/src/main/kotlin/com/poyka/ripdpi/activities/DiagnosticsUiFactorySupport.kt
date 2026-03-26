@@ -5,16 +5,16 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 
 internal class DiagnosticsUiFactorySupport
-    @Inject
+@Inject
+constructor(
+    @param:ApplicationContext
+    val context: Context,
+    val core: DiagnosticsUiCoreSupport,
+) {
     constructor(
-        @param:ApplicationContext
-        val context: Context,
-        val core: DiagnosticsUiCoreSupport,
-    ) {
-        constructor(
-            @ApplicationContext context: Context,
-        ) : this(
-            context = context,
-            core = DiagnosticsUiCoreSupport(),
-        )
-    }
+        @ApplicationContext context: Context,
+    ) : this(
+        context = context,
+        core = DiagnosticsUiCoreSupport(),
+    )
+}

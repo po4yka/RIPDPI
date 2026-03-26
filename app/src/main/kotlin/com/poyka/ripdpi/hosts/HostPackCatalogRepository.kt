@@ -49,17 +49,17 @@ fun interface HostPackCatalogTempFileFactory {
 
 @Singleton
 class SystemHostPackCatalogClock
-    @Inject
-    constructor() : HostPackCatalogClock {
-        override fun nowEpochMillis(): Long = System.currentTimeMillis()
-    }
+@Inject
+constructor() : HostPackCatalogClock {
+    override fun nowEpochMillis(): Long = System.currentTimeMillis()
+}
 
 @Singleton
 class DefaultHostPackCatalogTempFileFactory
-    @Inject
-    constructor() : HostPackCatalogTempFileFactory {
-        override fun create(cacheDir: File): File = File.createTempFile("host-pack-geosite-", ".dat", cacheDir)
-    }
+@Inject
+constructor() : HostPackCatalogTempFileFactory {
+    override fun create(cacheDir: File): File = File.createTempFile("host-pack-geosite-", ".dat", cacheDir)
+}
 
 open class HostPackRefreshException(
     message: String,
@@ -84,101 +84,101 @@ class HostPackCatalogBuildException(
 
 @Singleton
 class DefaultHostPackCatalogRepository
-    @Inject
-    constructor(
-        @param:ApplicationContext private val context: Context,
-        private val service: HostPackCatalogDownloadService,
-        private val clock: HostPackCatalogClock,
-        private val tempFileFactory: HostPackCatalogTempFileFactory,
-    ) : HostPackCatalogRepository {
-        override suspend fun loadSnapshot(): HostPackCatalogSnapshot =
-            withContext(Dispatchers.IO) {
-                loadCachedSnapshot() ?: loadBundledSnapshot()
-            }
+@Inject
+constructor(
+    @param:ApplicationContext private val context: Context,
+    private val service: HostPackCatalogDownloadService,
+    private val clock: HostPackCatalogClock,
+    private val tempFileFactory: HostPackCatalogTempFileFactory,
+) : HostPackCatalogRepository {
+    override suspend fun loadSnapshot(): HostPackCatalogSnapshot =
+        withContext(Dispatchers.IO) {
+            loadCachedSnapshot() ?: loadBundledSnapshot()
+        }
 
-        override suspend fun refreshSnapshot(): HostPackCatalogSnapshot =
-            withContext(Dispatchers.IO) {
-                val expectedChecksum = parseHostPackChecksum(service.downloadChecksum().requireBodyText())
-                val downloadedAtEpochMillis = clock.nowEpochMillis()
-                val tempFile = tempFileFactory.create(context.cacheDir)
+    override suspend fun refreshSnapshot(): HostPackCatalogSnapshot =
+        withContext(Dispatchers.IO) {
+            val expectedChecksum = parseHostPackChecksum(service.downloadChecksum().requireBodyText())
+            val downloadedAtEpochMillis = clock.nowEpochMillis()
+            val tempFile = tempFileFactory.create(context.cacheDir)
 
-                try {
-                    val actualChecksum = service.downloadGeosite().writeToFileAndDigest(tempFile)
-                    if (actualChecksum != expectedChecksum) {
-                        throw HostPackChecksumMismatchException(expectedChecksum, actualChecksum)
-                    }
-
-                    val catalog = parseCuratedCatalog(tempFile.inputStream(), downloadedAtEpochMillis)
-                    val snapshot =
-                        HostPackCatalogSnapshot(
-                            catalog = catalog,
-                            source = HostPackCatalogSourceDownloaded,
-                            lastFetchedAtEpochMillis = downloadedAtEpochMillis,
-                            verifiedChecksumSha256 = expectedChecksum,
-                        )
-                    cacheFile().let { cacheFile ->
-                        cacheFile.parentFile?.mkdirs()
-                        cacheFile.writeText(snapshot.toJson(), Charsets.UTF_8)
-                    }
-                    snapshot
-                } finally {
-                    tempFile.delete()
-                }
-            }
-
-        private fun loadBundledSnapshot(): HostPackCatalogSnapshot =
-            HostPackCatalogSnapshot(
-                catalog = loadBundledCatalog(),
-                source = HostPackCatalogSourceBundled,
-            )
-
-        private fun loadBundledCatalog(): HostPackCatalog =
-            runCatching {
-                context.assets.open(HOST_PACK_CATALOG_ASSET_PATH).bufferedReader().use { reader ->
-                    hostPackCatalogFromJson(reader.readText())
-                }
-            }.getOrDefault(HostPackCatalog())
-
-        private fun loadCachedSnapshot(): HostPackCatalogSnapshot? =
-            runCatching {
-                val snapshotFile = cacheFile()
-                if (!snapshotFile.exists()) {
-                    null
-                } else {
-                    hostPackCatalogSnapshotFromJson(snapshotFile.readText(Charsets.UTF_8))
-                }
-            }.getOrNull()
-
-        private fun parseCuratedCatalog(
-            inputStream: InputStream,
-            downloadedAtEpochMillis: Long,
-        ): HostPackCatalog {
-            val geositeCatalog =
-                runCatching {
-                    inputStream.use(GeositeCatalog::parseFrom)
-                }.getOrElse { error ->
-                    throw HostPackCatalogParseException(error)
+            try {
+                val actualChecksum = service.downloadGeosite().writeToFileAndDigest(tempFile)
+                if (actualChecksum != expectedChecksum) {
+                    throw HostPackChecksumMismatchException(expectedChecksum, actualChecksum)
                 }
 
-            val source =
-                HostPackSource(
-                    name = HostPackCatalogRemoteSourceName,
-                    url = HostPackCatalogRemoteSourceUrl,
-                    ref = HostPackCatalogRemoteSourceRef,
-                )
-            return runCatching {
-                curatedHostPackCatalogFromGeosite(
-                    geositeCatalog = geositeCatalog,
-                    generatedAt = formatHostPackGeneratedAt(downloadedAtEpochMillis),
-                    source = source,
-                )
-            }.getOrElse { error ->
-                throw HostPackCatalogBuildException(error)
+                val catalog = parseCuratedCatalog(tempFile.inputStream(), downloadedAtEpochMillis)
+                val snapshot =
+                    HostPackCatalogSnapshot(
+                        catalog = catalog,
+                        source = HostPackCatalogSourceDownloaded,
+                        lastFetchedAtEpochMillis = downloadedAtEpochMillis,
+                        verifiedChecksumSha256 = expectedChecksum,
+                    )
+                cacheFile().let { cacheFile ->
+                    cacheFile.parentFile?.mkdirs()
+                    cacheFile.writeText(snapshot.toJson(), Charsets.UTF_8)
+                }
+                snapshot
+            } finally {
+                tempFile.delete()
             }
         }
 
-        private fun cacheFile(): File = File(context.filesDir, HOST_PACK_CATALOG_CACHE_PATH)
+    private fun loadBundledSnapshot(): HostPackCatalogSnapshot =
+        HostPackCatalogSnapshot(
+            catalog = loadBundledCatalog(),
+            source = HostPackCatalogSourceBundled,
+        )
+
+    private fun loadBundledCatalog(): HostPackCatalog =
+        runCatching {
+            context.assets.open(HOST_PACK_CATALOG_ASSET_PATH).bufferedReader().use { reader ->
+                hostPackCatalogFromJson(reader.readText())
+            }
+        }.getOrDefault(HostPackCatalog())
+
+    private fun loadCachedSnapshot(): HostPackCatalogSnapshot? =
+        runCatching {
+            val snapshotFile = cacheFile()
+            if (!snapshotFile.exists()) {
+                null
+            } else {
+                hostPackCatalogSnapshotFromJson(snapshotFile.readText(Charsets.UTF_8))
+            }
+        }.getOrNull()
+
+    private fun parseCuratedCatalog(
+        inputStream: InputStream,
+        downloadedAtEpochMillis: Long,
+    ): HostPackCatalog {
+        val geositeCatalog =
+            runCatching {
+                inputStream.use(GeositeCatalog::parseFrom)
+            }.getOrElse { error ->
+                throw HostPackCatalogParseException(error)
+            }
+
+        val source =
+            HostPackSource(
+                name = HostPackCatalogRemoteSourceName,
+                url = HostPackCatalogRemoteSourceUrl,
+                ref = HostPackCatalogRemoteSourceRef,
+            )
+        return runCatching {
+            curatedHostPackCatalogFromGeosite(
+                geositeCatalog = geositeCatalog,
+                generatedAt = formatHostPackGeneratedAt(downloadedAtEpochMillis),
+                source = source,
+            )
+        }.getOrElse { error ->
+            throw HostPackCatalogBuildException(error)
+        }
     }
+
+    private fun cacheFile(): File = File(context.filesDir, HOST_PACK_CATALOG_CACHE_PATH)
+}
 
 internal fun parseHostPackChecksum(payload: String): String {
     val firstToken =

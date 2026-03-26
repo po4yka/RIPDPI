@@ -12,7 +12,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -34,7 +33,6 @@ import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.CompletedProbeUiModel
 import com.poyka.ripdpi.activities.DiagnosticsDiagnosisUiModel
-import com.poyka.ripdpi.activities.DiagnosticsMetricUiModel
 import com.poyka.ripdpi.activities.DiagnosticsProbeResultUiModel
 import com.poyka.ripdpi.activities.DiagnosticsProgressUiModel
 import com.poyka.ripdpi.activities.DiagnosticsResolverRecommendationUiModel
@@ -89,7 +87,7 @@ internal fun ScanSection(
                 scan.latestResults.isNotEmpty() ||
                 scan.latestSession != null ||
                 scan.resolverRecommendation != null
-            -> RipDpiTestTags.DiagnosticsScanStateContent
+                -> RipDpiTestTags.DiagnosticsScanStateContent
 
             else -> RipDpiTestTags.DiagnosticsScanStateIdle
         }
@@ -650,7 +648,9 @@ internal fun DiagnosticsScanWorkflowCard(
                 text = stringResource(R.string.diagnostics_action_cancel),
                 onClick = onCancelScan,
                 variant = RipDpiButtonVariant.Destructive,
-                modifier = Modifier.fillMaxWidth().ripDpiTestTag(RipDpiTestTags.DiagnosticsScanCancelAction),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .ripDpiTestTag(RipDpiTestTags.DiagnosticsScanCancelAction),
             )
         }
     }
@@ -851,7 +851,9 @@ private fun WorkflowActionRow(
         RipDpiButton(
             text = rawActionLabel(scan, isFullAudit),
             onClick = onRunRawScan,
-            modifier = Modifier.fillMaxWidth().ripDpiTestTag(RipDpiTestTags.DiagnosticsScanRunRawAction),
+            modifier = Modifier
+                .fillMaxWidth()
+                .ripDpiTestTag(RipDpiTestTags.DiagnosticsScanRunRawAction),
             enabled = scan.runRawEnabled,
         )
         return
@@ -863,13 +865,17 @@ private fun WorkflowActionRow(
         RipDpiButton(
             text = stringResource(R.string.diagnostics_action_raw),
             onClick = onRunRawScan,
-            modifier = Modifier.weight(1f).ripDpiTestTag(RipDpiTestTags.DiagnosticsScanRunRawAction),
+            modifier = Modifier
+                .weight(1f)
+                .ripDpiTestTag(RipDpiTestTags.DiagnosticsScanRunRawAction),
             enabled = scan.runRawEnabled,
         )
         RipDpiButton(
             text = stringResource(R.string.diagnostics_action_in_path),
             onClick = onRunInPathScan,
-            modifier = Modifier.weight(1f).ripDpiTestTag(RipDpiTestTags.DiagnosticsScanRunInPathAction),
+            modifier = Modifier
+                .weight(1f)
+                .ripDpiTestTag(RipDpiTestTags.DiagnosticsScanRunInPathAction),
             variant = RipDpiButtonVariant.Outline,
             enabled = scan.runInPathEnabled,
         )

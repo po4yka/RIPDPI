@@ -34,7 +34,6 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.ui.components.ripDpiSelectable
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
@@ -77,7 +76,8 @@ fun BottomNavBar(
                         .fillMaxWidth()
                         .widthIn(
                             max = layout.contentMaxWidth + layout.horizontalPadding + layout.horizontalPadding,
-                        ).height(layout.bottomBarHeight)
+                        )
+                        .height(layout.bottomBarHeight)
                         .padding(horizontal = components.bottomNavHorizontalPadding),
             ) {
                 val density = LocalDensity.current
@@ -121,12 +121,14 @@ fun BottomNavBar(
                                 .size(
                                     width = components.bottomNavIndicatorWidth,
                                     height = components.bottomNavIndicatorHeight,
-                                ).graphicsLayer {
+                                )
+                                .graphicsLayer {
                                     translationX = indicatorOffsetPx
                                     translationY = indicatorTopOffsetPx
                                     alpha = indicatorAlpha
                                     scaleX = indicatorScaleX
-                                }.background(
+                                }
+                                .background(
                                     color = colors.inputBackground,
                                     shape = RipDpiThemeTokens.shapes.xxl,
                                 ),
@@ -197,7 +199,8 @@ private fun RowScope.BottomNavItem(
                     scaleX = selectionScale
                     scaleY = selectionScale
                     alpha = contentAlpha
-                }.ripDpiSelectable(
+                }
+                .ripDpiSelectable(
                     selected = selected,
                     role = Role.Tab,
                     interactionSource = interactionSource,

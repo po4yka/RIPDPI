@@ -146,14 +146,16 @@ fun RipDpiIconButton(
                     },
                     animatedBorderColor,
                     shape,
-                ).focusable(enabled = isInteractive, interactionSource = resolvedInteractionSource)
+                )
+                .focusable(enabled = isInteractive, interactionSource = resolvedInteractionSource)
                 .ripDpiClickable(
                     enabled = isInteractive,
                     role = Role.Button,
                     interactionSource = resolvedInteractionSource,
                     hapticFeedback = hapticFeedback,
                     onClick = onClick,
-                ).graphicsLayer {
+                )
+                .graphicsLayer {
                     scaleX = pressedScale
                     scaleY = pressedScale
                 },
@@ -167,11 +169,11 @@ fun RipDpiIconButton(
                     fadeIn(
                         animationSpec = tween(durationMillis = motion.duration(motion.quickDurationMillis)),
                     ) + scaleIn(initialScale = 0.92f)
-                ) togetherWith (
+                    ) togetherWith (
                     fadeOut(
                         animationSpec = tween(durationMillis = motion.duration(motion.quickDurationMillis)),
                     ) + scaleOut(targetScale = 0.92f)
-                )
+                    )
             },
             label = "iconButtonContent",
         ) { isLoading ->
