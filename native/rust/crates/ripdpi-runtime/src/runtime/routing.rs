@@ -3,8 +3,8 @@ use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, TcpStream};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use ripdpi_config::{
-    DETECT_CONNECT, DETECT_DNS_TAMPER, DETECT_HTTP_BLOCKPAGE, DETECT_HTTP_LOCAT, DETECT_SILENT_DROP, DETECT_TCP_RESET,
-    DETECT_TLS_ALERT, DETECT_TLS_HANDSHAKE_FAILURE,
+    DETECT_CONNECT, DETECT_CONNECTION_FREEZE, DETECT_DNS_TAMPER, DETECT_HTTP_BLOCKPAGE, DETECT_HTTP_LOCAT,
+    DETECT_SILENT_DROP, DETECT_TCP_RESET, DETECT_TLS_ALERT, DETECT_TLS_HANDSHAKE_FAILURE,
 };
 use ripdpi_dns_resolver::{
     extract_ip_answers, EncryptedDnsEndpoint, EncryptedDnsProtocol, EncryptedDnsResolver, EncryptedDnsTransport,
@@ -99,6 +99,7 @@ pub(super) fn failure_trigger_mask(failure: &ClassifiedFailure) -> u32 {
         FailureClass::TlsHandshakeFailure => DETECT_TLS_HANDSHAKE_FAILURE,
         FailureClass::ConnectFailure => DETECT_CONNECT,
         FailureClass::StrategyExecutionFailure => DETECT_CONNECT,
+        FailureClass::ConnectionFreeze => DETECT_CONNECTION_FREEZE,
         FailureClass::Unknown => 0,
     }
 }
@@ -112,6 +113,7 @@ pub(super) fn failure_penalizes_strategy(failure: &ClassifiedFailure) -> bool {
             | FailureClass::HttpBlockpage
             | FailureClass::Redirect
             | FailureClass::TlsHandshakeFailure
+            | FailureClass::ConnectionFreeze
     )
 }
 
