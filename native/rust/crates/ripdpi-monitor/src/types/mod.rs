@@ -10,11 +10,9 @@ pub use scan::*;
 pub use strategy::*;
 pub use target::*;
 
-use std::collections::VecDeque;
-
 #[derive(Default)]
 pub(crate) struct SharedState {
     pub(crate) progress: Option<ScanProgress>,
     pub(crate) report: Option<ScanReport>,
-    pub(crate) passive_events: VecDeque<NativeSessionEvent>,
+    pub(crate) log_context: Option<ripdpi_proxy_config::ProxyLogContext>,
 }

@@ -27,7 +27,7 @@ fn open_proxy_listener_records_telemetry_when_bind_fails() {
     let mut config = RuntimeConfig::default();
     config.network.listen.listen_ip = IpAddr::V4(Ipv4Addr::LOCALHOST);
     config.network.listen.listen_port = busy.local_addr().expect("busy listener addr").port();
-    let telemetry = ProxyTelemetryState::new();
+    let telemetry = ProxyTelemetryState::new(None);
 
     let err = open_proxy_listener(&config, &telemetry).expect_err("listener bind should fail");
     let snapshot = telemetry.snapshot();
@@ -86,7 +86,7 @@ fn destroy_removes_idle_proxy_session() {
     let handle = SESSIONS.insert(ProxySession {
         config: RuntimeConfig::default(),
         runtime_context: None,
-        telemetry: Arc::new(ProxyTelemetryState::new()),
+        telemetry: Arc::new(ProxyTelemetryState::new(None)),
         state: Mutex::new(ProxySessionState::Idle),
     }) as jlong;
 
@@ -215,7 +215,7 @@ impl ProxySessionHarness {
         let handle = SESSIONS.insert(ProxySession {
             config: RuntimeConfig::default(),
             runtime_context: None,
-            telemetry: Arc::new(ProxyTelemetryState::new()),
+            telemetry: Arc::new(ProxyTelemetryState::new(None)),
             state: Mutex::new(ProxySessionState::Idle),
         }) as jlong;
         self.active_handle = Some(handle);
@@ -331,6 +331,7 @@ fn minimal_proxy_config_json() -> String {
         strategy_preset: None,
         config: test_ui_config(),
         runtime_context: None,
+        log_context: None,
     })
     .expect("proxy config json")
 }

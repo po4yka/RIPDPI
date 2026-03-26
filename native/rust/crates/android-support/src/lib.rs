@@ -1,27 +1,25 @@
 mod sync;
 
+use std::collections::{HashMap, VecDeque};
+use std::fmt;
 use std::sync::Arc;
-
-use crate::sync::{fetch_add_u64, AtomicU64, Mutex, Ordering};
-use std::collections::HashMap;
 use std::sync::PoisonError;
 
+use crate::sync::{fetch_add_u64, AtomicU64, Mutex, Ordering};
 use jni::objects::JThrowable;
 use jni::sys::jint;
 use jni::JNIEnv;
 use log::LevelFilter;
 use once_cell::sync::OnceCell;
-
-use std::fmt;
-#[cfg(target_os = "android")]
+#[cfg(any(test, target_os = "android"))]
 use tracing::Subscriber;
 #[cfg(target_os = "android")]
 use tracing_log::LogTracer;
-#[cfg(target_os = "android")]
+#[cfg(any(test, target_os = "android"))]
 use tracing_subscriber::layer::{Context, Layer};
 #[cfg(target_os = "android")]
 use tracing_subscriber::prelude::*;
-#[cfg(target_os = "android")]
+#[cfg(any(test, target_os = "android"))]
 use tracing_subscriber::registry::LookupSpan;
 
 pub const JNI_VERSION: jint = jni::sys::JNI_VERSION_1_6;
@@ -67,6 +65,176 @@ impl<T> HandleRegistry<T> {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct NativeEventRecord {
+    pub source: String,
+    pub level: String,
+    pub message: String,
+    pub created_at: u64,
+    pub runtime_id: Option<String>,
+    pub mode: Option<String>,
+    pub policy_signature: Option<String>,
+    pub fingerprint_hash: Option<String>,
+    pub diagnostics_session_id: Option<String>,
+    pub subsystem: Option<String>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct RingConfig {
+    pub proxy_capacity: usize,
+    pub tunnel_capacity: usize,
+    pub diagnostics_capacity: usize,
+}
+
+impl Default for RingConfig {
+    fn default() -> Self {
+        Self { proxy_capacity: 128, tunnel_capacity: 128, diagnostics_capacity: 256 }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum EventRing {
+    Proxy,
+    Tunnel,
+    Diagnostics,
+}
+
+impl EventRing {
+    fn from_routing_field(value: &str) -> Option<Self> {
+        match value.trim().to_ascii_lowercase().as_str() {
+            "proxy" => Some(Self::Proxy),
+            "tunnel" => Some(Self::Tunnel),
+            "diagnostics" | "monitor" => Some(Self::Diagnostics),
+            _ => None,
+        }
+    }
+
+    fn default_subsystem(self) -> &'static str {
+        match self {
+            Self::Proxy => "proxy",
+            Self::Tunnel => "tunnel",
+            Self::Diagnostics => "diagnostics",
+        }
+    }
+}
+
+struct EventRingBuffersInner {
+    config: RingConfig,
+    proxy: Mutex<VecDeque<NativeEventRecord>>,
+    tunnel: Mutex<VecDeque<NativeEventRecord>>,
+    diagnostics: Mutex<VecDeque<NativeEventRecord>>,
+}
+
+#[derive(Clone)]
+pub struct EventRingBuffers {
+    inner: Arc<EventRingBuffersInner>,
+}
+
+impl Default for EventRingBuffers {
+    fn default() -> Self {
+        Self::new(RingConfig::default())
+    }
+}
+
+impl EventRingBuffers {
+    pub fn new(config: RingConfig) -> Self {
+        Self {
+            inner: Arc::new(EventRingBuffersInner {
+                proxy: Mutex::new(VecDeque::with_capacity(config.proxy_capacity)),
+                tunnel: Mutex::new(VecDeque::with_capacity(config.tunnel_capacity)),
+                diagnostics: Mutex::new(VecDeque::with_capacity(config.diagnostics_capacity)),
+                config,
+            }),
+        }
+    }
+
+    fn push(&self, ring: EventRing, event: NativeEventRecord) {
+        let capacity = self.capacity(ring);
+        let mut guard = self.ring(ring).lock().unwrap_or_else(PoisonError::into_inner);
+        if guard.len() >= capacity {
+            guard.pop_front();
+        }
+        guard.push_back(event);
+    }
+
+    fn drain(&self, ring: EventRing) -> Vec<NativeEventRecord> {
+        self.ring(ring).lock().unwrap_or_else(PoisonError::into_inner).drain(..).collect()
+    }
+
+    fn clear(&self, ring: EventRing) {
+        self.ring(ring).lock().unwrap_or_else(PoisonError::into_inner).clear();
+    }
+
+    pub fn drain_proxy(&self) -> Vec<NativeEventRecord> {
+        self.drain(EventRing::Proxy)
+    }
+
+    pub fn drain_tunnel(&self) -> Vec<NativeEventRecord> {
+        self.drain(EventRing::Tunnel)
+    }
+
+    pub fn drain_diagnostics(&self) -> Vec<NativeEventRecord> {
+        self.drain(EventRing::Diagnostics)
+    }
+
+    pub fn clear_proxy(&self) {
+        self.clear(EventRing::Proxy);
+    }
+
+    pub fn clear_tunnel(&self) {
+        self.clear(EventRing::Tunnel);
+    }
+
+    pub fn clear_diagnostics(&self) {
+        self.clear(EventRing::Diagnostics);
+    }
+
+    fn ring(&self, ring: EventRing) -> &Mutex<VecDeque<NativeEventRecord>> {
+        match ring {
+            EventRing::Proxy => &self.inner.proxy,
+            EventRing::Tunnel => &self.inner.tunnel,
+            EventRing::Diagnostics => &self.inner.diagnostics,
+        }
+    }
+
+    fn capacity(&self, ring: EventRing) -> usize {
+        match ring {
+            EventRing::Proxy => self.inner.config.proxy_capacity,
+            EventRing::Tunnel => self.inner.config.tunnel_capacity,
+            EventRing::Diagnostics => self.inner.config.diagnostics_capacity,
+        }
+    }
+}
+
+fn global_event_rings() -> &'static EventRingBuffers {
+    static EVENT_RINGS: OnceCell<EventRingBuffers> = OnceCell::new();
+    EVENT_RINGS.get_or_init(EventRingBuffers::default)
+}
+
+pub fn drain_proxy_events() -> Vec<NativeEventRecord> {
+    global_event_rings().drain_proxy()
+}
+
+pub fn drain_tunnel_events() -> Vec<NativeEventRecord> {
+    global_event_rings().drain_tunnel()
+}
+
+pub fn drain_diagnostics_events() -> Vec<NativeEventRecord> {
+    global_event_rings().drain_diagnostics()
+}
+
+pub fn clear_proxy_events() {
+    global_event_rings().clear_proxy();
+}
+
+pub fn clear_tunnel_events() {
+    global_event_rings().clear_tunnel();
+}
+
+pub fn clear_diagnostics_events() {
+    global_event_rings().clear_diagnostics();
+}
+
 /// Install a global panic hook that logs the panic message and a full
 /// backtrace via `log::error!`. Must be called **after** `init_android_logging`
 /// so that the log backend is already wired up to logcat (on Android) or
@@ -92,7 +260,7 @@ pub fn init_android_logging(tag: &'static str) {
 
             let _ = LogTracer::init();
 
-            let _ = tracing_subscriber::registry().with(AndroidLogLayer).try_init();
+            let _ = tracing_subscriber::registry().with(AndroidLogLayer).with(EventRingLayer::global()).try_init();
         }
 
         log::set_max_level(default_android_log_level());
@@ -249,44 +417,182 @@ where
     }
 }
 
+#[cfg(any(test, target_os = "android"))]
+#[derive(Clone)]
+pub struct EventRingLayer {
+    buffers: EventRingBuffers,
+}
+
+#[cfg(any(test, target_os = "android"))]
+impl EventRingLayer {
+    pub fn new(buffers: EventRingBuffers) -> Self {
+        Self { buffers }
+    }
+
+    pub fn global() -> Self {
+        Self::new(global_event_rings().clone())
+    }
+}
+
+#[cfg(any(test, target_os = "android"))]
+impl<S> Layer<S> for EventRingLayer
+where
+    S: Subscriber + for<'span> LookupSpan<'span>,
+{
+    fn on_event(&self, event: &tracing::Event<'_>, _ctx: Context<'_, S>) {
+        let mut visitor = MessageFieldFormatter::default();
+        event.record(&mut visitor);
+        let metadata = event.metadata();
+        let Some(ring) = visitor.ring().as_deref().and_then(EventRing::from_routing_field) else {
+            return;
+        };
+
+        self.buffers.push(
+            ring,
+            NativeEventRecord {
+                source: visitor.source().unwrap_or_else(|| metadata.target().to_string()),
+                level: metadata.level().as_str().to_ascii_lowercase(),
+                message: visitor.message_or_target(metadata.target()),
+                created_at: now_ms(),
+                runtime_id: visitor.runtime_id(),
+                mode: visitor.mode().map(|value| value.to_ascii_lowercase()),
+                policy_signature: visitor.policy_signature(),
+                fingerprint_hash: visitor.fingerprint_hash(),
+                diagnostics_session_id: visitor.diagnostics_session_id(),
+                subsystem: visitor
+                    .subsystem()
+                    .or_else(|| Some(ring.default_subsystem().to_string())),
+            },
+        );
+    }
+}
+
 #[derive(Default)]
 #[cfg_attr(not(any(test, target_os = "android")), allow(dead_code))]
 pub(crate) struct MessageFieldFormatter {
-    fields: String,
+    message: Option<String>,
+    visible_fields: Vec<(String, String)>,
+    ring: Option<String>,
+    subsystem: Option<String>,
+    session: Option<String>,
+    profile: Option<String>,
+    path_mode: Option<String>,
+    source: Option<String>,
+    runtime_id: Option<String>,
+    mode: Option<String>,
+    policy_signature: Option<String>,
+    fingerprint_hash: Option<String>,
+    diagnostics_session_id: Option<String>,
 }
 
 impl MessageFieldFormatter {
     #[cfg_attr(not(any(test, target_os = "android")), allow(dead_code))]
     pub(crate) fn record_named_debug(&mut self, field: &str, value: &dyn fmt::Debug) {
-        self.push_value(field, &format!("{value:?}"));
+        self.record_value(field, format!("{value:?}"));
     }
 
     #[cfg_attr(not(any(test, target_os = "android")), allow(dead_code))]
     pub(crate) fn record_named_str(&mut self, field: &str, value: &str) {
-        self.push_value(field, value);
+        self.record_value(field, value.to_string());
     }
 
     #[cfg_attr(not(any(test, target_os = "android")), allow(dead_code))]
     pub(crate) fn finish(self, target: &str) -> String {
-        if self.fields.is_empty() {
+        let mut parts = Vec::new();
+
+        for prefix in [
+            self.subsystem.as_ref().map(|value| format!("subsystem={value}")),
+            self.session.as_ref().map(|value| format!("session={value}")),
+            self.profile.as_ref().map(|value| format!("profile={value}")),
+            self.path_mode.as_ref().map(|value| format!("pathMode={value}")),
+            self.source.as_ref().map(|value| format!("source={value}")),
+        ]
+        .into_iter()
+        .flatten()
+        {
+            parts.push(prefix);
+        }
+
+        if let Some(message) = self.message {
+            parts.push(message);
+        }
+
+        for (field, value) in self.visible_fields {
+            parts.push(format!("{field}={value}"));
+        }
+
+        if parts.is_empty() {
             target.to_string()
         } else {
-            self.fields
+            parts.join(" ")
         }
     }
 
     #[cfg_attr(not(any(test, target_os = "android")), allow(dead_code))]
-    fn push_value(&mut self, field: &str, value: &str) {
-        if !self.fields.is_empty() {
-            self.fields.push(' ');
+    fn record_value(&mut self, field: &str, value: String) {
+        if field != "message" && value.trim().is_empty() {
+            return;
         }
-        if field == "message" {
-            self.fields.push_str(value);
-        } else {
-            self.fields.push_str(field);
-            self.fields.push('=');
-            self.fields.push_str(value);
+        match field {
+            "message" => self.message = Some(value),
+            "ring" => self.ring = Some(value),
+            "subsystem" => self.subsystem = Some(value),
+            "session" => self.session = Some(value),
+            "profile" => self.profile = Some(value),
+            "path_mode" | "pathMode" => self.path_mode = Some(value),
+            "source" => self.source = Some(value),
+            "runtime_id" | "runtimeId" => self.runtime_id = Some(value),
+            "mode" => self.mode = Some(value),
+            "policy_signature" | "policySignature" => self.policy_signature = Some(value),
+            "fingerprint_hash" | "fingerprintHash" => self.fingerprint_hash = Some(value),
+            "diagnostics_session_id" | "diagnosticsSessionId" => self.diagnostics_session_id = Some(value),
+            _ => self.visible_fields.push((field.to_string(), value)),
         }
+    }
+
+    #[cfg_attr(not(any(test, target_os = "android")), allow(dead_code))]
+    pub(crate) fn message_or_target(&self, target: &str) -> String {
+        self.message.clone().unwrap_or_else(|| target.to_string())
+    }
+
+    #[cfg_attr(not(any(test, target_os = "android")), allow(dead_code))]
+    pub(crate) fn ring(&self) -> Option<String> {
+        self.ring.clone()
+    }
+
+    #[cfg_attr(not(any(test, target_os = "android")), allow(dead_code))]
+    pub(crate) fn subsystem(&self) -> Option<String> {
+        self.subsystem.clone()
+    }
+
+    #[cfg_attr(not(any(test, target_os = "android")), allow(dead_code))]
+    pub(crate) fn source(&self) -> Option<String> {
+        self.source.clone()
+    }
+
+    #[cfg_attr(not(any(test, target_os = "android")), allow(dead_code))]
+    pub(crate) fn runtime_id(&self) -> Option<String> {
+        self.runtime_id.clone()
+    }
+
+    #[cfg_attr(not(any(test, target_os = "android")), allow(dead_code))]
+    pub(crate) fn mode(&self) -> Option<String> {
+        self.mode.clone()
+    }
+
+    #[cfg_attr(not(any(test, target_os = "android")), allow(dead_code))]
+    pub(crate) fn policy_signature(&self) -> Option<String> {
+        self.policy_signature.clone()
+    }
+
+    #[cfg_attr(not(any(test, target_os = "android")), allow(dead_code))]
+    pub(crate) fn fingerprint_hash(&self) -> Option<String> {
+        self.fingerprint_hash.clone()
+    }
+
+    #[cfg_attr(not(any(test, target_os = "android")), allow(dead_code))]
+    pub(crate) fn diagnostics_session_id(&self) -> Option<String> {
+        self.diagnostics_session_id.clone()
     }
 }
 
@@ -300,6 +606,10 @@ impl tracing::field::Visit for MessageFieldFormatter {
     }
 }
 
+fn now_ms() -> u64 {
+    std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_millis() as u64
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -307,6 +617,7 @@ mod tests {
     use jni::{InitArgsBuilder, JNIVersion, JavaVM};
     use once_cell::sync::{Lazy, OnceCell};
     use std::sync::Mutex;
+    use tracing_subscriber::prelude::*;
 
     static TEST_JVM: OnceCell<JavaVM> = OnceCell::new();
     static JNI_TEST_MUTEX: Lazy<Mutex<()>> = Lazy::new(|| Mutex::new(()));
@@ -365,6 +676,81 @@ mod tests {
             "tests/golden/debug_quotes.txt",
             &formatter.finish("fallback.target"),
         );
+    }
+
+    #[test]
+    fn formatter_renders_structured_prefix_fields_before_message() {
+        let mut formatter = MessageFieldFormatter::default();
+        formatter.record_named_str("subsystem", "diagnostics");
+        formatter.record_named_str("session", "diag-7");
+        formatter.record_named_str("profile", "connectivity");
+        formatter.record_named_str("path_mode", "RAW_PATH");
+        formatter.record_named_str("source", "dns");
+        formatter.record_named_str("message", "probe started");
+
+        assert_eq!(
+            formatter.finish("fallback.target"),
+            "subsystem=diagnostics session=diag-7 profile=connectivity pathMode=RAW_PATH source=dns probe started",
+        );
+    }
+
+    #[test]
+    fn event_ring_layer_routes_and_drains_correlation_fields() {
+        let buffers =
+            EventRingBuffers::new(RingConfig { proxy_capacity: 8, tunnel_capacity: 8, diagnostics_capacity: 8 });
+        let subscriber = tracing_subscriber::registry().with(EventRingLayer::new(buffers.clone()));
+
+        tracing::subscriber::with_default(subscriber, || {
+            tracing::warn!(
+                ring = "diagnostics",
+                subsystem = "diagnostics",
+                session = "diag-42",
+                profile = "connectivity",
+                path_mode = "RAW_PATH",
+                source = "dns",
+                runtime_id = "vpn-runtime-1",
+                mode = "VPN",
+                policy_signature = "policy-123",
+                fingerprint_hash = "fingerprint-abc",
+                diagnostics_session_id = "diag-42",
+                "probe failed target=example.org"
+            );
+        });
+
+        let events = buffers.drain_diagnostics();
+        assert_eq!(events.len(), 1);
+        assert!(buffers.drain_diagnostics().is_empty(), "drain must empty the ring");
+        assert_eq!(
+            events[0],
+            NativeEventRecord {
+                source: "dns".to_string(),
+                level: "warn".to_string(),
+                message: "probe failed target=example.org".to_string(),
+                created_at: events[0].created_at,
+                runtime_id: Some("vpn-runtime-1".to_string()),
+                mode: Some("vpn".to_string()),
+                policy_signature: Some("policy-123".to_string()),
+                fingerprint_hash: Some("fingerprint-abc".to_string()),
+                diagnostics_session_id: Some("diag-42".to_string()),
+                subsystem: Some("diagnostics".to_string()),
+            },
+        );
+    }
+
+    #[test]
+    fn event_ring_layer_respects_capacity_per_ring() {
+        let buffers =
+            EventRingBuffers::new(RingConfig { proxy_capacity: 2, tunnel_capacity: 2, diagnostics_capacity: 2 });
+        let subscriber = tracing_subscriber::registry().with(EventRingLayer::new(buffers.clone()));
+
+        tracing::subscriber::with_default(subscriber, || {
+            tracing::info!(ring = "proxy", source = "proxy", "one");
+            tracing::info!(ring = "proxy", source = "proxy", "two");
+            tracing::info!(ring = "proxy", source = "proxy", "three");
+        });
+
+        let messages: Vec<String> = buffers.drain_proxy().into_iter().map(|event| event.message).collect();
+        assert_eq!(messages, vec!["two".to_string(), "three".to_string()]);
     }
 
     #[test]

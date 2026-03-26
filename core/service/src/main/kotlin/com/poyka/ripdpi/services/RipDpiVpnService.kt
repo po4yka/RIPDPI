@@ -13,6 +13,7 @@ import android.os.Build
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
 import com.poyka.ripdpi.core.DEFAULT_TUN2SOCKS_TUNNEL_MTU
+import com.poyka.ripdpi.core.RipDpiLogContext
 import com.poyka.ripdpi.core.Tun2SocksConfig
 import com.poyka.ripdpi.core.service.R
 import com.poyka.ripdpi.data.ActiveDnsSettings
@@ -232,6 +233,7 @@ class RipDpiVpnService :
             overrideReason: String?,
             socks5Port: Int,
             ipv6Enabled: Boolean,
+            logContext: RipDpiLogContext? = null,
         ): Tun2SocksConfig =
             Tun2SocksConfig(
                 tunnelMtu = DEFAULT_TUN2SOCKS_TUNNEL_MTU,
@@ -281,6 +283,7 @@ class RipDpiVpnService :
                 dnsQueryTimeoutMs = if (activeDns.mode == DnsModeEncrypted) DNS_QUERY_TIMEOUT_MS else null,
                 resolverFallbackActive = overrideReason != null,
                 resolverFallbackReason = overrideReason,
+                logContext = logContext,
             )
     }
 }

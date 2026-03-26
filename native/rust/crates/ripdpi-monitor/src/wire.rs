@@ -82,6 +82,8 @@ pub struct EngineScanRequestWire {
     pub network_snapshot: Option<ripdpi_proxy_config::NetworkSnapshot>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub native_log_level: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub log_context: Option<ripdpi_proxy_config::ProxyLogContext>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -198,6 +200,7 @@ impl From<ScanRequest> for EngineScanRequestWire {
             strategy_probe: value.strategy_probe,
             network_snapshot: value.network_snapshot,
             native_log_level: None,
+            log_context: None,
         }
     }
 }

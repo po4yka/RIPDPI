@@ -44,6 +44,7 @@ import com.poyka.ripdpi.ui.screens.diagnostics.DiagnosticsRoute
 import com.poyka.ripdpi.ui.screens.dns.DnsSettingsRoute
 import com.poyka.ripdpi.ui.screens.history.HistoryRoute
 import com.poyka.ripdpi.ui.screens.home.HomeRoute
+import com.poyka.ripdpi.ui.screens.logs.LogsRoute
 import com.poyka.ripdpi.ui.screens.onboarding.OnboardingRoute
 import com.poyka.ripdpi.ui.screens.permissions.BiometricPromptRoute
 import com.poyka.ripdpi.ui.screens.settings.AdvancedSettingsRoute
@@ -273,6 +274,12 @@ private fun NavGraphBuilder.addPrimaryRoutes(
     }
     composable(Route.History.route) {
         HistoryRoute(onBack = { navController.popBackStack() })
+    }
+    composable(Route.Logs.route) {
+        LogsRoute(
+            onSaveLogs = actions.onSaveLogs,
+            onShareSupportBundle = actions.onShareDebugBundle,
+        )
     }
     composable(Route.BiometricPrompt.route) {
         BiometricPromptRoute(

@@ -25,6 +25,11 @@ data class NativeRuntimeEvent(
     val level: String,
     val message: String,
     val createdAt: Long,
+    val runtimeId: String? = null,
+    val mode: String? = null,
+    val policySignature: String? = null,
+    val fingerprintHash: String? = null,
+    val subsystem: String? = null,
 )
 
 @Serializable

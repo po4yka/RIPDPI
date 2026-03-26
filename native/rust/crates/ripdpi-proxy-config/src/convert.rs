@@ -15,10 +15,10 @@ use serde::de::{Deserializer, IgnoredAny, MapAccess, Visitor};
 
 use crate::presets;
 use crate::types::{
-    ProxyConfigError, ProxyConfigPayload, ProxyRuntimeContext, ProxyUiActivationFilter, ProxyUiConfig,
-    ProxyUiNumericRange, RuntimeConfigEnvelope, ADAPTIVE_FAKE_TTL_DEFAULT_FALLBACK, FAKE_TLS_SNI_MODE_FIXED,
-    FAKE_TLS_SNI_MODE_RANDOMIZED, HOSTS_BLACKLIST, HOSTS_DISABLE, HOSTS_WHITELIST, TLS_RANDREC_DEFAULT_FRAGMENT_COUNT,
-    TLS_RANDREC_DEFAULT_MAX_FRAGMENT_SIZE, TLS_RANDREC_DEFAULT_MIN_FRAGMENT_SIZE,
+    ProxyConfigError, ProxyConfigPayload, ProxyLogContext, ProxyRuntimeContext, ProxyUiActivationFilter,
+    ProxyUiConfig, ProxyUiNumericRange, RuntimeConfigEnvelope, ADAPTIVE_FAKE_TTL_DEFAULT_FALLBACK,
+    FAKE_TLS_SNI_MODE_FIXED, FAKE_TLS_SNI_MODE_RANDOMIZED, HOSTS_BLACKLIST, HOSTS_DISABLE, HOSTS_WHITELIST,
+    TLS_RANDREC_DEFAULT_FRAGMENT_COUNT, TLS_RANDREC_DEFAULT_MAX_FRAGMENT_SIZE, TLS_RANDREC_DEFAULT_MIN_FRAGMENT_SIZE,
 };
 
 fn trim_non_empty(opt: Option<String>) -> Option<String> {
@@ -49,6 +49,25 @@ fn sanitize_runtime_context(runtime_context: Option<ProxyRuntimeContext>) -> Opt
     });
     runtime_context.encrypted_dns.as_ref()?;
     Some(runtime_context)
+}
+
+fn sanitize_log_context(log_context: Option<ProxyLogContext>) -> Option<ProxyLogContext> {
+    let mut log_context = log_context?;
+    log_context.runtime_id = trim_non_empty(log_context.runtime_id);
+    log_context.mode = trim_non_empty(log_context.mode).map(|value| value.to_ascii_lowercase());
+    log_context.policy_signature = trim_non_empty(log_context.policy_signature);
+    log_context.fingerprint_hash = trim_non_empty(log_context.fingerprint_hash);
+    log_context.diagnostics_session_id = trim_non_empty(log_context.diagnostics_session_id);
+    if log_context.runtime_id.is_none()
+        && log_context.mode.is_none()
+        && log_context.policy_signature.is_none()
+        && log_context.fingerprint_hash.is_none()
+        && log_context.diagnostics_session_id.is_none()
+    {
+        None
+    } else {
+        Some(log_context)
+    }
 }
 
 fn group_needs_delayed_connect(group: &DesyncGroup) -> bool {
@@ -145,7 +164,7 @@ pub fn runtime_config_envelope_from_payload(
     payload: ProxyConfigPayload,
 ) -> Result<RuntimeConfigEnvelope, ProxyConfigError> {
     match payload {
-        ProxyConfigPayload::CommandLine { args, host_autolearn_store_path, runtime_context } => {
+        ProxyConfigPayload::CommandLine { args, host_autolearn_store_path, runtime_context, log_context } => {
             let mut config = runtime_config_from_command_line(args)?;
             config.host_autolearn.store_path = host_autolearn_store_path
                 .as_deref()
@@ -155,10 +174,11 @@ pub fn runtime_config_envelope_from_payload(
             Ok(RuntimeConfigEnvelope {
                 config,
                 runtime_context: sanitize_runtime_context(runtime_context),
+                log_context: sanitize_log_context(log_context),
                 native_log_level: None,
             })
         }
-        ProxyConfigPayload::Ui { strategy_preset, mut config, runtime_context } => {
+        ProxyConfigPayload::Ui { strategy_preset, mut config, runtime_context, log_context } => {
             if let Some(preset_id) = strategy_preset.as_deref().map(str::to_owned) {
                 presets::apply_preset(&preset_id, &mut config)?;
             }
@@ -166,6 +186,7 @@ pub fn runtime_config_envelope_from_payload(
             Ok(RuntimeConfigEnvelope {
                 config: runtime_config_from_ui(config)?,
                 runtime_context: sanitize_runtime_context(runtime_context),
+                log_context: sanitize_log_context(log_context),
                 native_log_level,
             })
         }

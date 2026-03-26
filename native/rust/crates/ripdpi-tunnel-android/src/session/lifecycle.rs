@@ -11,7 +11,7 @@ use jni::JNIEnv;
 use ripdpi_tunnel_core::Stats;
 use tokio_util::sync::CancellationToken;
 
-use crate::config::{config_from_payload, parse_tunnel_config_json};
+use crate::config::{config_from_payload, parse_tunnel_config_json, sanitize_log_context};
 use crate::telemetry::TunnelTelemetryState;
 
 use super::registry::{
@@ -33,6 +33,7 @@ pub(crate) fn create_session(env: &mut JNIEnv, config_json: JString) -> jlong {
             return 0;
         }
     };
+    let log_context = sanitize_log_context(payload.log_context.clone());
     let config = match config_from_payload(payload) {
         Ok(config) => Arc::new(config),
         Err(message) => {
@@ -51,7 +52,7 @@ pub(crate) fn create_session(env: &mut JNIEnv, config_json: JString) -> jlong {
             return 0;
         }
     };
-    let telemetry = Arc::new(TunnelTelemetryState::new());
+    let telemetry = Arc::new(TunnelTelemetryState::new(log_context));
     set_android_log_scope_level(telemetry.log_scope().to_string(), native_log_level);
 
     SESSIONS.insert(TunnelSession {

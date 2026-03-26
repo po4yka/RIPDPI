@@ -4,12 +4,10 @@ mod report;
 
 use std::sync::{Arc, Mutex};
 
-use android_support::log_with_level;
+use ripdpi_proxy_config::ProxyLogContext;
 
 use crate::types::SharedState;
 use crate::types::*;
-use crate::util::*;
-
 pub(crate) use probes::{
     run_circumvention_probe, run_dns_probe, run_domain_probe, run_quic_probe, run_service_probe, run_tcp_probe,
     run_throughput_probe,
@@ -33,21 +31,94 @@ fn scan_path_mode_label(path_mode: &ScanPathMode) -> &'static str {
     }
 }
 
-fn diagnostics_log_message(
+fn emit_diagnostics_event(
+    log_context: Option<&ProxyLogContext>,
     session_id: &str,
     profile_id: &str,
     path_mode: &ScanPathMode,
     source: &str,
+    level: &str,
     message: &str,
-) -> String {
-    format!(
-        "subsystem=diagnostics session={} profile={} pathMode={} source={} {}",
-        session_id,
-        profile_id,
-        scan_path_mode_label(path_mode),
-        source,
-        message
-    )
+) {
+    let runtime_id = log_context.and_then(|context| context.runtime_id.as_deref()).unwrap_or("");
+    let mode = log_context.and_then(|context| context.mode.as_deref()).unwrap_or("");
+    let policy_signature = log_context.and_then(|context| context.policy_signature.as_deref()).unwrap_or("");
+    let fingerprint_hash = log_context.and_then(|context| context.fingerprint_hash.as_deref()).unwrap_or("");
+    let diagnostics_session_id =
+        log_context.and_then(|context| context.diagnostics_session_id.as_deref()).unwrap_or("");
+
+    match level.trim().to_ascii_lowercase().as_str() {
+        "trace" => tracing::trace!(
+            ring = "diagnostics",
+            subsystem = "diagnostics",
+            session = session_id,
+            profile = profile_id,
+            path_mode = scan_path_mode_label(path_mode),
+            source,
+            runtime_id,
+            mode,
+            policy_signature,
+            fingerprint_hash,
+            diagnostics_session_id,
+            "{message}"
+        ),
+        "debug" => tracing::debug!(
+            ring = "diagnostics",
+            subsystem = "diagnostics",
+            session = session_id,
+            profile = profile_id,
+            path_mode = scan_path_mode_label(path_mode),
+            source,
+            runtime_id,
+            mode,
+            policy_signature,
+            fingerprint_hash,
+            diagnostics_session_id,
+            "{message}"
+        ),
+        "warn" | "warning" => tracing::warn!(
+            ring = "diagnostics",
+            subsystem = "diagnostics",
+            session = session_id,
+            profile = profile_id,
+            path_mode = scan_path_mode_label(path_mode),
+            source,
+            runtime_id,
+            mode,
+            policy_signature,
+            fingerprint_hash,
+            diagnostics_session_id,
+            "{message}"
+        ),
+        "error" => tracing::error!(
+            ring = "diagnostics",
+            subsystem = "diagnostics",
+            session = session_id,
+            profile = profile_id,
+            path_mode = scan_path_mode_label(path_mode),
+            source,
+            runtime_id,
+            mode,
+            policy_signature,
+            fingerprint_hash,
+            diagnostics_session_id,
+            "{message}"
+        ),
+        _ => tracing::info!(
+            ring = "diagnostics",
+            subsystem = "diagnostics",
+            session = session_id,
+            profile = profile_id,
+            path_mode = scan_path_mode_label(path_mode),
+            source,
+            runtime_id,
+            mode,
+            policy_signature,
+            fingerprint_hash,
+            diagnostics_session_id,
+            "{message}"
+        ),
+    }
 }
 
 pub(crate) fn push_event(
@@ -59,15 +130,9 @@ pub(crate) fn push_event(
     level: &str,
     message: String,
 ) {
-    log_with_level(level, diagnostics_log_message(session_id, profile_id, path_mode, source, &message));
-    let mut guard = shared.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
-    if guard.passive_events.len() >= MAX_PASSIVE_EVENTS {
-        guard.passive_events.pop_front();
-    }
-    guard.passive_events.push_back(NativeSessionEvent {
-        source: source.to_string(),
-        level: level.to_string(),
-        message,
-        created_at: now_ms(),
-    });
+    let log_context = {
+        let guard = shared.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        guard.log_context.clone()
+    };
+    emit_diagnostics_event(log_context.as_ref(), session_id, profile_id, path_mode, source, level, &message);
 }

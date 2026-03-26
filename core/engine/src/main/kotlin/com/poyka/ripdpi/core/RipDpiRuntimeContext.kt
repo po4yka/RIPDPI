@@ -4,7 +4,9 @@ import com.poyka.ripdpi.data.ActiveDnsSettings
 import com.poyka.ripdpi.data.DnsModeEncrypted
 import com.poyka.ripdpi.data.EncryptedDnsProtocolDnsCrypt
 import com.poyka.ripdpi.data.EncryptedDnsProtocolDoh
+import kotlinx.serialization.Serializable
 
+@Serializable
 data class RipDpiEncryptedDnsContext(
     val resolverId: String? = null,
     val protocol: String,
@@ -17,9 +19,45 @@ data class RipDpiEncryptedDnsContext(
     val dnscryptPublicKey: String? = null,
 )
 
+@Serializable
+data class RipDpiLogContext(
+    val runtimeId: String? = null,
+    val mode: String? = null,
+    val policySignature: String? = null,
+    val fingerprintHash: String? = null,
+    val diagnosticsSessionId: String? = null,
+)
+
+@Serializable
 data class RipDpiRuntimeContext(
     val encryptedDns: RipDpiEncryptedDnsContext? = null,
 )
+
+internal fun normalizeLogContext(logContext: RipDpiLogContext?): RipDpiLogContext? =
+    logContext?.let { value ->
+        val runtimeId = value.runtimeId?.trim()?.takeIf { it.isNotEmpty() }
+        val mode = value.mode?.trim()?.lowercase()?.takeIf { it.isNotEmpty() }
+        val policySignature = value.policySignature?.trim()?.takeIf { it.isNotEmpty() }
+        val fingerprintHash = value.fingerprintHash?.trim()?.takeIf { it.isNotEmpty() }
+        val diagnosticsSessionId = value.diagnosticsSessionId?.trim()?.takeIf { it.isNotEmpty() }
+        if (
+            runtimeId == null &&
+            mode == null &&
+            policySignature == null &&
+            fingerprintHash == null &&
+            diagnosticsSessionId == null
+        ) {
+            null
+        } else {
+            RipDpiLogContext(
+                runtimeId = runtimeId,
+                mode = mode,
+                policySignature = policySignature,
+                fingerprintHash = fingerprintHash,
+                diagnosticsSessionId = diagnosticsSessionId,
+            )
+        }
+    }
 
 internal fun normalizeRuntimeContext(runtimeContext: RipDpiRuntimeContext?): RipDpiRuntimeContext? {
     val encryptedDns =
