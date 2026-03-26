@@ -103,11 +103,17 @@ impl ExecutionStageRunner for StrategyDnsBaselineRunner {
                 )
             })
             .collect::<Vec<_>>();
-        let fallback_quic =
-            quic_specs.first().or_else(|| strategy_plan.suite.quic_candidates.first()).expect("quic candidate");
+        let Some(fallback_quic) =
+            quic_specs.first().or_else(|| strategy_plan.suite.quic_candidates.first())
+        else {
+            return RunnerOutcome::Completed;
+        };
+        let Some(fallback_tcp) = strategy_plan.suite.tcp_candidates.first() else {
+            return RunnerOutcome::Completed;
+        };
         let recommendation = StrategyProbeRecommendation {
-            tcp_candidate_id: strategy_plan.suite.tcp_candidates.first().expect("tcp candidate").id.to_string(),
-            tcp_candidate_label: strategy_plan.suite.tcp_candidates.first().expect("tcp candidate").label.to_string(),
+            tcp_candidate_id: fallback_tcp.id.to_string(),
+            tcp_candidate_label: fallback_tcp.label.to_string(),
             quic_candidate_id: fallback_quic.id.to_string(),
             quic_candidate_label: fallback_quic.label.to_string(),
             rationale: format!(
@@ -170,7 +176,11 @@ impl ExecutionStageRunner for StrategyTcpRunner {
             strategy_plan.runtime_context.as_ref(),
             strategy_plan.probe_seed,
             tls_verifier,
+            runtime.cancel_token(),
         );
+        if baseline_execution.cancelled {
+            return RunnerOutcome::Cancelled;
+        }
         let baseline_observations = observations_for_results(&baseline_execution.results);
         runtime.strategy.baseline_failure = classify_strategy_probe_baseline_observations(&baseline_observations);
         let mut baseline_results = baseline_execution.results.clone();
@@ -238,7 +248,11 @@ impl ExecutionStageRunner for StrategyTcpRunner {
                 strategy_plan.runtime_context.as_ref(),
                 strategy_plan.probe_seed,
                 tls_verifier,
+                runtime.cancel_token(),
             );
+            if execution.cancelled {
+                return RunnerOutcome::Cancelled;
+            }
             if execution.summary.family == "hostfake"
                 && execution.summary.succeeded_targets == execution.summary.total_targets
             {
@@ -308,13 +322,20 @@ impl ExecutionStageRunner for StrategyQuicRunner {
         let Some(strategy_plan) = plan.strategy.as_ref() else {
             return RunnerOutcome::Completed;
         };
-        let winning_tcp = winning_candidate_index(&runtime.strategy.tcp_candidates).unwrap_or(0);
-        let tcp_winner_spec = strategy_plan
-            .suite
-            .tcp_candidates
-            .iter()
-            .find(|spec| spec.id == runtime.strategy.tcp_candidates[winning_tcp].id)
-            .unwrap_or_else(|| strategy_plan.suite.tcp_candidates.first().expect("tcp candidates"));
+        let tcp_winner_spec = if runtime.strategy.tcp_candidates.is_empty() {
+            strategy_plan.suite.tcp_candidates.first()
+        } else {
+            let winning_tcp = winning_candidate_index(&runtime.strategy.tcp_candidates).unwrap_or(0);
+            strategy_plan
+                .suite
+                .tcp_candidates
+                .iter()
+                .find(|spec| spec.id == runtime.strategy.tcp_candidates[winning_tcp].id)
+                .or_else(|| strategy_plan.suite.tcp_candidates.first())
+        };
+        let Some(tcp_winner_spec) = tcp_winner_spec else {
+            return RunnerOutcome::Completed;
+        };
         let quic_specs = filter_quic_candidates_for_failure(
             build_quic_candidates_for_suite(&strategy_plan.suite_id, &tcp_winner_spec.config)
                 .unwrap_or_else(|_| strategy_plan.suite.quic_candidates.clone()),
@@ -347,7 +368,11 @@ impl ExecutionStageRunner for StrategyQuicRunner {
                 &plan.request.quic_targets,
                 strategy_plan.runtime_context.as_ref(),
                 strategy_plan.probe_seed,
+                runtime.cancel_token(),
             );
+            if execution.cancelled {
+                return RunnerOutcome::Cancelled;
+            }
             if execution.summary.family == "quic_burst"
                 && execution.summary.succeeded_targets == execution.summary.total_targets
                 && execution.summary.total_targets > 0
@@ -424,12 +449,16 @@ impl ExecutionStageRunner for StrategyRecommendationRunner {
         }
         let winning_tcp = winning_candidate_index(&runtime.strategy.tcp_candidates).unwrap_or(0);
         let winning_quic = winning_candidate_index(&runtime.strategy.quic_candidates).unwrap_or(0);
-        let quic_winner_spec = strategy_plan
+        let Some(quic_winner_spec) = strategy_plan
             .suite
             .quic_candidates
             .iter()
             .find(|spec| spec.id == runtime.strategy.quic_candidates[winning_quic].id)
-            .unwrap_or_else(|| strategy_plan.suite.quic_candidates.first().expect("quic candidates"));
+            .or_else(|| strategy_plan.suite.quic_candidates.first())
+        else {
+            runtime.strategy.summary = Some("Automatic probing finished".to_string());
+            return RunnerOutcome::Completed;
+        };
         let recommendation = StrategyProbeRecommendation {
             tcp_candidate_id: runtime.strategy.tcp_candidates[winning_tcp].id.clone(),
             tcp_candidate_label: runtime.strategy.tcp_candidates[winning_tcp].label.clone(),

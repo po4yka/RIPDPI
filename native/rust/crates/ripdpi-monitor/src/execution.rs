@@ -1,8 +1,8 @@
 use std::net::{SocketAddr, TcpStream};
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 use std::thread::{self, JoinHandle};
 use std::time::Duration;
-
-use std::sync::Arc;
 
 use rustls::client::danger::ServerCertVerifier;
 
@@ -30,6 +30,7 @@ use ripdpi_config::RuntimeConfig;
 pub(crate) struct CandidateExecution {
     pub(crate) summary: StrategyProbeCandidateSummary,
     pub(crate) results: Vec<ProbeResult>,
+    pub(crate) cancelled: bool,
 }
 
 #[derive(Default)]
@@ -117,6 +118,7 @@ pub(crate) fn execute_tcp_candidate(
     runtime_context: Option<&ProxyRuntimeContext>,
     probe_seed: u64,
     tls_verifier: Option<&Arc<dyn ServerCertVerifier>>,
+    cancel: &AtomicBool,
 ) -> CandidateExecution {
     if targets.is_empty() {
         return not_applicable_candidate_execution(spec, 0, 3, "No HTTP or HTTPS targets configured");
@@ -126,16 +128,28 @@ pub(crate) fn execute_tcp_candidate(
         Ok(runtime) => {
             let transport = runtime.transport();
             run_candidate_warmup(spec, &transport, targets, tls_verifier);
+            if cancel.load(Ordering::Acquire) {
+                drop(runtime);
+                return cancelled_candidate_execution(spec, CandidateScore::default(), 3);
+            }
             let mut score = CandidateScore::default();
             let mut ordered_targets = targets.to_vec();
             ordered_targets
                 .sort_by_key(|target| stable_probe_hash(stable_probe_hash(probe_seed, spec.id), &target.host));
             for (index, target) in ordered_targets.iter().enumerate() {
+                if cancel.load(Ordering::Acquire) {
+                    drop(runtime);
+                    return cancelled_candidate_execution(spec, score, 3);
+                }
                 if index > 0 {
                     thread::sleep(Duration::from_millis(target_probe_pause_ms(probe_seed, spec, &target.host)));
                 }
                 score.add(run_http_strategy_probe(&transport, target, spec));
                 score.add(run_https_strategy_probe(&transport, target, spec, tls_verifier));
+                if cancel.load(Ordering::Acquire) {
+                    drop(runtime);
+                    return cancelled_candidate_execution(spec, score, 3);
+                }
             }
             drop(runtime);
             let candidate_id = spec.id.to_string();
@@ -156,6 +170,7 @@ pub(crate) fn execute_quic_candidate(
     targets: &[QuicTarget],
     runtime_context: Option<&ProxyRuntimeContext>,
     probe_seed: u64,
+    cancel: &AtomicBool,
 ) -> CandidateExecution {
     if targets.is_empty() {
         return not_applicable_candidate_execution(spec, 0, 2, "No QUIC targets configured");
@@ -169,6 +184,10 @@ pub(crate) fn execute_quic_candidate(
             ordered_targets
                 .sort_by_key(|target| stable_probe_hash(stable_probe_hash(probe_seed, spec.id), &target.host));
             for (index, target) in ordered_targets.iter().enumerate() {
+                if cancel.load(Ordering::Acquire) {
+                    drop(runtime);
+                    return cancelled_candidate_execution(spec, score, 2);
+                }
                 if index > 0 {
                     thread::sleep(Duration::from_millis(target_probe_pause_ms(probe_seed, spec, &target.host)));
                 }
@@ -286,7 +305,18 @@ pub(crate) fn build_candidate_execution(
             skipped: false,
         },
         results: score.results,
+        cancelled: false,
     }
+}
+
+fn cancelled_candidate_execution(
+    spec: &StrategyCandidateSpec,
+    score: CandidateScore,
+    quality_floor: usize,
+) -> CandidateExecution {
+    let mut execution = build_candidate_execution(spec, score, quality_floor);
+    execution.cancelled = true;
+    execution
 }
 
 pub(crate) fn failed_candidate_execution(
@@ -313,6 +343,7 @@ pub(crate) fn failed_candidate_execution(
             skipped: false,
         },
         results: Vec::new(),
+        cancelled: false,
     }
 }
 
@@ -340,6 +371,7 @@ pub(crate) fn not_applicable_candidate_execution(
             skipped: false,
         },
         results: Vec::new(),
+        cancelled: false,
     }
 }
 
