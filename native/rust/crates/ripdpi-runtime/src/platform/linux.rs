@@ -215,6 +215,7 @@ pub fn set_tcp_window_clamp(stream: &TcpStream, size: u32) -> io::Result<()> {
 }
 
 /// Read the current `TCP_WINDOW_CLAMP` value on a socket.
+#[cfg(test)]
 pub fn get_tcp_window_clamp(stream: &TcpStream) -> io::Result<u32> {
     let (val, _len): (libc::c_int, _) =
         unsafe { getsockopt_raw(stream.as_raw_fd(), libc::IPPROTO_TCP, libc::TCP_WINDOW_CLAMP) }?;
@@ -226,8 +227,6 @@ pub fn get_tcp_window_clamp(stream: &TcpStream) -> io::Result<u32> {
 /// Tries random ports in `[1024, max_port]` until one binds successfully.
 /// Returns the bound port. Falls back to OS-assigned if all attempts fail.
 pub fn bind_udp_low_port(socket: &UdpSocket, local_ip: IpAddr, max_port: u16) -> io::Result<u16> {
-    use std::os::fd::FromRawFd;
-
     let lower = 1024u16;
     if max_port <= lower {
         return Err(io::Error::new(io::ErrorKind::InvalidInput, "max_port too low"));

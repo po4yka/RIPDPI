@@ -45,6 +45,7 @@ impl InMemoryRecorder {
     ///
     /// Use `total_keys_excluding` when called from within a write-lock
     /// scope on one of the collections.
+    #[cfg(test)]
     fn total_keys(&self) -> usize {
         let c = self.counters.read().map(|v| v.len()).unwrap_or(0);
         let g = self.gauges.read().map(|v| v.len()).unwrap_or(0);
