@@ -34,11 +34,7 @@ impl RecordingUdpServer {
                         recv_log.lock().expect("lock received").push(data.clone());
                         let _ = socket.send_to(&data, peer);
                     }
-                    Err(err)
-                        if matches!(
-                            err.kind(),
-                            io::ErrorKind::WouldBlock | io::ErrorKind::TimedOut
-                        ) => {}
+                    Err(err) if matches!(err.kind(), io::ErrorKind::WouldBlock | io::ErrorKind::TimedOut) => {}
                     Err(_) => break,
                 }
             }
@@ -131,13 +127,7 @@ pub mod capture {
     impl LoopbackCapture {
         /// Start capturing packets that involve `filter_port` (src or dst).
         pub fn start(filter_port: u16) -> io::Result<Self> {
-            let fd = unsafe {
-                libc::socket(
-                    libc::AF_PACKET,
-                    libc::SOCK_DGRAM,
-                    (libc::ETH_P_IP as u16).to_be() as i32,
-                )
-            };
+            let fd = unsafe { libc::socket(libc::AF_PACKET, libc::SOCK_DGRAM, (libc::ETH_P_IP as u16).to_be() as i32) };
             if fd < 0 {
                 return Err(io::Error::last_os_error());
             }
@@ -146,10 +136,7 @@ pub mod capture {
             let lo_index = unsafe { libc::if_nametoindex(b"lo\0".as_ptr() as *const libc::c_char) };
             if lo_index == 0 {
                 unsafe { libc::close(fd) };
-                return Err(io::Error::new(
-                    io::ErrorKind::NotFound,
-                    "loopback interface 'lo' not found",
-                ));
+                return Err(io::Error::new(io::ErrorKind::NotFound, "loopback interface 'lo' not found"));
             }
 
             let mut addr: libc::sockaddr_ll = unsafe { mem::zeroed() };
@@ -190,8 +177,7 @@ pub mod capture {
             let handle = thread::spawn(move || {
                 let mut buf = [0u8; 65536];
                 while !stop_flag.load(Ordering::Relaxed) {
-                    let read =
-                        unsafe { libc::recv(fd, buf.as_mut_ptr() as *mut libc::c_void, buf.len(), 0) };
+                    let read = unsafe { libc::recv(fd, buf.as_mut_ptr() as *mut libc::c_void, buf.len(), 0) };
                     if read <= 0 {
                         continue;
                     }
@@ -208,13 +194,7 @@ pub mod capture {
 
         /// Return all captured packets filtered to the given dst_port.
         pub fn packets_to_port(&self, port: u16) -> Vec<CapturedPacket> {
-            self.packets
-                .lock()
-                .expect("lock packets")
-                .iter()
-                .filter(|p| p.dst_port == port)
-                .cloned()
-                .collect()
+            self.packets.lock().expect("lock packets").iter().filter(|p| p.dst_port == port).cloned().collect()
         }
 
         /// Return all captured packets.
@@ -278,11 +258,8 @@ pub mod capture {
         let flags = data[13];
         let window = u16::from_be_bytes([data[14], data[15]]);
 
-        let options = if data_offset > 20 && data.len() >= data_offset {
-            Some(data[20..data_offset].to_vec())
-        } else {
-            None
-        };
+        let options =
+            if data_offset > 20 && data.len() >= data_offset { Some(data[20..data_offset].to_vec()) } else { None };
 
         let payload = if data.len() > data_offset { data[data_offset..].to_vec() } else { Vec::new() };
 

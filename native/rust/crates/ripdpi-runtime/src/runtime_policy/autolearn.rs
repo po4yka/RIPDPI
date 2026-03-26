@@ -595,13 +595,8 @@ mod tests {
         std::fs::remove_file(&store_path).expect("remove store file");
 
         // Second call is within the debounce window -- file should NOT be recreated.
-        policy
-            .note_host_success(&config, "second.example", 0)
-            .expect("debounced success must not error");
-        assert!(
-            !std::path::Path::new(&store_path).exists(),
-            "store file must not be recreated within debounce window"
-        );
+        policy.note_host_success(&config, "second.example", 0).expect("debounced success must not error");
+        assert!(!std::path::Path::new(&store_path).exists(), "store file must not be recreated within debounce window");
 
         // flush_host_store bypasses the debounce and writes unconditionally.
         policy.flush_host_store(&config).expect("flush must write");

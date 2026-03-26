@@ -674,42 +674,28 @@ impl EncryptedDnsResolver {
 
         let conn = self.get_or_connect_doq(endpoint).await?;
 
-        let (mut send, mut recv) = conn
-            .open_bi()
-            .await
-            .map_err(|e| EncryptedDnsError::Request(format!("DoQ open_bi: {e}")))?;
+        let (mut send, mut recv) =
+            conn.open_bi().await.map_err(|e| EncryptedDnsError::Request(format!("DoQ open_bi: {e}")))?;
 
         // RFC 9250: DNS wire format with 2-byte length prefix (same as DNS-over-TCP).
         let len_prefix = (query_bytes.len() as u16).to_be_bytes();
-        send.write_all(&len_prefix)
-            .await
-            .map_err(|e| EncryptedDnsError::Request(format!("DoQ write: {e}")))?;
-        send.write_all(query_bytes)
-            .await
-            .map_err(|e| EncryptedDnsError::Request(format!("DoQ write: {e}")))?;
-        send.finish()
-            .map_err(|e| EncryptedDnsError::Request(format!("DoQ finish: {e}")))?;
+        send.write_all(&len_prefix).await.map_err(|e| EncryptedDnsError::Request(format!("DoQ write: {e}")))?;
+        send.write_all(query_bytes).await.map_err(|e| EncryptedDnsError::Request(format!("DoQ write: {e}")))?;
+        send.finish().map_err(|e| EncryptedDnsError::Request(format!("DoQ finish: {e}")))?;
 
         let mut len_buf = [0u8; 2];
-        recv.read_exact(&mut len_buf)
-            .await
-            .map_err(|e| EncryptedDnsError::DnsParse(format!("DoQ read len: {e}")))?;
+        recv.read_exact(&mut len_buf).await.map_err(|e| EncryptedDnsError::DnsParse(format!("DoQ read len: {e}")))?;
         let resp_len = u16::from_be_bytes(len_buf) as usize;
         if resp_len == 0 || resp_len > 65535 {
             return Err(EncryptedDnsError::DnsParse(format!("invalid DoQ response length: {resp_len}")));
         }
         let mut response = vec![0u8; resp_len];
-        recv.read_exact(&mut response)
-            .await
-            .map_err(|e| EncryptedDnsError::DnsParse(format!("DoQ read body: {e}")))?;
+        recv.read_exact(&mut response).await.map_err(|e| EncryptedDnsError::DnsParse(format!("DoQ read body: {e}")))?;
 
         Ok(response)
     }
 
-    async fn get_or_connect_doq(
-        &self,
-        endpoint: &quinn::Endpoint,
-    ) -> Result<quinn::Connection, EncryptedDnsError> {
+    async fn get_or_connect_doq(&self, endpoint: &quinn::Endpoint) -> Result<quinn::Connection, EncryptedDnsError> {
         // Try cached connection.
         {
             let guard = self.inner.doq_connection.lock().await;
@@ -721,12 +707,7 @@ impl EncryptedDnsResolver {
         }
         // New connection.
         let addr = self.resolve_doq_addr()?;
-        let server_name = self
-            .inner
-            .endpoint
-            .tls_server_name
-            .as_deref()
-            .unwrap_or(&self.inner.endpoint.host);
+        let server_name = self.inner.endpoint.tls_server_name.as_deref().unwrap_or(&self.inner.endpoint.host);
         let conn = timeout(self.inner.timeout, async {
             endpoint
                 .connect(addr, server_name)
@@ -742,12 +723,7 @@ impl EncryptedDnsResolver {
     }
 
     fn resolve_doq_addr(&self) -> Result<SocketAddr, EncryptedDnsError> {
-        let ip = self
-            .inner
-            .endpoint
-            .bootstrap_ips
-            .first()
-            .ok_or(EncryptedDnsError::MissingBootstrapIps)?;
+        let ip = self.inner.endpoint.bootstrap_ips.first().ok_or(EncryptedDnsError::MissingBootstrapIps)?;
         Ok(SocketAddr::new(*ip, self.inner.endpoint.port))
     }
 }

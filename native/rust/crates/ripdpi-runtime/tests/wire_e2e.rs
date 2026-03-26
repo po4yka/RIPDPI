@@ -59,14 +59,8 @@ fn wire_fixture_config() -> FixtureConfig {
 }
 
 fn udp_fake_burst_config() -> ripdpi_config::RuntimeConfig {
-    let mut config = ephemeral_proxy_config(&[
-        "--ip",
-        "127.0.0.1",
-        "--udp-fake",
-        "3",
-        "--fake-quic-profile",
-        "realistic_initial",
-    ]);
+    let mut config =
+        ephemeral_proxy_config(&["--ip", "127.0.0.1", "--udp-fake", "3", "--fake-quic-profile", "realistic_initial"]);
     config.groups[0].matches.proto = IS_UDP;
     config.groups[0].actions.ttl = Some(8);
     config
@@ -110,10 +104,8 @@ fn udp_fake_burst_delivers_expected_datagram_count() {
     drop(proxy);
 
     let events = fixture.events().snapshot();
-    let udp_echo_events: Vec<_> = events
-        .iter()
-        .filter(|e| e.service == "udp_echo" && e.protocol == "udp" && e.detail == "echo")
-        .collect();
+    let udp_echo_events: Vec<_> =
+        events.iter().filter(|e| e.service == "udp_echo" && e.protocol == "udp" && e.detail == "echo").collect();
 
     // 3 fake datagrams + 1 real = at least 4 echo events
     assert!(
@@ -159,11 +151,7 @@ fn udp_fake_burst_packets_have_quic_long_header() {
     }
 
     // The last packet should be the real QUIC Initial (proxy sends fakes first)
-    assert_eq!(
-        packets.last().unwrap(),
-        &real_payload,
-        "last packet should be the real QUIC Initial"
-    );
+    assert_eq!(packets.last().unwrap(), &real_payload, "last packet should be the real QUIC Initial");
 }
 
 /// Sentinel test: verifies that `plan_udp()` skips unimplemented QUIC chain steps.
@@ -213,19 +201,12 @@ mod af_packet_tests {
         let _guard = test_guard();
         let fixture = FixtureStack::start(wire_fixture_config()).expect("start fixture");
 
-        let capture =
-            LoopbackCapture::start(fixture.manifest().tcp_echo_port).expect("start loopback capture");
+        let capture = LoopbackCapture::start(fixture.manifest().tcp_echo_port).expect("start loopback capture");
 
-        let proxy = start_proxy(
-            ephemeral_proxy_config(&["--ip", "127.0.0.1", "--window-clamp", "2"]),
-            None,
-        );
+        let proxy = start_proxy(ephemeral_proxy_config(&["--ip", "127.0.0.1", "--window-clamp", "2"]), None);
 
-        let body = socks_connect_ip_round_trip_with_retry(
-            proxy.port,
-            fixture.manifest().tcp_echo_port,
-            b"clamp wire test",
-        );
+        let body =
+            socks_connect_ip_round_trip_with_retry(proxy.port, fixture.manifest().tcp_echo_port, b"clamp wire test");
         assert_eq!(body, b"clamp wire test");
 
         std::thread::sleep(Duration::from_millis(100));
@@ -240,9 +221,7 @@ mod af_packet_tests {
             .filter(|p| p.tcp_flags.map_or(false, |f| f & 0x02 == 0)) // exclude SYN
             .collect();
 
-        let has_small_window = data_segments
-            .iter()
-            .any(|p| p.tcp_window.unwrap_or(u16::MAX) <= 128);
+        let has_small_window = data_segments.iter().any(|p| p.tcp_window.unwrap_or(u16::MAX) <= 128);
 
         assert!(
             has_small_window,
@@ -260,19 +239,12 @@ mod af_packet_tests {
         let _guard = test_guard();
         let fixture = FixtureStack::start(wire_fixture_config()).expect("start fixture");
 
-        let capture =
-            LoopbackCapture::start(fixture.manifest().tcp_echo_port).expect("start loopback capture");
+        let capture = LoopbackCapture::start(fixture.manifest().tcp_echo_port).expect("start loopback capture");
 
-        let proxy = start_proxy(
-            ephemeral_proxy_config(&["--ip", "127.0.0.1", "--strip-timestamps"]),
-            None,
-        );
+        let proxy = start_proxy(ephemeral_proxy_config(&["--ip", "127.0.0.1", "--strip-timestamps"]), None);
 
-        let body = socks_connect_ip_round_trip_with_retry(
-            proxy.port,
-            fixture.manifest().tcp_echo_port,
-            b"ts wire test",
-        );
+        let body =
+            socks_connect_ip_round_trip_with_retry(proxy.port, fixture.manifest().tcp_echo_port, b"ts wire test");
         assert_eq!(body, b"ts wire test");
 
         std::thread::sleep(Duration::from_millis(100));
@@ -282,11 +254,8 @@ mod af_packet_tests {
         assert!(!tcp_packets.is_empty(), "should have captured TCP packets");
 
         // No segment from proxy should contain TCP Timestamps option (kind=8)
-        let has_timestamps = tcp_packets.iter().any(|p| {
-            p.tcp_options
-                .as_ref()
-                .map_or(false, |opts| tcp_options_contain_kind(opts, 8))
-        });
+        let has_timestamps =
+            tcp_packets.iter().any(|p| p.tcp_options.as_ref().map_or(false, |opts| tcp_options_contain_kind(opts, 8)));
 
         assert!(
             !has_timestamps,
@@ -303,44 +272,29 @@ mod af_packet_tests {
         let _guard = test_guard();
         let fixture = FixtureStack::start(wire_fixture_config()).expect("start fixture");
 
-        let capture =
-            LoopbackCapture::start(fixture.manifest().udp_echo_port).expect("start loopback capture");
+        let capture = LoopbackCapture::start(fixture.manifest().udp_echo_port).expect("start loopback capture");
 
         let config = udp_fake_burst_config();
         let proxy = start_proxy(config, None);
         let (_control, relay) = socks_udp_associate(proxy.port);
         let udp = udp_proxy_client();
 
-        let quic_payload =
-            rust_packet_seeds::quic_initial_with_host(0x0000_0001, "ttl.example.test");
-        let echoed =
-            udp_proxy_roundtrip_with_socket(&udp, relay, fixture.manifest().udp_echo_port, &quic_payload);
+        let quic_payload = rust_packet_seeds::quic_initial_with_host(0x0000_0001, "ttl.example.test");
+        let echoed = udp_proxy_roundtrip_with_socket(&udp, relay, fixture.manifest().udp_echo_port, &quic_payload);
         assert_eq!(echoed, quic_payload);
 
         std::thread::sleep(Duration::from_millis(200));
         drop(proxy);
 
         let udp_packets = capture.packets_to_port(fixture.manifest().udp_echo_port);
-        assert!(
-            udp_packets.len() >= 4,
-            "expected >= 4 UDP packets (3 fake + 1 real), got {}",
-            udp_packets.len()
-        );
+        assert!(udp_packets.len() >= 4, "expected >= 4 UDP packets (3 fake + 1 real), got {}", udp_packets.len());
 
         // Fakes are sent first with TTL=8, real packet follows with default TTL
         for (i, pkt) in udp_packets.iter().take(3).enumerate() {
-            assert_eq!(
-                pkt.ttl, 8,
-                "fake packet {i} should have TTL=8, got {}",
-                pkt.ttl
-            );
+            assert_eq!(pkt.ttl, 8, "fake packet {i} should have TTL=8, got {}", pkt.ttl);
         }
 
         let real_pkt = udp_packets.last().unwrap();
-        assert!(
-            real_pkt.ttl > 8,
-            "real packet should have default TTL > 8, got {}",
-            real_pkt.ttl
-        );
+        assert!(real_pkt.ttl > 8, "real packet should have default TTL > 8, got {}", real_pkt.ttl);
     }
 }
