@@ -237,6 +237,7 @@ mod tests {
             adaptive_fake_ttl: Arc::new(Mutex::new(AdaptiveFakeTtlResolver::default())),
             adaptive_tuning: Arc::new(Mutex::new(AdaptivePlannerResolver::default())),
             retry_stealth: Arc::new(Mutex::new(RetryPacer::default())),
+            strategy_evolver: Arc::new(Mutex::new(crate::strategy_evolver::StrategyEvolver::new(false, 0.0))),
             active_clients: Arc::new(AtomicUsize::new(0)),
             telemetry: None,
             runtime_context: None,
