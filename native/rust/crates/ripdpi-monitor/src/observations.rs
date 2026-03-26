@@ -49,6 +49,13 @@ pub(crate) fn observation_for_probe(result: &ProbeResult) -> Option<ProbeObserva
                 http_status: http_status(detail_value(result, "httpStatus")),
                 tls13_status: tls_status(detail_value(result, "tls13Status")),
                 tls12_status: tls_status(detail_value(result, "tls12Status")),
+                tls_ech_status: tls_status(detail_value(result, "tlsEchStatus")),
+                tls_ech_version: detail_value(result, "tlsEchVersion")
+                    .filter(|value| *value != "unknown")
+                    .map(str::to_string),
+                tls_ech_error: detail_value(result, "tlsEchError")
+                    .filter(|value| *value != "none")
+                    .map(str::to_string),
                 transport_failure: transport_failure(
                     detail_value(result, "tlsError")
                         .filter(|value| *value != "none")
@@ -220,6 +227,13 @@ pub(crate) fn observation_for_probe(result: &ProbeResult) -> Option<ProbeObserva
                     _ => StrategyProbeProtocol::Candidate,
                 },
                 status: strategy_status(&result.outcome),
+                tls_ech_status: tls_status(detail_value(result, "tlsEchStatus")),
+                tls_ech_version: detail_value(result, "tlsEchVersion")
+                    .filter(|value| *value != "unknown")
+                    .map(str::to_string),
+                tls_ech_error: detail_value(result, "tlsEchError")
+                    .filter(|value| *value != "none")
+                    .map(str::to_string),
                 transport_failure: transport_failure(
                     detail_value(result, "error").or_else(|| detail_value(result, "tlsError")).unwrap_or("none"),
                 ),
@@ -363,6 +377,7 @@ fn strategy_status(value: &str) -> StrategyProbeStatus {
         "http_ok" | "tls_ok" | "tls_version_split" | "quic_initial_response" | "quic_response" => {
             StrategyProbeStatus::Success
         }
+        "tls_ech_only" => StrategyProbeStatus::Partial,
         "partial" => StrategyProbeStatus::Partial,
         "skipped" => StrategyProbeStatus::Skipped,
         "not_applicable" => StrategyProbeStatus::NotApplicable,

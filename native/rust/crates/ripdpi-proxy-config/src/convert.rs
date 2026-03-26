@@ -145,11 +145,19 @@ pub fn runtime_config_envelope_from_payload(
     payload: ProxyConfigPayload,
 ) -> Result<RuntimeConfigEnvelope, ProxyConfigError> {
     match payload {
-        ProxyConfigPayload::CommandLine { args, runtime_context } => Ok(RuntimeConfigEnvelope {
-            config: runtime_config_from_command_line(args)?,
-            runtime_context: sanitize_runtime_context(runtime_context),
-            native_log_level: None,
-        }),
+        ProxyConfigPayload::CommandLine { args, host_autolearn_store_path, runtime_context } => {
+            let mut config = runtime_config_from_command_line(args)?;
+            config.host_autolearn.store_path = host_autolearn_store_path
+                .as_deref()
+                .map(str::trim)
+                .filter(|value| !value.is_empty())
+                .map(ToOwned::to_owned);
+            Ok(RuntimeConfigEnvelope {
+                config,
+                runtime_context: sanitize_runtime_context(runtime_context),
+                native_log_level: None,
+            })
+        }
         ProxyConfigPayload::Ui { strategy_preset, mut config, runtime_context } => {
             if let Some(preset_id) = strategy_preset.as_deref().map(str::to_owned) {
                 presets::apply_preset(&preset_id, &mut config)?;

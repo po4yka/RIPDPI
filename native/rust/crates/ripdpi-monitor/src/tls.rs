@@ -1,14 +1,18 @@
 use std::sync::Arc;
 
+use rustls::client::{EchConfig, EchMode, EchStatus};
 use rustls::client::danger::{HandshakeSignatureValid, ServerCertVerified, ServerCertVerifier};
-use rustls::pki_types::{CertificateDer, ServerName, UnixTime};
+use rustls::pki_types::{CertificateDer, EchConfigListBytes, ServerName, UnixTime};
 use rustls::{
     ClientConfig, ClientConnection, DigitallySignedStruct, Error as TlsError, RootCertStore, SignatureScheme,
     StreamOwned,
 };
 
+use crate::dns::resolve_https_ech_configs_via_encrypted_dns;
 use crate::transport::{connect_transport, ConnectionStream, TargetAddress, TransportConfig};
 use crate::util::IO_TIMEOUT;
+
+const ECH_CONFIG_UNAVAILABLE_ERROR: &str = "ech_config_unavailable";
 
 // --- Types ---
 
@@ -25,17 +29,7 @@ pub(crate) enum TlsClientProfile {
     Auto,
     Tls12Only,
     Tls13Only,
-    /// Placeholder for TLS 1.3 with Encrypted Client Hello (ECH).
-    ///
-    /// ECH hides the SNI extension from network intermediaries, making it a
-    /// valuable signal for DPI detection. Currently behaves identically to
-    /// `Tls13Only` because the `ring` crypto backend does not provide the HPKE
-    /// primitives that ECH requires -- only `aws-lc-rs` does.
-    ///
-    // TODO(po4yka): implement ECH probe when rustls `ring` backend gains HPKE
-    // support, or when the project migrates to `aws-lc-rs`.
-    #[allow(dead_code)]
-    Tls13WithEchStub,
+    Tls13WithEch,
 }
 
 // --- Dangerous certificate verifier (INTENTIONAL, audit-reviewed) ---
@@ -110,14 +104,38 @@ pub(crate) fn try_tls_handshake(
 ) -> TlsObservation {
     match open_probe_stream(target, port, transport, Some(server_name), verify_certificates, profile, tls_verifier) {
         Ok(mut stream) => {
-            let version = match &mut stream {
-                ConnectionStream::Plain(_) => None,
-                ConnectionStream::Tls(stream) => tls_version_label(stream.conn.protocol_version()),
+            let (status, version, error) = match &mut stream {
+                ConnectionStream::Plain(_) => ("tls_ok".to_string(), None, None),
+                ConnectionStream::Tls(stream) => {
+                    let version = tls_version_label(stream.conn.protocol_version());
+                    if matches!(profile, TlsClientProfile::Tls13WithEch) {
+                        let ech_status = stream.conn.ech_status();
+                        if matches!(ech_status, EchStatus::Accepted) {
+                            ("tls_ok".to_string(), version, None)
+                        } else {
+                            (
+                                "tls_handshake_failed".to_string(),
+                                version,
+                                Some(format!("ech_{}", ech_status_label(ech_status))),
+                            )
+                        }
+                    } else {
+                        ("tls_ok".to_string(), version, None)
+                    }
+                }
             };
             stream.shutdown();
-            TlsObservation { status: "tls_ok".to_string(), version, error: None, certificate_anomaly: false }
+            TlsObservation { status, version, error, certificate_anomaly: false }
         }
         Err(err) => {
+            if matches!(profile, TlsClientProfile::Tls13WithEch) && err == ECH_CONFIG_UNAVAILABLE_ERROR {
+                return TlsObservation {
+                    status: "not_run".to_string(),
+                    version: None,
+                    error: Some(err),
+                    certificate_anomaly: false,
+                };
+            }
             let certificate_anomaly = is_certificate_error(&err);
             TlsObservation {
                 status: if certificate_anomaly {
@@ -148,28 +166,9 @@ pub(crate) fn open_probe_stream(
 
     match tls_name {
         Some(name) if verify_certificates || port == 443 || !matches!(profile, TlsClientProfile::Auto) => {
-            let builder = match profile {
-                TlsClientProfile::Auto => ClientConfig::builder(),
-                TlsClientProfile::Tls12Only => ClientConfig::builder_with_protocol_versions(&[&rustls::version::TLS12]),
-                TlsClientProfile::Tls13Only | TlsClientProfile::Tls13WithEchStub => {
-                    ClientConfig::builder_with_protocol_versions(&[&rustls::version::TLS13])
-                }
-            };
-            let config = if verify_certificates {
-                if let Some(verifier) = tls_verifier {
-                    Arc::new(
-                        builder.dangerous().with_custom_certificate_verifier(verifier.clone()).with_no_client_auth(),
-                    )
-                } else {
-                    Arc::new(builder.with_root_certificates(default_root_store()).with_no_client_auth())
-                }
-            } else {
-                Arc::new(
-                    builder
-                        .dangerous()
-                        .with_custom_certificate_verifier(Arc::new(NoCertificateVerification))
-                        .with_no_client_auth(),
-                )
+            let config = match profile {
+                TlsClientProfile::Tls13WithEch => build_ech_client_config(name, transport, verify_certificates, tls_verifier)?,
+                _ => build_standard_client_config(profile, verify_certificates, tls_verifier),
             };
             let server_name = make_server_name(name, target)?;
             let connection = ClientConnection::new(config, server_name).map_err(|err| err.to_string())?;
@@ -181,6 +180,75 @@ pub(crate) fn open_probe_stream(
         }
         _ => Ok(ConnectionStream::Plain(socket)),
     }
+}
+
+fn build_standard_client_config(
+    profile: TlsClientProfile,
+    verify_certificates: bool,
+    tls_verifier: Option<&Arc<dyn ServerCertVerifier>>,
+) -> Arc<ClientConfig> {
+    let builder = match profile {
+        TlsClientProfile::Auto => ClientConfig::builder_with_provider(rustls::crypto::ring::default_provider().into())
+            .with_safe_default_protocol_versions()
+            .expect("ring provider supports default TLS versions"),
+        TlsClientProfile::Tls12Only => ClientConfig::builder_with_provider(rustls::crypto::ring::default_provider().into())
+            .with_protocol_versions(&[&rustls::version::TLS12])
+            .expect("ring provider supports TLS1.2"),
+        TlsClientProfile::Tls13Only | TlsClientProfile::Tls13WithEch => ClientConfig::builder_with_provider(
+            rustls::crypto::ring::default_provider().into(),
+        )
+        .with_protocol_versions(&[&rustls::version::TLS13])
+        .expect("ring provider supports TLS1.3"),
+    };
+    if verify_certificates {
+        if let Some(verifier) = tls_verifier {
+            Arc::new(builder.dangerous().with_custom_certificate_verifier(verifier.clone()).with_no_client_auth())
+        } else {
+            Arc::new(builder.with_root_certificates(default_root_store()).with_no_client_auth())
+        }
+    } else {
+        Arc::new(
+            builder
+                .dangerous()
+                .with_custom_certificate_verifier(Arc::new(NoCertificateVerification))
+                .with_no_client_auth(),
+        )
+    }
+}
+
+fn build_ech_client_config(
+    server_name: &str,
+    transport: &TransportConfig,
+    verify_certificates: bool,
+    tls_verifier: Option<&Arc<dyn ServerCertVerifier>>,
+) -> Result<Arc<ClientConfig>, String> {
+    let Some(ech_config_list) = resolve_https_ech_configs_via_encrypted_dns(server_name, transport)? else {
+        return Err(ECH_CONFIG_UNAVAILABLE_ERROR.to_string());
+    };
+    let provider = rustls::crypto::aws_lc_rs::default_provider();
+    let ech_config = EchConfig::new(
+        EchConfigListBytes::from(ech_config_list),
+        rustls::crypto::aws_lc_rs::hpke::ALL_SUPPORTED_SUITES,
+    )
+    .map_err(|err| err.to_string())?;
+    let builder = ClientConfig::builder_with_provider(provider.into())
+        .with_ech(EchMode::Enable(ech_config))
+        .map_err(|err| err.to_string())?;
+    let config = if verify_certificates {
+        if let Some(verifier) = tls_verifier {
+            Arc::new(builder.dangerous().with_custom_certificate_verifier(verifier.clone()).with_no_client_auth())
+        } else {
+            Arc::new(builder.with_root_certificates(default_root_store()).with_no_client_auth())
+        }
+    } else {
+        Arc::new(
+            builder
+                .dangerous()
+                .with_custom_certificate_verifier(Arc::new(NoCertificateVerification))
+                .with_no_client_auth(),
+        )
+    };
+    Ok(config)
 }
 
 pub(crate) fn make_server_name(name: &str, target: &TargetAddress) -> Result<ServerName<'static>, String> {
@@ -207,6 +275,16 @@ pub(crate) fn tls_version_label(version: Option<rustls::ProtocolVersion>) -> Opt
         rustls::ProtocolVersion::TLSv1_3 => "TLS1.3".to_string(),
         other => format!("{other:?}"),
     })
+}
+
+pub(crate) fn ech_status_label(status: EchStatus) -> String {
+    match status {
+        EchStatus::NotOffered => "not_offered".to_string(),
+        EchStatus::Grease => "grease".to_string(),
+        EchStatus::Offered => "offered".to_string(),
+        EchStatus::Accepted => "accepted".to_string(),
+        EchStatus::Rejected => "rejected".to_string(),
+    }
 }
 
 pub(crate) fn is_certificate_error(error: &str) -> bool {
@@ -252,7 +330,12 @@ mod tests {
     use std::net::IpAddr;
 
     fn obs(status: &str, cert_anomaly: bool) -> TlsObservation {
-        TlsObservation { status: status.to_string(), version: None, error: None, certificate_anomaly: cert_anomaly }
+        TlsObservation {
+            status: status.to_string(),
+            version: None,
+            error: None,
+            certificate_anomaly: cert_anomaly,
+        }
     }
 
     #[test]
@@ -397,26 +480,28 @@ mod tests {
     }
 
     #[test]
-    fn tls13_with_ech_stub_uses_tls13_protocol_version() {
-        // Tls13WithEchStub should select the same protocol versions as Tls13Only.
-        // We verify by matching the same builder arm; a full handshake test would
-        // require a live server, so we just confirm the variant is accepted in the
-        // builder match without panicking.
-        let profile = TlsClientProfile::Tls13WithEchStub;
+    fn tls13_with_ech_uses_tls13_protocol_version() {
+        // The ECH profile is TLS 1.3-only, even before live ECH config discovery.
+        let profile = TlsClientProfile::Tls13WithEch;
         let _builder = match profile {
-            TlsClientProfile::Auto => ClientConfig::builder(),
-            TlsClientProfile::Tls12Only => ClientConfig::builder_with_protocol_versions(&[&rustls::version::TLS12]),
-            TlsClientProfile::Tls13Only | TlsClientProfile::Tls13WithEchStub => {
-                ClientConfig::builder_with_protocol_versions(&[&rustls::version::TLS13])
-            }
+            TlsClientProfile::Auto => ClientConfig::builder_with_provider(rustls::crypto::ring::default_provider().into())
+                .with_safe_default_protocol_versions()
+                .expect("ring provider supports default TLS versions"),
+            TlsClientProfile::Tls12Only => ClientConfig::builder_with_provider(rustls::crypto::ring::default_provider().into())
+                .with_protocol_versions(&[&rustls::version::TLS12])
+                .expect("ring provider supports TLS1.2"),
+            TlsClientProfile::Tls13Only | TlsClientProfile::Tls13WithEch => ClientConfig::builder_with_provider(
+                rustls::crypto::ring::default_provider().into(),
+            )
+            .with_protocol_versions(&[&rustls::version::TLS13])
+            .expect("ring provider supports TLS1.3"),
         };
     }
 
     #[test]
-    fn tls_client_profile_ech_stub_is_distinct_variant() {
-        // Ensure the stub variant exists and is distinguishable via Debug output.
-        let stub = TlsClientProfile::Tls13WithEchStub;
-        let debug = format!("{stub:?}");
-        assert!(debug.contains("EchStub"), "expected EchStub in debug repr, got: {debug}");
+    fn tls_client_profile_ech_variant_is_distinct() {
+        let profile = TlsClientProfile::Tls13WithEch;
+        let debug = format!("{profile:?}");
+        assert!(debug.contains("WithEch"), "expected WithEch in debug repr, got: {debug}");
     }
 }

@@ -8,7 +8,7 @@
   {
     "createdAt": 0,
     "level": "error",
-    "message": "127.0.0.1 -> http_blockpage (tls13=tls_handshake_failed, tls12=tls_handshake_failed, http=http_blockpage)",
+    "message": "127.0.0.1 -> http_blockpage (tls13=tls_handshake_failed, tls12=tls_handshake_failed, ech=tls_handshake_failed, http=http_blockpage)",
     "source": "domain_reachability"
   },
   {

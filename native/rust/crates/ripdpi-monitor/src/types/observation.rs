@@ -130,6 +130,12 @@ pub struct DomainObservationFact {
     pub tls13_status: TlsProbeStatus,
     #[serde(default = "default_tls_probe_status_not_run")]
     pub tls12_status: TlsProbeStatus,
+    #[serde(default = "default_tls_probe_status_not_run")]
+    pub tls_ech_status: TlsProbeStatus,
+    #[serde(default)]
+    pub tls_ech_version: Option<String>,
+    #[serde(default)]
+    pub tls_ech_error: Option<String>,
     #[serde(default = "default_transport_failure_none")]
     pub transport_failure: TransportFailureKind,
     #[serde(default)]
@@ -232,6 +238,12 @@ pub struct StrategyObservationFact {
     pub protocol: StrategyProbeProtocol,
     #[serde(default = "default_strategy_probe_status_failed")]
     pub status: StrategyProbeStatus,
+    #[serde(default = "default_tls_probe_status_not_run")]
+    pub tls_ech_status: TlsProbeStatus,
+    #[serde(default)]
+    pub tls_ech_version: Option<String>,
+    #[serde(default)]
+    pub tls_ech_error: Option<String>,
     #[serde(default = "default_transport_failure_none")]
     pub transport_failure: TransportFailureKind,
 }

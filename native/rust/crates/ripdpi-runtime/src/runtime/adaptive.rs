@@ -107,6 +107,7 @@ pub(super) fn note_adaptive_tcp_success(
 ) -> io::Result<()> {
     let mut resolver = state.adaptive_tuning.lock().map_err(|_| io::Error::other("adaptive tuning mutex poisoned"))?;
     resolver.note_tcp_success(network_scope_key(&state.config), group_index, target, host, payload);
+    resolver.persist_if_due(state.config.as_ref())?;
     Ok(())
 }
 
@@ -119,6 +120,7 @@ pub(super) fn note_adaptive_tcp_failure(
 ) -> io::Result<()> {
     let mut resolver = state.adaptive_tuning.lock().map_err(|_| io::Error::other("adaptive tuning mutex poisoned"))?;
     resolver.note_tcp_failure(network_scope_key(&state.config), group_index, target, host, payload);
+    resolver.persist_if_due(state.config.as_ref())?;
     Ok(())
 }
 
@@ -131,6 +133,7 @@ pub(super) fn note_adaptive_udp_success(
 ) -> io::Result<()> {
     let mut resolver = state.adaptive_tuning.lock().map_err(|_| io::Error::other("adaptive tuning mutex poisoned"))?;
     resolver.note_udp_success(network_scope_key(&state.config), group_index, target, host, payload);
+    resolver.persist_if_due(state.config.as_ref())?;
     Ok(())
 }
 
@@ -143,6 +146,7 @@ pub(super) fn note_adaptive_udp_failure(
 ) -> io::Result<()> {
     let mut resolver = state.adaptive_tuning.lock().map_err(|_| io::Error::other("adaptive tuning mutex poisoned"))?;
     resolver.note_udp_failure(network_scope_key(&state.config), group_index, target, host, payload);
+    resolver.persist_if_due(state.config.as_ref())?;
     Ok(())
 }
 

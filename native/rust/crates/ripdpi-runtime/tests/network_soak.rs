@@ -504,7 +504,9 @@ fn http_connect_tls_probe_with_retry(proxy_port: u16, dst_port: u16, server_name
 fn attempt_http_connect_tls_probe(proxy_port: u16, dst_port: u16, server_name: &str) -> Result<String, String> {
     let stream = http_connect_stream(proxy_port, dst_port)?;
 
-    let config = ClientConfig::builder()
+    let config = ClientConfig::builder_with_provider(rustls::crypto::ring::default_provider().into())
+        .with_safe_default_protocol_versions()
+        .expect("ring provider supports default TLS versions")
         .dangerous()
         .with_custom_certificate_verifier(Arc::new(NoCertificateVerification))
         .with_no_client_auth();

@@ -73,7 +73,9 @@ pub fn tls_probe(
     server_name: &str,
     fragmented: Option<FragmentingProfile>,
 ) -> Result<String, String> {
-    let config = ClientConfig::builder()
+    let config = ClientConfig::builder_with_provider(rustls::crypto::ring::default_provider().into())
+        .with_safe_default_protocol_versions()
+        .expect("ring provider supports default TLS versions")
         .dangerous()
         .with_custom_certificate_verifier(Arc::new(NoCertificateVerification))
         .with_no_client_auth();

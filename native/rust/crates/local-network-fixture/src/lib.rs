@@ -42,7 +42,9 @@ impl FixtureStack {
         let cert_pem = certificate.cert.pem();
         let key_der = PrivateKeyDer::Pkcs8(certificate.key_pair.serialize_der().into());
         let tls_server_config = Arc::new(
-            ServerConfig::builder()
+            ServerConfig::builder_with_provider(rustls::crypto::ring::default_provider().into())
+                .with_safe_default_protocol_versions()
+                .expect("ring provider supports default TLS versions")
                 .with_no_client_auth()
                 .with_single_cert(vec![cert_der], key_der)
                 .map_err(util::other_io)?,
@@ -810,7 +812,9 @@ mod tests {
         stream.set_read_timeout(Some(Duration::from_secs(1))).map_err(|err| err.to_string())?;
         stream.set_write_timeout(Some(Duration::from_secs(1))).map_err(|err| err.to_string())?;
 
-        let config = ClientConfig::builder()
+        let config = ClientConfig::builder_with_provider(rustls::crypto::ring::default_provider().into())
+            .with_safe_default_protocol_versions()
+            .expect("ring provider supports default TLS versions")
             .dangerous()
             .with_custom_certificate_verifier(Arc::new(NoCertificateVerification))
             .with_no_client_auth();
