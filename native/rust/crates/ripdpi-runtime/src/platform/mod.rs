@@ -97,6 +97,16 @@ pub fn set_tcp_window_clamp(_stream: &TcpStream, _size: u32) -> io::Result<()> {
 }
 
 #[cfg(any(target_os = "linux", target_os = "android"))]
+pub fn attach_strip_timestamps(stream: &TcpStream) -> io::Result<()> {
+    linux::attach_strip_timestamps(stream)
+}
+
+#[cfg(not(any(target_os = "linux", target_os = "android")))]
+pub fn attach_strip_timestamps(_stream: &TcpStream) -> io::Result<()> {
+    Err(io::Error::new(io::ErrorKind::Unsupported, "only supported on Linux/Android"))
+}
+
+#[cfg(any(target_os = "linux", target_os = "android"))]
 pub fn bind_udp_low_port(socket: &UdpSocket, local_ip: IpAddr, max_port: u16) -> io::Result<u16> {
     linux::bind_udp_low_port(socket, local_ip, max_port)
 }
