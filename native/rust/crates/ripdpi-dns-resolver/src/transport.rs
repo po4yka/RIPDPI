@@ -67,6 +67,14 @@ pub(crate) fn normalize_endpoint(
             }
             dnscrypt_verifying_key(&endpoint)?;
         }
+        EncryptedDnsProtocol::Doq => {
+            if endpoint.host.is_empty() {
+                return Err(EncryptedDnsError::MissingHost);
+            }
+            if endpoint.tls_server_name.as_deref().unwrap_or_default().is_empty() {
+                endpoint.tls_server_name = Some(endpoint.host.clone());
+            }
+        }
     }
 
     Ok(endpoint)

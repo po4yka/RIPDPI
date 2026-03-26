@@ -123,7 +123,7 @@ message AppSettings {
   string dns_doh_url = 93; // deprecated compatibility field
   repeated string dns_doh_bootstrap_ips = 94; // deprecated compatibility field
   ActivationFilter group_activation_filter = 95;
-  string encrypted_dns_protocol = 96; // "doh" | "dot" | "dnscrypt"
+  string encrypted_dns_protocol = 96; // "doh" | "dot" | "dnscrypt" | "doq"
   string encrypted_dns_host = 97;
   int32 encrypted_dns_port = 98;
   string encrypted_dns_tls_server_name = 99;

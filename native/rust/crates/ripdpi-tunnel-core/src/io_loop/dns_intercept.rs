@@ -99,6 +99,7 @@ pub(super) fn parse_encrypted_dns_protocol(value: &str) -> Option<EncryptedDnsPr
         "dot" => Some(EncryptedDnsProtocol::Dot),
         "dnscrypt" => Some(EncryptedDnsProtocol::DnsCrypt),
         "doh" => Some(EncryptedDnsProtocol::Doh),
+        "doq" => Some(EncryptedDnsProtocol::Doq),
         _ => None,
     }
 }

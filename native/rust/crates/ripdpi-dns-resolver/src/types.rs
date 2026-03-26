@@ -3,12 +3,14 @@ use thiserror::Error;
 use std::net::IpAddr;
 
 pub const DOT_DEFAULT_PORT: u16 = 853;
+pub const DOQ_DEFAULT_PORT: u16 = 853;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum EncryptedDnsProtocol {
     Doh,
     Dot,
     DnsCrypt,
+    Doq,
 }
 
 impl EncryptedDnsProtocol {
@@ -17,6 +19,7 @@ impl EncryptedDnsProtocol {
             Self::Doh => "doh",
             Self::Dot => "dot",
             Self::DnsCrypt => "dnscrypt",
+            Self::Doq => "doq",
         }
     }
 
@@ -25,6 +28,7 @@ impl EncryptedDnsProtocol {
             Self::Doh => 443,
             Self::Dot => DOT_DEFAULT_PORT,
             Self::DnsCrypt => 443,
+            Self::Doq => DOQ_DEFAULT_PORT,
         }
     }
 }
