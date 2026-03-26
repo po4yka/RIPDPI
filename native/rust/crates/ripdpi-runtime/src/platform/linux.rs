@@ -10,7 +10,7 @@
 
 use std::io::{self, Read};
 use std::mem::{size_of, zeroed};
-use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, TcpStream};
+use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, TcpStream, UdpSocket};
 use std::os::fd::AsRawFd;
 use std::os::unix::net::UnixStream;
 use std::ptr;
@@ -219,6 +219,44 @@ pub fn get_tcp_window_clamp(stream: &TcpStream) -> io::Result<u32> {
     let (val, _len): (libc::c_int, _) =
         unsafe { getsockopt_raw(stream.as_raw_fd(), libc::IPPROTO_TCP, libc::TCP_WINDOW_CLAMP) }?;
     Ok(val as u32)
+}
+
+/// Bind a UDP socket to a source port that is at most `max_port`.
+///
+/// Tries random ports in `[1024, max_port]` until one binds successfully.
+/// Returns the bound port. Falls back to OS-assigned if all attempts fail.
+pub fn bind_udp_low_port(socket: &UdpSocket, local_ip: IpAddr, max_port: u16) -> io::Result<u16> {
+    use std::os::fd::FromRawFd;
+
+    let lower = 1024u16;
+    if max_port <= lower {
+        return Err(io::Error::new(io::ErrorKind::InvalidInput, "max_port too low"));
+    }
+    // Try a few random ports in the range [1024, max_port].
+    let mut rng_state = (std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .subsec_nanos()) as u16;
+    for _ in 0..8 {
+        rng_state = rng_state.wrapping_mul(25173).wrapping_add(13849);
+        let port = lower + (rng_state % (max_port - lower + 1));
+        let addr = SocketAddr::new(local_ip, port);
+        let fd = socket.as_raw_fd();
+        let sa = socket2::SockAddr::from(addr);
+        let ret = unsafe { libc::bind(fd, sa.as_ptr(), sa.len()) };
+        if ret == 0 {
+            return Ok(port);
+        }
+    }
+    // Fallback: let OS pick.
+    let addr = SocketAddr::new(local_ip, 0);
+    let fd = socket.as_raw_fd();
+    let sa = socket2::SockAddr::from(addr);
+    let ret = unsafe { libc::bind(fd, sa.as_ptr(), sa.len()) };
+    if ret != 0 {
+        return Err(io::Error::last_os_error());
+    }
+    socket.local_addr().map(|a| a.port())
 }
 
 pub fn enable_recv_ttl(stream: &TcpStream) -> io::Result<()> {

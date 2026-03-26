@@ -149,4 +149,11 @@ message AppSettings {
   // Banner dismiss state
   bool battery_banner_dismissed = 114;
   bool background_guidance_dismissed = 115;
+
+  // QUIC DPI evasion
+  bool quic_sni_split = 118;
+  bool quic_bind_low_port = 119;
+  int32 quic_dummy_prepend_size = 120;    // 0 = disabled, >0 = prepend size
+  uint32 quic_fake_version = 121;         // 0 = disabled, non-zero = version to use
+  bool quic_migrate_after_handshake = 122;
 }
