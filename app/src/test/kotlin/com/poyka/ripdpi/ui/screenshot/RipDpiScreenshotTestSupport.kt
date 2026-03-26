@@ -3,10 +3,19 @@ package com.poyka.ripdpi.ui.screenshot
 import androidx.compose.runtime.Composable
 import com.github.takahirom.roborazzi.ExperimentalRoborazziApi
 import com.github.takahirom.roborazzi.RoborazziComposeOptions
+import com.github.takahirom.roborazzi.RoborazziOptions
 import com.github.takahirom.roborazzi.captureRoboImage
 import com.github.takahirom.roborazzi.fontScale
 import com.github.takahirom.roborazzi.inspectionMode
 import com.github.takahirom.roborazzi.size
+
+private val CROSS_PLATFORM_OPTIONS =
+    RoborazziOptions(
+        compareOptions =
+            RoborazziOptions.CompareOptions(
+                changeThreshold = 0.01F,
+            ),
+    )
 
 @OptIn(ExperimentalRoborazziApi::class)
 internal fun captureRipDpiScreenshot(
@@ -16,6 +25,7 @@ internal fun captureRipDpiScreenshot(
     content: @Composable () -> Unit,
 ) {
     captureRoboImage(
+        roborazziOptions = CROSS_PLATFORM_OPTIONS,
         roborazziComposeOptions =
             RoborazziComposeOptions {
                 size(widthDp = widthDp, heightDp = heightDp)
