@@ -10,15 +10,19 @@ Android VPN/proxy app for network optimization using in-repository Rust native m
 |--------|---------|
 | `:app` | UI layer: Jetpack Compose + Material 3, navigation, ViewModels |
 | `:core:data` | Protobuf schema + DataStore for app settings persistence |
+| `:core:diagnostics` | Active network diagnostics, passive telemetry, diagnostics UI logic |
+| `:core:diagnostics-data` | Protobuf schemas and data contracts for diagnostics |
 | `:core:engine` | Rust native proxy + VPN tunnel + JNI bridge |
 | `:core:service` | Android VPN and proxy foreground services |
+| `:quality:detekt-rules` | Custom detekt rules (DI guardrails, Hilt checks) |
+| `:baselineprofile` | Baseline profile generation for runtime performance |
 
 ## Tech Stack
 
-- Kotlin, Jetpack Compose (BOM 2026.02.01), Material 3
-- Android NDK 29.0.14206865, stable Rust toolchain
-- Protobuf 4.34.0 (javalite) + DataStore
-- Gradle 9.4 with Kotlin DSL, AGP 9.1.0
+- Kotlin, Jetpack Compose (BOM 2026.03.00), Material 3
+- Android NDK 29.0.14206865, Rust toolchain 1.94.0
+- Protobuf 4.34.1 (javalite) + DataStore
+- Gradle 9.4.1 with Kotlin DSL, AGP 9.1.0
 - JDK 17 (Temurin)
 
 ## Build Commands
@@ -59,8 +63,12 @@ cargo run -p ripdpi-cli -- -p 1080 --strategy-evolution  # Enable adaptive combo
 
 - Convention plugins in `build-logic/convention/` -- use them, don't add raw plugin config to modules
   - `ripdpi.android.application`, `ripdpi.android.library`, `ripdpi.android.compose`
-  - `ripdpi.android.native`, `ripdpi.android.protobuf`
-  - `ripdpi.android.quality`, `ripdpi.android.coverage`
+  - `ripdpi.android.hilt`, `ripdpi.android.serialization`
+  - `ripdpi.android.native`, `ripdpi.android.rust-native`, `ripdpi.android.protobuf`
+  - `ripdpi.android.quality`, `ripdpi.android.coverage`, `ripdpi.android.jacoco`
+  - `ripdpi.android.detekt`, `ripdpi.android.ktlint`, `ripdpi.android.lint`
+  - `ripdpi.android.roborazzi`
+  - `ripdpi.diagnostics.catalog`
 - Version catalog at `gradle/libs.versions.toml` -- all dependency versions there
 - Max line length: 120 chars
 - detekt config: `config/detekt/detekt.yml`
@@ -82,8 +90,9 @@ cargo run -p ripdpi-cli -- -p 1080 --strategy-evolution  # Enable adaptive combo
 
 ## CI/CD
 
-- `ci.yml`: build + unit tests + static analysis on push/PR to main
+- `ci.yml`: build + unit tests + static analysis on push/PR to main; nightly soak and TUN E2E
 - `release.yml`: signed release APK on `v*` tags or manual dispatch
+- `mutation-testing.yml`: weekly Rust mutation testing via cargo-mutants
 
 ## Testing
 
