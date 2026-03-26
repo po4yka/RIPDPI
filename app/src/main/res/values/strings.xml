@@ -1475,4 +1475,10 @@ Source: %2$s</string>
 
     <!-- Accessibility -->
     <string name="status_indicator_description">Status: %1$s</string>
+
+    <!-- Crash report dialog -->
+    <string name="crash_report_title">App crashed</string>
+    <string name="crash_report_body">The app stopped unexpectedly due to:\n%1$s\n\nWould you like to share the crash report with the developer?</string>
+    <string name="crash_report_share">Share report</string>
+    <string name="crash_report_dismiss">Dismiss</string>
 </resources>

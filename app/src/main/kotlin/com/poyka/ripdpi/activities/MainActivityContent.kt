@@ -15,11 +15,13 @@ import com.poyka.ripdpi.ui.components.feedback.showRipDpiSnackbar
 import com.poyka.ripdpi.ui.navigation.RipDpiNavHost
 import com.poyka.ripdpi.ui.navigation.RipDpiNavHostActions
 import com.poyka.ripdpi.ui.navigation.RipDpiNavHostLaunchRequests
+import com.poyka.ripdpi.ui.screens.crash.CrashReportDialog
 import com.poyka.ripdpi.ui.screens.permissions.VpnPermissionDialog
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiAutomationTreeRoot
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 
+@Suppress("LongMethod")
 @Composable
 internal fun MainActivityContent(
     viewModel: MainViewModel,
@@ -101,6 +103,19 @@ internal fun MainActivityContent(
                         uiState = uiState,
                         onDismiss = controller::dismissVpnPermissionDialog,
                         onContinue = viewModel::onVpnPermissionContinueRequested,
+                    )
+                }
+
+                val pendingCrashReport by viewModel.pendingCrashReport.collectAsStateWithLifecycle()
+                pendingCrashReport?.let { report ->
+                    CrashReportDialog(
+                        report = report,
+                        onShare = {
+                            val (title, body) = viewModel.buildCrashReportShareText(report)
+                            controller.requestShareDiagnosticsSummary(title, body)
+                            viewModel.dismissCrashReport()
+                        },
+                        onDismiss = { viewModel.dismissCrashReport() },
                     )
                 }
             }
