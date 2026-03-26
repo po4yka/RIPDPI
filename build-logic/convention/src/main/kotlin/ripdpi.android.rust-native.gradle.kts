@@ -324,6 +324,37 @@ abstract class BuildRustNativeLibsTask
 
 val rustNativeAbis = resolvedNativeAbis()
 val rustNativeCargoProfile = resolvedNativeCargoProfile()
+val rustNativeArtifactSpecs =
+    listOf(
+        "ripdpi-android|libripdpi_android.so|libripdpi.so",
+        "ripdpi-tunnel-android|libripdpi_tunnel_android.so|libripdpi-tunnel.so",
+    )
+val rustWorkspaceManifestFile = rootProject.layout.projectDirectory.file("native/rust/Cargo.toml").asFile
+val rustWorkspaceDir = rustWorkspaceManifestFile.parentFile
+// Keep this list aligned with `cargo tree -p ripdpi-android` and `cargo tree -p ripdpi-tunnel-android`
+// so unrelated workspace members do not invalidate the native build cache.
+val rustNativePackageDirs =
+    listOf(
+        "android-support",
+        "ripdpi-android",
+        "ripdpi-config",
+        "ripdpi-desync",
+        "ripdpi-dns-resolver",
+        "ripdpi-failure-classifier",
+        "ripdpi-monitor",
+        "ripdpi-packets",
+        "ripdpi-proxy-config",
+        "ripdpi-runtime",
+        "ripdpi-session",
+        "ripdpi-telemetry",
+        "ripdpi-tun-driver",
+        "ripdpi-tunnel-android",
+        "ripdpi-tunnel-config",
+        "ripdpi-tunnel-core",
+        "ripdpi-ws-tunnel",
+    ).map { packageName ->
+        rustWorkspaceDir.resolve("crates").resolve(packageName)
+    }
 val generatedJniLibsDir = layout.buildDirectory.dir("generated/jniLibs")
 val rustNativeBuildDir = layout.buildDirectory.dir("intermediates/rust")
 
@@ -336,12 +367,25 @@ val buildRustNativeLibs =
         group = "build"
         description = "Builds Rust native libraries into Gradle-managed jniLibs outputs."
 
+        nativeSources.from(rustWorkspaceManifestFile)
         nativeSources.from(
-            fileTree(rootProject.file("native/rust")) {
-                exclude("**/target/**")
+            listOf("Cargo.lock", "rust-toolchain.toml")
+                .map(rustWorkspaceDir::resolve)
+                .filter { it.isFile },
+        )
+        nativeSources.from(
+            fileTree(rustWorkspaceDir.resolve(".cargo")) {
+                include("**/*")
             },
         )
-        workspaceManifest.set(rootProject.layout.projectDirectory.file("native/rust/Cargo.toml"))
+        nativeSources.from(
+            rustNativePackageDirs.map { packageDir ->
+                fileTree(packageDir) {
+                    exclude("**/target/**")
+                }
+            },
+        )
+        workspaceManifest.set(rustWorkspaceManifestFile)
         sdkDir.set(resolveAndroidSdkDir())
         cargoExecutable.set(resolveRustTool("cargo"))
         rustupExecutable.set(resolveRustTool("rustup"))
@@ -349,12 +393,7 @@ val buildRustNativeLibs =
         cargoProfile.set(rustNativeCargoProfile)
         minSdk.set(providers.gradleProperty("ripdpi.minSdk").map(String::toInt))
         abis.set(rustNativeAbis)
-        artifactSpecs.set(
-            listOf(
-                "ripdpi-android|libripdpi_android.so|libripdpi.so",
-                "ripdpi-tunnel-android|libripdpi_tunnel_android.so|libripdpi-tunnel.so",
-            ),
-        )
+        artifactSpecs.set(rustNativeArtifactSpecs)
         cargoTargetDir.set(rustNativeBuildDir)
         outputDir.set(generatedJniLibsDir)
     }
