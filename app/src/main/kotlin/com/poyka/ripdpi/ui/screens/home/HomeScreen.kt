@@ -116,9 +116,9 @@ fun HomeScreen(
     onOpenHistory: () -> Unit,
     onRepairPermission: (PermissionKind) -> Unit,
     onOpenVpnPermissionDialog: () -> Unit,
+    modifier: Modifier = Modifier,
     onDismissBatteryBanner: () -> Unit = {},
     onDismissBackgroundGuidance: () -> Unit = {},
-    modifier: Modifier = Modifier,
 ) {
     val colors = RipDpiThemeTokens.colors
     val spacing = RipDpiThemeTokens.spacing
