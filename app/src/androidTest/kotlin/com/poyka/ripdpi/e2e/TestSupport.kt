@@ -61,9 +61,12 @@ private const val DebugNetworkProbeReceiverClass = "com.poyka.ripdpi.debug.Debug
 private const val DebugNetworkProbeExtraHost = "host"
 private const val DebugNetworkProbeExtraPort = "port"
 private const val DebugNetworkProbeExtraConnectTimeoutMs = "connect_timeout_ms"
+private const val DebugNetworkProbeExtraReadTimeoutMs = "read_timeout_ms"
+private const val DebugNetworkProbeExtraPayload = "payload"
 private const val DebugNetworkProbeExtraOk = "ok"
 private const val DebugNetworkProbeExtraLocalAddress = "local_address"
 private const val DebugNetworkProbeExtraLocalPort = "local_port"
+private const val DebugNetworkProbeExtraResponse = "response"
 private const val DebugNetworkProbeExtraErrorClass = "error_class"
 private const val DebugNetworkProbeExtraErrorMessage = "error_message"
 private const val DebugNetworkProbeTimeoutMs = 3_000L
@@ -107,6 +110,7 @@ data class AppProcessTcpProbeResult(
     val ok: Boolean,
     val localAddress: String? = null,
     val localPort: Int? = null,
+    val response: String? = null,
     val errorClass: String? = null,
     val errorMessage: String? = null,
 )
@@ -264,7 +268,7 @@ private fun defaultFixtureControlHost(): String =
         LoopbackFixtureHost
     }
 
-private fun isLikelyEmulator(): Boolean {
+fun isLikelyEmulator(): Boolean {
     val fingerprint = Build.FINGERPRINT.lowercase()
     val hardware = Build.HARDWARE.lowercase()
     val model = Build.MODEL.lowercase()
@@ -536,6 +540,7 @@ fun probeAppProcessTcpConnect(
                         ok = resultCode == Activity.RESULT_OK && extras.getBoolean(DebugNetworkProbeExtraOk, false),
                         localAddress = extras.getString(DebugNetworkProbeExtraLocalAddress),
                         localPort = extras.getInt(DebugNetworkProbeExtraLocalPort).takeIf { it > 0 },
+                        response = extras.getString(DebugNetworkProbeExtraResponse),
                         errorClass = extras.getString(DebugNetworkProbeExtraErrorClass),
                         errorMessage = extras.getString(DebugNetworkProbeExtraErrorMessage),
                     ),
@@ -553,6 +558,62 @@ fun probeAppProcessTcpConnect(
     }
     return requireNotNull(probeResult.get()) {
         "App-process TCP probe did not deliver a result for $host:$port"
+    }
+}
+
+fun appProcessTcpRoundTrip(
+    context: Context,
+    host: String,
+    port: Int,
+    payload: String,
+    connectTimeoutMs: Long = DebugNetworkProbeTimeoutMs,
+    readTimeoutMs: Long = 5_000L,
+): AppProcessTcpProbeResult {
+    val latch = CountDownLatch(1)
+    val probeResult = AtomicReference<AppProcessTcpProbeResult?>()
+    val intent =
+        Intent(DebugNetworkProbeAction).apply {
+            setClassName(context.packageName, DebugNetworkProbeReceiverClass)
+            putExtra(DebugNetworkProbeExtraHost, host)
+            putExtra(DebugNetworkProbeExtraPort, port)
+            putExtra(DebugNetworkProbeExtraConnectTimeoutMs, connectTimeoutMs.toInt())
+            putExtra(DebugNetworkProbeExtraReadTimeoutMs, readTimeoutMs.toInt())
+            putExtra(DebugNetworkProbeExtraPayload, payload)
+        }
+    context.sendOrderedBroadcast(
+        intent,
+        null,
+        object : BroadcastReceiver() {
+            override fun onReceive(
+                context: Context?,
+                intent: Intent?,
+            ) {
+                val extras = getResultExtras(false) ?: Bundle.EMPTY
+                probeResult.set(
+                    AppProcessTcpProbeResult(
+                        host = host,
+                        port = port,
+                        ok = resultCode == Activity.RESULT_OK && extras.getBoolean(DebugNetworkProbeExtraOk, false),
+                        localAddress = extras.getString(DebugNetworkProbeExtraLocalAddress),
+                        localPort = extras.getInt(DebugNetworkProbeExtraLocalPort).takeIf { it > 0 },
+                        response = extras.getString(DebugNetworkProbeExtraResponse),
+                        errorClass = extras.getString(DebugNetworkProbeExtraErrorClass),
+                        errorMessage = extras.getString(DebugNetworkProbeExtraErrorMessage),
+                    ),
+                )
+                latch.countDown()
+            }
+        },
+        null,
+        Activity.RESULT_CANCELED,
+        null,
+        null,
+    )
+    check(latch.await(DebugNetworkProbeBroadcastTimeoutMs, TimeUnit.MILLISECONDS)) {
+        "Timed out waiting for app-process TCP round-trip for $host:$port"
+    }
+    return requireNotNull(probeResult.get()) {
+        "App-process TCP round-trip did not deliver a result for $host:$port"
     }
 }
 
