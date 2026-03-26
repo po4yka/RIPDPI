@@ -6,7 +6,7 @@ use ripdpi_packets::{
 };
 
 use crate::{
-    Cidr, ConfigError, DesyncGroup, DesyncMode, ParseResult, RuntimeConfig, StartupEnv, TcpChainStep, TcpChainStepKind,
+    Cidr, ConfigError, DesyncGroup, DesyncMode, EntropyMode, ParseResult, RuntimeConfig, StartupEnv, TcpChainStep, TcpChainStepKind,
     UdpChainStep, UdpChainStepKind, UpstreamSocksConfig, AUTO_NOPOST, AUTO_RECONN, AUTO_SORT, DETECT_CONNECT,
     DETECT_DNS_TAMPER, DETECT_HTTP_BLOCKPAGE, DETECT_HTTP_LOCAT, DETECT_QUIC_BREAKAGE, DETECT_RECONN,
     DETECT_SILENT_DROP, DETECT_TCP_RESET, DETECT_TLS_ALERT, DETECT_TLS_ERR, DETECT_TLS_HANDSHAKE_FAILURE, DETECT_TORST,
@@ -228,6 +228,23 @@ pub fn parse_cli(args: &[String], startup: &StartupEnv) -> Result<ParseResult, C
                 let value = next_value(&effective_args, &mut idx, arg)?;
                 group!().actions.entropy_padding_max =
                     value.parse::<u32>().map_err(|_| ConfigError::invalid(arg, Some(value)))?;
+            }
+            "--entropy-mode" => {
+                let value = next_value(&effective_args, &mut idx, arg)?;
+                group!().actions.entropy_mode = match &*value {
+                    "popcount" => EntropyMode::Popcount,
+                    "shannon" => EntropyMode::Shannon,
+                    "combined" | "auto" => EntropyMode::Combined,
+                    _ => return Err(ConfigError::invalid(arg, Some(value))),
+                };
+            }
+            "--shannon-target" => {
+                let value = next_value(&effective_args, &mut idx, arg)?;
+                let f = value.parse::<f32>().map_err(|_| ConfigError::invalid(arg, Some(value)))?;
+                if !(0.0..=8.0).contains(&f) {
+                    return Err(ConfigError::invalid(arg, Some(value)));
+                }
+                group!().actions.shannon_entropy_target_permil = Some((f * 1000.0) as u32);
             }
             "--quic-sni-split" => {
                 group!().actions.udp_chain.push(UdpChainStep {

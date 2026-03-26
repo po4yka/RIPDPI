@@ -161,7 +161,9 @@ message AppSettings {
   bool strategy_evolution = 123;       // Enable automated combo exploration
   double evolution_epsilon = 124;      // Exploration rate 0.0-1.0 (default 0.1)
 
-  // Entropy-aware padding (GFW popcount bypass)
+  // Entropy-aware padding
   int32 entropy_padding_target_permil = 125;  // 0 = disabled, 3400 = target 3.4 popcount
   int32 entropy_padding_max = 126;            // Max padding bytes (default 256)
+  int32 entropy_mode = 127;                   // 0=disabled 1=popcount 2=shannon 3=combined
+  int32 shannon_entropy_target_permil = 128;  // 0 = disabled, 7920 = target 7.92 bits/byte
 }

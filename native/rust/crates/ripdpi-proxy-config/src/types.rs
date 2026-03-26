@@ -231,6 +231,18 @@ pub struct ProxyUiFakePacketConfig {
     pub quic_migrate_after_handshake: bool,
     #[serde(default)]
     pub quic_fake_version: Option<u32>,
+    /// Entropy detection mode: "popcount", "shannon", "combined", or empty (disabled).
+    #[serde(default)]
+    pub entropy_mode: String,
+    /// Popcount target in permil (e.g. 3400 = 3.4). 0 = default (3.4).
+    #[serde(default)]
+    pub entropy_padding_target_permil: Option<u32>,
+    /// Maximum entropy padding bytes. 0 = default (256).
+    #[serde(default)]
+    pub entropy_padding_max: Option<u32>,
+    /// Shannon entropy target in permil (e.g. 7920 = 7.92). 0 = default (7.92).
+    #[serde(default)]
+    pub shannon_entropy_target_permil: Option<u32>,
 }
 
 impl Default for ProxyUiFakePacketConfig {
@@ -260,6 +272,10 @@ impl Default for ProxyUiFakePacketConfig {
             quic_bind_low_port: false,
             quic_migrate_after_handshake: false,
             quic_fake_version: None,
+            entropy_mode: String::new(),
+            entropy_padding_target_permil: None,
+            entropy_padding_max: None,
+            shannon_entropy_target_permil: None,
         }
     }
 }

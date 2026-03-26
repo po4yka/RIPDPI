@@ -300,6 +300,20 @@ pub struct DesyncGroupMatchSettings {
     pub activation_filter: Option<ActivationFilter>,
 }
 
+/// Which entropy-based DPI detection model to counter with padding.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum EntropyMode {
+    /// No entropy padding applied.
+    #[default]
+    Disabled,
+    /// GFW popcount-based detection bypass.
+    Popcount,
+    /// middlebox Shannon entropy analysis bypass.
+    Shannon,
+    /// Counter both popcount and Shannon detection.
+    Combined,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DesyncGroupActionSettings {
     pub ttl: Option<u8>,
@@ -332,6 +346,11 @@ pub struct DesyncGroupActionSettings {
     pub entropy_padding_target_permil: Option<u32>,
     /// Maximum entropy padding bytes (default 256).
     pub entropy_padding_max: u32,
+    /// Which entropy detection model to counter.
+    pub entropy_mode: EntropyMode,
+    /// Shannon entropy target in permil (e.g. 7920 = 7.92 bits/byte).
+    /// Used when entropy_mode is Shannon or Combined.
+    pub shannon_entropy_target_permil: Option<u32>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
@@ -373,6 +392,8 @@ impl Default for DesyncGroupActionSettings {
             strip_timestamps: false,
             entropy_padding_target_permil: None,
             entropy_padding_max: 256,
+            entropy_mode: EntropyMode::Disabled,
+            shannon_entropy_target_permil: None,
         }
     }
 }
