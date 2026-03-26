@@ -88,6 +88,7 @@ pub(crate) fn run_engine_scan(
     );
 
     let mut runtime = ExecutionRuntime::new(shared.clone(), cancel);
+    runtime.set_scan_deadline(std::time::Instant::now() + std::time::Duration::from_secs(270));
     match coordinator.run(&plan, &mut runtime, tls_verifier.as_ref()) {
         RunnerOutcome::Cancelled => {
             let report = build_report(
