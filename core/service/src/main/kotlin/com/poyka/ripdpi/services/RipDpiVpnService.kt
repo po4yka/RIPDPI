@@ -129,6 +129,7 @@ class RipDpiVpnService :
             builder = createBuilder(dns, ipv6),
         )
 
+    @android.annotation.SuppressLint("MissingPermission")
     override fun syncUnderlyingNetworksFromActiveNetwork() {
         val connectivityManager = getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
         val activeNetwork =

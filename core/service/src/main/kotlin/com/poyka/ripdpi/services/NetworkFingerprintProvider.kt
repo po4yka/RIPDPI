@@ -77,6 +77,7 @@ internal class DefaultAndroidNetworkSnapshotSource
         private val telephonyManager =
             context.getSystemService(Context.TELEPHONY_SERVICE) as? TelephonyManager
 
+        @android.annotation.SuppressLint("MissingPermission")
         override fun capture(): CapturedNetworkSnapshot? {
             val network = activeNetworkOrNull() ?: return null
             val capabilities = connectivityManager.getNetworkCapabilities(network)
@@ -95,6 +96,7 @@ internal class DefaultAndroidNetworkSnapshotSource
             )
         }
 
+        @android.annotation.SuppressLint("MissingPermission")
         private fun activeNetworkOrNull() =
             if (hasPermission(Manifest.permission.ACCESS_NETWORK_STATE)) {
                 connectivityManager.activeNetwork

@@ -75,6 +75,7 @@ class AndroidNetworkMetadataProvider
         private val wifiManager = context.applicationContext.getSystemService(Context.WIFI_SERVICE) as? WifiManager
         private val telephonyManager = context.getSystemService(Context.TELEPHONY_SERVICE) as? TelephonyManager
 
+        @SuppressLint("MissingPermission")
         override suspend fun captureSnapshot(includePublicIp: Boolean): NetworkSnapshotModel {
             val network = activeNetworkOrNull()
             val capabilities = network?.let(connectivityManager::getNetworkCapabilities)
@@ -132,6 +133,7 @@ class AndroidNetworkMetadataProvider
             return values
         }
 
+        @SuppressLint("MissingPermission")
         private fun activeNetworkOrNull() =
             if (hasPermission(Manifest.permission.ACCESS_NETWORK_STATE)) {
                 connectivityManager.activeNetwork
