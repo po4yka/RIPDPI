@@ -28,6 +28,7 @@ open class LifecycleVpnService :
         return super.onBind(intent)
     }
 
+    @Suppress("DEPRECATION")
     @Deprecated("Deprecated in Java")
     @CallSuper
     override fun onStart(
@@ -58,6 +59,7 @@ open class LifecycleVpnService :
     override val lifecycle: Lifecycle
         get() = dispatcher.lifecycle
 
+    @Suppress("DEPRECATION")
     @Deprecated("Deprecated in Java")
     private fun invokeDeprecatedOnStart(
         intent: Intent?,
