@@ -753,4 +753,99 @@ mod tests {
         assert_eq!(hints.quic_fake_profile, Some(QuicFakeProfile::RealisticInitial));
         assert_eq!(hints.entropy_mode, Some(EntropyMode::Shannon));
     }
+
+    #[test]
+    fn entropy_mode_produces_distinct_hashes() {
+        use std::collections::hash_map::DefaultHasher;
+
+        let combo_none = StrategyCombo::default_combo();
+        let combo_shannon = StrategyCombo {
+            entropy_mode: Some(EntropyMode::Shannon),
+            ..StrategyCombo::default_combo()
+        };
+        let combo_popcount = StrategyCombo {
+            entropy_mode: Some(EntropyMode::Popcount),
+            ..StrategyCombo::default_combo()
+        };
+        let combo_combined = StrategyCombo {
+            entropy_mode: Some(EntropyMode::Combined),
+            ..StrategyCombo::default_combo()
+        };
+
+        let hash_of = |combo: &StrategyCombo| -> u64 {
+            let mut h = DefaultHasher::new();
+            combo.hash(&mut h);
+            h.finish()
+        };
+
+        let h_none = hash_of(&combo_none);
+        let h_shannon = hash_of(&combo_shannon);
+        let h_popcount = hash_of(&combo_popcount);
+        let h_combined = hash_of(&combo_combined);
+
+        // All four should have distinct hashes
+        let hashes = [h_none, h_shannon, h_popcount, h_combined];
+        for i in 0..hashes.len() {
+            for j in (i + 1)..hashes.len() {
+                assert_ne!(hashes[i], hashes[j], "hash collision between variant {i} and {j}");
+            }
+        }
+    }
+
+    #[test]
+    fn combo_pool_contains_shannon_variants() {
+        let shannon_count = COMBO_POOL.iter().filter(|(_, _, e)| matches!(e, Some(EntropyMode::Shannon))).count();
+        let combined_count = COMBO_POOL.iter().filter(|(_, _, e)| matches!(e, Some(EntropyMode::Combined))).count();
+        assert!(shannon_count >= 1, "pool should have at least one Shannon combo");
+        assert!(combined_count >= 1, "pool should have at least one Combined combo");
+    }
+
+    #[test]
+    fn combo_from_pool_includes_entropy_mode() {
+        // Find a Shannon variant in the pool
+        let shannon_idx = COMBO_POOL
+            .iter()
+            .position(|(_, _, e)| matches!(e, Some(EntropyMode::Shannon)))
+            .expect("pool should contain a Shannon variant");
+        let combo = combo_from_pool(shannon_idx);
+        assert_eq!(combo.entropy_mode, Some(EntropyMode::Shannon));
+    }
+
+    #[test]
+    fn default_combo_has_no_entropy_mode() {
+        let combo = StrategyCombo::default_combo();
+        assert_eq!(combo.entropy_mode, None);
+    }
+
+    #[test]
+    fn to_hints_maps_none_entropy_mode() {
+        let combo = StrategyCombo::default_combo();
+        let hints = combo.to_hints();
+        assert_eq!(hints.entropy_mode, None);
+    }
+
+    #[test]
+    fn evolver_can_track_entropy_combos() {
+        let mut e = StrategyEvolver::new(true, 0.0); // pure exploitation
+
+        let combo_no_entropy = StrategyCombo::default_combo();
+        let combo_with_entropy = StrategyCombo {
+            entropy_mode: Some(EntropyMode::Shannon),
+            ..StrategyCombo::default_combo()
+        };
+
+        // combo without entropy: 50% success rate
+        e.combos.insert(
+            combo_no_entropy.clone(),
+            ComboStats { attempts: 10, successes: 5, total_latency_ms: 500, last_attempt_ms: 0, last_failure_class: None },
+        );
+        // combo with Shannon entropy: 90% success rate
+        e.combos.insert(
+            combo_with_entropy.clone(),
+            ComboStats { attempts: 10, successes: 9, total_latency_ms: 900, last_attempt_ms: 0, last_failure_class: None },
+        );
+
+        let (best, _) = e.best_combo().expect("should have a best combo");
+        assert_eq!(best.entropy_mode, Some(EntropyMode::Shannon), "Shannon combo should be best");
+    }
 }
