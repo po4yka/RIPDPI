@@ -135,6 +135,8 @@ pub struct ProxyUiListenConfig {
     pub tcp_fast_open: bool,
     pub default_ttl: i32,
     pub custom_ttl: bool,
+    #[serde(default)]
+    pub freeze_detection_enabled: bool,
 }
 
 impl Default for ProxyUiListenConfig {
@@ -147,6 +149,7 @@ impl Default for ProxyUiListenConfig {
             tcp_fast_open: false,
             default_ttl: 0,
             custom_ttl: false,
+            freeze_detection_enabled: false,
         }
     }
 }

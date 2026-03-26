@@ -506,6 +506,7 @@ class NativeConfigContractSnapshotTest {
         tcpFastOpen: Boolean = false,
         defaultTtl: Int = 0,
         customTtl: Boolean = false,
+        freezeDetectionEnabled: Boolean = false,
     ): JsonObject =
         buildJsonObject {
             put("ip", JsonPrimitive(ip))
@@ -515,6 +516,7 @@ class NativeConfigContractSnapshotTest {
             put("tcpFastOpen", JsonPrimitive(tcpFastOpen))
             put("defaultTtl", JsonPrimitive(defaultTtl))
             put("customTtl", JsonPrimitive(customTtl))
+            put("freezeDetectionEnabled", JsonPrimitive(freezeDetectionEnabled))
         }
 
     private fun protocolsExpected(
