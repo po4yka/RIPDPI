@@ -1,8 +1,8 @@
 package com.poyka.ripdpi.diagnostics
 
 import com.poyka.ripdpi.data.NativeNetworkSnapshot
-import kotlinx.serialization.Serializable
 import kotlinx.serialization.SerialName
+import kotlinx.serialization.Serializable
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
 
@@ -202,6 +202,7 @@ enum class TlsProbeStatus {
 enum class TcpProbeStatus {
     OK,
     CONNECT_FAILED,
+
     @SerialName("BLOCKED16_KB")
     BLOCKED_16KB,
     WHITELIST_SNI_OK,
@@ -282,6 +283,9 @@ data class DomainObservationFact(
     val httpStatus: HttpProbeStatus = HttpProbeStatus.NOT_RUN,
     val tls13Status: TlsProbeStatus = TlsProbeStatus.NOT_RUN,
     val tls12Status: TlsProbeStatus = TlsProbeStatus.NOT_RUN,
+    val tlsEchStatus: TlsProbeStatus = TlsProbeStatus.NOT_RUN,
+    val tlsEchVersion: String? = null,
+    val tlsEchError: String? = null,
     val transportFailure: TransportFailureKind = TransportFailureKind.NONE,
     val certificateAnomaly: Boolean = false,
 )
@@ -348,6 +352,9 @@ data class StrategyObservationFact(
     val candidateFamily: String? = null,
     val protocol: StrategyProbeProtocol = StrategyProbeProtocol.CANDIDATE,
     val status: StrategyProbeStatus = StrategyProbeStatus.FAILED,
+    val tlsEchStatus: TlsProbeStatus = TlsProbeStatus.NOT_RUN,
+    val tlsEchVersion: String? = null,
+    val tlsEchError: String? = null,
     val transportFailure: TransportFailureKind = TransportFailureKind.NONE,
 )
 

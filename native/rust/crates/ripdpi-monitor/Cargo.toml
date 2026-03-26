@@ -24,6 +24,7 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 rustls = { workspace = true }
 webpki-roots = { workspace = true }
+hickory-proto = { workspace = true }
 hickory-resolver = { workspace = true, optional = true }
 quinn = { workspace = true, optional = true }
 tokio = { workspace = true, optional = true, features = ["net", "rt", "time"] }

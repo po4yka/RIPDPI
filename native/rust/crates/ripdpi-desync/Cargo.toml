@@ -10,8 +10,8 @@ workspace = true
 [dependencies]
 ripdpi-config = { workspace = true }
 ripdpi-packets = { workspace = true }
+ring = { workspace = true }
 
 [dev-dependencies]
 aes = { workspace = true }
-ring = { workspace = true }
 serde_json = "1.0"

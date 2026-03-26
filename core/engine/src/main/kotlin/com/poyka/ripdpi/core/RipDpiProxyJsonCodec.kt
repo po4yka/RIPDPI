@@ -105,11 +105,13 @@ internal object RipDpiProxyJsonCodec {
 
     fun encodeCommandLinePreferences(
         args: List<String>,
+        hostAutolearnStorePath: String?,
         runtimeContext: RipDpiRuntimeContext?,
     ): String =
         encode(
             NativeProxyConfig.CommandLine(
                 args = args,
+                hostAutolearnStorePath = hostAutolearnStorePath,
                 runtimeContext = ProxyRuntimeContextCodec.toNative(runtimeContext),
             ),
         )
@@ -374,6 +376,7 @@ internal object RipDpiProxyJsonCodec {
         @SerialName("command_line")
         data class CommandLine(
             val args: List<String>,
+            val hostAutolearnStorePath: String? = null,
             val runtimeContext: NativeRuntimeContext? = null,
         ) : NativeProxyConfig
 

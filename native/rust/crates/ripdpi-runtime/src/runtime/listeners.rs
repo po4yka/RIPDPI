@@ -252,13 +252,14 @@ pub(super) fn run_proxy_with_listener_internal(
         config.network.default_ttl = platform::detect_default_ttl()?;
     }
     let cache = RuntimePolicy::load(&config);
+    let adaptive_tuning = AdaptivePlannerResolver::load(&config);
     let evolver_enabled = config.adaptive.strategy_evolution;
     let evolver_epsilon = config.adaptive.evolution_epsilon_permil as f64 / 1000.0;
     let state = RuntimeState {
         config: Arc::new(config),
         cache: Arc::new(Mutex::new(cache)),
         adaptive_fake_ttl: Arc::new(Mutex::new(AdaptiveFakeTtlResolver::default())),
-        adaptive_tuning: Arc::new(Mutex::new(AdaptivePlannerResolver::default())),
+        adaptive_tuning: Arc::new(Mutex::new(adaptive_tuning)),
         retry_stealth: Arc::new(Mutex::new(RetryPacer::default())),
         strategy_evolver: Arc::new(Mutex::new(crate::strategy_evolver::StrategyEvolver::new(
             evolver_enabled,
@@ -268,7 +269,11 @@ pub(super) fn run_proxy_with_listener_internal(
         telemetry: control.as_ref().and_then(|value| value.telemetry_sink()).or_else(current_runtime_telemetry),
         runtime_context: control.as_ref().and_then(|value| value.runtime_context()),
     };
-    let _cleanup = RuntimeCleanup { config: state.config.clone(), cache: state.cache.clone() };
+    let _cleanup = RuntimeCleanup {
+        config: state.config.clone(),
+        cache: state.cache.clone(),
+        adaptive_tuning: state.adaptive_tuning.clone(),
+    };
     let worker_pool = ClientWorkerPool::new(state.config.network.max_open.max(1) as usize)?;
     listener.set_nonblocking(true)?;
     let mut listener = MioTcpListener::from_std(listener);

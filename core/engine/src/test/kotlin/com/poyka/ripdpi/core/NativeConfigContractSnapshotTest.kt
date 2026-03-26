@@ -61,6 +61,7 @@ class NativeConfigContractSnapshotTest {
                             add(JsonPrimitive("-1"))
                         },
                     )
+                    put("hostAutolearnStorePath", JsonNull)
                     put("runtimeContext", JsonNull)
                 },
         )

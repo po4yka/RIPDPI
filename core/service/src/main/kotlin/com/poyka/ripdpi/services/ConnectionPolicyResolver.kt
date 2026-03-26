@@ -98,14 +98,15 @@ class DefaultConnectionPolicyResolver
                     preferredPath = preferredVpnDnsPath,
                 )
             val runtimeContext = baselineVpnDnsSelection.activeDns.toRipDpiRuntimeContext()
-            val hostAutolearnStorePath =
-                settings
-                    .takeIf { it.hostAutolearnEnabled }
-                    ?.let { resolveHostAutolearnStorePath(context) }
+            val hostAutolearnStorePath = resolveHostAutolearnStorePath(context)
 
             val baselinePreferences =
                 if (settings.enableCmdSettings) {
-                    RipDpiProxyCmdPreferences(settings.cmdArgs, runtimeContext = runtimeContext)
+                    RipDpiProxyCmdPreferences(
+                        settings.cmdArgs,
+                        hostAutolearnStorePath = hostAutolearnStorePath,
+                        runtimeContext = runtimeContext,
+                    )
                 } else {
                     RipDpiProxyUIPreferences.fromSettings(
                         settings,

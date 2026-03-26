@@ -32,28 +32,35 @@
 //!
 //! # Persistence
 //!
-//! The adaptive tuning state is ephemeral and lost on proxy restart. This is by
-//! design for now: the state converges quickly (a few connections per target),
-//! so cold-start cost is low. The host autolearn store
-//! ([`crate::runtime_policy::autolearn`]) handles persistence for coarse-grained
-//! group preferences that are more expensive to re-derive.
-//!
-//! TODO(po4yka): consider persisting `AdaptivePlannerResolver` state for
-//! long-lived sessions where restart penalty becomes noticeable.
+//! [`AdaptivePlannerResolver`] persists its per-flow state to
+//! `adaptive-tuning-v1.json`. When the runtime has a host-autolearn store path,
+//! the adaptive store is written next to it; otherwise the current working
+//! directory is used as a CLI/native fallback. Persisted state is versioned and
+//! invalidated whenever the configured group layout changes.
 
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
+use std::fs;
+use std::io;
 use std::net::{IpAddr, SocketAddr};
+use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
+use ring::digest;
 use ripdpi_config::{DesyncGroup, OffsetBase, QuicFakeProfile, TcpChainStepKind, UdpChainStepKind};
 use ripdpi_desync::{AdaptivePlannerHints, AdaptiveTlsRandRecProfile, AdaptiveUdpBurstProfile};
 use ripdpi_packets::{is_tls_client_hello, parse_quic_initial};
+use serde::{Deserialize, Serialize};
 
 const ADAPTIVE_RETRY_WINDOW_MS: u64 = 15_000;
+const ADAPTIVE_TUNING_STORE_VERSION: u32 = 1;
+const ADAPTIVE_TUNING_STORE_FILE_NAME: &str = "adaptive-tuning-v1.json";
+const ADAPTIVE_TUNING_PERSIST_DEBOUNCE_MS: u64 = 2_000;
+const DEFAULT_NETWORK_SCOPE_KEY: &str = "default";
 const FNV_OFFSET: u64 = 0xcbf29ce484222325;
 const FNV_PRIME: u64 = 0x100000001b3;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
 enum AdaptiveFlowKind {
     TcpTls,
     TcpOther,
@@ -61,7 +68,8 @@ enum AdaptiveFlowKind {
     UdpOther,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
 enum AdaptivePlannerTarget {
     Host(String),
     Address(SocketAddr),
@@ -83,7 +91,7 @@ struct ChoiceState<T> {
     cooldown_until_ms: Vec<u64>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 struct AdaptivePlannerState {
     split_offset_base: Option<ChoiceState<OffsetBase>>,
     tls_record_offset_base: Option<ChoiceState<OffsetBase>>,
@@ -94,13 +102,128 @@ struct AdaptivePlannerState {
     dimension_cursor: usize,
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+enum StoredOffsetBase {
+    Abs,
+    PayloadEnd,
+    PayloadMid,
+    PayloadRand,
+    Host,
+    EndHost,
+    HostMid,
+    HostRand,
+    Sld,
+    MidSld,
+    EndSld,
+    Method,
+    ExtLen,
+    SniExt,
+    AutoBalanced,
+    AutoHost,
+    AutoMidSld,
+    AutoEndHost,
+    AutoMethod,
+    AutoSniExt,
+    AutoExtLen,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+enum StoredAdaptiveTlsRandRecProfile {
+    Balanced,
+    Tight,
+    Wide,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+enum StoredAdaptiveUdpBurstProfile {
+    Balanced,
+    Conservative,
+    Aggressive,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+enum StoredQuicFakeProfile {
+    Disabled,
+    CompatDefault,
+    RealisticInitial,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+struct StoredChoiceState<T> {
+    candidates: Vec<T>,
+    candidate_index: usize,
+    pinned: Option<T>,
+    #[serde(default)]
+    cooldown_until_ms: Vec<u64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+struct StoredAdaptivePlannerState {
+    #[serde(default)]
+    split_offset_base: Option<StoredChoiceState<StoredOffsetBase>>,
+    #[serde(default)]
+    tls_record_offset_base: Option<StoredChoiceState<StoredOffsetBase>>,
+    #[serde(default)]
+    tlsrandrec_profile: Option<StoredChoiceState<StoredAdaptiveTlsRandRecProfile>>,
+    #[serde(default)]
+    udp_burst_profile: Option<StoredChoiceState<StoredAdaptiveUdpBurstProfile>>,
+    #[serde(default)]
+    quic_fake_profile: Option<StoredChoiceState<StoredQuicFakeProfile>>,
+    #[serde(default)]
+    dimension_order: Vec<usize>,
+    #[serde(default)]
+    dimension_cursor: usize,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+struct StoredAdaptivePlannerEntry {
+    group_index: usize,
+    flow_kind: AdaptiveFlowKind,
+    target: AdaptivePlannerTarget,
+    state: StoredAdaptivePlannerState,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+struct StoredAdaptiveNetworkScope {
+    #[serde(default)]
+    entries: Vec<StoredAdaptivePlannerEntry>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+struct StoredAdaptivePlannerStore {
+    version: u32,
+    fingerprint: String,
+    #[serde(default)]
+    scopes: BTreeMap<String, StoredAdaptiveNetworkScope>,
+}
+
+#[derive(Debug)]
 pub struct AdaptivePlannerResolver {
-    // TODO(po4yka): persistence -- this map is ephemeral; see module-level docs.
     states: HashMap<AdaptivePlannerKey, AdaptivePlannerState>,
+    last_persist_at_ms: u64,
+    dirty: bool,
+}
+
+impl Default for AdaptivePlannerResolver {
+    fn default() -> Self {
+        Self { states: HashMap::new(), last_persist_at_ms: 0, dirty: false }
+    }
 }
 
 impl AdaptivePlannerResolver {
+    pub fn load(config: &ripdpi_config::RuntimeConfig) -> Self {
+        let states = load_adaptive_store(config).unwrap_or_default();
+        Self { states, last_persist_at_ms: 0, dirty: false }
+    }
+
     pub fn resolve_tcp_hints(
         &mut self,
         network_scope_key: Option<&str>,
@@ -147,6 +270,7 @@ impl AdaptivePlannerResolver {
             self.states.get_mut(&adaptive_key(network_scope_key, group_index, tcp_flow_kind(payload), dest, host))
         {
             state.note_success();
+            self.dirty = true;
         }
     }
 
@@ -162,6 +286,7 @@ impl AdaptivePlannerResolver {
             self.states.get_mut(&adaptive_key(network_scope_key, group_index, tcp_flow_kind(payload), dest, host))
         {
             state.note_failure();
+            self.dirty = true;
         }
     }
 
@@ -177,6 +302,7 @@ impl AdaptivePlannerResolver {
             self.states.get_mut(&adaptive_key(network_scope_key, group_index, udp_flow_kind(payload), dest, host))
         {
             state.note_success();
+            self.dirty = true;
         }
     }
 
@@ -192,7 +318,30 @@ impl AdaptivePlannerResolver {
             self.states.get_mut(&adaptive_key(network_scope_key, group_index, udp_flow_kind(payload), dest, host))
         {
             state.note_failure();
+            self.dirty = true;
         }
+    }
+
+    pub fn persist_if_due(&mut self, config: &ripdpi_config::RuntimeConfig) -> io::Result<()> {
+        self.persist(config, false)
+    }
+
+    pub fn flush_store(&mut self, config: &ripdpi_config::RuntimeConfig) -> io::Result<()> {
+        self.persist(config, true)
+    }
+
+    fn persist(&mut self, config: &ripdpi_config::RuntimeConfig, force: bool) -> io::Result<()> {
+        if !self.dirty {
+            return Ok(());
+        }
+        let now_ms = now_millis();
+        if !force && now_ms.saturating_sub(self.last_persist_at_ms) < ADAPTIVE_TUNING_PERSIST_DEBOUNCE_MS {
+            return Ok(());
+        }
+        write_adaptive_store(config, &self.states)?;
+        self.last_persist_at_ms = now_ms;
+        self.dirty = false;
+        Ok(())
     }
 }
 
@@ -274,6 +423,57 @@ impl AdaptivePlannerState {
     }
 }
 
+impl AdaptivePlannerState {
+    fn to_persisted(&self) -> StoredAdaptivePlannerState {
+        StoredAdaptivePlannerState {
+            split_offset_base: self.split_offset_base.as_ref().map(|choice| store_choice(choice, StoredOffsetBase::from)),
+            tls_record_offset_base: self
+                .tls_record_offset_base
+                .as_ref()
+                .map(|choice| store_choice(choice, StoredOffsetBase::from)),
+            tlsrandrec_profile: self
+                .tlsrandrec_profile
+                .as_ref()
+                .map(|choice| store_choice(choice, StoredAdaptiveTlsRandRecProfile::from)),
+            udp_burst_profile: self
+                .udp_burst_profile
+                .as_ref()
+                .map(|choice| store_choice(choice, StoredAdaptiveUdpBurstProfile::from)),
+            quic_fake_profile: self
+                .quic_fake_profile
+                .as_ref()
+                .map(|choice| store_choice(choice, StoredQuicFakeProfile::from)),
+            dimension_order: self.dimension_order.clone(),
+            dimension_cursor: self.dimension_cursor,
+        }
+    }
+
+    fn from_persisted(state: StoredAdaptivePlannerState, seed: u64) -> Self {
+        let dimension_order =
+            valid_dimension_order(&state.dimension_order).then_some(state.dimension_order).unwrap_or_else(|| {
+                shuffled_dimensions(seed)
+            });
+        let dimension_cursor = if state.dimension_cursor < dimension_order.len() { state.dimension_cursor } else { 0 };
+        Self {
+            split_offset_base: state.split_offset_base.and_then(|choice| load_choice(choice, restore_offset_base)),
+            tls_record_offset_base: state
+                .tls_record_offset_base
+                .and_then(|choice| load_choice(choice, restore_offset_base)),
+            tlsrandrec_profile: state
+                .tlsrandrec_profile
+                .and_then(|choice| load_choice(choice, restore_tlsrandrec_profile)),
+            udp_burst_profile: state
+                .udp_burst_profile
+                .and_then(|choice| load_choice(choice, restore_udp_burst_profile)),
+            quic_fake_profile: state
+                .quic_fake_profile
+                .and_then(|choice| load_choice(choice, restore_quic_fake_profile)),
+            dimension_order,
+            dimension_cursor,
+        }
+    }
+}
+
 impl<T> ChoiceState<T>
 where
     T: Copy + Eq,
@@ -326,11 +526,7 @@ fn adaptive_key(
     host: Option<&str>,
 ) -> AdaptivePlannerKey {
     AdaptivePlannerKey {
-        network_scope_key: network_scope_key
-            .map(str::trim)
-            .filter(|value| !value.is_empty())
-            .unwrap_or("default")
-            .to_string(),
+        network_scope_key: normalize_scope_key(network_scope_key).to_string(),
         group_index,
         flow_kind,
         target: normalized_host(host).map_or(AdaptivePlannerTarget::Address(dest), AdaptivePlannerTarget::Host),
@@ -380,6 +576,40 @@ where
         Some(state) => *state = ChoiceState::new(candidates),
         None => *slot = Some(ChoiceState::new(candidates)),
     }
+}
+
+fn store_choice<T, U>(choice: &ChoiceState<T>, map: impl Fn(T) -> U) -> StoredChoiceState<U>
+where
+    T: Copy + Eq,
+{
+    StoredChoiceState {
+        candidates: choice.candidates.iter().copied().map(&map).collect(),
+        candidate_index: choice.candidate_index,
+        pinned: choice.pinned.map(&map),
+        cooldown_until_ms: choice.cooldown_until_ms.clone(),
+    }
+}
+
+fn load_choice<T, U>(choice: StoredChoiceState<U>, map: impl Fn(U) -> Option<T>) -> Option<ChoiceState<T>>
+where
+    T: Copy + Eq,
+{
+    let candidates = choice.candidates.into_iter().map(&map).collect::<Option<Vec<_>>>()?;
+    if candidates.is_empty() {
+        return None;
+    }
+    let mut cooldown_until_ms = choice.cooldown_until_ms;
+    cooldown_until_ms.resize(candidates.len(), 0);
+    cooldown_until_ms.truncate(candidates.len());
+    Some(ChoiceState {
+        candidates,
+        candidate_index: if choice.candidate_index < cooldown_until_ms.len() { choice.candidate_index } else { 0 },
+        pinned: match choice.pinned {
+            Some(value) => Some(map(value)?),
+            None => None,
+        },
+        cooldown_until_ms,
+    })
 }
 
 fn pin_choice<T>(slot: &mut Option<ChoiceState<T>>)
@@ -452,6 +682,241 @@ fn now_millis() -> u64 {
         .duration_since(UNIX_EPOCH)
         .ok()
         .map_or(0, |value| value.as_millis().min(u128::from(u64::MAX)) as u64)
+}
+
+fn adaptive_store_path(config: &ripdpi_config::RuntimeConfig) -> PathBuf {
+    if let Some(store_path) =
+        config.host_autolearn.store_path.as_deref().map(str::trim).filter(|value| !value.is_empty())
+    {
+        let host_path = Path::new(store_path);
+        if let Some(parent) = host_path.parent() {
+            return parent.join(ADAPTIVE_TUNING_STORE_FILE_NAME);
+        }
+    }
+    PathBuf::from(ADAPTIVE_TUNING_STORE_FILE_NAME)
+}
+
+fn adaptive_store_fingerprint(config: &ripdpi_config::RuntimeConfig) -> String {
+    let mut input = format!("adaptive-tuning-v1|{}", config.groups.len());
+    input.push('|');
+    input.push_str(&format!("{:?}", config.groups));
+    let digest = digest::digest(&digest::SHA256, input.as_bytes());
+    digest.as_ref().iter().fold(String::new(), |mut out, byte| {
+        use std::fmt::Write;
+        let _ = write!(out, "{byte:02x}");
+        out
+    })
+}
+
+fn valid_dimension_order(order: &[usize]) -> bool {
+    if order.len() != 5 {
+        return false;
+    }
+    let mut sorted = order.to_vec();
+    sorted.sort_unstable();
+    sorted == [0, 1, 2, 3, 4]
+}
+
+fn load_adaptive_store(
+    config: &ripdpi_config::RuntimeConfig,
+) -> Result<HashMap<AdaptivePlannerKey, AdaptivePlannerState>, io::Error> {
+    let path = adaptive_store_path(config);
+    if !path.exists() {
+        return Ok(HashMap::new());
+    }
+    let payload = fs::read(&path)?;
+    let store = serde_json::from_slice::<StoredAdaptivePlannerStore>(&payload)
+        .map_err(|err| io::Error::new(io::ErrorKind::InvalidData, format!("invalid adaptive tuning store: {err}")))?;
+    if store.version != ADAPTIVE_TUNING_STORE_VERSION || store.fingerprint != adaptive_store_fingerprint(config) {
+        return Ok(HashMap::new());
+    }
+    let mut states = HashMap::new();
+    for (network_scope_key, scope) in store.scopes {
+        let scope_key = normalize_scope_key(Some(&network_scope_key)).to_string();
+        for entry in scope.entries {
+            if entry.group_index >= config.groups.len() {
+                continue;
+            }
+            let key = AdaptivePlannerKey {
+                network_scope_key: scope_key.clone(),
+                group_index: entry.group_index,
+                flow_kind: entry.flow_kind,
+                target: entry.target,
+            };
+            let seed = adaptive_seed(&key);
+            states.insert(key, AdaptivePlannerState::from_persisted(entry.state, seed));
+        }
+    }
+    Ok(states)
+}
+
+fn write_adaptive_store(
+    config: &ripdpi_config::RuntimeConfig,
+    states: &HashMap<AdaptivePlannerKey, AdaptivePlannerState>,
+) -> io::Result<()> {
+    let mut scopes: BTreeMap<String, StoredAdaptiveNetworkScope> = BTreeMap::new();
+    for (key, state) in states {
+        scopes.entry(key.network_scope_key.clone()).or_default().entries.push(StoredAdaptivePlannerEntry {
+            group_index: key.group_index,
+            flow_kind: key.flow_kind,
+            target: key.target.clone(),
+            state: state.to_persisted(),
+        });
+    }
+    for scope in scopes.values_mut() {
+        scope.entries.sort_by_key(|entry| format!("{}|{:?}|{:?}", entry.group_index, entry.flow_kind, entry.target));
+    }
+    let store = StoredAdaptivePlannerStore {
+        version: ADAPTIVE_TUNING_STORE_VERSION,
+        fingerprint: adaptive_store_fingerprint(config),
+        scopes,
+    };
+    let payload = serde_json::to_vec_pretty(&store)
+        .map_err(|err| io::Error::other(format!("failed to serialize adaptive tuning store: {err}")))?;
+    atomic_write(&adaptive_store_path(config), &payload)
+}
+
+fn atomic_write(path: &Path, payload: &[u8]) -> io::Result<()> {
+    let Some(parent) = path.parent() else {
+        return fs::write(path, payload);
+    };
+    if parent.as_os_str().is_empty() {
+        return fs::write(path, payload);
+    }
+    fs::create_dir_all(parent)?;
+    let tmp_name = format!(
+        ".{}.tmp-{}-{}",
+        path.file_name().and_then(|value| value.to_str()).unwrap_or("adaptive-tuning"),
+        std::process::id(),
+        next_temp_file_nonce()
+    );
+    let tmp_path = parent.join(tmp_name);
+    fs::write(&tmp_path, payload)?;
+    if path.exists() {
+        let _ = fs::remove_file(path);
+    }
+    fs::rename(tmp_path, path)
+}
+
+fn next_temp_file_nonce() -> u64 {
+    use std::sync::atomic::{AtomicU64, Ordering};
+
+    static TEMP_FILE_NONCE: AtomicU64 = AtomicU64::new(0);
+    let timestamp = now_millis() << 16;
+    let sequence = TEMP_FILE_NONCE.fetch_add(1, Ordering::Relaxed) & 0xFFFF;
+    timestamp | sequence
+}
+
+fn normalize_scope_key(network_scope_key: Option<&str>) -> &str {
+    network_scope_key.map(str::trim).filter(|value| !value.is_empty()).unwrap_or(DEFAULT_NETWORK_SCOPE_KEY)
+}
+
+fn restore_offset_base(base: StoredOffsetBase) -> Option<OffsetBase> {
+    Some(match base {
+        StoredOffsetBase::Abs => OffsetBase::Abs,
+        StoredOffsetBase::PayloadEnd => OffsetBase::PayloadEnd,
+        StoredOffsetBase::PayloadMid => OffsetBase::PayloadMid,
+        StoredOffsetBase::PayloadRand => OffsetBase::PayloadRand,
+        StoredOffsetBase::Host => OffsetBase::Host,
+        StoredOffsetBase::EndHost => OffsetBase::EndHost,
+        StoredOffsetBase::HostMid => OffsetBase::HostMid,
+        StoredOffsetBase::HostRand => OffsetBase::HostRand,
+        StoredOffsetBase::Sld => OffsetBase::Sld,
+        StoredOffsetBase::MidSld => OffsetBase::MidSld,
+        StoredOffsetBase::EndSld => OffsetBase::EndSld,
+        StoredOffsetBase::Method => OffsetBase::Method,
+        StoredOffsetBase::ExtLen => OffsetBase::ExtLen,
+        StoredOffsetBase::SniExt => OffsetBase::SniExt,
+        StoredOffsetBase::AutoBalanced => OffsetBase::AutoBalanced,
+        StoredOffsetBase::AutoHost => OffsetBase::AutoHost,
+        StoredOffsetBase::AutoMidSld => OffsetBase::AutoMidSld,
+        StoredOffsetBase::AutoEndHost => OffsetBase::AutoEndHost,
+        StoredOffsetBase::AutoMethod => OffsetBase::AutoMethod,
+        StoredOffsetBase::AutoSniExt => OffsetBase::AutoSniExt,
+        StoredOffsetBase::AutoExtLen => OffsetBase::AutoExtLen,
+    })
+}
+
+fn restore_tlsrandrec_profile(profile: StoredAdaptiveTlsRandRecProfile) -> Option<AdaptiveTlsRandRecProfile> {
+    Some(match profile {
+        StoredAdaptiveTlsRandRecProfile::Balanced => AdaptiveTlsRandRecProfile::Balanced,
+        StoredAdaptiveTlsRandRecProfile::Tight => AdaptiveTlsRandRecProfile::Tight,
+        StoredAdaptiveTlsRandRecProfile::Wide => AdaptiveTlsRandRecProfile::Wide,
+    })
+}
+
+fn restore_udp_burst_profile(profile: StoredAdaptiveUdpBurstProfile) -> Option<AdaptiveUdpBurstProfile> {
+    Some(match profile {
+        StoredAdaptiveUdpBurstProfile::Balanced => AdaptiveUdpBurstProfile::Balanced,
+        StoredAdaptiveUdpBurstProfile::Conservative => AdaptiveUdpBurstProfile::Conservative,
+        StoredAdaptiveUdpBurstProfile::Aggressive => AdaptiveUdpBurstProfile::Aggressive,
+    })
+}
+
+fn restore_quic_fake_profile(profile: StoredQuicFakeProfile) -> Option<QuicFakeProfile> {
+    Some(match profile {
+        StoredQuicFakeProfile::Disabled => QuicFakeProfile::Disabled,
+        StoredQuicFakeProfile::CompatDefault => QuicFakeProfile::CompatDefault,
+        StoredQuicFakeProfile::RealisticInitial => QuicFakeProfile::RealisticInitial,
+    })
+}
+
+impl From<OffsetBase> for StoredOffsetBase {
+    fn from(base: OffsetBase) -> Self {
+        match base {
+            OffsetBase::Abs => Self::Abs,
+            OffsetBase::PayloadEnd => Self::PayloadEnd,
+            OffsetBase::PayloadMid => Self::PayloadMid,
+            OffsetBase::PayloadRand => Self::PayloadRand,
+            OffsetBase::Host => Self::Host,
+            OffsetBase::EndHost => Self::EndHost,
+            OffsetBase::HostMid => Self::HostMid,
+            OffsetBase::HostRand => Self::HostRand,
+            OffsetBase::Sld => Self::Sld,
+            OffsetBase::MidSld => Self::MidSld,
+            OffsetBase::EndSld => Self::EndSld,
+            OffsetBase::Method => Self::Method,
+            OffsetBase::ExtLen => Self::ExtLen,
+            OffsetBase::SniExt => Self::SniExt,
+            OffsetBase::AutoBalanced => Self::AutoBalanced,
+            OffsetBase::AutoHost => Self::AutoHost,
+            OffsetBase::AutoMidSld => Self::AutoMidSld,
+            OffsetBase::AutoEndHost => Self::AutoEndHost,
+            OffsetBase::AutoMethod => Self::AutoMethod,
+            OffsetBase::AutoSniExt => Self::AutoSniExt,
+            OffsetBase::AutoExtLen => Self::AutoExtLen,
+        }
+    }
+}
+
+impl From<AdaptiveTlsRandRecProfile> for StoredAdaptiveTlsRandRecProfile {
+    fn from(profile: AdaptiveTlsRandRecProfile) -> Self {
+        match profile {
+            AdaptiveTlsRandRecProfile::Balanced => Self::Balanced,
+            AdaptiveTlsRandRecProfile::Tight => Self::Tight,
+            AdaptiveTlsRandRecProfile::Wide => Self::Wide,
+        }
+    }
+}
+
+impl From<AdaptiveUdpBurstProfile> for StoredAdaptiveUdpBurstProfile {
+    fn from(profile: AdaptiveUdpBurstProfile) -> Self {
+        match profile {
+            AdaptiveUdpBurstProfile::Balanced => Self::Balanced,
+            AdaptiveUdpBurstProfile::Conservative => Self::Conservative,
+            AdaptiveUdpBurstProfile::Aggressive => Self::Aggressive,
+        }
+    }
+}
+
+impl From<QuicFakeProfile> for StoredQuicFakeProfile {
+    fn from(profile: QuicFakeProfile) -> Self {
+        match profile {
+            QuicFakeProfile::Disabled => Self::Disabled,
+            QuicFakeProfile::CompatDefault => Self::CompatDefault,
+            QuicFakeProfile::RealisticInitial => Self::RealisticInitial,
+        }
+    }
 }
 
 fn split_offset_candidates(group: &DesyncGroup, tls_payload: bool) -> Vec<OffsetBase> {
@@ -545,11 +1010,24 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::{env, fs, path::PathBuf};
+
     use ripdpi_config::{OffsetExpr, TcpChainStep, UdpChainStep};
     use ripdpi_packets::{build_realistic_quic_initial, QUIC_V2_VERSION};
 
     fn addr(port: u16) -> SocketAddr {
         SocketAddr::from(([127, 0, 0, 1], port))
+    }
+
+    fn config_with_adaptive_store(groups: Vec<DesyncGroup>) -> ripdpi_config::RuntimeConfig {
+        let mut config = ripdpi_config::RuntimeConfig { groups, ..ripdpi_config::RuntimeConfig::default() };
+        config.host_autolearn.store_path = Some(
+            env::temp_dir()
+                .join(format!("ripdpi-adaptive-test-{}-host-autolearn.json", next_temp_file_nonce()))
+                .to_string_lossy()
+                .into_owned(),
+        );
+        config
     }
 
     #[test]
@@ -990,5 +1468,81 @@ mod tests {
         cs.note_failure(2 * ADAPTIVE_RETRY_WINDOW_MS + 2);
         assert_eq!(cs.candidate_index, 0, "should wrap around to index 0");
         assert_eq!(cs.current(), Some(1));
+    }
+
+    #[test]
+    fn adaptive_store_round_trips_full_state() {
+        let payload = b"GET / HTTP/1.1\r\nHost: persist.example.test\r\n\r\n";
+        let group = tcp_group_with_adaptive_split();
+        let config = config_with_adaptive_store(vec![group.clone()]);
+        let store_path = adaptive_store_path(&config);
+        let target = addr(443);
+
+        let mut resolver = AdaptivePlannerResolver::default();
+        resolver.resolve_tcp_hints(Some("scope-a"), 0, target, Some("persist.example.test"), &group, payload);
+        resolver.note_tcp_failure(Some("scope-a"), 0, target, Some("persist.example.test"), payload);
+        resolver.note_tcp_success(Some("scope-a"), 0, target, Some("persist.example.test"), payload);
+        resolver.flush_store(&config).expect("flush adaptive store");
+
+        let reloaded = AdaptivePlannerResolver::load(&config);
+        assert_eq!(reloaded.states, resolver.states);
+
+        let _ = fs::remove_file(store_path);
+    }
+
+    #[test]
+    fn adaptive_store_fingerprint_invalidates_stale_entries() {
+        let payload = b"GET / HTTP/1.1\r\nHost: fingerprint.example.test\r\n\r\n";
+        let group = tcp_group_with_adaptive_split();
+        let config = config_with_adaptive_store(vec![group.clone()]);
+        let store_path = adaptive_store_path(&config);
+        let target = addr(443);
+
+        let mut resolver = AdaptivePlannerResolver::default();
+        resolver.resolve_tcp_hints(Some("scope-a"), 0, target, Some("fingerprint.example.test"), &group, payload);
+        resolver.note_tcp_failure(Some("scope-a"), 0, target, Some("fingerprint.example.test"), payload);
+        resolver.flush_store(&config).expect("flush adaptive store");
+
+        let mut changed_group = group.clone();
+        changed_group.actions.tcp_chain.push(TcpChainStep::new(
+            TcpChainStepKind::Split,
+            OffsetExpr::adaptive(OffsetBase::AutoEndHost),
+        ));
+        let changed_config = config_with_adaptive_store(vec![changed_group]);
+        let changed_store_path = adaptive_store_path(&changed_config);
+        fs::copy(&store_path, &changed_store_path).expect("copy persisted store");
+
+        let reloaded = AdaptivePlannerResolver::load(&changed_config);
+        assert!(reloaded.states.is_empty(), "changed group layout should invalidate persisted adaptive state");
+
+        let _ = fs::remove_file(store_path);
+        let _ = fs::remove_file(changed_store_path);
+    }
+
+    #[test]
+    fn adaptive_store_debounce_defers_write_until_flush() {
+        let payload = b"GET / HTTP/1.1\r\nHost: debounce.example.test\r\n\r\n";
+        let group = tcp_group_with_adaptive_split();
+        let config = config_with_adaptive_store(vec![group.clone()]);
+        let store_path = adaptive_store_path(&config);
+        let target = addr(443);
+
+        let mut resolver = AdaptivePlannerResolver::default();
+        resolver.resolve_tcp_hints(Some("scope-a"), 0, target, Some("debounce.example.test"), &group, payload);
+        resolver.note_tcp_failure(Some("scope-a"), 0, target, Some("debounce.example.test"), payload);
+        resolver.last_persist_at_ms = now_millis();
+        resolver.persist_if_due(&config).expect("debounced persist");
+        assert!(!store_path.exists(), "debounced persist should not write immediately");
+
+        resolver.flush_store(&config).expect("flush adaptive store");
+        assert!(store_path.exists(), "flush should force adaptive store write");
+
+        let _ = fs::remove_file(store_path);
+    }
+
+    #[test]
+    fn adaptive_store_uses_cwd_fallback_when_host_store_path_is_missing() {
+        let config = ripdpi_config::RuntimeConfig::default();
+        assert_eq!(adaptive_store_path(&config), PathBuf::from(ADAPTIVE_TUNING_STORE_FILE_NAME));
     }
 }
