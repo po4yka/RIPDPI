@@ -73,6 +73,7 @@ class DefaultNetworkHandoverMonitor
                 replay = 0,
             )
 
+        @android.annotation.SuppressLint("MissingPermission")
         private fun networkSignals(): Flow<Unit> =
             callbackFlow {
                 val callback =

@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.diagnostics
 
 import android.Manifest
+import android.annotation.SuppressLint
 import android.content.Context
 import android.content.pm.PackageManager
 import android.net.ConnectivityManager
@@ -45,6 +46,7 @@ class AndroidDiagnosticsContextProvider
         private val powerManager =
             context.getSystemService(Context.POWER_SERVICE) as PowerManager
 
+        @SuppressLint("MissingPermission")
         override suspend fun captureContext(): DiagnosticContextModel {
             val settings = appSettingsRepository.snapshot()
             val profile =
@@ -153,6 +155,7 @@ class AndroidDiagnosticsContextProvider
                 else -> "unknown"
             }
 
+        @SuppressLint("MissingPermission")
         private fun roamingState(): String {
             if (!hasPermission(Manifest.permission.ACCESS_NETWORK_STATE)) {
                 return "unknown"
