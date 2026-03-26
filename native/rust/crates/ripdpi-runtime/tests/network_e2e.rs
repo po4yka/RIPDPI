@@ -783,6 +783,7 @@ fn tls_round_trip_with_split_desync_completes_handshake() {
         TcpChainStepKind::Split,
         ripdpi_config::OffsetExpr::absolute(5),
     ));
+    config.network.delay_conn = true;
     let proxy = start_proxy(config, None);
 
     let response = socks5_tls_round_trip_with_retry(proxy.port, &fixture, None);
@@ -809,6 +810,7 @@ fn tls_round_trip_with_disorder_desync_completes_handshake() {
         TcpChainStepKind::Disorder,
         ripdpi_config::OffsetExpr::absolute(5),
     ));
+    config.network.delay_conn = true;
     let proxy = start_proxy(config, None);
 
     let response = socks5_tls_round_trip_with_retry(proxy.port, &fixture, None);
