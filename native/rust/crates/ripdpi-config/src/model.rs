@@ -216,6 +216,9 @@ impl TcpChainStep {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum UdpChainStepKind {
     FakeBurst,
+    DummyPrepend,
+    QuicSniSplit,
+    QuicFakeVersion,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -313,6 +316,9 @@ pub struct DesyncGroupActionSettings {
     pub quic_fake_profile: QuicFakeProfile,
     pub quic_fake_host: Option<String>,
     pub drop_sack: bool,
+    pub quic_bind_low_port: bool,
+    pub quic_migrate_after_handshake: bool,
+    pub quic_fake_version: u32,
     pub oob_data: Option<u8>,
     pub tcp_chain: Vec<TcpChainStep>,
     pub udp_chain: Vec<UdpChainStep>,
@@ -349,6 +355,9 @@ impl Default for DesyncGroupActionSettings {
             quic_fake_profile: QuicFakeProfile::Disabled,
             quic_fake_host: None,
             drop_sack: false,
+            quic_bind_low_port: false,
+            quic_migrate_after_handshake: false,
+            quic_fake_version: 0x1a2a_3a4a,
             oob_data: None,
             tcp_chain: Vec::new(),
             udp_chain: Vec::new(),

@@ -519,6 +519,11 @@ pub fn runtime_config_from_ui(payload: ProxyUiConfig) -> Result<RuntimeConfig, P
     group.actions.drop_sack = fake_packets.drop_sack;
     group.actions.window_clamp = fake_packets.window_clamp;
     group.actions.strip_timestamps = fake_packets.strip_timestamps;
+    group.actions.quic_bind_low_port = fake_packets.quic_bind_low_port;
+    group.actions.quic_migrate_after_handshake = fake_packets.quic_migrate_after_handshake;
+    if let Some(v) = fake_packets.quic_fake_version {
+        group.actions.quic_fake_version = v;
+    }
     group.matches.proto = (u32::from(protocols.desync_http) * IS_HTTP)
         | (u32::from(protocols.desync_https) * IS_HTTPS)
         | (u32::from(protocols.desync_udp) * IS_UDP);
@@ -743,6 +748,9 @@ fn validate_tcp_chain(steps: &[TcpChainStep]) -> Result<(), ProxyConfigError> {
 pub fn parse_udp_chain_step_kind(value: &str) -> Result<UdpChainStepKind, ProxyConfigError> {
     match value {
         "fake_burst" => Ok(UdpChainStepKind::FakeBurst),
+        "dummyprepend" => Ok(UdpChainStepKind::DummyPrepend),
+        "quicsnisplit" => Ok(UdpChainStepKind::QuicSniSplit),
+        "quicfakeversion" => Ok(UdpChainStepKind::QuicFakeVersion),
         _ => Err(ProxyConfigError::InvalidConfig(format!("Unknown udpChainSteps kind: {value}"))),
     }
 }
