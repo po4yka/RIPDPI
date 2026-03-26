@@ -574,6 +574,8 @@ mod tests {
             tlsminor: Some(1),
             window_clamp: Some(2),
             strip_timestamps: false,
+            entropy_padding_target_permil: None,
+            entropy_padding_max: 256,
         };
         let policy_settings = DesyncGroupPolicySettings {
             ext_socks: Some(UpstreamSocksConfig {
@@ -639,6 +641,21 @@ mod tests {
             ParseResult::Run(config) => {
                 assert!(config.adaptive.strategy_evolution);
                 assert_eq!(config.adaptive.evolution_epsilon_permil, 200);
+            }
+            _ => panic!("expected Run"),
+        }
+    }
+
+    #[test]
+    fn cli_parses_entropy_target() {
+        let args: Vec<String> =
+            vec!["--entropy-target", "3.4", "--entropy-max-pad", "128"].iter().map(|s| s.to_string()).collect();
+        let startup = StartupEnv::default();
+        let result = parse_cli(&args, &startup).expect("parse");
+        match result {
+            ParseResult::Run(config) => {
+                assert_eq!(config.groups[0].actions.entropy_padding_target_permil, Some(3400));
+                assert_eq!(config.groups[0].actions.entropy_padding_max, 128);
             }
             _ => panic!("expected Run"),
         }

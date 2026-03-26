@@ -1,5 +1,6 @@
 #![forbid(unsafe_code)]
 
+pub mod entropy;
 mod fake_profiles;
 mod http;
 mod quic;
