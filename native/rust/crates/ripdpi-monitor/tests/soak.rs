@@ -273,6 +273,9 @@ fn ephemeral_fixture_config() -> FixtureConfig {
         tls_echo_port: free_port(),
         dns_udp_port: free_port(),
         dns_http_port: free_port(),
+        dns_dot_port: free_port(),
+        dns_dnscrypt_port: free_port(),
+        dns_doq_port: free_port(),
         socks5_port: free_port(),
         control_port: free_port(),
         ..FixtureConfig::default()

@@ -1359,10 +1359,17 @@ checksum = "6373607a59f0be73a39b6fe456b8192fcc3585f602af20751600e974dd455e77"
 name = "local-network-fixture"
 version = "0.1.0"
 dependencies = [
+ "crypto_box",
+ "hex",
+ "hickory-proto",
+ "quinn",
  "rcgen",
+ "ring",
+ "ripdpi-dns-resolver",
  "rustls",
  "serde",
  "serde_json",
+ "tokio",
 ]
 
 [[package]]
@@ -2128,11 +2135,19 @@ dependencies = [
 name = "ripdpi-cli"
 version = "0.1.0"
 dependencies = [
+ "aes",
+ "local-network-fixture",
  "log",
+ "nix",
+ "ring",
  "ripdpi-config",
  "ripdpi-failure-classifier",
+ "ripdpi-packets",
  "ripdpi-runtime",
  "ripdpi-telemetry",
+ "rustls",
+ "serde",
+ "serde_json",
  "tracing",
  "tracing-log",
  "tracing-subscriber",

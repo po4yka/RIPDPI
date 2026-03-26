@@ -8,8 +8,16 @@ license.workspace = true
 workspace = true
 
 [dependencies]
+crypto_box = { workspace = true }
+hickory-proto = { workspace = true }
+hex = { workspace = true }
+quinn = { workspace = true }
 rcgen = { workspace = true }
+ring = { workspace = true }
 rustls = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
+tokio = { workspace = true, features = ["rt", "time", "io-util", "macros"] }
 
+[dev-dependencies]
+ripdpi-dns-resolver = { workspace = true }
