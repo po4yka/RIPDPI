@@ -47,12 +47,13 @@ pub(crate) fn run_fat_header_attempt(
         }
     };
 
-    let uses_tls = target.port == 443;
+    let tls_sni = if !sni.is_empty() { Some(sni) } else { None };
+    let uses_tls = tls_sni.is_some();
     let mut stream = match open_probe_stream(
         &connect_target,
         target.port,
         transport,
-        Some(sni),
+        tls_sni,
         false,
         TlsClientProfile::Auto,
         None,
