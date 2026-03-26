@@ -57,7 +57,7 @@ fn bind_udp_socket(bind_addr: SocketAddr, protect_path: Option<&str>) -> io::Res
     Ok(socket)
 }
 
-fn build_udp_upstream_socket(target: SocketAddr, protect_path: Option<&str>) -> io::Result<UdpSocket> {
+fn build_udp_upstream_socket(target: SocketAddr, protect_path: Option<&str>, bind_low_port: bool) -> io::Result<UdpSocket> {
     let domain = match target {
         SocketAddr::V4(_) => Domain::IPV4,
         SocketAddr::V6(_) => Domain::IPV6,
@@ -70,6 +70,15 @@ fn build_udp_upstream_socket(target: SocketAddr, protect_path: Option<&str>) -> 
     let socket: UdpSocket = socket.into();
     socket.set_read_timeout(Some(Duration::from_millis(250)))?;
     socket.set_write_timeout(Some(Duration::from_secs(5)))?;
+    if bind_low_port {
+        let local_ip = match target {
+            SocketAddr::V4(_) => IpAddr::V4(Ipv4Addr::UNSPECIFIED),
+            SocketAddr::V6(_) => IpAddr::V6(Ipv6Addr::UNSPECIFIED),
+        };
+        if let Err(err) = platform::bind_udp_low_port(&socket, local_ip, 4_096) {
+            tracing::warn!(%target, %err, "failed to bind UDP flow to a low source port");
+        }
+    }
     socket.connect(target)?;
     socket.set_nonblocking(true)?;
     Ok(socket)
@@ -125,6 +134,7 @@ pub(super) fn udp_associate_loop(
                     let Some(group) = state.config.groups.get(route.group_index) else {
                         continue;
                     };
+                    let bind_low_port = group.actions.quic_bind_low_port;
                     let activation = {
                         let adaptive_hints = resolve_adaptive_udp_hints(
                             &state,
@@ -142,7 +152,7 @@ pub(super) fn udp_associate_loop(
                                 host: host.clone(),
                                 payload: payload.to_vec(),
                                 awaiting_response: true,
-                                upstream: build_udp_upstream_socket(target, protect_path.as_deref())?,
+                                upstream: build_udp_upstream_socket(target, protect_path.as_deref(), bind_low_port)?,
                                 quic_migrated: false,
                             });
                         }
@@ -215,7 +225,12 @@ pub(super) fn udp_associate_loop(
                         && entry.session.round_count >= 2
                         && should_migrate_quic_flow(&state.config, &entry.route)
                     {
-                        if let Ok(new_socket) = build_udp_upstream_socket(sender, protect_path.as_deref()) {
+                        let bind_low_port = state
+                            .config
+                            .groups
+                            .get(entry.route.group_index)
+                            .is_some_and(|group| group.actions.quic_bind_low_port);
+                        if let Ok(new_socket) = build_udp_upstream_socket(sender, protect_path.as_deref(), bind_low_port) {
                             entry.upstream = new_socket;
                             entry.quic_migrated = true;
                             tracing::info!(
@@ -497,7 +512,7 @@ mod tests {
 
     #[test]
     fn build_udp_upstream_socket_connects_ipv4_targets() {
-        let upstream = build_udp_upstream_socket(SocketAddr::new(IpAddr::V4(Ipv4Addr::new(192, 0, 2, 10)), 443), None)
+        let upstream = build_udp_upstream_socket(SocketAddr::new(IpAddr::V4(Ipv4Addr::new(192, 0, 2, 10)), 443), None, false)
             .expect("udp upstream socket");
         assert!(upstream.local_addr().expect("upstream relay addr").is_ipv4());
     }
