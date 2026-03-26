@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
-use rustls::client::{EchConfig, EchMode, EchStatus};
 use rustls::client::danger::{HandshakeSignatureValid, ServerCertVerified, ServerCertVerifier};
+use rustls::client::{EchConfig, EchMode, EchStatus};
 use rustls::pki_types::{CertificateDer, EchConfigListBytes, ServerName, UnixTime};
 use rustls::{
     ClientConfig, ClientConnection, DigitallySignedStruct, Error as TlsError, RootCertStore, SignatureScheme,
@@ -167,7 +167,9 @@ pub(crate) fn open_probe_stream(
     match tls_name {
         Some(name) if verify_certificates || port == 443 || !matches!(profile, TlsClientProfile::Auto) => {
             let config = match profile {
-                TlsClientProfile::Tls13WithEch => build_ech_client_config(name, transport, verify_certificates, tls_verifier)?,
+                TlsClientProfile::Tls13WithEch => {
+                    build_ech_client_config(name, transport, verify_certificates, tls_verifier)?
+                }
                 _ => build_standard_client_config(profile, verify_certificates, tls_verifier),
             };
             let server_name = make_server_name(name, target)?;
@@ -191,14 +193,16 @@ fn build_standard_client_config(
         TlsClientProfile::Auto => ClientConfig::builder_with_provider(rustls::crypto::ring::default_provider().into())
             .with_safe_default_protocol_versions()
             .expect("ring provider supports default TLS versions"),
-        TlsClientProfile::Tls12Only => ClientConfig::builder_with_provider(rustls::crypto::ring::default_provider().into())
-            .with_protocol_versions(&[&rustls::version::TLS12])
-            .expect("ring provider supports TLS1.2"),
-        TlsClientProfile::Tls13Only | TlsClientProfile::Tls13WithEch => ClientConfig::builder_with_provider(
-            rustls::crypto::ring::default_provider().into(),
-        )
-        .with_protocol_versions(&[&rustls::version::TLS13])
-        .expect("ring provider supports TLS1.3"),
+        TlsClientProfile::Tls12Only => {
+            ClientConfig::builder_with_provider(rustls::crypto::ring::default_provider().into())
+                .with_protocol_versions(&[&rustls::version::TLS12])
+                .expect("ring provider supports TLS1.2")
+        }
+        TlsClientProfile::Tls13Only | TlsClientProfile::Tls13WithEch => {
+            ClientConfig::builder_with_provider(rustls::crypto::ring::default_provider().into())
+                .with_protocol_versions(&[&rustls::version::TLS13])
+                .expect("ring provider supports TLS1.3")
+        }
     };
     if verify_certificates {
         if let Some(verifier) = tls_verifier {
@@ -330,12 +334,7 @@ mod tests {
     use std::net::IpAddr;
 
     fn obs(status: &str, cert_anomaly: bool) -> TlsObservation {
-        TlsObservation {
-            status: status.to_string(),
-            version: None,
-            error: None,
-            certificate_anomaly: cert_anomaly,
-        }
+        TlsObservation { status: status.to_string(), version: None, error: None, certificate_anomaly: cert_anomaly }
     }
 
     #[test]
@@ -484,17 +483,21 @@ mod tests {
         // The ECH profile is TLS 1.3-only, even before live ECH config discovery.
         let profile = TlsClientProfile::Tls13WithEch;
         let _builder = match profile {
-            TlsClientProfile::Auto => ClientConfig::builder_with_provider(rustls::crypto::ring::default_provider().into())
-                .with_safe_default_protocol_versions()
-                .expect("ring provider supports default TLS versions"),
-            TlsClientProfile::Tls12Only => ClientConfig::builder_with_provider(rustls::crypto::ring::default_provider().into())
-                .with_protocol_versions(&[&rustls::version::TLS12])
-                .expect("ring provider supports TLS1.2"),
-            TlsClientProfile::Tls13Only | TlsClientProfile::Tls13WithEch => ClientConfig::builder_with_provider(
-                rustls::crypto::ring::default_provider().into(),
-            )
-            .with_protocol_versions(&[&rustls::version::TLS13])
-            .expect("ring provider supports TLS1.3"),
+            TlsClientProfile::Auto => {
+                ClientConfig::builder_with_provider(rustls::crypto::ring::default_provider().into())
+                    .with_safe_default_protocol_versions()
+                    .expect("ring provider supports default TLS versions")
+            }
+            TlsClientProfile::Tls12Only => {
+                ClientConfig::builder_with_provider(rustls::crypto::ring::default_provider().into())
+                    .with_protocol_versions(&[&rustls::version::TLS12])
+                    .expect("ring provider supports TLS1.2")
+            }
+            TlsClientProfile::Tls13Only | TlsClientProfile::Tls13WithEch => {
+                ClientConfig::builder_with_provider(rustls::crypto::ring::default_provider().into())
+                    .with_protocol_versions(&[&rustls::version::TLS13])
+                    .expect("ring provider supports TLS1.3")
+            }
         };
     }
 

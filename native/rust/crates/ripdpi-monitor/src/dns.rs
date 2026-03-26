@@ -1,8 +1,8 @@
 use std::net::{IpAddr, Ipv4Addr};
 
 use hickory_proto::op::Message;
-use hickory_proto::rr::RData;
 use hickory_proto::rr::rdata::svcb::SvcParamValue;
+use hickory_proto::rr::RData;
 use ripdpi_dns_resolver::{
     extract_ip_answers, EncryptedDnsEndpoint, EncryptedDnsProtocol, EncryptedDnsResolver, EncryptedDnsTransport,
 };
@@ -192,10 +192,7 @@ fn default_encrypted_dns_endpoint() -> EncryptedDnsEndpoint {
         host: DEFAULT_DOH_HOST.to_string(),
         port: DEFAULT_DOH_PORT,
         tls_server_name: None,
-        bootstrap_ips: DEFAULT_DOH_BOOTSTRAP_IPS
-            .iter()
-            .filter_map(|value| value.parse::<IpAddr>().ok())
-            .collect(),
+        bootstrap_ips: DEFAULT_DOH_BOOTSTRAP_IPS.iter().filter_map(|value| value.parse::<IpAddr>().ok()).collect(),
         doh_url: Some(DEFAULT_DOH_URL.to_string()),
         dnscrypt_provider_name: None,
         dnscrypt_public_key: None,

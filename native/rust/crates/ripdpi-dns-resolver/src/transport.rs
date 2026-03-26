@@ -88,9 +88,7 @@ pub(crate) fn build_client_config(
         .with_safe_default_protocol_versions()
         .expect("ring provider supports default TLS versions");
     if let Some(verifier) = verifier {
-        Arc::new(
-            builder.dangerous().with_custom_certificate_verifier(verifier.clone()).with_no_client_auth(),
-        )
+        Arc::new(builder.dangerous().with_custom_certificate_verifier(verifier.clone()).with_no_client_auth())
     } else {
         Arc::new(builder.with_root_certificates(default_root_store(extra_roots)).with_no_client_auth())
     }

@@ -206,10 +206,7 @@ pub(crate) fn run_domain_probe(
                 key: "tlsEchVersion".to_string(),
                 value: tls_ech.version.unwrap_or_else(|| "unknown".to_string()),
             },
-            ProbeDetail {
-                key: "tlsEchError".to_string(),
-                value: tls_ech.error.unwrap_or_else(|| "none".to_string()),
-            },
+            ProbeDetail { key: "tlsEchError".to_string(), value: tls_ech.error.unwrap_or_else(|| "none".to_string()) },
             ProbeDetail { key: "httpStatus".to_string(), value: http.status.clone() },
             ProbeDetail { key: "httpResponse".to_string(), value: describe_http_observation(&http) },
         ],
