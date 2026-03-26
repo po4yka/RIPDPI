@@ -89,6 +89,34 @@ impl FixtureStack {
             faults.clone(),
             config.dns_answer_ipv4.clone(),
         )?;
+        let (dns_dot_handle, dns_dot_port) = dns::start_dns_dot_server(
+            config.bind_host.clone(),
+            config.dns_dot_port,
+            stop.clone(),
+            events.clone(),
+            faults.clone(),
+            config.dns_answer_ipv4.clone(),
+            tls_server_config.clone(),
+        )?;
+        let (dns_dnscrypt_handle, dns_dnscrypt_port) = dns::start_dns_dnscrypt_server(
+            config.bind_host.clone(),
+            config.dns_dnscrypt_port,
+            stop.clone(),
+            events.clone(),
+            faults.clone(),
+            config.dns_answer_ipv4.clone(),
+            config.dnscrypt_provider_name.clone(),
+            config.dnscrypt_public_key.clone(),
+        )?;
+        let (dns_doq_handle, dns_doq_port) = dns::start_dns_doq_server(
+            config.bind_host.clone(),
+            config.dns_doq_port,
+            stop.clone(),
+            events.clone(),
+            faults.clone(),
+            config.dns_answer_ipv4.clone(),
+            tls_server_config.clone(),
+        )?;
         let (socks5_handle, socks5_port) =
             socks::start_socks5_server(config.clone(), stop.clone(), events.clone(), faults.clone())?;
 
@@ -100,12 +128,17 @@ impl FixtureStack {
             tls_echo_port,
             dns_udp_port,
             dns_http_port,
+            dns_dot_port,
+            dns_dnscrypt_port,
+            dns_doq_port,
             socks5_port,
             control_port: 0,
             fixture_domain: config.fixture_domain.clone(),
             fixture_ipv4: config.fixture_ipv4.clone(),
             dns_answer_ipv4: config.dns_answer_ipv4.clone(),
             tls_certificate_pem: cert_pem,
+            dnscrypt_provider_name: config.dnscrypt_provider_name.clone(),
+            dnscrypt_public_key: config.dnscrypt_public_key.clone(),
         };
         let shared_manifest = Arc::new(Mutex::new(manifest.clone()));
         let (control_handle, control_port) = control::start_control_server(
@@ -127,6 +160,9 @@ impl FixtureStack {
             tls_echo_handle,
             dns_udp_handle,
             dns_http_handle,
+            dns_dot_handle,
+            dns_dnscrypt_handle,
+            dns_doq_handle,
             socks5_handle,
             control_handle,
         ];
@@ -153,10 +189,13 @@ impl Drop for FixtureStack {
         util::wake_tcp(&self.manifest.bind_host, self.manifest.tcp_echo_port);
         util::wake_tcp(&self.manifest.bind_host, self.manifest.tls_echo_port);
         util::wake_tcp(&self.manifest.bind_host, self.manifest.dns_http_port);
+        util::wake_tcp(&self.manifest.bind_host, self.manifest.dns_dot_port);
+        util::wake_tcp(&self.manifest.bind_host, self.manifest.dns_dnscrypt_port);
         util::wake_tcp(&self.manifest.bind_host, self.manifest.socks5_port);
         util::wake_tcp(&self.manifest.bind_host, self.manifest.control_port);
         util::wake_udp(&self.manifest.bind_host, self.manifest.udp_echo_port);
         util::wake_udp(&self.manifest.bind_host, self.manifest.dns_udp_port);
+        util::wake_udp(&self.manifest.bind_host, self.manifest.dns_doq_port);
         for handle in self.handles.drain(..) {
             let _ = handle.join();
         }
@@ -177,8 +216,11 @@ mod tests {
     use std::sync::Mutex;
     use std::time::Duration;
 
+    use ripdpi_dns_resolver::{
+        extract_ip_answers, EncryptedDnsEndpoint, EncryptedDnsProtocol, EncryptedDnsResolver, EncryptedDnsTransport,
+    };
     use rustls::client::danger::{HandshakeSignatureValid, ServerCertVerified, ServerCertVerifier};
-    use rustls::pki_types::{CertificateDer, ServerName, UnixTime};
+    use rustls::pki_types::{pem::PemObject, CertificateDer, ServerName, UnixTime};
     use rustls::{
         ClientConfig, ClientConnection, DigitallySignedStruct, Error as TlsError, SignatureScheme, StreamOwned,
     };
@@ -215,15 +257,20 @@ mod tests {
             tls_echo_port: 3,
             dns_udp_port: 4,
             dns_http_port: 5,
-            socks5_port: 6,
-            control_port: 7,
+            dns_dot_port: 6,
+            dns_dnscrypt_port: 7,
+            dns_doq_port: 8,
+            socks5_port: 9,
+            control_port: 10,
             fixture_domain: "fixture.test".to_string(),
             fixture_ipv4: "198.18.0.10".to_string(),
             dns_answer_ipv4: "198.18.0.10".to_string(),
             tls_certificate_pem: "pem".to_string(),
+            dnscrypt_provider_name: "2.dnscrypt-cert.fixture.test".to_string(),
+            dnscrypt_public_key: "pub".to_string(),
         };
 
-        assert_eq!(manifest.control_url_for_host("10.0.2.2"), "http://10.0.2.2:7");
+        assert_eq!(manifest.control_url_for_host("10.0.2.2"), "http://10.0.2.2:10");
         let json = serde_json::to_string(&manifest).expect("serialize manifest");
         assert!(json.contains("fixture.test"));
     }
@@ -345,6 +392,18 @@ mod tests {
     }
 
     #[test]
+    fn fixture_stack_manifest_exposes_encrypted_dns_ports_and_dnscrypt_metadata() {
+        let _serial = lock_fixture_stack_tests();
+        let stack = FixtureStack::start(dynamic_fixture_config()).expect("start fixture stack");
+
+        assert!(stack.manifest().dns_dot_port > 0);
+        assert!(stack.manifest().dns_dnscrypt_port > 0);
+        assert!(stack.manifest().dns_doq_port > 0);
+        assert!(stack.manifest().dnscrypt_provider_name.starts_with("2.dnscrypt-cert."));
+        assert_eq!(stack.manifest().dnscrypt_public_key.len(), 64);
+    }
+
+    #[test]
     fn fixture_stack_services_round_trip_and_record_events() {
         let _serial = lock_fixture_stack_tests();
         let stack = FixtureStack::start(dynamic_fixture_config()).expect("start fixture stack");
@@ -388,6 +447,85 @@ mod tests {
         assert!(events.iter().any(|event| event.service == "udp_echo" && event.detail == "echo"));
         assert!(events.iter().any(|event| event.service == "dns_http"));
         assert!(events.iter().any(|event| event.service == "dns_udp"));
+    }
+
+    #[test]
+    fn fixture_stack_encrypted_dns_services_round_trip_and_record_events() {
+        let _serial = lock_fixture_stack_tests();
+        let stack = FixtureStack::start(dynamic_fixture_config()).expect("start fixture stack");
+        let manifest = stack.manifest();
+        let certificate = CertificateDer::from_pem_slice(manifest.tls_certificate_pem.as_bytes()).expect("parse pem");
+        let query = test_dns_query(&manifest.fixture_domain);
+        let expected_answers = vec![manifest.dns_answer_ipv4.clone()];
+
+        let dot_resolver = EncryptedDnsResolver::with_extra_tls_roots(
+            EncryptedDnsEndpoint {
+                protocol: EncryptedDnsProtocol::Dot,
+                resolver_id: Some("fixture-dot".to_string()),
+                host: manifest.fixture_domain.clone(),
+                port: manifest.dns_dot_port,
+                tls_server_name: Some(manifest.fixture_domain.clone()),
+                bootstrap_ips: vec![IpAddr::V4(Ipv4Addr::LOCALHOST)],
+                doh_url: None,
+                dnscrypt_provider_name: None,
+                dnscrypt_public_key: None,
+            },
+            EncryptedDnsTransport::Direct,
+            Duration::from_secs(2),
+            vec![certificate.clone()],
+        )
+        .expect("build dot resolver");
+        let dot_response = dot_resolver.exchange_blocking(&query).expect("dot exchange");
+        assert_eq!(extract_ip_answers(&dot_response).expect("dot answers"), expected_answers);
+
+        let dnscrypt_resolver = EncryptedDnsResolver::new(
+            EncryptedDnsEndpoint {
+                protocol: EncryptedDnsProtocol::DnsCrypt,
+                resolver_id: Some("fixture-dnscrypt".to_string()),
+                host: manifest.fixture_domain.clone(),
+                port: manifest.dns_dnscrypt_port,
+                tls_server_name: None,
+                bootstrap_ips: vec![IpAddr::V4(Ipv4Addr::LOCALHOST)],
+                doh_url: None,
+                dnscrypt_provider_name: Some(manifest.dnscrypt_provider_name.clone()),
+                dnscrypt_public_key: Some(manifest.dnscrypt_public_key.clone()),
+            },
+            EncryptedDnsTransport::Direct,
+        )
+        .expect("build dnscrypt resolver");
+        let dnscrypt_response = dnscrypt_resolver.exchange_blocking(&query).expect("dnscrypt exchange");
+        assert_eq!(extract_ip_answers(&dnscrypt_response).expect("dnscrypt answers"), expected_answers);
+
+        let doq_response = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .expect("build doq test runtime")
+            .block_on(async {
+                let resolver = EncryptedDnsResolver::with_extra_tls_roots(
+                    EncryptedDnsEndpoint {
+                        protocol: EncryptedDnsProtocol::Doq,
+                        resolver_id: Some("fixture-doq".to_string()),
+                        host: manifest.fixture_domain.clone(),
+                        port: manifest.dns_doq_port,
+                        tls_server_name: Some(manifest.fixture_domain.clone()),
+                        bootstrap_ips: vec![IpAddr::V4(Ipv4Addr::LOCALHOST)],
+                        doh_url: None,
+                        dnscrypt_provider_name: None,
+                        dnscrypt_public_key: None,
+                    },
+                    EncryptedDnsTransport::Direct,
+                    Duration::from_secs(2),
+                    vec![certificate],
+                )
+                .expect("build doq resolver");
+                resolver.exchange(&query).await.expect("doq exchange")
+            });
+        assert_eq!(extract_ip_answers(&doq_response).expect("doq answers"), expected_answers);
+
+        let events = stack.events().snapshot();
+        assert!(events.iter().any(|event| event.service == "dns_dot" && event.protocol == "dot"));
+        assert!(events.iter().any(|event| event.service == "dns_dnscrypt" && event.protocol == "dnscrypt"));
+        assert!(events.iter().any(|event| event.service == "dns_doq" && event.protocol == "doq"));
     }
 
     #[test]
@@ -626,6 +764,9 @@ mod tests {
             tls_echo_port: 0,
             dns_udp_port: 0,
             dns_http_port: 0,
+            dns_dot_port: 0,
+            dns_dnscrypt_port: 0,
+            dns_doq_port: 0,
             socks5_port: 0,
             control_port: 0,
             ..FixtureConfig::default()

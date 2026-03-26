@@ -12,6 +12,7 @@ pub(crate) fn encrypted_dns_protocol(value: Option<&str>) -> EncryptedDnsProtoco
     match value.unwrap_or_default().trim().to_ascii_lowercase().as_str() {
         "dot" => EncryptedDnsProtocol::Dot,
         "dnscrypt" => EncryptedDnsProtocol::DnsCrypt,
+        "doq" => EncryptedDnsProtocol::Doq,
         _ => EncryptedDnsProtocol::Doh,
     }
 }

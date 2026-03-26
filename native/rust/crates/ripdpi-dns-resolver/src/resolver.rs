@@ -141,7 +141,8 @@ impl EncryptedDnsResolver {
         Self::with_health(endpoint, transport, DEFAULT_TIMEOUT, Vec::new(), None, tls_verifier)
     }
 
-    pub(crate) fn with_extra_tls_roots(
+    #[doc(hidden)]
+    pub fn with_extra_tls_roots(
         endpoint: EncryptedDnsEndpoint,
         transport: EncryptedDnsTransport,
         timeout: Duration,
