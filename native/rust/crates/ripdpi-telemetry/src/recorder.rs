@@ -351,4 +351,58 @@ mod tests {
             assert!(!snap.histograms.contains_key("test_reset_h"), "histogram should be empty after reset");
         }
     }
+
+    #[test]
+    fn total_keys_excluding_returns_correct_count() {
+        let rec = InMemoryRecorder::new();
+        rec.counters.write().unwrap().push(("c1".into(), Arc::new(AtomicU64::new(0))));
+        rec.counters.write().unwrap().push(("c2".into(), Arc::new(AtomicU64::new(0))));
+        rec.gauges.write().unwrap().push(("g1".into(), Arc::new(AtomicU64::new(0))));
+        rec.histograms.write().unwrap().push(("h1".into(), LatencyHistogram::new()));
+
+        assert_eq!(rec.total_keys(), 4);
+        // When holding the counters write lock (len=2), exclude counters from read:
+        assert_eq!(rec.total_keys_excluding(MetricKind::Counter, 2), 4);
+        assert_eq!(rec.total_keys_excluding(MetricKind::Gauge, 1), 4);
+        assert_eq!(rec.total_keys_excluding(MetricKind::Histogram, 1), 4);
+    }
+
+    #[test]
+    fn register_histogram_does_not_deadlock() {
+        // Regression test: register_histogram previously called total_keys()
+        // while holding a write lock on histograms, causing a same-thread
+        // RwLock deadlock. This test would hang (and be killed by the test
+        // runner timeout) if the deadlock regresses.
+        let rec = InMemoryRecorder::new();
+        RECORDER.get_or_init(|| rec);
+        install();
+
+        // This call deadlocked before the fix — it must return within ms.
+        metrics::histogram!("deadlock_regression_test").record(1.0);
+
+        if let Some(snap) = snapshot() {
+            assert!(
+                snap.histograms.contains_key("deadlock_regression_test"),
+                "histogram should be registered without deadlocking"
+            );
+        }
+    }
+
+    #[test]
+    fn register_counter_does_not_deadlock() {
+        install();
+        metrics::counter!("counter_deadlock_regression").increment(1);
+        if let Some(snap) = snapshot() {
+            assert!(snap.counters.contains_key("counter_deadlock_regression"));
+        }
+    }
+
+    #[test]
+    fn register_gauge_does_not_deadlock() {
+        install();
+        metrics::gauge!("gauge_deadlock_regression").set(1.0);
+        if let Some(snap) = snapshot() {
+            assert!(snap.gauges.contains_key("gauge_deadlock_regression"));
+        }
+    }
 }
