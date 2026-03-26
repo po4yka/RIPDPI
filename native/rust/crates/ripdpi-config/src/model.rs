@@ -512,7 +512,7 @@ impl Default for RuntimeNetworkSettings {
         let ipv6 = ipv6_supported();
         Self {
             listen: ListenConfig {
-                listen_ip: IpAddr::V4(Ipv4Addr::UNSPECIFIED),
+                listen_ip: IpAddr::V4(Ipv4Addr::LOCALHOST),
                 listen_port: 1080,
                 bind_ip: if ipv6 { IpAddr::V6(Ipv6Addr::UNSPECIFIED) } else { IpAddr::V4(Ipv4Addr::UNSPECIFIED) },
             },
