@@ -220,7 +220,7 @@ class BridgePollingService
         private companion object {
             private const val FinishedReportPollAttempts = 30
             private const val FinishedReportPollDelayMs = 250L
-            const val PollScanResultTimeoutMs = 300_000L
+            const val PollScanResultTimeoutMs = 360_000L
             const val PollScanIntervalMs = 400L
         }
 

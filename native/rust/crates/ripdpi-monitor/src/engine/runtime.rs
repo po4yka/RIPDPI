@@ -126,6 +126,7 @@ pub(super) struct ExecutionRuntime {
     pub(super) observations: Vec<ProbeObservation>,
     pub(super) final_report: Option<ScanReport>,
     pub(super) strategy: StrategyExecutionState,
+    pub(super) scan_deadline: Option<std::time::Instant>,
 }
 
 impl ExecutionRuntime {
@@ -138,11 +139,24 @@ impl ExecutionRuntime {
             observations: Vec::new(),
             final_report: None,
             strategy: StrategyExecutionState::default(),
+            scan_deadline: None,
         }
     }
 
     pub(super) fn is_cancelled(&self) -> bool {
         self.cancel.load(Ordering::Acquire)
+    }
+
+    pub(super) fn cancel_token(&self) -> &AtomicBool {
+        &self.cancel
+    }
+
+    pub(super) fn set_scan_deadline(&mut self, deadline: std::time::Instant) {
+        self.scan_deadline = Some(deadline);
+    }
+
+    pub(super) fn is_past_deadline(&self) -> bool {
+        self.scan_deadline.map_or(false, |d| std::time::Instant::now() >= d)
     }
 
     pub(super) fn record_step(
@@ -217,7 +231,7 @@ impl ExecutionCoordinator {
             let Some(runner) = self.runners.get(stage) else {
                 continue;
             };
-            if runtime.is_cancelled() {
+            if runtime.is_cancelled() || runtime.is_past_deadline() {
                 return RunnerOutcome::Cancelled;
             }
             if runner.total_steps(plan) == 0 {
