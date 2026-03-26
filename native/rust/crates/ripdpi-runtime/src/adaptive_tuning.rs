@@ -426,7 +426,10 @@ impl AdaptivePlannerState {
 impl AdaptivePlannerState {
     fn to_persisted(&self) -> StoredAdaptivePlannerState {
         StoredAdaptivePlannerState {
-            split_offset_base: self.split_offset_base.as_ref().map(|choice| store_choice(choice, StoredOffsetBase::from)),
+            split_offset_base: self
+                .split_offset_base
+                .as_ref()
+                .map(|choice| store_choice(choice, StoredOffsetBase::from)),
             tls_record_offset_base: self
                 .tls_record_offset_base
                 .as_ref()
@@ -449,10 +452,9 @@ impl AdaptivePlannerState {
     }
 
     fn from_persisted(state: StoredAdaptivePlannerState, seed: u64) -> Self {
-        let dimension_order =
-            valid_dimension_order(&state.dimension_order).then_some(state.dimension_order).unwrap_or_else(|| {
-                shuffled_dimensions(seed)
-            });
+        let dimension_order = valid_dimension_order(&state.dimension_order)
+            .then_some(state.dimension_order)
+            .unwrap_or_else(|| shuffled_dimensions(seed));
         let dimension_cursor = if state.dimension_cursor < dimension_order.len() { state.dimension_cursor } else { 0 };
         Self {
             split_offset_base: state.split_offset_base.and_then(|choice| load_choice(choice, restore_offset_base)),
@@ -1504,10 +1506,10 @@ mod tests {
         resolver.flush_store(&config).expect("flush adaptive store");
 
         let mut changed_group = group.clone();
-        changed_group.actions.tcp_chain.push(TcpChainStep::new(
-            TcpChainStepKind::Split,
-            OffsetExpr::adaptive(OffsetBase::AutoEndHost),
-        ));
+        changed_group
+            .actions
+            .tcp_chain
+            .push(TcpChainStep::new(TcpChainStepKind::Split, OffsetExpr::adaptive(OffsetBase::AutoEndHost)));
         let changed_config = config_with_adaptive_store(vec![changed_group]);
         let changed_store_path = adaptive_store_path(&changed_config);
         fs::copy(&store_path, &changed_store_path).expect("copy persisted store");
