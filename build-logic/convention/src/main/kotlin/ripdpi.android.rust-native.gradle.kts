@@ -398,6 +398,18 @@ val buildRustNativeLibs =
         outputDir.set(generatedJniLibsDir)
     }
 
+// Wire the Rust build into the actual JNI packaging tasks so Rust-only source
+// changes cannot be skipped when the Android variants are otherwise up to date.
+tasks.configureEach {
+    if (
+        name.matches(Regex("^merge.+JniLibFolders$")) ||
+        name.matches(Regex("^copy.+JniLibsProjectOnly$")) ||
+        name.matches(Regex("^merge.+NativeLibs$"))
+    ) {
+        dependsOn(buildRustNativeLibs)
+    }
+}
+
 tasks.named("preBuild") {
     dependsOn(buildRustNativeLibs)
 }
