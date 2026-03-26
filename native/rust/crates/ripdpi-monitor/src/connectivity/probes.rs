@@ -214,7 +214,7 @@ pub(crate) fn run_tcp_probe(target: &TcpTarget, whitelist_sni: &[String], transp
     let mut final_observation = initial.clone();
 
     let tried_whitelist_candidates = initial.status != FatHeaderStatus::Success
-        && (matches!(target.port, 443) || target.sni.is_some())
+        && target.sni.is_some()
         && !whitelist_sni.is_empty();
     if tried_whitelist_candidates {
         for candidate in whitelist_sni {

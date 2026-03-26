@@ -349,6 +349,33 @@ fn tcp_probe_reports_whitelist_sni_failure() {
 }
 
 #[test]
+fn tcp_probe_skips_whitelist_when_sni_is_none() {
+    let _serial = lock_network_probes();
+    let server = PlainFatHeaderServer::start(FatServerMode::AllowHost("allow.example".to_string()));
+    let target = TcpTarget {
+        id: "test".to_string(),
+        provider: "plain-fat".to_string(),
+        ip: "127.0.0.1".to_string(),
+        port: server.port(),
+        sni: None,
+        asn: Some("AS1337".to_string()),
+        host_header: None,
+        fat_header_requests: Some(8),
+    };
+
+    let result = run_tcp_probe(
+        &target,
+        &["allow.example".to_string(), "other.example".to_string()],
+        &TransportConfig::Direct,
+    );
+    assert!(
+        !result.outcome.starts_with("whitelist_sni_"),
+        "expected non-whitelist outcome, got: {}",
+        result.outcome
+    );
+}
+
+#[test]
 fn strategy_probe_request_requires_base_ui_config() {
     let mut request = strategy_probe_request(minimal_ui_config());
     request.strategy_probe.as_mut().expect("strategy probe").base_proxy_config_json = None;
