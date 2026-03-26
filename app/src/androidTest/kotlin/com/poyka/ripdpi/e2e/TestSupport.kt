@@ -19,7 +19,10 @@ import androidx.test.uiautomator.Until
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.DnsModeEncrypted
 import com.poyka.ripdpi.data.DnsProviderCustom
+import com.poyka.ripdpi.data.EncryptedDnsProtocolDnsCrypt
 import com.poyka.ripdpi.data.EncryptedDnsProtocolDoh
+import com.poyka.ripdpi.data.EncryptedDnsProtocolDoq
+import com.poyka.ripdpi.data.EncryptedDnsProtocolDot
 import java.io.BufferedReader
 import java.io.File
 import java.io.IOException
@@ -74,12 +77,17 @@ data class FixtureManifestDto(
     val tlsEchoPort: Int,
     val dnsUdpPort: Int,
     val dnsHttpPort: Int,
+    val dnsDotPort: Int,
+    val dnsDnscryptPort: Int,
+    val dnsDoqPort: Int,
     val socks5Port: Int,
     val controlPort: Int,
     val fixtureDomain: String,
     val fixtureIpv4: String,
     val dnsAnswerIpv4: String,
     val tlsCertificatePem: String,
+    val dnscryptProviderName: String,
+    val dnscryptPublicKey: String,
 )
 
 data class FixtureEventDto(
@@ -114,6 +122,9 @@ enum class FixtureFaultTargetDto {
     TLS_ECHO,
     DNS_UDP,
     DNS_HTTP,
+    DNS_DOT,
+    DNS_DNSCRYPT,
+    DNS_DOQ,
     SOCKS5_RELAY,
 }
 
@@ -271,26 +282,56 @@ private fun isLikelyEmulator(): Boolean {
 suspend fun AppSettingsRepository.applyFixtureEncryptedDns(
     fixture: FixtureManifestDto,
     proxyPort: Int,
+    protocol: String = EncryptedDnsProtocolDoh,
 ) {
-    val dohUrl = "http://${fixture.androidHost}:${fixture.dnsHttpPort}/dns-query"
+    val normalizedProtocol = protocol.trim().lowercase()
+    val bootstrapIps = listOf(fixture.androidHost)
+    val endpointHost =
+        when (normalizedProtocol) {
+            EncryptedDnsProtocolDot, EncryptedDnsProtocolDnsCrypt, EncryptedDnsProtocolDoq -> fixture.fixtureDomain
+            else -> fixture.androidHost
+        }
+    val endpointPort =
+        when (normalizedProtocol) {
+            EncryptedDnsProtocolDot -> fixture.dnsDotPort
+            EncryptedDnsProtocolDnsCrypt -> fixture.dnsDnscryptPort
+            EncryptedDnsProtocolDoq -> fixture.dnsDoqPort
+            else -> fixture.dnsHttpPort
+        }
+    val dohUrl =
+        if (normalizedProtocol == EncryptedDnsProtocolDoh) {
+            "http://${fixture.androidHost}:${fixture.dnsHttpPort}/dns-query"
+        } else {
+            ""
+        }
+    val tlsServerName =
+        when (normalizedProtocol) {
+            EncryptedDnsProtocolDot, EncryptedDnsProtocolDoq -> fixture.fixtureDomain
+            EncryptedDnsProtocolDoh -> fixture.androidHost
+            else -> ""
+        }
     update {
         proxyIp = "127.0.0.1"
         this.proxyPort = proxyPort
         setDnsMode(DnsModeEncrypted)
         setDnsProviderId(DnsProviderCustom)
-        setDnsIp(fixture.androidHost)
+        setDnsIp(bootstrapIps.first())
         setDnsDohUrl(dohUrl)
         clearDnsDohBootstrapIps()
-        addAllDnsDohBootstrapIps(listOf(fixture.androidHost))
-        setEncryptedDnsProtocol(EncryptedDnsProtocolDoh)
-        setEncryptedDnsHost(fixture.androidHost)
-        setEncryptedDnsPort(fixture.dnsHttpPort)
-        setEncryptedDnsTlsServerName(fixture.androidHost)
+        addAllDnsDohBootstrapIps(if (dohUrl.isNotBlank()) bootstrapIps else emptyList())
+        setEncryptedDnsProtocol(normalizedProtocol)
+        setEncryptedDnsHost(endpointHost)
+        setEncryptedDnsPort(endpointPort)
+        setEncryptedDnsTlsServerName(tlsServerName)
         clearEncryptedDnsBootstrapIps()
-        addAllEncryptedDnsBootstrapIps(listOf(fixture.androidHost))
+        addAllEncryptedDnsBootstrapIps(bootstrapIps)
         setEncryptedDnsDohUrl(dohUrl)
-        setEncryptedDnsDnscryptProviderName("")
-        setEncryptedDnsDnscryptPublicKey("")
+        setEncryptedDnsDnscryptProviderName(
+            if (normalizedProtocol == EncryptedDnsProtocolDnsCrypt) fixture.dnscryptProviderName else "",
+        )
+        setEncryptedDnsDnscryptPublicKey(
+            if (normalizedProtocol == EncryptedDnsProtocolDnsCrypt) fixture.dnscryptPublicKey else "",
+        )
     }
 }
 
@@ -822,12 +863,17 @@ private fun parseManifest(body: String): FixtureManifestDto {
         tlsEchoPort = json.getInt("tlsEchoPort"),
         dnsUdpPort = json.getInt("dnsUdpPort"),
         dnsHttpPort = json.getInt("dnsHttpPort"),
+        dnsDotPort = json.getInt("dnsDotPort"),
+        dnsDnscryptPort = json.getInt("dnsDnscryptPort"),
+        dnsDoqPort = json.getInt("dnsDoqPort"),
         socks5Port = json.getInt("socks5Port"),
         controlPort = json.getInt("controlPort"),
         fixtureDomain = json.getString("fixtureDomain"),
         fixtureIpv4 = json.getString("fixtureIpv4"),
         dnsAnswerIpv4 = json.getString("dnsAnswerIpv4"),
         tlsCertificatePem = json.getString("tlsCertificatePem"),
+        dnscryptProviderName = json.getString("dnscryptProviderName"),
+        dnscryptPublicKey = json.getString("dnscryptPublicKey"),
     )
 }
 

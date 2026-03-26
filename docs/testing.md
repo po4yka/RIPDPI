@@ -110,6 +110,24 @@ Run the host-side network E2E suite with:
 bash scripts/ci/run-rust-network-e2e.sh
 ```
 
+Run the raw host packet-smoke lane with:
+
+```bash
+RIPDPI_RUN_PACKET_SMOKE=1 \
+  bash scripts/ci/run-cli-packet-smoke.sh
+```
+
+Optional runner inputs:
+
+- `RIPDPI_PACKET_SMOKE_CAPTURE_MODE=auto|raw`
+- `RIPDPI_PACKET_SMOKE_SCENARIO_FILTER=<scenario id or exact test selector>`
+- `RIPDPI_PACKET_SMOKE_ARTIFACT_DIR=/abs/path/to/output`
+- `RIPDPI_PACKET_SMOKE_IFACE=lo` (or `lo0` on macOS if auto-detection is wrong)
+
+The CLI packet-smoke registry lives at `scripts/ci/packet-smoke-scenarios.json`. Each scenario runs in
+its own process/capture session and emits a fixture manifest, fixture events, CLI stderr, `pcap`, and
+decoded `tshark` JSON artifacts.
+
 ## Android instrumentation
 
 Android instrumentation is split into two practical layers:
@@ -157,6 +175,28 @@ When the E2E package starts VPN-mode tests on an Android 15/16 physical device, 
 UiAutomator helper now auto-confirms the real system VPN consent dialog. This applies only to the
 real E2E/device flows; the service integration suite uses a fake `VpnTunnelSessionProvider` and does
 not exercise platform consent UX.
+
+The packet-smoke instrumentation matrix can be run one scenario at a time with:
+
+```bash
+ANDROID_SERIAL=<device-serial> \
+  bash scripts/ci/run-android-packet-smoke.sh
+```
+
+Optional runner inputs:
+
+- `RIPDPI_PACKET_SMOKE_CAPTURE_MODE=auto|raw|indirect`
+- `RIPDPI_PACKET_SMOKE_SCENARIO_FILTER=<scenario id or instrumentation selector>`
+- `RIPDPI_PACKET_SMOKE_ARTIFACT_DIR=/abs/path/to/output`
+
+The Android runner reuses the shared fixture manifest, resets fixture faults/events between scenarios,
+collects `logcat`, `dumpsys connectivity`, `ip addr`, `ip route`, and grabs a failure screenshot on
+test failures. On rooted emulators or rooted devices with `tcpdump` installed, `capture_mode=raw`
+adds an on-device `pcap`; otherwise `auto` falls back to the ADB-observable lane.
+
+Physical-device note: `adb reverse` only covers TCP, so the runner skips DoQ scenarios when the
+fixture host is loopback on an unrooted physical device. Emulators and direct host-reachable devices
+can exercise the full DoQ path.
 
 Optional runner args for physical-device VPN consent handling:
 

@@ -384,6 +384,9 @@ mod tests {
             tls_echo_port: 0,
             dns_udp_port: 0,
             dns_http_port: 0,
+            dns_dot_port: 0,
+            dns_dnscrypt_port: 0,
+            dns_doq_port: 0,
             socks5_port: 0,
             control_port: 0,
             ..FixtureConfig::default()
@@ -422,6 +425,9 @@ mod tests {
             tls_echo_port: 0,
             dns_udp_port: 0,
             dns_http_port: 0,
+            dns_dot_port: 0,
+            dns_dnscrypt_port: 0,
+            dns_doq_port: 0,
             socks5_port: 0,
             control_port: 0,
             ..FixtureConfig::default()
@@ -461,6 +467,9 @@ mod tests {
             tls_echo_port: 0,
             dns_udp_port: 0,
             dns_http_port: 0,
+            dns_dot_port: 0,
+            dns_dnscrypt_port: 0,
+            dns_doq_port: 0,
             socks5_port: 0,
             control_port: 0,
             ..FixtureConfig::default()

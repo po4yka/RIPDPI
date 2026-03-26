@@ -10,6 +10,7 @@ const val DnsModeDoh = "doh"
 const val EncryptedDnsProtocolDoh = "doh"
 const val EncryptedDnsProtocolDot = "dot"
 const val EncryptedDnsProtocolDnsCrypt = "dnscrypt"
+const val EncryptedDnsProtocolDoq = "doq"
 
 const val DnsProviderCloudflare = "cloudflare"
 const val DnsProviderGoogle = "google"
@@ -58,6 +59,9 @@ data class ActiveDnsSettings(
 
     val isDnsCrypt: Boolean
         get() = isEncrypted && encryptedDnsProtocol == EncryptedDnsProtocolDnsCrypt
+
+    val isDoq: Boolean
+        get() = isEncrypted && encryptedDnsProtocol == EncryptedDnsProtocolDoq
 
     val dohUrl: String
         get() = encryptedDnsDohUrl
@@ -147,6 +151,7 @@ fun protocolDisplayName(protocol: String): String =
     when (protocol) {
         EncryptedDnsProtocolDot -> "DoT"
         EncryptedDnsProtocolDnsCrypt -> "DNSCrypt"
+        EncryptedDnsProtocolDoq -> "DoQ"
         else -> "DoH"
     }
 
@@ -212,6 +217,7 @@ private fun normalizedEncryptedProtocol(
     when {
         encryptedDnsProtocol.equals(EncryptedDnsProtocolDot, ignoreCase = true) -> EncryptedDnsProtocolDot
         encryptedDnsProtocol.equals(EncryptedDnsProtocolDnsCrypt, ignoreCase = true) -> EncryptedDnsProtocolDnsCrypt
+        encryptedDnsProtocol.equals(EncryptedDnsProtocolDoq, ignoreCase = true) -> EncryptedDnsProtocolDoq
         dnsMode.equals(DnsModeDoh, ignoreCase = true) -> EncryptedDnsProtocolDoh
         dnsDohUrl.isNotBlank() -> EncryptedDnsProtocolDoh
         else -> EncryptedDnsProtocolDoh
@@ -283,6 +289,7 @@ fun activeDnsSettings(
             builtIn != null && normalizedProtocol == EncryptedDnsProtocolDoh -> builtIn.port
             normalizedProtocol == EncryptedDnsProtocolDoh -> parsePortFromUrl(effectiveDohUrl).takeIf { it > 0 } ?: 443
             normalizedProtocol == EncryptedDnsProtocolDot -> 853
+            normalizedProtocol == EncryptedDnsProtocolDoq -> 853
             else -> 443
         }
     val effectiveTlsServerName =
@@ -291,7 +298,8 @@ fun activeDnsSettings(
             builtIn?.tlsServerName,
             when {
                 normalizedProtocol == EncryptedDnsProtocolDot ||
-                    normalizedProtocol == EncryptedDnsProtocolDoh -> effectiveHost
+                    normalizedProtocol == EncryptedDnsProtocolDoh ||
+                    normalizedProtocol == EncryptedDnsProtocolDoq -> effectiveHost
 
                 else -> ""
             },
