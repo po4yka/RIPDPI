@@ -111,6 +111,12 @@ Notable TCP step kinds now include:
 
 These are typed RIPDPI steps.
 
+Notable UDP step kinds for QUIC DPI evasion:
+
+- `DummyPrepend` -- random UDP datagram before QUIC Initial to reset GFW flow state
+- `QuicSniSplit` -- re-encrypt Initial with ClientHello split across CRYPTO frames
+- `QuicFakeVersion` -- replace QUIC version field to prevent DPI decryption
+
 ### Fake payload and fake transport surface
 
 The fake-transport path now includes:
@@ -119,6 +125,8 @@ The fake-transport path now includes:
 - richer fake TLS mutations (`orig`, `rand`, `rndsni`, `dupsid`, `padencap`, size tuning)
 - fixed or adaptive fake TTL for TCP fake sends
 - `md5sig`, fake offset markers, and QUIC fake Initial profile selection
+- TCP window clamping (`TCP_WINDOW_CLAMP`) to force small server response segments
+- QUIC source port binding to evade port-based GFW filtering
 
 `hostfake`, `fakedsplit`, and `fakeddisorder` reuse that same fake-payload and fake-transport pipeline instead of shipping separate blob knobs.
 
@@ -126,6 +134,7 @@ The fake-transport path now includes:
 
 The shared runtime layer now also adds:
 
+- Geneva-style strategy evolution (`StrategyEvolver`) with epsilon-greedy + UCB1 selection across combo dimensions
 - host autolearn and per-host preferred group promotion scoped by `networkScopeKey`
 - validated remembered-network policy replay with hashed network fingerprints and optional VPN DNS override
 - automatic diagnostics probing with a fixed raw-path candidate suite, hidden handover-triggered `quick_v1` probes, and manual recommendation output
@@ -149,7 +158,7 @@ The packet-level pieces live in the native runtime and diagnostics monitor, whil
 The diagnostics path linked into `libripdpi.so` currently implements:
 
 - `RAW_PATH` and `IN_PATH` scan transports
-- UDP DNS integrity checks against encrypted resolvers (DoH/DoT/DNSCrypt)
+- UDP DNS integrity checks against encrypted resolvers (DoH/DoT/DNSCrypt/DoQ)
 - HTTPS reachability checks with TLS 1.3 and TLS 1.2 split probing
 - HTTP block-page classification
 - TCP 16-20 KB cutoff detection with repeated fat-header `HEAD` requests

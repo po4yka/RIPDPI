@@ -38,6 +38,8 @@ cargo build -p ripdpi-cli                    # Build the CLI binary
 cargo run -p ripdpi-cli -- -p 1080 -x 1      # Run proxy on port 1080, info logging
 cargo run -p ripdpi-cli -- -h                 # Show all CLI flags
 RUST_LOG=debug cargo run -p ripdpi-cli       # Override log filter via env
+cargo run -p ripdpi-cli -- -p 1080 --window-clamp 2  # TCP window clamp for DPI evasion
+cargo run -p ripdpi-cli -- -p 1080 --strategy-evolution  # Enable adaptive combo exploration
 ```
 
 ## Native Code Rules
