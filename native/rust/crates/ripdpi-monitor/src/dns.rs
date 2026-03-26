@@ -61,6 +61,7 @@ pub(crate) fn encrypted_dns_endpoint_for_target(
         EncryptedDnsProtocol::Doh => DEFAULT_DOH_PORT,
         EncryptedDnsProtocol::Dot => 853,
         EncryptedDnsProtocol::DnsCrypt => 443,
+        EncryptedDnsProtocol::Doq => 853,
     });
 
     Ok((

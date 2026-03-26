@@ -111,6 +111,8 @@ struct ResolverInner {
     dnscrypt_state: Mutex<Option<DnsCryptCachedCertificate>>,
     connection_pool: ConnectionPool,
     health: Option<HealthRegistry>,
+    doq_endpoint: Option<quinn::Endpoint>,
+    doq_connection: AsyncMutex<Option<quinn::Connection>>,
 }
 
 #[derive(Debug, Clone)]
@@ -171,6 +173,21 @@ impl EncryptedDnsResolver {
             None
         };
 
+        let doq_endpoint = if normalized.protocol == EncryptedDnsProtocol::Doq {
+            let mut doq_tls = (*dot_tls_config).clone();
+            doq_tls.alpn_protocols = vec![b"doq".to_vec()];
+            let client_config = quinn::ClientConfig::new(Arc::new(
+                quinn::crypto::rustls::QuicClientConfig::try_from(doq_tls)
+                    .map_err(|e| EncryptedDnsError::Tls(format!("DoQ TLS config: {e}")))?,
+            ));
+            let mut endpoint = quinn::Endpoint::client("0.0.0.0:0".parse().unwrap())
+                .map_err(|e| EncryptedDnsError::Request(format!("DoQ endpoint: {e}")))?;
+            endpoint.set_default_client_config(client_config);
+            Some(endpoint)
+        } else {
+            None
+        };
+
         Ok(Self {
             inner: Arc::new(ResolverInner {
                 endpoint: normalized,
@@ -185,6 +202,8 @@ impl EncryptedDnsResolver {
                 dnscrypt_state: Mutex::new(None),
                 connection_pool: ConnectionPool::default(),
                 health,
+                doq_endpoint,
+                doq_connection: AsyncMutex::new(None),
             }),
         })
     }
@@ -234,6 +253,7 @@ impl EncryptedDnsResolver {
                 }
             }
             EncryptedDnsProtocol::DnsCrypt => self.exchange_dnscrypt(query_bytes).await,
+            EncryptedDnsProtocol::Doq => self.exchange_doq(query_bytes).await,
         }?;
 
         let elapsed = started.elapsed();
@@ -635,6 +655,99 @@ impl EncryptedDnsResolver {
         }
 
         Ok(proxy_stream)
+    }
+
+    // --- DoQ (DNS over QUIC, RFC 9250) ---
+
+    async fn exchange_doq(&self, query_bytes: &[u8]) -> Result<Vec<u8>, EncryptedDnsError> {
+        if matches!(self.inner.transport, EncryptedDnsTransport::Socks5 { .. }) {
+            return Err(EncryptedDnsError::Request(
+                "DoQ is not supported over SOCKS5 transport (SOCKS5 is TCP-only)".to_string(),
+            ));
+        }
+        let endpoint = self
+            .inner
+            .doq_endpoint
+            .as_ref()
+            .ok_or_else(|| EncryptedDnsError::Request("DoQ endpoint not initialized".to_string()))?;
+
+        let conn = self.get_or_connect_doq(endpoint).await?;
+
+        let (mut send, mut recv) = conn
+            .open_bi()
+            .await
+            .map_err(|e| EncryptedDnsError::Request(format!("DoQ open_bi: {e}")))?;
+
+        // RFC 9250: DNS wire format with 2-byte length prefix (same as DNS-over-TCP).
+        let len_prefix = (query_bytes.len() as u16).to_be_bytes();
+        send.write_all(&len_prefix)
+            .await
+            .map_err(|e| EncryptedDnsError::Request(format!("DoQ write: {e}")))?;
+        send.write_all(query_bytes)
+            .await
+            .map_err(|e| EncryptedDnsError::Request(format!("DoQ write: {e}")))?;
+        send.finish()
+            .map_err(|e| EncryptedDnsError::Request(format!("DoQ finish: {e}")))?;
+
+        let mut len_buf = [0u8; 2];
+        recv.read_exact(&mut len_buf)
+            .await
+            .map_err(|e| EncryptedDnsError::DnsParse(format!("DoQ read len: {e}")))?;
+        let resp_len = u16::from_be_bytes(len_buf) as usize;
+        if resp_len == 0 || resp_len > 65535 {
+            return Err(EncryptedDnsError::DnsParse(format!("invalid DoQ response length: {resp_len}")));
+        }
+        let mut response = vec![0u8; resp_len];
+        recv.read_exact(&mut response)
+            .await
+            .map_err(|e| EncryptedDnsError::DnsParse(format!("DoQ read body: {e}")))?;
+
+        Ok(response)
+    }
+
+    async fn get_or_connect_doq(
+        &self,
+        endpoint: &quinn::Endpoint,
+    ) -> Result<quinn::Connection, EncryptedDnsError> {
+        // Try cached connection.
+        {
+            let guard = self.inner.doq_connection.lock().await;
+            if let Some(ref conn) = *guard {
+                if conn.close_reason().is_none() {
+                    return Ok(conn.clone());
+                }
+            }
+        }
+        // New connection.
+        let addr = self.resolve_doq_addr()?;
+        let server_name = self
+            .inner
+            .endpoint
+            .tls_server_name
+            .as_deref()
+            .unwrap_or(&self.inner.endpoint.host);
+        let conn = timeout(self.inner.timeout, async {
+            endpoint
+                .connect(addr, server_name)
+                .map_err(|e| EncryptedDnsError::Tls(format!("DoQ connect: {e}")))?
+                .await
+                .map_err(|e| EncryptedDnsError::Tls(format!("DoQ handshake: {e}")))
+        })
+        .await
+        .map_err(|_| EncryptedDnsError::Request("DoQ connect timeout".to_string()))??;
+
+        *self.inner.doq_connection.lock().await = Some(conn.clone());
+        Ok(conn)
+    }
+
+    fn resolve_doq_addr(&self) -> Result<SocketAddr, EncryptedDnsError> {
+        let ip = self
+            .inner
+            .endpoint
+            .bootstrap_ips
+            .first()
+            .ok_or(EncryptedDnsError::MissingBootstrapIps)?;
+        Ok(SocketAddr::new(*ip, self.inner.endpoint.port))
     }
 }
 
