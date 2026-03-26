@@ -18,6 +18,7 @@ fixture_manifest=""
 fixture_control_port=""
 fixture_android_host=""
 selected_capture_mode=""
+device_profile=""
 device_capture_filter=""
 is_emulator="0"
 
@@ -100,6 +101,16 @@ detect_capture_mode() {
     selected_capture_mode="indirect"
 }
 
+detect_device_profile() {
+    if [[ "$is_emulator" == "1" ]]; then
+        device_profile="emulator_raw"
+    elif [[ "$selected_capture_mode" == "raw" ]]; then
+        device_profile="rooted_android_pcap"
+    else
+        device_profile="physical_indirect"
+    fi
+}
+
 detect_gradle_abi() {
     if [[ -n "$gradle_abi_override" ]]; then
         echo "$gradle_abi_override"
@@ -154,13 +165,7 @@ stop_device_capture() {
 
 scenario_is_supported() {
     local traffic_kind="$1"
-    if [[ "$fixture_android_host" == "127.0.0.1" && "$is_emulator" != "1" ]]; then
-        case "$traffic_kind" in
-            vpn_dns_doq|vpn_dns_doq_fault)
-                return 1
-                ;;
-        esac
-    fi
+    : "$traffic_kind"
     return 0
 }
 
@@ -172,6 +177,7 @@ mkdir -p "$artifact_root"
 detect_emulator
 fixture_android_host="$(resolve_fixture_android_host)"
 detect_capture_mode
+detect_device_profile
 
 shared_dir="$artifact_root/shared"
 mkdir -p "$shared_dir"
@@ -233,6 +239,7 @@ for row in "${scenarios[@]}"; do
         "-Pandroid.testInstrumentationRunnerArguments.class=${test_selector}" \
         "-Pandroid.testInstrumentationRunnerArguments.ripdpi.fixtureControlHost=${fixture_android_host}" \
         "-Pandroid.testInstrumentationRunnerArguments.ripdpi.fixtureControlPort=${fixture_control_port}" \
+        "-Pandroid.testInstrumentationRunnerArguments.ripdpi.packetSmokeDeviceProfile=${device_profile}" \
         2>&1 | tee "$scenario_dir/test-output.txt"
     status=${PIPESTATUS[0]}
     set -e
