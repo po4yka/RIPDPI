@@ -218,9 +218,21 @@ pub(crate) fn probe_runtime_transport(
     if !spec.preserve_adaptive_fake_ttl {
         freeze_adaptive_fake_ttl_for_probe(&mut runtime_config);
     }
-    let mut config = runtime_config_from_ui(runtime_config).map_err(|err| err.to_string())?;
+    let mut config = runtime_config_from_ui(runtime_config).map_err(|err| {
+        tracing::warn!(candidate = spec.id, error = %err, "probe runtime config validation failed");
+        err.to_string()
+    })?;
     config.network.listen.listen_port = 0;
-    TemporaryProxyRuntime::start(config, runtime_context.cloned())
+    match TemporaryProxyRuntime::start(config, runtime_context.cloned()) {
+        Ok(runtime) => {
+            tracing::debug!(candidate = spec.id, addr = %runtime.addr, "probe runtime started");
+            Ok(runtime)
+        }
+        Err(err) => {
+            tracing::warn!(candidate = spec.id, error = %err, "probe runtime failed to start");
+            Err(err)
+        }
+    }
 }
 
 pub(crate) fn run_candidate_warmup(
@@ -796,5 +808,21 @@ mod tests {
         config.chains.tcp_steps = vec![];
         config.fake_packets.fake_sni = "www.wikipedia.org".to_string();
         config
+    }
+
+    #[test]
+    fn probe_runtime_transport_binds_ephemeral_port() {
+        let spec = crate::candidates::candidate_spec("test", "Test", "test", test_ui_config());
+        let runtime = probe_runtime_transport(&spec, None).expect("probe runtime should start with ephemeral port");
+        assert_ne!(runtime.addr.port(), 0, "OS should assign a non-zero ephemeral port");
+    }
+
+    #[test]
+    fn probe_runtime_transport_overrides_listen_ip_to_localhost() {
+        let mut config = test_ui_config();
+        config.listen.ip = "0.0.0.0".to_string();
+        let spec = crate::candidates::candidate_spec("test", "Test", "test", config);
+        let runtime = probe_runtime_transport(&spec, None).expect("probe runtime should start");
+        assert!(runtime.addr.ip().is_loopback(), "probe runtime must bind to localhost");
     }
 }
