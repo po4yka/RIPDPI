@@ -554,4 +554,177 @@ mod tests {
         let seq2: Vec<u32> = (0..10).map(|_| e2.lcg_next()).collect();
         assert_eq!(seq1, seq2);
     }
+
+    // ---- Edge case tests ----
+
+    #[test]
+    fn record_success_without_experiment_is_noop() {
+        let mut e = StrategyEvolver::new(true, 0.0);
+        // No current_experiment set, record_success should silently do nothing.
+        e.record_success(100);
+        assert_eq!(e.combos_tested(), 0);
+    }
+
+    #[test]
+    fn record_failure_without_experiment_is_noop() {
+        let mut e = StrategyEvolver::new(true, 0.0);
+        e.record_failure(FailureClass::TcpReset);
+        assert_eq!(e.combos_tested(), 0);
+    }
+
+    #[test]
+    fn double_record_success_only_counts_first() {
+        let mut e = StrategyEvolver::new(true, 1.0);
+        e.combos.insert(StrategyCombo::default_combo(), ComboStats::new());
+        e.suggest_hints();
+        assert!(e.current_experiment.is_some());
+
+        e.record_success(50);
+        // Second record should be a no-op (current_experiment already taken)
+        e.record_success(50);
+
+        let total_attempts: u32 = e.combos.values().map(|s| s.attempts).sum();
+        assert_eq!(total_attempts, 1, "only one attempt should be recorded");
+    }
+
+    #[test]
+    fn suggest_hints_returns_same_combo_while_experiment_pending() {
+        let mut e = StrategyEvolver::new(true, 0.0);
+        e.combos.insert(StrategyCombo::default_combo(), ComboStats::new());
+
+        let first = e.suggest_hints().expect("first suggestion");
+        let second = e.suggest_hints().expect("second suggestion");
+        // Should return same hints since experiment is still outstanding
+        assert_eq!(first, second);
+    }
+
+    #[test]
+    fn best_combo_empty_returns_none() {
+        let e = StrategyEvolver::new(true, 0.0);
+        assert!(e.best_combo().is_none());
+    }
+
+    #[test]
+    fn best_fitness_empty_returns_zero() {
+        let e = StrategyEvolver::new(true, 0.0);
+        assert!((e.best_fitness() - 0.0).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn combos_tested_counts_unique_combos() {
+        let mut e = StrategyEvolver::new(true, 0.0);
+        let combo_a = StrategyCombo { split_offset_base: Some(OffsetBase::AutoHost), ..StrategyCombo::default_combo() };
+        let combo_b = StrategyCombo { split_offset_base: Some(OffsetBase::MidSld), ..StrategyCombo::default_combo() };
+        e.combos.insert(combo_a, ComboStats::new());
+        e.combos.insert(combo_b, ComboStats::new());
+        assert_eq!(e.combos_tested(), 2);
+    }
+
+    #[test]
+    fn evict_preserves_keep_combo() {
+        let mut e = StrategyEvolver::new(true, 0.0);
+        e.max_combos = 2;
+
+        let keep = StrategyCombo { fake_ttl: Some(6), ..StrategyCombo::default_combo() };
+        let other = StrategyCombo { fake_ttl: Some(8), ..StrategyCombo::default_combo() };
+
+        // Both have same (zero) fitness
+        e.combos.insert(keep.clone(), ComboStats::new());
+        e.combos.insert(other.clone(), ComboStats::new());
+
+        // Evict should remove `other` (or any combo != keep), not `keep`
+        e.evict_if_needed(&keep);
+        assert!(e.combos.contains_key(&keep), "keep combo should survive eviction");
+        assert_eq!(e.combos.len(), 1);
+    }
+
+    #[test]
+    fn evict_removes_lowest_fitness() {
+        let mut e = StrategyEvolver::new(true, 0.0);
+        e.max_combos = 2;
+
+        let good = StrategyCombo { fake_ttl: Some(6), ..StrategyCombo::default_combo() };
+        let bad = StrategyCombo { fake_ttl: Some(8), ..StrategyCombo::default_combo() };
+        let new_combo = StrategyCombo { fake_ttl: Some(10), ..StrategyCombo::default_combo() };
+
+        e.combos.insert(good.clone(), ComboStats { attempts: 10, successes: 9, total_latency_ms: 100, last_attempt_ms: 0, last_failure_class: None });
+        e.combos.insert(bad.clone(), ComboStats { attempts: 10, successes: 1, total_latency_ms: 5000, last_attempt_ms: 0, last_failure_class: None });
+
+        e.evict_if_needed(&new_combo);
+        assert!(e.combos.contains_key(&good), "good combo should survive");
+        assert!(!e.combos.contains_key(&bad), "bad combo should be evicted");
+    }
+
+    #[test]
+    fn fitness_with_zero_successes_penalizes_latency() {
+        let stats = ComboStats {
+            attempts: 5,
+            successes: 0,
+            total_latency_ms: 0,
+            last_attempt_ms: 0,
+            last_failure_class: None,
+        };
+        // 0% success rate, avg_latency defaults to 5000.0
+        // fitness = 0.0 * 1000 - 5000.0 * 0.001 = -5.0
+        assert!(stats.fitness() < 0.0, "0% success should give negative fitness, got {}", stats.fitness());
+    }
+
+    #[test]
+    fn combo_pool_is_non_empty_and_wraps() {
+        assert!(!COMBO_POOL.is_empty());
+        let c1 = combo_from_pool(0);
+        let c2 = combo_from_pool(COMBO_POOL.len());
+        assert_eq!(c1, c2, "pool should wrap around");
+    }
+
+    #[test]
+    fn combo_pool_entries_are_unique() {
+        let combos: Vec<StrategyCombo> = (0..COMBO_POOL.len()).map(combo_from_pool).collect();
+        let unique: std::collections::HashSet<_> = combos.iter().collect();
+        assert_eq!(unique.len(), COMBO_POOL.len(), "all pool entries should be unique");
+    }
+
+    #[test]
+    fn select_next_combo_returns_default_when_no_history() {
+        let mut e = StrategyEvolver::new(true, 0.0);
+        assert!(e.combos.is_empty());
+        let combo = e.select_next_combo();
+        assert_eq!(combo, StrategyCombo::default_combo());
+    }
+
+    #[test]
+    fn ucb1_prefers_untried_combos() {
+        let mut e = StrategyEvolver::new(true, 0.0); // pure exploitation
+        e.rng_state = 42;
+
+        let tried = StrategyCombo { fake_ttl: Some(6), ..StrategyCombo::default_combo() };
+        let untried = StrategyCombo { fake_ttl: Some(8), ..StrategyCombo::default_combo() };
+
+        e.combos.insert(tried.clone(), ComboStats {
+            attempts: 10, successes: 5, total_latency_ms: 500,
+            last_attempt_ms: 0, last_failure_class: None,
+        });
+        e.combos.insert(untried.clone(), ComboStats::new()); // 0 attempts => UCB1 = MAX
+
+        let selected = e.select_next_combo();
+        assert_eq!(selected, untried, "UCB1 should prefer untried combo (score = f64::MAX)");
+    }
+
+    #[test]
+    fn to_hints_maps_all_fields() {
+        let combo = StrategyCombo {
+            split_offset_base: Some(OffsetBase::AutoHost),
+            tls_record_offset_base: Some(OffsetBase::EndHost),
+            tlsrandrec_profile: Some(AdaptiveTlsRandRecProfile::Tight),
+            udp_burst_profile: Some(AdaptiveUdpBurstProfile::Conservative),
+            quic_fake_profile: Some(QuicFakeProfile::RealisticInitial),
+            fake_ttl: Some(8),
+        };
+        let hints = combo.to_hints();
+        assert_eq!(hints.split_offset_base, Some(OffsetBase::AutoHost));
+        assert_eq!(hints.tls_record_offset_base, Some(OffsetBase::EndHost));
+        assert_eq!(hints.tlsrandrec_profile, Some(AdaptiveTlsRandRecProfile::Tight));
+        assert_eq!(hints.udp_burst_profile, Some(AdaptiveUdpBurstProfile::Conservative));
+        assert_eq!(hints.quic_fake_profile, Some(QuicFakeProfile::RealisticInitial));
+    }
 }
