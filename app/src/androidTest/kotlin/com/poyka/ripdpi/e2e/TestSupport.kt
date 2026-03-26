@@ -4,9 +4,9 @@ import android.app.Activity
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
-import android.os.Bundle
 import android.net.VpnService
 import android.os.Build
+import android.os.Bundle
 import android.os.ParcelFileDescriptor
 import android.os.SystemClock
 import android.content.pm.PackageManager
@@ -18,15 +18,24 @@ import androidx.test.uiautomator.UiObject2
 import androidx.test.uiautomator.Until
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.DnsModeEncrypted
+import com.poyka.ripdpi.data.DnsModePlainUdp
 import com.poyka.ripdpi.data.DnsProviderCustom
 import com.poyka.ripdpi.data.EncryptedDnsProtocolDnsCrypt
 import com.poyka.ripdpi.data.EncryptedDnsProtocolDoh
 import com.poyka.ripdpi.data.EncryptedDnsProtocolDoq
 import com.poyka.ripdpi.data.EncryptedDnsProtocolDot
+import com.poyka.ripdpi.data.ServiceTelemetrySnapshot
+import com.poyka.ripdpi.debug.PacketSmokeEncryptedDnsPreset
+import com.poyka.ripdpi.debug.PacketSmokeEncryptedDnsPresets
+import com.poyka.ripdpi.debug.PacketSmokeMapDnsAddress
+import com.poyka.ripdpi.debug.PacketSmokeMapDnsPort
+import com.poyka.ripdpi.debug.DebugDnsPacketCodec
 import java.io.BufferedReader
 import java.io.File
 import java.io.IOException
 import java.net.HttpURLConnection
+import java.net.DatagramPacket
+import java.net.DatagramSocket
 import java.net.Inet6Address
 import java.net.InetSocketAddress
 import java.net.ServerSocket
@@ -42,6 +51,7 @@ import java.util.regex.Pattern
 import javax.net.ssl.SSLContext
 import javax.net.ssl.SSLSocket
 import javax.net.ssl.X509TrustManager
+import kotlin.random.Random
 
 private const val DefaultFixtureControlHost = "10.0.2.2"
 private const val LoopbackFixtureHost = "127.0.0.1"
@@ -55,18 +65,24 @@ private const val VpnConsentShellGrantTimeoutMs = 2_000L
 private const val LocalNetworkPermissionGrantTimeoutMs = 2_000L
 private const val VpnConsentTimeoutArg = "ripdpi.vpnConsentTimeoutMs"
 private const val VpnConsentPackageHintsArg = "ripdpi.vpnConsentPackageHints"
+private const val PacketSmokeDeviceProfileArg = "ripdpi.packetSmokeDeviceProfile"
 private const val NearbyWifiDevicesPermission = "android.permission.NEARBY_WIFI_DEVICES"
 private const val DebugNetworkProbeAction = "com.poyka.ripdpi.debug.PROBE_TCP"
+private const val DebugDnsProbeAction = "com.poyka.ripdpi.debug.PROBE_DNS"
 private const val DebugNetworkProbeReceiverClass = "com.poyka.ripdpi.debug.DebugNetworkProbeReceiver"
 private const val DebugNetworkProbeExtraHost = "host"
 private const val DebugNetworkProbeExtraPort = "port"
 private const val DebugNetworkProbeExtraConnectTimeoutMs = "connect_timeout_ms"
 private const val DebugNetworkProbeExtraReadTimeoutMs = "read_timeout_ms"
 private const val DebugNetworkProbeExtraPayload = "payload"
+private const val DebugNetworkProbeExtraQueryHost = "query_host"
 private const val DebugNetworkProbeExtraOk = "ok"
 private const val DebugNetworkProbeExtraLocalAddress = "local_address"
 private const val DebugNetworkProbeExtraLocalPort = "local_port"
 private const val DebugNetworkProbeExtraResponse = "response"
+private const val DebugNetworkProbeExtraDnsRcode = "rcode"
+private const val DebugNetworkProbeExtraDnsAnswers = "answers"
+private const val DebugNetworkProbeExtraDnsLatencyMs = "latency_ms"
 private const val DebugNetworkProbeExtraErrorClass = "error_class"
 private const val DebugNetworkProbeExtraErrorMessage = "error_message"
 private const val DebugNetworkProbeTimeoutMs = 3_000L
@@ -114,6 +130,50 @@ data class AppProcessTcpProbeResult(
     val errorClass: String? = null,
     val errorMessage: String? = null,
 )
+
+data class AppProcessDnsProbeResult(
+    val queryHost: String,
+    val serverHost: String,
+    val serverPort: Int,
+    val ok: Boolean,
+    val rcode: Int? = null,
+    val answers: List<String> = emptyList(),
+    val latencyMs: Long? = null,
+    val localAddress: String? = null,
+    val localPort: Int? = null,
+    val errorClass: String? = null,
+    val errorMessage: String? = null,
+)
+
+data class PacketSmokeTelemetryDelta(
+    val txPackets: Long,
+    val rxPackets: Long,
+    val txBytes: Long,
+    val rxBytes: Long,
+    val dnsQueriesTotal: Long,
+    val dnsFailuresTotal: Long,
+)
+
+enum class PacketSmokeDeviceProfile(
+    val argumentValue: String,
+) {
+    EMULATOR_RAW("emulator_raw"),
+    ROOTED_ANDROID_PCAP("rooted_android_pcap"),
+    PHYSICAL_INDIRECT("physical_indirect"),
+    ;
+
+    companion object {
+        fun fromInstrumentationArgs(): PacketSmokeDeviceProfile {
+            val value = InstrumentationRegistry.getArguments().getString(PacketSmokeDeviceProfileArg)?.trim()
+            return entries.firstOrNull { it.argumentValue == value }
+                ?: if (isLikelyEmulator()) {
+                    EMULATOR_RAW
+                } else {
+                    PHYSICAL_INDIRECT
+                }
+        }
+    }
+}
 
 enum class FixtureFaultScopeDto {
     ONE_SHOT,
@@ -339,6 +399,65 @@ suspend fun AppSettingsRepository.applyFixtureEncryptedDns(
     }
 }
 
+suspend fun AppSettingsRepository.applyPacketSmokePlainDns(
+    proxyPort: Int,
+    dnsIp: String,
+) {
+    update {
+        proxyIp = "127.0.0.1"
+        this.proxyPort = proxyPort
+        setDnsMode(DnsModePlainUdp)
+        setDnsProviderId(DnsProviderCustom)
+        setDnsIp(dnsIp)
+        setDnsDohUrl("")
+        clearDnsDohBootstrapIps()
+        setEncryptedDnsProtocol("")
+        setEncryptedDnsHost("")
+        setEncryptedDnsPort(0)
+        setEncryptedDnsTlsServerName("")
+        clearEncryptedDnsBootstrapIps()
+        setEncryptedDnsDohUrl("")
+        setEncryptedDnsDnscryptProviderName("")
+        setEncryptedDnsDnscryptPublicKey("")
+    }
+}
+
+suspend fun AppSettingsRepository.applyPacketSmokeEncryptedDns(
+    proxyPort: Int,
+    preset: PacketSmokeEncryptedDnsPreset,
+) {
+    update {
+        proxyIp = "127.0.0.1"
+        this.proxyPort = proxyPort
+        setDnsMode(DnsModeEncrypted)
+        setDnsProviderId(preset.providerId)
+        setDnsIp(preset.bootstrapIps.firstOrNull().orEmpty())
+        setDnsDohUrl(preset.dohUrl)
+        clearDnsDohBootstrapIps()
+        addAllDnsDohBootstrapIps(if (preset.dohUrl.isNotBlank()) preset.bootstrapIps else emptyList())
+        setEncryptedDnsProtocol(preset.protocol)
+        setEncryptedDnsHost(preset.host)
+        setEncryptedDnsPort(preset.port)
+        setEncryptedDnsTlsServerName(preset.tlsServerName)
+        clearEncryptedDnsBootstrapIps()
+        addAllEncryptedDnsBootstrapIps(preset.bootstrapIps)
+        setEncryptedDnsDohUrl(preset.dohUrl)
+        setEncryptedDnsDnscryptProviderName(preset.dnscryptProviderName)
+        setEncryptedDnsDnscryptPublicKey(preset.dnscryptPublicKey)
+    }
+}
+
+fun packetSmokeDeviceProfile(): PacketSmokeDeviceProfile = PacketSmokeDeviceProfile.fromInstrumentationArgs()
+
+fun packetSmokeUsesPhysicalIndirectContract(): Boolean =
+    packetSmokeDeviceProfile() == PacketSmokeDeviceProfile.PHYSICAL_INDIRECT
+
+fun packetSmokeEncryptedDnsPreset(protocol: String): PacketSmokeEncryptedDnsPreset =
+    PacketSmokeEncryptedDnsPresets.success(protocol)
+
+fun packetSmokeEncryptedDnsFaultPreset(protocol: String): PacketSmokeEncryptedDnsPreset =
+    PacketSmokeEncryptedDnsPresets.fault(protocol)
+
 fun reserveLoopbackPort(): Int =
     ServerSocket(0).use { socket ->
         socket.localPort
@@ -561,6 +680,143 @@ fun probeAppProcessTcpConnect(
     }
 }
 
+fun probeInstrumentationTcpConnect(
+    host: String,
+    port: Int,
+    timeoutMs: Long = DebugNetworkProbeTimeoutMs,
+): AppProcessTcpProbeResult =
+    runCatching {
+        Socket().use { socket ->
+            socket.connect(InetSocketAddress(host, port), timeoutMs.toInt())
+            AppProcessTcpProbeResult(
+                host = host,
+                port = port,
+                ok = true,
+                localAddress = socket.localAddress?.hostAddress,
+                localPort = socket.localPort,
+            )
+        }
+    }.getOrElse { error ->
+        AppProcessTcpProbeResult(
+            host = host,
+            port = port,
+            ok = false,
+            errorClass = error::class.java.name,
+            errorMessage = error.message,
+        )
+    }
+
+fun probeAppProcessDns(
+    context: Context,
+    queryHost: String,
+    serverHost: String = PacketSmokeMapDnsAddress,
+    serverPort: Int = PacketSmokeMapDnsPort,
+    timeoutMs: Long = DebugNetworkProbeTimeoutMs,
+): AppProcessDnsProbeResult {
+    val latch = CountDownLatch(1)
+    val probeResult = AtomicReference<AppProcessDnsProbeResult?>()
+    val intent =
+        Intent(DebugDnsProbeAction).apply {
+            setClassName(context.packageName, DebugNetworkProbeReceiverClass)
+            putExtra(DebugNetworkProbeExtraHost, serverHost)
+            putExtra(DebugNetworkProbeExtraPort, serverPort)
+            putExtra(DebugNetworkProbeExtraReadTimeoutMs, timeoutMs.toInt())
+            putExtra(DebugNetworkProbeExtraQueryHost, queryHost)
+        }
+    context.sendOrderedBroadcast(
+        intent,
+        null,
+        object : BroadcastReceiver() {
+            override fun onReceive(
+                context: Context?,
+                intent: Intent?,
+            ) {
+                val extras = getResultExtras(false) ?: Bundle.EMPTY
+                probeResult.set(
+                    AppProcessDnsProbeResult(
+                        queryHost = queryHost,
+                        serverHost = serverHost,
+                        serverPort = serverPort,
+                        ok = resultCode == Activity.RESULT_OK && extras.getBoolean(DebugNetworkProbeExtraOk, false),
+                        rcode =
+                            extras
+                                .takeIf { it.containsKey(DebugNetworkProbeExtraDnsRcode) }
+                                ?.getInt(DebugNetworkProbeExtraDnsRcode),
+                        answers = extras.getStringArrayList(DebugNetworkProbeExtraDnsAnswers).orEmpty(),
+                        latencyMs =
+                            extras
+                                .takeIf { it.containsKey(DebugNetworkProbeExtraDnsLatencyMs) }
+                                ?.getLong(DebugNetworkProbeExtraDnsLatencyMs),
+                        localAddress = extras.getString(DebugNetworkProbeExtraLocalAddress),
+                        localPort = extras.getInt(DebugNetworkProbeExtraLocalPort).takeIf { it > 0 },
+                        errorClass = extras.getString(DebugNetworkProbeExtraErrorClass),
+                        errorMessage = extras.getString(DebugNetworkProbeExtraErrorMessage),
+                    ),
+                )
+                latch.countDown()
+            }
+        },
+        null,
+        Activity.RESULT_CANCELED,
+        null,
+        null,
+    )
+    check(latch.await(DebugNetworkProbeBroadcastTimeoutMs, TimeUnit.MILLISECONDS)) {
+        "Timed out waiting for app-process DNS probe for $queryHost via $serverHost:$serverPort"
+    }
+    return requireNotNull(probeResult.get()) {
+        "App-process DNS probe did not deliver a result for $queryHost via $serverHost:$serverPort"
+    }
+}
+
+fun probeInstrumentationDns(
+    queryHost: String,
+    serverHost: String = PacketSmokeMapDnsAddress,
+    serverPort: Int = PacketSmokeMapDnsPort,
+    timeoutMs: Long = DebugNetworkProbeTimeoutMs,
+): AppProcessDnsProbeResult =
+    runCatching {
+        val requestId = Random.nextInt(0, 0x1_0000)
+        val query = DebugDnsPacketCodec.buildQuery(queryHost, requestId)
+        val startedAt = SystemClock.elapsedRealtime()
+        DatagramSocket().use { socket ->
+            socket.soTimeout = timeoutMs.toInt()
+            socket.connect(InetSocketAddress(serverHost, serverPort))
+            val outgoingPacket = DatagramPacket(query, query.size)
+            socket.send(outgoingPacket)
+
+            val responseBytes = ByteArray(1500)
+            val incomingPacket = DatagramPacket(responseBytes, responseBytes.size)
+            socket.receive(incomingPacket)
+
+            val decoded =
+                DebugDnsPacketCodec.decodeResponse(
+                    packet = responseBytes.copyOf(incomingPacket.length),
+                    expectedRequestId = requestId,
+                )
+            AppProcessDnsProbeResult(
+                queryHost = queryHost,
+                serverHost = serverHost,
+                serverPort = serverPort,
+                ok = true,
+                rcode = decoded.rcode,
+                answers = decoded.answers,
+                latencyMs = SystemClock.elapsedRealtime() - startedAt,
+                localAddress = socket.localAddress?.hostAddress,
+                localPort = socket.localPort,
+            )
+        }
+    }.getOrElse { error ->
+        AppProcessDnsProbeResult(
+            queryHost = queryHost,
+            serverHost = serverHost,
+            serverPort = serverPort,
+            ok = false,
+            errorClass = error::class.java.name,
+            errorMessage = error.message,
+        )
+    }
+
 fun appProcessTcpRoundTrip(
     context: Context,
     host: String,
@@ -616,6 +872,16 @@ fun appProcessTcpRoundTrip(
         "App-process TCP round-trip did not deliver a result for $host:$port"
     }
 }
+
+fun ServiceTelemetrySnapshot.packetSmokeDeltaFrom(before: ServiceTelemetrySnapshot): PacketSmokeTelemetryDelta =
+    PacketSmokeTelemetryDelta(
+        txPackets = tunnelStats.txPackets - before.tunnelStats.txPackets,
+        rxPackets = tunnelStats.rxPackets - before.tunnelStats.rxPackets,
+        txBytes = tunnelStats.txBytes - before.tunnelStats.txBytes,
+        rxBytes = tunnelStats.rxBytes - before.tunnelStats.rxBytes,
+        dnsQueriesTotal = tunnelTelemetry.dnsQueriesTotal - before.tunnelTelemetry.dnsQueriesTotal,
+        dnsFailuresTotal = tunnelTelemetry.dnsFailuresTotal - before.tunnelTelemetry.dnsFailuresTotal,
+    )
 
 private fun tryGrantVpnConsentViaShellAppOps(context: Context): String? {
     val command = "cmd appops set ${context.packageName} ACTIVATE_VPN allow"
@@ -911,8 +1177,10 @@ private fun tlsHandshake(
     return sslSocket.inputStream.bufferedReader().use(BufferedReader::readText)
 }
 
-fun execShell(command: String): String =
-    UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).executeShellCommand(command)
+fun execShell(command: String): String {
+    val descriptor = InstrumentationRegistry.getInstrumentation().uiAutomation.executeShellCommand(command)
+    return ParcelFileDescriptor.AutoCloseInputStream(descriptor).bufferedReader().use(BufferedReader::readText)
+}
 
 private fun parseManifest(body: String): FixtureManifestDto {
     val json = org.json.JSONObject(body)
