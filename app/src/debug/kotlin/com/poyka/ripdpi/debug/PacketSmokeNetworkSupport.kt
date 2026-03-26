@@ -5,9 +5,6 @@ import com.poyka.ripdpi.data.EncryptedDnsProtocolDnsCrypt
 import com.poyka.ripdpi.data.EncryptedDnsProtocolDoh
 import com.poyka.ripdpi.data.EncryptedDnsProtocolDoq
 import com.poyka.ripdpi.data.EncryptedDnsProtocolDot
-import java.net.InetAddress
-import java.net.URI
-import java.util.Base64
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonNull
@@ -24,6 +21,9 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.long
 import kotlinx.serialization.json.longOrNull
+import java.net.InetAddress
+import java.net.URI
+import java.util.Base64
 
 const val PacketSmokeMapDnsAddress = "198.18.0.53"
 const val PacketSmokeMapDnsPort = 53
@@ -198,11 +198,12 @@ data class PacketSmokeRunnerProbeResult(
                 ok = json["ok"]!!.jsonPrimitive.content == "true",
                 queryHost = json.optionalString("queryHost"),
                 rcode = json.optionalInt("rcode"),
-                answers = buildList {
-                    repeat(answersJson.length()) { index ->
-                        add(answersJson[index].jsonPrimitive.content)
-                    }
-                },
+                answers =
+                    buildList {
+                        repeat(answersJson.length()) { index ->
+                            add(answersJson[index].jsonPrimitive.content)
+                        }
+                    },
                 latencyMs = json.optionalLong("latencyMs"),
                 localAddress = json.optionalString("localAddress"),
                 localPort = json.optionalInt("localPort"),
@@ -218,7 +219,7 @@ object PacketSmokeEncryptedDnsPresets {
     fun success(protocol: String): PacketSmokeEncryptedDnsPreset {
         val normalizedProtocol = protocol.trim().lowercase()
         return when (normalizedProtocol) {
-            EncryptedDnsProtocolDoh ->
+            EncryptedDnsProtocolDoh -> {
                 PacketSmokeEncryptedDnsPreset(
                     providerId = DnsProviderCustom,
                     protocol = EncryptedDnsProtocolDoh,
@@ -231,8 +232,9 @@ object PacketSmokeEncryptedDnsPresets {
                     dnscryptPublicKey = "",
                     expectedResolverEndpoint = AdGuardUnfilteredDoHUrl,
                 )
+            }
 
-            EncryptedDnsProtocolDot ->
+            EncryptedDnsProtocolDot -> {
                 PacketSmokeEncryptedDnsPreset(
                     providerId = DnsProviderCustom,
                     protocol = EncryptedDnsProtocolDot,
@@ -245,8 +247,9 @@ object PacketSmokeEncryptedDnsPresets {
                     dnscryptPublicKey = "",
                     expectedResolverEndpoint = "$AdGuardUnfilteredHost:853",
                 )
+            }
 
-            EncryptedDnsProtocolDoq ->
+            EncryptedDnsProtocolDoq -> {
                 PacketSmokeEncryptedDnsPreset(
                     providerId = DnsProviderCustom,
                     protocol = EncryptedDnsProtocolDoq,
@@ -259,6 +262,7 @@ object PacketSmokeEncryptedDnsPresets {
                     dnscryptPublicKey = "",
                     expectedResolverEndpoint = "$AdGuardUnfilteredHost:853",
                 )
+            }
 
             EncryptedDnsProtocolDnsCrypt -> {
                 val stamp = decodeDnsCryptStamp(AdGuardUnfilteredDnsCryptStamp)
@@ -276,7 +280,9 @@ object PacketSmokeEncryptedDnsPresets {
                 )
             }
 
-            else -> error("Unsupported encrypted DNS protocol: $protocol")
+            else -> {
+                error("Unsupported encrypted DNS protocol: $protocol")
+            }
         }
     }
 
@@ -363,23 +369,27 @@ object DebugDnsPacketCodec {
             offset += 10
             require(offset + dataLength <= packet.size) { "DNS rdata section truncated" }
             when (type) {
-                1 ->
+                1 -> {
                     if (dataLength == 4) {
                         answers +=
                             InetAddress
                                 .getByAddress(packet.copyOfRange(offset, offset + 4))
                                 .hostAddress
                     }
+                }
 
-                28 ->
+                28 -> {
                     if (dataLength == 16) {
                         answers +=
                             InetAddress
                                 .getByAddress(packet.copyOfRange(offset, offset + 16))
                                 .hostAddress
                     }
+                }
 
-                5, 12 -> answers += readName(packet, offset).name
+                5, 12 -> {
+                    answers += readName(packet, offset).name
+                }
             }
             offset += dataLength
         }
@@ -470,9 +480,7 @@ private fun JsonObject.requiredLong(key: String): Long = getValue(key).jsonPrimi
 
 private fun JsonObject.optionalLong(key: String): Long? = this[key]?.jsonPrimitive?.longOrNull
 
-private fun JsonArray.length(): Int {
-    return size
-}
+private fun JsonArray.length(): Int = size
 
 private data class DnsNameRead(
     val name: String,

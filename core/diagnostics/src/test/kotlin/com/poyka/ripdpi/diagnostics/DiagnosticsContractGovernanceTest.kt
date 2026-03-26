@@ -45,9 +45,10 @@ class DiagnosticsContractGovernanceTest {
                 repoFixture("diagnostics-contract-fixtures/engine_progress_current.json").readText(),
             )
         val outcomeTaxonomy =
-            json.parseToJsonElement(
-                repoFixture("diagnostics-contract-fixtures/outcome_taxonomy_current.json").readText(),
-            ).jsonObject
+            json
+                .parseToJsonElement(
+                    repoFixture("diagnostics-contract-fixtures/outcome_taxonomy_current.json").readText(),
+                ).jsonObject
 
         assertNotNull(currentProfileSpec.executionPolicy)
         assertTrue(legacyProfileSpec.executionPolicyOrCompat().requiresRawPath)

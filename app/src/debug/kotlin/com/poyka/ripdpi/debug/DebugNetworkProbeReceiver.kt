@@ -13,8 +13,8 @@ import java.net.DatagramSocket
 import java.net.InetSocketAddress
 import java.net.Socket
 import java.nio.charset.StandardCharsets
-import kotlin.random.Random
 import kotlin.concurrent.thread
+import kotlin.random.Random
 
 class DebugNetworkProbeReceiver : BroadcastReceiver() {
     override fun onReceive(

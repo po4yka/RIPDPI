@@ -90,7 +90,11 @@ internal class DiagnosticsScanActions(
     }
 
     fun startRawScan() {
-        val scanKind = mutations.currentUiState().scan.selectedProfile?.kind ?: ScanKind.CONNECTIVITY
+        val scanKind =
+            mutations
+                .currentUiState()
+                .scan.selectedProfile
+                ?.kind ?: ScanKind.CONNECTIVITY
         scanLifecycle.update {
             it.copy(
                 scanStartedAt = System.currentTimeMillis(),
@@ -109,7 +113,11 @@ internal class DiagnosticsScanActions(
     }
 
     fun startInPathScan() {
-        val scanKind = mutations.currentUiState().scan.selectedProfile?.kind ?: ScanKind.CONNECTIVITY
+        val scanKind =
+            mutations
+                .currentUiState()
+                .scan.selectedProfile
+                ?.kind ?: ScanKind.CONNECTIVITY
         scanLifecycle.update {
             it.copy(
                 scanStartedAt = System.currentTimeMillis(),

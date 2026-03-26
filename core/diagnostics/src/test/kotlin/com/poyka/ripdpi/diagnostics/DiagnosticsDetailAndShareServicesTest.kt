@@ -263,7 +263,11 @@ class DiagnosticsDetailAndShareServicesTest {
                         id = "snap-1",
                         sessionId = selectedSession.id,
                         snapshotKind = "post_scan",
-                        payloadJson = json.encodeToString(NetworkSnapshotModel.serializer(), networkSnapshotModelForTest()),
+                        payloadJson =
+                            json.encodeToString(
+                                NetworkSnapshotModel.serializer(),
+                                networkSnapshotModelForTest(),
+                            ),
                         capturedAt = 20L,
                     ),
                 )
@@ -345,33 +349,34 @@ class DiagnosticsDetailAndShareServicesTest {
     @Test
     fun `share summary reports requested session as unavailable instead of falling back`() =
         runTest {
-            val stores = FakeDiagnosticsHistoryStores().apply {
-                sessionsState.value =
-                    listOf(
-                        diagnosticsSession(
-                            id = "session-2",
-                            profileId = "default",
-                            pathMode = ScanPathMode.IN_PATH.name,
-                            summary = "Newest session",
-                        ),
-                    )
-                telemetryState.value =
-                    listOf(
-                        TelemetrySampleEntity(
-                            id = "telemetry-new",
-                            sessionId = "session-2",
-                            activeMode = "VPN",
-                            connectionState = "Running",
-                            networkType = "cellular",
-                            publicIp = "198.51.100.9",
-                            txPackets = 9L,
-                            txBytes = 999L,
-                            rxPackets = 10L,
-                            rxBytes = 1111L,
-                            createdAt = 30L,
-                        ),
-                    )
-            }
+            val stores =
+                FakeDiagnosticsHistoryStores().apply {
+                    sessionsState.value =
+                        listOf(
+                            diagnosticsSession(
+                                id = "session-2",
+                                profileId = "default",
+                                pathMode = ScanPathMode.IN_PATH.name,
+                                summary = "Newest session",
+                            ),
+                        )
+                    telemetryState.value =
+                        listOf(
+                            TelemetrySampleEntity(
+                                id = "telemetry-new",
+                                sessionId = "session-2",
+                                activeMode = "VPN",
+                                connectionState = "Running",
+                                networkType = "cellular",
+                                publicIp = "198.51.100.9",
+                                txPackets = 9L,
+                                txBytes = 999L,
+                                rxPackets = 10L,
+                                rxBytes = 1111L,
+                                createdAt = 30L,
+                            ),
+                        )
+                }
             val shareService =
                 DefaultDiagnosticsShareService(
                     scanRecordStore = stores,

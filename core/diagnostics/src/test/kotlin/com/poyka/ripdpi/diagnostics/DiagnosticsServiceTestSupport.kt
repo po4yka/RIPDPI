@@ -690,7 +690,10 @@ internal class FakeServiceStateStore(
                         status == AppStatus.Running && currentTelemetry.status != AppStatus.Running -> {
                             currentTelemetry.restartCount + 1
                         }
-                        else -> currentTelemetry.restartCount
+
+                        else -> {
+                            currentTelemetry.restartCount
+                        }
                     },
                 updatedAt = now,
             )

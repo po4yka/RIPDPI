@@ -10,6 +10,7 @@ import com.poyka.ripdpi.activities.HistoryConnectionFiltersUiModel
 import com.poyka.ripdpi.activities.HistoryConnectionRowUiModel
 import com.poyka.ripdpi.activities.HistoryConnectionsUiModel
 import com.poyka.ripdpi.activities.HistoryUiState
+import com.poyka.ripdpi.activities.HostAutolearnUiState
 import com.poyka.ripdpi.activities.HostPackCatalogUiState
 import com.poyka.ripdpi.activities.HttpParserUiState
 import com.poyka.ripdpi.activities.LauncherIconManager
@@ -23,10 +24,9 @@ import com.poyka.ripdpi.activities.TlsPreludeUiState
 import com.poyka.ripdpi.activities.buildConfigPresets
 import com.poyka.ripdpi.activities.toConfigDraft
 import com.poyka.ripdpi.data.AppSettingsSerializer
+import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.HostPackCatalogSnapshot
 import com.poyka.ripdpi.data.Mode
-import com.poyka.ripdpi.activities.HostAutolearnUiState
-import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.ui.screens.config.ConfigScreen
 import com.poyka.ripdpi.ui.screens.customization.AboutScreen
 import com.poyka.ripdpi.ui.screens.customization.AppCustomizationScreen

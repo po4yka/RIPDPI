@@ -73,10 +73,12 @@ class HomeScreenTest {
         composeRule
             .onNodeWithTag(RipDpiTestTags.HomePermissionRecommendationBanner)
             .assertIsDisplayed()
-        val dismissNodes = composeRule
-            .onAllNodes(
-                androidx.compose.ui.test.hasTestTag(RipDpiTestTags.WarningBannerDismiss),
-            ).fetchSemanticsNodes()
+        val dismissNodes =
+            composeRule
+                .onAllNodes(
+                    androidx.compose.ui.test
+                        .hasTestTag(RipDpiTestTags.WarningBannerDismiss),
+                ).fetchSemanticsNodes()
         assertTrue("Expected at least one dismiss button", dismissNodes.isNotEmpty())
     }
 

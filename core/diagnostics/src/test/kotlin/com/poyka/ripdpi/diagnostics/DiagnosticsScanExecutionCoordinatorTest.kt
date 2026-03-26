@@ -102,7 +102,7 @@ class DiagnosticsScanExecutionCoordinatorTest {
                     )
                     enqueueReport(scanReportWithResolverRecommendation(prepared.sessionId))
                 }
-            fixtures.activeScanRegistry.registerBridge(bridge, prepared.registerActiveBridge)
+            fixtures.activeScanRegistry.registerBridge(bridge, prepared.sessionId, prepared.registerActiveBridge)
             val handle = BridgeSessionHandle(bridge, prepared.sessionId, prepared.registerActiveBridge)
 
             fixtures.coordinator.execute(prepared, handle, rawPathRunner = { block -> block() })
@@ -166,7 +166,7 @@ class DiagnosticsScanExecutionCoordinatorTest {
                     )
                     enqueueReport(scanReportWithResolverRecommendation(prepared.sessionId))
                 }
-            fixtures.activeScanRegistry.registerBridge(bridge, prepared.registerActiveBridge)
+            fixtures.activeScanRegistry.registerBridge(bridge, prepared.sessionId, prepared.registerActiveBridge)
             val handle = BridgeSessionHandle(bridge, prepared.sessionId, prepared.registerActiveBridge)
             val progressHistory = mutableListOf<ScanProgress?>()
             val collectionJob =
@@ -217,7 +217,7 @@ class DiagnosticsScanExecutionCoordinatorTest {
                         ),
                     )
                 }
-            fixtures.activeScanRegistry.registerBridge(bridge, prepared.registerActiveBridge)
+            fixtures.activeScanRegistry.registerBridge(bridge, prepared.sessionId, prepared.registerActiveBridge)
             val handle = BridgeSessionHandle(bridge, prepared.sessionId, prepared.registerActiveBridge)
 
             fixtures.coordinator.execute(prepared, handle, rawPathRunner = { block -> block() })
@@ -245,7 +245,10 @@ class DiagnosticsScanExecutionCoordinatorTest {
                     json = json,
                 )
             val prepared =
-                preparedDiagnosticsScan(sessionId = "session-delayed-report", settings = defaultDiagnosticsAppSettings())
+                preparedDiagnosticsScan(
+                    sessionId = "session-delayed-report",
+                    settings = defaultDiagnosticsAppSettings(),
+                )
             seedPreparedScan(stores, prepared)
             fixtures.activeScanRegistry.rememberPreparedScan(prepared)
             val bridge =
@@ -266,7 +269,7 @@ class DiagnosticsScanExecutionCoordinatorTest {
                     }
                     enqueueReport(scanReportWithResolverRecommendation(prepared.sessionId))
                 }
-            fixtures.activeScanRegistry.registerBridge(bridge, prepared.registerActiveBridge)
+            fixtures.activeScanRegistry.registerBridge(bridge, prepared.sessionId, prepared.registerActiveBridge)
             val handle = BridgeSessionHandle(bridge, prepared.sessionId, prepared.registerActiveBridge)
 
             fixtures.coordinator.execute(prepared, handle, rawPathRunner = { block -> block() })
@@ -317,7 +320,7 @@ class DiagnosticsScanExecutionCoordinatorTest {
                     )
                     enqueueReport(scanReportWithStrategyProbe(prepared.sessionId, settings))
                 }
-            fixtures.activeScanRegistry.registerBridge(bridge, prepared.registerActiveBridge)
+            fixtures.activeScanRegistry.registerBridge(bridge, prepared.sessionId, prepared.registerActiveBridge)
             val handle = BridgeSessionHandle(bridge, prepared.sessionId, prepared.registerActiveBridge)
 
             fixtures.coordinator.execute(prepared, handle, rawPathRunner = { block -> block() })

@@ -2,8 +2,8 @@ package com.poyka.ripdpi.permissions
 
 import android.content.Intent
 import android.os.Build
-import androidx.core.net.toUri
 import android.provider.Settings
+import androidx.core.net.toUri
 
 internal enum class BatteryOptimizationRoute {
     SettingsList,

@@ -81,8 +81,7 @@ internal object DiagnosticsSessionQueries {
                                         pathMode = parsePathModeOrDefault(session.pathMode),
                                         outcome = result.outcome,
                                     ).healthyEnoughForSummary
-                            }
-                            .map { result -> "${result.probeType}:${result.target}=${result.outcome}" }
+                            }.map { result -> "${result.probeType}:${result.target}=${result.outcome}" }
                     }.take(8)
             val strategySignature =
                 when (kind) {

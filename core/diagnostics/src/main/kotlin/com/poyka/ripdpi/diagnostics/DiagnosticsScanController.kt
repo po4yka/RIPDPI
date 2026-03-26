@@ -6,6 +6,7 @@ import com.poyka.ripdpi.data.DiagnosticsRuntimeCoordinator
 import com.poyka.ripdpi.data.PolicyHandoverEvent
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsArtifactWriteStore
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsScanRecordStore
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
@@ -49,7 +50,15 @@ internal class DefaultDiagnosticsScanController
             }
 
         override suspend fun cancelActiveScan() {
-            activeScanRegistry.cancelActiveScan()
+            val canceledSessionId = activeScanRegistry.cancelActiveScan() ?: return
+            val session = scanRecordStore.getScanSession(canceledSessionId) ?: return
+            if (session.status == "running") {
+                DiagnosticsReportPersister.persistScanFailure(
+                    canceledSessionId,
+                    "Diagnostics scan canceled",
+                    scanRecordStore,
+                )
+            }
         }
 
         override fun hasActiveScan(): Boolean = activeScanRegistry.hasActiveScan()
@@ -128,13 +137,19 @@ internal class DefaultDiagnosticsScanController
                 )
             }
 
-            scope.launch {
-                executionCoordinator.execute(
-                    prepared = prepared,
-                    handle = handle,
-                    rawPathRunner = rawPathRunner,
-                )
-            }
+            val executionJob =
+                scope.launch {
+                    executionCoordinator.execute(
+                        prepared = prepared,
+                        handle = handle,
+                        rawPathRunner = rawPathRunner,
+                    )
+                }
+            activeScanRegistry.registerExecution(
+                sessionId = prepared.sessionId,
+                job = executionJob,
+                registerActiveBridge = prepared.registerActiveBridge,
+            )
             return prepared.sessionId
         }
     }
@@ -155,7 +170,7 @@ internal class DiagnosticsScanExecutionCoordinator
             rawPathRunner: suspend (suspend () -> Unit) -> Unit,
         ) {
             val failure =
-                runCatching {
+                try {
                     val scanBlock: suspend () -> Unit = {
                         bridgePollingService.awaitCompletion(
                             prepared = prepared,
@@ -177,12 +192,21 @@ internal class DiagnosticsScanExecutionCoordinator
                         ScanPathMode.RAW_PATH -> rawPathRunner(scanBlock)
                         ScanPathMode.IN_PATH -> scanBlock()
                     }
-                }.exceptionOrNull()
+                    null
+                } catch (error: CancellationException) {
+                    if (activeScanRegistry.isCancellationRequested(prepared.sessionId)) {
+                        error
+                    } else {
+                        throw error
+                    }
+                } catch (error: Throwable) {
+                    error
+                }
             try {
                 if (failure != null) {
                     DiagnosticsReportPersister.persistScanFailure(
                         prepared.sessionId,
-                        failure.message ?: "Diagnostics scan failed",
+                        failure.summaryForScan(prepared.sessionId, activeScanRegistry),
                         scanRecordStore,
                     )
                 }
@@ -194,4 +218,14 @@ internal class DiagnosticsScanExecutionCoordinator
                 runCatching { bridgeExecutionService.destroy(handle) }
             }
         }
+    }
+
+private fun Throwable.summaryForScan(
+    sessionId: String,
+    activeScanRegistry: ActiveScanRegistry,
+): String =
+    if (activeScanRegistry.isCancellationRequested(sessionId)) {
+        "Diagnostics scan canceled"
+    } else {
+        message ?: "Diagnostics scan failed"
     }

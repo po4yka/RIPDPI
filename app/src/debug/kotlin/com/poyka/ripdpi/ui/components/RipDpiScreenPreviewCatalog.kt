@@ -273,52 +273,56 @@ internal fun RipDpiIntroLargeFontPreviewScene() {
 
 // ── Diagnostics preview scenes ──────────────────────────────────────────────
 
-private val diagnosticsScanProfiles = listOf(
-    DiagnosticsProfileOptionUiModel(
-        id = "general",
-        name = "General",
-        source = "builtin",
-        family = DiagnosticProfileFamily.GENERAL,
-    ),
-    DiagnosticsProfileOptionUiModel(
-        id = "web_connectivity",
-        name = "Web Connectivity",
-        source = "builtin",
-        family = DiagnosticProfileFamily.WEB_CONNECTIVITY,
-    ),
-    DiagnosticsProfileOptionUiModel(
-        id = "dpi_full",
-        name = "DPI Full",
-        source = "builtin",
-        family = DiagnosticProfileFamily.DPI_FULL,
-    ),
-    DiagnosticsProfileOptionUiModel(
-        id = "quick_strategy",
-        name = "Quick Strategy Probe v1",
-        source = "builtin",
-        kind = ScanKind.STRATEGY_PROBE,
-        strategyProbeSuiteId = "quick_v1",
-    ),
-)
+private val diagnosticsScanProfiles =
+    listOf(
+        DiagnosticsProfileOptionUiModel(
+            id = "general",
+            name = "General",
+            source = "builtin",
+            family = DiagnosticProfileFamily.GENERAL,
+        ),
+        DiagnosticsProfileOptionUiModel(
+            id = "web_connectivity",
+            name = "Web Connectivity",
+            source = "builtin",
+            family = DiagnosticProfileFamily.WEB_CONNECTIVITY,
+        ),
+        DiagnosticsProfileOptionUiModel(
+            id = "dpi_full",
+            name = "DPI Full",
+            source = "builtin",
+            family = DiagnosticProfileFamily.DPI_FULL,
+        ),
+        DiagnosticsProfileOptionUiModel(
+            id = "quick_strategy",
+            name = "Quick Strategy Probe v1",
+            source = "builtin",
+            kind = ScanKind.STRATEGY_PROBE,
+            strategyProbeSuiteId = "quick_v1",
+        ),
+    )
 
-private val diagnosticsScanState = DiagnosticsScanUiModel(
-    profiles = diagnosticsScanProfiles,
-    selectedProfileId = "dpi_full",
-    selectedProfile = diagnosticsScanProfiles[2],
-    selectedProfileScopeLabel = "DNS + HTTP + TLS + TCP + QUIC + Services + Throughput",
-    runRawEnabled = true,
-    runInPathEnabled = true,
-)
+private val diagnosticsScanState =
+    DiagnosticsScanUiModel(
+        profiles = diagnosticsScanProfiles,
+        selectedProfileId = "dpi_full",
+        selectedProfile = diagnosticsScanProfiles[2],
+        selectedProfileScopeLabel = "DNS + HTTP + TLS + TCP + QUIC + Services + Throughput",
+        runRawEnabled = true,
+        runInPathEnabled = true,
+    )
 
-private val diagnosticsShareState = DiagnosticsShareUiModel(
-    previewTitle = "RIPDPI diagnostics",
-    previewBody = "DPI Full scan completed. 42 probes, 8 diagnoses.",
-    metrics = listOf(
-        DiagnosticsMetricUiModel("Probes", "42", DiagnosticsTone.Info),
-        DiagnosticsMetricUiModel("Blocked", "12", DiagnosticsTone.Negative),
-        DiagnosticsMetricUiModel("DNS poisoned", "3", DiagnosticsTone.Warning),
-    ),
-)
+private val diagnosticsShareState =
+    DiagnosticsShareUiModel(
+        previewTitle = "RIPDPI diagnostics",
+        previewBody = "DPI Full scan completed. 42 probes, 8 diagnoses.",
+        metrics =
+            listOf(
+                DiagnosticsMetricUiModel("Probes", "42", DiagnosticsTone.Info),
+                DiagnosticsMetricUiModel("Blocked", "12", DiagnosticsTone.Negative),
+                DiagnosticsMetricUiModel("DNS poisoned", "3", DiagnosticsTone.Warning),
+            ),
+    )
 
 private val noopDiagnosticsCallbacks: DiagnosticsNoopCallbacks
     get() = DiagnosticsNoopCallbacks
@@ -330,9 +334,10 @@ private fun DiagnosticsPreviewSceneImpl(
     uiState: DiagnosticsUiState,
     initialPage: Int = 0,
 ) {
-    val pagerState = rememberPagerState(initialPage = initialPage) {
-        DiagnosticsSection.entries.size
-    }
+    val pagerState =
+        rememberPagerState(initialPage = initialPage) {
+            DiagnosticsSection.entries.size
+        }
     DiagnosticsScreen(
         uiState = uiState,
         pagerState = pagerState,
@@ -380,10 +385,11 @@ private fun DiagnosticsScanPreview() {
 internal fun RipDpiDiagnosticsScanPreviewScene() {
     RipDpiTheme(themePreference = "light") {
         DiagnosticsPreviewSceneImpl(
-            uiState = DiagnosticsUiState(
-                selectedSection = DiagnosticsSection.Scan,
-                scan = diagnosticsScanState,
-            ),
+            uiState =
+                DiagnosticsUiState(
+                    selectedSection = DiagnosticsSection.Scan,
+                    scan = diagnosticsScanState,
+                ),
             initialPage = DiagnosticsSection.Scan.ordinal,
         )
     }
@@ -399,10 +405,11 @@ private fun DiagnosticsSharePreview() {
 internal fun RipDpiDiagnosticsSharePreviewScene() {
     RipDpiTheme(themePreference = "light") {
         DiagnosticsPreviewSceneImpl(
-            uiState = DiagnosticsUiState(
-                selectedSection = DiagnosticsSection.Share,
-                share = diagnosticsShareState,
-            ),
+            uiState =
+                DiagnosticsUiState(
+                    selectedSection = DiagnosticsSection.Share,
+                    share = diagnosticsShareState,
+                ),
             initialPage = DiagnosticsSection.Share.ordinal,
         )
     }

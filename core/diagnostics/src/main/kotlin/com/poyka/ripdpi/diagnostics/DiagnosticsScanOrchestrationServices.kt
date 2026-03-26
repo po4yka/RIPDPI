@@ -16,6 +16,8 @@ import com.poyka.ripdpi.data.diagnostics.DiagnosticsScanRecordStore
 import com.poyka.ripdpi.data.diagnostics.NetworkDnsPathPreferenceStore
 import com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyStore
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -85,7 +87,10 @@ class ActiveScanRegistry
     ) {
         private val bridgeMutex = Mutex()
         private var activeDiagnosticsBridge: NetworkDiagnosticsBridge? = null
+        private var activeScanSessionId: String? = null
+        private var activeExecutionJob: Job? = null
         private val hiddenScanCount = AtomicInteger(0)
+        private val cancelledSessionIds = ConcurrentHashMap.newKeySet<String>()
         private val scanSessionFingerprints = ConcurrentHashMap<String, NetworkFingerprint>()
         private val scanSessionPreferredDnsPaths = ConcurrentHashMap<String, EncryptedDnsPathCandidate>()
 
@@ -109,24 +114,59 @@ class ActiveScanRegistry
         fun hasActiveScan(): Boolean =
             timelineSource.activeScanProgress.value != null || hasRegisteredActiveBridge || hiddenScanCount.get() > 0
 
-        suspend fun cancelActiveScan() {
-            bridgeMutex.withLock { activeDiagnosticsBridge }?.cancelScan()
+        suspend fun cancelActiveScan(): String? {
+            val (bridge, sessionId, executionJob) =
+                bridgeMutex.withLock {
+                    Triple(activeDiagnosticsBridge, activeScanSessionId, activeExecutionJob)
+                }
+            sessionId?.let(cancelledSessionIds::add)
+            bridge?.cancelScan()
+            executionJob?.cancelAndJoin()
+            val needsManualCleanup =
+                bridge != null &&
+                    bridgeMutex.withLock {
+                        activeDiagnosticsBridge === bridge
+                    }
+            if (needsManualCleanup) {
+                runCatching { bridge.destroy() }
+                clearBridge(bridge, registerActiveBridge = true)
+            }
             updateProgress(null)
+            return sessionId
         }
 
         suspend fun registerBridge(
             bridge: NetworkDiagnosticsBridge,
+            sessionId: String,
             registerActiveBridge: Boolean,
         ) {
             if (registerActiveBridge) {
                 bridgeMutex.withLock {
                     activeDiagnosticsBridge = bridge
+                    activeScanSessionId = sessionId
                     hasRegisteredActiveBridge = true
                 }
             } else {
                 hiddenScanCount.incrementAndGet()
             }
         }
+
+        suspend fun registerExecution(
+            sessionId: String,
+            job: Job,
+            registerActiveBridge: Boolean,
+        ) {
+            if (!registerActiveBridge) {
+                return
+            }
+            bridgeMutex.withLock {
+                if (activeDiagnosticsBridge != null && activeScanSessionId == sessionId) {
+                    activeExecutionJob = job
+                }
+            }
+        }
+
+        fun isCancellationRequested(sessionId: String): Boolean = cancelledSessionIds.contains(sessionId)
 
         suspend fun clearBridge(
             bridge: NetworkDiagnosticsBridge,
@@ -136,6 +176,9 @@ class ActiveScanRegistry
                 bridgeMutex.withLock {
                     if (activeDiagnosticsBridge === bridge) {
                         activeDiagnosticsBridge = null
+                        activeExecutionJob = null
+                        activeScanSessionId?.let(cancelledSessionIds::remove)
+                        activeScanSessionId = null
                     }
                     hasRegisteredActiveBridge = activeDiagnosticsBridge != null
                 }
@@ -161,7 +204,7 @@ class BridgeExecutionService
             registerActiveBridge: Boolean,
         ): BridgeSessionHandle {
             val bridge = networkDiagnosticsBridgeFactory.create()
-            activeScanRegistry.registerBridge(bridge, registerActiveBridge)
+            activeScanRegistry.registerBridge(bridge, sessionId, registerActiveBridge)
             return BridgeSessionHandle(
                 bridge = bridge,
                 sessionId = sessionId,
