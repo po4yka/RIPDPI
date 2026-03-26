@@ -28,15 +28,15 @@ For RIPDPI's small handle-based JNI surface, raw `jni` crate is simpler. Conside
 
 ```rust
 use jni::JNIEnv;
-use jni::objects::{JClass, JString, JObjectArray};
-use jni::sys::{jint, jstring};
+use jni::objects::{JObject, JString};
+use jni::sys::{jint, jlong};
 
 // Function name must match: Java_<package>_<Class>_<method>
-// Package: com.poyka.ripdpi.core, Class: RipDpiProxy
+// Package: com.poyka.ripdpi.core, Class: RipDpiProxyNativeBindings
 #[unsafe(no_mangle)]
-pub extern "system" fn Java_com_poyka_ripdpi_core_RipDpiProxy_jniStart(
+pub extern "system" fn Java_com_poyka_ripdpi_core_RipDpiProxyNativeBindings_jniStart(
     mut env: JNIEnv,
-    _class: JClass,
+    _thiz: JObject,
     handle: jlong,
 ) -> jint {
     match start_proxy(handle) {
@@ -50,9 +50,9 @@ pub extern "system" fn Java_com_poyka_ripdpi_core_RipDpiProxy_jniStart(
 
 // String parameter handling
 #[unsafe(no_mangle)]
-pub extern "system" fn Java_com_poyka_ripdpi_core_RipDpiProxy_jniCreate(
+pub extern "system" fn Java_com_poyka_ripdpi_core_RipDpiProxyNativeBindings_jniCreate(
     mut env: JNIEnv,
-    _class: JClass,
+    _thiz: JObject,
     config_json: JString,
 ) -> jlong {
     let config_json: String = match env.get_string(&config_json) {
@@ -63,27 +63,35 @@ pub extern "system" fn Java_com_poyka_ripdpi_core_RipDpiProxy_jniCreate(
 }
 ```
 
-### Kotlin Side (unchanged from C)
+### Kotlin Side
 
 ```kotlin
-class RipDpiProxy {
+class RipDpiProxyNativeBindings @Inject constructor() : RipDpiProxyBindings {
     companion object {
-        init { System.loadLibrary("ripdpi") }
+        init {
+            RipDpiNativeLoader.ensureLoaded()
+        }
     }
-    external fun jniCreate(configJson: String): Long
-    external fun jniStart(handle: Long): Int
+
+    override fun create(configJson: String): Long = jniCreate(configJson)
+    override fun start(handle: Long): Int = jniStart(handle)
+
+    private external fun jniCreate(configJson: String): Long
+    private external fun jniStart(handle: Long): Int
 }
 ```
 
 ### JNI Naming Convention
 
 ```
-Java_com_poyka_ripdpi_core_RipDpiProxy_<methodName>
-     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^   ^^^^^^^^^^
+Java_com_poyka_ripdpi_core_RipDpiProxyNativeBindings_<methodName>
+     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^   ^^^^^^^^^^
      package (dots -> underscores)       method name
 ```
 
 Must match exactly. Use `#[unsafe(no_mangle)]` and `extern "system"` on every exported function.
+
+RIPDPI currently exports JNI entry points on `RipDpiProxyNativeBindings`, `Tun2SocksNativeBindings`, and `NetworkDiagnosticsNativeBindings`.
 
 ## UniFFI Approach
 
@@ -137,10 +145,10 @@ pub fn create_socket(ip: String, port: i32) -> Result<i32, ProxyError> {
 cargo run --bin uniffi-bindgen generate \
     --library target/debug/libripdpi.so \
     --language kotlin \
-    --out-dir app/src/main/java/com/poyka/ripdpi/rust
+    --out-dir core/engine/src/main/kotlin/com/poyka/ripdpi/rust
 ```
 
-UniFFI generates Kotlin classes, enums, and error types automatically. No `external fun` declarations needed.
+UniFFI generates Kotlin classes, enums, and error types automatically. No `external fun` declarations needed. RIPDPI does not currently use UniFFI for the Android bridge.
 
 ## Type Mapping
 
@@ -153,13 +161,16 @@ UniFFI generates Kotlin classes, enums, and error types automatically. No `exter
 | `ByteArray` | `jbyteArray` | `JByteArray` -> `Vec<u8>` | `Vec<u8>` |
 | `Array<String>` | `JObjectArray` | iterate with `get_object_array_element` | `Vec<String>` |
 
-## RIPDPI-Specific: Existing C Functions to Replace
+## RIPDPI-Specific Native Surface
 
 | Current function | Parameters | Returns | Notes |
 |------------|-----------|---------|-------|
 | `jniCreate` | `String` (JSON) | `Long` (handle) | Creates a proxy or tunnel session |
 | `jniStart` | `Long` / `Long, Int` | `Int` or `Unit` | Proxy start blocks; tunnel start owns its worker thread |
 | `jniStop` | `Long` | `Unit` | Graceful shutdown |
+| `jniPollTelemetry` / `jniGetTelemetry` | `Long` | `String?` | Proxy and tunnel runtime telemetry snapshots |
+| `jniPollProgress` / `jniTakeReport` / `jniPollPassiveEvents` | `Long` | `String?` | Diagnostics progress, final report, and passive events |
+| `jniUpdateNetworkSnapshot` | `Long, String` | `Unit` | Updates the active proxy session with network metadata |
 | `jniDestroy` | `Long` | `Unit` | Releases native session state |
 
 ## Common Mistakes
