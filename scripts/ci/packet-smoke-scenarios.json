@@ -1,0 +1,429 @@
+[
+  {
+    "id": "cli_packet_smoke_tcp_split_family",
+    "lane": "cli",
+    "requiredCapability": "host_pcap",
+    "testSelector": "cli_packet_smoke_tcp_split_family",
+    "trafficKind": "tcp_http",
+    "artifacts": [
+      "fixture-manifest.json",
+      "fixture-events.json",
+      "cli-stderr.log",
+      "test-output.txt",
+      "capture.pcap",
+      "capture.tshark.json"
+    ]
+  },
+  {
+    "id": "cli_packet_smoke_tcp_disorder_family",
+    "lane": "cli",
+    "requiredCapability": "host_pcap",
+    "testSelector": "cli_packet_smoke_tcp_disorder_family",
+    "trafficKind": "tcp_http",
+    "artifacts": [
+      "fixture-manifest.json",
+      "fixture-events.json",
+      "cli-stderr.log",
+      "test-output.txt",
+      "capture.pcap",
+      "capture.tshark.json"
+    ]
+  },
+  {
+    "id": "cli_packet_smoke_tcp_fake_family",
+    "lane": "cli",
+    "requiredCapability": "host_pcap",
+    "testSelector": "cli_packet_smoke_tcp_fake_family",
+    "trafficKind": "tcp_tls",
+    "artifacts": [
+      "fixture-manifest.json",
+      "fixture-events.json",
+      "cli-stderr.log",
+      "test-output.txt",
+      "capture.pcap",
+      "capture.tshark.json"
+    ]
+  },
+  {
+    "id": "cli_packet_smoke_tcp_oob_family",
+    "lane": "cli",
+    "requiredCapability": "host_pcap",
+    "testSelector": "cli_packet_smoke_tcp_oob_family",
+    "trafficKind": "tcp_http",
+    "artifacts": [
+      "fixture-manifest.json",
+      "fixture-events.json",
+      "cli-stderr.log",
+      "test-output.txt",
+      "capture.pcap",
+      "capture.tshark.json"
+    ]
+  },
+  {
+    "id": "cli_packet_smoke_tcp_disoob_family",
+    "lane": "cli",
+    "requiredCapability": "host_pcap",
+    "testSelector": "cli_packet_smoke_tcp_disoob_family",
+    "trafficKind": "tcp_http",
+    "artifacts": [
+      "fixture-manifest.json",
+      "fixture-events.json",
+      "cli-stderr.log",
+      "test-output.txt",
+      "capture.pcap",
+      "capture.tshark.json"
+    ]
+  },
+  {
+    "id": "cli_packet_smoke_tcp_transport_knobs_family",
+    "lane": "cli",
+    "requiredCapability": "host_pcap",
+    "testSelector": "cli_packet_smoke_tcp_transport_knobs_family",
+    "trafficKind": "tcp_tls",
+    "artifacts": [
+      "fixture-manifest.json",
+      "fixture-events.json",
+      "cli-stderr.log",
+      "test-output.txt",
+      "capture.pcap",
+      "capture.tshark.json"
+    ]
+  },
+  {
+    "id": "cli_packet_smoke_udp_quic_family",
+    "lane": "cli",
+    "requiredCapability": "host_pcap",
+    "testSelector": "cli_packet_smoke_udp_quic_family",
+    "trafficKind": "udp_quic",
+    "artifacts": [
+      "fixture-manifest.json",
+      "fixture-events.json",
+      "cli-stderr.log",
+      "test-output.txt",
+      "capture.pcap",
+      "capture.tshark.json"
+    ]
+  },
+  {
+    "id": "cli_packet_smoke_adaptive_family",
+    "lane": "cli",
+    "requiredCapability": "host_pcap",
+    "testSelector": "cli_packet_smoke_adaptive_family",
+    "trafficKind": "tcp_http",
+    "artifacts": [
+      "fixture-manifest.json",
+      "fixture-events.json",
+      "cli-stderr.log",
+      "test-output.txt",
+      "capture.pcap",
+      "capture.tshark.json",
+      "host-autolearn.json"
+    ]
+  },
+  {
+    "id": "android_proxy_tlsrec_family",
+    "lane": "android_proxy",
+    "requiredCapability": "adb_observable",
+    "testSelector": "com.poyka.ripdpi.e2e.PacketSmokeInstrumentedTest#proxyTlsrecSmokeFamilyRoutesTlsTraffic",
+    "trafficKind": "tcp_tls",
+    "artifacts": [
+      "fixture-manifest.json",
+      "fixture-events.json",
+      "logcat.txt",
+      "dumpsys-connectivity.txt",
+      "ip-addr.txt",
+      "ip-route.txt",
+      "test-output.txt",
+      "failure-screenshot.png",
+      "device-capture.pcap"
+    ]
+  },
+  {
+    "id": "android_proxy_tlsrandrec_family",
+    "lane": "android_proxy",
+    "requiredCapability": "adb_observable",
+    "testSelector": "com.poyka.ripdpi.e2e.PacketSmokeInstrumentedTest#proxyTlsrandrecSmokeFamilyRoutesTlsTraffic",
+    "trafficKind": "tcp_tls",
+    "artifacts": [
+      "fixture-manifest.json",
+      "fixture-events.json",
+      "logcat.txt",
+      "dumpsys-connectivity.txt",
+      "ip-addr.txt",
+      "ip-route.txt",
+      "test-output.txt",
+      "failure-screenshot.png",
+      "device-capture.pcap"
+    ]
+  },
+  {
+    "id": "android_proxy_hostfake_family",
+    "lane": "android_proxy",
+    "requiredCapability": "adb_observable",
+    "testSelector": "com.poyka.ripdpi.e2e.PacketSmokeInstrumentedTest#proxyHostfakeSmokeFamilyRoutesTlsTraffic",
+    "trafficKind": "tcp_tls",
+    "artifacts": [
+      "fixture-manifest.json",
+      "fixture-events.json",
+      "logcat.txt",
+      "dumpsys-connectivity.txt",
+      "ip-addr.txt",
+      "ip-route.txt",
+      "test-output.txt",
+      "failure-screenshot.png",
+      "device-capture.pcap"
+    ]
+  },
+  {
+    "id": "android_proxy_fakedsplit_family",
+    "lane": "android_proxy",
+    "requiredCapability": "adb_observable",
+    "testSelector": "com.poyka.ripdpi.e2e.PacketSmokeInstrumentedTest#proxyFakedsplitSmokeFamilyRoutesTlsTraffic",
+    "trafficKind": "tcp_tls",
+    "artifacts": [
+      "fixture-manifest.json",
+      "fixture-events.json",
+      "logcat.txt",
+      "dumpsys-connectivity.txt",
+      "ip-addr.txt",
+      "ip-route.txt",
+      "test-output.txt",
+      "failure-screenshot.png",
+      "device-capture.pcap"
+    ]
+  },
+  {
+    "id": "android_proxy_fakeddisorder_family",
+    "lane": "android_proxy",
+    "requiredCapability": "adb_observable",
+    "testSelector": "com.poyka.ripdpi.e2e.PacketSmokeInstrumentedTest#proxyFakeddisorderSmokeFamilyRoutesTlsTraffic",
+    "trafficKind": "tcp_tls",
+    "artifacts": [
+      "fixture-manifest.json",
+      "fixture-events.json",
+      "logcat.txt",
+      "dumpsys-connectivity.txt",
+      "ip-addr.txt",
+      "ip-route.txt",
+      "test-output.txt",
+      "failure-screenshot.png",
+      "device-capture.pcap"
+    ]
+  },
+  {
+    "id": "android_vpn_tunnel_baseline_family",
+    "lane": "android_vpn",
+    "requiredCapability": "adb_observable",
+    "testSelector": "com.poyka.ripdpi.e2e.PacketSmokeInstrumentedTest#vpnTunnelBaselineSmokeFamilyRoutesShellTraffic",
+    "trafficKind": "vpn_tcp",
+    "artifacts": [
+      "fixture-manifest.json",
+      "fixture-events.json",
+      "logcat.txt",
+      "dumpsys-connectivity.txt",
+      "ip-addr.txt",
+      "ip-route.txt",
+      "test-output.txt",
+      "failure-screenshot.png",
+      "device-capture.pcap"
+    ]
+  },
+  {
+    "id": "android_vpn_doh_family",
+    "lane": "android_vpn",
+    "requiredCapability": "adb_observable",
+    "testSelector": "com.poyka.ripdpi.e2e.PacketSmokeInstrumentedTest#vpnDohSmokeFamilyResolvesHostnameTraffic",
+    "trafficKind": "vpn_dns_doh",
+    "artifacts": [
+      "fixture-manifest.json",
+      "fixture-events.json",
+      "logcat.txt",
+      "dumpsys-connectivity.txt",
+      "ip-addr.txt",
+      "ip-route.txt",
+      "test-output.txt",
+      "failure-screenshot.png",
+      "device-capture.pcap"
+    ]
+  },
+  {
+    "id": "android_vpn_dot_family",
+    "lane": "android_vpn",
+    "requiredCapability": "adb_observable",
+    "testSelector": "com.poyka.ripdpi.e2e.PacketSmokeInstrumentedTest#vpnDotSmokeFamilyResolvesHostnameTraffic",
+    "trafficKind": "vpn_dns_dot",
+    "artifacts": [
+      "fixture-manifest.json",
+      "fixture-events.json",
+      "logcat.txt",
+      "dumpsys-connectivity.txt",
+      "ip-addr.txt",
+      "ip-route.txt",
+      "test-output.txt",
+      "failure-screenshot.png",
+      "device-capture.pcap"
+    ]
+  },
+  {
+    "id": "android_vpn_dnscrypt_family",
+    "lane": "android_vpn",
+    "requiredCapability": "adb_observable",
+    "testSelector": "com.poyka.ripdpi.e2e.PacketSmokeInstrumentedTest#vpnDnscryptSmokeFamilyResolvesHostnameTraffic",
+    "trafficKind": "vpn_dns_dnscrypt",
+    "artifacts": [
+      "fixture-manifest.json",
+      "fixture-events.json",
+      "logcat.txt",
+      "dumpsys-connectivity.txt",
+      "ip-addr.txt",
+      "ip-route.txt",
+      "test-output.txt",
+      "failure-screenshot.png",
+      "device-capture.pcap"
+    ]
+  },
+  {
+    "id": "android_vpn_doq_family",
+    "lane": "android_vpn",
+    "requiredCapability": "adb_observable",
+    "testSelector": "com.poyka.ripdpi.e2e.PacketSmokeInstrumentedTest#vpnDoqSmokeFamilyResolvesHostnameTraffic",
+    "trafficKind": "vpn_dns_doq",
+    "artifacts": [
+      "fixture-manifest.json",
+      "fixture-events.json",
+      "logcat.txt",
+      "dumpsys-connectivity.txt",
+      "ip-addr.txt",
+      "ip-route.txt",
+      "test-output.txt",
+      "failure-screenshot.png",
+      "device-capture.pcap"
+    ]
+  },
+  {
+    "id": "android_vpn_doh_fault_family",
+    "lane": "android_vpn",
+    "requiredCapability": "adb_observable",
+    "testSelector": "com.poyka.ripdpi.e2e.PacketSmokeInstrumentedTest#vpnDohFaultSmokeFamilySurfacesDnsFailure",
+    "trafficKind": "vpn_dns_doh_fault",
+    "artifacts": [
+      "fixture-manifest.json",
+      "fixture-events.json",
+      "logcat.txt",
+      "dumpsys-connectivity.txt",
+      "ip-addr.txt",
+      "ip-route.txt",
+      "test-output.txt",
+      "failure-screenshot.png",
+      "device-capture.pcap"
+    ]
+  },
+  {
+    "id": "android_vpn_dot_fault_family",
+    "lane": "android_vpn",
+    "requiredCapability": "adb_observable",
+    "testSelector": "com.poyka.ripdpi.e2e.PacketSmokeInstrumentedTest#vpnDotFaultSmokeFamilySurfacesDnsFailure",
+    "trafficKind": "vpn_dns_dot_fault",
+    "artifacts": [
+      "fixture-manifest.json",
+      "fixture-events.json",
+      "logcat.txt",
+      "dumpsys-connectivity.txt",
+      "ip-addr.txt",
+      "ip-route.txt",
+      "test-output.txt",
+      "failure-screenshot.png",
+      "device-capture.pcap"
+    ]
+  },
+  {
+    "id": "android_vpn_dnscrypt_fault_family",
+    "lane": "android_vpn",
+    "requiredCapability": "adb_observable",
+    "testSelector": "com.poyka.ripdpi.e2e.PacketSmokeInstrumentedTest#vpnDnscryptFaultSmokeFamilySurfacesDnsFailure",
+    "trafficKind": "vpn_dns_dnscrypt_fault",
+    "artifacts": [
+      "fixture-manifest.json",
+      "fixture-events.json",
+      "logcat.txt",
+      "dumpsys-connectivity.txt",
+      "ip-addr.txt",
+      "ip-route.txt",
+      "test-output.txt",
+      "failure-screenshot.png",
+      "device-capture.pcap"
+    ]
+  },
+  {
+    "id": "android_vpn_doq_fault_family",
+    "lane": "android_vpn",
+    "requiredCapability": "adb_observable",
+    "testSelector": "com.poyka.ripdpi.e2e.PacketSmokeInstrumentedTest#vpnDoqFaultSmokeFamilySurfacesDnsFailure",
+    "trafficKind": "vpn_dns_doq_fault",
+    "artifacts": [
+      "fixture-manifest.json",
+      "fixture-events.json",
+      "logcat.txt",
+      "dumpsys-connectivity.txt",
+      "ip-addr.txt",
+      "ip-route.txt",
+      "test-output.txt",
+      "failure-screenshot.png",
+      "device-capture.pcap"
+    ]
+  },
+  {
+    "id": "android_vpn_host_autolearn_family",
+    "lane": "android_vpn",
+    "requiredCapability": "adb_observable",
+    "testSelector": "com.poyka.ripdpi.e2e.PacketSmokeInstrumentedTest#vpnHostAutolearnSmokeFamilyKeepsServiceStable",
+    "trafficKind": "vpn_indirect",
+    "artifacts": [
+      "fixture-manifest.json",
+      "fixture-events.json",
+      "logcat.txt",
+      "dumpsys-connectivity.txt",
+      "ip-addr.txt",
+      "ip-route.txt",
+      "test-output.txt",
+      "failure-screenshot.png",
+      "device-capture.pcap"
+    ]
+  },
+  {
+    "id": "android_vpn_remembered_policy_family",
+    "lane": "android_vpn",
+    "requiredCapability": "adb_observable",
+    "testSelector": "com.poyka.ripdpi.e2e.PacketSmokeInstrumentedTest#vpnRememberedPolicySmokeFamilyKeepsServiceStable",
+    "trafficKind": "vpn_indirect",
+    "artifacts": [
+      "fixture-manifest.json",
+      "fixture-events.json",
+      "logcat.txt",
+      "dumpsys-connectivity.txt",
+      "ip-addr.txt",
+      "ip-route.txt",
+      "test-output.txt",
+      "failure-screenshot.png",
+      "device-capture.pcap"
+    ]
+  },
+  {
+    "id": "android_vpn_ws_tunnel_fallback_family",
+    "lane": "android_vpn",
+    "requiredCapability": "adb_observable",
+    "testSelector": "com.poyka.ripdpi.e2e.PacketSmokeInstrumentedTest#vpnWsTunnelFallbackSmokeFamilyKeepsServiceStable",
+    "trafficKind": "vpn_indirect",
+    "artifacts": [
+      "fixture-manifest.json",
+      "fixture-events.json",
+      "logcat.txt",
+      "dumpsys-connectivity.txt",
+      "ip-addr.txt",
+      "ip-route.txt",
+      "test-output.txt",
+      "failure-screenshot.png",
+      "device-capture.pcap"
+    ]
+  }
+]

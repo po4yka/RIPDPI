@@ -38,6 +38,9 @@ const FIXTURE_UDP_ECHO_PORT: u16 = 47102;
 const FIXTURE_TLS_ECHO_PORT: u16 = 47103;
 const FIXTURE_DNS_UDP_PORT: u16 = 47153;
 const FIXTURE_DNS_HTTP_PORT: u16 = 47154;
+const FIXTURE_DNS_DOT_PORT: u16 = 47155;
+const FIXTURE_DNS_DNSCRYPT_PORT: u16 = 47156;
+const FIXTURE_DNS_DOQ_PORT: u16 = 47157;
 const FIXTURE_SOCKS5_PORT: u16 = 47180;
 const FIXTURE_CONTROL_PORT: u16 = 47190;
 
@@ -387,6 +390,9 @@ fn ephemeral_fixture_config() -> FixtureConfig {
         tls_echo_port: FIXTURE_TLS_ECHO_PORT,
         dns_udp_port: FIXTURE_DNS_UDP_PORT,
         dns_http_port: FIXTURE_DNS_HTTP_PORT,
+        dns_dot_port: FIXTURE_DNS_DOT_PORT,
+        dns_dnscrypt_port: FIXTURE_DNS_DNSCRYPT_PORT,
+        dns_doq_port: FIXTURE_DNS_DOQ_PORT,
         socks5_port: FIXTURE_SOCKS5_PORT,
         control_port: FIXTURE_CONTROL_PORT,
         ..FixtureConfig::default()

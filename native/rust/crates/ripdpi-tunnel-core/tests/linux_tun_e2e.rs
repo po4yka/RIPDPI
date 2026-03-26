@@ -46,6 +46,9 @@ const TUN_LINUX_UDP_ECHO_PORT: u16 = 47302;
 const TUN_LINUX_TLS_ECHO_PORT: u16 = 47303;
 const TUN_LINUX_DNS_UDP_PORT: u16 = 47353;
 const TUN_LINUX_DNS_HTTP_PORT: u16 = 47354;
+const TUN_LINUX_DNS_DOT_PORT: u16 = 47355;
+const TUN_LINUX_DNS_DNSCRYPT_PORT: u16 = 47356;
+const TUN_LINUX_DNS_DOQ_PORT: u16 = 47357;
 const TUN_LINUX_SOCKS5_PORT: u16 = 47380;
 const TUN_LINUX_CONTROL_PORT: u16 = 47390;
 
@@ -56,6 +59,9 @@ fn linux_tun_fixture_config() -> FixtureConfig {
         tls_echo_port: TUN_LINUX_TLS_ECHO_PORT,
         dns_udp_port: TUN_LINUX_DNS_UDP_PORT,
         dns_http_port: TUN_LINUX_DNS_HTTP_PORT,
+        dns_dot_port: TUN_LINUX_DNS_DOT_PORT,
+        dns_dnscrypt_port: TUN_LINUX_DNS_DNSCRYPT_PORT,
+        dns_doq_port: TUN_LINUX_DNS_DOQ_PORT,
         socks5_port: TUN_LINUX_SOCKS5_PORT,
         control_port: TUN_LINUX_CONTROL_PORT,
         ..FixtureConfig::default()

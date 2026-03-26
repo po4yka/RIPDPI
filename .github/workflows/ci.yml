@@ -259,6 +259,39 @@ jobs:
       - name: Run repo-owned Rust network E2E
         run: bash scripts/ci/run-rust-network-e2e.sh
 
+  cli-packet-smoke:
+    if: github.event_name != 'schedule'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Keep in sync with native/rust/rust-toolchain.toml
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: "1.94.0"
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: native/rust -> target
+          cache-on-failure: true
+
+      - name: Install CLI packet capture tools
+        run: |
+          sudo apt-get update
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y jq tcpdump tshark
+          sudo setcap cap_net_raw,cap_net_admin=eip "$(command -v tcpdump)"
+
+      - name: Run CLI packet smoke matrix
+        run: bash scripts/ci/run-cli-packet-smoke.sh
+
+      - name: Upload CLI packet smoke artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cli-packet-smoke
+          path: build/packet-smoke/cli/**
+          retention-days: 7
+
   rust-turmoil:
     runs-on: ubuntu-latest
     steps:
