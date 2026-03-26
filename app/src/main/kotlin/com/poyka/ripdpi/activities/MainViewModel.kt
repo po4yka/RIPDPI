@@ -12,6 +12,8 @@ import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.diagnostics.BypassApproachSummary
 import com.poyka.ripdpi.diagnostics.DiagnosticsTimelineSource
+import com.poyka.ripdpi.diagnostics.crash.CrashReport
+import com.poyka.ripdpi.diagnostics.crash.CrashReportReader
 import com.poyka.ripdpi.permissions.PermissionAction
 import com.poyka.ripdpi.permissions.PermissionCoordinator
 import com.poyka.ripdpi.permissions.PermissionIssueUiState
@@ -31,6 +33,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
@@ -147,6 +150,7 @@ class MainViewModel
         permissionPlatformBridge: PermissionPlatformBridge,
         permissionStatusProvider: PermissionStatusProvider,
         permissionCoordinator: PermissionCoordinator,
+        private val crashReportReader: CrashReportReader,
     ) : ViewModel() {
         private var initialized = false
         private val runtimeState = MutableStateFlow(ConnectionRuntimeState())
@@ -154,6 +158,9 @@ class MainViewModel
         private val _effects = Channel<MainEffect>(Channel.BUFFERED)
 
         val effects: Flow<MainEffect> = _effects.receiveAsFlow()
+
+        private val _pendingCrashReport = MutableStateFlow<CrashReport?>(null)
+        val pendingCrashReport: StateFlow<CrashReport?> = _pendingCrashReport.asStateFlow()
 
         private val settingsState: StateFlow<AppSettings> =
             appSettingsRepository.settings.stateIn(
@@ -277,6 +284,12 @@ class MainViewModel
             permissionActions.refreshPermissionSnapshot()
             connectionActions.initialize()
             viewModelScope.launch {
+                val report = crashReportReader.read()
+                if (report != null) {
+                    _pendingCrashReport.value = report
+                }
+            }
+            viewModelScope.launch {
                 permissionState
                     .map { it.snapshot.batteryOptimization }
                     .distinctUntilChanged()
@@ -341,6 +354,16 @@ class MainViewModel
         fun onDismissBackgroundGuidance() {
             viewModelScope.launch {
                 appSettingsRepository.update { setBackgroundGuidanceDismissed(true) }
+            }
+        }
+
+        fun buildCrashReportShareText(report: CrashReport): Pair<String, String> =
+            crashReportReader.buildShareText(report)
+
+        fun dismissCrashReport() {
+            _pendingCrashReport.value = null
+            viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                crashReportReader.delete()
             }
         }
     }
