@@ -49,7 +49,7 @@ impl RuntimePolicy {
                 Err(super::types::LoadLearnedHostStoreError::Io) => {}
             }
         }
-        Self { records, groups, order, learned_hosts_by_scope, autolearn_events }
+        Self { records, groups, order, learned_hosts_by_scope, autolearn_events, last_persist_at_ms: 0 }
     }
 
     pub(crate) fn lookup_and_prune(
@@ -227,6 +227,7 @@ mod tests {
             order: vec![0],
             learned_hosts_by_scope: BTreeMap::default(),
             autolearn_events: VecDeque::default(),
+            last_persist_at_ms: 0,
         };
 
         assert!(policy.lookup_and_prune(&config, dest).is_none());

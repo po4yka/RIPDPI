@@ -197,7 +197,13 @@ impl ComboStats {
     }
 
     /// Fitness score: higher is better.
-    /// `success_rate * 1000.0 - avg_latency.min(5000.0) * 0.001`
+    ///
+    /// `success_rate * 1000.0 - avg_latency.min(5000.0) * 0.02`
+    ///
+    /// The success-rate term dominates (range 0..1000) so reliability always
+    /// wins over speed. The latency penalty caps at -100 (~10% of the success
+    /// range), which is large enough to differentiate fast vs slow strategies
+    /// when success rates are comparable.
     pub fn fitness(&self) -> f64 {
         if self.attempts == 0 {
             return 0.0;
@@ -208,7 +214,7 @@ impl ComboStats {
         } else {
             5000.0
         };
-        success_rate * 1000.0 - avg_latency.min(5000.0) * 0.001
+        success_rate * 1000.0 - avg_latency.min(5000.0) * 0.02
     }
 }
 
@@ -388,7 +394,7 @@ impl StrategyEvolver {
             explore_epsilon: epsilon,
             max_combos: 64,
             enabled,
-            rng_state: now_millis().wrapping_add(1),
+            rng_state: now_millis().wrapping_add(1).wrapping_mul(6_364_136_223_846_793_005).wrapping_add(std::process::id() as u64),
         }
     }
 
@@ -842,7 +848,7 @@ mod tests {
             last_failure_class: None,
         };
         // 0% success rate, avg_latency defaults to 5000.0
-        // fitness = 0.0 * 1000 - 5000.0 * 0.001 = -5.0
+        // fitness = 0.0 * 1000 - 5000.0 * 0.02 = -100.0
         assert!(stats.fitness() < 0.0, "0% success should give negative fitness, got {}", stats.fitness());
     }
 

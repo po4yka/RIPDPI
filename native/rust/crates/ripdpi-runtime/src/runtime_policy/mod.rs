@@ -23,6 +23,7 @@ pub(crate) use matching::{extract_host, extract_host_info, group_requires_payloa
 
 const HOST_AUTOLEARN_STORE_VERSION: u32 = 2;
 const DEFAULT_NETWORK_SCOPE_KEY: &str = "default";
+const AUTOLEARN_PERSIST_DEBOUNCE_MS: u64 = 2_000;
 
 static EMPTY_LEARNED_HOSTS: LazyLock<BTreeMap<String, LearnedHostRecord>> = LazyLock::new(BTreeMap::new);
 
@@ -33,6 +34,7 @@ pub struct RuntimePolicy {
     order: Vec<usize>,
     learned_hosts_by_scope: BTreeMap<String, BTreeMap<String, LearnedHostRecord>>,
     autolearn_events: VecDeque<HostAutolearnEvent>,
+    last_persist_at_ms: u64,
 }
 
 pub(super) fn now_unix() -> i64 {
