@@ -83,6 +83,9 @@ jobs:
           RUSTC_WRAPPER: sccache
         run: ./gradlew assembleDebug testDebugUnitTest
 
+      - name: Verify screenshot baselines
+        run: ./gradlew verifyRoborazziDebug
+
       - name: Verify packaged native ELFs
         run: python3 scripts/ci/verify_native_elfs.py
 
@@ -100,6 +103,8 @@ jobs:
           path: |
             **/build/reports/tests/
             **/build/golden-diffs/
+            **/build/outputs/roborazzi/
+            **/build/outputs/roborazzi/
           retention-days: 7
 
   static-analysis:
