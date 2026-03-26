@@ -676,6 +676,67 @@ fn monitor_session_drains_passive_events_with_probe_details() {
 }
 
 #[test]
+fn monitor_session_allows_restart_after_finished_scan_without_report_cleanup() {
+    let request = || ScanRequest {
+        profile_id: "default".to_string(),
+        display_name: "Restart after finish".to_string(),
+        path_mode: ScanPathMode::RawPath,
+        kind: ScanKind::Connectivity,
+        family: DiagnosticProfileFamily::General,
+        region_tag: None,
+        manual_only: false,
+        pack_refs: vec![],
+        proxy_host: None,
+        proxy_port: None,
+        probe_tasks: vec![],
+        domain_targets: vec![],
+        dns_targets: vec![],
+        tcp_targets: vec![],
+        quic_targets: vec![],
+        service_targets: vec![],
+        circumvention_targets: vec![],
+        throughput_targets: vec![],
+        whitelist_sni: vec![],
+        telegram_target: None,
+        strategy_probe: None,
+        network_snapshot: None,
+    };
+    let session = MonitorSession::new();
+    session.start_scan("session-finished-1".to_string(), request().into()).expect("start first scan");
+
+    let mut finished = false;
+    for _ in 0..50 {
+        if let Some(progress_json) = session.poll_progress_json().expect("poll progress json") {
+            let progress: ScanProgress = serde_json::from_str(&progress_json).expect("decode scan progress");
+            if progress.is_finished {
+                finished = true;
+                break;
+            }
+        }
+        thread::sleep(Duration::from_millis(20));
+    }
+    assert!(finished, "first scan did not finish");
+
+    let mut restarted = false;
+    for _ in 0..50 {
+        match session.start_scan("session-finished-2".to_string(), request().into()) {
+            Ok(()) => {
+                restarted = true;
+                break;
+            }
+            Err(err) if err == "diagnostics scan already running" => {
+                thread::sleep(Duration::from_millis(20));
+            }
+            Err(err) => panic!("unexpected restart error: {err}"),
+        }
+    }
+
+    assert!(restarted, "second scan never started after the first finished");
+    let report = wait_for_report(&session);
+    assert_eq!(report.summary, "0 completed · 0 healthy");
+}
+
+#[test]
 fn monitor_json_contracts_match_goldens() {
     let _serial = lock_network_probes();
     let server = HttpTextServer::start(move |_request| {
