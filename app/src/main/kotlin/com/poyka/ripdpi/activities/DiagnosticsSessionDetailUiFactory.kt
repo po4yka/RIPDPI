@@ -28,8 +28,7 @@ internal class DiagnosticsSessionDetailUiFactory
                             pathMode = support.parsePathMode(detail.session.pathMode),
                             result = result,
                         )
-                    }
-                    .groupBy { it.probeType }
+                    }.groupBy { it.probeType }
                     .map { (title, items) ->
                         DiagnosticsProbeGroupUiModel(
                             title = title,

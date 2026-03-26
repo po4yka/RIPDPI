@@ -27,7 +27,8 @@ class DiagnosticsScanIntegrationTest {
                     networkDiagnosticsBridgeFactory = bridgeFactory,
                     runtimeCoordinator = runtimeCoordinator,
                     serviceStateStore = FakeServiceStateStore(),
-                    scope = this,
+                    scope = backgroundScope,
+                    controllerScope = this,
                     json = json,
                 )
 

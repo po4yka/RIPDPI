@@ -20,9 +20,11 @@ internal object DiagnosticsShareSummaryBuilder {
     ): ShareSummary {
         val requestedSessionId = sessionId
         val selectedSession =
-            requestedSessionId
-                ?.let { id -> scanRecordStore.getScanSession(id) }
-                ?: scanRecordStore.observeRecentScanSessions(limit = 1).first().firstOrNull()
+            if (requestedSessionId != null) {
+                scanRecordStore.getScanSession(requestedSessionId)
+            } else {
+                scanRecordStore.observeRecentScanSessions(limit = 1).first().firstOrNull()
+            }
         if (requestedSessionId != null && selectedSession == null) {
             return missingSessionSummary(requestedSessionId)
         }
@@ -58,7 +60,10 @@ internal object DiagnosticsShareSummaryBuilder {
             selectedSession
                 ?.id
                 ?.let { id ->
-                    artifactReadStore.observeTelemetry(limit = SessionArtifactLimit).first().firstOrNull { it.sessionId == id }
+                    artifactReadStore.observeTelemetry(limit = SessionArtifactLimit).first().firstOrNull {
+                        it.sessionId ==
+                            id
+                    }
                 }
                 ?: artifactReadStore.observeTelemetry(limit = 1).first().firstOrNull()
         val latestWarnings =

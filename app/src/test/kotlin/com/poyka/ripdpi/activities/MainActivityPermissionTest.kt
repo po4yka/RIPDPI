@@ -84,7 +84,9 @@ class ShadowVpnPrepareService {
 
         @Implementation
         @JvmStatic
-        fun prepare(@Suppress("UNUSED_PARAMETER") context: Context): Intent? = prepareIntent
+        fun prepare(
+            @Suppress("UNUSED_PARAMETER") context: Context,
+        ): Intent? = prepareIntent
 
         @Resetter
         @JvmStatic
