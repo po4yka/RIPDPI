@@ -274,10 +274,8 @@ pub fn bind_udp_low_port(socket: &UdpSocket, local_ip: IpAddr, max_port: u16) ->
         return Err(io::Error::new(io::ErrorKind::InvalidInput, "max_port too low"));
     }
     // Try a few random ports in the range [1024, max_port].
-    let mut rng_state = (std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap_or_default()
-        .subsec_nanos()) as u16;
+    let mut rng_state =
+        (std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap_or_default().subsec_nanos()) as u16;
     for _ in 0..8 {
         rng_state = rng_state.wrapping_mul(25173).wrapping_add(13849);
         let port = lower + (rng_state % (max_port - lower + 1));
@@ -622,9 +620,7 @@ mod tests {
     fn get_bpf_filter_len(fd: libc::c_int) -> io::Result<usize> {
         let mut len: libc::socklen_t = 0;
         // SO_GET_FILTER shares the same constant as SO_ATTACH_FILTER on getsockopt path.
-        let rc = unsafe {
-            libc::getsockopt(fd, libc::SOL_SOCKET, libc::SO_ATTACH_FILTER, ptr::null_mut(), &mut len)
-        };
+        let rc = unsafe { libc::getsockopt(fd, libc::SOL_SOCKET, libc::SO_ATTACH_FILTER, ptr::null_mut(), &mut len) };
         if rc == 0 {
             Ok(len as usize / size_of::<libc::sock_filter>())
         } else {
@@ -633,14 +629,12 @@ mod tests {
     }
 
     fn get_tcp_fastopen_connect(fd: libc::c_int) -> io::Result<bool> {
-        let (val, _): (libc::c_int, _) =
-            unsafe { getsockopt_raw(fd, libc::IPPROTO_TCP, libc::TCP_FASTOPEN_CONNECT) }?;
+        let (val, _): (libc::c_int, _) = unsafe { getsockopt_raw(fd, libc::IPPROTO_TCP, libc::TCP_FASTOPEN_CONNECT) }?;
         Ok(val != 0)
     }
 
     fn get_recv_ttl(fd: libc::c_int) -> io::Result<bool> {
-        let (val, _): (libc::c_int, _) =
-            unsafe { getsockopt_raw(fd, libc::IPPROTO_IP, libc::IP_RECVTTL) }?;
+        let (val, _): (libc::c_int, _) = unsafe { getsockopt_raw(fd, libc::IPPROTO_IP, libc::IP_RECVTTL) }?;
         Ok(val != 0)
     }
 
@@ -809,8 +803,7 @@ mod tests {
             .expect("create UDP socket");
         let std_socket: std::net::UdpSocket = raw.into();
         let max_port = 2048u16;
-        let port = bind_udp_low_port(&std_socket, IpAddr::V4(Ipv4Addr::LOCALHOST), max_port)
-            .expect("bind low port");
+        let port = bind_udp_low_port(&std_socket, IpAddr::V4(Ipv4Addr::LOCALHOST), max_port).expect("bind low port");
         let local_port = std_socket.local_addr().expect("local addr").port();
         assert_eq!(port, local_port, "returned port should match actual bound port");
         assert!(local_port > 0, "should have a valid port");

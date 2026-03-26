@@ -1,5 +1,5 @@
-use super::*;
-use loom::sync::{Arc, Mutex};
+use super::{ensure_tunnel_destroyable, ensure_tunnel_start_allowed, take_running_tunnel, TunnelSessionState};
+use ::loom::sync::{Arc, Mutex};
 use tokio_util::sync::CancellationToken;
 
 fn starting_state() -> TunnelSessionState {
@@ -8,17 +8,17 @@ fn starting_state() -> TunnelSessionState {
 
 #[test]
 fn loom_starting_blocks_concurrent_start() {
-    loom::model(|| {
+    ::loom::model(|| {
         let state = Arc::new(Mutex::new(starting_state()));
 
         let state1 = state.clone();
-        let t1 = loom::thread::spawn(move || {
+        let t1 = ::loom::thread::spawn(move || {
             let s = state1.lock().unwrap();
             ensure_tunnel_start_allowed(&s).is_ok()
         });
 
         let state2 = state.clone();
-        let t2 = loom::thread::spawn(move || {
+        let t2 = ::loom::thread::spawn(move || {
             let s = state2.lock().unwrap();
             ensure_tunnel_start_allowed(&s).is_ok()
         });
@@ -33,11 +33,11 @@ fn loom_starting_blocks_concurrent_start() {
 
 #[test]
 fn loom_stop_during_starting_returns_not_running() {
-    loom::model(|| {
+    ::loom::model(|| {
         let state = Arc::new(Mutex::new(starting_state()));
 
         let state1 = state.clone();
-        let t_stop = loom::thread::spawn(move || {
+        let t_stop = ::loom::thread::spawn(move || {
             let mut s = state1.lock().unwrap();
             take_running_tunnel(&mut s).is_ok()
         });
@@ -57,12 +57,12 @@ fn loom_stop_during_starting_returns_not_running() {
 
 #[test]
 fn loom_concurrent_start_check_and_destroy_check() {
-    loom::model(|| {
+    ::loom::model(|| {
         let state = Arc::new(Mutex::new(TunnelSessionState::Ready));
 
         // Thread A: checks start-allowed; if so, transitions to Starting.
         let state1 = state.clone();
-        let t_start = loom::thread::spawn(move || {
+        let t_start = ::loom::thread::spawn(move || {
             let mut s = state1.lock().unwrap();
             if ensure_tunnel_start_allowed(&s).is_ok() {
                 *s = starting_state();
@@ -74,7 +74,7 @@ fn loom_concurrent_start_check_and_destroy_check() {
 
         // Thread B: checks destroyable.
         let state2 = state.clone();
-        let t_destroy = loom::thread::spawn(move || {
+        let t_destroy = ::loom::thread::spawn(move || {
             let s = state2.lock().unwrap();
             ensure_tunnel_destroyable(&s).is_ok()
         });

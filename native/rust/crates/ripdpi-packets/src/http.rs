@@ -527,7 +527,8 @@ mod tests {
     fn redirect_ignores_location_in_body() {
         // F-006: Location header in the body must NOT be picked up.
         let req = b"GET / HTTP/1.1\r\nHost: example.com\r\n\r\n";
-        let resp = b"HTTP/1.1 302 Found\r\nLocation: https://cdn.example.com/ok\r\n\r\n\nLocation: https://evil.net/redir\r\n";
+        let resp =
+            b"HTTP/1.1 302 Found\r\nLocation: https://cdn.example.com/ok\r\n\r\n\nLocation: https://evil.net/redir\r\n";
         assert!(!is_http_redirect(req, resp));
     }
 

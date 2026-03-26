@@ -664,9 +664,8 @@ mod tests {
 
     #[test]
     fn accepts_kotlin_defaulted_tunnel_fields_when_omitted() {
-        let payload =
-            parse_tunnel_config_json(
-                r#"{
+        let payload = parse_tunnel_config_json(
+            r#"{
                   "socks5Port": 1080,
                   "mapdnsAddress": "198.18.0.53",
                   "mapdnsPort": 53,
@@ -680,8 +679,8 @@ mod tests {
                   "encryptedDnsBootstrapIps": ["1.1.1.1", "1.0.0.1"],
                   "encryptedDnsDohUrl": "https://cloudflare-dns.com/dns-query"
                 }"#,
-            )
-                .expect("payload");
+        )
+        .expect("payload");
 
         let config = config_from_payload(payload).expect("config");
 

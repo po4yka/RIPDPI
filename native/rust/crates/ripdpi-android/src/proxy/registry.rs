@@ -53,9 +53,7 @@ pub(crate) fn try_mark_proxy_running(
     }
 }
 
-pub(crate) fn control_for_proxy_stop(
-    state: &ProxySessionState,
-) -> Result<Arc<EmbeddedProxyControl>, &'static str> {
+pub(crate) fn control_for_proxy_stop(state: &ProxySessionState) -> Result<Arc<EmbeddedProxyControl>, &'static str> {
     match state {
         ProxySessionState::Idle => Err("Proxy session is not running"),
         ProxySessionState::Running { control } => Ok(control.clone()),

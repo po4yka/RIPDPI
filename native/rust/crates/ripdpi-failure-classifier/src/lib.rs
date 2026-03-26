@@ -290,11 +290,7 @@ pub fn confirm_dns_tampering(
     )
 }
 
-pub fn classify_connection_freeze(
-    bytes_received: usize,
-    stall_windows: u32,
-    window_ms: u32,
-) -> ClassifiedFailure {
+pub fn classify_connection_freeze(bytes_received: usize, stall_windows: u32, window_ms: u32) -> ClassifiedFailure {
     ClassifiedFailure::new(
         FailureClass::ConnectionFreeze,
         FailureStage::Relay,

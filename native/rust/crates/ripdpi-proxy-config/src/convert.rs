@@ -675,9 +675,7 @@ pub fn runtime_config_from_ui(payload: ProxyUiConfig) -> Result<RuntimeConfig, P
             group.actions.fake_sni_list.push(fake_packets.fake_sni);
         }
         if fake_packets.fake_tls_size < -65535 || fake_packets.fake_tls_size > 65535 {
-            return Err(ProxyConfigError::InvalidConfig(
-                "fakeTlsSize must be in -65535..=65535".to_string(),
-            ));
+            return Err(ProxyConfigError::InvalidConfig("fakeTlsSize must be in -65535..=65535".to_string()));
         }
         group.actions.fake_tls_size = fake_packets.fake_tls_size;
     }

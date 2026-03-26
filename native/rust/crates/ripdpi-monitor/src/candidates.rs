@@ -88,7 +88,9 @@ pub(crate) fn strategy_probe_encrypted_dns_context(
     match runtime_context.and_then(|value| value.encrypted_dns.clone()) {
         Some(ctx) => ctx,
         None => {
-            tracing::debug!("no runtime encrypted DNS context provided; falling back to default Cloudflare DoH for strategy probes");
+            tracing::debug!(
+                "no runtime encrypted DNS context provided; falling back to default Cloudflare DoH for strategy probes"
+            );
             default_runtime_encrypted_dns_context()
         }
     }

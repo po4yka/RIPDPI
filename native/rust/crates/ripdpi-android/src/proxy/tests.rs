@@ -74,10 +74,9 @@ fn proxy_state_rejects_stop_when_idle() {
 
 #[test]
 fn proxy_state_rejects_destroy_when_running() {
-    let err = ensure_proxy_destroyable(&ProxySessionState::Running {
-        control: Arc::new(EmbeddedProxyControl::default()),
-    })
-    .expect_err("running destroy");
+    let err =
+        ensure_proxy_destroyable(&ProxySessionState::Running { control: Arc::new(EmbeddedProxyControl::default()) })
+            .expect_err("running destroy");
 
     assert_eq!(err, "Cannot destroy a running proxy session");
 }
