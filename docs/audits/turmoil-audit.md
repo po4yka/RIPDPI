@@ -125,8 +125,8 @@ Important repo state:
 
 - `.github/workflows/ci.yml` still declares `linux-tun-e2e` and
   `linux-tun-soak` jobs
-- `linux-tun-e2e` no longer references package `hs5t-android`; it now routes
-  through `scripts/ci/run-linux-tun-e2e.sh`
+- `linux-tun-e2e` now routes through `scripts/ci/run-linux-tun-e2e.sh`
+  instead of invoking a crate directly
 - `scripts/ci/run-linux-tun-e2e.sh` and `scripts/ci/run-linux-tun-soak.sh`
   detect whether the corresponding privileged target exists before attempting
   to run it

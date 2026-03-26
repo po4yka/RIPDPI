@@ -69,7 +69,7 @@ Always review blessed diffs before committing. Golden changes require explanatio
 
 ### Fake* classes (no mocking frameworks)
 
-All test doubles are hand-written Fakes in `core/engine/src/test/java/com/poyka/ripdpi/core/TestDoubles.kt`. The project does not use MockK, Mockito, or any mocking library.
+All test doubles are hand-written Fakes in `core/engine/src/test/kotlin/com/poyka/ripdpi/core/TestDoubles.kt`. The project does not use MockK, Mockito, or any mocking library.
 
 Pattern:
 - Name: `Fake` + interface name (e.g., `FakeRipDpiProxyRuntime`)
@@ -78,7 +78,7 @@ Pattern:
 
 ### FaultQueue for fault injection
 
-Fault injection uses `FaultQueue<T>` from `core/engine/src/main/java/com/poyka/ripdpi/core/testing/FaultModel.kt`.
+Fault injection uses `FaultQueue<T>` from `core/engine/src/main/kotlin/com/poyka/ripdpi/core/testing/FaultModel.kt`.
 
 Key types:
 - `FaultQueue<T>` -- ordered queue of faults matched by target enum

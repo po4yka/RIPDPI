@@ -27,10 +27,10 @@ Set `sdk.dir` in `local.properties` or `ANDROID_SDK_ROOT`, and make sure the mat
 
 | Android ABI | Rust target | Min API |
 |-------------|-------------|---------|
-| `arm64-v8a` | `aarch64-linux-android` | 21 |
-| `armeabi-v7a` | `armv7-linux-androideabi` | 19 |
-| `x86_64` | `x86_64-linux-android` | 21 |
-| `x86` | `i686-linux-android` | 19 |
+| `arm64-v8a` | `aarch64-linux-android` | 27 |
+| `armeabi-v7a` | `armv7-linux-androideabi` | 27 |
+| `x86_64` | `x86_64-linux-android` | 27 |
+| `x86` | `i686-linux-android` | 27 |
 
 RIPDPI supports all four ABIs with minSdk 27.
 
@@ -40,15 +40,15 @@ RIPDPI supports all four ABIs with minSdk 27.
 ./gradlew :core:engine:buildRustNativeLibs
 ```
 
-This creates `generated/jniLibs/<abi>/libripdpi.so` and `generated/jniLibs/<abi>/libhev-socks5-tunnel.so`.
+This creates `generated/jniLibs/<abi>/libripdpi.so` and `generated/jniLibs/<abi>/libripdpi-tunnel.so`.
 
 ### Gradle Task Integration
 
 The task sets the target linker for each ABI explicitly and builds:
 - `native/rust` package `ripdpi-android`
-- `native/rust` package `hs5t-android`
+- `native/rust` package `ripdpi-tunnel-android`
 
-Use `ripdpi.localNativeAbis=arm64-v8a` only for local debug iteration. CI and release builds must keep the full ABI set.
+The ABI set comes from `gradle.properties`. Local non-release builds default to `ripdpi.localNativeAbisDefault=arm64-v8a`, and `ripdpi.localNativeAbis=x86_64` is the fast path for emulator-heavy iteration. CI and release builds must keep the full ABI set.
 
 ## Cargo.toml Setup
 
@@ -59,15 +59,20 @@ crate-type = ["cdylib"]  # Required: produces .so for Android
 [dependencies]
 jni = "0.22"              # JNI bindings
 log = "0.4"               # Logging
-android_logger = "0.14"   # Android logcat integration
+android-support = { workspace = true }  # Android logging + JNI support helpers
 
-[profile.release]
-lto = true                # Link-time optimization
-strip = true              # Strip debug symbols
+[profile.android-jni]
+inherits = "release"
 opt-level = "z"           # Optimize for size
+panic = "unwind"
+
+[profile.android-jni-dev]
+inherits = "dev"
+opt-level = 1             # Faster local iteration with symbols
+panic = "unwind"
 ```
 
-`crate-type = ["cdylib"]` is mandatory because Android loads the libraries through `System.loadLibrary()`.
+`crate-type = ["cdylib"]` is mandatory because Android loads the libraries through `System.loadLibrary()`. RIPDPI's Gradle task selects the Cargo profile from `gradle.properties`: release-like builds use `ripdpi.nativeCargoProfile`, while local non-release builds can fall back to `ripdpi.localNativeCargoProfileDefault`.
 
 ## 16KB Page Size Compatibility
 
@@ -94,8 +99,8 @@ rustflags = ["-C", "link-arg=-Wl,-z,max-page-size=16384"]
 | Missing `crate-type = ["cdylib"]` | Required for `.so` output; `rlib` is Rust-only |
 | Forgetting 16KB page alignment | Add `-Wl,-z,max-page-size=16384` rustflag per target |
 | Not pointing Gradle at the Android SDK/NDK | Set `sdk.dir` or `ANDROID_SDK_ROOT` and install the configured NDK |
-| Building with debug profile | Use `--release` for APK; debug `.so` files are huge |
-| Missing `strip = true` in release profile | Without stripping, `.so` files include debug info (~10x larger) |
+| Hardcoding a Cargo profile in local commands | Prefer `:core:engine:buildRustNativeLibs`; the convention plugin already selects `android-jni` or `android-jni-dev` based on build context |
+| Forgetting to keep Android profiles unwind-safe | `android-jni` and `android-jni-dev` must keep `panic = "unwind"` so JNI boundaries can translate failures safely |
 | Wrong target triple | Use `armv7-linux-androideabi` (not `armv7a-`) for armeabi-v7a |
 
 ## See Also
