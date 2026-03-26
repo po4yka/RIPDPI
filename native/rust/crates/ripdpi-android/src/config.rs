@@ -96,11 +96,16 @@ mod tests {
     }
 
     fn ui_payload(config: ProxyUiConfig) -> ProxyConfigPayload {
-        ProxyConfigPayload::Ui { strategy_preset: None, config, runtime_context: None }
+        ProxyConfigPayload::Ui { strategy_preset: None, config, runtime_context: None, log_context: None }
     }
 
     fn command_line_payload(args: Vec<String>) -> ProxyConfigPayload {
-        ProxyConfigPayload::CommandLine { args, host_autolearn_store_path: None, runtime_context: None }
+        ProxyConfigPayload::CommandLine {
+            args,
+            host_autolearn_store_path: None,
+            runtime_context: None,
+            log_context: None,
+        }
     }
 
     fn proxy_ui_config_strategy() -> impl Strategy<Value = ProxyUiConfig> {

@@ -2,6 +2,7 @@ package com.poyka.ripdpi.services
 
 import com.poyka.ripdpi.core.Tun2SocksBridge
 import com.poyka.ripdpi.core.Tun2SocksBridgeFactory
+import com.poyka.ripdpi.core.RipDpiLogContext
 import com.poyka.ripdpi.data.ActiveDnsSettings
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.DnsModeEncrypted
@@ -34,6 +35,7 @@ internal class VpnTunnelRuntime(
     suspend fun start(
         activeDns: ActiveDnsSettings,
         overrideReason: String?,
+        logContext: RipDpiLogContext?,
     ) {
         check(tunSession == null) { "VPN field not null" }
 
@@ -47,6 +49,7 @@ internal class VpnTunnelRuntime(
                 overrideReason = overrideReason,
                 socks5Port = port,
                 ipv6Enabled = ipv6,
+                logContext = logContext,
             )
 
         val tunnelSession = vpnTunnelSessionProvider.establish(vpnHost, dns, ipv6)

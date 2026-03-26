@@ -77,5 +77,6 @@ fn upgrade_legacy_scan_request(request: ScanRequest) -> EngineScanRequestWire {
         strategy_probe: request.strategy_probe,
         network_snapshot: request.network_snapshot,
         native_log_level: None,
+        log_context: None,
     }
 }

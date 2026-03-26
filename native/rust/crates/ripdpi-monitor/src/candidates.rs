@@ -50,6 +50,7 @@ pub(crate) fn strategy_probe_config_json(config: &ProxyUiConfig) -> String {
         strategy_preset: None,
         config: config.clone(),
         runtime_context: None,
+        log_context: None,
     })
     .expect("serialize ui proxy config")
 }

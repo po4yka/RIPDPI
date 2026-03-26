@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.diagnostics.contract.engine
 
+import com.poyka.ripdpi.core.RipDpiLogContext
 import com.poyka.ripdpi.data.NativeNetworkSnapshot
 import com.poyka.ripdpi.diagnostics.CircumventionTarget
 import com.poyka.ripdpi.diagnostics.Diagnosis
@@ -66,6 +67,7 @@ data class EngineScanRequestWire(
     val strategyProbe: StrategyProbeRequest? = null,
     val networkSnapshot: NativeNetworkSnapshot? = null,
     val nativeLogLevel: String? = null,
+    val logContext: RipDpiLogContext? = null,
 )
 
 @Serializable

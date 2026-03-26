@@ -162,4 +162,5 @@ Structured telemetry and diagnostics-event payloads are treated as compatibility
 
 - [Proxy engine](proxy-engine.md)
 - [TUN-to-SOCKS tunnel](tunnel.md)
+- [Debug a runtime issue](debug-runtime-issue.md)
 - [testing coverage](../testing.md)

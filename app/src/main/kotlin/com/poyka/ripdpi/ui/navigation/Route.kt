@@ -54,6 +54,11 @@ sealed class Route(
         titleRes = R.string.history_title,
     )
 
+    data object Logs : Route(
+        route = "logs",
+        titleRes = R.string.logs,
+    )
+
     data object ModeEditor : Route(
         route = "mode_editor",
         titleRes = R.string.title_mode_editor,
@@ -101,6 +106,7 @@ sealed class Route(
                     Config,
                     Diagnostics,
                     History,
+                    Logs,
                     Settings,
                     ModeEditor,
                     DnsSettings,

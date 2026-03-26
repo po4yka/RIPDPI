@@ -1,15 +1,16 @@
-use std::collections::VecDeque;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
 use arc_swap::ArcSwapOption;
 
-use android_support::log_with_level;
 use ripdpi_telemetry::{LatencyDistributions, LatencyHistogram};
 use ripdpi_tunnel_core::DnsStatsSnapshot;
 use serde::Serialize;
 
-pub(crate) const MAX_TUNNEL_EVENTS: usize = 128;
+use android_support::{clear_tunnel_events, drain_tunnel_events, NativeEventRecord};
+
+use crate::config::TunnelLogContext;
+
 static NEXT_TUNNEL_SESSION_ID: AtomicU64 = AtomicU64::new(1);
 
 #[derive(Debug, Clone, Serialize)]
@@ -19,6 +20,16 @@ pub(crate) struct NativeRuntimeEvent {
     pub(crate) level: String,
     pub(crate) message: String,
     pub(crate) created_at: u64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) runtime_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) mode: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) policy_signature: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) fingerprint_hash: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) subsystem: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -70,28 +81,29 @@ pub(crate) struct NativeRuntimeSnapshot {
 pub(crate) struct TunnelTelemetryState {
     session_id: String,
     log_scope: String,
+    log_context: Option<TunnelLogContext>,
     running: AtomicBool,
     total_sessions: AtomicU64,
     total_errors: AtomicU64,
     upstream_address: ArcSwapOption<String>,
     last_error: ArcSwapOption<String>,
-    events: Mutex<VecDeque<NativeRuntimeEvent>>,
     pub(crate) dns_histogram: LatencyHistogram,
 }
 
 impl TunnelTelemetryState {
-    pub(crate) fn new() -> Self {
+    pub(crate) fn new(log_context: Option<TunnelLogContext>) -> Self {
         let ordinal = NEXT_TUNNEL_SESSION_ID.fetch_add(1, Ordering::Relaxed);
         let session_id = format!("tunnel-{ordinal}");
+        clear_tunnel_events();
         Self {
             log_scope: format!("tunnel:{session_id}"),
             session_id,
+            log_context,
             running: AtomicBool::new(false),
             total_sessions: AtomicU64::new(0),
             total_errors: AtomicU64::new(0),
             upstream_address: ArcSwapOption::empty(),
             last_error: ArcSwapOption::empty(),
-            events: Mutex::new(VecDeque::with_capacity(MAX_TUNNEL_EVENTS)),
             dns_histogram: LatencyHistogram::new(),
         }
     }
@@ -101,7 +113,76 @@ impl TunnelTelemetryState {
     }
 
     pub(crate) fn log_line(&self, source: &str, level: &str, message: &str) {
-        log_with_level(level, format!("subsystem=tunnel session={} source={} {}", self.session_id, source, message));
+        let log_context = self.log_context.as_ref();
+        let runtime_id = log_context.and_then(|context| context.runtime_id.as_deref()).unwrap_or("");
+        let mode = log_context.and_then(|context| context.mode.as_deref()).unwrap_or("");
+        let policy_signature =
+            log_context.and_then(|context| context.policy_signature.as_deref()).unwrap_or("");
+        let fingerprint_hash = log_context.and_then(|context| context.fingerprint_hash.as_deref()).unwrap_or("");
+        let diagnostics_session_id =
+            log_context.and_then(|context| context.diagnostics_session_id.as_deref()).unwrap_or("");
+        match level.trim().to_ascii_lowercase().as_str() {
+            "trace" => tracing::trace!(
+                ring = "tunnel",
+                subsystem = "tunnel",
+                session = self.session_id.as_str(),
+                source,
+                runtime_id,
+                mode,
+                policy_signature,
+                fingerprint_hash,
+                diagnostics_session_id,
+                "{message}"
+            ),
+            "debug" => tracing::debug!(
+                ring = "tunnel",
+                subsystem = "tunnel",
+                session = self.session_id.as_str(),
+                source,
+                runtime_id,
+                mode,
+                policy_signature,
+                fingerprint_hash,
+                diagnostics_session_id,
+                "{message}"
+            ),
+            "warn" | "warning" => tracing::warn!(
+                ring = "tunnel",
+                subsystem = "tunnel",
+                session = self.session_id.as_str(),
+                source,
+                runtime_id,
+                mode,
+                policy_signature,
+                fingerprint_hash,
+                diagnostics_session_id,
+                "{message}"
+            ),
+            "error" => tracing::error!(
+                ring = "tunnel",
+                subsystem = "tunnel",
+                session = self.session_id.as_str(),
+                source,
+                runtime_id,
+                mode,
+                policy_signature,
+                fingerprint_hash,
+                diagnostics_session_id,
+                "{message}"
+            ),
+            _ => tracing::info!(
+                ring = "tunnel",
+                subsystem = "tunnel",
+                session = self.session_id.as_str(),
+                source,
+                runtime_id,
+                mode,
+                policy_signature,
+                fingerprint_hash,
+                diagnostics_session_id,
+                "{message}"
+            ),
+        }
     }
 
     pub(crate) fn mark_started(&self, upstream: String) {
@@ -175,7 +256,7 @@ impl TunnelTelemetryState {
                 rx_packets: traffic_stats.2,
                 rx_bytes: traffic_stats.3,
             },
-            native_events: self.drain_events(),
+            native_events: drain_tunnel_events().into_iter().map(NativeRuntimeEvent::from).collect(),
             latency_distributions: LatencyDistributions {
                 dns_resolution: self.dns_histogram.snapshot(),
                 ..Default::default()
@@ -185,26 +266,23 @@ impl TunnelTelemetryState {
         }
     }
 
-    fn drain_events(&self) -> Vec<NativeRuntimeEvent> {
-        if let Ok(mut guard) = self.events.lock() {
-            guard.drain(..).collect()
-        } else {
-            Vec::new()
-        }
-    }
-
     fn push_event(&self, source: &str, level: &str, message: String) {
         self.log_line(source, level, &message);
-        if let Ok(mut guard) = self.events.lock() {
-            if guard.len() >= MAX_TUNNEL_EVENTS {
-                guard.pop_front();
-            }
-            guard.push_back(NativeRuntimeEvent {
-                source: source.to_string(),
-                level: level.to_string(),
-                message,
-                created_at: now_ms(),
-            });
+    }
+}
+
+impl From<NativeEventRecord> for NativeRuntimeEvent {
+    fn from(value: NativeEventRecord) -> Self {
+        Self {
+            source: value.source,
+            level: value.level,
+            message: value.message,
+            created_at: value.created_at,
+            runtime_id: value.runtime_id,
+            mode: value.mode,
+            policy_signature: value.policy_signature,
+            fingerprint_hash: value.fingerprint_hash,
+            subsystem: value.subsystem,
         }
     }
 }
@@ -265,7 +343,7 @@ mod tests {
 
     #[test]
     fn tunnel_telemetry_snapshot_reports_stats_and_drains_events() {
-        let state = TunnelTelemetryState::new();
+        let state = TunnelTelemetryState::new(None);
 
         state.mark_started("127.0.0.1:1080".to_string());
         state.record_error("boom".to_string());
@@ -297,11 +375,11 @@ mod tests {
 
     #[test]
     fn tunnel_telemetry_and_stats_match_goldens() {
-        let ready = TunnelTelemetryState::new().snapshot((0, 0, 0, 0), DnsStatsSnapshot::default(), None, None);
+        let ready = TunnelTelemetryState::new(None).snapshot((0, 0, 0, 0), DnsStatsSnapshot::default(), None, None);
         assert_tunnel_snapshot_golden("tunnel_ready", &ready);
         assert_tunnel_stats_golden("tunnel_ready_stats", (0, 0, 0, 0));
 
-        let state = TunnelTelemetryState::new();
+        let state = TunnelTelemetryState::new(None);
         state.mark_started("127.0.0.1:1080".to_string());
         state.record_error("boom".to_string());
         state.mark_stop_requested();
@@ -320,7 +398,7 @@ mod tests {
 
     #[test]
     fn tunnel_error_overwrite_keeps_latest_value() {
-        let state = TunnelTelemetryState::new();
+        let state = TunnelTelemetryState::new(None);
         state.record_error("first error".to_string());
         state.record_error("second error".to_string());
 
@@ -331,7 +409,7 @@ mod tests {
 
     #[test]
     fn tunnel_upstream_address_updated_on_restart() {
-        let state = TunnelTelemetryState::new();
+        let state = TunnelTelemetryState::new(None);
         state.mark_started("10.0.0.1:1080".to_string());
 
         let snap = state.snapshot((0, 0, 0, 0), DnsStatsSnapshot::default(), None, None);
@@ -348,7 +426,7 @@ mod tests {
     fn tunnel_snapshot_reads_do_not_block_under_concurrent_writes() {
         use std::sync::{Arc, Barrier};
 
-        let state = Arc::new(TunnelTelemetryState::new());
+        let state = Arc::new(TunnelTelemetryState::new(None));
         state.mark_started("127.0.0.1:1080".to_string());
         let barrier = Arc::new(Barrier::new(2));
         let iterations = 500;

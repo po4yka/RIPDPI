@@ -95,7 +95,12 @@ internal class ProxyServiceRuntimeCoordinator(
         session: ProxyRuntimeSession,
         resolution: ConnectionPolicyResolution,
     ) {
-        proxyRuntimeSupervisor.start(resolution.proxyPreferences, ::handleProxyExit)
+        proxyRuntimeSupervisor.start(
+            resolution.proxyPreferences.withLogContext(
+                session.buildLogContext(session.currentActiveConnectionPolicy),
+            ),
+            ::handleProxyExit,
+        )
     }
 
     override suspend fun stopModeRuntime(skipRuntimeShutdown: Boolean) {
@@ -150,7 +155,12 @@ internal class ProxyServiceRuntimeCoordinator(
             restartReason = "network_handover",
             appliedAt = appliedAt,
         )
-        proxyRuntimeSupervisor.start(resolution.proxyPreferences, ::handleProxyExit)
+        proxyRuntimeSupervisor.start(
+            resolution.proxyPreferences.withLogContext(
+                session.buildLogContext(session.currentActiveConnectionPolicy),
+            ),
+            ::handleProxyExit,
+        )
     }
 
     override fun updateStatus(

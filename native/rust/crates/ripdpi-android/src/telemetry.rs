@@ -1,16 +1,16 @@
-use std::collections::VecDeque;
 use std::sync::atomic::{AtomicBool, AtomicI64, AtomicU64, Ordering};
-use std::sync::{Arc, Mutex, PoisonError};
+use std::sync::Arc;
 
 use arc_swap::ArcSwap;
 
-use android_support::log_with_level;
 use ripdpi_failure_classifier::ClassifiedFailure;
+use ripdpi_proxy_config::ProxyLogContext;
 use ripdpi_runtime::RuntimeTelemetrySink;
 use ripdpi_telemetry::{LatencyDistributions, LatencyHistogram};
 use serde::Serialize;
 
-const MAX_PROXY_EVENTS: usize = 128;
+use android_support::{clear_proxy_events, drain_proxy_events, NativeEventRecord};
+
 static NEXT_PROXY_SESSION_ID: AtomicU64 = AtomicU64::new(1);
 
 /// Returns true for I/O errors caused by transient network conditions
@@ -40,6 +40,16 @@ pub(crate) struct NativeRuntimeEvent {
     pub(crate) level: String,
     pub(crate) message: String,
     pub(crate) created_at: u64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) runtime_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) mode: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) policy_signature: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) fingerprint_hash: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) subsystem: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -107,6 +117,7 @@ struct TelemetryStrings {
 pub(crate) struct ProxyTelemetryState {
     session_id: String,
     log_scope: String,
+    log_context: Option<ProxyLogContext>,
     running: AtomicBool,
     active_sessions: AtomicU64,
     total_sessions: AtomicU64,
@@ -123,18 +134,19 @@ pub(crate) struct ProxyTelemetryState {
     last_autolearn_group: AtomicI64,
     slot_exhaustions: AtomicU64,
     strings: ArcSwap<TelemetryStrings>,
-    events: Mutex<VecDeque<NativeRuntimeEvent>>,
     tcp_connect_histogram: LatencyHistogram,
     tls_handshake_histogram: LatencyHistogram,
 }
 
 impl ProxyTelemetryState {
-    pub(crate) fn new() -> Self {
+    pub(crate) fn new(log_context: Option<ProxyLogContext>) -> Self {
         let ordinal = NEXT_PROXY_SESSION_ID.fetch_add(1, Ordering::Relaxed);
         let session_id = format!("proxy-{ordinal}");
+        clear_proxy_events();
         Self {
             log_scope: format!("proxy:{session_id}"),
             session_id,
+            log_context,
             running: AtomicBool::new(false),
             active_sessions: AtomicU64::new(0),
             total_sessions: AtomicU64::new(0),
@@ -163,7 +175,6 @@ impl ProxyTelemetryState {
                 last_autolearn_host: None,
                 last_autolearn_action: None,
             }),
-            events: Mutex::new(VecDeque::with_capacity(MAX_PROXY_EVENTS)),
             tcp_connect_histogram: LatencyHistogram::new(),
             tls_handshake_histogram: LatencyHistogram::new(),
         }
@@ -173,8 +184,77 @@ impl ProxyTelemetryState {
         &self.log_scope
     }
 
-    fn log_line(&self, source: &str, level: &str, message: &str) {
-        log_with_level(level, format!("subsystem=proxy session={} source={} {}", self.session_id, source, message));
+    fn emit_event(&self, source: &str, level: &str, message: &str) {
+        let log_context = self.log_context.as_ref();
+        let runtime_id = log_context.and_then(|context| context.runtime_id.as_deref()).unwrap_or("");
+        let mode = log_context.and_then(|context| context.mode.as_deref()).unwrap_or("");
+        let policy_signature =
+            log_context.and_then(|context| context.policy_signature.as_deref()).unwrap_or("");
+        let fingerprint_hash = log_context.and_then(|context| context.fingerprint_hash.as_deref()).unwrap_or("");
+        let diagnostics_session_id =
+            log_context.and_then(|context| context.diagnostics_session_id.as_deref()).unwrap_or("");
+        match level.trim().to_ascii_lowercase().as_str() {
+            "trace" => tracing::trace!(
+                ring = "proxy",
+                subsystem = "proxy",
+                session = self.session_id.as_str(),
+                source,
+                runtime_id,
+                mode,
+                policy_signature,
+                fingerprint_hash,
+                diagnostics_session_id,
+                "{message}"
+            ),
+            "debug" => tracing::debug!(
+                ring = "proxy",
+                subsystem = "proxy",
+                session = self.session_id.as_str(),
+                source,
+                runtime_id,
+                mode,
+                policy_signature,
+                fingerprint_hash,
+                diagnostics_session_id,
+                "{message}"
+            ),
+            "warn" | "warning" => tracing::warn!(
+                ring = "proxy",
+                subsystem = "proxy",
+                session = self.session_id.as_str(),
+                source,
+                runtime_id,
+                mode,
+                policy_signature,
+                fingerprint_hash,
+                diagnostics_session_id,
+                "{message}"
+            ),
+            "error" => tracing::error!(
+                ring = "proxy",
+                subsystem = "proxy",
+                session = self.session_id.as_str(),
+                source,
+                runtime_id,
+                mode,
+                policy_signature,
+                fingerprint_hash,
+                diagnostics_session_id,
+                "{message}"
+            ),
+            _ => tracing::info!(
+                ring = "proxy",
+                subsystem = "proxy",
+                session = self.session_id.as_str(),
+                source,
+                runtime_id,
+                mode,
+                policy_signature,
+                fingerprint_hash,
+                diagnostics_session_id,
+                "{message}"
+            ),
+        }
     }
 
     /// Atomically update string fields using compare-and-swap.
@@ -190,17 +270,15 @@ impl ProxyTelemetryState {
     pub(crate) fn mark_running(&self, bind_addr: String, max_clients: usize, group_count: usize) {
         self.running.store(true, Ordering::Relaxed);
         let message = format!("listener started addr={bind_addr} maxClients={max_clients} groups={group_count}");
-        self.log_line("proxy", "info", &message);
+        self.emit_event("proxy", "info", &message);
         self.update_strings(|s| s.listener_address = Some(bind_addr.clone()));
-        self.push_event_internal("proxy", "info", message);
     }
 
     pub(crate) fn mark_stopped(&self) {
         self.running.store(false, Ordering::Relaxed);
         self.active_sessions.store(0, Ordering::Relaxed);
         let message = "listener stopped".to_string();
-        self.log_line("proxy", "info", &message);
-        self.push_event_internal("proxy", "info", message);
+        self.emit_event("proxy", "info", &message);
     }
 
     pub(crate) fn on_client_accepted(&self) {
@@ -217,9 +295,8 @@ impl ProxyTelemetryState {
     pub(crate) fn on_client_error(&self, error: String) {
         self.total_errors.fetch_add(1, Ordering::Relaxed);
         let message = format!("client error: {error}");
-        self.log_line("proxy", "warn", &message);
+        self.emit_event("proxy", "warn", &message);
         self.update_strings(|s| s.last_error = Some(error.clone()));
-        self.push_event_internal("proxy", "warn", message);
     }
 
     pub(crate) fn on_client_io_error(&self, error: &std::io::Error) {
@@ -229,9 +306,8 @@ impl ProxyTelemetryState {
         }
         let error_str = error.to_string();
         let message = format!("client error: {error_str}");
-        self.log_line("proxy", "warn", &message);
+        self.emit_event("proxy", "warn", &message);
         self.update_strings(|s| s.last_error = Some(error_str.clone()));
-        self.push_event_internal("proxy", "warn", message);
     }
 
     pub(crate) fn on_route_selected(&self, target: String, group_index: usize, host: Option<String>, phase: &str) {
@@ -243,12 +319,11 @@ impl ProxyTelemetryState {
             target,
             host.as_deref().unwrap_or("<none>")
         );
-        self.log_line("proxy", "info", &message);
+        self.emit_event("proxy", "info", &message);
         self.update_strings(|s| {
             s.last_target = Some(target.clone());
             s.last_host = host.clone();
         });
-        self.push_event_internal("proxy", "info", message);
     }
 
     pub(crate) fn on_route_advanced(
@@ -269,12 +344,11 @@ impl ProxyTelemetryState {
             trigger,
             host.as_deref().unwrap_or("<none>")
         );
-        self.log_line("proxy", "warn", &message);
+        self.emit_event("proxy", "warn", &message);
         self.update_strings(|s| {
             s.last_target = Some(target.clone());
             s.last_host = host.clone();
         });
-        self.push_event_internal("proxy", "warn", message);
     }
 
     pub(crate) fn on_failure_classified(&self, target: String, failure: &ClassifiedFailure, host: Option<String>) {
@@ -288,7 +362,7 @@ impl ProxyTelemetryState {
             host.as_deref().unwrap_or("<none>"),
             failure.evidence.summary
         );
-        self.log_line("proxy", level, &message);
+        self.emit_event("proxy", level, &message);
         {
             let evidence = failure.evidence.summary.clone();
             let class = failure.class.as_str().to_string();
@@ -301,7 +375,6 @@ impl ProxyTelemetryState {
                 s.last_fallback_action = Some(action.clone());
             });
         }
-        self.push_event_internal("proxy", level, message);
     }
 
     pub(crate) fn on_retry_paced(&self, target: String, group_index: usize, reason: &'static str, backoff_ms: u64) {
@@ -314,7 +387,7 @@ impl ProxyTelemetryState {
         }
         let message =
             format!("retry pacing target={target} group={group_index} reason={reason} backoffMs={backoff_ms}");
-        self.log_line("proxy", "info", &message);
+        self.emit_event("proxy", "info", &message);
         {
             let reason_str = reason.to_string();
             self.update_strings(|s| {
@@ -322,7 +395,6 @@ impl ProxyTelemetryState {
                 s.last_retry_reason = Some(reason_str.clone());
             });
         }
-        self.push_event_internal("proxy", "info", message);
     }
 
     pub(crate) fn on_upstream_connected(&self, upstream_address: String, upstream_rtt_ms: Option<u64>) {
@@ -355,7 +427,7 @@ impl ProxyTelemetryState {
             host.as_deref().unwrap_or("<none>"),
             group_index.map_or_else(|| "<none>".to_string(), |value| value.to_string())
         );
-        self.log_line("autolearn", level, &message);
+        self.emit_event("autolearn", level, &message);
         {
             let action_str = action.to_string();
             self.update_strings(|s| {
@@ -363,7 +435,6 @@ impl ProxyTelemetryState {
                 s.last_autolearn_action = Some(action_str.clone());
             });
         }
-        self.push_event_internal("autolearn", level, message);
     }
 
     pub(crate) fn snapshot(&self) -> NativeRuntimeSnapshot {
@@ -379,11 +450,6 @@ impl ProxyTelemetryState {
         let last_retry_reason = strings.last_retry_reason.clone();
         let last_autolearn_host = strings.last_autolearn_host.clone();
         let last_autolearn_action = strings.last_autolearn_action.clone();
-        let native_events: Vec<NativeRuntimeEvent> = {
-            let mut guard = self.events.lock().unwrap_or_else(PoisonError::into_inner);
-            guard.drain(..).collect()
-        };
-
         NativeRuntimeSnapshot {
             source: "proxy".to_string(),
             state: if self.running.load(Ordering::Relaxed) { "running".to_string() } else { "idle".to_string() },
@@ -431,7 +497,7 @@ impl ProxyTelemetryState {
             last_autolearn_action,
             slot_exhaustions: self.slot_exhaustions.load(Ordering::Relaxed),
             tunnel_stats: TunnelStatsSnapshot { tx_packets: 0, tx_bytes: 0, rx_packets: 0, rx_bytes: 0 },
-            native_events,
+            native_events: drain_proxy_events().into_iter().map(NativeRuntimeEvent::from).collect(),
             latency_distributions: LatencyDistributions {
                 tcp_connect: self.tcp_connect_histogram.snapshot(),
                 tls_handshake: self.tls_handshake_histogram.snapshot(),
@@ -447,21 +513,23 @@ impl ProxyTelemetryState {
     }
 
     pub(crate) fn push_event(&self, source: &str, level: &str, message: String) {
-        self.log_line(source, level, &message);
-        self.push_event_internal(source, level, message);
+        self.emit_event(source, level, &message);
     }
+}
 
-    fn push_event_internal(&self, source: &str, level: &str, message: String) {
-        let mut guard = self.events.lock().unwrap_or_else(PoisonError::into_inner);
-        if guard.len() >= MAX_PROXY_EVENTS {
-            guard.pop_front();
+impl From<NativeEventRecord> for NativeRuntimeEvent {
+    fn from(value: NativeEventRecord) -> Self {
+        Self {
+            source: value.source,
+            level: value.level,
+            message: value.message,
+            created_at: value.created_at,
+            runtime_id: value.runtime_id,
+            mode: value.mode,
+            policy_signature: value.policy_signature,
+            fingerprint_hash: value.fingerprint_hash,
+            subsystem: value.subsystem,
         }
-        guard.push_back(NativeRuntimeEvent {
-            source: source.to_string(),
-            level: level.to_string(),
-            message,
-            created_at: now_ms(),
-        });
     }
 }
 
@@ -591,7 +659,7 @@ mod tests {
 
     #[test]
     fn proxy_telemetry_observer_updates_snapshot_and_drains_events() {
-        let state = Arc::new(ProxyTelemetryState::new());
+        let state = Arc::new(ProxyTelemetryState::new(None));
         let observer = ProxyTelemetryObserver { state: state.clone() };
         let listener = SocketAddr::from(([127, 0, 0, 1], 1080));
         let target = SocketAddr::from(([203, 0, 113, 10], 443));
@@ -641,7 +709,7 @@ mod tests {
 
     #[test]
     fn proxy_retry_pacing_telemetry_tracks_backoff_and_diversification_separately() {
-        let state = Arc::new(ProxyTelemetryState::new());
+        let state = Arc::new(ProxyTelemetryState::new(None));
         let observer = ProxyTelemetryObserver { state: state.clone() };
         let target = SocketAddr::from(([203, 0, 113, 10], 443));
 
@@ -664,7 +732,7 @@ mod tests {
 
     #[test]
     fn failure_classification_telemetry_records_strategy_execution_context() {
-        let state = Arc::new(ProxyTelemetryState::new());
+        let state = Arc::new(ProxyTelemetryState::new(None));
         let observer = ProxyTelemetryObserver { state: state.clone() };
         let target = SocketAddr::from(([203, 0, 113, 10], 443));
         let failure = ClassifiedFailure::new(
@@ -690,10 +758,10 @@ mod tests {
 
     #[test]
     fn proxy_telemetry_snapshots_match_goldens() {
-        let idle = ProxyTelemetryState::new().snapshot();
+        let idle = ProxyTelemetryState::new(None).snapshot();
         assert_proxy_snapshot_golden("proxy_idle", &idle);
 
-        let state = Arc::new(ProxyTelemetryState::new());
+        let state = Arc::new(ProxyTelemetryState::new(None));
         let observer = ProxyTelemetryObserver { state: state.clone() };
         let listener = SocketAddr::from(([127, 0, 0, 1], 1080));
         let target = SocketAddr::from(([203, 0, 113, 10], 443));
@@ -721,7 +789,7 @@ mod tests {
 
     #[test]
     fn clear_last_error_resets_field_via_arc_swap() {
-        let state = ProxyTelemetryState::new();
+        let state = ProxyTelemetryState::new(None);
         state.on_client_error("first failure".to_string());
         assert_eq!(state.snapshot().last_error.as_deref(), Some("first failure"));
 
@@ -731,7 +799,7 @@ mod tests {
 
     #[test]
     fn events_and_strings_are_independent_after_split() {
-        let state = ProxyTelemetryState::new();
+        let state = ProxyTelemetryState::new(None);
 
         // Push an event without updating any string field
         state.push_event("test", "info", "standalone event".to_string());
@@ -752,7 +820,7 @@ mod tests {
     fn concurrent_writers_do_not_lose_string_updates() {
         use std::sync::Barrier;
 
-        let state = Arc::new(ProxyTelemetryState::new());
+        let state = Arc::new(ProxyTelemetryState::new(None));
         let barrier = Arc::new(Barrier::new(2));
         let iterations = 500;
 
@@ -802,7 +870,7 @@ mod tests {
     fn snapshot_reads_do_not_block_under_concurrent_writes() {
         use std::sync::Barrier;
 
-        let state = Arc::new(ProxyTelemetryState::new());
+        let state = Arc::new(ProxyTelemetryState::new(None));
         let barrier = Arc::new(Barrier::new(2));
         let iterations = 500;
 
