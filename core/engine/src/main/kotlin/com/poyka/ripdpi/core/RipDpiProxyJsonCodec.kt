@@ -258,6 +258,7 @@ internal object RipDpiProxyJsonCodec {
         val tcpFastOpen: Boolean = false,
         val defaultTtl: Int = 0,
         val customTtl: Boolean = false,
+        val freezeDetectionEnabled: Boolean = false,
     )
 
     @Serializable
@@ -483,6 +484,7 @@ internal object RipDpiProxyJsonCodec {
                 tcpFastOpen = value.tcpFastOpen,
                 defaultTtl = value.defaultTtl,
                 customTtl = value.customTtl,
+                freezeDetectionEnabled = value.freezeDetectionEnabled,
             )
 
         fun toNative(value: RipDpiListenConfig): NativeListenConfig =
@@ -494,6 +496,7 @@ internal object RipDpiProxyJsonCodec {
                 tcpFastOpen = value.tcpFastOpen,
                 defaultTtl = value.defaultTtl,
                 customTtl = value.customTtl,
+                freezeDetectionEnabled = value.freezeDetectionEnabled,
             )
 
         fun toModel(value: NativeProtocolConfig): RipDpiProtocolConfig =

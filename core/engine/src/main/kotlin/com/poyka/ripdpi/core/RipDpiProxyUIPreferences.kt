@@ -65,6 +65,7 @@ data class RipDpiListenConfig(
     val tcpFastOpen: Boolean = false,
     val defaultTtl: Int = 0,
     val customTtl: Boolean = false,
+    val freezeDetectionEnabled: Boolean = false,
 )
 
 data class RipDpiProtocolConfig(
@@ -242,6 +243,7 @@ class RipDpiProxyUIPreferences(
                 tcpFastOpen = settings.tcpFastOpen,
                 defaultTtl = if (settings.customTtl) settings.defaultTtl else 0,
                 customTtl = settings.customTtl,
+                freezeDetectionEnabled = settings.freezeDetectionEnabled,
             )
 
         private fun buildProtocolConfig(settings: AppSettings): RipDpiProtocolConfig =

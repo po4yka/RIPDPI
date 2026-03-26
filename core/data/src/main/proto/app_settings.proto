@@ -166,4 +166,7 @@ message AppSettings {
   int32 entropy_padding_max = 126;            // Max padding bytes (default 256)
   int32 entropy_mode = 127;                   // 0=disabled 1=popcount 2=shannon 3=combined
   int32 shannon_entropy_target_permil = 128;  // 0 = disabled, 7920 = target 7.92 bits/byte
+
+  // Connection freeze detection (middlebox degradation mode)
+  bool freeze_detection_enabled = 129;       // Detect throttled/frozen connections
 }

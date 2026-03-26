@@ -8,8 +8,14 @@ use local_network_fixture::{
     FixtureConfig, FixtureEvent, FixtureFaultOutcome, FixtureFaultScope, FixtureFaultSpec, FixtureFaultTarget,
     FixtureStack,
 };
-use ripdpi_config::{DesyncGroup, QuicInitialMode, RuntimeConfig, TcpChainStep, TcpChainStepKind};
-use ripdpi_packets::{IS_HTTPS, IS_TCP, IS_UDP};
+#[cfg(any(target_os = "linux", target_os = "android"))]
+use ripdpi_config::TcpChainStep;
+#[cfg(any(target_os = "linux", target_os = "android"))]
+use ripdpi_config::TcpChainStepKind;
+use ripdpi_config::{DesyncGroup, QuicInitialMode, RuntimeConfig};
+#[cfg(any(target_os = "linux", target_os = "android"))]
+use ripdpi_packets::IS_HTTPS;
+use ripdpi_packets::{IS_TCP, IS_UDP};
 use ripdpi_proxy_config::{runtime_config_from_ui, ProxyUiConfig};
 use ripdpi_runtime::RuntimeTelemetrySink;
 use std::io::{Read, Write};
@@ -695,9 +701,10 @@ fn _assert_fixture_event_contains(events: &[FixtureEvent], service: &str, detail
     assert!(events.iter().any(|event| event.service == service && event.detail.contains(detail)));
 }
 
-// ── TCP desync step round-trip tests ──
+// ── TCP desync step round-trip tests (Linux-only: desync uses AwaitWritable/BPF) ──
 
 #[test]
+#[cfg(any(target_os = "linux", target_os = "android"))]
 fn tcp_split_desync_round_trip_delivers_payload() {
     let _guard = test_guard();
     let fixture = FixtureStack::start(ephemeral_fixture_config()).expect("start fixture");
@@ -719,6 +726,7 @@ fn tcp_split_desync_round_trip_delivers_payload() {
 }
 
 #[test]
+#[cfg(any(target_os = "linux", target_os = "android"))]
 fn tcp_disorder_desync_round_trip_delivers_payload() {
     let _guard = test_guard();
     let fixture = FixtureStack::start(ephemeral_fixture_config()).expect("start fixture");
@@ -740,6 +748,7 @@ fn tcp_disorder_desync_round_trip_delivers_payload() {
 }
 
 #[test]
+#[cfg(any(target_os = "linux", target_os = "android"))]
 fn tcp_oob_desync_round_trip_delivers_payload() {
     let _guard = test_guard();
     let fixture = FixtureStack::start(ephemeral_fixture_config()).expect("start fixture");
@@ -760,9 +769,10 @@ fn tcp_oob_desync_round_trip_delivers_payload() {
     drop(proxy);
 }
 
-// ── TLS with desync round-trip tests ──
+// ── TLS with desync round-trip tests (Linux-only) ──
 
 #[test]
+#[cfg(any(target_os = "linux", target_os = "android"))]
 fn tls_round_trip_with_split_desync_completes_handshake() {
     let _guard = test_guard();
     let fixture = FixtureStack::start(ephemeral_fixture_config()).expect("start fixture");
@@ -788,6 +798,7 @@ fn tls_round_trip_with_split_desync_completes_handshake() {
 }
 
 #[test]
+#[cfg(any(target_os = "linux", target_os = "android"))]
 fn tls_round_trip_with_disorder_desync_completes_handshake() {
     let _guard = test_guard();
     let fixture = FixtureStack::start(ephemeral_fixture_config()).expect("start fixture");
@@ -940,9 +951,10 @@ fn route_advancement_fires_on_tcp_reset_and_second_group_handles_traffic() {
     assert!(events.iter().any(|e| e.service == "tcp_echo" && e.detail.contains("TcpReset")));
 }
 
-// ── Multiple desync steps in chain ──
+// ── Multiple desync steps in chain (Linux-only) ──
 
 #[test]
+#[cfg(any(target_os = "linux", target_os = "android"))]
 fn tcp_chain_split_then_disorder_delivers_payload() {
     let _guard = test_guard();
     let fixture = FixtureStack::start(ephemeral_fixture_config()).expect("start fixture");
@@ -960,9 +972,10 @@ fn tcp_chain_split_then_disorder_delivers_payload() {
     drop(proxy);
 }
 
-// ── Window clamp + desync combination ──
+// ── Window clamp + desync combination (Linux-only) ──
 
 #[test]
+#[cfg(any(target_os = "linux", target_os = "android"))]
 fn window_clamp_with_split_desync_delivers_payload() {
     let _guard = test_guard();
     let fixture = FixtureStack::start(ephemeral_fixture_config()).expect("start fixture");
@@ -980,9 +993,10 @@ fn window_clamp_with_split_desync_delivers_payload() {
     drop(proxy);
 }
 
-// ── Drop SACK + strip timestamps combination ──
+// ── Drop SACK + strip timestamps combination (Linux-only: BPF filters) ──
 
 #[test]
+#[cfg(any(target_os = "linux", target_os = "android"))]
 fn drop_sack_and_strip_timestamps_round_trip_succeeds() {
     let _guard = test_guard();
     let fixture = FixtureStack::start(ephemeral_fixture_config()).expect("start fixture");
