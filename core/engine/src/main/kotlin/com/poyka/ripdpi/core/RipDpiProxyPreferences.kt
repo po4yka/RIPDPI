@@ -28,14 +28,16 @@ class RipDpiProxyJsonPreferences(
 
 class RipDpiProxyCmdPreferences(
     val args: Array<String>,
+    private val hostAutolearnStorePath: String? = null,
     val runtimeContext: RipDpiRuntimeContext? = null,
 ) : RipDpiProxyPreferences {
     constructor(cmd: String) : this(cmdToArgs(cmd))
 
     constructor(
         cmd: String,
+        hostAutolearnStorePath: String?,
         runtimeContext: RipDpiRuntimeContext?,
-    ) : this(cmdToArgs(cmd), runtimeContext)
+    ) : this(cmdToArgs(cmd), hostAutolearnStorePath, runtimeContext)
 
     companion object {
         private fun cmdToArgs(cmd: String): Array<String> {
@@ -48,6 +50,7 @@ class RipDpiProxyCmdPreferences(
     override fun toNativeConfigJson(): String =
         RipDpiProxyJsonCodec.encodeCommandLinePreferences(
             args = args.toList(),
+            hostAutolearnStorePath = hostAutolearnStorePath,
             runtimeContext = runtimeContext,
         )
 }

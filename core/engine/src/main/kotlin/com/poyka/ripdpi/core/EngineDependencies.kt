@@ -25,14 +25,13 @@ class DefaultProxyPreferencesResolver
     ) : ProxyPreferencesResolver {
         override suspend fun resolve(): RipDpiProxyPreferences {
             val settings = appSettingsRepository.snapshot()
+            val hostAutolearnStorePath = resolveHostAutolearnStorePath(context)
             return if (settings.enableCmdSettings) {
-                RipDpiProxyCmdPreferences(settings.cmdArgs)
+                RipDpiProxyCmdPreferences(settings.cmdArgs, hostAutolearnStorePath, runtimeContext = null)
             } else {
                 RipDpiProxyUIPreferences.fromSettings(
                     settings,
-                    settings
-                        .takeIf { it.hostAutolearnEnabled }
-                        ?.let { resolveHostAutolearnStorePath(context) },
+                    hostAutolearnStorePath,
                 )
             }
         }

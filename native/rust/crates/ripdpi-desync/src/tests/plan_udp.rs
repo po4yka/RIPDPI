@@ -157,6 +157,104 @@ fn plan_udp_falls_back_to_raw_fake_payload_for_non_quic_input() {
 }
 
 #[test]
+fn plan_udp_dummy_prepend_emits_random_non_quic_datagrams() {
+    let mut group = DesyncGroup::new(0);
+    group.actions.ttl = Some(6);
+    group.actions.udp_chain =
+        vec![UdpChainStep { kind: UdpChainStepKind::DummyPrepend, count: 2, activation_filter: None }];
+
+    let actions = plan_udp(&group, b"payload", 64, udp_context(b"payload"));
+
+    assert_eq!(actions.len(), 6);
+    assert_eq!(actions[0], DesyncAction::SetTtl(6));
+    let DesyncAction::Write(first) = &actions[1] else {
+        panic!("expected first dummy prepend packet");
+    };
+    let DesyncAction::Write(second) = &actions[2] else {
+        panic!("expected second dummy prepend packet");
+    };
+    assert_eq!(first.len(), 64);
+    assert_eq!(second.len(), 64);
+    assert_eq!(first[0] & 0x80, 0);
+    assert_eq!(second[0] & 0x80, 0);
+    assert_ne!(first, second, "dummy prepend packets should be independently randomized");
+    assert_eq!(actions[3], DesyncAction::RestoreDefaultTtl);
+    assert_eq!(actions[4], DesyncAction::SetTtl(64));
+    assert_eq!(actions[5], DesyncAction::Write(b"payload".to_vec()));
+}
+
+#[test]
+fn plan_udp_quic_sni_split_emits_tampered_quic_initials() {
+    let mut group = DesyncGroup::new(0);
+    group.actions.udp_chain =
+        vec![UdpChainStep { kind: UdpChainStepKind::QuicSniSplit, count: 2, activation_filter: None }];
+    let payload = build_realistic_quic_initial(QUIC_V2_VERSION, Some("docs.example.test")).expect("input quic");
+    let parsed = parse_quic_initial(&payload).expect("parse input quic");
+    let expected = tamper_quic_initial_split_sni(&payload, parsed.tls_info.host_start).expect("tamper split");
+
+    let actions = plan_udp(&group, &payload, 64, udp_context(&payload));
+
+    assert_eq!(
+        actions,
+        vec![
+            DesyncAction::SetTtl(8),
+            DesyncAction::Write(expected.clone()),
+            DesyncAction::Write(expected),
+            DesyncAction::RestoreDefaultTtl,
+            DesyncAction::SetTtl(64),
+            DesyncAction::Write(payload.clone()),
+        ]
+    );
+}
+
+#[test]
+fn plan_udp_quic_fake_version_emits_tampered_long_headers() {
+    let mut group = DesyncGroup::new(0);
+    group.actions.quic_fake_version = 0x1a2b_3c4d;
+    group.actions.udp_chain =
+        vec![UdpChainStep { kind: UdpChainStepKind::QuicFakeVersion, count: 2, activation_filter: None }];
+    let payload = build_realistic_quic_initial(QUIC_V2_VERSION, Some("docs.example.test")).expect("input quic");
+    let expected = tamper_quic_version(&payload, group.actions.quic_fake_version).expect("tamper version");
+
+    let actions = plan_udp(&group, &payload, 64, udp_context(&payload));
+
+    assert_eq!(
+        actions,
+        vec![
+            DesyncAction::SetTtl(8),
+            DesyncAction::Write(expected.clone()),
+            DesyncAction::Write(expected),
+            DesyncAction::RestoreDefaultTtl,
+            DesyncAction::SetTtl(64),
+            DesyncAction::Write(payload.clone()),
+        ]
+    );
+}
+
+#[test]
+fn plan_udp_skips_quic_specific_steps_when_payload_is_not_quic() {
+    let mut group = DesyncGroup::new(0);
+    group.actions.udp_chain = vec![
+        UdpChainStep { kind: UdpChainStepKind::DummyPrepend, count: 1, activation_filter: None },
+        UdpChainStep { kind: UdpChainStepKind::QuicSniSplit, count: 1, activation_filter: None },
+        UdpChainStep { kind: UdpChainStepKind::QuicFakeVersion, count: 1, activation_filter: None },
+    ];
+
+    let actions = plan_udp(&group, b"payload", 64, udp_context(b"payload"));
+
+    assert_eq!(actions.len(), 5);
+    assert_eq!(actions[0], DesyncAction::SetTtl(8));
+    let DesyncAction::Write(dummy) = &actions[1] else {
+        panic!("expected dummy prepend packet");
+    };
+    assert_eq!(dummy.len(), 64);
+    assert_eq!(dummy[0] & 0x80, 0);
+    assert_eq!(actions[2], DesyncAction::RestoreDefaultTtl);
+    assert_eq!(actions[3], DesyncAction::SetTtl(64));
+    assert_eq!(actions[4], DesyncAction::Write(b"payload".to_vec()));
+}
+
+#[test]
 fn plan_udp_uses_selected_udp_profile_when_no_raw_fake_is_set() {
     let mut group = DesyncGroup::new(0);
     group.actions.udp_fake_profile = UdpFakeProfile::DnsQuery;

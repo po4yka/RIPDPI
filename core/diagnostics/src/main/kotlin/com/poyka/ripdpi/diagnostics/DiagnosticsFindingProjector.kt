@@ -100,6 +100,7 @@ class DiagnosticsFindingProjector
                 addTransportFailureDiagnosis(observation, diagnoses, seen)
                 addCertificateDiagnosis(observation, diagnoses, seen)
                 addHttpBlockpageDiagnosis(observation, diagnoses, seen)
+                addEchOnlyDiagnosis(observation, diagnoses, seen)
                 addSniInterferenceDiagnosis(observation, quic, diagnoses, seen)
             }
         }
@@ -172,6 +173,34 @@ class DiagnosticsFindingProjector
                         summary = "HTTP response matched a blockpage",
                         target = observation.host,
                         evidence = listOf(observation.host),
+                    ),
+                )
+            }
+        }
+
+        private fun addEchOnlyDiagnosis(
+            observation: DomainObservationFact,
+            diagnoses: MutableList<Diagnosis>,
+            seen: MutableSet<String>,
+        ) {
+            if (
+                observation.tlsEchStatus == TlsProbeStatus.OK &&
+                observation.tls13Status != TlsProbeStatus.OK &&
+                observation.tls12Status != TlsProbeStatus.OK
+            ) {
+                pushDiagnosis(
+                    diagnoses,
+                    seen,
+                    Diagnosis(
+                        code = "tls_ech_only",
+                        summary = "Plain TLS is blocked, but ECH succeeds",
+                        target = observation.host,
+                        evidence =
+                            listOfNotNull(
+                                observation.host,
+                                observation.tlsEchVersion,
+                                observation.tlsEchError,
+                            ),
                     ),
                 )
             }

@@ -204,7 +204,7 @@ fn probe_outcome_bucket(probe_type: &str, path_mode: &ScanPathMode, outcome: &st
         },
         "domain_reachability" => match outcome {
             "tls_ok" => ProbeOutcomeBucket::Healthy,
-            "tls_version_split" | "http_ok" => ProbeOutcomeBucket::Attention,
+            "tls_version_split" | "tls_ech_only" | "http_ok" => ProbeOutcomeBucket::Attention,
             "tls_cert_invalid" | "http_blockpage" | "unreachable" => ProbeOutcomeBucket::Failed,
             _ => legacy_outcome_bucket(outcome),
         },
@@ -250,7 +250,7 @@ fn probe_outcome_bucket(probe_type: &str, path_mode: &ScanPathMode, outcome: &st
         },
         "strategy_https" => match outcome {
             "tls_ok" => ProbeOutcomeBucket::Healthy,
-            "tls_version_split" => ProbeOutcomeBucket::Attention,
+            "tls_version_split" | "tls_ech_only" => ProbeOutcomeBucket::Attention,
             "tls_cert_invalid" | "tls_handshake_failed" => ProbeOutcomeBucket::Failed,
             _ => legacy_outcome_bucket(outcome),
         },

@@ -8,9 +8,8 @@
 mod support;
 
 use local_network_fixture::{FixtureConfig, FixtureStack};
-use ripdpi_config::{DesyncGroup, UdpChainStep, UdpChainStepKind};
-use ripdpi_desync::{plan_udp, ActivationContext, ActivationTransport, DesyncAction};
-use ripdpi_packets::IS_UDP;
+use ripdpi_config::{UdpChainStep, UdpChainStepKind};
+use ripdpi_packets::{parse_quic_initial, IS_UDP};
 use std::sync::{Mutex, MutexGuard, OnceLock, PoisonError};
 use std::time::Duration;
 
@@ -66,17 +65,17 @@ fn udp_fake_burst_config() -> ripdpi_config::RuntimeConfig {
     config
 }
 
-fn test_activation_context(payload_size: usize) -> ActivationContext {
-    ActivationContext {
-        round: 1,
-        payload_size: payload_size as i64,
-        stream_start: 0,
-        stream_end: payload_size as i64,
-        transport: ActivationTransport::Udp,
-        tcp_segment_hint: None,
-        resolved_fake_ttl: None,
-        adaptive: Default::default(),
-    }
+fn udp_quic_chain_config() -> ripdpi_config::RuntimeConfig {
+    let mut config = ephemeral_proxy_config(&["--ip", "127.0.0.1"]);
+    config.groups[0].matches.proto = IS_UDP;
+    config.groups[0].actions.ttl = Some(8);
+    config.groups[0].actions.quic_fake_version = 0x1a2b_3c4d;
+    config.groups[0].actions.udp_chain = vec![
+        UdpChainStep { kind: UdpChainStepKind::DummyPrepend, count: 1, activation_filter: None },
+        UdpChainStep { kind: UdpChainStepKind::QuicSniSplit, count: 1, activation_filter: None },
+        UdpChainStep { kind: UdpChainStepKind::QuicFakeVersion, count: 1, activation_filter: None },
+    ];
+    config
 }
 
 // ── Layer 1: Application-level verification ──
@@ -154,33 +153,38 @@ fn udp_fake_burst_packets_have_quic_long_header() {
     assert_eq!(packets.last().unwrap(), &real_payload, "last packet should be the real QUIC Initial");
 }
 
-/// Sentinel test: verifies that `plan_udp()` skips unimplemented QUIC chain steps.
-///
-/// If any of these assertions fail, it means the feature has been implemented
-/// and proper wire-level E2E tests should be added.
 #[test]
-fn udp_chain_skips_unimplemented_quic_steps() {
-    let quic_payload = rust_packet_seeds::quic_initial_with_host(0x0000_0001, "sentinel.example.test");
-    let context = test_activation_context(quic_payload.len());
-
-    for kind in [UdpChainStepKind::QuicSniSplit, UdpChainStepKind::QuicFakeVersion, UdpChainStepKind::DummyPrepend] {
-        let mut group = DesyncGroup::new(0);
-        group.matches.proto = IS_UDP;
-        group.actions.udp_chain.push(UdpChainStep { kind, count: 1, activation_filter: None });
-
-        let actions = plan_udp(&group, &quic_payload, 64, context);
-
-        // Should produce only Write(real_payload) since these steps are skipped
-        let write_actions: Vec<_> = actions.iter().filter(|a| matches!(a, DesyncAction::Write(_))).collect();
-        assert_eq!(
-            write_actions.len(),
-            1,
-            "{kind:?} is NOT wired in plan_udp yet; if this fails, add proper E2E tests for it"
-        );
-        if let DesyncAction::Write(data) = &write_actions[0] {
-            assert_eq!(data, &quic_payload, "{kind:?}: the single Write should contain the original payload");
-        }
+fn udp_quic_chain_steps_emit_dummy_split_and_fake_version_packets() {
+    if !wire_e2e_enabled() {
+        eprintln!("skipping: RIPDPI_RUN_WIRE_E2E!=1");
+        return;
     }
+    let _guard = test_guard();
+    let recording = RecordingUdpServer::start(WIRE_UDP_ECHO_PORT).expect("start recording server");
+
+    let config = udp_quic_chain_config();
+    let proxy = start_proxy(config, None);
+    let (_control, relay) = socks_udp_associate(proxy.port);
+    let udp = udp_proxy_client();
+
+    let real_payload = rust_packet_seeds::quic_initial_with_host(0x0000_0001, "wire.example.test");
+    let echoed = udp_proxy_roundtrip_with_socket(&udp, relay, recording.port(), &real_payload);
+    assert_eq!(echoed, real_payload, "real payload should echo back");
+
+    std::thread::sleep(Duration::from_millis(200));
+    drop(proxy);
+
+    let packets = recording.snapshot();
+    assert!(packets.len() >= 4, "expected >= 4 packets (3 prelude + 1 real), got {}", packets.len());
+
+    assert_eq!(packets[0].len(), 64);
+    assert_eq!(packets[0][0] & 0x80, 0, "dummy prepend should not look like QUIC long header");
+
+    let split = parse_quic_initial(&packets[1]).expect("parse split SNI prelude");
+    assert_eq!(split.host(), b"wire.example.test");
+
+    assert_eq!(&packets[2][1..5], &0x1a2b_3c4du32.to_be_bytes());
+    assert_eq!(packets.last().unwrap(), &real_payload, "last packet should be the real QUIC Initial");
 }
 
 // ── Layer 2: AF_PACKET capture (Linux + CAP_NET_RAW) ──

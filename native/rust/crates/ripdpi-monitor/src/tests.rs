@@ -386,6 +386,7 @@ fn strategy_probe_request_rejects_command_line_config_payload() {
         base_proxy_config_json: Some(
             serde_json::to_string(&ProxyConfigPayload::CommandLine {
                 args: vec!["ripdpi".to_string(), "--split".to_string()],
+                host_autolearn_store_path: None,
                 runtime_context: None,
             })
             .expect("serialize command line payload"),

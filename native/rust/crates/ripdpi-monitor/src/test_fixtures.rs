@@ -490,7 +490,9 @@ impl TlsHttpServer {
             TlsMode::Single(name) => {
                 let (cert, key) = make_cert(&[name]);
                 Arc::new(
-                    ServerConfig::builder()
+                    ServerConfig::builder_with_provider(rustls::crypto::ring::default_provider().into())
+                        .with_safe_default_protocol_versions()
+                        .expect("ring provider supports default TLS versions")
                         .with_no_client_auth()
                         .with_single_cert(vec![cert], key)
                         .expect("single cert config"),

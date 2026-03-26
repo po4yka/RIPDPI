@@ -144,6 +144,15 @@ pub(crate) fn run_domain_probe(
         TlsClientProfile::Tls12Only,
         tls_verifier,
     );
+    let tls_ech = try_tls_handshake(
+        &connect_target,
+        https_port,
+        transport,
+        &target.host,
+        true,
+        TlsClientProfile::Tls13WithEch,
+        tls_verifier,
+    );
     let http = try_http_request(&connect_target, http_port, transport, &target.host, &target.http_path, false);
     let tls_signal = classify_tls_signal(&tls13, &tls12);
     let preferred_tls = preferred_tls_observation(&tls13, &tls12);
@@ -154,6 +163,8 @@ pub(crate) fn run_domain_probe(
         "tls_ok".to_string()
     } else if tls13.status == "tls_ok" || tls12.status == "tls_ok" {
         "tls_version_split".to_string()
+    } else if tls_ech.status == "tls_ok" {
+        "tls_ech_only".to_string()
     } else if is_blockpage(&http) {
         "http_blockpage".to_string()
     } else if http.status == "http_ok" {
@@ -190,6 +201,15 @@ pub(crate) fn run_domain_probe(
                 value: tls12.version.unwrap_or_else(|| "unknown".to_string()),
             },
             ProbeDetail { key: "tls12Error".to_string(), value: tls12.error.unwrap_or_else(|| "none".to_string()) },
+            ProbeDetail { key: "tlsEchStatus".to_string(), value: tls_ech.status },
+            ProbeDetail {
+                key: "tlsEchVersion".to_string(),
+                value: tls_ech.version.unwrap_or_else(|| "unknown".to_string()),
+            },
+            ProbeDetail {
+                key: "tlsEchError".to_string(),
+                value: tls_ech.error.unwrap_or_else(|| "none".to_string()),
+            },
             ProbeDetail { key: "httpStatus".to_string(), value: http.status.clone() },
             ProbeDetail { key: "httpResponse".to_string(), value: describe_http_observation(&http) },
         ],

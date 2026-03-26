@@ -10,11 +10,12 @@ pub(crate) fn summarize_probe_event(probe: &ProbeResult) -> String {
             probe_detail_value(probe, "dohAddresses"),
         ),
         "domain_reachability" => format!(
-            "{} -> {} (tls13={}, tls12={}, http={})",
+            "{} -> {} (tls13={}, tls12={}, ech={}, http={})",
             probe.target,
             probe.outcome,
             probe_detail_value(probe, "tls13Status"),
             probe_detail_value(probe, "tls12Status"),
+            probe_detail_value(probe, "tlsEchStatus"),
             probe_detail_value(probe, "httpStatus"),
         ),
         "tcp_fat_header" => format!(

@@ -115,6 +115,23 @@ pub(crate) fn classify_connectivity_diagnoses(request: &ScanRequest, results: &[
     }
 
     for result in results.iter().filter(|result| result.probe_type == "domain_reachability") {
+        if result.outcome == "tls_ech_only" {
+            push_diagnosis(
+                &mut diagnoses,
+                &mut seen,
+                Diagnosis {
+                    code: "tls_ech_only".to_string(),
+                    summary: format!("Plain TLS is blocked for {}, but ECH succeeds", result.target),
+                    severity: "warning".to_string(),
+                    target: Some(result.target.clone()),
+                    evidence: diagnosis_evidence(
+                        result,
+                        &["tls13Status", "tls12Status", "tlsEchStatus", "tlsEchVersion", "tlsEchError"],
+                    ),
+                },
+            );
+        }
+
         if result.outcome == "tls_cert_invalid" {
             push_diagnosis(
                 &mut diagnoses,

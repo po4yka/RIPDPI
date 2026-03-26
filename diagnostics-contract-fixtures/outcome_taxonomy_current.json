@@ -19,6 +19,7 @@
 
     { "probeType": "domain_reachability", "pathMode": "RAW_PATH", "outcome": "tls_ok", "bucket": "Healthy", "uiTone": "Positive", "eventLevel": "info", "healthyEnoughForSummary": true },
     { "probeType": "domain_reachability", "pathMode": "RAW_PATH", "outcome": "tls_version_split", "bucket": "Attention", "uiTone": "Warning", "eventLevel": "warn", "healthyEnoughForSummary": false },
+    { "probeType": "domain_reachability", "pathMode": "RAW_PATH", "outcome": "tls_ech_only", "bucket": "Attention", "uiTone": "Warning", "eventLevel": "warn", "healthyEnoughForSummary": false },
     { "probeType": "domain_reachability", "pathMode": "RAW_PATH", "outcome": "tls_cert_invalid", "bucket": "Failed", "uiTone": "Negative", "eventLevel": "error", "healthyEnoughForSummary": false },
     { "probeType": "domain_reachability", "pathMode": "RAW_PATH", "outcome": "http_blockpage", "bucket": "Failed", "uiTone": "Negative", "eventLevel": "error", "healthyEnoughForSummary": false },
     { "probeType": "domain_reachability", "pathMode": "RAW_PATH", "outcome": "http_ok", "bucket": "Attention", "uiTone": "Warning", "eventLevel": "warn", "healthyEnoughForSummary": false },
@@ -60,6 +61,7 @@
 
     { "probeType": "strategy_https", "pathMode": "RAW_PATH", "outcome": "tls_ok", "bucket": "Healthy", "uiTone": "Positive", "eventLevel": "info", "healthyEnoughForSummary": true },
     { "probeType": "strategy_https", "pathMode": "RAW_PATH", "outcome": "tls_version_split", "bucket": "Attention", "uiTone": "Warning", "eventLevel": "warn", "healthyEnoughForSummary": false },
+    { "probeType": "strategy_https", "pathMode": "RAW_PATH", "outcome": "tls_ech_only", "bucket": "Attention", "uiTone": "Warning", "eventLevel": "warn", "healthyEnoughForSummary": false },
     { "probeType": "strategy_https", "pathMode": "RAW_PATH", "outcome": "tls_cert_invalid", "bucket": "Failed", "uiTone": "Negative", "eventLevel": "error", "healthyEnoughForSummary": false },
     { "probeType": "strategy_https", "pathMode": "RAW_PATH", "outcome": "tls_handshake_failed", "bucket": "Failed", "uiTone": "Negative", "eventLevel": "error", "healthyEnoughForSummary": false },
 

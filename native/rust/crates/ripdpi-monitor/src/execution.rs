@@ -502,6 +502,15 @@ pub(crate) fn run_https_strategy_probe(
         TlsClientProfile::Tls12Only,
         tls_verifier,
     );
+    let tls_ech = try_tls_handshake(
+        &domain_connect_target(target),
+        https_port,
+        transport,
+        &target.host,
+        true,
+        TlsClientProfile::Tls13WithEch,
+        tls_verifier,
+    );
     let latency_ms = now_ms().saturating_sub(started);
     let outcome = if tls13.certificate_anomaly || tls12.certificate_anomaly {
         "tls_cert_invalid".to_string()
@@ -509,6 +518,8 @@ pub(crate) fn run_https_strategy_probe(
         "tls_ok".to_string()
     } else if tls13.status == "tls_ok" || tls12.status == "tls_ok" {
         "tls_version_split".to_string()
+    } else if tls_ech.status == "tls_ok" {
+        "tls_ech_only".to_string()
     } else {
         "tls_handshake_failed".to_string()
     };
@@ -525,9 +536,22 @@ pub(crate) fn run_https_strategy_probe(
                 ProbeDetail { key: "latencyMs".to_string(), value: latency_ms.to_string() },
                 ProbeDetail { key: "tls13Status".to_string(), value: tls13.status },
                 ProbeDetail { key: "tls12Status".to_string(), value: tls12.status },
+                ProbeDetail { key: "tlsEchStatus".to_string(), value: tls_ech.status },
+                ProbeDetail {
+                    key: "tlsEchVersion".to_string(),
+                    value: tls_ech.version.unwrap_or_else(|| "unknown".to_string()),
+                },
+                ProbeDetail {
+                    key: "tlsEchError".to_string(),
+                    value: tls_ech.error.clone().unwrap_or_else(|| "none".to_string()),
+                },
                 ProbeDetail {
                     key: "tlsError".to_string(),
-                    value: tls13.error.or(tls12.error).unwrap_or_else(|| "none".to_string()),
+                    value: tls13
+                        .error
+                        .or(tls12.error)
+                        .or(tls_ech.error)
+                        .unwrap_or_else(|| "none".to_string()),
                 },
             ],
         },

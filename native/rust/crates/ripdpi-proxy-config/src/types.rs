@@ -30,6 +30,8 @@ pub enum ProxyConfigPayload {
     CommandLine {
         args: Vec<String>,
         #[serde(default)]
+        host_autolearn_store_path: Option<String>,
+        #[serde(default)]
         runtime_context: Option<ProxyRuntimeContext>,
     },
     Ui {

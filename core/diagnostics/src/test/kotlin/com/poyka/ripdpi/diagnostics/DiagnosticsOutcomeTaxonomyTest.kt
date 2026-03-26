@@ -35,6 +35,27 @@ class DiagnosticsOutcomeTaxonomyTest {
     }
 
     @Test
+    fun `tls ech only outcomes map to attention bucket`() {
+        val domainClassification =
+            DiagnosticsOutcomeTaxonomy.classifyProbeOutcome(
+                probeType = "domain_reachability",
+                pathMode = ScanPathMode.RAW_PATH,
+                outcome = "tls_ech_only",
+            )
+        val strategyClassification =
+            DiagnosticsOutcomeTaxonomy.classifyProbeOutcome(
+                probeType = "strategy_https",
+                pathMode = ScanPathMode.RAW_PATH,
+                outcome = "tls_ech_only",
+            )
+
+        assertEquals(DiagnosticsOutcomeBucket.Attention, domainClassification.bucket)
+        assertEquals(DiagnosticsOutcomeBucket.Attention, strategyClassification.bucket)
+        assertEquals(DiagnosticsOutcomeTone.Warning, domainClassification.uiTone)
+        assertEquals(DiagnosticsOutcomeTone.Warning, strategyClassification.uiTone)
+    }
+
+    @Test
     fun `approach summaries require all healthy results for validated success`() {
         val sessions =
             listOf(

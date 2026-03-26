@@ -173,6 +173,7 @@ fn legacy_flat_ui_json_is_rejected() {
 fn command_line_payload_requires_runnable_config() {
     let err = runtime_config_from_payload(ProxyConfigPayload::CommandLine {
         args: vec!["ripdpi".to_string(), "--help".to_string()],
+        host_autolearn_store_path: None,
         runtime_context: None,
     })
     .expect_err("help should not produce runnable config");

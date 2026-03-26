@@ -33,15 +33,18 @@ pub(super) struct RuntimeState {
 pub(super) struct RuntimeCleanup {
     pub(super) config: Arc<RuntimeConfig>,
     pub(super) cache: Arc<Mutex<RuntimePolicy>>,
+    pub(super) adaptive_tuning: Arc<Mutex<AdaptivePlannerResolver>>,
 }
 
 impl Drop for RuntimeCleanup {
     fn drop(&mut self) {
-        let Ok(mut cache) = self.cache.lock() else {
-            return;
-        };
-        let _ = cache.flush_host_store(&self.config);
-        let _ = cache.dump_stdout_groups(&self.config, std::io::stdout());
+        if let Ok(mut cache) = self.cache.lock() {
+            let _ = cache.flush_host_store(&self.config);
+            let _ = cache.dump_stdout_groups(&self.config, std::io::stdout());
+        }
+        if let Ok(mut adaptive_tuning) = self.adaptive_tuning.lock() {
+            let _ = adaptive_tuning.flush_store(self.config.as_ref());
+        }
     }
 }
 

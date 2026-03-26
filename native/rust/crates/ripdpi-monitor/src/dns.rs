@@ -1,5 +1,8 @@
 use std::net::{IpAddr, Ipv4Addr};
 
+use hickory_proto::op::Message;
+use hickory_proto::rr::RData;
+use hickory_proto::rr::rdata::svcb::SvcParamValue;
 use ripdpi_dns_resolver::{
     extract_ip_answers, EncryptedDnsEndpoint, EncryptedDnsProtocol, EncryptedDnsResolver, EncryptedDnsTransport,
 };
@@ -7,6 +10,9 @@ use ripdpi_dns_resolver::{
 use crate::transport::{relay_udp_direct, relay_udp_via_socks5, resolve_first_socket_addr, TransportConfig};
 use crate::types::DnsTarget;
 use crate::util::{now_ms, DEFAULT_DOH_BOOTSTRAP_IPS, DEFAULT_DOH_HOST, DEFAULT_DOH_PORT, DEFAULT_DOH_URL};
+
+const DNS_RECORD_TYPE_A: u16 = 1;
+const DNS_RECORD_TYPE_HTTPS: u16 = 65;
 
 pub(crate) fn encrypted_dns_protocol(value: Option<&str>) -> EncryptedDnsProtocol {
     match value.unwrap_or_default().trim().to_ascii_lowercase().as_str() {
@@ -83,7 +89,7 @@ pub(crate) fn encrypted_dns_endpoint_for_target(
 
 pub(crate) fn resolve_via_udp(domain: &str, server: &str, transport: &TransportConfig) -> Result<Vec<String>, String> {
     let query_id = ((now_ms() & 0xffff) as u16).max(1);
-    let packet = build_dns_query(domain, query_id)?;
+    let packet = build_dns_query_with_type(domain, query_id, DNS_RECORD_TYPE_A)?;
     let response = match transport {
         TransportConfig::Direct => {
             let server_addr = resolve_first_socket_addr(server)?;
@@ -102,22 +108,45 @@ pub(crate) fn resolve_via_encrypted_dns(
     endpoint: EncryptedDnsEndpoint,
     transport: &TransportConfig,
 ) -> Result<Vec<String>, String> {
+    let response = exchange_encrypted_dns_query(domain, DNS_RECORD_TYPE_A, endpoint, transport)?;
+    extract_ip_answers(&response).map_err(|err| err.to_string())
+}
+
+pub(crate) fn resolve_https_ech_configs_via_encrypted_dns(
+    domain: &str,
+    transport: &TransportConfig,
+) -> Result<Option<Vec<u8>>, String> {
+    let endpoint = default_encrypted_dns_endpoint();
+    let response = exchange_encrypted_dns_query(domain, DNS_RECORD_TYPE_HTTPS, endpoint, transport)?;
+    extract_ech_config_list_from_https_response(&response)
+}
+
+pub(crate) fn exchange_encrypted_dns_query(
+    domain: &str,
+    record_type: u16,
+    endpoint: EncryptedDnsEndpoint,
+    transport: &TransportConfig,
+) -> Result<Vec<u8>, String> {
     let transport = match transport {
         TransportConfig::Direct => EncryptedDnsTransport::Direct,
         TransportConfig::Socks5 { host, port } => EncryptedDnsTransport::Socks5 { host: host.clone(), port: *port },
     };
     let resolver = EncryptedDnsResolver::new(endpoint, transport).map_err(|err| err.to_string())?;
     let query_id = ((now_ms() & 0xffff) as u16).max(1);
-    let packet = build_dns_query(domain, query_id)?;
-    let response = resolver.exchange_blocking(&packet).map_err(|err| err.to_string())?;
-    extract_ip_answers(&response).map_err(|err| err.to_string())
+    let packet = build_dns_query_with_type(domain, query_id, record_type)?;
+    resolver.exchange_blocking(&packet).map_err(|err| err.to_string())
 }
 
 pub(crate) fn parse_bootstrap_ips(values: &[String]) -> Result<Vec<IpAddr>, String> {
     values.iter().map(|value| value.parse::<IpAddr>().map_err(|err| err.to_string())).collect()
 }
 
+#[cfg(test)]
 pub(crate) fn build_dns_query(domain: &str, query_id: u16) -> Result<Vec<u8>, String> {
+    build_dns_query_with_type(domain, query_id, DNS_RECORD_TYPE_A)
+}
+
+pub(crate) fn build_dns_query_with_type(domain: &str, query_id: u16, record_type: u16) -> Result<Vec<u8>, String> {
     let mut packet = Vec::with_capacity(512);
     packet.extend(query_id.to_be_bytes());
     packet.extend(0x0100u16.to_be_bytes());
@@ -133,9 +162,44 @@ pub(crate) fn build_dns_query(domain: &str, query_id: u16) -> Result<Vec<u8>, St
         packet.extend(label.as_bytes());
     }
     packet.push(0);
-    packet.extend(1u16.to_be_bytes());
+    packet.extend(record_type.to_be_bytes());
     packet.extend(1u16.to_be_bytes());
     Ok(packet)
+}
+
+pub(crate) fn extract_ech_config_list_from_https_response(packet: &[u8]) -> Result<Option<Vec<u8>>, String> {
+    let message = Message::from_vec(packet).map_err(|err| err.to_string())?;
+    for answer in message.answers() {
+        let data = answer.data();
+        let RData::HTTPS(https) = data else {
+            continue;
+        };
+        for (_, param) in https.svc_params() {
+            if let SvcParamValue::EchConfigList(configs) = param {
+                if !configs.0.is_empty() {
+                    return Ok(Some(configs.0.clone()));
+                }
+            }
+        }
+    }
+    Ok(None)
+}
+
+fn default_encrypted_dns_endpoint() -> EncryptedDnsEndpoint {
+    EncryptedDnsEndpoint {
+        protocol: EncryptedDnsProtocol::Doh,
+        resolver_id: Some("cloudflare".to_string()),
+        host: DEFAULT_DOH_HOST.to_string(),
+        port: DEFAULT_DOH_PORT,
+        tls_server_name: None,
+        bootstrap_ips: DEFAULT_DOH_BOOTSTRAP_IPS
+            .iter()
+            .filter_map(|value| value.parse::<IpAddr>().ok())
+            .collect(),
+        doh_url: Some(DEFAULT_DOH_URL.to_string()),
+        dnscrypt_provider_name: None,
+        dnscrypt_public_key: None,
+    }
 }
 
 pub(crate) fn parse_dns_response(packet: &[u8], expected_id: u16) -> Result<Vec<String>, String> {

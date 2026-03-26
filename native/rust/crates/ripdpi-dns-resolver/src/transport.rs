@@ -84,15 +84,15 @@ pub(crate) fn build_client_config(
     verifier: Option<&Arc<dyn ServerCertVerifier>>,
     extra_roots: &[CertificateDer<'static>],
 ) -> Arc<ClientConfig> {
+    let builder = ClientConfig::builder_with_provider(rustls::crypto::ring::default_provider().into())
+        .with_safe_default_protocol_versions()
+        .expect("ring provider supports default TLS versions");
     if let Some(verifier) = verifier {
         Arc::new(
-            ClientConfig::builder()
-                .dangerous()
-                .with_custom_certificate_verifier(verifier.clone())
-                .with_no_client_auth(),
+            builder.dangerous().with_custom_certificate_verifier(verifier.clone()).with_no_client_auth(),
         )
     } else {
-        Arc::new(ClientConfig::builder().with_root_certificates(default_root_store(extra_roots)).with_no_client_auth())
+        Arc::new(builder.with_root_certificates(default_root_store(extra_roots)).with_no_client_auth())
     }
 }
 
@@ -105,16 +105,34 @@ pub(crate) fn build_doh_client(
     tls_verifier: Option<&Arc<dyn ServerCertVerifier>>,
 ) -> Result<Client, EncryptedDnsError> {
     let mut builder = Client::builder().timeout(timeout).connect_timeout(timeout);
+    let doh_uses_tls = endpoint
+        .doh_url
+        .as_deref()
+        .and_then(|value| Url::parse(value).ok())
+        .is_none_or(|url| url.scheme().eq_ignore_ascii_case("https"));
 
-    if let Some(verifier) = tls_verifier {
-        let mut config = ClientConfig::builder()
-            .dangerous()
-            .with_custom_certificate_verifier(verifier.clone())
-            .with_no_client_auth();
-        config.alpn_protocols = vec![b"h2".to_vec(), b"http/1.1".to_vec()];
-        builder = builder.use_preconfigured_tls(Arc::new(config));
+    if doh_uses_tls {
+        if let Some(verifier) = tls_verifier {
+            let mut config = ClientConfig::builder_with_provider(rustls::crypto::ring::default_provider().into())
+                .with_safe_default_protocol_versions()
+                .expect("ring provider supports default TLS versions")
+                .dangerous()
+                .with_custom_certificate_verifier(verifier.clone())
+                .with_no_client_auth();
+            config.alpn_protocols = vec![b"h2".to_vec(), b"http/1.1".to_vec()];
+            builder = builder.use_preconfigured_tls(Arc::new(config));
+        } else {
+            let mut config = ClientConfig::builder_with_provider(rustls::crypto::ring::default_provider().into())
+                .with_safe_default_protocol_versions()
+                .expect("ring provider supports default TLS versions")
+                .with_root_certificates(default_root_store(tls_roots))
+                .with_no_client_auth();
+            config.alpn_protocols = vec![b"h2".to_vec(), b"http/1.1".to_vec()];
+            builder = builder.use_preconfigured_tls(Arc::new(config));
+        }
+    } else if tls_verifier.is_some() {
+        // Plain HTTP DoH is used only in local tests; custom TLS config is irrelevant there.
     } else {
-        builder = builder.use_rustls_tls();
         for certificate in tls_roots {
             let reqwest_certificate = reqwest::Certificate::from_der(certificate.as_ref())
                 .map_err(|err| EncryptedDnsError::ClientBuild(err.to_string()))?;

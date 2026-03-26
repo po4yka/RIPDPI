@@ -161,7 +161,7 @@ fn cli_packet_smoke_udp_quic_family() {
         |manifest| format!("udp and port {}", manifest.udp_echo_port),
         |proxy_port, fixture| drive_udp_quic_round_trip(proxy_port, fixture),
         |run| {
-            assert_udp_outbound_count_at_least(run, run.manifest.udp_echo_port, 3)?;
+            assert_udp_outbound_count_at_least(run, run.manifest.udp_echo_port, 6)?;
             assert_quic_version_present(run, 0x1a2b3c4d)?;
             if cfg!(any(target_os = "linux", target_os = "android")) {
                 assert_udp_low_source_port(run, run.manifest.udp_echo_port, 4_096)?;

@@ -13,6 +13,9 @@
         "httpStatus": "BLOCKPAGE",
         "tls12Status": "HANDSHAKE_FAILED",
         "tls13Status": "HANDSHAKE_FAILED",
+        "tlsEchError": "Connection refused (os error _)",
+        "tlsEchStatus": "HANDSHAKE_FAILED",
+        "tlsEchVersion": null,
         "transportFailure": "OTHER"
       },
       "evidence": [
@@ -77,6 +80,18 @@
         },
         {
           "key": "tls12Error",
+          "value": "Connection refused (os error _)"
+        },
+        {
+          "key": "tlsEchStatus",
+          "value": "tls_handshake_failed"
+        },
+        {
+          "key": "tlsEchVersion",
+          "value": "unknown"
+        },
+        {
+          "key": "tlsEchError",
           "value": "Connection refused (os error _)"
         },
         {

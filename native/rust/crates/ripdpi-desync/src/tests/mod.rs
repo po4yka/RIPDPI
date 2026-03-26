@@ -14,8 +14,9 @@ use ripdpi_config::{
 };
 use ripdpi_packets::{
     build_realistic_quic_initial, default_fake_quic_compat, http_marker_info, parse_http, parse_quic_initial,
-    parse_tls, second_level_domain_span, tls_marker_info, HttpFakeProfile, OracleRng, TlsFakeProfile, UdpFakeProfile,
-    DEFAULT_FAKE_HTTP, DEFAULT_FAKE_TLS, IS_HTTP, MH_METHODEOL, MH_UNIXEOL, QUIC_V2_VERSION,
+    parse_tls, second_level_domain_span, tamper_quic_initial_split_sni, tamper_quic_version, tls_marker_info,
+    HttpFakeProfile, OracleRng, TlsFakeProfile, UdpFakeProfile, DEFAULT_FAKE_HTTP, DEFAULT_FAKE_TLS, IS_HTTP,
+    MH_METHODEOL, MH_UNIXEOL, QUIC_V2_VERSION,
 };
 
 pub(super) fn split_expr(pos: i64) -> OffsetExpr {
