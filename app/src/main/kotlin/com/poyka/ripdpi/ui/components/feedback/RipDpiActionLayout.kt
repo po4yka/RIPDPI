@@ -21,7 +21,7 @@ internal fun RipDpiActionLayout.resolvedActionLayout(): RipDpiActionLayout =
 
                 RipDpiWidthClass.Medium,
                 RipDpiWidthClass.Expanded,
-                -> {
+                    -> {
                     RipDpiActionLayout.Inline
                 }
             }
@@ -29,7 +29,7 @@ internal fun RipDpiActionLayout.resolvedActionLayout(): RipDpiActionLayout =
 
         RipDpiActionLayout.Inline,
         RipDpiActionLayout.Stacked,
-        -> {
+            -> {
             this
         }
     }

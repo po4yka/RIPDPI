@@ -19,7 +19,6 @@ import com.poyka.ripdpi.data.parseStrategyChainDsl
 import com.poyka.ripdpi.data.setStrategyChains
 import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.utility.checkIp
-import com.poyka.ripdpi.utility.checkNotLocalIp
 import com.poyka.ripdpi.utility.validateIntRange
 import com.poyka.ripdpi.utility.validatePort
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -207,121 +206,121 @@ private fun AppSettings.Builder.applyConfigDraft(draft: ConfigDraft): AppSetting
 
 @HiltViewModel
 class ConfigViewModel
-    @Inject
-    constructor(
-        private val appSettingsRepository: AppSettingsRepository,
-    ) : ViewModel() {
-        private val editorSession = MutableStateFlow(ConfigEditorSession())
+@Inject
+constructor(
+    private val appSettingsRepository: AppSettingsRepository,
+) : ViewModel() {
+    private val editorSession = MutableStateFlow(ConfigEditorSession())
 
-        private val _effects = Channel<ConfigEffect>(Channel.BUFFERED)
-        val effects: Flow<ConfigEffect> = _effects.receiveAsFlow()
+    private val _effects = Channel<ConfigEffect>(Channel.BUFFERED)
+    val effects: Flow<ConfigEffect> = _effects.receiveAsFlow()
 
-        val uiState: StateFlow<ConfigUiState> =
-            combine(
-                appSettingsRepository.settings,
-                editorSession,
-            ) { settings, session ->
-                val currentDraft = settings.toConfigDraft()
-                val draft = session.draft ?: currentDraft
-                val presets = buildConfigPresets(currentDraft)
-                val editingPreset =
-                    session.presetId?.let { presetId ->
-                        presets.firstOrNull { it.id == presetId }?.copy(draft = draft)
-                            ?: ConfigPreset(
-                                id = presetId,
-                                kind = ConfigPresetKind.Custom,
-                                draft = draft,
-                            )
-                    }
+    val uiState: StateFlow<ConfigUiState> =
+        combine(
+            appSettingsRepository.settings,
+            editorSession,
+        ) { settings, session ->
+            val currentDraft = settings.toConfigDraft()
+            val draft = session.draft ?: currentDraft
+            val presets = buildConfigPresets(currentDraft)
+            val editingPreset =
+                session.presetId?.let { presetId ->
+                    presets.firstOrNull { it.id == presetId }?.copy(draft = draft)
+                        ?: ConfigPreset(
+                            id = presetId,
+                            kind = ConfigPresetKind.Custom,
+                            draft = draft,
+                        )
+                }
 
-                ConfigUiState(
-                    activeMode = currentDraft.mode,
-                    presets = presets,
-                    editingPreset = editingPreset,
-                    draft = draft,
-                    validationErrors = validateConfigDraft(draft),
-                )
-            }.stateIn(
-                scope = viewModelScope,
-                started = SharingStarted.WhileSubscribed(5_000),
-                initialValue = ConfigUiState(),
+            ConfigUiState(
+                activeMode = currentDraft.mode,
+                presets = presets,
+                editingPreset = editingPreset,
+                draft = draft,
+                validationErrors = validateConfigDraft(draft),
             )
+        }.stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5_000),
+            initialValue = ConfigUiState(),
+        )
 
-        fun selectMode(mode: Mode) {
-            editorSession.update { current ->
-                current.copy(draft = current.draft?.copy(mode = mode))
-            }
-
-            viewModelScope.launch {
-                appSettingsRepository.update {
-                    setRipdpiMode(mode.preferenceValue)
-                }
-            }
+    fun selectMode(mode: Mode) {
+        editorSession.update { current ->
+            current.copy(draft = current.draft?.copy(mode = mode))
         }
 
-        fun selectPreset(presetId: String) {
-            val preset = uiState.value.presets.firstOrNull { it.id == presetId } ?: return
-            if (preset.kind == ConfigPresetKind.Custom) {
-                startEditingPreset(presetId)
-                return
-            }
-
-            viewModelScope.launch {
-                appSettingsRepository.update {
-                    applyConfigDraft(preset.draft)
-                }
-                editorSession.value = ConfigEditorSession()
-            }
-        }
-
-        fun startEditingPreset(presetId: String = "custom") {
-            val preset = uiState.value.presets.firstOrNull { it.id == presetId }
-            val draft = preset?.draft ?: uiState.value.draft
-            editorSession.value =
-                ConfigEditorSession(
-                    presetId = presetId,
-                    draft = draft,
-                )
-        }
-
-        fun updateDraft(transform: ConfigDraft.() -> ConfigDraft) {
-            editorSession.update { current ->
-                val baseDraft = current.draft ?: uiState.value.draft
-                current.copy(draft = baseDraft.transform())
-            }
-        }
-
-        fun updateChainDsl(value: String) {
-            updateDraft { withChainDsl(value) }
-        }
-
-        fun cancelEditing() {
-            editorSession.value = ConfigEditorSession()
-        }
-
-        fun saveDraft() {
-            val draft = editorSession.value.draft ?: uiState.value.draft
-            if (validateConfigDraft(draft).isNotEmpty()) {
-                _effects.trySend(ConfigEffect.ValidationFailed)
-                return
-            }
-
-            viewModelScope.launch {
-                appSettingsRepository.update {
-                    applyConfigDraft(draft)
-                }
-                editorSession.value = ConfigEditorSession()
-                _effects.send(ConfigEffect.SaveSuccess)
-            }
-        }
-
-        fun resetToDefaults() {
-            viewModelScope.launch {
-                val defaultDraft = AppSettingsSerializer.defaultValue.toConfigDraft()
-                appSettingsRepository.update {
-                    applyConfigDraft(defaultDraft)
-                }
-                editorSession.value = ConfigEditorSession()
+        viewModelScope.launch {
+            appSettingsRepository.update {
+                setRipdpiMode(mode.preferenceValue)
             }
         }
     }
+
+    fun selectPreset(presetId: String) {
+        val preset = uiState.value.presets.firstOrNull { it.id == presetId } ?: return
+        if (preset.kind == ConfigPresetKind.Custom) {
+            startEditingPreset(presetId)
+            return
+        }
+
+        viewModelScope.launch {
+            appSettingsRepository.update {
+                applyConfigDraft(preset.draft)
+            }
+            editorSession.value = ConfigEditorSession()
+        }
+    }
+
+    fun startEditingPreset(presetId: String = "custom") {
+        val preset = uiState.value.presets.firstOrNull { it.id == presetId }
+        val draft = preset?.draft ?: uiState.value.draft
+        editorSession.value =
+            ConfigEditorSession(
+                presetId = presetId,
+                draft = draft,
+            )
+    }
+
+    fun updateDraft(transform: ConfigDraft.() -> ConfigDraft) {
+        editorSession.update { current ->
+            val baseDraft = current.draft ?: uiState.value.draft
+            current.copy(draft = baseDraft.transform())
+        }
+    }
+
+    fun updateChainDsl(value: String) {
+        updateDraft { withChainDsl(value) }
+    }
+
+    fun cancelEditing() {
+        editorSession.value = ConfigEditorSession()
+    }
+
+    fun saveDraft() {
+        val draft = editorSession.value.draft ?: uiState.value.draft
+        if (validateConfigDraft(draft).isNotEmpty()) {
+            _effects.trySend(ConfigEffect.ValidationFailed)
+            return
+        }
+
+        viewModelScope.launch {
+            appSettingsRepository.update {
+                applyConfigDraft(draft)
+            }
+            editorSession.value = ConfigEditorSession()
+            _effects.send(ConfigEffect.SaveSuccess)
+        }
+    }
+
+    fun resetToDefaults() {
+        viewModelScope.launch {
+            val defaultDraft = AppSettingsSerializer.defaultValue.toConfigDraft()
+            appSettingsRepository.update {
+                applyConfigDraft(defaultDraft)
+            }
+            editorSession.value = ConfigEditorSession()
+        }
+    }
+}

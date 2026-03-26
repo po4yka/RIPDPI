@@ -111,7 +111,7 @@ internal class SettingsMaintenanceActions(
                         when (error) {
                             is HostPackChecksumMismatchException,
                             is HostPackChecksumFormatException,
-                            -> {
+                                -> {
                                 SettingsEffect.Notice(
                                     title =
                                         stringResolver.getString(
@@ -127,7 +127,7 @@ internal class SettingsMaintenanceActions(
 
                             is HostPackCatalogParseException,
                             is HostPackCatalogBuildException,
-                            -> {
+                                -> {
                                 SettingsEffect.Notice(
                                     title = stringResolver.getString(R.string.notice_host_pack_refresh_failed_title),
                                     message =

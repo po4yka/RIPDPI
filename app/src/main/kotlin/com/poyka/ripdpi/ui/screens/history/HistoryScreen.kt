@@ -38,13 +38,10 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.DiagnosticsContextGroupUiModel
 import com.poyka.ripdpi.activities.DiagnosticsEventUiModel
-import com.poyka.ripdpi.activities.DiagnosticsFieldUiModel
 import com.poyka.ripdpi.activities.DiagnosticsNetworkSnapshotUiModel
 import com.poyka.ripdpi.activities.DiagnosticsProbeGroupUiModel
-import com.poyka.ripdpi.activities.DiagnosticsSessionDetailUiModel
 import com.poyka.ripdpi.activities.DiagnosticsSessionRowUiModel
 import com.poyka.ripdpi.activities.DiagnosticsTone
-import com.poyka.ripdpi.activities.HistoryConnectionDetailUiModel
 import com.poyka.ripdpi.activities.HistoryConnectionRowUiModel
 import com.poyka.ripdpi.activities.HistorySection
 import com.poyka.ripdpi.activities.HistoryUiState
@@ -815,7 +812,8 @@ private fun EventRow(
                             .background(
                                 color = colors.inputBackground,
                                 shape = RipDpiThemeTokens.shapes.xxl,
-                            ).padding(
+                            )
+                            .padding(
                                 horizontal = components.compactPillHorizontalPadding,
                                 vertical = components.compactPillVerticalPadding,
                             ),

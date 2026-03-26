@@ -69,14 +69,16 @@ fun PresetCard(
                     width = if (surfaceStyle.border == Color.Transparent) 0.dp else 1.dp,
                     color = surfaceStyle.border,
                     shape = shape,
-                ).alpha(if (enabled) 1f else 0.38f)
+                )
+                .alpha(if (enabled) 1f else 0.38f)
                 .ripDpiSelectable(
                     selected = selected,
                     enabled = enabled,
                     role = Role.RadioButton,
                     interactionSource = resolvedInteractionSource,
                     onClick = onClick,
-                ).padding(
+                )
+                .padding(
                     horizontal = components.fieldHorizontalPadding,
                     vertical = components.settingsRowVerticalPadding,
                 ),
@@ -101,7 +103,8 @@ fun PresetCard(
                             .background(
                                 color = badgePalette.container,
                                 shape = RipDpiThemeTokens.shapes.xxl,
-                            ).padding(
+                            )
+                            .padding(
                                 horizontal = components.compactPillHorizontalPadding,
                                 vertical = components.compactPillVerticalPadding,
                             ),

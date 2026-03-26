@@ -77,7 +77,7 @@ fun StatusIndicator(
                 ),
             label = "statusPulseScale",
         ) ?: rememberUpdatedState(1f)
-    )
+        )
     val pulseAlpha by (
         pulseTransition?.animateFloat(
             initialValue = 0.22f,
@@ -93,7 +93,7 @@ fun StatusIndicator(
                 ),
             label = "statusPulseAlpha",
         ) ?: rememberUpdatedState(0f)
-    )
+        )
 
     val statusDescription = stringResource(R.string.status_indicator_description, label)
     Row(

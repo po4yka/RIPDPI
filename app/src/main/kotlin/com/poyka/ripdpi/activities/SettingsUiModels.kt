@@ -6,7 +6,6 @@ import com.poyka.ripdpi.data.AdaptiveMarkerBalanced
 import com.poyka.ripdpi.data.AdaptiveMarkerEndHost
 import com.poyka.ripdpi.data.AdaptiveMarkerHost
 import com.poyka.ripdpi.data.AdaptiveMarkerSniExt
-import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.AppSettingsSerializer
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.DefaultAdaptiveFakeTtlDelta
@@ -27,7 +26,6 @@ import com.poyka.ripdpi.data.FakeTlsSniModeFixed
 import com.poyka.ripdpi.data.HostPackCatalogSnapshot
 import com.poyka.ripdpi.data.HostPackPreset
 import com.poyka.ripdpi.data.Mode
-import com.poyka.ripdpi.data.NativeRuntimeSnapshot
 import com.poyka.ripdpi.data.QuicFakeProfileDisabled
 import com.poyka.ripdpi.data.QuicFakeProfileRealisticInitial
 import com.poyka.ripdpi.data.QuicInitialModeRouteAndCache

@@ -220,7 +220,9 @@ private fun BottomSheetActionColumn(
                 RipDpiButton(
                     text = action.label,
                     onClick = action.onClick,
-                    modifier = Modifier.fillMaxWidth().ripDpiTestTag(action.testTag),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .ripDpiTestTag(action.testTag),
                     variant = action.variant,
                 )
             }
@@ -228,7 +230,9 @@ private fun BottomSheetActionColumn(
                 RipDpiButton(
                     text = action.label,
                     onClick = action.onClick,
-                    modifier = Modifier.fillMaxWidth().ripDpiTestTag(action.testTag),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .ripDpiTestTag(action.testTag),
                     variant = RipDpiButtonVariant.Outline,
                 )
             }

@@ -122,47 +122,15 @@ interface PermissionStatusProvider {
 
 @Singleton
 class AndroidPermissionStatusProvider
-    @Inject
-    constructor(
-        @param:ApplicationContext private val context: Context,
-        private val automationController: Optional<AutomationController>,
-    ) : PermissionStatusProvider {
-        override fun currentSnapshot(): PermissionSnapshot =
-            automationController
-                .map { controller ->
-                    controller.currentPermissionSnapshot(
-                        PermissionSnapshot(
-                            vpnConsent =
-                                if (VpnService.prepare(context) == null) {
-                                    PermissionStatus.Granted
-                                } else {
-                                    PermissionStatus.RequiresSystemPrompt
-                                },
-                            notifications =
-                                if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
-                                    PermissionStatus.Granted
-                                } else if (
-                                    ContextCompat.checkSelfPermission(
-                                        context,
-                                        Manifest.permission.POST_NOTIFICATIONS,
-                                    ) == PackageManager.PERMISSION_GRANTED
-                                ) {
-                                    PermissionStatus.Granted
-                                } else {
-                                    PermissionStatus.RequiresSystemPrompt
-                                },
-                            batteryOptimization =
-                                run {
-                                    val powerManager = context.getSystemService(Context.POWER_SERVICE) as PowerManager
-                                    if (powerManager.isIgnoringBatteryOptimizations(context.packageName)) {
-                                        PermissionStatus.Granted
-                                    } else {
-                                        PermissionStatus.RequiresSettings
-                                    }
-                                },
-                        ),
-                    )
-                }.orElseGet {
+@Inject
+constructor(
+    @param:ApplicationContext private val context: Context,
+    private val automationController: Optional<AutomationController>,
+) : PermissionStatusProvider {
+    override fun currentSnapshot(): PermissionSnapshot =
+        automationController
+            .map { controller ->
+                controller.currentPermissionSnapshot(
                     PermissionSnapshot(
                         vpnConsent =
                             if (VpnService.prepare(context) == null) {
@@ -192,78 +160,110 @@ class AndroidPermissionStatusProvider
                                     PermissionStatus.RequiresSettings
                                 }
                             },
-                    )
-                }
-    }
+                    ),
+                )
+            }.orElseGet {
+                PermissionSnapshot(
+                    vpnConsent =
+                        if (VpnService.prepare(context) == null) {
+                            PermissionStatus.Granted
+                        } else {
+                            PermissionStatus.RequiresSystemPrompt
+                        },
+                    notifications =
+                        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
+                            PermissionStatus.Granted
+                        } else if (
+                            ContextCompat.checkSelfPermission(
+                                context,
+                                Manifest.permission.POST_NOTIFICATIONS,
+                            ) == PackageManager.PERMISSION_GRANTED
+                        ) {
+                            PermissionStatus.Granted
+                        } else {
+                            PermissionStatus.RequiresSystemPrompt
+                        },
+                    batteryOptimization =
+                        run {
+                            val powerManager = context.getSystemService(Context.POWER_SERVICE) as PowerManager
+                            if (powerManager.isIgnoringBatteryOptimizations(context.packageName)) {
+                                PermissionStatus.Granted
+                            } else {
+                                PermissionStatus.RequiresSettings
+                            }
+                        },
+                )
+            }
+}
 
 @Singleton
 class PermissionCoordinator
-    @Inject
-    constructor() {
-        fun resolve(
-            action: PermissionAction,
-            configuredMode: Mode,
-            snapshot: PermissionSnapshot,
-        ): PermissionResolution {
-            val required =
-                when (action) {
-                    PermissionAction.StartConfiguredMode -> {
-                        buildStartRequirements(mode = configuredMode, snapshot = snapshot)
-                    }
+@Inject
+constructor() {
+    fun resolve(
+        action: PermissionAction,
+        configuredMode: Mode,
+        snapshot: PermissionSnapshot,
+    ): PermissionResolution {
+        val required =
+            when (action) {
+                PermissionAction.StartConfiguredMode -> {
+                    buildStartRequirements(mode = configuredMode, snapshot = snapshot)
+                }
 
-                    PermissionAction.StartVpnMode -> {
-                        buildStartRequirements(mode = Mode.VPN, snapshot = snapshot)
-                    }
+                PermissionAction.StartVpnMode -> {
+                    buildStartRequirements(mode = Mode.VPN, snapshot = snapshot)
+                }
 
-                    is PermissionAction.RepairPermission -> {
-                        buildList {
-                            val status = snapshot.statusFor(action.kind)
-                            if (status != PermissionStatus.Granted && status != PermissionStatus.NotApplicable) {
-                                add(action.kind)
-                            }
+                is PermissionAction.RepairPermission -> {
+                    buildList {
+                        val status = snapshot.statusFor(action.kind)
+                        if (status != PermissionStatus.Granted && status != PermissionStatus.NotApplicable) {
+                            add(action.kind)
                         }
                     }
                 }
+            }
 
-            val recommended =
-                when (action) {
-                    PermissionAction.StartConfiguredMode,
-                    PermissionAction.StartVpnMode,
+        val recommended =
+            when (action) {
+                PermissionAction.StartConfiguredMode,
+                PermissionAction.StartVpnMode,
                     -> buildRecommendationList(snapshot)
 
-                    is PermissionAction.RepairPermission -> emptyList()
-                }
+                is PermissionAction.RepairPermission -> emptyList()
+            }
 
-            return PermissionResolution(
-                required = required,
-                recommended = recommended,
-                blockedBy = required.firstOrNull(),
-            )
+        return PermissionResolution(
+            required = required,
+            recommended = recommended,
+            blockedBy = required.firstOrNull(),
+        )
+    }
+
+    private fun buildStartRequirements(
+        mode: Mode,
+        snapshot: PermissionSnapshot,
+    ): List<PermissionKind> =
+        buildList {
+            if (snapshot.notifications != PermissionStatus.Granted) {
+                add(PermissionKind.Notifications)
+            }
+            if (mode == Mode.VPN && snapshot.vpnConsent != PermissionStatus.Granted) {
+                add(PermissionKind.VpnConsent)
+            }
         }
 
-        private fun buildStartRequirements(
-            mode: Mode,
-            snapshot: PermissionSnapshot,
-        ): List<PermissionKind> =
-            buildList {
-                if (snapshot.notifications != PermissionStatus.Granted) {
-                    add(PermissionKind.Notifications)
-                }
-                if (mode == Mode.VPN && snapshot.vpnConsent != PermissionStatus.Granted) {
-                    add(PermissionKind.VpnConsent)
-                }
+    private fun buildRecommendationList(snapshot: PermissionSnapshot): List<PermissionKind> =
+        buildList {
+            if (
+                snapshot.batteryOptimization != PermissionStatus.Granted &&
+                snapshot.batteryOptimization != PermissionStatus.NotApplicable
+            ) {
+                add(PermissionKind.BatteryOptimization)
             }
-
-        private fun buildRecommendationList(snapshot: PermissionSnapshot): List<PermissionKind> =
-            buildList {
-                if (
-                    snapshot.batteryOptimization != PermissionStatus.Granted &&
-                    snapshot.batteryOptimization != PermissionStatus.NotApplicable
-                ) {
-                    add(PermissionKind.BatteryOptimization)
-                }
-            }
-    }
+        }
+}
 
 @Module
 @InstallIn(SingletonComponent::class)

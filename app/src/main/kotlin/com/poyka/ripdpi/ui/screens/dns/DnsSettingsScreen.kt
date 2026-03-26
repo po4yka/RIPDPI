@@ -927,7 +927,8 @@ private fun DnsBadge(
                 .background(
                     if (highlighted) colors.infoContainer else colors.inputBackground,
                     RipDpiThemeTokens.shapes.full,
-                ).padding(horizontal = 10.dp, vertical = 6.dp),
+                )
+                .padding(horizontal = 10.dp, vertical = 6.dp),
         contentAlignment = Alignment.Center,
     ) {
         Text(

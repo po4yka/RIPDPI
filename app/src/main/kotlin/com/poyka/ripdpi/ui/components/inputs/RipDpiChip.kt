@@ -15,7 +15,6 @@ import androidx.compose.foundation.focusable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -30,7 +29,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.tooling.preview.Preview
@@ -123,7 +121,8 @@ fun RipDpiChip(
                 .graphicsLayer {
                     scaleX = scale
                     scaleY = scale
-                }.background(animatedContainer, RipDpiThemeTokens.shapes.lg)
+                }
+                .background(animatedContainer, RipDpiThemeTokens.shapes.lg)
                 .border(1.dp, animatedBorderColor, RipDpiThemeTokens.shapes.lg)
                 .focusable(enabled = enabled, interactionSource = interactionSource)
                 .ripDpiSelectable(
@@ -133,10 +132,12 @@ fun RipDpiChip(
                     interactionSource = interactionSource,
                     hapticFeedback = hapticFeedback,
                     onClick = onClick,
-                ).padding(
+                )
+                .padding(
                     horizontal = horizontalPadding,
                     vertical = verticalPadding,
-                ).alpha(if (enabled) 1f else 0.38f),
+                )
+                .alpha(if (enabled) 1f else 0.38f),
         horizontalArrangement = Arrangement.spacedBy(6.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {

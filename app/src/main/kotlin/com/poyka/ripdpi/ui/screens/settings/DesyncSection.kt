@@ -117,7 +117,7 @@ internal fun LazyListScope.desyncSection(
                                 isValidOffsetExpression(
                                     it,
                                 ) && !isAdaptiveOffsetExpression(it)
-                            )
+                                )
                         },
                         invalidMessage = stringResource(R.string.config_error_invalid_marker),
                         disabledMessage =
@@ -336,7 +336,7 @@ internal fun LazyListScope.desyncSection(
                                         } else {
                                             stringResource(R.string.fake_payload_badge_http_off)
                                         }
-                                    ) to SummaryCapsuleTone.Neutral,
+                                        ) to SummaryCapsuleTone.Neutral,
                                 )
                                 add(
                                     (
@@ -347,7 +347,7 @@ internal fun LazyListScope.desyncSection(
                                         } else {
                                             stringResource(R.string.fake_payload_badge_fake_step_needed)
                                         }
-                                    ) to
+                                        ) to
                                         when {
                                             uiState.httpFakeProfileActiveInStrategy -> SummaryCapsuleTone.Active
                                             uiState.hasHostFake -> SummaryCapsuleTone.Info
@@ -424,7 +424,7 @@ internal fun LazyListScope.desyncSection(
                                         } else {
                                             stringResource(R.string.fake_payload_badge_https_off)
                                         }
-                                    ) to SummaryCapsuleTone.Neutral,
+                                        ) to SummaryCapsuleTone.Neutral,
                                 )
                                 add(
                                     (
@@ -435,7 +435,7 @@ internal fun LazyListScope.desyncSection(
                                         } else {
                                             stringResource(R.string.fake_payload_badge_fake_step_needed)
                                         }
-                                    ) to
+                                        ) to
                                         when {
                                             uiState.tlsFakeProfileActiveInStrategy -> SummaryCapsuleTone.Active
                                             uiState.hasHostFake -> SummaryCapsuleTone.Info
@@ -511,7 +511,7 @@ internal fun LazyListScope.desyncSection(
                                         } else {
                                             stringResource(R.string.fake_payload_badge_udp_off)
                                         }
-                                    ) to SummaryCapsuleTone.Neutral,
+                                        ) to SummaryCapsuleTone.Neutral,
                                 )
                                 add(
                                     (
@@ -523,7 +523,7 @@ internal fun LazyListScope.desyncSection(
                                         } else {
                                             stringResource(R.string.fake_payload_badge_burst_needed)
                                         }
-                                    ) to
+                                        ) to
                                         if (uiState.udpFakeProfileActiveInStrategy) {
                                             SummaryCapsuleTone.Active
                                         } else {

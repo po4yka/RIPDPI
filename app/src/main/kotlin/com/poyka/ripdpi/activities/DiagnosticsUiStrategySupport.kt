@@ -2,7 +2,6 @@ package com.poyka.ripdpi.activities
 
 import com.poyka.ripdpi.core.decodeRipDpiProxyUiPreferences
 import com.poyka.ripdpi.data.Mode
-import com.poyka.ripdpi.data.displayLabel
 import com.poyka.ripdpi.data.formatOffsetExpressionLabel
 import com.poyka.ripdpi.data.strategyLaneFamilyLabel
 import com.poyka.ripdpi.diagnostics.BypassApproachDetail
@@ -19,7 +18,6 @@ import com.poyka.ripdpi.diagnostics.StrategyProbeReport
 import com.poyka.ripdpi.diagnostics.deriveBypassStrategySignature
 import com.poyka.ripdpi.diagnostics.presentation.DiagnosticsProfileProjection
 import java.util.Locale
-import com.poyka.ripdpi.diagnostics.displayLabel as displayStrategyLabel
 
 internal fun DiagnosticsUiFactorySupport.toApproachDetailUiModel(
     detail: BypassApproachDetail,
@@ -72,9 +70,11 @@ internal fun DiagnosticsUiFactorySupport.toApproachDetailUiModel(
         recentSessions = detail.recentValidatedSessions.map(::toSessionRowUiModel),
         recentUsageNotes =
             detail.recentUsageSessions.map { usage ->
-                "${usage.serviceMode} · ${usage.networkType} · ${formatDurationMs(
-                    (usage.finishedAt ?: usage.startedAt) - usage.startedAt,
-                )}"
+                "${usage.serviceMode} · ${usage.networkType} · ${
+                    formatDurationMs(
+                        (usage.finishedAt ?: usage.startedAt) - usage.startedAt,
+                    )
+                }"
             },
         failureNotes = detail.recentFailureNotes,
     )
