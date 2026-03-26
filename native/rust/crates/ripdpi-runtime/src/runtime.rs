@@ -11,8 +11,6 @@ mod udp;
 use std::io;
 use std::net::TcpListener;
 
-use crate::sync::Arc;
-
 use ripdpi_config::RuntimeConfig;
 
 use self::listeners::{build_listener, run_proxy_with_listener_internal};
@@ -34,7 +32,7 @@ pub fn run_proxy_with_listener(config: RuntimeConfig, listener: TcpListener) -> 
 pub fn run_proxy_with_embedded_control(
     config: RuntimeConfig,
     listener: TcpListener,
-    control: Arc<EmbeddedProxyControl>,
+    control: std::sync::Arc<EmbeddedProxyControl>,
 ) -> io::Result<()> {
     run_proxy_with_listener_internal(config, listener, Some(control))
 }

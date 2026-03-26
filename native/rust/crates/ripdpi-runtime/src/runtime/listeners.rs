@@ -245,7 +245,7 @@ pub(super) fn build_listener(config: &RuntimeConfig) -> io::Result<TcpListener> 
 pub(super) fn run_proxy_with_listener_internal(
     config: RuntimeConfig,
     listener: TcpListener,
-    control: Option<Arc<EmbeddedProxyControl>>,
+    control: Option<StdArc<EmbeddedProxyControl>>,
 ) -> io::Result<()> {
     let mut config = config;
     if config.network.default_ttl == 0 {

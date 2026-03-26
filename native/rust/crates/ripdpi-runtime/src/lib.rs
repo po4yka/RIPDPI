@@ -184,6 +184,12 @@ pub(crate) fn current_runtime_telemetry() -> Option<Arc<dyn RuntimeTelemetrySink
     None
 }
 
+#[cfg(feature = "loom")]
+pub fn install_runtime_telemetry(_sink: std::sync::Arc<dyn RuntimeTelemetrySink>) {}
+
+#[cfg(feature = "loom")]
+pub fn clear_runtime_telemetry() {}
+
 #[cfg(test)]
 mod tests {
     #[cfg(not(feature = "loom"))]
