@@ -110,6 +110,7 @@ internal fun createDiagnosticsServices(
                 },
         ),
     scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.IO),
+    controllerScope: CoroutineScope = scope,
 ): DiagnosticsServicesBundle {
     lateinit var scanController: DefaultDiagnosticsScanController
     val mapper = DiagnosticsBoundaryMapper(json)
@@ -202,7 +203,7 @@ internal fun createDiagnosticsServices(
             activeScanRegistry = activeScanRegistry,
             bridgeExecutionService = bridgeExecutionService,
             executionCoordinator = executionCoordinator,
-            scope = scope,
+            scope = controllerScope,
         )
     return DiagnosticsServicesBundle(
         bootstrapper =

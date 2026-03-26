@@ -2,7 +2,6 @@ package com.poyka.ripdpi.activities
 
 import android.content.Intent
 import com.poyka.ripdpi.data.AppSettingsRepository
-import com.poyka.ripdpi.security.PinVerifier
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.FailureReason
 import com.poyka.ripdpi.data.Mode
@@ -33,6 +32,7 @@ import com.poyka.ripdpi.platform.PermissionPlatformBridge
 import com.poyka.ripdpi.platform.StringResolver
 import com.poyka.ripdpi.platform.TrafficStatsReader
 import com.poyka.ripdpi.proto.AppSettings
+import com.poyka.ripdpi.security.PinVerifier
 import com.poyka.ripdpi.services.ServiceController
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -97,7 +97,10 @@ class FakeServiceStateStore(
                         status == AppStatus.Running && currentTelemetry.status != AppStatus.Running -> {
                             currentTelemetry.restartCount + 1
                         }
-                        else -> currentTelemetry.restartCount
+
+                        else -> {
+                            currentTelemetry.restartCount
+                        }
                     },
                 updatedAt = now,
             )
@@ -291,7 +294,10 @@ class FakePinVerifier : PinVerifier {
         return digest.digest(pin.toByteArray()).joinToString("") { "%02x".format(it) }
     }
 
-    override fun verify(candidatePin: String, storedHash: String): Boolean {
+    override fun verify(
+        candidatePin: String,
+        storedHash: String,
+    ): Boolean {
         if (storedHash.isBlank()) return false
         return hashPin(candidatePin) == storedHash
     }

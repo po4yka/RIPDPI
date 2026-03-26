@@ -451,8 +451,7 @@ private fun DiagnosticsUiFactorySupport.buildStrategyProbeResultGroups(
                 pathMode = ScanPathMode.RAW_PATH,
                 result = result,
             )
-        }
-        .groupBy { probe ->
+        }.groupBy { probe ->
             probe.details
                 .firstOrNull { it.label == "protocol" }
                 ?.value

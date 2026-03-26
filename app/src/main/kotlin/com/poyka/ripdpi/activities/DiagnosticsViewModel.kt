@@ -3,13 +3,13 @@ package com.poyka.ripdpi.activities
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.poyka.ripdpi.data.AppSettingsRepository
-import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.AppSettingsSerializer
+import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.data.ServiceTelemetrySnapshot
-import com.poyka.ripdpi.diagnostics.DiagnosticConnectionSession
 import com.poyka.ripdpi.diagnostics.DiagnosticActiveConnectionPolicy
+import com.poyka.ripdpi.diagnostics.DiagnosticConnectionSession
 import com.poyka.ripdpi.diagnostics.DiagnosticTelemetrySample
 import com.poyka.ripdpi.diagnostics.DiagnosticsActiveConnectionPolicySource
 import com.poyka.ripdpi.diagnostics.DiagnosticsBootstrapper
@@ -419,13 +419,17 @@ private fun resolveCurrentConnectionState(
     activeConnectionSession: DiagnosticConnectionSession?,
 ): String =
     when (status) {
-        AppStatus.Running -> activeConnectionSession?.connectionState ?: AppStatus.Running.name
-        AppStatus.Halted ->
+        AppStatus.Running -> {
+            activeConnectionSession?.connectionState ?: AppStatus.Running.name
+        }
+
+        AppStatus.Halted -> {
             if (activeConnectionSession?.connectionState.equals("Failed", ignoreCase = true)) {
                 "Failed"
             } else {
                 "Stopped"
             }
+        }
     }
 
 private const val UnknownCurrentNetworkType = "unknown"

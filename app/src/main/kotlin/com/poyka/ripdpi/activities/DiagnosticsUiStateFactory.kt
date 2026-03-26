@@ -160,12 +160,15 @@ internal class DiagnosticsUiStateFactory
                 outcome = outcome,
                 tone =
                     when (scanKind) {
-                        ScanKind.STRATEGY_PROBE -> strategyProgressTone(outcome)
+                        ScanKind.STRATEGY_PROBE -> {
+                            strategyProgressTone(outcome)
+                        }
 
-                        ScanKind.CONNECTIVITY ->
+                        ScanKind.CONNECTIVITY -> {
                             phaseToConnectivityProbeType(phase)
                                 ?.let { probeType -> support.core.toneForProbeOutcome(probeType, pathMode, outcome) }
                                 ?: DiagnosticsTone.Neutral
+                        }
                     },
             )
 
@@ -284,9 +287,7 @@ internal class DiagnosticsUiStateFactory
                 completedProbes = input.completedProbes,
             )
 
-        private fun buildLiveState(
-            input: DiagnosticsUiStateInput,
-        ): DiagnosticsLiveUiModel =
+        private fun buildLiveState(input: DiagnosticsUiStateInput): DiagnosticsLiveUiModel =
             support.buildLiveUiModel(
                 activeConnectionSession = input.activeConnectionSession,
                 telemetry = input.liveTelemetry,
@@ -494,12 +495,21 @@ private fun phaseToConnectivityProbeType(phase: String): String? =
 
 private fun strategyProgressTone(outcome: String): DiagnosticsTone =
     when {
-        outcome.equals("success", ignoreCase = true) -> DiagnosticsTone.Positive
-        outcome.equals("partial", ignoreCase = true) -> DiagnosticsTone.Warning
+        outcome.equals("success", ignoreCase = true) -> {
+            DiagnosticsTone.Positive
+        }
+
+        outcome.equals("partial", ignoreCase = true) -> {
+            DiagnosticsTone.Warning
+        }
+
         outcome.equals("skipped", ignoreCase = true) || outcome.equals("not_applicable", ignoreCase = true) -> {
             DiagnosticsTone.Neutral
         }
-        else -> DiagnosticsTone.Negative
+
+        else -> {
+            DiagnosticsTone.Negative
+        }
     }
 
 private const val ConnectionSampleArtifactKind = "connection_sample"

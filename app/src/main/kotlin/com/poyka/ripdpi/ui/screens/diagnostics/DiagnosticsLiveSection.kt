@@ -30,18 +30,14 @@ import com.poyka.ripdpi.ui.components.navigation.SettingsCategoryHeader
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
 @Composable
-internal fun LiveSection(
-    live: DiagnosticsLiveUiModel,
-) {
+internal fun LiveSection(live: DiagnosticsLiveUiModel) {
     LiveSectionContent(
         live = live,
     )
 }
 
 @Composable
-private fun LiveSectionContent(
-    live: DiagnosticsLiveUiModel,
-) {
+private fun LiveSectionContent(live: DiagnosticsLiveUiModel) {
     val spacing = RipDpiThemeTokens.spacing
     val layout = RipDpiThemeTokens.layout
     LazyColumn(
@@ -106,9 +102,7 @@ private fun LiveSectionContent(
 }
 
 @Composable
-internal fun LiveHeroCard(
-    live: DiagnosticsLiveUiModel,
-) {
+internal fun LiveHeroCard(live: DiagnosticsLiveUiModel) {
     val colors = RipDpiThemeTokens.colors
     val spacing = RipDpiThemeTokens.spacing
     val motion = RipDpiThemeTokens.motion

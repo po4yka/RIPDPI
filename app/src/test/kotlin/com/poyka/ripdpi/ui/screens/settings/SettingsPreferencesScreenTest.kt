@@ -8,10 +8,10 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToNode
+import com.poyka.ripdpi.activities.SettingsUiState
 import com.poyka.ripdpi.permissions.BackgroundGuidanceUiState
 import com.poyka.ripdpi.permissions.PermissionItemUiState
 import com.poyka.ripdpi.permissions.PermissionKind
-import com.poyka.ripdpi.activities.SettingsUiState
 import com.poyka.ripdpi.permissions.PermissionSummaryUiState
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.theme.RipDpiTheme

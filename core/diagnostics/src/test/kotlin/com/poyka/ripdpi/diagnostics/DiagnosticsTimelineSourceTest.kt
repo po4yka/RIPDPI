@@ -3,9 +3,9 @@ package com.poyka.ripdpi.diagnostics
 import com.poyka.ripdpi.data.diagnostics.BypassUsageSessionEntity
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.cancel
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -206,7 +206,11 @@ class DiagnosticsTimelineSourceTest {
                     )
                 stores.snapshotsState.value =
                     listOf(
-                        snapshotSample(id = "scan-snapshot", connectionSessionId = "connection-a", snapshotKind = "post_scan"),
+                        snapshotSample(
+                            id = "scan-snapshot",
+                            connectionSessionId = "connection-a",
+                            snapshotKind = "post_scan",
+                        ),
                         snapshotSample(
                             id = "runtime-snapshot",
                             connectionSessionId = "connection-a",
@@ -215,7 +219,11 @@ class DiagnosticsTimelineSourceTest {
                     )
                 stores.contextsState.value =
                     listOf(
-                        contextSample(id = "scan-context", connectionSessionId = "connection-a", contextKind = "post_scan"),
+                        contextSample(
+                            id = "scan-context",
+                            connectionSessionId = "connection-a",
+                            contextKind = "post_scan",
+                        ),
                         contextSample(
                             id = "runtime-context",
                             connectionSessionId = "connection-a",

@@ -101,7 +101,8 @@ internal fun DiagnosticsUiFactorySupport.buildScanUiModel(
         profiles = profiles.map(::toProfileOptionUiModel),
         selectedProfileId = activeProfile?.id,
         selectedProfile = selectedProfile,
-        activePathMode = activeScanPathMode ?: latestProfileSession?.pathMode?.let(::parsePathMode) ?: ScanPathMode.RAW_PATH,
+        activePathMode =
+            activeScanPathMode ?: latestProfileSession?.pathMode?.let(::parsePathMode) ?: ScanPathMode.RAW_PATH,
         activeProgress =
             progress?.let { p ->
                 toProgressUiModel(
@@ -329,17 +330,38 @@ internal fun DiagnosticsUiFactorySupport.deriveHealth(
                 core.aggregateBucketForProbeResults(parsePathMode(latestSession.pathMode), results)
             }
     return when {
-        progress != null -> DiagnosticsHealth.Attention
-        latestSession == null && latestTelemetry == null && nativeEvents.isEmpty() -> DiagnosticsHealth.Idle
-        hasError -> DiagnosticsHealth.Degraded
-        latestSessionBucket == com.poyka.ripdpi.diagnostics.DiagnosticsOutcomeBucket.Failed -> DiagnosticsHealth.Degraded
-        latestSession?.status.equals("failed", ignoreCase = true) -> DiagnosticsHealth.Degraded
-        hasWarning -> DiagnosticsHealth.Attention
+        progress != null -> {
+            DiagnosticsHealth.Attention
+        }
+
+        latestSession == null && latestTelemetry == null && nativeEvents.isEmpty() -> {
+            DiagnosticsHealth.Idle
+        }
+
+        hasError -> {
+            DiagnosticsHealth.Degraded
+        }
+
+        latestSessionBucket == com.poyka.ripdpi.diagnostics.DiagnosticsOutcomeBucket.Failed -> {
+            DiagnosticsHealth.Degraded
+        }
+
+        latestSession?.status.equals("failed", ignoreCase = true) -> {
+            DiagnosticsHealth.Degraded
+        }
+
+        hasWarning -> {
+            DiagnosticsHealth.Attention
+        }
+
         latestSessionBucket == com.poyka.ripdpi.diagnostics.DiagnosticsOutcomeBucket.Attention ||
             latestSessionBucket == com.poyka.ripdpi.diagnostics.DiagnosticsOutcomeBucket.Inconclusive -> {
             DiagnosticsHealth.Attention
         }
-        else -> DiagnosticsHealth.Healthy
+
+        else -> {
+            DiagnosticsHealth.Healthy
+        }
     }
 }
 
@@ -470,8 +492,7 @@ private fun DiagnosticsUiFactorySupport.overviewBody(
 
 private fun DiagnosticsUiFactorySupport.buildLiveMetrics(
     telemetry: DiagnosticTelemetrySample?,
-): List<DiagnosticsMetricUiModel> =
-    telemetry?.let { buildTelemetryLiveMetrics(it) }.orEmpty()
+): List<DiagnosticsMetricUiModel> = telemetry?.let { buildTelemetryLiveMetrics(it) }.orEmpty()
 
 private fun DiagnosticsUiFactorySupport.buildTelemetryLiveMetrics(
     telemetry: DiagnosticTelemetrySample,

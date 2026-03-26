@@ -3,7 +3,8 @@ package com.poyka.ripdpi.diagnostics
 import java.io.File
 
 internal fun repoFixture(path: String): File {
-    var current: File? = File(System.getProperty("user.dir")).absoluteFile
+    val userDir = requireNotNull(System.getProperty("user.dir"))
+    var current: File? = File(userDir).absoluteFile
     repeat(8) {
         val base = current ?: return@repeat
         val candidate = File(base, path)

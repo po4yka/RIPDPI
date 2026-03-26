@@ -6,6 +6,7 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.fail
 import org.junit.Test
@@ -30,7 +31,8 @@ class DiagnosticsScanControllerTest {
                     networkDiagnosticsBridgeFactory = bridgeFactory,
                     runtimeCoordinator = runtimeCoordinator,
                     serviceStateStore = FakeServiceStateStore(),
-                    scope = this,
+                    scope = backgroundScope,
+                    controllerScope = this,
                     json = json,
                 )
 
@@ -64,7 +66,8 @@ class DiagnosticsScanControllerTest {
                     networkDiagnosticsBridgeFactory = FakeNetworkDiagnosticsBridgeFactory(json),
                     runtimeCoordinator = FakeDiagnosticsRuntimeCoordinator(),
                     serviceStateStore = FakeServiceStateStore(),
-                    scope = this,
+                    scope = backgroundScope,
+                    controllerScope = this,
                     json = json,
                 )
 
@@ -94,7 +97,8 @@ class DiagnosticsScanControllerTest {
                     networkDiagnosticsBridgeFactory = bridgeFactory,
                     runtimeCoordinator = FakeDiagnosticsRuntimeCoordinator(),
                     serviceStateStore = FakeServiceStateStore(),
-                    scope = this,
+                    scope = backgroundScope,
+                    controllerScope = backgroundScope,
                     json = json,
                 )
 
@@ -103,6 +107,7 @@ class DiagnosticsScanControllerTest {
             assertSuspendFailsWith<IllegalStateException> {
                 services.scanController.startScan(ScanPathMode.IN_PATH)
             }
+            services.scanController.cancelActiveScan()
         }
 
     @Test
@@ -129,7 +134,8 @@ class DiagnosticsScanControllerTest {
                     networkDiagnosticsBridgeFactory = bridgeFactory,
                     runtimeCoordinator = FakeDiagnosticsRuntimeCoordinator(),
                     serviceStateStore = FakeServiceStateStore(),
-                    scope = this,
+                    scope = backgroundScope,
+                    controllerScope = this,
                     json = json,
                 )
 
@@ -162,15 +168,21 @@ class DiagnosticsScanControllerTest {
                     networkDiagnosticsBridgeFactory = bridgeFactory,
                     runtimeCoordinator = FakeDiagnosticsRuntimeCoordinator(),
                     serviceStateStore = FakeServiceStateStore(),
-                    scope = this,
+                    scope = backgroundScope,
+                    controllerScope = this,
                     json = json,
                 )
 
             services.scanController.startScan(ScanPathMode.RAW_PATH)
             services.scanController.cancelActiveScan()
 
+            val canceledSession = stores.sessionsState.value.single()
             assertNull(services.timelineSource.activeScanProgress.value)
+            assertEquals("failed", canceledSession.status)
+            assertEquals("Diagnostics scan canceled", canceledSession.summary)
+            assertFalse(services.scanController.hasActiveScan())
             assertEquals(1, bridgeFactory.bridge.cancelCount)
+            assertEquals(1, bridgeFactory.bridge.destroyCount)
         }
 }
 
