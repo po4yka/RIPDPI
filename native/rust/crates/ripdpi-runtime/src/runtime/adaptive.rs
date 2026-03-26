@@ -1,3 +1,19 @@
+// Adaptive hint resolution for the runtime send path.
+//
+// Hint priority chain (highest to lowest):
+//
+// 1. Strategy evolver hints (`StrategyEvolver::suggest_hints`) -- session-wide,
+//    when `config.adaptive.strategy_evolution` is enabled. Overrides per-flow
+//    tuning for every dimension the evolver sets.
+// 2. Per-flow adaptive hints (`AdaptivePlannerResolver::resolve_*_hints`) --
+//    per (host, group, flow-kind) tuple. Used when the evolver is disabled or
+//    returns `None`.
+// 3. Group defaults -- static values from the `DesyncGroup` configuration.
+//
+// Currently only level 2 (per-flow) is resolved here. The evolver (level 1) is
+// consumed by higher-level callers that check `suggest_hints()` first and fall
+// back to these functions when it returns `None`.
+
 use std::io;
 use std::net::SocketAddr;
 

@@ -1,3 +1,35 @@
+//! Per-flow adaptive tuning of DPI evasion parameters.
+//!
+//! [`AdaptivePlannerResolver`] tracks a separate [`AdaptivePlannerState`] for
+//! each unique (network-scope, group, flow-kind, target) tuple. On failure it
+//! cycles through candidates in one adaptive dimension at a time (round-robin
+//! across a shuffled dimension order), and on success it pins the current
+//! candidate so it persists until the next failure.
+//!
+//! # 5-dimension cycling
+//!
+//! The five tunable dimensions are:
+//!
+//! 0. `split_offset_base` -- TCP split point strategy
+//! 1. `tls_record_offset_base` -- TLS record split point
+//! 2. `tlsrandrec_profile` -- TLS random record fragmentation profile
+//! 3. `udp_burst_profile` -- UDP fake-burst intensity
+//! 4. `quic_fake_profile` -- QUIC fake packet style
+//!
+//! On each failure, only **one** dimension advances its candidate index. The
+//! dimension order is deterministically shuffled per flow key so different
+//! flows explore different paths.
+//!
+//! # Interaction with the strategy evolver
+//!
+//! When the session-level strategy evolver
+//! ([`crate::strategy_evolver::StrategyEvolver`]) is enabled, its hints take
+//! priority over the per-flow hints produced here. In that mode the evolver
+//! provides a single [`AdaptivePlannerHints`] for all flows and the per-flow
+//! dimension cycling in this module is effectively bypassed for any dimension
+//! the evolver sets. See `strategy_evolver` module docs for the full priority
+//! chain.
+
 use std::collections::HashMap;
 use std::net::{IpAddr, SocketAddr};
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -661,5 +693,191 @@ mod tests {
 
         assert_eq!(base_first, base_second);
         assert_eq!(next_first, next_second);
+    }
+
+    // --- ChoiceState unit tests ---
+
+    #[test]
+    fn choice_state_pins_on_success() {
+        let mut cs = ChoiceState::new(vec![10u32, 20, 30]);
+        assert_eq!(cs.current(), Some(10));
+
+        cs.note_success();
+        assert_eq!(cs.current(), Some(10));
+        assert_eq!(cs.pinned, Some(10));
+
+        // Even after advancing the index, pinned value still wins.
+        cs.candidate_index = 2;
+        assert_eq!(cs.current(), Some(10));
+    }
+
+    #[test]
+    fn choice_state_advances_on_failure() {
+        let mut cs = ChoiceState::new(vec![10u32, 20, 30]);
+        assert_eq!(cs.current(), Some(10));
+
+        cs.note_failure(1000);
+        assert_eq!(cs.current(), Some(20));
+        assert_eq!(cs.candidate_index, 1);
+    }
+
+    #[test]
+    fn choice_state_cooldown_skips_recent_failure() {
+        let mut cs = ChoiceState::new(vec![10u32, 20, 30]);
+        let t = 100_000u64;
+
+        // Fail index 0 at time T -- puts it on cooldown, advances to index 1.
+        cs.note_failure(t);
+        assert_eq!(cs.current(), Some(20));
+
+        // Fail index 1 at time T+1 (within 15s window of index 0).
+        // Index 0 is still on cooldown, so should skip to index 2.
+        cs.note_failure(t + 1);
+        assert_eq!(cs.current(), Some(30));
+        assert_eq!(cs.candidate_index, 2);
+    }
+
+    #[test]
+    fn choice_state_cooldown_expires() {
+        let mut cs = ChoiceState::new(vec![10u32, 20, 30]);
+        let t = 100_000u64;
+
+        // Fail index 0 at time T -- cooldown until T+15000, advances to 1.
+        cs.note_failure(t);
+        assert_eq!(cs.current(), Some(20));
+
+        // Fail index 1 at T+1 -- cooldown until T+15001, advances to 2
+        // (index 0 still on cooldown).
+        cs.note_failure(t + 1);
+        assert_eq!(cs.current(), Some(30));
+
+        // Fail index 2 after index 0's cooldown has expired (T+16000 > T+15000).
+        // Index 0 is now eligible again.
+        cs.note_failure(t + 16_000);
+        assert_eq!(cs.current(), Some(10));
+        assert_eq!(cs.candidate_index, 0);
+    }
+
+    #[test]
+    fn single_candidate_failure_is_noop() {
+        let mut cs = ChoiceState::new(vec![42u32]);
+        assert_eq!(cs.current(), Some(42));
+
+        cs.note_failure(1000);
+        assert_eq!(cs.current(), Some(42));
+        assert_eq!(cs.candidate_index, 0);
+    }
+
+    // --- AdaptivePlannerState unit tests ---
+
+    /// Helper: build a DesyncGroup with a single adaptive TCP split step.
+    fn tcp_group_with_adaptive_split() -> DesyncGroup {
+        let mut g = DesyncGroup::new(0);
+        g.actions.tcp_chain =
+            vec![TcpChainStep::new(TcpChainStepKind::Split, OffsetExpr::adaptive(OffsetBase::AutoHost))];
+        g
+    }
+
+    #[test]
+    fn planner_state_cycles_dimensions_on_failure() {
+        let seed = 12345u64;
+        let mut state = AdaptivePlannerState::new(seed);
+
+        // Sync TCP candidates with a non-TLS payload so split_offset_base is populated.
+        let payload = b"GET / HTTP/1.1\r\nHost: example.test\r\n\r\n";
+        let group = tcp_group_with_adaptive_split();
+        state.sync_tcp_candidates(&group, payload);
+
+        // The only adaptive dimension for this config is split_offset_base (dimension 0).
+        // Record initial value.
+        let initial = state.current_hints().split_offset_base;
+        assert!(initial.is_some());
+
+        // After note_failure, the value for split_offset_base should change
+        // (the dimension cursor advances to the next dimension, but only
+        // dimension 0 is active, so it will eventually circle back to it).
+        let now = 100_000u64;
+        // We call advance_dimension directly to verify dimension cycling with
+        // a known order.
+        let order = state.dimension_order.clone();
+        let first_active = order.iter().position(|&d| d == 0).expect("dimension 0 in order");
+
+        // Manually advance so we can control timing (note_failure uses now_millis()).
+        state.dimension_cursor = first_active;
+        let advanced = state.advance_dimension(0, now);
+        assert!(advanced);
+
+        let after = state.current_hints().split_offset_base;
+        assert_ne!(initial, after, "split_offset_base should change after advancing dimension 0");
+    }
+
+    #[test]
+    fn planner_state_success_pins_all_dimensions() {
+        let mut state = AdaptivePlannerState::new(99);
+        let payload = b"GET / HTTP/1.1\r\nHost: example.test\r\n\r\n";
+        let group = tcp_group_with_adaptive_split();
+        state.sync_tcp_candidates(&group, payload);
+
+        let before = state.current_hints();
+        state.note_success();
+
+        // All dimensions should be pinned -- verify via the underlying state.
+        assert!(state.split_offset_base.as_ref().unwrap().pinned.is_some());
+
+        // Re-resolve hints: should match what was pinned.
+        let after = state.current_hints();
+        assert_eq!(before.split_offset_base, after.split_offset_base);
+    }
+
+    // --- AdaptivePlannerResolver tests ---
+
+    #[test]
+    fn resolver_tracks_per_host_state() {
+        let payload = b"GET / HTTP/1.1\r\nHost: alpha.test\r\n\r\n";
+        let group = tcp_group_with_adaptive_split();
+        let target = addr(80);
+
+        let mut resolver = AdaptivePlannerResolver::default();
+
+        let alpha = resolver.resolve_tcp_hints(None, 0, target, Some("alpha.test"), &group, payload);
+        let beta = resolver.resolve_tcp_hints(None, 0, target, Some("beta.test"), &group, payload);
+
+        // Both should start with the same initial candidate (Host).
+        assert_eq!(alpha.split_offset_base, Some(OffsetBase::Host));
+        assert_eq!(beta.split_offset_base, Some(OffsetBase::Host));
+
+        // Fail alpha, advance it.
+        resolver.note_tcp_failure(None, 0, target, Some("alpha.test"), payload);
+        let alpha_after = resolver.resolve_tcp_hints(None, 0, target, Some("alpha.test"), &group, payload);
+        let beta_after = resolver.resolve_tcp_hints(None, 0, target, Some("beta.test"), &group, payload);
+
+        // Alpha should have advanced, beta should remain unchanged.
+        assert_ne!(alpha_after.split_offset_base, Some(OffsetBase::Host));
+        assert_eq!(beta_after.split_offset_base, Some(OffsetBase::Host));
+    }
+
+    #[test]
+    fn resolver_tcp_success_pins_state() {
+        let payload = b"GET / HTTP/1.1\r\nHost: pin.test\r\n\r\n";
+        let group = tcp_group_with_adaptive_split();
+        let target = addr(80);
+
+        let mut resolver = AdaptivePlannerResolver::default();
+
+        let first = resolver.resolve_tcp_hints(None, 0, target, Some("pin.test"), &group, payload);
+        assert_eq!(first.split_offset_base, Some(OffsetBase::Host));
+
+        // Pin via success.
+        resolver.note_tcp_success(None, 0, target, Some("pin.test"), payload);
+
+        // Resolve again -- should still be Host (pinned).
+        let after_pin = resolver.resolve_tcp_hints(None, 0, target, Some("pin.test"), &group, payload);
+        assert_eq!(after_pin.split_offset_base, Some(OffsetBase::Host));
+
+        // Even after a failure, the pin is cleared and we advance, but the key
+        // point is the pin held across the second resolve.
+        resolver.note_tcp_failure(None, 0, target, Some("pin.test"), payload);
+        let after_fail = resolver.resolve_tcp_hints(None, 0, target, Some("pin.test"), &group, payload);
+        assert_ne!(after_fail.split_offset_base, first.split_offset_base);
     }
 }
