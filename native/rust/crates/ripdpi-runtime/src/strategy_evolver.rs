@@ -181,6 +181,20 @@ impl StrategyCombo {
 // ComboStats
 // ---------------------------------------------------------------------------
 
+/// Multiplier for the success-rate term in fitness scoring.
+/// With a success rate range of [0.0, 1.0], this yields a fitness component of [0, 1000].
+const FITNESS_SUCCESS_WEIGHT: f64 = 1000.0;
+
+/// Maximum average latency (ms) considered in fitness scoring.
+/// Latencies above this cap contribute the same penalty, preventing a single
+/// slow outlier from dominating the score.
+const FITNESS_LATENCY_CAP_MS: f64 = 5000.0;
+
+/// Per-millisecond penalty weight for average latency in fitness scoring.
+/// At the cap (5000 ms), the maximum penalty is -100, roughly 10% of the
+/// success-rate range.
+const FITNESS_LATENCY_PENALTY_PER_MS: f64 = 0.02;
+
 /// Per-combo performance statistics.
 #[derive(Debug, Clone)]
 pub struct ComboStats {
@@ -198,7 +212,7 @@ impl ComboStats {
 
     /// Fitness score: higher is better.
     ///
-    /// `success_rate * 1000.0 - avg_latency.min(5000.0) * 0.02`
+    /// `success_rate * FITNESS_SUCCESS_WEIGHT - avg_latency.min(FITNESS_LATENCY_CAP_MS) * FITNESS_LATENCY_PENALTY_PER_MS`
     ///
     /// The success-rate term dominates (range 0..1000) so reliability always
     /// wins over speed. The latency penalty caps at -100 (~10% of the success
@@ -212,9 +226,9 @@ impl ComboStats {
         let avg_latency = if self.successes > 0 {
             self.total_latency_ms as f64 / self.successes as f64
         } else {
-            5000.0
+            FITNESS_LATENCY_CAP_MS
         };
-        success_rate * 1000.0 - avg_latency.min(5000.0) * 0.02
+        success_rate * FITNESS_SUCCESS_WEIGHT - avg_latency.min(FITNESS_LATENCY_CAP_MS) * FITNESS_LATENCY_PENALTY_PER_MS
     }
 }
 
@@ -269,94 +283,119 @@ const COMBO_POOL: &[PoolEntry] = &[
     PoolEntry { split_offset_base: Some(OffsetBase::EndHost), fake_ttl: Some(10), ..PoolEntry::new() },
     // 13-15: Shannon/Combined entropy padding variants
     PoolEntry {
-        split_offset_base: Some(OffsetBase::AutoHost), fake_ttl: Some(8),
-        entropy_mode: Some(EntropyMode::Shannon), ..PoolEntry::new()
+        split_offset_base: Some(OffsetBase::AutoHost),
+        fake_ttl: Some(8),
+        entropy_mode: Some(EntropyMode::Shannon),
+        ..PoolEntry::new()
     },
     PoolEntry {
-        split_offset_base: Some(OffsetBase::MidSld), fake_ttl: Some(8),
-        entropy_mode: Some(EntropyMode::Shannon), ..PoolEntry::new()
+        split_offset_base: Some(OffsetBase::MidSld),
+        fake_ttl: Some(8),
+        entropy_mode: Some(EntropyMode::Shannon),
+        ..PoolEntry::new()
     },
     PoolEntry {
-        split_offset_base: Some(OffsetBase::AutoHost), fake_ttl: Some(8),
-        entropy_mode: Some(EntropyMode::Combined), ..PoolEntry::new()
+        split_offset_base: Some(OffsetBase::AutoHost),
+        fake_ttl: Some(8),
+        entropy_mode: Some(EntropyMode::Combined),
+        ..PoolEntry::new()
     },
     // --- TLS RandRec profile variants ---
     // 16: AutoHost + Tight TLS RandRec
     PoolEntry {
         split_offset_base: Some(OffsetBase::AutoHost),
-        tlsrandrec_profile: Some(AdaptiveTlsRandRecProfile::Tight), ..PoolEntry::new()
+        tlsrandrec_profile: Some(AdaptiveTlsRandRecProfile::Tight),
+        ..PoolEntry::new()
     },
     // 17: AutoHost + Wide TLS RandRec
     PoolEntry {
         split_offset_base: Some(OffsetBase::AutoHost),
-        tlsrandrec_profile: Some(AdaptiveTlsRandRecProfile::Wide), ..PoolEntry::new()
+        tlsrandrec_profile: Some(AdaptiveTlsRandRecProfile::Wide),
+        ..PoolEntry::new()
     },
     // 18: MidSld + Balanced TLS RandRec
     PoolEntry {
         split_offset_base: Some(OffsetBase::MidSld),
-        tlsrandrec_profile: Some(AdaptiveTlsRandRecProfile::Balanced), ..PoolEntry::new()
+        tlsrandrec_profile: Some(AdaptiveTlsRandRecProfile::Balanced),
+        ..PoolEntry::new()
     },
     // --- UDP burst profile variants ---
     // 19: AutoHost + TTL 8 + Conservative UDP burst
     PoolEntry {
-        split_offset_base: Some(OffsetBase::AutoHost), fake_ttl: Some(8),
-        udp_burst_profile: Some(AdaptiveUdpBurstProfile::Conservative), ..PoolEntry::new()
+        split_offset_base: Some(OffsetBase::AutoHost),
+        fake_ttl: Some(8),
+        udp_burst_profile: Some(AdaptiveUdpBurstProfile::Conservative),
+        ..PoolEntry::new()
     },
     // 20: AutoHost + TTL 8 + Aggressive UDP burst
     PoolEntry {
-        split_offset_base: Some(OffsetBase::AutoHost), fake_ttl: Some(8),
-        udp_burst_profile: Some(AdaptiveUdpBurstProfile::Aggressive), ..PoolEntry::new()
+        split_offset_base: Some(OffsetBase::AutoHost),
+        fake_ttl: Some(8),
+        udp_burst_profile: Some(AdaptiveUdpBurstProfile::Aggressive),
+        ..PoolEntry::new()
     },
     // 21: MidSld + Conservative UDP burst
     PoolEntry {
         split_offset_base: Some(OffsetBase::MidSld),
-        udp_burst_profile: Some(AdaptiveUdpBurstProfile::Conservative), ..PoolEntry::new()
+        udp_burst_profile: Some(AdaptiveUdpBurstProfile::Conservative),
+        ..PoolEntry::new()
     },
     // --- QUIC fake profile variants ---
     // 22: AutoHost + TTL 8 + CompatDefault QUIC fake
     PoolEntry {
-        split_offset_base: Some(OffsetBase::AutoHost), fake_ttl: Some(8),
-        quic_fake_profile: Some(QuicFakeProfile::CompatDefault), ..PoolEntry::new()
+        split_offset_base: Some(OffsetBase::AutoHost),
+        fake_ttl: Some(8),
+        quic_fake_profile: Some(QuicFakeProfile::CompatDefault),
+        ..PoolEntry::new()
     },
     // 23: AutoHost + TTL 8 + RealisticInitial QUIC fake
     PoolEntry {
-        split_offset_base: Some(OffsetBase::AutoHost), fake_ttl: Some(8),
-        quic_fake_profile: Some(QuicFakeProfile::RealisticInitial), ..PoolEntry::new()
+        split_offset_base: Some(OffsetBase::AutoHost),
+        fake_ttl: Some(8),
+        quic_fake_profile: Some(QuicFakeProfile::RealisticInitial),
+        ..PoolEntry::new()
     },
     // 24: EndHost + CompatDefault QUIC fake
     PoolEntry {
         split_offset_base: Some(OffsetBase::EndHost),
-        quic_fake_profile: Some(QuicFakeProfile::CompatDefault), ..PoolEntry::new()
+        quic_fake_profile: Some(QuicFakeProfile::CompatDefault),
+        ..PoolEntry::new()
     },
     // --- TLS record offset variants ---
     // 25: AutoHost split + EndHost TLS record offset
     PoolEntry {
         split_offset_base: Some(OffsetBase::AutoHost),
-        tls_record_offset_base: Some(OffsetBase::EndHost), ..PoolEntry::new()
+        tls_record_offset_base: Some(OffsetBase::EndHost),
+        ..PoolEntry::new()
     },
     // 26: MidSld split + SniExt TLS record offset
     PoolEntry {
         split_offset_base: Some(OffsetBase::MidSld),
-        tls_record_offset_base: Some(OffsetBase::SniExt), ..PoolEntry::new()
+        tls_record_offset_base: Some(OffsetBase::SniExt),
+        ..PoolEntry::new()
     },
     // 27: EndHost split + AutoBalanced TLS record offset
     PoolEntry {
         split_offset_base: Some(OffsetBase::EndHost),
-        tls_record_offset_base: Some(OffsetBase::AutoBalanced), ..PoolEntry::new()
+        tls_record_offset_base: Some(OffsetBase::AutoBalanced),
+        ..PoolEntry::new()
     },
     // --- Combined multi-dimension entries ---
     // 28: AutoHost + Tight RandRec + Conservative UDP + TTL 8
     PoolEntry {
-        split_offset_base: Some(OffsetBase::AutoHost), fake_ttl: Some(8),
+        split_offset_base: Some(OffsetBase::AutoHost),
+        fake_ttl: Some(8),
         tlsrandrec_profile: Some(AdaptiveTlsRandRecProfile::Tight),
-        udp_burst_profile: Some(AdaptiveUdpBurstProfile::Conservative), ..PoolEntry::new()
+        udp_burst_profile: Some(AdaptiveUdpBurstProfile::Conservative),
+        ..PoolEntry::new()
     },
     // 29: MidSld + Wide RandRec + RealisticInitial QUIC + Shannon entropy
     PoolEntry {
         split_offset_base: Some(OffsetBase::MidSld),
         tlsrandrec_profile: Some(AdaptiveTlsRandRecProfile::Wide),
         quic_fake_profile: Some(QuicFakeProfile::RealisticInitial),
-        entropy_mode: Some(EntropyMode::Shannon), ..PoolEntry::new()
+        entropy_mode: Some(EntropyMode::Shannon),
+        ..PoolEntry::new()
     },
 ];
 
@@ -394,7 +433,10 @@ impl StrategyEvolver {
             explore_epsilon: epsilon,
             max_combos: 64,
             enabled,
-            rng_state: now_millis().wrapping_add(1).wrapping_mul(6_364_136_223_846_793_005).wrapping_add(std::process::id() as u64),
+            rng_state: now_millis()
+                .wrapping_add(1)
+                .wrapping_mul(6_364_136_223_846_793_005)
+                .wrapping_add(std::process::id() as u64),
         }
     }
 
@@ -558,33 +600,33 @@ mod tests {
         let mut e = StrategyEvolver::new(true, 0.0); // pure exploitation
 
         // Combo A: AutoHost offset, no TTL
-        let combo_a = StrategyCombo {
-            split_offset_base: Some(OffsetBase::AutoHost),
-            ..StrategyCombo::default_combo()
-        };
+        let combo_a = StrategyCombo { split_offset_base: Some(OffsetBase::AutoHost), ..StrategyCombo::default_combo() };
         // Combo B: MidSld offset, no TTL
-        let combo_b = StrategyCombo {
-            split_offset_base: Some(OffsetBase::MidSld),
-            ..StrategyCombo::default_combo()
-        };
+        let combo_b = StrategyCombo { split_offset_base: Some(OffsetBase::MidSld), ..StrategyCombo::default_combo() };
 
         // Manually insert combo A: 2 successes, 1 fail (3 attempts)
-        e.combos.insert(combo_a.clone(), ComboStats {
-            attempts: 3,
-            successes: 2,
-            total_latency_ms: 200,
-            last_attempt_ms: 0,
-            last_failure_class: None,
-        });
+        e.combos.insert(
+            combo_a.clone(),
+            ComboStats {
+                attempts: 3,
+                successes: 2,
+                total_latency_ms: 200,
+                last_attempt_ms: 0,
+                last_failure_class: None,
+            },
+        );
 
         // Manually insert combo B: 3 successes (3 attempts)
-        e.combos.insert(combo_b.clone(), ComboStats {
-            attempts: 3,
-            successes: 3,
-            total_latency_ms: 300,
-            last_attempt_ms: 0,
-            last_failure_class: None,
-        });
+        e.combos.insert(
+            combo_b.clone(),
+            ComboStats {
+                attempts: 3,
+                successes: 3,
+                total_latency_ms: 300,
+                last_attempt_ms: 0,
+                last_failure_class: None,
+            },
+        );
 
         let (best, _) = e.best_combo().expect("should have a best combo");
         assert_eq!(*best, combo_b, "combo B with 100% success rate should be best");
@@ -830,8 +872,26 @@ mod tests {
         let bad = StrategyCombo { fake_ttl: Some(8), ..StrategyCombo::default_combo() };
         let new_combo = StrategyCombo { fake_ttl: Some(10), ..StrategyCombo::default_combo() };
 
-        e.combos.insert(good.clone(), ComboStats { attempts: 10, successes: 9, total_latency_ms: 100, last_attempt_ms: 0, last_failure_class: None });
-        e.combos.insert(bad.clone(), ComboStats { attempts: 10, successes: 1, total_latency_ms: 5000, last_attempt_ms: 0, last_failure_class: None });
+        e.combos.insert(
+            good.clone(),
+            ComboStats {
+                attempts: 10,
+                successes: 9,
+                total_latency_ms: 100,
+                last_attempt_ms: 0,
+                last_failure_class: None,
+            },
+        );
+        e.combos.insert(
+            bad.clone(),
+            ComboStats {
+                attempts: 10,
+                successes: 1,
+                total_latency_ms: 5000,
+                last_attempt_ms: 0,
+                last_failure_class: None,
+            },
+        );
 
         e.evict_if_needed(&new_combo);
         assert!(e.combos.contains_key(&good), "good combo should survive");
@@ -840,14 +900,9 @@ mod tests {
 
     #[test]
     fn fitness_with_zero_successes_penalizes_latency() {
-        let stats = ComboStats {
-            attempts: 5,
-            successes: 0,
-            total_latency_ms: 0,
-            last_attempt_ms: 0,
-            last_failure_class: None,
-        };
-        // 0% success rate, avg_latency defaults to 5000.0
+        let stats =
+            ComboStats { attempts: 5, successes: 0, total_latency_ms: 0, last_attempt_ms: 0, last_failure_class: None };
+        // 0% success rate, avg_latency defaults to FITNESS_LATENCY_CAP_MS
         // fitness = 0.0 * 1000 - 5000.0 * 0.02 = -100.0
         assert!(stats.fitness() < 0.0, "0% success should give negative fitness, got {}", stats.fitness());
     }
@@ -883,10 +938,16 @@ mod tests {
         let tried = StrategyCombo { fake_ttl: Some(6), ..StrategyCombo::default_combo() };
         let untried = StrategyCombo { fake_ttl: Some(8), ..StrategyCombo::default_combo() };
 
-        e.combos.insert(tried.clone(), ComboStats {
-            attempts: 10, successes: 5, total_latency_ms: 500,
-            last_attempt_ms: 0, last_failure_class: None,
-        });
+        e.combos.insert(
+            tried.clone(),
+            ComboStats {
+                attempts: 10,
+                successes: 5,
+                total_latency_ms: 500,
+                last_attempt_ms: 0,
+                last_failure_class: None,
+            },
+        );
         e.combos.insert(untried.clone(), ComboStats::new()); // 0 attempts => UCB1 = MAX
 
         let selected = e.select_next_combo();
@@ -918,18 +979,12 @@ mod tests {
         use std::collections::hash_map::DefaultHasher;
 
         let combo_none = StrategyCombo::default_combo();
-        let combo_shannon = StrategyCombo {
-            entropy_mode: Some(EntropyMode::Shannon),
-            ..StrategyCombo::default_combo()
-        };
-        let combo_popcount = StrategyCombo {
-            entropy_mode: Some(EntropyMode::Popcount),
-            ..StrategyCombo::default_combo()
-        };
-        let combo_combined = StrategyCombo {
-            entropy_mode: Some(EntropyMode::Combined),
-            ..StrategyCombo::default_combo()
-        };
+        let combo_shannon =
+            StrategyCombo { entropy_mode: Some(EntropyMode::Shannon), ..StrategyCombo::default_combo() };
+        let combo_popcount =
+            StrategyCombo { entropy_mode: Some(EntropyMode::Popcount), ..StrategyCombo::default_combo() };
+        let combo_combined =
+            StrategyCombo { entropy_mode: Some(EntropyMode::Combined), ..StrategyCombo::default_combo() };
 
         let hash_of = |combo: &StrategyCombo| -> u64 {
             let mut h = DefaultHasher::new();
@@ -1011,20 +1066,30 @@ mod tests {
         let mut e = StrategyEvolver::new(true, 0.0); // pure exploitation
 
         let combo_no_entropy = StrategyCombo::default_combo();
-        let combo_with_entropy = StrategyCombo {
-            entropy_mode: Some(EntropyMode::Shannon),
-            ..StrategyCombo::default_combo()
-        };
+        let combo_with_entropy =
+            StrategyCombo { entropy_mode: Some(EntropyMode::Shannon), ..StrategyCombo::default_combo() };
 
         // combo without entropy: 50% success rate
         e.combos.insert(
             combo_no_entropy.clone(),
-            ComboStats { attempts: 10, successes: 5, total_latency_ms: 500, last_attempt_ms: 0, last_failure_class: None },
+            ComboStats {
+                attempts: 10,
+                successes: 5,
+                total_latency_ms: 500,
+                last_attempt_ms: 0,
+                last_failure_class: None,
+            },
         );
         // combo with Shannon entropy: 90% success rate
         e.combos.insert(
             combo_with_entropy.clone(),
-            ComboStats { attempts: 10, successes: 9, total_latency_ms: 900, last_attempt_ms: 0, last_failure_class: None },
+            ComboStats {
+                attempts: 10,
+                successes: 9,
+                total_latency_ms: 900,
+                last_attempt_ms: 0,
+                last_failure_class: None,
+            },
         );
 
         let (best, _) = e.best_combo().expect("should have a best combo");
