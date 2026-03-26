@@ -202,6 +202,52 @@ pub fn detach_drop_sack(stream: &TcpStream) -> io::Result<()> {
     unsafe { setsockopt_raw(stream.as_raw_fd(), libc::SOL_SOCKET, libc::SO_DETACH_FILTER, &0i32) }
 }
 
+/// Attach a BPF socket filter that drops outgoing TCP segments containing
+/// the Timestamps option (kind=8).
+///
+/// This prevents DPI from using TCP timestamp values for flow-level timing
+/// correlation. The BPF program checks the TCP option kind byte at a fixed
+/// offset (same approach as [`attach_drop_sack`] for SACK kind=5).
+///
+/// **Note:** `SO_ATTACH_FILTER` replaces any prior filter. If both `drop_sack`
+/// and `strip_timestamps` are needed, call `attach_drop_sack` first — this
+/// filter will replace it. For combined filtering, a future refactor can merge
+/// both checks into a single BPF program.
+pub fn attach_strip_timestamps(stream: &TcpStream) -> io::Result<()> {
+    let fd = stream.as_raw_fd();
+    // BPF program: check TCP data offset (byte 12, upper nibble) >= 11 words
+    // (44 bytes, meaning options exist beyond the basic 20-byte header).
+    // Then check option kind byte at offset 0x1e (byte 30 = start of options
+    // area for most common layouts where timestamps appear first).
+    // If kind == 8 (Timestamps), drop the packet (return 0).
+    // Otherwise, accept (return 0x40000).
+    let mut code = [
+        // Load byte at offset 12 (TCP data offset + flags)
+        libc::sock_filter { code: 0x30, jt: 0, jf: 0, k: 0x0000000c },
+        // Shift right 4 to get data offset in 32-bit words
+        libc::sock_filter { code: 0x74, jt: 0, jf: 0, k: 0x00000004 },
+        // If data offset < 8 (header < 32 bytes = no room for timestamps), accept
+        libc::sock_filter { code: 0x35, jt: 0, jf: 3, k: 0x00000008 },
+        // Load byte at offset 0x14 (byte 20 = first option kind after 20-byte header)
+        libc::sock_filter { code: 0x30, jt: 0, jf: 0, k: 0x00000014 },
+        // If kind == 8 (Timestamps), drop
+        libc::sock_filter { code: 0x15, jt: 0, jf: 1, k: 0x00000008 },
+        // Drop: return 0
+        libc::sock_filter { code: 0x6, jt: 0, jf: 0, k: 0x00000000 },
+        // Accept: return max
+        libc::sock_filter { code: 0x6, jt: 0, jf: 0, k: 0x00040000 },
+    ];
+    let prog = libc::sock_fprog { len: code.len() as u16, filter: code.as_mut_ptr() };
+
+    // SAFETY: `prog` points to a live in-process BPF program and `fd` is a
+    // valid TCP socket descriptor owned by `stream`.
+    unsafe { setsockopt_raw(fd, libc::SOL_SOCKET, libc::SO_ATTACH_FILTER, &prog) }
+}
+
+pub fn detach_strip_timestamps(stream: &TcpStream) -> io::Result<()> {
+    unsafe { setsockopt_raw(stream.as_raw_fd(), libc::SOL_SOCKET, libc::SO_DETACH_FILTER, &0i32) }
+}
+
 /// Clamp the TCP receive window to force the server to send small segments.
 ///
 /// Setting `size` to a low value (e.g., 1 or 2) causes the kernel to advertise
