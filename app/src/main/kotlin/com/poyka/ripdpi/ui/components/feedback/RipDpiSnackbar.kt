@@ -112,7 +112,8 @@ fun RipDpiSnackbar(
                                 role = Role.Button,
                                 hapticFeedback = snackbarActionHapticFeedback(tone),
                                 onClick = onAction,
-                            ).ripDpiTestTag(actionTestTag),
+                            )
+                            .ripDpiTestTag(actionTestTag),
                 )
             }
         }
@@ -196,11 +197,11 @@ private fun snackbarActionHapticFeedback(tone: RipDpiSnackbarTone): RipDpiHaptic
         RipDpiSnackbarTone.Error,
         RipDpiSnackbarTone.Warning,
         RipDpiSnackbarTone.Restricted,
-        -> RipDpiHapticFeedback.Acknowledge
+            -> RipDpiHapticFeedback.Acknowledge
 
         RipDpiSnackbarTone.Default,
         RipDpiSnackbarTone.Info,
-        -> RipDpiHapticFeedback.Action
+            -> RipDpiHapticFeedback.Action
     }
 
 @Immutable

@@ -20,7 +20,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.poyka.ripdpi.ui.components.RipDpiComponentPreview
@@ -181,7 +180,7 @@ private fun RipDpiModalIconBadge(
 
             RipDpiDialogTone.Info,
             RipDpiDialogTone.Default,
-            -> colors.inputBackground
+                -> colors.inputBackground
         }
     val iconTint =
         when (tone) {
@@ -189,7 +188,7 @@ private fun RipDpiModalIconBadge(
 
             RipDpiDialogTone.Info,
             RipDpiDialogTone.Default,
-            -> colors.foreground
+                -> colors.foreground
         }
 
     Box(
@@ -228,7 +227,7 @@ private fun DialogActionRow(
 
             RipDpiDialogTone.Info,
             RipDpiDialogTone.Default,
-            -> RipDpiButtonVariant.Primary
+                -> RipDpiButtonVariant.Primary
         }
 
     if (resolvedActionLayout == RipDpiActionLayout.Stacked) {
@@ -240,14 +239,18 @@ private fun DialogActionRow(
                 RipDpiButton(
                     text = confirmLabel.orEmpty(),
                     onClick = { onConfirm?.invoke() },
-                    modifier = Modifier.fillMaxWidth().ripDpiTestTag(confirmTestTag),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .ripDpiTestTag(confirmTestTag),
                     variant = primaryVariant,
                     hapticFeedback = confirmActionHapticFeedback(tone),
                 )
                 RipDpiButton(
                     text = dismissLabel,
                     onClick = onDismiss,
-                    modifier = Modifier.fillMaxWidth().ripDpiTestTag(dismissTestTag),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .ripDpiTestTag(dismissTestTag),
                     variant = RipDpiButtonVariant.Outline,
                     hapticFeedback = dismissActionHapticFeedback(tone, hasConfirmAction),
                 )
@@ -255,7 +258,9 @@ private fun DialogActionRow(
                 RipDpiButton(
                     text = dismissLabel,
                     onClick = onDismiss,
-                    modifier = Modifier.fillMaxWidth().ripDpiTestTag(dismissTestTag),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .ripDpiTestTag(dismissTestTag),
                     variant = primaryVariant,
                     hapticFeedback = dismissActionHapticFeedback(tone, hasConfirmAction),
                 )
@@ -314,7 +319,7 @@ private fun confirmActionHapticFeedback(tone: RipDpiDialogTone): RipDpiHapticFee
 
         RipDpiDialogTone.Info,
         RipDpiDialogTone.Default,
-        -> RipDpiHapticFeedback.Action
+            -> RipDpiHapticFeedback.Action
     }
 
 private fun defaultDialogIcon(tone: RipDpiDialogTone): ImageVector? =

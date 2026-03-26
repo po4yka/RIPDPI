@@ -121,14 +121,14 @@ internal class MainPermissionActions(
 
                     PermissionStatus.Denied,
                     PermissionStatus.RequiresSystemPrompt,
-                    -> {
+                        -> {
                         permissionState.update { it.copy(issue = null, snapshot = snapshot) }
                         mutations.trySend(MainEffect.RequestPermission(kind = PermissionKind.Notifications))
                     }
 
                     PermissionStatus.Granted,
                     PermissionStatus.NotApplicable,
-                    -> {
+                        -> {
                         continueResolvedAction(action, emptyList())
                     }
                 }
@@ -142,7 +142,7 @@ internal class MainPermissionActions(
 
                     PermissionAction.StartVpnMode,
                     is PermissionAction.RepairPermission,
-                    -> {
+                        -> {
                         val prepareIntent = permissionPlatformBridge.prepareVpnPermissionIntent()
                         if (prepareIntent == null) {
                             onPermissionResult(PermissionKind.VpnConsent, PermissionResult.Granted)
@@ -222,7 +222,7 @@ internal class MainPermissionActions(
 
             PermissionResult.Denied,
             PermissionResult.DeniedPermanently,
-            -> {
+                -> {
                 permissionOverrides[PermissionKind.VpnConsent] = PermissionStatus.Denied
                 pendingPermissionAction = null
                 refreshPermissionSnapshot()
@@ -328,7 +328,7 @@ internal class MainPermissionActions(
         when (status) {
             PermissionStatus.Granted,
             PermissionStatus.NotApplicable,
-            -> {
+                -> {
                 PermissionItemUiState(
                     kind = PermissionKind.Notifications,
                     title = stringResolver.getString(R.string.permissions_notifications_title),
@@ -349,7 +349,7 @@ internal class MainPermissionActions(
 
             PermissionStatus.Denied,
             PermissionStatus.RequiresSystemPrompt,
-            -> {
+                -> {
                 PermissionItemUiState(
                     kind = PermissionKind.Notifications,
                     title = stringResolver.getString(R.string.permissions_notifications_title),
@@ -391,7 +391,7 @@ internal class MainPermissionActions(
             PermissionStatus.Denied,
             PermissionStatus.RequiresSettings,
             PermissionStatus.RequiresSystemPrompt,
-            -> {
+                -> {
                 PermissionItemUiState(
                     kind = PermissionKind.VpnConsent,
                     title = stringResolver.getString(R.string.permissions_vpn_title),
@@ -416,7 +416,7 @@ internal class MainPermissionActions(
         when (status) {
             PermissionStatus.Granted,
             PermissionStatus.NotApplicable,
-            -> {
+                -> {
                 PermissionItemUiState(
                     kind = PermissionKind.BatteryOptimization,
                     title = stringResolver.getString(R.string.permissions_battery_title),
@@ -433,7 +433,7 @@ internal class MainPermissionActions(
             PermissionStatus.Denied,
             PermissionStatus.RequiresSystemPrompt,
             PermissionStatus.RequiresSettings,
-            -> {
+                -> {
                 PermissionItemUiState(
                     kind = PermissionKind.BatteryOptimization,
                     title = stringResolver.getString(R.string.permissions_battery_title),
@@ -552,7 +552,7 @@ private fun buildNotificationPermissionItem(
     when (status) {
         PermissionStatus.Granted,
         PermissionStatus.NotApplicable,
-        -> {
+            -> {
             PermissionItemUiState(
                 kind = PermissionKind.Notifications,
                 title = stringResolver.getString(R.string.permissions_notifications_title),
@@ -573,7 +573,7 @@ private fun buildNotificationPermissionItem(
 
         PermissionStatus.Denied,
         PermissionStatus.RequiresSystemPrompt,
-        -> {
+            -> {
             PermissionItemUiState(
                 kind = PermissionKind.Notifications,
                 title = stringResolver.getString(R.string.permissions_notifications_title),
@@ -616,7 +616,7 @@ private fun buildVpnPermissionItem(
         PermissionStatus.Denied,
         PermissionStatus.RequiresSettings,
         PermissionStatus.RequiresSystemPrompt,
-        -> {
+            -> {
             PermissionItemUiState(
                 kind = PermissionKind.VpnConsent,
                 title = stringResolver.getString(R.string.permissions_vpn_title),
@@ -644,7 +644,7 @@ private fun buildBatteryPermissionItem(
     when (status) {
         PermissionStatus.Granted,
         PermissionStatus.NotApplicable,
-        -> {
+            -> {
             PermissionItemUiState(
                 kind = PermissionKind.BatteryOptimization,
                 title = stringResolver.getString(R.string.permissions_battery_title),
@@ -661,7 +661,7 @@ private fun buildBatteryPermissionItem(
         PermissionStatus.Denied,
         PermissionStatus.RequiresSystemPrompt,
         PermissionStatus.RequiresSettings,
-        -> {
+            -> {
             PermissionItemUiState(
                 kind = PermissionKind.BatteryOptimization,
                 title = stringResolver.getString(R.string.permissions_battery_title),

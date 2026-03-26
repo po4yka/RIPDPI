@@ -11,7 +11,6 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.poyka.ripdpi.activities.SettingsEffect
 import com.poyka.ripdpi.activities.SettingsViewModel
-import kotlinx.coroutines.flow.collect
 
 @Composable
 fun AdvancedSettingsRoute(

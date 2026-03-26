@@ -10,7 +10,6 @@ import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.ServiceStateStore
-import com.poyka.ripdpi.diagnostics.BypassApproachSummary
 import com.poyka.ripdpi.diagnostics.DiagnosticsTimelineSource
 import com.poyka.ripdpi.diagnostics.crash.CrashReport
 import com.poyka.ripdpi.diagnostics.crash.CrashReportReader
@@ -139,231 +138,231 @@ internal fun resolveStartupDestination(settings: AppSettings): String =
 
 @HiltViewModel
 class MainViewModel
-    @Inject
-    constructor(
-        private val appSettingsRepository: AppSettingsRepository,
-        serviceStateStore: ServiceStateStore,
-        serviceController: ServiceController,
-        diagnosticsTimelineSource: DiagnosticsTimelineSource,
-        private val stringResolver: StringResolver,
-        trafficStatsReader: TrafficStatsReader,
-        permissionPlatformBridge: PermissionPlatformBridge,
-        permissionStatusProvider: PermissionStatusProvider,
-        permissionCoordinator: PermissionCoordinator,
-        private val crashReportReader: CrashReportReader,
-    ) : ViewModel() {
-        private var initialized = false
-        private val runtimeState = MutableStateFlow(ConnectionRuntimeState())
-        private val permissionState = MutableStateFlow(PermissionRuntimeState())
-        private val _effects = Channel<MainEffect>(Channel.BUFFERED)
+@Inject
+constructor(
+    private val appSettingsRepository: AppSettingsRepository,
+    serviceStateStore: ServiceStateStore,
+    serviceController: ServiceController,
+    diagnosticsTimelineSource: DiagnosticsTimelineSource,
+    private val stringResolver: StringResolver,
+    trafficStatsReader: TrafficStatsReader,
+    permissionPlatformBridge: PermissionPlatformBridge,
+    permissionStatusProvider: PermissionStatusProvider,
+    permissionCoordinator: PermissionCoordinator,
+    private val crashReportReader: CrashReportReader,
+) : ViewModel() {
+    private var initialized = false
+    private val runtimeState = MutableStateFlow(ConnectionRuntimeState())
+    private val permissionState = MutableStateFlow(PermissionRuntimeState())
+    private val _effects = Channel<MainEffect>(Channel.BUFFERED)
 
-        val effects: Flow<MainEffect> = _effects.receiveAsFlow()
+    val effects: Flow<MainEffect> = _effects.receiveAsFlow()
 
-        private val _pendingCrashReport = MutableStateFlow<CrashReport?>(null)
-        val pendingCrashReport: StateFlow<CrashReport?> = _pendingCrashReport.asStateFlow()
+    private val _pendingCrashReport = MutableStateFlow<CrashReport?>(null)
+    val pendingCrashReport: StateFlow<CrashReport?> = _pendingCrashReport.asStateFlow()
 
-        private val settingsState: StateFlow<AppSettings> =
-            appSettingsRepository.settings.stateIn(
-                scope = viewModelScope,
-                started = SharingStarted.Eagerly,
-                initialValue = com.poyka.ripdpi.data.AppSettingsSerializer.defaultValue,
-            )
+    private val settingsState: StateFlow<AppSettings> =
+        appSettingsRepository.settings.stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.Eagerly,
+            initialValue = com.poyka.ripdpi.data.AppSettingsSerializer.defaultValue,
+        )
 
-        private val mutations =
-            MainMutationRunner(
-                scope = viewModelScope,
-                effects = _effects,
-                currentUiState = { uiState.value },
-            )
+    private val mutations =
+        MainMutationRunner(
+            scope = viewModelScope,
+            effects = _effects,
+            currentUiState = { uiState.value },
+        )
 
-        private val connectionActions: MainConnectionActions by lazy {
-            MainConnectionActions(
-                mutations = mutations,
-                serviceController = serviceController,
-                serviceStateStore = serviceStateStore,
-                trafficStatsReader = trafficStatsReader,
-                stringResolver = stringResolver,
-                runtimeState = runtimeState,
-                refreshPermissionSnapshot = { permissionActions.refreshPermissionSnapshot() },
-            )
-        }
+    private val connectionActions: MainConnectionActions by lazy {
+        MainConnectionActions(
+            mutations = mutations,
+            serviceController = serviceController,
+            serviceStateStore = serviceStateStore,
+            trafficStatsReader = trafficStatsReader,
+            stringResolver = stringResolver,
+            runtimeState = runtimeState,
+            refreshPermissionSnapshot = { permissionActions.refreshPermissionSnapshot() },
+        )
+    }
 
-        private val permissionActions: MainPermissionActions by lazy {
-            MainPermissionActions(
-                mutations = mutations,
-                permissionCoordinator = permissionCoordinator,
-                permissionStatusProvider = permissionStatusProvider,
-                permissionPlatformBridge = permissionPlatformBridge,
-                stringResolver = stringResolver,
-                permissionState = permissionState,
-                onStartMode = { mode -> connectionActions.startMode(mode) },
-                onShowPermissionIssue = { issue ->
-                    permissionState.update { it.copy(issue = issue) }
-                    connectionActions.showPermissionIssue(issue)
-                },
-                onDismissError = { connectionActions.dismissError() },
-            )
-        }
+    private val permissionActions: MainPermissionActions by lazy {
+        MainPermissionActions(
+            mutations = mutations,
+            permissionCoordinator = permissionCoordinator,
+            permissionStatusProvider = permissionStatusProvider,
+            permissionPlatformBridge = permissionPlatformBridge,
+            stringResolver = stringResolver,
+            permissionState = permissionState,
+            onStartMode = { mode -> connectionActions.startMode(mode) },
+            onShowPermissionIssue = { issue ->
+                permissionState.update { it.copy(issue = issue) }
+                connectionActions.showPermissionIssue(issue)
+            },
+            onDismissError = { connectionActions.dismissError() },
+        )
+    }
 
-        val startupState: StateFlow<MainStartupState> =
-            settingsState
-                .map { settings ->
-                    MainStartupState(
-                        isReady = true,
-                        theme = settings.appTheme.ifEmpty { "system" },
-                        startDestination = resolveStartupDestination(settings),
-                    )
-                }.stateIn(
-                    scope = viewModelScope,
-                    started = SharingStarted.Eagerly,
-                    initialValue = MainStartupState(),
-                )
-
-        val uiState: StateFlow<MainUiState> =
-            combine(
-                settingsState,
-                serviceStateStore.status,
-                runtimeState,
-                permissionState,
-                diagnosticsTimelineSource.approachStats,
-            ) { settings, (status, activeMode), runtime, permissions, approachStats ->
-                val configuredMode = Mode.fromString(settings.ripdpiMode.ifEmpty { "vpn" })
-                val effectiveConnectionState =
-                    when {
-                        status == AppStatus.Halted && runtime.connectionState == ConnectionState.Connected -> {
-                            ConnectionState.Disconnected
-                        }
-
-                        status == AppStatus.Running && runtime.connectionState == ConnectionState.Disconnected -> {
-                            ConnectionState.Connecting
-                        }
-
-                        else -> {
-                            runtime.connectionState
-                        }
-                    }
-                MainUiState(
-                    appStatus = status,
-                    activeMode = activeMode,
-                    configuredMode = configuredMode,
-                    proxyIp = settings.proxyIp.ifEmpty { "127.0.0.1" },
-                    proxyPort = if (settings.proxyPort > 0) settings.proxyPort.toString() else "1080",
+    val startupState: StateFlow<MainStartupState> =
+        settingsState
+            .map { settings ->
+                MainStartupState(
+                    isReady = true,
                     theme = settings.appTheme.ifEmpty { "system" },
-                    connectionState = effectiveConnectionState,
-                    connectionDuration = runtime.connectionDuration,
-                    dataTransferred = runtime.dataTransferred,
-                    errorMessage = runtime.errorMessage,
-                    permissionSummary =
-                        buildPermissionSummary(
-                            snapshot = permissions.snapshot,
-                            issue = permissions.issue,
-                            configuredMode = configuredMode,
-                            stringResolver = stringResolver,
-                            deviceManufacturer = Build.MANUFACTURER.orEmpty(),
-                            batteryBannerDismissed = settings.batteryBannerDismissed,
-                            backgroundGuidanceDismissed = settings.backgroundGuidanceDismissed,
-                        ),
-                    approachSummary =
-                        connectionActions.buildApproachSummary(
-                            settings = settings,
-                            activeMode = if (status == AppStatus.Running) activeMode else configuredMode,
-                            approachStats = approachStats,
-                        ),
+                    startDestination = resolveStartupDestination(settings),
                 )
             }.stateIn(
                 scope = viewModelScope,
-                started = SharingStarted.WhileSubscribed(5_000),
-                initialValue = MainUiState(),
+                started = SharingStarted.Eagerly,
+                initialValue = MainStartupState(),
             )
 
-        fun initialize() {
-            if (initialized) {
+    val uiState: StateFlow<MainUiState> =
+        combine(
+            settingsState,
+            serviceStateStore.status,
+            runtimeState,
+            permissionState,
+            diagnosticsTimelineSource.approachStats,
+        ) { settings, (status, activeMode), runtime, permissions, approachStats ->
+            val configuredMode = Mode.fromString(settings.ripdpiMode.ifEmpty { "vpn" })
+            val effectiveConnectionState =
+                when {
+                    status == AppStatus.Halted && runtime.connectionState == ConnectionState.Connected -> {
+                        ConnectionState.Disconnected
+                    }
+
+                    status == AppStatus.Running && runtime.connectionState == ConnectionState.Disconnected -> {
+                        ConnectionState.Connecting
+                    }
+
+                    else -> {
+                        runtime.connectionState
+                    }
+                }
+            MainUiState(
+                appStatus = status,
+                activeMode = activeMode,
+                configuredMode = configuredMode,
+                proxyIp = settings.proxyIp.ifEmpty { "127.0.0.1" },
+                proxyPort = if (settings.proxyPort > 0) settings.proxyPort.toString() else "1080",
+                theme = settings.appTheme.ifEmpty { "system" },
+                connectionState = effectiveConnectionState,
+                connectionDuration = runtime.connectionDuration,
+                dataTransferred = runtime.dataTransferred,
+                errorMessage = runtime.errorMessage,
+                permissionSummary =
+                    buildPermissionSummary(
+                        snapshot = permissions.snapshot,
+                        issue = permissions.issue,
+                        configuredMode = configuredMode,
+                        stringResolver = stringResolver,
+                        deviceManufacturer = Build.MANUFACTURER.orEmpty(),
+                        batteryBannerDismissed = settings.batteryBannerDismissed,
+                        backgroundGuidanceDismissed = settings.backgroundGuidanceDismissed,
+                    ),
+                approachSummary =
+                    connectionActions.buildApproachSummary(
+                        settings = settings,
+                        activeMode = if (status == AppStatus.Running) activeMode else configuredMode,
+                        approachStats = approachStats,
+                    ),
+            )
+        }.stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5_000),
+            initialValue = MainUiState(),
+        )
+
+    fun initialize() {
+        if (initialized) {
+            return
+        }
+        initialized = true
+        permissionActions.refreshPermissionSnapshot()
+        connectionActions.initialize()
+        viewModelScope.launch {
+            val report = crashReportReader.read()
+            if (report != null) {
+                _pendingCrashReport.value = report
+            }
+        }
+        viewModelScope.launch {
+            permissionState
+                .map { it.snapshot.batteryOptimization }
+                .distinctUntilChanged()
+                .collect { status ->
+                    if (
+                        status == com.poyka.ripdpi.permissions.PermissionStatus.RequiresSettings &&
+                        settingsState.value.batteryBannerDismissed
+                    ) {
+                        appSettingsRepository.update { setBatteryBannerDismissed(false) }
+                    }
+                }
+        }
+    }
+
+    fun onPrimaryConnectionAction() {
+        when (uiState.value.connectionState) {
+            ConnectionState.Connecting -> {
                 return
             }
-            initialized = true
-            permissionActions.refreshPermissionSnapshot()
-            connectionActions.initialize()
-            viewModelScope.launch {
-                val report = crashReportReader.read()
-                if (report != null) {
-                    _pendingCrashReport.value = report
-                }
+
+            ConnectionState.Connected -> {
+                connectionActions.stop()
             }
-            viewModelScope.launch {
-                permissionState
-                    .map { it.snapshot.batteryOptimization }
-                    .distinctUntilChanged()
-                    .collect { status ->
-                        if (
-                            status == com.poyka.ripdpi.permissions.PermissionStatus.RequiresSettings &&
-                            settingsState.value.batteryBannerDismissed
-                        ) {
-                            appSettingsRepository.update { setBatteryBannerDismissed(false) }
-                        }
-                    }
-            }
-        }
 
-        fun onPrimaryConnectionAction() {
-            when (uiState.value.connectionState) {
-                ConnectionState.Connecting -> {
-                    return
-                }
-
-                ConnectionState.Connected -> {
-                    connectionActions.stop()
-                }
-
-                ConnectionState.Disconnected,
-                ConnectionState.Error,
+            ConnectionState.Disconnected,
+            ConnectionState.Error,
                 -> {
-                    when (uiState.value.appStatus) {
-                        AppStatus.Halted -> {
-                            permissionActions.resolvePermissionAction(PermissionAction.StartConfiguredMode)
-                        }
+                when (uiState.value.appStatus) {
+                    AppStatus.Halted -> {
+                        permissionActions.resolvePermissionAction(PermissionAction.StartConfiguredMode)
+                    }
 
-                        AppStatus.Running -> {
-                            connectionActions.stop()
-                        }
+                    AppStatus.Running -> {
+                        connectionActions.stop()
                     }
                 }
-            }
-        }
-
-        fun onVpnPermissionContinueRequested() = permissionActions.onVpnPermissionContinueRequested()
-
-        fun onOpenVpnPermissionRequested() = permissionActions.onOpenVpnPermissionRequested()
-
-        fun onRepairPermissionRequested(kind: PermissionKind) = permissionActions.onRepairPermissionRequested(kind)
-
-        fun onPermissionResult(
-            kind: PermissionKind,
-            result: PermissionResult,
-        ) = permissionActions.onPermissionResult(kind, result)
-
-        fun refreshPermissionSnapshot() = permissionActions.refreshPermissionSnapshot()
-
-        fun dismissError() = connectionActions.dismissError()
-
-        fun onDismissBatteryBanner() {
-            viewModelScope.launch {
-                appSettingsRepository.update { setBatteryBannerDismissed(true) }
-            }
-        }
-
-        fun onDismissBackgroundGuidance() {
-            viewModelScope.launch {
-                appSettingsRepository.update { setBackgroundGuidanceDismissed(true) }
-            }
-        }
-
-        fun buildCrashReportShareText(report: CrashReport): Pair<String, String> =
-            crashReportReader.buildShareText(report)
-
-        fun dismissCrashReport() {
-            _pendingCrashReport.value = null
-            viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
-                crashReportReader.delete()
             }
         }
     }
+
+    fun onVpnPermissionContinueRequested() = permissionActions.onVpnPermissionContinueRequested()
+
+    fun onOpenVpnPermissionRequested() = permissionActions.onOpenVpnPermissionRequested()
+
+    fun onRepairPermissionRequested(kind: PermissionKind) = permissionActions.onRepairPermissionRequested(kind)
+
+    fun onPermissionResult(
+        kind: PermissionKind,
+        result: PermissionResult,
+    ) = permissionActions.onPermissionResult(kind, result)
+
+    fun refreshPermissionSnapshot() = permissionActions.refreshPermissionSnapshot()
+
+    fun dismissError() = connectionActions.dismissError()
+
+    fun onDismissBatteryBanner() {
+        viewModelScope.launch {
+            appSettingsRepository.update { setBatteryBannerDismissed(true) }
+        }
+    }
+
+    fun onDismissBackgroundGuidance() {
+        viewModelScope.launch {
+            appSettingsRepository.update { setBackgroundGuidanceDismissed(true) }
+        }
+    }
+
+    fun buildCrashReportShareText(report: CrashReport): Pair<String, String> =
+        crashReportReader.buildShareText(report)
+
+    fun dismissCrashReport() {
+        _pendingCrashReport.value = null
+        viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            crashReportReader.delete()
+        }
+    }
+}
