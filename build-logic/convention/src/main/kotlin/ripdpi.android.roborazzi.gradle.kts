@@ -1,12 +1,11 @@
 import com.android.build.api.dsl.ApplicationExtension
 import com.android.build.api.dsl.LibraryExtension
-import org.gradle.api.artifacts.VersionCatalogsExtension
 
 plugins {
     id("io.github.takahirom.roborazzi")
 }
 
-val libs = extensions.getByType<VersionCatalogsExtension>().named("libs")
+val libs = versionCatalogs.named("libs")
 
 plugins.withId("com.android.application") {
     extensions.configure<ApplicationExtension> {

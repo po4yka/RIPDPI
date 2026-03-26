@@ -6,6 +6,7 @@ import com.github.takahirom.roborazzi.RoborazziComposeOptions
 import com.github.takahirom.roborazzi.captureRoboImage
 import com.github.takahirom.roborazzi.fontScale
 import com.github.takahirom.roborazzi.inspectionMode
+import com.github.takahirom.roborazzi.layoutDirection
 import com.github.takahirom.roborazzi.size
 
 @OptIn(ExperimentalRoborazziApi::class)
@@ -21,6 +22,26 @@ internal fun captureRipDpiScreenshot(
                 size(widthDp = widthDp, heightDp = heightDp)
                 fontScale(fontScale)
                 inspectionMode(true)
+            },
+    ) {
+        content()
+    }
+}
+
+@OptIn(ExperimentalRoborazziApi::class)
+internal fun captureRipDpiScreenshotRtl(
+    widthDp: Int,
+    heightDp: Int,
+    fontScale: Float = 1f,
+    content: @Composable () -> Unit,
+) {
+    captureRoboImage(
+        roborazziComposeOptions =
+            RoborazziComposeOptions {
+                size(widthDp = widthDp, heightDp = heightDp)
+                fontScale(fontScale)
+                inspectionMode(true)
+                layoutDirection(androidx.compose.ui.unit.LayoutDirection.Rtl)
             },
     ) {
         content()
