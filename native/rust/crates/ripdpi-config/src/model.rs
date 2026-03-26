@@ -463,6 +463,10 @@ pub struct RuntimeConfig {
     pub adaptive: RuntimeAdaptiveSettings,
     pub host_autolearn: HostAutolearnSettings,
     pub groups: Vec<DesyncGroup>,
+    /// Maximum number of route-advance retries before giving up.  Prevents
+    /// unbounded retry loops when many desync groups are configured but the
+    /// target is genuinely unreachable.
+    pub max_route_retries: usize,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -614,6 +618,7 @@ impl Default for RuntimeConfig {
             adaptive: RuntimeAdaptiveSettings::default(),
             host_autolearn: HostAutolearnSettings::default(),
             groups: vec![DesyncGroup::new(0)],
+            max_route_retries: 8,
         }
     }
 }

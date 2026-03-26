@@ -1,8 +1,39 @@
-//! Geneva-style automated exploration of DPI evasion parameter combinations.
+//! Session-level strategy evolution for DPI evasion parameter combinations.
 //!
-//! Sits on top of the existing adaptive framework and explores *combinations*
+//! This module implements a UCB1 multi-armed bandit that explores *combinations*
 //! across the 5 adaptive dimensions plus fake-TTL using epsilon-greedy + UCB1
-//! selection.
+//! selection. It operates at the **session** level: a single [`StrategyEvolver`]
+//! instance picks one [`StrategyCombo`] at a time and holds it until feedback
+//! (success/failure) arrives.
+//!
+//! # Interaction with per-flow adaptive tuning
+//!
+//! The crate also contains a per-flow adaptive tuning system in
+//! [`crate::adaptive_tuning::AdaptivePlannerResolver`]. Both systems produce
+//! [`AdaptivePlannerHints`], but they serve different roles:
+//!
+//! | System | Scope | Granularity |
+//! |--------|-------|-------------|
+//! | **Strategy Evolver** (this module) | Session-wide | One combo for all flows |
+//! | **Adaptive Tuning** (`adaptive_tuning`) | Per-flow | Per (host, group, flow-kind) |
+//!
+//! **Priority chain for hint resolution:**
+//!
+//! 1. Evolver hints (when `strategy_evolution` is enabled) -- override everything
+//! 2. Per-flow adaptive hints (from `AdaptivePlannerResolver`) -- used when the
+//!    evolver is disabled or returns `None`
+//! 3. Group defaults (from the `DesyncGroup` configuration)
+//!
+//! When the evolver is enabled (`--strategy-evolution`), its hints take
+//! precedence and per-flow dimension cycling in `adaptive_tuning` is effectively
+//! bypassed for the dimensions the evolver sets.
+//!
+//! # When to enable the evolver
+//!
+//! - Enable when exploring a new network where the best parameter combination is
+//!   unknown. The evolver will converge on a high-fitness combo over time.
+//! - Disable (the default) for stable networks where per-flow adaptive tuning
+//!   already performs well, or when you want fine-grained per-host adaptation.
 
 use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
@@ -185,43 +216,154 @@ impl ComboStats {
 // Combo pool (fixed set of common combinations)
 // ---------------------------------------------------------------------------
 
-/// Pre-defined pool of combos to explore. Each entry is
-/// `(split_offset, fake_ttl, entropy_mode)`; all other dimensions are left
-/// at None (planner defaults).
-const COMBO_POOL: &[(Option<OffsetBase>, Option<u8>, Option<EntropyMode>)] = &[
-    // Default (all None)
-    (None, None, None),
-    // AutoHost offset variants
-    (Some(OffsetBase::AutoHost), None, None),
-    (Some(OffsetBase::AutoHost), Some(6), None),
-    (Some(OffsetBase::AutoHost), Some(8), None),
-    (Some(OffsetBase::AutoHost), Some(10), None),
-    // MidSld offset variants
-    (Some(OffsetBase::MidSld), None, None),
-    (Some(OffsetBase::MidSld), Some(6), None),
-    (Some(OffsetBase::MidSld), Some(8), None),
-    (Some(OffsetBase::MidSld), Some(10), None),
-    // EndHost offset variants
-    (Some(OffsetBase::EndHost), None, None),
-    (Some(OffsetBase::EndHost), Some(6), None),
-    (Some(OffsetBase::EndHost), Some(8), None),
-    (Some(OffsetBase::EndHost), Some(10), None),
-    // Shannon entropy padding variants
-    (Some(OffsetBase::AutoHost), Some(8), Some(EntropyMode::Shannon)),
-    (Some(OffsetBase::MidSld), Some(8), Some(EntropyMode::Shannon)),
-    (Some(OffsetBase::AutoHost), Some(8), Some(EntropyMode::Combined)),
+/// Pre-defined pool entry covering all 7 adaptive dimensions.
+struct PoolEntry {
+    split_offset_base: Option<OffsetBase>,
+    tls_record_offset_base: Option<OffsetBase>,
+    tlsrandrec_profile: Option<AdaptiveTlsRandRecProfile>,
+    udp_burst_profile: Option<AdaptiveUdpBurstProfile>,
+    quic_fake_profile: Option<QuicFakeProfile>,
+    fake_ttl: Option<u8>,
+    entropy_mode: Option<EntropyMode>,
+}
+
+impl PoolEntry {
+    const fn new() -> Self {
+        Self {
+            split_offset_base: None,
+            tls_record_offset_base: None,
+            tlsrandrec_profile: None,
+            udp_burst_profile: None,
+            quic_fake_profile: None,
+            fake_ttl: None,
+            entropy_mode: None,
+        }
+    }
+}
+
+/// Pre-defined pool of combos to explore across all 7 dimensions.
+const COMBO_POOL: &[PoolEntry] = &[
+    // 0: Default (all None)
+    PoolEntry::new(),
+    // --- Split offset + fake TTL variants (original entries) ---
+    // 1-4: AutoHost offset variants
+    PoolEntry { split_offset_base: Some(OffsetBase::AutoHost), ..PoolEntry::new() },
+    PoolEntry { split_offset_base: Some(OffsetBase::AutoHost), fake_ttl: Some(6), ..PoolEntry::new() },
+    PoolEntry { split_offset_base: Some(OffsetBase::AutoHost), fake_ttl: Some(8), ..PoolEntry::new() },
+    PoolEntry { split_offset_base: Some(OffsetBase::AutoHost), fake_ttl: Some(10), ..PoolEntry::new() },
+    // 5-8: MidSld offset variants
+    PoolEntry { split_offset_base: Some(OffsetBase::MidSld), ..PoolEntry::new() },
+    PoolEntry { split_offset_base: Some(OffsetBase::MidSld), fake_ttl: Some(6), ..PoolEntry::new() },
+    PoolEntry { split_offset_base: Some(OffsetBase::MidSld), fake_ttl: Some(8), ..PoolEntry::new() },
+    PoolEntry { split_offset_base: Some(OffsetBase::MidSld), fake_ttl: Some(10), ..PoolEntry::new() },
+    // 9-12: EndHost offset variants
+    PoolEntry { split_offset_base: Some(OffsetBase::EndHost), ..PoolEntry::new() },
+    PoolEntry { split_offset_base: Some(OffsetBase::EndHost), fake_ttl: Some(6), ..PoolEntry::new() },
+    PoolEntry { split_offset_base: Some(OffsetBase::EndHost), fake_ttl: Some(8), ..PoolEntry::new() },
+    PoolEntry { split_offset_base: Some(OffsetBase::EndHost), fake_ttl: Some(10), ..PoolEntry::new() },
+    // 13-15: Shannon/Combined entropy padding variants
+    PoolEntry {
+        split_offset_base: Some(OffsetBase::AutoHost), fake_ttl: Some(8),
+        entropy_mode: Some(EntropyMode::Shannon), ..PoolEntry::new()
+    },
+    PoolEntry {
+        split_offset_base: Some(OffsetBase::MidSld), fake_ttl: Some(8),
+        entropy_mode: Some(EntropyMode::Shannon), ..PoolEntry::new()
+    },
+    PoolEntry {
+        split_offset_base: Some(OffsetBase::AutoHost), fake_ttl: Some(8),
+        entropy_mode: Some(EntropyMode::Combined), ..PoolEntry::new()
+    },
+    // --- TLS RandRec profile variants ---
+    // 16: AutoHost + Tight TLS RandRec
+    PoolEntry {
+        split_offset_base: Some(OffsetBase::AutoHost),
+        tlsrandrec_profile: Some(AdaptiveTlsRandRecProfile::Tight), ..PoolEntry::new()
+    },
+    // 17: AutoHost + Wide TLS RandRec
+    PoolEntry {
+        split_offset_base: Some(OffsetBase::AutoHost),
+        tlsrandrec_profile: Some(AdaptiveTlsRandRecProfile::Wide), ..PoolEntry::new()
+    },
+    // 18: MidSld + Balanced TLS RandRec
+    PoolEntry {
+        split_offset_base: Some(OffsetBase::MidSld),
+        tlsrandrec_profile: Some(AdaptiveTlsRandRecProfile::Balanced), ..PoolEntry::new()
+    },
+    // --- UDP burst profile variants ---
+    // 19: AutoHost + TTL 8 + Conservative UDP burst
+    PoolEntry {
+        split_offset_base: Some(OffsetBase::AutoHost), fake_ttl: Some(8),
+        udp_burst_profile: Some(AdaptiveUdpBurstProfile::Conservative), ..PoolEntry::new()
+    },
+    // 20: AutoHost + TTL 8 + Aggressive UDP burst
+    PoolEntry {
+        split_offset_base: Some(OffsetBase::AutoHost), fake_ttl: Some(8),
+        udp_burst_profile: Some(AdaptiveUdpBurstProfile::Aggressive), ..PoolEntry::new()
+    },
+    // 21: MidSld + Conservative UDP burst
+    PoolEntry {
+        split_offset_base: Some(OffsetBase::MidSld),
+        udp_burst_profile: Some(AdaptiveUdpBurstProfile::Conservative), ..PoolEntry::new()
+    },
+    // --- QUIC fake profile variants ---
+    // 22: AutoHost + TTL 8 + CompatDefault QUIC fake
+    PoolEntry {
+        split_offset_base: Some(OffsetBase::AutoHost), fake_ttl: Some(8),
+        quic_fake_profile: Some(QuicFakeProfile::CompatDefault), ..PoolEntry::new()
+    },
+    // 23: AutoHost + TTL 8 + RealisticInitial QUIC fake
+    PoolEntry {
+        split_offset_base: Some(OffsetBase::AutoHost), fake_ttl: Some(8),
+        quic_fake_profile: Some(QuicFakeProfile::RealisticInitial), ..PoolEntry::new()
+    },
+    // 24: EndHost + CompatDefault QUIC fake
+    PoolEntry {
+        split_offset_base: Some(OffsetBase::EndHost),
+        quic_fake_profile: Some(QuicFakeProfile::CompatDefault), ..PoolEntry::new()
+    },
+    // --- TLS record offset variants ---
+    // 25: AutoHost split + EndHost TLS record offset
+    PoolEntry {
+        split_offset_base: Some(OffsetBase::AutoHost),
+        tls_record_offset_base: Some(OffsetBase::EndHost), ..PoolEntry::new()
+    },
+    // 26: MidSld split + SniExt TLS record offset
+    PoolEntry {
+        split_offset_base: Some(OffsetBase::MidSld),
+        tls_record_offset_base: Some(OffsetBase::SniExt), ..PoolEntry::new()
+    },
+    // 27: EndHost split + AutoBalanced TLS record offset
+    PoolEntry {
+        split_offset_base: Some(OffsetBase::EndHost),
+        tls_record_offset_base: Some(OffsetBase::AutoBalanced), ..PoolEntry::new()
+    },
+    // --- Combined multi-dimension entries ---
+    // 28: AutoHost + Tight RandRec + Conservative UDP + TTL 8
+    PoolEntry {
+        split_offset_base: Some(OffsetBase::AutoHost), fake_ttl: Some(8),
+        tlsrandrec_profile: Some(AdaptiveTlsRandRecProfile::Tight),
+        udp_burst_profile: Some(AdaptiveUdpBurstProfile::Conservative), ..PoolEntry::new()
+    },
+    // 29: MidSld + Wide RandRec + RealisticInitial QUIC + Shannon entropy
+    PoolEntry {
+        split_offset_base: Some(OffsetBase::MidSld),
+        tlsrandrec_profile: Some(AdaptiveTlsRandRecProfile::Wide),
+        quic_fake_profile: Some(QuicFakeProfile::RealisticInitial),
+        entropy_mode: Some(EntropyMode::Shannon), ..PoolEntry::new()
+    },
 ];
 
 fn combo_from_pool(index: usize) -> StrategyCombo {
-    let (offset, ttl, entropy) = COMBO_POOL[index % COMBO_POOL.len()];
+    let entry = &COMBO_POOL[index % COMBO_POOL.len()];
     StrategyCombo {
-        split_offset_base: offset,
-        tls_record_offset_base: None,
-        tlsrandrec_profile: None,
-        udp_burst_profile: None,
-        quic_fake_profile: None,
-        fake_ttl: ttl,
-        entropy_mode: entropy,
+        split_offset_base: entry.split_offset_base,
+        tls_record_offset_base: entry.tls_record_offset_base,
+        tlsrandrec_profile: entry.tlsrandrec_profile,
+        udp_burst_profile: entry.udp_burst_profile,
+        quic_fake_profile: entry.quic_fake_profile,
+        fake_ttl: entry.fake_ttl,
+        entropy_mode: entry.entropy_mode,
     }
 }
 
@@ -251,6 +393,9 @@ impl StrategyEvolver {
     }
 
     /// Returns adaptive hints if the evolver wants to override the default planner.
+    ///
+    /// When `Some` is returned, the caller should use these hints **instead of**
+    /// per-flow adaptive hints from [`crate::adaptive_tuning::AdaptivePlannerResolver`].
     /// Called before each outbound send.
     pub fn suggest_hints(&mut self) -> Option<AdaptivePlannerHints> {
         if !self.enabled {
@@ -260,13 +405,21 @@ impl StrategyEvolver {
         // If we already have an outstanding experiment, return its hints.
         if let Some(ref combo) = self.current_experiment {
             let hints = combo.to_hints();
-            tracing::debug!(combo = ?combo, hints = ?hints, "strategy evolution reused pending combo");
+            tracing::debug!(
+                combo = ?combo,
+                hints = ?hints,
+                "strategy evolution reused pending combo, overriding per-flow adaptive tuning",
+            );
             return Some(hints);
         }
 
         let combo = self.select_next_combo();
         let hints = combo.to_hints();
-        tracing::debug!(combo = ?combo, hints = ?hints, "strategy evolution selected combo");
+        tracing::debug!(
+            combo = ?combo,
+            hints = ?hints,
+            "strategy evolution selected combo, overriding per-flow adaptive tuning",
+        );
         self.current_experiment = Some(combo);
         Some(hints)
     }
@@ -794,8 +947,9 @@ mod tests {
 
     #[test]
     fn combo_pool_contains_shannon_variants() {
-        let shannon_count = COMBO_POOL.iter().filter(|(_, _, e)| matches!(e, Some(EntropyMode::Shannon))).count();
-        let combined_count = COMBO_POOL.iter().filter(|(_, _, e)| matches!(e, Some(EntropyMode::Combined))).count();
+        let combos: Vec<StrategyCombo> = (0..COMBO_POOL.len()).map(combo_from_pool).collect();
+        let shannon_count = combos.iter().filter(|c| matches!(c.entropy_mode, Some(EntropyMode::Shannon))).count();
+        let combined_count = combos.iter().filter(|c| matches!(c.entropy_mode, Some(EntropyMode::Combined))).count();
         assert!(shannon_count >= 1, "pool should have at least one Shannon combo");
         assert!(combined_count >= 1, "pool should have at least one Combined combo");
     }
@@ -803,12 +957,34 @@ mod tests {
     #[test]
     fn combo_from_pool_includes_entropy_mode() {
         // Find a Shannon variant in the pool
-        let shannon_idx = COMBO_POOL
+        let combos: Vec<StrategyCombo> = (0..COMBO_POOL.len()).map(combo_from_pool).collect();
+        let shannon_idx = combos
             .iter()
-            .position(|(_, _, e)| matches!(e, Some(EntropyMode::Shannon)))
+            .position(|c| matches!(c.entropy_mode, Some(EntropyMode::Shannon)))
             .expect("pool should contain a Shannon variant");
         let combo = combo_from_pool(shannon_idx);
         assert_eq!(combo.entropy_mode, Some(EntropyMode::Shannon));
+    }
+
+    #[test]
+    fn combo_pool_covers_all_dimensions() {
+        let combos: Vec<StrategyCombo> = (0..COMBO_POOL.len()).map(combo_from_pool).collect();
+        assert!(
+            combos.iter().any(|c| c.tls_record_offset_base.is_some()),
+            "pool should have at least one entry with tls_record_offset_base"
+        );
+        assert!(
+            combos.iter().any(|c| c.tlsrandrec_profile.is_some()),
+            "pool should have at least one entry with tlsrandrec_profile"
+        );
+        assert!(
+            combos.iter().any(|c| c.udp_burst_profile.is_some()),
+            "pool should have at least one entry with udp_burst_profile"
+        );
+        assert!(
+            combos.iter().any(|c| c.quic_fake_profile.is_some()),
+            "pool should have at least one entry with quic_fake_profile"
+        );
     }
 
     #[test]

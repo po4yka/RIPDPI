@@ -71,10 +71,16 @@ pub(super) fn connect_target_with_route(
     payload: Option<&[u8]>,
     host: Option<String>,
 ) -> io::Result<(TcpStream, ConnectionRoute)> {
+    let max_retries = state.config.max_route_retries;
+    let mut retries: usize = 0;
     loop {
         match connect_target_via_group(target, state, route.group_index) {
             Ok(stream) => return Ok((stream, route)),
             Err(err) => {
+                retries += 1;
+                if retries > max_retries {
+                    return Err(err);
+                }
                 let failure = classify_transport_error(FailureStage::Connect, &err);
                 emit_failure_classified(state, target, &failure, host.as_deref());
                 let next = advance_route_for_failure(state, target, &route, host.clone(), payload, &failure)?;
@@ -557,11 +563,17 @@ pub(super) fn reconnect_target(
     host: Option<String>,
     payload: Option<&[u8]>,
 ) -> io::Result<(TcpStream, ConnectionRoute)> {
+    let max_retries = state.config.max_route_retries;
+    let mut retries: usize = 0;
     loop {
         super::retry::apply_retry_pacing_before_connect(state, target, &route, host.as_deref(), payload)?;
         match connect_target_via_group(target, state, route.group_index) {
             Ok(stream) => return Ok((stream, route)),
             Err(err) => {
+                retries += 1;
+                if retries > max_retries {
+                    return Err(err);
+                }
                 let failure = classify_transport_error(FailureStage::Connect, &err);
                 emit_failure_classified(state, target, &failure, host.as_deref());
                 let next = advance_route_for_failure(state, target, &route, host.clone(), payload, &failure)?;
@@ -605,6 +617,18 @@ mod tests {
                 "expected errno {errno} to remain fatal on Android",
             );
         }
+    }
+
+    #[test]
+    fn max_route_retries_default_is_eight() {
+        let config = ripdpi_config::RuntimeConfig::default();
+        assert_eq!(config.max_route_retries, 8);
+    }
+
+    #[test]
+    fn max_route_retries_is_customizable() {
+        let config = ripdpi_config::RuntimeConfig { max_route_retries: 3, ..Default::default() };
+        assert_eq!(config.max_route_retries, 3);
     }
 }
 
