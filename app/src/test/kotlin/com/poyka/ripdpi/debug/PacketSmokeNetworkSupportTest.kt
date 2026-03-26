@@ -130,4 +130,65 @@ class PacketSmokeNetworkSupportTest {
         assertEquals(0x21, packet[1].toInt() and 0xFF)
         assertEquals(1, packet[5].toInt() and 0xFF)
     }
+
+    @Test
+    fun `packet smoke phase parser defaults to single`() {
+        assertEquals(PacketSmokePhase.SINGLE, PacketSmokePhase.fromArgument(null))
+        assertEquals(PacketSmokePhase.SINGLE, PacketSmokePhase.fromArgument("unknown"))
+        assertEquals(PacketSmokePhase.PREPARE, PacketSmokePhase.fromArgument("prepare"))
+        assertEquals(PacketSmokePhase.ASSERT, PacketSmokePhase.fromArgument("assert"))
+    }
+
+    @Test
+    fun `prepare state json round trips`() {
+        val state =
+            PacketSmokePrepareState(
+                scenarioId = "android_vpn_doh_family",
+                deviceProfile = "physical_indirect",
+                mode = "VPN",
+                status = "Running",
+                proxySessions = 7,
+                txPackets = 10,
+                rxPackets = 12,
+                txBytes = 1000,
+                rxBytes = 2000,
+                dnsQueriesTotal = 3,
+                dnsFailuresTotal = 1,
+                restartCount = 2,
+                capturedAtEpochMs = 1234,
+                expectedResolverId = DnsProviderCustom,
+                expectedResolverProtocol = EncryptedDnsProtocolDoh,
+                expectedResolverEndpoint = "https://unfiltered.adguard-dns.com/dns-query",
+                expectedDnsHost = "example.com",
+            )
+
+        val decoded = PacketSmokePrepareState.fromJson(state.toJson())
+
+        assertEquals(state, decoded)
+    }
+
+    @Test
+    fun `runner probe result json round trips`() {
+        val result =
+            PacketSmokeRunnerProbeResult(
+                requestId = "req-1",
+                scenarioId = "android_vpn_host_autolearn_family",
+                probeType = "dns",
+                host = PacketSmokeMapDnsAddress,
+                port = PacketSmokeMapDnsPort,
+                ok = false,
+                queryHost = "example.com",
+                rcode = 2,
+                answers = listOf("93.184.216.34"),
+                latencyMs = 42,
+                localAddress = "10.0.0.2",
+                localPort = 53000,
+                errorClass = SocketTimeoutException::class.java.name,
+                errorMessage = "timed out",
+            )
+
+        val decoded = PacketSmokeRunnerProbeResult.fromJson(result.toJson())
+
+        assertEquals(result, decoded)
+    }
 }

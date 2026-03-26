@@ -224,6 +224,9 @@
       "ip-addr.txt",
       "ip-route.txt",
       "test-output.txt",
+      "prepare-state.json",
+      "runner-probe.json",
+      "runner-probe-command.txt",
       "failure-screenshot.png",
       "device-capture.pcap"
     ]
@@ -242,6 +245,9 @@
       "ip-addr.txt",
       "ip-route.txt",
       "test-output.txt",
+      "prepare-state.json",
+      "runner-probe.json",
+      "runner-probe-command.txt",
       "failure-screenshot.png",
       "device-capture.pcap"
     ]
@@ -260,6 +266,9 @@
       "ip-addr.txt",
       "ip-route.txt",
       "test-output.txt",
+      "prepare-state.json",
+      "runner-probe.json",
+      "runner-probe-command.txt",
       "failure-screenshot.png",
       "device-capture.pcap"
     ]
@@ -278,6 +287,9 @@
       "ip-addr.txt",
       "ip-route.txt",
       "test-output.txt",
+      "prepare-state.json",
+      "runner-probe.json",
+      "runner-probe-command.txt",
       "failure-screenshot.png",
       "device-capture.pcap"
     ]
@@ -296,6 +308,9 @@
       "ip-addr.txt",
       "ip-route.txt",
       "test-output.txt",
+      "prepare-state.json",
+      "runner-probe.json",
+      "runner-probe-command.txt",
       "failure-screenshot.png",
       "device-capture.pcap"
     ]
@@ -314,6 +329,9 @@
       "ip-addr.txt",
       "ip-route.txt",
       "test-output.txt",
+      "prepare-state.json",
+      "runner-probe.json",
+      "runner-probe-command.txt",
       "failure-screenshot.png",
       "device-capture.pcap"
     ]
@@ -332,6 +350,9 @@
       "ip-addr.txt",
       "ip-route.txt",
       "test-output.txt",
+      "prepare-state.json",
+      "runner-probe.json",
+      "runner-probe-command.txt",
       "failure-screenshot.png",
       "device-capture.pcap"
     ]
@@ -350,6 +371,9 @@
       "ip-addr.txt",
       "ip-route.txt",
       "test-output.txt",
+      "prepare-state.json",
+      "runner-probe.json",
+      "runner-probe-command.txt",
       "failure-screenshot.png",
       "device-capture.pcap"
     ]
@@ -368,6 +392,9 @@
       "ip-addr.txt",
       "ip-route.txt",
       "test-output.txt",
+      "prepare-state.json",
+      "runner-probe.json",
+      "runner-probe-command.txt",
       "failure-screenshot.png",
       "device-capture.pcap"
     ]
@@ -386,6 +413,9 @@
       "ip-addr.txt",
       "ip-route.txt",
       "test-output.txt",
+      "prepare-state.json",
+      "runner-probe.json",
+      "runner-probe-command.txt",
       "failure-screenshot.png",
       "device-capture.pcap"
     ]
@@ -404,6 +434,9 @@
       "ip-addr.txt",
       "ip-route.txt",
       "test-output.txt",
+      "prepare-state.json",
+      "runner-probe.json",
+      "runner-probe-command.txt",
       "failure-screenshot.png",
       "device-capture.pcap"
     ]
@@ -422,6 +455,9 @@
       "ip-addr.txt",
       "ip-route.txt",
       "test-output.txt",
+      "prepare-state.json",
+      "runner-probe.json",
+      "runner-probe-command.txt",
       "failure-screenshot.png",
       "device-capture.pcap"
     ]
