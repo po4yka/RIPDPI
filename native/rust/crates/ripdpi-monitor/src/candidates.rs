@@ -54,6 +54,14 @@ pub(crate) fn strategy_probe_config_json(config: &ProxyUiConfig) -> String {
     .expect("serialize ui proxy config")
 }
 
+/// Returns the hardcoded Cloudflare DoH configuration used as fallback when no
+/// user-supplied runtime encrypted DNS context is available.
+///
+/// Strategy probes should ideally resolve DNS through the same resolver that
+/// runtime traffic uses. When a user has configured a different resolver (e.g.
+/// Google DoH, Quad9), falling back to Cloudflare here means probes may observe
+/// different DNS behavior than actual connections. See
+/// [`strategy_probe_encrypted_dns_context`] for the precedence logic.
 pub(crate) fn default_runtime_encrypted_dns_context() -> ProxyEncryptedDnsContext {
     ProxyEncryptedDnsContext {
         resolver_id: Some("cloudflare".to_string()),
@@ -68,10 +76,22 @@ pub(crate) fn default_runtime_encrypted_dns_context() -> ProxyEncryptedDnsContex
     }
 }
 
+/// Resolves the encrypted DNS context for strategy probes.
+///
+/// Precedence: user-supplied runtime context > Cloudflare DoH default.
+/// When the runtime context is absent or has no `encrypted_dns` field, the
+/// Cloudflare fallback from [`default_runtime_encrypted_dns_context`] is used
+/// and a debug log is emitted so operators can correlate any DNS-path mismatch.
 pub(crate) fn strategy_probe_encrypted_dns_context(
     runtime_context: Option<&ProxyRuntimeContext>,
 ) -> ProxyEncryptedDnsContext {
-    runtime_context.and_then(|value| value.encrypted_dns.clone()).unwrap_or_else(default_runtime_encrypted_dns_context)
+    match runtime_context.and_then(|value| value.encrypted_dns.clone()) {
+        Some(ctx) => ctx,
+        None => {
+            tracing::debug!("no runtime encrypted DNS context provided; falling back to default Cloudflare DoH for strategy probes");
+            default_runtime_encrypted_dns_context()
+        }
+    }
 }
 
 pub(crate) fn strategy_probe_encrypted_dns_endpoint(

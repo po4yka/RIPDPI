@@ -29,6 +29,17 @@
 //! dimension cycling in this module is effectively bypassed for any dimension
 //! the evolver sets. See `strategy_evolver` module docs for the full priority
 //! chain.
+//!
+//! # Persistence
+//!
+//! The adaptive tuning state is ephemeral and lost on proxy restart. This is by
+//! design for now: the state converges quickly (a few connections per target),
+//! so cold-start cost is low. The host autolearn store
+//! ([`crate::runtime_policy::autolearn`]) handles persistence for coarse-grained
+//! group preferences that are more expensive to re-derive.
+//!
+//! TODO(po4yka): consider persisting `AdaptivePlannerResolver` state for
+//! long-lived sessions where restart penalty becomes noticeable.
 
 use std::collections::HashMap;
 use std::net::{IpAddr, SocketAddr};
@@ -85,6 +96,7 @@ struct AdaptivePlannerState {
 
 #[derive(Debug, Default)]
 pub struct AdaptivePlannerResolver {
+    // TODO(po4yka): persistence -- this map is ephemeral; see module-level docs.
     states: HashMap<AdaptivePlannerKey, AdaptivePlannerState>,
 }
 
