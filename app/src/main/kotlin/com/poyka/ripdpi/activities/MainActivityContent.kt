@@ -21,7 +21,6 @@ import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiAutomationTreeRoot
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 
-@Suppress("LongMethod")
 @Composable
 internal fun MainActivityContent(
     viewModel: MainViewModel,
@@ -32,6 +31,65 @@ internal fun MainActivityContent(
     val shellState by controller.state.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
 
+    MainActivityEffects(
+        viewModel = viewModel,
+        controller = controller,
+        shellState = shellState,
+        connectionState = uiState.connectionState,
+        snackbarHostState = snackbarHostState,
+    )
+
+    RipDpiTheme(themePreference = startupState.theme) {
+        if (startupState.isReady) {
+            val initialStartDestination = remember { startupState.startDestination }
+            Box(
+                modifier =
+                    Modifier
+                        .fillMaxSize()
+                        .ripDpiAutomationTreeRoot(),
+            ) {
+                RipDpiNavHost(
+                    startDestination = initialStartDestination,
+                    mainViewModel = viewModel,
+                    actions =
+                        RipDpiNavHostActions(
+                            onSaveLogs = controller::requestSaveLogs,
+                            onShareDebugBundle = controller::requestShareDebugBundle,
+                            onSaveDiagnosticsArchive = controller::requestSaveDiagnosticsArchive,
+                            onShareDiagnosticsArchive = controller::requestShareDiagnosticsArchive,
+                            onShareDiagnosticsSummary = controller::requestShareDiagnosticsSummary,
+                            onRepairPermission = { permission ->
+                                viewModel.onRepairPermissionRequested(permission)
+                            },
+                        ),
+                    launchRequests =
+                        RipDpiNavHostLaunchRequests(
+                            launchHomeRequested = shellState.launchHomeRequested,
+                            onLaunchHomeHandled = controller::consumeLaunchHomeRequest,
+                            launchRouteRequested = shellState.launchRouteRequested,
+                            onLaunchRouteHandled = controller::consumeLaunchRouteRequest,
+                        ),
+                    snackbarHostState = snackbarHostState,
+                )
+                MainActivityDialogs(
+                    viewModel = viewModel,
+                    controller = controller,
+                    uiState = uiState,
+                    shellState = shellState,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun MainActivityEffects(
+    viewModel: MainViewModel,
+    controller: MainActivityShellController,
+    shellState: MainActivityShellState,
+    connectionState: ConnectionState,
+    snackbarHostState: SnackbarHostState,
+) {
     LaunchedEffect(viewModel) {
         viewModel.initialize()
     }
@@ -64,61 +122,36 @@ internal fun MainActivityContent(
         }
     }
 
-    LaunchedEffect(uiState.connectionState) {
-        controller.onConnectionStateChanged(uiState.connectionState)
+    LaunchedEffect(connectionState) {
+        controller.onConnectionStateChanged(connectionState)
+    }
+}
+
+@Composable
+private fun MainActivityDialogs(
+    viewModel: MainViewModel,
+    controller: MainActivityShellController,
+    uiState: MainUiState,
+    shellState: MainActivityShellState,
+) {
+    if (shellState.vpnPermissionDialogVisible) {
+        VpnPermissionDialog(
+            uiState = uiState,
+            onDismiss = controller::dismissVpnPermissionDialog,
+            onContinue = viewModel::onVpnPermissionContinueRequested,
+        )
     }
 
-    RipDpiTheme(themePreference = startupState.theme) {
-        if (startupState.isReady) {
-            val initialStartDestination = remember { startupState.startDestination }
-            Box(
-                modifier =
-                    Modifier
-                        .fillMaxSize()
-                        .ripDpiAutomationTreeRoot(),
-            ) {
-                RipDpiNavHost(
-                    startDestination = initialStartDestination,
-                    mainViewModel = viewModel,
-                    actions =
-                        RipDpiNavHostActions(
-                            onSaveLogs = controller::requestSaveLogs,
-                            onShareDebugBundle = controller::requestShareDebugBundle,
-                            onSaveDiagnosticsArchive = controller::requestSaveDiagnosticsArchive,
-                            onShareDiagnosticsArchive = controller::requestShareDiagnosticsArchive,
-                            onShareDiagnosticsSummary = controller::requestShareDiagnosticsSummary,
-                            onRepairPermission = { permission -> viewModel.onRepairPermissionRequested(permission) },
-                        ),
-                    launchRequests =
-                        RipDpiNavHostLaunchRequests(
-                            launchHomeRequested = shellState.launchHomeRequested,
-                            onLaunchHomeHandled = controller::consumeLaunchHomeRequest,
-                            launchRouteRequested = shellState.launchRouteRequested,
-                            onLaunchRouteHandled = controller::consumeLaunchRouteRequest,
-                        ),
-                    snackbarHostState = snackbarHostState,
-                )
-                if (shellState.vpnPermissionDialogVisible) {
-                    VpnPermissionDialog(
-                        uiState = uiState,
-                        onDismiss = controller::dismissVpnPermissionDialog,
-                        onContinue = viewModel::onVpnPermissionContinueRequested,
-                    )
-                }
-
-                val pendingCrashReport by viewModel.pendingCrashReport.collectAsStateWithLifecycle()
-                pendingCrashReport?.let { report ->
-                    CrashReportDialog(
-                        report = report,
-                        onShare = {
-                            val (title, body) = viewModel.buildCrashReportShareText(report)
-                            controller.requestShareDiagnosticsSummary(title, body)
-                            viewModel.dismissCrashReport()
-                        },
-                        onDismiss = { viewModel.dismissCrashReport() },
-                    )
-                }
-            }
-        }
+    val pendingCrashReport by viewModel.pendingCrashReport.collectAsStateWithLifecycle()
+    pendingCrashReport?.let { report ->
+        CrashReportDialog(
+            report = report,
+            onShare = {
+                val (title, body) = viewModel.buildCrashReportShareText(report)
+                controller.requestShareDiagnosticsSummary(title, body)
+                viewModel.dismissCrashReport()
+            },
+            onDismiss = { viewModel.dismissCrashReport() },
+        )
     }
 }
