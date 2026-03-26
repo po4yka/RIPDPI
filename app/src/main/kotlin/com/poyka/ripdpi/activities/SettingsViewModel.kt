@@ -12,6 +12,7 @@ import com.poyka.ripdpi.hosts.HostPackCatalogRepository
 import com.poyka.ripdpi.platform.HostAutolearnStoreController
 import com.poyka.ripdpi.platform.LauncherIconController
 import com.poyka.ripdpi.platform.StringResolver
+import com.poyka.ripdpi.security.PinVerifier
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
@@ -36,6 +37,7 @@ class SettingsViewModel
         private val stringResolver: StringResolver,
         private val hostAutolearnStoreController: HostAutolearnStoreController,
         private val telemetrySaltStore: com.poyka.ripdpi.services.TelemetryInstallSaltStore,
+        private val pinVerifier: PinVerifier,
     ) : ViewModel() {
         private val _effects = Channel<SettingsEffect>(Channel.BUFFERED)
         private val hostAutolearnStoreRefresh = MutableStateFlow(0)
@@ -77,6 +79,7 @@ class SettingsViewModel
                 mutations = mutations,
                 launcherIconController = launcherIconController,
                 currentUiState = { uiState.value },
+                pinVerifier = pinVerifier,
             )
         }
         private val maintenanceActions by lazy {
@@ -95,6 +98,16 @@ class SettingsViewModel
 
         init {
             maintenanceActions.loadInitialHostPackCatalog()
+            ensurePinKeyIntegrity()
+        }
+
+        private fun ensurePinKeyIntegrity() {
+            viewModelScope.launch {
+                val settings = appSettingsRepository.snapshot()
+                if (settings.backupPin.isNotBlank() && !pinVerifier.isKeyAvailable()) {
+                    appSettingsRepository.update { setBackupPin("") }
+                }
+            }
         }
 
         fun update(transform: SettingsMutation) {
