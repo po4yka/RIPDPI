@@ -219,6 +219,16 @@ pub fn parse_cli(args: &[String], startup: &StartupEnv) -> Result<ParseResult, C
                     Some(value.parse::<u32>().map_err(|_| ConfigError::invalid(arg, Some(value)))?);
             }
             "--strip-timestamps" => group!().actions.strip_timestamps = true,
+            "--entropy-target" => {
+                let value = next_value(&effective_args, &mut idx, arg)?;
+                let f = value.parse::<f32>().map_err(|_| ConfigError::invalid(arg, Some(value)))?;
+                group!().actions.entropy_padding_target_permil = Some((f * 1000.0) as u32);
+            }
+            "--entropy-max-pad" => {
+                let value = next_value(&effective_args, &mut idx, arg)?;
+                group!().actions.entropy_padding_max =
+                    value.parse::<u32>().map_err(|_| ConfigError::invalid(arg, Some(value)))?;
+            }
             "--quic-sni-split" => {
                 group!().actions.udp_chain.push(UdpChainStep {
                     kind: UdpChainStepKind::QuicSniSplit,

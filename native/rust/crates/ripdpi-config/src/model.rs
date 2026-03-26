@@ -326,6 +326,12 @@ pub struct DesyncGroupActionSettings {
     pub tlsminor: Option<u8>,
     pub window_clamp: Option<u32>,
     pub strip_timestamps: bool,
+    /// GFW popcount bypass: target popcount in permil (e.g. 3400 = 3.4).
+    /// None = disabled. Pads fake payloads with printable ASCII to lower
+    /// average popcount below the GFW detection threshold.
+    pub entropy_padding_target_permil: Option<u32>,
+    /// Maximum entropy padding bytes (default 256).
+    pub entropy_padding_max: u32,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
@@ -365,6 +371,8 @@ impl Default for DesyncGroupActionSettings {
             tlsminor: None,
             window_clamp: None,
             strip_timestamps: false,
+            entropy_padding_target_permil: None,
+            entropy_padding_max: 256,
         }
     }
 }
