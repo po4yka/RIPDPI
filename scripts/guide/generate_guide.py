@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """Generate annotated PDF guides from screenshots of the RIPDPI Android app.
 
-Captures screenshots via ADB, annotates them with arrows/circles/brackets
-using Pillow, and assembles an A4 PDF with fpdf2.
+Captures screenshots via ADB, then uses Typst to render an A4 PDF with
+vector annotations (arrows, circles, brackets), table of contents, and
+themed layout.
 
 Usage:
     python3 scripts/guide/generate_guide.py \
@@ -13,7 +14,8 @@ Usage:
 from __future__ import annotations
 
 import argparse
-import math
+import json
+import struct
 import subprocess
 import sys
 import time
@@ -23,12 +25,15 @@ from pathlib import Path
 from typing import Any
 
 import yaml
-from fpdf import FPDF
-from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
 # ---------------------------------------------------------------------------
 # Dataclasses
 # ---------------------------------------------------------------------------
+
+
+def _rgb_to_hex(rgb: tuple[int, int, int]) -> str:
+    return f"#{rgb[0]:02X}{rgb[1]:02X}{rgb[2]:02X}"
+
 
 def _hex_to_rgb(hex_str: str) -> tuple[int, int, int]:
     h = hex_str.lstrip("#")
@@ -47,6 +52,7 @@ class Theme:
 AUTOMATION_PREFIX = "com.poyka.ripdpi.automation"
 ACTIVITY = "com.poyka.ripdpi/.activities.MainActivity"
 REMOTE_SCREENSHOT = "/sdcard/guide_screenshot.png"
+TEMPLATES_DIR = Path(__file__).parent / "templates"
 
 
 @dataclass
@@ -214,389 +220,112 @@ def adb_scroll_to(element_id: str, device: str | None, max_swipes: int = 10) -> 
 
 
 # ---------------------------------------------------------------------------
-# Annotation renderer (Pillow)
-# ---------------------------------------------------------------------------
-
-LABEL_FG = (255, 255, 255)  # White
-
-
-def _find_font(size: int) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
-    candidates = [
-        "/System/Library/Fonts/Helvetica.ttc",
-        "/System/Library/Fonts/SFNSMono.ttf",
-        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
-        "/usr/share/fonts/TTF/DejaVuSans.ttf",
-    ]
-    for path in candidates:
-        if Path(path).exists():
-            return ImageFont.truetype(path, size)
-    return ImageFont.load_default()
-
-
-def _draw_step_badge(
-    draw: ImageDraw.ImageDraw,
-    x: float,
-    y: float,
-    number: int,
-    size: float,
-    accent: tuple[int, int, int],
-    font: ImageFont.FreeTypeFont | ImageFont.ImageFont,
-) -> None:
-    r = size
-    draw.ellipse([x - r, y - r, x + r, y + r], fill=accent)
-    num_text = str(number)
-    bbox = draw.textbbox((0, 0), num_text, font=font)
-    tw, th = bbox[2] - bbox[0], bbox[3] - bbox[1]
-    draw.text((x - tw / 2, y - th / 2), num_text, fill=LABEL_FG, font=font)
-
-
-def _draw_label(
-    img: Image.Image,
-    draw: ImageDraw.ImageDraw,
-    x: float,
-    y: float,
-    text: str,
-    font: ImageFont.FreeTypeFont | ImageFont.ImageFont,
-    theme: Theme,
-    padding: int = 10,
-) -> None:
-    if not text:
-        return
-    bbox = draw.textbbox((0, 0), text, font=font)
-    tw, th = bbox[2] - bbox[0], bbox[3] - bbox[1]
-    rx = int(x - padding)
-    ry = int(y - th - padding * 2)
-    # Keep label within image bounds
-    rx = max(0, min(rx, img.width - tw - padding * 2))
-    ry = max(0, ry)
-    # Draw background with shadow
-    overlay = Image.new("RGBA", img.size, (0, 0, 0, 0))
-    overlay_draw = ImageDraw.Draw(overlay)
-    # Shadow offset
-    overlay_draw.rounded_rectangle(
-        [rx + 2, ry + 2, rx + tw + padding * 2 + 2, ry + th + padding * 2 + 2],
-        radius=8,
-        fill=(0, 0, 0, 80),
-    )
-    # Main background using theme primary
-    overlay_draw.rounded_rectangle(
-        [rx, ry, rx + tw + padding * 2, ry + th + padding * 2],
-        radius=8,
-        fill=(*theme.primary, 210),
-    )
-    img.paste(Image.alpha_composite(img.convert("RGBA"), overlay).convert("RGB"))
-    # Redraw on composited image
-    draw = ImageDraw.Draw(img)
-    draw.text((rx + padding, ry + padding), text, fill=LABEL_FG, font=font)
-
-
-def _draw_arrowhead(
-    draw: ImageDraw.ImageDraw,
-    x0: float,
-    y0: float,
-    x1: float,
-    y1: float,
-    size: float,
-    color: tuple[int, int, int],
-) -> None:
-    angle = math.atan2(y1 - y0, x1 - x0)
-    spread = math.pi / 6  # 30 degrees
-    points = [
-        (x1, y1),
-        (x1 - size * math.cos(angle - spread), y1 - size * math.sin(angle - spread)),
-        (x1 - size * math.cos(angle + spread), y1 - size * math.sin(angle + spread)),
-    ]
-    draw.polygon(points, fill=color)
-
-
-def _draw_arrow(
-    img: Image.Image,
-    draw: ImageDraw.ImageDraw,
-    ann: Annotation,
-    line_w: int,
-    font: ImageFont.FreeTypeFont | ImageFont.ImageFont,
-    theme: Theme,
-    step: int,
-    badge_font: ImageFont.FreeTypeFont | ImageFont.ImageFont,
-) -> None:
-    w, h = img.size
-    x0, y0 = ann.from_pt[0] * w, ann.from_pt[1] * h
-    x1, y1 = ann.to_pt[0] * w, ann.to_pt[1] * h
-    draw.line([(x0, y0), (x1, y1)], fill=theme.accent, width=line_w)
-    _draw_arrowhead(draw, x0, y0, x1, y1, size=line_w * 4, color=theme.accent)
-    _draw_step_badge(draw, x0, y0, step, line_w * 3, theme.accent, badge_font)
-    _draw_label(img, draw, x0, y0 - line_w * 3, ann.label, font, theme)
-
-
-def _draw_circle(
-    img: Image.Image,
-    draw: ImageDraw.ImageDraw,
-    ann: Annotation,
-    line_w: int,
-    font: ImageFont.FreeTypeFont | ImageFont.ImageFont,
-    theme: Theme,
-    step: int,
-    badge_font: ImageFont.FreeTypeFont | ImageFont.ImageFont,
-) -> None:
-    w, h = img.size
-    cx, cy = ann.center[0] * w, ann.center[1] * h
-    r = ann.radius * min(w, h)
-    draw.ellipse(
-        [cx - r, cy - r, cx + r, cy + r],
-        outline=theme.accent,
-        width=line_w,
-    )
-    _draw_step_badge(draw, cx + r, cy - r, step, line_w * 3, theme.accent, badge_font)
-    _draw_label(img, draw, cx - r, cy - r, ann.label, font, theme)
-
-
-def _draw_bracket(
-    img: Image.Image,
-    draw: ImageDraw.ImageDraw,
-    ann: Annotation,
-    line_w: int,
-    font: ImageFont.FreeTypeFont | ImageFont.ImageFont,
-    theme: Theme,
-    step: int,
-    badge_font: ImageFont.FreeTypeFont | ImageFont.ImageFont,
-) -> None:
-    w, h = img.size
-    y_top = ann.y_range[0] * h
-    y_bot = ann.y_range[1] * h
-    tick = 20
-    color = theme.accent
-    if ann.side == "right":
-        x = w - 30
-        draw.line([(x, y_top), (x, y_bot)], fill=color, width=line_w)
-        draw.line([(x - tick, y_top), (x, y_top)], fill=color, width=line_w)
-        draw.line([(x - tick, y_bot), (x, y_bot)], fill=color, width=line_w)
-        label_x = x - tick - 10
-    else:
-        x = 30
-        draw.line([(x, y_top), (x, y_bot)], fill=color, width=line_w)
-        draw.line([(x, y_top), (x + tick, y_top)], fill=color, width=line_w)
-        draw.line([(x, y_bot), (x + tick, y_bot)], fill=color, width=line_w)
-        label_x = x + tick + 10
-    label_y = (y_top + y_bot) / 2
-    _draw_step_badge(draw, label_x, label_y - 20, step, line_w * 3, theme.accent, badge_font)
-    _draw_label(img, draw, label_x, label_y, ann.label, font, theme)
-
-
-def annotate_image(
-    img_path: Path,
-    annotations: list[Annotation],
-    output_path: Path,
-    theme: Theme,
-) -> Path:
-    img = Image.open(img_path).convert("RGB")
-    draw = ImageDraw.Draw(img)
-    w = img.size[0]
-    line_w = max(4, w // 180)
-    font_size = max(16, w // 40)
-    badge_font_size = max(14, w // 54)
-    font = _find_font(font_size)
-    badge_font = _find_font(badge_font_size)
-
-    for i, ann in enumerate(annotations):
-        step = i + 1
-        if ann.type == "arrow":
-            _draw_arrow(img, draw, ann, line_w, font, theme, step, badge_font)
-        elif ann.type == "circle":
-            _draw_circle(img, draw, ann, line_w, font, theme, step, badge_font)
-        elif ann.type == "bracket":
-            _draw_bracket(img, draw, ann, line_w, font, theme, step, badge_font)
-        # Re-acquire draw after label compositing
-        draw = ImageDraw.Draw(img)
-
-    img.save(output_path)
-    return output_path
-
-
-def _add_screenshot_frame(img_path: Path) -> Path:
-    """Add light border and drop shadow to a screenshot."""
-    img = Image.open(img_path).convert("RGBA")
-    border = 3
-    shadow_off = 8
-    blur_r = 12
-    extra = shadow_off + blur_r + border * 2
-    canvas = Image.new("RGBA", (img.width + extra, img.height + extra), (255, 255, 255, 255))
-    # Shadow
-    shadow = Image.new("RGBA", canvas.size, (0, 0, 0, 0))
-    sd = ImageDraw.Draw(shadow)
-    sd.rectangle(
-        [border + shadow_off, border + shadow_off,
-         border + shadow_off + img.width, border + shadow_off + img.height],
-        fill=(0, 0, 0, 50),
-    )
-    shadow = shadow.filter(ImageFilter.GaussianBlur(blur_r))
-    canvas = Image.alpha_composite(canvas, shadow)
-    # Border
-    cd = ImageDraw.Draw(canvas)
-    cd.rectangle(
-        [border - 1, border - 1, border + img.width, border + img.height],
-        outline=(200, 200, 200, 255), width=1,
-    )
-    canvas.paste(img, (border, border))
-    canvas.convert("RGB").save(img_path)
-    return img_path
-
-
-# ---------------------------------------------------------------------------
-# PDF builder (fpdf2)
+# PNG dimensions (no PIL needed)
 # ---------------------------------------------------------------------------
 
 
-class GuidePDF(FPDF):
-    _theme: Theme
-
-    def footer(self) -> None:
-        self.set_y(-15)
-        self.set_font("Helvetica", "I", 8)
-        self.set_text_color(*self._theme.muted)
-        self.cell(0, 10, f"Page {self.page_no()}/{{nb}}", align="C")
-
-
-def _render_description(pdf: FPDF, text: str, theme: Theme) -> None:
-    """Render description with NOTE:/TIP: callout box support."""
-    paragraphs = text.strip().split("\n\n")
-    for para in paragraphs:
-        stripped = para.strip()
-        upper = stripped.upper()
-        if upper.startswith("NOTE:") or upper.startswith("TIP:"):
-            prefix = stripped.split(":")[0]
-            body = stripped[len(prefix) + 1:].strip()
-            # Measure text height
-            pdf.set_font("Helvetica", "", 10)
-            line_count = pdf.multi_cell(165, 5, body, dry_run=True, output="LINES")
-            box_h = max(12, len(line_count) * 5 + 8)
-            y0 = pdf.get_y()
-            # Light amber background
-            pdf.set_fill_color(255, 243, 224)
-            pdf.rect(20, y0, 170, box_h, style="F")
-            # Accent left border
-            pdf.set_fill_color(*theme.accent)
-            pdf.rect(20, y0, 3, box_h, style="F")
-            # Text
-            pdf.set_xy(26, y0 + 2)
-            pdf.set_font("Helvetica", "B", 10)
-            pdf.set_text_color(*theme.accent)
-            pdf.cell(0, 5, f"{prefix}:", ln=True)
-            pdf.set_x(26)
-            pdf.set_font("Helvetica", "", 10)
-            pdf.set_text_color(*theme.text)
-            pdf.multi_cell(162, 5, body)
-            pdf.set_y(y0 + box_h + 2)
-        else:
-            pdf.set_font("Helvetica", "", 11)
-            pdf.set_text_color(*theme.text)
-            pdf.multi_cell(0, 6, stripped)
-            pdf.ln(2)
+def _png_dimensions(path: Path) -> tuple[int, int]:
+    """Read width and height from a PNG file's IHDR chunk."""
+    with open(path, "rb") as f:
+        header = f.read(24)
+    if header[:8] != b"\x89PNG\r\n\x1a\n":
+        raise ValueError(f"Not a PNG file: {path}")
+    width, height = struct.unpack(">II", header[16:24])
+    return width, height
 
 
-def build_pdf(
+# ---------------------------------------------------------------------------
+# JSON data writer (bridge between YAML spec and Typst)
+# ---------------------------------------------------------------------------
+
+
+def _annotation_to_dict(ann: Annotation) -> dict[str, Any]:
+    d: dict[str, Any] = {"type": ann.type, "label": ann.label}
+    if ann.type == "arrow":
+        d["from"] = list(ann.from_pt)
+        d["to"] = list(ann.to_pt)
+    elif ann.type == "circle":
+        d["center"] = list(ann.center)
+        d["radius"] = ann.radius
+    elif ann.type == "bracket":
+        d["y_range"] = list(ann.y_range)
+        d["side"] = ann.side
+    return d
+
+
+def write_guide_data(
     spec: GuideSpec,
-    annotated_pages: list[tuple[PageSpec, Path]],
-    output_path: Path,
-) -> Path:
-    theme = spec.theme
-    pdf = GuidePDF(orientation="P", unit="mm", format="A4")
-    pdf._theme = theme
-    pdf.set_auto_page_break(auto=True, margin=20)
-    pdf.alias_nb_pages()
+    screenshots_dir: Path,
+    output_json: Path,
+    root: Path,
+) -> list[str]:
+    """Write guide-data.json for Typst. Returns list of missing page IDs."""
+    missing: list[str] = []
+    pages_data: list[dict[str, Any]] = []
 
-    # --- Title page ---
-    pdf.add_page()
-    # Colored header bar
-    pdf.set_fill_color(*theme.primary)
-    pdf.rect(0, 0, 210, 50, style="F")
-    # Title
-    pdf.set_text_color(255, 255, 255)
-    pdf.set_font("Helvetica", "B", 32)
-    pdf.set_y(14)
-    pdf.cell(0, 14, spec.title, align="C", ln=True)
-    # Subtitle
-    if spec.subtitle:
-        pdf.set_font("Helvetica", "", 14)
-        pdf.set_y(30)
-        pdf.cell(0, 8, spec.subtitle, align="C", ln=True)
-    # Accent line
-    pdf.set_draw_color(*theme.accent)
-    pdf.set_line_width(1.0)
-    pdf.line(20, 52, 190, 52)
-    # Date
-    pdf.set_text_color(*theme.muted)
-    pdf.set_font("Helvetica", "", 12)
-    pdf.set_y(58)
-    pdf.cell(0, 10, f"Generated {date.today().isoformat()}", align="C", ln=True)
+    for page in spec.pages:
+        screenshot = screenshots_dir / f"{page.id}.png"
+        if not screenshot.exists():
+            missing.append(page.id)
+            continue
 
-    # --- Table of contents ---
-    pdf.add_page()
-    pdf.set_fill_color(*theme.primary)
-    pdf.rect(0, 0, 210, 14, style="F")
-    pdf.set_text_color(255, 255, 255)
-    pdf.set_font("Helvetica", "B", 14)
-    pdf.set_xy(20, 1)
-    pdf.cell(0, 12, "Contents")
-    pdf.set_y(18)
+        px_w, px_h = _png_dimensions(screenshot)
+        # Path relative to Typst --root, prefixed with / for root resolution
+        rel_screenshot = "/" + str(screenshot.relative_to(root))
 
-    def render_toc(pdf_ref: FPDF, outline: list[Any]) -> None:
-        pdf_ref.set_font("Helvetica", "", 11)
-        for section in outline:
-            pdf_ref.set_text_color(*theme.text)
-            link = pdf_ref.add_link(page=section.page_number)
-            pdf_ref.cell(160, 8, f"  {section.name}", link=link)
-            pdf_ref.set_text_color(*theme.muted)
-            pdf_ref.cell(0, 8, str(section.page_number), align="R", ln=True)
+        pages_data.append({
+            "id": page.id,
+            "title": page.title,
+            "description": page.description,
+            "screenshot": rel_screenshot,
+            "pixel_width": px_w,
+            "pixel_height": px_h,
+            "annotations": [_annotation_to_dict(a) for a in page.annotations],
+        })
 
-    pdf.insert_toc_placeholder(render_toc, pages=1)
+    data = {
+        "title": spec.title,
+        "subtitle": spec.subtitle,
+        "generated_date": date.today().isoformat(),
+        "theme": {
+            "primary": _rgb_to_hex(spec.theme.primary),
+            "accent": _rgb_to_hex(spec.theme.accent),
+            "text": _rgb_to_hex(spec.theme.text),
+            "muted": _rgb_to_hex(spec.theme.muted),
+            "background": _rgb_to_hex(spec.theme.background),
+        },
+        "pages": pages_data,
+    }
 
-    # --- Content pages ---
-    for idx, (page, img_path) in enumerate(annotated_pages):
-        pdf.add_page()
-        pdf.start_section(page.title, level=0)
-        step_num = idx + 1
+    output_json.parent.mkdir(parents=True, exist_ok=True)
+    with open(output_json, "w") as f:
+        json.dump(data, f, indent=2)
 
-        # Header strip
-        y_start = pdf.get_y() - 2
-        pdf.set_fill_color(*theme.primary)
-        pdf.rect(0, y_start, 210, 14, style="F")
+    return missing
 
-        # Step badge
-        badge_x = 16
-        badge_y = y_start + 7
-        pdf.set_fill_color(*theme.accent)
-        pdf.ellipse(badge_x - 5, badge_y - 5, 10, 10, style="F")
-        pdf.set_text_color(255, 255, 255)
-        pdf.set_font("Helvetica", "B", 9)
-        pdf.set_xy(badge_x - 5, badge_y - 4)
-        pdf.cell(10, 8, str(step_num), align="C")
 
-        # Title
-        pdf.set_font("Helvetica", "B", 14)
-        pdf.set_xy(badge_x + 8, y_start + 2)
-        pdf.cell(0, 10, page.title)
-        pdf.set_y(y_start + 16)
+# ---------------------------------------------------------------------------
+# Typst compilation
+# ---------------------------------------------------------------------------
 
-        # Image: scale to page width with margins (170mm effective on A4)
-        img = Image.open(img_path)
-        img_w, img_h = img.size
-        display_w = 170  # mm
-        display_h = display_w * (img_h / img_w)
-        max_img_h = 195  # mm
-        if display_h > max_img_h:
-            display_h = max_img_h
-            display_w = display_h * (img_w / img_h)
 
-        pdf.image(str(img_path), x=20, w=display_w, h=display_h)
-        pdf.ln(5)
+def compile_typst(data_json: Path, output_pdf: Path, root: Path) -> None:
+    """Invoke typst compile to render the guide PDF."""
+    template = TEMPLATES_DIR / "guide.typ"
+    # Typst resolves paths from --root when prefixed with /
+    rel_data = "/" + str(data_json.relative_to(root))
 
-        # Description with callout support
-        if page.description:
-            _render_description(pdf, page.description, theme)
-
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    pdf.output(str(output_path))
-    return output_path
+    cmd = [
+        "typst", "compile",
+        "--root", str(root),
+        "--input", f"data-path={rel_data}",
+        str(template),
+        str(output_pdf),
+    ]
+    result = subprocess.run(cmd, capture_output=True, text=True)
+    if result.returncode != 0:
+        print(f"ERROR: Typst compilation failed:\n{result.stderr}", file=sys.stderr)
+        sys.exit(1)
 
 
 # ---------------------------------------------------------------------------
@@ -653,7 +382,7 @@ def main() -> None:
     parser.add_argument(
         "--skip-capture",
         action="store_true",
-        help="Skip screenshot capture, re-annotate from cached screenshots",
+        help="Skip screenshot capture, use cached screenshots",
     )
     parser.add_argument(
         "--pages",
@@ -662,6 +391,13 @@ def main() -> None:
         help="Comma-separated list of page IDs to include (default: all)",
     )
     args = parser.parse_args()
+
+    # Verify typst is available
+    try:
+        subprocess.run(["typst", "--version"], capture_output=True, check=True)
+    except FileNotFoundError:
+        print("ERROR: typst not found. Install with: brew install typst")
+        sys.exit(1)
 
     spec = load_spec(args.spec)
     print(f"Loaded spec: {spec.title} ({len(spec.pages)} pages)")
@@ -676,20 +412,19 @@ def main() -> None:
         print("No pages to process.")
         sys.exit(1)
 
-    build_dir = args.output.parent
+    # Resolve root for Typst (repo root, so both templates and build/ are accessible)
+    root = Path(__file__).resolve().parent.parent.parent
+    build_dir = args.output.resolve().parent
     screenshots_dir = build_dir / "screenshots"
-    annotated_dir = build_dir / "annotated"
     screenshots_dir.mkdir(parents=True, exist_ok=True)
-    annotated_dir.mkdir(parents=True, exist_ok=True)
 
     # Phase 1: Capture screenshots
     if not args.skip_capture:
-        # Verify ADB is available
         try:
             result = subprocess.run(
                 ["adb", "devices"], capture_output=True, text=True, check=True,
             )
-            lines = [l for l in result.stdout.strip().split("\n")[1:] if l.strip()]
+            lines = [ln for ln in result.stdout.strip().split("\n")[1:] if ln.strip()]
             if not lines:
                 print("ERROR: No ADB devices found. Connect a device or start an emulator.")
                 sys.exit(1)
@@ -709,32 +444,24 @@ def main() -> None:
     else:
         print("Skipping capture (using cached screenshots)")
 
-    # Phase 2: Annotate screenshots
-    annotated_pages: list[tuple[PageSpec, Path]] = []
-    for page in spec.pages:
-        screenshot = screenshots_dir / f"{page.id}.png"
-        if not screenshot.exists():
-            print(f"[{page.id}] WARNING: Screenshot not found at {screenshot}, skipping")
-            continue
+    # Phase 2: Write JSON data for Typst
+    data_json = build_dir / "guide-data.json"
+    print("Writing guide data...")
+    missing = write_guide_data(spec, screenshots_dir, data_json, root)
+    for page_id in missing:
+        print(f"[{page_id}] WARNING: Screenshot not found, skipping")
 
-        annotated = annotated_dir / f"{page.id}.png"
-        if page.annotations:
-            print(f"[{page.id}] Annotating ({len(page.annotations)} annotations)...")
-            annotate_image(screenshot, page.annotations, annotated, spec.theme)
-        else:
-            # No annotations -- copy original
-            Image.open(screenshot).save(annotated)
-            print(f"[{page.id}] No annotations, using original")
-        _add_screenshot_frame(annotated)
-        annotated_pages.append((page, annotated))
-
-    if not annotated_pages:
-        print("No pages to include in PDF.")
+    # Check we have at least one page with a screenshot
+    with open(data_json) as f:
+        guide_data = json.load(f)
+    if not guide_data["pages"]:
+        print("No pages with screenshots to include in PDF.")
         sys.exit(1)
 
-    # Phase 3: Build PDF
-    print(f"Building PDF ({len(annotated_pages)} pages)...")
-    build_pdf(spec, annotated_pages, args.output)
+    # Phase 3: Compile PDF with Typst
+    print(f"Compiling PDF ({len(guide_data['pages'])} pages)...")
+    args.output.parent.mkdir(parents=True, exist_ok=True)
+    compile_typst(data_json, args.output, root)
     print(f"PDF saved to: {args.output}")
 
 
