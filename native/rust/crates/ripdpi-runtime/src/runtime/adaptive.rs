@@ -9,10 +9,6 @@
 //    per (host, group, flow-kind) tuple. Used when the evolver is disabled or
 //    returns `None`.
 // 3. Group defaults -- static values from the `DesyncGroup` configuration.
-//
-// Currently only level 2 (per-flow) is resolved here. The evolver (level 1) is
-// consumed by higher-level callers that check `suggest_hints()` first and fall
-// back to these functions when it returns `None`.
 
 use std::io;
 use std::net::SocketAddr;
@@ -148,4 +144,52 @@ pub(super) fn note_adaptive_udp_failure(
     let mut resolver = state.adaptive_tuning.lock().map_err(|_| io::Error::other("adaptive tuning mutex poisoned"))?;
     resolver.note_udp_failure(network_scope_key(&state.config), group_index, target, host, payload);
     Ok(())
+}
+
+// ---------------------------------------------------------------------------
+// Evolver-aware wrappers (priority level 1 → level 2 fallback)
+// ---------------------------------------------------------------------------
+
+pub(super) fn resolve_tcp_hints_with_evolver(
+    state: &RuntimeState,
+    target: SocketAddr,
+    group_index: usize,
+    group: &DesyncGroup,
+    host: Option<&str>,
+    payload: &[u8],
+) -> io::Result<AdaptivePlannerHints> {
+    if let Ok(mut evolver) = state.strategy_evolver.lock() {
+        if let Some(hints) = evolver.suggest_hints() {
+            return Ok(hints);
+        }
+    }
+    resolve_adaptive_tcp_hints(state, target, group_index, group, host, payload)
+}
+
+pub(super) fn resolve_udp_hints_with_evolver(
+    state: &RuntimeState,
+    target: SocketAddr,
+    group_index: usize,
+    group: &DesyncGroup,
+    host: Option<&str>,
+    payload: &[u8],
+) -> io::Result<AdaptivePlannerHints> {
+    if let Ok(mut evolver) = state.strategy_evolver.lock() {
+        if let Some(hints) = evolver.suggest_hints() {
+            return Ok(hints);
+        }
+    }
+    resolve_adaptive_udp_hints(state, target, group_index, group, host, payload)
+}
+
+pub(super) fn note_evolver_success(state: &RuntimeState, latency_ms: u64) {
+    if let Ok(mut evolver) = state.strategy_evolver.lock() {
+        evolver.record_success(latency_ms);
+    }
+}
+
+pub(super) fn note_evolver_failure(state: &RuntimeState, class: ripdpi_failure_classifier::FailureClass) {
+    if let Ok(mut evolver) = state.strategy_evolver.lock() {
+        evolver.record_failure(class);
+    }
 }

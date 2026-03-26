@@ -22,7 +22,7 @@ use socket2::{Domain, Protocol, SockAddr, Socket, Type};
 use crate::platform;
 use crate::runtime_policy::{ConnectionRoute, RouteAdvance, TransportProtocol};
 
-use super::adaptive::{note_adaptive_fake_ttl_failure, note_adaptive_tcp_failure};
+use super::adaptive::{note_adaptive_fake_ttl_failure, note_adaptive_tcp_failure, note_evolver_failure};
 use super::retry::{build_retry_selection_penalties, maybe_emit_candidate_diversification, note_retry_failure};
 use super::state::{flush_autolearn_updates, RuntimeState};
 
@@ -157,6 +157,7 @@ pub(super) fn advance_route_for_failure(
             note_adaptive_tcp_failure(state, target, route.group_index, host.as_deref(), payload)?;
         }
         note_adaptive_fake_ttl_failure(state, target, route.group_index, host.as_deref())?;
+        note_evolver_failure(state, failure.class);
     }
 
     let retry_penalties =

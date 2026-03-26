@@ -13,7 +13,7 @@ use ripdpi_packets::entropy;
 use ripdpi_session::OutboundProgress;
 use socket2::SockRef;
 
-use super::adaptive::{resolve_adaptive_fake_ttl, resolve_adaptive_tcp_hints};
+use super::adaptive::{resolve_adaptive_fake_ttl, resolve_tcp_hints_with_evolver};
 use super::state::{RuntimeState, DESYNC_SEED_BASE};
 
 #[derive(Debug)]
@@ -122,7 +122,7 @@ pub(super) fn send_with_group(
     target: SocketAddr,
 ) -> io::Result<()> {
     let resolved_fake_ttl = resolve_adaptive_fake_ttl(state, target, group_index, group, host)?;
-    let adaptive_hints = resolve_adaptive_tcp_hints(state, target, group_index, group, host, payload)?;
+    let adaptive_hints = resolve_tcp_hints_with_evolver(state, target, group_index, group, host, payload)?;
     let context = activation_context_from_progress(
         progress,
         ActivationTransport::Tcp,

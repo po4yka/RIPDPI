@@ -486,6 +486,11 @@ impl StrategyEvolver {
         stats.total_latency_ms += latency_ms;
         stats.last_attempt_ms = now_millis();
         stats.last_failure_class = None;
+        tracing::info!(
+            combos_tested = self.combos_tested(),
+            best_fitness = format_args!("{:.1}", self.best_fitness()),
+            "strategy evolution progress",
+        );
     }
 
     /// Record failed connection with failure class.

@@ -5,6 +5,7 @@ use crate::adaptive_fake_ttl::AdaptiveFakeTtlResolver;
 use crate::adaptive_tuning::AdaptivePlannerResolver;
 use crate::retry_stealth::RetryPacer;
 use crate::runtime_policy::RuntimePolicy;
+use crate::strategy_evolver::StrategyEvolver;
 use crate::RuntimeTelemetrySink;
 use ripdpi_config::RuntimeConfig;
 use ripdpi_proxy_config::ProxyRuntimeContext;
@@ -23,6 +24,7 @@ pub(super) struct RuntimeState {
     pub(super) adaptive_fake_ttl: Arc<Mutex<AdaptiveFakeTtlResolver>>,
     pub(super) adaptive_tuning: Arc<Mutex<AdaptivePlannerResolver>>,
     pub(super) retry_stealth: Arc<Mutex<RetryPacer>>,
+    pub(super) strategy_evolver: Arc<Mutex<StrategyEvolver>>,
     pub(super) active_clients: Arc<AtomicUsize>,
     pub(super) telemetry: Option<std::sync::Arc<dyn RuntimeTelemetrySink>>,
     pub(super) runtime_context: Option<ProxyRuntimeContext>,

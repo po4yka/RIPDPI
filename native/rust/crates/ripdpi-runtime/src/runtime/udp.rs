@@ -12,7 +12,10 @@ use ripdpi_desync::{plan_udp, ActivationTransport, DesyncAction};
 use ripdpi_session::{SessionState, SocketType, S_ATP_I4, S_ATP_I6};
 use socket2::{Domain, Protocol, SockAddr, Socket, Type};
 
-use super::adaptive::{note_adaptive_udp_failure, note_adaptive_udp_success, resolve_adaptive_udp_hints};
+use super::adaptive::{
+    note_adaptive_udp_failure, note_adaptive_udp_success, note_evolver_failure, note_evolver_success,
+    resolve_udp_hints_with_evolver,
+};
 use super::retry::{
     build_retry_selection_penalties, maybe_emit_candidate_diversification, note_retry_failure, note_retry_success,
 };
@@ -140,7 +143,7 @@ pub(super) fn udp_associate_loop(
                     };
                     let bind_low_port = group.actions.quic_bind_low_port;
                     let activation = {
-                        let adaptive_hints = resolve_adaptive_udp_hints(
+                        let adaptive_hints = resolve_udp_hints_with_evolver(
                             &state,
                             target,
                             route.group_index,
@@ -219,6 +222,7 @@ pub(super) fn udp_associate_loop(
                             entry.host.as_deref(),
                             TransportProtocol::Udp,
                         )?;
+                        note_evolver_success(&state, 0);
                         entry.awaiting_response = false;
                     }
                     // QUIC connection migration: on first short-header (post-handshake)
@@ -291,6 +295,7 @@ fn expire_udp_flows(
             TransportProtocol::Udp,
         )?;
         note_adaptive_udp_failure(state, target, entry.route.group_index, entry.host.as_deref(), &entry.payload)?;
+        note_evolver_failure(state, ripdpi_failure_classifier::FailureClass::SilentDrop);
         let retry_penalties = build_retry_selection_penalties(
             state,
             target,

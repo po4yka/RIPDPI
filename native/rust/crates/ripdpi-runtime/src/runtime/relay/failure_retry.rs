@@ -9,7 +9,9 @@ use ripdpi_failure_classifier::{
 };
 use ripdpi_session::SessionState;
 
-use super::super::adaptive::{note_adaptive_fake_ttl_success, note_adaptive_tcp_success, note_server_ttl_for_route};
+use super::super::adaptive::{
+    note_adaptive_fake_ttl_success, note_adaptive_tcp_success, note_evolver_success, note_server_ttl_for_route,
+};
 use super::super::desync::{desync_action_context, send_with_group};
 use super::super::retry::note_retry_success;
 use super::super::routing::{advance_route_for_failure, emit_failure_classified, note_route_success, reconnect_target};
@@ -165,6 +167,7 @@ pub(super) fn record_stream_relay_success(
         note_retry_success(state, target, route.group_index, success_host, Some(request), TransportProtocol::Tcp)?;
     }
     note_adaptive_fake_ttl_success(state, target, route.group_index, success_host)?;
+    note_evolver_success(state, 0);
     note_route_success(state, target, route, success_host)?;
     Ok(())
 }
