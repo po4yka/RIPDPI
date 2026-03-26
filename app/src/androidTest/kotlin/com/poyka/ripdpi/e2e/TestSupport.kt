@@ -27,8 +27,13 @@ import com.poyka.ripdpi.data.EncryptedDnsProtocolDot
 import com.poyka.ripdpi.data.ServiceTelemetrySnapshot
 import com.poyka.ripdpi.debug.PacketSmokeEncryptedDnsPreset
 import com.poyka.ripdpi.debug.PacketSmokeEncryptedDnsPresets
+import com.poyka.ripdpi.debug.PacketSmokePhase
 import com.poyka.ripdpi.debug.PacketSmokeMapDnsAddress
 import com.poyka.ripdpi.debug.PacketSmokeMapDnsPort
+import com.poyka.ripdpi.debug.PacketSmokePrepareState
+import com.poyka.ripdpi.debug.PacketSmokePrepareStateFileName
+import com.poyka.ripdpi.debug.PacketSmokeProbeResultFileName
+import com.poyka.ripdpi.debug.PacketSmokeRunnerProbeResult
 import com.poyka.ripdpi.debug.DebugDnsPacketCodec
 import java.io.BufferedReader
 import java.io.File
@@ -66,6 +71,8 @@ private const val LocalNetworkPermissionGrantTimeoutMs = 2_000L
 private const val VpnConsentTimeoutArg = "ripdpi.vpnConsentTimeoutMs"
 private const val VpnConsentPackageHintsArg = "ripdpi.vpnConsentPackageHints"
 private const val PacketSmokeDeviceProfileArg = "ripdpi.packetSmokeDeviceProfile"
+private const val PacketSmokePhaseArg = "ripdpi.packetSmokePhase"
+private const val PacketSmokeScenarioIdArg = "ripdpi.packetSmokeScenarioId"
 private const val NearbyWifiDevicesPermission = "android.permission.NEARBY_WIFI_DEVICES"
 private const val DebugNetworkProbeAction = "com.poyka.ripdpi.debug.PROBE_TCP"
 private const val DebugDnsProbeAction = "com.poyka.ripdpi.debug.PROBE_DNS"
@@ -76,6 +83,8 @@ private const val DebugNetworkProbeExtraConnectTimeoutMs = "connect_timeout_ms"
 private const val DebugNetworkProbeExtraReadTimeoutMs = "read_timeout_ms"
 private const val DebugNetworkProbeExtraPayload = "payload"
 private const val DebugNetworkProbeExtraQueryHost = "query_host"
+private const val DebugNetworkProbeExtraRequestId = "request_id"
+private const val DebugNetworkProbeExtraScenarioId = "scenario_id"
 private const val DebugNetworkProbeExtraOk = "ok"
 private const val DebugNetworkProbeExtraLocalAddress = "local_address"
 private const val DebugNetworkProbeExtraLocalPort = "local_port"
@@ -449,8 +458,26 @@ suspend fun AppSettingsRepository.applyPacketSmokeEncryptedDns(
 
 fun packetSmokeDeviceProfile(): PacketSmokeDeviceProfile = PacketSmokeDeviceProfile.fromInstrumentationArgs()
 
+fun packetSmokePhase(): PacketSmokePhase =
+    PacketSmokePhase.fromArgument(InstrumentationRegistry.getArguments().getString(PacketSmokePhaseArg))
+
+fun packetSmokeScenarioId(): String? =
+    InstrumentationRegistry
+        .getArguments()
+        .getString(PacketSmokeScenarioIdArg)
+        ?.trim()
+        ?.takeIf(String::isNotBlank)
+
+fun requirePacketSmokeScenarioId(): String =
+    requireNotNull(packetSmokeScenarioId()) {
+        "Missing instrumentation arg $PacketSmokeScenarioIdArg for packet-smoke phase ${packetSmokePhase().argumentValue}"
+    }
+
 fun packetSmokeUsesPhysicalIndirectContract(): Boolean =
     packetSmokeDeviceProfile() == PacketSmokeDeviceProfile.PHYSICAL_INDIRECT
+
+fun packetSmokeUsesPhasedPhysicalRunner(): Boolean =
+    packetSmokeUsesPhysicalIndirectContract() && packetSmokePhase() != PacketSmokePhase.SINGLE
 
 fun packetSmokeEncryptedDnsPreset(protocol: String): PacketSmokeEncryptedDnsPreset =
     PacketSmokeEncryptedDnsPresets.success(protocol)
@@ -462,6 +489,101 @@ fun reserveLoopbackPort(): Int =
     ServerSocket(0).use { socket ->
         socket.localPort
     }
+
+fun packetSmokeScenarioDirectory(
+    context: Context,
+    scenarioId: String,
+): File = File(context.cacheDir, "packet-smoke/$scenarioId")
+
+fun clearPacketSmokeScenarioState(
+    context: Context,
+    scenarioId: String,
+) {
+    packetSmokeScenarioDirectory(context, scenarioId).deleteRecursively()
+}
+
+fun writePacketSmokePrepareState(
+    context: Context,
+    scenarioId: String,
+    state: PacketSmokePrepareState,
+) {
+    val scenarioDir = packetSmokeScenarioDirectory(context, scenarioId).apply { mkdirs() }
+    File(scenarioDir, PacketSmokePrepareStateFileName).writeText(state.toJson(), Charsets.UTF_8)
+}
+
+fun readPacketSmokePrepareState(
+    context: Context,
+    scenarioId: String,
+): PacketSmokePrepareState? =
+    File(packetSmokeScenarioDirectory(context, scenarioId), PacketSmokePrepareStateFileName)
+        .takeIf(File::exists)
+        ?.readText(Charsets.UTF_8)
+        ?.let(PacketSmokePrepareState::fromJson)
+
+fun readPacketSmokeRunnerProbeResult(
+    context: Context,
+    scenarioId: String,
+): PacketSmokeRunnerProbeResult? =
+    File(packetSmokeScenarioDirectory(context, scenarioId), PacketSmokeProbeResultFileName)
+        .takeIf(File::exists)
+        ?.readText(Charsets.UTF_8)
+        ?.let(PacketSmokeRunnerProbeResult::fromJson)
+
+fun capturePacketSmokePrepareState(
+    scenarioId: String,
+    deviceProfile: PacketSmokeDeviceProfile,
+    snapshot: ServiceTelemetrySnapshot,
+    expectedResolverId: String? = null,
+    expectedResolverProtocol: String? = null,
+    expectedResolverEndpoint: String? = null,
+    expectedDnsHost: String? = null,
+): PacketSmokePrepareState =
+    PacketSmokePrepareState(
+        scenarioId = scenarioId,
+        deviceProfile = deviceProfile.argumentValue,
+        mode = snapshot.mode?.name,
+        status = snapshot.status.name,
+        proxySessions = snapshot.proxyTelemetry.totalSessions,
+        txPackets = snapshot.tunnelStats.txPackets,
+        rxPackets = snapshot.tunnelStats.rxPackets,
+        txBytes = snapshot.tunnelStats.txBytes,
+        rxBytes = snapshot.tunnelStats.rxBytes,
+        dnsQueriesTotal = snapshot.tunnelTelemetry.dnsQueriesTotal,
+        dnsFailuresTotal = snapshot.tunnelTelemetry.dnsFailuresTotal,
+        restartCount = snapshot.restartCount,
+        capturedAtEpochMs = snapshot.updatedAt.takeIf { it > 0L } ?: System.currentTimeMillis(),
+        expectedResolverId = expectedResolverId,
+        expectedResolverProtocol = expectedResolverProtocol,
+        expectedResolverEndpoint = expectedResolverEndpoint,
+        expectedDnsHost = expectedDnsHost,
+    )
+
+fun PacketSmokeRunnerProbeResult.toTcpProbeResult(): AppProcessTcpProbeResult =
+    AppProcessTcpProbeResult(
+        host = host,
+        port = port,
+        ok = ok,
+        localAddress = localAddress,
+        localPort = localPort,
+        response = response,
+        errorClass = errorClass,
+        errorMessage = errorMessage,
+    )
+
+fun PacketSmokeRunnerProbeResult.toDnsProbeResult(): AppProcessDnsProbeResult =
+    AppProcessDnsProbeResult(
+        queryHost = queryHost.orEmpty(),
+        serverHost = host,
+        serverPort = port,
+        ok = ok,
+        rcode = rcode,
+        answers = answers,
+        latencyMs = latencyMs,
+        localAddress = localAddress,
+        localPort = localPort,
+        errorClass = errorClass,
+        errorMessage = errorMessage,
+    )
 
 fun awaitUntil(
     timeoutMs: Long = 10_000,
@@ -881,6 +1003,16 @@ fun ServiceTelemetrySnapshot.packetSmokeDeltaFrom(before: ServiceTelemetrySnapsh
         rxBytes = tunnelStats.rxBytes - before.tunnelStats.rxBytes,
         dnsQueriesTotal = tunnelTelemetry.dnsQueriesTotal - before.tunnelTelemetry.dnsQueriesTotal,
         dnsFailuresTotal = tunnelTelemetry.dnsFailuresTotal - before.tunnelTelemetry.dnsFailuresTotal,
+    )
+
+fun ServiceTelemetrySnapshot.packetSmokeDeltaFrom(before: PacketSmokePrepareState): PacketSmokeTelemetryDelta =
+    PacketSmokeTelemetryDelta(
+        txPackets = tunnelStats.txPackets - before.txPackets,
+        rxPackets = tunnelStats.rxPackets - before.rxPackets,
+        txBytes = tunnelStats.txBytes - before.txBytes,
+        rxBytes = tunnelStats.rxBytes - before.rxBytes,
+        dnsQueriesTotal = tunnelTelemetry.dnsQueriesTotal - before.dnsQueriesTotal,
+        dnsFailuresTotal = tunnelTelemetry.dnsFailuresTotal - before.dnsFailuresTotal,
     )
 
 private fun tryGrantVpnConsentViaShellAppOps(context: Context): String? {

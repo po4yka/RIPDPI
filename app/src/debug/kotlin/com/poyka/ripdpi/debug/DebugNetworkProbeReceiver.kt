@@ -7,6 +7,7 @@ import android.content.Intent
 import android.os.Bundle
 import android.os.SystemClock
 import java.io.ByteArrayOutputStream
+import java.io.File
 import java.net.DatagramPacket
 import java.net.DatagramSocket
 import java.net.InetSocketAddress
@@ -28,23 +29,19 @@ class DebugNetworkProbeReceiver : BroadcastReceiver() {
 
         thread(name = "debug-network-probe", isDaemon = true) {
             val extras = Bundle()
-            val resultCode =
+            val (probeResult, activityResultCode) =
                 runCatching {
                     when (intent.action) {
                         ActionProbeDns -> runDnsProbe(intent, extras)
                         else -> runTcpProbe(intent, extras)
-                    }
-
-                    Activity.RESULT_OK
+                    } to Activity.RESULT_OK
                 }.getOrElse { error ->
-                    val failure = error.toDebugProbeFailure()
-                    extras.putBoolean(ExtraOk, false)
-                    extras.putString(ExtraErrorClass, failure.errorClass)
-                    extras.putString(ExtraErrorMessage, failure.errorMessage)
-                    Activity.RESULT_CANCELED
+                    failureProbeResult(intent, extras, error) to Activity.RESULT_CANCELED
                 }
 
-            pendingResult.resultCode = resultCode
+            persistProbeResult(context, probeResult)
+
+            pendingResult.resultCode = activityResultCode
             pendingResult.setResultExtras(extras)
             pendingResult.finish()
         }
@@ -59,6 +56,8 @@ class DebugNetworkProbeReceiver : BroadcastReceiver() {
         const val ExtraReadTimeoutMs = "read_timeout_ms"
         const val ExtraPayload = "payload"
         const val ExtraQueryHost = "query_host"
+        const val ExtraRequestId = "request_id"
+        const val ExtraScenarioId = "scenario_id"
         const val ExtraOk = "ok"
         const val ExtraLocalAddress = "local_address"
         const val ExtraLocalPort = "local_port"
@@ -76,7 +75,7 @@ class DebugNetworkProbeReceiver : BroadcastReceiver() {
     private fun runTcpProbe(
         intent: Intent,
         extras: Bundle,
-    ) {
+    ): PacketSmokeRunnerProbeResult {
         val host = intent.getStringExtra(ExtraHost)
         val port = intent.getIntExtra(ExtraPort, -1)
         val connectTimeoutMs = intent.getIntExtra(ExtraConnectTimeoutMs, DefaultConnectTimeoutMs)
@@ -92,6 +91,7 @@ class DebugNetworkProbeReceiver : BroadcastReceiver() {
             extras.putBoolean(ExtraOk, true)
             extras.putString(ExtraLocalAddress, socket.localAddress?.hostAddress)
             extras.putInt(ExtraLocalPort, socket.localPort)
+            var responseText: String? = null
 
             if (payload != null) {
                 val output = socket.getOutputStream()
@@ -110,15 +110,28 @@ class DebugNetworkProbeReceiver : BroadcastReceiver() {
                         response.write(buffer, 0, read)
                     }
                 }
-                extras.putString(ExtraResponse, response.toString(StandardCharsets.UTF_8.name()))
+                responseText = response.toString(StandardCharsets.UTF_8.name())
+                extras.putString(ExtraResponse, responseText)
             }
+
+            return PacketSmokeRunnerProbeResult(
+                requestId = intent.getStringExtra(ExtraRequestId).orEmpty(),
+                scenarioId = intent.getStringExtra(ExtraScenarioId).orEmpty(),
+                probeType = "tcp",
+                host = host,
+                port = port,
+                ok = true,
+                localAddress = socket.localAddress?.hostAddress,
+                localPort = socket.localPort,
+                response = responseText,
+            )
         }
     }
 
     private fun runDnsProbe(
         intent: Intent,
         extras: Bundle,
-    ) {
+    ): PacketSmokeRunnerProbeResult {
         val serverHost = intent.getStringExtra(ExtraHost)
         val serverPort = intent.getIntExtra(ExtraPort, -1)
         val timeoutMs = intent.getIntExtra(ExtraReadTimeoutMs, DefaultReadTimeoutMs)
@@ -153,7 +166,56 @@ class DebugNetworkProbeReceiver : BroadcastReceiver() {
             extras.putBoolean(ExtraOk, true)
             extras.putInt(ExtraDnsRcode, decoded.rcode)
             extras.putStringArrayList(ExtraDnsAnswers, ArrayList(decoded.answers))
-            extras.putLong(ExtraDnsLatencyMs, SystemClock.elapsedRealtime() - startMs)
+            val latencyMs = SystemClock.elapsedRealtime() - startMs
+            extras.putLong(ExtraDnsLatencyMs, latencyMs)
+            return PacketSmokeRunnerProbeResult(
+                requestId = intent.getStringExtra(ExtraRequestId).orEmpty(),
+                scenarioId = intent.getStringExtra(ExtraScenarioId).orEmpty(),
+                probeType = "dns",
+                host = serverHost,
+                port = serverPort,
+                ok = true,
+                queryHost = queryHost,
+                rcode = decoded.rcode,
+                answers = decoded.answers,
+                latencyMs = latencyMs,
+                localAddress = socket.localAddress?.hostAddress,
+                localPort = socket.localPort,
+            )
         }
+    }
+
+    private fun failureProbeResult(
+        intent: Intent,
+        extras: Bundle,
+        error: Throwable,
+    ): PacketSmokeRunnerProbeResult {
+        val failure = error.toDebugProbeFailure()
+        extras.putBoolean(ExtraOk, false)
+        extras.putString(ExtraErrorClass, failure.errorClass)
+        extras.putString(ExtraErrorMessage, failure.errorMessage)
+        return PacketSmokeRunnerProbeResult(
+            requestId = intent.getStringExtra(ExtraRequestId).orEmpty(),
+            scenarioId = intent.getStringExtra(ExtraScenarioId).orEmpty(),
+            probeType = if (intent.action == ActionProbeDns) "dns" else "tcp",
+            host = intent.getStringExtra(ExtraHost).orEmpty(),
+            port = intent.getIntExtra(ExtraPort, -1),
+            ok = false,
+            queryHost = intent.getStringExtra(ExtraQueryHost),
+            errorClass = failure.errorClass,
+            errorMessage = failure.errorMessage,
+        )
+    }
+
+    private fun persistProbeResult(
+        context: Context,
+        probeResult: PacketSmokeRunnerProbeResult,
+    ) {
+        if (probeResult.requestId.isBlank() || probeResult.scenarioId.isBlank()) {
+            return
+        }
+
+        val scenarioDir = File(context.cacheDir, "packet-smoke/${probeResult.scenarioId}").apply { mkdirs() }
+        File(scenarioDir, PacketSmokeProbeResultFileName).writeText(probeResult.toJson(), Charsets.UTF_8)
     }
 }

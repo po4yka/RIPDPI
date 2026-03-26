@@ -18,6 +18,9 @@ import com.poyka.ripdpi.data.STOP_ACTION
 import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.data.setRawStrategyChainDsl
 import com.poyka.ripdpi.data.setStrategyChains
+import com.poyka.ripdpi.debug.PacketSmokePhase
+import com.poyka.ripdpi.debug.PacketSmokePrepareState
+import com.poyka.ripdpi.debug.PacketSmokeRunnerProbeResult
 import com.poyka.ripdpi.services.RipDpiProxyService
 import com.poyka.ripdpi.services.RipDpiVpnService
 import dagger.hilt.android.testing.HiltAndroidRule
@@ -65,10 +68,16 @@ class PacketSmokeInstrumentedTest {
     fun setUp() {
         hiltRule.inject()
         ensureLocalNetworkAccessGranted(appContext)
+        if (packetSmokeUsesPhasedPhysicalRunner() && packetSmokePhase() == PacketSmokePhase.ASSERT) {
+            return
+        }
         fixtureClient = LocalFixtureClient.fromInstrumentationArgs()
         fixture = selectReachableFixtureManifest(appContext, fixtureClient.manifest())
         fixtureClient.resetEvents()
         fixtureClient.resetFaults()
+        if (packetSmokeUsesPhasedPhysicalRunner()) {
+            clearPacketSmokeScenarioState(appContext, requirePacketSmokeScenarioId())
+        }
         runBlocking {
             stopService(RipDpiProxyService::class.java)
             stopService(RipDpiVpnService::class.java)
@@ -90,12 +99,17 @@ class PacketSmokeInstrumentedTest {
 
     @After
     fun tearDown() {
+        if (packetSmokeUsesPhasedPhysicalRunner() && packetSmokePhase() == PacketSmokePhase.PREPARE) {
+            return
+        }
         runBlocking {
             stopService(RipDpiProxyService::class.java)
             stopService(RipDpiVpnService::class.java)
         }
-        fixtureClient.resetEvents()
-        fixtureClient.resetFaults()
+        if (this::fixtureClient.isInitialized) {
+            fixtureClient.resetEvents()
+            fixtureClient.resetFaults()
+        }
     }
 
     @Test
@@ -510,226 +524,548 @@ class PacketSmokeInstrumentedTest {
     }
 
     private fun runPhysicalIndirectVpnTunnelBaselineSmoke() {
+        when (packetSmokePhase()) {
+            PacketSmokePhase.PREPARE -> {
+                preparePhysicalIndirectPlainDnsScenario(
+                    scenarioId = requirePacketSmokeScenarioId(),
+                    dnsIp = PhysicalBaselineHost,
+                )
+            }
+
+            PacketSmokePhase.ASSERT -> {
+                val scenarioId = requirePacketSmokeScenarioId()
+                awaitServiceStatus(AppStatus.Running, Mode.VPN)
+                val before = requirePhysicalPrepareState(scenarioId)
+                val probe = requirePhysicalProbeResult(scenarioId)
+                logPhysicalProbe("vpn-baseline", probe)
+                assertTrue("Expected physical-device VPN baseline connect to succeed: $probe", probe.ok)
+
+                val after =
+                    awaitMatchingTelemetrySnapshot(before) { snapshot, delta ->
+                        snapshot.mode == Mode.VPN &&
+                            snapshot.status == AppStatus.Running &&
+                            snapshot.proxyTelemetry.totalSessions > before.proxySessions &&
+                            delta.txPackets > 0 &&
+                            delta.rxPackets > 0
+                    }
+                assertEquals(before.restartCount, after.restartCount)
+            }
+
+            PacketSmokePhase.SINGLE -> {
+                ensureVpnConsentGranted(appContext)
+                val listenPort = reserveLoopbackPort()
+                runBlocking {
+                    appSettingsRepository.applyPacketSmokePlainDns(
+                        proxyPort = listenPort,
+                        dnsIp = PhysicalBaselineHost,
+                    )
+                }
+
+                startService(RipDpiVpnService::class.java)
+                awaitServiceStatus(AppStatus.Running, Mode.VPN)
+
+                val before = serviceStateStore.telemetry.value
+                val baselineRestartCount = before.restartCount
+                val probe = probeInstrumentationTcpConnect(PhysicalBaselineHost, PhysicalBaselinePort, timeoutMs = 5_000L)
+                logPhysicalProbe("vpn-baseline", probe)
+                assertTrue("Expected physical-device VPN baseline connect to succeed: $probe", probe.ok)
+
+                val after =
+                    awaitMatchingTelemetrySnapshot(before) { snapshot, delta ->
+                        snapshot.mode == Mode.VPN &&
+                            snapshot.status == AppStatus.Running &&
+                            snapshot.proxyTelemetry.totalSessions > before.proxyTelemetry.totalSessions &&
+                            delta.txPackets > 0 &&
+                            delta.rxPackets > 0
+                    }
+                assertEquals(baselineRestartCount, after.restartCount)
+            }
+        }
+    }
+
+    private fun runPhysicalIndirectVpnEncryptedDnsSuccessSmoke(protocol: String) {
+        when (packetSmokePhase()) {
+            PacketSmokePhase.PREPARE -> {
+                val preset = packetSmokeEncryptedDnsPreset(protocol)
+                preparePhysicalIndirectEncryptedDnsScenario(
+                    scenarioId = requirePacketSmokeScenarioId(),
+                    preset = preset,
+                    expectedDnsHost = PhysicalDnsProbeHost,
+                )
+            }
+
+            PacketSmokePhase.ASSERT -> {
+                val scenarioId = requirePacketSmokeScenarioId()
+                val preset = packetSmokeEncryptedDnsPreset(protocol)
+                awaitServiceStatus(AppStatus.Running, Mode.VPN)
+                val before = requirePhysicalPrepareState(scenarioId)
+                val probe = requirePhysicalProbeResult(scenarioId)
+                logPhysicalProbe("vpn-dns-success:$protocol", probe)
+                assertTrue("Expected physical-device DNS probe exchange for $protocol: $probe", probe.ok)
+                assertEquals("Expected NOERROR rcode for $protocol: $probe", 0, probe.rcode)
+                assertTrue("Expected at least one DNS answer for $protocol: $probe", probe.answers.isNotEmpty())
+
+                val after =
+                    awaitMatchingTelemetrySnapshot(before) { snapshot, delta ->
+                        snapshot.mode == Mode.VPN &&
+                            snapshot.status == AppStatus.Running &&
+                            delta.dnsQueriesTotal >= 1 &&
+                            delta.dnsFailuresTotal == 0L &&
+                            snapshot.tunnelTelemetry.lastDnsHost == (before.expectedDnsHost ?: PhysicalDnsProbeHost) &&
+                            snapshot.tunnelTelemetry.resolverId == (before.expectedResolverId ?: preset.providerId) &&
+                            snapshot.tunnelTelemetry.resolverProtocol == (before.expectedResolverProtocol ?: preset.protocol) &&
+                            snapshot.tunnelTelemetry.resolverEndpoint
+                                .orEmpty()
+                                .contains(before.expectedResolverEndpoint ?: preset.expectedResolverEndpoint)
+                    }
+                assertEquals(before.restartCount, after.restartCount)
+
+                if (protocol == EncryptedDnsProtocolDnsCrypt) {
+                    val persisted = runBlocking { appSettingsRepository.snapshot() }
+                    assertEquals(preset.dnscryptProviderName, persisted.encryptedDnsDnscryptProviderName)
+                    assertEquals(preset.dnscryptPublicKey, persisted.encryptedDnsDnscryptPublicKey)
+                }
+            }
+
+            PacketSmokePhase.SINGLE -> {
+                ensureVpnConsentGranted(appContext)
+                val listenPort = reserveLoopbackPort()
+                val preset = packetSmokeEncryptedDnsPreset(protocol)
+                runBlocking {
+                    appSettingsRepository.applyPacketSmokeEncryptedDns(
+                        proxyPort = listenPort,
+                        preset = preset,
+                    )
+                }
+
+                startService(RipDpiVpnService::class.java)
+                awaitServiceStatus(AppStatus.Running, Mode.VPN)
+
+                val before = serviceStateStore.telemetry.value
+                val baselineRestartCount = before.restartCount
+                val probe = probeInstrumentationDns(queryHost = PhysicalDnsProbeHost)
+                logPhysicalProbe("vpn-dns-success:$protocol", probe)
+                assertTrue("Expected physical-device DNS probe exchange for $protocol: $probe", probe.ok)
+                assertEquals("Expected NOERROR rcode for $protocol: $probe", 0, probe.rcode)
+                assertTrue("Expected at least one DNS answer for $protocol: $probe", probe.answers.isNotEmpty())
+
+                val after =
+                    awaitMatchingTelemetrySnapshot(before) { snapshot, delta ->
+                        snapshot.mode == Mode.VPN &&
+                            snapshot.status == AppStatus.Running &&
+                            delta.dnsQueriesTotal >= 1 &&
+                            delta.dnsFailuresTotal == 0L &&
+                            snapshot.tunnelTelemetry.lastDnsHost == PhysicalDnsProbeHost &&
+                            snapshot.tunnelTelemetry.resolverId == preset.providerId &&
+                            snapshot.tunnelTelemetry.resolverProtocol == preset.protocol &&
+                            snapshot.tunnelTelemetry.resolverEndpoint.orEmpty().contains(preset.expectedResolverEndpoint)
+                    }
+                assertEquals(baselineRestartCount, after.restartCount)
+
+                if (protocol == EncryptedDnsProtocolDnsCrypt) {
+                    val persisted = runBlocking { appSettingsRepository.snapshot() }
+                    assertEquals(preset.dnscryptProviderName, persisted.encryptedDnsDnscryptProviderName)
+                    assertEquals(preset.dnscryptPublicKey, persisted.encryptedDnsDnscryptPublicKey)
+                }
+            }
+        }
+    }
+
+    private fun runPhysicalIndirectVpnEncryptedDnsFailureSmoke(protocol: String) {
+        when (packetSmokePhase()) {
+            PacketSmokePhase.PREPARE -> {
+                val preset = packetSmokeEncryptedDnsFaultPreset(protocol)
+                preparePhysicalIndirectEncryptedDnsScenario(
+                    scenarioId = requirePacketSmokeScenarioId(),
+                    preset = preset,
+                    expectedDnsHost = PhysicalDnsProbeHost,
+                )
+            }
+
+            PacketSmokePhase.ASSERT -> {
+                val scenarioId = requirePacketSmokeScenarioId()
+                val preset = packetSmokeEncryptedDnsFaultPreset(protocol)
+                awaitServiceStatus(AppStatus.Running, Mode.VPN)
+                val before = requirePhysicalPrepareState(scenarioId)
+                val probe = requirePhysicalProbeResult(scenarioId)
+                logPhysicalProbe("vpn-dns-failure:$protocol", probe)
+                assertTrue(
+                    "Expected a failed DNS outcome for $protocol, got: $probe",
+                    !probe.ok || probe.rcode != 0 || probe.answers.isEmpty(),
+                )
+
+                val after =
+                    awaitMatchingTelemetrySnapshot(before) { snapshot, delta ->
+                        snapshot.mode == Mode.VPN &&
+                            snapshot.status == AppStatus.Running &&
+                            delta.dnsFailuresTotal >= 1 &&
+                            snapshot.tunnelTelemetry.lastDnsHost == (before.expectedDnsHost ?: PhysicalDnsProbeHost) &&
+                            snapshot.tunnelTelemetry.resolverId == (before.expectedResolverId ?: preset.providerId) &&
+                            snapshot.tunnelTelemetry.resolverProtocol == (before.expectedResolverProtocol ?: preset.protocol) &&
+                            snapshot.tunnelTelemetry.resolverEndpoint
+                                .orEmpty()
+                                .contains(before.expectedResolverEndpoint ?: preset.expectedResolverEndpoint) &&
+                            !snapshot.tunnelTelemetry.lastDnsError.isNullOrBlank()
+                    }
+                assertEquals(before.restartCount, after.restartCount)
+            }
+
+            PacketSmokePhase.SINGLE -> {
+                ensureVpnConsentGranted(appContext)
+                val listenPort = reserveLoopbackPort()
+                val preset = packetSmokeEncryptedDnsFaultPreset(protocol)
+                runBlocking {
+                    appSettingsRepository.applyPacketSmokeEncryptedDns(
+                        proxyPort = listenPort,
+                        preset = preset,
+                    )
+                }
+
+                startService(RipDpiVpnService::class.java)
+                awaitServiceStatus(AppStatus.Running, Mode.VPN)
+
+                val before = serviceStateStore.telemetry.value
+                val baselineRestartCount = before.restartCount
+                val probe = probeInstrumentationDns(queryHost = PhysicalDnsProbeHost)
+                logPhysicalProbe("vpn-dns-failure:$protocol", probe)
+                assertTrue(
+                    "Expected a failed DNS outcome for $protocol, got: $probe",
+                    !probe.ok || probe.rcode != 0 || probe.answers.isEmpty(),
+                )
+
+                val after =
+                    awaitMatchingTelemetrySnapshot(before) { snapshot, delta ->
+                        snapshot.mode == Mode.VPN &&
+                            snapshot.status == AppStatus.Running &&
+                            delta.dnsFailuresTotal >= 1 &&
+                            snapshot.tunnelTelemetry.lastDnsHost == PhysicalDnsProbeHost &&
+                            snapshot.tunnelTelemetry.resolverId == preset.providerId &&
+                            snapshot.tunnelTelemetry.resolverProtocol == preset.protocol &&
+                            snapshot.tunnelTelemetry.resolverEndpoint.orEmpty().contains(preset.expectedResolverEndpoint) &&
+                            !snapshot.tunnelTelemetry.lastDnsError.isNullOrBlank()
+                    }
+                assertEquals(baselineRestartCount, after.restartCount)
+            }
+        }
+    }
+
+    private fun runPhysicalIndirectVpnHostAutolearnSmoke() {
+        when (packetSmokePhase()) {
+            PacketSmokePhase.PREPARE -> {
+                preparePhysicalIndirectEncryptedDnsScenario(
+                    scenarioId = requirePacketSmokeScenarioId(),
+                    preset = packetSmokeEncryptedDnsPreset(EncryptedDnsProtocolDoh),
+                ) {
+                    update {
+                        hostAutolearnEnabled = true
+                        hostAutolearnPenaltyTtlHours = 4
+                        hostAutolearnMaxHosts = 32
+                    }
+                }
+            }
+
+            PacketSmokePhase.ASSERT -> {
+                val scenarioId = requirePacketSmokeScenarioId()
+                awaitServiceStatus(AppStatus.Running, Mode.VPN)
+                val before = requirePhysicalPrepareState(scenarioId)
+                val probe = requirePhysicalProbeResult(scenarioId)
+                logPhysicalProbe("vpn-host-autolearn", probe)
+                assertTrue("Expected host autolearn connect to succeed: $probe", probe.ok)
+
+                val after =
+                    awaitMatchingTelemetrySnapshot(before) { snapshot, delta ->
+                        snapshot.mode == Mode.VPN &&
+                            snapshot.status == AppStatus.Running &&
+                            snapshot.proxyTelemetry.totalSessions >= before.proxySessions + 2 &&
+                            delta.dnsFailuresTotal == 0L &&
+                            snapshot.proxyTelemetry.autolearnEnabled &&
+                            (
+                                snapshot.proxyTelemetry.learnedHostCount > 0 ||
+                                    snapshot.proxyTelemetry.lastAutolearnHost == PhysicalTrafficHost
+                            )
+                    }
+                assertEquals(before.restartCount, after.restartCount)
+            }
+
+            PacketSmokePhase.SINGLE -> {
+                ensureVpnConsentGranted(appContext)
+                val listenPort = reserveLoopbackPort()
+                runBlocking {
+                    appSettingsRepository.applyPacketSmokeEncryptedDns(
+                        proxyPort = listenPort,
+                        preset = packetSmokeEncryptedDnsPreset(EncryptedDnsProtocolDoh),
+                    )
+                    appSettingsRepository.update {
+                        hostAutolearnEnabled = true
+                        hostAutolearnPenaltyTtlHours = 4
+                        hostAutolearnMaxHosts = 32
+                    }
+                }
+
+                startService(RipDpiVpnService::class.java)
+                awaitServiceStatus(AppStatus.Running, Mode.VPN)
+
+                val before = serviceStateStore.telemetry.value
+                val baselineRestartCount = before.restartCount
+                repeat(2) { round ->
+                    val probe = probeInstrumentationTcpConnect(PhysicalTrafficHost, PhysicalTrafficPort, timeoutMs = 5_000L)
+                    logPhysicalProbe("vpn-host-autolearn:$round", probe)
+                    assertTrue("Expected host autolearn connect $round to succeed: $probe", probe.ok)
+                }
+
+                val after =
+                    awaitMatchingTelemetrySnapshot(before) { snapshot, delta ->
+                        snapshot.mode == Mode.VPN &&
+                            snapshot.status == AppStatus.Running &&
+                            snapshot.proxyTelemetry.totalSessions >= before.proxyTelemetry.totalSessions + 2 &&
+                            delta.dnsFailuresTotal == 0L &&
+                            snapshot.proxyTelemetry.autolearnEnabled &&
+                            (
+                                snapshot.proxyTelemetry.learnedHostCount > 0 ||
+                                    snapshot.proxyTelemetry.lastAutolearnHost == PhysicalTrafficHost
+                            )
+                    }
+                assertEquals(baselineRestartCount, after.restartCount)
+            }
+        }
+    }
+
+    private fun runPhysicalIndirectVpnRememberedPolicySmoke() {
+        when (packetSmokePhase()) {
+            PacketSmokePhase.PREPARE -> {
+                preparePhysicalIndirectEncryptedDnsScenario(
+                    scenarioId = requirePacketSmokeScenarioId(),
+                    preset = packetSmokeEncryptedDnsPreset(EncryptedDnsProtocolDoh),
+                ) {
+                    update {
+                        networkStrategyMemoryEnabled = true
+                    }
+                }
+            }
+
+            PacketSmokePhase.ASSERT -> {
+                val scenarioId = requirePacketSmokeScenarioId()
+                awaitServiceStatus(AppStatus.Running, Mode.VPN)
+                val before = requirePhysicalPrepareState(scenarioId)
+                val probe = requirePhysicalProbeResult(scenarioId)
+                logPhysicalProbe("vpn-remembered", probe)
+                assertTrue("Expected remembered-policy connect to succeed: $probe", probe.ok)
+
+                val after =
+                    awaitMatchingTelemetrySnapshot(before) { snapshot, delta ->
+                        snapshot.mode == Mode.VPN &&
+                            snapshot.status == AppStatus.Running &&
+                            snapshot.proxyTelemetry.totalSessions >= before.proxySessions + 2 &&
+                            delta.dnsFailuresTotal == 0L
+                    }
+                assertEquals(before.restartCount, after.restartCount)
+            }
+
+            PacketSmokePhase.SINGLE -> {
+                ensureVpnConsentGranted(appContext)
+                val listenPort = reserveLoopbackPort()
+                runBlocking {
+                    appSettingsRepository.applyPacketSmokeEncryptedDns(
+                        proxyPort = listenPort,
+                        preset = packetSmokeEncryptedDnsPreset(EncryptedDnsProtocolDoh),
+                    )
+                    appSettingsRepository.update {
+                        networkStrategyMemoryEnabled = true
+                    }
+                }
+
+                startService(RipDpiVpnService::class.java)
+                awaitServiceStatus(AppStatus.Running, Mode.VPN)
+
+                val before = serviceStateStore.telemetry.value
+                val baselineRestartCount = before.restartCount
+                repeat(2) { round ->
+                    val probe = probeInstrumentationTcpConnect(PhysicalTrafficHost, PhysicalTrafficPort, timeoutMs = 5_000L)
+                    logPhysicalProbe("vpn-remembered:$round", probe)
+                    assertTrue("Expected remembered-policy connect $round to succeed: $probe", probe.ok)
+                }
+
+                val after =
+                    awaitMatchingTelemetrySnapshot(before) { snapshot, delta ->
+                        snapshot.mode == Mode.VPN &&
+                            snapshot.status == AppStatus.Running &&
+                            snapshot.proxyTelemetry.totalSessions >= before.proxyTelemetry.totalSessions + 2 &&
+                            delta.dnsFailuresTotal == 0L
+                    }
+                assertEquals(baselineRestartCount, after.restartCount)
+            }
+        }
+    }
+
+    private fun runPhysicalIndirectVpnWsTunnelFallbackSmoke() {
+        when (packetSmokePhase()) {
+            PacketSmokePhase.PREPARE -> {
+                preparePhysicalIndirectEncryptedDnsScenario(
+                    scenarioId = requirePacketSmokeScenarioId(),
+                    preset = packetSmokeEncryptedDnsPreset(EncryptedDnsProtocolDoh),
+                ) {
+                    update {
+                        wsTunnelEnabled = true
+                        wsTunnelMode = "fallback"
+                    }
+                }
+            }
+
+            PacketSmokePhase.ASSERT -> {
+                val scenarioId = requirePacketSmokeScenarioId()
+                awaitServiceStatus(AppStatus.Running, Mode.VPN)
+                val before = requirePhysicalPrepareState(scenarioId)
+                val probe = requirePhysicalProbeResult(scenarioId)
+                logPhysicalProbe("vpn-ws-fallback", probe)
+                assertTrue("Expected ws fallback connect to succeed: $probe", probe.ok)
+
+                val after =
+                    awaitMatchingTelemetrySnapshot(before) { snapshot, delta ->
+                        snapshot.mode == Mode.VPN &&
+                            snapshot.status == AppStatus.Running &&
+                            snapshot.proxyTelemetry.totalSessions > before.proxySessions &&
+                            delta.dnsFailuresTotal == 0L &&
+                            delta.txPackets > 0 &&
+                            delta.rxPackets > 0
+                    }
+                assertEquals(before.restartCount, after.restartCount)
+            }
+
+            PacketSmokePhase.SINGLE -> {
+                ensureVpnConsentGranted(appContext)
+                val listenPort = reserveLoopbackPort()
+                runBlocking {
+                    appSettingsRepository.applyPacketSmokeEncryptedDns(
+                        proxyPort = listenPort,
+                        preset = packetSmokeEncryptedDnsPreset(EncryptedDnsProtocolDoh),
+                    )
+                    appSettingsRepository.update {
+                        wsTunnelEnabled = true
+                        wsTunnelMode = "fallback"
+                    }
+                }
+
+                startService(RipDpiVpnService::class.java)
+                awaitServiceStatus(AppStatus.Running, Mode.VPN)
+
+                val before = serviceStateStore.telemetry.value
+                val baselineRestartCount = before.restartCount
+                val probe = probeInstrumentationTcpConnect(PhysicalTrafficHost, PhysicalTrafficPort, timeoutMs = 5_000L)
+                logPhysicalProbe("vpn-ws-fallback", probe)
+                assertTrue("Expected ws fallback connect to succeed: $probe", probe.ok)
+
+                val after =
+                    awaitMatchingTelemetrySnapshot(before) { snapshot, delta ->
+                        snapshot.mode == Mode.VPN &&
+                            snapshot.status == AppStatus.Running &&
+                            snapshot.proxyTelemetry.totalSessions > before.proxyTelemetry.totalSessions &&
+                            delta.dnsFailuresTotal == 0L &&
+                            delta.txPackets > 0 &&
+                            delta.rxPackets > 0
+                    }
+                assertEquals(baselineRestartCount, after.restartCount)
+            }
+        }
+    }
+
+    private fun preparePhysicalIndirectPlainDnsScenario(
+        scenarioId: String,
+        dnsIp: String,
+    ): PacketSmokePrepareState {
         ensureVpnConsentGranted(appContext)
         val listenPort = reserveLoopbackPort()
         runBlocking {
             appSettingsRepository.applyPacketSmokePlainDns(
                 proxyPort = listenPort,
-                dnsIp = PhysicalBaselineHost,
+                dnsIp = dnsIp,
             )
         }
-
         startService(RipDpiVpnService::class.java)
         awaitServiceStatus(AppStatus.Running, Mode.VPN)
-
-        val before = serviceStateStore.telemetry.value
-        val baselineRestartCount = before.restartCount
-        val probe = probeInstrumentationTcpConnect(PhysicalBaselineHost, PhysicalBaselinePort, timeoutMs = 5_000L)
-        logPhysicalProbe("vpn-baseline", probe)
-        assertTrue("Expected physical-device VPN baseline connect to succeed: $probe", probe.ok)
-
-        val after =
-            awaitMatchingTelemetrySnapshot(before) { snapshot, delta ->
-                snapshot.mode == Mode.VPN &&
-                    snapshot.status == AppStatus.Running &&
-                    snapshot.proxyTelemetry.totalSessions > before.proxyTelemetry.totalSessions &&
-                    delta.txPackets > 0 &&
-                    delta.rxPackets > 0
-            }
-        assertEquals(baselineRestartCount, after.restartCount)
+        return captureAndPersistPhysicalPrepareState(scenarioId = scenarioId)
     }
 
-    private fun runPhysicalIndirectVpnEncryptedDnsSuccessSmoke(protocol: String) {
+    private fun preparePhysicalIndirectEncryptedDnsScenario(
+        scenarioId: String,
+        preset: com.poyka.ripdpi.debug.PacketSmokeEncryptedDnsPreset,
+        expectedDnsHost: String? = null,
+        extraSetup: suspend AppSettingsRepository.() -> Unit = {},
+    ): PacketSmokePrepareState {
         ensureVpnConsentGranted(appContext)
         val listenPort = reserveLoopbackPort()
-        val preset = packetSmokeEncryptedDnsPreset(protocol)
         runBlocking {
             appSettingsRepository.applyPacketSmokeEncryptedDns(
                 proxyPort = listenPort,
                 preset = preset,
             )
+            appSettingsRepository.extraSetup()
         }
-
         startService(RipDpiVpnService::class.java)
         awaitServiceStatus(AppStatus.Running, Mode.VPN)
-
-        val before = serviceStateStore.telemetry.value
-        val baselineRestartCount = before.restartCount
-        val probe = probeInstrumentationDns(queryHost = PhysicalDnsProbeHost)
-        logPhysicalProbe("vpn-dns-success:$protocol", probe)
-        assertTrue("Expected physical-device DNS probe exchange for $protocol: $probe", probe.ok)
-        assertEquals("Expected NOERROR rcode for $protocol: $probe", 0, probe.rcode)
-        assertTrue("Expected at least one DNS answer for $protocol: $probe", probe.answers.isNotEmpty())
-
-        val after =
-            awaitMatchingTelemetrySnapshot(before) { snapshot, delta ->
-                snapshot.mode == Mode.VPN &&
-                    snapshot.status == AppStatus.Running &&
-                    delta.dnsQueriesTotal >= 1 &&
-                    delta.dnsFailuresTotal == 0L &&
-                    snapshot.tunnelTelemetry.lastDnsHost == PhysicalDnsProbeHost &&
-                    snapshot.tunnelTelemetry.resolverId == preset.providerId &&
-                    snapshot.tunnelTelemetry.resolverProtocol == preset.protocol &&
-                    snapshot.tunnelTelemetry.resolverEndpoint.orEmpty().contains(preset.expectedResolverEndpoint)
-            }
-        assertEquals(baselineRestartCount, after.restartCount)
-
-        if (protocol == EncryptedDnsProtocolDnsCrypt) {
-            val persisted = runBlocking { appSettingsRepository.snapshot() }
-            assertEquals(preset.dnscryptProviderName, persisted.encryptedDnsDnscryptProviderName)
-            assertEquals(preset.dnscryptPublicKey, persisted.encryptedDnsDnscryptPublicKey)
-        }
-    }
-
-    private fun runPhysicalIndirectVpnEncryptedDnsFailureSmoke(protocol: String) {
-        ensureVpnConsentGranted(appContext)
-        val listenPort = reserveLoopbackPort()
-        val preset = packetSmokeEncryptedDnsFaultPreset(protocol)
-        runBlocking {
-            appSettingsRepository.applyPacketSmokeEncryptedDns(
-                proxyPort = listenPort,
-                preset = preset,
-            )
-        }
-
-        startService(RipDpiVpnService::class.java)
-        awaitServiceStatus(AppStatus.Running, Mode.VPN)
-
-        val before = serviceStateStore.telemetry.value
-        val baselineRestartCount = before.restartCount
-        val probe = probeInstrumentationDns(queryHost = PhysicalDnsProbeHost)
-        logPhysicalProbe("vpn-dns-failure:$protocol", probe)
-        assertTrue(
-            "Expected a failed DNS outcome for $protocol, got: $probe",
-            !probe.ok || probe.rcode != 0 || probe.answers.isEmpty(),
+        return captureAndPersistPhysicalPrepareState(
+            scenarioId = scenarioId,
+            expectedResolverId = preset.providerId,
+            expectedResolverProtocol = preset.protocol,
+            expectedResolverEndpoint = preset.expectedResolverEndpoint,
+            expectedDnsHost = expectedDnsHost,
         )
-
-        val after =
-            awaitMatchingTelemetrySnapshot(before) { snapshot, delta ->
-                snapshot.mode == Mode.VPN &&
-                    snapshot.status == AppStatus.Running &&
-                    delta.dnsFailuresTotal >= 1 &&
-                    snapshot.tunnelTelemetry.lastDnsHost == PhysicalDnsProbeHost &&
-                    snapshot.tunnelTelemetry.resolverId == preset.providerId &&
-                    snapshot.tunnelTelemetry.resolverProtocol == preset.protocol &&
-                    snapshot.tunnelTelemetry.resolverEndpoint.orEmpty().contains(preset.expectedResolverEndpoint) &&
-                    !snapshot.tunnelTelemetry.lastDnsError.isNullOrBlank()
-            }
-        assertEquals(baselineRestartCount, after.restartCount)
     }
 
-    private fun runPhysicalIndirectVpnHostAutolearnSmoke() {
-        ensureVpnConsentGranted(appContext)
-        val listenPort = reserveLoopbackPort()
-        runBlocking {
-            appSettingsRepository.applyPacketSmokeEncryptedDns(
-                proxyPort = listenPort,
-                preset = packetSmokeEncryptedDnsPreset(EncryptedDnsProtocolDoh),
+    private fun captureAndPersistPhysicalPrepareState(
+        scenarioId: String,
+        expectedResolverId: String? = null,
+        expectedResolverProtocol: String? = null,
+        expectedResolverEndpoint: String? = null,
+        expectedDnsHost: String? = null,
+    ): PacketSmokePrepareState {
+        val state =
+            capturePacketSmokePrepareState(
+                scenarioId = scenarioId,
+                deviceProfile = packetSmokeDeviceProfile(),
+                snapshot = serviceStateStore.telemetry.value,
+                expectedResolverId = expectedResolverId,
+                expectedResolverProtocol = expectedResolverProtocol,
+                expectedResolverEndpoint = expectedResolverEndpoint,
+                expectedDnsHost = expectedDnsHost,
             )
-            appSettingsRepository.update {
-                hostAutolearnEnabled = true
-                hostAutolearnPenaltyTtlHours = 4
-                hostAutolearnMaxHosts = 32
-            }
-        }
-
-        startService(RipDpiVpnService::class.java)
-        awaitServiceStatus(AppStatus.Running, Mode.VPN)
-
-        val before = serviceStateStore.telemetry.value
-        val baselineRestartCount = before.restartCount
-        repeat(2) { round ->
-            val probe = probeInstrumentationTcpConnect(PhysicalTrafficHost, PhysicalTrafficPort, timeoutMs = 5_000L)
-            logPhysicalProbe("vpn-host-autolearn:$round", probe)
-            assertTrue("Expected host autolearn connect $round to succeed: $probe", probe.ok)
-        }
-
-        val after =
-            awaitMatchingTelemetrySnapshot(before) { snapshot, delta ->
-                snapshot.mode == Mode.VPN &&
-                    snapshot.status == AppStatus.Running &&
-                    snapshot.proxyTelemetry.totalSessions >= before.proxyTelemetry.totalSessions + 2 &&
-                    delta.dnsFailuresTotal == 0L &&
-                    snapshot.proxyTelemetry.autolearnEnabled &&
-                    (
-                        snapshot.proxyTelemetry.learnedHostCount > 0 ||
-                            snapshot.proxyTelemetry.lastAutolearnHost == PhysicalTrafficHost
-                    )
-            }
-        assertEquals(baselineRestartCount, after.restartCount)
+        writePacketSmokePrepareState(appContext, scenarioId, state)
+        println("packet-smoke[$scenarioId] wrote prepare state")
+        return state
     }
 
-    private fun runPhysicalIndirectVpnRememberedPolicySmoke() {
-        ensureVpnConsentGranted(appContext)
-        val listenPort = reserveLoopbackPort()
-        runBlocking {
-            appSettingsRepository.applyPacketSmokeEncryptedDns(
-                proxyPort = listenPort,
-                preset = packetSmokeEncryptedDnsPreset(EncryptedDnsProtocolDoh),
-            )
-            appSettingsRepository.update {
-                networkStrategyMemoryEnabled = true
-            }
+    private fun requirePhysicalPrepareState(scenarioId: String): PacketSmokePrepareState =
+        requireNotNull(readPacketSmokePrepareState(appContext, scenarioId)) {
+            "Missing packet-smoke prepare state for scenario $scenarioId"
         }
 
-        startService(RipDpiVpnService::class.java)
-        awaitServiceStatus(AppStatus.Running, Mode.VPN)
-
-        val before = serviceStateStore.telemetry.value
-        val baselineRestartCount = before.restartCount
-        repeat(2) { round ->
-            val probe = probeInstrumentationTcpConnect(PhysicalTrafficHost, PhysicalTrafficPort, timeoutMs = 5_000L)
-            logPhysicalProbe("vpn-remembered:$round", probe)
-            assertTrue("Expected remembered-policy connect $round to succeed: $probe", probe.ok)
+    private fun requirePhysicalProbeResult(scenarioId: String): PacketSmokeRunnerProbeResult =
+        requireNotNull(readPacketSmokeRunnerProbeResult(appContext, scenarioId)) {
+            "Missing packet-smoke runner probe result for scenario $scenarioId"
         }
-
-        val after =
-            awaitMatchingTelemetrySnapshot(before) { snapshot, delta ->
-                snapshot.mode == Mode.VPN &&
-                    snapshot.status == AppStatus.Running &&
-                    snapshot.proxyTelemetry.totalSessions >= before.proxyTelemetry.totalSessions + 2 &&
-                    delta.dnsFailuresTotal == 0L
-            }
-        assertEquals(baselineRestartCount, after.restartCount)
-    }
-
-    private fun runPhysicalIndirectVpnWsTunnelFallbackSmoke() {
-        ensureVpnConsentGranted(appContext)
-        val listenPort = reserveLoopbackPort()
-        runBlocking {
-            appSettingsRepository.applyPacketSmokeEncryptedDns(
-                proxyPort = listenPort,
-                preset = packetSmokeEncryptedDnsPreset(EncryptedDnsProtocolDoh),
-            )
-            appSettingsRepository.update {
-                wsTunnelEnabled = true
-                wsTunnelMode = "fallback"
-            }
-        }
-
-        startService(RipDpiVpnService::class.java)
-        awaitServiceStatus(AppStatus.Running, Mode.VPN)
-
-        val before = serviceStateStore.telemetry.value
-        val baselineRestartCount = before.restartCount
-        val probe = probeInstrumentationTcpConnect(PhysicalTrafficHost, PhysicalTrafficPort, timeoutMs = 5_000L)
-        logPhysicalProbe("vpn-ws-fallback", probe)
-        assertTrue("Expected ws fallback connect to succeed: $probe", probe.ok)
-
-        val after =
-            awaitMatchingTelemetrySnapshot(before) { snapshot, delta ->
-                snapshot.mode == Mode.VPN &&
-                    snapshot.status == AppStatus.Running &&
-                    snapshot.proxyTelemetry.totalSessions > before.proxyTelemetry.totalSessions &&
-                    delta.dnsFailuresTotal == 0L &&
-                    delta.txPackets > 0 &&
-                    delta.rxPackets > 0
-            }
-        assertEquals(baselineRestartCount, after.restartCount)
-    }
 
     private fun awaitMatchingTelemetrySnapshot(
         before: com.poyka.ripdpi.data.ServiceTelemetrySnapshot,
+        timeoutMs: Long = 20_000L,
+        matcher: (com.poyka.ripdpi.data.ServiceTelemetrySnapshot, PacketSmokeTelemetryDelta) -> Boolean,
+    ): com.poyka.ripdpi.data.ServiceTelemetrySnapshot {
+        var matched: com.poyka.ripdpi.data.ServiceTelemetrySnapshot? = null
+        awaitUntil(timeoutMs = timeoutMs) {
+            val snapshot = serviceStateStore.telemetry.value
+            val delta = snapshot.packetSmokeDeltaFrom(before)
+            if (matcher(snapshot, delta)) {
+                matched = snapshot
+                true
+            } else {
+                false
+            }
+        }
+        return requireNotNull(matched) {
+            "Expected a matching telemetry snapshot after packet-smoke probe"
+        }
+    }
+
+    private fun awaitMatchingTelemetrySnapshot(
+        before: PacketSmokePrepareState,
         timeoutMs: Long = 20_000L,
         matcher: (com.poyka.ripdpi.data.ServiceTelemetrySnapshot, PacketSmokeTelemetryDelta) -> Boolean,
     ): com.poyka.ripdpi.data.ServiceTelemetrySnapshot {
