@@ -362,7 +362,9 @@ fn execute_udp_actions(upstream: &UdpSocket, target: SocketAddr, actions: &[Desy
             | DesyncAction::SetMd5Sig { .. }
             | DesyncAction::AttachDropSack
             | DesyncAction::DetachDropSack
-            | DesyncAction::AwaitWritable => {}
+            | DesyncAction::AwaitWritable
+            | DesyncAction::SetWindowClamp(_)
+            | DesyncAction::RestoreWindowClamp => {}
         }
     }
     Ok(())

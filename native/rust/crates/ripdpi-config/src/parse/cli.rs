@@ -213,6 +213,12 @@ pub fn parse_cli(args: &[String], startup: &StartupEnv) -> Result<ParseResult, C
             "-F" | "--tfo" => config.network.tfo = true,
             "-S" | "--md5sig" => group!().actions.md5sig = true,
             "-Y" | "--drop-sack" => group!().actions.drop_sack = true,
+            "--window-clamp" => {
+                let value = next_value(&effective_args, &mut idx, arg)?;
+                group!().actions.window_clamp =
+                    Some(value.parse::<u32>().map_err(|_| ConfigError::invalid(arg, Some(value)))?);
+            }
+            "--strip-timestamps" => group!().actions.strip_timestamps = true,
             "-Z" | "--wait-send" => config.timeouts.wait_send = true,
             "-i" | "--ip" => {
                 let value = next_value(&effective_args, &mut idx, arg)?;
