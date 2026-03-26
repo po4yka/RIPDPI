@@ -28,14 +28,22 @@ RIPDPI is an Android VPN/proxy application for DPI (Deep Packet Inspection) bypa
                      :core:engine (Rust native + JNI)
                           |
                      :core:data (protobuf + DataStore)
+                          |
+              :core:diagnostics (active/passive diagnostics)
+                          |
+            :core:diagnostics-data (diagnostics contracts)
 ```
 
 ### Modules
 
 - **`:app`** -- Jetpack Compose UI with Material 3, navigation, ViewModels
 - **`:core:data`** -- App settings via Protobuf (schema: `core/data/src/main/proto/app_settings.proto`) and Jetpack DataStore
+- **`:core:diagnostics`** -- Active network diagnostics, passive telemetry collection, diagnostics UI logic
+- **`:core:diagnostics-data`** -- Protobuf schemas and data contracts for diagnostics
 - **`:core:engine`** -- Native proxy and tunnel engine with JNI bridge, built from repo-owned Rust crates
 - **`:core:service`** -- Android VPN and proxy foreground services
+- **`:quality:detekt-rules`** -- Custom detekt rules (DI guardrails, Hilt ViewModel checks)
+- **`:baselineprofile`** -- Baseline profile generation for runtime performance
 
 ## Native Code
 
@@ -57,15 +65,20 @@ Two native libraries are built from repo-owned Android adapter crates in the nat
 
 Convention plugins live in `build-logic/convention/` and provide shared configuration:
 - `ripdpi.android.application`, `ripdpi.android.library`, `ripdpi.android.compose`
-- `ripdpi.android.native`, `ripdpi.android.protobuf`
-- `ripdpi.android.quality`, `ripdpi.android.coverage`
+- `ripdpi.android.hilt`, `ripdpi.android.serialization`
+- `ripdpi.android.native`, `ripdpi.android.rust-native`, `ripdpi.android.protobuf`
+- `ripdpi.android.quality`, `ripdpi.android.coverage`, `ripdpi.android.jacoco`
+- `ripdpi.android.detekt`, `ripdpi.android.ktlint`, `ripdpi.android.lint`
+- `ripdpi.android.roborazzi`
+- `ripdpi.diagnostics.catalog`
 
 All dependency versions are in `gradle/libs.versions.toml`.
 
 ## CI/CD
 
-- **`ci.yml`** -- Runs on push/PR to main: build, unit tests, static analysis
+- **`ci.yml`** -- Runs on push/PR to main: build, unit tests, static analysis; nightly soak and TUN E2E
 - **`release.yml`** -- Runs on `v*` tags: builds signed release APK, creates GitHub Release
+- **`mutation-testing.yml`** -- Weekly Rust mutation testing via cargo-mutants
 
 ## Code Quality
 
