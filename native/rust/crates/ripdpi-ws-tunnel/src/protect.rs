@@ -38,15 +38,13 @@ pub fn protect_socket<T>(_socket: &T, _path: &str) -> io::Result<()> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use std::io;
-
     #[cfg(not(any(target_os = "linux", target_os = "android")))]
     #[test]
     fn protect_socket_reports_unsupported_off_android() {
-        let err = protect_socket(&(), "/tmp/ripdpi-protect.sock").expect_err("protect socket should be unsupported");
+        let err = super::protect_socket(&(), "/tmp/ripdpi-protect.sock")
+            .expect_err("protect socket should be unsupported");
 
-        assert_eq!(err.kind(), io::ErrorKind::Unsupported);
+        assert_eq!(err.kind(), std::io::ErrorKind::Unsupported);
         assert_eq!(err.to_string(), "socket protection is only supported on Linux/Android");
     }
 }
