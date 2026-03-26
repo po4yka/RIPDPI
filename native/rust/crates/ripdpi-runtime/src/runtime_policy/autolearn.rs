@@ -109,7 +109,25 @@ impl RuntimePolicy {
         }
     }
 
-    fn persist_host_store(&self, config: &RuntimeConfig) -> io::Result<()> {
+    fn persist_host_store(&mut self, config: &RuntimeConfig) -> io::Result<()> {
+        let now_ms = now_millis();
+        if now_ms.saturating_sub(self.last_persist_at_ms) < super::AUTOLEARN_PERSIST_DEBOUNCE_MS {
+            return Ok(());
+        }
+        self.write_host_store(config)?;
+        self.last_persist_at_ms = now_ms;
+        Ok(())
+    }
+
+    /// Force-persist the host store, bypassing the debounce window.
+    /// Call this on proxy shutdown to avoid losing recent state.
+    pub fn flush_host_store(&mut self, config: &RuntimeConfig) -> io::Result<()> {
+        self.write_host_store(config)?;
+        self.last_persist_at_ms = now_millis();
+        Ok(())
+    }
+
+    fn write_host_store(&self, config: &RuntimeConfig) -> io::Result<()> {
         if !config.host_autolearn.enabled {
             return Ok(());
         }
@@ -551,5 +569,42 @@ mod tests {
         record.group_stats.insert(0, LearnedGroupStats { penalty_until_ms: 100, ..Default::default() });
         record.group_stats.insert(1, LearnedGroupStats { penalty_until_ms: 2000, ..Default::default() });
         assert!(host_has_active_penalty(&record, 500));
+    }
+
+    // ---- persist debounce tests ----
+
+    #[test]
+    fn persist_debounce_skips_rapid_second_write() {
+        let config = autolearn_config(1, 32);
+        let store_path = config.host_autolearn.store_path.clone().expect("store path");
+        let dest = sample_dest(443);
+        let mut policy = RuntimePolicy::load(&config);
+
+        // First note_host_success writes the store (last_persist_at_ms starts at 0).
+        policy
+            .note_route_success(
+                &config,
+                dest,
+                &ConnectionRoute { group_index: 0, attempted_mask: 0 },
+                Some("first.example"),
+            )
+            .expect("first success persists");
+        assert!(std::path::Path::new(&store_path).exists(), "store file must exist after first write");
+
+        // Remove the file so we can detect whether the next call writes again.
+        std::fs::remove_file(&store_path).expect("remove store file");
+
+        // Second call is within the debounce window -- file should NOT be recreated.
+        policy
+            .note_host_success(&config, "second.example", 0)
+            .expect("debounced success must not error");
+        assert!(
+            !std::path::Path::new(&store_path).exists(),
+            "store file must not be recreated within debounce window"
+        );
+
+        // flush_host_store bypasses the debounce and writes unconditionally.
+        policy.flush_host_store(&config).expect("flush must write");
+        assert!(std::path::Path::new(&store_path).exists(), "store file must exist after flush");
     }
 }

@@ -35,9 +35,10 @@ pub(super) struct RuntimeCleanup {
 
 impl Drop for RuntimeCleanup {
     fn drop(&mut self) {
-        let Ok(cache) = self.cache.lock() else {
+        let Ok(mut cache) = self.cache.lock() else {
             return;
         };
+        let _ = cache.flush_host_store(&self.config);
         let _ = cache.dump_stdout_groups(&self.config, std::io::stdout());
     }
 }
