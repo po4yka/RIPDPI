@@ -34,7 +34,6 @@ import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.DnsUiState
 import com.poyka.ripdpi.activities.SettingsUiState
 import com.poyka.ripdpi.activities.SettingsViewModel
-import com.poyka.ripdpi.activities.hashPin
 import com.poyka.ripdpi.permissions.PermissionKind
 import com.poyka.ripdpi.permissions.PermissionSummaryUiState
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
@@ -621,7 +620,7 @@ private fun SettingsScreenDarkPreview() {
                     dns = DnsUiState(dnsIp = "9.9.9.9"),
                     webrtcProtectionEnabled = true,
                     biometricEnabled = true,
-                    backupPinHash = hashPin("1234"),
+                    backupPinHash = "preview_pin_set",
                 ),
             onOpenDnsSettings = {},
             onOpenAdvancedSettings = {},

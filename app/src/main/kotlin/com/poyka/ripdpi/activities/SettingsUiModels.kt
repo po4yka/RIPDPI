@@ -40,7 +40,6 @@ import com.poyka.ripdpi.data.isAdaptiveOffsetExpression
 import com.poyka.ripdpi.data.primaryTcpChainStep
 import com.poyka.ripdpi.data.supportsAdaptiveMarker
 import com.poyka.ripdpi.proto.AppSettings
-import java.security.MessageDigest
 
 private val DefaultDnsUiSeed = canonicalDefaultEncryptedDnsSettings()
 
@@ -51,11 +50,6 @@ internal const val AdaptiveFakeTtlModeAdaptive = "adaptive"
 internal const val AdaptiveFakeTtlModeCustom = "custom"
 
 internal typealias SettingsMutation = AppSettings.Builder.() -> Unit
-
-internal fun hashPin(pin: String): String {
-    val digest = MessageDigest.getInstance("SHA-256")
-    return digest.digest(pin.toByteArray()).joinToString("") { "%02x".format(it) }
-}
 
 sealed interface SettingsEffect {
     data class SettingChanged(
