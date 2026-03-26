@@ -73,7 +73,7 @@ fun SettingsRow(
         val rowInteractionSource = remember { MutableInteractionSource() }
         Row(
             modifier =
-                settingsRowModifier(
+                Modifier.settingsRowModifier(
                     testTag = testTag,
                     variant = variant,
                     subtitle = subtitle,
@@ -115,7 +115,7 @@ private fun settingsRowColors(variant: SettingsRowVariant): SettingsRowColors =
     }
 
 @Composable
-private fun settingsRowModifier(
+private fun Modifier.settingsRowModifier(
     testTag: String?,
     variant: SettingsRowVariant,
     subtitle: String?,
@@ -134,7 +134,7 @@ private fun settingsRowModifier(
             components.settingsRowMinHeightWithSubtitle
         }
     val baseModifier =
-        Modifier
+        this
             .ripDpiTestTag(testTag)
             .semantics(mergeDescendants = true) {}
             .fillMaxWidth()

@@ -170,6 +170,7 @@ internal class DefaultAndroidNetworkSnapshotSource
             return runCatching { wifiManager?.dhcpInfo?.gateway?.takeIf { it != 0 } }.getOrNull()
         }
 
+        @android.annotation.SuppressLint("MissingPermission")
         private fun captureCellularIdentity(transports: Set<CapturedTransport>?): CapturedCellularIdentity? {
             if (transports?.contains(CapturedTransport.Cellular) != true) {
                 return null

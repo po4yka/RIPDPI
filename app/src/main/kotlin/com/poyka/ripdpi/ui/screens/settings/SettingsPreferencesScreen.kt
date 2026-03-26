@@ -70,8 +70,8 @@ fun SettingsRoute(
     permissionSummary: PermissionSummaryUiState,
     onRepairPermission: (PermissionKind) -> Unit,
     onOpenVpnPermissionDialog: () -> Unit,
-    onDismissBackgroundGuidance: () -> Unit = {},
     modifier: Modifier = Modifier,
+    onDismissBackgroundGuidance: () -> Unit = {},
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -108,12 +108,12 @@ internal fun SettingsScreen(
     permissionSummary: PermissionSummaryUiState,
     onRepairPermission: (PermissionKind) -> Unit,
     onOpenVpnPermissionDialog: () -> Unit,
+    modifier: Modifier = Modifier,
     onDismissBackgroundGuidance: () -> Unit = {},
     onThemeSelected: (String) -> Unit,
     onWebRtcProtectionChanged: (Boolean) -> Unit,
     onBiometricChanged: (Boolean) -> Unit,
     onSaveBackupPin: (String) -> Unit,
-    modifier: Modifier = Modifier,
 ) {
     val colors = RipDpiThemeTokens.colors
     val motion = RipDpiThemeTokens.motion

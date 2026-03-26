@@ -121,7 +121,6 @@
     <string name="diagnostics_audit_candidate_signature_title">Candidate configuration</string>
     <string name="diagnostics_audit_candidate_results_title">Per-target outcomes</string>
     <string name="diagnostics_audit_candidate_open_hint">Tap a candidate for per-target evidence and configuration details.</string>
-    <string name="diagnostics_history_empty">No diagnostics sessions yet.</string>
     <string name="diagnostics_events_title">Event stream</string>
     <string name="diagnostics_health_healthy">Healthy</string>
     <string name="diagnostics_health_attention">Attention</string>
@@ -149,7 +148,6 @@
     <string name="history_events_empty_title">No history events yet</string>
     <string name="history_events_empty_body">Runtime failures and native events will appear here once RIPDPI records them.</string>
     <string name="history_open_action">Open History</string>
-    <string name="diagnostics_history_empty_title">No sessions yet</string>
     <string name="diagnostics_open_history_title">Persistent history moved out of Diagnostics</string>
     <string name="diagnostics_open_history_body">Use the dedicated History screen for saved connection sessions, previous scans, and the durable event feed.</string>
     <string name="diagnostics_open_history_action">Open History</string>
@@ -179,7 +177,7 @@
     <string name="home_status_error_body">Review the message below and try again.</string>
     <string name="home_permission_issue_with_retry">%1$s Use the connection button to continue the permission flow.</string>
     <string name="home_permission_issue_with_settings">%1$s Open Settings or use the button below to repair access.</string>
-    <string name="home_connection_button_connecting">Connecting...</string>
+    <string name="home_connection_button_connecting">Connecting\u2026</string>
     <string name="home_overview_title">Overview</string>
     <string name="home_approach_title">Optimization approach</string>
     <string name="home_approach_cta">Open Diagnostics and review approach analytics</string>
@@ -229,7 +227,6 @@
     <string name="config_port_helper">Accepted range follows the current service port validation.</string>
     <string name="config_max_connections_helper">Upper bound for concurrent local sessions.</string>
     <string name="config_buffer_helper">Socket buffer size in bytes.</string>
-    <string name="config_desync_helper">Strategy passed through to the RIPDPI engine.</string>
     <string name="config_default_ttl_helper">Leave empty to use the engine default.</string>
     <string name="config_chain_summary_label">Strategy chain: %1$s</string>
     <string name="config_chain_editor_label">Strategy chain</string>
@@ -238,11 +235,10 @@
     <string name="config_chain_editor_helper_full">The HTTPS section below can author single tlsrec and randomized tlsrandrec steps visually, while the Hostfake and fake approximation cards explain hostname-targeted fake chunks and retransmission-style approximations. Linux/Android-only approximations are available as fakedsplit host+1 and fakeddisorder endhost for HTTP or TLS SNI-adjacent payloads.</string>
     <string name="action_learn_more">Learn more</string>
     <string name="action_show_less">Show less</string>
-    <string name="config_split_marker_helper">Manual markers accept offsets like 1, host, method+2, midsld-1, or 1+s. Use the adaptive preset selector or the raw chain DSL for auto(...).</string>
-    <string name="config_fake_offset_marker_helper">Accepts numeric or semantic offsets like 0, host+1, endhost-2, or 1+se. Adaptive auto(...) markers are not supported here.</string>
+    <string name="config_split_marker_helper">Manual markers accept offsets like 1, host, method+2, midsld-1, or 1+s. Use the adaptive preset selector or the raw chain DSL for auto(\u2026).</string>
+    <string name="config_fake_offset_marker_helper">Accepts numeric or semantic offsets like 0, host+1, endhost-2, or 1+se. Adaptive auto(\u2026) markers are not supported here.</string>
     <string name="config_fake_tls_size_helper">0 = input-sized, positive = exact target bytes, negative = input minus N.</string>
     <string name="config_tls_record_marker_helper">Accepts offsets like 0, host, sniext, extlen, or 1+s.</string>
-    <string name="config_https_chain_hint">TLS record steps now live inside the strategy chain editor as tlsrec markers.</string>
     <string name="config_udp_chain_hint">UDP fake bursts now live inside the strategy chain editor as fake_burst counts.</string>
     <string name="ripdpi_tls_prelude_section_body">Configure the TLS prelude that rewrites HTTPS ClientHello records before send-step actions run. The chain editor above still handles stacked or mixed TLS preludes.</string>
     <string name="ripdpi_tls_prelude_mode_title">TLS record fragmentation</string>
@@ -384,18 +380,12 @@
     <string name="activation_window_field_to">To</string>
     <string name="activation_window_range_unbounded">Unbounded</string>
     <string name="activation_window_round_card_title">Outbound round</string>
-    <string name="activation_window_round_from_title">Round from</string>
-    <string name="activation_window_round_to_title">Round to</string>
     <string name="activation_window_round_body">1-based outbound payload chunk number.</string>
     <string name="activation_window_round_effect">Only selected outbound payload rounds can activate the whole desync group.</string>
     <string name="activation_window_payload_card_title">Payload size</string>
-    <string name="activation_window_payload_from_title">Payload size from</string>
-    <string name="activation_window_payload_to_title">Payload size to</string>
     <string name="activation_window_payload_body">Current outbound chunk size in bytes.</string>
     <string name="activation_window_payload_effect">Only outbound chunks whose size falls in this range can activate the whole desync group.</string>
     <string name="activation_window_stream_card_title">Stream byte position</string>
-    <string name="activation_window_stream_from_title">Stream bytes from</string>
-    <string name="activation_window_stream_to_title">Stream bytes to</string>
     <string name="activation_window_stream_body">Cumulative outbound byte positions for the current chunk.</string>
     <string name="activation_window_stream_effect">Only outbound chunks that touch these cumulative byte positions can activate the whole desync group.</string>
     <string name="adaptive_split_selector_title">Primary TCP split placement</string>
@@ -421,7 +411,7 @@
     <string name="adaptive_split_summary_label_scope">Scope</string>
     <string name="adaptive_split_summary_label_dsl">Raw chain DSL</string>
     <string name="adaptive_split_cli_title">Controlled by command line</string>
-    <string name="adaptive_split_cli_body">Visual adaptive split controls are paused while raw RIPDPI arguments are enabled. Use explicit markers or auto(...) in command line chain arguments for the next start.</string>
+    <string name="adaptive_split_cli_body">Visual adaptive split controls are paused while raw RIPDPI arguments are enabled. Use explicit markers or auto(\u2026) in command line chain arguments for the next start.</string>
     <string name="adaptive_split_hostfake_title">Chain-owned boundary</string>
     <string name="adaptive_split_hostfake_body">The current first TCP send step is hostfake, which keeps its own explicit marker. Use the chain DSL when you want to adjust that boundary.</string>
     <string name="adaptive_split_saved_title">Adaptive split saved</string>
@@ -708,18 +698,10 @@ fakeddisorder endhost</string>
     <string name="ripdpi_fake_approx_badge_https">HTTPS</string>
     <string name="ripdpi_fake_approx_badge_fakedsplit">fakedsplit</string>
     <string name="ripdpi_fake_approx_badge_fakeddisorder">fakeddisorder</string>
-    <string name="config_desync_none">none</string>
-    <string name="config_desync_disorder">disorder</string>
-    <string name="config_desync_fake">fake</string>
-    <string name="config_desync_split">split</string>
-    <string name="vpn_permission_denied">VPN permission denied</string>
-    <string name="settings_unavailable">Please stop the VPN service before changing settings</string>
-    <string name="title_settings">Settings</string>
     <string name="title_onboarding">Onboarding</string>
     <string name="title_mode_editor">Mode editor</string>
     <string name="title_dns_settings">DNS settings</string>
     <string name="title_advanced_settings">Advanced settings</string>
-    <string name="title_vpn_permission">VPN permission</string>
     <string name="title_biometric_prompt">Authentication</string>
     <string name="title_app_icon">App Icon</string>
     <string name="dns_active_section_title">Active resolver</string>
@@ -769,7 +751,6 @@ fakeddisorder endhost</string>
     <string name="dns_custom_bootstrap_helper">Enter one or more resolver IPs separated by commas or spaces.</string>
     <string name="dns_custom_bootstrap_error">Enter one or more non-local bootstrap IP addresses.</string>
     <string name="dns_custom_switch_hint">Save this form to replace the current built-in profile with a custom endpoint.</string>
-    <string name="dns_resolver_active">Active</string>
     <string name="dns_resolver_custom_active">Using custom address</string>
     <string name="dns_selected_badge">Selected</string>
     <string name="dns_active_detail_endpoint">Endpoint</string>
@@ -821,7 +802,6 @@ fakeddisorder endhost</string>
     <string name="logs_empty_body">Start RIPDPI or trigger a diagnostic event to populate the on-device stream.</string>
     <string name="logs_filtered_empty_title">No entries match the current filters</string>
     <string name="logs_filtered_empty_body">Adjust the type chips above to inspect a different part of the local buffer.</string>
-    <string name="complete_onboarding">Complete onboarding</string>
     <string name="splash_subtitle">Local connectivity tool</string>
     <string name="onboarding_skip">Skip</string>
     <string name="onboarding_continue">Continue</string>
@@ -832,7 +812,6 @@ fakeddisorder endhost</string>
     <string name="onboarding_permission_body">Android will ask to create a local VPN. This routes traffic through the app on your device, and nothing is sent externally.</string>
     <string name="onboarding_modes_title">Choose your mode</string>
     <string name="onboarding_modes_body">Start with a preset or configure manually. You can change everything later.</string>
-    <string name="reset_settings">Reset</string>
     <string name="logs_failed">Failed to collect logs</string>
     <string name="debug_bundle_failed">Failed to prepare support bundle</string>
     <string name="proxy_address">%1$s:%2$s</string>
@@ -846,8 +825,6 @@ fakeddisorder endhost</string>
     <string name="ripdpi_default_ttl_setting">Default TTL</string>
     <string name="ripdpi_no_domain_setting">No domain</string>
     <string name="ripdpi_desync_method_setting">Desync method</string>
-    <string name="ripdpi_split_position_setting">Split marker</string>
-    <string name="ripdpi_split_at_host_setting">Split at host</string>
     <string name="ripdpi_fake_ttl_setting">TTL of fake packets</string>
     <string name="adaptive_fake_ttl_selector_title">Adaptive fake TTL</string>
     <string name="adaptive_fake_ttl_selector_body">Choose whether RIPDPI should keep one fixed fake TTL or learn a working TCP fake TTL inside the saved window during the current run.</string>
@@ -924,7 +901,6 @@ fakeddisorder endhost</string>
     <string name="ripdpi_fake_tls_pad_encap_title">Padding-based encapsulation</string>
     <string name="ripdpi_fake_tls_pad_encap_body">Adjust TLS length fields so the real payload fits inside the fake packet’s padding accounting.</string>
     <string name="ripdpi_fake_tls_size_title">Size tuning</string>
-    <string name="ripdpi_fake_tls_size_body">Controls the target fake TLS size before fake offset is resolved.</string>
     <string name="ripdpi_fake_tls_cli_status_title">Controlled by command line</string>
     <string name="ripdpi_fake_tls_cli_status_body">Visual fake TLS controls are paused while raw RIPDPI arguments are enabled. Use --fake-tls-mod, --fake-sni, and the rest of your command line profile for the next start.</string>
     <string name="ripdpi_fake_tls_https_disabled_title">HTTPS desync is off</string>
@@ -1011,19 +987,13 @@ fakeddisorder endhost</string>
     <string name="ripdpi_http_parser_probing_summary">Automatic probing can test the safe parser profile plus separate Unix EOL and Method EOL candidates.</string>
     <string name="ripdpi_http_method_eol_setting">Method EOL shift</string>
     <string name="ripdpi_http_unix_eol_setting">Unix line endings</string>
-    <string name="ripdpi_tlsrec_enabled_setting">Split TLS record</string>
     <string name="ripdpi_tlsrec_position_setting">TLS record marker</string>
-    <string name="ripdpi_tlsrec_at_sni_setting">Split TLS record at SNI</string>
     <string name="version">Version</string>
     <string name="source_code_link">Source code</string>
     <string name="ripdpi_readme_link">How RIPDPI works</string>
     <string name="failed_to_start">Failed to start %1$s</string>
     <string name="connection_timed_out">Connection timed out. Please try again.</string>
-    <string name="general_category">General</string>
-    <string name="ripdpi_category">RIPDPI</string>
     <string name="about_category">About</string>
-    <string name="command_line_editor">Command line editor</string>
-    <string name="ui_editor">UI editor</string>
     <string name="use_command_line_settings">Use command line settings</string>
     <string name="desync_http">Desync HTTP</string>
     <string name="desync_https">Desync HTTPS</string>
@@ -1072,8 +1042,6 @@ Source: %2$s</string>
     <string name="host_pack_refresh_action">Fetch latest list</string>
     <string name="host_pack_refresh_in_progress">Fetching latest list</string>
     <string name="ripdpi_tcp_fast_open_setting">TCP Fast Open</string>
-    <string name="ripdpi_udp_fake_count">UDP fake count</string>
-    <string name="ipv6_setting">IPv6</string>
     <string name="ripdpi_fake_offset_setting">Fake offset marker</string>
     <string name="ripdpi_drop_sack_setting">Drop SACK</string>
     <string name="desync_udp_category">UDP</string>
@@ -1091,14 +1059,10 @@ Source: %2$s</string>
     <string name="permissions_vpn_error_title">Permission still required</string>
     <string name="permissions_vpn_error_body">Grant Android VPN permission to keep RIPDPI running locally on this device.</string>
     <string name="permissions_notifications_title">Allow status notifications</string>
-    <string name="permissions_notifications_body">RIPDPI uses a foreground service while the local VPN or proxy is active. Android requires a visible notification so the session stays transparent and you can quickly return to the running connection.</string>
-    <string name="permissions_notifications_continue">Allow notifications</string>
-    <string name="permissions_notifications_not_now">Not now</string>
     <string name="permissions_notifications_denied">Notification permission is required before RIPDPI can start its local VPN or proxy.</string>
     <string name="permissions_notifications_open_settings">Notification permission is still blocked. Open app settings and allow notifications for RIPDPI.</string>
     <string name="permissions_battery_title">Battery optimization</string>
     <string name="permissions_battery_body">Allow RIPDPI to ignore Android battery optimization so Doze is less likely to interrupt the local VPN or proxy in the background.</string>
-    <string name="permissions_battery_continue">Review battery settings</string>
     <string name="permissions_background_activity_title">Background activity</string>
     <string name="permissions_background_activity_body">Some devices add extra background limits beyond Android battery optimization. If RIPDPI stops in the background, review the app battery or background usage settings.</string>
     <string name="permissions_background_activity_body_samsung">Samsung devices can still stop RIPDPI in the background even when Android battery optimization is disabled. If sessions stop, set App info &gt; Battery to Unrestricted and add RIPDPI to Never sleeping apps.</string>
@@ -1286,7 +1250,6 @@ Source: %2$s</string>
     <string name="diagnostics_field_validated">Validated</string>
     <string name="diagnostics_field_captive_portal">Captive portal</string>
     <string name="diagnostics_field_unknown">Unknown</string>
-    <string name="diagnostics_field_support_context">Support context</string>
     <string name="diagnostics_field_app">App</string>
     <string name="diagnostics_field_device">Device</string>
     <string name="diagnostics_field_android">Android</string>
