@@ -4,6 +4,7 @@ pub mod proxy;
 pub mod socks5;
 pub mod telemetry;
 pub mod tls;
+pub mod wire;
 
 use std::time::Duration;
 
