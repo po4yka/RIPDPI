@@ -947,10 +947,7 @@ mod tests {
         let second = resolver.resolve_tcp_hints(None, 0, target, Some("advance.test"), &group, payload);
 
         // At least one dimension must have changed after failure.
-        assert_ne!(
-            first.split_offset_base, second.split_offset_base,
-            "split_offset_base should differ after failure"
-        );
+        assert_ne!(first.split_offset_base, second.split_offset_base, "split_offset_base should differ after failure");
     }
 
     #[test]
