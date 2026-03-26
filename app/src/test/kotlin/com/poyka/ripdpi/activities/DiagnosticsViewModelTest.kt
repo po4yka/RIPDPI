@@ -231,7 +231,7 @@ class DiagnosticsViewModelTest {
             )
             assertEquals(1, state.sessions.sessions.size)
             assertEquals("report.zip", state.share.latestArchiveFileName)
-            assertEquals("Support context", state.overview.contextSummary?.title)
+            assertEquals("Device", state.overview.contextSummary?.title)
             assertTrue(
                 state.overview.contextSummary
                     ?.fields
@@ -428,7 +428,12 @@ class DiagnosticsViewModelTest {
             val state = viewModel.uiState.value
             assertEquals("wifi", state.live.networkLabel)
             assertEquals("VPN", state.live.modeLabel)
-            assertEquals("Active runtime warning", state.live.passiveEvents.single().message)
+            assertEquals(
+                "Active runtime warning",
+                state.live.passiveEvents
+                    .single()
+                    .message,
+            )
             assertEquals("Connection sample", state.live.snapshot?.title)
             assertTrue(state.live.contextGroups.isEmpty())
             assertTrue(
