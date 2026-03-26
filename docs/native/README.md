@@ -10,7 +10,7 @@ This directory documents the in-repository Rust native modules used by RIPDPI an
 | `native/rust/crates/ripdpi-android` | `libripdpi.so` | Proxy mode, VPN mode, diagnostics | `core/engine/src/main/kotlin/com/poyka/ripdpi/core/RipDpiProxy.kt`, `core/engine/src/main/kotlin/com/poyka/ripdpi/core/NetworkDiagnostics.kt` | `ripdpi_config::parse_cli`, `ripdpi_config::parse_hosts_spec`, `runtime::create_listener`, `runtime::run_proxy_with_embedded_control`, `EmbeddedProxyControl::request_shutdown`, `platform::detect_default_ttl`, `MonitorSession::*`, proxy telemetry polling |
 | `native/rust/crates/ripdpi-tunnel-android` | `libripdpi-tunnel.so` | VPN mode only | `core/engine/src/main/kotlin/com/poyka/ripdpi/core/Tun2SocksTunnel.kt` | `ripdpi_tunnel_core::run_tunnel`, `CancellationToken::cancel`, `Stats::snapshot`, tunnel telemetry polling |
 | `native/rust/crates/ripdpi-monitor` | linked into `libripdpi.so` | Diagnostics scans | `core/engine/src/main/kotlin/com/poyka/ripdpi/core/NetworkDiagnostics.kt` | DNS integrity probes across UDP and encrypted resolvers, TLS/HTTP reachability probes, TCP fat-header probes, whitelist-SNI retries, diagnostics session state |
-| `native/rust/crates/ripdpi-dns-resolver` | linked into existing native libraries | Diagnostics scans, VPN-mode encrypted DNS | none directly | `EncryptedDnsResolver::*` through `ripdpi-monitor` and `ripdpi-tunnel-core` for DoH/DoT/DNSCrypt exchange, metadata collection, and IP answer extraction |
+| `native/rust/crates/ripdpi-dns-resolver` | linked into existing native libraries | Diagnostics scans, VPN-mode encrypted DNS | none directly | `EncryptedDnsResolver::*` through `ripdpi-monitor` and `ripdpi-tunnel-core` for DoH/DoT/DNSCrypt/DoQ exchange, metadata collection, and IP answer extraction |
 
 ## Shared Strategy Bridge
 
@@ -94,6 +94,11 @@ The in-repo Rust stack currently exposes:
 - host autolearn segmented per network scope, remembered policy replay, and automatic diagnostics probing with manual recommendations
 - separate TCP, QUIC, and DNS strategy-family labels used by diagnostics, telemetry, and remembered-policy ranking
 - adaptive tuning beyond fake TTL, including split placement, TLS record sizing, UDP burst behavior, and QUIC fake-profile selection
+- Geneva-style strategy evolution with epsilon-greedy + UCB1 combo exploration across adaptive dimensions
+- TCP window clamping (`TCP_WINDOW_CLAMP`) to force small server segments that DPI cannot reassemble
+- QUIC-level DPI evasion: SNI splitting across CRYPTO frames, source port manipulation, dummy UDP prepend, version negotiation trick, and post-handshake connection migration
+- DNS-over-QUIC (DoQ, RFC 9250) support alongside DoH, DoT, and DNSCrypt
+- 10-second TCP connect timeout to prevent thread exhaustion on unreachable upstream hosts
 - retry-stealth pacing with jitter and cooldown-aware candidate diversification for both the live runtime and the diagnostics probe runner
 
 See [proxy-engine.md](proxy-engine.md) for the proxy-specific details.
