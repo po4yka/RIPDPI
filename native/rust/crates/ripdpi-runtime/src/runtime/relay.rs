@@ -9,7 +9,8 @@ use std::net::{SocketAddr, TcpStream};
 use crate::runtime_policy::ConnectionRoute;
 
 use self::failure_retry::{prepare_relay, record_stream_relay_success, PreparedRelay};
-use self::stream_copy::relay_streams;
+use self::stream_copy::{relay_streams, CONNECTION_FREEZE_MARKER};
+use super::routing::emit_failure_classified;
 use super::state::RuntimeState;
 
 #[cfg(test)]
@@ -39,11 +40,31 @@ pub(super) fn relay(
     let PreparedRelay { upstream, route, session_state, success_recorded, success_host, success_payload } =
         prepare_relay(&mut client, upstream, state, target, route, seed_request)?;
 
-    let final_state = relay_streams(client, upstream, state, route.group_index, session_state)?;
-    if !success_recorded && final_state.recv_count > 0 {
-        record_stream_relay_success(state, target, &route, success_host.as_deref(), success_payload.as_deref())?;
+    let relay_result = relay_streams(client, upstream, state, route.group_index, session_state);
+    match relay_result {
+        Ok(final_state) => {
+            if !success_recorded && final_state.recv_count > 0 {
+                record_stream_relay_success(
+                    state,
+                    target,
+                    &route,
+                    success_host.as_deref(),
+                    success_payload.as_deref(),
+                )?;
+            }
+            Ok(())
+        }
+        Err(ref err) if err.to_string().contains(CONNECTION_FREEZE_MARKER) => {
+            let failure = ripdpi_failure_classifier::classify_connection_freeze(
+                0,
+                state.config.timeouts.freeze_max_stalls,
+                state.config.timeouts.freeze_window_ms,
+            );
+            emit_failure_classified(state, target, &failure, success_host.as_deref());
+            relay_result.map(|_| ())
+        }
+        Err(_) => relay_result.map(|_| ()),
     }
-    Ok(())
 }
 
 #[cfg(test)]
