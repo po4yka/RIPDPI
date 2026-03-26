@@ -638,6 +638,21 @@ pub fn parse_cli(args: &[String], startup: &StartupEnv) -> Result<ParseResult, C
                 let f = value.parse::<f64>().map_err(|_| ConfigError::invalid(arg, Some(value)))?;
                 config.adaptive.evolution_epsilon_permil = (f * 1000.0).clamp(0.0, 1000.0) as u32;
             }
+            "--freeze-window" => {
+                let value = next_value(&effective_args, &mut idx, arg)?;
+                config.timeouts.freeze_window_ms =
+                    seconds_to_millis(value).map_err(|_| ConfigError::invalid(arg, Some(value)))?;
+            }
+            "--freeze-min-bytes" => {
+                let value = next_value(&effective_args, &mut idx, arg)?;
+                config.timeouts.freeze_min_bytes =
+                    value.parse::<u32>().map_err(|_| ConfigError::invalid(arg, Some(value)))?;
+            }
+            "--freeze-max-stalls" => {
+                let value = next_value(&effective_args, &mut idx, arg)?;
+                config.timeouts.freeze_max_stalls =
+                    value.parse::<u32>().map_err(|_| ConfigError::invalid(arg, Some(value)))?;
+            }
             _ => return Err(ConfigError::invalid(arg, Option::<String>::None)),
         }
 
