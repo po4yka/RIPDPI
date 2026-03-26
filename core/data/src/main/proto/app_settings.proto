@@ -160,4 +160,8 @@ message AppSettings {
   // Strategy evolution (Geneva-style adaptive exploration)
   bool strategy_evolution = 123;       // Enable automated combo exploration
   double evolution_epsilon = 124;      // Exploration rate 0.0-1.0 (default 0.1)
+
+  // Entropy-aware padding (GFW popcount bypass)
+  int32 entropy_padding_target_permil = 125;  // 0 = disabled, 3400 = target 3.4 popcount
+  int32 entropy_padding_max = 126;            // Max padding bytes (default 256)
 }
