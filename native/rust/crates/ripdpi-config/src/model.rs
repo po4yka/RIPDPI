@@ -491,6 +491,9 @@ pub struct RuntimeTimeoutSettings {
     pub wait_send: bool,
     pub await_interval: i32,
     pub connect_timeout_ms: u32,
+    pub freeze_window_ms: u32,
+    pub freeze_min_bytes: u32,
+    pub freeze_max_stalls: u32,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
@@ -563,6 +566,9 @@ impl Default for RuntimeTimeoutSettings {
             wait_send: false,
             await_interval: 10,
             connect_timeout_ms: 10_000,
+            freeze_window_ms: 5_000,
+            freeze_min_bytes: 512,
+            freeze_max_stalls: 0,
         }
     }
 }

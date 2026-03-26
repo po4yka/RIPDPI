@@ -19,6 +19,7 @@ pub enum FailureClass {
     TlsHandshakeFailure,
     ConnectFailure,
     StrategyExecutionFailure,
+    ConnectionFreeze,
 }
 
 impl FailureClass {
@@ -35,6 +36,7 @@ impl FailureClass {
             Self::TlsHandshakeFailure => "tls_handshake_failure",
             Self::ConnectFailure => "connect_failure",
             Self::StrategyExecutionFailure => "strategy_execution_failure",
+            Self::ConnectionFreeze => "connection_freeze",
         }
     }
 }
@@ -50,6 +52,7 @@ pub enum FailureStage {
     HttpResponse,
     QuicProbe,
     Diagnostic,
+    Relay,
 }
 
 impl FailureStage {
@@ -63,6 +66,7 @@ impl FailureStage {
             Self::HttpResponse => "http_response",
             Self::QuicProbe => "quic_probe",
             Self::Diagnostic => "diagnostic",
+            Self::Relay => "relay",
         }
     }
 }
@@ -286,6 +290,21 @@ pub fn confirm_dns_tampering(
     )
 }
 
+pub fn classify_connection_freeze(
+    bytes_received: usize,
+    stall_windows: u32,
+    window_ms: u32,
+) -> ClassifiedFailure {
+    ClassifiedFailure::new(
+        FailureClass::ConnectionFreeze,
+        FailureStage::Relay,
+        FailureAction::RetryWithMatchingGroup,
+        format!("Connection froze: {bytes_received} bytes over {stall_windows} stalled windows ({window_ms}ms each)"),
+    )
+    .with_tag("bytesReceived", bytes_received.to_string())
+    .with_tag("stallWindows", stall_windows.to_string())
+}
+
 fn looks_like_tls_alert(response: &[u8]) -> bool {
     response.len() >= 7 && response[0] == 0x15 && response[1] == 0x03 && (0x00..=0x04).contains(&response[2])
 }
@@ -494,6 +513,27 @@ mod tests {
             "desync action=set_ttl: Connection reset by peer",
         )
         .is_none());
+    }
+
+    #[test]
+    fn connection_freeze_has_correct_class_stage_and_action() {
+        let f = classify_connection_freeze(1024, 3, 5000);
+        assert_eq!(f.class, FailureClass::ConnectionFreeze);
+        assert_eq!(f.stage, FailureStage::Relay);
+        assert_eq!(f.action, FailureAction::RetryWithMatchingGroup);
+        assert!(f.evidence.summary.contains("1024 bytes"));
+        assert!(f.evidence.tags.iter().any(|t| t == "bytesReceived=1024"));
+        assert!(f.evidence.tags.iter().any(|t| t == "stallWindows=3"));
+    }
+
+    #[test]
+    fn failure_class_as_str_covers_connection_freeze() {
+        assert_eq!(FailureClass::ConnectionFreeze.as_str(), "connection_freeze");
+    }
+
+    #[test]
+    fn failure_stage_as_str_covers_relay() {
+        assert_eq!(FailureStage::Relay.as_str(), "relay");
     }
 
     #[test]
