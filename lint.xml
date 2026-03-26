@@ -3,4 +3,9 @@
     <issue id="Interoperability" severity="warning" />
     <issue id="MissingTranslation" severity="warning" />
     <issue id="ObsoleteLintCustomCheck" severity="ignore" />
+    <issue id="TypographyDashes" severity="ignore" />
+    <issue id="IconXmlAndPng" severity="ignore" />
+    <issue id="IconLauncherShape" severity="ignore" />
+    <issue id="VectorPath" severity="ignore" />
+    <issue id="PluralsCandidate" severity="ignore" />
 </lint>

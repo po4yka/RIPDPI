@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.diagnostics
 
 import android.Manifest
+import android.annotation.SuppressLint
 import android.content.Context
 import android.content.pm.PackageManager
 import android.net.ConnectivityManager
@@ -10,8 +11,8 @@ import android.net.wifi.WifiInfo
 import android.net.wifi.WifiManager
 import android.os.Build
 import android.telephony.ServiceState
-import androidx.core.content.ContextCompat
 import android.telephony.TelephonyManager
+import androidx.core.content.ContextCompat
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -208,6 +209,7 @@ class AndroidNetworkMetadataProvider
             )
         }
 
+        @SuppressLint("MissingPermission")
         private fun resolveCellularDetails(capabilities: NetworkCapabilities?): CellularNetworkDetails? {
             if (capabilities?.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) != true) {
                 return null
@@ -257,6 +259,7 @@ class AndroidNetworkMetadataProvider
                 null
             }
 
+        @SuppressLint("MissingPermission")
         private fun readDataNetworkType(
             telephony: TelephonyManager,
             canReadPhoneState: Boolean,
@@ -267,6 +270,7 @@ class AndroidNetworkMetadataProvider
                 TelephonyManager.NETWORK_TYPE_UNKNOWN
             }
 
+        @SuppressLint("MissingPermission")
         private fun readVoiceNetworkType(
             telephony: TelephonyManager,
             canReadPhoneState: Boolean,

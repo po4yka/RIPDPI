@@ -1,8 +1,8 @@
 package com.poyka.ripdpi.permissions
 
 import android.content.Intent
-import android.net.Uri
 import android.os.Build
+import androidx.core.net.toUri
 import android.provider.Settings
 
 internal enum class BatteryOptimizationRoute {
@@ -53,5 +53,5 @@ internal object BatteryOptimizationIntents {
         packageName: String,
     ): Intent = Intent(action).apply { data = packageUri(packageName) }
 
-    private fun packageUri(packageName: String): Uri = Uri.parse("package:$packageName")
+    private fun packageUri(packageName: String) = "package:$packageName".toUri()
 }

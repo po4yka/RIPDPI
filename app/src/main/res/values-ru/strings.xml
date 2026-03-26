@@ -18,6 +18,7 @@
     <string name="diagnostics_title">Диагностика</string>
     <string name="history_title">История</string>
     <string name="diagnostics_overview_section">Обзор</string>
+    <string name="diagnostics_overview_run_scan_action">Запустить проверку</string>
     <string name="diagnostics_scan_section">Сканирование</string>
     <string name="diagnostics_monitor_section">Мониторинг в реальном времени</string>
     <string name="diagnostics_approaches_title">Подходы</string>
@@ -122,7 +123,6 @@
     <string name="diagnostics_audit_candidate_signature_title">Конфигурация кандидата</string>
     <string name="diagnostics_audit_candidate_results_title">Результаты по целям</string>
     <string name="diagnostics_audit_candidate_open_hint">Нажмите на кандидата, чтобы увидеть доказательства по целям и сведения о конфигурации.</string>
-    <string name="diagnostics_history_empty">Сессий диагностики пока нет.</string>
     <string name="diagnostics_events_title">Поток событий</string>
     <string name="diagnostics_health_healthy">Хорошее</string>
     <string name="diagnostics_health_attention">Требует внимания</string>
@@ -148,8 +148,8 @@
     <string name="history_diagnostics_empty_body">Запустите прямое сканирование или сканирование по маршруту, чтобы сохранить здесь отчёты и данные зондирования.</string>
     <string name="history_events_empty_title">Событий в истории пока нет</string>
     <string name="history_events_empty_body">Сбои среды выполнения и нативные события появятся здесь после их записи в RIPDPI.</string>
+    <string name="history_filter_clear_all">Очистить все</string>
     <string name="history_open_action">Открыть историю</string>
-    <string name="diagnostics_history_empty_title">Сессий пока нет</string>
     <string name="diagnostics_open_history_title">Долговременная история перенесена из Диагностики</string>
     <string name="diagnostics_open_history_body">Используйте выделенный экран Истории для сохранённых сессий подключения, предыдущих сканирований и долговременного журнала событий.</string>
     <string name="diagnostics_open_history_action">Открыть историю</string>
@@ -178,7 +178,7 @@
     <string name="home_status_error_body">Ознакомьтесь с сообщением ниже и попробуйте снова.</string>
     <string name="home_permission_issue_with_retry">%1$s Используйте кнопку подключения для продолжения запроса разрешений.</string>
     <string name="home_permission_issue_with_settings">%1$s Откройте Настройки или воспользуйтесь кнопкой ниже для восстановления доступа.</string>
-    <string name="home_connection_button_connecting">Подключение...</string>
+    <string name="home_connection_button_connecting">Подключение\u2026</string>
     <string name="home_overview_title">Обзор</string>
     <string name="home_approach_title">Метод оптимизации</string>
     <string name="home_approach_cta">Открыть Диагностику и просмотреть аналитику подходов</string>
@@ -193,6 +193,7 @@
     <string name="home_mode_proxy">Локальный прокси</string>
     <string name="home_route_local">На устройстве</string>
     <string name="config_overview_title">Конфигурация</string>
+    <string name="config_mode_summary">Локальный VPN или прокси-маршрут</string>
     <string name="config_mode_section">Режим</string>
     <string name="config_presets_section">Пресеты</string>
     <string name="config_summary_section">Текущие значения</string>
@@ -220,11 +221,13 @@
     <string name="config_editor_body">Редактирование %1$s. Изменения проверяются немедленно и сохраняются на этом устройстве.</string>
     <string name="config_dns_helper">Используется для локального VPN-маршрута.</string>
     <string name="config_dns_disabled_helper">Переопределение DNS применяется только в локальном режиме VPN.</string>
+    <string name="config_listen_address_summary">Адрес привязки локального прокси</string>
+    <string name="config_desync_method_summary">Активная стратегия трансформации пакетов</string>
     <string name="config_proxy_helper">Адрес привязки локального прокси-слушателя.</string>
     <string name="config_port_helper">Допустимый диапазон определяется текущей проверкой порта сервиса.</string>
     <string name="config_max_connections_helper">Максимальное число одновременных локальных сессий.</string>
     <string name="config_buffer_helper">Размер буфера сокета в байтах.</string>
-    <string name="config_desync_helper">Стратегия, передаваемая движку RIPDPI.</string>
+    <string name="config_default_ttl_summary">Переопределение TTL для исходящих пакетов</string>
     <string name="config_default_ttl_helper">Оставьте пустым для использования значения TTL по умолчанию движка.</string>
     <string name="config_chain_summary_label">Цепочка стратегий: %1$s</string>
     <string name="config_chain_editor_label">Цепочка стратегий</string>
@@ -233,11 +236,10 @@
     <string name="config_chain_editor_helper_full">Секция HTTPS ниже позволяет визуально создавать отдельные шаги tlsrec и случайного tlsrandrec, а карточки Hostfake и приближения fake описывают ложные фрагменты с таргетингом на имя хоста и приближения в стиле повторной передачи. Приближения только для Linux/Android доступны как fakedsplit host+1 и fakeddisorder endhost для HTTP или полезных нагрузок, смежных с TLS SNI.</string>
     <string name="action_learn_more">Подробнее</string>
     <string name="action_show_less">Свернуть</string>
-    <string name="config_split_marker_helper">Ручные маркеры принимают смещения вида 1, host, method+2, midsld-1 или 1+s. Используйте адаптивный селектор пресетов или DSL цепочки для auto(...).</string>
-    <string name="config_fake_offset_marker_helper">Принимает числовые или семантические смещения вида 0, host+1, endhost-2 или 1+se. Адаптивные маркеры auto(...) здесь не поддерживаются.</string>
+    <string name="config_split_marker_helper">Ручные маркеры принимают смещения вида 1, host, method+2, midsld-1 или 1+s. Используйте адаптивный селектор пресетов или DSL цепочки для auto(\u2026).</string>
+    <string name="config_fake_offset_marker_helper">Принимает числовые или семантические смещения вида 0, host+1, endhost-2 или 1+se. Адаптивные маркеры auto(\u2026) здесь не поддерживаются.</string>
     <string name="config_fake_tls_size_helper">0 = размер входных данных, положительное = точное целевое количество байт, отрицательное = входные данные минус N.</string>
     <string name="config_tls_record_marker_helper">Принимает смещения вида 0, host, sniext, extlen или 1+s.</string>
-    <string name="config_https_chain_hint">Шаги TLS-записей теперь находятся внутри редактора цепочки стратегий в виде маркеров tlsrec.</string>
     <string name="config_udp_chain_hint">Пакетные UDP-пачки fake теперь находятся внутри редактора цепочки стратегий в виде счётчиков fake_burst.</string>
     <string name="ripdpi_tls_prelude_section_body">Настройте TLS-преамбулу, которая перезаписывает записи HTTPS ClientHello перед выполнением шагов отправки. Редактор цепочки выше по-прежнему обрабатывает составные и смешанные TLS-преамбулы.</string>
     <string name="ripdpi_tls_prelude_mode_title">Фрагментация TLS-записей</string>
@@ -379,18 +381,12 @@
     <string name="activation_window_field_to">До</string>
     <string name="activation_window_range_unbounded">Без ограничений</string>
     <string name="activation_window_round_card_title">Исходящий раунд</string>
-    <string name="activation_window_round_from_title">Раунд от</string>
-    <string name="activation_window_round_to_title">Раунд до</string>
     <string name="activation_window_round_body">Номер исходящего фрагмента полезной нагрузки, начиная с 1.</string>
     <string name="activation_window_round_effect">Только выбранные исходящие раунды полезной нагрузки могут активировать всю группу десинхронизации.</string>
     <string name="activation_window_payload_card_title">Размер полезной нагрузки</string>
-    <string name="activation_window_payload_from_title">Размер нагрузки от</string>
-    <string name="activation_window_payload_to_title">Размер нагрузки до</string>
     <string name="activation_window_payload_body">Текущий размер исходящего фрагмента в байтах.</string>
     <string name="activation_window_payload_effect">Только исходящие фрагменты, чей размер попадает в этот диапазон, могут активировать всю группу десинхронизации.</string>
     <string name="activation_window_stream_card_title">Позиция в потоке байт</string>
-    <string name="activation_window_stream_from_title">Байт потока от</string>
-    <string name="activation_window_stream_to_title">Байт потока до</string>
     <string name="activation_window_stream_body">Накопленные позиции исходящих байт для текущего фрагмента.</string>
     <string name="activation_window_stream_effect">Только исходящие фрагменты, затрагивающие эти накопленные позиции байт, могут активировать всю группу десинхронизации.</string>
     <string name="adaptive_split_selector_title">Первичное размещение TCP-разделения</string>
@@ -416,7 +412,7 @@
     <string name="adaptive_split_summary_label_scope">Область применения</string>
     <string name="adaptive_split_summary_label_dsl">DSL цепочки</string>
     <string name="adaptive_split_cli_title">Управляется командной строкой</string>
-    <string name="adaptive_split_cli_body">Визуальные элементы управления адаптивным разделением приостановлены, пока включены аргументы RIPDPI командной строки. Используйте явные маркеры или auto(...) в аргументах цепочки командной строки для следующего запуска.</string>
+    <string name="adaptive_split_cli_body">Визуальные элементы управления адаптивным разделением приостановлены, пока включены аргументы RIPDPI командной строки. Используйте явные маркеры или auto(\u2026) в аргументах цепочки командной строки для следующего запуска.</string>
     <string name="adaptive_split_hostfake_title">Граница управляется цепочкой</string>
     <string name="adaptive_split_hostfake_body">Текущий первый шаг отправки TCP — hostfake, который сохраняет собственный явный маркер. Используйте DSL цепочки для изменения этой границы.</string>
     <string name="adaptive_split_saved_title">Адаптивное разделение сохранено</string>
@@ -703,18 +699,10 @@ fakeddisorder endhost</string>
     <string name="ripdpi_fake_approx_badge_https">HTTPS</string>
     <string name="ripdpi_fake_approx_badge_fakedsplit">fakedsplit</string>
     <string name="ripdpi_fake_approx_badge_fakeddisorder">fakeddisorder</string>
-    <string name="config_desync_none">нет</string>
-    <string name="config_desync_disorder">disorder</string>
-    <string name="config_desync_fake">fake</string>
-    <string name="config_desync_split">split</string>
-    <string name="vpn_permission_denied">Разрешение VPN отклонено</string>
-    <string name="settings_unavailable">Остановите VPN-сервис перед изменением настроек</string>
-    <string name="title_settings">Настройки</string>
     <string name="title_onboarding">Первоначальная настройка</string>
     <string name="title_mode_editor">Редактор режима</string>
     <string name="title_dns_settings">Настройки DNS</string>
     <string name="title_advanced_settings">Расширенные настройки</string>
-    <string name="title_vpn_permission">Разрешение VPN</string>
     <string name="title_biometric_prompt">Аутентификация</string>
     <string name="title_app_icon">Значок приложения</string>
     <string name="dns_active_section_title">Активный резолвер</string>
@@ -764,7 +752,6 @@ fakeddisorder endhost</string>
     <string name="dns_custom_bootstrap_helper">Введите один или несколько IP-адресов резолвера, разделённых запятыми или пробелами.</string>
     <string name="dns_custom_bootstrap_error">Введите один или несколько нелокальных bootstrap IP-адресов.</string>
     <string name="dns_custom_switch_hint">Сохраните форму, чтобы заменить текущий встроенный профиль пользовательским адресом.</string>
-    <string name="dns_resolver_active">Активный</string>
     <string name="dns_resolver_custom_active">Используется пользовательский адрес</string>
     <string name="dns_selected_badge">Выбран</string>
     <string name="dns_active_detail_endpoint">Адрес</string>
@@ -816,7 +803,6 @@ fakeddisorder endhost</string>
     <string name="logs_empty_body">Запустите RIPDPI или вызовите диагностическое событие, чтобы заполнить локальный поток.</string>
     <string name="logs_filtered_empty_title">Нет записей, соответствующих текущим фильтрам</string>
     <string name="logs_filtered_empty_body">Измените фильтры типов выше, чтобы просмотреть другую часть локального буфера.</string>
-    <string name="complete_onboarding">Завершить настройку</string>
     <string name="splash_subtitle">Локальный инструмент подключения</string>
     <string name="onboarding_skip">Пропустить</string>
     <string name="onboarding_continue">Продолжить</string>
@@ -827,7 +813,6 @@ fakeddisorder endhost</string>
     <string name="onboarding_permission_body">Android запросит создание локального VPN. Это направляет трафик через приложение на вашем устройстве — ничего не отправляется во вне.</string>
     <string name="onboarding_modes_title">Выберите режим</string>
     <string name="onboarding_modes_body">Начните с готового пресета или настройте вручную. Всё можно изменить позже.</string>
-    <string name="reset_settings">Сбросить</string>
     <string name="logs_failed">Не удалось собрать логи</string>
     <string name="debug_bundle_failed">Не удалось подготовить пакет поддержки</string>
     <string name="proxy_address">%1$s:%2$s</string>
@@ -841,8 +826,6 @@ fakeddisorder endhost</string>
     <string name="ripdpi_default_ttl_setting">TTL по умолчанию</string>
     <string name="ripdpi_no_domain_setting">Без домена</string>
     <string name="ripdpi_desync_method_setting">Метод десинхронизации</string>
-    <string name="ripdpi_split_position_setting">Маркер разбивки</string>
-    <string name="ripdpi_split_at_host_setting">Разбивка по хосту</string>
     <string name="ripdpi_fake_ttl_setting">TTL фейковых пакетов</string>
     <string name="adaptive_fake_ttl_selector_title">Адаптивный фейковый TTL</string>
     <string name="adaptive_fake_ttl_selector_body">Выберите, должен ли RIPDPI использовать один фиксированный фейковый TTL или обучаться рабочему TCP фейковому TTL в пределах сохранённого окна в течение текущего сеанса.</string>
@@ -919,7 +902,6 @@ fakeddisorder endhost</string>
     <string name="ripdpi_fake_tls_pad_encap_title">Инкапсуляция на основе заполнения</string>
     <string name="ripdpi_fake_tls_pad_encap_body">Корректировать поля длины TLS так, чтобы реальная полезная нагрузка вписывалась в учёт заполнения фейкового пакета.</string>
     <string name="ripdpi_fake_tls_size_title">Настройка размера</string>
-    <string name="ripdpi_fake_tls_size_body">Управляет целевым размером Fake TLS до разрешения смещения фейка.</string>
     <string name="ripdpi_fake_tls_cli_status_title">Управляется командной строкой</string>
     <string name="ripdpi_fake_tls_cli_status_body">Визуальные элементы управления Fake TLS приостановлены, пока включены необработанные аргументы RIPDPI. Используйте --fake-tls-mod, --fake-sni и остальные параметры командной строки для следующего запуска.</string>
     <string name="ripdpi_fake_tls_https_disabled_title">Десинхронизация HTTPS отключена</string>
@@ -1006,18 +988,12 @@ fakeddisorder endhost</string>
     <string name="ripdpi_http_parser_probing_summary">Автоматическое зондирование может тестировать безопасный профиль парсера, а также отдельные варианты Unix EOL и Method EOL.</string>
     <string name="ripdpi_http_method_eol_setting">Сдвиг Method EOL</string>
     <string name="ripdpi_http_unix_eol_setting">Переносы строк в стиле Unix</string>
-    <string name="ripdpi_tlsrec_enabled_setting">Разбивка TLS-записи</string>
     <string name="ripdpi_tlsrec_position_setting">Маркер TLS-записи</string>
-    <string name="ripdpi_tlsrec_at_sni_setting">Разбивать TLS-запись по SNI</string>
     <string name="version">Версия</string>
     <string name="source_code_link">Исходный код</string>
     <string name="ripdpi_readme_link">Как работает RIPDPI</string>
     <string name="failed_to_start">Не удалось запустить %1$s</string>
-    <string name="general_category">Общие</string>
-    <string name="ripdpi_category">RIPDPI</string>
     <string name="about_category">О приложении</string>
-    <string name="command_line_editor">Редактор командной строки</string>
-    <string name="ui_editor">Визуальный редактор</string>
     <string name="use_command_line_settings">Использовать параметры командной строки</string>
     <string name="desync_http">Десинхронизация HTTP</string>
     <string name="desync_https">Десинхронизация HTTPS</string>
@@ -1066,8 +1042,6 @@ fakeddisorder endhost</string>
     <string name="host_pack_refresh_action">Загрузить актуальный список</string>
     <string name="host_pack_refresh_in_progress">Загрузка актуального списка</string>
     <string name="ripdpi_tcp_fast_open_setting">TCP Fast Open</string>
-    <string name="ripdpi_udp_fake_count">Количество UDP фейков</string>
-    <string name="ipv6_setting">IPv6</string>
     <string name="ripdpi_fake_offset_setting">Маркер смещения фейка</string>
     <string name="ripdpi_drop_sack_setting">Сбросить SACK</string>
     <string name="desync_udp_category">UDP</string>
@@ -1085,14 +1059,10 @@ fakeddisorder endhost</string>
     <string name="permissions_vpn_error_title">Разрешение по-прежнему требуется</string>
     <string name="permissions_vpn_error_body">Предоставьте разрешение VPN Android, чтобы RIPDPI продолжал работать локально на этом устройстве.</string>
     <string name="permissions_notifications_title">Разрешить уведомления о статусе</string>
-    <string name="permissions_notifications_body">RIPDPI использует фоновый сервис во время работы локального VPN или прокси. Android требует видимое уведомление, чтобы сеанс оставался прозрачным и вы могли быстро вернуться к активному подключению.</string>
-    <string name="permissions_notifications_continue">Разрешить уведомления</string>
-    <string name="permissions_notifications_not_now">Не сейчас</string>
     <string name="permissions_notifications_denied">Разрешение на уведомления требуется до запуска локального VPN или прокси RIPDPI.</string>
     <string name="permissions_notifications_open_settings">Разрешение на уведомления по-прежнему заблокировано. Откройте настройки приложения и разрешите уведомления для RIPDPI.</string>
     <string name="permissions_battery_title">Оптимизация аккумулятора</string>
     <string name="permissions_battery_body">Разрешите RIPDPI игнорировать системную оптимизацию аккумулятора Android, чтобы режим Doze реже прерывал работу локального VPN или прокси в фоне.</string>
-    <string name="permissions_battery_continue">Просмотреть настройки аккумулятора</string>
     <string name="permissions_background_activity_title">Фоновая работа</string>
     <string name="permissions_background_activity_body">Некоторые устройства добавляют собственные фоновые ограничения поверх системной оптимизации Android. Если RIPDPI останавливается в фоне, проверьте настройки батареи или фонового использования приложения.</string>
     <string name="permissions_background_activity_body_samsung">Устройства Samsung могут останавливать RIPDPI в фоне даже при отключённой системной оптимизации Android. Если сессии обрываются, откройте «Сведения о приложении &gt; Батарея», выберите режим «Без ограничений» и добавьте RIPDPI в список неспящих приложений.</string>
@@ -1279,7 +1249,6 @@ fakeddisorder endhost</string>
     <string name="diagnostics_field_validated">Проверен</string>
     <string name="diagnostics_field_captive_portal">Captive-портал</string>
     <string name="diagnostics_field_unknown">Неизвестно</string>
-    <string name="diagnostics_field_support_context">Контекст поддержки</string>
     <string name="diagnostics_field_app">Приложение</string>
     <string name="diagnostics_field_device">Устройство</string>
     <string name="diagnostics_field_android">Android</string>
@@ -1495,5 +1464,12 @@ fakeddisorder endhost</string>
     <string name="dns_placeholder_doh_url">https://resolver.example/dns-query</string>
     <string name="dns_placeholder_bootstrap_ips">1.1.1.1, 1.0.0.1</string>
     <string name="dns_placeholder_port">443</string>
+    <string name="connection_timed_out">Время соединения истекло. Попробуйте ещё раз.</string>
+    <string name="diagnostics_error_connect_failure">Ошибка соединения</string>
+    <string name="diagnostics_error_silent_drop">Соединение было незаметно сброшено</string>
+    <string name="diagnostics_error_timeout">Время ожидания истекло</string>
+    <string name="diagnostics_error_dns_failure">Ошибка разрешения DNS</string>
+    <string name="diagnostics_error_unknown">Ошибка подключения</string>
+    <string name="status_indicator_description">Статус: %1$s</string>
 
 </resources>

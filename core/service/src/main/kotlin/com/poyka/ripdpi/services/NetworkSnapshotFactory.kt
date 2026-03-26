@@ -61,7 +61,7 @@ private val WifiStandardLabels =
         7 to "802.11ad",
         8 to "802.11be",
     )
-@Suppress("DEPRECATION")
+@Suppress("DEPRECATION", "InlinedApi")
 private val MobileNetworkTypeLabels =
     mapOf(
         TelephonyManager.NETWORK_TYPE_GPRS to "GPRS",
