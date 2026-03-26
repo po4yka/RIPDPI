@@ -23,6 +23,7 @@ tracing-subscriber = { workspace = true }
 
 [dev-dependencies]
 aes = { workspace = true }
+libc = { workspace = true }
 local-network-fixture = { workspace = true }
 nix = { workspace = true }
 ring = { workspace = true }
