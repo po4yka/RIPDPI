@@ -842,4 +842,85 @@ mod tests {
         let packet = vec![0x40, 0x01, 0x02, 0x03, 0x04, 0x05];
         assert!(tamper_quic_version(&packet, 0x1a2a3a4a).is_none());
     }
+
+    // ---- Additional tamper edge case tests ----
+
+    #[test]
+    fn tamper_quic_version_returns_none_for_too_short() {
+        assert!(tamper_quic_version(&[0xc0, 0x01, 0x02], 0xdead).is_none());
+        assert!(tamper_quic_version(&[], 0xdead).is_none());
+    }
+
+    #[test]
+    fn tamper_quic_version_preserves_packet_length() {
+        let packet = build_realistic_quic_initial(QUIC_V1_VERSION, None).expect("build");
+        let tampered = tamper_quic_version(&packet, 0xffff_ffff).expect("tamper");
+        assert_eq!(tampered.len(), packet.len());
+    }
+
+    #[test]
+    fn tamper_quic_initial_split_sni_rejects_zero_offset() {
+        let packet = build_realistic_quic_initial(QUIC_V1_VERSION, None).expect("build");
+        assert!(tamper_quic_initial_split_sni(&packet, 0).is_none());
+    }
+
+    #[test]
+    fn tamper_quic_initial_split_sni_rejects_offset_beyond_payload() {
+        let packet = build_realistic_quic_initial(QUIC_V1_VERSION, None).expect("build");
+        let parsed = parse_quic_initial(&packet).expect("parse");
+        assert!(tamper_quic_initial_split_sni(&packet, parsed.client_hello.len()).is_none());
+    }
+
+    #[test]
+    fn tamper_quic_initial_split_sni_v2_round_trips() {
+        let packet = build_realistic_quic_initial(QUIC_V2_VERSION, Some("test.example.org")).expect("build v2");
+        let original = parse_quic_initial(&packet).expect("parse original");
+        let split_offset = original.tls_info.host_start;
+
+        let tampered = tamper_quic_initial_split_sni(&packet, split_offset).expect("tamper v2");
+        let reparsed = parse_quic_initial(&tampered).expect("reparse v2");
+        assert_eq!(reparsed.version, QUIC_V2_VERSION);
+        assert_eq!(reparsed.client_hello, original.client_hello);
+    }
+
+    #[test]
+    fn build_quic_initial_from_tls_rejects_non_tls() {
+        assert!(build_quic_initial_from_tls(QUIC_V1_VERSION, b"not tls", 0).is_none());
+    }
+
+    #[test]
+    fn build_quic_initial_from_tls_rejects_empty() {
+        assert!(build_quic_initial_from_tls(QUIC_V1_VERSION, &[], 0).is_none());
+    }
+
+    #[test]
+    fn defrag_overlapping_frames_uses_last_write_wins() {
+        // Two frames that overlap: [0..3] "ABC" and [1..4] "XYZ"
+        let mut payload = make_crypto_frame(0, b"ABC");
+        payload.extend(make_crypto_frame(1, b"XYZ"));
+        let (data, complete) = defrag_quic_crypto_frames(&payload).expect("overlap");
+        assert!(complete);
+        assert_eq!(data.len(), 4);
+        // Second frame overwrites bytes 1..4
+        assert_eq!(&data[1..4], b"XYZ");
+    }
+
+    #[test]
+    fn parse_quic_initial_header_rejects_empty_dcid() {
+        // Manually craft a packet with dcid_len=0
+        let mut packet = vec![0xc3]; // Long header, Initial type
+        packet.extend_from_slice(&QUIC_V1_VERSION.to_be_bytes());
+        packet.push(0); // dcid_len = 0 (should be rejected)
+        packet.resize(QUIC_INITIAL_MIN_LEN, 0);
+        assert!(parse_quic_initial_header(&packet).is_none());
+    }
+
+    #[test]
+    fn parse_quic_initial_header_rejects_oversized_dcid() {
+        let mut packet = vec![0xc3];
+        packet.extend_from_slice(&QUIC_V1_VERSION.to_be_bytes());
+        packet.push(21); // dcid_len = 21 > QUIC_MAX_CID_LEN
+        packet.resize(QUIC_INITIAL_MIN_LEN, 0);
+        assert!(parse_quic_initial_header(&packet).is_none());
+    }
 }
