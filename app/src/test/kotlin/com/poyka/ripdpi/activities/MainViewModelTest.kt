@@ -337,7 +337,10 @@ class MainViewModelTest {
 
         assertNull(summary.recommendedIssue)
         assertEquals(R.string.permissions_background_activity_title.toString(), summary.backgroundGuidance?.title)
-        assertEquals(R.string.permissions_background_activity_body_samsung.toString(), summary.backgroundGuidance?.message)
+        assertEquals(
+            R.string.permissions_background_activity_body_samsung.toString(),
+            summary.backgroundGuidance?.message,
+        )
     }
 
     @Test
@@ -540,6 +543,9 @@ class MainViewModelTest {
             permissionPlatformBridge = FakePermissionPlatformBridge(),
             permissionStatusProvider = permissionStatusProvider,
             permissionCoordinator = PermissionCoordinator(),
+            crashReportReader = com.poyka.ripdpi.diagnostics.crash.CrashReportReader(
+                java.io.File(System.getProperty("java.io.tmpdir"), "ripdpi-test-crash-reports"),
+            ),
         ).also { viewModel ->
             if (initialize) {
                 viewModel.initialize()

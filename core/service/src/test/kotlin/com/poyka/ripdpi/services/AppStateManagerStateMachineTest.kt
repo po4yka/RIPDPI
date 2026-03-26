@@ -85,12 +85,20 @@ class AppStateManagerStateMachineTest {
 
             StateStoreCommand.EMIT_FAILED_PROXY -> {
                 store.emitFailed(Sender.Proxy, FailureReason.NativeError("proxy error"))
-                model.copy(lastFailureSender = Sender.Proxy, lastFailureAt = TimestampExpectation.AnyNonNull)
+                model.copy(
+                    lastFailureSender = Sender.Proxy,
+                    lastFailureAt = TimestampExpectation.AnyNonNull,
+                    updatedAt = TimestampExpectation.AnyNonNull,
+                )
             }
 
             StateStoreCommand.EMIT_FAILED_VPN -> {
                 store.emitFailed(Sender.VPN, FailureReason.NativeError("vpn error"))
-                model.copy(lastFailureSender = Sender.VPN, lastFailureAt = TimestampExpectation.AnyNonNull)
+                model.copy(
+                    lastFailureSender = Sender.VPN,
+                    lastFailureAt = TimestampExpectation.AnyNonNull,
+                    updatedAt = TimestampExpectation.AnyNonNull,
+                )
             }
 
             StateStoreCommand.UPDATE_PROXY_TELEMETRY -> {
@@ -182,14 +190,15 @@ class AppStateManagerStateMachineTest {
         assertEquals(model.tunnelTelemetry, telemetry.tunnelTelemetry)
         assertEquals(model.restartCount, telemetry.restartCount)
         assertEquals(model.lastFailureSender, telemetry.lastFailureSender)
-        assertEquals(model.updatedAt, telemetry.updatedAt)
 
         val startedAtExpectation = captureTimestamp(model.serviceStartedAt, telemetry.serviceStartedAt)
         val failureAtExpectation = captureTimestamp(model.lastFailureAt, telemetry.lastFailureAt)
+        val updatedAtExpectation = captureTimestamp(model.updatedAt, telemetry.updatedAt)
 
         return model.copy(
             serviceStartedAt = startedAtExpectation,
             lastFailureAt = failureAtExpectation,
+            updatedAt = updatedAtExpectation,
         )
     }
 
@@ -260,7 +269,7 @@ class AppStateManagerStateMachineTest {
         val restartCount: Int = 0,
         val lastFailureSender: Sender? = null,
         val lastFailureAt: TimestampExpectation = TimestampExpectation.Null,
-        val updatedAt: Long = 0L,
+        val updatedAt: TimestampExpectation = TimestampExpectation.Exact(0L),
     ) {
         fun afterSetStatus(
             status: AppStatus,
@@ -279,6 +288,7 @@ class AppStateManagerStateMachineTest {
                         else -> TimestampExpectation.Null
                     },
                 restartCount = if (enteringRunning) restartCount + 1 else restartCount,
+                updatedAt = TimestampExpectation.AnyNonNull,
             )
         }
 
@@ -295,7 +305,7 @@ class AppStateManagerStateMachineTest {
                 lastFailureSender = snapshot.lastFailureSender ?: lastFailureSender,
                 lastFailureAt =
                     snapshot.lastFailureAt?.let(TimestampExpectation::Exact) ?: lastFailureAt,
-                updatedAt = snapshot.updatedAt,
+                updatedAt = TimestampExpectation.Exact(snapshot.updatedAt),
             )
     }
 }
