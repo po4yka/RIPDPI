@@ -118,7 +118,7 @@ pub(crate) fn build_doh_client(
                 .with_custom_certificate_verifier(verifier.clone())
                 .with_no_client_auth();
             config.alpn_protocols = vec![b"h2".to_vec(), b"http/1.1".to_vec()];
-            builder = builder.use_preconfigured_tls(Arc::new(config));
+            builder = builder.use_preconfigured_tls(config);
         } else {
             let mut config = ClientConfig::builder_with_provider(rustls::crypto::ring::default_provider().into())
                 .with_safe_default_protocol_versions()
@@ -126,7 +126,7 @@ pub(crate) fn build_doh_client(
                 .with_root_certificates(default_root_store(tls_roots))
                 .with_no_client_auth();
             config.alpn_protocols = vec![b"h2".to_vec(), b"http/1.1".to_vec()];
-            builder = builder.use_preconfigured_tls(Arc::new(config));
+            builder = builder.use_preconfigured_tls(config);
         }
     } else if tls_verifier.is_some() {
         // Plain HTTP DoH is used only in local tests; custom TLS config is irrelevant there.
