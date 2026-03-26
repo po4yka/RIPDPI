@@ -203,6 +203,11 @@ data class NativeSessionEventEntity(
     val level: String,
     val message: String,
     val createdAt: Long,
+    val runtimeId: String? = null,
+    val mode: String? = null,
+    val policySignature: String? = null,
+    val fingerprintHash: String? = null,
+    val subsystem: String? = null,
 )
 
 @Entity(tableName = "export_records")
@@ -600,7 +605,7 @@ interface DiagnosticsDao {
         RememberedNetworkPolicyEntity::class,
         NetworkDnsPathPreferenceEntity::class,
     ],
-    version = 2,
+    version = 3,
     exportSchema = true,
 )
 abstract class DiagnosticsDatabase : RoomDatabase() {
@@ -611,6 +616,17 @@ val DiagnosticsMigration1To2 =
     object : Migration(1, 2) {
         override fun migrate(db: SupportSQLiteDatabase) {
             db.execSQL("DELETE FROM remembered_network_policies")
+        }
+    }
+
+val DiagnosticsMigration2To3 =
+    object : Migration(2, 3) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("ALTER TABLE native_session_events ADD COLUMN runtimeId TEXT")
+            db.execSQL("ALTER TABLE native_session_events ADD COLUMN mode TEXT")
+            db.execSQL("ALTER TABLE native_session_events ADD COLUMN policySignature TEXT")
+            db.execSQL("ALTER TABLE native_session_events ADD COLUMN fingerprintHash TEXT")
+            db.execSQL("ALTER TABLE native_session_events ADD COLUMN subsystem TEXT")
         }
     }
 
@@ -627,7 +643,7 @@ object DiagnosticsDatabaseModule {
                 context,
                 DiagnosticsDatabase::class.java,
                 "diagnostics.db",
-            ).addMigrations(DiagnosticsMigration1To2)
+            ).addMigrations(DiagnosticsMigration1To2, DiagnosticsMigration2To3)
             .fallbackToDestructiveMigrationOnDowngrade(true)
             .build()
 

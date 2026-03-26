@@ -146,6 +146,14 @@ class DiagnosticsArchiveRenderer
             selection: DiagnosticsArchiveSelection,
         ): String {
             val summaryDocument = buildSummaryDocument(selection)
+            val allEvents = selection.primaryEvents + selection.globalEvents
+            val runtimeId = allEvents.latestCorrelation { it.runtimeId }
+            val mode = selection.primarySession?.serviceMode ?: allEvents.latestCorrelation { it.mode }
+            val policySignature = allEvents.latestCorrelation { it.policySignature }
+            val fingerprintHash =
+                selection.payload.telemetry.firstOrNull()?.telemetryNetworkFingerprintHash
+                    ?: allEvents.latestCorrelation { it.fingerprintHash }
+            val recentWarnings = allEvents.recentWarningPreview()
             val manifest =
                 DiagnosticsArchiveManifest(
                     fileName = target.fileName,
@@ -171,6 +179,14 @@ class DiagnosticsArchiveRenderer
                         selection.payload.telemetry
                             .firstOrNull()
                             ?.toArchiveTelemetrySummary(),
+                    runtimeId = runtimeId,
+                    mode = mode,
+                    policySignature = policySignature,
+                    fingerprintHash = fingerprintHash,
+                    networkScope = fingerprintHash,
+                    lastFailure = recentWarnings.firstOrNull(),
+                    lifecycleMilestones = allEvents.lifecycleMilestones(),
+                    recentNativeWarnings = recentWarnings,
                     classifierVersion = summaryDocument.classifierVersion,
                     diagnosisCount = summaryDocument.diagnoses.size,
                     packVersions = summaryDocument.packVersions,
@@ -195,6 +211,14 @@ class DiagnosticsArchiveRenderer
             selection: DiagnosticsArchiveSelection,
         ): String {
             val summaryDocument = buildSummaryDocument(selection)
+            val allEvents = selection.primaryEvents + selection.globalEvents
+            val runtimeId = allEvents.latestCorrelation { it.runtimeId }
+            val mode = selection.primarySession?.serviceMode ?: allEvents.latestCorrelation { it.mode }
+            val policySignature = allEvents.latestCorrelation { it.policySignature }
+            val fingerprintHash =
+                selection.payload.telemetry.firstOrNull()?.telemetryNetworkFingerprintHash
+                    ?: allEvents.latestCorrelation { it.fingerprintHash }
+            val recentWarnings = allEvents.recentWarningPreview()
             return DiagnosticsSummaryTextRenderer.render(
                 document = summaryDocument,
                 preludeLines =
@@ -207,6 +231,15 @@ class DiagnosticsArchiveRenderer
                         add("logcatCaptureScope=${LogcatSnapshotCollector.AppVisibleSnapshotScope}")
                         add("logcatByteCount=${selection.logcatSnapshot?.byteCount ?: 0}")
                         add("selectedSession=${selection.primarySession?.id ?: "latest-live"}")
+                        runtimeId?.let { add("runtimeId=$it") }
+                        mode?.let { add("mode=$it") }
+                        policySignature?.let { add("policySignature=$it") }
+                        fingerprintHash?.let {
+                            add("fingerprintHash=$it")
+                            add("networkScope=$it")
+                        }
+                        recentWarnings.firstOrNull()?.let { add("lastFailure=$it") }
+                        allEvents.lifecycleMilestones().forEach { add("lifecycle=$it") }
                         selection.selectedApproachSummary?.let {
                             add("approach=${it.displayName}")
                             add("approachVerification=${it.verificationState}")
@@ -229,7 +262,7 @@ class DiagnosticsArchiveRenderer
                 latestTelemetry = selection.payload.telemetry.firstOrNull(),
                 selectedResults = selection.primaryResults,
                 warnings =
-                    selection.globalEvents.filter { event ->
+                    (selection.primaryEvents + selection.globalEvents).filter { event ->
                         event.level.equals("warn", ignoreCase = true) || event.level.equals("error", ignoreCase = true)
                     },
             )
@@ -306,7 +339,9 @@ class DiagnosticsArchiveRenderer
             globalEvents: List<NativeSessionEventEntity>,
         ): String =
             buildString {
-                appendLine("scope,sessionId,source,level,message,createdAt")
+                appendLine(
+                    "scope,sessionId,source,level,message,createdAt,runtimeId,mode,policySignature,fingerprintHash,subsystem",
+                )
                 primaryEvents.forEach { event ->
                     appendLine(
                         listOf(
@@ -316,6 +351,11 @@ class DiagnosticsArchiveRenderer
                             csvField(event.level),
                             csvField(event.message),
                             csvField(event.createdAt),
+                            csvField(event.runtimeId.orEmpty()),
+                            csvField(event.mode.orEmpty()),
+                            csvField(event.policySignature.orEmpty()),
+                            csvField(event.fingerprintHash.orEmpty()),
+                            csvField(event.subsystem.orEmpty()),
                         ).joinToString(","),
                     )
                 }
@@ -328,6 +368,11 @@ class DiagnosticsArchiveRenderer
                             csvField(event.level),
                             csvField(event.message),
                             csvField(event.createdAt),
+                            csvField(event.runtimeId.orEmpty()),
+                            csvField(event.mode.orEmpty()),
+                            csvField(event.policySignature.orEmpty()),
+                            csvField(event.fingerprintHash.orEmpty()),
+                            csvField(event.subsystem.orEmpty()),
                         ).joinToString(","),
                     )
                 }
@@ -345,6 +390,37 @@ class DiagnosticsArchiveRenderer
                 json.decodeFromString(ListSerializer(ProbeDetail.serializer()), detailJson)
             }.getOrNull()?.let(::deriveProbeRetryCount)?.toString()
     }
+
+private fun List<NativeSessionEventEntity>.latestCorrelation(selector: (NativeSessionEventEntity) -> String?): String? =
+    asSequence()
+        .sortedByDescending(NativeSessionEventEntity::createdAt)
+        .mapNotNull(selector)
+        .firstOrNull()
+
+private fun List<NativeSessionEventEntity>.lifecycleMilestones(limit: Int = 6): List<String> =
+    asSequence()
+        .sortedByDescending(NativeSessionEventEntity::createdAt)
+        .filter { event ->
+            val subsystem = (event.subsystem ?: event.source).lowercase()
+            val message = event.message.lowercase()
+            subsystem in setOf("service", "proxy", "tunnel", "diagnostics") &&
+                (message.contains("started") ||
+                    message.contains("stopped") ||
+                    message.contains("stop requested") ||
+                    message.contains("listener started") ||
+                    message.contains("listener stopped"))
+        }.take(limit)
+        .map { event -> "${event.subsystem ?: event.source}: ${event.message}" }
+        .toList()
+
+private fun List<NativeSessionEventEntity>.recentWarningPreview(limit: Int = 5): List<String> =
+    asSequence()
+        .sortedByDescending(NativeSessionEventEntity::createdAt)
+        .filter { event ->
+            event.level.equals("warn", ignoreCase = true) || event.level.equals("error", ignoreCase = true)
+        }.take(limit)
+        .map { event -> "${event.subsystem ?: event.source}: ${event.message}" }
+        .toList()
 
 private fun BypassApproachSummary.successRateLabel(): String =
     validatedSuccessRate?.let { rate ->

@@ -58,6 +58,11 @@ impl RunnerArtifacts {
                 level: event_level_for_outcome(&probe_type, path_mode, &outcome).to_string(),
                 message,
                 created_at: now_ms(),
+                runtime_id: None,
+                mode: None,
+                policy_signature: None,
+                fingerprint_hash: None,
+                subsystem: Some("diagnostics".to_string()),
             }],
         }
     }
@@ -71,6 +76,11 @@ impl RunnerArtifacts {
                 level: level.to_string(),
                 message,
                 created_at: now_ms(),
+                runtime_id: None,
+                mode: None,
+                policy_signature: None,
+                fingerprint_hash: None,
+                subsystem: Some("diagnostics".to_string()),
             }],
         }
     }

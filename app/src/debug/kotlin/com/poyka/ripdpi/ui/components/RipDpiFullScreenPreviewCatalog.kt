@@ -15,7 +15,8 @@ import com.poyka.ripdpi.activities.HostPackCatalogUiState
 import com.poyka.ripdpi.activities.HttpParserUiState
 import com.poyka.ripdpi.activities.LauncherIconManager
 import com.poyka.ripdpi.activities.LogEntry
-import com.poyka.ripdpi.activities.LogType
+import com.poyka.ripdpi.activities.LogSeverity
+import com.poyka.ripdpi.activities.LogSubsystem
 import com.poyka.ripdpi.activities.LogsUiState
 import com.poyka.ripdpi.activities.MainUiState
 import com.poyka.ripdpi.activities.ProxyNetworkUiState
@@ -183,10 +184,50 @@ private fun noopAdvancedSettingsActions(): AdvancedSettingsActions =
 
 private val previewLogEntries =
     listOf(
-        LogEntry(id = 1, timestamp = "12:31:04", type = LogType.CONN, message = "VPN service started"),
-        LogEntry(id = 2, timestamp = "12:31:08", type = LogType.DNS, message = "DNS resolver switched to 1.1.1.1"),
-        LogEntry(id = 3, timestamp = "12:31:16", type = LogType.WARN, message = "Fallback resolver is active"),
-        LogEntry(id = 4, timestamp = "12:31:22", type = LogType.ERR, message = "Proxy service failed to start"),
+        LogEntry(
+            id = "service-started",
+            createdAtMs = 1_711_452_264_000,
+            timestamp = "12:31:04",
+            subsystem = LogSubsystem.Service,
+            severity = LogSeverity.Info,
+            message = "VPN service started",
+            source = "service",
+            runtimeId = "runtime-preview",
+            isActiveSession = true,
+        ),
+        LogEntry(
+            id = "proxy-dns",
+            createdAtMs = 1_711_452_268_000,
+            timestamp = "12:31:08",
+            subsystem = LogSubsystem.Proxy,
+            severity = LogSeverity.Info,
+            message = "DNS resolver switched to 1.1.1.1",
+            source = "proxy",
+            runtimeId = "runtime-preview",
+            isActiveSession = true,
+        ),
+        LogEntry(
+            id = "tunnel-fallback",
+            createdAtMs = 1_711_452_276_000,
+            timestamp = "12:31:16",
+            subsystem = LogSubsystem.Tunnel,
+            severity = LogSeverity.Warn,
+            message = "Fallback resolver is active",
+            source = "tunnel",
+            runtimeId = "runtime-preview",
+            isActiveSession = true,
+        ),
+        LogEntry(
+            id = "diagnostics-failure",
+            createdAtMs = 1_711_452_282_000,
+            timestamp = "12:31:22",
+            subsystem = LogSubsystem.Diagnostics,
+            severity = LogSeverity.Error,
+            message = "Proxy service failed to start",
+            source = "diagnostics",
+            diagnosticsSessionId = "scan-preview",
+            isActiveSession = false,
+        ),
     )
 
 @Composable
@@ -194,10 +235,13 @@ internal fun RipDpiLogsPreviewScene() {
     RipDpiTheme(themePreference = "light") {
         LogsScreen(
             uiState = LogsUiState(logs = previewLogEntries),
-            onToggleFilter = {},
+            onToggleSubsystemFilter = {},
+            onToggleSeverityFilter = {},
             onAutoScrollChanged = {},
+            onActiveSessionOnlyChanged = {},
             onClearLogs = {},
             onSaveLogs = {},
+            onShareSupportBundle = {},
         )
     }
 }
@@ -207,10 +251,13 @@ internal fun RipDpiLogsEmptyDarkPreviewScene() {
     RipDpiTheme(themePreference = "dark") {
         LogsScreen(
             uiState = LogsUiState(),
-            onToggleFilter = {},
+            onToggleSubsystemFilter = {},
+            onToggleSeverityFilter = {},
             onAutoScrollChanged = {},
+            onActiveSessionOnlyChanged = {},
             onClearLogs = {},
             onSaveLogs = {},
+            onShareSupportBundle = {},
         )
     }
 }

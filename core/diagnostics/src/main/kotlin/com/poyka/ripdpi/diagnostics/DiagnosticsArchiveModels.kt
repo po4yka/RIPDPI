@@ -17,7 +17,7 @@ import java.io.File
 internal object DiagnosticsArchiveFormat {
     const val directoryName = "diagnostics-archives"
     const val fileNamePrefix = "ripdpi-diagnostics-"
-    const val schemaVersion = 8
+    const val schemaVersion = 9
     const val privacyMode = "split_output"
     const val scope = "hybrid"
     const val maxArchiveFiles = 5
@@ -140,6 +140,14 @@ internal data class DiagnosticsArchiveManifest(
     val networkSummary: RedactedNetworkSummary?,
     val contextSummary: RedactedDiagnosticContextSummary?,
     val latestTelemetrySummary: ArchiveTelemetrySummary? = null,
+    val runtimeId: String? = null,
+    val mode: String? = null,
+    val policySignature: String? = null,
+    val fingerprintHash: String? = null,
+    val networkScope: String? = null,
+    val lastFailure: String? = null,
+    val lifecycleMilestones: List<String> = emptyList(),
+    val recentNativeWarnings: List<String> = emptyList(),
     val classifierVersion: String? = null,
     val diagnosisCount: Int = 0,
     val packVersions: Map<String, Int> = emptyMap(),

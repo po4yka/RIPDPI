@@ -180,7 +180,7 @@ mod tests {
             runtime: Arc::new(tokio::runtime::Builder::new_current_thread().build().expect("test runtime")),
             config: Arc::new(config_from_payload(sample_payload()).expect("config")),
             last_error: Arc::new(Mutex::new(None)),
-            telemetry: Arc::new(TunnelTelemetryState::new()),
+            telemetry: Arc::new(TunnelTelemetryState::new(None)),
             state: Mutex::new(TunnelSessionState::Ready),
         }) as jlong;
 
@@ -201,7 +201,7 @@ mod tests {
             runtime: Arc::new(tokio::runtime::Builder::new_current_thread().build().expect("test runtime")),
             config: Arc::new(config_from_payload(sample_payload()).expect("config")),
             last_error: Arc::new(Mutex::new(None)),
-            telemetry: Arc::new(TunnelTelemetryState::new()),
+            telemetry: Arc::new(TunnelTelemetryState::new(None)),
             state: Mutex::new(TunnelSessionState::Starting { cancel: Arc::new(CancellationToken::new()) }),
         };
         session.telemetry.mark_started("127.0.0.1:1080".to_string());

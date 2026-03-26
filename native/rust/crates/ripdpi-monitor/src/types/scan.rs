@@ -81,6 +81,16 @@ pub struct NativeSessionEvent {
     pub level: String,
     pub message: String,
     pub created_at: u64,
+    #[serde(default)]
+    pub runtime_id: Option<String>,
+    #[serde(default)]
+    pub mode: Option<String>,
+    #[serde(default)]
+    pub policy_signature: Option<String>,
+    #[serde(default)]
+    pub fingerprint_hash: Option<String>,
+    #[serde(default)]
+    pub subsystem: Option<String>,
 }
 
 #[cfg(test)]

@@ -31,7 +31,8 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.LogEntry
-import com.poyka.ripdpi.activities.LogType
+import com.poyka.ripdpi.activities.LogSeverity
+import com.poyka.ripdpi.activities.LogSubsystem
 import com.poyka.ripdpi.activities.LogsUiState
 import com.poyka.ripdpi.activities.LogsViewModel
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
@@ -55,6 +56,7 @@ import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 @Composable
 fun LogsRoute(
     onSaveLogs: () -> Unit,
+    onShareSupportBundle: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: LogsViewModel = hiltViewModel(),
 ) {
@@ -62,10 +64,13 @@ fun LogsRoute(
 
     LogsScreen(
         uiState = uiState,
-        onToggleFilter = viewModel::toggleFilter,
+        onToggleSubsystemFilter = viewModel::toggleSubsystemFilter,
+        onToggleSeverityFilter = viewModel::toggleSeverityFilter,
         onAutoScrollChanged = viewModel::setAutoScroll,
+        onActiveSessionOnlyChanged = viewModel::setActiveSessionOnly,
         onClearLogs = viewModel::clearLogs,
         onSaveLogs = onSaveLogs,
+        onShareSupportBundle = onShareSupportBundle,
         modifier = modifier,
     )
 }
@@ -73,10 +78,13 @@ fun LogsRoute(
 @Composable
 internal fun LogsScreen(
     uiState: LogsUiState,
-    onToggleFilter: (LogType) -> Unit,
+    onToggleSubsystemFilter: (LogSubsystem) -> Unit,
+    onToggleSeverityFilter: (LogSeverity) -> Unit,
     onAutoScrollChanged: (Boolean) -> Unit,
+    onActiveSessionOnlyChanged: (Boolean) -> Unit,
     onClearLogs: () -> Unit,
     onSaveLogs: () -> Unit,
+    onShareSupportBundle: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val colors = RipDpiThemeTokens.colors
@@ -95,11 +103,11 @@ internal fun LogsScreen(
         }
     }
 
-    LaunchedEffect(uiState.isAutoScroll, uiState.latestLog?.id) {
+    LaunchedEffect(uiState.isAutoScroll, uiState.latestLog?.id, filteredLogs.size) {
         val latestLog = uiState.latestLog ?: return@LaunchedEffect
         if (
             uiState.isAutoScroll &&
-            latestLog.type in uiState.activeFilters &&
+            latestLog in filteredLogs &&
             filteredLogs.isNotEmpty() &&
             isAtLiveEdge
         ) {
@@ -141,13 +149,16 @@ internal fun LogsScreen(
                 LogsOverviewCard(
                     uiState = uiState,
                     onSaveLogs = onSaveLogs,
+                    onShareSupportBundle = onShareSupportBundle,
                     onClearLogs = onClearLogs,
                 )
 
                 LogsFiltersSection(
                     uiState = uiState,
-                    onToggleFilter = onToggleFilter,
+                    onToggleSubsystemFilter = onToggleSubsystemFilter,
+                    onToggleSeverityFilter = onToggleSeverityFilter,
                     onAutoScrollChanged = onAutoScrollChanged,
+                    onActiveSessionOnlyChanged = onActiveSessionOnlyChanged,
                 )
 
                 SettingsCategoryHeader(title = stringResource(R.string.logs_stream_section))
@@ -175,8 +186,10 @@ internal fun LogsScreen(
 @Composable
 private fun LogsFiltersSection(
     uiState: LogsUiState,
-    onToggleFilter: (LogType) -> Unit,
+    onToggleSubsystemFilter: (LogSubsystem) -> Unit,
+    onToggleSeverityFilter: (LogSeverity) -> Unit,
     onAutoScrollChanged: (Boolean) -> Unit,
+    onActiveSessionOnlyChanged: (Boolean) -> Unit,
 ) {
     val colors = RipDpiThemeTokens.colors
     val spacing = RipDpiThemeTokens.spacing
@@ -192,26 +205,68 @@ private fun LogsFiltersSection(
                 showDivider = true,
                 testTag = RipDpiTestTags.LogsAutoScroll,
             )
+            SettingsRow(
+                title = stringResource(R.string.logs_active_session_title),
+                subtitle = stringResource(R.string.logs_active_session_body),
+                checked = uiState.showActiveSessionOnly,
+                onCheckedChange = onActiveSessionOnlyChanged,
+                showDivider = true,
+            )
             Text(
                 text = stringResource(R.string.logs_filters_helper),
                 style = RipDpiThemeTokens.type.caption,
                 color = colors.mutedForeground,
             )
-            Row(
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .horizontalScroll(rememberScrollState()),
-                horizontalArrangement = Arrangement.spacedBy(spacing.sm),
-            ) {
-                LogType.entries.forEach { type ->
-                    RipDpiChip(
-                        text = logBadgeLabel(type),
-                        selected = type in uiState.activeFilters,
-                        onClick = { onToggleFilter(type) },
-                        modifier = Modifier.ripDpiTestTag(RipDpiTestTags.logsFilter(type)),
-                    )
-                }
+            FilterChipRow(
+                title = stringResource(R.string.logs_subsystems_title),
+                items = LogSubsystem.entries,
+                isSelected = { subsystem -> subsystem in uiState.activeSubsystems },
+                label = ::subsystemLabel,
+                testTag = { subsystem -> RipDpiTestTags.logsSubsystemFilter(subsystem) },
+                onClick = onToggleSubsystemFilter,
+            )
+            FilterChipRow(
+                title = stringResource(R.string.logs_severity_title),
+                items = LogSeverity.entries,
+                isSelected = { severity -> severity in uiState.activeSeverities },
+                label = ::severityLabel,
+                testTag = { severity -> RipDpiTestTags.logsSeverityFilter(severity) },
+                onClick = onToggleSeverityFilter,
+            )
+        }
+    }
+}
+
+@Composable
+private fun <T> FilterChipRow(
+    title: String,
+    items: List<T>,
+    isSelected: (T) -> Boolean,
+    label: @Composable (T) -> String,
+    testTag: (T) -> String,
+    onClick: (T) -> Unit,
+) {
+    val spacing = RipDpiThemeTokens.spacing
+    Column(verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
+        Text(
+            text = title,
+            style = RipDpiThemeTokens.type.bodyEmphasis,
+            color = RipDpiThemeTokens.colors.foreground,
+        )
+        Row(
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(spacing.sm),
+        ) {
+            items.forEach { item ->
+                RipDpiChip(
+                    text = label(item),
+                    selected = isSelected(item),
+                    onClick = { onClick(item) },
+                    modifier = Modifier.ripDpiTestTag(testTag(item)),
+                )
             }
         }
     }
@@ -221,17 +276,12 @@ private fun LogsFiltersSection(
 private fun LogsOverviewCard(
     uiState: LogsUiState,
     onSaveLogs: () -> Unit,
+    onShareSupportBundle: () -> Unit,
     onClearLogs: () -> Unit,
 ) {
     val colors = RipDpiThemeTokens.colors
     val spacing = RipDpiThemeTokens.spacing
-    val latestLog = uiState.latestLog
-    val activeFilterSummary =
-        if (uiState.activeFilters.size == LogType.entries.size) {
-            stringResource(R.string.logs_filters_summary_all)
-        } else {
-            stringResource(R.string.logs_filters_summary_count, uiState.activeFilters.size)
-        }
+    val latestLog = uiState.filteredLogs.lastOrNull() ?: uiState.latestLog
 
     RipDpiCard(
         variant = if (uiState.logs.isEmpty()) RipDpiCardVariant.Outlined else RipDpiCardVariant.Elevated,
@@ -272,38 +322,44 @@ private fun LogsOverviewCard(
             horizontalArrangement = Arrangement.spacedBy(spacing.sm),
         ) {
             RipDpiButton(
+                text = stringResource(R.string.settings_support_debug_bundle_title),
+                onClick = onShareSupportBundle,
+                modifier = Modifier.weight(1f),
+                variant = RipDpiButtonVariant.Primary,
+            )
+            RipDpiButton(
                 text = stringResource(R.string.save_logs),
                 onClick = onSaveLogs,
                 modifier =
                     Modifier
                         .weight(1f)
                         .ripDpiTestTag(RipDpiTestTags.LogsSave),
-                variant =
-                    if (uiState.logs.isEmpty()) {
-                        RipDpiButtonVariant.Outline
-                    } else {
-                        RipDpiButtonVariant.Primary
-                    },
-            )
-            RipDpiButton(
-                text = stringResource(R.string.logs_clear),
-                onClick = onClearLogs,
-                modifier =
-                    Modifier
-                        .weight(1f)
-                        .ripDpiTestTag(RipDpiTestTags.LogsClear),
-                variant = RipDpiButtonVariant.Destructive,
-                enabled = uiState.logs.isNotEmpty(),
+                variant = RipDpiButtonVariant.Outline,
             )
         }
+        RipDpiButton(
+            text = stringResource(R.string.logs_clear),
+            onClick = onClearLogs,
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .ripDpiTestTag(RipDpiTestTags.LogsClear),
+            variant = RipDpiButtonVariant.Destructive,
+            enabled = uiState.logs.isNotEmpty(),
+        )
         HorizontalDivider(color = colors.divider)
         SettingsRow(
             title = stringResource(R.string.logs_buffer_title),
-            subtitle = activeFilterSummary,
+            subtitle =
+                stringResource(
+                    R.string.logs_filters_summary_compact,
+                    uiState.activeSubsystems.size,
+                    uiState.activeSeverities.size,
+                ),
             value =
                 stringResource(
                     R.string.logs_buffer_value,
-                    uiState.logs.size,
+                    uiState.filteredLogs.size,
                     uiState.bufferCapacity,
                 ),
             monospaceValue = true,
@@ -368,9 +424,10 @@ private fun LogsStreamCard(
                 ) {
                     LogRow(
                         timestamp = entry.timestamp,
-                        type = logBadgeLabel(entry.type),
+                        type = subsystemLabel(entry.subsystem),
                         message = entry.message,
-                        tone = logRowTone(entry.type),
+                        tone = logRowTone(entry),
+                        metadataChips = metadataChips(entry),
                     )
                     if (index < entries.lastIndex) {
                         HorizontalDivider(color = colors.divider)
@@ -380,6 +437,17 @@ private fun LogsStreamCard(
         }
     }
 }
+
+private fun metadataChips(entry: LogEntry): List<String> =
+    buildList {
+        add(entry.source.lowercase())
+        add(severityLabelValue(entry.severity))
+        entry.runtimeId?.let { add("runtime:$it") }
+        entry.diagnosticsSessionId?.let { add("scan:$it") }
+        if (entry.isActiveSession) {
+            add("active")
+        }
+    }
 
 @Composable
 private fun LogsEmptyStateCard(
@@ -419,49 +487,87 @@ private fun LogsEmptyStateCard(
 }
 
 @Composable
-private fun logBadgeLabel(type: LogType): String =
+private fun subsystemLabel(subsystem: LogSubsystem): String =
     stringResource(
-        when (type) {
-            LogType.DNS -> R.string.logs_type_dns
-            LogType.CONN -> R.string.logs_type_conn
-            LogType.ERR -> R.string.logs_type_err
-            LogType.WARN -> R.string.logs_type_warn
+        when (subsystem) {
+            LogSubsystem.Service -> R.string.logs_subsystem_service
+            LogSubsystem.Proxy -> R.string.logs_subsystem_proxy
+            LogSubsystem.Tunnel -> R.string.logs_subsystem_tunnel
+            LogSubsystem.Diagnostics -> R.string.logs_subsystem_diagnostics
         },
     )
 
-private fun logRowTone(type: LogType): LogRowTone =
-    when (type) {
-        LogType.DNS -> LogRowTone.Dns
-        LogType.CONN -> LogRowTone.Connection
-        LogType.ERR -> LogRowTone.Error
-        LogType.WARN -> LogRowTone.Warning
+@Composable
+private fun severityLabel(severity: LogSeverity): String =
+    stringResource(
+        when (severity) {
+            LogSeverity.Debug -> R.string.logs_severity_debug
+            LogSeverity.Info -> R.string.logs_severity_info
+            LogSeverity.Warn -> R.string.logs_severity_warn
+            LogSeverity.Error -> R.string.logs_severity_error
+        },
+    )
+
+private fun severityLabelValue(severity: LogSeverity): String =
+    when (severity) {
+        LogSeverity.Debug -> "debug"
+        LogSeverity.Info -> "info"
+        LogSeverity.Warn -> "warn"
+        LogSeverity.Error -> "error"
+    }
+
+private fun logRowTone(entry: LogEntry): LogRowTone =
+    when {
+        entry.severity == LogSeverity.Error -> LogRowTone.Error
+        entry.severity == LogSeverity.Warn -> LogRowTone.Warning
+        entry.subsystem == LogSubsystem.Diagnostics -> LogRowTone.Dns
+        else -> LogRowTone.Connection
     }
 
 private val previewLogs =
     listOf(
         LogEntry(
-            id = 1,
+            id = "1",
+            createdAtMs = 1,
             timestamp = "12:31:04",
-            type = LogType.CONN,
+            subsystem = LogSubsystem.Service,
+            severity = LogSeverity.Info,
             message = "VPN service started",
+            source = "service",
+            isActiveSession = true,
         ),
         LogEntry(
-            id = 2,
+            id = "2",
+            createdAtMs = 2,
             timestamp = "12:31:08",
-            type = LogType.DNS,
-            message = "DNS resolver switched to 1.1.1.1",
+            subsystem = LogSubsystem.Proxy,
+            severity = LogSeverity.Info,
+            message = "listener started addr=127.0.0.1:1080",
+            source = "proxy",
+            runtimeId = "vpn-runtime-7",
+            isActiveSession = true,
         ),
         LogEntry(
-            id = 3,
+            id = "3",
+            createdAtMs = 3,
             timestamp = "12:31:16",
-            type = LogType.WARN,
-            message = "Fallback resolver is active on the current network",
+            subsystem = LogSubsystem.Diagnostics,
+            severity = LogSeverity.Warn,
+            message = "probe failed target=example.org",
+            source = "dns",
+            diagnosticsSessionId = "diag-42",
+            isActiveSession = true,
         ),
         LogEntry(
-            id = 4,
+            id = "4",
+            createdAtMs = 4,
             timestamp = "12:31:22",
-            type = LogType.ERR,
-            message = "Proxy service failed to start",
+            subsystem = LogSubsystem.Tunnel,
+            severity = LogSeverity.Error,
+            message = "tunnel error: worker panicked",
+            source = "worker",
+            runtimeId = "vpn-runtime-7",
+            isActiveSession = true,
         ),
     )
 
@@ -471,10 +577,13 @@ private fun LogsScreenPreview() {
     RipDpiTheme {
         LogsScreen(
             uiState = LogsUiState(logs = previewLogs),
-            onToggleFilter = {},
+            onToggleSubsystemFilter = {},
+            onToggleSeverityFilter = {},
             onAutoScrollChanged = {},
+            onActiveSessionOnlyChanged = {},
             onClearLogs = {},
             onSaveLogs = {},
+            onShareSupportBundle = {},
         )
     }
 }
@@ -485,10 +594,13 @@ private fun LogsScreenDarkPreview() {
     RipDpiTheme(themePreference = "dark") {
         LogsScreen(
             uiState = LogsUiState(),
-            onToggleFilter = {},
+            onToggleSubsystemFilter = {},
+            onToggleSeverityFilter = {},
             onAutoScrollChanged = {},
+            onActiveSessionOnlyChanged = {},
             onClearLogs = {},
             onSaveLogs = {},
+            onShareSupportBundle = {},
         )
     }
 }

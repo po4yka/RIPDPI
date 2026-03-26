@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
@@ -33,6 +34,7 @@ fun LogRow(
     message: String,
     modifier: Modifier = Modifier,
     tone: LogRowTone = LogRowTone.Connection,
+    metadataChips: List<String> = emptyList(),
 ) {
     val colors = RipDpiThemeTokens.colors
     val components = RipDpiThemeTokens.components
@@ -40,43 +42,74 @@ fun LogRow(
     val typeScale = RipDpiThemeTokens.type
     val palette = logRowPalette(tone)
 
-    Row(
+    Column(
         modifier =
             modifier
                 .fillMaxWidth()
                 .heightIn(min = components.decorativeBadgeSize)
                 .semantics(mergeDescendants = true) {
-                    contentDescription = "$timestamp ${type.uppercase()} $message"
+                    contentDescription = "$timestamp ${type.uppercase()} $message ${metadataChips.joinToString(" ")}"
                 },
-        horizontalArrangement = Arrangement.spacedBy(spacing.sm),
-        verticalAlignment = Alignment.Top,
+        verticalArrangement = Arrangement.spacedBy(spacing.xs),
     ) {
-        androidx.compose.material3.Text(
-            text = timestamp,
-            style = typeScale.monoLog,
-            color = colors.mutedForeground,
-        )
-        Box(
+        Row(
             modifier =
-                Modifier
-                    .background(palette.badgeContainer, RipDpiThemeTokens.shapes.xxl)
-                    .padding(
-                        horizontal = components.compactPillHorizontalPadding,
-                        vertical = components.compactPillVerticalPadding,
-                    ),
+                Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(spacing.sm),
+            verticalAlignment = Alignment.Top,
         ) {
             androidx.compose.material3.Text(
-                text = type.uppercase(),
-                style = typeScale.smallLabel,
-                color = palette.badgeContent,
+                text = timestamp,
+                style = typeScale.monoLog,
+                color = colors.mutedForeground,
+            )
+            Box(
+                modifier =
+                    Modifier
+                        .background(palette.badgeContainer, RipDpiThemeTokens.shapes.xxl)
+                        .padding(
+                            horizontal = components.compactPillHorizontalPadding,
+                            vertical = components.compactPillVerticalPadding,
+                        ),
+            ) {
+                androidx.compose.material3.Text(
+                    text = type.uppercase(),
+                    style = typeScale.smallLabel,
+                    color = palette.badgeContent,
+                )
+            }
+            androidx.compose.material3.Text(
+                text = message,
+                modifier = Modifier.weight(1f),
+                style = typeScale.monoInline,
+                color = palette.message,
             )
         }
-        androidx.compose.material3.Text(
-            text = message,
-            modifier = Modifier.weight(1f),
-            style = typeScale.monoInline,
-            color = palette.message,
-        )
+        if (metadataChips.isNotEmpty()) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(spacing.xs),
+            ) {
+                metadataChips.forEach { chip ->
+                    Box(
+                        modifier =
+                            Modifier
+                                .wrapContentWidth()
+                                .background(colors.inputBackground, RipDpiThemeTokens.shapes.xxl)
+                                .padding(
+                                    horizontal = components.compactPillHorizontalPadding,
+                                    vertical = components.compactPillVerticalPadding,
+                                ),
+                    ) {
+                        androidx.compose.material3.Text(
+                            text = chip,
+                            style = typeScale.smallLabel,
+                            color = colors.mutedForeground,
+                        )
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -136,6 +169,7 @@ private fun LogRowPreview() {
                 type = "dns",
                 message = "DNS resolver switched to 1.1.1.1",
                 tone = LogRowTone.Dns,
+                metadataChips = listOf("runtime:vpn-1", "scan:diag-7"),
             )
             LogRow(
                 timestamp = "02:14:42",

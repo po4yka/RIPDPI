@@ -107,12 +107,14 @@ internal object RipDpiProxyJsonCodec {
         args: List<String>,
         hostAutolearnStorePath: String?,
         runtimeContext: RipDpiRuntimeContext?,
+        logContext: RipDpiLogContext?,
     ): String =
         encode(
             NativeProxyConfig.CommandLine(
                 args = args,
                 hostAutolearnStorePath = hostAutolearnStorePath,
                 runtimeContext = ProxyRuntimeContextCodec.toNative(runtimeContext),
+                logContext = ProxyLogContextCodec.toNative(logContext),
             ),
         )
 
@@ -134,6 +136,7 @@ internal object RipDpiProxyJsonCodec {
                 wsTunnel = EndpointCodec.toNative(preferences.wsTunnel),
                 nativeLogLevel = preferences.nativeLogLevel,
                 runtimeContext = ProxyRuntimeContextCodec.toNative(preferences.runtimeContext),
+                logContext = ProxyLogContextCodec.toNative(preferences.logContext),
             ),
         )
 
@@ -144,8 +147,8 @@ internal object RipDpiProxyJsonCodec {
 
     fun stripRuntimeContext(configJson: String): String =
         when (val payload = decode(configJson)) {
-            is NativeProxyConfig.CommandLine -> encode(payload.copy(runtimeContext = null))
-            is NativeProxyConfig.Ui -> encode(payload.copy(runtimeContext = null))
+            is NativeProxyConfig.CommandLine -> encode(payload.copy(runtimeContext = null, logContext = null))
+            is NativeProxyConfig.Ui -> encode(payload.copy(runtimeContext = null, logContext = null))
         }
 
     fun rewriteJson(
@@ -153,12 +156,14 @@ internal object RipDpiProxyJsonCodec {
         hostAutolearnStorePath: String?,
         networkScopeKey: String?,
         runtimeContext: RipDpiRuntimeContext?,
+        logContext: RipDpiLogContext?,
     ): String =
         when (val payload = decode(configJson)) {
             is NativeProxyConfig.CommandLine -> {
                 encode(
                     payload.copy(
                         runtimeContext = ProxyRuntimeContextCodec.toNative(runtimeContext) ?: payload.runtimeContext,
+                        logContext = ProxyLogContextCodec.toNative(logContext) ?: payload.logContext,
                     ),
                 )
             }
@@ -171,6 +176,7 @@ internal object RipDpiProxyJsonCodec {
                         hostAutolearnStorePath = hostAutolearnStorePath ?: payload.hostAutolearn.storePath,
                         networkScopeKey = networkScopeKey ?: payload.hostAutolearn.networkScopeKey,
                         runtimeContext = runtimeContext ?: ProxyRuntimeContextCodec.toModel(payload.runtimeContext),
+                        logContext = logContext ?: ProxyLogContextCodec.toModel(payload.logContext),
                     )
                 encodeUiPreferences(preferences, strategyPreset = payload.strategyPreset)
             }
@@ -249,6 +255,15 @@ internal object RipDpiProxyJsonCodec {
     @Serializable
     private data class NativeRuntimeContext(
         val encryptedDns: NativeEncryptedDnsContext? = null,
+    )
+
+    @Serializable
+    private data class NativeLogContext(
+        val runtimeId: String? = null,
+        val mode: String? = null,
+        val policySignature: String? = null,
+        val fingerprintHash: String? = null,
+        val diagnosticsSessionId: String? = null,
     )
 
     @Serializable
@@ -378,6 +393,7 @@ internal object RipDpiProxyJsonCodec {
             val args: List<String>,
             val hostAutolearnStorePath: String? = null,
             val runtimeContext: NativeRuntimeContext? = null,
+            val logContext: NativeLogContext? = null,
         ) : NativeProxyConfig
 
         @Serializable
@@ -396,6 +412,7 @@ internal object RipDpiProxyJsonCodec {
             @EncodeDefault(EncodeDefault.Mode.NEVER)
             val nativeLogLevel: String? = null,
             val runtimeContext: NativeRuntimeContext? = null,
+            val logContext: NativeLogContext? = null,
         ) : NativeProxyConfig
     }
 
@@ -473,6 +490,32 @@ internal object RipDpiProxyJsonCodec {
                                 dnscryptPublicKey = it.dnscryptPublicKey,
                             )
                         },
+                )
+            }
+    }
+
+    private object ProxyLogContextCodec {
+        fun toModel(value: NativeLogContext?): RipDpiLogContext? =
+            normalizeLogContext(
+                value?.let {
+                    RipDpiLogContext(
+                        runtimeId = it.runtimeId,
+                        mode = it.mode,
+                        policySignature = it.policySignature,
+                        fingerprintHash = it.fingerprintHash,
+                        diagnosticsSessionId = it.diagnosticsSessionId,
+                    )
+                },
+            )
+
+        fun toNative(value: RipDpiLogContext?): NativeLogContext? =
+            normalizeLogContext(value)?.let {
+                NativeLogContext(
+                    runtimeId = it.runtimeId,
+                    mode = it.mode,
+                    policySignature = it.policySignature,
+                    fingerprintHash = it.fingerprintHash,
+                    diagnosticsSessionId = it.diagnosticsSessionId,
                 )
             }
     }
@@ -719,6 +762,7 @@ internal object RipDpiProxyJsonCodec {
                 wsTunnel = toModel(value.wsTunnel),
                 nativeLogLevel = value.nativeLogLevel,
                 runtimeContext = ProxyRuntimeContextCodec.toModel(value.runtimeContext),
+                logContext = ProxyLogContextCodec.toModel(value.logContext),
             )
     }
 }

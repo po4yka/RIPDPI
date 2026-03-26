@@ -16,6 +16,7 @@ class RipDpiProxyJsonPreferences(
     private val hostAutolearnStorePath: String? = null,
     private val networkScopeKey: String? = null,
     private val runtimeContext: RipDpiRuntimeContext? = null,
+    private val logContext: RipDpiLogContext? = null,
 ) : RipDpiProxyPreferences {
     override fun toNativeConfigJson(): String =
         RipDpiProxyJsonCodec.rewriteJson(
@@ -23,6 +24,7 @@ class RipDpiProxyJsonPreferences(
             hostAutolearnStorePath = hostAutolearnStorePath,
             networkScopeKey = networkScopeKey,
             runtimeContext = runtimeContext,
+            logContext = logContext,
         )
 }
 
@@ -30,6 +32,7 @@ class RipDpiProxyCmdPreferences(
     val args: Array<String>,
     private val hostAutolearnStorePath: String? = null,
     val runtimeContext: RipDpiRuntimeContext? = null,
+    val logContext: RipDpiLogContext? = null,
 ) : RipDpiProxyPreferences {
     constructor(cmd: String) : this(cmdToArgs(cmd))
 
@@ -37,7 +40,8 @@ class RipDpiProxyCmdPreferences(
         cmd: String,
         hostAutolearnStorePath: String?,
         runtimeContext: RipDpiRuntimeContext?,
-    ) : this(cmdToArgs(cmd), hostAutolearnStorePath, runtimeContext)
+        logContext: RipDpiLogContext? = null,
+    ) : this(cmdToArgs(cmd), hostAutolearnStorePath, runtimeContext, logContext)
 
     companion object {
         private fun cmdToArgs(cmd: String): Array<String> {
@@ -52,5 +56,6 @@ class RipDpiProxyCmdPreferences(
             args = args.toList(),
             hostAutolearnStorePath = hostAutolearnStorePath,
             runtimeContext = runtimeContext,
+            logContext = logContext,
         )
 }

@@ -53,7 +53,7 @@ impl TunnelSessionHarness {
             runtime: Arc::new(tokio::runtime::Builder::new_current_thread().build().expect("test runtime")),
             config: Arc::new(config_from_payload(sample_payload()).expect("config")),
             last_error: Arc::new(Mutex::new(None)),
-            telemetry: Arc::new(TunnelTelemetryState::new()),
+            telemetry: Arc::new(TunnelTelemetryState::new(None)),
             state: Mutex::new(TunnelSessionState::Ready),
         }) as jni::sys::jlong;
         self.active_handle = Some(handle);

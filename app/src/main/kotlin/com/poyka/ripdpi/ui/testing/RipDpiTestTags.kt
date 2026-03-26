@@ -7,6 +7,8 @@ import androidx.compose.ui.semantics.testTagsAsResourceId
 import com.poyka.ripdpi.activities.DiagnosticsApproachMode
 import com.poyka.ripdpi.activities.DiagnosticsSection
 import com.poyka.ripdpi.activities.HistorySection
+import com.poyka.ripdpi.activities.LogSeverity
+import com.poyka.ripdpi.activities.LogSubsystem
 import com.poyka.ripdpi.activities.LogType
 import com.poyka.ripdpi.permissions.PermissionKind
 import com.poyka.ripdpi.ui.navigation.Route
@@ -211,6 +213,8 @@ internal object RipDpiTestTags {
         { severity -> "diagnostics-event-severity-${sanitize(severity)}" }
 
     val logsFilter: (LogType) -> String = { type -> "logs-filter-${sanitize(type.name)}" }
+    val logsSubsystemFilter: (LogSubsystem) -> String = { type -> "logs-subsystem-${sanitize(type.name)}" }
+    val logsSeverityFilter: (LogSeverity) -> String = { severity -> "logs-severity-${sanitize(severity.name)}" }
 
     val historySection: (HistorySection) -> String = { section -> "history-section-${sanitize(section.name)}" }
 

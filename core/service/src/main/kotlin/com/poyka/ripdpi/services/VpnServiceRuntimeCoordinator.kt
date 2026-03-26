@@ -108,10 +108,15 @@ internal class VpnServiceRuntimeCoordinator(
         session: VpnRuntimeSession,
         resolution: ConnectionPolicyResolution,
     ) {
-        proxyRuntimeSupervisor.start(resolution.proxyPreferences, ::handleProxyExit)
+        val logContext = session.buildLogContext(session.currentActiveConnectionPolicy)
+        proxyRuntimeSupervisor.start(
+            resolution.proxyPreferences.withLogContext(logContext),
+            ::handleProxyExit,
+        )
         vpnTunnelRuntime.start(
             activeDns = resolution.activeDns,
             overrideReason = resolution.resolverFallbackReason,
+            logContext = logContext,
         )
         updateRuntimeDnsState(session, resolution)
     }
@@ -170,6 +175,7 @@ internal class VpnServiceRuntimeCoordinator(
             vpnTunnelRuntime.start(
                 activeDns = latestResolution.activeDns,
                 overrideReason = latestResolution.resolverFallbackReason,
+                logContext = refreshSession.buildLogContext(refreshSession.currentActiveConnectionPolicy),
             )
             updateRuntimeDnsState(refreshSession, latestResolution)
         }
@@ -254,10 +260,15 @@ internal class VpnServiceRuntimeCoordinator(
             restartReason = "network_handover",
             appliedAt = appliedAt,
         )
-        proxyRuntimeSupervisor.start(resolution.proxyPreferences, ::handleProxyExit)
+        val logContext = session.buildLogContext(session.currentActiveConnectionPolicy)
+        proxyRuntimeSupervisor.start(
+            resolution.proxyPreferences.withLogContext(logContext),
+            ::handleProxyExit,
+        )
         vpnTunnelRuntime.start(
             activeDns = resolution.activeDns,
             overrideReason = resolution.resolverFallbackReason,
+            logContext = logContext,
         )
         updateRuntimeDnsState(session, resolution)
     }

@@ -213,4 +213,5 @@ data class Tun2SocksConfig(
     val udpReadWriteTimeoutMs: Int? = null,
     val logLevel: String = "warn",
     val limitNofile: Int? = null,
+    val logContext: RipDpiLogContext? = null,
 )

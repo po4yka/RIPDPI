@@ -29,7 +29,17 @@ fn default_log_level() -> String {
     "warn".to_string()
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct TunnelLogContext {
+    pub(crate) runtime_id: Option<String>,
+    pub(crate) mode: Option<String>,
+    pub(crate) policy_signature: Option<String>,
+    pub(crate) fingerprint_hash: Option<String>,
+    pub(crate) diagnostics_session_id: Option<String>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct TunnelConfigPayload {
     #[serde(default = "default_tunnel_name")]
@@ -86,6 +96,8 @@ pub(crate) struct TunnelConfigPayload {
     pub(crate) limit_nofile: Option<u32>,
     #[serde(default)]
     pub(crate) filter_injected_resets: Option<bool>,
+    #[serde(default)]
+    pub(crate) log_context: Option<TunnelLogContext>,
 }
 
 trait BlankCheck {
@@ -95,6 +107,29 @@ trait BlankCheck {
 impl BlankCheck for String {
     fn is_blank(&self) -> bool {
         self.trim().is_empty()
+    }
+}
+
+fn trim_non_empty(value: Option<String>) -> Option<String> {
+    value.map(|entry| entry.trim().to_string()).filter(|entry| !entry.is_empty())
+}
+
+pub(crate) fn sanitize_log_context(log_context: Option<TunnelLogContext>) -> Option<TunnelLogContext> {
+    let mut log_context = log_context?;
+    log_context.runtime_id = trim_non_empty(log_context.runtime_id);
+    log_context.mode = trim_non_empty(log_context.mode).map(|value| value.to_ascii_lowercase());
+    log_context.policy_signature = trim_non_empty(log_context.policy_signature);
+    log_context.fingerprint_hash = trim_non_empty(log_context.fingerprint_hash);
+    log_context.diagnostics_session_id = trim_non_empty(log_context.diagnostics_session_id);
+    if log_context.runtime_id.is_none()
+        && log_context.mode.is_none()
+        && log_context.policy_signature.is_none()
+        && log_context.fingerprint_hash.is_none()
+        && log_context.diagnostics_session_id.is_none()
+    {
+        None
+    } else {
+        Some(log_context)
     }
 }
 
@@ -294,6 +329,7 @@ pub(crate) fn sample_payload() -> TunnelConfigPayload {
         log_level: "warn".to_string(),
         limit_nofile: None,
         filter_injected_resets: None,
+        log_context: None,
     }
 }
 

@@ -33,6 +33,8 @@ pub enum ProxyConfigPayload {
         host_autolearn_store_path: Option<String>,
         #[serde(default)]
         runtime_context: Option<ProxyRuntimeContext>,
+        #[serde(default)]
+        log_context: Option<ProxyLogContext>,
     },
     Ui {
         #[serde(default)]
@@ -41,6 +43,8 @@ pub enum ProxyConfigPayload {
         config: ProxyUiConfig,
         #[serde(default)]
         runtime_context: Option<ProxyRuntimeContext>,
+        #[serde(default)]
+        log_context: Option<ProxyLogContext>,
     },
 }
 
@@ -49,6 +53,21 @@ pub enum ProxyConfigPayload {
 pub struct ProxyRuntimeContext {
     #[serde(default)]
     pub encrypted_dns: Option<ProxyEncryptedDnsContext>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct ProxyLogContext {
+    #[serde(default)]
+    pub runtime_id: Option<String>,
+    #[serde(default)]
+    pub mode: Option<String>,
+    #[serde(default)]
+    pub policy_signature: Option<String>,
+    #[serde(default)]
+    pub fingerprint_hash: Option<String>,
+    #[serde(default)]
+    pub diagnostics_session_id: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -75,6 +94,7 @@ pub struct ProxyEncryptedDnsContext {
 pub struct RuntimeConfigEnvelope {
     pub config: RuntimeConfig,
     pub runtime_context: Option<ProxyRuntimeContext>,
+    pub log_context: Option<ProxyLogContext>,
     pub native_log_level: Option<String>,
 }
 

@@ -58,4 +58,10 @@ class RipDpiNavHostLogicTest {
         assertTrue(Route.all.contains(Route.History))
         assertFalse(Route.topLevel.contains(Route.History))
     }
+
+    @Test
+    fun `logs route stays off the bottom navigation`() {
+        assertTrue(Route.all.contains(Route.Logs))
+        assertFalse(Route.topLevel.contains(Route.Logs))
+    }
 }

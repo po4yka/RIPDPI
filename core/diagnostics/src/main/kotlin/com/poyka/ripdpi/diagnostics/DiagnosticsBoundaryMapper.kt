@@ -130,6 +130,11 @@ class DiagnosticsBoundaryMapper
                 level = entity.level,
                 message = entity.message,
                 createdAt = entity.createdAt,
+                runtimeId = entity.runtimeId,
+                mode = entity.mode,
+                policySignature = entity.policySignature,
+                fingerprintHash = entity.fingerprintHash,
+                subsystem = entity.subsystem,
             )
 
         fun toDiagnosticExportRecord(entity: ExportRecordEntity): DiagnosticExportRecord =

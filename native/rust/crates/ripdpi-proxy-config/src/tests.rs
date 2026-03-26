@@ -34,7 +34,7 @@ fn udp_step(kind: &str, count: i32) -> ProxyUiUdpChainStep {
 }
 
 fn ui_payload(config: ProxyUiConfig) -> ProxyConfigPayload {
-    ProxyConfigPayload::Ui { strategy_preset: None, config, runtime_context: None }
+    ProxyConfigPayload::Ui { strategy_preset: None, config, runtime_context: None, log_context: None }
 }
 
 #[test]
@@ -175,6 +175,7 @@ fn command_line_payload_requires_runnable_config() {
         args: vec!["ripdpi".to_string(), "--help".to_string()],
         host_autolearn_store_path: None,
         runtime_context: None,
+        log_context: None,
     })
     .expect_err("help should not produce runnable config");
 
@@ -314,6 +315,7 @@ fn preset_field_in_ui_config_round_trips_json() {
         strategy_preset: Some("ripdpi_default".to_string()),
         config: cfg,
         runtime_context: None,
+        log_context: None,
     };
     let json = serde_json::to_string(&payload).unwrap();
     let decoded: ProxyConfigPayload = serde_json::from_str(&json).unwrap();

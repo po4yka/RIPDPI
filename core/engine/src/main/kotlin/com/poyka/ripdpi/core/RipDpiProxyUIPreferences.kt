@@ -175,6 +175,7 @@ class RipDpiProxyUIPreferences(
     wsTunnel: RipDpiWsTunnelConfig = RipDpiWsTunnelConfig(),
     nativeLogLevel: String? = null,
     runtimeContext: RipDpiRuntimeContext? = null,
+    logContext: RipDpiLogContext? = null,
 ) : RipDpiProxyPreferences {
     val listen: RipDpiListenConfig = normalizeListenConfig(listen)
     val protocols: RipDpiProtocolConfig = protocols
@@ -187,6 +188,7 @@ class RipDpiProxyUIPreferences(
     val wsTunnel: RipDpiWsTunnelConfig = wsTunnel
     val nativeLogLevel: String? = nativeLogLevel?.trim()?.takeIf { it.isNotEmpty() }
     val runtimeContext: RipDpiRuntimeContext? = normalizeRuntimeContext(runtimeContext)
+    val logContext: RipDpiLogContext? = normalizeLogContext(logContext)
     val chainSummary: String = formatChainSummary(this.chains.tcpSteps, this.chains.udpSteps)
 
     override fun toNativeConfigJson(): String = RipDpiProxyJsonCodec.encodeUiPreferences(this)
@@ -195,6 +197,7 @@ class RipDpiProxyUIPreferences(
         hostAutolearnStorePath: String? = hostAutolearn.storePath,
         networkScopeKey: String? = hostAutolearn.networkScopeKey,
         runtimeContext: RipDpiRuntimeContext? = this.runtimeContext,
+        logContext: RipDpiLogContext? = this.logContext,
     ): RipDpiProxyUIPreferences =
         RipDpiProxyUIPreferences(
             listen = listen,
@@ -212,6 +215,7 @@ class RipDpiProxyUIPreferences(
             wsTunnel = wsTunnel,
             nativeLogLevel = nativeLogLevel,
             runtimeContext = runtimeContext ?: this.runtimeContext,
+            logContext = logContext ?: this.logContext,
         )
 
     companion object {
@@ -220,6 +224,7 @@ class RipDpiProxyUIPreferences(
             hostAutolearnStorePath: String? = null,
             networkScopeKey: String? = null,
             runtimeContext: RipDpiRuntimeContext? = null,
+            logContext: RipDpiLogContext? = null,
         ): RipDpiProxyUIPreferences =
             RipDpiProxyUIPreferences(
                 listen = buildListenConfig(settings),
@@ -232,6 +237,7 @@ class RipDpiProxyUIPreferences(
                 hostAutolearn = buildHostAutolearnConfig(settings, hostAutolearnStorePath, networkScopeKey),
                 wsTunnel = buildWsTunnelConfig(settings),
                 runtimeContext = runtimeContext,
+                logContext = logContext,
             )
 
         private fun buildListenConfig(settings: AppSettings): RipDpiListenConfig =

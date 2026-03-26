@@ -1,4 +1,5 @@
 package com.poyka.ripdpi.diagnostics
+
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.ApplicationIoScope
 import com.poyka.ripdpi.data.NetworkFingerprintProvider
@@ -15,6 +16,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
+import logcat.LogPriority
+import logcat.asLog
+import logcat.logcat
 import java.util.concurrent.atomic.AtomicBoolean
 import javax.inject.Inject
 import javax.inject.Named
@@ -57,7 +61,7 @@ class DefaultDiagnosticsBootstrapper
         }
 
         private fun logRuntimeHistoryBootstrapFailure(error: Throwable) {
-            System.err.println("Runtime history bootstrap skipped: ${error.message}")
+            logcat(LogPriority.WARN) { "Runtime history bootstrap skipped\n${error.asLog()}" }
         }
     }
 

@@ -25,23 +25,38 @@ class LogsViewModelTest {
     }
 
     @Test
-    fun `filteredLogs keeps only selected types`() {
-        val dnsEntry = sampleLogEntry(id = 1, type = LogType.DNS)
-        val errorEntry = sampleLogEntry(id = 2, type = LogType.ERR)
+    fun `filteredLogs keeps only selected subsystem and severity`() {
+        val proxyEntry = sampleLogEntry(id = "1", subsystem = LogSubsystem.Proxy, severity = LogSeverity.Info)
+        val errorEntry = sampleLogEntry(id = "2", subsystem = LogSubsystem.Service, severity = LogSeverity.Error)
 
         val uiState =
             LogsUiState(
-                logs = listOf(dnsEntry, errorEntry),
-                activeFilters = setOf(LogType.ERR),
+                logs = listOf(proxyEntry, errorEntry),
+                activeSubsystems = setOf(LogSubsystem.Service),
+                activeSeverities = setOf(LogSeverity.Error),
             )
 
         assertEquals(listOf(errorEntry), uiState.filteredLogs)
     }
 
     @Test
+    fun `filteredLogs can restrict to active session only`() {
+        val inactive = sampleLogEntry(id = "1", isActiveSession = false)
+        val active = sampleLogEntry(id = "2", isActiveSession = true)
+
+        val uiState =
+            LogsUiState(
+                logs = listOf(inactive, active),
+                showActiveSessionOnly = true,
+            )
+
+        assertEquals(listOf(active), uiState.filteredLogs)
+    }
+
+    @Test
     fun `latestLog returns newest entry in buffer`() {
-        val firstEntry = sampleLogEntry(id = 1, type = LogType.CONN)
-        val latestEntry = sampleLogEntry(id = 2, type = LogType.WARN)
+        val firstEntry = sampleLogEntry(id = "1", createdAtMs = 1)
+        val latestEntry = sampleLogEntry(id = "2", createdAtMs = 2)
 
         val uiState = LogsUiState(logs = listOf(firstEntry, latestEntry))
 
@@ -50,13 +65,20 @@ class LogsViewModelTest {
 }
 
 private fun sampleLogEntry(
-    id: Long,
-    type: LogType,
+    id: String,
+    createdAtMs: Long = id.toLong(),
+    subsystem: LogSubsystem = LogSubsystem.Diagnostics,
+    severity: LogSeverity = LogSeverity.Info,
     message: String = "entry-$id",
+    isActiveSession: Boolean = true,
 ): LogEntry =
     LogEntry(
         id = id,
-        timestamp = "12:00:0$id",
-        type = type,
+        createdAtMs = createdAtMs,
+        timestamp = "12:00:${id.takeLast(2)}",
+        subsystem = subsystem,
+        severity = severity,
         message = message,
+        source = "test",
+        isActiveSession = isActiveSession,
     )

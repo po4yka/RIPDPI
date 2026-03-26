@@ -87,6 +87,11 @@ class RuntimeArtifactPersister
                             level = event.level,
                             message = event.message,
                             createdAt = event.createdAt,
+                            runtimeId = event.runtimeId,
+                            mode = event.mode,
+                            policySignature = event.policySignature,
+                            fingerprintHash = event.fingerprintHash,
+                            subsystem = event.subsystem,
                         ),
                     )
                 }
@@ -122,6 +127,8 @@ class RuntimeArtifactPersister
                     level = "error",
                     message = failureMessage,
                     createdAt = createdAt,
+                    mode = telemetry.mode?.name?.lowercase(Locale.US),
+                    subsystem = "service",
                 ),
             )
         }
