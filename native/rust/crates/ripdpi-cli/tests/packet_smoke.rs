@@ -246,9 +246,7 @@ fn run_capture_scenario<Args, Filter, Drive, Assert>(
 
     let drive_result = catch_unwind(AssertUnwindSafe(|| drive(listen_port, &fixture)));
 
-    // Allow tcpdump to drain its kernel ring buffer before SIGINT.
-    // On Linux TPACKET_V3, packets are delivered in batches; without
-    // this delay, SIGINT can arrive before the batch is flushed.
+    // Give tcpdump time to flush captured packets to disk before SIGINT.
     thread::sleep(Duration::from_millis(200));
 
     let capture_stop_result = stop_capture(&mut capture);
@@ -375,6 +373,7 @@ fn start_capture(filter: &str, capture_path: &Path) -> io::Result<Child> {
         .args([
             "-i",
             &capture_interface(),
+            "--immediate-mode",
             "-U",
             "-n",
             "-s",
@@ -387,7 +386,10 @@ fn start_capture(filter: &str, capture_path: &Path) -> io::Result<Child> {
         .stderr(Stdio::null())
         .spawn()?;
 
-    thread::sleep(Duration::from_millis(300));
+    // --immediate-mode disables TPACKET_V3 ring-buffer batching so the kernel
+    // delivers packets to userspace as they arrive.  The sleep gives tcpdump
+    // time to open the socket and attach the BPF filter before traffic starts.
+    thread::sleep(Duration::from_millis(500));
     if let Some(status) = child.try_wait()? {
         return Err(io::Error::other(format!(
             "tcpdump exited before capture traffic began; status={status}"
