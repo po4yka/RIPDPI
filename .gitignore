@@ -28,6 +28,10 @@ captures/
 .cxx/
 target/
 
+# Generated documentation artifacts
+docs/manual-assets/
+docs/*.pdf
+
 # Repo-local automation artifacts
 .ralph/
 ralph.yml
