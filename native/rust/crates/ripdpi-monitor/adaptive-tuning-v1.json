@@ -1,0 +1,54 @@
+{
+  "version": 1,
+  "fingerprint": "79a7cda9ec19b676821b9bbca3261ff697c928f93ab5ab77e337b72e3b1afc9f",
+  "scopes": {
+    "default": {
+      "entries": [
+        {
+          "groupIndex": 0,
+          "flowKind": "tcp_other",
+          "target": {
+            "address": "127.0.0.1:50179"
+          },
+          "state": {
+            "splitOffsetBase": null,
+            "tlsRecordOffsetBase": null,
+            "tlsrandrecProfile": null,
+            "udpBurstProfile": null,
+            "quicFakeProfile": null,
+            "dimensionOrder": [
+              2,
+              3,
+              0,
+              1,
+              4
+            ],
+            "dimensionCursor": 0
+          }
+        },
+        {
+          "groupIndex": 1,
+          "flowKind": "tcp_other",
+          "target": {
+            "address": "127.0.0.1:50179"
+          },
+          "state": {
+            "splitOffsetBase": null,
+            "tlsRecordOffsetBase": null,
+            "tlsrandrecProfile": null,
+            "udpBurstProfile": null,
+            "quicFakeProfile": null,
+            "dimensionOrder": [
+              4,
+              2,
+              3,
+              0,
+              1
+            ],
+            "dimensionCursor": 0
+          }
+        }
+      ]
+    }
+  }
+}

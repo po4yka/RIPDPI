@@ -31,7 +31,9 @@ pub fn plan_udp(group: &DesyncGroup, payload: &[u8], default_ttl: u8, context: A
                     vec![fake; burst_count]
                 }
                 UdpChainStepKind::DummyPrepend => build_dummy_prepend_packets(step.count as usize),
-                UdpChainStepKind::QuicSniSplit => build_quic_sni_split_packets(payload, parsed_quic.as_ref(), step.count),
+                UdpChainStepKind::QuicSniSplit => {
+                    build_quic_sni_split_packets(payload, parsed_quic.as_ref(), step.count)
+                }
                 UdpChainStepKind::QuicFakeVersion => {
                     build_quic_fake_version_packets(group, payload, parsed_quic.as_ref(), step.count)
                 }
