@@ -36,3 +36,4 @@ PROMPT.md
 /specs/
 .worktrees/
 .claude/worktrees/
+security-audit-report.*
