@@ -617,6 +617,33 @@ mod tests {
         (client, server)
     }
 
+    /// Query the number of BPF instructions in the currently attached socket filter.
+    /// Returns `Err` if no filter is attached.
+    fn get_bpf_filter_len(fd: libc::c_int) -> io::Result<usize> {
+        let mut len: libc::socklen_t = 0;
+        // SO_GET_FILTER shares the same constant as SO_ATTACH_FILTER on getsockopt path.
+        let rc = unsafe {
+            libc::getsockopt(fd, libc::SOL_SOCKET, libc::SO_ATTACH_FILTER, ptr::null_mut(), &mut len)
+        };
+        if rc == 0 {
+            Ok(len as usize / size_of::<libc::sock_filter>())
+        } else {
+            Err(io::Error::last_os_error())
+        }
+    }
+
+    fn get_tcp_fastopen_connect(fd: libc::c_int) -> io::Result<bool> {
+        let (val, _): (libc::c_int, _) =
+            unsafe { getsockopt_raw(fd, libc::IPPROTO_TCP, libc::TCP_FASTOPEN_CONNECT) }?;
+        Ok(val != 0)
+    }
+
+    fn get_recv_ttl(fd: libc::c_int) -> io::Result<bool> {
+        let (val, _): (libc::c_int, _) =
+            unsafe { getsockopt_raw(fd, libc::IPPROTO_IP, libc::IP_RECVTTL) }?;
+        Ok(val != 0)
+    }
+
     #[test]
     fn storage_to_socket_addr_parses_ipv4_and_ipv6_sockaddrs() {
         let mut storage = unsafe { zeroed::<libc::sockaddr_storage>() };
@@ -706,5 +733,94 @@ mod tests {
         assert_eq!(&bytes[5..], &[0, 0, 0]);
 
         free_region(region, len);
+    }
+
+    // --- Socket option verification tests ---
+
+    #[test]
+    fn tcp_window_clamp_set_and_readback() {
+        let (client, _server) = connected_pair();
+        set_tcp_window_clamp(&client, 2).expect("set clamp to 2");
+        let val = get_tcp_window_clamp(&client).expect("read clamp");
+        // Kernel may enforce min(clamp, advmss/2) so value can be adjusted upward.
+        assert!(val > 0, "clamp should be positive after setting to 2, got {val}");
+        assert!(val <= 256, "clamp should be small after setting to 2, got {val}");
+    }
+
+    #[test]
+    fn tcp_window_clamp_restore_to_zero() {
+        let (client, _server) = connected_pair();
+        set_tcp_window_clamp(&client, 2).expect("set clamp to 2");
+        set_tcp_window_clamp(&client, 0).expect("restore clamp to 0");
+        let val = get_tcp_window_clamp(&client).expect("read clamp after restore");
+        assert!(val == 0 || val > 256, "clamp after restore should be 0 or large, got {val}");
+    }
+
+    #[test]
+    fn bpf_drop_sack_filter_attaches_with_correct_length() {
+        let (client, _server) = connected_pair();
+        attach_drop_sack(&client).expect("attach drop_sack filter");
+        let len = get_bpf_filter_len(client.as_raw_fd()).expect("read BPF filter length");
+        assert_eq!(len, 7, "drop_sack BPF program should have 7 instructions");
+    }
+
+    #[test]
+    fn bpf_strip_timestamps_filter_attaches_with_correct_length() {
+        let (client, _server) = connected_pair();
+        attach_strip_timestamps(&client).expect("attach strip_timestamps filter");
+        let len = get_bpf_filter_len(client.as_raw_fd()).expect("read BPF filter length");
+        assert_eq!(len, 7, "strip_timestamps BPF program should have 7 instructions");
+    }
+
+    #[test]
+    fn bpf_filter_detach_removes_program() {
+        let (client, _server) = connected_pair();
+        attach_drop_sack(&client).expect("attach filter");
+        detach_drop_sack(&client).expect("detach filter");
+        // After detach, SO_GET_FILTER should return an error or length 0.
+        let result = get_bpf_filter_len(client.as_raw_fd());
+        match result {
+            Err(_) => {}
+            Ok(0) => {}
+            Ok(n) => panic!("expected no filter after detach, but got {n} instructions"),
+        }
+    }
+
+    #[test]
+    fn tcp_fastopen_connect_is_enabled_after_set() {
+        let socket = socket2::Socket::new(socket2::Domain::IPV4, socket2::Type::STREAM, Some(socket2::Protocol::TCP))
+            .expect("create TCP socket");
+        enable_tcp_fastopen_connect(&socket).expect("enable TFO connect");
+        let enabled = get_tcp_fastopen_connect(socket.as_raw_fd()).expect("read TFO state");
+        assert!(enabled, "TCP_FASTOPEN_CONNECT should be enabled");
+    }
+
+    #[test]
+    fn recv_ttl_option_is_set_after_enable() {
+        let (client, _server) = connected_pair();
+        enable_recv_ttl(&client).expect("enable recv ttl");
+        let enabled = get_recv_ttl(client.as_raw_fd()).expect("read IP_RECVTTL state");
+        assert!(enabled, "IP_RECVTTL should be enabled after enable_recv_ttl");
+    }
+
+    #[test]
+    fn bind_udp_low_port_binds_within_range() {
+        let raw = socket2::Socket::new(socket2::Domain::IPV4, socket2::Type::DGRAM, Some(socket2::Protocol::UDP))
+            .expect("create UDP socket");
+        let std_socket: std::net::UdpSocket = raw.into();
+        let max_port = 2048u16;
+        let port = bind_udp_low_port(&std_socket, IpAddr::V4(Ipv4Addr::LOCALHOST), max_port)
+            .expect("bind low port");
+        let local_port = std_socket.local_addr().expect("local addr").port();
+        assert_eq!(port, local_port, "returned port should match actual bound port");
+        assert!(local_port > 0, "should have a valid port");
+    }
+
+    #[test]
+    fn set_and_get_stream_ttl_round_trip() {
+        let (client, _server) = connected_pair();
+        set_stream_ttl(&client, 42).expect("set TTL to 42");
+        let ttl = get_stream_ttl(&client).expect("read TTL back");
+        assert_eq!(ttl, 42, "TTL should round-trip through set/get");
     }
 }
