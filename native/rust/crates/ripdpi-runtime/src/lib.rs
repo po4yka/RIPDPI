@@ -12,14 +12,14 @@ use crate::sync::{Arc, AtomicBool, Ordering};
 use ripdpi_failure_classifier::ClassifiedFailure;
 use ripdpi_proxy_config::{NetworkSnapshot, ProxyRuntimeContext};
 
-pub mod adaptive_fake_ttl;
-pub mod adaptive_tuning;
+pub(crate) mod adaptive_fake_ttl;
+pub(crate) mod adaptive_tuning;
 pub mod platform;
 pub mod process;
-pub mod retry_stealth;
+pub(crate) mod retry_stealth;
 pub mod runtime;
 pub mod runtime_policy;
-pub mod strategy_evolver;
+pub(crate) mod strategy_evolver;
 pub mod ws_bootstrap;
 
 pub trait RuntimeTelemetrySink: Send + Sync {

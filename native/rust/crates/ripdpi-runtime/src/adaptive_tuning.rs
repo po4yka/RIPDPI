@@ -892,4 +892,106 @@ mod tests {
         let after_fail = resolver.resolve_tcp_hints(None, 0, target, Some("pin.test"), &group, payload);
         assert_ne!(after_fail.split_offset_base, first.split_offset_base);
     }
+
+    // --- Tests requested for full coverage ---
+
+    #[test]
+    fn resolver_returns_default_hints_for_fresh_key() {
+        let payload = &[0x16, 0x03, 0x01, 0x00, 0x05, 0x01, 0x00, 0x01, 0x00, 0x00];
+        let mut group = DesyncGroup::new(0);
+        group.actions.tcp_chain =
+            vec![TcpChainStep::new(TcpChainStepKind::Split, OffsetExpr::adaptive(OffsetBase::AutoBalanced))];
+
+        let mut resolver = AdaptivePlannerResolver::default();
+        let hints = resolver.resolve_tcp_hints(None, 0, addr(443), Some("fresh.test"), &group, payload);
+
+        // A fresh key should return index-0 candidates. For AutoBalanced on a
+        // TLS payload, index 0 is ExtLen.
+        assert_eq!(hints.split_offset_base, Some(OffsetBase::ExtLen));
+        // No UDP-related hints on a TCP resolve.
+        assert_eq!(hints.udp_burst_profile, None);
+        assert_eq!(hints.quic_fake_profile, None);
+    }
+
+    #[test]
+    fn note_success_pins_current_candidate() {
+        let payload = b"GET / HTTP/1.1\r\nHost: pin-check.test\r\n\r\n";
+        let group = tcp_group_with_adaptive_split();
+        let target = addr(80);
+
+        let mut resolver = AdaptivePlannerResolver::default();
+        let first = resolver.resolve_tcp_hints(None, 0, target, Some("pin-check.test"), &group, payload);
+        assert_eq!(first.split_offset_base, Some(OffsetBase::Host));
+
+        resolver.note_tcp_success(None, 0, target, Some("pin-check.test"), payload);
+
+        // Subsequent resolves must return the same pinned value.
+        let second = resolver.resolve_tcp_hints(None, 0, target, Some("pin-check.test"), &group, payload);
+        assert_eq!(second.split_offset_base, first.split_offset_base);
+
+        let third = resolver.resolve_tcp_hints(None, 0, target, Some("pin-check.test"), &group, payload);
+        assert_eq!(third.split_offset_base, first.split_offset_base);
+    }
+
+    #[test]
+    fn note_failure_advances_to_next_candidate() {
+        let payload = b"GET / HTTP/1.1\r\nHost: advance.test\r\n\r\n";
+        let group = tcp_group_with_adaptive_split();
+        let target = addr(80);
+
+        let mut resolver = AdaptivePlannerResolver::default();
+        let first = resolver.resolve_tcp_hints(None, 0, target, Some("advance.test"), &group, payload);
+        assert_eq!(first.split_offset_base, Some(OffsetBase::Host));
+
+        resolver.note_tcp_failure(None, 0, target, Some("advance.test"), payload);
+        let second = resolver.resolve_tcp_hints(None, 0, target, Some("advance.test"), &group, payload);
+
+        // At least one dimension must have changed after failure.
+        assert_ne!(
+            first.split_offset_base, second.split_offset_base,
+            "split_offset_base should differ after failure"
+        );
+    }
+
+    #[test]
+    fn choice_state_new_starts_at_index_zero() {
+        let cs = ChoiceState::new(vec![100u32, 200, 300]);
+        assert_eq!(cs.candidate_index, 0);
+        assert_eq!(cs.pinned, None);
+        assert_eq!(cs.current(), Some(100));
+    }
+
+    #[test]
+    fn choice_state_pin_preserves_current_value() {
+        let mut cs = ChoiceState::new(vec![5u32, 10, 15]);
+        // Advance to index 1 via failure.
+        cs.note_failure(1000);
+        assert_eq!(cs.current(), Some(10));
+
+        cs.note_success();
+        assert_eq!(cs.pinned, Some(10));
+        assert_eq!(cs.current(), Some(10));
+
+        // Manually move candidate_index -- pinned value should still win.
+        cs.candidate_index = 2;
+        assert_eq!(cs.current(), Some(10));
+    }
+
+    #[test]
+    fn choice_state_advance_wraps_around() {
+        let mut cs = ChoiceState::new(vec![1u32, 2, 3]);
+        assert_eq!(cs.candidate_index, 0);
+
+        // Advance through all candidates using well-spaced timestamps to avoid
+        // cooldown interference.
+        cs.note_failure(0);
+        assert_eq!(cs.candidate_index, 1);
+
+        cs.note_failure(ADAPTIVE_RETRY_WINDOW_MS + 1);
+        assert_eq!(cs.candidate_index, 2);
+
+        cs.note_failure(2 * ADAPTIVE_RETRY_WINDOW_MS + 2);
+        assert_eq!(cs.candidate_index, 0, "should wrap around to index 0");
+        assert_eq!(cs.current(), Some(1));
+    }
 }
