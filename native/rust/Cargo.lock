@@ -2521,6 +2521,7 @@ dependencies = [
 name = "ripdpi-proxy-config"
 version = "0.1.0"
 dependencies = [
+ "golden-test-support",
  "proptest",
  "ripdpi-config",
  "ripdpi-packets",

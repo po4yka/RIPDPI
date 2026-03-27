@@ -1,0 +1,11 @@
+[
+  "completedSteps",
+  "isFinished",
+  "latestProbeOutcome",
+  "latestProbeTarget",
+  "message",
+  "phase",
+  "schemaVersion",
+  "sessionId",
+  "totalSteps"
+]

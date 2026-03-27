@@ -775,4 +775,72 @@ mod tests {
         let _ = config_from_payload(sample_payload()).expect("config");
         assert!(start.elapsed() < Duration::from_millis(50), "tunnel config startup path regressed");
     }
+
+    #[test]
+    fn tunnel_config_field_manifest_matches_contract_fixture() {
+        use golden_test_support::{assert_contract_fixture, extract_field_paths};
+
+        // Construct a fully-populated JSON payload (the way Kotlin sends it).
+        // Use a raw string to avoid json!() macro recursion limit.
+        let payload_json = r#"{
+            "tunnelName": "tun0",
+            "tunnelMtu": 1500,
+            "multiQueue": false,
+            "tunnelIpv4": "10.0.0.2",
+            "tunnelIpv6": "fd00::2",
+            "socks5Address": "127.0.0.1",
+            "socks5Port": 1080,
+            "socks5Udp": "udp-relay",
+            "socks5UdpAddress": "127.0.0.2",
+            "socks5Pipeline": true,
+            "username": "user",
+            "password": "secret",
+            "mapdnsAddress": "10.0.0.53",
+            "mapdnsPort": 5353,
+            "mapdnsNetwork": "10.0.0.0",
+            "mapdnsNetmask": "255.255.255.0",
+            "mapdnsCacheSize": 4096,
+            "encryptedDnsResolverId": "cloudflare",
+            "encryptedDnsProtocol": "doh",
+            "encryptedDnsHost": "cloudflare-dns.com",
+            "encryptedDnsPort": 443,
+            "encryptedDnsTlsServerName": "cloudflare-dns.com",
+            "encryptedDnsDohUrl": "https://cloudflare-dns.com/dns-query",
+            "encryptedDnsDnscryptProviderName": "provider",
+            "encryptedDnsDnscryptPublicKey": "key",
+            "dohResolverId": "legacy-cf",
+            "dohUrl": "https://legacy.example.com/dns-query",
+            "dohBootstrapIps": ["1.1.1.1"],
+            "encryptedDnsBootstrapIps": ["1.0.0.1"],
+            "dnsQueryTimeoutMs": 4000,
+            "resolverFallbackActive": true,
+            "resolverFallbackReason": "timeout",
+            "taskStackSize": 81920,
+            "tcpBufferSize": 32768,
+            "udpRecvBufferSize": 16384,
+            "udpCopyBufferNums": 8,
+            "maxSessionCount": 2048,
+            "connectTimeoutMs": 3000,
+            "tcpReadWriteTimeoutMs": 6000,
+            "udpReadWriteTimeoutMs": 7000,
+            "logLevel": "info",
+            "limitNofile": 4096,
+            "filterInjectedResets": true,
+            "logContext": {
+                "runtimeId": "rt-1",
+                "mode": "auto",
+                "policySignature": "sig",
+                "fingerprintHash": "hash",
+                "diagnosticsSessionId": "diag-1"
+            }
+        }"#;
+
+        // Verify Rust can still deserialize this payload.
+        let payload: serde_json::Value = serde_json::from_str(payload_json).expect("parse JSON");
+        let _: TunnelConfigPayload = serde_json::from_value(payload.clone()).expect("deserialize tunnel config");
+
+        let paths = extract_field_paths(&payload);
+        let manifest = serde_json::to_string_pretty(&paths).expect("serialize field paths");
+        assert_contract_fixture("tunnel_config_fields.json", &manifest);
+    }
 }

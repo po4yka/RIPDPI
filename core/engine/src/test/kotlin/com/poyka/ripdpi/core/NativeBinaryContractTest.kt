@@ -2,8 +2,11 @@ package com.poyka.ripdpi.core
 
 import com.poyka.ripdpi.data.LatencyDistributions
 import com.poyka.ripdpi.data.LatencyPercentiles
+import com.poyka.ripdpi.data.NativeCellularSnapshot
+import com.poyka.ripdpi.data.NativeNetworkSnapshot
 import com.poyka.ripdpi.data.NativeRuntimeEvent
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
+import com.poyka.ripdpi.data.NativeWifiSnapshot
 import com.poyka.ripdpi.data.TunnelStats
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
@@ -151,6 +154,40 @@ class NativeBinaryContractTest {
 
         assertEquals("success code", 0, success)
         assertEquals("error semantics", "positive_errno", semantics)
+    }
+
+    // -- Network snapshot field manifest --
+
+    @Test
+    fun `kotlin network snapshot fields match contract fixture`() {
+        val rustFields = readFieldManifest("network_snapshot_fields.json")
+        val kotlinFields = extractKotlinNetworkSnapshotFields()
+        assertEquals("NativeNetworkSnapshot field mismatch", rustFields.sorted(), kotlinFields.sorted())
+    }
+
+    // -- Tunnel config field manifest --
+
+    @Test
+    fun `kotlin tunnel config fields are subset of contract fixture`() {
+        val rustFields = readFieldManifest("tunnel_config_fields.json")
+        val kotlinFields = extractKotlinTunnelConfigFields()
+        val extraInKotlin = kotlinFields - rustFields
+        assertTrue("Kotlin Tun2SocksConfig has fields Rust does not expect: $extraInKotlin", extraInKotlin.isEmpty())
+    }
+
+    // -- Tunnel exception messages --
+
+    @Test
+    fun `tunnel exception message classes from contract fixture are resolvable`() {
+        val fixture = GoldenContractSupport.readSharedFixture("tunnel_exception_messages.json")
+        val mappings = Json.decodeFromString<JsonArray>(fixture.trim())
+        for (entry in mappings) {
+            val obj = entry as JsonObject
+            val javaClass = (obj["javaClass"] as JsonPrimitive).content
+            val message = (obj["message"] as JsonPrimitive).content
+            val clazz = Class.forName(javaClass)
+            assertTrue("'$message' maps to non-Throwable $javaClass", Throwable::class.java.isAssignableFrom(clazz))
+        }
     }
 
     // -- Helpers --
@@ -301,5 +338,94 @@ class NativeBinaryContractTest {
             else -> {}
         }
         return paths
+    }
+
+    private fun extractKotlinNetworkSnapshotFields(): Set<String> {
+        val snapshot =
+            NativeNetworkSnapshot(
+                transport = "wifi",
+                validated = true,
+                captivePortal = false,
+                metered = false,
+                privateDnsMode = "system",
+                dnsServers = listOf("8.8.8.8"),
+                cellular =
+                    NativeCellularSnapshot(
+                        generation = "4g",
+                        roaming = false,
+                        operatorCode = "310260",
+                        dataNetworkType = "LTE",
+                        serviceState = "in_service",
+                        carrierId = 1,
+                        signalLevel = 3,
+                        signalDbm = -85,
+                    ),
+                wifi =
+                    NativeWifiSnapshot(
+                        frequencyBand = "5ghz",
+                        ssidHash = "abc123",
+                        frequencyMhz = 5180,
+                        rssiDbm = -55,
+                        linkSpeedMbps = 866,
+                        rxLinkSpeedMbps = 400,
+                        txLinkSpeedMbps = 866,
+                        channelWidth = "80 MHz",
+                        wifiStandard = "802.11ax",
+                    ),
+                mtu = 1500,
+                trafficTxBytes = 100000,
+                trafficRxBytes = 200000,
+                capturedAtMs = 1000,
+            )
+        return extractFieldPaths(contractJson.encodeToJsonElement(snapshot))
+    }
+
+    private fun extractKotlinTunnelConfigFields(): Set<String> {
+        val config =
+            Tun2SocksConfig(
+                socks5Port = 1080,
+                tunnelIpv4 = "10.0.0.2",
+                tunnelIpv6 = "fd00::2",
+                socks5Udp = "udp",
+                socks5UdpAddress = "127.0.0.2",
+                socks5Pipeline = true,
+                username = "user",
+                password = "secret",
+                mapdnsAddress = "10.0.0.53",
+                mapdnsPort = 5353,
+                mapdnsNetwork = "10.0.0.0",
+                mapdnsNetmask = "255.255.255.0",
+                mapdnsCacheSize = 4096,
+                encryptedDnsResolverId = "cloudflare",
+                encryptedDnsProtocol = "doh",
+                encryptedDnsHost = "cloudflare-dns.com",
+                encryptedDnsPort = 443,
+                encryptedDnsTlsServerName = "cloudflare-dns.com",
+                encryptedDnsBootstrapIps = listOf("1.0.0.1"),
+                encryptedDnsDohUrl = "https://cloudflare-dns.com/dns-query",
+                encryptedDnsDnscryptProviderName = "provider",
+                encryptedDnsDnscryptPublicKey = "key",
+                dnsQueryTimeoutMs = 4000,
+                resolverFallbackActive = true,
+                resolverFallbackReason = "timeout",
+                tcpBufferSize = 32768,
+                udpRecvBufferSize = 16384,
+                udpCopyBufferNums = 8,
+                maxSessionCount = 2048,
+                connectTimeoutMs = 3000,
+                tcpReadWriteTimeoutMs = 6000,
+                udpReadWriteTimeoutMs = 7000,
+                logLevel = "info",
+                limitNofile = 4096,
+                logContext =
+                    RipDpiLogContext(
+                        runtimeId = "rt-1",
+                        mode = "auto",
+                        policySignature = "sig",
+                        fingerprintHash = "hash",
+                        diagnosticsSessionId = "diag-1",
+                    ),
+            )
+        return extractFieldPaths(contractJson.encodeToJsonElement(config))
     }
 }
