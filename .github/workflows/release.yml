@@ -59,21 +59,21 @@ jobs:
         run: ./gradlew bundleRelease assembleRelease
 
       - name: Upload release AAB
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: release-aab
           path: app/build/outputs/bundle/release/*.aab
           retention-days: 90
 
       - name: Upload release APK
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: release-apk
           path: app/build/outputs/apk/release/*.apk
           retention-days: 90
 
       - name: Upload release retrace inputs
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: release-retrace-inputs
           path: |
@@ -82,7 +82,7 @@ jobs:
           retention-days: 90
 
       - name: Upload release native symbols
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: release-native-symbols
           path: app/build/intermediates/native_symbol_tables/release/extractReleaseNativeSymbolTables/out/**

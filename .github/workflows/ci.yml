@@ -102,7 +102,7 @@ jobs:
 
       - name: Upload test results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: test-results
           path: |
@@ -172,7 +172,7 @@ jobs:
 
       - name: Upload reports
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: static-analysis-reports
           path: |
@@ -229,7 +229,7 @@ jobs:
 
       - name: Upload release retrace inputs
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: release-retrace-inputs
           path: |
@@ -239,7 +239,7 @@ jobs:
 
       - name: Upload release native symbols
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: release-native-symbols
           path: app/build/intermediates/native_symbol_tables/release/extractReleaseNativeSymbolTables/out/**
@@ -296,7 +296,7 @@ jobs:
 
       - name: Upload CLI packet smoke artifacts
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: cli-packet-smoke
           path: build/packet-smoke/cli/**
@@ -392,7 +392,7 @@ jobs:
 
       - name: Upload coverage artifacts
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: coverage-artifacts
           path: |
@@ -452,7 +452,7 @@ jobs:
 
       - name: Upload criterion artifacts
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: criterion-bench-artifacts
           path: |
@@ -533,7 +533,7 @@ jobs:
 
       - name: Upload macrobenchmark artifacts
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: macrobenchmark-artifacts
           path: |
@@ -603,7 +603,7 @@ jobs:
 
       - name: Upload native soak artifacts
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: rust-native-soak-artifacts
           path: |
@@ -647,7 +647,7 @@ jobs:
 
       - name: Upload native load artifacts
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: rust-native-load-artifacts
           path: |
@@ -707,7 +707,7 @@ jobs:
 
       - name: Upload nightly coverage artifacts
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: nightly-coverage-artifacts
           path: |
@@ -808,7 +808,7 @@ jobs:
 
       - name: Upload Android E2E artifacts
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: android-network-e2e-artifacts
           path: |
@@ -838,7 +838,7 @@ jobs:
 
       - name: Upload Android network E2E artifacts
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: android-network-e2e-artifacts
           path: |
@@ -946,7 +946,7 @@ jobs:
 
       - name: Upload Linux TUN soak artifacts
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: linux-tun-soak-artifacts
           path: |
