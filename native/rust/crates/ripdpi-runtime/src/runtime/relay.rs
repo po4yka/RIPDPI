@@ -103,6 +103,19 @@ mod tests {
     }
 
     #[test]
+    fn first_write_desync_failures_preserve_fallback_metadata() {
+        let failure = classify_first_write_failure(&super::super::desync::wrap_desync_action_error_with_fallback(
+            "write_disorder",
+            Some("split"),
+            io::Error::from_raw_os_error(libc::EROFS),
+        ));
+
+        assert_eq!(failure.class, FailureClass::StrategyExecutionFailure);
+        assert!(failure.evidence.summary.contains("fallback=split"));
+        assert!(failure.evidence.tags.iter().any(|tag| tag == "fallback=split"));
+    }
+
+    #[test]
     fn timeout_and_trigger_helpers_follow_runtime_configuration() {
         let mut config = RuntimeConfig::default();
         config.timeouts.partial_timeout_ms = 75;

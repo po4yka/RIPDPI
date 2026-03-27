@@ -15,6 +15,8 @@ import javax.inject.Singleton
 interface NetworkDnsPathPreferenceStore {
     suspend fun getPreferredPath(fingerprintHash: String): EncryptedDnsPathCandidate?
 
+    suspend fun clearAll()
+
     suspend fun rememberPreferredPath(
         fingerprint: NetworkFingerprint,
         path: EncryptedDnsPathCandidate,
@@ -40,6 +42,10 @@ class DefaultNetworkDnsPathPreferenceStore
             recordStore
                 .getNetworkDnsPathPreference(fingerprintHash)
                 ?.decodePath(json)
+
+        override suspend fun clearAll() {
+            recordStore.clearNetworkDnsPathPreferences()
+        }
 
         override suspend fun rememberPreferredPath(
             fingerprint: NetworkFingerprint,

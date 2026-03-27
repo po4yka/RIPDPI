@@ -6,6 +6,7 @@ import com.poyka.ripdpi.data.AdaptiveMarkerHost
 import com.poyka.ripdpi.data.AdaptiveMarkerMethod
 import com.poyka.ripdpi.data.AppSettingsSerializer
 import com.poyka.ripdpi.data.AppStatus
+import com.poyka.ripdpi.data.CanonicalDefaultSplitMarker
 import com.poyka.ripdpi.data.DefaultAdaptiveFakeTtlDelta
 import com.poyka.ripdpi.data.DefaultAdaptiveFakeTtlFallback
 import com.poyka.ripdpi.data.DefaultAdaptiveFakeTtlMax
@@ -49,7 +50,7 @@ class SettingsUiStateTest {
         val state = defaults.toUiState()
         assertTrue(state.isVpn)
         assertFalse(state.useCmdSettings)
-        assertEquals("disorder", state.desync.desyncMethod)
+        assertEquals("split", state.desync.desyncMethod)
         assertFalse(state.autolearn.hostAutolearnEnabled)
         assertEquals(DefaultHostAutolearnPenaltyTtlHours, state.autolearn.hostAutolearnPenaltyTtlHours)
         assertEquals(DefaultHostAutolearnMaxHosts, state.autolearn.hostAutolearnMaxHosts)
@@ -130,7 +131,7 @@ class SettingsUiStateTest {
         assertFalse(state.hasBackupPin)
         assertEquals(LauncherIconManager.DefaultIconKey, state.appIconVariant)
         assertTrue(state.themedAppIconEnabled)
-        assertEquals(DefaultSplitMarker, state.desync.splitMarker)
+        assertEquals(CanonicalDefaultSplitMarker, state.desync.splitMarker)
         assertTrue(state.diagnosticsMonitorEnabled)
         assertEquals(15, state.diagnosticsSampleIntervalSeconds)
         assertEquals(14, state.diagnosticsHistoryRetentionDays)
@@ -1050,8 +1051,13 @@ class SettingsUiStateTest {
     }
 
     @Test
-    fun `empty desync method defaults to disorder`() {
-        val settings = defaults.toBuilder().setDesyncMethod("").build()
+    fun `legacy empty desync method defaults to disorder`() {
+        val settings =
+            defaults
+                .toBuilder()
+                .clearTcpChainSteps()
+                .setDesyncMethod("")
+                .build()
         assertEquals("disorder", settings.toUiState().desync.desyncMethod)
     }
 

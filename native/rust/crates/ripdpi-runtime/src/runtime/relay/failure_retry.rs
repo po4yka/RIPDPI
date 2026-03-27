@@ -181,7 +181,11 @@ pub(super) fn classify_first_write_failure(error: &io::Error) -> ClassifiedFailu
             context.errno,
             error.to_string(),
         ) {
-            return failure;
+            return if let Some(fallback) = context.fallback {
+                failure.with_tag("fallback", fallback.to_string())
+            } else {
+                failure
+            };
         }
     }
     classify_transport_error(FailureStage::FirstWrite, error)
