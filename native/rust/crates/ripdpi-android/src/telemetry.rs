@@ -188,8 +188,7 @@ impl ProxyTelemetryState {
         let log_context = self.log_context.as_ref();
         let runtime_id = log_context.and_then(|context| context.runtime_id.as_deref()).unwrap_or("");
         let mode = log_context.and_then(|context| context.mode.as_deref()).unwrap_or("");
-        let policy_signature =
-            log_context.and_then(|context| context.policy_signature.as_deref()).unwrap_or("");
+        let policy_signature = log_context.and_then(|context| context.policy_signature.as_deref()).unwrap_or("");
         let fingerprint_hash = log_context.and_then(|context| context.fingerprint_hash.as_deref()).unwrap_or("");
         let diagnostics_session_id =
             log_context.and_then(|context| context.diagnostics_session_id.as_deref()).unwrap_or("");
