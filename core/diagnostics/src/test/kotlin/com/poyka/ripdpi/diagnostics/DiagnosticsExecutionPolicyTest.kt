@@ -189,8 +189,8 @@ class DiagnosticsExecutionPolicyTest {
     fun `manual admission rejects hidden automatic probe explicitly`() =
         runTest {
             val stores = FakeDiagnosticsHistoryStores()
-            val registry = activeScanRegistry(stores)
-            val service = scanAdmissionService(stores, registry)
+            val registry = activeScanRegistry(stores, backgroundScope, json)
+            val service = scanAdmissionService(stores, registry, json)
 
             registry.registerBridge(
                 bridge = FakeNetworkDiagnosticsBridge(json),
@@ -210,8 +210,8 @@ class DiagnosticsExecutionPolicyTest {
     fun `manual admission rejects visible scan as already active`() =
         runTest {
             val stores = FakeDiagnosticsHistoryStores()
-            val registry = activeScanRegistry(stores)
-            val service = scanAdmissionService(stores, registry)
+            val registry = activeScanRegistry(stores, backgroundScope, json)
+            val service = scanAdmissionService(stores, registry, json)
 
             registry.updateProgress(
                 ScanProgress(
@@ -232,8 +232,10 @@ class DiagnosticsExecutionPolicyTest {
         }
 }
 
-private fun DiagnosticsExecutionPolicyTest.activeScanRegistry(
+private fun activeScanRegistry(
     stores: FakeDiagnosticsHistoryStores,
+    scope: kotlinx.coroutines.CoroutineScope,
+    json: kotlinx.serialization.json.Json,
 ): ActiveScanRegistry =
     ActiveScanRegistry(
         DefaultDiagnosticsTimelineSource(
@@ -242,14 +244,15 @@ private fun DiagnosticsExecutionPolicyTest.activeScanRegistry(
             artifactReadStore = stores,
             bypassUsageHistoryStore = stores,
             mapper = DiagnosticsBoundaryMapper(json),
-            scope = backgroundScope,
+            scope = scope,
             json = json,
         ),
     )
 
-private fun DiagnosticsExecutionPolicyTest.scanAdmissionService(
+private fun scanAdmissionService(
     stores: FakeDiagnosticsHistoryStores,
     registry: ActiveScanRegistry,
+    json: kotlinx.serialization.json.Json,
 ): ScanAdmissionService =
     ScanAdmissionService(
         appSettingsRepository = FakeAppSettingsRepository(),
