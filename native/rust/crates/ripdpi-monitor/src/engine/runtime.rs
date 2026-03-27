@@ -12,7 +12,7 @@ use crate::observations::{observation_for_probe, observations_for_results};
 use crate::transport::TransportConfig;
 use crate::types::{
     NativeSessionEvent, ProbeObservation, ProbeResult, ScanProgress, ScanReport, ScanRequest, SharedState,
-    StrategyProbeCandidateSummary, StrategyProbeReport,
+    StrategyProbeCandidateSummary, StrategyProbeLiveProgress, StrategyProbeProgressLane, StrategyProbeReport,
 };
 use crate::util::{event_level_for_outcome, now_ms};
 
@@ -83,6 +83,10 @@ impl RunnerArtifacts {
                 subsystem: Some("diagnostics".to_string()),
             }],
         }
+    }
+
+    pub(super) fn empty() -> Self {
+        Self { probe_results: Vec::new(), observations: Vec::new(), events: Vec::new() }
     }
 }
 
@@ -169,6 +173,60 @@ impl ExecutionRuntime {
         self.scan_deadline.map_or(false, |d| std::time::Instant::now() >= d)
     }
 
+    fn publish_progress(
+        &self,
+        plan: &ExecutionPlan,
+        phase: &str,
+        completed_steps: usize,
+        message: String,
+        latest_probe_target: Option<String>,
+        latest_probe_outcome: Option<String>,
+        strategy_probe_progress: Option<StrategyProbeLiveProgress>,
+    ) {
+        set_progress(
+            &self.shared,
+            ScanProgress {
+                session_id: plan.session_id.clone(),
+                phase: phase.to_string(),
+                completed_steps,
+                total_steps: plan.total_steps,
+                message,
+                is_finished: false,
+                latest_probe_target,
+                latest_probe_outcome,
+                strategy_probe_progress,
+            },
+        );
+    }
+
+    pub(super) fn publish_strategy_probe_candidate_started(
+        &self,
+        plan: &ExecutionPlan,
+        phase: &str,
+        lane: StrategyProbeProgressLane,
+        candidate_index: usize,
+        candidate_total: usize,
+        candidate_id: &str,
+        candidate_label: &str,
+        message: String,
+    ) {
+        self.publish_progress(
+            plan,
+            phase,
+            self.completed_steps,
+            message,
+            Some(candidate_label.to_string()),
+            None,
+            Some(StrategyProbeLiveProgress {
+                lane,
+                candidate_index,
+                candidate_total,
+                candidate_id: candidate_id.to_string(),
+                candidate_label: candidate_label.to_string(),
+            }),
+        );
+    }
+
     pub(super) fn record_step(
         &mut self,
         plan: &ExecutionPlan,
@@ -176,6 +234,27 @@ impl ExecutionRuntime {
         message: String,
         latest_probe_target: Option<String>,
         latest_probe_outcome: Option<String>,
+        artifacts: RunnerArtifacts,
+    ) {
+        self.record_step_with_strategy_probe_progress(
+            plan,
+            phase,
+            message,
+            latest_probe_target,
+            latest_probe_outcome,
+            None,
+            artifacts,
+        );
+    }
+
+    pub(super) fn record_step_with_strategy_probe_progress(
+        &mut self,
+        plan: &ExecutionPlan,
+        phase: &str,
+        message: String,
+        latest_probe_target: Option<String>,
+        latest_probe_outcome: Option<String>,
+        strategy_probe_progress: Option<StrategyProbeLiveProgress>,
         artifacts: RunnerArtifacts,
     ) {
         self.results.extend(artifacts.probe_results);
@@ -192,18 +271,44 @@ impl ExecutionRuntime {
             );
         }
         self.completed_steps += 1;
-        set_progress(
-            &self.shared,
-            ScanProgress {
-                session_id: plan.session_id.clone(),
-                phase: phase.to_string(),
-                completed_steps: self.completed_steps,
-                total_steps: plan.total_steps,
-                message,
-                is_finished: false,
-                latest_probe_target,
-                latest_probe_outcome,
-            },
+        self.publish_progress(
+            plan,
+            phase,
+            self.completed_steps,
+            message,
+            latest_probe_target,
+            latest_probe_outcome,
+            strategy_probe_progress,
+        );
+    }
+
+    pub(super) fn record_skipped_strategy_probe_candidate(
+        &mut self,
+        plan: &ExecutionPlan,
+        phase: &str,
+        lane: StrategyProbeProgressLane,
+        candidate_index: usize,
+        candidate_total: usize,
+        candidate_id: &str,
+        candidate_label: &str,
+        latest_probe_outcome: Option<String>,
+        message: String,
+    ) {
+        let strategy_probe_progress = StrategyProbeLiveProgress {
+            lane,
+            candidate_index,
+            candidate_total,
+            candidate_id: candidate_id.to_string(),
+            candidate_label: candidate_label.to_string(),
+        };
+        self.record_step_with_strategy_probe_progress(
+            plan,
+            phase,
+            message,
+            Some(candidate_label.to_string()),
+            latest_probe_outcome,
+            Some(strategy_probe_progress),
+            RunnerArtifacts::empty(),
         );
     }
 
@@ -254,5 +359,86 @@ impl ExecutionCoordinator {
             }
         }
         RunnerOutcome::Completed
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::sync::atomic::AtomicBool;
+    use std::sync::{Arc, Mutex};
+
+    use super::{ExecutionPlan, ExecutionRuntime};
+    use crate::transport::TransportConfig;
+    use crate::types::{
+        DiagnosticProfileFamily, ScanKind, ScanPathMode, ScanRequest, SharedState, StrategyProbeProgressLane,
+    };
+
+    fn test_plan() -> ExecutionPlan {
+        ExecutionPlan {
+            session_id: "session-1".to_string(),
+            request: ScanRequest {
+                profile_id: "automatic-probing".to_string(),
+                display_name: "Automatic probing".to_string(),
+                path_mode: ScanPathMode::RawPath,
+                kind: ScanKind::StrategyProbe,
+                family: DiagnosticProfileFamily::AutomaticProbing,
+                region_tag: None,
+                manual_only: false,
+                pack_refs: Vec::new(),
+                proxy_host: None,
+                proxy_port: None,
+                probe_tasks: Vec::new(),
+                domain_targets: Vec::new(),
+                dns_targets: Vec::new(),
+                tcp_targets: Vec::new(),
+                quic_targets: Vec::new(),
+                service_targets: Vec::new(),
+                circumvention_targets: Vec::new(),
+                throughput_targets: Vec::new(),
+                whitelist_sni: Vec::new(),
+                telegram_target: None,
+                strategy_probe: None,
+                network_snapshot: None,
+            },
+            started_at: 0,
+            total_steps: 8,
+            transport: TransportConfig::Direct,
+            stage_order: Vec::new(),
+            strategy: None,
+        }
+    }
+
+    #[test]
+    fn skipped_strategy_probe_candidate_publishes_live_progress_and_increments_step() {
+        let shared = Arc::new(Mutex::new(SharedState::default()));
+        let cancel = Arc::new(AtomicBool::new(false));
+        let mut runtime = ExecutionRuntime::new(shared.clone(), cancel);
+        let plan = test_plan();
+
+        runtime.record_skipped_strategy_probe_candidate(
+            &plan,
+            "tcp",
+            StrategyProbeProgressLane::Tcp,
+            3,
+            14,
+            "tcp_fake_tls",
+            "TCP fake TLS",
+            Some("skipped".to_string()),
+            "Skipped TCP fake TLS".to_string(),
+        );
+
+        let progress = shared.lock().expect("shared").progress.clone().expect("progress");
+        let live_progress = progress.strategy_probe_progress.expect("strategy probe progress");
+
+        assert_eq!(progress.completed_steps, 1);
+        assert_eq!(progress.phase, "tcp");
+        assert_eq!(progress.message, "Skipped TCP fake TLS");
+        assert_eq!(progress.latest_probe_target.as_deref(), Some("TCP fake TLS"));
+        assert_eq!(progress.latest_probe_outcome.as_deref(), Some("skipped"));
+        assert_eq!(live_progress.lane, StrategyProbeProgressLane::Tcp);
+        assert_eq!(live_progress.candidate_index, 3);
+        assert_eq!(live_progress.candidate_total, 14);
+        assert_eq!(live_progress.candidate_id, "tcp_fake_tls");
+        assert_eq!(live_progress.candidate_label, "TCP fake TLS");
     }
 }

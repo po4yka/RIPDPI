@@ -12,6 +12,8 @@ import com.poyka.ripdpi.activities.DiagnosticsFieldUiModel
 import com.poyka.ripdpi.activities.DiagnosticsMetricUiModel
 import com.poyka.ripdpi.activities.DiagnosticsProbeGroupUiModel
 import com.poyka.ripdpi.activities.DiagnosticsProbeResultUiModel
+import com.poyka.ripdpi.activities.DiagnosticsProfileOptionUiModel
+import com.poyka.ripdpi.activities.DiagnosticsProgressUiModel
 import com.poyka.ripdpi.activities.DiagnosticsResolverRecommendationUiModel
 import com.poyka.ripdpi.activities.DiagnosticsScanUiModel
 import com.poyka.ripdpi.activities.DiagnosticsSection
@@ -21,13 +23,18 @@ import com.poyka.ripdpi.activities.DiagnosticsShareUiModel
 import com.poyka.ripdpi.activities.DiagnosticsStrategyProbeCandidateDetailUiModel
 import com.poyka.ripdpi.activities.DiagnosticsStrategyProbeCandidateUiModel
 import com.poyka.ripdpi.activities.DiagnosticsStrategyProbeFamilyUiModel
+import com.poyka.ripdpi.activities.DiagnosticsStrategyProbeLiveProgressUiModel
+import com.poyka.ripdpi.activities.DiagnosticsStrategyProbeProgressLaneUiModel
 import com.poyka.ripdpi.activities.DiagnosticsStrategyProbeRecommendationUiModel
 import com.poyka.ripdpi.activities.DiagnosticsStrategyProbeReportUiModel
 import com.poyka.ripdpi.activities.DiagnosticsTone
 import com.poyka.ripdpi.activities.DiagnosticsUiState
 import com.poyka.ripdpi.activities.FakeAppSettingsRepository
 import com.poyka.ripdpi.activities.FakeDiagnosticsManager
+import com.poyka.ripdpi.activities.PhaseState
+import com.poyka.ripdpi.activities.PhaseStepUiModel
 import com.poyka.ripdpi.activities.createDiagnosticsViewModel
+import com.poyka.ripdpi.diagnostics.ScanKind
 import com.poyka.ripdpi.diagnostics.StrategyProbeAuditAssessment
 import com.poyka.ripdpi.diagnostics.StrategyProbeAuditConfidence
 import com.poyka.ripdpi.diagnostics.StrategyProbeAuditConfidenceLevel
@@ -455,6 +462,156 @@ class DiagnosticsScreenTest {
         composeRule.onNodeWithText("Audit confidence").assertDoesNotExist()
     }
 
+    @Test
+    fun strategyProbeProgressCardRendersLaneCounterAndCandidateLabelForQuickSuite() {
+        composeRule.setContent {
+            val pagerState =
+                rememberPagerState(
+                    initialPage = DiagnosticsSection.Scan.ordinal,
+                    pageCount = { DiagnosticsSection.entries.size },
+                )
+            RipDpiTheme {
+                DiagnosticsScreen(
+                    uiState =
+                        DiagnosticsUiState(
+                            selectedSection = DiagnosticsSection.Scan,
+                            scan =
+                                DiagnosticsScanUiModel(
+                                    selectedProfileId = "automatic-probing",
+                                    selectedProfile =
+                                        DiagnosticsProfileOptionUiModel(
+                                            id = "automatic-probing",
+                                            name = "Automatic probing",
+                                            source = "bundled",
+                                            kind = ScanKind.STRATEGY_PROBE,
+                                            strategyProbeSuiteId = "quick_v1",
+                                        ),
+                                    activeProgress =
+                                        strategyProbeProgressUiModel(
+                                            strategyProbeProgress =
+                                                DiagnosticsStrategyProbeLiveProgressUiModel(
+                                                    lane = DiagnosticsStrategyProbeProgressLaneUiModel.TCP,
+                                                    candidateIndex = 3,
+                                                    candidateTotal = 7,
+                                                    candidateId = "tcp_fake_tls",
+                                                    candidateLabel = "TCP fake TLS",
+                                                ),
+                                        ),
+                                ),
+                        ),
+                    pagerState = pagerState,
+                    onSelectSection = {},
+                    onSelectProfile = {},
+                    onRunRawScan = {},
+                    onRunInPathScan = {},
+                    onCancelScan = {},
+                    onKeepResolverRecommendation = {},
+                    onSaveResolverRecommendation = {},
+                    onSelectSession = {},
+                    onDismissSessionDetail = {},
+                    onSelectStrategyProbeCandidate = {},
+                    onDismissStrategyProbeCandidate = {},
+                    onSelectApproachMode = {},
+                    onSelectApproach = {},
+                    onDismissApproachDetail = {},
+                    onSelectEvent = {},
+                    onDismissEventDetail = {},
+                    onSelectProbe = {},
+                    onDismissProbeDetail = {},
+                    onToggleSensitiveSessionDetails = {},
+                    onSessionPathFilter = {},
+                    onSessionStatusFilter = {},
+                    onSessionSearch = {},
+                    onToggleEventFilter = { _, _ -> },
+                    onEventSearch = {},
+                    onEventAutoScroll = {},
+                    onShareSummary = {},
+                    onShareArchive = {},
+                    onSaveArchive = {},
+                    onSaveLogs = {},
+                    onOpenHistory = {},
+                )
+            }
+        }
+
+        composeRule.onRoot().performTouchInput { swipeUp() }
+        composeRule.onNodeWithTag(RipDpiTestTags.DiagnosticsScanProgressCard).assertIsDisplayed()
+        composeRule.onNodeWithText("3/7").assertIsDisplayed()
+        composeRule.onNodeWithText("TCP fake TLS").assertIsDisplayed()
+    }
+
+    @Test
+    fun connectivityProgressCardDoesNotRenderCandidateCounterWithoutStrategyProgress() {
+        composeRule.setContent {
+            val pagerState =
+                rememberPagerState(
+                    initialPage = DiagnosticsSection.Scan.ordinal,
+                    pageCount = { DiagnosticsSection.entries.size },
+                )
+            RipDpiTheme {
+                DiagnosticsScreen(
+                    uiState =
+                        DiagnosticsUiState(
+                            selectedSection = DiagnosticsSection.Scan,
+                            scan =
+                                DiagnosticsScanUiModel(
+                                    selectedProfileId = "connectivity",
+                                    selectedProfile =
+                                        DiagnosticsProfileOptionUiModel(
+                                            id = "connectivity",
+                                            name = "Connectivity checks",
+                                            source = "bundled",
+                                            kind = ScanKind.CONNECTIVITY,
+                                        ),
+                                    activeProgress =
+                                        strategyProbeProgressUiModel(
+                                            scanKind = ScanKind.CONNECTIVITY,
+                                            currentProbeLabel = "DNS probe example.org",
+                                            strategyProbeProgress = null,
+                                        ),
+                                ),
+                        ),
+                    pagerState = pagerState,
+                    onSelectSection = {},
+                    onSelectProfile = {},
+                    onRunRawScan = {},
+                    onRunInPathScan = {},
+                    onCancelScan = {},
+                    onKeepResolverRecommendation = {},
+                    onSaveResolverRecommendation = {},
+                    onSelectSession = {},
+                    onDismissSessionDetail = {},
+                    onSelectStrategyProbeCandidate = {},
+                    onDismissStrategyProbeCandidate = {},
+                    onSelectApproachMode = {},
+                    onSelectApproach = {},
+                    onDismissApproachDetail = {},
+                    onSelectEvent = {},
+                    onDismissEventDetail = {},
+                    onSelectProbe = {},
+                    onDismissProbeDetail = {},
+                    onToggleSensitiveSessionDetails = {},
+                    onSessionPathFilter = {},
+                    onSessionStatusFilter = {},
+                    onSessionSearch = {},
+                    onToggleEventFilter = { _, _ -> },
+                    onEventSearch = {},
+                    onEventAutoScroll = {},
+                    onShareSummary = {},
+                    onShareArchive = {},
+                    onSaveArchive = {},
+                    onSaveLogs = {},
+                    onOpenHistory = {},
+                )
+            }
+        }
+
+        composeRule.onRoot().performTouchInput { swipeUp() }
+        composeRule.onNodeWithTag(RipDpiTestTags.DiagnosticsScanProgressCard).assertIsDisplayed()
+        composeRule.onNodeWithText("DNS probe example.org").assertIsDisplayed()
+        composeRule.onNodeWithText("3/7").assertDoesNotExist()
+    }
+
     private fun auditReport(
         candidateDetail: DiagnosticsStrategyProbeCandidateDetailUiModel,
         suiteId: String = "full_matrix_v1",
@@ -550,6 +707,36 @@ class DiagnosticsScreenTest {
                 rationale = "Audit assessment rationale",
                 warnings = warnings,
             ),
+    )
+
+    private fun strategyProbeProgressUiModel(
+        scanKind: ScanKind = ScanKind.STRATEGY_PROBE,
+        currentProbeLabel: String = "TCP fake TLS",
+        strategyProbeProgress: DiagnosticsStrategyProbeLiveProgressUiModel?,
+    ) = DiagnosticsProgressUiModel(
+        phase = if (scanKind == ScanKind.STRATEGY_PROBE) "tcp" else "dns",
+        summary = currentProbeLabel,
+        completedSteps = 3,
+        totalSteps = 12,
+        fraction = 0.25f,
+        scanKind = scanKind,
+        isFullAudit = false,
+        elapsedLabel = "30s",
+        etaLabel = "~1m 30s remaining",
+        phaseSteps =
+            if (scanKind == ScanKind.STRATEGY_PROBE) {
+                listOf(
+                    PhaseStepUiModel(label = "TCP", state = PhaseState.Active, tone = DiagnosticsTone.Warning),
+                    PhaseStepUiModel(label = "QUIC", state = PhaseState.Pending, tone = DiagnosticsTone.Neutral),
+                )
+            } else {
+                listOf(
+                    PhaseStepUiModel(label = "DNS", state = PhaseState.Active, tone = DiagnosticsTone.Warning),
+                    PhaseStepUiModel(label = "Reach", state = PhaseState.Pending, tone = DiagnosticsTone.Neutral),
+                )
+            },
+        currentProbeLabel = currentProbeLabel,
+        strategyProbeProgress = strategyProbeProgress,
     )
 
     // -- Characterization tests: section switching --

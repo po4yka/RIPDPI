@@ -13,6 +13,7 @@ import com.poyka.ripdpi.diagnostics.DiagnosticProfileFamily
 import com.poyka.ripdpi.diagnostics.DiagnosticScanSession
 import com.poyka.ripdpi.diagnostics.DiagnosticTelemetrySample
 import com.poyka.ripdpi.diagnostics.DiagnosticsRememberedPolicy
+import com.poyka.ripdpi.diagnostics.ProbePersistencePolicy
 import com.poyka.ripdpi.diagnostics.ScanKind
 import com.poyka.ripdpi.diagnostics.ScanPathMode
 import com.poyka.ripdpi.diagnostics.StrategyProbeAuditAssessment
@@ -59,6 +60,7 @@ data class DiagnosticsExecutionPolicyUiModel(
     val manualOnly: Boolean = false,
     val allowBackground: Boolean = false,
     val requiresRawPath: Boolean = false,
+    val probePersistencePolicy: ProbePersistencePolicy = ProbePersistencePolicy.MANUAL_ONLY,
 )
 
 @Immutable
@@ -125,6 +127,20 @@ data class CompletedProbeUiModel(
     val tone: DiagnosticsTone,
 )
 
+enum class DiagnosticsStrategyProbeProgressLaneUiModel {
+    TCP,
+    QUIC,
+}
+
+@Immutable
+data class DiagnosticsStrategyProbeLiveProgressUiModel(
+    val lane: DiagnosticsStrategyProbeProgressLaneUiModel,
+    val candidateIndex: Int,
+    val candidateTotal: Int,
+    val candidateId: String,
+    val candidateLabel: String,
+)
+
 @Stable
 data class DiagnosticsProgressUiModel(
     val phase: String,
@@ -138,6 +154,7 @@ data class DiagnosticsProgressUiModel(
     val etaLabel: String?,
     val phaseSteps: List<PhaseStepUiModel>,
     val currentProbeLabel: String,
+    val strategyProbeProgress: DiagnosticsStrategyProbeLiveProgressUiModel? = null,
     val completedProbes: List<CompletedProbeUiModel> = emptyList(),
 )
 
