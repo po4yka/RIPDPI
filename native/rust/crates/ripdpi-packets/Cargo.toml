@@ -9,7 +9,7 @@ workspace = true
 
 [dependencies]
 aes = { workspace = true }
-nom = { version = "7", default-features = false, features = ["alloc"] }
+nom = { version = "8", default-features = false, features = ["alloc"] }
 ring = { workspace = true }
 
 [dev-dependencies]
