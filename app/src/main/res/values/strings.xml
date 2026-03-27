@@ -53,6 +53,8 @@
     <string name="diagnostics_action_probe_unavailable">Automatic probing unavailable</string>
     <string name="diagnostics_action_start_audit">Start automatic audit</string>
     <string name="diagnostics_action_audit_unavailable">Automatic audit unavailable</string>
+    <string name="diagnostics_error_hidden_probe_running">Automatic probing is already running. Wait for it to finish before starting another diagnostics run.</string>
+    <string name="diagnostics_error_start_failed">Couldn’t start diagnostics. Try again.</string>
     <string name="diagnostics_latest_scan_section">Latest scan</string>
     <string name="diagnostics_profile_connectivity_title">Connectivity checks</string>
     <string name="diagnostics_profile_connectivity_badge">Validate</string>

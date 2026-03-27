@@ -25,6 +25,8 @@ import com.poyka.ripdpi.diagnostics.DiagnosticConnectionSession
 import com.poyka.ripdpi.diagnostics.DiagnosticContextModel
 import com.poyka.ripdpi.diagnostics.DiagnosticSessionDetail
 import com.poyka.ripdpi.diagnostics.DiagnosticsArchive
+import com.poyka.ripdpi.diagnostics.DiagnosticsScanStartRejectedException
+import com.poyka.ripdpi.diagnostics.DiagnosticsScanStartRejectionReason
 import com.poyka.ripdpi.diagnostics.EnvironmentContextModel
 import com.poyka.ripdpi.diagnostics.NetworkSnapshotModel
 import com.poyka.ripdpi.diagnostics.PermissionContextModel
@@ -1359,6 +1361,58 @@ class DiagnosticsViewModelTest {
             val selected = requireNotNull(viewModel.uiState.value.selectedSessionDetail)
             assertEquals("session-RAW_PATH", selected.session.id)
             assertEquals("session-RAW_PATH", viewModel.uiState.value.sessions.focusedSessionId)
+            collector.cancel()
+        }
+
+    @Test
+    fun `hidden automatic probe rejection emits specific scan start failure effect`() =
+        runTest {
+            val appContext = RuntimeEnvironment.getApplication()
+            val manager =
+                FakeDiagnosticsManager().apply {
+                    scanController.onStartScan = {
+                        throw DiagnosticsScanStartRejectedException(
+                            DiagnosticsScanStartRejectionReason.HiddenAutomaticProbeRunning,
+                        )
+                    }
+                }
+            val viewModel = createDiagnosticsViewModel(appContext, manager, FakeAppSettingsRepository())
+            val collector = backgroundScope.launch { viewModel.uiState.collect {} }
+            advanceUntilIdle()
+
+            val effectDeferred = async { viewModel.effects.first() }
+            viewModel.startRawScan()
+            advanceUntilIdle()
+
+            val effect = effectDeferred.await() as DiagnosticsEffect.ScanStartFailed
+            assertEquals(appContext.getString(com.poyka.ripdpi.R.string.diagnostics_error_hidden_probe_running), effect.message)
+            assertFalse(viewModel.uiState.value.scan.isBusy)
+            assertNull(viewModel.uiState.value.selectedSessionDetail)
+            collector.cancel()
+        }
+
+    @Test
+    fun `generic scan start failure emits fallback error and keeps scan idle`() =
+        runTest {
+            val appContext = RuntimeEnvironment.getApplication()
+            val manager =
+                FakeDiagnosticsManager().apply {
+                    scanController.onStartScan = {
+                        throw IllegalStateException("boom")
+                    }
+                }
+            val viewModel = createDiagnosticsViewModel(appContext, manager, FakeAppSettingsRepository())
+            val collector = backgroundScope.launch { viewModel.uiState.collect {} }
+            advanceUntilIdle()
+
+            val effectDeferred = async { viewModel.effects.first() }
+            viewModel.startInPathScan()
+            advanceUntilIdle()
+
+            val effect = effectDeferred.await() as DiagnosticsEffect.ScanStartFailed
+            assertEquals(appContext.getString(com.poyka.ripdpi.R.string.diagnostics_error_start_failed), effect.message)
+            assertFalse(viewModel.uiState.value.scan.isBusy)
+            assertNull(viewModel.uiState.value.selectedSessionDetail)
             collector.cancel()
         }
 

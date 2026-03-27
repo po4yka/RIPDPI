@@ -1,7 +1,12 @@
 package com.poyka.ripdpi.activities
 
+import android.content.Context
+import com.poyka.ripdpi.R
+import com.poyka.ripdpi.diagnostics.DiagnosticsScanStartRejectedException
+import com.poyka.ripdpi.diagnostics.DiagnosticsScanStartRejectionReason
 import com.poyka.ripdpi.diagnostics.ScanKind
 import com.poyka.ripdpi.diagnostics.ScanPathMode
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -11,6 +16,7 @@ import kotlinx.coroutines.flow.update
 internal class DiagnosticsScanActions(
     private val mutations: DiagnosticsMutationRunner,
     private val scanLifecycle: MutableStateFlow<ScanLifecycleState>,
+    private val appContext: Context,
     private val loadSessionDetail: suspend (sessionId: String, showSensitiveDetails: Boolean) -> Unit,
 ) {
     fun initialize() {
@@ -102,45 +108,53 @@ internal class DiagnosticsScanActions(
     }
 
     fun startRawScan() {
-        val scanKind =
-            mutations
-                .currentUiState()
-                .scan.selectedProfile
-                ?.kind ?: ScanKind.CONNECTIVITY
-        scanLifecycle.update {
-            it.copy(
-                scanStartedAt = System.currentTimeMillis(),
-                activeScanPathMode = ScanPathMode.RAW_PATH,
-                activeScanKind = scanKind,
-            )
-        }
+        val selectedProfile = mutations.currentUiState().scan.selectedProfile
+        val scanKind = selectedProfile?.kind ?: ScanKind.CONNECTIVITY
+        val profileName = selectedProfile?.name ?: "Scan"
+        val isFullAudit = selectedProfile?.isFullAudit == true
         mutations.launch {
-            val profileName = currentUiState().scan.selectedProfile?.name ?: "Scan"
-            emit(DiagnosticsEffect.ScanStarted(scanTypeLabel = profileName))
-            val sessionId = diagnosticsScanController.startScan(ScanPathMode.RAW_PATH)
-            if (currentUiState().scan.selectedProfile?.isFullAudit == true) {
-                scanLifecycle.update { it.copy(pendingAutoOpenAuditSessionId = sessionId) }
+            try {
+                val sessionId = diagnosticsScanController.startScan(ScanPathMode.RAW_PATH)
+                scanLifecycle.update {
+                    it.copy(
+                        scanStartedAt = System.currentTimeMillis(),
+                        activeScanPathMode = ScanPathMode.RAW_PATH,
+                        activeScanKind = scanKind,
+                        pendingAutoOpenAuditSessionId = if (isFullAudit) sessionId else null,
+                    )
+                }
+                emit(DiagnosticsEffect.ScanStarted(scanTypeLabel = profileName))
+            } catch (error: Throwable) {
+                if (error is CancellationException) {
+                    throw error
+                }
+                handleStartFailure(error)
             }
         }
     }
 
     fun startInPathScan() {
-        val scanKind =
-            mutations
-                .currentUiState()
-                .scan.selectedProfile
-                ?.kind ?: ScanKind.CONNECTIVITY
-        scanLifecycle.update {
-            it.copy(
-                scanStartedAt = System.currentTimeMillis(),
-                activeScanPathMode = ScanPathMode.IN_PATH,
-                activeScanKind = scanKind,
-            )
-        }
+        val selectedProfile = mutations.currentUiState().scan.selectedProfile
+        val scanKind = selectedProfile?.kind ?: ScanKind.CONNECTIVITY
+        val profileName = selectedProfile?.name ?: "Scan"
         mutations.launch {
-            val profileName = currentUiState().scan.selectedProfile?.name ?: "Scan"
-            emit(DiagnosticsEffect.ScanStarted(scanTypeLabel = profileName))
-            diagnosticsScanController.startScan(ScanPathMode.IN_PATH)
+            try {
+                diagnosticsScanController.startScan(ScanPathMode.IN_PATH)
+                scanLifecycle.update {
+                    it.copy(
+                        scanStartedAt = System.currentTimeMillis(),
+                        activeScanPathMode = ScanPathMode.IN_PATH,
+                        activeScanKind = scanKind,
+                        pendingAutoOpenAuditSessionId = null,
+                    )
+                }
+                emit(DiagnosticsEffect.ScanStarted(scanTypeLabel = profileName))
+            } catch (error: Throwable) {
+                if (error is CancellationException) {
+                    throw error
+                }
+                handleStartFailure(error)
+            }
         }
     }
 
@@ -179,5 +193,31 @@ internal class DiagnosticsScanActions(
         mutations.launch {
             diagnosticsResolverActions.saveResolverRecommendation(targetSessionId)
         }
+    }
+
+    private suspend fun DiagnosticsMutationRunner.handleStartFailure(error: Throwable) {
+        scanLifecycle.update {
+            it.copy(
+                scanStartedAt = null,
+                activeScanPathMode = null,
+                activeScanKind = null,
+                pendingAutoOpenAuditSessionId = null,
+                accumulatedProbes = emptyList(),
+            )
+        }
+        emit(
+            DiagnosticsEffect.ScanStartFailed(
+                message =
+                    when ((error as? DiagnosticsScanStartRejectedException)?.reason) {
+                        DiagnosticsScanStartRejectionReason.HiddenAutomaticProbeRunning -> {
+                            appContext.getString(R.string.diagnostics_error_hidden_probe_running)
+                        }
+
+                        else -> {
+                            appContext.getString(R.string.diagnostics_error_start_failed)
+                        }
+                    },
+            ),
+        )
     }
 }
