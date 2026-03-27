@@ -62,6 +62,7 @@ class NativeConfigContractSnapshotTest {
                         },
                     )
                     put("hostAutolearnStorePath", JsonNull)
+                    put("logContext", JsonNull)
                     put("runtimeContext", JsonNull)
                 },
         )
@@ -496,6 +497,7 @@ class NativeConfigContractSnapshotTest {
             put("hosts", hosts)
             put("hostAutolearn", hostAutolearn)
             put("wsTunnel", wsTunnel)
+            put("logContext", JsonNull)
             put("runtimeContext", JsonNull)
         }
 
@@ -535,7 +537,7 @@ class NativeConfigContractSnapshotTest {
 
     private fun chainsExpected(
         groupActivationFilter: JsonObject? = null,
-        tcpSteps: List<JsonObject> = listOf(tcpStepExpected(kind = "disorder", marker = "1")),
+        tcpSteps: List<JsonObject> = listOf(tcpStepExpected(kind = "split", marker = "host+1")),
         udpSteps: List<JsonObject> = emptyList(),
     ): JsonObject =
         buildJsonObject {

@@ -231,6 +231,49 @@ class DiagnosticsHistoryStoresRoomTest {
         }
 
     @Test
+    fun `clearing remembered network memory does not wipe diagnostics history`() =
+        runTest {
+            val rememberedStore = RoomRememberedNetworkPolicyRecordStore(dao, clock)
+            val dnsStore = RoomNetworkDnsPathPreferenceRecordStore(dao, clock)
+            val artifactStore = RoomDiagnosticsArtifactStore(dao)
+            val bypassStore = RoomBypassUsageHistoryStore(dao)
+
+            rememberedStore.upsertRememberedNetworkPolicy(
+                rememberedPolicy(
+                    fingerprintHash = "fp-clear",
+                    mode = "vpn",
+                    status = RememberedNetworkPolicyStatusValidated,
+                    lastValidatedAt = clock.now(),
+                    updatedAt = clock.now(),
+                ),
+            )
+            dnsStore.upsertNetworkDnsPathPreference(
+                dnsPreference(
+                    fingerprintHash = "fp-clear",
+                    updatedAt = clock.now(),
+                ),
+            )
+            artifactStore.upsertSnapshot(
+                snapshot(id = "snap-keep", sessionId = "scan-1", capturedAt = clock.now()),
+            )
+            artifactStore.insertNativeSessionEvent(
+                nativeEvent(id = "evt-keep", sessionId = "scan-1", createdAt = clock.now()),
+            )
+            bypassStore.upsertBypassUsageSession(
+                bypassUsageSession(id = "usage-keep", startedAt = clock.now() - 100L, finishedAt = clock.now()),
+            )
+
+            rememberedStore.clearRememberedNetworkPolicies()
+            dnsStore.clearNetworkDnsPathPreferences()
+
+            assertEquals(0, rowCount("remembered_network_policies"))
+            assertEquals(0, rowCount("network_dns_path_preferences"))
+            assertEquals(1, rowCount("network_snapshots"))
+            assertEquals(1, rowCount("native_session_events"))
+            assertEquals(1, rowCount("bypass_usage_sessions"))
+        }
+
+    @Test
     @Suppress("LongMethod")
     fun `history retention store trims old rows across diagnostics tables`() =
         runTest {

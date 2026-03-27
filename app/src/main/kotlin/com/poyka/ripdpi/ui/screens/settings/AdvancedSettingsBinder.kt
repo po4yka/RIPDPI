@@ -10,9 +10,9 @@ import com.poyka.ripdpi.activities.SettingsMutation
 import com.poyka.ripdpi.activities.SettingsNoticeTone
 import com.poyka.ripdpi.activities.SettingsUiState
 import com.poyka.ripdpi.data.ActivationFilterModel
+import com.poyka.ripdpi.data.CanonicalDefaultSplitMarker
 import com.poyka.ripdpi.data.DefaultAdaptiveFakeTtlFallback
 import com.poyka.ripdpi.data.DefaultFakeOffsetMarker
-import com.poyka.ripdpi.data.DefaultSplitMarker
 import com.poyka.ripdpi.data.DefaultTlsRecordMarker
 import com.poyka.ripdpi.data.NumericRangeModel
 import com.poyka.ripdpi.data.isAdaptiveOffsetExpression
@@ -56,7 +56,7 @@ internal fun mapNoticeEffect(effect: SettingsEffect.Notice): AdvancedNotice =
 internal fun parseOptionalRangeValue(value: String): Long? = value.trim().takeIf { it.isNotEmpty() }?.toLongOrNull()
 
 internal fun manualSplitMarkerFallback(uiState: SettingsUiState): String =
-    uiState.desync.splitMarker.takeUnless(::isAdaptiveOffsetExpression) ?: DefaultSplitMarker
+    uiState.desync.splitMarker.takeUnless(::isAdaptiveOffsetExpression) ?: CanonicalDefaultSplitMarker
 
 internal class AdvancedSettingsBinder(
     private val updateSetting: (String, String, SettingsMutation) -> Unit,
@@ -211,7 +211,7 @@ private class AdvancedSettingsMutationWriter(
         key: String,
         marker: String,
     ) {
-        val normalized = normalizeOffsetExpression(marker, DefaultSplitMarker)
+        val normalized = normalizeOffsetExpression(marker, CanonicalDefaultSplitMarker)
         val explicitChains = uiState.settings.tcpChainStepsCount > 0
         val primaryStep = primaryTcpChainStep(uiState.desync.tcpChainSteps)
         if (explicitChains && primaryStep != null) {

@@ -3,6 +3,7 @@ package com.poyka.ripdpi.data
 import com.poyka.ripdpi.proto.AppSettings
 
 const val DefaultSplitMarker = "1"
+const val CanonicalDefaultSplitMarker = "host+1"
 const val DefaultDisoobSplitMarker = "3+s"
 const val DefaultFakeOffsetMarker = "0"
 const val DefaultTlsRecordMarker = "0"
@@ -26,15 +27,16 @@ private val AdaptiveOffsetPresetPattern =
     Regex("^auto\\((balanced|host|midsld|endhost|method|sniext|extlen)\\)$", RegexOption.IGNORE_CASE)
 
 fun AppSettings.effectiveSplitMarker(): String =
-    splitMarker.normalizedOrElse {
-        legacyMarkerExpression(splitPosition, splitAtHost)
-    }.let { marker ->
-        if (shouldUseLegacyDisoobDefaultMarker(marker)) {
-            DefaultDisoobSplitMarker
-        } else {
-            marker
+    splitMarker
+        .normalizedOrElse {
+            legacyMarkerExpression(splitPosition, splitAtHost)
+        }.let { marker ->
+            if (shouldUseLegacyDisoobDefaultMarker(marker)) {
+                DefaultDisoobSplitMarker
+            } else {
+                marker
+            }
         }
-    }
 
 fun AppSettings.effectiveFakeOffsetMarker(): String = fakeOffsetMarker.normalizedOrElse { fakeOffset.toString() }
 

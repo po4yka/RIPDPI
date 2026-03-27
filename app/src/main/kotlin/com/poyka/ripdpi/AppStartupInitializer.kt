@@ -13,18 +13,20 @@ import javax.inject.Singleton
 
 @Singleton
 class AppStartupInitializer
-@Inject
-constructor(
-    private val diagnosticsBootstrapperProvider: Provider<DiagnosticsBootstrapper>,
-    @param:ApplicationScope private val applicationScope: CoroutineScope,
-) {
-    fun initialize() {
-        applicationScope.launch {
-            runCatching {
-                diagnosticsBootstrapperProvider.get().initialize()
-            }.onFailure { error ->
-                logcat(LogPriority.WARN) { "Diagnostics bootstrap skipped\n${error.asLog()}" }
+    @Inject
+    constructor(
+        private val settingsCleanupMigrationCoordinator: SettingsCleanupMigrationCoordinator,
+        private val diagnosticsBootstrapperProvider: Provider<DiagnosticsBootstrapper>,
+        @param:ApplicationScope private val applicationScope: CoroutineScope,
+    ) {
+        fun initialize() {
+            applicationScope.launch {
+                runCatching {
+                    settingsCleanupMigrationCoordinator.migrateIfNeeded()
+                    diagnosticsBootstrapperProvider.get().initialize()
+                }.onFailure { error ->
+                    logcat(LogPriority.WARN) { "Diagnostics bootstrap skipped\n${error.asLog()}" }
+                }
             }
         }
     }
-}

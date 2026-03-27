@@ -119,7 +119,7 @@ class RipDpiProxyPreferencesTest {
         assertEquals("127.0.0.1", listen.string("ip"))
         assertEquals(1024, listen.int("maxConnections"))
         assertEquals("true", protocols.string("desyncHttp"))
-        assertEquals("disorder", chains.array("tcpSteps")[0].jsonObject.string("kind"))
+        assertEquals("split", chains.array("tcpSteps")[0].jsonObject.string("kind"))
         assertEquals("blacklist", hosts.string("mode"))
         assertEquals("example.com", hosts.string("entries"))
         assertEquals("www.example.com", fakePackets.string("fakeSni"))
@@ -514,7 +514,10 @@ class RipDpiProxyPreferencesTest {
 
 private fun String.parseJsonObject(): JsonObject = Json.parseToJsonElement(this).jsonObject
 
-private fun String.withTopLevelString(name: String, value: String): String =
+private fun String.withTopLevelString(
+    name: String,
+    value: String,
+): String =
     JsonObject(
         parseJsonObject()
             .toMutableMap()

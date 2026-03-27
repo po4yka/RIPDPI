@@ -8,6 +8,7 @@ import com.poyka.ripdpi.data.AdaptiveMarkerHost
 import com.poyka.ripdpi.data.AdaptiveMarkerSniExt
 import com.poyka.ripdpi.data.AppSettingsSerializer
 import com.poyka.ripdpi.data.AppStatus
+import com.poyka.ripdpi.data.CanonicalDefaultSplitMarker
 import com.poyka.ripdpi.data.DefaultAdaptiveFakeTtlDelta
 import com.poyka.ripdpi.data.DefaultAdaptiveFakeTtlFallback
 import com.poyka.ripdpi.data.DefaultAdaptiveFakeTtlMax
@@ -16,7 +17,6 @@ import com.poyka.ripdpi.data.DefaultFakeSni
 import com.poyka.ripdpi.data.DefaultHostAutolearnMaxHosts
 import com.poyka.ripdpi.data.DefaultHostAutolearnPenaltyTtlHours
 import com.poyka.ripdpi.data.DefaultQuicFakeHost
-import com.poyka.ripdpi.data.DefaultSplitMarker
 import com.poyka.ripdpi.data.DefaultTlsRandRecFragmentCount
 import com.poyka.ripdpi.data.DefaultTlsRandRecMaxFragmentSize
 import com.poyka.ripdpi.data.DefaultTlsRandRecMinFragmentSize
@@ -235,13 +235,13 @@ data class FakeTransportUiState(
 
 @Stable
 data class DesyncCoreUiState(
-    val desyncMethod: String = "disorder",
+    val desyncMethod: String = "split",
     val tcpChainSteps: List<TcpChainStepModel> = emptyList(),
     val udpChainSteps: List<UdpChainStepModel> = emptyList(),
     val groupActivationFilter: ActivationFilterModel = ActivationFilterModel(),
     val chainSummary: String = "tcp: none",
     val chainDsl: String = "",
-    val splitMarker: String = DefaultSplitMarker,
+    val splitMarker: String = CanonicalDefaultSplitMarker,
     val udpFakeCount: Int = 0,
     val defaultTtl: Int = 0,
     val customTtl: Boolean = false,

@@ -19,6 +19,7 @@ import com.poyka.ripdpi.data.StrategyLaneFamilies
 import com.poyka.ripdpi.data.TcpChainStepKind
 import com.poyka.ripdpi.data.TcpChainStepModel
 import com.poyka.ripdpi.data.UdpChainStepModel
+import com.poyka.ripdpi.data.canonicalDefaultTcpChainSteps
 import com.poyka.ripdpi.data.deriveStrategyLaneFamilies
 import com.poyka.ripdpi.data.effectiveAdaptiveFakeTtlDelta
 import com.poyka.ripdpi.data.effectiveAdaptiveFakeTtlFallback
@@ -77,8 +78,7 @@ data class RipDpiProtocolConfig(
 
 data class RipDpiChainConfig(
     val groupActivationFilter: ActivationFilterModel = ActivationFilterModel(),
-    val tcpSteps: List<TcpChainStepModel> =
-        listOf(TcpChainStepModel(kind = TcpChainStepKind.Disorder, marker = DefaultSplitMarker)),
+    val tcpSteps: List<TcpChainStepModel> = canonicalDefaultTcpChainSteps(),
     val udpSteps: List<UdpChainStepModel> = emptyList(),
 )
 

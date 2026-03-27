@@ -216,6 +216,10 @@ internal class TestNetworkDnsPathPreferenceStore : NetworkDnsPathPreferenceStore
     override suspend fun getPreferredPath(fingerprintHash: String): com.poyka.ripdpi.data.EncryptedDnsPathCandidate? =
         preferences[fingerprintHash]
 
+    override suspend fun clearAll() {
+        preferences.clear()
+    }
+
     override suspend fun rememberPreferredPath(
         fingerprint: NetworkFingerprint,
         path: com.poyka.ripdpi.data.EncryptedDnsPathCandidate,

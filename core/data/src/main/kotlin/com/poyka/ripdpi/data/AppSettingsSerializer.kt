@@ -30,9 +30,6 @@ object AppSettingsSerializer : Serializer<AppSettings> {
             .setProxyPort(1080)
             .setMaxConnections(512)
             .setBufferSize(16384)
-            .setDesyncMethod("disorder")
-            .setSplitPosition(1)
-            .setSplitMarker(DefaultSplitMarker)
             .setFakeTtl(8)
             .setAdaptiveFakeTtlEnabled(false)
             .setAdaptiveFakeTtlDelta(DefaultAdaptiveFakeTtlDelta)
@@ -70,6 +67,8 @@ object AppSettingsSerializer : Serializer<AppSettings> {
             .setDiagnosticsActiveProfileId("default")
             .setDiagnosticsHistoryRetentionDays(14)
             .setDiagnosticsExportIncludeHistory(true)
+            .setCanonicalDefaultStrategyChains()
+            .setSettingsMigrationLevel(CurrentSettingsMigrationLevel)
             .build()
 
     override suspend fun readFrom(input: InputStream): AppSettings {

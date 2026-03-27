@@ -356,6 +356,7 @@ fn is_strategy_execution_errno(errno: i32) -> bool {
         || errno == libc::ENOTSUP
         || errno == libc::EPERM
         || errno == libc::EACCES
+        || errno == libc::EROFS
 }
 
 fn is_strategy_execution_kind(kind: io::ErrorKind) -> bool {
@@ -481,6 +482,24 @@ mod tests {
         assert!(failure.evidence.tags.iter().any(|tag| tag == "action=await_writable"));
         assert!(failure.evidence.tags.iter().any(|tag| tag == "kind=Unsupported"));
         assert!(failure.evidence.tags.iter().any(|tag| tag == "errno=none"));
+    }
+
+    #[test]
+    fn strategy_execution_failures_retry_for_android_read_only_ttl_errors() {
+        let failure = classify_strategy_execution_failure(
+            FailureStage::FirstWrite,
+            "write_disorder",
+            io::ErrorKind::ReadOnlyFilesystem,
+            Some(libc::EROFS),
+            "desync action=write_disorder fallback=split: Read-only file system (os error 30)",
+        )
+        .expect("first-write EROFS should retry");
+
+        assert_eq!(failure.class, FailureClass::StrategyExecutionFailure);
+        assert_eq!(failure.action, FailureAction::RetryWithMatchingGroup);
+        assert!(failure.evidence.tags.iter().any(|tag| tag == "action=write_disorder"));
+        assert!(failure.evidence.tags.iter().any(|tag| tag == "kind=ReadOnlyFilesystem"));
+        assert!(failure.evidence.tags.iter().any(|tag| tag == &format!("errno={}", libc::EROFS)));
     }
 
     #[test]
