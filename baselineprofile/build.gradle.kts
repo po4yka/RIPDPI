@@ -27,6 +27,11 @@ android {
                     apiLevel = 34
                     systemImageSource = "aosp"
                 }
+                create("pixel6Api34Atd") {
+                    device = "Pixel 6"
+                    apiLevel = 34
+                    systemImageSource = "aosp-atd"
+                }
             }
         }
     }

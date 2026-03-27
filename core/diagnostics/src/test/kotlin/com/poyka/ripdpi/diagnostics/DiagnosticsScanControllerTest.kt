@@ -184,6 +184,7 @@ class DiagnosticsScanControllerTest {
             assertEquals(1, bridgeFactory.bridge.cancelCount)
             assertEquals(1, bridgeFactory.bridge.destroyCount)
         }
+
     @Test
     fun `poll failure during scan execution marks session failed and cleans up`() =
         runTest {
