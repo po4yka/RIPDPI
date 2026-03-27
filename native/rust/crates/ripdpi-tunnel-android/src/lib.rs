@@ -5,7 +5,7 @@ mod telemetry;
 use android_support::{init_android_logging, JNI_VERSION};
 use jni::objects::{JObject, JString};
 use jni::sys::{jint, jlong, jlongArray};
-use jni::{JNIEnv, JavaVM};
+use jni::{EnvUnowned, JavaVM};
 
 use session::{
     tunnel_create_entry, tunnel_destroy_entry, tunnel_start_entry, tunnel_stats_entry, tunnel_stop_entry,
@@ -30,7 +30,7 @@ pub extern "system" fn JNI_OnLoad(_vm: JavaVM, _reserved: *mut std::ffi::c_void)
 
 #[unsafe(no_mangle)]
 pub extern "system" fn Java_com_poyka_ripdpi_core_Tun2SocksNativeBindings_jniCreate(
-    env: JNIEnv,
+    env: EnvUnowned<'_>,
     _thiz: JObject,
     config_json: JString,
 ) -> jlong {
@@ -39,7 +39,7 @@ pub extern "system" fn Java_com_poyka_ripdpi_core_Tun2SocksNativeBindings_jniCre
 
 #[unsafe(no_mangle)]
 pub extern "system" fn Java_com_poyka_ripdpi_core_Tun2SocksNativeBindings_jniStart(
-    env: JNIEnv,
+    env: EnvUnowned<'_>,
     _thiz: JObject,
     handle: jlong,
     tun_fd: jint,
@@ -49,7 +49,7 @@ pub extern "system" fn Java_com_poyka_ripdpi_core_Tun2SocksNativeBindings_jniSta
 
 #[unsafe(no_mangle)]
 pub extern "system" fn Java_com_poyka_ripdpi_core_Tun2SocksNativeBindings_jniStop(
-    env: JNIEnv,
+    env: EnvUnowned<'_>,
     _thiz: JObject,
     handle: jlong,
 ) {
@@ -58,7 +58,7 @@ pub extern "system" fn Java_com_poyka_ripdpi_core_Tun2SocksNativeBindings_jniSto
 
 #[unsafe(no_mangle)]
 pub extern "system" fn Java_com_poyka_ripdpi_core_Tun2SocksNativeBindings_jniGetStats(
-    env: JNIEnv,
+    env: EnvUnowned<'_>,
     _thiz: JObject,
     handle: jlong,
 ) -> jlongArray {
@@ -67,7 +67,7 @@ pub extern "system" fn Java_com_poyka_ripdpi_core_Tun2SocksNativeBindings_jniGet
 
 #[unsafe(no_mangle)]
 pub extern "system" fn Java_com_poyka_ripdpi_core_Tun2SocksNativeBindings_jniGetTelemetry(
-    env: JNIEnv,
+    env: EnvUnowned<'_>,
     _thiz: JObject,
     handle: jlong,
 ) -> jni::sys::jstring {
@@ -76,7 +76,7 @@ pub extern "system" fn Java_com_poyka_ripdpi_core_Tun2SocksNativeBindings_jniGet
 
 #[unsafe(no_mangle)]
 pub extern "system" fn Java_com_poyka_ripdpi_core_Tun2SocksNativeBindings_jniDestroy(
-    env: JNIEnv,
+    env: EnvUnowned<'_>,
     _thiz: JObject,
     handle: jlong,
 ) {
