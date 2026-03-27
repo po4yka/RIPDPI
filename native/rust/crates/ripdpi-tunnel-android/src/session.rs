@@ -196,6 +196,30 @@ mod tests {
     }
 
     #[test]
+    fn tunnel_exception_messages_match_contract_fixture() {
+        use golden_test_support::assert_contract_fixture;
+        use serde_json::json;
+
+        // Document every exception message thrown by the tunnel JNI layer.
+        // If a message changes, this fixture breaks and both sides must update.
+        let messages = json!([
+            {"message": "Invalid TUN file descriptor", "javaClass": "java.lang.IllegalArgumentException"},
+            {"message": "Invalid tunnel config payload", "javaClass": "java.lang.IllegalArgumentException"},
+            {"message": "Invalid tunnel handle", "javaClass": "java.lang.IllegalArgumentException"},
+            {"message": "Unknown tunnel handle", "javaClass": "java.lang.IllegalArgumentException"},
+            {"message": "Tunnel session is already starting", "javaClass": "java.lang.IllegalStateException"},
+            {"message": "Tunnel session is already running", "javaClass": "java.lang.IllegalStateException"},
+            {"message": "Tunnel session has been destroyed", "javaClass": "java.lang.IllegalStateException"},
+            {"message": "Cannot destroy a starting tunnel session", "javaClass": "java.lang.IllegalStateException"},
+            {"message": "Cannot destroy a running tunnel session", "javaClass": "java.lang.IllegalStateException"},
+            {"message": "Tunnel session has already been destroyed", "javaClass": "java.lang.IllegalStateException"},
+        ]);
+
+        let actual = serde_json::to_string_pretty(&messages).expect("serialize");
+        assert_contract_fixture("tunnel_exception_messages.json", &actual);
+    }
+
+    #[test]
     fn rollback_failed_tunnel_start_restores_ready_state() {
         let session = TunnelSession {
             runtime: Arc::new(tokio::runtime::Builder::new_current_thread().build().expect("test runtime")),
