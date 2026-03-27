@@ -38,6 +38,7 @@ tracing = { workspace = true }
 golden-test-support = { workspace = true }
 jni = { workspace = true, features = ["invocation"] }
 proptest = { workspace = true }
+tracing-subscriber = { workspace = true }
 
 [features]
 loom = ["dep:loom"]

@@ -65,11 +65,9 @@ class NetworkPathE2ETest {
                 dnsIp = "1.1.1.1"
                 ipv6Enable = false
                 enableCmdSettings = false
-                desyncMethod = "none"
                 desyncHttp = false
                 desyncHttps = false
                 desyncUdp = false
-                tlsrecEnabled = false
                 setStrategyChains(emptyList(), emptyList())
             }
         }
@@ -211,7 +209,10 @@ class NetworkPathE2ETest {
         val baselineRestartCount = serviceStateStore.telemetry.value.restartCount
         val payload = httpEchoPayloadShellLiteral("vpn-hostname")
         val output = shellTcpRoundTrip(fixture.fixtureDomain, fixture.tcpEchoPort, payload)
-        assertTrue("Expected VPN hostname shell round-trip, got: $output", output.contains("GET /vpn-hostname HTTP/1.1"))
+        assertTrue(
+            "Expected VPN hostname shell round-trip, got: $output",
+            output.contains("GET /vpn-hostname HTTP/1.1"),
+        )
 
         awaitUntil(timeoutMs = 20_000L) {
             val snapshot = serviceStateStore.telemetry.value

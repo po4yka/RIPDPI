@@ -18,6 +18,7 @@ import com.poyka.ripdpi.data.diagnostics.DiagnosticContextEntity
 import com.poyka.ripdpi.data.diagnostics.NetworkSnapshotEntity
 import com.poyka.ripdpi.data.diagnostics.decodedSource
 import com.poyka.ripdpi.data.strategyFamily
+import com.poyka.ripdpi.diagnostics.contract.engine.EngineScanRequestWire
 import com.poyka.ripdpi.diagnostics.domain.DiagnosticsIntent
 import com.poyka.ripdpi.diagnostics.domain.ExecutionPolicy
 import com.poyka.ripdpi.diagnostics.domain.ScanContext
@@ -114,9 +115,9 @@ class DiagnosticsStrategyProbeRecommendationPersistenceTest {
             assertTrue(stores.rememberedPoliciesState.value.isEmpty())
             val persistedReport =
                 json
-                    .decodeEngineScanReportWireCompat(
+                    .decodeEngineScanReportWire(
                         requireNotNull(stores.getScanSession(prepared.sessionId)?.reportJson),
-                    ).toLegacyScanReportCompat()
+                    ).toScanReport()
             val recommendation = requireNotNull(persistedReport.strategyProbeReport).recommendation
             assertEquals("tcp-1", recommendation.tcpCandidateId)
             assertEquals("quic-1", recommendation.quicCandidateId)
@@ -199,22 +200,27 @@ private fun preparedStrategyProbeScan(
                     context = contextSnapshot,
                 ),
         )
+    val plan =
+        ScanPlan(
+            intent = intent,
+            context = context,
+            proxyHost = null,
+            proxyPort = null,
+            dnsTargets = emptyList(),
+            probeTasks = emptyList(),
+        )
     return PreparedDiagnosticsScan(
         sessionId = sessionId,
         settings = settings,
         pathMode = ScanPathMode.RAW_PATH,
         intent = intent,
         context = context,
-        plan =
-            ScanPlan(
-                intent = intent,
-                context = context,
-                proxyHost = null,
-                proxyPort = null,
-                dnsTargets = emptyList(),
-                probeTasks = emptyList(),
+        plan = plan,
+        requestJson =
+            diagnosticsTestJson().encodeToString(
+                EngineScanRequestWire.serializer(),
+                plan.toEngineScanRequestWire(),
             ),
-        requestJson = "{}",
         scanOrigin = DiagnosticsScanOrigin.AUTOMATIC_BACKGROUND,
         launchTrigger = null,
         exposeProgress = false,

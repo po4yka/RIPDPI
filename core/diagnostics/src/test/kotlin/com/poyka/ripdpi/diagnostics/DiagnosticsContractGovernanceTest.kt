@@ -12,7 +12,6 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
-import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class DiagnosticsContractGovernanceTest {
@@ -24,10 +23,6 @@ class DiagnosticsContractGovernanceTest {
             json.decodeFromString(
                 ProfileSpecWire.serializer(),
                 repoFixture("diagnostics-contract-fixtures/profile_spec_current.json").readText(),
-            )
-        val legacyProfileSpec =
-            json.decodeProfileSpecWireCompat(
-                repoFixture("diagnostics-contract-fixtures/profile_spec_legacy.json").readText(),
             )
         val engineRequest =
             json.decodeFromString(
@@ -52,7 +47,6 @@ class DiagnosticsContractGovernanceTest {
 
         assertNotNull(currentProfileSpec.executionPolicy)
         assertNotNull(currentProfileSpec.executionPolicy?.probePersistencePolicy)
-        assertTrue(legacyProfileSpec.executionPolicyOrCompat().requiresRawPath)
         assertEquals(DiagnosticsEngineSchemaVersion, engineRequest.schemaVersion)
         assertEquals(DiagnosticsEngineSchemaVersion, engineReport.schemaVersion)
         assertEquals(DiagnosticsEngineSchemaVersion, engineProgress.schemaVersion)

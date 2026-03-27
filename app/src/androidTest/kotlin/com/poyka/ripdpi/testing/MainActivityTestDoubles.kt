@@ -22,10 +22,10 @@ import com.poyka.ripdpi.data.ServiceEvent
 import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.data.ServiceTelemetrySnapshot
 import com.poyka.ripdpi.data.TunnelStats
+import com.poyka.ripdpi.diagnostics.BypassApproachSummary
 import com.poyka.ripdpi.diagnostics.DiagnosticActiveConnectionPolicy
 import com.poyka.ripdpi.diagnostics.DiagnosticConnectionDetail
 import com.poyka.ripdpi.diagnostics.DiagnosticConnectionSession
-import com.poyka.ripdpi.diagnostics.BypassApproachSummary
 import com.poyka.ripdpi.diagnostics.DiagnosticContextSnapshot
 import com.poyka.ripdpi.diagnostics.DiagnosticEvent
 import com.poyka.ripdpi.diagnostics.DiagnosticExportRecord
@@ -220,7 +220,20 @@ class StubInstrumentedDiagnosticsTimelineSource : DiagnosticsTimelineSource {
 }
 
 class StubInstrumentedDiagnosticsScanController : DiagnosticsScanController {
-    override suspend fun startScan(pathMode: com.poyka.ripdpi.diagnostics.ScanPathMode): String = "session"
+    override val hiddenAutomaticProbeActive: StateFlow<Boolean> = MutableStateFlow(false)
+
+    override suspend fun startScan(
+        pathMode: com.poyka.ripdpi.diagnostics.ScanPathMode,
+    ): com.poyka.ripdpi.diagnostics.DiagnosticsManualScanStartResult =
+        com.poyka.ripdpi.diagnostics.DiagnosticsManualScanStartResult
+            .Started("session")
+
+    override suspend fun resolveHiddenProbeConflict(
+        requestId: String,
+        action: com.poyka.ripdpi.diagnostics.HiddenProbeConflictAction,
+    ): com.poyka.ripdpi.diagnostics.DiagnosticsManualScanResolution =
+        com.poyka.ripdpi.diagnostics.DiagnosticsManualScanResolution
+            .Started("session")
 
     override suspend fun cancelActiveScan() = Unit
 
@@ -263,15 +276,13 @@ class StubInstrumentedDiagnosticsHistorySource : DiagnosticsHistorySource {
     override fun observeDiagnosticsSessions(limit: Int): Flow<List<DiagnosticScanSession>> =
         MutableStateFlow(emptyList())
 
-    override fun observeNativeEvents(limit: Int): Flow<List<DiagnosticEvent>> =
-        MutableStateFlow(emptyList())
+    override fun observeNativeEvents(limit: Int): Flow<List<DiagnosticEvent>> = MutableStateFlow(emptyList())
 
     override suspend fun loadConnectionDetail(sessionId: String): DiagnosticConnectionDetail? = null
 }
 
 class StubInstrumentedDiagnosticsRememberedPolicySource : DiagnosticsRememberedPolicySource {
-    override fun observePolicies(limit: Int): Flow<List<DiagnosticsRememberedPolicy>> =
-        MutableStateFlow(emptyList())
+    override fun observePolicies(limit: Int): Flow<List<DiagnosticsRememberedPolicy>> = MutableStateFlow(emptyList())
 
     override suspend fun clearAll() = Unit
 }

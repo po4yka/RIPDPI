@@ -22,7 +22,7 @@ import com.poyka.ripdpi.diagnostics.TelegramTarget
 import com.poyka.ripdpi.diagnostics.ThroughputTarget
 import kotlinx.serialization.Serializable
 
-const val DiagnosticsEngineSchemaVersion = 2
+const val DiagnosticsEngineSchemaVersion = 1
 
 @Serializable
 enum class EngineProbeTaskFamily {

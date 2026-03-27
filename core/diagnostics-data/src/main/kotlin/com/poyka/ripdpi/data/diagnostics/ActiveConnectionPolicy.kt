@@ -12,6 +12,7 @@ data class ActiveConnectionPolicy(
     val policy: RememberedNetworkPolicyJson,
     val matchedPolicy: RememberedNetworkPolicyEntity? = null,
     val usedRememberedPolicy: Boolean = false,
+    val rememberedPolicyAppliedByExactMatch: Boolean? = null,
     val fingerprintHash: String? = null,
     val policySignature: String,
     val appliedAt: Long,

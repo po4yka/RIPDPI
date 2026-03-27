@@ -100,18 +100,12 @@ mod tests {
     }
 
     #[test]
-    fn parse_offset_expr_flag_combos() {
-        let se = parse_offset_expr("5+se").unwrap();
-        assert_eq!(se, OffsetExpr::tls_marker(OffsetBase::EndHost, 5));
+    fn parse_offset_expr_repeat_and_skip_values() {
+        let repeated = parse_offset_expr("host+2:3").unwrap();
+        assert_eq!(repeated, OffsetExpr::marker(OffsetBase::Host, 2).with_repeat_skip(3, 0));
 
-        let hm = parse_offset_expr("3+hm").unwrap();
-        assert_eq!(hm, OffsetExpr::marker(OffsetBase::HostMid, 3));
-
-        let nr = parse_offset_expr("0+nr").unwrap();
-        assert_eq!(nr, OffsetExpr::marker(OffsetBase::PayloadRand, 0));
-
-        let ss = parse_offset_expr("1+ss").unwrap();
-        assert_eq!(ss, OffsetExpr::tls_host(1));
+        let repeated_with_skip = parse_offset_expr("endhost-1:2:1").unwrap();
+        assert_eq!(repeated_with_skip, OffsetExpr::marker(OffsetBase::EndHost, -1).with_repeat_skip(2, 1));
     }
 
     #[test]
@@ -138,7 +132,20 @@ mod tests {
 
     #[test]
     fn parse_offset_expr_rejects_invalid_marker_syntax() {
-        for spec in ["host+", "midsld-", "unknown", "host+nope", "5+zz", "method++1", "auto()", "auto(foo)"] {
+        for spec in [
+            "host+",
+            "midsld-",
+            "unknown",
+            "host+nope",
+            "5+zz",
+            "1+ss",
+            "5+se",
+            "3+hm",
+            "0+nr",
+            "method++1",
+            "auto()",
+            "auto(foo)",
+        ] {
             assert!(parse_offset_expr(spec).is_err(), "{spec} should be rejected");
         }
     }

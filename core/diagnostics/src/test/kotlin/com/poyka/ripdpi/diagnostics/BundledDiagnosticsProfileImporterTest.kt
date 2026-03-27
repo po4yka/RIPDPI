@@ -131,7 +131,7 @@ private fun sampleBundledProfilesJson(json: kotlinx.serialization.json.Json): St
     json.encodeToString(
         BundledDiagnosticsCatalogWire.serializer(),
         BundledDiagnosticsCatalogWire(
-            schemaVersion = 2,
+            schemaVersion = 1,
             generatedAt = "2026-03-22",
             packs = listOf(BundledDiagnosticsPackWire(id = "default-pack", version = 3)),
             profiles =

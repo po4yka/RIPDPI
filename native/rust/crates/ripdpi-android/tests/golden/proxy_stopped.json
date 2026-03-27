@@ -32,7 +32,8 @@
       "createdAt": 0,
       "level": "info",
       "message": "listener stopped",
-      "source": "proxy"
+      "source": "proxy",
+      "subsystem": "proxy"
     }
   ],
   "networkErrors": 0,

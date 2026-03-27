@@ -31,6 +31,21 @@ message StrategyUdpStep {
 }
 
 message AppSettings {
+  reserved 15, 16, 17, 29, 30, 31, 32, 69, 71, 93, 94, 130;
+  reserved
+      "desync_method",
+      "split_position",
+      "split_at_host",
+      "tlsrec_enabled",
+      "tlsrec_position",
+      "tlsrec_at_sni",
+      "udp_fake_count",
+      "split_marker",
+      "tlsrec_marker",
+      "dns_doh_url",
+      "dns_doh_bootstrap_ips",
+      "settings_migration_level";
+
   // General
   string app_theme = 1;       // "system" | "light" | "dark"
   string ripdpi_mode = 2;     // "vpn" | "proxy"
@@ -52,9 +67,6 @@ message AppSettings {
   // Desync
   int32 default_ttl = 13;
   bool custom_ttl = 14;
-  string desync_method = 15;   // "none"|"split"|"disorder"|"fake"|"oob"|"disoob"
-  int32 split_position = 16;
-  bool split_at_host = 17;
   int32 fake_ttl = 18;
   string fake_sni = 19;
   int32 fake_offset = 20;
@@ -70,14 +82,6 @@ message AppSettings {
   string hosts_mode = 26;      // "disable" | "blacklist" | "whitelist"
   string hosts_blacklist = 27;
   string hosts_whitelist = 28;
-
-  // TLS
-  bool tlsrec_enabled = 29;
-  int32 tlsrec_position = 30;
-  bool tlsrec_at_sni = 31;
-
-  // UDP
-  int32 udp_fake_count = 32;
 
   // HTTP
   bool host_mixed_case = 33;
@@ -96,9 +100,7 @@ message AppSettings {
   string diagnostics_active_profile_id = 66;
   int32 diagnostics_history_retention_days = 67;
   bool diagnostics_export_include_history = 68;
-  string split_marker = 69;
   string fake_offset_marker = 70;
-  string tlsrec_marker = 71;
   repeated StrategyTcpStep tcp_chain_steps = 72;
   repeated StrategyUdpStep udp_chain_steps = 73;
   string quic_initial_mode = 74; // "disabled" | "route" | "route_and_cache"
@@ -120,8 +122,6 @@ message AppSettings {
   string udp_fake_profile = 90; // "compat_default" | "zero_256" | "zero_512" | "dns_query" | "stun_binding" | "wireguard_initiation" | "dht_get_peers"
   string dns_mode = 91; // "plain_udp" | "encrypted"
   string dns_provider_id = 92; // "cloudflare" | "google" | "quad9" | "adguard" | "custom"
-  string dns_doh_url = 93; // deprecated compatibility field
-  repeated string dns_doh_bootstrap_ips = 94; // deprecated compatibility field
   ActivationFilter group_activation_filter = 95;
   string encrypted_dns_protocol = 96; // "doh" | "dot" | "dnscrypt" | "doq"
   string encrypted_dns_host = 97;
@@ -169,7 +169,4 @@ message AppSettings {
 
   // Connection freeze detection (middlebox degradation mode)
   bool freeze_detection_enabled = 129;       // Detect throttled/frozen connections
-
-  // One-shot settings cleanup migration marker
-  int32 settings_migration_level = 130;
 }

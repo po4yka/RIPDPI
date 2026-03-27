@@ -21,6 +21,7 @@ import com.poyka.ripdpi.data.NetworkFingerprintProvider
 import com.poyka.ripdpi.data.PolicyHandoverEvent
 import com.poyka.ripdpi.data.PolicyHandoverEventStore
 import com.poyka.ripdpi.data.RememberedNetworkPolicyJson
+import com.poyka.ripdpi.data.RememberedNetworkPolicySource
 import com.poyka.ripdpi.data.RuntimeFieldTelemetry
 import com.poyka.ripdpi.data.Sender
 import com.poyka.ripdpi.data.ServiceEvent
@@ -176,13 +177,13 @@ internal class TestRememberedNetworkPolicyStore : RememberedNetworkPolicyStore {
 
     override suspend fun upsertObservedPolicy(
         policy: RememberedNetworkPolicyJson,
-        source: String,
+        source: RememberedNetworkPolicySource,
         observedAt: Long?,
     ): RememberedNetworkPolicyEntity = sampleRememberedPolicyEntity()
 
     override suspend fun rememberValidatedPolicy(
         policy: RememberedNetworkPolicyJson,
-        source: String,
+        source: RememberedNetworkPolicySource,
         validatedAt: Long?,
     ): RememberedNetworkPolicyEntity = sampleRememberedPolicyEntity()
 
@@ -567,7 +568,7 @@ internal fun sampleRememberedPolicyEntity(mode: Mode = Mode.Proxy): RememberedNe
         mode = mode.preferenceValue,
         summaryJson = Json.encodeToString(sampleFingerprint().summary()),
         proxyConfigJson = "{}",
-        source = "test",
+        source = RememberedNetworkPolicySource.MANUAL_SESSION.encodeStorageValue(),
         status = "validated",
         firstObservedAt = 1L,
         updatedAt = 1L,

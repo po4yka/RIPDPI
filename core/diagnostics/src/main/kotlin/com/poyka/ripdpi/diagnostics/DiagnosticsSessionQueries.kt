@@ -191,7 +191,7 @@ internal object DiagnosticsSessionQueries {
         payload: String?,
     ): ScanReport? =
         payload?.takeIf { it.isNotBlank() }?.let {
-            runCatching { json.decodeEngineScanReportWireCompat(it).toLegacyScanReportCompat() }.getOrNull()
+            runCatching { json.decodeEngineScanReportWire(it).toScanReport() }.getOrNull()
         }
 
     private fun decodeStrategySignature(

@@ -36,7 +36,7 @@ class NativeConfigContractSnapshotTest {
                     "--port",
                     "2080",
                     "--split",
-                    "1+s",
+                    "host+1",
                     "--fake",
                     "-1",
                 ),
@@ -56,7 +56,7 @@ class NativeConfigContractSnapshotTest {
                             add(JsonPrimitive("--port"))
                             add(JsonPrimitive("2080"))
                             add(JsonPrimitive("--split"))
-                            add(JsonPrimitive("1+s"))
+                            add(JsonPrimitive("host+1"))
                             add(JsonPrimitive("--fake"))
                             add(JsonPrimitive("-1"))
                         },
@@ -163,7 +163,7 @@ class NativeConfigContractSnapshotTest {
                         enabled = true,
                         penaltyTtlHours = 12,
                         maxHosts = 2048,
-                        storePath = "/data/user/0/com.poyka.ripdpi/no_backup/ripdpi/host-autolearn-v1.json",
+                        storePath = "/data/user/0/com.poyka.ripdpi/no_backup/ripdpi/host-autolearn-v2.json",
                     ),
             ).toNativeConfigJson()
 
@@ -243,7 +243,7 @@ class NativeConfigContractSnapshotTest {
                             enabled = true,
                             penaltyTtlHours = 12,
                             maxHosts = 2048,
-                            storePath = "/data/user/0/com.poyka.ripdpi/no_backup/ripdpi/host-autolearn-v1.json",
+                            storePath = "/data/user/0/com.poyka.ripdpi/no_backup/ripdpi/host-autolearn-v2.json",
                         ),
                 ),
         )

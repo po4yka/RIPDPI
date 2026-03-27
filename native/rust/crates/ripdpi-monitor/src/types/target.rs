@@ -42,10 +42,6 @@ pub struct DnsTarget {
     #[serde(default)]
     pub encrypted_dnscrypt_public_key: Option<String>,
     #[serde(default)]
-    pub doh_url: Option<String>,
-    #[serde(default)]
-    pub doh_bootstrap_ips: Vec<String>,
-    #[serde(default)]
     pub expected_ips: Vec<String>,
 }
 

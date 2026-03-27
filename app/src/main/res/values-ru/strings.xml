@@ -140,6 +140,15 @@
     <string name="diagnostics_source_automatic_audit_manual">Автоаудит (вручную)</string>
     <string name="diagnostics_source_strategy_probe_manual">Стратегическое зондирование (вручную)</string>
     <string name="diagnostics_source_unknown">Неизвестный источник</string>
+    <string name="history_connection_remembered_policy_badge">Запомненная политика</string>
+    <string name="history_connection_remembered_policy_section">Запомненная политика</string>
+    <string name="history_connection_remembered_policy_source">Источник</string>
+    <string name="history_connection_remembered_policy_reason">Причина совпадения</string>
+    <string name="history_connection_remembered_policy_exact_match">Точное совпадение сети</string>
+    <string name="history_connection_remembered_policy_fingerprint">Совпавший отпечаток</string>
+    <string name="history_connection_remembered_policy_previous_successes">Предыдущие успехи</string>
+    <string name="history_connection_remembered_policy_previous_failures">Предыдущие сбои</string>
+    <string name="history_connection_remembered_policy_previous_consecutive_failures">Предыдущие сбои подряд</string>
     <string name="diagnostics_network_fallback_title">Сеть %1$s</string>
     <string name="diagnostics_current_match">Текущее совпадение</string>
     <string name="diagnostics_no_strategy_signature">Сигнатура стратегии не обнаружена</string>
@@ -267,10 +276,10 @@
     <string name="config_chain_editor_helper_full">Секция HTTPS ниже позволяет визуально создавать отдельные шаги tlsrec и случайного tlsrandrec, а карточки Hostfake и приближения fake описывают ложные фрагменты с таргетингом на имя хоста и приближения в стиле повторной передачи. Приближения только для Linux/Android доступны как fakedsplit host+1 и fakeddisorder endhost для HTTP или полезных нагрузок, смежных с TLS SNI.</string>
     <string name="action_learn_more">Подробнее</string>
     <string name="action_show_less">Свернуть</string>
-    <string name="config_split_marker_helper">Ручные маркеры принимают смещения вида 1, host, method+2, midsld-1 или 1+s. Используйте адаптивный селектор пресетов или DSL цепочки для auto(\u2026).</string>
-    <string name="config_fake_offset_marker_helper">Принимает числовые или семантические смещения вида 0, host+1, endhost-2 или 1+se. Адаптивные маркеры auto(\u2026) здесь не поддерживаются.</string>
+    <string name="config_split_marker_helper">Ручные маркеры принимают смещения вида 1, host, method+2, midsld-1 или host+1. Используйте адаптивный селектор пресетов или DSL цепочки для auto(\u2026).</string>
+    <string name="config_fake_offset_marker_helper">Принимает числовые или семантические смещения вида 0, host+1, endhost-2 или endhost+1. Адаптивные маркеры auto(\u2026) здесь не поддерживаются.</string>
     <string name="config_fake_tls_size_helper">0 = размер входных данных, положительное = точное целевое количество байт, отрицательное = входные данные минус N.</string>
-    <string name="config_tls_record_marker_helper">Принимает смещения вида 0, host, sniext, extlen или 1+s.</string>
+    <string name="config_tls_record_marker_helper">Принимает смещения вида 0, host, sniext, extlen или host+1.</string>
     <string name="config_udp_chain_hint">Пакетные UDP-пачки fake теперь находятся внутри редактора цепочки стратегий в виде счётчиков fake_burst.</string>
     <string name="ripdpi_tls_prelude_section_body">Настройте TLS-преамбулу, которая перезаписывает записи HTTPS ClientHello перед выполнением шагов отправки. Редактор цепочки выше по-прежнему обрабатывает составные и смешанные TLS-преамбулы.</string>
     <string name="ripdpi_tls_prelude_mode_title">Фрагментация TLS-записей</string>

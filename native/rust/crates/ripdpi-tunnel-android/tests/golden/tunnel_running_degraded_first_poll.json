@@ -13,26 +13,7 @@
   "lastRouteGroup": null,
   "lastTarget": null,
   "listenerAddress": null,
-  "nativeEvents": [
-    {
-      "createdAt": 0,
-      "level": "info",
-      "message": "tunnel started upstream=127.0.0.1:1080",
-      "source": "tunnel"
-    },
-    {
-      "createdAt": 0,
-      "level": "warn",
-      "message": "tunnel error: boom",
-      "source": "tunnel"
-    },
-    {
-      "createdAt": 0,
-      "level": "info",
-      "message": "tunnel stop requested",
-      "source": "tunnel"
-    }
-  ],
+  "nativeEvents": [],
   "networkHandoverClass": null,
   "resolverEndpoint": null,
   "resolverFallbackActive": false,

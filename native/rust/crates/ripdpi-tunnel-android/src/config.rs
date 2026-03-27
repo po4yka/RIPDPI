@@ -72,11 +72,6 @@ pub(crate) struct TunnelConfigPayload {
     pub(crate) encrypted_dns_doh_url: Option<String>,
     pub(crate) encrypted_dns_dnscrypt_provider_name: Option<String>,
     pub(crate) encrypted_dns_dnscrypt_public_key: Option<String>,
-    // Deprecated compatibility fields kept for older payloads.
-    pub(crate) doh_resolver_id: Option<String>,
-    pub(crate) doh_url: Option<String>,
-    #[serde(default)]
-    pub(crate) doh_bootstrap_ips: Vec<String>,
     #[serde(default)]
     pub(crate) encrypted_dns_bootstrap_ips: Vec<String>,
     pub(crate) dns_query_timeout_ms: Option<u32>,
@@ -234,7 +229,7 @@ pub(crate) fn config_from_payload(payload: TunnelConfigPayload) -> Result<Config
         network: payload.mapdns_network,
         netmask: payload.mapdns_netmask,
         cache_size: payload.mapdns_cache_size.unwrap_or(10_000),
-        resolver_id: payload.encrypted_dns_resolver_id.or(payload.doh_resolver_id),
+        resolver_id: payload.encrypted_dns_resolver_id,
         encrypted_dns_protocol: payload.encrypted_dns_protocol,
         encrypted_dns_host: payload.encrypted_dns_host,
         encrypted_dns_port: payload.encrypted_dns_port,
@@ -243,8 +238,6 @@ pub(crate) fn config_from_payload(payload: TunnelConfigPayload) -> Result<Config
         encrypted_dns_doh_url: payload.encrypted_dns_doh_url,
         encrypted_dns_dnscrypt_provider_name: payload.encrypted_dns_dnscrypt_provider_name,
         encrypted_dns_dnscrypt_public_key: payload.encrypted_dns_dnscrypt_public_key,
-        doh_url: payload.doh_url,
-        doh_bootstrap_ips: payload.doh_bootstrap_ips,
         dns_query_timeout_ms: payload.dns_query_timeout_ms.unwrap_or(4_000),
         resolver_fallback_active: payload.resolver_fallback_active.unwrap_or(false),
         resolver_fallback_reason: payload.resolver_fallback_reason,
@@ -280,7 +273,7 @@ pub(crate) fn parse_tunnel_config_json(json: &str) -> Result<TunnelConfigPayload
 }
 
 pub(crate) fn mapdns_resolver_protocol(mapdns: &MapDnsConfig) -> Option<String> {
-    mapdns.encrypted_dns_protocol.clone().or_else(|| mapdns.doh_url.as_ref().map(|_| "doh".to_string()))
+    mapdns.encrypted_dns_protocol.clone().or_else(|| mapdns.encrypted_dns_doh_url.as_ref().map(|_| "doh".to_string()))
 }
 
 #[cfg(test)]
@@ -311,9 +304,6 @@ pub(crate) fn sample_payload() -> TunnelConfigPayload {
         encrypted_dns_doh_url: None,
         encrypted_dns_dnscrypt_provider_name: None,
         encrypted_dns_dnscrypt_public_key: None,
-        doh_resolver_id: None,
-        doh_url: None,
-        doh_bootstrap_ips: Vec::new(),
         encrypted_dns_bootstrap_ips: Vec::new(),
         dns_query_timeout_ms: None,
         resolver_fallback_active: None,
@@ -451,9 +441,6 @@ mod tests {
                     encrypted_dns_doh_url: None,
                     encrypted_dns_dnscrypt_provider_name: None,
                     encrypted_dns_dnscrypt_public_key: None,
-                    doh_resolver_id: None,
-                    doh_url: None,
-                    doh_bootstrap_ips: Vec::new(),
                     encrypted_dns_bootstrap_ips: Vec::new(),
                     dns_query_timeout_ms: None,
                     resolver_fallback_active: None,
@@ -572,9 +559,6 @@ mod tests {
                     encrypted_dns_doh_url: None,
                     encrypted_dns_dnscrypt_provider_name: None,
                     encrypted_dns_dnscrypt_public_key: None,
-                    doh_resolver_id: None,
-                    doh_url: None,
-                    doh_bootstrap_ips: Vec::new(),
                     encrypted_dns_bootstrap_ips: Vec::new(),
                     dns_query_timeout_ms: None,
                     resolver_fallback_active: None,
@@ -808,9 +792,6 @@ mod tests {
             "encryptedDnsDohUrl": "https://cloudflare-dns.com/dns-query",
             "encryptedDnsDnscryptProviderName": "provider",
             "encryptedDnsDnscryptPublicKey": "key",
-            "dohResolverId": "legacy-cf",
-            "dohUrl": "https://legacy.example.com/dns-query",
-            "dohBootstrapIps": ["1.1.1.1"],
             "encryptedDnsBootstrapIps": ["1.0.0.1"],
             "dnsQueryTimeoutMs": 4000,
             "resolverFallbackActive": true,

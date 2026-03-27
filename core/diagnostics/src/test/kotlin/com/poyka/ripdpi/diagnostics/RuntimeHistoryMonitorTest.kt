@@ -31,6 +31,7 @@ import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -170,7 +171,8 @@ class RuntimeHistoryMonitorTest {
             waitUntil(timeoutMillis = 8_000) {
                 stores.telemetryState.value.any { it.resolverId == "cloudflare" } &&
                     stores.snapshotsState.value.isNotEmpty() &&
-                    stores.contextsState.value.isNotEmpty()
+                    stores.contextsState.value.isNotEmpty() &&
+                    stores.nativeEventsState.value.size == 1
             }
 
             val session = stores.usageSessionsState.value.single()
@@ -313,11 +315,21 @@ class RuntimeHistoryMonitorTest {
                 requireNotNull(stores.getRememberedNetworkPolicy("fingerprint-a", Mode.VPN.preferenceValue))
             val secondPersisted =
                 requireNotNull(stores.getRememberedNetworkPolicy("fingerprint-b", Mode.VPN.preferenceValue))
+            val session = stores.usageSessionsState.value.single()
 
             assertEquals(0, firstPersisted.failureCount)
             assertEquals(0, firstPersisted.consecutiveFailureCount)
             assertEquals(1_000L, firstPersisted.lastAppliedAt)
             assertEquals(2_000L, secondPersisted.lastAppliedAt)
+            assertEquals("fingerprint-b", session.rememberedPolicyMatchedFingerprintHash)
+            assertEquals(
+                RememberedNetworkPolicySource.MANUAL_SESSION.encodeStorageValue(),
+                session.rememberedPolicySource,
+            )
+            assertEquals(true, session.rememberedPolicyAppliedByExactMatch)
+            assertEquals(1, session.rememberedPolicyPreviousSuccessCount)
+            assertEquals(0, session.rememberedPolicyPreviousFailureCount)
+            assertEquals(0, session.rememberedPolicyPreviousConsecutiveFailureCount)
         }
 
     @Test
@@ -410,8 +422,13 @@ class RuntimeHistoryMonitorTest {
 
             val persisted =
                 requireNotNull(stores.getRememberedNetworkPolicy("fingerprint-fail", Mode.VPN.preferenceValue))
+            val session = stores.usageSessionsState.value.single()
             assertEquals(1, persisted.failureCount)
             assertEquals(1, persisted.consecutiveFailureCount)
+            assertEquals("fingerprint-fail", session.rememberedPolicyMatchedFingerprintHash)
+            assertEquals(1, session.rememberedPolicyPreviousSuccessCount)
+            assertEquals(0, session.rememberedPolicyPreviousFailureCount)
+            assertEquals(0, session.rememberedPolicyPreviousConsecutiveFailureCount)
         }
 
     @Test
@@ -472,10 +489,87 @@ class RuntimeHistoryMonitorTest {
 
             val persisted =
                 requireNotNull(stores.getRememberedNetworkPolicy("fingerprint-success", Mode.VPN.preferenceValue))
+            val session = stores.usageSessionsState.value.single()
             assertEquals(RememberedNetworkPolicyStatusValidated, persisted.status)
             assertEquals(RememberedNetworkPolicySource.MANUAL_SESSION, persisted.decodedSource())
             assertEquals(1, persisted.successCount)
             assertNotNull(persisted.lastValidatedAt)
+            assertNull(session.rememberedPolicyMatchedFingerprintHash)
+            assertNull(session.rememberedPolicySource)
+            assertNull(session.rememberedPolicyAppliedByExactMatch)
+        }
+
+    @Test
+    fun `fallback to non remembered policy keeps remembered policy audit on session`() =
+        runTest {
+            val stores = FakeDiagnosticsHistoryStores()
+            val clock = TestDiagnosticsHistoryClock(currentTime = 1_000L)
+            val serviceStateStore = DefaultServiceStateStore()
+            val activePolicyStore = FakeActiveConnectionPolicyStore()
+            val rememberedPolicyStore = DefaultRememberedNetworkPolicyStore(stores, clock)
+            val rememberedPolicy =
+                rememberedPolicyStore.rememberValidatedPolicy(
+                    policy = rememberedPolicyJson("fingerprint-match", Mode.VPN),
+                    source = RememberedNetworkPolicySource.AUTOMATIC_PROBING_BACKGROUND,
+                    validatedAt = 100L,
+                )
+            val monitor =
+                createRuntimeHistoryMonitor(
+                    appSettingsRepository = RecorderFakeAppSettingsRepository(),
+                    stores = stores,
+                    rememberedNetworkPolicyStore = rememberedPolicyStore,
+                    networkMetadataProvider = RecorderFakeNetworkMetadataProvider(),
+                    diagnosticsContextProvider = RecorderFakeDiagnosticsContextProvider(),
+                    serviceStateStore = serviceStateStore,
+                    activeConnectionPolicyStore = activePolicyStore,
+                )
+
+            monitor.start()
+            serviceStateStore.setStatus(AppStatus.Running, Mode.VPN)
+            waitUntil { stores.usageSessionsState.value.isNotEmpty() }
+
+            activePolicyStore.set(
+                ActiveConnectionPolicy(
+                    mode = Mode.VPN,
+                    policy = rememberedPolicyJson("fingerprint-match", Mode.VPN),
+                    matchedPolicy = rememberedPolicy,
+                    usedRememberedPolicy = true,
+                    rememberedPolicyAppliedByExactMatch = true,
+                    fingerprintHash = "fingerprint-match",
+                    policySignature = "policy-signature-match",
+                    appliedAt = 1_000L,
+                ),
+            )
+            waitUntil {
+                stores.usageSessionsState.value
+                    .single()
+                    .rememberedPolicyMatchedFingerprintHash == "fingerprint-match"
+            }
+
+            activePolicyStore.set(
+                ActiveConnectionPolicy(
+                    mode = Mode.VPN,
+                    policy = rememberedPolicyJson("fingerprint-manual", Mode.VPN),
+                    usedRememberedPolicy = false,
+                    fingerprintHash = "fingerprint-manual",
+                    policySignature = "policy-signature-manual",
+                    appliedAt = 2_000L,
+                ),
+            )
+            waitUntil {
+                stores.rememberedPoliciesState.value.any {
+                    it.fingerprintHash == "fingerprint-manual" &&
+                        it.mode == Mode.VPN.preferenceValue
+                }
+            }
+
+            val session = stores.usageSessionsState.value.single()
+            assertEquals("fingerprint-match", session.rememberedPolicyMatchedFingerprintHash)
+            assertEquals(
+                RememberedNetworkPolicySource.AUTOMATIC_PROBING_BACKGROUND.encodeStorageValue(),
+                session.rememberedPolicySource,
+            )
+            assertEquals(true, session.rememberedPolicyAppliedByExactMatch)
         }
 }
 

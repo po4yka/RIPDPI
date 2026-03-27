@@ -66,8 +66,8 @@ internal class DefaultDiagnosticsIntentResolver
                     "Unknown diagnostics profile: $profileId"
                 }
             val settings = appSettingsRepository.snapshot()
-            val spec = json.decodeProfileSpecWireCompat(profile.requestJson)
-            val executionPolicy = spec.executionPolicyOrCompat()
+            val spec = json.decodeProfileSpecWire(profile.requestJson)
+            val executionPolicy = spec.normalizedExecutionPolicy()
             return DiagnosticsIntent(
                 profileId = spec.profileId,
                 displayName = spec.displayName,

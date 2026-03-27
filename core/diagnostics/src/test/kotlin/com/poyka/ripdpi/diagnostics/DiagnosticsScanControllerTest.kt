@@ -7,6 +7,7 @@ import com.poyka.ripdpi.core.toRipDpiRuntimeContext
 import com.poyka.ripdpi.data.PolicyHandoverEvent
 import com.poyka.ripdpi.data.activeDnsSettings
 import com.poyka.ripdpi.data.diagnostics.DefaultRememberedNetworkPolicyStore
+import com.poyka.ripdpi.diagnostics.contract.engine.EngineScanRequestWire
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
@@ -46,7 +47,7 @@ class DiagnosticsScanControllerTest {
             advanceUntilIdle()
             val request =
                 json.decodeFromString(
-                    ScanRequest.serializer(),
+                    EngineScanRequestWire.serializer(),
                     requireNotNull(bridgeFactory.bridge.startedRequestJson),
                 )
 
@@ -633,18 +634,17 @@ private fun FakeDiagnosticsHistoryStores.addAutomaticAuditProfile(json: kotlinx.
             source = "bundled",
             version = 1,
             requestJson =
-                json.encodeToString(
-                    ScanRequest.serializer(),
-                    ScanRequest(
-                        profileId = "automatic-audit",
-                        displayName = "Automatic audit",
-                        pathMode = ScanPathMode.RAW_PATH,
-                        kind = ScanKind.STRATEGY_PROBE,
-                        family = DiagnosticProfileFamily.AUTOMATIC_AUDIT,
-                        domainTargets = listOf(DomainTarget(host = "example.org")),
-                        quicTargets = listOf(QuicTarget(host = "example.org")),
-                        strategyProbe = StrategyProbeRequest(suiteId = "full_matrix_v1"),
-                    ),
+                diagnosticsProfileRequestJson(
+                    json = json,
+                    profileId = "automatic-audit",
+                    displayName = "Automatic audit",
+                    kind = ScanKind.STRATEGY_PROBE,
+                    family = DiagnosticProfileFamily.AUTOMATIC_AUDIT,
+                    domainTargets = listOf(DomainTarget(host = "example.org")),
+                    quicTargets = listOf(QuicTarget(host = "example.org")),
+                    strategyProbe = StrategyProbeRequest(suiteId = "full_matrix_v1"),
+                    requiresRawPath = true,
+                    manualOnly = true,
                 ),
             updatedAt = 1L,
         )

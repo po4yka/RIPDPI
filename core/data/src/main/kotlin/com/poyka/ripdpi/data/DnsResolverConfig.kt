@@ -5,7 +5,6 @@ import java.net.URI
 
 const val DnsModePlainUdp = "plain_udp"
 const val DnsModeEncrypted = "encrypted"
-const val DnsModeDoh = "doh"
 
 const val EncryptedDnsProtocolDoh = "doh"
 const val EncryptedDnsProtocolDot = "dot"
@@ -203,23 +202,11 @@ private fun plainDnsSettings(dnsIp: String): ActiveDnsSettings =
         encryptedDnsDnscryptPublicKey = "",
     )
 
-private fun legacyDnsSettings(dnsIp: String): ActiveDnsSettings {
-    val normalizedDnsIp = dnsIp.ifBlank { canonicalDefaultPlainDnsIp() }
-    val builtIn = BuiltInDnsProviders.firstOrNull { it.primaryIp == normalizedDnsIp }
-    return builtIn?.let(::defaultEncryptedSettingsForBuiltIn) ?: plainDnsSettings(normalizedDnsIp)
-}
-
-private fun normalizedEncryptedProtocol(
-    dnsMode: String,
-    encryptedDnsProtocol: String,
-    dnsDohUrl: String,
-): String =
+private fun normalizedEncryptedProtocol(encryptedDnsProtocol: String): String =
     when {
         encryptedDnsProtocol.equals(EncryptedDnsProtocolDot, ignoreCase = true) -> EncryptedDnsProtocolDot
         encryptedDnsProtocol.equals(EncryptedDnsProtocolDnsCrypt, ignoreCase = true) -> EncryptedDnsProtocolDnsCrypt
         encryptedDnsProtocol.equals(EncryptedDnsProtocolDoq, ignoreCase = true) -> EncryptedDnsProtocolDoq
-        dnsMode.equals(DnsModeDoh, ignoreCase = true) -> EncryptedDnsProtocolDoh
-        dnsDohUrl.isNotBlank() -> EncryptedDnsProtocolDoh
         else -> EncryptedDnsProtocolDoh
     }
 
@@ -227,8 +214,6 @@ fun activeDnsSettings(
     dnsMode: String,
     dnsProviderId: String,
     dnsIp: String,
-    dnsDohUrl: String,
-    dnsDohBootstrapIps: Iterable<String>,
     encryptedDnsProtocol: String = "",
     encryptedDnsHost: String = "",
     encryptedDnsPort: Int = 0,
@@ -241,23 +226,14 @@ fun activeDnsSettings(
     val normalizedMode = dnsMode.trim()
     val normalizedProviderId = dnsProviderId.trim()
     if (normalizedMode.isBlank()) {
-        return legacyDnsSettings(dnsIp)
+        return canonicalDefaultEncryptedDnsSettings()
     }
 
-    val isEncryptedMode =
-        normalizedMode == DnsModeEncrypted ||
-            normalizedMode == DnsModeDoh
-    if (!isEncryptedMode) {
+    if (normalizedMode != DnsModeEncrypted) {
         return plainDnsSettings(dnsIp)
     }
 
-    val legacyBootstrapIps = normalizeDnsBootstrapIps(dnsDohBootstrapIps)
-    val normalizedProtocol =
-        normalizedEncryptedProtocol(
-            dnsMode = normalizedMode,
-            encryptedDnsProtocol = encryptedDnsProtocol.trim(),
-            dnsDohUrl = dnsDohUrl.trim(),
-        )
+    val normalizedProtocol = normalizedEncryptedProtocol(encryptedDnsProtocol.trim())
 
     val builtIn = dnsProviderById(normalizedProviderId)
     if (builtIn != null && normalizedProtocol == builtIn.protocol) {
@@ -266,17 +242,16 @@ fun activeDnsSettings(
 
     val normalizedBootstrapIps =
         normalizeDnsBootstrapIps(
-            when {
-                encryptedDnsBootstrapIps.any() -> encryptedDnsBootstrapIps
-                legacyBootstrapIps.isNotEmpty() -> legacyBootstrapIps
-                builtIn != null -> builtIn.bootstrapIps
-                else -> emptyList()
+            if (encryptedDnsBootstrapIps.any()) {
+                encryptedDnsBootstrapIps
+            } else {
+                builtIn?.bootstrapIps.orEmpty()
             },
         )
     val effectiveDnsIp =
         normalizedBootstrapIps.firstOrNull()
             ?: dnsIp.ifBlank { canonicalDefaultPlainDnsIp() }
-    val effectiveDohUrl = firstNonBlank(encryptedDnsDohUrl, dnsDohUrl)
+    val effectiveDohUrl = encryptedDnsDohUrl.trim()
     val derivedHost =
         when (normalizedProtocol) {
             EncryptedDnsProtocolDoh -> firstNonBlank(parseHostFromUrl(effectiveDohUrl), builtIn?.host)
@@ -335,8 +310,6 @@ fun AppSettings.activeDnsSettings(): ActiveDnsSettings =
         dnsMode = dnsMode,
         dnsProviderId = dnsProviderId,
         dnsIp = dnsIp,
-        dnsDohUrl = dnsDohUrl,
-        dnsDohBootstrapIps = dnsDohBootstrapIpsList,
         encryptedDnsProtocol = encryptedDnsProtocol,
         encryptedDnsHost = encryptedDnsHost,
         encryptedDnsPort = encryptedDnsPort,

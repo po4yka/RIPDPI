@@ -6,7 +6,7 @@ import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 
-private const val AppSettingsJsonFormatVersion = 2
+private const val AppSettingsJsonFormatVersion = 1
 
 private val defaultSettings = AppSettingsSerializer.defaultValue
 
@@ -45,8 +45,6 @@ internal data class AppSettingsSnapshot(
     val dnsIp: String = defaultSettings.dnsIp,
     val dnsMode: String = "",
     val dnsProviderId: String = "",
-    val dnsDohUrl: String = "",
-    val dnsDohBootstrapIps: List<String> = emptyList(),
     val encryptedDnsProtocol: String = "",
     val encryptedDnsHost: String = "",
     val encryptedDnsPort: Int = 0,
@@ -66,10 +64,6 @@ internal data class AppSettingsSnapshot(
     val tcpFastOpen: Boolean = defaultSettings.tcpFastOpen,
     val defaultTtl: Int = defaultSettings.defaultTtl,
     val customTtl: Boolean = defaultSettings.customTtl,
-    val desyncMethod: String = defaultSettings.desyncMethod,
-    val splitPosition: Int = defaultSettings.splitPosition,
-    val splitAtHost: Boolean = defaultSettings.splitAtHost,
-    val splitMarker: String = defaultSettings.splitMarker,
     val fakeTtl: Int = defaultSettings.fakeTtl,
     val adaptiveFakeTtlEnabled: Boolean = defaultSettings.adaptiveFakeTtlEnabled,
     val adaptiveFakeTtlDelta: Int = defaultSettings.adaptiveFakeTtlDelta,
@@ -95,11 +89,6 @@ internal data class AppSettingsSnapshot(
     val hostsMode: String = defaultSettings.hostsMode,
     val hostsBlacklist: String = defaultSettings.hostsBlacklist,
     val hostsWhitelist: String = defaultSettings.hostsWhitelist,
-    val tlsrecEnabled: Boolean = defaultSettings.tlsrecEnabled,
-    val tlsrecPosition: Int = defaultSettings.tlsrecPosition,
-    val tlsrecAtSni: Boolean = defaultSettings.tlsrecAtSni,
-    val tlsrecMarker: String = defaultSettings.tlsrecMarker,
-    val udpFakeCount: Int = defaultSettings.udpFakeCount,
     val udpFakeProfile: String = defaultSettings.udpFakeProfile,
     val hostMixedCase: Boolean = defaultSettings.hostMixedCase,
     val domainMixedCase: Boolean = defaultSettings.domainMixedCase,
@@ -144,8 +133,6 @@ private fun AppSettings.toSnapshot(): AppSettingsSnapshot =
             dnsIp = activeDns.dnsIp,
             dnsMode = activeDns.mode,
             dnsProviderId = activeDns.providerId,
-            dnsDohUrl = if (activeDns.isDoh) activeDns.dohUrl else "",
-            dnsDohBootstrapIps = if (activeDns.isDoh) activeDns.dohBootstrapIps else emptyList(),
             encryptedDnsProtocol = activeDns.encryptedDnsProtocol,
             encryptedDnsHost = activeDns.encryptedDnsHost,
             encryptedDnsPort = activeDns.encryptedDnsPort,
@@ -165,10 +152,6 @@ private fun AppSettings.toSnapshot(): AppSettingsSnapshot =
             tcpFastOpen = tcpFastOpen,
             defaultTtl = defaultTtl,
             customTtl = customTtl,
-            desyncMethod = desyncMethod,
-            splitPosition = splitPosition,
-            splitAtHost = splitAtHost,
-            splitMarker = splitMarker,
             fakeTtl = fakeTtl,
             adaptiveFakeTtlEnabled = adaptiveFakeTtlEnabled,
             adaptiveFakeTtlDelta = effectiveAdaptiveFakeTtlDelta(),
@@ -194,11 +177,6 @@ private fun AppSettings.toSnapshot(): AppSettingsSnapshot =
             hostsMode = hostsMode,
             hostsBlacklist = hostsBlacklist,
             hostsWhitelist = hostsWhitelist,
-            tlsrecEnabled = tlsrecEnabled,
-            tlsrecPosition = tlsrecPosition,
-            tlsrecAtSni = tlsrecAtSni,
-            tlsrecMarker = tlsrecMarker,
-            udpFakeCount = udpFakeCount,
             udpFakeProfile = effectiveUdpFakeProfile(),
             hostMixedCase = hostMixedCase,
             domainMixedCase = domainMixedCase,
@@ -257,7 +235,7 @@ private fun AppSettings.toSnapshot(): AppSettingsSnapshot =
     }
 
 private fun AppSettingsSnapshot.toAppSettings(): AppSettings {
-    require(formatVersion == 1 || formatVersion == AppSettingsJsonFormatVersion) {
+    require(formatVersion == AppSettingsJsonFormatVersion) {
         "Unsupported app settings format version: $formatVersion"
     }
 
@@ -266,8 +244,6 @@ private fun AppSettingsSnapshot.toAppSettings(): AppSettings {
             dnsMode = dnsMode,
             dnsProviderId = dnsProviderId,
             dnsIp = dnsIp,
-            dnsDohUrl = dnsDohUrl,
-            dnsDohBootstrapIps = dnsDohBootstrapIps,
             encryptedDnsProtocol = encryptedDnsProtocol,
             encryptedDnsHost = encryptedDnsHost,
             encryptedDnsPort = encryptedDnsPort,
@@ -285,9 +261,6 @@ private fun AppSettingsSnapshot.toAppSettings(): AppSettings {
         .setDnsIp(activeDns.dnsIp)
         .setDnsMode(activeDns.mode)
         .setDnsProviderId(activeDns.providerId)
-        .setDnsDohUrl(if (activeDns.isDoh) activeDns.dohUrl else "")
-        .clearDnsDohBootstrapIps()
-        .addAllDnsDohBootstrapIps(if (activeDns.isDoh) activeDns.dohBootstrapIps else emptyList())
         .setEncryptedDnsProtocol(activeDns.encryptedDnsProtocol)
         .setEncryptedDnsHost(activeDns.encryptedDnsHost)
         .setEncryptedDnsPort(activeDns.encryptedDnsPort)
@@ -308,10 +281,6 @@ private fun AppSettingsSnapshot.toAppSettings(): AppSettings {
         .setTcpFastOpen(tcpFastOpen)
         .setDefaultTtl(defaultTtl)
         .setCustomTtl(customTtl)
-        .setDesyncMethod(desyncMethod)
-        .setSplitPosition(splitPosition)
-        .setSplitAtHost(splitAtHost)
-        .setSplitMarker(splitMarker)
         .setFakeTtl(fakeTtl)
         .setAdaptiveFakeTtlEnabled(adaptiveFakeTtlEnabled)
         .setAdaptiveFakeTtlDelta(normalizeAdaptiveFakeTtlDelta(adaptiveFakeTtlDelta))
@@ -342,11 +311,6 @@ private fun AppSettingsSnapshot.toAppSettings(): AppSettings {
         .setHostsMode(hostsMode)
         .setHostsBlacklist(hostsBlacklist)
         .setHostsWhitelist(hostsWhitelist)
-        .setTlsrecEnabled(tlsrecEnabled)
-        .setTlsrecPosition(tlsrecPosition)
-        .setTlsrecAtSni(tlsrecAtSni)
-        .setTlsrecMarker(tlsrecMarker)
-        .setUdpFakeCount(udpFakeCount)
         .setUdpFakeProfile(normalizeUdpFakeProfile(udpFakeProfile))
         .setHostMixedCase(hostMixedCase)
         .setDomainMixedCase(domainMixedCase)
