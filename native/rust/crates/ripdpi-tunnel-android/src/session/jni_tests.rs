@@ -3,7 +3,7 @@ use std::sync::Mutex;
 use android_support::describe_exception;
 use jni::objects::{JLongArray, JObject, JString};
 use jni::sys::{jint, jlong, jlongArray};
-use jni::{InitArgsBuilder, JNIEnv, JNIVersion, JavaVM};
+use jni::{Env, EnvUnowned, InitArgsBuilder, JNIVersion, JavaVM};
 use once_cell::sync::{Lazy, OnceCell};
 use serde_json::Value;
 
@@ -41,7 +41,7 @@ impl Drop for TunnelHandle {
         }
         with_env(|env| {
             jni_destroy(env, self.raw);
-            let _ = describe_exception(env);
+            let _ = describe_exception(&mut env_to_unowned(env));
         });
     }
 }
@@ -49,7 +49,7 @@ impl Drop for TunnelHandle {
 fn test_jvm() -> &'static JavaVM {
     TEST_JVM.get_or_init(|| {
         let args = InitArgsBuilder::new()
-            .version(JNIVersion::V8)
+            .version(JNIVersion::V9)
             .option("-Xcheck:jni")
             .build()
             .expect("build test JVM init args");
@@ -57,85 +57,84 @@ fn test_jvm() -> &'static JavaVM {
     })
 }
 
-fn with_env<R>(f: impl FnOnce(&mut JNIEnv<'_>) -> R) -> R {
-    let mut env = test_jvm().attach_current_thread().expect("attach current thread to test JVM");
-    f(&mut env)
+/// Create an `EnvUnowned` from an `Env` reference for calling FFI entry points
+/// and `describe_exception`.
+///
+/// # Safety
+/// The returned `EnvUnowned` borrows the same JNI env pointer and must not
+/// outlive the `Env` it was derived from.
+fn env_to_unowned(env: &mut Env<'_>) -> EnvUnowned<'_> {
+    unsafe { EnvUnowned::from_raw(env.as_raw()) }
 }
 
-fn jni_create(env: &mut JNIEnv<'_>, config_json: &str) -> jlong {
+fn with_env<R>(f: impl for<'a> FnOnce(&mut Env<'a>) -> R) -> R {
+    test_jvm()
+        .attach_current_thread(|env| Ok::<_, jni::errors::Error>(f(env)))
+        .expect("attach current thread to test JVM")
+}
+
+fn jni_create(env: &mut Env<'_>, config_json: &str) -> jlong {
     let config_json = env.new_string(config_json).expect("create config json string");
     crate::Java_com_poyka_ripdpi_core_Tun2SocksNativeBindings_jniCreate(
-        unsafe { env.unsafe_clone() },
+        env_to_unowned(env),
         JObject::null(),
         config_json,
     )
 }
 
-fn jni_start(env: &mut JNIEnv<'_>, handle: jlong, tun_fd: jint) {
+fn jni_start(env: &mut Env<'_>, handle: jlong, tun_fd: jint) {
     crate::Java_com_poyka_ripdpi_core_Tun2SocksNativeBindings_jniStart(
-        unsafe { env.unsafe_clone() },
+        env_to_unowned(env),
         JObject::null(),
         handle,
         tun_fd,
     );
 }
 
-fn jni_stop(env: &mut JNIEnv<'_>, handle: jlong) {
-    crate::Java_com_poyka_ripdpi_core_Tun2SocksNativeBindings_jniStop(
-        unsafe { env.unsafe_clone() },
-        JObject::null(),
-        handle,
-    );
+fn jni_stop(env: &mut Env<'_>, handle: jlong) {
+    crate::Java_com_poyka_ripdpi_core_Tun2SocksNativeBindings_jniStop(env_to_unowned(env), JObject::null(), handle);
 }
 
-fn jni_get_stats(env: &mut JNIEnv<'_>, handle: jlong) -> jlongArray {
-    crate::Java_com_poyka_ripdpi_core_Tun2SocksNativeBindings_jniGetStats(
-        unsafe { env.unsafe_clone() },
-        JObject::null(),
-        handle,
-    )
+fn jni_get_stats(env: &mut Env<'_>, handle: jlong) -> jlongArray {
+    crate::Java_com_poyka_ripdpi_core_Tun2SocksNativeBindings_jniGetStats(env_to_unowned(env), JObject::null(), handle)
 }
 
-fn jni_get_telemetry(env: &mut JNIEnv<'_>, handle: jlong) -> jni::sys::jstring {
+fn jni_get_telemetry(env: &mut Env<'_>, handle: jlong) -> jni::sys::jstring {
     crate::Java_com_poyka_ripdpi_core_Tun2SocksNativeBindings_jniGetTelemetry(
-        unsafe { env.unsafe_clone() },
+        env_to_unowned(env),
         JObject::null(),
         handle,
     )
 }
 
-fn jni_destroy(env: &mut JNIEnv<'_>, handle: jlong) {
-    crate::Java_com_poyka_ripdpi_core_Tun2SocksNativeBindings_jniDestroy(
-        unsafe { env.unsafe_clone() },
-        JObject::null(),
-        handle,
-    );
+fn jni_destroy(env: &mut Env<'_>, handle: jlong) {
+    crate::Java_com_poyka_ripdpi_core_Tun2SocksNativeBindings_jniDestroy(env_to_unowned(env), JObject::null(), handle);
 }
 
-fn assert_no_exception(env: &mut JNIEnv<'_>) {
-    assert!(describe_exception(env).is_none(), "unexpected pending Java exception");
+fn assert_no_exception(env: &mut Env<'_>) {
+    assert!(describe_exception(&mut env_to_unowned(env)).is_none(), "unexpected pending Java exception");
 }
 
-fn take_exception(env: &mut JNIEnv<'_>) -> String {
-    describe_exception(env).expect("expected Java exception")
+fn take_exception(env: &mut Env<'_>) -> String {
+    describe_exception(&mut env_to_unowned(env)).expect("expected Java exception")
 }
 
-fn decode_jstring(env: &mut JNIEnv<'_>, raw: jni::sys::jstring) -> Option<String> {
+fn decode_jstring(env: &mut Env<'_>, raw: jni::sys::jstring) -> Option<String> {
     if raw.is_null() {
         return None;
     }
-    let string = unsafe { JString::from_raw(raw) };
+    let string = unsafe { JString::from_raw(env, raw) };
     Some(env.get_string(&string).expect("read jstring").into())
 }
 
-fn decode_long_array(env: &mut JNIEnv<'_>, raw: jlongArray) -> Option<Vec<jlong>> {
+fn decode_long_array(env: &mut Env<'_>, raw: jlongArray) -> Option<Vec<jlong>> {
     if raw.is_null() {
         return None;
     }
-    let array = unsafe { JLongArray::from_raw(raw) };
+    let array = unsafe { JLongArray::from_raw(env, raw) };
     let len = env.get_array_length(&array).expect("stats array length") as usize;
     let mut values = vec![0; len];
-    env.get_long_array_region(&array, 0, &mut values).expect("read stats array");
+    array.get_region(env, 0, &mut values).expect("read stats array");
     Some(values)
 }
 
