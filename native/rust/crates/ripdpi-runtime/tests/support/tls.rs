@@ -73,6 +73,8 @@ pub fn tls_probe(
     server_name: &str,
     fragmented: Option<FragmentingProfile>,
 ) -> Result<String, String> {
+    stream.set_read_timeout(Some(SOCKET_TIMEOUT)).map_err(|e| format!("set tls read timeout: {e}"))?;
+    stream.set_write_timeout(Some(SOCKET_TIMEOUT)).map_err(|e| format!("set tls write timeout: {e}"))?;
     let config = ClientConfig::builder_with_provider(rustls::crypto::ring::default_provider().into())
         .with_safe_default_protocol_versions()
         .expect("ring provider supports default TLS versions")

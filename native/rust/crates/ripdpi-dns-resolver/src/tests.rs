@@ -56,7 +56,9 @@ async fn doh_exchange_uses_direct_bootstrap_over_https() {
     let certificate_der: CertificateDer<'static> = certificate.cert.der().clone();
     let key_der = PrivateKeyDer::Pkcs8(PrivatePkcs8KeyDer::from(certificate.key_pair.serialize_der()));
     let server_config = Arc::new(
-        ServerConfig::builder()
+        ServerConfig::builder_with_provider(rustls::crypto::ring::default_provider().into())
+            .with_safe_default_protocol_versions()
+            .expect("ring provider supports default TLS versions")
             .with_no_client_auth()
             .with_single_cert(vec![certificate_der.clone()], key_der)
             .expect("server config"),
@@ -102,7 +104,9 @@ async fn exchange_with_metadata_reports_endpoint_and_latency() {
     let certificate_der: CertificateDer<'static> = certificate.cert.der().clone();
     let key_der = PrivateKeyDer::Pkcs8(PrivatePkcs8KeyDer::from(certificate.key_pair.serialize_der()));
     let server_config = Arc::new(
-        ServerConfig::builder()
+        ServerConfig::builder_with_provider(rustls::crypto::ring::default_provider().into())
+            .with_safe_default_protocol_versions()
+            .expect("ring provider supports default TLS versions")
             .with_no_client_auth()
             .with_single_cert(vec![certificate_der.clone()], key_der)
             .expect("server config"),
@@ -150,7 +154,9 @@ async fn doh_exchange_supports_socks_transport() {
     let certificate_der: CertificateDer<'static> = certificate.cert.der().clone();
     let key_der = PrivateKeyDer::Pkcs8(PrivatePkcs8KeyDer::from(certificate.key_pair.serialize_der()));
     let server_config = Arc::new(
-        ServerConfig::builder()
+        ServerConfig::builder_with_provider(rustls::crypto::ring::default_provider().into())
+            .with_safe_default_protocol_versions()
+            .expect("ring provider supports default TLS versions")
             .with_no_client_auth()
             .with_single_cert(vec![certificate_der.clone()], key_der)
             .expect("server config"),
@@ -199,7 +205,9 @@ fn dot_exchange_supports_direct_and_tls_validation() {
     let certificate_der: CertificateDer<'static> = certificate.cert.der().clone();
     let key_der = PrivateKeyDer::Pkcs8(PrivatePkcs8KeyDer::from(certificate.key_pair.serialize_der()));
     let server_config = Arc::new(
-        ServerConfig::builder()
+        ServerConfig::builder_with_provider(rustls::crypto::ring::default_provider().into())
+            .with_safe_default_protocol_versions()
+            .expect("ring provider supports default TLS versions")
             .with_no_client_auth()
             .with_single_cert(vec![certificate_der.clone()], key_der)
             .expect("server config"),
@@ -245,7 +253,9 @@ fn dot_exchange_supports_socks_transport() {
     let certificate_der: CertificateDer<'static> = certificate.cert.der().clone();
     let key_der = PrivateKeyDer::Pkcs8(PrivatePkcs8KeyDer::from(certificate.key_pair.serialize_der()));
     let server_config = Arc::new(
-        ServerConfig::builder()
+        ServerConfig::builder_with_provider(rustls::crypto::ring::default_provider().into())
+            .with_safe_default_protocol_versions()
+            .expect("ring provider supports default TLS versions")
             .with_no_client_auth()
             .with_single_cert(vec![certificate_der.clone()], key_der)
             .expect("server config"),
@@ -294,7 +304,9 @@ async fn dot_exchange_reuses_pooled_tls_connection() {
     let certificate_der: CertificateDer<'static> = certificate.cert.der().clone();
     let key_der = PrivateKeyDer::Pkcs8(PrivatePkcs8KeyDer::from(certificate.key_pair.serialize_der()));
     let server_config = Arc::new(
-        ServerConfig::builder()
+        ServerConfig::builder_with_provider(rustls::crypto::ring::default_provider().into())
+            .with_safe_default_protocol_versions()
+            .expect("ring provider supports default TLS versions")
             .with_no_client_auth()
             .with_single_cert(vec![certificate_der.clone()], key_der)
             .expect("server config"),
@@ -435,7 +447,9 @@ fn h2_only_doh_server_is_supported() {
     let certificate = generate_simple_self_signed(vec!["localhost".to_string()]).expect("certificate");
     let certificate_der: CertificateDer<'static> = certificate.cert.der().clone();
     let key_der = PrivateKeyDer::Pkcs8(PrivatePkcs8KeyDer::from(certificate.key_pair.serialize_der()));
-    let mut server_config = ServerConfig::builder()
+    let mut server_config = ServerConfig::builder_with_provider(rustls::crypto::ring::default_provider().into())
+        .with_safe_default_protocol_versions()
+        .expect("ring provider supports default TLS versions")
         .with_no_client_auth()
         .with_single_cert(vec![certificate_der.clone()], key_der)
         .expect("server config");
@@ -939,7 +953,9 @@ fn spawn_doh_fixture(
     let certificate_der: CertificateDer<'static> = certificate.cert.der().clone();
     let key_der = PrivateKeyDer::Pkcs8(PrivatePkcs8KeyDer::from(certificate.key_pair.serialize_der()));
     let server_config = Arc::new(
-        ServerConfig::builder()
+        ServerConfig::builder_with_provider(rustls::crypto::ring::default_provider().into())
+            .with_safe_default_protocol_versions()
+            .expect("ring provider supports default TLS versions")
             .with_no_client_auth()
             .with_single_cert(vec![certificate_der.clone()], key_der)
             .expect("server config"),
@@ -1052,7 +1068,9 @@ mod hickory_backend_tests {
         let certificate_der: CertificateDer<'static> = certificate.cert.der().clone();
         let key_der = PrivateKeyDer::Pkcs8(PrivatePkcs8KeyDer::from(certificate.key_pair.serialize_der()));
         let server_config = Arc::new(
-            ServerConfig::builder()
+            ServerConfig::builder_with_provider(rustls::crypto::ring::default_provider().into())
+                .with_safe_default_protocol_versions()
+                .expect("ring provider supports default TLS versions")
                 .with_no_client_auth()
                 .with_single_cert(vec![certificate_der.clone()], key_der)
                 .expect("server config"),
@@ -1103,7 +1121,9 @@ mod hickory_backend_tests {
         let certificate_der: CertificateDer<'static> = certificate.cert.der().clone();
         let key_der = PrivateKeyDer::Pkcs8(PrivatePkcs8KeyDer::from(certificate.key_pair.serialize_der()));
         let server_config = Arc::new(
-            ServerConfig::builder()
+            ServerConfig::builder_with_provider(rustls::crypto::ring::default_provider().into())
+                .with_safe_default_protocol_versions()
+                .expect("ring provider supports default TLS versions")
                 .with_no_client_auth()
                 .with_single_cert(vec![certificate_der.clone()], key_der)
                 .expect("server config"),
@@ -1315,7 +1335,9 @@ mod hickory_backend_tests {
         let certificate_der: CertificateDer<'static> = certificate.cert.der().clone();
         let key_der = PrivateKeyDer::Pkcs8(PrivatePkcs8KeyDer::from(certificate.key_pair.serialize_der()));
         let server_config = Arc::new(
-            ServerConfig::builder()
+            ServerConfig::builder_with_provider(rustls::crypto::ring::default_provider().into())
+                .with_safe_default_protocol_versions()
+                .expect("ring provider supports default TLS versions")
                 .with_no_client_auth()
                 .with_single_cert(vec![certificate_der.clone()], key_der)
                 .expect("server config"),
