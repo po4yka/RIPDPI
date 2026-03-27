@@ -3,7 +3,7 @@ package com.poyka.ripdpi.data.diagnostics
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.NetworkFingerprintSummary
 import com.poyka.ripdpi.data.RememberedNetworkPolicyJson
-import com.poyka.ripdpi.data.RememberedNetworkPolicySourceManualSession
+import com.poyka.ripdpi.data.RememberedNetworkPolicySource
 import com.poyka.ripdpi.data.RememberedNetworkPolicyStatusObserved
 import com.poyka.ripdpi.data.RememberedNetworkPolicyStatusValidated
 import com.poyka.ripdpi.data.RememberedNetworkPolicySuppressionDurationMs
@@ -25,7 +25,7 @@ class RememberedNetworkPolicyStoreTest {
             val result =
                 store.upsertObservedPolicy(
                     policy = rememberedPolicyJson(fingerprintHash = "fingerprint-observed"),
-                    source = RememberedNetworkPolicySourceManualSession,
+                    source = RememberedNetworkPolicySource.MANUAL_SESSION,
                 )
 
             assertEquals(RememberedNetworkPolicyStatusObserved, result.status)
@@ -40,7 +40,7 @@ class RememberedNetworkPolicyStoreTest {
             val result =
                 store.rememberValidatedPolicy(
                     policy = rememberedPolicyJson(fingerprintHash = "fingerprint-validated"),
-                    source = RememberedNetworkPolicySourceManualSession,
+                    source = RememberedNetworkPolicySource.MANUAL_SESSION,
                     validatedAt = 1_234L,
                 )
 
@@ -112,6 +112,25 @@ class RememberedNetworkPolicyStoreTest {
             assertEquals(9_999L, result.updatedAt)
             assertEquals(9_999L + RememberedNetworkPolicySuppressionDurationMs, result.suppressedUntil)
         }
+
+    @Test
+    fun `typed remembered policy sources round trip through storage values`() =
+        runTest {
+            val expectedSources =
+                RememberedNetworkPolicySource.entries.filterNot { it == RememberedNetworkPolicySource.UNKNOWN }
+
+            expectedSources.forEachIndexed { index, source ->
+                val result =
+                    store.rememberValidatedPolicy(
+                        policy = rememberedPolicyJson(fingerprintHash = "fingerprint-$index"),
+                        source = source,
+                        validatedAt = 5_000L + index,
+                    )
+
+                assertEquals(source.storageValue, result.source)
+                assertEquals(source, result.decodedSource())
+            }
+        }
 }
 
 private class FakeRememberedNetworkPolicyRecordStore : RememberedNetworkPolicyRecordStore {
@@ -181,7 +200,7 @@ private fun rememberedPolicyEntity(
     mode = Mode.VPN.preferenceValue,
     summaryJson = "{}",
     proxyConfigJson = "{}",
-    source = RememberedNetworkPolicySourceManualSession,
+    source = RememberedNetworkPolicySource.MANUAL_SESSION.encodeStorageValue(),
     status = status,
     successCount = if (status == RememberedNetworkPolicyStatusValidated) 1 else 0,
     consecutiveFailureCount = consecutiveFailureCount,

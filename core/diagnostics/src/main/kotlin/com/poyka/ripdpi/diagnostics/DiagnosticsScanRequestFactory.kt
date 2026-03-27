@@ -21,6 +21,11 @@ import javax.inject.Inject
 import javax.inject.Named
 import javax.inject.Singleton
 
+internal enum class DiagnosticsScanOrigin {
+    USER_INITIATED,
+    AUTOMATIC_BACKGROUND,
+}
+
 internal data class PreparedDiagnosticsScan(
     val sessionId: String,
     val settings: com.poyka.ripdpi.proto.AppSettings,
@@ -29,6 +34,8 @@ internal data class PreparedDiagnosticsScan(
     val context: ScanContext,
     val plan: ScanPlan,
     val requestJson: String,
+    val scanOrigin: DiagnosticsScanOrigin,
+    val launchTrigger: DiagnosticsScanLaunchTrigger?,
     val exposeProgress: Boolean,
     val registerActiveBridge: Boolean,
     val networkFingerprint: com.poyka.ripdpi.data.NetworkFingerprint?,
@@ -54,6 +61,8 @@ internal class DiagnosticsScanRequestFactory
             profile: DiagnosticProfileEntity,
             settings: com.poyka.ripdpi.proto.AppSettings,
             pathMode: ScanPathMode,
+            scanOrigin: DiagnosticsScanOrigin,
+            launchTrigger: DiagnosticsScanLaunchTrigger? = null,
             exposeProgress: Boolean,
             registerActiveBridge: Boolean,
         ): PreparedDiagnosticsScan {
@@ -70,8 +79,7 @@ internal class DiagnosticsScanRequestFactory
                                 mode = scanContext.serviceMode.lowercase(),
                                 diagnosticsSessionId = sessionId,
                             ),
-                    )
-                    .withStrategyProbeBaseConfig(
+                    ).withStrategyProbeBaseConfig(
                         settings = settings,
                         preferredDnsPath = scanContext.preferredDnsPath,
                     )
@@ -89,6 +97,8 @@ internal class DiagnosticsScanRequestFactory
                             .serializer(),
                         engineRequest,
                     ),
+                scanOrigin = scanOrigin,
+                launchTrigger = launchTrigger,
                 exposeProgress = exposeProgress,
                 registerActiveBridge = registerActiveBridge,
                 networkFingerprint = scanContext.networkFingerprint,
@@ -109,6 +119,12 @@ internal class DiagnosticsScanRequestFactory
                         reportJson = null,
                         startedAt = now,
                         finishedAt = null,
+                        launchOrigin = scanOrigin.toLaunchOrigin().storageValue,
+                        triggerType = launchTrigger?.type?.storageValue,
+                        triggerClassification = launchTrigger?.classification,
+                        triggerOccurredAt = launchTrigger?.occurredAt,
+                        triggerPreviousFingerprintHash = launchTrigger?.previousFingerprintHash,
+                        triggerCurrentFingerprintHash = launchTrigger?.currentFingerprintHash,
                     ),
                 preScanSnapshot =
                     NetworkSnapshotEntity(

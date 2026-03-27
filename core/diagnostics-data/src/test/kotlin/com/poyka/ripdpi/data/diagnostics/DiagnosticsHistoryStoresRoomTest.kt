@@ -9,6 +9,7 @@ import com.poyka.ripdpi.data.NetworkDnsPathPreferenceRetentionLimit
 import com.poyka.ripdpi.data.NetworkDnsPathPreferenceRetentionMaxAgeMs
 import com.poyka.ripdpi.data.RememberedNetworkPolicyRetentionLimit
 import com.poyka.ripdpi.data.RememberedNetworkPolicyRetentionMaxAgeMs
+import com.poyka.ripdpi.data.RememberedNetworkPolicySource
 import com.poyka.ripdpi.data.RememberedNetworkPolicyStatusObserved
 import com.poyka.ripdpi.data.RememberedNetworkPolicyStatusSuppressed
 import com.poyka.ripdpi.data.RememberedNetworkPolicyStatusValidated
@@ -585,7 +586,7 @@ private fun rememberedPolicy(
     mode = mode,
     summaryJson = "{}",
     proxyConfigJson = "{}",
-    source = "test",
+    source = RememberedNetworkPolicySource.MANUAL_SESSION.encodeStorageValue(),
     status = status,
     firstObservedAt = updatedAt,
     lastValidatedAt = lastValidatedAt,

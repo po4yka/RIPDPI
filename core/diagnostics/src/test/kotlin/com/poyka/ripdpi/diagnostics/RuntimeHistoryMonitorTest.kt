@@ -12,7 +12,7 @@ import com.poyka.ripdpi.data.NetworkFingerprintSummary
 import com.poyka.ripdpi.data.RememberedNetworkPolicyJson
 import com.poyka.ripdpi.data.RememberedNetworkPolicyProofDurationMs
 import com.poyka.ripdpi.data.RememberedNetworkPolicyProofTransferBytes
-import com.poyka.ripdpi.data.RememberedNetworkPolicySourceManualSession
+import com.poyka.ripdpi.data.RememberedNetworkPolicySource
 import com.poyka.ripdpi.data.RememberedNetworkPolicyStatusValidated
 import com.poyka.ripdpi.data.RttBand
 import com.poyka.ripdpi.data.RuntimeFieldTelemetry
@@ -23,6 +23,7 @@ import com.poyka.ripdpi.data.diagnostics.ActiveConnectionPolicy
 import com.poyka.ripdpi.data.diagnostics.ActiveConnectionPolicyStore
 import com.poyka.ripdpi.data.diagnostics.DefaultRememberedNetworkPolicyStore
 import com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyEntity
+import com.poyka.ripdpi.data.diagnostics.decodedSource
 import com.poyka.ripdpi.proto.AppSettings
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -244,13 +245,13 @@ class RuntimeHistoryMonitorTest {
             val firstPolicy =
                 rememberedPolicyStore.rememberValidatedPolicy(
                     policy = rememberedPolicyJson("fingerprint-a", Mode.VPN),
-                    source = RememberedNetworkPolicySourceManualSession,
+                    source = RememberedNetworkPolicySource.MANUAL_SESSION,
                     validatedAt = 100L,
                 )
             val secondPolicy =
                 rememberedPolicyStore.rememberValidatedPolicy(
                     policy = rememberedPolicyJson("fingerprint-b", Mode.VPN),
-                    source = RememberedNetworkPolicySourceManualSession,
+                    source = RememberedNetworkPolicySource.MANUAL_SESSION,
                     validatedAt = 200L,
                 )
             val monitor =
@@ -360,7 +361,7 @@ class RuntimeHistoryMonitorTest {
             val policy =
                 rememberedPolicyStore.rememberValidatedPolicy(
                     policy = rememberedPolicyJson("fingerprint-fail", Mode.VPN),
-                    source = RememberedNetworkPolicySourceManualSession,
+                    source = RememberedNetworkPolicySource.MANUAL_SESSION,
                     validatedAt = 100L,
                 )
             val monitor =
@@ -472,6 +473,7 @@ class RuntimeHistoryMonitorTest {
             val persisted =
                 requireNotNull(stores.getRememberedNetworkPolicy("fingerprint-success", Mode.VPN.preferenceValue))
             assertEquals(RememberedNetworkPolicyStatusValidated, persisted.status)
+            assertEquals(RememberedNetworkPolicySource.MANUAL_SESSION, persisted.decodedSource())
             assertEquals(1, persisted.successCount)
             assertNotNull(persisted.lastValidatedAt)
         }

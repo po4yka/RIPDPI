@@ -20,6 +20,8 @@ import kotlinx.serialization.json.Json
 
 internal object DiagnosticsScanWorkflow {
     private const val StrategyProbeSuiteFullMatrixV1 = "full_matrix_v1"
+    private const val BackgroundAutoPersistMinMatrixCoveragePercent = 75
+    private const val BackgroundAutoPersistMinWinnerCoveragePercent = 50
     private val DerivableTcpStrategyFamilies =
         setOf(
             "hostfake",
@@ -49,6 +51,22 @@ internal object DiagnosticsScanWorkflow {
         val winningQuicCandidate: StrategyProbeCandidateSummary?,
         val isValid: Boolean,
     )
+
+    internal sealed interface BackgroundAutoPersistEligibility {
+        data object Eligible : BackgroundAutoPersistEligibility
+
+        data class Rejected(
+            val reason: BackgroundAutoPersistRejectionReason,
+        ) : BackgroundAutoPersistEligibility
+    }
+
+    internal enum class BackgroundAutoPersistRejectionReason {
+        MISSING_AUDIT_ASSESSMENT,
+        LOW_CONFIDENCE,
+        INSUFFICIENT_MATRIX_COVERAGE,
+        INSUFFICIENT_WINNER_COVERAGE,
+        NO_WINNER_TARGET_SUCCESS,
+    }
 
     fun enrichScanReport(
         report: ScanReport,
@@ -93,6 +111,36 @@ internal object DiagnosticsScanWorkflow {
             reason = recommendation.rationale,
             appliedAt = System.currentTimeMillis(),
         )
+    }
+
+    fun evaluateBackgroundAutoPersistEligibility(
+        strategyProbe: StrategyProbeReport,
+    ): BackgroundAutoPersistEligibility {
+        val assessment =
+            strategyProbe.auditAssessment ?: return BackgroundAutoPersistEligibility.Rejected(
+                BackgroundAutoPersistRejectionReason.MISSING_AUDIT_ASSESSMENT,
+            )
+        if (assessment.confidence.level != StrategyProbeAuditConfidenceLevel.HIGH) {
+            return BackgroundAutoPersistEligibility.Rejected(
+                BackgroundAutoPersistRejectionReason.LOW_CONFIDENCE,
+            )
+        }
+        if (assessment.coverage.matrixCoveragePercent < BackgroundAutoPersistMinMatrixCoveragePercent) {
+            return BackgroundAutoPersistEligibility.Rejected(
+                BackgroundAutoPersistRejectionReason.INSUFFICIENT_MATRIX_COVERAGE,
+            )
+        }
+        if (assessment.coverage.winnerCoveragePercent < BackgroundAutoPersistMinWinnerCoveragePercent) {
+            return BackgroundAutoPersistEligibility.Rejected(
+                BackgroundAutoPersistRejectionReason.INSUFFICIENT_WINNER_COVERAGE,
+            )
+        }
+        if (!hasWinningTargetSuccess(strategyProbe)) {
+            return BackgroundAutoPersistEligibility.Rejected(
+                BackgroundAutoPersistRejectionReason.NO_WINNER_TARGET_SUCCESS,
+            )
+        }
+        return BackgroundAutoPersistEligibility.Eligible
     }
 
     fun buildRememberedNetworkPolicy(
