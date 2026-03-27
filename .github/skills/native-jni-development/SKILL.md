@@ -13,7 +13,7 @@ RIPDPI has two native Rust libraries built through the Android module build. Mod
 
 | Library | Build | Source | Notes |
 |---------|-------|--------|-------|
-| `libripdpi.so` | Cargo + Android NDK linker | `native/rust/crates/ripdpi-android/` | Repo-owned Android JNI shim over the vendored ByeDPI-derived crates |
+| `libripdpi.so` | Cargo + Android NDK linker | `native/rust/crates/ripdpi-android/` | Repo-owned Android JNI shim over the in-repo proxy runtime, diagnostics monitor, and shared config crates |
 | `libripdpi-tunnel.so` | Cargo + Android NDK linker | `native/rust/crates/ripdpi-tunnel-android/` | Repo-owned Android JNI shim over the in-repo tunnel runtime crates |
 
 ## Build Pipeline
@@ -65,6 +65,16 @@ Java_com_poyka_ripdpi_core_Tun2SocksNativeBindings_jniDestroy(JNIEnv*, jobject, 
 2. Implement the exact JNI symbol in the relevant Android adapter crate with `#[unsafe(no_mangle)] pub extern "system" fn ...`
 3. Keep existing session semantics stable: proxy start stays blocking, tunnel start stays non-blocking, and setup failures surface as Java exceptions
 4. If the function touches shared session state, preserve the existing synchronization model on both the Kotlin and Rust sides
+
+### Diagnostics Contract Notes
+
+Diagnostics JNI is not just a transport shell. It carries compatibility-sensitive JSON payloads used by Kotlin tests and exports:
+
+- progress snapshots, including `strategyProbeProgress`
+- scan reports, including `auditAssessment` and `targetSelection`
+- passive diagnostics event batches
+
+When changing diagnostics JNI, update both Rust and Kotlin contract tests and treat field removals/renames as breaking changes.
 
 ### Kotlin Wrapper Pattern
 

@@ -5,7 +5,7 @@ description: Use when working with golden test fixtures, blessing goldens, addin
 
 # Golden Test Management
 
-Golden contracts enforce compatibility for telemetry, diagnostics events, and exported data. Fixtures are **read-only by default** -- tests fail on unexpected diffs. Bless with `RIPDPI_BLESS_GOLDENS=1` to update.
+Golden contracts enforce compatibility for telemetry, diagnostics events, strategy-probe progress/report payloads, and exported data. Fixtures are **read-only by default** -- tests fail on unexpected diffs. Bless with `RIPDPI_BLESS_GOLDENS=1` to update.
 
 Full documentation: `docs/testing.md` (Golden contracts section).
 
@@ -129,6 +129,8 @@ Fields that change between runs must be scrubbed for deterministic comparison:
 - Route group and target metadata
 - Strategy signatures and recommendations
 - Per-lane TCP/QUIC/DNS metadata
+- Strategy-probe progress lane/candidate metadata
+- Audit assessment and target-selection metadata
 - Resolver metadata and fallback state
 
 ### Kotlin Scrubbing Pattern

@@ -15,7 +15,7 @@ Work through in order -- stop at the first failure:
 2. **Device/emulator connected?** -- `adb devices -l` (should show at least one device)
 3. **Debug APK installed?** -- `adb shell pm list packages | grep ripdpi`
 4. **Route exists in Kotlin?** -- Search for the `start_route` value in `Route.kt` sealed class
-5. **testTag present in Compose?** -- `rg 'testTag\("{tag}"' app/src/main/kotlin/` where `{tag}` is the element's resource-id tag
+5. **testTag present in the contract?** -- check `app/src/main/kotlin/com/poyka/ripdpi/ui/testing/RipDpiTestTags.kt` and `docs/automation/selector-contract.md`, then confirm the tag is actually attached in Compose source
 6. **Correct preset combination?** -- See preset tables in `appium-automation-contract` skill
 
 ## Failure Patterns
@@ -69,7 +69,7 @@ rg "resource-id" ui.xml  # Search for specific IDs
 
 ```bash
 # Find which composable sets the testTag
-rg 'testTag\("{tag}"' app/src/main/kotlin/
+rg '{tag}|RipDpiTestTags\\.' app/src/main/kotlin/
 ```
 
 If the tag is not found, the composable is missing `Modifier.testTag("{tag}")` -- this is the root cause and must be fixed in the Kotlin source, not the test.

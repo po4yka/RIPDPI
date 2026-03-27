@@ -9,6 +9,13 @@ description: Use when modifying VPN or proxy service logic, handling service sta
 
 RIPDPI runs either a VPN service or a plain proxy service. Both follow the same lifecycle pattern: intent-driven start/stop, Mutex-guarded state transitions, and centralized state broadcasting via `AppStateManager`.
 
+Service changes often affect more than process lifetime. The same layer also coordinates:
+
+- handover-triggered restarts
+- remembered-policy replay
+- active-policy signature tracking
+- hidden first-seen-network `quick_v1` diagnostics probes after successful handovers
+
 ## Architecture
 
 ```
@@ -35,6 +42,9 @@ suspend start() [Mutex-guarded]
 | `LifecycleVpnService` | `core/service/.../LifecycleVpnService.kt` | Base class bridging VpnService to Lifecycle |
 | `AppStateManager` | `core/service/.../AppStateManager.kt` | Global state broadcast (StateFlow + SharedFlow) |
 | `RipDpiProxy` | `core/engine/.../RipDpiProxy.kt` | Kotlin wrapper for native proxy |
+| `ConnectionPolicyResolver` | `core/service/.../ConnectionPolicyResolver.kt` | Chooses live or remembered policy for the current network |
+| `NetworkHandoverMonitor` | `core/service/.../NetworkHandoverMonitor.kt` | Classifies actionable network changes and schedules restarts |
+| `ActiveConnectionPolicyStore` | `core/service/.../ActiveConnectionPolicyStore.kt` | Tracks the active policy signature/fingerprint for diagnostics and telemetry |
 
 ## State Management
 
@@ -100,6 +110,7 @@ class RipDpiXxxService : LifecycleService() {
 2. For new state: add to `AppStateManager` if UI needs to observe it
 3. For new events: add variant to `ServiceEvent` sealed interface
 4. For new service type: extend `LifecycleVpnService` or `LifecycleService`, follow the Mutex pattern
+5. If a change affects policy replay, handovers, or hidden automatic probing, inspect `ConnectionPolicyResolver`, `NetworkHandoverMonitor`, and `core:diagnostics` together instead of patching the service in isolation
 
 ## Common Mistakes
 

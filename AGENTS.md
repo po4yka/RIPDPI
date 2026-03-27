@@ -45,6 +45,15 @@ RIPDPI is an Android VPN/proxy application for DPI (Deep Packet Inspection) bypa
 - **`:quality:detekt-rules`** -- Custom detekt rules (DI guardrails, Hilt ViewModel checks)
 - **`:baselineprofile`** -- Baseline profile generation for runtime performance
 
+### Current Diagnostics Surface
+
+- `quick_v1` automatic probing is used for user-triggered recommendations and hidden first-seen-network handover re-checks
+- `full_matrix_v1` Automatic Audit is a manual diagnostics workflow with rotating curated target cohorts, confidence/coverage assessment, and winners-first reporting
+- Strategy-probe progress is structured: active TCP/QUIC lane, candidate index/total, candidate id, and candidate label are exposed through the native progress contract
+- Strategy-probe reports now carry `auditAssessment` and `targetSelection`; export/share summaries include the selected audit cohort and coverage/confidence details
+- Automatic probing/audit is unavailable when `Use command line settings` is enabled because those workflows require isolated UI-config strategy trials
+- Remembered-network persistence is driven by validated recommendations; full-matrix audit results remain manual-apply only
+
 ## Native Code
 
 Two native libraries are built from repo-owned Android adapter crates in the native workspace:
@@ -96,12 +105,29 @@ Project-specific skills are in `.github/skills/`:
 
 | Skill | Use when |
 |-------|----------|
+| `android-device-debug` | Debugging the app on a device or emulator, capturing logs, reproducing crashes, or investigating runtime issues with ADB |
 | `native-jni-development` | Modifying Rust native crates, JNI exports, or native build integration |
+| `native-profiling` | Profiling native Rust code on Android or desktop |
+| `network-traffic-debug` | Capturing or inspecting SOCKS5, VPN, or tunnel traffic |
 | `android-compose-patterns` | Building Compose UI, ViewModels, navigation |
 | `jetpack-compose-api` | Compose API internals, correct API usage, recomposition, performance, accessibility |
+| `appium-automation-contract` | Choosing automation launch routes/presets and debugging test launch state |
+| `appium-test-authoring` | Writing or updating Appium page objects and tests |
+| `appium-test-debug` | Debugging flaky or failing Appium tests |
 | `gradle-build-system` | Adding dependencies, modules, or convention plugins |
+| `dependency-update` | Updating Gradle/Rust dependencies, Renovate config, or version catalogs |
+| `ci-workflow-authoring` | Modifying GitHub Actions workflows or CI job wiring |
+| `detekt-custom-rules` | Adding or fixing custom detekt rules and DI guardrails |
+| `golden-test-management` | Working with snapshot/golden fixtures and blessing workflows |
+| `tdd` | Following project-standard red/green/refactor workflow |
 | `protobuf-datastore` | Modifying app settings schema or DataStore persistence |
 | `service-lifecycle` | Working with VPN/proxy service start/stop logic |
-| `rust-android-ndk` | Building Rust for Android, cargo-ndk, cross-compilation targets |
+| `release-signing` | Building signed release artifacts and release pipeline changes |
+| `rust-android-ndk` | Building Rust for Android, cross-compilation targets, and Gradle jniLibs integration |
+| `rust-code-style` | Rust code organization and style in `native/rust/` |
+| `rust-crate-architecture` | Creating or restructuring native workspace crates and dependencies |
 | `rust-jni-bridge` | Implementing JNI in Rust (jni crate vs UniFFI), type mapping |
+| `rust-lint-config` | Updating Clippy, rustfmt, or cargo-deny configuration |
 | `local-ci-act` | Running CI workflows locally with act, troubleshooting CI failures |
+
+Treat the table above as an index only. The source of truth for each skill is its own `SKILL.md`.

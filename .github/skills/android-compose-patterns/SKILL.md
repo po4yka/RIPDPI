@@ -9,6 +9,8 @@ description: Use when building or modifying Compose UI screens, ViewModels, navi
 
 RIPDPI uses Jetpack Compose with Material 3 and a sealed-class navigation system. State flows from DataStore through ViewModels to Composables via `StateFlow` + `collectAsStateWithLifecycle()`.
 
+Diagnostics UI is a current hotspot in this repo. It layers internal UI models over shared diagnostics contracts, exposes stable automation tags through `RipDpiTestTags`, and routes callback-style actions such as opening Advanced Settings or candidate-detail sheets through screen-level parameters.
+
 ## Data Flow
 
 ```
@@ -84,13 +86,21 @@ fun ExampleScreen(uiState: UiState, onAction: () -> Unit) { /* ... */ }
 - Pass callbacks, not ViewModel references, to Screen composables
 - Use `RipDpiThemeTokens` for colors, spacing, typography
 
-## Existing ViewModels
+## Representative ViewModels
 
 | ViewModel | Location | Purpose |
 |-----------|----------|---------|
 | `MainViewModel` | `activities/MainViewModel.kt` | Connection state, VPN/proxy toggle, metrics |
 | `ConfigViewModel` | `activities/ConfigViewModel.kt` | Proxy config presets, draft editing, validation |
 | `SettingsViewModel` | `activities/SettingsViewModel.kt` | App settings, theme, DataStore persistence |
+| `DiagnosticsViewModel` | `activities/DiagnosticsViewModel.kt` | Diagnostics scan orchestration, history, export/share state, and strategy-probe presentation |
+
+## Diagnostics UI Conventions
+
+- Keep diagnostics projection logic in the `activities/DiagnosticsUi*` support files instead of recomputing report metadata directly in composables.
+- Strategy-probe screens now have specialized presentation states such as candidate-aware progress, audit assessment, winners-first layout, and workflow restriction remediation.
+- Prefer stable automation tags from `app/src/main/kotlin/com/poyka/ripdpi/ui/testing/RipDpiTestTags.kt` for any new externally exercised UI.
+- Route navigation callbacks such as `onOpenAdvancedSettings`, `onSelectCandidate`, and sheet-dismiss actions through `Route`/`Screen` parameters rather than letting deep child composables navigate directly.
 
 ## Common Mistakes
 

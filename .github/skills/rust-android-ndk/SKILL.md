@@ -42,6 +42,8 @@ RIPDPI supports all four ABIs with minSdk 27.
 
 This creates `generated/jniLibs/<abi>/libripdpi.so` and `generated/jniLibs/<abi>/libripdpi-tunnel.so`.
 
+`libripdpi.so` includes both the proxy runtime bridge and the diagnostics monitor (`ripdpi-monitor`). Native diagnostics changes use the same Android build path as proxy changes.
+
 ### Gradle Task Integration
 
 The task sets the target linker for each ABI explicitly and builds:
@@ -108,3 +110,4 @@ rustflags = ["-C", "link-arg=-Wl,-z,max-page-size=16384"]
 - `rust-code-style` -- Rust code style rules for the native workspace
 - `rust-lint-config` -- Clippy, rustfmt, and cargo-deny configuration
 - `rust-crate-architecture` -- Crate layering and dependency rules
+- `native-jni-development` -- JNI boundary rules and diagnostics payload compatibility
