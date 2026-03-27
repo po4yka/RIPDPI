@@ -160,6 +160,19 @@ internal class FakeDiagnosticsHistoryStores :
 
     override fun observeTelemetry(limit: Int): Flow<List<TelemetrySampleEntity>> = telemetryState
 
+    override suspend fun getLatestTelemetrySampleForFingerprint(
+        activeMode: String,
+        fingerprintHash: String,
+        createdAfter: Long,
+    ): TelemetrySampleEntity? =
+        telemetryState.value
+            .asSequence()
+            .filter { sample ->
+                sample.activeMode == activeMode &&
+                    sample.telemetryNetworkFingerprintHash == fingerprintHash &&
+                    sample.createdAt >= createdAfter
+            }.maxByOrNull { it.createdAt }
+
     override fun observeConnectionTelemetry(
         connectionSessionId: String,
         limit: Int,

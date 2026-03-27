@@ -266,6 +266,8 @@ internal abstract class BaseServiceRuntimeCoordinator<TSession>(
                         previousFingerprintHash = previousFingerprintHash,
                         currentFingerprintHash = fingerprintHash,
                         classification = event.classification,
+                        currentNetworkValidated = currentFingerprint.networkValidated,
+                        currentCaptivePortalDetected = currentFingerprint.captivePortalDetected,
                         usedRememberedPolicy = resolution.matchedNetworkPolicy != null,
                         policySignature = resolution.policySignature,
                         occurredAt = now,
