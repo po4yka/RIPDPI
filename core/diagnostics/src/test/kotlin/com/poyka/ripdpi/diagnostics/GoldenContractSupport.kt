@@ -84,6 +84,11 @@ internal object GoldenContractSupport {
         )
     }
 
+    fun readSharedFixture(relativePath: String): String {
+        val file = resolveRepoPath("contract-fixtures/$relativePath")
+        return normalizeText(file.readText())
+    }
+
     private fun resolveRepoPath(relativePath: String): File {
         val userDir = requireNotNull(System.getProperty("user.dir"))
         var current = File(userDir).absoluteFile

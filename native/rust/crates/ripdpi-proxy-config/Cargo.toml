@@ -15,4 +15,5 @@ serde_json = { workspace = true }
 thiserror = { workspace = true }
 
 [dev-dependencies]
+golden-test-support = { workspace = true }
 proptest = { workspace = true }

@@ -1,0 +1,42 @@
+[
+  {
+    "javaClass": "java.lang.IllegalArgumentException",
+    "message": "Invalid TUN file descriptor"
+  },
+  {
+    "javaClass": "java.lang.IllegalArgumentException",
+    "message": "Invalid tunnel config payload"
+  },
+  {
+    "javaClass": "java.lang.IllegalArgumentException",
+    "message": "Invalid tunnel handle"
+  },
+  {
+    "javaClass": "java.lang.IllegalArgumentException",
+    "message": "Unknown tunnel handle"
+  },
+  {
+    "javaClass": "java.lang.IllegalStateException",
+    "message": "Tunnel session is already starting"
+  },
+  {
+    "javaClass": "java.lang.IllegalStateException",
+    "message": "Tunnel session is already running"
+  },
+  {
+    "javaClass": "java.lang.IllegalStateException",
+    "message": "Tunnel session has been destroyed"
+  },
+  {
+    "javaClass": "java.lang.IllegalStateException",
+    "message": "Cannot destroy a starting tunnel session"
+  },
+  {
+    "javaClass": "java.lang.IllegalStateException",
+    "message": "Cannot destroy a running tunnel session"
+  },
+  {
+    "javaClass": "java.lang.IllegalStateException",
+    "message": "Tunnel session has already been destroyed"
+  }
+]
