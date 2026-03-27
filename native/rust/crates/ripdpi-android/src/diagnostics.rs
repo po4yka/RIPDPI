@@ -5,82 +5,143 @@ mod scan;
 use android_support::{init_android_logging, throw_runtime_exception};
 use jni::objects::JString;
 use jni::sys::{jlong, jstring};
-use jni::JNIEnv;
+use jni::{EnvUnowned, Outcome};
 
 use crate::errors::extract_panic_message;
 use polling::{poll_passive_events, poll_progress, take_report};
 use registry::{create_diagnostics_session, destroy_diagnostics_session};
 use scan::{cancel_diagnostics_scan, start_diagnostics_scan};
 
-pub(crate) fn diagnostics_create_entry(mut env: JNIEnv) -> jlong {
+pub(crate) fn diagnostics_create_entry(mut env: EnvUnowned<'_>) -> jlong {
     init_android_logging("ripdpi-native");
-    std::panic::catch_unwind(std::panic::AssertUnwindSafe(create_diagnostics_session)).unwrap_or_else(|panic_payload| {
-        let msg = extract_panic_message(panic_payload);
-        throw_runtime_exception(&mut env, format!("Diagnostics session creation panicked: {msg}"));
-        0
-    })
+    match env.with_env(|_| -> jni::errors::Result<jlong> { Ok(create_diagnostics_session()) }).into_outcome() {
+        Outcome::Ok(handle) => handle,
+        Outcome::Err(err) => {
+            throw_runtime_exception(&mut env, format!("Diagnostics session creation failed: {err}"));
+            0
+        }
+        Outcome::Panic(panic_payload) => {
+            let msg = extract_panic_message(panic_payload);
+            throw_runtime_exception(&mut env, format!("Diagnostics session creation panicked: {msg}"));
+            0
+        }
+    }
 }
 
-pub(crate) fn diagnostics_start_scan_entry(mut env: JNIEnv, handle: jlong, request_json: JString, session_id: JString) {
+pub(crate) fn diagnostics_start_scan_entry(
+    mut env: EnvUnowned<'_>,
+    handle: jlong,
+    request_json: JString,
+    session_id: JString,
+) {
     init_android_logging("ripdpi-native");
-    let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-        start_diagnostics_scan(&mut env, handle, request_json, session_id);
-    }))
-    .map_err(|panic_payload| {
-        let msg = extract_panic_message(panic_payload);
-        throw_runtime_exception(&mut env, format!("Diagnostics scan start panicked: {msg}"));
-    });
+    match env
+        .with_env(move |env| -> jni::errors::Result<()> {
+            start_diagnostics_scan(env, handle, request_json, session_id);
+            Ok(())
+        })
+        .into_outcome()
+    {
+        Outcome::Ok(()) => {}
+        Outcome::Err(err) => {
+            throw_runtime_exception(&mut env, format!("Diagnostics scan start failed: {err}"));
+        }
+        Outcome::Panic(panic_payload) => {
+            let msg = extract_panic_message(panic_payload);
+            throw_runtime_exception(&mut env, format!("Diagnostics scan start panicked: {msg}"));
+        }
+    }
 }
 
-pub(crate) fn diagnostics_cancel_scan_entry(mut env: JNIEnv, handle: jlong) {
+pub(crate) fn diagnostics_cancel_scan_entry(mut env: EnvUnowned<'_>, handle: jlong) {
     init_android_logging("ripdpi-native");
-    let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| cancel_diagnostics_scan(&mut env, handle)))
-        .map_err(|panic_payload| {
+    match env
+        .with_env(move |env| -> jni::errors::Result<()> {
+            cancel_diagnostics_scan(env, handle);
+            Ok(())
+        })
+        .into_outcome()
+    {
+        Outcome::Ok(()) => {}
+        Outcome::Err(err) => {
+            throw_runtime_exception(&mut env, format!("Diagnostics cancel failed: {err}"));
+        }
+        Outcome::Panic(panic_payload) => {
             let msg = extract_panic_message(panic_payload);
             throw_runtime_exception(&mut env, format!("Diagnostics cancel panicked: {msg}"));
-        });
+        }
+    }
 }
 
-pub(crate) fn diagnostics_poll_progress_entry(mut env: JNIEnv, handle: jlong) -> jstring {
+pub(crate) fn diagnostics_poll_progress_entry(mut env: EnvUnowned<'_>, handle: jlong) -> jstring {
     init_android_logging("ripdpi-native");
-    std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| poll_progress(&mut env, handle))).unwrap_or_else(
-        |panic_payload| {
+    match env.with_env(move |env| -> jni::errors::Result<jstring> { Ok(poll_progress(env, handle)) }).into_outcome() {
+        Outcome::Ok(value) => value,
+        Outcome::Err(err) => {
+            throw_runtime_exception(&mut env, format!("Diagnostics progress polling failed: {err}"));
+            std::ptr::null_mut()
+        }
+        Outcome::Panic(panic_payload) => {
             let msg = extract_panic_message(panic_payload);
             throw_runtime_exception(&mut env, format!("Diagnostics progress polling panicked: {msg}"));
             std::ptr::null_mut()
-        },
-    )
+        }
+    }
 }
 
-pub(crate) fn diagnostics_take_report_entry(mut env: JNIEnv, handle: jlong) -> jstring {
+pub(crate) fn diagnostics_take_report_entry(mut env: EnvUnowned<'_>, handle: jlong) -> jstring {
     init_android_logging("ripdpi-native");
-    std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| take_report(&mut env, handle))).unwrap_or_else(
-        |panic_payload| {
+    match env.with_env(move |env| -> jni::errors::Result<jstring> { Ok(take_report(env, handle)) }).into_outcome() {
+        Outcome::Ok(value) => value,
+        Outcome::Err(err) => {
+            throw_runtime_exception(&mut env, format!("Diagnostics report polling failed: {err}"));
+            std::ptr::null_mut()
+        }
+        Outcome::Panic(panic_payload) => {
             let msg = extract_panic_message(panic_payload);
             throw_runtime_exception(&mut env, format!("Diagnostics report polling panicked: {msg}"));
             std::ptr::null_mut()
-        },
-    )
+        }
+    }
 }
 
-pub(crate) fn diagnostics_poll_passive_events_entry(mut env: JNIEnv, handle: jlong) -> jstring {
+pub(crate) fn diagnostics_poll_passive_events_entry(mut env: EnvUnowned<'_>, handle: jlong) -> jstring {
     init_android_logging("ripdpi-native");
-    std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| poll_passive_events(&mut env, handle))).unwrap_or_else(
-        |panic_payload| {
+    match env
+        .with_env(move |env| -> jni::errors::Result<jstring> { Ok(poll_passive_events(env, handle)) })
+        .into_outcome()
+    {
+        Outcome::Ok(value) => value,
+        Outcome::Err(err) => {
+            throw_runtime_exception(&mut env, format!("Diagnostics passive polling failed: {err}"));
+            std::ptr::null_mut()
+        }
+        Outcome::Panic(panic_payload) => {
             let msg = extract_panic_message(panic_payload);
             throw_runtime_exception(&mut env, format!("Diagnostics passive polling panicked: {msg}"));
             std::ptr::null_mut()
-        },
-    )
+        }
+    }
 }
 
-pub(crate) fn diagnostics_destroy_entry(mut env: JNIEnv, handle: jlong) {
+pub(crate) fn diagnostics_destroy_entry(mut env: EnvUnowned<'_>, handle: jlong) {
     init_android_logging("ripdpi-native");
-    let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| destroy_diagnostics_session(&mut env, handle)))
-        .map_err(|panic_payload| {
+    match env
+        .with_env(move |env| -> jni::errors::Result<()> {
+            destroy_diagnostics_session(env, handle);
+            Ok(())
+        })
+        .into_outcome()
+    {
+        Outcome::Ok(()) => {}
+        Outcome::Err(err) => {
+            throw_runtime_exception(&mut env, format!("Diagnostics session destroy failed: {err}"));
+        }
+        Outcome::Panic(panic_payload) => {
             let msg = extract_panic_message(panic_payload);
             throw_runtime_exception(&mut env, format!("Diagnostics session destroy panicked: {msg}"));
-        });
+        }
+    }
 }
 
 #[cfg(test)]

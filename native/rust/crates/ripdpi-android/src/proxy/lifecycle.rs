@@ -2,11 +2,11 @@ use std::sync::{Arc, Mutex, PoisonError};
 
 use android_support::{
     android_log_level_from_debug_verbosity, android_log_level_from_str, set_android_log_scope_level,
-    throw_illegal_argument, throw_illegal_state, throw_io_exception,
+    throw_illegal_argument_env, throw_illegal_state_env, throw_io_exception_env,
 };
 use jni::objects::JString;
 use jni::sys::{jint, jlong};
-use jni::JNIEnv;
+use jni::Env;
 use ripdpi_config::RuntimeConfig;
 use ripdpi_proxy_config::NetworkSnapshot;
 use ripdpi_runtime::{runtime, EmbeddedProxyControl};
@@ -20,11 +20,11 @@ use super::registry::{
     try_mark_proxy_running, ProxySession, ProxySessionState, SESSIONS,
 };
 
-pub(crate) fn create_session(env: &mut JNIEnv, config_json: JString) -> jlong {
-    let json: String = match env.get_string(&config_json) {
-        Ok(value) => value.into(),
+pub(crate) fn create_session(env: &mut Env<'_>, config_json: JString) -> jlong {
+    let json = match config_json.try_to_string(env) {
+        Ok(value) => value,
         Err(_) => {
-            throw_illegal_argument(env, "Invalid proxy config payload");
+            throw_illegal_argument_env(env, "Invalid proxy config payload");
             return 0;
         }
     };
@@ -48,7 +48,7 @@ pub(crate) fn create_session(env: &mut JNIEnv, config_json: JString) -> jlong {
         Some(value) => match android_log_level_from_str(value) {
             Some(level) => level,
             None => {
-                throw_illegal_argument(env, format!("Unsupported proxy nativeLogLevel: {value}"));
+                throw_illegal_argument_env(env, format!("Unsupported proxy nativeLogLevel: {value}"));
                 return 0;
             }
         },
@@ -91,7 +91,7 @@ impl Drop for IdleGuard<'_> {
     }
 }
 
-pub(crate) fn start_session(env: &mut JNIEnv, handle: jlong) -> jint {
+pub(crate) fn start_session(env: &mut Env<'_>, handle: jlong) -> jint {
     let session = match lookup_proxy_session(handle) {
         Ok(session) => session,
         Err(err) => {
@@ -104,7 +104,7 @@ pub(crate) fn start_session(env: &mut JNIEnv, handle: jlong) -> jint {
     let listener = match open_proxy_listener(&config, &session.telemetry) {
         Ok(listener) => listener,
         Err(err) => {
-            throw_io_exception(env, format!("Failed to open proxy listener: {err}"));
+            throw_io_exception_env(env, format!("Failed to open proxy listener: {err}"));
             return libc::EINVAL;
         }
     };
@@ -118,7 +118,7 @@ pub(crate) fn start_session(env: &mut JNIEnv, handle: jlong) -> jint {
     {
         let mut state = session.state.lock().unwrap_or_else(PoisonError::into_inner);
         if let Err(message) = try_mark_proxy_running(&mut state, control.clone()) {
-            throw_illegal_state(env, message);
+            throw_illegal_state_env(env, message);
             return libc::EINVAL;
         }
     }
@@ -144,7 +144,7 @@ pub(crate) fn start_session(env: &mut JNIEnv, handle: jlong) -> jint {
     }
 }
 
-pub(crate) fn stop_session(env: &mut JNIEnv, handle: jlong) {
+pub(crate) fn stop_session(env: &mut Env<'_>, handle: jlong) {
     let session = match lookup_proxy_session(handle) {
         Ok(session) => session,
         Err(err) => {
@@ -158,7 +158,7 @@ pub(crate) fn stop_session(env: &mut JNIEnv, handle: jlong) {
         match control_for_proxy_stop(&state) {
             Ok(control) => control,
             Err(message) => {
-                throw_illegal_state(env, message);
+                throw_illegal_state_env(env, message);
                 return;
             }
         }
@@ -168,18 +168,18 @@ pub(crate) fn stop_session(env: &mut JNIEnv, handle: jlong) {
     session.telemetry.push_event("proxy", "info", "stop requested".to_string());
 }
 
-pub(crate) fn update_network_snapshot(env: &mut JNIEnv, handle: jlong, snapshot_json: JString) {
-    let json: String = match env.get_string(&snapshot_json) {
-        Ok(value) => value.into(),
+pub(crate) fn update_network_snapshot(env: &mut Env<'_>, handle: jlong, snapshot_json: JString) {
+    let json = match snapshot_json.try_to_string(env) {
+        Ok(value) => value,
         Err(_) => {
-            throw_illegal_argument(env, "Invalid network snapshot JSON");
+            throw_illegal_argument_env(env, "Invalid network snapshot JSON");
             return;
         }
     };
     let snapshot: NetworkSnapshot = match serde_json::from_str(&json) {
         Ok(value) => value,
         Err(err) => {
-            throw_illegal_argument(env, format!("Failed to parse network snapshot: {err}"));
+            throw_illegal_argument_env(env, format!("Failed to parse network snapshot: {err}"));
             return;
         }
     };
@@ -197,7 +197,7 @@ pub(crate) fn update_network_snapshot(env: &mut JNIEnv, handle: jlong, snapshot_
     // If the session is Idle or Destroyed, ignore: snapshot will be re-pushed on next start.
 }
 
-pub(crate) fn destroy_session(env: &mut JNIEnv, handle: jlong) {
+pub(crate) fn destroy_session(env: &mut Env<'_>, handle: jlong) {
     let session = match lookup_proxy_session(handle) {
         Ok(session) => session,
         Err(err) => {
@@ -207,7 +207,7 @@ pub(crate) fn destroy_session(env: &mut JNIEnv, handle: jlong) {
     };
     let mut state = session.state.lock().unwrap_or_else(PoisonError::into_inner);
     if let Err(message) = ensure_proxy_destroyable(&state) {
-        throw_illegal_state(env, message);
+        throw_illegal_state_env(env, message);
         return;
     }
     // Tombstone the session before releasing the lock so concurrent
