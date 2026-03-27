@@ -480,6 +480,10 @@ sealed interface DiagnosticsEffect {
         val summary: String,
         val tone: DiagnosticsTone,
     ) : DiagnosticsEffect
+
+    data class ScanStartFailed(
+        val message: String,
+    ) : DiagnosticsEffect
 }
 
 internal data class ArchiveActionState(

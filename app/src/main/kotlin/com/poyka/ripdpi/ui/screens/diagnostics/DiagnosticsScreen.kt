@@ -151,6 +151,14 @@ fun DiagnosticsRoute(
                             },
                     )
                 }
+
+                is DiagnosticsEffect.ScanStartFailed -> {
+                    snackbarHostState.showRipDpiSnackbar(
+                        message = effect.message,
+                        tone = RipDpiSnackbarTone.Error,
+                        testTag = RipDpiTestTags.DiagnosticsStatusSnackbar,
+                    )
+                }
             }
         }
     }

@@ -386,6 +386,25 @@ internal class FakeNetworkFingerprintProvider : NetworkFingerprintProvider {
         )
 }
 
+internal class MutableNetworkFingerprintProvider(
+    var fingerprint: NetworkFingerprint? =
+        NetworkFingerprint(
+            transport = "wifi",
+            networkValidated = true,
+            captivePortalDetected = false,
+            privateDnsMode = "system",
+            dnsServers = listOf("1.1.1.1"),
+            wifi =
+                WifiNetworkIdentityTuple(
+                    ssid = "ripdpi-lab",
+                    bssid = "aa:bb:cc:dd:ee:ff",
+                    gateway = "192.0.2.1",
+                ),
+        ),
+) : NetworkFingerprintProvider {
+    override fun capture(): NetworkFingerprint? = fingerprint
+}
+
 internal class FakeDiagnosticsContextProvider : DiagnosticsContextProvider {
     override suspend fun captureContext(): DiagnosticContextModel = captureContextForTest()
 
