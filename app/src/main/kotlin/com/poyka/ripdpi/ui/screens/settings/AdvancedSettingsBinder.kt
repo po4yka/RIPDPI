@@ -15,7 +15,11 @@ import com.poyka.ripdpi.data.DefaultAdaptiveFakeTtlFallback
 import com.poyka.ripdpi.data.DefaultFakeOffsetMarker
 import com.poyka.ripdpi.data.DefaultTlsRecordMarker
 import com.poyka.ripdpi.data.NumericRangeModel
+import com.poyka.ripdpi.data.TcpChainStepKind
+import com.poyka.ripdpi.data.TcpChainStepModel
+import com.poyka.ripdpi.data.UdpChainStepModel
 import com.poyka.ripdpi.data.isAdaptiveOffsetExpression
+import com.poyka.ripdpi.data.isTlsPrelude
 import com.poyka.ripdpi.data.normalizeActivationFilter
 import com.poyka.ripdpi.data.normalizeHostAutolearnMaxHosts
 import com.poyka.ripdpi.data.normalizeHostAutolearnPenaltyTtlHours
@@ -212,9 +216,8 @@ private class AdvancedSettingsMutationWriter(
         marker: String,
     ) {
         val normalized = normalizeOffsetExpression(marker, CanonicalDefaultSplitMarker)
-        val explicitChains = uiState.settings.tcpChainStepsCount > 0
         val primaryStep = primaryTcpChainStep(uiState.desync.tcpChainSteps)
-        if (explicitChains && primaryStep != null) {
+        if (primaryStep != null) {
             if (!primaryStep.kind.supportsAdaptiveMarker) {
                 return
             }
@@ -226,8 +229,17 @@ private class AdvancedSettingsMutationWriter(
             }
             return
         }
+
         updateValue(key, normalized) {
-            setSplitMarker(normalized)
+            setStrategyChains(
+                tcpSteps =
+                    uiState.desync.tcpChainSteps +
+                        TcpChainStepModel(
+                            kind = TcpChainStepKind.Split,
+                            marker = normalized,
+                        ),
+                udpSteps = uiState.desync.udpChainSteps,
+            )
         }
     }
 
@@ -461,6 +473,94 @@ private fun AdvancedSettingsMutationWriter.updateHostAutolearnMaxHosts(value: St
     }
 }
 
+private fun AdvancedSettingsMutationWriter.updateTlsPreludeEnabled(
+    enabled: Boolean,
+    uiState: SettingsUiState,
+) {
+    val mode =
+        if (enabled) {
+            uiState.tlsPrelude.tlsPreludeMode.takeUnless { it == "disabled" } ?: TcpChainStepKind.TlsRec.wireName
+        } else {
+            "disabled"
+        }
+    updateTlsPreludeProfile(
+        uiState = uiState,
+        key = "tlsrecEnabled",
+        value = enabled.toString(),
+        mode = mode,
+    )
+}
+
+private fun AdvancedSettingsMutationWriter.updateUdpBurstCount(
+    value: String,
+    uiState: SettingsUiState,
+) {
+    value.toIntOrNull()?.let { count ->
+        val normalized = count.coerceAtLeast(0)
+        val existing = uiState.desync.udpChainSteps.firstOrNull()
+        val updatedUdpSteps =
+            if (normalized == 0) {
+                emptyList()
+            } else {
+                listOf(existing?.copy(count = normalized) ?: UdpChainStepModel(count = normalized))
+            }
+        updateValue("udpFakeCount", normalized.toString()) {
+            setStrategyChains(
+                tcpSteps = uiState.desync.tcpChainSteps,
+                udpSteps = updatedUdpSteps,
+            )
+        }
+    }
+}
+
+private fun AdvancedSettingsMutationWriter.updatePrimaryDesyncMethod(
+    value: String,
+    uiState: SettingsUiState,
+) {
+    val replacementKind =
+        when (value) {
+            "none" -> null
+            "split" -> TcpChainStepKind.Split
+            "disorder" -> TcpChainStepKind.Disorder
+            "fake" -> TcpChainStepKind.Fake
+            "oob" -> TcpChainStepKind.Oob
+            "disoob" -> TcpChainStepKind.Disoob
+            else -> return
+        }
+    val primaryIndex = uiState.desync.tcpChainSteps.indexOfFirst { !it.kind.isTlsPrelude }
+    val updatedTcpSteps =
+        when {
+            primaryIndex >= 0 && replacementKind != null -> {
+                val current = uiState.desync.tcpChainSteps[primaryIndex]
+                uiState.desync.tcpChainSteps.toMutableList().apply {
+                    this[primaryIndex] = current.copy(kind = replacementKind)
+                }
+            }
+
+            primaryIndex >= 0 -> {
+                uiState.desync.tcpChainSteps.filterIndexed { index, _ -> index != primaryIndex }
+            }
+
+            replacementKind != null -> {
+                uiState.desync.tcpChainSteps +
+                    TcpChainStepModel(
+                        kind = replacementKind,
+                        marker = normalizeOffsetExpression(uiState.desync.splitMarker, CanonicalDefaultSplitMarker),
+                    )
+            }
+
+            else -> {
+                uiState.desync.tcpChainSteps
+            }
+        }
+    updateValue("desyncMethod", value) {
+        setStrategyChains(
+            tcpSteps = updatedTcpSteps,
+            udpSteps = uiState.desync.udpChainSteps,
+        )
+    }
+}
+
 private val toggleHandlers: Map<AdvancedToggleSetting, ToggleHandler> =
     mapOf(
         AdvancedToggleSetting.UseCommandLine to
@@ -508,7 +608,7 @@ private val toggleHandlers: Map<AdvancedToggleSetting, ToggleHandler> =
         AdvancedToggleSetting.HttpUnixEol to
             { enabled -> updateBoolean("httpUnixEol", enabled) { setHttpUnixEol(enabled) } },
         AdvancedToggleSetting.TlsrecEnabled to
-            { enabled -> updateBoolean("tlsrecEnabled", enabled) { setTlsrecEnabled(enabled) } },
+            { _ -> Unit },
         AdvancedToggleSetting.QuicSupportV1 to
             { enabled -> updateBoolean("quicSupportV1", enabled) { setQuicSupportV1(enabled) } },
         AdvancedToggleSetting.QuicSupportV2 to
@@ -676,7 +776,7 @@ private val textHandlers: Map<AdvancedTextSetting, TextHandler> =
                 }
             },
         AdvancedTextSetting.UdpFakeCount to
-            { value, _ -> updateIntValue("udpFakeCount", value) { count -> { setUdpFakeCount(count) } } },
+            { value, uiState -> updateUdpBurstCount(value, uiState) },
         AdvancedTextSetting.HostAutolearnPenaltyTtlHours to
             { value, _ -> updateHostAutolearnPenaltyTtlHours(value) },
         AdvancedTextSetting.HostAutolearnMaxHosts to
@@ -690,7 +790,7 @@ private val textHandlers: Map<AdvancedTextSetting, TextHandler> =
 private val optionHandlers: Map<AdvancedOptionSetting, OptionHandler> =
     mapOf(
         AdvancedOptionSetting.DesyncMethod to
-            { value, _ -> updateValue("desyncMethod", value) { setDesyncMethod(value) } },
+            { value, uiState -> updatePrimaryDesyncMethod(value, uiState) },
         AdvancedOptionSetting.AdaptiveSplitPreset to
             { value, uiState -> updateAdaptiveSplitPreset(value, uiState) },
         AdvancedOptionSetting.AdaptiveFakeTtlMode to

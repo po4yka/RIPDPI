@@ -23,6 +23,7 @@ import com.poyka.ripdpi.diagnostics.CellularNetworkDetails
 import com.poyka.ripdpi.diagnostics.DeviceContextModel
 import com.poyka.ripdpi.diagnostics.DiagnosticConnectionSession
 import com.poyka.ripdpi.diagnostics.DiagnosticContextModel
+import com.poyka.ripdpi.diagnostics.DiagnosticProfileFamily
 import com.poyka.ripdpi.diagnostics.DiagnosticSessionDetail
 import com.poyka.ripdpi.diagnostics.DiagnosticsArchive
 import com.poyka.ripdpi.diagnostics.DiagnosticsManualScanResolution
@@ -32,13 +33,10 @@ import com.poyka.ripdpi.diagnostics.HiddenProbeConflictAction
 import com.poyka.ripdpi.diagnostics.NetworkSnapshotModel
 import com.poyka.ripdpi.diagnostics.PermissionContextModel
 import com.poyka.ripdpi.diagnostics.ProbeDetail
-import com.poyka.ripdpi.diagnostics.QuicTarget
 import com.poyka.ripdpi.diagnostics.ResolverRecommendation
 import com.poyka.ripdpi.diagnostics.ScanKind
 import com.poyka.ripdpi.diagnostics.ScanPathMode
 import com.poyka.ripdpi.diagnostics.ScanProgress
-import com.poyka.ripdpi.diagnostics.ScanReport
-import com.poyka.ripdpi.diagnostics.ScanRequest
 import com.poyka.ripdpi.diagnostics.ServiceContextModel
 import com.poyka.ripdpi.diagnostics.ShareSummary
 import com.poyka.ripdpi.diagnostics.StrategyProbeAuditAssessment
@@ -51,6 +49,11 @@ import com.poyka.ripdpi.diagnostics.StrategyProbeReport
 import com.poyka.ripdpi.diagnostics.StrategyProbeRequest
 import com.poyka.ripdpi.diagnostics.SummaryMetric
 import com.poyka.ripdpi.diagnostics.WifiNetworkDetails
+import com.poyka.ripdpi.diagnostics.contract.engine.EngineProbeResultWire
+import com.poyka.ripdpi.diagnostics.contract.engine.EngineScanReportWire
+import com.poyka.ripdpi.diagnostics.contract.profile.ProbePersistencePolicyWire
+import com.poyka.ripdpi.diagnostics.contract.profile.ProfileExecutionPolicyWire
+import com.poyka.ripdpi.diagnostics.contract.profile.ProfileSpecWire
 import com.poyka.ripdpi.util.MainDispatcherRule
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.async
@@ -127,7 +130,7 @@ class DiagnosticsViewModelTest {
                                 name = "Default",
                                 source = "bundled",
                                 version = 1,
-                                requestJson = """{"profileId":"default","displayName":"Default"}""",
+                                requestJson = profileRequest(profileId = "default", displayName = "Default"),
                                 updatedAt = 1L,
                             ),
                         )
@@ -265,7 +268,7 @@ class DiagnosticsViewModelTest {
                                 name = "Default",
                                 source = "bundled",
                                 version = 1,
-                                requestJson = """{"profileId":"default","displayName":"Default"}""",
+                                requestJson = profileRequest(profileId = "default", displayName = "Default"),
                                 updatedAt = 1L,
                             ),
                         )
@@ -584,7 +587,7 @@ class DiagnosticsViewModelTest {
                                 name = "Default",
                                 source = "bundled",
                                 version = 1,
-                                requestJson = """{"profileId":"default","displayName":"Default"}""",
+                                requestJson = profileRequest(profileId = "default", displayName = "Default"),
                                 updatedAt = 1L,
                             ),
                             DiagnosticProfileEntity(
@@ -592,7 +595,7 @@ class DiagnosticsViewModelTest {
                                 name = "Custom",
                                 source = "local",
                                 version = 1,
-                                requestJson = """{"profileId":"default","displayName":"Default"}""",
+                                requestJson = profileRequest(profileId = "default", displayName = "Default"),
                                 updatedAt = 2L,
                             ),
                         )
@@ -716,7 +719,7 @@ class DiagnosticsViewModelTest {
                                 name = "Default",
                                 source = "bundled",
                                 version = 1,
-                                requestJson = """{"profileId":"default","displayName":"Default"}""",
+                                requestJson = profileRequest(profileId = "default", displayName = "Default"),
                                 updatedAt = 1L,
                             ),
                         )
@@ -768,7 +771,7 @@ class DiagnosticsViewModelTest {
                                 summary = "Connectivity run",
                                 reportJson =
                                     json.encodeToString(
-                                        ScanReport.serializer(),
+                                        EngineScanReportWire.serializer(),
                                         scanReport(
                                             id = "default-session",
                                             profileId = "default",
@@ -792,7 +795,7 @@ class DiagnosticsViewModelTest {
                                 summary = "Recommended hostfake",
                                 reportJson =
                                     json.encodeToString(
-                                        ScanReport.serializer(),
+                                        EngineScanReportWire.serializer(),
                                         strategyProbeScanReport(),
                                     ),
                             ),
@@ -842,7 +845,7 @@ class DiagnosticsViewModelTest {
                                 name = "Default",
                                 source = "bundled",
                                 version = 1,
-                                requestJson = """{"profileId":"default","displayName":"Default"}""",
+                                requestJson = profileRequest(profileId = "default", displayName = "Default"),
                                 updatedAt = 1L,
                             ),
                             DiagnosticProfileEntity(
@@ -863,7 +866,7 @@ class DiagnosticsViewModelTest {
                                 summary = "Connectivity run",
                                 reportJson =
                                     json.encodeToString(
-                                        ScanReport.serializer(),
+                                        EngineScanReportWire.serializer(),
                                         scanReport(
                                             id = "default-session",
                                             profileId = "default",
@@ -888,7 +891,7 @@ class DiagnosticsViewModelTest {
                                 summary = "Recommended hostfake",
                                 reportJson =
                                     json.encodeToString(
-                                        ScanReport.serializer(),
+                                        EngineScanReportWire.serializer(),
                                         strategyProbeScanReport(),
                                     ),
                             ),
@@ -931,7 +934,7 @@ class DiagnosticsViewModelTest {
                                 name = "Default",
                                 source = "bundled",
                                 version = 1,
-                                requestJson = """{"profileId":"default","displayName":"Default"}""",
+                                requestJson = profileRequest(profileId = "default", displayName = "Default"),
                                 updatedAt = 1L,
                             ),
                         )
@@ -944,7 +947,7 @@ class DiagnosticsViewModelTest {
                                 summary = "DNS override recommended",
                                 reportJson =
                                     json.encodeToString(
-                                        ScanReport.serializer(),
+                                        EngineScanReportWire.serializer(),
                                         scanReport(
                                             id = "resolver-session",
                                             profileId = "default",
@@ -1023,7 +1026,7 @@ class DiagnosticsViewModelTest {
                                 summary = "Recommended split host",
                                 reportJson =
                                     json.encodeToString(
-                                        ScanReport.serializer(),
+                                        EngineScanReportWire.serializer(),
                                         strategyProbeScanReport(
                                             tcpCandidates =
                                                 listOf(
@@ -1104,7 +1107,9 @@ class DiagnosticsViewModelTest {
                                                     quicCandidateId = "quic_realistic_burst",
                                                     quicCandidateLabel = "QUIC realistic burst",
                                                     rationale = "Won by weighted success",
-                                                    recommendedProxyConfigJson = "{}",
+                                                    recommendedProxyConfigJson =
+                                                        RipDpiProxyUIPreferences()
+                                                            .toNativeConfigJson(),
                                                     strategySignature = null,
                                                 ),
                                         ),
@@ -1206,7 +1211,7 @@ class DiagnosticsViewModelTest {
                                 summary = "Audit complete",
                                 reportJson =
                                     json.encodeToString(
-                                        ScanReport.serializer(),
+                                        EngineScanReportWire.serializer(),
                                         strategyProbeScanReport(
                                             sessionId = "audit-session",
                                             profileId = profileId,
@@ -2748,6 +2753,7 @@ class DiagnosticsViewModelTest {
         summary: String,
         reportJson: String? =
             json.encodeToString(
+                EngineScanReportWire.serializer(),
                 scanReport(
                     id = id,
                     profileId = profileId,
@@ -2783,15 +2789,59 @@ class DiagnosticsViewModelTest {
         summary: String,
         pathMode: ScanPathMode = ScanPathMode.RAW_PATH,
         probes: List<com.poyka.ripdpi.diagnostics.ProbeResult> = emptyList(),
-    ): ScanReport =
-        ScanReport(
+    ): EngineScanReportWire =
+        EngineScanReportWire(
             sessionId = id,
             profileId = profileId,
             pathMode = pathMode,
             startedAt = 1L,
             finishedAt = 2L,
             summary = summary,
-            results = probes,
+            results =
+                probes.map { result ->
+                    EngineProbeResultWire(
+                        probeType = result.probeType,
+                        target = result.target,
+                        outcome = result.outcome,
+                        details = result.details,
+                        probeRetryCount = result.probeRetryCount,
+                    )
+                },
+        )
+
+    private fun profileRequest(
+        profileId: String,
+        displayName: String,
+        kind: ScanKind = ScanKind.CONNECTIVITY,
+        family: DiagnosticProfileFamily = DiagnosticProfileFamily.GENERAL,
+        strategyProbe: StrategyProbeRequest? = null,
+        allowBackground: Boolean = false,
+        requiresRawPath: Boolean = kind == ScanKind.STRATEGY_PROBE,
+        manualOnly: Boolean = false,
+        probePersistencePolicy: ProbePersistencePolicyWire =
+            if (allowBackground) {
+                ProbePersistencePolicyWire.BACKGROUND_ONLY
+            } else {
+                ProbePersistencePolicyWire.MANUAL_ONLY
+            },
+        codec: Json = json,
+    ): String =
+        codec.encodeToString(
+            ProfileSpecWire.serializer(),
+            ProfileSpecWire(
+                profileId = profileId,
+                displayName = displayName,
+                kind = kind,
+                family = family,
+                executionPolicy =
+                    ProfileExecutionPolicyWire(
+                        manualOnly = manualOnly,
+                        allowBackground = allowBackground,
+                        requiresRawPath = requiresRawPath,
+                        probePersistencePolicy = probePersistencePolicy,
+                    ),
+                strategyProbe = strategyProbe,
+            ),
         )
 
     private fun strategyProbeProfileRequest(
@@ -2799,18 +2849,16 @@ class DiagnosticsViewModelTest {
         profileId: String = "automatic-probing",
         displayName: String = "Automatic probing",
         suiteId: String = "quick_v1",
+        allowBackground: Boolean = suiteId == "quick_v1",
     ): String =
-        json.encodeToString(
-            ScanRequest.serializer(),
-            ScanRequest(
-                profileId = profileId,
-                displayName = displayName,
-                pathMode = ScanPathMode.RAW_PATH,
-                kind = ScanKind.STRATEGY_PROBE,
-                domainTargets = emptyList(),
-                quicTargets = listOf(QuicTarget(host = "example.org")),
-                strategyProbe = StrategyProbeRequest(suiteId = suiteId),
-            ),
+        profileRequest(
+            profileId = profileId,
+            displayName = displayName,
+            kind = ScanKind.STRATEGY_PROBE,
+            strategyProbe = StrategyProbeRequest(suiteId = suiteId),
+            allowBackground = allowBackground,
+            requiresRawPath = true,
+            codec = json,
         )
 
     private fun strategyProbeScanReport(
@@ -2858,7 +2906,7 @@ class DiagnosticsViewModelTest {
                 quicCandidateId = "quic_realistic_burst",
                 quicCandidateLabel = "QUIC realistic burst",
                 rationale = "Won by full HTTPS and QUIC success",
-                recommendedProxyConfigJson = "{}",
+                recommendedProxyConfigJson = RipDpiProxyUIPreferences().toNativeConfigJson(),
                 strategySignature =
                     BypassStrategySignature(
                         mode = "VPN",
@@ -2875,15 +2923,24 @@ class DiagnosticsViewModelTest {
                     ),
             ),
         auditAssessment: StrategyProbeAuditAssessment? = null,
-    ): ScanReport =
-        ScanReport(
+    ): EngineScanReportWire =
+        EngineScanReportWire(
             sessionId = sessionId,
             profileId = profileId,
             pathMode = ScanPathMode.RAW_PATH,
             startedAt = 10L,
             finishedAt = 20L,
             summary = summary,
-            results = results,
+            results =
+                results.map { result ->
+                    EngineProbeResultWire(
+                        probeType = result.probeType,
+                        target = result.target,
+                        outcome = result.outcome,
+                        details = result.details,
+                        probeRetryCount = result.probeRetryCount,
+                    )
+                },
             strategyProbeReport =
                 StrategyProbeReport(
                     suiteId = suiteId,

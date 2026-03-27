@@ -57,7 +57,7 @@ class NativeBridgeInstrumentedTest {
         runBlocking {
             val proxy = RipDpiProxy(RipDpiProxyNativeBindings())
             val port = reserveLoopbackPort()
-            val preferences = RipDpiProxyCmdPreferences("--ip 127.0.0.1 --port $port --split 1+s")
+            val preferences = RipDpiProxyCmdPreferences("--ip 127.0.0.1 --port $port --split host+1")
 
             val proxyJob =
                 async(Dispatchers.IO) {

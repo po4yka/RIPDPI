@@ -21,7 +21,7 @@ pub use types::{
 
 pub(crate) use matching::{extract_host, extract_host_info, group_requires_payload, route_matches_payload};
 
-const HOST_AUTOLEARN_STORE_VERSION: u32 = 2;
+const HOST_AUTOLEARN_STORE_VERSION: u32 = 1;
 const DEFAULT_NETWORK_SCOPE_KEY: &str = "default";
 const AUTOLEARN_PERSIST_DEBOUNCE_MS: u64 = 2_000;
 

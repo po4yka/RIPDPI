@@ -170,9 +170,6 @@ class DefaultDiagnosticsResolverActions
                 dnsMode = com.poyka.ripdpi.data.DnsModeEncrypted
                 dnsProviderId = selectedPath.resolverId
                 dnsIp = selectedPath.bootstrapIps.firstOrNull().orEmpty()
-                dnsDohUrl = selectedPath.dohUrl
-                clearDnsDohBootstrapIps()
-                addAllDnsDohBootstrapIps(selectedPath.bootstrapIps)
                 encryptedDnsProtocol = selectedPath.protocol
                 encryptedDnsHost = selectedPath.host
                 encryptedDnsPort = selectedPath.port

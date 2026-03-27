@@ -4,6 +4,7 @@ import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.NetworkFingerprint
 import com.poyka.ripdpi.data.RememberedNetworkPolicyJson
 import com.poyka.ripdpi.data.RememberedNetworkPolicySource
+import com.poyka.ripdpi.data.diagnostics.BypassUsageSessionEntity
 import com.poyka.ripdpi.data.diagnostics.NetworkDnsPathPreferenceEntity
 import com.poyka.ripdpi.data.diagnostics.NetworkDnsPathPreferenceStore
 import com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyEntity
@@ -122,6 +123,49 @@ class DiagnosticsBoundarySourcesTest {
 
         assertEquals(DiagnosticsScanLaunchOrigin.UNKNOWN, session.launchOrigin)
         assertEquals(null, session.launchTrigger)
+    }
+
+    @Test
+    fun `connection session mapper decodes remembered policy audit and unexpected source safely`() {
+        val session =
+            mapper.toDiagnosticConnectionSession(
+                BypassUsageSessionEntity(
+                    id = "connection-1",
+                    startedAt = 10L,
+                    finishedAt = 20L,
+                    updatedAt = 20L,
+                    serviceMode = "VPN",
+                    connectionState = "Stopped",
+                    health = "healthy",
+                    approachProfileId = "profile-1",
+                    approachProfileName = "Profile 1",
+                    strategyId = "strategy-1",
+                    strategyLabel = "Strategy 1",
+                    strategyJson = "{}",
+                    networkType = "wifi",
+                    txBytes = 100L,
+                    rxBytes = 200L,
+                    totalErrors = 0L,
+                    routeChanges = 0L,
+                    restartCount = 0,
+                    endedReason = "stopped",
+                    rememberedPolicyMatchedFingerprintHash = "fp-match",
+                    rememberedPolicySource = "unexpected_source",
+                    rememberedPolicyAppliedByExactMatch = true,
+                    rememberedPolicyPreviousSuccessCount = 4,
+                    rememberedPolicyPreviousFailureCount = 1,
+                    rememberedPolicyPreviousConsecutiveFailureCount = 0,
+                ),
+            )
+
+        requireNotNull(session.rememberedPolicyAudit).also { audit ->
+            assertEquals("fp-match", audit.matchedFingerprintHash)
+            assertEquals(RememberedNetworkPolicySource.UNKNOWN, audit.source)
+            assertEquals(true, audit.appliedByExactMatch)
+            assertEquals(4, audit.previousSuccessCount)
+            assertEquals(1, audit.previousFailureCount)
+            assertEquals(0, audit.previousConsecutiveFailureCount)
+        }
     }
 }
 

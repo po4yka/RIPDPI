@@ -4,12 +4,12 @@ import android.app.Activity
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.VpnService
 import android.os.Build
 import android.os.Bundle
 import android.os.ParcelFileDescriptor
 import android.os.SystemClock
-import android.content.pm.PackageManager
 import androidx.core.content.ContextCompat
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.uiautomator.By
@@ -25,22 +25,22 @@ import com.poyka.ripdpi.data.EncryptedDnsProtocolDoh
 import com.poyka.ripdpi.data.EncryptedDnsProtocolDoq
 import com.poyka.ripdpi.data.EncryptedDnsProtocolDot
 import com.poyka.ripdpi.data.ServiceTelemetrySnapshot
+import com.poyka.ripdpi.debug.DebugDnsPacketCodec
 import com.poyka.ripdpi.debug.PacketSmokeEncryptedDnsPreset
 import com.poyka.ripdpi.debug.PacketSmokeEncryptedDnsPresets
-import com.poyka.ripdpi.debug.PacketSmokePhase
 import com.poyka.ripdpi.debug.PacketSmokeMapDnsAddress
 import com.poyka.ripdpi.debug.PacketSmokeMapDnsPort
+import com.poyka.ripdpi.debug.PacketSmokePhase
 import com.poyka.ripdpi.debug.PacketSmokePrepareState
 import com.poyka.ripdpi.debug.PacketSmokePrepareStateFileName
 import com.poyka.ripdpi.debug.PacketSmokeProbeResultFileName
 import com.poyka.ripdpi.debug.PacketSmokeRunnerProbeResult
-import com.poyka.ripdpi.debug.DebugDnsPacketCodec
 import java.io.BufferedReader
 import java.io.File
 import java.io.IOException
-import java.net.HttpURLConnection
 import java.net.DatagramPacket
 import java.net.DatagramSocket
+import java.net.HttpURLConnection
 import java.net.Inet6Address
 import java.net.InetSocketAddress
 import java.net.ServerSocket
@@ -389,9 +389,6 @@ suspend fun AppSettingsRepository.applyFixtureEncryptedDns(
         setDnsMode(DnsModeEncrypted)
         setDnsProviderId(DnsProviderCustom)
         setDnsIp(bootstrapIps.first())
-        setDnsDohUrl(dohUrl)
-        clearDnsDohBootstrapIps()
-        addAllDnsDohBootstrapIps(if (dohUrl.isNotBlank()) bootstrapIps else emptyList())
         setEncryptedDnsProtocol(normalizedProtocol)
         setEncryptedDnsHost(endpointHost)
         setEncryptedDnsPort(endpointPort)
@@ -418,8 +415,6 @@ suspend fun AppSettingsRepository.applyPacketSmokePlainDns(
         setDnsMode(DnsModePlainUdp)
         setDnsProviderId(DnsProviderCustom)
         setDnsIp(dnsIp)
-        setDnsDohUrl("")
-        clearDnsDohBootstrapIps()
         setEncryptedDnsProtocol("")
         setEncryptedDnsHost("")
         setEncryptedDnsPort(0)
@@ -441,9 +436,6 @@ suspend fun AppSettingsRepository.applyPacketSmokeEncryptedDns(
         setDnsMode(DnsModeEncrypted)
         setDnsProviderId(preset.providerId)
         setDnsIp(preset.bootstrapIps.firstOrNull().orEmpty())
-        setDnsDohUrl(preset.dohUrl)
-        clearDnsDohBootstrapIps()
-        addAllDnsDohBootstrapIps(if (preset.dohUrl.isNotBlank()) preset.bootstrapIps else emptyList())
         setEncryptedDnsProtocol(preset.protocol)
         setEncryptedDnsHost(preset.host)
         setEncryptedDnsPort(preset.port)
@@ -674,7 +666,7 @@ fun ensureVpnConsentGranted(context: Context) {
             }
             artifacts.hierarchyPath?.let { appendLine("uiHierarchy=$it") }
             artifacts.screenshotPath?.let { appendLine("screenshot=$it") }
-        }
+        },
     )
 }
 
@@ -717,32 +709,33 @@ fun selectReachableFixtureManifest(
             if (!isLikelyEmulator()) {
                 add(LoopbackFixtureHost)
             }
-        }
-            .distinct()
-    val probes = candidates.map { host ->
-        probeAppProcessTcpConnect(
-            context = context,
-            host = host,
-            port = fixture.tcpEchoPort,
-        )
-    }
-    val reachable = probes.firstOrNull(AppProcessTcpProbeResult::ok) ?: throw AssertionError(
-        buildString {
-            append("App process could not reach the local fixture TCP endpoint. ")
-            append("Candidates: ")
-            append(
-                probes.joinToString { probe ->
-                    val detail =
-                        if (probe.ok) {
-                            "ok local=${probe.localAddress}:${probe.localPort}"
-                        } else {
-                            "${probe.errorClass}: ${probe.errorMessage}"
-                        }
-                    "${probe.host}:${probe.port} -> $detail"
-                },
+        }.distinct()
+    val probes =
+        candidates.map { host ->
+            probeAppProcessTcpConnect(
+                context = context,
+                host = host,
+                port = fixture.tcpEchoPort,
             )
-        },
-    )
+        }
+    val reachable =
+        probes.firstOrNull(AppProcessTcpProbeResult::ok) ?: throw AssertionError(
+            buildString {
+                append("App process could not reach the local fixture TCP endpoint. ")
+                append("Candidates: ")
+                append(
+                    probes.joinToString { probe ->
+                        val detail =
+                            if (probe.ok) {
+                                "ok local=${probe.localAddress}:${probe.localPort}"
+                            } else {
+                                "${probe.errorClass}: ${probe.errorMessage}"
+                            }
+                        "${probe.host}:${probe.port} -> $detail"
+                    },
+                )
+            },
+        )
     return if (reachable.host == fixture.androidHost) {
         fixture
     } else {
@@ -1195,7 +1188,8 @@ private fun vpnConsentTimeoutMs(): Long {
             .getArguments()
             .getString(VpnConsentTimeoutArg)
             ?.toLongOrNull()
-    return configuredTimeout ?: if (isLikelyEmulator()) EmulatorVpnConsentTimeoutMs else PhysicalDeviceVpnConsentTimeoutMs
+    return configuredTimeout
+        ?: if (isLikelyEmulator()) EmulatorVpnConsentTimeoutMs else PhysicalDeviceVpnConsentTimeoutMs
 }
 
 private fun vpnConsentPackageHints(): List<String> =
@@ -1205,8 +1199,7 @@ private fun vpnConsentPackageHints(): List<String> =
         ?.split(',')
         .orEmpty()
 
-private fun vpnDialogPackages(): List<String> =
-    VpnConsentUiSelector.orderedDialogPackages(vpnConsentPackageHints())
+private fun vpnDialogPackages(): List<String> = VpnConsentUiSelector.orderedDialogPackages(vpnConsentPackageHints())
 
 private fun captureVpnConsentArtifacts(
     context: Context,

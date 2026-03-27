@@ -27,6 +27,7 @@ import com.poyka.ripdpi.diagnostics.NetworkSnapshotModel
 import com.poyka.ripdpi.diagnostics.PermissionContextModel
 import com.poyka.ripdpi.diagnostics.ProbeDetail
 import com.poyka.ripdpi.diagnostics.ProbeResult
+import com.poyka.ripdpi.diagnostics.RememberedPolicyApplicationAudit
 import com.poyka.ripdpi.diagnostics.ScanProgress
 import com.poyka.ripdpi.diagnostics.ServiceContextModel
 import com.poyka.ripdpi.diagnostics.WifiNetworkDetails
@@ -46,6 +47,7 @@ internal fun historyConnectionSession(
     finishedAt: Long? = 61_000L,
     updatedAt: Long = finishedAt ?: startedAt,
     failureMessage: String? = null,
+    rememberedPolicyAudit: RememberedPolicyApplicationAudit? = null,
 ): DiagnosticConnectionSession =
     DiagnosticConnectionSession(
         id = id,
@@ -77,6 +79,7 @@ internal fun historyConnectionSession(
         restartCount = 0,
         endedReason = "Completed",
         failureMessage = failureMessage,
+        rememberedPolicyAudit = rememberedPolicyAudit,
     )
 
 internal fun historyScanSession(

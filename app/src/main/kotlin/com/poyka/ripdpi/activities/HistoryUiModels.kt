@@ -25,6 +25,7 @@ data class HistoryConnectionRowUiModel(
     val networkType: String,
     val startedAtLabel: String,
     val summary: String,
+    val rememberedPolicyBadge: String? = null,
     val metrics: List<DiagnosticsMetricUiModel>,
     val tone: DiagnosticsTone,
 )

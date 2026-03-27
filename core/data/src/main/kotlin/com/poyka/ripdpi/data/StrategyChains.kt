@@ -24,36 +24,11 @@ enum class TcpChainStepKind(
     TlsRandRec("tlsrandrec"),
     ;
 
-    val legacyMethod: String?
-        get() =
-            when (this) {
-                Split -> "split"
-                Disorder -> "disorder"
-                Fake -> "fake"
-                FakeSplit -> "fake"
-                FakeDisorder -> "disorder"
-                HostFake -> "fake"
-                Oob -> "oob"
-                Disoob -> "disoob"
-                TlsRec -> null
-                TlsRandRec -> null
-            }
-
     companion object {
         fun fromWireName(value: String): TcpChainStepKind? =
             entries.firstOrNull {
                 it.wireName ==
                     value.trim().lowercase()
-            }
-
-        fun fromLegacyMethod(value: String): TcpChainStepKind? =
-            when (value.trim().lowercase()) {
-                "split" -> Split
-                "disorder" -> Disorder
-                "fake" -> Fake
-                "oob" -> Oob
-                "disoob" -> Disoob
-                else -> null
             }
     }
 }
@@ -64,6 +39,20 @@ val TcpChainStepKind.supportsAdaptiveMarker: Boolean
             TcpChainStepKind.HostFake -> false
             else -> true
         }
+
+fun TcpChainStepKind.desyncMethodLabel(): String? =
+    when (this) {
+        TcpChainStepKind.Split -> "split"
+        TcpChainStepKind.Disorder -> "disorder"
+        TcpChainStepKind.Fake -> "fake"
+        TcpChainStepKind.FakeSplit -> "fake"
+        TcpChainStepKind.FakeDisorder -> "disorder"
+        TcpChainStepKind.HostFake -> "fake"
+        TcpChainStepKind.Oob -> "oob"
+        TcpChainStepKind.Disoob -> "disoob"
+        TcpChainStepKind.TlsRec -> null
+        TcpChainStepKind.TlsRandRec -> null
+    }
 
 @Serializable
 data class TcpChainStepModel(
@@ -110,14 +99,12 @@ fun AppSettings.effectiveTcpChainSteps(): List<TcpChainStepModel> =
     if (tcpChainStepsCount > 0) {
         tcpChainStepsList.mapNotNull { it.toModelOrNull() }
     } else {
-        synthesizeLegacyTcpChain()
+        emptyList()
     }
 
 fun AppSettings.effectiveUdpChainSteps(): List<UdpChainStepModel> =
     if (udpChainStepsCount > 0) {
         udpChainStepsList.mapNotNull { it.toModelOrNull() }
-    } else if (udpFakeCount > 0) {
-        listOf(UdpChainStepModel(count = udpFakeCount))
     } else {
         emptyList()
     }
@@ -195,8 +182,8 @@ fun replaceTlsPreludeTcpChainSteps(
     return updated
 }
 
-fun legacyDesyncMethod(tcpSteps: List<TcpChainStepModel>): String =
-    primaryTcpChainStep(tcpSteps)?.kind?.legacyMethod ?: "none"
+fun primaryDesyncMethod(tcpSteps: List<TcpChainStepModel>): String =
+    primaryTcpChainStep(tcpSteps)?.kind?.desyncMethodLabel() ?: "none"
 
 fun parseStrategyChainDsl(source: String): Result<StrategyChainSet> =
     runCatching {
@@ -273,50 +260,11 @@ fun AppSettings.Builder.setStrategyChains(
         tcpSteps.forEach { addTcpChainSteps(it.toProto()) }
         clearUdpChainSteps()
         udpSteps.forEach { addUdpChainSteps(it.toProto()) }
-        projectLegacyChainFields(tcpSteps, udpSteps)
     }
-
-fun AppSettings.Builder.projectLegacyChainFields(
-    tcpSteps: List<TcpChainStepModel>,
-    udpSteps: List<UdpChainStepModel>,
-): AppSettings.Builder =
-    apply {
-        val primaryTcpStep = primaryTcpChainStep(tcpSteps)
-        val tlsRecStep = tlsPreludeTcpChainStep(tcpSteps)
-
-        setDesyncMethod(primaryTcpStep?.kind?.legacyMethod ?: "none")
-        setSplitMarker(primaryTcpStep?.let(::normalizeTcpMarker) ?: DefaultSplitMarker)
-        setSplitPosition(0)
-        setSplitAtHost(false)
-        setTlsrecEnabled(tlsRecStep != null)
-        setTlsrecMarker(tlsRecStep?.let(::normalizeTcpMarker) ?: DefaultTlsRecordMarker)
-        setTlsrecPosition(0)
-        setTlsrecAtSni(false)
-        setUdpFakeCount(udpSteps.sumOf { it.count.coerceAtLeast(0) })
-    }
-
-fun AppSettings.Builder.setTcpChainStepsCompat(steps: List<TcpChainStepModel>): AppSettings.Builder =
-    setStrategyChains(steps, emptyList())
-
-fun AppSettings.Builder.setUdpChainStepsCompat(steps: List<UdpChainStepModel>): AppSettings.Builder =
-    setStrategyChains(emptyList(), steps)
 
 fun AppSettings.Builder.setRawStrategyChainDsl(source: String): AppSettings.Builder {
     val parsed = parseStrategyChainDsl(source).getOrThrow()
     return setStrategyChains(parsed.tcpSteps, parsed.udpSteps)
-}
-
-private fun AppSettings.synthesizeLegacyTcpChain(): List<TcpChainStepModel> {
-    val steps = mutableListOf<TcpChainStepModel>()
-    if (tlsrecEnabled) {
-        steps += TcpChainStepModel(TcpChainStepKind.TlsRec, effectiveTlsRecordMarker())
-    }
-    val method = desyncMethod.ifEmpty { LegacyDefaultDesyncMethod }
-    val kind = TcpChainStepKind.fromLegacyMethod(method)
-    if (kind != null) {
-        steps += TcpChainStepModel(kind, effectiveSplitMarker())
-    }
-    return steps
 }
 
 private fun StrategyTcpStep.toModelOrNull(): TcpChainStepModel? {
@@ -392,7 +340,7 @@ private fun validateTcpChain(steps: List<TcpChainStepModel>) {
     }
 }
 
-private fun normalizeTcpMarker(step: TcpChainStepModel): String = normalizeTcpMarker(step.kind, step.marker)
+internal fun normalizeTcpMarker(step: TcpChainStepModel): String = normalizeTcpMarker(step.kind, step.marker)
 
 private fun formatTcpStepSummary(step: TcpChainStepModel): String =
     buildString {

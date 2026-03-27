@@ -138,6 +138,15 @@
     <string name="diagnostics_source_automatic_audit_manual">Automatic audit (manual)</string>
     <string name="diagnostics_source_strategy_probe_manual">Strategy probe (manual)</string>
     <string name="diagnostics_source_unknown">Unknown source</string>
+    <string name="history_connection_remembered_policy_badge">Remembered policy</string>
+    <string name="history_connection_remembered_policy_section">Remembered policy</string>
+    <string name="history_connection_remembered_policy_source">Source</string>
+    <string name="history_connection_remembered_policy_reason">Match reason</string>
+    <string name="history_connection_remembered_policy_exact_match">Exact network match</string>
+    <string name="history_connection_remembered_policy_fingerprint">Matched fingerprint</string>
+    <string name="history_connection_remembered_policy_previous_successes">Previous successes</string>
+    <string name="history_connection_remembered_policy_previous_failures">Previous failures</string>
+    <string name="history_connection_remembered_policy_previous_consecutive_failures">Previous consecutive failures</string>
     <string name="diagnostics_network_fallback_title">Network %1$s</string>
     <string name="diagnostics_current_match">Current match</string>
     <string name="diagnostics_no_strategy_signature">No strategy signature captured</string>
@@ -281,10 +290,10 @@
     <string name="config_chain_editor_helper_full">The HTTPS section below can author single tlsrec and randomized tlsrandrec steps visually, while the Hostfake and fake approximation cards explain hostname-targeted fake chunks and retransmission-style approximations. Linux/Android-only approximations are available as fakedsplit host+1 and fakeddisorder endhost for HTTP or TLS SNI-adjacent payloads.</string>
     <string name="action_learn_more">Learn more</string>
     <string name="action_show_less">Show less</string>
-    <string name="config_split_marker_helper">Manual markers accept offsets like 1, host, method+2, midsld-1, or 1+s. Use the adaptive preset selector or the raw chain DSL for auto(\u2026).</string>
-    <string name="config_fake_offset_marker_helper">Accepts numeric or semantic offsets like 0, host+1, endhost-2, or 1+se. Adaptive auto(\u2026) markers are not supported here.</string>
+    <string name="config_split_marker_helper">Manual markers accept offsets like 1, host, method+2, midsld-1, or host+1. Use the adaptive preset selector or the raw chain DSL for auto(\u2026).</string>
+    <string name="config_fake_offset_marker_helper">Accepts numeric or semantic offsets like 0, host+1, endhost-2, or endhost+1. Adaptive auto(\u2026) markers are not supported here.</string>
     <string name="config_fake_tls_size_helper">0 = input-sized, positive = exact target bytes, negative = input minus N.</string>
-    <string name="config_tls_record_marker_helper">Accepts offsets like 0, host, sniext, extlen, or 1+s.</string>
+    <string name="config_tls_record_marker_helper">Accepts offsets like 0, host, sniext, extlen, or host+1.</string>
     <string name="config_udp_chain_hint">UDP fake bursts now live inside the strategy chain editor as fake_burst counts.</string>
     <string name="ripdpi_tls_prelude_section_body">Configure the TLS prelude that rewrites HTTPS ClientHello records before send-step actions run. The chain editor above still handles stacked or mixed TLS preludes.</string>
     <string name="ripdpi_tls_prelude_mode_title">TLS record fragmentation</string>

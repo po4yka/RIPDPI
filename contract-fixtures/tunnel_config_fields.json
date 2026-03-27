@@ -1,9 +1,6 @@
 [
   "connectTimeoutMs",
   "dnsQueryTimeoutMs",
-  "dohBootstrapIps[]",
-  "dohResolverId",
-  "dohUrl",
   "encryptedDnsBootstrapIps[]",
   "encryptedDnsDnscryptProviderName",
   "encryptedDnsDnscryptPublicKey",

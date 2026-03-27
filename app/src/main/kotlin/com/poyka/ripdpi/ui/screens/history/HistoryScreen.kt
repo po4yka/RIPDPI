@@ -745,6 +745,23 @@ private fun ConnectionSessionCard(
             label = session.connectionState,
             tone = statusTone(session.tone),
         )
+        session.rememberedPolicyBadge?.let { badge ->
+            Box(
+                modifier =
+                    Modifier
+                        .background(
+                            color = RipDpiThemeTokens.colors.inputBackground,
+                            shape = RipDpiThemeTokens.shapes.xxl,
+                        ).padding(horizontal = 8.dp, vertical = 2.dp)
+                        .ripDpiTestTag(RipDpiTestTags.historyConnectionRememberedBadge(session.id)),
+            ) {
+                Text(
+                    text = badge,
+                    style = RipDpiThemeTokens.type.smallLabel,
+                    color = RipDpiThemeTokens.colors.mutedForeground,
+                )
+            }
+        }
         Text(
             text = session.title,
             style = RipDpiThemeTokens.type.bodyEmphasis,

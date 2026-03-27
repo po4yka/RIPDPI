@@ -95,6 +95,7 @@ internal class VpnServiceRuntimeCoordinator(
                 policy = policy,
                 matchedPolicy = resolution.matchedNetworkPolicy,
                 usedRememberedPolicy = resolution.matchedNetworkPolicy != null,
+                rememberedPolicyAppliedByExactMatch = resolution.rememberedPolicyAppliedByExactMatch,
                 fingerprintHash = resolution.fingerprintHash,
                 policySignature = resolution.policySignature,
                 appliedAt = appliedAt,

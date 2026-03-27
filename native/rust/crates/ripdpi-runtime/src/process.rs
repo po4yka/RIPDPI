@@ -125,7 +125,11 @@ impl Drop for PidFileGuard {
 
 #[cfg(test)]
 mod tests {
+    use std::sync::{LazyLock, Mutex};
+
     use super::*;
+
+    static PROCESS_TEST_MUTEX: LazyLock<Mutex<()>> = LazyLock::new(|| Mutex::new(()));
 
     fn temp_pid_path() -> PathBuf {
         let stamp = SystemTime::now().duration_since(UNIX_EPOCH).expect("system clock before unix epoch").as_nanos();
@@ -134,6 +138,7 @@ mod tests {
 
     #[test]
     fn prepare_resets_shutdown_state() {
+        let _lock = PROCESS_TEST_MUTEX.lock().expect("lock process test mutex");
         request_shutdown();
         assert!(shutdown_requested());
 
@@ -145,6 +150,7 @@ mod tests {
 
     #[test]
     fn prepare_with_pid_file_writes_and_removes_pidfile() {
+        let _lock = PROCESS_TEST_MUTEX.lock().expect("lock process test mutex");
         let path = temp_pid_path();
         let mut config = RuntimeConfig::default();
         config.process.pid_file = Some(path.display().to_string());

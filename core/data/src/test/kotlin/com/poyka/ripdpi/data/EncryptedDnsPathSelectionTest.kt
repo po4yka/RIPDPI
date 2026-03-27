@@ -12,8 +12,6 @@ class EncryptedDnsPathSelectionTest {
                 dnsMode = DnsModeEncrypted,
                 dnsProviderId = DnsProviderCloudflare,
                 dnsIp = "",
-                dnsDohUrl = "",
-                dnsDohBootstrapIps = emptyList(),
                 encryptedDnsProtocol = EncryptedDnsProtocolDot,
             )
 
@@ -45,8 +43,6 @@ class EncryptedDnsPathSelectionTest {
                         dnsMode = DnsModePlainUdp,
                         dnsProviderId = DnsProviderCustom,
                         dnsIp = "1.1.1.1",
-                        dnsDohUrl = "",
-                        dnsDohBootstrapIps = emptyList(),
                     ),
                 preferredPath = preferred,
             )
@@ -64,8 +60,6 @@ class EncryptedDnsPathSelectionTest {
                 dnsMode = DnsModeEncrypted,
                 dnsProviderId = DnsProviderCustom,
                 dnsIp = "",
-                dnsDohUrl = "",
-                dnsDohBootstrapIps = emptyList(),
                 encryptedDnsProtocol = EncryptedDnsProtocolDnsCrypt,
                 encryptedDnsHost = "dnscrypt.example.test",
                 encryptedDnsPort = 5443,

@@ -21,9 +21,6 @@ internal class SettingsDnsActions(
             setDnsMode(DnsModeEncrypted)
             setDnsProviderId(resolver.providerId)
             setDnsIp(resolver.primaryIp)
-            setDnsDohUrl(resolver.dohUrl.orEmpty())
-            clearDnsDohBootstrapIps()
-            addAllDnsDohBootstrapIps(resolver.bootstrapIps)
             setEncryptedDnsProtocol(resolver.protocol)
             setEncryptedDnsHost(resolver.host)
             setEncryptedDnsPort(resolver.port)
@@ -45,8 +42,6 @@ internal class SettingsDnsActions(
             setDnsProviderId(DnsProviderCustom)
             setEncryptedDnsProtocol(protocol)
             if (protocol != EncryptedDnsProtocolDoh) {
-                setDnsDohUrl("")
-                clearDnsDohBootstrapIps()
                 setEncryptedDnsDohUrl("")
             }
             if (protocol != EncryptedDnsProtocolDnsCrypt) {
@@ -67,8 +62,6 @@ internal class SettingsDnsActions(
             setDnsMode(DnsModePlainUdp)
             setDnsProviderId(DnsProviderCustom)
             setDnsIp(dnsIp)
-            setDnsDohUrl("")
-            clearDnsDohBootstrapIps()
             setEncryptedDnsProtocol("")
             setEncryptedDnsHost("")
             setEncryptedDnsPort(0)
@@ -86,7 +79,7 @@ internal class SettingsDnsActions(
     ) {
         val normalizedBootstrapIps = normalizeDnsBootstrapIps(bootstrapIps)
         mutations.updateSetting(
-            key = "dnsDohUrl",
+            key = "encryptedDnsDohUrl",
             value = dohUrl,
         ) {
             val host =
@@ -103,10 +96,7 @@ internal class SettingsDnsActions(
                 }.getOrDefault(443)
             setDnsMode(DnsModeEncrypted)
             setDnsProviderId(DnsProviderCustom)
-            setDnsDohUrl(dohUrl.trim())
             setDnsIp(normalizedBootstrapIps.firstOrNull().orEmpty())
-            clearDnsDohBootstrapIps()
-            addAllDnsDohBootstrapIps(normalizedBootstrapIps)
             setEncryptedDnsProtocol(EncryptedDnsProtocolDoh)
             setEncryptedDnsHost(host)
             setEncryptedDnsPort(port)
@@ -133,8 +123,6 @@ internal class SettingsDnsActions(
             setDnsMode(DnsModeEncrypted)
             setDnsProviderId(DnsProviderCustom)
             setDnsIp(normalizedBootstrapIps.firstOrNull().orEmpty())
-            setDnsDohUrl("")
-            clearDnsDohBootstrapIps()
             setEncryptedDnsProtocol(EncryptedDnsProtocolDot)
             setEncryptedDnsHost(host.trim())
             setEncryptedDnsPort(port)
@@ -162,8 +150,6 @@ internal class SettingsDnsActions(
             setDnsMode(DnsModeEncrypted)
             setDnsProviderId(DnsProviderCustom)
             setDnsIp(normalizedBootstrapIps.firstOrNull().orEmpty())
-            setDnsDohUrl("")
-            clearDnsDohBootstrapIps()
             setEncryptedDnsProtocol(EncryptedDnsProtocolDnsCrypt)
             setEncryptedDnsHost(host.trim())
             setEncryptedDnsPort(port)

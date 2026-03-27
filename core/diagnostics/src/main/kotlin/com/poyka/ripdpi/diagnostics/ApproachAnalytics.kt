@@ -28,7 +28,7 @@ import com.poyka.ripdpi.data.effectiveUdpFakeProfile
 import com.poyka.ripdpi.data.formatChainSummary
 import com.poyka.ripdpi.data.formatNumericRange
 import com.poyka.ripdpi.data.hasCustomFakeTlsProfile
-import com.poyka.ripdpi.data.legacyDesyncMethod
+import com.poyka.ripdpi.data.primaryDesyncMethod
 import com.poyka.ripdpi.data.primaryTcpChainStep
 import com.poyka.ripdpi.data.strategyLaneFamilyLabel
 import com.poyka.ripdpi.data.tlsPreludeTcpChainStep
@@ -165,7 +165,7 @@ fun deriveBypassStrategySignature(
         }.ifEmpty {
             listOf("NONE")
         }
-    val desyncMethod = legacyDesyncMethod(tcpSteps).ifEmpty { "none" }
+    val desyncMethod = primaryDesyncMethod(tcpSteps).ifEmpty { "none" }
     val hasFakeStep =
         tcpSteps.any { step ->
             step.kind == TcpChainStepKind.Fake ||
@@ -351,7 +351,7 @@ fun deriveBypassStrategySignature(
         mode = modeOverride.name,
         configSource = "ui",
         hostAutolearn = if (preferences.hostAutolearn.enabled) "enabled" else "disabled",
-        desyncMethod = legacyDesyncMethod(tcpSteps).ifEmpty { "none" },
+        desyncMethod = primaryDesyncMethod(tcpSteps).ifEmpty { "none" },
         chainSummary = preferences.chainSummary,
         tcpStrategyFamily = laneFamilies.tcpStrategyFamily,
         quicStrategyFamily = laneFamilies.quicStrategyFamily,

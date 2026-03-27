@@ -256,7 +256,6 @@ fn atomic_write(path: &Path, payload: &[u8]) -> io::Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use serde_json::json;
 
     use crate::runtime_policy::test_support::{autolearn_config, sample_dest};
     use crate::runtime_policy::types::LearnedGroupStats;
@@ -427,30 +426,6 @@ mod tests {
         let reloaded_b = RuntimePolicy::load(&config_b);
         assert!(reloaded_b.learned_hosts(&config_b).contains_key("beta.example"));
         assert!(!reloaded_b.learned_hosts(&config_b).contains_key("alpha.example"));
-    }
-
-    #[test]
-    fn legacy_v1_host_autolearn_store_is_invalidated() {
-        let config = autolearn_config(1, 32);
-        let path = config.host_autolearn.store_path.clone().expect("store path");
-        let payload = json!({
-            "version": 1,
-            "fingerprint": config_fingerprint(&config),
-            "hosts": {
-                "example.org": {
-                    "preferred_groups": [0],
-                    "group_stats": {},
-                    "updated_at_ms": 1
-                }
-            }
-        });
-        fs::write(&path, serde_json::to_vec_pretty(&payload).expect("serialize legacy payload"))
-            .expect("write legacy store");
-
-        let mut policy = RuntimePolicy::load(&config);
-
-        assert!(policy.learned_hosts(&config).is_empty());
-        assert!(policy.drain_autolearn_events().iter().any(|event| event.action == "store_reset"));
     }
 
     // -- config_fingerprint unit tests --

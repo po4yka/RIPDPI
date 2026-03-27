@@ -89,65 +89,18 @@ class StrategyChainsTest {
     }
 
     @Test
-    fun `legacy fields synthesize effective chains`() {
-        val settings =
-            AppSettings
-                .newBuilder()
-                .setDesyncMethod("fake")
-                .setSplitMarker("host")
-                .setTlsrecEnabled(true)
-                .setTlsrecMarker("sniext+4")
-                .setUdpFakeCount(2)
-                .build()
+    fun `empty settings expose no effective chains`() {
+        val settings = AppSettings.newBuilder().build()
 
-        assertEquals(
-            listOf(
-                TcpChainStepModel(TcpChainStepKind.TlsRec, "sniext+4"),
-                TcpChainStepModel(TcpChainStepKind.Fake, "host"),
-            ),
-            settings.effectiveTcpChainSteps(),
-        )
-        assertEquals(listOf(UdpChainStepModel(count = 2)), settings.effectiveUdpChainSteps())
+        assertTrue(settings.effectiveTcpChainSteps().isEmpty())
+        assertTrue(settings.effectiveUdpChainSteps().isEmpty())
+        assertEquals("none", primaryDesyncMethod(settings.effectiveTcpChainSteps()))
+        assertEquals(CanonicalDefaultSplitMarker, settings.effectiveSplitMarker())
+        assertEquals(DefaultTlsRecordMarker, settings.effectiveTlsRecordMarker())
     }
 
     @Test
-    fun `legacy disoob defaults to tls host split marker`() {
-        val settings =
-            AppSettings
-                .newBuilder()
-                .setDesyncMethod("disoob")
-                .setSplitMarker(DefaultSplitMarker)
-                .setSplitPosition(1)
-                .setSplitAtHost(false)
-                .build()
-
-        assertEquals(
-            listOf(
-                TcpChainStepModel(TcpChainStepKind.Disoob, DefaultDisoobSplitMarker),
-            ),
-            settings.effectiveTcpChainSteps(),
-        )
-    }
-
-    @Test
-    fun `legacy disoob preserves explicit custom split marker`() {
-        val settings =
-            AppSettings
-                .newBuilder()
-                .setDesyncMethod("disoob")
-                .setSplitMarker("host+1")
-                .build()
-
-        assertEquals(
-            listOf(
-                TcpChainStepModel(TcpChainStepKind.Disoob, "host+1"),
-            ),
-            settings.effectiveTcpChainSteps(),
-        )
-    }
-
-    @Test
-    fun `setting strategy chains projects legacy compatibility fields`() {
+    fun `setting strategy chains stores canonical steps and summaries`() {
         val settings =
             AppSettings
                 .newBuilder()
@@ -160,11 +113,10 @@ class StrategyChainsTest {
                     udpSteps = listOf(UdpChainStepModel(count = 4)),
                 ).build()
 
-        assertEquals("split", settings.desyncMethod)
-        assertEquals("host+2", settings.splitMarker)
-        assertTrue(settings.tlsrecEnabled)
-        assertEquals("extlen", settings.tlsrecMarker)
-        assertEquals(4, settings.udpFakeCount)
+        assertEquals("split", primaryDesyncMethod(settings.effectiveTcpChainSteps()))
+        assertEquals("host+2", settings.effectiveSplitMarker())
+        assertEquals("extlen", settings.effectiveTlsRecordMarker())
+        assertEquals(listOf(UdpChainStepModel(count = 4)), settings.effectiveUdpChainSteps())
         assertEquals("tcp: tlsrec(extlen) -> split(host+2) | udp: fake_burst(4)", settings.effectiveChainSummary())
     }
 
@@ -199,7 +151,7 @@ class StrategyChainsTest {
     }
 
     @Test
-    fun `hostfake strategy chains project legacy fake compatibility while preserving proto fields`() {
+    fun `hostfake strategy chains preserve proto step fields`() {
         val settings =
             AppSettings
                 .newBuilder()
@@ -216,8 +168,8 @@ class StrategyChainsTest {
                     udpSteps = emptyList(),
                 ).build()
 
-        assertEquals("fake", settings.desyncMethod)
-        assertEquals("endhost+4", settings.splitMarker)
+        assertEquals("fake", primaryDesyncMethod(settings.effectiveTcpChainSteps()))
+        assertEquals("endhost+4", settings.effectiveSplitMarker())
         assertEquals(1, settings.tcpChainStepsCount)
         assertEquals("midsld", settings.tcpChainStepsList[0].midhostMarker)
         assertEquals("googlevideo.com", settings.tcpChainStepsList[0].fakeHostTemplate)
@@ -243,7 +195,7 @@ class StrategyChainsTest {
     }
 
     @Test
-    fun `fake approximation steps round trip through dsl and legacy projection`() {
+    fun `fake approximation steps round trip through dsl and canonical summary`() {
         val dsl =
             """
             [tcp]
@@ -274,8 +226,8 @@ class StrategyChainsTest {
             "tcp: tlsrec(extlen) -> fakedsplit(adaptive host/SNI start round=1-2)",
             formatChainSummary(parsed.tcpSteps, parsed.udpSteps),
         )
-        assertEquals("fake", settings.desyncMethod)
-        assertEquals(AdaptiveMarkerHost, settings.splitMarker)
+        assertEquals("fake", primaryDesyncMethod(settings.effectiveTcpChainSteps()))
+        assertEquals(AdaptiveMarkerHost, settings.effectiveSplitMarker())
     }
 
     @Test
@@ -288,7 +240,7 @@ class StrategyChainsTest {
     }
 
     @Test
-    fun `tlsrandrec dsl round trip preserves fragment options and legacy projection`() {
+    fun `tlsrandrec dsl round trip preserves fragment options and summary`() {
         val dsl =
             """
             [tcp]
@@ -319,9 +271,8 @@ class StrategyChainsTest {
                 .setStrategyChains(parsed.tcpSteps, parsed.udpSteps)
                 .build()
 
-        assertEquals("split", settings.desyncMethod)
-        assertTrue(settings.tlsrecEnabled)
-        assertEquals("sniext+4", settings.tlsrecMarker)
+        assertEquals("split", primaryDesyncMethod(settings.effectiveTcpChainSteps()))
+        assertEquals("sniext+4", settings.effectiveTlsRecordMarker())
         assertEquals(
             "tcp: tlsrandrec(sniext+4 count=5 min=24 max=48) -> split(host+1)",
             settings.effectiveChainSummary(),

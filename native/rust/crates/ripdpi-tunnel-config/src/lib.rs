@@ -146,10 +146,6 @@ pub struct MapDnsConfig {
     pub encrypted_dns_doh_url: Option<String>,
     pub encrypted_dns_dnscrypt_provider_name: Option<String>,
     pub encrypted_dns_dnscrypt_public_key: Option<String>,
-    // Deprecated compatibility fields kept for older snapshots and tests.
-    pub doh_url: Option<String>,
-    #[serde(default)]
-    pub doh_bootstrap_ips: Vec<String>,
     #[serde(default = "default_dns_query_timeout_ms")]
     pub dns_query_timeout_ms: u32,
     #[serde(default)]

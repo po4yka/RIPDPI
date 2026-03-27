@@ -90,8 +90,6 @@ class ConfigViewModelTest {
                 .setDnsIp("9.9.9.9")
                 .setDnsMode(DnsModePlainUdp)
                 .setDnsProviderId(DnsProviderCustom)
-                .setDnsDohUrl("")
-                .clearDnsDohBootstrapIps()
                 .setEncryptedDnsProtocol("")
                 .setEncryptedDnsHost("")
                 .setEncryptedDnsPort(0)

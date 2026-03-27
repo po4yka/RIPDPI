@@ -42,8 +42,6 @@ data class EncryptedDnsPathCandidate(
             dnsMode = DnsModeEncrypted,
             dnsProviderId = resolverId.ifBlank { DnsProviderCustom },
             dnsIp = normalizeDnsBootstrapIps(bootstrapIps).firstOrNull().orEmpty(),
-            dnsDohUrl = if (protocol == EncryptedDnsProtocolDoh) dohUrl else "",
-            dnsDohBootstrapIps = if (protocol == EncryptedDnsProtocolDoh) bootstrapIps else emptyList(),
             encryptedDnsProtocol = protocol,
             encryptedDnsHost = host,
             encryptedDnsPort = port,

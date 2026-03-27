@@ -1,14 +1,15 @@
 package com.poyka.ripdpi.diagnostics
 
+import com.poyka.ripdpi.diagnostics.contract.engine.EngineProbeTaskFamily
+import com.poyka.ripdpi.diagnostics.contract.engine.EngineProbeTaskWire
 import com.poyka.ripdpi.diagnostics.contract.engine.EngineProgressWire
+import com.poyka.ripdpi.diagnostics.contract.engine.EngineScanRequestWire
 import com.poyka.ripdpi.diagnostics.contract.profile.ProbePersistencePolicyWire
+import com.poyka.ripdpi.diagnostics.contract.profile.ProfileExecutionPolicyWire
 import com.poyka.ripdpi.diagnostics.contract.profile.ProfileSpecWire
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
-import org.junit.Assert.assertNotNull
-import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -20,33 +21,6 @@ class DiagnosticsModelsCompatibilityTest {
             encodeDefaults = true
             explicitNulls = false
         }
-
-    @Test
-    fun `legacy scan request decodes with new defaults`() {
-        val request =
-            json.decodeFromString(
-                ScanRequest.serializer(),
-                """
-                {
-                  "profileId": "default",
-                  "displayName": "Default diagnostics",
-                  "pathMode": "RAW_PATH",
-                  "domainTargets": [],
-                  "dnsTargets": [],
-                  "tcpTargets": [],
-                  "whitelistSni": []
-                }
-                """.trimIndent(),
-            )
-
-        assertEquals(DiagnosticProfileFamily.GENERAL, request.family)
-        assertNull(request.regionTag)
-        assertFalse(request.manualOnly)
-        assertTrue(request.packRefs.isEmpty())
-        assertTrue(request.serviceTargets.isEmpty())
-        assertTrue(request.circumventionTargets.isEmpty())
-        assertTrue(request.throughputTargets.isEmpty())
-    }
 
     @Test
     fun `current profile spec decodes explicit probe persistence policy`() {
@@ -71,19 +45,26 @@ class DiagnosticsModelsCompatibilityTest {
 
         assertEquals(
             ProbePersistencePolicyWire.BACKGROUND_ONLY,
-            profile.executionPolicy?.probePersistencePolicy,
+            profile.normalizedExecutionPolicy().probePersistencePolicy,
         )
         assertTrue(profile.strategyProbeTargetCohorts.isEmpty())
     }
 
     @Test
-    fun `new profile spec round trips strategy probe target cohorts`() {
+    fun `current profile spec round trips strategy probe target cohorts`() {
         val profile =
             ProfileSpecWire(
                 profileId = "automatic-audit",
                 displayName = "Automatic audit",
                 kind = ScanKind.STRATEGY_PROBE,
                 family = DiagnosticProfileFamily.AUTOMATIC_AUDIT,
+                executionPolicy =
+                    ProfileExecutionPolicyWire(
+                        manualOnly = true,
+                        allowBackground = false,
+                        requiresRawPath = true,
+                        probePersistencePolicy = ProbePersistencePolicyWire.MANUAL_ONLY,
+                    ),
                 strategyProbe = StrategyProbeRequest(suiteId = "full_matrix_v1"),
                 strategyProbeTargetCohorts =
                     listOf(
@@ -113,91 +94,6 @@ class DiagnosticsModelsCompatibilityTest {
 
         assertEquals(1, decoded.strategyProbeTargetCohorts.size)
         assertEquals("global-core", decoded.strategyProbeTargetCohorts.single().id)
-    }
-
-    @Test
-    fun `legacy scan report decodes with diagnosis defaults`() {
-        val report =
-            json.decodeFromString(
-                ScanReport.serializer(),
-                """
-                {
-                  "sessionId": "session-1",
-                  "profileId": "default",
-                  "pathMode": "RAW_PATH",
-                  "startedAt": 1,
-                  "finishedAt": 2,
-                  "summary": "done",
-                  "results": []
-                }
-                """.trimIndent(),
-            )
-
-        assertTrue(report.diagnoses.isEmpty())
-        assertNull(report.classifierVersion)
-        assertTrue(report.packVersions.isEmpty())
-    }
-
-    @Test
-    fun `legacy strategy probe report decodes without audit assessment`() {
-        val report =
-            json.decodeFromString(
-                ScanReport.serializer(),
-                """
-                {
-                  "sessionId": "session-1",
-                  "profileId": "automatic-audit",
-                  "pathMode": "RAW_PATH",
-                  "startedAt": 1,
-                  "finishedAt": 2,
-                  "summary": "audit complete",
-                  "results": [],
-                  "strategyProbeReport": {
-                    "suiteId": "full_matrix_v1",
-                    "tcpCandidates": [],
-                    "quicCandidates": [],
-                    "recommendation": {
-                      "tcpCandidateId": "tcp-1",
-                      "tcpCandidateLabel": "TCP candidate",
-                      "quicCandidateId": "quic-1",
-                      "quicCandidateLabel": "QUIC candidate",
-                      "rationale": "best path",
-                      "recommendedProxyConfigJson": "{}"
-                    }
-                  }
-                }
-                """.trimIndent(),
-            )
-
-        assertNull(report.strategyProbeReport?.auditAssessment)
-        assertNull(report.strategyProbeReport?.targetSelection)
-        assertEquals(
-            DiagnosticsScanWorkflow.BackgroundAutoPersistEligibility.Rejected(
-                DiagnosticsScanWorkflow.BackgroundAutoPersistRejectionReason.MISSING_AUDIT_ASSESSMENT,
-            ),
-            DiagnosticsScanWorkflow.evaluateBackgroundAutoPersistEligibility(
-                requireNotNull(report.strategyProbeReport),
-            ),
-        )
-    }
-
-    @Test
-    fun `legacy scan progress decodes without strategy probe progress`() {
-        val progress =
-            json.decodeFromString(
-                ScanProgress.serializer(),
-                """
-                {
-                  "sessionId": "session-1",
-                  "phase": "tcp",
-                  "completedSteps": 1,
-                  "totalSteps": 8,
-                  "message": "Testing TCP candidate"
-                }
-                """.trimIndent(),
-            )
-
-        assertNull(progress.strategyProbeProgress)
     }
 
     @Test
@@ -231,16 +127,23 @@ class DiagnosticsModelsCompatibilityTest {
     }
 
     @Test
-    fun `new scan request round trips profile metadata and target packs`() {
+    fun `engine scan request wire round trips probe tasks and target packs`() {
         val request =
-            ScanRequest(
+            EngineScanRequestWire(
                 profileId = "ru-web-connectivity",
                 displayName = "Russia Web Connectivity",
                 pathMode = ScanPathMode.RAW_PATH,
                 family = DiagnosticProfileFamily.WEB_CONNECTIVITY,
                 regionTag = "ru",
-                manualOnly = true,
                 packRefs = listOf("ru-independent-media@1", "ru-control@1"),
+                probeTasks =
+                    listOf(
+                        EngineProbeTaskWire(
+                            family = EngineProbeTaskFamily.WEB,
+                            targetId = "meduza",
+                            label = "Meduza",
+                        ),
+                    ),
                 serviceTargets =
                     listOf(
                         ServiceTarget(
@@ -250,210 +153,27 @@ class DiagnosticsModelsCompatibilityTest {
                             tcpEndpointHost = "telegram.org",
                         ),
                     ),
-                circumventionTargets =
-                    listOf(
-                        CircumventionTarget(
-                            id = "tor",
-                            tool = "Tor",
-                            bootstrapUrl = "https://www.torproject.org/download/",
-                            handshakeHost = "www.torproject.org",
-                        ),
-                    ),
-                throughputTargets =
-                    listOf(
-                        ThroughputTarget(
-                            id = "youtube-web",
-                            label = "YouTube Web",
-                            url = "https://www.youtube.com/",
-                            isControl = false,
-                        ),
-                    ),
             )
 
         val decoded =
-            json.decodeFromString(ScanRequest.serializer(), json.encodeToString(ScanRequest.serializer(), request))
+            json.decodeFromString(
+                EngineScanRequestWire.serializer(),
+                json.encodeToString(EngineScanRequestWire.serializer(), request),
+            )
 
-        assertEquals(DiagnosticProfileFamily.WEB_CONNECTIVITY, decoded.family)
         assertEquals("ru", decoded.regionTag)
-        assertTrue(decoded.manualOnly)
         assertEquals(listOf("ru-independent-media@1", "ru-control@1"), decoded.packRefs)
-        assertEquals("Telegram", decoded.serviceTargets.single().service)
-        assertEquals("Tor", decoded.circumventionTargets.single().tool)
-        assertEquals("YouTube Web", decoded.throughputTargets.single().label)
-    }
-
-    @Test
-    fun `strategy probe request round trips target selection`() {
-        val request =
-            ScanRequest(
-                profileId = "automatic-audit",
-                displayName = "Automatic audit",
-                pathMode = ScanPathMode.RAW_PATH,
-                kind = ScanKind.STRATEGY_PROBE,
-                family = DiagnosticProfileFamily.AUTOMATIC_AUDIT,
-                domainTargets =
-                    listOf(
-                        DomainTarget(host = "www.dw.com"),
-                        DomainTarget(host = "www.torproject.org"),
-                        DomainTarget(host = "protonvpn.com"),
-                    ),
-                quicTargets =
-                    listOf(
-                        QuicTarget(host = "www.youtube.com"),
-                        QuicTarget(host = "www.whatsapp.com"),
-                    ),
-                strategyProbe =
-                    StrategyProbeRequest(
-                        suiteId = "full_matrix_v1",
-                        targetSelection =
-                            StrategyProbeTargetSelection(
-                                cohortId = "circumvention-web",
-                                cohortLabel = "Circumvention web mix",
-                                domainHosts = listOf("www.dw.com", "www.torproject.org", "protonvpn.com"),
-                                quicHosts = listOf("www.youtube.com", "www.whatsapp.com"),
-                            ),
-                    ),
-            )
-
-        val decoded =
-            json.decodeFromString(ScanRequest.serializer(), json.encodeToString(ScanRequest.serializer(), request))
-
-        assertNotNull(decoded.strategyProbe?.targetSelection)
-        assertEquals("circumvention-web", decoded.strategyProbe?.targetSelection?.cohortId)
-        assertEquals(
-            3,
-            decoded.strategyProbe
-                ?.targetSelection
-                ?.domainHosts
-                ?.size,
-        )
-    }
-
-    @Test
-    fun `new scan report round trips diagnoses and pack versions`() {
-        val report =
-            ScanReport(
-                sessionId = "session-1",
-                profileId = "ru-dpi-full",
-                pathMode = ScanPathMode.RAW_PATH,
-                startedAt = 1,
-                finishedAt = 2,
-                summary = "1 diagnosis",
-                diagnoses =
-                    listOf(
-                        Diagnosis(
-                            code = "dns_tampering",
-                            summary = "DNS answers differ",
-                            severity = "negative",
-                            target = "meduza.io",
-                            evidence = listOf("udpAddresses=203.0.113.10"),
-                        ),
-                    ),
-                classifierVersion = "ru_ooni_v1",
-                packVersions = mapOf("ru-independent-media" to 1, "ru-control" to 1),
-            )
-
-        val decoded =
-            json.decodeFromString(ScanReport.serializer(), json.encodeToString(ScanReport.serializer(), report))
-
-        assertEquals("ru_ooni_v1", decoded.classifierVersion)
-        assertEquals(1, decoded.diagnoses.size)
-        assertEquals("dns_tampering", decoded.diagnoses.single().code)
-        assertEquals(1, decoded.packVersions["ru-independent-media"])
-    }
-
-    @Test
-    fun `new strategy probe audit assessment round trips through scan report`() {
-        val report =
-            ScanReport(
-                sessionId = "session-1",
-                profileId = "automatic-audit",
-                pathMode = ScanPathMode.RAW_PATH,
-                startedAt = 1,
-                finishedAt = 2,
-                summary = "audit complete",
-                strategyProbeReport =
-                    StrategyProbeReport(
-                        suiteId = "full_matrix_v1",
-                        tcpCandidates = emptyList(),
-                        quicCandidates = emptyList(),
-                        recommendation =
-                            StrategyProbeRecommendation(
-                                tcpCandidateId = "tcp-1",
-                                tcpCandidateLabel = "TCP candidate",
-                                quicCandidateId = "quic-1",
-                                quicCandidateLabel = "QUIC candidate",
-                                rationale = "best path",
-                                recommendedProxyConfigJson = "{}",
-                            ),
-                        auditAssessment =
-                            StrategyProbeAuditAssessment(
-                                dnsShortCircuited = false,
-                                coverage =
-                                    StrategyProbeAuditCoverage(
-                                        tcpCandidatesPlanned = 11,
-                                        tcpCandidatesExecuted = 8,
-                                        tcpCandidatesSkipped = 1,
-                                        tcpCandidatesNotApplicable = 0,
-                                        quicCandidatesPlanned = 2,
-                                        quicCandidatesExecuted = 2,
-                                        quicCandidatesSkipped = 0,
-                                        quicCandidatesNotApplicable = 0,
-                                        tcpWinnerSucceededTargets = 3,
-                                        tcpWinnerTotalTargets = 3,
-                                        quicWinnerSucceededTargets = 1,
-                                        quicWinnerTotalTargets = 1,
-                                        matrixCoveragePercent = 77,
-                                        winnerCoveragePercent = 100,
-                                    ),
-                                confidence =
-                                    StrategyProbeAuditConfidence(
-                                        level = StrategyProbeAuditConfidenceLevel.MEDIUM,
-                                        score = 75,
-                                        rationale = "Audit rationale",
-                                        warnings =
-                                            listOf(
-                                                "TCP matrix coverage stayed below 75% of planned candidates.",
-                                            ),
-                                    ),
-                            ),
-                        targetSelection =
-                            StrategyProbeTargetSelection(
-                                cohortId = "media-messaging",
-                                cohortLabel = "Media and messaging",
-                                domainHosts = listOf("meduza.io", "telegram.org", "signal.org"),
-                                quicHosts = listOf("discord.com", "www.whatsapp.com"),
-                            ),
-                    ),
-            )
-
-        val decoded =
-            json.decodeFromString(ScanReport.serializer(), json.encodeToString(ScanReport.serializer(), report))
-
-        assertEquals(
-            StrategyProbeAuditConfidenceLevel.MEDIUM,
-            decoded.strategyProbeReport
-                ?.auditAssessment
-                ?.confidence
-                ?.level,
-        )
-        assertEquals(
-            77,
-            decoded.strategyProbeReport
-                ?.auditAssessment
-                ?.coverage
-                ?.matrixCoveragePercent,
-        )
-        assertEquals("media-messaging", decoded.strategyProbeReport?.targetSelection?.cohortId)
+        assertEquals(EngineProbeTaskFamily.WEB, decoded.probeTasks.single().family)
+        assertEquals("telegram", decoded.serviceTargets.single().id)
     }
 
     @Test
     fun `engine scan report decodes tcp blocked16 status emitted by rust engine`() {
         val report =
-            json.decodeEngineScanReportWireCompat(
+            json.decodeEngineScanReportWire(
                 """
                 {
-                  "schemaVersion": 2,
+                  "schemaVersion": 1,
                   "sessionId": "session-1",
                   "profileId": "default",
                   "pathMode": "RAW_PATH",

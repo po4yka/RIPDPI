@@ -34,8 +34,6 @@ class DnsResolverConfigTest {
                 dnsMode = DnsModeEncrypted,
                 dnsProviderId = DnsProviderCloudflare,
                 dnsIp = "",
-                dnsDohUrl = "",
-                dnsDohBootstrapIps = emptyList(),
                 encryptedDnsProtocol = EncryptedDnsProtocolDoh,
             )
 
@@ -52,8 +50,6 @@ class DnsResolverConfigTest {
                 dnsMode = DnsModeEncrypted,
                 dnsProviderId = DnsProviderCustom,
                 dnsIp = "",
-                dnsDohUrl = "",
-                dnsDohBootstrapIps = emptyList(),
                 encryptedDnsProtocol = EncryptedDnsProtocolDot,
                 encryptedDnsHost = "dot.example.test",
                 encryptedDnsTlsServerName = "dot.example.test",
@@ -75,8 +71,6 @@ class DnsResolverConfigTest {
                 dnsMode = DnsModeEncrypted,
                 dnsProviderId = DnsProviderCustom,
                 dnsIp = "",
-                dnsDohUrl = "",
-                dnsDohBootstrapIps = emptyList(),
                 encryptedDnsProtocol = EncryptedDnsProtocolDnsCrypt,
                 encryptedDnsHost = "dnscrypt.example.test",
                 encryptedDnsPort = 5443,
@@ -102,8 +96,6 @@ class DnsResolverConfigTest {
                 dnsMode = DnsModePlainUdp,
                 dnsProviderId = DnsProviderCustom,
                 dnsIp = "9.9.9.9",
-                dnsDohUrl = "",
-                dnsDohBootstrapIps = emptyList(),
             )
 
         assertTrue(active.isPlainUdp)
@@ -119,9 +111,8 @@ class DnsResolverConfigTest {
                 dnsMode = DnsModeEncrypted,
                 dnsProviderId = DnsProviderCustom,
                 dnsIp = "",
-                dnsDohUrl = "not a url at all ::::",
-                dnsDohBootstrapIps = emptyList(),
                 encryptedDnsProtocol = EncryptedDnsProtocolDoh,
+                encryptedDnsDohUrl = "not a url at all ::::",
                 encryptedDnsBootstrapIps = listOf("1.2.3.4"),
             )
 
@@ -136,8 +127,6 @@ class DnsResolverConfigTest {
                 dnsMode = DnsModeEncrypted,
                 dnsProviderId = DnsProviderCustom,
                 dnsIp = "",
-                dnsDohUrl = "",
-                dnsDohBootstrapIps = emptyList(),
                 encryptedDnsProtocol = EncryptedDnsProtocolDoh,
                 encryptedDnsHost = "doh.example.test",
                 encryptedDnsBootstrapIps = listOf("10.0.0.1"),
@@ -154,9 +143,8 @@ class DnsResolverConfigTest {
                 dnsMode = DnsModeEncrypted,
                 dnsProviderId = DnsProviderCustom,
                 dnsIp = "",
-                dnsDohUrl = "https://dns.example.test:8443/dns-query",
-                dnsDohBootstrapIps = emptyList(),
                 encryptedDnsProtocol = EncryptedDnsProtocolDoh,
+                encryptedDnsDohUrl = "https://dns.example.test:8443/dns-query",
                 encryptedDnsBootstrapIps = listOf("10.0.0.2"),
             )
 
@@ -171,9 +159,8 @@ class DnsResolverConfigTest {
                 dnsMode = DnsModeEncrypted,
                 dnsProviderId = DnsProviderCustom,
                 dnsIp = "",
-                dnsDohUrl = "http://dns.example.test/dns-query",
-                dnsDohBootstrapIps = emptyList(),
                 encryptedDnsProtocol = EncryptedDnsProtocolDoh,
+                encryptedDnsDohUrl = "http://dns.example.test/dns-query",
                 encryptedDnsBootstrapIps = listOf("10.0.0.3"),
             )
 

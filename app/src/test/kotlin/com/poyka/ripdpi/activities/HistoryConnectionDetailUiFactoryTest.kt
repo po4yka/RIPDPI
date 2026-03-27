@@ -1,14 +1,24 @@
 package com.poyka.ripdpi.activities
 
+import androidx.test.core.app.ApplicationProvider
+import com.poyka.ripdpi.data.RememberedNetworkPolicySource
 import com.poyka.ripdpi.diagnostics.DiagnosticConnectionDetail
+import com.poyka.ripdpi.diagnostics.RememberedPolicyApplicationAudit
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
 import com.poyka.ripdpi.diagnostics.DiagnosticContextSnapshot as DiagnosticContextEntity
 import com.poyka.ripdpi.diagnostics.DiagnosticNetworkSnapshot as NetworkSnapshotEntity
 
+@RunWith(RobolectricTestRunner::class)
 class HistoryConnectionDetailUiFactoryTest {
-    private val factory = HistoryConnectionDetailUiFactory(DiagnosticsUiCoreSupport())
+    private val factory =
+        HistoryConnectionDetailUiFactory(
+            context = ApplicationProvider.getApplicationContext(),
+            coreSupport = DiagnosticsUiCoreSupport(),
+        )
 
     @Test
     fun `connection detail maps highlights dedupes contexts and ignores malformed payloads`() {
@@ -82,5 +92,53 @@ class HistoryConnectionDetailUiFactoryTest {
         assertEquals("Socket closed", row.summary)
         assertTrue(row.metrics.any { it.label == "Duration" && it.value == "2m 5s" })
         assertEquals(DiagnosticsTone.Negative, row.tone)
+    }
+
+    @Test
+    fun `connection detail adds remembered policy audit section and row badge`() {
+        val row =
+            factory.toConnectionRowUiModel(
+                historyConnectionSession(
+                    rememberedPolicyAudit =
+                        RememberedPolicyApplicationAudit(
+                            matchedFingerprintHash = "abcdef0123456789fedcba9876543210",
+                            source = RememberedNetworkPolicySource.AUTOMATIC_PROBING_BACKGROUND,
+                            appliedByExactMatch = true,
+                            previousSuccessCount = 4,
+                            previousFailureCount = 1,
+                            previousConsecutiveFailureCount = 0,
+                        ),
+                ),
+            )
+        val detail =
+            factory.toConnectionDetail(
+                DiagnosticConnectionDetail(
+                    session =
+                        historyConnectionSession(
+                            rememberedPolicyAudit =
+                                RememberedPolicyApplicationAudit(
+                                    matchedFingerprintHash = "abcdef0123456789fedcba9876543210",
+                                    source = RememberedNetworkPolicySource.AUTOMATIC_PROBING_BACKGROUND,
+                                    appliedByExactMatch = true,
+                                    previousSuccessCount = 4,
+                                    previousFailureCount = 1,
+                                    previousConsecutiveFailureCount = 0,
+                                ),
+                        ),
+                    snapshots = emptyList(),
+                    contexts = emptyList(),
+                    telemetry = emptyList(),
+                    events = emptyList(),
+                ),
+            )
+
+        assertEquals("Remembered policy", row.rememberedPolicyBadge)
+        assertTrue(detail.contextGroups.any { it.title == "Remembered policy" })
+        val rememberedGroup = detail.contextGroups.first { it.title == "Remembered policy" }
+        assertTrue(rememberedGroup.fields.any { it.label == "Source" && it.value == "Automatic probing (background)" })
+        assertTrue(rememberedGroup.fields.any { it.label == "Match reason" && it.value == "Exact network match" })
+        assertTrue(rememberedGroup.fields.any { it.label == "Matched fingerprint" && it.value == "abcdef...3210" })
+        assertTrue(rememberedGroup.fields.any { it.label == "Previous successes" && it.value == "4" })
+        assertTrue(rememberedGroup.fields.any { it.label == "Previous failures" && it.value == "1" })
     }
 }

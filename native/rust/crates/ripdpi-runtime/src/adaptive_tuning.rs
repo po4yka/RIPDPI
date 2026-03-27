@@ -1023,12 +1023,8 @@ mod tests {
 
     fn config_with_adaptive_store(groups: Vec<DesyncGroup>) -> ripdpi_config::RuntimeConfig {
         let mut config = ripdpi_config::RuntimeConfig { groups, ..ripdpi_config::RuntimeConfig::default() };
-        config.host_autolearn.store_path = Some(
-            env::temp_dir()
-                .join(format!("ripdpi-adaptive-test-{}-host-autolearn.json", next_temp_file_nonce()))
-                .to_string_lossy()
-                .into_owned(),
-        );
+        let store_dir = env::temp_dir().join(format!("ripdpi-adaptive-test-{}", next_temp_file_nonce()));
+        config.host_autolearn.store_path = Some(store_dir.join("host-autolearn.json").to_string_lossy().into_owned());
         config
     }
 
@@ -1512,6 +1508,9 @@ mod tests {
             .push(TcpChainStep::new(TcpChainStepKind::Split, OffsetExpr::adaptive(OffsetBase::AutoEndHost)));
         let changed_config = config_with_adaptive_store(vec![changed_group]);
         let changed_store_path = adaptive_store_path(&changed_config);
+        assert!(store_path.exists(), "flush should write adaptive store before reload test");
+        fs::create_dir_all(changed_store_path.parent().expect("adaptive store parent"))
+            .expect("create adaptive store parent directory");
         fs::copy(&store_path, &changed_store_path).expect("copy persisted store");
 
         let reloaded = AdaptivePlannerResolver::load(&changed_config);

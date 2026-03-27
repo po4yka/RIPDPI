@@ -11,15 +11,12 @@ use jni::sys::jint;
 use jni::JNIEnv;
 use log::LevelFilter;
 use once_cell::sync::OnceCell;
-#[cfg(any(test, target_os = "android"))]
 use tracing::Subscriber;
 #[cfg(target_os = "android")]
 use tracing_log::LogTracer;
-#[cfg(any(test, target_os = "android"))]
 use tracing_subscriber::layer::{Context, Layer};
 #[cfg(target_os = "android")]
 use tracing_subscriber::prelude::*;
-#[cfg(any(test, target_os = "android"))]
 use tracing_subscriber::registry::LookupSpan;
 
 pub const JNI_VERSION: jint = jni::sys::JNI_VERSION_1_6;
@@ -100,7 +97,6 @@ enum EventRing {
 }
 
 impl EventRing {
-    #[cfg(any(test, target_os = "android"))]
     fn from_routing_field(value: &str) -> Option<Self> {
         match value.trim().to_ascii_lowercase().as_str() {
             "proxy" => Some(Self::Proxy),
@@ -110,7 +106,6 @@ impl EventRing {
         }
     }
 
-    #[cfg(any(test, target_os = "android"))]
     fn default_subsystem(self) -> &'static str {
         match self {
             Self::Proxy => "proxy",
@@ -121,7 +116,6 @@ impl EventRing {
 }
 
 struct EventRingBuffersInner {
-    #[cfg(any(test, target_os = "android"))]
     config: RingConfig,
     proxy: Mutex<VecDeque<NativeEventRecord>>,
     tunnel: Mutex<VecDeque<NativeEventRecord>>,
@@ -146,13 +140,11 @@ impl EventRingBuffers {
                 proxy: Mutex::new(VecDeque::with_capacity(config.proxy_capacity)),
                 tunnel: Mutex::new(VecDeque::with_capacity(config.tunnel_capacity)),
                 diagnostics: Mutex::new(VecDeque::with_capacity(config.diagnostics_capacity)),
-                #[cfg(any(test, target_os = "android"))]
                 config,
             }),
         }
     }
 
-    #[cfg(any(test, target_os = "android"))]
     fn push(&self, ring: EventRing, event: NativeEventRecord) {
         let capacity = self.capacity(ring);
         let mut guard = self.ring(ring).lock().unwrap_or_else(PoisonError::into_inner);
@@ -202,7 +194,6 @@ impl EventRingBuffers {
         }
     }
 
-    #[cfg(any(test, target_os = "android"))]
     fn capacity(&self, ring: EventRing) -> usize {
         match ring {
             EventRing::Proxy => self.inner.config.proxy_capacity,
@@ -423,13 +414,11 @@ where
     }
 }
 
-#[cfg(any(test, target_os = "android"))]
 #[derive(Clone)]
 pub struct EventRingLayer {
     buffers: EventRingBuffers,
 }
 
-#[cfg(any(test, target_os = "android"))]
 impl EventRingLayer {
     pub fn new(buffers: EventRingBuffers) -> Self {
         Self { buffers }
@@ -440,7 +429,6 @@ impl EventRingLayer {
     }
 }
 
-#[cfg(any(test, target_os = "android"))]
 impl<S> Layer<S> for EventRingLayer
 where
     S: Subscriber + for<'span> LookupSpan<'span>,
@@ -610,7 +598,6 @@ impl tracing::field::Visit for MessageFieldFormatter {
     }
 }
 
-#[cfg(any(test, target_os = "android"))]
 fn now_ms() -> u64 {
     std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_millis() as u64
 }

@@ -87,11 +87,9 @@ class PacketSmokeInstrumentedTest {
                 dnsIp = fixture.androidHost
                 ipv6Enable = false
                 enableCmdSettings = false
-                desyncMethod = "none"
                 desyncHttp = false
                 desyncHttps = false
                 desyncUdp = false
-                tlsrecEnabled = false
                 setStrategyChains(emptyList(), emptyList())
             }
         }
@@ -115,11 +113,12 @@ class PacketSmokeInstrumentedTest {
     @Test
     fun proxyTlsrecSmokeFamilyRoutesTlsTraffic() {
         runProxyTlsChainSmoke(
-            chainDsl = """
+            chainDsl =
+                """
                 [tcp]
                 tlsrec extlen
                 split host+1
-            """.trimIndent(),
+                """.trimIndent(),
             expectedScenario = "tlsrec",
         )
     }
@@ -127,11 +126,12 @@ class PacketSmokeInstrumentedTest {
     @Test
     fun proxyTlsrandrecSmokeFamilyRoutesTlsTraffic() {
         runProxyTlsChainSmoke(
-            chainDsl = """
+            chainDsl =
+                """
                 [tcp]
                 tlsrandrec sniext+4 count=4 min=24 max=48
                 split host+1
-            """.trimIndent(),
+                """.trimIndent(),
             expectedScenario = "tlsrandrec",
         )
     }
@@ -139,10 +139,11 @@ class PacketSmokeInstrumentedTest {
     @Test
     fun proxyHostfakeSmokeFamilyRoutesTlsTraffic() {
         runProxyTlsChainSmoke(
-            chainDsl = """
+            chainDsl =
+                """
                 [tcp]
                 hostfake endhost host=cdn.discordapp.net
-            """.trimIndent(),
+                """.trimIndent(),
             expectedScenario = "hostfake",
         )
     }
@@ -150,11 +151,12 @@ class PacketSmokeInstrumentedTest {
     @Test
     fun proxyFakedsplitSmokeFamilyRoutesTlsTraffic() {
         runProxyTlsChainSmoke(
-            chainDsl = """
+            chainDsl =
+                """
                 [tcp]
                 tlsrec extlen
                 fakedsplit host+1
-            """.trimIndent(),
+                """.trimIndent(),
             expectedScenario = "fakedsplit",
         )
     }
@@ -162,11 +164,12 @@ class PacketSmokeInstrumentedTest {
     @Test
     fun proxyFakeddisorderSmokeFamilyRoutesTlsTraffic() {
         runProxyTlsChainSmoke(
-            chainDsl = """
+            chainDsl =
+                """
                 [tcp]
                 tlsrec extlen
                 fakeddisorder endhost
-            """.trimIndent(),
+                """.trimIndent(),
             expectedScenario = "fakeddisorder",
         )
     }
@@ -288,11 +291,12 @@ class PacketSmokeInstrumentedTest {
         val baselineRestartCount = serviceStateStore.telemetry.value.restartCount
 
         repeat(2) { round ->
-            val result = vpnTcpRoundTripResult(
-                fixture.fixtureDomain,
-                fixture.tcpEchoPort,
-                httpEchoPayloadShellLiteral("packet-smoke-host-autolearn-$round"),
-            )
+            val result =
+                vpnTcpRoundTripResult(
+                    fixture.fixtureDomain,
+                    fixture.tcpEchoPort,
+                    httpEchoPayloadShellLiteral("packet-smoke-host-autolearn-$round"),
+                )
             assertTrue("Expected VPN TCP round-trip to succeed: $result", result.ok)
             val output = result.response.orEmpty()
             assertTrue(output.contains("Host: ${fixture.fixtureDomain}"))
@@ -338,11 +342,12 @@ class PacketSmokeInstrumentedTest {
         awaitServiceStatus(AppStatus.Running, Mode.VPN)
 
         repeat(2) { round ->
-            val result = vpnTcpRoundTripResult(
-                fixture.fixtureDomain,
-                fixture.tcpEchoPort,
-                httpEchoPayloadShellLiteral("packet-smoke-remembered-$round"),
-            )
+            val result =
+                vpnTcpRoundTripResult(
+                    fixture.fixtureDomain,
+                    fixture.tcpEchoPort,
+                    httpEchoPayloadShellLiteral("packet-smoke-remembered-$round"),
+                )
             assertTrue("Expected VPN TCP round-trip to succeed: $result", result.ok)
             val output = result.response.orEmpty()
             assertTrue(output.contains("Host: ${fixture.fixtureDomain}"))
@@ -380,11 +385,12 @@ class PacketSmokeInstrumentedTest {
         startService(RipDpiVpnService::class.java)
         awaitServiceStatus(AppStatus.Running, Mode.VPN)
 
-        val result = vpnTcpRoundTripResult(
-            fixture.fixtureDomain,
-            fixture.tcpEchoPort,
-            httpEchoPayloadShellLiteral("packet-smoke-ws-fallback"),
-        )
+        val result =
+            vpnTcpRoundTripResult(
+                fixture.fixtureDomain,
+                fixture.tcpEchoPort,
+                httpEchoPayloadShellLiteral("packet-smoke-ws-fallback"),
+            )
         assertTrue("Expected VPN TCP round-trip to succeed: $result", result.ok)
         val output = result.response.orEmpty()
         assertTrue(output.contains("Host: ${fixture.fixtureDomain}"))
@@ -427,7 +433,10 @@ class PacketSmokeInstrumentedTest {
                 targetPort = fixture.tlsEchoPort,
                 sniHost = fixture.fixtureDomain,
             )
-        assertTrue("Expected TLS fixture response for $expectedScenario, got: $response", response.contains("fixture tls ok"))
+        assertTrue(
+            "Expected TLS fixture response for $expectedScenario, got: $response",
+            response.contains("fixture tls ok"),
+        )
         awaitUntil {
             val snapshot = serviceStateStore.telemetry.value
             snapshot.mode == Mode.Proxy &&
@@ -461,14 +470,18 @@ class PacketSmokeInstrumentedTest {
         startService(RipDpiVpnService::class.java)
         awaitServiceStatus(AppStatus.Running, Mode.VPN)
 
-        val result = vpnTcpRoundTripResult(
-            fixture.fixtureDomain,
-            fixture.tcpEchoPort,
-            httpEchoPayloadShellLiteral("packet-smoke-${protocol.lowercase()}"),
-        )
+        val result =
+            vpnTcpRoundTripResult(
+                fixture.fixtureDomain,
+                fixture.tcpEchoPort,
+                httpEchoPayloadShellLiteral("packet-smoke-${protocol.lowercase()}"),
+            )
         assertTrue("Expected hostname VPN round-trip for $protocol, got: $result", result.ok)
         val output = result.response.orEmpty()
-        assertTrue("Expected hostname shell round-trip for $protocol, got: $output", output.contains("Host: ${fixture.fixtureDomain}"))
+        assertTrue(
+            "Expected hostname shell round-trip for $protocol, got: $output",
+            output.contains("Host: ${fixture.fixtureDomain}"),
+        )
 
         awaitUntil(timeoutMs = 20_000L) {
             val snapshot = serviceStateStore.telemetry.value
@@ -505,11 +518,12 @@ class PacketSmokeInstrumentedTest {
         awaitServiceStatus(AppStatus.Running, Mode.VPN)
         fixtureClient.setFault(FixtureFaultSpecDto(target = faultTarget, outcome = outcome))
 
-        val result = vpnTcpRoundTripResult(
-            fixture.fixtureDomain,
-            fixture.tcpEchoPort,
-            httpEchoPayloadShellLiteral("packet-smoke-${protocol.lowercase()}-fault"),
-        )
+        val result =
+            vpnTcpRoundTripResult(
+                fixture.fixtureDomain,
+                fixture.tcpEchoPort,
+                httpEchoPayloadShellLiteral("packet-smoke-${protocol.lowercase()}-fault"),
+            )
         val output = result.response.orEmpty()
         assertFalse(output.contains("GET /packet-smoke-${protocol.lowercase()}-fault HTTP/1.1"))
 
@@ -566,7 +580,8 @@ class PacketSmokeInstrumentedTest {
 
                 val before = serviceStateStore.telemetry.value
                 val baselineRestartCount = before.restartCount
-                val probe = probeInstrumentationTcpConnect(PhysicalBaselineHost, PhysicalBaselinePort, timeoutMs = 5_000L)
+                val probe =
+                    probeInstrumentationTcpConnect(PhysicalBaselineHost, PhysicalBaselinePort, timeoutMs = 5_000L)
                 logPhysicalProbe("vpn-baseline", probe)
                 assertTrue("Expected physical-device VPN baseline connect to succeed: $probe", probe.ok)
 
@@ -613,7 +628,8 @@ class PacketSmokeInstrumentedTest {
                             delta.dnsFailuresTotal == 0L &&
                             snapshot.tunnelTelemetry.lastDnsHost == (before.expectedDnsHost ?: PhysicalDnsProbeHost) &&
                             snapshot.tunnelTelemetry.resolverId == (before.expectedResolverId ?: preset.providerId) &&
-                            snapshot.tunnelTelemetry.resolverProtocol == (before.expectedResolverProtocol ?: preset.protocol) &&
+                            snapshot.tunnelTelemetry.resolverProtocol ==
+                            (before.expectedResolverProtocol ?: preset.protocol) &&
                             snapshot.tunnelTelemetry.resolverEndpoint
                                 .orEmpty()
                                 .contains(before.expectedResolverEndpoint ?: preset.expectedResolverEndpoint)
@@ -658,7 +674,9 @@ class PacketSmokeInstrumentedTest {
                             snapshot.tunnelTelemetry.lastDnsHost == PhysicalDnsProbeHost &&
                             snapshot.tunnelTelemetry.resolverId == preset.providerId &&
                             snapshot.tunnelTelemetry.resolverProtocol == preset.protocol &&
-                            snapshot.tunnelTelemetry.resolverEndpoint.orEmpty().contains(preset.expectedResolverEndpoint)
+                            snapshot.tunnelTelemetry.resolverEndpoint.orEmpty().contains(
+                                preset.expectedResolverEndpoint,
+                            )
                     }
                 assertEquals(baselineRestartCount, after.restartCount)
 
@@ -701,7 +719,8 @@ class PacketSmokeInstrumentedTest {
                             delta.dnsFailuresTotal >= 1 &&
                             snapshot.tunnelTelemetry.lastDnsHost == (before.expectedDnsHost ?: PhysicalDnsProbeHost) &&
                             snapshot.tunnelTelemetry.resolverId == (before.expectedResolverId ?: preset.providerId) &&
-                            snapshot.tunnelTelemetry.resolverProtocol == (before.expectedResolverProtocol ?: preset.protocol) &&
+                            snapshot.tunnelTelemetry.resolverProtocol ==
+                            (before.expectedResolverProtocol ?: preset.protocol) &&
                             snapshot.tunnelTelemetry.resolverEndpoint
                                 .orEmpty()
                                 .contains(before.expectedResolverEndpoint ?: preset.expectedResolverEndpoint) &&
@@ -741,7 +760,9 @@ class PacketSmokeInstrumentedTest {
                             snapshot.tunnelTelemetry.lastDnsHost == PhysicalDnsProbeHost &&
                             snapshot.tunnelTelemetry.resolverId == preset.providerId &&
                             snapshot.tunnelTelemetry.resolverProtocol == preset.protocol &&
-                            snapshot.tunnelTelemetry.resolverEndpoint.orEmpty().contains(preset.expectedResolverEndpoint) &&
+                            snapshot.tunnelTelemetry.resolverEndpoint.orEmpty().contains(
+                                preset.expectedResolverEndpoint,
+                            ) &&
                             !snapshot.tunnelTelemetry.lastDnsError.isNullOrBlank()
                     }
                 assertEquals(baselineRestartCount, after.restartCount)
@@ -808,7 +829,8 @@ class PacketSmokeInstrumentedTest {
                 val before = serviceStateStore.telemetry.value
                 val baselineRestartCount = before.restartCount
                 repeat(2) { round ->
-                    val probe = probeInstrumentationTcpConnect(PhysicalTrafficHost, PhysicalTrafficPort, timeoutMs = 5_000L)
+                    val probe =
+                        probeInstrumentationTcpConnect(PhysicalTrafficHost, PhysicalTrafficPort, timeoutMs = 5_000L)
                     logPhysicalProbe("vpn-host-autolearn:$round", probe)
                     assertTrue("Expected host autolearn connect $round to succeed: $probe", probe.ok)
                 }
@@ -880,7 +902,8 @@ class PacketSmokeInstrumentedTest {
                 val before = serviceStateStore.telemetry.value
                 val baselineRestartCount = before.restartCount
                 repeat(2) { round ->
-                    val probe = probeInstrumentationTcpConnect(PhysicalTrafficHost, PhysicalTrafficPort, timeoutMs = 5_000L)
+                    val probe =
+                        probeInstrumentationTcpConnect(PhysicalTrafficHost, PhysicalTrafficPort, timeoutMs = 5_000L)
                     logPhysicalProbe("vpn-remembered:$round", probe)
                     assertTrue("Expected remembered-policy connect $round to succeed: $probe", probe.ok)
                 }

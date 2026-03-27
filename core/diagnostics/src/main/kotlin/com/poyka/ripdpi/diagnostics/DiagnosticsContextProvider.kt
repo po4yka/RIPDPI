@@ -17,7 +17,7 @@ import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsProfileCatalog
 import com.poyka.ripdpi.data.effectiveChainSummary
 import com.poyka.ripdpi.data.effectiveTcpChainSteps
-import com.poyka.ripdpi.data.legacyDesyncMethod
+import com.poyka.ripdpi.data.primaryDesyncMethod
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -76,7 +76,7 @@ class AndroidDiagnosticsContextProvider
                         proxyEndpoint = "${settings.proxyIp.ifEmpty {
                             "127.0.0.1"
                         }}:${settings.proxyPort.takeIf { it > 0 } ?: 1080}",
-                        desyncMethod = legacyDesyncMethod(tcpSteps).ifEmpty { "none" },
+                        desyncMethod = primaryDesyncMethod(tcpSteps).ifEmpty { "none" },
                         chainSummary = settings.effectiveChainSummary(),
                         routeGroup = telemetry.proxyTelemetry.lastRouteGroup?.toString() ?: "unknown",
                         sessionUptimeMs =

@@ -34,7 +34,7 @@ class DiagnosticsArchiveSessionSelector
                 primarySession
                     ?.reportJson
                     ?.takeIf(String::isNotBlank)
-                    ?.let(json::decodeEngineScanReportWireCompat)
+                    ?.let(json::decodeEngineScanReportWire)
             val primarySnapshots =
                 primarySession
                     ?.id

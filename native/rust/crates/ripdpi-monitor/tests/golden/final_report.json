@@ -109,7 +109,7 @@
       "target": "127.0.0.1"
     }
   ],
-  "schemaVersion": 2,
+  "schemaVersion": 1,
   "sessionId": "session-golden",
   "startedAt": 0,
   "strategyProbeReport": null,

@@ -300,7 +300,7 @@ mod tests {
         ui.host_autolearn.enabled = true;
         ui.host_autolearn.penalty_ttl_hours = 1;
         ui.host_autolearn.max_hosts = 128;
-        ui.host_autolearn.store_path = Some("/tmp/host-autolearn-v1.json".to_string());
+        ui.host_autolearn.store_path = Some("/tmp/host-autolearn-v2.json".to_string());
         ui.host_autolearn.network_scope_key = Some("scope-a".to_string());
 
         let config = runtime_config_from_payload(ui_payload(ui)).expect("ui config");
@@ -318,7 +318,7 @@ mod tests {
         assert!(config.host_autolearn.enabled);
         assert_eq!(config.host_autolearn.penalty_ttl_secs, 3_600);
         assert_eq!(config.host_autolearn.max_hosts, 128);
-        assert_eq!(config.host_autolearn.store_path.as_deref(), Some("/tmp/host-autolearn-v1.json"));
+        assert_eq!(config.host_autolearn.store_path.as_deref(), Some("/tmp/host-autolearn-v2.json"));
     }
 
     #[test]
@@ -407,7 +407,7 @@ mod tests {
             "--port".to_string(),
             "2080".to_string(),
             "--split".to_string(),
-            "1+s".to_string(),
+            "host+1".to_string(),
         ]))
         .expect("command-line config");
 

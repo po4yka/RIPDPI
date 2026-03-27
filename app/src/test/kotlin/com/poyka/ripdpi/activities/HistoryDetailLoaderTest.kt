@@ -1,13 +1,21 @@
 package com.poyka.ripdpi.activities
 
+import androidx.test.core.app.ApplicationProvider
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertSame
 import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
 
+@RunWith(RobolectricTestRunner::class)
 class HistoryDetailLoaderTest {
-    private val connectionDetailUiFactory = HistoryConnectionDetailUiFactory(DiagnosticsUiCoreSupport())
+    private val connectionDetailUiFactory =
+        HistoryConnectionDetailUiFactory(
+            context = ApplicationProvider.getApplicationContext(),
+            coreSupport = DiagnosticsUiCoreSupport(),
+        )
 
     @Test
     fun `missing connection session returns null`() =

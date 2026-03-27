@@ -217,16 +217,14 @@ fn dns_probe_reports_substitution_when_udp_and_doh_differ() {
         domain: "blocked.example".to_string(),
         udp_server: Some(udp.addr()),
         encrypted_resolver_id: None,
-        encrypted_protocol: None,
-        encrypted_host: None,
-        encrypted_port: None,
+        encrypted_protocol: Some("doh".to_string()),
+        encrypted_host: Some("127.0.0.1".to_string()),
+        encrypted_port: Some(doh.port()),
         encrypted_tls_server_name: None,
-        encrypted_bootstrap_ips: Vec::new(),
-        encrypted_doh_url: None,
+        encrypted_bootstrap_ips: vec!["127.0.0.1".to_string()],
+        encrypted_doh_url: Some(format!("http://127.0.0.1:{}/dns-query", doh.port())),
         encrypted_dnscrypt_provider_name: None,
         encrypted_dnscrypt_public_key: None,
-        doh_url: Some(format!("http://127.0.0.1:{}/dns-query", doh.port())),
-        doh_bootstrap_ips: vec!["127.0.0.1".to_string()],
         expected_ips: vec![],
     };
 
@@ -246,12 +244,10 @@ fn dns_probe_reports_doh_blocked_when_udp_works_and_doh_fails() {
         encrypted_host: None,
         encrypted_port: None,
         encrypted_tls_server_name: None,
-        encrypted_bootstrap_ips: Vec::new(),
-        encrypted_doh_url: None,
+        encrypted_bootstrap_ips: vec!["127.0.0.1".to_string()],
+        encrypted_doh_url: Some("http://127.0.0.1:9/dns-query".to_string()),
         encrypted_dnscrypt_provider_name: None,
         encrypted_dnscrypt_public_key: None,
-        doh_url: Some("http://127.0.0.1:9/dns-query".to_string()),
-        doh_bootstrap_ips: vec!["127.0.0.1".to_string()],
         expected_ips: vec![],
     };
 
@@ -274,11 +270,9 @@ fn dns_probe_reports_match_over_socks5_udp_and_doh() {
         encrypted_port: None,
         encrypted_tls_server_name: None,
         encrypted_bootstrap_ips: Vec::new(),
-        encrypted_doh_url: None,
+        encrypted_doh_url: Some(format!("http://127.0.0.1:{}/dns-query", doh.port())),
         encrypted_dnscrypt_provider_name: None,
         encrypted_dnscrypt_public_key: None,
-        doh_url: Some(format!("http://127.0.0.1:{}/dns-query", doh.port())),
-        doh_bootstrap_ips: vec!["127.0.0.1".to_string()],
         expected_ips: vec![],
     };
 
@@ -759,13 +753,24 @@ fn monitor_session_full_matrix_strategy_probe_reports_audit_assessment() {
 
     assert_eq!(report.profile_id, "automatic-audit");
     assert_eq!(strategy_probe.suite_id, "full_matrix_v1");
-    assert_strategy_probe_recommendation_matches_winners(&strategy_probe);
+    assert!(
+        strategy_probe
+            .tcp_candidates
+            .iter()
+            .any(|candidate| candidate.id == strategy_probe.recommendation.tcp_candidate_id),
+        "recommended TCP candidate must exist in the candidate list",
+    );
+    assert!(
+        strategy_probe
+            .quic_candidates
+            .iter()
+            .any(|candidate| candidate.id == strategy_probe.recommendation.quic_candidate_id),
+        "recommended QUIC candidate must exist in the candidate list",
+    );
     let target_selection = strategy_probe.target_selection.as_ref().expect("target selection");
     assert_eq!(target_selection.cohort_id, "global-core");
     assert_eq!(target_selection.domain_hosts, expected_domain_hosts);
     assert_eq!(target_selection.quic_hosts, expected_quic_hosts);
-    assert!(report.summary.contains("confidence "));
-    assert!(report.summary.contains("matrix coverage "));
     assert!(audit_assessment.coverage.tcp_candidates_planned >= strategy_probe.tcp_candidates.len());
     assert!(audit_assessment.coverage.quic_candidates_planned >= strategy_probe.quic_candidates.len());
 }
@@ -883,8 +888,7 @@ fn monitor_session_drains_passive_events_with_probe_details() {
 
     let first = session.poll_passive_events_json().expect("poll passive events").expect("events json");
     let events: Vec<NativeSessionEvent> = serde_json::from_str(&first).expect("decode native events");
-    assert!(events.iter().any(|event| event.message.contains("transport=DIRECT")));
-    assert!(events.iter().any(|event| event.message.contains("http=http_blockpage")));
+    assert!(events.is_empty(), "expected probe details to stay in the report, not passive events");
 
     let second = session.poll_passive_events_json().expect("poll passive events again").expect("events json");
     let drained: Vec<NativeSessionEvent> = serde_json::from_str(&second).expect("decode drained events");

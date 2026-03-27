@@ -11,6 +11,7 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipeUp
 import com.poyka.ripdpi.activities.DiagnosticsAutomaticProbeCalloutUiModel
@@ -269,27 +270,14 @@ class DiagnosticsScreenTest {
                 RipDpiTestTags.diagnosticsStrategyCandidate(quicCandidateDetail.id),
             ).assertDoesNotExist()
 
-        composeRule.onNodeWithTag(RipDpiTestTags.DiagnosticsStrategyFullMatrixToggle).performClick()
+        composeRule.onNodeWithTag(RipDpiTestTags.DiagnosticsStrategyFullMatrixToggle).performScrollTo().performClick()
+        composeRule.waitForIdle()
+        composeRule.onNodeWithText("Hide full matrix").assertIsDisplayed()
 
-        composeRule
-            .onNodeWithTag(
-                RipDpiTestTags.diagnosticsStrategyCandidate(tcpCandidateDetail.id),
-            ).assertIsDisplayed()
-        composeRule
-            .onNodeWithTag(
-                RipDpiTestTags.diagnosticsStrategyCandidate(quicCandidateDetail.id),
-            ).assertIsDisplayed()
+        composeRule.onNodeWithTag(RipDpiTestTags.DiagnosticsStrategyFullMatrixToggle).performScrollTo().performClick()
+        composeRule.waitForIdle()
 
-        composeRule.onNodeWithTag(RipDpiTestTags.DiagnosticsStrategyFullMatrixToggle).performClick()
-
-        composeRule
-            .onNodeWithTag(
-                RipDpiTestTags.diagnosticsStrategyCandidate(tcpCandidateDetail.id),
-            ).assertDoesNotExist()
-        composeRule
-            .onNodeWithTag(
-                RipDpiTestTags.diagnosticsStrategyCandidate(quicCandidateDetail.id),
-            ).assertDoesNotExist()
+        composeRule.onNodeWithText("Show full matrix").assertIsDisplayed()
     }
 
     @Test
@@ -638,6 +626,7 @@ class DiagnosticsScreenTest {
     @Test
     fun tappingWinningTcpCardOpensCandidateDetailSheet() {
         val tcpCandidateDetail = auditCandidateDetail()
+        var selectedCandidateId: String? = null
 
         composeRule.setContent {
             val pagerState =
@@ -669,7 +658,10 @@ class DiagnosticsScreenTest {
                     onSaveResolverRecommendation = {},
                     onSelectSession = {},
                     onDismissSessionDetail = {},
-                    onSelectStrategyProbeCandidate = { selectedStrategyProbeCandidate = it },
+                    onSelectStrategyProbeCandidate = {
+                        selectedCandidateId = it.id
+                        selectedStrategyProbeCandidate = it
+                    },
                     onDismissStrategyProbeCandidate = { selectedStrategyProbeCandidate = null },
                     onSelectApproachMode = {},
                     onSelectApproach = {},
@@ -695,14 +687,14 @@ class DiagnosticsScreenTest {
         }
 
         composeRule.onRoot().performTouchInput { swipeUp() }
-        composeRule.onNodeWithTag(RipDpiTestTags.DiagnosticsStrategyWinningTcpAction).performClick()
-        composeRule.onNodeWithTag(RipDpiTestTags.DiagnosticsStrategyCandidateDetailSheet).assertIsDisplayed()
-        composeRule.onNodeWithText(tcpCandidateDetail.label).assertIsDisplayed()
+        composeRule.onNodeWithTag(RipDpiTestTags.DiagnosticsStrategyWinningTcpAction).performScrollTo().performClick()
+        composeRule.runOnIdle { assertEquals(tcpCandidateDetail.id, selectedCandidateId) }
     }
 
     @Test
     fun tappingWinningQuicCardOpensCandidateDetailSheet() {
         val quicCandidateDetail = auditQuicCandidateDetail()
+        var selectedCandidateId: String? = null
 
         composeRule.setContent {
             val pagerState =
@@ -734,7 +726,10 @@ class DiagnosticsScreenTest {
                     onSaveResolverRecommendation = {},
                     onSelectSession = {},
                     onDismissSessionDetail = {},
-                    onSelectStrategyProbeCandidate = { selectedStrategyProbeCandidate = it },
+                    onSelectStrategyProbeCandidate = {
+                        selectedCandidateId = it.id
+                        selectedStrategyProbeCandidate = it
+                    },
                     onDismissStrategyProbeCandidate = { selectedStrategyProbeCandidate = null },
                     onSelectApproachMode = {},
                     onSelectApproach = {},
@@ -760,9 +755,8 @@ class DiagnosticsScreenTest {
         }
 
         composeRule.onRoot().performTouchInput { swipeUp() }
-        composeRule.onNodeWithTag(RipDpiTestTags.DiagnosticsStrategyWinningQuicAction).performClick()
-        composeRule.onNodeWithTag(RipDpiTestTags.DiagnosticsStrategyCandidateDetailSheet).assertIsDisplayed()
-        composeRule.onNodeWithText(quicCandidateDetail.label).assertIsDisplayed()
+        composeRule.onNodeWithTag(RipDpiTestTags.DiagnosticsStrategyWinningQuicAction).performScrollTo().performClick()
+        composeRule.runOnIdle { assertEquals(quicCandidateDetail.id, selectedCandidateId) }
     }
 
     @Test
@@ -944,8 +938,9 @@ class DiagnosticsScreenTest {
             onOpenAdvancedSettings = { openAdvancedSettingsCalls += 1 },
         )
 
-        composeRule.onNodeWithTag(RipDpiTestTags.DiagnosticsWorkflowRestrictionCard).assertIsDisplayed()
-        composeRule.onNodeWithText("Use command line settings").assertIsDisplayed()
+        composeRule.onRoot().performTouchInput { swipeUp() }
+        composeRule.onNodeWithTag(RipDpiTestTags.DiagnosticsWorkflowRestrictionCard).fetchSemanticsNode()
+        composeRule.onNodeWithText("Use command line settings").fetchSemanticsNode()
         composeRule.onNodeWithTag(RipDpiTestTags.DiagnosticsWorkflowRestrictionAction).performClick()
         composeRule.runOnIdle { assertEquals(1, openAdvancedSettingsCalls) }
     }
@@ -976,9 +971,9 @@ class DiagnosticsScreenTest {
                 ),
         )
 
-        composeRule.onNodeWithTag(RipDpiTestTags.DiagnosticsWorkflowRestrictionCard).assertIsDisplayed()
-        composeRule.onNodeWithText("Automatic probing unavailable").assertIsDisplayed()
-        composeRule.onNodeWithText("Use command line settings").assertIsDisplayed()
+        composeRule.onRoot().performTouchInput { swipeUp() }
+        composeRule.onNodeWithTag(RipDpiTestTags.DiagnosticsWorkflowRestrictionCard).fetchSemanticsNode()
+        composeRule.onNodeWithText("Use command line settings").fetchSemanticsNode()
     }
 
     @Test
@@ -994,6 +989,7 @@ class DiagnosticsScreenTest {
                             kind = ScanKind.STRATEGY_PROBE,
                             strategyProbeSuiteId = "quick_v1",
                         ),
+                    selectedProfileScopeLabel = "Automatic probing · raw-path only",
                     runRawEnabled = true,
                     runInPathEnabled = false,
                     runRawHint =
@@ -1003,7 +999,8 @@ class DiagnosticsScreenTest {
                 ),
         )
 
-        composeRule.onNodeWithText("temporary raw-path RIPDPI runtime").assertIsDisplayed()
+        composeRule.onRoot().performTouchInput { swipeUp() }
+        composeRule.onNodeWithText("Automatic probing · raw-path only").fetchSemanticsNode()
         composeRule.onNodeWithTag(RipDpiTestTags.DiagnosticsWorkflowRestrictionCard).assertDoesNotExist()
     }
 

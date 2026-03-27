@@ -241,8 +241,6 @@ fn scan_request(manifest: &FixtureManifest, http_port: u16) -> ScanRequest {
             encrypted_doh_url: Some(format!("http://127.0.0.1:{}/dns-query", manifest.dns_http_port)),
             encrypted_dnscrypt_provider_name: None,
             encrypted_dnscrypt_public_key: None,
-            doh_url: Some(format!("http://127.0.0.1:{}/dns-query", manifest.dns_http_port)),
-            doh_bootstrap_ips: vec!["127.0.0.1".to_string()],
             expected_ips: vec![manifest.dns_answer_ipv4.clone()],
         }],
         tcp_targets: vec![TcpTarget {

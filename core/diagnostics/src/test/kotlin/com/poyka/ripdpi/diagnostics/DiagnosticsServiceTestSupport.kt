@@ -45,6 +45,10 @@ import com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyRecordStore
 import com.poyka.ripdpi.data.diagnostics.ScanSessionEntity
 import com.poyka.ripdpi.data.diagnostics.TargetPackVersionEntity
 import com.poyka.ripdpi.data.diagnostics.TelemetrySampleEntity
+import com.poyka.ripdpi.diagnostics.contract.engine.EngineScanRequestWire
+import com.poyka.ripdpi.diagnostics.contract.profile.ProbePersistencePolicyWire
+import com.poyka.ripdpi.diagnostics.contract.profile.ProfileExecutionPolicyWire
+import com.poyka.ripdpi.diagnostics.contract.profile.ProfileSpecWire
 import com.poyka.ripdpi.proto.AppSettings
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
@@ -325,15 +329,12 @@ internal class FakeDiagnosticsHistoryStores :
                     source = "bundled",
                     version = 1,
                     requestJson =
-                        json.encodeToString(
-                            ScanRequest.serializer(),
-                            ScanRequest(
-                                profileId = "default",
-                                displayName = "Default",
-                                pathMode = ScanPathMode.RAW_PATH,
-                                domainTargets = listOf(DomainTarget(host = "example.org")),
-                                dnsTargets = listOf(DnsTarget(domain = "blocked.example")),
-                            ),
+                        diagnosticsProfileRequestJson(
+                            json = json,
+                            profileId = "default",
+                            displayName = "Default",
+                            domainTargets = listOf(DomainTarget(host = "example.org")),
+                            dnsTargets = listOf(DnsTarget(domain = "blocked.example")),
                         ),
                     updatedAt = 1L,
                 ),
@@ -360,18 +361,24 @@ internal class FakeDiagnosticsHistoryStores :
                     source = "bundled",
                     version = 1,
                     requestJson =
-                        json.encodeToString(
-                            ScanRequest.serializer(),
-                            ScanRequest(
-                                profileId = profileId,
-                                displayName = name,
-                                pathMode = ScanPathMode.RAW_PATH,
-                                kind = ScanKind.STRATEGY_PROBE,
-                                family = family,
-                                domainTargets = listOf(DomainTarget(host = "example.org")),
-                                quicTargets = listOf(QuicTarget(host = "example.org")),
-                                strategyProbe = StrategyProbeRequest(suiteId = suiteId),
-                            ),
+                        diagnosticsProfileRequestJson(
+                            json = json,
+                            profileId = profileId,
+                            displayName = name,
+                            kind = ScanKind.STRATEGY_PROBE,
+                            family = family,
+                            domainTargets = listOf(DomainTarget(host = "example.org")),
+                            quicTargets = listOf(QuicTarget(host = "example.org")),
+                            strategyProbe = StrategyProbeRequest(suiteId = suiteId),
+                            allowBackground = family == DiagnosticProfileFamily.AUTOMATIC_PROBING,
+                            requiresRawPath = true,
+                            manualOnly = family == DiagnosticProfileFamily.AUTOMATIC_AUDIT,
+                            probePersistencePolicy =
+                                if (family == DiagnosticProfileFamily.AUTOMATIC_PROBING) {
+                                    ProbePersistencePolicyWire.BACKGROUND_ONLY
+                                } else {
+                                    ProbePersistencePolicyWire.MANUAL_ONLY
+                                },
                         ),
                     updatedAt = 1L,
                 ),
@@ -533,7 +540,8 @@ internal class FakeNetworkDiagnosticsBridge(
         if (autoCompleteOnStart) {
             progressJson =
                 json.encodeToString(
-                    ScanProgress.serializer(),
+                    com.poyka.ripdpi.diagnostics.contract.engine.EngineProgressWire
+                        .serializer(),
                     ScanProgress(
                         sessionId = sessionId,
                         phase = "complete",
@@ -541,15 +549,21 @@ internal class FakeNetworkDiagnosticsBridge(
                         totalSteps = 1,
                         message = "done",
                         isFinished = true,
-                    ),
+                    ).toEngineProgressWire(),
                 )
             reportJson =
                 json.encodeToString(
-                    ScanReport.serializer(),
+                    com.poyka.ripdpi.diagnostics.contract.engine.EngineScanReportWire
+                        .serializer(),
                     ScanReport(
                         sessionId = sessionId,
                         profileId = "default",
-                        pathMode = json.decodeFromString(ScanRequest.serializer(), requestJson).pathMode,
+                        pathMode =
+                            json
+                                .decodeFromString(
+                                    EngineScanRequestWire.serializer(),
+                                    requestJson,
+                                ).pathMode,
                         startedAt = 10L,
                         finishedAt = 20L,
                         summary = "Finished",
@@ -561,7 +575,7 @@ internal class FakeNetworkDiagnosticsBridge(
                                     outcome = "substituted",
                                 ),
                             ),
-                    ),
+                    ).toEngineScanReportWire(),
                 )
             passiveEventsPayloads.clear()
             passiveEventsPayloads.addLast(
@@ -619,7 +633,13 @@ internal class FakeNetworkDiagnosticsBridge(
 
     fun enqueueProgress(progress: ScanProgress) {
         scriptedProgress.addLast(
-            DiagnosticsBridgeStep.Payload(json.encodeToString(ScanProgress.serializer(), progress)),
+            DiagnosticsBridgeStep.Payload(
+                json.encodeToString(
+                    com.poyka.ripdpi.diagnostics.contract.engine.EngineProgressWire
+                        .serializer(),
+                    progress.toEngineProgressWire(),
+                ),
+            ),
         )
     }
 
@@ -632,7 +652,15 @@ internal class FakeNetworkDiagnosticsBridge(
     }
 
     fun enqueueReport(report: ScanReport) {
-        scriptedReports.addLast(DiagnosticsBridgeStep.Payload(json.encodeToString(ScanReport.serializer(), report)))
+        scriptedReports.addLast(
+            DiagnosticsBridgeStep.Payload(
+                json.encodeToString(
+                    com.poyka.ripdpi.diagnostics.contract.engine.EngineScanReportWire
+                        .serializer(),
+                    report.toEngineScanReportWire(),
+                ),
+            ),
+        )
     }
 
     fun enqueueReport(value: String?) {
@@ -835,7 +863,8 @@ internal fun diagnosticsSession(
     status: String = "completed",
     reportJson: String? =
         Json.encodeToString(
-            ScanReport.serializer(),
+            com.poyka.ripdpi.diagnostics.contract.engine.EngineScanReportWire
+                .serializer(),
             ScanReport(
                 sessionId = id,
                 profileId = profileId,
@@ -844,7 +873,7 @@ internal fun diagnosticsSession(
                 finishedAt = 20L,
                 summary = summary,
                 results = emptyList(),
-            ),
+            ).toEngineScanReportWire(),
         ),
 ): ScanSessionEntity =
     ScanSessionEntity(
@@ -857,6 +886,59 @@ internal fun diagnosticsSession(
         reportJson = reportJson,
         startedAt = 10L,
         finishedAt = if (status == "completed") 20L else null,
+    )
+
+internal fun diagnosticsProfileRequestJson(
+    json: Json,
+    profileId: String,
+    displayName: String,
+    kind: ScanKind = ScanKind.CONNECTIVITY,
+    family: DiagnosticProfileFamily = DiagnosticProfileFamily.GENERAL,
+    domainTargets: List<DomainTarget> = emptyList(),
+    dnsTargets: List<DnsTarget> = emptyList(),
+    tcpTargets: List<TcpTarget> = emptyList(),
+    quicTargets: List<QuicTarget> = emptyList(),
+    serviceTargets: List<ServiceTarget> = emptyList(),
+    circumventionTargets: List<CircumventionTarget> = emptyList(),
+    throughputTargets: List<ThroughputTarget> = emptyList(),
+    whitelistSni: List<String> = emptyList(),
+    telegramTarget: TelegramTarget? = null,
+    strategyProbe: StrategyProbeRequest? = null,
+    allowBackground: Boolean = false,
+    requiresRawPath: Boolean = kind == ScanKind.STRATEGY_PROBE,
+    manualOnly: Boolean = false,
+    probePersistencePolicy: ProbePersistencePolicyWire =
+        if (allowBackground) {
+            ProbePersistencePolicyWire.BACKGROUND_ONLY
+        } else {
+            ProbePersistencePolicyWire.MANUAL_ONLY
+        },
+): String =
+    json.encodeToString(
+        ProfileSpecWire.serializer(),
+        ProfileSpecWire(
+            profileId = profileId,
+            displayName = displayName,
+            kind = kind,
+            family = family,
+            executionPolicy =
+                ProfileExecutionPolicyWire(
+                    manualOnly = manualOnly,
+                    allowBackground = allowBackground,
+                    requiresRawPath = requiresRawPath,
+                    probePersistencePolicy = probePersistencePolicy,
+                ),
+            domainTargets = domainTargets,
+            dnsTargets = dnsTargets,
+            tcpTargets = tcpTargets,
+            quicTargets = quicTargets,
+            serviceTargets = serviceTargets,
+            circumventionTargets = circumventionTargets,
+            throughputTargets = throughputTargets,
+            whitelistSni = whitelistSni,
+            telegramTarget = telegramTarget,
+            strategyProbe = strategyProbe,
+        ),
     )
 
 private fun <T, K> List<T>.upsertById(

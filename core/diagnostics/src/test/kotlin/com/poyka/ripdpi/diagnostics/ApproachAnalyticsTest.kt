@@ -7,8 +7,15 @@ import com.poyka.ripdpi.data.FakeTlsSniModeRandomized
 import com.poyka.ripdpi.data.HttpFakeProfileCloudflareGet
 import com.poyka.ripdpi.data.QuicFakeProfileCompatDefault
 import com.poyka.ripdpi.data.QuicFakeProfileRealisticInitial
+import com.poyka.ripdpi.data.TcpChainStepKind
+import com.poyka.ripdpi.data.TcpChainStepModel
 import com.poyka.ripdpi.data.TlsFakeProfileGoogleChrome
+import com.poyka.ripdpi.data.UdpChainStepModel
 import com.poyka.ripdpi.data.UdpFakeProfileDnsQuery
+import com.poyka.ripdpi.data.effectiveTcpChainSteps
+import com.poyka.ripdpi.data.effectiveUdpChainSteps
+import com.poyka.ripdpi.data.isTlsPrelude
+import com.poyka.ripdpi.data.setStrategyChains
 import com.poyka.ripdpi.proto.ActivationFilter
 import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.proto.NumericRange
@@ -27,7 +34,7 @@ class ApproachAnalyticsTest {
                 .setRipdpiMode("vpn")
                 .setDesyncHttp(true)
                 .setDesyncHttps(true)
-                .setDesyncMethod("fake")
+                .withPrimaryTcpStep(TcpChainStepKind.Fake)
                 .setFakeTlsUseOriginal(true)
                 .setFakeTlsRandomize(true)
                 .setFakeTlsDupSessionId(true)
@@ -53,7 +60,7 @@ class ApproachAnalyticsTest {
                 .setRipdpiMode("vpn")
                 .setDesyncHttp(true)
                 .setDesyncHttps(true)
-                .setDesyncMethod("fake")
+                .withPrimaryTcpStep(TcpChainStepKind.Fake)
                 .setFakeSni("alt.example.org")
                 .build()
 
@@ -73,7 +80,7 @@ class ApproachAnalyticsTest {
                         .setRipdpiMode("vpn")
                         .setDesyncHttp(true)
                         .setDesyncHttps(true)
-                        .setDesyncMethod("disorder")
+                        .withPrimaryTcpStep(TcpChainStepKind.Disorder)
                         .build(),
                 routeGroup = null,
             )
@@ -131,7 +138,7 @@ class ApproachAnalyticsTest {
             AppSettings
                 .newBuilder()
                 .setRipdpiMode("vpn")
-                .setDesyncMethod("fake")
+                .withPrimaryTcpStep(TcpChainStepKind.Fake)
                 .setAdaptiveFakeTtlEnabled(true)
                 .setAdaptiveFakeTtlDelta(DefaultAdaptiveFakeTtlDelta)
                 .setAdaptiveFakeTtlMin(3)
@@ -153,7 +160,7 @@ class ApproachAnalyticsTest {
             AppSettings
                 .newBuilder()
                 .setRipdpiMode("vpn")
-                .setDesyncMethod("fake")
+                .withPrimaryTcpStep(TcpChainStepKind.Fake)
                 .setAdaptiveFakeTtlEnabled(true)
                 .setAdaptiveFakeTtlDelta(2)
                 .setAdaptiveFakeTtlMin(4)
@@ -176,7 +183,7 @@ class ApproachAnalyticsTest {
                 .newBuilder()
                 .setRipdpiMode("vpn")
                 .setEnableCmdSettings(true)
-                .setDesyncMethod("fake")
+                .withPrimaryTcpStep(TcpChainStepKind.Fake)
                 .setAdaptiveFakeTtlEnabled(true)
                 .setAdaptiveFakeTtlDelta(2)
                 .setAdaptiveFakeTtlMin(4)
@@ -306,7 +313,7 @@ class ApproachAnalyticsTest {
                 .setDesyncHttp(false)
                 .setDesyncHttps(false)
                 .setDesyncUdp(true)
-                .setUdpFakeCount(3)
+                .withUdpFakeBurst(3)
                 .setQuicFakeProfile(QuicFakeProfileRealisticInitial)
                 .setQuicFakeHost("video.example.test")
                 .build()
@@ -365,7 +372,7 @@ class ApproachAnalyticsTest {
                 .setDesyncHttp(false)
                 .setDesyncHttps(false)
                 .setDesyncUdp(true)
-                .setUdpFakeCount(2)
+                .withUdpFakeBurst(2)
                 .setQuicFakeProfile(QuicFakeProfileCompatDefault)
                 .setQuicFakeHost("video.example.test")
                 .build()
@@ -386,7 +393,7 @@ class ApproachAnalyticsTest {
                 .setDesyncHttp(false)
                 .setDesyncHttps(false)
                 .setDesyncUdp(true)
-                .setUdpFakeCount(2)
+                .withUdpFakeBurst(2)
                 .setQuicFakeProfile(QuicFakeProfileRealisticInitial)
                 .setQuicFakeHost("video.example.test")
                 .build()
@@ -454,12 +461,31 @@ class ApproachAnalyticsTest {
                         .setKind("split")
                         .setMarker(AdaptiveMarkerMethod)
                         .build(),
-                ).setSplitMarker(AdaptiveMarkerBalanced)
-                .build()
+                ).build()
 
         val signature = deriveBypassStrategySignature(settings = settings, routeGroup = "11")
 
         assertEquals(AdaptiveMarkerMethod, signature.splitMarker)
         assertEquals("tcp: split(adaptive HTTP method)", signature.chainSummary)
     }
+}
+
+private fun AppSettings.Builder.withPrimaryTcpStep(
+    kind: TcpChainStepKind,
+    marker: String = "host+1",
+): AppSettings.Builder {
+    val current = build()
+    val tlsPreludeSteps = current.effectiveTcpChainSteps().filter { it.kind.isTlsPrelude }
+    return setStrategyChains(
+        tcpSteps = tlsPreludeSteps + TcpChainStepModel(kind = kind, marker = marker),
+        udpSteps = current.effectiveUdpChainSteps(),
+    )
+}
+
+private fun AppSettings.Builder.withUdpFakeBurst(count: Int): AppSettings.Builder {
+    val current = build()
+    return setStrategyChains(
+        tcpSteps = current.effectiveTcpChainSteps(),
+        udpSteps = if (count > 0) listOf(UdpChainStepModel(count = count)) else emptyList(),
+    )
 }

@@ -7,6 +7,8 @@ import com.poyka.ripdpi.activities.DiagnosticsSessionFiltersUiModel
 import com.poyka.ripdpi.activities.DiagnosticsSessionRowUiModel
 import com.poyka.ripdpi.activities.DiagnosticsSessionsUiModel
 import com.poyka.ripdpi.activities.DiagnosticsTone
+import com.poyka.ripdpi.activities.HistoryConnectionRowUiModel
+import com.poyka.ripdpi.activities.HistoryConnectionsUiModel
 import com.poyka.ripdpi.activities.HistorySection
 import com.poyka.ripdpi.activities.HistoryUiState
 import com.poyka.ripdpi.diagnostics.DiagnosticsScanLaunchOrigin
@@ -86,6 +88,67 @@ class HistoryScreenTest {
         composeRule
             .onNodeWithTag(
                 RipDpiTestTags.historyDiagnosticsAutomaticBadge("scan-auto"),
+                useUnmergedTree = true,
+            ).assertIsDisplayed()
+    }
+
+    @Test
+    fun historyConnectionCardShowsRememberedPolicyBadge() {
+        composeRule.setContent {
+            RipDpiTheme {
+                HistoryScreen(
+                    uiState =
+                        HistoryUiState(
+                            selectedSection = HistorySection.Connections,
+                            connections =
+                                HistoryConnectionsUiModel(
+                                    sessions =
+                                        listOf(
+                                            HistoryConnectionRowUiModel(
+                                                id = "connection-remembered",
+                                                title = "VPN running",
+                                                subtitle = "wifi · Mar 27",
+                                                serviceMode = "VPN",
+                                                connectionState = "Running",
+                                                networkType = "wifi",
+                                                startedAtLabel = "Mar 27",
+                                                summary = "Remembered policy reused",
+                                                rememberedPolicyBadge = "Remembered policy",
+                                                metrics = emptyList(),
+                                                tone = DiagnosticsTone.Positive,
+                                            ),
+                                        ),
+                                    modes = listOf("VPN"),
+                                    statuses = listOf("Running"),
+                                ),
+                        ),
+                    onBack = {},
+                    onSelectSection = {},
+                    onConnectionModeFilter = {},
+                    onConnectionStatusFilter = {},
+                    onConnectionSearch = {},
+                    onClearConnectionFilters = {},
+                    onDiagnosticsPathFilter = {},
+                    onDiagnosticsStatusFilter = {},
+                    onDiagnosticsSearch = {},
+                    onClearDiagnosticsFilters = {},
+                    onToggleEventFilter = { _, _ -> },
+                    onEventSearch = {},
+                    onClearEventFilters = {},
+                    onEventAutoScroll = {},
+                    onSelectConnection = {},
+                    onDismissConnectionDetail = {},
+                    onSelectDiagnosticsSession = {},
+                    onDismissDiagnosticsDetail = {},
+                    onSelectEvent = {},
+                    onDismissEventDetail = {},
+                )
+            }
+        }
+
+        composeRule
+            .onNodeWithTag(
+                RipDpiTestTags.historyConnectionRememberedBadge("connection-remembered"),
                 useUnmergedTree = true,
             ).assertIsDisplayed()
     }

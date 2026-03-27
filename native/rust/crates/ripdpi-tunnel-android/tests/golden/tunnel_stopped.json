@@ -13,14 +13,7 @@
   "lastRouteGroup": null,
   "lastTarget": null,
   "listenerAddress": null,
-  "nativeEvents": [
-    {
-      "createdAt": 0,
-      "level": "info",
-      "message": "tunnel stopped",
-      "source": "tunnel"
-    }
-  ],
+  "nativeEvents": [],
   "networkHandoverClass": null,
   "resolverEndpoint": null,
   "resolverFallbackActive": false,

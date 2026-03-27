@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.activities
 
+import androidx.test.core.app.ApplicationProvider
 import com.poyka.ripdpi.util.MainDispatcherRule
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.launch
@@ -8,14 +9,21 @@ import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
 
 @OptIn(ExperimentalCoroutinesApi::class)
+@RunWith(RobolectricTestRunner::class)
 class HistoryViewModelTest {
     @get:Rule
     val mainDispatcherRule = MainDispatcherRule()
 
     private val coreSupport = DiagnosticsUiCoreSupport()
-    private val connectionDetailUiFactory = HistoryConnectionDetailUiFactory(coreSupport)
+    private val connectionDetailUiFactory =
+        HistoryConnectionDetailUiFactory(
+            context = ApplicationProvider.getApplicationContext(),
+            coreSupport = coreSupport,
+        )
     private val uiStateFactory =
         HistoryUiStateFactory(
             coreSupport = coreSupport,

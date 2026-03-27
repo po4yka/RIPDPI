@@ -6,7 +6,10 @@ import com.poyka.ripdpi.data.DefaultServiceStateStore
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.data.ServiceTelemetrySnapshot
+import com.poyka.ripdpi.data.TcpChainStepKind
+import com.poyka.ripdpi.data.TcpChainStepModel
 import com.poyka.ripdpi.data.diagnostics.DiagnosticProfileEntity
+import com.poyka.ripdpi.data.setStrategyChains
 import com.poyka.ripdpi.proto.AppSettings
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -25,6 +28,7 @@ class DiagnosticsContextProviderTest {
     @Test
     fun `provider captures app device and service context`() =
         runTest {
+            val json = diagnosticsTestJson()
             val profileCatalog =
                 FakeDiagnosticsHistoryStores().apply {
                     profilesState.value =
@@ -34,7 +38,12 @@ class DiagnosticsContextProviderTest {
                                 name = "Default",
                                 source = "bundled",
                                 version = 1,
-                                requestJson = "{}",
+                                requestJson =
+                                    diagnosticsProfileRequestJson(
+                                        json = json,
+                                        profileId = "default",
+                                        displayName = "Default",
+                                    ),
                                 updatedAt = 1L,
                             ),
                         )
@@ -49,8 +58,10 @@ class DiagnosticsContextProviderTest {
                                 .setDiagnosticsActiveProfileId("default")
                                 .setProxyIp("127.0.0.1")
                                 .setProxyPort(1080)
-                                .setDesyncMethod("split")
-                                .build(),
+                                .setStrategyChains(
+                                    tcpSteps = listOf(TcpChainStepModel(TcpChainStepKind.Split, "host+1")),
+                                    udpSteps = emptyList(),
+                                ).build(),
                         )
 
                     override val settings: Flow<AppSettings> = settingsState

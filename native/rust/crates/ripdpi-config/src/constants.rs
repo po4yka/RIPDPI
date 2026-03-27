@@ -26,4 +26,4 @@ pub const FM_PADENCAP: u32 = 16;
 
 pub const HOST_AUTOLEARN_DEFAULT_PENALTY_TTL_SECS: i64 = 6 * 60 * 60;
 pub const HOST_AUTOLEARN_DEFAULT_MAX_HOSTS: usize = 512;
-pub const HOST_AUTOLEARN_DEFAULT_STORE_FILE: &str = "host-autolearn-v1.json";
+pub const HOST_AUTOLEARN_DEFAULT_STORE_FILE: &str = "host-autolearn-v2.json";

@@ -15,14 +15,14 @@ import javax.inject.Singleton
 class AppStartupInitializer
     @Inject
     constructor(
-        private val settingsCleanupMigrationCoordinator: SettingsCleanupMigrationCoordinator,
+        private val appCompatibilityReset: AppCompatibilityReset,
         private val diagnosticsBootstrapperProvider: Provider<DiagnosticsBootstrapper>,
         @param:ApplicationScope private val applicationScope: CoroutineScope,
     ) {
         fun initialize() {
             applicationScope.launch {
                 runCatching {
-                    settingsCleanupMigrationCoordinator.migrateIfNeeded()
+                    appCompatibilityReset.resetIfNeeded()
                     diagnosticsBootstrapperProvider.get().initialize()
                 }.onFailure { error ->
                     logcat(LogPriority.WARN) { "Diagnostics bootstrap skipped\n${error.asLog()}" }

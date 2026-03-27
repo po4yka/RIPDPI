@@ -1,5 +1,5 @@
 internal const val DiagnosticsCatalogGeneratedAt = "2026-03-22"
-internal const val DiagnosticsCatalogSchemaVersion = 2
+internal const val DiagnosticsCatalogSchemaVersion = 1
 
 internal data class DiagnosticsCatalog(
     val packs: List<TargetPackDefinition>,

@@ -36,7 +36,7 @@ fn shared_contract_fixtures_decode_successfully() {
     assert_eq!(request.schema_version, DIAGNOSTICS_ENGINE_SCHEMA_VERSION);
     assert_eq!(report.schema_version, DIAGNOSTICS_ENGINE_SCHEMA_VERSION);
     assert_eq!(progress.schema_version, DIAGNOSTICS_ENGINE_SCHEMA_VERSION);
-    assert_eq!(profile_catalog["schemaVersion"].as_u64(), Some(2));
+    assert_eq!(profile_catalog["schemaVersion"].as_u64(), Some(1));
     assert_eq!(outcome_taxonomy["schemaVersion"].as_u64(), Some(1));
 }
 

@@ -193,7 +193,20 @@ class DiagnosticsHistoryStoresRoomTest {
         runTest {
             val store = RoomBypassUsageHistoryStore(dao)
 
-            store.upsertBypassUsageSession(bypassUsageSession(id = "usage-1", startedAt = 20L, finishedAt = 30L))
+            store.upsertBypassUsageSession(
+                bypassUsageSession(
+                    id = "usage-1",
+                    startedAt = 20L,
+                    finishedAt = 30L,
+                ).copy(
+                    rememberedPolicyMatchedFingerprintHash = "fp-match",
+                    rememberedPolicySource = RememberedNetworkPolicySource.AUTOMATIC_PROBING_BACKGROUND.storageValue,
+                    rememberedPolicyAppliedByExactMatch = true,
+                    rememberedPolicyPreviousSuccessCount = 4,
+                    rememberedPolicyPreviousFailureCount = 1,
+                    rememberedPolicyPreviousConsecutiveFailureCount = 0,
+                ),
+            )
             store.upsertBypassUsageSession(bypassUsageSession(id = "usage-2", startedAt = 40L, finishedAt = 50L))
 
             assertEquals(
@@ -204,7 +217,17 @@ class DiagnosticsHistoryStoresRoomTest {
                     .first()
                     .id,
             )
-            assertEquals("usage-1", store.getBypassUsageSession("usage-1")?.id)
+            val persisted = store.getBypassUsageSession("usage-1")
+            assertEquals("usage-1", persisted?.id)
+            assertEquals("fp-match", persisted?.rememberedPolicyMatchedFingerprintHash)
+            assertEquals(
+                RememberedNetworkPolicySource.AUTOMATIC_PROBING_BACKGROUND.storageValue,
+                persisted?.rememberedPolicySource,
+            )
+            assertEquals(true, persisted?.rememberedPolicyAppliedByExactMatch)
+            assertEquals(4, persisted?.rememberedPolicyPreviousSuccessCount)
+            assertEquals(1, persisted?.rememberedPolicyPreviousFailureCount)
+            assertEquals(0, persisted?.rememberedPolicyPreviousConsecutiveFailureCount)
         }
 
     @Test

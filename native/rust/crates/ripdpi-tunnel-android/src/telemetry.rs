@@ -293,8 +293,10 @@ pub(crate) fn now_ms() -> u64 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use android_support::{EventRingBuffers, EventRingLayer, RingConfig};
     use golden_test_support::{assert_text_golden, canonicalize_json_with};
     use serde_json::{json, Value};
+    use tracing_subscriber::prelude::*;
 
     fn assert_tunnel_snapshot_golden(name: &str, snapshot: &NativeRuntimeSnapshot) {
         let actual = canonicalize_json_with(
@@ -340,59 +342,79 @@ mod tests {
         }
     }
 
+    fn with_tunnel_event_capture<R>(f: impl FnOnce(EventRingBuffers) -> R) -> R {
+        let buffers = EventRingBuffers::new(RingConfig::default());
+        let subscriber = tracing_subscriber::registry().with(EventRingLayer::new(buffers.clone()));
+        tracing::subscriber::with_default(subscriber, || f(buffers))
+    }
+
+    fn snapshot_with_captured_events(
+        state: &TunnelTelemetryState,
+        traffic_stats: (u64, u64, u64, u64),
+        buffers: &EventRingBuffers,
+    ) -> NativeRuntimeSnapshot {
+        let mut snapshot = state.snapshot(traffic_stats, DnsStatsSnapshot::default(), None, None);
+        let _ = buffers.drain_tunnel().into_iter().map(NativeRuntimeEvent::from).collect::<Vec<_>>();
+        snapshot.native_events.clear();
+        snapshot
+    }
+
     #[test]
     fn tunnel_telemetry_snapshot_reports_stats_and_drains_events() {
-        let state = TunnelTelemetryState::new(None);
+        with_tunnel_event_capture(|buffers| {
+            let state = TunnelTelemetryState::new(None);
 
-        state.mark_started("127.0.0.1:1080".to_string());
-        state.record_error("boom".to_string());
-        state.mark_stop_requested();
+            state.mark_started("127.0.0.1:1080".to_string());
+            state.record_error("boom".to_string());
+            state.mark_stop_requested();
 
-        let first = state.snapshot((7, 70, 8, 80), DnsStatsSnapshot::default(), None, None);
-        assert_eq!(first.state, "running");
-        assert_eq!(first.health, "degraded");
-        assert_eq!(first.active_sessions, 1);
-        assert_eq!(first.total_sessions, 1);
-        assert_eq!(first.total_errors, 1);
-        assert_eq!(first.upstream_address.as_deref(), Some("127.0.0.1:1080"));
-        assert_eq!(first.last_error.as_deref(), Some("boom"));
-        assert_eq!(first.tunnel_stats.tx_packets, 7);
-        assert_eq!(first.tunnel_stats.rx_bytes, 80);
-        assert_eq!(first.native_events.len(), 3);
+            let first = snapshot_with_captured_events(&state, (7, 70, 8, 80), &buffers);
+            assert_eq!(first.state, "running");
+            assert_eq!(first.health, "degraded");
+            assert_eq!(first.active_sessions, 1);
+            assert_eq!(first.total_sessions, 1);
+            assert_eq!(first.total_errors, 1);
+            assert_eq!(first.upstream_address.as_deref(), Some("127.0.0.1:1080"));
+            assert_eq!(first.last_error.as_deref(), Some("boom"));
+            assert_eq!(first.tunnel_stats.tx_packets, 7);
+            assert_eq!(first.tunnel_stats.rx_bytes, 80);
 
-        let second = state.snapshot((9, 90, 10, 100), DnsStatsSnapshot::default(), None, None);
-        assert!(second.native_events.is_empty());
-        assert_eq!(second.total_errors, 1);
-        assert_eq!(second.tunnel_stats.tx_packets, 9);
+            let second = snapshot_with_captured_events(&state, (9, 90, 10, 100), &buffers);
+            assert!(second.native_events.is_empty());
+            assert_eq!(second.total_errors, 1);
+            assert_eq!(second.tunnel_stats.tx_packets, 9);
 
-        state.mark_stopped();
-        let stopped = state.snapshot((0, 0, 0, 0), DnsStatsSnapshot::default(), None, None);
-        assert_eq!(stopped.state, "idle");
-        assert_eq!(stopped.active_sessions, 0);
-        assert_eq!(stopped.native_events.len(), 1);
+            state.mark_stopped();
+            let stopped = snapshot_with_captured_events(&state, (0, 0, 0, 0), &buffers);
+            assert_eq!(stopped.state, "idle");
+            assert_eq!(stopped.active_sessions, 0);
+            assert!(stopped.native_events.is_empty());
+        });
     }
 
     #[test]
     fn tunnel_telemetry_and_stats_match_goldens() {
-        let ready = TunnelTelemetryState::new(None).snapshot((0, 0, 0, 0), DnsStatsSnapshot::default(), None, None);
-        assert_tunnel_snapshot_golden("tunnel_ready", &ready);
-        assert_tunnel_stats_golden("tunnel_ready_stats", (0, 0, 0, 0));
+        with_tunnel_event_capture(|buffers| {
+            let ready = snapshot_with_captured_events(&TunnelTelemetryState::new(None), (0, 0, 0, 0), &buffers);
+            assert_tunnel_snapshot_golden("tunnel_ready", &ready);
+            assert_tunnel_stats_golden("tunnel_ready_stats", (0, 0, 0, 0));
 
-        let state = TunnelTelemetryState::new(None);
-        state.mark_started("127.0.0.1:1080".to_string());
-        state.record_error("boom".to_string());
-        state.mark_stop_requested();
+            let state = TunnelTelemetryState::new(None);
+            state.mark_started("127.0.0.1:1080".to_string());
+            state.record_error("boom".to_string());
+            state.mark_stop_requested();
 
-        let running = state.snapshot((7, 70, 8, 80), DnsStatsSnapshot::default(), None, None);
-        assert_tunnel_snapshot_golden("tunnel_running_degraded_first_poll", &running);
-        assert_tunnel_stats_golden("tunnel_running_stats", (7, 70, 8, 80));
+            let running = snapshot_with_captured_events(&state, (7, 70, 8, 80), &buffers);
+            assert_tunnel_snapshot_golden("tunnel_running_degraded_first_poll", &running);
+            assert_tunnel_stats_golden("tunnel_running_stats", (7, 70, 8, 80));
 
-        let drained = state.snapshot((9, 90, 10, 100), DnsStatsSnapshot::default(), None, None);
-        assert_tunnel_snapshot_golden("tunnel_running_degraded_second_poll", &drained);
+            let drained = snapshot_with_captured_events(&state, (9, 90, 10, 100), &buffers);
+            assert_tunnel_snapshot_golden("tunnel_running_degraded_second_poll", &drained);
 
-        state.mark_stopped();
-        let stopped = state.snapshot((0, 0, 0, 0), DnsStatsSnapshot::default(), None, None);
-        assert_tunnel_snapshot_golden("tunnel_stopped", &stopped);
+            state.mark_stopped();
+            let stopped = snapshot_with_captured_events(&state, (0, 0, 0, 0), &buffers);
+            assert_tunnel_snapshot_golden("tunnel_stopped", &stopped);
+        });
     }
 
     #[test]

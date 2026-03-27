@@ -77,8 +77,8 @@ class ScanAdmissionService
                 return null
             }
             val profile = profileCatalog.getProfile(AutomaticProbeProfileId) ?: return null
-            val request = json.decodeProfileSpecWireCompat(profile.requestJson)
-            return profile.takeIf { request.executionPolicyOrCompat().allowBackground }
+            val request = json.decodeProfileSpecWire(profile.requestJson)
+            return profile.takeIf { request.normalizedExecutionPolicy().allowBackground }
         }
 
         suspend fun assertProfileExists(profileId: String) {
@@ -376,8 +376,8 @@ class BridgePollingService
         internal suspend fun pollProgress(handle: BridgeSessionHandle): ScanProgress? =
             handle.bridge
                 .pollProgressJson()
-                ?.let(json::decodeEngineProgressWireCompat)
-                ?.toLegacyScanProgressCompat()
+                ?.let(json::decodeEngineProgressWire)
+                ?.toScanProgress()
 
         internal suspend fun awaitFinishedReportJson(handle: BridgeSessionHandle): String? {
             repeat(FinishedReportPollAttempts) { attempt ->
@@ -439,12 +439,12 @@ class ScanFinalizationService
             prepared: PreparedDiagnosticsScan,
             reportJson: String,
         ): com.poyka.ripdpi.diagnostics.domain.DerivedScanReport {
-            val rawReport = json.decodeEngineScanReportWireCompat(reportJson)
+            val rawReport = json.decodeEngineScanReportWire(reportJson)
             val finalizedWire =
                 rawReport.copy(
                     diagnoses =
                         if (rawReport.observations.isNotEmpty()) {
-                            findingProjector.classify(rawReport.toLegacyScanReportCompat())
+                            findingProjector.classify(rawReport.toScanReport())
                         } else {
                             rawReport.diagnoses
                         },
@@ -458,7 +458,7 @@ class ScanFinalizationService
             val finalReport =
                 maybeApplyTemporaryResolverOverride(
                     DiagnosticsScanWorkflow.enrichScanReport(
-                        report = finalizedWire.toLegacyScanReportCompat(),
+                        report = finalizedWire.toScanReport(),
                         settings = prepared.settings,
                         preferredDnsPath = prepared.preferredDnsPath,
                     ),

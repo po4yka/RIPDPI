@@ -1,14 +1,22 @@
 package com.poyka.ripdpi.activities
 
+import androidx.test.core.app.ApplicationProvider
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
 
+@RunWith(RobolectricTestRunner::class)
 class HistoryUiStateFactoryTest {
     private val factory =
         HistoryUiStateFactory(
             coreSupport = DiagnosticsUiCoreSupport(),
-            connectionDetailUiFactory = HistoryConnectionDetailUiFactory(DiagnosticsUiCoreSupport()),
+            connectionDetailUiFactory =
+                HistoryConnectionDetailUiFactory(
+                    context = ApplicationProvider.getApplicationContext(),
+                    coreSupport = DiagnosticsUiCoreSupport(),
+                ),
         )
 
     @Test

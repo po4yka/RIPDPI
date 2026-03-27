@@ -238,6 +238,9 @@ internal object RipDpiTestTags {
     val historyConnection: (String) -> String =
         { sessionId -> "history-connection-${sanitize(sessionId)}" }
 
+    val historyConnectionRememberedBadge: (String) -> String =
+        { sessionId -> "history-connection-remembered-badge-${sanitize(sessionId)}" }
+
     val historyDiagnosticsSession: (String) -> String =
         { sessionId -> "history-diagnostics-${sanitize(sessionId)}" }
 

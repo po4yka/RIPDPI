@@ -11,6 +11,8 @@ import com.poyka.ripdpi.data.DefaultAdaptiveFakeTtlDelta
 import com.poyka.ripdpi.data.DefaultAdaptiveFakeTtlFallback
 import com.poyka.ripdpi.data.DefaultAdaptiveFakeTtlMax
 import com.poyka.ripdpi.data.DefaultAdaptiveFakeTtlMin
+import com.poyka.ripdpi.data.DefaultDisoobSplitMarker
+import com.poyka.ripdpi.data.DefaultFakeOffsetMarker
 import com.poyka.ripdpi.data.DefaultFakeSni
 import com.poyka.ripdpi.data.DefaultHostAutolearnMaxHosts
 import com.poyka.ripdpi.data.DefaultHostAutolearnPenaltyTtlHours
@@ -19,6 +21,7 @@ import com.poyka.ripdpi.data.DefaultSplitMarker
 import com.poyka.ripdpi.data.DefaultTlsRandRecFragmentCount
 import com.poyka.ripdpi.data.DefaultTlsRandRecMaxFragmentSize
 import com.poyka.ripdpi.data.DefaultTlsRandRecMinFragmentSize
+import com.poyka.ripdpi.data.DefaultTlsRecordMarker
 import com.poyka.ripdpi.data.DnsModeEncrypted
 import com.poyka.ripdpi.data.DnsProviderCustom
 import com.poyka.ripdpi.data.EncryptedDnsProtocolDnsCrypt
@@ -32,9 +35,16 @@ import com.poyka.ripdpi.data.QuicFakeProfileCompatDefault
 import com.poyka.ripdpi.data.QuicFakeProfileDisabled
 import com.poyka.ripdpi.data.QuicFakeProfileRealisticInitial
 import com.poyka.ripdpi.data.TcpChainStepKind
+import com.poyka.ripdpi.data.TcpChainStepModel
 import com.poyka.ripdpi.data.TlsFakeProfileGoogleChrome
+import com.poyka.ripdpi.data.UdpChainStepModel
 import com.poyka.ripdpi.data.UdpFakeProfileDnsQuery
+import com.poyka.ripdpi.data.effectiveTcpChainSteps
+import com.poyka.ripdpi.data.effectiveUdpChainSteps
+import com.poyka.ripdpi.data.isTlsPrelude
+import com.poyka.ripdpi.data.setStrategyChains
 import com.poyka.ripdpi.proto.ActivationFilter
+import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.proto.NumericRange
 import com.poyka.ripdpi.proto.StrategyTcpStep
 import org.junit.Assert.assertEquals
@@ -152,7 +162,7 @@ class SettingsUiStateTest {
 
     @Test
     fun `desync method none disables desync`() {
-        val settings = defaults.toBuilder().setDesyncMethod("none").build()
+        val settings = defaults.toBuilder().withPrimaryDesyncMethod("none").build()
         val state = settings.toUiState()
         assertFalse(state.desyncEnabled)
         assertFalse(state.isFake)
@@ -161,7 +171,7 @@ class SettingsUiStateTest {
 
     @Test
     fun `desync method fake sets isFake`() {
-        val settings = defaults.toBuilder().setDesyncMethod("fake").build()
+        val settings = defaults.toBuilder().withPrimaryDesyncMethod("fake").build()
         val state = settings.toUiState()
         assertTrue(state.isFake)
         assertTrue(state.usesFakeTransport)
@@ -223,7 +233,7 @@ class SettingsUiStateTest {
         val settings =
             defaults
                 .toBuilder()
-                .setDesyncMethod("none")
+                .withPrimaryDesyncMethod("none")
                 .setDesyncHttp(false)
                 .setDesyncHttps(true)
                 .setHostRemoveSpaces(true)
@@ -241,6 +251,7 @@ class SettingsUiStateTest {
         val settings =
             defaults
                 .toBuilder()
+                .clearTcpChainSteps()
                 .addTcpChainSteps(
                     StrategyTcpStep
                         .newBuilder()
@@ -288,6 +299,7 @@ class SettingsUiStateTest {
             defaults
                 .toBuilder()
                 .setDesyncHttps(true)
+                .clearTcpChainSteps()
                 .addTcpChainSteps(
                     StrategyTcpStep
                         .newBuilder()
@@ -318,6 +330,7 @@ class SettingsUiStateTest {
         val settings =
             defaults
                 .toBuilder()
+                .clearTcpChainSteps()
                 .addTcpChainSteps(
                     StrategyTcpStep
                         .newBuilder()
@@ -377,6 +390,7 @@ class SettingsUiStateTest {
         val settings =
             defaults
                 .toBuilder()
+                .clearTcpChainSteps()
                 .addTcpChainSteps(
                     StrategyTcpStep
                         .newBuilder()
@@ -409,6 +423,7 @@ class SettingsUiStateTest {
                 .setDesyncHttp(false)
                 .setDesyncHttps(false)
                 .setDesyncUdp(true)
+                .clearTcpChainSteps()
                 .addTcpChainSteps(
                     StrategyTcpStep
                         .newBuilder()
@@ -433,6 +448,7 @@ class SettingsUiStateTest {
         val settings =
             defaults
                 .toBuilder()
+                .clearTcpChainSteps()
                 .addTcpChainSteps(
                     StrategyTcpStep
                         .newBuilder()
@@ -491,13 +507,13 @@ class SettingsUiStateTest {
         val balancedState =
             defaults
                 .toBuilder()
-                .setDesyncMethod("split")
-                .setSplitMarker(AdaptiveMarkerBalanced)
+                .withPrimaryDesyncMethod("split", AdaptiveMarkerBalanced)
                 .build()
                 .toUiState()
         val customState =
             defaults
                 .toBuilder()
+                .clearTcpChainSteps()
                 .addTcpChainSteps(
                     StrategyTcpStep
                         .newBuilder()
@@ -509,6 +525,7 @@ class SettingsUiStateTest {
         val hostfakeState =
             defaults
                 .toBuilder()
+                .clearTcpChainSteps()
                 .addTcpChainSteps(
                     StrategyTcpStep
                         .newBuilder()
@@ -535,7 +552,7 @@ class SettingsUiStateTest {
         val settings =
             defaults
                 .toBuilder()
-                .setSplitMarker(AdaptiveMarkerBalanced)
+                .clearTcpChainSteps()
                 .addTcpChainSteps(
                     StrategyTcpStep
                         .newBuilder()
@@ -564,6 +581,7 @@ class SettingsUiStateTest {
         val settings =
             defaults
                 .toBuilder()
+                .clearTcpChainSteps()
                 .addTcpChainSteps(
                     StrategyTcpStep
                         .newBuilder()
@@ -588,8 +606,7 @@ class SettingsUiStateTest {
             defaults
                 .toBuilder()
                 .setEnableCmdSettings(true)
-                .setDesyncMethod("split")
-                .setSplitMarker(AdaptiveMarkerHost)
+                .withPrimaryDesyncMethod("split", AdaptiveMarkerHost)
                 .build()
 
         val state = settings.toUiState()
@@ -604,13 +621,13 @@ class SettingsUiStateTest {
 
     @Test
     fun `desync method oob sets isOob`() {
-        val settings = defaults.toBuilder().setDesyncMethod("oob").build()
+        val settings = defaults.toBuilder().withPrimaryDesyncMethod("oob").build()
         assertTrue(settings.toUiState().isOob)
     }
 
     @Test
     fun `desync method disoob sets isOob`() {
-        val settings = defaults.toBuilder().setDesyncMethod("disoob").build()
+        val settings = defaults.toBuilder().withPrimaryDesyncMethod("disoob").build()
         assertTrue(settings.toUiState().isOob)
     }
 
@@ -635,7 +652,7 @@ class SettingsUiStateTest {
             defaults
                 .toBuilder()
                 .setDesyncUdp(true)
-                .setUdpFakeCount(3)
+                .withUdpFakeCount(3)
                 .build()
 
         val state = settings.toUiState()
@@ -664,7 +681,7 @@ class SettingsUiStateTest {
         val settings =
             defaults
                 .toBuilder()
-                .setDesyncMethod("fake")
+                .withPrimaryDesyncMethod("fake")
                 .setAdaptiveFakeTtlEnabled(true)
                 .setAdaptiveFakeTtlDelta(DefaultAdaptiveFakeTtlDelta)
                 .setAdaptiveFakeTtlMin(3)
@@ -687,7 +704,7 @@ class SettingsUiStateTest {
         val settings =
             defaults
                 .toBuilder()
-                .setDesyncMethod("oob")
+                .withPrimaryDesyncMethod("oob")
                 .build()
 
         val state = settings.toUiState()
@@ -704,6 +721,7 @@ class SettingsUiStateTest {
         val settings =
             defaults
                 .toBuilder()
+                .clearTcpChainSteps()
                 .addTcpChainSteps(
                     StrategyTcpStep
                         .newBuilder()
@@ -728,6 +746,7 @@ class SettingsUiStateTest {
         val settings =
             defaults
                 .toBuilder()
+                .clearTcpChainSteps()
                 .addTcpChainSteps(
                     StrategyTcpStep
                         .newBuilder()
@@ -751,7 +770,7 @@ class SettingsUiStateTest {
         val settings =
             defaults
                 .toBuilder()
-                .setDesyncMethod("disoob")
+                .withPrimaryDesyncMethod("disoob")
                 .build()
 
         val state = settings.toUiState()
@@ -767,7 +786,7 @@ class SettingsUiStateTest {
         val settings =
             defaults
                 .toBuilder()
-                .setDesyncMethod("fake")
+                .withPrimaryDesyncMethod("fake")
                 .setAdaptiveFakeTtlEnabled(true)
                 .setAdaptiveFakeTtlDelta(2)
                 .setAdaptiveFakeTtlMin(4)
@@ -789,7 +808,7 @@ class SettingsUiStateTest {
         val settings =
             defaults
                 .toBuilder()
-                .setDesyncMethod("none")
+                .withPrimaryDesyncMethod("none")
                 .setAdaptiveFakeTtlEnabled(true)
                 .setAdaptiveFakeTtlDelta(DefaultAdaptiveFakeTtlDelta)
                 .setAdaptiveFakeTtlFallback(9)
@@ -809,7 +828,7 @@ class SettingsUiStateTest {
             defaults
                 .toBuilder()
                 .setEnableCmdSettings(true)
-                .setDesyncMethod("fake")
+                .withPrimaryDesyncMethod("fake")
                 .setAdaptiveFakeTtlEnabled(true)
                 .setAdaptiveFakeTtlDelta(3)
                 .build()
@@ -873,6 +892,7 @@ class SettingsUiStateTest {
         val settings =
             defaults
                 .toBuilder()
+                .clearTcpChainSteps()
                 .addTcpChainSteps(
                     StrategyTcpStep
                         .newBuilder()
@@ -900,7 +920,7 @@ class SettingsUiStateTest {
             defaults
                 .toBuilder()
                 .setEnableCmdSettings(true)
-                .setDesyncMethod("none")
+                .withPrimaryDesyncMethod("none")
                 .setGroupActivationFilter(
                     ActivationFilter
                         .newBuilder()
@@ -923,7 +943,7 @@ class SettingsUiStateTest {
         val settings =
             defaults
                 .toBuilder()
-                .setDesyncMethod("none")
+                .withPrimaryDesyncMethod("none")
                 .setGroupActivationFilter(
                     ActivationFilter
                         .newBuilder()
@@ -940,7 +960,7 @@ class SettingsUiStateTest {
 
     @Test
     fun `activation profile hides when desync is off and no filters are saved`() {
-        val settings = defaults.toBuilder().setDesyncMethod("none").build()
+        val settings = defaults.toBuilder().withPrimaryDesyncMethod("none").build()
 
         val state = settings.toUiState()
 
@@ -969,7 +989,7 @@ class SettingsUiStateTest {
             defaults
                 .toBuilder()
                 .setDesyncHttps(true)
-                .setTlsrecEnabled(true)
+                .withTlsRecordSplit(true)
                 .build()
         assertTrue(settings.toUiState().tlsRecEnabled)
     }
@@ -982,7 +1002,7 @@ class SettingsUiStateTest {
                 .setDesyncHttp(true)
                 .setDesyncHttps(false)
                 .setDesyncUdp(false)
-                .setTlsrecEnabled(true)
+                .withTlsRecordSplit(true)
                 .build()
         assertFalse(settings.toUiState().tlsRecEnabled)
     }
@@ -992,6 +1012,7 @@ class SettingsUiStateTest {
         val settings =
             defaults
                 .toBuilder()
+                .clearTcpChainSteps()
                 .addTcpChainSteps(
                     StrategyTcpStep
                         .newBuilder()
@@ -1020,6 +1041,7 @@ class SettingsUiStateTest {
         val settings =
             defaults
                 .toBuilder()
+                .clearTcpChainSteps()
                 .addTcpChainSteps(
                     StrategyTcpStep
                         .newBuilder()
@@ -1051,27 +1073,26 @@ class SettingsUiStateTest {
     }
 
     @Test
-    fun `legacy empty desync method defaults to disorder`() {
+    fun `empty tcp chain keeps canonical no-desync state`() {
         val settings =
             defaults
                 .toBuilder()
                 .clearTcpChainSteps()
-                .setDesyncMethod("")
                 .build()
-        assertEquals("disorder", settings.toUiState().desync.desyncMethod)
+        val state = settings.toUiState()
+        assertEquals("none", state.desync.desyncMethod)
+        assertEquals(CanonicalDefaultSplitMarker, state.desync.splitMarker)
     }
 
     @Test
-    fun `legacy split settings map into effective marker`() {
+    fun `missing primary marker falls back to normalized split default`() {
         val settings =
             defaults
                 .toBuilder()
-                .setSplitMarker("")
-                .setSplitPosition(2)
-                .setSplitAtHost(true)
+                .withPrimaryDesyncMethod("split", "")
                 .build()
 
-        assertEquals("host+2", settings.toUiState().desync.splitMarker)
+        assertEquals(DefaultSplitMarker, settings.toUiState().desync.splitMarker)
     }
 
     @Test
@@ -1174,7 +1195,7 @@ class SettingsUiStateTest {
         val settings =
             defaults
                 .toBuilder()
-                .setDesyncMethod("fake")
+                .withPrimaryDesyncMethod("fake")
                 .setFakeTlsUseOriginal(true)
                 .setFakeTlsRandomize(true)
                 .setFakeTlsDupSessionId(true)
@@ -1205,7 +1226,7 @@ class SettingsUiStateTest {
                 .setDesyncHttp(false)
                 .setDesyncHttps(false)
                 .setDesyncUdp(true)
-                .setUdpFakeCount(3)
+                .withUdpFakeCount(3)
                 .setQuicFakeProfile(QuicFakeProfileRealisticInitial)
                 .setQuicFakeHost("video.example.test")
                 .build()
@@ -1250,7 +1271,7 @@ class SettingsUiStateTest {
                 .setDesyncHttp(false)
                 .setDesyncHttps(false)
                 .setDesyncUdp(true)
-                .setUdpFakeCount(2)
+                .withUdpFakeCount(2)
                 .setQuicFakeProfile(QuicFakeProfileCompatDefault)
                 .setQuicFakeHost("video.example.test")
                 .build()
@@ -1284,7 +1305,7 @@ class SettingsUiStateTest {
         val settings =
             defaults
                 .toBuilder()
-                .setDesyncMethod("fake")
+                .withPrimaryDesyncMethod("fake")
                 .setFakeSni("alt.example.org")
                 .build()
 
@@ -1371,4 +1392,54 @@ class SettingsUiStateTest {
         )
         assertEquals("Encrypted DNS · Custom resolver (DNSCrypt)", state.dns.dnsSummary)
     }
+
+    private fun AppSettings.Builder.withPrimaryDesyncMethod(
+        method: String,
+        marker: String = defaultPrimaryMarker(method),
+    ): AppSettings.Builder {
+        val currentSettings = build()
+        val tlsPreludeSteps = currentSettings.effectiveTcpChainSteps().filter { it.kind.isTlsPrelude }
+        val primaryStep =
+            when (method) {
+                "none" -> null
+                "split" -> TcpChainStepModel(TcpChainStepKind.Split, marker)
+                "fake" -> TcpChainStepModel(TcpChainStepKind.Fake, marker)
+                "oob" -> TcpChainStepModel(TcpChainStepKind.Oob, marker)
+                "disoob" -> TcpChainStepModel(TcpChainStepKind.Disoob, marker)
+                else -> error("Unsupported test desync method: $method")
+            }
+        return setStrategyChains(
+            tcpSteps = listOfNotNull(primaryStep).let { primarySteps -> tlsPreludeSteps + primarySteps },
+            udpSteps = currentSettings.effectiveUdpChainSteps(),
+        )
+    }
+
+    private fun AppSettings.Builder.withUdpFakeCount(count: Int): AppSettings.Builder {
+        val currentSettings = build()
+        val udpSteps = if (count > 0) listOf(UdpChainStepModel(count = count)) else emptyList()
+        return setStrategyChains(
+            tcpSteps = currentSettings.effectiveTcpChainSteps(),
+            udpSteps = udpSteps,
+        )
+    }
+
+    private fun AppSettings.Builder.withTlsRecordSplit(
+        enabled: Boolean,
+        marker: String = DefaultTlsRecordMarker,
+    ): AppSettings.Builder {
+        val currentSettings = build()
+        val primarySteps = currentSettings.effectiveTcpChainSteps().filterNot { it.kind.isTlsPrelude }
+        val tlsPreludeSteps = if (enabled) listOf(TcpChainStepModel(TcpChainStepKind.TlsRec, marker)) else emptyList()
+        return setStrategyChains(
+            tcpSteps = tlsPreludeSteps + primarySteps,
+            udpSteps = currentSettings.effectiveUdpChainSteps(),
+        )
+    }
+
+    private fun defaultPrimaryMarker(method: String): String =
+        when (method) {
+            "fake" -> DefaultFakeOffsetMarker
+            "disoob" -> DefaultDisoobSplitMarker
+            else -> CanonicalDefaultSplitMarker
+        }
 }

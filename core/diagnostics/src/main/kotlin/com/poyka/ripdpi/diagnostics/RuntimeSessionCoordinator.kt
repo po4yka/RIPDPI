@@ -137,7 +137,15 @@ class RuntimeSessionCoordinator
                     return
                 }
                 val session = activeUsageSession ?: return
-                rememberedPolicySessionTracker.sync(session = session, activePolicy = policy)
+                val updatedSession =
+                    rememberedPolicySessionTracker.sync(
+                        session = session,
+                        activePolicy = policy,
+                    )
+                if (updatedSession != session) {
+                    activeUsageSession = updatedSession
+                    bypassUsageHistoryStore.upsertBypassUsageSession(updatedSession)
+                }
             }
         }
 
@@ -203,10 +211,15 @@ class RuntimeSessionCoordinator
                 )
             activeUsageSession = session
             bypassUsageHistoryStore.upsertBypassUsageSession(session)
-            rememberedPolicySessionTracker.sync(
-                session = session,
-                activePolicy = activeConnectionPolicyStore.current(mode),
-            )
+            val updatedSession =
+                rememberedPolicySessionTracker.sync(
+                    session = session,
+                    activePolicy = activeConnectionPolicyStore.current(mode),
+                )
+            if (updatedSession != session) {
+                activeUsageSession = updatedSession
+                bypassUsageHistoryStore.upsertBypassUsageSession(updatedSession)
+            }
         }
 
         private suspend fun createFailedUsageSession(

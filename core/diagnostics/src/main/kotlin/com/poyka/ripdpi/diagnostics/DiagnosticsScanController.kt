@@ -268,7 +268,7 @@ internal class DefaultDiagnosticsScanController
             settings: com.poyka.ripdpi.proto.AppSettings,
             pathMode: ScanPathMode,
         ): PendingHiddenConflictRequest {
-            val projection = json.decodeProfileSpecWireCompat(profile.requestJson).toProfileProjection()
+            val projection = json.decodeProfileSpecWire(profile.requestJson).toProfileProjection()
             return PendingHiddenConflictRequest(
                 requestId = UUID.randomUUID().toString(),
                 profile = profile,

@@ -52,8 +52,6 @@ data class DnsTarget(
     val encryptedDohUrl: String? = null,
     val encryptedDnscryptProviderName: String? = null,
     val encryptedDnscryptPublicKey: String? = null,
-    val dohUrl: String? = null,
-    val dohBootstrapIps: List<String> = emptyList(),
     val expectedIps: List<String> = emptyList(),
 )
 

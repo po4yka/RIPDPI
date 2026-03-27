@@ -17,7 +17,7 @@ import java.io.File
 internal object DiagnosticsArchiveFormat {
     const val directoryName = "diagnostics-archives"
     const val fileNamePrefix = "ripdpi-diagnostics-"
-    const val schemaVersion = 9
+    const val schemaVersion = 1
     const val privacyMode = "split_output"
     const val scope = "hybrid"
     const val maxArchiveFiles = 5
