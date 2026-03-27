@@ -26,6 +26,11 @@ internal enum class DiagnosticsScanOrigin {
     AUTOMATIC_BACKGROUND,
 }
 
+private const val AutomaticAuditProfileId = "automatic-audit"
+private const val StrategyProbeSuiteFullMatrixV1 = "full_matrix_v1"
+private const val AutomaticAuditDomainTargetCount = 3
+private const val AutomaticAuditQuicTargetCount = 2
+
 internal data class PreparedDiagnosticsScan(
     val sessionId: String,
     val settings: com.poyka.ripdpi.proto.AppSettings,
@@ -66,10 +71,14 @@ internal class DiagnosticsScanRequestFactory
             exposeProgress: Boolean,
             registerActiveBridge: Boolean,
         ): PreparedDiagnosticsScan {
-            val intent = intentResolver.resolve(profile.id, pathMode).copy(settings = settings)
+            val sessionId = UUID.randomUUID().toString()
+            val intent =
+                selectStrategyProbeTargetsForSession(
+                    sessionId = sessionId,
+                    intent = intentResolver.resolve(profile.id, pathMode).copy(settings = settings),
+                )
             val scanContext = scanContextCollector.collect(intent)
             val plan = diagnosticsPlanner.plan(intent, scanContext)
-            val sessionId = UUID.randomUUID().toString()
             val engineRequest =
                 engineRequestEncoder
                     .encode(plan)
@@ -183,3 +192,37 @@ private fun resolveStrategyProbeRuntimeContext(
     .toRipDpiRuntimeContext()
     ?: preferredDnsPath?.toActiveDnsSettings()?.toRipDpiRuntimeContext()
     ?: canonicalDefaultEncryptedDnsSettings().toRipDpiRuntimeContext()
+
+internal fun selectStrategyProbeTargetsForSession(
+    sessionId: String,
+    intent: DiagnosticsIntent,
+): DiagnosticsIntent {
+    val strategyProbe = intent.strategyProbe ?: return intent
+    if (intent.profileId != AutomaticAuditProfileId || strategyProbe.suiteId != StrategyProbeSuiteFullMatrixV1) {
+        return intent
+    }
+    val validCohorts =
+        intent.strategyProbeTargetCohorts.filter { cohort ->
+            cohort.domainTargets.size == AutomaticAuditDomainTargetCount &&
+                cohort.quicTargets.size == AutomaticAuditQuicTargetCount
+        }
+    val selectedCohort =
+        validCohorts
+            .takeIf { it.isNotEmpty() }
+            ?.let { cohorts -> cohorts[Math.floorMod(sessionId.hashCode(), cohorts.size)] }
+            ?: return intent
+    return intent.copy(
+        domainTargets = selectedCohort.domainTargets,
+        quicTargets = selectedCohort.quicTargets,
+        strategyProbe =
+            strategyProbe.copy(
+                targetSelection =
+                    StrategyProbeTargetSelection(
+                        cohortId = selectedCohort.id,
+                        cohortLabel = selectedCohort.label,
+                        domainHosts = selectedCohort.domainTargets.map(DomainTarget::host),
+                        quicHosts = selectedCohort.quicTargets.map(QuicTarget::host),
+                    ),
+            ),
+    )
+}

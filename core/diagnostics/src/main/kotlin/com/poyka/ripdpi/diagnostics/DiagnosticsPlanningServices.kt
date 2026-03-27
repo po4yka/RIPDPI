@@ -14,6 +14,7 @@ import com.poyka.ripdpi.diagnostics.domain.ProbeFamily
 import com.poyka.ripdpi.diagnostics.domain.ProbeTask
 import com.poyka.ripdpi.diagnostics.domain.ScanContext
 import com.poyka.ripdpi.diagnostics.domain.ScanPlan
+import com.poyka.ripdpi.diagnostics.domain.StrategyProbeTargetCohortSpec
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -92,6 +93,15 @@ internal class DefaultDiagnosticsIntentResolver
                 whitelistSni = spec.whitelistSni,
                 telegramTarget = spec.telegramTarget,
                 strategyProbe = spec.strategyProbe,
+                strategyProbeTargetCohorts =
+                    spec.strategyProbeTargetCohorts.map { cohort ->
+                        StrategyProbeTargetCohortSpec(
+                            id = cohort.id,
+                            label = cohort.label,
+                            domainTargets = cohort.domainTargets,
+                            quicTargets = cohort.quicTargets,
+                        )
+                    },
                 requestedPathMode = pathMode,
             )
         }

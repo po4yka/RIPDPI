@@ -1,5 +1,16 @@
 use serde::{Deserialize, Serialize};
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct StrategyProbeTargetSelection {
+    pub cohort_id: String,
+    pub cohort_label: String,
+    #[serde(default)]
+    pub domain_hosts: Vec<String>,
+    #[serde(default)]
+    pub quic_hosts: Vec<String>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct StrategyProbeReport {
@@ -9,6 +20,8 @@ pub struct StrategyProbeReport {
     pub recommendation: StrategyProbeRecommendation,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub audit_assessment: Option<StrategyProbeAuditAssessment>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub target_selection: Option<StrategyProbeTargetSelection>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

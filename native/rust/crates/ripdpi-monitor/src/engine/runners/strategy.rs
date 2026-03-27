@@ -324,6 +324,7 @@ impl ExecutionStageRunner for StrategyDnsBaselineRunner {
             quic_candidates,
             recommendation,
             audit_assessment,
+            target_selection: plan.request.strategy_probe.as_ref().and_then(|probe| probe.target_selection.clone()),
         };
         let report = build_report(
             plan.session_id.clone(),
@@ -773,6 +774,7 @@ impl ExecutionStageRunner for StrategyRecommendationRunner {
             quic_candidates: runtime.strategy.quic_candidates.clone(),
             recommendation,
             audit_assessment,
+            target_selection: plan.request.strategy_probe.as_ref().and_then(|probe| probe.target_selection.clone()),
         });
         runtime.strategy.summary = Some(summary);
         runtime.completed_steps += 1;

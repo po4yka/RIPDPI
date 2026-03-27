@@ -1,5 +1,6 @@
 use serde::{Deserialize, Serialize};
 
+use super::strategy::StrategyProbeTargetSelection;
 use crate::util::*;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -105,6 +106,8 @@ pub struct StrategyProbeRequest {
     pub suite_id: String,
     #[serde(default)]
     pub base_proxy_config_json: Option<String>,
+    #[serde(default)]
+    pub target_selection: Option<StrategyProbeTargetSelection>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -196,6 +199,7 @@ mod tests {
         let json = r#"{}"#;
         let req: StrategyProbeRequest = serde_json::from_str(json).expect("deserialize");
         assert_eq!(req.suite_id, "quick_v1");
+        assert!(req.target_selection.is_none());
     }
 
     #[test]
