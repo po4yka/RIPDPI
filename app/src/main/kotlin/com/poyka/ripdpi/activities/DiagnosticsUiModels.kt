@@ -277,6 +277,25 @@ data class DiagnosticsStrategyProbeCandidateDetailUiModel(
 )
 
 @Stable
+data class DiagnosticsStrategyProbeWinningCandidateUiModel(
+    val id: String,
+    val label: String,
+    val familyLabel: String,
+    val outcome: String,
+    val rationale: String,
+    val metrics: List<DiagnosticsMetricUiModel>,
+    val tone: DiagnosticsTone,
+    val hiddenCandidateCount: Int,
+)
+
+@Stable
+data class DiagnosticsStrategyProbeWinningPathUiModel(
+    val tcpWinner: DiagnosticsStrategyProbeWinningCandidateUiModel,
+    val quicWinner: DiagnosticsStrategyProbeWinningCandidateUiModel,
+    val dnsLaneLabel: String? = null,
+)
+
+@Stable
 data class DiagnosticsStrategyProbeFamilyUiModel(
     val title: String,
     val candidates: List<DiagnosticsStrategyProbeCandidateUiModel>,
@@ -297,6 +316,7 @@ data class DiagnosticsStrategyProbeReportUiModel(
     val summaryMetrics: List<DiagnosticsMetricUiModel>,
     val auditAssessment: StrategyProbeAuditAssessment? = null,
     val recommendation: DiagnosticsStrategyProbeRecommendationUiModel,
+    val winningPath: DiagnosticsStrategyProbeWinningPathUiModel? = null,
     val families: List<DiagnosticsStrategyProbeFamilyUiModel>,
     val candidateDetails: Map<String, DiagnosticsStrategyProbeCandidateDetailUiModel> = emptyMap(),
 )

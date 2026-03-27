@@ -26,8 +26,12 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -42,6 +46,8 @@ import com.poyka.ripdpi.activities.DiagnosticsStrategyProbeCandidateDetailUiMode
 import com.poyka.ripdpi.activities.DiagnosticsStrategyProbeCandidateUiModel
 import com.poyka.ripdpi.activities.DiagnosticsStrategyProbeProgressLaneUiModel
 import com.poyka.ripdpi.activities.DiagnosticsStrategyProbeReportUiModel
+import com.poyka.ripdpi.activities.DiagnosticsStrategyProbeWinningCandidateUiModel
+import com.poyka.ripdpi.activities.DiagnosticsStrategyProbeWinningPathUiModel
 import com.poyka.ripdpi.activities.DiagnosticsTone
 import com.poyka.ripdpi.activities.DiagnosticsWorkflowRestrictionActionKindUiModel
 import com.poyka.ripdpi.activities.PhaseState
@@ -1081,6 +1087,14 @@ internal fun StrategyProbeReportCard(
     val colors = RipDpiThemeTokens.colors
     val manualApplyBadge = stringResource(R.string.diagnostics_profile_badge_manual_apply)
     val isFullAudit = report.suiteId == "full_matrix_v1"
+    val supportsWinningPath = isFullAudit && report.winningPath != null
+    var showFullMatrix by rememberSaveable(
+        report.suiteId,
+        report.recommendation.headline,
+        report.recommendation.rationale,
+        report.winningPath?.tcpWinner?.id,
+        report.winningPath?.quicWinner?.id,
+    ) { mutableStateOf(!supportsWinningPath) }
     RipDpiCard(
         modifier = Modifier.ripDpiTestTag(RipDpiTestTags.DiagnosticsStrategyProbeReport),
     ) {
@@ -1113,6 +1127,34 @@ internal fun StrategyProbeReportCard(
             style = RipDpiThemeTokens.type.secondaryBody,
             color = colors.mutedForeground,
         )
+        report.winningPath?.takeIf { supportsWinningPath }?.let { winningPath ->
+            HorizontalDivider()
+            WinningPathSection(
+                winningPath = winningPath,
+                onSelectTcpWinner =
+                    report.candidateDetails[winningPath.tcpWinner.id]?.let { detail ->
+                        { onSelectCandidate(detail) }
+                    },
+                onSelectQuicWinner =
+                    report.candidateDetails[winningPath.quicWinner.id]?.let { detail ->
+                        { onSelectCandidate(detail) }
+                    },
+            )
+            RipDpiButton(
+                text =
+                    if (showFullMatrix) {
+                        stringResource(R.string.diagnostics_audit_hide_full_matrix)
+                    } else {
+                        stringResource(R.string.diagnostics_audit_show_full_matrix)
+                    },
+                onClick = { showFullMatrix = !showFullMatrix },
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .ripDpiTestTag(RipDpiTestTags.DiagnosticsStrategyFullMatrixToggle),
+                variant = RipDpiButtonVariant.Outline,
+            )
+        }
         report.auditAssessment?.let { assessment ->
             HorizontalDivider()
             RipDpiCard(
@@ -1179,11 +1221,13 @@ internal fun StrategyProbeReportCard(
                 color = colors.foreground,
             )
             MetricsRow(metrics = report.summaryMetrics)
-            Text(
-                text = stringResource(R.string.diagnostics_audit_candidate_open_hint),
-                style = RipDpiThemeTokens.type.secondaryBody,
-                color = colors.mutedForeground,
-            )
+            if (!supportsWinningPath || showFullMatrix) {
+                Text(
+                    text = stringResource(R.string.diagnostics_audit_candidate_open_hint),
+                    style = RipDpiThemeTokens.type.secondaryBody,
+                    color = colors.mutedForeground,
+                )
+            }
         }
         if (report.auditAssessment?.confidence?.level == StrategyProbeAuditConfidenceLevel.LOW) {
             WarningBanner(
@@ -1225,23 +1269,148 @@ internal fun StrategyProbeReportCard(
                 )
             }
         }
-        report.families.forEach { family ->
-            HorizontalDivider()
+        if (showFullMatrix) {
+            report.families.forEach { family ->
+                HorizontalDivider()
+                Text(
+                    text = family.title,
+                    style = RipDpiThemeTokens.type.bodyEmphasis,
+                    color = colors.foreground,
+                )
+                Column(verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
+                    family.candidates.forEach { candidate ->
+                        StrategyProbeCandidateRow(
+                            candidate = candidate,
+                            onClick =
+                                report.candidateDetails[candidate.id]?.let { detail ->
+                                    { onSelectCandidate(detail) }
+                                },
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun WinningPathSection(
+    winningPath: DiagnosticsStrategyProbeWinningPathUiModel,
+    onSelectTcpWinner: (() -> Unit)?,
+    onSelectQuicWinner: (() -> Unit)?,
+) {
+    val colors = RipDpiThemeTokens.colors
+    val spacing = RipDpiThemeTokens.spacing
+    RipDpiCard(
+        variant = RipDpiCardVariant.Tonal,
+        modifier = Modifier.ripDpiTestTag(RipDpiTestTags.DiagnosticsStrategyWinningPath),
+    ) {
+        Text(
+            text = stringResource(R.string.diagnostics_audit_winning_path_title),
+            style = RipDpiThemeTokens.type.bodyEmphasis,
+            color = colors.foreground,
+        )
+        winningPath.dnsLaneLabel?.let { dnsLaneLabel ->
+            SettingsRow(
+                title = stringResource(R.string.diagnostics_audit_winning_dns_lane),
+                value = dnsLaneLabel,
+            )
+        }
+        Column(verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
+            WinningPathCandidateCard(
+                title = stringResource(R.string.diagnostics_audit_winning_tcp_title),
+                candidate = winningPath.tcpWinner,
+                onClick = onSelectTcpWinner,
+                testTag = RipDpiTestTags.DiagnosticsStrategyWinningTcpAction,
+            )
+            WinningPathCandidateCard(
+                title = stringResource(R.string.diagnostics_audit_winning_quic_title),
+                candidate = winningPath.quicWinner,
+                onClick = onSelectQuicWinner,
+                testTag = RipDpiTestTags.DiagnosticsStrategyWinningQuicAction,
+            )
+        }
+        Text(
+            text = stringResource(R.string.diagnostics_audit_winning_path_hint),
+            style = RipDpiThemeTokens.type.secondaryBody,
+            color = colors.mutedForeground,
+        )
+    }
+}
+
+@Composable
+private fun WinningPathCandidateCard(
+    title: String,
+    candidate: DiagnosticsStrategyProbeWinningCandidateUiModel,
+    testTag: String,
+    onClick: (() -> Unit)?,
+) {
+    val colors = RipDpiThemeTokens.colors
+    val spacing = RipDpiThemeTokens.spacing
+    Surface(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .ripDpiTestTag(testTag)
+                .let { modifier ->
+                    if (onClick != null) {
+                        modifier.clickable(onClick = onClick)
+                    } else {
+                        modifier
+                    }
+                },
+        shape = RipDpiThemeTokens.shapes.lg,
+        color = colors.inputBackground,
+        tonalElevation = 0.dp,
+    ) {
+        Column(
+            modifier =
+                Modifier
+                    .padding(RipDpiThemeTokens.layout.cardPadding),
+            verticalArrangement = Arrangement.spacedBy(spacing.xs),
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = title,
+                    style = RipDpiThemeTokens.type.bodyEmphasis,
+                    color = colors.foreground,
+                )
+                StatusIndicator(
+                    label = candidate.outcome,
+                    tone = statusTone(candidate.tone),
+                )
+            }
             Text(
-                text = family.title,
+                text = candidate.label,
                 style = RipDpiThemeTokens.type.bodyEmphasis,
                 color = colors.foreground,
             )
-            Column(verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
-                family.candidates.forEach { candidate ->
-                    StrategyProbeCandidateRow(
-                        candidate = candidate,
-                        onClick =
-                            report.candidateDetails[candidate.id]?.let { detail ->
-                                { onSelectCandidate(detail) }
-                            },
-                    )
-                }
+            Text(
+                text = candidate.familyLabel,
+                style = RipDpiThemeTokens.type.monoSmall,
+                color = colors.mutedForeground,
+            )
+            Text(
+                text = candidate.rationale,
+                style = RipDpiThemeTokens.type.secondaryBody,
+                color = colors.mutedForeground,
+            )
+            MetricsRow(metrics = candidate.metrics)
+            if (candidate.hiddenCandidateCount > 0) {
+                Text(
+                    text =
+                        pluralStringResource(
+                            R.plurals.diagnostics_audit_hidden_candidates_count,
+                            candidate.hiddenCandidateCount,
+                            candidate.hiddenCandidateCount,
+                        ),
+                    style = RipDpiThemeTokens.type.monoSmall,
+                    color = colors.mutedForeground,
+                )
             }
         }
     }
