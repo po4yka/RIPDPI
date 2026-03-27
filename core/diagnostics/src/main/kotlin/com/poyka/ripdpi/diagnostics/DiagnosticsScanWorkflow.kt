@@ -20,44 +20,46 @@ import kotlinx.serialization.json.Json
 
 internal object DiagnosticsScanWorkflow {
     private const val StrategyProbeSuiteFullMatrixV1 = "full_matrix_v1"
+    private val DerivableTcpStrategyFamilies =
+        setOf(
+            "hostfake",
+            "fake_approx",
+            "split",
+            "disorder",
+            "fake",
+            "oob",
+            "disoob",
+            "tlsrec",
+            "tlsrandrec",
+            "tlsrec_split",
+            "tlsrec_disorder",
+            "tlsrec_fake",
+        )
+    private val DerivableQuicStrategyFamilies =
+        setOf(
+            "quic_disabled",
+            "quic_compat_burst",
+            "quic_realistic_burst",
+            "quic_burst",
+        )
+
+    private data class ValidatedStrategyProbeRecommendation(
+        val recommendation: StrategyProbeRecommendation,
+        val winningTcpCandidate: StrategyProbeCandidateSummary?,
+        val winningQuicCandidate: StrategyProbeCandidateSummary?,
+        val isValid: Boolean,
+    )
 
     fun enrichScanReport(
         report: ScanReport,
         settings: com.poyka.ripdpi.proto.AppSettings,
         preferredDnsPath: EncryptedDnsPathCandidate?,
     ): ScanReport {
-        val activeDns = settings.activeDnsSettings()
         val strategyProbe =
             report.strategyProbeReport?.let { strategyProbe ->
-                val recommendation = strategyProbe.recommendation
-                val laneFamilies =
-                    decodeRipDpiProxyUiPreferences(recommendation.recommendedProxyConfigJson)
-                        ?.deriveStrategyLaneFamilies(activeDns = activeDns)
-                val strategySignature =
-                    decodeRipDpiProxyUiPreferences(recommendation.recommendedProxyConfigJson)
-                        ?.let { preferences ->
-                            deriveBypassStrategySignature(
-                                preferences = preferences,
-                                routeGroup = null,
-                                modeOverride = Mode.fromString(settings.ripdpiMode.ifEmpty { "vpn" }),
-                            )
-                        }?.copy(
-                            dnsStrategyFamily = activeDns.strategyFamily(),
-                            dnsStrategyLabel = activeDns.strategyLabel(),
-                        )
-                val winningTcpCandidate =
-                    strategyProbe.tcpCandidates.firstOrNull { it.id == recommendation.tcpCandidateId }
-                val winningQuicCandidate =
-                    strategyProbe.quicCandidates.firstOrNull { it.id == recommendation.quicCandidateId }
+                val recommendation = resolveValidatedStrategyProbeRecommendation(strategyProbe, settings)
                 strategyProbe.copy(
-                    recommendation =
-                        recommendation.copy(
-                            tcpCandidateFamily = winningTcpCandidate?.family ?: laneFamilies?.tcpStrategyFamily,
-                            quicCandidateFamily = winningQuicCandidate?.family ?: laneFamilies?.quicStrategyFamily,
-                            dnsStrategyFamily = activeDns.strategyFamily(),
-                            dnsStrategyLabel = activeDns.strategyLabel(),
-                            strategySignature = strategySignature,
-                        ),
+                    recommendation = recommendation.recommendation,
                 )
             }
         val resolverRecommendation =
@@ -103,30 +105,19 @@ internal object DiagnosticsScanWorkflow {
         if (strategyProbe.suiteId == StrategyProbeSuiteFullMatrixV1) {
             return null
         }
-        val recommendedCandidateIds =
-            setOf(
-                strategyProbe.recommendation.tcpCandidateId,
-                strategyProbe.recommendation.quicCandidateId,
-            )
-        val hasWinningTarget =
-            (strategyProbe.tcpCandidates + strategyProbe.quicCandidates).any { candidate ->
-                candidate.id in recommendedCandidateIds && candidate.succeededTargets > 0
-            }
-        if (!hasWinningTarget) {
+        val recommendation = resolveValidatedStrategyProbeRecommendation(strategyProbe, settings)
+        if (!recommendation.isValid) {
             return null
         }
-        val winningTcpStrategyFamily =
-            strategyProbe.tcpCandidates.firstOrNull { it.id == strategyProbe.recommendation.tcpCandidateId }?.family
-        val winningQuicStrategyFamily =
-            strategyProbe.quicCandidates.firstOrNull { it.id == strategyProbe.recommendation.quicCandidateId }?.family
+        if (!hasWinningTargetSuccess(strategyProbe)) {
+            return null
+        }
         val activeDns = settings.activeDnsSettings()
-        val winningDnsStrategyFamily =
-            strategyProbe.recommendation.dnsStrategyFamily ?: activeDns.strategyFamily()
         val networkScopeKey = fingerprint.scopeKey()
         val normalizedProxyConfigJson =
             stripRipDpiRuntimeContext(
                 RipDpiProxyJsonPreferences(
-                    configJson = strategyProbe.recommendation.recommendedProxyConfigJson,
+                    configJson = recommendation.recommendation.recommendedProxyConfigJson,
                     hostAutolearnStorePath = hostAutolearnStorePath,
                     networkScopeKey = networkScopeKey,
                     runtimeContext = activeDns.toRipDpiRuntimeContext(),
@@ -146,12 +137,107 @@ internal object DiagnosticsScanWorkflow {
             proxyConfigJson = normalizedProxyConfigJson,
             vpnDnsPolicy = dnsPolicy,
             strategySignatureJson =
-                strategyProbe.recommendation.strategySignature?.let {
+                recommendation.recommendation.strategySignature?.let {
                     json.encodeToString(BypassStrategySignature.serializer(), it)
                 },
-            winningTcpStrategyFamily = winningTcpStrategyFamily,
-            winningQuicStrategyFamily = winningQuicStrategyFamily,
-            winningDnsStrategyFamily = winningDnsStrategyFamily,
+            winningTcpStrategyFamily = recommendation.winningTcpCandidate?.family,
+            winningQuicStrategyFamily = recommendation.winningQuicCandidate?.family,
+            winningDnsStrategyFamily =
+                recommendation.recommendation.dnsStrategyFamily ?: activeDns.strategyFamily(),
         )
     }
+
+    private fun resolveValidatedStrategyProbeRecommendation(
+        strategyProbe: StrategyProbeReport,
+        settings: com.poyka.ripdpi.proto.AppSettings,
+    ): ValidatedStrategyProbeRecommendation {
+        val activeDns = settings.activeDnsSettings()
+        val baseRecommendation = strategyProbe.recommendation.clearDerivedMetadata()
+        val winningTcpCandidate =
+            strategyProbe.tcpCandidates.firstOrNull { it.id == baseRecommendation.tcpCandidateId }
+        val winningQuicCandidate =
+            strategyProbe.quicCandidates.firstOrNull { it.id == baseRecommendation.quicCandidateId }
+        val preferences = decodeRipDpiProxyUiPreferences(baseRecommendation.recommendedProxyConfigJson)
+        if (preferences == null || winningTcpCandidate == null || winningQuicCandidate == null) {
+            return ValidatedStrategyProbeRecommendation(
+                recommendation = baseRecommendation,
+                winningTcpCandidate = winningTcpCandidate,
+                winningQuicCandidate = winningQuicCandidate,
+                isValid = false,
+            )
+        }
+        val laneFamilies = preferences.deriveStrategyLaneFamilies(activeDns = activeDns)
+        val familiesMatch =
+            laneFamilyMatches(
+                derivedFamily = laneFamilies.tcpStrategyFamily,
+                winningFamily = winningTcpCandidate.family,
+                derivableFamilies = DerivableTcpStrategyFamilies,
+            ) &&
+                laneFamilyMatches(
+                    derivedFamily = laneFamilies.quicStrategyFamily,
+                    winningFamily = winningQuicCandidate.family,
+                    derivableFamilies = DerivableQuicStrategyFamilies,
+                )
+        if (!familiesMatch) {
+            return ValidatedStrategyProbeRecommendation(
+                recommendation = baseRecommendation,
+                winningTcpCandidate = winningTcpCandidate,
+                winningQuicCandidate = winningQuicCandidate,
+                isValid = false,
+            )
+        }
+        val strategySignature =
+            deriveBypassStrategySignature(
+                preferences = preferences,
+                routeGroup = null,
+                modeOverride = Mode.fromString(settings.ripdpiMode.ifEmpty { Mode.VPN.preferenceValue }),
+            ).copy(
+                dnsStrategyFamily = activeDns.strategyFamily(),
+                dnsStrategyLabel = activeDns.strategyLabel(),
+            )
+        return ValidatedStrategyProbeRecommendation(
+            recommendation =
+                baseRecommendation.copy(
+                    tcpCandidateFamily = winningTcpCandidate.family,
+                    quicCandidateFamily = winningQuicCandidate.family,
+                    dnsStrategyFamily = activeDns.strategyFamily(),
+                    dnsStrategyLabel = activeDns.strategyLabel(),
+                    strategySignature = strategySignature,
+                ),
+            winningTcpCandidate = winningTcpCandidate,
+            winningQuicCandidate = winningQuicCandidate,
+            isValid = true,
+        )
+    }
+
+    private fun laneFamilyMatches(
+        derivedFamily: String?,
+        winningFamily: String,
+        derivableFamilies: Set<String>,
+    ): Boolean {
+        if (winningFamily !in derivableFamilies) {
+            return true
+        }
+        return derivedFamily == winningFamily
+    }
+
+    private fun hasWinningTargetSuccess(strategyProbe: StrategyProbeReport): Boolean {
+        val recommendedCandidateIds =
+            setOf(
+                strategyProbe.recommendation.tcpCandidateId,
+                strategyProbe.recommendation.quicCandidateId,
+            )
+        return (strategyProbe.tcpCandidates + strategyProbe.quicCandidates).any { candidate ->
+            candidate.id in recommendedCandidateIds && candidate.succeededTargets > 0
+        }
+    }
+
+    private fun StrategyProbeRecommendation.clearDerivedMetadata(): StrategyProbeRecommendation =
+        copy(
+            tcpCandidateFamily = null,
+            quicCandidateFamily = null,
+            dnsStrategyFamily = null,
+            dnsStrategyLabel = null,
+            strategySignature = null,
+        )
 }

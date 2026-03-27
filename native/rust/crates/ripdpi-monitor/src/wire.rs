@@ -301,6 +301,7 @@ mod tests {
             is_finished: false,
             latest_probe_target: Some("example.org".to_string()),
             latest_probe_outcome: Some("reachable".to_string()),
+            strategy_probe_progress: None,
         };
 
         let json = serde_json::to_value(&progress).expect("serialize progress");
