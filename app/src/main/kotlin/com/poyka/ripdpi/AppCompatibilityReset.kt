@@ -18,7 +18,7 @@ private const val LegacyHostAutolearnFileName = "host-autolearn-v1.json"
 class AppCompatibilityReset
     @Inject
     constructor(
-        @ApplicationContext private val context: Context,
+        @param:ApplicationContext private val context: Context,
     ) {
         fun resetIfNeeded() {
             val preferences = context.getSharedPreferences(CompatibilityResetPreferencesName, Context.MODE_PRIVATE)
