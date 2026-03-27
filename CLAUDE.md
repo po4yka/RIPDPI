@@ -88,6 +88,28 @@ cargo run -p ripdpi-cli -- -p 1080 --strategy-evolution  # Enable adaptive combo
 - `:core:engine:buildRustNativeLibs` runs before `preBuild`, uses Cargo incremental outputs per ABI, and only copies changed `.so` files into Gradle-managed `jniLibs`.
 - Signing config for release builds uses environment variables (`SIGNING_STORE_FILE`, etc.) -- never commit keystores.
 
+## Git Hooks
+
+Pre-commit hooks via [lefthook](https://github.com/evilmartians/lefthook). Install once:
+
+```bash
+brew install lefthook && lefthook install
+```
+
+Hooks auto-install on Android Studio project sync (`prepareKotlinBuildScriptModel`).
+
+**Pre-commit** (parallel, staged files only):
+- `ktlint --format` on `*.kt`/`*.kts` -- auto-fixes and re-stages
+- `cargo fmt --check` on `*.rs`
+- Secret pattern detection
+- Large file prevention (>512KB)
+
+**Commit-msg**: Conventional Commits format enforced.
+
+Skip for emergencies: `LEFTHOOK=0 git commit ...`
+
+Local overrides: create `.lefthook-local.yml` (gitignored).
+
 ## CI/CD
 
 - `ci.yml`: build + unit tests + static analysis on push/PR to main; nightly soak and TUN E2E
