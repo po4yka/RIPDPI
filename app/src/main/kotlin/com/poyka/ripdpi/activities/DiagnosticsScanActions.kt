@@ -4,6 +4,8 @@ import com.poyka.ripdpi.diagnostics.ScanKind
 import com.poyka.ripdpi.diagnostics.ScanPathMode
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 
 internal class DiagnosticsScanActions(
@@ -70,13 +72,17 @@ internal class DiagnosticsScanActions(
             }
         }
         mutations.launch {
+            val pendingAuditSessionId =
+                scanLifecycle
+                    .map { state -> state.pendingAutoOpenAuditSessionId }
+                    .distinctUntilChanged()
             combine(
                 diagnosticsTimelineSource.sessions,
                 diagnosticsTimelineSource.activeScanProgress,
-            ) { sessions, progress ->
-                Pair(sessions, progress)
-            }.collect { (sessions, progress) ->
-                val pendingSessionId = scanLifecycle.value.pendingAutoOpenAuditSessionId
+                pendingAuditSessionId,
+            ) { sessions, progress, pendingSessionId ->
+                Triple(sessions, progress, pendingSessionId)
+            }.collect { (sessions, progress, pendingSessionId) ->
                 if (pendingSessionId == null || progress != null) {
                     return@collect
                 }
@@ -84,7 +90,13 @@ internal class DiagnosticsScanActions(
                     sessions.firstOrNull { it.id == pendingSessionId && it.report != null }
                         ?: return@collect
                 loadSessionDetail(session.id, false)
-                scanLifecycle.update { it.copy(pendingAutoOpenAuditSessionId = null) }
+                scanLifecycle.update { state ->
+                    if (state.pendingAutoOpenAuditSessionId == pendingSessionId) {
+                        state.copy(pendingAutoOpenAuditSessionId = null)
+                    } else {
+                        state
+                    }
+                }
             }
         }
     }

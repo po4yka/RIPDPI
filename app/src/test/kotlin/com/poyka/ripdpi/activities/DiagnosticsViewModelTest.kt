@@ -1363,6 +1363,84 @@ class DiagnosticsViewModelTest {
         }
 
     @Test
+    fun `automatic audit completion auto opens finished session detail after fast completion race`() =
+        runTest {
+            val profileId = "automatic-audit"
+            val sessionId = "session-RAW_PATH"
+            val detail =
+                DiagnosticSessionDetail(
+                    session =
+                        session(
+                            id = sessionId,
+                            profileId = profileId,
+                            pathMode = "RAW_PATH",
+                            summary = "Audit done",
+                        ),
+                    results =
+                        listOf(
+                            ProbeResultEntity(
+                                id = "probe-audit-fast",
+                                sessionId = sessionId,
+                                probeType = "https",
+                                target = "audit.example",
+                                outcome = "ok",
+                                detailJson = json.encodeToString(listOf(ProbeDetail("candidateId", "tlsrec_hostfake"))),
+                                createdAt = 3L,
+                            ),
+                        ),
+                    snapshots = listOf(snapshot(id = "snapshot-audit-fast", sessionId = sessionId)),
+                    context = context(id = "context-audit-fast", sessionId = sessionId),
+                    events = emptyList(),
+                )
+            val manager =
+                FakeDiagnosticsManager(detail = detail).apply {
+                    profilesState.value =
+                        listOf(
+                            DiagnosticProfileEntity(
+                                id = profileId,
+                                name = "Automatic audit",
+                                source = "bundled",
+                                version = 1,
+                                requestJson =
+                                    strategyProbeProfileRequest(
+                                        json = json,
+                                        profileId = profileId,
+                                        displayName = "Automatic audit",
+                                        suiteId = "full_matrix_v1",
+                                    ),
+                                updatedAt = 1L,
+                            ),
+                        )
+                    scanController.onStartScan = {
+                        progressState.value =
+                            ScanProgress(
+                                sessionId = sessionId,
+                                phase = "tcp",
+                                completedSteps = 1,
+                                totalSteps = 2,
+                                message = "Testing TCP candidate",
+                            )
+                        sessionsState.value = listOf(detail.session)
+                        progressState.value = null
+                        sessionId
+                    }
+                }
+
+            val viewModel =
+                createDiagnosticsViewModel(RuntimeEnvironment.getApplication(), manager, FakeAppSettingsRepository())
+            val collector = backgroundScope.launch { viewModel.uiState.collect {} }
+            advanceUntilIdle()
+
+            viewModel.startRawScan()
+            advanceUntilIdle()
+
+            val selected = requireNotNull(viewModel.uiState.value.selectedSessionDetail)
+            assertEquals(sessionId, selected.session.id)
+            assertEquals(sessionId, viewModel.uiState.value.sessions.focusedSessionId)
+            collector.cancel()
+        }
+
+    @Test
     fun `select session loads grouped detail model`() =
         runTest {
             val detail =

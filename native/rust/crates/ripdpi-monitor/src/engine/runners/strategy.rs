@@ -29,6 +29,18 @@ pub(super) struct StrategyTcpRunner;
 pub(super) struct StrategyQuicRunner;
 pub(super) struct StrategyRecommendationRunner;
 
+fn resolve_recommended_proxy_config_json(
+    quic_candidate: &crate::types::StrategyProbeCandidateSummary,
+    fallback_quic_spec: &crate::candidates::StrategyCandidateSpec,
+) -> String {
+    quic_candidate
+        .proxy_config_json
+        .as_deref()
+        .filter(|value| !value.trim().is_empty())
+        .map(str::to_owned)
+        .unwrap_or_else(|| crate::candidates::strategy_probe_config_json(&fallback_quic_spec.config))
+}
+
 impl ExecutionStageRunner for StrategyDnsBaselineRunner {
     fn id(&self) -> ExecutionStageId {
         ExecutionStageId::StrategyDnsBaseline
@@ -457,6 +469,8 @@ impl ExecutionStageRunner for StrategyRecommendationRunner {
             runtime.strategy.summary = Some("Automatic probing finished".to_string());
             return RunnerOutcome::Completed;
         };
+        let recommended_proxy_config_json =
+            resolve_recommended_proxy_config_json(&runtime.strategy.quic_candidates[winning_quic], quic_winner_spec);
         let recommendation = StrategyProbeRecommendation {
             tcp_candidate_id: runtime.strategy.tcp_candidates[winning_tcp].id.clone(),
             tcp_candidate_label: runtime.strategy.tcp_candidates[winning_tcp].label.clone(),
@@ -468,7 +482,7 @@ impl ExecutionStageRunner for StrategyRecommendationRunner {
                 runtime.strategy.tcp_candidates[winning_tcp].weighted_success_score,
                 runtime.strategy.quic_candidates[winning_quic].weighted_success_score,
             ),
-            recommended_proxy_config_json: crate::candidates::strategy_probe_config_json(&quic_winner_spec.config),
+            recommended_proxy_config_json,
         };
         let summary = build_strategy_probe_summary(
             &strategy_plan.suite_id,
@@ -498,5 +512,84 @@ impl ExecutionStageRunner for StrategyRecommendationRunner {
             },
         );
         RunnerOutcome::Completed
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use ripdpi_proxy_config::{parse_proxy_config_json, ProxyConfigPayload, ProxyUiConfig};
+
+    use super::resolve_recommended_proxy_config_json;
+    use crate::types::StrategyProbeCandidateSummary;
+
+    fn quic_candidate_summary(proxy_config_json: Option<String>) -> StrategyProbeCandidateSummary {
+        StrategyProbeCandidateSummary {
+            id: "quic_realistic_burst".to_string(),
+            label: "QUIC realistic burst".to_string(),
+            family: "quic_burst".to_string(),
+            outcome: "success".to_string(),
+            rationale: "Recovered QUIC".to_string(),
+            succeeded_targets: 1,
+            total_targets: 1,
+            weighted_success_score: 2,
+            total_weight: 2,
+            quality_score: 4,
+            proxy_config_json,
+            notes: Vec::new(),
+            average_latency_ms: Some(220),
+            skipped: false,
+        }
+    }
+
+    #[test]
+    fn resolve_recommended_proxy_config_json_prefers_winning_quic_summary_config() {
+        let mut composed_config = ProxyUiConfig::default();
+        composed_config.chains.tcp_steps = vec![crate::candidates::tcp_step("tlsrec", "extlen")];
+        composed_config.quic.fake_profile = "realistic_initial".to_string();
+
+        let mut fallback_config = ProxyUiConfig::default();
+        fallback_config.quic.fake_profile = "compat_default".to_string();
+        let fallback_quic_spec = crate::candidates::candidate_spec(
+            "quic_realistic_burst",
+            "QUIC realistic burst",
+            "quic_burst",
+            fallback_config,
+        );
+
+        let winning_quic_candidate =
+            quic_candidate_summary(Some(crate::candidates::strategy_probe_config_json(&composed_config)));
+
+        let recommended_proxy_config_json =
+            resolve_recommended_proxy_config_json(&winning_quic_candidate, &fallback_quic_spec);
+
+        match parse_proxy_config_json(&recommended_proxy_config_json).expect("parse ui config") {
+            ProxyConfigPayload::Ui { config, .. } => {
+                assert_eq!(config.chains.tcp_steps.len(), 1);
+                assert_eq!(config.chains.tcp_steps[0].kind, "tlsrec");
+                assert_eq!(config.quic.fake_profile, "realistic_initial");
+            }
+            ProxyConfigPayload::CommandLine { .. } => panic!("expected UI proxy config"),
+        }
+    }
+
+    #[test]
+    fn resolve_recommended_proxy_config_json_falls_back_to_quic_winner_spec_config() {
+        let mut fallback_config = ProxyUiConfig::default();
+        fallback_config.quic.fake_profile = "compat_default".to_string();
+        let fallback_quic_spec =
+            crate::candidates::candidate_spec("quic_compat_burst", "QUIC compat burst", "quic_burst", fallback_config);
+
+        let winning_quic_candidate = quic_candidate_summary(None);
+
+        let recommended_proxy_config_json =
+            resolve_recommended_proxy_config_json(&winning_quic_candidate, &fallback_quic_spec);
+
+        match parse_proxy_config_json(&recommended_proxy_config_json).expect("parse ui config") {
+            ProxyConfigPayload::Ui { config, .. } => {
+                assert_eq!(config.chains.tcp_steps, fallback_quic_spec.config.chains.tcp_steps);
+                assert_eq!(config.quic.fake_profile, "compat_default");
+            }
+            ProxyConfigPayload::CommandLine { .. } => panic!("expected UI proxy config"),
+        }
     }
 }
