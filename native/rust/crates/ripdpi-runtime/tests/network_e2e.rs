@@ -8,12 +8,9 @@ use local_network_fixture::{
     FixtureConfig, FixtureEvent, FixtureFaultOutcome, FixtureFaultScope, FixtureFaultSpec, FixtureFaultTarget,
     FixtureStack,
 };
-#[cfg(any(target_os = "linux", target_os = "android"))]
 use ripdpi_config::TcpChainStep;
-#[cfg(any(target_os = "linux", target_os = "android"))]
 use ripdpi_config::TcpChainStepKind;
 use ripdpi_config::{DesyncGroup, QuicInitialMode, RuntimeConfig};
-#[cfg(any(target_os = "linux", target_os = "android"))]
 use ripdpi_packets::IS_HTTPS;
 use ripdpi_packets::{IS_TCP, IS_UDP};
 use ripdpi_proxy_config::{runtime_config_from_ui, ProxyUiConfig};
@@ -25,10 +22,10 @@ use std::sync::{Arc, Mutex, MutexGuard, OnceLock, PoisonError};
 
 use support::proxy::{ephemeral_proxy_config, start_proxy};
 use support::socks5::{
-    recv_exact, socks_connect, socks_connect_domain, socks_connect_domain_round_trip_via_upstream_with_retry,
-    socks_connect_domain_round_trip_with_retry, socks_connect_ip_reply, socks_connect_ip_round_trip_with_retry,
-    socks_udp_associate, udp_proxy_client, udp_proxy_roundtrip, udp_proxy_roundtrip_with_socket,
-    wait_for_accepted_connections,
+    attempt_socks_connect_ip_round_trip, recv_exact, socks_connect, socks_connect_domain,
+    socks_connect_domain_round_trip_via_upstream_with_retry, socks_connect_domain_round_trip_with_retry,
+    socks_connect_ip_reply, socks_connect_ip_round_trip_with_retry, socks_udp_associate, udp_proxy_client,
+    udp_proxy_roundtrip, udp_proxy_roundtrip_with_socket, wait_for_accepted_connections,
 };
 use support::tls::{http_connect_round_trip_with_retry, socks5_tls_round_trip_with_retry, FragmentingProfile};
 use support::START_TIMEOUT;
@@ -777,6 +774,33 @@ fn tls_round_trip_with_split_desync_completes_handshake() {
     let events = fixture.events().snapshot();
     assert!(events.iter().any(|e| e.service == "tls_echo" && e.detail == "handshake"));
     assert!(!events.iter().any(|e| e.service == "tls_echo" && e.detail.starts_with("handshake_error:")));
+    drop(proxy);
+}
+
+#[test]
+fn delay_connect_uses_plain_fallback_when_split_group_payload_does_not_match() {
+    let _guard = test_guard();
+    let fixture = FixtureStack::start(ephemeral_fixture_config()).expect("start fixture");
+
+    let mut config = ui_proxy_config();
+    config.groups[0].matches.proto = IS_TCP | IS_HTTPS;
+    config.groups[0]
+        .actions
+        .tcp_chain
+        .push(TcpChainStep::new(TcpChainStepKind::Split, ripdpi_config::OffsetExpr::absolute(1)));
+    config.network.delay_conn = true;
+
+    let mut fallback = DesyncGroup::new(1);
+    fallback.matches.detect = ripdpi_config::DETECT_CONNECT;
+    config.groups.push(fallback);
+
+    let proxy = start_proxy(config, None);
+    let payload = b"legacy split fallback";
+
+    let body = attempt_socks_connect_ip_round_trip(proxy.port, fixture.manifest().tcp_echo_port, payload)
+        .expect("non-TLS payload should fall back to plain connect");
+
+    assert_eq!(body, payload);
     drop(proxy);
 }
 
