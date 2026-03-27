@@ -21,12 +21,9 @@ use super::registry::{
 };
 
 pub(crate) fn create_session(env: &mut Env<'_>, config_json: JString) -> jlong {
-    let json = match config_json.try_to_string(env) {
-        Ok(value) => value,
-        Err(_) => {
-            throw_illegal_argument_env(env, "Invalid proxy config payload");
-            return 0;
-        }
+    let Ok(json) = config_json.try_to_string(env) else {
+        throw_illegal_argument_env(env, "Invalid proxy config payload");
+        return 0;
     };
 
     let payload = match parse_proxy_config_json(&json) {
@@ -169,12 +166,9 @@ pub(crate) fn stop_session(env: &mut Env<'_>, handle: jlong) {
 }
 
 pub(crate) fn update_network_snapshot(env: &mut Env<'_>, handle: jlong, snapshot_json: JString) {
-    let json = match snapshot_json.try_to_string(env) {
-        Ok(value) => value,
-        Err(_) => {
-            throw_illegal_argument_env(env, "Invalid network snapshot JSON");
-            return;
-        }
+    let Ok(json) = snapshot_json.try_to_string(env) else {
+        throw_illegal_argument_env(env, "Invalid network snapshot JSON");
+        return;
     };
     let snapshot: NetworkSnapshot = match serde_json::from_str(&json) {
         Ok(value) => value,

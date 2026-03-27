@@ -104,7 +104,7 @@ fn proxy_ramp_load() {
 
     drop(proxy);
 
-    let samples = sampler.finish().expect("finish ramp sampler");
+    let _samples = sampler.finish().expect("finish ramp sampler");
     let _ = write_json_artifact("proxy_ramp_load.results.json", &step_results);
 
     // Resource growth is expected under load -- soak tests cover leak detection.
@@ -372,7 +372,7 @@ fn proxy_saturation_load() {
         (0..4).filter(|_| socks_tcp_echo(proxy.port, fixture.manifest().tcp_echo_port, b"recovery").is_ok()).count();
     assert!(recovery_ok >= 3, "expected at least 3/4 recovery connections to succeed, got {recovery_ok}");
 
-    let samples = sampler.finish().expect("finish saturation sampler");
+    let _samples = sampler.finish().expect("finish saturation sampler");
 
     let saturation_result = json!({
         "maxConn": max_conn,

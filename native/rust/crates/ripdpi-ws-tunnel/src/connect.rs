@@ -343,6 +343,7 @@ mod tests {
             }
             let _ws = tungstenite::accept_hdr(
                 tls,
+                #[allow(clippy::result_large_err)]
                 |request: &tungstenite::handshake::server::Request,
                  mut response: tungstenite::handshake::server::Response| {
                     assert_eq!(
