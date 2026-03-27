@@ -43,6 +43,7 @@ import com.poyka.ripdpi.activities.DiagnosticsStrategyProbeCandidateUiModel
 import com.poyka.ripdpi.activities.DiagnosticsStrategyProbeProgressLaneUiModel
 import com.poyka.ripdpi.activities.DiagnosticsStrategyProbeReportUiModel
 import com.poyka.ripdpi.activities.DiagnosticsTone
+import com.poyka.ripdpi.activities.DiagnosticsWorkflowRestrictionActionKindUiModel
 import com.poyka.ripdpi.activities.PhaseState
 import com.poyka.ripdpi.activities.PhaseStepUiModel
 import com.poyka.ripdpi.diagnostics.StrategyProbeAuditAssessment
@@ -73,6 +74,7 @@ internal fun ScanSection(
     onRunRawScan: () -> Unit,
     onRunInPathScan: () -> Unit,
     onCancelScan: () -> Unit,
+    onOpenAdvancedSettings: () -> Unit,
     onKeepResolverRecommendation: (String?) -> Unit,
     onSaveResolverRecommendation: (String?) -> Unit,
     onSelectStrategyProbeCandidate: (DiagnosticsStrategyProbeCandidateDetailUiModel) -> Unit,
@@ -132,6 +134,7 @@ internal fun ScanSection(
                     onRunRawScan = onRunRawScan,
                     onRunInPathScan = onRunInPathScan,
                     onCancelScan = onCancelScan,
+                    onOpenAdvancedSettings = onOpenAdvancedSettings,
                     modifier = Modifier.ripDpiTestTag(scanStateTag),
                 )
             }
@@ -607,6 +610,7 @@ internal fun DiagnosticsScanWorkflowCard(
     onRunRawScan: () -> Unit,
     onRunInPathScan: () -> Unit,
     onCancelScan: () -> Unit,
+    onOpenAdvancedSettings: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val colors = RipDpiThemeTokens.colors
@@ -639,6 +643,12 @@ internal fun DiagnosticsScanWorkflowCard(
                 text = label,
                 style = RipDpiThemeTokens.type.monoSmall,
                 color = colors.mutedForeground,
+            )
+        }
+        scan.workflowRestriction?.let { restriction ->
+            WorkflowRestrictionCard(
+                restriction = restriction,
+                onOpenAdvancedSettings = onOpenAdvancedSettings,
             )
         }
         scan.runRawHint?.let { hint ->
@@ -699,6 +709,41 @@ private data class WorkflowBadgeUiModel(
 )
 
 @Composable
+private fun WorkflowRestrictionCard(
+    restriction: com.poyka.ripdpi.activities.DiagnosticsWorkflowRestrictionUiModel,
+    onOpenAdvancedSettings: () -> Unit,
+) {
+    val spacing = RipDpiThemeTokens.spacing
+    RipDpiCard(
+        variant = RipDpiCardVariant.Elevated,
+        modifier = Modifier.ripDpiTestTag(RipDpiTestTags.DiagnosticsWorkflowRestrictionCard),
+    ) {
+        StatusIndicator(label = restriction.title, tone = StatusIndicatorTone.Error)
+        Text(
+            text = restriction.body,
+            style = RipDpiThemeTokens.type.secondaryBody,
+            color = RipDpiThemeTokens.colors.foreground,
+        )
+        SettingsRow(
+            title = stringResource(R.string.diagnostics_scan_blocked_setting_label),
+            value = stringResource(R.string.use_command_line_settings),
+        )
+        if (restriction.actionKind == DiagnosticsWorkflowRestrictionActionKindUiModel.OPEN_ADVANCED_SETTINGS) {
+            RipDpiButton(
+                text = restriction.actionLabel,
+                onClick = onOpenAdvancedSettings,
+                variant = RipDpiButtonVariant.Secondary,
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(top = spacing.xs)
+                        .ripDpiTestTag(RipDpiTestTags.DiagnosticsWorkflowRestrictionAction),
+            )
+        }
+    }
+}
+
+@Composable
 private fun workflowStatus(
     scan: com.poyka.ripdpi.activities.DiagnosticsScanUiModel,
     strategyProbeSelected: Boolean,
@@ -731,16 +776,20 @@ private fun workflowStatus(
 
         isFullAudit && !scan.runRawEnabled -> {
             WorkflowStatusUiModel(
-                title = stringResource(R.string.diagnostics_audit_unavailable_title),
-                body = stringResource(R.string.diagnostics_profile_audit_unavailable_body),
+                title = scan.workflowRestriction?.title ?: stringResource(R.string.diagnostics_audit_unavailable_title),
+                body =
+                    scan.workflowRestriction?.body
+                        ?: stringResource(R.string.diagnostics_profile_audit_unavailable_body),
                 tone = StatusIndicatorTone.Error,
             )
         }
 
         strategyProbeSelected && !scan.runRawEnabled -> {
             WorkflowStatusUiModel(
-                title = stringResource(R.string.diagnostics_probe_unavailable_title),
-                body = stringResource(R.string.diagnostics_profile_probe_unavailable_body),
+                title = scan.workflowRestriction?.title ?: stringResource(R.string.diagnostics_probe_unavailable_title),
+                body =
+                    scan.workflowRestriction?.body
+                        ?: stringResource(R.string.diagnostics_profile_probe_unavailable_body),
                 tone = StatusIndicatorTone.Error,
             )
         }

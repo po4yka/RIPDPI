@@ -132,6 +132,23 @@ enum class DiagnosticsStrategyProbeProgressLaneUiModel {
     QUIC,
 }
 
+enum class DiagnosticsWorkflowRestrictionReasonUiModel {
+    COMMAND_LINE_MODE_ACTIVE,
+}
+
+enum class DiagnosticsWorkflowRestrictionActionKindUiModel {
+    OPEN_ADVANCED_SETTINGS,
+}
+
+@Immutable
+data class DiagnosticsWorkflowRestrictionUiModel(
+    val reason: DiagnosticsWorkflowRestrictionReasonUiModel,
+    val title: String,
+    val body: String,
+    val actionLabel: String,
+    val actionKind: DiagnosticsWorkflowRestrictionActionKindUiModel,
+)
+
 @Immutable
 data class DiagnosticsStrategyProbeLiveProgressUiModel(
     val lane: DiagnosticsStrategyProbeProgressLaneUiModel,
@@ -338,6 +355,7 @@ data class DiagnosticsScanUiModel(
     val runInPathEnabled: Boolean = true,
     val runRawHint: String? = null,
     val runInPathHint: String? = null,
+    val workflowRestriction: DiagnosticsWorkflowRestrictionUiModel? = null,
     val resolverRecommendation: DiagnosticsResolverRecommendationUiModel? = null,
     val strategyProbeReport: DiagnosticsStrategyProbeReportUiModel? = null,
     val isBusy: Boolean = false,
