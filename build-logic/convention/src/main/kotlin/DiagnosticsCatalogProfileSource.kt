@@ -172,13 +172,14 @@ internal object DefaultDiagnosticsCatalogProfileSource : DiagnosticsCatalogProfi
         return DiagnosticsProfileDefinition(
             id = "ru-throttling",
             name = "Russia Throttling Check",
+            version = 2,
             family = CatalogDiagnosticProfileFamily.THROTTLING,
             regionTag = "ru",
             executionPolicy = policy(manualOnly = true, allowBackground = false, requiresRawPath = false),
             packRefs =
                 listOf(
                     packRef("ru-throttling", 1),
-                    packRef("neutral-control", 1),
+                    packRef("neutral-control", 2),
                 ),
             domainTargets = throttling.domainTargets + control.domainTargets,
             throughputTargets = throttling.throughputTargets + control.throughputTargets,
@@ -194,6 +195,7 @@ internal object DefaultDiagnosticsCatalogProfileSource : DiagnosticsCatalogProfi
         return DiagnosticsProfileDefinition(
             id = "ru-dpi-full",
             name = "Russia DPI Full",
+            version = 2,
             family = CatalogDiagnosticProfileFamily.DPI_FULL,
             regionTag = "ru",
             executionPolicy = policy(manualOnly = true, allowBackground = false, requiresRawPath = false),
@@ -204,7 +206,7 @@ internal object DefaultDiagnosticsCatalogProfileSource : DiagnosticsCatalogProfi
                     packRef("ru-messaging", 1),
                     packRef("ru-circumvention", 1),
                     packRef("ru-throttling", 1),
-                    packRef("neutral-control", 1),
+                    packRef("neutral-control", 2),
                 ),
             domainTargets =
                 domainTargets(

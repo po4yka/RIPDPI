@@ -146,12 +146,12 @@ internal object DefaultDiagnosticsCatalogPackSource : DiagnosticsCatalogPackSour
             ),
             TargetPackDefinition(
                 id = "neutral-control",
-                version = 1,
+                version = 2,
                 domainTargets =
                     domainTargets(
                         """
                         speed.cloudflare.com
-                        speed.hetzner.de
+                        proof.ovh.net
                         """.trimIndent(),
                     ),
                 tcpTargets = DiagnosticsCatalogSharedData.neutralTcpTargets,
@@ -164,9 +164,9 @@ internal object DefaultDiagnosticsCatalogPackSource : DiagnosticsCatalogPackSour
                             isControl = true,
                         ),
                         ThroughputTargetDefinition(
-                            id = "hetzner-control",
-                            label = "Hetzner Control",
-                            url = "https://speed.hetzner.de/10MB.bin",
+                            id = "ovh-control",
+                            label = "OVH Control",
+                            url = "https://proof.ovh.net/files/10Mb.dat",
                             isControl = true,
                         ),
                     ),
