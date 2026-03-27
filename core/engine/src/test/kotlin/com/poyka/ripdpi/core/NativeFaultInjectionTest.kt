@@ -2,6 +2,8 @@ package com.poyka.ripdpi.core
 
 import com.poyka.ripdpi.core.testing.FaultOutcome
 import com.poyka.ripdpi.core.testing.FaultSpec
+import com.poyka.ripdpi.data.NativeError
+import com.poyka.ripdpi.data.TunnelStats
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.async
 import kotlinx.coroutines.test.runTest
@@ -142,6 +144,139 @@ class NativeFaultInjectionTest {
             assertTrue(error is IOException)
             assertEquals(0L, currentHandle(diagnostics))
             assertEquals(1, bindings.destroyedHandles.size)
+        }
+
+    // -- Proxy guard / zero-handle paths ------------------------------------
+
+    @Test
+    fun `proxy create failure with zero handle throws SessionCreationFailed`() =
+        runTest {
+            val bindings = FakeRipDpiProxyBindings().apply { createdHandle = 0L }
+            val proxy = RipDpiProxy(bindings)
+
+            val error =
+                runCatching {
+                    proxy.startProxy(RipDpiProxyUIPreferences(listen = RipDpiListenConfig(port = 1090)))
+                }.exceptionOrNull()
+
+            assertTrue(error is NativeError.SessionCreationFailed)
+        }
+
+    @Test
+    fun `proxy awaitReady throws NotRunning when no startup in progress`() =
+        runTest {
+            val proxy = RipDpiProxy(FakeRipDpiProxyBindings())
+
+            val error = runCatching { proxy.awaitReady() }.exceptionOrNull()
+
+            assertTrue(error is NativeError.NotRunning)
+        }
+
+    @Test
+    fun `proxy pollTelemetry returns idle snapshot when handle is zero`() =
+        runTest {
+            val proxy = RipDpiProxy(FakeRipDpiProxyBindings())
+
+            val telemetry = proxy.pollTelemetry()
+
+            assertEquals("idle", telemetry.state)
+        }
+
+    @Test
+    fun `proxy stopProxy throws NotRunning when handle is zero`() =
+        runTest {
+            val proxy = RipDpiProxy(FakeRipDpiProxyBindings())
+
+            val error = runCatching { proxy.stopProxy() }.exceptionOrNull()
+
+            assertTrue(error is NativeError.NotRunning)
+        }
+
+    // -- Tunnel guard / zero-handle paths -------------------------------------
+
+    @Test
+    fun `tunnel create failure with zero handle throws SessionCreationFailed`() =
+        runTest {
+            val bindings = FakeTun2SocksBindings().apply { createdHandle = 0L }
+            val tunnel = Tun2SocksTunnel(bindings)
+
+            val error =
+                runCatching {
+                    tunnel.start(Tun2SocksConfig(socks5Port = 1080), tunFd = 50)
+                }.exceptionOrNull()
+
+            assertTrue(error is NativeError.SessionCreationFailed)
+        }
+
+    @Test
+    fun `tunnel start failure destroys created handle before propagating`() =
+        runTest {
+            val bindings = FakeTun2SocksBindings()
+            val tunnel = Tun2SocksTunnel(bindings)
+
+            bindings.faults.enqueue(
+                FaultSpec(
+                    target = TunnelBindingFaultTarget.START,
+                    outcome = FaultOutcome.EXCEPTION,
+                    message = "start failed",
+                ),
+            )
+
+            val error =
+                runCatching {
+                    tunnel.start(Tun2SocksConfig(socks5Port = 1080), tunFd = 51)
+                }.exceptionOrNull()
+
+            assertTrue(error is IOException)
+            assertEquals(0L, currentHandle(tunnel))
+            assertEquals(1, bindings.destroyedHandles.size)
+            assertEquals(bindings.createdHandle, bindings.destroyedHandles.single())
+        }
+
+    @Test
+    fun `tunnel start when already running throws AlreadyRunning`() =
+        runTest {
+            val bindings = FakeTun2SocksBindings()
+            val tunnel = Tun2SocksTunnel(bindings)
+            tunnel.start(Tun2SocksConfig(socks5Port = 1080), tunFd = 52)
+
+            val error =
+                runCatching {
+                    tunnel.start(Tun2SocksConfig(socks5Port = 1080), tunFd = 53)
+                }.exceptionOrNull()
+
+            assertTrue(error is NativeError.AlreadyRunning)
+            tunnel.stop()
+        }
+
+    @Test
+    fun `tunnel stop when not running throws NotRunning`() =
+        runTest {
+            val tunnel = Tun2SocksTunnel(FakeTun2SocksBindings())
+
+            val error = runCatching { tunnel.stop() }.exceptionOrNull()
+
+            assertTrue(error is NativeError.NotRunning)
+        }
+
+    @Test
+    fun `tunnel stats returns empty when handle is zero`() =
+        runTest {
+            val tunnel = Tun2SocksTunnel(FakeTun2SocksBindings())
+
+            val stats = tunnel.stats()
+
+            assertEquals(TunnelStats(), stats)
+        }
+
+    @Test
+    fun `tunnel telemetry returns idle when handle is zero`() =
+        runTest {
+            val tunnel = Tun2SocksTunnel(FakeTun2SocksBindings())
+
+            val telemetry = tunnel.telemetry()
+
+            assertEquals("idle", telemetry.state)
         }
 
     private fun currentHandle(target: Any): Long {

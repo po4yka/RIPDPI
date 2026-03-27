@@ -89,4 +89,42 @@ class ProxyRuntimeSupervisorTest {
 
             assertEquals(19, exits.single().getOrNull())
         }
+
+    @Test
+    fun pollTelemetryReturnsNullWhenRuntimeThrows() =
+        runTest {
+            val dispatcher = StandardTestDispatcher(testScheduler)
+            val runtime = TestProxyRuntime().apply { telemetryFailure = IOException("telemetry crash") }
+            val factory = TestRipDpiProxyFactory { runtime }
+            val supervisor =
+                ProxyRuntimeSupervisor(
+                    scope = backgroundScope,
+                    dispatcher = dispatcher,
+                    ripDpiProxyFactory = factory,
+                    networkSnapshotProvider = TestNativeNetworkSnapshotProvider(),
+                )
+
+            supervisor.start(RipDpiProxyUIPreferences()) {}
+
+            val telemetry = supervisor.pollTelemetry()
+
+            assertNull(telemetry)
+        }
+
+    @Test
+    fun stopWithNullRuntimeIsSafeNoOp() =
+        runTest {
+            val dispatcher = StandardTestDispatcher(testScheduler)
+            val supervisor =
+                ProxyRuntimeSupervisor(
+                    scope = backgroundScope,
+                    dispatcher = dispatcher,
+                    ripDpiProxyFactory = TestRipDpiProxyFactory(),
+                    networkSnapshotProvider = TestNativeNetworkSnapshotProvider(),
+                )
+
+            supervisor.stop()
+
+            assertNull(supervisor.runtime)
+        }
 }
