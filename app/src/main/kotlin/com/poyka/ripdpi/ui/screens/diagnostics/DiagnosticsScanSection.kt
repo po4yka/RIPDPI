@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Surface
@@ -144,10 +145,10 @@ internal fun ScanSection(
                 item {
                     SettingsCategoryHeader(title = stringResource(R.string.diagnostics_live_results_title))
                 }
-                items(
+                itemsIndexed(
                     items = progress.completedProbes.reversed().take(LiveProbePreviewCount),
-                    key = { "${it.target}-${it.outcome}" },
-                ) { probe ->
+                    key = { index, probe -> "$index-${probe.target}-${probe.outcome}" },
+                ) { _, probe ->
                     AnimatedVisibility(
                         visible = true,
                         enter =

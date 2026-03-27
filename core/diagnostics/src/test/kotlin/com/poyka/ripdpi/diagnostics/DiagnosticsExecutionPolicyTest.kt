@@ -13,6 +13,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
+import org.junit.Assert.fail
 import org.junit.Test
 
 class DiagnosticsExecutionPolicyTest {
@@ -183,4 +184,76 @@ class DiagnosticsExecutionPolicyTest {
 
             assertNull(admitted)
         }
+
+    @Test
+    fun `manual admission rejects hidden automatic probe explicitly`() =
+        runTest {
+            val stores = FakeDiagnosticsHistoryStores()
+            val registry = activeScanRegistry(stores)
+            val service = scanAdmissionService(stores, registry)
+
+            registry.registerBridge(
+                bridge = FakeNetworkDiagnosticsBridge(json),
+                sessionId = "hidden-probe",
+                registerActiveBridge = false,
+            )
+
+            try {
+                service.admitManualStart()
+                fail("Expected manual admission to be rejected")
+            } catch (error: DiagnosticsScanStartRejectedException) {
+                assertEquals(DiagnosticsScanStartRejectionReason.HiddenAutomaticProbeRunning, error.reason)
+            }
+        }
+
+    @Test
+    fun `manual admission rejects visible scan as already active`() =
+        runTest {
+            val stores = FakeDiagnosticsHistoryStores()
+            val registry = activeScanRegistry(stores)
+            val service = scanAdmissionService(stores, registry)
+
+            registry.updateProgress(
+                ScanProgress(
+                    sessionId = "visible-scan",
+                    phase = "running",
+                    completedSteps = 0,
+                    totalSteps = 1,
+                    message = "running",
+                ),
+            )
+
+            try {
+                service.admitManualStart()
+                fail("Expected manual admission to be rejected")
+            } catch (error: DiagnosticsScanStartRejectedException) {
+                assertEquals(DiagnosticsScanStartRejectionReason.ScanAlreadyActive, error.reason)
+            }
+        }
 }
+
+private fun DiagnosticsExecutionPolicyTest.activeScanRegistry(
+    stores: FakeDiagnosticsHistoryStores,
+): ActiveScanRegistry =
+    ActiveScanRegistry(
+        DefaultDiagnosticsTimelineSource(
+            profileCatalog = stores,
+            scanRecordStore = stores,
+            artifactReadStore = stores,
+            bypassUsageHistoryStore = stores,
+            mapper = DiagnosticsBoundaryMapper(json),
+            scope = backgroundScope,
+            json = json,
+        ),
+    )
+
+private fun DiagnosticsExecutionPolicyTest.scanAdmissionService(
+    stores: FakeDiagnosticsHistoryStores,
+    registry: ActiveScanRegistry,
+): ScanAdmissionService =
+    ScanAdmissionService(
+        appSettingsRepository = FakeAppSettingsRepository(),
+        profileCatalog = stores,
+        activeScanRegistry = registry,
+        json = json,
+    )

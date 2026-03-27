@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.activities
 
+import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.poyka.ripdpi.data.AppSettingsRepository
@@ -19,6 +20,7 @@ import com.poyka.ripdpi.diagnostics.DiagnosticsResolverActions
 import com.poyka.ripdpi.diagnostics.DiagnosticsScanController
 import com.poyka.ripdpi.diagnostics.DiagnosticsShareService
 import com.poyka.ripdpi.diagnostics.DiagnosticsTimelineSource
+import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
@@ -42,6 +44,7 @@ internal constructor(
     diagnosticsShareService: DiagnosticsShareService,
     diagnosticsResolverActions: DiagnosticsResolverActions,
     appSettingsRepository: AppSettingsRepository,
+    @ApplicationContext private val appContext: Context,
     rememberedPolicySource: DiagnosticsRememberedPolicySource,
     activeConnectionPolicySource: DiagnosticsActiveConnectionPolicySource,
     serviceStateStore: ServiceStateStore,
@@ -255,6 +258,7 @@ internal constructor(
         DiagnosticsScanActions(
             mutations = mutations,
             scanLifecycle = scanLifecycleState,
+            appContext = appContext,
             loadSessionDetail = { sessionId, showSensitive ->
                 mutations.loadSessionDetail(
                     sessionId = sessionId,
