@@ -19,6 +19,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.Role
@@ -64,21 +65,20 @@ fun PresetCard(
                 .fillMaxWidth()
                 .heightIn(min = components.settingsRowMinHeightWithSubtitle)
                 .shadow(surfaceStyle.shadowElevation, shape, clip = false)
+                .clip(shape)
                 .background(surfaceStyle.container, shape)
                 .border(
                     width = if (surfaceStyle.border == Color.Transparent) 0.dp else 1.dp,
                     color = surfaceStyle.border,
                     shape = shape,
-                )
-                .alpha(if (enabled) 1f else 0.38f)
+                ).alpha(if (enabled) 1f else 0.38f)
                 .ripDpiSelectable(
                     selected = selected,
                     enabled = enabled,
                     role = Role.RadioButton,
                     interactionSource = resolvedInteractionSource,
                     onClick = onClick,
-                )
-                .padding(
+                ).padding(
                     horizontal = components.fieldHorizontalPadding,
                     vertical = components.settingsRowVerticalPadding,
                 ),
@@ -103,8 +103,7 @@ fun PresetCard(
                             .background(
                                 color = badgePalette.container,
                                 shape = RipDpiThemeTokens.shapes.xxl,
-                            )
-                            .padding(
+                            ).padding(
                                 horizontal = components.compactPillHorizontalPadding,
                                 vertical = components.compactPillVerticalPadding,
                             ),

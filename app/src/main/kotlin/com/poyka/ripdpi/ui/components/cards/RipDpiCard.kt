@@ -14,6 +14,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.Role
@@ -56,6 +57,7 @@ fun RipDpiCard(
         modifier
             .fillMaxWidth()
             .shadow(surfaceStyle.shadowElevation, shape, clip = false)
+            .clip(shape)
             .background(surfaceStyle.container, shape)
             .border(if (surfaceStyle.border == Color.Transparent) 0.dp else 1.dp, surfaceStyle.border, shape)
             .alpha(if (enabled) 1f else 0.38f)
@@ -70,8 +72,7 @@ fun RipDpiCard(
                 } else {
                     Modifier
                 },
-            )
-            .padding(paddingValues)
+            ).padding(paddingValues)
 
     Column(
         modifier = cardModifier,
