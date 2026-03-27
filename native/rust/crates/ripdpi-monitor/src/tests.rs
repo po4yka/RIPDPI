@@ -75,6 +75,7 @@ fn strategy_probe_request(base_ui: ProxyUiConfig) -> ScanRequest {
                     strategy_preset: None,
                     config: base_ui,
                     runtime_context: None,
+                    log_context: None,
                 })
                 .expect("serialize probe ui config"),
             ),
@@ -388,6 +389,7 @@ fn strategy_probe_request_rejects_command_line_config_payload() {
                 args: vec!["ripdpi".to_string(), "--split".to_string()],
                 host_autolearn_store_path: None,
                 runtime_context: None,
+                log_context: None,
             })
             .expect("serialize command line payload"),
         ),
