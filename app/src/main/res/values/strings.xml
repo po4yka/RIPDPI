@@ -71,6 +71,7 @@
     <string name="diagnostics_snackbar_scan_complete">Scan complete</string>
     <string name="diagnostics_snackbar_dns_recommendation_format">DNS replies looked different on this network. %1$s.</string>
     <string name="diagnostics_snackbar_dns_recommendation_generic">DNS replies looked different on this network. Open DNS settings and try a secure resolver.</string>
+    <string name="diagnostics_snackbar_dns_setting_saved">DNS setting saved</string>
     <string name="diagnostics_latest_scan_section">Latest scan</string>
     <string name="diagnostics_profile_connectivity_title">Connectivity checks</string>
     <string name="diagnostics_profile_connectivity_badge">Validate</string>
