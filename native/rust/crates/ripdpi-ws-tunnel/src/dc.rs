@@ -16,7 +16,7 @@ pub fn extract_dc_from_init(init: &[u8; 64]) -> Option<u8> {
     let mut dec = [0u8; 64];
     dec.copy_from_slice(init);
 
-    let mut stream_cipher = Aes256Ctr::new(key.into(), iv.into());
+    let mut stream_cipher = Aes256Ctr::new_from_slices(key, iv).expect("AES-256-CTR key/iv length mismatch");
     stream_cipher.apply_keystream(&mut dec);
 
     let dc_id = i32::from_le_bytes([dec[60], dec[61], dec[62], dec[63]]);

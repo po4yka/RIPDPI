@@ -50,8 +50,7 @@ fn install_signal_handlers() -> io::Result<()> {
     use nix::sys::signal::{signal, SigHandler, Signal};
     for sig in [Signal::SIGINT, Signal::SIGTERM, Signal::SIGHUP] {
         // SAFETY: handle_signal only writes to an atomic bool, which is async-signal-safe.
-        unsafe { signal(sig, SigHandler::Handler(handle_signal)) }
-            .map_err(|e| io::Error::from_raw_os_error(e as i32))?;
+        unsafe { signal(sig, SigHandler::Handler(handle_signal)) }.map_err(io::Error::from)?;
     }
     Ok(())
 }
@@ -71,7 +70,7 @@ fn daemonize() -> io::Result<()> {
         target_os = "openbsd"
     ))]
     {
-        nix::unistd::daemon(false, false).map_err(|e| io::Error::from_raw_os_error(e as i32))
+        nix::unistd::daemon(false, false).map_err(io::Error::from)
     }
     #[cfg(not(any(
         target_os = "linux",

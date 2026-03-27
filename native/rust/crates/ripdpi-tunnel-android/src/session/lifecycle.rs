@@ -1,13 +1,13 @@
-use std::os::fd::{AsRawFd, FromRawFd, IntoRawFd, OwnedFd};
+use std::os::fd::{AsRawFd, BorrowedFd, IntoRawFd, OwnedFd};
 use std::sync::{Arc, Mutex};
 
 use android_support::{
-    android_log_level_from_str, set_android_log_scope_level, throw_illegal_argument, throw_illegal_state,
-    throw_io_exception,
+    android_log_level_from_str, set_android_log_scope_level, throw_illegal_argument_env, throw_illegal_state_env,
+    throw_io_exception_env,
 };
 use jni::objects::JString;
 use jni::sys::{jint, jlong};
-use jni::JNIEnv;
+use jni::Env;
 use ripdpi_tunnel_core::Stats;
 use tokio_util::sync::CancellationToken;
 
@@ -18,18 +18,18 @@ use super::registry::{
     lookup_tunnel_session, remove_tunnel_session, shared_tunnel_runtime, TunnelSession, TunnelSessionState, SESSIONS,
 };
 
-pub(crate) fn create_session(env: &mut JNIEnv, config_json: JString) -> jlong {
-    let json: String = match env.get_string(&config_json) {
-        Ok(value) => value.into(),
+pub(crate) fn create_session(env: &mut Env<'_>, config_json: JString) -> jlong {
+    let json = match config_json.try_to_string(env) {
+        Ok(value) => value,
         Err(_) => {
-            throw_illegal_argument(env, "Invalid tunnel config payload");
+            throw_illegal_argument_env(env, "Invalid tunnel config payload");
             return 0;
         }
     };
     let payload = match parse_tunnel_config_json(&json) {
         Ok(payload) => payload,
         Err(err) => {
-            throw_illegal_argument(env, err);
+            throw_illegal_argument_env(env, err);
             return 0;
         }
     };
@@ -37,18 +37,18 @@ pub(crate) fn create_session(env: &mut JNIEnv, config_json: JString) -> jlong {
     let config = match config_from_payload(payload) {
         Ok(config) => Arc::new(config),
         Err(message) => {
-            throw_illegal_argument(env, message);
+            throw_illegal_argument_env(env, message);
             return 0;
         }
     };
     let Some(native_log_level) = android_log_level_from_str(&config.misc.log_level) else {
-        throw_illegal_argument(env, format!("Unsupported tunnel logLevel: {}", config.misc.log_level));
+        throw_illegal_argument_env(env, format!("Unsupported tunnel logLevel: {}", config.misc.log_level));
         return 0;
     };
     let runtime = match shared_tunnel_runtime() {
         Ok(runtime) => runtime,
         Err(err) => {
-            throw_io_exception(env, format!("Failed to initialize Tokio runtime: {err}"));
+            throw_io_exception_env(env, format!("Failed to initialize Tokio runtime: {err}"));
             return 0;
         }
     };
@@ -64,32 +64,32 @@ pub(crate) fn create_session(env: &mut JNIEnv, config_json: JString) -> jlong {
     }) as jlong
 }
 
-pub(crate) fn start_session(env: &mut JNIEnv, handle: jlong, tun_fd: jint) {
+pub(crate) fn start_session(env: &mut Env<'_>, handle: jlong, tun_fd: jint) {
     let session = match lookup_tunnel_session(handle) {
         Ok(session) => session,
         Err(message) => {
-            throw_illegal_argument(env, message);
+            throw_illegal_argument_env(env, message);
             return;
         }
     };
     if let Err(message) = validate_tun_fd(tun_fd) {
-        throw_illegal_argument(env, message);
+        throw_illegal_argument_env(env, message);
         return;
     }
     // Duplicate the fd so run_tunnel owns an independent copy.
     // If VpnService revokes the original fd, the dup'd fd remains valid
     // until run_tunnel closes it via File::from_raw_fd.
-    let owned_fd = match nix::unistd::dup(tun_fd) {
-        Ok(fd) => unsafe { OwnedFd::from_raw_fd(fd) },
+    let owned_fd = match unsafe { nix::unistd::dup(BorrowedFd::borrow_raw(tun_fd)) } {
+        Ok(fd) => fd,
         Err(err) => {
-            throw_io_exception(env, format!("Failed to dup TUN fd: {err}"));
+            throw_io_exception_env(env, format!("Failed to dup TUN fd: {err}"));
             return;
         }
     };
     // Verify the dup'd fd is a valid open file descriptor
-    if let Err(err) = nix::sys::stat::fstat(owned_fd.as_raw_fd()) {
+    if let Err(err) = nix::sys::stat::fstat(&owned_fd) {
         // OwnedFd drops and closes automatically
-        throw_io_exception(env, format!("TUN fd validation failed: {err}"));
+        throw_io_exception_env(env, format!("TUN fd validation failed: {err}"));
         return;
     }
     let runtime = session.runtime.clone();
@@ -110,7 +110,7 @@ pub(crate) fn start_session(env: &mut JNIEnv, handle: jlong, tun_fd: jint) {
         let mut state = session.state.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
         if let Err(message) = ensure_tunnel_start_allowed(&state) {
             drop(owned_fd);
-            throw_illegal_state(env, message);
+            throw_illegal_state_env(env, message);
             return;
         }
         *state = TunnelSessionState::Starting { cancel: cancel.clone() };
@@ -165,7 +165,7 @@ pub(crate) fn start_session(env: &mut JNIEnv, handle: jlong, tun_fd: jint) {
             // owned_fd was moved into the closure; if spawn failed the closure
             // is dropped, so OwnedFd::drop closes the fd automatically.
             rollback_failed_tunnel_start(&session, format!("failed to spawn tunnel worker thread: {err}"));
-            throw_io_exception(env, format!("Failed to spawn tunnel worker thread: {err}"));
+            throw_io_exception_env(env, format!("Failed to spawn tunnel worker thread: {err}"));
             return;
         }
     };
@@ -174,11 +174,11 @@ pub(crate) fn start_session(env: &mut JNIEnv, handle: jlong, tun_fd: jint) {
     *state = TunnelSessionState::Running { cancel, stats, worker };
 }
 
-pub(crate) fn stop_session(env: &mut JNIEnv, handle: jlong) {
+pub(crate) fn stop_session(env: &mut Env<'_>, handle: jlong) {
     let session = match lookup_tunnel_session(handle) {
         Ok(session) => session,
         Err(message) => {
-            throw_illegal_argument(env, message);
+            throw_illegal_argument_env(env, message);
             return;
         }
     };
@@ -188,7 +188,7 @@ pub(crate) fn stop_session(env: &mut JNIEnv, handle: jlong) {
         match take_running_tunnel(&mut state) {
             Ok(running) => running,
             Err(message) => {
-                throw_illegal_state(env, message);
+                throw_illegal_state_env(env, message);
                 return;
             }
         }
@@ -201,17 +201,17 @@ pub(crate) fn stop_session(env: &mut JNIEnv, handle: jlong) {
     }
 }
 
-pub(crate) fn destroy_session(env: &mut JNIEnv, handle: jlong) {
+pub(crate) fn destroy_session(env: &mut Env<'_>, handle: jlong) {
     let session = match lookup_tunnel_session(handle) {
         Ok(session) => session,
         Err(message) => {
-            throw_illegal_argument(env, message);
+            throw_illegal_argument_env(env, message);
             return;
         }
     };
     let mut state = session.state.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
     if let Err(message) = ensure_tunnel_destroyable(&state) {
-        throw_illegal_state(env, message);
+        throw_illegal_state_env(env, message);
         return;
     }
     *state = TunnelSessionState::Destroyed;

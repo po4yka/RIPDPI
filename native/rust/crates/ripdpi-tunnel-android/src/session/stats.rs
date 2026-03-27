@@ -1,6 +1,7 @@
-use android_support::throw_illegal_argument;
+use android_support::throw_illegal_argument_env;
+use jni::objects::JLongArray;
 use jni::sys::{jlong, jlongArray};
-use jni::JNIEnv;
+use jni::Env;
 use ripdpi_tunnel_core::DnsStatsSnapshot;
 
 use super::registry::{lookup_tunnel_session, TunnelSessionState};
@@ -14,11 +15,11 @@ fn saturate_u64_to_i64(v: u64) -> i64 {
     }
 }
 
-pub(crate) fn stats_session(env: &mut JNIEnv, handle: jlong) -> jlongArray {
+pub(crate) fn stats_session(env: &mut Env<'_>, handle: jlong) -> jlongArray {
     let session = match lookup_tunnel_session(handle) {
         Ok(session) => session,
         Err(message) => {
-            throw_illegal_argument(env, message);
+            throw_illegal_argument_env(env, message);
             return std::ptr::null_mut();
         }
     };
@@ -30,6 +31,7 @@ pub(crate) fn stats_session(env: &mut JNIEnv, handle: jlong) -> jlongArray {
 
     match env.new_long_array(4) {
         Ok(arr) => {
+            let arr: JLongArray<'_> = arr;
             let values: [i64; 4] = [
                 saturate_u64_to_i64(snapshot.0),
                 saturate_u64_to_i64(snapshot.1),

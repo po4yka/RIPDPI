@@ -36,7 +36,7 @@ pub fn ws_relay<S: Read + Write + Send + 'static>(
     let (outbound_tx, outbound_rx) = mpsc::sync_channel(OUTBOUND_QUEUE_CAPACITY);
 
     // Send the 64-byte obfuscated2 init as the first WS frame.
-    ws.send(Message::Binary(init_packet.to_vec()))
+    ws.send(Message::Binary(init_packet.to_vec().into()))
         .map_err(|e| io::Error::new(io::ErrorKind::BrokenPipe, format!("WS send init: {e}")))?;
 
     let client_reader = client.try_clone()?;
@@ -153,7 +153,7 @@ fn drain_outbound_frames<S: Read + Write>(
     for _ in 0..MAX_OUTBOUND_BURST {
         match outbound_rx.try_recv() {
             Ok(payload) => {
-                if ws.send(Message::Binary(payload)).is_err() {
+                if ws.send(Message::Binary(payload.into())).is_err() {
                     shutdown.store(true, Ordering::Release);
                     return true;
                 }
@@ -294,13 +294,13 @@ mod tests {
 
         let relay_thread = thread::spawn(move || ws_relay(relay_client, ws, &init));
 
-        assert!(matches!(read_message_retry(&mut peer), Message::Binary(data) if data == init));
+        assert!(matches!(read_message_retry(&mut peer), Message::Binary(data) if data[..] == init));
 
         local_app.write_all(b"uplink").expect("write uplink");
-        assert!(matches!(read_message_retry(&mut peer), Message::Binary(data) if data == b"uplink"));
+        assert!(matches!(read_message_retry(&mut peer), Message::Binary(data) if data[..] == b"uplink"[..]));
 
-        peer.send(Message::Ping(vec![1, 2, 3])).expect("send ping");
-        peer.send(Message::Binary(b"downlink".to_vec())).expect("send downlink");
+        peer.send(Message::Ping(vec![1, 2, 3].into())).expect("send ping");
+        peer.send(Message::Binary(b"downlink".to_vec().into())).expect("send downlink");
         peer.close(None).expect("send close");
 
         let mut downlink = [0u8; 8];
@@ -319,7 +319,7 @@ mod tests {
 
         let relay_thread = thread::spawn(move || ws_relay(relay_client, ws, &init));
 
-        assert!(matches!(read_message_retry(&mut peer), Message::Binary(data) if data == init));
+        assert!(matches!(read_message_retry(&mut peer), Message::Binary(data) if data[..] == init));
 
         let started = Instant::now();
         local_app.write_all(&expected).expect("write uplink payload");
@@ -345,7 +345,7 @@ mod tests {
 
         let relay_thread = thread::spawn(move || ws_relay(relay_client, ws, &init));
 
-        assert!(matches!(read_message_retry(&mut peer), Message::Binary(data) if data == init));
+        assert!(matches!(read_message_retry(&mut peer), Message::Binary(data) if data[..] == init));
         local_app.shutdown(Shutdown::Write).expect("shutdown local app write");
 
         wait_for_close(&mut peer);
@@ -360,7 +360,7 @@ mod tests {
 
         let relay_thread = thread::spawn(move || ws_relay(relay_client, ws, &init));
 
-        assert!(matches!(read_message_retry(&mut peer), Message::Binary(data) if data == init));
+        assert!(matches!(read_message_retry(&mut peer), Message::Binary(data) if data[..] == init));
         peer.close(None).expect("send websocket close");
 
         relay_thread.join().expect("join relay thread").expect("relay result");
@@ -377,7 +377,7 @@ mod tests {
 
         let relay_thread = thread::spawn(move || ws_relay(relay_client, ws, &init));
 
-        assert!(matches!(read_message_retry(&mut peer), Message::Binary(data) if data == init));
+        assert!(matches!(read_message_retry(&mut peer), Message::Binary(data) if data[..] == init));
 
         let started = Instant::now();
         let writer_thread = thread::spawn(move || {

@@ -48,7 +48,7 @@ impl LinuxTunnel {
         use nix::sys::socket::{socket, AddressFamily, SockFlag, SockType};
         let domain = if af == libc::AF_INET6 { AddressFamily::Inet6 } else { AddressFamily::Inet };
         socket(domain, SockType::Datagram, SockFlag::empty(), None)
-            .map_err(|e| TunnelError::Io(std::io::Error::from_raw_os_error(e as i32)))
+            .map_err(|e| TunnelError::Io(std::io::Error::from(e)))
     }
 
     /// Build a `[c_char; IFNAMSIZ]` suitable for `ifreq.ifr_name`.
@@ -136,7 +136,7 @@ impl TunnelDriver for LinuxTunnel {
         // ioctl number for TUN/TAP interface creation; the kernel reads ifru_flags and
         // ifr_name, then writes the kernel-assigned interface name back into ifr_name.
         unsafe { tun_set_iff(fd.as_raw_fd(), &ifr as *const _) }
-            .map_err(|e| TunnelError::Ioctl(format!("TUNSETIFF: {}", std::io::Error::from_raw_os_error(e as i32))))?;
+            .map_err(|e| TunnelError::Ioctl(format!("TUNSETIFF: {}", std::io::Error::from(e))))?;
 
         // Copy the kernel-assigned interface name from ifreq.
         // c_char is u8 on aarch64/arm Linux and i8 on x86; cast is harmless on both.

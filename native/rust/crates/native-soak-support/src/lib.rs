@@ -93,8 +93,8 @@ pub struct SoakLock {
 
 pub fn acquire_global_lock() -> io::Result<SoakLock> {
     let file = OpenOptions::new().create(true).truncate(false).read(true).write(true).open(SOAK_LOCK_PATH)?;
-    let flock = nix::fcntl::Flock::lock(file, nix::fcntl::FlockArg::LockExclusive)
-        .map_err(|(_, e)| io::Error::from_raw_os_error(e as i32))?;
+    let flock =
+        nix::fcntl::Flock::lock(file, nix::fcntl::FlockArg::LockExclusive).map_err(|(_, e)| io::Error::from(e))?;
     Ok(SoakLock { _flock: flock })
 }
 
