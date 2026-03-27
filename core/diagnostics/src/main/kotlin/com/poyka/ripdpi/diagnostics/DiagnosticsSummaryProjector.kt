@@ -78,6 +78,12 @@ class DiagnosticsSummaryProjector
                     add("strategySuite=${strategyProbe.suiteId}")
                     add("strategyTcpCandidates=${strategyProbe.tcpCandidates.size}")
                     add("strategyQuicCandidates=${strategyProbe.quicCandidates.size}")
+                    strategyProbe.auditAssessment?.let { assessment ->
+                        add("strategyConfidence=${assessment.confidence.level.name}")
+                        add("strategyConfidenceScore=${assessment.confidence.score}")
+                        add("strategyMatrixCoverage=${assessment.coverage.matrixCoveragePercent}")
+                        add("strategyWinnerCoverage=${assessment.coverage.winnerCoveragePercent}")
+                    }
                 }
                 report?.engineAnalysisVersion?.let { add("engineAnalysisVersion=$it") }
                 report?.classifierVersion?.let { add("classifierVersion=$it") }

@@ -16,8 +16,11 @@ use crate::execution::{
 };
 use crate::observations::observations_for_results;
 use crate::strategy::detect_strategy_probe_dns_tampering;
-use crate::types::{ScanProgress, StrategyProbeRecommendation, StrategyProbeReport};
-use crate::util::stable_probe_hash;
+use crate::types::{
+    ScanProgress, StrategyProbeAuditAssessment, StrategyProbeAuditConfidence, StrategyProbeAuditConfidenceLevel,
+    StrategyProbeAuditCoverage, StrategyProbeCandidateSummary, StrategyProbeRecommendation, StrategyProbeReport,
+};
+use crate::util::{stable_probe_hash, STRATEGY_PROBE_SUITE_FULL_MATRIX_V1};
 
 use super::super::report::build_report;
 use super::super::runtime::{
@@ -39,6 +42,163 @@ fn resolve_recommended_proxy_config_json(
         .filter(|value| !value.trim().is_empty())
         .map(str::to_owned)
         .unwrap_or_else(|| crate::candidates::strategy_probe_config_json(&fallback_quic_spec.config))
+}
+
+#[derive(Clone, Copy)]
+struct StrategyAuditLaneCounts {
+    planned: usize,
+    executed: usize,
+    skipped: usize,
+    not_applicable: usize,
+}
+
+fn round_percent(numerator: usize, denominator: usize) -> usize {
+    if denominator == 0 {
+        0
+    } else {
+        (numerator.saturating_mul(100) + (denominator / 2)) / denominator
+    }
+}
+
+fn strategy_audit_lane_counts(candidates: &[StrategyProbeCandidateSummary], planned: usize) -> StrategyAuditLaneCounts {
+    StrategyAuditLaneCounts {
+        planned,
+        executed: candidates
+            .iter()
+            .filter(|candidate| !candidate.skipped && candidate.outcome != "not_applicable")
+            .count(),
+        skipped: candidates.iter().filter(|candidate| candidate.skipped).count(),
+        not_applicable: candidates.iter().filter(|candidate| candidate.outcome == "not_applicable").count(),
+    }
+}
+
+fn candidate_score_percent(candidate: &StrategyProbeCandidateSummary) -> usize {
+    round_percent(candidate.weighted_success_score, candidate.total_weight)
+}
+
+fn winner_margin_percent(candidates: &[StrategyProbeCandidateSummary], winner_candidate_id: &str) -> usize {
+    let executable_scores = candidates
+        .iter()
+        .filter(|candidate| !candidate.skipped && candidate.outcome != "not_applicable")
+        .map(|candidate| (candidate.id.as_str(), candidate_score_percent(candidate)))
+        .collect::<Vec<_>>();
+    let Some((_, winner_score)) =
+        executable_scores.iter().find(|(candidate_id, _)| *candidate_id == winner_candidate_id)
+    else {
+        return 0;
+    };
+    let runner_up_score = executable_scores
+        .iter()
+        .filter(|(candidate_id, _)| *candidate_id != winner_candidate_id)
+        .map(|(_, score)| *score)
+        .max()
+        .unwrap_or(0);
+    winner_score.saturating_sub(runner_up_score)
+}
+
+fn resolve_strategy_probe_audit_assessment(
+    suite_id: &str,
+    tcp_candidates: &[StrategyProbeCandidateSummary],
+    quic_candidates: &[StrategyProbeCandidateSummary],
+    recommendation: &StrategyProbeRecommendation,
+    tcp_candidates_planned: usize,
+    quic_candidates_planned: usize,
+    dns_short_circuited: bool,
+) -> Option<StrategyProbeAuditAssessment> {
+    if suite_id != STRATEGY_PROBE_SUITE_FULL_MATRIX_V1 {
+        return None;
+    }
+
+    let tcp_counts = strategy_audit_lane_counts(tcp_candidates, tcp_candidates_planned);
+    let quic_counts = strategy_audit_lane_counts(quic_candidates, quic_candidates_planned);
+    let total_planned = tcp_counts.planned + quic_counts.planned;
+    let total_executed = tcp_counts.executed + quic_counts.executed;
+
+    let tcp_winner = tcp_candidates.iter().find(|candidate| candidate.id == recommendation.tcp_candidate_id);
+    let quic_winner = quic_candidates.iter().find(|candidate| candidate.id == recommendation.quic_candidate_id);
+    let tcp_winner_coverage = tcp_winner.map(candidate_score_percent).unwrap_or(0);
+    let quic_winner_coverage = quic_winner.map(candidate_score_percent).unwrap_or(0);
+    let tcp_lane_coverage = round_percent(tcp_counts.executed, tcp_counts.planned);
+    let quic_lane_coverage = round_percent(quic_counts.executed, quic_counts.planned);
+    let tcp_margin = winner_margin_percent(tcp_candidates, &recommendation.tcp_candidate_id);
+    let quic_margin = winner_margin_percent(quic_candidates, &recommendation.quic_candidate_id);
+
+    let weak_winner_coverage = tcp_winner_coverage < 50 || quic_winner_coverage < 50;
+    let low_tcp_execution = tcp_lane_coverage < 75;
+    let low_quic_execution = quic_lane_coverage < 75;
+    let narrow_tcp_margin = tcp_margin < 10;
+    let narrow_quic_margin = quic_margin < 10;
+
+    let mut score = 100i32;
+    let mut warnings = Vec::new();
+
+    if dns_short_circuited {
+        score -= 45;
+        warnings.push("Baseline DNS tampering short-circuited the audit before fallback candidates ran.".to_string());
+    }
+    if weak_winner_coverage {
+        score -= 25;
+        warnings.push(
+            "The winning TCP or QUIC lane recovered too few weighted targets to trust the recommendation.".to_string(),
+        );
+    }
+    if low_tcp_execution {
+        score -= 15;
+        warnings.push("TCP matrix coverage stayed below 75% of planned candidates.".to_string());
+    }
+    if low_quic_execution {
+        score -= 15;
+        warnings.push("QUIC matrix coverage stayed below 75% of planned candidates.".to_string());
+    }
+    if narrow_tcp_margin {
+        score -= 10;
+        warnings.push("TCP winner margin stayed below 10 points over the next candidate.".to_string());
+    }
+    if narrow_quic_margin {
+        score -= 10;
+        warnings.push("QUIC winner margin stayed below 10 points over the next candidate.".to_string());
+    }
+
+    let score = score.clamp(0, 100) as usize;
+    let level = if score >= 80 {
+        StrategyProbeAuditConfidenceLevel::High
+    } else if score >= 50 {
+        StrategyProbeAuditConfidenceLevel::Medium
+    } else {
+        StrategyProbeAuditConfidenceLevel::Low
+    };
+    let rationale = if dns_short_circuited {
+        "Baseline DNS tampering short-circuited the audit before fallback candidates ran".to_string()
+    } else if weak_winner_coverage {
+        "The winning TCP or QUIC lane recovered too few weighted targets".to_string()
+    } else if low_tcp_execution || low_quic_execution {
+        "The audit did not execute enough of the planned matrix to fully trust the winner".to_string()
+    } else if narrow_tcp_margin || narrow_quic_margin {
+        "The winning candidates only narrowly outperformed the next-best options".to_string()
+    } else {
+        "Matrix coverage and winner strength are consistent".to_string()
+    };
+
+    Some(StrategyProbeAuditAssessment {
+        dns_short_circuited,
+        coverage: StrategyProbeAuditCoverage {
+            tcp_candidates_planned: tcp_counts.planned,
+            tcp_candidates_executed: tcp_counts.executed,
+            tcp_candidates_skipped: tcp_counts.skipped,
+            tcp_candidates_not_applicable: tcp_counts.not_applicable,
+            quic_candidates_planned: quic_counts.planned,
+            quic_candidates_executed: quic_counts.executed,
+            quic_candidates_skipped: quic_counts.skipped,
+            quic_candidates_not_applicable: quic_counts.not_applicable,
+            tcp_winner_succeeded_targets: tcp_winner.map(|candidate| candidate.succeeded_targets).unwrap_or(0),
+            tcp_winner_total_targets: tcp_winner.map(|candidate| candidate.total_targets).unwrap_or(0),
+            quic_winner_succeeded_targets: quic_winner.map(|candidate| candidate.succeeded_targets).unwrap_or(0),
+            quic_winner_total_targets: quic_winner.map(|candidate| candidate.total_targets).unwrap_or(0),
+            matrix_coverage_percent: round_percent(total_executed, total_planned),
+            winner_coverage_percent: (tcp_winner_coverage + quic_winner_coverage + 1) / 2,
+        },
+        confidence: StrategyProbeAuditConfidence { level, score, rationale, warnings },
+    })
 }
 
 impl ExecutionStageRunner for StrategyDnsBaselineRunner {
@@ -132,11 +292,21 @@ impl ExecutionStageRunner for StrategyDnsBaselineRunner {
             ),
             recommended_proxy_config_json: crate::candidates::strategy_probe_config_json(&strategy_plan.base_payload),
         };
+        let audit_assessment = resolve_strategy_probe_audit_assessment(
+            &strategy_plan.suite_id,
+            &tcp_candidates,
+            &quic_candidates,
+            &recommendation,
+            strategy_plan.suite.tcp_candidates.len(),
+            strategy_plan.suite.quic_candidates.len(),
+            true,
+        );
         let strategy_probe_report = StrategyProbeReport {
             suite_id: strategy_plan.suite_id.clone(),
             tcp_candidates,
             quic_candidates,
             recommendation,
+            audit_assessment,
         };
         let report = build_report(
             plan.session_id.clone(),
@@ -484,17 +654,28 @@ impl ExecutionStageRunner for StrategyRecommendationRunner {
             ),
             recommended_proxy_config_json,
         };
+        let audit_assessment = resolve_strategy_probe_audit_assessment(
+            &strategy_plan.suite_id,
+            &runtime.strategy.tcp_candidates,
+            &runtime.strategy.quic_candidates,
+            &recommendation,
+            strategy_plan.suite.tcp_candidates.len(),
+            strategy_plan.suite.quic_candidates.len(),
+            false,
+        );
         let summary = build_strategy_probe_summary(
             &strategy_plan.suite_id,
             &runtime.strategy.tcp_candidates,
             &runtime.strategy.quic_candidates,
             &recommendation,
+            audit_assessment.as_ref(),
         );
         runtime.strategy.strategy_probe_report = Some(StrategyProbeReport {
             suite_id: strategy_plan.suite_id.clone(),
             tcp_candidates: runtime.strategy.tcp_candidates.clone(),
             quic_candidates: runtime.strategy.quic_candidates.clone(),
             recommendation,
+            audit_assessment,
         });
         runtime.strategy.summary = Some(summary);
         runtime.completed_steps += 1;
@@ -519,8 +700,9 @@ impl ExecutionStageRunner for StrategyRecommendationRunner {
 mod tests {
     use ripdpi_proxy_config::{parse_proxy_config_json, ProxyConfigPayload, ProxyUiConfig};
 
-    use super::resolve_recommended_proxy_config_json;
-    use crate::types::StrategyProbeCandidateSummary;
+    use super::{resolve_recommended_proxy_config_json, resolve_strategy_probe_audit_assessment};
+    use crate::types::{StrategyProbeAuditConfidenceLevel, StrategyProbeCandidateSummary, StrategyProbeRecommendation};
+    use crate::util::STRATEGY_PROBE_SUITE_FULL_MATRIX_V1;
 
     fn quic_candidate_summary(proxy_config_json: Option<String>) -> StrategyProbeCandidateSummary {
         StrategyProbeCandidateSummary {
@@ -538,6 +720,45 @@ mod tests {
             notes: Vec::new(),
             average_latency_ms: Some(220),
             skipped: false,
+        }
+    }
+
+    fn strategy_candidate_summary(
+        id: &str,
+        family: &str,
+        weighted_success_score: usize,
+        total_weight: usize,
+        succeeded_targets: usize,
+        total_targets: usize,
+        skipped: bool,
+        outcome: &str,
+    ) -> StrategyProbeCandidateSummary {
+        StrategyProbeCandidateSummary {
+            id: id.to_string(),
+            label: id.replace('_', " "),
+            family: family.to_string(),
+            outcome: outcome.to_string(),
+            rationale: "candidate result".to_string(),
+            succeeded_targets,
+            total_targets,
+            weighted_success_score,
+            total_weight,
+            quality_score: weighted_success_score.saturating_mul(2),
+            proxy_config_json: None,
+            notes: Vec::new(),
+            average_latency_ms: Some(200),
+            skipped,
+        }
+    }
+
+    fn recommendation() -> StrategyProbeRecommendation {
+        StrategyProbeRecommendation {
+            tcp_candidate_id: "tcp_winner".to_string(),
+            tcp_candidate_label: "tcp winner".to_string(),
+            quic_candidate_id: "quic_winner".to_string(),
+            quic_candidate_label: "quic winner".to_string(),
+            rationale: "best".to_string(),
+            recommended_proxy_config_json: "{}".to_string(),
         }
     }
 
@@ -591,5 +812,131 @@ mod tests {
             }
             ProxyConfigPayload::CommandLine { .. } => panic!("expected UI proxy config"),
         }
+    }
+
+    #[test]
+    fn resolve_strategy_probe_audit_assessment_high_when_matrix_is_consistent() {
+        let tcp_candidates = vec![
+            strategy_candidate_summary("tcp_runner_up", "split", 40, 100, 2, 5, false, "partial"),
+            strategy_candidate_summary("tcp_winner", "hostfake", 100, 100, 5, 5, false, "success"),
+        ];
+        let quic_candidates = vec![
+            strategy_candidate_summary("quic_runner_up", "quic_disabled", 45, 100, 1, 2, false, "partial"),
+            strategy_candidate_summary("quic_winner", "quic_burst", 100, 100, 2, 2, false, "success"),
+        ];
+
+        let assessment = resolve_strategy_probe_audit_assessment(
+            STRATEGY_PROBE_SUITE_FULL_MATRIX_V1,
+            &tcp_candidates,
+            &quic_candidates,
+            &recommendation(),
+            2,
+            2,
+            false,
+        )
+        .expect("audit assessment");
+
+        assert_eq!(assessment.confidence.level, StrategyProbeAuditConfidenceLevel::High);
+        assert_eq!(assessment.confidence.score, 100);
+        assert_eq!(assessment.coverage.matrix_coverage_percent, 100);
+        assert_eq!(assessment.coverage.winner_coverage_percent, 100);
+        assert!(assessment.confidence.warnings.is_empty());
+    }
+
+    #[test]
+    fn resolve_strategy_probe_audit_assessment_low_when_dns_short_circuited() {
+        let tcp_candidates = vec![strategy_candidate_summary("tcp_winner", "baseline", 0, 0, 0, 5, true, "skipped")];
+        let quic_candidates =
+            vec![strategy_candidate_summary("quic_winner", "quic_disabled", 0, 0, 0, 2, true, "skipped")];
+
+        let assessment = resolve_strategy_probe_audit_assessment(
+            STRATEGY_PROBE_SUITE_FULL_MATRIX_V1,
+            &tcp_candidates,
+            &quic_candidates,
+            &recommendation(),
+            3,
+            2,
+            true,
+        )
+        .expect("audit assessment");
+
+        assert_eq!(assessment.confidence.level, StrategyProbeAuditConfidenceLevel::Low);
+        assert!(assessment.dns_short_circuited);
+        assert_eq!(
+            assessment.confidence.rationale,
+            "Baseline DNS tampering short-circuited the audit before fallback candidates ran"
+        );
+        assert!(assessment
+            .confidence
+            .warnings
+            .contains(&"Baseline DNS tampering short-circuited the audit before fallback candidates ran.".to_string()));
+    }
+
+    #[test]
+    fn resolve_strategy_probe_audit_assessment_penalizes_incomplete_lane_execution() {
+        let tcp_candidates = vec![
+            strategy_candidate_summary("tcp_runner_up", "split", 50, 100, 2, 5, false, "partial"),
+            strategy_candidate_summary("tcp_winner", "hostfake", 100, 100, 5, 5, false, "success"),
+        ];
+        let quic_candidates = vec![
+            strategy_candidate_summary("quic_runner_up", "quic_disabled", 55, 100, 1, 2, false, "partial"),
+            strategy_candidate_summary("quic_winner", "quic_burst", 100, 100, 2, 2, false, "success"),
+        ];
+
+        let assessment = resolve_strategy_probe_audit_assessment(
+            STRATEGY_PROBE_SUITE_FULL_MATRIX_V1,
+            &tcp_candidates,
+            &quic_candidates,
+            &recommendation(),
+            4,
+            4,
+            false,
+        )
+        .expect("audit assessment");
+
+        assert_eq!(assessment.confidence.level, StrategyProbeAuditConfidenceLevel::Medium);
+        assert_eq!(assessment.confidence.score, 70);
+        assert!(assessment
+            .confidence
+            .warnings
+            .contains(&"TCP matrix coverage stayed below 75% of planned candidates.".to_string()));
+        assert!(assessment
+            .confidence
+            .warnings
+            .contains(&"QUIC matrix coverage stayed below 75% of planned candidates.".to_string()));
+    }
+
+    #[test]
+    fn resolve_strategy_probe_audit_assessment_penalizes_narrow_winner_margin() {
+        let tcp_candidates = vec![
+            strategy_candidate_summary("tcp_runner_up", "split", 92, 100, 4, 5, false, "success"),
+            strategy_candidate_summary("tcp_winner", "hostfake", 96, 100, 5, 5, false, "success"),
+        ];
+        let quic_candidates = vec![
+            strategy_candidate_summary("quic_runner_up", "quic_disabled", 89, 100, 2, 2, false, "success"),
+            strategy_candidate_summary("quic_winner", "quic_burst", 95, 100, 2, 2, false, "success"),
+        ];
+
+        let assessment = resolve_strategy_probe_audit_assessment(
+            STRATEGY_PROBE_SUITE_FULL_MATRIX_V1,
+            &tcp_candidates,
+            &quic_candidates,
+            &recommendation(),
+            2,
+            2,
+            false,
+        )
+        .expect("audit assessment");
+
+        assert_eq!(assessment.confidence.level, StrategyProbeAuditConfidenceLevel::High);
+        assert_eq!(assessment.confidence.score, 80);
+        assert!(assessment
+            .confidence
+            .warnings
+            .contains(&"TCP winner margin stayed below 10 points over the next candidate.".to_string()));
+        assert!(assessment
+            .confidence
+            .warnings
+            .contains(&"QUIC winner margin stayed below 10 points over the next candidate.".to_string()));
     }
 }

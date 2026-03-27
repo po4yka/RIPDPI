@@ -118,6 +118,10 @@
     <string name="diagnostics_no_strategy_signature">No strategy signature captured</string>
     <string name="diagnostics_eta_remaining">~%1$s remaining</string>
     <string name="diagnostics_audit_matrix_title">Audit matrix</string>
+    <string name="diagnostics_audit_confidence_title">Audit confidence</string>
+    <string name="diagnostics_audit_medium_confidence_note">Confidence is moderate. Review the candidate evidence before copying this strategy into your main settings.</string>
+    <string name="diagnostics_audit_low_confidence_title">Low-confidence audit result</string>
+    <string name="diagnostics_audit_low_confidence_body">The audit recommendation is still available, but the matrix coverage or winner strength was weak. Review per-candidate evidence before applying it manually.</string>
     <string name="diagnostics_audit_summary_title">Audit summary</string>
     <string name="diagnostics_audit_candidate_notes_title">Notes</string>
     <string name="diagnostics_audit_candidate_signature_title">Candidate configuration</string>

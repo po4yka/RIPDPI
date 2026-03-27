@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.diagnostics
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Test
 
@@ -65,6 +66,33 @@ class DiagnosticsScanWorkflowTest {
                                     }
                                     """.trimIndent(),
                             ),
+                        auditAssessment =
+                            StrategyProbeAuditAssessment(
+                                dnsShortCircuited = false,
+                                coverage =
+                                    StrategyProbeAuditCoverage(
+                                        tcpCandidatesPlanned = 2,
+                                        tcpCandidatesExecuted = 2,
+                                        tcpCandidatesSkipped = 0,
+                                        tcpCandidatesNotApplicable = 0,
+                                        quicCandidatesPlanned = 2,
+                                        quicCandidatesExecuted = 2,
+                                        quicCandidatesSkipped = 0,
+                                        quicCandidatesNotApplicable = 0,
+                                        tcpWinnerSucceededTargets = 1,
+                                        tcpWinnerTotalTargets = 1,
+                                        quicWinnerSucceededTargets = 1,
+                                        quicWinnerTotalTargets = 1,
+                                        matrixCoveragePercent = 100,
+                                        winnerCoveragePercent = 100,
+                                    ),
+                                confidence =
+                                    StrategyProbeAuditConfidence(
+                                        level = StrategyProbeAuditConfidenceLevel.HIGH,
+                                        score = 100,
+                                        rationale = "Matrix coverage and winner strength are consistent",
+                                    ),
+                            ),
                     ),
             )
 
@@ -79,5 +107,6 @@ class DiagnosticsScanWorkflowTest {
         assertNull(recommendation.strategySignature)
         assertEquals("split", recommendation.tcpCandidateFamily)
         assertEquals("quic_burst", recommendation.quicCandidateFamily)
+        assertNotNull(enriched.strategyProbeReport?.auditAssessment)
     }
 }

@@ -162,6 +162,11 @@ private fun DiagnosticsUiFactorySupport.shareReportLines(report: DiagnosticsSess
         add("${report.results.size} probe results in the latest report")
         report.engineAnalysisVersion?.let { add("Engine analysis: $it") }
         report.classifierVersion?.let { add("Classifier: $it") }
+        report.strategyProbeReport?.auditAssessment?.let { assessment ->
+            add("Audit confidence: ${assessment.confidence.level.name} (${assessment.confidence.score}/100)")
+            add("Matrix coverage: ${assessment.coverage.matrixCoveragePercent}%")
+            add("Winner coverage: ${assessment.coverage.winnerCoveragePercent}%")
+        }
         if (report.packVersions.isNotEmpty()) {
             add("Packs: ${report.packVersions.entries.joinToString(" · ") { (packId, version) -> "$packId@$version" }}")
         }

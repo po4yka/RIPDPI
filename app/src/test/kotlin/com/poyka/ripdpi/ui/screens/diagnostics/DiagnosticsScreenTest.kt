@@ -4,11 +4,10 @@ import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipeUp
-import com.poyka.ripdpi.activities.FakeAppSettingsRepository
-import com.poyka.ripdpi.activities.FakeDiagnosticsManager
 import com.poyka.ripdpi.activities.DiagnosticsFieldUiModel
 import com.poyka.ripdpi.activities.DiagnosticsMetricUiModel
 import com.poyka.ripdpi.activities.DiagnosticsProbeGroupUiModel
@@ -26,7 +25,13 @@ import com.poyka.ripdpi.activities.DiagnosticsStrategyProbeRecommendationUiModel
 import com.poyka.ripdpi.activities.DiagnosticsStrategyProbeReportUiModel
 import com.poyka.ripdpi.activities.DiagnosticsTone
 import com.poyka.ripdpi.activities.DiagnosticsUiState
+import com.poyka.ripdpi.activities.FakeAppSettingsRepository
+import com.poyka.ripdpi.activities.FakeDiagnosticsManager
 import com.poyka.ripdpi.activities.createDiagnosticsViewModel
+import com.poyka.ripdpi.diagnostics.StrategyProbeAuditAssessment
+import com.poyka.ripdpi.diagnostics.StrategyProbeAuditConfidence
+import com.poyka.ripdpi.diagnostics.StrategyProbeAuditConfidenceLevel
+import com.poyka.ripdpi.diagnostics.StrategyProbeAuditCoverage
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import org.junit.Rule
@@ -243,56 +248,309 @@ class DiagnosticsScreenTest {
         composeRule.onNodeWithTag(RipDpiTestTags.DiagnosticsStrategyCandidateResultsSection).fetchSemanticsNode()
     }
 
-    private fun auditReport(candidateDetail: DiagnosticsStrategyProbeCandidateDetailUiModel) =
-        DiagnosticsStrategyProbeReportUiModel(
-            suiteId = "full_matrix_v1",
-            suiteLabel = "Automatic audit",
-            summaryMetrics =
-                listOf(
-                    DiagnosticsMetricUiModel(label = "Worked", value = "2", tone = DiagnosticsTone.Positive),
-                    DiagnosticsMetricUiModel(label = "Partial", value = "1", tone = DiagnosticsTone.Warning),
-                    DiagnosticsMetricUiModel(label = "Failed", value = "1", tone = DiagnosticsTone.Negative),
-                    DiagnosticsMetricUiModel(label = "N/A", value = "1"),
-                ),
-            recommendation =
-                DiagnosticsStrategyProbeRecommendationUiModel(
-                    headline = "TLS record + hostfake + QUIC realistic burst",
-                    rationale = "Best combined recovery across TCP and QUIC.",
-                    fields =
-                        listOf(
-                            DiagnosticsFieldUiModel("TCP recommendation", "TLS record + hostfake"),
-                            DiagnosticsFieldUiModel("QUIC recommendation", "QUIC realistic burst"),
-                        ),
-                    signature =
-                        listOf(
-                            DiagnosticsFieldUiModel("Chain", "tlsrec(extlen) -> hostfake(endhost+8)"),
-                        ),
-                ),
-            families =
-                listOf(
-                    DiagnosticsStrategyProbeFamilyUiModel(
-                        title = "TCP / HTTP / HTTPS matrix",
-                        candidates =
-                            listOf(
-                                DiagnosticsStrategyProbeCandidateUiModel(
-                                    id = candidateDetail.id,
-                                    label = candidateDetail.label,
-                                    outcome = candidateDetail.outcome,
-                                    rationale = candidateDetail.rationale,
-                                    metrics = candidateDetail.metrics,
-                                    tone = candidateDetail.tone,
-                                    skipped = false,
-                                    recommended = true,
+    @Test
+    fun automaticAuditLowConfidenceRendersWarningBannerAndCoverageMetrics() {
+        composeRule.setContent {
+            val pagerState =
+                rememberPagerState(
+                    initialPage = DiagnosticsSection.Scan.ordinal,
+                    pageCount = { DiagnosticsSection.entries.size },
+                )
+            RipDpiTheme {
+                DiagnosticsScreen(
+                    uiState =
+                        DiagnosticsUiState(
+                            selectedSection = DiagnosticsSection.Scan,
+                            scan =
+                                DiagnosticsScanUiModel(
+                                    strategyProbeReport =
+                                        auditReport(
+                                            auditCandidateDetail(),
+                                            auditAssessment =
+                                                auditAssessment(
+                                                    level = StrategyProbeAuditConfidenceLevel.LOW,
+                                                    score = 35,
+                                                    matrixCoveragePercent = 42,
+                                                    winnerCoveragePercent = 48,
+                                                    warnings =
+                                                        listOf(
+                                                            "TCP matrix coverage stayed below 75% of planned candidates.",
+                                                        ),
+                                                ),
+                                        ),
                                 ),
+                        ),
+                    pagerState = pagerState,
+                    onSelectSection = {},
+                    onSelectProfile = {},
+                    onRunRawScan = {},
+                    onRunInPathScan = {},
+                    onCancelScan = {},
+                    onKeepResolverRecommendation = {},
+                    onSaveResolverRecommendation = {},
+                    onSelectSession = {},
+                    onDismissSessionDetail = {},
+                    onSelectStrategyProbeCandidate = {},
+                    onDismissStrategyProbeCandidate = {},
+                    onSelectApproachMode = {},
+                    onSelectApproach = {},
+                    onDismissApproachDetail = {},
+                    onSelectEvent = {},
+                    onDismissEventDetail = {},
+                    onSelectProbe = {},
+                    onDismissProbeDetail = {},
+                    onToggleSensitiveSessionDetails = {},
+                    onSessionPathFilter = {},
+                    onSessionStatusFilter = {},
+                    onSessionSearch = {},
+                    onToggleEventFilter = { _, _ -> },
+                    onEventSearch = {},
+                    onEventAutoScroll = {},
+                    onShareSummary = {},
+                    onShareArchive = {},
+                    onSaveArchive = {},
+                    onSaveLogs = {},
+                    onOpenHistory = {},
+                )
+            }
+        }
+
+        composeRule.onRoot().performTouchInput { swipeUp() }
+        composeRule.onNodeWithTag(RipDpiTestTags.DiagnosticsStrategyAuditAssessment).fetchSemanticsNode()
+        composeRule.onNodeWithTag(RipDpiTestTags.DiagnosticsStrategyAuditLowConfidenceBanner).fetchSemanticsNode()
+    }
+
+    @Test
+    fun automaticAuditMediumConfidenceRendersCautionNote() {
+        composeRule.setContent {
+            val pagerState =
+                rememberPagerState(
+                    initialPage = DiagnosticsSection.Scan.ordinal,
+                    pageCount = { DiagnosticsSection.entries.size },
+                )
+            RipDpiTheme {
+                DiagnosticsScreen(
+                    uiState =
+                        DiagnosticsUiState(
+                            selectedSection = DiagnosticsSection.Scan,
+                            scan =
+                                DiagnosticsScanUiModel(
+                                    strategyProbeReport =
+                                        auditReport(
+                                            auditCandidateDetail(),
+                                            auditAssessment =
+                                                auditAssessment(
+                                                    level = StrategyProbeAuditConfidenceLevel.MEDIUM,
+                                                    score = 70,
+                                                    matrixCoveragePercent = 68,
+                                                    winnerCoveragePercent = 100,
+                                                    warnings =
+                                                        listOf(
+                                                            "TCP matrix coverage stayed below 75% of planned candidates.",
+                                                        ),
+                                                ),
+                                        ),
+                                ),
+                        ),
+                    pagerState = pagerState,
+                    onSelectSection = {},
+                    onSelectProfile = {},
+                    onRunRawScan = {},
+                    onRunInPathScan = {},
+                    onCancelScan = {},
+                    onKeepResolverRecommendation = {},
+                    onSaveResolverRecommendation = {},
+                    onSelectSession = {},
+                    onDismissSessionDetail = {},
+                    onSelectStrategyProbeCandidate = {},
+                    onDismissStrategyProbeCandidate = {},
+                    onSelectApproachMode = {},
+                    onSelectApproach = {},
+                    onDismissApproachDetail = {},
+                    onSelectEvent = {},
+                    onDismissEventDetail = {},
+                    onSelectProbe = {},
+                    onDismissProbeDetail = {},
+                    onToggleSensitiveSessionDetails = {},
+                    onSessionPathFilter = {},
+                    onSessionStatusFilter = {},
+                    onSessionSearch = {},
+                    onToggleEventFilter = { _, _ -> },
+                    onEventSearch = {},
+                    onEventAutoScroll = {},
+                    onShareSummary = {},
+                    onShareArchive = {},
+                    onSaveArchive = {},
+                    onSaveLogs = {},
+                    onOpenHistory = {},
+                )
+            }
+        }
+
+        composeRule.onRoot().performTouchInput { swipeUp() }
+        composeRule.onNodeWithTag(RipDpiTestTags.DiagnosticsStrategyAuditAssessment).fetchSemanticsNode()
+        composeRule.onNodeWithTag(RipDpiTestTags.DiagnosticsStrategyAuditMediumConfidenceNote).fetchSemanticsNode()
+    }
+
+    @Test
+    fun nonAuditStrategyProbeDoesNotRenderAssessmentBlock() {
+        composeRule.setContent {
+            val pagerState =
+                rememberPagerState(
+                    initialPage = DiagnosticsSection.Scan.ordinal,
+                    pageCount = { DiagnosticsSection.entries.size },
+                )
+            RipDpiTheme {
+                DiagnosticsScreen(
+                    uiState =
+                        DiagnosticsUiState(
+                            selectedSection = DiagnosticsSection.Scan,
+                            scan =
+                                DiagnosticsScanUiModel(
+                                    strategyProbeReport =
+                                        auditReport(
+                                            candidateDetail = auditCandidateDetail(),
+                                            suiteId = "quick_v1",
+                                            suiteLabel = "Automatic probing",
+                                            auditAssessment = null,
+                                        ),
+                                ),
+                        ),
+                    pagerState = pagerState,
+                    onSelectSection = {},
+                    onSelectProfile = {},
+                    onRunRawScan = {},
+                    onRunInPathScan = {},
+                    onCancelScan = {},
+                    onKeepResolverRecommendation = {},
+                    onSaveResolverRecommendation = {},
+                    onSelectSession = {},
+                    onDismissSessionDetail = {},
+                    onSelectStrategyProbeCandidate = {},
+                    onDismissStrategyProbeCandidate = {},
+                    onSelectApproachMode = {},
+                    onSelectApproach = {},
+                    onDismissApproachDetail = {},
+                    onSelectEvent = {},
+                    onDismissEventDetail = {},
+                    onSelectProbe = {},
+                    onDismissProbeDetail = {},
+                    onToggleSensitiveSessionDetails = {},
+                    onSessionPathFilter = {},
+                    onSessionStatusFilter = {},
+                    onSessionSearch = {},
+                    onToggleEventFilter = { _, _ -> },
+                    onEventSearch = {},
+                    onEventAutoScroll = {},
+                    onShareSummary = {},
+                    onShareArchive = {},
+                    onSaveArchive = {},
+                    onSaveLogs = {},
+                    onOpenHistory = {},
+                )
+            }
+        }
+
+        composeRule.onRoot().performTouchInput { swipeUp() }
+        composeRule.onNodeWithText("Audit confidence").assertDoesNotExist()
+    }
+
+    private fun auditReport(
+        candidateDetail: DiagnosticsStrategyProbeCandidateDetailUiModel,
+        suiteId: String = "full_matrix_v1",
+        suiteLabel: String = "Automatic audit",
+        auditAssessment: StrategyProbeAuditAssessment? =
+            auditAssessment(
+                level = StrategyProbeAuditConfidenceLevel.HIGH,
+                score = 92,
+                matrixCoveragePercent = 92,
+                winnerCoveragePercent = 100,
+                warnings = emptyList(),
+            ),
+    ) = DiagnosticsStrategyProbeReportUiModel(
+        suiteId = suiteId,
+        suiteLabel = suiteLabel,
+        summaryMetrics =
+            listOf(
+                DiagnosticsMetricUiModel(label = "Worked", value = "2", tone = DiagnosticsTone.Positive),
+                DiagnosticsMetricUiModel(label = "Partial", value = "1", tone = DiagnosticsTone.Warning),
+                DiagnosticsMetricUiModel(label = "Failed", value = "1", tone = DiagnosticsTone.Negative),
+                DiagnosticsMetricUiModel(label = "N/A", value = "1"),
+            ),
+        auditAssessment = auditAssessment,
+        recommendation =
+            DiagnosticsStrategyProbeRecommendationUiModel(
+                headline = "TLS record + hostfake + QUIC realistic burst",
+                rationale = "Best combined recovery across TCP and QUIC.",
+                fields =
+                    listOf(
+                        DiagnosticsFieldUiModel("TCP recommendation", "TLS record + hostfake"),
+                        DiagnosticsFieldUiModel("QUIC recommendation", "QUIC realistic burst"),
+                    ),
+                signature =
+                    listOf(
+                        DiagnosticsFieldUiModel("Chain", "tlsrec(extlen) -> hostfake(endhost+8)"),
+                    ),
+            ),
+        families =
+            listOf(
+                DiagnosticsStrategyProbeFamilyUiModel(
+                    title = "TCP / HTTP / HTTPS matrix",
+                    candidates =
+                        listOf(
+                            DiagnosticsStrategyProbeCandidateUiModel(
+                                id = candidateDetail.id,
+                                label = candidateDetail.label,
+                                outcome = candidateDetail.outcome,
+                                rationale = candidateDetail.rationale,
+                                metrics = candidateDetail.metrics,
+                                tone = candidateDetail.tone,
+                                skipped = false,
+                                recommended = true,
                             ),
-                    ),
-                    DiagnosticsStrategyProbeFamilyUiModel(
-                        title = "QUIC matrix",
-                        candidates = emptyList(),
-                    ),
+                        ),
                 ),
-            candidateDetails = mapOf(candidateDetail.id to candidateDetail),
-        )
+                DiagnosticsStrategyProbeFamilyUiModel(
+                    title = "QUIC matrix",
+                    candidates = emptyList(),
+                ),
+            ),
+        candidateDetails = mapOf(candidateDetail.id to candidateDetail),
+    )
+
+    private fun auditAssessment(
+        level: StrategyProbeAuditConfidenceLevel,
+        score: Int,
+        matrixCoveragePercent: Int,
+        winnerCoveragePercent: Int,
+        warnings: List<String>,
+    ) = StrategyProbeAuditAssessment(
+        dnsShortCircuited = false,
+        coverage =
+            StrategyProbeAuditCoverage(
+                tcpCandidatesPlanned = 11,
+                tcpCandidatesExecuted = 6,
+                tcpCandidatesSkipped = 0,
+                tcpCandidatesNotApplicable = 0,
+                quicCandidatesPlanned = 2,
+                quicCandidatesExecuted = 2,
+                quicCandidatesSkipped = 0,
+                quicCandidatesNotApplicable = 0,
+                tcpWinnerSucceededTargets = 3,
+                tcpWinnerTotalTargets = 3,
+                quicWinnerSucceededTargets = 1,
+                quicWinnerTotalTargets = 1,
+                matrixCoveragePercent = matrixCoveragePercent,
+                winnerCoveragePercent = winnerCoveragePercent,
+            ),
+        confidence =
+            StrategyProbeAuditConfidence(
+                level = level,
+                score = score,
+                rationale = "Audit assessment rationale",
+                warnings = warnings,
+            ),
+    )
 
     // -- Characterization tests: section switching --
 
