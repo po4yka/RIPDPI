@@ -86,6 +86,12 @@ interface DiagnosticsArtifactReadStore {
 
     fun observeTelemetry(limit: Int = 200): Flow<List<TelemetrySampleEntity>>
 
+    suspend fun getLatestTelemetrySampleForFingerprint(
+        activeMode: String,
+        fingerprintHash: String,
+        createdAfter: Long,
+    ): TelemetrySampleEntity?
+
     fun observeConnectionTelemetry(
         connectionSessionId: String,
         limit: Int = 200,
@@ -254,6 +260,17 @@ class RoomDiagnosticsArtifactStore
             )
 
         override fun observeTelemetry(limit: Int): Flow<List<TelemetrySampleEntity>> = dao.observeTelemetry(limit)
+
+        override suspend fun getLatestTelemetrySampleForFingerprint(
+            activeMode: String,
+            fingerprintHash: String,
+            createdAfter: Long,
+        ): TelemetrySampleEntity? =
+            dao.getLatestTelemetrySampleForFingerprint(
+                activeMode = activeMode,
+                fingerprintHash = fingerprintHash,
+                createdAfter = createdAfter,
+            )
 
         override fun observeConnectionTelemetry(
             connectionSessionId: String,

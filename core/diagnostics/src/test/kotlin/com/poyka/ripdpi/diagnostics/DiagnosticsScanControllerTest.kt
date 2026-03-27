@@ -329,6 +329,8 @@ class DiagnosticsScanControllerTest {
                             mode = com.poyka.ripdpi.data.Mode.VPN,
                             currentFingerprintHash = "network-a",
                             classification = "network_changed",
+                            currentNetworkValidated = true,
+                            currentCaptivePortalDetected = false,
                             usedRememberedPolicy = false,
                             policySignature = "baseline",
                             occurredAt = 10L,

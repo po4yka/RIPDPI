@@ -148,6 +148,10 @@ data class DiagnosticContextEntity(
             name = "index_telemetry_samples_createdAt",
             value = ["createdAt"],
         ),
+        Index(
+            name = "index_telemetry_samples_fingerprint_mode_createdAt",
+            value = ["telemetryNetworkFingerprintHash", "activeMode", "createdAt"],
+        ),
     ],
 )
 @Serializable
@@ -437,6 +441,22 @@ interface DiagnosticsDao {
     @Query(
         """
         SELECT * FROM telemetry_samples
+        WHERE activeMode = :activeMode
+            AND telemetryNetworkFingerprintHash = :fingerprintHash
+            AND createdAt >= :createdAfter
+        ORDER BY createdAt DESC
+        LIMIT 1
+        """,
+    )
+    suspend fun getLatestTelemetrySampleForFingerprint(
+        activeMode: String,
+        fingerprintHash: String,
+        createdAfter: Long,
+    ): TelemetrySampleEntity?
+
+    @Query(
+        """
+        SELECT * FROM telemetry_samples
         WHERE connectionSessionId = :connectionSessionId
         ORDER BY createdAt DESC
         LIMIT :limit
@@ -615,7 +635,7 @@ interface DiagnosticsDao {
         RememberedNetworkPolicyEntity::class,
         NetworkDnsPathPreferenceEntity::class,
     ],
-    version = 5,
+    version = 6,
     exportSchema = true,
 )
 abstract class DiagnosticsDatabase : RoomDatabase() {
@@ -661,6 +681,18 @@ val DiagnosticsMigration4To5 =
         }
     }
 
+val DiagnosticsMigration5To6 =
+    object : Migration(5, 6) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL(
+                """
+                CREATE INDEX IF NOT EXISTS `index_telemetry_samples_fingerprint_mode_createdAt`
+                ON `telemetry_samples` (`telemetryNetworkFingerprintHash`, `activeMode`, `createdAt`)
+                """.trimIndent(),
+            )
+        }
+    }
+
 @Module
 @InstallIn(SingletonComponent::class)
 object DiagnosticsDatabaseModule {
@@ -679,6 +711,7 @@ object DiagnosticsDatabaseModule {
                 DiagnosticsMigration2To3,
                 DiagnosticsMigration3To4,
                 DiagnosticsMigration4To5,
+                DiagnosticsMigration5To6,
             ).fallbackToDestructiveMigrationOnDowngrade(true)
             .build()
 

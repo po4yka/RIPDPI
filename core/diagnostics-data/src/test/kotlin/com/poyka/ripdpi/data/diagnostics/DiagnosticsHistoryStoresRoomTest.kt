@@ -134,6 +134,61 @@ class DiagnosticsHistoryStoresRoomTest {
         }
 
     @Test
+    fun `artifact store returns latest telemetry sample by fingerprint and mode`() =
+        runTest {
+            val store = RoomDiagnosticsArtifactStore(dao)
+
+            store.insertTelemetrySample(
+                telemetry(
+                    id = "tel-1",
+                    sessionId = "scan-1",
+                    createdAt = 20L,
+                    activeMode = "VPN",
+                    fingerprintHash = "fp-1",
+                    failureClass = "network_handover",
+                ),
+            )
+            store.insertTelemetrySample(
+                telemetry(
+                    id = "tel-2",
+                    sessionId = "scan-2",
+                    createdAt = 30L,
+                    activeMode = "VPN",
+                    fingerprintHash = "fp-1",
+                    failureClass = "dns_tampering",
+                ),
+            )
+            store.insertTelemetrySample(
+                telemetry(
+                    id = "tel-3",
+                    sessionId = "scan-3",
+                    createdAt = 40L,
+                    activeMode = "Proxy",
+                    fingerprintHash = "fp-1",
+                    failureClass = "dns_tampering",
+                ),
+            )
+
+            assertEquals(
+                "tel-2",
+                store
+                    .getLatestTelemetrySampleForFingerprint(
+                        activeMode = "VPN",
+                        fingerprintHash = "fp-1",
+                        createdAfter = 0L,
+                    )?.id,
+            )
+            assertEquals(
+                null,
+                store.getLatestTelemetrySampleForFingerprint(
+                    activeMode = "VPN",
+                    fingerprintHash = "fp-1",
+                    createdAfter = 35L,
+                ),
+            )
+        }
+
+    @Test
     fun `bypass usage history store persists and observes sessions`() =
         runTest {
             val store = RoomBypassUsageHistoryStore(dao)
@@ -508,14 +563,19 @@ private fun telemetry(
     sessionId: String?,
     connectionSessionId: String? = null,
     createdAt: Long,
+    activeMode: String = "VPN",
+    fingerprintHash: String? = null,
+    failureClass: String? = null,
 ) = TelemetrySampleEntity(
     id = id,
     sessionId = sessionId,
     connectionSessionId = connectionSessionId,
-    activeMode = "VPN",
+    activeMode = activeMode,
     connectionState = "Running",
     networkType = "wifi",
     publicIp = "198.51.100.10",
+    failureClass = failureClass,
+    telemetryNetworkFingerprintHash = fingerprintHash,
     txPackets = 1L,
     txBytes = 64L,
     rxPackets = 2L,

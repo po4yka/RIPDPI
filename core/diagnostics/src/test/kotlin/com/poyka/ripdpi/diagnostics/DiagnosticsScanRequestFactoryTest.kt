@@ -17,9 +17,13 @@ import com.poyka.ripdpi.diagnostics.contract.engine.EngineScanRequestWire
 import com.poyka.ripdpi.diagnostics.domain.DiagnosticsIntent
 import com.poyka.ripdpi.diagnostics.domain.ExecutionPolicy
 import com.poyka.ripdpi.diagnostics.domain.ScanContext
+import com.poyka.ripdpi.diagnostics.domain.StrategyProbeTargetCohortSpec
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotEquals
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class DiagnosticsScanRequestFactoryTest {
@@ -137,6 +141,149 @@ class DiagnosticsScanRequestFactoryTest {
         }
 
     @Test
+    fun `automatic audit request selects one cohort and records target selection`() =
+        runTest {
+            val request =
+                prepareStrategyProbeRequest(
+                    settings = defaultDiagnosticsAppSettings(),
+                    profileId = "automatic-audit",
+                    family = DiagnosticProfileFamily.AUTOMATIC_AUDIT,
+                    suiteId = "full_matrix_v1",
+                    strategyProbeTargetCohorts =
+                        listOf(
+                            auditCohort(
+                                id = "global-core",
+                                label = "Global core",
+                                domainHosts = listOf("www.youtube.com", "discord.com", "proton.me"),
+                                quicHosts = listOf("www.youtube.com", "discord.com"),
+                            ),
+                            auditCohort(
+                                id = "media-messaging",
+                                label = "Media and messaging",
+                                domainHosts = listOf("meduza.io", "telegram.org", "signal.org"),
+                                quicHosts = listOf("discord.com", "www.whatsapp.com"),
+                            ),
+                        ),
+                )
+
+            val selection = requireNotNull(request.strategyProbe?.targetSelection)
+
+            assertEquals(3, request.domainTargets.size)
+            assertEquals(2, request.quicTargets.size)
+            assertTrue(selection.cohortId in listOf("global-core", "media-messaging"))
+            assertEquals(request.domainTargets.map(DomainTarget::host), selection.domainHosts)
+            assertEquals(request.quicTargets.map(QuicTarget::host), selection.quicHosts)
+        }
+
+    @Test
+    fun `different session ids can produce different automatic audit cohorts`() {
+        val intent =
+            strategyProbeIntent(
+                settings = defaultDiagnosticsAppSettings(),
+                baseProxyConfigJson = null,
+                profileId = "automatic-audit",
+                family = DiagnosticProfileFamily.AUTOMATIC_AUDIT,
+                suiteId = "full_matrix_v1",
+                strategyProbeTargetCohorts =
+                    listOf(
+                        auditCohort(
+                            id = "global-core",
+                            label = "Global core",
+                            domainHosts = listOf("www.youtube.com", "discord.com", "proton.me"),
+                            quicHosts = listOf("www.youtube.com", "discord.com"),
+                        ),
+                        auditCohort(
+                            id = "media-messaging",
+                            label = "Media and messaging",
+                            domainHosts = listOf("meduza.io", "telegram.org", "signal.org"),
+                            quicHosts = listOf("discord.com", "www.whatsapp.com"),
+                        ),
+                    ),
+            )
+
+        val firstSelection =
+            requireNotNull(
+                selectStrategyProbeTargetsForSession("audit-session-1", intent).strategyProbe?.targetSelection,
+            )
+        val secondSelection =
+            generateSequence(2) { it + 1 }
+                .map { attempt ->
+                    requireNotNull(
+                        selectStrategyProbeTargetsForSession(
+                            "audit-session-$attempt",
+                            intent,
+                        ).strategyProbe?.targetSelection,
+                    )
+                }.first { selection -> selection.cohortId != firstSelection.cohortId }
+
+        assertNotEquals(firstSelection.cohortId, secondSelection.cohortId)
+    }
+
+    @Test
+    fun `automatic audit falls back to fixed targets when cohorts are invalid`() {
+        val intent =
+            strategyProbeIntent(
+                settings = defaultDiagnosticsAppSettings(),
+                baseProxyConfigJson = null,
+                profileId = "automatic-audit",
+                family = DiagnosticProfileFamily.AUTOMATIC_AUDIT,
+                suiteId = "full_matrix_v1",
+                domainTargets =
+                    listOf(
+                        DomainTarget(host = "fallback-a.example"),
+                        DomainTarget(host = "fallback-b.example"),
+                        DomainTarget(host = "fallback-c.example"),
+                    ),
+                quicTargets =
+                    listOf(
+                        QuicTarget(host = "fallback-quic-a.example"),
+                        QuicTarget(host = "fallback-quic-b.example"),
+                    ),
+                strategyProbeTargetCohorts =
+                    listOf(
+                        auditCohort(
+                            id = "invalid",
+                            label = "Invalid",
+                            domainHosts = listOf("only-one.example"),
+                            quicHosts = listOf("only-one-quic.example"),
+                        ),
+                    ),
+            )
+
+        val selected = selectStrategyProbeTargetsForSession("audit-session", intent)
+
+        assertEquals(intent.domainTargets.map(DomainTarget::host), selected.domainTargets.map(DomainTarget::host))
+        assertEquals(intent.quicTargets.map(QuicTarget::host), selected.quicTargets.map(QuicTarget::host))
+        assertNull(selected.strategyProbe?.targetSelection)
+    }
+
+    @Test
+    fun `quick strategy probe ignores audit cohorts`() {
+        val intent =
+            strategyProbeIntent(
+                settings = defaultDiagnosticsAppSettings(),
+                baseProxyConfigJson = null,
+                profileId = "automatic-probing",
+                family = DiagnosticProfileFamily.AUTOMATIC_PROBING,
+                suiteId = "quick_v1",
+                strategyProbeTargetCohorts =
+                    listOf(
+                        auditCohort(
+                            id = "global-core",
+                            label = "Global core",
+                            domainHosts = listOf("www.youtube.com", "discord.com", "proton.me"),
+                            quicHosts = listOf("www.youtube.com", "discord.com"),
+                        ),
+                    ),
+            )
+
+        val selected = selectStrategyProbeTargetsForSession("probe-session", intent)
+
+        assertEquals(intent.domainTargets.map(DomainTarget::host), selected.domainTargets.map(DomainTarget::host))
+        assertNull(selected.strategyProbe?.targetSelection)
+    }
+
+    @Test
     fun `prepare scan preserves explicit scan origin`() =
         runTest {
             val settings = defaultDiagnosticsAppSettings()
@@ -181,6 +328,8 @@ class DiagnosticsScanRequestFactoryTest {
                             previousFingerprintHash = "fingerprint-a",
                             currentFingerprintHash = "fingerprint-b",
                             classification = "transport_switch",
+                            currentNetworkValidated = true,
+                            currentCaptivePortalDetected = false,
                             usedRememberedPolicy = false,
                             policySignature = "baseline",
                             occurredAt = 42L,
@@ -256,8 +405,24 @@ class DiagnosticsScanRequestFactoryTest {
         settings: com.poyka.ripdpi.proto.AppSettings,
         preferredDnsPath: EncryptedDnsPathCandidate? = null,
         baseProxyConfigJson: String? = null,
+        profileId: String = "strategy-probe",
+        family: DiagnosticProfileFamily = DiagnosticProfileFamily.AUTOMATIC_PROBING,
+        suiteId: String = "quick_v1",
+        domainTargets: List<DomainTarget> = listOf(DomainTarget(host = "example.org")),
+        quicTargets: List<QuicTarget> = listOf(QuicTarget(host = "example.org")),
+        strategyProbeTargetCohorts: List<StrategyProbeTargetCohortSpec> = emptyList(),
     ): EngineScanRequestWire {
-        val intent = strategyProbeIntent(settings = settings, baseProxyConfigJson = baseProxyConfigJson)
+        val intent =
+            strategyProbeIntent(
+                settings = settings,
+                baseProxyConfigJson = baseProxyConfigJson,
+                profileId = profileId,
+                family = family,
+                suiteId = suiteId,
+                domainTargets = domainTargets,
+                quicTargets = quicTargets,
+                strategyProbeTargetCohorts = strategyProbeTargetCohorts,
+            )
         val context = strategyProbeContext(settings = settings, preferredDnsPath = preferredDnsPath)
         val factory =
             DiagnosticsScanRequestFactory(
@@ -302,12 +467,18 @@ class DiagnosticsScanRequestFactoryTest {
     private fun strategyProbeIntent(
         settings: com.poyka.ripdpi.proto.AppSettings,
         baseProxyConfigJson: String?,
+        profileId: String = "strategy-probe",
+        family: DiagnosticProfileFamily = DiagnosticProfileFamily.AUTOMATIC_PROBING,
+        suiteId: String = "quick_v1",
+        domainTargets: List<DomainTarget> = listOf(DomainTarget(host = "example.org")),
+        quicTargets: List<QuicTarget> = listOf(QuicTarget(host = "example.org")),
+        strategyProbeTargetCohorts: List<StrategyProbeTargetCohortSpec> = emptyList(),
     ) = DiagnosticsIntent(
-        profileId = "strategy-probe",
+        profileId = profileId,
         displayName = "Strategy probe",
         settings = settings,
         kind = ScanKind.STRATEGY_PROBE,
-        family = DiagnosticProfileFamily.AUTOMATIC_PROBING,
+        family = family,
         regionTag = null,
         executionPolicy =
             ExecutionPolicy(
@@ -317,16 +488,17 @@ class DiagnosticsScanRequestFactoryTest {
                 probePersistencePolicy = ProbePersistencePolicy.MANUAL_ONLY,
             ),
         packRefs = emptyList(),
-        domainTargets = listOf(DomainTarget(host = "example.org")),
+        domainTargets = domainTargets,
         dnsTargets = emptyList(),
         tcpTargets = emptyList(),
-        quicTargets = listOf(QuicTarget(host = "example.org")),
+        quicTargets = quicTargets,
         serviceTargets = emptyList(),
         circumventionTargets = emptyList(),
         throughputTargets = emptyList(),
         whitelistSni = emptyList(),
         telegramTarget = null,
-        strategyProbe = StrategyProbeRequest(suiteId = "quick_v1", baseProxyConfigJson = baseProxyConfigJson),
+        strategyProbe = StrategyProbeRequest(suiteId = suiteId, baseProxyConfigJson = baseProxyConfigJson),
+        strategyProbeTargetCohorts = strategyProbeTargetCohorts,
         requestedPathMode = ScanPathMode.RAW_PATH,
     )
 
@@ -353,4 +525,16 @@ class DiagnosticsScanRequestFactoryTest {
                 decodeRipDpiProxyUiPreferences(requireNotNull(request.strategyProbe?.baseProxyConfigJson)),
             ).runtimeContext?.encryptedDns,
         )
+
+    private fun auditCohort(
+        id: String,
+        label: String,
+        domainHosts: List<String>,
+        quicHosts: List<String>,
+    ) = StrategyProbeTargetCohortSpec(
+        id = id,
+        label = label,
+        domainTargets = domainHosts.map { host -> DomainTarget(host = host) },
+        quicTargets = quicHosts.map { host -> QuicTarget(host = host) },
+    )
 }
