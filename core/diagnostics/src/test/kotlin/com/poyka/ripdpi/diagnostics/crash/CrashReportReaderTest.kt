@@ -103,6 +103,40 @@ class CrashReportReaderTest {
     }
 
     @Test
+    fun `read returns null and deletes empty file`() =
+        runTest {
+            writeCrashFile("")
+            val reader = createReader()
+            val crashFile =
+                File(
+                    tempFolder.root,
+                    "${CrashReportWriter.CRASH_DIR_NAME}/${CrashReportWriter.CRASH_FILE_NAME}",
+                )
+
+            val report = reader.read()
+
+            assertNull(report)
+            assertFalse("Empty file should be deleted", crashFile.exists())
+        }
+
+    @Test
+    fun `read returns null and deletes file with non-object JSON`() =
+        runTest {
+            writeCrashFile("""[1, 2, 3]""")
+            val reader = createReader()
+            val crashFile =
+                File(
+                    tempFolder.root,
+                    "${CrashReportWriter.CRASH_DIR_NAME}/${CrashReportWriter.CRASH_FILE_NAME}",
+                )
+
+            val report = reader.read()
+
+            assertNull(report)
+            assertFalse("Non-object JSON file should be deleted", crashFile.exists())
+        }
+
+    @Test
     fun `buildShareText formats report correctly`() {
         val reader = createReader()
 

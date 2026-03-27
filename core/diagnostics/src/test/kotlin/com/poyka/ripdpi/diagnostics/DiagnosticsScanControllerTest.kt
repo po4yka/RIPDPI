@@ -184,6 +184,44 @@ class DiagnosticsScanControllerTest {
             assertEquals(1, bridgeFactory.bridge.cancelCount)
             assertEquals(1, bridgeFactory.bridge.destroyCount)
         }
+    @Test
+    fun `poll failure during scan execution marks session failed and cleans up`() =
+        runTest {
+            val stores = FakeDiagnosticsHistoryStores().apply { seedDefaultProfile(json) }
+            val bridgeFactory =
+                FakeNetworkDiagnosticsBridgeFactory(json).apply {
+                    bridge.autoCompleteOnStart = false
+                    bridge.faults.enqueue(
+                        FaultSpec(
+                            target = DiagnosticsBridgeFaultTarget.POLL_PROGRESS,
+                            outcome = FaultOutcome.EXCEPTION,
+                            message = "poll crashed",
+                        ),
+                    )
+                }
+            val services =
+                createDiagnosticsServices(
+                    context = TestContext(),
+                    appSettingsRepository = FakeAppSettingsRepository(),
+                    stores = stores,
+                    networkMetadataProvider = FakeNetworkMetadataProvider(),
+                    diagnosticsContextProvider = FakeDiagnosticsContextProvider(),
+                    networkDiagnosticsBridgeFactory = bridgeFactory,
+                    runtimeCoordinator = FakeDiagnosticsRuntimeCoordinator(),
+                    serviceStateStore = FakeServiceStateStore(),
+                    scope = backgroundScope,
+                    controllerScope = this,
+                    json = json,
+                )
+
+            val sessionId = services.scanController.startScan(ScanPathMode.RAW_PATH)
+            advanceUntilIdle()
+
+            val failedSession = stores.getScanSession(sessionId)
+            assertEquals("failed", failedSession?.status)
+            assertNull(services.timelineSource.activeScanProgress.value)
+            assertEquals(1, bridgeFactory.bridge.destroyCount)
+        }
 }
 
 private suspend inline fun <reified T : Throwable> assertSuspendFailsWith(noinline block: suspend () -> Unit): T {
