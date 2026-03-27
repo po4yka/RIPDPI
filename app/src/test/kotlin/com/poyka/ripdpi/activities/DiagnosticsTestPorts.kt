@@ -76,7 +76,7 @@ internal class FakeDiagnosticsManager(
         bootstrapper.onInitialize = {
             initializeCalls += 1
         }
-        scanController.onStartScan = { pathMode ->
+        scanController.onStartScan = { pathMode, _ ->
             DiagnosticsManualScanStartResult.Started("session-${pathMode.name}")
         }
         scanController.onCancel = { progressState.value = null }
