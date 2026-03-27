@@ -64,6 +64,38 @@ internal fun DiagnosticsUiFactorySupport.buildScanUiModel(
     val strategyProbeSelected = selectedProfile?.isStrategyProbe == true
     val runRawEnabled = progress == null && !(strategyProbeSelected && rawArgsEnabled)
     val runInPathEnabled = progress == null && !strategyProbeSelected
+    val workflowRestriction =
+        when {
+            strategyProbeSelected && rawArgsEnabled -> {
+                val workflowLabel =
+                    if (selectedProfile.isFullAudit) {
+                        context.getString(R.string.diagnostics_scan_automatic_audit)
+                    } else {
+                        context.getString(R.string.diagnostics_scan_automatic_probing)
+                    }
+                DiagnosticsWorkflowRestrictionUiModel(
+                    reason = DiagnosticsWorkflowRestrictionReasonUiModel.COMMAND_LINE_MODE_ACTIVE,
+                    title =
+                        if (selectedProfile.isFullAudit) {
+                            context.getString(R.string.diagnostics_audit_unavailable_title)
+                        } else {
+                            context.getString(R.string.diagnostics_probe_unavailable_title)
+                        },
+                    body =
+                        context.getString(
+                            R.string.diagnostics_scan_workflow_blocked_command_line_body_format,
+                            workflowLabel,
+                            context.getString(R.string.use_command_line_settings),
+                        ),
+                    actionLabel = context.getString(R.string.diagnostics_scan_open_advanced_settings),
+                    actionKind = DiagnosticsWorkflowRestrictionActionKindUiModel.OPEN_ADVANCED_SETTINGS,
+                )
+            }
+
+            else -> {
+                null
+            }
+        }
     val workflowLabel =
         if (selectedProfile?.isFullAudit == true) {
             context.getString(R.string.diagnostics_scan_automatic_audit)
@@ -72,10 +104,6 @@ internal fun DiagnosticsUiFactorySupport.buildScanUiModel(
         }
     val runRawHint =
         when {
-            strategyProbeSelected && rawArgsEnabled -> {
-                context.getString(R.string.diagnostics_scan_cli_active_format, workflowLabel)
-            }
-
             strategyProbeSelected -> {
                 context.getString(R.string.diagnostics_scan_raw_path_format, workflowLabel)
             }
@@ -124,6 +152,7 @@ internal fun DiagnosticsUiFactorySupport.buildScanUiModel(
         runInPathEnabled = runInPathEnabled,
         runRawHint = runRawHint,
         runInPathHint = runInPathHint,
+        workflowRestriction = workflowRestriction,
         resolverRecommendation = latestResolverRecommendation,
         strategyProbeReport = latestStrategyProbeReport,
         isBusy = progress != null,

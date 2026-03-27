@@ -111,8 +111,12 @@
     <string name="diagnostics_status_validated">Validated</string>
     <string name="diagnostics_status_suppressed">Suppressed</string>
     <string name="diagnostics_status_observed">Observed</string>
-    <string name="diagnostics_source_strategy_probe">Strategy probe</string>
     <string name="diagnostics_source_manual_session">Manual session</string>
+    <string name="diagnostics_source_automatic_probing_background">Automatic probing (background)</string>
+    <string name="diagnostics_source_automatic_probing_manual">Automatic probing (manual)</string>
+    <string name="diagnostics_source_automatic_audit_manual">Automatic audit (manual)</string>
+    <string name="diagnostics_source_strategy_probe_manual">Strategy probe (manual)</string>
+    <string name="diagnostics_source_unknown">Unknown source</string>
     <string name="diagnostics_network_fallback_title">Network %1$s</string>
     <string name="diagnostics_current_match">Current match</string>
     <string name="diagnostics_no_strategy_signature">No strategy signature captured</string>
@@ -1439,6 +1443,9 @@ Source: %2$s</string>
     <string name="diagnostics_scan_cli_active_format">%1$s only works with visual RIPDPI settings. Command-line mode is active.</string>
     <string name="diagnostics_scan_raw_path_format">%1$s starts a temporary raw-path RIPDPI runtime and returns a manual recommendation.</string>
     <string name="diagnostics_scan_raw_only_format">%1$s is raw-path only because it launches isolated temporary strategy trials.</string>
+    <string name="diagnostics_scan_workflow_blocked_command_line_body_format">%1$s is blocked because %2$s is enabled. Turn it off in Advanced Settings before running this workflow so RIPDPI can launch isolated temporary strategy trials with the visual configuration.</string>
+    <string name="diagnostics_scan_blocked_setting_label">Blocked setting</string>
+    <string name="diagnostics_scan_open_advanced_settings">Open Advanced Settings</string>
 
     <!-- Diagnostics share preview -->
     <string name="diagnostics_share_title">RIPDPI diagnostics</string>

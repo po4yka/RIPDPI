@@ -6,6 +6,7 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
+import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipeUp
 import com.poyka.ripdpi.activities.DiagnosticsFieldUiModel
@@ -29,6 +30,9 @@ import com.poyka.ripdpi.activities.DiagnosticsStrategyProbeRecommendationUiModel
 import com.poyka.ripdpi.activities.DiagnosticsStrategyProbeReportUiModel
 import com.poyka.ripdpi.activities.DiagnosticsTone
 import com.poyka.ripdpi.activities.DiagnosticsUiState
+import com.poyka.ripdpi.activities.DiagnosticsWorkflowRestrictionActionKindUiModel
+import com.poyka.ripdpi.activities.DiagnosticsWorkflowRestrictionReasonUiModel
+import com.poyka.ripdpi.activities.DiagnosticsWorkflowRestrictionUiModel
 import com.poyka.ripdpi.activities.FakeAppSettingsRepository
 import com.poyka.ripdpi.activities.FakeDiagnosticsManager
 import com.poyka.ripdpi.activities.PhaseState
@@ -41,6 +45,7 @@ import com.poyka.ripdpi.diagnostics.StrategyProbeAuditConfidenceLevel
 import com.poyka.ripdpi.diagnostics.StrategyProbeAuditCoverage
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
+import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -612,6 +617,118 @@ class DiagnosticsScreenTest {
         composeRule.onNodeWithText("3/7").assertDoesNotExist()
     }
 
+    @Test
+    fun blockedAutomaticAuditRendersExactRemediationAndOpensAdvancedSettings() {
+        var openAdvancedSettingsCalls = 0
+
+        setScanScreen(
+            scan =
+                DiagnosticsScanUiModel(
+                    selectedProfile =
+                        DiagnosticsProfileOptionUiModel(
+                            id = "automatic-audit",
+                            name = "Automatic audit",
+                            source = "bundled",
+                            kind = ScanKind.STRATEGY_PROBE,
+                            strategyProbeSuiteId = "full_matrix_v1",
+                        ),
+                    selectedProfileScopeLabel = "Automatic audit · raw-path only · blocked by command-line mode",
+                    runRawEnabled = false,
+                    runInPathEnabled = false,
+                    workflowRestriction =
+                        workflowRestriction(
+                            title = "Automatic audit unavailable",
+                            body =
+                                "Automatic audit is blocked because Use command line settings is enabled. " +
+                                    "Turn it off in Advanced Settings before running this workflow.",
+                        ),
+                ),
+            onOpenAdvancedSettings = { openAdvancedSettingsCalls += 1 },
+        )
+
+        composeRule.onNodeWithTag(RipDpiTestTags.DiagnosticsWorkflowRestrictionCard).assertIsDisplayed()
+        composeRule.onNodeWithText("Use command line settings").assertIsDisplayed()
+        composeRule.onNodeWithTag(RipDpiTestTags.DiagnosticsWorkflowRestrictionAction).performClick()
+        composeRule.runOnIdle { assertEquals(1, openAdvancedSettingsCalls) }
+    }
+
+    @Test
+    fun blockedAutomaticProbingRendersProbeSpecificRemediation() {
+        setScanScreen(
+            scan =
+                DiagnosticsScanUiModel(
+                    selectedProfile =
+                        DiagnosticsProfileOptionUiModel(
+                            id = "automatic-probing",
+                            name = "Automatic probing",
+                            source = "bundled",
+                            kind = ScanKind.STRATEGY_PROBE,
+                            strategyProbeSuiteId = "quick_v1",
+                        ),
+                    selectedProfileScopeLabel = "Automatic probing · raw-path only · blocked by command-line mode",
+                    runRawEnabled = false,
+                    runInPathEnabled = false,
+                    workflowRestriction =
+                        workflowRestriction(
+                            title = "Automatic probing unavailable",
+                            body =
+                                "Automatic probing is blocked because Use command line settings is enabled. " +
+                                    "Turn it off in Advanced Settings before running this workflow.",
+                        ),
+                ),
+        )
+
+        composeRule.onNodeWithTag(RipDpiTestTags.DiagnosticsWorkflowRestrictionCard).assertIsDisplayed()
+        composeRule.onNodeWithText("Automatic probing unavailable").assertIsDisplayed()
+        composeRule.onNodeWithText("Use command line settings").assertIsDisplayed()
+    }
+
+    @Test
+    fun availableStrategyProbeKeepsRawPathHintAndDoesNotRenderRestrictionCard() {
+        setScanScreen(
+            scan =
+                DiagnosticsScanUiModel(
+                    selectedProfile =
+                        DiagnosticsProfileOptionUiModel(
+                            id = "automatic-probing",
+                            name = "Automatic probing",
+                            source = "bundled",
+                            kind = ScanKind.STRATEGY_PROBE,
+                            strategyProbeSuiteId = "quick_v1",
+                        ),
+                    runRawEnabled = true,
+                    runInPathEnabled = false,
+                    runRawHint =
+                        "Automatic probing starts a temporary raw-path RIPDPI runtime and returns a manual recommendation.",
+                    runInPathHint =
+                        "Automatic probing is raw-path only because it launches isolated temporary strategy trials.",
+                ),
+        )
+
+        composeRule.onNodeWithText("temporary raw-path RIPDPI runtime").assertIsDisplayed()
+        composeRule.onNodeWithTag(RipDpiTestTags.DiagnosticsWorkflowRestrictionCard).assertDoesNotExist()
+    }
+
+    @Test
+    fun connectivityWorkflowDoesNotRenderRestrictionCard() {
+        setScanScreen(
+            scan =
+                DiagnosticsScanUiModel(
+                    selectedProfile =
+                        DiagnosticsProfileOptionUiModel(
+                            id = "connectivity",
+                            name = "Connectivity checks",
+                            source = "bundled",
+                            kind = ScanKind.CONNECTIVITY,
+                        ),
+                    runRawEnabled = true,
+                    runInPathEnabled = true,
+                ),
+        )
+
+        composeRule.onNodeWithTag(RipDpiTestTags.DiagnosticsWorkflowRestrictionCard).assertDoesNotExist()
+    }
+
     private fun auditReport(
         candidateDetail: DiagnosticsStrategyProbeCandidateDetailUiModel,
         suiteId: String = "full_matrix_v1",
@@ -737,6 +854,71 @@ class DiagnosticsScreenTest {
             },
         currentProbeLabel = currentProbeLabel,
         strategyProbeProgress = strategyProbeProgress,
+    )
+
+    private fun setScanScreen(
+        scan: DiagnosticsScanUiModel,
+        onOpenAdvancedSettings: () -> Unit = {},
+    ) {
+        composeRule.setContent {
+            val pagerState =
+                rememberPagerState(
+                    initialPage = DiagnosticsSection.Scan.ordinal,
+                    pageCount = { DiagnosticsSection.entries.size },
+                )
+            RipDpiTheme {
+                DiagnosticsScreen(
+                    uiState =
+                        DiagnosticsUiState(
+                            selectedSection = DiagnosticsSection.Scan,
+                            scan = scan,
+                        ),
+                    pagerState = pagerState,
+                    onSelectSection = {},
+                    onSelectProfile = {},
+                    onRunRawScan = {},
+                    onRunInPathScan = {},
+                    onCancelScan = {},
+                    onKeepResolverRecommendation = {},
+                    onSaveResolverRecommendation = {},
+                    onSelectSession = {},
+                    onDismissSessionDetail = {},
+                    onSelectStrategyProbeCandidate = {},
+                    onDismissStrategyProbeCandidate = {},
+                    onSelectApproachMode = {},
+                    onSelectApproach = {},
+                    onDismissApproachDetail = {},
+                    onSelectEvent = {},
+                    onDismissEventDetail = {},
+                    onSelectProbe = {},
+                    onDismissProbeDetail = {},
+                    onToggleSensitiveSessionDetails = {},
+                    onSessionPathFilter = {},
+                    onSessionStatusFilter = {},
+                    onSessionSearch = {},
+                    onToggleEventFilter = { _, _ -> },
+                    onEventSearch = {},
+                    onEventAutoScroll = {},
+                    onShareSummary = {},
+                    onShareArchive = {},
+                    onSaveArchive = {},
+                    onSaveLogs = {},
+                    onOpenAdvancedSettings = onOpenAdvancedSettings,
+                    onOpenHistory = {},
+                )
+            }
+        }
+    }
+
+    private fun workflowRestriction(
+        title: String,
+        body: String,
+    ) = DiagnosticsWorkflowRestrictionUiModel(
+        reason = DiagnosticsWorkflowRestrictionReasonUiModel.COMMAND_LINE_MODE_ACTIVE,
+        title = title,
+        body = body,
+        actionLabel = "Open Advanced Settings",
+        actionKind = DiagnosticsWorkflowRestrictionActionKindUiModel.OPEN_ADVANCED_SETTINGS,
     )
 
     // -- Characterization tests: section switching --

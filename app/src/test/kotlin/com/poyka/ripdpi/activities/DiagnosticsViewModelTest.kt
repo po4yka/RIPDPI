@@ -656,7 +656,18 @@ class DiagnosticsViewModelTest {
             assertFalse(scan.runRawEnabled)
             assertFalse(scan.runInPathEnabled)
             assertTrue(scan.selectedProfileScopeLabel.orEmpty().contains("raw-path only"))
-            assertTrue(scan.runRawHint.orEmpty().contains("Command-line mode", ignoreCase = true))
+            assertNull(scan.runRawHint)
+            assertNotNull(scan.workflowRestriction)
+            assertEquals(
+                DiagnosticsWorkflowRestrictionReasonUiModel.COMMAND_LINE_MODE_ACTIVE,
+                scan.workflowRestriction?.reason,
+            )
+            assertTrue(
+                scan.workflowRestriction
+                    ?.body
+                    .orEmpty()
+                    .contains("Use command line settings", ignoreCase = true),
+            )
             collector.cancel()
         }
 
@@ -688,6 +699,46 @@ class DiagnosticsViewModelTest {
             assertFalse(scan.runInPathEnabled)
             assertTrue(scan.runRawHint.orEmpty().contains("manual recommendation", ignoreCase = true))
             assertTrue(scan.runInPathHint.orEmpty().contains("raw-path only", ignoreCase = true))
+            assertNull(scan.workflowRestriction)
+            collector.cancel()
+        }
+
+    @Test
+    fun `connectivity profile does not expose workflow restriction in command line mode`() =
+        runTest {
+            val manager =
+                FakeDiagnosticsManager().apply {
+                    profilesState.value =
+                        listOf(
+                            DiagnosticProfileEntity(
+                                id = "default",
+                                name = "Default",
+                                source = "bundled",
+                                version = 1,
+                                requestJson = """{"profileId":"default","displayName":"Default"}""",
+                                updatedAt = 1L,
+                            ),
+                        )
+                }
+            val settings =
+                com.poyka.ripdpi.data.AppSettingsSerializer.defaultValue
+                    .toBuilder()
+                    .setEnableCmdSettings(true)
+                    .build()
+
+            val viewModel =
+                createDiagnosticsViewModel(
+                    RuntimeEnvironment.getApplication(),
+                    manager,
+                    FakeAppSettingsRepository(settings),
+                )
+            val collector = backgroundScope.launch { viewModel.uiState.collect {} }
+            advanceUntilIdle()
+
+            val scan = viewModel.uiState.value.scan
+            assertTrue(scan.runRawEnabled)
+            assertTrue(scan.runInPathEnabled)
+            assertNull(scan.workflowRestriction)
             collector.cancel()
         }
 
