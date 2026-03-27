@@ -62,7 +62,7 @@ crypto_box = { version = "0.9", features = ["chacha20"] }
 etherparse = "0.19"
 fast-socks5 = "0.9"
 hex = "0.4"
-jni = "0.21"
+jni = "0.22"
 libc = "0.2"
 log = "0.4"
 loom = "0.7"
