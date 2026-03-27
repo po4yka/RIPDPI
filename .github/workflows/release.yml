@@ -42,7 +42,7 @@ jobs:
       - name: Install NDK
         run: sdkmanager --install "ndk;${{ steps.native-toolchain.outputs.ndk }}"
 
-      - uses: mozilla-actions/sccache-action@v0.0.7
+      - uses: mozilla-actions/sccache-action@v0.0.9
 
       - uses: gradle/actions/setup-gradle@v4
 
