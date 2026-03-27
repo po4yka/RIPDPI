@@ -160,6 +160,28 @@ internal fun DiagnosticsUiFactorySupport.toStrategyProbeReportUiModel(
                             candidate.id == report.recommendation.quicCandidateId,
                 )
         }
+    val winningPath =
+        if (report.suiteId == StrategyProbeSuiteFullMatrixV1) {
+            val tcpWinner = candidateDetails[report.recommendation.tcpCandidateId]
+            val quicWinner = candidateDetails[report.recommendation.quicCandidateId]
+            if (tcpWinner != null && quicWinner != null) {
+                DiagnosticsStrategyProbeWinningPathUiModel(
+                    tcpWinner =
+                        tcpWinner.toWinningCandidateUiModel(
+                            hiddenCandidateCount = (report.tcpCandidates.size - 1).coerceAtLeast(0),
+                        ),
+                    quicWinner =
+                        quicWinner.toWinningCandidateUiModel(
+                            hiddenCandidateCount = (report.quicCandidates.size - 1).coerceAtLeast(0),
+                        ),
+                    dnsLaneLabel = report.recommendation.dnsStrategyLabel,
+                )
+            } else {
+                null
+            }
+        } else {
+            null
+        }
 
     return DiagnosticsStrategyProbeReportUiModel(
         suiteId = report.suiteId,
@@ -167,6 +189,7 @@ internal fun DiagnosticsUiFactorySupport.toStrategyProbeReportUiModel(
         summaryMetrics = buildStrategyProbeSummaryMetrics(report),
         auditAssessment = report.auditAssessment,
         recommendation = toStrategyProbeRecommendationUiModel(report.recommendation),
+        winningPath = winningPath,
         families =
             listOf(
                 mapFamily(
@@ -193,6 +216,20 @@ internal fun DiagnosticsUiFactorySupport.toStrategyProbeReportUiModel(
         candidateDetails = candidateDetails,
     )
 }
+
+private fun DiagnosticsStrategyProbeCandidateDetailUiModel.toWinningCandidateUiModel(
+    hiddenCandidateCount: Int,
+): DiagnosticsStrategyProbeWinningCandidateUiModel =
+    DiagnosticsStrategyProbeWinningCandidateUiModel(
+        id = id,
+        label = label,
+        familyLabel = familyLabel,
+        outcome = outcome,
+        rationale = rationale,
+        metrics = metrics,
+        tone = tone,
+        hiddenCandidateCount = hiddenCandidateCount,
+    )
 
 internal fun DiagnosticsUiFactorySupport.toResolverRecommendationUiModel(
     recommendation: ResolverRecommendation,

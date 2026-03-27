@@ -1,6 +1,10 @@
 package com.poyka.ripdpi.ui.screens.diagnostics
 
 import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
@@ -28,6 +32,8 @@ import com.poyka.ripdpi.activities.DiagnosticsStrategyProbeLiveProgressUiModel
 import com.poyka.ripdpi.activities.DiagnosticsStrategyProbeProgressLaneUiModel
 import com.poyka.ripdpi.activities.DiagnosticsStrategyProbeRecommendationUiModel
 import com.poyka.ripdpi.activities.DiagnosticsStrategyProbeReportUiModel
+import com.poyka.ripdpi.activities.DiagnosticsStrategyProbeWinningCandidateUiModel
+import com.poyka.ripdpi.activities.DiagnosticsStrategyProbeWinningPathUiModel
 import com.poyka.ripdpi.activities.DiagnosticsTone
 import com.poyka.ripdpi.activities.DiagnosticsUiState
 import com.poyka.ripdpi.activities.DiagnosticsWorkflowRestrictionActionKindUiModel
@@ -141,64 +147,70 @@ class DiagnosticsScreenTest {
     }
 
     @Test
-    fun automaticAuditMatrixRendersSummaryAndCandidateRows() {
-        val candidateDetail = auditCandidateDetail()
+    fun automaticAuditDefaultsToWinningPathAndHidesMatrixRows() {
+        val tcpCandidateDetail = auditCandidateDetail()
 
-        composeRule.setContent {
-            val pagerState =
-                rememberPagerState(
-                    initialPage = DiagnosticsSection.Scan.ordinal,
-                    pageCount = { DiagnosticsSection.entries.size },
-                )
-            RipDpiTheme {
-                DiagnosticsScreen(
-                    uiState =
-                        DiagnosticsUiState(
-                            selectedSection = DiagnosticsSection.Scan,
-                            scan =
-                                DiagnosticsScanUiModel(
-                                    strategyProbeReport = auditReport(candidateDetail),
-                                ),
-                        ),
-                    pagerState = pagerState,
-                    onSelectSection = {},
-                    onSelectProfile = {},
-                    onRunRawScan = {},
-                    onRunInPathScan = {},
-                    onCancelScan = {},
-                    onKeepResolverRecommendation = {},
-                    onSaveResolverRecommendation = {},
-                    onSelectSession = {},
-                    onDismissSessionDetail = {},
-                    onSelectStrategyProbeCandidate = {},
-                    onDismissStrategyProbeCandidate = {},
-                    onSelectApproachMode = {},
-                    onSelectApproach = {},
-                    onDismissApproachDetail = {},
-                    onSelectEvent = {},
-                    onDismissEventDetail = {},
-                    onSelectProbe = {},
-                    onDismissProbeDetail = {},
-                    onToggleSensitiveSessionDetails = {},
-                    onSessionPathFilter = {},
-                    onSessionStatusFilter = {},
-                    onSessionSearch = {},
-                    onToggleEventFilter = { _, _ -> },
-                    onEventSearch = {},
-                    onEventAutoScroll = {},
-                    onShareSummary = {},
-                    onShareArchive = {},
-                    onSaveArchive = {},
-                    onSaveLogs = {},
-                    onOpenHistory = {},
-                )
-            }
-        }
+        setScanScreen(
+            scan =
+                DiagnosticsScanUiModel(
+                    strategyProbeReport = auditReport(tcpCandidateDetail),
+                ),
+        )
 
         composeRule.onRoot().performTouchInput { swipeUp() }
         composeRule.onNodeWithTag(RipDpiTestTags.DiagnosticsStrategyProbeReport).fetchSemanticsNode()
+        composeRule.onNodeWithTag(RipDpiTestTags.DiagnosticsStrategyWinningPath).fetchSemanticsNode()
         composeRule.onNodeWithTag(RipDpiTestTags.DiagnosticsStrategyProbeSummary).fetchSemanticsNode()
-        composeRule.onNodeWithTag(RipDpiTestTags.diagnosticsStrategyCandidate(candidateDetail.id)).fetchSemanticsNode()
+        composeRule.onNodeWithTag(RipDpiTestTags.DiagnosticsStrategyFullMatrixToggle).fetchSemanticsNode()
+        composeRule
+            .onNodeWithTag(
+                RipDpiTestTags.diagnosticsStrategyCandidate(tcpCandidateDetail.id),
+            ).assertDoesNotExist()
+    }
+
+    @Test
+    fun automaticAuditToggleRevealsAndHidesFullMatrixRows() {
+        val tcpCandidateDetail = auditCandidateDetail()
+        val quicCandidateDetail = auditQuicCandidateDetail()
+
+        setScanScreen(
+            scan =
+                DiagnosticsScanUiModel(
+                    strategyProbeReport = auditReport(tcpCandidateDetail, quicCandidateDetail),
+                ),
+        )
+
+        composeRule.onRoot().performTouchInput { swipeUp() }
+        composeRule
+            .onNodeWithTag(
+                RipDpiTestTags.diagnosticsStrategyCandidate(tcpCandidateDetail.id),
+            ).assertDoesNotExist()
+        composeRule
+            .onNodeWithTag(
+                RipDpiTestTags.diagnosticsStrategyCandidate(quicCandidateDetail.id),
+            ).assertDoesNotExist()
+
+        composeRule.onNodeWithTag(RipDpiTestTags.DiagnosticsStrategyFullMatrixToggle).performClick()
+
+        composeRule
+            .onNodeWithTag(
+                RipDpiTestTags.diagnosticsStrategyCandidate(tcpCandidateDetail.id),
+            ).assertIsDisplayed()
+        composeRule
+            .onNodeWithTag(
+                RipDpiTestTags.diagnosticsStrategyCandidate(quicCandidateDetail.id),
+            ).assertIsDisplayed()
+
+        composeRule.onNodeWithTag(RipDpiTestTags.DiagnosticsStrategyFullMatrixToggle).performClick()
+
+        composeRule
+            .onNodeWithTag(
+                RipDpiTestTags.diagnosticsStrategyCandidate(tcpCandidateDetail.id),
+            ).assertDoesNotExist()
+        composeRule
+            .onNodeWithTag(
+                RipDpiTestTags.diagnosticsStrategyCandidate(quicCandidateDetail.id),
+            ).assertDoesNotExist()
     }
 
     @Test
@@ -262,6 +274,8 @@ class DiagnosticsScreenTest {
 
     @Test
     fun automaticAuditLowConfidenceRendersWarningBannerAndCoverageMetrics() {
+        val tcpCandidateDetail = auditCandidateDetail()
+
         composeRule.setContent {
             val pagerState =
                 rememberPagerState(
@@ -277,7 +291,7 @@ class DiagnosticsScreenTest {
                                 DiagnosticsScanUiModel(
                                     strategyProbeReport =
                                         auditReport(
-                                            auditCandidateDetail(),
+                                            tcpCandidateDetail,
                                             auditAssessment =
                                                 auditAssessment(
                                                     level = StrategyProbeAuditConfidenceLevel.LOW,
@@ -328,12 +342,19 @@ class DiagnosticsScreenTest {
         }
 
         composeRule.onRoot().performTouchInput { swipeUp() }
+        composeRule.onNodeWithTag(RipDpiTestTags.DiagnosticsStrategyWinningPath).fetchSemanticsNode()
         composeRule.onNodeWithTag(RipDpiTestTags.DiagnosticsStrategyAuditAssessment).fetchSemanticsNode()
         composeRule.onNodeWithTag(RipDpiTestTags.DiagnosticsStrategyAuditLowConfidenceBanner).fetchSemanticsNode()
+        composeRule
+            .onNodeWithTag(
+                RipDpiTestTags.diagnosticsStrategyCandidate(tcpCandidateDetail.id),
+            ).assertDoesNotExist()
     }
 
     @Test
     fun automaticAuditMediumConfidenceRendersCautionNote() {
+        val tcpCandidateDetail = auditCandidateDetail()
+
         composeRule.setContent {
             val pagerState =
                 rememberPagerState(
@@ -349,7 +370,7 @@ class DiagnosticsScreenTest {
                                 DiagnosticsScanUiModel(
                                     strategyProbeReport =
                                         auditReport(
-                                            auditCandidateDetail(),
+                                            tcpCandidateDetail,
                                             auditAssessment =
                                                 auditAssessment(
                                                     level = StrategyProbeAuditConfidenceLevel.MEDIUM,
@@ -406,6 +427,8 @@ class DiagnosticsScreenTest {
 
     @Test
     fun nonAuditStrategyProbeDoesNotRenderAssessmentBlock() {
+        val candidateDetail = auditCandidateDetail()
+
         composeRule.setContent {
             val pagerState =
                 rememberPagerState(
@@ -421,7 +444,7 @@ class DiagnosticsScreenTest {
                                 DiagnosticsScanUiModel(
                                     strategyProbeReport =
                                         auditReport(
-                                            candidateDetail = auditCandidateDetail(),
+                                            candidateDetail = candidateDetail,
                                             suiteId = "quick_v1",
                                             suiteLabel = "Automatic probing",
                                             auditAssessment = null,
@@ -465,6 +488,139 @@ class DiagnosticsScreenTest {
 
         composeRule.onRoot().performTouchInput { swipeUp() }
         composeRule.onNodeWithText("Audit confidence").assertDoesNotExist()
+        composeRule.onNodeWithTag(RipDpiTestTags.DiagnosticsStrategyWinningPath).assertDoesNotExist()
+        composeRule.onNodeWithTag(RipDpiTestTags.DiagnosticsStrategyFullMatrixToggle).assertDoesNotExist()
+        composeRule.onNodeWithTag(RipDpiTestTags.diagnosticsStrategyCandidate(candidateDetail.id)).assertIsDisplayed()
+    }
+
+    @Test
+    fun tappingWinningTcpCardOpensCandidateDetailSheet() {
+        val tcpCandidateDetail = auditCandidateDetail()
+
+        composeRule.setContent {
+            val pagerState =
+                rememberPagerState(
+                    initialPage = DiagnosticsSection.Scan.ordinal,
+                    pageCount = { DiagnosticsSection.entries.size },
+                )
+            var selectedStrategyProbeCandidate by remember {
+                mutableStateOf<DiagnosticsStrategyProbeCandidateDetailUiModel?>(null)
+            }
+            RipDpiTheme {
+                DiagnosticsScreen(
+                    uiState =
+                        DiagnosticsUiState(
+                            selectedSection = DiagnosticsSection.Scan,
+                            selectedStrategyProbeCandidate = selectedStrategyProbeCandidate,
+                            scan =
+                                DiagnosticsScanUiModel(
+                                    strategyProbeReport = auditReport(tcpCandidateDetail),
+                                ),
+                        ),
+                    pagerState = pagerState,
+                    onSelectSection = {},
+                    onSelectProfile = {},
+                    onRunRawScan = {},
+                    onRunInPathScan = {},
+                    onCancelScan = {},
+                    onKeepResolverRecommendation = {},
+                    onSaveResolverRecommendation = {},
+                    onSelectSession = {},
+                    onDismissSessionDetail = {},
+                    onSelectStrategyProbeCandidate = { selectedStrategyProbeCandidate = it },
+                    onDismissStrategyProbeCandidate = { selectedStrategyProbeCandidate = null },
+                    onSelectApproachMode = {},
+                    onSelectApproach = {},
+                    onDismissApproachDetail = {},
+                    onSelectEvent = {},
+                    onDismissEventDetail = {},
+                    onSelectProbe = {},
+                    onDismissProbeDetail = {},
+                    onToggleSensitiveSessionDetails = {},
+                    onSessionPathFilter = {},
+                    onSessionStatusFilter = {},
+                    onSessionSearch = {},
+                    onToggleEventFilter = { _, _ -> },
+                    onEventSearch = {},
+                    onEventAutoScroll = {},
+                    onShareSummary = {},
+                    onShareArchive = {},
+                    onSaveArchive = {},
+                    onSaveLogs = {},
+                    onOpenHistory = {},
+                )
+            }
+        }
+
+        composeRule.onRoot().performTouchInput { swipeUp() }
+        composeRule.onNodeWithTag(RipDpiTestTags.DiagnosticsStrategyWinningTcpAction).performClick()
+        composeRule.onNodeWithTag(RipDpiTestTags.DiagnosticsStrategyCandidateDetailSheet).assertIsDisplayed()
+        composeRule.onNodeWithText(tcpCandidateDetail.label).assertIsDisplayed()
+    }
+
+    @Test
+    fun tappingWinningQuicCardOpensCandidateDetailSheet() {
+        val quicCandidateDetail = auditQuicCandidateDetail()
+
+        composeRule.setContent {
+            val pagerState =
+                rememberPagerState(
+                    initialPage = DiagnosticsSection.Scan.ordinal,
+                    pageCount = { DiagnosticsSection.entries.size },
+                )
+            var selectedStrategyProbeCandidate by remember {
+                mutableStateOf<DiagnosticsStrategyProbeCandidateDetailUiModel?>(null)
+            }
+            RipDpiTheme {
+                DiagnosticsScreen(
+                    uiState =
+                        DiagnosticsUiState(
+                            selectedSection = DiagnosticsSection.Scan,
+                            selectedStrategyProbeCandidate = selectedStrategyProbeCandidate,
+                            scan =
+                                DiagnosticsScanUiModel(
+                                    strategyProbeReport = auditReport(auditCandidateDetail(), quicCandidateDetail),
+                                ),
+                        ),
+                    pagerState = pagerState,
+                    onSelectSection = {},
+                    onSelectProfile = {},
+                    onRunRawScan = {},
+                    onRunInPathScan = {},
+                    onCancelScan = {},
+                    onKeepResolverRecommendation = {},
+                    onSaveResolverRecommendation = {},
+                    onSelectSession = {},
+                    onDismissSessionDetail = {},
+                    onSelectStrategyProbeCandidate = { selectedStrategyProbeCandidate = it },
+                    onDismissStrategyProbeCandidate = { selectedStrategyProbeCandidate = null },
+                    onSelectApproachMode = {},
+                    onSelectApproach = {},
+                    onDismissApproachDetail = {},
+                    onSelectEvent = {},
+                    onDismissEventDetail = {},
+                    onSelectProbe = {},
+                    onDismissProbeDetail = {},
+                    onToggleSensitiveSessionDetails = {},
+                    onSessionPathFilter = {},
+                    onSessionStatusFilter = {},
+                    onSessionSearch = {},
+                    onToggleEventFilter = { _, _ -> },
+                    onEventSearch = {},
+                    onEventAutoScroll = {},
+                    onShareSummary = {},
+                    onShareArchive = {},
+                    onSaveArchive = {},
+                    onSaveLogs = {},
+                    onOpenHistory = {},
+                )
+            }
+        }
+
+        composeRule.onRoot().performTouchInput { swipeUp() }
+        composeRule.onNodeWithTag(RipDpiTestTags.DiagnosticsStrategyWinningQuicAction).performClick()
+        composeRule.onNodeWithTag(RipDpiTestTags.DiagnosticsStrategyCandidateDetailSheet).assertIsDisplayed()
+        composeRule.onNodeWithText(quicCandidateDetail.label).assertIsDisplayed()
     }
 
     @Test
@@ -731,6 +887,7 @@ class DiagnosticsScreenTest {
 
     private fun auditReport(
         candidateDetail: DiagnosticsStrategyProbeCandidateDetailUiModel,
+        quicCandidateDetail: DiagnosticsStrategyProbeCandidateDetailUiModel = auditQuicCandidateDetail(),
         suiteId: String = "full_matrix_v1",
         suiteLabel: String = "Automatic audit",
         auditAssessment: StrategyProbeAuditAssessment? =
@@ -766,6 +923,36 @@ class DiagnosticsScreenTest {
                         DiagnosticsFieldUiModel("Chain", "tlsrec(extlen) -> hostfake(endhost+8)"),
                     ),
             ),
+        winningPath =
+            if (suiteId == "full_matrix_v1") {
+                DiagnosticsStrategyProbeWinningPathUiModel(
+                    tcpWinner =
+                        DiagnosticsStrategyProbeWinningCandidateUiModel(
+                            id = candidateDetail.id,
+                            label = candidateDetail.label,
+                            familyLabel = candidateDetail.familyLabel,
+                            outcome = candidateDetail.outcome,
+                            rationale = candidateDetail.rationale,
+                            metrics = candidateDetail.metrics,
+                            tone = candidateDetail.tone,
+                            hiddenCandidateCount = 1,
+                        ),
+                    quicWinner =
+                        DiagnosticsStrategyProbeWinningCandidateUiModel(
+                            id = quicCandidateDetail.id,
+                            label = quicCandidateDetail.label,
+                            familyLabel = quicCandidateDetail.familyLabel,
+                            outcome = quicCandidateDetail.outcome,
+                            rationale = quicCandidateDetail.rationale,
+                            metrics = quicCandidateDetail.metrics,
+                            tone = quicCandidateDetail.tone,
+                            hiddenCandidateCount = 1,
+                        ),
+                    dnsLaneLabel = "System DNS",
+                )
+            } else {
+                null
+            },
         families =
             listOf(
                 DiagnosticsStrategyProbeFamilyUiModel(
@@ -786,10 +973,26 @@ class DiagnosticsScreenTest {
                 ),
                 DiagnosticsStrategyProbeFamilyUiModel(
                     title = "QUIC matrix",
-                    candidates = emptyList(),
+                    candidates =
+                        listOf(
+                            DiagnosticsStrategyProbeCandidateUiModel(
+                                id = quicCandidateDetail.id,
+                                label = quicCandidateDetail.label,
+                                outcome = quicCandidateDetail.outcome,
+                                rationale = quicCandidateDetail.rationale,
+                                metrics = quicCandidateDetail.metrics,
+                                tone = quicCandidateDetail.tone,
+                                skipped = false,
+                                recommended = true,
+                            ),
+                        ),
                 ),
             ),
-        candidateDetails = mapOf(candidateDetail.id to candidateDetail),
+        candidateDetails =
+            mapOf(
+                candidateDetail.id to candidateDetail,
+                quicCandidateDetail.id to quicCandidateDetail,
+            ),
     )
 
     private fun auditAssessment(
@@ -1212,6 +1415,49 @@ class DiagnosticsScreenTest {
                                         listOf(
                                             DiagnosticsFieldUiModel("protocol", "https"),
                                             DiagnosticsFieldUiModel("latencyMs", "180"),
+                                        ),
+                                ),
+                            ),
+                    ),
+                ),
+        )
+
+    private fun auditQuicCandidateDetail() =
+        DiagnosticsStrategyProbeCandidateDetailUiModel(
+            id = "quic_realistic_burst",
+            label = "QUIC realistic burst",
+            familyLabel = "QUIC realistic burst",
+            suiteLabel = "Automatic audit",
+            outcome = "Worked",
+            rationale = "Recovered QUIC handshakes on the audit targets.",
+            tone = DiagnosticsTone.Positive,
+            recommended = true,
+            notes = listOf("Selected after TCP winner was fixed"),
+            metrics =
+                listOf(
+                    DiagnosticsMetricUiModel(label = "Targets", value = "1/1"),
+                    DiagnosticsMetricUiModel(label = "Latency", value = "95 ms", tone = DiagnosticsTone.Info),
+                ),
+            signature =
+                listOf(
+                    DiagnosticsFieldUiModel("QUIC fake profile", "realistic_initial"),
+                ),
+            resultGroups =
+                listOf(
+                    DiagnosticsProbeGroupUiModel(
+                        title = "QUIC results",
+                        items =
+                            listOf(
+                                DiagnosticsProbeResultUiModel(
+                                    id = "probe-quic",
+                                    probeType = "quic",
+                                    target = "audit.example",
+                                    outcome = "ok",
+                                    tone = DiagnosticsTone.Positive,
+                                    details =
+                                        listOf(
+                                            DiagnosticsFieldUiModel("protocol", "quic"),
+                                            DiagnosticsFieldUiModel("latencyMs", "95"),
                                         ),
                                 ),
                             ),

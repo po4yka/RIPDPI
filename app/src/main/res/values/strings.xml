@@ -126,11 +126,22 @@
     <string name="diagnostics_audit_medium_confidence_note">Confidence is moderate. Review the candidate evidence before copying this strategy into your main settings.</string>
     <string name="diagnostics_audit_low_confidence_title">Low-confidence audit result</string>
     <string name="diagnostics_audit_low_confidence_body">The audit recommendation is still available, but the matrix coverage or winner strength was weak. Review per-candidate evidence before applying it manually.</string>
+    <string name="diagnostics_audit_winning_path_title">Winning path</string>
+    <string name="diagnostics_audit_winning_path_hint">Tap a winner for per-target evidence and configuration details.</string>
+    <string name="diagnostics_audit_winning_tcp_title">TCP winner</string>
+    <string name="diagnostics_audit_winning_quic_title">QUIC winner</string>
+    <string name="diagnostics_audit_winning_dns_lane">DNS lane</string>
+    <string name="diagnostics_audit_show_full_matrix">Show full matrix</string>
+    <string name="diagnostics_audit_hide_full_matrix">Hide full matrix</string>
     <string name="diagnostics_audit_summary_title">Audit summary</string>
     <string name="diagnostics_audit_candidate_notes_title">Notes</string>
     <string name="diagnostics_audit_candidate_signature_title">Candidate configuration</string>
     <string name="diagnostics_audit_candidate_results_title">Per-target outcomes</string>
     <string name="diagnostics_audit_candidate_open_hint">Tap a candidate for per-target evidence and configuration details.</string>
+    <plurals name="diagnostics_audit_hidden_candidates_count">
+        <item quantity="one">%d other candidate hidden</item>
+        <item quantity="other">%d other candidates hidden</item>
+    </plurals>
     <string name="diagnostics_events_title">Event stream</string>
     <string name="diagnostics_health_healthy">Healthy</string>
     <string name="diagnostics_health_attention">Attention</string>
