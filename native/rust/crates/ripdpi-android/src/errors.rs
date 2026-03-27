@@ -1,7 +1,10 @@
 use std::any::Any;
 
-use android_support::sanitize_error_message;
-use jni::JNIEnv;
+use android_support::{
+    sanitize_error_message, throw_illegal_argument_env, throw_illegal_state_env, throw_io_exception_env,
+    throw_runtime_exception_env,
+};
+use jni::Env;
 
 #[derive(Debug, thiserror::Error)]
 pub(crate) enum JniProxyError {
@@ -23,19 +26,19 @@ pub(crate) enum JniProxyError {
 }
 
 impl JniProxyError {
-    pub(crate) fn throw(self, env: &mut JNIEnv) {
-        let (class, msg) = match &self {
-            Self::InvalidConfig(_) | Self::InvalidArgument(_) => {
-                ("java/lang/IllegalArgumentException", self.to_string())
+    pub(crate) fn throw(self, env: &mut Env<'_>) {
+        match self {
+            Self::InvalidConfig(message) => {
+                throw_illegal_argument_env(env, format!("invalid configuration: {message}"))
             }
-            Self::IllegalState(_) => ("java/lang/IllegalStateException", self.to_string()),
-            Self::Io(_) => ("java/io/IOException", sanitize_error_message(&self.to_string(), "I/O failure")),
-            Self::Serialization(_) => {
-                ("java/lang/RuntimeException", sanitize_error_message(&self.to_string(), "Serialization failure"))
+            Self::InvalidArgument(message) => throw_illegal_argument_env(env, message),
+            Self::IllegalState(message) => throw_illegal_state_env(env, message),
+            Self::Io(err) => {
+                throw_io_exception_env(env, sanitize_error_message(&format!("I/O failure: {err}"), "I/O failure"))
             }
-        };
-        if env.throw_new(class, &msg).is_err() {
-            log::error!("Failed to throw {class}: {msg}");
+            Self::Serialization(err) => {
+                throw_runtime_exception_env(env, sanitize_error_message(&err.to_string(), "Serialization failure"))
+            }
         }
     }
 }
