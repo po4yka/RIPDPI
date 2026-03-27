@@ -51,7 +51,7 @@ appium/
   conftest.py          # Driver lifecycle + automation launch fixtures
   lib/                 # Capabilities, launch contract, helpers
   pages/               # Page objects (one per screen)
-  tests/               # Test files (test_01_ through test_35_)
+  tests/               # Test files (test_01_ through test_38_)
 ```
 
 ## How It Works
@@ -115,6 +115,9 @@ bash scripts/ci/run-appium-smoke.sh
 | 33 | `test_33_empty_states.py` | Diagnostics and history empty state placeholders |
 | 34 | `test_34_connection_transitions.py` | Deep connect/disconnect state cycle |
 | 35 | `test_35_theme_selection.py` | Theme dropdown dark option selection |
+| 36 | `test_36_scan_section_idle.py` | Scan idle state, run buttons, profile picker |
+| 37 | `test_37_approach_mode_switching.py` | Profiles/Strategies approach mode chips |
+| 38 | `test_38_scan_run_and_results.py` | Scan execution, cancel, strategy report, resolver (timing-dependent) |
 
 ## Workflow Tests
 
