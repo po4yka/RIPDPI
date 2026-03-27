@@ -400,7 +400,10 @@ pub(super) fn connect_target_via_group(
     metrics::histogram!("ripdpi_connection_setup_duration_seconds", "group" => group_label).record(elapsed);
     if let Some(telemetry) = &state.telemetry {
         let upstream_addr = stream.peer_addr().unwrap_or(target);
-        let upstream_rtt_ms = platform::tcp_round_trip_time_ms(&stream).ok().flatten();
+        let upstream_rtt_ms = platform::tcp_round_trip_time_ms(&stream)
+            .ok()
+            .flatten()
+            .or_else(|| Some(started.elapsed().as_millis() as u64));
         telemetry.on_upstream_connected(upstream_addr, upstream_rtt_ms);
     }
     Ok(stream)
