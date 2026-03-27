@@ -479,11 +479,52 @@ data class ResolverRecommendation(
 )
 
 @Serializable
+enum class StrategyProbeAuditConfidenceLevel {
+    HIGH,
+    MEDIUM,
+    LOW,
+}
+
+@Serializable
+data class StrategyProbeAuditCoverage(
+    val tcpCandidatesPlanned: Int,
+    val tcpCandidatesExecuted: Int,
+    val tcpCandidatesSkipped: Int,
+    val tcpCandidatesNotApplicable: Int,
+    val quicCandidatesPlanned: Int,
+    val quicCandidatesExecuted: Int,
+    val quicCandidatesSkipped: Int,
+    val quicCandidatesNotApplicable: Int,
+    val tcpWinnerSucceededTargets: Int,
+    val tcpWinnerTotalTargets: Int,
+    val quicWinnerSucceededTargets: Int,
+    val quicWinnerTotalTargets: Int,
+    val matrixCoveragePercent: Int,
+    val winnerCoveragePercent: Int,
+)
+
+@Serializable
+data class StrategyProbeAuditConfidence(
+    val level: StrategyProbeAuditConfidenceLevel,
+    val score: Int,
+    val rationale: String,
+    val warnings: List<String> = emptyList(),
+)
+
+@Serializable
+data class StrategyProbeAuditAssessment(
+    val dnsShortCircuited: Boolean = false,
+    val coverage: StrategyProbeAuditCoverage,
+    val confidence: StrategyProbeAuditConfidence,
+)
+
+@Serializable
 data class StrategyProbeReport(
     val suiteId: String,
     val tcpCandidates: List<StrategyProbeCandidateSummary> = emptyList(),
     val quicCandidates: List<StrategyProbeCandidateSummary> = emptyList(),
     val recommendation: StrategyProbeRecommendation,
+    val auditAssessment: StrategyProbeAuditAssessment? = null,
 )
 
 @Serializable
