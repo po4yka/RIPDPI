@@ -17,6 +17,15 @@ Android VPN/proxy app for network optimization using in-repository Rust native m
 | `:quality:detekt-rules` | Custom detekt rules (DI guardrails, Hilt checks) |
 | `:baselineprofile` | Baseline profile generation for runtime performance |
 
+## Current Diagnostics Surface
+
+- `quick_v1` automatic probing drives both user-visible recommendations and hidden first-seen-network handover re-checks.
+- `full_matrix_v1` Automatic Audit is a manual full-matrix strategy probe with rotating curated target cohorts, confidence/coverage scoring, and winners-first report presentation.
+- Native diagnostics progress is structured: strategy-probe runs emit active TCP/QUIC lane plus candidate index/total and label.
+- Native strategy-probe reports now carry `auditAssessment` and `targetSelection`, and Kotlin export/share layers surface those fields.
+- Automatic probing/audit is intentionally blocked when `Use command line settings` is enabled; the UI routes users to Advanced Settings instead of trying to run with raw CLI args.
+- Recommendation-derived metadata and remembered-policy persistence now fail closed when the decoded config does not match the reported winning candidates.
+
 ## Tech Stack
 
 - Kotlin, Jetpack Compose (BOM 2026.03.00), Material 3
@@ -148,3 +157,16 @@ Run `just --list --groups` to see recipes organized by category.
 - Soak tests (`RIPDPI_RUN_SOAK=1`) cover endurance: restart cycling, sustained traffic, fault recovery.
 - Load tests (`RIPDPI_RUN_LOAD=1`) cover high-concurrency: ramp-up, burst spikes, saturation. Run via `just test-rust-load`.
 - Full test stack docs: `docs/testing.md`.
+
+## Project Skills
+
+Project-specific skills live in `.github/skills/`:
+
+- Android/UI: `android-compose-patterns`, `jetpack-compose-api`
+- Android runtime/debugging: `android-device-debug`, `service-lifecycle`
+- Appium automation: `appium-automation-contract`, `appium-test-authoring`, `appium-test-debug`
+- Build/release/CI: `gradle-build-system`, `dependency-update`, `ci-workflow-authoring`, `local-ci-act`, `release-signing`, `detekt-custom-rules`
+- Data and contracts: `protobuf-datastore`, `golden-test-management`, `tdd`
+- Native/Rust: `native-jni-development`, `native-profiling`, `network-traffic-debug`, `rust-android-ndk`, `rust-code-style`, `rust-crate-architecture`, `rust-jni-bridge`, `rust-lint-config`
+
+Use the skill body, not this summary, as the authoritative workflow for a given domain.
