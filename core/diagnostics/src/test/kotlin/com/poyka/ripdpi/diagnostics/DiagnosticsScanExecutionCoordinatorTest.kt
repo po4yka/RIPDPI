@@ -292,18 +292,23 @@ class DiagnosticsScanExecutionCoordinatorTest {
                     .toBuilder()
                     .setNetworkStrategyMemoryEnabled(true)
                     .build()
-            val networkFingerprintProvider = FakeNetworkFingerprintProvider()
+            val preparedFingerprint = strategyProbeFingerprint(ssid = "network-default", gateway = "192.0.2.1")
             val fixtures =
                 executionCoordinatorFixtures(
                     stores = stores,
                     timelineSource = timelineSource,
                     serviceStateStore = serviceStateStore,
-                    networkFingerprintProvider = networkFingerprintProvider,
+                    networkFingerprintProvider = MutableNetworkFingerprintProvider(preparedFingerprint),
                     preferredPathStore = DefaultNetworkDnsPathPreferenceStore(stores, clock),
                     rememberedNetworkPolicyStore = DefaultRememberedNetworkPolicyStore(stores, clock),
                     json = json,
                 )
-            val prepared = preparedDiagnosticsScan(sessionId = "session-strategy", settings = settings)
+            val prepared =
+                preparedDiagnosticsScan(
+                    sessionId = "session-strategy",
+                    settings = settings,
+                    networkFingerprint = preparedFingerprint,
+                )
             seedPreparedScan(stores, prepared)
             fixtures.activeScanRegistry.rememberPreparedScan(prepared)
             val bridge =
@@ -332,6 +337,12 @@ class DiagnosticsScanExecutionCoordinatorTest {
                 stores.rememberedPoliciesState.value
                     .single()
                     .status,
+            )
+            assertEquals(
+                preparedFingerprint.scopeKey(),
+                stores.rememberedPoliciesState.value
+                    .single()
+                    .fingerprintHash,
             )
         }
 
