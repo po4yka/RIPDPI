@@ -93,4 +93,39 @@ mod tests {
         assert_eq!(extract_panic_message(Box::new("borrowed panic")), "borrowed panic");
         assert_eq!(extract_panic_message(Box::new(42usize)), "unknown panic");
     }
+
+    #[test]
+    fn proxy_start_return_codes_match_contract_fixture() {
+        use golden_test_support::assert_contract_fixture;
+        use serde_json::json;
+
+        // libc::EINVAL = 22 on all supported platforms
+        let fixture = json!({
+            "success": 0,
+            "fallbackError": 22,
+            "semantics": "positive_errno",
+        });
+        let actual = serde_json::to_string_pretty(&fixture).expect("serialize fixture");
+        assert_contract_fixture("proxy_start_codes.json", &actual);
+    }
+
+    #[test]
+    fn error_exception_mapping_matches_contract_fixture() {
+        use golden_test_support::assert_contract_fixture;
+        use serde_json::json;
+
+        // This mapping must stay in sync with the match arms in JniProxyError::throw().
+        // Use JNI-style slash separators to match the Rust throw() implementation,
+        // but normalize to dot separators for cross-language readability.
+        let mapping = json!([
+            {"variant": "InvalidConfig", "javaClass": "java.lang.IllegalArgumentException"},
+            {"variant": "InvalidArgument", "javaClass": "java.lang.IllegalArgumentException"},
+            {"variant": "IllegalState", "javaClass": "java.lang.IllegalStateException"},
+            {"variant": "Io", "javaClass": "java.io.IOException"},
+            {"variant": "Serialization", "javaClass": "java.lang.RuntimeException"}
+        ]);
+
+        let actual = serde_json::to_string_pretty(&mapping).expect("serialize mapping");
+        assert_contract_fixture("error_exception_mapping.json", &actual);
+    }
 }

@@ -1,0 +1,9 @@
+{
+  "arrayLength": 4,
+  "indices": {
+    "rxBytes": 3,
+    "rxPackets": 2,
+    "txBytes": 1,
+    "txPackets": 0
+  }
+}

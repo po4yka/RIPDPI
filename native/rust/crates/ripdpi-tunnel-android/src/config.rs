@@ -468,6 +468,7 @@ mod tests {
                     udp_read_write_timeout_ms,
                     log_level,
                     limit_nofile,
+                    log_context: None,
                     filter_injected_resets: None,
                 },
             )
@@ -588,6 +589,7 @@ mod tests {
                     udp_read_write_timeout_ms,
                     log_level,
                     limit_nofile,
+                    log_context: None,
                     filter_injected_resets: None,
                 },
             )

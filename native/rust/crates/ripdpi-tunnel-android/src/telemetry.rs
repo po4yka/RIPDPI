@@ -459,4 +459,120 @@ mod tests {
         let count = reader.join().expect("reader panicked");
         assert_eq!(count, iterations as u32);
     }
+
+    #[test]
+    fn tunnel_snapshot_field_manifest_matches_contract_fixture() {
+        use golden_test_support::{assert_contract_fixture, extract_field_paths};
+
+        let dns_stats = DnsStatsSnapshot {
+            dns_queries_total: 100,
+            dns_cache_hits: 50,
+            dns_cache_misses: 30,
+            dns_failures_total: 5,
+            last_dns_host: Some("example.org".to_string()),
+            last_dns_error: Some("SERVFAIL".to_string()),
+            last_host: Some("example.org".to_string()),
+            resolver_endpoint: Some("1.1.1.1:443".to_string()),
+            resolver_latency_ms: Some(15),
+            resolver_latency_avg_ms: Some(12),
+            resolver_fallback_active: true,
+            resolver_fallback_reason: Some("timeout".to_string()),
+        };
+
+        let snapshot = NativeRuntimeSnapshot {
+            source: "tunnel".to_string(),
+            state: "running".to_string(),
+            health: "healthy".to_string(),
+            active_sessions: 1,
+            total_sessions: 10,
+            total_errors: 2,
+            route_changes: 0,
+            last_route_group: Some(0),
+            listener_address: Some("tun0".to_string()),
+            upstream_address: Some("127.0.0.1:1080".to_string()),
+            resolver_id: Some("cloudflare".to_string()),
+            resolver_protocol: Some("doh".to_string()),
+            resolver_endpoint: dns_stats.resolver_endpoint,
+            resolver_latency_ms: dns_stats.resolver_latency_ms,
+            resolver_latency_avg_ms: dns_stats.resolver_latency_avg_ms,
+            resolver_fallback_active: dns_stats.resolver_fallback_active,
+            resolver_fallback_reason: dns_stats.resolver_fallback_reason,
+            network_handover_class: Some("wifi_to_cellular".to_string()),
+            last_target: Some("203.0.113.10:443".to_string()),
+            last_host: dns_stats.last_host,
+            last_error: Some("connection reset".to_string()),
+            dns_queries_total: dns_stats.dns_queries_total,
+            dns_cache_hits: dns_stats.dns_cache_hits,
+            dns_cache_misses: dns_stats.dns_cache_misses,
+            dns_failures_total: dns_stats.dns_failures_total,
+            last_dns_host: dns_stats.last_dns_host,
+            last_dns_error: dns_stats.last_dns_error,
+            tunnel_stats: TunnelStatsSnapshot { tx_packets: 100, tx_bytes: 5000, rx_packets: 80, rx_bytes: 4000 },
+            native_events: vec![NativeRuntimeEvent {
+                source: "tunnel".to_string(),
+                level: "info".to_string(),
+                message: "test".to_string(),
+                created_at: 1000,
+                runtime_id: Some("rt-1".to_string()),
+                mode: Some("auto".to_string()),
+                policy_signature: Some("sig".to_string()),
+                fingerprint_hash: Some("hash".to_string()),
+                subsystem: Some("tunnel".to_string()),
+            }],
+            latency_distributions: Some(LatencyDistributions {
+                dns_resolution: Some(ripdpi_telemetry::LatencyPercentiles {
+                    p50: 10,
+                    p95: 20,
+                    p99: 30,
+                    min: 1,
+                    max: 50,
+                    count: 100,
+                }),
+                tcp_connect: Some(ripdpi_telemetry::LatencyPercentiles {
+                    p50: 15,
+                    p95: 25,
+                    p99: 35,
+                    min: 2,
+                    max: 60,
+                    count: 200,
+                }),
+                tls_handshake: Some(ripdpi_telemetry::LatencyPercentiles {
+                    p50: 20,
+                    p95: 30,
+                    p99: 40,
+                    min: 5,
+                    max: 80,
+                    count: 150,
+                }),
+            }),
+            captured_at: 1000,
+        };
+
+        let json = serde_json::to_value(&snapshot).expect("serialize tunnel snapshot");
+        let paths = extract_field_paths(&json);
+        let manifest = serde_json::to_string_pretty(&paths).expect("serialize field paths");
+        assert_contract_fixture("tunnel_snapshot_fields.json", &manifest);
+    }
+
+    #[test]
+    fn tunnel_event_field_manifest_matches_contract_fixture() {
+        use golden_test_support::{assert_contract_fixture, extract_field_paths};
+
+        let event = NativeRuntimeEvent {
+            source: "tunnel".to_string(),
+            level: "info".to_string(),
+            message: "test".to_string(),
+            created_at: 1000,
+            runtime_id: Some("rt-1".to_string()),
+            mode: Some("auto".to_string()),
+            policy_signature: Some("sig".to_string()),
+            fingerprint_hash: Some("hash".to_string()),
+            subsystem: Some("tunnel".to_string()),
+        };
+
+        let json = serde_json::to_value(&event).expect("serialize event");
+        let paths = extract_field_paths(&json);
+        let manifest = serde_json::to_string_pretty(&paths).expect("serialize field paths");
+        assert_contract_fixture("tunnel_event_fields.json", &manifest);
+    }
 }

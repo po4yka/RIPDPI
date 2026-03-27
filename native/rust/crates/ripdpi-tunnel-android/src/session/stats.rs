@@ -46,11 +46,47 @@ pub(crate) fn stats_session(env: &mut JNIEnv, handle: jlong) -> jlongArray {
     }
 }
 
+/// Field names and their indices in the JNI `jlongArray` returned by `jniGetStats`.
+/// This ordering is a binary contract between Rust and Kotlin.
+pub(crate) const STATS_FIELD_NAMES: [&str; 4] = ["txPackets", "txBytes", "rxPackets", "rxBytes"];
+
 pub(crate) fn stats_snapshots_for_state(state: &TunnelSessionState) -> ((u64, u64, u64, u64), DnsStatsSnapshot) {
     match state {
         TunnelSessionState::Ready | TunnelSessionState::Starting { .. } | TunnelSessionState::Destroyed => {
             ((0, 0, 0, 0), DnsStatsSnapshot::default())
         }
         TunnelSessionState::Running { stats, .. } => (stats.snapshot(), stats.dns_snapshot()),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    use golden_test_support::assert_contract_fixture;
+    use serde_json::json;
+
+    #[test]
+    fn tunnel_stats_layout_matches_contract_fixture() {
+        let mut indices = serde_json::Map::new();
+        for (i, name) in STATS_FIELD_NAMES.iter().enumerate() {
+            indices.insert(name.to_string(), json!(i));
+        }
+
+        let layout = json!({
+            "arrayLength": STATS_FIELD_NAMES.len(),
+            "indices": indices,
+        });
+
+        let actual = serde_json::to_string_pretty(&layout).expect("serialize layout");
+        assert_contract_fixture("tunnel_stats_layout.json", &actual);
+    }
+
+    #[test]
+    fn saturation_caps_at_i64_max() {
+        assert_eq!(saturate_u64_to_i64(0), 0);
+        assert_eq!(saturate_u64_to_i64(100), 100);
+        assert_eq!(saturate_u64_to_i64(i64::MAX as u64), i64::MAX);
+        assert_eq!(saturate_u64_to_i64(u64::MAX), i64::MAX);
     }
 }

@@ -1,0 +1,22 @@
+[
+  {
+    "javaClass": "java.lang.IllegalArgumentException",
+    "variant": "InvalidConfig"
+  },
+  {
+    "javaClass": "java.lang.IllegalArgumentException",
+    "variant": "InvalidArgument"
+  },
+  {
+    "javaClass": "java.lang.IllegalStateException",
+    "variant": "IllegalState"
+  },
+  {
+    "javaClass": "java.io.IOException",
+    "variant": "Io"
+  },
+  {
+    "javaClass": "java.lang.RuntimeException",
+    "variant": "Serialization"
+  }
+]

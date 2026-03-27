@@ -854,4 +854,26 @@ mod tests {
     fn take_exception(env: &mut JNIEnv<'_>) -> String {
         describe_exception(env).expect("expected Java exception")
     }
+
+    #[test]
+    fn handle_sentinel_matches_contract_fixture() {
+        use golden_test_support::assert_contract_fixture;
+        use serde_json::json;
+
+        let registry = HandleRegistry::<String>::new();
+
+        // Sentinel: handle 0 is always invalid
+        assert!(registry.get(0).is_none(), "handle 0 must be invalid");
+
+        // First allocated handle must be >= 1
+        let first = registry.insert("test".to_string());
+        assert!(first >= 1, "first valid handle must be >= 1, got {first}");
+
+        let fixture = json!({
+            "invalidSentinel": 0,
+            "minimumValidHandle": 1,
+        });
+        let actual = serde_json::to_string_pretty(&fixture).expect("serialize fixture");
+        assert_contract_fixture("handle_contract.json", &actual);
+    }
 }

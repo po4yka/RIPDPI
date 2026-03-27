@@ -902,4 +902,106 @@ mod tests {
         let count = reader.join().expect("reader panicked");
         assert_eq!(count, iterations as u32);
     }
+
+    #[test]
+    fn proxy_snapshot_field_manifest_matches_contract_fixture() {
+        use golden_test_support::{assert_contract_fixture, extract_field_paths};
+
+        let snapshot = NativeRuntimeSnapshot {
+            source: "proxy".to_string(),
+            state: "running".to_string(),
+            health: "healthy".to_string(),
+            active_sessions: 1,
+            total_sessions: 10,
+            total_errors: 2,
+            network_errors: 1,
+            route_changes: 3,
+            retry_paced_count: 1,
+            last_retry_backoff_ms: Some(500),
+            last_retry_reason: Some("backoff".to_string()),
+            candidate_diversification_count: 1,
+            last_route_group: Some(0),
+            last_failure_class: Some("tcp_reset".to_string()),
+            last_fallback_action: Some("retry_with_matching_group".to_string()),
+            listener_address: Some("127.0.0.1:1080".to_string()),
+            upstream_address: Some("203.0.113.10:443".to_string()),
+            upstream_rtt_ms: Some(42),
+            last_target: Some("203.0.113.10:443".to_string()),
+            last_host: Some("example.org".to_string()),
+            last_error: Some("connection reset".to_string()),
+            autolearn_enabled: true,
+            learned_host_count: 5,
+            penalized_host_count: 1,
+            last_autolearn_host: Some("example.org".to_string()),
+            last_autolearn_group: Some(0),
+            last_autolearn_action: Some("group_penalized".to_string()),
+            slot_exhaustions: 1,
+            tunnel_stats: TunnelStatsSnapshot { tx_packets: 100, tx_bytes: 5000, rx_packets: 80, rx_bytes: 4000 },
+            native_events: vec![NativeRuntimeEvent {
+                source: "proxy".to_string(),
+                level: "info".to_string(),
+                message: "test".to_string(),
+                created_at: 1000,
+                runtime_id: Some("rt-1".to_string()),
+                mode: Some("auto".to_string()),
+                policy_signature: Some("sig".to_string()),
+                fingerprint_hash: Some("hash".to_string()),
+                subsystem: Some("proxy".to_string()),
+            }],
+            latency_distributions: Some(LatencyDistributions {
+                dns_resolution: Some(ripdpi_telemetry::LatencyPercentiles {
+                    p50: 10,
+                    p95: 20,
+                    p99: 30,
+                    min: 1,
+                    max: 50,
+                    count: 100,
+                }),
+                tcp_connect: Some(ripdpi_telemetry::LatencyPercentiles {
+                    p50: 15,
+                    p95: 25,
+                    p99: 35,
+                    min: 2,
+                    max: 60,
+                    count: 200,
+                }),
+                tls_handshake: Some(ripdpi_telemetry::LatencyPercentiles {
+                    p50: 20,
+                    p95: 30,
+                    p99: 40,
+                    min: 5,
+                    max: 80,
+                    count: 150,
+                }),
+            }),
+            captured_at: 1000,
+        };
+
+        let json = serde_json::to_value(&snapshot).expect("serialize proxy snapshot");
+        let paths = extract_field_paths(&json);
+        let manifest = serde_json::to_string_pretty(&paths).expect("serialize field paths");
+        assert_contract_fixture("proxy_snapshot_fields.json", &manifest);
+    }
+
+    #[test]
+    fn proxy_event_field_manifest_matches_contract_fixture() {
+        use golden_test_support::{assert_contract_fixture, extract_field_paths};
+
+        let event = NativeRuntimeEvent {
+            source: "proxy".to_string(),
+            level: "info".to_string(),
+            message: "test".to_string(),
+            created_at: 1000,
+            runtime_id: Some("rt-1".to_string()),
+            mode: Some("auto".to_string()),
+            policy_signature: Some("sig".to_string()),
+            fingerprint_hash: Some("hash".to_string()),
+            subsystem: Some("proxy".to_string()),
+        };
+
+        let json = serde_json::to_value(&event).expect("serialize event");
+        let paths = extract_field_paths(&json);
+        let manifest = serde_json::to_string_pretty(&paths).expect("serialize field paths");
+        assert_contract_fixture("proxy_event_fields.json", &manifest);
+    }
 }
