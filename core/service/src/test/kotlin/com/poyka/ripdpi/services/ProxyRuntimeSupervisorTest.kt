@@ -7,6 +7,7 @@ import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
@@ -126,5 +127,72 @@ class ProxyRuntimeSupervisorTest {
             supervisor.stop()
 
             assertNull(supervisor.runtime)
+        }
+
+    @Test
+    fun networkSnapshotCaptureFailureIsSwallowedAndProxyKeepsRunning() =
+        runTest {
+            val dispatcher = StandardTestDispatcher(testScheduler)
+            val runtime = TestProxyRuntime()
+            val factory = TestRipDpiProxyFactory { runtime }
+            val snapshotProvider =
+                TestNativeNetworkSnapshotProvider(captureFailure = RuntimeException("capture failed"))
+            val supervisor =
+                ProxyRuntimeSupervisor(
+                    scope = backgroundScope,
+                    dispatcher = dispatcher,
+                    ripDpiProxyFactory = factory,
+                    networkSnapshotProvider = snapshotProvider,
+                )
+
+            supervisor.start(RipDpiProxyUIPreferences()) {}
+
+            assertNotNull(supervisor.runtime)
+            assertEquals(0, runtime.updatedSnapshots)
+        }
+
+    @Test
+    fun awaitReadyFailureCleansUpRuntimeAndPropagatesOriginalError() =
+        runTest {
+            val dispatcher = StandardTestDispatcher(testScheduler)
+            val readinessError = IOException("readiness timeout")
+            val runtime = TestProxyRuntime().apply { awaitReadyFailure = readinessError }
+            val factory = TestRipDpiProxyFactory { runtime }
+            val supervisor =
+                ProxyRuntimeSupervisor(
+                    scope = backgroundScope,
+                    dispatcher = dispatcher,
+                    ripDpiProxyFactory = factory,
+                    networkSnapshotProvider = TestNativeNetworkSnapshotProvider(),
+                )
+
+            val error =
+                runCatching {
+                    supervisor.start(RipDpiProxyUIPreferences()) {}
+                }.exceptionOrNull()
+
+            assertNotNull(error)
+            assertNull(supervisor.runtime)
+        }
+
+    @Test
+    fun detachClearsRuntimeWithoutStopping() =
+        runTest {
+            val dispatcher = StandardTestDispatcher(testScheduler)
+            val runtime = TestProxyRuntime()
+            val factory = TestRipDpiProxyFactory { runtime }
+            val supervisor =
+                ProxyRuntimeSupervisor(
+                    scope = backgroundScope,
+                    dispatcher = dispatcher,
+                    ripDpiProxyFactory = factory,
+                    networkSnapshotProvider = TestNativeNetworkSnapshotProvider(),
+                )
+
+            supervisor.start(RipDpiProxyUIPreferences()) {}
+            supervisor.detach()
+
+            assertNull(supervisor.runtime)
+            assertEquals(0, runtime.stopCount)
         }
 }

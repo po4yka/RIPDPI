@@ -357,6 +357,86 @@ class VpnServiceRuntimeCoordinatorTest {
             )
         }
 
+    @Test
+    fun tunnelStoppedUnexpectedlyTransitionsToFailed() =
+        runTest {
+            val env = newEnv()
+
+            env.coordinator.start()
+            runCurrent()
+
+            env.bridgeFactory.bridge.telemetry =
+                NativeRuntimeSnapshot(
+                    source = "tunnel",
+                    state = "idle",
+                    health = "healthy",
+                    lastError = "tunnel process exited",
+                )
+
+            advanceTimeBy(1_000L)
+            repeat(3) { runCurrent() }
+
+            assertEquals(AppStatus.Halted to Mode.VPN, env.store.status.value)
+            assertTrue(env.store.eventHistory.any { it is ServiceEvent.Failed })
+        }
+
+    @Test
+    fun vpnTunnelEstablishFailureHaltsAndClosesProxy() =
+        runTest {
+            val env =
+                newEnv().also {
+                    it.tunnelProvider.establishFailure = IllegalStateException("VPN permission denied")
+                }
+
+            env.coordinator.start()
+            runCurrent()
+
+            assertEquals(AppStatus.Halted to Mode.VPN, env.store.status.value)
+            assertTrue(env.store.eventHistory.single() is ServiceEvent.Failed)
+            assertEquals(1, env.factory.lastRuntime.stopCount)
+        }
+
+    @Test
+    fun handoverFailureInVpnModeHalts() =
+        runTest {
+            val initialFingerprint = sampleFingerprint()
+            val newFingerprint = sampleFingerprint(dnsServers = listOf("8.8.4.4"))
+            var callCount = 0
+            val env =
+                newEnv(
+                    fingerprint = initialFingerprint,
+                    resolutions =
+                        listOf(
+                            sampleResolution(mode = Mode.VPN, policySignature = "initial"),
+                            sampleResolution(mode = Mode.VPN, policySignature = "handover"),
+                        ),
+                    runtimeFactory = { events ->
+                        callCount += 1
+                        if (callCount > 1) {
+                            TestProxyRuntime(events).apply { startFailure = IOException("restart boom") }
+                        } else {
+                            TestProxyRuntime(events)
+                        }
+                    },
+                )
+
+            env.coordinator.start()
+            runCurrent()
+
+            env.handoverMonitor.emit(
+                NetworkHandoverEvent(
+                    previousFingerprint = initialFingerprint,
+                    currentFingerprint = newFingerprint,
+                    classification = "transport_switch",
+                    occurredAt = 2_000L,
+                ),
+            )
+            repeat(5) { runCurrent() }
+
+            assertEquals(AppStatus.Halted to Mode.VPN, env.store.status.value)
+            assertTrue(env.store.eventHistory.any { it is ServiceEvent.Failed })
+        }
+
     private fun TestScope.newEnv(
         fingerprint: com.poyka.ripdpi.data.NetworkFingerprint? = sampleFingerprint(),
         resolutions: List<com.poyka.ripdpi.services.ConnectionPolicyResolution> =

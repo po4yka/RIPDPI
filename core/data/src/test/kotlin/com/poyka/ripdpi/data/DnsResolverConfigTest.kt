@@ -109,4 +109,81 @@ class DnsResolverConfigTest {
         assertTrue(active.isPlainUdp)
         assertEquals("Plain DNS · 9.9.9.9", active.summary())
     }
+
+    // -- URL parsing error paths -----------------------------------------------
+
+    @Test
+    fun `custom doh with malformed url falls back to safe defaults`() {
+        val active =
+            activeDnsSettings(
+                dnsMode = DnsModeEncrypted,
+                dnsProviderId = DnsProviderCustom,
+                dnsIp = "",
+                dnsDohUrl = "not a url at all ::::",
+                dnsDohBootstrapIps = emptyList(),
+                encryptedDnsProtocol = EncryptedDnsProtocolDoh,
+                encryptedDnsBootstrapIps = listOf("1.2.3.4"),
+            )
+
+        assertEquals("1.2.3.4", active.dnsIp)
+        assertEquals(443, active.encryptedDnsPort)
+    }
+
+    @Test
+    fun `custom doh with empty url derives port 443 by default`() {
+        val active =
+            activeDnsSettings(
+                dnsMode = DnsModeEncrypted,
+                dnsProviderId = DnsProviderCustom,
+                dnsIp = "",
+                dnsDohUrl = "",
+                dnsDohBootstrapIps = emptyList(),
+                encryptedDnsProtocol = EncryptedDnsProtocolDoh,
+                encryptedDnsHost = "doh.example.test",
+                encryptedDnsBootstrapIps = listOf("10.0.0.1"),
+            )
+
+        assertEquals(443, active.encryptedDnsPort)
+        assertEquals("doh.example.test", active.encryptedDnsHost)
+    }
+
+    @Test
+    fun `custom doh with valid url derives host and port from url`() {
+        val active =
+            activeDnsSettings(
+                dnsMode = DnsModeEncrypted,
+                dnsProviderId = DnsProviderCustom,
+                dnsIp = "",
+                dnsDohUrl = "https://dns.example.test:8443/dns-query",
+                dnsDohBootstrapIps = emptyList(),
+                encryptedDnsProtocol = EncryptedDnsProtocolDoh,
+                encryptedDnsBootstrapIps = listOf("10.0.0.2"),
+            )
+
+        assertEquals("dns.example.test", active.encryptedDnsHost)
+        assertEquals(8443, active.encryptedDnsPort)
+    }
+
+    @Test
+    fun `custom doh with http scheme url derives port 80`() {
+        val active =
+            activeDnsSettings(
+                dnsMode = DnsModeEncrypted,
+                dnsProviderId = DnsProviderCustom,
+                dnsIp = "",
+                dnsDohUrl = "http://dns.example.test/dns-query",
+                dnsDohBootstrapIps = emptyList(),
+                encryptedDnsProtocol = EncryptedDnsProtocolDoh,
+                encryptedDnsBootstrapIps = listOf("10.0.0.3"),
+            )
+
+        assertEquals(80, active.encryptedDnsPort)
+    }
+
+    @Test
+    fun `normalize dns bootstrap ips deduplicates and trims whitespace`() {
+        val normalized = normalizeDnsBootstrapIps(listOf("  8.8.8.8 ", "1.1.1.1,8.8.8.8", "  "))
+
+        assertEquals(listOf("8.8.8.8", "1.1.1.1"), normalized)
+    }
 }
