@@ -275,6 +275,41 @@ Semantic fields remain strict:
 - per-lane TCP/QUIC/DNS winning-family metadata
 - resolver metadata, fallback state, and handover classification
 
+## Load/stress tests
+
+Load tests exercise high-concurrency ramp-up profiles, burst spikes, and saturation behavior.
+They complement the soak suite which covers endurance over time.
+
+Scenarios:
+
+- `proxy_ramp_load` -- gradually increases concurrent connections from 8 to max\_clients,
+  measuring acceptance rate, latency percentiles, and thread pool scaling at each step
+- `proxy_burst_load` -- coordinates 128 simultaneous connection attempts against a 64-slot
+  proxy, verifying capacity enforcement and post-burst recovery
+- `proxy_saturation_load` -- holds the proxy at full capacity with long-lived connections,
+  attempts overflow, and verifies existing connection quality is maintained
+
+Run locally:
+
+```bash
+RIPDPI_RUN_LOAD=1 RIPDPI_SOAK_PROFILE=smoke \
+  bash scripts/ci/run-rust-native-load.sh
+```
+
+Or via just:
+
+```bash
+just test-rust-load
+```
+
+Env vars:
+
+- `RIPDPI_RUN_LOAD=1` -- gate for load tests (required)
+- `RIPDPI_SOAK_PROFILE=smoke|full` -- intensity (smoke is shorter/smaller)
+- `RIPDPI_SOAK_ARTIFACT_DIR` -- override artifact output directory
+
+Artifacts are written to `target/soak-artifacts/` (JSONL samples + JSON result summaries).
+
 ## Linux TUN E2E and soak
 
 The real TUN data-plane tests are Linux-only and require privileged setup.

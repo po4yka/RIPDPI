@@ -41,6 +41,11 @@ impl SoakProfile {
     }
 
     #[must_use]
+    pub fn load_tests_enabled() -> bool {
+        std::env::var("RIPDPI_RUN_LOAD").ok().as_deref() == Some("1")
+    }
+
+    #[must_use]
     pub fn pick_count(self, smoke: usize, full: usize) -> usize {
         match self {
             Self::Smoke => smoke,
@@ -165,6 +170,52 @@ pub fn assert_growth(samples: &[SoakSample], warmup: Duration, thresholds: Growt
         thresholds.thread_growth,
     )?;
     Ok(())
+}
+
+// ── Latency recording ──
+
+#[derive(Debug, Default)]
+pub struct LatencyRecorder {
+    samples: std::sync::Mutex<Vec<u64>>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LatencyReport {
+    pub count: usize,
+    pub min_us: u64,
+    pub max_us: u64,
+    pub p50_us: u64,
+    pub p95_us: u64,
+    pub p99_us: u64,
+}
+
+impl LatencyRecorder {
+    pub fn record(&self, duration_us: u64) {
+        self.samples.lock().expect("lock latency samples").push(duration_us);
+    }
+
+    #[must_use]
+    pub fn report(&self) -> LatencyReport {
+        let mut data = self.samples.lock().expect("lock latency samples").clone();
+        if data.is_empty() {
+            return LatencyReport { count: 0, min_us: 0, max_us: 0, p50_us: 0, p95_us: 0, p99_us: 0 };
+        }
+        data.sort_unstable();
+        let count = data.len();
+        LatencyReport {
+            count,
+            min_us: data[0],
+            max_us: data[count - 1],
+            p50_us: data[count * 50 / 100],
+            p95_us: data[count * 95 / 100],
+            p99_us: data[(count * 99 / 100).min(count - 1)],
+        }
+    }
+
+    pub fn reset(&self) {
+        self.samples.lock().expect("lock latency samples").clear();
+    }
 }
 
 fn run_sampler<F>(

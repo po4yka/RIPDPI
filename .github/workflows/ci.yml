@@ -471,6 +471,50 @@ jobs:
             ${{ runner.temp }}/native-soak-artifacts/
           retention-days: 7
 
+  rust-native-load:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Keep in sync with native/rust/rust-toolchain.toml
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: "1.94.0"
+          components: rustfmt, clippy
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: native/rust -> target
+          cache-on-failure: true
+
+      - name: Resolve load profile
+        id: load-profile
+        run: |
+          profile="${{ github.event.inputs.soak_profile }}"
+          if [ "${GITHUB_EVENT_NAME}" = "schedule" ]; then
+            profile="full"
+          elif [ -z "$profile" ]; then
+            profile="smoke"
+          fi
+          echo "profile=$profile" >> "$GITHUB_OUTPUT"
+
+      - name: Run native Rust load test suites
+        run: |
+          mkdir -p "$RUNNER_TEMP/native-load-artifacts"
+          RIPDPI_SOAK_PROFILE="${{ steps.load-profile.outputs.profile }}" \
+            bash scripts/ci/run-rust-native-load.sh "$RUNNER_TEMP/native-load-artifacts" \
+            2>&1 | tee "$RUNNER_TEMP/native-load-artifacts/rust-native-load.log"
+
+      - name: Upload native load artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rust-native-load-artifacts
+          path: |
+            ${{ runner.temp }}/native-load-artifacts/
+          retention-days: 7
+
   nightly-rust-coverage:
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
