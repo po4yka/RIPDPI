@@ -25,6 +25,8 @@ import com.poyka.ripdpi.diagnostics.DiagnosticConnectionSession
 import com.poyka.ripdpi.diagnostics.DiagnosticContextModel
 import com.poyka.ripdpi.diagnostics.DiagnosticSessionDetail
 import com.poyka.ripdpi.diagnostics.DiagnosticsArchive
+import com.poyka.ripdpi.diagnostics.DiagnosticsScanStartRejectedException
+import com.poyka.ripdpi.diagnostics.DiagnosticsScanStartRejectionReason
 import com.poyka.ripdpi.diagnostics.EnvironmentContextModel
 import com.poyka.ripdpi.diagnostics.NetworkSnapshotModel
 import com.poyka.ripdpi.diagnostics.PermissionContextModel
@@ -38,6 +40,10 @@ import com.poyka.ripdpi.diagnostics.ScanReport
 import com.poyka.ripdpi.diagnostics.ScanRequest
 import com.poyka.ripdpi.diagnostics.ServiceContextModel
 import com.poyka.ripdpi.diagnostics.ShareSummary
+import com.poyka.ripdpi.diagnostics.StrategyProbeAuditAssessment
+import com.poyka.ripdpi.diagnostics.StrategyProbeAuditConfidence
+import com.poyka.ripdpi.diagnostics.StrategyProbeAuditConfidenceLevel
+import com.poyka.ripdpi.diagnostics.StrategyProbeAuditCoverage
 import com.poyka.ripdpi.diagnostics.StrategyProbeCandidateSummary
 import com.poyka.ripdpi.diagnostics.StrategyProbeRecommendation
 import com.poyka.ripdpi.diagnostics.StrategyProbeReport
@@ -1248,6 +1254,38 @@ class DiagnosticsViewModelTest {
                                                     rationale = "Best combined recovery",
                                                     recommendedProxyConfigJson = hostfakeConfigJson,
                                                 ),
+                                            auditAssessment =
+                                                StrategyProbeAuditAssessment(
+                                                    dnsShortCircuited = false,
+                                                    coverage =
+                                                        StrategyProbeAuditCoverage(
+                                                            tcpCandidatesPlanned = 11,
+                                                            tcpCandidatesExecuted = 3,
+                                                            tcpCandidatesSkipped = 0,
+                                                            tcpCandidatesNotApplicable = 0,
+                                                            quicCandidatesPlanned = 2,
+                                                            quicCandidatesExecuted = 2,
+                                                            quicCandidatesSkipped = 0,
+                                                            quicCandidatesNotApplicable = 1,
+                                                            tcpWinnerSucceededTargets = 3,
+                                                            tcpWinnerTotalTargets = 3,
+                                                            quicWinnerSucceededTargets = 1,
+                                                            quicWinnerTotalTargets = 1,
+                                                            matrixCoveragePercent = 38,
+                                                            winnerCoveragePercent = 100,
+                                                        ),
+                                                    confidence =
+                                                        StrategyProbeAuditConfidence(
+                                                            level = StrategyProbeAuditConfidenceLevel.MEDIUM,
+                                                            score = 75,
+                                                            rationale =
+                                                                "The audit did not execute enough of the planned matrix to fully trust the winner",
+                                                            warnings =
+                                                                listOf(
+                                                                    "TCP matrix coverage stayed below 75% of planned candidates.",
+                                                                ),
+                                                        ),
+                                                ),
                                         ),
                                     ),
                             ),
@@ -1268,6 +1306,11 @@ class DiagnosticsViewModelTest {
             assertEquals("1", metrics.getValue("Partial"))
             assertEquals("1", metrics.getValue("Failed"))
             assertEquals("1", metrics.getValue("N/A"))
+            assertEquals(
+                StrategyProbeAuditConfidenceLevel.MEDIUM,
+                requireNotNull(report.auditAssessment).confidence.level,
+            )
+            assertEquals(38, report.auditAssessment?.coverage?.matrixCoveragePercent)
 
             viewModel.selectStrategyProbeCandidate(report.candidateDetails.getValue("tlsrec_hostfake"))
             advanceUntilIdle()
@@ -1359,6 +1402,139 @@ class DiagnosticsViewModelTest {
             val selected = requireNotNull(viewModel.uiState.value.selectedSessionDetail)
             assertEquals("session-RAW_PATH", selected.session.id)
             assertEquals("session-RAW_PATH", viewModel.uiState.value.sessions.focusedSessionId)
+            collector.cancel()
+        }
+
+    @Test
+    fun `hidden automatic probe rejection emits specific scan start failure effect`() =
+        runTest {
+            val appContext = RuntimeEnvironment.getApplication()
+            val manager =
+                FakeDiagnosticsManager().apply {
+                    scanController.onStartScan = {
+                        throw DiagnosticsScanStartRejectedException(
+                            DiagnosticsScanStartRejectionReason.HiddenAutomaticProbeRunning,
+                        )
+                    }
+                }
+            val viewModel = createDiagnosticsViewModel(appContext, manager, FakeAppSettingsRepository())
+            val collector = backgroundScope.launch { viewModel.uiState.collect {} }
+            advanceUntilIdle()
+
+            val effectDeferred = async { viewModel.effects.first() }
+            viewModel.startRawScan()
+            advanceUntilIdle()
+
+            val effect = effectDeferred.await() as DiagnosticsEffect.ScanStartFailed
+            assertEquals(
+                appContext.getString(com.poyka.ripdpi.R.string.diagnostics_error_hidden_probe_running),
+                effect.message,
+            )
+            assertFalse(viewModel.uiState.value.scan.isBusy)
+            assertNull(viewModel.uiState.value.selectedSessionDetail)
+            collector.cancel()
+        }
+
+    @Test
+    fun `generic scan start failure emits fallback error and keeps scan idle`() =
+        runTest {
+            val appContext = RuntimeEnvironment.getApplication()
+            val manager =
+                FakeDiagnosticsManager().apply {
+                    scanController.onStartScan = {
+                        throw IllegalStateException("boom")
+                    }
+                }
+            val viewModel = createDiagnosticsViewModel(appContext, manager, FakeAppSettingsRepository())
+            val collector = backgroundScope.launch { viewModel.uiState.collect {} }
+            advanceUntilIdle()
+
+            val effectDeferred = async { viewModel.effects.first() }
+            viewModel.startInPathScan()
+            advanceUntilIdle()
+
+            val effect = effectDeferred.await() as DiagnosticsEffect.ScanStartFailed
+            assertEquals(appContext.getString(com.poyka.ripdpi.R.string.diagnostics_error_start_failed), effect.message)
+            assertFalse(viewModel.uiState.value.scan.isBusy)
+            assertNull(viewModel.uiState.value.selectedSessionDetail)
+            collector.cancel()
+        }
+
+    @Test
+    fun `automatic audit completion auto opens finished session detail after fast completion race`() =
+        runTest {
+            val profileId = "automatic-audit"
+            val sessionId = "session-RAW_PATH"
+            val detail =
+                DiagnosticSessionDetail(
+                    session =
+                        session(
+                            id = sessionId,
+                            profileId = profileId,
+                            pathMode = "RAW_PATH",
+                            summary = "Audit done",
+                        ),
+                    results =
+                        listOf(
+                            ProbeResultEntity(
+                                id = "probe-audit-fast",
+                                sessionId = sessionId,
+                                probeType = "https",
+                                target = "audit.example",
+                                outcome = "ok",
+                                detailJson = json.encodeToString(listOf(ProbeDetail("candidateId", "tlsrec_hostfake"))),
+                                createdAt = 3L,
+                            ),
+                        ),
+                    snapshots = listOf(snapshot(id = "snapshot-audit-fast", sessionId = sessionId)),
+                    context = context(id = "context-audit-fast", sessionId = sessionId),
+                    events = emptyList(),
+                )
+            val manager =
+                FakeDiagnosticsManager(detail = detail).apply {
+                    profilesState.value =
+                        listOf(
+                            DiagnosticProfileEntity(
+                                id = profileId,
+                                name = "Automatic audit",
+                                source = "bundled",
+                                version = 1,
+                                requestJson =
+                                    strategyProbeProfileRequest(
+                                        json = json,
+                                        profileId = profileId,
+                                        displayName = "Automatic audit",
+                                        suiteId = "full_matrix_v1",
+                                    ),
+                                updatedAt = 1L,
+                            ),
+                        )
+                    scanController.onStartScan = {
+                        progressState.value =
+                            ScanProgress(
+                                sessionId = sessionId,
+                                phase = "tcp",
+                                completedSteps = 1,
+                                totalSteps = 2,
+                                message = "Testing TCP candidate",
+                            )
+                        sessionsState.value = listOf(detail.session)
+                        progressState.value = null
+                        sessionId
+                    }
+                }
+
+            val viewModel =
+                createDiagnosticsViewModel(RuntimeEnvironment.getApplication(), manager, FakeAppSettingsRepository())
+            val collector = backgroundScope.launch { viewModel.uiState.collect {} }
+            advanceUntilIdle()
+
+            viewModel.startRawScan()
+            advanceUntilIdle()
+
+            val selected = requireNotNull(viewModel.uiState.value.selectedSessionDetail)
+            assertEquals(sessionId, selected.session.id)
+            assertEquals(sessionId, viewModel.uiState.value.sessions.focusedSessionId)
             collector.cancel()
         }
 
@@ -2547,6 +2723,7 @@ class DiagnosticsViewModelTest {
                         routeGroup = null,
                     ),
             ),
+        auditAssessment: StrategyProbeAuditAssessment? = null,
     ): ScanReport =
         ScanReport(
             sessionId = sessionId,
@@ -2562,6 +2739,7 @@ class DiagnosticsViewModelTest {
                     tcpCandidates = tcpCandidates,
                     quicCandidates = quicCandidates,
                     recommendation = recommendation,
+                    auditAssessment = auditAssessment,
                 ),
         )
 
