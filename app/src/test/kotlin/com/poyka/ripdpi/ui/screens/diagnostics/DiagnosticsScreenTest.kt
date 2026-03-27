@@ -52,6 +52,7 @@ import com.poyka.ripdpi.diagnostics.StrategyProbeAuditAssessment
 import com.poyka.ripdpi.diagnostics.StrategyProbeAuditConfidence
 import com.poyka.ripdpi.diagnostics.StrategyProbeAuditConfidenceLevel
 import com.poyka.ripdpi.diagnostics.StrategyProbeAuditCoverage
+import com.poyka.ripdpi.diagnostics.StrategyProbeCompletionKind
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import org.junit.Assert.assertEquals
@@ -479,6 +480,78 @@ class DiagnosticsScreenTest {
             .onNodeWithTag(
                 RipDpiTestTags.diagnosticsStrategyCandidate(tcpCandidateDetail.id),
             ).assertDoesNotExist()
+    }
+
+    @Test
+    fun automaticProbeDnsShortCircuitRendersResolverRecommendationState() {
+        setScanScreen(
+            scan =
+                DiagnosticsScanUiModel(
+                    selectedProfile =
+                        DiagnosticsProfileOptionUiModel(
+                            id = "automatic-probing",
+                            name = "Automatic probing",
+                            source = "bundled",
+                            kind = ScanKind.STRATEGY_PROBE,
+                            strategyProbeSuiteId = "quick_v1",
+                        ),
+                    strategyProbeReport =
+                        auditReport(
+                            candidateDetail = auditCandidateDetail(),
+                            suiteId = "quick_v1",
+                            suiteLabel = "Automatic probing",
+                            completionKind = StrategyProbeCompletionKind.DNS_SHORT_CIRCUITED,
+                        ),
+                ),
+        )
+
+        composeRule.onRoot().performTouchInput { swipeUp() }
+        composeRule.onNodeWithText("Resolver recommendation ready").assertIsDisplayed()
+        composeRule.onNodeWithText("Resolver recommendation").assertIsDisplayed()
+        composeRule.onNodeWithText("Recommendation ready").assertDoesNotExist()
+        composeRule.onNodeWithTag(RipDpiTestTags.DiagnosticsStrategyWinningPath).assertDoesNotExist()
+    }
+
+    @Test
+    fun automaticAuditDnsShortCircuitUsesIncompleteStatusAndHidesWinningPath() {
+        setScanScreen(
+            scan =
+                DiagnosticsScanUiModel(
+                    selectedProfile =
+                        DiagnosticsProfileOptionUiModel(
+                            id = "automatic-audit",
+                            name = "Automatic audit",
+                            source = "bundled",
+                            kind = ScanKind.STRATEGY_PROBE,
+                            strategyProbeSuiteId = "full_matrix_v1",
+                        ),
+                    strategyProbeReport =
+                        auditReport(
+                            candidateDetail = auditCandidateDetail(skipped = true),
+                            quicCandidateDetail = auditQuicCandidateDetail(skipped = true),
+                            completionKind = StrategyProbeCompletionKind.DNS_SHORT_CIRCUITED,
+                            auditAssessment =
+                                auditAssessment(
+                                    level = StrategyProbeAuditConfidenceLevel.LOW,
+                                    score = 35,
+                                    matrixCoveragePercent = 0,
+                                    winnerCoveragePercent = 0,
+                                    warnings =
+                                        listOf(
+                                            "Baseline DNS tampering short-circuited the audit before fallback candidates ran.",
+                                        ),
+                                    dnsShortCircuited = true,
+                                ),
+                        ),
+                ),
+        )
+
+        composeRule.onRoot().performTouchInput { swipeUp() }
+        composeRule.onNodeWithText("Audit short-circuited").assertIsDisplayed()
+        composeRule.onNodeWithText("Incomplete audit").assertIsDisplayed()
+        composeRule.onNodeWithText("Audit ready").assertDoesNotExist()
+        composeRule.onNodeWithTag(RipDpiTestTags.DiagnosticsStrategyWinningPath).assertDoesNotExist()
+        composeRule.onNodeWithTag(RipDpiTestTags.DiagnosticsStrategyAuditLowConfidenceBanner).fetchSemanticsNode()
     }
 
     @Test
@@ -1029,6 +1102,7 @@ class DiagnosticsScreenTest {
         quicCandidateDetail: DiagnosticsStrategyProbeCandidateDetailUiModel = auditQuicCandidateDetail(),
         suiteId: String = "full_matrix_v1",
         suiteLabel: String = "Automatic audit",
+        completionKind: StrategyProbeCompletionKind = StrategyProbeCompletionKind.NORMAL,
         auditAssessment: StrategyProbeAuditAssessment? =
             auditAssessment(
                 level = StrategyProbeAuditConfidenceLevel.HIGH,
@@ -1047,15 +1121,40 @@ class DiagnosticsScreenTest {
                 DiagnosticsMetricUiModel(label = "Failed", value = "1", tone = DiagnosticsTone.Negative),
                 DiagnosticsMetricUiModel(label = "N/A", value = "1"),
             ),
+        completionKind = completionKind,
         auditAssessment = auditAssessment,
         recommendation =
             DiagnosticsStrategyProbeRecommendationUiModel(
-                headline = "TLS record + hostfake + QUIC realistic burst",
-                rationale = "Best combined recovery across TCP and QUIC.",
+                headline =
+                    if (completionKind == StrategyProbeCompletionKind.DNS_SHORT_CIRCUITED) {
+                        "Resolver override recommended"
+                    } else {
+                        "TLS record + hostfake + QUIC realistic burst"
+                    },
+                rationale =
+                    if (completionKind == StrategyProbeCompletionKind.DNS_SHORT_CIRCUITED) {
+                        "DNS tampering classified before fallback; keep current strategy and prefer resolver override."
+                    } else {
+                        "Best combined recovery across TCP and QUIC."
+                    },
                 fields =
                     listOf(
-                        DiagnosticsFieldUiModel("TCP recommendation", "TLS record + hostfake"),
-                        DiagnosticsFieldUiModel("QUIC recommendation", "QUIC realistic burst"),
+                        DiagnosticsFieldUiModel(
+                            if (completionKind == StrategyProbeCompletionKind.DNS_SHORT_CIRCUITED) {
+                                "TCP fallback"
+                            } else {
+                                "TCP recommendation"
+                            },
+                            "TLS record + hostfake",
+                        ),
+                        DiagnosticsFieldUiModel(
+                            if (completionKind == StrategyProbeCompletionKind.DNS_SHORT_CIRCUITED) {
+                                "QUIC fallback"
+                            } else {
+                                "QUIC recommendation"
+                            },
+                            "QUIC realistic burst",
+                        ),
                     ),
                 signature =
                     listOf(
@@ -1063,7 +1162,7 @@ class DiagnosticsScreenTest {
                     ),
             ),
         winningPath =
-            if (suiteId == "full_matrix_v1") {
+            if (suiteId == "full_matrix_v1" && completionKind != StrategyProbeCompletionKind.DNS_SHORT_CIRCUITED) {
                 DiagnosticsStrategyProbeWinningPathUiModel(
                     tcpWinner =
                         DiagnosticsStrategyProbeWinningCandidateUiModel(
@@ -1105,7 +1204,7 @@ class DiagnosticsScreenTest {
                                 rationale = candidateDetail.rationale,
                                 metrics = candidateDetail.metrics,
                                 tone = candidateDetail.tone,
-                                skipped = false,
+                                skipped = candidateDetail.outcome == "Skipped",
                                 recommended = true,
                             ),
                         ),
@@ -1121,7 +1220,7 @@ class DiagnosticsScreenTest {
                                 rationale = quicCandidateDetail.rationale,
                                 metrics = quicCandidateDetail.metrics,
                                 tone = quicCandidateDetail.tone,
-                                skipped = false,
+                                skipped = quicCandidateDetail.outcome == "Skipped",
                                 recommended = true,
                             ),
                         ),
@@ -1140,8 +1239,9 @@ class DiagnosticsScreenTest {
         matrixCoveragePercent: Int,
         winnerCoveragePercent: Int,
         warnings: List<String>,
+        dnsShortCircuited: Boolean = false,
     ) = StrategyProbeAuditAssessment(
-        dnsShortCircuited = false,
+        dnsShortCircuited = dnsShortCircuited,
         coverage =
             StrategyProbeAuditCoverage(
                 tcpCandidatesPlanned = 11,
@@ -1517,21 +1617,31 @@ class DiagnosticsScreenTest {
         composeRule.onNodeWithTag(RipDpiTestTags.DiagnosticsProbeDetailSheet).fetchSemanticsNode()
     }
 
-    private fun auditCandidateDetail() =
+    private fun auditCandidateDetail(skipped: Boolean = false) =
         DiagnosticsStrategyProbeCandidateDetailUiModel(
             id = "tlsrec_hostfake",
             label = "TLS record + hostfake",
             familyLabel = "Hostfake",
             suiteLabel = "Automatic audit",
-            outcome = "Worked",
-            rationale = "Recovered HTTPS across all audit targets.",
-            tone = DiagnosticsTone.Positive,
+            outcome = if (skipped) "Skipped" else "Worked",
+            rationale =
+                if (skipped) {
+                    "DNS tampering detected before fallback; TCP strategy escalation skipped."
+                } else {
+                    "Recovered HTTPS across all audit targets."
+                },
+            tone = if (skipped) DiagnosticsTone.Info else DiagnosticsTone.Positive,
             recommended = true,
             notes = listOf("Adaptive warm-up applied"),
             metrics =
                 listOf(
                     DiagnosticsMetricUiModel(label = "Targets", value = "3/3"),
                     DiagnosticsMetricUiModel(label = "Latency", value = "180 ms", tone = DiagnosticsTone.Info),
+                    DiagnosticsMetricUiModel(
+                        label = "Selected",
+                        value = if (skipped) "Fallback" else "Winner",
+                        tone = if (skipped) DiagnosticsTone.Info else DiagnosticsTone.Positive,
+                    ),
                 ),
             signature =
                 listOf(
@@ -1561,21 +1671,31 @@ class DiagnosticsScreenTest {
                 ),
         )
 
-    private fun auditQuicCandidateDetail() =
+    private fun auditQuicCandidateDetail(skipped: Boolean = false) =
         DiagnosticsStrategyProbeCandidateDetailUiModel(
             id = "quic_realistic_burst",
             label = "QUIC realistic burst",
             familyLabel = "QUIC realistic burst",
             suiteLabel = "Automatic audit",
-            outcome = "Worked",
-            rationale = "Recovered QUIC handshakes on the audit targets.",
-            tone = DiagnosticsTone.Positive,
+            outcome = if (skipped) "Skipped" else "Worked",
+            rationale =
+                if (skipped) {
+                    "DNS tampering detected before fallback; QUIC strategy escalation skipped."
+                } else {
+                    "Recovered QUIC handshakes on the audit targets."
+                },
+            tone = if (skipped) DiagnosticsTone.Info else DiagnosticsTone.Positive,
             recommended = true,
             notes = listOf("Selected after TCP winner was fixed"),
             metrics =
                 listOf(
                     DiagnosticsMetricUiModel(label = "Targets", value = "1/1"),
                     DiagnosticsMetricUiModel(label = "Latency", value = "95 ms", tone = DiagnosticsTone.Info),
+                    DiagnosticsMetricUiModel(
+                        label = "Selected",
+                        value = if (skipped) "Fallback" else "Winner",
+                        tone = if (skipped) DiagnosticsTone.Info else DiagnosticsTone.Positive,
+                    ),
                 ),
             signature =
                 listOf(

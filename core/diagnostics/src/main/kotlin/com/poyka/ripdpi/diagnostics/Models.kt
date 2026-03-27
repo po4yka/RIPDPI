@@ -542,11 +542,18 @@ data class StrategyProbeAuditAssessment(
 )
 
 @Serializable
+enum class StrategyProbeCompletionKind {
+    NORMAL,
+    DNS_SHORT_CIRCUITED,
+}
+
+@Serializable
 data class StrategyProbeReport(
     val suiteId: String,
     val tcpCandidates: List<StrategyProbeCandidateSummary> = emptyList(),
     val quicCandidates: List<StrategyProbeCandidateSummary> = emptyList(),
     val recommendation: StrategyProbeRecommendation,
+    val completionKind: StrategyProbeCompletionKind = StrategyProbeCompletionKind.NORMAL,
     val auditAssessment: StrategyProbeAuditAssessment? = null,
     val targetSelection: StrategyProbeTargetSelection? = null,
 )

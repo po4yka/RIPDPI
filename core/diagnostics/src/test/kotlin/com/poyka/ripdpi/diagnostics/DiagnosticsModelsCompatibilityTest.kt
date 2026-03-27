@@ -3,6 +3,7 @@ package com.poyka.ripdpi.diagnostics
 import com.poyka.ripdpi.diagnostics.contract.engine.EngineProbeTaskFamily
 import com.poyka.ripdpi.diagnostics.contract.engine.EngineProbeTaskWire
 import com.poyka.ripdpi.diagnostics.contract.engine.EngineProgressWire
+import com.poyka.ripdpi.diagnostics.contract.engine.EngineScanReportWire
 import com.poyka.ripdpi.diagnostics.contract.engine.EngineScanRequestWire
 import com.poyka.ripdpi.diagnostics.contract.profile.ProbePersistencePolicyWire
 import com.poyka.ripdpi.diagnostics.contract.profile.ProfileExecutionPolicyWire
@@ -124,6 +125,65 @@ class DiagnosticsModelsCompatibilityTest {
         assertEquals(StrategyProbeProgressLane.TCP, decoded.strategyProbeProgress?.lane)
         assertEquals(3, decoded.strategyProbeProgress?.candidateIndex)
         assertEquals("TCP fake TLS", decoded.strategyProbeProgress?.candidateLabel)
+    }
+
+    @Test
+    fun `legacy strategy probe report defaults completion kind to normal`() {
+        val report =
+            json.decodeFromString(
+                StrategyProbeReport.serializer(),
+                """
+                {
+                  "suiteId": "quick_v1",
+                  "recommendation": {
+                    "tcpCandidateId": "tcp-1",
+                    "tcpCandidateLabel": "TCP baseline",
+                    "quicCandidateId": "quic-1",
+                    "quicCandidateLabel": "QUIC baseline",
+                    "rationale": "Legacy payload",
+                    "recommendedProxyConfigJson": "{\"kind\":\"ui\"}"
+                  }
+                }
+                """.trimIndent(),
+            )
+
+        assertEquals(StrategyProbeCompletionKind.NORMAL, report.completionKind)
+    }
+
+    @Test
+    fun `engine scan report round trips strategy probe completion kind`() {
+        val report =
+            EngineScanReportWire(
+                sessionId = "session-1",
+                profileId = "automatic-probing",
+                pathMode = ScanPathMode.RAW_PATH,
+                startedAt = 1L,
+                finishedAt = 2L,
+                summary = "strategy probe",
+                results = emptyList(),
+                strategyProbeReport =
+                    StrategyProbeReport(
+                        suiteId = "quick_v1",
+                        recommendation =
+                            StrategyProbeRecommendation(
+                                tcpCandidateId = "tcp-1",
+                                tcpCandidateLabel = "TCP baseline",
+                                quicCandidateId = "quic-1",
+                                quicCandidateLabel = "QUIC baseline",
+                                rationale = "Resolver override recommended",
+                                recommendedProxyConfigJson = """{"kind":"ui"}""",
+                            ),
+                        completionKind = StrategyProbeCompletionKind.DNS_SHORT_CIRCUITED,
+                    ),
+            )
+
+        val encoded = json.encodeToString(EngineScanReportWire.serializer(), report)
+        val decoded = json.decodeFromString(EngineScanReportWire.serializer(), encoded)
+
+        assertEquals(
+            StrategyProbeCompletionKind.DNS_SHORT_CIRCUITED,
+            decoded.strategyProbeReport?.completionKind,
+        )
     }
 
     @Test

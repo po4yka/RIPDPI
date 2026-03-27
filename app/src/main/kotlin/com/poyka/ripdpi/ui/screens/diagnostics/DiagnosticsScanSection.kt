@@ -54,6 +54,7 @@ import com.poyka.ripdpi.activities.PhaseState
 import com.poyka.ripdpi.activities.PhaseStepUiModel
 import com.poyka.ripdpi.diagnostics.StrategyProbeAuditAssessment
 import com.poyka.ripdpi.diagnostics.StrategyProbeAuditConfidenceLevel
+import com.poyka.ripdpi.diagnostics.StrategyProbeCompletionKind
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.cards.PresetCard
@@ -800,11 +801,28 @@ private fun workflowStatus(
             )
         }
 
+        isFullAudit && scan.strategyProbeReport?.completionKind == StrategyProbeCompletionKind.DNS_SHORT_CIRCUITED -> {
+            WorkflowStatusUiModel(
+                title = stringResource(R.string.diagnostics_audit_short_circuit_title),
+                body = stringResource(R.string.diagnostics_profile_audit_short_circuit_body),
+                tone = StatusIndicatorTone.Warning,
+            )
+        }
+
         isFullAudit && scan.strategyProbeReport != null -> {
             WorkflowStatusUiModel(
                 title = stringResource(R.string.diagnostics_audit_ready_title),
                 body = stringResource(R.string.diagnostics_profile_audit_ready_body),
                 tone = StatusIndicatorTone.Active,
+            )
+        }
+
+        strategyProbeSelected &&
+            scan.strategyProbeReport?.completionKind == StrategyProbeCompletionKind.DNS_SHORT_CIRCUITED -> {
+            WorkflowStatusUiModel(
+                title = stringResource(R.string.diagnostics_probe_short_circuit_title),
+                body = stringResource(R.string.diagnostics_profile_probe_short_circuit_body),
+                tone = StatusIndicatorTone.Warning,
             )
         }
 
@@ -1087,9 +1105,11 @@ internal fun StrategyProbeReportCard(
     val colors = RipDpiThemeTokens.colors
     val manualApplyBadge = stringResource(R.string.diagnostics_profile_badge_manual_apply)
     val isFullAudit = report.suiteId == "full_matrix_v1"
-    val supportsWinningPath = isFullAudit && report.winningPath != null
+    val isDnsShortCircuited = report.completionKind == StrategyProbeCompletionKind.DNS_SHORT_CIRCUITED
+    val supportsWinningPath = isFullAudit && !isDnsShortCircuited && report.winningPath != null
     var showFullMatrix by rememberSaveable(
         report.suiteId,
+        report.completionKind,
         report.recommendation.headline,
         report.recommendation.rationale,
         report.winningPath?.tcpWinner?.id,
@@ -1100,16 +1120,24 @@ internal fun StrategyProbeReportCard(
     ) {
         StatusIndicator(
             label =
-                if (isFullAudit) {
+                if (isDnsShortCircuited && isFullAudit) {
+                    stringResource(R.string.diagnostics_audit_short_circuit_title)
+                } else if (isDnsShortCircuited) {
+                    stringResource(R.string.diagnostics_probe_short_circuit_title)
+                } else if (isFullAudit) {
                     stringResource(R.string.diagnostics_audit_ready_title)
                 } else {
                     stringResource(R.string.diagnostics_probe_ready_title)
                 },
-            tone = StatusIndicatorTone.Active,
+            tone = if (isDnsShortCircuited) StatusIndicatorTone.Warning else StatusIndicatorTone.Active,
         )
         Text(
             text =
-                if (isFullAudit) {
+                if (isDnsShortCircuited && isFullAudit) {
+                    stringResource(R.string.diagnostics_audit_short_circuit_matrix_title)
+                } else if (isDnsShortCircuited) {
+                    stringResource(R.string.diagnostics_probe_short_circuit_recommendation_title)
+                } else if (isFullAudit) {
                     stringResource(R.string.diagnostics_audit_matrix_title)
                 } else {
                     stringResource(R.string.diagnostics_probe_recommendation_title)
@@ -1506,12 +1534,24 @@ internal fun StrategyProbeCandidateRow(
                 StatusIndicator(
                     label =
                         when {
-                            candidate.recommended -> stringResource(R.string.diagnostics_probe_status_recommended)
-                            candidate.skipped -> stringResource(R.string.diagnostics_probe_status_skipped)
-                            else -> candidate.outcome
+                            candidate.recommended && candidate.skipped -> {
+                                stringResource(R.string.diagnostics_probe_status_fallback)
+                            }
+
+                            candidate.recommended -> {
+                                stringResource(R.string.diagnostics_probe_status_recommended)
+                            }
+
+                            candidate.skipped -> {
+                                stringResource(R.string.diagnostics_probe_status_skipped)
+                            }
+
+                            else -> {
+                                candidate.outcome
+                            }
                         },
                     tone =
-                        if (candidate.recommended) {
+                        if (candidate.recommended && !candidate.skipped) {
                             StatusIndicatorTone.Active
                         } else {
                             statusTone(candidate.tone)

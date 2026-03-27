@@ -18,8 +18,8 @@ use crate::observations::observations_for_results;
 use crate::strategy::detect_strategy_probe_dns_tampering;
 use crate::types::{
     ScanProgress, StrategyProbeAuditAssessment, StrategyProbeAuditConfidence, StrategyProbeAuditConfidenceLevel,
-    StrategyProbeAuditCoverage, StrategyProbeCandidateSummary, StrategyProbeLiveProgress, StrategyProbeProgressLane,
-    StrategyProbeRecommendation, StrategyProbeReport,
+    StrategyProbeAuditCoverage, StrategyProbeCandidateSummary, StrategyProbeCompletionKind, StrategyProbeLiveProgress,
+    StrategyProbeProgressLane, StrategyProbeRecommendation, StrategyProbeReport,
 };
 use crate::util::{stable_probe_hash, STRATEGY_PROBE_SUITE_FULL_MATRIX_V1};
 
@@ -323,6 +323,7 @@ impl ExecutionStageRunner for StrategyDnsBaselineRunner {
             tcp_candidates,
             quic_candidates,
             recommendation,
+            completion_kind: StrategyProbeCompletionKind::DnsShortCircuited,
             audit_assessment,
             target_selection: plan.request.strategy_probe.as_ref().and_then(|probe| probe.target_selection.clone()),
         };
@@ -773,6 +774,7 @@ impl ExecutionStageRunner for StrategyRecommendationRunner {
             tcp_candidates: runtime.strategy.tcp_candidates.clone(),
             quic_candidates: runtime.strategy.quic_candidates.clone(),
             recommendation,
+            completion_kind: StrategyProbeCompletionKind::Normal,
             audit_assessment,
             target_selection: plan.request.strategy_probe.as_ref().and_then(|probe| probe.target_selection.clone()),
         });
