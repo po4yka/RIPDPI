@@ -46,11 +46,12 @@ fn strategy_probe_request(base_ui: ProxyUiConfig) -> ScanRequest {
     strategy_probe_request_with_suite(base_ui, "quick_v1", "automatic-probing", "Automatic probing")
 }
 
-fn strategy_probe_request_with_suite(
+fn strategy_probe_request_with_runtime_context(
     base_ui: ProxyUiConfig,
     suite_id: &str,
     profile_id: &str,
     display_name: &str,
+    runtime_context: Option<ProxyRuntimeContext>,
 ) -> ScanRequest {
     ScanRequest {
         profile_id: profile_id.to_string(),
@@ -89,7 +90,7 @@ fn strategy_probe_request_with_suite(
                 serde_json::to_string(&ProxyConfigPayload::Ui {
                     strategy_preset: None,
                     config: base_ui,
-                    runtime_context: None,
+                    runtime_context,
                     log_context: None,
                 })
                 .expect("serialize probe ui config"),
@@ -98,6 +99,15 @@ fn strategy_probe_request_with_suite(
         }),
         network_snapshot: None,
     }
+}
+
+fn strategy_probe_request_with_suite(
+    base_ui: ProxyUiConfig,
+    suite_id: &str,
+    profile_id: &str,
+    display_name: &str,
+) -> ScanRequest {
+    strategy_probe_request_with_runtime_context(base_ui, suite_id, profile_id, display_name, None)
 }
 
 fn decode_ui_config(config_json: &str) -> ProxyUiConfig {
@@ -704,6 +714,47 @@ fn monitor_session_strategy_probe_returns_structured_recommendation() {
 }
 
 #[test]
+fn monitor_session_strategy_probe_marks_dns_short_circuit_completion_kind() {
+    let _serial = lock_network_probes();
+    let doh = HttpTextServer::start_dns_message("198.51.100.11");
+    let runtime_context = ProxyRuntimeContext {
+        encrypted_dns: Some(ProxyEncryptedDnsContext {
+            resolver_id: Some("doh".to_string()),
+            protocol: "doh".to_string(),
+            host: "127.0.0.1".to_string(),
+            port: doh.port(),
+            tls_server_name: None,
+            bootstrap_ips: vec!["127.0.0.1".to_string()],
+            doh_url: Some(format!("http://127.0.0.1:{}/dns-query", doh.port())),
+            dnscrypt_provider_name: None,
+            dnscrypt_public_key: None,
+        }),
+    };
+    let mut request = strategy_probe_request_with_runtime_context(
+        minimal_ui_config(),
+        "quick_v1",
+        "automatic-probing",
+        "Automatic probing",
+        Some(runtime_context),
+    );
+    request.domain_targets = vec![DomainTarget {
+        host: "blocked.example".to_string(),
+        connect_ip: Some("203.0.113.10".to_string()),
+        https_port: Some(443),
+        http_port: Some(80),
+        http_path: "/".to_string(),
+    }];
+    let session = MonitorSession::new();
+
+    session.start_scan("session-strategy-dns-short".to_string(), request.into()).expect("start strategy probe");
+    let report = wait_for_report(&session);
+    let strategy_probe = report.strategy_probe_report.expect("strategy probe report");
+
+    assert_eq!(strategy_probe.completion_kind, StrategyProbeCompletionKind::DnsShortCircuited);
+    assert!(strategy_probe.audit_assessment.is_none());
+}
+
+#[test]
 fn monitor_session_full_matrix_strategy_probe_reports_audit_assessment() {
     let _serial = lock_network_probes();
     let server = HttpTextServer::start_text("HTTP/1.1 200 OK", "probe");
@@ -776,6 +827,54 @@ fn monitor_session_full_matrix_strategy_probe_reports_audit_assessment() {
 }
 
 #[test]
+fn monitor_session_full_matrix_marks_dns_short_circuit_completion_kind() {
+    let _serial = lock_network_probes();
+    let doh = HttpTextServer::start_dns_message("198.51.100.11");
+    let runtime_context = ProxyRuntimeContext {
+        encrypted_dns: Some(ProxyEncryptedDnsContext {
+            resolver_id: Some("doh".to_string()),
+            protocol: "doh".to_string(),
+            host: "127.0.0.1".to_string(),
+            port: doh.port(),
+            tls_server_name: None,
+            bootstrap_ips: vec!["127.0.0.1".to_string()],
+            doh_url: Some(format!("http://127.0.0.1:{}/dns-query", doh.port())),
+            dnscrypt_provider_name: None,
+            dnscrypt_public_key: None,
+        }),
+    };
+    let mut request = strategy_probe_request_with_runtime_context(
+        minimal_ui_config(),
+        "full_matrix_v1",
+        "automatic-audit",
+        "Automatic audit",
+        Some(runtime_context),
+    );
+    request.domain_targets = vec![DomainTarget {
+        host: "blocked.example".to_string(),
+        connect_ip: Some("203.0.113.10".to_string()),
+        https_port: Some(443),
+        http_port: Some(80),
+        http_path: "/".to_string(),
+    }];
+    request.quic_targets = vec![QuicTarget {
+        host: "blocked.example".to_string(),
+        connect_ip: Some("203.0.113.10".to_string()),
+        port: 443,
+    }];
+    let session = MonitorSession::new();
+
+    session.start_scan("session-audit-dns-short".to_string(), request.into()).expect("start automatic audit");
+    let report = wait_for_report(&session);
+    let strategy_probe = report.strategy_probe_report.expect("strategy probe report");
+    let audit_assessment = strategy_probe.audit_assessment.as_ref().expect("audit assessment");
+
+    assert_eq!(strategy_probe.completion_kind, StrategyProbeCompletionKind::DnsShortCircuited);
+    assert!(audit_assessment.dns_short_circuited);
+    assert_eq!(audit_assessment.confidence.level, StrategyProbeAuditConfidenceLevel::Low);
+}
+
+#[test]
 fn monitor_session_strategy_probe_progress_reports_live_candidate_metadata() {
     let _serial = lock_network_probes();
     let server = HttpTextServer::start_text("HTTP/1.1 200 OK", "probe");
@@ -844,6 +943,30 @@ fn monitor_session_strategy_probe_progress_reports_live_candidate_metadata() {
     }
     assert_eq!(final_progress.phase, "finished");
     assert!(final_progress.strategy_probe_progress.is_none(), "expected finished progress without live metadata");
+}
+
+#[test]
+fn strategy_probe_report_serializes_normal_completion_kind() {
+    let report = crate::types::StrategyProbeReport {
+        suite_id: "quick_v1".to_string(),
+        tcp_candidates: vec![],
+        quic_candidates: vec![],
+        recommendation: crate::types::StrategyProbeRecommendation {
+            tcp_candidate_id: "tcp-1".to_string(),
+            tcp_candidate_label: "TCP baseline".to_string(),
+            quic_candidate_id: "quic-1".to_string(),
+            quic_candidate_label: "QUIC baseline".to_string(),
+            rationale: "Best path".to_string(),
+            recommended_proxy_config_json: "{}".to_string(),
+        },
+        completion_kind: StrategyProbeCompletionKind::Normal,
+        audit_assessment: None,
+        target_selection: None,
+    };
+
+    let json = serde_json::to_string(&report).expect("serialize strategy probe report");
+
+    assert!(json.contains("\"completionKind\":\"NORMAL\""));
 }
 
 #[test]

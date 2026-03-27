@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.activities
 
+import com.poyka.ripdpi.R
 import com.poyka.ripdpi.core.decodeRipDpiProxyUiPreferences
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.formatOffsetExpressionLabel
@@ -13,6 +14,7 @@ import com.poyka.ripdpi.diagnostics.ResolverRecommendation
 import com.poyka.ripdpi.diagnostics.ScanKind
 import com.poyka.ripdpi.diagnostics.ScanPathMode
 import com.poyka.ripdpi.diagnostics.StrategyProbeCandidateSummary
+import com.poyka.ripdpi.diagnostics.StrategyProbeCompletionKind
 import com.poyka.ripdpi.diagnostics.StrategyProbeRecommendation
 import com.poyka.ripdpi.diagnostics.StrategyProbeReport
 import com.poyka.ripdpi.diagnostics.deriveBypassStrategySignature
@@ -139,8 +141,11 @@ internal fun DiagnosticsUiFactorySupport.toStrategyProbeReportUiModel(
             title = title,
             candidates =
                 candidates
-                    .map { candidate -> candidate.toCandidateUiModel(recommended = candidate.id == recommendedId) }
-                    .sortedWith(
+                    .map { candidate ->
+                        candidate.toCandidateUiModel(
+                            recommended = candidate.id == recommendedId,
+                        )
+                    }.sortedWith(
                         compareByDescending<DiagnosticsStrategyProbeCandidateUiModel> { it.recommended }
                             .thenBy { it.skipped }
                             .thenBy { it.label },
@@ -161,7 +166,10 @@ internal fun DiagnosticsUiFactorySupport.toStrategyProbeReportUiModel(
                 )
         }
     val winningPath =
-        if (report.suiteId == StrategyProbeSuiteFullMatrixV1) {
+        if (
+            report.suiteId == StrategyProbeSuiteFullMatrixV1 &&
+            report.completionKind != StrategyProbeCompletionKind.DNS_SHORT_CIRCUITED
+        ) {
             val tcpWinner = candidateDetails[report.recommendation.tcpCandidateId]
             val quicWinner = candidateDetails[report.recommendation.quicCandidateId]
             if (tcpWinner != null && quicWinner != null) {
@@ -187,8 +195,13 @@ internal fun DiagnosticsUiFactorySupport.toStrategyProbeReportUiModel(
         suiteId = report.suiteId,
         suiteLabel = strategyProbeSuiteLabel(report.suiteId),
         summaryMetrics = buildStrategyProbeSummaryMetrics(report),
+        completionKind = report.completionKind,
         auditAssessment = report.auditAssessment,
-        recommendation = toStrategyProbeRecommendationUiModel(report.recommendation),
+        recommendation =
+            toStrategyProbeRecommendationUiModel(
+                recommendation = report.recommendation,
+                completionKind = report.completionKind,
+            ),
         winningPath = winningPath,
         families =
             listOf(
@@ -400,8 +413,8 @@ private fun strategyProbeCandidateTone(
     recommended: Boolean,
 ): DiagnosticsTone =
     when {
-        recommended -> DiagnosticsTone.Positive
         skipped -> DiagnosticsTone.Neutral
+        recommended -> DiagnosticsTone.Positive
         outcome.equals("success", ignoreCase = true) -> DiagnosticsTone.Positive
         outcome.equals("partial", ignoreCase = true) -> DiagnosticsTone.Warning
         outcome.equals("not_applicable", ignoreCase = true) -> DiagnosticsTone.Neutral
@@ -456,7 +469,13 @@ private fun buildStrategyProbeCandidateMetrics(
             add(DiagnosticsMetricUiModel("Latency", "$it ms", DiagnosticsTone.Info))
         }
         if (recommended) {
-            add(DiagnosticsMetricUiModel("Selected", "Winner", DiagnosticsTone.Positive))
+            add(
+                DiagnosticsMetricUiModel(
+                    "Selected",
+                    if (summary.skipped) "Fallback" else "Winner",
+                    if (summary.skipped) DiagnosticsTone.Info else DiagnosticsTone.Positive,
+                ),
+            )
         }
     }
 
@@ -543,32 +562,64 @@ private fun DiagnosticsUiFactorySupport.toCandidateDetailUiModel(
 
 private fun DiagnosticsUiFactorySupport.toStrategyProbeRecommendationUiModel(
     recommendation: StrategyProbeRecommendation,
+    completionKind: StrategyProbeCompletionKind,
 ): DiagnosticsStrategyProbeRecommendationUiModel =
-    DiagnosticsStrategyProbeRecommendationUiModel(
-        headline =
-            listOfNotNull(
-                recommendation.tcpCandidateLabel,
-                recommendation.quicCandidateLabel,
-                recommendation.dnsStrategyLabel,
-            ).joinToString(" + "),
-        rationale = recommendation.rationale,
-        fields =
-            listOf(
-                DiagnosticsFieldUiModel("TCP recommendation", recommendation.tcpCandidateLabel),
-                recommendation.tcpCandidateFamily?.let {
-                    DiagnosticsFieldUiModel("TCP/TLS lane", strategyProbeFamilyLabel(it))
-                },
-                DiagnosticsFieldUiModel("QUIC recommendation", recommendation.quicCandidateLabel),
-                recommendation.quicCandidateFamily?.let {
-                    DiagnosticsFieldUiModel("QUIC lane", strategyProbeFamilyLabel(it))
-                },
-                recommendation.dnsStrategyLabel?.let {
-                    DiagnosticsFieldUiModel("DNS lane", it)
-                },
-                DiagnosticsFieldUiModel("Why it won", recommendation.rationale),
-            ).filterNotNull(),
-        signature = recommendation.strategySignature?.let { signature -> strategySignatureFields(signature) }.orEmpty(),
-    )
+    if (completionKind == StrategyProbeCompletionKind.DNS_SHORT_CIRCUITED) {
+        DiagnosticsStrategyProbeRecommendationUiModel(
+            headline = context.getString(R.string.diagnostics_probe_short_circuit_recommendation_headline),
+            rationale = recommendation.rationale,
+            fields =
+                listOf(
+                    DiagnosticsFieldUiModel("TCP fallback", recommendation.tcpCandidateLabel),
+                    recommendation.tcpCandidateFamily?.let {
+                        DiagnosticsFieldUiModel("TCP/TLS lane", strategyProbeFamilyLabel(it))
+                    },
+                    DiagnosticsFieldUiModel("QUIC fallback", recommendation.quicCandidateLabel),
+                    recommendation.quicCandidateFamily?.let {
+                        DiagnosticsFieldUiModel("QUIC lane", strategyProbeFamilyLabel(it))
+                    },
+                    recommendation.dnsStrategyLabel?.let {
+                        DiagnosticsFieldUiModel("DNS lane", it)
+                    },
+                    DiagnosticsFieldUiModel("Why trials stopped", recommendation.rationale),
+                ).filterNotNull(),
+            signature =
+                recommendation.strategySignature
+                    ?.let { signature ->
+                        strategySignatureFields(signature)
+                    }.orEmpty(),
+        )
+    } else {
+        DiagnosticsStrategyProbeRecommendationUiModel(
+            headline =
+                listOfNotNull(
+                    recommendation.tcpCandidateLabel,
+                    recommendation.quicCandidateLabel,
+                    recommendation.dnsStrategyLabel,
+                ).joinToString(" + "),
+            rationale = recommendation.rationale,
+            fields =
+                listOf(
+                    DiagnosticsFieldUiModel("TCP recommendation", recommendation.tcpCandidateLabel),
+                    recommendation.tcpCandidateFamily?.let {
+                        DiagnosticsFieldUiModel("TCP/TLS lane", strategyProbeFamilyLabel(it))
+                    },
+                    DiagnosticsFieldUiModel("QUIC recommendation", recommendation.quicCandidateLabel),
+                    recommendation.quicCandidateFamily?.let {
+                        DiagnosticsFieldUiModel("QUIC lane", strategyProbeFamilyLabel(it))
+                    },
+                    recommendation.dnsStrategyLabel?.let {
+                        DiagnosticsFieldUiModel("DNS lane", it)
+                    },
+                    DiagnosticsFieldUiModel("Why it won", recommendation.rationale),
+                ).filterNotNull(),
+            signature =
+                recommendation.strategySignature
+                    ?.let { signature ->
+                        strategySignatureFields(signature)
+                    }.orEmpty(),
+        )
+    }
 
 private fun buildStrategyProbeSummaryMetrics(report: StrategyProbeReport): List<DiagnosticsMetricUiModel> {
     val candidates = report.tcpCandidates + report.quicCandidates

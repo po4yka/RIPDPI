@@ -96,6 +96,93 @@ class DiagnosticsWireContractTest {
                         rationale = "DNS tampering detected",
                         persistable = true,
                     ),
+                strategyProbeReport =
+                    StrategyProbeReport(
+                        suiteId = "full_matrix_v1",
+                        tcpCandidates =
+                            listOf(
+                                StrategyProbeCandidateSummary(
+                                    id = "baseline_current",
+                                    label = "Current strategy",
+                                    family = "baseline_current",
+                                    outcome = "skipped",
+                                    rationale =
+                                        "DNS tampering detected before fallback; TCP strategy escalation skipped",
+                                    succeededTargets = 0,
+                                    totalTargets = 6,
+                                    weightedSuccessScore = 0,
+                                    totalWeight = 18,
+                                    qualityScore = 0,
+                                    skipped = true,
+                                ),
+                            ),
+                        quicCandidates =
+                            listOf(
+                                StrategyProbeCandidateSummary(
+                                    id = "quic_disabled",
+                                    label = "Current QUIC strategy",
+                                    family = "quic_disabled",
+                                    outcome = "skipped",
+                                    rationale =
+                                        "DNS tampering detected before fallback; QUIC strategy escalation skipped",
+                                    succeededTargets = 0,
+                                    totalTargets = 2,
+                                    weightedSuccessScore = 0,
+                                    totalWeight = 4,
+                                    qualityScore = 0,
+                                    skipped = true,
+                                ),
+                            ),
+                        recommendation =
+                            StrategyProbeRecommendation(
+                                tcpCandidateId = "baseline_current",
+                                tcpCandidateLabel = "Current strategy",
+                                quicCandidateId = "quic_disabled",
+                                quicCandidateLabel = "Current QUIC strategy",
+                                rationale = "Resolver override recommended",
+                                recommendedProxyConfigJson = "{}",
+                            ),
+                        completionKind = StrategyProbeCompletionKind.DNS_SHORT_CIRCUITED,
+                        auditAssessment =
+                            StrategyProbeAuditAssessment(
+                                dnsShortCircuited = true,
+                                coverage =
+                                    StrategyProbeAuditCoverage(
+                                        tcpCandidatesPlanned = 11,
+                                        tcpCandidatesExecuted = 0,
+                                        tcpCandidatesSkipped = 1,
+                                        tcpCandidatesNotApplicable = 0,
+                                        quicCandidatesPlanned = 2,
+                                        quicCandidatesExecuted = 0,
+                                        quicCandidatesSkipped = 1,
+                                        quicCandidatesNotApplicable = 0,
+                                        tcpWinnerSucceededTargets = 0,
+                                        tcpWinnerTotalTargets = 6,
+                                        quicWinnerSucceededTargets = 0,
+                                        quicWinnerTotalTargets = 2,
+                                        matrixCoveragePercent = 0,
+                                        winnerCoveragePercent = 0,
+                                    ),
+                                confidence =
+                                    StrategyProbeAuditConfidence(
+                                        level = StrategyProbeAuditConfidenceLevel.LOW,
+                                        score = 35,
+                                        rationale =
+                                            "Baseline DNS tampering short-circuited the audit before fallback candidates ran",
+                                        warnings =
+                                            listOf(
+                                                "Baseline DNS tampering short-circuited the audit before fallback candidates ran.",
+                                            ),
+                                    ),
+                            ),
+                        targetSelection =
+                            StrategyProbeTargetSelection(
+                                cohortId = "global-core",
+                                cohortLabel = "Global core",
+                                domainHosts = listOf("www.youtube.com", "discord.com"),
+                                quicHosts = listOf("www.youtube.com"),
+                            ),
+                    ),
                 engineAnalysisVersion = "1.0",
                 classifierVersion = "1.0",
                 packVersions = mapOf("core" to 1),
