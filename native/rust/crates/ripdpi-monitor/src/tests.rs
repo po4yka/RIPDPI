@@ -1,4 +1,5 @@
 use super::validate_scan_request;
+use crate::types::StrategyProbeCompletionKind;
 use crate::*;
 
 use crate::candidates::{

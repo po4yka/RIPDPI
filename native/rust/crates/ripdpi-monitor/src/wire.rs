@@ -274,6 +274,11 @@ fn default_diagnostic_profile_family() -> DiagnosticProfileFamily {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::types::{
+        StrategyProbeAuditAssessment, StrategyProbeAuditConfidence, StrategyProbeAuditConfidenceLevel,
+        StrategyProbeAuditCoverage, StrategyProbeCandidateSummary, StrategyProbeCompletionKind,
+        StrategyProbeRecommendation, StrategyProbeTargetSelection,
+    };
 
     #[test]
     fn diagnostics_schema_version_matches_contract_fixture() {

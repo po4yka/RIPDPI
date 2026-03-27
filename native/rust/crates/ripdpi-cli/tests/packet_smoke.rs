@@ -71,7 +71,7 @@ fn cli_packet_smoke_tcp_fake_family() {
                 .collect()
         },
         |manifest| format!("tcp and port {}", manifest.tls_echo_port),
-        |proxy_port, fixture| drive_tls_probe_best_effort(proxy_port, fixture),
+        drive_tls_probe_best_effort,
         |run| assert_outbound_ttl(run, run.manifest.tls_echo_port, 5),
     );
 }
@@ -131,7 +131,7 @@ fn cli_packet_smoke_tcp_transport_knobs_family() {
             .collect()
         },
         |manifest| format!("tcp and port {}", manifest.tls_echo_port),
-        |proxy_port, fixture| drive_tls_probe_best_effort(proxy_port, fixture),
+        drive_tls_probe_best_effort,
         |run| assert_outbound_ttl(run, run.manifest.tls_echo_port, 6),
     );
 }
@@ -159,7 +159,7 @@ fn cli_packet_smoke_udp_quic_family() {
             .collect()
         },
         |manifest| format!("udp and port {}", manifest.udp_echo_port),
-        |proxy_port, fixture| drive_udp_quic_round_trip(proxy_port, fixture),
+        drive_udp_quic_round_trip,
         |run| {
             assert_udp_outbound_count_at_least(run, run.manifest.udp_echo_port, 6)?;
             assert_quic_version_present(run, 0x1a2b3c4d)?;
@@ -196,7 +196,7 @@ fn cli_packet_smoke_adaptive_family() {
             args
         },
         |manifest| format!("tcp and port {}", manifest.tcp_echo_port),
-        |proxy_port, fixture| drive_adaptive_round_trip(proxy_port, fixture),
+        drive_adaptive_round_trip,
         |run| {
             assert_fixture_event(run, "tcp_echo")?;
             assert_stderr_contains(run, "strategy evolution selected combo")?;
@@ -436,7 +436,7 @@ fn decode_capture_json(capture_path: &Path, output_path: &Path) -> Result<Vec<Va
 }
 
 fn packet_smoke_enabled() -> bool {
-    matches!(env::var(ENABLE_ENV).ok().as_deref(), Some("1") | Some("true") | Some("TRUE") | Some("yes") | Some("YES"))
+    matches!(env::var(ENABLE_ENV).ok().as_deref(), Some("1" | "true" | "TRUE" | "yes" | "YES"))
 }
 
 fn ensure_capture_tooling() {
