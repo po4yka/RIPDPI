@@ -40,6 +40,7 @@ import com.poyka.ripdpi.activities.DiagnosticsResolverRecommendationUiModel
 import com.poyka.ripdpi.activities.DiagnosticsScanUiModel
 import com.poyka.ripdpi.activities.DiagnosticsStrategyProbeCandidateDetailUiModel
 import com.poyka.ripdpi.activities.DiagnosticsStrategyProbeCandidateUiModel
+import com.poyka.ripdpi.activities.DiagnosticsStrategyProbeProgressLaneUiModel
 import com.poyka.ripdpi.activities.DiagnosticsStrategyProbeReportUiModel
 import com.poyka.ripdpi.activities.DiagnosticsTone
 import com.poyka.ripdpi.activities.PhaseState
@@ -311,6 +312,32 @@ private fun ScanProgressCard(
                 style = RipDpiThemeTokens.type.monoInline,
                 color = RipDpiThemeTokens.colors.mutedForeground,
             )
+        }
+        progress.strategyProbeProgress?.let { liveProgress ->
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                StatusIndicator(
+                    label =
+                        when (liveProgress.lane) {
+                            DiagnosticsStrategyProbeProgressLaneUiModel.TCP -> {
+                                stringResource(R.string.diagnostics_phase_tcp)
+                            }
+
+                            DiagnosticsStrategyProbeProgressLaneUiModel.QUIC -> {
+                                stringResource(R.string.diagnostics_phase_quic)
+                            }
+                        },
+                    tone = StatusIndicatorTone.Warning,
+                )
+                Text(
+                    text = "${liveProgress.candidateIndex}/${liveProgress.candidateTotal}",
+                    style = RipDpiThemeTokens.type.monoInline,
+                    color = RipDpiThemeTokens.colors.mutedForeground,
+                )
+            }
         }
         AnimatedContent(
             targetState = progress.currentProbeLabel,

@@ -6,6 +6,7 @@ import com.poyka.ripdpi.diagnostics.contract.engine.EngineProbeTaskWire
 import com.poyka.ripdpi.diagnostics.contract.engine.EngineProgressWire
 import com.poyka.ripdpi.diagnostics.contract.engine.EngineScanReportWire
 import com.poyka.ripdpi.diagnostics.contract.engine.EngineScanRequestWire
+import com.poyka.ripdpi.diagnostics.contract.profile.ProbePersistencePolicyWire
 import com.poyka.ripdpi.diagnostics.contract.profile.ProfileExecutionPolicyWire
 import com.poyka.ripdpi.diagnostics.contract.profile.ProfileSpecWire
 import com.poyka.ripdpi.diagnostics.domain.DiagnosticsIntent
@@ -50,6 +51,7 @@ internal fun ScanRequest.toProfileSpecWire(): ProfileSpecWire =
                 manualOnly = manualOnly,
                 allowBackground = !manualOnly && kind == ScanKind.STRATEGY_PROBE,
                 requiresRawPath = kind == ScanKind.STRATEGY_PROBE,
+                probePersistencePolicy = compatibilityProbePersistencePolicy(kind = kind, family = family),
             ),
         packRefs = packRefs,
         domainTargets = domainTargets,
@@ -99,11 +101,35 @@ internal fun ProfileSpecWire.toCompatibilityScanRequest(
 
 internal fun ProfileSpecWire.executionPolicyOrCompat(): ProfileExecutionPolicyWire =
     executionPolicy
+        ?.let { policy ->
+            policy.copy(
+                probePersistencePolicy =
+                    policy.probePersistencePolicy ?: compatibilityProbePersistencePolicy(kind = kind, family = family),
+            )
+        }
         ?: ProfileExecutionPolicyWire(
             manualOnly = manualOnly == true,
             requiresRawPath = kind == ScanKind.STRATEGY_PROBE,
             allowBackground = manualOnly != true && kind == ScanKind.STRATEGY_PROBE,
+            probePersistencePolicy = compatibilityProbePersistencePolicy(kind = kind, family = family),
         )
+
+internal fun compatibilityProbePersistencePolicy(
+    kind: ScanKind,
+    family: DiagnosticProfileFamily,
+): ProbePersistencePolicyWire =
+    when {
+        kind != ScanKind.STRATEGY_PROBE -> ProbePersistencePolicyWire.MANUAL_ONLY
+        family == DiagnosticProfileFamily.AUTOMATIC_PROBING -> ProbePersistencePolicyWire.BACKGROUND_ONLY
+        else -> ProbePersistencePolicyWire.MANUAL_ONLY
+    }
+
+internal fun ProbePersistencePolicyWire.toDomainPolicy(): ProbePersistencePolicy =
+    when (this) {
+        ProbePersistencePolicyWire.MANUAL_ONLY -> ProbePersistencePolicy.MANUAL_ONLY
+        ProbePersistencePolicyWire.BACKGROUND_ONLY -> ProbePersistencePolicy.BACKGROUND_ONLY
+        ProbePersistencePolicyWire.ALWAYS -> ProbePersistencePolicy.ALWAYS
+    }
 
 internal fun ProbeTask.toEngineProbeTaskWire(): EngineProbeTaskWire =
     EngineProbeTaskWire(
@@ -132,6 +158,7 @@ internal fun DiagnosticsIntent.toProfileProjection(): DiagnosticsProfileProjecti
                 manualOnly = executionPolicy.manualOnly,
                 allowBackground = executionPolicy.allowBackground,
                 requiresRawPath = executionPolicy.requiresRawPath,
+                probePersistencePolicy = executionPolicy.probePersistencePolicy,
             ),
         manualOnly = executionPolicy.manualOnly,
         packRefs = packRefs,
@@ -150,6 +177,7 @@ internal fun ProfileSpecWire.toProfileProjection(): DiagnosticsProfileProjection
                     manualOnly = executionPolicy.manualOnly,
                     allowBackground = executionPolicy.allowBackground,
                     requiresRawPath = executionPolicy.requiresRawPath,
+                    probePersistencePolicy = executionPolicy.probePersistencePolicy.toDomainPolicy(),
                 ),
             manualOnly = executionPolicy.manualOnly,
             packRefs = packRefs,
@@ -265,6 +293,7 @@ internal fun ScanProgress.toEngineProgressWire(): EngineProgressWire =
         isFinished = isFinished,
         latestProbeTarget = latestProbeTarget,
         latestProbeOutcome = latestProbeOutcome,
+        strategyProbeProgress = strategyProbeProgress,
     )
 
 internal fun EngineProgressWire.toLegacyScanProgressCompat(): ScanProgress =
@@ -277,4 +306,5 @@ internal fun EngineProgressWire.toLegacyScanProgressCompat(): ScanProgress =
         isFinished = isFinished,
         latestProbeTarget = latestProbeTarget,
         latestProbeOutcome = latestProbeOutcome,
+        strategyProbeProgress = strategyProbeProgress,
     )

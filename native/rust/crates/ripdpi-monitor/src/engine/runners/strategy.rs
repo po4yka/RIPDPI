@@ -18,7 +18,8 @@ use crate::observations::observations_for_results;
 use crate::strategy::detect_strategy_probe_dns_tampering;
 use crate::types::{
     ScanProgress, StrategyProbeAuditAssessment, StrategyProbeAuditConfidence, StrategyProbeAuditConfidenceLevel,
-    StrategyProbeAuditCoverage, StrategyProbeCandidateSummary, StrategyProbeRecommendation, StrategyProbeReport,
+    StrategyProbeAuditCoverage, StrategyProbeCandidateSummary, StrategyProbeLiveProgress, StrategyProbeProgressLane,
+    StrategyProbeRecommendation, StrategyProbeReport,
 };
 use crate::util::{stable_probe_hash, STRATEGY_PROBE_SUITE_FULL_MATRIX_V1};
 
@@ -42,6 +43,22 @@ fn resolve_recommended_proxy_config_json(
         .filter(|value| !value.trim().is_empty())
         .map(str::to_owned)
         .unwrap_or_else(|| crate::candidates::strategy_probe_config_json(&fallback_quic_spec.config))
+}
+
+fn strategy_probe_live_progress(
+    lane: StrategyProbeProgressLane,
+    candidate_index: usize,
+    candidate_total: usize,
+    candidate_id: &str,
+    candidate_label: &str,
+) -> StrategyProbeLiveProgress {
+    StrategyProbeLiveProgress {
+        lane,
+        candidate_index,
+        candidate_total,
+        candidate_id: candidate_id.to_string(),
+        candidate_label: candidate_label.to_string(),
+    }
 }
 
 #[derive(Clone, Copy)]
@@ -349,7 +366,18 @@ impl ExecutionStageRunner for StrategyTcpRunner {
         if tcp_specs.is_empty() {
             return RunnerOutcome::Completed;
         }
+        let tcp_candidate_total = tcp_specs.len();
         let baseline_spec = tcp_specs.first().expect("tcp candidate");
+        runtime.publish_strategy_probe_candidate_started(
+            plan,
+            self.phase(),
+            StrategyProbeProgressLane::Tcp,
+            1,
+            tcp_candidate_total,
+            baseline_spec.id,
+            baseline_spec.label,
+            format!("Testing TCP candidate {}", baseline_spec.label),
+        );
         let baseline_execution = execute_tcp_candidate(
             baseline_spec,
             &plan.request.domain_targets,
@@ -367,12 +395,19 @@ impl ExecutionStageRunner for StrategyTcpRunner {
         if let Some(failure) = &runtime.strategy.baseline_failure {
             baseline_results.push(classified_failure_probe_result(baseline_spec.label, failure));
         }
-        runtime.record_step(
+        runtime.record_step_with_strategy_probe_progress(
             plan,
             self.phase(),
             format!("Tested {}", baseline_spec.label),
             Some(baseline_spec.label.to_string()),
             Some(baseline_execution.summary.outcome.clone()),
+            Some(strategy_probe_live_progress(
+                StrategyProbeProgressLane::Tcp,
+                1,
+                tcp_candidate_total,
+                baseline_spec.id,
+                baseline_spec.label,
+            )),
             RunnerArtifacts::from_results(
                 baseline_results,
                 "strategy_probe",
@@ -407,18 +442,40 @@ impl ExecutionStageRunner for StrategyTcpRunner {
         let mut last_failed_tcp_family = None::<&str>;
         let mut consecutive_tcp_family_failures = 0usize;
         while !pending_tcp_specs.is_empty() {
+            let candidate_index = runtime.strategy.tcp_candidates.len() + 1;
             let spec = pending_tcp_specs.remove(next_candidate_index(&pending_tcp_specs, blocked_tcp_family));
             if runtime.is_cancelled() {
                 return RunnerOutcome::Cancelled;
             }
+            runtime.publish_strategy_probe_candidate_started(
+                plan,
+                self.phase(),
+                StrategyProbeProgressLane::Tcp,
+                candidate_index,
+                tcp_candidate_total,
+                spec.id,
+                spec.label,
+                format!("Testing TCP candidate {}", spec.label),
+            );
             if strategy_plan.suite.short_circuit_hostfake && spec.family == "hostfake" && hostfake_family_succeeded {
-                runtime.strategy.tcp_candidates.push(skipped_candidate_summary(
+                let summary = skipped_candidate_summary(
                     &spec,
                     plan.request.domain_targets.len() * 2,
                     6,
                     "Earlier hostfake candidate already achieved full success",
-                ));
-                runtime.completed_steps += 1;
+                );
+                runtime.strategy.tcp_candidates.push(summary.clone());
+                runtime.record_skipped_strategy_probe_candidate(
+                    plan,
+                    self.phase(),
+                    StrategyProbeProgressLane::Tcp,
+                    candidate_index,
+                    tcp_candidate_total,
+                    &summary.id,
+                    &summary.label,
+                    Some(summary.outcome.clone()),
+                    format!("Skipped {}", summary.label),
+                );
                 continue;
             }
 
@@ -439,12 +496,19 @@ impl ExecutionStageRunner for StrategyTcpRunner {
                 hostfake_family_succeeded = true;
             }
             let failed = execution.summary.outcome == "failed";
-            runtime.record_step(
+            runtime.record_step_with_strategy_probe_progress(
                 plan,
                 self.phase(),
                 format!("Tested {}", spec.label),
                 Some(spec.label.to_string()),
                 Some(execution.summary.outcome.clone()),
+                Some(strategy_probe_live_progress(
+                    StrategyProbeProgressLane::Tcp,
+                    candidate_index,
+                    tcp_candidate_total,
+                    spec.id,
+                    spec.label,
+                )),
                 RunnerArtifacts::from_results(
                     execution.results.clone(),
                     "strategy_probe",
@@ -521,6 +585,10 @@ impl ExecutionStageRunner for StrategyQuicRunner {
                 .unwrap_or_else(|_| strategy_plan.suite.quic_candidates.clone()),
             runtime.strategy.baseline_failure.as_ref().map(|value| value.class),
         );
+        let quic_candidate_total = quic_specs.len();
+        if quic_candidate_total == 0 {
+            return RunnerOutcome::Completed;
+        }
         let mut pending_quic_specs =
             interleave_candidate_families(quic_specs.clone(), stable_probe_hash(strategy_plan.probe_seed, "quic"));
         let mut quic_family_succeeded = false;
@@ -528,18 +596,40 @@ impl ExecutionStageRunner for StrategyQuicRunner {
         let mut last_failed_quic_family = None::<&str>;
         let mut consecutive_quic_family_failures = 0usize;
         while !pending_quic_specs.is_empty() {
+            let candidate_index = runtime.strategy.quic_candidates.len() + 1;
             let spec = pending_quic_specs.remove(next_candidate_index(&pending_quic_specs, blocked_quic_family));
             if runtime.is_cancelled() {
                 return RunnerOutcome::Cancelled;
             }
+            runtime.publish_strategy_probe_candidate_started(
+                plan,
+                self.phase(),
+                StrategyProbeProgressLane::Quic,
+                candidate_index,
+                quic_candidate_total,
+                spec.id,
+                spec.label,
+                format!("Testing QUIC candidate {}", spec.label),
+            );
             if strategy_plan.suite.short_circuit_quic_burst && spec.family == "quic_burst" && quic_family_succeeded {
-                runtime.strategy.quic_candidates.push(skipped_candidate_summary(
+                let summary = skipped_candidate_summary(
                     &spec,
                     plan.request.quic_targets.len(),
                     2,
                     "Earlier QUIC burst candidate already achieved full success",
-                ));
-                runtime.completed_steps += 1;
+                );
+                runtime.strategy.quic_candidates.push(summary.clone());
+                runtime.record_skipped_strategy_probe_candidate(
+                    plan,
+                    self.phase(),
+                    StrategyProbeProgressLane::Quic,
+                    candidate_index,
+                    quic_candidate_total,
+                    &summary.id,
+                    &summary.label,
+                    Some(summary.outcome.clone()),
+                    format!("Skipped {}", summary.label),
+                );
                 continue;
             }
 
@@ -560,12 +650,19 @@ impl ExecutionStageRunner for StrategyQuicRunner {
                 quic_family_succeeded = true;
             }
             let failed = execution.summary.outcome == "failed";
-            runtime.record_step(
+            runtime.record_step_with_strategy_probe_progress(
                 plan,
                 self.phase(),
                 format!("Tested {}", spec.label),
                 Some(spec.label.to_string()),
                 Some(execution.summary.outcome.clone()),
+                Some(strategy_probe_live_progress(
+                    StrategyProbeProgressLane::Quic,
+                    candidate_index,
+                    quic_candidate_total,
+                    spec.id,
+                    spec.label,
+                )),
                 RunnerArtifacts::from_results(
                     execution.results.clone(),
                     "strategy_probe",
@@ -690,6 +787,7 @@ impl ExecutionStageRunner for StrategyRecommendationRunner {
                 is_finished: false,
                 latest_probe_target: None,
                 latest_probe_outcome: Some("ready".to_string()),
+                strategy_probe_progress: None,
             },
         );
         RunnerOutcome::Completed

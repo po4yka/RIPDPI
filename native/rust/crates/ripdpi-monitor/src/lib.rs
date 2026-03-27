@@ -44,10 +44,10 @@ pub use types::{
     QuicTarget, ScanKind, ScanPathMode, ScanProgress, ScanReport, ScanRequest, ServiceObservationFact, ServiceTarget,
     StrategyObservationFact, StrategyProbeAuditAssessment, StrategyProbeAuditConfidence,
     StrategyProbeAuditConfidenceLevel, StrategyProbeAuditCoverage, StrategyProbeCandidateSummary,
-    StrategyProbeProtocol, StrategyProbeRecommendation, StrategyProbeReport, StrategyProbeRequest, StrategyProbeStatus,
-    TcpObservationFact, TcpProbeStatus, TcpTarget, TelegramDcEndpoint, TelegramObservationFact, TelegramTarget,
-    TelegramTransferStatus, TelegramVerdict, ThroughputObservationFact, ThroughputProbeStatus, ThroughputTarget,
-    TlsProbeStatus, TransportFailureKind,
+    StrategyProbeLiveProgress, StrategyProbeProgressLane, StrategyProbeProtocol, StrategyProbeRecommendation,
+    StrategyProbeReport, StrategyProbeRequest, StrategyProbeStatus, TcpObservationFact, TcpProbeStatus, TcpTarget,
+    TelegramDcEndpoint, TelegramObservationFact, TelegramTarget, TelegramTransferStatus, TelegramVerdict,
+    ThroughputObservationFact, ThroughputProbeStatus, ThroughputTarget, TlsProbeStatus, TransportFailureKind,
 };
 pub use wire::{
     EngineObservationWire, EngineProbeResultWire, EngineProbeTaskFamily, EngineProbeTaskWire, EngineProgressWire,
@@ -152,6 +152,7 @@ impl MonitorSession {
                         is_finished: true,
                         latest_probe_target: None,
                         latest_probe_outcome: None,
+                        strategy_probe_progress: None,
                     },
                 );
             }

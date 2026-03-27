@@ -3,6 +3,8 @@ package com.poyka.ripdpi.activities
 import com.poyka.ripdpi.diagnostics.ScanKind
 import com.poyka.ripdpi.diagnostics.ScanPathMode
 import com.poyka.ripdpi.diagnostics.ScanProgress
+import com.poyka.ripdpi.diagnostics.StrategyProbeLiveProgress
+import com.poyka.ripdpi.diagnostics.StrategyProbeProgressLane
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
@@ -20,12 +22,14 @@ class DiagnosticsProgressModelTest {
         completedSteps: Int = 2,
         totalSteps: Int = 8,
         message: String = "Probing...",
+        strategyProbeProgress: StrategyProbeLiveProgress? = null,
     ) = ScanProgress(
         sessionId = "test-session",
         phase = phase,
         completedSteps = completedSteps,
         totalSteps = totalSteps,
         message = message,
+        strategyProbeProgress = strategyProbeProgress,
     )
 
     // --- Phase stepper: connectivity ---
@@ -309,6 +313,51 @@ class DiagnosticsProgressModelTest {
             )
 
         assertEquals("DNS probe youtube.com", model.currentProbeLabel)
+    }
+
+    @Test
+    fun `strategy probe progress prefers structured candidate label and counters`() {
+        val model =
+            support.toProgressUiModel(
+                progress =
+                    progress(
+                        phase = "tcp",
+                        message = "Testing TCP candidate",
+                        strategyProbeProgress =
+                            StrategyProbeLiveProgress(
+                                lane = StrategyProbeProgressLane.TCP,
+                                candidateIndex = 3,
+                                candidateTotal = 14,
+                                candidateId = "tcp_fake_tls",
+                                candidateLabel = "TCP fake TLS",
+                            ),
+                    ),
+                scanKind = ScanKind.STRATEGY_PROBE,
+                isFullAudit = false,
+                scanStartedAt = 0L,
+                now = 1_000L,
+            )
+
+        assertEquals("TCP fake TLS", model.currentProbeLabel)
+        assertEquals(DiagnosticsStrategyProbeProgressLaneUiModel.TCP, model.strategyProbeProgress?.lane)
+        assertEquals(3, model.strategyProbeProgress?.candidateIndex)
+        assertEquals(14, model.strategyProbeProgress?.candidateTotal)
+        assertEquals("tcp_fake_tls", model.strategyProbeProgress?.candidateId)
+    }
+
+    @Test
+    fun `strategy probe progress falls back to message when structured metadata is absent`() {
+        val model =
+            support.toProgressUiModel(
+                progress = progress(phase = "tcp", message = "Testing TCP candidate"),
+                scanKind = ScanKind.STRATEGY_PROBE,
+                isFullAudit = false,
+                scanStartedAt = 0L,
+                now = 1_000L,
+            )
+
+        assertEquals("Testing TCP candidate", model.currentProbeLabel)
+        assertNull(model.strategyProbeProgress)
     }
 
     @Test

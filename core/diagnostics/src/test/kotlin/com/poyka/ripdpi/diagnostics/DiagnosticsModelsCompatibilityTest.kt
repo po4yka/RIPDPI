@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.diagnostics
 
+import com.poyka.ripdpi.diagnostics.contract.engine.EngineProgressWire
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import org.junit.Assert.assertEquals
@@ -99,6 +100,55 @@ class DiagnosticsModelsCompatibilityTest {
             )
 
         assertNull(report.strategyProbeReport?.auditAssessment)
+    }
+
+    @Test
+    fun `legacy scan progress decodes without strategy probe progress`() {
+        val progress =
+            json.decodeFromString(
+                ScanProgress.serializer(),
+                """
+                {
+                  "sessionId": "session-1",
+                  "phase": "tcp",
+                  "completedSteps": 1,
+                  "totalSteps": 8,
+                  "message": "Testing TCP candidate"
+                }
+                """.trimIndent(),
+            )
+
+        assertNull(progress.strategyProbeProgress)
+    }
+
+    @Test
+    fun `engine progress wire round trips strategy probe progress`() {
+        val progress =
+            EngineProgressWire(
+                sessionId = "session-1",
+                phase = "tcp",
+                completedSteps = 2,
+                totalSteps = 14,
+                message = "Testing TCP candidate",
+                isFinished = false,
+                latestProbeTarget = "TCP fake TLS",
+                latestProbeOutcome = "success",
+                strategyProbeProgress =
+                    StrategyProbeLiveProgress(
+                        lane = StrategyProbeProgressLane.TCP,
+                        candidateIndex = 3,
+                        candidateTotal = 14,
+                        candidateId = "tcp_fake_tls",
+                        candidateLabel = "TCP fake TLS",
+                    ),
+            )
+
+        val encoded = json.encodeToString(EngineProgressWire.serializer(), progress)
+        val decoded = json.decodeFromString(EngineProgressWire.serializer(), encoded)
+
+        assertEquals(StrategyProbeProgressLane.TCP, decoded.strategyProbeProgress?.lane)
+        assertEquals(3, decoded.strategyProbeProgress?.candidateIndex)
+        assertEquals("TCP fake TLS", decoded.strategyProbeProgress?.candidateLabel)
     }
 
     @Test

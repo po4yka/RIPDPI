@@ -10,6 +10,7 @@ import com.poyka.ripdpi.diagnostics.DiagnosticProfile
 import com.poyka.ripdpi.diagnostics.DiagnosticsRememberedPolicy
 import com.poyka.ripdpi.diagnostics.ScanKind
 import com.poyka.ripdpi.diagnostics.ScanProgress
+import com.poyka.ripdpi.diagnostics.StrategyProbeProgressLane
 import java.util.Locale
 import com.poyka.ripdpi.data.displayLabel as displayNetworkLabel
 import com.poyka.ripdpi.diagnostics.displayLabel as displayStrategyLabel
@@ -31,6 +32,9 @@ internal fun DiagnosticsUiFactorySupport.toProfileOptionUiModel(
                 manualOnly = request?.executionPolicy?.manualOnly == true,
                 allowBackground = request?.executionPolicy?.allowBackground == true,
                 requiresRawPath = request?.executionPolicy?.requiresRawPath == true,
+                probePersistencePolicy =
+                    request?.executionPolicy?.probePersistencePolicy
+                        ?: com.poyka.ripdpi.diagnostics.ProbePersistencePolicy.MANUAL_ONLY,
             ),
         manualOnly = request?.executionPolicy?.manualOnly == true,
         packRefs = request?.packRefs.orEmpty(),
@@ -166,6 +170,20 @@ internal fun DiagnosticsUiFactorySupport.toProgressUiModel(
                 tone = state.tone(),
             )
         }
+    val strategyProbeProgress =
+        progress.strategyProbeProgress?.let { liveProgress ->
+            DiagnosticsStrategyProbeLiveProgressUiModel(
+                lane =
+                    when (liveProgress.lane) {
+                        StrategyProbeProgressLane.TCP -> DiagnosticsStrategyProbeProgressLaneUiModel.TCP
+                        StrategyProbeProgressLane.QUIC -> DiagnosticsStrategyProbeProgressLaneUiModel.QUIC
+                    },
+                candidateIndex = liveProgress.candidateIndex,
+                candidateTotal = liveProgress.candidateTotal,
+                candidateId = liveProgress.candidateId,
+                candidateLabel = liveProgress.candidateLabel,
+            )
+        }
     return DiagnosticsProgressUiModel(
         phase = progress.phase,
         summary = progress.message,
@@ -177,7 +195,8 @@ internal fun DiagnosticsUiFactorySupport.toProgressUiModel(
         elapsedLabel = elapsedLabel,
         etaLabel = etaLabel,
         phaseSteps = phaseSteps,
-        currentProbeLabel = progress.message,
+        currentProbeLabel = strategyProbeProgress?.candidateLabel ?: progress.message,
+        strategyProbeProgress = strategyProbeProgress,
         completedProbes = completedProbes,
     )
 }

@@ -14,6 +14,7 @@ import com.poyka.ripdpi.diagnostics.ResolverRecommendation
 import com.poyka.ripdpi.diagnostics.ScanKind
 import com.poyka.ripdpi.diagnostics.ScanPathMode
 import com.poyka.ripdpi.diagnostics.ServiceTarget
+import com.poyka.ripdpi.diagnostics.StrategyProbeLiveProgress
 import com.poyka.ripdpi.diagnostics.StrategyProbeReport
 import com.poyka.ripdpi.diagnostics.StrategyProbeRequest
 import com.poyka.ripdpi.diagnostics.TcpTarget
@@ -109,4 +110,5 @@ data class EngineProgressWire(
     val isFinished: Boolean = false,
     val latestProbeTarget: String? = null,
     val latestProbeOutcome: String? = null,
+    val strategyProbeProgress: StrategyProbeLiveProgress? = null,
 )

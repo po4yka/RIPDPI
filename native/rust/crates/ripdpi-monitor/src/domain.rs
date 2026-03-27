@@ -115,6 +115,7 @@ impl ExecutionRuntime {
                 is_finished: false,
                 latest_probe_target: Some(probe_target),
                 latest_probe_outcome: Some(probe_outcome),
+                strategy_probe_progress: None,
             },
         );
     }

@@ -5,7 +5,8 @@ use serde::{Deserialize, Serialize};
 use crate::types::{
     CircumventionTarget, Diagnosis, DiagnosticProfileFamily, DnsTarget, DomainTarget, ProbeDetail, ProbeObservation,
     ProbeResult, ProbeTask, ProbeTaskFamily, QuicTarget, ScanKind, ScanPathMode, ScanProgress, ScanReport, ScanRequest,
-    ServiceTarget, StrategyProbeReport, StrategyProbeRequest, TcpTarget, TelegramTarget, ThroughputTarget,
+    ServiceTarget, StrategyProbeLiveProgress, StrategyProbeReport, StrategyProbeRequest, TcpTarget, TelegramTarget,
+    ThroughputTarget,
 };
 
 pub const DIAGNOSTICS_ENGINE_SCHEMA_VERSION: u32 = 2;
@@ -143,6 +144,8 @@ pub struct EngineProgressWire {
     pub latest_probe_target: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub latest_probe_outcome: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub strategy_probe_progress: Option<StrategyProbeLiveProgress>,
 }
 
 impl From<EngineScanRequestWire> for ScanRequest {
@@ -251,6 +254,7 @@ impl From<ScanProgress> for EngineProgressWire {
             is_finished: value.is_finished,
             latest_probe_target: value.latest_probe_target,
             latest_probe_outcome: value.latest_probe_outcome,
+            strategy_probe_progress: value.strategy_probe_progress,
         }
     }
 }

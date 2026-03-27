@@ -67,6 +67,25 @@ pub struct ScanProgress {
     pub latest_probe_target: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub latest_probe_outcome: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub strategy_probe_progress: Option<StrategyProbeLiveProgress>,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum StrategyProbeProgressLane {
+    Tcp,
+    Quic,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct StrategyProbeLiveProgress {
+    pub lane: StrategyProbeProgressLane,
+    pub candidate_index: usize,
+    pub candidate_total: usize,
+    pub candidate_id: String,
+    pub candidate_label: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -246,6 +265,7 @@ mod tests {
         let progress: ScanProgress = serde_json::from_str(json).expect("deserialize");
         assert!(progress.latest_probe_target.is_none());
         assert!(progress.latest_probe_outcome.is_none());
+        assert!(progress.strategy_probe_progress.is_none());
     }
 
     #[test]
@@ -259,10 +279,33 @@ mod tests {
             is_finished: false,
             latest_probe_target: Some("youtube.com".to_string()),
             latest_probe_outcome: Some("ok".to_string()),
+            strategy_probe_progress: Some(StrategyProbeLiveProgress {
+                lane: StrategyProbeProgressLane::Tcp,
+                candidate_index: 3,
+                candidate_total: 14,
+                candidate_id: "tcp_fake_tls".to_string(),
+                candidate_label: "TCP fake TLS".to_string(),
+            }),
         };
         let json = serde_json::to_string(&progress).expect("serialize");
         assert!(json.contains("latestProbeTarget"));
         assert!(json.contains("youtube.com"));
         assert!(json.contains("latestProbeOutcome"));
+        assert!(json.contains("strategyProbeProgress"));
+        assert!(json.contains("candidateLabel"));
+    }
+
+    #[test]
+    fn scan_progress_deserializes_without_strategy_probe_progress() {
+        let json = r#"{
+            "sessionId": "s1",
+            "phase": "tcp",
+            "completedSteps": 1,
+            "totalSteps": 8,
+            "message": "Testing TCP",
+            "isFinished": false
+        }"#;
+        let progress: ScanProgress = serde_json::from_str(json).expect("deserialize");
+        assert!(progress.strategy_probe_progress.is_none());
     }
 }
