@@ -51,7 +51,7 @@ jobs:
           toolchain: "1.94.0"
           components: rustfmt, clippy
 
-      - uses: android-actions/setup-android@v3
+      - uses: android-actions/setup-android@v4
 
       - uses: Swatinem/rust-cache@v2
         with:
@@ -129,7 +129,7 @@ jobs:
           toolchain: "1.94.0"
           components: rustfmt, clippy
 
-      - uses: android-actions/setup-android@v3
+      - uses: android-actions/setup-android@v4
 
       - uses: Swatinem/rust-cache@v2
         with:
@@ -200,7 +200,7 @@ jobs:
           toolchain: "1.94.0"
           components: rustfmt, clippy
 
-      - uses: android-actions/setup-android@v3
+      - uses: android-actions/setup-android@v4
 
       - uses: Swatinem/rust-cache@v2
         with:
@@ -346,7 +346,7 @@ jobs:
           toolchain: "1.94.0"
           components: rustfmt, clippy, llvm-tools
 
-      - uses: android-actions/setup-android@v3
+      - uses: android-actions/setup-android@v4
 
       - uses: Swatinem/rust-cache@v2
         with:
@@ -479,7 +479,7 @@ jobs:
         with:
           toolchain: "1.94.0"
 
-      - uses: android-actions/setup-android@v3
+      - uses: android-actions/setup-android@v4
 
       - uses: Swatinem/rust-cache@v2
         with:
@@ -674,7 +674,7 @@ jobs:
           toolchain: "1.94.0"
           components: rustfmt, clippy, llvm-tools
 
-      - uses: android-actions/setup-android@v3
+      - uses: android-actions/setup-android@v4
 
       - uses: Swatinem/rust-cache@v2
         with:
@@ -733,7 +733,7 @@ jobs:
           toolchain: "1.94.0"
           components: rustfmt, clippy
 
-      - uses: android-actions/setup-android@v3
+      - uses: android-actions/setup-android@v4
 
       - uses: Swatinem/rust-cache@v2
         with:
