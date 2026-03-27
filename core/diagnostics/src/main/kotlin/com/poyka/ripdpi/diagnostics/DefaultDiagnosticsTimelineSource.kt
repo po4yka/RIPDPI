@@ -15,6 +15,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
@@ -24,6 +25,7 @@ import javax.inject.Inject
 import javax.inject.Named
 import javax.inject.Singleton
 
+@OptIn(ExperimentalCoroutinesApi::class)
 @Singleton
 class DefaultDiagnosticsTimelineSource
     @Inject
