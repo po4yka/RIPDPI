@@ -2709,9 +2709,12 @@ dependencies = [
  "cipher",
  "ctr",
  "nix",
+ "rcgen",
+ "rustls",
  "socket2 0.6.3",
  "tracing",
  "tungstenite",
+ "webpki-roots 1.0.6",
 ]
 
 [[package]]
