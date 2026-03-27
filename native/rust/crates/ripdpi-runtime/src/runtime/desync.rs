@@ -397,7 +397,7 @@ fn execute_tcp_actions(
                         writer,
                         *ttl,
                         &mut ttl_actions_unavailable,
-                        strategy_family.map(set_ttl_action_name).unwrap_or("set_ttl"),
+                        strategy_family.map_or("set_ttl", set_ttl_action_name),
                         strategy_family.unwrap_or("split"),
                         fallback,
                         bytes_committed,
@@ -411,7 +411,7 @@ fn execute_tcp_actions(
                             writer,
                             restore,
                             &mut ttl_actions_unavailable,
-                            strategy_family.map(restore_ttl_action_name).unwrap_or("restore_default_ttl"),
+                            strategy_family.map_or("restore_default_ttl", restore_ttl_action_name),
                             strategy_family.unwrap_or("split"),
                             fallback,
                             bytes_committed,
@@ -1143,6 +1143,7 @@ fn transport_result<T>(result: io::Result<T>) -> Result<T, OutboundSendError> {
     result.map_err(OutboundSendError::Transport)
 }
 
+#[allow(clippy::too_many_arguments)]
 fn write_payload_with_android_ttl_fallback(
     writer: &mut TcpStream,
     bytes: &[u8],
@@ -1199,6 +1200,7 @@ fn send_oob_action_named(
         .map(|()| bytes_committed + prefix.len() + 1)
 }
 
+#[allow(clippy::too_many_arguments)]
 fn send_oob_with_android_ttl_fallback(
     writer: &TcpStream,
     prefix: &[u8],
@@ -1233,6 +1235,7 @@ fn send_oob_with_android_ttl_fallback(
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn send_fake_tcp_action_named(
     stream: &TcpStream,
     original_prefix: &[u8],

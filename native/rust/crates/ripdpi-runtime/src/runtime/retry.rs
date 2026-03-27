@@ -48,7 +48,7 @@ pub(super) fn build_retry_signature(
         retry_lane(transport, payload),
         target_key(host, target),
         group_index,
-        adaptive_signature_hash(resolved_fake_ttl, &adaptive_hints),
+        adaptive_signature_hash(resolved_fake_ttl, adaptive_hints),
     )))
 }
 

@@ -53,7 +53,7 @@ fn now_millis() -> u64 {
 
 /// Assign a stable discriminant for hashing. The exact values are arbitrary
 /// but must be consistent for the lifetime of the process.
-fn offset_base_disc(o: &OffsetBase) -> u8 {
+fn offset_base_disc(o: OffsetBase) -> u8 {
     match o {
         OffsetBase::Abs => 0,
         OffsetBase::PayloadEnd => 1,
@@ -79,7 +79,7 @@ fn offset_base_disc(o: &OffsetBase) -> u8 {
     }
 }
 
-fn quic_fake_disc(q: &QuicFakeProfile) -> u8 {
+fn quic_fake_disc(q: QuicFakeProfile) -> u8 {
     match q {
         QuicFakeProfile::Disabled => 0,
         QuicFakeProfile::CompatDefault => 1,
@@ -87,7 +87,7 @@ fn quic_fake_disc(q: &QuicFakeProfile) -> u8 {
     }
 }
 
-fn tls_randrec_disc(t: &AdaptiveTlsRandRecProfile) -> u8 {
+fn tls_randrec_disc(t: AdaptiveTlsRandRecProfile) -> u8 {
     match t {
         AdaptiveTlsRandRecProfile::Balanced => 0,
         AdaptiveTlsRandRecProfile::Tight => 1,
@@ -95,7 +95,7 @@ fn tls_randrec_disc(t: &AdaptiveTlsRandRecProfile) -> u8 {
     }
 }
 
-fn udp_burst_disc(u: &AdaptiveUdpBurstProfile) -> u8 {
+fn udp_burst_disc(u: AdaptiveUdpBurstProfile) -> u8 {
     match u {
         AdaptiveUdpBurstProfile::Balanced => 0,
         AdaptiveUdpBurstProfile::Conservative => 1,
@@ -103,7 +103,7 @@ fn udp_burst_disc(u: &AdaptiveUdpBurstProfile) -> u8 {
     }
 }
 
-fn entropy_mode_disc(e: &EntropyMode) -> u8 {
+fn entropy_mode_disc(e: EntropyMode) -> u8 {
     match e {
         EntropyMode::Disabled => 0,
         EntropyMode::Popcount => 1,
@@ -142,13 +142,13 @@ pub struct StrategyCombo {
 
 impl Hash for StrategyCombo {
     fn hash<H: Hasher>(&self, state: &mut H) {
-        hash_option_disc(state, 0, self.split_offset_base.as_ref().map(offset_base_disc));
-        hash_option_disc(state, 1, self.tls_record_offset_base.as_ref().map(offset_base_disc));
-        hash_option_disc(state, 2, self.tlsrandrec_profile.as_ref().map(tls_randrec_disc));
-        hash_option_disc(state, 3, self.udp_burst_profile.as_ref().map(udp_burst_disc));
-        hash_option_disc(state, 4, self.quic_fake_profile.as_ref().map(quic_fake_disc));
+        hash_option_disc(state, 0, self.split_offset_base.map(offset_base_disc));
+        hash_option_disc(state, 1, self.tls_record_offset_base.map(offset_base_disc));
+        hash_option_disc(state, 2, self.tlsrandrec_profile.map(tls_randrec_disc));
+        hash_option_disc(state, 3, self.udp_burst_profile.map(udp_burst_disc));
+        hash_option_disc(state, 4, self.quic_fake_profile.map(quic_fake_disc));
         hash_option_disc(state, 5, self.fake_ttl);
-        hash_option_disc(state, 6, self.entropy_mode.as_ref().map(entropy_mode_disc));
+        hash_option_disc(state, 6, self.entropy_mode.map(entropy_mode_disc));
     }
 }
 
@@ -474,9 +474,8 @@ impl StrategyEvolver {
 
     /// Record successful connection with observed latency.
     pub fn record_success(&mut self, latency_ms: u64) {
-        let combo = match self.current_experiment.take() {
-            Some(c) => c,
-            None => return,
+        let Some(combo) = self.current_experiment.take() else {
+            return;
         };
         tracing::debug!(combo = ?combo, latency_ms, "strategy evolution recorded success");
         self.evict_if_needed(&combo);
@@ -495,9 +494,8 @@ impl StrategyEvolver {
 
     /// Record failed connection with failure class.
     pub fn record_failure(&mut self, class: FailureClass) {
-        let combo = match self.current_experiment.take() {
-            Some(c) => c,
-            None => return,
+        let Some(combo) = self.current_experiment.take() else {
+            return;
         };
         tracing::debug!(combo = ?combo, class = class.as_str(), "strategy evolution recorded failure");
         self.evict_if_needed(&combo);
@@ -519,7 +517,7 @@ impl StrategyEvolver {
 
     /// Best fitness score.
     pub fn best_fitness(&self) -> f64 {
-        self.best_combo().map(|(_, s)| s.fitness()).unwrap_or(0.0)
+        self.best_combo().map_or(0.0, |(_, s)| s.fitness())
     }
 
     // -- internal -----------------------------------------------------------
@@ -565,8 +563,7 @@ impl StrategyEvolver {
                 (combo.clone(), ucb)
             })
             .max_by(|a, b| a.1.partial_cmp(&b.1).unwrap_or(std::cmp::Ordering::Equal))
-            .map(|(c, _)| c)
-            .unwrap_or_else(StrategyCombo::default_combo)
+            .map_or_else(StrategyCombo::default_combo, |(c, _)| c)
     }
 
     fn evict_if_needed(&mut self, keep: &StrategyCombo) {

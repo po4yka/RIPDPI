@@ -8,7 +8,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread;
 use std::time::{Duration, Instant};
 
-use super::super::desync::send_with_group;
+use super::super::desync::{send_with_group, OutboundSendError};
 use super::super::state::RuntimeState;
 
 const RELAY_IDLE_TIMEOUT: Duration = Duration::from_secs(60);
@@ -221,7 +221,7 @@ fn flush_outbound_payload(
         parsed_host.as_deref().or(remembered_host.as_deref()),
         peer_addr,
     )
-    .map_err(|err| err.into_io_error())?;
+    .map_err(OutboundSendError::into_io_error)?;
     tracing::trace!(
         target = %peer_addr,
         strategy_family = send_outcome.strategy_family.unwrap_or("plain"),

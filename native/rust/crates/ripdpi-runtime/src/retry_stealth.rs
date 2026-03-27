@@ -245,7 +245,7 @@ impl RetryPacer {
     }
 }
 
-pub fn adaptive_signature_hash(fake_ttl: Option<u8>, hints: &AdaptivePlannerHints) -> u64 {
+pub fn adaptive_signature_hash(fake_ttl: Option<u8>, hints: AdaptivePlannerHints) -> u64 {
     let mut hash = FNV_OFFSET;
     if let Some(value) = fake_ttl {
         stable_hash_update(&mut hash, value.to_string().as_bytes());
