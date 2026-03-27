@@ -44,7 +44,7 @@ class DiagnosticsViewModel
         diagnosticsShareService: DiagnosticsShareService,
         diagnosticsResolverActions: DiagnosticsResolverActions,
         appSettingsRepository: AppSettingsRepository,
-        @ApplicationContext private val appContext: Context,
+        @param:ApplicationContext private val appContext: Context,
         rememberedPolicySource: DiagnosticsRememberedPolicySource,
         activeConnectionPolicySource: DiagnosticsActiveConnectionPolicySource,
         serviceStateStore: ServiceStateStore,
