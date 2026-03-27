@@ -17,7 +17,7 @@ import javax.inject.Inject
 internal class HistoryConnectionDetailUiFactory
     @Inject
     constructor(
-        @ApplicationContext private val context: Context,
+        @param:ApplicationContext private val context: Context,
         private val coreSupport: DiagnosticsUiCoreSupport,
     ) {
         fun toConnectionRowUiModel(session: DiagnosticConnectionSession): HistoryConnectionRowUiModel {
