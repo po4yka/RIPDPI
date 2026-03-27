@@ -98,6 +98,15 @@ data class TelegramTarget(
 data class StrategyProbeRequest(
     val suiteId: String = "quick_v1",
     val baseProxyConfigJson: String? = null,
+    val targetSelection: StrategyProbeTargetSelection? = null,
+)
+
+@Serializable
+data class StrategyProbeTargetSelection(
+    val cohortId: String,
+    val cohortLabel: String,
+    val domainHosts: List<String> = emptyList(),
+    val quicHosts: List<String> = emptyList(),
 )
 
 @Serializable
@@ -541,6 +550,7 @@ data class StrategyProbeReport(
     val quicCandidates: List<StrategyProbeCandidateSummary> = emptyList(),
     val recommendation: StrategyProbeRecommendation,
     val auditAssessment: StrategyProbeAuditAssessment? = null,
+    val targetSelection: StrategyProbeTargetSelection? = null,
 )
 
 @Serializable

@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-03-22",
+  "generatedAt": "2026-03-27",
   "packs": [
     {
       "id": "ru-independent-media",
@@ -28,6 +28,10 @@
     },
     {
       "id": "neutral-control",
+      "version": 1
+    },
+    {
+      "id": "automatic-audit-targets",
       "version": 1
     }
   ],
@@ -151,7 +155,7 @@
     {
       "id": "automatic-audit",
       "name": "Automatic audit",
-      "version": 1,
+      "version": 2,
       "request": {
         "profileId": "automatic-audit",
         "displayName": "Automatic audit",
@@ -163,7 +167,9 @@
           "requiresRawPath": true,
           "probePersistencePolicy": "MANUAL_ONLY"
         },
-        "packRefs": [],
+        "packRefs": [
+          "automatic-audit-targets@1"
+        ],
         "domainTargets": [
           {
             "host": "www.youtube.com"
@@ -185,6 +191,83 @@
           {
             "host": "discord.com",
             "port": 443
+          }
+        ],
+        "strategyProbeTargetCohorts": [
+          {
+            "id": "global-core",
+            "label": "Global core",
+            "domainTargets": [
+              {
+                "host": "www.youtube.com"
+              },
+              {
+                "host": "discord.com"
+              },
+              {
+                "host": "proton.me"
+              }
+            ],
+            "quicTargets": [
+              {
+                "host": "www.youtube.com",
+                "port": 443
+              },
+              {
+                "host": "discord.com",
+                "port": 443
+              }
+            ]
+          },
+          {
+            "id": "media-messaging",
+            "label": "Media and messaging",
+            "domainTargets": [
+              {
+                "host": "meduza.io"
+              },
+              {
+                "host": "telegram.org"
+              },
+              {
+                "host": "signal.org"
+              }
+            ],
+            "quicTargets": [
+              {
+                "host": "discord.com",
+                "port": 443
+              },
+              {
+                "host": "www.whatsapp.com",
+                "port": 443
+              }
+            ]
+          },
+          {
+            "id": "circumvention-web",
+            "label": "Circumvention web mix",
+            "domainTargets": [
+              {
+                "host": "www.dw.com"
+              },
+              {
+                "host": "www.torproject.org"
+              },
+              {
+                "host": "protonvpn.com"
+              }
+            ],
+            "quicTargets": [
+              {
+                "host": "www.youtube.com",
+                "port": 443
+              },
+              {
+                "host": "www.whatsapp.com",
+                "port": 443
+              }
+            ]
           }
         ],
         "serviceTargets": [],

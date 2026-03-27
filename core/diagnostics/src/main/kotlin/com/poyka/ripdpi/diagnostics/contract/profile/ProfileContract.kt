@@ -31,6 +31,14 @@ data class ProfileExecutionPolicyWire(
 )
 
 @Serializable
+data class StrategyProbeTargetCohortWire(
+    val id: String,
+    val label: String,
+    val domainTargets: List<DomainTarget> = emptyList(),
+    val quicTargets: List<QuicTarget> = emptyList(),
+)
+
+@Serializable
 data class ProfileSpecWire(
     val profileId: String,
     val displayName: String,
@@ -50,6 +58,7 @@ data class ProfileSpecWire(
     val whitelistSni: List<String> = emptyList(),
     val telegramTarget: TelegramTarget? = null,
     val strategyProbe: StrategyProbeRequest? = null,
+    val strategyProbeTargetCohorts: List<StrategyProbeTargetCohortWire> = emptyList(),
 )
 
 @Serializable

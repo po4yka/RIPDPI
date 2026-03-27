@@ -45,9 +45,10 @@ pub use types::{
     StrategyObservationFact, StrategyProbeAuditAssessment, StrategyProbeAuditConfidence,
     StrategyProbeAuditConfidenceLevel, StrategyProbeAuditCoverage, StrategyProbeCandidateSummary,
     StrategyProbeLiveProgress, StrategyProbeProgressLane, StrategyProbeProtocol, StrategyProbeRecommendation,
-    StrategyProbeReport, StrategyProbeRequest, StrategyProbeStatus, TcpObservationFact, TcpProbeStatus, TcpTarget,
-    TelegramDcEndpoint, TelegramObservationFact, TelegramTarget, TelegramTransferStatus, TelegramVerdict,
-    ThroughputObservationFact, ThroughputProbeStatus, ThroughputTarget, TlsProbeStatus, TransportFailureKind,
+    StrategyProbeReport, StrategyProbeRequest, StrategyProbeStatus, StrategyProbeTargetSelection, TcpObservationFact,
+    TcpProbeStatus, TcpTarget, TelegramDcEndpoint, TelegramObservationFact, TelegramTarget, TelegramTransferStatus,
+    TelegramVerdict, ThroughputObservationFact, ThroughputProbeStatus, ThroughputTarget, TlsProbeStatus,
+    TransportFailureKind,
 };
 pub use wire::{
     EngineObservationWire, EngineProbeResultWire, EngineProbeTaskFamily, EngineProbeTaskWire, EngineProgressWire,

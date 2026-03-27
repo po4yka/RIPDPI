@@ -94,6 +94,7 @@ fn strategy_probe_request_with_suite(
                 })
                 .expect("serialize probe ui config"),
             ),
+            target_selection: None,
         }),
         network_snapshot: None,
     }
@@ -482,6 +483,7 @@ fn strategy_probe_request_rejects_command_line_config_payload() {
             })
             .expect("serialize command line payload"),
         ),
+        target_selection: None,
     });
 
     let err = validate_scan_request(&request.into()).expect_err("command line payload should fail");
@@ -713,7 +715,41 @@ fn monitor_session_full_matrix_strategy_probe_reports_audit_assessment() {
     let server = HttpTextServer::start_text("HTTP/1.1 200 OK", "probe");
     let mut request =
         strategy_probe_request_with_suite(minimal_ui_config(), "full_matrix_v1", "automatic-audit", "Automatic audit");
-    request.domain_targets[0].http_port = Some(server.port());
+    request.domain_targets = vec![
+        DomainTarget {
+            host: "www.youtube.com".to_string(),
+            connect_ip: Some("127.0.0.1".to_string()),
+            https_port: Some(9),
+            http_port: Some(server.port()),
+            http_path: "/".to_string(),
+        },
+        DomainTarget {
+            host: "discord.com".to_string(),
+            connect_ip: Some("127.0.0.1".to_string()),
+            https_port: Some(9),
+            http_port: Some(server.port()),
+            http_path: "/".to_string(),
+        },
+        DomainTarget {
+            host: "proton.me".to_string(),
+            connect_ip: Some("127.0.0.1".to_string()),
+            https_port: Some(9),
+            http_port: Some(server.port()),
+            http_path: "/".to_string(),
+        },
+    ];
+    request.quic_targets = vec![
+        QuicTarget { host: "www.youtube.com".to_string(), connect_ip: Some("127.0.0.1".to_string()), port: 9 },
+        QuicTarget { host: "discord.com".to_string(), connect_ip: Some("127.0.0.1".to_string()), port: 9 },
+    ];
+    request.strategy_probe.as_mut().expect("strategy probe").target_selection = Some(StrategyProbeTargetSelection {
+        cohort_id: "global-core".to_string(),
+        cohort_label: "Global core mix".to_string(),
+        domain_hosts: request.domain_targets.iter().map(|target| target.host.clone()).collect(),
+        quic_hosts: request.quic_targets.iter().map(|target| target.host.clone()).collect(),
+    });
+    let expected_domain_hosts = request.domain_targets.iter().map(|target| target.host.clone()).collect::<Vec<_>>();
+    let expected_quic_hosts = request.quic_targets.iter().map(|target| target.host.clone()).collect::<Vec<_>>();
     let session = MonitorSession::new();
 
     session.start_scan("session-audit".to_string(), request.into()).expect("start automatic audit");
@@ -724,6 +760,10 @@ fn monitor_session_full_matrix_strategy_probe_reports_audit_assessment() {
     assert_eq!(report.profile_id, "automatic-audit");
     assert_eq!(strategy_probe.suite_id, "full_matrix_v1");
     assert_strategy_probe_recommendation_matches_winners(&strategy_probe);
+    let target_selection = strategy_probe.target_selection.as_ref().expect("target selection");
+    assert_eq!(target_selection.cohort_id, "global-core");
+    assert_eq!(target_selection.domain_hosts, expected_domain_hosts);
+    assert_eq!(target_selection.quic_hosts, expected_quic_hosts);
     assert!(report.summary.contains("confidence "));
     assert!(report.summary.contains("matrix coverage "));
     assert!(audit_assessment.coverage.tcp_candidates_planned >= strategy_probe.tcp_candidates.len());
@@ -742,8 +782,6 @@ fn monitor_session_strategy_probe_progress_reports_live_candidate_metadata() {
 
     let mut saw_tcp_live_progress = false;
     let mut saw_quic_live_progress = false;
-    let mut saw_recommendation_without_live_progress = false;
-    let mut saw_finished_without_live_progress = false;
     let expected_quic_total = crate::candidates::build_quic_candidates_for_suite("quick_v1", &minimal_ui_config())
         .expect("quick_v1 quic candidates")
         .len();
@@ -772,11 +810,9 @@ fn monitor_session_strategy_probe_progress_reports_live_candidate_metadata() {
                     }
                 }
                 "recommendation" => {
-                    saw_recommendation_without_live_progress = true;
                     assert!(progress.strategy_probe_progress.is_none());
                 }
                 "finished" => {
-                    saw_finished_without_live_progress = true;
                     assert!(progress.strategy_probe_progress.is_none());
                     break;
                 }
@@ -788,17 +824,21 @@ fn monitor_session_strategy_probe_progress_reports_live_candidate_metadata() {
 
     let report = wait_for_report(&session);
     let strategy_probe = report.strategy_probe_report.expect("strategy probe report");
-    let executed_quic_candidates = strategy_probe.quic_candidates.iter().filter(|candidate| !candidate.skipped).count();
+    let executed_quic_candidates = strategy_probe
+        .quic_candidates
+        .iter()
+        .filter(|candidate| !candidate.skipped && candidate.outcome != "not_applicable")
+        .count();
+    let final_progress_json =
+        session.poll_progress_json().expect("poll final progress json").expect("final progress json");
+    let final_progress: ScanProgress = serde_json::from_str(&final_progress_json).expect("decode final scan progress");
 
     assert!(saw_tcp_live_progress, "expected TCP live candidate progress");
     if executed_quic_candidates > 0 {
         assert!(saw_quic_live_progress, "expected QUIC live candidate progress");
     }
-    assert!(
-        saw_recommendation_without_live_progress || saw_finished_without_live_progress,
-        "expected recommendation or finished progress without live candidate metadata",
-    );
-    assert!(saw_finished_without_live_progress, "expected finished progress without live metadata");
+    assert_eq!(final_progress.phase, "finished");
+    assert!(final_progress.strategy_probe_progress.is_none(), "expected finished progress without live metadata");
 }
 
 #[test]

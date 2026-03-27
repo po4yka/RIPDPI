@@ -78,6 +78,12 @@ class DiagnosticsSummaryProjector
                     add("strategySuite=${strategyProbe.suiteId}")
                     add("strategyTcpCandidates=${strategyProbe.tcpCandidates.size}")
                     add("strategyQuicCandidates=${strategyProbe.quicCandidates.size}")
+                    strategyProbe.targetSelection?.let { selection ->
+                        add("strategyTargetCohort=${selection.cohortId}")
+                        add("strategyTargetCohortLabel=${selection.cohortLabel}")
+                        add("strategyTargetDomains=${selection.domainHosts.joinToString("|")}")
+                        add("strategyTargetQuicHosts=${selection.quicHosts.joinToString("|")}")
+                    }
                     strategyProbe.auditAssessment?.let { assessment ->
                         add("strategyConfidence=${assessment.confidence.level.name}")
                         add("strategyConfidenceScore=${assessment.confidence.score}")
