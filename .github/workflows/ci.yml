@@ -21,6 +21,11 @@ on:
         required: false
         default: false
         type: boolean
+      run_appium_smoke:
+        description: Run Appium smoke tests after Android instrumentation
+        required: false
+        default: false
+        type: boolean
   schedule:
     - cron: "0 3 * * *"
 
@@ -609,6 +614,14 @@ jobs:
               bash scripts/ci/run-maestro-smoke.sh \
                 2>&1 | tee "$RUNNER_TEMP/maestro/maestro-smoke.log"
             fi
+            if [ "${{ github.event_name }}" = "workflow_dispatch" ] && \
+               [ "${{ github.event.inputs.run_appium_smoke }}" = "true" ]; then
+              npm install -g appium
+              appium driver install uiautomator2
+              pip install -r appium/requirements.txt
+              bash scripts/ci/run-appium-smoke.sh \
+                2>&1 | tee "$RUNNER_TEMP/appium-smoke.log"
+            fi
 
       - name: Upload Android E2E artifacts
         if: always()
@@ -621,6 +634,9 @@ jobs:
             app/build/reports/coverage/
             app/build/outputs/code_coverage/
             ${{ runner.temp }}/local-network-fixture/
+            ${{ runner.temp }}/appium-smoke.log
+            appium/appium-report.html
+            appium/screenshots/
           retention-days: 7
 
       - name: Capture fixture state
