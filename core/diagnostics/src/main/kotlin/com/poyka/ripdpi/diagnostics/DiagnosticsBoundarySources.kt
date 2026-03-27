@@ -6,6 +6,7 @@ import com.poyka.ripdpi.data.diagnostics.ActiveConnectionPolicyStore
 import com.poyka.ripdpi.data.diagnostics.BypassUsageHistoryStore
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsArtifactReadStore
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsScanRecordStore
+import com.poyka.ripdpi.data.diagnostics.NetworkDnsPathPreferenceStore
 import com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyStore
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -77,6 +78,7 @@ class DefaultDiagnosticsRememberedPolicySource
     @Inject
     constructor(
         private val rememberedNetworkPolicyStore: RememberedNetworkPolicyStore,
+        private val networkDnsPathPreferenceStore: NetworkDnsPathPreferenceStore,
         private val mapper: DiagnosticsBoundaryMapper,
     ) : DiagnosticsRememberedPolicySource {
         override fun observePolicies(limit: Int): Flow<List<DiagnosticsRememberedPolicy>> =
@@ -86,6 +88,7 @@ class DefaultDiagnosticsRememberedPolicySource
 
         override suspend fun clearAll() {
             rememberedNetworkPolicyStore.clearAll()
+            networkDnsPathPreferenceStore.clearAll()
         }
     }
 
@@ -95,7 +98,7 @@ class DefaultDiagnosticsActiveConnectionPolicySource
     constructor(
         private val activeConnectionPolicyStore: ActiveConnectionPolicyStore,
         private val mapper: DiagnosticsBoundaryMapper,
-        @param:ApplicationIoScope
+        @ApplicationIoScope
         scope: CoroutineScope,
     ) : DiagnosticsActiveConnectionPolicySource {
         override val activePolicies: StateFlow<Map<Mode, DiagnosticActiveConnectionPolicy>> =
