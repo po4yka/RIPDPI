@@ -133,7 +133,7 @@ pub mod capture {
             }
 
             // Bind to loopback interface
-            let lo_index = unsafe { libc::if_nametoindex(b"lo\0".as_ptr() as *const libc::c_char) };
+            let lo_index = unsafe { libc::if_nametoindex(c"lo".as_ptr()) };
             if lo_index == 0 {
                 unsafe { libc::close(fd) };
                 return Err(io::Error::new(io::ErrorKind::NotFound, "loopback interface 'lo' not found"));

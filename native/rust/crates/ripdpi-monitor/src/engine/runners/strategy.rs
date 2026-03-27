@@ -41,8 +41,7 @@ fn resolve_recommended_proxy_config_json(
         .proxy_config_json
         .as_deref()
         .filter(|value| !value.trim().is_empty())
-        .map(str::to_owned)
-        .unwrap_or_else(|| crate::candidates::strategy_probe_config_json(&fallback_quic_spec.config))
+        .map_or_else(|| crate::candidates::strategy_probe_config_json(&fallback_quic_spec.config), str::to_owned)
 }
 
 fn strategy_probe_live_progress(
@@ -133,8 +132,8 @@ fn resolve_strategy_probe_audit_assessment(
 
     let tcp_winner = tcp_candidates.iter().find(|candidate| candidate.id == recommendation.tcp_candidate_id);
     let quic_winner = quic_candidates.iter().find(|candidate| candidate.id == recommendation.quic_candidate_id);
-    let tcp_winner_coverage = tcp_winner.map(candidate_score_percent).unwrap_or(0);
-    let quic_winner_coverage = quic_winner.map(candidate_score_percent).unwrap_or(0);
+    let tcp_winner_coverage = tcp_winner.map_or(0, candidate_score_percent);
+    let quic_winner_coverage = quic_winner.map_or(0, candidate_score_percent);
     let tcp_lane_coverage = round_percent(tcp_counts.executed, tcp_counts.planned);
     let quic_lane_coverage = round_percent(quic_counts.executed, quic_counts.planned);
     let tcp_margin = winner_margin_percent(tcp_candidates, &recommendation.tcp_candidate_id);
@@ -207,12 +206,12 @@ fn resolve_strategy_probe_audit_assessment(
             quic_candidates_executed: quic_counts.executed,
             quic_candidates_skipped: quic_counts.skipped,
             quic_candidates_not_applicable: quic_counts.not_applicable,
-            tcp_winner_succeeded_targets: tcp_winner.map(|candidate| candidate.succeeded_targets).unwrap_or(0),
-            tcp_winner_total_targets: tcp_winner.map(|candidate| candidate.total_targets).unwrap_or(0),
-            quic_winner_succeeded_targets: quic_winner.map(|candidate| candidate.succeeded_targets).unwrap_or(0),
-            quic_winner_total_targets: quic_winner.map(|candidate| candidate.total_targets).unwrap_or(0),
+            tcp_winner_succeeded_targets: tcp_winner.map_or(0, |candidate| candidate.succeeded_targets),
+            tcp_winner_total_targets: tcp_winner.map_or(0, |candidate| candidate.total_targets),
+            quic_winner_succeeded_targets: quic_winner.map_or(0, |candidate| candidate.succeeded_targets),
+            quic_winner_total_targets: quic_winner.map_or(0, |candidate| candidate.total_targets),
             matrix_coverage_percent: round_percent(total_executed, total_planned),
-            winner_coverage_percent: (tcp_winner_coverage + quic_winner_coverage + 1) / 2,
+            winner_coverage_percent: (tcp_winner_coverage + quic_winner_coverage).div_ceil(2),
         },
         confidence: StrategyProbeAuditConfidence { level, score, rationale, warnings },
     })

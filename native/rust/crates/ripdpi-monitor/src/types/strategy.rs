@@ -11,17 +11,12 @@ pub struct StrategyProbeTargetSelection {
     pub quic_hosts: Vec<String>,
 }
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum StrategyProbeCompletionKind {
+    #[default]
     Normal,
     DnsShortCircuited,
-}
-
-impl Default for StrategyProbeCompletionKind {
-    fn default() -> Self {
-        Self::Normal
-    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
