@@ -13,7 +13,7 @@ RIPDPI persists all app settings as a single Protobuf message (`AppSettings`) st
 
 | File | Purpose |
 |------|---------|
-| `core/data/src/main/proto/app_settings.proto` | Schema definition (65 fields) |
+| `core/data/src/main/proto/app_settings.proto` | Schema definition for persisted app settings |
 | `core/data/.../data/AppSettingsSerializer.kt` | Serializer with default values |
 | `core/data/.../data/AppDataStore.kt` | DataStore extension property |
 | `core/engine/.../core/RipDpiProxyPreferences.kt` | Proto -> native preferences conversion |
@@ -78,7 +78,7 @@ val uiState = combine(application.settingsStore.data, otherFlow) { settings, oth
 | Group | Fields | Notes |
 |-------|--------|-------|
 | General | app_theme, ripdpi_mode, dns_ip, ipv6_enable | Mode is "vpn" or "proxy" |
-| Command mode | enable_cmd_settings, cmd_args | Raw CLI args to byedpi |
+| Command mode | enable_cmd_settings, cmd_args | Raw CLI args for command-line mode of the native RIPDPI proxy |
 | Proxy | proxy_ip, proxy_port, max_connections, buffer_size | Defaults: 127.0.0.1:1080 |
 | Desync | desync_method, split_position, fake_ttl, fake_sni, etc. | Method: none/split/disorder/fake/oob/disoob |
 | Protocols | desync_http, desync_https, desync_udp | Bool flags for which protocols to desync |
@@ -91,6 +91,11 @@ val uiState = combine(application.settingsStore.data, otherFlow) { settings, oth
 `RipDpiProxyPreferences.fromSettingsStore(context)` reads the proto and creates either:
 - `RipDpiProxyCmdPreferences(args)` if `enable_cmd_settings` is true
 - `RipDpiProxyUIPreferences(...)` mapping all 27 proxy parameters
+
+## Diagnostics Interaction
+
+- `enable_cmd_settings = true` is a hard stop for automatic probing/audit. Those workflows require UI-config JSON so they can launch isolated strategy trials.
+- If a change touches diagnostics availability or recommendation flow, also inspect `core:diagnostics` and the diagnostics UI layer. The proto flag alone is not the whole behavior.
 
 ## Common Mistakes
 

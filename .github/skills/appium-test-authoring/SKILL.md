@@ -7,6 +7,11 @@ description: Use when creating new Appium test files, writing page objects, upda
 
 Python pytest suite under `appium/`. Page Object Model with resource-id locators via `AppiumBy.ID`. Automation contract drives app state (see `appium-automation-contract` skill).
 
+Tag source of truth:
+
+- `app/src/main/kotlin/com/poyka/ripdpi/ui/testing/RipDpiTestTags.kt`
+- `docs/automation/selector-contract.md`
+
 ## Directory Layout
 
 ```
@@ -115,6 +120,7 @@ Source: `appium/pages/base_page.py`
 - Tags without `:` are auto-prefixed by `_resource_id()` to `com.poyka.ripdpi:id/{tag}`.
 - Tags map to `Modifier.testTag("{tag}")` in Jetpack Compose source.
 - Keep tags short and descriptive. Use hyphens, not underscores (except for screen names that mirror route names like `dns_settings`).
+- For diagnostics strategy reports, prefer the dedicated stable tags rather than visible text, for example `diagnostics-strategy-winning-path`, `diagnostics-strategy-full-matrix-toggle`, and `diagnostics-workflow-restriction-action`.
 
 ## Creating a Test File
 
