@@ -110,6 +110,26 @@ Skip for emergencies: `LEFTHOOK=0 git commit ...`
 
 Local overrides: create `.lefthook-local.yml` (gitignored).
 
+## Task Runner
+
+Project commands are unified in a [`justfile`](https://github.com/casey/just). Install: `brew install just`
+
+```bash
+just              # List all recipes
+just build        # Build debug APK
+just test         # All Kotlin unit tests
+just test-module core:engine                    # Single module
+just test-class core:engine MyTest              # Single class
+just test-rust    # All Rust tests
+just lint         # Full Kotlin static analysis
+just lint-rust    # Full Rust checks (fmt + clippy + deny)
+just fmt          # Auto-format Kotlin + Rust
+just run-cli      # Start desktop proxy on :1080
+just ci           # Full local CI mirror
+```
+
+Run `just --list --groups` to see recipes organized by category.
+
 ## CI/CD
 
 - `ci.yml`: build + unit tests + static analysis on push/PR to main; nightly soak and TUN E2E
