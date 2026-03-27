@@ -778,6 +778,33 @@ fn tls_round_trip_with_split_desync_completes_handshake() {
 }
 
 #[test]
+#[cfg(any(target_os = "linux", target_os = "android"))]
+fn tls_round_trip_with_split_desync_completes_handshake_without_delay_connect() {
+    let _guard = test_guard();
+    let fixture = FixtureStack::start(ephemeral_fixture_config()).expect("start fixture");
+
+    let mut config = ui_proxy_config();
+    config.groups[0].matches.proto = IS_TCP | IS_HTTPS;
+    config.groups[0]
+        .actions
+        .tcp_chain
+        .push(TcpChainStep::new(TcpChainStepKind::Split, ripdpi_config::OffsetExpr::absolute(5)));
+    config.network.delay_conn = false;
+    let proxy = start_proxy(config, None);
+
+    let response = socks5_tls_round_trip_with_retry(proxy.port, &fixture, None);
+    assert!(
+        response.contains("fixture tls ok"),
+        "TLS with split desync should complete after SOCKS success reply: {response:?}"
+    );
+
+    let events = fixture.events().snapshot();
+    assert!(events.iter().any(|e| e.service == "tls_echo" && e.detail == "handshake"));
+    assert!(!events.iter().any(|e| e.service == "tls_echo" && e.detail.starts_with("handshake_error:")));
+    drop(proxy);
+}
+
+#[test]
 fn delay_connect_uses_plain_fallback_when_split_group_payload_does_not_match() {
     let _guard = test_guard();
     let fixture = FixtureStack::start(ephemeral_fixture_config()).expect("start fixture");

@@ -10,7 +10,6 @@ use std::time::{Duration, Instant};
 
 use super::super::desync::send_with_group;
 use super::super::state::RuntimeState;
-use super::tls_boundary::OutboundTlsFirstRecordAssembler;
 
 const RELAY_IDLE_TIMEOUT: Duration = Duration::from_secs(60);
 
@@ -72,6 +71,7 @@ pub(super) fn relay_streams(
     state: &RuntimeState,
     group_index: usize,
     session_seed: SessionState,
+    remembered_host_seed: Option<String>,
 ) -> io::Result<SessionState> {
     client.set_read_timeout(Some(RELAY_IDLE_TIMEOUT))?;
     client.set_write_timeout(None)?;
@@ -111,7 +111,15 @@ pub(super) fn relay_streams(
     let up = thread::Builder::new()
         .name("ripdpi-up".into())
         .spawn(move || {
-            copy_outbound_half(client_reader, upstream_writer, outbound_state, group_index, outbound_session, up_done)
+            copy_outbound_half(
+                client_reader,
+                upstream_writer,
+                outbound_state,
+                group_index,
+                outbound_session,
+                up_done,
+                remembered_host_seed,
+            )
         })
         .map_err(|err| io::Error::other(format!("failed to spawn outbound relay thread: {err}")))?;
 
@@ -203,7 +211,7 @@ fn flush_outbound_payload(
         .cloned()
         .ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, "missing desync group"))?;
     let peer_addr = writer.peer_addr()?;
-    send_with_group(
+    let send_outcome = send_with_group(
         writer,
         state,
         group_index,
@@ -212,7 +220,14 @@ fn flush_outbound_payload(
         progress,
         parsed_host.as_deref().or(remembered_host.as_deref()),
         peer_addr,
-    )?;
+    )
+    .map_err(|err| err.into_io_error())?;
+    tracing::trace!(
+        target = %peer_addr,
+        strategy_family = send_outcome.strategy_family.unwrap_or("plain"),
+        bytes_committed = send_outcome.bytes_committed,
+        "steady-state outbound payload forwarded"
+    );
     Ok(())
 }
 
@@ -223,51 +238,17 @@ fn copy_outbound_half(
     group_index: usize,
     session: Arc<Mutex<SessionState>>,
     peer_done: Arc<AtomicBool>,
+    mut remembered_host: Option<String>,
 ) -> io::Result<()> {
     let mut buffer = [0u8; 16_384];
-    let mut remembered_host = None::<String>;
-    let mut first_tls_record = OutboundTlsFirstRecordAssembler::new();
-    let mut forwarded_payload = false;
     loop {
-        let read_timeout = first_tls_record.timeout(Instant::now()).unwrap_or(RELAY_IDLE_TIMEOUT);
-        reader.set_read_timeout(Some(read_timeout))?;
+        reader.set_read_timeout(Some(RELAY_IDLE_TIMEOUT))?;
         match reader.read(&mut buffer) {
-            Ok(0) => {
-                if let Some(payload) = first_tls_record.finish() {
-                    flush_outbound_payload(&mut writer, &state, group_index, &session, &mut remembered_host, &payload)?;
-                }
-                break;
-            }
+            Ok(0) => break,
             Ok(n) => {
-                if !forwarded_payload {
-                    if let Some(payload) = first_tls_record.push(&buffer[..n], Instant::now()) {
-                        flush_outbound_payload(
-                            &mut writer,
-                            &state,
-                            group_index,
-                            &session,
-                            &mut remembered_host,
-                            &payload,
-                        )?;
-                        forwarded_payload = true;
-                    }
-                } else {
-                    flush_outbound_payload(
-                        &mut writer,
-                        &state,
-                        group_index,
-                        &session,
-                        &mut remembered_host,
-                        &buffer[..n],
-                    )?;
-                }
+                flush_outbound_payload(&mut writer, &state, group_index, &session, &mut remembered_host, &buffer[..n])?;
             }
             Err(err) if matches!(err.kind(), io::ErrorKind::WouldBlock | io::ErrorKind::TimedOut) => {
-                if let Some(payload) = first_tls_record.flush_on_timeout(Instant::now()) {
-                    flush_outbound_payload(&mut writer, &state, group_index, &session, &mut remembered_host, &payload)?;
-                    forwarded_payload = true;
-                    continue;
-                }
                 if peer_done.load(Ordering::Acquire) {
                     break;
                 }

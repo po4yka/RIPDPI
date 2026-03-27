@@ -32,25 +32,6 @@ pub(super) fn needs_first_exchange(state: &RuntimeState) -> io::Result<bool> {
         || state.config.host_autolearn.enabled)
 }
 
-pub(super) fn read_optional_first_request(
-    client: &mut TcpStream,
-    fallback_timeout: Option<Duration>,
-) -> io::Result<Option<Vec<u8>>> {
-    client.set_read_timeout(Some(Duration::from_millis(250)))?;
-    let mut buffer = vec![0u8; 16_384];
-    let result = match client.read(&mut buffer) {
-        Ok(0) => Ok(None),
-        Ok(n) => {
-            buffer.truncate(n);
-            Ok(Some(buffer))
-        }
-        Err(err) if matches!(err.kind(), io::ErrorKind::WouldBlock | io::ErrorKind::TimedOut) => Ok(None),
-        Err(err) => Err(err),
-    };
-    client.set_read_timeout(fallback_timeout)?;
-    result
-}
-
 pub(super) fn read_first_response(
     state: &RuntimeState,
     target: SocketAddr,

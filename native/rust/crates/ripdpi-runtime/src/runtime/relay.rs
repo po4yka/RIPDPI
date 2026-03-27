@@ -37,10 +37,23 @@ pub(super) fn relay(
     route: ConnectionRoute,
     seed_request: Option<Vec<u8>>,
 ) -> io::Result<()> {
-    let PreparedRelay { upstream, route, session_state, success_recorded, success_host, success_payload } =
-        prepare_relay(&mut client, upstream, state, target, route, seed_request)?;
+    let PreparedRelay {
+        upstream,
+        route,
+        session_state,
+        success_recorded,
+        success_host,
+        success_payload,
+        client_closed,
+    } = prepare_relay(&mut client, upstream, state, target, route, seed_request)?;
 
-    let relay_result = relay_streams(client, upstream, state, route.group_index, session_state);
+    if client_closed {
+        let _ = upstream.shutdown(std::net::Shutdown::Both);
+        let _ = client.shutdown(std::net::Shutdown::Both);
+        return Ok(());
+    }
+
+    let relay_result = relay_streams(client, upstream, state, route.group_index, session_state, success_host.clone());
     match relay_result {
         Ok(final_state) => {
             if !success_recorded && final_state.recv_count > 0 {
@@ -78,10 +91,14 @@ mod tests {
 
     #[test]
     fn first_write_desync_capability_errors_classify_as_strategy_execution_failures() {
-        let failure = classify_first_write_failure(&super::super::desync::wrap_desync_action_error(
-            "set_ttl",
-            io::Error::from_raw_os_error(libc::EINVAL),
-        ));
+        let failure = classify_first_write_failure(&super::super::desync::OutboundSendError::StrategyExecution {
+            action: "set_ttl",
+            strategy_family: "disorder",
+            fallback: Some("split"),
+            bytes_committed: 0,
+            source_errno: Some(libc::EINVAL),
+            source: io::Error::from_raw_os_error(libc::EINVAL),
+        });
 
         assert_eq!(failure.class, FailureClass::StrategyExecutionFailure);
         assert_eq!(failure.stage, FailureStage::FirstWrite);
@@ -91,10 +108,14 @@ mod tests {
 
     #[test]
     fn first_write_desync_unsupported_actions_classify_as_strategy_execution_failures() {
-        let failure = classify_first_write_failure(&super::super::desync::wrap_desync_action_error(
-            "await_writable",
-            io::Error::new(io::ErrorKind::Unsupported, "only supported on Linux/Android"),
-        ));
+        let failure = classify_first_write_failure(&super::super::desync::OutboundSendError::StrategyExecution {
+            action: "await_writable_split",
+            strategy_family: "split",
+            fallback: None,
+            bytes_committed: 0,
+            source_errno: None,
+            source: io::Error::new(io::ErrorKind::Unsupported, "only supported on Linux/Android"),
+        });
 
         assert_eq!(failure.class, FailureClass::StrategyExecutionFailure);
         assert_eq!(failure.stage, FailureStage::FirstWrite);
@@ -104,15 +125,51 @@ mod tests {
 
     #[test]
     fn first_write_desync_failures_preserve_fallback_metadata() {
-        let failure = classify_first_write_failure(&super::super::desync::wrap_desync_action_error_with_fallback(
-            "write_disorder",
-            Some("split"),
-            io::Error::from_raw_os_error(libc::EROFS),
-        ));
+        let failure = classify_first_write_failure(&super::super::desync::OutboundSendError::StrategyExecution {
+            action: "write_disorder",
+            strategy_family: "disorder",
+            fallback: Some("split"),
+            bytes_committed: 0,
+            source_errno: Some(libc::EROFS),
+            source: io::Error::from_raw_os_error(libc::EROFS),
+        });
 
         assert_eq!(failure.class, FailureClass::StrategyExecutionFailure);
         assert!(failure.evidence.summary.contains("fallback=split"));
         assert!(failure.evidence.tags.iter().any(|tag| tag == "fallback=split"));
+    }
+
+    #[test]
+    fn zero_byte_split_first_write_failures_retry_matching_group() {
+        let failure = classify_first_write_failure(&super::super::desync::OutboundSendError::StrategyExecution {
+            action: "write_split",
+            strategy_family: "split",
+            fallback: None,
+            bytes_committed: 0,
+            source_errno: Some(libc::EROFS),
+            source: io::Error::from_raw_os_error(libc::EROFS),
+        });
+
+        assert_eq!(failure.class, FailureClass::StrategyExecutionFailure);
+        assert_eq!(failure.action, FailureAction::RetryWithMatchingGroup);
+        assert!(failure.evidence.tags.iter().any(|tag| tag == "strategyFamily=split"));
+        assert!(failure.evidence.tags.iter().any(|tag| tag == "bytesCommitted=0"));
+    }
+
+    #[test]
+    fn partial_first_write_failures_do_not_retry_matching_group() {
+        let failure = classify_first_write_failure(&super::super::desync::OutboundSendError::StrategyExecution {
+            action: "write_split",
+            strategy_family: "split",
+            fallback: None,
+            bytes_committed: 3,
+            source_errno: Some(libc::EROFS),
+            source: io::Error::from_raw_os_error(libc::EROFS),
+        });
+
+        assert_eq!(failure.class, FailureClass::StrategyExecutionFailure);
+        assert_eq!(failure.action, FailureAction::SurfaceOnly);
+        assert!(failure.evidence.tags.iter().any(|tag| tag == "bytesCommitted=3"));
     }
 
     #[test]
