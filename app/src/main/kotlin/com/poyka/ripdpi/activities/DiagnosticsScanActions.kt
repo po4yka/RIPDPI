@@ -222,6 +222,14 @@ internal class DiagnosticsScanActions(
                 ?.id ?: return
         mutations.launch {
             diagnosticsResolverActions.saveResolverRecommendation(targetSessionId)
+            emit(
+                DiagnosticsEffect.ScanCompleted(
+                    summary = appContext.getString(R.string.diagnostics_snackbar_dns_setting_saved),
+                    tone = DiagnosticsTone.Positive,
+                    actionLabel = appContext.getString(R.string.title_dns_settings),
+                    action = DiagnosticsEffect.SnackbarAction.OpenDnsSettings,
+                ),
+            )
         }
     }
 
