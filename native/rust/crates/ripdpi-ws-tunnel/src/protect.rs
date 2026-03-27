@@ -23,8 +23,7 @@ pub fn protect_socket<T: std::os::fd::AsRawFd>(socket: &T, path: &str) -> io::Re
     let fd = socket.as_raw_fd();
     let fds = [fd];
     let cmsg = [ControlMessage::ScmRights(&fds)];
-    sendmsg::<()>(stream.as_raw_fd(), &iov, &cmsg, MsgFlags::empty(), None)
-        .map_err(|e| io::Error::from_raw_os_error(e as i32))?;
+    sendmsg::<()>(stream.as_raw_fd(), &iov, &cmsg, MsgFlags::empty(), None).map_err(io::Error::from)?;
 
     let mut ack = [0u8; 1];
     (&stream).read_exact(&mut ack)?;

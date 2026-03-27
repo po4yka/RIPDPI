@@ -148,8 +148,7 @@ pub fn protect_socket<T: AsRawFd>(socket: &T, path: &str) -> io::Result<()> {
     let fd = socket.as_raw_fd();
     let fds = [fd];
     let cmsg = [ControlMessage::ScmRights(&fds)];
-    sendmsg::<()>(stream.as_raw_fd(), &iov, &cmsg, MsgFlags::empty(), None)
-        .map_err(|e| io::Error::from_raw_os_error(e as i32))?;
+    sendmsg::<()>(stream.as_raw_fd(), &iov, &cmsg, MsgFlags::empty(), None).map_err(io::Error::from)?;
 
     let mut ack = [0u8; 1];
     (&stream).read_exact(&mut ack)?;
@@ -282,7 +281,7 @@ pub fn bind_udp_low_port(socket: &UdpSocket, local_ip: IpAddr, max_port: u16) ->
         let addr = SocketAddr::new(local_ip, port);
         let fd = socket.as_raw_fd();
         let sa = socket2::SockAddr::from(addr);
-        let ret = unsafe { libc::bind(fd, sa.as_ptr(), sa.len()) };
+        let ret = unsafe { libc::bind(fd, sa.as_ptr().cast(), sa.len()) };
         if ret == 0 {
             return Ok(port);
         }
@@ -291,7 +290,7 @@ pub fn bind_udp_low_port(socket: &UdpSocket, local_ip: IpAddr, max_port: u16) ->
     let addr = SocketAddr::new(local_ip, 0);
     let fd = socket.as_raw_fd();
     let sa = socket2::SockAddr::from(addr);
-    let ret = unsafe { libc::bind(fd, sa.as_ptr(), sa.len()) };
+    let ret = unsafe { libc::bind(fd, sa.as_ptr().cast(), sa.len()) };
     if ret != 0 {
         return Err(io::Error::last_os_error());
     }
@@ -380,7 +379,7 @@ pub fn send_fake_tcp(
     let result = (|| {
         write_region(region, fake_prefix, region_len);
 
-        let (pipe_r, pipe_w) = nix::unistd::pipe().map_err(|e| io::Error::from_raw_os_error(e as i32))?;
+        let (pipe_r, pipe_w) = nix::unistd::pipe().map_err(io::Error::from)?;
         // pipe_r and pipe_w are OwnedFd -- closed automatically on drop.
 
         set_stream_ttl(stream, ttl)?;
@@ -411,7 +410,7 @@ pub fn send_fake_tcp(
                 original_prefix.len() - moved,
                 nix::fcntl::SpliceFFlags::empty(),
             )
-            .map_err(|e| io::Error::from_raw_os_error(e as i32))?;
+            .map_err(io::Error::from)?;
             if chunk == 0 {
                 return Err(io::Error::new(io::ErrorKind::WriteZero, "partial splice during fake tcp send"));
             }
@@ -478,7 +477,7 @@ fn storage_to_socket_addr(storage: &libc::sockaddr_storage) -> io::Result<Socket
 /// succeeds first.
 fn get_stream_ttl(stream: &TcpStream) -> io::Result<u8> {
     let socket = SockRef::from(stream);
-    if let Ok(ttl) = socket.ttl() {
+    if let Ok(ttl) = socket.ttl_v4() {
         return u8::try_from(ttl).map_err(|_| io::Error::new(io::ErrorKind::InvalidData, "socket ttl exceeds u8"));
     }
     let hops = socket.unicast_hops_v6()?;
@@ -487,7 +486,7 @@ fn get_stream_ttl(stream: &TcpStream) -> io::Result<u8> {
 
 fn set_stream_ttl(stream: &TcpStream, ttl: u8) -> io::Result<()> {
     let socket = SockRef::from(stream);
-    let ipv4 = socket.set_ttl(ttl as u32);
+    let ipv4 = socket.set_ttl_v4(ttl as u32);
     let ipv6 = socket.set_unicast_hops_v6(ttl as u32);
     match (ipv4, ipv6) {
         (Ok(()), _) | (_, Ok(())) => Ok(()),
@@ -578,7 +577,7 @@ fn alloc_region(len: usize) -> io::Result<*mut u8> {
     // SAFETY: anonymous private mapping; no backing fd; no aliasing with existing mappings.
     let ptr =
         unsafe { mmap_anonymous(None, size, ProtFlags::PROT_READ | ProtFlags::PROT_WRITE, MapFlags::MAP_PRIVATE) }
-            .map_err(|e| io::Error::from_raw_os_error(e as i32))?;
+            .map_err(io::Error::from)?;
     Ok(ptr.as_ptr().cast())
 }
 
