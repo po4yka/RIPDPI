@@ -18,7 +18,9 @@ use crate::transport::{TargetAddress, TransportConfig};
 use crate::util::{probe_session_seed, DEFAULT_DNS_SERVER};
 
 use ripdpi_failure_classifier::{FailureAction, FailureClass};
-use ripdpi_proxy_config::{ProxyConfigPayload, ProxyEncryptedDnsContext, ProxyRuntimeContext, ProxyUiConfig};
+use ripdpi_proxy_config::{
+    parse_proxy_config_json, ProxyConfigPayload, ProxyEncryptedDnsContext, ProxyRuntimeContext, ProxyUiConfig,
+};
 
 use std::net::{IpAddr, Ipv4Addr};
 use std::sync::{Mutex, MutexGuard};
@@ -95,6 +97,80 @@ fn strategy_probe_request_with_suite(
         }),
         network_snapshot: None,
     }
+}
+
+fn decode_ui_config(config_json: &str) -> ProxyUiConfig {
+    match parse_proxy_config_json(config_json).expect("parse ui config") {
+        ProxyConfigPayload::Ui { config, .. } => config,
+        ProxyConfigPayload::CommandLine { .. } => panic!("expected UI proxy config"),
+    }
+}
+
+fn assert_strategy_probe_recommendation_matches_winners(strategy_probe: &crate::types::StrategyProbeReport) {
+    let winning_tcp = strategy_probe
+        .tcp_candidates
+        .iter()
+        .find(|candidate| candidate.id == strategy_probe.recommendation.tcp_candidate_id)
+        .expect("winning TCP candidate must exist");
+    let winning_quic = strategy_probe
+        .quic_candidates
+        .iter()
+        .find(|candidate| candidate.id == strategy_probe.recommendation.quic_candidate_id)
+        .expect("winning QUIC candidate must exist");
+
+    assert!(!winning_tcp.skipped, "recommended TCP candidate must be a non-skipped candidate in the list");
+    assert!(!winning_quic.skipped, "recommended QUIC candidate must be a non-skipped candidate in the list");
+
+    let recommended_config = decode_ui_config(&strategy_probe.recommendation.recommended_proxy_config_json);
+    let winning_tcp_config =
+        decode_ui_config(winning_tcp.proxy_config_json.as_deref().expect("winning TCP candidate config"));
+    let winning_quic_config =
+        decode_ui_config(winning_quic.proxy_config_json.as_deref().expect("winning QUIC candidate config"));
+
+    assert_eq!(
+        recommended_config.chains.tcp_steps, winning_tcp_config.chains.tcp_steps,
+        "recommended config must carry the winning TCP steps"
+    );
+    assert_eq!(
+        recommended_config.chains.group_activation_filter, winning_tcp_config.chains.group_activation_filter,
+        "recommended config must carry the winning TCP activation filter"
+    );
+    assert_eq!(
+        recommended_config.fake_packets, winning_tcp_config.fake_packets,
+        "recommended config must carry the winning TCP fake-packet settings"
+    );
+    assert_eq!(
+        recommended_config.parser_evasions, winning_tcp_config.parser_evasions,
+        "recommended config must carry the winning TCP parser evasions"
+    );
+    assert_eq!(
+        recommended_config.protocols.desync_http, winning_tcp_config.protocols.desync_http,
+        "recommended config must carry the winning TCP HTTP toggle"
+    );
+    assert_eq!(
+        recommended_config.protocols.desync_https, winning_tcp_config.protocols.desync_https,
+        "recommended config must carry the winning TCP HTTPS toggle"
+    );
+    assert_eq!(
+        recommended_config.protocols.desync_udp, winning_quic_config.protocols.desync_udp,
+        "recommended config must carry the winning QUIC UDP toggle"
+    );
+    assert_eq!(
+        recommended_config.chains.udp_steps, winning_quic_config.chains.udp_steps,
+        "recommended config must carry the winning QUIC UDP steps"
+    );
+    assert_eq!(
+        recommended_config.quic, winning_quic_config.quic,
+        "recommended config must carry the winning QUIC settings"
+    );
+    assert_eq!(
+        winning_quic_config.chains.tcp_steps, winning_tcp_config.chains.tcp_steps,
+        "winning QUIC candidate config must already include the winning TCP steps"
+    );
+    assert_eq!(
+        winning_quic_config.chains.group_activation_filter, winning_tcp_config.chains.group_activation_filter,
+        "winning QUIC candidate config must already include the winning TCP activation filter"
+    );
 }
 
 // TODO(po4yka): Tests for execution module functions (freeze_adaptive_fake_ttl_for_probe,
@@ -627,14 +703,7 @@ fn monitor_session_strategy_probe_returns_structured_recommendation() {
 
     assert_eq!(report.profile_id, "automatic-probing");
     assert_eq!(strategy_probe.tcp_candidates.first().map(|candidate| candidate.id.as_str()), Some("baseline_current"));
-    assert!(
-        strategy_probe
-            .tcp_candidates
-            .iter()
-            .any(|candidate| candidate.id == strategy_probe.recommendation.tcp_candidate_id && !candidate.skipped),
-        "recommended TCP candidate must be a non-skipped candidate in the list"
-    );
-    assert!(!strategy_probe.recommendation.recommended_proxy_config_json.is_empty());
+    assert_strategy_probe_recommendation_matches_winners(&strategy_probe);
     assert!(strategy_probe.audit_assessment.is_none());
 }
 
@@ -650,10 +719,11 @@ fn monitor_session_full_matrix_strategy_probe_reports_audit_assessment() {
     session.start_scan("session-audit".to_string(), request.into()).expect("start automatic audit");
     let report = wait_for_report(&session);
     let strategy_probe = report.strategy_probe_report.expect("strategy probe report");
-    let audit_assessment = strategy_probe.audit_assessment.expect("audit assessment");
+    let audit_assessment = strategy_probe.audit_assessment.as_ref().expect("audit assessment");
 
     assert_eq!(report.profile_id, "automatic-audit");
     assert_eq!(strategy_probe.suite_id, "full_matrix_v1");
+    assert_strategy_probe_recommendation_matches_winners(&strategy_probe);
     assert!(report.summary.contains("confidence "));
     assert!(report.summary.contains("matrix coverage "));
     assert!(audit_assessment.coverage.tcp_candidates_planned >= strategy_probe.tcp_candidates.len());
@@ -716,8 +786,14 @@ fn monitor_session_strategy_probe_progress_reports_live_candidate_metadata() {
         thread::sleep(Duration::from_millis(20));
     }
 
+    let report = wait_for_report(&session);
+    let strategy_probe = report.strategy_probe_report.expect("strategy probe report");
+    let executed_quic_candidates = strategy_probe.quic_candidates.iter().filter(|candidate| !candidate.skipped).count();
+
     assert!(saw_tcp_live_progress, "expected TCP live candidate progress");
-    assert!(saw_quic_live_progress, "expected QUIC live candidate progress");
+    if executed_quic_candidates > 0 {
+        assert!(saw_quic_live_progress, "expected QUIC live candidate progress");
+    }
     assert!(
         saw_recommendation_without_live_progress || saw_finished_without_live_progress,
         "expected recommendation or finished progress without live candidate metadata",
