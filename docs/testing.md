@@ -336,14 +336,21 @@ Profiles:
 
 PR CI runs:
 
-- `build`
-- `static-analysis`
-- `rust-network-e2e`
-- `android-network-e2e`
+- `build` -- Kotlin unit tests via `./gradlew testDebugUnitTest`
+- `static-analysis` -- detekt + ktlint + Android lint + Rust fmt/clippy
+- `rust-network-e2e` -- host-side proxy E2E against local fixture
+- `android-network-e2e` -- instrumentation E2E on emulator
+- `coverage` -- JaCoCo + Rust LLVM coverage
+- `rust-turmoil` -- deterministic fault-injection network tests
+- `rust-loom` -- exhaustive concurrency verification (20 min timeout)
+- `cli-packet-smoke` -- CLI proxy behavioral verification with pcap capture
 
 Nightly/manual lanes add:
 
-- `rust-native-soak`
-- `linux-tun-e2e`
+- `rust-native-soak` -- endurance tests (restart, sustained traffic, fault recovery)
+- `rust-native-load` -- high-concurrency ramp-up, burst, and saturation tests
+- `linux-tun-e2e` -- privileged TUN data-plane tests
+- `linux-tun-soak` -- privileged TUN endurance tests
+- `nightly-rust-coverage` -- coverage including ignored tests
 
-The CI jobs upload test reports, golden diffs, logcat, fixture logs, and soak artifacts when available.
+The CI jobs upload test reports, golden diffs, logcat, fixture logs, soak/load artifacts, and coverage reports when available.
