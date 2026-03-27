@@ -114,7 +114,15 @@ header-includes:
 \item Перейдите на вкладку \textbf{Share} > \textbf{Share archive} и отправьте архив мне.
 \end{enumerate}
 
-Для более полной проверки я могу попросить запустить \textbf{Automatic audit} (группа \textbf{Automatic Audit}) -- это займет 5--10 минут, но проверит все возможные комбинации.
+\begin{infobox}[Во время Automatic Probing]
+Во время такого прогона строка состояния может показывать текущую дорожку \textbf{TCP} или \textbf{QUIC} и номер кандидата, например \texttt{TCP 3/14}. Это нормально: приложение по очереди проверяет разные варианты.
+\end{infobox}
+
+Для более полной проверки я могу попросить запустить \textbf{Automatic audit} (группа \textbf{Automatic Audit}) -- это займет 5--10 минут. Каждый запуск проверяет одну curated cohort целей, а в отчете сначала показывает \textbf{Winning path} с лучшими TCP и QUIC вариантами, confidence/coverage-оценку и кнопку раскрытия полной matrix при необходимости.
+
+\begin{warnbox}[Если Automatic Probing или Automatic Audit недоступен]
+Если вместо запуска видите сообщение про настройку \textbf{Use command line settings}, нажмите \textbf{Open Advanced Settings}, отключите эту опцию и вернитесь на вкладку \textbf{Scan}. Автоматические прогоны работают только с visual RIPDPI settings, потому что приложение запускает временные isolated strategy trials.
+\end{warnbox}
 
 # Если приложение упало
 
@@ -134,4 +142,5 @@ header-includes:
 | Приложение просит VPN-разрешение | Подтвердите разрешение |
 | Все результаты красные | Это нормально -- именно это мы и хотим увидеть. Отправьте отчет |
 | Нет интернета | Проверьте подключение, попробуйте переключиться между Wi-Fi и мобильными данными |
+| Automatic Probing / Audit недоступен | Нажмите Open Advanced Settings, отключите Use command line settings и вернитесь на вкладку Scan |
 | Не вижу нужный профиль | Прокрутите список профилей вниз -- они сгруппированы по категориям |

@@ -9,7 +9,7 @@ This directory documents the in-repository Rust native modules used by RIPDPI an
 | `native/rust/crates/ripdpi-cli` | `ripdpi` binary | Desktop development (macOS/Linux) | N/A -- standalone CLI | `ripdpi_config::parse_cli`, `runtime::run_proxy`, `ProcessGuard::prepare`, `install_runtime_telemetry` |
 | `native/rust/crates/ripdpi-android` | `libripdpi.so` | Proxy mode, VPN mode, diagnostics | `core/engine/src/main/kotlin/com/poyka/ripdpi/core/RipDpiProxy.kt`, `core/engine/src/main/kotlin/com/poyka/ripdpi/core/NetworkDiagnostics.kt` | `ripdpi_config::parse_cli`, `ripdpi_config::parse_hosts_spec`, `runtime::create_listener`, `runtime::run_proxy_with_embedded_control`, `EmbeddedProxyControl::request_shutdown`, `platform::detect_default_ttl`, `MonitorSession::*`, proxy telemetry polling |
 | `native/rust/crates/ripdpi-tunnel-android` | `libripdpi-tunnel.so` | VPN mode only | `core/engine/src/main/kotlin/com/poyka/ripdpi/core/Tun2SocksTunnel.kt` | `ripdpi_tunnel_core::run_tunnel`, `CancellationToken::cancel`, `Stats::snapshot`, tunnel telemetry polling |
-| `native/rust/crates/ripdpi-monitor` | linked into `libripdpi.so` | Diagnostics scans | `core/engine/src/main/kotlin/com/poyka/ripdpi/core/NetworkDiagnostics.kt` | DNS integrity probes across UDP and encrypted resolvers, TLS/HTTP reachability probes, TCP fat-header probes, whitelist-SNI retries, diagnostics session state |
+| `native/rust/crates/ripdpi-monitor` | linked into `libripdpi.so` | Diagnostics scans | `core/engine/src/main/kotlin/com/poyka/ripdpi/core/NetworkDiagnostics.kt` | DNS integrity probes across UDP and encrypted resolvers, TLS/HTTP reachability probes, TCP fat-header probes, whitelist-SNI retries, strategy-probe progress/report state |
 | `native/rust/crates/ripdpi-dns-resolver` | linked into existing native libraries | Diagnostics scans, VPN-mode encrypted DNS | none directly | `EncryptedDnsResolver::*` through `ripdpi-monitor` and `ripdpi-tunnel-core` for DoH/DoT/DNSCrypt/DoQ exchange, metadata collection, and IP answer extraction |
 
 ## Shared Strategy Bridge
@@ -21,6 +21,7 @@ That crate is not built as a standalone `.so`, but it is a first-class part of t
 - UI-configured strategy JSON
 - diagnostics recommendation drafts
 - automatic-probing candidate overlays
+- automatic-audit target cohort selections and report provenance
 - CLI-compatible runtime config
 
 aligned around the same `RuntimeConfig` shape.
@@ -72,6 +73,12 @@ The service layer polls those native snapshots once per second while the service
 
 No packet payloads or packet captures are persisted.
 
+For strategy-probe runs, the native diagnostics path also exposes richer structured state:
+
+- `ScanProgress.strategyProbeProgress` carries the active TCP/QUIC lane, candidate index/total, candidate id, and candidate label while a candidate is running
+- `StrategyProbeReport.auditAssessment` carries confidence, matrix coverage, winner coverage, rationale, and warnings for `full_matrix_v1`
+- `StrategyProbeReport.targetSelection` records which rotating audit cohort was selected, plus the concrete domain and QUIC hosts that were probed
+
 ## Connection Policy and Network Memory
 
 Service startup and live restarts now resolve connection policy through one Kotlin path in `ConnectionPolicyResolver`.
@@ -91,7 +98,7 @@ The in-repo Rust stack currently exposes:
 - ordered TCP and UDP strategy chains with per-step activation filters
 - richer fake TLS mutation controls and built-in fake payload profile libraries for HTTP, TLS, UDP, and QUIC Initial traffic
 - host-oriented fake steps such as `hostfake` plus partial `fakedsplit` / `fakeddisorder` approximations on Linux/Android
-- host autolearn segmented per network scope, remembered policy replay, and automatic diagnostics probing with manual recommendations
+- host autolearn segmented per network scope, remembered policy replay, and automatic diagnostics probing/audit with rotating cohorts, confidence scoring, and manual recommendations
 - separate TCP, QUIC, and DNS strategy-family labels used by diagnostics, telemetry, and remembered-policy ranking
 - adaptive tuning beyond fake TTL, including split placement, TLS record sizing, UDP burst behavior, and QUIC fake-profile selection
 - Geneva-style strategy evolution with epsilon-greedy + UCB1 combo exploration across adaptive dimensions
@@ -127,7 +134,7 @@ Testing commands and CI mapping are documented in [../testing.md](../testing.md)
 
 ## Golden Contracts
 
-Structured telemetry and diagnostics-event payloads are treated as compatibility contracts.
+Structured telemetry, diagnostics-event payloads, and strategy-probe progress/report payloads are treated as compatibility contracts.
 
 - Rust goldens live under each crate `tests/golden/` directory.
 - JVM goldens live under each module `src/test/resources/golden/` directory.

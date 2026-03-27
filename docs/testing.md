@@ -28,13 +28,14 @@ These run through Gradle on the host JVM and cover the Android-facing logic with
   - merged service telemetry golden contracts
 - `core:diagnostics`
   - diagnostics manager orchestration
-  - automatic probing profile wiring, hidden handover-triggered `quick_v1` probes, and recommendation persistence
+  - automatic probing profile wiring, hidden handover-triggered `quick_v1` probes, `full_matrix_v1` audit cohort rotation/provenance, recommendation persistence, and recommendation invariant validation
   - resolver recommendation ranking, diversified encrypted-DNS path planning, and temporary encrypted-DNS override flow
+  - candidate-aware strategy-probe progress, audit confidence/coverage assessment, and summary/export metadata projection
   - runtime-history persistence of resolver telemetry and remembered-network proof/suppression state
   - export/archive contents
   - persisted passive-monitor and native-event golden contracts
 - `app`
-  - settings and diagnostics ViewModel coverage for chain DSL, fake payload/fake TLS controls, adaptive split placement, activation windows, adaptive fake TTL, remembered-network presentation, and automatic probing presentation
+  - settings and diagnostics ViewModel coverage for chain DSL, fake payload/fake TLS controls, adaptive split placement, activation windows, adaptive fake TTL, remembered-network presentation, automatic probing/audit presentation, exact remediation states, and winners-first audit reports
 
 Main command:
 
@@ -60,7 +61,7 @@ The Rust workspace contains several test styles:
 - property-based and fuzz-style parsing coverage with `proptest`
 - config and planner coverage for semantic markers, adaptive `auto(...)` markers, activation filters, fake payload profile selection, QUIC fake Initial profiles, and HTTP parser evasions
 - runtime policy coverage for host autolearn scoping, route advancement, adaptive fake TTL learning, retry-stealth pacing, and candidate diversification
-- diagnostics monitor coverage for automatic probing candidate catalogs, probe pacing, target-order shuffling, and recommendation assembly
+- diagnostics monitor coverage for automatic probing/audit candidate catalogs, candidate-aware progress, probe pacing, target-order shuffling, rotating target cohorts, recommendation assembly, and audit-assessment propagation
 - state-machine coverage for proxy and tunnel session registries
 - deterministic fault-injection tests
 - telemetry/logging golden tests
@@ -234,7 +235,7 @@ The smoke flows avoid `pm clear` and instead rely on launch extras such as:
 
 ## Golden contracts
 
-Structured telemetry, diagnostics events, and selected exported files are treated as compatibility contracts.
+Structured telemetry, diagnostics events, strategy-probe progress/report payloads, and selected exported files are treated as compatibility contracts.
 
 - Rust fixtures live under crate-local `tests/golden/`
 - JVM fixtures live under module-local `src/test/resources/golden/`

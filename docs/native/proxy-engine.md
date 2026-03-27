@@ -66,7 +66,7 @@ Relevant sources:
 | `runtime::run_proxy_with_embedded_control` | `native/rust/crates/ripdpi-runtime/src/runtime.rs` | `jniStart(handle)` | Always after session start | Runs the Rust proxy loop on the listener owned by the native session, with session-local shutdown state, telemetry sink, and runtime context. |
 | `EmbeddedProxyControl::request_shutdown` | `native/rust/crates/ripdpi-runtime/src/lib.rs` | `jniStop(handle)` | Stop path | Signals the active embedded proxy session to exit without relying on standalone daemon/process control. |
 | `platform::detect_default_ttl` | `native/rust/crates/ripdpi-runtime/src/platform/mod.rs` | `runtime::run_proxy_with_embedded_control` | When custom TTL is not supplied | Detects the system default TTL before the proxy loop starts. |
-| `MonitorSession::start_scan` | `native/rust/crates/ripdpi-monitor/src/lib.rs` | `NetworkDiagnostics.jniStartScan()` | Diagnostics screen | Starts an active diagnostics session with structured progress and reports. |
+| `MonitorSession::start_scan` | `native/rust/crates/ripdpi-monitor/src/lib.rs` | `NetworkDiagnostics.jniStartScan()` | Diagnostics screen | Starts an active diagnostics session with structured phase progress, live strategy-candidate progress, and reports. |
 | `MonitorSession::poll_progress_json` / `take_report_json` / `poll_passive_events_json` | `native/rust/crates/ripdpi-monitor/src/lib.rs` | `NetworkDiagnostics` JNI methods | Diagnostics screen | Returns scan progress, scan report, and scan-time native events. |
 
 ## UI Mode Compatibility
@@ -137,7 +137,7 @@ The shared runtime layer now also adds:
 - Geneva-style strategy evolution (`StrategyEvolver`) with epsilon-greedy + UCB1 selection across combo dimensions
 - host autolearn and per-host preferred group promotion scoped by `networkScopeKey`
 - validated remembered-network policy replay with hashed network fingerprints and optional VPN DNS override
-- automatic diagnostics probing with a fixed raw-path candidate suite, hidden handover-triggered `quick_v1` probes, and manual recommendation output
+- automatic diagnostics probing plus `full_matrix_v1` audit runs with rotating curated target cohorts, hidden handover-triggered `quick_v1` probes, and manual recommendation output
 - separate TCP, QUIC, and DNS strategy-family labels for scoring and diagnostics
 - activation windows keyed by outbound round, payload size, and stream-byte ranges
 - retry-stealth pacing and seeded candidate diversification in both live runtime retries and diagnostics probes
@@ -158,12 +158,16 @@ The packet-level pieces live in the native runtime and diagnostics monitor, whil
 The diagnostics path linked into `libripdpi.so` currently implements:
 
 - `RAW_PATH` and `IN_PATH` scan transports
+- Strategy-probe suites for fast `quick_v1` recommendations and `full_matrix_v1` automatic audit runs
+- Candidate-aware progress for strategy-probe runs, including active TCP/QUIC lane plus candidate index/total and label
 - UDP DNS integrity checks against encrypted resolvers (DoH/DoT/DNSCrypt/DoQ)
 - HTTPS reachability checks with TLS 1.3 and TLS 1.2 split probing
 - HTTP block-page classification
 - TCP 16-20 KB cutoff detection with repeated fat-header `HEAD` requests
 - Whitelist SNI retry search
 - Built-in encrypted resolver sweep and ranking for connectivity scans with diversified DoH/DoT/DNSCrypt path candidates and bootstrap validation
+- Rotating curated target cohorts for `automatic-audit`, with selected cohort provenance persisted into the request/report path
+- Full-matrix audit assessment with confidence, matrix coverage, winner coverage, and stable warnings
 
 Results are returned as typed outcomes and probe details rather than log-line parsing.
 
