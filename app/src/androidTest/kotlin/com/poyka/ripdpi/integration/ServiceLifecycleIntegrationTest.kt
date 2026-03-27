@@ -160,7 +160,7 @@ class ServiceLifecycleIntegrationTest {
         runBlocking {
             IntegrationTestOverrides.overrideProxyPreferencesResolver(
                 com.poyka.ripdpi.testing.FixedProxyPreferencesResolver(
-                    RipDpiProxyCmdPreferences("--ip 127.0.0.1 --port 1092 --split 1+s"),
+                    RipDpiProxyCmdPreferences("--ip 127.0.0.1 --port 1092 --split host+1"),
                 ),
             )
 
@@ -660,5 +660,4 @@ class ServiceLifecycleIntegrationTest {
         }
         assertEquals("Expected ordered subsequence $expected in $actual", expected.size, currentIndex)
     }
-
 }

@@ -18,16 +18,21 @@ import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.data.diagnostics.DiagnosticProfileEntity
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsProfileCatalog
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsScanRecordStore
+import com.poyka.ripdpi.diagnostics.DiagnosticProfileFamily
 import com.poyka.ripdpi.diagnostics.DiagnosticsBootstrapper
 import com.poyka.ripdpi.diagnostics.DiagnosticsDetailLoader
+import com.poyka.ripdpi.diagnostics.DiagnosticsManualScanStartResult
 import com.poyka.ripdpi.diagnostics.DiagnosticsResolverActions
 import com.poyka.ripdpi.diagnostics.DiagnosticsScanController
 import com.poyka.ripdpi.diagnostics.DnsTarget
 import com.poyka.ripdpi.diagnostics.DomainTarget
+import com.poyka.ripdpi.diagnostics.ScanKind
 import com.poyka.ripdpi.diagnostics.ScanPathMode
-import com.poyka.ripdpi.diagnostics.ScanReport
-import com.poyka.ripdpi.diagnostics.ScanRequest
 import com.poyka.ripdpi.diagnostics.TcpTarget
+import com.poyka.ripdpi.diagnostics.contract.engine.EngineScanReportWire
+import com.poyka.ripdpi.diagnostics.contract.profile.ProbePersistencePolicyWire
+import com.poyka.ripdpi.diagnostics.contract.profile.ProfileExecutionPolicyWire
+import com.poyka.ripdpi.diagnostics.contract.profile.ProfileSpecWire
 import com.poyka.ripdpi.services.RipDpiProxyService
 import com.poyka.ripdpi.services.RipDpiVpnService
 import dagger.hilt.android.testing.HiltAndroidRule
@@ -117,7 +122,7 @@ class DiagnosticsNetworkE2ETest {
 
     @Test
     fun rawPathScanPersistsLocalOnlyResults() {
-        val sessionId = runBlocking { diagnosticsScanController.startScan(ScanPathMode.RAW_PATH) }
+        val sessionId = runBlocking { startScanSessionId(ScanPathMode.RAW_PATH) }
         val detail = awaitCompletedSession(sessionId)
 
         assertEquals("completed", detail.session.status)
@@ -151,7 +156,7 @@ class DiagnosticsNetworkE2ETest {
         startService(RipDpiProxyService::class.java)
         awaitServiceStatus(AppStatus.Running, Mode.Proxy)
 
-        val sessionId = runBlocking { diagnosticsScanController.startScan(ScanPathMode.RAW_PATH) }
+        val sessionId = runBlocking { startScanSessionId(ScanPathMode.RAW_PATH) }
         awaitCompletedSession(sessionId)
         awaitServiceStatus(AppStatus.Running, Mode.Proxy)
     }
@@ -169,7 +174,7 @@ class DiagnosticsNetworkE2ETest {
         startService(RipDpiProxyService::class.java)
         awaitServiceStatus(AppStatus.Running, Mode.Proxy)
 
-        val sessionId = runBlocking { diagnosticsScanController.startScan(ScanPathMode.IN_PATH) }
+        val sessionId = runBlocking { startScanSessionId(ScanPathMode.IN_PATH) }
         val detail = awaitCompletedSession(sessionId)
 
         assertTrue(
@@ -196,7 +201,7 @@ class DiagnosticsNetworkE2ETest {
         startService(RipDpiVpnService::class.java)
         awaitServiceStatus(AppStatus.Running, Mode.VPN)
 
-        val sessionId = runBlocking { diagnosticsScanController.startScan(ScanPathMode.IN_PATH) }
+        val sessionId = runBlocking { startScanSessionId(ScanPathMode.IN_PATH) }
         val detail = awaitCompletedSession(sessionId)
 
         assertTrue(
@@ -217,7 +222,7 @@ class DiagnosticsNetworkE2ETest {
             ),
         )
 
-        val sessionId = runBlocking { diagnosticsScanController.startScan(ScanPathMode.RAW_PATH) }
+        val sessionId = runBlocking { startScanSessionId(ScanPathMode.RAW_PATH) }
         val detail = awaitCompletedSession(sessionId)
 
         assertTrue(
@@ -247,7 +252,7 @@ class DiagnosticsNetworkE2ETest {
             ),
         )
 
-        val sessionId = runBlocking { diagnosticsScanController.startScan(ScanPathMode.IN_PATH) }
+        val sessionId = runBlocking { startScanSessionId(ScanPathMode.IN_PATH) }
         val detail = awaitCompletedSession(sessionId)
 
         assertTrue(
@@ -282,11 +287,11 @@ class DiagnosticsNetworkE2ETest {
         startService(RipDpiVpnService::class.java)
         awaitServiceStatus(AppStatus.Running, Mode.VPN)
 
-        val sessionId = runBlocking { diagnosticsScanController.startScan(ScanPathMode.IN_PATH) }
+        val sessionId = runBlocking { startScanSessionId(ScanPathMode.IN_PATH) }
         val detail = awaitCompletedSession(sessionId)
         val persisted =
             json.decodeFromString(
-                ScanReport.serializer(),
+                EngineScanReportWire.serializer(),
                 runBlocking { scanRecordStore.getScanSession(sessionId)?.reportJson }.orEmpty(),
             )
 
@@ -320,7 +325,7 @@ class DiagnosticsNetworkE2ETest {
             ),
         )
 
-        val sessionId = runBlocking { diagnosticsScanController.startScan(ScanPathMode.RAW_PATH) }
+        val sessionId = runBlocking { startScanSessionId(ScanPathMode.RAW_PATH) }
         awaitCompletedSession(sessionId)
         runBlocking {
             diagnosticsResolverActions.saveResolverRecommendation(sessionId)
@@ -350,10 +355,16 @@ class DiagnosticsNetworkE2ETest {
     private suspend fun seedLocalProfile() {
         val listenPort = reserveLoopbackPort()
         val request =
-            ScanRequest(
+            ProfileSpecWire(
                 profileId = "local-e2e",
                 displayName = "Local E2E",
-                pathMode = ScanPathMode.RAW_PATH,
+                kind = ScanKind.CONNECTIVITY,
+                family = DiagnosticProfileFamily.GENERAL,
+                executionPolicy =
+                    ProfileExecutionPolicyWire(
+                        requiresRawPath = false,
+                        probePersistencePolicy = ProbePersistencePolicyWire.MANUAL_ONLY,
+                    ),
                 domainTargets =
                     listOf(
                         DomainTarget(
@@ -369,8 +380,8 @@ class DiagnosticsNetworkE2ETest {
                         DnsTarget(
                             domain = fixture.fixtureDomain,
                             udpServer = "${fixture.androidHost}:${fixture.dnsUdpPort}",
-                            dohUrl = "http://${fixture.androidHost}:${fixture.dnsHttpPort}/dns-query",
-                            dohBootstrapIps = listOf(fixture.androidHost),
+                            encryptedDohUrl = "http://${fixture.androidHost}:${fixture.dnsHttpPort}/dns-query",
+                            encryptedBootstrapIps = listOf(fixture.androidHost),
                             expectedIps = listOf(fixture.dnsAnswerIpv4),
                         ),
                     ),
@@ -394,7 +405,7 @@ class DiagnosticsNetworkE2ETest {
                 name = "Local-only E2E profile",
                 source = "androidTest",
                 version = 1,
-                requestJson = json.encodeToString(ScanRequest.serializer(), request),
+                requestJson = json.encodeToString(ProfileSpecWire.serializer(), request),
                 updatedAt = System.currentTimeMillis(),
             ),
         )
@@ -408,10 +419,16 @@ class DiagnosticsNetworkE2ETest {
 
     private suspend fun seedResolverRecommendationProfile() {
         val request =
-            ScanRequest(
+            ProfileSpecWire(
                 profileId = "resolver-recommendation",
                 displayName = "Resolver Recommendation",
-                pathMode = ScanPathMode.IN_PATH,
+                kind = ScanKind.CONNECTIVITY,
+                family = DiagnosticProfileFamily.GENERAL,
+                executionPolicy =
+                    ProfileExecutionPolicyWire(
+                        requiresRawPath = false,
+                        probePersistencePolicy = ProbePersistencePolicyWire.MANUAL_ONLY,
+                    ),
                 domainTargets =
                     listOf(
                         DomainTarget(
@@ -429,8 +446,8 @@ class DiagnosticsNetworkE2ETest {
                             udpServer = "${fixture.androidHost}:${fixture.dnsUdpPort}",
                             encryptedResolverId = "cloudflare",
                             encryptedProtocol = "doh",
-                            dohUrl = "http://${fixture.androidHost}:${fixture.dnsHttpPort}/dns-query",
-                            dohBootstrapIps = listOf(fixture.androidHost),
+                            encryptedDohUrl = "http://${fixture.androidHost}:${fixture.dnsHttpPort}/dns-query",
+                            encryptedBootstrapIps = listOf(fixture.androidHost),
                             expectedIps = listOf(fixture.dnsAnswerIpv4),
                         ),
                     ),
@@ -454,7 +471,7 @@ class DiagnosticsNetworkE2ETest {
                 name = "Resolver recommendation profile",
                 source = "androidTest",
                 version = 1,
-                requestJson = json.encodeToString(ScanRequest.serializer(), request),
+                requestJson = json.encodeToString(ProfileSpecWire.serializer(), request),
                 updatedAt = System.currentTimeMillis(),
             ),
         )
@@ -464,20 +481,43 @@ class DiagnosticsNetworkE2ETest {
         awaitUntil(timeoutMs = 45_000, pollMs = 100) {
             runBlocking {
                 when (val session = scanRecordStore.getScanSession(sessionId)) {
-                    null -> false
-                    else -> when (session.status) {
-                        "completed" -> true
-                        "failed" ->
-                            throw AssertionError(
-                                "Diagnostics session failed before completion: ${session.summary}",
-                            )
-                        else -> false
+                    null -> {
+                        false
+                    }
+
+                    else -> {
+                        when (session.status) {
+                            "completed" -> {
+                                true
+                            }
+
+                            "failed" -> {
+                                throw AssertionError(
+                                    "Diagnostics session failed before completion: ${session.summary}",
+                                )
+                            }
+
+                            else -> {
+                                false
+                            }
+                        }
                     }
                 }
             }
         }
         return runBlocking { diagnosticsDetailLoader.loadSessionDetail(sessionId) }
     }
+
+    private suspend fun startScanSessionId(pathMode: ScanPathMode): String =
+        when (val result = diagnosticsScanController.startScan(pathMode)) {
+            is DiagnosticsManualScanStartResult.Started -> {
+                result.sessionId
+            }
+
+            is DiagnosticsManualScanStartResult.RequiresHiddenProbeResolution -> {
+                throw AssertionError("Unexpected hidden automatic probe conflict in test: $result")
+            }
+        }
 
     private fun rawPathDnsSuccessOutcomes(): Set<String> = setOf("dns_match", "udp_blocked")
 

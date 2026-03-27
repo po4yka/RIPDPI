@@ -32,7 +32,7 @@ data class DiagnosticProfile(
         name = name,
         source = source,
         version = version,
-        request = compatibilityJson.decodeProfileSpecWireCompat(requestJson).toProfileProjection(),
+        request = compatibilityJson.decodeProfileSpecWire(requestJson).toProfileProjection(),
         updatedAt = updatedAt,
     )
 }
@@ -86,7 +86,7 @@ data class DiagnosticScanSession(
         report =
             reportJson
                 ?.takeIf { it.isNotBlank() }
-                ?.let(compatibilityJson::decodeEngineScanReportWireCompat)
+                ?.let(compatibilityJson::decodeEngineScanReportWire)
                 ?.toSessionProjection(),
         startedAt = startedAt,
         finishedAt = finishedAt,
@@ -235,6 +235,7 @@ data class DiagnosticConnectionSession(
     val restartCount: Int,
     val endedReason: String?,
     val failureMessage: String? = null,
+    val rememberedPolicyAudit: RememberedPolicyApplicationAudit? = null,
 ) {
     constructor(
         id: String,
@@ -266,6 +267,7 @@ data class DiagnosticConnectionSession(
         restartCount: Int,
         endedReason: String?,
         failureMessage: String? = null,
+        rememberedPolicyAudit: RememberedPolicyApplicationAudit? = null,
     ) : this(
         id = id,
         startedAt = startedAt,
@@ -296,8 +298,19 @@ data class DiagnosticConnectionSession(
         restartCount = restartCount,
         endedReason = endedReason,
         failureMessage = failureMessage,
+        rememberedPolicyAudit = rememberedPolicyAudit,
     )
 }
+
+@Serializable
+data class RememberedPolicyApplicationAudit(
+    val matchedFingerprintHash: String? = null,
+    val source: RememberedNetworkPolicySource = RememberedNetworkPolicySource.UNKNOWN,
+    val appliedByExactMatch: Boolean = false,
+    val previousSuccessCount: Int = 0,
+    val previousFailureCount: Int = 0,
+    val previousConsecutiveFailureCount: Int = 0,
+)
 
 @Serializable
 data class DiagnosticsRememberedPolicy(
@@ -327,6 +340,7 @@ data class DiagnosticActiveConnectionPolicy(
     val policy: RememberedNetworkPolicyJson,
     val matchedPolicy: DiagnosticsRememberedPolicy? = null,
     val usedRememberedPolicy: Boolean = false,
+    val rememberedPolicyAppliedByExactMatch: Boolean? = null,
     val fingerprintHash: String? = null,
     val policySignature: String,
     val appliedAt: Long,

@@ -32,9 +32,9 @@ import com.poyka.ripdpi.data.effectiveUdpFakeProfile
 import com.poyka.ripdpi.data.formatChainSummary
 import com.poyka.ripdpi.data.formatStrategyChainDsl
 import com.poyka.ripdpi.data.isTlsPrelude
-import com.poyka.ripdpi.data.legacyDesyncMethod
 import com.poyka.ripdpi.data.normalizeHostAutolearnMaxHosts
 import com.poyka.ripdpi.data.normalizeHostAutolearnPenaltyTtlHours
+import com.poyka.ripdpi.data.primaryDesyncMethod
 import com.poyka.ripdpi.data.primaryTcpChainStep
 import com.poyka.ripdpi.data.tlsPreludeTcpChainStep
 import com.poyka.ripdpi.proto.AppSettings
@@ -53,7 +53,7 @@ internal fun AppSettings.toUiState(
     val tlsPreludeSteps = tcpChainSteps.filter { it.kind.isTlsPrelude }
     val primaryTcpStep = primaryTcpChainStep(tcpChainSteps)
     val tlsRecStep = tlsPreludeTcpChainStep(tcpChainSteps)
-    val normalizedDesyncMethod = legacyDesyncMethod(tcpChainSteps).ifEmpty { "none" }
+    val normalizedDesyncMethod = primaryDesyncMethod(tcpChainSteps).ifEmpty { "none" }
     val normalizedHostsMode = hostsMode.ifEmpty { "disable" }
     val isVpn = normalizedMode == "vpn"
     val useCmdSettings = enableCmdSettings
@@ -93,8 +93,6 @@ internal fun AppSettings.toUiState(
                 dnsIp = activeDns.dnsIp,
                 dnsMode = activeDns.mode,
                 dnsProviderId = activeDns.providerId,
-                dnsDohUrl = activeDns.dohUrl,
-                dnsDohBootstrapIps = activeDns.dohBootstrapIps,
                 encryptedDnsProtocol = activeDns.encryptedDnsProtocol,
                 encryptedDnsHost = activeDns.encryptedDnsHost,
                 encryptedDnsPort = activeDns.encryptedDnsPort,
@@ -126,7 +124,7 @@ internal fun AppSettings.toUiState(
                 chainSummary = formatChainSummary(tcpChainSteps, udpChainSteps),
                 chainDsl = formatStrategyChainDsl(tcpChainSteps, udpChainSteps),
                 splitMarker = primaryTcpStep?.marker ?: effectiveSplitMarker(),
-                udpFakeCount = udpChainSteps.sumOf { it.count.coerceAtLeast(0) }.takeIf { it > 0 } ?: udpFakeCount,
+                udpFakeCount = udpChainSteps.sumOf { it.count.coerceAtLeast(0) },
                 defaultTtl = defaultTtl,
                 customTtl = customTtl,
             ),

@@ -13,6 +13,7 @@ import kotlinx.serialization.encodeToString
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
 import org.junit.Test
@@ -61,47 +62,43 @@ class DiagnosticsExecutionPolicyTest {
         }
 
     @Test
-    fun `legacy profile request falls back to compatibility execution policy`() {
-        val legacy =
-            ScanRequest(
-                profileId = "automatic-probing",
-                displayName = "Automatic probing",
-                pathMode = ScanPathMode.RAW_PATH,
-                kind = ScanKind.STRATEGY_PROBE,
-                family = DiagnosticProfileFamily.AUTOMATIC_PROBING,
-                manualOnly = false,
-            )
-        val decoded = json.decodeProfileSpecWireCompat(json.encodeToString(ScanRequest.serializer(), legacy))
-        val executionPolicy = decoded.executionPolicyOrCompat()
+    fun `profile spec requires explicit execution policy`() {
+        val error =
+            assertThrows(IllegalArgumentException::class.java) {
+                ProfileSpecWire(
+                    profileId = "automatic-probing",
+                    displayName = "Automatic probing",
+                    kind = ScanKind.STRATEGY_PROBE,
+                    family = DiagnosticProfileFamily.AUTOMATIC_PROBING,
+                ).normalizedExecutionPolicy()
+            }
 
-        assertFalse(executionPolicy.manualOnly)
-        assertTrue(executionPolicy.allowBackground)
-        assertTrue(executionPolicy.requiresRawPath)
-        assertEquals(ProbePersistencePolicyWire.BACKGROUND_ONLY, executionPolicy.probePersistencePolicy)
+        assertTrue(error.message.orEmpty().contains("executionPolicy"))
     }
 
     @Test
-    fun `legacy automatic audit request falls back to manual-only persistence policy`() {
-        val legacy =
-            ScanRequest(
-                profileId = "automatic-audit",
-                displayName = "Automatic audit",
-                pathMode = ScanPathMode.RAW_PATH,
-                kind = ScanKind.STRATEGY_PROBE,
-                family = DiagnosticProfileFamily.AUTOMATIC_AUDIT,
-                manualOnly = false,
-            )
+    fun `profile spec requires explicit probe persistence policy`() {
+        val error =
+            assertThrows(IllegalArgumentException::class.java) {
+                ProfileSpecWire(
+                    profileId = "custom-probe",
+                    displayName = "Custom strategy probe",
+                    kind = ScanKind.STRATEGY_PROBE,
+                    family = DiagnosticProfileFamily.GENERAL,
+                    executionPolicy =
+                        ProfileExecutionPolicyWire(
+                            manualOnly = false,
+                            allowBackground = true,
+                            requiresRawPath = true,
+                        ),
+                ).normalizedExecutionPolicy()
+            }
 
-        val executionPolicy =
-            json
-                .decodeProfileSpecWireCompat(json.encodeToString(ScanRequest.serializer(), legacy))
-                .executionPolicyOrCompat()
-
-        assertEquals(ProbePersistencePolicyWire.MANUAL_ONLY, executionPolicy.probePersistencePolicy)
+        assertTrue(error.message.orEmpty().contains("probePersistencePolicy"))
     }
 
     @Test
-    fun `generic strategy profile without explicit field falls back to manual-only persistence policy`() {
+    fun `normalized execution policy preserves explicit probe persistence policy`() {
         val executionPolicy =
             ProfileSpecWire(
                 profileId = "custom-probe",
@@ -113,8 +110,9 @@ class DiagnosticsExecutionPolicyTest {
                         manualOnly = false,
                         allowBackground = true,
                         requiresRawPath = true,
+                        probePersistencePolicy = ProbePersistencePolicyWire.MANUAL_ONLY,
                     ),
-            ).executionPolicyOrCompat()
+            ).normalizedExecutionPolicy()
 
         assertEquals(ProbePersistencePolicyWire.MANUAL_ONLY, executionPolicy.probePersistencePolicy)
     }
@@ -255,6 +253,7 @@ class DiagnosticsExecutionPolicyTest {
     fun `manual admission rejects hidden automatic probe explicitly`() =
         runTest {
             val stores = FakeDiagnosticsHistoryStores()
+            stores.seedDefaultProfile(json)
             val registry = activeScanRegistry(stores, backgroundScope, json)
             val service = scanAdmissionService(stores, registry, json)
 
@@ -264,12 +263,9 @@ class DiagnosticsExecutionPolicyTest {
                 registerActiveBridge = false,
             )
 
-            try {
-                service.admitManualStart()
-                fail("Expected manual admission to be rejected")
-            } catch (error: DiagnosticsScanStartRejectedException) {
-                assertEquals(DiagnosticsScanStartRejectionReason.HiddenAutomaticProbeRunning, error.reason)
-            }
+            val admission = service.admitManualStart()
+
+            assertTrue(admission is ManualStartAdmission.HiddenAutomaticProbeConflict)
         }
 
     @Test

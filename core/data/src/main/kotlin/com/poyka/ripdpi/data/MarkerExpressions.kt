@@ -4,7 +4,7 @@ import com.poyka.ripdpi.proto.AppSettings
 
 const val DefaultSplitMarker = "1"
 const val CanonicalDefaultSplitMarker = "host+1"
-const val DefaultDisoobSplitMarker = "3+s"
+const val DefaultDisoobSplitMarker = "host+3"
 const val DefaultFakeOffsetMarker = "0"
 const val DefaultTlsRecordMarker = "0"
 const val DefaultTlsRandRecFragmentCount = 4
@@ -20,31 +20,18 @@ const val AdaptiveMarkerExtLen = "auto(extlen)"
 
 private val NumericOffsetPattern = Regex("^[+-]?\\d+$")
 private val NamedOffsetPattern = Regex("^(abs|host|endhost|sld|midsld|endsld|method|extlen|sniext)([+-]\\d+)?$")
-private val LegacyOffsetPattern = Regex("^[+-]?\\d+\\+(?:s(?:s|e|m|r)?|h(?:s|e|m|r)?|n(?:s|e|m|r)?)$")
 private val AdaptiveOffsetPattern =
     Regex("^auto\\((balanced|host|midsld|endhost|method|sniext|extlen)\\)$", RegexOption.IGNORE_CASE)
 private val AdaptiveOffsetPresetPattern =
     Regex("^auto\\((balanced|host|midsld|endhost|method|sniext|extlen)\\)$", RegexOption.IGNORE_CASE)
 
 fun AppSettings.effectiveSplitMarker(): String =
-    splitMarker
-        .normalizedOrElse {
-            legacyMarkerExpression(splitPosition, splitAtHost)
-        }.let { marker ->
-            if (shouldUseLegacyDisoobDefaultMarker(marker)) {
-                DefaultDisoobSplitMarker
-            } else {
-                marker
-            }
-        }
+    primaryTcpChainStep(effectiveTcpChainSteps())?.let(::normalizeTcpMarker) ?: CanonicalDefaultSplitMarker
 
 fun AppSettings.effectiveFakeOffsetMarker(): String = fakeOffsetMarker.normalizedOrElse { fakeOffset.toString() }
 
 fun AppSettings.effectiveTlsRecordMarker(): String =
-    tlsrecMarker.normalizedOrElse {
-        // Preserve the old TLS-record toggle semantics by migrating it to a host-relative marker.
-        legacyMarkerExpression(tlsrecPosition, tlsrecAtSni)
-    }
+    tlsPreludeTcpChainStep(effectiveTcpChainSteps())?.let(::normalizeTcpMarker) ?: DefaultTlsRecordMarker
 
 fun normalizeOffsetExpression(
     value: String,
@@ -105,32 +92,5 @@ fun formatOffsetExpressionLabel(value: String): String =
 
 private fun String.normalizedOrElse(fallback: () -> String): String = trim().ifEmpty(fallback)
 
-private fun AppSettings.shouldUseLegacyDisoobDefaultMarker(marker: String): Boolean =
-    tcpChainStepsCount == 0 &&
-        desyncMethod.equals("disoob", ignoreCase = true) &&
-        marker == DefaultSplitMarker &&
-        splitPosition == 1 &&
-        !splitAtHost
-
-private fun legacyMarkerExpression(
-    position: Int,
-    useHostMarker: Boolean,
-): String =
-    if (useHostMarker) {
-        markerExpression("host", position)
-    } else {
-        position.toString()
-    }
-
-private fun markerExpression(
-    base: String,
-    delta: Int,
-): String =
-    when {
-        delta == 0 -> base
-        delta > 0 -> "$base+$delta"
-        else -> "$base$delta"
-    }
-
 private fun isValidOffsetBase(value: String): Boolean =
-    NumericOffsetPattern.matches(value) || NamedOffsetPattern.matches(value) || LegacyOffsetPattern.matches(value)
+    NumericOffsetPattern.matches(value) || NamedOffsetPattern.matches(value)

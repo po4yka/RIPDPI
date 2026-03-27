@@ -88,7 +88,7 @@
         }
     },
     "privacyMode": "split_output",
-    "schemaVersion": 7,
+    "schemaVersion": 1,
     "scope": "hybrid",
     "selectedApproach": null,
     "sessionEventCount": 1,

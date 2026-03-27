@@ -20,8 +20,6 @@ data class TemporaryResolverOverride(
             dnsMode = DnsModeEncrypted,
             dnsProviderId = resolverId,
             dnsIp = bootstrapIps.firstOrNull().orEmpty(),
-            dnsDohUrl = dohUrl,
-            dnsDohBootstrapIps = bootstrapIps,
             encryptedDnsProtocol = protocol,
             encryptedDnsHost = host,
             encryptedDnsPort = port,

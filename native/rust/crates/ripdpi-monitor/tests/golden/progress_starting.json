@@ -3,7 +3,8 @@
   "isFinished": false,
   "message": "Preparing Passive events golden",
   "phase": "starting",
-  "schemaVersion": 2,
+  "schemaVersion": 1,
   "sessionId": "session-golden",
+  "strategyProbeProgress": null,
   "totalSteps": 1
 }

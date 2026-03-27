@@ -8,7 +8,7 @@ import com.poyka.ripdpi.activities.SettingsMutation
 import com.poyka.ripdpi.activities.SettingsNoticeTone
 import com.poyka.ripdpi.activities.SettingsUiState
 import com.poyka.ripdpi.data.AppSettingsSerializer
-import com.poyka.ripdpi.data.DefaultSplitMarker
+import com.poyka.ripdpi.data.CanonicalDefaultSplitMarker
 import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.ui.components.feedback.WarningBannerTone
 import org.junit.Assert.assertEquals
@@ -100,7 +100,7 @@ class AdvancedSettingsRouteBinderTest {
     fun `manualSplitMarkerFallback falls back to default for adaptive marker`() {
         val uiState = SettingsUiState(desync = DesyncCoreUiState(splitMarker = "auto(balanced)"))
 
-        assertEquals(DefaultSplitMarker, manualSplitMarkerFallback(uiState))
+        assertEquals(CanonicalDefaultSplitMarker, manualSplitMarkerFallback(uiState))
     }
 
     @Test

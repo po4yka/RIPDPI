@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.diagnostics
 
 import com.poyka.ripdpi.data.NetworkFingerprintSummary
+import com.poyka.ripdpi.data.RememberedNetworkPolicySource
 import com.poyka.ripdpi.data.VpnDnsPolicyJson
 import com.poyka.ripdpi.data.diagnostics.ActiveConnectionPolicy
 import com.poyka.ripdpi.data.diagnostics.BypassUsageSessionEntity
@@ -187,6 +188,8 @@ class DiagnosticsBoundaryMapper
                 restartCount = entity.restartCount,
                 endedReason = entity.endedReason,
                 failureMessage = entity.failureMessage,
+                rememberedPolicyAudit =
+                    entity.toRememberedPolicyApplicationAuditOrNull(),
             )
 
         fun toDiagnosticsRememberedPolicy(entity: RememberedNetworkPolicyEntity): DiagnosticsRememberedPolicy =
@@ -218,6 +221,7 @@ class DiagnosticsBoundaryMapper
                 policy = policy.policy,
                 matchedPolicy = policy.matchedPolicy?.let(::toDiagnosticsRememberedPolicy),
                 usedRememberedPolicy = policy.usedRememberedPolicy,
+                rememberedPolicyAppliedByExactMatch = policy.rememberedPolicyAppliedByExactMatch,
                 fingerprintHash = policy.fingerprintHash,
                 policySignature = policy.policySignature,
                 appliedAt = policy.appliedAt,
@@ -226,13 +230,33 @@ class DiagnosticsBoundaryMapper
             )
     }
 
+private fun BypassUsageSessionEntity.toRememberedPolicyApplicationAuditOrNull(): RememberedPolicyApplicationAudit? {
+    if (rememberedPolicyMatchedFingerprintHash == null &&
+        rememberedPolicySource == null &&
+        rememberedPolicyAppliedByExactMatch == null &&
+        rememberedPolicyPreviousSuccessCount == null &&
+        rememberedPolicyPreviousFailureCount == null &&
+        rememberedPolicyPreviousConsecutiveFailureCount == null
+    ) {
+        return null
+    }
+    return RememberedPolicyApplicationAudit(
+        matchedFingerprintHash = rememberedPolicyMatchedFingerprintHash,
+        source = RememberedNetworkPolicySource.fromStorageValue(rememberedPolicySource),
+        appliedByExactMatch = rememberedPolicyAppliedByExactMatch == true,
+        previousSuccessCount = rememberedPolicyPreviousSuccessCount ?: 0,
+        previousFailureCount = rememberedPolicyPreviousFailureCount ?: 0,
+        previousConsecutiveFailureCount = rememberedPolicyPreviousConsecutiveFailureCount ?: 0,
+    )
+}
+
 private fun decodeScanProjection(
     json: Json,
     payload: String?,
 ): DiagnosticsSessionProjection? =
     payload
         ?.takeIf { it.isNotBlank() }
-        ?.let { json.decodeEngineScanReportWireCompat(it).toSessionProjection() }
+        ?.let { json.decodeEngineScanReportWire(it).toSessionProjection() }
 
 private fun decodeProfileProjection(
     json: Json,
@@ -240,7 +264,7 @@ private fun decodeProfileProjection(
 ): com.poyka.ripdpi.diagnostics.presentation.DiagnosticsProfileProjection? =
     payload
         ?.takeIf { it.isNotBlank() }
-        ?.let { json.decodeProfileSpecWireCompat(it).toProfileProjection() }
+        ?.let { json.decodeProfileSpecWire(it).toProfileProjection() }
 
 private fun decodeStrategySignature(
     json: Json,

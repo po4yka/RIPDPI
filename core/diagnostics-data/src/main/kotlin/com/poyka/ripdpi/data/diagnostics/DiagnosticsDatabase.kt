@@ -11,9 +11,6 @@ import androidx.room.PrimaryKey
 import androidx.room.Query
 import androidx.room.Room
 import androidx.room.RoomDatabase
-import androidx.room.migration.Migration
-import androidx.sqlite.db.SupportSQLiteDatabase
-import com.poyka.ripdpi.data.LegacyRememberedNetworkPolicySourceStrategyProbe
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -263,6 +260,12 @@ data class BypassUsageSessionEntity(
     val restartCount: Int,
     val endedReason: String?,
     val failureMessage: String? = null,
+    val rememberedPolicyMatchedFingerprintHash: String? = null,
+    val rememberedPolicySource: String? = null,
+    val rememberedPolicyAppliedByExactMatch: Boolean? = null,
+    val rememberedPolicyPreviousSuccessCount: Int? = null,
+    val rememberedPolicyPreviousFailureCount: Int? = null,
+    val rememberedPolicyPreviousConsecutiveFailureCount: Int? = null,
 )
 
 @Entity(
@@ -635,63 +638,12 @@ interface DiagnosticsDao {
         RememberedNetworkPolicyEntity::class,
         NetworkDnsPathPreferenceEntity::class,
     ],
-    version = 6,
+    version = 1,
     exportSchema = true,
 )
 abstract class DiagnosticsDatabase : RoomDatabase() {
     abstract fun diagnosticsDao(): DiagnosticsDao
 }
-
-val DiagnosticsMigration1To2 =
-    object : Migration(1, 2) {
-        override fun migrate(db: SupportSQLiteDatabase) {
-            db.execSQL("DELETE FROM remembered_network_policies")
-        }
-    }
-
-val DiagnosticsMigration2To3 =
-    object : Migration(2, 3) {
-        override fun migrate(db: SupportSQLiteDatabase) {
-            db.execSQL("ALTER TABLE native_session_events ADD COLUMN runtimeId TEXT")
-            db.execSQL("ALTER TABLE native_session_events ADD COLUMN mode TEXT")
-            db.execSQL("ALTER TABLE native_session_events ADD COLUMN policySignature TEXT")
-            db.execSQL("ALTER TABLE native_session_events ADD COLUMN fingerprintHash TEXT")
-            db.execSQL("ALTER TABLE native_session_events ADD COLUMN subsystem TEXT")
-        }
-    }
-
-val DiagnosticsMigration3To4 =
-    object : Migration(3, 4) {
-        override fun migrate(db: SupportSQLiteDatabase) {
-            db.execSQL(
-                "DELETE FROM remembered_network_policies WHERE source = '$LegacyRememberedNetworkPolicySourceStrategyProbe'",
-            )
-        }
-    }
-
-val DiagnosticsMigration4To5 =
-    object : Migration(4, 5) {
-        override fun migrate(db: SupportSQLiteDatabase) {
-            db.execSQL("ALTER TABLE scan_sessions ADD COLUMN launchOrigin TEXT")
-            db.execSQL("ALTER TABLE scan_sessions ADD COLUMN triggerType TEXT")
-            db.execSQL("ALTER TABLE scan_sessions ADD COLUMN triggerClassification TEXT")
-            db.execSQL("ALTER TABLE scan_sessions ADD COLUMN triggerOccurredAt INTEGER")
-            db.execSQL("ALTER TABLE scan_sessions ADD COLUMN triggerPreviousFingerprintHash TEXT")
-            db.execSQL("ALTER TABLE scan_sessions ADD COLUMN triggerCurrentFingerprintHash TEXT")
-        }
-    }
-
-val DiagnosticsMigration5To6 =
-    object : Migration(5, 6) {
-        override fun migrate(db: SupportSQLiteDatabase) {
-            db.execSQL(
-                """
-                CREATE INDEX IF NOT EXISTS `index_telemetry_samples_fingerprint_mode_createdAt`
-                ON `telemetry_samples` (`telemetryNetworkFingerprintHash`, `activeMode`, `createdAt`)
-                """.trimIndent(),
-            )
-        }
-    }
 
 @Module
 @InstallIn(SingletonComponent::class)
@@ -706,13 +658,8 @@ object DiagnosticsDatabaseModule {
                 context,
                 DiagnosticsDatabase::class.java,
                 "diagnostics.db",
-            ).addMigrations(
-                DiagnosticsMigration1To2,
-                DiagnosticsMigration2To3,
-                DiagnosticsMigration3To4,
-                DiagnosticsMigration4To5,
-                DiagnosticsMigration5To6,
-            ).fallbackToDestructiveMigrationOnDowngrade(true)
+            ).fallbackToDestructiveMigration(true)
+            .fallbackToDestructiveMigrationOnDowngrade(true)
             .build()
 
     @Provides

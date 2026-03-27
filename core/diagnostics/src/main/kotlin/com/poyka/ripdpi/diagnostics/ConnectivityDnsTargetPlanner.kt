@@ -38,6 +38,4 @@ private fun DnsTarget.hasExplicitEncryptedConfig(): Boolean =
         encryptedProtocol != null ||
         encryptedHost != null ||
         encryptedDohUrl != null ||
-        encryptedBootstrapIps.isNotEmpty() ||
-        dohUrl != null ||
-        dohBootstrapIps.isNotEmpty()
+        encryptedBootstrapIps.isNotEmpty()

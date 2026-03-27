@@ -14,8 +14,8 @@ import com.poyka.ripdpi.data.effectiveTcpChainSteps
 import com.poyka.ripdpi.data.effectiveUdpChainSteps
 import com.poyka.ripdpi.data.formatChainSummary
 import com.poyka.ripdpi.data.formatStrategyChainDsl
-import com.poyka.ripdpi.data.legacyDesyncMethod
 import com.poyka.ripdpi.data.parseStrategyChainDsl
+import com.poyka.ripdpi.data.primaryDesyncMethod
 import com.poyka.ripdpi.data.setStrategyChains
 import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.utility.checkIp
@@ -65,7 +65,7 @@ data class ConfigDraft(
             chainDsl = value,
             tcpChainSteps = parsed?.tcpSteps ?: tcpChainSteps,
             udpChainSteps = parsed?.udpSteps ?: udpChainSteps,
-            desyncMethod = parsed?.let { legacyDesyncMethod(it.tcpSteps) } ?: desyncMethod,
+            desyncMethod = parsed?.let { primaryDesyncMethod(it.tcpSteps) } ?: desyncMethod,
         )
     }
 }
@@ -124,7 +124,7 @@ internal fun AppSettings.toConfigDraft(): ConfigDraft =
         tcpChainSteps = effectiveTcpChainSteps(),
         udpChainSteps = effectiveUdpChainSteps(),
         chainDsl = formatStrategyChainDsl(effectiveTcpChainSteps(), effectiveUdpChainSteps()),
-        desyncMethod = legacyDesyncMethod(effectiveTcpChainSteps()).ifEmpty { "none" },
+        desyncMethod = primaryDesyncMethod(effectiveTcpChainSteps()).ifEmpty { "none" },
         defaultTtl = if (customTtl && defaultTtl > 0) defaultTtl.toString() else "",
     )
 

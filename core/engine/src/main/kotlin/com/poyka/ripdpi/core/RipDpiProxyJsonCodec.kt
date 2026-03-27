@@ -100,9 +100,7 @@ internal object RipDpiProxyJsonCodec {
             "networkScopeKey",
         )
     private const val LegacyCommandLineProgram = "cia" + "dpi"
-    private const val CommandLineProgram = "ripdpi"
     private const val LegacyStrategyPreset = "bye" + "dpi_default"
-    private const val StrategyPreset = "ripdpi_default"
 
     fun encodeCommandLinePreferences(
         args: List<String>,
@@ -186,35 +184,17 @@ internal object RipDpiProxyJsonCodec {
     private fun decode(configJson: String): NativeProxyConfig {
         val element = json.parseToJsonElement(configJson)
         validateUiPayloadShape(element)
-        return normalize(json.decodeFromString(NativeProxyConfig.serializer(), configJson))
+        return json
+            .decodeFromString(NativeProxyConfig.serializer(), configJson)
+            .also(::validateSupportedPayload)
     }
 
     private fun decodeOrNull(configJson: String): NativeProxyConfig? = runCatching { decode(configJson) }.getOrNull()
 
-    private fun encode(payload: NativeProxyConfig): String = json.encodeToString(normalize(payload))
-
-    private fun normalize(payload: NativeProxyConfig): NativeProxyConfig =
-        when (payload) {
-            is NativeProxyConfig.CommandLine -> {
-                payload.copy(args = normalizeCommandLineArgs(payload.args))
-            }
-
-            is NativeProxyConfig.Ui -> {
-                payload.copy(strategyPreset = normalizeStrategyPreset(payload.strategyPreset))
-            }
-        }
-
-    private fun normalizeCommandLineArgs(args: List<String>): List<String> =
-        when (args.firstOrNull()) {
-            LegacyCommandLineProgram -> listOf(CommandLineProgram) + args.drop(1)
-            else -> args
-        }
-
-    private fun normalizeStrategyPreset(strategyPreset: String?): String? =
-        when (strategyPreset) {
-            LegacyStrategyPreset -> StrategyPreset
-            else -> strategyPreset
-        }
+    private fun encode(payload: NativeProxyConfig): String =
+        payload
+            .also(::validateSupportedPayload)
+            .let(json::encodeToString)
 
     private fun validateUiPayloadShape(element: JsonElement) {
         val payload = element as? JsonObject ?: return
@@ -226,6 +206,22 @@ internal object RipDpiProxyJsonCodec {
         }
         require(payload.keys.any(groupedUiKeys::contains)) {
             "Grouped UI config JSON must include at least one nested section"
+        }
+    }
+
+    private fun validateSupportedPayload(payload: NativeProxyConfig) {
+        when (payload) {
+            is NativeProxyConfig.CommandLine -> {
+                require(payload.args.firstOrNull() != LegacyCommandLineProgram) {
+                    "Legacy command-line executable alias is not supported"
+                }
+            }
+
+            is NativeProxyConfig.Ui -> {
+                require(payload.strategyPreset != LegacyStrategyPreset) {
+                    "Legacy strategy preset alias is not supported"
+                }
+            }
         }
     }
 

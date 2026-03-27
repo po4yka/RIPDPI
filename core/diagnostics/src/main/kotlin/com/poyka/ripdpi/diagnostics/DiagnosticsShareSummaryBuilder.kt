@@ -78,7 +78,7 @@ internal object DiagnosticsShareSummaryBuilder {
             selectedSession
                 ?.reportJson
                 ?.let { reportJson ->
-                    runCatching { json.decodeEngineScanReportWireCompat(reportJson).toSessionProjection() }.getOrNull()
+                    runCatching { json.decodeEngineScanReportWire(reportJson).toSessionProjection() }.getOrNull()
                 }
         val summaryProjection =
             projector.project(

@@ -43,18 +43,13 @@ pub(crate) fn encrypted_dns_endpoint_for_target(
 ) -> Result<(EncryptedDnsEndpoint, Vec<String>), String> {
     let protocol = encrypted_dns_protocol(target.encrypted_protocol.as_deref());
     let bootstrap_strings = if target.encrypted_bootstrap_ips.is_empty() {
-        if target.doh_bootstrap_ips.is_empty() && target.doh_url.is_none() {
-            DEFAULT_DOH_BOOTSTRAP_IPS.iter().map(ToString::to_string).collect::<Vec<_>>()
-        } else {
-            target.doh_bootstrap_ips.clone()
-        }
+        DEFAULT_DOH_BOOTSTRAP_IPS.iter().map(ToString::to_string).collect::<Vec<_>>()
     } else {
         target.encrypted_bootstrap_ips.clone()
     };
     let doh_url = target
         .encrypted_doh_url
         .clone()
-        .or_else(|| target.doh_url.clone())
         .or_else(|| (protocol == EncryptedDnsProtocol::Doh).then(|| DEFAULT_DOH_URL.to_string()));
     let host =
         target.encrypted_host.clone().or_else(|| doh_url.as_deref().and_then(parse_url_host)).unwrap_or_else(|| {

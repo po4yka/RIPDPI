@@ -120,17 +120,13 @@ pub(super) fn build_encrypted_dns_resolver(config: &Config) -> io::Result<Option
         .encrypted_dns_protocol
         .as_deref()
         .and_then(parse_encrypted_dns_protocol)
-        .or_else(|| mapdns.doh_url.as_deref().map(|_| EncryptedDnsProtocol::Doh));
+        .or_else(|| mapdns.encrypted_dns_doh_url.as_deref().map(|_| EncryptedDnsProtocol::Doh));
     let Some(protocol) = protocol else {
         return Ok(None);
     };
 
-    let bootstrap_values = if mapdns.encrypted_dns_bootstrap_ips.is_empty() {
-        &mapdns.doh_bootstrap_ips
-    } else {
-        &mapdns.encrypted_dns_bootstrap_ips
-    };
-    let bootstrap_ips = bootstrap_values
+    let bootstrap_ips = mapdns
+        .encrypted_dns_bootstrap_ips
         .iter()
         .map(|value| {
             IpAddr::from_str(value).map_err(|err| {
@@ -142,7 +138,7 @@ pub(super) fn build_encrypted_dns_resolver(config: &Config) -> io::Result<Option
         })
         .collect::<Result<Vec<_>, _>>()?;
 
-    let doh_url = mapdns.encrypted_dns_doh_url.clone().or_else(|| mapdns.doh_url.clone());
+    let doh_url = mapdns.encrypted_dns_doh_url.clone();
     let host = mapdns
         .encrypted_dns_host
         .clone()
@@ -352,8 +348,6 @@ mod tests {
             encrypted_dns_doh_url: None,
             encrypted_dns_dnscrypt_provider_name: None,
             encrypted_dns_dnscrypt_public_key: None,
-            doh_url: None,
-            doh_bootstrap_ips: Vec::new(),
             dns_query_timeout_ms: 4000,
             resolver_fallback_active: false,
             resolver_fallback_reason: None,
@@ -384,8 +378,6 @@ mod tests {
             encrypted_dns_doh_url: None,
             encrypted_dns_dnscrypt_provider_name: None,
             encrypted_dns_dnscrypt_public_key: None,
-            doh_url: None,
-            doh_bootstrap_ips: Vec::new(),
             dns_query_timeout_ms: 4000,
             resolver_fallback_active: false,
             resolver_fallback_reason: None,
@@ -412,12 +404,10 @@ mod tests {
             encrypted_dns_host: None,
             encrypted_dns_port: None,
             encrypted_dns_tls_server_name: None,
-            encrypted_dns_bootstrap_ips: Vec::new(),
-            encrypted_dns_doh_url: None,
+            encrypted_dns_bootstrap_ips: vec!["1.1.1.1".to_string(), "1.0.0.1".to_string()],
+            encrypted_dns_doh_url: Some("https://dns.example.test/dns-query".to_string()),
             encrypted_dns_dnscrypt_provider_name: None,
             encrypted_dns_dnscrypt_public_key: None,
-            doh_url: Some("https://dns.example.test/dns-query".to_string()),
-            doh_bootstrap_ips: vec!["1.1.1.1".to_string(), "1.0.0.1".to_string()],
             dns_query_timeout_ms: 2500,
             resolver_fallback_active: false,
             resolver_fallback_reason: None,

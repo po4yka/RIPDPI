@@ -18,110 +18,22 @@ import com.poyka.ripdpi.diagnostics.presentation.DiagnosticsProfileProjection
 import com.poyka.ripdpi.diagnostics.presentation.DiagnosticsSessionProjection
 import kotlinx.serialization.json.Json
 
-internal fun Json.decodeProfileSpecWireCompat(payload: String): ProfileSpecWire =
-    runCatching {
-        decodeFromString(ProfileSpecWire.serializer(), payload)
-    }.getOrElse {
-        decodeFromString(ScanRequest.serializer(), payload).toProfileSpecWire()
-    }
+internal fun Json.decodeProfileSpecWire(payload: String): ProfileSpecWire =
+    decodeFromString(ProfileSpecWire.serializer(), payload)
 
-internal fun Json.decodeEngineScanReportWireCompat(payload: String): EngineScanReportWire =
-    runCatching {
-        decodeFromString(EngineScanReportWire.serializer(), payload)
-    }.getOrElse {
-        decodeFromString(ScanReport.serializer(), payload).toEngineScanReportWire()
-    }
+internal fun Json.decodeEngineScanReportWire(payload: String): EngineScanReportWire =
+    decodeFromString(EngineScanReportWire.serializer(), payload)
 
-internal fun Json.decodeEngineProgressWireCompat(payload: String): EngineProgressWire =
-    runCatching {
-        decodeFromString(EngineProgressWire.serializer(), payload)
-    }.getOrElse {
-        decodeFromString(ScanProgress.serializer(), payload).toEngineProgressWire()
-    }
+internal fun Json.decodeEngineProgressWire(payload: String): EngineProgressWire =
+    decodeFromString(EngineProgressWire.serializer(), payload)
 
-internal fun ScanRequest.toProfileSpecWire(): ProfileSpecWire =
-    ProfileSpecWire(
-        profileId = profileId,
-        displayName = displayName,
-        kind = kind,
-        family = family,
-        regionTag = regionTag,
-        executionPolicy =
-            ProfileExecutionPolicyWire(
-                manualOnly = manualOnly,
-                allowBackground = !manualOnly && kind == ScanKind.STRATEGY_PROBE,
-                requiresRawPath = kind == ScanKind.STRATEGY_PROBE,
-                probePersistencePolicy = compatibilityProbePersistencePolicy(kind = kind, family = family),
-            ),
-        packRefs = packRefs,
-        domainTargets = domainTargets,
-        dnsTargets = dnsTargets,
-        tcpTargets = tcpTargets,
-        quicTargets = quicTargets,
-        serviceTargets = serviceTargets,
-        circumventionTargets = circumventionTargets,
-        throughputTargets = throughputTargets,
-        whitelistSni = whitelistSni,
-        telegramTarget = telegramTarget,
-        strategyProbe = strategyProbe,
-    )
-
-internal fun ProfileSpecWire.toCompatibilityScanRequest(
-    pathMode: ScanPathMode,
-    proxyHost: String? = null,
-    proxyPort: Int? = null,
-    networkSnapshot: com.poyka.ripdpi.data.NativeNetworkSnapshot? = null,
-): ScanRequest =
-    run {
-        val executionPolicy = executionPolicyOrCompat()
-        ScanRequest(
-            profileId = profileId,
-            displayName = displayName,
-            pathMode = pathMode,
-            kind = kind,
-            family = family,
-            regionTag = regionTag,
-            manualOnly = executionPolicy.manualOnly,
-            packRefs = packRefs,
-            proxyHost = proxyHost,
-            proxyPort = proxyPort,
-            domainTargets = domainTargets,
-            dnsTargets = dnsTargets,
-            tcpTargets = tcpTargets,
-            quicTargets = quicTargets,
-            serviceTargets = serviceTargets,
-            circumventionTargets = circumventionTargets,
-            throughputTargets = throughputTargets,
-            whitelistSni = whitelistSni,
-            telegramTarget = telegramTarget,
-            strategyProbe = strategyProbe,
-            networkSnapshot = networkSnapshot,
-        )
-    }
-
-internal fun ProfileSpecWire.executionPolicyOrCompat(): ProfileExecutionPolicyWire =
-    executionPolicy
-        ?.let { policy ->
-            policy.copy(
-                probePersistencePolicy =
-                    policy.probePersistencePolicy ?: compatibilityProbePersistencePolicy(kind = kind, family = family),
-            )
+internal fun ProfileSpecWire.normalizedExecutionPolicy(): ProfileExecutionPolicyWire =
+    requireNotNull(executionPolicy) {
+        "Diagnostics profile '$profileId' is missing executionPolicy"
+    }.also { policy ->
+        requireNotNull(policy.probePersistencePolicy) {
+            "Diagnostics profile '$profileId' is missing executionPolicy.probePersistencePolicy"
         }
-        ?: ProfileExecutionPolicyWire(
-            manualOnly = manualOnly == true,
-            requiresRawPath = kind == ScanKind.STRATEGY_PROBE,
-            allowBackground = manualOnly != true && kind == ScanKind.STRATEGY_PROBE,
-            probePersistencePolicy = compatibilityProbePersistencePolicy(kind = kind, family = family),
-        )
-
-internal fun compatibilityProbePersistencePolicy(
-    kind: ScanKind,
-    family: DiagnosticProfileFamily,
-): ProbePersistencePolicyWire =
-    when {
-        kind != ScanKind.STRATEGY_PROBE -> ProbePersistencePolicyWire.MANUAL_ONLY
-        family == DiagnosticProfileFamily.AUTOMATIC_PROBING -> ProbePersistencePolicyWire.BACKGROUND_ONLY
-        else -> ProbePersistencePolicyWire.MANUAL_ONLY
     }
 
 internal fun ProbePersistencePolicyWire.toDomainPolicy(): ProbePersistencePolicy =
@@ -172,7 +84,7 @@ internal fun DiagnosticsIntent.toProfileProjection(): DiagnosticsProfileProjecti
 
 internal fun ProfileSpecWire.toProfileProjection(): DiagnosticsProfileProjection =
     run {
-        val executionPolicy = executionPolicyOrCompat()
+        val executionPolicy = normalizedExecutionPolicy()
         DiagnosticsProfileProjection(
             kind = kind,
             family = family,
@@ -252,7 +164,7 @@ internal fun EngineScanReportWire.toSessionProjection(): DiagnosticsSessionProje
         packVersions = packVersions,
     )
 
-internal fun EngineScanReportWire.toLegacyScanReportCompat(): ScanReport =
+internal fun EngineScanReportWire.toScanReport(): ScanReport =
     ScanReport(
         sessionId = sessionId,
         profileId = profileId,
@@ -301,7 +213,7 @@ internal fun ScanProgress.toEngineProgressWire(): EngineProgressWire =
         strategyProbeProgress = strategyProbeProgress,
     )
 
-internal fun EngineProgressWire.toLegacyScanProgressCompat(): ScanProgress =
+internal fun EngineProgressWire.toScanProgress(): ScanProgress =
     ScanProgress(
         sessionId = sessionId,
         phase = phase,

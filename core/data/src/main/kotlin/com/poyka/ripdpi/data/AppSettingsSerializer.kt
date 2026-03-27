@@ -18,8 +18,6 @@ object AppSettingsSerializer : Serializer<AppSettings> {
             .setDnsIp(defaultDns.dnsIp)
             .setDnsMode(defaultDns.mode)
             .setDnsProviderId(defaultDns.providerId)
-            .setDnsDohUrl(defaultDns.encryptedDnsDohUrl)
-            .addAllDnsDohBootstrapIps(defaultDns.encryptedDnsBootstrapIps)
             .setEncryptedDnsProtocol(defaultDns.encryptedDnsProtocol)
             .setEncryptedDnsHost(defaultDns.encryptedDnsHost)
             .setEncryptedDnsPort(defaultDns.encryptedDnsPort)
@@ -44,7 +42,6 @@ object AppSettingsSerializer : Serializer<AppSettings> {
             .setOobData("a")
             .setDesyncHttp(true)
             .setDesyncHttps(true)
-            .setTlsrecMarker(DefaultTlsRecordMarker)
             .setUdpFakeProfile(FakePayloadProfileCompatDefault)
             .setHttpMethodEol(false)
             .setHttpUnixEol(false)
@@ -68,7 +65,6 @@ object AppSettingsSerializer : Serializer<AppSettings> {
             .setDiagnosticsHistoryRetentionDays(14)
             .setDiagnosticsExportIncludeHistory(true)
             .setCanonicalDefaultStrategyChains()
-            .setSettingsMigrationLevel(CurrentSettingsMigrationLevel)
             .build()
 
     override suspend fun readFrom(input: InputStream): AppSettings {

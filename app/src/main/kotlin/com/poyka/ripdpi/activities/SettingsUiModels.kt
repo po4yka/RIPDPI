@@ -73,8 +73,6 @@ data class DnsUiState(
     val dnsIp: String = DefaultDnsUiSeed.dnsIp,
     val dnsMode: String = DefaultDnsUiSeed.mode,
     val dnsProviderId: String = DefaultDnsUiSeed.providerId,
-    val dnsDohUrl: String = DefaultDnsUiSeed.encryptedDnsDohUrl,
-    val dnsDohBootstrapIps: List<String> = DefaultDnsUiSeed.encryptedDnsBootstrapIps,
     val encryptedDnsProtocol: String = DefaultDnsUiSeed.encryptedDnsProtocol,
     val encryptedDnsHost: String = DefaultDnsUiSeed.encryptedDnsHost,
     val encryptedDnsPort: Int = DefaultDnsUiSeed.encryptedDnsPort,

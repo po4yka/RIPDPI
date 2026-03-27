@@ -9,7 +9,7 @@ use crate::types::{
     ThroughputTarget,
 };
 
-pub const DIAGNOSTICS_ENGINE_SCHEMA_VERSION: u32 = 2;
+pub const DIAGNOSTICS_ENGINE_SCHEMA_VERSION: u32 = 1;
 
 pub type EngineProbeTaskFamily = ProbeTaskFamily;
 pub type EngineProbeTaskWire = ProbeTask;
@@ -144,7 +144,7 @@ pub struct EngineProgressWire {
     pub latest_probe_target: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub latest_probe_outcome: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(default)]
     pub strategy_probe_progress: Option<StrategyProbeLiveProgress>,
 }
 

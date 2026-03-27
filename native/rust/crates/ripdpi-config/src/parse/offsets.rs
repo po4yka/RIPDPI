@@ -1,4 +1,4 @@
-use crate::{AutoTtlConfig, ConfigError, NumericRange, OffsetBase, OffsetExpr, OffsetProto};
+use crate::{AutoTtlConfig, ConfigError, NumericRange, OffsetBase, OffsetExpr};
 
 fn parse_range_core(spec: &str, option: &str, minimum: i64) -> Result<NumericRange<i64>, ConfigError> {
     let trimmed = spec.trim();
@@ -90,52 +90,6 @@ fn marker_from_name(name: &str) -> Option<OffsetBase> {
     }
 }
 
-fn parse_legacy_offset_expr(spec: &str) -> Result<Option<OffsetExpr>, ConfigError> {
-    let Some((prefix, suffix)) = spec.split_once('+') else {
-        return Ok(None);
-    };
-    let Ok(delta) = prefix.parse::<i64>() else {
-        return Ok(None);
-    };
-    if suffix.is_empty() || suffix.len() > 2 {
-        return Err(ConfigError::invalid("offset", Some(spec)));
-    }
-
-    let bytes = suffix.as_bytes();
-    let proto = match bytes.first().copied() {
-        Some(b's') => OffsetProto::TlsOnly,
-        Some(b'h' | b'n') => OffsetProto::Any,
-        _ => return Err(ConfigError::invalid("offset", Some(spec))),
-    };
-    let second = bytes.get(1).copied();
-
-    let expr = match (bytes[0], second) {
-        (b's' | b'h', None | Some(b's')) => match proto {
-            OffsetProto::Any => OffsetExpr::marker(OffsetBase::Host, delta),
-            OffsetProto::TlsOnly => OffsetExpr::tls_marker(OffsetBase::Host, delta),
-        },
-        (b's' | b'h', Some(b'e')) => match proto {
-            OffsetProto::Any => OffsetExpr::marker(OffsetBase::EndHost, delta),
-            OffsetProto::TlsOnly => OffsetExpr::tls_marker(OffsetBase::EndHost, delta),
-        },
-        (b's' | b'h', Some(b'm')) => match proto {
-            OffsetProto::Any => OffsetExpr::marker(OffsetBase::HostMid, delta),
-            OffsetProto::TlsOnly => OffsetExpr::tls_marker(OffsetBase::HostMid, delta),
-        },
-        (b's' | b'h', Some(b'r')) => match proto {
-            OffsetProto::Any => OffsetExpr::marker(OffsetBase::HostRand, delta),
-            OffsetProto::TlsOnly => OffsetExpr::tls_marker(OffsetBase::HostRand, delta),
-        },
-        (b'n', None | Some(b's')) => OffsetExpr::absolute(delta),
-        (b'n', Some(b'e')) => OffsetExpr::marker(OffsetBase::PayloadEnd, delta),
-        (b'n', Some(b'm')) => OffsetExpr::marker(OffsetBase::PayloadMid, delta),
-        (b'n', Some(b'r')) => OffsetExpr::marker(OffsetBase::PayloadRand, delta),
-        _ => return Err(ConfigError::invalid("offset", Some(spec))),
-    };
-
-    Ok(Some(expr))
-}
-
 pub fn parse_offset_expr(spec: &str) -> Result<OffsetExpr, ConfigError> {
     let mut parts = spec.split(':');
     let base = parts.next().ok_or_else(|| ConfigError::invalid("offset", Some(spec)))?;
@@ -159,8 +113,6 @@ pub fn parse_offset_expr(spec: &str) -> Result<OffsetExpr, ConfigError> {
     } else if let Some(expr) = parse_adaptive_offset_expr(base)? {
         expr
     } else if let Some(expr) = parse_named_offset_expr(base)? {
-        expr
-    } else if let Some(expr) = parse_legacy_offset_expr(base)? {
         expr
     } else {
         return Err(ConfigError::invalid("offset", Some(spec)));

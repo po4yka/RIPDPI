@@ -20,8 +20,6 @@ class ConnectivityDnsTargetPlannerTest {
             dnsMode = DnsModePlainUdp,
             dnsProviderId = DnsProviderCustom,
             dnsIp = "",
-            dnsDohUrl = "",
-            dnsDohBootstrapIps = emptyList(),
         )
 
     @Test
@@ -61,11 +59,12 @@ class ConnectivityDnsTargetPlannerTest {
     }
 
     @Test
-    fun `target with plain doh url passes through unchanged`() {
+    fun `target with explicit encrypted doh url passes through unchanged`() {
         val target =
             DnsTarget(
                 domain = "example.com",
-                dohUrl = "http://127.0.0.1:46054/dns-query",
+                encryptedProtocol = EncryptedDnsProtocolDoh,
+                encryptedDohUrl = "http://127.0.0.1:46054/dns-query",
             )
         val result =
             ConnectivityDnsTargetPlanner.expandTargets(
@@ -78,11 +77,11 @@ class ConnectivityDnsTargetPlannerTest {
     }
 
     @Test
-    fun `target with plain doh bootstrap ips passes through unchanged`() {
+    fun `target with explicit encrypted host passes through unchanged`() {
         val target =
             DnsTarget(
                 domain = "example.com",
-                dohBootstrapIps = listOf("127.0.0.1"),
+                encryptedHost = "resolver.example.test",
             )
         val result =
             ConnectivityDnsTargetPlanner.expandTargets(

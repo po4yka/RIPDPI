@@ -23,6 +23,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
+import org.junit.Assert.fail
 import org.junit.Test
 
 class RipDpiProxyPreferencesTest {
@@ -45,27 +46,33 @@ class RipDpiProxyPreferencesTest {
     }
 
     @Test
-    fun legacyCommandLinePayloadsNormalizeExecutableNameOnRewrite() {
+    fun legacyCommandLinePayloadsAreRejectedOnRewrite() {
         val legacyJson =
             RipDpiProxyCmdPreferences("--port 1081")
                 .toNativeConfigJson()
                 .replace("\"ripdpi\"", "\"$LegacyCommandLineProgram\"")
 
-        val payload = RipDpiProxyJsonPreferences(legacyJson).toNativeConfigJson().parseJsonObject()
-
-        assertEquals("ripdpi", payload.array("args")[0].jsonPrimitive.content)
+        try {
+            RipDpiProxyJsonPreferences(legacyJson).toNativeConfigJson()
+            fail("Expected legacy command-line program alias to be rejected")
+        } catch (_: IllegalArgumentException) {
+            // Expected.
+        }
     }
 
     @Test
-    fun legacyUiPayloadsNormalizeStrategyPresetOnRewrite() {
+    fun legacyUiPayloadsRejectStrategyPresetAliasOnRewrite() {
         val legacyJson =
             RipDpiProxyUIPreferences()
                 .toNativeConfigJson()
                 .withTopLevelString("strategyPreset", LegacyStrategyPreset)
 
-        val payload = RipDpiProxyJsonPreferences(legacyJson).toNativeConfigJson().parseJsonObject()
-
-        assertEquals("ripdpi_default", payload.string("strategyPreset"))
+        try {
+            RipDpiProxyJsonPreferences(legacyJson).toNativeConfigJson()
+            fail("Expected legacy strategy preset alias to be rejected")
+        } catch (_: IllegalArgumentException) {
+            // Expected.
+        }
     }
 
     @Test
@@ -102,7 +109,7 @@ class RipDpiProxyPreferencesTest {
                         enabled = true,
                         penaltyTtlHours = 12,
                         maxHosts = 1024,
-                        storePath = "/data/user/0/com.poyka.ripdpi/no_backup/ripdpi/host-autolearn-v1.json",
+                        storePath = "/data/user/0/com.poyka.ripdpi/no_backup/ripdpi/host-autolearn-v2.json",
                     ),
             )
 
@@ -135,7 +142,7 @@ class RipDpiProxyPreferencesTest {
         assertEquals(12, hostAutolearn.int("penaltyTtlHours"))
         assertEquals(1024, hostAutolearn.int("maxHosts"))
         assertEquals(
-            "/data/user/0/com.poyka.ripdpi/no_backup/ripdpi/host-autolearn-v1.json",
+            "/data/user/0/com.poyka.ripdpi/no_backup/ripdpi/host-autolearn-v2.json",
             hostAutolearn.string("storePath"),
         )
         assertFalse("desyncMethod" in payload)

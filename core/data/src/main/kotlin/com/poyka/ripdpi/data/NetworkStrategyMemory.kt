@@ -196,15 +196,6 @@ fun VpnDnsPolicyJson.toActiveDnsSettings(): ActiveDnsSettings =
         dnsMode = mode,
         dnsProviderId = providerId,
         dnsIp = dnsIp,
-        dnsDohUrl = if (encryptedDnsProtocol == EncryptedDnsProtocolDoh) encryptedDnsDohUrl else "",
-        dnsDohBootstrapIps =
-            if (encryptedDnsProtocol ==
-                EncryptedDnsProtocolDoh
-            ) {
-                encryptedDnsBootstrapIps
-            } else {
-                emptyList()
-            },
         encryptedDnsProtocol = encryptedDnsProtocol,
         encryptedDnsHost = encryptedDnsHost,
         encryptedDnsPort = encryptedDnsPort,
