@@ -1,0 +1,32 @@
+{
+  "version": 1,
+  "fingerprint": "399c7926b4a842e0e713eea26cfeadcd0091e576cd23b4f7a80153fe98d91dd3",
+  "scopes": {
+    "default": {
+      "entries": [
+        {
+          "groupIndex": 1,
+          "flowKind": "tcp_other",
+          "target": {
+            "address": "127.0.0.1:47101"
+          },
+          "state": {
+            "splitOffsetBase": null,
+            "tlsRecordOffsetBase": null,
+            "tlsrandrecProfile": null,
+            "udpBurstProfile": null,
+            "quicFakeProfile": null,
+            "dimensionOrder": [
+              0,
+              1,
+              2,
+              3,
+              4
+            ],
+            "dimensionCursor": 0
+          }
+        }
+      ]
+    }
+  }
+}
