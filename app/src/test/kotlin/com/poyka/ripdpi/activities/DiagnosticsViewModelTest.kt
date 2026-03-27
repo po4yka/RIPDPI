@@ -1617,6 +1617,49 @@ class DiagnosticsViewModelTest {
         }
 
     @Test
+    fun `scan completion with resolver recommendation emits plain language snackbar summary and dns action`() =
+        runTest {
+            val appContext = RuntimeEnvironment.getApplication()
+            val rawSummary = "DNS tampering classified before fallback; resolver override recommended"
+            val completed =
+                buildScanCompletionEffect(
+                    scan =
+                        DiagnosticsScanUiModel(
+                            latestSession =
+                                DiagnosticsSessionRowUiModel(
+                                    id = "resolver-session",
+                                    profileId = "automatic-probing",
+                                    title = rawSummary,
+                                    subtitle = "RAW_PATH · VPN · Mar 27, 16:45",
+                                    pathMode = "RAW_PATH",
+                                    serviceMode = "VPN",
+                                    status = "finished",
+                                    startedAtLabel = "Mar 27, 16:45",
+                                    summary = rawSummary,
+                                    metrics = emptyList(),
+                                    tone = DiagnosticsTone.Warning,
+                                ),
+                            resolverRecommendation =
+                                DiagnosticsResolverRecommendationUiModel(
+                                    headline = "Switch DNS to Cloudflare",
+                                    rationale = "Encrypted DNS stayed clean while UDP DNS diverged.",
+                                    fields = emptyList(),
+                                    appliedTemporarily = false,
+                                    persistable = true,
+                                ),
+                        ),
+                    context = appContext,
+                )
+            assertEquals(
+                "DNS replies looked different on this network. Switch DNS to Cloudflare.",
+                completed.summary,
+            )
+            assertEquals(DiagnosticsTone.Warning, completed.tone)
+            assertEquals(appContext.getString(com.poyka.ripdpi.R.string.title_dns_settings), completed.actionLabel)
+            assertEquals(DiagnosticsEffect.SnackbarAction.OpenDnsSettings, completed.action)
+        }
+
+    @Test
     fun `automatic audit completion auto opens finished session detail after fast completion race`() =
         runTest {
             val profileId = "automatic-audit"
