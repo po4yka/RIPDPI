@@ -164,6 +164,7 @@ class AndroidNetworkMetadataProvider
         private fun resolveLocalAddresses(linkProperties: LinkProperties?): List<String> =
             linkProperties?.linkAddresses?.map { it.address.hostAddress.orEmpty() }.orEmpty()
 
+        @Suppress("DEPRECATION") // connectionInfo/dhcpInfo: no modern replacement; API 29+ path already preferred
         private fun resolveWifiDetails(capabilities: NetworkCapabilities?): WifiNetworkDetails? {
             if (capabilities?.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) != true) {
                 return null
@@ -359,6 +360,7 @@ class AndroidNetworkMetadataProvider
         private fun hasPermission(permission: String): Boolean =
             ContextCompat.checkSelfPermission(context, permission) == PackageManager.PERMISSION_GRANTED
 
+        @Suppress("DEPRECATION") // legacy CDMA/2G/3G constants: no replacement, networks are EOL
         private fun describeMobileNetworkType(type: Int): String =
             when (type) {
                 TelephonyManager.NETWORK_TYPE_GPRS -> "GPRS"
