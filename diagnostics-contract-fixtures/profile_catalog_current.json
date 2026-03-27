@@ -24,11 +24,11 @@
     },
     {
       "id": "ru-throttling",
-      "version": 1
+      "version": 2
     },
     {
       "id": "neutral-control",
-      "version": 1
+      "version": 2
     },
     {
       "id": "automatic-audit-targets",
@@ -1750,7 +1750,7 @@
     {
       "id": "ru-throttling",
       "name": "Russia Throttling Check",
-      "version": 1,
+      "version": 2,
       "request": {
         "profileId": "ru-throttling",
         "displayName": "Russia Throttling Check",
@@ -1765,7 +1765,7 @@
         },
         "packRefs": [
           "ru-throttling@1",
-          "neutral-control@1"
+          "neutral-control@2"
         ],
         "domainTargets": [
           {
@@ -1775,7 +1775,7 @@
             "host": "speed.cloudflare.com"
           },
           {
-            "host": "speed.hetzner.de"
+            "host": "proof.ovh.net"
           }
         ],
         "dnsTargets": [],
@@ -1801,9 +1801,9 @@
             "runs": 2
           },
           {
-            "id": "hetzner-control",
-            "label": "Hetzner Control",
-            "url": "https://speed.hetzner.de/10MB.bin",
+            "id": "ovh-control",
+            "label": "OVH Control",
+            "url": "https://proof.ovh.net/files/10Mb.dat",
             "isControl": true,
             "windowBytes": 8388608,
             "runs": 2
@@ -1815,7 +1815,7 @@
     {
       "id": "ru-dpi-full",
       "name": "Russia DPI Full",
-      "version": 1,
+      "version": 2,
       "request": {
         "profileId": "ru-dpi-full",
         "displayName": "Russia DPI Full",
@@ -1834,7 +1834,7 @@
           "ru-messaging@1",
           "ru-circumvention@1",
           "ru-throttling@1",
-          "neutral-control@1"
+          "neutral-control@2"
         ],
         "domainTargets": [
           {
