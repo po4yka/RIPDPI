@@ -239,8 +239,6 @@ class VpnEncryptedDnsFailoverControllerTest {
             dnsMode = "encrypted",
             dnsProviderId = DnsProviderCloudflare,
             dnsIp = "1.1.1.1",
-            dnsDohUrl = "https://cloudflare-dns.com/dns-query",
-            dnsDohBootstrapIps = listOf("1.1.1.1", "1.0.0.1"),
             encryptedDnsProtocol = EncryptedDnsProtocolDoh,
             encryptedDnsHost = "cloudflare-dns.com",
             encryptedDnsPort = 443,

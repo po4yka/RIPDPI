@@ -205,17 +205,11 @@ struct StoredAdaptivePlannerStore {
     scopes: BTreeMap<String, StoredAdaptiveNetworkScope>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct AdaptivePlannerResolver {
     states: HashMap<AdaptivePlannerKey, AdaptivePlannerState>,
     last_persist_at_ms: u64,
     dirty: bool,
-}
-
-impl Default for AdaptivePlannerResolver {
-    fn default() -> Self {
-        Self { states: HashMap::new(), last_persist_at_ms: 0, dirty: false }
-    }
 }
 
 impl AdaptivePlannerResolver {
@@ -452,9 +446,11 @@ impl AdaptivePlannerState {
     }
 
     fn from_persisted(state: StoredAdaptivePlannerState, seed: u64) -> Self {
-        let dimension_order = valid_dimension_order(&state.dimension_order)
-            .then_some(state.dimension_order)
-            .unwrap_or_else(|| shuffled_dimensions(seed));
+        let dimension_order = if valid_dimension_order(&state.dimension_order) {
+            state.dimension_order
+        } else {
+            shuffled_dimensions(seed)
+        };
         let dimension_cursor = if state.dimension_cursor < dimension_order.len() { state.dimension_cursor } else { 0 };
         Self {
             split_offset_base: state.split_offset_base.and_then(|choice| load_choice(choice, restore_offset_base)),

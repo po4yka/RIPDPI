@@ -38,7 +38,7 @@ const TSHARK_BIN_ENV: &str = "RIPDPI_PACKET_SMOKE_TSHARK_BIN";
 fn cli_packet_smoke_tcp_split_family() {
     run_capture_scenario(
         "cli_packet_smoke_tcp_split_family",
-        |_paths| vec!["-K", "t", "-s", "host+1"].into_iter().map(str::to_string).collect(),
+        |_paths| vec!["-s", "host+1"].into_iter().map(str::to_string).collect(),
         |manifest| format!("tcp and port {}", manifest.tcp_echo_port),
         |proxy_port, fixture| drive_http_echo_strict(proxy_port, fixture, "split"),
         |run| {
@@ -53,7 +53,7 @@ fn cli_packet_smoke_tcp_split_family() {
 fn cli_packet_smoke_tcp_disorder_family() {
     run_capture_scenario(
         "cli_packet_smoke_tcp_disorder_family",
-        |_paths| vec!["-K", "t", "-t", "2", "-d", "host+1"].into_iter().map(str::to_string).collect(),
+        |_paths| vec!["-t", "2", "-d", "host+1"].into_iter().map(str::to_string).collect(),
         |manifest| format!("tcp and port {}", manifest.tcp_echo_port),
         |proxy_port, fixture| drive_http_echo_best_effort(proxy_port, fixture, "disorder"),
         |run| assert_outbound_ttl(run, run.manifest.tcp_echo_port, 2),
@@ -80,7 +80,7 @@ fn cli_packet_smoke_tcp_fake_family() {
 fn cli_packet_smoke_tcp_oob_family() {
     run_capture_scenario(
         "cli_packet_smoke_tcp_oob_family",
-        |_paths| vec!["-K", "t", "-o", "host+1"].into_iter().map(str::to_string).collect(),
+        |_paths| vec!["-o", "host+1"].into_iter().map(str::to_string).collect(),
         |manifest| format!("tcp and port {}", manifest.tcp_echo_port),
         |proxy_port, fixture| drive_http_echo_best_effort(proxy_port, fixture, "oob"),
         |run| assert_outbound_urgent(run, run.manifest.tcp_echo_port),
@@ -91,7 +91,7 @@ fn cli_packet_smoke_tcp_oob_family() {
 fn cli_packet_smoke_tcp_disoob_family() {
     run_capture_scenario(
         "cli_packet_smoke_tcp_disoob_family",
-        |_paths| vec!["-K", "t", "-t", "3", "-q", "host+1"].into_iter().map(str::to_string).collect(),
+        |_paths| vec!["-t", "3", "-q", "host+1"].into_iter().map(str::to_string).collect(),
         |manifest| format!("tcp and port {}", manifest.tcp_echo_port),
         |proxy_port, fixture| drive_http_echo_best_effort(proxy_port, fixture, "disoob"),
         |run| {
