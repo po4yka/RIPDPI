@@ -2,12 +2,16 @@ package com.poyka.ripdpi.activities
 
 import android.content.Context
 import com.poyka.ripdpi.R
+import com.poyka.ripdpi.data.RememberedNetworkPolicySource
 import com.poyka.ripdpi.diagnostics.BypassApproachSummary
 import com.poyka.ripdpi.diagnostics.Diagnosis
 import com.poyka.ripdpi.diagnostics.DiagnosticActiveConnectionPolicy
 import com.poyka.ripdpi.diagnostics.DiagnosticEvent
 import com.poyka.ripdpi.diagnostics.DiagnosticProfile
 import com.poyka.ripdpi.diagnostics.DiagnosticsRememberedPolicy
+import com.poyka.ripdpi.diagnostics.DiagnosticsScanLaunchOrigin
+import com.poyka.ripdpi.diagnostics.DiagnosticsScanLaunchTrigger
+import com.poyka.ripdpi.diagnostics.DiagnosticsScanTriggerType
 import com.poyka.ripdpi.diagnostics.ScanKind
 import com.poyka.ripdpi.diagnostics.ScanProgress
 import com.poyka.ripdpi.diagnostics.StrategyProbeProgressLane
@@ -97,6 +101,31 @@ internal fun DiagnosticsUiFactorySupport.toRememberedNetworkUiModel(
         successCount = policy.successCount,
         failureCount = policy.failureCount,
         isCurrentMatch = isCurrentMatch,
+    )
+}
+
+internal fun DiagnosticsUiFactorySupport.toAutomaticProbeCalloutUiModel(
+    session: com.poyka.ripdpi.diagnostics.DiagnosticScanSession,
+): DiagnosticsAutomaticProbeCalloutUiModel {
+    val detail =
+        session.launchTrigger
+            ?.displaySummaryLabel(context)
+            ?.let { summary ->
+                context.getString(
+                    R.string.diagnostics_overview_automatic_probe_detail_handover_format,
+                    formatTimestamp(session.finishedAt ?: session.startedAt),
+                    summary,
+                )
+            }
+            ?: context.getString(
+                R.string.diagnostics_overview_automatic_probe_detail_format,
+                formatTimestamp(session.finishedAt ?: session.startedAt),
+            )
+    return DiagnosticsAutomaticProbeCalloutUiModel(
+        title = context.getString(R.string.diagnostics_overview_automatic_probe_title),
+        summary = session.summary,
+        detail = detail,
+        actionLabel = context.getString(R.string.diagnostics_open_history_action),
     )
 }
 
@@ -218,11 +247,86 @@ internal fun String.statusTone(): DiagnosticsTone =
         else -> DiagnosticsTone.Info
     }
 
-internal fun String.displaySourceLabel(ctx: Context): String =
-    when (lowercase(Locale.US)) {
-        "strategy_probe" -> ctx.getString(R.string.diagnostics_source_strategy_probe)
-        else -> ctx.getString(R.string.diagnostics_source_manual_session)
+internal fun RememberedNetworkPolicySource.displaySourceLabel(ctx: Context): String =
+    when (this) {
+        RememberedNetworkPolicySource.MANUAL_SESSION -> {
+            ctx.getString(R.string.diagnostics_source_manual_session)
+        }
+
+        RememberedNetworkPolicySource.AUTOMATIC_PROBING_BACKGROUND -> {
+            ctx.getString(R.string.diagnostics_source_automatic_probing_background)
+        }
+
+        RememberedNetworkPolicySource.AUTOMATIC_PROBING_MANUAL -> {
+            ctx.getString(R.string.diagnostics_source_automatic_probing_manual)
+        }
+
+        RememberedNetworkPolicySource.AUTOMATIC_AUDIT_MANUAL -> {
+            ctx.getString(R.string.diagnostics_source_automatic_audit_manual)
+        }
+
+        RememberedNetworkPolicySource.STRATEGY_PROBE_MANUAL -> {
+            ctx.getString(R.string.diagnostics_source_strategy_probe_manual)
+        }
+
+        RememberedNetworkPolicySource.UNKNOWN -> {
+            ctx.getString(R.string.diagnostics_source_unknown)
+        }
     }
+
+internal fun DiagnosticsScanLaunchOrigin.displayLabel(ctx: Context): String =
+    when (this) {
+        DiagnosticsScanLaunchOrigin.USER_INITIATED -> {
+            ctx.getString(R.string.diagnostics_scan_launch_user_initiated)
+        }
+
+        DiagnosticsScanLaunchOrigin.AUTOMATIC_BACKGROUND -> {
+            ctx.getString(R.string.diagnostics_scan_launch_automatic_background)
+        }
+
+        DiagnosticsScanLaunchOrigin.UNKNOWN -> {
+            ctx.getString(R.string.diagnostics_scan_launch_unknown)
+        }
+    }
+
+internal fun DiagnosticsScanTriggerType.displayLabel(ctx: Context): String =
+    when (this) {
+        DiagnosticsScanTriggerType.POLICY_HANDOVER -> ctx.getString(R.string.diagnostics_scan_trigger_policy_handover)
+        DiagnosticsScanTriggerType.UNKNOWN -> ctx.getString(R.string.diagnostics_scan_trigger_unknown)
+    }
+
+internal fun DiagnosticsScanLaunchTrigger.displaySummaryLabel(ctx: Context): String? {
+    val classificationLabel = classification?.displayTriggerClassification()
+    return when (type) {
+        DiagnosticsScanTriggerType.POLICY_HANDOVER -> {
+            classificationLabel?.let {
+                ctx.getString(R.string.diagnostics_scan_trigger_handover_summary_format, it)
+            } ?: ctx.getString(R.string.diagnostics_scan_trigger_policy_handover)
+        }
+
+        DiagnosticsScanTriggerType.UNKNOWN -> {
+            classificationLabel ?: ctx.getString(R.string.diagnostics_scan_trigger_unknown)
+        }
+    }
+}
+
+internal fun String.displayTriggerClassification(): String =
+    split('_', '-', ' ')
+        .filter { it.isNotBlank() }
+        .joinToString(" ") { token ->
+            token.lowercase(Locale.US).replaceFirstChar { it.titlecase(Locale.US) }
+        }
+
+internal fun String?.shortFingerprintHash(): String? {
+    val value = this?.trim().orEmpty()
+    if (value.isBlank()) {
+        return null
+    }
+    return when {
+        value.length <= 12 -> value
+        else -> "${value.take(6)}...${value.takeLast(4)}"
+    }
+}
 
 internal fun BypassApproachSummary.toDiagnosticsTone(): DiagnosticsTone =
     when {
@@ -267,7 +371,7 @@ internal fun DiagnosticsSessionRowUiModel.matchesQuery(query: String): Boolean {
         return true
     }
     val normalized = query.lowercase(Locale.US)
-    return listOf(title, subtitle, summary, pathMode, serviceMode, status).any {
+    return listOfNotNull(title, subtitle, summary, pathMode, serviceMode, status, triggerClassification).any {
         it.lowercase(Locale.US).contains(normalized)
     }
 }

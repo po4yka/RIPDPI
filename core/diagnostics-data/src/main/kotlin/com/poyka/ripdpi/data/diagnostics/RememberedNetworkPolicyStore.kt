@@ -3,7 +3,7 @@ package com.poyka.ripdpi.data.diagnostics
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.NetworkFingerprintSummary
 import com.poyka.ripdpi.data.RememberedNetworkPolicyJson
-import com.poyka.ripdpi.data.RememberedNetworkPolicySourceManualSession
+import com.poyka.ripdpi.data.RememberedNetworkPolicySource
 import com.poyka.ripdpi.data.RememberedNetworkPolicyStatusObserved
 import com.poyka.ripdpi.data.RememberedNetworkPolicyStatusSuppressed
 import com.poyka.ripdpi.data.RememberedNetworkPolicyStatusValidated
@@ -30,13 +30,13 @@ interface RememberedNetworkPolicyStore {
 
     suspend fun upsertObservedPolicy(
         policy: RememberedNetworkPolicyJson,
-        source: String = RememberedNetworkPolicySourceManualSession,
+        source: RememberedNetworkPolicySource = RememberedNetworkPolicySource.MANUAL_SESSION,
         observedAt: Long? = null,
     ): RememberedNetworkPolicyEntity
 
     suspend fun rememberValidatedPolicy(
         policy: RememberedNetworkPolicyJson,
-        source: String,
+        source: RememberedNetworkPolicySource,
         validatedAt: Long? = null,
     ): RememberedNetworkPolicyEntity
 
@@ -89,7 +89,7 @@ class DefaultRememberedNetworkPolicyStore
 
         override suspend fun upsertObservedPolicy(
             policy: RememberedNetworkPolicyJson,
-            source: String,
+            source: RememberedNetworkPolicySource,
             observedAt: Long?,
         ): RememberedNetworkPolicyEntity =
             upsertInternal(
@@ -107,7 +107,7 @@ class DefaultRememberedNetworkPolicyStore
 
         override suspend fun rememberValidatedPolicy(
             policy: RememberedNetworkPolicyJson,
-            source: String,
+            source: RememberedNetworkPolicySource,
             validatedAt: Long?,
         ): RememberedNetworkPolicyEntity {
             val effectiveValidatedAt = validatedAt ?: clock.now()
@@ -188,7 +188,7 @@ class DefaultRememberedNetworkPolicyStore
         private suspend fun upsertInternal(
             existing: RememberedNetworkPolicyEntity?,
             policy: RememberedNetworkPolicyJson,
-            source: String,
+            source: RememberedNetworkPolicySource,
             status: String,
             validatedAt: Long?,
             now: Long,
@@ -213,7 +213,7 @@ class DefaultRememberedNetworkPolicyStore
                         strategySignatureJson = policy.strategySignatureJson,
                         winningTcpStrategyFamily = policy.winningTcpStrategyFamily,
                         winningQuicStrategyFamily = policy.winningQuicStrategyFamily,
-                        source = source,
+                        source = source.encodeStorageValue(),
                         status = status,
                         successCount = if (status == RememberedNetworkPolicyStatusValidated) 1 else 0,
                         failureCount = 0,
@@ -240,7 +240,7 @@ class DefaultRememberedNetworkPolicyStore
                         winningTcpStrategyFamily = policy.winningTcpStrategyFamily ?: existing.winningTcpStrategyFamily,
                         winningQuicStrategyFamily =
                             policy.winningQuicStrategyFamily ?: existing.winningQuicStrategyFamily,
-                        source = source,
+                        source = source.encodeStorageValue(),
                         status = status,
                         successCount =
                             if (status == RememberedNetworkPolicyStatusValidated) {
@@ -279,6 +279,9 @@ class DefaultRememberedNetworkPolicyStore
                 winningTcpStrategyFamily == policy.winningTcpStrategyFamily &&
                 winningQuicStrategyFamily == policy.winningQuicStrategyFamily
     }
+
+fun RememberedNetworkPolicyEntity.decodedSource(): RememberedNetworkPolicySource =
+    RememberedNetworkPolicySource.fromStorageValue(source)
 
 fun RememberedNetworkPolicyEntity.decodeSummary(
     json: Json =

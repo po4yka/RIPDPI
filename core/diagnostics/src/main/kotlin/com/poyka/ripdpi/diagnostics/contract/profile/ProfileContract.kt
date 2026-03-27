@@ -16,10 +16,18 @@ import kotlinx.serialization.Serializable
 const val BundledDiagnosticsCatalogSchemaVersion = 2
 
 @Serializable
+enum class ProbePersistencePolicyWire {
+    MANUAL_ONLY,
+    BACKGROUND_ONLY,
+    ALWAYS,
+}
+
+@Serializable
 data class ProfileExecutionPolicyWire(
     val manualOnly: Boolean = false,
     val allowBackground: Boolean = false,
     val requiresRawPath: Boolean = false,
+    val probePersistencePolicy: ProbePersistencePolicyWire? = null,
 )
 
 @Serializable

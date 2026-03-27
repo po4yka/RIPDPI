@@ -51,6 +51,7 @@ class DiagnosticsContractGovernanceTest {
                 ).jsonObject
 
         assertNotNull(currentProfileSpec.executionPolicy)
+        assertNotNull(currentProfileSpec.executionPolicy?.probePersistencePolicy)
         assertTrue(legacyProfileSpec.executionPolicyOrCompat().requiresRawPath)
         assertEquals(DiagnosticsEngineSchemaVersion, engineRequest.schemaVersion)
         assertEquals(DiagnosticsEngineSchemaVersion, engineReport.schemaVersion)

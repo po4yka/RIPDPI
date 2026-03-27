@@ -216,6 +216,7 @@ private fun preparedStrategyProbeScan(
             ),
         requestJson = "{}",
         scanOrigin = DiagnosticsScanOrigin.AUTOMATIC_BACKGROUND,
+        launchTrigger = null,
         exposeProgress = false,
         registerActiveBridge = false,
         networkFingerprint = fingerprint,

@@ -131,6 +131,11 @@ internal fun ProbePersistencePolicyWire.toDomainPolicy(): ProbePersistencePolicy
         ProbePersistencePolicyWire.ALWAYS -> ProbePersistencePolicy.ALWAYS
     }
 
+internal fun ProfileExecutionPolicyWire.normalizedProbePersistencePolicy(): ProbePersistencePolicyWire =
+    requireNotNull(probePersistencePolicy) {
+        "Probe persistence policy must be normalized before use"
+    }
+
 internal fun ProbeTask.toEngineProbeTaskWire(): EngineProbeTaskWire =
     EngineProbeTaskWire(
         family =
@@ -177,7 +182,7 @@ internal fun ProfileSpecWire.toProfileProjection(): DiagnosticsProfileProjection
                     manualOnly = executionPolicy.manualOnly,
                     allowBackground = executionPolicy.allowBackground,
                     requiresRawPath = executionPolicy.requiresRawPath,
-                    probePersistencePolicy = executionPolicy.probePersistencePolicy.toDomainPolicy(),
+                    probePersistencePolicy = executionPolicy.normalizedProbePersistencePolicy().toDomainPolicy(),
                 ),
             manualOnly = executionPolicy.manualOnly,
             packRefs = packRefs,

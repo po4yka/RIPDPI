@@ -13,6 +13,7 @@ import com.poyka.ripdpi.data.diagnostics.ProbeResultEntity
 import com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyEntity
 import com.poyka.ripdpi.data.diagnostics.ScanSessionEntity
 import com.poyka.ripdpi.data.diagnostics.TelemetrySampleEntity
+import com.poyka.ripdpi.data.diagnostics.decodedSource
 import com.poyka.ripdpi.diagnostics.presentation.DiagnosticsSessionProjection
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.builtins.ListSerializer
@@ -54,6 +55,15 @@ class DiagnosticsBoundaryMapper
                 report = decodeScanProjection(json, entity.reportJson),
                 startedAt = entity.startedAt,
                 finishedAt = entity.finishedAt,
+                launchOrigin = DiagnosticsScanLaunchOrigin.fromStorageValue(entity.launchOrigin),
+                launchTrigger =
+                    DiagnosticsScanLaunchTrigger.fromStorage(
+                        type = entity.triggerType,
+                        classification = entity.triggerClassification,
+                        occurredAt = entity.triggerOccurredAt,
+                        previousFingerprintHash = entity.triggerPreviousFingerprintHash,
+                        currentFingerprintHash = entity.triggerCurrentFingerprintHash,
+                    ),
             )
 
         fun toProbeResult(entity: ProbeResultEntity): ProbeResult {
@@ -190,7 +200,7 @@ class DiagnosticsBoundaryMapper
                 strategySignature = decodeStrategySignature(json, entity.strategySignatureJson),
                 winningTcpStrategyFamily = entity.winningTcpStrategyFamily,
                 winningQuicStrategyFamily = entity.winningQuicStrategyFamily,
-                source = entity.source,
+                source = entity.decodedSource(),
                 status = entity.status,
                 successCount = entity.successCount,
                 failureCount = entity.failureCount,

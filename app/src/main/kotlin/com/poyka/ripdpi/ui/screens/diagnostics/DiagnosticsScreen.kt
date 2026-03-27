@@ -42,6 +42,7 @@ import com.poyka.ripdpi.BuildConfig
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.DiagnosticsApproachMode
 import com.poyka.ripdpi.activities.DiagnosticsApproachesUiModel
+import com.poyka.ripdpi.activities.DiagnosticsAutomaticProbeCalloutUiModel
 import com.poyka.ripdpi.activities.DiagnosticsEffect
 import com.poyka.ripdpi.activities.DiagnosticsHealth
 import com.poyka.ripdpi.activities.DiagnosticsOverviewUiModel
@@ -484,6 +485,14 @@ private fun OverviewSection(
                 RememberedNetworkPoliciesCard(policies = overview.rememberedNetworks)
             }
         }
+        overview.recentAutomaticProbe?.let { automaticProbe ->
+            item {
+                AutomaticProbeHistoryCard(
+                    callout = automaticProbe,
+                    onOpenHistory = onOpenHistory,
+                )
+            }
+        }
         item {
             HistoryCalloutCard(onOpenHistory = onOpenHistory)
         }
@@ -557,6 +566,39 @@ private fun RememberedNetworkPoliciesCard(policies: List<DiagnosticsRememberedNe
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun AutomaticProbeHistoryCard(
+    callout: DiagnosticsAutomaticProbeCalloutUiModel,
+    onOpenHistory: () -> Unit,
+) {
+    RipDpiCard(
+        variant = RipDpiCardVariant.Outlined,
+        modifier = Modifier.ripDpiTestTag(RipDpiTestTags.DiagnosticsOverviewAutomaticProbeCard),
+    ) {
+        Text(
+            text = callout.title,
+            style = RipDpiThemeTokens.type.bodyEmphasis,
+            color = RipDpiThemeTokens.colors.foreground,
+        )
+        Text(
+            text = callout.summary,
+            style = RipDpiThemeTokens.type.body,
+            color = RipDpiThemeTokens.colors.foreground,
+        )
+        Text(
+            text = callout.detail,
+            style = RipDpiThemeTokens.type.secondaryBody,
+            color = RipDpiThemeTokens.colors.mutedForeground,
+        )
+        RipDpiButton(
+            text = callout.actionLabel,
+            onClick = onOpenHistory,
+            variant = RipDpiButtonVariant.Outline,
+            modifier = Modifier.fillMaxWidth(),
+        )
     }
 }
 

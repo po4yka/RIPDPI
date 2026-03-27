@@ -49,6 +49,8 @@ import com.poyka.ripdpi.activities.DiagnosticsNetworkSnapshotUiModel
 import com.poyka.ripdpi.activities.DiagnosticsProbeResultUiModel
 import com.poyka.ripdpi.activities.DiagnosticsSessionRowUiModel
 import com.poyka.ripdpi.activities.DiagnosticsTone
+import com.poyka.ripdpi.activities.displayTriggerClassification
+import com.poyka.ripdpi.diagnostics.DiagnosticsScanLaunchOrigin
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
@@ -560,6 +562,19 @@ internal fun SessionRow(
                 modifier = Modifier.weight(1f),
                 verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.xs),
             ) {
+                if (session.launchOrigin == DiagnosticsScanLaunchOrigin.AUTOMATIC_BACKGROUND) {
+                    Surface(
+                        color = RipDpiThemeTokens.colors.inputBackground,
+                        shape = RipDpiThemeTokens.shapes.xxl,
+                    ) {
+                        Text(
+                            text = stringResource(R.string.diagnostics_history_background_probe_badge),
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
+                            style = RipDpiThemeTokens.type.smallLabel,
+                            color = RipDpiThemeTokens.colors.mutedForeground,
+                        )
+                    }
+                }
                 Text(
                     text = session.title,
                     style = RipDpiThemeTokens.type.bodyEmphasis,
@@ -570,6 +585,20 @@ internal fun SessionRow(
                     style = RipDpiThemeTokens.type.secondaryBody,
                     color = RipDpiThemeTokens.colors.mutedForeground,
                 )
+                if (
+                    session.launchOrigin == DiagnosticsScanLaunchOrigin.AUTOMATIC_BACKGROUND &&
+                    session.triggerClassification != null
+                ) {
+                    Text(
+                        text =
+                            stringResource(
+                                R.string.diagnostics_scan_trigger_handover_summary_format,
+                                session.triggerClassification.displayTriggerClassification(),
+                            ),
+                        style = RipDpiThemeTokens.type.secondaryBody,
+                        color = RipDpiThemeTokens.colors.mutedForeground,
+                    )
+                }
             }
             StatusIndicator(
                 label = session.status,

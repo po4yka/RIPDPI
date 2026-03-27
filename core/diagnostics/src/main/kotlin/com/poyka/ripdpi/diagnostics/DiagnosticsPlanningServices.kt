@@ -79,6 +79,7 @@ internal class DefaultDiagnosticsIntentResolver
                         manualOnly = executionPolicy.manualOnly,
                         allowBackground = executionPolicy.allowBackground,
                         requiresRawPath = executionPolicy.requiresRawPath,
+                        probePersistencePolicy = executionPolicy.normalizedProbePersistencePolicy().toDomainPolicy(),
                     ),
                 packRefs = spec.packRefs,
                 domainTargets = spec.domainTargets,

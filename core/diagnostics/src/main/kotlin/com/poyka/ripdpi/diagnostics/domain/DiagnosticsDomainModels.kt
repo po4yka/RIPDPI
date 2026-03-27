@@ -8,6 +8,7 @@ import com.poyka.ripdpi.diagnostics.DiagnosticContextModel
 import com.poyka.ripdpi.diagnostics.DiagnosticProfileFamily
 import com.poyka.ripdpi.diagnostics.DnsTarget
 import com.poyka.ripdpi.diagnostics.DomainTarget
+import com.poyka.ripdpi.diagnostics.ProbePersistencePolicy
 import com.poyka.ripdpi.diagnostics.QuicTarget
 import com.poyka.ripdpi.diagnostics.ScanKind
 import com.poyka.ripdpi.diagnostics.ScanPathMode
@@ -40,6 +41,7 @@ internal data class ExecutionPolicy(
     val manualOnly: Boolean,
     val allowBackground: Boolean,
     val requiresRawPath: Boolean,
+    val probePersistencePolicy: ProbePersistencePolicy,
 )
 
 internal data class DiagnosticsIntent(

@@ -19,6 +19,9 @@ import com.poyka.ripdpi.diagnostics.DiagnosticsArchive
 import com.poyka.ripdpi.diagnostics.DiagnosticsBootstrapper
 import com.poyka.ripdpi.diagnostics.DiagnosticsDetailLoader
 import com.poyka.ripdpi.diagnostics.DiagnosticsHistorySource
+import com.poyka.ripdpi.diagnostics.DiagnosticsScanLaunchOrigin
+import com.poyka.ripdpi.diagnostics.DiagnosticsScanLaunchTrigger
+import com.poyka.ripdpi.diagnostics.DiagnosticsScanTriggerType
 import com.poyka.ripdpi.diagnostics.EnvironmentContextModel
 import com.poyka.ripdpi.diagnostics.NetworkSnapshotModel
 import com.poyka.ripdpi.diagnostics.PermissionContextModel
@@ -82,6 +85,10 @@ internal fun historyScanSession(
     pathMode: String = "RAW_PATH",
     serviceMode: String? = "VPN",
     summary: String = "Scan summary",
+    startedAt: Long = 1L,
+    finishedAt: Long? = 2L,
+    launchOrigin: DiagnosticsScanLaunchOrigin = DiagnosticsScanLaunchOrigin.UNKNOWN,
+    launchTrigger: DiagnosticsScanLaunchTrigger? = null,
     report: DiagnosticsSessionProjection? =
         DiagnosticsSessionProjection(
             results =
@@ -103,8 +110,10 @@ internal fun historyScanSession(
         status = status,
         summary = summary,
         report = report,
-        startedAt = 1L,
-        finishedAt = 2L,
+        startedAt = startedAt,
+        finishedAt = finishedAt,
+        launchOrigin = launchOrigin,
+        launchTrigger = launchTrigger,
     )
 
 internal fun historyEvent(
@@ -334,7 +343,10 @@ internal fun historyDiagnosticsDetailUi(id: String = "scan-1"): DiagnosticsSessi
                 summary = "Scan summary",
                 metrics = emptyList(),
                 tone = DiagnosticsTone.Positive,
+                launchOrigin = DiagnosticsScanLaunchOrigin.UNKNOWN,
+                triggerClassification = null,
             ),
+        reportMetadata = emptyList(),
         probeGroups = emptyList(),
         snapshots = emptyList(),
         events = emptyList(),

@@ -13,6 +13,7 @@ import com.poyka.ripdpi.diagnostics.DiagnosticProfileFamily
 import com.poyka.ripdpi.diagnostics.DiagnosticScanSession
 import com.poyka.ripdpi.diagnostics.DiagnosticTelemetrySample
 import com.poyka.ripdpi.diagnostics.DiagnosticsRememberedPolicy
+import com.poyka.ripdpi.diagnostics.DiagnosticsScanLaunchOrigin
 import com.poyka.ripdpi.diagnostics.ProbePersistencePolicy
 import com.poyka.ripdpi.diagnostics.ScanKind
 import com.poyka.ripdpi.diagnostics.ScanPathMode
@@ -232,6 +233,16 @@ data class DiagnosticsSessionRowUiModel(
     val summary: String,
     val metrics: List<DiagnosticsMetricUiModel>,
     val tone: DiagnosticsTone,
+    val launchOrigin: DiagnosticsScanLaunchOrigin = DiagnosticsScanLaunchOrigin.UNKNOWN,
+    val triggerClassification: String? = null,
+)
+
+@Immutable
+data class DiagnosticsAutomaticProbeCalloutUiModel(
+    val title: String,
+    val summary: String,
+    val detail: String,
+    val actionLabel: String,
 )
 
 @Stable
@@ -336,6 +347,7 @@ data class DiagnosticsOverviewUiModel(
     val headline: String = "Idle",
     val body: String = "No diagnostics activity yet.",
     val activeProfile: DiagnosticsProfileOptionUiModel? = null,
+    val recentAutomaticProbe: DiagnosticsAutomaticProbeCalloutUiModel? = null,
     val latestSnapshot: DiagnosticsNetworkSnapshotUiModel? = null,
     val latestSession: DiagnosticsSessionRowUiModel? = null,
     val contextSummary: DiagnosticsContextGroupUiModel? = null,

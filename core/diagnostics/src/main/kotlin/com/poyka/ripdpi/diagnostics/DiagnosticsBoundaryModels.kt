@@ -3,6 +3,7 @@ package com.poyka.ripdpi.diagnostics
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.NetworkFingerprintSummary
 import com.poyka.ripdpi.data.RememberedNetworkPolicyJson
+import com.poyka.ripdpi.data.RememberedNetworkPolicySource
 import com.poyka.ripdpi.data.VpnDnsPolicyJson
 import com.poyka.ripdpi.diagnostics.presentation.DiagnosticsProfileProjection
 import com.poyka.ripdpi.diagnostics.presentation.DiagnosticsSessionProjection
@@ -52,6 +53,8 @@ data class DiagnosticScanSession(
     val report: DiagnosticsSessionProjection? = null,
     val startedAt: Long,
     val finishedAt: Long?,
+    val launchOrigin: DiagnosticsScanLaunchOrigin = DiagnosticsScanLaunchOrigin.UNKNOWN,
+    val launchTrigger: DiagnosticsScanLaunchTrigger? = null,
 ) {
     constructor(
         id: String,
@@ -307,7 +310,7 @@ data class DiagnosticsRememberedPolicy(
     val strategySignature: BypassStrategySignature? = null,
     val winningTcpStrategyFamily: String? = null,
     val winningQuicStrategyFamily: String? = null,
-    val source: String,
+    val source: RememberedNetworkPolicySource,
     val status: String,
     val successCount: Int = 0,
     val failureCount: Int = 0,

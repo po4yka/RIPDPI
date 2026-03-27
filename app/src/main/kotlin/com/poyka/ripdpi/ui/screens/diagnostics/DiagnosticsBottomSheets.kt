@@ -74,7 +74,7 @@ internal fun DiagnosticsBottomSheetHost(
                                 .ripDpiTestTag(RipDpiTestTags.DiagnosticsSessionSensitiveToggle),
                     )
                 }
-                if (detail.diagnoses.isNotEmpty()) {
+                if (detail.diagnoses.isNotEmpty() || detail.reportMetadata.isNotEmpty()) {
                     DiagnosisSummaryCard(
                         diagnoses = detail.diagnoses,
                         reportMetadata = detail.reportMetadata,

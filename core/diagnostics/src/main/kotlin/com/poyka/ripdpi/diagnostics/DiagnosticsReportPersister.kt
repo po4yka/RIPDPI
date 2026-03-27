@@ -40,6 +40,12 @@ internal object DiagnosticsReportPersister {
                 reportJson = json.encodeToString(EngineScanReportWire.serializer(), normalizedReport),
                 startedAt = normalizedReport.startedAt,
                 finishedAt = normalizedReport.finishedAt,
+                launchOrigin = existing?.launchOrigin,
+                triggerType = existing?.triggerType,
+                triggerClassification = existing?.triggerClassification,
+                triggerOccurredAt = existing?.triggerOccurredAt,
+                triggerPreviousFingerprintHash = existing?.triggerPreviousFingerprintHash,
+                triggerCurrentFingerprintHash = existing?.triggerCurrentFingerprintHash,
             ),
         )
         scanRecordStore.replaceProbeResults(
@@ -111,21 +117,21 @@ internal object DiagnosticsReportPersister {
         (serviceTelemetry.proxyTelemetry.nativeEvents + serviceTelemetry.tunnelTelemetry.nativeEvents)
             .forEach { event ->
                 artifactWriteStore.insertNativeSessionEvent(
-                NativeSessionEventEntity(
-                    id = UUID.randomUUID().toString(),
-                    sessionId = null,
-                    source = event.source,
-                    level = event.level,
-                    message = event.message,
-                    createdAt = event.createdAt,
-                    runtimeId = event.runtimeId,
-                    mode = event.mode,
-                    policySignature = event.policySignature,
-                    fingerprintHash = event.fingerprintHash,
-                    subsystem = event.subsystem,
-                ),
-            )
-        }
+                    NativeSessionEventEntity(
+                        id = UUID.randomUUID().toString(),
+                        sessionId = null,
+                        source = event.source,
+                        level = event.level,
+                        message = event.message,
+                        createdAt = event.createdAt,
+                        runtimeId = event.runtimeId,
+                        mode = event.mode,
+                        policySignature = event.policySignature,
+                        fingerprintHash = event.fingerprintHash,
+                        subsystem = event.subsystem,
+                    ),
+                )
+            }
     }
 
     private suspend fun bridgeEventsToHistory(

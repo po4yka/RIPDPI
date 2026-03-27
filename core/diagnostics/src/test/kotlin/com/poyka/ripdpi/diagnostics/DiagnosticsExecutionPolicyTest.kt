@@ -3,6 +3,7 @@ package com.poyka.ripdpi.diagnostics
 import com.poyka.ripdpi.data.NativeNetworkSnapshotProvider
 import com.poyka.ripdpi.data.NetworkFingerprintProvider
 import com.poyka.ripdpi.data.diagnostics.DefaultNetworkDnsPathPreferenceStore
+import com.poyka.ripdpi.diagnostics.contract.profile.ProbePersistencePolicyWire
 import com.poyka.ripdpi.diagnostics.contract.profile.ProfileExecutionPolicyWire
 import com.poyka.ripdpi.diagnostics.contract.profile.ProfileSpecWire
 import com.poyka.ripdpi.diagnostics.domain.DiagnosticsIntent
@@ -41,6 +42,7 @@ class DiagnosticsExecutionPolicyTest {
                                         manualOnly = true,
                                         allowBackground = false,
                                         requiresRawPath = false,
+                                        probePersistencePolicy = ProbePersistencePolicyWire.ALWAYS,
                                     ),
                             ),
                         ),
@@ -55,6 +57,7 @@ class DiagnosticsExecutionPolicyTest {
             assertTrue(intent.executionPolicy.manualOnly)
             assertFalse(intent.executionPolicy.allowBackground)
             assertFalse(intent.executionPolicy.requiresRawPath)
+            assertEquals(ProbePersistencePolicy.ALWAYS, intent.executionPolicy.probePersistencePolicy)
         }
 
     @Test
@@ -65,6 +68,7 @@ class DiagnosticsExecutionPolicyTest {
                 displayName = "Automatic probing",
                 pathMode = ScanPathMode.RAW_PATH,
                 kind = ScanKind.STRATEGY_PROBE,
+                family = DiagnosticProfileFamily.AUTOMATIC_PROBING,
                 manualOnly = false,
             )
         val decoded = json.decodeProfileSpecWireCompat(json.encodeToString(ScanRequest.serializer(), legacy))
@@ -73,6 +77,66 @@ class DiagnosticsExecutionPolicyTest {
         assertFalse(executionPolicy.manualOnly)
         assertTrue(executionPolicy.allowBackground)
         assertTrue(executionPolicy.requiresRawPath)
+        assertEquals(ProbePersistencePolicyWire.BACKGROUND_ONLY, executionPolicy.probePersistencePolicy)
+    }
+
+    @Test
+    fun `legacy automatic audit request falls back to manual-only persistence policy`() {
+        val legacy =
+            ScanRequest(
+                profileId = "automatic-audit",
+                displayName = "Automatic audit",
+                pathMode = ScanPathMode.RAW_PATH,
+                kind = ScanKind.STRATEGY_PROBE,
+                family = DiagnosticProfileFamily.AUTOMATIC_AUDIT,
+                manualOnly = false,
+            )
+
+        val executionPolicy =
+            json
+                .decodeProfileSpecWireCompat(json.encodeToString(ScanRequest.serializer(), legacy))
+                .executionPolicyOrCompat()
+
+        assertEquals(ProbePersistencePolicyWire.MANUAL_ONLY, executionPolicy.probePersistencePolicy)
+    }
+
+    @Test
+    fun `generic strategy profile without explicit field falls back to manual-only persistence policy`() {
+        val executionPolicy =
+            ProfileSpecWire(
+                profileId = "custom-probe",
+                displayName = "Custom strategy probe",
+                kind = ScanKind.STRATEGY_PROBE,
+                family = DiagnosticProfileFamily.GENERAL,
+                executionPolicy =
+                    ProfileExecutionPolicyWire(
+                        manualOnly = false,
+                        allowBackground = true,
+                        requiresRawPath = true,
+                    ),
+            ).executionPolicyOrCompat()
+
+        assertEquals(ProbePersistencePolicyWire.MANUAL_ONLY, executionPolicy.probePersistencePolicy)
+    }
+
+    @Test
+    fun `profile projection carries explicit probe persistence policy`() {
+        val projection =
+            ProfileSpecWire(
+                profileId = "custom-probe",
+                displayName = "Custom strategy probe",
+                kind = ScanKind.STRATEGY_PROBE,
+                family = DiagnosticProfileFamily.GENERAL,
+                executionPolicy =
+                    ProfileExecutionPolicyWire(
+                        manualOnly = false,
+                        allowBackground = true,
+                        requiresRawPath = true,
+                        probePersistencePolicy = ProbePersistencePolicyWire.ALWAYS,
+                    ),
+            ).toProfileProjection()
+
+        assertEquals(ProbePersistencePolicy.ALWAYS, projection.executionPolicy.probePersistencePolicy)
     }
 
     @Test
@@ -113,6 +177,7 @@ class DiagnosticsExecutionPolicyTest {
                                 manualOnly = false,
                                 allowBackground = true,
                                 requiresRawPath = true,
+                                probePersistencePolicy = ProbePersistencePolicy.BACKGROUND_ONLY,
                             ),
                         packRefs = emptyList(),
                         domainTargets = emptyList(),
@@ -154,6 +219,7 @@ class DiagnosticsExecutionPolicyTest {
                                         manualOnly = true,
                                         allowBackground = false,
                                         requiresRawPath = true,
+                                        probePersistencePolicy = ProbePersistencePolicyWire.MANUAL_ONLY,
                                     ),
                             ),
                         ),

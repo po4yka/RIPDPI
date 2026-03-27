@@ -3,6 +3,7 @@ package com.poyka.ripdpi.diagnostics.presentation
 import com.poyka.ripdpi.diagnostics.Diagnosis
 import com.poyka.ripdpi.diagnostics.DiagnosticProfileFamily
 import com.poyka.ripdpi.diagnostics.ObservationFact
+import com.poyka.ripdpi.diagnostics.ProbePersistencePolicy
 import com.poyka.ripdpi.diagnostics.ProbeResult
 import com.poyka.ripdpi.diagnostics.ResolverRecommendation
 import com.poyka.ripdpi.diagnostics.ScanKind
@@ -14,6 +15,7 @@ data class DiagnosticsExecutionPolicyProjection(
     val manualOnly: Boolean = false,
     val allowBackground: Boolean = false,
     val requiresRawPath: Boolean = false,
+    val probePersistencePolicy: ProbePersistencePolicy = ProbePersistencePolicy.MANUAL_ONLY,
 )
 
 @Serializable

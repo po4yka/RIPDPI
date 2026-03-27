@@ -114,6 +114,10 @@ class DiagnosticsBootstrapperTest {
                                             manualOnly = false,
                                             allowBackground = false,
                                             requiresRawPath = false,
+                                            probePersistencePolicy =
+                                                com.poyka.ripdpi.diagnostics.contract.profile
+                                                    .ProbePersistencePolicyWire
+                                                    .MANUAL_ONLY,
                                         ),
                                     packRefs = listOf("default-pack@3"),
                                     domainTargets = listOf(DomainTarget(host = "example.org")),

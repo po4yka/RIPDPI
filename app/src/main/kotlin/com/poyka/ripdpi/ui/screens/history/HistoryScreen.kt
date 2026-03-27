@@ -33,6 +33,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.poyka.ripdpi.R
@@ -46,6 +47,8 @@ import com.poyka.ripdpi.activities.HistoryConnectionRowUiModel
 import com.poyka.ripdpi.activities.HistorySection
 import com.poyka.ripdpi.activities.HistoryUiState
 import com.poyka.ripdpi.activities.HistoryViewModel
+import com.poyka.ripdpi.activities.displayTriggerClassification
+import com.poyka.ripdpi.diagnostics.DiagnosticsScanLaunchOrigin
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.cards.RipDpiCardVariant
 import com.poyka.ripdpi.ui.components.cards.SettingsRow
@@ -285,6 +288,22 @@ internal fun HistoryScreen(
                 label = detail.session.status,
                 tone = statusTone(detail.session.tone),
             )
+            if (detail.reportMetadata.isNotEmpty()) {
+                RipDpiCard {
+                    Text(
+                        text = stringResource(R.string.diagnostics_report_metadata_title),
+                        style = RipDpiThemeTokens.type.bodyEmphasis,
+                        color = colors.foreground,
+                    )
+                    detail.reportMetadata.forEachIndexed { index, field ->
+                        SettingsRow(
+                            title = field.label,
+                            value = field.value,
+                            showDivider = index != detail.reportMetadata.lastIndex,
+                        )
+                    }
+                }
+            }
             detail.contextGroups.forEach { group ->
                 ContextGroupCard(group = group)
             }
@@ -760,6 +779,23 @@ private fun DiagnosticsSessionCard(
             label = session.status,
             tone = statusTone(session.tone),
         )
+        if (session.launchOrigin == DiagnosticsScanLaunchOrigin.AUTOMATIC_BACKGROUND) {
+            Box(
+                modifier =
+                    Modifier
+                        .background(
+                            color = RipDpiThemeTokens.colors.inputBackground,
+                            shape = RipDpiThemeTokens.shapes.xxl,
+                        ).padding(horizontal = 8.dp, vertical = 2.dp)
+                        .ripDpiTestTag(RipDpiTestTags.historyDiagnosticsAutomaticBadge(session.id)),
+            ) {
+                Text(
+                    text = stringResource(R.string.diagnostics_history_background_probe_badge),
+                    style = RipDpiThemeTokens.type.smallLabel,
+                    color = RipDpiThemeTokens.colors.mutedForeground,
+                )
+            }
+        }
         Text(
             text = session.title,
             style = RipDpiThemeTokens.type.bodyEmphasis,
@@ -770,6 +806,20 @@ private fun DiagnosticsSessionCard(
             style = RipDpiThemeTokens.type.secondaryBody,
             color = RipDpiThemeTokens.colors.mutedForeground,
         )
+        if (
+            session.launchOrigin == DiagnosticsScanLaunchOrigin.AUTOMATIC_BACKGROUND &&
+            session.triggerClassification != null
+        ) {
+            Text(
+                text =
+                    stringResource(
+                        R.string.diagnostics_scan_trigger_handover_summary_format,
+                        session.triggerClassification.displayTriggerClassification(),
+                    ),
+                style = RipDpiThemeTokens.type.secondaryBody,
+                color = RipDpiThemeTokens.colors.mutedForeground,
+            )
+        }
         Text(
             text = session.summary,
             style = RipDpiThemeTokens.type.body,
@@ -812,8 +862,7 @@ private fun EventRow(
                             .background(
                                 color = colors.inputBackground,
                                 shape = RipDpiThemeTokens.shapes.xxl,
-                            )
-                            .padding(
+                            ).padding(
                                 horizontal = components.compactPillHorizontalPadding,
                                 vertical = components.compactPillVerticalPadding,
                             ),
