@@ -61,6 +61,8 @@ internal fun DiagnosticsUiFactorySupport.buildScanUiModel(
     rawArgsEnabled: Boolean,
     scanStartedAt: Long?,
     completedProbes: List<CompletedProbeUiModel> = emptyList(),
+    hiddenProbeConflictDialog: HiddenProbeConflictDialogState? = null,
+    queuedManualScanRequest: QueuedManualScanRequest? = null,
 ): DiagnosticsScanUiModel {
     val selectedProfile = activeProfile?.let(::toProfileOptionUiModel)
     val strategyProbeSelected = selectedProfile?.isStrategyProbe == true
@@ -157,6 +159,8 @@ internal fun DiagnosticsUiFactorySupport.buildScanUiModel(
         workflowRestriction = workflowRestriction,
         resolverRecommendation = latestResolverRecommendation,
         strategyProbeReport = latestStrategyProbeReport,
+        hiddenProbeConflictDialog = hiddenProbeConflictDialog,
+        queuedManualScanRequest = queuedManualScanRequest,
         isBusy = progress != null,
     )
 }

@@ -2,8 +2,11 @@ package com.poyka.ripdpi.activities
 
 import android.content.Context
 import com.poyka.ripdpi.R
+import com.poyka.ripdpi.diagnostics.DiagnosticsManualScanResolution
+import com.poyka.ripdpi.diagnostics.DiagnosticsManualScanStartResult
 import com.poyka.ripdpi.diagnostics.DiagnosticsScanStartRejectedException
 import com.poyka.ripdpi.diagnostics.DiagnosticsScanStartRejectionReason
+import com.poyka.ripdpi.diagnostics.HiddenProbeConflictAction
 import com.poyka.ripdpi.diagnostics.ScanKind
 import com.poyka.ripdpi.diagnostics.ScanPathMode
 import kotlinx.coroutines.CancellationException
@@ -105,56 +108,89 @@ internal class DiagnosticsScanActions(
                 }
             }
         }
-    }
-
-    fun startRawScan() {
-        val selectedProfile = mutations.currentUiState().scan.selectedProfile
-        val scanKind = selectedProfile?.kind ?: ScanKind.CONNECTIVITY
-        val profileName = selectedProfile?.name ?: "Scan"
-        val isFullAudit = selectedProfile?.isFullAudit == true
         mutations.launch {
-            try {
-                val sessionId = diagnosticsScanController.startScan(ScanPathMode.RAW_PATH)
-                scanLifecycle.update {
-                    it.copy(
-                        scanStartedAt = System.currentTimeMillis(),
-                        activeScanPathMode = ScanPathMode.RAW_PATH,
-                        activeScanKind = scanKind,
-                        pendingAutoOpenAuditSessionId = if (isFullAudit) sessionId else null,
+            var hadHiddenProbe = diagnosticsScanController.hiddenAutomaticProbeActive.value
+            diagnosticsScanController.hiddenAutomaticProbeActive.collect { hiddenProbeActive ->
+                val queuedRequest = scanLifecycle.value.queuedManualScanRequest
+                if (!hiddenProbeActive && hadHiddenProbe && queuedRequest != null) {
+                    scanLifecycle.update { state ->
+                        if (state.queuedManualScanRequest?.requestId == queuedRequest.requestId) {
+                            state.copy(queuedManualScanRequest = null)
+                        } else {
+                            state
+                        }
+                    }
+                    resolveHiddenProbeConflict(
+                        request = queuedRequest,
+                        action = HiddenProbeConflictAction.WAIT,
                     )
                 }
-                emit(DiagnosticsEffect.ScanStarted(scanTypeLabel = profileName))
-            } catch (error: Throwable) {
-                if (error is CancellationException) {
-                    throw error
-                }
-                handleStartFailure(error)
+                hadHiddenProbe = hiddenProbeActive
             }
         }
     }
 
+    fun startRawScan() {
+        startManualScan(
+            pathMode = ScanPathMode.RAW_PATH,
+            selectedProfile = mutations.currentUiState().scan.selectedProfile,
+        )
+    }
+
     fun startInPathScan() {
-        val selectedProfile = mutations.currentUiState().scan.selectedProfile
-        val scanKind = selectedProfile?.kind ?: ScanKind.CONNECTIVITY
-        val profileName = selectedProfile?.name ?: "Scan"
+        startManualScan(
+            pathMode = ScanPathMode.IN_PATH,
+            selectedProfile = mutations.currentUiState().scan.selectedProfile,
+        )
+    }
+
+    fun waitForHiddenProbeAndRun() {
+        val dialogState = scanLifecycle.value.hiddenProbeConflictDialog ?: return
+        val queuedRequest = dialogState.toQueuedManualScanRequest()
         mutations.launch {
-            try {
-                diagnosticsScanController.startScan(ScanPathMode.IN_PATH)
-                scanLifecycle.update {
-                    it.copy(
-                        scanStartedAt = System.currentTimeMillis(),
-                        activeScanPathMode = ScanPathMode.IN_PATH,
-                        activeScanKind = scanKind,
-                        pendingAutoOpenAuditSessionId = null,
-                    )
-                }
-                emit(DiagnosticsEffect.ScanStarted(scanTypeLabel = profileName))
-            } catch (error: Throwable) {
-                if (error is CancellationException) {
-                    throw error
-                }
-                handleStartFailure(error)
+            scanLifecycle.update {
+                it.copy(hiddenProbeConflictDialog = null)
             }
+            if (diagnosticsScanController.hiddenAutomaticProbeActive.value) {
+                scanLifecycle.update {
+                    it.copy(queuedManualScanRequest = queuedRequest)
+                }
+                emit(
+                    DiagnosticsEffect.ScanQueued(
+                        appContext.getString(
+                            R.string.diagnostics_hidden_probe_wait_queued_format,
+                            queuedRequest.profileName,
+                        ),
+                    ),
+                )
+            } else {
+                resolveHiddenProbeConflict(
+                    request = queuedRequest,
+                    action = HiddenProbeConflictAction.WAIT,
+                )
+            }
+        }
+    }
+
+    fun cancelHiddenProbeAndRun() {
+        val dialogState = scanLifecycle.value.hiddenProbeConflictDialog ?: return
+        mutations.launch {
+            scanLifecycle.update {
+                it.copy(
+                    hiddenProbeConflictDialog = null,
+                    queuedManualScanRequest = null,
+                )
+            }
+            resolveHiddenProbeConflict(
+                request = dialogState.toQueuedManualScanRequest(),
+                action = HiddenProbeConflictAction.CANCEL_AND_RUN,
+            )
+        }
+    }
+
+    fun dismissHiddenProbeConflictDialog() {
+        scanLifecycle.update {
+            it.copy(hiddenProbeConflictDialog = null)
         }
     }
 
@@ -195,6 +231,57 @@ internal class DiagnosticsScanActions(
         }
     }
 
+    private fun startManualScan(
+        pathMode: ScanPathMode,
+        selectedProfile: DiagnosticsProfileOptionUiModel?,
+    ) {
+        val request =
+            ManualScanUiRequest(
+                profileName = selectedProfile?.name ?: "Scan",
+                pathMode = pathMode,
+                scanKind = selectedProfile?.kind ?: ScanKind.CONNECTIVITY,
+                isFullAudit = selectedProfile?.isFullAudit == true,
+            )
+        mutations.launch {
+            try {
+                when (val result = diagnosticsScanController.startScan(pathMode)) {
+                    is DiagnosticsManualScanStartResult.Started -> {
+                        handleStartedScan(
+                            sessionId = result.sessionId,
+                            request = request,
+                        )
+                    }
+
+                    is DiagnosticsManualScanStartResult.RequiresHiddenProbeResolution -> {
+                        scanLifecycle.update {
+                            it.copy(
+                                scanStartedAt = null,
+                                activeScanPathMode = null,
+                                activeScanKind = null,
+                                pendingAutoOpenAuditSessionId = null,
+                                accumulatedProbes = emptyList(),
+                                hiddenProbeConflictDialog =
+                                    HiddenProbeConflictDialogState(
+                                        requestId = result.requestId,
+                                        profileName = result.profileName,
+                                        pathMode = result.pathMode,
+                                        scanKind = result.scanKind,
+                                        isFullAudit = result.isFullAudit,
+                                    ),
+                                queuedManualScanRequest = null,
+                            )
+                        }
+                    }
+                }
+            } catch (error: Throwable) {
+                if (error is CancellationException) {
+                    throw error
+                }
+                handleStartFailure(error)
+            }
+        }
+    }
+
     private suspend fun DiagnosticsMutationRunner.handleStartFailure(error: Throwable) {
         scanLifecycle.update {
             it.copy(
@@ -203,6 +290,8 @@ internal class DiagnosticsScanActions(
                 activeScanKind = null,
                 pendingAutoOpenAuditSessionId = null,
                 accumulatedProbes = emptyList(),
+                hiddenProbeConflictDialog = null,
+                queuedManualScanRequest = null,
             )
         }
         emit(
@@ -220,4 +309,98 @@ internal class DiagnosticsScanActions(
             ),
         )
     }
+
+    private suspend fun DiagnosticsMutationRunner.resolveHiddenProbeConflict(
+        request: QueuedManualScanRequest,
+        action: HiddenProbeConflictAction,
+    ) {
+        try {
+            when (val resolution = diagnosticsScanController.resolveHiddenProbeConflict(request.requestId, action)) {
+                is DiagnosticsManualScanResolution.Started -> {
+                    handleStartedScan(
+                        sessionId = resolution.sessionId,
+                        request = request.toManualScanUiRequest(),
+                    )
+                }
+
+                is DiagnosticsManualScanResolution.Failed -> {
+                    scanLifecycle.update {
+                        it.copy(
+                            scanStartedAt = null,
+                            activeScanPathMode = null,
+                            activeScanKind = null,
+                            pendingAutoOpenAuditSessionId = null,
+                            accumulatedProbes = emptyList(),
+                            queuedManualScanRequest = null,
+                        )
+                    }
+                    emit(
+                        DiagnosticsEffect.ScanStartFailed(
+                            appContext.getString(R.string.diagnostics_hidden_probe_takeover_failed),
+                        ),
+                    )
+                }
+            }
+        } catch (error: Throwable) {
+            if (error is CancellationException) {
+                throw error
+            }
+            scanLifecycle.update {
+                it.copy(
+                    scanStartedAt = null,
+                    activeScanPathMode = null,
+                    activeScanKind = null,
+                    pendingAutoOpenAuditSessionId = null,
+                    accumulatedProbes = emptyList(),
+                    queuedManualScanRequest = null,
+                )
+            }
+            emit(
+                DiagnosticsEffect.ScanStartFailed(
+                    appContext.getString(R.string.diagnostics_hidden_probe_takeover_failed),
+                ),
+            )
+        }
+    }
+
+    private suspend fun DiagnosticsMutationRunner.handleStartedScan(
+        sessionId: String,
+        request: ManualScanUiRequest,
+    ) {
+        scanLifecycle.update {
+            it.copy(
+                scanStartedAt = System.currentTimeMillis(),
+                activeScanPathMode = request.pathMode,
+                activeScanKind = request.scanKind,
+                pendingAutoOpenAuditSessionId = if (request.isFullAudit) sessionId else null,
+                hiddenProbeConflictDialog = null,
+                queuedManualScanRequest = null,
+            )
+        }
+        emit(DiagnosticsEffect.ScanStarted(scanTypeLabel = request.profileName))
+    }
 }
+
+private data class ManualScanUiRequest(
+    val profileName: String,
+    val pathMode: ScanPathMode,
+    val scanKind: ScanKind,
+    val isFullAudit: Boolean,
+)
+
+private fun HiddenProbeConflictDialogState.toQueuedManualScanRequest(): QueuedManualScanRequest =
+    QueuedManualScanRequest(
+        requestId = requestId,
+        profileName = profileName,
+        pathMode = pathMode,
+        scanKind = scanKind,
+        isFullAudit = isFullAudit,
+    )
+
+private fun QueuedManualScanRequest.toManualScanUiRequest(): ManualScanUiRequest =
+    ManualScanUiRequest(
+        profileName = profileName,
+        pathMode = pathMode,
+        scanKind = scanKind,
+        isFullAudit = isFullAudit,
+    )

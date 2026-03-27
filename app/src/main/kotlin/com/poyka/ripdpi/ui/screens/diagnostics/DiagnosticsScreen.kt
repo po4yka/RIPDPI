@@ -61,6 +61,10 @@ import com.poyka.ripdpi.ui.components.buttons.RipDpiIconButton
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.cards.RipDpiCardVariant
 import com.poyka.ripdpi.ui.components.cards.SettingsRow
+import com.poyka.ripdpi.ui.components.feedback.RipDpiDialog
+import com.poyka.ripdpi.ui.components.feedback.RipDpiDialogAction
+import com.poyka.ripdpi.ui.components.feedback.RipDpiDialogTone
+import com.poyka.ripdpi.ui.components.feedback.RipDpiDialogVisuals
 import com.poyka.ripdpi.ui.components.feedback.RipDpiSnackbarHost
 import com.poyka.ripdpi.ui.components.feedback.RipDpiSnackbarTone
 import com.poyka.ripdpi.ui.components.feedback.WarningBanner
@@ -141,6 +145,14 @@ fun DiagnosticsRoute(
                     )
                 }
 
+                is DiagnosticsEffect.ScanQueued -> {
+                    snackbarHostState.showRipDpiSnackbar(
+                        message = effect.message,
+                        tone = RipDpiSnackbarTone.Info,
+                        testTag = RipDpiTestTags.DiagnosticsStatusSnackbar,
+                    )
+                }
+
                 is DiagnosticsEffect.ScanCompleted -> {
                     snackbarHostState.showRipDpiSnackbar(
                         message = effect.summary,
@@ -180,6 +192,9 @@ fun DiagnosticsRoute(
         onSelectProfile = viewModel::selectProfile,
         onRunRawScan = viewModel::startRawScan,
         onRunInPathScan = viewModel::startInPathScan,
+        onWaitForHiddenProbeAndRun = viewModel::waitForHiddenProbeAndRun,
+        onCancelHiddenProbeAndRun = viewModel::cancelHiddenProbeAndRun,
+        onDismissHiddenProbeConflictDialog = viewModel::dismissHiddenProbeConflictDialog,
         onCancelScan = viewModel::cancelScan,
         onKeepResolverRecommendation = viewModel::keepResolverRecommendationForSession,
         onSaveResolverRecommendation = viewModel::saveResolverRecommendation,
@@ -222,6 +237,9 @@ fun DiagnosticsScreen(
     onSelectProfile: (String) -> Unit,
     onRunRawScan: () -> Unit,
     onRunInPathScan: () -> Unit,
+    onWaitForHiddenProbeAndRun: () -> Unit = {},
+    onCancelHiddenProbeAndRun: () -> Unit = {},
+    onDismissHiddenProbeConflictDialog: () -> Unit = {},
     onCancelScan: () -> Unit,
     onKeepResolverRecommendation: (String?) -> Unit,
     onSaveResolverRecommendation: (String?) -> Unit,
@@ -387,6 +405,44 @@ fun DiagnosticsScreen(
         onDismissProbeDetail = onDismissProbeDetail,
         onDismissApproachDetail = onDismissApproachDetail,
     )
+    uiState.scan.hiddenProbeConflictDialog?.let { dialogState ->
+        RipDpiDialog(
+            onDismissRequest = onDismissHiddenProbeConflictDialog,
+            title = stringResource(R.string.diagnostics_hidden_probe_conflict_title),
+            dialogTestTag = RipDpiTestTags.DiagnosticsHiddenProbeConflictDialog,
+            dismissAction =
+                RipDpiDialogAction(
+                    label = stringResource(R.string.diagnostics_hidden_probe_wait_action),
+                    onClick = onWaitForHiddenProbeAndRun,
+                    testTag = RipDpiTestTags.DiagnosticsHiddenProbeConflictWait,
+                ),
+            confirmAction =
+                RipDpiDialogAction(
+                    label = stringResource(R.string.diagnostics_hidden_probe_cancel_and_run_action),
+                    onClick = onCancelHiddenProbeAndRun,
+                    testTag = RipDpiTestTags.DiagnosticsHiddenProbeConflictCancelAndRun,
+                ),
+            visuals =
+                RipDpiDialogVisuals(
+                    message =
+                        stringResource(
+                            R.string.diagnostics_hidden_probe_conflict_body_format,
+                            dialogState.profileName,
+                        ),
+                    tone = RipDpiDialogTone.Info,
+                ),
+        ) {
+            RipDpiButton(
+                text = stringResource(R.string.diagnostics_hidden_probe_dismiss_action),
+                onClick = onDismissHiddenProbeConflictDialog,
+                variant = RipDpiButtonVariant.Ghost,
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .ripDpiTestTag(RipDpiTestTags.DiagnosticsHiddenProbeConflictDismiss),
+            )
+        }
+    }
 }
 
 @Composable

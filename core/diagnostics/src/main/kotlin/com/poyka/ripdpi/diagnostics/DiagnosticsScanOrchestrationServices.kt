@@ -19,13 +19,15 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withTimeout
 import kotlinx.serialization.json.Json
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.atomic.AtomicInteger
 import javax.inject.Inject
 import javax.inject.Named
 import javax.inject.Singleton
@@ -50,18 +52,9 @@ class ScanAdmissionService
             const val AutomaticProbeProfileId = "automatic-probing"
         }
 
-        suspend fun admitManualStart():
-            Pair<com.poyka.ripdpi.proto.AppSettings, com.poyka.ripdpi.data.diagnostics.DiagnosticProfileEntity> {
-            when {
-                activeScanRegistry.hasHiddenActiveScan() -> {
-                    throw DiagnosticsScanStartRejectedException(
-                        DiagnosticsScanStartRejectionReason.HiddenAutomaticProbeRunning,
-                    )
-                }
-
-                activeScanRegistry.hasActiveScan() -> {
-                    throw DiagnosticsScanStartRejectedException(DiagnosticsScanStartRejectionReason.ScanAlreadyActive)
-                }
+        internal suspend fun admitManualStart(): ManualStartAdmission {
+            if (activeScanRegistry.hasVisibleActiveScan()) {
+                throw DiagnosticsScanStartRejectedException(DiagnosticsScanStartRejectionReason.ScanAlreadyActive)
             }
             val settings = appSettingsRepository.snapshot()
             val profileId = settings.diagnosticsActiveProfileId.ifEmpty { "default" }
@@ -69,7 +62,11 @@ class ScanAdmissionService
                 requireNotNull(profileCatalog.getProfile(profileId)) {
                     "Unknown diagnostics profile: $profileId"
                 }
-            return settings to profile
+            return if (activeScanRegistry.hasHiddenActiveScan()) {
+                ManualStartAdmission.HiddenAutomaticProbeConflict(settings = settings, profile = profile)
+            } else {
+                ManualStartAdmission.Admitted(settings = settings, profile = profile)
+            }
         }
 
         @Suppress("ReturnCount", "UnusedParameter")
@@ -89,6 +86,36 @@ class ScanAdmissionService
         }
     }
 
+internal sealed interface ManualStartAdmission {
+    data class Admitted(
+        val settings: com.poyka.ripdpi.proto.AppSettings,
+        val profile: com.poyka.ripdpi.data.diagnostics.DiagnosticProfileEntity,
+    ) : ManualStartAdmission
+
+    data class HiddenAutomaticProbeConflict(
+        val settings: com.poyka.ripdpi.proto.AppSettings,
+        val profile: com.poyka.ripdpi.data.diagnostics.DiagnosticProfileEntity,
+    ) : ManualStartAdmission
+}
+
+private data class HiddenScanExecution(
+    val sessionId: String,
+    val bridge: NetworkDiagnosticsBridge,
+    val executionJob: Job? = null,
+)
+
+internal sealed interface HiddenProbeCancellationResult {
+    data object NoActiveProbe : HiddenProbeCancellationResult
+
+    data class Cancelled(
+        val sessionId: String,
+    ) : HiddenProbeCancellationResult
+
+    data class Failed(
+        val sessionId: String,
+    ) : HiddenProbeCancellationResult
+}
+
 @Singleton
 class ActiveScanRegistry
     @Inject
@@ -99,13 +126,17 @@ class ActiveScanRegistry
         private var activeDiagnosticsBridge: NetworkDiagnosticsBridge? = null
         private var activeScanSessionId: String? = null
         private var activeExecutionJob: Job? = null
-        private val hiddenScanCount = AtomicInteger(0)
+        private val hiddenScanExecutions = LinkedHashMap<String, HiddenScanExecution>()
         private val cancelledSessionIds = ConcurrentHashMap.newKeySet<String>()
+        private val cancelledSessionSummaries = ConcurrentHashMap<String, String>()
         private val scanSessionFingerprints = ConcurrentHashMap<String, NetworkFingerprint>()
         private val scanSessionPreferredDnsPaths = ConcurrentHashMap<String, EncryptedDnsPathCandidate>()
+        private val hiddenAutomaticProbeActiveState = MutableStateFlow(false)
 
         @Volatile
         private var hasRegisteredActiveBridge = false
+
+        val hiddenAutomaticProbeActive: StateFlow<Boolean> = hiddenAutomaticProbeActiveState.asStateFlow()
 
         internal fun rememberPreparedScan(prepared: PreparedDiagnosticsScan) {
             prepared.networkFingerprint?.let { scanSessionFingerprints[prepared.sessionId] = it }
@@ -115,6 +146,8 @@ class ActiveScanRegistry
         fun removePreparedScan(sessionId: String) {
             scanSessionFingerprints.remove(sessionId)
             scanSessionPreferredDnsPaths.remove(sessionId)
+            cancelledSessionIds.remove(sessionId)
+            cancelledSessionSummaries.remove(sessionId)
         }
 
         fun fingerprint(sessionId: String): NetworkFingerprint? = scanSessionFingerprints[sessionId]
@@ -124,7 +157,7 @@ class ActiveScanRegistry
         fun hasVisibleActiveScan(): Boolean =
             timelineSource.activeScanProgress.value != null || hasRegisteredActiveBridge
 
-        fun hasHiddenActiveScan(): Boolean = hiddenScanCount.get() > 0
+        fun hasHiddenActiveScan(): Boolean = hiddenAutomaticProbeActiveState.value
 
         fun hasActiveScan(): Boolean = hasVisibleActiveScan() || hasHiddenActiveScan()
 
@@ -133,7 +166,7 @@ class ActiveScanRegistry
                 bridgeMutex.withLock {
                     Triple(activeDiagnosticsBridge, activeScanSessionId, activeExecutionJob)
                 }
-            sessionId?.let(cancelledSessionIds::add)
+            sessionId?.let { rememberCancellation(it, "Diagnostics scan canceled") }
             bridge?.cancelScan()
             executionJob?.cancelAndJoin()
             val needsManualCleanup =
@@ -143,10 +176,37 @@ class ActiveScanRegistry
                     }
             if (needsManualCleanup) {
                 runCatching { bridge.destroy() }
-                clearBridge(bridge, registerActiveBridge = true)
+                clearBridge(
+                    bridge = bridge,
+                    sessionId = sessionId ?: return null,
+                    registerActiveBridge = true,
+                )
             }
             updateProgress(null)
             return sessionId
+        }
+
+        internal suspend fun cancelHiddenAutomaticProbe(
+            cancellationSummary: String,
+            timeoutMs: Long,
+        ): HiddenProbeCancellationResult {
+            val hiddenExecution =
+                bridgeMutex.withLock {
+                    hiddenScanExecutions.values.firstOrNull()
+                } ?: return HiddenProbeCancellationResult.NoActiveProbe
+            rememberCancellation(hiddenExecution.sessionId, cancellationSummary)
+            runCatching { hiddenExecution.bridge.cancelScan() }
+            val cancelled =
+                runCatching {
+                    withTimeout(timeoutMs) {
+                        hiddenExecution.executionJob?.cancelAndJoin()
+                    }
+                }.isSuccess
+            return if (cancelled) {
+                HiddenProbeCancellationResult.Cancelled(hiddenExecution.sessionId)
+            } else {
+                HiddenProbeCancellationResult.Failed(hiddenExecution.sessionId)
+            }
         }
 
         suspend fun registerBridge(
@@ -161,7 +221,14 @@ class ActiveScanRegistry
                     hasRegisteredActiveBridge = true
                 }
             } else {
-                hiddenScanCount.incrementAndGet()
+                bridgeMutex.withLock {
+                    hiddenScanExecutions[sessionId] =
+                        HiddenScanExecution(
+                            sessionId = sessionId,
+                            bridge = bridge,
+                        )
+                    hiddenAutomaticProbeActiveState.value = hiddenScanExecutions.isNotEmpty()
+                }
             }
         }
 
@@ -170,20 +237,27 @@ class ActiveScanRegistry
             job: Job,
             registerActiveBridge: Boolean,
         ) {
-            if (!registerActiveBridge) {
+            if (registerActiveBridge) {
+                bridgeMutex.withLock {
+                    if (activeDiagnosticsBridge != null && activeScanSessionId == sessionId) {
+                        activeExecutionJob = job
+                    }
+                }
                 return
             }
             bridgeMutex.withLock {
-                if (activeDiagnosticsBridge != null && activeScanSessionId == sessionId) {
-                    activeExecutionJob = job
-                }
+                val existing = hiddenScanExecutions[sessionId] ?: return@withLock
+                hiddenScanExecutions[sessionId] = existing.copy(executionJob = job)
             }
         }
 
         fun isCancellationRequested(sessionId: String): Boolean = cancelledSessionIds.contains(sessionId)
 
+        fun cancellationSummary(sessionId: String): String? = cancelledSessionSummaries[sessionId]
+
         suspend fun clearBridge(
             bridge: NetworkDiagnosticsBridge,
+            sessionId: String,
             registerActiveBridge: Boolean,
         ) {
             if (registerActiveBridge) {
@@ -191,18 +265,28 @@ class ActiveScanRegistry
                     if (activeDiagnosticsBridge === bridge) {
                         activeDiagnosticsBridge = null
                         activeExecutionJob = null
-                        activeScanSessionId?.let(cancelledSessionIds::remove)
                         activeScanSessionId = null
                     }
                     hasRegisteredActiveBridge = activeDiagnosticsBridge != null
                 }
             } else {
-                hiddenScanCount.decrementAndGet()
+                bridgeMutex.withLock {
+                    hiddenScanExecutions.remove(sessionId)
+                    hiddenAutomaticProbeActiveState.value = hiddenScanExecutions.isNotEmpty()
+                }
             }
         }
 
         fun updateProgress(progress: ScanProgress?) {
             timelineSource.updateActiveScanProgress(progress)
+        }
+
+        private fun rememberCancellation(
+            sessionId: String,
+            summary: String,
+        ) {
+            cancelledSessionIds.add(sessionId)
+            cancelledSessionSummaries[sessionId] = summary
         }
     }
 
@@ -240,7 +324,11 @@ class BridgeExecutionService
             try {
                 handle.bridge.destroy()
             } finally {
-                activeScanRegistry.clearBridge(handle.bridge, handle.registerActiveBridge)
+                activeScanRegistry.clearBridge(
+                    bridge = handle.bridge,
+                    sessionId = handle.sessionId,
+                    registerActiveBridge = handle.registerActiveBridge,
+                )
             }
         }
     }

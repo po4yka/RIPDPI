@@ -205,6 +205,7 @@ internal fun createDiagnosticsServices(
             activeScanRegistry = activeScanRegistry,
             bridgeExecutionService = bridgeExecutionService,
             executionCoordinator = executionCoordinator,
+            json = json,
             scope = controllerScope,
         )
     return DiagnosticsServicesBundle(

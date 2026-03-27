@@ -57,6 +57,14 @@
     <string name="diagnostics_action_audit_unavailable">Автоматический аудит недоступен</string>
     <string name="diagnostics_error_hidden_probe_running">Автоматическое зондирование уже выполняется. Дождитесь его завершения перед запуском новой диагностики.</string>
     <string name="diagnostics_error_start_failed">Не удалось запустить диагностику. Повторите попытку.</string>
+    <string name="diagnostics_hidden_probe_conflict_title">Фоновое автозондирование активно</string>
+    <string name="diagnostics_hidden_probe_conflict_body_format">Фоновое автоматическое зондирование ещё выполняется. Дождитесь завершения или отмените его и запустите %1$s сейчас.</string>
+    <string name="diagnostics_hidden_probe_wait_action">Подождать</string>
+    <string name="diagnostics_hidden_probe_cancel_and_run_action">Отменить фоновое зондирование и запустить мою проверку</string>
+    <string name="diagnostics_hidden_probe_dismiss_action">Закрыть</string>
+    <string name="diagnostics_hidden_probe_wait_queued_format">%1$s запустится после завершения фонового автоматического зондирования.</string>
+    <string name="diagnostics_hidden_probe_takeover_failed">Не удалось перехватить фоновое автоматическое зондирование. Повторите попытку.</string>
+    <string name="diagnostics_hidden_probe_canceled_summary">Фоновое автоматическое зондирование отменено для запуска ручной диагностики</string>
     <string name="diagnostics_latest_scan_section">Последнее сканирование</string>
     <string name="diagnostics_profile_connectivity_title">Проверки подключения</string>
     <string name="diagnostics_profile_connectivity_badge">Проверить</string>

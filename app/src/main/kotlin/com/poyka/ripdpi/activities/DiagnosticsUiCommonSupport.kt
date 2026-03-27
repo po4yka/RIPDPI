@@ -47,7 +47,14 @@ internal fun DiagnosticsUiFactorySupport.toProfileOptionUiModel(
 
 internal fun DiagnosticsUiFactorySupport.toSessionRowUiModel(
     session: com.poyka.ripdpi.diagnostics.DiagnosticScanSession,
-): DiagnosticsSessionRowUiModel = core.toSessionRowUiModel(session)
+): DiagnosticsSessionRowUiModel {
+    val base = core.toSessionRowUiModel(session)
+    val summary = core.displaySessionSummary(context, session)
+    return base.copy(
+        title = summary,
+        summary = summary,
+    )
+}
 
 internal fun DiagnosticsUiFactorySupport.toProbeResultUiModel(
     index: Int,
@@ -123,7 +130,7 @@ internal fun DiagnosticsUiFactorySupport.toAutomaticProbeCalloutUiModel(
             )
     return DiagnosticsAutomaticProbeCalloutUiModel(
         title = context.getString(R.string.diagnostics_overview_automatic_probe_title),
-        summary = session.summary,
+        summary = core.displaySessionSummary(context, session),
         detail = detail,
         actionLabel = context.getString(R.string.diagnostics_open_history_action),
     )
