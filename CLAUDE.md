@@ -132,7 +132,7 @@ Run `just --list --groups` to see recipes organized by category.
 
 ## CI/CD
 
-- `ci.yml`: build + unit tests + static analysis on push/PR to main; nightly soak and TUN E2E
+- `ci.yml`: PR lanes (build, static-analysis, rust-network-e2e, android-network-e2e, coverage, rust-turmoil, rust-loom, cli-packet-smoke); nightly/manual lanes (rust-native-soak, rust-native-load, linux-tun-e2e, linux-tun-soak, nightly-rust-coverage)
 - `release.yml`: signed release APK on `v*` tags or manual dispatch
 - `mutation-testing.yml`: weekly Rust mutation testing via cargo-mutants
 
@@ -145,4 +145,6 @@ Run `just --list --groups` to see recipes organized by category.
 - Prefer single-module test commands for fast iteration: `./gradlew :core:engine:testDebugUnitTest --tests "ClassName"`.
 - `./gradlew staticAnalysis` applies to test code -- run it before committing.
 - Golden contracts are read-only by default. Bless with `RIPDPI_BLESS_GOLDENS=1`, review diffs, explain changes in the commit message.
+- Soak tests (`RIPDPI_RUN_SOAK=1`) cover endurance: restart cycling, sustained traffic, fault recovery.
+- Load tests (`RIPDPI_RUN_LOAD=1`) cover high-concurrency: ramp-up, burst spikes, saturation. Run via `just test-rust-load`.
 - Full test stack docs: `docs/testing.md`.
