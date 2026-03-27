@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.core
 
 import com.poyka.ripdpi.data.ActivationFilterModel
+import com.poyka.ripdpi.data.CanonicalDefaultSplitMarker
 import com.poyka.ripdpi.data.NumericRangeModel
 import com.poyka.ripdpi.data.TcpChainStepKind
 import com.poyka.ripdpi.data.TcpChainStepModel
@@ -194,11 +195,13 @@ internal object RipDpiProxyJsonCodec {
 
     private fun normalize(payload: NativeProxyConfig): NativeProxyConfig =
         when (payload) {
-            is NativeProxyConfig.CommandLine ->
+            is NativeProxyConfig.CommandLine -> {
                 payload.copy(args = normalizeCommandLineArgs(payload.args))
+            }
 
-            is NativeProxyConfig.Ui ->
+            is NativeProxyConfig.Ui -> {
                 payload.copy(strategyPreset = normalizeStrategyPreset(payload.strategyPreset))
+            }
         }
 
     private fun normalizeCommandLineArgs(args: List<String>): List<String> =
@@ -311,8 +314,8 @@ internal object RipDpiProxyJsonCodec {
         val tcpSteps: List<NativeTcpChainStep> =
             listOf(
                 NativeTcpChainStep(
-                    kind = "disorder",
-                    marker = "1",
+                    kind = "split",
+                    marker = CanonicalDefaultSplitMarker,
                     midhostMarker = "",
                     fakeHostTemplate = "",
                     fragmentCount = 0,

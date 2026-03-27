@@ -291,6 +291,10 @@ internal class FakeDiagnosticsHistoryStores :
         rememberedPoliciesState.value = emptyList()
     }
 
+    override suspend fun clearNetworkDnsPathPreferences() {
+        networkDnsPathPreferencesState.value = emptyList()
+    }
+
     override suspend fun pruneRememberedNetworkPolicies() = Unit
 
     override suspend fun pruneNetworkDnsPathPreferences() = Unit

@@ -169,4 +169,7 @@ message AppSettings {
 
   // Connection freeze detection (middlebox degradation mode)
   bool freeze_detection_enabled = 129;       // Detect throttled/frozen connections
+
+  // One-shot settings cleanup migration marker
+  int32 settings_migration_level = 130;
 }

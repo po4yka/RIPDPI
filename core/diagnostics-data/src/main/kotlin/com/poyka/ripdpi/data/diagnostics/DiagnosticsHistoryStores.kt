@@ -151,6 +151,8 @@ interface NetworkDnsPathPreferenceRecordStore {
 
     suspend fun upsertNetworkDnsPathPreference(preference: NetworkDnsPathPreferenceEntity): Long
 
+    suspend fun clearNetworkDnsPathPreferences()
+
     suspend fun pruneNetworkDnsPathPreferences()
 }
 
@@ -375,6 +377,10 @@ class RoomNetworkDnsPathPreferenceRecordStore
 
         override suspend fun upsertNetworkDnsPathPreference(preference: NetworkDnsPathPreferenceEntity): Long =
             dao.upsertNetworkDnsPathPreference(preference)
+
+        override suspend fun clearNetworkDnsPathPreferences() {
+            dao.clearNetworkDnsPathPreferences()
+        }
 
         override suspend fun pruneNetworkDnsPathPreferences() {
             val staleThreshold = clock.now() - NetworkDnsPathPreferenceRetentionMaxAgeMs

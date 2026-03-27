@@ -568,6 +568,9 @@ interface DiagnosticsDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertNetworkDnsPathPreference(preference: NetworkDnsPathPreferenceEntity): Long
 
+    @Query("DELETE FROM network_dns_path_preferences")
+    suspend fun clearNetworkDnsPathPreferences()
+
     @Query("DELETE FROM network_dns_path_preferences WHERE updatedAt < :threshold")
     suspend fun deleteNetworkDnsPathPreferencesOlderThan(threshold: Long)
 

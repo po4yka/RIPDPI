@@ -311,7 +311,7 @@ private fun AppSettings.synthesizeLegacyTcpChain(): List<TcpChainStepModel> {
     if (tlsrecEnabled) {
         steps += TcpChainStepModel(TcpChainStepKind.TlsRec, effectiveTlsRecordMarker())
     }
-    val method = desyncMethod.ifEmpty { AppSettingsSerializer.defaultValue.desyncMethod.ifEmpty { "disorder" } }
+    val method = desyncMethod.ifEmpty { LegacyDefaultDesyncMethod }
     val kind = TcpChainStepKind.fromLegacyMethod(method)
     if (kind != null) {
         steps += TcpChainStepModel(kind, effectiveSplitMarker())
