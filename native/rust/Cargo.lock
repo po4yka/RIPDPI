@@ -2464,7 +2464,7 @@ dependencies = [
  "tokio-rustls",
  "turmoil",
  "url",
- "webpki-roots 0.26.11",
+ "webpki-roots 1.0.6",
 ]
 
 [[package]]
@@ -2503,7 +2503,7 @@ dependencies = [
  "serde_json",
  "tokio",
  "tracing",
- "webpki-roots 0.26.11",
+ "webpki-roots 1.0.6",
 ]
 
 [[package]]
