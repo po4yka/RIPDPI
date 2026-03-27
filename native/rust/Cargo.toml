@@ -80,7 +80,7 @@ similar = "2"
 serde_yml = "0.0.12"
 socket2 = "0.5"
 proptest = "1"
-rcgen = "0.13"
+rcgen = "0.14"
 rustls = { version = "0.23.37", default-features = false, features = ["ring", "std", "tls12", "aws-lc-rs"] }
 hickory-proto = { version = "0.25", default-features = false, features = ["std"] }
 hickory-resolver = { version = "0.25", default-features = false, features = ["tls-ring", "https-ring", "tokio", "webpki-roots"] }
