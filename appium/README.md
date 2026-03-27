@@ -51,7 +51,7 @@ appium/
   conftest.py          # Driver lifecycle + automation launch fixtures
   lib/                 # Capabilities, launch contract, helpers
   pages/               # Page objects (one per screen)
-  tests/               # Test files (test_01_ through test_28_)
+  tests/               # Test files (test_01_ through test_35_)
 ```
 
 ## How It Works
@@ -108,3 +108,10 @@ bash scripts/ci/run-appium-smoke.sh
 | 26 | `test_26_config_mode_chips.py` | VPN/Proxy mode chip switching |
 | 27 | `test_27_mode_editor_chain_dsl.py` | Chain DSL field entry and save |
 | 28 | `test_28_biometric_prompt.py` | Biometric prompt screen, PIN stage |
+| 29 | `test_29_diagnostics_detail_sheets.py` | Overview hero card, approach section detail |
+| 30 | `test_30_history_filters_details.py` | Events auto-scroll, empty states |
+| 31 | `test_31_logs_filters.py` | Subsystem and severity filter chips |
+| 32 | `test_32_support_bundle.py` | Support bundle export button |
+| 33 | `test_33_empty_states.py` | Diagnostics and history empty state placeholders |
+| 34 | `test_34_connection_transitions.py` | Deep connect/disconnect state cycle |
+| 35 | `test_35_theme_selection.py` | Theme dropdown dark option selection |
