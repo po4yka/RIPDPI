@@ -72,7 +72,7 @@ class DiagnosticsRouteTest {
     fun `route shows snackbar when scan start fails`() {
         val manager =
             FakeDiagnosticsManager().apply {
-                scanController.onStartScan = {
+                scanController.onStartScan = { _, _ ->
                     throw IllegalStateException("boom")
                 }
             }
@@ -111,7 +111,7 @@ class DiagnosticsRouteTest {
     fun `route shows hidden probe conflict dialog`() {
         val manager =
             FakeDiagnosticsManager().apply {
-                scanController.onStartScan = {
+                scanController.onStartScan = { _, _ ->
                     DiagnosticsManualScanStartResult.RequiresHiddenProbeResolution(
                         requestId = "hidden-request",
                         profileName = "Automatic probing",
@@ -161,7 +161,7 @@ class DiagnosticsRouteTest {
         val manager =
             FakeDiagnosticsManager().apply {
                 scanController.hiddenAutomaticProbeActive.value = true
-                scanController.onStartScan = {
+                scanController.onStartScan = { _, _ ->
                     DiagnosticsManualScanStartResult.RequiresHiddenProbeResolution(
                         requestId = "hidden-request",
                         profileName = "Automatic probing",

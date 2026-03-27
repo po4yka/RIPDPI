@@ -1467,7 +1467,7 @@ class DiagnosticsViewModelTest {
         runTest {
             val manager =
                 FakeDiagnosticsManager().apply {
-                    scanController.onStartScan = {
+                    scanController.onStartScan = { _, _ ->
                         DiagnosticsManualScanStartResult.RequiresHiddenProbeResolution(
                             requestId = "hidden-request",
                             profileName = "Automatic probing",
@@ -1506,7 +1506,7 @@ class DiagnosticsViewModelTest {
             val manager =
                 FakeDiagnosticsManager().apply {
                     scanController.hiddenAutomaticProbeActive.value = true
-                    scanController.onStartScan = {
+                    scanController.onStartScan = { _, _ ->
                         DiagnosticsManualScanStartResult.RequiresHiddenProbeResolution(
                             requestId = "hidden-request",
                             profileName = "Automatic probing",
@@ -1554,7 +1554,7 @@ class DiagnosticsViewModelTest {
             val manager =
                 FakeDiagnosticsManager().apply {
                     scanController.hiddenAutomaticProbeActive.value = true
-                    scanController.onStartScan = {
+                    scanController.onStartScan = { _, _ ->
                         DiagnosticsManualScanStartResult.RequiresHiddenProbeResolution(
                             requestId = "hidden-request",
                             profileName = "Automatic probing",
@@ -1597,7 +1597,7 @@ class DiagnosticsViewModelTest {
             val appContext = RuntimeEnvironment.getApplication()
             val manager =
                 FakeDiagnosticsManager().apply {
-                    scanController.onStartScan = {
+                    scanController.onStartScan = { _, _ ->
                         throw IllegalStateException("boom")
                     }
                 }
@@ -1708,7 +1708,7 @@ class DiagnosticsViewModelTest {
                                 updatedAt = 1L,
                             ),
                         )
-                    scanController.onStartScan = {
+                    scanController.onStartScan = { _, _ ->
                         progressState.value =
                             ScanProgress(
                                 sessionId = sessionId,
