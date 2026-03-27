@@ -51,7 +51,7 @@ appium/
   conftest.py          # Driver lifecycle + automation launch fixtures
   lib/                 # Capabilities, launch contract, helpers
   pages/               # Page objects (one per screen)
-  tests/               # Test files (test_01_ through test_08_)
+  tests/               # Test files (test_01_ through test_21_)
 ```
 
 ## How It Works
@@ -88,3 +88,16 @@ bash scripts/ci/run-appium-smoke.sh
 | 6 | `test_06_config_mode_selection.py` | Config preset chip selection |
 | 7 | `test_07_dns_settings.py` | Plain DNS address entry and save |
 | 8 | `test_08_diagnostics_sections.py` | Diagnostics pager section navigation |
+| 9 | `test_09_permission_handling.py` | VPN permission dialog continue/dismiss, banners |
+| 10 | `test_10_mode_editor.py` | Mode editor form fill, validation, command-line toggle |
+| 11 | `test_11_connected_state.py` | Home screen in connected VPN state |
+| 12 | `test_12_settings_preferences.py` | WebRTC toggle, theme, biometric confirm, backup PIN |
+| 13 | `test_13_dns_encrypted.py` | DoH resolver selection, custom DoH URL, DoT fields |
+| 14 | `test_14_history_screen.py` | History sections, search, filter clear-all |
+| 15 | `test_15_logs_screen.py` | Logs save, clear, auto-scroll, filters |
+| 16 | `test_16_onboarding.py` | Onboarding skip and swipe-through-complete paths |
+| 17 | `test_17_advanced_controls.py` | Toggle, text input, dropdown control types |
+| 18 | `test_18_host_pack_dialog.py` | Host pack dialog dropdowns, confirm/dismiss |
+| 19 | `test_19_about_screen.py` | About screen links visible |
+| 20 | `test_20_data_transparency.py` | Data transparency screen loads |
+| 21 | `test_21_app_customization.py` | Icon customization, shape info sheet |

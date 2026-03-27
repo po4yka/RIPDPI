@@ -54,6 +54,18 @@ class BasePage:
         el.clear()
         el.send_keys(text)
 
+    def swipe_horizontal(self, direction: str = "left") -> None:
+        """Swipe left or right across the center of the screen."""
+        size = self.driver.get_window_size()
+        center_y = int(size["height"] * 0.5)
+        if direction == "left":
+            start_x = int(size["width"] * 0.8)
+            end_x = int(size["width"] * 0.2)
+        else:
+            start_x = int(size["width"] * 0.2)
+            end_x = int(size["width"] * 0.8)
+        self.driver.swipe(start_x, center_y, end_x, center_y, duration=300)
+
     def scroll_to(self, tag: str, max_swipes: int = 5) -> WebElement:
         """Swipe down until the element is visible, then return it."""
         for _ in range(max_swipes):

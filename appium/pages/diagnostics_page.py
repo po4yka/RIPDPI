@@ -16,11 +16,7 @@ class DiagnosticsPage(BasePage):
         return self.is_visible(self.SCREEN)
 
     def swipe_to_next_section(self) -> None:
-        size = self.driver.get_window_size()
-        start_x = int(size["width"] * 0.8)
-        end_x = int(size["width"] * 0.2)
-        center_y = int(size["height"] * 0.5)
-        self.driver.swipe(start_x, center_y, end_x, center_y, duration=300)
+        self.swipe_horizontal("left")
 
     def is_section_visible(self, section: str) -> bool:
         return self.is_visible(f"diagnostics-section-{section}")
