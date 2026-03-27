@@ -123,6 +123,18 @@ impl RuntimeTelemetrySink for ProxyHarnessTelemetry {
             delegate.on_host_autolearn_event(action, host, group_index);
         }
     }
+
+    fn on_client_slot_exhausted(&self) {
+        if let Some(delegate) = &self.delegate {
+            delegate.on_client_slot_exhausted();
+        }
+    }
+
+    fn on_tls_handshake_completed(&self, target: SocketAddr, latency_ms: u64) {
+        if let Some(delegate) = &self.delegate {
+            delegate.on_tls_handshake_completed(target, latency_ms);
+        }
+    }
 }
 
 // ── NoCertificateVerification ──
