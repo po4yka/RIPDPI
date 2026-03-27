@@ -619,7 +619,7 @@ mod tests {
 
     #[test]
     fn cli_parses_window_clamp_flag() {
-        let args: Vec<String> = vec!["--window-clamp", "2"].iter().map(|s| s.to_string()).collect();
+        let args: Vec<String> = ["--window-clamp", "2"].iter().map(ToString::to_string).collect();
         let startup = StartupEnv::default();
         let result = parse_cli(&args, &startup).expect("parse");
         match result {
@@ -632,7 +632,7 @@ mod tests {
 
     #[test]
     fn cli_parses_strip_timestamps_flag() {
-        let args: Vec<String> = vec!["--strip-timestamps"].iter().map(|s| s.to_string()).collect();
+        let args: Vec<String> = ["--strip-timestamps"].iter().map(ToString::to_string).collect();
         let startup = StartupEnv::default();
         let result = parse_cli(&args, &startup).expect("parse");
         match result {
@@ -646,7 +646,7 @@ mod tests {
     #[test]
     fn cli_parses_strategy_evolution() {
         let args: Vec<String> =
-            vec!["--strategy-evolution", "--evolution-epsilon", "0.2"].iter().map(|s| s.to_string()).collect();
+            ["--strategy-evolution", "--evolution-epsilon", "0.2"].iter().map(ToString::to_string).collect();
         let startup = StartupEnv::default();
         let result = parse_cli(&args, &startup).expect("parse");
         match result {
@@ -661,7 +661,7 @@ mod tests {
     #[test]
     fn cli_parses_entropy_target() {
         let args: Vec<String> =
-            vec!["--entropy-target", "3.4", "--entropy-max-pad", "128"].iter().map(|s| s.to_string()).collect();
+            ["--entropy-target", "3.4", "--entropy-max-pad", "128"].iter().map(ToString::to_string).collect();
         let startup = StartupEnv::default();
         let result = parse_cli(&args, &startup).expect("parse");
         match result {
@@ -676,7 +676,7 @@ mod tests {
     #[test]
     fn cli_parses_entropy_mode_shannon() {
         let args: Vec<String> =
-            vec!["--entropy-mode", "shannon", "--shannon-target", "7.92"].iter().map(|s| s.to_string()).collect();
+            ["--entropy-mode", "shannon", "--shannon-target", "7.92"].iter().map(ToString::to_string).collect();
         let startup = StartupEnv::default();
         let result = parse_cli(&args, &startup).expect("parse");
         match result {
@@ -690,7 +690,7 @@ mod tests {
 
     #[test]
     fn cli_parses_entropy_mode_combined() {
-        let args: Vec<String> = vec!["--entropy-mode", "combined"].iter().map(|s| s.to_string()).collect();
+        let args: Vec<String> = ["--entropy-mode", "combined"].iter().map(ToString::to_string).collect();
         let startup = StartupEnv::default();
         let result = parse_cli(&args, &startup).expect("parse");
         match result {
@@ -703,7 +703,7 @@ mod tests {
 
     #[test]
     fn cli_parses_entropy_mode_auto_as_combined() {
-        let args: Vec<String> = vec!["--entropy-mode", "auto"].iter().map(|s| s.to_string()).collect();
+        let args: Vec<String> = ["--entropy-mode", "auto"].iter().map(ToString::to_string).collect();
         let startup = StartupEnv::default();
         let result = parse_cli(&args, &startup).expect("parse");
         match result {
@@ -716,7 +716,7 @@ mod tests {
 
     #[test]
     fn cli_parses_entropy_mode_popcount() {
-        let args: Vec<String> = vec!["--entropy-mode", "popcount"].iter().map(|s| s.to_string()).collect();
+        let args: Vec<String> = ["--entropy-mode", "popcount"].iter().map(ToString::to_string).collect();
         let startup = StartupEnv::default();
         let result = parse_cli(&args, &startup).expect("parse");
         match result {
@@ -729,7 +729,7 @@ mod tests {
 
     #[test]
     fn cli_rejects_invalid_entropy_mode() {
-        let args: Vec<String> = vec!["--entropy-mode", "invalid"].iter().map(|s| s.to_string()).collect();
+        let args: Vec<String> = ["--entropy-mode", "invalid"].iter().map(ToString::to_string).collect();
         let startup = StartupEnv::default();
         assert!(parse_cli(&args, &startup).is_err());
     }
@@ -737,19 +737,19 @@ mod tests {
     #[test]
     fn cli_rejects_shannon_target_out_of_range() {
         // Above 8.0
-        let args: Vec<String> = vec!["--shannon-target", "9.0"].iter().map(|s| s.to_string()).collect();
+        let args: Vec<String> = ["--shannon-target", "9.0"].iter().map(ToString::to_string).collect();
         let startup = StartupEnv::default();
         assert!(parse_cli(&args, &startup).is_err());
 
         // Negative
-        let args: Vec<String> = vec!["--shannon-target", "-1.0"].iter().map(|s| s.to_string()).collect();
+        let args: Vec<String> = ["--shannon-target", "-1.0"].iter().map(ToString::to_string).collect();
         assert!(parse_cli(&args, &startup).is_err());
     }
 
     #[test]
     fn cli_accepts_shannon_target_boundary_values() {
         // 0.0 is valid (extreme but allowed)
-        let args: Vec<String> = vec!["--shannon-target", "0.0"].iter().map(|s| s.to_string()).collect();
+        let args: Vec<String> = ["--shannon-target", "0.0"].iter().map(ToString::to_string).collect();
         let startup = StartupEnv::default();
         let result = parse_cli(&args, &startup).expect("parse");
         match result {
@@ -760,7 +760,7 @@ mod tests {
         }
 
         // 8.0 is valid
-        let args: Vec<String> = vec!["--shannon-target", "8.0"].iter().map(|s| s.to_string()).collect();
+        let args: Vec<String> = ["--shannon-target", "8.0"].iter().map(ToString::to_string).collect();
         let result = parse_cli(&args, &startup).expect("parse");
         match result {
             ParseResult::Run(config) => {
@@ -772,7 +772,7 @@ mod tests {
 
     #[test]
     fn cli_rejects_non_numeric_shannon_target() {
-        let args: Vec<String> = vec!["--shannon-target", "abc"].iter().map(|s| s.to_string()).collect();
+        let args: Vec<String> = ["--shannon-target", "abc"].iter().map(ToString::to_string).collect();
         let startup = StartupEnv::default();
         assert!(parse_cli(&args, &startup).is_err());
     }
@@ -780,7 +780,7 @@ mod tests {
     #[test]
     fn cli_entropy_mode_default_is_disabled() {
         // No entropy flags: mode should remain Disabled
-        let args: Vec<String> = vec!["-p", "1080"].iter().map(|s| s.to_string()).collect();
+        let args: Vec<String> = ["-p", "1080"].iter().map(ToString::to_string).collect();
         let startup = StartupEnv::default();
         let result = parse_cli(&args, &startup).expect("parse");
         match result {
