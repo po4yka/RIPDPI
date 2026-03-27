@@ -81,7 +81,7 @@ jobs:
 
       - uses: mozilla-actions/sccache-action@v0.0.7
 
-      - uses: gradle/actions/setup-gradle@v4
+      - uses: gradle/actions/setup-gradle@v6
 
       - name: Build debug APK and run unit tests
         env:
@@ -149,7 +149,7 @@ jobs:
 
       - uses: mozilla-actions/sccache-action@v0.0.7
 
-      - uses: gradle/actions/setup-gradle@v4
+      - uses: gradle/actions/setup-gradle@v6
 
       - name: Run cargo-deny
         uses: EmbarkStudios/cargo-deny-action@v2
@@ -220,7 +220,7 @@ jobs:
 
       - uses: mozilla-actions/sccache-action@v0.0.7
 
-      - uses: gradle/actions/setup-gradle@v4
+      - uses: gradle/actions/setup-gradle@v6
 
       - name: Verify minified release build
         env:
@@ -364,7 +364,7 @@ jobs:
       - name: Install NDK
         run: sdkmanager --install "ndk;${{ steps.native-toolchain-coverage.outputs.ndk }}"
 
-      - uses: gradle/actions/setup-gradle@v4
+      - uses: gradle/actions/setup-gradle@v6
 
       - name: Install cargo-llvm-cov
         uses: taiki-e/install-action@v2
@@ -498,7 +498,7 @@ jobs:
         run: sdkmanager --install "ndk;${{ steps.native-toolchain.outputs.ndk }}"
 
       - uses: mozilla-actions/sccache-action@v0.0.7
-      - uses: gradle/actions/setup-gradle@v4
+      - uses: gradle/actions/setup-gradle@v6
 
       - name: Enable KVM for emulator
         run: |
@@ -692,7 +692,7 @@ jobs:
       - name: Install NDK
         run: sdkmanager --install "ndk;${{ steps.nightly-native-toolchain.outputs.ndk }}"
 
-      - uses: gradle/actions/setup-gradle@v4
+      - uses: gradle/actions/setup-gradle@v6
 
       - name: Install cargo-llvm-cov
         uses: taiki-e/install-action@v2
@@ -751,7 +751,7 @@ jobs:
       - name: Install NDK
         run: sdkmanager --install "ndk;${{ steps.native-toolchain.outputs.ndk }}"
 
-      - uses: gradle/actions/setup-gradle@v4
+      - uses: gradle/actions/setup-gradle@v6
 
       - name: Start local network fixture
         run: |
