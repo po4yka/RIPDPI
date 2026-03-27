@@ -144,6 +144,47 @@ class ProxyServiceRuntimeCoordinatorTest {
             )
         }
 
+    @Test
+    fun handoverFailureEmitsFailedStatusAndHalts() =
+        runTest {
+            val initialFingerprint = sampleFingerprint()
+            val newFingerprint = sampleFingerprint(dnsServers = listOf("8.8.8.8"))
+            var callCount = 0
+            val env =
+                newEnv(
+                    fingerprint = initialFingerprint,
+                    resolutions =
+                        listOf(
+                            sampleResolution(mode = Mode.Proxy, policySignature = "initial"),
+                            sampleResolution(mode = Mode.Proxy, policySignature = "handover"),
+                        ),
+                    runtimeFactory = {
+                        callCount += 1
+                        if (callCount > 1) {
+                            TestProxyRuntime().apply { startFailure = IOException("restart boom") }
+                        } else {
+                            TestProxyRuntime()
+                        }
+                    },
+                )
+
+            env.coordinator.start()
+            runCurrent()
+
+            env.handoverMonitor.emit(
+                NetworkHandoverEvent(
+                    previousFingerprint = initialFingerprint,
+                    currentFingerprint = newFingerprint,
+                    classification = "link_refresh",
+                    occurredAt = 2_000L,
+                ),
+            )
+            repeat(5) { runCurrent() }
+
+            assertEquals(AppStatus.Halted to Mode.Proxy, env.store.status.value)
+            assertTrue(env.store.eventHistory.any { it is ServiceEvent.Failed })
+        }
+
     private fun TestScope.newEnv(
         fingerprint: com.poyka.ripdpi.data.NetworkFingerprint? = sampleFingerprint(),
         resolutions: List<com.poyka.ripdpi.services.ConnectionPolicyResolution> =
