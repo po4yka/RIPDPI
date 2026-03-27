@@ -2,6 +2,7 @@ use std::io::{self, Read};
 use std::net::{IpAddr, Ipv4Addr, SocketAddr, TcpStream};
 use std::time::Duration;
 
+use ripdpi_config::DETECT_CONNECT;
 use ripdpi_session::{encode_http_connect_reply, encode_socks4_reply, encode_socks5_reply};
 
 use crate::runtime_policy::{extract_host, group_requires_payload, route_matches_payload, TransportProtocol};
@@ -256,7 +257,7 @@ fn maybe_delay_connect(
                 Some(&payload),
                 host.as_deref(),
                 TransportProtocol::Tcp,
-                0,
+                DETECT_CONNECT,
                 true,
                 None,
             )
