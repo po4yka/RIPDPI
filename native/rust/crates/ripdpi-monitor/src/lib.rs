@@ -134,7 +134,7 @@ impl MonitorSession {
         let session_id_panic = session_id.clone();
         let handle = thread::spawn(move || {
             let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-                run_scan(shared, cancel, session_id, domain_request, tls_verifier, native_log_level)
+                run_scan(shared, cancel, session_id, domain_request, tls_verifier, native_log_level);
             }));
             if let Err(panic_payload) = result {
                 let msg = panic_payload

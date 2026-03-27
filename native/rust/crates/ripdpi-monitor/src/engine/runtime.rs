@@ -170,7 +170,7 @@ impl ExecutionRuntime {
     }
 
     pub(super) fn is_past_deadline(&self) -> bool {
-        self.scan_deadline.map_or(false, |d| std::time::Instant::now() >= d)
+        self.scan_deadline.is_some_and(|d| std::time::Instant::now() >= d)
     }
 
     fn publish_progress(
@@ -199,6 +199,7 @@ impl ExecutionRuntime {
         );
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub(super) fn publish_strategy_probe_candidate_started(
         &self,
         plan: &ExecutionPlan,
@@ -282,6 +283,7 @@ impl ExecutionRuntime {
         );
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub(super) fn record_skipped_strategy_probe_candidate(
         &mut self,
         plan: &ExecutionPlan,

@@ -102,8 +102,7 @@ fn handle_client_sends_socks5_failure_reply_when_upstream_connect_fails() {
     let target = probe.local_addr().expect("probe addr");
     drop(probe);
 
-    let mut config = RuntimeConfig::default();
-    config.groups = vec![DesyncGroup::new(0)];
+    let mut config = RuntimeConfig { groups: vec![DesyncGroup::new(0)], ..Default::default() };
     config.network.resolve = false;
     let state = runtime_state(config);
     let (mut client, server) = connected_pair();

@@ -63,8 +63,8 @@ fn test_jvm() -> &'static JavaVM {
 /// # Safety
 /// The returned `EnvUnowned` borrows the same JNI env pointer and must not
 /// outlive the `Env` it was derived from.
-fn env_to_unowned(env: &mut Env<'_>) -> EnvUnowned<'_> {
-    unsafe { EnvUnowned::from_raw(env.as_raw()) }
+fn env_to_unowned<'local>(env: &mut Env<'local>) -> EnvUnowned<'local> {
+    unsafe { EnvUnowned::from_raw(env.get_raw()) }
 }
 
 fn with_env<R>(f: impl for<'a> FnOnce(&mut Env<'a>) -> R) -> R {
@@ -124,7 +124,7 @@ fn decode_jstring(env: &mut Env<'_>, raw: jni::sys::jstring) -> Option<String> {
         return None;
     }
     let string = unsafe { JString::from_raw(env, raw) };
-    Some(env.get_string(&string).expect("read jstring").into())
+    Some(string.try_to_string(env).expect("read jstring"))
 }
 
 fn decode_long_array(env: &mut Env<'_>, raw: jlongArray) -> Option<Vec<jlong>> {
@@ -132,7 +132,7 @@ fn decode_long_array(env: &mut Env<'_>, raw: jlongArray) -> Option<Vec<jlong>> {
         return None;
     }
     let array = unsafe { JLongArray::from_raw(env, raw) };
-    let len = env.get_array_length(&array).expect("stats array length") as usize;
+    let len = array.len(env).expect("stats array length");
     let mut values = vec![0; len];
     array.get_region(env, 0, &mut values).expect("read stats array");
     Some(values)
