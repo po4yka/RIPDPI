@@ -54,7 +54,7 @@ async fn doh_exchange_uses_direct_bootstrap_over_https() {
     let port = listener.local_addr().expect("local addr").port();
     let certificate = generate_simple_self_signed(vec!["fixture.test".to_string()]).expect("certificate");
     let certificate_der: CertificateDer<'static> = certificate.cert.der().clone();
-    let key_der = PrivateKeyDer::Pkcs8(PrivatePkcs8KeyDer::from(certificate.key_pair.serialize_der()));
+    let key_der = PrivateKeyDer::Pkcs8(PrivatePkcs8KeyDer::from(certificate.signing_key.serialize_der()));
     let server_config = Arc::new(
         ServerConfig::builder_with_provider(rustls::crypto::ring::default_provider().into())
             .with_safe_default_protocol_versions()
@@ -102,7 +102,7 @@ async fn exchange_with_metadata_reports_endpoint_and_latency() {
     let port = listener.local_addr().expect("local addr").port();
     let certificate = generate_simple_self_signed(vec!["fixture.test".to_string()]).expect("certificate");
     let certificate_der: CertificateDer<'static> = certificate.cert.der().clone();
-    let key_der = PrivateKeyDer::Pkcs8(PrivatePkcs8KeyDer::from(certificate.key_pair.serialize_der()));
+    let key_der = PrivateKeyDer::Pkcs8(PrivatePkcs8KeyDer::from(certificate.signing_key.serialize_der()));
     let server_config = Arc::new(
         ServerConfig::builder_with_provider(rustls::crypto::ring::default_provider().into())
             .with_safe_default_protocol_versions()
@@ -152,7 +152,7 @@ async fn doh_exchange_supports_socks_transport() {
     let port = listener.local_addr().expect("local addr").port();
     let certificate = generate_simple_self_signed(vec!["fixture.test".to_string()]).expect("certificate");
     let certificate_der: CertificateDer<'static> = certificate.cert.der().clone();
-    let key_der = PrivateKeyDer::Pkcs8(PrivatePkcs8KeyDer::from(certificate.key_pair.serialize_der()));
+    let key_der = PrivateKeyDer::Pkcs8(PrivatePkcs8KeyDer::from(certificate.signing_key.serialize_der()));
     let server_config = Arc::new(
         ServerConfig::builder_with_provider(rustls::crypto::ring::default_provider().into())
             .with_safe_default_protocol_versions()
@@ -203,7 +203,7 @@ fn dot_exchange_supports_direct_and_tls_validation() {
     let port = listener.local_addr().expect("local addr").port();
     let certificate = generate_simple_self_signed(vec!["fixture.test".to_string()]).expect("certificate");
     let certificate_der: CertificateDer<'static> = certificate.cert.der().clone();
-    let key_der = PrivateKeyDer::Pkcs8(PrivatePkcs8KeyDer::from(certificate.key_pair.serialize_der()));
+    let key_der = PrivateKeyDer::Pkcs8(PrivatePkcs8KeyDer::from(certificate.signing_key.serialize_der()));
     let server_config = Arc::new(
         ServerConfig::builder_with_provider(rustls::crypto::ring::default_provider().into())
             .with_safe_default_protocol_versions()
@@ -251,7 +251,7 @@ fn dot_exchange_supports_socks_transport() {
     let port = listener.local_addr().expect("local addr").port();
     let certificate = generate_simple_self_signed(vec!["fixture.test".to_string()]).expect("certificate");
     let certificate_der: CertificateDer<'static> = certificate.cert.der().clone();
-    let key_der = PrivateKeyDer::Pkcs8(PrivatePkcs8KeyDer::from(certificate.key_pair.serialize_der()));
+    let key_der = PrivateKeyDer::Pkcs8(PrivatePkcs8KeyDer::from(certificate.signing_key.serialize_der()));
     let server_config = Arc::new(
         ServerConfig::builder_with_provider(rustls::crypto::ring::default_provider().into())
             .with_safe_default_protocol_versions()
@@ -302,7 +302,7 @@ async fn dot_exchange_reuses_pooled_tls_connection() {
     let port = listener.local_addr().expect("local addr").port();
     let certificate = generate_simple_self_signed(vec!["fixture.test".to_string()]).expect("certificate");
     let certificate_der: CertificateDer<'static> = certificate.cert.der().clone();
-    let key_der = PrivateKeyDer::Pkcs8(PrivatePkcs8KeyDer::from(certificate.key_pair.serialize_der()));
+    let key_der = PrivateKeyDer::Pkcs8(PrivatePkcs8KeyDer::from(certificate.signing_key.serialize_der()));
     let server_config = Arc::new(
         ServerConfig::builder_with_provider(rustls::crypto::ring::default_provider().into())
             .with_safe_default_protocol_versions()
@@ -446,7 +446,7 @@ fn h2_only_doh_server_is_supported() {
     let port = listener.local_addr().expect("local addr").port();
     let certificate = generate_simple_self_signed(vec!["localhost".to_string()]).expect("certificate");
     let certificate_der: CertificateDer<'static> = certificate.cert.der().clone();
-    let key_der = PrivateKeyDer::Pkcs8(PrivatePkcs8KeyDer::from(certificate.key_pair.serialize_der()));
+    let key_der = PrivateKeyDer::Pkcs8(PrivatePkcs8KeyDer::from(certificate.signing_key.serialize_der()));
     let mut server_config = ServerConfig::builder_with_provider(rustls::crypto::ring::default_provider().into())
         .with_safe_default_protocol_versions()
         .expect("ring provider supports default TLS versions")
@@ -951,7 +951,7 @@ fn spawn_doh_fixture(
     let port = listener.local_addr().expect("local addr").port();
     let certificate = rcgen::generate_simple_self_signed(vec!["fixture.test".to_string()]).expect("certificate");
     let certificate_der: CertificateDer<'static> = certificate.cert.der().clone();
-    let key_der = PrivateKeyDer::Pkcs8(PrivatePkcs8KeyDer::from(certificate.key_pair.serialize_der()));
+    let key_der = PrivateKeyDer::Pkcs8(PrivatePkcs8KeyDer::from(certificate.signing_key.serialize_der()));
     let server_config = Arc::new(
         ServerConfig::builder_with_provider(rustls::crypto::ring::default_provider().into())
             .with_safe_default_protocol_versions()
@@ -1066,7 +1066,7 @@ mod hickory_backend_tests {
         let port = listener.local_addr().expect("local addr").port();
         let certificate = rcgen::generate_simple_self_signed(vec!["fixture.test".to_string()]).expect("certificate");
         let certificate_der: CertificateDer<'static> = certificate.cert.der().clone();
-        let key_der = PrivateKeyDer::Pkcs8(PrivatePkcs8KeyDer::from(certificate.key_pair.serialize_der()));
+        let key_der = PrivateKeyDer::Pkcs8(PrivatePkcs8KeyDer::from(certificate.signing_key.serialize_der()));
         let server_config = Arc::new(
             ServerConfig::builder_with_provider(rustls::crypto::ring::default_provider().into())
                 .with_safe_default_protocol_versions()
@@ -1119,7 +1119,7 @@ mod hickory_backend_tests {
         let port = listener.local_addr().expect("local addr").port();
         let certificate = rcgen::generate_simple_self_signed(vec!["fixture.test".to_string()]).expect("certificate");
         let certificate_der: CertificateDer<'static> = certificate.cert.der().clone();
-        let key_der = PrivateKeyDer::Pkcs8(PrivatePkcs8KeyDer::from(certificate.key_pair.serialize_der()));
+        let key_der = PrivateKeyDer::Pkcs8(PrivatePkcs8KeyDer::from(certificate.signing_key.serialize_der()));
         let server_config = Arc::new(
             ServerConfig::builder_with_provider(rustls::crypto::ring::default_provider().into())
                 .with_safe_default_protocol_versions()
@@ -1333,7 +1333,7 @@ mod hickory_backend_tests {
         let port = listener.local_addr().expect("local addr").port();
         let certificate = rcgen::generate_simple_self_signed(vec!["fixture.test".to_string()]).expect("certificate");
         let certificate_der: CertificateDer<'static> = certificate.cert.der().clone();
-        let key_der = PrivateKeyDer::Pkcs8(PrivatePkcs8KeyDer::from(certificate.key_pair.serialize_der()));
+        let key_der = PrivateKeyDer::Pkcs8(PrivatePkcs8KeyDer::from(certificate.signing_key.serialize_der()));
         let server_config = Arc::new(
             ServerConfig::builder_with_provider(rustls::crypto::ring::default_provider().into())
                 .with_safe_default_protocol_versions()
