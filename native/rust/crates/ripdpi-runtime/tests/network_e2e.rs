@@ -784,7 +784,7 @@ fn tls_round_trip_with_split_desync_completes_handshake_without_delay_connect() 
     let fixture = FixtureStack::start(ephemeral_fixture_config()).expect("start fixture");
 
     let mut config = ui_proxy_config();
-    config.groups[0].matches.proto = IS_TCP | IS_HTTPS;
+    config.groups[0].matches.proto = IS_TCP;
     config.groups[0]
         .actions
         .tcp_chain

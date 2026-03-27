@@ -424,7 +424,7 @@ fn set_udp_ttl(relay: &UdpSocket, target: SocketAddr, ttl: u8) -> io::Result<()>
 }
 
 fn should_migrate_quic_flow(config: &RuntimeConfig, route: &ConnectionRoute) -> bool {
-    config.groups.get(route.group_index).map_or(false, |group| group.actions.quic_migrate_after_handshake)
+    config.groups.get(route.group_index).is_some_and(|group| group.actions.quic_migrate_after_handshake)
 }
 
 fn should_cache_udp_host(config: &RuntimeConfig, host: Option<&crate::runtime_policy::ExtractedHost>) -> bool {

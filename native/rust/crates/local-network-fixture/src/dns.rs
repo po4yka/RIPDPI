@@ -529,6 +529,7 @@ pub(crate) fn parse_dns_question_name(request: &[u8]) -> Option<String> {
     (!labels.is_empty()).then(|| labels.join("."))
 }
 
+#[allow(clippy::too_many_arguments)]
 fn handle_streaming_dns_request<W>(
     service: &str,
     protocol: &str,
@@ -586,9 +587,8 @@ async fn handle_doq_connection(
     faults: FaultController,
     answer_ip: Ipv4Addr,
 ) {
-    let connection = match incoming.await {
-        Ok(connection) => connection,
-        Err(_) => return,
+    let Ok(connection) = incoming.await else {
+        return;
     };
     let peer = connection.remote_address();
     loop {
