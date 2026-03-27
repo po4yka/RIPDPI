@@ -27,13 +27,7 @@ internal class DiagnosticsScanActions(
             var prevProgress: com.poyka.ripdpi.diagnostics.ScanProgress? = null
             diagnosticsTimelineSource.activeScanProgress.collect { progress ->
                 if (progress == null && prevProgress != null && scanLifecycle.value.scanStartedAt != null) {
-                    val latestSession = currentUiState().scan.latestSession
-                    emit(
-                        DiagnosticsEffect.ScanCompleted(
-                            summary = latestSession?.summary ?: "Scan complete",
-                            tone = scanCompletedTone(latestSession),
-                        ),
-                    )
+                    emit(buildScanCompletionEffect(currentUiState().scan, appContext))
                     scanLifecycle.update {
                         it.copy(
                             scanStartedAt = null,
@@ -404,3 +398,33 @@ private fun QueuedManualScanRequest.toManualScanUiRequest(): ManualScanUiRequest
         scanKind = scanKind,
         isFullAudit = isFullAudit,
     )
+
+internal fun buildScanCompletionEffect(
+    scan: DiagnosticsScanUiModel,
+    context: Context,
+): DiagnosticsEffect.ScanCompleted {
+    val latestSummary = scan.latestSession?.summary ?: context.getString(R.string.diagnostics_snackbar_scan_complete)
+    val resolverMessage =
+        when {
+            scan.resolverRecommendation != null -> {
+                context.getString(
+                    R.string.diagnostics_snackbar_dns_recommendation_format,
+                    scan.resolverRecommendation.headline,
+                )
+            }
+
+            latestSummary.contains("resolver override recommended", ignoreCase = true) -> {
+                context.getString(R.string.diagnostics_snackbar_dns_recommendation_generic)
+            }
+
+            else -> {
+                null
+            }
+        }
+    return DiagnosticsEffect.ScanCompleted(
+        summary = resolverMessage ?: latestSummary,
+        tone = if (resolverMessage != null) DiagnosticsTone.Warning else scanCompletedTone(scan.latestSession),
+        actionLabel = scan.resolverRecommendation?.let { context.getString(R.string.title_dns_settings) },
+        action = scan.resolverRecommendation?.let { DiagnosticsEffect.SnackbarAction.OpenDnsSettings },
+    )
+}

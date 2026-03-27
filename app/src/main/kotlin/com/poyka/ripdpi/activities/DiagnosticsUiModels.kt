@@ -546,6 +546,10 @@ data class DiagnosticsUiState(
 )
 
 sealed interface DiagnosticsEffect {
+    enum class SnackbarAction {
+        OpenDnsSettings,
+    }
+
     data class ShareSummaryRequested(
         val title: String,
         val body: String,
@@ -572,6 +576,8 @@ sealed interface DiagnosticsEffect {
     data class ScanCompleted(
         val summary: String,
         val tone: DiagnosticsTone,
+        val actionLabel: String? = null,
+        val action: SnackbarAction? = null,
     ) : DiagnosticsEffect
 
     data class ScanStartFailed(

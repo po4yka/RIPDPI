@@ -22,6 +22,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -92,6 +93,7 @@ fun DiagnosticsRoute(
     onShareSummary: (String, String) -> Unit,
     onSaveLogs: () -> Unit,
     onOpenAdvancedSettings: () -> Unit = {},
+    onOpenDnsSettings: () -> Unit = {},
     onOpenHistory: () -> Unit,
     modifier: Modifier = Modifier,
     initialSection: DiagnosticsSection? = null,
@@ -121,6 +123,7 @@ fun DiagnosticsRoute(
     val currentOnSaveArchive by rememberUpdatedState(onSaveArchive)
     val currentOnShareArchive by rememberUpdatedState(onShareArchive)
     val currentOnShareSummary by rememberUpdatedState(onShareSummary)
+    val currentOnOpenDnsSettings by rememberUpdatedState(onOpenDnsSettings)
 
     LaunchedEffect(Unit) {
         viewModel.effects.collect { effect ->
@@ -154,16 +157,24 @@ fun DiagnosticsRoute(
                 }
 
                 is DiagnosticsEffect.ScanCompleted -> {
-                    snackbarHostState.showRipDpiSnackbar(
-                        message = effect.summary,
-                        testTag = RipDpiTestTags.DiagnosticsStatusSnackbar,
-                        tone =
-                            when (effect.tone) {
-                                DiagnosticsTone.Positive -> RipDpiSnackbarTone.Default
-                                DiagnosticsTone.Negative, DiagnosticsTone.Warning -> RipDpiSnackbarTone.Warning
-                                else -> RipDpiSnackbarTone.Default
-                            },
-                    )
+                    val result =
+                        snackbarHostState.showRipDpiSnackbar(
+                            message = effect.summary,
+                            actionLabel = effect.actionLabel,
+                            testTag = RipDpiTestTags.DiagnosticsStatusSnackbar,
+                            tone =
+                                when (effect.tone) {
+                                    DiagnosticsTone.Positive -> RipDpiSnackbarTone.Default
+                                    DiagnosticsTone.Negative, DiagnosticsTone.Warning -> RipDpiSnackbarTone.Warning
+                                    else -> RipDpiSnackbarTone.Default
+                                },
+                        )
+                    if (result == SnackbarResult.ActionPerformed) {
+                        when (effect.action) {
+                            DiagnosticsEffect.SnackbarAction.OpenDnsSettings -> currentOnOpenDnsSettings()
+                            null -> Unit
+                        }
+                    }
                 }
 
                 is DiagnosticsEffect.ScanStartFailed -> {

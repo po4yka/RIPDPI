@@ -267,6 +267,7 @@ private fun NavGraphBuilder.addPrimaryRoutes(
             onShareSummary = actions.onShareDiagnosticsSummary,
             onSaveLogs = actions.onSaveLogs,
             onOpenAdvancedSettings = { navController.navigate(Route.AdvancedSettings.route) },
+            onOpenDnsSettings = { navController.navigate(Route.DnsSettings.route) },
             onOpenHistory = { navController.navigate(Route.History.route) { launchSingleTop = true } },
             initialSection = diagnosticsInitialSection,
             onInitialSectionHandled = { onDiagnosticsInitialSectionChanged(null) },
