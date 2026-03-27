@@ -27,9 +27,14 @@
     "nativeEvents": [
         {
             "createdAt": 0,
+            "fingerprintHash": null,
             "level": "info",
             "message": "listener started addr=127.0.0.1:<port> maxClients=512 groups=2",
-            "source": "proxy"
+            "mode": null,
+            "policySignature": null,
+            "runtimeId": null,
+            "source": "proxy",
+            "subsystem": null
         }
     ],
     "networkErrors": 0,

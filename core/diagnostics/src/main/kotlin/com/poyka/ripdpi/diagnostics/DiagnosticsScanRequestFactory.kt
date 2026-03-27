@@ -67,7 +67,7 @@ internal class DiagnosticsScanRequestFactory
                     .copy(
                         logContext =
                             RipDpiLogContext(
-                                mode = scanContext.serviceMode?.lowercase(),
+                                mode = scanContext.serviceMode.lowercase(),
                                 diagnosticsSessionId = sessionId,
                             ),
                     )
