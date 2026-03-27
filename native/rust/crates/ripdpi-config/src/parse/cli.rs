@@ -231,7 +231,7 @@ pub fn parse_cli(args: &[String], startup: &StartupEnv) -> Result<ParseResult, C
             }
             "--entropy-mode" => {
                 let value = next_value(&effective_args, &mut idx, arg)?;
-                group!().actions.entropy_mode = match &*value {
+                group!().actions.entropy_mode = match value {
                     "popcount" => EntropyMode::Popcount,
                     "shannon" => EntropyMode::Shannon,
                     "combined" | "auto" => EntropyMode::Combined,
