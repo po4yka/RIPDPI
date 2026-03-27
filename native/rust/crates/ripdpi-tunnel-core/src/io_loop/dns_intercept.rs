@@ -10,7 +10,7 @@ use ripdpi_dns_resolver::{
 use ripdpi_tunnel_config::Config;
 use tokio::io::unix::AsyncFd;
 use tokio_util::sync::CancellationToken;
-use tracing::debug;
+use tracing::{debug, warn};
 
 use crate::dns_cache::DnsCache;
 use crate::Stats;
@@ -256,7 +256,12 @@ pub(super) fn resolve_mapped_target(
     let IpAddr::V4(v4) = dst.ip() else {
         return dst;
     };
-    let Some(entry) = cache.lookup(u32::from(v4)) else {
+    let ip = u32::from(v4);
+    if !cache.contains_mapped_ip(ip) {
+        return dst;
+    }
+    let Some(entry) = cache.lookup(ip) else {
+        warn!("mapdns reverse lookup miss for synthetic target {}", dst);
         return dst;
     };
     stats.record_last_host(Some(&entry.host));

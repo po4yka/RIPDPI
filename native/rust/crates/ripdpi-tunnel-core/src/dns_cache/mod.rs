@@ -83,6 +83,10 @@ impl DnsCache {
         Some(entry)
     }
 
+    pub fn contains_mapped_ip(&self, ip: u32) -> bool {
+        ip & self.mask == self.net
+    }
+
     pub fn rewrite_response(&mut self, query: &[u8], upstream: &[u8]) -> Result<DnsRewriteResult, DnsCacheError> {
         let host = primary_question_name(upstream).or_else(|_| primary_question_name(query))?;
         let mut message = Message::from_vec(upstream).map_err(|err| DnsCacheError::DnsParse(err.to_string()))?;

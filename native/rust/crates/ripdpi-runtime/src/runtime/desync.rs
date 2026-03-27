@@ -180,24 +180,30 @@ fn execute_tcp_actions(
     // the first SetTtl action so we always have a value to restore.
     let mut cached_restore_ttl: Option<u8> = if default_ttl != 0 { Some(default_ttl) } else { None };
     let mut ttl_modified = false;
+    // Some Android builds reject per-socket TTL rewrites at runtime. In that
+    // case, continue without the TTL mutation so the connection can still
+    // progress instead of failing the whole request.
+    let mut ttl_actions_unavailable = false;
 
     let result = (|| -> io::Result<()> {
         for action in actions {
             match action {
-                DesyncAction::Write(bytes) => writer.write_all(bytes)?,
+                DesyncAction::Write(bytes) => write_payload_action(writer, bytes)?,
                 DesyncAction::WriteUrgent { prefix, urgent_byte } => send_oob_action(writer, prefix, *urgent_byte)?,
                 DesyncAction::SetTtl(ttl) => {
                     // Capture current TTL before first modification when auto-detecting.
                     if cached_restore_ttl.is_none() {
                         cached_restore_ttl = platform::detect_default_ttl().ok();
                     }
-                    set_ttl_action(writer, *ttl)?;
-                    ttl_modified = true;
+                    if set_ttl_with_android_fallback(writer, *ttl, &mut ttl_actions_unavailable)? {
+                        ttl_modified = true;
+                    }
                 }
                 DesyncAction::RestoreDefaultTtl => {
                     if let Some(restore) = cached_restore_ttl {
-                        restore_default_ttl_action(writer, restore)?;
-                        ttl_modified = false;
+                        if restore_default_ttl_with_android_fallback(writer, restore, &mut ttl_actions_unavailable)? {
+                            ttl_modified = false;
+                        }
                     }
                 }
                 DesyncAction::SetMd5Sig { key_len } => set_md5sig_action(writer, *key_len)?,
@@ -223,6 +229,64 @@ fn execute_tcp_actions(
     }
 
     result
+}
+
+fn set_ttl_with_android_fallback(stream: &TcpStream, ttl: u8, ttl_actions_unavailable: &mut bool) -> io::Result<bool> {
+    if *ttl_actions_unavailable {
+        return Ok(false);
+    }
+
+    match set_ttl_action(stream, ttl) {
+        Ok(()) => Ok(true),
+        Err(err) => handle_android_ttl_capability_error(err, ttl_actions_unavailable),
+    }
+}
+
+fn restore_default_ttl_with_android_fallback(
+    stream: &TcpStream,
+    ttl: u8,
+    ttl_actions_unavailable: &mut bool,
+) -> io::Result<bool> {
+    if *ttl_actions_unavailable {
+        return Ok(false);
+    }
+
+    match restore_default_ttl_action(stream, ttl) {
+        Ok(()) => Ok(true),
+        Err(err) => handle_android_ttl_capability_error(err, ttl_actions_unavailable),
+    }
+}
+
+fn handle_android_ttl_capability_error(err: io::Error, ttl_actions_unavailable: &mut bool) -> io::Result<bool> {
+    if should_ignore_android_ttl_error(&err) {
+        *ttl_actions_unavailable = true;
+        tracing::warn!("TTL desync action unavailable on this Android build: {err}");
+        Ok(false)
+    } else {
+        Err(err)
+    }
+}
+
+#[cfg(any(test, target_os = "android"))]
+fn should_ignore_android_ttl_error(err: &io::Error) -> bool {
+    matches!(
+        extract_os_error(err),
+        Some(libc::EROFS | libc::EINVAL | libc::ENOPROTOOPT | libc::EOPNOTSUPP | libc::EPERM | libc::EACCES)
+    )
+}
+
+#[cfg(not(any(test, target_os = "android")))]
+fn should_ignore_android_ttl_error(_err: &io::Error) -> bool {
+    false
+}
+
+#[cfg(any(test, target_os = "android"))]
+fn extract_os_error(err: &io::Error) -> Option<i32> {
+    err.raw_os_error().or_else(|| {
+        err.get_ref()
+            .and_then(|inner| inner.downcast_ref::<DesyncActionError>())
+            .and_then(|wrapped| wrapped.source.raw_os_error())
+    })
 }
 
 fn execute_tcp_plan(
@@ -257,6 +321,7 @@ fn execute_tcp_plan(
     }
 
     let mut cursor = 0usize;
+    let mut ttl_actions_unavailable = false;
     for (index, step) in plan.steps.iter().enumerate() {
         let start = usize::try_from(step.start)
             .map_err(|_| io::Error::new(io::ErrorKind::InvalidData, "negative tcp plan start"))?;
@@ -286,24 +351,30 @@ fn execute_tcp_plan(
                 )?;
             }
             TcpChainStepKind::Disorder => {
-                set_ttl_action(writer, 1)?;
+                let ttl_modified = set_ttl_with_android_fallback(writer, 1, &mut ttl_actions_unavailable)?;
                 writer.write_all(chunk)?;
                 await_writable_action(
                     writer,
                     config.timeouts.wait_send,
                     Duration::from_millis(config.timeouts.await_interval.max(1) as u64),
                 )?;
-                restore_default_ttl_action(writer, restore_ttl)?;
+                if ttl_modified {
+                    let _ =
+                        restore_default_ttl_with_android_fallback(writer, restore_ttl, &mut ttl_actions_unavailable)?;
+                }
             }
             TcpChainStepKind::Disoob => {
-                set_ttl_action(writer, 1)?;
+                let ttl_modified = set_ttl_with_android_fallback(writer, 1, &mut ttl_actions_unavailable)?;
                 send_oob_action(writer, chunk, group.actions.oob_data.unwrap_or(b'a'))?;
                 await_writable_action(
                     writer,
                     config.timeouts.wait_send,
                     Duration::from_millis(config.timeouts.await_interval.max(1) as u64),
                 )?;
-                restore_default_ttl_action(writer, restore_ttl)?;
+                if ttl_modified {
+                    let _ =
+                        restore_default_ttl_with_android_fallback(writer, restore_ttl, &mut ttl_actions_unavailable)?;
+                }
             }
             TcpChainStepKind::Fake => {
                 let fake =
@@ -368,14 +439,20 @@ fn execute_tcp_plan(
             TcpChainStepKind::FakeDisorder => {
                 let second = &plan.tampered[end..];
                 if second.is_empty() {
-                    set_ttl_action(writer, 1)?;
+                    let ttl_modified = set_ttl_with_android_fallback(writer, 1, &mut ttl_actions_unavailable)?;
                     writer.write_all(chunk)?;
                     await_writable_action(
                         writer,
                         config.timeouts.wait_send,
                         Duration::from_millis(config.timeouts.await_interval.max(1) as u64),
                     )?;
-                    restore_default_ttl_action(writer, restore_ttl)?;
+                    if ttl_modified {
+                        let _ = restore_default_ttl_with_android_fallback(
+                            writer,
+                            restore_ttl,
+                            &mut ttl_actions_unavailable,
+                        )?;
+                    }
                     cursor = end;
                     continue;
                 }
@@ -550,6 +627,10 @@ fn set_md5sig_action(stream: &TcpStream, key_len: u16) -> io::Result<()> {
     map_desync_action_error("set_md5sig", platform::set_tcp_md5sig(stream, key_len))
 }
 
+fn write_payload_action(stream: &mut TcpStream, bytes: &[u8]) -> io::Result<()> {
+    map_desync_action_error("write", stream.write_all(bytes))
+}
+
 fn await_writable_action(stream: &TcpStream, wait_send: bool, await_interval: Duration) -> io::Result<()> {
     map_desync_action_error("await_writable", platform::wait_tcp_stage(stream, wait_send, await_interval))
 }
@@ -619,6 +700,19 @@ mod tests {
         assert_eq!(context.kind, io::ErrorKind::InvalidInput);
         assert_eq!(context.errno, Some(libc::EINVAL));
         assert!(err.to_string().contains("desync action=set_ttl"));
+    }
+
+    #[test]
+    fn android_ttl_fallback_filter_matches_capability_errors_only() {
+        assert!(should_ignore_android_ttl_error(&io::Error::from_raw_os_error(libc::EROFS)));
+        assert!(should_ignore_android_ttl_error(&io::Error::from_raw_os_error(libc::EINVAL)));
+        assert!(!should_ignore_android_ttl_error(&io::Error::from_raw_os_error(libc::ECONNRESET)));
+    }
+
+    #[test]
+    fn android_ttl_fallback_filter_matches_wrapped_desync_errors() {
+        let err = wrap_desync_action_error("set_ttl", io::Error::from_raw_os_error(libc::EROFS));
+        assert!(should_ignore_android_ttl_error(&err));
     }
 
     // ---------------------------------------------------------------
