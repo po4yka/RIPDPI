@@ -7,6 +7,7 @@ import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -72,6 +73,46 @@ class DiagnosticsModelsCompatibilityTest {
             ProbePersistencePolicyWire.BACKGROUND_ONLY,
             profile.executionPolicy?.probePersistencePolicy,
         )
+        assertTrue(profile.strategyProbeTargetCohorts.isEmpty())
+    }
+
+    @Test
+    fun `new profile spec round trips strategy probe target cohorts`() {
+        val profile =
+            ProfileSpecWire(
+                profileId = "automatic-audit",
+                displayName = "Automatic audit",
+                kind = ScanKind.STRATEGY_PROBE,
+                family = DiagnosticProfileFamily.AUTOMATIC_AUDIT,
+                strategyProbe = StrategyProbeRequest(suiteId = "full_matrix_v1"),
+                strategyProbeTargetCohorts =
+                    listOf(
+                        com.poyka.ripdpi.diagnostics.contract.profile.StrategyProbeTargetCohortWire(
+                            id = "global-core",
+                            label = "Global core",
+                            domainTargets =
+                                listOf(
+                                    DomainTarget(host = "www.youtube.com"),
+                                    DomainTarget(host = "discord.com"),
+                                    DomainTarget(host = "proton.me"),
+                                ),
+                            quicTargets =
+                                listOf(
+                                    QuicTarget(host = "www.youtube.com"),
+                                    QuicTarget(host = "discord.com"),
+                                ),
+                        ),
+                    ),
+            )
+
+        val decoded =
+            json.decodeFromString(
+                ProfileSpecWire.serializer(),
+                json.encodeToString(ProfileSpecWire.serializer(), profile),
+            )
+
+        assertEquals(1, decoded.strategyProbeTargetCohorts.size)
+        assertEquals("global-core", decoded.strategyProbeTargetCohorts.single().id)
     }
 
     @Test
@@ -129,6 +170,7 @@ class DiagnosticsModelsCompatibilityTest {
             )
 
         assertNull(report.strategyProbeReport?.auditAssessment)
+        assertNull(report.strategyProbeReport?.targetSelection)
         assertEquals(
             DiagnosticsScanWorkflow.BackgroundAutoPersistEligibility.Rejected(
                 DiagnosticsScanWorkflow.BackgroundAutoPersistRejectionReason.MISSING_AUDIT_ASSESSMENT,
@@ -241,6 +283,53 @@ class DiagnosticsModelsCompatibilityTest {
     }
 
     @Test
+    fun `strategy probe request round trips target selection`() {
+        val request =
+            ScanRequest(
+                profileId = "automatic-audit",
+                displayName = "Automatic audit",
+                pathMode = ScanPathMode.RAW_PATH,
+                kind = ScanKind.STRATEGY_PROBE,
+                family = DiagnosticProfileFamily.AUTOMATIC_AUDIT,
+                domainTargets =
+                    listOf(
+                        DomainTarget(host = "www.dw.com"),
+                        DomainTarget(host = "www.torproject.org"),
+                        DomainTarget(host = "protonvpn.com"),
+                    ),
+                quicTargets =
+                    listOf(
+                        QuicTarget(host = "www.youtube.com"),
+                        QuicTarget(host = "www.whatsapp.com"),
+                    ),
+                strategyProbe =
+                    StrategyProbeRequest(
+                        suiteId = "full_matrix_v1",
+                        targetSelection =
+                            StrategyProbeTargetSelection(
+                                cohortId = "circumvention-web",
+                                cohortLabel = "Circumvention web mix",
+                                domainHosts = listOf("www.dw.com", "www.torproject.org", "protonvpn.com"),
+                                quicHosts = listOf("www.youtube.com", "www.whatsapp.com"),
+                            ),
+                    ),
+            )
+
+        val decoded =
+            json.decodeFromString(ScanRequest.serializer(), json.encodeToString(ScanRequest.serializer(), request))
+
+        assertNotNull(decoded.strategyProbe?.targetSelection)
+        assertEquals("circumvention-web", decoded.strategyProbe?.targetSelection?.cohortId)
+        assertEquals(
+            3,
+            decoded.strategyProbe
+                ?.targetSelection
+                ?.domainHosts
+                ?.size,
+        )
+    }
+
+    @Test
     fun `new scan report round trips diagnoses and pack versions`() {
         val report =
             ScanReport(
@@ -328,6 +417,13 @@ class DiagnosticsModelsCompatibilityTest {
                                             ),
                                     ),
                             ),
+                        targetSelection =
+                            StrategyProbeTargetSelection(
+                                cohortId = "media-messaging",
+                                cohortLabel = "Media and messaging",
+                                domainHosts = listOf("meduza.io", "telegram.org", "signal.org"),
+                                quicHosts = listOf("discord.com", "www.whatsapp.com"),
+                            ),
                     ),
             )
 
@@ -348,6 +444,7 @@ class DiagnosticsModelsCompatibilityTest {
                 ?.coverage
                 ?.matrixCoveragePercent,
         )
+        assertEquals("media-messaging", decoded.strategyProbeReport?.targetSelection?.cohortId)
     }
 
     @Test

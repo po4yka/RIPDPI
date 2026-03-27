@@ -162,6 +162,11 @@ private fun DiagnosticsUiFactorySupport.shareReportLines(report: DiagnosticsSess
         add("${report.results.size} probe results in the latest report")
         report.engineAnalysisVersion?.let { add("Engine analysis: $it") }
         report.classifierVersion?.let { add("Classifier: $it") }
+        report.strategyProbeReport?.targetSelection?.let { selection ->
+            add("Audit cohort: ${selection.cohortLabel} (${selection.cohortId})")
+            add("Audit domains: ${selection.domainHosts.joinToString(" · ")}")
+            add("Audit QUIC hosts: ${selection.quicHosts.joinToString(" · ")}")
+        }
         report.strategyProbeReport?.auditAssessment?.let { assessment ->
             add("Audit confidence: ${assessment.confidence.level.name} (${assessment.confidence.score}/100)")
             add("Matrix coverage: ${assessment.coverage.matrixCoveragePercent}%")

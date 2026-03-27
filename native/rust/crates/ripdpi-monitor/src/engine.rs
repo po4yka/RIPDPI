@@ -262,7 +262,11 @@ mod tests {
         let request = scan_request(
             ScanKind::StrategyProbe,
             Vec::new(),
-            Some(crate::types::StrategyProbeRequest { suite_id: "phase1".to_string(), base_proxy_config_json: None }),
+            Some(crate::types::StrategyProbeRequest {
+                suite_id: "phase1".to_string(),
+                base_proxy_config_json: None,
+                target_selection: None,
+            }),
         );
 
         run_engine_scan(shared.clone(), cancel, "session-1".to_string(), request, None);

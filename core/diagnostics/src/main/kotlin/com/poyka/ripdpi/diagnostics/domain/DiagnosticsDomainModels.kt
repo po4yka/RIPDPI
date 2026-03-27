@@ -44,6 +44,13 @@ internal data class ExecutionPolicy(
     val probePersistencePolicy: ProbePersistencePolicy,
 )
 
+internal data class StrategyProbeTargetCohortSpec(
+    val id: String,
+    val label: String,
+    val domainTargets: List<DomainTarget>,
+    val quicTargets: List<QuicTarget>,
+)
+
 internal data class DiagnosticsIntent(
     val profileId: String,
     val displayName: String,
@@ -63,6 +70,7 @@ internal data class DiagnosticsIntent(
     val whitelistSni: List<String>,
     val telegramTarget: TelegramTarget?,
     val strategyProbe: StrategyProbeRequest?,
+    val strategyProbeTargetCohorts: List<StrategyProbeTargetCohortSpec> = emptyList(),
     val requestedPathMode: ScanPathMode,
 )
 

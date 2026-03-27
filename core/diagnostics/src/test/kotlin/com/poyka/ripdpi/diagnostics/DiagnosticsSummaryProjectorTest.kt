@@ -53,6 +53,13 @@ class DiagnosticsSummaryProjectorTest {
                                                 rationale = "Audit rationale",
                                             ),
                                     ),
+                                targetSelection =
+                                    StrategyProbeTargetSelection(
+                                        cohortId = "media-messaging",
+                                        cohortLabel = "Media and messaging",
+                                        domainHosts = listOf("meduza.io", "telegram.org", "signal.org"),
+                                        quicHosts = listOf("discord.com", "www.whatsapp.com"),
+                                    ),
                             ),
                     ),
                 latestSnapshotModel = null,
@@ -62,6 +69,9 @@ class DiagnosticsSummaryProjectorTest {
                 warnings = emptyList(),
             )
 
+        assertTrue(document.reportMetadata.lines.contains("strategyTargetCohort=media-messaging"))
+        assertTrue(document.reportMetadata.lines.contains("strategyTargetDomains=meduza.io|telegram.org|signal.org"))
+        assertTrue(document.reportMetadata.lines.contains("strategyTargetQuicHosts=discord.com|www.whatsapp.com"))
         assertTrue(document.reportMetadata.lines.contains("strategyConfidence=MEDIUM"))
         assertTrue(document.reportMetadata.lines.contains("strategyConfidenceScore=75"))
         assertTrue(document.reportMetadata.lines.contains("strategyMatrixCoverage=77"))
