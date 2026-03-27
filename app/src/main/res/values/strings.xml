@@ -55,6 +55,14 @@
     <string name="diagnostics_action_audit_unavailable">Automatic audit unavailable</string>
     <string name="diagnostics_error_hidden_probe_running">Automatic probing is already running. Wait for it to finish before starting another diagnostics run.</string>
     <string name="diagnostics_error_start_failed">Couldn’t start diagnostics. Try again.</string>
+    <string name="diagnostics_hidden_probe_conflict_title">Background automatic probing is active</string>
+    <string name="diagnostics_hidden_probe_conflict_body_format">Background automatic probing is still running. Wait for it to finish, or cancel it and start %1$s now.</string>
+    <string name="diagnostics_hidden_probe_wait_action">Wait</string>
+    <string name="diagnostics_hidden_probe_cancel_and_run_action">Cancel background probing and run mine</string>
+    <string name="diagnostics_hidden_probe_dismiss_action">Dismiss</string>
+    <string name="diagnostics_hidden_probe_wait_queued_format">%1$s will start after background automatic probing finishes.</string>
+    <string name="diagnostics_hidden_probe_takeover_failed">Couldn’t take over background automatic probing. Try again.</string>
+    <string name="diagnostics_hidden_probe_canceled_summary">Background automatic probing canceled to start manual diagnostics</string>
     <string name="diagnostics_latest_scan_section">Latest scan</string>
     <string name="diagnostics_profile_connectivity_title">Connectivity checks</string>
     <string name="diagnostics_profile_connectivity_badge">Validate</string>

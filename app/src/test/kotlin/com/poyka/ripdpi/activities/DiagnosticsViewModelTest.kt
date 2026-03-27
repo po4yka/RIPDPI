@@ -25,9 +25,10 @@ import com.poyka.ripdpi.diagnostics.DiagnosticConnectionSession
 import com.poyka.ripdpi.diagnostics.DiagnosticContextModel
 import com.poyka.ripdpi.diagnostics.DiagnosticSessionDetail
 import com.poyka.ripdpi.diagnostics.DiagnosticsArchive
-import com.poyka.ripdpi.diagnostics.DiagnosticsScanStartRejectedException
-import com.poyka.ripdpi.diagnostics.DiagnosticsScanStartRejectionReason
+import com.poyka.ripdpi.diagnostics.DiagnosticsManualScanResolution
+import com.poyka.ripdpi.diagnostics.DiagnosticsManualScanStartResult
 import com.poyka.ripdpi.diagnostics.EnvironmentContextModel
+import com.poyka.ripdpi.diagnostics.HiddenProbeConflictAction
 import com.poyka.ripdpi.diagnostics.NetworkSnapshotModel
 import com.poyka.ripdpi.diagnostics.PermissionContextModel
 import com.poyka.ripdpi.diagnostics.ProbeDetail
@@ -656,7 +657,7 @@ class DiagnosticsViewModelTest {
             assertFalse(scan.runRawEnabled)
             assertFalse(scan.runInPathEnabled)
             assertTrue(scan.selectedProfileScopeLabel.orEmpty().contains("raw-path only"))
-            assertNull(scan.runRawHint)
+            assertNotNull(scan.runRawHint)
             assertNotNull(scan.workflowRestriction)
             assertEquals(
                 DiagnosticsWorkflowRestrictionReasonUiModel.COMMAND_LINE_MODE_ACTIVE,
@@ -1361,7 +1362,7 @@ class DiagnosticsViewModelTest {
                 StrategyProbeAuditConfidenceLevel.MEDIUM,
                 requireNotNull(report.auditAssessment).confidence.level,
             )
-            assertEquals(38, report.auditAssessment?.coverage?.matrixCoveragePercent)
+            assertEquals(38, requireNotNull(report.auditAssessment).coverage.matrixCoveragePercent)
 
             viewModel.selectStrategyProbeCandidate(report.candidateDetails.getValue("tlsrec_hostfake"))
             advanceUntilIdle()
@@ -1457,32 +1458,131 @@ class DiagnosticsViewModelTest {
         }
 
     @Test
-    fun `hidden automatic probe rejection emits specific scan start failure effect`() =
+    fun `hidden automatic probe conflict opens takeover dialog`() =
         runTest {
-            val appContext = RuntimeEnvironment.getApplication()
             val manager =
                 FakeDiagnosticsManager().apply {
                     scanController.onStartScan = {
-                        throw DiagnosticsScanStartRejectedException(
-                            DiagnosticsScanStartRejectionReason.HiddenAutomaticProbeRunning,
+                        DiagnosticsManualScanStartResult.RequiresHiddenProbeResolution(
+                            requestId = "hidden-request",
+                            profileName = "Automatic probing",
+                            pathMode = ScanPathMode.RAW_PATH,
+                            scanKind = ScanKind.STRATEGY_PROBE,
+                            isFullAudit = false,
                         )
                     }
                 }
-            val viewModel = createDiagnosticsViewModel(appContext, manager, FakeAppSettingsRepository())
+            val viewModel =
+                createDiagnosticsViewModel(
+                    RuntimeEnvironment.getApplication(),
+                    manager,
+                    FakeAppSettingsRepository(),
+                )
             val collector = backgroundScope.launch { viewModel.uiState.collect {} }
             advanceUntilIdle()
 
-            val effectDeferred = async { viewModel.effects.first() }
             viewModel.startRawScan()
             advanceUntilIdle()
 
-            val effect = effectDeferred.await() as DiagnosticsEffect.ScanStartFailed
-            assertEquals(
-                appContext.getString(com.poyka.ripdpi.R.string.diagnostics_error_hidden_probe_running),
-                effect.message,
-            )
+            val dialog = requireNotNull(viewModel.uiState.value.scan.hiddenProbeConflictDialog)
+            assertEquals("hidden-request", dialog.requestId)
+            assertEquals("Automatic probing", dialog.profileName)
+            assertEquals(ScanPathMode.RAW_PATH, dialog.pathMode)
+            assertEquals(ScanKind.STRATEGY_PROBE, dialog.scanKind)
             assertFalse(viewModel.uiState.value.scan.isBusy)
             assertNull(viewModel.uiState.value.selectedSessionDetail)
+            collector.cancel()
+        }
+
+    @Test
+    fun `wait queues manual scan and auto starts after hidden probe finishes`() =
+        runTest {
+            var resolveCalls = 0
+            val manager =
+                FakeDiagnosticsManager().apply {
+                    scanController.hiddenAutomaticProbeActive.value = true
+                    scanController.onStartScan = {
+                        DiagnosticsManualScanStartResult.RequiresHiddenProbeResolution(
+                            requestId = "hidden-request",
+                            profileName = "Automatic probing",
+                            pathMode = ScanPathMode.RAW_PATH,
+                            scanKind = ScanKind.STRATEGY_PROBE,
+                            isFullAudit = false,
+                        )
+                    }
+                    scanController.onResolveHiddenProbeConflict = { requestId, action ->
+                        resolveCalls += 1
+                        assertEquals("hidden-request", requestId)
+                        assertEquals(HiddenProbeConflictAction.WAIT, action)
+                        DiagnosticsManualScanResolution.Started("queued-session")
+                    }
+                }
+            val viewModel =
+                createDiagnosticsViewModel(
+                    RuntimeEnvironment.getApplication(),
+                    manager,
+                    FakeAppSettingsRepository(),
+                )
+            val collector = backgroundScope.launch { viewModel.uiState.collect {} }
+            advanceUntilIdle()
+
+            viewModel.startRawScan()
+            advanceUntilIdle()
+            viewModel.waitForHiddenProbeAndRun()
+            advanceUntilIdle()
+
+            assertNull(viewModel.uiState.value.scan.hiddenProbeConflictDialog)
+            assertNotNull(viewModel.uiState.value.scan.queuedManualScanRequest)
+            assertEquals(0, resolveCalls)
+
+            manager.scanController.hiddenAutomaticProbeActive.value = false
+            advanceUntilIdle()
+
+            assertNull(viewModel.uiState.value.scan.queuedManualScanRequest)
+            assertEquals(1, resolveCalls)
+            collector.cancel()
+        }
+
+    @Test
+    fun `cancel and run resolves hidden probe conflict immediately`() =
+        runTest {
+            val manager =
+                FakeDiagnosticsManager().apply {
+                    scanController.hiddenAutomaticProbeActive.value = true
+                    scanController.onStartScan = {
+                        DiagnosticsManualScanStartResult.RequiresHiddenProbeResolution(
+                            requestId = "hidden-request",
+                            profileName = "Automatic probing",
+                            pathMode = ScanPathMode.RAW_PATH,
+                            scanKind = ScanKind.STRATEGY_PROBE,
+                            isFullAudit = false,
+                        )
+                    }
+                    scanController.onResolveHiddenProbeConflict = { requestId, action ->
+                        assertEquals("hidden-request", requestId)
+                        assertEquals(HiddenProbeConflictAction.CANCEL_AND_RUN, action)
+                        DiagnosticsManualScanResolution.Started("manual-session")
+                    }
+                }
+            val viewModel =
+                createDiagnosticsViewModel(
+                    RuntimeEnvironment.getApplication(),
+                    manager,
+                    FakeAppSettingsRepository(),
+                )
+            val collector = backgroundScope.launch { viewModel.uiState.collect {} }
+            val effectDeferred = async { viewModel.effects.first() }
+            advanceUntilIdle()
+
+            viewModel.startRawScan()
+            advanceUntilIdle()
+            viewModel.cancelHiddenProbeAndRun()
+            advanceUntilIdle()
+
+            val effect = effectDeferred.await() as DiagnosticsEffect.ScanStarted
+            assertEquals("Automatic probing", effect.scanTypeLabel)
+            assertNull(viewModel.uiState.value.scan.hiddenProbeConflictDialog)
+            assertNull(viewModel.uiState.value.scan.queuedManualScanRequest)
             collector.cancel()
         }
 
@@ -1571,7 +1671,7 @@ class DiagnosticsViewModelTest {
                             )
                         sessionsState.value = listOf(detail.session)
                         progressState.value = null
-                        sessionId
+                        DiagnosticsManualScanStartResult.Started(sessionId)
                     }
                 }
 

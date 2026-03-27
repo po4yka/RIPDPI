@@ -42,7 +42,7 @@ class DiagnosticsScanControllerTest {
                     json = json,
                 )
 
-            val sessionId = services.scanController.startScan(ScanPathMode.IN_PATH)
+            val sessionId = services.scanController.startScan(ScanPathMode.IN_PATH).startedSessionId()
             advanceUntilIdle()
             val request =
                 json.decodeFromString(
@@ -108,12 +108,233 @@ class DiagnosticsScanControllerTest {
                     json = json,
                 )
 
-            services.scanController.startScan(ScanPathMode.RAW_PATH)
+            services.scanController.startScan(ScanPathMode.RAW_PATH).startedSessionId()
 
             assertSuspendFailsWith<IllegalStateException> {
                 services.scanController.startScan(ScanPathMode.IN_PATH)
             }
             services.scanController.cancelActiveScan()
+        }
+
+    @Test
+    fun `manual start during hidden automatic probe returns conflict result`() =
+        runTest {
+            val settings =
+                defaultDiagnosticsAppSettings()
+                    .toBuilder()
+                    .setDiagnosticsActiveProfileId("automatic-audit")
+                    .setNetworkStrategyMemoryEnabled(true)
+                    .build()
+            val appSettingsRepository = FakeAppSettingsRepository(settings)
+            val stores =
+                FakeDiagnosticsHistoryStores().apply {
+                    seedStrategyProbeProfile(json)
+                    addAutomaticAuditProfile(json)
+                }
+            val bridgeFactory =
+                FakeNetworkDiagnosticsBridgeFactory(json).apply {
+                    bridge.autoCompleteOnStart = false
+                }
+            val services =
+                createDiagnosticsServices(
+                    context = TestContext(),
+                    appSettingsRepository = appSettingsRepository,
+                    stores = stores,
+                    networkMetadataProvider = FakeNetworkMetadataProvider(),
+                    diagnosticsContextProvider = FakeDiagnosticsContextProvider(),
+                    networkDiagnosticsBridgeFactory = bridgeFactory,
+                    runtimeCoordinator = FakeDiagnosticsRuntimeCoordinator(),
+                    serviceStateStore = FakeServiceStateStore(),
+                    scope = backgroundScope,
+                    controllerScope = this,
+                    json = json,
+                )
+
+            assertTrue(
+                services.scanController.launchAutomaticProbe(
+                    settings = settings,
+                    event =
+                        PolicyHandoverEvent(
+                            mode = com.poyka.ripdpi.data.Mode.VPN,
+                            currentFingerprintHash = "network-a",
+                            classification = "transport_switch",
+                            currentNetworkValidated = true,
+                            currentCaptivePortalDetected = false,
+                            usedRememberedPolicy = false,
+                            policySignature = "baseline",
+                            occurredAt = 10L,
+                        ),
+                ),
+            )
+
+            val result = services.scanController.startScan(ScanPathMode.RAW_PATH)
+
+            assertTrue(result is DiagnosticsManualScanStartResult.RequiresHiddenProbeResolution)
+            val conflict = result as DiagnosticsManualScanStartResult.RequiresHiddenProbeResolution
+            assertEquals("Automatic audit", conflict.profileName)
+            assertEquals(ScanPathMode.RAW_PATH, conflict.pathMode)
+            assertEquals(ScanKind.STRATEGY_PROBE, conflict.scanKind)
+            assertTrue(conflict.isFullAudit)
+            assertTrue(services.scanController.hiddenAutomaticProbeActive.value)
+        }
+
+    @Test
+    fun `wait resolution starts queued manual request from original snapshot`() =
+        runTest {
+            val settings =
+                defaultDiagnosticsAppSettings()
+                    .toBuilder()
+                    .setDiagnosticsActiveProfileId("automatic-audit")
+                    .setNetworkStrategyMemoryEnabled(true)
+                    .build()
+            val appSettingsRepository = FakeAppSettingsRepository(settings)
+            val stores =
+                FakeDiagnosticsHistoryStores().apply {
+                    seedStrategyProbeProfile(json)
+                    addAutomaticAuditProfile(json)
+                }
+            val bridgeFactory =
+                FakeNetworkDiagnosticsBridgeFactory(json).apply {
+                    bridge.autoCompleteOnStart = false
+                }
+            val services =
+                createDiagnosticsServices(
+                    context = TestContext(),
+                    appSettingsRepository = appSettingsRepository,
+                    stores = stores,
+                    networkMetadataProvider = FakeNetworkMetadataProvider(),
+                    diagnosticsContextProvider = FakeDiagnosticsContextProvider(),
+                    networkDiagnosticsBridgeFactory = bridgeFactory,
+                    runtimeCoordinator = FakeDiagnosticsRuntimeCoordinator(),
+                    serviceStateStore = FakeServiceStateStore(),
+                    scope = backgroundScope,
+                    controllerScope = this,
+                    json = json,
+                )
+
+            assertTrue(
+                services.scanController.launchAutomaticProbe(
+                    settings = settings,
+                    event =
+                        PolicyHandoverEvent(
+                            mode = com.poyka.ripdpi.data.Mode.VPN,
+                            currentFingerprintHash = "network-a",
+                            classification = "transport_switch",
+                            currentNetworkValidated = true,
+                            currentCaptivePortalDetected = false,
+                            usedRememberedPolicy = false,
+                            policySignature = "baseline",
+                            occurredAt = 10L,
+                        ),
+                ),
+            )
+            val conflict =
+                services.scanController.startScan(ScanPathMode.RAW_PATH)
+                    as DiagnosticsManualScanStartResult.RequiresHiddenProbeResolution
+
+            appSettingsRepository.update {
+                diagnosticsActiveProfileId = "default"
+            }
+
+            val hiddenSessionId =
+                stores.sessionsState.value
+                    .single()
+                    .id
+            bridgeFactory.bridge.enqueueProgress(
+                ScanProgress(
+                    sessionId = hiddenSessionId,
+                    phase = "complete",
+                    completedSteps = 1,
+                    totalSteps = 1,
+                    message = "complete",
+                    isFinished = true,
+                ),
+            )
+            bridgeFactory.bridge.enqueueReport(
+                controllerStrategyProbeReport(sessionId = hiddenSessionId, settings = settings),
+            )
+            advanceUntilIdle()
+
+            val resolution =
+                services.scanController.resolveHiddenProbeConflict(
+                    requestId = conflict.requestId,
+                    action = HiddenProbeConflictAction.WAIT,
+                )
+
+            val sessionId = resolution.startedSessionId()
+            assertEquals("automatic-audit", stores.getScanSession(sessionId)?.profileId)
+            assertFalse(services.scanController.hiddenAutomaticProbeActive.value)
+        }
+
+    @Test
+    fun `cancel and run cancels hidden probe with dedicated summary`() =
+        runTest {
+            val settings =
+                defaultDiagnosticsAppSettings()
+                    .toBuilder()
+                    .setDiagnosticsActiveProfileId("automatic-audit")
+                    .setNetworkStrategyMemoryEnabled(true)
+                    .build()
+            val stores =
+                FakeDiagnosticsHistoryStores().apply {
+                    seedStrategyProbeProfile(json)
+                    addAutomaticAuditProfile(json)
+                }
+            val bridgeFactory =
+                FakeNetworkDiagnosticsBridgeFactory(json).apply {
+                    bridge.autoCompleteOnStart = false
+                }
+            val services =
+                createDiagnosticsServices(
+                    context = TestContext(),
+                    appSettingsRepository = FakeAppSettingsRepository(settings),
+                    stores = stores,
+                    networkMetadataProvider = FakeNetworkMetadataProvider(),
+                    diagnosticsContextProvider = FakeDiagnosticsContextProvider(),
+                    networkDiagnosticsBridgeFactory = bridgeFactory,
+                    runtimeCoordinator = FakeDiagnosticsRuntimeCoordinator(),
+                    serviceStateStore = FakeServiceStateStore(),
+                    scope = backgroundScope,
+                    controllerScope = this,
+                    json = json,
+                )
+
+            assertTrue(
+                services.scanController.launchAutomaticProbe(
+                    settings = settings,
+                    event =
+                        PolicyHandoverEvent(
+                            mode = com.poyka.ripdpi.data.Mode.VPN,
+                            currentFingerprintHash = "network-a",
+                            classification = "transport_switch",
+                            currentNetworkValidated = true,
+                            currentCaptivePortalDetected = false,
+                            usedRememberedPolicy = false,
+                            policySignature = "baseline",
+                            occurredAt = 10L,
+                        ),
+                ),
+            )
+            val conflict =
+                services.scanController.startScan(ScanPathMode.RAW_PATH)
+                    as DiagnosticsManualScanStartResult.RequiresHiddenProbeResolution
+
+            val resolution =
+                services.scanController.resolveHiddenProbeConflict(
+                    requestId = conflict.requestId,
+                    action = HiddenProbeConflictAction.CANCEL_AND_RUN,
+                )
+            val manualSessionId = resolution.startedSessionId()
+            advanceUntilIdle()
+
+            val hiddenSession =
+                stores.sessionsState.value.first { it.id != manualSessionId }
+            assertEquals("failed", hiddenSession.status)
+            assertEquals(
+                BackgroundAutomaticProbeCanceledToStartManualDiagnosticsSummary,
+                hiddenSession.summary,
+            )
+            assertEquals(1, bridgeFactory.bridge.cancelCount)
         }
 
     @Test
@@ -146,7 +367,7 @@ class DiagnosticsScanControllerTest {
                 )
 
             assertSuspendFailsWith<java.io.IOException> {
-                services.scanController.startScan(ScanPathMode.RAW_PATH)
+                services.scanController.startScan(ScanPathMode.RAW_PATH).startedSessionId()
             }
 
             val failedSession = stores.sessionsState.value.single()
@@ -179,7 +400,7 @@ class DiagnosticsScanControllerTest {
                     json = json,
                 )
 
-            services.scanController.startScan(ScanPathMode.RAW_PATH)
+            services.scanController.startScan(ScanPathMode.RAW_PATH).startedSessionId()
             services.scanController.cancelActiveScan()
 
             val canceledSession = stores.sessionsState.value.single()
@@ -221,7 +442,7 @@ class DiagnosticsScanControllerTest {
                     json = json,
                 )
 
-            val sessionId = services.scanController.startScan(ScanPathMode.RAW_PATH)
+            val sessionId = services.scanController.startScan(ScanPathMode.RAW_PATH).startedSessionId()
             advanceUntilIdle()
 
             val failedSession = stores.getScanSession(sessionId)
@@ -264,7 +485,7 @@ class DiagnosticsScanControllerTest {
                     json = json,
                 )
 
-            val sessionId = services.scanController.startScan(ScanPathMode.RAW_PATH)
+            val sessionId = services.scanController.startScan(ScanPathMode.RAW_PATH).startedSessionId()
             bridgeFactory.bridge.enqueueProgress(
                 ScanProgress(
                     sessionId = sessionId,
@@ -377,6 +598,56 @@ private suspend inline fun <reified T : Throwable> assertSuspendFailsWith(noinli
     }
     fail("Expected ${T::class.java.simpleName} to be thrown")
     throw AssertionError("Unreachable")
+}
+
+private fun DiagnosticsManualScanStartResult.startedSessionId(): String =
+    when (this) {
+        is DiagnosticsManualScanStartResult.Started -> {
+            sessionId
+        }
+
+        is DiagnosticsManualScanStartResult.RequiresHiddenProbeResolution -> {
+            fail("Expected started result but got hidden probe conflict")
+            throw AssertionError("Unreachable")
+        }
+    }
+
+private fun DiagnosticsManualScanResolution.startedSessionId(): String =
+    when (this) {
+        is DiagnosticsManualScanResolution.Started -> {
+            sessionId
+        }
+
+        is DiagnosticsManualScanResolution.Failed -> {
+            fail("Expected started resolution but got failure: $reason")
+            throw AssertionError("Unreachable")
+        }
+    }
+
+private fun FakeDiagnosticsHistoryStores.addAutomaticAuditProfile(json: kotlinx.serialization.json.Json) {
+    profilesState.value =
+        profilesState.value +
+        com.poyka.ripdpi.data.diagnostics.DiagnosticProfileEntity(
+            id = "automatic-audit",
+            name = "Automatic audit",
+            source = "bundled",
+            version = 1,
+            requestJson =
+                json.encodeToString(
+                    ScanRequest.serializer(),
+                    ScanRequest(
+                        profileId = "automatic-audit",
+                        displayName = "Automatic audit",
+                        pathMode = ScanPathMode.RAW_PATH,
+                        kind = ScanKind.STRATEGY_PROBE,
+                        family = DiagnosticProfileFamily.AUTOMATIC_AUDIT,
+                        domainTargets = listOf(DomainTarget(host = "example.org")),
+                        quicTargets = listOf(QuicTarget(host = "example.org")),
+                        strategyProbe = StrategyProbeRequest(suiteId = "full_matrix_v1"),
+                    ),
+                ),
+            updatedAt = 1L,
+        )
 }
 
 private fun controllerStrategyProbeReport(

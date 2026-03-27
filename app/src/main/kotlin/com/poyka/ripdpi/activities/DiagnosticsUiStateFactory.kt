@@ -301,6 +301,8 @@ internal class DiagnosticsUiStateFactory
                 rawArgsEnabled = input.settings.enableCmdSettings,
                 scanStartedAt = input.scanStartedAt,
                 completedProbes = input.completedProbes,
+                hiddenProbeConflictDialog = input.hiddenProbeConflictDialog,
+                queuedManualScanRequest = input.queuedManualScanRequest,
             )
 
         private fun buildLiveState(input: DiagnosticsUiStateInput): DiagnosticsLiveUiModel =
@@ -501,6 +503,8 @@ internal data class DiagnosticsUiStateInput(
     val scanStartedAt: Long?,
     val activeScanPathMode: ScanPathMode?,
     val completedProbes: List<CompletedProbeUiModel> = emptyList(),
+    val hiddenProbeConflictDialog: HiddenProbeConflictDialogState? = null,
+    val queuedManualScanRequest: QueuedManualScanRequest? = null,
 )
 
 private fun phaseToConnectivityProbeType(phase: String): String? =

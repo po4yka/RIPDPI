@@ -21,10 +21,13 @@ import com.poyka.ripdpi.diagnostics.DiagnosticScanSession
 import com.poyka.ripdpi.diagnostics.DiagnosticTelemetrySample
 import com.poyka.ripdpi.diagnostics.DiagnosticsBootstrapper
 import com.poyka.ripdpi.diagnostics.DiagnosticsDetailLoader
+import com.poyka.ripdpi.diagnostics.DiagnosticsManualScanResolution
+import com.poyka.ripdpi.diagnostics.DiagnosticsManualScanStartResult
 import com.poyka.ripdpi.diagnostics.DiagnosticsResolverActions
 import com.poyka.ripdpi.diagnostics.DiagnosticsScanController
 import com.poyka.ripdpi.diagnostics.DiagnosticsShareService
 import com.poyka.ripdpi.diagnostics.DiagnosticsTimelineSource
+import com.poyka.ripdpi.diagnostics.HiddenProbeConflictAction
 import com.poyka.ripdpi.permissions.PermissionSnapshot
 import com.poyka.ripdpi.permissions.PermissionStatusProvider
 import com.poyka.ripdpi.platform.LauncherIconController
@@ -233,15 +236,23 @@ class StubDiagnosticsTimelineSource : DiagnosticsTimelineSource {
 }
 
 class StubDiagnosticsScanController : DiagnosticsScanController {
+    override val hiddenAutomaticProbeActive = MutableStateFlow(false)
     var lastStartedPathMode: com.poyka.ripdpi.diagnostics.ScanPathMode? = null
     var cancelCount: Int = 0
         private set
     var lastActiveProfileId: String? = null
 
-    override suspend fun startScan(pathMode: com.poyka.ripdpi.diagnostics.ScanPathMode): String {
+    override suspend fun startScan(
+        pathMode: com.poyka.ripdpi.diagnostics.ScanPathMode,
+    ): DiagnosticsManualScanStartResult {
         lastStartedPathMode = pathMode
-        return "session"
+        return DiagnosticsManualScanStartResult.Started("session")
     }
+
+    override suspend fun resolveHiddenProbeConflict(
+        requestId: String,
+        action: HiddenProbeConflictAction,
+    ): DiagnosticsManualScanResolution = DiagnosticsManualScanResolution.Started("session")
 
     override suspend fun cancelActiveScan() {
         cancelCount += 1
