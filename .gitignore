@@ -16,8 +16,9 @@
 # Local machine configuration
 /local.properties
 
-# Python virtual environments
+# Python virtual environments and caches
 .venv/
+__pycache__/
 
 # Build and tool caches
 .gradle/
