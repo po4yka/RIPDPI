@@ -46,10 +46,6 @@ pub(crate) fn stats_session(env: &mut JNIEnv, handle: jlong) -> jlongArray {
     }
 }
 
-/// Field names and their indices in the JNI `jlongArray` returned by `jniGetStats`.
-/// This ordering is a binary contract between Rust and Kotlin.
-pub(crate) const STATS_FIELD_NAMES: [&str; 4] = ["txPackets", "txBytes", "rxPackets", "rxBytes"];
-
 pub(crate) fn stats_snapshots_for_state(state: &TunnelSessionState) -> ((u64, u64, u64, u64), DnsStatsSnapshot) {
     match state {
         TunnelSessionState::Ready | TunnelSessionState::Starting { .. } | TunnelSessionState::Destroyed => {
@@ -65,6 +61,10 @@ mod tests {
 
     use golden_test_support::assert_contract_fixture;
     use serde_json::json;
+
+    /// Field names and their indices in the JNI `jlongArray` returned by `jniGetStats`.
+    /// This ordering is a binary contract between Rust and Kotlin.
+    const STATS_FIELD_NAMES: [&str; 4] = ["txPackets", "txBytes", "rxPackets", "rxBytes"];
 
     #[test]
     fn tunnel_stats_layout_matches_contract_fixture() {
