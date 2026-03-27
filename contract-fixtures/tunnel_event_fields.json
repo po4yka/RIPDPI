@@ -1,0 +1,11 @@
+[
+  "createdAt",
+  "fingerprintHash",
+  "level",
+  "message",
+  "mode",
+  "policySignature",
+  "runtimeId",
+  "source",
+  "subsystem"
+]

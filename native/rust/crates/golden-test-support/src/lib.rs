@@ -102,6 +102,87 @@ fn workspace_root(path: &Path) -> PathBuf {
         .map_or_else(|| PathBuf::from("."), PathBuf::from)
 }
 
+/// Returns the path to a file inside the shared `contract-fixtures/` directory
+/// at the repository root. Navigates from the Cargo workspace root (`native/rust/`)
+/// up to the repo root, then into `contract-fixtures/`.
+pub fn contract_fixture_path(name: &str) -> PathBuf {
+    let workspace = cargo_workspace_root();
+    // native/rust/ -> repo root
+    let repo_root = workspace.parent().and_then(Path::parent).unwrap_or(&workspace);
+    repo_root.join("contract-fixtures").join(name)
+}
+
+/// Asserts that `actual` matches the shared contract fixture at
+/// `contract-fixtures/<name>`. Blesses the fixture when
+/// `RIPDPI_BLESS_GOLDENS` is set.
+pub fn assert_contract_fixture(name: &str, actual: &str) {
+    let fixture_path = contract_fixture_path(name);
+    let actual = normalize_text(actual);
+
+    if env::var_os("RIPDPI_BLESS_GOLDENS").is_some() {
+        if let Some(parent) = fixture_path.parent() {
+            fs::create_dir_all(parent).expect("create contract-fixtures parent");
+        }
+        fs::write(&fixture_path, &actual).expect("write contract fixture");
+        return;
+    }
+
+    let expected = fs::read_to_string(&fixture_path)
+        .unwrap_or_else(|err| panic!("read contract fixture {}: {err}", fixture_path.display()));
+    let expected = normalize_text(&expected);
+    if expected == actual {
+        return;
+    }
+
+    write_failure_artifacts(&fixture_path, &expected, &actual).expect("write contract fixture diff");
+    panic!("contract fixture mismatch for {}", fixture_path.display());
+}
+
+/// Extracts all JSON field key paths from a `serde_json::Value`, recursively.
+/// Returns a sorted list of dot-separated paths (e.g., `["health", "tunnelStats.rxBytes"]`).
+pub fn extract_field_paths(value: &Value) -> Vec<String> {
+    let mut paths = Vec::new();
+    collect_field_paths(value, "", &mut paths);
+    paths.sort();
+    paths
+}
+
+fn collect_field_paths(value: &Value, prefix: &str, paths: &mut Vec<String>) {
+    if let Value::Object(map) = value {
+        for (key, child) in map {
+            let path = if prefix.is_empty() { key.clone() } else { format!("{prefix}.{key}") };
+            match child {
+                Value::Object(_) => collect_field_paths(child, &path, paths),
+                Value::Array(items) => {
+                    // For arrays of objects, extract the element schema from the first item.
+                    if let Some(first) = items.first() {
+                        if first.is_object() {
+                            collect_field_paths(first, &format!("{path}[]"), paths);
+                        } else {
+                            paths.push(format!("{path}[]"));
+                        }
+                    } else {
+                        paths.push(format!("{path}[]"));
+                    }
+                }
+                _ => paths.push(path),
+            }
+        }
+    }
+}
+
+fn cargo_workspace_root() -> PathBuf {
+    let manifest_dir = env::var_os("CARGO_MANIFEST_DIR").map(PathBuf::from).unwrap_or_else(|| PathBuf::from("."));
+    manifest_dir
+        .ancestors()
+        .find(|ancestor| {
+            ancestor.join("Cargo.toml").exists()
+                && ancestor.file_name().is_some_and(|name| name == "rust")
+                && ancestor.parent().is_some_and(|parent| parent.file_name().is_some_and(|name| name == "native"))
+        })
+        .map_or(manifest_dir.clone(), PathBuf::from)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
