@@ -1,0 +1,5 @@
+{
+  "maxColdStartRegressionPercent": 20.0,
+  "maxWarmStartRegressionPercent": 15.0,
+  "benchmarks": {}
+}

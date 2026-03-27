@@ -402,6 +402,145 @@ jobs:
             native/rust/target/coverage/
           retention-days: 7
 
+  rust-criterion-bench:
+    if: github.event_name != 'schedule'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      # Keep in sync with native/rust/rust-toolchain.toml
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: "1.94.0"
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: native/rust -> target
+          cache-on-failure: true
+          prefix-key: criterion
+
+      - name: Restore criterion baseline from main
+        if: github.event_name == 'pull_request'
+        uses: actions/cache/restore@v4
+        with:
+          path: native/rust/target/criterion
+          key: criterion-baseline-${{ github.event.pull_request.base.sha }}
+          restore-keys: |
+            criterion-baseline-
+
+      - name: Run criterion benchmarks
+        run: |
+          cd native/rust
+          cargo bench --package ripdpi-bench 2>&1 | tee "$RUNNER_TEMP/criterion-output.txt"
+
+      - name: Check for regressions
+        run: |
+          python3 scripts/ci/check-criterion-regressions.py \
+            --criterion-dir native/rust/target/criterion \
+            --baseline scripts/ci/rust-bench-baseline.json \
+            --warn-only \
+            --markdown-output "$RUNNER_TEMP/criterion-summary.md"
+          cat "$RUNNER_TEMP/criterion-summary.md" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Save criterion baseline (main only)
+        if: github.ref == 'refs/heads/main'
+        uses: actions/cache/save@v4
+        with:
+          path: native/rust/target/criterion
+          key: criterion-baseline-${{ github.sha }}
+
+      - name: Upload criterion artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: criterion-bench-artifacts
+          path: |
+            native/rust/target/criterion/
+            ${{ runner.temp }}/criterion-output.txt
+            ${{ runner.temp }}/criterion-summary.md
+          retention-days: 7
+
+  android-macrobenchmark:
+    if: github.event_name != 'schedule'
+    needs: [build]
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      # Keep in sync with native/rust/rust-toolchain.toml
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: "1.94.0"
+
+      - uses: android-actions/setup-android@v3
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: native/rust -> target
+          cache-on-failure: true
+
+      - name: Read native toolchain policy
+        id: native-toolchain
+        run: |
+          echo "ndk=$(grep '^ripdpi.nativeNdkVersion=' gradle.properties | cut -d= -f2-)" >> "$GITHUB_OUTPUT"
+
+      - name: Install Rust Android targets
+        run: rustup target add x86_64-linux-android
+
+      - name: Install NDK
+        run: sdkmanager --install "ndk;${{ steps.native-toolchain.outputs.ndk }}"
+
+      - uses: mozilla-actions/sccache-action@v0.0.7
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Enable KVM for emulator
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Run macrobenchmarks
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          arch: x86_64
+          target: aosp_atd
+          profile: pixel_6
+          emulator-options: -no-window -noaudio -no-boot-anim -gpu swiftshader_indirect
+          script: |
+            set -euo pipefail
+            ./gradlew :baselineprofile:connectedAndroidTest \
+              -Pripdpi.localNativeAbis=x86_64 \
+              -Pandroid.testInstrumentationRunnerArguments.class=com.poyka.ripdpi.baselineprofile.StartupBenchmark
+        env:
+          RUSTC_WRAPPER: sccache
+
+      - name: Check for regressions
+        run: |
+          python3 scripts/ci/check-macrobenchmark-regressions.py \
+            --results-dir baselineprofile/build/outputs/connected_android_test_additional_output \
+            --baseline scripts/ci/macrobenchmark-baseline.json \
+            --warn-only \
+            --markdown-output "$RUNNER_TEMP/macrobenchmark-summary.md"
+          cat "$RUNNER_TEMP/macrobenchmark-summary.md" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload macrobenchmark artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: macrobenchmark-artifacts
+          path: |
+            baselineprofile/build/outputs/
+            ${{ runner.temp }}/macrobenchmark-summary.md
+          retention-days: 7
+
   rust-loom:
     if: github.event_name != 'schedule'
     runs-on: ubuntu-latest

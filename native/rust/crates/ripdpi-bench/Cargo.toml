@@ -1,0 +1,29 @@
+[package]
+name = "ripdpi-bench"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish = false
+
+[lints]
+workspace = true
+
+[[bench]]
+name = "config_parse"
+harness = false
+
+[[bench]]
+name = "relay_throughput"
+harness = false
+
+[dependencies]
+# Bench crate has no library; all dependencies are dev-dependencies used by
+# the benchmark harnesses.
+
+[dev-dependencies]
+criterion = { workspace = true }
+local-network-fixture = { workspace = true }
+ripdpi-config = { workspace = true }
+ripdpi-proxy-config = { workspace = true }
+ripdpi-runtime = { workspace = true }
+serde_json = { workspace = true }
