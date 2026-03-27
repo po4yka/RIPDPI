@@ -17,40 +17,79 @@ use super::adaptive::{resolve_adaptive_fake_ttl, resolve_tcp_hints_with_evolver}
 use super::state::{RuntimeState, DESYNC_SEED_BASE};
 
 #[derive(Debug)]
-struct DesyncActionError {
-    action: &'static str,
-    fallback: Option<&'static str>,
-    source: io::Error,
+pub(super) struct OutboundSendOutcome {
+    pub(super) bytes_committed: usize,
+    pub(super) strategy_family: Option<&'static str>,
 }
 
-impl std::fmt::Display for DesyncActionError {
-    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        if let Some(fallback) = self.fallback {
-            write!(formatter, "desync action={} fallback={}: {}", self.action, fallback, self.source)
-        } else {
-            write!(formatter, "desync action={}: {}", self.action, self.source)
+#[derive(Debug)]
+pub(super) enum OutboundSendError {
+    Transport(io::Error),
+    StrategyExecution {
+        action: &'static str,
+        strategy_family: &'static str,
+        fallback: Option<&'static str>,
+        bytes_committed: usize,
+        source_errno: Option<i32>,
+        source: io::Error,
+    },
+}
+
+impl OutboundSendError {
+    pub(super) fn into_io_error(self) -> io::Error {
+        let kind = self.kind();
+        io::Error::new(kind, self)
+    }
+
+    pub(super) fn kind(&self) -> io::ErrorKind {
+        match self {
+            Self::Transport(source) => source.kind(),
+            Self::StrategyExecution { source, .. } => source.kind(),
+        }
+    }
+
+    fn source_error(&self) -> &io::Error {
+        match self {
+            Self::Transport(source) => source,
+            Self::StrategyExecution { source, .. } => source,
         }
     }
 }
 
-impl std::error::Error for DesyncActionError {
-    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
-        Some(&self.source)
+impl std::fmt::Display for OutboundSendError {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Transport(source) => source.fmt(formatter),
+            Self::StrategyExecution { action, strategy_family, fallback, bytes_committed, source, .. } => {
+                write!(
+                    formatter,
+                    "desync action={action} strategy_family={strategy_family} bytes_committed={bytes_committed}"
+                )?;
+                if let Some(fallback) = fallback {
+                    write!(formatter, " fallback={fallback}")?;
+                }
+                write!(formatter, ": {source}")
+            }
+        }
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(super) struct DesyncActionContext {
-    pub(super) action: &'static str,
-    pub(super) fallback: Option<&'static str>,
-    pub(super) kind: io::ErrorKind,
-    pub(super) errno: Option<i32>,
+impl std::error::Error for OutboundSendError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        Some(self.source_error())
+    }
+}
+
+impl From<io::Error> for OutboundSendError {
+    fn from(value: io::Error) -> Self {
+        Self::Transport(value)
+    }
 }
 
 #[derive(Debug)]
 struct WriteProgressError {
     written: usize,
-    error: io::Error,
+    source: io::Error,
 }
 
 pub(super) fn activation_context_from_progress(
@@ -132,7 +171,7 @@ pub(super) fn send_with_group(
     progress: OutboundProgress,
     host: Option<&str>,
     target: SocketAddr,
-) -> io::Result<()> {
+) -> Result<OutboundSendOutcome, OutboundSendError> {
     let resolved_fake_ttl = resolve_adaptive_fake_ttl(state, target, group_index, group, host)?;
     let adaptive_hints = resolve_tcp_hints_with_evolver(state, target, group_index, group, host, payload)?;
     let context = activation_context_from_progress(
@@ -143,25 +182,35 @@ pub(super) fn send_with_group(
         adaptive_hints,
     );
     let effective_payload = apply_entropy_padding(group, payload, adaptive_hints.entropy_mode);
+    let strategy_family = primary_tcp_strategy_family(group);
     if should_desync_tcp(group, context) {
         let seed = DESYNC_SEED_BASE + progress.round.saturating_sub(1);
         match plan_tcp(group, &effective_payload, seed, state.config.network.default_ttl, context) {
             Ok(plan) if requires_special_tcp_execution(group) => {
-                execute_tcp_plan(writer, &state.config, group, &plan, seed, resolved_fake_ttl)?;
+                let bytes_committed =
+                    execute_tcp_plan(writer, &state.config, group, &plan, seed, resolved_fake_ttl, strategy_family)?;
+                Ok(OutboundSendOutcome { bytes_committed, strategy_family })
             }
-            Ok(plan) => execute_tcp_actions(
-                writer,
-                &plan.actions,
-                state.config.network.default_ttl,
-                state.config.timeouts.wait_send,
-                Duration::from_millis(state.config.timeouts.await_interval.max(1) as u64),
-            )?,
-            Err(_) => writer.write_all(&effective_payload)?,
+            Ok(plan) => {
+                let bytes_committed = execute_tcp_actions(
+                    writer,
+                    &plan.actions,
+                    state.config.network.default_ttl,
+                    state.config.timeouts.wait_send,
+                    Duration::from_millis(state.config.timeouts.await_interval.max(1) as u64),
+                    strategy_family,
+                )?;
+                Ok(OutboundSendOutcome { bytes_committed, strategy_family })
+            }
+            Err(_) => {
+                let bytes_committed = write_transport_payload(writer, &effective_payload)?;
+                Ok(OutboundSendOutcome { bytes_committed, strategy_family: None })
+            }
         }
     } else {
-        writer.write_all(&effective_payload)?;
+        let bytes_committed = write_transport_payload(writer, &effective_payload)?;
+        Ok(OutboundSendOutcome { bytes_committed, strategy_family: None })
     }
-    Ok(())
 }
 
 fn should_desync_tcp(group: &DesyncGroup, context: ActivationContext) -> bool {
@@ -170,6 +219,74 @@ fn should_desync_tcp(group: &DesyncGroup, context: ActivationContext) -> bool {
 
 fn has_tcp_actions(group: &DesyncGroup) -> bool {
     !group.effective_tcp_chain().is_empty() || group.actions.mod_http != 0 || group.actions.tlsminor.is_some()
+}
+
+fn primary_tcp_strategy_family(group: &DesyncGroup) -> Option<&'static str> {
+    group.effective_tcp_chain().into_iter().find(|step| !step.kind.is_tls_prelude()).map(|step| match step.kind {
+        TcpChainStepKind::Split => "split",
+        TcpChainStepKind::Disorder => "disorder",
+        TcpChainStepKind::Oob => "oob",
+        TcpChainStepKind::Disoob => "disoob",
+        TcpChainStepKind::Fake => "fake",
+        TcpChainStepKind::FakeSplit => "fakedsplit",
+        TcpChainStepKind::FakeDisorder => "fakeddisorder",
+        TcpChainStepKind::HostFake => "hostfake",
+        TcpChainStepKind::TlsRec | TcpChainStepKind::TlsRandRec => "tlsrec",
+    })
+}
+
+fn strategy_fallback_family(strategy_family: &'static str) -> Option<&'static str> {
+    match strategy_family {
+        "disorder" => Some("split"),
+        "disoob" => Some("oob"),
+        "fakeddisorder" => Some("fakedsplit"),
+        _ => None,
+    }
+}
+
+fn write_action_name(strategy_family: &'static str) -> &'static str {
+    match strategy_family {
+        "split" => "write_split",
+        "disorder" => "write_disorder",
+        "oob" => "write_oob",
+        "disoob" => "write_disoob",
+        "fake" => "write_fake",
+        "fakedsplit" => "write_fakesplit",
+        "fakeddisorder" => "write_fakeddisorder",
+        "hostfake" => "write_hostfake",
+        _ => "write",
+    }
+}
+
+fn await_writable_action_name(strategy_family: &'static str) -> &'static str {
+    match strategy_family {
+        "split" => "await_writable_split",
+        "disorder" => "await_writable_disorder",
+        "oob" => "await_writable_oob",
+        "disoob" => "await_writable_disoob",
+        "fakedsplit" => "await_writable_fakesplit",
+        "fakeddisorder" => "await_writable_fakeddisorder",
+        "hostfake" => "await_writable_hostfake",
+        _ => "await_writable",
+    }
+}
+
+fn set_ttl_action_name(strategy_family: &'static str) -> &'static str {
+    match strategy_family {
+        "disorder" => "set_ttl_disorder",
+        "disoob" => "set_ttl_disoob",
+        "fakeddisorder" => "set_ttl_fakeddisorder",
+        _ => "set_ttl",
+    }
+}
+
+fn restore_ttl_action_name(strategy_family: &'static str) -> &'static str {
+    match strategy_family {
+        "disorder" => "restore_default_ttl_disorder",
+        "disoob" => "restore_default_ttl_disoob",
+        "fakeddisorder" => "restore_default_ttl_fakeddisorder",
+        _ => "restore_default_ttl",
+    }
 }
 
 pub(super) fn requires_special_tcp_execution(group: &DesyncGroup) -> bool {
@@ -187,7 +304,8 @@ fn execute_tcp_actions(
     default_ttl: u8,
     wait_send: bool,
     await_interval: Duration,
-) -> io::Result<()> {
+    strategy_family: Option<&'static str>,
+) -> Result<usize, OutboundSendError> {
     // When default_ttl is 0 (auto-detect), lazily read the current TTL on
     // the first SetTtl action so we always have a value to restore.
     let mut cached_restore_ttl: Option<u8> = if default_ttl != 0 { Some(default_ttl) } else { None };
@@ -196,32 +314,143 @@ fn execute_tcp_actions(
     // case, continue without the TTL mutation so the connection can still
     // progress instead of failing the whole request.
     let mut ttl_actions_unavailable = false;
+    let mut bytes_committed = 0usize;
+    let fallback = strategy_family.and_then(strategy_fallback_family);
 
-    let result = (|| -> io::Result<()> {
+    let result = (|| -> Result<usize, OutboundSendError> {
         for action in actions {
             match action {
-                DesyncAction::Write(bytes) => write_payload_action(writer, bytes)?,
-                DesyncAction::WriteUrgent { prefix, urgent_byte } => send_oob_action(writer, prefix, *urgent_byte)?,
+                DesyncAction::Write(bytes) => {
+                    if let Some(strategy_family) = strategy_family {
+                        if fallback.is_some() && ttl_modified {
+                            let (should_restore_ttl, committed) = write_payload_with_android_ttl_fallback(
+                                writer,
+                                bytes,
+                                cached_restore_ttl.unwrap_or(default_ttl.max(1)),
+                                ttl_modified,
+                                &mut ttl_actions_unavailable,
+                                write_action_name(strategy_family),
+                                strategy_family,
+                                fallback,
+                                bytes_committed,
+                            )?;
+                            ttl_modified = should_restore_ttl;
+                            bytes_committed = committed;
+                        } else {
+                            bytes_committed = write_strategy_payload_named(
+                                writer,
+                                bytes,
+                                write_action_name(strategy_family),
+                                strategy_family,
+                                fallback,
+                                bytes_committed,
+                            )?;
+                        }
+                    } else {
+                        bytes_committed = write_transport_payload(writer, bytes)?;
+                    }
+                }
+                DesyncAction::WriteUrgent { prefix, urgent_byte } => {
+                    if let Some(strategy_family) = strategy_family {
+                        if fallback.is_some() && ttl_modified {
+                            let (should_restore_ttl, committed) = send_oob_with_android_ttl_fallback(
+                                writer,
+                                prefix,
+                                *urgent_byte,
+                                cached_restore_ttl.unwrap_or(default_ttl.max(1)),
+                                ttl_modified,
+                                &mut ttl_actions_unavailable,
+                                match strategy_family {
+                                    "disoob" => "send_oob_disoob",
+                                    _ => "send_oob",
+                                },
+                                strategy_family,
+                                fallback,
+                                bytes_committed,
+                            )?;
+                            ttl_modified = should_restore_ttl;
+                            bytes_committed = committed;
+                        } else {
+                            bytes_committed = send_oob_action_named(
+                                writer,
+                                prefix,
+                                *urgent_byte,
+                                match strategy_family {
+                                    "disoob" => "send_oob_disoob",
+                                    _ => "send_oob",
+                                },
+                                strategy_family,
+                                fallback,
+                                bytes_committed,
+                            )?;
+                        }
+                    } else {
+                        bytes_committed = send_transport_oob_payload(writer, prefix, *urgent_byte)?;
+                    }
+                }
                 DesyncAction::SetTtl(ttl) => {
                     // Capture current TTL before first modification when auto-detecting.
                     if cached_restore_ttl.is_none() {
                         cached_restore_ttl = platform::detect_default_ttl().ok();
                     }
-                    if set_ttl_with_android_fallback(writer, *ttl, &mut ttl_actions_unavailable)? {
+                    if set_ttl_with_android_fallback_named(
+                        writer,
+                        *ttl,
+                        &mut ttl_actions_unavailable,
+                        strategy_family.map(set_ttl_action_name).unwrap_or("set_ttl"),
+                        strategy_family.unwrap_or("split"),
+                        fallback,
+                        bytes_committed,
+                    )? {
                         ttl_modified = true;
                     }
                 }
                 DesyncAction::RestoreDefaultTtl => {
                     if let Some(restore) = cached_restore_ttl {
-                        if restore_default_ttl_with_android_fallback(writer, restore, &mut ttl_actions_unavailable)? {
+                        if restore_default_ttl_with_android_fallback_named(
+                            writer,
+                            restore,
+                            &mut ttl_actions_unavailable,
+                            strategy_family.map(restore_ttl_action_name).unwrap_or("restore_default_ttl"),
+                            strategy_family.unwrap_or("split"),
+                            fallback,
+                            bytes_committed,
+                        )? {
                             ttl_modified = false;
                         }
                     }
                 }
-                DesyncAction::SetMd5Sig { key_len } => set_md5sig_action(writer, *key_len)?,
+                DesyncAction::SetMd5Sig { key_len } => {
+                    if let Some(strategy_family) = strategy_family {
+                        set_md5sig_action_named(
+                            writer,
+                            *key_len,
+                            "set_md5sig",
+                            strategy_family,
+                            fallback,
+                            bytes_committed,
+                        )?;
+                    } else {
+                        set_md5sig_transport_action(writer, *key_len)?;
+                    }
+                }
                 DesyncAction::AttachDropSack => {}
                 DesyncAction::DetachDropSack => {}
-                DesyncAction::AwaitWritable => await_writable_action(writer, wait_send, await_interval)?,
+                DesyncAction::AwaitWritable => {
+                    if let Some(strategy_family) = strategy_family {
+                        await_writable_action_named(
+                            writer,
+                            wait_send,
+                            await_interval,
+                            await_writable_action_name(strategy_family),
+                            strategy_family,
+                            fallback,
+                            bytes_committed,
+                        )?;
+                    } else {
+                        await_transport_writable_action(writer, wait_send, await_interval)?;
+                    }
+                }
                 DesyncAction::SetWindowClamp(size) => {
                     let _ = platform::set_tcp_window_clamp(writer, *size);
                 }
@@ -230,7 +459,7 @@ fn execute_tcp_actions(
                 }
             }
         }
-        Ok(())
+        Ok(bytes_committed)
     })();
 
     // Safety net: restore TTL even on early error return.
@@ -241,42 +470,6 @@ fn execute_tcp_actions(
     }
 
     result
-}
-
-fn set_ttl_with_android_fallback(stream: &TcpStream, ttl: u8, ttl_actions_unavailable: &mut bool) -> io::Result<bool> {
-    if *ttl_actions_unavailable {
-        return Ok(false);
-    }
-
-    match set_ttl_action(stream, ttl) {
-        Ok(()) => Ok(true),
-        Err(err) => handle_android_ttl_capability_error(err, ttl_actions_unavailable),
-    }
-}
-
-fn restore_default_ttl_with_android_fallback(
-    stream: &TcpStream,
-    ttl: u8,
-    ttl_actions_unavailable: &mut bool,
-) -> io::Result<bool> {
-    if *ttl_actions_unavailable {
-        return Ok(false);
-    }
-
-    match restore_default_ttl_action(stream, ttl) {
-        Ok(()) => Ok(true),
-        Err(err) => handle_android_ttl_capability_error(err, ttl_actions_unavailable),
-    }
-}
-
-fn handle_android_ttl_capability_error(err: io::Error, ttl_actions_unavailable: &mut bool) -> io::Result<bool> {
-    if should_ignore_android_ttl_error(&err) {
-        *ttl_actions_unavailable = true;
-        tracing::warn!("TTL desync action unavailable on this Android build: {err}");
-        Ok(false)
-    } else {
-        Err(err)
-    }
 }
 
 #[cfg(any(test, target_os = "android"))]
@@ -294,11 +487,7 @@ fn should_ignore_android_ttl_error(_err: &io::Error) -> bool {
 
 #[cfg(any(test, target_os = "android"))]
 fn extract_os_error(err: &io::Error) -> Option<i32> {
-    err.raw_os_error().or_else(|| {
-        err.get_ref()
-            .and_then(|inner| inner.downcast_ref::<DesyncActionError>())
-            .and_then(|wrapped| wrapped.source.raw_os_error())
-    })
+    err.raw_os_error()
 }
 
 fn execute_tcp_plan(
@@ -308,7 +497,8 @@ fn execute_tcp_plan(
     plan: &DesyncPlan,
     seed: u32,
     resolved_fake_ttl: Option<u8>,
-) -> io::Result<()> {
+    strategy_family: Option<&'static str>,
+) -> Result<usize, OutboundSendError> {
     let fake =
         if plan.steps.iter().any(|step| {
             matches!(step.kind, TcpChainStepKind::Fake | TcpChainStepKind::FakeSplit | TcpChainStepKind::FakeDisorder)
@@ -329,65 +519,137 @@ fn execute_tcp_plan(
     let send_steps =
         group.effective_tcp_chain().into_iter().filter(|step| !step.kind.is_tls_prelude()).collect::<Vec<_>>();
     if send_steps.len() < plan.steps.len() {
-        return Err(io::Error::new(io::ErrorKind::InvalidData, "tcp plan steps exceed configured send steps"));
+        return Err(OutboundSendError::Transport(io::Error::new(
+            io::ErrorKind::InvalidData,
+            "tcp plan steps exceed configured send steps",
+        )));
     }
 
     let mut cursor = 0usize;
     let mut ttl_actions_unavailable = false;
+    let mut bytes_committed = 0usize;
     for (index, step) in plan.steps.iter().enumerate() {
-        let start = usize::try_from(step.start)
-            .map_err(|_| io::Error::new(io::ErrorKind::InvalidData, "negative tcp plan start"))?;
-        let end = usize::try_from(step.end)
-            .map_err(|_| io::Error::new(io::ErrorKind::InvalidData, "negative tcp plan end"))?;
+        let start = usize::try_from(step.start).map_err(|_| {
+            OutboundSendError::Transport(io::Error::new(io::ErrorKind::InvalidData, "negative tcp plan start"))
+        })?;
+        let end = usize::try_from(step.end).map_err(|_| {
+            OutboundSendError::Transport(io::Error::new(io::ErrorKind::InvalidData, "negative tcp plan end"))
+        })?;
         if start < cursor || end < start || end > plan.tampered.len() {
-            return Err(io::Error::new(io::ErrorKind::InvalidData, "invalid tcp desync step bounds"));
+            return Err(OutboundSendError::Transport(io::Error::new(
+                io::ErrorKind::InvalidData,
+                "invalid tcp desync step bounds",
+            )));
         }
         let chunk = &plan.tampered[start..end];
         let configured_step = &send_steps[index];
+        let step_family = match step.kind {
+            TcpChainStepKind::Split => "split",
+            TcpChainStepKind::Oob => "oob",
+            TcpChainStepKind::Disorder => "disorder",
+            TcpChainStepKind::Disoob => "disoob",
+            TcpChainStepKind::Fake => "fake",
+            TcpChainStepKind::FakeSplit => "fakedsplit",
+            TcpChainStepKind::FakeDisorder => "fakeddisorder",
+            TcpChainStepKind::HostFake => "hostfake",
+            TcpChainStepKind::TlsRec | TcpChainStepKind::TlsRandRec => strategy_family.unwrap_or("tlsrec"),
+        };
+        let step_fallback = strategy_fallback_family(step_family);
 
         match step.kind {
             TcpChainStepKind::Split => {
-                writer.write_all(chunk)?;
-                await_writable_action(
+                bytes_committed = write_strategy_payload_named(
+                    writer,
+                    chunk,
+                    "write_split",
+                    step_family,
+                    step_fallback,
+                    bytes_committed,
+                )?;
+                await_writable_action_named(
                     writer,
                     config.timeouts.wait_send,
                     Duration::from_millis(config.timeouts.await_interval.max(1) as u64),
+                    "await_writable_split",
+                    step_family,
+                    step_fallback,
+                    bytes_committed,
                 )?;
             }
             TcpChainStepKind::Oob => {
-                send_oob_action(writer, chunk, group.actions.oob_data.unwrap_or(b'a'))?;
-                await_writable_action(
+                bytes_committed = send_oob_action_named(
+                    writer,
+                    chunk,
+                    group.actions.oob_data.unwrap_or(b'a'),
+                    "send_oob",
+                    step_family,
+                    step_fallback,
+                    bytes_committed,
+                )?;
+                await_writable_action_named(
                     writer,
                     config.timeouts.wait_send,
                     Duration::from_millis(config.timeouts.await_interval.max(1) as u64),
+                    "await_writable_oob",
+                    step_family,
+                    step_fallback,
+                    bytes_committed,
                 )?;
             }
             TcpChainStepKind::Disorder => {
-                let ttl_modified = set_ttl_with_android_fallback(writer, 1, &mut ttl_actions_unavailable)?;
-                let should_restore_ttl = write_payload_with_android_ttl_fallback(
+                let ttl_modified = set_ttl_with_android_fallback_named(
+                    writer,
+                    1,
+                    &mut ttl_actions_unavailable,
+                    "set_ttl_disorder",
+                    step_family,
+                    step_fallback,
+                    bytes_committed,
+                )?;
+                let (should_restore_ttl, committed) = write_payload_with_android_ttl_fallback(
                     writer,
                     chunk,
                     restore_ttl,
                     ttl_modified,
                     &mut ttl_actions_unavailable,
                     "write_disorder",
-                    "split",
+                    step_family,
+                    step_fallback,
+                    bytes_committed,
                 )?;
+                bytes_committed = committed;
                 await_writable_action_named(
                     writer,
                     config.timeouts.wait_send,
                     Duration::from_millis(config.timeouts.await_interval.max(1) as u64),
                     "await_writable_disorder",
-                    Some("split"),
+                    step_family,
+                    step_fallback,
+                    bytes_committed,
                 )?;
                 if should_restore_ttl {
-                    let _ =
-                        restore_default_ttl_with_android_fallback(writer, restore_ttl, &mut ttl_actions_unavailable)?;
+                    let _ = restore_default_ttl_with_android_fallback_named(
+                        writer,
+                        restore_ttl,
+                        &mut ttl_actions_unavailable,
+                        "restore_default_ttl_disorder",
+                        step_family,
+                        step_fallback,
+                        bytes_committed,
+                    )?;
                 }
             }
             TcpChainStepKind::Disoob => {
-                let ttl_modified = set_ttl_with_android_fallback(writer, 1, &mut ttl_actions_unavailable)?;
-                let should_restore_ttl = send_oob_with_android_ttl_fallback(
+                let ttl_modified = set_ttl_with_android_fallback_named(
+                    writer,
+                    1,
+                    &mut ttl_actions_unavailable,
+                    "set_ttl_disoob",
+                    step_family,
+                    step_fallback,
+                    bytes_committed,
+                )?;
+                let (should_restore_ttl, committed) = send_oob_with_android_ttl_fallback(
                     writer,
                     chunk,
                     group.actions.oob_data.unwrap_or(b'a'),
@@ -395,18 +657,30 @@ fn execute_tcp_plan(
                     ttl_modified,
                     &mut ttl_actions_unavailable,
                     "send_oob_disoob",
-                    "oob",
+                    step_family,
+                    step_fallback,
+                    bytes_committed,
                 )?;
+                bytes_committed = committed;
                 await_writable_action_named(
                     writer,
                     config.timeouts.wait_send,
                     Duration::from_millis(config.timeouts.await_interval.max(1) as u64),
                     "await_writable_disoob",
-                    Some("oob"),
+                    step_family,
+                    step_fallback,
+                    bytes_committed,
                 )?;
                 if should_restore_ttl {
-                    let _ =
-                        restore_default_ttl_with_android_fallback(writer, restore_ttl, &mut ttl_actions_unavailable)?;
+                    let _ = restore_default_ttl_with_android_fallback_named(
+                        writer,
+                        restore_ttl,
+                        &mut ttl_actions_unavailable,
+                        "restore_default_ttl_disoob",
+                        step_family,
+                        step_fallback,
+                        bytes_committed,
+                    )?;
                 }
             }
             TcpChainStepKind::Fake => {
@@ -416,12 +690,12 @@ fn execute_tcp_plan(
                 let fake_end = fake.fake_offset.saturating_add(span).min(fake.bytes.len());
                 let fake_chunk = &fake.bytes[fake.fake_offset..fake_end];
                 if fake_chunk.len() != span {
-                    return Err(io::Error::new(
+                    return Err(OutboundSendError::Transport(io::Error::new(
                         io::ErrorKind::InvalidData,
                         "fake packet prefix length does not match original split span",
-                    ));
+                    )));
                 }
-                platform::send_fake_tcp(
+                bytes_committed = send_fake_tcp_action_named(
                     writer,
                     chunk,
                     fake_chunk,
@@ -429,16 +703,31 @@ fn execute_tcp_plan(
                     group.actions.md5sig,
                     config.network.default_ttl,
                     (config.timeouts.wait_send, Duration::from_millis(config.timeouts.await_interval.max(1) as u64)),
+                    "send_fake",
+                    step_family,
+                    step_fallback,
+                    bytes_committed,
                 )?;
             }
             TcpChainStepKind::FakeSplit => {
                 let second = &plan.tampered[end..];
                 if second.is_empty() {
-                    writer.write_all(chunk)?;
-                    await_writable_action(
+                    bytes_committed = write_strategy_payload_named(
+                        writer,
+                        chunk,
+                        "write_fakesplit",
+                        step_family,
+                        step_fallback,
+                        bytes_committed,
+                    )?;
+                    await_writable_action_named(
                         writer,
                         config.timeouts.wait_send,
                         Duration::from_millis(config.timeouts.await_interval.max(1) as u64),
+                        "await_writable_fakesplit",
+                        step_family,
+                        step_fallback,
+                        bytes_committed,
                     )?;
                     cursor = end;
                     continue;
@@ -448,7 +737,7 @@ fn execute_tcp_plan(
                 let first_fake = build_fake_region_bytes(fake, start, chunk.len());
                 let second_fake = build_fake_region_bytes(fake, end, second.len());
                 let fake_ttl = resolved_fake_ttl.or(group.actions.ttl).unwrap_or(8);
-                platform::send_fake_tcp(
+                bytes_committed = send_fake_tcp_action_named(
                     writer,
                     chunk,
                     &first_fake,
@@ -456,8 +745,12 @@ fn execute_tcp_plan(
                     group.actions.md5sig,
                     config.network.default_ttl,
                     (config.timeouts.wait_send, Duration::from_millis(config.timeouts.await_interval.max(1) as u64)),
+                    "send_fake_fakesplit",
+                    step_family,
+                    step_fallback,
+                    bytes_committed,
                 )?;
-                platform::send_fake_tcp(
+                bytes_committed = send_fake_tcp_action_named(
                     writer,
                     second,
                     &second_fake,
@@ -465,6 +758,10 @@ fn execute_tcp_plan(
                     group.actions.md5sig,
                     config.network.default_ttl,
                     (config.timeouts.wait_send, Duration::from_millis(config.timeouts.await_interval.max(1) as u64)),
+                    "send_fake_fakesplit",
+                    step_family,
+                    step_fallback,
+                    bytes_committed,
                 )?;
                 cursor = plan.tampered.len();
                 break;
@@ -472,28 +769,45 @@ fn execute_tcp_plan(
             TcpChainStepKind::FakeDisorder => {
                 let second = &plan.tampered[end..];
                 if second.is_empty() {
-                    let ttl_modified = set_ttl_with_android_fallback(writer, 1, &mut ttl_actions_unavailable)?;
-                    let should_restore_ttl = write_payload_with_android_ttl_fallback(
+                    let ttl_modified = set_ttl_with_android_fallback_named(
+                        writer,
+                        1,
+                        &mut ttl_actions_unavailable,
+                        "set_ttl_fakeddisorder",
+                        step_family,
+                        step_fallback,
+                        bytes_committed,
+                    )?;
+                    let (should_restore_ttl, committed) = write_payload_with_android_ttl_fallback(
                         writer,
                         chunk,
                         restore_ttl,
                         ttl_modified,
                         &mut ttl_actions_unavailable,
                         "write_fakeddisorder",
-                        "fakedsplit",
+                        step_family,
+                        step_fallback,
+                        bytes_committed,
                     )?;
+                    bytes_committed = committed;
                     await_writable_action_named(
                         writer,
                         config.timeouts.wait_send,
                         Duration::from_millis(config.timeouts.await_interval.max(1) as u64),
                         "await_writable_fakeddisorder",
-                        Some("fakedsplit"),
+                        step_family,
+                        step_fallback,
+                        bytes_committed,
                     )?;
                     if should_restore_ttl {
-                        let _ = restore_default_ttl_with_android_fallback(
+                        let _ = restore_default_ttl_with_android_fallback_named(
                             writer,
                             restore_ttl,
                             &mut ttl_actions_unavailable,
+                            "restore_default_ttl_fakeddisorder",
+                            step_family,
+                            step_fallback,
+                            bytes_committed,
                         )?;
                     }
                     cursor = end;
@@ -504,7 +818,7 @@ fn execute_tcp_plan(
                 let first_fake = build_fake_region_bytes(fake, start, chunk.len());
                 let second_fake = build_fake_region_bytes(fake, end, second.len());
                 let fake_ttl = resolved_fake_ttl.or(group.actions.ttl).unwrap_or(8);
-                if let Err(err) = send_fake_tcp_action_named(
+                match send_fake_tcp_action_named(
                     writer,
                     chunk,
                     &first_fake,
@@ -513,11 +827,16 @@ fn execute_tcp_plan(
                     config.network.default_ttl,
                     (config.timeouts.wait_send, Duration::from_millis(config.timeouts.await_interval.max(1) as u64)),
                     "send_fake_fakeddisorder",
-                    Some("fakedsplit"),
+                    step_family,
+                    step_fallback,
+                    bytes_committed,
                 ) {
-                    if should_ignore_android_ttl_error(&err) {
+                    Ok(committed) => {
+                        bytes_committed = committed;
+                    }
+                    Err(err) if should_ignore_android_ttl_error(err.source_error()) => {
                         log_android_desync_fallback("send_fake_fakeddisorder", "fakedsplit", &err);
-                        send_fake_tcp_action_named(
+                        bytes_committed = send_fake_tcp_action_named(
                             writer,
                             chunk,
                             &first_fake,
@@ -529,13 +848,14 @@ fn execute_tcp_plan(
                                 Duration::from_millis(config.timeouts.await_interval.max(1) as u64),
                             ),
                             "send_fake_fakeddisorder",
-                            Some("fakedsplit"),
+                            step_family,
+                            step_fallback,
+                            bytes_committed,
                         )?;
-                    } else {
-                        return Err(err);
                     }
+                    Err(err) => return Err(err),
                 }
-                send_fake_tcp_action_named(
+                bytes_committed = send_fake_tcp_action_named(
                     writer,
                     second,
                     &second_fake,
@@ -544,35 +864,59 @@ fn execute_tcp_plan(
                     config.network.default_ttl,
                     (config.timeouts.wait_send, Duration::from_millis(config.timeouts.await_interval.max(1) as u64)),
                     "send_fake_fakesplit",
+                    "fakedsplit",
                     None,
+                    bytes_committed,
                 )?;
                 cursor = plan.tampered.len();
                 break;
             }
             TcpChainStepKind::HostFake => {
                 let Some(span) = resolve_hostfake_span(configured_step, &plan.tampered, start, end, seed) else {
-                    writer.write_all(chunk)?;
-                    await_writable_action(
+                    bytes_committed = write_strategy_payload_named(
+                        writer,
+                        chunk,
+                        "write_hostfake",
+                        step_family,
+                        step_fallback,
+                        bytes_committed,
+                    )?;
+                    await_writable_action_named(
                         writer,
                         config.timeouts.wait_send,
                         Duration::from_millis(config.timeouts.await_interval.max(1) as u64),
+                        "await_writable_hostfake",
+                        step_family,
+                        step_fallback,
+                        bytes_committed,
                     )?;
                     cursor = end;
                     continue;
                 };
 
                 if start < span.host_start {
-                    writer.write_all(&plan.tampered[start..span.host_start])?;
-                    await_writable_action(
+                    bytes_committed = write_strategy_payload_named(
+                        writer,
+                        &plan.tampered[start..span.host_start],
+                        "write_hostfake",
+                        step_family,
+                        step_fallback,
+                        bytes_committed,
+                    )?;
+                    await_writable_action_named(
                         writer,
                         config.timeouts.wait_send,
                         Duration::from_millis(config.timeouts.await_interval.max(1) as u64),
+                        "await_writable_hostfake",
+                        step_family,
+                        step_fallback,
+                        bytes_committed,
                     )?;
                 }
 
                 let real_host = &plan.tampered[span.host_start..span.host_end];
                 let fake_host = build_hostfake_bytes(real_host, configured_step.fake_host_template.as_deref(), seed);
-                platform::send_fake_tcp(
+                bytes_committed = send_fake_tcp_action_named(
                     writer,
                     real_host,
                     &fake_host,
@@ -580,31 +924,68 @@ fn execute_tcp_plan(
                     group.actions.md5sig,
                     config.network.default_ttl,
                     (config.timeouts.wait_send, Duration::from_millis(config.timeouts.await_interval.max(1) as u64)),
+                    "send_fake_hostfake",
+                    step_family,
+                    step_fallback,
+                    bytes_committed,
                 )?;
 
                 if let Some(midhost) = span.midhost {
-                    writer.write_all(&plan.tampered[span.host_start..midhost])?;
-                    await_writable_action(
+                    bytes_committed = write_strategy_payload_named(
                         writer,
-                        config.timeouts.wait_send,
-                        Duration::from_millis(config.timeouts.await_interval.max(1) as u64),
+                        &plan.tampered[span.host_start..midhost],
+                        "write_hostfake",
+                        step_family,
+                        step_fallback,
+                        bytes_committed,
                     )?;
-                    writer.write_all(&plan.tampered[midhost..span.host_end])?;
-                    await_writable_action(
+                    await_writable_action_named(
                         writer,
                         config.timeouts.wait_send,
                         Duration::from_millis(config.timeouts.await_interval.max(1) as u64),
+                        "await_writable_hostfake",
+                        step_family,
+                        step_fallback,
+                        bytes_committed,
+                    )?;
+                    bytes_committed = write_strategy_payload_named(
+                        writer,
+                        &plan.tampered[midhost..span.host_end],
+                        "write_hostfake",
+                        step_family,
+                        step_fallback,
+                        bytes_committed,
+                    )?;
+                    await_writable_action_named(
+                        writer,
+                        config.timeouts.wait_send,
+                        Duration::from_millis(config.timeouts.await_interval.max(1) as u64),
+                        "await_writable_hostfake",
+                        step_family,
+                        step_fallback,
+                        bytes_committed,
                     )?;
                 } else {
-                    writer.write_all(real_host)?;
-                    await_writable_action(
+                    bytes_committed = write_strategy_payload_named(
+                        writer,
+                        real_host,
+                        "write_hostfake",
+                        step_family,
+                        step_fallback,
+                        bytes_committed,
+                    )?;
+                    await_writable_action_named(
                         writer,
                         config.timeouts.wait_send,
                         Duration::from_millis(config.timeouts.await_interval.max(1) as u64),
+                        "await_writable_hostfake",
+                        step_family,
+                        step_fallback,
+                        bytes_committed,
                     )?;
                 }
 
-                platform::send_fake_tcp(
+                bytes_committed = send_fake_tcp_action_named(
                     writer,
                     real_host,
                     &fake_host,
@@ -612,31 +993,53 @@ fn execute_tcp_plan(
                     group.actions.md5sig,
                     config.network.default_ttl,
                     (config.timeouts.wait_send, Duration::from_millis(config.timeouts.await_interval.max(1) as u64)),
+                    "send_fake_hostfake",
+                    step_family,
+                    step_fallback,
+                    bytes_committed,
                 )?;
 
                 if span.host_end < end {
-                    writer.write_all(&plan.tampered[span.host_end..end])?;
-                    await_writable_action(
+                    bytes_committed = write_strategy_payload_named(
+                        writer,
+                        &plan.tampered[span.host_end..end],
+                        "write_hostfake",
+                        step_family,
+                        step_fallback,
+                        bytes_committed,
+                    )?;
+                    await_writable_action_named(
                         writer,
                         config.timeouts.wait_send,
                         Duration::from_millis(config.timeouts.await_interval.max(1) as u64),
+                        "await_writable_hostfake",
+                        step_family,
+                        step_fallback,
+                        bytes_committed,
                     )?;
                 }
             }
             TcpChainStepKind::TlsRec | TcpChainStepKind::TlsRandRec => {
-                return Err(io::Error::new(
+                return Err(OutboundSendError::Transport(io::Error::new(
                     io::ErrorKind::InvalidData,
                     "tls prelude step must not appear in tcp send plan",
-                ));
+                )));
             }
         }
         cursor = end;
     }
 
     if cursor < plan.tampered.len() {
-        writer.write_all(&plan.tampered[cursor..])?;
+        bytes_committed = write_strategy_payload_named(
+            writer,
+            &plan.tampered[cursor..],
+            write_action_name(strategy_family.unwrap_or("split")),
+            strategy_family.unwrap_or("split"),
+            strategy_family.and_then(strategy_fallback_family),
+            bytes_committed,
+        )?;
     }
-    Ok(())
+    Ok(bytes_committed)
 }
 
 fn send_out_of_band(writer: &TcpStream, prefix: &[u8], urgent_byte: u8) -> io::Result<()> {
@@ -660,63 +1063,35 @@ pub(super) fn set_stream_ttl(stream: &TcpStream, ttl: u8) -> io::Result<()> {
     }
 }
 
-pub(super) fn desync_action_context(error: &io::Error) -> Option<DesyncActionContext> {
-    let wrapped = error.get_ref()?.downcast_ref::<DesyncActionError>()?;
-    Some(DesyncActionContext {
-        action: wrapped.action,
-        fallback: wrapped.fallback,
-        kind: wrapped.source.kind(),
-        errno: wrapped.source.raw_os_error(),
-    })
-}
-
-#[cfg_attr(not(test), allow(dead_code))]
-pub(super) fn wrap_desync_action_error(action: &'static str, error: io::Error) -> io::Error {
-    wrap_desync_action_error_with_fallback(action, None, error)
-}
-
-pub(super) fn wrap_desync_action_error_with_fallback(
+fn strategy_execution_error(
     action: &'static str,
+    strategy_family: &'static str,
     fallback: Option<&'static str>,
-    error: io::Error,
-) -> io::Error {
-    let kind = error.kind();
-    io::Error::new(kind, DesyncActionError { action, fallback, source: error })
+    bytes_committed: usize,
+    source: io::Error,
+) -> OutboundSendError {
+    OutboundSendError::StrategyExecution {
+        action,
+        strategy_family,
+        fallback,
+        bytes_committed,
+        source_errno: source.raw_os_error(),
+        source,
+    }
 }
 
-fn map_desync_action_error<T>(action: &'static str, result: io::Result<T>) -> io::Result<T> {
-    map_desync_action_error_with_fallback(action, None, result)
-}
-
-fn map_desync_action_error_with_fallback<T>(
-    action: &'static str,
-    fallback: Option<&'static str>,
-    result: io::Result<T>,
-) -> io::Result<T> {
-    result.map_err(|error| wrap_desync_action_error_with_fallback(action, fallback, error))
-}
-
-fn log_android_desync_fallback(action: &'static str, fallback: &'static str, error: &io::Error) {
+fn log_android_desync_fallback(action: &'static str, fallback: &'static str, error: &OutboundSendError) {
     tracing::warn!("Android desync fallback applied: action={action} fallback={fallback}: {error}");
 }
 
-fn write_payload_action_progress_named(
-    stream: &mut TcpStream,
-    bytes: &[u8],
-    action: &'static str,
-    fallback: Option<&'static str>,
-) -> Result<(), WriteProgressError> {
+fn write_payload_progress(stream: &mut TcpStream, bytes: &[u8]) -> Result<(), WriteProgressError> {
     let mut written = 0usize;
     while written < bytes.len() {
         match stream.write(&bytes[written..]) {
             Ok(0) => {
                 return Err(WriteProgressError {
                     written,
-                    error: wrap_desync_action_error_with_fallback(
-                        action,
-                        fallback,
-                        io::Error::new(io::ErrorKind::WriteZero, "partial tcp payload write"),
-                    ),
+                    source: io::Error::new(io::ErrorKind::WriteZero, "partial tcp payload write"),
                 });
             }
             Ok(chunk) => {
@@ -724,23 +1099,48 @@ fn write_payload_action_progress_named(
             }
             Err(err) if err.kind() == io::ErrorKind::Interrupted => continue,
             Err(err) => {
-                return Err(WriteProgressError {
-                    written,
-                    error: wrap_desync_action_error_with_fallback(action, fallback, err),
-                });
+                return Err(WriteProgressError { written, source: err });
             }
         }
     }
     Ok(())
 }
 
-fn write_payload_action_named(
+fn write_transport_payload(stream: &mut TcpStream, bytes: &[u8]) -> Result<usize, OutboundSendError> {
+    write_payload_progress(stream, bytes)
+        .map(|()| bytes.len())
+        .map_err(|progress| OutboundSendError::Transport(progress.source))
+}
+
+fn write_strategy_payload_named(
     stream: &mut TcpStream,
     bytes: &[u8],
     action: &'static str,
+    strategy_family: &'static str,
     fallback: Option<&'static str>,
-) -> io::Result<()> {
-    write_payload_action_progress_named(stream, bytes, action, fallback).map_err(|progress| progress.error)
+    bytes_committed: usize,
+) -> Result<usize, OutboundSendError> {
+    write_payload_progress(stream, bytes).map(|()| bytes_committed + bytes.len()).map_err(|progress| {
+        strategy_execution_error(action, strategy_family, fallback, bytes_committed + progress.written, progress.source)
+    })
+}
+
+fn send_transport_oob_payload(writer: &TcpStream, prefix: &[u8], urgent_byte: u8) -> Result<usize, OutboundSendError> {
+    send_out_of_band(writer, prefix, urgent_byte).map(|()| prefix.len() + 1).map_err(OutboundSendError::Transport)
+}
+
+fn strategy_result<T>(
+    result: io::Result<T>,
+    action: &'static str,
+    strategy_family: &'static str,
+    fallback: Option<&'static str>,
+    bytes_committed: usize,
+) -> Result<T, OutboundSendError> {
+    result.map_err(|source| strategy_execution_error(action, strategy_family, fallback, bytes_committed, source))
+}
+
+fn transport_result<T>(result: io::Result<T>) -> Result<T, OutboundSendError> {
+    result.map_err(OutboundSendError::Transport)
 }
 
 fn write_payload_with_android_ttl_fallback(
@@ -750,18 +1150,39 @@ fn write_payload_with_android_ttl_fallback(
     ttl_modified: bool,
     ttl_actions_unavailable: &mut bool,
     action: &'static str,
-    fallback: &'static str,
-) -> io::Result<bool> {
-    match write_payload_action_progress_named(writer, bytes, action, Some(fallback)) {
-        Ok(()) => Ok(ttl_modified),
-        Err(progress) if ttl_modified && progress.written == 0 && should_ignore_android_ttl_error(&progress.error) => {
+    strategy_family: &'static str,
+    fallback: Option<&'static str>,
+    bytes_committed: usize,
+) -> Result<(bool, usize), OutboundSendError> {
+    match write_payload_progress(writer, bytes) {
+        Ok(()) => Ok((ttl_modified, bytes_committed + bytes.len())),
+        Err(progress) if ttl_modified && progress.written == 0 && should_ignore_android_ttl_error(&progress.source) => {
             *ttl_actions_unavailable = true;
-            restore_default_ttl_with_android_fallback(writer, restore_ttl, ttl_actions_unavailable)?;
-            log_android_desync_fallback(action, fallback, &progress.error);
-            write_payload_action_named(writer, bytes, action, Some(fallback))?;
-            Ok(false)
+            restore_default_ttl_with_android_fallback_named(
+                writer,
+                restore_ttl,
+                ttl_actions_unavailable,
+                restore_ttl_action_name(strategy_family),
+                strategy_family,
+                fallback,
+                bytes_committed,
+            )?;
+            log_android_desync_fallback(
+                action,
+                fallback.unwrap_or("none"),
+                &strategy_execution_error(action, strategy_family, fallback, bytes_committed, progress.source),
+            );
+            let committed =
+                write_strategy_payload_named(writer, bytes, action, strategy_family, fallback, bytes_committed)?;
+            Ok((false, committed))
         }
-        Err(progress) => Err(progress.error),
+        Err(progress) => Err(strategy_execution_error(
+            action,
+            strategy_family,
+            fallback,
+            bytes_committed + progress.written,
+            progress.source,
+        )),
     }
 }
 
@@ -770,9 +1191,12 @@ fn send_oob_action_named(
     prefix: &[u8],
     urgent_byte: u8,
     action: &'static str,
+    strategy_family: &'static str,
     fallback: Option<&'static str>,
-) -> io::Result<()> {
-    map_desync_action_error_with_fallback(action, fallback, send_out_of_band(writer, prefix, urgent_byte))
+    bytes_committed: usize,
+) -> Result<usize, OutboundSendError> {
+    strategy_result(send_out_of_band(writer, prefix, urgent_byte), action, strategy_family, fallback, bytes_committed)
+        .map(|()| bytes_committed + prefix.len() + 1)
 }
 
 fn send_oob_with_android_ttl_fallback(
@@ -783,16 +1207,27 @@ fn send_oob_with_android_ttl_fallback(
     ttl_modified: bool,
     ttl_actions_unavailable: &mut bool,
     action: &'static str,
-    fallback: &'static str,
-) -> io::Result<bool> {
-    match send_oob_action_named(writer, prefix, urgent_byte, action, Some(fallback)) {
-        Ok(()) => Ok(ttl_modified),
-        Err(err) if ttl_modified && should_ignore_android_ttl_error(&err) => {
+    strategy_family: &'static str,
+    fallback: Option<&'static str>,
+    bytes_committed: usize,
+) -> Result<(bool, usize), OutboundSendError> {
+    match send_oob_action_named(writer, prefix, urgent_byte, action, strategy_family, fallback, bytes_committed) {
+        Ok(committed) => Ok((ttl_modified, committed)),
+        Err(err) if ttl_modified && should_ignore_android_ttl_error(err.source_error()) => {
             *ttl_actions_unavailable = true;
-            restore_default_ttl_with_android_fallback(writer, restore_ttl, ttl_actions_unavailable)?;
-            log_android_desync_fallback(action, fallback, &err);
-            send_oob_action_named(writer, prefix, urgent_byte, action, Some(fallback))?;
-            Ok(false)
+            restore_default_ttl_with_android_fallback_named(
+                writer,
+                restore_ttl,
+                ttl_actions_unavailable,
+                restore_ttl_action_name(strategy_family),
+                strategy_family,
+                fallback,
+                bytes_committed,
+            )?;
+            log_android_desync_fallback(action, fallback.unwrap_or("none"), &err);
+            let committed =
+                send_oob_action_named(writer, prefix, urgent_byte, action, strategy_family, fallback, bytes_committed)?;
+            Ok((false, committed))
         }
         Err(err) => Err(err),
     }
@@ -807,33 +1242,103 @@ fn send_fake_tcp_action_named(
     default_ttl: u8,
     wait: platform::TcpStageWait,
     action: &'static str,
+    strategy_family: &'static str,
     fallback: Option<&'static str>,
-) -> io::Result<()> {
-    map_desync_action_error_with_fallback(
-        action,
-        fallback,
+    bytes_committed: usize,
+) -> Result<usize, OutboundSendError> {
+    strategy_result(
         platform::send_fake_tcp(stream, original_prefix, fake_prefix, ttl, md5sig, default_ttl, wait),
+        action,
+        strategy_family,
+        fallback,
+        bytes_committed,
     )
+    .map(|()| bytes_committed + original_prefix.len())
 }
 
-fn send_oob_action(writer: &TcpStream, prefix: &[u8], urgent_byte: u8) -> io::Result<()> {
-    send_oob_action_named(writer, prefix, urgent_byte, "send_oob", None)
+fn set_ttl_action_named(
+    stream: &TcpStream,
+    ttl: u8,
+    action: &'static str,
+    strategy_family: &'static str,
+    fallback: Option<&'static str>,
+    bytes_committed: usize,
+) -> Result<(), OutboundSendError> {
+    strategy_result(set_stream_ttl(stream, ttl), action, strategy_family, fallback, bytes_committed)
 }
 
-fn set_ttl_action(stream: &TcpStream, ttl: u8) -> io::Result<()> {
-    map_desync_action_error("set_ttl", set_stream_ttl(stream, ttl))
+fn set_ttl_with_android_fallback_named(
+    stream: &TcpStream,
+    ttl: u8,
+    ttl_actions_unavailable: &mut bool,
+    action: &'static str,
+    strategy_family: &'static str,
+    fallback: Option<&'static str>,
+    bytes_committed: usize,
+) -> Result<bool, OutboundSendError> {
+    if *ttl_actions_unavailable {
+        return Ok(false);
+    }
+
+    match set_ttl_action_named(stream, ttl, action, strategy_family, fallback, bytes_committed) {
+        Ok(()) => Ok(true),
+        Err(err) if should_ignore_android_ttl_error(err.source_error()) => {
+            *ttl_actions_unavailable = true;
+            tracing::warn!("TTL desync action unavailable on this Android build: {err}");
+            Ok(false)
+        }
+        Err(err) => Err(err),
+    }
 }
 
-fn restore_default_ttl_action(stream: &TcpStream, ttl: u8) -> io::Result<()> {
-    map_desync_action_error("restore_default_ttl", set_stream_ttl(stream, ttl))
+fn restore_default_ttl_action_named(
+    stream: &TcpStream,
+    ttl: u8,
+    action: &'static str,
+    strategy_family: &'static str,
+    fallback: Option<&'static str>,
+    bytes_committed: usize,
+) -> Result<(), OutboundSendError> {
+    strategy_result(set_stream_ttl(stream, ttl), action, strategy_family, fallback, bytes_committed)
 }
 
-fn set_md5sig_action(stream: &TcpStream, key_len: u16) -> io::Result<()> {
-    map_desync_action_error("set_md5sig", platform::set_tcp_md5sig(stream, key_len))
+fn restore_default_ttl_with_android_fallback_named(
+    stream: &TcpStream,
+    ttl: u8,
+    ttl_actions_unavailable: &mut bool,
+    action: &'static str,
+    strategy_family: &'static str,
+    fallback: Option<&'static str>,
+    bytes_committed: usize,
+) -> Result<bool, OutboundSendError> {
+    if *ttl_actions_unavailable {
+        return Ok(false);
+    }
+
+    match restore_default_ttl_action_named(stream, ttl, action, strategy_family, fallback, bytes_committed) {
+        Ok(()) => Ok(true),
+        Err(err) if should_ignore_android_ttl_error(err.source_error()) => {
+            *ttl_actions_unavailable = true;
+            tracing::warn!("TTL desync action unavailable on this Android build: {err}");
+            Ok(false)
+        }
+        Err(err) => Err(err),
+    }
 }
 
-fn write_payload_action(stream: &mut TcpStream, bytes: &[u8]) -> io::Result<()> {
-    write_payload_action_named(stream, bytes, "write", None)
+fn set_md5sig_transport_action(stream: &TcpStream, key_len: u16) -> Result<(), OutboundSendError> {
+    transport_result(platform::set_tcp_md5sig(stream, key_len))
+}
+
+fn set_md5sig_action_named(
+    stream: &TcpStream,
+    key_len: u16,
+    action: &'static str,
+    strategy_family: &'static str,
+    fallback: Option<&'static str>,
+    bytes_committed: usize,
+) -> Result<(), OutboundSendError> {
+    strategy_result(platform::set_tcp_md5sig(stream, key_len), action, strategy_family, fallback, bytes_committed)
 }
 
 fn await_writable_action_named(
@@ -841,13 +1346,25 @@ fn await_writable_action_named(
     wait_send: bool,
     await_interval: Duration,
     action: &'static str,
+    strategy_family: &'static str,
     fallback: Option<&'static str>,
-) -> io::Result<()> {
-    map_desync_action_error_with_fallback(action, fallback, platform::wait_tcp_stage(stream, wait_send, await_interval))
+    bytes_committed: usize,
+) -> Result<(), OutboundSendError> {
+    strategy_result(
+        platform::wait_tcp_stage(stream, wait_send, await_interval),
+        action,
+        strategy_family,
+        fallback,
+        bytes_committed,
+    )
 }
 
-fn await_writable_action(stream: &TcpStream, wait_send: bool, await_interval: Duration) -> io::Result<()> {
-    await_writable_action_named(stream, wait_send, await_interval, "await_writable", None)
+fn await_transport_writable_action(
+    stream: &TcpStream,
+    wait_send: bool,
+    await_interval: Duration,
+) -> Result<(), OutboundSendError> {
+    transport_result(platform::wait_tcp_stage(stream, wait_send, await_interval))
 }
 
 #[cfg(test)]
@@ -906,31 +1423,58 @@ mod tests {
     }
 
     #[test]
-    fn desync_action_context_preserves_action_name_and_error_details() {
-        let err =
-            map_desync_action_error::<()>("set_ttl", Err(io::Error::from_raw_os_error(libc::EINVAL))).unwrap_err();
+    fn outbound_send_error_preserves_strategy_execution_metadata() {
+        let err = strategy_execution_error(
+            "set_ttl_disorder",
+            "disorder",
+            Some("split"),
+            0,
+            io::Error::from_raw_os_error(libc::EINVAL),
+        );
 
-        let context = desync_action_context(&err).expect("wrapped desync action");
-        assert_eq!(context.action, "set_ttl");
-        assert_eq!(context.fallback, None);
-        assert_eq!(context.kind, io::ErrorKind::InvalidInput);
-        assert_eq!(context.errno, Some(libc::EINVAL));
-        assert!(err.to_string().contains("desync action=set_ttl"));
+        assert_eq!(err.kind(), io::ErrorKind::InvalidInput);
+        match err {
+            OutboundSendError::StrategyExecution {
+                action,
+                strategy_family,
+                fallback,
+                bytes_committed,
+                source_errno,
+                ..
+            } => {
+                assert_eq!(action, "set_ttl_disorder");
+                assert_eq!(strategy_family, "disorder");
+                assert_eq!(fallback, Some("split"));
+                assert_eq!(bytes_committed, 0);
+                assert_eq!(source_errno, Some(libc::EINVAL));
+            }
+            OutboundSendError::Transport(_) => panic!("expected strategy execution error"),
+        }
+        assert!(err.to_string().contains("desync action=set_ttl_disorder"));
     }
 
     #[test]
-    fn desync_action_context_preserves_fallback_details() {
-        let err = wrap_desync_action_error_with_fallback(
+    fn outbound_send_error_into_io_error_preserves_fallback_details() {
+        let err = strategy_execution_error(
             "write_disorder",
+            "disorder",
             Some("split"),
+            0,
             io::Error::from_raw_os_error(libc::EROFS),
         );
+        let io_error = err.into_io_error();
 
-        let context = desync_action_context(&err).expect("wrapped desync action");
-        assert_eq!(context.action, "write_disorder");
-        assert_eq!(context.fallback, Some("split"));
-        assert_eq!(context.errno, Some(libc::EROFS));
-        assert!(err.to_string().contains("fallback=split"));
+        assert_eq!(io_error.kind(), io::ErrorKind::ReadOnlyFilesystem);
+        assert_eq!(
+            io_error.get_ref().and_then(|inner| inner.downcast_ref::<OutboundSendError>()).and_then(
+                |inner| match inner {
+                    OutboundSendError::StrategyExecution { fallback, .. } => *fallback,
+                    OutboundSendError::Transport(_) => None,
+                }
+            ),
+            Some("split")
+        );
+        assert!(io_error.get_ref().and_then(|inner| inner.downcast_ref::<OutboundSendError>()).is_some());
     }
 
     #[test]
@@ -941,9 +1485,15 @@ mod tests {
     }
 
     #[test]
-    fn android_ttl_fallback_filter_matches_wrapped_desync_errors() {
-        let err = wrap_desync_action_error("set_ttl", io::Error::from_raw_os_error(libc::EROFS));
-        assert!(should_ignore_android_ttl_error(&err));
+    fn android_ttl_fallback_filter_matches_strategy_execution_source_errors() {
+        let err = strategy_execution_error(
+            "set_ttl_disorder",
+            "disorder",
+            Some("split"),
+            0,
+            io::Error::from_raw_os_error(libc::EROFS),
+        );
+        assert!(should_ignore_android_ttl_error(err.source_error()));
     }
 
     // ---------------------------------------------------------------
