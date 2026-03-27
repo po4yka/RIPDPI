@@ -115,3 +115,23 @@ bash scripts/ci/run-appium-smoke.sh
 | 33 | `test_33_empty_states.py` | Diagnostics and history empty state placeholders |
 | 34 | `test_34_connection_transitions.py` | Deep connect/disconnect state cycle |
 | 35 | `test_35_theme_selection.py` | Theme dropdown dark option selection |
+
+## Workflow Tests
+
+Multi-step end-to-end tests that span multiple screens without restarting the app.
+Located in `tests/workflows/`. Run them separately:
+
+```bash
+cd appium
+pytest tests/workflows/ -v
+```
+
+| # | File | Journey |
+|---|------|---------|
+| wf01 | `test_wf01_onboarding_to_connect.py` | Onboarding 3 pages -> Home -> Connect |
+| wf02 | `test_wf02_config_preset_connect.py` | Config preset select -> Home -> Connect |
+| wf03 | `test_wf03_permission_repair.py` | VPN missing -> banner -> dialog -> grant -> connect |
+| wf04 | `test_wf04_dns_roundtrip.py` | Set DNS -> navigate away -> return -> verify persisted |
+| wf05 | `test_wf05_diagnostics_flow.py` | Diagnostics pager -> scan -> share section |
+| wf06 | `test_wf06_config_edit_validation.py` | Edit mode -> invalid port -> fix -> save |
+| wf07 | `test_wf07_settings_roundtrip.py` | WebRTC + DNS change -> navigate away -> verify persisted |

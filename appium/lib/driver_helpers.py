@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import time
+from typing import Callable
+
 from appium.webdriver import WebElement
 from appium.webdriver.common.appiumby import AppiumBy
 from selenium.common.exceptions import NoSuchElementException, TimeoutException
@@ -33,3 +36,19 @@ def is_visible(driver, tag: str, timeout: int = 3) -> bool:
         return True
     except (TimeoutException, NoSuchElementException):
         return False
+
+
+def wait_until(
+    condition_fn: Callable[[], object],
+    timeout: int = 10,
+    poll_interval: float = 0.5,
+    message: str = "",
+) -> object:
+    """Poll *condition_fn* until it returns a truthy value or timeout."""
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        result = condition_fn()
+        if result:
+            return result
+        time.sleep(poll_interval)
+    raise TimeoutError(message or f"Condition not met within {timeout}s")
