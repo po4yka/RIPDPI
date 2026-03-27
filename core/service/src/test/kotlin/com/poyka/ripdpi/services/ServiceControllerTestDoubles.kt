@@ -317,8 +317,12 @@ internal class TestNetworkHandoverMonitor : NetworkHandoverMonitor {
 
 internal class TestNativeNetworkSnapshotProvider(
     var snapshot: NativeNetworkSnapshot = NativeNetworkSnapshot(transport = "wifi"),
+    var captureFailure: Throwable? = null,
 ) : NativeNetworkSnapshotProvider {
-    override fun capture(): NativeNetworkSnapshot = snapshot
+    override fun capture(): NativeNetworkSnapshot {
+        captureFailure?.let { throw it }
+        return snapshot
+    }
 }
 
 internal class TestProxyRuntime(
