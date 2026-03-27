@@ -64,6 +64,11 @@ test-class mod class:
 test-rust:
     cargo nextest run --manifest-path {{rust_dir}}/Cargo.toml --workspace
 
+# Run Rust native load/stress tests (smoke profile)
+[group('test')]
+test-rust-load:
+    RIPDPI_SOAK_PROFILE=smoke bash scripts/ci/run-rust-native-load.sh
+
 # Run Rust deterministic network tests (turmoil)
 [group('test')]
 test-rust-turmoil:
