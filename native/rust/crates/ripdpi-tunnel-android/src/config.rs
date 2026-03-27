@@ -173,7 +173,7 @@ pub(crate) fn config_from_payload(payload: TunnelConfigPayload) -> Result<Config
         }
     }
     if let Some(limit) = payload.limit_nofile {
-        if limit < 64 || limit > 1_048_576 {
+        if !(64..=1_048_576).contains(&limit) {
             return Err(format!("limitNofile must be between 64 and 1048576, got {limit}"));
         }
     }

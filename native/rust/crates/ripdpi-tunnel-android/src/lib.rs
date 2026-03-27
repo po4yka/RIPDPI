@@ -16,6 +16,7 @@ use session::{
 /// Called by the JVM when the native library is loaded. Must not unwind across
 /// the FFI boundary -- a panic here would be UB (extern "system" + unwind).
 #[unsafe(no_mangle)]
+#[allow(improper_ctypes_definitions)]
 pub extern "system" fn JNI_OnLoad(_vm: JavaVM, _reserved: *mut std::ffi::c_void) -> jint {
     match std::panic::catch_unwind(|| {
         android_support::ignore_sigpipe();
