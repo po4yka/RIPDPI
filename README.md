@@ -7,7 +7,7 @@ Android application for optimizing network connectivity with:
 - local proxy mode
 - local VPN redirection mode
 - encrypted DNS in VPN mode with DoH/DoT/DNSCrypt
-- advanced strategy controls with semantic markers, adaptive split placement, QUIC/TLS/DNS lane separation, per-network policy memory, and automatic probing
+- advanced strategy controls with semantic markers, adaptive split placement, QUIC/TLS/DNS lane separation, per-network policy memory, and automatic probing/audit
 - handover-aware live policy re-evaluation across Wi-Fi, cellular, and roaming changes
 - integrated diagnostics and passive telemetry
 - in-repository Rust native modules
@@ -22,11 +22,14 @@ Implemented diagnostic mechanisms:
 
 - Manual scans in `RAW_PATH` and `IN_PATH` modes
 - Automatic probing profiles in `RAW_PATH`, plus hidden `quick_v1` re-checks after first-seen network handovers
+- Automatic audit in `RAW_PATH` with rotating curated target cohorts, full TCP/QUIC matrix evaluation, confidence/coverage scoring, and manual recommendations
 - DNS integrity checks across UDP DNS and encrypted resolvers (DoH/DoT/DNSCrypt)
 - Domain reachability checks with TLS and HTTP classification
 - TCP 16-20 KB cutoff detection with repeated fat-header requests
 - Whitelist SNI retry detection for restricted TLS paths
 - Resolver recommendations with diversified DoH/DoT/DNSCrypt path candidates, bootstrap validation, temporary session overrides, and save-to-settings actions
+- Strategy-probe progress with live TCP/QUIC lane, candidate index, and candidate label during automatic probing/audit
+- Explicit remediation when automatic probing/audit is unavailable because `Use command line settings` blocks isolated strategy trials
 - Passive native telemetry while proxy or VPN service is running
 - Export bundles with `summary.txt`, `report.json`, `telemetry.csv`, and `manifest.json`
 
@@ -61,7 +64,7 @@ RIPDPI's current Android and native strategy stack includes:
 - separate TCP, QUIC, and DNS strategy families for diagnostics, telemetry, and remembered-policy scoring
 - handover-aware full restarts with background `quick_v1` strategy probes for first-seen networks
 - retry-stealth pacing with jitter, diversified candidate order, and adaptive tuning beyond fake TTL
-- diagnostics-side automatic probing with a candidate scoreboard and manual recommendation
+- diagnostics-side automatic probing and automatic audit with candidate-aware progress, confidence-scored reports, winners-first review, and manual recommendations
 
 Implementation details and the native call path are documented in [docs/native/proxy-engine.md](docs/native/proxy-engine.md).
 

@@ -35,6 +35,13 @@ New Maestro/Appium flows should reuse those IDs instead of inventing local selec
   `diagnostics-top-history-action`, `diagnostics-share-archive`,
   `diagnostics-save-archive`, `diagnostics-share-summary`, `diagnostics-save-logs`,
   `diagnostics-status-snackbar`, `logs-save`, `logs-clear`
+- Diagnostics strategy reports:
+  `diagnostics-strategy-probe-report`, `diagnostics-strategy-probe-summary`,
+  `diagnostics-strategy-winning-path`, `diagnostics-strategy-winning-tcp-action`,
+  `diagnostics-strategy-winning-quic-action`, `diagnostics-strategy-full-matrix-toggle`,
+  `diagnostics-strategy-audit-assessment`, `diagnostics-strategy-audit-low-confidence-banner`,
+  `diagnostics-strategy-audit-medium-confidence-note`, `diagnostics-workflow-restriction-card`,
+  `diagnostics-workflow-restriction-action`
 
 ## Key Examples
 
@@ -46,6 +53,9 @@ New Maestro/Appium flows should reuse those IDs instead of inventing local selec
 - Advanced diagnostics retention save:
   `advanced-save-diagnostics-history-retention-days`
 - Diagnostics share archive: `diagnostics-share-archive`
+- Automatic Audit winning path: `diagnostics-strategy-winning-path`
+- Automatic Audit full matrix toggle: `diagnostics-strategy-full-matrix-toggle`
+- Diagnostics remediation CTA: `diagnostics-workflow-restriction-action`
 - Onboarding continue: `onboarding-continue`
 
 ## Resource ID Notes
