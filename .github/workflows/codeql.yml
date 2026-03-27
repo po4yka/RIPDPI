@@ -25,8 +25,10 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - language: java-kotlin
-            build-mode: manual
+          # java-kotlin disabled: CodeQL v4 does not yet support Kotlin 2.3.20.
+          # Re-enable once github/codeql-action supports this version.
+          # - language: java-kotlin
+          #   build-mode: manual
           - language: actions
             build-mode: none
 
@@ -39,24 +41,8 @@ jobs:
           languages: ${{ matrix.language }}
           build-mode: ${{ matrix.build-mode }}
 
-      # Manual build for java-kotlin to set up the correct JDK and Android SDK
-      - name: Set up JDK 17
-        if: matrix.language == 'java-kotlin'
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: 17
-
-      - name: Set up Android SDK
-        if: matrix.language == 'java-kotlin'
-        uses: android-actions/setup-android@v4
-
-      - name: Build for CodeQL analysis
-        if: matrix.language == 'java-kotlin'
-        run: |
-          # Build Kotlin/Java sources without native libs for static analysis.
-          # Native .so files are not needed for CodeQL's Java/Kotlin analysis.
-          ./gradlew compileDebugKotlin -x buildRustNativeLibs
+      # java-kotlin build steps removed while Kotlin 2.3.20 support is pending.
+      # Restore JDK/Android SDK setup and compileDebugKotlin when re-enabling.
 
       - name: Perform CodeQL analysis
         uses: github/codeql-action/analyze@v4
