@@ -85,6 +85,34 @@ internal object GoldenContractSupport {
         )
     }
 
+    fun assertSharedFixtureGolden(
+        relativePath: String,
+        actualText: String,
+    ) {
+        val goldenFile = resolveRepoPath("contract-fixtures/$relativePath")
+        val actual = normalizeText(actualText)
+        val parentDir = goldenFile.parentFile ?: error("Contract fixture has no parent directory: ${goldenFile.path}")
+
+        if (System.getenv("RIPDPI_BLESS_GOLDENS") != null) {
+            parentDir.mkdirs()
+            goldenFile.writeText(actual)
+            return
+        }
+
+        val expected = normalizeText(goldenFile.readText())
+        if (expected == actual) {
+            return
+        }
+
+        writeArtifacts(relativePath, expected, actual)
+        fail("Contract fixture mismatch for ${goldenFile.path}")
+    }
+
+    fun readSharedFixture(relativePath: String): String {
+        val file = resolveRepoPath("contract-fixtures/$relativePath")
+        return normalizeText(file.readText())
+    }
+
     private fun resolveRepoPath(relativePath: String): File {
         var current = File(requireNotNull(System.getProperty("user.dir"))).absoluteFile
         while (!File(current, "settings.gradle.kts").exists()) {
