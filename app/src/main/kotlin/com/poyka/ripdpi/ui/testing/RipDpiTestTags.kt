@@ -100,6 +100,8 @@ internal object RipDpiTestTags {
     const val DiagnosticsStrategyAuditAssessment = "diagnostics-strategy-audit-assessment"
     const val DiagnosticsStrategyAuditLowConfidenceBanner = "diagnostics-strategy-audit-low-confidence-banner"
     const val DiagnosticsStrategyAuditMediumConfidenceNote = "diagnostics-strategy-audit-medium-confidence-note"
+    const val DiagnosticsWorkflowRestrictionCard = "diagnostics-workflow-restriction-card"
+    const val DiagnosticsWorkflowRestrictionAction = "diagnostics-workflow-restriction-action"
     const val DiagnosticsSharePreviewCard = "diagnostics-share-preview-card"
     const val DiagnosticsArchiveStateIndicator = "diagnostics-archive-state-indicator"
     const val DiagnosticsSessionDetailSheet = "diagnostics-session-detail-sheet"

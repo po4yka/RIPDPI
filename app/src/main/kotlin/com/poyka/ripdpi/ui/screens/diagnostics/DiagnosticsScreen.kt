@@ -86,6 +86,7 @@ fun DiagnosticsRoute(
     onSaveArchive: (String, String) -> Unit,
     onShareSummary: (String, String) -> Unit,
     onSaveLogs: () -> Unit,
+    onOpenAdvancedSettings: () -> Unit = {},
     onOpenHistory: () -> Unit,
     modifier: Modifier = Modifier,
     initialSection: DiagnosticsSection? = null,
@@ -203,6 +204,7 @@ fun DiagnosticsRoute(
         onShareArchive = viewModel::shareArchive,
         onSaveArchive = viewModel::saveArchive,
         onSaveLogs = onSaveLogs,
+        onOpenAdvancedSettings = onOpenAdvancedSettings,
         onOpenHistory = onOpenHistory,
         modifier = modifier,
     )
@@ -244,6 +246,7 @@ fun DiagnosticsScreen(
     onShareArchive: (String?) -> Unit,
     onSaveArchive: (String?) -> Unit,
     onSaveLogs: () -> Unit,
+    onOpenAdvancedSettings: () -> Unit = {},
     onOpenHistory: () -> Unit,
 ) {
     val colors = RipDpiThemeTokens.colors
@@ -330,6 +333,7 @@ fun DiagnosticsScreen(
                                 onRunRawScan = onRunRawScan,
                                 onRunInPathScan = onRunInPathScan,
                                 onCancelScan = onCancelScan,
+                                onOpenAdvancedSettings = onOpenAdvancedSettings,
                                 onKeepResolverRecommendation = onKeepResolverRecommendation,
                                 onSaveResolverRecommendation = onSaveResolverRecommendation,
                                 onSelectStrategyProbeCandidate = onSelectStrategyProbeCandidate,
