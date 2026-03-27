@@ -245,6 +245,24 @@ data class DiagnosticsAutomaticProbeCalloutUiModel(
     val actionLabel: String,
 )
 
+@Immutable
+data class HiddenProbeConflictDialogState(
+    val requestId: String,
+    val profileName: String,
+    val pathMode: ScanPathMode,
+    val scanKind: ScanKind,
+    val isFullAudit: Boolean,
+)
+
+@Immutable
+data class QueuedManualScanRequest(
+    val requestId: String,
+    val profileName: String,
+    val pathMode: ScanPathMode,
+    val scanKind: ScanKind,
+    val isFullAudit: Boolean,
+)
+
 @Stable
 data class DiagnosticsSessionDetailUiModel(
     val session: DiagnosticsSessionRowUiModel,
@@ -390,6 +408,8 @@ data class DiagnosticsScanUiModel(
     val workflowRestriction: DiagnosticsWorkflowRestrictionUiModel? = null,
     val resolverRecommendation: DiagnosticsResolverRecommendationUiModel? = null,
     val strategyProbeReport: DiagnosticsStrategyProbeReportUiModel? = null,
+    val hiddenProbeConflictDialog: HiddenProbeConflictDialogState? = null,
+    val queuedManualScanRequest: QueuedManualScanRequest? = null,
     val isBusy: Boolean = false,
 )
 
@@ -545,6 +565,10 @@ sealed interface DiagnosticsEffect {
         val scanTypeLabel: String,
     ) : DiagnosticsEffect
 
+    data class ScanQueued(
+        val message: String,
+    ) : DiagnosticsEffect
+
     data class ScanCompleted(
         val summary: String,
         val tone: DiagnosticsTone,
@@ -593,6 +617,8 @@ internal data class ScanLifecycleState(
     val activeScanKind: ScanKind? = null,
     val accumulatedProbes: List<CompletedProbeUiModel> = emptyList(),
     val pendingAutoOpenAuditSessionId: String? = null,
+    val hiddenProbeConflictDialog: HiddenProbeConflictDialogState? = null,
+    val queuedManualScanRequest: QueuedManualScanRequest? = null,
     val archiveActionState: ArchiveActionState = ArchiveActionState(),
 )
 

@@ -32,7 +32,16 @@ class DiagnosticsScanIntegrationTest {
                     json = json,
                 )
 
-            val sessionId = services.scanController.startScan(ScanPathMode.RAW_PATH)
+            val sessionId =
+                when (val result = services.scanController.startScan(ScanPathMode.RAW_PATH)) {
+                    is DiagnosticsManualScanStartResult.Started -> {
+                        result.sessionId
+                    }
+
+                    is DiagnosticsManualScanStartResult.RequiresHiddenProbeResolution -> {
+                        error("Expected started scan but got hidden probe conflict")
+                    }
+                }
             advanceUntilIdle()
 
             val session = stores.getScanSession(sessionId)

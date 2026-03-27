@@ -42,6 +42,7 @@ import com.poyka.ripdpi.activities.DiagnosticsWorkflowRestrictionReasonUiModel
 import com.poyka.ripdpi.activities.DiagnosticsWorkflowRestrictionUiModel
 import com.poyka.ripdpi.activities.FakeAppSettingsRepository
 import com.poyka.ripdpi.activities.FakeDiagnosticsManager
+import com.poyka.ripdpi.activities.HiddenProbeConflictDialogState
 import com.poyka.ripdpi.activities.PhaseState
 import com.poyka.ripdpi.activities.PhaseStepUiModel
 import com.poyka.ripdpi.activities.createDiagnosticsViewModel
@@ -145,6 +146,83 @@ class DiagnosticsScreenTest {
         composeRule.onNodeWithTag(RipDpiTestTags.DiagnosticsResolverRecommendationCard).fetchSemanticsNode()
         composeRule.onNodeWithTag(RipDpiTestTags.DiagnosticsResolverKeepSession).fetchSemanticsNode()
         composeRule.onNodeWithTag(RipDpiTestTags.DiagnosticsResolverSaveSetting).fetchSemanticsNode()
+    }
+
+    @Test
+    fun hiddenProbeConflictDialogWiresWaitCancelAndDismissActions() {
+        var waitClicks = 0
+        var cancelClicks = 0
+        var dismissClicks = 0
+
+        composeRule.setContent {
+            val pagerState =
+                rememberPagerState(
+                    initialPage = DiagnosticsSection.Scan.ordinal,
+                    pageCount = { DiagnosticsSection.entries.size },
+                )
+            RipDpiTheme {
+                DiagnosticsScreen(
+                    uiState =
+                        DiagnosticsUiState(
+                            selectedSection = DiagnosticsSection.Scan,
+                            scan =
+                                DiagnosticsScanUiModel(
+                                    hiddenProbeConflictDialog =
+                                        HiddenProbeConflictDialogState(
+                                            requestId = "hidden-request",
+                                            profileName = "Automatic probing",
+                                            pathMode = com.poyka.ripdpi.diagnostics.ScanPathMode.RAW_PATH,
+                                            scanKind = ScanKind.STRATEGY_PROBE,
+                                            isFullAudit = false,
+                                        ),
+                                ),
+                        ),
+                    pagerState = pagerState,
+                    onSelectSection = {},
+                    onSelectProfile = {},
+                    onRunRawScan = {},
+                    onRunInPathScan = {},
+                    onWaitForHiddenProbeAndRun = { waitClicks += 1 },
+                    onCancelHiddenProbeAndRun = { cancelClicks += 1 },
+                    onDismissHiddenProbeConflictDialog = { dismissClicks += 1 },
+                    onCancelScan = {},
+                    onKeepResolverRecommendation = {},
+                    onSaveResolverRecommendation = {},
+                    onSelectSession = {},
+                    onDismissSessionDetail = {},
+                    onSelectStrategyProbeCandidate = {},
+                    onDismissStrategyProbeCandidate = {},
+                    onSelectApproachMode = {},
+                    onSelectApproach = {},
+                    onDismissApproachDetail = {},
+                    onSelectEvent = {},
+                    onDismissEventDetail = {},
+                    onSelectProbe = {},
+                    onDismissProbeDetail = {},
+                    onToggleSensitiveSessionDetails = {},
+                    onSessionPathFilter = {},
+                    onSessionStatusFilter = {},
+                    onSessionSearch = {},
+                    onToggleEventFilter = { _, _ -> },
+                    onEventSearch = {},
+                    onEventAutoScroll = {},
+                    onShareSummary = {},
+                    onShareArchive = {},
+                    onSaveArchive = {},
+                    onSaveLogs = {},
+                    onOpenHistory = {},
+                )
+            }
+        }
+
+        composeRule.onNodeWithTag(RipDpiTestTags.DiagnosticsHiddenProbeConflictDialog).assertIsDisplayed()
+        composeRule.onNodeWithTag(RipDpiTestTags.DiagnosticsHiddenProbeConflictWait).performClick()
+        composeRule.onNodeWithTag(RipDpiTestTags.DiagnosticsHiddenProbeConflictCancelAndRun).performClick()
+        composeRule.onNodeWithTag(RipDpiTestTags.DiagnosticsHiddenProbeConflictDismiss).performClick()
+
+        assertEquals(1, waitClicks)
+        assertEquals(1, cancelClicks)
+        assertEquals(1, dismissClicks)
     }
 
     @Test

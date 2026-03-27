@@ -19,10 +19,13 @@ import com.poyka.ripdpi.diagnostics.DiagnosticTelemetrySample
 import com.poyka.ripdpi.diagnostics.DiagnosticsArchive
 import com.poyka.ripdpi.diagnostics.DiagnosticsBootstrapper
 import com.poyka.ripdpi.diagnostics.DiagnosticsDetailLoader
+import com.poyka.ripdpi.diagnostics.DiagnosticsManualScanResolution
+import com.poyka.ripdpi.diagnostics.DiagnosticsManualScanStartResult
 import com.poyka.ripdpi.diagnostics.DiagnosticsResolverActions
 import com.poyka.ripdpi.diagnostics.DiagnosticsScanController
 import com.poyka.ripdpi.diagnostics.DiagnosticsShareService
 import com.poyka.ripdpi.diagnostics.DiagnosticsTimelineSource
+import com.poyka.ripdpi.diagnostics.HiddenProbeConflictAction
 import com.poyka.ripdpi.diagnostics.ScanPathMode
 import com.poyka.ripdpi.diagnostics.ScanProgress
 import com.poyka.ripdpi.diagnostics.ShareSummary
@@ -73,7 +76,9 @@ internal class FakeDiagnosticsManager(
         bootstrapper.onInitialize = {
             initializeCalls += 1
         }
-        scanController.onStartScan = { pathMode -> "session-${pathMode.name}" }
+        scanController.onStartScan = { pathMode ->
+            DiagnosticsManualScanStartResult.Started("session-${pathMode.name}")
+        }
         scanController.onCancel = { progressState.value = null }
         scanController.onSetActiveProfile = { profileId -> lastActiveProfileId = profileId }
         detailLoader.onLoadSessionDetail = { sessionId ->
@@ -160,11 +165,22 @@ internal class FakeDiagnosticsTimelineSource : DiagnosticsTimelineSource {
 }
 
 internal class FakeDiagnosticsScanController : DiagnosticsScanController {
-    var onStartScan: (suspend (ScanPathMode) -> String)? = null
+    override val hiddenAutomaticProbeActive = MutableStateFlow(false)
+    var onStartScan: (suspend (ScanPathMode) -> DiagnosticsManualScanStartResult)? = null
+    var onResolveHiddenProbeConflict:
+        (suspend (String, HiddenProbeConflictAction) -> DiagnosticsManualScanResolution)? = null
     var onCancel: (suspend () -> Unit)? = null
     var onSetActiveProfile: (suspend (String) -> Unit)? = null
 
-    override suspend fun startScan(pathMode: ScanPathMode): String = onStartScan?.invoke(pathMode) ?: "session"
+    override suspend fun startScan(pathMode: ScanPathMode): DiagnosticsManualScanStartResult =
+        onStartScan?.invoke(pathMode) ?: DiagnosticsManualScanStartResult.Started("session")
+
+    override suspend fun resolveHiddenProbeConflict(
+        requestId: String,
+        action: HiddenProbeConflictAction,
+    ): DiagnosticsManualScanResolution =
+        onResolveHiddenProbeConflict?.invoke(requestId, action)
+            ?: DiagnosticsManualScanResolution.Started("session")
 
     override suspend fun cancelActiveScan() {
         onCancel?.invoke()

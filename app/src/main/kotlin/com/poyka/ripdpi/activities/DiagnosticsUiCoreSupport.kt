@@ -1,5 +1,8 @@
 package com.poyka.ripdpi.activities
 
+import android.content.Context
+import com.poyka.ripdpi.R
+import com.poyka.ripdpi.diagnostics.BackgroundAutomaticProbeCanceledToStartManualDiagnosticsSummary
 import com.poyka.ripdpi.diagnostics.DiagnosticEvent
 import com.poyka.ripdpi.diagnostics.DiagnosticScanSession
 import com.poyka.ripdpi.diagnostics.DiagnosticsOutcomeBucket
@@ -105,6 +108,16 @@ internal fun DiagnosticsUiCoreSupport.toSessionRowUiModel(
         triggerClassification = session.launchTrigger?.classification,
     )
 }
+
+internal fun DiagnosticsUiCoreSupport.displaySessionSummary(
+    context: Context?,
+    session: DiagnosticScanSession,
+): String =
+    if (session.summary == BackgroundAutomaticProbeCanceledToStartManualDiagnosticsSummary && context != null) {
+        context.getString(R.string.diagnostics_hidden_probe_canceled_summary)
+    } else {
+        session.summary
+    }
 
 internal fun DiagnosticsUiCoreSupport.toProbeResultUiModel(
     index: Int,

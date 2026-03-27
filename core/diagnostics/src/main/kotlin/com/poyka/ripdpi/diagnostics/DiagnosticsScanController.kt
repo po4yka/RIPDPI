@@ -4,14 +4,19 @@ import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.ApplicationIoScope
 import com.poyka.ripdpi.data.DiagnosticsRuntimeCoordinator
 import com.poyka.ripdpi.data.PolicyHandoverEvent
+import com.poyka.ripdpi.data.diagnostics.DiagnosticProfileEntity
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsArtifactWriteStore
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsScanRecordStore
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.serialization.json.Json
+import java.util.UUID
 import javax.inject.Inject
+import javax.inject.Named
 import javax.inject.Singleton
 
 @Singleton
@@ -27,27 +32,128 @@ internal class DefaultDiagnosticsScanController
         private val activeScanRegistry: ActiveScanRegistry,
         private val bridgeExecutionService: BridgeExecutionService,
         private val executionCoordinator: DiagnosticsScanExecutionCoordinator,
+        @param:Named("diagnosticsJson")
+        private val json: Json,
         @param:ApplicationIoScope
         private val scope: CoroutineScope,
     ) : DiagnosticsScanController,
         AutomaticProbeLauncher {
-        private val startMutex = Mutex()
+        private companion object {
+            const val HiddenProbeCancellationTimeoutMs = 10_000L
+            const val StrategyProbeSuiteFullMatrixV1 = "full_matrix_v1"
+        }
 
-        override suspend fun startScan(pathMode: ScanPathMode): String =
+        private val startMutex = Mutex()
+        private var pendingHiddenConflictRequest: PendingHiddenConflictRequest? = null
+
+        override val hiddenAutomaticProbeActive: StateFlow<Boolean> = activeScanRegistry.hiddenAutomaticProbeActive
+
+        override suspend fun startScan(pathMode: ScanPathMode): DiagnosticsManualScanStartResult =
             startMutex.withLock {
-                val (settings, profile) = scanAdmissionService.admitManualStart()
-                startPreparedScan(
-                    prepared =
-                        scanRequestFactory.prepareScan(
-                            profile = profile,
-                            settings = settings,
+                when (val admission = scanAdmissionService.admitManualStart()) {
+                    is ManualStartAdmission.Admitted -> {
+                        pendingHiddenConflictRequest = null
+                        DiagnosticsManualScanStartResult.Started(
+                            startPreparedScan(
+                                prepared =
+                                    scanRequestFactory.prepareScan(
+                                        profile = admission.profile,
+                                        settings = admission.settings,
+                                        pathMode = pathMode,
+                                        scanOrigin = DiagnosticsScanOrigin.USER_INITIATED,
+                                        launchTrigger = null,
+                                        exposeProgress = true,
+                                        registerActiveBridge = true,
+                                    ),
+                                rawPathRunner = { block -> runtimeCoordinator.runRawPathScan(block) },
+                            ),
+                        )
+                    }
+
+                    is ManualStartAdmission.HiddenAutomaticProbeConflict -> {
+                        createPendingHiddenConflictRequest(
+                            profile = admission.profile,
+                            settings = admission.settings,
                             pathMode = pathMode,
-                            scanOrigin = DiagnosticsScanOrigin.USER_INITIATED,
-                            launchTrigger = null,
-                            exposeProgress = true,
-                            registerActiveBridge = true,
-                        ),
-                    rawPathRunner = { block -> runtimeCoordinator.runRawPathScan(block) },
+                        ).also { pendingRequest ->
+                            pendingHiddenConflictRequest = pendingRequest
+                        }.toConflictResult()
+                    }
+                }
+            }
+
+        override suspend fun resolveHiddenProbeConflict(
+            requestId: String,
+            action: HiddenProbeConflictAction,
+        ): DiagnosticsManualScanResolution =
+            startMutex.withLock {
+                val pendingRequest =
+                    pendingHiddenConflictRequest
+                        ?.takeIf { it.requestId == requestId }
+                        ?: return@withLock DiagnosticsManualScanResolution.Failed(
+                            DiagnosticsManualScanResolutionFailureReason.REQUEST_NOT_FOUND,
+                        )
+
+                when (action) {
+                    HiddenProbeConflictAction.WAIT -> {
+                        if (activeScanRegistry.hasHiddenActiveScan()) {
+                            return@withLock DiagnosticsManualScanResolution.Failed(
+                                DiagnosticsManualScanResolutionFailureReason.HIDDEN_PROBE_STILL_ACTIVE,
+                            )
+                        }
+                    }
+
+                    HiddenProbeConflictAction.CANCEL_AND_RUN -> {
+                        if (activeScanRegistry.hasHiddenActiveScan()) {
+                            val cancellation =
+                                activeScanRegistry.cancelHiddenAutomaticProbe(
+                                    cancellationSummary =
+                                    BackgroundAutomaticProbeCanceledToStartManualDiagnosticsSummary,
+                                    timeoutMs = HiddenProbeCancellationTimeoutMs,
+                                )
+                            if (cancellation !is HiddenProbeCancellationResult.Cancelled) {
+                                return@withLock DiagnosticsManualScanResolution.Failed(
+                                    DiagnosticsManualScanResolutionFailureReason.CANCELLATION_FAILED,
+                                )
+                            }
+                            val cancelledSession =
+                                scanRecordStore.getScanSession(cancellation.sessionId)
+                                    ?: return@withLock DiagnosticsManualScanResolution.Failed(
+                                        DiagnosticsManualScanResolutionFailureReason.CANCELLATION_FAILED,
+                                    )
+                            if (cancelledSession.status == "running") {
+                                DiagnosticsReportPersister.persistScanFailure(
+                                    cancellation.sessionId,
+                                    BackgroundAutomaticProbeCanceledToStartManualDiagnosticsSummary,
+                                    scanRecordStore,
+                                )
+                            }
+                        }
+                    }
+                }
+
+                pendingHiddenConflictRequest = null
+                runCatching {
+                    startPreparedScan(
+                        prepared =
+                            scanRequestFactory.prepareScan(
+                                profile = pendingRequest.profile,
+                                settings = pendingRequest.settings,
+                                pathMode = pendingRequest.pathMode,
+                                scanOrigin = DiagnosticsScanOrigin.USER_INITIATED,
+                                launchTrigger = null,
+                                exposeProgress = true,
+                                registerActiveBridge = true,
+                            ),
+                        rawPathRunner = { block -> runtimeCoordinator.runRawPathScan(block) },
+                    )
+                }.fold(
+                    onSuccess = { sessionId -> DiagnosticsManualScanResolution.Started(sessionId) },
+                    onFailure = {
+                        DiagnosticsManualScanResolution.Failed(
+                            DiagnosticsManualScanResolutionFailureReason.START_FAILED,
+                        )
+                    },
                 )
             }
 
@@ -156,6 +262,23 @@ internal class DefaultDiagnosticsScanController
             )
             return prepared.sessionId
         }
+
+        private fun createPendingHiddenConflictRequest(
+            profile: DiagnosticProfileEntity,
+            settings: com.poyka.ripdpi.proto.AppSettings,
+            pathMode: ScanPathMode,
+        ): PendingHiddenConflictRequest {
+            val projection = json.decodeProfileSpecWireCompat(profile.requestJson).toProfileProjection()
+            return PendingHiddenConflictRequest(
+                requestId = UUID.randomUUID().toString(),
+                profile = profile,
+                settings = settings,
+                pathMode = pathMode,
+                profileName = profile.name,
+                scanKind = projection.kind,
+                isFullAudit = projection.strategyProbeSuiteId == StrategyProbeSuiteFullMatrixV1,
+            )
+        }
     }
 
 @Singleton
@@ -229,7 +352,27 @@ private fun Throwable.summaryForScan(
     activeScanRegistry: ActiveScanRegistry,
 ): String =
     if (activeScanRegistry.isCancellationRequested(sessionId)) {
-        "Diagnostics scan canceled"
+        activeScanRegistry.cancellationSummary(sessionId) ?: "Diagnostics scan canceled"
     } else {
         message ?: "Diagnostics scan failed"
     }
+
+private data class PendingHiddenConflictRequest(
+    val requestId: String,
+    val profile: DiagnosticProfileEntity,
+    val settings: com.poyka.ripdpi.proto.AppSettings,
+    val pathMode: ScanPathMode,
+    val profileName: String,
+    val scanKind: ScanKind,
+    val isFullAudit: Boolean,
+)
+
+private fun PendingHiddenConflictRequest.toConflictResult():
+    DiagnosticsManualScanStartResult.RequiresHiddenProbeResolution =
+    DiagnosticsManualScanStartResult.RequiresHiddenProbeResolution(
+        requestId = requestId,
+        profileName = profileName,
+        pathMode = pathMode,
+        scanKind = scanKind,
+        isFullAudit = isFullAudit,
+    )
