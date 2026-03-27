@@ -91,6 +91,7 @@ internal object RipDpiTestTags {
 
     const val DiagnosticsTopHistoryAction = "diagnostics-top-history-action"
     const val DiagnosticsOverviewHistoryAction = "diagnostics-overview-history-action"
+    const val DiagnosticsOverviewAutomaticProbeCard = "diagnostics-overview-automatic-probe-card"
     const val DiagnosticsOverviewHero = "diagnostics-overview-hero"
     const val DiagnosticsResolverKeepSession = "diagnostics-resolver-keep-session"
     const val DiagnosticsResolverSaveSetting = "diagnostics-resolver-save-setting"
@@ -235,6 +236,9 @@ internal object RipDpiTestTags {
 
     val historyDiagnosticsSession: (String) -> String =
         { sessionId -> "history-diagnostics-${sanitize(sessionId)}" }
+
+    val historyDiagnosticsAutomaticBadge: (String) -> String =
+        { sessionId -> "history-diagnostics-automatic-badge-${sanitize(sessionId)}" }
 
     val historyEvent: (String) -> String =
         { eventId -> "history-event-${sanitize(eventId)}" }

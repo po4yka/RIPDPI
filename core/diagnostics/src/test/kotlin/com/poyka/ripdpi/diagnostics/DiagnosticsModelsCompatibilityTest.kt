@@ -1,6 +1,8 @@
 package com.poyka.ripdpi.diagnostics
 
 import com.poyka.ripdpi.diagnostics.contract.engine.EngineProgressWire
+import com.poyka.ripdpi.diagnostics.contract.profile.ProbePersistencePolicyWire
+import com.poyka.ripdpi.diagnostics.contract.profile.ProfileSpecWire
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import org.junit.Assert.assertEquals
@@ -43,6 +45,33 @@ class DiagnosticsModelsCompatibilityTest {
         assertTrue(request.serviceTargets.isEmpty())
         assertTrue(request.circumventionTargets.isEmpty())
         assertTrue(request.throughputTargets.isEmpty())
+    }
+
+    @Test
+    fun `current profile spec decodes explicit probe persistence policy`() {
+        val profile =
+            json.decodeFromString(
+                ProfileSpecWire.serializer(),
+                """
+                {
+                  "profileId": "automatic-probing",
+                  "displayName": "Automatic probing",
+                  "kind": "STRATEGY_PROBE",
+                  "family": "AUTOMATIC_PROBING",
+                  "executionPolicy": {
+                    "manualOnly": false,
+                    "allowBackground": true,
+                    "requiresRawPath": true,
+                    "probePersistencePolicy": "BACKGROUND_ONLY"
+                  }
+                }
+                """.trimIndent(),
+            )
+
+        assertEquals(
+            ProbePersistencePolicyWire.BACKGROUND_ONLY,
+            profile.executionPolicy?.probePersistencePolicy,
+        )
     }
 
     @Test
@@ -100,6 +129,14 @@ class DiagnosticsModelsCompatibilityTest {
             )
 
         assertNull(report.strategyProbeReport?.auditAssessment)
+        assertEquals(
+            DiagnosticsScanWorkflow.BackgroundAutoPersistEligibility.Rejected(
+                DiagnosticsScanWorkflow.BackgroundAutoPersistRejectionReason.MISSING_AUDIT_ASSESSMENT,
+            ),
+            DiagnosticsScanWorkflow.evaluateBackgroundAutoPersistEligibility(
+                requireNotNull(report.strategyProbeReport),
+            ),
+        )
     }
 
     @Test

@@ -10,6 +10,7 @@ import com.poyka.ripdpi.data.EncryptedDnsPathCandidate
 import com.poyka.ripdpi.data.EncryptedDnsProtocolDoh
 import com.poyka.ripdpi.data.EncryptedDnsProtocolDot
 import com.poyka.ripdpi.data.Mode
+import com.poyka.ripdpi.data.PolicyHandoverEvent
 import com.poyka.ripdpi.data.canonicalDefaultEncryptedDnsSettings
 import com.poyka.ripdpi.data.diagnostics.DiagnosticProfileEntity
 import com.poyka.ripdpi.diagnostics.contract.engine.EngineScanRequestWire
@@ -18,6 +19,7 @@ import com.poyka.ripdpi.diagnostics.domain.ExecutionPolicy
 import com.poyka.ripdpi.diagnostics.domain.ScanContext
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Test
 
 class DiagnosticsScanRequestFactoryTest {
@@ -134,6 +136,122 @@ class DiagnosticsScanRequestFactoryTest {
             assertEquals(explicitBaseConfigJson, request.strategyProbe?.baseProxyConfigJson)
         }
 
+    @Test
+    fun `prepare scan preserves explicit scan origin`() =
+        runTest {
+            val settings = defaultDiagnosticsAppSettings()
+            val intent = strategyProbeIntent(settings = settings, baseProxyConfigJson = null)
+            val context = strategyProbeContext(settings = settings, preferredDnsPath = null)
+            val factory =
+                DiagnosticsScanRequestFactory(
+                    networkMetadataProvider = FakeNetworkMetadataProvider(),
+                    intentResolver =
+                        object : DiagnosticsIntentResolver {
+                            override suspend fun resolve(
+                                profileId: String,
+                                pathMode: ScanPathMode,
+                            ): DiagnosticsIntent = intent
+                        },
+                    scanContextCollector =
+                        object : ScanContextCollector {
+                            override suspend fun collect(intent: DiagnosticsIntent): ScanContext = context
+                        },
+                    diagnosticsPlanner = DefaultDiagnosticsPlanner(),
+                    engineRequestEncoder = DefaultEngineRequestEncoder(),
+                    json = json,
+                )
+
+            val prepared =
+                factory.prepareScan(
+                    profile =
+                        DiagnosticProfileEntity(
+                            id = "strategy-probe",
+                            name = "Strategy probe",
+                            source = "test",
+                            version = 1,
+                            requestJson = "{}",
+                            updatedAt = 1L,
+                        ),
+                    settings = settings,
+                    pathMode = ScanPathMode.RAW_PATH,
+                    scanOrigin = DiagnosticsScanOrigin.AUTOMATIC_BACKGROUND,
+                    launchTrigger =
+                        PolicyHandoverEvent(
+                            mode = Mode.VPN,
+                            previousFingerprintHash = "fingerprint-a",
+                            currentFingerprintHash = "fingerprint-b",
+                            classification = "transport_switch",
+                            usedRememberedPolicy = false,
+                            policySignature = "baseline",
+                            occurredAt = 42L,
+                        ).toLaunchTrigger(),
+                    exposeProgress = false,
+                    registerActiveBridge = false,
+                )
+
+            assertEquals(DiagnosticsScanOrigin.AUTOMATIC_BACKGROUND, prepared.scanOrigin)
+            assertEquals(
+                DiagnosticsScanLaunchOrigin.AUTOMATIC_BACKGROUND.storageValue,
+                prepared.initialSession.launchOrigin,
+            )
+            assertEquals(DiagnosticsScanTriggerType.POLICY_HANDOVER.storageValue, prepared.initialSession.triggerType)
+            assertEquals("transport_switch", prepared.initialSession.triggerClassification)
+            assertEquals(42L, prepared.initialSession.triggerOccurredAt)
+            assertEquals("fingerprint-a", prepared.initialSession.triggerPreviousFingerprintHash)
+            assertEquals("fingerprint-b", prepared.initialSession.triggerCurrentFingerprintHash)
+        }
+
+    @Test
+    fun `manual scan persists user initiated origin without trigger metadata`() =
+        runTest {
+            val settings = defaultDiagnosticsAppSettings()
+            val intent = strategyProbeIntent(settings = settings, baseProxyConfigJson = null)
+            val context = strategyProbeContext(settings = settings, preferredDnsPath = null)
+            val factory =
+                DiagnosticsScanRequestFactory(
+                    networkMetadataProvider = FakeNetworkMetadataProvider(),
+                    intentResolver =
+                        object : DiagnosticsIntentResolver {
+                            override suspend fun resolve(
+                                profileId: String,
+                                pathMode: ScanPathMode,
+                            ): DiagnosticsIntent = intent
+                        },
+                    scanContextCollector =
+                        object : ScanContextCollector {
+                            override suspend fun collect(intent: DiagnosticsIntent): ScanContext = context
+                        },
+                    diagnosticsPlanner = DefaultDiagnosticsPlanner(),
+                    engineRequestEncoder = DefaultEngineRequestEncoder(),
+                    json = json,
+                )
+
+            val prepared =
+                factory.prepareScan(
+                    profile =
+                        DiagnosticProfileEntity(
+                            id = "strategy-probe",
+                            name = "Strategy probe",
+                            source = "test",
+                            version = 1,
+                            requestJson = "{}",
+                            updatedAt = 1L,
+                        ),
+                    settings = settings,
+                    pathMode = ScanPathMode.RAW_PATH,
+                    scanOrigin = DiagnosticsScanOrigin.USER_INITIATED,
+                    exposeProgress = false,
+                    registerActiveBridge = false,
+                )
+
+            assertEquals(DiagnosticsScanLaunchOrigin.USER_INITIATED.storageValue, prepared.initialSession.launchOrigin)
+            assertNull(prepared.initialSession.triggerType)
+            assertNull(prepared.initialSession.triggerClassification)
+            assertNull(prepared.initialSession.triggerOccurredAt)
+            assertNull(prepared.initialSession.triggerPreviousFingerprintHash)
+            assertNull(prepared.initialSession.triggerCurrentFingerprintHash)
+        }
+
     private suspend fun prepareStrategyProbeRequest(
         settings: com.poyka.ripdpi.proto.AppSettings,
         preferredDnsPath: EncryptedDnsPathCandidate? = null,
@@ -173,6 +291,7 @@ class DiagnosticsScanRequestFactoryTest {
                     ),
                 settings = settings,
                 pathMode = ScanPathMode.RAW_PATH,
+                scanOrigin = DiagnosticsScanOrigin.USER_INITIATED,
                 exposeProgress = false,
                 registerActiveBridge = false,
             )
@@ -190,7 +309,13 @@ class DiagnosticsScanRequestFactoryTest {
         kind = ScanKind.STRATEGY_PROBE,
         family = DiagnosticProfileFamily.AUTOMATIC_PROBING,
         regionTag = null,
-        executionPolicy = ExecutionPolicy(manualOnly = false, allowBackground = false, requiresRawPath = true),
+        executionPolicy =
+            ExecutionPolicy(
+                manualOnly = false,
+                allowBackground = false,
+                requiresRawPath = true,
+                probePersistencePolicy = ProbePersistencePolicy.MANUAL_ONLY,
+            ),
         packRefs = emptyList(),
         domainTargets = listOf(DomainTarget(host = "example.org")),
         dnsTargets = emptyList(),

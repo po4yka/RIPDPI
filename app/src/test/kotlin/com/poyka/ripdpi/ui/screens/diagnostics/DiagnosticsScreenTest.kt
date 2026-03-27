@@ -13,6 +13,7 @@ import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipeUp
+import com.poyka.ripdpi.activities.DiagnosticsAutomaticProbeCalloutUiModel
 import com.poyka.ripdpi.activities.DiagnosticsFieldUiModel
 import com.poyka.ripdpi.activities.DiagnosticsMetricUiModel
 import com.poyka.ripdpi.activities.DiagnosticsProbeGroupUiModel
@@ -270,6 +271,69 @@ class DiagnosticsScreenTest {
         composeRule.onNodeWithTag(RipDpiTestTags.DiagnosticsStrategyCandidateNotesSection).fetchSemanticsNode()
         composeRule.onNodeWithTag(RipDpiTestTags.DiagnosticsStrategyCandidateSignatureSection).fetchSemanticsNode()
         composeRule.onNodeWithTag(RipDpiTestTags.DiagnosticsStrategyCandidateResultsSection).fetchSemanticsNode()
+    }
+
+    @Test
+    fun overviewRendersRecentAutomaticProbeCallout() {
+        composeRule.setContent {
+            val pagerState =
+                rememberPagerState(
+                    initialPage = DiagnosticsSection.Overview.ordinal,
+                    pageCount = { DiagnosticsSection.entries.size },
+                )
+            RipDpiTheme {
+                DiagnosticsScreen(
+                    uiState =
+                        DiagnosticsUiState(
+                            selectedSection = DiagnosticsSection.Overview,
+                            overview =
+                                com.poyka.ripdpi.activities.DiagnosticsOverviewUiModel(
+                                    recentAutomaticProbe =
+                                        DiagnosticsAutomaticProbeCalloutUiModel(
+                                            title = "Hidden automatic probing finished",
+                                            summary = "Automatic probe summary",
+                                            detail = "Completed Mar 27, 12:00 • After handover: Transport Switch",
+                                            actionLabel = "Open History",
+                                        ),
+                                ),
+                        ),
+                    pagerState = pagerState,
+                    onSelectSection = {},
+                    onSelectProfile = {},
+                    onRunRawScan = {},
+                    onRunInPathScan = {},
+                    onCancelScan = {},
+                    onKeepResolverRecommendation = {},
+                    onSaveResolverRecommendation = {},
+                    onSelectSession = {},
+                    onDismissSessionDetail = {},
+                    onSelectStrategyProbeCandidate = {},
+                    onDismissStrategyProbeCandidate = {},
+                    onSelectApproachMode = {},
+                    onSelectApproach = {},
+                    onDismissApproachDetail = {},
+                    onSelectEvent = {},
+                    onDismissEventDetail = {},
+                    onSelectProbe = {},
+                    onDismissProbeDetail = {},
+                    onToggleSensitiveSessionDetails = {},
+                    onSessionPathFilter = {},
+                    onSessionStatusFilter = {},
+                    onSessionSearch = {},
+                    onToggleEventFilter = { _, _ -> },
+                    onEventSearch = {},
+                    onEventAutoScroll = {},
+                    onShareSummary = {},
+                    onShareArchive = {},
+                    onSaveArchive = {},
+                    onSaveLogs = {},
+                    onOpenHistory = {},
+                )
+            }
+        }
+
+        composeRule.onNodeWithTag(RipDpiTestTags.DiagnosticsOverviewAutomaticProbeCard).assertIsDisplayed()
+        composeRule.onNodeWithText("Automatic probe summary").assertIsDisplayed()
     }
 
     @Test

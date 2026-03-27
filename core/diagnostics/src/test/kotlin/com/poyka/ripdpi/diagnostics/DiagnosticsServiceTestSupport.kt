@@ -332,6 +332,12 @@ internal class FakeDiagnosticsHistoryStores :
         profileId: String = "automatic-probing",
         name: String = "Automatic probing",
         suiteId: String = "quick_v1",
+        family: DiagnosticProfileFamily =
+            if (profileId == "automatic-audit") {
+                DiagnosticProfileFamily.AUTOMATIC_AUDIT
+            } else {
+                DiagnosticProfileFamily.AUTOMATIC_PROBING
+            },
     ) {
         profilesState.value =
             listOf(
@@ -348,6 +354,7 @@ internal class FakeDiagnosticsHistoryStores :
                                 displayName = name,
                                 pathMode = ScanPathMode.RAW_PATH,
                                 kind = ScanKind.STRATEGY_PROBE,
+                                family = family,
                                 domainTargets = listOf(DomainTarget(host = "example.org")),
                                 quicTargets = listOf(QuicTarget(host = "example.org")),
                                 strategyProbe = StrategyProbeRequest(suiteId = suiteId),

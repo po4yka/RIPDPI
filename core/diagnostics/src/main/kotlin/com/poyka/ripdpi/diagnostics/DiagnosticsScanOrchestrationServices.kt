@@ -7,7 +7,7 @@ import com.poyka.ripdpi.core.resolveHostAutolearnStorePath
 import com.poyka.ripdpi.data.EncryptedDnsPathCandidate
 import com.poyka.ripdpi.data.NetworkFingerprint
 import com.poyka.ripdpi.data.NetworkFingerprintProvider
-import com.poyka.ripdpi.data.RememberedNetworkPolicySourceStrategyProbe
+import com.poyka.ripdpi.data.RememberedNetworkPolicySource
 import com.poyka.ripdpi.data.ResolverOverrideStore
 import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsArtifactWriteStore
@@ -121,7 +121,8 @@ class ActiveScanRegistry
 
         fun preferredDnsPath(sessionId: String): EncryptedDnsPathCandidate? = scanSessionPreferredDnsPaths[sessionId]
 
-        fun hasVisibleActiveScan(): Boolean = timelineSource.activeScanProgress.value != null || hasRegisteredActiveBridge
+        fun hasVisibleActiveScan(): Boolean =
+            timelineSource.activeScanProgress.value != null || hasRegisteredActiveBridge
 
         fun hasHiddenActiveScan(): Boolean = hiddenScanCount.get() > 0
 
@@ -387,9 +388,8 @@ class ScanFinalizationService
             )
             rememberNetworkDnsPathPreference(prepared.networkFingerprint, finalReport.resolverRecommendation)
             rememberStrategyProbeRecommendation(
+                prepared = prepared,
                 report = finalReport,
-                settings = prepared.settings,
-                fingerprint = prepared.networkFingerprint,
             )
             persistPostScanArtifacts(prepared.sessionId)
             return derived
@@ -459,20 +459,51 @@ class ScanFinalizationService
         }
 
         private suspend fun rememberStrategyProbeRecommendation(
+            prepared: PreparedDiagnosticsScan,
             report: ScanReport,
-            settings: com.poyka.ripdpi.proto.AppSettings,
-            fingerprint: NetworkFingerprint?,
         ) {
             val strategyProbe = report.strategyProbeReport
-            val shouldRemember = settings.networkStrategyMemoryEnabled && !settings.enableCmdSettings
+            val persistencePolicy = prepared.intent.executionPolicy.probePersistencePolicy
+            val shouldRemember =
+                prepared.settings.networkStrategyMemoryEnabled &&
+                    !prepared.settings.enableCmdSettings &&
+                    when (persistencePolicy) {
+                        ProbePersistencePolicy.MANUAL_ONLY -> {
+                            false
+                        }
+
+                        ProbePersistencePolicy.BACKGROUND_ONLY -> {
+                            prepared.scanOrigin == DiagnosticsScanOrigin.AUTOMATIC_BACKGROUND
+                        }
+
+                        ProbePersistencePolicy.ALWAYS -> {
+                            true
+                        }
+                    }
+            val passesBackgroundEligibilityGate =
+                if (
+                    shouldRemember &&
+                    prepared.scanOrigin == DiagnosticsScanOrigin.AUTOMATIC_BACKGROUND &&
+                    strategyProbe != null
+                ) {
+                    DiagnosticsScanWorkflow.evaluateBackgroundAutoPersistEligibility(strategyProbe) ==
+                        DiagnosticsScanWorkflow.BackgroundAutoPersistEligibility.Eligible
+                } else {
+                    true
+                }
             val policy =
-                if (shouldRemember && strategyProbe != null && fingerprint != null) {
+                if (
+                    shouldRemember &&
+                    passesBackgroundEligibilityGate &&
+                    strategyProbe != null &&
+                    prepared.networkFingerprint != null
+                ) {
                     DiagnosticsScanWorkflow.buildRememberedNetworkPolicy(
                         strategyProbe = strategyProbe,
-                        settings = settings,
-                        fingerprint = fingerprint,
+                        settings = prepared.settings,
+                        fingerprint = prepared.networkFingerprint,
                         hostAutolearnStorePath =
-                            settings
+                            prepared.settings
                                 .takeIf { it.hostAutolearnEnabled }
                                 ?.let { resolveHostAutolearnStorePath(context) },
                         json = json,
@@ -483,7 +514,7 @@ class ScanFinalizationService
             if (policy != null) {
                 rememberedNetworkPolicyStore.rememberValidatedPolicy(
                     policy = policy,
-                    source = RememberedNetworkPolicySourceStrategyProbe,
+                    source = RememberedNetworkPolicySource.AUTOMATIC_PROBING_BACKGROUND,
                     validatedAt = report.finishedAt,
                 )
             }

@@ -13,6 +13,7 @@ import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
+import com.poyka.ripdpi.data.LegacyRememberedNetworkPolicySourceStrategyProbe
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -58,6 +59,12 @@ data class ScanSessionEntity(
     val reportJson: String?,
     val startedAt: Long,
     val finishedAt: Long?,
+    val launchOrigin: String? = null,
+    val triggerType: String? = null,
+    val triggerClassification: String? = null,
+    val triggerOccurredAt: Long? = null,
+    val triggerPreviousFingerprintHash: String? = null,
+    val triggerCurrentFingerprintHash: String? = null,
 )
 
 @Entity(tableName = "probe_results")
@@ -608,7 +615,7 @@ interface DiagnosticsDao {
         RememberedNetworkPolicyEntity::class,
         NetworkDnsPathPreferenceEntity::class,
     ],
-    version = 3,
+    version = 5,
     exportSchema = true,
 )
 abstract class DiagnosticsDatabase : RoomDatabase() {
@@ -633,6 +640,27 @@ val DiagnosticsMigration2To3 =
         }
     }
 
+val DiagnosticsMigration3To4 =
+    object : Migration(3, 4) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL(
+                "DELETE FROM remembered_network_policies WHERE source = '$LegacyRememberedNetworkPolicySourceStrategyProbe'",
+            )
+        }
+    }
+
+val DiagnosticsMigration4To5 =
+    object : Migration(4, 5) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("ALTER TABLE scan_sessions ADD COLUMN launchOrigin TEXT")
+            db.execSQL("ALTER TABLE scan_sessions ADD COLUMN triggerType TEXT")
+            db.execSQL("ALTER TABLE scan_sessions ADD COLUMN triggerClassification TEXT")
+            db.execSQL("ALTER TABLE scan_sessions ADD COLUMN triggerOccurredAt INTEGER")
+            db.execSQL("ALTER TABLE scan_sessions ADD COLUMN triggerPreviousFingerprintHash TEXT")
+            db.execSQL("ALTER TABLE scan_sessions ADD COLUMN triggerCurrentFingerprintHash TEXT")
+        }
+    }
+
 @Module
 @InstallIn(SingletonComponent::class)
 object DiagnosticsDatabaseModule {
@@ -646,8 +674,12 @@ object DiagnosticsDatabaseModule {
                 context,
                 DiagnosticsDatabase::class.java,
                 "diagnostics.db",
-            ).addMigrations(DiagnosticsMigration1To2, DiagnosticsMigration2To3)
-            .fallbackToDestructiveMigrationOnDowngrade(true)
+            ).addMigrations(
+                DiagnosticsMigration1To2,
+                DiagnosticsMigration2To3,
+                DiagnosticsMigration3To4,
+                DiagnosticsMigration4To5,
+            ).fallbackToDestructiveMigrationOnDowngrade(true)
             .build()
 
     @Provides

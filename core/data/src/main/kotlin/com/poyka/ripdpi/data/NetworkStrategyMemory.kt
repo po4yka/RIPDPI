@@ -4,8 +4,6 @@ import kotlinx.serialization.Serializable
 import java.security.MessageDigest
 import java.util.Locale
 
-const val RememberedNetworkPolicySourceManualSession = "manual_session"
-const val RememberedNetworkPolicySourceStrategyProbe = "strategy_probe"
 const val RememberedNetworkPolicyStatusObserved = "observed"
 const val RememberedNetworkPolicyStatusValidated = "validated"
 const val RememberedNetworkPolicyStatusSuppressed = "suppressed"
@@ -14,6 +12,32 @@ const val RememberedNetworkPolicyProofTransferBytes = 256L * 1024L
 const val RememberedNetworkPolicySuppressionDurationMs = 24L * 60L * 60L * 1_000L
 const val RememberedNetworkPolicyRetentionLimit = 64
 const val RememberedNetworkPolicyRetentionMaxAgeMs = 90L * 24L * 60L * 60L * 1_000L
+const val LegacyRememberedNetworkPolicySourceStrategyProbe = "strategy_probe"
+
+@Serializable
+enum class RememberedNetworkPolicySource(
+    val storageValue: String,
+) {
+    MANUAL_SESSION("manual_session"),
+    AUTOMATIC_PROBING_BACKGROUND("automatic_probing_background"),
+    AUTOMATIC_PROBING_MANUAL("automatic_probing_manual"),
+    AUTOMATIC_AUDIT_MANUAL("automatic_audit_manual"),
+    STRATEGY_PROBE_MANUAL("strategy_probe_manual"),
+    UNKNOWN("unknown"),
+    ;
+
+    fun encodeStorageValue(): String {
+        require(this != UNKNOWN) { "UNKNOWN remembered policy source must not be persisted" }
+        return storageValue
+    }
+
+    companion object {
+        fun fromStorageValue(value: String?): RememberedNetworkPolicySource {
+            val normalized = value?.trim()?.lowercase(Locale.US).orEmpty()
+            return entries.firstOrNull { it.storageValue == normalized } ?: UNKNOWN
+        }
+    }
+}
 
 @Serializable
 data class WifiNetworkIdentityTuple(

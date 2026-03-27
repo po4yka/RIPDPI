@@ -1,13 +1,19 @@
 package com.poyka.ripdpi.diagnostics
 
+import com.poyka.ripdpi.core.RipDpiChainConfig
+import com.poyka.ripdpi.core.RipDpiProtocolConfig
 import com.poyka.ripdpi.core.RipDpiProxyUIPreferences
-import com.poyka.ripdpi.core.toRipDpiRuntimeContext
+import com.poyka.ripdpi.core.RipDpiQuicConfig
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.DnsModePlainUdp
 import com.poyka.ripdpi.data.Mode
+import com.poyka.ripdpi.data.RememberedNetworkPolicySource
+import com.poyka.ripdpi.data.TcpChainStepKind
+import com.poyka.ripdpi.data.TcpChainStepModel
 import com.poyka.ripdpi.data.activeDnsSettings
 import com.poyka.ripdpi.data.diagnostics.DefaultNetworkDnsPathPreferenceStore
 import com.poyka.ripdpi.data.diagnostics.DefaultRememberedNetworkPolicyStore
+import com.poyka.ripdpi.data.diagnostics.decodedSource
 import com.poyka.ripdpi.diagnostics.domain.DiagnosticsIntent
 import com.poyka.ripdpi.diagnostics.domain.ExecutionPolicy
 import com.poyka.ripdpi.diagnostics.domain.ScanContext
@@ -281,7 +287,7 @@ class DiagnosticsScanExecutionCoordinatorTest {
         }
 
     @Test
-    fun `strategy probe completion remembers validated network policy`() =
+    fun `background automatic probing remembers validated network policy`() =
         runTest {
             val stores = FakeDiagnosticsHistoryStores()
             val clock = TestDiagnosticsHistoryClock()
@@ -307,7 +313,14 @@ class DiagnosticsScanExecutionCoordinatorTest {
                 preparedDiagnosticsScan(
                     sessionId = "session-strategy",
                     settings = settings,
+                    scanOrigin = DiagnosticsScanOrigin.AUTOMATIC_BACKGROUND,
+                    exposeProgress = false,
+                    registerActiveBridge = false,
                     networkFingerprint = preparedFingerprint,
+                    profileId = "automatic-probing",
+                    family = DiagnosticProfileFamily.AUTOMATIC_PROBING,
+                    kind = ScanKind.STRATEGY_PROBE,
+                    strategyProbeRequest = StrategyProbeRequest(suiteId = "quick_v1"),
                 )
             seedPreparedScan(stores, prepared)
             fixtures.activeScanRegistry.rememberPreparedScan(prepared)
@@ -347,7 +360,418 @@ class DiagnosticsScanExecutionCoordinatorTest {
         }
 
     @Test
-    fun `strategy probe completion keeps prepared fingerprint when provider changes`() =
+    fun `background automatic probing skips remembered policy when audit assessment is missing`() =
+        runTest {
+            val stores = FakeDiagnosticsHistoryStores()
+            val clock = TestDiagnosticsHistoryClock()
+            val timelineSource = timelineSource(stores, backgroundScope)
+            val serviceStateStore = FakeServiceStateStore(initialStatus = AppStatus.Running to Mode.VPN)
+            val settings =
+                defaultDiagnosticsAppSettings()
+                    .toBuilder()
+                    .setNetworkStrategyMemoryEnabled(true)
+                    .build()
+            val preparedFingerprint = strategyProbeFingerprint(ssid = "network-missing-audit", gateway = "192.0.2.31")
+            val fixtures =
+                executionCoordinatorFixtures(
+                    stores = stores,
+                    timelineSource = timelineSource,
+                    serviceStateStore = serviceStateStore,
+                    networkFingerprintProvider = MutableNetworkFingerprintProvider(preparedFingerprint),
+                    preferredPathStore = DefaultNetworkDnsPathPreferenceStore(stores, clock),
+                    rememberedNetworkPolicyStore = DefaultRememberedNetworkPolicyStore(stores, clock),
+                    json = json,
+                )
+            val prepared =
+                preparedDiagnosticsScan(
+                    sessionId = "session-strategy-missing-audit",
+                    settings = settings,
+                    scanOrigin = DiagnosticsScanOrigin.AUTOMATIC_BACKGROUND,
+                    exposeProgress = false,
+                    registerActiveBridge = false,
+                    networkFingerprint = preparedFingerprint,
+                    profileId = "automatic-probing",
+                    family = DiagnosticProfileFamily.AUTOMATIC_PROBING,
+                    kind = ScanKind.STRATEGY_PROBE,
+                    strategyProbeRequest = StrategyProbeRequest(suiteId = "quick_v1"),
+                )
+            seedPreparedScan(stores, prepared)
+            fixtures.activeScanRegistry.rememberPreparedScan(prepared)
+            val bridge =
+                FakeNetworkDiagnosticsBridge(json).apply {
+                    autoCompleteOnStart = false
+                    enqueueProgress(
+                        ScanProgress(
+                            sessionId = prepared.sessionId,
+                            phase = "complete",
+                            completedSteps = 1,
+                            totalSteps = 1,
+                            message = "complete",
+                            isFinished = true,
+                        ),
+                    )
+                    enqueueReport(
+                        scanReportWithStrategyProbe(
+                            sessionId = prepared.sessionId,
+                            settings = settings,
+                            auditAssessment = null,
+                        ),
+                    )
+                }
+            fixtures.activeScanRegistry.registerBridge(bridge, prepared.sessionId, prepared.registerActiveBridge)
+            val handle = BridgeSessionHandle(bridge, prepared.sessionId, prepared.registerActiveBridge)
+
+            fixtures.coordinator.execute(prepared, handle, rawPathRunner = { block -> block() })
+
+            assertTrue(stores.rememberedPoliciesState.value.isEmpty())
+        }
+
+    @Test
+    fun `background automatic probing skips remembered policy when confidence is medium`() =
+        runTest {
+            val stores = FakeDiagnosticsHistoryStores()
+            val clock = TestDiagnosticsHistoryClock()
+            val timelineSource = timelineSource(stores, backgroundScope)
+            val serviceStateStore = FakeServiceStateStore(initialStatus = AppStatus.Running to Mode.VPN)
+            val settings =
+                defaultDiagnosticsAppSettings()
+                    .toBuilder()
+                    .setNetworkStrategyMemoryEnabled(true)
+                    .build()
+            val preparedFingerprint =
+                strategyProbeFingerprint(ssid = "network-medium-confidence", gateway = "192.0.2.32")
+            val fixtures =
+                executionCoordinatorFixtures(
+                    stores = stores,
+                    timelineSource = timelineSource,
+                    serviceStateStore = serviceStateStore,
+                    networkFingerprintProvider = MutableNetworkFingerprintProvider(preparedFingerprint),
+                    preferredPathStore = DefaultNetworkDnsPathPreferenceStore(stores, clock),
+                    rememberedNetworkPolicyStore = DefaultRememberedNetworkPolicyStore(stores, clock),
+                    json = json,
+                )
+            val prepared =
+                preparedDiagnosticsScan(
+                    sessionId = "session-strategy-medium-confidence",
+                    settings = settings,
+                    scanOrigin = DiagnosticsScanOrigin.AUTOMATIC_BACKGROUND,
+                    exposeProgress = false,
+                    registerActiveBridge = false,
+                    networkFingerprint = preparedFingerprint,
+                    profileId = "automatic-probing",
+                    family = DiagnosticProfileFamily.AUTOMATIC_PROBING,
+                    kind = ScanKind.STRATEGY_PROBE,
+                    strategyProbeRequest = StrategyProbeRequest(suiteId = "quick_v1"),
+                )
+            seedPreparedScan(stores, prepared)
+            fixtures.activeScanRegistry.rememberPreparedScan(prepared)
+            val bridge =
+                FakeNetworkDiagnosticsBridge(json).apply {
+                    autoCompleteOnStart = false
+                    enqueueProgress(
+                        ScanProgress(
+                            sessionId = prepared.sessionId,
+                            phase = "complete",
+                            completedSteps = 1,
+                            totalSteps = 1,
+                            message = "complete",
+                            isFinished = true,
+                        ),
+                    )
+                    enqueueReport(
+                        scanReportWithStrategyProbe(
+                            sessionId = prepared.sessionId,
+                            settings = settings,
+                            auditAssessment =
+                                strategyProbeAuditAssessmentForCoordinator(
+                                    confidenceLevel = StrategyProbeAuditConfidenceLevel.MEDIUM,
+                                ),
+                        ),
+                    )
+                }
+            fixtures.activeScanRegistry.registerBridge(bridge, prepared.sessionId, prepared.registerActiveBridge)
+            val handle = BridgeSessionHandle(bridge, prepared.sessionId, prepared.registerActiveBridge)
+
+            fixtures.coordinator.execute(prepared, handle, rawPathRunner = { block -> block() })
+
+            assertTrue(stores.rememberedPoliciesState.value.isEmpty())
+        }
+
+    @Test
+    fun `background automatic probing skips remembered policy when coverage is insufficient`() =
+        runTest {
+            val stores = FakeDiagnosticsHistoryStores()
+            val clock = TestDiagnosticsHistoryClock()
+            val timelineSource = timelineSource(stores, backgroundScope)
+            val serviceStateStore = FakeServiceStateStore(initialStatus = AppStatus.Running to Mode.VPN)
+            val settings =
+                defaultDiagnosticsAppSettings()
+                    .toBuilder()
+                    .setNetworkStrategyMemoryEnabled(true)
+                    .build()
+            val preparedFingerprint = strategyProbeFingerprint(ssid = "network-low-coverage", gateway = "192.0.2.33")
+            val fixtures =
+                executionCoordinatorFixtures(
+                    stores = stores,
+                    timelineSource = timelineSource,
+                    serviceStateStore = serviceStateStore,
+                    networkFingerprintProvider = MutableNetworkFingerprintProvider(preparedFingerprint),
+                    preferredPathStore = DefaultNetworkDnsPathPreferenceStore(stores, clock),
+                    rememberedNetworkPolicyStore = DefaultRememberedNetworkPolicyStore(stores, clock),
+                    json = json,
+                )
+            val prepared =
+                preparedDiagnosticsScan(
+                    sessionId = "session-strategy-low-coverage",
+                    settings = settings,
+                    scanOrigin = DiagnosticsScanOrigin.AUTOMATIC_BACKGROUND,
+                    exposeProgress = false,
+                    registerActiveBridge = false,
+                    networkFingerprint = preparedFingerprint,
+                    profileId = "automatic-probing",
+                    family = DiagnosticProfileFamily.AUTOMATIC_PROBING,
+                    kind = ScanKind.STRATEGY_PROBE,
+                    strategyProbeRequest = StrategyProbeRequest(suiteId = "quick_v1"),
+                )
+            seedPreparedScan(stores, prepared)
+            fixtures.activeScanRegistry.rememberPreparedScan(prepared)
+            val bridge =
+                FakeNetworkDiagnosticsBridge(json).apply {
+                    autoCompleteOnStart = false
+                    enqueueProgress(
+                        ScanProgress(
+                            sessionId = prepared.sessionId,
+                            phase = "complete",
+                            completedSteps = 1,
+                            totalSteps = 1,
+                            message = "complete",
+                            isFinished = true,
+                        ),
+                    )
+                    enqueueReport(
+                        scanReportWithStrategyProbe(
+                            sessionId = prepared.sessionId,
+                            settings = settings,
+                            auditAssessment =
+                                strategyProbeAuditAssessmentForCoordinator(
+                                    matrixCoveragePercent = 74,
+                                ),
+                        ),
+                    )
+                }
+            fixtures.activeScanRegistry.registerBridge(bridge, prepared.sessionId, prepared.registerActiveBridge)
+            val handle = BridgeSessionHandle(bridge, prepared.sessionId, prepared.registerActiveBridge)
+
+            fixtures.coordinator.execute(prepared, handle, rawPathRunner = { block -> block() })
+
+            assertTrue(stores.rememberedPoliciesState.value.isEmpty())
+        }
+
+    @Test
+    fun `manual automatic probing does not remember validated network policy`() =
+        runTest {
+            val stores = FakeDiagnosticsHistoryStores()
+            val clock = TestDiagnosticsHistoryClock()
+            val timelineSource = timelineSource(stores, backgroundScope)
+            val serviceStateStore = FakeServiceStateStore(initialStatus = AppStatus.Running to Mode.VPN)
+            val settings =
+                defaultDiagnosticsAppSettings()
+                    .toBuilder()
+                    .setNetworkStrategyMemoryEnabled(true)
+                    .build()
+            val preparedFingerprint = strategyProbeFingerprint(ssid = "network-manual", gateway = "192.0.2.11")
+            val fixtures =
+                executionCoordinatorFixtures(
+                    stores = stores,
+                    timelineSource = timelineSource,
+                    serviceStateStore = serviceStateStore,
+                    networkFingerprintProvider = MutableNetworkFingerprintProvider(preparedFingerprint),
+                    preferredPathStore = DefaultNetworkDnsPathPreferenceStore(stores, clock),
+                    rememberedNetworkPolicyStore = DefaultRememberedNetworkPolicyStore(stores, clock),
+                    json = json,
+                )
+            val prepared =
+                preparedDiagnosticsScan(
+                    sessionId = "session-manual-probe",
+                    settings = settings,
+                    scanOrigin = DiagnosticsScanOrigin.USER_INITIATED,
+                    networkFingerprint = preparedFingerprint,
+                    profileId = "automatic-probing",
+                    family = DiagnosticProfileFamily.AUTOMATIC_PROBING,
+                    kind = ScanKind.STRATEGY_PROBE,
+                    strategyProbeRequest = StrategyProbeRequest(suiteId = "quick_v1"),
+                )
+            seedPreparedScan(stores, prepared)
+            fixtures.activeScanRegistry.rememberPreparedScan(prepared)
+            val bridge =
+                FakeNetworkDiagnosticsBridge(json).apply {
+                    autoCompleteOnStart = false
+                    enqueueProgress(
+                        ScanProgress(
+                            sessionId = prepared.sessionId,
+                            phase = "complete",
+                            completedSteps = 1,
+                            totalSteps = 1,
+                            message = "complete",
+                            isFinished = true,
+                        ),
+                    )
+                    enqueueReport(scanReportWithStrategyProbe(prepared.sessionId, settings))
+                }
+            fixtures.activeScanRegistry.registerBridge(bridge, prepared.sessionId, prepared.registerActiveBridge)
+            val handle = BridgeSessionHandle(bridge, prepared.sessionId, prepared.registerActiveBridge)
+
+            fixtures.coordinator.execute(prepared, handle, rawPathRunner = { block -> block() })
+
+            assertTrue(stores.rememberedPoliciesState.value.isEmpty())
+        }
+
+    @Test
+    fun `manual automatic audit does not remember validated network policy`() =
+        runTest {
+            val stores = FakeDiagnosticsHistoryStores()
+            val clock = TestDiagnosticsHistoryClock()
+            val timelineSource = timelineSource(stores, backgroundScope)
+            val serviceStateStore = FakeServiceStateStore(initialStatus = AppStatus.Running to Mode.VPN)
+            val settings =
+                defaultDiagnosticsAppSettings()
+                    .toBuilder()
+                    .setNetworkStrategyMemoryEnabled(true)
+                    .build()
+            val preparedFingerprint = strategyProbeFingerprint(ssid = "network-audit", gateway = "192.0.2.12")
+            val fixtures =
+                executionCoordinatorFixtures(
+                    stores = stores,
+                    timelineSource = timelineSource,
+                    serviceStateStore = serviceStateStore,
+                    networkFingerprintProvider = MutableNetworkFingerprintProvider(preparedFingerprint),
+                    preferredPathStore = DefaultNetworkDnsPathPreferenceStore(stores, clock),
+                    rememberedNetworkPolicyStore = DefaultRememberedNetworkPolicyStore(stores, clock),
+                    json = json,
+                )
+            val prepared =
+                preparedDiagnosticsScan(
+                    sessionId = "session-manual-audit",
+                    settings = settings,
+                    scanOrigin = DiagnosticsScanOrigin.USER_INITIATED,
+                    networkFingerprint = preparedFingerprint,
+                    profileId = "automatic-audit",
+                    family = DiagnosticProfileFamily.AUTOMATIC_AUDIT,
+                    kind = ScanKind.STRATEGY_PROBE,
+                    strategyProbeRequest = StrategyProbeRequest(suiteId = "full_matrix_v1"),
+                )
+            seedPreparedScan(stores, prepared)
+            fixtures.activeScanRegistry.rememberPreparedScan(prepared)
+            val bridge =
+                FakeNetworkDiagnosticsBridge(json).apply {
+                    autoCompleteOnStart = false
+                    enqueueProgress(
+                        ScanProgress(
+                            sessionId = prepared.sessionId,
+                            phase = "complete",
+                            completedSteps = 1,
+                            totalSteps = 1,
+                            message = "complete",
+                            isFinished = true,
+                        ),
+                    )
+                    enqueueReport(
+                        scanReportWithStrategyProbe(
+                            sessionId = prepared.sessionId,
+                            settings = settings,
+                            profileId = "automatic-audit",
+                            suiteId = "full_matrix_v1",
+                        ),
+                    )
+                }
+            fixtures.activeScanRegistry.registerBridge(bridge, prepared.sessionId, prepared.registerActiveBridge)
+            val handle = BridgeSessionHandle(bridge, prepared.sessionId, prepared.registerActiveBridge)
+
+            fixtures.coordinator.execute(prepared, handle, rawPathRunner = { block -> block() })
+
+            assertTrue(stores.rememberedPoliciesState.value.isEmpty())
+        }
+
+    @Test
+    fun `manual strategy probe with always persistence policy remembers validated network policy`() =
+        runTest {
+            val stores = FakeDiagnosticsHistoryStores()
+            val clock = TestDiagnosticsHistoryClock()
+            val timelineSource = timelineSource(stores, backgroundScope)
+            val serviceStateStore = FakeServiceStateStore(initialStatus = AppStatus.Running to Mode.VPN)
+            val settings =
+                defaultDiagnosticsAppSettings()
+                    .toBuilder()
+                    .setNetworkStrategyMemoryEnabled(true)
+                    .build()
+            val preparedFingerprint = strategyProbeFingerprint(ssid = "network-always", gateway = "192.0.2.21")
+            val fixtures =
+                executionCoordinatorFixtures(
+                    stores = stores,
+                    timelineSource = timelineSource,
+                    serviceStateStore = serviceStateStore,
+                    networkFingerprintProvider = MutableNetworkFingerprintProvider(preparedFingerprint),
+                    preferredPathStore = DefaultNetworkDnsPathPreferenceStore(stores, clock),
+                    rememberedNetworkPolicyStore = DefaultRememberedNetworkPolicyStore(stores, clock),
+                    json = json,
+                )
+            val prepared =
+                preparedDiagnosticsScan(
+                    sessionId = "session-always-persist",
+                    settings = settings,
+                    scanOrigin = DiagnosticsScanOrigin.USER_INITIATED,
+                    networkFingerprint = preparedFingerprint,
+                    profileId = "custom-probe",
+                    family = DiagnosticProfileFamily.GENERAL,
+                    kind = ScanKind.STRATEGY_PROBE,
+                    strategyProbeRequest = StrategyProbeRequest(suiteId = "quick_v1"),
+                    probePersistencePolicy = ProbePersistencePolicy.ALWAYS,
+                )
+            seedPreparedScan(stores, prepared)
+            fixtures.activeScanRegistry.rememberPreparedScan(prepared)
+            val bridge =
+                FakeNetworkDiagnosticsBridge(json).apply {
+                    autoCompleteOnStart = false
+                    enqueueProgress(
+                        ScanProgress(
+                            sessionId = prepared.sessionId,
+                            phase = "complete",
+                            completedSteps = 1,
+                            totalSteps = 1,
+                            message = "complete",
+                            isFinished = true,
+                        ),
+                    )
+                    enqueueReport(
+                        scanReportWithStrategyProbe(
+                            sessionId = prepared.sessionId,
+                            settings = settings,
+                            profileId = "custom-probe",
+                        ),
+                    )
+                }
+            fixtures.activeScanRegistry.registerBridge(bridge, prepared.sessionId, prepared.registerActiveBridge)
+            val handle = BridgeSessionHandle(bridge, prepared.sessionId, prepared.registerActiveBridge)
+
+            fixtures.coordinator.execute(prepared, handle, rawPathRunner = { block -> block() })
+
+            assertEquals(1, stores.rememberedPoliciesState.value.size)
+            assertEquals(
+                preparedFingerprint.scopeKey(),
+                stores.rememberedPoliciesState.value
+                    .single()
+                    .fingerprintHash,
+            )
+            assertEquals(
+                RememberedNetworkPolicySource.AUTOMATIC_PROBING_BACKGROUND,
+                stores.rememberedPoliciesState.value
+                    .single()
+                    .decodedSource(),
+            )
+        }
+
+    @Test
+    fun `background automatic probing keeps prepared fingerprint when provider changes`() =
         runTest {
             val stores = FakeDiagnosticsHistoryStores()
             val clock = TestDiagnosticsHistoryClock()
@@ -375,7 +799,14 @@ class DiagnosticsScanExecutionCoordinatorTest {
                 preparedDiagnosticsScan(
                     sessionId = "session-strategy-fingerprint",
                     settings = settings,
+                    scanOrigin = DiagnosticsScanOrigin.AUTOMATIC_BACKGROUND,
+                    exposeProgress = false,
+                    registerActiveBridge = false,
                     networkFingerprint = preparedFingerprint,
+                    profileId = "automatic-probing",
+                    family = DiagnosticProfileFamily.AUTOMATIC_PROBING,
+                    kind = ScanKind.STRATEGY_PROBE,
+                    strategyProbeRequest = StrategyProbeRequest(suiteId = "quick_v1"),
                 )
             seedPreparedScan(stores, prepared)
             fixtures.activeScanRegistry.rememberPreparedScan(prepared)
@@ -406,7 +837,7 @@ class DiagnosticsScanExecutionCoordinatorTest {
         }
 
     @Test
-    fun `strategy probe completion skips remembered policy when prepared fingerprint is missing`() =
+    fun `background automatic probing skips remembered policy when prepared fingerprint is missing`() =
         runTest {
             val stores = FakeDiagnosticsHistoryStores()
             val clock = TestDiagnosticsHistoryClock()
@@ -430,7 +861,14 @@ class DiagnosticsScanExecutionCoordinatorTest {
                 preparedDiagnosticsScan(
                     sessionId = "session-strategy-no-fingerprint",
                     settings = settings,
+                    scanOrigin = DiagnosticsScanOrigin.AUTOMATIC_BACKGROUND,
+                    exposeProgress = false,
+                    registerActiveBridge = false,
                     networkFingerprint = null,
+                    profileId = "automatic-probing",
+                    family = DiagnosticProfileFamily.AUTOMATIC_PROBING,
+                    kind = ScanKind.STRATEGY_PROBE,
+                    strategyProbeRequest = StrategyProbeRequest(suiteId = "quick_v1"),
                 )
             seedPreparedScan(stores, prepared)
             fixtures.activeScanRegistry.rememberPreparedScan(prepared)
@@ -528,22 +966,42 @@ private fun executionCoordinatorFixtures(
 private suspend fun preparedDiagnosticsScan(
     sessionId: String,
     settings: com.poyka.ripdpi.proto.AppSettings,
+    scanOrigin: DiagnosticsScanOrigin = DiagnosticsScanOrigin.USER_INITIATED,
     exposeProgress: Boolean = true,
     registerActiveBridge: Boolean = true,
     networkFingerprint: com.poyka.ripdpi.data.NetworkFingerprint? = null,
+    profileId: String = "default",
+    family: DiagnosticProfileFamily = DiagnosticProfileFamily.GENERAL,
+    kind: ScanKind = ScanKind.CONNECTIVITY,
+    strategyProbeRequest: StrategyProbeRequest? = null,
+    probePersistencePolicy: ProbePersistencePolicy? = null,
 ) = PreparedDiagnosticsScan(
     sessionId = sessionId,
     settings = settings,
     pathMode = ScanPathMode.RAW_PATH,
     intent =
         DiagnosticsIntent(
-            profileId = "default",
+            profileId = profileId,
             displayName = "Diagnostics",
             settings = settings,
-            kind = ScanKind.CONNECTIVITY,
-            family = DiagnosticProfileFamily.GENERAL,
+            kind = kind,
+            family = family,
             regionTag = null,
-            executionPolicy = ExecutionPolicy(manualOnly = false, allowBackground = false, requiresRawPath = false),
+            executionPolicy =
+                ExecutionPolicy(
+                    manualOnly = false,
+                    allowBackground = scanOrigin == DiagnosticsScanOrigin.AUTOMATIC_BACKGROUND,
+                    requiresRawPath = kind == ScanKind.STRATEGY_PROBE,
+                    probePersistencePolicy =
+                        probePersistencePolicy
+                            ?: if (kind == ScanKind.STRATEGY_PROBE &&
+                                family == DiagnosticProfileFamily.AUTOMATIC_PROBING
+                            ) {
+                                ProbePersistencePolicy.BACKGROUND_ONLY
+                            } else {
+                                ProbePersistencePolicy.MANUAL_ONLY
+                            },
+                ),
             packRefs = emptyList(),
             domainTargets = emptyList(),
             dnsTargets = emptyList(),
@@ -554,7 +1012,7 @@ private suspend fun preparedDiagnosticsScan(
             throughputTargets = emptyList(),
             whitelistSni = emptyList(),
             telegramTarget = null,
-            strategyProbe = null,
+            strategyProbe = strategyProbeRequest,
             requestedPathMode = ScanPathMode.RAW_PATH,
         ),
     context =
@@ -578,14 +1036,27 @@ private suspend fun preparedDiagnosticsScan(
         ScanPlan(
             intent =
                 DiagnosticsIntent(
-                    profileId = "default",
+                    profileId = profileId,
                     displayName = "Diagnostics",
                     settings = settings,
-                    kind = ScanKind.CONNECTIVITY,
-                    family = DiagnosticProfileFamily.GENERAL,
+                    kind = kind,
+                    family = family,
                     regionTag = null,
                     executionPolicy =
-                        ExecutionPolicy(manualOnly = false, allowBackground = false, requiresRawPath = false),
+                        ExecutionPolicy(
+                            manualOnly = false,
+                            allowBackground = scanOrigin == DiagnosticsScanOrigin.AUTOMATIC_BACKGROUND,
+                            requiresRawPath = kind == ScanKind.STRATEGY_PROBE,
+                            probePersistencePolicy =
+                                probePersistencePolicy
+                                    ?: if (kind == ScanKind.STRATEGY_PROBE &&
+                                        family == DiagnosticProfileFamily.AUTOMATIC_PROBING
+                                    ) {
+                                        ProbePersistencePolicy.BACKGROUND_ONLY
+                                    } else {
+                                        ProbePersistencePolicy.MANUAL_ONLY
+                                    },
+                        ),
                     packRefs = emptyList(),
                     domainTargets = emptyList(),
                     dnsTargets = emptyList(),
@@ -596,7 +1067,7 @@ private suspend fun preparedDiagnosticsScan(
                     throughputTargets = emptyList(),
                     whitelistSni = emptyList(),
                     telegramTarget = null,
-                    strategyProbe = null,
+                    strategyProbe = strategyProbeRequest,
                     requestedPathMode = ScanPathMode.RAW_PATH,
                 ),
             context =
@@ -622,6 +1093,8 @@ private suspend fun preparedDiagnosticsScan(
             probeTasks = emptyList(),
         ),
     requestJson = "{}",
+    scanOrigin = scanOrigin,
+    launchTrigger = null,
     exposeProgress = exposeProgress,
     registerActiveBridge = registerActiveBridge,
     networkFingerprint = networkFingerprint,
@@ -629,7 +1102,7 @@ private suspend fun preparedDiagnosticsScan(
     initialSession =
         diagnosticsSession(
             id = sessionId,
-            profileId = "default",
+            profileId = profileId,
             pathMode = ScanPathMode.RAW_PATH.name,
             summary = "running",
             status = "running",
@@ -699,18 +1172,15 @@ private fun scanReportWithResolverRecommendation(sessionId: String) =
 private fun scanReportWithStrategyProbe(
     sessionId: String,
     settings: com.poyka.ripdpi.proto.AppSettings,
-): ScanReport {
-    val proxyConfigJson =
-        RipDpiProxyUIPreferences
-            .fromSettings(
-                settings,
-                null,
-                null,
-                settings.activeDnsSettings().toRipDpiRuntimeContext(),
-            ).toNativeConfigJson()
-    return ScanReport(
+    profileId: String = "automatic-probing",
+    suiteId: String = "quick_v1",
+    auditAssessment: StrategyProbeAuditAssessment? = strategyProbeAuditAssessmentForCoordinator(),
+    tcpSucceededTargets: Int = 1,
+    quicSucceededTargets: Int = 1,
+): ScanReport =
+    ScanReport(
         sessionId = sessionId,
-        profileId = "automatic-probing",
+        profileId = profileId,
         pathMode = ScanPathMode.RAW_PATH,
         startedAt = 10L,
         finishedAt = 20L,
@@ -725,16 +1195,16 @@ private fun scanReportWithStrategyProbe(
             ),
         strategyProbeReport =
             StrategyProbeReport(
-                suiteId = "quick_v1",
+                suiteId = suiteId,
                 tcpCandidates =
                     listOf(
                         StrategyProbeCandidateSummary(
                             id = "tcp-1",
                             label = "TCP candidate",
-                            family = "split",
+                            family = "hostfake",
                             outcome = "success",
                             rationale = "best",
-                            succeededTargets = 1,
+                            succeededTargets = tcpSucceededTargets,
                             totalTargets = 1,
                             weightedSuccessScore = 10,
                             totalWeight = 10,
@@ -746,10 +1216,10 @@ private fun scanReportWithStrategyProbe(
                         StrategyProbeCandidateSummary(
                             id = "quic-1",
                             label = "QUIC candidate",
-                            family = "quic_burst",
+                            family = "quic_realistic_burst",
                             outcome = "success",
                             rationale = "best",
-                            succeededTargets = 1,
+                            succeededTargets = quicSucceededTargets,
                             totalTargets = 1,
                             weightedSuccessScore = 10,
                             totalWeight = 10,
@@ -763,11 +1233,59 @@ private fun scanReportWithStrategyProbe(
                         quicCandidateId = "quic-1",
                         quicCandidateLabel = "QUIC candidate",
                         rationale = "best path",
-                        recommendedProxyConfigJson = proxyConfigJson,
+                        recommendedProxyConfigJson = validRecommendedProxyConfigJsonForCoordinator(),
                     ),
+                auditAssessment = auditAssessment,
             ),
     )
-}
+
+private fun strategyProbeAuditAssessmentForCoordinator(
+    confidenceLevel: StrategyProbeAuditConfidenceLevel = StrategyProbeAuditConfidenceLevel.HIGH,
+    matrixCoveragePercent: Int = 100,
+    winnerCoveragePercent: Int = 100,
+): StrategyProbeAuditAssessment =
+    StrategyProbeAuditAssessment(
+        dnsShortCircuited = false,
+        coverage =
+            StrategyProbeAuditCoverage(
+                tcpCandidatesPlanned = 2,
+                tcpCandidatesExecuted = 2,
+                tcpCandidatesSkipped = 0,
+                tcpCandidatesNotApplicable = 0,
+                quicCandidatesPlanned = 2,
+                quicCandidatesExecuted = 2,
+                quicCandidatesSkipped = 0,
+                quicCandidatesNotApplicable = 0,
+                tcpWinnerSucceededTargets = 1,
+                tcpWinnerTotalTargets = 1,
+                quicWinnerSucceededTargets = 1,
+                quicWinnerTotalTargets = 1,
+                matrixCoveragePercent = matrixCoveragePercent,
+                winnerCoveragePercent = winnerCoveragePercent,
+            ),
+        confidence =
+            StrategyProbeAuditConfidence(
+                level = confidenceLevel,
+                score = 100,
+                rationale = "Matrix coverage and winner strength are consistent",
+            ),
+    )
+
+private fun validRecommendedProxyConfigJsonForCoordinator(): String =
+    RipDpiProxyUIPreferences(
+        protocols = RipDpiProtocolConfig(desyncUdp = true),
+        chains =
+            RipDpiChainConfig(
+                tcpSteps =
+                    listOf(
+                        TcpChainStepModel(
+                            kind = TcpChainStepKind.HostFake,
+                            marker = "midhost+1",
+                        ),
+                    ),
+            ),
+        quic = RipDpiQuicConfig(fakeProfile = "realistic_initial"),
+    ).toNativeConfigJson()
 
 private fun strategyProbeFingerprint(
     ssid: String,

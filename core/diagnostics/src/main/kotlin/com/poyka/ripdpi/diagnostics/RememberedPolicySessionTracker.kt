@@ -2,7 +2,7 @@ package com.poyka.ripdpi.diagnostics
 
 import com.poyka.ripdpi.data.RememberedNetworkPolicyProofDurationMs
 import com.poyka.ripdpi.data.RememberedNetworkPolicyProofTransferBytes
-import com.poyka.ripdpi.data.RememberedNetworkPolicySourceManualSession
+import com.poyka.ripdpi.data.RememberedNetworkPolicySource
 import com.poyka.ripdpi.data.diagnostics.ActiveConnectionPolicy
 import com.poyka.ripdpi.data.diagnostics.BypassUsageSessionEntity
 import com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyEntity
@@ -43,7 +43,7 @@ class RememberedPolicySessionTracker
                 } else {
                     rememberedNetworkPolicyStore.upsertObservedPolicy(
                         policy = policy.policy.copy(strategySignatureJson = session.strategyJson),
-                        source = RememberedNetworkPolicySourceManualSession,
+                        source = RememberedNetworkPolicySource.MANUAL_SESSION,
                         observedAt = policy.appliedAt,
                     )
                 }
