@@ -17,9 +17,14 @@ tracing = { workspace = true }
 socket2 = { workspace = true }
 bytes = "1"
 tungstenite = { version = "0.29", default-features = false, features = ["handshake", "rustls-tls-webpki-roots"] }
+rustls = { workspace = true }
+webpki-roots = { workspace = true }
 
 [target.'cfg(any(target_os = "linux", target_os = "android"))'.dependencies]
 nix = { workspace = true }
+
+[dev-dependencies]
+rcgen = { workspace = true }
 
 [lints]
 workspace = true

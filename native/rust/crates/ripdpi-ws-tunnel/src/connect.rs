@@ -1,13 +1,17 @@
 use std::io;
 use std::net::{SocketAddr, TcpStream, ToSocketAddrs};
+#[cfg(not(feature = "chrome-fingerprint"))]
+use std::sync::Arc;
 use std::time::Duration;
 
 #[cfg(feature = "chrome-fingerprint")]
 use boring::ssl::{SslConnector, SslMethod, SslStream};
+#[cfg(not(feature = "chrome-fingerprint"))]
+use rustls::pki_types::ServerName;
+#[cfg(not(feature = "chrome-fingerprint"))]
+use rustls::{ClientConfig, ClientConnection, RootCertStore, StreamOwned};
 use socket2::{Domain, Protocol, SockAddr, Socket, Type};
 use tungstenite::client::IntoClientRequest;
-#[cfg(not(feature = "chrome-fingerprint"))]
-use tungstenite::stream::MaybeTlsStream;
 use tungstenite::WebSocket;
 
 use crate::dc::ws_url;
@@ -15,7 +19,9 @@ use crate::protect;
 
 /// A connected WebSocket tunnel to a Telegram DC.
 #[cfg(not(feature = "chrome-fingerprint"))]
-pub type WsStream = WebSocket<MaybeTlsStream<TcpStream>>;
+type RustlsClientStream = StreamOwned<ClientConnection, TcpStream>;
+#[cfg(not(feature = "chrome-fingerprint"))]
+pub type WsStream = WebSocket<RustlsClientStream>;
 
 /// A connected WebSocket tunnel to a Telegram DC (BoringSSL TLS backend).
 ///
@@ -87,6 +93,50 @@ fn build_ws_request(url: &str) -> io::Result<tungstenite::http::Request<()>> {
     Ok(request)
 }
 
+#[cfg(not(feature = "chrome-fingerprint"))]
+fn default_root_store() -> RootCertStore {
+    let mut roots = RootCertStore::empty();
+    roots.extend(webpki_roots::TLS_SERVER_ROOTS.iter().cloned());
+    roots
+}
+
+#[cfg(not(feature = "chrome-fingerprint"))]
+fn build_rustls_client_config(roots: RootCertStore) -> Arc<ClientConfig> {
+    let mut config = ClientConfig::builder_with_provider(rustls::crypto::ring::default_provider().into())
+        .with_safe_default_protocol_versions()
+        .expect("ring provider supports default TLS versions")
+        .with_root_certificates(roots)
+        .with_no_client_auth();
+    config.alpn_protocols = vec![b"http/1.1".to_vec()];
+    Arc::new(config)
+}
+
+#[cfg(not(feature = "chrome-fingerprint"))]
+fn connect_rustls_stream(host: &str, tcp: TcpStream) -> io::Result<RustlsClientStream> {
+    connect_rustls_stream_with_config(host, tcp, build_rustls_client_config(default_root_store()))
+}
+
+#[cfg(not(feature = "chrome-fingerprint"))]
+fn connect_rustls_stream_with_config(
+    host: &str,
+    tcp: TcpStream,
+    config: Arc<ClientConfig>,
+) -> io::Result<RustlsClientStream> {
+    let server_name = ServerName::try_from(host.to_string())
+        .map_err(|err| io::Error::new(io::ErrorKind::InvalidInput, format!("WS tunnel server name {host}: {err}")))?;
+    let connection = ClientConnection::new(config, server_name)
+        .map_err(|err| io::Error::new(io::ErrorKind::ConnectionRefused, format!("WS TLS setup: {err}")))?;
+    let mut tls = StreamOwned::new(connection, tcp);
+
+    while tls.conn.is_handshaking() {
+        tls.conn
+            .complete_io(&mut tls.sock)
+            .map_err(|err| io::Error::new(err.kind(), format!("WS TLS handshake: {err}")))?;
+    }
+
+    Ok(tls)
+}
+
 /// Open a WebSocket tunnel to the given Telegram DC.
 ///
 /// Establishes a TLS connection to `kws{dc}.web.telegram.org:443`, performs the
@@ -98,12 +148,13 @@ fn build_ws_request(url: &str) -> io::Result<tungstenite::http::Request<()>> {
 #[cfg(not(feature = "chrome-fingerprint"))]
 pub fn open_ws_tunnel(dc: u8, resolved_addr: Option<SocketAddr>, protect_path: Option<&str>) -> io::Result<WsStream> {
     let url = ws_url(dc);
-    let (_host, target) = resolve_ws_target(dc, resolved_addr)?;
+    let (host, target) = resolve_ws_target(dc, resolved_addr)?;
     let tcp = connect_tcp_socket(target, protect_path)?;
     let request = build_ws_request(url.as_str())?;
+    let tls = connect_rustls_stream(&host, tcp)?;
 
-    // Perform WS handshake; tungstenite handles TLS via rustls for wss:// URLs
-    let (ws, _response) = tungstenite::client_tls(request, tcp)
+    // WebSocket handshake over the pre-established rustls stream
+    let (ws, _response) = tungstenite::client(request, tls)
         .map_err(|e| io::Error::new(io::ErrorKind::ConnectionRefused, format!("WS handshake: {e}")))?;
 
     Ok(ws)
@@ -150,6 +201,13 @@ mod tests {
     use std::sync::mpsc;
     use std::sync::Arc;
     use std::thread;
+
+    #[cfg(not(feature = "chrome-fingerprint"))]
+    use rcgen::generate_simple_self_signed;
+    #[cfg(not(feature = "chrome-fingerprint"))]
+    use rustls::pki_types::{CertificateDer, PrivateKeyDer, PrivatePkcs8KeyDer};
+    #[cfg(not(feature = "chrome-fingerprint"))]
+    use rustls::{ServerConfig, ServerConnection};
 
     #[test]
     fn build_ws_request_includes_binary_subprotocol() {
@@ -224,5 +282,89 @@ mod tests {
 
         assert_eq!(resolved, target);
         assert!(!resolver_called.get());
+    }
+
+    #[cfg(not(feature = "chrome-fingerprint"))]
+    fn localhost_server_config() -> (Arc<ServerConfig>, CertificateDer<'static>) {
+        let certificate = generate_simple_self_signed(vec!["localhost".to_string()]).expect("certificate");
+        let certificate_der: CertificateDer<'static> = certificate.cert.der().clone();
+        let key_der = PrivateKeyDer::Pkcs8(PrivatePkcs8KeyDer::from(certificate.signing_key.serialize_der()));
+        let server_config = ServerConfig::builder_with_provider(rustls::crypto::ring::default_provider().into())
+            .with_safe_default_protocol_versions()
+            .expect("ring provider supports default TLS versions")
+            .with_no_client_auth()
+            .with_single_cert(vec![certificate_der.clone()], key_der)
+            .expect("server config");
+        (Arc::new(server_config), certificate_der)
+    }
+
+    #[cfg(not(feature = "chrome-fingerprint"))]
+    fn localhost_root_store(certificate_der: CertificateDer<'static>) -> RootCertStore {
+        let mut roots = RootCertStore::empty();
+        roots.add(certificate_der).expect("add localhost certificate");
+        roots
+    }
+
+    #[cfg(not(feature = "chrome-fingerprint"))]
+    #[test]
+    fn connect_rustls_stream_completes_explicit_tls_handshake() {
+        let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("bind listener");
+        let target = listener.local_addr().expect("listener addr");
+        let (server_config, certificate_der) = localhost_server_config();
+        let server_thread = thread::spawn(move || {
+            let (stream, _) = listener.accept().expect("accept connection");
+            let connection = ServerConnection::new(server_config).expect("server connection");
+            let mut tls = StreamOwned::new(connection, stream);
+            while tls.conn.is_handshaking() {
+                tls.conn.complete_io(&mut tls.sock).expect("server handshake");
+            }
+        });
+
+        let tcp = connect_tcp_socket(target, None).expect("connect tcp socket");
+        let tls_config = build_rustls_client_config(localhost_root_store(certificate_der));
+        let tls = connect_rustls_stream_with_config("localhost", tcp, tls_config).expect("connect rustls stream");
+
+        assert!(!tls.conn.is_handshaking(), "TLS handshake should complete before WebSocket setup");
+        server_thread.join().expect("join server thread");
+    }
+
+    #[cfg(not(feature = "chrome-fingerprint"))]
+    #[test]
+    fn explicit_rustls_stream_supports_websocket_handshake() {
+        let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("bind listener");
+        let target = listener.local_addr().expect("listener addr");
+        let (server_config, certificate_der) = localhost_server_config();
+        let server_thread = thread::spawn(move || {
+            let (stream, _) = listener.accept().expect("accept connection");
+            let connection = ServerConnection::new(server_config).expect("server connection");
+            let mut tls = StreamOwned::new(connection, stream);
+            while tls.conn.is_handshaking() {
+                tls.conn.complete_io(&mut tls.sock).expect("server handshake");
+            }
+            let _ws = tungstenite::accept_hdr(
+                tls,
+                |request: &tungstenite::handshake::server::Request,
+                 mut response: tungstenite::handshake::server::Response| {
+                    assert_eq!(
+                        request.headers().get("Sec-WebSocket-Protocol").and_then(|value| value.to_str().ok()),
+                        Some("binary"),
+                    );
+                    response
+                        .headers_mut()
+                        .insert("Sec-WebSocket-Protocol", tungstenite::http::HeaderValue::from_static("binary"));
+                    Ok(response)
+                },
+            )
+            .expect("accept websocket");
+        });
+
+        let tcp = connect_tcp_socket(target, None).expect("connect tcp socket");
+        let tls_config = build_rustls_client_config(localhost_root_store(certificate_der));
+        let tls = connect_rustls_stream_with_config("localhost", tcp, tls_config).expect("connect rustls stream");
+        let request = build_ws_request("wss://localhost/apiws").expect("build ws request");
+        let (_ws, response) = tungstenite::client(request, tls).expect("websocket handshake");
+
+        assert_eq!(response.status(), tungstenite::http::StatusCode::SWITCHING_PROTOCOLS);
+        server_thread.join().expect("join server thread");
     }
 }

@@ -416,22 +416,42 @@ where
     ProbeWs: FnOnce(Option<SocketAddr>) -> io::Result<()>,
 {
     let start = std::time::Instant::now();
-    let resolved_addr = match resolve_ws_addr() {
-        Ok(addr) => Some(addr),
-        Err(err) => {
-            tracing::warn!("Telegram WS tunnel encrypted DNS bootstrap failed: {err}");
-            None
-        }
-    };
+    match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        let resolved_addr = match resolve_ws_addr() {
+            Ok(addr) => Some(addr),
+            Err(err) => {
+                tracing::warn!("Telegram WS tunnel encrypted DNS bootstrap failed: {err}");
+                None
+            }
+        };
 
-    match probe_ws(resolved_addr) {
-        Ok(()) => {
-            let rtt_ms = start.elapsed().as_millis() as u64;
-            TelegramWsProbeResult { status: "ok".to_string(), rtt_ms, error: None }
+        match probe_ws(resolved_addr) {
+            Ok(()) => {
+                let rtt_ms = start.elapsed().as_millis() as u64;
+                TelegramWsProbeResult { status: "ok".to_string(), rtt_ms, error: None }
+            }
+            Err(e) => {
+                let rtt_ms = start.elapsed().as_millis() as u64;
+                TelegramWsProbeResult { status: "unreachable".to_string(), rtt_ms, error: Some(e.to_string()) }
+            }
         }
-        Err(e) => {
+    })) {
+        Ok(result) => result,
+        Err(payload) => {
             let rtt_ms = start.elapsed().as_millis() as u64;
-            TelegramWsProbeResult { status: "unreachable".to_string(), rtt_ms, error: Some(e.to_string()) }
+            let message = if let Some(message) = payload.downcast_ref::<&str>() {
+                (*message).to_string()
+            } else if let Some(message) = payload.downcast_ref::<String>() {
+                message.clone()
+            } else {
+                "unknown panic".to_string()
+            };
+            tracing::error!("Telegram WS tunnel probe panicked: {message}");
+            TelegramWsProbeResult {
+                status: "unreachable".to_string(),
+                rtt_ms,
+                error: Some(format!("panic during Telegram WS tunnel probe: {message}")),
+            }
         }
     }
 }
@@ -466,6 +486,18 @@ mod tests {
     #[test]
     fn verdict_error_when_unrecognized_state() {
         assert_eq!(classify_telegram_verdict("blocked", "ok", 3, 3), "error");
+    }
+
+    #[test]
+    fn telegram_ws_probe_recovers_from_probe_panic() {
+        let result = telegram_ws_tunnel_probe_with(
+            || Ok(SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 443)),
+            |_resolved_addr| panic!("provider selection panic"),
+        );
+
+        assert_eq!(result.status, "unreachable");
+        assert_eq!(result.rtt_ms, 0);
+        assert_eq!(result.error.as_deref(), Some("panic during Telegram WS tunnel probe: provider selection panic"),);
     }
 
     // --- Quality score tests ---
