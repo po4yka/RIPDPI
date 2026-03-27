@@ -1,0 +1,54 @@
+# lefthook.yml -- Fast pre-commit hooks for RIPDPI
+# Install: brew install lefthook && lefthook install
+# Skip:    LEFTHOOK=0 git commit ...
+# Override: create .lefthook-local.yml (gitignored)
+
+min_version: 1.11.0
+
+pre-commit:
+  parallel: true
+  commands:
+    kotlin-format:
+      glob: "*.{kt,kts}"
+      run: ktlint --format {staged_files}
+      stage_fixed: true
+
+    rust-format:
+      glob: "*.rs"
+      root: "native/rust/"
+      run: cargo fmt --check
+
+    no-secrets:
+      run: |
+        git diff --cached --diff-filter=ACM -z --name-only |
+        xargs -0 git diff --cached -- |
+        grep -Ei '(AKIA[0-9A-Z]{16}|-----BEGIN (RSA |EC )?PRIVATE KEY-----|(password|secret|token|api_key)\s*=\s*"[^"]{8,}")' &&
+        { echo "error: potential secrets detected in staged changes"; exit 1; } ||
+        true
+
+    no-large-files:
+      run: |
+        large=""
+        for f in $(git diff --cached --diff-filter=ACM --name-only); do
+          size=$(git cat-file -s ":$f" 2>/dev/null || echo 0)
+          if [ "$size" -gt 524288 ]; then
+            large="$large\n  $f ($(( size / 1024 ))KB)"
+          fi
+        done
+        if [ -n "$large" ]; then
+          echo "error: files exceed 512KB limit:$large"
+          exit 1
+        fi
+
+commit-msg:
+  commands:
+    conventional-commit:
+      run: |
+        msg=$(head -1 "{1}")
+        if ! echo "$msg" | grep -Eq '^(feat|fix|docs|refactor|chore|test|perf|ci|build|style|revert)(\(.+\))?(!)?: .{1,72}$'; then
+          echo "error: commit message must follow Conventional Commits"
+          echo "  format: type(scope): description  (max 72 chars)"
+          echo "  types:  feat|fix|docs|refactor|chore|test|perf|ci|build|style|revert"
+          echo "  got:    $msg"
+          exit 1
+        fi
