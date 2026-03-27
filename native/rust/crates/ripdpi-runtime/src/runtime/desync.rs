@@ -1055,7 +1055,7 @@ fn send_out_of_band(writer: &TcpStream, prefix: &[u8], urgent_byte: u8) -> io::R
 
 pub(super) fn set_stream_ttl(stream: &TcpStream, ttl: u8) -> io::Result<()> {
     let socket = SockRef::from(stream);
-    let ipv4 = socket.set_ttl(ttl as u32);
+    let ipv4 = socket.set_ttl_v4(ttl as u32);
     let ipv6 = socket.set_unicast_hops_v6(ttl as u32);
     match (ipv4, ipv6) {
         (Ok(()), _) | (_, Ok(())) => Ok(()),

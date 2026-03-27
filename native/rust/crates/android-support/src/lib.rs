@@ -6,9 +6,12 @@ use std::sync::Arc;
 use std::sync::PoisonError;
 
 use crate::sync::{fetch_add_u64, AtomicU64, Mutex, Ordering};
-use jni::objects::JThrowable;
-use jni::sys::jint;
-use jni::JNIEnv;
+use jni::objects::{JString, JThrowable};
+use jni::strings::JNIString;
+use jni::sys::{jint, jstring};
+use jni::Env;
+use jni::EnvUnowned;
+use jni::Outcome;
 use log::LevelFilter;
 use once_cell::sync::OnceCell;
 use tracing::Subscriber;
@@ -342,28 +345,36 @@ pub fn ignore_sigpipe() {
     let _ = unsafe { signal(Signal::SIGPIPE, SigHandler::SigIgn) };
 }
 
-pub fn throw_illegal_argument(env: &mut JNIEnv, message: impl AsRef<str>) {
-    if env.throw_new("java/lang/IllegalArgumentException", message.as_ref()).is_err() {
-        log::error!("Failed to throw IllegalArgumentException: {}", message.as_ref());
-    }
+pub fn throw_illegal_argument(env: &mut EnvUnowned<'_>, message: impl AsRef<str>) {
+    throw_exception(env, "java/lang/IllegalArgumentException", "IllegalArgumentException", message);
 }
 
-pub fn throw_illegal_state(env: &mut JNIEnv, message: impl AsRef<str>) {
-    if env.throw_new("java/lang/IllegalStateException", message.as_ref()).is_err() {
-        log::error!("Failed to throw IllegalStateException: {}", message.as_ref());
-    }
+pub fn throw_illegal_argument_env(env: &mut Env<'_>, message: impl AsRef<str>) {
+    throw_exception_env(env, "java/lang/IllegalArgumentException", "IllegalArgumentException", message);
 }
 
-pub fn throw_io_exception(env: &mut JNIEnv, message: impl AsRef<str>) {
-    if env.throw_new("java/io/IOException", message.as_ref()).is_err() {
-        log::error!("Failed to throw IOException: {}", message.as_ref());
-    }
+pub fn throw_illegal_state(env: &mut EnvUnowned<'_>, message: impl AsRef<str>) {
+    throw_exception(env, "java/lang/IllegalStateException", "IllegalStateException", message);
 }
 
-pub fn throw_runtime_exception(env: &mut JNIEnv, message: impl AsRef<str>) {
-    if env.throw_new("java/lang/RuntimeException", message.as_ref()).is_err() {
-        log::error!("Failed to throw RuntimeException: {}", message.as_ref());
-    }
+pub fn throw_illegal_state_env(env: &mut Env<'_>, message: impl AsRef<str>) {
+    throw_exception_env(env, "java/lang/IllegalStateException", "IllegalStateException", message);
+}
+
+pub fn throw_io_exception(env: &mut EnvUnowned<'_>, message: impl AsRef<str>) {
+    throw_exception(env, "java/io/IOException", "IOException", message);
+}
+
+pub fn throw_io_exception_env(env: &mut Env<'_>, message: impl AsRef<str>) {
+    throw_exception_env(env, "java/io/IOException", "IOException", message);
+}
+
+pub fn throw_runtime_exception(env: &mut EnvUnowned<'_>, message: impl AsRef<str>) {
+    throw_exception(env, "java/lang/RuntimeException", "RuntimeException", message);
+}
+
+pub fn throw_runtime_exception_env(env: &mut Env<'_>, message: impl AsRef<str>) {
+    throw_exception_env(env, "java/lang/RuntimeException", "RuntimeException", message);
 }
 
 /// Produce a user-safe error message, stripping internal details in release builds.
@@ -375,19 +386,71 @@ pub fn sanitize_error_message(detail: &str, user_message: &str) -> String {
     }
 }
 
-pub fn describe_exception(env: &mut JNIEnv) -> Option<String> {
-    if !env.exception_check().ok()? {
-        return None;
+pub fn describe_exception(env: &mut EnvUnowned<'_>) -> Option<String> {
+    match env
+        .with_env(|env| -> jni::errors::Result<Option<String>> {
+            if !env.exception_check() {
+                return Ok(None);
+            }
+            let Some(throwable) = env.exception_occurred() else {
+                return Ok(None);
+            };
+            env.exception_clear();
+            Ok(throwable_to_string(env, throwable))
+        })
+        .into_outcome()
+    {
+        Outcome::Ok(description) => description,
+        Outcome::Err(err) => {
+            log::error!("Failed to describe pending Java exception: {err}");
+            None
+        }
+        Outcome::Panic(_) => {
+            log::error!("Panic while describing pending Java exception");
+            None
+        }
     }
-    let throwable = env.exception_occurred().ok()?;
-    env.exception_clear().ok()?;
-    throwable_to_string(env, throwable)
 }
 
-fn throwable_to_string(env: &mut JNIEnv, throwable: JThrowable) -> Option<String> {
-    let text = env.call_method(throwable, "toString", "()Ljava/lang/String;", &[]).ok()?.l().ok()?;
-    let text = jni::objects::JString::from(text);
-    env.get_string(&text).ok().map(Into::into)
+fn throw_exception(env: &mut EnvUnowned<'_>, class_name: &str, exception_name: &str, message: impl AsRef<str>) {
+    match env
+        .with_env(|env| -> jni::errors::Result<()> {
+            throw_exception_env(env, class_name, exception_name, message);
+            Ok(())
+        })
+        .into_outcome()
+    {
+        Outcome::Ok(()) => {}
+        Outcome::Err(err) => {
+            log::error!("Failed to enter JNI env while throwing {exception_name}: {err}");
+        }
+        Outcome::Panic(_) => {
+            log::error!("Panic while preparing to throw {exception_name}");
+        }
+    }
+}
+
+fn throw_exception_env(env: &mut Env<'_>, class_name: &str, exception_name: &str, message: impl AsRef<str>) {
+    let message = message.as_ref();
+    let message_text = message.to_string();
+    let class_name = JNIString::new(class_name);
+    let message = JNIString::new(message);
+    match env.throw_new(class_name.borrowed(), message.borrowed()) {
+        Ok(()) | Err(jni::errors::Error::JavaException) => {}
+        Err(err) => {
+            log::error!("Failed to throw {exception_name}: {message_text}: {err}");
+        }
+    }
+}
+
+fn throwable_to_string(env: &mut Env<'_>, throwable: JThrowable) -> Option<String> {
+    let text = env
+        .call_method(throwable, jni::jni_str!("toString"), jni::jni_sig!("()Ljava/lang/String;"), &[])
+        .ok()?
+        .l()
+        .ok()?;
+    let text = unsafe { JString::from_raw(env, text.into_raw() as jstring) };
+    text.try_to_string(env).ok()
 }
 
 #[cfg(target_os = "android")]
@@ -606,7 +669,7 @@ fn now_ms() -> u64 {
 mod tests {
     use super::*;
     use golden_test_support::assert_text_golden;
-    use jni::{InitArgsBuilder, JNIVersion, JavaVM};
+    use jni::{Env, EnvUnowned, InitArgsBuilder, JNIVersion, JavaVM};
     use once_cell::sync::{Lazy, OnceCell};
     use std::sync::Mutex;
     use tracing_subscriber::prelude::*;
@@ -749,22 +812,22 @@ mod tests {
     fn throw_helpers_map_expected_java_exception_classes() {
         let _serial = JNI_TEST_MUTEX.lock().expect("lock android-support JNI tests");
 
-        with_env(|env| {
+        with_unowned_env(|env| {
             throw_illegal_argument(env, "bad arg");
             assert_eq!(take_exception(env), "java.lang.IllegalArgumentException: bad arg",);
         });
 
-        with_env(|env| {
+        with_unowned_env(|env| {
             throw_illegal_state(env, "bad state");
             assert_eq!(take_exception(env), "java.lang.IllegalStateException: bad state",);
         });
 
-        with_env(|env| {
+        with_unowned_env(|env| {
             throw_io_exception(env, "disk boom");
             assert_eq!(take_exception(env), "java.io.IOException: disk boom",);
         });
 
-        with_env(|env| {
+        with_unowned_env(|env| {
             throw_runtime_exception(env, "runtime boom");
             assert_eq!(take_exception(env), "java.lang.RuntimeException: runtime boom",);
         });
@@ -775,10 +838,15 @@ mod tests {
         let _serial = JNI_TEST_MUTEX.lock().expect("lock android-support JNI tests");
 
         with_env(|env| {
-            env.throw_new("java/lang/RuntimeException", "direct boom").expect("throw direct runtime exception");
+            let err = env
+                .throw_new(jni::jni_str!("java/lang/RuntimeException"), jni::jni_str!("direct boom"))
+                .expect_err("throw direct runtime exception");
+            assert!(matches!(err, jni::errors::Error::JavaException));
 
-            assert_eq!(describe_exception(env), Some("java.lang.RuntimeException: direct boom".to_string()),);
-            assert!(describe_exception(env).is_none(), "describe_exception should clear the pending throwable");
+            with_borrowed_unowned_env(env, |env| {
+                assert_eq!(describe_exception(env), Some("java.lang.RuntimeException: direct boom".to_string()),);
+                assert!(describe_exception(env).is_none(), "describe_exception should clear the pending throwable");
+            });
         });
     }
 
@@ -786,7 +854,7 @@ mod tests {
     fn describe_exception_returns_none_when_no_exception_is_pending() {
         let _serial = JNI_TEST_MUTEX.lock().expect("lock android-support JNI tests");
 
-        with_env(|env| {
+        with_unowned_env(|env| {
             assert!(describe_exception(env).is_none());
         });
     }
@@ -825,7 +893,7 @@ mod tests {
     fn test_jvm() -> &'static JavaVM {
         TEST_JVM.get_or_init(|| {
             let args = InitArgsBuilder::new()
-                .version(JNIVersion::V8)
+                .version(JNIVersion::V1_8)
                 .option("-Xcheck:jni")
                 .build()
                 .expect("build test JVM init args");
@@ -833,12 +901,24 @@ mod tests {
         })
     }
 
-    fn with_env<R>(f: impl FnOnce(&mut JNIEnv<'_>) -> R) -> R {
-        let mut env = test_jvm().attach_current_thread().expect("attach current thread to test JVM");
-        f(&mut env)
+    fn with_env<R>(f: impl FnOnce(&mut Env<'_>) -> R) -> R {
+        test_jvm()
+            .attach_current_thread(|env| Ok::<R, jni::errors::Error>(f(env)))
+            .expect("attach current thread to test JVM")
     }
 
-    fn take_exception(env: &mut JNIEnv<'_>) -> String {
+    fn with_unowned_env<R>(f: impl FnOnce(&mut EnvUnowned<'_>) -> R) -> R {
+        with_env(|env| with_borrowed_unowned_env(env, f))
+    }
+
+    fn with_borrowed_unowned_env<R>(env: &mut Env<'_>, f: impl FnOnce(&mut EnvUnowned<'_>) -> R) -> R {
+        // SAFETY: `env` is attached for this callback scope, and the unowned wrapper
+        // is only used synchronously before the callback returns.
+        let mut unowned_env = unsafe { EnvUnowned::from_raw(env.get_raw()) };
+        f(&mut unowned_env)
+    }
+
+    fn take_exception(env: &mut EnvUnowned<'_>) -> String {
         describe_exception(env).expect("expected Java exception")
     }
 

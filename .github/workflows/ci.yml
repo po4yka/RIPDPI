@@ -51,7 +51,7 @@ jobs:
           toolchain: "1.94.0"
           components: rustfmt, clippy
 
-      - uses: android-actions/setup-android@v3
+      - uses: android-actions/setup-android@v4
 
       - uses: Swatinem/rust-cache@v2
         with:
@@ -79,9 +79,9 @@ jobs:
       - name: Install NDK
         run: sdkmanager --install "ndk;${{ steps.native-toolchain.outputs.ndk }}"
 
-      - uses: mozilla-actions/sccache-action@v0.0.7
+      - uses: mozilla-actions/sccache-action@v0.0.9
 
-      - uses: gradle/actions/setup-gradle@v4
+      - uses: gradle/actions/setup-gradle@v6
 
       - name: Build debug APK and run unit tests
         env:
@@ -102,7 +102,7 @@ jobs:
 
       - name: Upload test results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: test-results
           path: |
@@ -129,7 +129,7 @@ jobs:
           toolchain: "1.94.0"
           components: rustfmt, clippy
 
-      - uses: android-actions/setup-android@v3
+      - uses: android-actions/setup-android@v4
 
       - uses: Swatinem/rust-cache@v2
         with:
@@ -147,9 +147,9 @@ jobs:
       - name: Install NDK
         run: sdkmanager --install "ndk;${{ steps.native-toolchain.outputs.ndk }}"
 
-      - uses: mozilla-actions/sccache-action@v0.0.7
+      - uses: mozilla-actions/sccache-action@v0.0.9
 
-      - uses: gradle/actions/setup-gradle@v4
+      - uses: gradle/actions/setup-gradle@v6
 
       - name: Run cargo-deny
         uses: EmbarkStudios/cargo-deny-action@v2
@@ -172,7 +172,7 @@ jobs:
 
       - name: Upload reports
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: static-analysis-reports
           path: |
@@ -200,7 +200,7 @@ jobs:
           toolchain: "1.94.0"
           components: rustfmt, clippy
 
-      - uses: android-actions/setup-android@v3
+      - uses: android-actions/setup-android@v4
 
       - uses: Swatinem/rust-cache@v2
         with:
@@ -218,9 +218,9 @@ jobs:
       - name: Install NDK
         run: sdkmanager --install "ndk;${{ steps.native-toolchain-release.outputs.ndk }}"
 
-      - uses: mozilla-actions/sccache-action@v0.0.7
+      - uses: mozilla-actions/sccache-action@v0.0.9
 
-      - uses: gradle/actions/setup-gradle@v4
+      - uses: gradle/actions/setup-gradle@v6
 
       - name: Verify minified release build
         env:
@@ -229,7 +229,7 @@ jobs:
 
       - name: Upload release retrace inputs
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: release-retrace-inputs
           path: |
@@ -239,7 +239,7 @@ jobs:
 
       - name: Upload release native symbols
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: release-native-symbols
           path: app/build/intermediates/native_symbol_tables/release/extractReleaseNativeSymbolTables/out/**
@@ -296,7 +296,7 @@ jobs:
 
       - name: Upload CLI packet smoke artifacts
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: cli-packet-smoke
           path: build/packet-smoke/cli/**
@@ -346,7 +346,7 @@ jobs:
           toolchain: "1.94.0"
           components: rustfmt, clippy, llvm-tools
 
-      - uses: android-actions/setup-android@v3
+      - uses: android-actions/setup-android@v4
 
       - uses: Swatinem/rust-cache@v2
         with:
@@ -364,7 +364,7 @@ jobs:
       - name: Install NDK
         run: sdkmanager --install "ndk;${{ steps.native-toolchain-coverage.outputs.ndk }}"
 
-      - uses: gradle/actions/setup-gradle@v4
+      - uses: gradle/actions/setup-gradle@v6
 
       - name: Install cargo-llvm-cov
         uses: taiki-e/install-action@v2
@@ -392,7 +392,7 @@ jobs:
 
       - name: Upload coverage artifacts
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: coverage-artifacts
           path: |
@@ -452,7 +452,7 @@ jobs:
 
       - name: Upload criterion artifacts
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: criterion-bench-artifacts
           path: |
@@ -479,7 +479,7 @@ jobs:
         with:
           toolchain: "1.94.0"
 
-      - uses: android-actions/setup-android@v3
+      - uses: android-actions/setup-android@v4
 
       - uses: Swatinem/rust-cache@v2
         with:
@@ -497,8 +497,8 @@ jobs:
       - name: Install NDK
         run: sdkmanager --install "ndk;${{ steps.native-toolchain.outputs.ndk }}"
 
-      - uses: mozilla-actions/sccache-action@v0.0.7
-      - uses: gradle/actions/setup-gradle@v4
+      - uses: mozilla-actions/sccache-action@v0.0.9
+      - uses: gradle/actions/setup-gradle@v6
 
       - name: Enable KVM for emulator
         run: |
@@ -533,7 +533,7 @@ jobs:
 
       - name: Upload macrobenchmark artifacts
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: macrobenchmark-artifacts
           path: |
@@ -603,7 +603,7 @@ jobs:
 
       - name: Upload native soak artifacts
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: rust-native-soak-artifacts
           path: |
@@ -647,7 +647,7 @@ jobs:
 
       - name: Upload native load artifacts
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: rust-native-load-artifacts
           path: |
@@ -674,7 +674,7 @@ jobs:
           toolchain: "1.94.0"
           components: rustfmt, clippy, llvm-tools
 
-      - uses: android-actions/setup-android@v3
+      - uses: android-actions/setup-android@v4
 
       - uses: Swatinem/rust-cache@v2
         with:
@@ -692,7 +692,7 @@ jobs:
       - name: Install NDK
         run: sdkmanager --install "ndk;${{ steps.nightly-native-toolchain.outputs.ndk }}"
 
-      - uses: gradle/actions/setup-gradle@v4
+      - uses: gradle/actions/setup-gradle@v6
 
       - name: Install cargo-llvm-cov
         uses: taiki-e/install-action@v2
@@ -707,7 +707,7 @@ jobs:
 
       - name: Upload nightly coverage artifacts
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: nightly-coverage-artifacts
           path: |
@@ -733,7 +733,7 @@ jobs:
           toolchain: "1.94.0"
           components: rustfmt, clippy
 
-      - uses: android-actions/setup-android@v3
+      - uses: android-actions/setup-android@v4
 
       - uses: Swatinem/rust-cache@v2
         with:
@@ -751,7 +751,7 @@ jobs:
       - name: Install NDK
         run: sdkmanager --install "ndk;${{ steps.native-toolchain.outputs.ndk }}"
 
-      - uses: gradle/actions/setup-gradle@v4
+      - uses: gradle/actions/setup-gradle@v6
 
       - name: Start local network fixture
         run: |
@@ -808,7 +808,7 @@ jobs:
 
       - name: Upload Android E2E artifacts
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: android-network-e2e-artifacts
           path: |
@@ -838,7 +838,7 @@ jobs:
 
       - name: Upload Android network E2E artifacts
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: android-network-e2e-artifacts
           path: |
@@ -946,7 +946,7 @@ jobs:
 
       - name: Upload Linux TUN soak artifacts
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: linux-tun-soak-artifacts
           path: |

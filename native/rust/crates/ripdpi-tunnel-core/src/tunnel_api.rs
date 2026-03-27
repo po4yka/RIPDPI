@@ -6,6 +6,7 @@
 
 use std::io;
 use std::net::IpAddr;
+use std::os::fd::BorrowedFd;
 use std::os::unix::io::FromRawFd;
 use std::sync::Arc;
 
@@ -66,9 +67,12 @@ pub async fn run_tunnel(
     stats: Arc<Stats>,
 ) -> io::Result<()> {
     // Set the fd to non-blocking so AsyncFd can register it with the reactor.
-    let flags = fcntl(tun_fd, FcntlArg::F_GETFL).map_err(|e| io::Error::from_raw_os_error(e as i32))?;
-    fcntl(tun_fd, FcntlArg::F_SETFL(OFlag::from_bits_truncate(flags) | OFlag::O_NONBLOCK))
-        .map_err(|e| io::Error::from_raw_os_error(e as i32))?;
+    // SAFETY: `tun_fd` is valid for the duration of this block — it is not closed until
+    // `from_raw_fd` below, and `BorrowedFd` does not take ownership.
+    let borrowed_fd = unsafe { BorrowedFd::borrow_raw(tun_fd) };
+    let flags = fcntl(borrowed_fd, FcntlArg::F_GETFL).map_err(io::Error::from)?;
+    fcntl(borrowed_fd, FcntlArg::F_SETFL(OFlag::from_bits_truncate(flags) | OFlag::O_NONBLOCK))
+        .map_err(io::Error::from)?;
 
     // SAFETY: `tun_fd` is valid and its ownership transfers to `file`.
     let file = unsafe { std::fs::File::from_raw_fd(tun_fd) };

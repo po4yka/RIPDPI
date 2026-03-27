@@ -40,7 +40,7 @@ impl FixtureStack {
         .map_err(util::other_io)?;
         let cert_der = certificate.cert.der().clone();
         let cert_pem = certificate.cert.pem();
-        let key_der = PrivateKeyDer::Pkcs8(certificate.key_pair.serialize_der().into());
+        let key_der = PrivateKeyDer::Pkcs8(certificate.signing_key.serialize_der().into());
         let tls_server_config = Arc::new(
             ServerConfig::builder_with_provider(rustls::crypto::ring::default_provider().into())
                 .with_safe_default_protocol_versions()
