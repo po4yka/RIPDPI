@@ -76,7 +76,11 @@ class BaseServiceRuntimeCoordinatorTest {
     fun nonActionableAndCooldownHandoverEventsAreIgnored() =
         runTest {
             val initialFingerprint = sampleFingerprint()
-            val newFingerprint = sampleFingerprint(dnsServers = listOf("8.8.8.8"))
+            val newFingerprint =
+                sampleFingerprint(dnsServers = listOf("8.8.8.8")).copy(
+                    networkValidated = false,
+                    captivePortalDetected = true,
+                )
             val env = newEnv(fingerprint = initialFingerprint)
 
             env.coordinator.start()
@@ -104,6 +108,18 @@ class BaseServiceRuntimeCoordinatorTest {
             runCurrent()
             assertEquals(1, env.coordinator.restartCalls)
             assertEquals(1, env.handoverEvents.published.size)
+            assertEquals(
+                false,
+                env.handoverEvents.published
+                    .single()
+                    .currentNetworkValidated,
+            )
+            assertEquals(
+                true,
+                env.handoverEvents.published
+                    .single()
+                    .currentCaptivePortalDetected,
+            )
 
             env.clock.now += 1_000L
             env.handoverMonitor.emit(

@@ -171,6 +171,8 @@ internal fun createDiagnosticsServices(
     val scheduler =
         AutomaticProbeScheduler(
             appSettingsRepository = appSettingsRepository,
+            rememberedNetworkPolicyStore = rememberedNetworkPolicyStore,
+            diagnosticsArtifactReadStore = stores,
             launcherProvider =
                 object : Provider<AutomaticProbeLauncher> {
                     override fun get(): AutomaticProbeLauncher = scanController

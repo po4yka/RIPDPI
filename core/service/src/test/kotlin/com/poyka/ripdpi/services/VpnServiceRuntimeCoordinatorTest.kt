@@ -231,8 +231,16 @@ class VpnServiceRuntimeCoordinatorTest {
             assertEquals(1, env.bridgeFactory.bridge.stopCount)
             assertNotNull(override)
             assertEquals("vpn_encrypted_dns_auto_failover: resolver timeout", override?.reason)
-            assertEquals(override?.resolverId, env.bridgeFactory.bridge.startedConfig?.encryptedDnsResolverId)
-            assertEquals(override?.protocol, env.bridgeFactory.bridge.startedConfig?.encryptedDnsProtocol)
+            assertEquals(
+                override?.resolverId,
+                env.bridgeFactory.bridge.startedConfig
+                    ?.encryptedDnsResolverId,
+            )
+            assertEquals(
+                override?.protocol,
+                env.bridgeFactory.bridge.startedConfig
+                    ?.encryptedDnsProtocol,
+            )
         }
 
     @Test
@@ -281,8 +289,16 @@ class VpnServiceRuntimeCoordinatorTest {
 
             val override = requireNotNull(env.resolverOverrides.override.value)
             assertEquals(1, env.factory.runtimes.size)
-            assertEquals(true, env.bridgeFactory.bridge.startedConfig?.resolverFallbackActive)
-            assertEquals(override.reason, env.bridgeFactory.bridge.startedConfig?.resolverFallbackReason)
+            assertEquals(
+                true,
+                env.bridgeFactory.bridge.startedConfig
+                    ?.resolverFallbackActive,
+            )
+            assertEquals(
+                override.reason,
+                env.bridgeFactory.bridge.startedConfig
+                    ?.resolverFallbackReason,
+            )
 
             env.bridgeFactory.bridge.telemetry =
                 NativeRuntimeSnapshot(
@@ -311,11 +327,13 @@ class VpnServiceRuntimeCoordinatorTest {
             assertEquals(1, env.factory.runtimes.size)
             assertEquals(1, env.bridgeFactory.bridge.stopCount)
             assertEquals(
-                env.bridgeFactory.bridge.startedConfig?.encryptedDnsHost,
+                env.bridgeFactory.bridge.startedConfig
+                    ?.encryptedDnsHost,
                 env.preferredPaths.getPreferredPath(scopeKey)?.host,
             )
             assertEquals(
-                env.bridgeFactory.bridge.startedConfig?.encryptedDnsDohUrl,
+                env.bridgeFactory.bridge.startedConfig
+                    ?.encryptedDnsDohUrl,
                 env.preferredPaths.getPreferredPath(scopeKey)?.dohUrl,
             )
         }
@@ -324,7 +342,11 @@ class VpnServiceRuntimeCoordinatorTest {
     fun handoverRestartPublishesPolicyEvent() =
         runTest {
             val initialFingerprint = sampleFingerprint()
-            val newFingerprint = sampleFingerprint(dnsServers = listOf("8.8.4.4"))
+            val newFingerprint =
+                sampleFingerprint(dnsServers = listOf("8.8.4.4")).copy(
+                    networkValidated = false,
+                    captivePortalDetected = true,
+                )
             val env =
                 newEnv(
                     fingerprint = initialFingerprint,
@@ -354,6 +376,18 @@ class VpnServiceRuntimeCoordinatorTest {
                 env.handoverEvents.published
                     .single()
                     .policySignature,
+            )
+            assertEquals(
+                false,
+                env.handoverEvents.published
+                    .single()
+                    .currentNetworkValidated,
+            )
+            assertEquals(
+                true,
+                env.handoverEvents.published
+                    .single()
+                    .currentCaptivePortalDetected,
             )
         }
 

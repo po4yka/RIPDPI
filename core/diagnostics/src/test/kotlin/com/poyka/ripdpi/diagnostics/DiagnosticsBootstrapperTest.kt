@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.diagnostics
 
+import com.poyka.ripdpi.data.diagnostics.DefaultRememberedNetworkPolicyStore
 import com.poyka.ripdpi.diagnostics.contract.profile.BundledDiagnosticProfileWire
 import com.poyka.ripdpi.diagnostics.contract.profile.BundledDiagnosticsCatalogWire
 import com.poyka.ripdpi.diagnostics.contract.profile.BundledDiagnosticsPackWire
@@ -83,6 +84,12 @@ class DiagnosticsBootstrapperTest {
             automaticProbeScheduler =
                 AutomaticProbeScheduler(
                     appSettingsRepository = FakeAppSettingsRepository(),
+                    rememberedNetworkPolicyStore =
+                        DefaultRememberedNetworkPolicyStore(
+                            stores,
+                            TestDiagnosticsHistoryClock(),
+                        ),
+                    diagnosticsArtifactReadStore = stores,
                     launcherProvider = constantProvider(NoopAutomaticProbeLauncher),
                     automaticHandoverProbeDelayMs = 100L,
                     automaticHandoverProbeCooldownMs = 0L,

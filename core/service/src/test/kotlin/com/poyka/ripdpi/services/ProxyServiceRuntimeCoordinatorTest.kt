@@ -109,7 +109,11 @@ class ProxyServiceRuntimeCoordinatorTest {
     fun handoverRestartPublishesPolicyEvent() =
         runTest {
             val initialFingerprint = sampleFingerprint()
-            val newFingerprint = sampleFingerprint(dnsServers = listOf("8.8.8.8"))
+            val newFingerprint =
+                sampleFingerprint(dnsServers = listOf("8.8.8.8")).copy(
+                    networkValidated = false,
+                    captivePortalDetected = true,
+                )
             val env =
                 newEnv(
                     fingerprint = initialFingerprint,
@@ -141,6 +145,18 @@ class ProxyServiceRuntimeCoordinatorTest {
                 env.handoverEvents.published
                     .single()
                     .policySignature,
+            )
+            assertEquals(
+                false,
+                env.handoverEvents.published
+                    .single()
+                    .currentNetworkValidated,
+            )
+            assertEquals(
+                true,
+                env.handoverEvents.published
+                    .single()
+                    .currentCaptivePortalDetected,
             )
         }
 

@@ -7,6 +7,8 @@ data class PolicyHandoverEvent(
     val previousFingerprintHash: String? = null,
     val currentFingerprintHash: String,
     val classification: String,
+    val currentNetworkValidated: Boolean,
+    val currentCaptivePortalDetected: Boolean,
     val usedRememberedPolicy: Boolean,
     val policySignature: String,
     val occurredAt: Long,

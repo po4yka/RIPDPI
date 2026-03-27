@@ -28,6 +28,7 @@ class DiagnosticsDatabaseMigrationTest {
         context.deleteDatabase(Migration2To3DatabaseName)
         context.deleteDatabase(Migration3To4DatabaseName)
         context.deleteDatabase(Migration4To5DatabaseName)
+        context.deleteDatabase(Migration5To6DatabaseName)
     }
 
     @After
@@ -36,6 +37,7 @@ class DiagnosticsDatabaseMigrationTest {
         context.deleteDatabase(Migration2To3DatabaseName)
         context.deleteDatabase(Migration3To4DatabaseName)
         context.deleteDatabase(Migration4To5DatabaseName)
+        context.deleteDatabase(Migration5To6DatabaseName)
     }
 
     @Test
@@ -434,6 +436,76 @@ class DiagnosticsDatabaseMigrationTest {
         }
     }
 
+    @Test
+    fun `migration 5 to 6 preserves telemetry rows and creates fingerprint mode index`() {
+        val helper =
+            FrameworkSQLiteOpenHelperFactory().create(
+                SupportSQLiteOpenHelper.Configuration
+                    .builder(context)
+                    .name(Migration5To6DatabaseName)
+                    .callback(
+                        object : SupportSQLiteOpenHelper.Callback(5) {
+                            override fun onCreate(db: SupportSQLiteDatabase) {
+                                db.execSQL(
+                                    """
+                                    CREATE TABLE IF NOT EXISTS `telemetry_samples` (
+                                        `id` TEXT NOT NULL,
+                                        `sessionId` TEXT,
+                                        `connectionSessionId` TEXT,
+                                        `activeMode` TEXT,
+                                        `connectionState` TEXT NOT NULL,
+                                        `networkType` TEXT NOT NULL,
+                                        `publicIp` TEXT,
+                                        `failureClass` TEXT,
+                                        `telemetryNetworkFingerprintHash` TEXT,
+                                        `createdAt` INTEGER NOT NULL,
+                                        PRIMARY KEY(`id`)
+                                    )
+                                    """.trimIndent(),
+                                )
+                                db.execSQL(
+                                    """
+                                    INSERT INTO `telemetry_samples`
+                                        (`id`, `sessionId`, `connectionSessionId`, `activeMode`, `connectionState`,
+                                         `networkType`, `publicIp`, `failureClass`, `telemetryNetworkFingerprintHash`, `createdAt`)
+                                    VALUES
+                                        ('telemetry-1', 'scan-1', 'connection-1', 'VPN', 'Failed', 'wifi',
+                                         '198.51.100.10', 'dns_tampering', 'fp-1', 42)
+                                    """.trimIndent(),
+                                )
+                            }
+
+                            override fun onUpgrade(
+                                db: SupportSQLiteDatabase,
+                                oldVersion: Int,
+                                newVersion: Int,
+                            ) = Unit
+                        },
+                    ).build(),
+            )
+
+        try {
+            val db = helper.writableDatabase
+            DiagnosticsMigration5To6.migrate(db)
+
+            assertEquals(1, db.rowCount("SELECT COUNT(*) FROM telemetry_samples"))
+
+            val indexNames =
+                db.query("PRAGMA index_list(`telemetry_samples`)").use { cursor ->
+                    buildSet {
+                        val nameIndex = cursor.getColumnIndexOrThrow("name")
+                        while (cursor.moveToNext()) {
+                            add(cursor.getString(nameIndex))
+                        }
+                    }
+                }
+
+            assertTrue(indexNames.contains("index_telemetry_samples_fingerprint_mode_createdAt"))
+        } finally {
+            helper.close()
+        }
+    }
+
     private fun SupportSQLiteDatabase.rowCount(query: String): Int =
         query(query).use { cursor ->
             cursor.moveToFirst()
@@ -445,5 +517,6 @@ class DiagnosticsDatabaseMigrationTest {
         const val Migration2To3DatabaseName = "diagnostics-migration-2-to-3.db"
         const val Migration3To4DatabaseName = "diagnostics-migration-3-to-4.db"
         const val Migration4To5DatabaseName = "diagnostics-migration-4-to-5.db"
+        const val Migration5To6DatabaseName = "diagnostics-migration-5-to-6.db"
     }
 }
