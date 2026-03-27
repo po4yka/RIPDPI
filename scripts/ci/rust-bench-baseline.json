@@ -1,0 +1,13 @@
+{
+  "maxRegressionPercent": 10.0,
+  "benchmarks": {
+    "cli-parse_basic": {
+      "mean_ns": 16654.27929087099,
+      "median_ns": 16169.592244613894
+    },
+    "json-config-parse_command-line-payload": {
+      "mean_ns": 18419.93665269647,
+      "median_ns": 17461.103733605545
+    }
+  }
+}

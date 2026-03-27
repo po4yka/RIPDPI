@@ -22,6 +22,7 @@ members = [
     "crates/ripdpi-tunnel-core",
     "crates/ripdpi-tunnel-android",
     "crates/ripdpi-cli",
+    "crates/ripdpi-bench",
 ]
 
 [workspace.package]
@@ -46,6 +47,7 @@ ripdpi-ws-tunnel = { path = "crates/ripdpi-ws-tunnel" }
 ripdpi-config = { path = "crates/ripdpi-config" }
 ripdpi-desync = { path = "crates/ripdpi-desync" }
 ripdpi-cli = { path = "crates/ripdpi-cli" }
+criterion = { version = "0.5", features = ["html_reports"] }
 
 ripdpi-tun-driver = { path = "crates/ripdpi-tun-driver" }
 ripdpi-tunnel-config = { path = "crates/ripdpi-tunnel-config" }
@@ -137,6 +139,10 @@ lto = "thin"
 panic = "abort"
 strip = "symbols"
 codegen-units = 1
+
+[profile.bench]
+debug = false
+lto = "thin"
 
 [profile.android-jni]
 inherits = "release"

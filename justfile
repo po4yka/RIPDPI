@@ -141,6 +141,43 @@ coverage:
 coverage-rust:
     bash scripts/ci/run-rust-coverage.sh
 
+# ─── Bench ───────────────────────────────────────────────────
+
+# Run Rust criterion benchmarks locally
+[group('bench')]
+bench-rust:
+    cargo bench --manifest-path {{rust_dir}}/Cargo.toml --package ripdpi-bench
+
+# Run Rust criterion benchmarks and save as local baseline
+[group('bench')]
+bench-rust-save:
+    cargo bench --manifest-path {{rust_dir}}/Cargo.toml --package ripdpi-bench -- --save-baseline local
+
+# Compare Rust benchmarks against saved local baseline
+[group('bench')]
+bench-rust-compare:
+    cargo bench --manifest-path {{rust_dir}}/Cargo.toml --package ripdpi-bench -- --baseline local
+
+# Bless new Rust benchmark baselines for CI
+[group('bench')]
+bench-rust-bless:
+    python3 scripts/ci/check-criterion-regressions.py \
+      --criterion-dir {{rust_dir}}/target/criterion \
+      --dump-current > scripts/ci/rust-bench-baseline.json
+
+# Run Android macrobenchmarks (requires connected device/emulator)
+[group('bench')]
+bench-android:
+    ./gradlew :baselineprofile:connectedAndroidTest \
+      -Pandroid.testInstrumentationRunnerArguments.class=com.poyka.ripdpi.baselineprofile.StartupBenchmark
+
+# Bless new macrobenchmark baselines for CI
+[group('bench')]
+bench-android-bless:
+    python3 scripts/ci/check-macrobenchmark-regressions.py \
+      --results-dir baselineprofile/build/outputs/connected_android_test_additional_output \
+      --dump-current > scripts/ci/macrobenchmark-baseline.json
+
 # ─── CI ───────────────────────────────────────────────────────────
 
 # Run full local CI mirror (lint + test for both Kotlin and Rust)
