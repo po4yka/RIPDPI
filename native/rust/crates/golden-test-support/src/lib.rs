@@ -172,7 +172,7 @@ fn collect_field_paths(value: &Value, prefix: &str, paths: &mut Vec<String>) {
 }
 
 fn cargo_workspace_root() -> PathBuf {
-    let manifest_dir = env::var_os("CARGO_MANIFEST_DIR").map(PathBuf::from).unwrap_or_else(|| PathBuf::from("."));
+    let manifest_dir = env::var_os("CARGO_MANIFEST_DIR").map_or_else(|| PathBuf::from("."), PathBuf::from);
     manifest_dir
         .ancestors()
         .find(|ancestor| {
