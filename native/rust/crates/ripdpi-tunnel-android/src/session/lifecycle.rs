@@ -1,4 +1,4 @@
-use std::os::fd::{AsRawFd, BorrowedFd, IntoRawFd, OwnedFd};
+use std::os::fd::{BorrowedFd, IntoRawFd};
 use std::sync::{Arc, Mutex};
 
 use android_support::{
@@ -19,12 +19,9 @@ use super::registry::{
 };
 
 pub(crate) fn create_session(env: &mut Env<'_>, config_json: JString) -> jlong {
-    let json = match config_json.try_to_string(env) {
-        Ok(value) => value,
-        Err(_) => {
-            throw_illegal_argument_env(env, "Invalid tunnel config payload");
-            return 0;
-        }
+    let Ok(json) = config_json.try_to_string(env) else {
+        throw_illegal_argument_env(env, "Invalid tunnel config payload");
+        return 0;
     };
     let payload = match parse_tunnel_config_json(&json) {
         Ok(payload) => payload,

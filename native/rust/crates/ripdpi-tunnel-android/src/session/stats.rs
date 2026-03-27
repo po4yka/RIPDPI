@@ -38,7 +38,7 @@ pub(crate) fn stats_session(env: &mut Env<'_>, handle: jlong) -> jlongArray {
                 saturate_u64_to_i64(snapshot.2),
                 saturate_u64_to_i64(snapshot.3),
             ];
-            if env.set_long_array_region(&arr, 0, &values).is_ok() {
+            if arr.set_region(env, 0, &values).is_ok() {
                 arr.into_raw()
             } else {
                 std::ptr::null_mut()
