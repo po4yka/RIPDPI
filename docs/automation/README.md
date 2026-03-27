@@ -48,7 +48,19 @@ Smoke flows live in [`maestro/`](../../maestro/README.md).
 maestro test maestro
 ```
 
+## Appium
+
+Python + pytest smoke tests live in [`appium/`](../../appium/README.md). They use the same launch
+contract as Maestro but provide programmatic page-object-driven assertions.
+
+```bash
+cd appium
+pytest tests/ -v
+```
+
 ## CI
 
-The GitHub Actions `CI` workflow exposes a manual `run_maestro_smoke` input. When enabled on
-`workflow_dispatch`, Maestro smoke flows run after `connectedDebugAndroidTest` in the emulator lane.
+The GitHub Actions `CI` workflow exposes manual inputs on `workflow_dispatch`:
+
+- `run_maestro_smoke` -- Maestro smoke flows run after `connectedDebugAndroidTest` in the emulator lane.
+- `run_appium_smoke` -- Appium smoke tests run after Maestro (if enabled) in the same emulator lane.
