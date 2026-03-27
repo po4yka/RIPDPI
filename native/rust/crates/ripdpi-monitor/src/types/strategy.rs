@@ -7,6 +7,8 @@ pub struct StrategyProbeReport {
     pub tcp_candidates: Vec<StrategyProbeCandidateSummary>,
     pub quic_candidates: Vec<StrategyProbeCandidateSummary>,
     pub recommendation: StrategyProbeRecommendation,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub audit_assessment: Option<StrategyProbeAuditAssessment>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -39,4 +41,49 @@ pub struct StrategyProbeRecommendation {
     pub quic_candidate_label: String,
     pub rationale: String,
     pub recommended_proxy_config_json: String,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum StrategyProbeAuditConfidenceLevel {
+    High,
+    Medium,
+    Low,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct StrategyProbeAuditCoverage {
+    pub tcp_candidates_planned: usize,
+    pub tcp_candidates_executed: usize,
+    pub tcp_candidates_skipped: usize,
+    pub tcp_candidates_not_applicable: usize,
+    pub quic_candidates_planned: usize,
+    pub quic_candidates_executed: usize,
+    pub quic_candidates_skipped: usize,
+    pub quic_candidates_not_applicable: usize,
+    pub tcp_winner_succeeded_targets: usize,
+    pub tcp_winner_total_targets: usize,
+    pub quic_winner_succeeded_targets: usize,
+    pub quic_winner_total_targets: usize,
+    pub matrix_coverage_percent: usize,
+    pub winner_coverage_percent: usize,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct StrategyProbeAuditConfidence {
+    pub level: StrategyProbeAuditConfidenceLevel,
+    pub score: usize,
+    pub rationale: String,
+    #[serde(default)]
+    pub warnings: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct StrategyProbeAuditAssessment {
+    pub dns_short_circuited: bool,
+    pub coverage: StrategyProbeAuditCoverage,
+    pub confidence: StrategyProbeAuditConfidence,
 }

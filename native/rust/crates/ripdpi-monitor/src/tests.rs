@@ -41,12 +41,25 @@ fn minimal_ui_config() -> ProxyUiConfig {
 }
 
 fn strategy_probe_request(base_ui: ProxyUiConfig) -> ScanRequest {
+    strategy_probe_request_with_suite(base_ui, "quick_v1", "automatic-probing", "Automatic probing")
+}
+
+fn strategy_probe_request_with_suite(
+    base_ui: ProxyUiConfig,
+    suite_id: &str,
+    profile_id: &str,
+    display_name: &str,
+) -> ScanRequest {
     ScanRequest {
-        profile_id: "automatic-probing".to_string(),
-        display_name: "Automatic probing".to_string(),
+        profile_id: profile_id.to_string(),
+        display_name: display_name.to_string(),
         path_mode: ScanPathMode::RawPath,
         kind: ScanKind::StrategyProbe,
-        family: DiagnosticProfileFamily::AutomaticProbing,
+        family: if suite_id == "full_matrix_v1" {
+            DiagnosticProfileFamily::AutomaticAudit
+        } else {
+            DiagnosticProfileFamily::AutomaticProbing
+        },
         region_tag: None,
         manual_only: false,
         pack_refs: vec![],
@@ -69,7 +82,7 @@ fn strategy_probe_request(base_ui: ProxyUiConfig) -> ScanRequest {
         whitelist_sni: vec![],
         telegram_target: None,
         strategy_probe: Some(StrategyProbeRequest {
-            suite_id: "quick_v1".to_string(),
+            suite_id: suite_id.to_string(),
             base_proxy_config_json: Some(
                 serde_json::to_string(&ProxyConfigPayload::Ui {
                     strategy_preset: None,
@@ -622,6 +635,29 @@ fn monitor_session_strategy_probe_returns_structured_recommendation() {
         "recommended TCP candidate must be a non-skipped candidate in the list"
     );
     assert!(!strategy_probe.recommendation.recommended_proxy_config_json.is_empty());
+    assert!(strategy_probe.audit_assessment.is_none());
+}
+
+#[test]
+fn monitor_session_full_matrix_strategy_probe_reports_audit_assessment() {
+    let _serial = lock_network_probes();
+    let server = HttpTextServer::start_text("HTTP/1.1 200 OK", "probe");
+    let mut request =
+        strategy_probe_request_with_suite(minimal_ui_config(), "full_matrix_v1", "automatic-audit", "Automatic audit");
+    request.domain_targets[0].http_port = Some(server.port());
+    let session = MonitorSession::new();
+
+    session.start_scan("session-audit".to_string(), request.into()).expect("start automatic audit");
+    let report = wait_for_report(&session);
+    let strategy_probe = report.strategy_probe_report.expect("strategy probe report");
+    let audit_assessment = strategy_probe.audit_assessment.expect("audit assessment");
+
+    assert_eq!(report.profile_id, "automatic-audit");
+    assert_eq!(strategy_probe.suite_id, "full_matrix_v1");
+    assert!(report.summary.contains("confidence "));
+    assert!(report.summary.contains("matrix coverage "));
+    assert!(audit_assessment.coverage.tcp_candidates_planned >= strategy_probe.tcp_candidates.len());
+    assert!(audit_assessment.coverage.quic_candidates_planned >= strategy_probe.quic_candidates.len());
 }
 
 #[test]

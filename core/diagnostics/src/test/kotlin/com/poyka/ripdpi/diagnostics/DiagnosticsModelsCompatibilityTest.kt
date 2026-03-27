@@ -68,6 +68,40 @@ class DiagnosticsModelsCompatibilityTest {
     }
 
     @Test
+    fun `legacy strategy probe report decodes without audit assessment`() {
+        val report =
+            json.decodeFromString(
+                ScanReport.serializer(),
+                """
+                {
+                  "sessionId": "session-1",
+                  "profileId": "automatic-audit",
+                  "pathMode": "RAW_PATH",
+                  "startedAt": 1,
+                  "finishedAt": 2,
+                  "summary": "audit complete",
+                  "results": [],
+                  "strategyProbeReport": {
+                    "suiteId": "full_matrix_v1",
+                    "tcpCandidates": [],
+                    "quicCandidates": [],
+                    "recommendation": {
+                      "tcpCandidateId": "tcp-1",
+                      "tcpCandidateLabel": "TCP candidate",
+                      "quicCandidateId": "quic-1",
+                      "quicCandidateLabel": "QUIC candidate",
+                      "rationale": "best path",
+                      "recommendedProxyConfigJson": "{}"
+                    }
+                  }
+                }
+                """.trimIndent(),
+            )
+
+        assertNull(report.strategyProbeReport?.auditAssessment)
+    }
+
+    @Test
     fun `new scan request round trips profile metadata and target packs`() {
         val request =
             ScanRequest(
@@ -150,6 +184,83 @@ class DiagnosticsModelsCompatibilityTest {
         assertEquals(1, decoded.diagnoses.size)
         assertEquals("dns_tampering", decoded.diagnoses.single().code)
         assertEquals(1, decoded.packVersions["ru-independent-media"])
+    }
+
+    @Test
+    fun `new strategy probe audit assessment round trips through scan report`() {
+        val report =
+            ScanReport(
+                sessionId = "session-1",
+                profileId = "automatic-audit",
+                pathMode = ScanPathMode.RAW_PATH,
+                startedAt = 1,
+                finishedAt = 2,
+                summary = "audit complete",
+                strategyProbeReport =
+                    StrategyProbeReport(
+                        suiteId = "full_matrix_v1",
+                        tcpCandidates = emptyList(),
+                        quicCandidates = emptyList(),
+                        recommendation =
+                            StrategyProbeRecommendation(
+                                tcpCandidateId = "tcp-1",
+                                tcpCandidateLabel = "TCP candidate",
+                                quicCandidateId = "quic-1",
+                                quicCandidateLabel = "QUIC candidate",
+                                rationale = "best path",
+                                recommendedProxyConfigJson = "{}",
+                            ),
+                        auditAssessment =
+                            StrategyProbeAuditAssessment(
+                                dnsShortCircuited = false,
+                                coverage =
+                                    StrategyProbeAuditCoverage(
+                                        tcpCandidatesPlanned = 11,
+                                        tcpCandidatesExecuted = 8,
+                                        tcpCandidatesSkipped = 1,
+                                        tcpCandidatesNotApplicable = 0,
+                                        quicCandidatesPlanned = 2,
+                                        quicCandidatesExecuted = 2,
+                                        quicCandidatesSkipped = 0,
+                                        quicCandidatesNotApplicable = 0,
+                                        tcpWinnerSucceededTargets = 3,
+                                        tcpWinnerTotalTargets = 3,
+                                        quicWinnerSucceededTargets = 1,
+                                        quicWinnerTotalTargets = 1,
+                                        matrixCoveragePercent = 77,
+                                        winnerCoveragePercent = 100,
+                                    ),
+                                confidence =
+                                    StrategyProbeAuditConfidence(
+                                        level = StrategyProbeAuditConfidenceLevel.MEDIUM,
+                                        score = 75,
+                                        rationale = "Audit rationale",
+                                        warnings =
+                                            listOf(
+                                                "TCP matrix coverage stayed below 75% of planned candidates.",
+                                            ),
+                                    ),
+                            ),
+                    ),
+            )
+
+        val decoded =
+            json.decodeFromString(ScanReport.serializer(), json.encodeToString(ScanReport.serializer(), report))
+
+        assertEquals(
+            StrategyProbeAuditConfidenceLevel.MEDIUM,
+            decoded.strategyProbeReport
+                ?.auditAssessment
+                ?.confidence
+                ?.level,
+        )
+        assertEquals(
+            77,
+            decoded.strategyProbeReport
+                ?.auditAssessment
+                ?.coverage
+                ?.matrixCoveragePercent,
+        )
     }
 
     @Test
