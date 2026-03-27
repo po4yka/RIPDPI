@@ -52,7 +52,17 @@ class ScanAdmissionService
 
         suspend fun admitManualStart():
             Pair<com.poyka.ripdpi.proto.AppSettings, com.poyka.ripdpi.data.diagnostics.DiagnosticProfileEntity> {
-            check(!activeScanRegistry.hasActiveScan()) { "Diagnostics scan already active" }
+            when {
+                activeScanRegistry.hasHiddenActiveScan() -> {
+                    throw DiagnosticsScanStartRejectedException(
+                        DiagnosticsScanStartRejectionReason.HiddenAutomaticProbeRunning,
+                    )
+                }
+
+                activeScanRegistry.hasActiveScan() -> {
+                    throw DiagnosticsScanStartRejectedException(DiagnosticsScanStartRejectionReason.ScanAlreadyActive)
+                }
+            }
             val settings = appSettingsRepository.snapshot()
             val profileId = settings.diagnosticsActiveProfileId.ifEmpty { "default" }
             val profile =
@@ -111,8 +121,11 @@ class ActiveScanRegistry
 
         fun preferredDnsPath(sessionId: String): EncryptedDnsPathCandidate? = scanSessionPreferredDnsPaths[sessionId]
 
-        fun hasActiveScan(): Boolean =
-            timelineSource.activeScanProgress.value != null || hasRegisteredActiveBridge || hiddenScanCount.get() > 0
+        fun hasVisibleActiveScan(): Boolean = timelineSource.activeScanProgress.value != null || hasRegisteredActiveBridge
+
+        fun hasHiddenActiveScan(): Boolean = hiddenScanCount.get() > 0
+
+        fun hasActiveScan(): Boolean = hasVisibleActiveScan() || hasHiddenActiveScan()
 
         suspend fun cancelActiveScan(): String? {
             val (bridge, sessionId, executionJob) =
@@ -323,7 +336,7 @@ class ScanFinalizationService
         private val scanRecordStore: DiagnosticsScanRecordStore,
         private val artifactWriteStore: DiagnosticsArtifactWriteStore,
         private val networkMetadataProvider: NetworkMetadataProvider,
-        private val networkFingerprintProvider: NetworkFingerprintProvider,
+        networkFingerprintProvider: NetworkFingerprintProvider,
         private val diagnosticsContextProvider: DiagnosticsContextProvider,
         private val serviceStateStore: ServiceStateStore,
         private val resolverOverrideStore: ResolverOverrideStore,
@@ -373,7 +386,11 @@ class ScanFinalizationService
                 json = json,
             )
             rememberNetworkDnsPathPreference(prepared.networkFingerprint, finalReport.resolverRecommendation)
-            rememberStrategyProbeRecommendation(finalReport, prepared.settings)
+            rememberStrategyProbeRecommendation(
+                report = finalReport,
+                settings = prepared.settings,
+                fingerprint = prepared.networkFingerprint,
+            )
             persistPostScanArtifacts(prepared.sessionId)
             return derived
         }
@@ -444,9 +461,9 @@ class ScanFinalizationService
         private suspend fun rememberStrategyProbeRecommendation(
             report: ScanReport,
             settings: com.poyka.ripdpi.proto.AppSettings,
+            fingerprint: NetworkFingerprint?,
         ) {
             val strategyProbe = report.strategyProbeReport
-            val fingerprint = networkFingerprintProvider.capture()
             val shouldRemember = settings.networkStrategyMemoryEnabled && !settings.enableCmdSettings
             val policy =
                 if (shouldRemember && strategyProbe != null && fingerprint != null) {

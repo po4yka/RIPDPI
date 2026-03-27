@@ -42,10 +42,12 @@ pub use types::{
     DomainObservationFact, DomainTarget, EndpointProbeStatus, HttpProbeStatus, NativeSessionEvent, ObservationKind,
     ProbeDetail, ProbeObservation, ProbeResult, ProbeTask, ProbeTaskFamily, QuicObservationFact, QuicProbeStatus,
     QuicTarget, ScanKind, ScanPathMode, ScanProgress, ScanReport, ScanRequest, ServiceObservationFact, ServiceTarget,
-    StrategyObservationFact, StrategyProbeCandidateSummary, StrategyProbeProtocol, StrategyProbeRecommendation,
-    StrategyProbeReport, StrategyProbeRequest, StrategyProbeStatus, TcpObservationFact, TcpProbeStatus, TcpTarget,
-    TelegramDcEndpoint, TelegramObservationFact, TelegramTarget, TelegramTransferStatus, TelegramVerdict,
-    ThroughputObservationFact, ThroughputProbeStatus, ThroughputTarget, TlsProbeStatus, TransportFailureKind,
+    StrategyObservationFact, StrategyProbeAuditAssessment, StrategyProbeAuditConfidence,
+    StrategyProbeAuditConfidenceLevel, StrategyProbeAuditCoverage, StrategyProbeCandidateSummary,
+    StrategyProbeProtocol, StrategyProbeRecommendation, StrategyProbeReport, StrategyProbeRequest, StrategyProbeStatus,
+    TcpObservationFact, TcpProbeStatus, TcpTarget, TelegramDcEndpoint, TelegramObservationFact, TelegramTarget,
+    TelegramTransferStatus, TelegramVerdict, ThroughputObservationFact, ThroughputProbeStatus, ThroughputTarget,
+    TlsProbeStatus, TransportFailureKind,
 };
 pub use wire::{
     EngineObservationWire, EngineProbeResultWire, EngineProbeTaskFamily, EngineProbeTaskWire, EngineProgressWire,

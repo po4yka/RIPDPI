@@ -1,8 +1,11 @@
 package com.poyka.ripdpi.activities
 
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onNodeWithTag
 import com.poyka.ripdpi.ui.screens.diagnostics.DiagnosticsRoute
+import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import com.poyka.ripdpi.util.MainDispatcherRule
 import org.junit.Assert.assertEquals
@@ -59,5 +62,44 @@ class DiagnosticsRouteTest {
         composeRule.waitForIdle()
 
         assertEquals(1, diagnosticsBootstrapper.initializeCalls)
+    }
+
+    @Test
+    fun `route shows snackbar when scan start fails`() {
+        val manager =
+            FakeDiagnosticsManager().apply {
+                scanController.onStartScan = {
+                    throw IllegalStateException("boom")
+                }
+            }
+        val viewModel =
+            createDiagnosticsViewModel(
+                appContext = RuntimeEnvironment.getApplication(),
+                diagnosticsManager = manager,
+                appSettingsRepository = FakeAppSettingsRepository(),
+            )
+
+        composeRule.setContent {
+            RipDpiTheme {
+                DiagnosticsRoute(
+                    onShareArchive = { _, _ -> },
+                    onSaveArchive = { _, _ -> },
+                    onShareSummary = { _, _ -> },
+                    onSaveLogs = {},
+                    onOpenHistory = {},
+                    viewModel = viewModel,
+                )
+            }
+        }
+
+        composeRule.runOnUiThread {
+            viewModel.startRawScan()
+        }
+        composeRule.waitUntil(timeoutMillis = 5_000) {
+            runCatching {
+                composeRule.onNodeWithTag(RipDpiTestTags.DiagnosticsStatusSnackbar).assertIsDisplayed()
+            }.isSuccess
+        }
+        composeRule.onNodeWithTag(RipDpiTestTags.DiagnosticsStatusSnackbar).assertIsDisplayed()
     }
 }

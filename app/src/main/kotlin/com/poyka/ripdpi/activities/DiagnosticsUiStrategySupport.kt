@@ -165,6 +165,7 @@ internal fun DiagnosticsUiFactorySupport.toStrategyProbeReportUiModel(
         suiteId = report.suiteId,
         suiteLabel = strategyProbeSuiteLabel(report.suiteId),
         summaryMetrics = buildStrategyProbeSummaryMetrics(report),
+        auditAssessment = report.auditAssessment,
         recommendation = toStrategyProbeRecommendationUiModel(report.recommendation),
         families =
             listOf(

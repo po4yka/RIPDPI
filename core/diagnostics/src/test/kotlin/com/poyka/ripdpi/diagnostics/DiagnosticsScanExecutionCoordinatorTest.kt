@@ -20,6 +20,7 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.builtins.ListSerializer
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -291,18 +292,23 @@ class DiagnosticsScanExecutionCoordinatorTest {
                     .toBuilder()
                     .setNetworkStrategyMemoryEnabled(true)
                     .build()
-            val networkFingerprintProvider = FakeNetworkFingerprintProvider()
+            val preparedFingerprint = strategyProbeFingerprint(ssid = "network-default", gateway = "192.0.2.1")
             val fixtures =
                 executionCoordinatorFixtures(
                     stores = stores,
                     timelineSource = timelineSource,
                     serviceStateStore = serviceStateStore,
-                    networkFingerprintProvider = networkFingerprintProvider,
+                    networkFingerprintProvider = MutableNetworkFingerprintProvider(preparedFingerprint),
                     preferredPathStore = DefaultNetworkDnsPathPreferenceStore(stores, clock),
                     rememberedNetworkPolicyStore = DefaultRememberedNetworkPolicyStore(stores, clock),
                     json = json,
                 )
-            val prepared = preparedDiagnosticsScan(sessionId = "session-strategy", settings = settings)
+            val prepared =
+                preparedDiagnosticsScan(
+                    sessionId = "session-strategy",
+                    settings = settings,
+                    networkFingerprint = preparedFingerprint,
+                )
             seedPreparedScan(stores, prepared)
             fixtures.activeScanRegistry.rememberPreparedScan(prepared)
             val bridge =
@@ -332,6 +338,123 @@ class DiagnosticsScanExecutionCoordinatorTest {
                     .single()
                     .status,
             )
+            assertEquals(
+                preparedFingerprint.scopeKey(),
+                stores.rememberedPoliciesState.value
+                    .single()
+                    .fingerprintHash,
+            )
+        }
+
+    @Test
+    fun `strategy probe completion keeps prepared fingerprint when provider changes`() =
+        runTest {
+            val stores = FakeDiagnosticsHistoryStores()
+            val clock = TestDiagnosticsHistoryClock()
+            val timelineSource = timelineSource(stores, backgroundScope)
+            val serviceStateStore = FakeServiceStateStore(initialStatus = AppStatus.Running to Mode.VPN)
+            val settings =
+                defaultDiagnosticsAppSettings()
+                    .toBuilder()
+                    .setNetworkStrategyMemoryEnabled(true)
+                    .build()
+            val preparedFingerprint = strategyProbeFingerprint(ssid = "network-a", gateway = "192.0.2.10")
+            val changedFingerprint = strategyProbeFingerprint(ssid = "network-b", gateway = "192.0.2.20")
+            val networkFingerprintProvider = MutableNetworkFingerprintProvider(preparedFingerprint)
+            val fixtures =
+                executionCoordinatorFixtures(
+                    stores = stores,
+                    timelineSource = timelineSource,
+                    serviceStateStore = serviceStateStore,
+                    networkFingerprintProvider = networkFingerprintProvider,
+                    preferredPathStore = DefaultNetworkDnsPathPreferenceStore(stores, clock),
+                    rememberedNetworkPolicyStore = DefaultRememberedNetworkPolicyStore(stores, clock),
+                    json = json,
+                )
+            val prepared =
+                preparedDiagnosticsScan(
+                    sessionId = "session-strategy-fingerprint",
+                    settings = settings,
+                    networkFingerprint = preparedFingerprint,
+                )
+            seedPreparedScan(stores, prepared)
+            fixtures.activeScanRegistry.rememberPreparedScan(prepared)
+            val bridge =
+                FakeNetworkDiagnosticsBridge(json).apply {
+                    autoCompleteOnStart = false
+                    enqueueProgress(
+                        ScanProgress(
+                            sessionId = prepared.sessionId,
+                            phase = "complete",
+                            completedSteps = 1,
+                            totalSteps = 1,
+                            message = "complete",
+                            isFinished = true,
+                        ),
+                    )
+                    enqueueReport(scanReportWithStrategyProbe(prepared.sessionId, settings))
+                }
+            fixtures.activeScanRegistry.registerBridge(bridge, prepared.sessionId, prepared.registerActiveBridge)
+            val handle = BridgeSessionHandle(bridge, prepared.sessionId, prepared.registerActiveBridge)
+            networkFingerprintProvider.fingerprint = changedFingerprint
+
+            fixtures.coordinator.execute(prepared, handle, rawPathRunner = { block -> block() })
+
+            val rememberedPolicy = stores.rememberedPoliciesState.value.single()
+            assertEquals(preparedFingerprint.scopeKey(), rememberedPolicy.fingerprintHash)
+            assertNotEquals(changedFingerprint.scopeKey(), rememberedPolicy.fingerprintHash)
+        }
+
+    @Test
+    fun `strategy probe completion skips remembered policy when prepared fingerprint is missing`() =
+        runTest {
+            val stores = FakeDiagnosticsHistoryStores()
+            val clock = TestDiagnosticsHistoryClock()
+            val timelineSource = timelineSource(stores, backgroundScope)
+            val serviceStateStore = FakeServiceStateStore(initialStatus = AppStatus.Running to Mode.VPN)
+            val settings =
+                defaultDiagnosticsAppSettings()
+                    .toBuilder()
+                    .setNetworkStrategyMemoryEnabled(true)
+                    .build()
+            val fixtures =
+                executionCoordinatorFixtures(
+                    stores = stores,
+                    timelineSource = timelineSource,
+                    serviceStateStore = serviceStateStore,
+                    preferredPathStore = DefaultNetworkDnsPathPreferenceStore(stores, clock),
+                    rememberedNetworkPolicyStore = DefaultRememberedNetworkPolicyStore(stores, clock),
+                    json = json,
+                )
+            val prepared =
+                preparedDiagnosticsScan(
+                    sessionId = "session-strategy-no-fingerprint",
+                    settings = settings,
+                    networkFingerprint = null,
+                )
+            seedPreparedScan(stores, prepared)
+            fixtures.activeScanRegistry.rememberPreparedScan(prepared)
+            val bridge =
+                FakeNetworkDiagnosticsBridge(json).apply {
+                    autoCompleteOnStart = false
+                    enqueueProgress(
+                        ScanProgress(
+                            sessionId = prepared.sessionId,
+                            phase = "complete",
+                            completedSteps = 1,
+                            totalSteps = 1,
+                            message = "complete",
+                            isFinished = true,
+                        ),
+                    )
+                    enqueueReport(scanReportWithStrategyProbe(prepared.sessionId, settings))
+                }
+            fixtures.activeScanRegistry.registerBridge(bridge, prepared.sessionId, prepared.registerActiveBridge)
+            val handle = BridgeSessionHandle(bridge, prepared.sessionId, prepared.registerActiveBridge)
+
+            fixtures.coordinator.execute(prepared, handle, rawPathRunner = { block -> block() })
+
+            assertTrue(stores.rememberedPoliciesState.value.isEmpty())
         }
 
     private fun timelineSource(
@@ -359,7 +482,7 @@ private fun executionCoordinatorFixtures(
     timelineSource: DefaultDiagnosticsTimelineSource,
     serviceStateStore: FakeServiceStateStore,
     resolverOverrideStore: FakeResolverOverrideStore = FakeResolverOverrideStore(),
-    networkFingerprintProvider: FakeNetworkFingerprintProvider = FakeNetworkFingerprintProvider(),
+    networkFingerprintProvider: com.poyka.ripdpi.data.NetworkFingerprintProvider = FakeNetworkFingerprintProvider(),
     preferredPathStore: DefaultNetworkDnsPathPreferenceStore =
         DefaultNetworkDnsPathPreferenceStore(stores, TestDiagnosticsHistoryClock()),
     rememberedNetworkPolicyStore: DefaultRememberedNetworkPolicyStore =
@@ -645,3 +768,20 @@ private fun scanReportWithStrategyProbe(
             ),
     )
 }
+
+private fun strategyProbeFingerprint(
+    ssid: String,
+    gateway: String,
+) = com.poyka.ripdpi.data.NetworkFingerprint(
+    transport = "wifi",
+    networkValidated = true,
+    captivePortalDetected = false,
+    privateDnsMode = "system",
+    dnsServers = listOf("1.1.1.1"),
+    wifi =
+        com.poyka.ripdpi.data.WifiNetworkIdentityTuple(
+            ssid = ssid,
+            bssid = "aa:bb:cc:dd:ee:ff",
+            gateway = gateway,
+        ),
+)

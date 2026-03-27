@@ -43,6 +43,7 @@ internal fun createDiagnosticsViewModel(
             diagnosticsShareService = diagnosticsShareService,
             diagnosticsResolverActions = diagnosticsResolverActions,
             appSettingsRepository = appSettingsRepository,
+            appContext = appContext,
             rememberedPolicySource = rememberedPolicySource,
             activeConnectionPolicySource = activeConnectionPolicySource,
             serviceStateStore = serviceStateStore,
