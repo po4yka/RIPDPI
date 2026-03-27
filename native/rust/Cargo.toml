@@ -47,7 +47,7 @@ ripdpi-ws-tunnel = { path = "crates/ripdpi-ws-tunnel" }
 ripdpi-config = { path = "crates/ripdpi-config" }
 ripdpi-desync = { path = "crates/ripdpi-desync" }
 ripdpi-cli = { path = "crates/ripdpi-cli" }
-criterion = { version = "0.5", features = ["html_reports"] }
+criterion = { version = "0.8", features = ["html_reports"] }
 
 ripdpi-tun-driver = { path = "crates/ripdpi-tun-driver" }
 ripdpi-tunnel-config = { path = "crates/ripdpi-tunnel-config" }
