@@ -8,6 +8,7 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.async
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.IOException
@@ -277,6 +278,122 @@ class NativeFaultInjectionTest {
             val telemetry = tunnel.telemetry()
 
             assertEquals("idle", telemetry.state)
+        }
+
+    // -- NetworkDiagnostics error paths ---------------------------------------
+
+    @Test
+    fun `diagnostics zero handle creation throws SessionCreationFailed`() =
+        runTest {
+            val bindings = FakeNetworkDiagnosticsBindings().apply { createdHandle = 0L }
+            val diagnostics = NetworkDiagnostics(bindings)
+
+            val error = runCatching { diagnostics.pollProgressJson() }.exceptionOrNull()
+
+            assertTrue(error is NativeError.SessionCreationFailed)
+        }
+
+    @Test
+    fun `diagnostics startScan propagates creation failure`() =
+        runTest {
+            val bindings = FakeNetworkDiagnosticsBindings().apply { createdHandle = 0L }
+            val diagnostics = NetworkDiagnostics(bindings)
+
+            val error =
+                runCatching {
+                    diagnostics.startScan(requestJson = "{}", sessionId = "test-session")
+                }.exceptionOrNull()
+
+            assertTrue(error is NativeError.SessionCreationFailed)
+        }
+
+    @Test
+    fun `diagnostics startScan failure from bindings propagates`() =
+        runTest {
+            val bindings = FakeNetworkDiagnosticsBindings()
+            bindings.faults.enqueue(
+                FaultSpec(
+                    target = DiagnosticsBindingFaultTarget.START_SCAN,
+                    outcome = FaultOutcome.EXCEPTION,
+                    message = "scan start failed",
+                ),
+            )
+            val diagnostics = NetworkDiagnostics(bindings)
+
+            val error =
+                runCatching {
+                    diagnostics.startScan(requestJson = "{}", sessionId = "test-session")
+                }.exceptionOrNull()
+
+            assertTrue(error is IOException)
+        }
+
+    @Test
+    fun `diagnostics cancelScan is no-op when handle is zero`() =
+        runTest {
+            val bindings = FakeNetworkDiagnosticsBindings()
+            val diagnostics = NetworkDiagnostics(bindings)
+
+            diagnostics.cancelScan()
+
+            assertEquals(0, bindings.cancelledHandles.size)
+        }
+
+    @Test
+    fun `diagnostics destroy is no-op when handle is zero`() =
+        runTest {
+            val bindings = FakeNetworkDiagnosticsBindings()
+            val diagnostics = NetworkDiagnostics(bindings)
+
+            diagnostics.destroy()
+
+            assertEquals(0, bindings.destroyedHandles.size)
+        }
+
+    @Test
+    fun `diagnostics pollPassiveEvents propagates creation failure`() =
+        runTest {
+            val bindings = FakeNetworkDiagnosticsBindings().apply { createdHandle = 0L }
+            val diagnostics = NetworkDiagnostics(bindings)
+
+            val error = runCatching { diagnostics.pollPassiveEventsJson() }.exceptionOrNull()
+
+            assertTrue(error is NativeError.SessionCreationFailed)
+        }
+
+    @Test
+    fun `diagnostics takeReport propagates creation failure`() =
+        runTest {
+            val bindings = FakeNetworkDiagnosticsBindings().apply { createdHandle = 0L }
+            val diagnostics = NetworkDiagnostics(bindings)
+
+            val error = runCatching { diagnostics.takeReportJson() }.exceptionOrNull()
+
+            assertTrue(error is NativeError.SessionCreationFailed)
+        }
+
+    @Test
+    fun `diagnostics handle is created lazily on first operation`() =
+        runTest {
+            val bindings = FakeNetworkDiagnosticsBindings()
+            val diagnostics = NetworkDiagnostics(bindings)
+
+            assertEquals(0L, currentHandle(diagnostics))
+
+            diagnostics.pollProgressJson()
+
+            assertEquals(1L, currentHandle(diagnostics))
+        }
+
+    @Test
+    fun `diagnostics poll progress returns null from bindings`() =
+        runTest {
+            val bindings = FakeNetworkDiagnosticsBindings()
+            val diagnostics = NetworkDiagnostics(bindings)
+
+            val result = diagnostics.pollProgressJson()
+
+            assertNull(result)
         }
 
     private fun currentHandle(target: Any): Long {
