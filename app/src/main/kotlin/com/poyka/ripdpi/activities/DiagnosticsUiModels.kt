@@ -15,6 +15,7 @@ import com.poyka.ripdpi.diagnostics.DiagnosticTelemetrySample
 import com.poyka.ripdpi.diagnostics.DiagnosticsRememberedPolicy
 import com.poyka.ripdpi.diagnostics.ScanKind
 import com.poyka.ripdpi.diagnostics.ScanPathMode
+import com.poyka.ripdpi.diagnostics.StrategyProbeAuditAssessment
 
 internal const val StrategyProbeSuiteQuickV1 = "quick_v1"
 internal const val StrategyProbeSuiteFullMatrixV1 = "full_matrix_v1"
@@ -260,6 +261,7 @@ data class DiagnosticsStrategyProbeReportUiModel(
     val suiteId: String,
     val suiteLabel: String,
     val summaryMetrics: List<DiagnosticsMetricUiModel>,
+    val auditAssessment: StrategyProbeAuditAssessment? = null,
     val recommendation: DiagnosticsStrategyProbeRecommendationUiModel,
     val families: List<DiagnosticsStrategyProbeFamilyUiModel>,
     val candidateDetails: Map<String, DiagnosticsStrategyProbeCandidateDetailUiModel> = emptyMap(),
@@ -479,6 +481,10 @@ sealed interface DiagnosticsEffect {
     data class ScanCompleted(
         val summary: String,
         val tone: DiagnosticsTone,
+    ) : DiagnosticsEffect
+
+    data class ScanStartFailed(
+        val message: String,
     ) : DiagnosticsEffect
 }
 

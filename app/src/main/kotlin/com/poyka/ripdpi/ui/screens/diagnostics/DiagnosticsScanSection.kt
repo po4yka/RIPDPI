@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Surface
@@ -43,6 +44,8 @@ import com.poyka.ripdpi.activities.DiagnosticsStrategyProbeReportUiModel
 import com.poyka.ripdpi.activities.DiagnosticsTone
 import com.poyka.ripdpi.activities.PhaseState
 import com.poyka.ripdpi.activities.PhaseStepUiModel
+import com.poyka.ripdpi.diagnostics.StrategyProbeAuditAssessment
+import com.poyka.ripdpi.diagnostics.StrategyProbeAuditConfidenceLevel
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.cards.PresetCard
@@ -87,7 +90,7 @@ internal fun ScanSection(
                 scan.latestResults.isNotEmpty() ||
                 scan.latestSession != null ||
                 scan.resolverRecommendation != null
-                -> RipDpiTestTags.DiagnosticsScanStateContent
+            -> RipDpiTestTags.DiagnosticsScanStateContent
 
             else -> RipDpiTestTags.DiagnosticsScanStateIdle
         }
@@ -144,10 +147,10 @@ internal fun ScanSection(
                 item {
                     SettingsCategoryHeader(title = stringResource(R.string.diagnostics_live_results_title))
                 }
-                items(
+                itemsIndexed(
                     items = progress.completedProbes.reversed().take(LiveProbePreviewCount),
-                    key = { "${it.target}-${it.outcome}" },
-                ) { probe ->
+                    key = { index, probe -> "$index-${probe.target}-${probe.outcome}" },
+                ) { _, probe ->
                     AnimatedVisibility(
                         visible = true,
                         enter =
@@ -648,9 +651,10 @@ internal fun DiagnosticsScanWorkflowCard(
                 text = stringResource(R.string.diagnostics_action_cancel),
                 onClick = onCancelScan,
                 variant = RipDpiButtonVariant.Destructive,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .ripDpiTestTag(RipDpiTestTags.DiagnosticsScanCancelAction),
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .ripDpiTestTag(RipDpiTestTags.DiagnosticsScanCancelAction),
             )
         }
     }
@@ -851,9 +855,10 @@ private fun WorkflowActionRow(
         RipDpiButton(
             text = rawActionLabel(scan, isFullAudit),
             onClick = onRunRawScan,
-            modifier = Modifier
-                .fillMaxWidth()
-                .ripDpiTestTag(RipDpiTestTags.DiagnosticsScanRunRawAction),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .ripDpiTestTag(RipDpiTestTags.DiagnosticsScanRunRawAction),
             enabled = scan.runRawEnabled,
         )
         return
@@ -865,17 +870,19 @@ private fun WorkflowActionRow(
         RipDpiButton(
             text = stringResource(R.string.diagnostics_action_raw),
             onClick = onRunRawScan,
-            modifier = Modifier
-                .weight(1f)
-                .ripDpiTestTag(RipDpiTestTags.DiagnosticsScanRunRawAction),
+            modifier =
+                Modifier
+                    .weight(1f)
+                    .ripDpiTestTag(RipDpiTestTags.DiagnosticsScanRunRawAction),
             enabled = scan.runRawEnabled,
         )
         RipDpiButton(
             text = stringResource(R.string.diagnostics_action_in_path),
             onClick = onRunInPathScan,
-            modifier = Modifier
-                .weight(1f)
-                .ripDpiTestTag(RipDpiTestTags.DiagnosticsScanRunInPathAction),
+            modifier =
+                Modifier
+                    .weight(1f)
+                    .ripDpiTestTag(RipDpiTestTags.DiagnosticsScanRunInPathAction),
             variant = RipDpiButtonVariant.Outline,
             enabled = scan.runInPathEnabled,
         )
@@ -1030,6 +1037,53 @@ internal fun StrategyProbeReportCard(
             style = RipDpiThemeTokens.type.secondaryBody,
             color = colors.mutedForeground,
         )
+        report.auditAssessment?.let { assessment ->
+            HorizontalDivider()
+            RipDpiCard(
+                variant = RipDpiCardVariant.Tonal,
+                modifier = Modifier.ripDpiTestTag(RipDpiTestTags.DiagnosticsStrategyAuditAssessment),
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        text = stringResource(R.string.diagnostics_audit_confidence_title),
+                        style = RipDpiThemeTokens.type.bodyEmphasis,
+                        color = colors.foreground,
+                    )
+                    StatusIndicator(
+                        label = auditConfidenceLabel(assessment.confidence.level),
+                        tone = statusTone(auditConfidenceTone(assessment.confidence.level)),
+                    )
+                }
+                Text(
+                    text = assessment.confidence.rationale,
+                    style = RipDpiThemeTokens.type.secondaryBody,
+                    color = colors.mutedForeground,
+                )
+                MetricsRow(metrics = auditAssessmentMetrics(assessment))
+                if (assessment.confidence.level == StrategyProbeAuditConfidenceLevel.MEDIUM) {
+                    Text(
+                        text = stringResource(R.string.diagnostics_audit_medium_confidence_note),
+                        modifier =
+                            Modifier.ripDpiTestTag(
+                                RipDpiTestTags.DiagnosticsStrategyAuditMediumConfidenceNote,
+                            ),
+                        style = RipDpiThemeTokens.type.secondaryBody,
+                        color = colors.warning,
+                    )
+                }
+                assessment.confidence.warnings.forEach { warning ->
+                    Text(
+                        text = "- $warning",
+                        style = RipDpiThemeTokens.type.secondaryBody,
+                        color = colors.mutedForeground,
+                    )
+                }
+            }
+        }
         LazyRow(horizontalArrangement = Arrangement.spacedBy(spacing.xs)) {
             items(
                 listOf(
@@ -1053,6 +1107,14 @@ internal fun StrategyProbeReportCard(
                 text = stringResource(R.string.diagnostics_audit_candidate_open_hint),
                 style = RipDpiThemeTokens.type.secondaryBody,
                 color = colors.mutedForeground,
+            )
+        }
+        if (report.auditAssessment?.confidence?.level == StrategyProbeAuditConfidenceLevel.LOW) {
+            WarningBanner(
+                title = stringResource(R.string.diagnostics_audit_low_confidence_title),
+                message = stringResource(R.string.diagnostics_audit_low_confidence_body),
+                testTag = RipDpiTestTags.DiagnosticsStrategyAuditLowConfidenceBanner,
+                tone = WarningBannerTone.Warning,
             )
         }
         RipDpiCard(variant = RipDpiCardVariant.Tonal) {
@@ -1108,6 +1170,51 @@ internal fun StrategyProbeReportCard(
         }
     }
 }
+
+private fun auditConfidenceLabel(level: StrategyProbeAuditConfidenceLevel): String =
+    when (level) {
+        StrategyProbeAuditConfidenceLevel.HIGH -> "High"
+        StrategyProbeAuditConfidenceLevel.MEDIUM -> "Medium"
+        StrategyProbeAuditConfidenceLevel.LOW -> "Low"
+    }
+
+private fun auditConfidenceTone(level: StrategyProbeAuditConfidenceLevel): DiagnosticsTone =
+    when (level) {
+        StrategyProbeAuditConfidenceLevel.HIGH -> DiagnosticsTone.Positive
+        StrategyProbeAuditConfidenceLevel.MEDIUM -> DiagnosticsTone.Warning
+        StrategyProbeAuditConfidenceLevel.LOW -> DiagnosticsTone.Negative
+    }
+
+private fun auditAssessmentMetrics(
+    assessment: StrategyProbeAuditAssessment,
+): List<com.poyka.ripdpi.activities.DiagnosticsMetricUiModel> =
+    listOf(
+        com.poyka.ripdpi.activities.DiagnosticsMetricUiModel(
+            label = "Confidence",
+            value = "${auditConfidenceLabel(assessment.confidence.level)} (${assessment.confidence.score}/100)",
+            tone = auditConfidenceTone(assessment.confidence.level),
+        ),
+        com.poyka.ripdpi.activities.DiagnosticsMetricUiModel(
+            label = "Matrix coverage",
+            value = "${assessment.coverage.matrixCoveragePercent}%",
+            tone =
+                if (assessment.coverage.matrixCoveragePercent >= 75) {
+                    DiagnosticsTone.Positive
+                } else {
+                    DiagnosticsTone.Warning
+                },
+        ),
+        com.poyka.ripdpi.activities.DiagnosticsMetricUiModel(
+            label = "Winner coverage",
+            value = "${assessment.coverage.winnerCoveragePercent}%",
+            tone =
+                if (assessment.coverage.winnerCoveragePercent >= 50) {
+                    DiagnosticsTone.Positive
+                } else {
+                    DiagnosticsTone.Warning
+                },
+        ),
+    )
 
 @Composable
 internal fun StrategyProbeCandidateRow(

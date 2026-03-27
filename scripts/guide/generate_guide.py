@@ -1,14 +1,24 @@
 #!/usr/bin/env python3
 """Generate annotated PDF guides from screenshots of the RIPDPI Android app.
 
-Captures screenshots via ADB, then uses Typst to render an A4 PDF with
-vector annotations (arrows, circles, brackets), table of contents, and
-themed layout.
+Captures high-resolution screenshots via ADB from an emulator or physical
+device, composites them into a Pixel device frame, then uses Typst to render
+an A4 PDF with vector annotations, table of contents, and themed layout.
 
 Usage:
     python3 scripts/guide/generate_guide.py \
         --spec scripts/guide/specs/user-guide.yaml \
         --output build/guide/ripdpi-user-guide.pdf
+
+    # Auto-launch emulator:
+    python3 scripts/guide/generate_guide.py \
+        --spec scripts/guide/specs/user-guide.yaml \
+        --emulator
+
+    # Skip framing for quick iteration:
+    python3 scripts/guide/generate_guide.py \
+        --spec scripts/guide/specs/user-guide.yaml \
+        --no-frame --skip-capture
 """
 
 from __future__ import annotations
@@ -51,8 +61,16 @@ class Theme:
 
 AUTOMATION_PREFIX = "com.poyka.ripdpi.automation"
 ACTIVITY = "com.poyka.ripdpi/.activities.MainActivity"
-REMOTE_SCREENSHOT = "/sdcard/guide_screenshot.png"
 TEMPLATES_DIR = Path(__file__).parent / "templates"
+
+# Default AVD name for --emulator mode
+GUIDE_AVD_NAME = "Pixel_9_Pro_XL"
+
+# SDK skin for device frame compositing
+SKIN_NAME = "pixel_9_pro_xl"
+# Layout from SDK skin: screen placed at (57, 56) in a 1466x3101 frame
+FRAME_SCREEN_OFFSET = (57, 56)
+FRAME_SCREEN_SIZE = (1344, 2992)
 
 
 @dataclass
@@ -171,12 +189,55 @@ def load_spec(path: Path) -> GuideSpec:
 # ---------------------------------------------------------------------------
 
 
-def _run_adb(device: str | None, args: list[str], **kwargs: Any) -> subprocess.CompletedProcess[str]:
+def _adb_cmd(device: str | None) -> list[str]:
     cmd = ["adb"]
     if device:
         cmd += ["-s", device]
-    cmd += args
+    return cmd
+
+
+def _run_adb(device: str | None, args: list[str], **kwargs: Any) -> subprocess.CompletedProcess[str]:
+    cmd = _adb_cmd(device) + args
     return subprocess.run(cmd, capture_output=True, text=True, check=True, **kwargs)
+
+
+def _run_adb_bytes(device: str | None, args: list[str]) -> bytes:
+    """Run an ADB command and return raw stdout bytes."""
+    cmd = _adb_cmd(device) + args
+    result = subprocess.run(cmd, capture_output=True, check=True)
+    return result.stdout
+
+
+def setup_demo_mode(device: str | None) -> None:
+    """Enable Android demo mode for a clean, consistent status bar."""
+    _run_adb(device, ["shell", "settings", "put", "global", "sysui_demo_allowed", "1"])
+    demo = "com.android.systemui.demo"
+    broadcasts: list[list[str]] = [
+        # Clock: 12:00
+        ["-e", "command", "clock", "-e", "hhmm", "1200"],
+        # Battery: 100%, not charging
+        ["-e", "command", "battery", "-e", "level", "100", "-e", "plugged", "false"],
+        # WiFi: full signal
+        ["-e", "command", "network", "-e", "wifi", "show", "-e", "level", "4"],
+        # Mobile: hidden
+        ["-e", "command", "network", "-e", "mobile", "show", "-e", "datatype", "none", "-e", "level", "4"],
+        # No notifications
+        ["-e", "command", "notifications", "-e", "visible", "false"],
+        # Hide misc status icons
+        ["-e", "command", "status", "-e", "volume", "hide", "-e", "alarm", "hide",
+         "-e", "sync", "hide", "-e", "tty", "hide", "-e", "eri", "hide",
+         "-e", "mute", "hide", "-e", "speakerphone", "hide"],
+    ]
+    for extra_args in broadcasts:
+        _run_adb(device, ["shell", "am", "broadcast", "-a", demo] + extra_args)
+
+
+def teardown_demo_mode(device: str | None) -> None:
+    """Disable Android demo mode and restore normal status bar."""
+    _run_adb(device, ["shell", "am", "broadcast",
+                       "-a", "com.android.systemui.demo",
+                       "-e", "command", "exit"])
+    _run_adb(device, ["shell", "settings", "put", "global", "sysui_demo_allowed", "0"])
 
 
 def adb_launch_route(
@@ -203,9 +264,9 @@ def adb_launch_route(
 
 
 def adb_screenshot(output_path: Path, device: str | None) -> Path:
-    _run_adb(device, ["shell", "screencap", "-p", REMOTE_SCREENSHOT])
-    _run_adb(device, ["pull", REMOTE_SCREENSHOT, str(output_path)])
-    _run_adb(device, ["shell", "rm", REMOTE_SCREENSHOT])
+    """Capture screenshot via exec-out (streaming, no temp file on device)."""
+    png_bytes = _run_adb_bytes(device, ["exec-out", "screencap", "-p"])
+    output_path.write_bytes(png_bytes)
     return output_path
 
 
@@ -220,7 +281,107 @@ def adb_scroll_to(element_id: str, device: str | None, max_swipes: int = 10) -> 
 
 
 # ---------------------------------------------------------------------------
-# PNG dimensions (no PIL needed)
+# Emulator management
+# ---------------------------------------------------------------------------
+
+
+def _find_sdk_path() -> Path:
+    """Locate Android SDK. Checks env vars, then default macOS path."""
+    for env_var in ("ANDROID_HOME", "ANDROID_SDK_ROOT"):
+        val = __import__("os").environ.get(env_var)
+        if val and Path(val).exists():
+            return Path(val)
+    default = Path.home() / "Library" / "Android" / "sdk"
+    if default.exists():
+        return default
+    print("ERROR: Android SDK not found. Set ANDROID_HOME.")
+    sys.exit(1)
+
+
+def _find_emulator_binary() -> Path:
+    sdk = _find_sdk_path()
+    emulator = sdk / "emulator" / "emulator"
+    if not emulator.exists():
+        print(f"ERROR: emulator binary not found at {emulator}")
+        sys.exit(1)
+    return emulator
+
+
+def launch_emulator(avd_name: str) -> subprocess.Popen[bytes]:
+    """Launch an emulator AVD in the background. Returns the process handle."""
+    emulator = _find_emulator_binary()
+    proc = subprocess.Popen(
+        [str(emulator), "-avd", avd_name,
+         "-gpu", "host", "-no-audio", "-no-boot-anim"],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+    print(f"Emulator launched (PID {proc.pid}), waiting for boot...")
+    # Wait for device to appear
+    subprocess.run(["adb", "wait-for-device"], check=True, timeout=120)
+    # Wait for boot to complete
+    for _ in range(120):
+        result = subprocess.run(
+            ["adb", "shell", "getprop", "sys.boot_completed"],
+            capture_output=True, text=True,
+        )
+        if result.stdout.strip() == "1":
+            print("Emulator booted.")
+            time.sleep(2)  # Extra settle time for SystemUI
+            return proc
+        time.sleep(1)
+    print("WARNING: Emulator boot timeout, proceeding anyway.")
+    return proc
+
+
+# ---------------------------------------------------------------------------
+# Device frame compositing
+# ---------------------------------------------------------------------------
+
+
+def _find_skin_dir() -> Path | None:
+    """Locate the SDK skin directory for the Pixel device frame."""
+    sdk = _find_sdk_path()
+    skin_dir = sdk / "skins" / SKIN_NAME
+    if skin_dir.exists() and (skin_dir / "back.webp").exists():
+        return skin_dir
+    return None
+
+
+def frame_screenshot(screenshot_path: Path, output_path: Path) -> bool:
+    """Composite a screenshot into a Pixel device frame using SDK skin assets.
+
+    Returns True if framing succeeded, False if skin not found (keeps original).
+    """
+    from PIL import Image
+
+    skin_dir = _find_skin_dir()
+    if skin_dir is None:
+        return False
+
+    # Load assets
+    frame_bg = Image.open(skin_dir / "back.webp").convert("RGBA")
+    screen_mask = Image.open(skin_dir / "mask.webp").convert("L")
+    screenshot = Image.open(screenshot_path).convert("RGBA")
+
+    # Resize screenshot to match expected screen size if needed
+    if screenshot.size != tuple(FRAME_SCREEN_SIZE):
+        screenshot = screenshot.resize(FRAME_SCREEN_SIZE, Image.LANCZOS)
+
+    # Apply rounded-corner mask to screenshot
+    screenshot.putalpha(screen_mask)
+
+    # Composite: start with frame background, paste masked screenshot at offset
+    result = frame_bg.copy()
+    result.paste(screenshot, FRAME_SCREEN_OFFSET, mask=screenshot)
+
+    # Save as PNG (lossless)
+    result.save(output_path, "PNG")
+    return True
+
+
+# ---------------------------------------------------------------------------
+# PNG dimensions
 # ---------------------------------------------------------------------------
 
 
@@ -390,6 +551,16 @@ def main() -> None:
         default=None,
         help="Comma-separated list of page IDs to include (default: all)",
     )
+    parser.add_argument(
+        "--no-frame",
+        action="store_true",
+        help="Skip device frame compositing (faster iteration)",
+    )
+    parser.add_argument(
+        "--emulator",
+        action="store_true",
+        help=f"Auto-launch the {GUIDE_AVD_NAME} emulator for capture",
+    )
     args = parser.parse_args()
 
     # Verify typst is available
@@ -418,31 +589,77 @@ def main() -> None:
     screenshots_dir = build_dir / "screenshots"
     screenshots_dir.mkdir(parents=True, exist_ok=True)
 
+    emulator_proc = None
+
     # Phase 1: Capture screenshots
     if not args.skip_capture:
+        # Auto-launch emulator if requested
+        if args.emulator:
+            emulator_proc = launch_emulator(GUIDE_AVD_NAME)
+
         try:
             result = subprocess.run(
                 ["adb", "devices"], capture_output=True, text=True, check=True,
             )
             lines = [ln for ln in result.stdout.strip().split("\n")[1:] if ln.strip()]
             if not lines:
-                print("ERROR: No ADB devices found. Connect a device or start an emulator.")
+                print("ERROR: No ADB devices found. Connect a device or use --emulator.")
                 sys.exit(1)
             print(f"ADB devices: {len(lines)} connected")
         except FileNotFoundError:
             print("ERROR: adb not found. Install Android SDK platform-tools.")
             sys.exit(1)
 
-        for page in spec.pages:
-            print(f"[{page.id}] Capturing...")
+        # Enable demo mode for clean status bar
+        print("Enabling demo mode (clean status bar)...")
+        setup_demo_mode(args.device)
+
+        try:
+            for page in spec.pages:
+                print(f"[{page.id}] Capturing...")
+                try:
+                    capture_page(page, spec, screenshots_dir, args.device)
+                except subprocess.CalledProcessError as e:
+                    print(f"  ERROR: ADB command failed: {e.cmd}")
+                    print(f"  stderr: {e.stderr}")
+                    print(f"  Skipping page '{page.id}'")
+        finally:
+            print("Disabling demo mode...")
             try:
-                capture_page(page, spec, screenshots_dir, args.device)
-            except subprocess.CalledProcessError as e:
-                print(f"  ERROR: ADB command failed: {e.cmd}")
-                print(f"  stderr: {e.stderr}")
-                print(f"  Skipping page '{page.id}'")
+                teardown_demo_mode(args.device)
+            except subprocess.CalledProcessError:
+                pass  # Best-effort cleanup
     else:
         print("Skipping capture (using cached screenshots)")
+
+    # Phase 1.5: Device frame compositing
+    if not args.no_frame:
+        print("Framing screenshots with Pixel device mockup...")
+        framed_dir = build_dir / "framed"
+        framed_dir.mkdir(parents=True, exist_ok=True)
+        framed_any = False
+
+        for page in spec.pages:
+            raw = screenshots_dir / f"{page.id}.png"
+            if not raw.exists():
+                continue
+            framed = framed_dir / f"{page.id}.png"
+            if frame_screenshot(raw, framed):
+                framed_any = True
+                print(f"  [{page.id}] Framed")
+            else:
+                # Fallback: copy original if skin not found
+                import shutil
+                shutil.copy2(raw, framed)
+                print(f"  [{page.id}] Skin not found, using original")
+
+        if framed_any:
+            screenshots_dir = framed_dir  # Point Typst at framed screenshots
+            print(f"Using framed screenshots from {framed_dir.name}/")
+        elif not args.skip_capture:
+            print("WARNING: No device frame skin found, using raw screenshots")
+    else:
+        print("Skipping device framing (--no-frame)")
 
     # Phase 2: Write JSON data for Typst
     data_json = build_dir / "guide-data.json"
@@ -463,6 +680,12 @@ def main() -> None:
     args.output.parent.mkdir(parents=True, exist_ok=True)
     compile_typst(data_json, args.output, root)
     print(f"PDF saved to: {args.output}")
+
+    # Clean up emulator if we launched it
+    if emulator_proc is not None:
+        print("Shutting down emulator...")
+        subprocess.run(["adb", "emu", "kill"], capture_output=True)
+        emulator_proc.wait(timeout=30)
 
 
 if __name__ == "__main__":

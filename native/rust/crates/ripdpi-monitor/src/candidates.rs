@@ -8,7 +8,10 @@ use ripdpi_proxy_config::{
 
 use crate::dns::encrypted_dns_protocol;
 use crate::dns::parse_bootstrap_ips;
-use crate::types::{ProbeResult, StrategyProbeCandidateSummary, StrategyProbeRecommendation};
+use crate::types::{
+    ProbeResult, StrategyProbeAuditAssessment, StrategyProbeAuditConfidenceLevel, StrategyProbeCandidateSummary,
+    StrategyProbeRecommendation,
+};
 use crate::util::{
     ranged_probe_delay, DEFAULT_DOH_BOOTSTRAP_IPS, DEFAULT_DOH_HOST, DEFAULT_DOH_PORT, DEFAULT_DOH_URL,
     HTTP_FAKE_PROFILE_CLOUDFLARE_GET, STRATEGY_PROBE_SUITE_FULL_MATRIX_V1, STRATEGY_PROBE_SUITE_QUICK_V1,
@@ -166,6 +169,7 @@ pub(crate) fn build_strategy_probe_summary(
     tcp_candidates: &[StrategyProbeCandidateSummary],
     quic_candidates: &[StrategyProbeCandidateSummary],
     recommendation: &StrategyProbeRecommendation,
+    audit_assessment: Option<&StrategyProbeAuditAssessment>,
 ) -> String {
     if suite_id != STRATEGY_PROBE_SUITE_FULL_MATRIX_V1 {
         return format!(
@@ -185,7 +189,7 @@ pub(crate) fn build_strategy_probe_summary(
             _ => failed += 1,
         }
     }
-    format!(
+    let mut summary = format!(
         "Recommended {} + {}. Worked {} · partial {} · failed {} · not applicable {}",
         recommendation.tcp_candidate_label,
         recommendation.quic_candidate_label,
@@ -193,7 +197,23 @@ pub(crate) fn build_strategy_probe_summary(
         partial,
         failed,
         not_applicable,
-    )
+    );
+    if let Some(assessment) = audit_assessment {
+        summary.push_str(&format!(
+            " · confidence {} · matrix coverage {}%",
+            strategy_probe_audit_confidence_label(assessment.confidence.level),
+            assessment.coverage.matrix_coverage_percent,
+        ));
+    }
+    summary
+}
+
+fn strategy_probe_audit_confidence_label(level: StrategyProbeAuditConfidenceLevel) -> &'static str {
+    match level {
+        StrategyProbeAuditConfidenceLevel::High => "HIGH",
+        StrategyProbeAuditConfidenceLevel::Medium => "MEDIUM",
+        StrategyProbeAuditConfidenceLevel::Low => "LOW",
+    }
 }
 
 pub(crate) fn build_tcp_candidates(base: &ProxyUiConfig) -> Vec<StrategyCandidateSpec> {
