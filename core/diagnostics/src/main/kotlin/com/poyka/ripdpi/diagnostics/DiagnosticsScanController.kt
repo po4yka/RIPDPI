@@ -48,9 +48,12 @@ internal class DefaultDiagnosticsScanController
 
         override val hiddenAutomaticProbeActive: StateFlow<Boolean> = activeScanRegistry.hiddenAutomaticProbeActive
 
-        override suspend fun startScan(pathMode: ScanPathMode): DiagnosticsManualScanStartResult =
+        override suspend fun startScan(
+            pathMode: ScanPathMode,
+            selectedProfileId: String?,
+        ): DiagnosticsManualScanStartResult =
             startMutex.withLock {
-                when (val admission = scanAdmissionService.admitManualStart()) {
+                when (val admission = scanAdmissionService.admitManualStart(selectedProfileId)) {
                     is ManualStartAdmission.Admitted -> {
                         pendingHiddenConflictRequest = null
                         DiagnosticsManualScanStartResult.Started(

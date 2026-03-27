@@ -239,7 +239,7 @@ internal class DiagnosticsScanActions(
         mutations.launch {
             try {
                 selectedProfile?.id?.let { diagnosticsScanController.setActiveProfile(it) }
-                when (val result = diagnosticsScanController.startScan(pathMode)) {
+                when (val result = diagnosticsScanController.startScan(pathMode, selectedProfile?.id)) {
                     is DiagnosticsManualScanStartResult.Started -> {
                         handleStartedScan(
                             sessionId = result.sessionId,

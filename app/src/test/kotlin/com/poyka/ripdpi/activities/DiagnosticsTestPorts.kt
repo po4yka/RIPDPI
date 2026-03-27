@@ -166,14 +166,17 @@ internal class FakeDiagnosticsTimelineSource : DiagnosticsTimelineSource {
 
 internal class FakeDiagnosticsScanController : DiagnosticsScanController {
     override val hiddenAutomaticProbeActive = MutableStateFlow(false)
-    var onStartScan: (suspend (ScanPathMode) -> DiagnosticsManualScanStartResult)? = null
+    var onStartScan: (suspend (ScanPathMode, String?) -> DiagnosticsManualScanStartResult)? = null
     var onResolveHiddenProbeConflict:
         (suspend (String, HiddenProbeConflictAction) -> DiagnosticsManualScanResolution)? = null
     var onCancel: (suspend () -> Unit)? = null
     var onSetActiveProfile: (suspend (String) -> Unit)? = null
 
-    override suspend fun startScan(pathMode: ScanPathMode): DiagnosticsManualScanStartResult =
-        onStartScan?.invoke(pathMode) ?: DiagnosticsManualScanStartResult.Started("session")
+    override suspend fun startScan(
+        pathMode: ScanPathMode,
+        selectedProfileId: String?,
+    ): DiagnosticsManualScanStartResult =
+        onStartScan?.invoke(pathMode, selectedProfileId) ?: DiagnosticsManualScanStartResult.Started("session")
 
     override suspend fun resolveHiddenProbeConflict(
         requestId: String,

@@ -224,6 +224,7 @@ class StubInstrumentedDiagnosticsScanController : DiagnosticsScanController {
 
     override suspend fun startScan(
         pathMode: com.poyka.ripdpi.diagnostics.ScanPathMode,
+        selectedProfileId: String?,
     ): com.poyka.ripdpi.diagnostics.DiagnosticsManualScanStartResult =
         com.poyka.ripdpi.diagnostics.DiagnosticsManualScanStartResult
             .Started("session")
