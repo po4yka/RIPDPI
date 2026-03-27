@@ -76,6 +76,7 @@ class DiagnosticsSummaryProjector
             buildList {
                 report?.strategyProbeReport?.let { strategyProbe ->
                     add("strategySuite=${strategyProbe.suiteId}")
+                    add("strategyCompletionKind=${strategyProbe.completionKind.name}")
                     add("strategyTcpCandidates=${strategyProbe.tcpCandidates.size}")
                     add("strategyQuicCandidates=${strategyProbe.quicCandidates.size}")
                     strategyProbe.targetSelection?.let { selection ->

@@ -18,6 +18,7 @@ import com.poyka.ripdpi.diagnostics.ProbePersistencePolicy
 import com.poyka.ripdpi.diagnostics.ScanKind
 import com.poyka.ripdpi.diagnostics.ScanPathMode
 import com.poyka.ripdpi.diagnostics.StrategyProbeAuditAssessment
+import com.poyka.ripdpi.diagnostics.StrategyProbeCompletionKind
 
 internal const val StrategyProbeSuiteQuickV1 = "quick_v1"
 internal const val StrategyProbeSuiteFullMatrixV1 = "full_matrix_v1"
@@ -343,6 +344,7 @@ data class DiagnosticsStrategyProbeReportUiModel(
     val suiteId: String,
     val suiteLabel: String,
     val summaryMetrics: List<DiagnosticsMetricUiModel>,
+    val completionKind: StrategyProbeCompletionKind,
     val auditAssessment: StrategyProbeAuditAssessment? = null,
     val recommendation: DiagnosticsStrategyProbeRecommendationUiModel,
     val winningPath: DiagnosticsStrategyProbeWinningPathUiModel? = null,

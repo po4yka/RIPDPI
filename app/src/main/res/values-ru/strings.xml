@@ -37,12 +37,16 @@
     <string name="diagnostics_probe_profile_title">Автоматическое зондирование</string>
     <string name="diagnostics_probe_path_title">Ограничение пути</string>
     <string name="diagnostics_probe_recommendation_title">Рекомендация</string>
+    <string name="diagnostics_probe_short_circuit_recommendation_title">Рекомендация по DNS-резолверу</string>
+    <string name="diagnostics_probe_short_circuit_recommendation_headline">Рекомендуется переключить резолвер</string>
     <string name="diagnostics_probe_signature_title">Рекомендуемая стратегия</string>
     <string name="diagnostics_probe_ready_title">Рекомендация готова</string>
+    <string name="diagnostics_probe_short_circuit_title">Рекомендация по резолверу готова</string>
     <string name="diagnostics_probe_progress_title">Тестирование стратегий</string>
     <string name="diagnostics_probe_unavailable_title">Автоматическое зондирование недоступно</string>
     <string name="diagnostics_audit_profile_title">Автоматический аудит</string>
     <string name="diagnostics_audit_ready_title">Аудит готов</string>
+    <string name="diagnostics_audit_short_circuit_title">Аудит прерван досрочно</string>
     <string name="diagnostics_audit_progress_title">Выполняется сетевой аудит</string>
     <string name="diagnostics_audit_unavailable_title">Автоматический аудит недоступен</string>
     <string name="diagnostics_probe_manual_apply_title">Как использовать этот результат</string>
@@ -50,6 +54,7 @@
     <string name="diagnostics_probe_latest_section">Последняя рекомендация</string>
     <string name="diagnostics_probe_evidence_section">Данные зондирования</string>
     <string name="diagnostics_probe_status_recommended">Рекомендовано</string>
+    <string name="diagnostics_probe_status_fallback">Резерв</string>
     <string name="diagnostics_probe_status_skipped">Пропущено</string>
     <string name="diagnostics_action_start_probe">Запустить автоматическое зондирование</string>
     <string name="diagnostics_action_probe_unavailable">Автоматическое зондирование недоступно</string>
@@ -74,11 +79,13 @@
     <string name="diagnostics_profile_probe_body">Запустить изолированные испытания стратегий HTTP, HTTPS и QUIC для текущей сети. RIPDPI возвращает рекомендацию, но не применяет её автоматически.</string>
     <string name="diagnostics_profile_probe_running_body">RIPDPI запускает временные стратегии-кандидаты только по прямому пути. Сохранённые настройки остаются неизменными во время зондирования.</string>
     <string name="diagnostics_profile_probe_ready_body">Последний запуск автоматического зондирования завершён и выдал ручную рекомендацию с лучшими стратегиями TCP и QUIC.</string>
+    <string name="diagnostics_profile_probe_short_circuit_body">Подмена DNS была обнаружена до запуска резервных испытаний стратегий. RIPDPI сохранил текущую стратегию и подготовил рекомендацию по резолверу вместо результата с победителями.</string>
     <string name="diagnostics_profile_probe_unavailable_body">Автоматическое зондирование работает только с визуальными настройками RIPDPI. Отключите режим командной строки перед запуском этого процесса.</string>
     <string name="diagnostics_profile_audit_badge">Аудит</string>
     <string name="diagnostics_profile_audit_body">Запустить полную встроенную матрицу стратегий HTTP, HTTPS и QUIC для текущей сети. RIPDPI фиксирует, что сработало, что сработало частично, что не сработало и что неприменимо — без изменения сохранённых настроек.</string>
     <string name="diagnostics_profile_audit_running_body">RIPDPI выполняет полную встроенную матрицу стратегий только по прямому пути. Текущая сессия VPN или прокси приостанавливается на время аудита и восстанавливается после.</string>
     <string name="diagnostics_profile_audit_ready_body">Последний автоматический аудит завершён: сформированы полная матрица, доказательства по каждому кандидату и ручная рекомендация.</string>
+    <string name="diagnostics_profile_audit_short_circuit_body">Подмена DNS была обнаружена до запуска матрицы аудита. RIPDPI досрочно остановил резервные испытания и вернул ориентированный на резолвер результат с низкой уверенностью.</string>
     <string name="diagnostics_profile_audit_unavailable_body">Автоматический аудит работает только с визуальными настройками RIPDPI. Отключите режим командной строки перед запуском этого процесса.</string>
     <string name="diagnostics_profile_badge_dns_http_https_tcp">DNS + HTTP + HTTPS + TCP</string>
     <string name="diagnostics_profile_badge_http_https_quic">HTTP + HTTPS + QUIC</string>
@@ -154,6 +161,7 @@
     <string name="diagnostics_no_strategy_signature">Сигнатура стратегии не обнаружена</string>
     <string name="diagnostics_eta_remaining">~%1$s осталось</string>
     <string name="diagnostics_audit_matrix_title">Матрица аудита</string>
+    <string name="diagnostics_audit_short_circuit_matrix_title">Неполный аудит</string>
     <string name="diagnostics_audit_summary_title">Сводка аудита</string>
     <string name="diagnostics_audit_candidate_notes_title">Примечания</string>
     <string name="diagnostics_audit_candidate_signature_title">Конфигурация кандидата</string>

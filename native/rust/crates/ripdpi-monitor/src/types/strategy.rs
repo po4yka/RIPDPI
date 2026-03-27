@@ -11,6 +11,19 @@ pub struct StrategyProbeTargetSelection {
     pub quic_hosts: Vec<String>,
 }
 
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum StrategyProbeCompletionKind {
+    Normal,
+    DnsShortCircuited,
+}
+
+impl Default for StrategyProbeCompletionKind {
+    fn default() -> Self {
+        Self::Normal
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct StrategyProbeReport {
@@ -18,6 +31,8 @@ pub struct StrategyProbeReport {
     pub tcp_candidates: Vec<StrategyProbeCandidateSummary>,
     pub quic_candidates: Vec<StrategyProbeCandidateSummary>,
     pub recommendation: StrategyProbeRecommendation,
+    #[serde(default)]
+    pub completion_kind: StrategyProbeCompletionKind,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub audit_assessment: Option<StrategyProbeAuditAssessment>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
