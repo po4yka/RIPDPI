@@ -222,7 +222,7 @@ mod af_packet_tests {
         // Non-SYN segments from the proxy should advertise a small window
         let data_segments: Vec<_> = tcp_packets
             .iter()
-            .filter(|p| p.tcp_flags.map_or(false, |f| f & 0x02 == 0)) // exclude SYN
+            .filter(|p| p.tcp_flags.is_some_and(|f| f & 0x02 == 0)) // exclude SYN
             .collect();
 
         let has_small_window = data_segments.iter().any(|p| p.tcp_window.unwrap_or(u16::MAX) <= 128);
@@ -259,7 +259,7 @@ mod af_packet_tests {
 
         // No segment from proxy should contain TCP Timestamps option (kind=8)
         let has_timestamps =
-            tcp_packets.iter().any(|p| p.tcp_options.as_ref().map_or(false, |opts| tcp_options_contain_kind(opts, 8)));
+            tcp_packets.iter().any(|p| p.tcp_options.as_ref().is_some_and(|opts| tcp_options_contain_kind(opts, 8)));
 
         assert!(
             !has_timestamps,
