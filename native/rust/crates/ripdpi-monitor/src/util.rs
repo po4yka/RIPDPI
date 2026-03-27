@@ -17,7 +17,6 @@ pub(crate) const IO_TIMEOUT: Duration = Duration::from_millis(1200);
 pub(crate) const MAX_HTTP_BYTES: usize = 64 * 1024;
 pub(crate) const FAT_HEADER_REQUESTS: usize = 16;
 pub(crate) const FAT_HEADER_THRESHOLD_BYTES: usize = 16 * 1024;
-pub(crate) const MAX_PASSIVE_EVENTS: usize = 256;
 pub(crate) const STRATEGY_PROBE_SUITE_QUICK_V1: &str = "quick_v1";
 pub(crate) const STRATEGY_PROBE_SUITE_FULL_MATRIX_V1: &str = "full_matrix_v1";
 pub(crate) const HTTP_FAKE_PROFILE_CLOUDFLARE_GET: &str = "cloudflare_get";

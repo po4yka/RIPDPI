@@ -100,6 +100,7 @@ enum EventRing {
 }
 
 impl EventRing {
+    #[cfg(any(test, target_os = "android"))]
     fn from_routing_field(value: &str) -> Option<Self> {
         match value.trim().to_ascii_lowercase().as_str() {
             "proxy" => Some(Self::Proxy),
@@ -109,6 +110,7 @@ impl EventRing {
         }
     }
 
+    #[cfg(any(test, target_os = "android"))]
     fn default_subsystem(self) -> &'static str {
         match self {
             Self::Proxy => "proxy",
@@ -119,6 +121,7 @@ impl EventRing {
 }
 
 struct EventRingBuffersInner {
+    #[cfg(any(test, target_os = "android"))]
     config: RingConfig,
     proxy: Mutex<VecDeque<NativeEventRecord>>,
     tunnel: Mutex<VecDeque<NativeEventRecord>>,
@@ -143,11 +146,13 @@ impl EventRingBuffers {
                 proxy: Mutex::new(VecDeque::with_capacity(config.proxy_capacity)),
                 tunnel: Mutex::new(VecDeque::with_capacity(config.tunnel_capacity)),
                 diagnostics: Mutex::new(VecDeque::with_capacity(config.diagnostics_capacity)),
+                #[cfg(any(test, target_os = "android"))]
                 config,
             }),
         }
     }
 
+    #[cfg(any(test, target_os = "android"))]
     fn push(&self, ring: EventRing, event: NativeEventRecord) {
         let capacity = self.capacity(ring);
         let mut guard = self.ring(ring).lock().unwrap_or_else(PoisonError::into_inner);
@@ -197,6 +202,7 @@ impl EventRingBuffers {
         }
     }
 
+    #[cfg(any(test, target_os = "android"))]
     fn capacity(&self, ring: EventRing) -> usize {
         match ring {
             EventRing::Proxy => self.inner.config.proxy_capacity,
@@ -459,9 +465,7 @@ where
                 policy_signature: visitor.policy_signature(),
                 fingerprint_hash: visitor.fingerprint_hash(),
                 diagnostics_session_id: visitor.diagnostics_session_id(),
-                subsystem: visitor
-                    .subsystem()
-                    .or_else(|| Some(ring.default_subsystem().to_string())),
+                subsystem: visitor.subsystem().or_else(|| Some(ring.default_subsystem().to_string())),
             },
         );
     }
@@ -606,6 +610,7 @@ impl tracing::field::Visit for MessageFieldFormatter {
     }
 }
 
+#[cfg(any(test, target_os = "android"))]
 fn now_ms() -> u64 {
     std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_millis() as u64
 }
