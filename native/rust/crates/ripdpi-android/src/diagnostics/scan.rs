@@ -10,19 +10,13 @@ pub(crate) fn start_diagnostics_scan(env: &mut Env<'_>, handle: jlong, request_j
     let Some(session) = diagnostics_session(env, handle) else {
         return;
     };
-    let request_json = match request_json.try_to_string(env) {
-        Ok(value) => value,
-        Err(_) => {
-            throw_illegal_argument_env(env, "Invalid diagnostics request JSON");
-            return;
-        }
+    let Ok(request_json) = request_json.try_to_string(env) else {
+        throw_illegal_argument_env(env, "Invalid diagnostics request JSON");
+        return;
     };
-    let session_id = match session_id.try_to_string(env) {
-        Ok(value) => value,
-        Err(_) => {
-            throw_illegal_argument_env(env, "Invalid diagnostics session id");
-            return;
-        }
+    let Ok(session_id) = session_id.try_to_string(env) else {
+        throw_illegal_argument_env(env, "Invalid diagnostics session id");
+        return;
     };
     let request = match decode_scan_request(&request_json) {
         Ok(request) => request,

@@ -9,7 +9,7 @@ mod telemetry;
 use android_support::{init_android_logging, JNI_VERSION};
 use jni::objects::{JObject, JString};
 use jni::sys::{jint, jlong, jstring};
-use jni::{JNIEnv, JavaVM};
+use jni::{EnvUnowned, JavaVM};
 use once_cell::sync::OnceCell;
 
 use diagnostics::{
@@ -37,7 +37,7 @@ pub(crate) fn shared_test_jvm() -> &'static JavaVM {
     static TEST_JVM: OnceCell<JavaVM> = OnceCell::new();
     TEST_JVM.get_or_init(|| {
         let args = jni::InitArgsBuilder::new()
-            .version(jni::JNIVersion::V8)
+            .version(jni::JNIVersion::V9)
             .option("-Xcheck:jni")
             .build()
             .expect("build test JVM init args");
@@ -56,6 +56,7 @@ pub(crate) fn shared_jni_test_mutex() -> &'static std::sync::Mutex<()> {
 /// Called by the JVM when the native library is loaded. Must not unwind across
 /// the FFI boundary -- a panic here would be UB (extern "system" + unwind).
 #[unsafe(no_mangle)]
+#[allow(improper_ctypes_definitions)]
 pub extern "system" fn JNI_OnLoad(vm: JavaVM, _reserved: *mut std::ffi::c_void) -> jint {
     let _ = JVM.set(vm);
     match std::panic::catch_unwind(jni_on_load_impl) {
@@ -67,14 +68,14 @@ pub extern "system" fn JNI_OnLoad(vm: JavaVM, _reserved: *mut std::ffi::c_void) 
 macro_rules! export_diagnostics_jni {
     ($name:ident, ($($arg:ident: $arg_ty:ty),* $(,)?), $ret:ty, $entry:ident) => {
         #[unsafe(no_mangle)]
-        pub extern "system" fn $name(env: JNIEnv, _thiz: JObject, $($arg: $arg_ty),*) -> $ret {
+        pub extern "system" fn $name(env: EnvUnowned, _thiz: JObject, $($arg: $arg_ty),*) -> $ret {
             $entry(env, $($arg),*)
         }
     };
 }
 #[unsafe(no_mangle)]
 pub extern "system" fn Java_com_poyka_ripdpi_core_RipDpiProxyNativeBindings_jniCreate(
-    env: JNIEnv,
+    env: EnvUnowned,
     _thiz: JObject,
     config_json: JString,
 ) -> jlong {
@@ -83,7 +84,7 @@ pub extern "system" fn Java_com_poyka_ripdpi_core_RipDpiProxyNativeBindings_jniC
 
 #[unsafe(no_mangle)]
 pub extern "system" fn Java_com_poyka_ripdpi_core_RipDpiProxyNativeBindings_jniStart(
-    env: JNIEnv,
+    env: EnvUnowned,
     _thiz: JObject,
     handle: jlong,
 ) -> jint {
@@ -92,7 +93,7 @@ pub extern "system" fn Java_com_poyka_ripdpi_core_RipDpiProxyNativeBindings_jniS
 
 #[unsafe(no_mangle)]
 pub extern "system" fn Java_com_poyka_ripdpi_core_RipDpiProxyNativeBindings_jniStop(
-    env: JNIEnv,
+    env: EnvUnowned,
     _thiz: JObject,
     handle: jlong,
 ) {
@@ -101,7 +102,7 @@ pub extern "system" fn Java_com_poyka_ripdpi_core_RipDpiProxyNativeBindings_jniS
 
 #[unsafe(no_mangle)]
 pub extern "system" fn Java_com_poyka_ripdpi_core_RipDpiProxyNativeBindings_jniPollTelemetry(
-    env: JNIEnv,
+    env: EnvUnowned,
     _thiz: JObject,
     handle: jlong,
 ) -> jstring {
@@ -110,7 +111,7 @@ pub extern "system" fn Java_com_poyka_ripdpi_core_RipDpiProxyNativeBindings_jniP
 
 #[unsafe(no_mangle)]
 pub extern "system" fn Java_com_poyka_ripdpi_core_RipDpiProxyNativeBindings_jniDestroy(
-    env: JNIEnv,
+    env: EnvUnowned,
     _thiz: JObject,
     handle: jlong,
 ) {
@@ -119,7 +120,7 @@ pub extern "system" fn Java_com_poyka_ripdpi_core_RipDpiProxyNativeBindings_jniD
 
 #[unsafe(no_mangle)]
 pub extern "system" fn Java_com_poyka_ripdpi_core_RipDpiProxyNativeBindings_jniUpdateNetworkSnapshot(
-    env: JNIEnv,
+    env: EnvUnowned,
     _thiz: JObject,
     handle: jlong,
     snapshot_json: JString,

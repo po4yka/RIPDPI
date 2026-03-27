@@ -4,14 +4,14 @@ use std::sync::{Arc, Mutex};
 use android_support::describe_exception;
 use jni::objects::JObject;
 use jni::sys::jlong;
-use jni::{sys::jstring, JNIEnv};
+use jni::{sys::jstring, Env};
 use proptest::collection::vec;
 use proptest::prelude::*;
 use ripdpi_config::RuntimeConfig;
 use ripdpi_proxy_config::{NetworkSnapshot, ProxyConfigPayload, ProxyUiConfig};
 use ripdpi_runtime::EmbeddedProxyControl;
 
-use crate::support::{assert_no_exception, decode_jstring, lock_jni_tests, take_exception, with_env};
+use crate::support::{assert_no_exception, decode_jstring, env_to_unowned, lock_jni_tests, take_exception, with_env};
 use crate::telemetry::ProxyTelemetryState;
 use crate::to_handle;
 
@@ -191,15 +191,10 @@ enum ProxyModelState {
     Running,
 }
 
+#[derive(Default)]
 struct ProxySessionHarness {
     active_handle: Option<jlong>,
     stale_handle: Option<jlong>,
-}
-
-impl Default for ProxySessionHarness {
-    fn default() -> Self {
-        Self { active_handle: None, stale_handle: None }
-    }
 }
 
 impl ProxySessionHarness {
@@ -301,7 +296,7 @@ impl Drop for ProxyHandle {
         }
         with_env(|env| {
             jni_destroy(env, self.raw);
-            let _ = describe_exception(env);
+            let _ = describe_exception(&mut env_to_unowned(env));
         });
     }
 }
@@ -353,51 +348,43 @@ fn test_listen_port() -> u16 {
         .port()
 }
 
-fn jni_create(env: &mut JNIEnv<'_>, config_json: &str) -> jlong {
+fn jni_create(env: &mut Env<'_>, config_json: &str) -> jlong {
     let config_json = env.new_string(config_json).expect("create config json");
     crate::Java_com_poyka_ripdpi_core_RipDpiProxyNativeBindings_jniCreate(
-        unsafe { env.unsafe_clone() },
+        env_to_unowned(env),
         JObject::null(),
         config_json,
     )
 }
 
-fn jni_start(env: &mut JNIEnv<'_>, handle: jlong) -> i32 {
-    crate::Java_com_poyka_ripdpi_core_RipDpiProxyNativeBindings_jniStart(
-        unsafe { env.unsafe_clone() },
-        JObject::null(),
-        handle,
-    )
+fn jni_start(env: &mut Env<'_>, handle: jlong) -> i32 {
+    crate::Java_com_poyka_ripdpi_core_RipDpiProxyNativeBindings_jniStart(env_to_unowned(env), JObject::null(), handle)
 }
 
-fn jni_stop(env: &mut JNIEnv<'_>, handle: jlong) {
-    crate::Java_com_poyka_ripdpi_core_RipDpiProxyNativeBindings_jniStop(
-        unsafe { env.unsafe_clone() },
-        JObject::null(),
-        handle,
-    );
+fn jni_stop(env: &mut Env<'_>, handle: jlong) {
+    crate::Java_com_poyka_ripdpi_core_RipDpiProxyNativeBindings_jniStop(env_to_unowned(env), JObject::null(), handle);
 }
 
-fn jni_poll_telemetry(env: &mut JNIEnv<'_>, handle: jlong) -> jstring {
+fn jni_poll_telemetry(env: &mut Env<'_>, handle: jlong) -> jstring {
     crate::Java_com_poyka_ripdpi_core_RipDpiProxyNativeBindings_jniPollTelemetry(
-        unsafe { env.unsafe_clone() },
+        env_to_unowned(env),
         JObject::null(),
         handle,
     )
 }
 
-fn jni_destroy(env: &mut JNIEnv<'_>, handle: jlong) {
+fn jni_destroy(env: &mut Env<'_>, handle: jlong) {
     crate::Java_com_poyka_ripdpi_core_RipDpiProxyNativeBindings_jniDestroy(
-        unsafe { env.unsafe_clone() },
+        env_to_unowned(env),
         JObject::null(),
         handle,
     );
 }
 
-fn jni_update_network_snapshot(env: &mut JNIEnv<'_>, handle: jlong, snapshot_json: &str) {
+fn jni_update_network_snapshot(env: &mut Env<'_>, handle: jlong, snapshot_json: &str) {
     let snapshot_json = env.new_string(snapshot_json).expect("create snapshot json");
     crate::Java_com_poyka_ripdpi_core_RipDpiProxyNativeBindings_jniUpdateNetworkSnapshot(
-        unsafe { env.unsafe_clone() },
+        env_to_unowned(env),
         JObject::null(),
         handle,
         snapshot_json,

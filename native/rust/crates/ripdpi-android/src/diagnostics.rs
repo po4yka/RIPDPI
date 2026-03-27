@@ -153,10 +153,12 @@ mod tests {
 
     use android_support::describe_exception;
     use jni::objects::JObject;
-    use jni::JNIEnv;
+    use jni::Env;
     use ripdpi_monitor::{NativeSessionEvent, ScanProgress, ScanReport};
 
-    use crate::support::{assert_no_exception, decode_jstring, lock_jni_tests, take_exception, with_env};
+    use crate::support::{
+        assert_no_exception, decode_jstring, env_to_unowned, lock_jni_tests, take_exception, with_env,
+    };
 
     struct DiagnosticsHandle {
         raw: jlong,
@@ -191,7 +193,7 @@ mod tests {
             }
             with_env(|env| {
                 jni_destroy(env, self.raw);
-                let _ = describe_exception(env);
+                let _ = describe_exception(&mut env_to_unowned(env));
             });
         }
     }
@@ -346,18 +348,18 @@ mod tests {
         });
     }
 
-    fn jni_create(env: &mut JNIEnv<'_>) -> jlong {
+    fn jni_create(env: &mut Env<'_>) -> jlong {
         crate::Java_com_poyka_ripdpi_core_NetworkDiagnosticsNativeBindings_jniCreate(
-            unsafe { env.unsafe_clone() },
+            env_to_unowned(env),
             JObject::null(),
         )
     }
 
-    fn jni_start_scan(env: &mut JNIEnv<'_>, handle: jlong, request_json: &str, session_id: &str) {
+    fn jni_start_scan(env: &mut Env<'_>, handle: jlong, request_json: &str, session_id: &str) {
         let request_json = env.new_string(request_json).expect("create request json string");
         let session_id = env.new_string(session_id).expect("create session id string");
         crate::Java_com_poyka_ripdpi_core_NetworkDiagnosticsNativeBindings_jniStartScan(
-            unsafe { env.unsafe_clone() },
+            env_to_unowned(env),
             JObject::null(),
             handle,
             request_json,
@@ -365,47 +367,47 @@ mod tests {
         );
     }
 
-    fn jni_cancel_scan(env: &mut JNIEnv<'_>, handle: jlong) {
+    fn jni_cancel_scan(env: &mut Env<'_>, handle: jlong) {
         crate::Java_com_poyka_ripdpi_core_NetworkDiagnosticsNativeBindings_jniCancelScan(
-            unsafe { env.unsafe_clone() },
+            env_to_unowned(env),
             JObject::null(),
             handle,
         );
     }
 
-    fn jni_poll_progress(env: &mut JNIEnv<'_>, handle: jlong) -> jstring {
+    fn jni_poll_progress(env: &mut Env<'_>, handle: jlong) -> jstring {
         crate::Java_com_poyka_ripdpi_core_NetworkDiagnosticsNativeBindings_jniPollProgress(
-            unsafe { env.unsafe_clone() },
+            env_to_unowned(env),
             JObject::null(),
             handle,
         )
     }
 
-    fn jni_take_report(env: &mut JNIEnv<'_>, handle: jlong) -> jstring {
+    fn jni_take_report(env: &mut Env<'_>, handle: jlong) -> jstring {
         crate::Java_com_poyka_ripdpi_core_NetworkDiagnosticsNativeBindings_jniTakeReport(
-            unsafe { env.unsafe_clone() },
+            env_to_unowned(env),
             JObject::null(),
             handle,
         )
     }
 
-    fn jni_poll_passive_events(env: &mut JNIEnv<'_>, handle: jlong) -> jstring {
+    fn jni_poll_passive_events(env: &mut Env<'_>, handle: jlong) -> jstring {
         crate::Java_com_poyka_ripdpi_core_NetworkDiagnosticsNativeBindings_jniPollPassiveEvents(
-            unsafe { env.unsafe_clone() },
+            env_to_unowned(env),
             JObject::null(),
             handle,
         )
     }
 
-    fn jni_destroy(env: &mut JNIEnv<'_>, handle: jlong) {
+    fn jni_destroy(env: &mut Env<'_>, handle: jlong) {
         crate::Java_com_poyka_ripdpi_core_NetworkDiagnosticsNativeBindings_jniDestroy(
-            unsafe { env.unsafe_clone() },
+            env_to_unowned(env),
             JObject::null(),
             handle,
         );
     }
 
-    fn wait_for_json(handle: jlong, op: fn(&mut JNIEnv<'_>, jlong) -> jstring) -> String {
+    fn wait_for_json(handle: jlong, op: fn(&mut Env<'_>, jlong) -> jstring) -> String {
         let deadline = Instant::now() + Duration::from_secs(2);
         loop {
             let maybe_json = with_env(|env| {

@@ -29,15 +29,15 @@ impl JniProxyError {
     pub(crate) fn throw(self, env: &mut Env<'_>) {
         match self {
             Self::InvalidConfig(message) => {
-                throw_illegal_argument_env(env, format!("invalid configuration: {message}"))
+                throw_illegal_argument_env(env, format!("invalid configuration: {message}"));
             }
             Self::InvalidArgument(message) => throw_illegal_argument_env(env, message),
             Self::IllegalState(message) => throw_illegal_state_env(env, message),
             Self::Io(err) => {
-                throw_io_exception_env(env, sanitize_error_message(&format!("I/O failure: {err}"), "I/O failure"))
+                throw_io_exception_env(env, sanitize_error_message(&format!("I/O failure: {err}"), "I/O failure"));
             }
             Self::Serialization(err) => {
-                throw_runtime_exception_env(env, sanitize_error_message(&err.to_string(), "Serialization failure"))
+                throw_runtime_exception_env(env, sanitize_error_message(&err.to_string(), "Serialization failure"));
             }
         }
     }
