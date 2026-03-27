@@ -1,11 +1,18 @@
 {
   "schemaVersion": 2,
   "sessionId": "session-1",
-  "phase": "dns",
-  "completedSteps": 1,
-  "totalSteps": 4,
-  "message": "DNS probe running",
+  "phase": "tcp",
+  "completedSteps": 2,
+  "totalSteps": 8,
+  "message": "Testing TCP candidate",
   "isFinished": false,
-  "latestProbeTarget": "meduza.io",
-  "latestProbeOutcome": "substitution"
+  "latestProbeTarget": "TCP fake TLS",
+  "latestProbeOutcome": "success",
+  "strategyProbeProgress": {
+    "lane": "TCP",
+    "candidateIndex": 3,
+    "candidateTotal": 14,
+    "candidateId": "tcp_fake_tls",
+    "candidateLabel": "TCP fake TLS"
+  }
 }

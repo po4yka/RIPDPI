@@ -51,6 +51,7 @@ pub(crate) fn run_engine_scan(
                     is_finished: true,
                     latest_probe_target: None,
                     latest_probe_outcome: None,
+                    strategy_probe_progress: None,
                 },
             );
             return;
@@ -70,6 +71,7 @@ pub(crate) fn run_engine_scan(
             is_finished: false,
             latest_probe_target: None,
             latest_probe_outcome: None,
+            strategy_probe_progress: None,
         },
     );
     push_event(
@@ -122,6 +124,7 @@ pub(crate) fn run_engine_scan(
                     is_finished: true,
                     latest_probe_target: None,
                     latest_probe_outcome: None,
+                    strategy_probe_progress: None,
                 },
             );
         }
@@ -140,6 +143,7 @@ pub(crate) fn run_engine_scan(
                     is_finished: true,
                     latest_probe_target: None,
                     latest_probe_outcome: None,
+                    strategy_probe_progress: None,
                 },
             );
         }
@@ -181,6 +185,7 @@ pub(crate) fn run_engine_scan(
                     is_finished: true,
                     latest_probe_target: None,
                     latest_probe_outcome: None,
+                    strategy_probe_progress: None,
                 },
             );
         }

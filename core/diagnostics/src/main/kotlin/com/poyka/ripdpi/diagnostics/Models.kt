@@ -409,6 +409,22 @@ data class ScanProgress(
     val isFinished: Boolean = false,
     val latestProbeTarget: String? = null,
     val latestProbeOutcome: String? = null,
+    val strategyProbeProgress: StrategyProbeLiveProgress? = null,
+)
+
+@Serializable
+enum class StrategyProbeProgressLane {
+    TCP,
+    QUIC,
+}
+
+@Serializable
+data class StrategyProbeLiveProgress(
+    val lane: StrategyProbeProgressLane,
+    val candidateIndex: Int,
+    val candidateTotal: Int,
+    val candidateId: String,
+    val candidateLabel: String,
 )
 
 @Serializable

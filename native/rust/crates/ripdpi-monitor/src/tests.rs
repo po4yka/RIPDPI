@@ -661,6 +661,71 @@ fn monitor_session_full_matrix_strategy_probe_reports_audit_assessment() {
 }
 
 #[test]
+fn monitor_session_strategy_probe_progress_reports_live_candidate_metadata() {
+    let _serial = lock_network_probes();
+    let server = HttpTextServer::start_text("HTTP/1.1 200 OK", "probe");
+    let mut request = strategy_probe_request(minimal_ui_config());
+    request.domain_targets[0].http_port = Some(server.port());
+    let session = MonitorSession::new();
+
+    session.start_scan("session-progress".to_string(), request.into()).expect("start strategy probe");
+
+    let mut saw_tcp_live_progress = false;
+    let mut saw_quic_live_progress = false;
+    let mut saw_recommendation_without_live_progress = false;
+    let mut saw_finished_without_live_progress = false;
+    let expected_quic_total = crate::candidates::build_quic_candidates_for_suite("quick_v1", &minimal_ui_config())
+        .expect("quick_v1 quic candidates")
+        .len();
+
+    for _ in 0..300 {
+        if let Some(progress_json) = session.poll_progress_json().expect("poll progress json") {
+            let progress: ScanProgress = serde_json::from_str(&progress_json).expect("decode scan progress");
+            match progress.phase.as_str() {
+                "tcp" => {
+                    if let Some(live_progress) = progress.strategy_probe_progress.as_ref() {
+                        saw_tcp_live_progress = true;
+                        assert_eq!(live_progress.lane, StrategyProbeProgressLane::Tcp);
+                        assert!(live_progress.candidate_index >= 1);
+                        assert!(live_progress.candidate_total >= live_progress.candidate_index);
+                        assert!(!live_progress.candidate_id.is_empty());
+                        assert!(!live_progress.candidate_label.is_empty());
+                    }
+                }
+                "quic" => {
+                    if let Some(live_progress) = progress.strategy_probe_progress.as_ref() {
+                        saw_quic_live_progress = true;
+                        assert_eq!(live_progress.lane, StrategyProbeProgressLane::Quic);
+                        assert!(live_progress.candidate_index >= 1);
+                        assert_eq!(live_progress.candidate_total, expected_quic_total);
+                        assert!(!live_progress.candidate_label.is_empty());
+                    }
+                }
+                "recommendation" => {
+                    saw_recommendation_without_live_progress = true;
+                    assert!(progress.strategy_probe_progress.is_none());
+                }
+                "finished" => {
+                    saw_finished_without_live_progress = true;
+                    assert!(progress.strategy_probe_progress.is_none());
+                    break;
+                }
+                _ => {}
+            }
+        }
+        thread::sleep(Duration::from_millis(20));
+    }
+
+    assert!(saw_tcp_live_progress, "expected TCP live candidate progress");
+    assert!(saw_quic_live_progress, "expected QUIC live candidate progress");
+    assert!(
+        saw_recommendation_without_live_progress || saw_finished_without_live_progress,
+        "expected recommendation or finished progress without live candidate metadata",
+    );
+    assert!(saw_finished_without_live_progress, "expected finished progress without live metadata");
+}
+
+#[test]
 fn monitor_session_drains_passive_events_with_probe_details() {
     let _serial = lock_network_probes();
     let server = HttpTextServer::start_text("HTTP/1.1 403 Forbidden", "Access denied by upstream filtering");
