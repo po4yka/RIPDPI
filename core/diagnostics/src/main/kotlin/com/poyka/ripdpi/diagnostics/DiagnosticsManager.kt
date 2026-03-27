@@ -61,7 +61,10 @@ interface DiagnosticsActiveConnectionPolicySource {
 interface DiagnosticsScanController {
     val hiddenAutomaticProbeActive: StateFlow<Boolean>
 
-    suspend fun startScan(pathMode: ScanPathMode): DiagnosticsManualScanStartResult
+    suspend fun startScan(
+        pathMode: ScanPathMode,
+        selectedProfileId: String? = null,
+    ): DiagnosticsManualScanStartResult
 
     suspend fun resolveHiddenProbeConflict(
         requestId: String,

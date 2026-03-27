@@ -511,6 +511,50 @@ class DiagnosticsScanControllerTest {
         }
 
     @Test
+    fun `manual start uses explicit selected profile over stored settings`() =
+        runTest {
+            val settings =
+                defaultDiagnosticsAppSettings()
+                    .toBuilder()
+                    .setDiagnosticsActiveProfileId("default")
+                    .build()
+            val appSettingsRepository = FakeAppSettingsRepository(settings)
+            val stores =
+                FakeDiagnosticsHistoryStores().apply {
+                    seedDefaultProfile(json)
+                    seedStrategyProbeProfile(json)
+                }
+            val bridgeFactory =
+                FakeNetworkDiagnosticsBridgeFactory(json).apply {
+                    bridge.autoCompleteOnStart = false
+                }
+            val services =
+                createDiagnosticsServices(
+                    context = TestContext(),
+                    appSettingsRepository = appSettingsRepository,
+                    stores = stores,
+                    networkMetadataProvider = FakeNetworkMetadataProvider(),
+                    diagnosticsContextProvider = FakeDiagnosticsContextProvider(),
+                    networkDiagnosticsBridgeFactory = bridgeFactory,
+                    runtimeCoordinator = FakeDiagnosticsRuntimeCoordinator(),
+                    serviceStateStore = FakeServiceStateStore(),
+                    scope = backgroundScope,
+                    controllerScope = this,
+                    json = json,
+                )
+
+            val sessionId =
+                services.scanController
+                    .startScan(
+                        pathMode = ScanPathMode.RAW_PATH,
+                        selectedProfileId = "automatic-probing",
+                    ).startedSessionId()
+            advanceUntilIdle()
+
+            assertEquals("automatic-probing", stores.getScanSession(sessionId)?.profileId)
+        }
+
+    @Test
     fun `scheduled automatic probing persists launch metadata`() =
         runTest {
             val settings =

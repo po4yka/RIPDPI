@@ -52,12 +52,15 @@ class ScanAdmissionService
             const val AutomaticProbeProfileId = "automatic-probing"
         }
 
-        internal suspend fun admitManualStart(): ManualStartAdmission {
+        internal suspend fun admitManualStart(selectedProfileId: String? = null): ManualStartAdmission {
             if (activeScanRegistry.hasVisibleActiveScan()) {
                 throw DiagnosticsScanStartRejectedException(DiagnosticsScanStartRejectionReason.ScanAlreadyActive)
             }
             val settings = appSettingsRepository.snapshot()
-            val profileId = settings.diagnosticsActiveProfileId.ifEmpty { "default" }
+            val profileId =
+                selectedProfileId
+                    ?.takeIf { it.isNotBlank() }
+                    ?: settings.diagnosticsActiveProfileId.ifEmpty { "default" }
             val profile =
                 requireNotNull(profileCatalog.getProfile(profileId)) {
                     "Unknown diagnostics profile: $profileId"
