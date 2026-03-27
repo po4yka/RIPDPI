@@ -7,6 +7,7 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -41,36 +42,37 @@ internal fun MainActivityContent(
 
     RipDpiTheme(themePreference = startupState.theme) {
         if (startupState.isReady) {
-            val initialStartDestination = remember { startupState.startDestination }
             Box(
                 modifier =
                     Modifier
                         .fillMaxSize()
                         .ripDpiAutomationTreeRoot(),
             ) {
-                RipDpiNavHost(
-                    startDestination = initialStartDestination,
-                    mainViewModel = viewModel,
-                    actions =
-                        RipDpiNavHostActions(
-                            onSaveLogs = controller::requestSaveLogs,
-                            onShareDebugBundle = controller::requestShareDebugBundle,
-                            onSaveDiagnosticsArchive = controller::requestSaveDiagnosticsArchive,
-                            onShareDiagnosticsArchive = controller::requestShareDiagnosticsArchive,
-                            onShareDiagnosticsSummary = controller::requestShareDiagnosticsSummary,
-                            onRepairPermission = { permission ->
-                                viewModel.onRepairPermissionRequested(permission)
-                            },
-                        ),
-                    launchRequests =
-                        RipDpiNavHostLaunchRequests(
-                            launchHomeRequested = shellState.launchHomeRequested,
-                            onLaunchHomeHandled = controller::consumeLaunchHomeRequest,
-                            launchRouteRequested = shellState.launchRouteRequested,
-                            onLaunchRouteHandled = controller::consumeLaunchRouteRequest,
-                        ),
-                    snackbarHostState = snackbarHostState,
-                )
+                key(startupState.startDestination) {
+                    RipDpiNavHost(
+                        startDestination = startupState.startDestination,
+                        mainViewModel = viewModel,
+                        actions =
+                            RipDpiNavHostActions(
+                                onSaveLogs = controller::requestSaveLogs,
+                                onShareDebugBundle = controller::requestShareDebugBundle,
+                                onSaveDiagnosticsArchive = controller::requestSaveDiagnosticsArchive,
+                                onShareDiagnosticsArchive = controller::requestShareDiagnosticsArchive,
+                                onShareDiagnosticsSummary = controller::requestShareDiagnosticsSummary,
+                                onRepairPermission = { permission ->
+                                    viewModel.onRepairPermissionRequested(permission)
+                                },
+                            ),
+                        launchRequests =
+                            RipDpiNavHostLaunchRequests(
+                                launchHomeRequested = shellState.launchHomeRequested,
+                                onLaunchHomeHandled = controller::consumeLaunchHomeRequest,
+                                launchRouteRequested = shellState.launchRouteRequested,
+                                onLaunchRouteHandled = controller::consumeLaunchRouteRequest,
+                            ),
+                        snackbarHostState = snackbarHostState,
+                    )
+                }
                 MainActivityDialogs(
                     viewModel = viewModel,
                     controller = controller,
