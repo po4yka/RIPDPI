@@ -51,7 +51,7 @@ appium/
   conftest.py          # Driver lifecycle + automation launch fixtures
   lib/                 # Capabilities, launch contract, helpers
   pages/               # Page objects (one per screen)
-  tests/               # Test files (test_01_ through test_21_)
+  tests/               # Test files (test_01_ through test_28_)
 ```
 
 ## How It Works
@@ -101,3 +101,10 @@ bash scripts/ci/run-appium-smoke.sh
 | 19 | `test_19_about_screen.py` | About screen links visible |
 | 20 | `test_20_data_transparency.py` | Data transparency screen loads |
 | 21 | `test_21_app_customization.py` | Icon customization, shape info sheet |
+| 22 | `test_22_connected_proxy_state.py` | Home screen in connected proxy state |
+| 23 | `test_23_permission_banners.py` | Notification/battery banners, banner dismiss |
+| 24 | `test_24_diagnostics_actions.py` | Scan actions, share/save buttons |
+| 25 | `test_25_dns_dnscrypt.py` | DNSCrypt provider and public key fields |
+| 26 | `test_26_config_mode_chips.py` | VPN/Proxy mode chip switching |
+| 27 | `test_27_mode_editor_chain_dsl.py` | Chain DSL field entry and save |
+| 28 | `test_28_biometric_prompt.py` | Biometric prompt screen, PIN stage |
