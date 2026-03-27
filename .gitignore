@@ -32,6 +32,9 @@ target/
 docs/manual-assets/
 docs/*.pdf
 
+# Lefthook local overrides
+.lefthook-local.yml
+
 # Repo-local automation artifacts
 .ralph/
 ralph.yml

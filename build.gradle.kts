@@ -1,21 +1,21 @@
-import java.io.ByteArrayOutputStream
-import javax.inject.Inject
 import org.gradle.api.DefaultTask
 import org.gradle.api.GradleException
 import org.gradle.api.file.ConfigurableFileCollection
 import org.gradle.api.file.DirectoryProperty
 import org.gradle.api.file.RegularFileProperty
 import org.gradle.api.tasks.CacheableTask
+import org.gradle.api.tasks.InputDirectory
 import org.gradle.api.tasks.InputFile
 import org.gradle.api.tasks.InputFiles
-import org.gradle.api.tasks.InputDirectory
+import org.gradle.api.tasks.Internal
 import org.gradle.api.tasks.OutputDirectory
 import org.gradle.api.tasks.PathSensitive
 import org.gradle.api.tasks.PathSensitivity
 import org.gradle.api.tasks.TaskAction
-import org.gradle.api.tasks.Internal
-import org.gradle.testing.jacoco.tasks.JacocoReport
 import org.gradle.process.ExecOperations
+import org.gradle.testing.jacoco.tasks.JacocoReport
+import java.io.ByteArrayOutputStream
+import javax.inject.Inject
 
 // Top-level build file where you can add configuration options common to all sub-projects/modules.
 plugins {
@@ -231,6 +231,27 @@ tasks.register("staticAnalysis") {
         lintModulePaths.map { "$it:lintDebug" },
         qualityModulePaths.map { "$it:ktlintCheck" },
     )
+}
+
+tasks.register("installGitHooks") {
+    group = "setup"
+    description = "Installs lefthook git hooks for pre-commit checks"
+    onlyIf { file(".git").exists() }
+    doLast {
+        val exitCode =
+            ProcessBuilder("lefthook", "install", "--force")
+                .directory(rootDir)
+                .inheritIO()
+                .start()
+                .waitFor()
+        if (exitCode != 0) {
+            throw GradleException("lefthook install failed with exit code $exitCode")
+        }
+    }
+}
+
+tasks.matching { it.name == "prepareKotlinBuildScriptModel" }.configureEach {
+    dependsOn("installGitHooks")
 }
 
 tasks.register("recordScreenshots") {
