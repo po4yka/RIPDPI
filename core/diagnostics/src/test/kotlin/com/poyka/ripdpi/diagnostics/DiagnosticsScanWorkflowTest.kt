@@ -4,6 +4,8 @@ import com.poyka.ripdpi.core.RipDpiChainConfig
 import com.poyka.ripdpi.core.RipDpiProtocolConfig
 import com.poyka.ripdpi.core.RipDpiProxyUIPreferences
 import com.poyka.ripdpi.core.RipDpiQuicConfig
+import com.poyka.ripdpi.data.AppStatus
+import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.NetworkFingerprint
 import com.poyka.ripdpi.data.TcpChainStepKind
 import com.poyka.ripdpi.data.TcpChainStepModel
@@ -12,8 +14,10 @@ import com.poyka.ripdpi.data.activeDnsSettings
 import com.poyka.ripdpi.data.strategyFamily
 import com.poyka.ripdpi.data.strategyLabel
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class DiagnosticsScanWorkflowTest {
@@ -323,7 +327,101 @@ class DiagnosticsScanWorkflowTest {
             eligibility,
         )
     }
+
+    @Test
+    fun `temporary resolver override applied when no strategy probe and conditions met`() {
+        val report = scanReportWithResolverRecommendation()
+
+        assertTrue(
+            DiagnosticsScanWorkflow.shouldApplyTemporaryResolverOverride(
+                report = report,
+                settings = settings,
+                serviceStatus = AppStatus.Running,
+                serviceMode = Mode.VPN,
+            ),
+        )
+    }
+
+    @Test
+    fun `temporary resolver override blocked when strategy probe completed normally`() {
+        val report =
+            scanReportWithStrategyProbe(
+                proxyConfigJson = validRecommendedProxyConfigJson(),
+                tcpFamily = "hostfake",
+                quicFamily = "quic_realistic_burst",
+                completionKind = StrategyProbeCompletionKind.NORMAL,
+            ).copy(resolverRecommendation = resolverRecommendation())
+
+        assertFalse(
+            DiagnosticsScanWorkflow.shouldApplyTemporaryResolverOverride(
+                report = report,
+                settings = settings,
+                serviceStatus = AppStatus.Running,
+                serviceMode = Mode.VPN,
+            ),
+        )
+    }
+
+    @Test
+    fun `temporary resolver override applied when strategy probe dns short circuited`() {
+        val report =
+            scanReportWithStrategyProbe(
+                proxyConfigJson = validRecommendedProxyConfigJson(),
+                tcpFamily = "hostfake",
+                quicFamily = "quic_realistic_burst",
+                completionKind = StrategyProbeCompletionKind.DNS_SHORT_CIRCUITED,
+            ).copy(resolverRecommendation = resolverRecommendation())
+
+        assertTrue(
+            DiagnosticsScanWorkflow.shouldApplyTemporaryResolverOverride(
+                report = report,
+                settings = settings,
+                serviceStatus = AppStatus.Running,
+                serviceMode = Mode.VPN,
+            ),
+        )
+    }
+
+    @Test
+    fun `temporary resolver override skipped when resolver recommendation is null`() {
+        val report =
+            scanReportWithStrategyProbe(
+                proxyConfigJson = validRecommendedProxyConfigJson(),
+                tcpFamily = "hostfake",
+                quicFamily = "quic_realistic_burst",
+                completionKind = StrategyProbeCompletionKind.DNS_SHORT_CIRCUITED,
+            )
+
+        assertFalse(
+            DiagnosticsScanWorkflow.shouldApplyTemporaryResolverOverride(
+                report = report,
+                settings = settings,
+                serviceStatus = AppStatus.Running,
+                serviceMode = Mode.VPN,
+            ),
+        )
+    }
 }
+
+private fun scanReportWithResolverRecommendation(): ScanReport =
+    ScanReport(
+        sessionId = "session-1",
+        profileId = "automatic-probing",
+        pathMode = ScanPathMode.RAW_PATH,
+        startedAt = 10L,
+        finishedAt = 20L,
+        summary = "connectivity scan",
+        resolverRecommendation = resolverRecommendation(),
+    )
+
+private fun resolverRecommendation(): ResolverRecommendation =
+    ResolverRecommendation(
+        triggerOutcome = "dns_substitution",
+        selectedResolverId = "cloudflare",
+        selectedProtocol = "doh",
+        selectedEndpoint = "https://cloudflare-dns.com/dns-query",
+        rationale = "DNS tampering detected",
+    )
 
 private fun scanReportWithStrategyProbe(
     proxyConfigJson: String,
@@ -331,6 +429,7 @@ private fun scanReportWithStrategyProbe(
     quicFamily: String,
     suiteId: String = "quick_v1",
     auditAssessment: StrategyProbeAuditAssessment? = null,
+    completionKind: StrategyProbeCompletionKind = StrategyProbeCompletionKind.NORMAL,
     tcpSucceededTargets: Int = 1,
     quicSucceededTargets: Int = 1,
 ): ScanReport =
@@ -371,6 +470,7 @@ private fun scanReportWithStrategyProbe(
                         rationale = "best path",
                         recommendedProxyConfigJson = proxyConfigJson,
                     ),
+                completionKind = completionKind,
                 auditAssessment = auditAssessment,
             ),
     )

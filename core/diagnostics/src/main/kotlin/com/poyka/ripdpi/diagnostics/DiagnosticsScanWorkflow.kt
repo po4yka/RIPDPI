@@ -99,7 +99,10 @@ internal object DiagnosticsScanWorkflow {
         serviceMode: Mode,
     ): Boolean {
         if (report.resolverRecommendation == null) return false
-        return report.strategyProbeReport == null &&
+        return (
+            report.strategyProbeReport == null ||
+                report.strategyProbeReport.completionKind == StrategyProbeCompletionKind.DNS_SHORT_CIRCUITED
+        ) &&
             serviceMode == Mode.VPN &&
             serviceStatus == com.poyka.ripdpi.data.AppStatus.Running &&
             settings.activeDnsSettings().mode == DnsModePlainUdp
