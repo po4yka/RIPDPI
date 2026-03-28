@@ -293,7 +293,14 @@ fn drive_http_echo_best_effort(proxy_port: u16, fixture: &FixtureStack, path_tok
 }
 
 fn drive_tls_probe_best_effort(proxy_port: u16, fixture: &FixtureStack) -> Result<(), String> {
-    let _ = attempt_socks5_tls_round_trip(proxy_port, fixture, None);
+    // Retry the TLS probe up to 3 times to absorb transient connection races
+    // (e.g. the TLS echo server accepting connections just after the first attempt).
+    for attempt in 0..3 {
+        if attempt > 0 {
+            thread::sleep(Duration::from_millis(200));
+        }
+        let _ = attempt_socks5_tls_round_trip(proxy_port, fixture, None);
+    }
     thread::sleep(Duration::from_millis(250));
     Ok(())
 }
@@ -550,7 +557,17 @@ fn assert_outbound_ttl(run: &ScenarioRun, port: u16, ttl: u8) -> Result<(), Stri
     }) {
         Ok(())
     } else {
-        Err(format!("expected outbound packet to port {port} with ttl {ttl}"))
+        let outbound_count = run.packets.iter().filter(|p| is_outbound_to_port(p, port)).count();
+        let observed_ttls: Vec<_> = run
+            .packets
+            .iter()
+            .filter(|p| is_outbound_to_port(p, port))
+            .filter_map(|p| field_u64(p, "ip.ttl").or_else(|| field_u64(p, "ipv6.hlim")))
+            .collect();
+        Err(format!(
+            "expected outbound packet to port {port} with ttl {ttl}; \
+             captured {outbound_count} outbound packets, observed ttls: {observed_ttls:?}"
+        ))
     }
 }
 

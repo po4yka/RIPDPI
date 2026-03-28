@@ -1133,14 +1133,22 @@ internal fun StrategyProbeReportCard(
         )
         Text(
             text =
-                if (isDnsShortCircuited && isFullAudit) {
-                    stringResource(R.string.diagnostics_audit_short_circuit_matrix_title)
-                } else if (isDnsShortCircuited) {
-                    stringResource(R.string.diagnostics_probe_short_circuit_recommendation_title)
-                } else if (isFullAudit) {
-                    stringResource(R.string.diagnostics_audit_matrix_title)
-                } else {
-                    stringResource(R.string.diagnostics_probe_recommendation_title)
+                when {
+                    isDnsShortCircuited && isFullAudit -> {
+                        stringResource(R.string.diagnostics_audit_short_circuit_matrix_title)
+                    }
+
+                    isDnsShortCircuited -> {
+                        stringResource(R.string.diagnostics_probe_short_circuit_recommendation_title)
+                    }
+
+                    isFullAudit -> {
+                        stringResource(R.string.diagnostics_audit_matrix_title)
+                    }
+
+                    else -> {
+                        stringResource(R.string.diagnostics_probe_recommendation_title)
+                    }
                 }.uppercase(),
             style = RipDpiThemeTokens.type.sectionTitle,
             color = colors.foreground,
