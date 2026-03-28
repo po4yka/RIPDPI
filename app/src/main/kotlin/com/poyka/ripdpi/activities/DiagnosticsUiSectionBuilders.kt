@@ -61,6 +61,7 @@ internal fun DiagnosticsUiFactorySupport.buildScanUiModel(
     rawArgsEnabled: Boolean,
     scanStartedAt: Long?,
     completedProbes: List<CompletedProbeUiModel> = emptyList(),
+    vpnPermissionDisabled: Boolean = false,
     hiddenProbeConflictDialog: HiddenProbeConflictDialogState? = null,
     queuedManualScanRequest: QueuedManualScanRequest? = null,
 ): DiagnosticsScanUiModel {
@@ -93,6 +94,26 @@ internal fun DiagnosticsUiFactorySupport.buildScanUiModel(
                         ),
                     actionLabel = context.getString(R.string.diagnostics_scan_open_advanced_settings),
                     actionKind = DiagnosticsWorkflowRestrictionActionKindUiModel.OPEN_ADVANCED_SETTINGS,
+                )
+            }
+
+            strategyProbeSelected && vpnPermissionDisabled -> {
+                val vpnWorkflowLabel =
+                    if (selectedProfile.isFullAudit) {
+                        context.getString(R.string.diagnostics_scan_automatic_audit)
+                    } else {
+                        context.getString(R.string.diagnostics_scan_automatic_probing)
+                    }
+                DiagnosticsWorkflowRestrictionUiModel(
+                    reason = DiagnosticsWorkflowRestrictionReasonUiModel.VPN_PERMISSION_DISABLED,
+                    title = context.getString(R.string.diagnostics_scan_vpn_permission_warning_title),
+                    body =
+                        context.getString(
+                            R.string.diagnostics_scan_vpn_permission_warning_body_format,
+                            vpnWorkflowLabel,
+                        ),
+                    actionLabel = context.getString(R.string.diagnostics_scan_grant_vpn_permission),
+                    actionKind = DiagnosticsWorkflowRestrictionActionKindUiModel.OPEN_VPN_PERMISSION,
                 )
             }
 

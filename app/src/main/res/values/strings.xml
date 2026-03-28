@@ -1503,6 +1503,9 @@ Source: %2$s</string>
     <string name="diagnostics_scan_workflow_blocked_command_line_body_format">%1$s is blocked because %2$s is enabled. Turn it off in Advanced Settings before running this workflow so RIPDPI can launch isolated temporary strategy trials with the visual configuration.</string>
     <string name="diagnostics_scan_blocked_setting_label">Blocked setting</string>
     <string name="diagnostics_scan_open_advanced_settings">Open Advanced Settings</string>
+    <string name="diagnostics_scan_vpn_permission_warning_title">VPN permission recommended</string>
+    <string name="diagnostics_scan_vpn_permission_warning_body_format">%1$s recommendations assume VPN routing. Without VPN permission, the recommended strategy cannot be applied in VPN mode. Grant permission before running this audit for actionable results.</string>
+    <string name="diagnostics_scan_grant_vpn_permission">Grant VPN permission</string>
 
     <!-- Diagnostics share preview -->
     <string name="diagnostics_share_title">RIPDPI diagnostics</string>
