@@ -10,6 +10,8 @@ use rustls::{
 };
 
 use crate::dns::{resolve_https_ech_configs_via_encrypted_dns, EchResolutionOutcome};
+use crate::ja3::{self, RecordingStream};
+use crate::platform_ttl;
 use crate::transport::{connect_transport, ConnectionStream, TargetAddress, TransportConfig};
 use crate::util::IO_TIMEOUT;
 
@@ -28,6 +30,9 @@ pub(crate) struct TlsObservation {
     pub(crate) tls_handshake_ms: Option<u64>,
     pub(crate) cert_chain_length: Option<usize>,
     pub(crate) cert_issuer: Option<String>,
+    pub(crate) observed_server_ttl: Option<u8>,
+    pub(crate) estimated_hop_count: Option<u8>,
+    pub(crate) ja3_fingerprint: Option<String>,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -105,6 +110,9 @@ pub(crate) struct ProbeStreamResult {
     pub(crate) tls_handshake_ms: u64,
     pub(crate) cert_chain_length: Option<usize>,
     pub(crate) cert_issuer: Option<String>,
+    pub(crate) observed_server_ttl: Option<u8>,
+    pub(crate) estimated_hop_count: Option<u8>,
+    pub(crate) ja3_fingerprint: Option<String>,
 }
 
 // --- TLS helper functions ---
@@ -124,6 +132,9 @@ pub(crate) fn try_tls_handshake(
             let tls_handshake_ms = Some(result.tls_handshake_ms);
             let cert_chain_length = result.cert_chain_length;
             let cert_issuer = result.cert_issuer;
+            let observed_server_ttl = result.observed_server_ttl;
+            let estimated_hop_count = result.estimated_hop_count;
+            let ja3_fingerprint = result.ja3_fingerprint;
             let mut stream = result.stream;
             let (status, version, error, ech_resolution_detail) = match &mut stream {
                 ConnectionStream::Plain(_) => ("tls_ok".to_string(), None, None, None),
@@ -157,6 +168,9 @@ pub(crate) fn try_tls_handshake(
                 tls_handshake_ms,
                 cert_chain_length,
                 cert_issuer,
+                observed_server_ttl,
+                estimated_hop_count,
+                ja3_fingerprint,
             }
         }
         Err(err) => {
@@ -175,6 +189,9 @@ pub(crate) fn try_tls_handshake(
                     tls_handshake_ms: None,
                     cert_chain_length: None,
                     cert_issuer: None,
+                    observed_server_ttl: None,
+                    estimated_hop_count: None,
+                    ja3_fingerprint: None,
                 };
             }
             let certificate_anomaly = is_certificate_error(&err);
@@ -192,6 +209,9 @@ pub(crate) fn try_tls_handshake(
                 tls_handshake_ms: None,
                 cert_chain_length: None,
                 cert_issuer: None,
+                observed_server_ttl: None,
+                estimated_hop_count: None,
+                ja3_fingerprint: None,
             }
         }
     }
@@ -222,16 +242,28 @@ pub(crate) fn open_probe_stream(
                 _ => build_standard_client_config(profile, verify_certificates, tls_verifier),
             };
             let server_name = make_server_name(name, target)?;
-            let connection = ClientConnection::new(config, server_name).map_err(|err| err.to_string())?;
-            let mut tls_stream = StreamOwned::new(connection, socket);
+            let mut connection = ClientConnection::new(config, server_name).map_err(|err| err.to_string())?;
+
+            // Wrap the socket in RecordingStream to capture the ClientHello for JA3.
+            let mut recording = RecordingStream::new(socket);
 
             let tls_start = Instant::now();
-            while tls_stream.conn.is_handshaking() {
-                tls_stream.conn.complete_io(&mut tls_stream.sock).map_err(|err| err.to_string())?;
+            while connection.is_handshaking() {
+                connection.complete_io(&mut recording).map_err(|err| err.to_string())?;
             }
             let tls_handshake_ms = tls_start.elapsed().as_millis() as u64;
 
+            // Compute JA3 from the recorded outbound bytes before unwrapping.
+            let ja3_fingerprint = ja3::compute_ja3(recording.recorded_writes());
+
+            let (socket, _recorded) = recording.into_parts();
+            let tls_stream = StreamOwned::new(connection, socket);
+
             let (cert_chain_length, cert_issuer) = extract_cert_info(&tls_stream.conn);
+
+            // Capture server TTL from the underlying TCP socket after TLS handshake
+            let observed_server_ttl = platform_ttl::get_observed_ttl(&tls_stream.sock);
+            let estimated_hop_count = observed_server_ttl.map(platform_ttl::estimate_hop_count);
 
             Ok(ProbeStreamResult {
                 stream: ConnectionStream::Tls(Box::new(tls_stream)),
@@ -239,15 +271,25 @@ pub(crate) fn open_probe_stream(
                 tls_handshake_ms,
                 cert_chain_length,
                 cert_issuer,
+                observed_server_ttl,
+                estimated_hop_count,
+                ja3_fingerprint,
             })
         }
-        _ => Ok(ProbeStreamResult {
-            stream: ConnectionStream::Plain(socket),
-            tcp_connect_ms,
-            tls_handshake_ms: 0,
-            cert_chain_length: None,
-            cert_issuer: None,
-        }),
+        _ => {
+            let observed_server_ttl = platform_ttl::get_observed_ttl(&socket);
+            let estimated_hop_count = observed_server_ttl.map(platform_ttl::estimate_hop_count);
+            Ok(ProbeStreamResult {
+                stream: ConnectionStream::Plain(socket),
+                tcp_connect_ms,
+                tls_handshake_ms: 0,
+                cert_chain_length: None,
+                cert_issuer: None,
+                observed_server_ttl,
+                estimated_hop_count,
+                ja3_fingerprint: None,
+            })
+        }
     }
 }
 
@@ -538,6 +580,9 @@ mod tests {
             tls_handshake_ms: None,
             cert_chain_length: None,
             cert_issuer: None,
+            observed_server_ttl: None,
+            estimated_hop_count: None,
+            ja3_fingerprint: None,
         }
     }
 
