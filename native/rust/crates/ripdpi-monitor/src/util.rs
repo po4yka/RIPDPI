@@ -228,6 +228,7 @@ fn probe_outcome_bucket(probe_type: &str, path_mode: &ScanPathMode, outcome: &st
         },
         "circumvention_reachability" => match outcome {
             "circumvention_ok" => ProbeOutcomeBucket::Healthy,
+            "circumvention_degraded" => ProbeOutcomeBucket::Attention,
             "circumvention_blocked" => ProbeOutcomeBucket::Failed,
             _ => legacy_outcome_bucket(outcome),
         },
