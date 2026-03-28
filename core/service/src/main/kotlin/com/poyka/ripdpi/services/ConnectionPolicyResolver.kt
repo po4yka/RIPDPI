@@ -246,11 +246,16 @@ class DefaultConnectionPolicyResolver
             dnsResolution: EffectiveDnsResolution,
             networkScopeKey: String?,
         ): EncryptedDnsPathCandidate? {
-            if (mode != Mode.VPN || dnsResolution.override != null || !dnsResolution.activeDns.isEncrypted) {
+            if (mode != Mode.VPN || dnsResolution.override != null) {
                 return null
             }
             val scopeKey = networkScopeKey ?: return null
-            return networkDnsPathPreferenceStore.getPreferredPath(scopeKey)
+            val preferred = networkDnsPathPreferenceStore.getPreferredPath(scopeKey) ?: return null
+            // Apply diagnostics-recommended path for both encrypted and plain UDP DNS.
+            // When DNS is plain UDP (system default) and diagnostics detected tampering,
+            // this proactively switches to the recommended encrypted resolver on VPN start
+            // instead of waiting for 2 consecutive DNS failures via the failover controller.
+            return preferred
         }
     }
 
@@ -267,7 +272,7 @@ internal fun resolveVpnDnsSelection(
     if (resolverOverride != null) {
         return VpnDnsSelection(activeDns = resolverOverride.toActiveDnsSettings())
     }
-    if (baseDns.isEncrypted && preferredPath != null) {
+    if (preferredPath != null) {
         return VpnDnsSelection(
             activeDns = preferredPath.toActiveDnsSettings(),
             preferredPath = preferredPath,
