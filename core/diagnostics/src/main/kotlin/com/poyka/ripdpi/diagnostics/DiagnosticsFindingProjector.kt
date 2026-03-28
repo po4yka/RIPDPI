@@ -34,6 +34,14 @@ class DiagnosticsFindingProjector
             val throughput = observations.mapNotNull(ObservationFact::throughput)
             val strategyFacts = observations.filter { it.kind == ObservationKind.STRATEGY && it.strategy != null }
 
+            val controlDomains = domains.filter { it.isControl }
+            val controlsPassed =
+                controlDomains.isNotEmpty() &&
+                    controlDomains.all {
+                        it.tls13Status == TlsProbeStatus.OK || it.tls12Status == TlsProbeStatus.OK
+                    }
+            val hasControls = controlDomains.isNotEmpty()
+
             collectDnsDiagnoses(dns, domains, diagnoses, seen)
             collectDomainDiagnoses(domains, quic, diagnoses, seen)
             collectTcpDiagnoses(tcp, diagnoses, seen)
@@ -42,6 +50,23 @@ class DiagnosticsFindingProjector
             collectCircumventionDiagnoses(circumventions, diagnoses, seen)
             collectThroughputDiagnoses(throughput, diagnoses, seen)
             collectStrategyDiagnoses(strategyFacts, diagnoses, seen)
+
+            if (hasControls && !controlsPassed) {
+                pushDiagnosis(
+                    diagnoses,
+                    seen,
+                    Diagnosis(
+                        code = "network_connectivity_issue",
+                        summary =
+                            "Control domains also failed, indicating a general network problem " +
+                                "rather than targeted blocking",
+                    ),
+                )
+            }
+
+            if (hasControls) {
+                return diagnoses.map { d -> d.copy(controlValidated = controlsPassed) }
+            }
 
             return diagnoses
         }
@@ -410,26 +435,55 @@ class DiagnosticsFindingProjector
                 throughput
                     .filterNot(ThroughputObservationFact::isControl)
                     .firstOrNull { normalizeTarget(it.label).contains("youtube") }
-                    ?: return
-            val isSeverelyThrottled =
-                youtube.status == ThroughputProbeStatus.MEASURED &&
-                    controlMedian != null &&
-                    controlMedian >= ControlFloorBps &&
-                    youtube.medianBps < (controlMedian * ThrottlingRatioThreshold).toLong()
-            if (
-                !hasHardYoutubeFailure(diagnoses) &&
-                isSeverelyThrottled
-            ) {
-                pushDiagnosis(
-                    diagnoses,
-                    seen,
-                    Diagnosis(
-                        code = "youtube_throttled",
-                        summary = "YouTube throughput was heavily throttled relative to control traffic",
-                        target = youtube.label,
-                        evidence = listOf(youtube.medianBps.toString(), controlMedian.toString()),
-                    ),
-                )
+
+            if (youtube != null) {
+                val isSeverelyThrottled =
+                    youtube.status == ThroughputProbeStatus.MEASURED &&
+                        controlMedian != null &&
+                        controlMedian >= ControlFloorBps &&
+                        youtube.medianBps < (controlMedian * ThrottlingRatioThreshold).toLong()
+                if (
+                    !hasHardYoutubeFailure(diagnoses) &&
+                    isSeverelyThrottled
+                ) {
+                    pushDiagnosis(
+                        diagnoses,
+                        seen,
+                        Diagnosis(
+                            code = "youtube_throttled",
+                            summary = "YouTube throughput was heavily throttled relative to control traffic",
+                            target = youtube.label,
+                            evidence = listOf(youtube.medianBps.toString(), controlMedian.toString()),
+                        ),
+                    )
+                }
+            }
+
+            if (controlMedian != null && controlMedian >= ControlFloorBps) {
+                val targetThroughputs = throughput.filter { !it.isControl }
+                for (target in targetThroughputs) {
+                    if (target.status != ThroughputProbeStatus.MEASURED) continue
+                    val targetBps = target.medianBps
+                    if (targetBps.toDouble() / controlMedian < ThrottlingRatioThreshold) {
+                        pushDiagnosis(
+                            diagnoses,
+                            seen,
+                            Diagnosis(
+                                code = "throttling_suspected",
+                                summary =
+                                    "Target throughput is significantly lower than control, " +
+                                        "suggesting throttling",
+                                target = target.label,
+                                evidence =
+                                    listOf(
+                                        "targetBps=$targetBps",
+                                        "controlBps=$controlMedian",
+                                        "ratio=${String.format("%.2f", targetBps.toDouble() / controlMedian)}",
+                                    ),
+                            ),
+                        )
+                    }
+                }
             }
         }
 
@@ -465,6 +519,7 @@ class DiagnosticsFindingProjector
             addPerDomainStrategyFailureDiagnosis(strategyFacts, diagnoses, seen)
             addQuicTotalFailureDiagnosis(strategyFacts, diagnoses, seen)
             addHttpNetworkBlockedDiagnosis(strategyFacts, diagnoses, seen)
+            addH3SelectiveBlockingDiagnosis(strategyFacts, diagnoses, seen)
         }
 
         private fun addStrategyExhaustionDiagnosis(
@@ -570,6 +625,44 @@ class DiagnosticsFindingProjector
                         evidence = targets,
                     ),
                 )
+            }
+        }
+
+        private fun addH3SelectiveBlockingDiagnosis(
+            strategyFacts: List<ObservationFact>,
+            diagnoses: MutableList<Diagnosis>,
+            seen: MutableSet<String>,
+        ) {
+            // Find domains where HTTP probes advertise h3 support via Alt-Svc
+            val httpFacts = strategyFacts.filter { it.strategy?.protocol == StrategyProbeProtocol.HTTP }
+            val h3Domains =
+                httpFacts
+                    .filter { it.strategy?.h3Advertised == true }
+                    .mapNotNull { parseDomainFromTarget(it.target) }
+                    .toSet()
+            if (h3Domains.isEmpty()) return
+
+            // Check if QUIC probes all failed for those same domains
+            val quicFacts = strategyFacts.filter { it.strategy?.protocol == StrategyProbeProtocol.QUIC }
+            for (domain in h3Domains) {
+                val quicForDomain = quicFacts.filter { parseDomainFromTarget(it.target) == domain }
+                if (quicForDomain.isEmpty()) continue
+                val quicAllFailed = quicForDomain.none { it.strategy?.status == StrategyProbeStatus.SUCCESS }
+                if (quicAllFailed) {
+                    pushDiagnosis(
+                        diagnoses,
+                        seen,
+                        Diagnosis(
+                            code = "h3_selective_blocking",
+                            summary = "Server advertises HTTP/3 (h3) via Alt-Svc but QUIC is blocked",
+                            target = domain,
+                            evidence = listOf("h3Advertised=true", "quicProbes=${quicForDomain.size}", "quicSuccess=0"),
+                            recommendation =
+                                "The server supports HTTP/3 but QUIC traffic is being blocked. " +
+                                    "This may indicate selective QUIC/UDP filtering by the network.",
+                        ),
+                    )
+                }
             }
         }
 

@@ -2,6 +2,8 @@ package com.poyka.ripdpi.diagnostics
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class DiagnosticsFindingProjectorTest {
@@ -249,5 +251,151 @@ class DiagnosticsFindingProjectorTest {
             )
         val diagnoses = DiagnosticsFindingProjector().classify(observations)
         assert(diagnoses.none { it.code == "http_network_blocked" })
+    }
+
+    @Test
+    fun `classify sets controlValidated true when control domains pass`() {
+        val observations =
+            listOf(
+                ObservationFact(
+                    kind = ObservationKind.DOMAIN,
+                    target = "cloudflare.com",
+                    domain =
+                        DomainObservationFact(
+                            host = "cloudflare.com",
+                            tls13Status = TlsProbeStatus.OK,
+                            isControl = true,
+                        ),
+                ),
+                ObservationFact(
+                    kind = ObservationKind.DOMAIN,
+                    target = "blocked.example",
+                    domain =
+                        DomainObservationFact(
+                            host = "blocked.example",
+                            transportFailure = TransportFailureKind.RESET,
+                        ),
+                ),
+            )
+        val diagnoses = DiagnosticsFindingProjector().classify(observations)
+        assertTrue(diagnoses.isNotEmpty())
+        diagnoses.forEach { assertEquals(true, it.controlValidated) }
+        assert(diagnoses.none { it.code == "network_connectivity_issue" })
+    }
+
+    @Test
+    fun `classify emits network_connectivity_issue when control domains fail`() {
+        val observations =
+            listOf(
+                ObservationFact(
+                    kind = ObservationKind.DOMAIN,
+                    target = "cloudflare.com",
+                    domain =
+                        DomainObservationFact(
+                            host = "cloudflare.com",
+                            tls13Status = TlsProbeStatus.HANDSHAKE_FAILED,
+                            tls12Status = TlsProbeStatus.HANDSHAKE_FAILED,
+                            isControl = true,
+                        ),
+                ),
+                ObservationFact(
+                    kind = ObservationKind.DOMAIN,
+                    target = "blocked.example",
+                    domain =
+                        DomainObservationFact(
+                            host = "blocked.example",
+                            transportFailure = TransportFailureKind.RESET,
+                        ),
+                ),
+            )
+        val diagnoses = DiagnosticsFindingProjector().classify(observations)
+        val networkIssue = diagnoses.firstOrNull { it.code == "network_connectivity_issue" }
+        assertNotNull(networkIssue)
+        diagnoses.forEach { assertEquals(false, it.controlValidated) }
+    }
+
+    @Test
+    fun `classify does not set controlValidated when no control domains present`() {
+        val observations =
+            listOf(
+                ObservationFact(
+                    kind = ObservationKind.DOMAIN,
+                    target = "blocked.example",
+                    domain =
+                        DomainObservationFact(
+                            host = "blocked.example",
+                            transportFailure = TransportFailureKind.RESET,
+                        ),
+                ),
+            )
+        val diagnoses = DiagnosticsFindingProjector().classify(observations)
+        diagnoses.forEach { assertNull(it.controlValidated) }
+    }
+
+    @Test
+    fun `classify emits throttling_suspected when target throughput is much lower than control`() {
+        val observations =
+            listOf(
+                ObservationFact(
+                    kind = ObservationKind.THROUGHPUT,
+                    target = "CDN Control",
+                    throughput =
+                        ThroughputObservationFact(
+                            label = "CDN Control",
+                            status = ThroughputProbeStatus.MEASURED,
+                            isControl = true,
+                            medianBps = 10_000_000,
+                        ),
+                ),
+                ObservationFact(
+                    kind = ObservationKind.THROUGHPUT,
+                    target = "Target Service",
+                    throughput =
+                        ThroughputObservationFact(
+                            label = "Target Service",
+                            status = ThroughputProbeStatus.MEASURED,
+                            isControl = false,
+                            medianBps = 500_000,
+                        ),
+                ),
+            )
+        val diagnoses = DiagnosticsFindingProjector().classify(observations)
+        val throttling = diagnoses.firstOrNull { it.code == "throttling_suspected" }
+        assertNotNull(throttling)
+        assertEquals("Target Service", throttling?.target)
+        assertTrue(throttling!!.evidence.any { it.startsWith("targetBps=") })
+        assertTrue(throttling.evidence.any { it.startsWith("controlBps=") })
+        assertTrue(throttling.evidence.any { it.startsWith("ratio=") })
+    }
+
+    @Test
+    fun `classify does not emit throttling_suspected when throughput ratio is acceptable`() {
+        val observations =
+            listOf(
+                ObservationFact(
+                    kind = ObservationKind.THROUGHPUT,
+                    target = "CDN Control",
+                    throughput =
+                        ThroughputObservationFact(
+                            label = "CDN Control",
+                            status = ThroughputProbeStatus.MEASURED,
+                            isControl = true,
+                            medianBps = 10_000_000,
+                        ),
+                ),
+                ObservationFact(
+                    kind = ObservationKind.THROUGHPUT,
+                    target = "Target Service",
+                    throughput =
+                        ThroughputObservationFact(
+                            label = "Target Service",
+                            status = ThroughputProbeStatus.MEASURED,
+                            isControl = false,
+                            medianBps = 8_000_000,
+                        ),
+                ),
+            )
+        val diagnoses = DiagnosticsFindingProjector().classify(observations)
+        assert(diagnoses.none { it.code == "throttling_suspected" })
     }
 }

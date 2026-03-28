@@ -182,6 +182,8 @@ pub(crate) fn run_domain_probe(
         tls_verifier,
     );
     let http = try_http_request(&connect_target, http_port, transport, &target.host, &target.http_path, false);
+    let alt_svc_value = http.response.as_ref().and_then(|r| r.headers.get("alt-svc")).cloned();
+    let h3_advertised = alt_svc_value.as_ref().map(|v| v.contains("h3")).unwrap_or(false);
     let tls_signal = classify_tls_signal(&tls13, &tls12);
     let preferred_tls = preferred_tls_observation(&tls13, &tls12);
 
@@ -241,6 +243,9 @@ pub(crate) fn run_domain_probe(
             },
             ProbeDetail { key: "httpStatus".to_string(), value: http.status.clone() },
             ProbeDetail { key: "httpResponse".to_string(), value: describe_http_observation(&http) },
+            ProbeDetail { key: "h3Advertised".to_string(), value: h3_advertised.to_string() },
+            ProbeDetail { key: "altSvc".to_string(), value: alt_svc_value.unwrap_or_else(|| "none".to_string()) },
+            ProbeDetail { key: "isControl".to_string(), value: target.is_control.to_string() },
         ],
     }
 }
