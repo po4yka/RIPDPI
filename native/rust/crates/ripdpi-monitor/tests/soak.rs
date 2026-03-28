@@ -228,6 +228,7 @@ fn scan_request(manifest: &FixtureManifest, http_port: u16) -> ScanRequest {
             https_port: Some(free_port()),
             http_port: Some(http_port),
             http_path: "/".to_string(),
+            is_control: false,
         }],
         dns_targets: vec![DnsTarget {
             domain: manifest.fixture_domain.clone(),

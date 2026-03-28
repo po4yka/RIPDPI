@@ -407,6 +407,7 @@ mod tests {
             https_port: None,
             http_port: None,
             http_path: "/".to_string(),
+            is_control: false,
         };
         match domain_connect_target(&target) {
             TargetAddress::Ip(ip) => assert_eq!(ip, "1.2.3.4".parse::<IpAddr>().unwrap()),
@@ -422,6 +423,7 @@ mod tests {
             https_port: None,
             http_port: None,
             http_path: "/".to_string(),
+            is_control: false,
         };
         match domain_connect_target(&target) {
             TargetAddress::Host(host) => assert_eq!(host, "example.com"),
