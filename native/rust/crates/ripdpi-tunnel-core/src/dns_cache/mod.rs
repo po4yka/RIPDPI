@@ -111,6 +111,13 @@ impl DnsCache {
             }
         }
 
+        // Strip AAAA records from answers, additionals, and name-servers so
+        // Android's Happy Eyeballs algorithm cannot prefer a raw IPv6 address
+        // that bypasses the VPN tunnel (causing ENETUNREACH).
+        message.answers_mut().retain(|r| !matches!(r.data(), RData::AAAA(_)));
+        message.additionals_mut().retain(|r| !matches!(r.data(), RData::AAAA(_)));
+        message.name_servers_mut().retain(|r| !matches!(r.data(), RData::AAAA(_)));
+
         Ok(DnsRewriteResult {
             response: message.to_vec().map_err(|err| DnsCacheError::DnsEncode(err.to_string()))?,
             host,
@@ -319,13 +326,33 @@ mod tests {
     }
 
     #[test]
-    fn rewrite_response_preserves_non_a_answers() {
+    fn rewrite_response_strips_aaaa_records() {
         let mut cache = DnsCache::new(NET, MASK, 8);
         let query = build_query("fixture.test");
         let upstream = build_response("fixture.test", &[Ipv4Addr::new(203, 0, 113, 10)], true);
 
         let rewritten = cache.rewrite_response(&query, &upstream).expect("rewrite succeeds");
-        assert_eq!(aaaa_answers(&rewritten.response), vec![Ipv6Addr::LOCALHOST]);
+        // AAAA records must be stripped so Happy Eyeballs cannot bypass the tunnel.
+        assert!(aaaa_answers(&rewritten.response).is_empty(), "AAAA records should be stripped");
+        // A records are still rewritten as before.
+        let answers = a_answers(&rewritten.response);
+        assert_eq!(answers.len(), 1);
+        assert_eq!(answers[0].octets()[0..2], [198, 18]);
+    }
+
+    #[test]
+    fn rewrite_response_handles_aaaa_only_response() {
+        let mut cache = DnsCache::new(NET, MASK, 8);
+        let query = build_query("fixture.test");
+        // Response with no A records, only AAAA.
+        let upstream = build_response("fixture.test", &[], true);
+
+        let rewritten = cache.rewrite_response(&query, &upstream).expect("rewrite succeeds");
+        assert!(aaaa_answers(&rewritten.response).is_empty(), "AAAA records should be stripped");
+        assert!(a_answers(&rewritten.response).is_empty(), "no A records expected");
+        // The response should still be a valid DNS message.
+        let msg = Message::from_vec(&rewritten.response).expect("valid DNS message");
+        assert!(msg.answers().is_empty());
     }
 
     #[test]
