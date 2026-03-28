@@ -88,6 +88,17 @@ fn strategy_audit_lane_counts(candidates: &[StrategyProbeCandidateSummary], plan
     }
 }
 
+fn all_candidates_tied(candidates: &[StrategyProbeCandidateSummary]) -> bool {
+    let eligible: Vec<_> = candidates.iter().filter(|c| !c.skipped && c.outcome != "not_applicable").collect();
+    if eligible.len() < 2 {
+        return false;
+    }
+    let first = &eligible[0];
+    eligible
+        .iter()
+        .all(|c| c.weighted_success_score == first.weighted_success_score && c.quality_score == first.quality_score)
+}
+
 fn candidate_score_percent(candidate: &StrategyProbeCandidateSummary) -> usize {
     round_percent(candidate.weighted_success_score, candidate.total_weight)
 }
@@ -144,6 +155,8 @@ fn resolve_strategy_probe_audit_assessment(
     let low_quic_execution = quic_lane_coverage < 75;
     let narrow_tcp_margin = tcp_margin < 10;
     let narrow_quic_margin = quic_margin < 10;
+    let all_tcp_tied = all_candidates_tied(tcp_candidates);
+    let all_quic_tied = all_candidates_tied(quic_candidates);
 
     let mut score = 100i32;
     let mut warnings = Vec::new();
@@ -174,6 +187,14 @@ fn resolve_strategy_probe_audit_assessment(
         score -= 10;
         warnings.push("QUIC winner margin stayed below 10 points over the next candidate.".to_string());
     }
+    if all_tcp_tied {
+        score -= 20;
+        warnings.push("All TCP candidates produced identical results; the winner is arbitrary.".to_string());
+    }
+    if all_quic_tied {
+        score -= 15;
+        warnings.push("All QUIC candidates produced identical results; the winner is arbitrary.".to_string());
+    }
 
     let score = score.clamp(0, 100) as usize;
     let level = if score >= 80 {
@@ -189,6 +210,8 @@ fn resolve_strategy_probe_audit_assessment(
         "The winning TCP or QUIC lane recovered too few weighted targets".to_string()
     } else if low_tcp_execution || low_quic_execution {
         "The audit did not execute enough of the planned matrix to fully trust the winner".to_string()
+    } else if all_tcp_tied || all_quic_tied {
+        "All candidates in a lane produced identical results; the recommendation is arbitrary".to_string()
     } else if narrow_tcp_margin || narrow_quic_margin {
         "The winning candidates only narrowly outperformed the next-best options".to_string()
     } else {
@@ -212,6 +235,8 @@ fn resolve_strategy_probe_audit_assessment(
             quic_winner_total_targets: quic_winner.map_or(0, |candidate| candidate.total_targets),
             matrix_coverage_percent: round_percent(total_executed, total_planned),
             winner_coverage_percent: (tcp_winner_coverage + quic_winner_coverage).div_ceil(2),
+            tcp_winner_coverage_percent: tcp_winner_coverage,
+            quic_winner_coverage_percent: quic_winner_coverage,
         },
         confidence: StrategyProbeAuditConfidence { level, score, rationale, warnings },
     })
@@ -1039,5 +1064,40 @@ mod tests {
             .confidence
             .warnings
             .contains(&"QUIC winner margin stayed below 10 points over the next candidate.".to_string()));
+    }
+
+    #[test]
+    fn test_audit_assessment_penalizes_all_tied_candidates() {
+        let tcp_candidates: Vec<_> = (0..15)
+            .map(|i| strategy_candidate_summary(&format!("tcp_{i}"), "split", 2, 9, 1, 6, false, "partial"))
+            .collect();
+        let quic_candidates: Vec<_> = (0..3)
+            .map(|i| strategy_candidate_summary(&format!("quic_{i}"), "quic", 0, 4, 0, 2, false, "failed"))
+            .collect();
+        let rec = StrategyProbeRecommendation {
+            tcp_candidate_id: "tcp_0".to_string(),
+            tcp_candidate_label: "tcp 0".to_string(),
+            quic_candidate_id: "quic_0".to_string(),
+            quic_candidate_label: "quic 0".to_string(),
+            rationale: "all tied".to_string(),
+            recommended_proxy_config_json: String::new(),
+        };
+        let assessment = resolve_strategy_probe_audit_assessment(
+            STRATEGY_PROBE_SUITE_FULL_MATRIX_V1,
+            &tcp_candidates,
+            &quic_candidates,
+            &rec,
+            15,
+            3,
+            false,
+        );
+        let assessment = assessment.expect("should produce assessment for full_matrix_v1");
+        assert_eq!(assessment.confidence.level, StrategyProbeAuditConfidenceLevel::Low);
+        assert!(assessment.confidence.warnings.iter().any(|w| w.contains("TCP candidates produced identical results")));
+        assert!(assessment
+            .confidence
+            .warnings
+            .iter()
+            .any(|w| w.contains("QUIC candidates produced identical results")));
     }
 }

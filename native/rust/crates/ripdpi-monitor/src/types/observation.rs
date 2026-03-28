@@ -118,6 +118,10 @@ pub struct DnsObservationFact {
     pub udp_addresses: Vec<String>,
     #[serde(default)]
     pub encrypted_addresses: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub udp_latency_ms: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub encrypted_latency_ms: Option<u64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]

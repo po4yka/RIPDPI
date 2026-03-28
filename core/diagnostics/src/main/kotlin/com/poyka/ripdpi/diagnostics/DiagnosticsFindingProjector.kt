@@ -32,6 +32,7 @@ class DiagnosticsFindingProjector
             val services = observations.mapNotNull(ObservationFact::service)
             val circumventions = observations.mapNotNull(ObservationFact::circumvention)
             val throughput = observations.mapNotNull(ObservationFact::throughput)
+            val strategyFacts = observations.filter { it.kind == ObservationKind.STRATEGY && it.strategy != null }
 
             collectDnsDiagnoses(dns, domains, diagnoses, seen)
             collectDomainDiagnoses(domains, quic, diagnoses, seen)
@@ -40,6 +41,7 @@ class DiagnosticsFindingProjector
             collectServiceDiagnoses(services, diagnoses, seen)
             collectCircumventionDiagnoses(circumventions, diagnoses, seen)
             collectThroughputDiagnoses(throughput, diagnoses, seen)
+            collectStrategyDiagnoses(strategyFacts, diagnoses, seen)
 
             return diagnoses
         }
@@ -88,6 +90,23 @@ class DiagnosticsFindingProjector
                         )
                     }
                 }
+
+            dns.forEach { observation ->
+                val udpMs = observation.udpLatencyMs ?: return@forEach
+                val encMs = observation.encryptedLatencyMs ?: return@forEach
+                if (udpMs > 3000 || (encMs > 0 && udpMs > encMs * 10)) {
+                    pushDiagnosis(
+                        diagnoses,
+                        seen,
+                        Diagnosis(
+                            code = "dns_latency_anomaly",
+                            summary = "UDP DNS resolution was abnormally slow, suggesting throttling",
+                            target = observation.domain,
+                            evidence = listOf("udpLatencyMs=$udpMs", "encryptedLatencyMs=$encMs"),
+                        ),
+                    )
+                }
+            }
         }
 
         private fun collectDomainDiagnoses(
@@ -434,6 +453,92 @@ class DiagnosticsFindingProjector
             val key = "${diagnosis.code}:${diagnosis.target.orEmpty()}"
             if (seen.add(key)) {
                 diagnoses += diagnosis
+            }
+        }
+
+        private fun collectStrategyDiagnoses(
+            strategyFacts: List<ObservationFact>,
+            diagnoses: MutableList<Diagnosis>,
+            seen: MutableSet<String>,
+        ) {
+            addStrategyExhaustionDiagnosis(strategyFacts, diagnoses, seen)
+            addPerDomainStrategyFailureDiagnosis(strategyFacts, diagnoses, seen)
+            addQuicTotalFailureDiagnosis(strategyFacts, diagnoses, seen)
+        }
+
+        private fun addStrategyExhaustionDiagnosis(
+            strategyFacts: List<ObservationFact>,
+            diagnoses: MutableList<Diagnosis>,
+            seen: MutableSet<String>,
+        ) {
+            val httpsFacts = strategyFacts.filter { it.strategy?.protocol == StrategyProbeProtocol.HTTPS }
+            val candidateIds = httpsFacts.mapNotNull { it.strategy?.candidateId }.distinct()
+            if (candidateIds.size < 2) return
+            val anySuccess = httpsFacts.any { it.strategy?.status == StrategyProbeStatus.SUCCESS }
+            if (!anySuccess) {
+                pushDiagnosis(
+                    diagnoses,
+                    seen,
+                    Diagnosis(
+                        code = "strategy_exhaustion",
+                        summary = "No desync strategy could recover any blocked target",
+                        evidence = listOf("candidatesTested=${candidateIds.size}"),
+                    ),
+                )
+            }
+        }
+
+        private fun addPerDomainStrategyFailureDiagnosis(
+            strategyFacts: List<ObservationFact>,
+            diagnoses: MutableList<Diagnosis>,
+            seen: MutableSet<String>,
+        ) {
+            val httpsFacts = strategyFacts.filter { it.strategy?.protocol == StrategyProbeProtocol.HTTPS }
+            val domainGroups = httpsFacts.groupBy { parseDomainFromTarget(it.target) }.filterKeys { it != null }
+            for ((domain, facts) in domainGroups) {
+                val candidateCount = facts.mapNotNull { it.strategy?.candidateId }.distinct().size
+                if (candidateCount < 2) continue
+                val anySuccess = facts.any { it.strategy?.status == StrategyProbeStatus.SUCCESS }
+                if (!anySuccess) {
+                    pushDiagnosis(
+                        diagnoses,
+                        seen,
+                        Diagnosis(
+                            code = "strategy_domain_unreachable",
+                            summary = "All tested strategies failed to recover this domain",
+                            target = domain,
+                            evidence = listOf("strategiesTested=$candidateCount"),
+                        ),
+                    )
+                }
+            }
+        }
+
+        private fun parseDomainFromTarget(target: String): String? {
+            val separator = " \u00b7 "
+            val index = target.indexOf(separator)
+            return if (index >= 0) target.substring(index + separator.length) else null
+        }
+
+        private fun addQuicTotalFailureDiagnosis(
+            strategyFacts: List<ObservationFact>,
+            diagnoses: MutableList<Diagnosis>,
+            seen: MutableSet<String>,
+        ) {
+            val quicFacts = strategyFacts.filter { it.strategy?.protocol == StrategyProbeProtocol.QUIC }
+            if (quicFacts.size < 2) return
+            val anySuccess = quicFacts.any { it.strategy?.status == StrategyProbeStatus.SUCCESS }
+            if (!anySuccess) {
+                val targets = quicFacts.mapNotNull { parseDomainFromTarget(it.target) }.distinct()
+                pushDiagnosis(
+                    diagnoses,
+                    seen,
+                    Diagnosis(
+                        code = "quic_total_failure",
+                        summary = "QUIC is completely blocked on this network",
+                        evidence = targets,
+                    ),
+                )
             }
         }
 

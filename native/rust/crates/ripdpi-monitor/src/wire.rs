@@ -412,6 +412,8 @@ mod tests {
                         quic_winner_total_targets: 2,
                         matrix_coverage_percent: 0,
                         winner_coverage_percent: 0,
+                        tcp_winner_coverage_percent: 0,
+                        quic_winner_coverage_percent: 0,
                     },
                     confidence: StrategyProbeAuditConfidence {
                         level: StrategyProbeAuditConfidenceLevel::Low,
