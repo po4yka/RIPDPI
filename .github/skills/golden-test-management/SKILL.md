@@ -50,7 +50,7 @@ RIPDPI_BLESS_GOLDENS=1 ./gradlew :core:engine:testDebugUnitTest --tests "*.Nativ
 ### After Blessing
 
 1. Review diffs: `git diff` -- verify changes are intentional
-2. Commit with explanation of **why** the golden changed (per CLAUDE.md)
+2. Commit with explanation of **why** the golden changed
 3. If instrumentation fixtures were affected, verify the sync step ran
 
 ## Failure Artifacts
@@ -202,7 +202,7 @@ If the new golden is needed for Android instrumentation tests:
 |---------|-----|
 | Blessing without reviewing diffs | Always `git diff` after blessing. Unexpected changes may indicate bugs. |
 | Forgetting to scrub volatile fields | New timestamp/ID fields cause non-deterministic failures. Add to scrub function. |
-| Not explaining golden changes in commit | CLAUDE.md requires it: "review diffs, explain changes in the commit message." |
+| Not explaining golden changes in commit | Golden updates should always explain why the expected output changed. |
 | Missing instrumentation sync | JVM fixture updated but `app/src/androidTest/assets/golden/` not. Run bless script or add `cp` manually. |
 | Adding golden without `canonicalize_json` | JSON key order is non-deterministic. Always canonicalize before comparing. |
 | Hardcoding fixture path | Rust: use `env!("CARGO_MANIFEST_DIR")`. Kotlin: `GoldenContractSupport` resolves repo root automatically. |
