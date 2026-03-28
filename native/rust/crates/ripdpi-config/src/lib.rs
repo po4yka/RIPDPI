@@ -802,16 +802,13 @@ mod tests {
 
     #[test]
     fn activation_filter_is_bounded_with_any_field_set() {
-        let with_round =
-            ActivationFilter { round: Some(NumericRange::new(1, 3)), ..Default::default() };
+        let with_round = ActivationFilter { round: Some(NumericRange::new(1, 3)), ..Default::default() };
         assert!(!with_round.is_unbounded());
 
-        let with_payload =
-            ActivationFilter { payload_size: Some(NumericRange::new(0, 100)), ..Default::default() };
+        let with_payload = ActivationFilter { payload_size: Some(NumericRange::new(0, 100)), ..Default::default() };
         assert!(!with_payload.is_unbounded());
 
-        let with_stream =
-            ActivationFilter { stream_bytes: Some(NumericRange::new(0, 512)), ..Default::default() };
+        let with_stream = ActivationFilter { stream_bytes: Some(NumericRange::new(0, 512)), ..Default::default() };
         assert!(!with_stream.is_unbounded());
     }
 
@@ -837,10 +834,7 @@ mod tests {
     #[test]
     fn desync_group_is_actionable_with_tcp_chain() {
         let mut group = DesyncGroup::new(0);
-        group.actions.tcp_chain.push(TcpChainStep::new(
-            TcpChainStepKind::Split,
-            OffsetExpr::absolute(5),
-        ));
+        group.actions.tcp_chain.push(TcpChainStep::new(TcpChainStepKind::Split, OffsetExpr::absolute(5)));
         assert!(group.is_actionable());
     }
 
@@ -886,9 +880,8 @@ mod tests {
     #[test]
     fn desync_group_is_actionable_with_ext_socks() {
         let mut group = DesyncGroup::new(0);
-        group.policy.ext_socks = Some(UpstreamSocksConfig {
-            addr: SocketAddr::new(IpAddr::from_str("127.0.0.1").unwrap(), 1081),
-        });
+        group.policy.ext_socks =
+            Some(UpstreamSocksConfig { addr: SocketAddr::new(IpAddr::from_str("127.0.0.1").unwrap(), 1081) });
         assert!(group.is_actionable());
     }
 
@@ -923,10 +916,7 @@ mod tests {
     #[test]
     fn desync_group_is_actionable_with_ipset() {
         let mut group = DesyncGroup::new(0);
-        group.matches.filters.ipset.push(Cidr {
-            addr: IpAddr::from_str("10.0.0.0").unwrap(),
-            bits: 8,
-        });
+        group.matches.filters.ipset.push(Cidr { addr: IpAddr::from_str("10.0.0.0").unwrap(), bits: 8 });
         assert!(group.is_actionable());
     }
 
@@ -937,11 +927,7 @@ mod tests {
         group.actions.tcp_chain.push(step.clone());
         assert_eq!(group.effective_tcp_chain(), vec![step]);
 
-        let udp_step = UdpChainStep {
-            kind: UdpChainStepKind::QuicSniSplit,
-            count: 1,
-            activation_filter: None,
-        };
+        let udp_step = UdpChainStep { kind: UdpChainStepKind::QuicSniSplit, count: 1, activation_filter: None };
         group.actions.udp_chain.push(udp_step);
         assert_eq!(group.effective_udp_chain(), group.actions.udp_chain);
     }
@@ -957,10 +943,7 @@ mod tests {
     #[test]
     fn desync_group_set_activation_filter_keeps_bounded() {
         let mut group = DesyncGroup::new(0);
-        let filter = ActivationFilter {
-            round: Some(NumericRange::new(1, 5)),
-            ..Default::default()
-        };
+        let filter = ActivationFilter { round: Some(NumericRange::new(1, 5)), ..Default::default() };
         group.set_activation_filter(filter);
         assert!(group.matches.activation_filter.is_some());
         assert_eq!(group.activation_filter(), Some(filter));
@@ -1131,10 +1114,7 @@ mod tests {
 
     #[test]
     fn filter_set_hosts_match_suffix_and_exact() {
-        let fs = FilterSet {
-            hosts: vec!["example.com".to_string()],
-            ipset: vec![],
-        };
+        let fs = FilterSet { hosts: vec!["example.com".to_string()], ipset: vec![] };
         assert!(fs.hosts_match("example.com"));
         assert!(fs.hosts_match("sub.example.com"));
         assert!(!fs.hosts_match("notexample.com"));
@@ -1143,12 +1123,8 @@ mod tests {
 
     #[test]
     fn filter_set_ipset_match() {
-        let fs = FilterSet {
-            hosts: vec![],
-            ipset: vec![
-                Cidr { addr: IpAddr::from_str("10.0.0.0").unwrap(), bits: 8 },
-            ],
-        };
+        let fs =
+            FilterSet { hosts: vec![], ipset: vec![Cidr { addr: IpAddr::from_str("10.0.0.0").unwrap(), bits: 8 }] };
         assert!(fs.ipset_match(IpAddr::from_str("10.255.255.255").unwrap()));
         assert!(!fs.ipset_match(IpAddr::from_str("11.0.0.1").unwrap()));
     }
