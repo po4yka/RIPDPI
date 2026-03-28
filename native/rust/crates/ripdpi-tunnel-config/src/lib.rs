@@ -6,7 +6,7 @@ use thiserror::Error;
 #[derive(Debug, Error)]
 pub enum ConfigError {
     #[error(transparent)]
-    Yaml(#[from] serde_yml::Error),
+    Yaml(#[from] serde_yaml_ng::Error),
     #[error("socks5 credentials: username and password must both be present or both absent")]
     MismatchedCredentials,
     #[error("IO error: {0}")]
@@ -44,7 +44,7 @@ impl FromStr for Config {
     type Err = ConfigError;
 
     fn from_str(yaml: &str) -> Result<Self, Self::Err> {
-        let raw: RawConfig = serde_yml::from_str(yaml)?;
+        let raw: RawConfig = serde_yaml_ng::from_str(yaml)?;
         Self::validate(raw)
     }
 }
