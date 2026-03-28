@@ -244,6 +244,7 @@ fn probe_outcome_bucket(probe_type: &str, path_mode: &ScanPathMode, outcome: &st
         },
         "strategy_http" => match outcome {
             "http_ok" => ProbeOutcomeBucket::Healthy,
+            "http_redirect" => ProbeOutcomeBucket::Attention,
             "http_blockpage" | "http_unreachable" => ProbeOutcomeBucket::Failed,
             _ => legacy_outcome_bucket(outcome),
         },

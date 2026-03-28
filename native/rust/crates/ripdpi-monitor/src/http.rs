@@ -384,4 +384,26 @@ mod tests {
         let obs = HttpObservation { status: "http_ok".to_string(), response: None, error: None };
         assert!(!is_blockpage(&obs));
     }
+
+    #[test]
+    fn classify_http_response_redirect_for_301() {
+        let response = HttpResponse {
+            status_code: 301,
+            reason: "Moved Permanently".to_string(),
+            headers: HashMap::new(),
+            body: vec![],
+        };
+        assert_eq!(classify_http_response(&response), "http_status_301");
+    }
+
+    #[test]
+    fn classify_http_response_redirect_for_307() {
+        let response = HttpResponse {
+            status_code: 307,
+            reason: "Temporary Redirect".to_string(),
+            headers: HashMap::new(),
+            body: vec![],
+        };
+        assert_eq!(classify_http_response(&response), "http_status_307");
+    }
 }

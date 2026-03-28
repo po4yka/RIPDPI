@@ -16,6 +16,7 @@
         "tlsEchError": "Connection refused (os error _)",
         "tlsEchStatus": "HANDSHAKE_FAILED",
         "tlsEchVersion": null,
+        "tlsError": "Connection refused (os error _)",
         "transportFailure": "OTHER"
       },
       "evidence": [

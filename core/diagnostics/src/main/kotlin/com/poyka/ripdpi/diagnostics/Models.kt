@@ -298,6 +298,7 @@ data class DomainObservationFact(
     val tlsEchError: String? = null,
     val tlsEchResolutionDetail: String? = null,
     val transportFailure: TransportFailureKind = TransportFailureKind.NONE,
+    val tlsError: String? = null,
     val certificateAnomaly: Boolean = false,
 )
 
@@ -368,6 +369,7 @@ data class StrategyObservationFact(
     val tlsEchError: String? = null,
     val tlsEchResolutionDetail: String? = null,
     val transportFailure: TransportFailureKind = TransportFailureKind.NONE,
+    val tlsError: String? = null,
 )
 
 @Serializable

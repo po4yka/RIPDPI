@@ -184,6 +184,7 @@ object DiagnosticsOutcomeTaxonomy {
             "strategy_http" -> {
                 when (outcome) {
                     "http_ok" -> DiagnosticsOutcomeBucket.Healthy
+                    "http_redirect" -> DiagnosticsOutcomeBucket.Attention
                     "http_blockpage", "http_unreachable" -> DiagnosticsOutcomeBucket.Failed
                     else -> legacyBucketForOutcome(outcome)
                 }
