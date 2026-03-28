@@ -28,6 +28,7 @@ fn push_fake_actions(
         actions.push(DesyncAction::SetMd5Sig { key_len: 5 });
     }
     actions.push(DesyncAction::Write(fake));
+    actions.push(DesyncAction::AwaitWritable);
     if group.actions.md5sig {
         actions.push(DesyncAction::SetMd5Sig { key_len: 0 });
     }

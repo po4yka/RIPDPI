@@ -226,6 +226,7 @@ fn plan_tcp_fake_uses_fake_chunk_then_original_tail() {
         vec![
             DesyncAction::SetTtl(9),
             DesyncAction::Write(b"FAKE".to_vec()),
+            DesyncAction::AwaitWritable,
             DesyncAction::RestoreDefaultTtl,
             DesyncAction::SetTtl(32),
             DesyncAction::Write(b"o world".to_vec()),
@@ -250,6 +251,7 @@ fn plan_tcp_fake_prefers_resolved_fake_ttl_over_group_ttl() {
         vec![
             DesyncAction::SetTtl(5),
             DesyncAction::Write(b"FAKE".to_vec()),
+            DesyncAction::AwaitWritable,
             DesyncAction::RestoreDefaultTtl,
             DesyncAction::SetTtl(32),
             DesyncAction::Write(b"o world".to_vec()),
@@ -615,6 +617,7 @@ fn plan_tcp_hostfake_emits_fake_real_fake_sequence_for_http_host() {
                 Some("googlevideo.com"),
                 23
             )),
+            DesyncAction::AwaitWritable,
             DesyncAction::RestoreDefaultTtl,
             DesyncAction::SetTtl(32),
             DesyncAction::Write(payload[markers.host_start..markers.host_start + 7].to_vec()),
@@ -627,6 +630,7 @@ fn plan_tcp_hostfake_emits_fake_real_fake_sequence_for_http_host() {
                 Some("googlevideo.com"),
                 23
             )),
+            DesyncAction::AwaitWritable,
             DesyncAction::RestoreDefaultTtl,
             DesyncAction::SetTtl(32),
             DesyncAction::Write(payload[markers.host_end..].to_vec()),
