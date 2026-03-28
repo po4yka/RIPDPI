@@ -199,6 +199,7 @@ class ProxyServiceAutoApplyLifecycleTest {
                         telemetryFingerprintHasher = TestTelemetryFingerprintHasher(),
                         clock = clock,
                     ),
+                screenStateObserver = TestScreenStateObserver(),
                 ioDispatcher = dispatcher,
                 clock = clock,
             )

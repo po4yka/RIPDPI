@@ -13,6 +13,7 @@ import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -41,6 +42,7 @@ internal interface HandoverAwareSession {
     var pendingNetworkHandoverClass: String?
     var lastSuccessfulHandoverFingerprintHash: String?
     var lastSuccessfulHandoverAt: Long
+    var handoverRetryCount: Int
 }
 
 internal abstract class BaseServiceRuntimeCoordinator<TSession>(
@@ -57,6 +59,9 @@ internal abstract class BaseServiceRuntimeCoordinator<TSession>(
 ) where TSession : ServiceRuntimeSession, TSession : HandoverAwareSession {
     private companion object {
         private const val HandoverCooldownMs = 10_000L
+        private const val MaxHandoverRetries = 4
+        private const val HandoverRetryBaseMs = 2_000L
+        private const val HandoverRetryMaxMs = 30_000L
     }
 
     protected val mutex = Mutex()
@@ -241,6 +246,12 @@ internal abstract class BaseServiceRuntimeCoordinator<TSession>(
         if (!canHandle) {
             return
         }
+        if (currentFingerprint.captivePortalDetected) {
+            logcat(LogPriority.INFO) {
+                "$serviceLabel: captive portal detected, deferring handover until network is validated"
+            }
+            return
+        }
         val fingerprintHash = currentFingerprint.scopeKey()
         val now = clock.nowMillis()
         val isCoolingDown =
@@ -279,6 +290,7 @@ internal abstract class BaseServiceRuntimeCoordinator<TSession>(
 
                 session.lastSuccessfulHandoverFingerprintHash = fingerprintHash
                 session.lastSuccessfulHandoverAt = now
+                session.handoverRetryCount = 0
                 policyHandoverEventStore.publish(
                     PolicyHandoverEvent(
                         mode = mode,
@@ -295,17 +307,35 @@ internal abstract class BaseServiceRuntimeCoordinator<TSession>(
             }.exceptionOrNull()
 
         if (failure != null) {
-            val error =
-                failure as? Exception ?: IllegalStateException(
-                    "Failed to restart $serviceLabel after handover",
-                    failure,
-                )
-            logcat(LogPriority.ERROR) {
-                "Failed to restart $serviceLabel after handover\n${error.asLog()}"
+            val retryCount = session.handoverRetryCount
+            if (retryCount < MaxHandoverRetries) {
+                session.handoverRetryCount = retryCount + 1
+                val backoffMs =
+                    (HandoverRetryBaseMs * (1L shl retryCount.coerceAtMost(4)))
+                        .coerceAtMost(HandoverRetryMaxMs)
+                logcat(LogPriority.WARN) {
+                    "$serviceLabel handover failed (attempt ${retryCount + 1}/$MaxHandoverRetries), " +
+                        "retrying in ${backoffMs}ms"
+                }
+                host.serviceScope.launch(ioDispatcher) {
+                    delay(backoffMs)
+                    if (runtimeSession?.runtimeId == session.runtimeId && !stopping) {
+                        handleNetworkHandover(event)
+                    }
+                }
+            } else {
+                val error =
+                    failure as? Exception ?: IllegalStateException(
+                        "Failed to restart $serviceLabel after handover",
+                        failure,
+                    )
+                logcat(LogPriority.ERROR) {
+                    "Failed to restart $serviceLabel after handover (exhausted retries)\n${error.asLog()}"
+                }
+                val reason = classifyHandoverFailure(error)
+                updateStatus(ServiceStatus.Failed, reason)
+                stop()
             }
-            val reason = classifyHandoverFailure(error)
-            updateStatus(ServiceStatus.Failed, reason)
-            stop()
         }
     }
 

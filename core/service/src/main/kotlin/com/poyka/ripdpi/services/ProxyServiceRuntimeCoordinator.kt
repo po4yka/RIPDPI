@@ -32,6 +32,7 @@ internal class ProxyServiceRuntimeCoordinator(
     permissionWatchdog: PermissionWatchdog,
     private val proxyRuntimeSupervisor: ProxyRuntimeSupervisor,
     private val statusReporter: ServiceStatusReporter,
+    private val screenStateObserver: ScreenStateObserver,
     ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
     clock: ServiceClock = SystemServiceClock,
 ) : BaseServiceRuntimeCoordinator<ProxyRuntimeSession>(
@@ -48,6 +49,7 @@ internal class ProxyServiceRuntimeCoordinator(
     ) {
     private companion object {
         private const val TelemetryPollIntervalMs = 1_000L
+        private const val TelemetryPollIntervalBackgroundMs = 5_000L
     }
 
     override val serviceLabel: String = "proxy"
@@ -135,13 +137,19 @@ internal class ProxyServiceRuntimeCoordinator(
                     tunnelTelemetry = tunnelTelemetry,
                     tunnelRecoveryRetryCount = 0,
                 )
-                if (statusReporter.startedAt != null) {
+                if (statusReporter.startedAt != null && screenStateObserver.isInteractive.value) {
                     host.updateNotification(
                         tunnelStats = proxyTelemetry.tunnelStats,
                         proxyTelemetry = proxyTelemetry,
                     )
                 }
-                delay(TelemetryPollIntervalMs)
+                val interval =
+                    if (screenStateObserver.isInteractive.value) {
+                        TelemetryPollIntervalMs
+                    } else {
+                        TelemetryPollIntervalBackgroundMs
+                    }
+                delay(interval)
             }
         }
     }
@@ -233,6 +241,7 @@ internal class ProxyServiceRuntimeCoordinatorFactory
         private val proxyRuntimeSupervisorFactory: ProxyRuntimeSupervisorFactory,
         private val serviceStatusReporterFactory: ServiceStatusReporterFactory,
         private val permissionWatchdog: PermissionWatchdog,
+        private val screenStateObserver: ScreenStateObserver,
     ) {
         fun create(host: ServiceCoordinatorHost): ProxyServiceRuntimeCoordinator =
             ProxyServiceRuntimeCoordinator(
@@ -257,5 +266,6 @@ internal class ProxyServiceRuntimeCoordinatorFactory
                         networkFingerprintProvider = networkFingerprintProvider,
                         telemetryFingerprintHasher = telemetryFingerprintHasher,
                     ),
+                screenStateObserver = screenStateObserver,
             )
     }
