@@ -44,6 +44,7 @@
     { "probeType": "service_reachability", "pathMode": "RAW_PATH", "outcome": "service_blocked", "bucket": "Failed", "uiTone": "Negative", "eventLevel": "error", "healthyEnoughForSummary": false },
 
     { "probeType": "circumvention_reachability", "pathMode": "RAW_PATH", "outcome": "circumvention_ok", "bucket": "Healthy", "uiTone": "Positive", "eventLevel": "info", "healthyEnoughForSummary": true },
+    { "probeType": "circumvention_reachability", "pathMode": "RAW_PATH", "outcome": "circumvention_degraded", "bucket": "Attention", "uiTone": "Warning", "eventLevel": "warn", "healthyEnoughForSummary": false },
     { "probeType": "circumvention_reachability", "pathMode": "RAW_PATH", "outcome": "circumvention_blocked", "bucket": "Failed", "uiTone": "Negative", "eventLevel": "error", "healthyEnoughForSummary": false },
 
     { "probeType": "telegram_availability", "pathMode": "RAW_PATH", "outcome": "ok", "bucket": "Healthy", "uiTone": "Positive", "eventLevel": "info", "healthyEnoughForSummary": true },
