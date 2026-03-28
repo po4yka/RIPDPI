@@ -44,7 +44,7 @@ pub(super) fn measure_throughput_window(target: &ThroughputTarget, transport: &T
         TlsClientProfile::Auto,
         None,
     ) {
-        Ok(stream) => stream,
+        Ok(result) => result.stream,
         Err(err) => {
             return ThroughputSample { status: "http_unreachable".to_string(), bytes_read: 0, bps: 0, error: err }
         }

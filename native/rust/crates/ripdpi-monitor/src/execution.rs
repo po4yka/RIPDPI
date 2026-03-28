@@ -476,6 +476,19 @@ pub(crate) fn run_http_strategy_probe(
                     key: "error".to_string(),
                     value: observation.error.unwrap_or_else(|| "none".to_string()),
                 },
+                ProbeDetail {
+                    key: "redirectLocation".to_string(),
+                    value: if outcome == "http_redirect" {
+                        observation
+                            .response
+                            .as_ref()
+                            .and_then(|r| r.headers.get("location"))
+                            .cloned()
+                            .unwrap_or_else(|| "none".to_string())
+                    } else {
+                        "none".to_string()
+                    },
+                },
             ],
         },
         success: outcome == "http_ok" || outcome == "http_redirect",
@@ -540,41 +553,89 @@ pub(crate) fn run_https_strategy_probe(
     } else {
         "tls_handshake_failed".to_string()
     };
+    // Pick timing and cert info from the preferred successful observation (tls13 first).
+    let preferred = if tls13.tcp_connect_ms.is_some() { &tls13 } else { &tls12 };
+    let tcp_connect_ms = preferred.tcp_connect_ms;
+    let tls_handshake_ms = preferred.tls_handshake_ms;
+    let cert_chain_length = preferred.cert_chain_length.or(tls12.cert_chain_length);
+    let cert_issuer = preferred.cert_issuer.clone().or_else(|| tls12.cert_issuer.clone());
+
+    let mut details = vec![
+        ProbeDetail { key: "candidateId".to_string(), value: candidate.id.to_string() },
+        ProbeDetail { key: "candidateLabel".to_string(), value: candidate.label.to_string() },
+        ProbeDetail { key: "candidateFamily".to_string(), value: candidate.family.to_string() },
+        ProbeDetail { key: "protocol".to_string(), value: "HTTPS".to_string() },
+        ProbeDetail { key: "latencyMs".to_string(), value: latency_ms.to_string() },
+        ProbeDetail { key: "tls13Status".to_string(), value: tls13.status },
+        ProbeDetail { key: "tls12Status".to_string(), value: tls12.status },
+        ProbeDetail { key: "tlsEchStatus".to_string(), value: tls_ech.status },
+        ProbeDetail {
+            key: "tlsEchVersion".to_string(),
+            value: tls_ech.version.unwrap_or_else(|| "unknown".to_string()),
+        },
+        ProbeDetail {
+            key: "tlsEchError".to_string(),
+            value: tls_ech.error.clone().unwrap_or_else(|| "none".to_string()),
+        },
+        ProbeDetail {
+            key: "tlsEchResolutionDetail".to_string(),
+            value: tls_ech.ech_resolution_detail.unwrap_or_else(|| "none".to_string()),
+        },
+        ProbeDetail {
+            key: "tlsError".to_string(),
+            value: tls13.error.or(tls12.error).or(tls_ech.error).unwrap_or_else(|| "none".to_string()),
+        },
+    ];
+
+    if let Some(ms) = tcp_connect_ms {
+        details.push(ProbeDetail { key: "tcpConnectMs".to_string(), value: ms.to_string() });
+    }
+    if let Some(ms) = tls_handshake_ms {
+        details.push(ProbeDetail { key: "tlsHandshakeMs".to_string(), value: ms.to_string() });
+    }
+    if let Some(len) = cert_chain_length {
+        details.push(ProbeDetail { key: "tlsCertChainLength".to_string(), value: len.to_string() });
+    }
+    if let Some(issuer) = cert_issuer {
+        details.push(ProbeDetail { key: "tlsCertIssuer".to_string(), value: issuer });
+    }
+
+    // On total TLS failure, perform a single retry to distinguish consistent
+    // blocking from intermittent failures.
+    let (retry_count, final_outcome) = if outcome == "tls_handshake_failed" {
+        let retry = try_tls_handshake(
+            &domain_connect_target(target),
+            https_port,
+            transport,
+            &target.host,
+            true,
+            TlsClientProfile::Tls13Only,
+            tls_verifier,
+        );
+        let retry_outcome = if retry.status == "tls_ok" { "tls_ok" } else { "tls_handshake_failed" };
+        details.push(ProbeDetail { key: "retryOutcome".to_string(), value: retry_outcome.to_string() });
+        details.push(ProbeDetail {
+            key: "retryError".to_string(),
+            value: retry.error.unwrap_or_else(|| "none".to_string()),
+        });
+        // If the retry succeeded, upgrade the overall outcome.
+        let upgraded = if retry_outcome == "tls_ok" { "tls_ok".to_string() } else { outcome.clone() };
+        (1_usize, upgraded)
+    } else {
+        (0, outcome.clone())
+    };
+    details.push(ProbeDetail { key: "probeRetryCount".to_string(), value: retry_count.to_string() });
+
     ProbeSample {
         result: ProbeResult {
             probe_type: "strategy_https".to_string(),
             target: format!("{} · {}", candidate.label, target.host),
-            outcome: outcome.clone(),
-            details: vec![
-                ProbeDetail { key: "candidateId".to_string(), value: candidate.id.to_string() },
-                ProbeDetail { key: "candidateLabel".to_string(), value: candidate.label.to_string() },
-                ProbeDetail { key: "candidateFamily".to_string(), value: candidate.family.to_string() },
-                ProbeDetail { key: "protocol".to_string(), value: "HTTPS".to_string() },
-                ProbeDetail { key: "latencyMs".to_string(), value: latency_ms.to_string() },
-                ProbeDetail { key: "tls13Status".to_string(), value: tls13.status },
-                ProbeDetail { key: "tls12Status".to_string(), value: tls12.status },
-                ProbeDetail { key: "tlsEchStatus".to_string(), value: tls_ech.status },
-                ProbeDetail {
-                    key: "tlsEchVersion".to_string(),
-                    value: tls_ech.version.unwrap_or_else(|| "unknown".to_string()),
-                },
-                ProbeDetail {
-                    key: "tlsEchError".to_string(),
-                    value: tls_ech.error.clone().unwrap_or_else(|| "none".to_string()),
-                },
-                ProbeDetail {
-                    key: "tlsEchResolutionDetail".to_string(),
-                    value: tls_ech.ech_resolution_detail.unwrap_or_else(|| "none".to_string()),
-                },
-                ProbeDetail {
-                    key: "tlsError".to_string(),
-                    value: tls13.error.or(tls12.error).or(tls_ech.error).unwrap_or_else(|| "none".to_string()),
-                },
-            ],
+            outcome: final_outcome.clone(),
+            details,
         },
-        success: matches!(outcome.as_str(), "tls_ok" | "tls_version_split"),
+        success: matches!(final_outcome.as_str(), "tls_ok" | "tls_version_split"),
         weight: 2,
-        quality: match outcome.as_str() {
+        quality: match final_outcome.as_str() {
             "tls_ok" => 4,
             "tls_version_split" => 3,
             _ => 0,

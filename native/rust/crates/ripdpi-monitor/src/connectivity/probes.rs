@@ -16,6 +16,30 @@ use super::endpoint::{
     is_probe_failure, measure_throughput_window, probe_http_url, run_endpoint_probe, run_quic_endpoint_probe,
 };
 
+/// Classify DNS latency into a human-readable quality tier.
+///
+/// Thresholds:
+/// - UDP > 3000ms => "throttled"
+/// - encrypted < 100ms => "fast"
+/// - encrypted 100..=500ms => "normal"
+/// - encrypted > 500ms => "slow"
+/// - parse failure => "unknown"
+pub(crate) fn classify_dns_latency_quality(udp_latency_ms: &str, encrypted_latency_ms: &str) -> String {
+    let udp: u64 = udp_latency_ms.parse().unwrap_or(0);
+    let encrypted: u64 = encrypted_latency_ms.parse().unwrap_or(0);
+    if udp > 3000 {
+        return "throttled".to_string();
+    }
+    if encrypted == 0 && udp == 0 {
+        return "unknown".to_string();
+    }
+    match encrypted {
+        0..=99 => "fast".to_string(),
+        100..=500 => "normal".to_string(),
+        _ => "slow".to_string(),
+    }
+}
+
 pub(crate) fn run_dns_probe(target: &DnsTarget, transport: &TransportConfig, path_mode: &ScanPathMode) -> ProbeResult {
     let udp_server = target.udp_server.clone().unwrap_or_else(|| DEFAULT_DNS_SERVER.to_string());
     let (encrypted_endpoint, encrypted_bootstrap_ips) = match encrypted_dns_endpoint_for_target(target) {
@@ -64,7 +88,7 @@ pub(crate) fn run_dns_probe(target: &DnsTarget, transport: &TransportConfig, pat
         details: vec![
             ProbeDetail { key: "udpServer".to_string(), value: udp_server },
             ProbeDetail { key: "udpAddresses".to_string(), value: format_result_set(&udp_result) },
-            ProbeDetail { key: "udpLatencyMs".to_string(), value: udp_latency_ms },
+            ProbeDetail { key: "udpLatencyMs".to_string(), value: udp_latency_ms.clone() },
             ProbeDetail {
                 key: "encryptedResolverId".to_string(),
                 value: encrypted_endpoint.resolver_id.clone().unwrap_or_default(),
@@ -104,7 +128,11 @@ pub(crate) fn run_dns_probe(target: &DnsTarget, transport: &TransportConfig, pat
                 value: encrypted_endpoint.dnscrypt_public_key.clone().unwrap_or_default(),
             },
             ProbeDetail { key: "encryptedAddresses".to_string(), value: format_result_set(&encrypted_result) },
-            ProbeDetail { key: "encryptedLatencyMs".to_string(), value: encrypted_latency_ms },
+            ProbeDetail { key: "encryptedLatencyMs".to_string(), value: encrypted_latency_ms.clone() },
+            ProbeDetail {
+                key: "dnsLatencyQuality".to_string(),
+                value: classify_dns_latency_quality(&udp_latency_ms, &encrypted_latency_ms),
+            },
             ProbeDetail {
                 key: "expected".to_string(),
                 value: if expected.is_empty() {

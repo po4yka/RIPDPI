@@ -58,7 +58,7 @@ pub(crate) fn run_fat_header_attempt(
         TlsClientProfile::Auto,
         None,
     ) {
-        Ok(stream) => stream,
+        Ok(result) => result.stream,
         Err(err) => {
             let status = if uses_tls { FatHeaderStatus::HandshakeFailed } else { FatHeaderStatus::ConnectFailed };
             return FatHeaderObservation { status, bytes_sent: 0, responses_seen: 0, error: Some(err) };
