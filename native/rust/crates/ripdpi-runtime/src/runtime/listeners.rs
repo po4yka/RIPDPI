@@ -312,7 +312,9 @@ pub(super) fn run_proxy_with_listener_internal(
                         let state = state.clone();
                         let client = mio_to_std_stream(stream);
                         client.set_nonblocking(false)?;
-                        client.set_nodelay(true)?;
+                        if let Err(err) = client.set_nodelay(true) {
+                            tracing::debug!("set_nodelay on client socket failed (non-fatal): {err}");
+                        }
                         let Some(_slot) = ClientSlotGuard::acquire(
                             state.active_clients.clone(),
                             state.config.network.max_open as usize,

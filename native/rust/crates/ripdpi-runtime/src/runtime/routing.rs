@@ -538,7 +538,9 @@ pub(super) fn connect_socket(
         "ripdpi upstream connect established"
     );
     let stream: TcpStream = socket.into();
-    stream.set_nodelay(true)?;
+    if let Err(err) = stream.set_nodelay(true) {
+        tracing::debug!("set_nodelay on upstream socket failed (non-fatal): {err}");
+    }
     Ok(stream)
 }
 
