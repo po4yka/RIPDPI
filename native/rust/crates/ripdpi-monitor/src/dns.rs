@@ -14,6 +14,16 @@ use crate::util::{now_ms, DEFAULT_DOH_BOOTSTRAP_IPS, DEFAULT_DOH_HOST, DEFAULT_D
 const DNS_RECORD_TYPE_A: u16 = 1;
 const DNS_RECORD_TYPE_HTTPS: u16 = 65;
 
+#[derive(Clone, Debug)]
+pub(crate) enum EchResolutionOutcome {
+    /// DoH succeeded and HTTPS record contained an EchConfigList.
+    Available(Vec<u8>),
+    /// DoH succeeded but the HTTPS response had no EchConfigList parameter.
+    NotPublished,
+    /// DoH query itself failed (network error, timeout, blocked, etc.).
+    ResolutionFailed(String),
+}
+
 pub(crate) fn encrypted_dns_protocol(value: Option<&str>) -> EncryptedDnsProtocol {
     match value.unwrap_or_default().trim().to_ascii_lowercase().as_str() {
         "dot" => EncryptedDnsProtocol::Dot,
@@ -110,10 +120,16 @@ pub(crate) fn resolve_via_encrypted_dns(
 pub(crate) fn resolve_https_ech_configs_via_encrypted_dns(
     domain: &str,
     transport: &TransportConfig,
-) -> Result<Option<Vec<u8>>, String> {
+) -> EchResolutionOutcome {
     let endpoint = default_encrypted_dns_endpoint();
-    let response = exchange_encrypted_dns_query(domain, DNS_RECORD_TYPE_HTTPS, endpoint, transport)?;
-    extract_ech_config_list_from_https_response(&response)
+    match exchange_encrypted_dns_query(domain, DNS_RECORD_TYPE_HTTPS, endpoint, transport) {
+        Err(err) => EchResolutionOutcome::ResolutionFailed(err),
+        Ok(response) => match extract_ech_config_list_from_https_response(&response) {
+            Err(err) => EchResolutionOutcome::ResolutionFailed(err),
+            Ok(None) => EchResolutionOutcome::NotPublished,
+            Ok(Some(bytes)) => EchResolutionOutcome::Available(bytes),
+        },
+    }
 }
 
 pub(crate) fn exchange_encrypted_dns_query(

@@ -56,6 +56,9 @@ pub(crate) fn observation_for_probe(result: &ProbeResult) -> Option<ProbeObserva
                     .filter(|value| *value != "unknown")
                     .map(str::to_string),
                 tls_ech_error: detail_value(result, "tlsEchError").filter(|value| *value != "none").map(str::to_string),
+                tls_ech_resolution_detail: detail_value(result, "tlsEchResolutionDetail")
+                    .filter(|value| *value != "none")
+                    .map(str::to_string),
                 transport_failure: transport_failure(
                     detail_value(result, "tlsError")
                         .filter(|value| *value != "none")
@@ -232,6 +235,9 @@ pub(crate) fn observation_for_probe(result: &ProbeResult) -> Option<ProbeObserva
                     .filter(|value| *value != "unknown")
                     .map(str::to_string),
                 tls_ech_error: detail_value(result, "tlsEchError").filter(|value| *value != "none").map(str::to_string),
+                tls_ech_resolution_detail: detail_value(result, "tlsEchResolutionDetail")
+                    .filter(|value| *value != "none")
+                    .map(str::to_string),
                 transport_failure: transport_failure(
                     detail_value(result, "error").or_else(|| detail_value(result, "tlsError")).unwrap_or("none"),
                 ),

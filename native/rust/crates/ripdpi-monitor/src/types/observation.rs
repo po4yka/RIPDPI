@@ -140,6 +140,8 @@ pub struct DomainObservationFact {
     pub tls_ech_version: Option<String>,
     #[serde(default)]
     pub tls_ech_error: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tls_ech_resolution_detail: Option<String>,
     #[serde(default = "default_transport_failure_none")]
     pub transport_failure: TransportFailureKind,
     #[serde(default)]
@@ -248,6 +250,8 @@ pub struct StrategyObservationFact {
     pub tls_ech_version: Option<String>,
     #[serde(default)]
     pub tls_ech_error: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tls_ech_resolution_detail: Option<String>,
     #[serde(default = "default_transport_failure_none")]
     pub transport_failure: TransportFailureKind,
 }

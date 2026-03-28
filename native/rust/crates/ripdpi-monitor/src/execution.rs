@@ -557,6 +557,10 @@ pub(crate) fn run_https_strategy_probe(
                     value: tls_ech.error.clone().unwrap_or_else(|| "none".to_string()),
                 },
                 ProbeDetail {
+                    key: "tlsEchResolutionDetail".to_string(),
+                    value: tls_ech.ech_resolution_detail.unwrap_or_else(|| "none".to_string()),
+                },
+                ProbeDetail {
                     key: "tlsError".to_string(),
                     value: tls13.error.or(tls12.error).or(tls_ech.error).unwrap_or_else(|| "none".to_string()),
                 },

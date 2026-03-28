@@ -295,6 +295,7 @@ data class DomainObservationFact(
     val tlsEchStatus: TlsProbeStatus = TlsProbeStatus.NOT_RUN,
     val tlsEchVersion: String? = null,
     val tlsEchError: String? = null,
+    val tlsEchResolutionDetail: String? = null,
     val transportFailure: TransportFailureKind = TransportFailureKind.NONE,
     val certificateAnomaly: Boolean = false,
 )
@@ -364,6 +365,7 @@ data class StrategyObservationFact(
     val tlsEchStatus: TlsProbeStatus = TlsProbeStatus.NOT_RUN,
     val tlsEchVersion: String? = null,
     val tlsEchError: String? = null,
+    val tlsEchResolutionDetail: String? = null,
     val transportFailure: TransportFailureKind = TransportFailureKind.NONE,
 )
 
