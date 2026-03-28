@@ -8,7 +8,7 @@ use rustls::{
     StreamOwned,
 };
 
-use crate::dns::resolve_https_ech_configs_via_encrypted_dns;
+use crate::dns::{resolve_https_ech_configs_via_encrypted_dns, EchResolutionOutcome};
 use crate::transport::{connect_transport, ConnectionStream, TargetAddress, TransportConfig};
 use crate::util::IO_TIMEOUT;
 
@@ -22,6 +22,7 @@ pub(crate) struct TlsObservation {
     pub(crate) version: Option<String>,
     pub(crate) error: Option<String>,
     pub(crate) certificate_anomaly: bool,
+    pub(crate) ech_resolution_detail: Option<String>,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -104,36 +105,42 @@ pub(crate) fn try_tls_handshake(
 ) -> TlsObservation {
     match open_probe_stream(target, port, transport, Some(server_name), verify_certificates, profile, tls_verifier) {
         Ok(mut stream) => {
-            let (status, version, error) = match &mut stream {
-                ConnectionStream::Plain(_) => ("tls_ok".to_string(), None, None),
+            let (status, version, error, ech_resolution_detail) = match &mut stream {
+                ConnectionStream::Plain(_) => ("tls_ok".to_string(), None, None, None),
                 ConnectionStream::Tls(stream) => {
                     let version = tls_version_label(stream.conn.protocol_version());
                     if matches!(profile, TlsClientProfile::Tls13WithEch) {
                         let ech_status = stream.conn.ech_status();
                         if matches!(ech_status, EchStatus::Accepted) {
-                            ("tls_ok".to_string(), version, None)
+                            ("tls_ok".to_string(), version, None, Some("ech_config_available".to_string()))
                         } else {
                             (
                                 "tls_handshake_failed".to_string(),
                                 version,
                                 Some(format!("ech_{}", ech_status_label(ech_status))),
+                                Some("ech_config_available".to_string()),
                             )
                         }
                     } else {
-                        ("tls_ok".to_string(), version, None)
+                        ("tls_ok".to_string(), version, None, None)
                     }
                 }
             };
             stream.shutdown();
-            TlsObservation { status, version, error, certificate_anomaly: false }
+            TlsObservation { status, version, error, certificate_anomaly: false, ech_resolution_detail }
         }
         Err(err) => {
-            if matches!(profile, TlsClientProfile::Tls13WithEch) && err == ECH_CONFIG_UNAVAILABLE_ERROR {
+            if matches!(profile, TlsClientProfile::Tls13WithEch)
+                && (err == ECH_CONFIG_UNAVAILABLE_ERROR || err.starts_with("ech_resolution_failed:"))
+            {
+                let ech_resolution_detail =
+                    if err == ECH_CONFIG_UNAVAILABLE_ERROR { "ech_not_published".to_string() } else { err.clone() };
                 return TlsObservation {
                     status: "not_run".to_string(),
                     version: None,
                     error: Some(err),
                     certificate_anomaly: false,
+                    ech_resolution_detail: Some(ech_resolution_detail),
                 };
             }
             let certificate_anomaly = is_certificate_error(&err);
@@ -146,6 +153,7 @@ pub(crate) fn try_tls_handshake(
                 version: None,
                 error: Some(err),
                 certificate_anomaly,
+                ech_resolution_detail: None,
             }
         }
     }
@@ -226,8 +234,12 @@ fn build_ech_client_config(
     verify_certificates: bool,
     tls_verifier: Option<&Arc<dyn ServerCertVerifier>>,
 ) -> Result<Arc<ClientConfig>, String> {
-    let Some(ech_config_list) = resolve_https_ech_configs_via_encrypted_dns(server_name, transport)? else {
-        return Err(ECH_CONFIG_UNAVAILABLE_ERROR.to_string());
+    let ech_config_list = match resolve_https_ech_configs_via_encrypted_dns(server_name, transport) {
+        EchResolutionOutcome::Available(bytes) => bytes,
+        EchResolutionOutcome::NotPublished => return Err(ECH_CONFIG_UNAVAILABLE_ERROR.to_string()),
+        EchResolutionOutcome::ResolutionFailed(err) => {
+            return Err(format!("ech_resolution_failed: {err}"));
+        }
     };
     let provider = rustls::crypto::aws_lc_rs::default_provider();
     let ech_config = EchConfig::new(
@@ -334,7 +346,13 @@ mod tests {
     use std::net::IpAddr;
 
     fn obs(status: &str, cert_anomaly: bool) -> TlsObservation {
-        TlsObservation { status: status.to_string(), version: None, error: None, certificate_anomaly: cert_anomaly }
+        TlsObservation {
+            status: status.to_string(),
+            version: None,
+            error: None,
+            certificate_anomaly: cert_anomaly,
+            ech_resolution_detail: None,
+        }
     }
 
     #[test]
