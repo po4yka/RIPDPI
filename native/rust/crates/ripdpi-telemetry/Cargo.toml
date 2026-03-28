@@ -11,3 +11,6 @@ workspace = true
 hdrhistogram = { workspace = true }
 metrics = { workspace = true }
 serde = { workspace = true }
+
+[dev-dependencies]
+serde_json = { workspace = true }

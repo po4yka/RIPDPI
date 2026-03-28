@@ -327,7 +327,7 @@ mod tests {
         metrics::gauge!("test_gauge_set").set(42.0);
         if let Some(snap) = snapshot() {
             if let Some(&val) = snap.gauges.get("test_gauge_set") {
-                assert_eq!(val, 42);
+                assert_eq!(val, 42.0_f64.to_bits());
             }
         }
     }
@@ -405,5 +405,88 @@ mod tests {
         if let Some(snap) = snapshot() {
             assert!(snap.gauges.contains_key("gauge_deadlock_regression"));
         }
+    }
+
+    #[test]
+    fn recorder_snapshot_serde_round_trip() {
+        let mut counters = BTreeMap::new();
+        counters.insert("requests".to_string(), 42);
+        let mut gauges = BTreeMap::new();
+        gauges.insert("active_conns".to_string(), 5);
+        let mut histograms = BTreeMap::new();
+        histograms
+            .insert("latency".to_string(), LatencyPercentiles { p50: 10, p95: 50, p99: 99, min: 1, max: 200, count: 100 });
+
+        let snap = RecorderSnapshot { counters, gauges, histograms, captured_at: 1700000000000 };
+        let json = serde_json::to_string(&snap).expect("serialize");
+        let deserialized: RecorderSnapshot = serde_json::from_str(&json).expect("deserialize");
+
+        assert_eq!(deserialized.counters.get("requests"), Some(&42));
+        assert_eq!(deserialized.gauges.get("active_conns"), Some(&5));
+        assert!(deserialized.histograms.contains_key("latency"));
+        assert_eq!(deserialized.captured_at, 1700000000000);
+    }
+
+    #[test]
+    fn recorder_snapshot_uses_camel_case() {
+        let snap = RecorderSnapshot::default();
+        let json = serde_json::to_string(&snap).expect("serialize");
+        let value: serde_json::Value = serde_json::from_str(&json).expect("parse");
+        assert!(value.get("capturedAt").is_some(), "should use camelCase for captured_at");
+    }
+
+    #[test]
+    fn key_name_with_empty_label_value() {
+        let key = Key::from_parts("metric", &[("env", "")]);
+        assert_eq!(InMemoryRecorder::key_name(&key), "metric{env=}");
+    }
+
+    #[test]
+    fn histogram_handle_zero_seconds() {
+        let h = LatencyHistogram::new();
+        let handle = HistogramHandle(h.clone());
+        metrics::HistogramFn::record(&handle, 0.0);
+        let snap = h.snapshot().expect("should have data");
+        assert_eq!(snap.p50, 0);
+        assert_eq!(snap.count, 1);
+    }
+
+    #[test]
+    fn histogram_handle_large_seconds_value() {
+        let h = LatencyHistogram::new();
+        let handle = HistogramHandle(h.clone());
+        // 120 seconds = 120_000 ms, exceeds 60_000 max -- should be clamped
+        metrics::HistogramFn::record(&handle, 120.0);
+        let snap = h.snapshot().expect("should have data");
+        assert!(snap.max < 65_000, "should be clamped, got max={}", snap.max);
+    }
+
+    #[test]
+    fn counter_same_key_returns_shared_atomic() {
+        install();
+        metrics::counter!("shared_counter_test").increment(5);
+        metrics::counter!("shared_counter_test").increment(3);
+        if let Some(snap) = snapshot() {
+            if let Some(&val) = snap.counters.get("shared_counter_test") {
+                assert!(val >= 8, "expected >= 8, got {val}");
+            }
+        }
+    }
+
+    #[test]
+    fn snapshot_captured_at_is_nonzero() {
+        install();
+        if let Some(snap) = snapshot() {
+            assert!(snap.captured_at > 0, "captured_at should be a valid timestamp");
+        }
+    }
+
+    #[test]
+    fn default_recorder_snapshot_is_empty() {
+        let snap = RecorderSnapshot::default();
+        assert!(snap.counters.is_empty());
+        assert!(snap.gauges.is_empty());
+        assert!(snap.histograms.is_empty());
+        assert_eq!(snap.captured_at, 0);
     }
 }
