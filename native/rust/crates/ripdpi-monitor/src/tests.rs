@@ -321,12 +321,14 @@ fn tls_signal_reports_version_split_low_confidence() {
         version: None,
         error: Some("blocked".to_string()),
         certificate_anomaly: false,
+        ech_resolution_detail: None,
     };
     let tls12 = TlsObservation {
         status: "tls_ok".to_string(),
         version: Some("TLS1.2".to_string()),
         error: None,
         certificate_anomaly: false,
+        ech_resolution_detail: None,
     };
 
     assert_eq!(classify_tls_signal(&tls13, &tls12), "tls_version_split_low_confidence");

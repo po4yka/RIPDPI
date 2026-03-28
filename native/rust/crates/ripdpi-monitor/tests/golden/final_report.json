@@ -95,6 +95,10 @@
           "value": "Connection refused (os error _)"
         },
         {
+          "key": "tlsEchResolutionDetail",
+          "value": "none"
+        },
+        {
           "key": "httpStatus",
           "value": "http_blockpage"
         },

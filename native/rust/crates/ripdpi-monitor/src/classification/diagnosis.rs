@@ -132,6 +132,30 @@ pub(crate) fn classify_connectivity_diagnoses(request: &ScanRequest, results: &[
             );
         }
 
+        if result.outcome == "unreachable" {
+            if let Some(detail) = failure_detail_value(result, "tlsEchResolutionDetail") {
+                if detail.starts_with("ech_resolution_failed") {
+                    push_diagnosis(
+                        &mut diagnoses,
+                        &mut seen,
+                        Diagnosis {
+                            code: "ech_resolution_blocked".to_string(),
+                            summary: format!(
+                                "ECH config resolution failed for {} -- encrypted DNS may be blocked",
+                                result.target
+                            ),
+                            severity: "warning".to_string(),
+                            target: Some(result.target.clone()),
+                            evidence: diagnosis_evidence(
+                                result,
+                                &["tlsEchResolutionDetail", "tlsEchError", "tls13Status", "tls12Status"],
+                            ),
+                        },
+                    );
+                }
+            }
+        }
+
         if result.outcome == "tls_cert_invalid" {
             push_diagnosis(
                 &mut diagnoses,
