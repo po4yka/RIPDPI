@@ -10,6 +10,10 @@ sealed interface FailureReason {
     data class Unexpected(
         val cause: Throwable,
     ) : FailureReason
+
+    data class PermissionLost(
+        val permission: String,
+    ) : FailureReason
 }
 
 val FailureReason.displayMessage: String
@@ -18,6 +22,7 @@ val FailureReason.displayMessage: String
             is FailureReason.NativeError -> message
             is FailureReason.TunnelEstablishmentFailed -> "Tunnel establishment failed"
             is FailureReason.Unexpected -> cause.message ?: "Unexpected error"
+            is FailureReason.PermissionLost -> "Required permission revoked: $permission"
         }
 
 fun classifyFailureReason(

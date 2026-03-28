@@ -1,10 +1,13 @@
 package com.poyka.ripdpi.services
 
+import android.Manifest
 import android.app.Notification
 import android.app.NotificationManager
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
 import android.os.Build
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.LifecycleService
 import androidx.lifecycle.lifecycleScope
 import com.poyka.ripdpi.core.service.R
@@ -16,6 +19,8 @@ import com.poyka.ripdpi.utility.createConnectionNotification
 import com.poyka.ripdpi.utility.createDynamicConnectionNotification
 import com.poyka.ripdpi.utility.registerNotificationChannel
 import dagger.hilt.android.AndroidEntryPoint
+import logcat.LogPriority
+import logcat.logcat
 import javax.inject.Inject
 
 @AndroidEntryPoint
@@ -61,6 +66,14 @@ class RipDpiProxyService :
         startId: Int,
     ): Int {
         super.onStartCommand(intent, flags, startId)
+        if (intent == null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) !=
+            PackageManager.PERMISSION_GRANTED
+        ) {
+            logcat(LogPriority.WARN) { "Sticky restart aborted: notification permission revoked" }
+            stopSelf(startId)
+            return START_NOT_STICKY
+        }
         startForegroundService()
         return shellDelegate.onStartCommand(intent?.action, startId)
     }
@@ -92,8 +105,12 @@ class RipDpiProxyService :
                 service = RipDpiProxyService::class.java,
                 whenTimestamp = startedAt,
             )
-        getSystemService(NotificationManager::class.java)
-            ?.notify(FOREGROUND_SERVICE_ID, notification)
+        try {
+            getSystemService(NotificationManager::class.java)
+                ?.notify(FOREGROUND_SERVICE_ID, notification)
+        } catch (e: SecurityException) {
+            logcat(LogPriority.WARN) { "Cannot update notification: permission revoked" }
+        }
     }
 
     override fun requestStopSelf(stopSelfStartId: Int?) {
