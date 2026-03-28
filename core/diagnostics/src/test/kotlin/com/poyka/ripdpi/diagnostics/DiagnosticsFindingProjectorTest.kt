@@ -190,4 +190,58 @@ class DiagnosticsFindingProjectorTest {
 
         assert(diagnoses.none { it.code == "dns_latency_anomaly" })
     }
+
+    @Test
+    fun `classify emits http_network_blocked when all HTTP probes fail`() {
+        val observations =
+            listOf("candidate_a", "candidate_b").flatMap { candidateId ->
+                listOf("meduza.io", "signal.org").map { domain ->
+                    ObservationFact(
+                        kind = ObservationKind.STRATEGY,
+                        target = "$candidateId \u00b7 $domain",
+                        strategy =
+                            StrategyObservationFact(
+                                candidateId = candidateId,
+                                protocol = StrategyProbeProtocol.HTTP,
+                                status = StrategyProbeStatus.FAILED,
+                            ),
+                    )
+                }
+            }
+        val diagnoses = DiagnosticsFindingProjector().classify(observations)
+        val diagnosis = diagnoses.firstOrNull { it.code == "http_network_blocked" }
+        assertNotNull(diagnosis)
+        assertEquals("HTTP port 80 is blocked network-wide", diagnosis?.summary)
+        assert(diagnosis!!.evidence.contains("meduza.io"))
+        assert(diagnosis.evidence.contains("signal.org"))
+    }
+
+    @Test
+    fun `classify does not emit http_network_blocked when some HTTP probes succeed`() {
+        val observations =
+            listOf(
+                ObservationFact(
+                    kind = ObservationKind.STRATEGY,
+                    target = "candidate_a \u00b7 meduza.io",
+                    strategy =
+                        StrategyObservationFact(
+                            candidateId = "candidate_a",
+                            protocol = StrategyProbeProtocol.HTTP,
+                            status = StrategyProbeStatus.FAILED,
+                        ),
+                ),
+                ObservationFact(
+                    kind = ObservationKind.STRATEGY,
+                    target = "candidate_b \u00b7 signal.org",
+                    strategy =
+                        StrategyObservationFact(
+                            candidateId = "candidate_b",
+                            protocol = StrategyProbeProtocol.HTTP,
+                            status = StrategyProbeStatus.SUCCESS,
+                        ),
+                ),
+            )
+        val diagnoses = DiagnosticsFindingProjector().classify(observations)
+        assert(diagnoses.none { it.code == "http_network_blocked" })
+    }
 }
