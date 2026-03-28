@@ -15,6 +15,8 @@ pub struct DomainTarget {
     pub http_port: Option<u16>,
     #[serde(default = "default_http_path")]
     pub http_path: String,
+    #[serde(default)]
+    pub is_control: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -179,6 +181,8 @@ pub struct Diagnosis {
     pub evidence: Vec<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub recommendation: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub control_validated: Option<bool>,
 }
 
 #[cfg(test)]
