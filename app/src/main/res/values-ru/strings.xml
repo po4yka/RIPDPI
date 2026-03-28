@@ -1520,4 +1520,58 @@ fakeddisorder endhost</string>
     <string name="diagnostics_error_unknown">Ошибка подключения</string>
     <string name="status_indicator_description">Статус: %1$s</string>
 
+    <!-- Diagnostics audit -->
+    <string name="diagnostics_audit_confidence_title">Достоверность аудита</string>
+    <plurals name="diagnostics_audit_hidden_candidates_count">
+        <item quantity="one">%d другой кандидат скрыт</item>
+        <item quantity="few">%d других кандидата скрыто</item>
+        <item quantity="many">%d других кандидатов скрыто</item>
+        <item quantity="other">%d других кандидатов скрыто</item>
+    </plurals>
+    <string name="diagnostics_audit_hide_full_matrix">Скрыть полную матрицу</string>
+    <string name="diagnostics_audit_low_confidence_body">Рекомендация аудита доступна, но охват матрицы или убедительность победителя были слабыми. Проверьте данные по каждому кандидату перед применением.</string>
+    <string name="diagnostics_audit_low_confidence_title">Результат аудита с низкой достоверностью</string>
+    <string name="diagnostics_audit_medium_confidence_note">Достоверность умеренная. Проверьте данные кандидатов перед копированием этой стратегии в основные настройки.</string>
+    <string name="diagnostics_audit_show_full_matrix">Показать полную матрицу</string>
+    <string name="diagnostics_audit_winning_dns_lane">DNS-канал</string>
+    <string name="diagnostics_audit_winning_path_hint">Нажмите на победителя для просмотра данных по целям и деталей конфигурации.</string>
+    <string name="diagnostics_audit_winning_path_title">Лучший путь</string>
+    <string name="diagnostics_audit_winning_quic_title">Победитель QUIC</string>
+    <string name="diagnostics_audit_winning_tcp_title">Победитель TCP</string>
+
+    <!-- Diagnostics scan workflow -->
+    <string name="diagnostics_scan_blocked_setting_label">Заблокированная настройка</string>
+    <string name="diagnostics_scan_grant_vpn_permission">Предоставить разрешение VPN</string>
+    <string name="diagnostics_scan_open_advanced_settings">Открыть расширенные настройки</string>
+    <string name="diagnostics_scan_vpn_permission_warning_body_format">Рекомендации %1$s предполагают маршрутизацию через VPN. Без разрешения VPN рекомендованную стратегию нельзя применить в режиме VPN. Предоставьте разрешение перед запуском аудита для получения применимых результатов.</string>
+    <string name="diagnostics_scan_vpn_permission_warning_title">Рекомендуется разрешение VPN</string>
+    <string name="diagnostics_scan_workflow_blocked_command_line_body_format">%1$s заблокирован, так как %2$s включена. Отключите её в расширенных настройках перед запуском этого процесса, чтобы RIPDPI мог запустить изолированные временные пробы стратегий с визуальной конфигурацией.</string>
+
+    <!-- Diagnostics snackbar -->
+    <string name="diagnostics_snackbar_dns_recommendation_format">DNS-ответы на этой сети выглядели иначе. %1$s.</string>
+    <string name="diagnostics_snackbar_dns_recommendation_generic">DNS-ответы на этой сети выглядели иначе. Откройте настройки DNS и попробуйте безопасный резолвер.</string>
+    <string name="diagnostics_snackbar_dns_setting_saved">Настройка DNS сохранена</string>
+    <string name="diagnostics_snackbar_scan_complete">Сканирование завершено</string>
+
+    <!-- Logs -->
+    <string name="logs_active_session_body">Показать текущую сессию подключения или диагностики и скрыть старые сохранённые записи.</string>
+    <string name="logs_active_session_title">Только активная сессия</string>
+    <string name="logs_filters_summary_compact">%1$d подсистем \u00b7 %2$d уровней</string>
+    <string name="logs_severity_debug">ОТЛАДКА</string>
+    <string name="logs_severity_error">ОШИБКА</string>
+    <string name="logs_severity_info">ИНФО</string>
+    <string name="logs_severity_title">Серьёзность</string>
+    <string name="logs_severity_warn">ПРЕДУПР</string>
+    <string name="logs_subsystem_diagnostics">ДИАГНОСТИКА</string>
+    <string name="logs_subsystem_proxy">ПРОКСИ</string>
+    <string name="logs_subsystem_service">СЕРВИС</string>
+    <string name="logs_subsystem_tunnel">ТУННЕЛЬ</string>
+    <string name="logs_subsystems_title">Подсистемы</string>
+
+    <!-- Crash report -->
+    <string name="crash_report_title">Приложение аварийно завершилось</string>
+    <string name="crash_report_body">Приложение неожиданно остановилось из-за:\n%1$s\n\nОтправить отчёт об ошибке разработчику?</string>
+    <string name="crash_report_share">Отправить отчёт</string>
+    <string name="crash_report_dismiss">Закрыть</string>
+
 </resources>
