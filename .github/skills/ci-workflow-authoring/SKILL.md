@@ -1,39 +1,48 @@
 ---
 name: ci-workflow-authoring
-description: Use when writing or modifying GitHub Actions workflows, adding CI jobs, configuring caching, fixing CI failures, or understanding the CI pipeline architecture. Triggers on: CI workflow, GitHub Actions, workflow file, CI pipeline, nightly build, caching strategy, workflow dispatch, CI failing.
+description: Use when writing or modifying GitHub Actions workflows, adding CI jobs, configuring caches or artifacts, fixing CI failures, or understanding the current RIPDPI workflow graph. Triggers on: CI workflow, GitHub Actions, workflow file, CI pipeline, nightly build, workflow dispatch, CodeQL, macrobenchmark, soak job, CI failing.
 ---
 
 # CI Workflow Authoring
 
-Three GitHub Actions workflows in `.github/workflows/`:
+Four GitHub Actions workflows live in `.github/workflows/`:
 
 | Workflow | Trigger | Purpose |
 |----------|---------|---------|
-| `ci.yml` | Push/PR to main, nightly schedule, manual | Build, test, static analysis, E2E, soak |
-| `release.yml` | Tag `v*` or manual dispatch | Signed release build + GitHub Release |
-| `mutation-testing.yml` | Weekly Monday 06:00 UTC, manual | Rust mutation testing via cargo-mutants |
+| `ci.yml` | Push/PR to main, daily schedule, manual dispatch | Main validation pipeline: build, static analysis, release verification, coverage, Rust lanes, benchmarks, Android E2E, soak/load, Linux TUN |
+| `codeql.yml` | Push/PR to main, weekly schedule | CodeQL analysis for GitHub Actions; Kotlin analysis is intentionally disabled for now |
+| `release.yml` | Tag `v*` or manual dispatch | Signed release build, artifact upload, optional GitHub Release |
+| `mutation-testing.yml` | Weekly Monday 06:00 UTC, manual dispatch | Rust mutation testing via `cargo-mutants` |
 
 ## CI Architecture (`ci.yml`)
 
-### Job Dependency Graph
+### Non-scheduled lanes
 
+```text
+build
+  -> static-analysis
+  -> release-verification
+  -> coverage
+  -> rust-network-e2e
+  -> cli-packet-smoke
+  -> rust-turmoil
+  -> rust-criterion-bench
+  -> android-macrobenchmark
+  -> rust-loom
 ```
-build (always)
-  +-> static-analysis
-  +-> release-verification (minified release APK)
-  +-> coverage (Kotlin + Rust thresholds)
-  +-> rust-network-e2e
-  +-> cli-packet-smoke
-  +-> rust-turmoil (deterministic network)
-  +-> rust-loom (concurrency)
 
-Nightly-only (schedule or manual):
-  +-> rust-native-soak (full/smoke profiles)
-  +-> nightly-rust-coverage
-  +-> android-network-e2e (emulator)
-  +-> linux-tun-e2e
-  +-> linux-tun-soak
+### Scheduled / manual lanes
+
+```text
+rust-native-soak
+rust-native-load
+nightly-rust-coverage
+android-network-e2e
+linux-tun-e2e
+linux-tun-soak
 ```
+
+`android-network-e2e` also runs on regular CI, but Maestro/Appium smoke add-ons are gated behind `workflow_dispatch` inputs.
 
 ### Concurrency
 
@@ -43,94 +52,85 @@ concurrency:
   cancel-in-progress: true
 ```
 
-Groups by ref -- new pushes to the same branch cancel in-progress runs.
+This is per-ref cancellation, not per-workflow-name cancellation.
 
 ## Environment Setup Pattern
 
-Most jobs need this setup. Copy from existing jobs:
+Most Android/native jobs follow this skeleton:
 
 ```yaml
 steps:
-  - uses: actions/checkout@v4
+  - uses: actions/checkout@v6
 
-  # Java (for Gradle)
-  - uses: actions/setup-java@v4
+  - uses: actions/setup-java@v5
     with:
       distribution: temurin
       java-version: 17
 
-  # Rust (for native code)
   - uses: dtolnay/rust-toolchain@master
     with:
-      toolchain: "1.94.0"  # Match rust-toolchain.toml
+      toolchain: "1.94.0"
       components: rustfmt, clippy
-      targets: aarch64-linux-android,armv7-linux-androideabi,i686-linux-android,x86_64-linux-android
 
-  # NDK (read version from gradle.properties)
-  - name: Read NDK version
-    id: ndk
-    run: echo "version=$(grep 'androidNdkVersion' gradle.properties | cut -d= -f2)" >> "$GITHUB_OUTPUT"
-  - uses: nttld/setup-ndk@v1
+  - uses: android-actions/setup-android@v4
+
+  - uses: Swatinem/rust-cache@v2
     with:
-      ndk-version: ${{ steps.ndk.version }}
+      workspaces: native/rust -> target
+      cache-on-failure: true
+
+  - name: Read native toolchain policy
+    id: native-toolchain
+    run: |
+      echo "ndk=$(grep '^ripdpi.nativeNdkVersion=' gradle.properties | cut -d= -f2-)" >> "$GITHUB_OUTPUT"
+
+  - name: Install Rust Android targets
+    run: rustup target add aarch64-linux-android armv7-linux-androideabi i686-linux-android x86_64-linux-android
+
+  - name: Install NDK
+    run: sdkmanager --install "ndk;${{ steps.native-toolchain.outputs.ndk }}"
+
+  - uses: gradle/actions/setup-gradle@v6
 ```
 
-**Key:** NDK version is read from `gradle.properties` (single source of truth), not hardcoded in the workflow.
+For native-heavy Android jobs, `mozilla-actions/sccache-action@v0.0.9` is added before Gradle runs.
 
 ## Caching Strategy
 
-| Cache | Implementation | Key |
-|-------|---------------|-----|
-| Gradle | `actions/cache` on `~/.gradle/caches` | `gradle-${{ hashFiles('**/*.gradle.kts', 'gradle/libs.versions.toml') }}` |
-| Rust (sccache) | `mozilla-actions/sccache-action` | Automatic by content hash |
-| NDK | Cached by `setup-ndk` action | NDK version string |
-| cargo-nextest | `actions/cache` on `~/.cargo/bin/cargo-nextest` | Tool version |
+| Cache | Implementation | Notes |
+|-------|---------------|-------|
+| Gradle | `gradle/actions/setup-gradle@v6` | Preferred over hand-rolled cache blocks |
+| Rust workspace | `Swatinem/rust-cache@v2` | Caches `native/rust -> target` |
+| Rust compiler cache | `mozilla-actions/sccache-action@v0.0.9` | Used on native-heavy jobs |
+| Benchmark baselines | `actions/cache/restore` / `save` | Used by criterion baselines on PRs and main |
+| Tool installs | `taiki-e/install-action@v2` | Used for `cargo-nextest`, `cargo-llvm-cov`, `cargo-bloat` |
 
-## Conditional Jobs
+## Manual Dispatch Inputs
 
-### Nightly-Only Jobs
-
-```yaml
-jobs:
-  rust-native-soak:
-    if: github.event_name == 'schedule' || github.event.inputs.soak_profile != ''
-    # ...
-```
-
-### Manual Dispatch Inputs
+`ci.yml` currently exposes:
 
 ```yaml
-on:
-  workflow_dispatch:
-    inputs:
-      soak_profile:
-        description: "Soak profile (full, smoke)"
-        type: choice
-        options: ["", "full", "smoke"]
+workflow_dispatch:
+  inputs:
+    soak_profile: smoke|full
+    run_maestro_smoke: true|false
+    run_appium_smoke: true|false
 ```
 
-## Adding a New CI Job
+If you add a new manual-only lane, wire its input into both the job `if:` condition and the step logic that consumes it.
+
+## Adding or Modifying a CI Job
 
 Checklist:
 
-1. **Define the job** with `needs: [build]` if it depends on build artifacts
-2. **Set up environment** -- copy Java/Rust/NDK setup steps from existing job
-3. **Configure caching** -- add Gradle and/or Rust cache steps
-4. **Set timeout** -- `timeout-minutes: 30` (adjust based on expected duration)
-5. **Add concurrency group** if the job should cancel on new pushes
-6. **Upload artifacts** for test results, logs, or reports:
-   ```yaml
-   - uses: actions/upload-artifact@v4
-     if: always()
-     with:
-       name: my-results
-       path: path/to/results/
-       retention-days: 14
-   ```
-7. **Gate on schedule** if the job should only run nightly:
-   ```yaml
-   if: github.event_name == 'schedule'
-   ```
+1. Decide whether the job belongs in `ci.yml`, `release.yml`, `mutation-testing.yml`, or `codeql.yml`.
+2. Copy environment setup from the nearest existing job instead of inventing a new setup pattern.
+3. Read the NDK version from `gradle.properties`; never hardcode it in YAML.
+4. Add `timeout-minutes` unless the job is trivially short.
+5. Use `if: always()` on artifact upload steps.
+6. Keep artifact names stable when downstream debugging depends on them.
+7. If the job is nightly-only, gate it explicitly on `schedule` or `workflow_dispatch`.
+8. If the job uses emulator infrastructure, prefer the existing `reactivecircus/android-emulator-runner@v2` pattern.
 
 ### Job Template
 
@@ -140,50 +140,59 @@ my-new-job:
   runs-on: ubuntu-latest
   timeout-minutes: 30
   steps:
-    - uses: actions/checkout@v4
-    - uses: actions/setup-java@v4
-      with: { distribution: temurin, java-version: 17 }
-    # Add Rust/NDK setup if needed
+    - uses: actions/checkout@v6
+    - uses: actions/setup-java@v5
+      with:
+        distribution: temurin
+        java-version: 17
     - name: Run tests
       run: ./gradlew :module:testDebugUnitTest
-    - uses: actions/upload-artifact@v4
+    - uses: actions/upload-artifact@v7
       if: always()
       with:
-        name: test-results
+        name: my-results
         path: module/build/reports/
-        retention-days: 14
+        retention-days: 7
 ```
+
+## CodeQL Workflow (`codeql.yml`)
+
+- Current scope is only `language: actions`.
+- Kotlin/Java analysis is commented out until `github/codeql-action` supports the repo's Kotlin 2.3.20 toolchain.
+- If re-enabling Kotlin analysis, restore explicit Android/JDK build steps rather than assuming the default CodeQL autobuild is enough.
 
 ## Release Workflow (`release.yml`)
 
-Triggered by `v*` tags. Key steps:
-1. Decode base64 keystore from secrets
-2. `./gradlew bundleRelease assembleRelease` with signing env vars
-3. Upload AAB, APK, R8 mapping, native symbols (90-day retention)
-4. Create GitHub Release with auto-generated notes
+Triggered by `v*` tags or manual dispatch.
 
-See `release-signing` skill for signing config details.
+Key behaviors:
 
-## Mutation Testing (`mutation-testing.yml`)
+1. Decode the base64 keystore secret.
+2. Run `./gradlew bundleRelease assembleRelease`.
+3. Upload AAB, APK, mapping files, compose mapping, and native symbols.
+4. Optionally create a GitHub Release.
 
-- Runs `cargo-mutants` on the Rust workspace
-- Manual inputs: package filter, diff-only mode
-- Artifacts: `target/mutants-output/` (14-day retention)
+See `release-signing` for signing and R8 details.
+
+## Mutation Testing Workflow (`mutation-testing.yml`)
+
+- Runs `cargo-mutants` against the Rust workspace.
+- Exposes manual filters such as package selection and diff-only mode.
+- Produces `target/mutants-output/` artifacts.
 
 ## Common Mistakes
 
 | Mistake | Fix |
 |---------|-----|
-| Hardcoding NDK version in workflow | Read from `gradle.properties` using grep + `GITHUB_OUTPUT` |
-| Missing NDK setup for native jobs | Any job that builds native code needs the NDK setup step |
-| Wrong concurrency group | Use `ci-${{ github.ref }}` to scope per-branch |
-| No `if: always()` on artifact upload | Without it, artifacts aren't uploaded when tests fail (when you need them most) |
-| Missing `timeout-minutes` | Jobs without timeout can hang indefinitely and consume CI minutes |
-| Caching too broadly | Narrow cache keys to relevant files (e.g., `*.gradle.kts` not `**/*`) |
-| Not testing workflow changes locally | Use `act` tool (see `local-ci-act` skill) before pushing |
+| Hardcoding the NDK version | Read `ripdpi.nativeNdkVersion` from `gradle.properties` |
+| Using outdated action versions from old workflow snippets | Match the versions already used in this repo (`checkout@v6`, `setup-java@v5`, `setup-gradle@v6`, etc.) |
+| Forgetting schedule/manual gating on soak or load jobs | Mirror the existing `schedule || workflow_dispatch` pattern |
+| Uploading artifacts only on success | Use `if: always()` so failure artifacts are preserved |
+| Treating CodeQL as if Kotlin were enabled | The current workflow analyzes only GitHub Actions files |
+| Testing Android emulator jobs with the wrong assumptions | Reuse the existing emulator-runner configuration and manual smoke gating |
 
 ## See Also
 
-- `.github/skills/local-ci-act/SKILL.md` -- Running workflows locally with `act`
-- `.github/skills/release-signing/SKILL.md` -- Release signing and R8 configuration
-- `.github/skills/dependency-update/SKILL.md` -- Version management that affects CI setup
+- `.github/skills/local-ci-act/SKILL.md` -- Local workflow execution with `act`
+- `.github/skills/release-signing/SKILL.md` -- Release signing and R8 details
+- `.github/skills/dependency-update/SKILL.md` -- Version changes that affect workflow setup

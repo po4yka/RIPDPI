@@ -120,7 +120,7 @@ cd ../.. && ./gradlew :core:engine:buildRustNativeLibs
 
 NDK changes affect **both** ecosystems:
 
-1. Update `ripdpi.androidNdkVersion` in `gradle.properties`
+1. Update `ripdpi.nativeNdkVersion` in `gradle.properties`
 2. Verify Rust cross-compilation targets still work:
    ```bash
    ./gradlew :core:engine:buildRustNativeLibs

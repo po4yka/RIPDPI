@@ -86,6 +86,7 @@ All dependency versions are in `gradle/libs.versions.toml`.
 ## CI/CD
 
 - **`ci.yml`** -- Runs on push/PR to main: build, unit tests, static analysis; nightly soak and TUN E2E
+- **`codeql.yml`** -- Runs on push/PR to main plus weekly schedule: GitHub Actions CodeQL analysis; Kotlin analysis is currently disabled pending upstream support
 - **`release.yml`** -- Runs on `v*` tags: builds signed release APK, creates GitHub Release
 - **`mutation-testing.yml`** -- Weekly Rust mutation testing via cargo-mutants
 
@@ -101,7 +102,7 @@ All dependency versions are in `gradle/libs.versions.toml`.
 
 ## Agent Skills
 
-Project-specific skills are in `.github/skills/`:
+Project-specific skills are in `.github/skills/` and are shared across Claude Code and Codex:
 
 | Skill | Use when |
 |-------|----------|
