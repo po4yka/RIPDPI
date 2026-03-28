@@ -110,6 +110,7 @@ pub(crate) fn classify_connectivity_diagnoses(request: &ScanRequest, results: &[
                         target: Some(result.target.clone()),
                         evidence: diagnosis_evidence(result, &["udpAddresses", "encryptedAddresses"]),
                         recommendation: None,
+                        control_validated: None,
                     },
                 );
                 hard_failure_codes.insert("dns_blockpage_fingerprint".to_string());
@@ -156,6 +157,7 @@ pub(crate) fn classify_connectivity_diagnoses(request: &ScanRequest, results: &[
                                 &["tlsEchResolutionDetail", "tlsEchError", "tls13Status", "tls12Status"],
                             ),
                             recommendation: None,
+                            control_validated: None,
                         },
                     );
                 }
@@ -281,6 +283,7 @@ pub(crate) fn classify_connectivity_diagnoses(request: &ScanRequest, results: &[
                     "whitelist_sni_ok".to_string(),
                 ],
                 recommendation: None,
+                control_validated: None,
             },
         );
     }
