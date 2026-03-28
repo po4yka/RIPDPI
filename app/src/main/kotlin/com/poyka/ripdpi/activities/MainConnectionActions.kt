@@ -142,6 +142,7 @@ internal class MainConnectionActions(
             serviceStateStore.events.collect { event ->
                 when (event) {
                     is ServiceEvent.Failed -> onServiceFailed(event.sender, event.reason)
+                    is ServiceEvent.PermissionRevoked -> refreshPermissionSnapshot()
                 }
             }
         }

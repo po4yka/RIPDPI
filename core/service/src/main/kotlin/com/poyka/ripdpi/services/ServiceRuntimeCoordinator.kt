@@ -51,6 +51,7 @@ internal abstract class BaseServiceRuntimeCoordinator<TSession>(
     private val rememberedNetworkPolicyStore: RememberedNetworkPolicyStore,
     private val networkHandoverMonitor: NetworkHandoverMonitor,
     private val policyHandoverEventStore: PolicyHandoverEventStore,
+    private val permissionWatchdog: PermissionWatchdog,
     protected val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
     protected val clock: ServiceClock = SystemServiceClock,
 ) where TSession : ServiceRuntimeSession, TSession : HandoverAwareSession {
@@ -67,6 +68,7 @@ internal abstract class BaseServiceRuntimeCoordinator<TSession>(
     protected var status: ServiceStatus = ServiceStatus.Disconnected
     protected var telemetryJob: Job? = null
     protected var handoverMonitorJob: Job? = null
+    private var permissionWatchdogJob: Job? = null
     protected var runtimeSession: TSession? = null
     protected val consumePendingNetworkHandoverClass: () -> String? = {
         runtimeSession?.pendingNetworkHandoverClass?.also {
@@ -109,6 +111,7 @@ internal abstract class BaseServiceRuntimeCoordinator<TSession>(
                         updateStatus(ServiceStatus.Connected)
                         startNetworkHandoverMonitoring()
                         startModeTelemetryUpdates()
+                        startPermissionWatchdog()
                         lifecycleState.markStarted()
                         true
                     }.onFailure {
@@ -154,6 +157,8 @@ internal abstract class BaseServiceRuntimeCoordinator<TSession>(
                 runCatching {
                     handoverMonitorJob?.cancel()
                     handoverMonitorJob = null
+                    permissionWatchdogJob?.cancel()
+                    permissionWatchdogJob = null
                     stopModeRuntime(skipRuntimeShutdown)
                 }.onFailure { failure ->
                     val error = failure as? Exception ?: IllegalStateException("Failed to stop $serviceLabel", failure)
@@ -189,6 +194,7 @@ internal abstract class BaseServiceRuntimeCoordinator<TSession>(
     fun onDestroy() {
         telemetryJob?.cancel()
         handoverMonitorJob?.cancel()
+        permissionWatchdogJob?.cancel()
     }
 
     protected fun replaceTelemetryJob(block: suspend CoroutineScope.() -> Unit) {
@@ -200,6 +206,19 @@ internal abstract class BaseServiceRuntimeCoordinator<TSession>(
         val classification = consumePendingNetworkHandoverClass() ?: return snapshot
         return snapshot.copy(networkHandoverClass = classification)
     }
+
+    private fun startPermissionWatchdog() {
+        permissionWatchdogJob?.cancel()
+        permissionWatchdogJob =
+            host.serviceScope.launch(ioDispatcher) {
+                permissionWatchdog.changes.collect { event ->
+                    logcat(LogPriority.WARN) { "Permission change detected: ${event.kind}" }
+                    onPermissionRevoked(event)
+                }
+            }
+    }
+
+    protected open fun onPermissionRevoked(event: PermissionChangeEvent) = Unit
 
     private fun startNetworkHandoverMonitoring() {
         handoverMonitorJob?.cancel()

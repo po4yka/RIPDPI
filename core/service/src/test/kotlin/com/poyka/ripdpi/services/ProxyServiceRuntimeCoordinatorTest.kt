@@ -225,6 +225,7 @@ class ProxyServiceRuntimeCoordinatorTest {
                 rememberedNetworkPolicyStore = TestRememberedNetworkPolicyStore(),
                 networkHandoverMonitor = handoverMonitor,
                 policyHandoverEventStore = handoverEvents,
+                permissionWatchdog = TestPermissionWatchdog(),
                 proxyRuntimeSupervisor =
                     ProxyRuntimeSupervisor(
                         scope = backgroundScope,

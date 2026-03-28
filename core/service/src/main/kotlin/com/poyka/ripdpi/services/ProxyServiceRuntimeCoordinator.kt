@@ -29,6 +29,7 @@ internal class ProxyServiceRuntimeCoordinator(
     rememberedNetworkPolicyStore: RememberedNetworkPolicyStore,
     networkHandoverMonitor: NetworkHandoverMonitor,
     policyHandoverEventStore: PolicyHandoverEventStore,
+    permissionWatchdog: PermissionWatchdog,
     private val proxyRuntimeSupervisor: ProxyRuntimeSupervisor,
     private val statusReporter: ServiceStatusReporter,
     ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
@@ -41,6 +42,7 @@ internal class ProxyServiceRuntimeCoordinator(
         rememberedNetworkPolicyStore = rememberedNetworkPolicyStore,
         networkHandoverMonitor = networkHandoverMonitor,
         policyHandoverEventStore = policyHandoverEventStore,
+        permissionWatchdog = permissionWatchdog,
         ioDispatcher = ioDispatcher,
         clock = clock,
     ) {
@@ -179,6 +181,12 @@ internal class ProxyServiceRuntimeCoordinator(
         )
     }
 
+    override fun onPermissionRevoked(event: PermissionChangeEvent) {
+        if (event.kind == PermissionChangeEvent.KIND_NOTIFICATIONS) {
+            logcat(LogPriority.WARN) { "Notification permission revoked while proxy running" }
+        }
+    }
+
     override fun classifyStartupFailure(error: Exception): FailureReason = classifyFailureReason(error)
 
     override fun classifyHandoverFailure(error: Exception): FailureReason = classifyFailureReason(error)
@@ -224,6 +232,7 @@ internal class ProxyServiceRuntimeCoordinatorFactory
         private val networkSnapshotProvider: NativeNetworkSnapshotProvider,
         private val proxyRuntimeSupervisorFactory: ProxyRuntimeSupervisorFactory,
         private val serviceStatusReporterFactory: ServiceStatusReporterFactory,
+        private val permissionWatchdog: PermissionWatchdog,
     ) {
         fun create(host: ServiceCoordinatorHost): ProxyServiceRuntimeCoordinator =
             ProxyServiceRuntimeCoordinator(
@@ -233,6 +242,7 @@ internal class ProxyServiceRuntimeCoordinatorFactory
                 rememberedNetworkPolicyStore = rememberedNetworkPolicyStore,
                 networkHandoverMonitor = networkHandoverMonitor,
                 policyHandoverEventStore = policyHandoverEventStore,
+                permissionWatchdog = permissionWatchdog,
                 proxyRuntimeSupervisor =
                     proxyRuntimeSupervisorFactory.create(
                         scope = host.serviceScope,

@@ -595,3 +595,7 @@ internal fun sampleResolution(
         policySignature = policySignature,
         resolverFallbackReason = resolverFallbackReason,
     )
+
+internal class TestPermissionWatchdog : PermissionWatchdog {
+    override val changes: SharedFlow<PermissionChangeEvent> = MutableSharedFlow()
+}

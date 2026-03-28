@@ -52,6 +52,7 @@ class RuntimeHistoryMonitor
                 serviceStateStore.events.collectLatest { event ->
                     when (event) {
                         is ServiceEvent.Failed -> sessionCoordinator.handleFailure(event.sender, event.reason)
+                        is ServiceEvent.PermissionRevoked -> Unit
                     }
                 }
             }
