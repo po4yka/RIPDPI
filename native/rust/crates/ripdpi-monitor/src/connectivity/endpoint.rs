@@ -230,3 +230,10 @@ pub(super) fn is_probe_failure(status: &str) -> bool {
             | "quic_response"
     )
 }
+
+/// Returns true for HTTP status codes that indicate the server is reachable
+/// but returned a non-success response (rate limits, server errors, etc.).
+/// These should NOT be classified as censorship blocking since the server responded.
+pub(super) fn is_server_error(status: &str) -> bool {
+    status.starts_with("http_status_4") || status.starts_with("http_status_5")
+}

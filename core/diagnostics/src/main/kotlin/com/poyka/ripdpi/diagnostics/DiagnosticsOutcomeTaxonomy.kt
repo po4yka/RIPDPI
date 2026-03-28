@@ -159,6 +159,7 @@ object DiagnosticsOutcomeTaxonomy {
             "circumvention_reachability" -> {
                 when (outcome) {
                     "circumvention_ok" -> DiagnosticsOutcomeBucket.Healthy
+                    "circumvention_degraded" -> DiagnosticsOutcomeBucket.Attention
                     "circumvention_blocked" -> DiagnosticsOutcomeBucket.Failed
                     else -> legacyBucketForOutcome(outcome)
                 }

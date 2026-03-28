@@ -13,7 +13,8 @@ use crate::types::*;
 use crate::util::*;
 
 use super::endpoint::{
-    is_probe_failure, measure_throughput_window, probe_http_url, run_endpoint_probe, run_quic_endpoint_probe,
+    is_probe_failure, is_server_error, measure_throughput_window, probe_http_url, run_endpoint_probe,
+    run_quic_endpoint_probe,
 };
 
 /// Classify DNS latency into a human-readable quality tier.
@@ -425,8 +426,14 @@ pub(crate) fn run_circumvention_probe(
     let bootstrap_status =
         bootstrap.as_ref().map_or_else(|| "not_run".to_string(), |observation| observation.status.clone());
     let bootstrap_detail = bootstrap.as_ref().map_or_else(|| "not_run".to_string(), describe_http_observation);
-    let outcome = if is_probe_failure(&bootstrap_status) || is_probe_failure(&handshake_status) {
+    let outcome = if is_probe_failure(&handshake_status) {
         "circumvention_blocked"
+    } else if is_probe_failure(&bootstrap_status) {
+        if is_server_error(&bootstrap_status) {
+            "circumvention_degraded"
+        } else {
+            "circumvention_blocked"
+        }
     } else {
         "circumvention_ok"
     };
