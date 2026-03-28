@@ -41,6 +41,7 @@ internal class VpnServiceRuntimeCoordinator(
     private val encryptedDnsFailoverController: VpnEncryptedDnsFailoverController,
     private val proxyRuntimeSupervisor: ProxyRuntimeSupervisor,
     private val statusReporter: ServiceStatusReporter,
+    private val screenStateObserver: ScreenStateObserver,
     ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
     clock: ServiceClock = SystemServiceClock,
 ) : BaseServiceRuntimeCoordinator<VpnRuntimeSession>(
@@ -57,6 +58,7 @@ internal class VpnServiceRuntimeCoordinator(
     ) {
     private companion object {
         private const val TelemetryPollIntervalMs = 1_000L
+        private const val TelemetryPollIntervalBackgroundMs = 5_000L
     }
 
     override val serviceLabel: String = "VPN"
@@ -144,7 +146,13 @@ internal class VpnServiceRuntimeCoordinator(
                 }
                 if (handleTelemetryFailure(telemetry)) return@replaceTelemetryJob
                 reportTelemetry(telemetry)
-                delay(TelemetryPollIntervalMs)
+                val interval =
+                    if (screenStateObserver.isInteractive.value) {
+                        TelemetryPollIntervalMs
+                    } else {
+                        TelemetryPollIntervalBackgroundMs
+                    }
+                delay(interval)
             }
         }
     }
@@ -241,7 +249,7 @@ internal class VpnServiceRuntimeCoordinator(
             tunnelTelemetry = telemetry.tunnelTelemetry,
             tunnelRecoveryRetryCount = vpnTunnelRuntime.tunnelRecoveryRetryCount,
         )
-        if (statusReporter.startedAt != null) {
+        if (statusReporter.startedAt != null && screenStateObserver.isInteractive.value) {
             host.updateNotification(
                 tunnelStats = telemetry.tunnelTelemetry.tunnelStats,
                 proxyTelemetry = telemetry.proxyTelemetry,
@@ -398,6 +406,7 @@ internal class VpnServiceRuntimeCoordinatorFactory
                         networkFingerprintProvider = statusDependencies.networkFingerprintProvider,
                         telemetryFingerprintHasher = statusDependencies.telemetryFingerprintHasher,
                     ),
+                screenStateObserver = runtimeDependencies.screenStateObserver,
             )
     }
 
@@ -417,6 +426,7 @@ internal class VpnServiceRuntimeRuntimeDependencies
         val networkDnsPathPreferenceStore: NetworkDnsPathPreferenceStore,
         val resolverRefreshPlanner: VpnResolverRefreshPlanner,
         val proxyRuntimeSupervisorFactory: ProxyRuntimeSupervisorFactory,
+        val screenStateObserver: ScreenStateObserver,
     )
 
 internal class VpnServiceRuntimeStatusDependencies

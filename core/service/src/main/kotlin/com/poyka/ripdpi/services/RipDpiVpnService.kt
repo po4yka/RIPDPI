@@ -212,12 +212,8 @@ class RipDpiVpnService :
         builder
             .addAddress(TUNNEL_IPV4_ADDRESS, 32)
             .addRoute("0.0.0.0", 0)
-
-        if (ipv6) {
-            builder
-                .addAddress(TUNNEL_IPV6_ADDRESS, 128)
-                .addRoute("::", 0)
-        }
+            .addAddress(TUNNEL_IPV6_ADDRESS, 128)
+            .addRoute("::", 0)
 
         if (dns.isNotBlank()) {
             builder.addDnsServer(dns)
