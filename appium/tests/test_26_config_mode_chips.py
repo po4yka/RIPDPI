@@ -15,10 +15,10 @@ def test_config_mode_chips(driver):
     assert config.is_loaded(), "Config screen should be visible"
 
     # Tap proxy mode chip.
-    config.tap("config-mode-proxy")
+    config.select_mode("proxy")
 
     # Tap VPN mode chip.
-    config.tap("config-mode-vpn")
+    config.select_mode("vpn")
 
     # Screen should remain on config after mode switching.
     assert config.is_loaded(), "Config screen should remain visible after mode switches"

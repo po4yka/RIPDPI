@@ -753,6 +753,18 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@v6
 
+      - name: Cache Appium dependencies
+        if: github.event_name == 'workflow_dispatch' && github.event.inputs.run_appium_smoke == 'true'
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.npm
+            ~/.appium
+            ~/.cache/pip
+          key: appium-deps-${{ hashFiles('appium/requirements.txt') }}
+          restore-keys: |
+            appium-deps-
+
       - name: Start local network fixture
         run: |
           mkdir -p "$RUNNER_TEMP/local-network-fixture"
@@ -802,7 +814,7 @@ jobs:
               npm install -g appium
               appium driver install uiautomator2
               pip install -r appium/requirements.txt
-              bash scripts/ci/run-appium-smoke.sh \
+              timeout 900 bash scripts/ci/run-appium-smoke.sh \
                 2>&1 | tee "$RUNNER_TEMP/appium-smoke.log"
             fi
 
@@ -848,6 +860,9 @@ jobs:
             app/build/outputs/code_coverage/
             app/build/outputs/androidTest-results/connected/
             ${{ runner.temp }}/maestro/
+            ${{ runner.temp }}/appium-smoke.log
+            appium/appium-report.html
+            appium/screenshots/
             ${{ runner.temp }}/local-network-fixture/fixture.log
             ${{ runner.temp }}/local-network-fixture/fixture-manifest.json
             ${{ runner.temp }}/local-network-fixture/fixture-events.json

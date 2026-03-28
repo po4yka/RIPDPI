@@ -22,5 +22,9 @@ class ConfigPage(BasePage):
     def tap_edit_current(self) -> None:
         self.tap(self.EDIT_CURRENT)
 
+    def select_mode(self, mode: str) -> None:
+        """Tap a mode chip (e.g. 'proxy', 'vpn')."""
+        self.tap(f"config-mode-{mode}")
+
     def tap_dns_settings(self) -> None:
         self.tap(self.DNS_SETTINGS)

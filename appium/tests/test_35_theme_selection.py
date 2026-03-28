@@ -2,7 +2,6 @@
 
 import pytest
 
-from pages.base_page import BasePage
 from pages.settings_page import SettingsPage
 
 
@@ -19,8 +18,7 @@ def test_select_dark_theme(driver):
     settings.tap_theme_dropdown()
 
     # Select the dark theme option.
-    base = BasePage(driver)
-    base.tap("settings-theme-dropdown-option-dark")
+    settings.select_theme_option("dark")
 
     assert settings.is_loaded(), (
         "Settings screen should remain visible after selecting dark theme"

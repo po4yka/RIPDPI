@@ -40,3 +40,27 @@ class AdvancedSettingsPage(BasePage):
         tag = f"advanced-option-{setting_name}"
         self.scroll_to(tag)
         self.tap(tag)
+
+    # -- activation window helpers -----------------------------------------------
+
+    def edit_activation_start(self, dimension: str, value: str) -> None:
+        tag = f"advanced-{dimension}-from"
+        el = self.scroll_to(tag)
+        el.clear()
+        el.send_keys(value)
+
+    def edit_activation_end(self, dimension: str, value: str) -> None:
+        tag = f"advanced-{dimension}-to"
+        el = self.scroll_to(tag)
+        el.clear()
+        el.send_keys(value)
+
+    def tap_activation_save(self, dimension: str) -> None:
+        tag = f"advanced-{dimension}-save"
+        self.tap(tag)
+
+    def is_activation_start_visible(self, dimension: str) -> bool:
+        return self.is_visible(f"advanced-{dimension}-from")
+
+    def is_activation_end_visible(self, dimension: str) -> bool:
+        return self.is_visible(f"advanced-{dimension}-to")

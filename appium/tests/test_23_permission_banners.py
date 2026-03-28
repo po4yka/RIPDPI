@@ -45,7 +45,7 @@ def test_banner_dismiss(driver):
     assert home.is_loaded(), "Home screen should be visible"
     assert home.is_permission_banner_visible(), "Permission banner should be visible"
 
-    home.tap("warning-banner-dismiss")
+    home.dismiss_warning_banner()
     assert not home.is_visible("home-permission-issue-banner", timeout=2), (
         "Banner should disappear after dismiss"
     )

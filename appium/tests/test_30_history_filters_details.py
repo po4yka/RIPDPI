@@ -22,11 +22,10 @@ def test_history_events_auto_scroll(driver):
     )
 
     # Toggle auto-scroll.
-    page = BasePage(driver)
-    assert page.is_visible("history-events-auto-scroll"), (
+    assert history.is_auto_scroll_visible(), (
         "Auto-scroll toggle should be visible in events section"
     )
-    page.tap("history-events-auto-scroll")
+    history.tap_auto_scroll()
 
 
 @pytest.mark.automation(
