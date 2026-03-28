@@ -505,11 +505,12 @@ class DiagnosticsScreenTest {
                 ),
         )
 
-        composeRule.onRoot().performTouchInput { swipeUp() }
-        composeRule.onNodeWithText("Resolver recommendation ready").assertIsDisplayed()
-        composeRule.onNodeWithText("Resolver recommendation").assertIsDisplayed()
+        composeRule.onNodeWithText("Resolver recommendation ready").performScrollTo().assertIsDisplayed()
         composeRule.onNodeWithText("Recommendation ready").assertDoesNotExist()
         composeRule.onNodeWithTag(RipDpiTestTags.DiagnosticsStrategyWinningPath).assertDoesNotExist()
+        composeRule.onRoot().performTouchInput { swipeUp() }
+        composeRule.onNodeWithTag(RipDpiTestTags.DiagnosticsStrategyProbeReport).fetchSemanticsNode()
+        composeRule.onNodeWithText("RESOLVER RECOMMENDATION").assertExists()
     }
 
     @Test
@@ -546,11 +547,12 @@ class DiagnosticsScreenTest {
                 ),
         )
 
-        composeRule.onRoot().performTouchInput { swipeUp() }
-        composeRule.onNodeWithText("Audit short-circuited").assertIsDisplayed()
-        composeRule.onNodeWithText("Incomplete audit").assertIsDisplayed()
+        composeRule.onNodeWithText("Audit short-circuited").performScrollTo().assertIsDisplayed()
         composeRule.onNodeWithText("Audit ready").assertDoesNotExist()
         composeRule.onNodeWithTag(RipDpiTestTags.DiagnosticsStrategyWinningPath).assertDoesNotExist()
+        composeRule.onRoot().performTouchInput { swipeUp() }
+        composeRule.onNodeWithTag(RipDpiTestTags.DiagnosticsStrategyProbeReport).fetchSemanticsNode()
+        composeRule.onNodeWithText("INCOMPLETE AUDIT").assertExists()
         composeRule.onNodeWithTag(RipDpiTestTags.DiagnosticsStrategyAuditLowConfidenceBanner).fetchSemanticsNode()
     }
 
