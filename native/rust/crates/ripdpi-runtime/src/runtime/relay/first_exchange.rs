@@ -48,7 +48,7 @@ pub(super) fn read_first_response(
     let mut observed_server_ttl: Option<u8> = None;
 
     loop {
-        upstream.set_read_timeout(first_response_timeout(config, &tls_partial))?;
+        let _ = upstream.set_read_timeout(first_response_timeout(config, &tls_partial));
         let read_result = if collected.is_empty() {
             platform::read_chunk_with_ttl(upstream, &mut chunk).map(|(n, ttl)| {
                 if ttl.is_some() {
