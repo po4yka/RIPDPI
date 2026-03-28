@@ -70,7 +70,7 @@ adb shell am start -a android.intent.action.VIEW \
 | `PERMISSION_PRESET` | `granted`, `notifications_missing`, `vpn_missing`, `battery_review` |
 | `SERVICE_PRESET` | `idle`, `connected_proxy`, `connected_vpn`, `live` |
 | `DATA_PRESET` | `clean_home`, `settings_ready`, `diagnostics_demo` |
-| `START_ROUTE` | `onboarding`, `home`, `config`, `diagnostics`, `history`, `settings`, `mode_editor`, `dns_settings`, `advanced_settings`, `biometric_prompt`, `app_customization`, `about`, `data_transparency` |
+| `START_ROUTE` | `onboarding`, `home`, `config`, `diagnostics`, `history`, `logs`, `settings`, `mode_editor`, `dns_settings`, `advanced_settings`, `biometric_prompt`, `app_customization`, `about`, `data_transparency` |
 
 Route source of truth: `app/src/main/kotlin/com/poyka/ripdpi/ui/navigation/Route.kt`
 
