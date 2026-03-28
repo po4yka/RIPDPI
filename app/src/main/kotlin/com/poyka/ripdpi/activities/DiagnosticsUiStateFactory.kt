@@ -299,6 +299,10 @@ internal class DiagnosticsUiStateFactory
                 latestStrategyProbeReport = resolvedInput.latestStrategyProbeReport,
                 progress = input.progress,
                 rawArgsEnabled = input.settings.enableCmdSettings,
+                vpnPermissionDisabled =
+                    resolvedInput.latestContext
+                        ?.permissions
+                        ?.vpnPermissionState == "disabled",
                 scanStartedAt = input.scanStartedAt,
                 completedProbes = input.completedProbes,
                 hiddenProbeConflictDialog = input.hiddenProbeConflictDialog,
