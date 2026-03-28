@@ -18,6 +18,10 @@ sealed class ServiceEvent {
         val sender: Sender,
         val reason: FailureReason,
     ) : ServiceEvent()
+
+    data class PermissionRevoked(
+        val kind: String,
+    ) : ServiceEvent()
 }
 
 data class ServiceTelemetrySnapshot(
@@ -129,7 +133,7 @@ class DefaultServiceStateStore
                             tunnelRecoveryRetryCount =
                                 currentTelemetry.runtimeFieldTelemetry.tunnelRecoveryRetryCount,
                             failureReason = reason,
-                    ),
+                        ),
                     lastFailureSender = sender,
                     lastFailureAt = now,
                     updatedAt = now,

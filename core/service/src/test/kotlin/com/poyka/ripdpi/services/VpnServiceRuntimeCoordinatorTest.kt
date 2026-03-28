@@ -513,6 +513,7 @@ class VpnServiceRuntimeCoordinatorTest {
                 rememberedNetworkPolicyStore = TestRememberedNetworkPolicyStore(),
                 networkHandoverMonitor = handoverMonitor,
                 policyHandoverEventStore = handoverEvents,
+                permissionWatchdog = TestPermissionWatchdog(),
                 vpnTunnelRuntime = tunnelRuntime,
                 resolverRefreshPlanner =
                     VpnResolverRefreshPlanner(
