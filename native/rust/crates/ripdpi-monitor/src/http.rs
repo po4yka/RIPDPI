@@ -156,10 +156,7 @@ pub(crate) fn parse_http_response(headers: &[u8], body: Vec<u8>) -> Result<HttpR
 pub(crate) fn classify_http_response(response: &HttpResponse) -> String {
     if response.status_code == 200 && !body_has_blockpage_keywords(&response.body) {
         "http_ok".to_string()
-    } else if response.status_code == 403
-        || response.status_code == 451
-        || response.status_code == 302
-        || body_has_blockpage_keywords(&response.body)
+    } else if response.status_code == 403 || response.status_code == 451 || body_has_blockpage_keywords(&response.body)
     {
         "http_blockpage".to_string()
     } else {
@@ -185,6 +182,11 @@ pub(crate) fn is_blockpage(observation: &HttpObservation) -> bool {
 }
 
 pub(crate) fn body_has_blockpage_keywords(body: &[u8]) -> bool {
+    // Large pages (>8KB) from legitimate sites may contain censorship-related words
+    // in their normal content; only flag short responses as potential blockpages.
+    if body.len() > 8192 {
+        return false;
+    }
     let text = String::from_utf8_lossy(body).to_ascii_lowercase();
     ["blocked", "access denied", "forbidden", "restriction", "censorship"].iter().any(|needle| text.contains(needle))
 }
@@ -242,9 +244,20 @@ mod tests {
     }
 
     #[test]
-    fn classify_http_response_blockpage_for_302_redirect() {
+    fn classify_http_response_redirect_for_302() {
         let response =
             HttpResponse { status_code: 302, reason: "Found".to_string(), headers: HashMap::new(), body: vec![] };
+        assert_eq!(classify_http_response(&response), "http_status_302");
+    }
+
+    #[test]
+    fn classify_http_response_blockpage_for_302_with_blockpage_body() {
+        let response = HttpResponse {
+            status_code: 302,
+            reason: "Found".to_string(),
+            headers: HashMap::new(),
+            body: b"This site has been blocked".to_vec(),
+        };
         assert_eq!(classify_http_response(&response), "http_blockpage");
     }
 
@@ -283,6 +296,13 @@ mod tests {
     #[test]
     fn body_has_blockpage_keywords_returns_false_for_normal() {
         assert!(!body_has_blockpage_keywords(b"<html>Hello World</html>"));
+    }
+
+    #[test]
+    fn body_has_blockpage_keywords_ignores_large_legitimate_pages() {
+        let mut page = b"<html><body>Learn how to circumvent censorship and access blocked content</body>".to_vec();
+        page.resize(9000, b' '); // Pad to >8KB to simulate a real website
+        assert!(!body_has_blockpage_keywords(&page));
     }
 
     #[test]

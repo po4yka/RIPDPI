@@ -216,5 +216,17 @@ fn connect_target_from_parts(host: Option<&str>, connect_ip: Option<&str>) -> Op
 }
 
 pub(super) fn is_probe_failure(status: &str) -> bool {
-    !matches!(status, "not_run" | "http_ok" | "tls_ok" | "tcp_connect_ok" | "quic_initial_response" | "quic_response")
+    if status.starts_with("http_status_3") {
+        return false; // 3xx redirects are not probe failures
+    }
+    !matches!(
+        status,
+        "not_run"
+            | "http_ok"
+            | "http_redirect"
+            | "tls_ok"
+            | "tcp_connect_ok"
+            | "quic_initial_response"
+            | "quic_response"
+    )
 }
