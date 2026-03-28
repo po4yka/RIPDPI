@@ -157,7 +157,7 @@ jobs:
       - name: Install cargo-deny and cargo-nextest
         uses: taiki-e/install-action@v2
         with:
-          tool: cargo-deny,cargo-nextest
+          tool: cargo-deny@0.18.9,cargo-nextest
 
       - name: Run cargo-deny
         run: cargo deny --manifest-path native/rust/Cargo.toml check
