@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "fingerprint": "0527981c00a39dec5e6ed42b30794db25e736714d5cad200e6b53d8fdc9f3f27",
+  "fingerprint": "79a7cda9ec19b676821b9bbca3261ff697c928f93ab5ab77e337b72e3b1afc9f",
   "scopes": {
     "default": {
       "entries": [
@@ -8,7 +8,51 @@
           "groupIndex": 0,
           "flowKind": "tcp_other",
           "target": {
-            "address": "127.0.0.1:51838"
+            "address": "127.0.0.1:52057"
+          },
+          "state": {
+            "splitOffsetBase": null,
+            "tlsRecordOffsetBase": null,
+            "tlsrandrecProfile": null,
+            "udpBurstProfile": null,
+            "quicFakeProfile": null,
+            "dimensionOrder": [
+              4,
+              0,
+              1,
+              2,
+              3
+            ],
+            "dimensionCursor": 0
+          }
+        },
+        {
+          "groupIndex": 0,
+          "flowKind": "tcp_other",
+          "target": {
+            "host": "cloudflare-dns.com"
+          },
+          "state": {
+            "splitOffsetBase": null,
+            "tlsRecordOffsetBase": null,
+            "tlsrandrecProfile": null,
+            "udpBurstProfile": null,
+            "quicFakeProfile": null,
+            "dimensionOrder": [
+              2,
+              3,
+              0,
+              1,
+              4
+            ],
+            "dimensionCursor": 0
+          }
+        },
+        {
+          "groupIndex": 0,
+          "flowKind": "tcp_tls",
+          "target": {
+            "address": "127.0.0.1:9"
           },
           "state": {
             "splitOffsetBase": null,
@@ -21,6 +65,50 @@
               2,
               1,
               0,
+              4
+            ],
+            "dimensionCursor": 0
+          }
+        },
+        {
+          "groupIndex": 0,
+          "flowKind": "tcp_tls",
+          "target": {
+            "host": "cloudflare-dns.com"
+          },
+          "state": {
+            "splitOffsetBase": null,
+            "tlsRecordOffsetBase": null,
+            "tlsrandrecProfile": null,
+            "udpBurstProfile": null,
+            "quicFakeProfile": null,
+            "dimensionOrder": [
+              4,
+              0,
+              1,
+              2,
+              3
+            ],
+            "dimensionCursor": 0
+          }
+        },
+        {
+          "groupIndex": 1,
+          "flowKind": "tcp_tls",
+          "target": {
+            "address": "127.0.0.1:9"
+          },
+          "state": {
+            "splitOffsetBase": null,
+            "tlsRecordOffsetBase": null,
+            "tlsrandrecProfile": null,
+            "udpBurstProfile": null,
+            "quicFakeProfile": null,
+            "dimensionOrder": [
+              0,
+              1,
+              2,
+              3,
               4
             ],
             "dimensionCursor": 0
