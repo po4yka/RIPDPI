@@ -76,6 +76,7 @@ internal fun DiagnosticsUiFactorySupport.toDiagnosisUiModel(diagnosis: Diagnosis
                 else -> DiagnosticsTone.Info
             },
         evidence = diagnosis.evidence,
+        recommendation = diagnosis.recommendation,
     )
 
 internal fun DiagnosticsUiFactorySupport.toRememberedNetworkUiModel(

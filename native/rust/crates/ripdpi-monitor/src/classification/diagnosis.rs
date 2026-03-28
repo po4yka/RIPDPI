@@ -91,6 +91,7 @@ pub(crate) fn classify_connectivity_diagnoses(request: &ScanRequest, results: &[
                     severity: "negative".to_string(),
                     target: Some(result.target.clone()),
                     evidence: diagnosis_evidence(result, &["udpAddresses", "encryptedAddresses", "expected"]),
+                    recommendation: None,
                 },
             );
             hard_failure_codes.insert("dns_tampering".to_string());
@@ -107,6 +108,7 @@ pub(crate) fn classify_connectivity_diagnoses(request: &ScanRequest, results: &[
                         severity: "negative".to_string(),
                         target: Some(result.target.clone()),
                         evidence: diagnosis_evidence(result, &["udpAddresses", "encryptedAddresses"]),
+                        recommendation: None,
                     },
                 );
                 hard_failure_codes.insert("dns_blockpage_fingerprint".to_string());
@@ -128,6 +130,7 @@ pub(crate) fn classify_connectivity_diagnoses(request: &ScanRequest, results: &[
                         result,
                         &["tls13Status", "tls12Status", "tlsEchStatus", "tlsEchVersion", "tlsEchError"],
                     ),
+                    recommendation: None,
                 },
             );
         }
@@ -150,6 +153,7 @@ pub(crate) fn classify_connectivity_diagnoses(request: &ScanRequest, results: &[
                                 result,
                                 &["tlsEchResolutionDetail", "tlsEchError", "tls13Status", "tls12Status"],
                             ),
+                            recommendation: None,
                         },
                     );
                 }
@@ -166,6 +170,7 @@ pub(crate) fn classify_connectivity_diagnoses(request: &ScanRequest, results: &[
                     severity: "negative".to_string(),
                     target: Some(result.target.clone()),
                     evidence: diagnosis_evidence(result, &["tlsStatus", "tlsError", "tlsSignal"]),
+                    recommendation: None,
                 },
             );
             hard_failure_codes.insert("tls_cert_mitm".to_string());
@@ -194,6 +199,7 @@ pub(crate) fn classify_connectivity_diagnoses(request: &ScanRequest, results: &[
                     severity: "negative".to_string(),
                     target: Some(result.target.clone()),
                     evidence: diagnosis_evidence(result, &["tlsStatus", "tlsError", "tls13Status", "tls12Status"]),
+                    recommendation: None,
                 },
             );
             hard_failure_codes.insert(code.to_string());
@@ -209,6 +215,7 @@ pub(crate) fn classify_connectivity_diagnoses(request: &ScanRequest, results: &[
                     severity: "negative".to_string(),
                     target: Some(result.target.clone()),
                     evidence: diagnosis_evidence(result, &["httpStatus", "httpResponse"]),
+                    recommendation: None,
                 },
             );
             hard_failure_codes.insert("http_blockpage".to_string());
@@ -226,6 +233,7 @@ pub(crate) fn classify_connectivity_diagnoses(request: &ScanRequest, results: &[
                     severity: "negative".to_string(),
                     target: Some(result.target.clone()),
                     evidence: diagnosis_evidence(result, &["bytesSent", "responsesSeen", "lastError"]),
+                    recommendation: None,
                 },
             );
         }
@@ -239,6 +247,7 @@ pub(crate) fn classify_connectivity_diagnoses(request: &ScanRequest, results: &[
                     severity: "warning".to_string(),
                     target: Some(result.target.clone()),
                     evidence: diagnosis_evidence(result, &["selectedSni", "attempts"]),
+                    recommendation: None,
                 },
             );
         }
@@ -264,6 +273,7 @@ pub(crate) fn classify_connectivity_diagnoses(request: &ScanRequest, results: &[
                     "tls failures recovered when a whitelisted SNI was used".to_string(),
                     "whitelist_sni_ok".to_string(),
                 ],
+                recommendation: None,
             },
         );
     }
@@ -279,6 +289,7 @@ pub(crate) fn classify_connectivity_diagnoses(request: &ScanRequest, results: &[
                     severity: "warning".to_string(),
                     target: Some(result.target.clone()),
                     evidence: diagnosis_evidence(result, &["status", "error", "latencyMs"]),
+                    recommendation: None,
                 },
             );
         }
@@ -299,6 +310,7 @@ pub(crate) fn classify_connectivity_diagnoses(request: &ScanRequest, results: &[
                     severity: "negative".to_string(),
                     target: Some(service_name.clone()),
                     evidence: diagnosis_evidence(result, &["bootstrapStatus", "bootstrapDetail", "gatewayStatus"]),
+                    recommendation: None,
                 },
             );
         }
@@ -312,6 +324,7 @@ pub(crate) fn classify_connectivity_diagnoses(request: &ScanRequest, results: &[
                     severity: "negative".to_string(),
                     target: Some(service_name.clone()),
                     evidence: diagnosis_evidence(result, &["mediaStatus", "mediaDetail"]),
+                    recommendation: None,
                 },
             );
         }
@@ -325,6 +338,7 @@ pub(crate) fn classify_connectivity_diagnoses(request: &ScanRequest, results: &[
                     severity: "warning".to_string(),
                     target: Some(service_name),
                     evidence: diagnosis_evidence(result, &["quicStatus", "quicError"]),
+                    recommendation: None,
                 },
             );
         }
@@ -344,6 +358,7 @@ pub(crate) fn classify_connectivity_diagnoses(request: &ScanRequest, results: &[
                     severity: "negative".to_string(),
                     target: Some(tool_name.clone()),
                     evidence: diagnosis_evidence(result, &["bootstrapStatus", "bootstrapDetail"]),
+                    recommendation: None,
                 },
             );
         }
@@ -357,6 +372,7 @@ pub(crate) fn classify_connectivity_diagnoses(request: &ScanRequest, results: &[
                     severity: "negative".to_string(),
                     target: Some(tool_name),
                     evidence: diagnosis_evidence(result, &["handshakeStatus", "handshakeError"]),
+                    recommendation: None,
                 },
             );
         }
@@ -414,6 +430,7 @@ fn classify_throughput_diagnosis(results: &[ProbeResult], diagnoses: &mut Vec<Di
                     severity: "warning".to_string(),
                     target: Some(result.target.clone()),
                     evidence: diagnosis_evidence(result, &["medianBps", "bpsReadings", "windowBytes"]),
+                    recommendation: None,
                 },
             );
         }
