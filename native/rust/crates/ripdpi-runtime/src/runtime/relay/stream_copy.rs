@@ -73,10 +73,10 @@ pub(super) fn relay_streams(
     session_seed: SessionState,
     remembered_host_seed: Option<String>,
 ) -> io::Result<SessionState> {
-    client.set_read_timeout(Some(RELAY_IDLE_TIMEOUT))?;
-    client.set_write_timeout(None)?;
-    upstream.set_read_timeout(Some(RELAY_IDLE_TIMEOUT))?;
-    upstream.set_write_timeout(None)?;
+    let _ = client.set_read_timeout(Some(RELAY_IDLE_TIMEOUT));
+    let _ = client.set_write_timeout(None);
+    let _ = upstream.set_read_timeout(Some(RELAY_IDLE_TIMEOUT));
+    let _ = upstream.set_write_timeout(None);
 
     let client_reader = client.try_clone()?;
     let client_writer = client.try_clone()?;
@@ -242,7 +242,7 @@ fn copy_outbound_half(
 ) -> io::Result<()> {
     let mut buffer = [0u8; 16_384];
     loop {
-        reader.set_read_timeout(Some(RELAY_IDLE_TIMEOUT))?;
+        let _ = reader.set_read_timeout(Some(RELAY_IDLE_TIMEOUT));
         match reader.read(&mut buffer) {
             Ok(0) => break,
             Ok(n) => {

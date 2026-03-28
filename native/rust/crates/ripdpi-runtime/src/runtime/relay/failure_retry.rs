@@ -241,7 +241,7 @@ fn read_first_client_payload(client: &mut TcpStream, buffer_size: usize) -> io::
     let result = loop {
         let now = Instant::now();
         let timeout = assembler.timeout(now).unwrap_or(FIRST_OUTBOUND_IDLE_TIMEOUT);
-        client.set_read_timeout(Some(timeout))?;
+        let _ = client.set_read_timeout(Some(timeout));
         match client.read(&mut buffer) {
             Ok(0) => break Ok(assembler.finish()),
             Ok(n) => {
@@ -258,7 +258,7 @@ fn read_first_client_payload(client: &mut TcpStream, buffer_size: usize) -> io::
             Err(err) => break Err(err),
         }
     };
-    client.set_read_timeout(original_timeout)?;
+    let _ = client.set_read_timeout(original_timeout);
     result
 }
 
