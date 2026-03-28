@@ -791,4 +791,669 @@ mod tests {
             _ => panic!("expected Run"),
         }
     }
+
+    // --- ActivationFilter ---
+
+    #[test]
+    fn activation_filter_is_unbounded_when_all_none() {
+        let filter = ActivationFilter::default();
+        assert!(filter.is_unbounded());
+    }
+
+    #[test]
+    fn activation_filter_is_bounded_with_any_field_set() {
+        let with_round =
+            ActivationFilter { round: Some(NumericRange::new(1, 3)), ..Default::default() };
+        assert!(!with_round.is_unbounded());
+
+        let with_payload =
+            ActivationFilter { payload_size: Some(NumericRange::new(0, 100)), ..Default::default() };
+        assert!(!with_payload.is_unbounded());
+
+        let with_stream =
+            ActivationFilter { stream_bytes: Some(NumericRange::new(0, 512)), ..Default::default() };
+        assert!(!with_stream.is_unbounded());
+    }
+
+    // --- DesyncGroup ---
+
+    #[test]
+    fn desync_group_new_has_correct_id_and_bit() {
+        let g0 = DesyncGroup::new(0);
+        assert_eq!(g0.id, 0);
+        assert_eq!(g0.bit, 1);
+
+        let g3 = DesyncGroup::new(3);
+        assert_eq!(g3.id, 3);
+        assert_eq!(g3.bit, 8);
+    }
+
+    #[test]
+    fn desync_group_is_not_actionable_when_empty() {
+        let group = DesyncGroup::new(0);
+        assert!(!group.is_actionable());
+    }
+
+    #[test]
+    fn desync_group_is_actionable_with_tcp_chain() {
+        let mut group = DesyncGroup::new(0);
+        group.actions.tcp_chain.push(TcpChainStep::new(
+            TcpChainStepKind::Split,
+            OffsetExpr::absolute(5),
+        ));
+        assert!(group.is_actionable());
+    }
+
+    #[test]
+    fn desync_group_is_actionable_with_udp_chain() {
+        let mut group = DesyncGroup::new(0);
+        group.actions.udp_chain.push(UdpChainStep {
+            kind: UdpChainStepKind::FakeBurst,
+            count: 1,
+            activation_filter: None,
+        });
+        assert!(group.is_actionable());
+    }
+
+    #[test]
+    fn desync_group_is_actionable_with_mod_http() {
+        let mut group = DesyncGroup::new(0);
+        group.actions.mod_http = MH_HMIX;
+        assert!(group.is_actionable());
+    }
+
+    #[test]
+    fn desync_group_is_actionable_with_detect() {
+        let mut group = DesyncGroup::new(0);
+        group.matches.detect = DETECT_CONNECT;
+        assert!(group.is_actionable());
+    }
+
+    #[test]
+    fn desync_group_is_actionable_with_hosts() {
+        let mut group = DesyncGroup::new(0);
+        group.matches.filters.hosts.push("example.com".to_string());
+        assert!(group.is_actionable());
+    }
+
+    #[test]
+    fn desync_group_is_actionable_with_port_filter() {
+        let mut group = DesyncGroup::new(0);
+        group.matches.port_filter = Some((443, 443));
+        assert!(group.is_actionable());
+    }
+
+    #[test]
+    fn desync_group_is_actionable_with_ext_socks() {
+        let mut group = DesyncGroup::new(0);
+        group.policy.ext_socks = Some(UpstreamSocksConfig {
+            addr: SocketAddr::new(IpAddr::from_str("127.0.0.1").unwrap(), 1081),
+        });
+        assert!(group.is_actionable());
+    }
+
+    #[test]
+    fn desync_group_is_actionable_with_tlsminor() {
+        let mut group = DesyncGroup::new(0);
+        group.actions.tlsminor = Some(3);
+        assert!(group.is_actionable());
+    }
+
+    #[test]
+    fn desync_group_is_actionable_with_fake_data() {
+        let mut group = DesyncGroup::new(0);
+        group.actions.fake_data = Some(vec![0x00]);
+        assert!(group.is_actionable());
+    }
+
+    #[test]
+    fn desync_group_is_actionable_with_fake_sni_list() {
+        let mut group = DesyncGroup::new(0);
+        group.actions.fake_sni_list.push("cdn.test".to_string());
+        assert!(group.is_actionable());
+    }
+
+    #[test]
+    fn desync_group_is_actionable_with_fake_offset() {
+        let mut group = DesyncGroup::new(0);
+        group.actions.fake_offset = Some(OffsetExpr::absolute(3));
+        assert!(group.is_actionable());
+    }
+
+    #[test]
+    fn desync_group_is_actionable_with_ipset() {
+        let mut group = DesyncGroup::new(0);
+        group.matches.filters.ipset.push(Cidr {
+            addr: IpAddr::from_str("10.0.0.0").unwrap(),
+            bits: 8,
+        });
+        assert!(group.is_actionable());
+    }
+
+    #[test]
+    fn desync_group_effective_chains_clone_actions() {
+        let mut group = DesyncGroup::new(0);
+        let step = TcpChainStep::new(TcpChainStepKind::Fake, OffsetExpr::host(1));
+        group.actions.tcp_chain.push(step.clone());
+        assert_eq!(group.effective_tcp_chain(), vec![step]);
+
+        let udp_step = UdpChainStep {
+            kind: UdpChainStepKind::QuicSniSplit,
+            count: 1,
+            activation_filter: None,
+        };
+        group.actions.udp_chain.push(udp_step);
+        assert_eq!(group.effective_udp_chain(), group.actions.udp_chain);
+    }
+
+    #[test]
+    fn desync_group_set_activation_filter_drops_unbounded() {
+        let mut group = DesyncGroup::new(0);
+        group.set_activation_filter(ActivationFilter::default());
+        assert_eq!(group.matches.activation_filter, None);
+        assert_eq!(group.activation_filter(), None);
+    }
+
+    #[test]
+    fn desync_group_set_activation_filter_keeps_bounded() {
+        let mut group = DesyncGroup::new(0);
+        let filter = ActivationFilter {
+            round: Some(NumericRange::new(1, 5)),
+            ..Default::default()
+        };
+        group.set_activation_filter(filter);
+        assert!(group.matches.activation_filter.is_some());
+        assert_eq!(group.activation_filter(), Some(filter));
+    }
+
+    #[test]
+    fn desync_group_set_round_activation() {
+        let mut group = DesyncGroup::new(0);
+        group.set_round_activation(Some(NumericRange::new(2, 4)));
+        let act = group.activation_filter().expect("activation filter");
+        assert_eq!(act.round, Some(NumericRange::new(2, 4)));
+        assert_eq!(act.payload_size, None);
+
+        // Setting None round on otherwise-empty filter drops entire filter
+        group.set_round_activation(None);
+        assert_eq!(group.activation_filter(), None);
+    }
+
+    #[test]
+    fn runtime_config_actionable_group_returns_first_actionable() {
+        let mut config = RuntimeConfig::default();
+        // Default group 0 is not actionable
+        assert_eq!(config.actionable_group(), 0);
+
+        // Add a second group that is actionable
+        let mut g1 = DesyncGroup::new(1);
+        g1.actions.mod_http = MH_SPACE;
+        config.groups.push(g1);
+        assert_eq!(config.actionable_group(), 1);
+    }
+
+    // --- TcpChainStepKind ---
+
+    #[test]
+    fn tcp_chain_step_kind_from_mode_round_trip() {
+        assert_eq!(TcpChainStepKind::from_mode(DesyncMode::None), Some(TcpChainStepKind::Split));
+        assert_eq!(TcpChainStepKind::from_mode(DesyncMode::Split), Some(TcpChainStepKind::Split));
+        assert_eq!(TcpChainStepKind::from_mode(DesyncMode::Disorder), Some(TcpChainStepKind::Disorder));
+        assert_eq!(TcpChainStepKind::from_mode(DesyncMode::Oob), Some(TcpChainStepKind::Oob));
+        assert_eq!(TcpChainStepKind::from_mode(DesyncMode::Disoob), Some(TcpChainStepKind::Disoob));
+        assert_eq!(TcpChainStepKind::from_mode(DesyncMode::Fake), Some(TcpChainStepKind::Fake));
+    }
+
+    #[test]
+    fn tcp_chain_step_kind_as_mode() {
+        assert_eq!(TcpChainStepKind::Split.as_mode(), Some(DesyncMode::Split));
+        assert_eq!(TcpChainStepKind::Disorder.as_mode(), Some(DesyncMode::Disorder));
+        assert_eq!(TcpChainStepKind::Fake.as_mode(), Some(DesyncMode::Fake));
+        assert_eq!(TcpChainStepKind::FakeSplit.as_mode(), Some(DesyncMode::Fake));
+        assert_eq!(TcpChainStepKind::FakeDisorder.as_mode(), Some(DesyncMode::Disorder));
+        assert_eq!(TcpChainStepKind::HostFake.as_mode(), None);
+        assert_eq!(TcpChainStepKind::Oob.as_mode(), Some(DesyncMode::Oob));
+        assert_eq!(TcpChainStepKind::Disoob.as_mode(), Some(DesyncMode::Disoob));
+        assert_eq!(TcpChainStepKind::TlsRec.as_mode(), None);
+        assert_eq!(TcpChainStepKind::TlsRandRec.as_mode(), None);
+    }
+
+    #[test]
+    fn tcp_chain_step_kind_is_tls_prelude() {
+        assert!(TcpChainStepKind::TlsRec.is_tls_prelude());
+        assert!(TcpChainStepKind::TlsRandRec.is_tls_prelude());
+        assert!(!TcpChainStepKind::Split.is_tls_prelude());
+        assert!(!TcpChainStepKind::Fake.is_tls_prelude());
+    }
+
+    // --- OffsetExpr ---
+
+    #[test]
+    fn offset_expr_absolute_positive() {
+        assert_eq!(OffsetExpr::absolute(10).absolute_positive(), Some(10));
+        assert_eq!(OffsetExpr::absolute(0).absolute_positive(), Some(0));
+        assert_eq!(OffsetExpr::absolute(-1).absolute_positive(), None);
+        assert_eq!(OffsetExpr::host(5).absolute_positive(), None);
+    }
+
+    #[test]
+    fn offset_expr_needs_tls_record_adjustment() {
+        // Non-Abs base always needs adjustment
+        assert!(OffsetExpr::host(0).needs_tls_record_adjustment());
+        // Abs with negative delta needs adjustment
+        assert!(OffsetExpr::absolute(-1).needs_tls_record_adjustment());
+        // Abs with non-negative delta does not need adjustment
+        assert!(!OffsetExpr::absolute(0).needs_tls_record_adjustment());
+        assert!(!OffsetExpr::absolute(5).needs_tls_record_adjustment());
+    }
+
+    #[test]
+    fn offset_expr_tls_marker_sets_proto() {
+        let expr = OffsetExpr::tls_marker(OffsetBase::Host, 3);
+        assert_eq!(expr.proto, OffsetProto::TlsOnly);
+        assert_eq!(expr.base, OffsetBase::Host);
+        assert_eq!(expr.delta, 3);
+    }
+
+    #[test]
+    fn offset_expr_tls_host_convenience() {
+        let expr = OffsetExpr::tls_host(2);
+        assert_eq!(expr.base, OffsetBase::Host);
+        assert_eq!(expr.proto, OffsetProto::TlsOnly);
+        assert_eq!(expr.delta, 2);
+    }
+
+    #[test]
+    fn offset_expr_with_repeat_skip_preserves_base() {
+        let base = OffsetExpr::host(5);
+        let modified = base.with_repeat_skip(3, 1);
+        assert_eq!(modified.base, OffsetBase::Host);
+        assert_eq!(modified.delta, 5);
+        assert_eq!(modified.repeats, 3);
+        assert_eq!(modified.skip, 1);
+    }
+
+    // --- OffsetBase::is_adaptive ---
+
+    #[test]
+    fn offset_base_is_adaptive() {
+        assert!(OffsetBase::AutoBalanced.is_adaptive());
+        assert!(OffsetBase::AutoHost.is_adaptive());
+        assert!(OffsetBase::AutoMidSld.is_adaptive());
+        assert!(OffsetBase::AutoEndHost.is_adaptive());
+        assert!(OffsetBase::AutoMethod.is_adaptive());
+        assert!(OffsetBase::AutoSniExt.is_adaptive());
+        assert!(OffsetBase::AutoExtLen.is_adaptive());
+
+        assert!(!OffsetBase::Abs.is_adaptive());
+        assert!(!OffsetBase::Host.is_adaptive());
+        assert!(!OffsetBase::Sld.is_adaptive());
+        assert!(!OffsetBase::Method.is_adaptive());
+    }
+
+    // --- WsTunnelMode ---
+
+    #[test]
+    fn ws_tunnel_mode_is_enabled() {
+        assert!(!WsTunnelMode::Off.is_enabled());
+        assert!(WsTunnelMode::Always.is_enabled());
+        assert!(WsTunnelMode::Fallback.is_enabled());
+    }
+
+    // --- Cidr::matches ---
+
+    #[test]
+    fn cidr_matches_ipv4() {
+        let cidr = Cidr { addr: IpAddr::from_str("192.168.1.0").unwrap(), bits: 24 };
+        assert!(cidr.matches(IpAddr::from_str("192.168.1.100").unwrap()));
+        assert!(cidr.matches(IpAddr::from_str("192.168.1.0").unwrap()));
+        assert!(!cidr.matches(IpAddr::from_str("192.168.2.1").unwrap()));
+    }
+
+    #[test]
+    fn cidr_matches_ipv6() {
+        let cidr = Cidr { addr: IpAddr::from_str("2001:db8::").unwrap(), bits: 32 };
+        assert!(cidr.matches(IpAddr::from_str("2001:db8::1").unwrap()));
+        assert!(cidr.matches(IpAddr::from_str("2001:db8:ffff::1").unwrap()));
+        assert!(!cidr.matches(IpAddr::from_str("2001:db9::1").unwrap()));
+    }
+
+    #[test]
+    fn cidr_rejects_cross_family() {
+        let v4_cidr = Cidr { addr: IpAddr::from_str("10.0.0.0").unwrap(), bits: 8 };
+        assert!(!v4_cidr.matches(IpAddr::from_str("::ffff:10.0.0.1").unwrap()));
+
+        let v6_cidr = Cidr { addr: IpAddr::from_str("::1").unwrap(), bits: 128 };
+        assert!(!v6_cidr.matches(IpAddr::from_str("0.0.0.1").unwrap()));
+    }
+
+    // --- FilterSet ---
+
+    #[test]
+    fn filter_set_hosts_match_suffix_and_exact() {
+        let fs = FilterSet {
+            hosts: vec!["example.com".to_string()],
+            ipset: vec![],
+        };
+        assert!(fs.hosts_match("example.com"));
+        assert!(fs.hosts_match("sub.example.com"));
+        assert!(!fs.hosts_match("notexample.com"));
+        assert!(!fs.hosts_match("other.net"));
+    }
+
+    #[test]
+    fn filter_set_ipset_match() {
+        let fs = FilterSet {
+            hosts: vec![],
+            ipset: vec![
+                Cidr { addr: IpAddr::from_str("10.0.0.0").unwrap(), bits: 8 },
+            ],
+        };
+        assert!(fs.ipset_match(IpAddr::from_str("10.255.255.255").unwrap()));
+        assert!(!fs.ipset_match(IpAddr::from_str("11.0.0.1").unwrap()));
+    }
+
+    // --- ConfigError ---
+
+    #[test]
+    fn config_error_display_with_value() {
+        let err = ConfigError::invalid("--ttl", Some("abc"));
+        assert_eq!(err.to_string(), "invalid value for --ttl: abc");
+    }
+
+    #[test]
+    fn config_error_display_without_value() {
+        let err = ConfigError::invalid("--unknown", None::<String>);
+        assert_eq!(err.to_string(), "invalid option: --unknown");
+    }
+
+    #[test]
+    fn config_error_implements_std_error() {
+        let err = ConfigError::invalid("test", Some("val"));
+        let _: &dyn std::error::Error = &err;
+    }
+
+    // --- Cache entries ---
+
+    #[test]
+    fn load_cache_entries_skips_malformed_lines() {
+        let input = "0 192.0.2.1 32 443 100 example.com\n\
+                      bad line\n\
+                      1 192.0.2.2 32 443 100 -\n\
+                      0 not_an_ip 32 443 100 -\n\
+                      0 192.0.2.3 xxx 443 100 -\n\
+                      0 192.0.2.4 32 xxx 100 -\n\
+                      0 192.0.2.5 32 443 xxx -\n\
+                      0 192.0.2.6 32 443 200 -\n";
+
+        let entries = load_cache_entries(input);
+        assert_eq!(entries.len(), 2);
+        assert_eq!(entries[0].host, Some("example.com".to_string()));
+        assert_eq!(entries[1].host, None);
+        assert_eq!(entries[1].time, 200);
+    }
+
+    #[test]
+    fn load_cache_entries_empty_string() {
+        assert!(load_cache_entries("").is_empty());
+    }
+
+    #[test]
+    fn dump_cache_entries_empty_list() {
+        assert_eq!(dump_cache_entries(&[]), "");
+    }
+
+    // --- Default values verification ---
+
+    #[test]
+    fn default_runtime_config_has_one_group() {
+        let config = RuntimeConfig::default();
+        assert_eq!(config.groups.len(), 1);
+        assert_eq!(config.groups[0].id, 0);
+        assert_eq!(config.max_route_retries, 8);
+    }
+
+    #[test]
+    fn default_timeout_settings() {
+        let ts = RuntimeTimeoutSettings::default();
+        assert_eq!(ts.connect_timeout_ms, 10_000);
+        assert_eq!(ts.freeze_window_ms, 5_000);
+        assert_eq!(ts.freeze_min_bytes, 512);
+        assert_eq!(ts.await_interval, 10);
+    }
+
+    #[test]
+    fn default_quic_settings() {
+        let qs = RuntimeQuicSettings::default();
+        assert_eq!(qs.initial_mode, QuicInitialMode::RouteAndCache);
+        assert!(qs.support_v1);
+        assert!(qs.support_v2);
+    }
+
+    #[test]
+    fn default_adaptive_settings() {
+        let adaptive = RuntimeAdaptiveSettings::default();
+        assert_eq!(adaptive.auto_level, 0);
+        assert_eq!(adaptive.ws_tunnel_mode, WsTunnelMode::Off);
+        assert!(!adaptive.strategy_evolution);
+        assert_eq!(adaptive.evolution_epsilon_permil, 100);
+    }
+
+    #[test]
+    fn default_host_autolearn_settings() {
+        let hl = HostAutolearnSettings::default();
+        assert!(!hl.enabled);
+        assert_eq!(hl.penalty_ttl_secs, HOST_AUTOLEARN_DEFAULT_PENALTY_TTL_SECS);
+        assert_eq!(hl.max_hosts, HOST_AUTOLEARN_DEFAULT_MAX_HOSTS);
+        assert_eq!(hl.store_path, None);
+    }
+
+    #[test]
+    fn default_desync_group_action_settings() {
+        let actions = DesyncGroupActionSettings::default();
+        assert_eq!(actions.http_fake_profile, HttpFakeProfile::CompatDefault);
+        assert_eq!(actions.tls_fake_profile, TlsFakeProfile::CompatDefault);
+        assert_eq!(actions.udp_fake_profile, UdpFakeProfile::CompatDefault);
+        assert_eq!(actions.quic_fake_profile, QuicFakeProfile::Disabled);
+        assert_eq!(actions.quic_fake_version, 0x1a2a_3a4a);
+        assert_eq!(actions.entropy_padding_max, 256);
+        assert_eq!(actions.entropy_mode, EntropyMode::Disabled);
+        assert!(!actions.md5sig);
+        assert!(!actions.drop_sack);
+        assert!(!actions.strip_timestamps);
+    }
+
+    #[test]
+    fn default_network_settings_listen_port() {
+        let net = RuntimeNetworkSettings::default();
+        assert_eq!(net.listen.listen_port, 1080);
+        assert_eq!(net.listen.listen_ip, IpAddr::V4(std::net::Ipv4Addr::LOCALHOST));
+        assert!(net.resolve);
+        assert!(net.udp);
+        assert!(!net.transparent);
+        assert_eq!(net.max_open, 512);
+        assert_eq!(net.buffer_size, 16_384);
+    }
+
+    // --- data_from_str edge cases ---
+
+    #[test]
+    fn data_from_str_empty_string_rejected() {
+        assert!(data_from_str("").is_err());
+    }
+
+    #[test]
+    fn data_from_str_plain_ascii() {
+        assert_eq!(data_from_str("hello").unwrap(), b"hello".to_vec());
+    }
+
+    #[test]
+    fn data_from_str_mixed_escapes_and_text() {
+        let result = data_from_str("A\\x42C").unwrap();
+        assert_eq!(result, vec![b'A', 0x42, b'C']);
+    }
+
+    // --- file_or_inline_bytes ---
+
+    #[test]
+    fn file_or_inline_bytes_inline_data() {
+        let result = file_or_inline_bytes(":hello").unwrap();
+        assert_eq!(result, b"hello".to_vec());
+    }
+
+    #[test]
+    fn file_or_inline_bytes_missing_file() {
+        assert!(file_or_inline_bytes("/nonexistent/path/to/file").is_err());
+    }
+
+    // --- normalize_fake_host_template ---
+
+    #[test]
+    fn normalize_fake_host_template_valid() {
+        assert_eq!(normalize_fake_host_template("Example.COM.").unwrap(), "example.com");
+        assert_eq!(normalize_fake_host_template("sub.HOST.test").unwrap(), "sub.host.test");
+    }
+
+    #[test]
+    fn normalize_fake_host_template_rejects_invalid() {
+        assert!(normalize_fake_host_template("").is_err());
+        assert!(normalize_fake_host_template("bad..host").is_err());
+        assert!(normalize_fake_host_template("-start.com").is_err());
+        assert!(normalize_fake_host_template("end-.com").is_err());
+        assert!(normalize_fake_host_template("127.0.0.1").is_err());
+    }
+
+    // --- seconds_to_millis ---
+
+    #[test]
+    fn seconds_to_millis_valid_values() {
+        assert_eq!(seconds_to_millis("1").unwrap(), 1000);
+        assert_eq!(seconds_to_millis("0.5").unwrap(), 500);
+        assert_eq!(seconds_to_millis("0").unwrap(), 0);
+    }
+
+    #[test]
+    fn seconds_to_millis_non_numeric_rejected() {
+        assert!(seconds_to_millis("abc").is_err());
+    }
+
+    // --- parse_offset_expr: adaptive rejects repeat/skip ---
+
+    #[test]
+    fn parse_offset_expr_adaptive_rejects_repeat_skip() {
+        assert!(parse_offset_expr("auto(balanced):2").is_err());
+        assert!(parse_offset_expr("auto(host):1:1").is_err());
+    }
+
+    // --- NumericRange ---
+
+    #[test]
+    fn numeric_range_new_stores_start_and_end() {
+        let range = NumericRange::new(10, 20);
+        assert_eq!(range.start, 10);
+        assert_eq!(range.end, 20);
+    }
+
+    // --- parse_round_range_spec edge cases ---
+
+    #[test]
+    fn parse_round_range_spec_single_value_is_point_range() {
+        let r = parse_round_range_spec("5").unwrap();
+        assert_eq!(r, NumericRange::new(5, 5));
+    }
+
+    #[test]
+    fn parse_round_range_spec_empty_rejected() {
+        assert!(parse_round_range_spec("").is_err());
+        assert!(parse_round_range_spec("  ").is_err());
+    }
+
+    #[test]
+    fn parse_round_range_spec_inverted_range_rejected() {
+        assert!(parse_round_range_spec("5-2").is_err());
+    }
+
+    // --- TcpChainStep::new default fields ---
+
+    #[test]
+    fn tcp_chain_step_new_defaults() {
+        let step = TcpChainStep::new(TcpChainStepKind::Fake, OffsetExpr::absolute(5));
+        assert_eq!(step.kind, TcpChainStepKind::Fake);
+        assert_eq!(step.offset, OffsetExpr::absolute(5));
+        assert_eq!(step.activation_filter, None);
+        assert_eq!(step.midhost_offset, None);
+        assert_eq!(step.fake_host_template, None);
+        assert_eq!(step.fragment_count, 0);
+        assert_eq!(step.min_fragment_size, 0);
+        assert_eq!(step.max_fragment_size, 0);
+    }
+
+    // --- EntropyMode default ---
+
+    #[test]
+    fn entropy_mode_default_is_disabled() {
+        assert_eq!(EntropyMode::default(), EntropyMode::Disabled);
+    }
+
+    // --- QuicInitialMode / QuicFakeProfile defaults ---
+
+    #[test]
+    fn quic_initial_mode_default() {
+        assert_eq!(QuicInitialMode::default(), QuicInitialMode::RouteAndCache);
+    }
+
+    #[test]
+    fn quic_fake_profile_default() {
+        assert_eq!(QuicFakeProfile::default(), QuicFakeProfile::Disabled);
+    }
+
+    // --- ParseResult variants ---
+
+    #[test]
+    fn parse_cli_help_flag() {
+        let args = vec!["--help".to_string()];
+        let result = parse_cli(&args, &StartupEnv::default()).expect("parse cli");
+        assert_eq!(result, ParseResult::Help);
+    }
+
+    #[test]
+    fn parse_cli_version_flag() {
+        let args = vec!["--version".to_string()];
+        let result = parse_cli(&args, &StartupEnv::default()).expect("parse cli");
+        assert_eq!(result, ParseResult::Version);
+    }
+
+    // --- Constants sanity ---
+
+    #[test]
+    fn detect_constants_are_distinct_powers_of_two() {
+        let flags = [
+            DETECT_HTTP_LOCAT,
+            DETECT_TLS_HANDSHAKE_FAILURE,
+            DETECT_RECONN,
+            DETECT_CONNECT,
+            DETECT_TCP_RESET,
+            DETECT_SILENT_DROP,
+            DETECT_TLS_ALERT,
+            DETECT_HTTP_BLOCKPAGE,
+            DETECT_DNS_TAMPER,
+            DETECT_QUIC_BREAKAGE,
+            DETECT_CONNECTION_FREEZE,
+        ];
+        for &flag in &flags {
+            assert!(flag.is_power_of_two(), "flag {flag} is not a power of two");
+        }
+        // All flags are unique
+        for i in 0..flags.len() {
+            for j in (i + 1)..flags.len() {
+                assert_ne!(flags[i], flags[j], "flags at {i} and {j} collide");
+            }
+        }
+    }
+
+    #[test]
+    fn detect_composite_constants() {
+        assert_eq!(DETECT_TLS_ERR, DETECT_TLS_HANDSHAKE_FAILURE | DETECT_TLS_ALERT);
+        assert_eq!(DETECT_TORST, DETECT_TCP_RESET | DETECT_SILENT_DROP | DETECT_CONNECTION_FREEZE);
+    }
 }

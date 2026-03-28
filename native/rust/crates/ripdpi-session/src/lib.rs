@@ -550,4 +550,444 @@ mod tests {
         assert_eq!(second.stream_end, 10);
         assert_eq!(state.outbound_bytes_total, 11);
     }
+
+    // --- SessionState default and lifecycle ---
+
+    #[test]
+    fn session_state_default_values() {
+        let state = SessionState::default();
+        assert_eq!(state.phase, SessionPhase::Handshake);
+        assert_eq!(state.round_count, 0);
+        assert_eq!(state.recv_count, 0);
+        assert_eq!(state.sent_this_round, 0);
+        assert_eq!(state.outbound_bytes_total, 0);
+        assert!(!state.saw_tls_client_hello);
+    }
+
+    #[test]
+    fn session_state_observe_outbound_empty_payload() {
+        let mut state = SessionState::default();
+        let progress = state.observe_outbound(b"");
+        // Empty payload still increments round (sent_this_round was 0)
+        assert_eq!(state.round_count, 1);
+        assert_eq!(state.sent_this_round, 0);
+        assert_eq!(progress.payload_size, 0);
+        assert_eq!(progress.stream_start, 0);
+        // stream_end: 0 + 0.saturating_sub(1) = 0
+        assert_eq!(progress.stream_end, 0);
+    }
+
+    #[test]
+    fn session_state_client_hello_prefix_capped() {
+        let mut state = SessionState::default();
+        // DEFAULT_FAKE_TLS is a valid ClientHello and longer than CLIENT_HELLO_PREFIX_CAP (76)
+        let tls = ripdpi_packets::DEFAULT_FAKE_TLS;
+        assert!(tls.len() > CLIENT_HELLO_PREFIX_CAP);
+        state.observe_outbound(tls);
+        assert!(state.saw_tls_client_hello);
+        assert_eq!(state.client_hello_prefix.len(), CLIENT_HELLO_PREFIX_CAP);
+        assert_eq!(&state.client_hello_prefix[..], &tls[..CLIENT_HELLO_PREFIX_CAP]);
+    }
+
+    #[test]
+    fn session_state_multiple_inbound_accumulates_recv_count() {
+        let mut state = SessionState::default();
+        state.observe_inbound(b"first");
+        state.observe_inbound(b"second");
+        assert_eq!(state.recv_count, 11); // 5 + 6
+    }
+
+    #[test]
+    fn session_state_non_tls_outbound_does_not_set_tls_flag() {
+        let mut state = SessionState::default();
+        state.observe_outbound(b"GET / HTTP/1.1\r\n\r\n");
+        assert!(!state.saw_tls_client_hello);
+    }
+
+    #[test]
+    fn session_state_datagram_increments_round_every_call() {
+        let mut state = SessionState::default();
+        state.observe_datagram_outbound(b"a");
+        state.observe_datagram_outbound(b"b");
+        state.observe_datagram_outbound(b"c");
+        assert_eq!(state.round_count, 3);
+        // Each call resets sent_this_round to the payload len
+        assert_eq!(state.sent_this_round, 1);
+    }
+
+    // --- TargetAddr ---
+
+    #[test]
+    fn target_addr_family_v4() {
+        let target = TargetAddr { addr: SocketAddr::from(([1, 2, 3, 4], 80)) };
+        assert_eq!(target.family(), "ipv4");
+    }
+
+    #[test]
+    fn target_addr_family_v6() {
+        let target = TargetAddr { addr: SocketAddr::new(IpAddr::V6(Ipv6Addr::LOCALHOST), 443) };
+        assert_eq!(target.family(), "ipv6");
+    }
+
+    // --- SessionConfig ---
+
+    #[test]
+    fn session_config_default_enables_resolve_and_ipv6() {
+        let config = SessionConfig::default();
+        assert!(config.resolve);
+        assert!(config.ipv6);
+    }
+
+    // --- ProxyReply ---
+
+    #[test]
+    fn proxy_reply_as_bytes_returns_inner_vec() {
+        let socks4 = ProxyReply::Socks4(vec![1, 2, 3]);
+        assert_eq!(socks4.as_bytes(), &[1, 2, 3]);
+
+        let socks5 = ProxyReply::Socks5(vec![4, 5]);
+        assert_eq!(socks5.as_bytes(), &[4, 5]);
+
+        let http = ProxyReply::Http(vec![6]);
+        assert_eq!(http.as_bytes(), &[6]);
+    }
+
+    // --- parse_socks4_request error cases ---
+
+    #[test]
+    fn parse_socks4_request_too_short() {
+        let result = parse_socks4_request(&[0x04, 0x01, 0, 80, 1, 2, 3], SessionConfig::default(), &resolver);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn parse_socks4_request_bad_command() {
+        // S_CMD_BIND instead of S_CMD_CONN
+        let request = vec![S_VER4, S_CMD_BIND, 0x00, 0x50, 1, 2, 3, 4, 0];
+        let result = parse_socks4_request(&request, SessionConfig::default(), &resolver);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn parse_socks4_request_direct_ipv4() {
+        // IP > 0.0.0.255 means direct IP, no domain resolution
+        let request = vec![S_VER4, S_CMD_CONN, 0x00, 0x50, 10, 0, 0, 1, 0];
+        let parsed = parse_socks4_request(&request, SessionConfig::default(), &resolver).expect("direct ip");
+        assert_eq!(
+            parsed,
+            ClientRequest::Socks4Connect(TargetAddr { addr: SocketAddr::from(([10, 0, 0, 1], 80)) })
+        );
+    }
+
+    #[test]
+    fn parse_socks4_request_domain_resolve_disabled() {
+        // SOCKS4a domain request with resolve disabled should fail
+        let mut request = vec![S_VER4, S_CMD_CONN, 0x01, 0xbb, 0, 0, 0, 1];
+        request.extend_from_slice(b"user");
+        request.push(0);
+        request.extend_from_slice(b"example.com");
+        request.push(0);
+
+        let config = SessionConfig { resolve: false, ipv6: true };
+        let result = parse_socks4_request(&request, config, &resolver);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn parse_socks4_request_unresolvable_domain() {
+        let mut request = vec![S_VER4, S_CMD_CONN, 0x01, 0xbb, 0, 0, 0, 1];
+        request.extend_from_slice(b"user");
+        request.push(0);
+        request.extend_from_slice(b"unknown.invalid");
+        request.push(0);
+
+        let result = parse_socks4_request(&request, SessionConfig::default(), &resolver);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn parse_socks4_request_domain_too_short() {
+        // Domain less than 3 chars should fail
+        let mut request = vec![S_VER4, S_CMD_CONN, 0x01, 0xbb, 0, 0, 0, 1];
+        request.extend_from_slice(b"user");
+        request.push(0);
+        request.extend_from_slice(b"ab");
+        request.push(0);
+
+        let result = parse_socks4_request(&request, SessionConfig::default(), &resolver);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn parse_socks4_request_no_trailing_null() {
+        // SOCKS4a domain request without final null byte
+        let mut request = vec![S_VER4, S_CMD_CONN, 0x01, 0xbb, 0, 0, 0, 1];
+        request.extend_from_slice(b"user");
+        request.push(0);
+        request.extend_from_slice(b"example.com");
+        // Missing trailing null -- last byte != 0
+
+        let result = parse_socks4_request(&request, SessionConfig::default(), &resolver);
+        assert!(result.is_err());
+    }
+
+    // --- parse_socks5_request error cases ---
+
+    #[test]
+    fn parse_socks5_request_too_short() {
+        let result = parse_socks5_request(&[0x05, 0x01, 0, 0x01], SocketType::Stream, SessionConfig::default(), &resolver);
+        assert!(result.is_err());
+        assert_eq!(result.unwrap_err().code, S_ER_GEN);
+    }
+
+    #[test]
+    fn parse_socks5_request_ipv4_connect() {
+        let mut request = vec![S_VER5, S_CMD_CONN, 0, S_ATP_I4, 192, 168, 1, 1];
+        request.extend_from_slice(&443u16.to_be_bytes());
+
+        let parsed = parse_socks5_request(&request, SocketType::Stream, SessionConfig::default(), &resolver)
+            .expect("parse socks5 ipv4");
+
+        assert_eq!(
+            parsed,
+            ClientRequest::Socks5Connect(TargetAddr { addr: SocketAddr::from(([192, 168, 1, 1], 443)) })
+        );
+    }
+
+    #[test]
+    fn parse_socks5_request_domain_resolve_disabled() {
+        let mut request = vec![S_VER5, S_CMD_CONN, 0, S_ATP_ID, 11];
+        request.extend_from_slice(b"example.com");
+        request.extend_from_slice(&443u16.to_be_bytes());
+
+        let config = SessionConfig { resolve: false, ipv6: true };
+        let result = parse_socks5_request(&request, SocketType::Stream, config, &resolver);
+        assert!(result.is_err());
+        assert_eq!(result.unwrap_err().code, S_ER_ATP);
+    }
+
+    #[test]
+    fn parse_socks5_request_domain_too_short() {
+        let mut request = vec![S_VER5, S_CMD_CONN, 0, S_ATP_ID, 2];
+        request.extend_from_slice(b"ab");
+        request.extend_from_slice(&443u16.to_be_bytes());
+
+        let result = parse_socks5_request(&request, SocketType::Stream, SessionConfig::default(), &resolver);
+        assert!(result.is_err());
+        assert_eq!(result.unwrap_err().code, S_ER_HOST);
+    }
+
+    #[test]
+    fn parse_socks5_request_unresolvable_domain() {
+        let domain = b"unknown.xyz";
+        let mut request = vec![S_VER5, S_CMD_CONN, 0, S_ATP_ID, domain.len() as u8];
+        request.extend_from_slice(domain);
+        request.extend_from_slice(&443u16.to_be_bytes());
+
+        let result = parse_socks5_request(&request, SocketType::Stream, SessionConfig::default(), &resolver);
+        assert!(result.is_err());
+        assert_eq!(result.unwrap_err().code, S_ER_HOST);
+    }
+
+    #[test]
+    fn parse_socks5_request_unknown_address_type() {
+        let request = vec![S_VER5, S_CMD_CONN, 0, 0xFF, 0, 0, 0, 0, 0, 0];
+        let result = parse_socks5_request(&request, SocketType::Stream, SessionConfig::default(), &resolver);
+        assert!(result.is_err());
+        assert_eq!(result.unwrap_err().code, S_ER_GEN);
+    }
+
+    #[test]
+    fn parse_socks5_request_unsupported_command() {
+        // S_CMD_BIND (0x02) is not handled
+        let mut request = vec![S_VER5, S_CMD_BIND, 0, S_ATP_I4, 1, 2, 3, 4];
+        request.extend_from_slice(&80u16.to_be_bytes());
+
+        let result = parse_socks5_request(&request, SocketType::Stream, SessionConfig::default(), &resolver);
+        assert!(result.is_err());
+        assert_eq!(result.unwrap_err().code, S_ER_CMD);
+    }
+
+    #[test]
+    fn parse_socks5_request_udp_associate_with_stream_socket() {
+        // UDP associate is allowed even with Stream socket type
+        let mut request = vec![S_VER5, S_CMD_AUDP, 0, S_ATP_I4, 0, 0, 0, 0];
+        request.extend_from_slice(&0u16.to_be_bytes());
+
+        let parsed = parse_socks5_request(&request, SocketType::Stream, SessionConfig::default(), &resolver)
+            .expect("udp assoc with stream");
+        assert!(matches!(parsed, ClientRequest::Socks5UdpAssociate(_)));
+    }
+
+    // --- parse_http_connect_request error cases ---
+
+    #[test]
+    fn parse_http_connect_request_not_connect_method() {
+        let request = b"GET / HTTP/1.1\r\nHost: example.com:443\r\n\r\n";
+        let result = parse_http_connect_request(request, &resolver);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn parse_http_connect_request_no_host_header() {
+        let request = b"CONNECT example.com:443 HTTP/1.1\r\n\r\n";
+        let result = parse_http_connect_request(request, &resolver);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn parse_http_connect_request_unresolvable_host() {
+        let request = b"CONNECT unknown.invalid:443 HTTP/1.1\r\nHost: unknown.invalid:443\r\n\r\n";
+        let result = parse_http_connect_request(request, &resolver);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn parse_http_connect_request_invalid_utf8() {
+        let request: &[u8] = &[0x43, 0x4f, 0x4e, 0x4e, 0x45, 0x43, 0x54, 0xff, 0xfe];
+        let result = parse_http_connect_request(request, &resolver);
+        assert!(result.is_err());
+    }
+
+    // --- encode_socks5_reply IPv6 ---
+
+    #[test]
+    fn encode_socks5_reply_ipv6_address() {
+        let addr = SocketAddr::new(IpAddr::V6(Ipv6Addr::LOCALHOST), 8080);
+        let reply = encode_socks5_reply(S_ER_OK, addr);
+        let bytes = reply.as_bytes();
+        assert_eq!(bytes[0], S_VER5);
+        assert_eq!(bytes[1], S_ER_OK);
+        assert_eq!(bytes[2], 0);
+        assert_eq!(bytes[3], S_ATP_I6);
+        // 16 bytes of IPv6 address
+        let mut expected_ip = [0u8; 16];
+        expected_ip[15] = 1; // ::1
+        assert_eq!(&bytes[4..20], &expected_ip);
+        // Port in big-endian
+        assert_eq!(&bytes[20..22], &8080u16.to_be_bytes());
+    }
+
+    // --- encode_socks4_reply structure ---
+
+    #[test]
+    fn encode_socks4_reply_is_8_bytes() {
+        let reply = encode_socks4_reply(true);
+        assert_eq!(reply.as_bytes().len(), 8);
+        assert_eq!(reply.as_bytes()[0], 0);
+    }
+
+    // --- encode_http_connect_reply structure ---
+
+    #[test]
+    fn encode_http_connect_reply_ends_with_double_crlf() {
+        let success = encode_http_connect_reply(true);
+        assert!(success.as_bytes().ends_with(b"\r\n\r\n"));
+        let failure = encode_http_connect_reply(false);
+        assert!(failure.as_bytes().ends_with(b"\r\n\r\n"));
+    }
+
+    // --- detect_response_trigger ---
+
+    #[test]
+    fn detect_response_trigger_returns_none_for_non_tls_non_redirect() {
+        let request = b"GET / HTTP/1.1\r\n\r\n";
+        let response = b"HTTP/1.1 200 OK\r\n\r\n";
+        assert_eq!(detect_response_trigger(request, response), None);
+    }
+
+    // --- split_host_port ---
+
+    #[test]
+    fn split_host_port_standard_host() {
+        assert_eq!(split_host_port("example.com:8080"), Some(("example.com", 8080)));
+    }
+
+    #[test]
+    fn split_host_port_invalid_port() {
+        assert_eq!(split_host_port("example.com:notaport"), None);
+    }
+
+    #[test]
+    fn split_host_port_port_overflow() {
+        assert_eq!(split_host_port("example.com:99999"), None);
+    }
+
+    #[test]
+    fn split_host_port_empty_string() {
+        assert_eq!(split_host_port(""), None);
+    }
+
+    // --- read_be_u16 ---
+
+    #[test]
+    fn read_be_u16_valid() {
+        assert_eq!(read_be_u16(&[0x01, 0xBB], 0), Some(443));
+    }
+
+    #[test]
+    fn read_be_u16_out_of_bounds() {
+        assert_eq!(read_be_u16(&[0x01], 0), None);
+        assert_eq!(read_be_u16(&[0x01, 0x02], 1), None);
+        assert_eq!(read_be_u16(&[], 0), None);
+    }
+
+    // --- NameResolver blanket impl ---
+
+    #[test]
+    fn closure_implements_name_resolver() {
+        let r = |_host: &str, _st: SocketType| -> Option<SocketAddr> { Some(SocketAddr::from(([1, 1, 1, 1], 53))) };
+        let result = r.resolve("anything", SocketType::Stream);
+        assert_eq!(result, Some(SocketAddr::from(([1, 1, 1, 1], 53))));
+    }
+
+    // --- SessionError ---
+
+    #[test]
+    fn session_error_socks5_carries_code() {
+        let err = SessionError::socks5(S_ER_HOST);
+        assert_eq!(err.code, S_ER_HOST);
+    }
+
+    #[test]
+    fn session_error_generic_is_gen_code() {
+        let err = SessionError::generic();
+        assert_eq!(err.code, S_ER_GEN);
+    }
+
+    // --- Enum variant equality ---
+
+    #[test]
+    fn session_phase_equality() {
+        assert_eq!(SessionPhase::Handshake, SessionPhase::Handshake);
+        assert_ne!(SessionPhase::Handshake, SessionPhase::Connected);
+        assert_ne!(SessionPhase::Connected, SessionPhase::Closed);
+    }
+
+    #[test]
+    fn socket_type_equality() {
+        assert_eq!(SocketType::Stream, SocketType::Stream);
+        assert_ne!(SocketType::Stream, SocketType::Datagram);
+    }
+
+    #[test]
+    fn trigger_event_equality() {
+        assert_eq!(TriggerEvent::Redirect, TriggerEvent::Redirect);
+        assert_ne!(TriggerEvent::Redirect, TriggerEvent::SslErr);
+        assert_ne!(TriggerEvent::Connect, TriggerEvent::Torst);
+    }
+
+    // --- ClientRequest variant coverage ---
+
+    #[test]
+    fn client_request_variants_are_distinct() {
+        let addr = TargetAddr { addr: SocketAddr::from(([1, 2, 3, 4], 80)) };
+        let s4 = ClientRequest::Socks4Connect(addr);
+        let s5 = ClientRequest::Socks5Connect(addr);
+        let udp = ClientRequest::Socks5UdpAssociate(addr);
+        let http = ClientRequest::HttpConnect(addr);
+        assert_ne!(s4, s5);
+        assert_ne!(s5, udp);
+        assert_ne!(udp, http);
+    }
 }
