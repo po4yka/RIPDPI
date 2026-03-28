@@ -748,6 +748,22 @@ data class DiagnosticContextModel(
     val environment: EnvironmentContextModel,
 )
 
+@Serializable
+data class PathComparisonResult(
+    val rawPathSessionId: String,
+    val inPathSessionId: String,
+    val domainComparisons: List<DomainPathComparison> = emptyList(),
+    val summary: String = "",
+)
+
+@Serializable
+data class DomainPathComparison(
+    val domain: String,
+    val rawPathOutcome: String,
+    val inPathOutcome: String,
+    val vpnBypasses: Boolean,
+)
+
 data class DiagnosticsArchive(
     val fileName: String,
     val absolutePath: String,

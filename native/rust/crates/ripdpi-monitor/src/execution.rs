@@ -559,6 +559,9 @@ pub(crate) fn run_https_strategy_probe(
     let tls_handshake_ms = preferred.tls_handshake_ms;
     let cert_chain_length = preferred.cert_chain_length.or(tls12.cert_chain_length);
     let cert_issuer = preferred.cert_issuer.clone().or_else(|| tls12.cert_issuer.clone());
+    let observed_server_ttl = preferred.observed_server_ttl;
+    let estimated_hop_count = preferred.estimated_hop_count;
+    let ja3_fingerprint = preferred.ja3_fingerprint.clone().or_else(|| tls12.ja3_fingerprint.clone());
 
     let mut details = vec![
         ProbeDetail { key: "candidateId".to_string(), value: candidate.id.to_string() },
@@ -598,6 +601,15 @@ pub(crate) fn run_https_strategy_probe(
     }
     if let Some(issuer) = cert_issuer {
         details.push(ProbeDetail { key: "tlsCertIssuer".to_string(), value: issuer });
+    }
+    if let Some(ttl) = observed_server_ttl {
+        details.push(ProbeDetail { key: "observedServerTtl".to_string(), value: ttl.to_string() });
+    }
+    if let Some(hops) = estimated_hop_count {
+        details.push(ProbeDetail { key: "estimatedHopCount".to_string(), value: hops.to_string() });
+    }
+    if let Some(ja3) = ja3_fingerprint {
+        details.push(ProbeDetail { key: "ja3Fingerprint".to_string(), value: ja3 });
     }
 
     // On total TLS failure, perform a single retry to distinguish consistent
