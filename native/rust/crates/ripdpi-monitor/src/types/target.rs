@@ -177,6 +177,8 @@ pub struct Diagnosis {
     pub target: Option<String>,
     #[serde(default)]
     pub evidence: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub recommendation: Option<String>,
 }
 
 #[cfg(test)]

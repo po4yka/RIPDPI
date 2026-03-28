@@ -152,6 +152,7 @@ data class Diagnosis(
     val severity: String = "warning",
     val target: String? = null,
     val evidence: List<String> = emptyList(),
+    val recommendation: String? = null,
 )
 
 @Serializable

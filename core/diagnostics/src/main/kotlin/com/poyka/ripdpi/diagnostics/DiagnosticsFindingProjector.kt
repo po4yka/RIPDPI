@@ -483,7 +483,11 @@ class DiagnosticsFindingProjector
                     Diagnosis(
                         code = "strategy_exhaustion",
                         summary = "No desync strategy could recover any blocked target",
+                        severity = "blocked",
                         evidence = listOf("candidatesTested=${candidateIds.size}"),
+                        recommendation =
+                            "No desync strategy worked for any tested target. " +
+                                "Consider using a proxy, tunnel, or VPN for blocked domains.",
                     ),
                 )
             }
@@ -507,8 +511,12 @@ class DiagnosticsFindingProjector
                         Diagnosis(
                             code = "strategy_domain_unreachable",
                             summary = "All tested strategies failed to recover this domain",
+                            severity = "blocked",
                             target = domain,
                             evidence = listOf("strategiesTested=$candidateCount"),
+                            recommendation =
+                                "Consider adding this domain to a proxy or tunnel route, " +
+                                    "or enabling WS tunnel fallback to automatically bypass desync for this domain.",
                         ),
                     )
                 }

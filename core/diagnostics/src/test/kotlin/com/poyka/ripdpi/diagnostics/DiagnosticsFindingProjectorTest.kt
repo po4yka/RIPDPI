@@ -52,6 +52,9 @@ class DiagnosticsFindingProjectorTest {
         val diagnosis = diagnoses.firstOrNull { it.code == "strategy_exhaustion" }
         assertNotNull(diagnosis)
         assertEquals("No desync strategy could recover any blocked target", diagnosis?.summary)
+        assertEquals("blocked", diagnosis?.severity)
+        assertNotNull(diagnosis?.recommendation)
+        assert(diagnosis!!.recommendation!!.contains("proxy"))
     }
 
     @Test
@@ -114,6 +117,9 @@ class DiagnosticsFindingProjectorTest {
         val unreachable = diagnoses.filter { it.code == "strategy_domain_unreachable" }
         assertEquals(1, unreachable.size)
         assertEquals("meduza.io", unreachable[0].target)
+        assertEquals("blocked", unreachable[0].severity)
+        assertNotNull(unreachable[0].recommendation)
+        assert(unreachable[0].recommendation!!.contains("proxy"))
         assert(diagnoses.none { it.code == "strategy_exhaustion" })
     }
 

@@ -1065,6 +1065,13 @@ private fun DiagnosisSummaryCard(
                             color = colors.mutedForeground,
                         )
                     }
+                    diagnosis.recommendation?.let { rec ->
+                        Text(
+                            text = rec,
+                            style = RipDpiThemeTokens.type.secondaryBody,
+                            color = colors.accentForeground,
+                        )
+                    }
                 }
             }
         }

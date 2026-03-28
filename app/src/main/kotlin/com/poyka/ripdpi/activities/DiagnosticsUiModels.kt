@@ -204,6 +204,7 @@ data class DiagnosticsDiagnosisUiModel(
     val target: String? = null,
     val tone: DiagnosticsTone,
     val evidence: List<String> = emptyList(),
+    val recommendation: String? = null,
 )
 
 @Immutable
