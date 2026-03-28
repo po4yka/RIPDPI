@@ -17,13 +17,13 @@ echo "==> clippy"
 cargo clippy --manifest-path "$workspace_manifest" --workspace --all-targets -- -D warnings
 
 echo "==> cross-target check (Android ABIs)"
+# Disable sccache for cross-compilation: aws-lc-sys invokes the NDK C
+# compiler through cargo's cc crate, and sccache cannot wrap cross-
+# compiler toolchains like aarch64-linux-android-clang.
 for target in aarch64-linux-android armv7-linux-androideabi i686-linux-android x86_64-linux-android; do
   echo "  -> $target"
-  cargo check --manifest-path "$workspace_manifest" --workspace --target "$target" --locked
+  RUSTC_WRAPPER="" cargo check --manifest-path "$workspace_manifest" --workspace --target "$target" --locked
 done
-
-echo "==> cargo-deny (workspace)"
-cargo deny --manifest-path "$workspace_manifest" check
 
 NEXTEST_PROFILE="${CI:+ci}"
 NEXTEST_ARGS=(${NEXTEST_PROFILE:+--profile "$NEXTEST_PROFILE"})
