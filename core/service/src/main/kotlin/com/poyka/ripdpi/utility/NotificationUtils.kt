@@ -10,13 +10,19 @@ import androidx.annotation.StringRes
 import androidx.core.app.NotificationCompat
 import com.poyka.ripdpi.core.service.R
 import com.poyka.ripdpi.data.STOP_ACTION
+import logcat.LogPriority
+import logcat.logcat
 
 fun registerNotificationChannel(
     context: Context,
     id: String,
     @StringRes name: Int,
 ) {
-    val manager = context.getSystemService(NotificationManager::class.java) ?: return
+    val manager = context.getSystemService(NotificationManager::class.java)
+    if (manager == null) {
+        logcat(LogPriority.WARN) { "NotificationManager unavailable, skipping channel registration" }
+        return
+    }
 
     val channel =
         NotificationChannel(
