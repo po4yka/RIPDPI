@@ -1,7 +1,5 @@
 """Test 34: Connection state transitions -- toggle connect twice returns to idle."""
 
-import time
-
 import pytest
 
 from pages.home_page import HomePage
@@ -18,14 +16,14 @@ def test_connection_toggle_returns_to_idle(driver):
 
     # First tap: connect.
     home.tap_connect()
-    time.sleep(2)
+    home.wait_for(HomePage.CONNECTION_BUTTON, timeout=5)
     assert home.is_connection_button_visible(), (
         "Connection button should remain visible after first tap"
     )
 
     # Second tap: disconnect / return to idle.
     home.tap_connect()
-    time.sleep(2)
+    home.wait_for(HomePage.CONNECTION_BUTTON, timeout=5)
     assert home.is_connection_button_visible(), (
         "Connection button should remain visible after second tap"
     )

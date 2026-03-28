@@ -27,15 +27,16 @@ if ! command -v pytest >/dev/null 2>&1; then
   exit 1
 fi
 
-adb wait-for-device
+timeout 60 adb wait-for-device
 
 # -- install APK if not already present ---------------------------------------
 
 APK_PATH="$ROOT_DIR/app/build/outputs/apk/debug/app-debug.apk"
 if [ -f "$APK_PATH" ]; then
-  adb install -r "$APK_PATH"
+  adb install -r "$APK_PATH" || { echo "APK install failed" >&2; exit 1; }
 else
-  echo "Warning: debug APK not found at $APK_PATH, assuming already installed" >&2
+  echo "Error: debug APK not found at $APK_PATH" >&2
+  exit 1
 fi
 
 # -- start Appium server -----------------------------------------------------
@@ -49,6 +50,11 @@ for i in $(seq 1 30); do
   if curl -fsS http://127.0.0.1:4723/status >/dev/null 2>&1; then
     echo "Appium server ready"
     break
+  fi
+  if ! kill -0 "$APPIUM_PID" 2>/dev/null; then
+    echo "Appium process died unexpectedly" >&2
+    cat "$APPIUM_LOG" >&2
+    exit 1
   fi
   if [ "$i" -eq 30 ]; then
     echo "Appium server failed to start within 30s" >&2
