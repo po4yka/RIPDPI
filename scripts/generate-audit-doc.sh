@@ -530,7 +530,7 @@ emit_dependencies() {
 | quinn | 0.11 | QUIC protocol | Uses rustls, review connection handling |
 | hickory-resolver | 0.25 | DNS resolution | DoH/DoT backends |
 | smoltcp | 0.12 | Pure-Rust TCP/IP stack | No-std capable, used in tunnel |
-| etherparse | 0.19 | Zero-copy packet parsing | Audited in-repo (docs/audits/) |
+| etherparse | 0.19 | Zero-copy packet parsing | Audited in-repo |
 | jni | 0.21 | JNI bindings | Extensive unsafe, review wrapper safety |
 | nix | 0.29 | Unix syscalls | Thin libc wrapper, review ioctl usage |
 | fast-socks5 | 0.9 | SOCKS5 protocol | Review auth handling |
