@@ -282,6 +282,8 @@ data class DnsObservationFact(
     val status: DnsObservationStatus,
     val udpAddresses: List<String> = emptyList(),
     val encryptedAddresses: List<String> = emptyList(),
+    val udpLatencyMs: Long? = null,
+    val encryptedLatencyMs: Long? = null,
 )
 
 @Serializable
@@ -524,6 +526,8 @@ data class StrategyProbeAuditCoverage(
     val quicWinnerTotalTargets: Int,
     val matrixCoveragePercent: Int,
     val winnerCoveragePercent: Int,
+    val tcpWinnerCoveragePercent: Int = 0,
+    val quicWinnerCoveragePercent: Int = 0,
 )
 
 @Serializable

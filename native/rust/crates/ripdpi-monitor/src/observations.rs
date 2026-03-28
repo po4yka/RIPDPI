@@ -29,6 +29,8 @@ pub(crate) fn observation_for_probe(result: &ProbeResult) -> Option<ProbeObserva
                         encrypted
                     }
                 },
+                udp_latency_ms: detail_value(result, "udpLatencyMs").and_then(|v| v.parse().ok()),
+                encrypted_latency_ms: detail_value(result, "encryptedLatencyMs").and_then(|v| v.parse().ok()),
             }),
             domain: None,
             tcp: None,
