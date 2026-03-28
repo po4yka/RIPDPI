@@ -1,4 +1,5 @@
 use std::sync::Arc;
+use std::time::Instant;
 
 use rustls::client::danger::{HandshakeSignatureValid, ServerCertVerified, ServerCertVerifier};
 use rustls::client::{EchConfig, EchMode, EchStatus};
@@ -23,6 +24,10 @@ pub(crate) struct TlsObservation {
     pub(crate) error: Option<String>,
     pub(crate) certificate_anomaly: bool,
     pub(crate) ech_resolution_detail: Option<String>,
+    pub(crate) tcp_connect_ms: Option<u64>,
+    pub(crate) tls_handshake_ms: Option<u64>,
+    pub(crate) cert_chain_length: Option<usize>,
+    pub(crate) cert_issuer: Option<String>,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -92,6 +97,16 @@ impl ServerCertVerifier for NoCertificateVerification {
     }
 }
 
+// --- Probe stream result with timing breakdown ---
+
+pub(crate) struct ProbeStreamResult {
+    pub(crate) stream: ConnectionStream,
+    pub(crate) tcp_connect_ms: u64,
+    pub(crate) tls_handshake_ms: u64,
+    pub(crate) cert_chain_length: Option<usize>,
+    pub(crate) cert_issuer: Option<String>,
+}
+
 // --- TLS helper functions ---
 
 pub(crate) fn try_tls_handshake(
@@ -104,7 +119,12 @@ pub(crate) fn try_tls_handshake(
     tls_verifier: Option<&Arc<dyn ServerCertVerifier>>,
 ) -> TlsObservation {
     match open_probe_stream(target, port, transport, Some(server_name), verify_certificates, profile, tls_verifier) {
-        Ok(mut stream) => {
+        Ok(result) => {
+            let tcp_connect_ms = Some(result.tcp_connect_ms);
+            let tls_handshake_ms = Some(result.tls_handshake_ms);
+            let cert_chain_length = result.cert_chain_length;
+            let cert_issuer = result.cert_issuer;
+            let mut stream = result.stream;
             let (status, version, error, ech_resolution_detail) = match &mut stream {
                 ConnectionStream::Plain(_) => ("tls_ok".to_string(), None, None, None),
                 ConnectionStream::Tls(stream) => {
@@ -127,7 +147,17 @@ pub(crate) fn try_tls_handshake(
                 }
             };
             stream.shutdown();
-            TlsObservation { status, version, error, certificate_anomaly: false, ech_resolution_detail }
+            TlsObservation {
+                status,
+                version,
+                error,
+                certificate_anomaly: false,
+                ech_resolution_detail,
+                tcp_connect_ms,
+                tls_handshake_ms,
+                cert_chain_length,
+                cert_issuer,
+            }
         }
         Err(err) => {
             if matches!(profile, TlsClientProfile::Tls13WithEch)
@@ -141,6 +171,10 @@ pub(crate) fn try_tls_handshake(
                     error: Some(err),
                     certificate_anomaly: false,
                     ech_resolution_detail: Some(ech_resolution_detail),
+                    tcp_connect_ms: None,
+                    tls_handshake_ms: None,
+                    cert_chain_length: None,
+                    cert_issuer: None,
                 };
             }
             let certificate_anomaly = is_certificate_error(&err);
@@ -154,6 +188,10 @@ pub(crate) fn try_tls_handshake(
                 error: Some(err),
                 certificate_anomaly,
                 ech_resolution_detail: None,
+                tcp_connect_ms: None,
+                tls_handshake_ms: None,
+                cert_chain_length: None,
+                cert_issuer: None,
             }
         }
     }
@@ -167,8 +205,11 @@ pub(crate) fn open_probe_stream(
     verify_certificates: bool,
     profile: TlsClientProfile,
     tls_verifier: Option<&Arc<dyn ServerCertVerifier>>,
-) -> Result<ConnectionStream, String> {
+) -> Result<ProbeStreamResult, String> {
+    let tcp_start = Instant::now();
     let socket = connect_transport(target, port, transport)?;
+    let tcp_connect_ms = tcp_start.elapsed().as_millis() as u64;
+
     socket.set_read_timeout(Some(IO_TIMEOUT)).map_err(|err| err.to_string())?;
     socket.set_write_timeout(Some(IO_TIMEOUT)).map_err(|err| err.to_string())?;
 
@@ -183,12 +224,153 @@ pub(crate) fn open_probe_stream(
             let server_name = make_server_name(name, target)?;
             let connection = ClientConnection::new(config, server_name).map_err(|err| err.to_string())?;
             let mut tls_stream = StreamOwned::new(connection, socket);
+
+            let tls_start = Instant::now();
             while tls_stream.conn.is_handshaking() {
                 tls_stream.conn.complete_io(&mut tls_stream.sock).map_err(|err| err.to_string())?;
             }
-            Ok(ConnectionStream::Tls(Box::new(tls_stream)))
+            let tls_handshake_ms = tls_start.elapsed().as_millis() as u64;
+
+            let (cert_chain_length, cert_issuer) = extract_cert_info(&tls_stream.conn);
+
+            Ok(ProbeStreamResult {
+                stream: ConnectionStream::Tls(Box::new(tls_stream)),
+                tcp_connect_ms,
+                tls_handshake_ms,
+                cert_chain_length,
+                cert_issuer,
+            })
         }
-        _ => Ok(ConnectionStream::Plain(socket)),
+        _ => Ok(ProbeStreamResult {
+            stream: ConnectionStream::Plain(socket),
+            tcp_connect_ms,
+            tls_handshake_ms: 0,
+            cert_chain_length: None,
+            cert_issuer: None,
+        }),
+    }
+}
+
+fn extract_cert_info(conn: &ClientConnection) -> (Option<usize>, Option<String>) {
+    match conn.peer_certificates() {
+        Some(certs) if !certs.is_empty() => {
+            let chain_length = Some(certs.len());
+            let issuer = parse_issuer_cn(certs[0].as_ref());
+            (chain_length, issuer)
+        }
+        _ => (None, None),
+    }
+}
+
+/// Minimal DER/X.509 parser to extract the Issuer Common Name (CN) from a
+/// leaf certificate without pulling in an external x509 crate.
+///
+/// X.509 Certificate structure (simplified):
+///   SEQUENCE {
+///     SEQUENCE (TBSCertificate) {
+///       [0] version, INTEGER serial,
+///       SEQUENCE signatureAlgorithm,
+///       SEQUENCE issuer { SET { SEQUENCE { OID, value } }* },
+///       ...
+///     }
+///   }
+///
+/// We walk the DER just far enough to reach the issuer field, then scan its
+/// RDN SEQUENCEs for OID 2.5.4.3 (id-at-commonName).
+fn parse_issuer_cn(der: &[u8]) -> Option<String> {
+    // OID 2.5.4.3 (id-at-commonName) encoded in DER
+    const OID_CN: &[u8] = &[0x55, 0x04, 0x03];
+
+    let (_, inner) = read_der_sequence(der)?;
+    let (_, tbs) = read_der_sequence(inner)?;
+
+    // TBSCertificate fields: [0] version (optional), serialNumber,
+    // signatureAlgorithm, issuer, ...
+    let mut pos = tbs;
+
+    // Skip optional explicit [0] version tag
+    if pos.first().copied() == Some(0xA0) {
+        let (rest, _) = read_der_element(pos)?;
+        pos = rest;
+    }
+
+    // Skip serialNumber (INTEGER)
+    let (rest, _) = read_der_element(pos)?;
+    pos = rest;
+
+    // Skip signatureAlgorithm (SEQUENCE)
+    let (rest, _) = read_der_element(pos)?;
+    pos = rest;
+
+    // issuer (SEQUENCE of SETs of SEQUENCEs)
+    let (_rest, issuer_bytes) = read_der_sequence(pos)?;
+
+    // Walk each RDN SET looking for OID_CN
+    let mut rdn_pos = issuer_bytes;
+    while !rdn_pos.is_empty() {
+        let (next, set_content) = read_der_element(rdn_pos)?;
+        // Each SET contains one or more SEQUENCE { OID, value }
+        let mut attr_pos = set_content;
+        while !attr_pos.is_empty() {
+            let (next_attr, seq_content) = read_der_sequence(attr_pos)?;
+            // First element is the OID
+            if let Some((value_bytes, oid_bytes)) = read_der_element(seq_content) {
+                if oid_bytes.len() >= OID_CN.len() && oid_bytes.ends_with(OID_CN) {
+                    // Second element is the value (UTF8String, PrintableString, etc.)
+                    if let Some((_rest, cn_bytes)) = read_der_element(value_bytes) {
+                        return String::from_utf8(cn_bytes.to_vec()).ok();
+                    }
+                }
+            }
+            attr_pos = next_attr;
+        }
+        rdn_pos = next;
+    }
+
+    None
+}
+
+/// Read one DER TLV element. Returns (remaining_bytes, content_bytes).
+fn read_der_element(data: &[u8]) -> Option<(&[u8], &[u8])> {
+    if data.is_empty() {
+        return None;
+    }
+    let _tag = data[0];
+    let (len, header_size) = read_der_length(&data[1..])?;
+    let total_header = 1 + header_size;
+    let end = total_header + len;
+    if end > data.len() {
+        return None;
+    }
+    Some((&data[end..], &data[total_header..end]))
+}
+
+/// Read one DER SEQUENCE, returning (remaining, inner_content).
+fn read_der_sequence(data: &[u8]) -> Option<(&[u8], &[u8])> {
+    if data.is_empty() || data[0] != 0x30 {
+        return None;
+    }
+    read_der_element(data)
+}
+
+/// Decode a DER length field. Returns (length_value, bytes_consumed).
+fn read_der_length(data: &[u8]) -> Option<(usize, usize)> {
+    if data.is_empty() {
+        return None;
+    }
+    let first = data[0] as usize;
+    if first < 0x80 {
+        Some((first, 1))
+    } else {
+        let num_bytes = first & 0x7F;
+        if num_bytes == 0 || num_bytes > 4 || data.len() < 1 + num_bytes {
+            return None;
+        }
+        let mut length = 0usize;
+        for i in 0..num_bytes {
+            length = (length << 8) | (data[1 + i] as usize);
+        }
+        Some((length, 1 + num_bytes))
     }
 }
 
@@ -352,6 +534,10 @@ mod tests {
             error: None,
             certificate_anomaly: cert_anomaly,
             ech_resolution_detail: None,
+            tcp_connect_ms: None,
+            tls_handshake_ms: None,
+            cert_chain_length: None,
+            cert_issuer: None,
         }
     }
 

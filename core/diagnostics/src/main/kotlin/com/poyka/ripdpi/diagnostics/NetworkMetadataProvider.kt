@@ -46,21 +46,50 @@ interface PublicIpInfoResolver {
 class HttpPublicIpInfoResolver
     @Inject
     constructor() : PublicIpInfoResolver {
+        private val lenientJson =
+            Json {
+                ignoreUnknownKeys = true
+            }
+
         override suspend fun resolve(): PublicIpInfo? =
             withContext(Dispatchers.IO) {
-                runCatching {
-                    val connection =
-                        (URL("https://api.ipify.org?format=json").openConnection() as HttpURLConnection).apply {
-                            connectTimeout = 3_000
-                            readTimeout = 3_000
-                            requestMethod = "GET"
-                        }
-                    connection.inputStream.bufferedReader().use { reader ->
-                        val json = Json.decodeFromString(PublicIpResponse.serializer(), reader.readText())
-                        PublicIpInfo(ip = json.ip, asn = null)
-                    }
-                }.getOrNull()
+                resolveFromIpInfo() ?: resolveFromIpify()
             }
+
+        private fun resolveFromIpInfo(): PublicIpInfo? =
+            runCatching {
+                val connection =
+                    (URL("https://ipinfo.io/json").openConnection() as HttpURLConnection).apply {
+                        connectTimeout = 3_000
+                        readTimeout = 3_000
+                        requestMethod = "GET"
+                    }
+                connection.inputStream.bufferedReader().use { reader ->
+                    val json = lenientJson.decodeFromString(IpInfoResponse.serializer(), reader.readText())
+                    PublicIpInfo(ip = json.ip, asn = formatAsn(json.org))
+                }
+            }.getOrNull()
+
+        private fun resolveFromIpify(): PublicIpInfo? =
+            runCatching {
+                val connection =
+                    (URL("https://api.ipify.org?format=json").openConnection() as HttpURLConnection).apply {
+                        connectTimeout = 3_000
+                        readTimeout = 3_000
+                        requestMethod = "GET"
+                    }
+                connection.inputStream.bufferedReader().use { reader ->
+                    val json = lenientJson.decodeFromString(PublicIpResponse.serializer(), reader.readText())
+                    PublicIpInfo(ip = json.ip, asn = null)
+                }
+            }.getOrNull()
+
+        private fun formatAsn(org: String?): String? {
+            if (org.isNullOrBlank()) return null
+            // ipinfo.io returns org as "AS12389 Rostelecom" -- keep the full value
+            // but strip the raw IP that might leak through other fields
+            return org.trim().takeIf { it.startsWith("AS", ignoreCase = true) }
+        }
     }
 
 @Singleton
@@ -420,6 +449,12 @@ class AndroidNetworkMetadataProvider
 @Serializable
 private data class PublicIpResponse(
     @SerialName("ip") val ip: String,
+)
+
+@Serializable
+private data class IpInfoResponse(
+    @SerialName("ip") val ip: String,
+    @SerialName("org") val org: String? = null,
 )
 
 @Module

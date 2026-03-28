@@ -322,6 +322,10 @@ fn tls_signal_reports_version_split_low_confidence() {
         error: Some("blocked".to_string()),
         certificate_anomaly: false,
         ech_resolution_detail: None,
+        tcp_connect_ms: None,
+        tls_handshake_ms: None,
+        cert_chain_length: None,
+        cert_issuer: None,
     };
     let tls12 = TlsObservation {
         status: "tls_ok".to_string(),
@@ -329,6 +333,10 @@ fn tls_signal_reports_version_split_low_confidence() {
         error: None,
         certificate_anomaly: false,
         ech_resolution_detail: None,
+        tcp_connect_ms: None,
+        tls_handshake_ms: None,
+        cert_chain_length: None,
+        cert_issuer: None,
     };
 
     assert_eq!(classify_tls_signal(&tls13, &tls12), "tls_version_split_low_confidence");

@@ -7,6 +7,7 @@ use crate::candidates::{
     strategy_probe_encrypted_dns_context, strategy_probe_encrypted_dns_endpoint, strategy_probe_encrypted_dns_label,
     StrategyProbeBaseline,
 };
+use crate::connectivity::classify_dns_latency_quality;
 use crate::dns::resolve_via_encrypted_dns;
 use crate::transport::{domain_connect_target, resolve_addresses, TargetAddress, TransportConfig};
 use crate::types::{DomainTarget, ProbeDetail, ProbeResult};
@@ -61,7 +62,7 @@ pub(crate) fn detect_strategy_probe_dns_tampering(
                     key: "udpAddresses".to_string(),
                     value: system_targets.iter().map(ToString::to_string).collect::<Vec<_>>().join("|"),
                 },
-                ProbeDetail { key: "udpLatencyMs".to_string(), value: system_latency_ms },
+                ProbeDetail { key: "udpLatencyMs".to_string(), value: system_latency_ms.clone() },
                 ProbeDetail {
                     key: "encryptedResolverId".to_string(),
                     value: resolver_context.resolver_id.clone().unwrap_or_default(),
@@ -102,7 +103,11 @@ pub(crate) fn detect_strategy_probe_dns_tampering(
                         encrypted_addresses.join("|")
                     },
                 },
-                ProbeDetail { key: "encryptedLatencyMs".to_string(), value: encrypted_latency_ms },
+                ProbeDetail { key: "encryptedLatencyMs".to_string(), value: encrypted_latency_ms.clone() },
+                ProbeDetail {
+                    key: "dnsLatencyQuality".to_string(),
+                    value: classify_dns_latency_quality(&system_latency_ms, &encrypted_latency_ms),
+                },
             ],
         });
         if substitution && classified.is_none() {
