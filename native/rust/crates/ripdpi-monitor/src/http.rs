@@ -56,7 +56,8 @@ pub(crate) fn execute_http_request(
         secure,
         TlsClientProfile::Auto,
         None,
-    )?;
+    )?
+    .stream;
     let request = format!("GET {path} HTTP/1.1\r\nHost: {host_header}\r\nAccept: */*\r\nConnection: close\r\n\r\n");
     stream.write_all(request.as_bytes()).map_err(|err| err.to_string())?;
     stream.flush().map_err(|err| err.to_string())?;

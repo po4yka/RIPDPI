@@ -172,7 +172,7 @@ fn telegram_download_probe(target: &TelegramTarget, transport: &TransportConfig)
         TlsClientProfile::Auto,
         None,
     ) {
-        Ok(s) => s,
+        Ok(result) => result.stream,
         Err(err) => return TelegramTransferResult::blocked(err),
     };
 
@@ -282,7 +282,7 @@ fn telegram_upload_probe(target: &TelegramTarget, transport: &TransportConfig) -
         TlsClientProfile::Auto,
         None,
     ) {
-        Ok(s) => s,
+        Ok(result) => result.stream,
         Err(err) => return TelegramTransferResult::blocked(err),
     };
 
