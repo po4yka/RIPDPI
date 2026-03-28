@@ -35,6 +35,7 @@ internal class VpnServiceRuntimeCoordinator(
     rememberedNetworkPolicyStore: RememberedNetworkPolicyStore,
     networkHandoverMonitor: NetworkHandoverMonitor,
     policyHandoverEventStore: PolicyHandoverEventStore,
+    permissionWatchdog: PermissionWatchdog,
     private val vpnTunnelRuntime: VpnTunnelRuntime,
     private val resolverRefreshPlanner: VpnResolverRefreshPlanner,
     private val encryptedDnsFailoverController: VpnEncryptedDnsFailoverController,
@@ -50,6 +51,7 @@ internal class VpnServiceRuntimeCoordinator(
         rememberedNetworkPolicyStore = rememberedNetworkPolicyStore,
         networkHandoverMonitor = networkHandoverMonitor,
         policyHandoverEventStore = policyHandoverEventStore,
+        permissionWatchdog = permissionWatchdog,
         ioDispatcher = ioDispatcher,
         clock = clock,
     ) {
@@ -295,6 +297,20 @@ internal class VpnServiceRuntimeCoordinator(
     override fun classifyHandoverFailure(error: Exception): FailureReason =
         classifyFailureReason(error, isTunnelContext = true)
 
+    override fun onPermissionRevoked(event: PermissionChangeEvent) {
+        when (event.kind) {
+            PermissionChangeEvent.KIND_VPN_CONSENT -> {
+                logcat(LogPriority.ERROR) { "VPN consent revoked while running" }
+                updateStatus(ServiceStatus.Failed, FailureReason.PermissionLost("VPN"))
+                host.serviceScope.launch(ioDispatcher) { stop() }
+            }
+
+            PermissionChangeEvent.KIND_NOTIFICATIONS -> {
+                logcat(LogPriority.WARN) { "Notification permission revoked while VPN running" }
+            }
+        }
+    }
+
     override fun onAfterStopCleanup(session: VpnRuntimeSession?) {
         resolverOverrideStore.clear()
         vpnTunnelRuntime.resetRuntimeState()
@@ -342,6 +358,7 @@ internal class VpnServiceRuntimeCoordinatorFactory
     constructor(
         private val runtimeDependencies: VpnServiceRuntimeRuntimeDependencies,
         private val statusDependencies: VpnServiceRuntimeStatusDependencies,
+        private val permissionWatchdog: PermissionWatchdog,
     ) {
         fun create(host: VpnCoordinatorHost): VpnServiceRuntimeCoordinator =
             VpnServiceRuntimeCoordinator(
@@ -352,6 +369,7 @@ internal class VpnServiceRuntimeCoordinatorFactory
                 rememberedNetworkPolicyStore = runtimeDependencies.rememberedNetworkPolicyStore,
                 networkHandoverMonitor = runtimeDependencies.networkHandoverMonitor,
                 policyHandoverEventStore = runtimeDependencies.policyHandoverEventStore,
+                permissionWatchdog = permissionWatchdog,
                 vpnTunnelRuntime =
                     VpnTunnelRuntime(
                         vpnHost = host,

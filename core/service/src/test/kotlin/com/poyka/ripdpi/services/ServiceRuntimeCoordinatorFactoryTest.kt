@@ -33,6 +33,7 @@ class ServiceRuntimeCoordinatorFactoryTest {
                     networkSnapshotProvider = TestNativeNetworkSnapshotProvider(),
                     proxyRuntimeSupervisorFactory = proxyFactory,
                     serviceStatusReporterFactory = statusFactory,
+                    permissionWatchdog = TestPermissionWatchdog(),
                 )
 
             coordinatorFactory.create(host)
@@ -81,6 +82,7 @@ class ServiceRuntimeCoordinatorFactoryTest {
                 VpnServiceRuntimeCoordinatorFactory(
                     runtimeDependencies = runtimeDependencies,
                     statusDependencies = statusDependencies,
+                    permissionWatchdog = TestPermissionWatchdog(),
                 )
 
             coordinatorFactory.create(host)

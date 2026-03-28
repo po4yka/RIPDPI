@@ -109,256 +109,257 @@ internal fun classifyLogType(message: String): LogType {
 
 @HiltViewModel
 class LogsViewModel
-@Inject
-constructor(
-    private val serviceStateStore: ServiceStateStore,
-    private val diagnosticsTimelineSource: DiagnosticsTimelineSource,
-    private val stringResolver: StringResolver,
-) : ViewModel() {
-    private val manualLogBuffer = MutableStateFlow<List<LogEntry>>(emptyList())
-    private val serviceLifecycleBuffer = MutableStateFlow<List<LogEntry>>(emptyList())
-    private val activeSubsystems = MutableStateFlow(LogSubsystem.entries.toSet())
-    private val activeSeverities = MutableStateFlow(LogSeverity.entries.toSet())
-    private val activeSessionOnly = MutableStateFlow(false)
-    private val autoScrollEnabled = MutableStateFlow(true)
-    private val clearedAfterMs = MutableStateFlow<Long?>(null)
+    @Inject
+    constructor(
+        private val serviceStateStore: ServiceStateStore,
+        private val diagnosticsTimelineSource: DiagnosticsTimelineSource,
+        private val stringResolver: StringResolver,
+    ) : ViewModel() {
+        private val manualLogBuffer = MutableStateFlow<List<LogEntry>>(emptyList())
+        private val serviceLifecycleBuffer = MutableStateFlow<List<LogEntry>>(emptyList())
+        private val activeSubsystems = MutableStateFlow(LogSubsystem.entries.toSet())
+        private val activeSeverities = MutableStateFlow(LogSeverity.entries.toSet())
+        private val activeSessionOnly = MutableStateFlow(false)
+        private val autoScrollEnabled = MutableStateFlow(true)
+        private val clearedAfterMs = MutableStateFlow<Long?>(null)
 
-    private val runtimeEventLogs =
-        serviceStateStore.telemetry.map { telemetry ->
-            (
-                telemetry.proxyTelemetry.nativeEvents.map { event ->
-                    event.toRuntimeLogEntry(defaultSubsystem = LogSubsystem.Proxy, isActiveSession = true)
-                } +
-                    telemetry.tunnelTelemetry.nativeEvents.map { event ->
-                        event.toRuntimeLogEntry(defaultSubsystem = LogSubsystem.Tunnel, isActiveSession = true)
-                    }
-            ).distinctBy(LogEntry::dedupeKey)
-                .sortedBy(LogEntry::createdAtMs)
-        }
+        private val runtimeEventLogs =
+            serviceStateStore.telemetry.map { telemetry ->
+                (
+                    telemetry.proxyTelemetry.nativeEvents.map { event ->
+                        event.toRuntimeLogEntry(defaultSubsystem = LogSubsystem.Proxy, isActiveSession = true)
+                    } +
+                        telemetry.tunnelTelemetry.nativeEvents.map { event ->
+                            event.toRuntimeLogEntry(defaultSubsystem = LogSubsystem.Tunnel, isActiveSession = true)
+                        }
+                ).distinctBy(LogEntry::dedupeKey)
+                    .sortedBy(LogEntry::createdAtMs)
+            }
 
-    private val diagnosticsEventLogs =
-        combine(
-            diagnosticsTimelineSource.nativeEvents,
-            diagnosticsTimelineSource.liveNativeEvents,
-            diagnosticsTimelineSource.activeScanProgress,
-            diagnosticsTimelineSource.activeConnectionSession,
-        ) { persisted, live, activeProgress, activeConnection ->
-            val activeSessionIds = activeDiagnosticsSessionIds(activeProgress, activeConnection)
-            (
-                persisted.map { event ->
-                    event.toDiagnosticLogEntry(activeSessionIds = activeSessionIds, isLiveEvent = false)
-                } +
-                    live.map { event ->
-                        event.toDiagnosticLogEntry(activeSessionIds = activeSessionIds, isLiveEvent = true)
-                    }
-            ).distinctBy(LogEntry::dedupeKey)
-                .sortedBy(LogEntry::createdAtMs)
-        }
+        private val diagnosticsEventLogs =
+            combine(
+                diagnosticsTimelineSource.nativeEvents,
+                diagnosticsTimelineSource.liveNativeEvents,
+                diagnosticsTimelineSource.activeScanProgress,
+                diagnosticsTimelineSource.activeConnectionSession,
+            ) { persisted, live, activeProgress, activeConnection ->
+                val activeSessionIds = activeDiagnosticsSessionIds(activeProgress, activeConnection)
+                (
+                    persisted.map { event ->
+                        event.toDiagnosticLogEntry(activeSessionIds = activeSessionIds, isLiveEvent = false)
+                    } +
+                        live.map { event ->
+                            event.toDiagnosticLogEntry(activeSessionIds = activeSessionIds, isLiveEvent = true)
+                        }
+                ).distinctBy(LogEntry::dedupeKey)
+                    .sortedBy(LogEntry::createdAtMs)
+            }
 
-    private val mergedLogs =
-        combine(
-            manualLogBuffer,
-            serviceLifecycleBuffer,
-            runtimeEventLogs,
-            diagnosticsEventLogs,
-            clearedAfterMs,
-        ) {
+        private val mergedLogs =
+            combine(
+                manualLogBuffer,
+                serviceLifecycleBuffer,
+                runtimeEventLogs,
+                diagnosticsEventLogs,
+                clearedAfterMs,
+            ) {
                 manualLogs: List<LogEntry>,
                 serviceLogs: List<LogEntry>,
                 runtimeLogs: List<LogEntry>,
                 diagnosticsLogs: List<LogEntry>,
                 clearedAfter: Long?,
-            ->
-            (manualLogs + serviceLogs + runtimeLogs + diagnosticsLogs)
-                .asSequence()
-                .filter { entry -> clearedAfter == null || entry.createdAtMs >= clearedAfter }
-                .distinctBy(LogEntry::dedupeKey)
-                .sortedBy(LogEntry::createdAtMs)
-                .toList()
-                .takeLast(MaxLogEntries)
-        }
+                ->
+                (manualLogs + serviceLogs + runtimeLogs + diagnosticsLogs)
+                    .asSequence()
+                    .filter { entry -> clearedAfter == null || entry.createdAtMs >= clearedAfter }
+                    .distinctBy(LogEntry::dedupeKey)
+                    .sortedBy(LogEntry::createdAtMs)
+                    .toList()
+                    .takeLast(MaxLogEntries)
+            }
 
-    val uiState: StateFlow<LogsUiState> =
-        combine(
-            mergedLogs,
-            activeSubsystems,
-            activeSeverities,
-            activeSessionOnly,
-            autoScrollEnabled,
-        ) {
+        val uiState: StateFlow<LogsUiState> =
+            combine(
+                mergedLogs,
+                activeSubsystems,
+                activeSeverities,
+                activeSessionOnly,
+                autoScrollEnabled,
+            ) {
                 logs: List<LogEntry>,
                 subsystems: Set<LogSubsystem>,
                 severities: Set<LogSeverity>,
                 activeOnly: Boolean,
                 autoScroll: Boolean,
-            ->
-            LogsUiState(
-                logs = logs,
-                activeSubsystems = subsystems,
-                activeSeverities = severities,
-                showActiveSessionOnly = activeOnly,
-                isAutoScroll = autoScroll,
+                ->
+                LogsUiState(
+                    logs = logs,
+                    activeSubsystems = subsystems,
+                    activeSeverities = severities,
+                    showActiveSessionOnly = activeOnly,
+                    isAutoScroll = autoScroll,
+                )
+            }.stateIn(
+                scope = viewModelScope,
+                started = SharingStarted.WhileSubscribed(5_000),
+                initialValue = LogsUiState(),
             )
-        }.stateIn(
-            scope = viewModelScope,
-            started = SharingStarted.WhileSubscribed(5_000),
-            initialValue = LogsUiState(),
-        )
 
-    init {
-        observeStatusTransitions()
-        observeFailures()
-    }
-
-    fun toggleSubsystemFilter(subsystem: LogSubsystem) {
-        activeSubsystems.update { filters ->
-            if (subsystem in filters) {
-                filters - subsystem
-            } else {
-                filters + subsystem
-            }
+        init {
+            observeStatusTransitions()
+            observeFailures()
         }
-    }
 
-    fun toggleSeverityFilter(severity: LogSeverity) {
-        activeSeverities.update { filters ->
-            if (severity in filters) {
-                filters - severity
-            } else {
-                filters + severity
-            }
-        }
-    }
-
-    fun setActiveSessionOnly(enabled: Boolean) {
-        activeSessionOnly.value = enabled
-    }
-
-    fun clearLogs() {
-        manualLogBuffer.value = emptyList()
-        serviceLifecycleBuffer.value = emptyList()
-        clearedAfterMs.value = System.currentTimeMillis()
-    }
-
-    fun setAutoScroll(enabled: Boolean) {
-        autoScrollEnabled.value = enabled
-    }
-
-    fun appendLog(
-        message: String,
-        type: LogType = classifyLogType(message),
-    ) {
-        val now = System.currentTimeMillis()
-        appendManualEntry(
-            LogEntry(
-                id = "manual-$now-${message.hashCode()}",
-                createdAtMs = now,
-                timestamp = formatTimestamp(now),
-                subsystem = type.defaultSubsystem(),
-                severity = type.defaultSeverity(),
-                message = message,
-                source = "manual",
-                isActiveSession = true,
-            ),
-        )
-    }
-
-    private fun observeStatusTransitions() {
-        viewModelScope.launch {
-            var previousStatus: Pair<AppStatus, Mode>? = null
-            serviceStateStore.status.collect { currentStatus ->
-                val lastStatus = previousStatus
-                previousStatus = currentStatus
-                if (lastStatus == null || lastStatus == currentStatus) {
-                    return@collect
+        fun toggleSubsystemFilter(subsystem: LogSubsystem) {
+            activeSubsystems.update { filters ->
+                if (subsystem in filters) {
+                    filters - subsystem
+                } else {
+                    filters + subsystem
                 }
+            }
+        }
 
-                when {
-                    currentStatus.first == AppStatus.Running -> {
-                        appendServiceLifecycleEntry(
-                            mode = currentStatus.second,
-                            action = "started",
-                            severity = LogSeverity.Info,
-                        )
+        fun toggleSeverityFilter(severity: LogSeverity) {
+            activeSeverities.update { filters ->
+                if (severity in filters) {
+                    filters - severity
+                } else {
+                    filters + severity
+                }
+            }
+        }
+
+        fun setActiveSessionOnly(enabled: Boolean) {
+            activeSessionOnly.value = enabled
+        }
+
+        fun clearLogs() {
+            manualLogBuffer.value = emptyList()
+            serviceLifecycleBuffer.value = emptyList()
+            clearedAfterMs.value = System.currentTimeMillis()
+        }
+
+        fun setAutoScroll(enabled: Boolean) {
+            autoScrollEnabled.value = enabled
+        }
+
+        fun appendLog(
+            message: String,
+            type: LogType = classifyLogType(message),
+        ) {
+            val now = System.currentTimeMillis()
+            appendManualEntry(
+                LogEntry(
+                    id = "manual-$now-${message.hashCode()}",
+                    createdAtMs = now,
+                    timestamp = formatTimestamp(now),
+                    subsystem = type.defaultSubsystem(),
+                    severity = type.defaultSeverity(),
+                    message = message,
+                    source = "manual",
+                    isActiveSession = true,
+                ),
+            )
+        }
+
+        private fun observeStatusTransitions() {
+            viewModelScope.launch {
+                var previousStatus: Pair<AppStatus, Mode>? = null
+                serviceStateStore.status.collect { currentStatus ->
+                    val lastStatus = previousStatus
+                    previousStatus = currentStatus
+                    if (lastStatus == null || lastStatus == currentStatus) {
+                        return@collect
                     }
 
-                    lastStatus.first == AppStatus.Running && currentStatus.first == AppStatus.Halted -> {
-                        appendServiceLifecycleEntry(
-                            mode = lastStatus.second,
-                            action = "stopped",
-                            severity = LogSeverity.Info,
-                        )
+                    when {
+                        currentStatus.first == AppStatus.Running -> {
+                            appendServiceLifecycleEntry(
+                                mode = currentStatus.second,
+                                action = "started",
+                                severity = LogSeverity.Info,
+                            )
+                        }
+
+                        lastStatus.first == AppStatus.Running && currentStatus.first == AppStatus.Halted -> {
+                            appendServiceLifecycleEntry(
+                                mode = lastStatus.second,
+                                action = "stopped",
+                                severity = LogSeverity.Info,
+                            )
+                        }
                     }
                 }
             }
         }
-    }
 
-    private fun observeFailures() {
-        viewModelScope.launch {
-            serviceStateStore.events.collect { event ->
-                when (event) {
-                    is ServiceEvent.Failed -> appendFailureLog(event.sender, event.reason)
+        private fun observeFailures() {
+            viewModelScope.launch {
+                serviceStateStore.events.collect { event ->
+                    when (event) {
+                        is ServiceEvent.Failed -> appendFailureLog(event.sender, event.reason)
+                        is ServiceEvent.PermissionRevoked -> Unit
+                    }
                 }
             }
         }
-    }
 
-    private fun appendServiceLifecycleEntry(
-        mode: Mode,
-        action: String,
-        severity: LogSeverity,
-    ) {
-        val createdAt = System.currentTimeMillis()
-        appendServiceEntry(
-            LogEntry(
-                id = "service-$createdAt-${mode.name.lowercase(Locale.ROOT)}-$action",
-                createdAtMs = createdAt,
-                timestamp = formatTimestamp(createdAt),
-                subsystem = LogSubsystem.Service,
-                severity = severity,
-                message = stringResolver.getString(R.string.logs_service_action_format, mode.displayName(), action),
-                source = "service",
-                isActiveSession = true,
-            ),
-        )
-    }
-
-    private fun appendFailureLog(
-        sender: Sender,
-        reason: FailureReason,
-    ) {
-        val createdAt = System.currentTimeMillis()
-        val detail = reason.displayMessage
-        appendServiceEntry(
-            LogEntry(
-                id = "service-failure-$createdAt-${sender.senderName.hashCode()}",
-                createdAtMs = createdAt,
-                timestamp = formatTimestamp(createdAt),
-                subsystem = LogSubsystem.Service,
-                severity = LogSeverity.Error,
-                message = stringResolver.getString(R.string.logs_service_failure_format, sender.senderName, detail),
-                source = "service",
-                isActiveSession = true,
-            ),
-        )
-    }
-
-    private fun appendManualEntry(entry: LogEntry) {
-        manualLogBuffer.update { currentLogs ->
-            (currentLogs + entry).takeLast(MaxLogEntries)
+        private fun appendServiceLifecycleEntry(
+            mode: Mode,
+            action: String,
+            severity: LogSeverity,
+        ) {
+            val createdAt = System.currentTimeMillis()
+            appendServiceEntry(
+                LogEntry(
+                    id = "service-$createdAt-${mode.name.lowercase(Locale.ROOT)}-$action",
+                    createdAtMs = createdAt,
+                    timestamp = formatTimestamp(createdAt),
+                    subsystem = LogSubsystem.Service,
+                    severity = severity,
+                    message = stringResolver.getString(R.string.logs_service_action_format, mode.displayName(), action),
+                    source = "service",
+                    isActiveSession = true,
+                ),
+            )
         }
-    }
 
-    private fun appendServiceEntry(entry: LogEntry) {
-        serviceLifecycleBuffer.update { currentLogs ->
-            (currentLogs + entry).takeLast(MaxLogEntries)
+        private fun appendFailureLog(
+            sender: Sender,
+            reason: FailureReason,
+        ) {
+            val createdAt = System.currentTimeMillis()
+            val detail = reason.displayMessage
+            appendServiceEntry(
+                LogEntry(
+                    id = "service-failure-$createdAt-${sender.senderName.hashCode()}",
+                    createdAtMs = createdAt,
+                    timestamp = formatTimestamp(createdAt),
+                    subsystem = LogSubsystem.Service,
+                    severity = LogSeverity.Error,
+                    message = stringResolver.getString(R.string.logs_service_failure_format, sender.senderName, detail),
+                    source = "service",
+                    isActiveSession = true,
+                ),
+            )
         }
-    }
 
-    private fun formatTimestamp(timestampMs: Long): String =
-        SimpleDateFormat("HH:mm:ss", Locale.US).format(Date(timestampMs))
-}
+        private fun appendManualEntry(entry: LogEntry) {
+            manualLogBuffer.update { currentLogs ->
+                (currentLogs + entry).takeLast(MaxLogEntries)
+            }
+        }
+
+        private fun appendServiceEntry(entry: LogEntry) {
+            serviceLifecycleBuffer.update { currentLogs ->
+                (currentLogs + entry).takeLast(MaxLogEntries)
+            }
+        }
+
+        private fun formatTimestamp(timestampMs: Long): String =
+            SimpleDateFormat("HH:mm:ss", Locale.US).format(Date(timestampMs))
+    }
 
 private fun activeDiagnosticsSessionIds(
     progress: ScanProgress?,

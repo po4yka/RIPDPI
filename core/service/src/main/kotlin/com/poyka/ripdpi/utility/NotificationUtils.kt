@@ -20,7 +20,10 @@ fun registerNotificationChannel(
 ) {
     val manager = context.getSystemService(NotificationManager::class.java)
     if (manager == null) {
-        logcat(LogPriority.WARN) { "NotificationManager unavailable, skipping channel registration" }
+        logcat(
+            "NotificationUtils",
+            LogPriority.WARN,
+        ) { "NotificationManager unavailable, skipping channel registration" }
         return
     }
 
@@ -37,7 +40,7 @@ fun registerNotificationChannel(
     try {
         manager.createNotificationChannel(channel)
     } catch (e: Exception) {
-        logcat(LogPriority.WARN) { "Failed to create notification channel '$id': ${e.message}" }
+        logcat("NotificationUtils", LogPriority.WARN) { "Failed to create notification channel '$id': ${e.message}" }
     }
 }
 

@@ -60,6 +60,10 @@ internal class QuickTileController(
                             host.showStartFailure(event.sender.senderName)
                             updateStatus(host)
                         }
+
+                        is ServiceEvent.PermissionRevoked -> {
+                            Unit
+                        }
                     }
                 }
             }

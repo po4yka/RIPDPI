@@ -182,6 +182,7 @@ class ProxyServiceAutoApplyLifecycleTest {
                 rememberedNetworkPolicyStore = rememberedPolicies,
                 networkHandoverMonitor = TestNetworkHandoverMonitor(),
                 policyHandoverEventStore = TestPolicyHandoverEventStore(),
+                permissionWatchdog = TestPermissionWatchdog(),
                 proxyRuntimeSupervisor =
                     ProxyRuntimeSupervisor(
                         scope = backgroundScope,

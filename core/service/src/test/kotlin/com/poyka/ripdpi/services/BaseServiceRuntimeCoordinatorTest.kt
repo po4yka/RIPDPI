@@ -152,6 +152,7 @@ class BaseServiceRuntimeCoordinatorTest {
                 rememberedStore = TestRememberedNetworkPolicyStore(),
                 handoverMonitor = handoverMonitor,
                 handoverEvents = handoverEvents,
+                permissionWatchdog = TestPermissionWatchdog(),
                 dispatcher = dispatcher,
                 clock = clock,
             )
@@ -183,6 +184,7 @@ private class TestCoordinator(
     rememberedStore: TestRememberedNetworkPolicyStore,
     handoverMonitor: TestNetworkHandoverMonitor,
     handoverEvents: TestPolicyHandoverEventStore,
+    permissionWatchdog: PermissionWatchdog,
     dispatcher: kotlinx.coroutines.test.TestDispatcher,
     clock: TestServiceClock,
 ) : BaseServiceRuntimeCoordinator<ProxyRuntimeSession>(
@@ -193,6 +195,7 @@ private class TestCoordinator(
         rememberedNetworkPolicyStore = rememberedStore,
         networkHandoverMonitor = handoverMonitor,
         policyHandoverEventStore = handoverEvents,
+        permissionWatchdog = permissionWatchdog,
         ioDispatcher = dispatcher,
         clock = clock,
     ) {
