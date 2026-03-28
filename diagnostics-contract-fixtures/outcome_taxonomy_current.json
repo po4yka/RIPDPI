@@ -56,6 +56,8 @@
     { "probeType": "throughput_window", "pathMode": "RAW_PATH", "outcome": "throughput_failed", "bucket": "Failed", "uiTone": "Negative", "eventLevel": "error", "healthyEnoughForSummary": false },
 
     { "probeType": "strategy_http", "pathMode": "RAW_PATH", "outcome": "http_ok", "bucket": "Healthy", "uiTone": "Positive", "eventLevel": "info", "healthyEnoughForSummary": true },
+    { "probeType": "strategy_http", "pathMode": "RAW_PATH", "outcome": "http_redirect", "bucket": "Attention", "uiTone": "Warning", "eventLevel": "warn", "healthyEnoughForSummary": false },
+    { "probeType": "strategy_http", "pathMode": "RAW_PATH", "outcome": "http_status_3", "bucket": "Inconclusive", "uiTone": "Neutral", "eventLevel": "warn", "healthyEnoughForSummary": false },
     { "probeType": "strategy_http", "pathMode": "RAW_PATH", "outcome": "http_blockpage", "bucket": "Failed", "uiTone": "Negative", "eventLevel": "error", "healthyEnoughForSummary": false },
     { "probeType": "strategy_http", "pathMode": "RAW_PATH", "outcome": "http_unreachable", "bucket": "Failed", "uiTone": "Negative", "eventLevel": "error", "healthyEnoughForSummary": false },
 

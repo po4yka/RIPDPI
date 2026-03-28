@@ -66,6 +66,11 @@ pub(crate) fn observation_for_probe(result: &ProbeResult) -> Option<ProbeObserva
                         .or_else(|| detail_value(result, "tls12Error").filter(|value| *value != "none"))
                         .unwrap_or("none"),
                 ),
+                tls_error: detail_value(result, "tlsError")
+                    .filter(|v| *v != "none")
+                    .or_else(|| detail_value(result, "tls13Error").filter(|v| *v != "none"))
+                    .or_else(|| detail_value(result, "tls12Error").filter(|v| *v != "none"))
+                    .map(str::to_string),
                 certificate_anomaly: result.outcome == "tls_cert_invalid"
                     || detail_value(result, "tlsSignal") == Some("tls_cert_invalid"),
             }),
@@ -241,6 +246,14 @@ pub(crate) fn observation_for_probe(result: &ProbeResult) -> Option<ProbeObserva
                 transport_failure: transport_failure(
                     detail_value(result, "error").or_else(|| detail_value(result, "tlsError")).unwrap_or("none"),
                 ),
+                tls_error: if result.probe_type == "strategy_https" {
+                    detail_value(result, "tlsError")
+                        .or_else(|| detail_value(result, "error"))
+                        .filter(|v| *v != "none")
+                        .map(str::to_string)
+                } else {
+                    None
+                },
             }),
             evidence: vec![result.outcome.clone()],
         }),
@@ -378,7 +391,7 @@ fn throughput_status(value: &str) -> ThroughputProbeStatus {
 
 fn strategy_status(value: &str) -> StrategyProbeStatus {
     match value {
-        "http_ok" | "tls_ok" | "tls_version_split" | "quic_initial_response" | "quic_response" => {
+        "http_ok" | "http_redirect" | "tls_ok" | "tls_version_split" | "quic_initial_response" | "quic_response" => {
             StrategyProbeStatus::Success
         }
         "tls_ech_only" => StrategyProbeStatus::Partial,
