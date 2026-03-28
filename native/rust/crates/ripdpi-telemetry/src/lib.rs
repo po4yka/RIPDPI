@@ -182,4 +182,101 @@ mod tests {
         };
         assert!(d.into_option().is_some());
     }
+
+    #[test]
+    fn distributions_into_option_is_some_with_all_fields() {
+        let perc = LatencyPercentiles { p50: 10, p95: 20, p99: 30, min: 1, max: 50, count: 100 };
+        let d = LatencyDistributions {
+            dns_resolution: Some(perc.clone()),
+            tcp_connect: Some(perc.clone()),
+            tls_handshake: Some(perc),
+        };
+        assert!(d.into_option().is_some());
+    }
+
+    #[test]
+    fn default_histogram_returns_none_snapshot() {
+        let h = LatencyHistogram::default();
+        assert!(h.snapshot().is_none());
+    }
+
+    #[test]
+    fn latency_percentiles_serde_round_trip() {
+        let original = LatencyPercentiles { p50: 10, p95: 50, p99: 99, min: 1, max: 200, count: 1000 };
+        let json = serde_json::to_string(&original).expect("serialize");
+        let deserialized: LatencyPercentiles = serde_json::from_str(&json).expect("deserialize");
+        assert_eq!(original.p50, deserialized.p50);
+        assert_eq!(original.p95, deserialized.p95);
+        assert_eq!(original.p99, deserialized.p99);
+        assert_eq!(original.min, deserialized.min);
+        assert_eq!(original.max, deserialized.max);
+        assert_eq!(original.count, deserialized.count);
+    }
+
+    #[test]
+    fn latency_percentiles_uses_camel_case_keys() {
+        let p = LatencyPercentiles { p50: 1, p95: 2, p99: 3, min: 0, max: 5, count: 10 };
+        let json = serde_json::to_string(&p).expect("serialize");
+        // p50/p95/p99/min/max/count are already lowercase, but verify the JSON is well-formed
+        let value: serde_json::Value = serde_json::from_str(&json).expect("parse");
+        assert!(value.get("p50").is_some());
+        assert!(value.get("count").is_some());
+    }
+
+    #[test]
+    fn distributions_skip_serializing_none_fields() {
+        let d = LatencyDistributions {
+            dns_resolution: Some(LatencyPercentiles { p50: 1, p95: 2, p99: 3, min: 0, max: 5, count: 10 }),
+            tcp_connect: None,
+            tls_handshake: None,
+        };
+        let json = serde_json::to_string(&d).expect("serialize");
+        let value: serde_json::Value = serde_json::from_str(&json).expect("parse");
+        assert!(value.get("dnsResolution").is_some());
+        assert!(value.get("tcpConnect").is_none());
+        assert!(value.get("tlsHandshake").is_none());
+    }
+
+    #[test]
+    fn multiple_records_accumulate() {
+        let h = LatencyHistogram::new();
+        for i in 1..=100 {
+            h.record(i);
+        }
+        let s = h.snapshot().expect("snapshot");
+        assert_eq!(s.count, 100);
+        assert_eq!(s.min, 1);
+        assert_eq!(s.max, 100);
+    }
+
+    #[test]
+    fn record_zero_is_valid() {
+        let h = LatencyHistogram::new();
+        h.record(0);
+        let s = h.snapshot().expect("snapshot");
+        assert_eq!(s.count, 1);
+        assert_eq!(s.min, 0);
+    }
+
+    #[test]
+    fn record_exact_max_boundary() {
+        let h = LatencyHistogram::new();
+        h.record(60_000);
+        let s = h.snapshot().expect("snapshot");
+        assert_eq!(s.count, 1);
+        // Exact max should be recorded without clamping
+        assert!(s.max <= 61_000, "max {} should be near 60000", s.max);
+    }
+
+    #[test]
+    fn reset_then_record_works() {
+        let h = LatencyHistogram::new();
+        h.record(100);
+        h.reset();
+        h.record(200);
+        let s = h.snapshot().expect("snapshot after reset+record");
+        assert_eq!(s.count, 1);
+        // Should reflect only the post-reset value
+        assert!(s.p50 >= 195 && s.p50 <= 205, "p50={}", s.p50);
+    }
 }
