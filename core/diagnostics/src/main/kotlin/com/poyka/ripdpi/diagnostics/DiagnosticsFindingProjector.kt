@@ -464,6 +464,7 @@ class DiagnosticsFindingProjector
             addStrategyExhaustionDiagnosis(strategyFacts, diagnoses, seen)
             addPerDomainStrategyFailureDiagnosis(strategyFacts, diagnoses, seen)
             addQuicTotalFailureDiagnosis(strategyFacts, diagnoses, seen)
+            addHttpNetworkBlockedDiagnosis(strategyFacts, diagnoses, seen)
         }
 
         private fun addStrategyExhaustionDiagnosis(
@@ -536,6 +537,28 @@ class DiagnosticsFindingProjector
                     Diagnosis(
                         code = "quic_total_failure",
                         summary = "QUIC is completely blocked on this network",
+                        evidence = targets,
+                    ),
+                )
+            }
+        }
+
+        private fun addHttpNetworkBlockedDiagnosis(
+            strategyFacts: List<ObservationFact>,
+            diagnoses: MutableList<Diagnosis>,
+            seen: MutableSet<String>,
+        ) {
+            val httpFacts = strategyFacts.filter { it.strategy?.protocol == StrategyProbeProtocol.HTTP }
+            if (httpFacts.size < 2) return
+            val anySuccess = httpFacts.any { it.strategy?.status == StrategyProbeStatus.SUCCESS }
+            if (!anySuccess) {
+                val targets = httpFacts.mapNotNull { parseDomainFromTarget(it.target) }.distinct()
+                pushDiagnosis(
+                    diagnoses,
+                    seen,
+                    Diagnosis(
+                        code = "http_network_blocked",
+                        summary = "HTTP port 80 is blocked network-wide",
                         evidence = targets,
                     ),
                 )
