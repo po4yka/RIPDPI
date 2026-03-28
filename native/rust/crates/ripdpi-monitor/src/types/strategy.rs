@@ -91,6 +91,8 @@ pub struct StrategyProbeAuditCoverage {
     pub quic_winner_total_targets: usize,
     pub matrix_coverage_percent: usize,
     pub winner_coverage_percent: usize,
+    pub tcp_winner_coverage_percent: usize,
+    pub quic_winner_coverage_percent: usize,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
