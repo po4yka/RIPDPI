@@ -453,8 +453,12 @@ pub(crate) fn run_http_strategy_probe(
         "http_blockpage".to_string()
     } else if observation.status == "http_ok" {
         "http_ok".to_string()
-    } else {
+    } else if observation.status.starts_with("http_status_3") {
+        "http_redirect".to_string()
+    } else if observation.error.is_some() {
         "http_unreachable".to_string()
+    } else {
+        observation.status.clone()
     };
     ProbeSample {
         result: ProbeResult {
@@ -474,10 +478,12 @@ pub(crate) fn run_http_strategy_probe(
                 },
             ],
         },
-        success: outcome == "http_ok",
+        success: outcome == "http_ok" || outcome == "http_redirect",
         weight: 1,
         quality: if outcome == "http_ok" {
             3
+        } else if outcome == "http_redirect" {
+            2
         } else if outcome == "http_blockpage" {
             1
         } else {
