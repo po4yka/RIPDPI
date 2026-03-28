@@ -90,6 +90,7 @@ tokio = { version = "1", default-features = false }
 tokio-rustls = { version = "0.26", default-features = false }
 tokio-util = { version = "0.7", default-features = false }
 tracing = "0.1"
+md5 = "0.7"
 tracing-log = "0.2"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "std"] }
 url = "2"

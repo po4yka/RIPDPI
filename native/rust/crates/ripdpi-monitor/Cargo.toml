@@ -19,6 +19,8 @@ ripdpi-proxy-config = { workspace = true }
 ripdpi-runtime = { workspace = true }
 ripdpi-telemetry = { workspace = true }
 ripdpi-ws-tunnel = { workspace = true }
+libc = { workspace = true }
+md5 = { workspace = true }
 metrics = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
