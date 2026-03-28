@@ -28,8 +28,8 @@ pub(super) use protocol_io::resolve_name;
 use super::state::{RuntimeState, HANDSHAKE_TIMEOUT};
 
 pub(super) fn handle_client(mut client: TcpStream, state: &RuntimeState) -> io::Result<()> {
-    client.set_read_timeout(Some(HANDSHAKE_TIMEOUT))?;
-    client.set_write_timeout(Some(HANDSHAKE_TIMEOUT))?;
+    let _ = client.set_read_timeout(Some(HANDSHAKE_TIMEOUT));
+    let _ = client.set_write_timeout(Some(HANDSHAKE_TIMEOUT));
     if state.config.network.transparent {
         return handle_transparent(client, state);
     }
@@ -203,7 +203,7 @@ fn handle_socks5_udp_associate(mut client: TcpStream, state: &RuntimeState) -> i
         .spawn(move || super::udp::udp_associate_loop(relay.client, worker_protect_path, worker_state, worker_running))
         .map_err(|err| io::Error::other(format!("failed to spawn UDP relay thread: {err}")))?;
 
-    client.set_read_timeout(Some(Duration::from_millis(250)))?;
+    let _ = client.set_read_timeout(Some(Duration::from_millis(250)));
     let mut buffer = [0u8; 64];
     loop {
         match client.read(&mut buffer) {

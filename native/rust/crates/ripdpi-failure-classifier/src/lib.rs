@@ -156,7 +156,8 @@ pub fn classify_transport_error(stage: FailureStage, error: &io::Error) -> Class
         | io::ErrorKind::HostUnreachable
         | io::ErrorKind::NetworkUnreachable
         | io::ErrorKind::NotConnected
-        | io::ErrorKind::AddrNotAvailable => ClassifiedFailure::new(
+        | io::ErrorKind::AddrNotAvailable
+        | io::ErrorKind::ReadOnlyFilesystem => ClassifiedFailure::new(
             FailureClass::ConnectFailure,
             stage,
             FailureAction::RetryWithMatchingGroup,
