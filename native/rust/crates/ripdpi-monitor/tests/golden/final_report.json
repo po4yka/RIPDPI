@@ -9,8 +9,10 @@
       "dns": null,
       "domain": {
         "certificateAnomaly": false,
+        "h3Advertised": false,
         "host": "127.0.0.1",
         "httpStatus": "BLOCKPAGE",
+        "isControl": false,
         "tls12Status": "HANDSHAKE_FAILED",
         "tls13Status": "HANDSHAKE_FAILED",
         "tlsEchError": "Connection refused (os error _)",
@@ -106,6 +108,18 @@
         {
           "key": "httpResponse",
           "value": "403 Forbidden server=unknown"
+        },
+        {
+          "key": "h3Advertised",
+          "value": "false"
+        },
+        {
+          "key": "altSvc",
+          "value": "none"
+        },
+        {
+          "key": "isControl",
+          "value": "false"
         }
       ],
       "outcome": "http_blockpage",
