@@ -18,6 +18,12 @@ class SettingsPage(BasePage):
     BACKUP_PIN_FIELD = "settings-backup-pin-field"
     BACKUP_PIN_SAVE = "settings-backup-pin-save"
     ABOUT = "settings-about"
+    BACKUP_PIN_CLEAR = "settings-backup-pin-clear"
+    BACKUP_PIN_WARNING = "settings-backup-pin-warning"
+    CUSTOMIZATION = "settings-customization"
+    BACKGROUND_GUIDANCE_BANNER = "settings-background-guidance-banner"
+    SUPPORT_BUNDLE = "settings-support-bundle"
+    DATA_TRANSPARENCY = "settings-data-transparency"
 
     def is_loaded(self) -> bool:
         return self.is_visible(self.SCREEN)
@@ -34,6 +40,10 @@ class SettingsPage(BasePage):
     def tap_theme_dropdown(self) -> None:
         self.tap(self.THEME_DROPDOWN)
 
+    def select_theme_option(self, option: str) -> None:
+        """Select a theme from the dropdown (e.g. 'dark', 'light', 'system')."""
+        self.tap(f"settings-theme-dropdown-option-{option}")
+
     def tap_biometric_toggle(self) -> None:
         self.scroll_to(self.BIOMETRIC)
         self.tap(self.BIOMETRIC)
@@ -46,3 +56,10 @@ class SettingsPage(BasePage):
 
     def is_backup_pin_field_visible(self) -> bool:
         return self.is_visible(self.BACKUP_PIN_FIELD)
+
+    def is_background_guidance_visible(self) -> bool:
+        return self.is_visible(self.BACKGROUND_GUIDANCE_BANNER)
+
+    def tap_customization(self) -> None:
+        self.scroll_to(self.CUSTOMIZATION)
+        self.tap(self.CUSTOMIZATION)
