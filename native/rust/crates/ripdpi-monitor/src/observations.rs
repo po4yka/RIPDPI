@@ -73,6 +73,9 @@ pub(crate) fn observation_for_probe(result: &ProbeResult) -> Option<ProbeObserva
                     .map(str::to_string),
                 certificate_anomaly: result.outcome == "tls_cert_invalid"
                     || detail_value(result, "tlsSignal") == Some("tls_cert_invalid"),
+                is_control: detail_value(result, "isControl").is_some_and(|value| value == "true"),
+                h3_advertised: detail_value(result, "h3Advertised") == Some("true"),
+                alt_svc: detail_value(result, "altSvc").filter(|v| *v != "none").map(str::to_string),
             }),
             tcp: None,
             quic: None,
@@ -254,6 +257,7 @@ pub(crate) fn observation_for_probe(result: &ProbeResult) -> Option<ProbeObserva
                 } else {
                     None
                 },
+                h3_advertised: detail_value(result, "h3Advertised") == Some("true"),
             }),
             evidence: vec![result.outcome.clone()],
         }),

@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::io::{ErrorKind, Read, Write};
 
+use crate::blockpage_fingerprints::{match_blockpage, BlockpageFingerprint};
 use crate::tls::{open_probe_stream, TlsClientProfile};
 use crate::transport::{ConnectionStream, TargetAddress, TransportConfig};
 use crate::util::*;
@@ -162,6 +163,19 @@ pub(crate) fn classify_http_response(response: &HttpResponse) -> String {
     } else {
         format!("http_status_{}", response.status_code)
     }
+}
+
+/// Classify an HTTP response using the fingerprint database first, then fall
+/// back to the existing heuristic classification.  Returns the classification
+/// string and, when a fingerprint matched, its name.
+pub(crate) fn classify_http_response_with_fingerprints(
+    response: &HttpResponse,
+    fingerprints: &[BlockpageFingerprint],
+) -> (String, Option<String>) {
+    if let Some(fp_name) = match_blockpage(response, fingerprints) {
+        return ("http_blockpage".to_string(), Some(fp_name));
+    }
+    (classify_http_response(response), None)
 }
 
 pub(crate) fn describe_http_observation(observation: &HttpObservation) -> String {
@@ -426,5 +440,39 @@ mod tests {
             body: vec![],
         };
         assert_eq!(classify_http_response(&response), "http_status_307");
+    }
+
+    #[test]
+    fn alt_svc_header_preserved_in_response() {
+        let mut headers = HashMap::new();
+        headers.insert("alt-svc".to_string(), "h3=\":443\"; ma=86400".to_string());
+        let response = HttpResponse { status_code: 200, reason: "OK".to_string(), headers, body: b"ok".to_vec() };
+        let alt_svc = response.headers.get("alt-svc").unwrap();
+        assert!(alt_svc.contains("h3"));
+        assert!(!alt_svc.contains("h2")); // Only h3 in this value
+    }
+
+    #[test]
+    fn alt_svc_header_detects_h3_among_multiple_protocols() {
+        let mut headers = HashMap::new();
+        headers.insert("alt-svc".to_string(), "h3=\":443\", h2=\":443\"; ma=86400".to_string());
+        let response = HttpResponse { status_code: 200, reason: "OK".to_string(), headers, body: b"ok".to_vec() };
+        let alt_svc = response.headers.get("alt-svc").unwrap();
+        assert!(alt_svc.contains("h3"));
+        assert!(alt_svc.contains("h2"));
+    }
+
+    #[test]
+    fn alt_svc_header_absent_returns_none() {
+        let response =
+            HttpResponse { status_code: 200, reason: "OK".to_string(), headers: HashMap::new(), body: b"ok".to_vec() };
+        assert!(response.headers.get("alt-svc").is_none());
+    }
+
+    #[test]
+    fn parse_http_response_preserves_alt_svc_header() {
+        let raw_headers = b"HTTP/1.1 200 OK\r\nAlt-Svc: h3=\":443\"; ma=86400\r\nServer: nginx";
+        let response = parse_http_response(raw_headers, vec![]).unwrap();
+        assert_eq!(response.headers.get("alt-svc").unwrap(), "h3=\":443\"; ma=86400");
     }
 }

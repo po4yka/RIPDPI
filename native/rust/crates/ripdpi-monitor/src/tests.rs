@@ -76,6 +76,7 @@ fn strategy_probe_request_with_runtime_context(
             https_port: Some(9),
             http_port: Some(8080),
             http_path: "/".to_string(),
+            is_control: false,
         }],
         dns_targets: vec![],
         tcp_targets: vec![],
@@ -308,6 +309,7 @@ fn domain_probe_reports_tls_certificate_anomaly() {
         https_port: Some(server.port()),
         http_port: Some(9),
         http_path: "/".to_string(),
+        is_control: false,
     };
 
     let result = run_domain_probe(&target, &TransportConfig::Direct, None);
@@ -392,6 +394,7 @@ fn domain_probe_reports_http_blockpage() {
         https_port: Some(9),
         http_port: Some(server.port()),
         http_path: "/".to_string(),
+        is_control: false,
     };
 
     let result = run_domain_probe(&target, &TransportConfig::Direct, None);
@@ -656,6 +659,7 @@ fn baseline_dns_tampering_uses_runtime_context_before_candidate_trials() {
             https_port: Some(443),
             http_port: Some(80),
             http_path: "/".to_string(),
+            is_control: false,
         }],
         Some(&runtime_context),
     )
@@ -760,6 +764,7 @@ fn monitor_session_strategy_probe_marks_dns_short_circuit_completion_kind() {
         https_port: Some(443),
         http_port: Some(80),
         http_path: "/".to_string(),
+        is_control: false,
     }];
     let session = MonitorSession::new();
 
@@ -784,6 +789,7 @@ fn monitor_session_full_matrix_strategy_probe_reports_audit_assessment() {
             https_port: Some(9),
             http_port: Some(server.port()),
             http_path: "/".to_string(),
+            is_control: false,
         },
         DomainTarget {
             host: "discord.com".to_string(),
@@ -791,6 +797,7 @@ fn monitor_session_full_matrix_strategy_probe_reports_audit_assessment() {
             https_port: Some(9),
             http_port: Some(server.port()),
             http_path: "/".to_string(),
+            is_control: false,
         },
         DomainTarget {
             host: "proton.me".to_string(),
@@ -798,6 +805,7 @@ fn monitor_session_full_matrix_strategy_probe_reports_audit_assessment() {
             https_port: Some(9),
             http_port: Some(server.port()),
             http_path: "/".to_string(),
+            is_control: false,
         },
     ];
     request.quic_targets = vec![
@@ -873,6 +881,7 @@ fn monitor_session_full_matrix_marks_dns_short_circuit_completion_kind() {
         https_port: Some(443),
         http_port: Some(80),
         http_path: "/".to_string(),
+        is_control: false,
     }];
     request.quic_targets = vec![QuicTarget {
         host: "blocked.example".to_string(),
@@ -1008,6 +1017,7 @@ fn monitor_session_drains_passive_events_with_probe_details() {
             https_port: Some(9),
             http_port: Some(server.port()),
             http_path: "/".to_string(),
+            is_control: false,
         }],
         dns_targets: vec![],
         tcp_targets: vec![],
@@ -1122,6 +1132,7 @@ fn monitor_json_contracts_match_goldens() {
             https_port: Some(9),
             http_port: Some(server.port()),
             http_path: "/".to_string(),
+            is_control: false,
         }],
         dns_targets: vec![],
         tcp_targets: vec![],

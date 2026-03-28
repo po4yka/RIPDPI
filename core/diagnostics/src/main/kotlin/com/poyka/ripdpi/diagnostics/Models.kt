@@ -37,6 +37,7 @@ data class DomainTarget(
     val httpsPort: Int? = null,
     val httpPort: Int? = null,
     val httpPath: String = "/",
+    val isControl: Boolean = false,
 )
 
 @Serializable
@@ -153,6 +154,7 @@ data class Diagnosis(
     val target: String? = null,
     val evidence: List<String> = emptyList(),
     val recommendation: String? = null,
+    val controlValidated: Boolean? = null,
 )
 
 @Serializable
@@ -300,6 +302,9 @@ data class DomainObservationFact(
     val transportFailure: TransportFailureKind = TransportFailureKind.NONE,
     val tlsError: String? = null,
     val certificateAnomaly: Boolean = false,
+    val isControl: Boolean = false,
+    val h3Advertised: Boolean = false,
+    val altSvc: String? = null,
 )
 
 @Serializable
@@ -370,6 +375,7 @@ data class StrategyObservationFact(
     val tlsEchResolutionDetail: String? = null,
     val transportFailure: TransportFailureKind = TransportFailureKind.NONE,
     val tlsError: String? = null,
+    val h3Advertised: Boolean = false,
 )
 
 @Serializable

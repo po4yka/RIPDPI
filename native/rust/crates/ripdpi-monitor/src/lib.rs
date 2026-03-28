@@ -1,3 +1,4 @@
+mod blockpage_fingerprints;
 mod candidates;
 mod classification;
 mod connectivity;

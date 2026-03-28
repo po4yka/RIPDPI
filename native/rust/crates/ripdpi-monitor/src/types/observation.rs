@@ -148,6 +148,12 @@ pub struct DomainObservationFact {
     pub tls_error: Option<String>,
     #[serde(default)]
     pub certificate_anomaly: bool,
+    #[serde(default)]
+    pub is_control: bool,
+    #[serde(default)]
+    pub h3_advertised: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub alt_svc: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -258,6 +264,8 @@ pub struct StrategyObservationFact {
     pub transport_failure: TransportFailureKind,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub tls_error: Option<String>,
+    #[serde(default)]
+    pub h3_advertised: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
