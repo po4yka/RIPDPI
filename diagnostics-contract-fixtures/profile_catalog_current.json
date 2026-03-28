@@ -2003,6 +2003,32 @@
           "2gis.com"
         ]
       }
+    },
+    {
+      "id": "path-comparison",
+      "name": "Path comparison",
+      "version": 1,
+      "request": {
+        "profileId": "path-comparison",
+        "displayName": "Path comparison",
+        "kind": "CONNECTIVITY",
+        "family": "CIRCUMVENTION",
+        "executionPolicy": {
+          "manualOnly": true,
+          "allowBackground": false,
+          "requiresRawPath": false,
+          "probePersistencePolicy": "MANUAL_ONLY"
+        },
+        "packRefs": [],
+        "domainTargets": [],
+        "dnsTargets": [],
+        "tcpTargets": [],
+        "quicTargets": [],
+        "serviceTargets": [],
+        "circumventionTargets": [],
+        "throughputTargets": [],
+        "whitelistSni": []
+      }
     }
   ]
 }

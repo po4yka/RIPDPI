@@ -5,6 +5,7 @@ import com.poyka.ripdpi.core.RipDpiProtocolConfig
 import com.poyka.ripdpi.core.RipDpiProxyUIPreferences
 import com.poyka.ripdpi.core.RipDpiQuicConfig
 import com.poyka.ripdpi.data.AppStatus
+import com.poyka.ripdpi.data.DnsModePlainUdp
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.NetworkFingerprint
 import com.poyka.ripdpi.data.TcpChainStepKind
@@ -331,11 +332,12 @@ class DiagnosticsScanWorkflowTest {
     @Test
     fun `temporary resolver override applied when no strategy probe and conditions met`() {
         val report = scanReportWithResolverRecommendation()
+        val plainUdpSettings = settingsWithPlainUdpDns()
 
         assertTrue(
             DiagnosticsScanWorkflow.shouldApplyTemporaryResolverOverride(
                 report = report,
-                settings = settings,
+                settings = plainUdpSettings,
                 serviceStatus = AppStatus.Running,
                 serviceMode = Mode.VPN,
             ),
@@ -351,11 +353,12 @@ class DiagnosticsScanWorkflowTest {
                 quicFamily = "quic_realistic_burst",
                 completionKind = StrategyProbeCompletionKind.NORMAL,
             ).copy(resolverRecommendation = resolverRecommendation())
+        val plainUdpSettings = settingsWithPlainUdpDns()
 
         assertFalse(
             DiagnosticsScanWorkflow.shouldApplyTemporaryResolverOverride(
                 report = report,
-                settings = settings,
+                settings = plainUdpSettings,
                 serviceStatus = AppStatus.Running,
                 serviceMode = Mode.VPN,
             ),
@@ -371,11 +374,12 @@ class DiagnosticsScanWorkflowTest {
                 quicFamily = "quic_realistic_burst",
                 completionKind = StrategyProbeCompletionKind.DNS_SHORT_CIRCUITED,
             ).copy(resolverRecommendation = resolverRecommendation())
+        val plainUdpSettings = settingsWithPlainUdpDns()
 
         assertTrue(
             DiagnosticsScanWorkflow.shouldApplyTemporaryResolverOverride(
                 report = report,
-                settings = settings,
+                settings = plainUdpSettings,
                 serviceStatus = AppStatus.Running,
                 serviceMode = Mode.VPN,
             ),
@@ -391,17 +395,24 @@ class DiagnosticsScanWorkflowTest {
                 quicFamily = "quic_realistic_burst",
                 completionKind = StrategyProbeCompletionKind.DNS_SHORT_CIRCUITED,
             )
+        val plainUdpSettings = settingsWithPlainUdpDns()
 
         assertFalse(
             DiagnosticsScanWorkflow.shouldApplyTemporaryResolverOverride(
                 report = report,
-                settings = settings,
+                settings = plainUdpSettings,
                 serviceStatus = AppStatus.Running,
                 serviceMode = Mode.VPN,
             ),
         )
     }
 }
+
+private fun settingsWithPlainUdpDns() =
+    defaultDiagnosticsAppSettings()
+        .toBuilder()
+        .setDnsMode(DnsModePlainUdp)
+        .build()
 
 private fun scanReportWithResolverRecommendation(): ScanReport =
     ScanReport(
