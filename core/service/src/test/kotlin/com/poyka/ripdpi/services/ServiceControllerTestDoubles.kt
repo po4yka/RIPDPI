@@ -599,3 +599,9 @@ internal fun sampleResolution(
 internal class TestPermissionWatchdog : PermissionWatchdog {
     override val changes: SharedFlow<PermissionChangeEvent> = MutableSharedFlow()
 }
+
+internal class TestScreenStateObserver(
+    interactive: Boolean = true,
+) : ScreenStateObserver {
+    override val isInteractive: StateFlow<Boolean> = MutableStateFlow(interactive)
+}

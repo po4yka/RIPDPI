@@ -34,6 +34,7 @@ class ServiceRuntimeCoordinatorFactoryTest {
                     proxyRuntimeSupervisorFactory = proxyFactory,
                     serviceStatusReporterFactory = statusFactory,
                     permissionWatchdog = TestPermissionWatchdog(),
+                    screenStateObserver = TestScreenStateObserver(),
                 )
 
             coordinatorFactory.create(host)
@@ -70,6 +71,7 @@ class ServiceRuntimeCoordinatorFactoryTest {
                             resolverOverrideStore = overrides,
                         ),
                     proxyRuntimeSupervisorFactory = proxyFactory,
+                    screenStateObserver = TestScreenStateObserver(),
                 )
             val statusDependencies =
                 VpnServiceRuntimeStatusDependencies(

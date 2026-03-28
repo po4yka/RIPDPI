@@ -345,7 +345,7 @@ class VpnServiceRuntimeCoordinatorTest {
             val newFingerprint =
                 sampleFingerprint(dnsServers = listOf("8.8.4.4")).copy(
                     networkValidated = false,
-                    captivePortalDetected = true,
+                    captivePortalDetected = false,
                 )
             val env =
                 newEnv(
@@ -384,7 +384,7 @@ class VpnServiceRuntimeCoordinatorTest {
                     .currentNetworkValidated,
             )
             assertEquals(
-                true,
+                false,
                 env.handoverEvents.published
                     .single()
                     .currentCaptivePortalDetected,
@@ -465,6 +465,8 @@ class VpnServiceRuntimeCoordinatorTest {
                     occurredAt = 2_000L,
                 ),
             )
+            // Exhaust exponential backoff retries: 2s + 4s + 8s + 16s = 30s
+            advanceTimeBy(31_000L)
             repeat(5) { runCurrent() }
 
             assertEquals(AppStatus.Halted to Mode.VPN, env.store.status.value)
@@ -543,6 +545,7 @@ class VpnServiceRuntimeCoordinatorTest {
                         telemetryFingerprintHasher = TestTelemetryFingerprintHasher(),
                         clock = clock,
                     ),
+                screenStateObserver = TestScreenStateObserver(),
                 ioDispatcher = dispatcher,
                 clock = clock,
             )

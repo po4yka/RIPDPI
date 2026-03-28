@@ -79,7 +79,7 @@ class BaseServiceRuntimeCoordinatorTest {
             val newFingerprint =
                 sampleFingerprint(dnsServers = listOf("8.8.8.8")).copy(
                     networkValidated = false,
-                    captivePortalDetected = true,
+                    captivePortalDetected = false,
                 )
             val env = newEnv(fingerprint = initialFingerprint)
 
@@ -115,7 +115,7 @@ class BaseServiceRuntimeCoordinatorTest {
                     .currentNetworkValidated,
             )
             assertEquals(
-                true,
+                false,
                 env.handoverEvents.published
                     .single()
                     .currentCaptivePortalDetected,

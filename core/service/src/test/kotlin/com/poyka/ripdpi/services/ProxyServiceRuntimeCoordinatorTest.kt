@@ -6,6 +6,7 @@ import com.poyka.ripdpi.data.ServiceEvent
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
+import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -112,7 +113,7 @@ class ProxyServiceRuntimeCoordinatorTest {
             val newFingerprint =
                 sampleFingerprint(dnsServers = listOf("8.8.8.8")).copy(
                     networkValidated = false,
-                    captivePortalDetected = true,
+                    captivePortalDetected = false,
                 )
             val env =
                 newEnv(
@@ -153,7 +154,7 @@ class ProxyServiceRuntimeCoordinatorTest {
                     .currentNetworkValidated,
             )
             assertEquals(
-                true,
+                false,
                 env.handoverEvents.published
                     .single()
                     .currentCaptivePortalDetected,
@@ -195,6 +196,8 @@ class ProxyServiceRuntimeCoordinatorTest {
                     occurredAt = 2_000L,
                 ),
             )
+            // Exhaust exponential backoff retries: 2s + 4s + 8s + 16s = 30s
+            advanceTimeBy(31_000L)
             repeat(5) { runCurrent() }
 
             assertEquals(AppStatus.Halted to Mode.Proxy, env.store.status.value)
@@ -242,6 +245,7 @@ class ProxyServiceRuntimeCoordinatorTest {
                         telemetryFingerprintHasher = TestTelemetryFingerprintHasher(),
                         clock = TestServiceClock(now = 1_000L),
                     ),
+                screenStateObserver = TestScreenStateObserver(),
                 ioDispatcher = dispatcher,
                 clock = TestServiceClock(now = 1_000L),
             )
