@@ -828,12 +828,7 @@ mod tests {
 
     #[test]
     fn classified_failure_json_uses_camel_case_fields() {
-        let f = ClassifiedFailure::new(
-            FailureClass::Unknown,
-            FailureStage::Dns,
-            FailureAction::None,
-            "test",
-        );
+        let f = ClassifiedFailure::new(FailureClass::Unknown, FailureStage::Dns, FailureAction::None, "test");
         let json = serde_json::to_string(&f).unwrap();
         assert!(json.contains("\"statusCode\"") == false, "should not contain statusCode");
         // camelCase field names from #[serde(rename_all = "camelCase")]
@@ -942,15 +937,8 @@ mod tests {
 
     #[test]
     fn strategy_execution_recognizes_all_capability_errnos() {
-        let errnos = [
-            libc::EINVAL,
-            libc::ENOPROTOOPT,
-            libc::EOPNOTSUPP,
-            libc::ENOTSUP,
-            libc::EPERM,
-            libc::EACCES,
-            libc::EROFS,
-        ];
+        let errnos =
+            [libc::EINVAL, libc::ENOPROTOOPT, libc::EOPNOTSUPP, libc::ENOTSUP, libc::EPERM, libc::EACCES, libc::EROFS];
         for errno in errnos {
             let f = classify_strategy_execution_failure(
                 FailureStage::FirstWrite,

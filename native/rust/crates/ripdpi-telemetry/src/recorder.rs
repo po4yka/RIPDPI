@@ -414,8 +414,10 @@ mod tests {
         let mut gauges = BTreeMap::new();
         gauges.insert("active_conns".to_string(), 5);
         let mut histograms = BTreeMap::new();
-        histograms
-            .insert("latency".to_string(), LatencyPercentiles { p50: 10, p95: 50, p99: 99, min: 1, max: 200, count: 100 });
+        histograms.insert(
+            "latency".to_string(),
+            LatencyPercentiles { p50: 10, p95: 50, p99: 99, min: 1, max: 200, count: 100 },
+        );
 
         let snap = RecorderSnapshot { counters, gauges, histograms, captured_at: 1700000000000 };
         let json = serde_json::to_string(&snap).expect("serialize");
