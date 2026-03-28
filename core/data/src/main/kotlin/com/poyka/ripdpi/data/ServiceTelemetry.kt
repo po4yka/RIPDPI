@@ -131,6 +131,10 @@ private fun classifyFailureReasonDirectly(failureReason: FailureReason?): Failur
                 ?.let(::classifyFailureText)
                 ?: FailureClass.Unexpected
         }
+
+        is FailureReason.PermissionLost -> {
+            FailureClass.Unexpected
+        }
     }
 
 private fun latestFailureText(
