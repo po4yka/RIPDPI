@@ -673,10 +673,7 @@ mod tests {
         // IP > 0.0.0.255 means direct IP, no domain resolution
         let request = vec![S_VER4, S_CMD_CONN, 0x00, 0x50, 10, 0, 0, 1, 0];
         let parsed = parse_socks4_request(&request, SessionConfig::default(), &resolver).expect("direct ip");
-        assert_eq!(
-            parsed,
-            ClientRequest::Socks4Connect(TargetAddr { addr: SocketAddr::from(([10, 0, 0, 1], 80)) })
-        );
+        assert_eq!(parsed, ClientRequest::Socks4Connect(TargetAddr { addr: SocketAddr::from(([10, 0, 0, 1], 80)) }));
     }
 
     #[test]
@@ -735,7 +732,8 @@ mod tests {
 
     #[test]
     fn parse_socks5_request_too_short() {
-        let result = parse_socks5_request(&[0x05, 0x01, 0, 0x01], SocketType::Stream, SessionConfig::default(), &resolver);
+        let result =
+            parse_socks5_request(&[0x05, 0x01, 0, 0x01], SocketType::Stream, SessionConfig::default(), &resolver);
         assert!(result.is_err());
         assert_eq!(result.unwrap_err().code, S_ER_GEN);
     }
