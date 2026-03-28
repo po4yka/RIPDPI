@@ -268,6 +268,7 @@ private fun NavGraphBuilder.addPrimaryRoutes(
             onSaveLogs = actions.onSaveLogs,
             onOpenAdvancedSettings = { navController.navigate(Route.AdvancedSettings.route) },
             onOpenDnsSettings = { navController.navigate(Route.DnsSettings.route) },
+            onRequestVpnPermission = mainViewModel::onOpenVpnPermissionRequested,
             onOpenHistory = { navController.navigate(Route.History.route) { launchSingleTop = true } },
             initialSection = diagnosticsInitialSection,
             onInitialSectionHandled = { onDiagnosticsInitialSectionChanged(null) },

@@ -1099,6 +1099,42 @@ class DiagnosticsScreenTest {
         composeRule.onNodeWithTag(RipDpiTestTags.DiagnosticsWorkflowRestrictionCard).assertDoesNotExist()
     }
 
+    @Test
+    fun vpnPermissionWarningRenderedForStrategyProbeWhenVpnDisabled() {
+        var vpnPermissionClicks = 0
+
+        setScanScreen(
+            scan =
+                DiagnosticsScanUiModel(
+                    selectedProfile =
+                        DiagnosticsProfileOptionUiModel(
+                            id = "automatic-probing",
+                            name = "Automatic probing",
+                            source = "bundled",
+                            kind = ScanKind.STRATEGY_PROBE,
+                            strategyProbeSuiteId = "quick_v1",
+                        ),
+                    runRawEnabled = true,
+                    runInPathEnabled = false,
+                    workflowRestriction =
+                        vpnPermissionRestriction(
+                            title = "VPN permission recommended",
+                            body =
+                                "Automatic probing recommendations assume VPN routing. " +
+                                    "Without VPN permission, the recommended strategy cannot be applied " +
+                                    "in VPN mode. Grant permission before running this audit for actionable results.",
+                        ),
+                ),
+            onRequestVpnPermission = { vpnPermissionClicks += 1 },
+        )
+
+        composeRule.onRoot().performTouchInput { swipeUp() }
+        composeRule.onNodeWithTag(RipDpiTestTags.DiagnosticsWorkflowRestrictionCard).fetchSemanticsNode()
+        composeRule.onNodeWithText("Use command line settings").assertDoesNotExist()
+        composeRule.onNodeWithTag(RipDpiTestTags.DiagnosticsWorkflowRestrictionAction).performClick()
+        composeRule.runOnIdle { assertEquals(1, vpnPermissionClicks) }
+    }
+
     private fun auditReport(
         candidateDetail: DiagnosticsStrategyProbeCandidateDetailUiModel,
         quicCandidateDetail: DiagnosticsStrategyProbeCandidateDetailUiModel = auditQuicCandidateDetail(),
@@ -1303,6 +1339,7 @@ class DiagnosticsScreenTest {
     private fun setScanScreen(
         scan: DiagnosticsScanUiModel,
         onOpenAdvancedSettings: () -> Unit = {},
+        onRequestVpnPermission: () -> Unit = {},
     ) {
         composeRule.setContent {
             val pagerState =
@@ -1348,6 +1385,7 @@ class DiagnosticsScreenTest {
                     onSaveArchive = {},
                     onSaveLogs = {},
                     onOpenAdvancedSettings = onOpenAdvancedSettings,
+                    onRequestVpnPermission = onRequestVpnPermission,
                     onOpenHistory = {},
                 )
             }
@@ -1363,6 +1401,17 @@ class DiagnosticsScreenTest {
         body = body,
         actionLabel = "Open Advanced Settings",
         actionKind = DiagnosticsWorkflowRestrictionActionKindUiModel.OPEN_ADVANCED_SETTINGS,
+    )
+
+    private fun vpnPermissionRestriction(
+        title: String,
+        body: String,
+    ) = DiagnosticsWorkflowRestrictionUiModel(
+        reason = DiagnosticsWorkflowRestrictionReasonUiModel.VPN_PERMISSION_DISABLED,
+        title = title,
+        body = body,
+        actionLabel = "Grant VPN permission",
+        actionKind = DiagnosticsWorkflowRestrictionActionKindUiModel.OPEN_VPN_PERMISSION,
     )
 
     // -- Characterization tests: section switching --

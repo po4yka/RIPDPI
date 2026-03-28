@@ -82,6 +82,7 @@ internal fun ScanSection(
     onRunInPathScan: () -> Unit,
     onCancelScan: () -> Unit,
     onOpenAdvancedSettings: () -> Unit,
+    onRequestVpnPermission: () -> Unit,
     onKeepResolverRecommendation: (String?) -> Unit,
     onSaveResolverRecommendation: (String?) -> Unit,
     onSelectStrategyProbeCandidate: (DiagnosticsStrategyProbeCandidateDetailUiModel) -> Unit,
@@ -142,6 +143,7 @@ internal fun ScanSection(
                     onRunInPathScan = onRunInPathScan,
                     onCancelScan = onCancelScan,
                     onOpenAdvancedSettings = onOpenAdvancedSettings,
+                    onRequestVpnPermission = onRequestVpnPermission,
                     modifier = Modifier.ripDpiTestTag(scanStateTag),
                 )
             }
@@ -618,6 +620,7 @@ internal fun DiagnosticsScanWorkflowCard(
     onRunInPathScan: () -> Unit,
     onCancelScan: () -> Unit,
     onOpenAdvancedSettings: () -> Unit,
+    onRequestVpnPermission: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val colors = RipDpiThemeTokens.colors
@@ -656,6 +659,7 @@ internal fun DiagnosticsScanWorkflowCard(
             WorkflowRestrictionCard(
                 restriction = restriction,
                 onOpenAdvancedSettings = onOpenAdvancedSettings,
+                onRequestVpnPermission = onRequestVpnPermission,
             )
         }
         scan.runRawHint?.let { hint ->
@@ -719,33 +723,57 @@ private data class WorkflowBadgeUiModel(
 private fun WorkflowRestrictionCard(
     restriction: com.poyka.ripdpi.activities.DiagnosticsWorkflowRestrictionUiModel,
     onOpenAdvancedSettings: () -> Unit,
+    onRequestVpnPermission: () -> Unit,
 ) {
     val spacing = RipDpiThemeTokens.spacing
+    val isVpnWarning =
+        restriction.reason ==
+            com.poyka.ripdpi.activities.DiagnosticsWorkflowRestrictionReasonUiModel.VPN_PERMISSION_DISABLED
     RipDpiCard(
         variant = RipDpiCardVariant.Elevated,
         modifier = Modifier.ripDpiTestTag(RipDpiTestTags.DiagnosticsWorkflowRestrictionCard),
     ) {
-        StatusIndicator(label = restriction.title, tone = StatusIndicatorTone.Error)
+        StatusIndicator(
+            label = restriction.title,
+            tone = if (isVpnWarning) StatusIndicatorTone.Warning else StatusIndicatorTone.Error,
+        )
         Text(
             text = restriction.body,
             style = RipDpiThemeTokens.type.secondaryBody,
             color = RipDpiThemeTokens.colors.foreground,
         )
-        SettingsRow(
-            title = stringResource(R.string.diagnostics_scan_blocked_setting_label),
-            value = stringResource(R.string.use_command_line_settings),
-        )
-        if (restriction.actionKind == DiagnosticsWorkflowRestrictionActionKindUiModel.OPEN_ADVANCED_SETTINGS) {
-            RipDpiButton(
-                text = restriction.actionLabel,
-                onClick = onOpenAdvancedSettings,
-                variant = RipDpiButtonVariant.Secondary,
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .padding(top = spacing.xs)
-                        .ripDpiTestTag(RipDpiTestTags.DiagnosticsWorkflowRestrictionAction),
+        if (!isVpnWarning) {
+            SettingsRow(
+                title = stringResource(R.string.diagnostics_scan_blocked_setting_label),
+                value = stringResource(R.string.use_command_line_settings),
             )
+        }
+        when (restriction.actionKind) {
+            DiagnosticsWorkflowRestrictionActionKindUiModel.OPEN_ADVANCED_SETTINGS -> {
+                RipDpiButton(
+                    text = restriction.actionLabel,
+                    onClick = onOpenAdvancedSettings,
+                    variant = RipDpiButtonVariant.Secondary,
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(top = spacing.xs)
+                            .ripDpiTestTag(RipDpiTestTags.DiagnosticsWorkflowRestrictionAction),
+                )
+            }
+
+            DiagnosticsWorkflowRestrictionActionKindUiModel.OPEN_VPN_PERMISSION -> {
+                RipDpiButton(
+                    text = restriction.actionLabel,
+                    onClick = onRequestVpnPermission,
+                    variant = RipDpiButtonVariant.Secondary,
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(top = spacing.xs)
+                            .ripDpiTestTag(RipDpiTestTags.DiagnosticsWorkflowRestrictionAction),
+                )
+            }
         }
     }
 }

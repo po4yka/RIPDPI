@@ -136,10 +136,12 @@ enum class DiagnosticsStrategyProbeProgressLaneUiModel {
 
 enum class DiagnosticsWorkflowRestrictionReasonUiModel {
     COMMAND_LINE_MODE_ACTIVE,
+    VPN_PERMISSION_DISABLED,
 }
 
 enum class DiagnosticsWorkflowRestrictionActionKindUiModel {
     OPEN_ADVANCED_SETTINGS,
+    OPEN_VPN_PERMISSION,
 }
 
 @Immutable
