@@ -154,16 +154,13 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@v6
 
-      - name: Run cargo-deny
-        uses: EmbarkStudios/cargo-deny-action@v2
-        with:
-          manifest-path: native/rust/Cargo.toml
-
-
-      - name: Install cargo-nextest
+      - name: Install cargo-deny and cargo-nextest
         uses: taiki-e/install-action@v2
         with:
-          tool: cargo-nextest
+          tool: cargo-deny,cargo-nextest
+
+      - name: Run cargo-deny
+        run: cargo deny --manifest-path native/rust/Cargo.toml check
 
       - name: Run native Rust checks
         env:
