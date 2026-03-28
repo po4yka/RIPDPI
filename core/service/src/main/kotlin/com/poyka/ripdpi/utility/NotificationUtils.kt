@@ -34,7 +34,11 @@ fun registerNotificationChannel(
     channel.enableVibration(false)
     channel.setShowBadge(false)
 
-    manager.createNotificationChannel(channel)
+    try {
+        manager.createNotificationChannel(channel)
+    } catch (e: Exception) {
+        logcat(LogPriority.WARN) { "Failed to create notification channel '$id': ${e.message}" }
+    }
 }
 
 fun createConnectionNotification(

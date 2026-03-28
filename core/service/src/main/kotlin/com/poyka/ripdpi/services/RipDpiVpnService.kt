@@ -18,7 +18,9 @@ import com.poyka.ripdpi.core.Tun2SocksConfig
 import com.poyka.ripdpi.core.service.R
 import com.poyka.ripdpi.data.ActiveDnsSettings
 import com.poyka.ripdpi.data.DnsModeEncrypted
+import com.poyka.ripdpi.data.FailureReason
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
+import com.poyka.ripdpi.data.Sender
 import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.data.TunnelStats
 import com.poyka.ripdpi.utility.NotificationContentBuilder
@@ -26,6 +28,7 @@ import com.poyka.ripdpi.utility.createConnectionNotification
 import com.poyka.ripdpi.utility.createDynamicConnectionNotification
 import com.poyka.ripdpi.utility.registerNotificationChannel
 import dagger.hilt.android.AndroidEntryPoint
+import logcat.LogPriority
 import logcat.logcat
 import javax.inject.Inject
 
@@ -44,6 +47,7 @@ class RipDpiVpnService :
 
     private lateinit var coordinator: VpnServiceRuntimeCoordinator
     private lateinit var shellDelegate: ServiceShellDelegate
+    private var revoked = false
 
     override val serviceScope = lifecycleScope
 
@@ -61,12 +65,20 @@ class RipDpiVpnService :
                 serviceLabel = "vpn",
                 onStart = coordinator::start,
                 onStop = coordinator::stop,
-                onRevoke = { coordinator.stop() },
+                onRevoke = {
+                    serviceStateStore.emitFailed(
+                        sender = Sender.VPN,
+                        reason = FailureReason.NativeError("VPN revoked by system or another app"),
+                    )
+                    coordinator.stop()
+                },
             )
     }
 
     override fun onDestroy() {
-        coordinator.onDestroy()
+        if (!revoked) {
+            coordinator.onDestroy()
+        }
         super.onDestroy()
     }
 
@@ -76,11 +88,20 @@ class RipDpiVpnService :
         startId: Int,
     ): Int {
         super.onStartCommand(intent, flags, startId)
+        if (intent == null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) !=
+            PackageManager.PERMISSION_GRANTED
+        ) {
+            logcat(LogPriority.WARN) { "Sticky restart aborted: notification permission revoked" }
+            stopSelf(startId)
+            return START_NOT_STICKY
+        }
         startForegroundService()
         return shellDelegate.onStartCommand(intent?.action, startId)
     }
 
     override fun onRevoke() {
+        revoked = true
         shellDelegate.onRevoke()
     }
 
@@ -111,8 +132,12 @@ class RipDpiVpnService :
                 service = RipDpiVpnService::class.java,
                 whenTimestamp = startedAt,
             )
-        getSystemService(NotificationManager::class.java)
-            ?.notify(FOREGROUND_SERVICE_ID, notification)
+        try {
+            getSystemService(NotificationManager::class.java)
+                ?.notify(FOREGROUND_SERVICE_ID, notification)
+        } catch (e: SecurityException) {
+            logcat(LogPriority.WARN) { "Cannot update notification: permission revoked" }
+        }
     }
 
     override fun requestStopSelf(stopSelfStartId: Int?) {
