@@ -4,20 +4,20 @@
   "maxTotalGrowthBytes": 262144,
   "libraries": {
     "arm64-v8a": {
-      "libripdpi.so": 5026400,
-      "libripdpi-tunnel.so": 3847456
+      "libripdpi.so": 7599544,
+      "libripdpi-tunnel.so": 4652936
     },
     "armeabi-v7a": {
-      "libripdpi.so": 3232348,
-      "libripdpi-tunnel.so": 2432964
+      "libripdpi.so": 4825556,
+      "libripdpi-tunnel.so": 3049448
     },
     "x86": {
-      "libripdpi.so": 5585440,
-      "libripdpi-tunnel.so": 4155520
+      "libripdpi.so": 6839340,
+      "libripdpi-tunnel.so": 4475488
     },
     "x86_64": {
-      "libripdpi.so": 5789144,
-      "libripdpi-tunnel.so": 4411760
+      "libripdpi.so": 9158728,
+      "libripdpi-tunnel.so": 5168704
     }
   }
 }
