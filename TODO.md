@@ -32,7 +32,7 @@ File path prefix: `app/src/main/kotlin/com/poyka/ripdpi/`
     (keep them for bottom sheet detail).
   - ~40 lines
 
-- [ ] **1.4 Differentiate profile card descriptions by family**
+- [x] **1.4 Differentiate profile card descriptions by family**
   - Files: `ui/screens/diagnostics/DiagnosticsScanSection.kt`,
     `res/values/strings.xml`, `res/values-ru/strings.xml`
   - Write distinct 1-line descriptions for each `DiagnosticProfileFamily`:
