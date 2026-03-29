@@ -34,6 +34,7 @@ internal data class AppSettingsTcpChainSnapshot(
 internal data class AppSettingsUdpChainSnapshot(
     val kind: String,
     val count: Int,
+    val splitBytes: Int = 0,
     val activationFilter: ActivationFilterModel = ActivationFilterModel(),
 )
 
@@ -208,6 +209,7 @@ private fun AppSettings.toSnapshot(): AppSettingsSnapshot =
                     AppSettingsUdpChainSnapshot(
                         kind = it.kind,
                         count = it.count,
+                        splitBytes = it.splitBytes,
                         activationFilter =
                             if (it.hasActivationFilter()) it.activationFilter.toModel() else ActivationFilterModel(),
                     )
@@ -361,6 +363,7 @@ private fun AppSettingsSnapshot.toAppSettings(): AppSettings {
                         .newBuilder()
                         .setKind(step.kind)
                         .setCount(step.count)
+                        .setSplitBytes(step.splitBytes)
                         .apply {
                             val normalizedFilter = normalizeActivationFilter(step.activationFilter)
                             if (!normalizedFilter.isEmpty) {

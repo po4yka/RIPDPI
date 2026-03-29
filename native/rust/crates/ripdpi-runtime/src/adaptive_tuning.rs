@@ -1105,7 +1105,7 @@ mod tests {
         let mut group = DesyncGroup::new(0);
         group.actions.quic_fake_profile = QuicFakeProfile::RealisticInitial;
         group.actions.udp_chain =
-            vec![UdpChainStep { kind: UdpChainStepKind::FakeBurst, count: 2, activation_filter: None }];
+            vec![UdpChainStep { kind: UdpChainStepKind::FakeBurst, count: 2, split_bytes: 0, activation_filter: None }];
 
         let mut resolver = AdaptivePlannerResolver::default();
         let target = addr(443);

@@ -55,6 +55,7 @@ import com.poyka.ripdpi.data.normalizeQuicFakeProfile
 import com.poyka.ripdpi.data.normalizeQuicInitialMode
 import com.poyka.ripdpi.data.normalizeTcpChainStepModel
 import com.poyka.ripdpi.data.normalizeTlsFakeProfile
+import com.poyka.ripdpi.data.normalizeUdpChainStepModel
 import com.poyka.ripdpi.data.normalizeUdpFakeProfile
 import com.poyka.ripdpi.proto.AppSettings
 
@@ -351,6 +352,7 @@ class RipDpiProxyUIPreferences(
 fun RipDpiProxyUIPreferences.deriveStrategyLaneFamilies(activeDns: ActiveDnsSettings? = null): StrategyLaneFamilies =
     deriveStrategyLaneFamilies(
         tcpSteps = chains.tcpSteps,
+        udpSteps = chains.udpSteps,
         desyncUdp = protocols.desyncUdp,
         quicInitialMode = quic.initialMode,
         quicFakeProfile = quic.fakeProfile,
@@ -364,10 +366,7 @@ private fun normalizeChainConfig(config: RipDpiChainConfig): RipDpiChainConfig =
     config.copy(
         groupActivationFilter = normalizeActivationFilter(config.groupActivationFilter),
         tcpSteps = config.tcpSteps.map(::normalizeTcpChainStep),
-        udpSteps =
-            config.udpSteps.map { step ->
-                step.copy(activationFilter = normalizeActivationFilter(step.activationFilter))
-            },
+        udpSteps = config.udpSteps.map(::normalizeUdpChainStepModel),
     )
 
 private fun normalizeFakePacketConfig(config: RipDpiFakePacketConfig): RipDpiFakePacketConfig {

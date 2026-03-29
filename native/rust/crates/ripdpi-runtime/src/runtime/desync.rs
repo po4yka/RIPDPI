@@ -242,6 +242,7 @@ fn primary_tcp_strategy_family(group: &DesyncGroup) -> Option<&'static str> {
         TcpChainStepKind::FakeSplit => "fakedsplit",
         TcpChainStepKind::FakeDisorder => "fakeddisorder",
         TcpChainStepKind::HostFake => "hostfake",
+        TcpChainStepKind::IpFrag2 => "ipfrag2",
         TcpChainStepKind::TlsRec | TcpChainStepKind::TlsRandRec => "tlsrec",
     })
 }
@@ -303,7 +304,7 @@ fn restore_ttl_action_name(strategy_family: &'static str) -> &'static str {
 pub(super) fn requires_special_tcp_execution(group: &DesyncGroup) -> bool {
     let supports_fake_retransmit = platform::supports_fake_retransmit();
     group.effective_tcp_chain().iter().any(|step| {
-        matches!(step.kind, TcpChainStepKind::Fake)
+        matches!(step.kind, TcpChainStepKind::Fake | TcpChainStepKind::IpFrag2)
             || (supports_fake_retransmit
                 && matches!(step.kind, TcpChainStepKind::FakeSplit | TcpChainStepKind::FakeDisorder))
     })
@@ -449,6 +450,55 @@ fn execute_tcp_actions(
                 }
                 DesyncAction::AttachDropSack => {}
                 DesyncAction::DetachDropSack => {}
+                DesyncAction::WriteIpFragmentedTcp { bytes, split_offset } => {
+                    if let Some(strategy_family) = strategy_family {
+                        match send_ip_fragmented_tcp_action_named(
+                            writer,
+                            bytes,
+                            *split_offset,
+                            default_ttl,
+                            None,
+                            "write_ipfrag2",
+                            strategy_family,
+                            fallback,
+                            bytes_committed,
+                        ) {
+                            Ok(committed) => {
+                                bytes_committed = committed;
+                            }
+                            Err(err) if err.kind() == io::ErrorKind::InvalidInput && strategy_family == "ipfrag2" => {
+                                tracing::debug!(
+                                    "falling back to normal TCP write for ipfrag2 after invalid split: {err}"
+                                );
+                                bytes_committed = write_strategy_payload_named(
+                                    writer,
+                                    bytes,
+                                    "write_ipfrag2",
+                                    strategy_family,
+                                    fallback,
+                                    bytes_committed,
+                                )?;
+                            }
+                            Err(err) => return Err(err),
+                        }
+                    } else {
+                        match platform::send_ip_fragmented_tcp(writer, bytes, *split_offset, default_ttl, None) {
+                            Ok(()) => {
+                                bytes_committed += bytes.len();
+                            }
+                            Err(err) if err.kind() == io::ErrorKind::InvalidInput => {
+                                bytes_committed = write_transport_payload(writer, bytes)?;
+                            }
+                            Err(err) => return Err(OutboundSendError::Transport(err)),
+                        }
+                    }
+                }
+                DesyncAction::WriteIpFragmentedUdp { .. } => {
+                    return Err(OutboundSendError::Transport(io::Error::new(
+                        io::ErrorKind::InvalidInput,
+                        "udp fragmentation action reached tcp executor",
+                    )));
+                }
                 DesyncAction::AwaitWritable => {
                     if let Some(strategy_family) = strategy_family {
                         await_writable_action_named(
@@ -572,6 +622,7 @@ fn execute_tcp_plan(
             TcpChainStepKind::FakeSplit => "fakedsplit",
             TcpChainStepKind::FakeDisorder => "fakeddisorder",
             TcpChainStepKind::HostFake => "hostfake",
+            TcpChainStepKind::IpFrag2 => "ipfrag2",
             TcpChainStepKind::TlsRec | TcpChainStepKind::TlsRandRec => strategy_family.unwrap_or("tlsrec"),
         };
         let step_fallback = strategy_fallback_family(step_family);
@@ -888,6 +939,37 @@ fn execute_tcp_plan(
                     None,
                     bytes_committed,
                 )?;
+                cursor = plan.tampered.len();
+                break;
+            }
+            TcpChainStepKind::IpFrag2 => {
+                match send_ip_fragmented_tcp_action_named(
+                    writer,
+                    &plan.tampered,
+                    end,
+                    config.network.default_ttl,
+                    config.process.protect_path.as_deref(),
+                    "write_ipfrag2",
+                    step_family,
+                    step_fallback,
+                    bytes_committed,
+                ) {
+                    Ok(committed) => {
+                        bytes_committed = committed;
+                    }
+                    Err(err) if err.kind() == io::ErrorKind::InvalidInput => {
+                        tracing::debug!("falling back to normal TCP write for ipfrag2 after invalid split: {err}");
+                        bytes_committed = write_strategy_payload_named(
+                            writer,
+                            &plan.tampered,
+                            "write_ipfrag2",
+                            step_family,
+                            step_fallback,
+                            bytes_committed,
+                        )?;
+                    }
+                    Err(err) => return Err(err),
+                }
                 cursor = plan.tampered.len();
                 break;
             }
@@ -1284,6 +1366,27 @@ fn send_fake_tcp_action_named(
         bytes_committed,
     )
     .map(|()| bytes_committed + original_prefix.len())
+}
+
+fn send_ip_fragmented_tcp_action_named(
+    stream: &TcpStream,
+    payload: &[u8],
+    split_offset: usize,
+    default_ttl: u8,
+    protect_path: Option<&str>,
+    action: &'static str,
+    strategy_family: &'static str,
+    fallback: Option<&'static str>,
+    bytes_committed: usize,
+) -> Result<usize, OutboundSendError> {
+    strategy_result(
+        platform::send_ip_fragmented_tcp(stream, payload, split_offset, default_ttl, protect_path),
+        action,
+        strategy_family,
+        fallback,
+        bytes_committed,
+    )
+    .map(|()| bytes_committed + payload.len())
 }
 
 fn set_ttl_action_named(

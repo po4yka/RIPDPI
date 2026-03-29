@@ -10,6 +10,13 @@ pub(crate) mod linux;
 
 pub type TcpStageWait = (bool, Duration);
 
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct IpFragmentationCapabilities {
+    pub raw_ipv4: bool,
+    pub raw_ipv6: bool,
+    pub tcp_repair: bool,
+}
+
 #[cfg(any(target_os = "linux", target_os = "android"))]
 pub const fn supports_fake_retransmit() -> bool {
     true
@@ -138,6 +145,62 @@ pub fn send_fake_tcp(
     _md5sig: bool,
     _default_ttl: u8,
     _wait: TcpStageWait,
+) -> io::Result<()> {
+    Err(io::Error::new(io::ErrorKind::Unsupported, "only supported on Linux/Android"))
+}
+
+#[cfg(any(target_os = "linux", target_os = "android"))]
+pub fn probe_ip_fragmentation_capabilities(protect_path: Option<&str>) -> io::Result<IpFragmentationCapabilities> {
+    linux::probe_ip_fragmentation_capabilities(protect_path)
+}
+
+#[cfg(not(any(target_os = "linux", target_os = "android")))]
+pub fn probe_ip_fragmentation_capabilities(_protect_path: Option<&str>) -> io::Result<IpFragmentationCapabilities> {
+    Ok(IpFragmentationCapabilities::default())
+}
+
+#[cfg(any(target_os = "linux", target_os = "android"))]
+pub fn send_ip_fragmented_udp(
+    upstream: &UdpSocket,
+    target: SocketAddr,
+    payload: &[u8],
+    split_offset: usize,
+    default_ttl: u8,
+    protect_path: Option<&str>,
+) -> io::Result<()> {
+    linux::send_ip_fragmented_udp(upstream, target, payload, split_offset, default_ttl, protect_path)
+}
+
+#[cfg(not(any(target_os = "linux", target_os = "android")))]
+pub fn send_ip_fragmented_udp(
+    _upstream: &UdpSocket,
+    _target: SocketAddr,
+    _payload: &[u8],
+    _split_offset: usize,
+    _default_ttl: u8,
+    _protect_path: Option<&str>,
+) -> io::Result<()> {
+    Err(io::Error::new(io::ErrorKind::Unsupported, "only supported on Linux/Android"))
+}
+
+#[cfg(any(target_os = "linux", target_os = "android"))]
+pub fn send_ip_fragmented_tcp(
+    stream: &TcpStream,
+    payload: &[u8],
+    split_offset: usize,
+    default_ttl: u8,
+    protect_path: Option<&str>,
+) -> io::Result<()> {
+    linux::send_ip_fragmented_tcp(stream, payload, split_offset, default_ttl, protect_path)
+}
+
+#[cfg(not(any(target_os = "linux", target_os = "android")))]
+pub fn send_ip_fragmented_tcp(
+    _stream: &TcpStream,
+    _payload: &[u8],
+    _split_offset: usize,
+    _default_ttl: u8,
+    _protect_path: Option<&str>,
 ) -> io::Result<()> {
     Err(io::Error::new(io::ErrorKind::Unsupported, "only supported on Linux/Android"))
 }

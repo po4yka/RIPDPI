@@ -655,15 +655,34 @@ pub fn runtime_config_from_ui(payload: ProxyUiConfig) -> Result<RuntimeConfig, P
         if step.count < 0 {
             return Err(ProxyConfigError::InvalidConfig("udpChainSteps count must be non-negative".to_string()));
         }
+        let kind = parse_udp_chain_step_kind(&step.kind)?;
+        if kind == UdpChainStepKind::IpFrag2Udp {
+            if step.count != 0 {
+                return Err(ProxyConfigError::InvalidConfig(
+                    "udpChainSteps kind=ipfrag2_udp must not declare count".to_string(),
+                ));
+            }
+            if step.split_bytes <= 0 {
+                return Err(ProxyConfigError::InvalidConfig(
+                    "udpChainSteps kind=ipfrag2_udp must declare positive splitBytes".to_string(),
+                ));
+            }
+        } else if step.split_bytes != 0 {
+            return Err(ProxyConfigError::InvalidConfig(
+                "udpChainSteps splitBytes is only supported for kind=ipfrag2_udp".to_string(),
+            ));
+        }
         group.actions.udp_chain.push(UdpChainStep {
-            kind: parse_udp_chain_step_kind(&step.kind)?,
+            kind,
             count: step.count,
+            split_bytes: step.split_bytes,
             activation_filter: parse_proxy_activation_filter(
                 step.activation_filter.as_ref(),
                 "chains.udpSteps.activationFilter",
             )?,
         });
     }
+    validate_udp_chain(&group.actions.udp_chain)?;
 
     let has_fake_step = group.effective_tcp_chain().iter().any(|step| {
         matches!(step.kind, TcpChainStepKind::Fake | TcpChainStepKind::FakeSplit | TcpChainStepKind::FakeDisorder)
@@ -751,6 +770,7 @@ pub fn parse_tcp_chain_step_kind(value: &str) -> Result<TcpChainStepKind, ProxyC
         "disoob" => Ok(TcpChainStepKind::Disoob),
         "tlsrec" => Ok(TcpChainStepKind::TlsRec),
         "tlsrandrec" => Ok(TcpChainStepKind::TlsRandRec),
+        "ipfrag2" => Ok(TcpChainStepKind::IpFrag2),
         _ => Err(ProxyConfigError::InvalidConfig(format!("Unknown tcpChainSteps kind: {value}"))),
     }
 }
@@ -765,6 +785,7 @@ fn normalize_tlsrandrec_step_field(value: i32, default: i32) -> i32 {
 
 fn validate_tcp_chain(steps: &[TcpChainStep]) -> Result<(), ProxyConfigError> {
     let mut saw_send_step = false;
+    let mut saw_ipfrag2 = false;
     for (index, step) in steps.iter().enumerate() {
         if step.kind.is_tls_prelude() {
             if saw_send_step {
@@ -779,6 +800,14 @@ fn validate_tcp_chain(steps: &[TcpChainStep]) -> Result<(), ProxyConfigError> {
             }
         } else {
             saw_send_step = true;
+            if step.kind == TcpChainStepKind::IpFrag2 {
+                saw_ipfrag2 = true;
+                if index + 1 != steps.len() {
+                    return Err(ProxyConfigError::InvalidConfig("ipfrag2 must be the only tcp send step".to_string()));
+                }
+            } else if saw_ipfrag2 {
+                return Err(ProxyConfigError::InvalidConfig("ipfrag2 must be the only tcp send step".to_string()));
+            }
         }
 
         if matches!(step.kind, TcpChainStepKind::FakeSplit | TcpChainStepKind::FakeDisorder) && index + 1 != steps.len()
@@ -802,8 +831,16 @@ pub fn parse_udp_chain_step_kind(value: &str) -> Result<UdpChainStepKind, ProxyC
         "dummyprepend" => Ok(UdpChainStepKind::DummyPrepend),
         "quicsnisplit" => Ok(UdpChainStepKind::QuicSniSplit),
         "quicfakeversion" => Ok(UdpChainStepKind::QuicFakeVersion),
+        "ipfrag2_udp" => Ok(UdpChainStepKind::IpFrag2Udp),
         _ => Err(ProxyConfigError::InvalidConfig(format!("Unknown udpChainSteps kind: {value}"))),
     }
+}
+
+fn validate_udp_chain(steps: &[UdpChainStep]) -> Result<(), ProxyConfigError> {
+    if steps.iter().any(|step| step.kind == UdpChainStepKind::IpFrag2Udp) && steps.len() != 1 {
+        return Err(ProxyConfigError::InvalidConfig("ipfrag2_udp must be the only udp chain step".to_string()));
+    }
+    Ok(())
 }
 
 pub fn parse_quic_initial_mode(value: &str) -> Result<QuicInitialMode, ProxyConfigError> {

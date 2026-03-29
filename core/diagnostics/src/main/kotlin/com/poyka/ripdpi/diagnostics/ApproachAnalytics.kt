@@ -334,6 +334,7 @@ fun deriveBypassStrategySignature(
     val laneFamilies =
         deriveStrategyLaneFamilies(
             tcpSteps = tcpSteps,
+            udpSteps = preferences.chains.udpSteps,
             desyncUdp = preferences.protocols.desyncUdp,
             quicInitialMode = preferences.quic.initialMode,
             quicFakeProfile = preferences.quic.fakeProfile,

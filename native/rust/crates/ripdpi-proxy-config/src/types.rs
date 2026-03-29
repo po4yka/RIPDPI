@@ -143,6 +143,8 @@ pub struct ProxyUiUdpChainStep {
     pub kind: String,
     pub count: i32,
     #[serde(default)]
+    pub split_bytes: i32,
+    #[serde(default)]
     pub activation_filter: Option<ProxyUiActivationFilter>,
 }
 

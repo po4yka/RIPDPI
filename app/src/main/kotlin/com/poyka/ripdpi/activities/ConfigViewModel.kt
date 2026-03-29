@@ -17,6 +17,7 @@ import com.poyka.ripdpi.data.formatStrategyChainDsl
 import com.poyka.ripdpi.data.parseStrategyChainDsl
 import com.poyka.ripdpi.data.primaryDesyncMethod
 import com.poyka.ripdpi.data.setStrategyChains
+import com.poyka.ripdpi.data.validateStrategyChainUsage
 import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.utility.checkIp
 import com.poyka.ripdpi.utility.validateIntRange
@@ -188,8 +189,19 @@ internal fun validateConfigDraft(draft: ConfigDraft): ImmutableMap<String, Strin
             put(ConfigFieldDefaultTtl, "out_of_range")
         }
 
-        if (!draft.useCommandLineSettings && parseStrategyChainDsl(draft.chainDsl).isFailure) {
-            put(ConfigFieldStrategyChain, "invalid_chain")
+        if (!draft.useCommandLineSettings) {
+            val chainValidation =
+                parseStrategyChainDsl(draft.chainDsl).map { chain ->
+                    validateStrategyChainUsage(
+                        tcpSteps = chain.tcpSteps,
+                        udpSteps = chain.udpSteps,
+                        mode = draft.mode,
+                        useCommandLineSettings = draft.useCommandLineSettings,
+                    )
+                }
+            if (chainValidation.isFailure) {
+                put(ConfigFieldStrategyChain, "invalid_chain")
+            }
         }
     }.toImmutableMap()
 
