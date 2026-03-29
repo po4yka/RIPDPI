@@ -29,6 +29,55 @@ Android application for optimizing network connectivity with:
 
 RIPDPI runs a local SOCKS5 proxy built from in-repository Rust modules. In VPN mode it redirects Android traffic through that local proxy using a local TUN-to-SOCKS bridge.
 
+## Screenshots
+
+<p align="center">
+  <img src="docs/screenshots/main.png" width="270" alt="Main screen"/>
+  &nbsp;&nbsp;
+  <img src="docs/screenshots/diagnostics.png" width="270" alt="Diagnostics"/>
+  &nbsp;&nbsp;
+  <img src="docs/screenshots/settings.png" width="270" alt="Settings"/>
+</p>
+
+## Architecture
+
+```mermaid
+graph TD
+    subgraph Android / Kotlin
+        APP[app]
+        SVC[core:service]
+        DIAG[core:diagnostics]
+        DATA[core:data]
+        ENG[core:engine]
+    end
+
+    subgraph JNI Boundary
+        JNI_P[libripdpi.so]
+        JNI_T[libripdpi-tunnel.so]
+    end
+
+    subgraph Rust Native
+        RT[ripdpi-runtime<br/>SOCKS5 proxy]
+        MON[ripdpi-monitor<br/>diagnostics]
+        TC[ripdpi-tunnel-core<br/>TUN bridge]
+        DNS[ripdpi-dns-resolver<br/>DoH / DoT / DNSCrypt]
+        DSN[ripdpi-desync<br/>DPI evasion]
+        CFG[ripdpi-proxy-config<br/>strategy bridge]
+    end
+
+    APP --> SVC & DIAG & DATA & ENG
+    SVC --> ENG
+    DIAG --> ENG
+    ENG -->|Proxy & Diagnostics| JNI_P
+    ENG -->|VPN mode| JNI_T
+
+    JNI_P --> RT & MON
+    JNI_T --> TC
+    RT --> DSN & CFG & DNS
+    MON --> RT & CFG & DNS
+    TC --> DNS
+```
+
 ## Diagnostics
 
 RIPDPI includes an integrated diagnostics screen for active network checks and passive runtime monitoring.
@@ -116,10 +165,26 @@ Options: `--device <serial>` to target a specific device, `--skip-capture` to re
 
 ## Documentation
 
-- [Native integration and module usage](docs/native/README.md)
-- [Proxy engine and current native strategy surface](docs/native/proxy-engine.md)
-- [TUN-to-SOCKS native bridge](docs/native/tunnel.md)
+**Native Libraries**
+- [Native integration and modules](docs/native/README.md)
+- [Proxy engine and strategy surface](docs/native/proxy-engine.md)
+- [TUN-to-SOCKS bridge](docs/native/tunnel.md)
+- [Debug a runtime issue](docs/native/debug-runtime-issue.md)
+
+**Testing & CI**
 - [Testing, E2E, golden contracts, and soak coverage](docs/testing.md)
+
+**UI & Design**
+- [Design system](docs/design-system.md)
+- [Host-pack presets](docs/host-pack-presets.md)
+
+**Automation**
+- [External UI automation](docs/automation/README.md)
+- [Selector contract](docs/automation/selector-contract.md)
+- [Appium readiness](docs/automation/appium-readiness.md)
+
+**User Manuals**
+- [Diagnostics manual (Russian)](docs/user-manual-diagnostics-ru.md)
 
 ## Building
 
