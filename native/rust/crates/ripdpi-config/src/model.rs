@@ -59,6 +59,7 @@ pub enum OffsetBase {
     EndSld,
     Method,
     ExtLen,
+    EchExt,
     SniExt,
     AutoBalanced,
     AutoHost,

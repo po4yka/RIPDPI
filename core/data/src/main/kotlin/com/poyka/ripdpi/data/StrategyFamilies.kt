@@ -123,6 +123,8 @@ fun strategyLaneFamilyLabel(family: String): String =
         "disoob" -> "Disorder OOB"
         "tlsrec" -> "TLS record"
         "tlsrandrec" -> "TLS random record"
+        "ech_split" -> "ECH extension split"
+        "ech_tlsrec" -> "ECH TLS record split"
         "tlsrec_split" -> "TLS record split"
         "tlsrec_disorder" -> "TLS record disorder"
         "tlsrec_fake" -> "TLS record fake"

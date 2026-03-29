@@ -126,6 +126,7 @@ pub(crate) fn find_extension_offset(parsed: &ClientHelloParsed<'_>, ext_type: u1
 /// into the SNI extension body, matching the convention in `tls.rs`.
 pub(crate) fn to_marker_info(parsed: &ClientHelloParsed<'_>, buf_len: usize) -> Option<TlsMarkerInfo> {
     let sni = find_extension(parsed, 0x0000)?;
+    let ech_ext_start = find_extension_offset(parsed, 0xfe0d);
     // SNI extension body: [list_len: u16] [name_type: u8] [host_len: u16] [hostname...]
     if sni.data.len() < 5 {
         return None;
@@ -138,7 +139,7 @@ pub(crate) fn to_marker_info(parsed: &ClientHelloParsed<'_>, buf_len: usize) -> 
     if host_end > buf_len {
         return None;
     }
-    Some(TlsMarkerInfo { ext_len_start: parsed.ext_len_offset, sni_ext_start, host_start, host_end })
+    Some(TlsMarkerInfo { ext_len_start: parsed.ext_len_offset, ech_ext_start, sni_ext_start, host_start, host_end })
 }
 
 #[cfg(test)]
@@ -146,6 +147,12 @@ mod tests {
     use super::*;
     use crate::tls::{is_tls_client_hello, tls_marker_info};
     use crate::types::DEFAULT_FAKE_TLS;
+
+    mod rust_packet_seeds {
+        use crate as ripdpi_packets;
+
+        include!(concat!(env!("CARGO_MANIFEST_DIR"), "/tests/rust_packet_seeds.rs"));
+    }
 
     #[test]
     fn parse_default_fake_tls_matches_manual() {
@@ -210,6 +217,25 @@ mod tests {
             let actual_type = u16::from_be_bytes([data[ext.type_offset], data[ext.type_offset + 1]]);
             assert_eq!(actual_type, ext.ext_type, "type_offset mismatch for ext 0x{:04x}", ext.ext_type);
         }
+    }
+
+    #[test]
+    fn marker_info_tracks_ech_extension_type_offset() {
+        let data = rust_packet_seeds::tls_client_hello_ech();
+        let parsed = parse_client_hello_record(data.as_slice()).expect("nom parse");
+        let marker = to_marker_info(&parsed, data.len()).expect("marker info");
+        let ech_offset = marker.ech_ext_start.expect("ech offset");
+
+        assert_eq!(&data[ech_offset..ech_offset + 2], &[0xfe, 0x0d]);
+        assert_eq!(marker.host_start, marker.sni_ext_start + 5);
+        assert!(marker.ext_len_start < ech_offset);
+    }
+
+    #[test]
+    fn marker_info_leaves_ech_offset_empty_for_non_ech_client_hello() {
+        let marker = tls_marker_info(DEFAULT_FAKE_TLS).expect("marker info");
+
+        assert_eq!(marker.ech_ext_start, None);
     }
 
     #[test]

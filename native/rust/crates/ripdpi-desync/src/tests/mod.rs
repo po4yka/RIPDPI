@@ -4,6 +4,10 @@ mod plan_tcp;
 mod plan_udp;
 mod tls_prelude;
 
+mod rust_packet_seeds {
+    include!(concat!(env!("CARGO_MANIFEST_DIR"), "/../ripdpi-packets/tests/rust_packet_seeds.rs"));
+}
+
 use crate::fake::normalize_fake_tls_size;
 use crate::offset::gen_offset;
 use crate::tls_prelude::apply_tls_prelude_steps;

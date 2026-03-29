@@ -56,6 +56,7 @@ pub struct HttpMarkerInfo {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct TlsMarkerInfo {
     pub ext_len_start: usize,
+    pub ech_ext_start: Option<usize>,
     pub sni_ext_start: usize,
     pub host_start: usize,
     pub host_end: usize,

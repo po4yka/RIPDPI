@@ -520,12 +520,20 @@ fn tcp_candidate_catalog_keeps_current_strategy_first() {
     let candidates = build_tcp_candidates(&minimal_ui_config());
 
     assert_eq!(candidates.first().map(|candidate| candidate.id), Some("baseline_current"));
-    assert_eq!(candidates.len(), 11);
+    assert_eq!(candidates.len(), 13);
     assert_eq!(candidates.get(1).map(|candidate| candidate.id), Some("parser_only"));
     assert_eq!(candidates.get(2).map(|candidate| candidate.id), Some("parser_unixeol"));
     assert_eq!(candidates.get(3).map(|candidate| candidate.id), Some("parser_methodeol"));
-    assert_eq!(candidates.get(7).map(|candidate| candidate.id), Some("tlsrec_fakedsplit"));
-    assert_eq!(candidates.get(8).map(|candidate| candidate.id), Some("tlsrec_fakeddisorder"));
+    assert!(candidates.iter().any(|candidate| candidate.id == "ech_split"));
+    assert!(candidates.iter().any(|candidate| candidate.id == "ech_tlsrec"));
+    assert_eq!(
+        candidates.iter().find(|candidate| candidate.id == "ech_split").map(|candidate| candidate.family),
+        Some("ech_split")
+    );
+    assert_eq!(
+        candidates.iter().find(|candidate| candidate.id == "ech_tlsrec").map(|candidate| candidate.family),
+        Some("ech_tlsrec")
+    );
 }
 
 #[test]
