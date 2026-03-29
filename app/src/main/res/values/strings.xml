@@ -194,6 +194,7 @@
     <string name="diagnostics_recent_activity_section">Recent activity</string>
     <string name="diagnostics_remembered_networks_section">Remembered networks</string>
     <string name="diagnostics_attention_section">Watch list</string>
+    <string name="diagnostics_probe_retry_count_label">Retries</string>
     <string name="diagnostics_results_section">Latest probe results</string>
     <string name="diagnostics_trends_section">Recent trends</string>
     <string name="diagnostics_context_section">Context</string>
