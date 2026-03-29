@@ -73,7 +73,7 @@
     <string name="diagnostics_latest_scan_section">Последнее сканирование</string>
     <string name="diagnostics_profile_connectivity_title">Проверки подключения</string>
     <string name="diagnostics_profile_connectivity_badge">Проверить</string>
-    <string name="diagnostics_profile_connectivity_body">Проверьте доступность DNS, HTTP, HTTPS и TCP с помощью прямого сканирования или работающего сервиса по маршруту.</string>
+    <string name="diagnostics_profile_connectivity_body">Быстрая проверка DNS, HTTP, HTTPS и TCP на текущем маршруте.</string>
     <string name="diagnostics_profile_connectivity_running_body">Диагностика прямо сейчас проверяет выбранный маршрут. Последние результаты зондирования и сводка сессии обновятся по завершении.</string>
     <string name="diagnostics_profile_probe_badge">Рекомендовать</string>
     <string name="diagnostics_profile_probe_body">Запустить изолированные испытания стратегий HTTP, HTTPS и QUIC для текущей сети. RIPDPI возвращает рекомендацию, но не применяет её автоматически.</string>
@@ -104,7 +104,7 @@
     <string name="diagnostics_profile_desc_messaging">Загрузка мессенджеров, медиа и проверка доступности протоколов.</string>
     <string name="diagnostics_profile_desc_adaptation">Загрузка Tor и VPN плюс доступность рукопожатия.</string>
     <string name="diagnostics_profile_desc_throttling">Ручные окна пропускной способности относительно нейтральных контрольных точек.</string>
-    <string name="diagnostics_profile_desc_network_full">Комбинированные региональные сетевые эвристики по нескольким сервисам.</string>
+    <string name="diagnostics_profile_desc_network_full">Обнаружение глубокой инспекции пакетов по нескольким сервисам и протоколам.</string>
     <string name="diagnostics_family_general">Общие</string>
     <string name="diagnostics_family_web_connectivity">Веб-доступность</string>
     <string name="diagnostics_family_messaging">Мессенджеры</string>
