@@ -1006,9 +1006,5 @@ private fun EmptyStateCard(
 }
 
 private fun statusTone(tone: DiagnosticsTone): StatusIndicatorTone =
-    when (tone) {
-        DiagnosticsTone.Positive -> StatusIndicatorTone.Active
-        DiagnosticsTone.Warning -> StatusIndicatorTone.Warning
-        DiagnosticsTone.Negative -> StatusIndicatorTone.Error
-        DiagnosticsTone.Neutral, DiagnosticsTone.Info -> StatusIndicatorTone.Idle
-    }
+    com.poyka.ripdpi.ui.screens.diagnostics
+        .statusTone(tone)
