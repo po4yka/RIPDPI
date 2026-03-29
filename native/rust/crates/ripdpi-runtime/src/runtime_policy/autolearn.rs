@@ -33,17 +33,12 @@ impl RuntimePolicy {
         self.learned_hosts_by_scope.entry(network_scope_key(config).to_owned()).or_default()
     }
 
-    pub(crate) fn note_host_failure(
-        &mut self,
-        config: &RuntimeConfig,
-        host: &str,
-        group_index: usize,
-    ) -> io::Result<()> {
+    pub(crate) fn note_host_failure(&mut self, config: &RuntimeConfig, host: &str, group_index: usize) {
         if !config.host_autolearn.enabled {
-            return Ok(());
+            return;
         }
         let Some(host) = normalize_learned_host(host) else {
-            return Ok(());
+            return;
         };
         let now_ms = now_millis();
         let record = self.learned_hosts_mut(config).entry(host.clone()).or_default();
@@ -54,23 +49,17 @@ impl RuntimePolicy {
         record.updated_at_ms = now_ms;
         ensure_host_order(record, group_index);
         self.enforce_autolearn_limit(config, now_ms);
-        self.persist_host_store(config)?;
+        self.persist_host_store(config);
         self.autolearn_events.push_back(HostAutolearnEvent {
             action: "group_penalized",
             host: Some(host),
             group_index: Some(group_index),
         });
-        Ok(())
     }
 
-    pub(crate) fn note_host_success(
-        &mut self,
-        config: &RuntimeConfig,
-        host: &str,
-        group_index: usize,
-    ) -> io::Result<()> {
+    pub(crate) fn note_host_success(&mut self, config: &RuntimeConfig, host: &str, group_index: usize) {
         if !config.host_autolearn.enabled {
-            return Ok(());
+            return;
         }
         let now_ms = now_millis();
         let record = self.learned_hosts_mut(config).entry(host.to_owned()).or_default();
@@ -81,13 +70,12 @@ impl RuntimePolicy {
         record.updated_at_ms = now_ms;
         promote_group(record, group_index);
         self.enforce_autolearn_limit(config, now_ms);
-        self.persist_host_store(config)?;
+        self.persist_host_store(config);
         self.autolearn_events.push_back(HostAutolearnEvent {
             action: "host_promoted",
             host: Some(host.to_owned()),
             group_index: Some(group_index),
         });
-        Ok(())
     }
 
     fn enforce_autolearn_limit(&mut self, config: &RuntimeConfig, now_ms: u64) {
@@ -109,22 +97,32 @@ impl RuntimePolicy {
         }
     }
 
-    fn persist_host_store(&mut self, config: &RuntimeConfig) -> io::Result<()> {
+    fn persist_host_store(&mut self, config: &RuntimeConfig) {
         let now_ms = now_millis();
         if now_ms.saturating_sub(self.last_persist_at_ms) < super::AUTOLEARN_PERSIST_DEBOUNCE_MS {
-            return Ok(());
+            return;
         }
-        self.write_host_store(config)?;
-        self.last_persist_at_ms = now_ms;
-        Ok(())
+        match self.write_host_store(config) {
+            Ok(()) => {
+                self.last_persist_at_ms = now_ms;
+            }
+            Err(err) => {
+                tracing::warn!("autolearn store write failed (non-fatal): {err}");
+            }
+        }
     }
 
     /// Force-persist the host store, bypassing the debounce window.
     /// Call this on proxy shutdown to avoid losing recent state.
-    pub fn flush_host_store(&mut self, config: &RuntimeConfig) -> io::Result<()> {
-        self.write_host_store(config)?;
-        self.last_persist_at_ms = now_millis();
-        Ok(())
+    pub fn flush_host_store(&mut self, config: &RuntimeConfig) {
+        match self.write_host_store(config) {
+            Ok(()) => {
+                self.last_persist_at_ms = now_millis();
+            }
+            Err(err) => {
+                tracing::warn!("autolearn store flush failed (non-fatal): {err}");
+            }
+        }
     }
 
     fn write_host_store(&self, config: &RuntimeConfig) -> io::Result<()> {
@@ -302,7 +300,7 @@ mod tests {
                 Some("example.org"),
             )
             .expect("learn preferred group");
-        policy.note_host_failure(&config, "example.org", 1).expect("penalize preferred group");
+        policy.note_host_failure(&config, "example.org", 1);
 
         let penalized_route = policy
             .select_initial(
@@ -570,11 +568,11 @@ mod tests {
         std::fs::remove_file(&store_path).expect("remove store file");
 
         // Second call is within the debounce window -- file should NOT be recreated.
-        policy.note_host_success(&config, "second.example", 0).expect("debounced success must not error");
+        policy.note_host_success(&config, "second.example", 0);
         assert!(!std::path::Path::new(&store_path).exists(), "store file must not be recreated within debounce window");
 
         // flush_host_store bypasses the debounce and writes unconditionally.
-        policy.flush_host_store(&config).expect("flush must write");
+        policy.flush_host_store(&config);
         assert!(std::path::Path::new(&store_path).exists(), "store file must exist after flush");
     }
 }

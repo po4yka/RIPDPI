@@ -316,26 +316,31 @@ impl AdaptivePlannerResolver {
         }
     }
 
-    pub fn persist_if_due(&mut self, config: &ripdpi_config::RuntimeConfig) -> io::Result<()> {
-        self.persist(config, false)
+    pub fn persist_if_due(&mut self, config: &ripdpi_config::RuntimeConfig) {
+        self.persist(config, false);
     }
 
-    pub fn flush_store(&mut self, config: &ripdpi_config::RuntimeConfig) -> io::Result<()> {
-        self.persist(config, true)
+    pub fn flush_store(&mut self, config: &ripdpi_config::RuntimeConfig) {
+        self.persist(config, true);
     }
 
-    fn persist(&mut self, config: &ripdpi_config::RuntimeConfig, force: bool) -> io::Result<()> {
+    fn persist(&mut self, config: &ripdpi_config::RuntimeConfig, force: bool) {
         if !self.dirty {
-            return Ok(());
+            return;
         }
         let now_ms = now_millis();
         if !force && now_ms.saturating_sub(self.last_persist_at_ms) < ADAPTIVE_TUNING_PERSIST_DEBOUNCE_MS {
-            return Ok(());
+            return;
         }
-        write_adaptive_store(config, &self.states)?;
-        self.last_persist_at_ms = now_ms;
-        self.dirty = false;
-        Ok(())
+        match write_adaptive_store(config, &self.states) {
+            Ok(()) => {
+                self.last_persist_at_ms = now_ms;
+                self.dirty = false;
+            }
+            Err(err) => {
+                tracing::warn!("adaptive tuning store write failed (non-fatal): {err}");
+            }
+        }
     }
 }
 
@@ -1476,7 +1481,7 @@ mod tests {
         resolver.resolve_tcp_hints(Some("scope-a"), 0, target, Some("persist.example.test"), &group, payload);
         resolver.note_tcp_failure(Some("scope-a"), 0, target, Some("persist.example.test"), payload);
         resolver.note_tcp_success(Some("scope-a"), 0, target, Some("persist.example.test"), payload);
-        resolver.flush_store(&config).expect("flush adaptive store");
+        resolver.flush_store(&config);
 
         let reloaded = AdaptivePlannerResolver::load(&config);
         assert_eq!(reloaded.states, resolver.states);
@@ -1495,7 +1500,7 @@ mod tests {
         let mut resolver = AdaptivePlannerResolver::default();
         resolver.resolve_tcp_hints(Some("scope-a"), 0, target, Some("fingerprint.example.test"), &group, payload);
         resolver.note_tcp_failure(Some("scope-a"), 0, target, Some("fingerprint.example.test"), payload);
-        resolver.flush_store(&config).expect("flush adaptive store");
+        resolver.flush_store(&config);
 
         let mut changed_group = group.clone();
         changed_group
@@ -1528,10 +1533,10 @@ mod tests {
         resolver.resolve_tcp_hints(Some("scope-a"), 0, target, Some("debounce.example.test"), &group, payload);
         resolver.note_tcp_failure(Some("scope-a"), 0, target, Some("debounce.example.test"), payload);
         resolver.last_persist_at_ms = now_millis();
-        resolver.persist_if_due(&config).expect("debounced persist");
+        resolver.persist_if_due(&config);
         assert!(!store_path.exists(), "debounced persist should not write immediately");
 
-        resolver.flush_store(&config).expect("flush adaptive store");
+        resolver.flush_store(&config);
         assert!(store_path.exists(), "flush should force adaptive store write");
 
         let _ = fs::remove_file(store_path);

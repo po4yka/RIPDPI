@@ -120,7 +120,7 @@ impl RuntimePolicy {
 
         if request.transport == TransportProtocol::Tcp && request.penalize_strategy_failure {
             if let Some(host) = request.host.as_deref() {
-                self.note_host_failure(config, host, route.group_index)?;
+                self.note_host_failure(config, host, route.group_index);
             }
         }
 
@@ -151,11 +151,11 @@ impl RuntimePolicy {
 
         match next {
             Some(next_route) => {
-                self.store(config, request.dest, next_route.group_index, next_route.attempted_mask, request.host)?;
+                self.store(config, request.dest, next_route.group_index, next_route.attempted_mask, request.host);
                 Ok(Some(next_route))
             }
             None => {
-                self.clear(config, request.dest)?;
+                self.clear(config, request.dest);
                 Ok(None)
             }
         }
@@ -181,12 +181,12 @@ impl RuntimePolicy {
     ) -> io::Result<()> {
         if transport == TransportProtocol::Tcp {
             let normalized_host = host.and_then(normalize_learned_host);
-            self.store(config, dest, route.group_index, route.attempted_mask, normalized_host.clone())?;
+            self.store(config, dest, route.group_index, route.attempted_mask, normalized_host.clone());
             if let Some(host) = normalized_host {
-                self.note_host_success(config, &host, route.group_index)?;
+                self.note_host_success(config, &host, route.group_index);
             }
         } else {
-            self.store(config, dest, route.group_index, route.attempted_mask, host.map(str::to_owned))?;
+            self.store(config, dest, route.group_index, route.attempted_mask, host.map(str::to_owned));
         }
         Ok(())
     }
@@ -539,7 +539,7 @@ mod tests {
         let dest = sample_dest(443);
         let mut policy = RuntimePolicy::load(&config);
 
-        policy.store(&config, dest, 0, 0, None).expect("store destination cache");
+        policy.store(&config, dest, 0, 0, None);
         policy
             .note_route_success(
                 &config,

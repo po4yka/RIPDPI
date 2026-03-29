@@ -43,11 +43,11 @@ pub(super) struct RuntimeCleanup {
 impl Drop for RuntimeCleanup {
     fn drop(&mut self) {
         if let Ok(mut cache) = self.cache.lock() {
-            let _ = cache.flush_host_store(&self.config);
+            cache.flush_host_store(&self.config);
             let _ = cache.dump_stdout_groups(&self.config, std::io::stdout());
         }
         if let Ok(mut adaptive_tuning) = self.adaptive_tuning.lock() {
-            let _ = adaptive_tuning.flush_store(self.config.as_ref());
+            adaptive_tuning.flush_store(self.config.as_ref());
         }
     }
 }
