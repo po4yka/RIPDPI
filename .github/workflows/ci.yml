@@ -103,6 +103,18 @@ jobs:
       - name: Verify representative native bloat hotspots
         run: python3 scripts/ci/verify_native_bloat.py
 
+      - name: Dump current native bloat baseline (on failure)
+        if: failure()
+        run: python3 scripts/ci/verify_native_bloat.py --dump-current > /tmp/native-bloat-baseline.json
+
+      - name: Upload native bloat baseline (on failure)
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: native-bloat-baseline
+          path: /tmp/native-bloat-baseline.json
+          retention-days: 14
+
       - name: Upload test results
         if: always()
         uses: actions/upload-artifact@v7
