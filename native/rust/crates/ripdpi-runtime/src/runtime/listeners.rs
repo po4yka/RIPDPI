@@ -17,7 +17,7 @@ use mio::{Events, Interest, Poll};
 use ripdpi_config::RuntimeConfig;
 use socket2::{Domain, Protocol, SockAddr, SockRef, Socket, Type};
 
-use crate::sync::{Arc, AtomicUsize, Mutex};
+use crate::sync::{Arc, AtomicBool, AtomicUsize, Mutex};
 
 use super::state::{flush_autolearn_updates, ClientSlotGuard, RuntimeCleanup, RuntimeState, LISTENER};
 
@@ -268,6 +268,7 @@ pub(super) fn run_proxy_with_listener_internal(
         active_clients: Arc::new(AtomicUsize::new(0)),
         telemetry: control.as_ref().and_then(|value| value.telemetry_sink()).or_else(current_runtime_telemetry),
         runtime_context: control.as_ref().and_then(|value| value.runtime_context()),
+        ttl_unavailable: Arc::new(AtomicBool::new(false)),
     };
     let _cleanup = RuntimeCleanup {
         config: state.config.clone(),

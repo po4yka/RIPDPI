@@ -172,8 +172,11 @@ class DiagnosticsFindingProjectorTest {
         val diagnosis = diagnoses.firstOrNull { it.code == "dns_latency_anomaly" }
         assertNotNull(diagnosis)
         assertEquals("proton.me", diagnosis?.target)
+        assertEquals("degraded", diagnosis?.severity)
         assert(diagnosis!!.evidence.contains("udpLatencyMs=6021"))
         assert(diagnosis.evidence.contains("encryptedLatencyMs=98"))
+        assert(diagnosis.evidence.contains("slowdownRatio=${6021 / 98}x"))
+        assertNotNull(diagnosis.recommendation)
     }
 
     @Test
