@@ -26,6 +26,7 @@ import com.poyka.ripdpi.activities.AdaptiveFakeTtlModeFixed
 import com.poyka.ripdpi.activities.SettingsUiState
 import com.poyka.ripdpi.data.FakeTlsSniModeFixed
 import com.poyka.ripdpi.data.isAdaptiveOffsetExpression
+import com.poyka.ripdpi.data.isValidFakeOffsetExpression
 import com.poyka.ripdpi.data.isValidOffsetExpression
 import com.poyka.ripdpi.data.parseStrategyChainDsl
 import com.poyka.ripdpi.data.validateStrategyChainUsage
@@ -260,9 +261,7 @@ internal fun LazyListScope.desyncSection(
                             value = uiState.fake.fakeOffsetMarker,
                             placeholder = stringResource(R.string.config_placeholder_fake_offset_marker),
                             enabled = visualEditorEnabled,
-                            validator = {
-                                it.isBlank() || (isValidOffsetExpression(it) && !isAdaptiveOffsetExpression(it))
-                            },
+                            validator = { it.isBlank() || isValidFakeOffsetExpression(it) },
                             invalidMessage = stringResource(R.string.config_error_invalid_marker),
                             disabledMessage = stringResource(R.string.advanced_settings_visual_controls_disabled),
                             keyboardOptions =

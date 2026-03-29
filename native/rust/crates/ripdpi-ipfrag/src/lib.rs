@@ -409,6 +409,65 @@ mod tests {
     }
 
     #[test]
+    fn tcp_ipv6_fragment_pair_preserves_sequence_ack_and_checksum() {
+        let spec = TcpFragmentSpec {
+            src: SocketAddr::from(([0x20, 0x01, 0x0d, 0xb8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1], 50000)),
+            dst: SocketAddr::from(([0x20, 0x01, 0x0d, 0xb8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2], 443)),
+            ttl: 48,
+            identification: 0x1020_3040,
+            sequence_number: 0x0102_0304,
+            acknowledgment_number: 0x0506_0708,
+            window_size: 4096,
+        };
+        let payload = b"fragmented tls client hello over ipv6";
+
+        let pair = build_tcp_fragment_pair(spec, payload, 5).expect("build tcp ipv6 fragments");
+        let (first_base, first_rest) = Ipv6Header::from_slice(&pair.first).expect("parse first ipv6 header");
+        let (first_fragment, _) = Ipv6FragmentHeader::from_slice(first_rest).expect("parse first fragment header");
+
+        assert_eq!(first_base.next_header, ip_number::IPV6_FRAG);
+        assert_eq!(first_fragment.next_header, ip_number::TCP);
+        assert_eq!(pair.effective_transport_split % IP_FRAGMENT_ALIGNMENT_BYTES, 0);
+
+        let transport = reassemble_ipv6_transport(&pair.first, &pair.second);
+        let (tcp, tcp_payload) = TcpHeader::from_slice(&transport).expect("parse reassembled tcp transport");
+        assert_eq!(tcp.sequence_number, spec.sequence_number);
+        assert_eq!(tcp.acknowledgment_number, spec.acknowledgment_number);
+        assert!(tcp.ack);
+        assert!(tcp.psh);
+        assert_eq!(tcp_payload, payload);
+        assert_eq!(
+            tcp.checksum,
+            tcp.calc_checksum_ipv6_raw(
+                [0x20, 0x01, 0x0d, 0xb8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
+                [0x20, 0x01, 0x0d, 0xb8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2],
+                tcp_payload
+            )
+            .expect("recalculate ipv6 tcp checksum")
+        );
+    }
+
+    #[test]
+    fn tcp_fragment_pair_rounds_payload_split_up_to_next_ip_boundary() {
+        let spec = TcpFragmentSpec {
+            src: SocketAddr::from(([203, 0, 113, 10], 50000)),
+            dst: SocketAddr::from(([198, 51, 100, 20], 443)),
+            ttl: 64,
+            identification: 0x9988,
+            sequence_number: 0x0102_0304,
+            acknowledgment_number: 0x0506_0708,
+            window_size: 4096,
+        };
+        let payload = b"fragmented tls client hello";
+
+        let pair = build_tcp_fragment_pair(spec, payload, 1).expect("build aligned tcp fragment pair");
+        let (second_header, _) = Ipv4Header::from_slice(&pair.second).expect("parse second ipv4 header");
+
+        assert_eq!(pair.effective_transport_split, 24);
+        assert_eq!(second_header.fragment_offset.byte_offset() as usize, 24);
+    }
+
+    #[test]
     fn degenerate_fragment_pair_is_rejected_after_alignment() {
         let spec = UdpFragmentSpec {
             src: SocketAddr::from(([192, 0, 2, 10], 40000)),

@@ -480,7 +480,7 @@ pub fn parse_cli(args: &[String], startup: &StartupEnv) -> Result<ParseResult, C
             "-O" | "--fake-offset" => {
                 let value = next_value(&effective_args, &mut idx, arg)?;
                 let expr = parse_offset_expr(value)?;
-                if expr.base.is_adaptive() {
+                if !expr.supports_fake_offset() {
                     return Err(ConfigError::invalid(arg, Some(value)));
                 }
                 group!().actions.fake_offset = Some(expr);

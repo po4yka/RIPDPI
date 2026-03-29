@@ -117,6 +117,12 @@ struct StrategyAuditLaneCounts {
     not_applicable: usize,
 }
 
+impl StrategyAuditLaneCounts {
+    fn applicable_planned(self) -> usize {
+        self.planned.saturating_sub(self.not_applicable)
+    }
+}
+
 fn round_percent(numerator: usize, denominator: usize) -> usize {
     if denominator == 0 {
         0
@@ -187,21 +193,21 @@ fn resolve_strategy_probe_audit_assessment(
 
     let tcp_counts = strategy_audit_lane_counts(tcp_candidates, tcp_candidates_planned);
     let quic_counts = strategy_audit_lane_counts(quic_candidates, quic_candidates_planned);
-    let total_planned = tcp_counts.planned + quic_counts.planned;
+    let total_planned = tcp_counts.applicable_planned() + quic_counts.applicable_planned();
     let total_executed = tcp_counts.executed + quic_counts.executed;
 
     let tcp_winner = tcp_candidates.iter().find(|candidate| candidate.id == recommendation.tcp_candidate_id);
     let quic_winner = quic_candidates.iter().find(|candidate| candidate.id == recommendation.quic_candidate_id);
     let tcp_winner_coverage = tcp_winner.map_or(0, candidate_score_percent);
     let quic_winner_coverage = quic_winner.map_or(0, candidate_score_percent);
-    let tcp_lane_coverage = round_percent(tcp_counts.executed, tcp_counts.planned);
-    let quic_lane_coverage = round_percent(quic_counts.executed, quic_counts.planned);
+    let tcp_lane_coverage = round_percent(tcp_counts.executed, tcp_counts.applicable_planned());
+    let quic_lane_coverage = round_percent(quic_counts.executed, quic_counts.applicable_planned());
     let tcp_margin = winner_margin_percent(tcp_candidates, &recommendation.tcp_candidate_id);
     let quic_margin = winner_margin_percent(quic_candidates, &recommendation.quic_candidate_id);
 
     let weak_winner_coverage = tcp_winner_coverage < 50 || quic_winner_coverage < 50;
-    let low_tcp_execution = tcp_lane_coverage < 75;
-    let low_quic_execution = quic_lane_coverage < 75;
+    let low_tcp_execution = tcp_counts.applicable_planned() > 0 && tcp_lane_coverage < 75;
+    let low_quic_execution = quic_counts.applicable_planned() > 0 && quic_lane_coverage < 75;
     let narrow_tcp_margin = tcp_margin < 10;
     let narrow_quic_margin = quic_margin < 10;
     let all_tcp_tied = all_candidates_tied(tcp_candidates);
@@ -222,11 +228,11 @@ fn resolve_strategy_probe_audit_assessment(
     }
     if low_tcp_execution {
         score -= 15;
-        warnings.push("TCP matrix coverage stayed below 75% of planned candidates.".to_string());
+        warnings.push("TCP matrix coverage stayed below 75% of applicable candidates.".to_string());
     }
     if low_quic_execution {
         score -= 15;
-        warnings.push("QUIC matrix coverage stayed below 75% of planned candidates.".to_string());
+        warnings.push("QUIC matrix coverage stayed below 75% of applicable candidates.".to_string());
     }
     if narrow_tcp_margin {
         score -= 10;
@@ -258,7 +264,7 @@ fn resolve_strategy_probe_audit_assessment(
     } else if weak_winner_coverage {
         "The winning TCP or QUIC lane recovered too few weighted targets".to_string()
     } else if low_tcp_execution || low_quic_execution {
-        "The audit did not execute enough of the planned matrix to fully trust the winner".to_string()
+        "The audit did not execute enough of the applicable matrix to fully trust the winner".to_string()
     } else if all_tcp_tied || all_quic_tied {
         "All candidates in a lane produced identical results; the recommendation is arbitrary".to_string()
     } else if narrow_tcp_margin || narrow_quic_margin {
@@ -1171,11 +1177,75 @@ mod tests {
         assert!(assessment
             .confidence
             .warnings
-            .contains(&"TCP matrix coverage stayed below 75% of planned candidates.".to_string()));
+            .contains(&"TCP matrix coverage stayed below 75% of applicable candidates.".to_string()));
         assert!(assessment
             .confidence
             .warnings
-            .contains(&"QUIC matrix coverage stayed below 75% of planned candidates.".to_string()));
+            .contains(&"QUIC matrix coverage stayed below 75% of applicable candidates.".to_string()));
+    }
+
+    #[test]
+    fn resolve_strategy_probe_audit_assessment_excludes_not_applicable_candidates_from_coverage() {
+        let tcp_candidates = vec![
+            strategy_candidate_summary("tcp_runner_up", "split", 90, 100, 4, 5, false, "success"),
+            strategy_candidate_summary("tcp_winner", "hostfake", 100, 100, 5, 5, false, "success"),
+            strategy_candidate_summary("tcp_not_applicable", "split", 0, 0, 0, 0, false, "not_applicable"),
+        ];
+        let quic_candidates = vec![
+            strategy_candidate_summary("quic_runner_up", "quic_disabled", 90, 100, 1, 2, false, "success"),
+            strategy_candidate_summary("quic_winner", "quic_burst", 100, 100, 2, 2, false, "success"),
+            strategy_candidate_summary("quic_not_applicable", "quic_burst", 0, 0, 0, 0, false, "not_applicable"),
+        ];
+
+        let assessment = resolve_strategy_probe_audit_assessment(
+            STRATEGY_PROBE_SUITE_FULL_MATRIX_V1,
+            &tcp_candidates,
+            &quic_candidates,
+            &recommendation(),
+            3,
+            3,
+            false,
+        )
+        .expect("audit assessment");
+
+        assert_eq!(assessment.coverage.tcp_candidates_planned, 3);
+        assert_eq!(assessment.coverage.tcp_candidates_not_applicable, 1);
+        assert_eq!(assessment.coverage.quic_candidates_planned, 3);
+        assert_eq!(assessment.coverage.quic_candidates_not_applicable, 1);
+        assert_eq!(assessment.coverage.matrix_coverage_percent, 100);
+        assert_eq!(assessment.confidence.level, StrategyProbeAuditConfidenceLevel::High);
+        assert!(!assessment.confidence.warnings.iter().any(|warning| warning.contains("applicable candidates")));
+    }
+
+    #[test]
+    fn resolve_strategy_probe_audit_assessment_does_not_penalize_non_ech_baselines_for_ech_candidates() {
+        let tcp_candidates = vec![
+            strategy_candidate_summary("tcp_runner_up", "split", 90, 100, 4, 5, false, "success"),
+            strategy_candidate_summary("tcp_winner", "hostfake", 100, 100, 5, 5, false, "success"),
+            strategy_candidate_summary("ech_split", "ech_split", 0, 0, 0, 0, false, "not_applicable"),
+            strategy_candidate_summary("ech_tlsrec", "ech_tlsrec", 0, 0, 0, 0, false, "not_applicable"),
+        ];
+        let quic_candidates = vec![
+            strategy_candidate_summary("quic_runner_up", "quic_disabled", 90, 100, 1, 2, false, "success"),
+            strategy_candidate_summary("quic_winner", "quic_burst", 100, 100, 2, 2, false, "success"),
+        ];
+
+        let assessment = resolve_strategy_probe_audit_assessment(
+            STRATEGY_PROBE_SUITE_FULL_MATRIX_V1,
+            &tcp_candidates,
+            &quic_candidates,
+            &recommendation(),
+            4,
+            2,
+            false,
+        )
+        .expect("audit assessment");
+
+        assert_eq!(assessment.coverage.tcp_candidates_not_applicable, 2);
+        assert_eq!(assessment.coverage.matrix_coverage_percent, 100);
+        assert_eq!(assessment.confidence.level, StrategyProbeAuditConfidenceLevel::High);
+        assert_eq!(assessment.confidence.score, 100);
+        assert_eq!(assessment.confidence.rationale, "Matrix coverage and winner strength are consistent");
     }
 
     #[test]
