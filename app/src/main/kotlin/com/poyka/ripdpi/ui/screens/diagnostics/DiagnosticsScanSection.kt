@@ -265,32 +265,45 @@ private fun ScanProfilePickerCard(
     scan: DiagnosticsScanUiModel,
     onSelectProfile: (String) -> Unit,
 ) {
-    val spacing = RipDpiThemeTokens.spacing
     RipDpiCard(variant = RipDpiCardVariant.Elevated) {
-        Text(
-            text = stringResource(R.string.diagnostics_profiles_title).uppercase(),
-            style = RipDpiThemeTokens.type.sectionTitle,
-            color = RipDpiThemeTokens.colors.mutedForeground,
+        ProfilePickerContent(
+            profiles = scan.profiles,
+            selectedProfileId = scan.selectedProfileId,
+            onSelectProfile = onSelectProfile,
         )
-        Text(
-            text = stringResource(R.string.diagnostics_profiles_body),
-            style = RipDpiThemeTokens.type.secondaryBody,
-            color = RipDpiThemeTokens.colors.mutedForeground,
-        )
-        Column(verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
-            scan.profiles.groupBy { it.family }.forEach { (family, profiles) ->
-                Text(
-                    text = family.displayFamilyLabel(),
-                    style = RipDpiThemeTokens.type.bodyEmphasis,
-                    color = RipDpiThemeTokens.colors.foreground,
+    }
+}
+
+@Composable
+internal fun ProfilePickerContent(
+    profiles: List<com.poyka.ripdpi.activities.DiagnosticsProfileOptionUiModel>,
+    selectedProfileId: String?,
+    onSelectProfile: (String) -> Unit,
+) {
+    val spacing = RipDpiThemeTokens.spacing
+    Text(
+        text = stringResource(R.string.diagnostics_profiles_title).uppercase(),
+        style = RipDpiThemeTokens.type.sectionTitle,
+        color = RipDpiThemeTokens.colors.mutedForeground,
+    )
+    Text(
+        text = stringResource(R.string.diagnostics_profiles_body),
+        style = RipDpiThemeTokens.type.secondaryBody,
+        color = RipDpiThemeTokens.colors.mutedForeground,
+    )
+    Column(verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
+        profiles.groupBy { it.family }.forEach { (family, familyProfiles) ->
+            Text(
+                text = family.displayFamilyLabel(),
+                style = RipDpiThemeTokens.type.bodyEmphasis,
+                color = RipDpiThemeTokens.colors.foreground,
+            )
+            familyProfiles.forEach { profile ->
+                DiagnosticsProfileCard(
+                    profile = profile,
+                    selected = profile.id == selectedProfileId,
+                    onClick = { onSelectProfile(profile.id) },
                 )
-                profiles.forEach { profile ->
-                    DiagnosticsProfileCard(
-                        profile = profile,
-                        selected = profile.id == scan.selectedProfileId,
-                        onClick = { onSelectProfile(profile.id) },
-                    )
-                }
             }
         }
     }
