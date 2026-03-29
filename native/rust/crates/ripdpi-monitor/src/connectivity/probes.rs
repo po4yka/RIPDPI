@@ -208,6 +208,26 @@ pub(crate) fn run_domain_probe(
         "unreachable".to_string()
     };
 
+    // Single retry on total failure to distinguish transient from consistent blocking
+    let (outcome, probe_retry_count) = if outcome == "unreachable" {
+        let retry = try_tls_handshake(
+            &connect_target,
+            https_port,
+            transport,
+            &target.host,
+            true,
+            TlsClientProfile::Tls13Only,
+            tls_verifier,
+        );
+        if retry.status == "tls_ok" {
+            ("tls_ok".to_string(), 1usize)
+        } else {
+            ("unreachable".to_string(), 1usize)
+        }
+    } else {
+        (outcome, 0usize)
+    };
+
     ProbeResult {
         probe_type: "domain_reachability".to_string(),
         target: target.host.clone(),
@@ -251,6 +271,7 @@ pub(crate) fn run_domain_probe(
             ProbeDetail { key: "h3Advertised".to_string(), value: h3_advertised.to_string() },
             ProbeDetail { key: "altSvc".to_string(), value: alt_svc_value.unwrap_or_else(|| "none".to_string()) },
             ProbeDetail { key: "isControl".to_string(), value: target.is_control.to_string() },
+            ProbeDetail { key: "probeRetryCount".to_string(), value: probe_retry_count.to_string() },
         ],
     }
 }
@@ -427,9 +448,21 @@ pub(crate) fn run_circumvention_probe(
         transport,
         tls_verifier,
     );
-    let bootstrap_status =
+    let initial_bootstrap_status =
         bootstrap.as_ref().map_or_else(|| "not_run".to_string(), |observation| observation.status.clone());
     let bootstrap_detail = bootstrap.as_ref().map_or_else(|| "not_run".to_string(), describe_http_observation);
+
+    // Retry bootstrap once if it failed, to distinguish transient from consistent
+    let (bootstrap_status, circumvention_retry_count) = if is_probe_failure(&initial_bootstrap_status)
+        && initial_bootstrap_status != "not_run"
+    {
+        let retry = target.bootstrap_url.as_ref().map(|url| probe_http_url(url, None, None, transport));
+        let retry_status = retry.as_ref().map_or_else(|| initial_bootstrap_status.clone(), |obs| obs.status.clone());
+        (retry_status, 1usize)
+    } else {
+        (initial_bootstrap_status, 0usize)
+    };
+
     let outcome = if is_probe_failure(&handshake_status) {
         "circumvention_blocked"
     } else if is_probe_failure(&bootstrap_status) {
@@ -452,6 +485,7 @@ pub(crate) fn run_circumvention_probe(
             ProbeDetail { key: "bootstrapDetail".to_string(), value: bootstrap_detail },
             ProbeDetail { key: "handshakeStatus".to_string(), value: handshake_status },
             ProbeDetail { key: "handshakeError".to_string(), value: handshake_error },
+            ProbeDetail { key: "probeRetryCount".to_string(), value: circumvention_retry_count.to_string() },
         ],
     }
 }

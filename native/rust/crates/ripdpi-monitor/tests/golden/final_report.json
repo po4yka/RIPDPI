@@ -120,6 +120,10 @@
         {
           "key": "isControl",
           "value": "false"
+        },
+        {
+          "key": "probeRetryCount",
+          "value": "0"
         }
       ],
       "outcome": "http_blockpage",
