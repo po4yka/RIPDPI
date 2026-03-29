@@ -184,7 +184,7 @@ pub(crate) fn run_domain_probe(
     );
     let http = try_http_request(&connect_target, http_port, transport, &target.host, &target.http_path, false);
     let alt_svc_value = http.response.as_ref().and_then(|r| r.headers.get("alt-svc")).cloned();
-    let h3_advertised = alt_svc_value.as_ref().map(|v| v.contains("h3")).unwrap_or(false);
+    let h3_advertised = alt_svc_value.as_ref().is_some_and(|v| v.contains("h3"));
     let tls_signal = classify_tls_signal(&tls13, &tls12);
     let preferred_tls = preferred_tls_observation(&tls13, &tls12);
 
