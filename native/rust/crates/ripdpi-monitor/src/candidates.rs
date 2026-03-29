@@ -608,6 +608,26 @@ mod tests {
     }
 
     #[test]
+    fn build_tcp_candidates_marks_ech_candidates_as_ech_only_and_targets_echext() {
+        let candidates = build_tcp_candidates(&minimal_ui_config());
+        let ech_split = candidates.iter().find(|candidate| candidate.id == "ech_split").expect("ech_split candidate");
+        let ech_tlsrec =
+            candidates.iter().find(|candidate| candidate.id == "ech_tlsrec").expect("ech_tlsrec candidate");
+
+        assert_eq!(ech_split.eligibility, CandidateEligibility::RequiresEchCapability);
+        assert_eq!(ech_split.config.chains.tcp_steps.len(), 1);
+        assert_eq!(ech_split.config.chains.tcp_steps[0].kind, "split");
+        assert_eq!(ech_split.config.chains.tcp_steps[0].marker, "echext");
+        assert!(ech_split.notes.iter().any(|note| note.contains("ECH-capable HTTPS path")));
+
+        assert_eq!(ech_tlsrec.eligibility, CandidateEligibility::RequiresEchCapability);
+        assert_eq!(ech_tlsrec.config.chains.tcp_steps.len(), 1);
+        assert_eq!(ech_tlsrec.config.chains.tcp_steps[0].kind, "tlsrec");
+        assert_eq!(ech_tlsrec.config.chains.tcp_steps[0].marker, "echext");
+        assert!(ech_tlsrec.notes.iter().any(|note| note.contains("ECH-capable HTTPS path")));
+    }
+
+    #[test]
     fn default_runtime_encrypted_dns_context_returns_cloudflare_doh() {
         let ctx = default_runtime_encrypted_dns_context();
         assert_eq!(ctx.protocol, "doh");

@@ -978,6 +978,43 @@ mod tests {
     }
 
     #[test]
+    fn to_hints_maps_ech_ext_offsets() {
+        let combo = StrategyCombo {
+            split_offset_base: Some(OffsetBase::EchExt),
+            tls_record_offset_base: Some(OffsetBase::EchExt),
+            ..StrategyCombo::default_combo()
+        };
+
+        let hints = combo.to_hints();
+
+        assert_eq!(hints.split_offset_base, Some(OffsetBase::EchExt));
+        assert_eq!(hints.tls_record_offset_base, Some(OffsetBase::EchExt));
+    }
+
+    #[test]
+    fn ech_ext_offset_base_hash_is_distinct_from_sni_ext() {
+        use std::collections::hash_map::DefaultHasher;
+
+        let hash_of = |combo: &StrategyCombo| -> u64 {
+            let mut hasher = DefaultHasher::new();
+            combo.hash(&mut hasher);
+            hasher.finish()
+        };
+        let ech_combo = StrategyCombo {
+            split_offset_base: Some(OffsetBase::EchExt),
+            tls_record_offset_base: Some(OffsetBase::EchExt),
+            ..StrategyCombo::default_combo()
+        };
+        let sni_combo = StrategyCombo {
+            split_offset_base: Some(OffsetBase::SniExt),
+            tls_record_offset_base: Some(OffsetBase::SniExt),
+            ..StrategyCombo::default_combo()
+        };
+
+        assert_ne!(hash_of(&ech_combo), hash_of(&sni_combo));
+    }
+
+    #[test]
     fn entropy_mode_produces_distinct_hashes() {
         use std::collections::hash_map::DefaultHasher;
 

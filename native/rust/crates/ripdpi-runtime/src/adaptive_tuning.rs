@@ -1550,4 +1550,12 @@ mod tests {
         let config = ripdpi_config::RuntimeConfig::default();
         assert_eq!(adaptive_store_path(&config), PathBuf::from(ADAPTIVE_TUNING_STORE_FILE_NAME));
     }
+
+    #[test]
+    fn stored_offset_base_round_trips_ech_ext() {
+        let stored = StoredOffsetBase::from(OffsetBase::EchExt);
+
+        assert_eq!(stored, StoredOffsetBase::EchExt);
+        assert_eq!(restore_offset_base(stored), Some(OffsetBase::EchExt));
+    }
 }
