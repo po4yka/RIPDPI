@@ -24,7 +24,7 @@ import com.poyka.ripdpi.ui.theme.RipDpiWidthClass
 internal data class HomeChromeMetrics(
     val topBarMinHeight: Dp = 72.dp,
     val brandBadgeSize: Dp = 32.dp,
-    val connectionHaloSize: Dp = 216.dp,
+    val connectionHaloSize: Dp = 192.dp,
     val connectionButtonSize: Dp = 172.dp,
     val connectionHorizontalPadding: Dp = 20.dp,
     val connectionVerticalPadding: Dp = 24.dp,
@@ -44,7 +44,7 @@ internal fun rememberHomeChromeMetrics(): HomeChromeMetrics {
             HomeChromeMetrics(
                 topBarMinHeight = 76.dp,
                 brandBadgeSize = 36.dp,
-                connectionHaloSize = 232.dp,
+                connectionHaloSize = 204.dp,
                 connectionButtonSize = 184.dp,
                 connectionHorizontalPadding = 24.dp,
                 connectionVerticalPadding = 26.dp,
@@ -56,7 +56,7 @@ internal fun rememberHomeChromeMetrics(): HomeChromeMetrics {
             HomeChromeMetrics(
                 topBarMinHeight = 80.dp,
                 brandBadgeSize = 40.dp,
-                connectionHaloSize = 248.dp,
+                connectionHaloSize = 216.dp,
                 connectionButtonSize = 196.dp,
                 connectionHorizontalPadding = 28.dp,
                 connectionVerticalPadding = 28.dp,
