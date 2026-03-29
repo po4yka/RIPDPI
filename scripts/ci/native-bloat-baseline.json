@@ -10,18 +10,63 @@
   "maxNewCrateSizeBytes": 65536,
   "packages": {
     "ripdpi-android": {
-      "fileSize": 10382952,
-      "textSectionSize": 3047946,
+      "fileSize": 16700000,
+      "textSectionSize": 5564234,
       "functions": [
+        {
+          "crate": "aws_lc_sys",
+          "name": "aws_lc_0_39_0_aes_gcm_encrypt_avx512",
+          "size": 339925
+        },
+        {
+          "crate": "aws_lc_sys",
+          "name": "aws_lc_0_39_0_aes_gcm_decrypt_avx512",
+          "size": 339921
+        },
         {
           "crate": "ripdpi_android",
           "name": "ripdpi_android::diagnostics::scan::decode_scan_request",
           "size": 31401
         },
         {
+          "crate": "aws_lc_sys",
+          "name": "aws_lc_0_39_0_edwards25519_scalarmuldouble_alt",
+          "size": 28621
+        },
+        {
+          "crate": "aws_lc_sys",
+          "name": "aws_lc_0_39_0_edwards25519_scalarmuldouble",
+          "size": 28133
+        },
+        {
           "crate": "ripdpi_config",
           "name": "ripdpi_config::parse::cli::parse_cli",
-          "size": 19571
+          "size": 23974
+        },
+        {
+          "crate": "[Unknown]",
+          "name": "Lp384_montjscalarmul_alt_p384_montjadd",
+          "size": 22837
+        },
+        {
+          "crate": "[Unknown]",
+          "name": "Lp384_montjscalarmul_p384_montjadd",
+          "size": 22027
+        },
+        {
+          "crate": "aws_lc_sys",
+          "name": "aws_lc_0_39_0_curve25519_x25519_byte_alt",
+          "size": 21815
+        },
+        {
+          "crate": "aws_lc_sys",
+          "name": "aws_lc_0_39_0_curve25519_x25519_byte",
+          "size": 20950
+        },
+        {
+          "crate": "quinn_proto",
+          "name": "quinn_proto::connection::Connection::poll_transmit",
+          "size": 19320
         },
         {
           "crate": "std",
@@ -29,9 +74,29 @@
           "size": 19273
         },
         {
+          "crate": "quinn_proto",
+          "name": "quinn_proto::connection::Connection::process_payload",
+          "size": 17833
+        },
+        {
+          "crate": "quinn_proto",
+          "name": "quinn_proto::connection::Connection::handle_decode",
+          "size": 17525
+        },
+        {
+          "crate": "aws_lc_sys",
+          "name": "aws_lc_0_39_0_p521_jdouble_alt",
+          "size": 17044
+        },
+        {
           "crate": "ripdpi_dns_resolver",
           "name": "ripdpi_dns_resolver::resolver::EncryptedDnsResolver::exchange_with_metadata::{{closure}}",
           "size": 16821
+        },
+        {
+          "crate": "aws_lc_sys",
+          "name": "aws_lc_0_39_0_p521_jdouble",
+          "size": 15857
         },
         {
           "crate": "ripdpi_runtime",
@@ -39,101 +104,48 @@
           "size": 15078
         },
         {
-          "crate": "h2",
-          "name": "h2::codec::framed_read::decode_frame",
-          "size": 12222
-        },
-        {
-          "crate": "ring",
-          "name": "ring_core_0_17_14__chacha20_poly1305_seal_avx2",
-          "size": 12065
-        },
-        {
-          "crate": "data_encoding",
-          "name": "data_encoding::Encoding::encode_mut",
-          "size": 11802
-        },
-        {
-          "crate": "std",
-          "name": "std::backtrace_rs::symbolize::gimli::Context::new",
-          "size": 11723
-        },
-        {
-          "crate": "hyper_util",
-          "name": "hyper_util::client::legacy::client::Client<C,B>::send_request::{{closure}}",
-          "size": 11717
-        },
-        {
-          "crate": "rustls",
-          "name": "<rustls::client::hs::ExpectServerHello as rustls::common_state::State<rustls::client::client_conn::ClientConnectionData>>::handle",
-          "size": 11635
+          "crate": "serde_json",
+          "name": "<&mut serde_json::de::Deserializer<R> as serde_core::de::Deserializer>::deserialize_struct",
+          "size": 14922
         },
         {
           "crate": "ripdpi_monitor",
-          "name": "std::sys::backtrace::__rust_begin_short_backtrace",
-          "size": 11074
-        },
-        {
-          "crate": "http",
-          "name": "http::header::name::StandardHeader::from_bytes",
-          "size": 11030
-        },
-        {
-          "crate": "rustls",
-          "name": "rustls::client::hs::emit_client_hello_for_retry",
-          "size": 10964
-        },
-        {
-          "crate": "ripdpi_monitor",
-          "name": "<ripdpi_monitor::engine::runners::connectivity::TelegramRunner as ripdpi_monitor::engine::runtime::ExecutionStageRunner>::run",
-          "size": 10786
-        },
-        {
-          "crate": "ripdpi_monitor",
-          "name": "<ripdpi_monitor::engine::runners::connectivity::DnsRunner as ripdpi_monitor::engine::runtime::ExecutionStageRunner>::run",
-          "size": 10577
-        },
-        {
-          "crate": "reqwest",
-          "name": "reqwest::async_impl::client::ClientBuilder::build",
-          "size": 10121
-        },
-        {
-          "crate": "ripdpi_proxy_config",
-          "name": "ripdpi_proxy_config::convert::runtime_config_from_ui",
-          "size": 9817
-        },
-        {
-          "crate": "ring",
-          "name": "ring_core_0_17_14__chacha20_poly1305_open_avx2",
-          "size": 9678
-        },
-        {
-          "crate": "ripdpi_monitor",
-          "name": "ripdpi_monitor::observations::observation_for_probe",
-          "size": 9412
+          "name": "ripdpi_monitor::execution::execute_tcp_candidate",
+          "size": 13264
         }
       ],
       "crates": [
         {
+          "name": "aws_lc_sys",
+          "size": 1265387
+        },
+        {
           "name": "std",
-          "size": 562763
+          "size": 640628
+        },
+        {
+          "name": "[Unknown]",
+          "size": 408619
         },
         {
           "name": "rustls",
-          "size": 278956
+          "size": 353095
+        },
+        {
+          "name": "ripdpi_monitor",
+          "size": 306528
+        },
+        {
+          "name": "ripdpi_runtime",
+          "size": 300154
         },
         {
           "name": "reqwest",
           "size": 267274
         },
         {
-          "name": "ripdpi_monitor",
-          "size": 263171
-        },
-        {
-          "name": "ripdpi_runtime",
-          "size": 207389
+          "name": "quinn_proto",
+          "size": 225364
         },
         {
           "name": "ring",
@@ -156,12 +168,12 @@
           "size": 76564
         },
         {
-          "name": "webpki",
-          "size": 65502
+          "name": "jni",
+          "size": 74158
         },
         {
-          "name": "[Unknown]",
-          "size": 60036
+          "name": "webpki",
+          "size": 65502
         },
         {
           "name": "hyper_util",
@@ -182,29 +194,27 @@
         {
           "name": "ripdpi_config",
           "size": 40878
-        },
-        {
-          "name": "curve25519_dalek",
-          "size": 40646
-        },
-        {
-          "name": "tungstenite",
-          "size": 37209
-        },
-        {
-          "name": "http",
-          "size": 35128
         }
       ]
     },
     "ripdpi-tunnel-android": {
-      "fileSize": 8404200,
-      "textSectionSize": 2267322,
+      "fileSize": 10400000,
+      "textSectionSize": 2759626,
       "functions": [
+        {
+          "crate": "ripdpi_dns_resolver",
+          "name": "ripdpi_dns_resolver::resolver::EncryptedDnsResolver::exchange_with_metadata::{{closure}}",
+          "size": 20127
+        },
         {
           "crate": "std",
           "name": "std::backtrace_rs::symbolize::gimli::Cache::with_global",
           "size": 19697
+        },
+        {
+          "crate": "quinn_proto",
+          "name": "quinn_proto::connection::Connection::poll_transmit",
+          "size": 19320
         },
         {
           "crate": "ripdpi_tunnel_core",
@@ -215,6 +225,21 @@
           "crate": "ripdpi_tunnel_core",
           "name": "ripdpi_tunnel_core::io_loop::io_loop_task::{{closure}}",
           "size": 18058
+        },
+        {
+          "crate": "quinn_proto",
+          "name": "quinn_proto::connection::Connection::process_payload",
+          "size": 17833
+        },
+        {
+          "crate": "serde_json",
+          "name": "<&mut serde_json::de::Deserializer<R> as serde_core::de::Deserializer>::deserialize_struct",
+          "size": 17614
+        },
+        {
+          "crate": "quinn_proto",
+          "name": "quinn_proto::connection::Connection::handle_decode",
+          "size": 17525
         },
         {
           "crate": "ripdpi_tunnel_android?",
@@ -275,37 +300,12 @@
           "crate": "ring",
           "name": "ring_core_0_17_14__chacha20_poly1305_open_avx2",
           "size": 9678
-        },
-        {
-          "crate": "curve25519_dalek",
-          "name": "<&curve25519_dalek::backend::vector::avx2::field::FieldElement2625x4 as <&curve25519_dalek::backend::vector::avx2::field::FieldElement2625x4 as core::ops::arith::Mul>::mul::__Impl_mul__>::_impl_mul",
-          "size": 9244
-        },
-        {
-          "crate": "std",
-          "name": "gimli::read::dwarf::Unit<R>::new",
-          "size": 9168
-        },
-        {
-          "crate": "reqwest",
-          "name": "<core::pin::Pin<P> as core::future::future::Future>::poll",
-          "size": 9113
-        },
-        {
-          "crate": "ring",
-          "name": "ring_core_0_17_14__chacha20_poly1305_seal_sse41",
-          "size": 8737
-        },
-        {
-          "crate": "std",
-          "name": "core::cell::once::OnceCell<T>::try_init",
-          "size": 8663
         }
       ],
       "crates": [
         {
           "name": "std",
-          "size": 439147
+          "size": 504285
         },
         {
           "name": "rustls",
@@ -314,6 +314,10 @@
         {
           "name": "reqwest",
           "size": 268954
+        },
+        {
+          "name": "quinn_proto",
+          "size": 225378
         },
         {
           "name": "ring",
@@ -332,6 +336,14 @@
           "size": 76494
         },
         {
+          "name": "jni",
+          "size": 75087
+        },
+        {
+          "name": "ripdpi_dns_resolver",
+          "size": 75363
+        },
+        {
           "name": "tokio",
           "size": 72669
         },
@@ -346,10 +358,6 @@
         {
           "name": "[Unknown]",
           "size": 50939
-        },
-        {
-          "name": "ripdpi_dns_resolver",
-          "size": 50209
         },
         {
           "name": "hyper",
@@ -374,14 +382,6 @@
         {
           "name": "ripdpi_tunnel_android",
           "size": 29249
-        },
-        {
-          "name": "url",
-          "size": 26256
-        },
-        {
-          "name": "data_encoding",
-          "size": 19479
         }
       ]
     }
