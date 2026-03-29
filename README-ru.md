@@ -1,6 +1,21 @@
-# RIPDPI for Android
+<p align="center">
+  <img src="app/src/main/res/drawable-nodpi/ic_launcher.png" width="120" alt="RIPDPI Logo"/>
+</p>
 
-[English](README.md) | **Русский**
+<h1 align="center">RIPDPI</h1>
+<p align="center"><b>Routing & Internet Performance Diagnostics Platform Interface</b></p>
+
+<p align="center">
+  <a href="https://github.com/po4yka/RIPDPI/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/po4yka/RIPDPI/ci.yml?style=flat-square&label=CI" alt="CI"/></a>
+  <a href="https://github.com/po4yka/RIPDPI/releases/latest"><img src="https://img.shields.io/github/v/release/po4yka/RIPDPI?style=flat-square" alt="Release"/></a>
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/po4yka/RIPDPI?style=flat-square" alt="License"/></a>
+  &nbsp;
+  <img src="https://img.shields.io/badge/Android-8.1%2B-3DDC84?style=flat-square&logo=android&logoColor=white" alt="Android 8.1+"/>
+  <img src="https://img.shields.io/badge/Kotlin-7F52FF?style=flat-square&logo=kotlin&logoColor=white" alt="Kotlin"/>
+  <img src="https://img.shields.io/badge/Rust-000000?style=flat-square&logo=rust&logoColor=white" alt="Rust"/>
+</p>
+
+<p align="center"><a href="README.md">English</a> | <b>Русский</b></p>
 
 Приложение для Android для оптимизации сетевого соединения с:
 
