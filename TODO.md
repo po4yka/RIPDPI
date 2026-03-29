@@ -10,7 +10,7 @@ File path prefix: `app/src/main/kotlin/com/poyka/ripdpi/`
 
 ## Phase 1: Quick Wins -- Density and Copy Cleanup
 
-- [ ] **1.1 Hide debug performance card behind developer gesture**
+- [x] **1.1 Hide debug performance card behind developer gesture**
   - Files: `ui/screens/diagnostics/DiagnosticsScreen.kt`
   - Replace `BuildConfig.DEBUG` guard on `DiagnosticsPerformanceCard` with a
     `rememberSaveable` boolean toggled via long-press on `RipDpiTopAppBar`.
