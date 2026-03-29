@@ -369,6 +369,84 @@ class DiagnosticsFindingProjectorTest {
     }
 
     @Test
+    fun `classify emits h3_selective_blocking when h3 advertised but QUIC blocked`() {
+        val observations =
+            listOf(
+                // HTTP strategy observation advertising h3 for discord.com
+                ObservationFact(
+                    kind = ObservationKind.STRATEGY,
+                    target = "candidate_a \u00b7 discord.com",
+                    strategy =
+                        StrategyObservationFact(
+                            candidateId = "candidate_a",
+                            protocol = StrategyProbeProtocol.HTTP,
+                            status = StrategyProbeStatus.SUCCESS,
+                            h3Advertised = true,
+                        ),
+                ),
+                // QUIC strategy probes that all fail for the same domain
+                ObservationFact(
+                    kind = ObservationKind.STRATEGY,
+                    target = "candidate_a \u00b7 discord.com",
+                    strategy =
+                        StrategyObservationFact(
+                            candidateId = "candidate_a",
+                            protocol = StrategyProbeProtocol.QUIC,
+                            status = StrategyProbeStatus.FAILED,
+                        ),
+                ),
+                ObservationFact(
+                    kind = ObservationKind.STRATEGY,
+                    target = "candidate_b \u00b7 discord.com",
+                    strategy =
+                        StrategyObservationFact(
+                            candidateId = "candidate_b",
+                            protocol = StrategyProbeProtocol.QUIC,
+                            status = StrategyProbeStatus.FAILED,
+                        ),
+                ),
+            )
+        val diagnoses = DiagnosticsFindingProjector().classify(observations)
+        val diagnosis = diagnoses.firstOrNull { it.code == "h3_selective_blocking" }
+        assertNotNull(diagnosis)
+        assertEquals("discord.com", diagnosis?.target)
+        assertEquals("Server advertises HTTP/3 (h3) via Alt-Svc but QUIC is blocked", diagnosis?.summary)
+        assertTrue(diagnosis!!.evidence.contains("h3Advertised=true"))
+        assertTrue(diagnosis.evidence.contains("quicSuccess=0"))
+        assertNotNull(diagnosis.recommendation)
+    }
+
+    @Test
+    fun `classify does not emit h3_selective_blocking when QUIC succeeds`() {
+        val observations =
+            listOf(
+                ObservationFact(
+                    kind = ObservationKind.STRATEGY,
+                    target = "candidate_a \u00b7 discord.com",
+                    strategy =
+                        StrategyObservationFact(
+                            candidateId = "candidate_a",
+                            protocol = StrategyProbeProtocol.HTTP,
+                            status = StrategyProbeStatus.SUCCESS,
+                            h3Advertised = true,
+                        ),
+                ),
+                ObservationFact(
+                    kind = ObservationKind.STRATEGY,
+                    target = "candidate_a \u00b7 discord.com",
+                    strategy =
+                        StrategyObservationFact(
+                            candidateId = "candidate_a",
+                            protocol = StrategyProbeProtocol.QUIC,
+                            status = StrategyProbeStatus.SUCCESS,
+                        ),
+                ),
+            )
+        val diagnoses = DiagnosticsFindingProjector().classify(observations)
+        assert(diagnoses.none { it.code == "h3_selective_blocking" })
+    }
+
+    @Test
     fun `classify does not emit throttling_suspected when throughput ratio is acceptable`() {
         val observations =
             listOf(
