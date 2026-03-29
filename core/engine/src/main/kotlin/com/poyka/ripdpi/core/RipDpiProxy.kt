@@ -108,6 +108,7 @@ class RipDpiProxy(
     @Volatile private var handle = 0L
     private var readinessSignal: CompletableDeferred<Unit>? = null
 
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
     override suspend fun startProxy(preferences: RipDpiProxyPreferences): Int {
         val startupSignal = CompletableDeferred<Unit>()
         val handle =
