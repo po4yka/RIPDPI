@@ -1,6 +1,6 @@
 use std::net::{IpAddr, SocketAddr};
 
-use ripdpi_failure_classifier::confirm_dns_tampering;
+use ripdpi_failure_classifier::{confirm_dns_tampering, ClassifiedFailure, FailureAction, FailureClass, FailureStage};
 use ripdpi_proxy_config::ProxyRuntimeContext;
 
 use crate::candidates::{
@@ -38,9 +38,7 @@ pub(crate) fn detect_strategy_probe_dns_tampering(
             }
         };
         let system_latency_ms = system_started.elapsed().as_millis().to_string();
-        if system_targets.is_empty() {
-            continue;
-        }
+        let system_resolution_failed = system_targets.is_empty();
 
         let encrypted_started = std::time::Instant::now();
         let encrypted_result =
@@ -51,8 +49,20 @@ pub(crate) fn detect_strategy_probe_dns_tampering(
         let encrypted_ips =
             encrypted_addresses.iter().filter_map(|value| value.parse::<IpAddr>().ok()).collect::<Vec<_>>();
         let system_ips = system_targets.iter().map(SocketAddr::ip).collect::<Vec<_>>();
-        let substitution = system_ips.iter().all(|ip| !encrypted_ips.iter().any(|answer| answer == ip));
-        let outcome = if substitution { "dns_substitution" } else { "dns_match" };
+
+        // DNS record deletion (NXDOMAIN): system returns nothing but encrypted resolves fine.
+        // DNS substitution: system returns IPs that don't match encrypted answers.
+        let (tampering_detected, outcome) = if system_resolution_failed && !encrypted_ips.is_empty() {
+            (true, "dns_nxdomain")
+        } else if system_resolution_failed {
+            // Both failed or encrypted also empty -- skip this target.
+            continue;
+        } else if system_ips.iter().all(|ip| !encrypted_ips.iter().any(|answer| answer == ip)) {
+            (true, "dns_substitution")
+        } else {
+            (false, "dns_match")
+        };
+
         results.push(ProbeResult {
             probe_type: "dns_integrity".to_string(),
             target: target.host.clone(),
@@ -60,7 +70,11 @@ pub(crate) fn detect_strategy_probe_dns_tampering(
             details: vec![
                 ProbeDetail {
                     key: "udpAddresses".to_string(),
-                    value: system_targets.iter().map(ToString::to_string).collect::<Vec<_>>().join("|"),
+                    value: if system_resolution_failed {
+                        "nxdomain".to_string()
+                    } else {
+                        system_targets.iter().map(ToString::to_string).collect::<Vec<_>>().join("|")
+                    },
                 },
                 ProbeDetail { key: "udpLatencyMs".to_string(), value: system_latency_ms.clone() },
                 ProbeDetail {
@@ -110,12 +124,35 @@ pub(crate) fn detect_strategy_probe_dns_tampering(
                 },
             ],
         });
-        if substitution && classified.is_none() {
-            for system_ip in &system_ips {
-                if let Some(failure) = confirm_dns_tampering(&target.host, *system_ip, &encrypted_ips, &resolver_label)
-                {
-                    classified = Some(failure);
-                    break;
+        if tampering_detected && classified.is_none() {
+            if system_resolution_failed {
+                // NXDOMAIN: system says domain doesn't exist, but encrypted resolver proves it does.
+                classified = Some(
+                    ClassifiedFailure::new(
+                        FailureClass::DnsTampering,
+                        FailureStage::Dns,
+                        FailureAction::ResolverOverrideRecommended,
+                        format!(
+                            "System DNS returned NXDOMAIN for {} but encrypted resolver returned valid addresses",
+                            target.host
+                        ),
+                    )
+                    .with_tag("host", target.host.clone())
+                    .with_tag("targetIp", "nxdomain".to_string())
+                    .with_tag(
+                        "encryptedAnswers",
+                        encrypted_ips.iter().map(ToString::to_string).collect::<Vec<_>>().join("|"),
+                    )
+                    .with_tag("resolver", resolver_label.clone()),
+                );
+            } else {
+                for system_ip in &system_ips {
+                    if let Some(failure) =
+                        confirm_dns_tampering(&target.host, *system_ip, &encrypted_ips, &resolver_label)
+                    {
+                        classified = Some(failure);
+                        break;
+                    }
                 }
             }
         }

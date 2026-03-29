@@ -15,6 +15,7 @@ import java.util.Locale
 private const val ProbeTypeDnsIntegrity = "dns_integrity"
 private const val OutcomeDnsMatch = "dns_match"
 private const val OutcomeDnsSubstitution = "dns_substitution"
+private const val OutcomeDnsNxdomain = "dns_nxdomain"
 private const val OutcomeUdpBlocked = "udp_blocked"
 private const val SchemeHttp = "http://"
 private const val SchemeHttps = "https://"
@@ -189,7 +190,11 @@ private fun collectCandidates(dnsResults: List<ProbeResult>): List<Candidate> =
         .mapNotNull { (_, entries) -> entries.toCandidate() }
 
 private fun List<ProbeResult>.firstTriggerOutcome(): String? =
-    firstOrNull { it.outcome == OutcomeDnsSubstitution || it.outcome == OutcomeUdpBlocked }?.outcome
+    firstOrNull {
+        it.outcome == OutcomeDnsSubstitution ||
+            it.outcome == OutcomeDnsNxdomain ||
+            it.outcome == OutcomeUdpBlocked
+    }?.outcome
 
 private fun List<CandidateObservation>.toCandidate(): Candidate? {
     val healthyEntries = filter(CandidateObservation::isHealthy)

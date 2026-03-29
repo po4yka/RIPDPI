@@ -72,6 +72,7 @@ pub(crate) fn run_dns_probe(target: &DnsTarget, transport: &TransportConfig, pat
         }
         (Ok(_), Ok(_)) => "dns_substitution".to_string(),
         (Ok(_), Err(_)) => "encrypted_dns_blocked".to_string(),
+        (Err(err), Ok(_)) if err == "dns_nxdomain" => "dns_nxdomain".to_string(),
         (Err(_), Ok(_)) => {
             if matches!(path_mode, ScanPathMode::InPath) {
                 "udp_skipped_or_blocked".to_string()

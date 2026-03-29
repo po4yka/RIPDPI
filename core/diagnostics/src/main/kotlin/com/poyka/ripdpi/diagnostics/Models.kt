@@ -186,6 +186,7 @@ enum class DnsObservationStatus {
     MATCH,
     EXPECTED_MISMATCH,
     SUBSTITUTION,
+    NXDOMAIN,
     ENCRYPTED_BLOCKED,
     UDP_BLOCKED,
     UNAVAILABLE,

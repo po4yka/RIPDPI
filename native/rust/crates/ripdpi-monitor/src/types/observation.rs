@@ -8,6 +8,7 @@ pub enum DnsObservationStatus {
     Match,
     ExpectedMismatch,
     Substitution,
+    Nxdomain,
     EncryptedBlocked,
     UdpBlocked,
     Unavailable,

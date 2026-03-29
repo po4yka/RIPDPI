@@ -81,13 +81,21 @@ pub(crate) fn classify_connectivity_diagnoses(request: &ScanRequest, results: &[
     }
 
     for result in results.iter().filter(|result| result.probe_type == "dns_integrity") {
-        if matches!(result.outcome.as_str(), "dns_substitution" | "dns_expected_mismatch") {
+        if matches!(result.outcome.as_str(), "dns_substitution" | "dns_expected_mismatch" | "dns_nxdomain") {
+            let summary = if result.outcome == "dns_nxdomain" {
+                format!(
+                    "DNS records for {} deleted (NXDOMAIN) while encrypted resolver returns valid addresses",
+                    result.target
+                )
+            } else {
+                format!("DNS answers for {} differ across resolvers", result.target)
+            };
             push_diagnosis(
                 &mut diagnoses,
                 &mut seen,
                 Diagnosis {
                     code: "dns_tampering".to_string(),
-                    summary: format!("DNS answers for {} differ across resolvers", result.target),
+                    summary,
                     severity: "negative".to_string(),
                     target: Some(result.target.clone()),
                     evidence: diagnosis_evidence(result, &["udpAddresses", "encryptedAddresses", "expected"]),

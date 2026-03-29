@@ -103,7 +103,7 @@ object DiagnosticsOutcomeTaxonomy {
                         }
                     }
 
-                    "dns_substitution", "encrypted_dns_blocked", "dns_unavailable" -> {
+                    "dns_substitution", "dns_nxdomain", "encrypted_dns_blocked", "dns_unavailable" -> {
                         DiagnosticsOutcomeBucket.Failed
                     }
 

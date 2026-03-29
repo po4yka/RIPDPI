@@ -311,6 +311,7 @@ fn dns_status(outcome: &str) -> DnsObservationStatus {
         "dns_match" => DnsObservationStatus::Match,
         "dns_expected_mismatch" => DnsObservationStatus::ExpectedMismatch,
         "dns_substitution" => DnsObservationStatus::Substitution,
+        "dns_nxdomain" => DnsObservationStatus::Nxdomain,
         "encrypted_dns_blocked" => DnsObservationStatus::EncryptedBlocked,
         "udp_blocked" | "udp_skipped_or_blocked" => DnsObservationStatus::UdpBlocked,
         _ => DnsObservationStatus::Unavailable,
