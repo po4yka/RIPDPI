@@ -14,6 +14,8 @@ import dagger.Module
 import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.persistentListOf
 import java.util.Optional
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -113,7 +115,7 @@ data class PermissionSummaryUiState(
     val issue: PermissionIssueUiState? = null,
     val recommendedIssue: PermissionIssueUiState? = null,
     val backgroundGuidance: BackgroundGuidanceUiState? = null,
-    val items: List<PermissionItemUiState> = emptyList(),
+    val items: ImmutableList<PermissionItemUiState> = persistentListOf(),
 )
 
 interface PermissionStatusProvider {

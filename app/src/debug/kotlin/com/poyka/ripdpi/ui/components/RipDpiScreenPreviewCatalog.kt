@@ -33,6 +33,7 @@ import com.poyka.ripdpi.ui.screens.home.HomeScreen
 import com.poyka.ripdpi.ui.screens.onboarding.OnboardingScreen
 import com.poyka.ripdpi.ui.screens.settings.SettingsScreen
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
+import kotlinx.collections.immutable.persistentListOf
 import kotlin.time.Duration.Companion.minutes
 
 @Preview(name = "Home Expanded", showBackground = true, widthDp = 1040, heightDp = 920)
@@ -179,7 +180,7 @@ internal fun RipDpiSettingsMediumPreviewScene() {
             permissionSummary =
                 PermissionSummaryUiState(
                     items =
-                        listOf(
+                        persistentListOf(
                             PermissionItemUiState(
                                 kind = PermissionKind.VpnConsent,
                                 title = "VPN permission",
@@ -227,7 +228,7 @@ internal fun RipDpiSettingsDarkPreviewScene() {
             permissionSummary =
                 PermissionSummaryUiState(
                     items =
-                        listOf(
+                        persistentListOf(
                             PermissionItemUiState(
                                 kind = PermissionKind.VpnConsent,
                                 title = "VPN permission",

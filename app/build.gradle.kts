@@ -87,6 +87,7 @@ dependencies {
     implementation(libs.androidx.datastore)
 
     implementation(libs.logcat)
+    implementation(libs.kotlinx.collections.immutable)
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.retrofit)
     implementation(libs.okhttp)

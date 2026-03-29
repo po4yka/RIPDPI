@@ -27,6 +27,7 @@ detekt-compose-rules = "0.5.6"
 ktlint-plugin = "14.2.0"
 logcat = "0.4"
 splashscreen = "1.2.0"
+kotlinx-collections-immutable = "0.3.8"
 kotlinx-serialization = "1.10.0"
 room = "2.8.4"
 robolectric = "4.16.1"
@@ -77,6 +78,7 @@ detekt-compose-rules = { module = "io.nlopez.compose.rules:detekt", version.ref 
 logcat = { module = "com.squareup.logcat:logcat", version.ref = "logcat" }
 androidx-core-splashscreen = { module = "androidx.core:core-splashscreen", version.ref = "splashscreen" }
 androidx-profileinstaller = { module = "androidx.profileinstaller:profileinstaller", version.ref = "profileinstaller" }
+kotlinx-collections-immutable = { module = "org.jetbrains.kotlinx:kotlinx-collections-immutable", version.ref = "kotlinx-collections-immutable" }
 kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "kotlinx-serialization" }
 hilt-android = { module = "com.google.dagger:hilt-android", version.ref = "hilt" }
 hilt-android-testing = { module = "com.google.dagger:hilt-android-testing", version.ref = "hilt" }

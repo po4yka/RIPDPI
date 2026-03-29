@@ -43,6 +43,7 @@ import com.poyka.ripdpi.ui.screens.settings.AdvancedSettingsScreen
 import com.poyka.ripdpi.ui.screens.settings.DataTransparencyScreen
 import com.poyka.ripdpi.ui.screens.settings.TlsPreludeModeDisabled
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
+import kotlinx.collections.immutable.persistentListOf
 
 // -- Home state variants --------------------------------------------------------
 
@@ -183,7 +184,7 @@ private fun noopAdvancedSettingsActions(): AdvancedSettingsActions =
 // -- Logs -----------------------------------------------------------------------
 
 private val previewLogEntries =
-    listOf(
+    persistentListOf(
         LogEntry(
             id = "service-started",
             createdAtMs = 1_711_452_264_000,

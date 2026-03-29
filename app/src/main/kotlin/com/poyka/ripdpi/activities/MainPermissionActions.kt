@@ -18,6 +18,7 @@ import com.poyka.ripdpi.permissions.PermissionStatusProvider
 import com.poyka.ripdpi.permissions.PermissionSummaryUiState
 import com.poyka.ripdpi.platform.PermissionPlatformBridge
 import com.poyka.ripdpi.platform.StringResolver
+import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.update
 
@@ -541,7 +542,7 @@ internal fun buildPermissionSummary(
                 buildNotificationPermissionItem(snapshot.notifications, stringResolver),
                 buildVpnPermissionItem(snapshot.vpnConsent, configuredMode, stringResolver),
                 buildBatteryPermissionItem(snapshot.batteryOptimization, stringResolver),
-            ),
+            ).toImmutableList(),
     )
 }
 
