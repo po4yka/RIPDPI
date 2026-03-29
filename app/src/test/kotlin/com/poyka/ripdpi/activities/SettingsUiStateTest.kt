@@ -17,6 +17,7 @@ import com.poyka.ripdpi.data.DefaultFakeSni
 import com.poyka.ripdpi.data.DefaultHostAutolearnMaxHosts
 import com.poyka.ripdpi.data.DefaultHostAutolearnPenaltyTtlHours
 import com.poyka.ripdpi.data.DefaultQuicFakeHost
+import com.poyka.ripdpi.data.DefaultSeqOverlapSize
 import com.poyka.ripdpi.data.DefaultSplitMarker
 import com.poyka.ripdpi.data.DefaultTlsRandRecFragmentCount
 import com.poyka.ripdpi.data.DefaultTlsRandRecMaxFragmentSize
@@ -34,6 +35,8 @@ import com.poyka.ripdpi.data.NativeRuntimeSnapshot
 import com.poyka.ripdpi.data.QuicFakeProfileCompatDefault
 import com.poyka.ripdpi.data.QuicFakeProfileDisabled
 import com.poyka.ripdpi.data.QuicFakeProfileRealisticInitial
+import com.poyka.ripdpi.data.SeqOverlapFakeModeProfile
+import com.poyka.ripdpi.data.SeqOverlapFakeModeRand
 import com.poyka.ripdpi.data.TcpChainStepKind
 import com.poyka.ripdpi.data.TcpChainStepModel
 import com.poyka.ripdpi.data.TlsFakeProfileGoogleChrome
@@ -291,6 +294,94 @@ class SettingsUiStateTest {
 
         assertFalse(state.hostFakeControlsRelevant)
         assertFalse(state.showHostFakeProfile)
+    }
+
+    @Test
+    fun `seqovl profile step activates fake payload guidance without fake transport`() {
+        val settings =
+            defaults
+                .toBuilder()
+                .clearTcpChainSteps()
+                .addTcpChainSteps(
+                    StrategyTcpStep
+                        .newBuilder()
+                        .setKind("tlsrec")
+                        .setMarker("extlen")
+                        .build(),
+                ).addTcpChainSteps(
+                    StrategyTcpStep
+                        .newBuilder()
+                        .setKind("seqovl")
+                        .setMarker("midsld")
+                        .setOverlapSize(16)
+                        .setFakeMode(SeqOverlapFakeModeProfile)
+                        .build(),
+                ).build()
+
+        val state = settings.toUiState()
+
+        assertFalse(state.isFake)
+        assertFalse(state.usesFakeTransport)
+        assertTrue(state.desync.hasSeqOverlap)
+        assertEquals(1, state.desync.seqOverlapStepCount)
+        assertEquals(TcpChainStepKind.SeqOverlap, state.desync.primarySeqOverlapStep?.kind)
+        assertEquals("midsld", state.desync.primarySeqOverlapStep?.marker)
+        assertEquals(16, state.desync.seqOverlapEffectiveSize)
+        assertTrue(state.usesSeqOverlapFakeProfile)
+        assertTrue(state.httpFakeProfileActiveInStrategy)
+        assertTrue(state.tlsFakeProfileActiveInStrategy)
+        assertTrue(state.fakeTlsControlsRelevant)
+        assertTrue(state.showSeqOverlapProfile)
+        assertFalse(state.seqOverlapUnavailableOnDevice)
+        assertEquals("tcp: tlsrec(extlen) -> seqovl(midsld overlap=16 fake=profile)", state.desync.chainSummary)
+    }
+
+    @Test
+    fun `saved seqovl rand stays visible when http and https are off`() {
+        val settings =
+            defaults
+                .toBuilder()
+                .setDesyncHttp(false)
+                .setDesyncHttps(false)
+                .setDesyncUdp(true)
+                .clearTcpChainSteps()
+                .addTcpChainSteps(
+                    StrategyTcpStep
+                        .newBuilder()
+                        .setKind("seqovl")
+                        .setMarker("host+1")
+                        .setOverlapSize(DefaultSeqOverlapSize)
+                        .setFakeMode(SeqOverlapFakeModeRand)
+                        .build(),
+                ).build()
+
+        val state = settings.toUiState()
+
+        assertTrue(state.desync.hasSeqOverlap)
+        assertFalse(state.usesSeqOverlapFakeProfile)
+        assertFalse(state.seqOverlapControlsRelevant)
+        assertTrue(state.showSeqOverlapProfile)
+        assertFalse(state.seqOverlapUnavailableOnDevice)
+        assertFalse(state.httpFakeProfileActiveInStrategy)
+        assertFalse(state.tlsFakeProfileActiveInStrategy)
+        assertFalse(state.fakeTlsControlsRelevant)
+    }
+
+    @Test
+    fun `seqovl guidance hides when no relevant protocols are enabled`() {
+        val settings =
+            defaults
+                .toBuilder()
+                .setDesyncHttp(false)
+                .setDesyncHttps(false)
+                .setDesyncUdp(true)
+                .build()
+
+        val state = settings.toUiState()
+
+        assertFalse(state.seqOverlapControlsRelevant)
+        assertFalse(state.showSeqOverlapProfile)
+        assertTrue(state.seqOverlapUnavailableOnDevice)
     }
 
     @Test

@@ -269,6 +269,38 @@ class ApproachAnalyticsTest {
     }
 
     @Test
+    fun `deriveBypassStrategySignature treats seqovl profile as fake payload consumer`() {
+        val settings =
+            AppSettings
+                .newBuilder()
+                .setRipdpiMode("vpn")
+                .setDesyncHttps(true)
+                .addTcpChainSteps(
+                    StrategyTcpStep
+                        .newBuilder()
+                        .setKind("tlsrec")
+                        .setMarker("extlen")
+                        .build(),
+                ).addTcpChainSteps(
+                    StrategyTcpStep
+                        .newBuilder()
+                        .setKind("seqovl")
+                        .setMarker("midsld")
+                        .setOverlapSize(12)
+                        .setFakeMode("profile")
+                        .build(),
+                ).setFakeTlsUseOriginal(true)
+                .setFakeTlsDupSessionId(true)
+                .build()
+
+        val signature = deriveBypassStrategySignature(settings = settings, routeGroup = "22")
+
+        assertEquals("tcp: tlsrec(extlen) -> seqovl(midsld overlap=12 fake=profile)", signature.chainSummary)
+        assertEquals("original", signature.fakeTlsBaseMode)
+        assertEquals(listOf("dupsid"), signature.fakeTlsMods)
+    }
+
+    @Test
     fun `deriveBypassStrategySignature treats tlsrandrec as tls prelude`() {
         val settings =
             AppSettings

@@ -114,6 +114,28 @@ class StrategyChainsTest {
     }
 
     @Test
+    fun `seqovl proto defaults normalize overlap and fake mode`() {
+        val settings =
+            AppSettings
+                .newBuilder()
+                .addTcpChainSteps(
+                    com.poyka.ripdpi.proto.StrategyTcpStep
+                        .newBuilder()
+                        .setKind("seqovl")
+                        .setMarker("midsld")
+                        .build(),
+                ).build()
+
+        val step = settings.effectiveTcpChainSteps().single()
+
+        assertEquals(TcpChainStepKind.SeqOverlap, step.kind)
+        assertEquals("midsld", step.marker)
+        assertEquals(DefaultSeqOverlapSize, step.overlapSize)
+        assertEquals(SeqOverlapFakeModeProfile, step.fakeMode)
+        assertEquals("tcp: seqovl(midsld overlap=12 fake=profile)", settings.effectiveChainSummary())
+    }
+
+    @Test
     fun `dsl round trip preserves tcp and udp chain order`() {
         val dsl =
             """

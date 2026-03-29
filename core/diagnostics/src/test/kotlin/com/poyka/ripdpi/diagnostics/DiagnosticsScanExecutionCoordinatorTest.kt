@@ -10,6 +10,7 @@ import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.RememberedNetworkPolicySource
 import com.poyka.ripdpi.data.TcpChainStepKind
 import com.poyka.ripdpi.data.TcpChainStepModel
+import com.poyka.ripdpi.data.UdpChainStepModel
 import com.poyka.ripdpi.data.activeDnsSettings
 import com.poyka.ripdpi.data.diagnostics.DefaultNetworkDnsPathPreferenceStore
 import com.poyka.ripdpi.data.diagnostics.DefaultRememberedNetworkPolicyStore
@@ -1310,6 +1311,7 @@ private fun validRecommendedProxyConfigJsonForCoordinator(): String =
                             marker = "midhost+1",
                         ),
                     ),
+                udpSteps = listOf(UdpChainStepModel(count = 4)),
             ),
         quic = RipDpiQuicConfig(fakeProfile = "realistic_initial"),
     ).toNativeConfigJson()
