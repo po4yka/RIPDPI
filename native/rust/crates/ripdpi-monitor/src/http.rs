@@ -466,7 +466,7 @@ mod tests {
     fn alt_svc_header_absent_returns_none() {
         let response =
             HttpResponse { status_code: 200, reason: "OK".to_string(), headers: HashMap::new(), body: b"ok".to_vec() };
-        assert!(response.headers.get("alt-svc").is_none());
+        assert!(!response.headers.contains_key("alt-svc"));
     }
 
     #[test]

@@ -59,13 +59,27 @@ class ConnectionPolicyResolverTest {
         }
 
     @Test
-    fun `plain udp vpn dns selection remains unchanged without overrides`() =
+    fun `plain udp vpn dns selection applies preferred path when available`() =
         runTest {
             val selection =
                 resolveVpnDnsSelection(
                     mode = Mode.VPN,
                     baseDns = resolveEffectiveDns(plainUdpSettings(), override = null).activeDns,
                     preferredPath = quad9DotPath(),
+                )
+
+            assertEquals(quad9DotPath().toActiveDnsSettings(), selection.activeDns)
+            assertEquals(quad9DotPath().pathKey(), selection.preferredPath?.pathKey())
+            assertNull(selection.rememberedVpnDnsPolicy)
+        }
+
+    @Test
+    fun `plain udp vpn dns selection remains unchanged without preferred path`() =
+        runTest {
+            val selection =
+                resolveVpnDnsSelection(
+                    mode = Mode.VPN,
+                    baseDns = resolveEffectiveDns(plainUdpSettings(), override = null).activeDns,
                 )
 
             assertTrue(selection.activeDns.isPlainUdp)

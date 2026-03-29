@@ -475,7 +475,7 @@ pub(crate) fn run_http_strategy_probe(
         (observation.status.clone(), None)
     };
     let h3_advertised =
-        observation.response.as_ref().and_then(|r| r.headers.get("alt-svc")).map(|v| v.contains("h3")).unwrap_or(false);
+        observation.response.as_ref().and_then(|r| r.headers.get("alt-svc")).is_some_and(|v| v.contains("h3"));
     let mut details = vec![
         ProbeDetail { key: "candidateId".to_string(), value: candidate.id.to_string() },
         ProbeDetail { key: "candidateLabel".to_string(), value: candidate.label.to_string() },

@@ -213,7 +213,7 @@ fn parse_client_hello(data: &[u8]) -> Option<ClientHelloFields> {
 }
 
 fn join_decimal(values: &[u16]) -> String {
-    values.iter().map(|v| v.to_string()).collect::<Vec<_>>().join("-")
+    values.iter().map(std::string::ToString::to_string).collect::<Vec<_>>().join("-")
 }
 
 /// Compute the JA3 fingerprint hash from recorded TLS handshake bytes.
