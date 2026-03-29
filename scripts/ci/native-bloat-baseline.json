@@ -112,6 +112,16 @@
           "crate": "ripdpi_monitor",
           "name": "ripdpi_monitor::execution::execute_tcp_candidate",
           "size": 13264
+        },
+        {
+          "crate": "ripdpi_runtime",
+          "name": "ripdpi_runtime::runtime::relay::failure_retry::FirstOutboundCoordinator::run",
+          "size": 13040
+        },
+        {
+          "crate": "aws_lc_sys",
+          "name": "aws_lc_0_39_0_edwards25519_scalarmulbase_alt",
+          "size": 12667
         }
       ],
       "crates": [
