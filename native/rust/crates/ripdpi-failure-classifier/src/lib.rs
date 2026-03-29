@@ -831,7 +831,7 @@ mod tests {
     fn classified_failure_json_uses_camel_case_fields() {
         let f = ClassifiedFailure::new(FailureClass::Unknown, FailureStage::Dns, FailureAction::None, "test");
         let json = serde_json::to_string(&f).unwrap();
-        assert!(json.contains("\"statusCode\"") == false, "should not contain statusCode");
+        assert!(!json.contains("\"statusCode\""), "should not contain statusCode");
         // camelCase field names from #[serde(rename_all = "camelCase")]
         let value: serde_json::Value = serde_json::from_str(&json).unwrap();
         assert!(value.get("class").is_some());
