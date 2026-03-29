@@ -90,6 +90,7 @@ class StrategyChainsTest {
             "tcp: tlsrec(extlen) -> seqovl(midsld overlap=16 fake=rand)",
             formatChainSummary(parsed.tcpSteps, parsed.udpSteps),
         )
+        assertEquals("seqovl", primaryDesyncMethod(parsed.tcpSteps))
     }
 
     @Test
@@ -114,6 +115,20 @@ class StrategyChainsTest {
     }
 
     @Test
+    fun `seqovl parser rejects invalid fake mode and overlap`() {
+        val invalidFakeMode = parseStrategyChainDsl("[tcp]\nseqovl midsld fake=bogus")
+        val zeroOverlap = parseStrategyChainDsl("[tcp]\nseqovl midsld overlap=0")
+        val negativeOverlap = parseStrategyChainDsl("[tcp]\nseqovl midsld overlap=-1")
+
+        assertTrue(invalidFakeMode.isFailure)
+        assertFalse(invalidFakeMode.exceptionOrNull()?.message.isNullOrBlank())
+        assertTrue(zeroOverlap.isFailure)
+        assertFalse(zeroOverlap.exceptionOrNull()?.message.isNullOrBlank())
+        assertTrue(negativeOverlap.isFailure)
+        assertFalse(negativeOverlap.exceptionOrNull()?.message.isNullOrBlank())
+    }
+
+    @Test
     fun `seqovl proto defaults normalize overlap and fake mode`() {
         val settings =
             AppSettings
@@ -132,6 +147,7 @@ class StrategyChainsTest {
         assertEquals("midsld", step.marker)
         assertEquals(DefaultSeqOverlapSize, step.overlapSize)
         assertEquals(SeqOverlapFakeModeProfile, step.fakeMode)
+        assertEquals("seqovl", primaryDesyncMethod(settings.effectiveTcpChainSteps()))
         assertEquals("tcp: seqovl(midsld overlap=12 fake=profile)", settings.effectiveChainSummary())
     }
 

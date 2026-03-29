@@ -9,6 +9,8 @@ import com.poyka.ripdpi.activities.SettingsNoticeTone
 import com.poyka.ripdpi.activities.SettingsUiState
 import com.poyka.ripdpi.data.AppSettingsSerializer
 import com.poyka.ripdpi.data.CanonicalDefaultSplitMarker
+import com.poyka.ripdpi.data.TcpChainStepKind
+import com.poyka.ripdpi.data.TcpChainStepModel
 import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.ui.components.feedback.WarningBannerTone
 import org.junit.Assert.assertEquals
@@ -191,6 +193,44 @@ class AdvancedSettingsRouteBinderTest {
         assertEquals(4, update.settings.adaptiveFakeTtlMin)
         assertEquals(19, update.settings.adaptiveFakeTtlMax)
         assertEquals(17, update.settings.adaptiveFakeTtlFallback)
+    }
+
+    @Test
+    fun `binder preserves saved seqovl when desync method is replayed`() {
+        val recorder = RecordingSettingsMutations()
+        val binder = AdvancedSettingsBinder(recorder::updateSetting)
+        val uiState =
+            SettingsUiState(
+                desync =
+                    DesyncCoreUiState(
+                        desyncMethod = TcpChainStepKind.SeqOverlap.wireName,
+                        tcpChainSteps =
+                            listOf(
+                                TcpChainStepModel(TcpChainStepKind.TlsRec, "extlen"),
+                                TcpChainStepModel(
+                                    kind = TcpChainStepKind.SeqOverlap,
+                                    marker = "midsld",
+                                    overlapSize = 16,
+                                    fakeMode = "profile",
+                                ),
+                            ),
+                        splitMarker = "midsld",
+                    ),
+            )
+
+        binder.onOptionSelected(
+            setting = AdvancedOptionSetting.DesyncMethod,
+            value = TcpChainStepKind.SeqOverlap.wireName,
+            uiState = uiState,
+        )
+
+        val update = recorder.singleUpdate()
+        assertEquals("desyncMethod", update.key)
+        assertEquals(TcpChainStepKind.SeqOverlap.wireName, update.value)
+        assertEquals("seqovl", update.settings.tcpChainStepsList[1].kind)
+        assertEquals("midsld", update.settings.tcpChainStepsList[1].marker)
+        assertEquals(16, update.settings.tcpChainStepsList[1].overlapSize)
+        assertEquals("profile", update.settings.tcpChainStepsList[1].fakeMode)
     }
 
     @Test

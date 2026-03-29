@@ -77,8 +77,11 @@ fn disorder_ttl(fake_ttl: u8) -> u8 {
     }
 }
 
-fn seqovl_hard_gate_matches(context: ActivationContext) -> bool {
-    context.round == 1 && context.stream_start >= 0 && context.stream_end <= 1500
+fn seqovl_hard_gate_matches(context: ActivationContext, split_end: i64) -> bool {
+    if context.round != 1 || context.stream_start < 0 || split_end <= 0 {
+        return false;
+    }
+    context.stream_start.saturating_add(split_end) <= 1500
 }
 
 pub fn plan_tcp(
@@ -152,7 +155,7 @@ pub fn plan_tcp(
                 push_split_actions(&mut actions, chunk);
             }
             TcpChainStepKind::SeqOverlap => {
-                if !context.seqovl_supported || !seqovl_hard_gate_matches(context) {
+                if !context.seqovl_supported || !seqovl_hard_gate_matches(context, pos) {
                     planned_kind = TcpChainStepKind::Split;
                 }
                 push_split_actions(&mut actions, chunk);

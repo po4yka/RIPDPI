@@ -309,16 +309,33 @@ fn plan_tcp_seqovl_degrades_to_split_when_capability_is_absent() {
 fn plan_tcp_seqovl_degrades_to_split_outside_first_1500_stream_bytes() {
     let payload = vec![b'a'; 1_601];
     let mut group = DesyncGroup::new(0);
-    group.actions.tcp_chain.push(seqovl_step(32));
+    group.actions.tcp_chain.push(seqovl_step(1_501));
     let mut context = tcp_context(&payload);
     context.seqovl_supported = true;
 
     let plan = plan_tcp(&group, &payload, 7, 64, context).expect("plan seqovl out-of-window");
 
-    assert_eq!(plan.steps, vec![PlannedStep { kind: TcpChainStepKind::Split, start: 0, end: 32 }]);
+    assert_eq!(plan.steps, vec![PlannedStep { kind: TcpChainStepKind::Split, start: 0, end: 1_501 }]);
     assert_eq!(
         plan.actions,
-        vec![DesyncAction::Write(vec![b'a'; 32]), DesyncAction::AwaitWritable, DesyncAction::Write(vec![b'a'; 1_569]),]
+        vec![DesyncAction::Write(vec![b'a'; 1_501]), DesyncAction::AwaitWritable, DesyncAction::Write(vec![b'a'; 100]),]
+    );
+}
+
+#[test]
+fn plan_tcp_seqovl_keeps_kind_when_large_first_write_still_splits_inside_first_window() {
+    let payload = vec![b'a'; 1_601];
+    let mut group = DesyncGroup::new(0);
+    group.actions.tcp_chain.push(seqovl_step(1_500));
+    let mut context = tcp_context(&payload);
+    context.seqovl_supported = true;
+
+    let plan = plan_tcp(&group, &payload, 7, 64, context).expect("plan seqovl large first write");
+
+    assert_eq!(plan.steps, vec![PlannedStep { kind: TcpChainStepKind::SeqOverlap, start: 0, end: 1_500 }]);
+    assert_eq!(
+        plan.actions,
+        vec![DesyncAction::Write(vec![b'a'; 1_500]), DesyncAction::AwaitWritable, DesyncAction::Write(vec![b'a'; 101]),]
     );
 }
 
