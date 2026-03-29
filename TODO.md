@@ -64,7 +64,7 @@ File path prefix: `app/src/main/kotlin/com/poyka/ripdpi/`
   - Depends on: Phase 1 complete
   - ~60 lines
 
-- [ ] **2.2 Add ProfileSelectionBottomSheet**
+- [x] **2.2 Add ProfileSelectionBottomSheet**
   - Files: `ui/screens/diagnostics/DiagnosticsBottomSheets.kt`,
     `activities/DiagnosticsUiModels.kt`, `activities/DiagnosticsViewModel.kt`
   - Create `ProfileSelectionBottomSheet` wrapping `ProfilePickerContent` in a

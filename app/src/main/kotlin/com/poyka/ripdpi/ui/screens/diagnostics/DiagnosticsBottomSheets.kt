@@ -11,6 +11,7 @@ import com.poyka.ripdpi.activities.DiagnosticsApproachDetailUiModel
 import com.poyka.ripdpi.activities.DiagnosticsDiagnosisUiModel
 import com.poyka.ripdpi.activities.DiagnosticsEventUiModel
 import com.poyka.ripdpi.activities.DiagnosticsProbeResultUiModel
+import com.poyka.ripdpi.activities.DiagnosticsProfileOptionUiModel
 import com.poyka.ripdpi.activities.DiagnosticsSessionDetailUiModel
 import com.poyka.ripdpi.activities.DiagnosticsStrategyProbeCandidateDetailUiModel
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
@@ -294,6 +295,30 @@ internal fun DiagnosticsBottomSheetHost(
                 }
             }
         }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+internal fun ProfileSelectionBottomSheet(
+    profiles: List<DiagnosticsProfileOptionUiModel>,
+    selectedProfileId: String?,
+    onSelectProfile: (String) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    RipDpiBottomSheet(
+        onDismissRequest = onDismiss,
+        title = "",
+        icon = RipDpiIcons.Settings,
+    ) {
+        ProfilePickerContent(
+            profiles = profiles,
+            selectedProfileId = selectedProfileId,
+            onSelectProfile = { profileId ->
+                onSelectProfile(profileId)
+                onDismiss()
+            },
+        )
     }
 }
 
