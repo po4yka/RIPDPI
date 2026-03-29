@@ -230,7 +230,7 @@ class DiagnosticsViewModelTest {
             advanceUntilIdle()
 
             val state = viewModel.uiState.value
-            assertEquals(DiagnosticsSection.Overview, state.selectedSection)
+            assertEquals(DiagnosticsSection.Dashboard, state.selectedSection)
             assertEquals("Default", state.overview.activeProfile?.name)
             assertEquals("Running", state.live.statusLabel)
             assertTrue(state.live.metrics.any { it.label == "Latest native failure" && it.value == "dns_tampering" })
@@ -612,7 +612,7 @@ class DiagnosticsViewModelTest {
             val viewModel =
                 createDiagnosticsViewModel(RuntimeEnvironment.getApplication(), manager, FakeAppSettingsRepository())
             val collector = backgroundScope.launch { viewModel.uiState.collect {} }
-            viewModel.selectSection(DiagnosticsSection.Share)
+            viewModel.selectSection(DiagnosticsSection.Tools)
             viewModel.selectProfile("custom")
             advanceUntilIdle()
 
@@ -1838,12 +1838,12 @@ class DiagnosticsViewModelTest {
             val collector = backgroundScope.launch { viewModel.uiState.collect {} }
             advanceUntilIdle()
 
-            viewModel.selectSection(DiagnosticsSection.Approaches)
+            viewModel.selectSection(DiagnosticsSection.Tools)
             viewModel.selectApproachMode(DiagnosticsApproachMode.Strategies)
             advanceUntilIdle()
 
             val beforeDetail = viewModel.uiState.value
-            assertEquals(DiagnosticsSection.Approaches, beforeDetail.selectedSection)
+            assertEquals(DiagnosticsSection.Tools, beforeDetail.selectedSection)
             assertEquals(1, beforeDetail.approaches.rows.size)
             assertEquals(
                 "VPN Split",
@@ -1899,7 +1899,7 @@ class DiagnosticsViewModelTest {
             val collector = backgroundScope.launch { viewModel.uiState.collect {} }
             advanceUntilIdle()
 
-            viewModel.selectSection(DiagnosticsSection.Approaches)
+            viewModel.selectSection(DiagnosticsSection.Tools)
             viewModel.selectApproachMode(DiagnosticsApproachMode.Strategies)
             advanceUntilIdle()
 
@@ -1960,7 +1960,7 @@ class DiagnosticsViewModelTest {
             val collector = backgroundScope.launch { viewModel.uiState.collect {} }
             advanceUntilIdle()
 
-            viewModel.selectSection(DiagnosticsSection.Approaches)
+            viewModel.selectSection(DiagnosticsSection.Tools)
             viewModel.selectApproachMode(DiagnosticsApproachMode.Strategies)
             advanceUntilIdle()
 
@@ -2016,7 +2016,7 @@ class DiagnosticsViewModelTest {
             val collector = backgroundScope.launch { viewModel.uiState.collect {} }
             advanceUntilIdle()
 
-            viewModel.selectSection(DiagnosticsSection.Approaches)
+            viewModel.selectSection(DiagnosticsSection.Tools)
             viewModel.selectApproachMode(DiagnosticsApproachMode.Strategies)
             advanceUntilIdle()
 
@@ -2064,7 +2064,7 @@ class DiagnosticsViewModelTest {
             val collector = backgroundScope.launch { viewModel.uiState.collect {} }
             advanceUntilIdle()
 
-            viewModel.selectSection(DiagnosticsSection.Approaches)
+            viewModel.selectSection(DiagnosticsSection.Tools)
             viewModel.selectApproachMode(DiagnosticsApproachMode.Strategies)
             advanceUntilIdle()
 
@@ -2112,7 +2112,7 @@ class DiagnosticsViewModelTest {
             val collector = backgroundScope.launch { viewModel.uiState.collect {} }
             advanceUntilIdle()
 
-            viewModel.selectSection(DiagnosticsSection.Approaches)
+            viewModel.selectSection(DiagnosticsSection.Tools)
             viewModel.selectApproachMode(DiagnosticsApproachMode.Strategies)
             advanceUntilIdle()
 
@@ -2160,7 +2160,7 @@ class DiagnosticsViewModelTest {
             val collector = backgroundScope.launch { viewModel.uiState.collect {} }
             advanceUntilIdle()
 
-            viewModel.selectSection(DiagnosticsSection.Approaches)
+            viewModel.selectSection(DiagnosticsSection.Tools)
             viewModel.selectApproachMode(DiagnosticsApproachMode.Strategies)
             advanceUntilIdle()
 
@@ -2206,7 +2206,7 @@ class DiagnosticsViewModelTest {
             val collector = backgroundScope.launch { viewModel.uiState.collect {} }
             advanceUntilIdle()
 
-            viewModel.selectSection(DiagnosticsSection.Approaches)
+            viewModel.selectSection(DiagnosticsSection.Tools)
             viewModel.selectApproachMode(DiagnosticsApproachMode.Strategies)
             advanceUntilIdle()
 
@@ -2254,7 +2254,7 @@ class DiagnosticsViewModelTest {
             val collector = backgroundScope.launch { viewModel.uiState.collect {} }
             advanceUntilIdle()
 
-            viewModel.selectSection(DiagnosticsSection.Approaches)
+            viewModel.selectSection(DiagnosticsSection.Tools)
             viewModel.selectApproachMode(DiagnosticsApproachMode.Strategies)
             advanceUntilIdle()
 
@@ -2309,7 +2309,7 @@ class DiagnosticsViewModelTest {
             val collector = backgroundScope.launch { viewModel.uiState.collect {} }
             advanceUntilIdle()
 
-            viewModel.selectSection(DiagnosticsSection.Approaches)
+            viewModel.selectSection(DiagnosticsSection.Tools)
             viewModel.selectApproachMode(DiagnosticsApproachMode.Strategies)
             advanceUntilIdle()
 
@@ -2360,7 +2360,7 @@ class DiagnosticsViewModelTest {
             val collector = backgroundScope.launch { viewModel.uiState.collect {} }
             advanceUntilIdle()
 
-            viewModel.selectSection(DiagnosticsSection.Approaches)
+            viewModel.selectSection(DiagnosticsSection.Tools)
             viewModel.selectApproachMode(DiagnosticsApproachMode.Strategies)
             advanceUntilIdle()
 
@@ -2405,7 +2405,7 @@ class DiagnosticsViewModelTest {
             val collector = backgroundScope.launch { viewModel.uiState.collect {} }
             advanceUntilIdle()
 
-            viewModel.selectSection(DiagnosticsSection.Approaches)
+            viewModel.selectSection(DiagnosticsSection.Tools)
             viewModel.selectApproachMode(DiagnosticsApproachMode.Strategies)
             advanceUntilIdle()
 
@@ -2458,7 +2458,7 @@ class DiagnosticsViewModelTest {
             val collector = backgroundScope.launch { viewModel.uiState.collect {} }
             advanceUntilIdle()
 
-            viewModel.selectSection(DiagnosticsSection.Approaches)
+            viewModel.selectSection(DiagnosticsSection.Tools)
             viewModel.selectApproachMode(DiagnosticsApproachMode.Strategies)
             advanceUntilIdle()
 
@@ -2510,7 +2510,7 @@ class DiagnosticsViewModelTest {
             val collector = backgroundScope.launch { viewModel.uiState.collect {} }
             advanceUntilIdle()
 
-            viewModel.selectSection(DiagnosticsSection.Approaches)
+            viewModel.selectSection(DiagnosticsSection.Tools)
             viewModel.selectApproachMode(DiagnosticsApproachMode.Strategies)
             advanceUntilIdle()
 
@@ -2558,7 +2558,7 @@ class DiagnosticsViewModelTest {
             val collector = backgroundScope.launch { viewModel.uiState.collect {} }
             advanceUntilIdle()
 
-            viewModel.selectSection(DiagnosticsSection.Approaches)
+            viewModel.selectSection(DiagnosticsSection.Tools)
             viewModel.selectApproachMode(DiagnosticsApproachMode.Strategies)
             advanceUntilIdle()
 

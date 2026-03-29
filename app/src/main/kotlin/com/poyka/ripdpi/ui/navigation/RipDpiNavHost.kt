@@ -248,7 +248,7 @@ private fun NavGraphBuilder.addPrimaryRoutes(
     composable(Route.Home.route) {
         HomeRoute(
             onOpenDiagnostics = {
-                onDiagnosticsInitialSectionChanged(DiagnosticsSection.Approaches)
+                onDiagnosticsInitialSectionChanged(DiagnosticsSection.Tools)
                 navController.navigate(Route.Diagnostics.route) {
                     launchSingleTop = true
                     restoreState = true

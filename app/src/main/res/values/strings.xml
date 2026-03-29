@@ -17,8 +17,10 @@
     <string name="diagnostics_title">Diagnostics</string>
     <string name="history_title">History</string>
     <string name="diagnostics_overview_section">Overview</string>
+    <string name="diagnostics_dashboard_section">Dashboard</string>
     <string name="diagnostics_scan_section">Scan</string>
     <string name="diagnostics_monitor_section">Live monitor</string>
+    <string name="diagnostics_tools_section">Tools</string>
     <string name="diagnostics_approaches_title">Approaches</string>
     <string name="diagnostics_approaches_profiles">Profiles</string>
     <string name="diagnostics_approaches_strategies">Strategies</string>

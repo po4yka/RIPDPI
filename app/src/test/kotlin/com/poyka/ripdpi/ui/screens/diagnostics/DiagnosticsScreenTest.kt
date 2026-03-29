@@ -345,14 +345,14 @@ class DiagnosticsScreenTest {
         composeRule.setContent {
             val pagerState =
                 rememberPagerState(
-                    initialPage = DiagnosticsSection.Overview.ordinal,
+                    initialPage = DiagnosticsSection.Dashboard.ordinal,
                     pageCount = { DiagnosticsSection.entries.size },
                 )
             RipDpiTheme {
                 DiagnosticsScreen(
                     uiState =
                         DiagnosticsUiState(
-                            selectedSection = DiagnosticsSection.Overview,
+                            selectedSection = DiagnosticsSection.Dashboard,
                             overview =
                                 com.poyka.ripdpi.activities.DiagnosticsOverviewUiModel(
                                     recentAutomaticProbe =
@@ -1421,12 +1421,12 @@ class DiagnosticsScreenTest {
         composeRule.setContent {
             val pagerState =
                 rememberPagerState(
-                    initialPage = DiagnosticsSection.Overview.ordinal,
+                    initialPage = DiagnosticsSection.Dashboard.ordinal,
                     pageCount = { DiagnosticsSection.entries.size },
                 )
             RipDpiTheme {
                 DiagnosticsScreen(
-                    uiState = DiagnosticsUiState(selectedSection = DiagnosticsSection.Overview),
+                    uiState = DiagnosticsUiState(selectedSection = DiagnosticsSection.Dashboard),
                     pagerState = pagerState,
                     onSelectSection = {},
                     onSelectProfile = {},
@@ -1462,7 +1462,7 @@ class DiagnosticsScreenTest {
             }
         }
 
-        composeRule.onNodeWithTag(RipDpiTestTags.diagnosticsSection(DiagnosticsSection.Overview)).assertIsDisplayed()
+        composeRule.onNodeWithTag(RipDpiTestTags.diagnosticsSection(DiagnosticsSection.Dashboard)).assertIsDisplayed()
         composeRule.onNodeWithTag(RipDpiTestTags.DiagnosticsOverviewHero).assertIsDisplayed()
     }
 
@@ -1473,14 +1473,14 @@ class DiagnosticsScreenTest {
         composeRule.setContent {
             val pagerState =
                 rememberPagerState(
-                    initialPage = DiagnosticsSection.Share.ordinal,
+                    initialPage = DiagnosticsSection.Tools.ordinal,
                     pageCount = { DiagnosticsSection.entries.size },
                 )
             RipDpiTheme {
                 DiagnosticsScreen(
                     uiState =
                         DiagnosticsUiState(
-                            selectedSection = DiagnosticsSection.Share,
+                            selectedSection = DiagnosticsSection.Tools,
                             share =
                                 DiagnosticsShareUiModel(
                                     isArchiveBusy = true,
@@ -1534,14 +1534,14 @@ class DiagnosticsScreenTest {
         composeRule.setContent {
             val pagerState =
                 rememberPagerState(
-                    initialPage = DiagnosticsSection.Overview.ordinal,
+                    initialPage = DiagnosticsSection.Dashboard.ordinal,
                     pageCount = { DiagnosticsSection.entries.size },
                 )
             RipDpiTheme {
                 DiagnosticsScreen(
                     uiState =
                         DiagnosticsUiState(
-                            selectedSection = DiagnosticsSection.Overview,
+                            selectedSection = DiagnosticsSection.Dashboard,
                             selectedSessionDetail =
                                 DiagnosticsSessionDetailUiModel(
                                     session =

@@ -407,10 +407,10 @@ internal fun RipDpiDiagnosticsSharePreviewScene() {
         DiagnosticsPreviewSceneImpl(
             uiState =
                 DiagnosticsUiState(
-                    selectedSection = DiagnosticsSection.Share,
+                    selectedSection = DiagnosticsSection.Tools,
                     share = diagnosticsShareState,
                 ),
-            initialPage = DiagnosticsSection.Share.ordinal,
+            initialPage = DiagnosticsSection.Tools.ordinal,
         )
     }
 }

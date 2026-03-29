@@ -18,11 +18,9 @@ internal data class MetricPalette(
 @Composable
 internal fun DiagnosticsSection.label(): String =
     when (this) {
-        DiagnosticsSection.Overview -> stringResource(R.string.diagnostics_overview_section)
+        DiagnosticsSection.Dashboard -> stringResource(R.string.diagnostics_dashboard_section)
         DiagnosticsSection.Scan -> stringResource(R.string.diagnostics_scan_section)
-        DiagnosticsSection.Live -> stringResource(R.string.diagnostics_monitor_section)
-        DiagnosticsSection.Approaches -> stringResource(R.string.diagnostics_approaches_title)
-        DiagnosticsSection.Share -> stringResource(R.string.diagnostics_share_section)
+        DiagnosticsSection.Tools -> stringResource(R.string.diagnostics_tools_section)
     }
 
 @Composable

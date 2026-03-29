@@ -18,9 +18,11 @@
     <string name="diagnostics_title">Диагностика</string>
     <string name="history_title">История</string>
     <string name="diagnostics_overview_section">Обзор</string>
+    <string name="diagnostics_dashboard_section">Панель</string>
     <string name="diagnostics_overview_run_scan_action">Запустить проверку</string>
     <string name="diagnostics_scan_section">Сканирование</string>
     <string name="diagnostics_monitor_section">Мониторинг в реальном времени</string>
+    <string name="diagnostics_tools_section">Инструменты</string>
     <string name="diagnostics_approaches_title">Подходы</string>
     <string name="diagnostics_approaches_profiles">Профили</string>
     <string name="diagnostics_approaches_strategies">Стратегии</string>
