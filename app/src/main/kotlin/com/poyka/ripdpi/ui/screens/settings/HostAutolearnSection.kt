@@ -339,11 +339,17 @@ private fun hostAutolearnLastUpdate(uiState: SettingsUiState): String? {
         uiState.autolearn.hostAutolearnLastBlockProvider
             ?.takeIf { it.isNotBlank() }
             ?.let(::hostAutolearnBlockProviderLabel)
+    val blockDetails =
+        if (rawAction == "host_blocked" || uiState.autolearn.hostAutolearnBlockedHostCount > 0) {
+            listOfNotNull(blockSignal, blockProvider)
+        } else {
+            emptyList()
+        }
     val details =
         if (rawAction == "host_blocked") {
-            listOfNotNull(action, host, blockSignal, blockProvider)
+            listOfNotNull(action, host) + blockDetails
         } else {
-            listOfNotNull(action, host, group)
+            listOfNotNull(action, host, group) + blockDetails
         }
     return details.joinToString(" · ")
 }

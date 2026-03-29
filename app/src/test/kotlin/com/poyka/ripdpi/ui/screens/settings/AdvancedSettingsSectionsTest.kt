@@ -9,11 +9,13 @@ import androidx.compose.ui.test.assertIsOff
 import androidx.compose.ui.test.assertIsOn
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.activities.HostAutolearnUiState
 import com.poyka.ripdpi.activities.ProxyNetworkUiState
 import com.poyka.ripdpi.activities.SettingsUiState
+import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import org.junit.Assert.assertEquals
@@ -231,6 +233,31 @@ class AdvancedSettingsSectionsTest {
             .assertIsEnabled()
     }
 
+    @Test
+    fun `host autolearn status keeps block detail visible after later non block event`() {
+        setHostAutolearnSection(
+            uiState =
+                SettingsUiState(
+                    serviceStatus = AppStatus.Running,
+                    autolearn =
+                        HostAutolearnUiState(
+                            hostAutolearnEnabled = true,
+                            hostAutolearnRuntimeEnabled = true,
+                            hostAutolearnLearnedHostCount = 3,
+                            hostAutolearnPenalizedHostCount = 1,
+                            hostAutolearnBlockedHostCount = 1,
+                            hostAutolearnLastHost = "example.org",
+                            hostAutolearnLastGroup = 2,
+                            hostAutolearnLastAction = "host_promoted",
+                            hostAutolearnLastBlockSignal = "tcp_reset",
+                            hostAutolearnLastBlockProvider = "rkn",
+                        ),
+                ),
+        )
+
+        composeRule.onNodeWithText("Promoted best route · example.org · Route 2 · TCP reset · RKN").assertExists()
+    }
+
     // -- Helpers --
 
     private fun setDiagnosticsSection(
@@ -318,6 +345,27 @@ class AdvancedSettingsSectionsTest {
                         visualEditorEnabled = !uiState.enableCmdSettings,
                         onToggleChanged = onToggleChanged,
                         onClearRememberedNetworks = onClearRememberedNetworks,
+                    )
+                }
+            }
+        }
+    }
+
+    private fun setHostAutolearnSection(
+        uiState: SettingsUiState = SettingsUiState(),
+        onToggleChanged: (AdvancedToggleSetting, Boolean) -> Unit = { _, _ -> },
+        onTextConfirmed: (AdvancedTextSetting, String) -> Unit = { _, _ -> },
+        onForgetLearnedHosts: () -> Unit = {},
+    ) {
+        composeRule.setContent {
+            RipDpiTheme {
+                LazyColumn(modifier = Modifier.height(TALL_VIEWPORT)) {
+                    hostAutolearnSection(
+                        uiState = uiState,
+                        visualEditorEnabled = !uiState.enableCmdSettings,
+                        onToggleChanged = onToggleChanged,
+                        onTextConfirmed = onTextConfirmed,
+                        onForgetLearnedHosts = onForgetLearnedHosts,
                     )
                 }
             }
