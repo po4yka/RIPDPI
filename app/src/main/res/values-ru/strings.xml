@@ -177,6 +177,7 @@
     <string name="diagnostics_recent_activity_section">Недавняя активность</string>
     <string name="diagnostics_remembered_networks_section">Запомненные сети</string>
     <string name="diagnostics_attention_section">Список наблюдения</string>
+    <string name="diagnostics_probe_retry_count_label">Повторы</string>
     <string name="diagnostics_results_section">Последние результаты зондирования</string>
     <string name="diagnostics_trends_section">Последние тенденции</string>
     <string name="diagnostics_context_section">Контекст</string>

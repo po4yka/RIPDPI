@@ -175,7 +175,7 @@ File path prefix: `app/src/main/kotlin/com/poyka/ripdpi/`
   - Depends on: 4.1, 4.2
   - ~60 lines
 
-- [ ] **4.4 Enhance probe detail bottom sheet**
+- [x] **4.4 Enhance probe detail bottom sheet**
   - Files: `ui/screens/diagnostics/DiagnosticsBottomSheets.kt`
   - Expand the existing probe detail sheet to display all `probe.details`
     fields, retry count, timing data, and raw evidence. Add a "Copy raw JSON"
