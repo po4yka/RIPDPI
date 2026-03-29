@@ -113,7 +113,6 @@ pub fn classify_http_response_block(response: &[u8]) -> Option<ClassifiedFailure
     }
 
     let provider = match_blockpage_response(&response.headers, &response.body, bundled_blockpage_fingerprints());
-    let has_keywords = body_has_blockpage_keywords(&response.body);
     let is_redirect = (300..400).contains(&response.status_code);
 
     if is_redirect {
@@ -131,8 +130,7 @@ pub fn classify_http_response_block(response: &[u8]) -> Option<ClassifiedFailure
     }
 
     let provider = provider.filter(|value| !value.trim().is_empty());
-    let is_blockpage = provider.is_some() || response.status_code == 403 || response.status_code == 451 || has_keywords;
-    if !is_blockpage {
+    if provider.is_none() {
         return None;
     }
 
@@ -225,14 +223,6 @@ fn find_headers_end(response: &[u8]) -> Option<usize> {
     response.windows(4).position(|window| window == b"\r\n\r\n")
 }
 
-fn body_has_blockpage_keywords(body: &[u8]) -> bool {
-    if body.len() > 8_192 {
-        return false;
-    }
-    let text = String::from_utf8_lossy(body).to_ascii_lowercase();
-    ["blocked", "access denied", "forbidden", "restriction", "censorship"].iter().any(|needle| text.contains(needle))
-}
-
 fn failure_tag<'a>(failure: &'a ClassifiedFailure, key: &str) -> Option<&'a str> {
     failure.evidence.tags.iter().find_map(|tag| tag.strip_prefix(key).and_then(|value| value.strip_prefix('=')))
 }
@@ -267,9 +257,11 @@ mod tests {
     fn http_block_detection_ignores_generic_redirects_and_429() {
         let redirect = b"HTTP/1.1 302 Found\r\nLocation: https://example.org/\r\n\r\n";
         let too_many = b"HTTP/1.1 429 Too Many Requests\r\nRetry-After: 10\r\n\r\n";
+        let forbidden = b"HTTP/1.1 403 Forbidden\r\nServer: test\r\n\r\nAccess denied";
 
         assert!(classify_http_response_block(redirect).is_none());
         assert!(classify_http_response_block(too_many).is_none());
+        assert!(classify_http_response_block(forbidden).is_none());
     }
 
     #[test]
@@ -283,11 +275,12 @@ mod tests {
 
     #[test]
     fn http_block_detection_classifies_blockpages() {
-        let response = b"HTTP/1.1 403 Forbidden\r\nServer: test\r\n\r\nAccess denied";
+        let response = b"HTTP/1.1 403 Forbidden\r\nServer: test\r\n\r\n<html>zapret-info.gov.ru</html>";
         let failure = classify_http_response_block(response).expect("blockpage failure");
 
         assert_eq!(failure.class, FailureClass::HttpBlockpage);
         assert_eq!(failure.stage, FailureStage::HttpResponse);
+        assert!(failure.evidence.tags.iter().any(|tag| tag == "provider=rkn_standard"));
     }
 
     #[test]
