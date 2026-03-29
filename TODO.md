@@ -158,7 +158,7 @@ File path prefix: `app/src/main/kotlin/com/poyka/ripdpi/`
   - Depends on: Phase 2 complete
   - ~50 lines
 
-- [ ] **4.2 Unify statusTone() mapping**
+- [x] **4.2 Unify statusTone() mapping**
   - Files: `ui/screens/diagnostics/DiagnosticsTonePalette.kt`
   - Extract all scattered `statusTone(tone: DiagnosticsTone)` mappings into a
     single canonical function in `DiagnosticsTonePalette.kt`. Standardize the
