@@ -2,9 +2,15 @@
 <SmellBaseline>
   <ManuallySuppressedIssues/>
   <CurrentIssues>
-    <ID>CyclomaticComplexMethod:NetworkFingerprintProvider.kt$NetworkFingerprintMapper$private fun describeMobileNetworkType(type: Int): String</ID>
+    <ID>CyclomaticComplexMethod:NetworkFingerprintProvider.kt$NetworkFingerprintMapper$@Suppress("DEPRECATION") private fun describeMobileNetworkType(type: Int): String</ID>
+    <ID>CyclomaticComplexMethod:VpnEncryptedDnsFailoverController.kt$VpnEncryptedDnsFailoverController$suspend fun evaluate( state: VpnEncryptedDnsFailoverState, activeDns: ActiveDnsSettings?, currentDnsSignature: String?, networkScopeKey: String?, telemetry: NativeRuntimeSnapshot, ): Boolean</ID>
     <ID>LongMethod:AppStateManagerStateMachineTest.kt$AppStateManagerStateMachineTest$private fun applyCommand( store: DefaultServiceStateStore, model: ServiceModel, command: StateStoreCommand, ): ServiceModel</ID>
     <ID>LongMethod:ConnectionPolicyResolver.kt$DefaultConnectionPolicyResolver$override suspend fun resolve( mode: Mode, resolverOverride: TemporaryResolverOverride?, fingerprint: NetworkFingerprint?, handoverClassification: String?, ): ConnectionPolicyResolution</ID>
+    <ID>LongMethod:ServiceRuntimeCoordinator.kt$BaseServiceRuntimeCoordinator$private suspend fun handleNetworkHandover(event: NetworkHandoverEvent)</ID>
+    <ID>LongMethod:VpnEncryptedDnsFailoverController.kt$VpnEncryptedDnsFailoverController$suspend fun evaluate( state: VpnEncryptedDnsFailoverState, activeDns: ActiveDnsSettings?, currentDnsSignature: String?, networkScopeKey: String?, telemetry: NativeRuntimeSnapshot, ): Boolean</ID>
+    <ID>LongMethod:VpnServiceRuntimeCoordinatorTest.kt$VpnServiceRuntimeCoordinatorTest$@Test fun dnsFailoverSuccessPersistsWinningPathWithoutRestartingProxy()</ID>
+    <ID>LongMethod:VpnServiceRuntimeCoordinatorTest.kt$VpnServiceRuntimeCoordinatorTest$private fun TestScope.newEnv( fingerprint: com.poyka.ripdpi.data.NetworkFingerprint? = sampleFingerprint(), resolutions: List&lt;com.poyka.ripdpi.services.ConnectionPolicyResolution&gt; = listOf(sampleResolution(mode = Mode.VPN)), runtimeFactory: (MutableList&lt;String&gt;) -&gt; TestProxyRuntime = { events -&gt; TestProxyRuntime(events) }, ): Env</ID>
+    <ID>LongParameterList:VpnServiceRuntimeCoordinator.kt$VpnServiceRuntimeCoordinator$( vpnHost: VpnCoordinatorHost, connectionPolicyResolver: ConnectionPolicyResolver, private val resolverOverrideStore: ResolverOverrideStore, serviceRuntimeRegistry: ServiceRuntimeRegistry, rememberedNetworkPolicyStore: RememberedNetworkPolicyStore, networkHandoverMonitor: NetworkHandoverMonitor, policyHandoverEventStore: PolicyHandoverEventStore, permissionWatchdog: PermissionWatchdog, private val vpnTunnelRuntime: VpnTunnelRuntime, private val resolverRefreshPlanner: VpnResolverRefreshPlanner, private val encryptedDnsFailoverController: VpnEncryptedDnsFailoverController, private val proxyRuntimeSupervisor: ProxyRuntimeSupervisor, private val statusReporter: ServiceStatusReporter, private val screenStateObserver: ScreenStateObserver, ioDispatcher: CoroutineDispatcher = Dispatchers.IO, clock: ServiceClock = SystemServiceClock, )</ID>
     <ID>MagicNumber:ConnectionPolicyResolver.kt$16</ID>
     <ID>MagicNumber:ConnectionPolicyResolver.kt$4</ID>
     <ID>MagicNumber:FieldTelemetry.kt$16</ID>
@@ -16,13 +22,28 @@
     <ID>MagicNumber:NetworkFingerprintProvider.kt$NetworkFingerprintMapper$8</ID>
     <ID>MagicNumber:RipDpiVpnService.kt$RipDpiVpnService$128</ID>
     <ID>MagicNumber:RipDpiVpnService.kt$RipDpiVpnService$32</ID>
+    <ID>MagicNumber:ServiceRuntimeCoordinator.kt$BaseServiceRuntimeCoordinator$4</ID>
+    <ID>MaxLineLength:FailureReasonTest.kt$FailureReasonTest$fun</ID>
+    <ID>MaxLineLength:VpnTunnelRuntimeTest.kt$VpnTunnelRuntimeTest$runtime.start(AppSettingsSerializer.defaultValue.activeDnsSettings(), overrideReason = null, logContext = null)</ID>
     <ID>ReturnCount:ConnectionPolicyResolver.kt$DefaultConnectionPolicyResolver$override suspend fun resolve( mode: Mode, resolverOverride: TemporaryResolverOverride?, fingerprint: NetworkFingerprint?, handoverClassification: String?, ): ConnectionPolicyResolution</ID>
-    <ID>ReturnCount:NetworkFingerprintProvider.kt$DefaultAndroidNetworkSnapshotSource$private fun captureCellularIdentity(transports: Set&lt;CapturedTransport&gt;?): CapturedCellularIdentity?</ID>
+    <ID>ReturnCount:ConnectionPolicyResolver.kt$DefaultConnectionPolicyResolver$private suspend fun resolvePreferredVpnDnsPath( mode: Mode, dnsResolution: EffectiveDnsResolution, networkScopeKey: String?, ): EncryptedDnsPathCandidate?</ID>
+    <ID>ReturnCount:ConnectionPolicyResolver.kt$internal fun resolveVpnDnsSelection( mode: Mode, baseDns: ActiveDnsSettings, preferredPath: EncryptedDnsPathCandidate? = null, rememberedVpnDnsPolicy: VpnDnsPolicyJson? = null, resolverOverride: TemporaryResolverOverride? = null, ): VpnDnsSelection</ID>
+    <ID>ReturnCount:NetworkFingerprintProvider.kt$DefaultAndroidNetworkSnapshotSource$@android.annotation.SuppressLint("MissingPermission") private fun captureCellularIdentity(transports: Set&lt;CapturedTransport&gt;?): CapturedCellularIdentity?</ID>
     <ID>ReturnCount:NetworkFingerprintProvider.kt$NetworkFingerprintMapper$private fun resolveCellularIdentity(snapshot: CapturedNetworkSnapshot): CellularNetworkIdentityTuple?</ID>
     <ID>ReturnCount:ProxyStartupFailureResolver.kt$internal fun resolveProxyStartupFailure( readinessError: Exception, proxyStartWasActive: Boolean, proxyStartResult: Result&lt;Int&gt;, ): Exception</ID>
+    <ID>ReturnCount:ServiceManager.kt$DefaultServiceController$override fun start(mode: Mode)</ID>
+    <ID>ReturnCount:ServiceRuntimeCoordinator.kt$BaseServiceRuntimeCoordinator$private suspend fun handleNetworkHandover(event: NetworkHandoverEvent)</ID>
+    <ID>ReturnCount:VpnEncryptedDnsFailoverController.kt$VpnEncryptedDnsFailoverController$suspend fun evaluate( state: VpnEncryptedDnsFailoverState, activeDns: ActiveDnsSettings?, currentDnsSignature: String?, networkScopeKey: String?, telemetry: NativeRuntimeSnapshot, ): Boolean</ID>
+    <ID>SwallowedException:RipDpiProxyService.kt$RipDpiProxyService$e: SecurityException</ID>
+    <ID>SwallowedException:RipDpiVpnService.kt$RipDpiVpnService$e: SecurityException</ID>
+    <ID>TooGenericExceptionCaught:NetworkFingerprintProvider.kt$AndroidNetworkFingerprintProvider$error: Exception</ID>
+    <ID>TooGenericExceptionCaught:NotificationUtils.kt$e: Exception</ID>
     <ID>TooGenericExceptionCaught:ProxyRuntimeSupervisor.kt$ProxyRuntimeSupervisor$readinessError: Exception</ID>
     <ID>TooGenericExceptionCaught:VpnTunnelRuntime.kt$VpnTunnelRuntime$error: Exception</ID>
+    <ID>TooManyFunctions:ServiceRuntimeCoordinator.kt$BaseServiceRuntimeCoordinator&lt;TSession&gt;</ID>
+    <ID>TooManyFunctions:VpnServiceRuntimeCoordinator.kt$VpnServiceRuntimeCoordinator : BaseServiceRuntimeCoordinator</ID>
     <ID>UnusedParameter:BaseServiceRuntimeCoordinatorTest.kt$BaseServiceRuntimeCoordinatorTest$fingerprint: NetworkFingerprint? = sampleFingerprint()</ID>
+    <ID>UnusedParameter:RipDpiVpnService.kt$RipDpiVpnService$ipv6: Boolean</ID>
     <ID>UseCheckOrError:BaseServiceRuntimeCoordinatorTest.kt$TestCoordinator$throw IllegalStateException("boom")</ID>
     <ID>UseCheckOrError:DefaultDiagnosticsRuntimeCoordinator.kt$DefaultDiagnosticsRuntimeCoordinator$throw IllegalStateException("Timed out waiting for service status $target")</ID>
     <ID>UseCheckOrError:VpnTunnelSessionProvider.kt$DefaultVpnTunnelSessionProvider$throw IllegalStateException("VPN connection failed")</ID>

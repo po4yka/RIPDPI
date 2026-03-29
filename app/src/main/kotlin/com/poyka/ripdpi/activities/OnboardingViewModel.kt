@@ -27,44 +27,44 @@ sealed interface OnboardingEffect {
 
 @HiltViewModel
 class OnboardingViewModel
-@Inject
-constructor(
-    private val appSettingsRepository: AppSettingsRepository,
-) : ViewModel() {
-    private val _uiState = MutableStateFlow(OnboardingUiState())
-    val uiState: StateFlow<OnboardingUiState> = _uiState.asStateFlow()
+    @Inject
+    constructor(
+        private val appSettingsRepository: AppSettingsRepository,
+    ) : ViewModel() {
+        private val _uiState = MutableStateFlow(OnboardingUiState())
+        val uiState: StateFlow<OnboardingUiState> = _uiState.asStateFlow()
 
-    private val _effects = Channel<OnboardingEffect>(Channel.BUFFERED)
-    val effects: Flow<OnboardingEffect> = _effects.receiveAsFlow()
+        private val _effects = Channel<OnboardingEffect>(Channel.BUFFERED)
+        val effects: Flow<OnboardingEffect> = _effects.receiveAsFlow()
 
-    fun setCurrentPage(page: Int) {
-        _uiState.update { state ->
-            state.copy(currentPage = page.coerceIn(0, state.totalPages - 1))
-        }
-    }
-
-    fun nextPage() {
-        _uiState.update { state ->
-            state.copy(currentPage = (state.currentPage + 1).coerceAtMost(state.totalPages - 1))
-        }
-    }
-
-    fun previousPage() {
-        _uiState.update { state ->
-            state.copy(currentPage = (state.currentPage - 1).coerceAtLeast(0))
-        }
-    }
-
-    fun skip() {
-        finish()
-    }
-
-    fun finish() {
-        viewModelScope.launch {
-            appSettingsRepository.update {
-                setOnboardingComplete(true)
+        fun setCurrentPage(page: Int) {
+            _uiState.update { state ->
+                state.copy(currentPage = page.coerceIn(0, state.totalPages - 1))
             }
-            _effects.send(OnboardingEffect.OnboardingComplete)
+        }
+
+        fun nextPage() {
+            _uiState.update { state ->
+                state.copy(currentPage = (state.currentPage + 1).coerceAtMost(state.totalPages - 1))
+            }
+        }
+
+        fun previousPage() {
+            _uiState.update { state ->
+                state.copy(currentPage = (state.currentPage - 1).coerceAtLeast(0))
+            }
+        }
+
+        fun skip() {
+            finish()
+        }
+
+        fun finish() {
+            viewModelScope.launch {
+                appSettingsRepository.update {
+                    setOnboardingComplete(true)
+                }
+                _effects.send(OnboardingEffect.OnboardingComplete)
+            }
         }
     }
-}

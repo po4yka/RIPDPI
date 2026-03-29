@@ -109,11 +109,12 @@ class FailureReasonTest {
     }
 
     @Test
-    fun `classifyFailureReason maps IllegalStateException with tunnel keyword in tunnel context to TunnelEstablishmentFailed`() {
-        val result = classifyFailureReason(
-            IllegalStateException("tunnel session not established"),
-            isTunnelContext = true,
-        )
+    fun `classifyFailureReason maps ISE with tunnel keyword in tunnel context to TunnelEstablishmentFailed`() {
+        val result =
+            classifyFailureReason(
+                IllegalStateException("tunnel session not established"),
+                isTunnelContext = true,
+            )
         assertTrue(result is FailureReason.TunnelEstablishmentFailed)
     }
 

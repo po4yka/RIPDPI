@@ -6,14 +6,13 @@
     <ID>ComplexCondition:QuicSettings.kt$trimmed.isEmpty() || trimmed.contains(':') || trimmed.startsWith('.') || trimmed.endsWith('.') || trimmed.contains("..")</ID>
     <ID>ComplexCondition:StrategyChains.kt$!trimmed.all { it.isLowerCase() || it.isDigit() || it == '-' || it == '.' }</ID>
     <ID>ComplexCondition:StrategyChains.kt$trimmed.isEmpty() || trimmed.contains(':') || trimmed.startsWith('.') || trimmed.endsWith('.') || trimmed.contains("..")</ID>
-    <ID>CyclomaticComplexMethod:DnsResolverConfig.kt$fun activeDnsSettings( dnsMode: String, dnsProviderId: String, dnsIp: String, dnsDohUrl: String, dnsDohBootstrapIps: Iterable&lt;String&gt;, encryptedDnsProtocol: String = "", encryptedDnsHost: String = "", encryptedDnsPort: Int = 0, encryptedDnsTlsServerName: String = "", encryptedDnsBootstrapIps: Iterable&lt;String&gt; = emptyList(), encryptedDnsDohUrl: String = "", encryptedDnsDnscryptProviderName: String = "", encryptedDnsDnscryptPublicKey: String = "", ): ActiveDnsSettings</ID>
+    <ID>CyclomaticComplexMethod:DnsResolverConfig.kt$fun activeDnsSettings( dnsMode: String, dnsProviderId: String, dnsIp: String, encryptedDnsProtocol: String = "", encryptedDnsHost: String = "", encryptedDnsPort: Int = 0, encryptedDnsTlsServerName: String = "", encryptedDnsBootstrapIps: Iterable&lt;String&gt; = emptyList(), encryptedDnsDohUrl: String = "", encryptedDnsDnscryptProviderName: String = "", encryptedDnsDnscryptPublicKey: String = "", ): ActiveDnsSettings</ID>
     <ID>CyclomaticComplexMethod:EncryptedDnsPathSelection.kt$fun buildEncryptedDnsCandidatePlan( activeDns: ActiveDnsSettings, preferredPath: EncryptedDnsPathCandidate? = null, ): List&lt;EncryptedDnsPathCandidate&gt;</ID>
     <ID>CyclomaticComplexMethod:ServiceTelemetry.kt$private fun classifyFailureText(text: String): FailureClass?</ID>
     <ID>CyclomaticComplexMethod:StrategyFamilies.kt$fun strategyLaneFamilyLabel(family: String): String</ID>
     <ID>LongMethod:AppSettingsJson.kt$private fun AppSettings.toSnapshot(): AppSettingsSnapshot</ID>
     <ID>LongMethod:AppSettingsJson.kt$private fun AppSettingsSnapshot.toAppSettings(): AppSettings</ID>
-    <ID>LongMethod:AppSettingsJsonTest.kt$AppSettingsJsonTest$@Test fun `settings round trip through json`()</ID>
-    <ID>LongMethod:DnsResolverConfig.kt$fun activeDnsSettings( dnsMode: String, dnsProviderId: String, dnsIp: String, dnsDohUrl: String, dnsDohBootstrapIps: Iterable&lt;String&gt;, encryptedDnsProtocol: String = "", encryptedDnsHost: String = "", encryptedDnsPort: Int = 0, encryptedDnsTlsServerName: String = "", encryptedDnsBootstrapIps: Iterable&lt;String&gt; = emptyList(), encryptedDnsDohUrl: String = "", encryptedDnsDnscryptProviderName: String = "", encryptedDnsDnscryptPublicKey: String = "", ): ActiveDnsSettings</ID>
+    <ID>LongMethod:AppSettingsJsonTest.kt$AppSettingsJsonTest$@Test fun `settings round trip through current json format`()</ID>
     <ID>LongMethod:HostPackCatalogTest.kt$HostPackCatalogTest$@Test fun `curated geosite extraction keeps root and full domains only`()</ID>
     <ID>LongMethod:StrategyChains.kt$private fun parseTcpStep( kind: TcpChainStepKind, spec: String, lineNumber: Int, ): TcpChainStepModel</ID>
     <ID>MagicNumber:AdaptiveFakeTtlSettings.kt$255</ID>
@@ -36,7 +35,7 @@
     <ID>MagicNumber:StrategyChains.kt$4096</ID>
     <ID>ReturnCount:ActivationFilters.kt$fun formatNumericRange(range: NumericRangeModel): String?</ID>
     <ID>ReturnCount:ActivationFilters.kt$private fun normalizeNumericRange( start: Long?, end: Long?, minValue: Long, ): NumericRangeModel</ID>
-    <ID>ReturnCount:DnsResolverConfig.kt$fun activeDnsSettings( dnsMode: String, dnsProviderId: String, dnsIp: String, dnsDohUrl: String, dnsDohBootstrapIps: Iterable&lt;String&gt;, encryptedDnsProtocol: String = "", encryptedDnsHost: String = "", encryptedDnsPort: Int = 0, encryptedDnsTlsServerName: String = "", encryptedDnsBootstrapIps: Iterable&lt;String&gt; = emptyList(), encryptedDnsDohUrl: String = "", encryptedDnsDnscryptProviderName: String = "", encryptedDnsDnscryptPublicKey: String = "", ): ActiveDnsSettings</ID>
+    <ID>ReturnCount:DnsResolverConfig.kt$fun activeDnsSettings( dnsMode: String, dnsProviderId: String, dnsIp: String, encryptedDnsProtocol: String = "", encryptedDnsHost: String = "", encryptedDnsPort: Int = 0, encryptedDnsTlsServerName: String = "", encryptedDnsBootstrapIps: Iterable&lt;String&gt; = emptyList(), encryptedDnsDohUrl: String = "", encryptedDnsDnscryptProviderName: String = "", encryptedDnsDnscryptPublicKey: String = "", ): ActiveDnsSettings</ID>
     <ID>ReturnCount:HostPackCatalog.kt$fun mergeHostPackHosts( existingText: String, presetHosts: List&lt;String&gt;, ): String</ID>
     <ID>ReturnCount:HostPackCatalog.kt$fun normalizeHostSpecToken(token: String): String?</ID>
     <ID>ReturnCount:MarkerExpressions.kt$fun isValidOffsetExpression(value: String): Boolean</ID>

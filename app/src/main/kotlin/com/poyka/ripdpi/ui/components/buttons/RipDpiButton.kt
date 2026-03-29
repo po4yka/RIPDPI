@@ -152,8 +152,7 @@ fun RipDpiButton(
                     .graphicsLayer {
                         scaleX = pressedScale
                         scaleY = pressedScale
-                    }
-                    .padding(
+                    }.padding(
                         horizontal = horizontalPadding,
                         vertical = components.buttonVerticalPadding,
                     ),
@@ -172,11 +171,11 @@ fun RipDpiButton(
                                 fadeIn(
                                     animationSpec = tween(durationMillis = motion.duration(motion.quickDurationMillis)),
                                 ) + scaleIn(initialScale = 0.92f)
-                                ) togetherWith (
+                            ) togetherWith (
                                 fadeOut(
                                     animationSpec = tween(durationMillis = motion.duration(motion.quickDurationMillis)),
                                 ) + scaleOut(targetScale = 0.92f)
-                                )
+                            )
                         },
                         label = "buttonLeadingContent",
                     ) { isLoading ->
@@ -263,7 +262,7 @@ private fun buttonPalette(
             RipDpiButtonVariant.Primary,
             RipDpiButtonVariant.Secondary,
             RipDpiButtonVariant.Destructive,
-                -> {
+            -> {
                 RipDpiButtonPalette(
                     container = colors.border,
                     content = colors.mutedForeground,
@@ -272,7 +271,7 @@ private fun buttonPalette(
 
             RipDpiButtonVariant.Outline,
             RipDpiButtonVariant.Ghost,
-                -> {
+            -> {
                 RipDpiButtonPalette(
                     container = Color.Transparent,
                     content = colors.mutedForeground,

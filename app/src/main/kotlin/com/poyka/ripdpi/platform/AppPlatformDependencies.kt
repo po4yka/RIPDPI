@@ -27,21 +27,21 @@ interface LauncherIconController {
 
 @Singleton
 class DefaultLauncherIconController
-@Inject
-constructor(
-    @param:ApplicationContext private val context: Context,
-) : LauncherIconController {
-    override fun applySelection(
-        iconKey: String,
-        iconStyle: String,
-    ) {
-        LauncherIconManager.applySelection(
-            context = context,
-            iconKey = iconKey,
-            iconStyle = iconStyle,
-        )
+    @Inject
+    constructor(
+        @param:ApplicationContext private val context: Context,
+    ) : LauncherIconController {
+        override fun applySelection(
+            iconKey: String,
+            iconStyle: String,
+        ) {
+            LauncherIconManager.applySelection(
+                context = context,
+                iconKey = iconKey,
+                iconStyle = iconStyle,
+            )
+        }
     }
-}
 
 interface StringResolver {
     fun getString(
@@ -52,15 +52,15 @@ interface StringResolver {
 
 @Singleton
 class AndroidStringResolver
-@Inject
-constructor(
-    @param:ApplicationContext private val context: Context,
-) : StringResolver {
-    override fun getString(
-        @StringRes resId: Int,
-        vararg formatArgs: Any,
-    ): String = context.getString(resId, *formatArgs)
-}
+    @Inject
+    constructor(
+        @param:ApplicationContext private val context: Context,
+    ) : StringResolver {
+        override fun getString(
+            @StringRes resId: Int,
+            vararg formatArgs: Any,
+        ): String = context.getString(resId, *formatArgs)
+    }
 
 interface PermissionPlatformBridge {
     fun prepareVpnPermissionIntent(): Intent?
@@ -72,40 +72,40 @@ interface PermissionPlatformBridge {
 
 @Singleton
 class AndroidPermissionPlatformBridge
-@Inject
-constructor(
-    @param:ApplicationContext private val context: Context,
-    private val automationController: Optional<AutomationController>,
-) : PermissionPlatformBridge {
-    override fun prepareVpnPermissionIntent(): Intent? =
-        automationController
-            .map { controller -> controller.prepareVpnPermissionIntent(VpnService.prepare(context)) }
-            .orElseGet { VpnService.prepare(context) }
+    @Inject
+    constructor(
+        @param:ApplicationContext private val context: Context,
+        private val automationController: Optional<AutomationController>,
+    ) : PermissionPlatformBridge {
+        override fun prepareVpnPermissionIntent(): Intent? =
+            automationController
+                .map { controller -> controller.prepareVpnPermissionIntent(VpnService.prepare(context)) }
+                .orElseGet { VpnService.prepare(context) }
 
-    override fun createAppSettingsIntent(): Intent =
-        automationController
-            .map { controller ->
-                controller.createAppSettingsIntent(
+        override fun createAppSettingsIntent(): Intent =
+            automationController
+                .map { controller ->
+                    controller.createAppSettingsIntent(
+                        BatteryOptimizationIntents
+                            .createAppDetailsIntent(context.packageName)
+                            .apply { addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) },
+                    )
+                }.orElseGet {
                     BatteryOptimizationIntents
                         .createAppDetailsIntent(context.packageName)
-                        .apply { addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) },
-                )
-            }.orElseGet {
-                BatteryOptimizationIntents
-                    .createAppDetailsIntent(context.packageName)
-                    .apply { addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) }
-            }
+                        .apply { addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) }
+                }
 
-    override fun createBatteryOptimizationIntent(): Intent =
-        automationController
-            .map { controller ->
-                controller.createBatteryOptimizationIntent(
-                    BatteryOptimizationIntents.create(packageName = context.packageName) { true },
-                )
-            }.orElseGet {
-                BatteryOptimizationIntents.create(packageName = context.packageName) { true }
-            }
-}
+        override fun createBatteryOptimizationIntent(): Intent =
+            automationController
+                .map { controller ->
+                    controller.createBatteryOptimizationIntent(
+                        BatteryOptimizationIntents.create(packageName = context.packageName) { true },
+                    )
+                }.orElseGet {
+                    BatteryOptimizationIntents.create(packageName = context.packageName) { true }
+                }
+    }
 
 interface HostAutolearnStoreController {
     fun hasStore(): Boolean
@@ -115,14 +115,14 @@ interface HostAutolearnStoreController {
 
 @Singleton
 class AndroidHostAutolearnStoreController
-@Inject
-constructor(
-    @param:ApplicationContext private val context: Context,
-) : HostAutolearnStoreController {
-    override fun hasStore(): Boolean = hasHostAutolearnStore(context)
+    @Inject
+    constructor(
+        @param:ApplicationContext private val context: Context,
+    ) : HostAutolearnStoreController {
+        override fun hasStore(): Boolean = hasHostAutolearnStore(context)
 
-    override fun clearStore(): Boolean = clearHostAutolearnStore(context)
-}
+        override fun clearStore(): Boolean = clearHostAutolearnStore(context)
+    }
 
 @Module
 @InstallIn(SingletonComponent::class)

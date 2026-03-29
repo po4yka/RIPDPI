@@ -114,28 +114,31 @@ class ServiceTelemetryTest {
 
     @Test
     fun `RuntimeFieldTelemetry retryCount sums proxy and tunnel retries`() {
-        val telemetry = RuntimeFieldTelemetry(
-            proxyRouteRetryCount = 3,
-            tunnelRecoveryRetryCount = 2,
-        )
+        val telemetry =
+            RuntimeFieldTelemetry(
+                proxyRouteRetryCount = 3,
+                tunnelRecoveryRetryCount = 2,
+            )
         assertEquals(5L, telemetry.retryCount)
     }
 
     @Test
     fun `RuntimeFieldTelemetry winningStrategyFamily delegates to aggregate`() {
-        val telemetry = RuntimeFieldTelemetry(
-            winningTcpStrategyFamily = "split",
-            winningQuicStrategyFamily = "quic_compat_burst",
-        )
+        val telemetry =
+            RuntimeFieldTelemetry(
+                winningTcpStrategyFamily = "split",
+                winningQuicStrategyFamily = "quic_compat_burst",
+            )
         assertEquals("split + quic_compat_burst", telemetry.winningStrategyFamily)
     }
 
     @Test
     fun `RuntimeFieldTelemetry rttBand delegates to aggregate`() {
-        val telemetry = RuntimeFieldTelemetry(
-            proxyRttBand = RttBand.Lt50,
-            resolverRttBand = RttBand.Between250And499,
-        )
+        val telemetry =
+            RuntimeFieldTelemetry(
+                proxyRttBand = RttBand.Lt50,
+                resolverRttBand = RttBand.Between250And499,
+            )
         assertEquals(RttBand.Between250And499, telemetry.rttBand)
     }
 
@@ -186,12 +189,13 @@ class ServiceTelemetryTest {
 
     @Test
     fun `classifyFailureClass reads latest error event from telemetry`() {
-        val event = NativeRuntimeEvent(
-            source = "proxy",
-            level = "error",
-            message = "connection reset by peer",
-            createdAt = 1000L,
-        )
+        val event =
+            NativeRuntimeEvent(
+                source = "proxy",
+                level = "error",
+                message = "connection reset by peer",
+                createdAt = 1000L,
+            )
         val proxy = NativeRuntimeSnapshot.idle("proxy").copy(nativeEvents = listOf(event))
         val tunnel = NativeRuntimeSnapshot.idle("tunnel")
         assertEquals(
