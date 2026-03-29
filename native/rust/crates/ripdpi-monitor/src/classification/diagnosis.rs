@@ -82,14 +82,28 @@ pub(crate) fn classify_connectivity_diagnoses(request: &ScanRequest, results: &[
 
     for result in results.iter().filter(|result| result.probe_type == "dns_integrity") {
         if matches!(result.outcome.as_str(), "dns_substitution" | "dns_expected_mismatch" | "dns_nxdomain") {
-            let summary = if result.outcome == "dns_nxdomain" {
-                format!(
-                    "DNS records for {} deleted (NXDOMAIN) while encrypted resolver returns valid addresses",
-                    result.target
+            let injection_suspected = failure_detail_value(result, "dnsInjectionSuspected") == Some("true");
+            let (mechanism, summary) = if result.outcome == "dns_nxdomain" {
+                (
+                    "record_deletion",
+                    format!(
+                        "DNS records for {} deleted (NXDOMAIN) while encrypted resolver returns valid addresses",
+                        result.target
+                    ),
+                )
+            } else if injection_suspected {
+                (
+                    "injection",
+                    format!("DNS response for {} injected in under 5ms with substituted answers", result.target),
                 )
             } else {
-                format!("DNS answers for {} differ across resolvers", result.target)
+                ("substitution", format!("DNS answers for {} were substituted", result.target))
             };
+            let mut evidence = diagnosis_evidence(
+                result,
+                &["udpAddresses", "encryptedAddresses", "udpLatencyMs", "encryptedLatencyMs", "expected"],
+            );
+            evidence.push(format!("mechanism={mechanism}"));
             push_diagnosis(
                 &mut diagnoses,
                 &mut seen,
@@ -98,7 +112,7 @@ pub(crate) fn classify_connectivity_diagnoses(request: &ScanRequest, results: &[
                     summary,
                     severity: "negative".to_string(),
                     target: Some(result.target.clone()),
-                    evidence: diagnosis_evidence(result, &["udpAddresses", "encryptedAddresses", "expected"]),
+                    evidence,
                     recommendation: None,
                     control_validated: None,
                 },
