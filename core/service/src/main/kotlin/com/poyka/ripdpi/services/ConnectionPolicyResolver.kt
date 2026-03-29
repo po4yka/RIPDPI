@@ -75,6 +75,7 @@ class DefaultConnectionPolicyResolver
         private val networkFingerprintProvider: NetworkFingerprintProvider,
         private val networkDnsPathPreferenceStore: NetworkDnsPathPreferenceStore,
         private val rememberedNetworkPolicyStore: RememberedNetworkPolicyStore,
+        private val startupDnsProbe: VpnStartupDnsProbe,
     ) : ConnectionPolicyResolver {
         override suspend fun resolve(
             mode: Mode,
@@ -250,12 +251,17 @@ class DefaultConnectionPolicyResolver
                 return null
             }
             val scopeKey = networkScopeKey ?: return null
-            val preferred = networkDnsPathPreferenceStore.getPreferredPath(scopeKey) ?: return null
-            // Apply diagnostics-recommended path for both encrypted and plain UDP DNS.
-            // When DNS is plain UDP (system default) and diagnostics detected tampering,
-            // this proactively switches to the recommended encrypted resolver on VPN start
-            // instead of waiting for 2 consecutive DNS failures via the failover controller.
-            return preferred
+            val preferred = networkDnsPathPreferenceStore.getPreferredPath(scopeKey)
+            if (preferred != null) {
+                // Apply diagnostics-recommended path for both encrypted and plain UDP DNS.
+                // When DNS is plain UDP (system default) and diagnostics detected tampering,
+                // this proactively switches to the recommended encrypted resolver on VPN start
+                // instead of waiting for 2 consecutive DNS failures via the failover controller.
+                return preferred
+            }
+            // Cold start: no diagnostic has ever run on this network.
+            // Do a quick DNS integrity check and switch to encrypted DNS if tampering detected.
+            return startupDnsProbe.probeIfTampered(dnsResolution.activeDns.mode)
         }
     }
 
