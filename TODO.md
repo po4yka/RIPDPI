@@ -74,7 +74,7 @@ File path prefix: `app/src/main/kotlin/com/poyka/ripdpi/`
   - Depends on: 2.1
   - ~120 lines
 
-- [ ] **2.3 Replace inline profile picker with compact selected-profile row**
+- [x] **2.3 Replace inline profile picker with compact selected-profile row**
   - Files: `ui/screens/diagnostics/DiagnosticsScanSection.kt`
   - Replace the `ScanProfilePickerCard` item in `ScanSection`'s `LazyColumn`
     with a compact single row: selected profile name + family badge + "Change"
@@ -82,7 +82,7 @@ File path prefix: `app/src/main/kotlin/com/poyka/ripdpi/`
   - Depends on: 2.2
   - ~80 lines
 
-- [ ] **2.4 Reorder Scan tab LazyColumn -- diagnosis summary first**
+- [x] **2.4 Reorder Scan tab LazyColumn -- diagnosis summary first**
   - Files: `ui/screens/diagnostics/DiagnosticsScanSection.kt`
   - Reorder `LazyColumn` items to: (1) diagnosis summary card (if present),
     (2) compact profile row, (3) scan workflow card, (4) progress indicator,
