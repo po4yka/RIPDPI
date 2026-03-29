@@ -72,7 +72,7 @@ impl RuntimePolicy {
         group_index: usize,
         attempted_mask: u64,
         host: Option<String>,
-    ) -> io::Result<()> {
+    ) {
         let entry = ripdpi_config::CacheEntry {
             addr: dest.ip(),
             bits: cache_bits(config, dest.ip()),
@@ -87,27 +87,26 @@ impl RuntimePolicy {
         } else {
             self.records.push(CacheRecord { entry, group_index, attempted_mask });
         }
-        self.persist_group(config, group_index)
+        self.persist_group(config, group_index);
     }
 
-    pub(crate) fn clear(&mut self, config: &RuntimeConfig, dest: SocketAddr) -> io::Result<()> {
+    pub(crate) fn clear(&mut self, config: &RuntimeConfig, dest: SocketAddr) {
         let before = self.records.len();
         self.records.retain(|record| !cache_matches(&record.entry, dest));
         if self.records.len() == before {
-            return Ok(());
+            return;
         }
         for group_index in 0..config.groups.len() {
-            self.persist_group(config, group_index)?;
+            self.persist_group(config, group_index);
         }
-        Ok(())
     }
 
-    pub(crate) fn persist_group(&self, config: &RuntimeConfig, group_index: usize) -> io::Result<()> {
+    pub(crate) fn persist_group(&self, config: &RuntimeConfig, group_index: usize) {
         let Some(path) = config.groups[group_index].policy.cache_file.as_deref() else {
-            return Ok(());
+            return;
         };
         if path == "-" {
-            return Ok(());
+            return;
         }
         let entries: Vec<_> = self
             .records
@@ -115,7 +114,9 @@ impl RuntimePolicy {
             .filter(|record| record.group_index == group_index)
             .map(|record| record.entry.clone())
             .collect();
-        fs::write(path, dump_cache_entries(&entries))
+        if let Err(err) = fs::write(path, dump_cache_entries(&entries)) {
+            tracing::warn!("cache persist failed (non-fatal): {err}");
+        }
     }
 
     pub fn dump_stdout_groups<W: Write>(&self, config: &RuntimeConfig, mut writer: W) -> io::Result<()> {
@@ -279,7 +280,7 @@ mod tests {
         let config = config_with_groups(vec![group]);
         let mut policy = RuntimePolicy::load(&config);
 
-        policy.store(&config, dest, 0, 0, Some("docs.example.test".to_string())).expect("store cached host");
+        policy.store(&config, dest, 0, 0, Some("docs.example.test".to_string()));
 
         assert_eq!(policy.records[0].entry.host.as_deref(), Some("docs.example.test"));
 
