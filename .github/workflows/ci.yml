@@ -527,7 +527,7 @@ jobs:
           profile: pixel_6
           emulator-options: -no-window -noaudio -no-boot-anim -gpu swiftshader_indirect
           script: |
-            set -euo pipefail
+            set -eu
             ./gradlew :baselineprofile:connectedAndroidTest \
               -Pripdpi.localNativeAbis=x86_64 \
               -Pandroid.testInstrumentationRunnerArguments.class=com.poyka.ripdpi.baselineprofile.StartupBenchmark
@@ -795,7 +795,7 @@ jobs:
           profile: pixel_8
           emulator-options: -no-window -noaudio -no-boot-anim -gpu swiftshader_indirect
           script: |
-            set -euo pipefail
+            set -eu
             ./gradlew :app:connectedDebugAndroidTest \
               -Pripdpi.localNativeAbis=x86_64 \
               -Pandroid.testInstrumentationRunnerArguments.package=com.poyka.ripdpi.integration || {
