@@ -55,7 +55,7 @@ File path prefix: `app/src/main/kotlin/com/poyka/ripdpi/`
 
 ## Phase 2: Scan Tab Restructure
 
-- [ ] **2.1 Extract profile picker into standalone composable**
+- [x] **2.1 Extract profile picker into standalone composable**
   - Files: `ui/screens/diagnostics/DiagnosticsScanSection.kt`
   - Move the content of `ScanProfilePickerCard` (profile list grouped by family,
     radio selection, action buttons) into a new `ProfilePickerContent` composable
