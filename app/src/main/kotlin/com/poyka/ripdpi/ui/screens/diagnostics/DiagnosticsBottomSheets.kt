@@ -199,6 +199,13 @@ internal fun DiagnosticsBottomSheetHost(
             testTag = RipDpiTestTags.DiagnosticsProbeDetailSheet,
         ) {
             StatusIndicator(label = probe.outcome, tone = statusTone(probe.tone))
+            probe.probeRetryCount?.takeIf { it > 0 }?.let { retryCount ->
+                SettingsRow(
+                    title = stringResource(R.string.diagnostics_probe_retry_count_label),
+                    value = retryCount.toString(),
+                    monospaceValue = true,
+                )
+            }
             probe.details.forEach { detail ->
                 SettingsRow(
                     title = detail.label,
