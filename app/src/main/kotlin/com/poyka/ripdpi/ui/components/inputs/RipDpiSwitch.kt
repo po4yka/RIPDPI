@@ -346,9 +346,9 @@ private fun switchThumbColor(
 ): Color =
     when {
         checked && isDark -> backgroundColor
-        checked -> Color.White
+        checked -> backgroundColor
         isDark -> lerp(backgroundColor, foregroundColor, 0.5f)
-        else -> Color.White
+        else -> backgroundColor
     }
 
 @Preview(showBackground = true)
