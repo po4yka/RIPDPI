@@ -1653,13 +1653,28 @@
             "id": "signal",
             "service": "Signal",
             "bootstrapUrl": "https://signal.org/",
-            "tcpEndpointHost": "signal.org"
+            "mediaUrl": "https://cdn.signal.org/",
+            "tcpEndpointHost": "chat.signal.org",
+            "tcpEndpointPort": 443,
+            "tlsServerName": "chat.signal.org"
           },
           {
             "id": "whatsapp",
             "service": "WhatsApp",
-            "bootstrapUrl": "https://www.whatsapp.com/",
-            "tcpEndpointHost": "www.whatsapp.com"
+            "bootstrapUrl": "https://web.whatsapp.com/",
+            "tcpEndpointHost": "v.whatsapp.net",
+            "tcpEndpointPort": 443,
+            "tlsServerName": "v.whatsapp.net",
+            "quicHost": "www.whatsapp.com",
+            "quicPort": 443
+          },
+          {
+            "id": "instagram",
+            "service": "Instagram",
+            "bootstrapUrl": "https://www.instagram.com/",
+            "tcpEndpointHost": "i.instagram.com",
+            "tcpEndpointPort": 443,
+            "tlsServerName": "i.instagram.com"
           },
           {
             "id": "discord",
@@ -1960,13 +1975,28 @@
             "id": "signal",
             "service": "Signal",
             "bootstrapUrl": "https://signal.org/",
-            "tcpEndpointHost": "signal.org"
+            "mediaUrl": "https://cdn.signal.org/",
+            "tcpEndpointHost": "chat.signal.org",
+            "tcpEndpointPort": 443,
+            "tlsServerName": "chat.signal.org"
           },
           {
             "id": "whatsapp",
             "service": "WhatsApp",
-            "bootstrapUrl": "https://www.whatsapp.com/",
-            "tcpEndpointHost": "www.whatsapp.com"
+            "bootstrapUrl": "https://web.whatsapp.com/",
+            "tcpEndpointHost": "v.whatsapp.net",
+            "tcpEndpointPort": 443,
+            "tlsServerName": "v.whatsapp.net",
+            "quicHost": "www.whatsapp.com",
+            "quicPort": 443
+          },
+          {
+            "id": "instagram",
+            "service": "Instagram",
+            "bootstrapUrl": "https://www.instagram.com/",
+            "tcpEndpointHost": "i.instagram.com",
+            "tcpEndpointPort": 443,
+            "tlsServerName": "i.instagram.com"
           },
           {
             "id": "discord",
