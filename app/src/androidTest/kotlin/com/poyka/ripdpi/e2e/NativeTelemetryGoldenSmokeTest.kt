@@ -131,16 +131,17 @@ class NativeTelemetryGoldenSmokeTest {
         proxy: RipDpiProxy,
         port: Int,
         timeoutMs: Long = 5_000,
-    ): NativeRuntimeSnapshot = withTimeout(timeoutMs) {
-        while (true) {
-            val telemetry = proxy.pollTelemetry()
-            if (telemetry.state == "running" && telemetry.listenerAddress == "127.0.0.1:$port") {
-                return@withTimeout telemetry
+    ): NativeRuntimeSnapshot =
+        withTimeout(timeoutMs) {
+            while (true) {
+                val telemetry = proxy.pollTelemetry()
+                if (telemetry.state == "running" && telemetry.listenerAddress == "127.0.0.1:$port") {
+                    return@withTimeout telemetry
+                }
+                delay(50)
             }
-            delay(50)
+            error("unreachable")
         }
-        error("unreachable")
-    }
 
     private fun assertStoppedExitCode(exitCode: Int) {
         assertTrue(
