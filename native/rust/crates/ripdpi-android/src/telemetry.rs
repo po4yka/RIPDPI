@@ -815,8 +815,10 @@ mod tests {
     }
 
     #[test]
-    fn proxy_ws_tunnel_events_are_recorded_without_schema_changes() {
+    fn proxy_ws_tunnel_events_preserve_proxy_snapshot_contract() {
         with_proxy_event_capture(|buffers| {
+            use golden_test_support::{assert_contract_fixture, extract_field_paths};
+
             let state = Arc::new(ProxyTelemetryState::new(None));
             let observer = ProxyTelemetryObserver { state: state.clone() };
             let target = SocketAddr::from(([149, 154, 167, 51], 443));
@@ -831,6 +833,11 @@ mod tests {
             assert!(snapshot.native_events[1].message.contains("ws tunnel escalation"));
             assert_eq!(snapshot.native_events[0].level, "info");
             assert_eq!(snapshot.native_events[1].level, "warn");
+
+            let json = serde_json::to_value(&snapshot).expect("serialize proxy snapshot");
+            let paths = extract_field_paths(&json);
+            let manifest = serde_json::to_string_pretty(&paths).expect("serialize field paths");
+            assert_contract_fixture("proxy_snapshot_fields.json", &manifest);
         });
     }
 
