@@ -564,6 +564,20 @@ pub(crate) fn preferred_tls_observation<'a>(
     }
 }
 
+/// Returns true if a TLS version split is caused by the server rejecting
+/// one TLS version (protocol alert), not by network interference (timeout/reset).
+/// Server-side rejections indicate the server simply doesn't support that version,
+/// not that an ISP is selectively blocking it.
+pub(crate) fn is_server_tls_version_rejection(tls13: &TlsObservation, tls12: &TlsObservation) -> bool {
+    let failed = if tls13.status != "tls_ok" { tls13 } else { tls12 };
+    let error = failed.error.as_deref().unwrap_or("");
+    error.contains("AlertReceived")
+        || error.contains("protocol_version")
+        || error.contains("handshake_failure")
+        || error.contains("inappropriate_fallback")
+        || error.contains("InappropriateHandshakeMessage")
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -755,5 +769,30 @@ mod tests {
         let profile = TlsClientProfile::Tls13WithEch;
         let debug = format!("{profile:?}");
         assert!(debug.contains("WithEch"), "expected WithEch in debug repr, got: {debug}");
+    }
+
+    #[test]
+    fn is_server_tls_version_rejection_detects_alert() {
+        let ok = obs("tls_ok", false);
+        let mut failed = obs("tls_handshake_failed", false);
+        failed.error = Some("AlertReceived(ProtocolVersion)".to_string());
+        assert!(is_server_tls_version_rejection(&failed, &ok));
+        assert!(is_server_tls_version_rejection(&ok, &failed));
+    }
+
+    #[test]
+    fn is_server_tls_version_rejection_false_for_timeout() {
+        let ok = obs("tls_ok", false);
+        let mut failed = obs("tls_handshake_failed", false);
+        failed.error = Some("connection timed out".to_string());
+        assert!(!is_server_tls_version_rejection(&failed, &ok));
+    }
+
+    #[test]
+    fn is_server_tls_version_rejection_false_for_reset() {
+        let ok = obs("tls_ok", false);
+        let mut failed = obs("tls_handshake_failed", false);
+        failed.error = Some("Connection reset by peer".to_string());
+        assert!(!is_server_tls_version_rejection(&failed, &ok));
     }
 }
