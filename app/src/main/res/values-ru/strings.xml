@@ -71,6 +71,7 @@
     <string name="diagnostics_hidden_probe_takeover_failed">Не удалось перехватить фоновое автоматическое зондирование. Повторите попытку.</string>
     <string name="diagnostics_hidden_probe_canceled_summary">Фоновое автоматическое зондирование отменено для запуска ручной диагностики</string>
     <string name="diagnostics_latest_scan_section">Последнее сканирование</string>
+    <string name="diagnostics_profile_change_action">Изменить</string>
     <string name="diagnostics_profile_connectivity_title">Проверки подключения</string>
     <string name="diagnostics_profile_connectivity_badge">Проверить</string>
     <string name="diagnostics_profile_connectivity_body">Быстрая проверка DNS, HTTP, HTTPS и TCP на текущем маршруте.</string>
