@@ -49,7 +49,7 @@ private fun View.performRipDpiHapticFeedback(feedback: RipDpiHapticFeedback) {
 
             RipDpiHapticFeedback.Confirm,
             RipDpiHapticFeedback.Success,
-                -> {
+            -> {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
                     HapticFeedbackConstants.CONFIRM
                 } else {

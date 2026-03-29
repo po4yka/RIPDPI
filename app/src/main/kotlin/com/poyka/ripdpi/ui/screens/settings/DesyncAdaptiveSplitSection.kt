@@ -170,7 +170,7 @@ internal fun AdaptiveSplitProfileCard(
                     } else {
                         stringResource(R.string.adaptive_split_badge_manual)
                     }
-                    ) to
+                ) to
                     if (uiState.desync.hasAdaptiveSplitPreset) {
                         SummaryCapsuleTone.Active
                     } else {

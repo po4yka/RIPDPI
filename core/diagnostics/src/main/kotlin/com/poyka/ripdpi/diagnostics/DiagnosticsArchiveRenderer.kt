@@ -151,7 +151,9 @@ class DiagnosticsArchiveRenderer
             val mode = selection.primarySession?.serviceMode ?: allEvents.latestCorrelation { it.mode }
             val policySignature = allEvents.latestCorrelation { it.policySignature }
             val fingerprintHash =
-                selection.payload.telemetry.firstOrNull()?.telemetryNetworkFingerprintHash
+                selection.payload.telemetry
+                    .firstOrNull()
+                    ?.telemetryNetworkFingerprintHash
                     ?: allEvents.latestCorrelation { it.fingerprintHash }
             val recentWarnings = allEvents.recentWarningPreview()
             val manifest =
@@ -216,7 +218,9 @@ class DiagnosticsArchiveRenderer
             val mode = selection.primarySession?.serviceMode ?: allEvents.latestCorrelation { it.mode }
             val policySignature = allEvents.latestCorrelation { it.policySignature }
             val fingerprintHash =
-                selection.payload.telemetry.firstOrNull()?.telemetryNetworkFingerprintHash
+                selection.payload.telemetry
+                    .firstOrNull()
+                    ?.telemetryNetworkFingerprintHash
                     ?: allEvents.latestCorrelation { it.fingerprintHash }
             val recentWarnings = allEvents.recentWarningPreview()
             return DiagnosticsSummaryTextRenderer.render(
@@ -404,11 +408,13 @@ private fun List<NativeSessionEventEntity>.lifecycleMilestones(limit: Int = 6): 
             val subsystem = (event.subsystem ?: event.source).lowercase()
             val message = event.message.lowercase()
             subsystem in setOf("service", "proxy", "tunnel", "diagnostics") &&
-                (message.contains("started") ||
-                    message.contains("stopped") ||
-                    message.contains("stop requested") ||
-                    message.contains("listener started") ||
-                    message.contains("listener stopped"))
+                (
+                    message.contains("started") ||
+                        message.contains("stopped") ||
+                        message.contains("stop requested") ||
+                        message.contains("listener started") ||
+                        message.contains("listener stopped")
+                )
         }.take(limit)
         .map { event -> "${event.subsystem ?: event.source}: ${event.message}" }
         .toList()

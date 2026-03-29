@@ -20,13 +20,13 @@ import dagger.Module
 import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
+import logcat.LogPriority
+import logcat.asLog
+import logcat.logcat
 import java.net.InetAddress
 import java.util.Locale
 import javax.inject.Inject
 import javax.inject.Singleton
-import logcat.LogPriority
-import logcat.asLog
-import logcat.logcat
 
 internal enum class CapturedTransport {
     Wifi,

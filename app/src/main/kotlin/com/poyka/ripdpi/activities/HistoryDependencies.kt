@@ -15,24 +15,24 @@ internal interface HistoryDetailLoader {
 }
 
 internal class DefaultHistoryDetailLoader
-@Inject
-constructor(
-    private val diagnosticsHistorySource: DiagnosticsHistorySource,
-    private val diagnosticsDetailLoader: DiagnosticsDetailLoader,
-    private val connectionDetailUiFactory: HistoryConnectionDetailUiFactory,
-    private val diagnosticsSessionDetailUiMapper: DiagnosticsSessionDetailUiMapper,
-) : HistoryDetailLoader {
-    override suspend fun loadConnectionDetail(sessionId: String): HistoryConnectionDetailUiModel? =
-        diagnosticsHistorySource
-            .loadConnectionDetail(sessionId)
-            ?.let(connectionDetailUiFactory::toConnectionDetail)
+    @Inject
+    constructor(
+        private val diagnosticsHistorySource: DiagnosticsHistorySource,
+        private val diagnosticsDetailLoader: DiagnosticsDetailLoader,
+        private val connectionDetailUiFactory: HistoryConnectionDetailUiFactory,
+        private val diagnosticsSessionDetailUiMapper: DiagnosticsSessionDetailUiMapper,
+    ) : HistoryDetailLoader {
+        override suspend fun loadConnectionDetail(sessionId: String): HistoryConnectionDetailUiModel? =
+            diagnosticsHistorySource
+                .loadConnectionDetail(sessionId)
+                ?.let(connectionDetailUiFactory::toConnectionDetail)
 
-    override suspend fun loadDiagnosticsDetail(sessionId: String): DiagnosticsSessionDetailUiModel? =
-        diagnosticsSessionDetailUiMapper.toSessionDetailUiModel(
-            detail = diagnosticsDetailLoader.loadSessionDetail(sessionId),
-            showSensitiveDetails = false,
-        )
-}
+        override suspend fun loadDiagnosticsDetail(sessionId: String): DiagnosticsSessionDetailUiModel? =
+            diagnosticsSessionDetailUiMapper.toSessionDetailUiModel(
+                detail = diagnosticsDetailLoader.loadSessionDetail(sessionId),
+                showSensitiveDetails = false,
+            )
+    }
 
 @Module
 @InstallIn(ViewModelComponent::class)

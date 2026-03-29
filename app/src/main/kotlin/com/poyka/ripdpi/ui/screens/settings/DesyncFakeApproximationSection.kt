@@ -92,7 +92,7 @@ internal fun FakeApproximationProfileCard(
                     } else {
                         stringResource(R.string.ripdpi_fake_approx_badge_available)
                     }
-                    ) to
+                ) to
                     if (uiState.desync.hasFakeApproximation) {
                         SummaryCapsuleTone.Active
                     } else {

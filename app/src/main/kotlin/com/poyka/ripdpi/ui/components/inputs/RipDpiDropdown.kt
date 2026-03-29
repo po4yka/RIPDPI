@@ -170,8 +170,7 @@ private fun DropdownField(
                     .semantics {
                         label?.let { contentDescription = it }
                         errorText?.let { error(it) }
-                    }
-                    .ripDpiClickable(
+                    }.ripDpiClickable(
                         enabled = isInteractive,
                         role = androidx.compose.ui.semantics.Role.Button,
                         interactionSource = resolvedInteractionSource,
