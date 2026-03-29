@@ -17,6 +17,11 @@ import com.poyka.ripdpi.diagnostics.DiagnosticsTimelineSource
 import com.poyka.ripdpi.diagnostics.ScanProgress
 import com.poyka.ripdpi.platform.StringResolver
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.ImmutableSet
+import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.toImmutableList
+import kotlinx.collections.immutable.toImmutableSet
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -76,9 +81,9 @@ data class LogEntry(
 }
 
 data class LogsUiState(
-    val logs: List<LogEntry> = emptyList(),
-    val activeSubsystems: Set<LogSubsystem> = LogSubsystem.entries.toSet(),
-    val activeSeverities: Set<LogSeverity> = LogSeverity.entries.toSet(),
+    val logs: ImmutableList<LogEntry> = persistentListOf(),
+    val activeSubsystems: ImmutableSet<LogSubsystem> = LogSubsystem.entries.toImmutableSet(),
+    val activeSeverities: ImmutableSet<LogSeverity> = LogSeverity.entries.toImmutableSet(),
     val showActiveSessionOnly: Boolean = false,
     val isAutoScroll: Boolean = true,
     val bufferCapacity: Int = MaxLogEntries,
@@ -193,9 +198,9 @@ class LogsViewModel
                 autoScroll: Boolean,
                 ->
                 LogsUiState(
-                    logs = logs,
-                    activeSubsystems = subsystems,
-                    activeSeverities = severities,
+                    logs = logs.toImmutableList(),
+                    activeSubsystems = subsystems.toImmutableSet(),
+                    activeSeverities = severities.toImmutableSet(),
                     showActiveSessionOnly = activeOnly,
                     isAutoScroll = autoScroll,
                 )

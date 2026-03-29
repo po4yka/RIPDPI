@@ -68,6 +68,7 @@ import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
+import kotlinx.collections.immutable.persistentMapOf
 import kotlinx.coroutines.flow.collectLatest
 
 @Composable
@@ -549,7 +550,7 @@ private fun ModeEditorScreenDarkPreview() {
                         ),
                     draft = draft,
                     validationErrors =
-                        mapOf(
+                        persistentMapOf(
                             ConfigFieldDnsIp to "invalid_dns_ip",
                             ConfigFieldDefaultTtl to "out_of_range",
                         ),

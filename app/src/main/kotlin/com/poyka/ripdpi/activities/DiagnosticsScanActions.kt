@@ -9,6 +9,8 @@ import com.poyka.ripdpi.diagnostics.DiagnosticsScanStartRejectionReason
 import com.poyka.ripdpi.diagnostics.HiddenProbeConflictAction
 import com.poyka.ripdpi.diagnostics.ScanKind
 import com.poyka.ripdpi.diagnostics.ScanPathMode
+import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.combine
@@ -33,7 +35,7 @@ internal class DiagnosticsScanActions(
                             scanStartedAt = null,
                             activeScanPathMode = null,
                             activeScanKind = null,
-                            accumulatedProbes = emptyList(),
+                            accumulatedProbes = persistentListOf(),
                         )
                     }
                 } else if (progress == null) {
@@ -42,7 +44,7 @@ internal class DiagnosticsScanActions(
                             scanStartedAt = null,
                             activeScanPathMode = null,
                             activeScanKind = null,
-                            accumulatedProbes = emptyList(),
+                            accumulatedProbes = persistentListOf(),
                         )
                     }
                 }
@@ -62,14 +64,16 @@ internal class DiagnosticsScanActions(
                 scanLifecycle.update {
                     it.copy(
                         accumulatedProbes =
-                            it.accumulatedProbes +
-                                uiStateFactory.toCompletedProbeUiModel(
-                                    phase = progress.phase,
-                                    target = target,
-                                    outcome = outcome,
-                                    pathMode = it.activeScanPathMode ?: ScanPathMode.RAW_PATH,
-                                    scanKind = it.activeScanKind ?: ScanKind.CONNECTIVITY,
-                                ),
+                            (
+                                it.accumulatedProbes +
+                                    uiStateFactory.toCompletedProbeUiModel(
+                                        phase = progress.phase,
+                                        target = target,
+                                        outcome = outcome,
+                                        pathMode = it.activeScanPathMode ?: ScanPathMode.RAW_PATH,
+                                        scanKind = it.activeScanKind ?: ScanKind.CONNECTIVITY,
+                                    )
+                            ).toImmutableList(),
                     )
                 }
             }
@@ -194,7 +198,7 @@ internal class DiagnosticsScanActions(
                 scanStartedAt = null,
                 activeScanPathMode = null,
                 activeScanKind = null,
-                accumulatedProbes = emptyList(),
+                accumulatedProbes = persistentListOf(),
             )
         }
         mutations.launch {
@@ -262,7 +266,7 @@ internal class DiagnosticsScanActions(
                                 activeScanPathMode = null,
                                 activeScanKind = null,
                                 pendingAutoOpenAuditSessionId = null,
-                                accumulatedProbes = emptyList(),
+                                accumulatedProbes = persistentListOf(),
                                 hiddenProbeConflictDialog =
                                     HiddenProbeConflictDialogState(
                                         requestId = result.requestId,
@@ -292,7 +296,7 @@ internal class DiagnosticsScanActions(
                 activeScanPathMode = null,
                 activeScanKind = null,
                 pendingAutoOpenAuditSessionId = null,
-                accumulatedProbes = emptyList(),
+                accumulatedProbes = persistentListOf(),
                 hiddenProbeConflictDialog = null,
                 queuedManualScanRequest = null,
             )
@@ -333,7 +337,7 @@ internal class DiagnosticsScanActions(
                             activeScanPathMode = null,
                             activeScanKind = null,
                             pendingAutoOpenAuditSessionId = null,
-                            accumulatedProbes = emptyList(),
+                            accumulatedProbes = persistentListOf(),
                             queuedManualScanRequest = null,
                         )
                     }
@@ -354,7 +358,7 @@ internal class DiagnosticsScanActions(
                     activeScanPathMode = null,
                     activeScanKind = null,
                     pendingAutoOpenAuditSessionId = null,
-                    accumulatedProbes = emptyList(),
+                    accumulatedProbes = persistentListOf(),
                     queuedManualScanRequest = null,
                 )
             }

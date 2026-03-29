@@ -15,6 +15,7 @@ import com.poyka.ripdpi.permissions.PermissionKind
 import com.poyka.ripdpi.permissions.PermissionSummaryUiState
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
+import kotlinx.collections.immutable.persistentListOf
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -84,7 +85,7 @@ class SettingsPreferencesScreenTest {
                                     message = "Vendor limits can still stop RIPDPI in the background.",
                                 ),
                             items =
-                                listOf(
+                                persistentListOf(
                                     PermissionItemUiState(
                                         kind = PermissionKind.BatteryOptimization,
                                         title = "Battery optimization",

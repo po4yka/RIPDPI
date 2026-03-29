@@ -52,6 +52,7 @@ import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
+import kotlinx.collections.immutable.persistentListOf
 
 @Composable
 fun LogsRoute(
@@ -525,7 +526,7 @@ private fun logRowTone(entry: LogEntry): LogRowTone =
     }
 
 private val previewLogs =
-    listOf(
+    persistentListOf(
         LogEntry(
             id = "1",
             createdAtMs = 1,
