@@ -183,7 +183,7 @@ File path prefix: `app/src/main/kotlin/com/poyka/ripdpi/`
   - Depends on: 4.1
   - ~50 lines
 
-- [ ] **4.5 Add shape tokens to status indicators**
+- [x] **4.5 Add shape tokens to status indicators**
   - Files: `ui/screens/diagnostics/DiagnosticsTonePalette.kt`,
     status indicator component (design system)
   - Augment color-only status dots with distinct shapes:
