@@ -167,6 +167,7 @@ internal fun createDiagnosticsServices(
                     findingProjector = DiagnosticsFindingProjector(),
                     json = json,
                 ),
+            scanRequestFactory = requestFactory,
         )
     val scheduler =
         AutomaticProbeScheduler(

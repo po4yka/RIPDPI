@@ -406,6 +406,95 @@ class DiagnosticsScanWorkflowTest {
             ),
         )
     }
+
+    @Test
+    fun `reprobe recommended when DNS short-circuited and override applied on RAW_PATH`() {
+        val report =
+            scanReportWithStrategyProbe(
+                proxyConfigJson = validRecommendedProxyConfigJson(),
+                tcpFamily = "hostfake",
+                quicFamily = "quic_realistic_burst",
+                completionKind = StrategyProbeCompletionKind.DNS_SHORT_CIRCUITED,
+            )
+
+        assertTrue(
+            DiagnosticsScanWorkflow.shouldReprobeWithCorrectedDns(
+                report = report,
+                pathMode = ScanPathMode.RAW_PATH,
+                resolverOverrideApplied = true,
+            ),
+        )
+    }
+
+    @Test
+    fun `reprobe not recommended when path mode is IN_PATH`() {
+        val report =
+            scanReportWithStrategyProbe(
+                proxyConfigJson = validRecommendedProxyConfigJson(),
+                tcpFamily = "hostfake",
+                quicFamily = "quic_realistic_burst",
+                completionKind = StrategyProbeCompletionKind.DNS_SHORT_CIRCUITED,
+            )
+
+        assertFalse(
+            DiagnosticsScanWorkflow.shouldReprobeWithCorrectedDns(
+                report = report,
+                pathMode = ScanPathMode.IN_PATH,
+                resolverOverrideApplied = true,
+            ),
+        )
+    }
+
+    @Test
+    fun `reprobe not recommended when resolver override was not applied`() {
+        val report =
+            scanReportWithStrategyProbe(
+                proxyConfigJson = validRecommendedProxyConfigJson(),
+                tcpFamily = "hostfake",
+                quicFamily = "quic_realistic_burst",
+                completionKind = StrategyProbeCompletionKind.DNS_SHORT_CIRCUITED,
+            )
+
+        assertFalse(
+            DiagnosticsScanWorkflow.shouldReprobeWithCorrectedDns(
+                report = report,
+                pathMode = ScanPathMode.RAW_PATH,
+                resolverOverrideApplied = false,
+            ),
+        )
+    }
+
+    @Test
+    fun `reprobe not recommended when completion is normal`() {
+        val report =
+            scanReportWithStrategyProbe(
+                proxyConfigJson = validRecommendedProxyConfigJson(),
+                tcpFamily = "hostfake",
+                quicFamily = "quic_realistic_burst",
+                completionKind = StrategyProbeCompletionKind.NORMAL,
+            )
+
+        assertFalse(
+            DiagnosticsScanWorkflow.shouldReprobeWithCorrectedDns(
+                report = report,
+                pathMode = ScanPathMode.RAW_PATH,
+                resolverOverrideApplied = true,
+            ),
+        )
+    }
+
+    @Test
+    fun `reprobe not recommended when no strategy probe report`() {
+        val report = scanReportWithResolverRecommendation()
+
+        assertFalse(
+            DiagnosticsScanWorkflow.shouldReprobeWithCorrectedDns(
+                report = report,
+                pathMode = ScanPathMode.RAW_PATH,
+                resolverOverrideApplied = true,
+            ),
+        )
+    }
 }
 
 private fun settingsWithPlainUdpDns() =
