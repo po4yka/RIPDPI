@@ -490,38 +490,6 @@ pub(crate) fn run_circumvention_probe(
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::classify_dns_latency_quality;
-
-    #[test]
-    fn dns_latency_quality_throttled_for_slow_udp() {
-        assert_eq!(classify_dns_latency_quality("6000", "100"), "throttled");
-        assert_eq!(classify_dns_latency_quality("3001", "50"), "throttled");
-    }
-
-    #[test]
-    fn dns_latency_quality_fast_for_quick_encrypted() {
-        assert_eq!(classify_dns_latency_quality("20", "50"), "fast");
-        assert_eq!(classify_dns_latency_quality("20", "99"), "fast");
-    }
-
-    #[test]
-    fn dns_latency_quality_normal_for_moderate() {
-        assert_eq!(classify_dns_latency_quality("20", "250"), "normal");
-    }
-
-    #[test]
-    fn dns_latency_quality_slow_for_high_encrypted() {
-        assert_eq!(classify_dns_latency_quality("20", "600"), "slow");
-    }
-
-    #[test]
-    fn dns_latency_quality_unknown_for_zero() {
-        assert_eq!(classify_dns_latency_quality("0", "0"), "unknown");
-    }
-}
-
 pub(crate) fn run_throughput_probe(target: &ThroughputTarget, transport: &TransportConfig) -> ProbeResult {
     let samples = (0..target.runs.max(1)).map(|_| measure_throughput_window(target, transport)).collect::<Vec<_>>();
     let mut bps_values = samples.iter().map(|sample| sample.bps).filter(|bps| *bps > 0).collect::<Vec<_>>();
@@ -560,5 +528,37 @@ pub(crate) fn run_throughput_probe(target: &ThroughputTarget, transport: &Transp
             },
             ProbeDetail { key: "medianBps".to_string(), value: median_bps.to_string() },
         ],
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::classify_dns_latency_quality;
+
+    #[test]
+    fn dns_latency_quality_throttled_for_slow_udp() {
+        assert_eq!(classify_dns_latency_quality("6000", "100"), "throttled");
+        assert_eq!(classify_dns_latency_quality("3001", "50"), "throttled");
+    }
+
+    #[test]
+    fn dns_latency_quality_fast_for_quick_encrypted() {
+        assert_eq!(classify_dns_latency_quality("20", "50"), "fast");
+        assert_eq!(classify_dns_latency_quality("20", "99"), "fast");
+    }
+
+    #[test]
+    fn dns_latency_quality_normal_for_moderate() {
+        assert_eq!(classify_dns_latency_quality("20", "250"), "normal");
+    }
+
+    #[test]
+    fn dns_latency_quality_slow_for_high_encrypted() {
+        assert_eq!(classify_dns_latency_quality("20", "600"), "slow");
+    }
+
+    #[test]
+    fn dns_latency_quality_unknown_for_zero() {
+        assert_eq!(classify_dns_latency_quality("0", "0"), "unknown");
     }
 }
