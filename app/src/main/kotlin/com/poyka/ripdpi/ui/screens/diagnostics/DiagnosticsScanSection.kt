@@ -105,6 +105,15 @@ internal fun ScanSection(
 
             else -> RipDpiTestTags.DiagnosticsScanStateIdle
         }
+    var showProfilePicker by rememberSaveable { mutableStateOf(false) }
+    if (showProfilePicker) {
+        ProfileSelectionBottomSheet(
+            profiles = scan.profiles,
+            selectedProfileId = scan.selectedProfileId,
+            onSelectProfile = onSelectProfile,
+            onDismiss = { showProfilePicker = false },
+        )
+    }
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding =
@@ -114,7 +123,6 @@ internal fun ScanSection(
             ),
         verticalArrangement = Arrangement.spacedBy(spacing.md),
     ) {
-        item { ScanProfilePickerCard(scan = scan, onSelectProfile = onSelectProfile) }
         if (scan.diagnoses.isNotEmpty()) {
             item {
                 DiagnosisSummaryCard(
@@ -122,6 +130,12 @@ internal fun ScanSection(
                     diagnoses = scan.diagnoses,
                 )
             }
+        }
+        item {
+            CompactProfileRow(
+                profile = scan.selectedProfile,
+                onChangeProfile = { showProfilePicker = true },
+            )
         }
         selectedProfile?.takeIf { it.regionTag?.equals("ru", ignoreCase = true) == true }?.let {
             item {
@@ -256,6 +270,43 @@ internal fun ScanSection(
                     )
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun CompactProfileRow(
+    profile: com.poyka.ripdpi.activities.DiagnosticsProfileOptionUiModel?,
+    onChangeProfile: () -> Unit,
+) {
+    RipDpiCard {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(2.dp),
+            ) {
+                Text(
+                    text = profile?.name ?: stringResource(R.string.diagnostics_profiles_title),
+                    style = RipDpiThemeTokens.type.bodyEmphasis,
+                    color = RipDpiThemeTokens.colors.foreground,
+                )
+                profile?.family?.displayFamilyLabel()?.let { familyLabel ->
+                    Text(
+                        text = familyLabel,
+                        style = RipDpiThemeTokens.type.secondaryBody,
+                        color = RipDpiThemeTokens.colors.mutedForeground,
+                    )
+                }
+            }
+            RipDpiButton(
+                text = stringResource(R.string.diagnostics_profile_change_action),
+                onClick = onChangeProfile,
+                variant = RipDpiButtonVariant.Outline,
+            )
         }
     }
 }
