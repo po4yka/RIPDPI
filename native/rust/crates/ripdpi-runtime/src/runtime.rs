@@ -48,7 +48,7 @@ mod tests {
     use crate::runtime::routing::{advance_route_for_failure, select_route};
     use crate::runtime::state::RuntimeState;
     use crate::runtime_policy::RuntimePolicy;
-    use crate::sync::{Arc, AtomicUsize, Mutex};
+    use crate::sync::{Arc, AtomicBool, AtomicUsize, Mutex};
     use ripdpi_config::{DesyncGroup, OffsetExpr, TcpChainStep, TcpChainStepKind, DETECT_CONNECT, DETECT_HTTP_LOCAT};
     use ripdpi_packets::{DEFAULT_FAKE_TLS, IS_HTTPS};
     use ripdpi_session::{
@@ -241,6 +241,7 @@ mod tests {
             active_clients: Arc::new(AtomicUsize::new(0)),
             telemetry: None,
             runtime_context: None,
+            ttl_unavailable: Arc::new(AtomicBool::new(false)),
         };
 
         let initial = select_route(&state, target, Some(&payload), None, false).expect("initial route");

@@ -13,6 +13,8 @@ use ripdpi_packets::entropy;
 use ripdpi_session::OutboundProgress;
 use socket2::SockRef;
 
+use crate::sync::{AtomicBool, Ordering};
+
 use super::adaptive::{resolve_adaptive_fake_ttl, resolve_tcp_hints_with_evolver};
 use super::state::{RuntimeState, DESYNC_SEED_BASE};
 
@@ -187,8 +189,16 @@ pub(super) fn send_with_group(
         let seed = DESYNC_SEED_BASE + progress.round.saturating_sub(1);
         match plan_tcp(group, &effective_payload, seed, state.config.network.default_ttl, context) {
             Ok(plan) if requires_special_tcp_execution(group) => {
-                let bytes_committed =
-                    execute_tcp_plan(writer, &state.config, group, &plan, seed, resolved_fake_ttl, strategy_family)?;
+                let bytes_committed = execute_tcp_plan(
+                    writer,
+                    &state.config,
+                    group,
+                    &plan,
+                    seed,
+                    resolved_fake_ttl,
+                    strategy_family,
+                    &state.ttl_unavailable,
+                )?;
                 Ok(OutboundSendOutcome { bytes_committed, strategy_family })
             }
             Ok(plan) => {
@@ -199,6 +209,7 @@ pub(super) fn send_with_group(
                     state.config.timeouts.wait_send,
                     Duration::from_millis(state.config.timeouts.await_interval.max(1) as u64),
                     strategy_family,
+                    &state.ttl_unavailable,
                 )?;
                 Ok(OutboundSendOutcome { bytes_committed, strategy_family })
             }
@@ -305,6 +316,7 @@ fn execute_tcp_actions(
     wait_send: bool,
     await_interval: Duration,
     strategy_family: Option<&'static str>,
+    session_ttl_unavailable: &AtomicBool,
 ) -> Result<usize, OutboundSendError> {
     // When default_ttl is 0 (auto-detect), lazily read the current TTL on
     // the first SetTtl action so we always have a value to restore.
@@ -312,8 +324,9 @@ fn execute_tcp_actions(
     let mut ttl_modified = false;
     // Some Android builds reject per-socket TTL rewrites at runtime. In that
     // case, continue without the TTL mutation so the connection can still
-    // progress instead of failing the whole request.
-    let mut ttl_actions_unavailable = false;
+    // progress instead of failing the whole request. Pre-seeded from the
+    // session-level flag so subsequent connections skip TTL immediately.
+    let mut ttl_actions_unavailable = session_ttl_unavailable.load(Ordering::Relaxed);
     let mut bytes_committed = 0usize;
     let fallback = strategy_family.and_then(strategy_fallback_family);
 
@@ -469,6 +482,12 @@ fn execute_tcp_actions(
         }
     }
 
+    // Propagate per-connection discovery to the session-level flag so
+    // subsequent connections skip TTL actions immediately.
+    if ttl_actions_unavailable {
+        session_ttl_unavailable.store(true, Ordering::Relaxed);
+    }
+
     result
 }
 
@@ -498,6 +517,7 @@ fn execute_tcp_plan(
     seed: u32,
     resolved_fake_ttl: Option<u8>,
     strategy_family: Option<&'static str>,
+    session_ttl_unavailable: &AtomicBool,
 ) -> Result<usize, OutboundSendError> {
     let fake =
         if plan.steps.iter().any(|step| {
@@ -526,7 +546,7 @@ fn execute_tcp_plan(
     }
 
     let mut cursor = 0usize;
-    let mut ttl_actions_unavailable = false;
+    let mut ttl_actions_unavailable = session_ttl_unavailable.load(Ordering::Relaxed);
     let mut bytes_committed = 0usize;
     for (index, step) in plan.steps.iter().enumerate() {
         let start = usize::try_from(step.start).map_err(|_| {
@@ -1039,6 +1059,13 @@ fn execute_tcp_plan(
             bytes_committed,
         )?;
     }
+
+    // Propagate per-connection discovery to the session-level flag so
+    // subsequent connections skip TTL actions immediately.
+    if ttl_actions_unavailable {
+        session_ttl_unavailable.store(true, Ordering::Relaxed);
+    }
+
     Ok(bytes_committed)
 }
 

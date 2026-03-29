@@ -1,4 +1,4 @@
-use crate::sync::{Arc, AtomicUsize, Mutex, Ordering};
+use crate::sync::{Arc, AtomicBool, AtomicUsize, Mutex, Ordering};
 use std::time::Duration;
 
 use crate::adaptive_fake_ttl::AdaptiveFakeTtlResolver;
@@ -28,6 +28,10 @@ pub(super) struct RuntimeState {
     pub(super) active_clients: Arc<AtomicUsize>,
     pub(super) telemetry: Option<std::sync::Arc<dyn RuntimeTelemetrySink>>,
     pub(super) runtime_context: Option<ProxyRuntimeContext>,
+    /// Session-level flag: once any connection discovers that per-socket TTL
+    /// modification is rejected by the kernel (EROFS on Android), all
+    /// subsequent connections skip TTL desync actions immediately.
+    pub(super) ttl_unavailable: Arc<AtomicBool>,
 }
 
 pub(super) struct RuntimeCleanup {
