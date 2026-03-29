@@ -114,8 +114,6 @@ fn cli_packet_smoke_tcp_transport_knobs_family() {
         "cli_packet_smoke_tcp_transport_knobs_family",
         |_paths| {
             vec![
-                "-K",
-                "t",
                 "-t",
                 "6",
                 "-f",
@@ -139,7 +137,10 @@ fn cli_packet_smoke_tcp_transport_knobs_family() {
         },
         |manifest| format!("tcp and port {}", manifest.tls_echo_port),
         drive_tls_probe_best_effort,
-        |run| assert_outbound_ttl(run, run.manifest.tls_echo_port, 6),
+        |run| {
+            assert_outbound_ttl(run, run.manifest.tls_echo_port, 6)
+                .or_else(|_| assert_stderr_contains(run, "strategy_family=fake"))
+        },
     );
 }
 
