@@ -153,6 +153,46 @@ internal fun CollapsibleSection(
 }
 
 @Composable
+internal fun CompactProbeRow(
+    probe: DiagnosticsProbeResultUiModel,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Row(
+        modifier =
+            modifier
+                .fillMaxWidth()
+                .clickable(onClick = onClick)
+                .heightIn(min = 52.dp)
+                .padding(horizontal = RipDpiThemeTokens.layout.cardPadding, vertical = 8.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(2.dp),
+        ) {
+            Text(
+                text = probe.target,
+                style = RipDpiThemeTokens.type.bodyEmphasis,
+                color = RipDpiThemeTokens.colors.foreground,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Text(
+                text = probe.probeType,
+                style = RipDpiThemeTokens.type.smallLabel,
+                color = RipDpiThemeTokens.colors.mutedForeground,
+            )
+        }
+        StatusIndicator(
+            label = probe.outcome,
+            tone = statusTone(probe.tone),
+        )
+    }
+}
+
+@Composable
 internal fun SnapshotCard(snapshot: DiagnosticsNetworkSnapshotUiModel) {
     val spacing = RipDpiThemeTokens.spacing
     RipDpiCard {

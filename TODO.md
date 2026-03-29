@@ -149,7 +149,7 @@ File path prefix: `app/src/main/kotlin/com/poyka/ripdpi/`
 
 ## Phase 4: Results Display Overhaul
 
-- [ ] **4.1 Create CompactProbeRow composable**
+- [x] **4.1 Create CompactProbeRow composable**
   - Files: `ui/screens/diagnostics/DiagnosticsCards.kt`
   - New composable rendering probe target + outcome in a single 52dp-height
     row without card wrapping. Layout: leading status indicator (shape + color),
