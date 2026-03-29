@@ -9,6 +9,7 @@ import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.keyframes
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -645,25 +646,17 @@ private fun HomeConnectionButton(
                     }
                     launch {
                         shakeOffset.snapTo(0f)
-                        shakeOffset.animateTo(
-                            targetValue = -shakeDistance,
-                            animationSpec = tween(durationMillis = motion.duration(50)),
-                        )
-                        shakeOffset.animateTo(
-                            targetValue = shakeDistance * 0.8f,
-                            animationSpec = tween(durationMillis = motion.duration(60)),
-                        )
-                        shakeOffset.animateTo(
-                            targetValue = -shakeDistance * 0.5f,
-                            animationSpec = tween(durationMillis = motion.duration(55)),
-                        )
-                        shakeOffset.animateTo(
-                            targetValue = shakeDistance * 0.25f,
-                            animationSpec = tween(durationMillis = motion.duration(50)),
-                        )
+                        val totalDuration = motion.duration(285)
                         shakeOffset.animateTo(
                             targetValue = 0f,
-                            animationSpec = tween(durationMillis = motion.duration(70)),
+                            animationSpec =
+                                keyframes {
+                                    durationMillis = totalDuration
+                                    -shakeDistance at (totalDuration * 50 / 285)
+                                    (shakeDistance * 0.8f) at (totalDuration * 110 / 285)
+                                    (-shakeDistance * 0.5f) at (totalDuration * 165 / 285)
+                                    (shakeDistance * 0.25f) at (totalDuration * 215 / 285)
+                                },
                         )
                     }
                 }

@@ -555,7 +555,16 @@ internal fun DnsSettingsScreen(
                 style = type.body,
                 color = colors.mutedForeground,
             )
-            RipDpiCard(modifier = Modifier.animateContentSize()) {
+            RipDpiCard(
+                modifier =
+                    Modifier.animateContentSize(
+                        animationSpec =
+                            tween(
+                                durationMillis = motion.duration(motion.stateDurationMillis),
+                                easing = RipDpiMotion.StandardEasing,
+                            ),
+                    ),
+            ) {
                 when (uiState.dns.dnsMode) {
                     DnsModePlainUdp -> {
                         Text(
@@ -699,6 +708,7 @@ private fun DnsActiveConfigurationCard(
     val colors = RipDpiThemeTokens.colors
     val spacing = RipDpiThemeTokens.spacing
     val type = RipDpiThemeTokens.type
+    val motion = RipDpiThemeTokens.motion
     val title =
         selectedResolver?.let { stringResource(it.titleRes) }
             ?: if (uiState.dns.dnsMode == DnsModeEncrypted) {
@@ -728,7 +738,14 @@ private fun DnsActiveConfigurationCard(
 
     RipDpiCard(
         variant = if (uiState.dns.dnsMode == DnsModeEncrypted) RipDpiCardVariant.Elevated else RipDpiCardVariant.Tonal,
-        modifier = Modifier.animateContentSize(),
+        modifier =
+            Modifier.animateContentSize(
+                animationSpec =
+                    tween(
+                        durationMillis = motion.duration(motion.stateDurationMillis),
+                        easing = RipDpiMotion.StandardEasing,
+                    ),
+            ),
     ) {
         Text(
             text = stringResource(R.string.dns_active_section_title),
@@ -850,11 +867,19 @@ private fun DnsOptionCard(
     val colors = RipDpiThemeTokens.colors
     val spacing = RipDpiThemeTokens.spacing
     val type = RipDpiThemeTokens.type
+    val motion = RipDpiThemeTokens.motion
 
     RipDpiCard(
         variant = if (selected) RipDpiCardVariant.Elevated else RipDpiCardVariant.Outlined,
         onClick = onClick,
-        modifier = Modifier.animateContentSize(),
+        modifier =
+            Modifier.animateContentSize(
+                animationSpec =
+                    tween(
+                        durationMillis = motion.duration(motion.stateDurationMillis),
+                        easing = RipDpiMotion.StandardEasing,
+                    ),
+            ),
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -1326,13 +1351,19 @@ private fun DnsResolverCard(
     val colors = RipDpiThemeTokens.colors
     val spacing = RipDpiThemeTokens.spacing
     val type = RipDpiThemeTokens.type
+    val motion = RipDpiThemeTokens.motion
     RipDpiCard(
         variant = if (selected) RipDpiCardVariant.Elevated else RipDpiCardVariant.Outlined,
         onClick = onClick,
         modifier =
             Modifier
-                .animateContentSize()
-                .ripDpiTestTag(RipDpiTestTags.dnsResolver(resolver.providerId)),
+                .animateContentSize(
+                    animationSpec =
+                        tween(
+                            durationMillis = motion.duration(motion.stateDurationMillis),
+                            easing = RipDpiMotion.StandardEasing,
+                        ),
+                ).ripDpiTestTag(RipDpiTestTags.dnsResolver(resolver.providerId)),
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
