@@ -10,6 +10,8 @@ android {
         minSdk = 28
         targetSdk = providers.gradleProperty("ripdpi.targetSdk").get().toInt()
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        testInstrumentationRunnerArguments["androidx.benchmark.suppressErrors"] =
+            "EMULATOR,DEBUGGABLE,NOT-SELF-INSTRUMENTING"
     }
 
     compileOptions {
@@ -18,6 +20,7 @@ android {
     }
 
     targetProjectPath = ":app"
+    experimentalProperties["android.experimental.self-instrumenting"] = true
 
     testOptions {
         managedDevices {
