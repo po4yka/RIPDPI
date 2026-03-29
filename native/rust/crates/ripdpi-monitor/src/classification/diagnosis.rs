@@ -123,6 +123,27 @@ pub(crate) fn classify_connectivity_diagnoses(request: &ScanRequest, results: &[
                 );
                 hard_failure_codes.insert("dns_blockpage_fingerprint".to_string());
             }
+            if failure_detail_value(result, "dnsInjectionSuspected") == Some("true") {
+                push_diagnosis(
+                    &mut diagnoses,
+                    &mut seen,
+                    Diagnosis {
+                        code: "dns_injection_suspected".to_string(),
+                        summary: format!(
+                            "DNS response for {} arrived in under 5ms with substituted answers, suggesting in-path injection",
+                            result.target
+                        ),
+                        severity: "negative".to_string(),
+                        target: Some(result.target.clone()),
+                        evidence: diagnosis_evidence(
+                            result,
+                            &["udpAddresses", "encryptedAddresses", "udpLatencyMs", "encryptedLatencyMs"],
+                        ),
+                        recommendation: None,
+                        control_validated: None,
+                    },
+                );
+            }
         }
     }
 

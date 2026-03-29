@@ -41,6 +41,14 @@ pub(crate) fn classify_dns_latency_quality(udp_latency_ms: &str, encrypted_laten
     }
 }
 
+/// Returns `true` when the UDP DNS response arrived suspiciously fast (<=5ms)
+/// while the encrypted resolver returned different answers -- a strong signal
+/// of in-path DNS injection (e.g., middlebox DPI equipment racing forged responses).
+pub(crate) fn is_dns_injection_suspected(udp_latency_ms: &str, outcome: &str) -> bool {
+    let udp: u64 = udp_latency_ms.parse().unwrap_or(u64::MAX);
+    udp <= 5 && matches!(outcome, "dns_substitution" | "dns_nxdomain")
+}
+
 pub(crate) fn run_dns_probe(target: &DnsTarget, transport: &TransportConfig, path_mode: &ScanPathMode) -> ProbeResult {
     let udp_server = target.udp_server.clone().unwrap_or_else(|| DEFAULT_DNS_SERVER.to_string());
     let (encrypted_endpoint, encrypted_bootstrap_ips) = match encrypted_dns_endpoint_for_target(target) {
@@ -82,6 +90,7 @@ pub(crate) fn run_dns_probe(target: &DnsTarget, transport: &TransportConfig, pat
         }
         (Err(_), Err(_)) => "dns_unavailable".to_string(),
     };
+    let injection_suspected = is_dns_injection_suspected(&udp_latency_ms, &outcome);
 
     ProbeResult {
         probe_type: "dns_integrity".to_string(),
@@ -135,6 +144,7 @@ pub(crate) fn run_dns_probe(target: &DnsTarget, transport: &TransportConfig, pat
                 key: "dnsLatencyQuality".to_string(),
                 value: classify_dns_latency_quality(&udp_latency_ms, &encrypted_latency_ms),
             },
+            ProbeDetail { key: "dnsInjectionSuspected".to_string(), value: injection_suspected.to_string() },
             ProbeDetail {
                 key: "expected".to_string(),
                 value: if expected.is_empty() {

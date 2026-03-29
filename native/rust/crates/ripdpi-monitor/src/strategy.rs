@@ -7,7 +7,7 @@ use crate::candidates::{
     strategy_probe_encrypted_dns_context, strategy_probe_encrypted_dns_endpoint, strategy_probe_encrypted_dns_label,
     StrategyProbeBaseline,
 };
-use crate::connectivity::classify_dns_latency_quality;
+use crate::connectivity::{classify_dns_latency_quality, is_dns_injection_suspected};
 use crate::dns::resolve_via_encrypted_dns;
 use crate::transport::{domain_connect_target, resolve_addresses, TargetAddress, TransportConfig};
 use crate::types::{DomainTarget, ProbeDetail, ProbeResult};
@@ -121,6 +121,10 @@ pub(crate) fn detect_strategy_probe_dns_tampering(
                 ProbeDetail {
                     key: "dnsLatencyQuality".to_string(),
                     value: classify_dns_latency_quality(&system_latency_ms, &encrypted_latency_ms),
+                },
+                ProbeDetail {
+                    key: "dnsInjectionSuspected".to_string(),
+                    value: is_dns_injection_suspected(&system_latency_ms, outcome).to_string(),
                 },
             ],
         });
