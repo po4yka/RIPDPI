@@ -193,7 +193,11 @@ pub(crate) fn run_domain_probe(
     } else if tls13.status == "tls_ok" && tls12.status == "tls_ok" {
         "tls_ok".to_string()
     } else if tls13.status == "tls_ok" || tls12.status == "tls_ok" {
-        "tls_version_split".to_string()
+        if is_server_tls_version_rejection(&tls13, &tls12) {
+            "tls_ok".to_string()
+        } else {
+            "tls_version_split".to_string()
+        }
     } else if tls_ech.status == "tls_ok" {
         "tls_ech_only".to_string()
     } else if is_blockpage(&http) {
