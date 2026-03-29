@@ -198,7 +198,9 @@ fn probe_outcome_bucket(probe_type: &str, path_mode: &ScanPathMode, outcome: &st
             "udp_blocked" => ProbeOutcomeBucket::Inconclusive,
             "udp_skipped_or_blocked" if matches!(path_mode, ScanPathMode::InPath) => ProbeOutcomeBucket::Attention,
             "udp_skipped_or_blocked" => ProbeOutcomeBucket::Inconclusive,
-            "dns_substitution" | "encrypted_dns_blocked" | "dns_unavailable" => ProbeOutcomeBucket::Failed,
+            "dns_substitution" | "dns_nxdomain" | "encrypted_dns_blocked" | "dns_unavailable" => {
+                ProbeOutcomeBucket::Failed
+            }
             _ => legacy_outcome_bucket(outcome),
         },
         "domain_reachability" => match outcome {
