@@ -14,8 +14,8 @@ def test_approach_chips_visible(driver):
     diag = DiagnosticsPage(driver)
     assert diag.is_loaded(), "Diagnostics screen should be visible"
 
-    diag.swipe_to_approaches_section()
-    assert diag.is_section_visible("approaches"), "Approaches section should be visible"
+    diag.swipe_to_tools_section()
+    assert diag.is_section_visible("tools"), "Tools section should be visible"
 
     assert diag.is_visible(DiagnosticsPage.APPROACH_MODE_PROFILES), (
         "Profiles mode chip should be visible"
@@ -34,8 +34,8 @@ def test_approach_switch_to_strategies(driver):
     diag = DiagnosticsPage(driver)
     assert diag.is_loaded(), "Diagnostics screen should be visible"
 
-    diag.swipe_to_approaches_section()
-    assert diag.is_section_visible("approaches"), "Approaches section should be visible"
+    diag.swipe_to_tools_section()
+    assert diag.is_section_visible("tools"), "Tools section should be visible"
 
     # Switch to strategies mode.
     diag.tap_approach_mode_strategies()

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from .base_page import BasePage
 
-SECTIONS = ("overview", "scan", "live", "approaches", "share")
+SECTIONS = ("dashboard", "scan", "tools")
 
 
 class DiagnosticsPage(BasePage):
@@ -104,8 +104,8 @@ class DiagnosticsPage(BasePage):
     def swipe_to_scan_section(self) -> None:
         self.swipe_to_next_section()
 
-    def swipe_to_approaches_section(self) -> None:
-        for _ in range(3):
+    def swipe_to_tools_section(self) -> None:
+        for _ in range(2):
             self.swipe_to_next_section()
 
     def is_scan_idle(self, timeout: int = 3) -> bool:
@@ -165,10 +165,6 @@ class DiagnosticsPage(BasePage):
 
     # -- overview helpers --------------------------------------------------------
 
-    def swipe_to_overview_section(self) -> None:
-        """Overview is the first section; no swipe needed from start."""
+    def swipe_to_dashboard_section(self) -> None:
+        """Dashboard is the first section; no swipe needed from start."""
         pass
-
-    def swipe_to_share_section(self) -> None:
-        for _ in range(4):
-            self.swipe_to_next_section()
