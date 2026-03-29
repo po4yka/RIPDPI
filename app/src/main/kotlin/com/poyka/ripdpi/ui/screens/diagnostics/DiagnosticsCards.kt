@@ -89,18 +89,24 @@ internal fun SnapshotCard(snapshot: DiagnosticsNetworkSnapshotUiModel) {
             color = RipDpiThemeTokens.colors.foreground,
         )
         snapshot.fieldGroups.forEachIndexed { groupIndex, group ->
+            val visibleFields =
+                group.fields.filter {
+                    it.value.isNotBlank() &&
+                        !it.value.equals("Unknown", ignoreCase = true)
+                }
+            if (visibleFields.isEmpty()) return@forEachIndexed
             if (groupIndex > 0) {
                 Spacer(modifier = Modifier.height(spacing.sm))
             }
             if (snapshot.fieldGroups.size > 1) {
                 SettingsCategoryHeader(title = group.header, showDivider = true)
             }
-            group.fields.forEachIndexed { fieldIndex, field ->
+            visibleFields.forEachIndexed { fieldIndex, field ->
                 SettingsRow(
                     title = field.label,
                     value = field.value,
                     monospaceValue = field.value.length > 18,
-                    showDivider = fieldIndex != group.fields.lastIndex,
+                    showDivider = fieldIndex != visibleFields.lastIndex,
                 )
             }
         }
@@ -109,18 +115,20 @@ internal fun SnapshotCard(snapshot: DiagnosticsNetworkSnapshotUiModel) {
 
 @Composable
 internal fun ContextGroupCard(group: DiagnosticsContextGroupUiModel) {
+    val visibleFields = group.fields.filter { it.value.isNotBlank() && !it.value.equals("Unknown", ignoreCase = true) }
+    if (visibleFields.isEmpty()) return
     RipDpiCard {
         Text(
             text = group.title.uppercase(),
             style = RipDpiThemeTokens.type.sectionTitle,
             color = RipDpiThemeTokens.colors.mutedForeground,
         )
-        group.fields.forEachIndexed { index, field ->
+        visibleFields.forEachIndexed { index, field ->
             SettingsRow(
                 title = field.label,
                 value = field.value,
                 monospaceValue = field.value.length > 18,
-                showDivider = index != group.fields.lastIndex,
+                showDivider = index != visibleFields.lastIndex,
             )
         }
     }

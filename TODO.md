@@ -43,7 +43,7 @@ File path prefix: `app/src/main/kotlin/com/poyka/ripdpi/`
     WEB_CONNECTIVITY, MESSAGING, CIRCUMVENTION, THROTTLING (each unique).
   - ~30 lines
 
-- [ ] **1.5 Suppress "Unknown" fields in Overview cards**
+- [x] **1.5 Suppress "Unknown" fields in Overview cards**
   - Files: `ui/screens/diagnostics/DiagnosticsCards.kt`,
     `activities/DiagnosticsUiContextSupport.kt`
   - In `SnapshotCard` and `ContextGroupCard`, skip rendering fields where value
