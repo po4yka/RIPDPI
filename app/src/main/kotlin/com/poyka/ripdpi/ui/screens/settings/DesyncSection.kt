@@ -42,6 +42,7 @@ internal fun LazyListScope.desyncSection(
     uiState: SettingsUiState,
     visualEditorEnabled: Boolean,
     showHostFakeSection: Boolean,
+    showSeqOverlapSection: Boolean,
     showFakeApproxSection: Boolean,
     showAdaptiveFakeTtlSection: Boolean,
     showFakePayloadLibrary: Boolean,
@@ -146,6 +147,7 @@ internal fun LazyListScope.desyncSection(
                     onTextConfirmed = onTextConfirmed,
                     showDivider =
                         showHostFakeSection ||
+                            showSeqOverlapSection ||
                             showFakeApproxSection ||
                             showAdaptiveFakeTtlSection ||
                             showFakeTlsSection ||
@@ -153,6 +155,15 @@ internal fun LazyListScope.desyncSection(
                 )
                 if (showHostFakeSection) {
                     HostFakeProfileCard(
+                        uiState = uiState,
+                        modifier = Modifier.padding(top = spacing.xs, bottom = spacing.sm),
+                    )
+                    if (showFakeApproxSection || showAdaptiveFakeTtlSection || showFakeTlsSection || uiState.isOob) {
+                        HorizontalDivider(color = colors.divider)
+                    }
+                }
+                if (showSeqOverlapSection) {
+                    SeqOverlapProfileCard(
                         uiState = uiState,
                         modifier = Modifier.padding(top = spacing.xs, bottom = spacing.sm),
                     )

@@ -22,6 +22,8 @@ message StrategyTcpStep {
   int32 min_fragment_size = 6;
   int32 max_fragment_size = 7;
   ActivationFilter activation_filter = 8;
+  int32 overlap_size = 9;
+  string fake_mode = 10;
 }
 
 message StrategyUdpStep {

@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.activities
 
+import com.poyka.ripdpi.core.RipDpiPlatformCapabilities
 import com.poyka.ripdpi.data.AppSettingsSerializer
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.DefaultFakeSni
@@ -37,6 +38,7 @@ import com.poyka.ripdpi.data.normalizeHostAutolearnPenaltyTtlHours
 import com.poyka.ripdpi.data.primaryDesyncMethod
 import com.poyka.ripdpi.data.primaryTcpChainStep
 import com.poyka.ripdpi.data.tlsPreludeTcpChainStep
+import com.poyka.ripdpi.data.usesSeqOverlapFakeProfile
 import com.poyka.ripdpi.proto.AppSettings
 
 internal fun AppSettings.toUiState(
@@ -64,6 +66,7 @@ internal fun AppSettings.toUiState(
                 it.kind == TcpChainStepKind.FakeSplit ||
                 it.kind == TcpChainStepKind.FakeDisorder
         }
+    val usesSeqOverlapFakeProfile = tcpChainSteps.any { it.usesSeqOverlapFakeProfile() }
     val usesFakeTransport =
         tcpChainSteps.any {
             it.kind == TcpChainStepKind.Fake ||
@@ -71,6 +74,7 @@ internal fun AppSettings.toUiState(
                 it.kind == TcpChainStepKind.FakeDisorder ||
                 it.kind == TcpChainStepKind.HostFake
         }
+    val seqovlSupported = RipDpiPlatformCapabilities.seqovlSupported()
     val hasHostFake = tcpChainSteps.any { it.kind == TcpChainStepKind.HostFake }
     val hasDisoob = tcpChainSteps.any { it.kind == TcpChainStepKind.Disoob }
     val isOob = tcpChainSteps.any { it.kind == TcpChainStepKind.Oob || it.kind == TcpChainStepKind.Disoob }
@@ -227,6 +231,8 @@ internal fun AppSettings.toUiState(
         desyncEnabled = desyncEnabled,
         isFake = isFake,
         usesFakeTransport = usesFakeTransport,
+        seqovlSupported = seqovlSupported,
+        usesSeqOverlapFakeProfile = usesSeqOverlapFakeProfile,
         hasHostFake = hasHostFake,
         hasDisoob = hasDisoob,
         isOob = isOob,

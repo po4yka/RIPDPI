@@ -1,5 +1,6 @@
 use std::io;
 use std::net::{IpAddr, SocketAddr, TcpStream, UdpSocket};
+use std::sync::OnceLock;
 use std::time::Duration;
 
 use ripdpi_desync::TcpSegmentHint;
@@ -10,11 +11,23 @@ pub(crate) mod linux;
 
 pub type TcpStageWait = (bool, Duration);
 
+static SEQOVL_SUPPORTED: OnceLock<bool> = OnceLock::new();
+
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct IpFragmentationCapabilities {
     pub raw_ipv4: bool,
     pub raw_ipv6: bool,
     pub tcp_repair: bool,
+}
+
+impl IpFragmentationCapabilities {
+    pub const fn supports_udp_ip_fragmentation(self, ipv6_enabled: bool) -> bool {
+        self.raw_ipv4 && (!ipv6_enabled || self.raw_ipv6)
+    }
+
+    pub const fn supports_tcp_ip_fragmentation(self, ipv6_enabled: bool) -> bool {
+        self.supports_udp_ip_fragmentation(ipv6_enabled) && self.tcp_repair
+    }
 }
 
 #[cfg(any(target_os = "linux", target_os = "android"))]
@@ -31,6 +44,10 @@ pub fn detect_default_ttl() -> io::Result<u8> {
     let socket = Socket::new(Domain::IPV4, Type::STREAM, Some(Protocol::TCP))?;
     let ttl = socket.ttl_v4()?;
     u8::try_from(ttl).map_err(|_| io::Error::new(io::ErrorKind::InvalidData, "socket ttl exceeds u8"))
+}
+
+pub fn seqovl_supported() -> bool {
+    *SEQOVL_SUPPORTED.get_or_init(|| false)
 }
 
 #[cfg(any(target_os = "linux", target_os = "android"))]
