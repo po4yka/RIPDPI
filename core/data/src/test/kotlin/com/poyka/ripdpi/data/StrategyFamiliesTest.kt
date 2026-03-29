@@ -5,6 +5,12 @@ import org.junit.Test
 
 class StrategyFamiliesTest {
     @Test
+    fun `strategy lane family labels cover ech families`() {
+        assertEquals("ECH extension split", strategyLaneFamilyLabel("ech_split"))
+        assertEquals("ECH TLS record split", strategyLaneFamilyLabel("ech_tlsrec"))
+    }
+
+    @Test
     fun `tcp lane keeps tls hostfake separate from generic desync`() {
         val family =
             deriveTcpStrategyFamily(

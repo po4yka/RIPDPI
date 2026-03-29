@@ -878,6 +878,28 @@ mod tests {
         assert_eq!(config.fake_packets.fake_ttl, 8);
     }
 
+    #[test]
+    fn not_applicable_candidate_execution_keeps_ech_notes_and_rationale() {
+        let spec = crate::candidates::build_tcp_candidates(&test_ui_config())
+            .into_iter()
+            .find(|candidate| candidate.id == "ech_split")
+            .expect("ech_split candidate");
+
+        let execution =
+            not_applicable_candidate_execution(&spec, 4, 3, "No baseline HTTPS target exposed ECH capability");
+
+        assert_eq!(execution.summary.outcome, "not_applicable");
+        assert_eq!(execution.summary.rationale, "No baseline HTTPS target exposed ECH capability");
+        assert_eq!(execution.summary.total_targets, 4);
+        assert_eq!(execution.summary.total_weight, 12);
+        assert!(execution
+            .summary
+            .notes
+            .iter()
+            .any(|note| note.contains("Runs only when the baseline proves an ECH-capable HTTPS path")));
+        assert!(execution.summary.notes.iter().any(|note| note == "No baseline HTTPS target exposed ECH capability"));
+    }
+
     fn summary_with(
         id: &str,
         weighted_success_score: usize,
