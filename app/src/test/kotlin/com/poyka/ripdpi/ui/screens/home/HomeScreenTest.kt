@@ -30,7 +30,7 @@ class HomeScreenTest {
     val composeRule = createComposeRule()
 
     @Test
-    fun backgroundGuidanceBannerRendersSeparatelyFromBatteryRecommendation() {
+    fun backgroundGuidanceMergedIntoBatteryRecommendationBanner() {
         composeRule.setContent {
             RipDpiTheme {
                 HomeScreen(
@@ -50,7 +50,7 @@ class HomeScreenTest {
             .assertHasClickAction()
         composeRule
             .onNodeWithTag(RipDpiTestTags.HomeBackgroundGuidanceBanner)
-            .assertIsDisplayed()
+            .assertDoesNotExist()
     }
 
     @Test
