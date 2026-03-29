@@ -9,7 +9,9 @@ use rustls::pki_types::CertificateDer;
 use crate::health::HealthRegistry;
 use crate::resolver::EncryptedDnsResolver;
 use crate::transport::DEFAULT_TIMEOUT;
-use crate::types::{EncryptedDnsEndpoint, EncryptedDnsError, EncryptedDnsExchangeSuccess, EncryptedDnsTransport};
+use crate::types::{
+    EncryptedDnsEndpoint, EncryptedDnsError, EncryptedDnsErrorKind, EncryptedDnsExchangeSuccess, EncryptedDnsTransport,
+};
 
 const DEFAULT_FALLBACK_CACHE_SIZE: usize = 8;
 const DEFAULT_HEALTH_HALF_LIFE: Duration = Duration::from_secs(60);
@@ -112,10 +114,14 @@ impl ResolverPool {
         }
     }
 
-    fn record_failure(&self, idx: usize) {
+    fn record_failure(&self, idx: usize, error: &EncryptedDnsError) {
         let label = &self.inner.labels[idx];
-        let timeout_ms = DEFAULT_TIMEOUT.as_millis().try_into().unwrap_or(u64::MAX);
-        self.inner.health.record_endpoint_outcome(label, false, timeout_ms);
+        if error.kind() == EncryptedDnsErrorKind::SniBlocked {
+            self.inner.health.record_sni_blocked(label);
+        } else {
+            let timeout_ms = DEFAULT_TIMEOUT.as_millis().try_into().unwrap_or(u64::MAX);
+            self.inner.health.record_endpoint_outcome(label, false, timeout_ms);
+        }
     }
 
     /// Tries each resolver in health-ranked order, returning the first successful response.
@@ -132,7 +138,7 @@ impl ResolverPool {
                     return Ok(success);
                 }
                 Err(err) => {
-                    self.record_failure(idx);
+                    self.record_failure(idx, &err);
                     last_error = err;
                 }
             }
@@ -154,7 +160,7 @@ impl ResolverPool {
                     return Ok(success);
                 }
                 Err(err) => {
-                    self.record_failure(idx);
+                    self.record_failure(idx, &err);
                     last_error = err;
                 }
             }

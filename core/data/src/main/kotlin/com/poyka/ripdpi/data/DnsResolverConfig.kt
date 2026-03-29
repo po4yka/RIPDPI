@@ -15,6 +15,10 @@ const val DnsProviderCloudflare = "cloudflare"
 const val DnsProviderGoogle = "google"
 const val DnsProviderQuad9 = "quad9"
 const val DnsProviderAdGuard = "adguard"
+const val DnsProviderDnsSb = "dnssb"
+const val DnsProviderMullvad = "mullvad"
+const val DnsProviderCloudflareIp = "cloudflare_ip"
+const val DnsProviderGoogleIp = "google_ip"
 const val DnsProviderCustom = "custom"
 
 data class DnsProviderDefinition(
@@ -120,6 +124,46 @@ val BuiltInDnsProviders: List<DnsProviderDefinition> =
             tlsServerName = "dns.adguard-dns.com",
             bootstrapIps = listOf("94.140.14.14", "94.140.15.15"),
             dohUrl = "https://dns.adguard-dns.com/dns-query",
+        ),
+        DnsProviderDefinition(
+            providerId = DnsProviderDnsSb,
+            displayName = "DNS.SB",
+            primaryIp = "185.222.222.222",
+            host = "doh.dns.sb",
+            port = 443,
+            tlsServerName = "doh.dns.sb",
+            bootstrapIps = listOf("185.222.222.222", "45.11.45.11"),
+            dohUrl = "https://doh.dns.sb/dns-query",
+        ),
+        DnsProviderDefinition(
+            providerId = DnsProviderMullvad,
+            displayName = "Mullvad DNS",
+            primaryIp = "194.242.2.2",
+            host = "dns.mullvad.net",
+            port = 443,
+            tlsServerName = "dns.mullvad.net",
+            bootstrapIps = listOf("194.242.2.2"),
+            dohUrl = "https://dns.mullvad.net/dns-query",
+        ),
+        DnsProviderDefinition(
+            providerId = DnsProviderCloudflareIp,
+            displayName = "Cloudflare (IP)",
+            primaryIp = "1.1.1.1",
+            host = "1.1.1.1",
+            port = 443,
+            tlsServerName = "cloudflare-dns.com",
+            bootstrapIps = listOf("1.1.1.1", "1.0.0.1"),
+            dohUrl = "https://1.1.1.1/dns-query",
+        ),
+        DnsProviderDefinition(
+            providerId = DnsProviderGoogleIp,
+            displayName = "Google DNS (IP)",
+            primaryIp = "8.8.8.8",
+            host = "8.8.8.8",
+            port = 443,
+            tlsServerName = "dns.google",
+            bootstrapIps = listOf("8.8.8.8", "8.8.4.4"),
+            dohUrl = "https://8.8.8.8/dns-query",
         ),
     )
 

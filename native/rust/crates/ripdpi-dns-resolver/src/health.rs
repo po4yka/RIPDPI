@@ -94,6 +94,12 @@ impl HealthRegistry {
         }
     }
 
+    /// Records an SNI-blocked outcome for a named endpoint.
+    /// Uses elevated latency penalty (4000ms) to deprioritize blocked providers faster.
+    pub fn record_sni_blocked(&self, label: &str) {
+        self.record_endpoint_outcome(label, false, 4000);
+    }
+
     /// Records the outcome of an exchange with a named endpoint.
     pub fn record_endpoint_outcome(&self, label: &str, success: bool, latency_ms: u64) {
         if let Ok(mut inner) = self.inner.lock() {
