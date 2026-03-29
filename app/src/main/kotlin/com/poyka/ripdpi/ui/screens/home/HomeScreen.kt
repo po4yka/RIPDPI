@@ -461,48 +461,58 @@ private fun HomeConnectionButton(
         }
 
     val containerColor =
-        when (state) {
-            ConnectionState.Connected,
-            ConnectionState.Connecting,
-            -> colors.foreground
+        remember(state, colors, scheme) {
+            when (state) {
+                ConnectionState.Connected,
+                ConnectionState.Connecting,
+                -> colors.foreground
 
-            ConnectionState.Disconnected,
-            ConnectionState.Error,
-            -> scheme.surface
+                ConnectionState.Disconnected,
+                ConnectionState.Error,
+                -> scheme.surface
+            }
         }
     val contentColor =
-        when (state) {
-            ConnectionState.Connected,
-            ConnectionState.Connecting,
-            -> colors.background
+        remember(state, colors) {
+            when (state) {
+                ConnectionState.Connected,
+                ConnectionState.Connecting,
+                -> colors.background
 
-            ConnectionState.Disconnected,
-            ConnectionState.Error,
-            -> colors.foreground
+                ConnectionState.Disconnected,
+                ConnectionState.Error,
+                -> colors.foreground
+            }
         }
     val haloColor =
-        when (state) {
-            ConnectionState.Connected -> colors.foreground.copy(alpha = 0.08f)
-            ConnectionState.Connecting -> colors.foreground.copy(alpha = 0.14f)
-            ConnectionState.Disconnected -> colors.accent
-            ConnectionState.Error -> colors.destructive.copy(alpha = 0.12f)
+        remember(state, colors) {
+            when (state) {
+                ConnectionState.Connected -> colors.foreground.copy(alpha = 0.08f)
+                ConnectionState.Connecting -> colors.foreground.copy(alpha = 0.14f)
+                ConnectionState.Disconnected -> colors.accent
+                ConnectionState.Error -> colors.destructive.copy(alpha = 0.12f)
+            }
         }
     val borderColor =
-        when (state) {
-            ConnectionState.Connected,
-            ConnectionState.Connecting,
-            -> Color.Transparent
+        remember(state, colors) {
+            when (state) {
+                ConnectionState.Connected,
+                ConnectionState.Connecting,
+                -> Color.Transparent
 
-            ConnectionState.Disconnected -> colors.cardBorder
+                ConnectionState.Disconnected -> colors.cardBorder
 
-            ConnectionState.Error -> colors.destructive
+                ConnectionState.Error -> colors.destructive
+            }
         }
     val icon =
-        when (state) {
-            ConnectionState.Connected -> RipDpiIcons.Connected
-            ConnectionState.Connecting -> RipDpiIcons.Vpn
-            ConnectionState.Disconnected -> RipDpiIcons.Offline
-            ConnectionState.Error -> RipDpiIcons.Warning
+        remember(state) {
+            when (state) {
+                ConnectionState.Connected -> RipDpiIcons.Connected
+                ConnectionState.Connecting -> RipDpiIcons.Vpn
+                ConnectionState.Disconnected -> RipDpiIcons.Offline
+                ConnectionState.Error -> RipDpiIcons.Warning
+            }
         }
     val animatedContainerColor by animateColorAsState(
         targetValue = containerColor,
