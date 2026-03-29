@@ -255,6 +255,7 @@ jobs:
         with:
           name: release-native-symbols
           path: app/build/intermediates/native_symbol_tables/release/extractReleaseNativeSymbolTables/out/**
+          if-no-files-found: ignore
           retention-days: 7
 
   rust-network-e2e:
@@ -434,7 +435,7 @@ jobs:
 
       - name: Restore criterion baseline from main
         if: github.event_name == 'pull_request'
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@v5
         with:
           path: native/rust/target/criterion
           key: criterion-baseline-${{ github.event.pull_request.base.sha }}
@@ -457,7 +458,7 @@ jobs:
 
       - name: Save criterion baseline (main only)
         if: github.ref == 'refs/heads/main'
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v5
         with:
           path: native/rust/target/criterion
           key: criterion-baseline-${{ github.sha }}
