@@ -13,6 +13,10 @@ class NativeRuntimeSnapshotTest {
         assertEquals(0L, snapshot.activeSessions)
         assertEquals(0L, snapshot.totalSessions)
         assertEquals(0L, snapshot.totalErrors)
+        assertEquals(0, snapshot.blockedHostCount)
+        assertEquals(null, snapshot.lastBlockSignal)
+        assertEquals(null, snapshot.lastBlockProvider)
+        assertEquals(null, snapshot.lastAutolearnAction)
     }
 
     @Test

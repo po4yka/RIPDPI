@@ -1283,6 +1283,33 @@ class SettingsUiStateTest {
     }
 
     @Test
+    fun `host autolearn blocked runtime state is reflected in ui state`() {
+        val state =
+            defaults.toUiState(
+                serviceStatus = AppStatus.Running,
+                proxyTelemetry =
+                    NativeRuntimeSnapshot(
+                        source = "proxy",
+                        autolearnEnabled = true,
+                        learnedHostCount = 7,
+                        penalizedHostCount = 2,
+                        blockedHostCount = 1,
+                        lastBlockSignal = "tcp_reset",
+                        lastBlockProvider = "rkn",
+                        lastAutolearnHost = "blocked.example",
+                        lastAutolearnAction = "host_blocked",
+                    ),
+                hostAutolearnStorePresent = true,
+            )
+
+        assertEquals(1, state.autolearn.hostAutolearnBlockedHostCount)
+        assertEquals("tcp_reset", state.autolearn.hostAutolearnLastBlockSignal)
+        assertEquals("rkn", state.autolearn.hostAutolearnLastBlockProvider)
+        assertEquals("blocked.example", state.autolearn.hostAutolearnLastHost)
+        assertEquals("host_blocked", state.autolearn.hostAutolearnLastAction)
+    }
+
+    @Test
     fun `fake tls profile is exposed in ui state`() {
         val settings =
             defaults
