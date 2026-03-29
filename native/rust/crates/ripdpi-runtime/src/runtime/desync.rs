@@ -1601,6 +1601,24 @@ mod tests {
     }
 
     #[test]
+    fn seqovl_strategy_family_maps_to_seqovl_actions_and_split_fallbacks() {
+        let mut group = test_group();
+        group.actions.tcp_chain.push(TcpChainStep::new(TcpChainStepKind::SeqOverlap, test_offset()));
+
+        assert_eq!(primary_tcp_strategy_family(&group), Some("seqovl"));
+        assert_eq!(strategy_fallback_family("seqovl"), Some("split"));
+        assert_eq!(write_action_name("seqovl"), "write_seqovl");
+        assert_eq!(await_writable_action_name("seqovl"), "await_writable_seqovl");
+
+        group.actions.tcp_chain.insert(0, TcpChainStep::new(TcpChainStepKind::TlsRec, test_offset()));
+
+        assert_eq!(primary_tcp_strategy_family(&group), Some("tlsrec_seqovl"));
+        assert_eq!(strategy_fallback_family("tlsrec_seqovl"), Some("tlsrec_split"));
+        assert_eq!(write_action_name("tlsrec_seqovl"), "write_seqovl");
+        assert_eq!(await_writable_action_name("tlsrec_seqovl"), "await_writable_seqovl");
+    }
+
+    #[test]
     fn outbound_send_error_preserves_strategy_execution_metadata() {
         let err = strategy_execution_error(
             "set_ttl_disorder",

@@ -7,6 +7,7 @@ import com.poyka.ripdpi.core.RipDpiQuicConfig
 import com.poyka.ripdpi.data.NetworkFingerprint
 import com.poyka.ripdpi.data.TcpChainStepKind
 import com.poyka.ripdpi.data.TcpChainStepModel
+import com.poyka.ripdpi.data.UdpChainStepModel
 import com.poyka.ripdpi.data.WifiNetworkIdentityTuple
 import com.poyka.ripdpi.data.activeDnsSettings
 import com.poyka.ripdpi.data.strategyFamily
@@ -226,6 +227,7 @@ private fun invariantValidRecommendedProxyConfigJson(): String =
                             marker = "midhost+1",
                         ),
                     ),
+                udpSteps = listOf(UdpChainStepModel(count = 4)),
             ),
         quic = RipDpiQuicConfig(fakeProfile = "realistic_initial"),
     ).toNativeConfigJson()
