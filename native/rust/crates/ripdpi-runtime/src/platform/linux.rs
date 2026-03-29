@@ -8,7 +8,7 @@
 //! Standard socket options use `socket2::SockRef` (see [`set_stream_ttl`]).
 //! Last audited: 2026-03-24 against socket2 0.5.10.
 
-use std::io::{self, Read, Write};
+use std::io::{self, Read};
 use std::mem::{size_of, zeroed};
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, TcpStream, UdpSocket};
 use std::os::fd::AsRawFd;
@@ -18,7 +18,9 @@ use std::thread;
 use std::time::{Duration, Instant};
 
 use ripdpi_desync::TcpSegmentHint;
-use ripdpi_ipfrag::{build_tcp_fragment_pair, build_udp_fragment_pair, TcpFragmentSpec, UdpFragmentSpec};
+use ripdpi_ipfrag::{
+    build_tcp_fragment_pair, build_udp_fragment_pair, TcpFragmentSpec, TcpTimestampOption, UdpFragmentSpec,
+};
 use socket2::{Domain, Protocol, SockAddr, SockRef, Socket, Type};
 
 use super::{IpFragmentationCapabilities, TcpStageWait};
@@ -76,6 +78,7 @@ const TCP_ESTABLISHED: u8 = 1;
 const TCP_REPAIR: libc::c_int = 19;
 const TCP_REPAIR_QUEUE: libc::c_int = 20;
 const TCP_QUEUE_SEQ: libc::c_int = 21;
+const TCP_REPAIR_OPTIONS: libc::c_int = 22;
 const TCP_REPAIR_OFF_NO_WP: libc::c_int = -1;
 const TCP_REPAIR_WINDOW: libc::c_int = 29;
 const TCP_REPAIR_ON: libc::c_int = 1;
@@ -83,9 +86,17 @@ const TCP_REPAIR_OFF: libc::c_int = 0;
 const TCP_NO_QUEUE: libc::c_int = 0;
 const TCP_RECV_QUEUE: libc::c_int = 1;
 const TCP_SEND_QUEUE: libc::c_int = 2;
+const TCPI_OPT_TIMESTAMPS: u8 = 1;
+const TCPI_OPT_SACK: u8 = 2;
+const TCPI_OPT_WSCALE: u8 = 4;
+const TCPI_OPT_USEC_TS: u8 = 64;
+const TCPOPT_MSS: u32 = 2;
+const TCPOPT_WINDOW: u32 = 3;
+const TCPOPT_SACK_PERM: u32 = 4;
+const TCPOPT_TIMESTAMP: u32 = 8;
 
 #[repr(C)]
-#[derive(Clone, Copy, Debug, Default)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 struct TcpRepairWindow {
     snd_wl1: u32,
     snd_wnd: u32,
@@ -95,6 +106,51 @@ struct TcpRepairWindow {
 }
 
 #[repr(C)]
+#[derive(Clone, Copy, Debug, Default)]
+struct TcpRepairOpt {
+    opt_code: u32,
+    opt_val: u32,
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+struct StreamSocketSettings {
+    nodelay: Option<bool>,
+    read_timeout: Option<Option<Duration>>,
+    write_timeout: Option<Option<Duration>>,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+struct TcpTimestampSnapshot {
+    value: u32,
+    echo_reply: u32,
+    usec_ts: bool,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+struct TcpWindowScaleSnapshot {
+    send: u8,
+    receive: u8,
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+struct TcpRepairOptionsSnapshot {
+    mss: Option<u16>,
+    sack_permitted: bool,
+    window_scale: Option<TcpWindowScaleSnapshot>,
+    timestamp: Option<TcpTimestampSnapshot>,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+struct TcpRepairSnapshot {
+    sequence_number: u32,
+    acknowledgment_number: u32,
+    window_size: u16,
+    repair_window: TcpRepairWindow,
+    options: TcpRepairOptionsSnapshot,
+}
+
+#[repr(C)]
+#[derive(Clone, Copy, Debug, Default)]
 struct LinuxTcpInfo {
     tcpi_state: u8,
     tcpi_ca_state: u8,
@@ -494,19 +550,19 @@ pub fn send_ip_fragmented_tcp(
     default_ttl: u8,
     protect_path: Option<&str>,
 ) -> io::Result<()> {
+    if payload.is_empty() {
+        return Ok(());
+    }
+
     let source = stream.local_addr()?;
     let target = stream.peer_addr()?;
     let ttl = get_stream_ttl(stream).unwrap_or_else(|_| resolve_raw_ttl(default_ttl));
     let fd = stream.as_raw_fd();
+    let settings = capture_stream_socket_settings(stream);
 
     set_tcp_repair(fd, TCP_REPAIR_ON)?;
     let result = (|| -> io::Result<()> {
-        set_tcp_repair_queue(fd, TCP_SEND_QUEUE)?;
-        let sequence_number = get_tcp_queue_seq(fd)?;
-        let repair_window = get_tcp_repair_window(fd)?;
-
-        set_tcp_repair_queue(fd, TCP_RECV_QUEUE)?;
-        let acknowledgment_number = get_tcp_queue_seq(fd)?;
+        let snapshot = snapshot_tcp_repair_state(fd)?;
 
         let pair = build_tcp_fragment_pair(
             TcpFragmentSpec {
@@ -514,20 +570,24 @@ pub fn send_ip_fragmented_tcp(
                 dst: target,
                 ttl,
                 identification: fragment_identification(source, target, payload.len()),
-                sequence_number,
-                acknowledgment_number,
-                window_size: repair_window.rcv_wnd.min(u32::from(u16::MAX)) as u16,
+                sequence_number: snapshot.sequence_number,
+                acknowledgment_number: snapshot.acknowledgment_number,
+                window_size: snapshot.window_size,
+                timestamp: snapshot
+                    .options
+                    .timestamp
+                    .map(|timestamp| TcpTimestampOption { value: timestamp.value, echo_reply: timestamp.echo_reply }),
             },
             payload,
             split_offset,
         )
         .map_err(build_error_to_io)?;
 
-        set_tcp_repair_queue(fd, TCP_SEND_QUEUE)?;
-        (&*stream).write_all(payload)?;
+        let replacement = build_replacement_tcp_socket(source, target, payload.len(), &snapshot, protect_path)?;
+        send_raw_fragments(target, [&pair.first, &pair.second], protect_path)?;
+        swap_stream_to_replacement(stream, &replacement, settings)?;
         set_tcp_repair_queue(fd, TCP_NO_QUEUE)?;
-        disable_tcp_repair(fd)?;
-        send_raw_fragments(target, [&pair.first, &pair.second], protect_path)
+        disable_tcp_repair(fd)
     })();
 
     let _ = set_tcp_repair_queue(fd, TCP_NO_QUEUE);
@@ -598,6 +658,179 @@ fn build_error_to_io(error: ripdpi_ipfrag::BuildError) -> io::Error {
     }
 }
 
+fn snapshot_tcp_repair_state(fd: libc::c_int) -> io::Result<TcpRepairSnapshot> {
+    if pending_tcp_read_bytes(fd)? != 0 {
+        return Err(io::Error::new(
+            io::ErrorKind::WouldBlock,
+            "ipfrag2 requires an empty inbound queue before raw injection",
+        ));
+    }
+    if tcp_has_notsent(fd)? {
+        return Err(io::Error::new(
+            io::ErrorKind::WouldBlock,
+            "ipfrag2 requires an empty TCP send queue before raw injection",
+        ));
+    }
+
+    let info = read_tcp_info(fd)?.ok_or_else(|| {
+        io::Error::new(io::ErrorKind::Unsupported, "ipfrag2 requires TCP_INFO support for repair snapshot")
+    })?;
+
+    set_tcp_repair_queue(fd, TCP_SEND_QUEUE)?;
+    let sequence_number = get_tcp_queue_seq(fd)?;
+    let repair_window = get_tcp_repair_window(fd)?;
+
+    set_tcp_repair_queue(fd, TCP_RECV_QUEUE)?;
+    let acknowledgment_number = get_tcp_queue_seq(fd)?;
+    set_tcp_repair_queue(fd, TCP_NO_QUEUE)?;
+
+    let options = snapshot_tcp_repair_options(fd, info)?;
+    Ok(TcpRepairSnapshot {
+        sequence_number,
+        acknowledgment_number,
+        window_size: repair_window.rcv_wnd.min(u32::from(u16::MAX)) as u16,
+        repair_window,
+        options,
+    })
+}
+
+fn snapshot_tcp_repair_options(fd: libc::c_int, info: LinuxTcpInfo) -> io::Result<TcpRepairOptionsSnapshot> {
+    let timestamp = if info.tcpi_options & TCPI_OPT_TIMESTAMPS != 0 {
+        let value = read_tcp_timestamp(fd).map_err(|error| {
+            io::Error::new(
+                io::ErrorKind::Unsupported,
+                format!("ipfrag2 could not snapshot negotiated TCP timestamps: {error}"),
+            )
+        })?;
+        Some(TcpTimestampSnapshot { value, echo_reply: 0, usec_ts: info.tcpi_options & TCPI_OPT_USEC_TS != 0 })
+    } else {
+        None
+    };
+
+    Ok(decode_tcp_repair_options(info, timestamp))
+}
+
+fn decode_tcp_repair_options(info: LinuxTcpInfo, timestamp: Option<TcpTimestampSnapshot>) -> TcpRepairOptionsSnapshot {
+    let window_scale = if info.tcpi_options & TCPI_OPT_WSCALE != 0 {
+        Some(TcpWindowScaleSnapshot {
+            send: info.tcpi_snd_wscale_rcv_wscale & 0x0f,
+            receive: info.tcpi_snd_wscale_rcv_wscale >> 4,
+        })
+    } else {
+        None
+    };
+
+    TcpRepairOptionsSnapshot {
+        mss: u16::try_from(info.tcpi_snd_mss).ok().filter(|value| *value != 0),
+        sack_permitted: info.tcpi_options & TCPI_OPT_SACK != 0,
+        window_scale,
+        timestamp,
+    }
+}
+
+fn build_replacement_tcp_socket(
+    source: SocketAddr,
+    target: SocketAddr,
+    payload_len: usize,
+    snapshot: &TcpRepairSnapshot,
+    protect_path: Option<&str>,
+) -> io::Result<Socket> {
+    let domain = match target {
+        SocketAddr::V4(_) => Domain::IPV4,
+        SocketAddr::V6(_) => Domain::IPV6,
+    };
+    let replacement = Socket::new(domain, Type::STREAM, Some(Protocol::TCP))?;
+    replacement.set_reuse_address(true)?;
+    let _ = replacement.set_reuse_port(true);
+    if let Some(path) = protect_path {
+        protect_socket(&replacement, path)?;
+    }
+
+    let fd = replacement.as_raw_fd();
+    set_tcp_repair(fd, TCP_REPAIR_ON)?;
+    let result = (|| -> io::Result<()> {
+        replacement.bind(&SockAddr::from(source))?;
+
+        set_tcp_repair_queue(fd, TCP_SEND_QUEUE)?;
+        set_tcp_queue_seq(fd, sequence_after_payload(snapshot.sequence_number, payload_len)?)?;
+
+        set_tcp_repair_queue(fd, TCP_RECV_QUEUE)?;
+        set_tcp_queue_seq(fd, snapshot.acknowledgment_number)?;
+        set_tcp_repair_queue(fd, TCP_NO_QUEUE)?;
+
+        replacement.connect(&SockAddr::from(target))?;
+        apply_tcp_repair_options(fd, snapshot.options)?;
+        set_tcp_repair_window(fd, snapshot.repair_window)?;
+        Ok(())
+    })();
+    if result.is_err() {
+        let _ = set_tcp_repair_queue(fd, TCP_NO_QUEUE);
+        let _ = disable_tcp_repair(fd);
+    }
+    result.map(|_| replacement)
+}
+
+fn apply_tcp_repair_options(fd: libc::c_int, options: TcpRepairOptionsSnapshot) -> io::Result<()> {
+    if let Some(mss) = options.mss {
+        set_tcp_repair_option(fd, TcpRepairOpt { opt_code: TCPOPT_MSS, opt_val: u32::from(mss) })?;
+    }
+    if let Some(scale) = options.window_scale {
+        set_tcp_repair_option(
+            fd,
+            TcpRepairOpt { opt_code: TCPOPT_WINDOW, opt_val: u32::from(scale.send) | (u32::from(scale.receive) << 16) },
+        )?;
+    }
+    if options.sack_permitted {
+        set_tcp_repair_option(fd, TcpRepairOpt { opt_code: TCPOPT_SACK_PERM, opt_val: 0 })?;
+    }
+    if let Some(timestamp) = options.timestamp {
+        set_tcp_repair_option(fd, TcpRepairOpt { opt_code: TCPOPT_TIMESTAMP, opt_val: 0 })?;
+        set_tcp_timestamp(fd, timestamp.value, timestamp.usec_ts)?;
+    }
+    Ok(())
+}
+
+fn swap_stream_to_replacement(
+    stream: &TcpStream,
+    replacement: &Socket,
+    settings: StreamSocketSettings,
+) -> io::Result<()> {
+    let target_fd = stream.as_raw_fd();
+    let replacement_fd = replacement.as_raw_fd();
+    let rc = unsafe { libc::dup2(replacement_fd, target_fd) };
+    if rc < 0 {
+        return Err(io::Error::last_os_error());
+    }
+    apply_stream_socket_settings(stream, settings);
+    Ok(())
+}
+
+fn capture_stream_socket_settings(stream: &TcpStream) -> StreamSocketSettings {
+    StreamSocketSettings {
+        nodelay: stream.nodelay().ok(),
+        read_timeout: stream.read_timeout().ok(),
+        write_timeout: stream.write_timeout().ok(),
+    }
+}
+
+fn apply_stream_socket_settings(stream: &TcpStream, settings: StreamSocketSettings) {
+    if let Some(nodelay) = settings.nodelay {
+        if let Err(error) = stream.set_nodelay(nodelay) {
+            tracing::debug!("failed to restore TCP_NODELAY after ipfrag2 socket handoff: {error}");
+        }
+    }
+    if let Some(timeout) = settings.read_timeout {
+        if let Err(error) = stream.set_read_timeout(timeout) {
+            tracing::debug!("failed to restore read timeout after ipfrag2 socket handoff: {error}");
+        }
+    }
+    if let Some(timeout) = settings.write_timeout {
+        if let Err(error) = stream.set_write_timeout(timeout) {
+            tracing::debug!("failed to restore write timeout after ipfrag2 socket handoff: {error}");
+        }
+    }
+}
+
 fn send_raw_fragments(target: SocketAddr, packets: [&[u8]; 2], protect_path: Option<&str>) -> io::Result<()> {
     let socket = match target {
         SocketAddr::V4(_) => {
@@ -628,8 +861,16 @@ fn set_tcp_repair(fd: libc::c_int, value: libc::c_int) -> io::Result<()> {
     unsafe { setsockopt_raw(fd, libc::IPPROTO_TCP, TCP_REPAIR, &value) }
 }
 
+fn set_tcp_repair_option(fd: libc::c_int, value: TcpRepairOpt) -> io::Result<()> {
+    unsafe { setsockopt_raw(fd, libc::IPPROTO_TCP, TCP_REPAIR_OPTIONS, &value) }
+}
+
 fn set_tcp_repair_queue(fd: libc::c_int, value: libc::c_int) -> io::Result<()> {
     unsafe { setsockopt_raw(fd, libc::IPPROTO_TCP, TCP_REPAIR_QUEUE, &value) }
+}
+
+fn set_tcp_queue_seq(fd: libc::c_int, value: u32) -> io::Result<()> {
+    unsafe { setsockopt_raw(fd, libc::IPPROTO_TCP, TCP_QUEUE_SEQ, &value) }
 }
 
 fn get_tcp_queue_seq(fd: libc::c_int) -> io::Result<u32> {
@@ -637,13 +878,51 @@ fn get_tcp_queue_seq(fd: libc::c_int) -> io::Result<u32> {
     Ok(value)
 }
 
+fn read_tcp_timestamp(fd: libc::c_int) -> io::Result<u32> {
+    let (value, _): (libc::c_int, _) = unsafe { getsockopt_raw(fd, libc::IPPROTO_TCP, libc::TCP_TIMESTAMP) }?;
+    u32::try_from(value).map_err(|_| io::Error::new(io::ErrorKind::InvalidData, "negative TCP timestamp"))
+}
+
+fn set_tcp_timestamp(fd: libc::c_int, value: u32, usec_ts: bool) -> io::Result<()> {
+    let mut encoded = value & !1;
+    if usec_ts {
+        encoded |= 1;
+    }
+    let encoded =
+        i32::try_from(encoded).map_err(|_| io::Error::new(io::ErrorKind::InvalidInput, "TCP timestamp exceeds i32"))?;
+    unsafe { setsockopt_raw(fd, libc::IPPROTO_TCP, libc::TCP_TIMESTAMP, &encoded) }
+}
+
 fn get_tcp_repair_window(fd: libc::c_int) -> io::Result<TcpRepairWindow> {
     let (value, _): (TcpRepairWindow, _) = unsafe { getsockopt_raw(fd, libc::IPPROTO_TCP, TCP_REPAIR_WINDOW) }?;
     Ok(value)
 }
 
+fn set_tcp_repair_window(fd: libc::c_int, value: TcpRepairWindow) -> io::Result<()> {
+    unsafe { setsockopt_raw(fd, libc::IPPROTO_TCP, TCP_REPAIR_WINDOW, &value) }
+}
+
 fn disable_tcp_repair(fd: libc::c_int) -> io::Result<()> {
     set_tcp_repair(fd, TCP_REPAIR_OFF_NO_WP).or_else(|_| set_tcp_repair(fd, TCP_REPAIR_OFF))
+}
+
+fn pending_tcp_read_bytes(fd: libc::c_int) -> io::Result<usize> {
+    let mut bytes: libc::c_int = 0;
+    let rc = unsafe { libc::ioctl(fd, libc::FIONREAD, &mut bytes) };
+    if rc == 0 {
+        usize::try_from(bytes)
+            .map_err(|_| io::Error::new(io::ErrorKind::InvalidData, "negative pending TCP read byte count"))
+    } else {
+        Err(io::Error::last_os_error())
+    }
+}
+
+fn sequence_after_payload(sequence_number: u32, payload_len: usize) -> io::Result<u32> {
+    let payload_len = u32::try_from(payload_len)
+        .map_err(|_| io::Error::new(io::ErrorKind::InvalidInput, "payload too large for TCP sequence arithmetic"))?;
+    sequence_number
+        .checked_add(payload_len)
+        .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "TCP sequence arithmetic overflow"))
 }
 
 fn storage_to_socket_addr(storage: &libc::sockaddr_storage) -> io::Result<SocketAddr> {
@@ -739,6 +1018,20 @@ pub fn tcp_round_trip_time_ms(stream: &TcpStream) -> io::Result<Option<u64>> {
     Ok(Some(u64::from(info.tcpi_rtt / 1_000)))
 }
 
+pub fn tcp_total_retransmissions<T: AsRawFd>(socket: &T) -> io::Result<Option<u32>> {
+    let Some(info) = read_tcp_info(socket.as_raw_fd())? else {
+        return Ok(None);
+    };
+    tcp_total_retransmissions_from_info(&info)
+}
+
+fn tcp_total_retransmissions_from_info(info: &LinuxTcpInfo) -> io::Result<Option<u32>> {
+    if info.tcpi_state == 0 {
+        return Ok(None);
+    }
+    Ok(Some(info.tcpi_total_retrans.max(u32::from(info.tcpi_retransmits))))
+}
+
 fn wait_tcp_stage_fd(fd: libc::c_int, wait_send: bool, await_interval: Duration) -> io::Result<()> {
     let sleep_for = if await_interval.is_zero() { Duration::from_millis(1) } else { await_interval };
     if wait_send {
@@ -831,6 +1124,25 @@ mod tests {
     fn get_recv_ttl(fd: libc::c_int) -> io::Result<bool> {
         let (val, _): (libc::c_int, _) = unsafe { getsockopt_raw(fd, libc::IPPROTO_IP, libc::IP_RECVTTL) }?;
         Ok(val != 0)
+    }
+
+    #[test]
+    fn tcp_total_retransmissions_prefers_total_counter_and_falls_back_to_retransmits() {
+        let info = LinuxTcpInfo {
+            tcpi_state: TCP_ESTABLISHED,
+            tcpi_total_retrans: 5,
+            tcpi_retransmits: 2,
+            ..Default::default()
+        };
+        assert_eq!(tcp_total_retransmissions_from_info(&info).expect("extract"), Some(5));
+
+        let fallback = LinuxTcpInfo {
+            tcpi_state: TCP_ESTABLISHED,
+            tcpi_total_retrans: 0,
+            tcpi_retransmits: 3,
+            ..Default::default()
+        };
+        assert_eq!(tcp_total_retransmissions_from_info(&fallback).expect("fallback"), Some(3));
     }
 
     #[test]
@@ -1010,5 +1322,37 @@ mod tests {
         set_stream_ttl(&client, 42).expect("set TTL to 42");
         let ttl = get_stream_ttl(&client).expect("read TTL back");
         assert_eq!(ttl, 42, "TTL should round-trip through set/get");
+    }
+
+    #[test]
+    fn decode_tcp_repair_options_preserves_negotiated_timestamp_state() {
+        let mut info: LinuxTcpInfo = unsafe { zeroed() };
+        info.tcpi_options = TCPI_OPT_TIMESTAMPS | TCPI_OPT_SACK | TCPI_OPT_WSCALE | TCPI_OPT_USEC_TS;
+        info.tcpi_snd_wscale_rcv_wscale = 0x27;
+        info.tcpi_snd_mss = 1440;
+
+        let options = decode_tcp_repair_options(
+            info,
+            Some(TcpTimestampSnapshot { value: 0x1122_3344, echo_reply: 0, usec_ts: true }),
+        );
+
+        assert_eq!(options.mss, Some(1440));
+        assert!(options.sack_permitted);
+        assert_eq!(options.window_scale, Some(TcpWindowScaleSnapshot { send: 7, receive: 2 }));
+        assert_eq!(options.timestamp, Some(TcpTimestampSnapshot { value: 0x1122_3344, echo_reply: 0, usec_ts: true }));
+    }
+
+    #[test]
+    fn decode_tcp_repair_options_omits_timestamp_when_not_negotiated() {
+        let mut info: LinuxTcpInfo = unsafe { zeroed() };
+        info.tcpi_options = TCPI_OPT_SACK;
+        info.tcpi_snd_mss = 1200;
+
+        let options = decode_tcp_repair_options(info, None);
+
+        assert_eq!(options.mss, Some(1200));
+        assert!(options.sack_permitted);
+        assert_eq!(options.window_scale, None);
+        assert_eq!(options.timestamp, None);
     }
 }

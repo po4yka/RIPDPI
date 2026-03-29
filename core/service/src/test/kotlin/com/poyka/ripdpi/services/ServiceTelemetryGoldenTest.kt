@@ -147,9 +147,12 @@ class ServiceTelemetryGoldenTest {
             autolearnEnabled = true,
             learnedHostCount = 4,
             penalizedHostCount = 1,
+            blockedHostCount = 1,
+            lastBlockSignal = "tcp_reset",
+            lastBlockProvider = "rkn",
             lastAutolearnHost = "example.org",
             lastAutolearnGroup = 1,
-            lastAutolearnAction = "host_promoted",
+            lastAutolearnAction = "host_blocked",
             nativeEvents =
                 listOf(
                     NativeRuntimeEvent(

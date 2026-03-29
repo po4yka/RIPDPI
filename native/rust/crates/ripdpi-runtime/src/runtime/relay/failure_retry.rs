@@ -15,8 +15,8 @@ use super::super::adaptive::{
 use super::super::desync::{send_with_group, OutboundSendError};
 use super::super::retry::note_retry_success;
 use super::super::routing::{
-    advance_route_for_failure, emit_failure_classified, note_route_success, reconnect_target,
-    should_track_strategy_target,
+    advance_route_for_failure, emit_failure_classified, note_block_signal_for_failure, note_route_success,
+    reconnect_target, should_track_strategy_target,
 };
 use super::super::state::RuntimeState;
 use super::first_exchange::{needs_first_exchange, read_first_response, FirstResponse};
@@ -174,6 +174,7 @@ impl<'a> FirstOutboundCoordinator<'a> {
                 }
                 FirstResponse::NoData => break,
                 FirstResponse::Failure { failure, response_bytes } => {
+                    note_block_signal_for_failure(self.state, host.as_deref(), &failure, None);
                     emit_failure_classified(self.state, self.target, &failure, host.as_deref());
                     let next = advance_route_for_failure(
                         self.state,

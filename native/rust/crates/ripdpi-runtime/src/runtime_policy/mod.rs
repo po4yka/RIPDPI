@@ -12,11 +12,11 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::LazyLock;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use types::{CacheRecord, GroupPolicy, LearnedHostRecord};
+use types::{CacheRecord, GroupPolicy, LearnedHostRecord, PendingBlockedHost};
 
 pub use types::{
-    ConnectionRoute, ExtractedHost, HostAutolearnEvent, HostSource, RetrySelectionPenalty, RouteAdvance,
-    TransportProtocol,
+    ConnectionRoute, ExtractedHost, HostAutolearnEvent, HostAutolearnState, HostSource, RetrySelectionPenalty,
+    RouteAdvance, TransportProtocol,
 };
 
 pub(crate) use matching::{extract_host, extract_host_info, group_requires_payload, route_matches_payload};
@@ -24,6 +24,8 @@ pub(crate) use matching::{extract_host, extract_host_info, group_requires_payloa
 const HOST_AUTOLEARN_STORE_VERSION: u32 = 1;
 const DEFAULT_NETWORK_SCOPE_KEY: &str = "default";
 const AUTOLEARN_PERSIST_DEBOUNCE_MS: u64 = 2_000;
+const BLOCK_CONFIRMATION_WINDOW_MS: u64 = 5 * 60 * 1_000;
+const BLOCKED_HOST_TTL_MS: u64 = 24 * 60 * 60 * 1_000;
 
 static EMPTY_LEARNED_HOSTS: LazyLock<BTreeMap<String, LearnedHostRecord>> = LazyLock::new(BTreeMap::new);
 
@@ -33,6 +35,7 @@ pub struct RuntimePolicy {
     groups: Vec<GroupPolicy>,
     order: Vec<usize>,
     learned_hosts_by_scope: BTreeMap<String, BTreeMap<String, LearnedHostRecord>>,
+    pending_blocked_hosts_by_scope: BTreeMap<String, BTreeMap<String, PendingBlockedHost>>,
     autolearn_events: VecDeque<HostAutolearnEvent>,
     last_persist_at_ms: u64,
 }

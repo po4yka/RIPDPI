@@ -50,29 +50,28 @@ fn validate_ip_fragmentation_capabilities(
     config: &RuntimeConfig,
     capabilities: IpFragmentationCapabilities,
 ) -> io::Result<()> {
-    let requires_tcp_repair = config
+    let requires_tcp_ipfrag = config
         .groups
         .iter()
         .flat_map(|group| group.effective_tcp_chain())
         .any(|step| step.kind == TcpChainStepKind::IpFrag2);
-    let requires_raw_sockets = requires_tcp_repair
-        || config
-            .groups
-            .iter()
-            .flat_map(|group| group.effective_udp_chain())
-            .any(|step| step.kind == UdpChainStepKind::IpFrag2Udp);
-    if !requires_raw_sockets {
+    let requires_udp_ipfrag = config
+        .groups
+        .iter()
+        .flat_map(|group| group.effective_udp_chain())
+        .any(|step| step.kind == UdpChainStepKind::IpFrag2Udp);
+    if !requires_tcp_ipfrag && !requires_udp_ipfrag {
         return Ok(());
     }
 
     let mut missing = Vec::new();
-    if !capabilities.raw_ipv4 {
+    if (requires_tcp_ipfrag || requires_udp_ipfrag) && !capabilities.raw_ipv4 {
         missing.push("raw IPv4 sockets");
     }
-    if config.network.ipv6 && !capabilities.raw_ipv6 {
+    if (requires_tcp_ipfrag || requires_udp_ipfrag) && config.network.ipv6 && !capabilities.raw_ipv6 {
         missing.push("raw IPv6 sockets");
     }
-    if requires_tcp_repair && !capabilities.tcp_repair {
+    if requires_tcp_ipfrag && !capabilities.tcp_repair {
         missing.push("TCP repair");
     }
     if missing.is_empty() {
@@ -335,6 +334,19 @@ mod tests {
     }
 
     #[test]
+    fn ipfrag_capability_helpers_distinguish_tcp_and_udp_requirements() {
+        let udp_only =
+            crate::platform::IpFragmentationCapabilities { raw_ipv4: true, raw_ipv6: true, tcp_repair: false };
+        assert!(udp_only.supports_udp_ip_fragmentation(true));
+        assert!(!udp_only.supports_tcp_ip_fragmentation(true));
+
+        let tcp_and_udp =
+            crate::platform::IpFragmentationCapabilities { raw_ipv4: true, raw_ipv6: true, tcp_repair: true };
+        assert!(tcp_and_udp.supports_udp_ip_fragmentation(true));
+        assert!(tcp_and_udp.supports_tcp_ip_fragmentation(true));
+    }
+
+    #[test]
     fn strategy_execution_failure_advances_to_plain_connect_fallback_and_replays_payload() {
         let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("bind fixture listener");
         let target = listener.local_addr().expect("listener addr");
@@ -367,6 +379,7 @@ mod tests {
             active_clients: Arc::new(AtomicUsize::new(0)),
             telemetry: None,
             runtime_context: None,
+            control: None,
             ttl_unavailable: Arc::new(AtomicBool::new(false)),
         };
 

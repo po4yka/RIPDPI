@@ -10,7 +10,7 @@ use ripdpi_dns_resolver::{
     extract_ip_answers, EncryptedDnsEndpoint, EncryptedDnsProtocol, EncryptedDnsResolver, EncryptedDnsTransport,
 };
 use ripdpi_failure_classifier::{
-    classify_http_blockpage, classify_redirect_failure, classify_tls_alert, classify_tls_handshake_failure,
+    block_signal_from_failure, classify_http_response_block, classify_tls_alert, classify_tls_handshake_failure,
     classify_transport_error, confirm_dns_tampering, ClassifiedFailure, FailureAction, FailureClass, FailureStage,
 };
 use ripdpi_proxy_config::ProxyEncryptedDnsContext;
@@ -25,6 +25,18 @@ use crate::runtime_policy::{ConnectionRoute, RouteAdvance, TransportProtocol};
 use super::adaptive::{note_adaptive_fake_ttl_failure, note_adaptive_tcp_failure, note_evolver_failure};
 use super::retry::{build_retry_selection_penalties, maybe_emit_candidate_diversification, note_retry_failure};
 use super::state::{flush_autolearn_updates, RuntimeState};
+
+#[derive(Debug)]
+pub(super) struct ConnectAttemptError {
+    source: io::Error,
+    tcp_total_retransmissions: Option<u32>,
+}
+
+impl ConnectAttemptError {
+    fn into_io_error(self) -> io::Error {
+        self.source
+    }
+}
 
 pub(super) fn select_route(
     state: &RuntimeState,
@@ -78,14 +90,15 @@ pub(super) fn connect_target_with_route(
             Ok(stream) => return Ok((stream, route)),
             Err(err) => {
                 retries += 1;
+                let failure = classify_transport_error(FailureStage::Connect, &err.source);
+                note_block_signal_for_failure(state, host.as_deref(), &failure, err.tcp_total_retransmissions);
                 if retries > max_retries {
-                    return Err(err);
+                    return Err(err.into_io_error());
                 }
-                let failure = classify_transport_error(FailureStage::Connect, &err);
                 emit_failure_classified(state, target, &failure, host.as_deref());
                 let next = advance_route_for_failure(state, target, &route, host.clone(), payload, &failure)?;
                 let Some(next) = next else {
-                    return Err(err);
+                    return Err(err.into_io_error());
                 };
                 route = next;
             }
@@ -211,6 +224,30 @@ pub(super) fn advance_route_for_failure(
     Ok(next)
 }
 
+pub(super) fn note_block_signal_for_failure(
+    state: &RuntimeState,
+    host: Option<&str>,
+    failure: &ClassifiedFailure,
+    tcp_total_retransmissions: Option<u32>,
+) {
+    let Some(host) = host else {
+        return;
+    };
+    let Some(signal) = block_signal_from_failure(failure, tcp_total_retransmissions) else {
+        return;
+    };
+    let confirmation_allowed = state
+        .control
+        .as_ref()
+        .and_then(|control| control.current_network_snapshot())
+        .map(|snapshot| snapshot.validated && !snapshot.captive_portal)
+        .unwrap_or(true);
+    if let Ok(mut cache) = state.cache.lock() {
+        cache.note_block_signal(&state.config, host, signal.signal, signal.provider.as_deref(), confirmation_allowed);
+        flush_autolearn_updates(state, &mut cache);
+    }
+}
+
 pub(super) fn classify_response_failure(
     state: &RuntimeState,
     target: SocketAddr,
@@ -226,14 +263,11 @@ pub(super) fn classify_response_failure(
         }
     }
 
-    if matches!(detect_response_trigger(request, response), Some(TriggerEvent::Redirect)) {
-        return Some(classify_redirect_failure("HTTP redirect during first response"));
-    }
     if let Some(alert) = classify_tls_alert(response) {
         return Some(alert);
     }
-    if let Some(blockpage) = classify_http_blockpage(response) {
-        return Some(blockpage);
+    if let Some(http_block) = classify_http_response_block(response) {
+        return Some(http_block);
     }
     if matches!(detect_response_trigger(request, response), Some(TriggerEvent::SslErr)) {
         return Some(classify_tls_handshake_failure("TLS handshake failed before ServerHello"));
@@ -355,13 +389,12 @@ pub(super) fn connect_target_via_group(
     target: SocketAddr,
     state: &RuntimeState,
     group_index: usize,
-) -> io::Result<TcpStream> {
+) -> Result<TcpStream, ConnectAttemptError> {
     let started = std::time::Instant::now();
-    let group = state
-        .config
-        .groups
-        .get(group_index)
-        .ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, "missing desync group"))?;
+    let group = state.config.groups.get(group_index).ok_or_else(|| ConnectAttemptError {
+        source: io::Error::new(io::ErrorKind::NotFound, "missing desync group"),
+        tcp_total_retransmissions: None,
+    })?;
     let connect_timeout = if state.config.timeouts.connect_timeout_ms > 0 {
         Some(Duration::from_millis(state.config.timeouts.connect_timeout_ms as u64))
     } else {
@@ -376,8 +409,9 @@ pub(super) fn connect_target_via_group(
             state.config.network.tfo,
             connect_timeout,
         )
+        .map_err(|source| ConnectAttemptError { source, tcp_total_retransmissions: None })
     } else {
-        connect_socket(
+        connect_socket_detailed(
             target,
             unspecified_ip_for(target),
             state.config.process.protect_path.as_deref(),
@@ -387,7 +421,8 @@ pub(super) fn connect_target_via_group(
     }?;
 
     if group.actions.drop_sack {
-        platform::attach_drop_sack(&stream)?;
+        platform::attach_drop_sack(&stream)
+            .map_err(|source| ConnectAttemptError { source, tcp_total_retransmissions: None })?;
     }
     if let Some(clamp) = group.actions.window_clamp {
         let _ = platform::set_tcp_window_clamp(&stream, clamp);
@@ -493,18 +528,33 @@ pub(super) fn connect_socket(
     tfo: bool,
     connect_timeout: Option<Duration>,
 ) -> io::Result<TcpStream> {
+    connect_socket_detailed(target, bind_ip, protect_path, tfo, connect_timeout)
+        .map_err(ConnectAttemptError::into_io_error)
+}
+
+fn connect_socket_detailed(
+    target: SocketAddr,
+    bind_ip: IpAddr,
+    protect_path: Option<&str>,
+    tfo: bool,
+    connect_timeout: Option<Duration>,
+) -> Result<TcpStream, ConnectAttemptError> {
     let domain = match target {
         SocketAddr::V4(_) => Domain::IPV4,
         SocketAddr::V6(_) => Domain::IPV6,
     };
-    let socket = Socket::new(domain, Type::STREAM, Some(Protocol::TCP))?;
+    let socket = Socket::new(domain, Type::STREAM, Some(Protocol::TCP))
+        .map_err(|source| ConnectAttemptError { source, tcp_total_retransmissions: None })?;
     if let Some(path) = protect_path {
-        platform::protect_socket(&socket, path)?;
+        platform::protect_socket(&socket, path)
+            .map_err(|source| ConnectAttemptError { source, tcp_total_retransmissions: None })?;
     }
     if tfo {
-        enable_tcp_fastopen_if_supported(&socket)?;
+        enable_tcp_fastopen_if_supported(&socket)
+            .map_err(|source| ConnectAttemptError { source, tcp_total_retransmissions: None })?;
     }
-    bind_socket(&socket, bind_ip, target)?;
+    bind_socket(&socket, bind_ip, target)
+        .map_err(|source| ConnectAttemptError { source, tcp_total_retransmissions: None })?;
     let connect_started = std::time::Instant::now();
     tracing::debug!(
         target = %target,
@@ -519,6 +569,7 @@ pub(super) fn connect_socket(
         socket.connect(&SockAddr::from(target))
     };
     if let Err(err) = connect_result {
+        let tcp_total_retransmissions = platform::tcp_total_retransmissions(&socket).ok().flatten();
         tracing::warn!(
             target = %target,
             bind_ip = %bind_ip,
@@ -527,7 +578,7 @@ pub(super) fn connect_socket(
             elapsed_ms = connect_started.elapsed().as_millis() as u64,
             "ripdpi upstream connect failed: {err}"
         );
-        return Err(err);
+        return Err(ConnectAttemptError { source: err, tcp_total_retransmissions });
     }
     tracing::debug!(
         target = %target,
@@ -601,13 +652,13 @@ pub(super) fn reconnect_target(
             Err(err) => {
                 retries += 1;
                 if retries > max_retries {
-                    return Err(err);
+                    return Err(err.into_io_error());
                 }
-                let failure = classify_transport_error(FailureStage::Connect, &err);
+                let failure = classify_transport_error(FailureStage::Connect, &err.source);
                 emit_failure_classified(state, target, &failure, host.as_deref());
                 let next = advance_route_for_failure(state, target, &route, host.clone(), payload, &failure)?;
                 let Some(next) = next else {
-                    return Err(err);
+                    return Err(err.into_io_error());
                 };
                 route = next;
             }
