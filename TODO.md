@@ -17,7 +17,7 @@ File path prefix: `app/src/main/kotlin/com/poyka/ripdpi/`
     Debug card renders only when toggled on.
   - ~30 lines
 
-- [ ] **1.2 Replace developer-facing redaction strings**
+- [x] **1.2 Replace developer-facing redaction strings**
   - Files: `activities/DiagnosticsUiCoreSupport.kt`, `res/values/strings.xml`,
     `res/values-ru/strings.xml`
   - Change `redactValue()` output from `"redacted"` to a string resource

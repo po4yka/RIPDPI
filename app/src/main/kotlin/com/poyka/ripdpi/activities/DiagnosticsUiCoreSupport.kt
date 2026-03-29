@@ -183,13 +183,13 @@ internal fun DiagnosticsUiCoreSupport.formatBps(bps: Long): String = formatter.f
 internal fun DiagnosticsUiCoreSupport.formatDurationMs(durationMs: Long): String =
     formatter.formatDurationMs(durationMs)
 
-internal fun DiagnosticsUiCoreSupport.redactValue(value: String?): String = value?.let { "redacted" } ?: "Unknown"
+internal fun DiagnosticsUiCoreSupport.redactValue(value: String?): String = value?.let { "Hidden" } ?: "Unknown"
 
 internal fun DiagnosticsUiCoreSupport.redactCollection(values: List<String>): String =
     if (values.isEmpty()) {
         "Unknown"
     } else {
-        "redacted(${values.size})"
+        "Hidden (${values.size})"
     }
 
 internal fun DiagnosticsUiCoreSupport.aggregateBucketForProbeResults(
