@@ -173,6 +173,9 @@
     <string name="diagnostics_health_attention">Требует внимания</string>
     <string name="diagnostics_health_degraded">Ухудшенное</string>
     <string name="diagnostics_health_idle">Простой</string>
+    <string name="diagnostics_network_details_section">Сетевые данные</string>
+    <string name="diagnostics_recent_activity_section">Недавняя активность</string>
+    <string name="diagnostics_remembered_networks_section">Запомненные сети</string>
     <string name="diagnostics_attention_section">Список наблюдения</string>
     <string name="diagnostics_results_section">Последние результаты зондирования</string>
     <string name="diagnostics_trends_section">Последние тенденции</string>

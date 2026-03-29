@@ -113,7 +113,7 @@ File path prefix: `app/src/main/kotlin/com/poyka/ripdpi/`
   - Depends on: Phase 1 complete
   - ~60 lines
 
-- [ ] **3.2 Wrap snapshot + context in "Network Details" section**
+- [x] **3.2 Wrap snapshot + context in "Network Details" section**
   - Files: `ui/screens/diagnostics/DiagnosticsScreen.kt`
   - In `OverviewSection`, wrap `SnapshotCard` and `ContextGroupCard` inside
     `CollapsibleSection(title = "Network Details", badgeCount = fieldCount)`.
@@ -121,7 +121,7 @@ File path prefix: `app/src/main/kotlin/com/poyka/ripdpi/`
   - Depends on: 3.1
   - ~40 lines
 
-- [ ] **3.3 Wrap recent activity in collapsible section**
+- [x] **3.3 Wrap recent activity in collapsible section**
   - Files: `ui/screens/diagnostics/DiagnosticsScreen.kt`
   - Group latest session row, automatic probe history callout, and history
     callout card into `CollapsibleSection(title = "Recent Activity")`.
@@ -129,7 +129,7 @@ File path prefix: `app/src/main/kotlin/com/poyka/ripdpi/`
   - Depends on: 3.1
   - ~40 lines
 
-- [ ] **3.4 Filter unknown/empty fields from snapshot and context models**
+- [x] **3.4 Filter unknown/empty fields from snapshot and context models**
   - Files: `activities/DiagnosticsUiContextSupport.kt`,
     `activities/DiagnosticsUiSectionBuilders.kt`
   - In snapshot/context builder functions, filter out fields where value is
@@ -138,7 +138,7 @@ File path prefix: `app/src/main/kotlin/com/poyka/ripdpi/`
   - Depends on: none (can be done in parallel with 3.1)
   - ~50 lines
 
-- [ ] **3.5 Wrap remembered networks in collapsible section**
+- [x] **3.5 Wrap remembered networks in collapsible section**
   - Files: `ui/screens/diagnostics/DiagnosticsScreen.kt`
   - Wrap `RememberedNetworkPoliciesCard` in `CollapsibleSection` with count
     badge showing number of remembered networks. Default: collapsed.
