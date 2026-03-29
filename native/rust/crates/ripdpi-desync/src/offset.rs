@@ -61,6 +61,10 @@ pub(crate) fn gen_offset(
             init_proto_info(buffer, info);
             info.tls.map(|tls| tls.ext_len_start as i64 + expr.delta)?
         }
+        OffsetBase::EchExt => {
+            init_proto_info(buffer, info);
+            info.tls.and_then(|tls| tls.ech_ext_start.map(|offset| offset as i64 + expr.delta))?
+        }
         OffsetBase::SniExt => {
             init_proto_info(buffer, info);
             info.tls.map(|tls| tls.sni_ext_start as i64 + expr.delta)?

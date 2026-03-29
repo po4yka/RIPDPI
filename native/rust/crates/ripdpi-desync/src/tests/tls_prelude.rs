@@ -106,3 +106,28 @@ fn apply_tamper_tlsrandrec_seed_changes_randomized_layout() {
 
     assert_ne!(seed_a.bytes, seed_b.bytes);
 }
+
+#[test]
+fn apply_tamper_tlsrec_ech_extension_splits_record_at_ech_boundary() {
+    let payload = rust_packet_seeds::tls_client_hello_ech();
+    let markers = tls_marker_info(&payload).expect("tls markers");
+    let ech_offset = markers.ech_ext_start.expect("ech extension");
+    let mut group = DesyncGroup::new(0);
+    group.actions.tcp_chain =
+        vec![TcpChainStep::new(TcpChainStepKind::TlsRec, OffsetExpr::marker(OffsetBase::EchExt, 0))];
+
+    let tampered = apply_tamper(&group, &payload, 7).expect("tamper tlsrec echext");
+
+    assert_eq!(tls_record_lengths(&tampered.bytes), vec![ech_offset - 5, payload.len() - ech_offset]);
+}
+
+#[test]
+fn apply_tamper_tlsrec_ech_extension_is_noop_without_ech() {
+    let mut group = DesyncGroup::new(0);
+    group.actions.tcp_chain =
+        vec![TcpChainStep::new(TcpChainStepKind::TlsRec, OffsetExpr::marker(OffsetBase::EchExt, 0))];
+
+    let tampered = apply_tamper(&group, DEFAULT_FAKE_TLS, 7).expect("tamper tlsrec without ech");
+
+    assert_eq!(tampered.bytes, DEFAULT_FAKE_TLS);
+}

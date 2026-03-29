@@ -427,6 +427,8 @@ private fun strategyProbeFamilyLabel(family: String): String =
         "parser" -> "Parser"
         "parser_aggressive" -> "Parser aggressive"
         "split" -> "Host split"
+        "ech_split" -> "ECH extension split"
+        "ech_tlsrec" -> "ECH TLS record split"
         "tlsrec_split" -> "TLS record split"
         "tlsrec_fake" -> "TLS record fake"
         "fake_approx" -> "Fake approximation"

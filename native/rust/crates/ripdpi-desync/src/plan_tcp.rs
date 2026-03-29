@@ -7,6 +7,10 @@ use crate::types::{
 use ripdpi_config::{DesyncGroup, TcpChainStep, TcpChainStepKind};
 use ripdpi_packets::OracleRng;
 
+fn allows_missing_marker_offset(step: &TcpChainStep) -> bool {
+    matches!(step.offset.base, ripdpi_config::OffsetBase::EchExt)
+}
+
 fn push_split_actions(actions: &mut Vec<DesyncAction>, bytes: Vec<u8>) {
     actions.push(DesyncAction::Write(bytes));
     actions.push(DesyncAction::AwaitWritable);
@@ -112,7 +116,7 @@ pub fn plan_tcp(
             context,
             context.adaptive.split_offset_base,
         ) else {
-            if step.offset.base.is_adaptive() {
+            if step.offset.base.is_adaptive() || allows_missing_marker_offset(&step) {
                 continue;
             }
             return Err(DesyncError);

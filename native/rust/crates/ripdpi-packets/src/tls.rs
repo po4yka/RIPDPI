@@ -525,6 +525,12 @@ mod tests {
     use super::*;
     use crate::types::DEFAULT_FAKE_TLS;
 
+    mod rust_packet_seeds {
+        use crate as ripdpi_packets;
+
+        include!(concat!(env!("CARGO_MANIFEST_DIR"), "/tests/rust_packet_seeds.rs"));
+    }
+
     #[test]
     fn parse_tls_extracts_default_fake_sni() {
         assert!(is_tls_client_hello(DEFAULT_FAKE_TLS));
@@ -538,6 +544,18 @@ mod tests {
         assert_eq!(&DEFAULT_FAKE_TLS[markers.host_start..markers.host_end], b"www.wikipedia.org");
         assert_eq!(markers.host_start, markers.sni_ext_start + 5);
         assert!(markers.ext_len_start < markers.sni_ext_start);
+        assert_eq!(markers.ech_ext_start, None);
+    }
+
+    #[test]
+    fn tls_marker_info_exposes_ech_extension_boundary() {
+        let ech = rust_packet_seeds::tls_client_hello_ech();
+        let markers = tls_marker_info(&ech).expect("parse ech tls markers");
+        let ech_offset = markers.ech_ext_start.expect("ech offset");
+
+        assert_eq!(&ech[ech_offset..ech_offset + 2], &[0xfe, 0x0d]);
+        assert!(markers.ext_len_start < ech_offset);
+        assert_eq!(markers.host_start, markers.sni_ext_start + 5);
     }
 
     #[test]

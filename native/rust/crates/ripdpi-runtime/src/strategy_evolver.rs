@@ -69,6 +69,7 @@ fn offset_base_disc(o: OffsetBase) -> u8 {
         OffsetBase::Method => 11,
         OffsetBase::ExtLen => 12,
         OffsetBase::SniExt => 13,
+        OffsetBase::EchExt => 21,
         OffsetBase::AutoBalanced => 14,
         OffsetBase::AutoHost => 15,
         OffsetBase::AutoMidSld => 16,

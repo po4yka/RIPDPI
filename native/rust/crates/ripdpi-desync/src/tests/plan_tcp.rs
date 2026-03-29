@@ -172,6 +172,41 @@ fn plan_tcp_tlsrandrec_supports_adaptive_marker_resolution() {
 }
 
 #[test]
+fn plan_tcp_split_ech_extension_uses_ech_boundary() {
+    let payload = rust_packet_seeds::tls_client_hello_ech();
+    let markers = tls_marker_info(&payload).expect("tls markers");
+    let ech_offset = markers.ech_ext_start.expect("ech extension") as i64;
+    let mut group = DesyncGroup::new(0);
+    group.actions.tcp_chain =
+        vec![TcpChainStep::new(TcpChainStepKind::Split, OffsetExpr::marker(OffsetBase::EchExt, 0))];
+
+    let plan = plan_tcp(&group, &payload, 7, 64, tcp_context(&payload)).expect("plan split echext");
+
+    assert_eq!(plan.steps, vec![PlannedStep { kind: TcpChainStepKind::Split, start: 0, end: ech_offset }]);
+    assert_eq!(
+        plan.actions,
+        vec![
+            DesyncAction::Write(payload[..ech_offset as usize].to_vec()),
+            DesyncAction::AwaitWritable,
+            DesyncAction::Write(payload[ech_offset as usize..].to_vec()),
+        ]
+    );
+}
+
+#[test]
+fn plan_tcp_split_ech_extension_is_noop_when_ech_is_absent() {
+    let mut group = DesyncGroup::new(0);
+    group.actions.tcp_chain =
+        vec![TcpChainStep::new(TcpChainStepKind::Split, OffsetExpr::marker(OffsetBase::EchExt, 0))];
+
+    let plan =
+        plan_tcp(&group, DEFAULT_FAKE_TLS, 7, 64, tcp_context(DEFAULT_FAKE_TLS)).expect("plan split without ech");
+
+    assert!(plan.steps.is_empty());
+    assert_eq!(plan.actions, vec![DesyncAction::Write(DEFAULT_FAKE_TLS.to_vec())]);
+}
+
+#[test]
 fn plan_tcp_prefers_adaptive_split_hint_when_candidate_is_valid() {
     let markers = http_marker_info(DEFAULT_FAKE_HTTP).expect("http markers");
     let host = &DEFAULT_FAKE_HTTP[markers.host_start..markers.host_end];

@@ -48,6 +48,37 @@ fn gen_offset_resolves_named_markers() {
     );
 }
 
+#[test]
+fn gen_offset_resolves_ech_extension_marker_when_present() {
+    let tls = rust_packet_seeds::tls_client_hello_ech();
+    let tls_markers = tls_marker_info(&tls).expect("tls markers");
+    let mut tls_info = ProtoInfo::default();
+    let mut tls_rng = OracleRng::seeded(9);
+
+    assert_eq!(
+        gen_offset(OffsetExpr::marker(OffsetBase::EchExt, 0), &tls, tls.len(), 0, &mut tls_info, &mut tls_rng),
+        tls_markers.ech_ext_start.map(|offset| offset as i64)
+    );
+}
+
+#[test]
+fn gen_offset_returns_none_for_ech_extension_marker_when_absent() {
+    let mut tls_info = ProtoInfo::default();
+    let mut tls_rng = OracleRng::seeded(9);
+
+    assert_eq!(
+        gen_offset(
+            OffsetExpr::marker(OffsetBase::EchExt, 0),
+            DEFAULT_FAKE_TLS,
+            DEFAULT_FAKE_TLS.len(),
+            0,
+            &mut tls_info,
+            &mut tls_rng,
+        ),
+        None
+    );
+}
+
 // ---- gen_offset absolute mode ----
 
 #[test]

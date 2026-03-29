@@ -23,10 +23,17 @@ pub(crate) struct StrategyCandidateSpec {
     pub(crate) id: &'static str,
     pub(crate) label: &'static str,
     pub(crate) family: &'static str,
+    pub(crate) eligibility: CandidateEligibility,
     pub(crate) config: ProxyUiConfig,
     pub(crate) notes: Vec<&'static str>,
     pub(crate) preserve_adaptive_fake_ttl: bool,
     pub(crate) warmup: CandidateWarmup,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum CandidateEligibility {
+    Always,
+    RequiresEchCapability,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -222,6 +229,8 @@ pub(crate) fn build_tcp_candidates(base: &ProxyUiConfig) -> Vec<StrategyCandidat
     let parser_unixeol = build_parser_unixeol_candidate(base);
     let parser_methodeol = build_parser_methodeol_candidate(base);
     let split_host = build_split_host_candidate(base);
+    let ech_split = build_ech_split_candidate(base);
+    let ech_tlsrec = build_ech_tlsrec_candidate(base);
     let tlsrec_split_host = build_tlsrec_split_host_candidate(base);
     let tlsrec_fake_rich = build_tlsrec_fake_rich_candidate(base);
     let tlsrec_fakedsplit = build_tlsrec_fake_approx_candidate(base, "fakedsplit");
@@ -235,6 +244,22 @@ pub(crate) fn build_tcp_candidates(base: &ProxyUiConfig) -> Vec<StrategyCandidat
         candidate_spec("parser_unixeol", "Parser + Unix EOL", "parser_aggressive", parser_unixeol),
         candidate_spec("parser_methodeol", "Parser + Method EOL", "parser_aggressive", parser_methodeol),
         candidate_spec("split_host", "Split Host", "split", split_host),
+        candidate_spec_with_notes_and_eligibility(
+            "ech_split",
+            "ECH extension split",
+            "ech_split",
+            CandidateEligibility::RequiresEchCapability,
+            ech_split,
+            vec!["Runs only when the baseline proves an ECH-capable HTTPS path"],
+        ),
+        candidate_spec_with_notes_and_eligibility(
+            "ech_tlsrec",
+            "ECH TLS record split",
+            "ech_tlsrec",
+            CandidateEligibility::RequiresEchCapability,
+            ech_tlsrec,
+            vec!["Runs only when the baseline proves an ECH-capable HTTPS path"],
+        ),
         candidate_spec("tlsrec_split_host", "TLS record + split host", "tlsrec_split", tlsrec_split_host),
         candidate_spec_with_notes(
             "tlsrec_fake_rich",
@@ -298,7 +323,7 @@ pub(crate) fn candidate_spec(
     family: &'static str,
     config: ProxyUiConfig,
 ) -> StrategyCandidateSpec {
-    candidate_spec_with_notes(id, label, family, config, Vec::new())
+    candidate_spec_with_notes_and_eligibility(id, label, family, CandidateEligibility::Always, config, Vec::new())
 }
 
 pub(crate) fn candidate_spec_with_notes(
@@ -308,10 +333,22 @@ pub(crate) fn candidate_spec_with_notes(
     config: ProxyUiConfig,
     notes: Vec<&'static str>,
 ) -> StrategyCandidateSpec {
+    candidate_spec_with_notes_and_eligibility(id, label, family, CandidateEligibility::Always, config, notes)
+}
+
+pub(crate) fn candidate_spec_with_notes_and_eligibility(
+    id: &'static str,
+    label: &'static str,
+    family: &'static str,
+    eligibility: CandidateEligibility,
+    config: ProxyUiConfig,
+    notes: Vec<&'static str>,
+) -> StrategyCandidateSpec {
     StrategyCandidateSpec {
         id,
         label,
         family,
+        eligibility,
         config,
         notes,
         preserve_adaptive_fake_ttl: false,
@@ -375,6 +412,18 @@ pub(crate) fn build_parser_methodeol_candidate(base: &ProxyUiConfig) -> ProxyUiC
 pub(crate) fn build_split_host_candidate(base: &ProxyUiConfig) -> ProxyUiConfig {
     let mut config = strategy_probe_base(base);
     config.chains.tcp_steps = vec![tcp_step("split", "host+2")];
+    config
+}
+
+pub(crate) fn build_ech_split_candidate(base: &ProxyUiConfig) -> ProxyUiConfig {
+    let mut config = strategy_probe_base(base);
+    config.chains.tcp_steps = vec![tcp_step("split", "echext")];
+    config
+}
+
+pub(crate) fn build_ech_tlsrec_candidate(base: &ProxyUiConfig) -> ProxyUiConfig {
+    let mut config = strategy_probe_base(base);
+    config.chains.tcp_steps = vec![tcp_step("tlsrec", "echext")];
     config
 }
 
@@ -472,6 +521,7 @@ pub(crate) fn build_adaptive_fake_ttl_spec(base: &ProxyUiConfig) -> StrategyCand
         id: "adaptive_fake_ttl",
         label: "Adaptive fake TTL",
         family: "adaptive_fake_ttl",
+        eligibility: CandidateEligibility::Always,
         config,
         notes: vec![
             "Runs an unscored warm-up pass before measured probes",

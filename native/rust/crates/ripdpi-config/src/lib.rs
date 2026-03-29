@@ -113,6 +113,8 @@ mod tests {
         assert_eq!(parse_offset_expr("method+2").unwrap(), OffsetExpr::marker(OffsetBase::Method, 2));
         assert_eq!(parse_offset_expr("midsld").unwrap(), OffsetExpr::marker(OffsetBase::MidSld, 0));
         assert_eq!(parse_offset_expr("midsld-1").unwrap(), OffsetExpr::marker(OffsetBase::MidSld, -1));
+        assert_eq!(parse_offset_expr("echext").unwrap(), OffsetExpr::marker(OffsetBase::EchExt, 0));
+        assert_eq!(parse_offset_expr("echext+4").unwrap(), OffsetExpr::marker(OffsetBase::EchExt, 4));
         assert_eq!(parse_offset_expr("sniext+4").unwrap(), OffsetExpr::marker(OffsetBase::SniExt, 4));
         assert_eq!(parse_offset_expr("extlen").unwrap(), OffsetExpr::marker(OffsetBase::ExtLen, 0));
         assert_eq!(parse_offset_expr("abs-5").unwrap(), OffsetExpr::absolute(-5));
@@ -145,6 +147,7 @@ mod tests {
             "method++1",
             "auto()",
             "auto(foo)",
+            "auto(echext)",
         ] {
             assert!(parse_offset_expr(spec).is_err(), "{spec} should be rejected");
         }

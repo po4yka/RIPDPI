@@ -151,6 +151,35 @@ class StrategyChainsTest {
     }
 
     @Test
+    fun `ech markers round trip through dsl settings and summary`() {
+        val dsl =
+            """
+            [tcp]
+            tlsrec echext
+            split echext+4
+            """.trimIndent()
+
+        val parsed = parseStrategyChainDsl(dsl).getOrThrow()
+        val settings =
+            AppSettings
+                .newBuilder()
+                .setStrategyChains(parsed.tcpSteps, parsed.udpSteps)
+                .build()
+
+        assertEquals(
+            listOf(
+                TcpChainStepModel(TcpChainStepKind.TlsRec, "echext"),
+                TcpChainStepModel(TcpChainStepKind.Split, "echext+4"),
+            ),
+            parsed.tcpSteps,
+        )
+        assertEquals(dsl, formatStrategyChainDsl(parsed.tcpSteps, parsed.udpSteps))
+        assertEquals("echext+4", settings.effectiveSplitMarker())
+        assertEquals("echext", settings.effectiveTlsRecordMarker())
+        assertEquals("tcp: tlsrec(echext) -> split(echext+4)", settings.effectiveChainSummary())
+    }
+
+    @Test
     fun `hostfake strategy chains preserve proto step fields`() {
         val settings =
             AppSettings

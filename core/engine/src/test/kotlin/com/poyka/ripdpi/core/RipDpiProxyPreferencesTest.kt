@@ -387,6 +387,37 @@ class RipDpiProxyPreferencesTest {
     }
 
     @Test
+    fun uiPreferencesRoundTripEchMarkersWithoutSchemaChanges() {
+        val original =
+            RipDpiProxyUIPreferences(
+                chains =
+                    RipDpiChainConfig(
+                        tcpSteps =
+                            listOf(
+                                TcpChainStepModel(
+                                    kind = TcpChainStepKind.TlsRec,
+                                    marker = "echext",
+                                ),
+                                TcpChainStepModel(
+                                    kind = TcpChainStepKind.Split,
+                                    marker = "echext+4",
+                                ),
+                            ),
+                    ),
+            )
+
+        val payload = original.toNativeConfigJson().parseJsonObject().objectAt("chains")
+        val steps = payload.array("tcpSteps").map { it.jsonObject }
+        val decoded = decodeRipDpiProxyUiPreferences(original.toNativeConfigJson())
+
+        assertEquals("tlsrec", steps[0].string("kind"))
+        assertEquals("echext", steps[0].string("marker"))
+        assertEquals("split", steps[1].string("kind"))
+        assertEquals("echext+4", steps[1].string("marker"))
+        assertEquals(original.chains.tcpSteps, decoded?.chains?.tcpSteps)
+    }
+
+    @Test
     fun uiPreferencesEncodeActivationFilters() {
         val preferences =
             RipDpiProxyUIPreferences(
