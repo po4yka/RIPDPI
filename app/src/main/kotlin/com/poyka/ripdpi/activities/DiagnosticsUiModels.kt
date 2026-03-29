@@ -30,11 +30,9 @@ internal val DiagnosticsProfileOptionUiModel.isFullAudit: Boolean
     get() = strategyProbeSuiteId == StrategyProbeSuiteFullMatrixV1
 
 enum class DiagnosticsSection {
-    Overview,
+    Dashboard,
     Scan,
-    Live,
-    Approaches,
-    Share,
+    Tools,
 }
 
 enum class DiagnosticsApproachMode {
@@ -534,7 +532,7 @@ data class DiagnosticsPerformanceUiModel(
 
 @Stable
 data class DiagnosticsUiState(
-    val selectedSection: DiagnosticsSection = DiagnosticsSection.Overview,
+    val selectedSection: DiagnosticsSection = DiagnosticsSection.Dashboard,
     val overview: DiagnosticsOverviewUiModel = DiagnosticsOverviewUiModel(),
     val scan: DiagnosticsScanUiModel = DiagnosticsScanUiModel(),
     val live: DiagnosticsLiveUiModel = DiagnosticsLiveUiModel(),
@@ -598,7 +596,7 @@ internal data class ArchiveActionState(
 )
 
 internal data class SelectionState(
-    val selectedSectionRequest: DiagnosticsSection = DiagnosticsSection.Overview,
+    val selectedSectionRequest: DiagnosticsSection = DiagnosticsSection.Dashboard,
     val selectedProfileId: String? = null,
     val selectedApproachMode: DiagnosticsApproachMode = DiagnosticsApproachMode.Profiles,
     val selectedApproachDetail: DiagnosticsApproachDetailUiModel? = null,

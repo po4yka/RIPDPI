@@ -357,9 +357,10 @@ fun DiagnosticsScreen(
                             .clip(RectangleShape),
                 ) { page ->
                     when (DiagnosticsSection.entries[page]) {
-                        DiagnosticsSection.Overview -> {
+                        DiagnosticsSection.Dashboard -> {
                             OverviewSection(
                                 overview = uiState.overview,
+                                live = uiState.live,
                                 isActiveScan = uiState.scan.activeProgress != null,
                                 onSelectSection = onSelectSection,
                                 onSelectSession = onSelectSession,
@@ -383,23 +384,12 @@ fun DiagnosticsScreen(
                             )
                         }
 
-                        DiagnosticsSection.Live -> {
-                            LiveSection(
-                                live = uiState.live,
-                            )
-                        }
-
-                        DiagnosticsSection.Approaches -> {
-                            ApproachesSection(
+                        DiagnosticsSection.Tools -> {
+                            ToolsSection(
                                 approaches = uiState.approaches,
-                                onSelectMode = onSelectApproachMode,
-                                onSelectApproach = onSelectApproach,
-                            )
-                        }
-
-                        DiagnosticsSection.Share -> {
-                            ShareSection(
                                 share = uiState.share,
+                                onSelectApproachMode = onSelectApproachMode,
+                                onSelectApproach = onSelectApproach,
                                 onShareSummary = onShareSummary,
                                 onShareArchive = onShareArchive,
                                 onSaveArchive = onSaveArchive,
@@ -497,6 +487,7 @@ private fun DiagnosticsSectionSwitcher(
 @Composable
 private fun OverviewSection(
     overview: DiagnosticsOverviewUiModel,
+    live: com.poyka.ripdpi.activities.DiagnosticsLiveUiModel,
     isActiveScan: Boolean,
     onSelectSection: (DiagnosticsSection) -> Unit,
     onSelectSession: (String) -> Unit,
@@ -519,6 +510,17 @@ private fun OverviewSection(
                 isActiveScan = isActiveScan,
                 onSelectSection = onSelectSection,
             )
+        }
+        if (live.health != DiagnosticsHealth.Idle && live.metrics.isNotEmpty()) {
+            item {
+                RipDpiCard(variant = RipDpiCardVariant.Tonal) {
+                    StatusIndicator(
+                        label = live.statusLabel,
+                        tone = statusTone(live.statusTone),
+                    )
+                    MetricsRow(metrics = live.highlights)
+                }
+            }
         }
         overview.activeProfile?.let { profile ->
             item {
@@ -766,6 +768,155 @@ private fun DiagnosticsHealthHero(
                 color = colors.mutedForeground,
             )
             MetricsRow(metrics = overview.metrics)
+        }
+    }
+}
+
+@Composable
+private fun ToolsSection(
+    approaches: DiagnosticsApproachesUiModel,
+    share: DiagnosticsShareUiModel,
+    onSelectApproachMode: (DiagnosticsApproachMode) -> Unit,
+    onSelectApproach: (String) -> Unit,
+    onShareSummary: (String?) -> Unit,
+    onShareArchive: (String?) -> Unit,
+    onSaveArchive: (String?) -> Unit,
+    onSaveLogs: () -> Unit,
+) {
+    val spacing = RipDpiThemeTokens.spacing
+    val layout = RipDpiThemeTokens.layout
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        contentPadding =
+            androidx.compose.foundation.layout.PaddingValues(
+                horizontal = layout.horizontalPadding,
+                vertical = spacing.sm,
+            ),
+        verticalArrangement = Arrangement.spacedBy(spacing.md),
+    ) {
+        // Approaches browser
+        item {
+            RipDpiCard(variant = RipDpiCardVariant.Elevated) {
+                Text(
+                    text = stringResource(R.string.diagnostics_approaches_title).uppercase(),
+                    style = RipDpiThemeTokens.type.sectionTitle,
+                    color = RipDpiThemeTokens.colors.mutedForeground,
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
+                    RipDpiChip(
+                        text = stringResource(R.string.diagnostics_approaches_profiles),
+                        selected = approaches.selectedMode == DiagnosticsApproachMode.Profiles,
+                        onClick = { onSelectApproachMode(DiagnosticsApproachMode.Profiles) },
+                        modifier =
+                            Modifier.ripDpiTestTag(
+                                RipDpiTestTags.diagnosticsApproachMode(DiagnosticsApproachMode.Profiles),
+                            ),
+                    )
+                    RipDpiChip(
+                        text = stringResource(R.string.diagnostics_approaches_strategies),
+                        selected = approaches.selectedMode == DiagnosticsApproachMode.Strategies,
+                        onClick = { onSelectApproachMode(DiagnosticsApproachMode.Strategies) },
+                        modifier =
+                            Modifier.ripDpiTestTag(
+                                RipDpiTestTags.diagnosticsApproachMode(DiagnosticsApproachMode.Strategies),
+                            ),
+                    )
+                }
+            }
+        }
+        items(items = approaches.rows, key = { it.id }, contentType = { "approach" }) { row ->
+            RipDpiCard(
+                onClick = { onSelectApproach(row.id) },
+                variant =
+                    if (row.id == approaches.focusedApproachId) {
+                        RipDpiCardVariant.Elevated
+                    } else {
+                        RipDpiCardVariant.Outlined
+                    },
+            ) {
+                StatusIndicator(label = row.verificationState, tone = statusTone(row.tone))
+                Text(
+                    text = row.title,
+                    style = RipDpiThemeTokens.type.bodyEmphasis,
+                    color = RipDpiThemeTokens.colors.foreground,
+                )
+                Text(
+                    text = row.subtitle,
+                    style = RipDpiThemeTokens.type.secondaryBody,
+                    color = RipDpiThemeTokens.colors.mutedForeground,
+                )
+                MetricsRow(metrics = row.metrics)
+                Text(
+                    text = row.lastValidatedResult,
+                    style = RipDpiThemeTokens.type.secondaryBody,
+                    color = RipDpiThemeTokens.colors.foreground,
+                )
+                Text(
+                    text = row.dominantFailurePattern,
+                    style = RipDpiThemeTokens.type.secondaryBody,
+                    color = RipDpiThemeTokens.colors.mutedForeground,
+                )
+            }
+        }
+        // Share/Export section
+        item {
+            DiagnosticsPreviewCard(
+                title = share.previewTitle,
+                body = share.previewBody,
+                metrics = share.metrics,
+                archiveStateMessage = share.archiveStateMessage,
+                archiveStateTone = share.archiveStateTone,
+            )
+        }
+        item {
+            ShareActionCard(
+                title = stringResource(R.string.diagnostics_share_archive_title),
+                body = stringResource(R.string.diagnostics_share_archive_body),
+                buttonLabel = stringResource(R.string.diagnostics_share_archive_action),
+                onClick = { onShareArchive(share.targetSessionId) },
+                iconTint = RipDpiThemeTokens.colors.foreground,
+                modifier = Modifier.ripDpiTestTag(RipDpiTestTags.DiagnosticsShareArchive),
+                variant = RipDpiButtonVariant.Primary,
+                enabled = !share.isArchiveBusy,
+            )
+        }
+        item {
+            ShareActionCard(
+                title = stringResource(R.string.diagnostics_save_archive_title),
+                body =
+                    stringResource(
+                        R.string.diagnostics_save_archive_body,
+                        share.latestArchiveFileName ?: "latest archive",
+                    ),
+                buttonLabel = stringResource(R.string.diagnostics_save_archive_action),
+                onClick = { onSaveArchive(share.targetSessionId) },
+                iconTint = RipDpiThemeTokens.colors.info,
+                modifier = Modifier.ripDpiTestTag(RipDpiTestTags.DiagnosticsSaveArchive),
+                variant = RipDpiButtonVariant.Outline,
+                enabled = !share.isArchiveBusy,
+            )
+        }
+        item {
+            ShareActionCard(
+                title = stringResource(R.string.diagnostics_share_summary_title),
+                body = stringResource(R.string.diagnostics_share_summary_body),
+                buttonLabel = stringResource(R.string.diagnostics_share_summary_action),
+                onClick = { onShareSummary(share.targetSessionId) },
+                iconTint = RipDpiThemeTokens.colors.info,
+                modifier = Modifier.ripDpiTestTag(RipDpiTestTags.DiagnosticsShareSummary),
+                variant = RipDpiButtonVariant.Outline,
+            )
+        }
+        item {
+            ShareActionCard(
+                title = stringResource(R.string.diagnostics_save_logs_title),
+                body = stringResource(R.string.diagnostics_save_logs_body),
+                buttonLabel = stringResource(R.string.save_logs),
+                onClick = onSaveLogs,
+                iconTint = RipDpiThemeTokens.colors.warning,
+                modifier = Modifier.ripDpiTestTag(RipDpiTestTags.DiagnosticsSaveLogs),
+                variant = RipDpiButtonVariant.Outline,
+            )
         }
     }
 }
