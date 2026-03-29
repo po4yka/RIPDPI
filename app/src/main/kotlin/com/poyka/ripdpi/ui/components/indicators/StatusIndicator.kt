@@ -7,6 +7,7 @@ import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -20,6 +21,8 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -77,7 +80,7 @@ fun StatusIndicator(
                 ),
             label = "statusPulseScale",
         ) ?: rememberUpdatedState(1f)
-        )
+    )
     val pulseAlpha by (
         pulseTransition?.animateFloat(
             initialValue = 0.22f,
@@ -93,7 +96,7 @@ fun StatusIndicator(
                 ),
             label = "statusPulseAlpha",
         ) ?: rememberUpdatedState(0f)
-        )
+    )
 
     val statusDescription = stringResource(R.string.status_indicator_description, label)
     Row(
@@ -114,12 +117,52 @@ fun StatusIndicator(
                             .background(animatedIndicatorColor.copy(alpha = pulseAlpha), CircleShape),
                 )
             }
-            Box(
-                modifier =
-                    Modifier
-                        .size(8.dp)
-                        .background(animatedIndicatorColor, CircleShape),
-            )
+            when (tone) {
+                StatusIndicatorTone.Active -> {
+                    Box(
+                        modifier =
+                            Modifier
+                                .size(8.dp)
+                                .background(animatedIndicatorColor, CircleShape),
+                    )
+                }
+
+                StatusIndicatorTone.Warning -> {
+                    Canvas(modifier = Modifier.size(10.dp)) {
+                        val path =
+                            Path().apply {
+                                moveTo(size.width / 2f, 0f)
+                                lineTo(size.width, size.height)
+                                lineTo(0f, size.height)
+                                close()
+                            }
+                        drawPath(path, animatedIndicatorColor)
+                    }
+                }
+
+                StatusIndicatorTone.Error -> {
+                    Canvas(modifier = Modifier.size(8.dp)) {
+                        drawRect(animatedIndicatorColor)
+                    }
+                }
+
+                StatusIndicatorTone.Idle -> {
+                    Canvas(modifier = Modifier.size(9.dp)) {
+                        val cx = size.width / 2f
+                        val cy = size.height / 2f
+                        val r = size.width / 2f
+                        val path =
+                            Path().apply {
+                                moveTo(cx, cy - r)
+                                lineTo(cx + r, cy)
+                                lineTo(cx, cy + r)
+                                lineTo(cx - r, cy)
+                                close()
+                            }
+                        drawPath(path, animatedIndicatorColor)
+                    }
+                }
+            }
         }
         Text(
             text = label,
