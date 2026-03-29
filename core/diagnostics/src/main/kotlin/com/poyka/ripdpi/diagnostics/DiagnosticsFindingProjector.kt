@@ -126,6 +126,33 @@ class DiagnosticsFindingProjector
             dns.forEach { observation ->
                 val udpMs = observation.udpLatencyMs ?: return@forEach
                 val encMs = observation.encryptedLatencyMs ?: return@forEach
+                val isTampered =
+                    observation.status == DnsObservationStatus.SUBSTITUTION ||
+                        observation.status == DnsObservationStatus.NXDOMAIN
+                if (udpMs <= 5 && isTampered) {
+                    pushDiagnosis(
+                        diagnoses,
+                        seen,
+                        Diagnosis(
+                            code = "dns_injection_suspected",
+                            summary =
+                                "DNS response arrived in under 5ms with substituted answers, " +
+                                    "suggesting in-path injection",
+                            severity = "negative",
+                            target = observation.domain,
+                            evidence =
+                                buildList {
+                                    add("udpLatencyMs=$udpMs")
+                                    add("encryptedLatencyMs=$encMs")
+                                    addAll(observation.udpAddresses)
+                                    addAll(observation.encryptedAddresses)
+                                },
+                            recommendation =
+                                "DPI equipment is likely injecting forged DNS responses. " +
+                                    "Enable encrypted DNS (DoH/DoT) to bypass this injection.",
+                        ),
+                    )
+                }
                 if (udpMs > 3000 || (encMs > 0 && udpMs > encMs * 10)) {
                     pushDiagnosis(
                         diagnoses,

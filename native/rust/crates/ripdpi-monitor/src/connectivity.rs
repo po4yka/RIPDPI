@@ -9,8 +9,8 @@ use ripdpi_proxy_config::ProxyLogContext;
 use crate::types::SharedState;
 use crate::types::*;
 pub(crate) use probes::{
-    classify_dns_latency_quality, run_circumvention_probe, run_dns_probe, run_domain_probe, run_quic_probe,
-    run_service_probe, run_tcp_probe, run_throughput_probe,
+    classify_dns_latency_quality, is_dns_injection_suspected, run_circumvention_probe, run_dns_probe, run_domain_probe,
+    run_quic_probe, run_service_probe, run_tcp_probe, run_throughput_probe,
 };
 pub(crate) use report::{build_network_environment_probe, summarize_probe_event};
 
