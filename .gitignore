@@ -45,3 +45,6 @@ PROMPT.md
 .worktrees/
 .claude/worktrees/
 security-audit-report.*
+
+# Test artifact: adaptive tuning state written by soak tests with random ephemeral ports
+native/rust/crates/ripdpi-monitor/adaptive-tuning-v1.json
