@@ -65,7 +65,7 @@ fn cli_packet_smoke_tcp_fake_family() {
     run_capture_scenario(
         "cli_packet_smoke_tcp_fake_family",
         |_paths| {
-            vec!["-K", "t", "-t", "5", "-f", "host+1", "--fake-tls-profile", "google_chrome"]
+            vec!["-t", "5", "-f", "host+1", "--fake-tls-profile", "google_chrome"]
                 .into_iter()
                 .map(str::to_string)
                 .collect()
