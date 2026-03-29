@@ -112,9 +112,24 @@ impl RuntimeTelemetrySink for ProxyHarnessTelemetry {
         }
     }
 
-    fn on_host_autolearn_state(&self, enabled: bool, learned_host_count: usize, penalized_host_count: usize) {
+    fn on_host_autolearn_state(
+        &self,
+        enabled: bool,
+        learned_host_count: usize,
+        penalized_host_count: usize,
+        blocked_host_count: usize,
+        last_block_signal: Option<&str>,
+        last_block_provider: Option<&str>,
+    ) {
         if let Some(delegate) = &self.delegate {
-            delegate.on_host_autolearn_state(enabled, learned_host_count, penalized_host_count);
+            delegate.on_host_autolearn_state(
+                enabled,
+                learned_host_count,
+                penalized_host_count,
+                blocked_host_count,
+                last_block_signal,
+                last_block_provider,
+            );
         }
     }
 

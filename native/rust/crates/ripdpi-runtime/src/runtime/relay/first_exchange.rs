@@ -11,7 +11,7 @@ use ripdpi_failure_classifier::{
     classify_transport_error, ClassifiedFailure, FailureAction, FailureClass, FailureStage,
 };
 
-use super::super::routing::{classify_response_failure, runtime_supports_trigger};
+use super::super::routing::{classify_response_failure, note_block_signal_for_failure, runtime_supports_trigger};
 use super::super::state::RuntimeState;
 use super::tls_boundary::TlsRecordBoundaryTracker;
 
@@ -100,10 +100,10 @@ pub(super) fn read_first_response(
                         continue;
                     }
                 } else if config.timeouts.timeout_ms != 0 {
-                    Ok(FirstResponse::Failure {
-                        failure: classify_transport_error(FailureStage::FirstResponse, &err),
-                        response_bytes: None,
-                    })
+                    let failure = classify_transport_error(FailureStage::FirstResponse, &err);
+                    let retransmissions = platform::tcp_total_retransmissions(upstream).ok().flatten();
+                    note_block_signal_for_failure(state, host, &failure, retransmissions);
+                    Ok(FirstResponse::Failure { failure, response_bytes: None })
                 } else {
                     Ok(FirstResponse::NoData)
                 }
@@ -120,10 +120,14 @@ pub(super) fn read_first_response(
                         | io::ErrorKind::HostUnreachable
                 ) =>
             {
-                Ok(FirstResponse::Failure {
-                    failure: classify_transport_error(FailureStage::FirstResponse, &err),
-                    response_bytes: None,
-                })
+                let failure = classify_transport_error(FailureStage::FirstResponse, &err);
+                note_block_signal_for_failure(
+                    state,
+                    host,
+                    &failure,
+                    platform::tcp_total_retransmissions(upstream).ok().flatten(),
+                );
+                Ok(FirstResponse::Failure { failure, response_bytes: None })
             }
             Err(err) => Err(err),
         };

@@ -62,8 +62,24 @@ impl RuntimeTelemetrySink for TracingTelemetrySink {
         tracing::info!(%target, from_group, to_group, trigger, host, "route advanced");
     }
 
-    fn on_host_autolearn_state(&self, enabled: bool, learned: usize, penalized: usize) {
-        tracing::debug!(enabled, learned, penalized, "autolearn state");
+    fn on_host_autolearn_state(
+        &self,
+        enabled: bool,
+        learned: usize,
+        penalized: usize,
+        blocked: usize,
+        last_block_signal: Option<&str>,
+        last_block_provider: Option<&str>,
+    ) {
+        tracing::debug!(
+            enabled,
+            learned,
+            penalized,
+            blocked,
+            last_block_signal,
+            last_block_provider,
+            "autolearn state"
+        );
     }
 
     fn on_host_autolearn_event(&self, action: &'static str, host: Option<&str>, group: Option<usize>) {

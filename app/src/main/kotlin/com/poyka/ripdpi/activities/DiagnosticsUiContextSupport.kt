@@ -210,6 +210,10 @@ internal fun DiagnosticsUiFactorySupport.toLiveContextGroups(
                         context.service.penalizedHostCount.toString(),
                     ),
                     DiagnosticsFieldUiModel(
+                        this.context.getString(R.string.diagnostics_field_blocked_hosts),
+                        context.service.blockedHostCount.toString(),
+                    ),
+                    DiagnosticsFieldUiModel(
                         this.context.getString(R.string.diagnostics_field_last_host),
                         formatAutolearnHost(context.service.lastAutolearnHost),
                     ),
@@ -220,6 +224,14 @@ internal fun DiagnosticsUiFactorySupport.toLiveContextGroups(
                     DiagnosticsFieldUiModel(
                         this.context.getString(R.string.diagnostics_field_last_action),
                         formatAutolearnAction(context.service.lastAutolearnAction),
+                    ),
+                    DiagnosticsFieldUiModel(
+                        this.context.getString(R.string.diagnostics_field_last_block_signal),
+                        formatBlockSignal(context.service.lastBlockSignal),
+                    ),
+                    DiagnosticsFieldUiModel(
+                        this.context.getString(R.string.diagnostics_field_last_block_provider),
+                        formatBlockProvider(context.service.lastBlockProvider),
                     ),
                 ),
         ),
@@ -334,6 +346,10 @@ internal fun DiagnosticsUiFactorySupport.toContextUiGroups(
                         context.service.penalizedHostCount.toString(),
                     ),
                     DiagnosticsFieldUiModel(
+                        this.context.getString(R.string.diagnostics_field_blocked_hosts),
+                        context.service.blockedHostCount.toString(),
+                    ),
+                    DiagnosticsFieldUiModel(
                         this.context.getString(R.string.diagnostics_field_last_learned_host),
                         formatAutolearnHost(context.service.lastAutolearnHost),
                     ),
@@ -344,6 +360,14 @@ internal fun DiagnosticsUiFactorySupport.toContextUiGroups(
                     DiagnosticsFieldUiModel(
                         this.context.getString(R.string.diagnostics_field_last_autolearn_action),
                         formatAutolearnAction(context.service.lastAutolearnAction),
+                    ),
+                    DiagnosticsFieldUiModel(
+                        this.context.getString(R.string.diagnostics_field_last_block_signal),
+                        formatBlockSignal(context.service.lastBlockSignal),
+                    ),
+                    DiagnosticsFieldUiModel(
+                        this.context.getString(R.string.diagnostics_field_last_block_provider),
+                        formatBlockProvider(context.service.lastBlockProvider),
                     ),
                     DiagnosticsFieldUiModel(
                         this.context.getString(R.string.diagnostics_field_restart_count),
@@ -661,6 +685,9 @@ private fun DiagnosticsUiFactorySupport.buildHostAutolearnOverviewSummary(
             if (service.penalizedHostCount > 0) {
                 add(context.getString(R.string.diagnostics_autolearn_penalized_format, service.penalizedHostCount))
             }
+            if (service.blockedHostCount > 0) {
+                add(context.getString(R.string.diagnostics_autolearn_blocked_format, service.blockedHostCount))
+            }
         }
     return if (details.isEmpty()) state else "$state · ${details.joinToString(" · ")}"
 }
@@ -685,7 +712,37 @@ private fun DiagnosticsUiFactorySupport.formatAutolearnAction(value: String): St
     when (value.lowercase(Locale.US)) {
         "host_promoted" -> context.getString(R.string.diagnostics_autolearn_promoted)
         "group_penalized" -> context.getString(R.string.diagnostics_autolearn_penalized)
+        "host_blocked" -> context.getString(R.string.diagnostics_autolearn_host_blocked)
         "store_reset" -> context.getString(R.string.diagnostics_autolearn_store_reset)
         "none", "" -> context.getString(R.string.diagnostics_autolearn_none_yet)
         else -> value.replace('_', ' ').replaceFirstChar { it.uppercase(Locale.US) }
     }
+
+private fun DiagnosticsUiFactorySupport.formatBlockSignal(value: String): String =
+    when (value.lowercase(Locale.US)) {
+        "http_blockpage" -> context.getString(R.string.block_signal_http_blockpage)
+        "http_redirect" -> context.getString(R.string.block_signal_http_redirect)
+        "tls_alert" -> context.getString(R.string.block_signal_tls_alert)
+        "silent_drop" -> context.getString(R.string.block_signal_silent_drop)
+        "tcp_reset" -> context.getString(R.string.block_signal_tcp_reset)
+        "connection_freeze" -> context.getString(R.string.block_signal_connection_freeze)
+        "quic_breakage" -> context.getString(R.string.block_signal_quic_breakage)
+        "tcp_retransmissions" -> context.getString(R.string.block_signal_tcp_retransmissions)
+        "none", "" -> context.getString(R.string.diagnostics_autolearn_none_yet)
+        else -> value.replace('_', ' ').replaceFirstChar { it.uppercase(Locale.US) }
+    }
+
+private fun DiagnosticsUiFactorySupport.formatBlockProvider(value: String): String {
+    if (value.isBlank() || value == "none") {
+        return context.getString(R.string.diagnostics_autolearn_none_yet)
+    }
+    if (value.none { it == '_' || it == '-' || it == ' ' } && value.length <= 4) {
+        return value.uppercase(Locale.US)
+    }
+    return value
+        .split('_', '-', ' ')
+        .filter { it.isNotBlank() }
+        .joinToString(" ") { token ->
+            token.lowercase(Locale.US).replaceFirstChar { char -> char.uppercase(Locale.US) }
+        }
+}

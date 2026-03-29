@@ -6,11 +6,15 @@ use std::path::Path;
 
 use ring::digest;
 use ripdpi_config::RuntimeConfig;
+use ripdpi_failure_classifier::BlockSignal;
 
-use super::types::{LearnedHostRecord, LearnedHostStore, LearnedNetworkScopeStore, LoadLearnedHostStoreError};
+use super::types::{
+    HostAutolearnState, LearnedHostRecord, LearnedHostStore, LearnedNetworkScopeStore, LoadLearnedHostStoreError,
+    PendingBlockedHost,
+};
 use super::{
-    next_temp_file_nonce, now_millis, HostAutolearnEvent, RuntimePolicy, DEFAULT_NETWORK_SCOPE_KEY,
-    EMPTY_LEARNED_HOSTS, HOST_AUTOLEARN_STORE_VERSION,
+    next_temp_file_nonce, now_millis, HostAutolearnEvent, RuntimePolicy, BLOCKED_HOST_TTL_MS,
+    BLOCK_CONFIRMATION_WINDOW_MS, DEFAULT_NETWORK_SCOPE_KEY, EMPTY_LEARNED_HOSTS, HOST_AUTOLEARN_STORE_VERSION,
 };
 
 impl RuntimePolicy {
@@ -18,11 +22,30 @@ impl RuntimePolicy {
         self.autolearn_events.drain(..).collect()
     }
 
-    pub fn autolearn_state(&self, config: &RuntimeConfig) -> (bool, usize, usize) {
+    pub fn autolearn_state(&mut self, config: &RuntimeConfig) -> HostAutolearnState {
         let now_ms = now_millis();
+        self.prune_expired_autolearn_state(now_ms);
         let penalized =
             self.learned_hosts(config).values().filter(|record| host_has_active_penalty(record, now_ms)).count();
-        (config.host_autolearn.enabled, self.learned_hosts(config).len(), penalized)
+        let blocked =
+            self.learned_hosts(config).values().filter(|record| host_has_active_block(record, now_ms)).count();
+        let (last_block_signal, last_block_provider) = self
+            .learned_hosts(config)
+            .values()
+            .filter_map(|record| record.last_blocked_at_ms.map(|timestamp| (timestamp, record)))
+            .max_by_key(|(timestamp, _)| *timestamp)
+            .map(|(_, record)| {
+                (record.last_block_signal.map(|value| value.as_str().to_string()), record.last_block_provider.clone())
+            })
+            .unwrap_or((None, None));
+        HostAutolearnState {
+            enabled: config.host_autolearn.enabled,
+            learned_host_count: self.learned_hosts(config).len(),
+            penalized_host_count: penalized,
+            blocked_host_count: blocked,
+            last_block_signal,
+            last_block_provider,
+        }
     }
 
     pub(super) fn learned_hosts(&self, config: &RuntimeConfig) -> &BTreeMap<String, LearnedHostRecord> {
@@ -33,6 +56,13 @@ impl RuntimePolicy {
         self.learned_hosts_by_scope.entry(network_scope_key(config).to_owned()).or_default()
     }
 
+    pub(super) fn pending_blocked_hosts_mut(
+        &mut self,
+        config: &RuntimeConfig,
+    ) -> &mut BTreeMap<String, PendingBlockedHost> {
+        self.pending_blocked_hosts_by_scope.entry(network_scope_key(config).to_owned()).or_default()
+    }
+
     pub(crate) fn note_host_failure(&mut self, config: &RuntimeConfig, host: &str, group_index: usize) {
         if !config.host_autolearn.enabled {
             return;
@@ -41,6 +71,7 @@ impl RuntimePolicy {
             return;
         };
         let now_ms = now_millis();
+        self.prune_expired_autolearn_state(now_ms);
         let record = self.learned_hosts_mut(config).entry(host.clone()).or_default();
         let stats = record.group_stats.entry(group_index).or_default();
         stats.failure_count = stats.failure_count.saturating_add(1);
@@ -61,8 +92,12 @@ impl RuntimePolicy {
         if !config.host_autolearn.enabled {
             return;
         }
+        let Some(host) = normalize_learned_host(host) else {
+            return;
+        };
         let now_ms = now_millis();
-        let record = self.learned_hosts_mut(config).entry(host.to_owned()).or_default();
+        self.prune_expired_autolearn_state(now_ms);
+        let record = self.learned_hosts_mut(config).entry(host.clone()).or_default();
         let stats = record.group_stats.entry(group_index).or_default();
         stats.success_count = stats.success_count.saturating_add(1);
         stats.last_success_at_ms = now_ms;
@@ -73,9 +108,88 @@ impl RuntimePolicy {
         self.persist_host_store(config);
         self.autolearn_events.push_back(HostAutolearnEvent {
             action: "host_promoted",
-            host: Some(host.to_owned()),
+            host: Some(host),
             group_index: Some(group_index),
         });
+    }
+
+    pub(crate) fn note_block_signal(
+        &mut self,
+        config: &RuntimeConfig,
+        host: &str,
+        signal: BlockSignal,
+        provider: Option<&str>,
+        confirmation_allowed: bool,
+    ) {
+        if !config.host_autolearn.enabled || !confirmation_allowed {
+            return;
+        }
+        let Some(host) = normalize_learned_host(host) else {
+            return;
+        };
+        let provider = provider.map(str::trim).filter(|value| !value.is_empty()).map(ToOwned::to_owned);
+        let now_ms = now_millis();
+        self.prune_expired_autolearn_state(now_ms);
+        let already_blocked =
+            self.learned_hosts(config).get(&host).is_some_and(|record| host_has_active_block(record, now_ms));
+
+        let confirmed = if already_blocked {
+            let record = self.learned_hosts_mut(config).entry(host.clone()).or_default();
+            refresh_block_metadata(record, now_ms, signal, provider.clone());
+            true
+        } else {
+            let pending = self.pending_blocked_hosts_mut(config).entry(host.clone()).or_default();
+            if pending.first_detected_at_ms == 0
+                || now_ms.saturating_sub(pending.first_detected_at_ms) > BLOCK_CONFIRMATION_WINDOW_MS
+            {
+                pending.first_detected_at_ms = now_ms;
+                pending.count = 1;
+                pending.last_signal = Some(signal);
+                pending.last_provider = provider.clone();
+                false
+            } else {
+                pending.count = pending.count.saturating_add(1);
+                pending.last_signal = Some(signal);
+                pending.last_provider = provider.clone();
+                if pending.count >= 2 {
+                    let record = self.learned_hosts_mut(config).entry(host.clone()).or_default();
+                    refresh_block_metadata(record, now_ms, signal, provider.clone());
+                    self.pending_blocked_hosts_mut(config).remove(&host);
+                    true
+                } else {
+                    false
+                }
+            }
+        };
+
+        if !confirmed {
+            return;
+        }
+
+        self.enforce_autolearn_limit(config, now_ms);
+        self.persist_host_store(config);
+        if !already_blocked {
+            self.autolearn_events.push_back(HostAutolearnEvent {
+                action: "host_blocked",
+                host: Some(host),
+                group_index: None,
+            });
+        }
+    }
+
+    fn prune_expired_autolearn_state(&mut self, now_ms: u64) {
+        for hosts in self.learned_hosts_by_scope.values_mut() {
+            hosts.retain(|_, record| {
+                prune_expired_host_state(record, now_ms);
+                host_record_has_persisted_state(record)
+            });
+        }
+        for pending in self.pending_blocked_hosts_by_scope.values_mut() {
+            pending.retain(|_, record| {
+                record.first_detected_at_ms != 0
+                    && now_ms.saturating_sub(record.first_detected_at_ms) <= BLOCK_CONFIRMATION_WINDOW_MS
+            });
+        }
     }
 
     fn enforce_autolearn_limit(&mut self, config: &RuntimeConfig, now_ms: u64) {
@@ -163,6 +277,7 @@ pub(super) fn load_learned_host_store(
     if store.version != HOST_AUTOLEARN_STORE_VERSION || store.fingerprint != config_fingerprint(config) {
         return Err(LoadLearnedHostStoreError::Invalidated);
     }
+    let now_ms = now_millis();
     Ok(store
         .scopes
         .into_iter()
@@ -172,10 +287,10 @@ pub(super) fn load_learned_host_store(
                 .into_iter()
                 .filter_map(|(host, mut record)| {
                     let normalized_host = normalize_learned_host(&host)?;
+                    prune_expired_host_state(&mut record, now_ms);
                     record.preferred_groups.retain(|group_index| *group_index < config.groups.len());
                     record.group_stats.retain(|group_index, _| *group_index < config.groups.len());
-                    (!record.preferred_groups.is_empty() || !record.group_stats.is_empty())
-                        .then_some((normalized_host, record))
+                    host_record_has_persisted_state(&record).then_some((normalized_host, record))
                 })
                 .collect::<BTreeMap<_, _>>();
             (scope, hosts)
@@ -197,6 +312,39 @@ fn promote_group(record: &mut LearnedHostRecord, group_index: usize) {
 
 fn host_has_active_penalty(record: &LearnedHostRecord, now_ms: u64) -> bool {
     record.group_stats.values().any(|stats| stats.penalty_until_ms > now_ms)
+}
+
+pub(super) fn host_has_active_block(record: &LearnedHostRecord, now_ms: u64) -> bool {
+    record.blocked_until_ms.is_some_and(|value| value > now_ms)
+}
+
+pub(super) fn record_has_learned_winner(record: &LearnedHostRecord) -> bool {
+    record.group_stats.values().any(|stats| stats.success_count > 0)
+}
+
+pub(super) fn host_penalty_active_for_group(record: &LearnedHostRecord, group_index: usize, now_ms: u64) -> bool {
+    record.group_stats.get(&group_index).is_some_and(|stats| stats.penalty_until_ms > now_ms)
+}
+
+fn refresh_block_metadata(record: &mut LearnedHostRecord, now_ms: u64, signal: BlockSignal, provider: Option<String>) {
+    record.blocked_until_ms = Some(now_ms.saturating_add(BLOCKED_HOST_TTL_MS));
+    record.last_blocked_at_ms = Some(now_ms);
+    record.last_block_signal = Some(signal);
+    record.last_block_provider = provider;
+    record.updated_at_ms = now_ms;
+}
+
+fn prune_expired_host_state(record: &mut LearnedHostRecord, now_ms: u64) {
+    if record.blocked_until_ms.is_some_and(|value| value <= now_ms) {
+        record.blocked_until_ms = None;
+    }
+}
+
+fn host_record_has_persisted_state(record: &LearnedHostRecord) -> bool {
+    !record.preferred_groups.is_empty()
+        || !record.group_stats.is_empty()
+        || record.blocked_until_ms.is_some()
+        || record.last_blocked_at_ms.is_some()
 }
 
 pub(super) fn normalize_learned_host(host: &str) -> Option<String> {
@@ -258,6 +406,7 @@ mod tests {
     use crate::runtime_policy::test_support::{autolearn_config, sample_dest};
     use crate::runtime_policy::types::LearnedGroupStats;
     use crate::runtime_policy::{ConnectionRoute, RuntimePolicy};
+    use serde_json::json;
 
     #[test]
     fn successful_fallback_promotes_final_group_for_host() {
@@ -424,6 +573,159 @@ mod tests {
         let reloaded_b = RuntimePolicy::load(&config_b);
         assert!(reloaded_b.learned_hosts(&config_b).contains_key("beta.example"));
         assert!(!reloaded_b.learned_hosts(&config_b).contains_key("alpha.example"));
+    }
+
+    #[test]
+    fn block_signal_requires_two_confirmations_within_window() {
+        let config = autolearn_config(1, 32);
+        let mut policy = RuntimePolicy::load(&config);
+
+        policy.note_block_signal(&config, "example.org", BlockSignal::TcpReset, Some("rkn"), true);
+        assert_eq!(policy.autolearn_state(&config).blocked_host_count, 0);
+        assert!(policy.drain_autolearn_events().is_empty());
+
+        let pending = policy.pending_blocked_hosts_mut(&config).get("example.org").cloned().expect("pending host");
+        assert_eq!(pending.count, 1);
+        assert_eq!(pending.last_signal, Some(BlockSignal::TcpReset));
+        assert_eq!(pending.last_provider.as_deref(), Some("rkn"));
+
+        policy.note_block_signal(&config, "example.org", BlockSignal::TcpReset, Some("rkn"), true);
+
+        let state = policy.autolearn_state(&config);
+        assert_eq!(state.blocked_host_count, 1);
+        assert_eq!(state.last_block_signal.as_deref(), Some("tcp_reset"));
+        assert_eq!(state.last_block_provider.as_deref(), Some("rkn"));
+
+        let record = policy.learned_hosts(&config).get("example.org").expect("blocked host");
+        assert!(host_has_active_block(record, now_millis()));
+        assert_eq!(record.last_block_signal, Some(BlockSignal::TcpReset));
+        assert_eq!(record.last_block_provider.as_deref(), Some("rkn"));
+
+        let events = policy.drain_autolearn_events();
+        assert!(events.iter().any(|event| {
+            event.action == "host_blocked"
+                && event.host.as_deref() == Some("example.org")
+                && event.group_index.is_none()
+        }));
+    }
+
+    #[test]
+    fn stale_pending_block_confirmation_resets_after_window() {
+        let config = autolearn_config(1, 32);
+        let mut policy = RuntimePolicy::load(&config);
+
+        policy.note_block_signal(&config, "example.org", BlockSignal::TcpReset, None, true);
+        policy.pending_blocked_hosts_mut(&config).get_mut("example.org").expect("pending host").first_detected_at_ms =
+            now_millis().saturating_sub(BLOCK_CONFIRMATION_WINDOW_MS + 1);
+
+        policy.note_block_signal(&config, "example.org", BlockSignal::TcpReset, None, true);
+
+        assert_eq!(policy.autolearn_state(&config).blocked_host_count, 0);
+        let pending = policy.pending_blocked_hosts_mut(&config).get("example.org").expect("reset pending host");
+        assert_eq!(pending.count, 1);
+    }
+
+    #[test]
+    fn blocked_host_state_refreshes_and_expires() {
+        let config = autolearn_config(1, 32);
+        let mut policy = RuntimePolicy::load(&config);
+
+        policy.note_block_signal(&config, "example.org", BlockSignal::TcpReset, Some("rkn"), true);
+        policy.note_block_signal(&config, "example.org", BlockSignal::TcpReset, Some("rkn"), true);
+
+        let old_until = {
+            let record = policy.learned_hosts_mut(&config).get_mut("example.org").expect("blocked host");
+            record.blocked_until_ms = Some(now_millis().saturating_add(1_000));
+            record.blocked_until_ms.expect("old ttl")
+        };
+        policy.note_block_signal(&config, "example.org", BlockSignal::TcpReset, Some("rkn"), true);
+        let refreshed_until = policy
+            .learned_hosts(&config)
+            .get("example.org")
+            .and_then(|record| record.blocked_until_ms)
+            .expect("refreshed blocked ttl");
+        assert!(refreshed_until > old_until);
+
+        policy.learned_hosts_mut(&config).get_mut("example.org").expect("blocked host").blocked_until_ms =
+            Some(now_millis().saturating_sub(1));
+
+        let state = policy.autolearn_state(&config);
+        assert_eq!(state.blocked_host_count, 0);
+        assert!(policy
+            .learned_hosts(&config)
+            .get("example.org")
+            .expect("persisted host detail")
+            .blocked_until_ms
+            .is_none());
+    }
+
+    #[test]
+    fn blocked_host_store_is_scoped_by_network_scope_key() {
+        let mut config_a = autolearn_config(1, 32);
+        let path = config_a.host_autolearn.store_path.clone().expect("store path");
+        config_a.adaptive.network_scope_key = Some("scope-a".to_string());
+
+        let mut policy_a = RuntimePolicy::load(&config_a);
+        policy_a.note_block_signal(&config_a, "alpha.example", BlockSignal::TcpReset, Some("rkn"), true);
+        policy_a.note_block_signal(&config_a, "alpha.example", BlockSignal::TcpReset, Some("rkn"), true);
+
+        let mut config_b = autolearn_config(1, 32);
+        config_b.host_autolearn.store_path = Some(path);
+        config_b.adaptive.network_scope_key = Some("scope-b".to_string());
+
+        let mut policy_b = RuntimePolicy::load(&config_b);
+        assert_eq!(policy_b.autolearn_state(&config_b).blocked_host_count, 0);
+        policy_b.note_block_signal(&config_b, "beta.example", BlockSignal::TcpReset, None, true);
+        policy_b.note_block_signal(&config_b, "beta.example", BlockSignal::TcpReset, None, true);
+
+        let mut reloaded_a = RuntimePolicy::load(&config_a);
+        assert_eq!(reloaded_a.autolearn_state(&config_a).blocked_host_count, 1);
+        assert!(reloaded_a.learned_hosts(&config_a).contains_key("alpha.example"));
+        assert!(!reloaded_a.learned_hosts(&config_a).contains_key("beta.example"));
+
+        let mut reloaded_b = RuntimePolicy::load(&config_b);
+        assert_eq!(reloaded_b.autolearn_state(&config_b).blocked_host_count, 1);
+        assert!(reloaded_b.learned_hosts(&config_b).contains_key("beta.example"));
+        assert!(!reloaded_b.learned_hosts(&config_b).contains_key("alpha.example"));
+    }
+
+    #[test]
+    fn load_learned_host_store_accepts_records_without_block_metadata() {
+        let config = autolearn_config(1, 32);
+        let store_path = config.host_autolearn.store_path.clone().expect("store path");
+        let payload = json!({
+            "version": HOST_AUTOLEARN_STORE_VERSION,
+            "fingerprint": config_fingerprint(&config),
+            "scopes": {
+                DEFAULT_NETWORK_SCOPE_KEY: {
+                    "hosts": {
+                        "example.org": {
+                            "preferred_groups": [0],
+                            "group_stats": {
+                                "0": {
+                                    "success_count": 1,
+                                    "failure_count": 0,
+                                    "penalty_until_ms": 0,
+                                    "last_success_at_ms": 1,
+                                    "last_failure_at_ms": 0
+                                }
+                            },
+                            "updated_at_ms": 1
+                        }
+                    }
+                }
+            }
+        });
+        fs::write(&store_path, serde_json::to_vec_pretty(&payload).expect("serialize old store payload"))
+            .expect("write old store payload");
+
+        let policy = RuntimePolicy::load(&config);
+        let record = policy.learned_hosts(&config).get("example.org").expect("loaded host");
+        assert_eq!(record.preferred_groups, vec![0]);
+        assert!(record.blocked_until_ms.is_none());
+        assert!(record.last_blocked_at_ms.is_none());
+        assert!(record.last_block_signal.is_none());
+        assert!(record.last_block_provider.is_none());
     }
 
     // -- config_fingerprint unit tests --

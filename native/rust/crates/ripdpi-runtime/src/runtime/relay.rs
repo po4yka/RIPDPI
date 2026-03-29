@@ -10,7 +10,7 @@ use crate::runtime_policy::ConnectionRoute;
 
 use self::failure_retry::{prepare_relay, record_stream_relay_success, PreparedRelay};
 use self::stream_copy::{relay_streams, CONNECTION_FREEZE_MARKER};
-use super::routing::emit_failure_classified;
+use super::routing::{emit_failure_classified, note_block_signal_for_failure};
 use super::state::RuntimeState;
 
 #[cfg(test)]
@@ -73,6 +73,7 @@ pub(super) fn relay(
                 state.config.timeouts.freeze_max_stalls,
                 state.config.timeouts.freeze_window_ms,
             );
+            note_block_signal_for_failure(state, success_host.as_deref(), &failure, None);
             emit_failure_classified(state, target, &failure, success_host.as_deref());
             relay_result.map(|_| ())
         }

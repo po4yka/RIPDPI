@@ -6,7 +6,7 @@ use crate::adaptive_tuning::AdaptivePlannerResolver;
 use crate::retry_stealth::RetryPacer;
 use crate::runtime_policy::RuntimePolicy;
 use crate::strategy_evolver::StrategyEvolver;
-use crate::RuntimeTelemetrySink;
+use crate::{EmbeddedProxyControl, RuntimeTelemetrySink};
 use ripdpi_config::RuntimeConfig;
 use ripdpi_proxy_config::ProxyRuntimeContext;
 
@@ -28,6 +28,7 @@ pub(super) struct RuntimeState {
     pub(super) active_clients: Arc<AtomicUsize>,
     pub(super) telemetry: Option<std::sync::Arc<dyn RuntimeTelemetrySink>>,
     pub(super) runtime_context: Option<ProxyRuntimeContext>,
+    pub(super) control: Option<std::sync::Arc<EmbeddedProxyControl>>,
     /// Session-level flag: once any connection discovers that per-socket TTL
     /// modification is rejected by the kernel (EROFS on Android), all
     /// subsequent connections skip TTL desync actions immediately.
@@ -81,8 +82,15 @@ pub(super) fn flush_autolearn_updates(state: &RuntimeState, cache: &mut RuntimeP
         let _ = cache.drain_autolearn_events();
         return;
     };
-    let (enabled, learned_host_count, penalized_host_count) = cache.autolearn_state(&state.config);
-    telemetry.on_host_autolearn_state(enabled, learned_host_count, penalized_host_count);
+    let autolearn = cache.autolearn_state(&state.config);
+    telemetry.on_host_autolearn_state(
+        autolearn.enabled,
+        autolearn.learned_host_count,
+        autolearn.penalized_host_count,
+        autolearn.blocked_host_count,
+        autolearn.last_block_signal.as_deref(),
+        autolearn.last_block_provider.as_deref(),
+    );
     for event in cache.drain_autolearn_events() {
         telemetry.on_host_autolearn_event(event.action, event.host.as_deref(), event.group_index);
     }

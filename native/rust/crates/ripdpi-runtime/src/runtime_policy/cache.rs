@@ -49,7 +49,15 @@ impl RuntimePolicy {
                 Err(super::types::LoadLearnedHostStoreError::Io) => {}
             }
         }
-        Self { records, groups, order, learned_hosts_by_scope, autolearn_events, last_persist_at_ms: 0 }
+        Self {
+            records,
+            groups,
+            order,
+            learned_hosts_by_scope,
+            pending_blocked_hosts_by_scope: BTreeMap::new(),
+            autolearn_events,
+            last_persist_at_ms: 0,
+        }
     }
 
     pub(crate) fn lookup_and_prune(
@@ -227,6 +235,7 @@ mod tests {
             groups: vec![GroupPolicy { detect: 0, fail_count: 0, pri: 0 }],
             order: vec![0],
             learned_hosts_by_scope: BTreeMap::default(),
+            pending_blocked_hosts_by_scope: BTreeMap::default(),
             autolearn_events: VecDeque::default(),
             last_persist_at_ms: 0,
         };

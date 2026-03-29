@@ -1,0 +1,25 @@
+name,location_found,pattern_type,pattern,scope,confidence_no_fp
+rkn_standard,body,contains,zapret-info.gov.ru,nat,high
+rkn_nap,body,contains,eais.rkn.gov.ru,nat,high
+rkn_decision,body,contains,решением суда,nat,high
+rkn_blocked_ru,body,contains,доступ ограничен,nat,high
+rkn_blocked_en,body,contains,access to the resource is restricted,nat,high
+rkn_registry,body,contains,реестр запрещённых,nat,high
+mts_block,body,contains,blocked.mts.ru,isp,high
+beeline_block,body,contains,blacklist.beeline.ru,isp,high
+megafon_block,body,contains,block.megafon.ru,isp,high
+tele2_block,body,contains,block.tele2.ru,isp,high
+rostelecom_block,body,contains,warning.rt.ru,isp,high
+rostelecom_filter,body,contains,filter.ertelecom.ru,isp,high
+ttk_block,body,contains,block.ttk.ru,isp,high
+dom_ru_block,body,contains,domru.ru/block,isp,high
+mts_header,header.server,contains,MTS Proxy,isp,medium
+squid_deny,body,contains,ERR_ACCESS_DENIED,prod,medium
+fortinet_block,body,contains,FortiGuard,prod,medium
+bluecoat_block,body,contains,Blue Coat,prod,medium
+nfware_block,body,contains,nfware.com,prod,medium
+generic_451,body,contains,unavailable for legal reasons,nat,medium
+generic_restricted,body,contains,this website has been blocked,nat,medium
+generic_govblock,body,contains,blocked by the government,nat,medium
+generic_isp_block,body,contains,blocked by your internet service provider,nat,medium
+cloudflare_1xxx,body,contains,error 1000,prod,low

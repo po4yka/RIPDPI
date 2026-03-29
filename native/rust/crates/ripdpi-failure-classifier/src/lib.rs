@@ -5,6 +5,14 @@ use std::net::IpAddr;
 
 use serde::{Deserialize, Serialize};
 
+pub mod block_detection;
+
+pub use block_detection::{
+    block_signal_from_failure, bundled_blockpage_fingerprints, classify_http_response_block,
+    load_blockpage_fingerprints, match_blockpage_response, BlockSignal, BlockSignalObservation, BlockpageFingerprint,
+    FingerprintLocation, PatternType,
+};
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum FailureClass {
@@ -231,24 +239,7 @@ pub fn classify_redirect_failure(summary: impl Into<String>) -> ClassifiedFailur
 }
 
 pub fn classify_http_blockpage(response: &[u8]) -> Option<ClassifiedFailure> {
-    let response = parse_http_response(response)?;
-    let status_code = response.status_code;
-    let body_text = String::from_utf8_lossy(&response.body).to_ascii_lowercase();
-    let is_blockpage =
-        status_code == 403 || status_code == 451 || status_code == 302 || body_has_blockpage_keywords(&body_text);
-    if !is_blockpage {
-        return None;
-    }
-
-    Some(
-        ClassifiedFailure::new(
-            FailureClass::HttpBlockpage,
-            FailureStage::HttpResponse,
-            FailureAction::RetryWithMatchingGroup,
-            format!("HTTP blockpage with status {status_code}"),
-        )
-        .with_tag("status", status_code.to_string()),
-    )
+    classify_http_response_block(response).filter(|failure| failure.class == FailureClass::HttpBlockpage)
 }
 
 pub fn classify_quic_probe(outcome: &str, error: Option<&str>) -> Option<ClassifiedFailure> {
@@ -321,33 +312,6 @@ fn tls_alert_description(alert: Option<u8>) -> &'static str {
         Some(_) => "other",
         None => "unknown",
     }
-}
-
-struct ParsedHttpResponse {
-    status_code: u16,
-    body: Vec<u8>,
-}
-
-fn parse_http_response(response: &[u8]) -> Option<ParsedHttpResponse> {
-    let headers_end = find_headers_end(response)?;
-    let headers = std::str::from_utf8(&response[..headers_end]).ok()?;
-    let mut lines = headers.split("\r\n");
-    let status_line = lines.next()?;
-    if !status_line.starts_with("HTTP/1.") {
-        return None;
-    }
-    let mut parts = status_line.splitn(3, ' ');
-    let _ = parts.next()?;
-    let status_code = parts.next()?.parse::<u16>().ok()?;
-    Some(ParsedHttpResponse { status_code, body: response[headers_end + 4..].to_vec() })
-}
-
-fn find_headers_end(response: &[u8]) -> Option<usize> {
-    response.windows(4).position(|window| window == b"\r\n\r\n")
-}
-
-fn body_has_blockpage_keywords(body: &str) -> bool {
-    ["blocked", "access denied", "forbidden", "restriction", "censorship"].iter().any(|needle| body.contains(needle))
 }
 
 fn is_strategy_execution_errno(errno: i32) -> bool {

@@ -1,5 +1,6 @@
 use std::io;
 use std::net::{IpAddr, SocketAddr, TcpStream, UdpSocket};
+use std::os::fd::AsRawFd;
 use std::sync::OnceLock;
 use std::time::Duration;
 
@@ -249,6 +250,16 @@ pub fn tcp_round_trip_time_ms(stream: &TcpStream) -> io::Result<Option<u64>> {
 
 #[cfg(not(any(target_os = "linux", target_os = "android")))]
 pub fn tcp_round_trip_time_ms(_stream: &TcpStream) -> io::Result<Option<u64>> {
+    Ok(None)
+}
+
+#[cfg(any(target_os = "linux", target_os = "android"))]
+pub fn tcp_total_retransmissions<T: AsRawFd>(socket: &T) -> io::Result<Option<u32>> {
+    linux::tcp_total_retransmissions(socket)
+}
+
+#[cfg(not(any(target_os = "linux", target_os = "android")))]
+pub fn tcp_total_retransmissions<T: AsRawFd>(_socket: &T) -> io::Result<Option<u32>> {
     Ok(None)
 }
 
