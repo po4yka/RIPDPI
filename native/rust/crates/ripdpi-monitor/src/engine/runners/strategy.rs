@@ -5,21 +5,26 @@ use std::time::Duration;
 use ripdpi_failure_classifier::FailureClass;
 use rustls::client::danger::ServerCertVerifier;
 
-use crate::candidates::{build_quic_candidates_for_suite, build_strategy_probe_summary, candidate_pause_ms};
+use crate::candidates::{
+    build_quic_candidates_for_suite, build_strategy_probe_summary, candidate_pause_ms, CandidateEligibility,
+    StrategyCandidateSpec,
+};
 use crate::classification::{
     classified_failure_probe_result, classify_strategy_probe_baseline_observations, filter_quic_candidates_for_failure,
     interleave_candidate_families, next_candidate_index, reorder_tcp_candidates_for_failure,
 };
 use crate::connectivity::set_progress;
 use crate::execution::{
-    execute_quic_candidate, execute_tcp_candidate, skipped_candidate_summary, winning_candidate_index,
+    execute_quic_candidate, execute_tcp_candidate, not_applicable_candidate_execution, skipped_candidate_summary,
+    winning_candidate_index,
 };
 use crate::observations::observations_for_results;
 use crate::strategy::detect_strategy_probe_dns_tampering;
 use crate::types::{
-    ScanProgress, StrategyProbeAuditAssessment, StrategyProbeAuditConfidence, StrategyProbeAuditConfidenceLevel,
-    StrategyProbeAuditCoverage, StrategyProbeCandidateSummary, StrategyProbeCompletionKind, StrategyProbeLiveProgress,
-    StrategyProbeProgressLane, StrategyProbeRecommendation, StrategyProbeReport,
+    ProbeResult, ScanProgress, StrategyProbeAuditAssessment, StrategyProbeAuditConfidence,
+    StrategyProbeAuditConfidenceLevel, StrategyProbeAuditCoverage, StrategyProbeCandidateSummary,
+    StrategyProbeCompletionKind, StrategyProbeLiveProgress, StrategyProbeProgressLane, StrategyProbeRecommendation,
+    StrategyProbeReport,
 };
 use crate::util::{stable_probe_hash, STRATEGY_PROBE_SUITE_FULL_MATRIX_V1};
 
@@ -32,6 +37,9 @@ pub(super) struct StrategyDnsBaselineRunner;
 pub(super) struct StrategyTcpRunner;
 pub(super) struct StrategyQuicRunner;
 pub(super) struct StrategyRecommendationRunner;
+
+const ECH_ELIGIBILITY_RATIONALE: &str =
+    "Baseline did not expose an ECH-capable HTTPS target, so ECH extension splitting would be a no-op";
 
 fn resolve_recommended_proxy_config_json(
     quic_candidate: &crate::types::StrategyProbeCandidateSummary,
@@ -58,6 +66,47 @@ fn strategy_probe_live_progress(
         candidate_id: candidate_id.to_string(),
         candidate_label: candidate_label.to_string(),
     }
+}
+
+fn probe_detail_value<'a>(result: &'a ProbeResult, key: &str) -> Option<&'a str> {
+    result.details.iter().find(|detail| detail.key == key).map(|detail| detail.value.as_str())
+}
+
+fn baseline_has_tls_ech_only(results: &[ProbeResult]) -> bool {
+    results.iter().any(|result| result.probe_type == "strategy_https" && result.outcome == "tls_ech_only")
+}
+
+fn baseline_supports_ech_candidates(results: &[ProbeResult]) -> bool {
+    results.iter().any(|result| {
+        result.probe_type == "strategy_https"
+            && (result.outcome == "tls_ech_only"
+                || probe_detail_value(result, "tlsEchResolutionDetail") == Some("ech_config_available"))
+    })
+}
+
+fn ordered_follow_up_tcp_candidates(
+    tcp_specs: &[StrategyCandidateSpec],
+    failure_class: Option<FailureClass>,
+    baseline_results: &[ProbeResult],
+    probe_seed: u64,
+) -> Vec<StrategyCandidateSpec> {
+    let reordered =
+        reorder_tcp_candidates_for_failure(tcp_specs, failure_class).into_iter().skip(1).collect::<Vec<_>>();
+    if !baseline_has_tls_ech_only(baseline_results) {
+        return interleave_candidate_families(reordered, probe_seed);
+    }
+
+    let mut ech_priority = Vec::new();
+    let mut remaining = Vec::new();
+    for spec in reordered {
+        if spec.eligibility == CandidateEligibility::RequiresEchCapability {
+            ech_priority.push(spec);
+        } else {
+            remaining.push(spec);
+        }
+    }
+    ech_priority.extend(interleave_candidate_families(remaining, probe_seed));
+    ech_priority
 }
 
 #[derive(Clone, Copy)]
@@ -453,14 +502,11 @@ impl ExecutionStageRunner for StrategyTcpRunner {
             )));
         }
 
-        let ordered_tcp_specs = interleave_candidate_families(
-            reorder_tcp_candidates_for_failure(
-                tcp_specs,
-                runtime.strategy.baseline_failure.as_ref().map(|value| value.class),
-            )
-            .into_iter()
-            .skip(1)
-            .collect(),
+        let baseline_ech_capable = baseline_supports_ech_candidates(&baseline_execution.results);
+        let ordered_tcp_specs = ordered_follow_up_tcp_candidates(
+            tcp_specs,
+            runtime.strategy.baseline_failure.as_ref().map(|value| value.class),
+            &baseline_execution.results,
             strategy_plan.probe_seed,
         );
         let mut pending_tcp_specs = ordered_tcp_specs;
@@ -502,6 +548,36 @@ impl ExecutionStageRunner for StrategyTcpRunner {
                     Some(summary.outcome.clone()),
                     format!("Skipped {}", summary.label),
                 );
+                continue;
+            }
+            if spec.eligibility == CandidateEligibility::RequiresEchCapability && !baseline_ech_capable {
+                let execution = not_applicable_candidate_execution(
+                    &spec,
+                    plan.request.domain_targets.len() * 2,
+                    3,
+                    ECH_ELIGIBILITY_RATIONALE,
+                );
+                runtime.record_step_with_strategy_probe_progress(
+                    plan,
+                    self.phase(),
+                    format!("Marked {} as not applicable", spec.label),
+                    Some(spec.label.to_string()),
+                    Some(execution.summary.outcome.clone()),
+                    Some(strategy_probe_live_progress(
+                        StrategyProbeProgressLane::Tcp,
+                        candidate_index,
+                        tcp_candidate_total,
+                        spec.id,
+                        spec.label,
+                    )),
+                    RunnerArtifacts::from_results(
+                        execution.results.clone(),
+                        "strategy_probe",
+                        "info",
+                        format!("Skipped execution for {}", spec.label),
+                    ),
+                );
+                runtime.strategy.tcp_candidates.push(execution.summary);
                 continue;
             }
 
@@ -824,10 +900,19 @@ impl ExecutionStageRunner for StrategyRecommendationRunner {
 
 #[cfg(test)]
 mod tests {
+    use ripdpi_failure_classifier::FailureClass;
     use ripdpi_proxy_config::{parse_proxy_config_json, ProxyConfigPayload, ProxyUiConfig};
 
-    use super::{resolve_recommended_proxy_config_json, resolve_strategy_probe_audit_assessment};
-    use crate::types::{StrategyProbeAuditConfidenceLevel, StrategyProbeCandidateSummary, StrategyProbeRecommendation};
+    use super::{
+        baseline_has_tls_ech_only, baseline_supports_ech_candidates, ordered_follow_up_tcp_candidates,
+        resolve_recommended_proxy_config_json, resolve_strategy_probe_audit_assessment,
+    };
+    use crate::candidates::{build_tcp_candidates, CandidateEligibility};
+    use crate::classification::{interleave_candidate_families, reorder_tcp_candidates_for_failure};
+    use crate::types::{
+        ProbeDetail, ProbeResult, StrategyProbeAuditConfidenceLevel, StrategyProbeCandidateSummary,
+        StrategyProbeRecommendation,
+    };
     use crate::util::STRATEGY_PROBE_SUITE_FULL_MATRIX_V1;
 
     fn quic_candidate_summary(proxy_config_json: Option<String>) -> StrategyProbeCandidateSummary {
@@ -888,6 +973,18 @@ mod tests {
         }
     }
 
+    fn baseline_https_result(outcome: &str, tls_ech_resolution_detail: &str) -> ProbeResult {
+        ProbeResult {
+            probe_type: "strategy_https".to_string(),
+            target: "baseline_current · example.com".to_string(),
+            outcome: outcome.to_string(),
+            details: vec![
+                ProbeDetail { key: "candidateId".to_string(), value: "baseline_current".to_string() },
+                ProbeDetail { key: "tlsEchResolutionDetail".to_string(), value: tls_ech_resolution_detail.to_string() },
+            ],
+        }
+    }
+
     #[test]
     fn resolve_recommended_proxy_config_json_prefers_winning_quic_summary_config() {
         let mut composed_config = ProxyUiConfig::default();
@@ -938,6 +1035,55 @@ mod tests {
             }
             ProxyConfigPayload::CommandLine { .. } => panic!("expected UI proxy config"),
         }
+    }
+
+    #[test]
+    fn baseline_ech_detection_recognizes_resolution_detail_and_tls_ech_only() {
+        assert!(baseline_supports_ech_candidates(&[baseline_https_result("tls_ok", "ech_config_available")]));
+        assert!(baseline_supports_ech_candidates(&[baseline_https_result("tls_ech_only", "none")]));
+        assert!(baseline_has_tls_ech_only(&[baseline_https_result("tls_ech_only", "none")]));
+        assert!(!baseline_supports_ech_candidates(&[baseline_https_result("tls_ok", "none")]));
+        assert!(!baseline_has_tls_ech_only(&[baseline_https_result("tls_ok", "ech_config_available")]));
+    }
+
+    #[test]
+    fn ordered_follow_up_tcp_candidates_prioritize_ech_candidates_after_tls_ech_only_baseline() {
+        let candidates = build_tcp_candidates(&ProxyUiConfig::default());
+
+        let ordered = ordered_follow_up_tcp_candidates(
+            &candidates,
+            Some(FailureClass::TlsAlert),
+            &[baseline_https_result("tls_ech_only", "ech_config_available")],
+            7,
+        );
+        let ids = ordered.iter().take(2).map(|candidate| candidate.id).collect::<Vec<_>>();
+
+        assert_eq!(ids, vec!["ech_split", "ech_tlsrec"]);
+        assert!(ordered
+            .iter()
+            .take(2)
+            .all(|candidate| candidate.eligibility == CandidateEligibility::RequiresEchCapability));
+    }
+
+    #[test]
+    fn ordered_follow_up_tcp_candidates_keep_normal_order_without_tls_ech_only_baseline() {
+        let candidates = build_tcp_candidates(&ProxyUiConfig::default());
+        let expected = interleave_candidate_families(
+            reorder_tcp_candidates_for_failure(&candidates, Some(FailureClass::TlsAlert)).into_iter().skip(1).collect(),
+            7,
+        );
+
+        let ordered = ordered_follow_up_tcp_candidates(
+            &candidates,
+            Some(FailureClass::TlsAlert),
+            &[baseline_https_result("tls_ok", "ech_config_available")],
+            7,
+        );
+
+        assert_eq!(
+            ordered.iter().map(|candidate| candidate.id).collect::<Vec<_>>(),
+            expected.iter().map(|candidate| candidate.id).collect::<Vec<_>>()
+        );
     }
 
     #[test]

@@ -19,7 +19,7 @@ const val AdaptiveMarkerSniExt = "auto(sniext)"
 const val AdaptiveMarkerExtLen = "auto(extlen)"
 
 private val NumericOffsetPattern = Regex("^[+-]?\\d+$")
-private val NamedOffsetPattern = Regex("^(abs|host|endhost|sld|midsld|endsld|method|extlen|sniext)([+-]\\d+)?$")
+private val NamedOffsetPattern = Regex("^(abs|host|endhost|sld|midsld|endsld|method|extlen|echext|sniext)([+-]\\d+)?$")
 private val AdaptiveOffsetPattern =
     Regex("^auto\\((balanced|host|midsld|endhost|method|sniext|extlen)\\)$", RegexOption.IGNORE_CASE)
 private val AdaptiveOffsetPresetPattern =

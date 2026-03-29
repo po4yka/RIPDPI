@@ -384,6 +384,42 @@ class NativeConfigContractSnapshotTest {
     }
 
     @Test
+    fun proxyEchMarkerUiPayloadMatchesSnapshot() {
+        val payload =
+            RipDpiProxyUIPreferences(
+                chains =
+                    RipDpiChainConfig(
+                        tcpSteps =
+                            listOf(
+                                TcpChainStepModel(
+                                    kind = TcpChainStepKind.TlsRec,
+                                    marker = "echext",
+                                ),
+                                TcpChainStepModel(
+                                    kind = TcpChainStepKind.Split,
+                                    marker = "echext+4",
+                                ),
+                            ),
+                    ),
+            ).toNativeConfigJson()
+
+        assertJsonSnapshot(
+            actualJson = payload,
+            expectedJson =
+                defaultUiExpected(
+                    chains =
+                        chainsExpected(
+                            tcpSteps =
+                                listOf(
+                                    tcpStepExpected(kind = "tlsrec", marker = "echext"),
+                                    tcpStepExpected(kind = "split", marker = "echext+4"),
+                                ),
+                        ),
+                ),
+        )
+    }
+
+    @Test
     fun tunnelPayloadMatchesSnapshot() {
         val payload =
             Json.encodeToString(

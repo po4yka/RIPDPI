@@ -28,6 +28,8 @@ class MarkerExpressionsTest {
         assertTrue(isValidOffsetExpression("endsld"))
         assertTrue(isValidOffsetExpression("method"))
         assertTrue(isValidOffsetExpression("extlen"))
+        assertTrue(isValidOffsetExpression("echext"))
+        assertTrue(isValidOffsetExpression("echext+4"))
         assertTrue(isValidOffsetExpression("sniext"))
         assertTrue(isValidOffsetExpression("abs"))
     }
@@ -59,6 +61,7 @@ class MarkerExpressionsTest {
     fun `invalid marker names are rejected`() {
         assertFalse(isValidOffsetExpression("bogus"))
         assertFalse(isValidOffsetExpression("host++1"))
+        assertFalse(isValidOffsetExpression("auto(echext)"))
     }
 
     @Test

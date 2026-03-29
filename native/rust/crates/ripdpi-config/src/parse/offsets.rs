@@ -85,6 +85,7 @@ fn marker_from_name(name: &str) -> Option<OffsetBase> {
         "endsld" => Some(OffsetBase::EndSld),
         "method" => Some(OffsetBase::Method),
         "extlen" => Some(OffsetBase::ExtLen),
+        "echext" => Some(OffsetBase::EchExt),
         "sniext" => Some(OffsetBase::SniExt),
         _ => None,
     }
