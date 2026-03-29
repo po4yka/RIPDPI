@@ -91,7 +91,7 @@ File path prefix: `app/src/main/kotlin/com/poyka/ripdpi/`
   - Depends on: 2.3
   - ~30 lines
 
-- [ ] **2.5 Wire profile picker sheet into DiagnosticsScreen**
+- [x] **2.5 Wire profile picker sheet into DiagnosticsScreen**
   - Files: `ui/screens/diagnostics/DiagnosticsScreen.kt`
   - Add `ProfileSelectionBottomSheet` to `DiagnosticsBottomSheetHost` or render
     alongside existing bottom sheets at the `DiagnosticsScreen` level. Pass
