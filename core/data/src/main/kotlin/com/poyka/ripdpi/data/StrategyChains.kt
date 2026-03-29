@@ -46,7 +46,7 @@ val TcpChainStepKind.supportsAdaptiveMarker: Boolean
 fun TcpChainStepKind.desyncMethodLabel(): String? =
     when (this) {
         TcpChainStepKind.Split -> "split"
-        TcpChainStepKind.SeqOverlap -> "split"
+        TcpChainStepKind.SeqOverlap -> "seqovl"
         TcpChainStepKind.Disorder -> "disorder"
         TcpChainStepKind.Fake -> "fake"
         TcpChainStepKind.FakeSplit -> "fake"
@@ -554,6 +554,7 @@ private fun parseTcpStep(
     var midhostMarker = ""
     var fakeHostTemplate = ""
     var overlapSize = 0
+    var overlapSpecified = false
     var fakeMode = SeqOverlapFakeModeProfile
     var fragmentCount = 0
     var minFragmentSize = 0
@@ -591,14 +592,20 @@ private fun parseTcpStep(
                 require(
                     kind == TcpChainStepKind.SeqOverlap,
                 ) { "overlap is only supported for seqovl on line $lineNumber" }
+                overlapSpecified = true
                 overlapSize = value.toIntOrNull() ?: error("Invalid overlap on line $lineNumber")
+                require(overlapSize in 1..32) { "Invalid overlap on line $lineNumber" }
             }
 
             "fake" -> {
                 require(
                     kind == TcpChainStepKind.SeqOverlap,
                 ) { "fake is only supported for seqovl on line $lineNumber" }
-                fakeMode = normalizeSeqOverlapFakeMode(value)
+                val normalizedFakeMode = canonicalSeqOverlapFakeMode(value)
+                require(normalizedFakeMode.isNotEmpty() && isValidSeqOverlapFakeMode(normalizedFakeMode)) {
+                    "Invalid fake mode on line $lineNumber"
+                }
+                fakeMode = normalizedFakeMode
             }
 
             "count" -> {
@@ -646,6 +653,9 @@ private fun parseTcpStep(
         require(minFragmentSize > 0) { "Missing min on line $lineNumber" }
         require(maxFragmentSize > 0) { "Missing max on line $lineNumber" }
     }
+    if (kind == TcpChainStepKind.SeqOverlap && !overlapSpecified) {
+        overlapSize = DefaultSeqOverlapSize
+    }
 
     return normalizeTcpChainStepModel(
         TcpChainStepModel(
@@ -681,7 +691,7 @@ private fun validateTcpStepOptions(step: TcpChainStepModel) {
     when (step.kind) {
         TcpChainStepKind.SeqOverlap -> {
             require(step.overlapSize in 1..32) { "seqovl overlap must be between 1 and 32" }
-            require(normalizeSeqOverlapFakeMode(step.fakeMode) == step.fakeMode) {
+            require(isValidSeqOverlapFakeMode(step.fakeMode)) {
                 "seqovl fakeMode must be profile or rand"
             }
             require(step.fragmentCount == 0) { "seqovl must not declare fragmentCount" }

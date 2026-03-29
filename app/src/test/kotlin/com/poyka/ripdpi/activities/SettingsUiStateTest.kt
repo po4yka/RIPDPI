@@ -325,6 +325,7 @@ class SettingsUiStateTest {
         assertTrue(state.desync.hasSeqOverlap)
         assertEquals(1, state.desync.seqOverlapStepCount)
         assertEquals(TcpChainStepKind.SeqOverlap, state.desync.primarySeqOverlapStep?.kind)
+        assertEquals("seqovl", state.desync.desyncMethod)
         assertEquals("midsld", state.desync.primarySeqOverlapStep?.marker)
         assertEquals(16, state.desync.seqOverlapEffectiveSize)
         assertTrue(state.usesSeqOverlapFakeProfile)

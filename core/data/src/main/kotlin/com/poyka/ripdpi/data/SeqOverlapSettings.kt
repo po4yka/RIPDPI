@@ -8,8 +8,12 @@ const val SeqOverlapFakeModeRand = "rand"
 
 private val KnownSeqOverlapFakeModes = setOf(SeqOverlapFakeModeProfile, SeqOverlapFakeModeRand)
 
+fun canonicalSeqOverlapFakeMode(value: String): String = value.trim().lowercase()
+
+fun isValidSeqOverlapFakeMode(value: String): Boolean = canonicalSeqOverlapFakeMode(value) in KnownSeqOverlapFakeModes
+
 fun normalizeSeqOverlapFakeMode(value: String): String {
-    val normalized = value.trim().lowercase()
+    val normalized = canonicalSeqOverlapFakeMode(value)
     return normalized.takeIf { it in KnownSeqOverlapFakeModes } ?: SeqOverlapFakeModeProfile
 }
 
@@ -17,4 +21,4 @@ fun AppSettings.hasSeqOverlapStep(): Boolean = effectiveTcpChainSteps().any { it
 
 fun TcpChainStepModel.usesSeqOverlapFakeProfile(): Boolean =
     kind == TcpChainStepKind.SeqOverlap &&
-        normalizeSeqOverlapFakeMode(fakeMode) == SeqOverlapFakeModeProfile
+        fakeMode == SeqOverlapFakeModeProfile

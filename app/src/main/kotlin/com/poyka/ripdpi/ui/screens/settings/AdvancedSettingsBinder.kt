@@ -529,17 +529,43 @@ private fun AdvancedSettingsMutationWriter.updatePrimaryDesyncMethod(
     value: String,
     uiState: SettingsUiState,
 ) {
+    val primaryIndex = uiState.desync.tcpChainSteps.indexOfFirst { !it.kind.isTlsPrelude }
     val replacementKind =
         when (value) {
-            "none" -> null
-            "split" -> TcpChainStepKind.Split
-            "disorder" -> TcpChainStepKind.Disorder
-            "fake" -> TcpChainStepKind.Fake
-            "oob" -> TcpChainStepKind.Oob
-            "disoob" -> TcpChainStepKind.Disoob
-            else -> return
+            "none" -> {
+                null
+            }
+
+            "split" -> {
+                TcpChainStepKind.Split
+            }
+
+            TcpChainStepKind.SeqOverlap.wireName -> {
+                uiState.desync.tcpChainSteps.getOrNull(primaryIndex)?.kind?.takeIf {
+                    it == TcpChainStepKind.SeqOverlap
+                } ?: return
+            }
+
+            "disorder" -> {
+                TcpChainStepKind.Disorder
+            }
+
+            "fake" -> {
+                TcpChainStepKind.Fake
+            }
+
+            "oob" -> {
+                TcpChainStepKind.Oob
+            }
+
+            "disoob" -> {
+                TcpChainStepKind.Disoob
+            }
+
+            else -> {
+                return
+            }
         }
-    val primaryIndex = uiState.desync.tcpChainSteps.indexOfFirst { !it.kind.isTlsPrelude }
     val updatedTcpSteps =
         when {
             primaryIndex >= 0 && replacementKind != null -> {

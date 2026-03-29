@@ -296,6 +296,7 @@ class ApproachAnalyticsTest {
         val signature = deriveBypassStrategySignature(settings = settings, routeGroup = "22")
 
         assertEquals("tcp: tlsrec(extlen) -> seqovl(midsld overlap=12 fake=profile)", signature.chainSummary)
+        assertEquals("seqovl", signature.desyncMethod)
         assertEquals("original", signature.fakeTlsBaseMode)
         assertEquals(listOf("dupsid"), signature.fakeTlsMods)
     }
