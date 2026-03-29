@@ -22,6 +22,12 @@ import com.poyka.ripdpi.utility.checkIp
 import com.poyka.ripdpi.utility.validateIntRange
 import com.poyka.ripdpi.utility.validatePort
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.ImmutableMap
+import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.persistentMapOf
+import kotlinx.collections.immutable.toImmutableList
+import kotlinx.collections.immutable.toImmutableMap
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -46,8 +52,8 @@ data class ConfigDraft(
     val bufferSize: String = "16384",
     val useCommandLineSettings: Boolean = false,
     val commandLineArgs: String = "",
-    val tcpChainSteps: List<TcpChainStepModel> = emptyList(),
-    val udpChainSteps: List<UdpChainStepModel> = emptyList(),
+    val tcpChainSteps: ImmutableList<TcpChainStepModel> = persistentListOf(),
+    val udpChainSteps: ImmutableList<UdpChainStepModel> = persistentListOf(),
     val chainDsl: String = "",
     val desyncMethod: String = "split",
     val defaultTtl: String = "",
@@ -63,8 +69,8 @@ data class ConfigDraft(
         val parsed = parseStrategyChainDsl(value).getOrNull()
         return copy(
             chainDsl = value,
-            tcpChainSteps = parsed?.tcpSteps ?: tcpChainSteps,
-            udpChainSteps = parsed?.udpSteps ?: udpChainSteps,
+            tcpChainSteps = parsed?.tcpSteps?.toImmutableList() ?: tcpChainSteps,
+            udpChainSteps = parsed?.udpSteps?.toImmutableList() ?: udpChainSteps,
             desyncMethod = parsed?.let { primaryDesyncMethod(it.tcpSteps) } ?: desyncMethod,
         )
     }
@@ -85,10 +91,10 @@ data class ConfigPreset(
 
 data class ConfigUiState(
     val activeMode: Mode = Mode.VPN,
-    val presets: List<ConfigPreset> = buildConfigPresets(AppSettingsSerializer.defaultValue.toConfigDraft()),
+    val presets: ImmutableList<ConfigPreset> = buildConfigPresets(AppSettingsSerializer.defaultValue.toConfigDraft()),
     val editingPreset: ConfigPreset? = null,
     val draft: ConfigDraft = AppSettingsSerializer.defaultValue.toConfigDraft(),
-    val validationErrors: Map<String, String> = emptyMap(),
+    val validationErrors: ImmutableMap<String, String> = persistentMapOf(),
 )
 
 sealed interface ConfigEffect {
@@ -121,14 +127,14 @@ internal fun AppSettings.toConfigDraft(): ConfigDraft =
         bufferSize = (bufferSize.takeIf { it > 0 } ?: 16_384).toString(),
         useCommandLineSettings = enableCmdSettings,
         commandLineArgs = cmdArgs,
-        tcpChainSteps = effectiveTcpChainSteps(),
-        udpChainSteps = effectiveUdpChainSteps(),
+        tcpChainSteps = effectiveTcpChainSteps().toImmutableList(),
+        udpChainSteps = effectiveUdpChainSteps().toImmutableList(),
         chainDsl = formatStrategyChainDsl(effectiveTcpChainSteps(), effectiveUdpChainSteps()),
         desyncMethod = primaryDesyncMethod(effectiveTcpChainSteps()).ifEmpty { "none" },
         defaultTtl = if (customTtl && defaultTtl > 0) defaultTtl.toString() else "",
     )
 
-internal fun buildConfigPresets(currentDraft: ConfigDraft): List<ConfigPreset> {
+internal fun buildConfigPresets(currentDraft: ConfigDraft): ImmutableList<ConfigPreset> {
     val recommendedDraft = AppSettingsSerializer.defaultValue.toConfigDraft()
     val proxyDraft = recommendedDraft.copy(mode = Mode.Proxy)
     val selectedId =
@@ -138,7 +144,7 @@ internal fun buildConfigPresets(currentDraft: ConfigDraft): List<ConfigPreset> {
             else -> "custom"
         }
 
-    return listOf(
+    return persistentListOf(
         ConfigPreset(
             id = "recommended",
             kind = ConfigPresetKind.Recommended,
@@ -160,7 +166,7 @@ internal fun buildConfigPresets(currentDraft: ConfigDraft): List<ConfigPreset> {
     )
 }
 
-internal fun validateConfigDraft(draft: ConfigDraft): Map<String, String> =
+internal fun validateConfigDraft(draft: ConfigDraft): ImmutableMap<String, String> =
     buildMap {
         if (!checkIp(draft.proxyIp)) {
             put(ConfigFieldProxyIp, "invalid_proxy_ip")
@@ -185,7 +191,7 @@ internal fun validateConfigDraft(draft: ConfigDraft): Map<String, String> =
         if (!draft.useCommandLineSettings && parseStrategyChainDsl(draft.chainDsl).isFailure) {
             put(ConfigFieldStrategyChain, "invalid_chain")
         }
-    }
+    }.toImmutableMap()
 
 private fun AppSettings.Builder.applyConfigDraft(draft: ConfigDraft): AppSettings.Builder =
     apply {

@@ -71,6 +71,8 @@ import com.poyka.ripdpi.ui.theme.RipDpiMotion
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 import com.poyka.ripdpi.utility.checkNotLocalIp
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.persistentListOf
 import java.net.URI
 
 private val DnsCryptPublicKeyPattern = Regex("^[0-9a-fA-F]{64}$")
@@ -83,7 +85,7 @@ internal data class DnsResolverOption(
     val port: Int,
     val tlsServerName: String,
     val dohUrl: String,
-    val bootstrapIps: List<String>,
+    val bootstrapIps: ImmutableList<String>,
     @param:StringRes val titleRes: Int,
     @param:StringRes val descriptionRes: Int,
 )
@@ -98,7 +100,7 @@ private val resolverOptions =
             port = 443,
             tlsServerName = "cloudflare-dns.com",
             dohUrl = "https://cloudflare-dns.com/dns-query",
-            bootstrapIps = listOf("1.1.1.1", "1.0.0.1"),
+            bootstrapIps = persistentListOf("1.1.1.1", "1.0.0.1"),
             titleRes = R.string.dns_resolver_cloudflare_title,
             descriptionRes = R.string.dns_resolver_cloudflare_body,
         ),
@@ -110,7 +112,7 @@ private val resolverOptions =
             port = 443,
             tlsServerName = "dns.google",
             dohUrl = "https://dns.google/dns-query",
-            bootstrapIps = listOf("8.8.8.8", "8.8.4.4"),
+            bootstrapIps = persistentListOf("8.8.8.8", "8.8.4.4"),
             titleRes = R.string.dns_resolver_google_title,
             descriptionRes = R.string.dns_resolver_google_body,
         ),
@@ -122,7 +124,7 @@ private val resolverOptions =
             port = 443,
             tlsServerName = "dns.quad9.net",
             dohUrl = "https://dns.quad9.net/dns-query",
-            bootstrapIps = listOf("9.9.9.9", "149.112.112.112"),
+            bootstrapIps = persistentListOf("9.9.9.9", "149.112.112.112"),
             titleRes = R.string.dns_resolver_quad9_title,
             descriptionRes = R.string.dns_resolver_quad9_body,
         ),
@@ -134,7 +136,7 @@ private val resolverOptions =
             port = 443,
             tlsServerName = "dns.adguard-dns.com",
             dohUrl = "https://dns.adguard-dns.com/dns-query",
-            bootstrapIps = listOf("94.140.14.14", "94.140.15.15"),
+            bootstrapIps = persistentListOf("94.140.14.14", "94.140.15.15"),
             titleRes = R.string.dns_resolver_adguard_title,
             descriptionRes = R.string.dns_resolver_adguard_body,
         ),

@@ -1,5 +1,7 @@
 package com.poyka.ripdpi.activities
 
+import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.toImmutableSet
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
@@ -31,9 +33,9 @@ class LogsViewModelTest {
 
         val uiState =
             LogsUiState(
-                logs = listOf(proxyEntry, errorEntry),
-                activeSubsystems = setOf(LogSubsystem.Service),
-                activeSeverities = setOf(LogSeverity.Error),
+                logs = persistentListOf(proxyEntry, errorEntry),
+                activeSubsystems = setOf(LogSubsystem.Service).toImmutableSet(),
+                activeSeverities = setOf(LogSeverity.Error).toImmutableSet(),
             )
 
         assertEquals(listOf(errorEntry), uiState.filteredLogs)
@@ -46,7 +48,7 @@ class LogsViewModelTest {
 
         val uiState =
             LogsUiState(
-                logs = listOf(inactive, active),
+                logs = persistentListOf(inactive, active),
                 showActiveSessionOnly = true,
             )
 
@@ -58,7 +60,7 @@ class LogsViewModelTest {
         val firstEntry = sampleLogEntry(id = "1", createdAtMs = 1)
         val latestEntry = sampleLogEntry(id = "2", createdAtMs = 2)
 
-        val uiState = LogsUiState(logs = listOf(firstEntry, latestEntry))
+        val uiState = LogsUiState(logs = persistentListOf(firstEntry, latestEntry))
 
         assertEquals(latestEntry, uiState.latestLog)
     }

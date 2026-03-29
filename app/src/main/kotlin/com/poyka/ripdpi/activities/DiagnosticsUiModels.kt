@@ -19,6 +19,8 @@ import com.poyka.ripdpi.diagnostics.ScanKind
 import com.poyka.ripdpi.diagnostics.ScanPathMode
 import com.poyka.ripdpi.diagnostics.StrategyProbeAuditAssessment
 import com.poyka.ripdpi.diagnostics.StrategyProbeCompletionKind
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.persistentListOf
 
 internal const val StrategyProbeSuiteQuickV1 = "quick_v1"
 internal const val StrategyProbeSuiteFullMatrixV1 = "full_matrix_v1"
@@ -624,7 +626,7 @@ internal data class ScanLifecycleState(
     val scanStartedAt: Long? = null,
     val activeScanPathMode: ScanPathMode? = null,
     val activeScanKind: ScanKind? = null,
-    val accumulatedProbes: List<CompletedProbeUiModel> = emptyList(),
+    val accumulatedProbes: ImmutableList<CompletedProbeUiModel> = persistentListOf(),
     val pendingAutoOpenAuditSessionId: String? = null,
     val hiddenProbeConflictDialog: HiddenProbeConflictDialogState? = null,
     val queuedManualScanRequest: QueuedManualScanRequest? = null,
