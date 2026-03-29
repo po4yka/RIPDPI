@@ -20,6 +20,15 @@ echo "==> cross-target check (Android ABIs)"
 # Disable sccache for cross-compilation: aws-lc-sys invokes the NDK C
 # compiler through cargo's cc crate, and sccache cannot wrap cross-
 # compiler toolchains like aarch64-linux-android-clang.
+
+# Resolve the NDK toolchain bin directory so cc-rs can find the
+# target-prefixed clang (e.g. aarch64-linux-android35-clang).
+ndk_version="$(grep '^ripdpi.nativeNdkVersion=' "$repo_root/gradle.properties" | cut -d= -f2-)"
+ndk_bin="${ANDROID_HOME:?}/ndk/$ndk_version/toolchains/llvm/prebuilt/linux-x86_64/bin"
+if [ -d "$ndk_bin" ]; then
+  export PATH="$ndk_bin:$PATH"
+fi
+
 for target in aarch64-linux-android armv7-linux-androideabi i686-linux-android x86_64-linux-android; do
   echo "  -> $target"
   RUSTC_WRAPPER="" cargo check --manifest-path "$workspace_manifest" --workspace --target "$target" --locked
