@@ -383,7 +383,7 @@
     <string name="network_strategy_memory_helper">Only validated network matches auto-apply. Raw SSID, BSSID, and carrier identifiers stay out of storage.</string>
     <string name="ws_tunnel_section_title">WebSocket tunnel</string>
     <string name="ws_tunnel_mode_label">WS tunnel mode</string>
-    <string name="ws_tunnel_mode_helper">Controls when Telegram traffic uses WSS tunnel via web.telegram.org.</string>
+    <string name="ws_tunnel_mode_helper">Controls when Telegram MTProto traffic uses the WSS tunnel via Telegram web.telegram.org gateways.</string>
     <string name="ws_tunnel_mode_off">Off</string>
     <string name="ws_tunnel_mode_always">Always (try first)</string>
     <string name="ws_tunnel_mode_fallback">Fallback (last resort)</string>
@@ -403,13 +403,22 @@
     <string name="host_autolearn_off_title">Host learning is off</string>
     <string name="host_autolearn_off_body">RIPDPI will use normal route selection without remembering hosts.</string>
     <string name="host_autolearn_limits_summary">Penalty window %1$dh · Limit %2$d hosts</string>
-    <string name="host_autolearn_runtime_summary">Current session: %1$d learned · %2$d penalized</string>
+    <string name="host_autolearn_runtime_summary">Current session: %1$d learned · %2$d penalized · %3$d blocked</string>
     <string name="host_autolearn_store_present_summary">Stored host routes are available on this device.</string>
     <string name="host_autolearn_last_update_label">Last update</string>
     <string name="host_autolearn_action_host_promoted">Promoted best route</string>
     <string name="host_autolearn_action_group_penalized">Penalized failing route</string>
+    <string name="host_autolearn_action_host_blocked">Blocked host detected</string>
     <string name="host_autolearn_action_store_reset">Reset stored hosts</string>
     <string name="host_autolearn_route_group">Route %1$d</string>
+    <string name="block_signal_http_blockpage">HTTP blockpage</string>
+    <string name="block_signal_http_redirect">Blocking redirect</string>
+    <string name="block_signal_tls_alert">TLS alert</string>
+    <string name="block_signal_silent_drop">Silent drop</string>
+    <string name="block_signal_tcp_reset">TCP reset</string>
+    <string name="block_signal_connection_freeze">Connection freeze</string>
+    <string name="block_signal_quic_breakage">QUIC breakage</string>
+    <string name="block_signal_tcp_retransmissions">TCP retransmissions</string>
     <string name="host_autolearn_reset_hint_cli">Forget is unavailable here because command line settings can point RIPDPI at a different learned-host file.</string>
     <string name="host_autolearn_reset_hint_waiting">Nothing is stored yet. RIPDPI writes the learned-host file after it successfully learns a host.</string>
     <string name="host_autolearn_reset_hint_empty">No stored host routes are available to clear yet.</string>
@@ -1396,9 +1405,12 @@ Source: %2$s</string>
     <string name="diagnostics_field_route_group">Route group</string>
     <string name="diagnostics_field_autolearn">Autolearn</string>
     <string name="diagnostics_field_penalized_hosts">Penalized hosts</string>
+    <string name="diagnostics_field_blocked_hosts">Blocked hosts</string>
     <string name="diagnostics_field_last_learned_host">Last learned host</string>
     <string name="diagnostics_field_last_learned_group">Last learned group</string>
     <string name="diagnostics_field_last_autolearn_action">Last autolearn action</string>
+    <string name="diagnostics_field_last_block_signal">Last block signal</string>
+    <string name="diagnostics_field_last_block_provider">Last block provider</string>
     <string name="diagnostics_field_restart_count">Restart count</string>
     <string name="diagnostics_field_last_native_error">Last native error</string>
     <string name="diagnostics_field_permissions">Permissions</string>
@@ -1561,9 +1573,11 @@ Source: %2$s</string>
     <string name="diagnostics_autolearn_route_format">Route %1$s</string>
     <string name="diagnostics_autolearn_promoted">Promoted best route</string>
     <string name="diagnostics_autolearn_penalized">Penalized failing route</string>
+    <string name="diagnostics_autolearn_host_blocked">Blocked host detected</string>
     <string name="diagnostics_autolearn_store_reset">Reset stored hosts</string>
     <string name="diagnostics_autolearn_learned_format">%1$d learned</string>
     <string name="diagnostics_autolearn_penalized_format">%1$d penalized</string>
+    <string name="diagnostics_autolearn_blocked_format">%1$d blocked</string>
 
     <!-- Diagnostics Telegram card -->
     <string name="diagnostics_telegram_download">Download</string>
