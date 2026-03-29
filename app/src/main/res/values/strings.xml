@@ -75,7 +75,7 @@
     <string name="diagnostics_latest_scan_section">Latest scan</string>
     <string name="diagnostics_profile_connectivity_title">Connectivity checks</string>
     <string name="diagnostics_profile_connectivity_badge">Validate</string>
-    <string name="diagnostics_profile_connectivity_body">Validate DNS, HTTP, HTTPS, and TCP reachability with either a raw-path scan or the currently running in-path service.</string>
+    <string name="diagnostics_profile_connectivity_body">Quick DNS, HTTP, HTTPS, and TCP connectivity check on the current path.</string>
     <string name="diagnostics_profile_connectivity_running_body">Diagnostics is validating the selected path right now. The latest probe results and session summary will update when the run finishes.</string>
     <string name="diagnostics_profile_probe_badge">Recommend</string>
     <string name="diagnostics_profile_probe_body">Run isolated HTTP, HTTPS, and QUIC strategy trials against the current network. RIPDPI returns a recommendation, but does not apply it automatically.</string>
@@ -106,7 +106,7 @@
     <string name="diagnostics_profile_desc_messaging">Messaging bootstrap, media, and protocol reachability checks.</string>
     <string name="diagnostics_profile_desc_adaptation">Tor and VPN bootstrap plus handshake reachability.</string>
     <string name="diagnostics_profile_desc_throttling">Manual throughput windows against neutral control endpoints.</string>
-    <string name="diagnostics_profile_desc_network_full">Combined region-specific network heuristics across multiple services.</string>
+    <string name="diagnostics_profile_desc_network_full">Deep packet inspection detection across multiple services and protocols.</string>
     <string name="diagnostics_family_general">General</string>
     <string name="diagnostics_family_web_connectivity">Web Connectivity</string>
     <string name="diagnostics_family_messaging">Messaging</string>
