@@ -337,6 +337,9 @@ fn refresh_block_metadata(record: &mut LearnedHostRecord, now_ms: u64, signal: B
 fn prune_expired_host_state(record: &mut LearnedHostRecord, now_ms: u64) {
     if record.blocked_until_ms.is_some_and(|value| value <= now_ms) {
         record.blocked_until_ms = None;
+        record.last_blocked_at_ms = None;
+        record.last_block_signal = None;
+        record.last_block_provider = None;
     }
 }
 
@@ -651,12 +654,42 @@ mod tests {
 
         let state = policy.autolearn_state(&config);
         assert_eq!(state.blocked_host_count, 0);
-        assert!(policy
-            .learned_hosts(&config)
-            .get("example.org")
-            .expect("persisted host detail")
-            .blocked_until_ms
-            .is_none());
+        assert_eq!(state.learned_host_count, 0);
+        assert_eq!(state.last_block_signal, None);
+        assert_eq!(state.last_block_provider, None);
+        assert!(!policy.learned_hosts(&config).contains_key("example.org"));
+    }
+
+    #[test]
+    fn block_expiry_clears_block_metadata_but_keeps_learned_hosts() {
+        let config = autolearn_config(1, 32);
+        let dest = sample_dest(443);
+        let mut policy = RuntimePolicy::load(&config);
+
+        policy
+            .note_route_success(
+                &config,
+                dest,
+                &ConnectionRoute { group_index: 0, attempted_mask: 0 },
+                Some("example.org"),
+            )
+            .expect("learn host");
+        policy.note_block_signal(&config, "example.org", BlockSignal::TcpReset, Some("rkn"), true);
+        policy.note_block_signal(&config, "example.org", BlockSignal::TcpReset, Some("rkn"), true);
+        policy.learned_hosts_mut(&config).get_mut("example.org").expect("blocked host").blocked_until_ms =
+            Some(now_millis().saturating_sub(1));
+
+        let state = policy.autolearn_state(&config);
+        let record = policy.learned_hosts(&config).get("example.org").expect("learned host after expiry");
+
+        assert_eq!(state.blocked_host_count, 0);
+        assert_eq!(state.learned_host_count, 1);
+        assert_eq!(state.last_block_signal, None);
+        assert_eq!(state.last_block_provider, None);
+        assert_eq!(record.preferred_groups, vec![0]);
+        assert_eq!(record.last_blocked_at_ms, None);
+        assert_eq!(record.last_block_signal, None);
+        assert_eq!(record.last_block_provider, None);
     }
 
     #[test]
