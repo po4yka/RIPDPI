@@ -1,10 +1,15 @@
 package com.poyka.ripdpi.ui.screens.diagnostics
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -21,7 +26,10 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -34,6 +42,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
@@ -73,6 +82,75 @@ private const val SparklineSelectedMarkerRadius = 5f
 private const val SparklineSelectedMarkerInnerRadius = 3f
 private const val SparklineStrokeWidth = 4f
 private const val SparklineDividerStrokeWidth = 1f
+
+@Composable
+internal fun CollapsibleSection(
+    title: String,
+    modifier: Modifier = Modifier,
+    badgeCount: Int? = null,
+    defaultExpanded: Boolean = false,
+    content: @Composable () -> Unit,
+) {
+    val colors = RipDpiThemeTokens.colors
+    val spacing = RipDpiThemeTokens.spacing
+    var expanded by remember { mutableStateOf(defaultExpanded) }
+    val rotationAngle by animateFloatAsState(
+        targetValue = if (expanded) 180f else 0f,
+        animationSpec = tween(durationMillis = 200),
+        label = "chevronRotation",
+    )
+
+    Column(modifier = modifier) {
+        Row(
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .clickable { expanded = !expanded }
+                    .padding(vertical = spacing.sm),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(spacing.sm),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = title.uppercase(),
+                    style = RipDpiThemeTokens.type.sectionTitle,
+                    color = colors.mutedForeground,
+                )
+                badgeCount?.let { count ->
+                    Surface(
+                        color = colors.inputBackground,
+                        shape = RipDpiThemeTokens.shapes.full,
+                    ) {
+                        Text(
+                            text = count.toString(),
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
+                            style = RipDpiThemeTokens.type.smallLabel,
+                            color = colors.mutedForeground,
+                        )
+                    }
+                }
+            }
+            Icon(
+                imageVector = Icons.Filled.KeyboardArrowDown,
+                contentDescription = if (expanded) "Collapse" else "Expand",
+                tint = colors.mutedForeground,
+                modifier = Modifier.rotate(rotationAngle),
+            )
+        }
+        AnimatedVisibility(
+            visible = expanded,
+            enter = expandVertically(animationSpec = tween(200)),
+            exit = shrinkVertically(animationSpec = tween(200)),
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
+                content()
+            }
+        }
+    }
+}
 
 @Composable
 internal fun SnapshotCard(snapshot: DiagnosticsNetworkSnapshotUiModel) {
