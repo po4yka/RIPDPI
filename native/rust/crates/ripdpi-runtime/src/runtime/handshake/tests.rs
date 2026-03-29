@@ -33,6 +33,7 @@ fn runtime_state(config: RuntimeConfig) -> RuntimeState {
         active_clients: Arc::new(AtomicUsize::new(0)),
         telemetry: None,
         runtime_context: None,
+        control: None,
         ttl_unavailable: Arc::new(AtomicBool::new(false)),
     }
 }

@@ -19,7 +19,7 @@ use super::adaptive::{
 use super::retry::{
     build_retry_selection_penalties, maybe_emit_candidate_diversification, note_retry_failure, note_retry_success,
 };
-use super::routing::{note_route_success_for_transport, select_route_for_transport};
+use super::routing::{note_block_signal_for_failure, note_route_success_for_transport, select_route_for_transport};
 use super::state::{flush_autolearn_updates, RuntimeState, UDP_FLOW_IDLE_TIMEOUT};
 
 pub(super) struct UdpRelaySockets {
@@ -291,6 +291,12 @@ fn expire_udp_flows(
         };
         if !entry.awaiting_response {
             continue;
+        }
+        if let Some(failure) = ripdpi_failure_classifier::classify_quic_probe(
+            "quic_timeout",
+            Some("UDP flow expired before first response"),
+        ) {
+            note_block_signal_for_failure(state, entry.host.as_deref(), &failure, None);
         }
         let _ = note_retry_failure(
             state,

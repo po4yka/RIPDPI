@@ -268,6 +268,7 @@ pub(super) fn run_proxy_with_listener_internal(
         active_clients: Arc::new(AtomicUsize::new(0)),
         telemetry: control.as_ref().and_then(|value| value.telemetry_sink()).or_else(current_runtime_telemetry),
         runtime_context: control.as_ref().and_then(|value| value.runtime_context()),
+        control: control.clone(),
         ttl_unavailable: Arc::new(AtomicBool::new(false)),
     };
     let _cleanup = RuntimeCleanup {

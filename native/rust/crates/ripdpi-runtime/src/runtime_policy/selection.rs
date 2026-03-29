@@ -4,7 +4,9 @@ use std::net::SocketAddr;
 
 use ripdpi_config::{RuntimeConfig, AUTO_NOPOST, AUTO_SORT, DETECT_RECONN};
 
-use super::autolearn::normalize_learned_host;
+use super::autolearn::{
+    host_has_active_block, host_penalty_active_for_group, normalize_learned_host, record_has_learned_winner,
+};
 use super::matching::group_matches;
 use super::{now_millis, ConnectionRoute, RetrySelectionPenalty, RouteAdvance, RuntimePolicy, TransportProtocol};
 
@@ -201,6 +203,13 @@ impl RuntimePolicy {
         transport: TransportProtocol,
     ) -> Option<ConnectionRoute> {
         let record = self.learned_hosts(config).get(host)?;
+        if host_has_active_block(record, now_millis()) && !record_has_learned_winner(record) {
+            if let Some(route) =
+                self.select_blocked_host_route(config, record, dest, payload, allow_unknown_payload, transport)
+            {
+                return Some(route);
+            }
+        }
         if let Some(route) = self.preferred_host_candidate(
             config,
             record,
@@ -323,6 +332,32 @@ impl RuntimePolicy {
         )
     }
 
+    fn select_blocked_host_route(
+        &self,
+        config: &RuntimeConfig,
+        record: &super::types::LearnedHostRecord,
+        dest: SocketAddr,
+        payload: Option<&[u8]>,
+        allow_unknown_payload: bool,
+        transport: TransportProtocol,
+    ) -> Option<ConnectionRoute> {
+        let now_ms = now_millis();
+        let mut attempted_mask = 0u64;
+        let mut eligible = Vec::new();
+        for &idx in self.ordered_indices() {
+            let group = config.groups.get(idx)?;
+            if self.detect_for(config, idx) != 0 {
+                continue;
+            }
+            if group_matches(config, group, dest, payload, allow_unknown_payload, transport) {
+                eligible.push(idx);
+            } else {
+                attempted_mask |= group.bit;
+            }
+        }
+        select_best_candidate_for_blocked_host(self, record, now_ms, &eligible, attempted_mask)
+    }
+
     #[allow(clippy::too_many_arguments)]
     fn preferred_host_candidate(
         &self,
@@ -386,6 +421,26 @@ fn select_best_candidate(
     ranked.into_iter().next().map(|group_index| ConnectionRoute { group_index, attempted_mask })
 }
 
+fn select_best_candidate_for_blocked_host(
+    cache: &RuntimePolicy,
+    record: &super::types::LearnedHostRecord,
+    now_ms: u64,
+    eligible: &[usize],
+    attempted_mask: u64,
+) -> Option<ConnectionRoute> {
+    let mut ranked = eligible.to_vec();
+    ranked.sort_by_key(|index| {
+        let group = cache.groups.get(*index);
+        (
+            host_penalty_active_for_group(record, *index, now_ms),
+            group.map_or(0, |value| value.fail_count),
+            group.map_or(0, |value| value.pri),
+            *index,
+        )
+    });
+    ranked.into_iter().next().map(|group_index| ConnectionRoute { group_index, attempted_mask })
+}
+
 fn retry_penalty(
     retry_penalties: Option<&BTreeMap<usize, RetrySelectionPenalty>>,
     group_index: usize,
@@ -398,9 +453,11 @@ mod tests {
     use std::collections::BTreeMap;
 
     use ripdpi_config::{DesyncGroup, DETECT_RECONN};
+    use ripdpi_failure_classifier::BlockSignal;
 
     use super::*;
     use crate::runtime_policy::test_support::{autolearn_config, config_with_groups, sample_dest};
+    use crate::runtime_policy::types::LearnedGroupStats;
 
     #[test]
     fn select_initial_group_skips_detect_only_groups() {
@@ -552,6 +609,34 @@ mod tests {
         let route = policy
             .select_initial(dest, None, Some("example.org"), true, TransportProtocol::Tcp, &config)
             .expect("host-aware route");
+
+        assert_eq!(route.group_index, 1);
+    }
+
+    #[test]
+    fn blocked_host_without_learned_winner_prefers_non_penalized_group() {
+        let config = autolearn_config(2, 32);
+        let dest = sample_dest(443);
+        let mut policy = RuntimePolicy::load(&config);
+        let now_ms = now_millis();
+
+        let record = policy.learned_hosts_mut(&config).entry("example.org".to_string()).or_default();
+        record.blocked_until_ms = Some(now_ms.saturating_add(crate::runtime_policy::BLOCKED_HOST_TTL_MS));
+        record.last_blocked_at_ms = Some(now_ms);
+        record.last_block_signal = Some(BlockSignal::TcpReset);
+        record.group_stats.insert(
+            0,
+            LearnedGroupStats {
+                failure_count: 1,
+                penalty_until_ms: now_ms.saturating_add(5_000),
+                ..Default::default()
+            },
+        );
+        record.group_stats.insert(1, LearnedGroupStats::default());
+
+        let route = policy
+            .select_initial(dest, None, Some("example.org"), true, TransportProtocol::Tcp, &config)
+            .expect("route for blocked host");
 
         assert_eq!(route.group_index, 1);
     }

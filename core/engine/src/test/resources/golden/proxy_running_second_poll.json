@@ -1,6 +1,7 @@
 {
     "activeSessions": 0,
     "autolearnEnabled": true,
+    "blockedHostCount": 2,
     "candidateDiversificationCount": 0,
     "capturedAt": 0,
     "dnsCacheHits": 0,
@@ -11,6 +12,8 @@
     "lastAutolearnAction": "host_promoted",
     "lastAutolearnGroup": 2,
     "lastAutolearnHost": "example.org",
+    "lastBlockProvider": "rkn",
+    "lastBlockSignal": "tcp_reset",
     "lastDnsError": null,
     "lastDnsHost": null,
     "lastError": null,

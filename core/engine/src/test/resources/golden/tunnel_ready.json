@@ -1,6 +1,7 @@
 {
     "activeSessions": 0,
     "autolearnEnabled": false,
+    "blockedHostCount": 0,
     "candidateDiversificationCount": 0,
     "capturedAt": 0,
     "dnsCacheHits": 0,
@@ -11,6 +12,8 @@
     "lastAutolearnAction": null,
     "lastAutolearnGroup": null,
     "lastAutolearnHost": null,
+    "lastBlockProvider": null,
+    "lastBlockSignal": null,
     "lastDnsError": null,
     "lastDnsHost": null,
     "lastError": null,

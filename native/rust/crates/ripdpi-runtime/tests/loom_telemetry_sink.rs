@@ -41,7 +41,16 @@ mod tests {
             _host: Option<&str>,
         ) {
         }
-        fn on_host_autolearn_state(&self, _enabled: bool, _learned_host_count: usize, _penalized_host_count: usize) {}
+        fn on_host_autolearn_state(
+            &self,
+            _enabled: bool,
+            _learned_host_count: usize,
+            _penalized_host_count: usize,
+            _blocked_host_count: usize,
+            _last_block_signal: Option<&str>,
+            _last_block_provider: Option<&str>,
+        ) {
+        }
         fn on_host_autolearn_event(&self, _action: &'static str, _host: Option<&str>, _group_index: Option<usize>) {}
     }
 

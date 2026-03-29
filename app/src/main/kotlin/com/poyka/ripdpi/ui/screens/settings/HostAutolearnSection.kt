@@ -140,12 +140,17 @@ private fun HostAutolearnStatusCard(
     val status = rememberHostAutolearnStatus(uiState)
     val runtimeSummary =
         if (uiState.isServiceRunning &&
-            (uiState.autolearn.hostAutolearnRuntimeEnabled || uiState.autolearn.hostAutolearnLearnedHostCount > 0)
+            (
+                uiState.autolearn.hostAutolearnRuntimeEnabled ||
+                    uiState.autolearn.hostAutolearnLearnedHostCount > 0 ||
+                    uiState.autolearn.hostAutolearnBlockedHostCount > 0
+            )
         ) {
             stringResource(
                 R.string.host_autolearn_runtime_summary,
                 uiState.autolearn.hostAutolearnLearnedHostCount,
                 uiState.autolearn.hostAutolearnPenalizedHostCount,
+                uiState.autolearn.hostAutolearnBlockedHostCount,
             )
         } else {
             null
@@ -308,10 +313,12 @@ private fun hostAutolearnResetHint(uiState: SettingsUiState): String =
 
 @Composable
 private fun hostAutolearnLastUpdate(uiState: SettingsUiState): String? {
+    val rawAction = uiState.autolearn.hostAutolearnLastAction
     val action =
-        when (uiState.autolearn.hostAutolearnLastAction) {
+        when (rawAction) {
             "host_promoted" -> stringResource(R.string.host_autolearn_action_host_promoted)
             "group_penalized" -> stringResource(R.string.host_autolearn_action_group_penalized)
+            "host_blocked" -> stringResource(R.string.host_autolearn_action_host_blocked)
             "store_reset" -> stringResource(R.string.host_autolearn_action_store_reset)
             else -> null
         } ?: return null
@@ -319,7 +326,54 @@ private fun hostAutolearnLastUpdate(uiState: SettingsUiState): String? {
     val host = uiState.autolearn.hostAutolearnLastHost?.takeIf { it.isNotBlank() }
     val group =
         uiState.autolearn.hostAutolearnLastGroup?.let {
-            stringResource(R.string.host_autolearn_route_group, it)
+            stringResource(
+                R.string.host_autolearn_route_group,
+                it,
+            )
         }
-    return listOfNotNull(action, host, group).joinToString(" · ")
+    val blockSignal =
+        uiState.autolearn.hostAutolearnLastBlockSignal
+            ?.takeIf { it.isNotBlank() }
+            ?.let { hostAutolearnBlockSignalLabel(it) }
+    val blockProvider =
+        uiState.autolearn.hostAutolearnLastBlockProvider
+            ?.takeIf { it.isNotBlank() }
+            ?.let(::hostAutolearnBlockProviderLabel)
+    val details =
+        if (rawAction == "host_blocked") {
+            listOfNotNull(action, host, blockSignal, blockProvider)
+        } else {
+            listOfNotNull(action, host, group)
+        }
+    return details.joinToString(" · ")
+}
+
+@Composable
+private fun hostAutolearnBlockSignalLabel(signal: String): String =
+    when (signal) {
+        "http_blockpage" -> stringResource(R.string.block_signal_http_blockpage)
+        "http_redirect" -> stringResource(R.string.block_signal_http_redirect)
+        "tls_alert" -> stringResource(R.string.block_signal_tls_alert)
+        "silent_drop" -> stringResource(R.string.block_signal_silent_drop)
+        "tcp_reset" -> stringResource(R.string.block_signal_tcp_reset)
+        "connection_freeze" -> stringResource(R.string.block_signal_connection_freeze)
+        "quic_breakage" -> stringResource(R.string.block_signal_quic_breakage)
+        "tcp_retransmissions" -> stringResource(R.string.block_signal_tcp_retransmissions)
+        else -> signal.replace('_', ' ')
+    }
+
+private fun hostAutolearnBlockProviderLabel(provider: String): String {
+    val normalized = provider.trim()
+    if (normalized.isEmpty()) {
+        return provider
+    }
+    if (normalized.none { it == '_' || it == '-' || it == ' ' } && normalized.length <= 4) {
+        return normalized.uppercase()
+    }
+    return normalized
+        .split('_', '-', ' ')
+        .filter { it.isNotBlank() }
+        .joinToString(" ") { token ->
+            token.lowercase().replaceFirstChar { char -> char.uppercase() }
+        }
 }

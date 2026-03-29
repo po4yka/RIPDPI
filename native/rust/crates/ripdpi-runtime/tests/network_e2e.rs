@@ -19,6 +19,7 @@ use std::io::{Read, Write};
 use std::net::{Ipv4Addr, SocketAddr, TcpStream};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard, OnceLock, PoisonError};
+use std::time::Duration;
 
 use support::proxy::{ephemeral_proxy_config, start_proxy};
 use support::socks5::{
@@ -402,6 +403,21 @@ fn ephemeral_fixture_config() -> FixtureConfig {
     }
 }
 
+fn offset_fixture_config(offset: u16) -> FixtureConfig {
+    let mut config = ephemeral_fixture_config();
+    config.tcp_echo_port += offset;
+    config.udp_echo_port += offset;
+    config.tls_echo_port += offset;
+    config.dns_udp_port += offset;
+    config.dns_http_port += offset;
+    config.dns_dot_port += offset;
+    config.dns_dnscrypt_port += offset;
+    config.dns_doq_port += offset;
+    config.socks5_port += offset;
+    config.control_port += offset;
+    config
+}
+
 fn ui_proxy_config() -> RuntimeConfig {
     let mut ui = ProxyUiConfig::default();
     ui.listen.ip = "127.0.0.1".to_string();
@@ -441,6 +457,8 @@ struct RecordingTelemetry {
     stopped: AtomicUsize,
     accepted: AtomicUsize,
     routes: Mutex<Vec<RouteEvent>>,
+    autolearn_states: Mutex<Vec<AutolearnStateEvent>>,
+    autolearn_events: Mutex<Vec<AutolearnEvent>>,
 }
 
 impl support::socks5::AcceptedCounter for RecordingTelemetry {
@@ -456,6 +474,8 @@ impl RecordingTelemetry {
             stopped: self.stopped.load(Ordering::Relaxed),
             accepted: self.accepted.load(Ordering::Relaxed),
             routes: self.routes.lock().expect("lock routes").clone(),
+            autolearn_states: self.autolearn_states.lock().expect("lock autolearn states").clone(),
+            autolearn_events: self.autolearn_events.lock().expect("lock autolearn events").clone(),
         }
     }
 }
@@ -468,12 +488,31 @@ struct RouteEvent {
     phase: &'static str,
 }
 
+#[derive(Clone, Debug)]
+struct AutolearnStateEvent {
+    enabled: bool,
+    learned_host_count: usize,
+    penalized_host_count: usize,
+    blocked_host_count: usize,
+    last_block_signal: Option<String>,
+    last_block_provider: Option<String>,
+}
+
+#[derive(Clone, Debug)]
+struct AutolearnEvent {
+    action: String,
+    host: Option<String>,
+    group_index: Option<usize>,
+}
+
 #[derive(Debug)]
 struct TelemetrySnapshot {
     started: usize,
     stopped: usize,
     accepted: usize,
     routes: Vec<RouteEvent>,
+    autolearn_states: Vec<AutolearnStateEvent>,
+    autolearn_events: Vec<AutolearnEvent>,
 }
 
 impl RuntimeTelemetrySink for RecordingTelemetry {
@@ -526,9 +565,32 @@ impl RuntimeTelemetrySink for RecordingTelemetry {
         });
     }
 
-    fn on_host_autolearn_state(&self, _enabled: bool, _learned_host_count: usize, _penalized_host_count: usize) {}
+    fn on_host_autolearn_state(
+        &self,
+        enabled: bool,
+        learned_host_count: usize,
+        penalized_host_count: usize,
+        blocked_host_count: usize,
+        last_block_signal: Option<&str>,
+        last_block_provider: Option<&str>,
+    ) {
+        self.autolearn_states.lock().expect("lock autolearn states").push(AutolearnStateEvent {
+            enabled,
+            learned_host_count,
+            penalized_host_count,
+            blocked_host_count,
+            last_block_signal: last_block_signal.map(ToOwned::to_owned),
+            last_block_provider: last_block_provider.map(ToOwned::to_owned),
+        });
+    }
 
-    fn on_host_autolearn_event(&self, _action: &'static str, _host: Option<&str>, _group_index: Option<usize>) {}
+    fn on_host_autolearn_event(&self, action: &'static str, host: Option<&str>, group_index: Option<usize>) {
+        self.autolearn_events.lock().expect("lock autolearn events").push(AutolearnEvent {
+            action: action.to_string(),
+            host: host.map(ToOwned::to_owned),
+            group_index,
+        });
+    }
 }
 
 // ── E2e test body helpers ──
@@ -968,6 +1030,96 @@ fn route_advancement_fires_on_tcp_reset_and_second_group_handles_traffic() {
     // The fault should have been recorded by the fixture
     let events = fixture.events().snapshot();
     assert!(events.iter().any(|e| e.service == "tcp_echo" && e.detail.contains("TcpReset")));
+}
+
+#[test]
+fn repeated_tcp_resets_confirm_blocked_host_and_expose_telemetry() {
+    let _guard = test_guard();
+    let fixture_a = FixtureStack::start(ephemeral_fixture_config()).expect("start first fixture");
+    let fixture_b = FixtureStack::start(offset_fixture_config(100)).expect("start second fixture");
+    let telemetry = Arc::new(RecordingTelemetry::default());
+
+    let mut config = ephemeral_proxy_config(&["-X", "--ip", "127.0.0.1"]);
+    config.host_autolearn.enabled = true;
+    config.host_autolearn.penalty_ttl_secs = 1;
+    config.host_autolearn.max_hosts = 32;
+    config.adaptive.auto_level = 0;
+    let mut store_path = std::env::temp_dir();
+    store_path.push(format!(
+        "ripdpi-host-block-e2e-{}.json",
+        std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).expect("system time").as_nanos()
+    ));
+    config.host_autolearn.store_path = Some(store_path.to_string_lossy().into_owned());
+    config.groups[0].matches.detect = ripdpi_config::DETECT_TCP_RESET | ripdpi_config::DETECT_SILENT_DROP;
+    config.timeouts.timeout_ms = 500;
+
+    let mut fallback_a = DesyncGroup::new(1);
+    fallback_a.matches.proto = IS_TCP;
+    fallback_a.matches.port_filter = Some((fixture_a.manifest().tcp_echo_port, fixture_a.manifest().tcp_echo_port));
+
+    let mut fallback_b = DesyncGroup::new(2);
+    fallback_b.matches.proto = IS_TCP;
+    fallback_b.matches.port_filter = Some((fixture_b.manifest().tcp_echo_port, fixture_b.manifest().tcp_echo_port));
+
+    config.groups.push(fallback_a);
+    config.groups.push(fallback_b);
+
+    let proxy = start_proxy(config, Some(telemetry.clone() as Arc<dyn RuntimeTelemetrySink>));
+    let host = "blocked.example";
+    let port_a = fixture_a.manifest().tcp_echo_port;
+    let port_b = fixture_b.manifest().tcp_echo_port;
+    let payload_a = format!("GET /one HTTP/1.1\r\nHost: {host}\r\n\r\n").into_bytes();
+    let payload_b = format!("GET /two HTTP/1.1\r\nHost: {host}\r\n\r\n").into_bytes();
+    let payload_after = format!("GET /after HTTP/1.1\r\nHost: {host}\r\n\r\n").into_bytes();
+
+    fixture_a.faults().set(FixtureFaultSpec {
+        target: FixtureFaultTarget::TcpEcho,
+        outcome: FixtureFaultOutcome::TcpReset,
+        scope: FixtureFaultScope::OneShot,
+        delay_ms: None,
+    });
+    let body_a = socks_connect_ip_round_trip_with_retry(proxy.port, port_a, &payload_a);
+    assert_eq!(body_a, payload_a);
+
+    std::thread::sleep(Duration::from_millis(1_100));
+
+    fixture_b.faults().set(FixtureFaultSpec {
+        target: FixtureFaultTarget::TcpEcho,
+        outcome: FixtureFaultOutcome::TcpReset,
+        scope: FixtureFaultScope::OneShot,
+        delay_ms: None,
+    });
+    let body_b = socks_connect_ip_round_trip_with_retry(proxy.port, port_b, &payload_b);
+    assert_eq!(body_b, payload_b);
+
+    let body_after = socks_connect_ip_round_trip_with_retry(proxy.port, port_a, &payload_after);
+    assert_eq!(body_after, payload_after);
+
+    drop(proxy);
+
+    let snapshot = telemetry.snapshot();
+    let latest_state = snapshot.autolearn_states.last().expect("autolearn state update");
+    assert!(latest_state.enabled);
+    assert_eq!(latest_state.blocked_host_count, 1);
+    assert!(matches!(latest_state.last_block_signal.as_deref(), Some("tcp_reset" | "silent_drop")));
+    assert!(latest_state.penalized_host_count >= 1);
+    assert_eq!(latest_state.last_block_provider, None);
+    assert_eq!(latest_state.learned_host_count, 1);
+
+    assert!(snapshot.autolearn_events.iter().any(|event| {
+        event.action == "host_blocked" && event.host.as_deref() == Some(host) && event.group_index.is_none()
+    }));
+
+    assert!(fixture_a
+        .events()
+        .snapshot()
+        .iter()
+        .any(|event| event.service == "tcp_echo" && event.detail.contains("TcpReset")));
+    assert!(fixture_b
+        .events()
+        .snapshot()
+        .iter()
+        .any(|event| event.service == "tcp_echo" && event.detail.contains("TcpReset")));
 }
 
 // ── Multiple desync steps in chain (Linux-only) ──

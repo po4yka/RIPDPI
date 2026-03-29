@@ -57,7 +57,15 @@ pub trait RuntimeTelemetrySink: Send + Sync {
 
     fn on_retry_paced(&self, _target: SocketAddr, _group_index: usize, _reason: &'static str, _backoff_ms: u64) {}
 
-    fn on_host_autolearn_state(&self, enabled: bool, learned_host_count: usize, penalized_host_count: usize);
+    fn on_host_autolearn_state(
+        &self,
+        enabled: bool,
+        learned_host_count: usize,
+        penalized_host_count: usize,
+        blocked_host_count: usize,
+        last_block_signal: Option<&str>,
+        last_block_provider: Option<&str>,
+    );
 
     fn on_host_autolearn_event(&self, action: &'static str, host: Option<&str>, group_index: Option<usize>);
 
@@ -250,7 +258,16 @@ mod tests {
 
         fn on_retry_paced(&self, _target: SocketAddr, _group_index: usize, _reason: &'static str, _backoff_ms: u64) {}
 
-        fn on_host_autolearn_state(&self, _enabled: bool, _learned_host_count: usize, _penalized_host_count: usize) {}
+        fn on_host_autolearn_state(
+            &self,
+            _enabled: bool,
+            _learned_host_count: usize,
+            _penalized_host_count: usize,
+            _blocked_host_count: usize,
+            _last_block_signal: Option<&str>,
+            _last_block_provider: Option<&str>,
+        ) {
+        }
 
         fn on_host_autolearn_event(&self, _action: &'static str, _host: Option<&str>, _group_index: Option<usize>) {}
     }

@@ -61,7 +61,7 @@ pub(crate) fn create_session(env: &mut Env<'_>, config_json: JString) -> jlong {
     let autolearn_enabled = config.host_autolearn.enabled;
     let telemetry = Arc::new(ProxyTelemetryState::new(envelope.log_context.clone()));
     set_android_log_scope_level(telemetry.log_scope().to_string(), native_log_level);
-    telemetry.set_autolearn_state(autolearn_enabled, 0, 0);
+    telemetry.set_autolearn_state(autolearn_enabled, 0, 0, 0, None, None);
 
     SESSIONS.insert(ProxySession {
         config,
