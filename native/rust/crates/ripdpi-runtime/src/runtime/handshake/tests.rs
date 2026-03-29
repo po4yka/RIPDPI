@@ -4,7 +4,7 @@ use crate::adaptive_tuning::AdaptivePlannerResolver;
 use crate::retry_stealth::RetryPacer;
 use crate::runtime::state::RuntimeState;
 use crate::runtime_policy::RuntimePolicy;
-use crate::sync::{Arc, AtomicUsize, Mutex};
+use crate::sync::{Arc, AtomicBool, AtomicUsize, Mutex};
 use ripdpi_config::{DesyncGroup, RuntimeConfig};
 use ripdpi_session::{
     encode_http_connect_reply, encode_socks4_reply, encode_socks5_reply, S_ATP_I4, S_ATP_I6, S_CMD_CONN, S_ER_GEN,
@@ -33,6 +33,7 @@ fn runtime_state(config: RuntimeConfig) -> RuntimeState {
         active_clients: Arc::new(AtomicUsize::new(0)),
         telemetry: None,
         runtime_context: None,
+        ttl_unavailable: Arc::new(AtomicBool::new(false)),
     }
 }
 

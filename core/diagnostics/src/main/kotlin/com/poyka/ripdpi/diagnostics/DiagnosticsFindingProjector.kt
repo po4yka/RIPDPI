@@ -126,8 +126,17 @@ class DiagnosticsFindingProjector
                         Diagnosis(
                             code = "dns_latency_anomaly",
                             summary = "UDP DNS resolution was abnormally slow, suggesting throttling",
+                            severity = "degraded",
                             target = observation.domain,
-                            evidence = listOf("udpLatencyMs=$udpMs", "encryptedLatencyMs=$encMs"),
+                            evidence =
+                                buildList {
+                                    add("udpLatencyMs=$udpMs")
+                                    add("encryptedLatencyMs=$encMs")
+                                    if (encMs > 0) add("slowdownRatio=${udpMs / encMs}x")
+                                },
+                            recommendation =
+                                "Encrypted DNS bypasses this throttling. " +
+                                    "Enable DoH or DoT to avoid ISP-injected DNS delays for this domain.",
                         ),
                     )
                 }
