@@ -7,6 +7,7 @@ import com.poyka.ripdpi.diagnostics.EnvironmentContextModel
 import com.poyka.ripdpi.diagnostics.PermissionContextModel
 import com.poyka.ripdpi.diagnostics.ServiceContextModel
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -47,11 +48,71 @@ class DiagnosticsUiContextSupportTest {
         )
     }
 
+    @Test
+    fun `overview summary includes blocked host counts`() {
+        val group =
+            support.toOverviewContextGroup(
+                diagnosticContext(
+                    manufacturer = "Google",
+                    batteryOptimizationState = "disabled",
+                    blockedHostCount = 2,
+                ),
+            )
+
+        val hostLearning =
+            group.fields.firstOrNull {
+                it.label == support.context.getString(R.string.diagnostics_field_host_learning)
+            }
+        assertNotNull(hostLearning)
+        assertEquals("Active · 3 learned · 1 penalized · 2 blocked", hostLearning?.value)
+    }
+
+    @Test
+    fun `live context groups humanize blocked host signal and provider`() {
+        val groups =
+            support.toLiveContextGroups(
+                diagnosticContext(
+                    manufacturer = "Google",
+                    batteryOptimizationState = "disabled",
+                    blockedHostCount = 1,
+                    lastBlockSignal = "tcp_reset",
+                    lastBlockProvider = "rkn",
+                    lastAutolearnAction = "host_blocked",
+                ),
+            )
+
+        val hostLearning =
+            groups.first {
+                it.title == support.context.getString(R.string.diagnostics_field_host_learning)
+            }
+
+        assertEquals(
+            "1",
+            hostLearning.valueFor(support.context.getString(R.string.diagnostics_field_blocked_hosts)),
+        )
+        assertEquals(
+            support.context.getString(R.string.block_signal_tcp_reset),
+            hostLearning.valueFor(support.context.getString(R.string.diagnostics_field_last_block_signal)),
+        )
+        assertEquals(
+            "RKN",
+            hostLearning.valueFor(support.context.getString(R.string.diagnostics_field_last_block_provider)),
+        )
+        assertEquals(
+            support.context.getString(R.string.diagnostics_autolearn_host_blocked),
+            hostLearning.valueFor(support.context.getString(R.string.diagnostics_field_last_action)),
+        )
+    }
+
     private fun diagnosticContext(
         manufacturer: String,
         batteryOptimizationState: String,
         dataSaverState: String = "disabled",
         powerSaveModeState: String = "disabled",
+        blockedHostCount: Int = 0,
+        lastBlockSignal: String = "none",
+        lastBlockProvider: String = "none",
+        lastAutolearnAction: String = "host_promoted",
     ): DiagnosticContextModel =
         DiagnosticContextModel(
             service =
@@ -72,9 +133,12 @@ class DiagnosticsUiContextSupportTest {
                     hostAutolearnEnabled = "enabled",
                     learnedHostCount = 3,
                     penalizedHostCount = 1,
+                    blockedHostCount = blockedHostCount,
+                    lastBlockSignal = lastBlockSignal,
+                    lastBlockProvider = lastBlockProvider,
                     lastAutolearnHost = "example.org",
                     lastAutolearnGroup = "2",
-                    lastAutolearnAction = "host_promoted",
+                    lastAutolearnAction = lastAutolearnAction,
                 ),
             permissions =
                 PermissionContextModel(
@@ -104,4 +168,7 @@ class DiagnosticsUiContextSupportTest {
                     roamingState = "disabled",
                 ),
         )
+
+    private fun DiagnosticsContextGroupUiModel.valueFor(label: String): String =
+        fields.first { it.label == label }.value
 }
