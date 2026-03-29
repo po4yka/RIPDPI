@@ -79,6 +79,8 @@ fn tcp_step(kind: &str, marker: &str) -> ProxyUiTcpChainStep {
         marker: marker.to_string(),
         midhost_marker: String::new(),
         fake_host_template: String::new(),
+        overlap_size: 0,
+        fake_mode: String::new(),
         fragment_count: 0,
         min_fragment_size: 0,
         max_fragment_size: 0,

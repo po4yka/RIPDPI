@@ -200,6 +200,33 @@ class AppSettingsJsonTest {
     }
 
     @Test
+    fun `seqovl fields round trip through current json format`() {
+        val settings =
+            AppSettings
+                .newBuilder()
+                .setStrategyChains(
+                    tcpSteps =
+                        listOf(
+                            TcpChainStepModel(TcpChainStepKind.TlsRec, "extlen"),
+                            TcpChainStepModel(
+                                kind = TcpChainStepKind.SeqOverlap,
+                                marker = "midsld",
+                                overlapSize = 14,
+                                fakeMode = SeqOverlapFakeModeRand,
+                            ),
+                        ),
+                    udpSteps = emptyList(),
+                ).build()
+
+        val decoded = appSettingsFromJson(settings.toJson())
+
+        assertEquals(settings.toJson(), decoded.toJson())
+        assertEquals("seqovl", decoded.tcpChainStepsList[1].kind)
+        assertEquals(14, decoded.tcpChainStepsList[1].overlapSize)
+        assertEquals(SeqOverlapFakeModeRand, decoded.tcpChainStepsList[1].fakeMode)
+    }
+
+    @Test
     fun `ipfrag chain settings round trip through current json format`() {
         val settings =
             AppSettings

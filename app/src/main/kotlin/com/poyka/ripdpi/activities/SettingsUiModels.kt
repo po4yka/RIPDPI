@@ -17,6 +17,7 @@ import com.poyka.ripdpi.data.DefaultFakeSni
 import com.poyka.ripdpi.data.DefaultHostAutolearnMaxHosts
 import com.poyka.ripdpi.data.DefaultHostAutolearnPenaltyTtlHours
 import com.poyka.ripdpi.data.DefaultQuicFakeHost
+import com.poyka.ripdpi.data.DefaultSeqOverlapSize
 import com.poyka.ripdpi.data.DefaultTlsRandRecFragmentCount
 import com.poyka.ripdpi.data.DefaultTlsRandRecMaxFragmentSize
 import com.poyka.ripdpi.data.DefaultTlsRandRecMinFragmentSize
@@ -29,6 +30,7 @@ import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.QuicFakeProfileDisabled
 import com.poyka.ripdpi.data.QuicFakeProfileRealisticInitial
 import com.poyka.ripdpi.data.QuicInitialModeRouteAndCache
+import com.poyka.ripdpi.data.SeqOverlapFakeModeProfile
 import com.poyka.ripdpi.data.TcpChainStepKind
 import com.poyka.ripdpi.data.TcpChainStepModel
 import com.poyka.ripdpi.data.UdpChainStepModel
@@ -248,6 +250,7 @@ data class DesyncCoreUiState(
         tcpChainSteps.filter {
             it.kind == TcpChainStepKind.FakeSplit || it.kind == TcpChainStepKind.FakeDisorder
         },
+    val seqOverlapSteps: List<TcpChainStepModel> = tcpChainSteps.filter { it.kind == TcpChainStepKind.SeqOverlap },
     val hasUdpFakeBurst: Boolean = udpChainSteps.any { it.count.coerceAtLeast(0) > 0 },
 ) {
     val hostFakeStepCount: Int
@@ -270,6 +273,21 @@ data class DesyncCoreUiState(
 
     val hasFakeDisorderApproximation: Boolean
         get() = fakeApproximationSteps.any { it.kind == TcpChainStepKind.FakeDisorder }
+
+    val seqOverlapStepCount: Int
+        get() = seqOverlapSteps.size
+
+    val hasSeqOverlap: Boolean
+        get() = seqOverlapStepCount > 0
+
+    val primarySeqOverlapStep: TcpChainStepModel?
+        get() = seqOverlapSteps.firstOrNull()
+
+    val usesSeqOverlapFakeProfile: Boolean
+        get() = seqOverlapSteps.any { it.fakeMode == SeqOverlapFakeModeProfile }
+
+    val seqOverlapEffectiveSize: Int
+        get() = primarySeqOverlapStep?.overlapSize?.takeIf { it > 0 } ?: DefaultSeqOverlapSize
 
     val hasCustomActivationWindow: Boolean
         get() = formatActivationFilterSummary(groupActivationFilter).isNotBlank()
@@ -365,6 +383,8 @@ data class SettingsUiState(
     val desyncEnabled: Boolean = true,
     val isFake: Boolean = false,
     val usesFakeTransport: Boolean = false,
+    val seqovlSupported: Boolean = false,
+    val usesSeqOverlapFakeProfile: Boolean = false,
     val hasHostFake: Boolean = false,
     val hasDisoob: Boolean = false,
     val isOob: Boolean = false,
@@ -402,10 +422,10 @@ data class SettingsUiState(
         get() = !enableCmdSettings && desync.hasCustomActivationWindow
 
     val httpFakeProfileActiveInStrategy: Boolean
-        get() = desyncHttpEnabled && isFake
+        get() = desyncHttpEnabled && (isFake || usesSeqOverlapFakeProfile)
 
     val tlsFakeProfileActiveInStrategy: Boolean
-        get() = desyncHttpsEnabled && isFake
+        get() = desyncHttpsEnabled && (isFake || usesSeqOverlapFakeProfile)
 
     val udpFakeProfileActiveInStrategy: Boolean
         get() = desyncUdpEnabled && desync.hasUdpFakeBurst
@@ -417,7 +437,7 @@ data class SettingsUiState(
         get() = enableCmdSettings || fakePayloadLibraryControlsRelevant || fake.hasCustomFakePayloadProfiles
 
     val fakeTlsControlsRelevant: Boolean
-        get() = desyncHttpsEnabled && isFake
+        get() = desyncHttpsEnabled && (isFake || usesSeqOverlapFakeProfile)
 
     val fakeTtlControlsRelevant: Boolean
         get() = usesFakeTransport || hasDisoob
@@ -438,6 +458,15 @@ data class SettingsUiState(
 
     val showHostFakeProfile: Boolean
         get() = enableCmdSettings || hasHostFake || hostFakeControlsRelevant
+
+    val seqOverlapControlsRelevant: Boolean
+        get() = desyncHttpEnabled || desyncHttpsEnabled
+
+    val showSeqOverlapProfile: Boolean
+        get() = enableCmdSettings || desync.hasSeqOverlap || seqOverlapControlsRelevant
+
+    val seqOverlapUnavailableOnDevice: Boolean
+        get() = !seqovlSupported && !desync.hasSeqOverlap
 
     val fakeApproximationControlsRelevant: Boolean
         get() = desyncHttpEnabled || desyncHttpsEnabled

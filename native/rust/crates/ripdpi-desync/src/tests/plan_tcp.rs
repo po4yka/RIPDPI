@@ -4,6 +4,21 @@ fn tcp_context_with_hint(payload: &[u8], tcp_segment_hint: TcpSegmentHint) -> Ac
     ActivationContext { tcp_segment_hint: Some(tcp_segment_hint), ..tcp_context(payload) }
 }
 
+fn seqovl_step(pos: i64) -> TcpChainStep {
+    TcpChainStep {
+        kind: TcpChainStepKind::SeqOverlap,
+        offset: split_expr(pos),
+        activation_filter: None,
+        midhost_offset: None,
+        fake_host_template: None,
+        overlap_size: 12,
+        seqovl_fake_mode: ripdpi_config::SeqOverlapFakeMode::Profile,
+        fragment_count: 0,
+        min_fragment_size: 0,
+        max_fragment_size: 0,
+    }
+}
+
 #[test]
 fn tcp_segment_hint_budget_uses_fallback_order() {
     assert_eq!(
@@ -133,6 +148,8 @@ fn plan_tcp_tlsrandrec_supports_adaptive_marker_resolution() {
         activation_filter: None,
         midhost_offset: None,
         fake_host_template: None,
+        overlap_size: 0,
+        seqovl_fake_mode: ripdpi_config::SeqOverlapFakeMode::Profile,
         fragment_count: 4,
         min_fragment_size: 16,
         max_fragment_size: 32,
@@ -144,6 +161,8 @@ fn plan_tcp_tlsrandrec_supports_adaptive_marker_resolution() {
         activation_filter: None,
         midhost_offset: None,
         fake_host_template: None,
+        overlap_size: 0,
+        seqovl_fake_mode: ripdpi_config::SeqOverlapFakeMode::Profile,
         fragment_count: 4,
         min_fragment_size: 16,
         max_fragment_size: 32,
@@ -243,6 +262,63 @@ fn plan_tcp_split_emits_chunk_and_tail_actions() {
             DesyncAction::AwaitWritable,
             DesyncAction::Write(b" world".to_vec()),
         ]
+    );
+}
+
+#[test]
+fn plan_tcp_seqovl_keeps_kind_when_supported_in_first_window() {
+    let mut group = DesyncGroup::new(0);
+    group.actions.tcp_chain.push(seqovl_step(5));
+    let payload = b"hello world";
+    let mut context = tcp_context(payload);
+    context.seqovl_supported = true;
+
+    let plan = plan_tcp(&group, payload, 7, 64, context).expect("plan seqovl tcp");
+
+    assert_eq!(plan.steps, vec![PlannedStep { kind: TcpChainStepKind::SeqOverlap, start: 0, end: 5 }]);
+    assert_eq!(
+        plan.actions,
+        vec![
+            DesyncAction::Write(b"hello".to_vec()),
+            DesyncAction::AwaitWritable,
+            DesyncAction::Write(b" world".to_vec()),
+        ]
+    );
+}
+
+#[test]
+fn plan_tcp_seqovl_degrades_to_split_when_capability_is_absent() {
+    let mut group = DesyncGroup::new(0);
+    group.actions.tcp_chain.push(seqovl_step(5));
+    let payload = b"hello world";
+
+    let plan = plan_tcp(&group, payload, 7, 64, tcp_context(payload)).expect("plan seqovl fallback");
+
+    assert_eq!(plan.steps, vec![PlannedStep { kind: TcpChainStepKind::Split, start: 0, end: 5 }]);
+    assert_eq!(
+        plan.actions,
+        vec![
+            DesyncAction::Write(b"hello".to_vec()),
+            DesyncAction::AwaitWritable,
+            DesyncAction::Write(b" world".to_vec()),
+        ]
+    );
+}
+
+#[test]
+fn plan_tcp_seqovl_degrades_to_split_outside_first_1500_stream_bytes() {
+    let payload = vec![b'a'; 1_601];
+    let mut group = DesyncGroup::new(0);
+    group.actions.tcp_chain.push(seqovl_step(32));
+    let mut context = tcp_context(&payload);
+    context.seqovl_supported = true;
+
+    let plan = plan_tcp(&group, &payload, 7, 64, context).expect("plan seqovl out-of-window");
+
+    assert_eq!(plan.steps, vec![PlannedStep { kind: TcpChainStepKind::Split, start: 0, end: 32 }]);
+    assert_eq!(
+        plan.actions,
+        vec![DesyncAction::Write(vec![b'a'; 32]), DesyncAction::AwaitWritable, DesyncAction::Write(vec![b'a'; 1_569]),]
     );
 }
 
@@ -594,6 +670,8 @@ fn plan_tcp_step_activation_filter_skips_tls_prelude_only() {
             }),
             midhost_offset: None,
             fake_host_template: None,
+            overlap_size: 0,
+            seqovl_fake_mode: ripdpi_config::SeqOverlapFakeMode::Profile,
             fragment_count: 0,
             min_fragment_size: 0,
             max_fragment_size: 0,
@@ -659,6 +737,8 @@ fn plan_tcp_hostfake_emits_fake_real_fake_sequence_for_http_host() {
         activation_filter: None,
         midhost_offset: Some(OffsetExpr::marker(OffsetBase::MidSld, 0)),
         fake_host_template: Some("googlevideo.com".to_string()),
+        overlap_size: 0,
+        seqovl_fake_mode: ripdpi_config::SeqOverlapFakeMode::Profile,
         fragment_count: 0,
         min_fragment_size: 0,
         max_fragment_size: 0,
@@ -711,6 +791,8 @@ fn hostfake_degrades_to_split_when_step_ends_before_endhost() {
         activation_filter: None,
         midhost_offset: None,
         fake_host_template: None,
+        overlap_size: 0,
+        seqovl_fake_mode: ripdpi_config::SeqOverlapFakeMode::Profile,
         fragment_count: 0,
         min_fragment_size: 0,
         max_fragment_size: 0,

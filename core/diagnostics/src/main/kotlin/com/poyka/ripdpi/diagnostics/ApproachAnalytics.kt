@@ -32,6 +32,7 @@ import com.poyka.ripdpi.data.primaryDesyncMethod
 import com.poyka.ripdpi.data.primaryTcpChainStep
 import com.poyka.ripdpi.data.strategyLaneFamilyLabel
 import com.poyka.ripdpi.data.tlsPreludeTcpChainStep
+import com.poyka.ripdpi.data.usesSeqOverlapFakeProfile
 import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.utility.shellSplit
 import kotlinx.serialization.EncodeDefault
@@ -172,7 +173,9 @@ fun deriveBypassStrategySignature(
                 step.kind == TcpChainStepKind.FakeSplit ||
                 step.kind == TcpChainStepKind.FakeDisorder
         }
-    val fakeTlsProfileActive = hasFakeStep && settings.desyncHttps && settings.hasCustomFakeTlsProfile()
+    val usesSeqOverlapFakeProfile = tcpSteps.any { it.usesSeqOverlapFakeProfile() }
+    val fakeTlsProfileActive =
+        (hasFakeStep || usesSeqOverlapFakeProfile) && settings.desyncHttps && settings.hasCustomFakeTlsProfile()
     val commandLineRawFakePayload = settings.enableCmdSettings && hasCommandLineRawFakePayload(settings.cmdArgs)
     val quicFakeProfile = settings.effectiveQuicFakeProfile()
     val quicFakeProfileActive =

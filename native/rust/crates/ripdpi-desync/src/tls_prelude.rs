@@ -253,6 +253,7 @@ pub fn apply_tamper(group: &DesyncGroup, input: &[u8], seed: u32) -> Result<Tamp
             payload_size: input.len() as i64,
             stream_start: 0,
             stream_end: input.len().saturating_sub(1) as i64,
+            seqovl_supported: false,
             transport: ActivationTransport::Tcp,
             tcp_segment_hint: None,
             resolved_fake_ttl: None,

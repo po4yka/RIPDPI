@@ -153,6 +153,7 @@ pub struct PartSpec {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TcpChainStepKind {
     Split,
+    SeqOverlap,
     Disorder,
     Fake,
     FakeSplit,
@@ -179,6 +180,7 @@ impl TcpChainStepKind {
     pub const fn as_mode(self) -> Option<DesyncMode> {
         match self {
             Self::Split => Some(DesyncMode::Split),
+            Self::SeqOverlap => Some(DesyncMode::Split),
             Self::Disorder => Some(DesyncMode::Disorder),
             Self::Fake => Some(DesyncMode::Fake),
             Self::FakeSplit => Some(DesyncMode::Fake),
@@ -197,6 +199,13 @@ impl TcpChainStepKind {
     }
 }
 
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub enum SeqOverlapFakeMode {
+    #[default]
+    Profile,
+    Rand,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TcpChainStep {
     pub kind: TcpChainStepKind,
@@ -204,6 +213,8 @@ pub struct TcpChainStep {
     pub activation_filter: Option<ActivationFilter>,
     pub midhost_offset: Option<OffsetExpr>,
     pub fake_host_template: Option<String>,
+    pub overlap_size: i32,
+    pub seqovl_fake_mode: SeqOverlapFakeMode,
     pub fragment_count: i32,
     pub min_fragment_size: i32,
     pub max_fragment_size: i32,
@@ -217,6 +228,8 @@ impl TcpChainStep {
             activation_filter: None,
             midhost_offset: None,
             fake_host_template: None,
+            overlap_size: 0,
+            seqovl_fake_mode: SeqOverlapFakeMode::Profile,
             fragment_count: 0,
             min_fragment_size: 0,
             max_fragment_size: 0,
