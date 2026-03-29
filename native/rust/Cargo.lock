@@ -2594,6 +2594,7 @@ version = "0.1.0"
 dependencies = [
  "aes",
  "arc-swap",
+ "ctr",
  "libc",
  "local-network-fixture",
  "loom",

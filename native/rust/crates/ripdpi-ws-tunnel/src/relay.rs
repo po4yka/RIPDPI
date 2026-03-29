@@ -17,8 +17,9 @@ const OUTBOUND_QUEUE_RETRY_DELAY: Duration = Duration::from_millis(1);
 
 /// Bidirectional relay between a local TCP client and a WebSocket tunnel.
 ///
-/// Sends `init_packet` as the first binary WS frame, then relays data in both
-/// directions until either side closes or an error occurs.
+/// Sends the first 64 bytes of `seed_request` as the MTProto init frame, then
+/// forwards any additional bytes already consumed from the client before
+/// relaying the rest of the bidirectional stream.
 ///
 /// Uses two threads:
 /// - Main thread: owns the WebSocket, drains outbound frames, reads inbound WS
@@ -30,14 +31,25 @@ const OUTBOUND_QUEUE_RETRY_DELAY: Duration = Duration::from_millis(1);
 pub fn ws_relay<S: Read + Write + Send + 'static>(
     client: TcpStream,
     mut ws: WebSocket<S>,
-    init_packet: &[u8; 64],
+    seed_request: &[u8],
 ) -> io::Result<()> {
+    if seed_request.len() < 64 {
+        return Err(io::Error::new(
+            io::ErrorKind::UnexpectedEof,
+            format!("WS relay requires 64-byte init packet, got {}", seed_request.len()),
+        ));
+    }
+
     let shutdown = Arc::new(AtomicBool::new(false));
     let (outbound_tx, outbound_rx) = mpsc::sync_channel(OUTBOUND_QUEUE_CAPACITY);
 
     // Send the 64-byte obfuscated2 init as the first WS frame.
-    ws.send(Message::Binary(init_packet.to_vec().into()))
+    ws.send(Message::Binary(seed_request[..64].to_vec().into()))
         .map_err(|e| io::Error::new(io::ErrorKind::BrokenPipe, format!("WS send init: {e}")))?;
+    if seed_request.len() > 64 {
+        ws.send(Message::Binary(seed_request[64..].to_vec().into()))
+            .map_err(|e| io::Error::new(io::ErrorKind::BrokenPipe, format!("WS send initial remainder: {e}")))?;
+    }
 
     let client_reader = client.try_clone()?;
     let client_writer = client;
@@ -290,11 +302,12 @@ mod tests {
     fn ws_relay_forwards_init_uplink_and_downlink_frames() {
         let (mut local_app, relay_client) = tcp_pair();
         let (ws, mut peer) = websocket_pair();
-        let init = [0xAB; 64];
+        let seed_request = vec![0xAB; 64];
 
-        let relay_thread = thread::spawn(move || ws_relay(relay_client, ws, &init));
+        let relayed_seed = seed_request.clone();
+        let relay_thread = thread::spawn(move || ws_relay(relay_client, ws, &relayed_seed));
 
-        assert!(matches!(read_message_retry(&mut peer), Message::Binary(data) if data[..] == init));
+        assert!(matches!(read_message_retry(&mut peer), Message::Binary(data) if data[..] == seed_request[..]));
 
         local_app.write_all(b"uplink").expect("write uplink");
         assert!(matches!(read_message_retry(&mut peer), Message::Binary(data) if data[..] == b"uplink"[..]));
@@ -314,12 +327,13 @@ mod tests {
     fn ws_relay_drains_outbound_queue_while_websocket_reader_is_idle() {
         let (mut local_app, relay_client) = tcp_pair();
         let (ws, mut peer) = websocket_pair();
-        let init = [0xCD; 64];
+        let seed_request = vec![0xCD; 64];
         let expected = vec![0x5E; 16_384 * 4];
 
-        let relay_thread = thread::spawn(move || ws_relay(relay_client, ws, &init));
+        let relayed_seed = seed_request.clone();
+        let relay_thread = thread::spawn(move || ws_relay(relay_client, ws, &relayed_seed));
 
-        assert!(matches!(read_message_retry(&mut peer), Message::Binary(data) if data[..] == init));
+        assert!(matches!(read_message_retry(&mut peer), Message::Binary(data) if data[..] == seed_request[..]));
 
         let started = Instant::now();
         local_app.write_all(&expected).expect("write uplink payload");
@@ -341,11 +355,12 @@ mod tests {
     fn ws_relay_exits_cleanly_when_client_closes_write_half() {
         let (local_app, relay_client) = tcp_pair();
         let (ws, mut peer) = websocket_pair();
-        let init = [0x11; 64];
+        let seed_request = vec![0x11; 64];
 
-        let relay_thread = thread::spawn(move || ws_relay(relay_client, ws, &init));
+        let relayed_seed = seed_request.clone();
+        let relay_thread = thread::spawn(move || ws_relay(relay_client, ws, &relayed_seed));
 
-        assert!(matches!(read_message_retry(&mut peer), Message::Binary(data) if data[..] == init));
+        assert!(matches!(read_message_retry(&mut peer), Message::Binary(data) if data[..] == seed_request[..]));
         local_app.shutdown(Shutdown::Write).expect("shutdown local app write");
 
         wait_for_close(&mut peer);
@@ -356,11 +371,12 @@ mod tests {
     fn ws_relay_exits_cleanly_when_remote_websocket_closes() {
         let (_local_app, relay_client) = tcp_pair();
         let (ws, mut peer) = websocket_pair();
-        let init = [0x22; 64];
+        let seed_request = vec![0x22; 64];
 
-        let relay_thread = thread::spawn(move || ws_relay(relay_client, ws, &init));
+        let relayed_seed = seed_request.clone();
+        let relay_thread = thread::spawn(move || ws_relay(relay_client, ws, &relayed_seed));
 
-        assert!(matches!(read_message_retry(&mut peer), Message::Binary(data) if data[..] == init));
+        assert!(matches!(read_message_retry(&mut peer), Message::Binary(data) if data[..] == seed_request[..]));
         peer.close(None).expect("send websocket close");
 
         relay_thread.join().expect("join relay thread").expect("relay result");
@@ -371,13 +387,14 @@ mod tests {
     fn ws_relay_uplink_throughput_benchmark() {
         let (mut local_app, relay_client) = tcp_pair();
         let (ws, mut peer) = websocket_pair();
-        let init = [0x33; 64];
+        let seed_request = vec![0x33; 64];
         let payload = vec![0x7A; 8 * 1024 * 1024];
         let payload_len = payload.len();
 
-        let relay_thread = thread::spawn(move || ws_relay(relay_client, ws, &init));
+        let relayed_seed = seed_request.clone();
+        let relay_thread = thread::spawn(move || ws_relay(relay_client, ws, &relayed_seed));
 
-        assert!(matches!(read_message_retry(&mut peer), Message::Binary(data) if data[..] == init));
+        assert!(matches!(read_message_retry(&mut peer), Message::Binary(data) if data[..] == seed_request[..]));
 
         let started = Instant::now();
         let writer_thread = thread::spawn(move || {
@@ -393,6 +410,22 @@ mod tests {
 
         assert_eq!(received.len(), payload_len);
         wait_for_close(&mut peer);
+        relay_thread.join().expect("join relay thread").expect("relay result");
+    }
+
+    #[test]
+    fn ws_relay_sends_consumed_remainder_before_socket_drain() {
+        let (_local_app, relay_client) = tcp_pair();
+        let (ws, mut peer) = websocket_pair();
+        let mut seed_request = vec![0x44; 64];
+        seed_request.extend_from_slice(b"rest");
+
+        let relay_thread = thread::spawn(move || ws_relay(relay_client, ws, &seed_request));
+
+        assert!(matches!(read_message_retry(&mut peer), Message::Binary(data) if data[..] == vec![0x44; 64][..]));
+        assert!(matches!(read_message_retry(&mut peer), Message::Binary(data) if data[..] == b"rest"[..]));
+
+        peer.close(None).expect("send websocket close");
         relay_thread.join().expect("join relay thread").expect("relay result");
     }
 }

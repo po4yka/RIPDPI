@@ -34,6 +34,7 @@ loom = ["dep:loom"]
 
 [dev-dependencies]
 aes = { workspace = true }
+ctr = "0.9"
 ripdpi-config = { workspace = true }
 ripdpi-packets = { workspace = true }
 ring = { workspace = true }
