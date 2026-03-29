@@ -83,11 +83,25 @@ class DiagnosticsFindingProjector
                         it.status == DnsObservationStatus.EXPECTED_MISMATCH ||
                         it.status == DnsObservationStatus.NXDOMAIN
                 }.forEach { observation ->
-                    val summary =
-                        if (observation.status == DnsObservationStatus.NXDOMAIN) {
-                            "DNS records were deleted (NXDOMAIN)"
-                        } else {
-                            "DNS answers were substituted"
+                    val udpMs = observation.udpLatencyMs
+                    val encMs = observation.encryptedLatencyMs
+                    val isTampered =
+                        observation.status == DnsObservationStatus.SUBSTITUTION ||
+                            observation.status == DnsObservationStatus.NXDOMAIN
+                    val injectionSuspected = isTampered && udpMs != null && udpMs <= 5
+                    val (mechanism, summary) =
+                        when {
+                            observation.status == DnsObservationStatus.NXDOMAIN -> {
+                                "record_deletion" to "DNS records were deleted (NXDOMAIN)"
+                            }
+
+                            injectionSuspected -> {
+                                "injection" to "DNS response injected in under 5ms with substituted answers"
+                            }
+
+                            else -> {
+                                "substitution" to "DNS answers were substituted"
+                            }
                         }
                     pushDiagnosis(
                         diagnoses,
@@ -96,7 +110,14 @@ class DiagnosticsFindingProjector
                             code = "dns_tampering",
                             summary = summary,
                             target = observation.domain,
-                            evidence = observation.udpAddresses + observation.encryptedAddresses,
+                            evidence =
+                                buildList {
+                                    addAll(observation.udpAddresses)
+                                    addAll(observation.encryptedAddresses)
+                                    if (udpMs != null) add("udpLatencyMs=$udpMs")
+                                    if (encMs != null) add("encryptedLatencyMs=$encMs")
+                                    add("mechanism=$mechanism")
+                                },
                         ),
                     )
                 }
