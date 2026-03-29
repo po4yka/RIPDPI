@@ -287,8 +287,7 @@ internal fun resolveVpnDnsSelection(
     val rememberedDns = rememberedVpnDnsPolicy?.toActiveDnsSettings()
     return VpnDnsSelection(
         activeDns = rememberedDns ?: baseDns,
-        preferredPath = preferredPath,
-        rememberedVpnDnsPolicy = rememberedVpnDnsPolicy?.takeIf { preferredPath == null },
+        rememberedVpnDnsPolicy = rememberedVpnDnsPolicy,
     )
 }
 
