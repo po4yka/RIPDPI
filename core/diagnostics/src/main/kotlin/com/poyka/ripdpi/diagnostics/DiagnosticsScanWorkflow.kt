@@ -33,7 +33,9 @@ internal object DiagnosticsScanWorkflow {
             "disoob",
             "tlsrec",
             "tlsrandrec",
+            "seqovl",
             "tlsrec_split",
+            "tlsrec_seqovl",
             "tlsrec_disorder",
             "tlsrec_fake",
         )

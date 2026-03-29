@@ -166,6 +166,7 @@ private data class AdvancedSettingsContentState(
     val visualEditorEnabled: Boolean,
     val hostPackApplyControlsEnabled: Boolean,
     val showHostFakeSection: Boolean,
+    val showSeqOverlapSection: Boolean,
     val showFakeApproxSection: Boolean,
     val showQuicFakeSection: Boolean,
     val showFakePayloadLibrary: Boolean,
@@ -238,6 +239,7 @@ private fun rememberAdvancedSettingsContentState(uiState: SettingsUiState): Adva
         visualEditorEnabled = !uiState.enableCmdSettings,
         hostPackApplyControlsEnabled = hostPackApplyEnabled(uiState),
         showHostFakeSection = uiState.showHostFakeProfile,
+        showSeqOverlapSection = uiState.showSeqOverlapProfile,
         showFakeApproxSection = uiState.showFakeApproximationProfile,
         showQuicFakeSection = uiState.showQuicFakeProfile,
         showFakePayloadLibrary = uiState.showFakePayloadLibrary,
@@ -245,6 +247,7 @@ private fun rememberAdvancedSettingsContentState(uiState: SettingsUiState): Adva
         showFakeTlsSection =
             uiState.desyncHttpsEnabled ||
                 uiState.isFake ||
+                uiState.usesSeqOverlapFakeProfile ||
                 uiState.fake.hasCustomFakeTlsProfile ||
                 uiState.enableCmdSettings,
         fakeTlsBaseOptions =
@@ -368,6 +371,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.advancedSettingsPrima
         uiState = uiState,
         visualEditorEnabled = contentState.visualEditorEnabled,
         showHostFakeSection = contentState.showHostFakeSection,
+        showSeqOverlapSection = contentState.showSeqOverlapSection,
         showFakeApproxSection = contentState.showFakeApproxSection,
         showAdaptiveFakeTtlSection = contentState.showAdaptiveFakeTtlSection,
         showFakePayloadLibrary = contentState.showFakePayloadLibrary,

@@ -24,6 +24,8 @@ internal data class AppSettingsTcpChainSnapshot(
     val marker: String,
     val midhostMarker: String? = null,
     val fakeHostTemplate: String? = null,
+    val overlapSize: Int? = null,
+    val fakeMode: String? = null,
     val fragmentCount: Int = 0,
     val minFragmentSize: Int = 0,
     val maxFragmentSize: Int = 0,
@@ -197,6 +199,12 @@ private fun AppSettings.toSnapshot(): AppSettingsSnapshot =
                         marker = it.marker,
                         midhostMarker = it.midhostMarker.takeIf(String::isNotBlank),
                         fakeHostTemplate = it.fakeHostTemplate.takeIf(String::isNotBlank),
+                        overlapSize = it.overlapSize.takeIf { value -> value > 0 },
+                        fakeMode =
+                            it.fakeMode.takeIf { value ->
+                                value.isNotBlank() &&
+                                    value != SeqOverlapFakeModeProfile
+                            },
                         fragmentCount = it.fragmentCount,
                         minFragmentSize = it.minFragmentSize,
                         maxFragmentSize = it.maxFragmentSize,
@@ -346,6 +354,8 @@ private fun AppSettingsSnapshot.toAppSettings(): AppSettings {
                         .setMarker(step.marker)
                         .setMidhostMarker(step.midhostMarker.orEmpty())
                         .setFakeHostTemplate(step.fakeHostTemplate.orEmpty())
+                        .setOverlapSize(step.overlapSize ?: 0)
+                        .setFakeMode(step.fakeMode.orEmpty())
                         .setFragmentCount(step.fragmentCount)
                         .setMinFragmentSize(step.minFragmentSize)
                         .setMaxFragmentSize(step.maxFragmentSize)

@@ -237,7 +237,8 @@ pub(crate) fn build_tcp_candidates(base: &ProxyUiConfig) -> Vec<StrategyCandidat
     let tlsrec_fakeddisorder = build_tlsrec_fake_approx_candidate(base, "fakeddisorder");
     let tlsrec_hostfake = build_tlsrec_hostfake_candidate(base, false);
     let tlsrec_hostfake_split = build_tlsrec_hostfake_candidate(base, true);
-    let ipfrag_capable = supports_dual_stack_ip_fragmentation();
+    let ipfrag_capable = supports_tcp_ip_fragmentation();
+    let seqovl_supported = supports_seqovl();
 
     let mut candidates = vec![
         candidate_spec("baseline_current", "Current strategy", "baseline", baseline),
@@ -289,11 +290,29 @@ pub(crate) fn build_tcp_candidates(base: &ProxyUiConfig) -> Vec<StrategyCandidat
             vec!["VPN-only raw-socket TCP fragmentation of the first application-data segment"],
         ));
     }
+    if seqovl_supported {
+        candidates.push(candidate_spec_with_notes(
+            "tlsrec_seqovl_midsld",
+            "TLS record + seq overlap midsld",
+            "tlsrec_seqovl",
+            build_tlsrec_seqovl_candidate(base, "midsld"),
+            vec!["Only included when the native packet-owned seqovl capability is available"],
+        ));
+    }
     candidates
 }
 
 pub(crate) fn build_full_matrix_tcp_candidates(base: &ProxyUiConfig) -> Vec<StrategyCandidateSpec> {
     let mut candidates = build_tcp_candidates(base);
+    if supports_seqovl() {
+        candidates.push(candidate_spec_with_notes(
+            "tlsrec_seqovl_sniext",
+            "TLS record + seq overlap SNI ext",
+            "tlsrec_seqovl",
+            build_tlsrec_seqovl_candidate(base, "sniext"),
+            vec!["Uses the SNI extension marker for the sequence overlap split"],
+        ));
+    }
     candidates.extend([
         build_activation_window_split_spec(base),
         build_activation_window_hostfake_spec(base),
@@ -326,7 +345,7 @@ pub(crate) fn build_quic_candidates(base_tcp: &ProxyUiConfig) -> Vec<StrategyCan
             vec!["Uses realistic QUIC Initial packets with the target SNI"],
         ),
     ];
-    if supports_dual_stack_ip_fragmentation() {
+    if supports_udp_ip_fragmentation() {
         candidates.push(candidate_spec_with_notes(
             "quic_ipfrag2",
             "QUIC IP fragmentation",
@@ -481,6 +500,8 @@ pub(crate) fn build_tlsrec_hostfake_candidate(base: &ProxyUiConfig, with_split: 
             marker: "endhost+8".to_string(),
             midhost_marker: "midsld".to_string(),
             fake_host_template: "googlevideo.com".to_string(),
+            overlap_size: 0,
+            fake_mode: String::new(),
             fragment_count: 0,
             min_fragment_size: 0,
             max_fragment_size: 0,
@@ -491,6 +512,30 @@ pub(crate) fn build_tlsrec_hostfake_candidate(base: &ProxyUiConfig, with_split: 
         steps.push(tcp_step("split", "midsld"));
     }
     config.chains.tcp_steps = steps;
+    config
+}
+
+pub(crate) fn build_tlsrec_seqovl_candidate(base: &ProxyUiConfig, marker: &str) -> ProxyUiConfig {
+    let mut config = strategy_probe_base(base);
+    config.chains.tcp_steps = vec![
+        tcp_step("tlsrec", "extlen"),
+        ProxyUiTcpChainStep {
+            kind: "seqovl".to_string(),
+            marker: marker.to_string(),
+            midhost_marker: String::new(),
+            fake_host_template: String::new(),
+            overlap_size: 12,
+            fake_mode: "profile".to_string(),
+            fragment_count: 0,
+            min_fragment_size: 0,
+            max_fragment_size: 0,
+            activation_filter: Some(ProxyUiActivationFilter {
+                round: Some(ProxyUiNumericRange { start: Some(1), end: Some(1) }),
+                payload_size: None,
+                stream_bytes: Some(ProxyUiNumericRange { start: Some(0), end: Some(1500) }),
+            }),
+        },
+    ];
     config
 }
 
@@ -527,9 +572,28 @@ pub(crate) fn build_quic_ipfrag_candidate(base_tcp: &ProxyUiConfig) -> ProxyUiCo
     config
 }
 
-fn supports_dual_stack_ip_fragmentation() -> bool {
-    let capabilities = ripdpi_runtime::platform::probe_ip_fragmentation_capabilities(None).unwrap_or_default();
-    capabilities.raw_ipv4 && capabilities.raw_ipv6 && capabilities.tcp_repair
+fn probe_ip_fragmentation_capabilities() -> ripdpi_runtime::platform::IpFragmentationCapabilities {
+    ripdpi_runtime::platform::probe_ip_fragmentation_capabilities(None).unwrap_or_default()
+}
+
+fn supports_tcp_ip_fragmentation_for(capabilities: ripdpi_runtime::platform::IpFragmentationCapabilities) -> bool {
+    capabilities.supports_tcp_ip_fragmentation(true)
+}
+
+fn supports_udp_ip_fragmentation_for(capabilities: ripdpi_runtime::platform::IpFragmentationCapabilities) -> bool {
+    capabilities.supports_udp_ip_fragmentation(true)
+}
+
+fn supports_tcp_ip_fragmentation() -> bool {
+    supports_tcp_ip_fragmentation_for(probe_ip_fragmentation_capabilities())
+}
+
+fn supports_udp_ip_fragmentation() -> bool {
+    supports_udp_ip_fragmentation_for(probe_ip_fragmentation_capabilities())
+}
+
+fn supports_seqovl() -> bool {
+    ripdpi_runtime::platform::seqovl_supported()
 }
 
 pub(crate) fn build_activation_window_split_spec(base: &ProxyUiConfig) -> StrategyCandidateSpec {
@@ -606,6 +670,8 @@ pub(crate) fn tcp_step(kind: &str, marker: &str) -> ProxyUiTcpChainStep {
         marker: marker.to_string(),
         midhost_marker: String::new(),
         fake_host_template: String::new(),
+        overlap_size: 0,
+        fake_mode: String::new(),
         fragment_count: 0,
         min_fragment_size: 0,
         max_fragment_size: 0,
@@ -654,6 +720,37 @@ mod tests {
     }
 
     #[test]
+    fn seqovl_candidates_follow_platform_capability_probe() {
+        let base = minimal_ui_config();
+        let quick = build_strategy_probe_suite("quick_v1", &base).expect("quick_v1");
+        let full = build_strategy_probe_suite("full_matrix_v1", &base).expect("full_matrix_v1");
+        let supported = supports_seqovl();
+
+        assert_eq!(quick.tcp_candidates.iter().any(|candidate| candidate.id == "tlsrec_seqovl_midsld"), supported);
+        assert_eq!(full.tcp_candidates.iter().any(|candidate| candidate.id == "tlsrec_seqovl_midsld"), supported);
+        assert_eq!(full.tcp_candidates.iter().any(|candidate| candidate.id == "tlsrec_seqovl_sniext"), supported);
+    }
+
+    #[test]
+    fn build_tlsrec_seqovl_candidate_sets_hard_gate_and_fields() {
+        let config = build_tlsrec_seqovl_candidate(&minimal_ui_config(), "midsld");
+        let steps = &config.chains.tcp_steps;
+
+        assert_eq!(steps.len(), 2);
+        assert_eq!(steps[0].kind, "tlsrec");
+        assert_eq!(steps[0].marker, "extlen");
+        assert_eq!(steps[1].kind, "seqovl");
+        assert_eq!(steps[1].marker, "midsld");
+        assert_eq!(steps[1].overlap_size, 12);
+        assert_eq!(steps[1].fake_mode, "profile");
+        let filter = steps[1].activation_filter.as_ref().expect("seqovl activation filter");
+        assert_eq!(filter.round.as_ref().and_then(|value| value.start), Some(1));
+        assert_eq!(filter.round.as_ref().and_then(|value| value.end), Some(1));
+        assert_eq!(filter.stream_bytes.as_ref().and_then(|value| value.start), Some(0));
+        assert_eq!(filter.stream_bytes.as_ref().and_then(|value| value.end), Some(1500));
+    }
+
+    #[test]
     fn build_tcp_candidates_marks_ech_candidates_as_ech_only_and_targets_echext() {
         let candidates = build_tcp_candidates(&minimal_ui_config());
         let ech_split = candidates.iter().find(|candidate| candidate.id == "ech_split").expect("ech_split candidate");
@@ -678,10 +775,24 @@ mod tests {
         let base = minimal_ui_config();
         let tcp_candidates = build_tcp_candidates(&base);
         let quic_candidates = build_quic_candidates(&base);
-        let ipfrag_capable = supports_dual_stack_ip_fragmentation();
+        let tcp_ipfrag_capable = supports_tcp_ip_fragmentation();
+        let udp_ipfrag_capable = supports_udp_ip_fragmentation();
 
-        assert_eq!(tcp_candidates.iter().any(|candidate| candidate.id == "ipfrag2"), ipfrag_capable);
-        assert_eq!(quic_candidates.iter().any(|candidate| candidate.id == "quic_ipfrag2"), ipfrag_capable);
+        assert_eq!(tcp_candidates.iter().any(|candidate| candidate.id == "ipfrag2"), tcp_ipfrag_capable);
+        assert_eq!(quic_candidates.iter().any(|candidate| candidate.id == "quic_ipfrag2"), udp_ipfrag_capable);
+    }
+
+    #[test]
+    fn ipfrag_capability_helpers_split_tcp_and_udp_requirements() {
+        let udp_only =
+            ripdpi_runtime::platform::IpFragmentationCapabilities { raw_ipv4: true, raw_ipv6: true, tcp_repair: false };
+        assert!(!supports_tcp_ip_fragmentation_for(udp_only));
+        assert!(supports_udp_ip_fragmentation_for(udp_only));
+
+        let tcp_and_udp =
+            ripdpi_runtime::platform::IpFragmentationCapabilities { raw_ipv4: true, raw_ipv6: true, tcp_repair: true };
+        assert!(supports_tcp_ip_fragmentation_for(tcp_and_udp));
+        assert!(supports_udp_ip_fragmentation_for(tcp_and_udp));
     }
 
     #[test]

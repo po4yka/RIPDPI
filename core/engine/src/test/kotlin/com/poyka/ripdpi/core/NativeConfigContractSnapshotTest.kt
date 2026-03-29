@@ -288,6 +288,49 @@ class NativeConfigContractSnapshotTest {
     }
 
     @Test
+    fun proxySeqOverlapUiPayloadMatchesSnapshot() {
+        val payload =
+            RipDpiProxyUIPreferences(
+                chains =
+                    RipDpiChainConfig(
+                        tcpSteps =
+                            listOf(
+                                TcpChainStepModel(
+                                    kind = TcpChainStepKind.TlsRec,
+                                    marker = "extlen",
+                                ),
+                                TcpChainStepModel(
+                                    kind = TcpChainStepKind.SeqOverlap,
+                                    marker = "midsld",
+                                    overlapSize = 16,
+                                    fakeMode = "rand",
+                                ),
+                            ),
+                    ),
+            ).toNativeConfigJson()
+
+        assertJsonSnapshot(
+            actualJson = payload,
+            expectedJson =
+                defaultUiExpected(
+                    chains =
+                        chainsExpected(
+                            tcpSteps =
+                                listOf(
+                                    tcpStepExpected(kind = "tlsrec", marker = "extlen"),
+                                    tcpStepExpected(
+                                        kind = "seqovl",
+                                        marker = "midsld",
+                                        overlapSize = 16,
+                                        fakeMode = "rand",
+                                    ),
+                                ),
+                        ),
+                ),
+        )
+    }
+
+    @Test
     fun proxyActivationFilterUiPayloadMatchesSnapshot() {
         val payload =
             RipDpiProxyUIPreferences(
@@ -587,6 +630,8 @@ class NativeConfigContractSnapshotTest {
         marker: String,
         midhostMarker: String = "",
         fakeHostTemplate: String = "",
+        overlapSize: Int = 0,
+        fakeMode: String = "",
         fragmentCount: Int = 0,
         minFragmentSize: Int = 0,
         maxFragmentSize: Int = 0,
@@ -597,6 +642,8 @@ class NativeConfigContractSnapshotTest {
             put("marker", JsonPrimitive(marker))
             put("midhostMarker", JsonPrimitive(midhostMarker))
             put("fakeHostTemplate", JsonPrimitive(fakeHostTemplate))
+            put("overlapSize", JsonPrimitive(overlapSize))
+            put("fakeMode", JsonPrimitive(fakeMode))
             put("fragmentCount", JsonPrimitive(fragmentCount))
             put("minFragmentSize", JsonPrimitive(minFragmentSize))
             put("maxFragmentSize", JsonPrimitive(maxFragmentSize))
@@ -606,11 +653,13 @@ class NativeConfigContractSnapshotTest {
     private fun udpStepExpected(
         kind: String,
         count: Int,
+        splitBytes: Int = 0,
         activationFilter: JsonObject? = null,
     ): JsonObject =
         buildJsonObject {
             put("kind", JsonPrimitive(kind))
             put("count", JsonPrimitive(count))
+            put("splitBytes", JsonPrimitive(splitBytes))
             put("activationFilter", activationFilter ?: JsonNull)
         }
 

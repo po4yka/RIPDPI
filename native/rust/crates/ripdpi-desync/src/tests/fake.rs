@@ -114,3 +114,26 @@ fn build_fake_packet_uses_selected_tls_profile_when_no_raw_fake_is_set() {
 
     assert_eq!(parsed, b"www.google.com");
 }
+
+#[test]
+fn build_seqovl_fake_prefix_profile_reuses_fake_packet_builder() {
+    let mut group = DesyncGroup::new(0);
+    group.actions.tls_fake_profile = TlsFakeProfile::GoogleChrome;
+
+    let fake = build_fake_packet(&group, DEFAULT_FAKE_TLS, 11).expect("fake packet");
+    let prefix = build_seqovl_fake_prefix(&group, DEFAULT_FAKE_TLS, 11, 6, ripdpi_config::SeqOverlapFakeMode::Profile)
+        .expect("seqovl prefix");
+
+    assert_eq!(prefix, build_fake_region_bytes(&fake, 0, 6));
+}
+
+#[test]
+fn build_seqovl_fake_prefix_rand_uses_seeded_random_bytes() {
+    let group = DesyncGroup::new(0);
+    let prefix = build_seqovl_fake_prefix(&group, DEFAULT_FAKE_TLS, 23, 8, ripdpi_config::SeqOverlapFakeMode::Rand)
+        .expect("seqovl rand prefix");
+    let mut rng = OracleRng::seeded(23);
+    let expected = (0..8).map(|_| rng.next_u8()).collect::<Vec<_>>();
+
+    assert_eq!(prefix, expected);
+}

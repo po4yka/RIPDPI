@@ -1,7 +1,9 @@
 use crate::offset::gen_offset;
 use crate::proto::resolve_host_range;
 use crate::types::{DesyncError, FakePacketPlan, HostFakeSpan, ProtoInfo};
-use ripdpi_config::{DesyncGroup, OffsetProto, TcpChainStep, FM_DUPSID, FM_ORIG, FM_PADENCAP, FM_RAND, FM_RNDSNI};
+use ripdpi_config::{
+    DesyncGroup, OffsetProto, SeqOverlapFakeMode, TcpChainStep, FM_DUPSID, FM_ORIG, FM_PADENCAP, FM_RAND, FM_RNDSNI,
+};
 use ripdpi_packets::{
     change_tls_sni_seeded_like_c, duplicate_tls_session_id_like_c, http_fake_profile_bytes, is_http,
     is_tls_client_hello, padencap_tls_like_c, randomize_tls_seeded_like_c, randomize_tls_sni_seeded_like_c,
@@ -125,6 +127,29 @@ pub fn build_fake_region_bytes(fake: &FakePacketPlan, stream_offset: usize, len:
             stream[offset]
         })
         .collect()
+}
+
+pub fn build_seqovl_fake_prefix(
+    group: &DesyncGroup,
+    input: &[u8],
+    seed: u32,
+    overlap_size: usize,
+    fake_mode: SeqOverlapFakeMode,
+) -> Result<Vec<u8>, DesyncError> {
+    match fake_mode {
+        SeqOverlapFakeMode::Profile => {
+            let fake = build_fake_packet(group, input, seed)?;
+            Ok(build_fake_region_bytes(&fake, 0, overlap_size))
+        }
+        SeqOverlapFakeMode::Rand => {
+            let mut rng = OracleRng::seeded(seed);
+            let mut output = vec![0; overlap_size];
+            for byte in &mut output {
+                *byte = rng.next_u8();
+            }
+            Ok(output)
+        }
+    }
 }
 
 fn apply_tls_mutation(output: &mut Vec<u8>, mutation: PacketMutation) {

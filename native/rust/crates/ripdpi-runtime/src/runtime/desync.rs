@@ -106,6 +106,7 @@ pub(super) fn activation_context_from_progress(
         payload_size: progress.payload_size as i64,
         stream_start: progress.stream_start as i64,
         stream_end: progress.stream_end as i64,
+        seqovl_supported: platform::seqovl_supported(),
         transport,
         tcp_segment_hint,
         resolved_fake_ttl,
@@ -233,8 +234,17 @@ fn has_tcp_actions(group: &DesyncGroup) -> bool {
 }
 
 fn primary_tcp_strategy_family(group: &DesyncGroup) -> Option<&'static str> {
-    group.effective_tcp_chain().into_iter().find(|step| !step.kind.is_tls_prelude()).map(|step| match step.kind {
+    let chain = group.effective_tcp_chain();
+    let has_tls_prelude = chain.iter().any(|step| step.kind.is_tls_prelude());
+    chain.into_iter().find(|step| !step.kind.is_tls_prelude()).map(|step| match step.kind {
         TcpChainStepKind::Split => "split",
+        TcpChainStepKind::SeqOverlap => {
+            if has_tls_prelude {
+                "tlsrec_seqovl"
+            } else {
+                "seqovl"
+            }
+        }
         TcpChainStepKind::Disorder => "disorder",
         TcpChainStepKind::Oob => "oob",
         TcpChainStepKind::Disoob => "disoob",
@@ -249,6 +259,8 @@ fn primary_tcp_strategy_family(group: &DesyncGroup) -> Option<&'static str> {
 
 fn strategy_fallback_family(strategy_family: &'static str) -> Option<&'static str> {
     match strategy_family {
+        "seqovl" => Some("split"),
+        "tlsrec_seqovl" => Some("tlsrec_split"),
         "disorder" => Some("split"),
         "disoob" => Some("oob"),
         "fakeddisorder" => Some("fakedsplit"),
@@ -259,6 +271,7 @@ fn strategy_fallback_family(strategy_family: &'static str) -> Option<&'static st
 fn write_action_name(strategy_family: &'static str) -> &'static str {
     match strategy_family {
         "split" => "write_split",
+        "seqovl" | "tlsrec_seqovl" => "write_seqovl",
         "disorder" => "write_disorder",
         "oob" => "write_oob",
         "disoob" => "write_disoob",
@@ -270,9 +283,18 @@ fn write_action_name(strategy_family: &'static str) -> &'static str {
     }
 }
 
+fn should_fallback_ipfrag2_tcp_error_kind(kind: io::ErrorKind) -> bool {
+    matches!(kind, io::ErrorKind::InvalidInput | io::ErrorKind::WouldBlock | io::ErrorKind::Unsupported)
+}
+
+fn log_ipfrag2_flow_fallback(error: &impl std::fmt::Display) {
+    tracing::debug!("falling back to normal TCP write for ipfrag2 after per-flow repair downgrade: {error}");
+}
+
 fn await_writable_action_name(strategy_family: &'static str) -> &'static str {
     match strategy_family {
         "split" => "await_writable_split",
+        "seqovl" | "tlsrec_seqovl" => "await_writable_seqovl",
         "disorder" => "await_writable_disorder",
         "oob" => "await_writable_oob",
         "disoob" => "await_writable_disoob",
@@ -466,10 +488,11 @@ fn execute_tcp_actions(
                             Ok(committed) => {
                                 bytes_committed = committed;
                             }
-                            Err(err) if err.kind() == io::ErrorKind::InvalidInput && strategy_family == "ipfrag2" => {
-                                tracing::debug!(
-                                    "falling back to normal TCP write for ipfrag2 after invalid split: {err}"
-                                );
+                            Err(err)
+                                if strategy_family == "ipfrag2"
+                                    && should_fallback_ipfrag2_tcp_error_kind(err.kind()) =>
+                            {
+                                log_ipfrag2_flow_fallback(&err);
                                 bytes_committed = write_strategy_payload_named(
                                     writer,
                                     bytes,
@@ -486,7 +509,8 @@ fn execute_tcp_actions(
                             Ok(()) => {
                                 bytes_committed += bytes.len();
                             }
-                            Err(err) if err.kind() == io::ErrorKind::InvalidInput => {
+                            Err(err) if should_fallback_ipfrag2_tcp_error_kind(err.kind()) => {
+                                log_ipfrag2_flow_fallback(&err);
                                 bytes_committed = write_transport_payload(writer, bytes)?;
                             }
                             Err(err) => return Err(OutboundSendError::Transport(err)),
@@ -615,6 +639,7 @@ fn execute_tcp_plan(
         let configured_step = &send_steps[index];
         let step_family = match step.kind {
             TcpChainStepKind::Split => "split",
+            TcpChainStepKind::SeqOverlap => strategy_family.unwrap_or("seqovl"),
             TcpChainStepKind::Oob => "oob",
             TcpChainStepKind::Disorder => "disorder",
             TcpChainStepKind::Disoob => "disoob",
@@ -642,6 +667,25 @@ fn execute_tcp_plan(
                     config.timeouts.wait_send,
                     Duration::from_millis(config.timeouts.await_interval.max(1) as u64),
                     "await_writable_split",
+                    step_family,
+                    step_fallback,
+                    bytes_committed,
+                )?;
+            }
+            TcpChainStepKind::SeqOverlap => {
+                bytes_committed = write_strategy_payload_named(
+                    writer,
+                    chunk,
+                    "write_seqovl",
+                    step_family,
+                    step_fallback,
+                    bytes_committed,
+                )?;
+                await_writable_action_named(
+                    writer,
+                    config.timeouts.wait_send,
+                    Duration::from_millis(config.timeouts.await_interval.max(1) as u64),
+                    "await_writable_seqovl",
                     step_family,
                     step_fallback,
                     bytes_committed,
@@ -957,8 +1001,8 @@ fn execute_tcp_plan(
                     Ok(committed) => {
                         bytes_committed = committed;
                     }
-                    Err(err) if err.kind() == io::ErrorKind::InvalidInput => {
-                        tracing::debug!("falling back to normal TCP write for ipfrag2 after invalid split: {err}");
+                    Err(err) if should_fallback_ipfrag2_tcp_error_kind(err.kind()) => {
+                        log_ipfrag2_flow_fallback(&err);
                         bytes_committed = write_strategy_payload_named(
                             writer,
                             &plan.tampered,
@@ -1522,6 +1566,7 @@ mod tests {
             payload_size: 16,
             stream_start: 0,
             stream_end: 15,
+            seqovl_supported: false,
             transport: ActivationTransport::Tcp,
             tcp_segment_hint: None,
             resolved_fake_ttl: None,

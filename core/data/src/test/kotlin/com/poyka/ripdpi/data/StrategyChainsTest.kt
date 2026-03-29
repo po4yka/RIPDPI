@@ -63,6 +63,57 @@ class StrategyChainsTest {
     }
 
     @Test
+    fun `seqovl dsl round trip preserves overlap and fake mode`() {
+        val dsl =
+            """
+            [tcp]
+            tlsrec extlen
+            seqovl midsld overlap=16 fake=rand
+            """.trimIndent()
+
+        val parsed = parseStrategyChainDsl(dsl).getOrThrow()
+
+        assertEquals(
+            listOf(
+                TcpChainStepModel(TcpChainStepKind.TlsRec, "extlen"),
+                TcpChainStepModel(
+                    kind = TcpChainStepKind.SeqOverlap,
+                    marker = "midsld",
+                    overlapSize = 16,
+                    fakeMode = SeqOverlapFakeModeRand,
+                ),
+            ),
+            parsed.tcpSteps,
+        )
+        assertEquals(dsl, formatStrategyChainDsl(parsed.tcpSteps, parsed.udpSteps))
+        assertEquals(
+            "tcp: tlsrec(extlen) -> seqovl(midsld overlap=16 fake=rand)",
+            formatChainSummary(parsed.tcpSteps, parsed.udpSteps),
+        )
+    }
+
+    @Test
+    fun `seqovl validation rejects duplicates and non leading send steps`() {
+        val duplicate =
+            listOf(
+                TcpChainStepModel(TcpChainStepKind.SeqOverlap, "host+1", overlapSize = 12, fakeMode = "profile"),
+                TcpChainStepModel(TcpChainStepKind.SeqOverlap, "midsld", overlapSize = 12, fakeMode = "rand"),
+            )
+        val nonLeading =
+            listOf(
+                TcpChainStepModel(TcpChainStepKind.Split, "host+1"),
+                TcpChainStepModel(TcpChainStepKind.SeqOverlap, "midsld", overlapSize = 12, fakeMode = "profile"),
+            )
+
+        assertThrows(IllegalArgumentException::class.java) {
+            AppSettings.newBuilder().setStrategyChains(duplicate, emptyList())
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            AppSettings.newBuilder().setStrategyChains(nonLeading, emptyList())
+        }
+    }
+
+    @Test
     fun `dsl round trip preserves tcp and udp chain order`() {
         val dsl =
             """

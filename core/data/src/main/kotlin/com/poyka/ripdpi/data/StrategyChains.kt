@@ -14,6 +14,7 @@ enum class TcpChainStepKind(
     val wireName: String,
 ) {
     Split("split"),
+    SeqOverlap("seqovl"),
     Disorder("disorder"),
     Fake("fake"),
     FakeSplit("fakedsplit"),
@@ -45,6 +46,7 @@ val TcpChainStepKind.supportsAdaptiveMarker: Boolean
 fun TcpChainStepKind.desyncMethodLabel(): String? =
     when (this) {
         TcpChainStepKind.Split -> "split"
+        TcpChainStepKind.SeqOverlap -> "split"
         TcpChainStepKind.Disorder -> "disorder"
         TcpChainStepKind.Fake -> "fake"
         TcpChainStepKind.FakeSplit -> "fake"
@@ -63,6 +65,8 @@ data class TcpChainStepModel(
     val marker: String,
     val midhostMarker: String = "",
     val fakeHostTemplate: String = "",
+    val overlapSize: Int = 0,
+    val fakeMode: String = "",
     val fragmentCount: Int = 0,
     val minFragmentSize: Int = 0,
     val maxFragmentSize: Int = 0,
@@ -328,6 +332,8 @@ private fun StrategyTcpStep.toModelOrNull(): TcpChainStepModel? {
             marker = normalizeTcpMarker(kind, marker),
             midhostMarker = normalizeMidhostMarker(kind, midhostMarker),
             fakeHostTemplate = normalizeFakeHostTemplate(kind, fakeHostTemplate),
+            overlapSize = overlapSize,
+            fakeMode = fakeMode,
             fragmentCount = fragmentCount,
             minFragmentSize = minFragmentSize,
             maxFragmentSize = maxFragmentSize,
@@ -356,6 +362,8 @@ private fun TcpChainStepModel.toProto(): StrategyTcpStep =
             .setMarker(normalizeTcpMarker(step))
             .setMidhostMarker(normalizeMidhostMarker(step.kind, step.midhostMarker))
             .setFakeHostTemplate(normalizeFakeHostTemplate(step.kind, step.fakeHostTemplate))
+            .setOverlapSize(normalizeSeqOverlapSize(step.kind, step.overlapSize))
+            .setFakeMode(normalizeSeqOverlapFakeModeForProto(step.kind, step.fakeMode))
             .setFragmentCount(normalizeFragmentCount(step.kind, step.fragmentCount))
             .setMinFragmentSize(normalizeMinFragmentSize(step.kind, step.minFragmentSize))
             .setMaxFragmentSize(normalizeMaxFragmentSize(step.kind, step.maxFragmentSize))
@@ -383,6 +391,8 @@ private fun UdpChainStepModel.toProto(): StrategyUdpStep =
 private fun validateTcpChain(steps: List<TcpChainStepModel>) {
     var sawSendStep = false
     var sawIpFrag2 = false
+    var sawSeqOverlap = false
+    var sendStepCount = 0
     steps.forEachIndexed { index, step ->
         when (step.kind) {
             TcpChainStepKind.TlsRec,
@@ -393,12 +403,18 @@ private fun validateTcpChain(steps: List<TcpChainStepModel>) {
 
             else -> {
                 sawSendStep = true
+                if (step.kind == TcpChainStepKind.SeqOverlap) {
+                    require(!sawSeqOverlap) { "seqovl must appear at most once per tcp chain" }
+                    require(sendStepCount == 0) { "seqovl must be the first tcp send step" }
+                    sawSeqOverlap = true
+                }
                 if (step.kind == TcpChainStepKind.IpFrag2) {
                     sawIpFrag2 = true
                     require(index == steps.lastIndex) { "ipfrag2 must be the only tcp send step" }
                 } else {
                     require(!sawIpFrag2) { "ipfrag2 must be the only tcp send step" }
                 }
+                sendStepCount += 1
             }
         }
         if (step.kind == TcpChainStepKind.FakeSplit || step.kind == TcpChainStepKind.FakeDisorder) {
@@ -436,6 +452,12 @@ private fun formatTcpStepSummary(step: TcpChainStepModel): String =
             append(" host=")
             append(normalizedTemplate)
         }
+        if (normalized.kind == TcpChainStepKind.SeqOverlap) {
+            append(" overlap=")
+            append(normalized.overlapSize)
+            append(" fake=")
+            append(normalized.fakeMode)
+        }
         if (normalized.kind == TcpChainStepKind.TlsRandRec) {
             append(" count=")
             append(normalized.fragmentCount)
@@ -467,6 +489,12 @@ private fun formatTcpStepDsl(step: TcpChainStepModel): String =
         if (normalizedTemplate.isNotEmpty()) {
             append(" host=")
             append(normalizedTemplate)
+        }
+        if (normalized.kind == TcpChainStepKind.SeqOverlap) {
+            append(" overlap=")
+            append(normalized.overlapSize)
+            append(" fake=")
+            append(normalized.fakeMode)
         }
         if (normalized.kind == TcpChainStepKind.TlsRandRec) {
             append(" count=")
@@ -525,6 +553,8 @@ private fun parseTcpStep(
 
     var midhostMarker = ""
     var fakeHostTemplate = ""
+    var overlapSize = 0
+    var fakeMode = SeqOverlapFakeModeProfile
     var fragmentCount = 0
     var minFragmentSize = 0
     var maxFragmentSize = 0
@@ -555,6 +585,20 @@ private fun parseTcpStep(
                 val normalized = normalizeFakeHostTemplate(kind, value)
                 require(normalized.isNotEmpty()) { "Invalid host template on line $lineNumber" }
                 fakeHostTemplate = normalized
+            }
+
+            "overlap" -> {
+                require(
+                    kind == TcpChainStepKind.SeqOverlap,
+                ) { "overlap is only supported for seqovl on line $lineNumber" }
+                overlapSize = value.toIntOrNull() ?: error("Invalid overlap on line $lineNumber")
+            }
+
+            "fake" -> {
+                require(
+                    kind == TcpChainStepKind.SeqOverlap,
+                ) { "fake is only supported for seqovl on line $lineNumber" }
+                fakeMode = normalizeSeqOverlapFakeMode(value)
             }
 
             "count" -> {
@@ -609,6 +653,8 @@ private fun parseTcpStep(
             marker = marker,
             midhostMarker = midhostMarker,
             fakeHostTemplate = fakeHostTemplate,
+            overlapSize = overlapSize,
+            fakeMode = fakeMode,
             fragmentCount = fragmentCount,
             minFragmentSize = minFragmentSize,
             maxFragmentSize = maxFragmentSize,
@@ -633,21 +679,43 @@ private fun validateTcpStepOptions(step: TcpChainStepModel) {
         "hostfake must not declare an adaptive midhost marker"
     }
     when (step.kind) {
+        TcpChainStepKind.SeqOverlap -> {
+            require(step.overlapSize in 1..32) { "seqovl overlap must be between 1 and 32" }
+            require(normalizeSeqOverlapFakeMode(step.fakeMode) == step.fakeMode) {
+                "seqovl fakeMode must be profile or rand"
+            }
+            require(step.fragmentCount == 0) { "seqovl must not declare fragmentCount" }
+            require(step.minFragmentSize == 0) { "seqovl must not declare minFragmentSize" }
+            require(step.maxFragmentSize == 0) { "seqovl must not declare maxFragmentSize" }
+        }
+
         TcpChainStepKind.TlsRandRec -> {
             require(step.fragmentCount in 2..16) { "tlsrandrec count must be between 2 and 16" }
             require(step.minFragmentSize in 1..4096) { "tlsrandrec min must be between 1 and 4096" }
             require(step.maxFragmentSize in step.minFragmentSize..4096) {
                 "tlsrandrec max must be between min and 4096"
             }
+            require(step.overlapSize == 0) { "tlsrandrec must not declare overlapSize" }
         }
 
         else -> {
+            require(step.overlapSize == 0) { "${step.kind.wireName} must not declare overlapSize" }
             require(step.fragmentCount == 0) { "${step.kind.wireName} must not declare fragmentCount" }
             require(step.minFragmentSize == 0) { "${step.kind.wireName} must not declare minFragmentSize" }
             require(step.maxFragmentSize == 0) { "${step.kind.wireName} must not declare maxFragmentSize" }
         }
     }
 }
+
+private fun normalizeSeqOverlapSize(
+    kind: TcpChainStepKind,
+    value: Int,
+): Int = if (kind == TcpChainStepKind.SeqOverlap) value.takeIf { it > 0 } ?: DefaultSeqOverlapSize else 0
+
+private fun normalizeSeqOverlapFakeModeForProto(
+    kind: TcpChainStepKind,
+    value: String,
+): String = if (kind == TcpChainStepKind.SeqOverlap) normalizeSeqOverlapFakeMode(value) else ""
 
 private fun normalizeFragmentCount(
     kind: TcpChainStepKind,
@@ -669,6 +737,8 @@ fun normalizeTcpChainStepModel(step: TcpChainStepModel): TcpChainStepModel =
         marker = normalizeTcpMarker(step.kind, step.marker),
         midhostMarker = normalizeMidhostMarker(step.kind, step.midhostMarker),
         fakeHostTemplate = normalizeFakeHostTemplate(step.kind, step.fakeHostTemplate),
+        overlapSize = normalizeSeqOverlapSize(step.kind, step.overlapSize),
+        fakeMode = normalizeSeqOverlapFakeModeForProto(step.kind, step.fakeMode),
         fragmentCount = normalizeFragmentCount(step.kind, step.fragmentCount),
         minFragmentSize = normalizeMinFragmentSize(step.kind, step.minFragmentSize),
         maxFragmentSize = normalizeMaxFragmentSize(step.kind, step.maxFragmentSize),

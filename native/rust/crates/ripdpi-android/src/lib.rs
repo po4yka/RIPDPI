@@ -8,7 +8,7 @@ mod telemetry;
 
 use android_support::{init_android_logging, JNI_VERSION};
 use jni::objects::{JObject, JString};
-use jni::sys::{jint, jlong, jstring};
+use jni::sys::{jboolean, jint, jlong, jstring};
 use jni::{EnvUnowned, JavaVM};
 use once_cell::sync::OnceCell;
 
@@ -126,6 +126,14 @@ pub extern "system" fn Java_com_poyka_ripdpi_core_RipDpiProxyNativeBindings_jniU
     snapshot_json: JString,
 ) {
     proxy_update_network_snapshot_entry(env, handle, snapshot_json);
+}
+
+#[unsafe(no_mangle)]
+pub extern "system" fn Java_com_poyka_ripdpi_core_RipDpiPlatformCapabilities_jniSeqovlSupported(
+    _env: EnvUnowned,
+    _thiz: JObject,
+) -> jboolean {
+    ripdpi_runtime::platform::seqovl_supported()
 }
 
 export_diagnostics_jni!(

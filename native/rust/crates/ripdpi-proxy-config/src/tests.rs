@@ -1,6 +1,6 @@
 use ripdpi_config::{
-    AutoTtlConfig, DesyncMode, OffsetBase, OffsetProto, QuicFakeProfile, TcpChainStepKind, UdpChainStepKind,
-    WsTunnelMode, DETECT_CONNECT, FM_DUPSID, FM_ORIG, HOST_AUTOLEARN_DEFAULT_MAX_HOSTS,
+    AutoTtlConfig, DesyncMode, OffsetBase, OffsetExpr, OffsetProto, QuicFakeProfile, TcpChainStepKind,
+    UdpChainStepKind, WsTunnelMode, DETECT_CONNECT, FM_DUPSID, FM_ORIG, HOST_AUTOLEARN_DEFAULT_MAX_HOSTS,
 };
 use ripdpi_packets::{HttpFakeProfile, TlsFakeProfile, UdpFakeProfile};
 use ripdpi_packets::{MH_DMIX, MH_HMIX, MH_METHODEOL, MH_SPACE, MH_UNIXEOL};
@@ -22,6 +22,23 @@ fn tcp_step(kind: &str, marker: &str) -> ProxyUiTcpChainStep {
         marker: marker.to_string(),
         midhost_marker: String::new(),
         fake_host_template: String::new(),
+        overlap_size: 0,
+        fake_mode: String::new(),
+        fragment_count: 0,
+        min_fragment_size: 0,
+        max_fragment_size: 0,
+        activation_filter: None,
+    }
+}
+
+fn seqovl_step(marker: &str, overlap_size: i32, fake_mode: &str) -> ProxyUiTcpChainStep {
+    ProxyUiTcpChainStep {
+        kind: "seqovl".to_string(),
+        marker: marker.to_string(),
+        midhost_marker: String::new(),
+        fake_host_template: String::new(),
+        overlap_size,
+        fake_mode: fake_mode.to_string(),
         fragment_count: 0,
         min_fragment_size: 0,
         max_fragment_size: 0,
@@ -45,6 +62,8 @@ fn ui_payload_parses_hostfake_and_quic_profile() {
         marker: "endhost+8".to_string(),
         midhost_marker: "midsld".to_string(),
         fake_host_template: "googlevideo.com".to_string(),
+        overlap_size: 0,
+        fake_mode: String::new(),
         fragment_count: 0,
         min_fragment_size: 0,
         max_fragment_size: 0,
@@ -79,6 +98,8 @@ fn ui_payload_preserves_explicit_tlsrec_before_hostfake() {
             marker: "endhost+8".to_string(),
             midhost_marker: "midsld".to_string(),
             fake_host_template: "googlevideo.com".to_string(),
+            overlap_size: 0,
+            fake_mode: String::new(),
             fragment_count: 0,
             min_fragment_size: 0,
             max_fragment_size: 0,
@@ -91,6 +112,42 @@ fn ui_payload_preserves_explicit_tlsrec_before_hostfake() {
     assert_eq!(config.groups[0].actions.tcp_chain.len(), 2);
     assert_eq!(config.groups[0].actions.tcp_chain[0].kind, TcpChainStepKind::TlsRec);
     assert_eq!(config.groups[0].actions.tcp_chain[1].kind, TcpChainStepKind::HostFake);
+}
+
+#[test]
+fn ui_payload_parses_seqovl_step_and_fields() {
+    let mut ui = minimal_ui();
+    ui.chains.tcp_steps = vec![tcp_step("tlsrec", "extlen"), seqovl_step("auto(midsld)", 14, "rand")];
+
+    let config = runtime_config_from_payload(ui_payload(ui)).expect("runtime config");
+    let tcp_chain = &config.groups[0].actions.tcp_chain;
+
+    assert_eq!(tcp_chain.len(), 2);
+    assert_eq!(tcp_chain[0].kind, TcpChainStepKind::TlsRec);
+    assert_eq!(tcp_chain[1].kind, TcpChainStepKind::SeqOverlap);
+    assert_eq!(tcp_chain[1].offset, OffsetExpr::adaptive(OffsetBase::AutoMidSld));
+    assert_eq!(tcp_chain[1].overlap_size, 14);
+    assert_eq!(tcp_chain[1].seqovl_fake_mode, ripdpi_config::SeqOverlapFakeMode::Rand);
+}
+
+#[test]
+fn ui_payload_rejects_duplicate_seqovl_step() {
+    let mut ui = minimal_ui();
+    ui.chains.tcp_steps = vec![seqovl_step("host+1", 12, "profile"), seqovl_step("midsld", 16, "rand")];
+
+    let err = runtime_config_from_payload(ui_payload(ui)).expect_err("duplicate seqovl");
+
+    assert!(err.to_string().contains("seqovl must appear at most once per tcp chain"));
+}
+
+#[test]
+fn ui_payload_rejects_non_leading_seqovl_step() {
+    let mut ui = minimal_ui();
+    ui.chains.tcp_steps = vec![tcp_step("split", "host+1"), seqovl_step("midsld", 12, "profile")];
+
+    let err = runtime_config_from_payload(ui_payload(ui)).expect_err("non-leading seqovl");
+
+    assert!(err.to_string().contains("seqovl must be the first tcp send step"));
 }
 
 #[test]
@@ -245,6 +302,8 @@ fn adaptive_hostfake_midhost_marker_is_rejected() {
         marker: "endhost+8".to_string(),
         midhost_marker: "auto(midsld)".to_string(),
         fake_host_template: String::new(),
+        overlap_size: 0,
+        fake_mode: String::new(),
         fragment_count: 0,
         min_fragment_size: 0,
         max_fragment_size: 0,

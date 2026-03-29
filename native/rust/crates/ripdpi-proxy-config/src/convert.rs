@@ -5,9 +5,9 @@ use std::{fmt, mem};
 use ripdpi_config::{
     parse_http_fake_profile as parse_http_fake_profile_id, parse_tls_fake_profile as parse_tls_fake_profile_id,
     parse_udp_fake_profile as parse_udp_fake_profile_id, ActivationFilter, DesyncGroup, DesyncMode, EntropyMode,
-    NumericRange, OffsetBase, OffsetExpr, QuicFakeProfile, QuicInitialMode, RuntimeConfig, StartupEnv, TcpChainStep,
-    TcpChainStepKind, UdpChainStep, UdpChainStepKind, DETECT_CONNECT, FM_DUPSID, FM_ORIG, FM_PADENCAP, FM_RAND,
-    FM_RNDSNI,
+    NumericRange, OffsetBase, OffsetExpr, QuicFakeProfile, QuicInitialMode, RuntimeConfig, SeqOverlapFakeMode,
+    StartupEnv, TcpChainStep, TcpChainStepKind, UdpChainStep, UdpChainStepKind, DETECT_CONNECT, FM_DUPSID, FM_ORIG,
+    FM_PADENCAP, FM_RAND, FM_RNDSNI,
 };
 use ripdpi_packets::{HttpFakeProfile, TlsFakeProfile, UdpFakeProfile};
 use ripdpi_packets::{IS_HTTP, IS_HTTPS, IS_UDP, MH_DMIX, MH_HMIX, MH_METHODEOL, MH_SPACE, MH_UNIXEOL};
@@ -17,7 +17,8 @@ use crate::presets;
 use crate::types::{
     ProxyConfigError, ProxyConfigPayload, ProxyLogContext, ProxyRuntimeContext, ProxyUiActivationFilter, ProxyUiConfig,
     ProxyUiNumericRange, RuntimeConfigEnvelope, ADAPTIVE_FAKE_TTL_DEFAULT_FALLBACK, FAKE_TLS_SNI_MODE_FIXED,
-    FAKE_TLS_SNI_MODE_RANDOMIZED, HOSTS_BLACKLIST, HOSTS_DISABLE, HOSTS_WHITELIST, TLS_RANDREC_DEFAULT_FRAGMENT_COUNT,
+    FAKE_TLS_SNI_MODE_RANDOMIZED, HOSTS_BLACKLIST, HOSTS_DISABLE, HOSTS_WHITELIST, SEQOVL_DEFAULT_OVERLAP_SIZE,
+    SEQOVL_FAKE_MODE_PROFILE, SEQOVL_FAKE_MODE_RAND, TLS_RANDREC_DEFAULT_FRAGMENT_COUNT,
     TLS_RANDREC_DEFAULT_MAX_FRAGMENT_SIZE, TLS_RANDREC_DEFAULT_MIN_FRAGMENT_SIZE,
 };
 
@@ -89,6 +90,8 @@ fn synthesize_tlsrec_prelude_for_bare_hostfake(chain: &mut Vec<TcpChainStep>) {
             activation_filter: None,
             midhost_offset: None,
             fake_host_template: None,
+            overlap_size: 0,
+            seqovl_fake_mode: SeqOverlapFakeMode::Profile,
             fragment_count: 0,
             min_fragment_size: 0,
             max_fragment_size: 0,
@@ -620,6 +623,32 @@ pub fn runtime_config_from_ui(payload: ProxyUiConfig) -> Result<RuntimeConfig, P
             .map(ripdpi_config::normalize_fake_host_template)
             .transpose()
             .map_err(|_| ProxyConfigError::InvalidConfig("Invalid tcpChainSteps fakeHostTemplate".to_string()))?;
+        let (overlap_size, seqovl_fake_mode) = match kind {
+            TcpChainStepKind::SeqOverlap => {
+                let overlap_size = normalize_seqovl_overlap_size(step.overlap_size);
+                if !(1..=32).contains(&overlap_size) {
+                    return Err(ProxyConfigError::InvalidConfig(
+                        "tcpChainSteps kind=seqovl overlapSize must be in 1..=32".to_string(),
+                    ));
+                }
+                (overlap_size, parse_seqovl_fake_mode(&step.fake_mode)?)
+            }
+            _ => {
+                if step.overlap_size != 0 {
+                    return Err(ProxyConfigError::InvalidConfig(format!(
+                        "tcpChainSteps kind={} must not declare overlapSize",
+                        step.kind
+                    )));
+                }
+                if !step.fake_mode.trim().is_empty() && !step.fake_mode.eq_ignore_ascii_case(SEQOVL_FAKE_MODE_PROFILE) {
+                    return Err(ProxyConfigError::InvalidConfig(format!(
+                        "tcpChainSteps kind={} must not declare fakeMode",
+                        step.kind
+                    )));
+                }
+                (0, SeqOverlapFakeMode::Profile)
+            }
+        };
         let (fragment_count, min_fragment_size, max_fragment_size) = match kind {
             TcpChainStepKind::TlsRandRec => (
                 normalize_tlsrandrec_step_field(step.fragment_count, TLS_RANDREC_DEFAULT_FRAGMENT_COUNT),
@@ -643,6 +672,8 @@ pub fn runtime_config_from_ui(payload: ProxyUiConfig) -> Result<RuntimeConfig, P
             activation_filter,
             midhost_offset,
             fake_host_template,
+            overlap_size,
+            seqovl_fake_mode,
             fragment_count,
             min_fragment_size,
             max_fragment_size,
@@ -759,6 +790,7 @@ pub fn runtime_config_from_ui(payload: ProxyUiConfig) -> Result<RuntimeConfig, P
 pub fn parse_tcp_chain_step_kind(value: &str) -> Result<TcpChainStepKind, ProxyConfigError> {
     match value {
         "split" => Ok(TcpChainStepKind::Split),
+        "seqovl" => Ok(TcpChainStepKind::SeqOverlap),
         "disorder" => Ok(TcpChainStepKind::Disorder),
         "fake" => Ok(TcpChainStepKind::Fake),
         "fakedsplit" => Ok(TcpChainStepKind::FakeSplit),
@@ -781,9 +813,29 @@ fn normalize_tlsrandrec_step_field(value: i32, default: i32) -> i32 {
     }
 }
 
+fn normalize_seqovl_overlap_size(value: i32) -> i32 {
+    if value > 0 {
+        value
+    } else {
+        SEQOVL_DEFAULT_OVERLAP_SIZE
+    }
+}
+
+fn parse_seqovl_fake_mode(value: &str) -> Result<SeqOverlapFakeMode, ProxyConfigError> {
+    match value.trim().to_ascii_lowercase().as_str() {
+        SEQOVL_FAKE_MODE_PROFILE | "" => Ok(SeqOverlapFakeMode::Profile),
+        SEQOVL_FAKE_MODE_RAND => Ok(SeqOverlapFakeMode::Rand),
+        _ => Err(ProxyConfigError::InvalidConfig(
+            "tcpChainSteps kind=seqovl fakeMode must be profile or rand".to_string(),
+        )),
+    }
+}
+
 fn validate_tcp_chain(steps: &[TcpChainStep]) -> Result<(), ProxyConfigError> {
     let mut saw_send_step = false;
     let mut saw_ipfrag2 = false;
+    let mut saw_seqovl = false;
+    let mut send_step_count = 0usize;
     for (index, step) in steps.iter().enumerate() {
         if step.kind.is_tls_prelude() {
             if saw_send_step {
@@ -798,6 +850,20 @@ fn validate_tcp_chain(steps: &[TcpChainStep]) -> Result<(), ProxyConfigError> {
             }
         } else {
             saw_send_step = true;
+            if step.kind == TcpChainStepKind::SeqOverlap {
+                if saw_seqovl {
+                    return Err(ProxyConfigError::InvalidConfig(
+                        "seqovl must appear at most once per tcp chain".to_string(),
+                    ));
+                }
+                if send_step_count != 0 {
+                    return Err(ProxyConfigError::InvalidConfig("seqovl must be the first tcp send step".to_string()));
+                }
+                if !(1..=32).contains(&step.overlap_size) {
+                    return Err(ProxyConfigError::InvalidConfig("seqovl overlapSize must be in 1..=32".to_string()));
+                }
+                saw_seqovl = true;
+            }
             if step.kind == TcpChainStepKind::IpFrag2 {
                 saw_ipfrag2 = true;
                 if index + 1 != steps.len() {
@@ -806,6 +872,7 @@ fn validate_tcp_chain(steps: &[TcpChainStep]) -> Result<(), ProxyConfigError> {
             } else if saw_ipfrag2 {
                 return Err(ProxyConfigError::InvalidConfig("ipfrag2 must be the only tcp send step".to_string()));
             }
+            send_step_count += 1;
         }
 
         if matches!(step.kind, TcpChainStepKind::FakeSplit | TcpChainStepKind::FakeDisorder) && index + 1 != steps.len()

@@ -264,6 +264,46 @@ class RipDpiProxyPreferencesTest {
     }
 
     @Test
+    fun uiPreferencesEncodeAndRoundTripSeqOverlapChainOptions() {
+        val original =
+            RipDpiProxyUIPreferences(
+                chains =
+                    RipDpiChainConfig(
+                        tcpSteps =
+                            listOf(
+                                TcpChainStepModel(
+                                    kind = TcpChainStepKind.TlsRec,
+                                    marker = "extlen",
+                                ),
+                                TcpChainStepModel(
+                                    kind = TcpChainStepKind.SeqOverlap,
+                                    marker = "midsld",
+                                    overlapSize = 16,
+                                    fakeMode = "rand",
+                                ),
+                            ),
+                    ),
+            )
+
+        val steps =
+            original
+                .toNativeConfigJson()
+                .parseJsonObject()
+                .objectAt("chains")
+                .array("tcpSteps")
+                .map { it.jsonObject }
+        val decoded = decodeRipDpiProxyUiPreferences(original.toNativeConfigJson())
+
+        assertEquals("tlsrec", steps[0].string("kind"))
+        assertEquals("extlen", steps[0].string("marker"))
+        assertEquals("seqovl", steps[1].string("kind"))
+        assertEquals("midsld", steps[1].string("marker"))
+        assertEquals(16, steps[1].int("overlapSize"))
+        assertEquals("rand", steps[1].string("fakeMode"))
+        assertEquals(original.chains.tcpSteps, decoded?.chains?.tcpSteps)
+    }
+
+    @Test
     fun decodeUiPreferencesRoundTripsHostfakeAndQuicProfile() {
         val original =
             RipDpiProxyUIPreferences(

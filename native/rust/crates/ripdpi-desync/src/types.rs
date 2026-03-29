@@ -45,6 +45,7 @@ pub struct ActivationContext {
     pub payload_size: i64,
     pub stream_start: i64,
     pub stream_end: i64,
+    pub seqovl_supported: bool,
     pub transport: ActivationTransport,
     pub tcp_segment_hint: Option<TcpSegmentHint>,
     pub resolved_fake_ttl: Option<u8>,

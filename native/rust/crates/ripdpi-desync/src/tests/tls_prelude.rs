@@ -59,6 +59,8 @@ fn apply_tamper_tlsrandrec_is_noop_when_marker_cannot_be_resolved() {
         activation_filter: None,
         midhost_offset: None,
         fake_host_template: None,
+        overlap_size: 0,
+        seqovl_fake_mode: ripdpi_config::SeqOverlapFakeMode::Profile,
         fragment_count: 4,
         min_fragment_size: 16,
         max_fragment_size: 32,

@@ -51,6 +51,14 @@ fun deriveTcpStrategyFamily(tcpSteps: List<TcpChainStepModel>): String? {
         }
     }
     return when {
+        primary.kind == TcpChainStepKind.SeqOverlap && tlsPrelude != null -> {
+            "tlsrec_seqovl"
+        }
+
+        primary.kind == TcpChainStepKind.SeqOverlap -> {
+            "seqovl"
+        }
+
         primary.kind == TcpChainStepKind.HostFake -> {
             "hostfake"
         }
@@ -129,6 +137,8 @@ fun ActiveDnsSettings.strategyLabel(): String =
 fun strategyLaneFamilyLabel(family: String): String =
     when (family.trim().lowercase()) {
         "hostfake" -> "Hostfake"
+        "seqovl" -> "Sequence overlap"
+        "tlsrec_seqovl" -> "TLS record + sequence overlap"
         "fake_approx" -> "Fake approximation"
         "split" -> "Split"
         "disorder" -> "Disorder"

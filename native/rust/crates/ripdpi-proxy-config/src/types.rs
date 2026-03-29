@@ -11,6 +11,9 @@ pub const FAKE_TLS_SNI_MODE_FIXED: &str = "fixed";
 pub const FAKE_TLS_SNI_MODE_RANDOMIZED: &str = "randomized";
 pub const QUIC_FAKE_PROFILE_DISABLED: &str = "disabled";
 pub const FAKE_PAYLOAD_PROFILE_COMPAT_DEFAULT: &str = "compat_default";
+pub const SEQOVL_FAKE_MODE_PROFILE: &str = "profile";
+pub const SEQOVL_FAKE_MODE_RAND: &str = "rand";
+pub const SEQOVL_DEFAULT_OVERLAP_SIZE: i32 = 12;
 pub const ADAPTIVE_FAKE_TTL_DEFAULT_DELTA: i32 = -1;
 pub const ADAPTIVE_FAKE_TTL_DEFAULT_MIN: i32 = 3;
 pub const ADAPTIVE_FAKE_TTL_DEFAULT_MAX: i32 = 12;
@@ -127,6 +130,10 @@ pub struct ProxyUiTcpChainStep {
     pub midhost_marker: String,
     #[serde(default)]
     pub fake_host_template: String,
+    #[serde(default)]
+    pub overlap_size: i32,
+    #[serde(default = "default_seqovl_fake_mode")]
+    pub fake_mode: String,
     #[serde(default)]
     pub fragment_count: i32,
     #[serde(default)]
@@ -540,11 +547,17 @@ fn default_tcp_chain_steps() -> Vec<ProxyUiTcpChainStep> {
         marker: "1".to_string(),
         midhost_marker: String::new(),
         fake_host_template: String::new(),
+        overlap_size: 0,
+        fake_mode: default_seqovl_fake_mode(),
         fragment_count: 0,
         min_fragment_size: 0,
         max_fragment_size: 0,
         activation_filter: None,
     }]
+}
+
+fn default_seqovl_fake_mode() -> String {
+    SEQOVL_FAKE_MODE_PROFILE.to_string()
 }
 
 fn default_fake_tls_sni_mode() -> String {

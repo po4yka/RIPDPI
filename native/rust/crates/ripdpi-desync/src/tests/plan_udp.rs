@@ -6,6 +6,7 @@ fn udp_context(payload: &[u8]) -> ActivationContext {
         payload_size: payload.len() as i64,
         stream_start: 0,
         stream_end: payload.len().saturating_sub(1) as i64,
+        seqovl_supported: false,
         transport: ActivationTransport::Udp,
         tcp_segment_hint: None,
         resolved_fake_ttl: None,

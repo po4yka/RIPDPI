@@ -8,6 +8,8 @@ class StrategyFamiliesTest {
     fun `strategy lane family labels cover ech families`() {
         assertEquals("ECH extension split", strategyLaneFamilyLabel("ech_split"))
         assertEquals("ECH TLS record split", strategyLaneFamilyLabel("ech_tlsrec"))
+        assertEquals("Sequence overlap", strategyLaneFamilyLabel("seqovl"))
+        assertEquals("TLS record + sequence overlap", strategyLaneFamilyLabel("tlsrec_seqovl"))
         assertEquals("IP fragmentation", strategyLaneFamilyLabel("ipfrag2"))
         assertEquals("QUIC IP fragmentation", strategyLaneFamilyLabel("quic_ipfrag2"))
     }
@@ -31,6 +33,24 @@ class StrategyFamiliesTest {
             )
 
         assertEquals("hostfake", family)
+    }
+
+    @Test
+    fun `tcp lane derives tlsrec seqovl family`() {
+        val family =
+            deriveTcpStrategyFamily(
+                listOf(
+                    TcpChainStepModel(kind = TcpChainStepKind.TlsRec, marker = "extlen"),
+                    TcpChainStepModel(
+                        kind = TcpChainStepKind.SeqOverlap,
+                        marker = "midsld",
+                        overlapSize = 12,
+                        fakeMode = SeqOverlapFakeModeProfile,
+                    ),
+                ),
+            )
+
+        assertEquals("tlsrec_seqovl", family)
     }
 
     @Test

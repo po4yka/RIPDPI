@@ -6,11 +6,11 @@ use ripdpi_packets::{
 };
 
 use crate::{
-    Cidr, ConfigError, DesyncGroup, DesyncMode, EntropyMode, ParseResult, RuntimeConfig, StartupEnv, TcpChainStep,
-    TcpChainStepKind, UdpChainStep, UdpChainStepKind, UpstreamSocksConfig, AUTO_NOPOST, AUTO_RECONN, AUTO_SORT,
-    DETECT_CONNECT, DETECT_DNS_TAMPER, DETECT_HTTP_BLOCKPAGE, DETECT_HTTP_LOCAT, DETECT_QUIC_BREAKAGE, DETECT_RECONN,
-    DETECT_SILENT_DROP, DETECT_TCP_RESET, DETECT_TLS_ALERT, DETECT_TLS_ERR, DETECT_TLS_HANDSHAKE_FAILURE, DETECT_TORST,
-    HOST_AUTOLEARN_DEFAULT_STORE_FILE,
+    Cidr, ConfigError, DesyncGroup, DesyncMode, EntropyMode, ParseResult, RuntimeConfig, SeqOverlapFakeMode,
+    StartupEnv, TcpChainStep, TcpChainStepKind, UdpChainStep, UdpChainStepKind, UpstreamSocksConfig, AUTO_NOPOST,
+    AUTO_RECONN, AUTO_SORT, DETECT_CONNECT, DETECT_DNS_TAMPER, DETECT_HTTP_BLOCKPAGE, DETECT_HTTP_LOCAT,
+    DETECT_QUIC_BREAKAGE, DETECT_RECONN, DETECT_SILENT_DROP, DETECT_TCP_RESET, DETECT_TLS_ALERT, DETECT_TLS_ERR,
+    DETECT_TLS_HANDSHAKE_FAILURE, DETECT_TORST, HOST_AUTOLEARN_DEFAULT_STORE_FILE,
 };
 
 use super::fake_profiles::{
@@ -166,6 +166,10 @@ fn add_group(groups: &mut Vec<DesyncGroup>) -> Result<&mut DesyncGroup, ConfigEr
     let id = groups.len();
     groups.push(DesyncGroup::new(id));
     Ok(groups.last_mut().expect("new group"))
+}
+
+fn seqovl_step_mut(group: &mut DesyncGroup) -> Option<&mut TcpChainStep> {
+    group.actions.tcp_chain.iter_mut().rev().find(|step| step.kind == TcpChainStepKind::SeqOverlap)
 }
 
 pub fn parse_cli(args: &[String], startup: &StartupEnv) -> Result<ParseResult, ConfigError> {
@@ -451,19 +455,53 @@ pub fn parse_cli(args: &[String], startup: &StartupEnv) -> Result<ParseResult, C
                 let text = String::from_utf8_lossy(&data);
                 group!().matches.filters.ipset.extend(parse_ipset_spec(&text)?);
             }
-            "-s" | "--split" | "-d" | "--disorder" | "-o" | "--oob" | "-q" | "--disoob" | "-f" | "--fake" => {
+            "-s" | "--split" | "--seqovl" | "-d" | "--disorder" | "-o" | "--oob" | "-q" | "--disoob" | "-f"
+            | "--fake" => {
                 let value = next_value(&effective_args, &mut idx, arg)?;
                 let offset = parse_offset_expr(value)?;
-                let mode = match arg.as_str() {
-                    "-s" | "--split" => DesyncMode::Split,
-                    "-d" | "--disorder" => DesyncMode::Disorder,
-                    "-o" | "--oob" => DesyncMode::Oob,
-                    "-q" | "--disoob" => DesyncMode::Disoob,
-                    _ => DesyncMode::Fake,
-                };
-                if let Some(kind) = TcpChainStepKind::from_mode(mode) {
-                    group!().actions.tcp_chain.push(TcpChainStep::new(kind, offset));
+                if arg == "--seqovl" {
+                    if group!().actions.tcp_chain.iter().any(|step| step.kind == TcpChainStepKind::SeqOverlap) {
+                        return Err(ConfigError::invalid(arg, Some("seqovl already declared for this group")));
+                    }
+                    if group!().actions.tcp_chain.iter().any(|step| !step.kind.is_tls_prelude()) {
+                        return Err(ConfigError::invalid(arg, Some("seqovl must be the first tcp send step")));
+                    }
+                    let mut step = TcpChainStep::new(TcpChainStepKind::SeqOverlap, offset);
+                    step.overlap_size = 12;
+                    step.seqovl_fake_mode = SeqOverlapFakeMode::Profile;
+                    group!().actions.tcp_chain.push(step);
+                } else {
+                    let mode = match arg.as_str() {
+                        "-s" | "--split" => DesyncMode::Split,
+                        "-d" | "--disorder" => DesyncMode::Disorder,
+                        "-o" | "--oob" => DesyncMode::Oob,
+                        "-q" | "--disoob" => DesyncMode::Disoob,
+                        _ => DesyncMode::Fake,
+                    };
+                    if let Some(kind) = TcpChainStepKind::from_mode(mode) {
+                        group!().actions.tcp_chain.push(TcpChainStep::new(kind, offset));
+                    }
                 }
+            }
+            "--seqovl-overlap" => {
+                let value = next_value(&effective_args, &mut idx, arg)?;
+                let overlap = value.parse::<i32>().map_err(|_| ConfigError::invalid(arg, Some(value)))?;
+                if !(1..=32).contains(&overlap) {
+                    return Err(ConfigError::invalid(arg, Some(value)));
+                }
+                let step =
+                    seqovl_step_mut(group!()).ok_or_else(|| ConfigError::invalid(arg, Some("missing --seqovl")))?;
+                step.overlap_size = overlap;
+            }
+            "--seqovl-fake-mode" => {
+                let value = next_value(&effective_args, &mut idx, arg)?;
+                let step =
+                    seqovl_step_mut(group!()).ok_or_else(|| ConfigError::invalid(arg, Some("missing --seqovl")))?;
+                step.seqovl_fake_mode = match value.trim().to_ascii_lowercase().as_str() {
+                    "profile" => SeqOverlapFakeMode::Profile,
+                    "rand" => SeqOverlapFakeMode::Rand,
+                    _ => return Err(ConfigError::invalid(arg, Some(value))),
+                };
             }
             "-t" | "--ttl" => {
                 let value = next_value(&effective_args, &mut idx, arg)?;

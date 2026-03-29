@@ -240,6 +240,50 @@ mod tests {
     }
 
     #[test]
+    fn parse_cli_parses_seqovl_step_and_fields() {
+        let args = vec![
+            "--tlsrec".to_string(),
+            "extlen".to_string(),
+            "--seqovl".to_string(),
+            "auto(midsld)".to_string(),
+            "--seqovl-overlap".to_string(),
+            "14".to_string(),
+            "--seqovl-fake-mode".to_string(),
+            "rand".to_string(),
+        ];
+
+        let ParseResult::Run(config) = parse_cli(&args, &StartupEnv::default()).expect("parse cli") else {
+            panic!("expected runnable config");
+        };
+        let tcp_chain = &config.groups[0].actions.tcp_chain;
+
+        assert_eq!(tcp_chain.len(), 2);
+        assert_eq!(tcp_chain[0].kind, TcpChainStepKind::TlsRec);
+        assert_eq!(tcp_chain[1].kind, TcpChainStepKind::SeqOverlap);
+        assert_eq!(tcp_chain[1].offset, OffsetExpr::adaptive(OffsetBase::AutoMidSld));
+        assert_eq!(tcp_chain[1].overlap_size, 14);
+        assert_eq!(tcp_chain[1].seqovl_fake_mode, SeqOverlapFakeMode::Rand);
+    }
+
+    #[test]
+    fn parse_cli_rejects_duplicate_seqovl_step() {
+        let args = vec!["--seqovl".to_string(), "host+1".to_string(), "--seqovl".to_string(), "midsld".to_string()];
+
+        let err = parse_cli(&args, &StartupEnv::default()).expect_err("duplicate seqovl");
+
+        assert!(err.to_string().contains("seqovl already declared"));
+    }
+
+    #[test]
+    fn parse_cli_rejects_non_leading_seqovl_step() {
+        let args = vec!["--split".to_string(), "host+1".to_string(), "--seqovl".to_string(), "midsld".to_string()];
+
+        let err = parse_cli(&args, &StartupEnv::default()).expect_err("non-leading seqovl");
+
+        assert!(err.to_string().contains("seqovl must be the first tcp send step"));
+    }
+
+    #[test]
     fn normalize_quic_fake_host_rejects_invalid_values() {
         assert_eq!(normalize_quic_fake_host(" Example.COM. ").unwrap(), "example.com");
         assert!(normalize_quic_fake_host("127.0.0.1").is_err());
