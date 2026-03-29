@@ -103,7 +103,7 @@ File path prefix: `app/src/main/kotlin/com/poyka/ripdpi/`
 
 ## Phase 3: Overview Tab Progressive Disclosure
 
-- [ ] **3.1 Create CollapsibleSection composable**
+- [x] **3.1 Create CollapsibleSection composable**
   - Files: `ui/screens/diagnostics/DiagnosticsCards.kt` (or new file
     `DiagnosticsCollapsibleSection.kt`)
   - Reusable composable: `CollapsibleSection(title, badgeCount, expanded,
