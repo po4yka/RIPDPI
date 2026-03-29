@@ -197,7 +197,7 @@ File path prefix: `app/src/main/kotlin/com/poyka/ripdpi/`
 
 ## Phase 5: Navigation and Information Architecture Rethink
 
-- [ ] **5.1 Design new 3-tab section enum and UI models**
+- [x] **5.1 Design new 3-tab section enum and UI models**
   - Files: `activities/DiagnosticsUiModels.kt`
   - Replace `DiagnosticsSection { Overview, Scan, Live, Approaches, Share }`
     with `DiagnosticsSection { Dashboard, Scan, Tools }`. Create
@@ -206,7 +206,7 @@ File path prefix: `app/src/main/kotlin/com/poyka/ripdpi/`
   - Depends on: Phase 4 complete
   - ~100 lines
 
-- [ ] **5.2 Merge Live metrics into Dashboard section**
+- [x] **5.2 Merge Live metrics into Dashboard section**
   - Files: `ui/screens/diagnostics/DiagnosticsScreen.kt`,
     `ui/screens/diagnostics/DiagnosticsLiveSection.kt`,
     `activities/DiagnosticsUiStateFactory.kt`
@@ -216,7 +216,7 @@ File path prefix: `app/src/main/kotlin/com/poyka/ripdpi/`
   - Depends on: 5.1
   - ~150 lines
 
-- [ ] **5.3 Create Tools section**
+- [x] **5.3 Create Tools section**
   - Files: `ui/screens/diagnostics/DiagnosticsScreen.kt`
   - New `ToolsSection` composable rendering: (1) Approaches browser with
     existing Profiles/Strategies mode toggle, (2) Share/Export controls
@@ -224,7 +224,7 @@ File path prefix: `app/src/main/kotlin/com/poyka/ripdpi/`
   - Depends on: 5.1
   - ~100 lines
 
-- [ ] **5.4 Update section switcher and pager for 3 tabs**
+- [x] **5.4 Update section switcher and pager for 3 tabs**
   - Files: `ui/screens/diagnostics/DiagnosticsScreen.kt`
   - Update `rememberPagerState` page count from 5 to 3. Update
     `DiagnosticsSectionSwitcher` to render 3 chips (Dashboard, Scan, Tools).
@@ -232,7 +232,7 @@ File path prefix: `app/src/main/kotlin/com/poyka/ripdpi/`
   - Depends on: 5.1, 5.2, 5.3
   - ~60 lines
 
-- [ ] **5.5 Update ViewModel navigation and tests**
+- [x] **5.5 Update ViewModel navigation and tests**
   - Files: `activities/DiagnosticsViewModel.kt`,
     `test/.../DiagnosticsViewModelTest.kt`
   - Update `selectSection`, `SelectionState`, section-related actions, and
