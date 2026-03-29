@@ -25,7 +25,7 @@ File path prefix: `app/src/main/kotlin/com/poyka/ripdpi/`
     "Hidden (N items)" / "Скрыто (N)".
   - ~20 lines
 
-- [ ] **1.3 Tighten vertical spacing in probe result and session rows**
+- [x] **1.3 Tighten vertical spacing in probe result and session rows**
   - Files: `ui/screens/diagnostics/DiagnosticsCards.kt`
   - Reduce `RipDpiCard` internal padding in `ProbeResultRow` and `SessionRow`.
     Remove always-visible detail sub-rows from `ProbeResultRow` inline view
