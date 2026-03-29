@@ -133,6 +133,7 @@
     <string name="diagnostics_status_observed">Наблюдается</string>
     <string name="diagnostics_scan_launch_user_initiated">Ручная диагностика</string>
     <string name="diagnostics_scan_launch_automatic_background">Фоновое автоматическое зондирование</string>
+    <string name="diagnostics_scan_launch_dns_corrected_reprobe">Повторное зондирование после коррекции DNS</string>
     <string name="diagnostics_scan_launch_unknown">Сохранённая диагностика</string>
     <string name="diagnostics_scan_trigger_policy_handover">Смена сети</string>
     <string name="diagnostics_scan_trigger_unknown">Неизвестный триггер</string>

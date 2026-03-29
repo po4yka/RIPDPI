@@ -135,6 +135,7 @@
     <string name="diagnostics_status_observed">Observed</string>
     <string name="diagnostics_scan_launch_user_initiated">Manual diagnostics</string>
     <string name="diagnostics_scan_launch_automatic_background">Background automatic probing</string>
+    <string name="diagnostics_scan_launch_dns_corrected_reprobe">DNS-corrected re-probe</string>
     <string name="diagnostics_scan_launch_unknown">Saved diagnostics</string>
     <string name="diagnostics_scan_trigger_policy_handover">Network handover</string>
     <string name="diagnostics_scan_trigger_unknown">Unknown trigger</string>

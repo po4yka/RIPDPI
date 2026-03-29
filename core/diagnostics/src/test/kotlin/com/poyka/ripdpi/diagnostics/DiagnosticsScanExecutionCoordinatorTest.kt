@@ -934,19 +934,45 @@ private fun executionCoordinatorFixtures(
             activeScanRegistry = activeScanRegistry,
         )
     val passiveEventPersistenceService = PassiveEventPersistenceService(stores, json)
+    val networkMetadataProvider = FakeNetworkMetadataProvider()
+    val diagnosticsContextProvider = FakeDiagnosticsContextProvider()
     val scanFinalizationService =
         ScanFinalizationService(
             context = TestContext(),
             scanRecordStore = stores,
             artifactWriteStore = stores,
-            networkMetadataProvider = FakeNetworkMetadataProvider(),
+            networkMetadataProvider = networkMetadataProvider,
             networkFingerprintProvider = networkFingerprintProvider,
-            diagnosticsContextProvider = FakeDiagnosticsContextProvider(),
+            diagnosticsContextProvider = diagnosticsContextProvider,
             serviceStateStore = serviceStateStore,
             resolverOverrideStore = resolverOverrideStore,
             rememberedNetworkPolicyStore = rememberedNetworkPolicyStore,
             networkDnsPathPreferenceStore = preferredPathStore,
             findingProjector = DiagnosticsFindingProjector(),
+            json = json,
+        )
+    val appSettingsRepository = FakeAppSettingsRepository()
+    val scanRequestFactory =
+        DiagnosticsScanRequestFactory(
+            networkMetadataProvider = networkMetadataProvider,
+            intentResolver = DefaultDiagnosticsIntentResolver(stores, appSettingsRepository, json),
+            scanContextCollector =
+                DefaultScanContextCollector(
+                    profileCatalog = stores,
+                    networkFingerprintProvider = networkFingerprintProvider,
+                    nativeNetworkSnapshotProvider =
+                        object : com.poyka.ripdpi.data.NativeNetworkSnapshotProvider {
+                            override fun capture() =
+                                com.poyka.ripdpi.data
+                                    .NativeNetworkSnapshot()
+                        },
+                    diagnosticsContextProvider = diagnosticsContextProvider,
+                    networkDnsPathPreferenceStore = preferredPathStore,
+                    serviceStateStore = serviceStateStore,
+                    json = json,
+                ),
+            diagnosticsPlanner = DefaultDiagnosticsPlanner(),
+            engineRequestEncoder = DefaultEngineRequestEncoder(),
             json = json,
         )
     return ExecutionCoordinatorFixtures(
@@ -957,6 +983,7 @@ private fun executionCoordinatorFixtures(
                 bridgeExecutionService = bridgeExecutionService,
                 bridgePollingService = BridgePollingService(passiveEventPersistenceService, json),
                 scanFinalizationService = scanFinalizationService,
+                scanRequestFactory = scanRequestFactory,
             ),
         activeScanRegistry = activeScanRegistry,
     )

@@ -10,6 +10,7 @@ enum class DiagnosticsScanLaunchOrigin(
 ) {
     USER_INITIATED("user_initiated"),
     AUTOMATIC_BACKGROUND("automatic_background"),
+    DNS_CORRECTED_REPROBE("dns_corrected_reprobe"),
     UNKNOWN("unknown"),
     ;
 
@@ -79,6 +80,7 @@ internal fun DiagnosticsScanOrigin.toLaunchOrigin(): DiagnosticsScanLaunchOrigin
     when (this) {
         DiagnosticsScanOrigin.USER_INITIATED -> DiagnosticsScanLaunchOrigin.USER_INITIATED
         DiagnosticsScanOrigin.AUTOMATIC_BACKGROUND -> DiagnosticsScanLaunchOrigin.AUTOMATIC_BACKGROUND
+        DiagnosticsScanOrigin.DNS_CORRECTED_REPROBE -> DiagnosticsScanLaunchOrigin.DNS_CORRECTED_REPROBE
     }
 
 internal fun PolicyHandoverEvent.toLaunchTrigger(): DiagnosticsScanLaunchTrigger =
