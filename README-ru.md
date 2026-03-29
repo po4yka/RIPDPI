@@ -29,6 +29,55 @@
 
 RIPDPI локально запускает SOCKS5-прокси из встроенных Rust-модулей. В VPN mode Android-трафик перенаправляется в этот локальный прокси через локальный TUN-to-SOCKS bridge.
 
+## Скриншоты
+
+<p align="center">
+  <img src="docs/screenshots/main.png" width="270" alt="Главный экран"/>
+  &nbsp;&nbsp;
+  <img src="docs/screenshots/diagnostics.png" width="270" alt="Диагностика"/>
+  &nbsp;&nbsp;
+  <img src="docs/screenshots/settings.png" width="270" alt="Настройки"/>
+</p>
+
+## Архитектура
+
+```mermaid
+graph TD
+    subgraph Android / Kotlin
+        APP[app]
+        SVC[core:service]
+        DIAG[core:diagnostics]
+        DATA[core:data]
+        ENG[core:engine]
+    end
+
+    subgraph JNI Boundary
+        JNI_P[libripdpi.so]
+        JNI_T[libripdpi-tunnel.so]
+    end
+
+    subgraph Rust Native
+        RT[ripdpi-runtime<br/>SOCKS5 proxy]
+        MON[ripdpi-monitor<br/>diagnostics]
+        TC[ripdpi-tunnel-core<br/>TUN bridge]
+        DNS[ripdpi-dns-resolver<br/>DoH / DoT / DNSCrypt]
+        DSN[ripdpi-desync<br/>DPI evasion]
+        CFG[ripdpi-proxy-config<br/>strategy bridge]
+    end
+
+    APP --> SVC & DIAG & DATA & ENG
+    SVC --> ENG
+    DIAG --> ENG
+    ENG -->|Proxy & Diagnostics| JNI_P
+    ENG -->|VPN mode| JNI_T
+
+    JNI_P --> RT & MON
+    JNI_T --> TC
+    RT --> DSN & CFG & DNS
+    MON --> RT & CFG & DNS
+    TC --> DNS
+```
+
 ## Диагностика
 
 В RIPDPI есть встроенный экран диагностики для активных сетевых проверок и пассивного runtime-мониторинга.
@@ -116,10 +165,26 @@ scripts/guide/.venv/bin/python scripts/guide/generate_guide.py \
 
 ## Документация
 
-- [Native integration и использование модулей](docs/native/README.md)
-- [Proxy engine и текущая native strategy surface](docs/native/proxy-engine.md)
-- [TUN-to-SOCKS native bridge](docs/native/tunnel.md)
+**Native Libraries**
+- [Native integration и модули](docs/native/README.md)
+- [Proxy engine и strategy surface](docs/native/proxy-engine.md)
+- [TUN-to-SOCKS bridge](docs/native/tunnel.md)
+- [Debug a runtime issue](docs/native/debug-runtime-issue.md)
+
+**Тестирование и CI**
 - [Тесты, E2E, golden contracts и soak coverage](docs/testing.md)
+
+**UI и дизайн**
+- [Дизайн-система](docs/design-system.md)
+- [Host-pack presets](docs/host-pack-presets.md)
+
+**Автоматизация**
+- [External UI automation](docs/automation/README.md)
+- [Selector contract](docs/automation/selector-contract.md)
+- [Appium readiness](docs/automation/appium-readiness.md)
+
+**Руководства**
+- [Инструкция по диагностике](docs/user-manual-diagnostics-ru.md)
 
 ## Сборка
 
