@@ -419,6 +419,11 @@ class BridgePollingService
         }
     }
 
+internal data class ScanFinalizationResult(
+    val derived: com.poyka.ripdpi.diagnostics.domain.DerivedScanReport,
+    val shouldReprobeWithCorrectedDns: Boolean,
+)
+
 @Singleton
 class ScanFinalizationService
     @Inject
@@ -441,7 +446,7 @@ class ScanFinalizationService
         internal suspend fun finalize(
             prepared: PreparedDiagnosticsScan,
             reportJson: String,
-        ): com.poyka.ripdpi.diagnostics.domain.DerivedScanReport {
+        ): ScanFinalizationResult {
             val rawReport = json.decodeEngineScanReportWire(reportJson)
             val finalizedWire =
                 rawReport.copy(
@@ -458,15 +463,14 @@ class ScanFinalizationService
                             rawReport.classifierVersion
                         },
                 )
-            val finalReport =
-                maybeApplyTemporaryResolverOverride(
-                    DiagnosticsScanWorkflow.enrichScanReport(
-                        report = finalizedWire.toScanReport(),
-                        settings = prepared.settings,
-                        preferredDnsPath = prepared.preferredDnsPath,
-                    ),
-                    prepared.settings,
+            val enrichedReport =
+                DiagnosticsScanWorkflow.enrichScanReport(
+                    report = finalizedWire.toScanReport(),
+                    settings = prepared.settings,
+                    preferredDnsPath = prepared.preferredDnsPath,
                 )
+            val (finalReport, overrideApplied) =
+                maybeApplyTemporaryResolverOverride(enrichedReport, prepared.settings)
             val derived =
                 com.poyka.ripdpi.diagnostics.domain
                     .DerivedScanReport(finalReport.toEngineScanReportWire())
@@ -483,7 +487,16 @@ class ScanFinalizationService
                 report = finalReport,
             )
             persistPostScanArtifacts(prepared.sessionId)
-            return derived
+            val shouldReprobe =
+                DiagnosticsScanWorkflow.shouldReprobeWithCorrectedDns(
+                    report = finalReport,
+                    pathMode = prepared.pathMode,
+                    resolverOverrideApplied = overrideApplied,
+                )
+            return ScanFinalizationResult(
+                derived = derived,
+                shouldReprobeWithCorrectedDns = shouldReprobe,
+            )
         }
 
         private suspend fun persistPostScanArtifacts(sessionId: String) {
@@ -519,8 +532,8 @@ class ScanFinalizationService
         private suspend fun maybeApplyTemporaryResolverOverride(
             report: ScanReport,
             settings: com.poyka.ripdpi.proto.AppSettings,
-        ): ScanReport {
-            val recommendation = report.resolverRecommendation ?: return report
+        ): Pair<ScanReport, Boolean> {
+            val recommendation = report.resolverRecommendation ?: return report to false
             val (status, mode) = serviceStateStore.status.value
             val shouldApply =
                 DiagnosticsScanWorkflow.shouldApplyTemporaryResolverOverride(report, settings, status, mode)
@@ -530,9 +543,9 @@ class ScanFinalizationService
                 )
                 report.copy(
                     resolverRecommendation = recommendation.copy(appliedTemporarily = true),
-                )
+                ) to true
             } else {
-                report
+                report to false
             }
         }
 

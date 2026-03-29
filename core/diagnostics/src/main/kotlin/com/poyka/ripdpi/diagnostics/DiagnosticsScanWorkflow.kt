@@ -116,6 +116,17 @@ internal object DiagnosticsScanWorkflow {
         )
     }
 
+    fun shouldReprobeWithCorrectedDns(
+        report: ScanReport,
+        pathMode: ScanPathMode,
+        resolverOverrideApplied: Boolean,
+    ): Boolean {
+        if (!resolverOverrideApplied) return false
+        if (pathMode != ScanPathMode.RAW_PATH) return false
+        val strategyProbe = report.strategyProbeReport ?: return false
+        return strategyProbe.completionKind == StrategyProbeCompletionKind.DNS_SHORT_CIRCUITED
+    }
+
     fun evaluateBackgroundAutoPersistEligibility(
         strategyProbe: StrategyProbeReport,
     ): BackgroundAutoPersistEligibility {

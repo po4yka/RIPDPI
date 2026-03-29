@@ -9,6 +9,7 @@ import com.poyka.ripdpi.data.diagnostics.DiagnosticsArtifactWriteStore
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsScanRecordStore
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
@@ -293,12 +294,18 @@ internal class DiagnosticsScanExecutionCoordinator
         private val bridgeExecutionService: BridgeExecutionService,
         private val bridgePollingService: BridgePollingService,
         private val scanFinalizationService: ScanFinalizationService,
+        private val scanRequestFactory: DiagnosticsScanRequestFactory,
     ) {
+        private companion object {
+            const val DnsCorrectedReprobeDelayMs = 2_000L
+        }
+
         internal suspend fun execute(
             prepared: PreparedDiagnosticsScan,
             handle: BridgeSessionHandle,
             rawPathRunner: suspend (suspend () -> Unit) -> Unit,
         ) {
+            var finalizationResult: ScanFinalizationResult? = null
             val failure =
                 try {
                     val scanBlock: suspend () -> Unit = {
@@ -307,10 +314,11 @@ internal class DiagnosticsScanExecutionCoordinator
                             handle = handle,
                             activeScanRegistry = activeScanRegistry,
                         ) { reportJson ->
-                            scanFinalizationService.finalize(
-                                prepared = prepared,
-                                reportJson = reportJson,
-                            )
+                            finalizationResult =
+                                scanFinalizationService.finalize(
+                                    prepared = prepared,
+                                    reportJson = reportJson,
+                                )
                             bridgePollingService.persistPassiveEvents(handle)
                             if (prepared.exposeProgress) {
                                 activeScanRegistry.updateProgress(null)
@@ -346,6 +354,52 @@ internal class DiagnosticsScanExecutionCoordinator
                     activeScanRegistry.updateProgress(null)
                 }
                 runCatching { bridgeExecutionService.destroy(handle) }
+            }
+
+            if (failure == null && finalizationResult?.shouldReprobeWithCorrectedDns == true) {
+                runDnsCorrectedReprobe(prepared)
+            }
+        }
+
+        private suspend fun runDnsCorrectedReprobe(original: PreparedDiagnosticsScan) {
+            delay(DnsCorrectedReprobeDelayMs)
+            val reprobe = scanRequestFactory.prepareReprobe(original)
+            activeScanRegistry.rememberPreparedScan(reprobe)
+            scanRecordStore.upsertScanSession(reprobe.initialSession)
+            val reprobeHandle =
+                bridgeExecutionService.createHandle(
+                    sessionId = reprobe.sessionId,
+                    registerActiveBridge = false,
+                )
+            val reprobeFailure =
+                runCatching {
+                    bridgeExecutionService.start(
+                        handle = reprobeHandle,
+                        requestJson = reprobe.requestJson,
+                    )
+                    bridgePollingService.awaitCompletion(
+                        prepared = reprobe,
+                        handle = reprobeHandle,
+                        activeScanRegistry = activeScanRegistry,
+                    ) { reportJson ->
+                        scanFinalizationService.finalize(
+                            prepared = reprobe,
+                            reportJson = reportJson,
+                        )
+                        bridgePollingService.persistPassiveEvents(reprobeHandle)
+                    }
+                }.exceptionOrNull()
+            try {
+                if (reprobeFailure != null) {
+                    DiagnosticsReportPersister.persistScanFailure(
+                        reprobe.sessionId,
+                        reprobeFailure.message ?: "DNS-corrected re-probe failed",
+                        scanRecordStore,
+                    )
+                }
+            } finally {
+                activeScanRegistry.removePreparedScan(reprobe.sessionId)
+                runCatching { bridgeExecutionService.destroy(reprobeHandle) }
             }
         }
     }

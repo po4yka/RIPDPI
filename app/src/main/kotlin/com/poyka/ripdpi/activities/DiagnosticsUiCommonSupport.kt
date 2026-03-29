@@ -292,6 +292,10 @@ internal fun DiagnosticsScanLaunchOrigin.displayLabel(ctx: Context): String =
             ctx.getString(R.string.diagnostics_scan_launch_automatic_background)
         }
 
+        DiagnosticsScanLaunchOrigin.DNS_CORRECTED_REPROBE -> {
+            ctx.getString(R.string.diagnostics_scan_launch_dns_corrected_reprobe)
+        }
+
         DiagnosticsScanLaunchOrigin.UNKNOWN -> {
             ctx.getString(R.string.diagnostics_scan_launch_unknown)
         }
