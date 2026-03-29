@@ -749,11 +749,11 @@ private fun DiagnosticsHealthHero(
                     null
                 },
         )
-        if (!isActiveScan && overview.health in setOf(DiagnosticsHealth.Attention, DiagnosticsHealth.Degraded)) {
+        if (!isActiveScan) {
             RipDpiButton(
                 text = stringResource(R.string.diagnostics_overview_run_scan_action),
                 onClick = { onSelectSection(DiagnosticsSection.Scan) },
-                variant = RipDpiButtonVariant.Outline,
+                variant = RipDpiButtonVariant.Primary,
                 modifier = Modifier.fillMaxWidth(),
             )
         }
