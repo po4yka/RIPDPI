@@ -5,12 +5,15 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.mapSaver
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.poyka.ripdpi.activities.SettingsEffect
 import com.poyka.ripdpi.activities.SettingsViewModel
+import com.poyka.ripdpi.ui.components.feedback.WarningBannerTone
 
 @Composable
 fun AdvancedSettingsRoute(
@@ -21,7 +24,29 @@ fun AdvancedSettingsRoute(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val hostPackCatalog by viewModel.hostPackCatalog.collectAsStateWithLifecycle()
     val binder = remember(viewModel) { AdvancedSettingsBinder(viewModel::updateSetting) }
-    var notice by remember { mutableStateOf<AdvancedNotice?>(null) }
+    var notice by rememberSaveable(
+        stateSaver =
+            mapSaver(
+                save = { n ->
+                    if (n != null) {
+                        mapOf("t" to n.title, "m" to n.message, "tone" to n.tone.name)
+                    } else {
+                        emptyMap()
+                    }
+                },
+                restore = { m ->
+                    if (m.isNotEmpty()) {
+                        AdvancedNotice(
+                            title = m["t"] as String,
+                            message = m["m"] as String,
+                            tone = WarningBannerTone.valueOf(m["tone"] as String),
+                        )
+                    } else {
+                        null
+                    }
+                },
+            ),
+    ) { mutableStateOf<AdvancedNotice?>(null) }
 
     LaunchedEffect(Unit) {
         viewModel.effects.collect { effect ->

@@ -200,7 +200,7 @@ private fun RipDpiModalIconBadge(
     ) {
         Icon(
             imageVector = icon,
-            contentDescription = null,
+            contentDescription = tone.name,
             tint = iconTint,
             modifier = Modifier.size(RipDpiIconSizes.Default),
         )

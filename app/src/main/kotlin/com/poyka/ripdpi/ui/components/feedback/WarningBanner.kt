@@ -76,6 +76,7 @@ fun WarningBanner(
                 title = title,
                 message = message,
                 icon = resolvedIcon,
+                iconContentDescription = tone.name,
                 palette = palette,
                 onDismiss = onDismiss,
             )
@@ -93,6 +94,7 @@ fun WarningBanner(
                 title = title,
                 message = message,
                 icon = resolvedIcon,
+                iconContentDescription = tone.name,
                 palette = palette,
                 onDismiss = onDismiss,
             )
@@ -105,6 +107,7 @@ private fun WarningBannerContent(
     title: String,
     message: String,
     icon: ImageVector,
+    iconContentDescription: String,
     palette: WarningBannerPalette,
     onDismiss: (() -> Unit)? = null,
 ) {
@@ -130,7 +133,7 @@ private fun WarningBannerContent(
         ) {
             Icon(
                 imageVector = icon,
-                contentDescription = null,
+                contentDescription = iconContentDescription,
                 tint = palette.icon,
                 modifier = Modifier.size(RipDpiIconSizes.Small),
             )
