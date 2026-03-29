@@ -1,4 +1,4 @@
-"""Test 08: Swipe through all 4 diagnostics pager sections."""
+"""Test 08: Swipe through all 3 diagnostics pager sections."""
 
 import pytest
 

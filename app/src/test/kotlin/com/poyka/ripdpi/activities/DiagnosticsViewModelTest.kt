@@ -2615,7 +2615,7 @@ class DiagnosticsViewModelTest {
                     ?.fields
                     .orEmpty()
             assertTrue(wifiFields.any { it.label == "Wi-Fi band" && it.value == "5 GHz" })
-            assertTrue(wifiFields.any { it.label == "Wi-Fi SSID" && it.value == "redacted" })
+            assertTrue(wifiFields.any { it.label == "Wi-Fi SSID" && it.value == "Hidden" })
 
             manager.detail =
                 wifiDetail.copy(
