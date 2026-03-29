@@ -63,6 +63,7 @@ pub struct EncryptedDnsExchangeSuccess {
 pub enum EncryptedDnsErrorKind {
     Bootstrap,
     Connect,
+    SniBlocked,
     Timeout,
     Tls,
     Http,
@@ -128,15 +129,39 @@ impl EncryptedDnsError {
             | EncryptedDnsError::InvalidDnsCryptPublicKey(_)
             | EncryptedDnsError::MissingDnsCryptProviderName
             | EncryptedDnsError::DnsParse(_) => EncryptedDnsErrorKind::Decode,
-            EncryptedDnsError::ClientBuild(_)
-            | EncryptedDnsError::Request(_)
-            | EncryptedDnsError::Socks5(_)
-            | EncryptedDnsError::TaskJoin(_) => EncryptedDnsErrorKind::Connect,
+            EncryptedDnsError::ClientBuild(_) | EncryptedDnsError::Socks5(_) | EncryptedDnsError::TaskJoin(_) => {
+                EncryptedDnsErrorKind::Connect
+            }
+            EncryptedDnsError::Request(msg) => {
+                if is_connection_reset_pattern(msg) {
+                    EncryptedDnsErrorKind::SniBlocked
+                } else {
+                    EncryptedDnsErrorKind::Connect
+                }
+            }
             EncryptedDnsError::HttpStatus(_) => EncryptedDnsErrorKind::Http,
-            EncryptedDnsError::Tls(_) => EncryptedDnsErrorKind::Tls,
+            EncryptedDnsError::Tls(msg) => {
+                if is_connection_reset_pattern(msg) {
+                    EncryptedDnsErrorKind::SniBlocked
+                } else {
+                    EncryptedDnsErrorKind::Tls
+                }
+            }
             EncryptedDnsError::DnsCryptCertificate(_)
             | EncryptedDnsError::DnsCryptVerification(_)
             | EncryptedDnsError::DnsCryptDecrypt(_) => EncryptedDnsErrorKind::DnsCrypt,
         }
     }
+}
+
+/// Detects TCP RST injection patterns from middlebox DPI equipment.
+/// middlebox sends a TCP RST after observing the SNI in the TLS ClientHello,
+/// which manifests as "connection reset" or "broken pipe" errors during
+/// the TLS handshake or immediately after.
+fn is_connection_reset_pattern(message: &str) -> bool {
+    let lower = message.to_lowercase();
+    lower.contains("connection reset")
+        || lower.contains("connection was reset")
+        || lower.contains("broken pipe")
+        || lower.contains("connection abort")
 }
