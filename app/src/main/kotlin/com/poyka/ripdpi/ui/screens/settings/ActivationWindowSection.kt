@@ -132,7 +132,7 @@ private fun ActivationWindowProfileCard(
                     } else {
                         stringResource(R.string.activation_window_badge_default)
                     }
-                    ) to
+                ) to
                     if (uiState.desync.hasCustomActivationWindow) {
                         SummaryCapsuleTone.Active
                     } else {

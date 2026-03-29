@@ -69,19 +69,23 @@ class FakeTlsSettingsTest {
 
     @Test
     fun `custom fakeSni with fixed mode triggers custom profile`() {
-        val settings = AppSettings.newBuilder()
-            .setFakeTlsSniMode(FakeTlsSniModeFixed)
-            .setFakeSni("custom.example.com")
-            .build()
+        val settings =
+            AppSettings
+                .newBuilder()
+                .setFakeTlsSniMode(FakeTlsSniModeFixed)
+                .setFakeSni("custom.example.com")
+                .build()
         assertTrue(settings.hasCustomFakeTlsProfile())
     }
 
     @Test
     fun `default fakeSni with fixed mode does not trigger custom profile`() {
-        val settings = AppSettings.newBuilder()
-            .setFakeTlsSniMode(FakeTlsSniModeFixed)
-            .setFakeSni(DefaultFakeSni)
-            .build()
+        val settings =
+            AppSettings
+                .newBuilder()
+                .setFakeTlsSniMode(FakeTlsSniModeFixed)
+                .setFakeSni(DefaultFakeSni)
+                .build()
         assertFalse(settings.hasCustomFakeTlsProfile())
     }
 }

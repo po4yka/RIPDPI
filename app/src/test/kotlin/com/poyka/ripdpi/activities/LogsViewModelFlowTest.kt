@@ -19,9 +19,8 @@ class LogsViewModelFlowTest {
     @get:Rule
     val mainDispatcherRule = MainDispatcherRule()
 
-    private fun createViewModel(
-        timelineSource: StubDiagnosticsTimelineSource = StubDiagnosticsTimelineSource(),
-    ) = LogsViewModel(FakeServiceStateStore(), timelineSource, FakeStringResolver())
+    private fun createViewModel(timelineSource: StubDiagnosticsTimelineSource = StubDiagnosticsTimelineSource()) =
+        LogsViewModel(FakeServiceStateStore(), timelineSource, FakeStringResolver())
 
     @Test
     fun `initial uiState has empty logs and all filters active`() =
@@ -115,29 +114,30 @@ class LogsViewModelFlowTest {
     @Test
     fun `diagnostics events are merged into logs and marked active when session matches`() =
         runTest {
-            val timelineSource = StubDiagnosticsTimelineSource().apply {
-                activeScanProgress.value =
-                    ScanProgress(
-                        sessionId = "diag-1",
-                        phase = "dns",
-                        completedSteps = 1,
-                        totalSteps = 2,
-                        message = "running",
-                    )
-                liveNativeEvents.value =
-                    listOf(
-                        DiagnosticEvent(
-                            id = "event-1",
+            val timelineSource =
+                StubDiagnosticsTimelineSource().apply {
+                    activeScanProgress.value =
+                        ScanProgress(
                             sessionId = "diag-1",
-                            source = "dns",
-                            level = "warn",
-                            message = "probe failed target=example.org",
-                            createdAt = 42L,
-                            runtimeId = "vpn-runtime-1",
-                            subsystem = "diagnostics",
-                        ),
-                    )
-            }
+                            phase = "dns",
+                            completedSteps = 1,
+                            totalSteps = 2,
+                            message = "running",
+                        )
+                    liveNativeEvents.value =
+                        listOf(
+                            DiagnosticEvent(
+                                id = "event-1",
+                                sessionId = "diag-1",
+                                source = "dns",
+                                level = "warn",
+                                message = "probe failed target=example.org",
+                                createdAt = 42L,
+                                runtimeId = "vpn-runtime-1",
+                                subsystem = "diagnostics",
+                            ),
+                        )
+                }
             val vm = createViewModel(timelineSource)
 
             vm.uiState.test {

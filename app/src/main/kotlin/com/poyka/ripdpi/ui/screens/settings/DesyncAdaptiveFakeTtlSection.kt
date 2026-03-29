@@ -141,7 +141,7 @@ internal fun AdaptiveFakeTtlProfileCard(
                         AdaptiveFakeTtlModeCustom -> stringResource(R.string.adaptive_fake_ttl_badge_custom)
                         else -> stringResource(R.string.adaptive_fake_ttl_badge_fixed)
                     }
-                    ) to
+                ) to
                     when (uiState.fake.adaptiveFakeTtlMode) {
                         AdaptiveFakeTtlModeAdaptive -> SummaryCapsuleTone.Active
                         AdaptiveFakeTtlModeCustom -> SummaryCapsuleTone.Info

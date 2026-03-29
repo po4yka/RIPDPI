@@ -2,21 +2,25 @@
 <SmellBaseline>
   <ManuallySuppressedIssues/>
   <CurrentIssues>
+    <ID>ComplexCondition:RipDpiRuntimeContext.kt$runtimeId == null &amp;&amp; mode == null &amp;&amp; policySignature == null &amp;&amp; fingerprintHash == null &amp;&amp; diagnosticsSessionId == null</ID>
     <ID>CyclomaticComplexMethod:NativeWrapperStateMachineTest.kt$NativeWrapperStateMachineTest$private suspend fun executeDiagnosticsCommand( command: DiagnosticsCommand, state: DiagnosticsState, bindings: FakeNetworkDiagnosticsBindings, diagnostics: NetworkDiagnostics, ): DiagnosticsCommandResult</ID>
     <ID>CyclomaticComplexMethod:NativeWrapperStateMachineTest.kt$NativeWrapperStateMachineTest$private suspend fun executeProxyCommand( command: ProxyCommand, state: ProxyState, harness: ProxyHarness, ): ProxyState</ID>
     <ID>CyclomaticComplexMethod:NativeWrapperStateMachineTest.kt$NativeWrapperStateMachineTest$private suspend fun executeTunnelCommand( command: TunnelCommand, state: TunnelState, bindings: FakeTun2SocksBindings, tunnel: Tun2SocksTunnel, ): TunnelCommandResult</ID>
     <ID>LargeClass:NativeConfigContractSnapshotTest.kt$NativeConfigContractSnapshotTest</ID>
     <ID>LargeClass:NativeWrapperStateMachineTest.kt$NativeWrapperStateMachineTest</ID>
+    <ID>LongMethod:NativeBinaryContractTest.kt$NativeBinaryContractTest$private fun extractKotlinSnapshotFields(): Set&lt;String&gt;</ID>
     <ID>LongMethod:NativeConfigContractSnapshotTest.kt$NativeConfigContractSnapshotTest$@Test fun proxyCustomUiPayloadMatchesSnapshot()</ID>
     <ID>LongMethod:NativeConfigContractSnapshotTest.kt$NativeConfigContractSnapshotTest$@Test fun tunnelPayloadMatchesSnapshot()</ID>
     <ID>LongMethod:NativeWrapperStateMachineTest.kt$NativeWrapperStateMachineTest$private suspend fun executeDiagnosticsCommand( command: DiagnosticsCommand, state: DiagnosticsState, bindings: FakeNetworkDiagnosticsBindings, diagnostics: NetworkDiagnostics, ): DiagnosticsCommandResult</ID>
     <ID>LongMethod:NativeWrapperStateMachineTest.kt$NativeWrapperStateMachineTest$private suspend fun executeProxyCommand( command: ProxyCommand, state: ProxyState, harness: ProxyHarness, ): ProxyState</ID>
     <ID>LongMethod:NativeWrapperStateMachineTest.kt$NativeWrapperStateMachineTest$private suspend fun executeTunnelCommand( command: TunnelCommand, state: TunnelState, bindings: FakeTun2SocksBindings, tunnel: Tun2SocksTunnel, ): TunnelCommandResult</ID>
     <ID>LongParameterList:NativeConfigContractSnapshotTest.kt$NativeConfigContractSnapshotTest$( fakeTtl: Int = 8, adaptiveFakeTtlEnabled: Boolean = false, adaptiveFakeTtlDelta: Int = -1, adaptiveFakeTtlMin: Int = 3, adaptiveFakeTtlMax: Int = 12, adaptiveFakeTtlFallback: Int = 8, fakeSni: String = "www.iana.org", httpFakeProfile: String = "compat_default", fakeTlsUseOriginal: Boolean = false, fakeTlsRandomize: Boolean = false, fakeTlsDupSessionId: Boolean = false, fakeTlsPadEncap: Boolean = false, fakeTlsSize: Int = 0, fakeTlsSniMode: String = "fixed", tlsFakeProfile: String = "compat_default", udpFakeProfile: String = "compat_default", fakeOffsetMarker: String = "0", oobChar: Int = 'a'.code, dropSack: Boolean = false, )</ID>
+    <ID>NestedBlockDepth:NativeBinaryContractTest.kt$NativeBinaryContractTest$private fun extractFieldPaths( element: JsonElement, prefix: String = "", ): Set&lt;String&gt;</ID>
     <ID>ThrowsCount:Tun2SocksTunnel.kt$Tun2SocksTunnel$suspend fun start( config: Tun2SocksConfig, tunFd: Int, )</ID>
     <ID>TooGenericExceptionCaught:RipDpiProxy.kt$RipDpiProxy$error: Exception</ID>
     <ID>TooGenericExceptionCaught:Tun2SocksTunnel.kt$Tun2SocksTunnel$e: Exception</ID>
     <ID>TopLevelPropertyNaming:RipDpiProxy.kt$internal const val DEFAULT_PROXY_READY_TIMEOUT_MS = 5_000L</ID>
+    <ID>TopLevelPropertyNaming:Tun2SocksTunnel.kt$const val DEFAULT_TUN2SOCKS_TUNNEL_MTU: Int = 1500</ID>
     <ID>UseCheckOrError:TestDoubles.kt$FakeNetworkDiagnosticsBindings$throw IllegalStateException("diagnostics scan already running")</ID>
   </CurrentIssues>
 </SmellBaseline>

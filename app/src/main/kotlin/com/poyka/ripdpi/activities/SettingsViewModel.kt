@@ -27,190 +27,190 @@ import javax.inject.Inject
 
 @HiltViewModel
 class SettingsViewModel
-@Inject
-constructor(
-    private val appSettingsRepository: AppSettingsRepository,
-    private val rememberedPolicySource: DiagnosticsRememberedPolicySource,
-    private val hostPackCatalogRepository: HostPackCatalogRepository,
-    private val launcherIconController: LauncherIconController,
-    private val serviceStateStore: ServiceStateStore,
-    private val stringResolver: StringResolver,
-    private val hostAutolearnStoreController: HostAutolearnStoreController,
-    private val telemetrySaltStore: com.poyka.ripdpi.services.TelemetryInstallSaltStore,
-    private val pinVerifier: PinVerifier,
-) : ViewModel() {
-    private val _effects = Channel<SettingsEffect>(Channel.BUFFERED)
-    private val hostAutolearnStoreRefresh = MutableStateFlow(0)
-    private val hostPackCatalogState = MutableStateFlow(HostPackCatalogUiState())
-    private val mutations = SettingsMutationRunner(viewModelScope, appSettingsRepository, _effects)
+    @Inject
+    constructor(
+        private val appSettingsRepository: AppSettingsRepository,
+        private val rememberedPolicySource: DiagnosticsRememberedPolicySource,
+        private val hostPackCatalogRepository: HostPackCatalogRepository,
+        private val launcherIconController: LauncherIconController,
+        private val serviceStateStore: ServiceStateStore,
+        private val stringResolver: StringResolver,
+        private val hostAutolearnStoreController: HostAutolearnStoreController,
+        private val telemetrySaltStore: com.poyka.ripdpi.services.TelemetryInstallSaltStore,
+        private val pinVerifier: PinVerifier,
+    ) : ViewModel() {
+        private val _effects = Channel<SettingsEffect>(Channel.BUFFERED)
+        private val hostAutolearnStoreRefresh = MutableStateFlow(0)
+        private val hostPackCatalogState = MutableStateFlow(HostPackCatalogUiState())
+        private val mutations = SettingsMutationRunner(viewModelScope, appSettingsRepository, _effects)
 
-    val effects: Flow<SettingsEffect> = _effects.receiveAsFlow()
-    val hostPackCatalog: StateFlow<HostPackCatalogUiState> = hostPackCatalogState
+        val effects: Flow<SettingsEffect> = _effects.receiveAsFlow()
+        val hostPackCatalog: StateFlow<HostPackCatalogUiState> = hostPackCatalogState
 
-    val uiState: StateFlow<SettingsUiState> =
-        combine(
-            appSettingsRepository.settings,
-            serviceStateStore.telemetry,
-            hostAutolearnStoreRefresh,
-            rememberedPolicySource.observePolicies(limit = 64),
-        ) { settings, telemetry, _, rememberedPolicies ->
-            settings.toUiState(
-                serviceStatus = telemetry.status,
-                proxyTelemetry = telemetry.proxyTelemetry,
-                hostAutolearnStorePresent = hostAutolearnStoreController.hasStore(),
-                rememberedNetworkCount = rememberedPolicies.size,
-            )
-        }.stateIn(
-            scope = viewModelScope,
-            started = SharingStarted.WhileSubscribed(5_000),
-            initialValue =
-                AppSettingsSerializer.defaultValue.toUiState(
-                    isHydrated = false,
-                    serviceStatus = serviceStateStore.telemetry.value.status,
-                    proxyTelemetry = serviceStateStore.telemetry.value.proxyTelemetry,
+        val uiState: StateFlow<SettingsUiState> =
+            combine(
+                appSettingsRepository.settings,
+                serviceStateStore.telemetry,
+                hostAutolearnStoreRefresh,
+                rememberedPolicySource.observePolicies(limit = 64),
+            ) { settings, telemetry, _, rememberedPolicies ->
+                settings.toUiState(
+                    serviceStatus = telemetry.status,
+                    proxyTelemetry = telemetry.proxyTelemetry,
                     hostAutolearnStorePresent = hostAutolearnStoreController.hasStore(),
-                    rememberedNetworkCount = 0,
-                ),
+                    rememberedNetworkCount = rememberedPolicies.size,
+                )
+            }.stateIn(
+                scope = viewModelScope,
+                started = SharingStarted.WhileSubscribed(5_000),
+                initialValue =
+                    AppSettingsSerializer.defaultValue.toUiState(
+                        isHydrated = false,
+                        serviceStatus = serviceStateStore.telemetry.value.status,
+                        proxyTelemetry = serviceStateStore.telemetry.value.proxyTelemetry,
+                        hostAutolearnStorePresent = hostAutolearnStoreController.hasStore(),
+                        rememberedNetworkCount = 0,
+                    ),
+            )
+
+        private val dnsActions = SettingsDnsActions(mutations)
+        private val customizationActions by lazy {
+            SettingsCustomizationActions(
+                mutations = mutations,
+                launcherIconController = launcherIconController,
+                currentUiState = { uiState.value },
+                pinVerifier = pinVerifier,
+            )
+        }
+        private val maintenanceActions by lazy {
+            SettingsMaintenanceActions(
+                stringResolver = stringResolver,
+                hostAutolearnStoreController = hostAutolearnStoreController,
+                rememberedPolicySource = rememberedPolicySource,
+                hostPackCatalogRepository = hostPackCatalogRepository,
+                mutations = mutations,
+                hostAutolearnStoreRefresh = hostAutolearnStoreRefresh,
+                hostPackCatalogState = hostPackCatalogState,
+                currentUiState = { uiState.value },
+                currentServiceStatus = { serviceStateStore.status.value.first },
+            )
+        }
+
+        init {
+            maintenanceActions.loadInitialHostPackCatalog()
+            ensurePinKeyIntegrity()
+        }
+
+        private fun ensurePinKeyIntegrity() {
+            viewModelScope.launch {
+                val settings = appSettingsRepository.snapshot()
+                if (settings.backupPin.isNotBlank() && !pinVerifier.isKeyAvailable()) {
+                    appSettingsRepository.update { setBackupPin("") }
+                }
+            }
+        }
+
+        fun update(transform: SettingsMutation) {
+            mutations.update(transform)
+        }
+
+        fun updateSetting(
+            key: String,
+            value: String,
+            transform: SettingsMutation,
+        ) {
+            mutations.updateSetting(key = key, value = value, transform = transform)
+        }
+
+        fun selectBuiltInDnsProvider(providerId: String) = dnsActions.selectBuiltInDnsProvider(providerId)
+
+        fun setEncryptedDnsProtocol(protocol: String) = dnsActions.setEncryptedDnsProtocol(protocol)
+
+        fun setPlainDnsServer(dnsIp: String) = dnsActions.setPlainDnsServer(dnsIp)
+
+        fun setCustomDohResolver(
+            dohUrl: String,
+            bootstrapIps: List<String>,
+        ) = dnsActions.setCustomDohResolver(dohUrl = dohUrl, bootstrapIps = bootstrapIps)
+
+        fun setCustomDotResolver(
+            host: String,
+            port: Int,
+            tlsServerName: String,
+            bootstrapIps: List<String>,
+        ) = dnsActions.setCustomDotResolver(
+            host = host,
+            port = port,
+            tlsServerName = tlsServerName,
+            bootstrapIps = bootstrapIps,
         )
 
-    private val dnsActions = SettingsDnsActions(mutations)
-    private val customizationActions by lazy {
-        SettingsCustomizationActions(
-            mutations = mutations,
-            launcherIconController = launcherIconController,
-            currentUiState = { uiState.value },
-            pinVerifier = pinVerifier,
+        fun setCustomDnsCryptResolver(
+            host: String,
+            port: Int,
+            providerName: String,
+            publicKey: String,
+            bootstrapIps: List<String>,
+        ) = dnsActions.setCustomDnsCryptResolver(
+            host = host,
+            port = port,
+            providerName = providerName,
+            publicKey = publicKey,
+            bootstrapIps = bootstrapIps,
         )
-    }
-    private val maintenanceActions by lazy {
-        SettingsMaintenanceActions(
-            stringResolver = stringResolver,
-            hostAutolearnStoreController = hostAutolearnStoreController,
-            rememberedPolicySource = rememberedPolicySource,
-            hostPackCatalogRepository = hostPackCatalogRepository,
-            mutations = mutations,
-            hostAutolearnStoreRefresh = hostAutolearnStoreRefresh,
-            hostPackCatalogState = hostPackCatalogState,
-            currentUiState = { uiState.value },
-            currentServiceStatus = { serviceStateStore.status.value.first },
+
+        fun setWebRtcProtectionEnabled(enabled: Boolean) = customizationActions.setWebRtcProtectionEnabled(enabled)
+
+        fun setAppTheme(theme: String) = customizationActions.setAppTheme(theme)
+
+        fun setAppIcon(iconKey: String) = customizationActions.setAppIcon(iconKey)
+
+        fun setThemedAppIconEnabled(enabled: Boolean) = customizationActions.setThemedAppIconEnabled(enabled)
+
+        fun setBiometricEnabled(enabled: Boolean) = customizationActions.setBiometricEnabled(enabled)
+
+        fun setBackupPin(pin: String) = customizationActions.setBackupPin(pin)
+
+        fun verifyBackupPin(pin: String): Boolean = customizationActions.verifyBackupPin(pin)
+
+        fun resetSettings() = maintenanceActions.resetSettings()
+
+        fun applyHostPackPreset(
+            preset: HostPackPreset,
+            targetMode: String,
+            applyMode: String,
+        ) = maintenanceActions.applyHostPackPreset(
+            preset = preset,
+            targetMode = targetMode,
+            applyMode = applyMode,
         )
-    }
 
-    init {
-        maintenanceActions.loadInitialHostPackCatalog()
-        ensurePinKeyIntegrity()
-    }
+        fun refreshHostPackCatalog() = maintenanceActions.refreshHostPackCatalog()
 
-    private fun ensurePinKeyIntegrity() {
-        viewModelScope.launch {
-            val settings = appSettingsRepository.snapshot()
-            if (settings.backupPin.isNotBlank() && !pinVerifier.isKeyAvailable()) {
-                appSettingsRepository.update { setBackupPin("") }
+        fun forgetLearnedHosts() = maintenanceActions.forgetLearnedHosts()
+
+        fun clearRememberedNetworks() = maintenanceActions.clearRememberedNetworks()
+
+        fun resetFakeTlsProfile() = maintenanceActions.resetFakeTlsProfile()
+
+        fun resetAdaptiveFakeTtlProfile() = maintenanceActions.resetAdaptiveFakeTtlProfile()
+
+        fun resetFakePayloadLibrary() = maintenanceActions.resetFakePayloadLibrary()
+
+        fun resetHttpParserEvasions() = maintenanceActions.resetHttpParserEvasions()
+
+        fun resetActivationWindow() = maintenanceActions.resetActivationWindow()
+
+        fun rotateTelemetrySalt() {
+            viewModelScope.launch {
+                telemetrySaltStore.rotateSalt()
+                _effects.send(
+                    SettingsEffect.Notice(
+                        title = stringResolver.getString(R.string.notice_telemetry_salt_reset_title),
+                        message = stringResolver.getString(R.string.notice_telemetry_salt_reset_message),
+                        tone = SettingsNoticeTone.Info,
+                    ),
+                )
             }
         }
     }
-
-    fun update(transform: SettingsMutation) {
-        mutations.update(transform)
-    }
-
-    fun updateSetting(
-        key: String,
-        value: String,
-        transform: SettingsMutation,
-    ) {
-        mutations.updateSetting(key = key, value = value, transform = transform)
-    }
-
-    fun selectBuiltInDnsProvider(providerId: String) = dnsActions.selectBuiltInDnsProvider(providerId)
-
-    fun setEncryptedDnsProtocol(protocol: String) = dnsActions.setEncryptedDnsProtocol(protocol)
-
-    fun setPlainDnsServer(dnsIp: String) = dnsActions.setPlainDnsServer(dnsIp)
-
-    fun setCustomDohResolver(
-        dohUrl: String,
-        bootstrapIps: List<String>,
-    ) = dnsActions.setCustomDohResolver(dohUrl = dohUrl, bootstrapIps = bootstrapIps)
-
-    fun setCustomDotResolver(
-        host: String,
-        port: Int,
-        tlsServerName: String,
-        bootstrapIps: List<String>,
-    ) = dnsActions.setCustomDotResolver(
-        host = host,
-        port = port,
-        tlsServerName = tlsServerName,
-        bootstrapIps = bootstrapIps,
-    )
-
-    fun setCustomDnsCryptResolver(
-        host: String,
-        port: Int,
-        providerName: String,
-        publicKey: String,
-        bootstrapIps: List<String>,
-    ) = dnsActions.setCustomDnsCryptResolver(
-        host = host,
-        port = port,
-        providerName = providerName,
-        publicKey = publicKey,
-        bootstrapIps = bootstrapIps,
-    )
-
-    fun setWebRtcProtectionEnabled(enabled: Boolean) = customizationActions.setWebRtcProtectionEnabled(enabled)
-
-    fun setAppTheme(theme: String) = customizationActions.setAppTheme(theme)
-
-    fun setAppIcon(iconKey: String) = customizationActions.setAppIcon(iconKey)
-
-    fun setThemedAppIconEnabled(enabled: Boolean) = customizationActions.setThemedAppIconEnabled(enabled)
-
-    fun setBiometricEnabled(enabled: Boolean) = customizationActions.setBiometricEnabled(enabled)
-
-    fun setBackupPin(pin: String) = customizationActions.setBackupPin(pin)
-
-    fun verifyBackupPin(pin: String): Boolean = customizationActions.verifyBackupPin(pin)
-
-    fun resetSettings() = maintenanceActions.resetSettings()
-
-    fun applyHostPackPreset(
-        preset: HostPackPreset,
-        targetMode: String,
-        applyMode: String,
-    ) = maintenanceActions.applyHostPackPreset(
-        preset = preset,
-        targetMode = targetMode,
-        applyMode = applyMode,
-    )
-
-    fun refreshHostPackCatalog() = maintenanceActions.refreshHostPackCatalog()
-
-    fun forgetLearnedHosts() = maintenanceActions.forgetLearnedHosts()
-
-    fun clearRememberedNetworks() = maintenanceActions.clearRememberedNetworks()
-
-    fun resetFakeTlsProfile() = maintenanceActions.resetFakeTlsProfile()
-
-    fun resetAdaptiveFakeTtlProfile() = maintenanceActions.resetAdaptiveFakeTtlProfile()
-
-    fun resetFakePayloadLibrary() = maintenanceActions.resetFakePayloadLibrary()
-
-    fun resetHttpParserEvasions() = maintenanceActions.resetHttpParserEvasions()
-
-    fun resetActivationWindow() = maintenanceActions.resetActivationWindow()
-
-    fun rotateTelemetrySalt() {
-        viewModelScope.launch {
-            telemetrySaltStore.rotateSalt()
-            _effects.send(
-                SettingsEffect.Notice(
-                    title = stringResolver.getString(R.string.notice_telemetry_salt_reset_title),
-                    message = stringResolver.getString(R.string.notice_telemetry_salt_reset_message),
-                    tone = SettingsNoticeTone.Info,
-                ),
-            )
-        }
-    }
-}

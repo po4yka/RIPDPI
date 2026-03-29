@@ -1,8 +1,8 @@
 package com.poyka.ripdpi.services
 
+import com.poyka.ripdpi.core.RipDpiLogContext
 import com.poyka.ripdpi.core.Tun2SocksBridge
 import com.poyka.ripdpi.core.Tun2SocksBridgeFactory
-import com.poyka.ripdpi.core.RipDpiLogContext
 import com.poyka.ripdpi.data.ActiveDnsSettings
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.DnsModeEncrypted

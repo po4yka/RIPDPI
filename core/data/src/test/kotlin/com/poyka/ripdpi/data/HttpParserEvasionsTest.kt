@@ -7,25 +7,27 @@ import org.junit.Test
 class HttpParserEvasionsTest {
     @Test
     fun `all flags false returns empty list`() {
-        val result = activeHttpParserEvasions(
-            hostMixedCase = false,
-            domainMixedCase = false,
-            hostRemoveSpaces = false,
-            httpMethodEol = false,
-            httpUnixEol = false,
-        )
+        val result =
+            activeHttpParserEvasions(
+                hostMixedCase = false,
+                domainMixedCase = false,
+                hostRemoveSpaces = false,
+                httpMethodEol = false,
+                httpUnixEol = false,
+            )
         assertTrue(result.isEmpty())
     }
 
     @Test
     fun `all flags true returns all evasions`() {
-        val result = activeHttpParserEvasions(
-            hostMixedCase = true,
-            domainMixedCase = true,
-            hostRemoveSpaces = true,
-            httpMethodEol = true,
-            httpUnixEol = true,
-        )
+        val result =
+            activeHttpParserEvasions(
+                hostMixedCase = true,
+                domainMixedCase = true,
+                hostRemoveSpaces = true,
+                httpMethodEol = true,
+                httpUnixEol = true,
+            )
         assertEquals(5, result.size)
         assertTrue(result.contains(HttpParserEvasionHostMixedCase))
         assertTrue(result.contains(HttpParserEvasionDomainMixedCase))
@@ -36,25 +38,27 @@ class HttpParserEvasionsTest {
 
     @Test
     fun `single flag returns single evasion`() {
-        val result = activeHttpParserEvasions(
-            hostMixedCase = false,
-            domainMixedCase = false,
-            hostRemoveSpaces = true,
-            httpMethodEol = false,
-            httpUnixEol = false,
-        )
+        val result =
+            activeHttpParserEvasions(
+                hostMixedCase = false,
+                domainMixedCase = false,
+                hostRemoveSpaces = true,
+                httpMethodEol = false,
+                httpUnixEol = false,
+            )
         assertEquals(listOf(HttpParserEvasionHostRemoveSpaces), result)
     }
 
     @Test
     fun `unix eol appears before method eol in list`() {
-        val result = activeHttpParserEvasions(
-            hostMixedCase = false,
-            domainMixedCase = false,
-            hostRemoveSpaces = false,
-            httpMethodEol = true,
-            httpUnixEol = true,
-        )
+        val result =
+            activeHttpParserEvasions(
+                hostMixedCase = false,
+                domainMixedCase = false,
+                hostRemoveSpaces = false,
+                httpMethodEol = true,
+                httpUnixEol = true,
+            )
         assertEquals(listOf(HttpParserEvasionUnixEol, HttpParserEvasionMethodEol), result)
     }
 }

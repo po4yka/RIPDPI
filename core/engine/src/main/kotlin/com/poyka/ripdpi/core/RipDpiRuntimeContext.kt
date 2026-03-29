@@ -36,7 +36,11 @@ data class RipDpiRuntimeContext(
 internal fun normalizeLogContext(logContext: RipDpiLogContext?): RipDpiLogContext? =
     logContext?.let { value ->
         val runtimeId = value.runtimeId?.trim()?.takeIf { it.isNotEmpty() }
-        val mode = value.mode?.trim()?.lowercase()?.takeIf { it.isNotEmpty() }
+        val mode =
+            value.mode
+                ?.trim()
+                ?.lowercase()
+                ?.takeIf { it.isNotEmpty() }
         val policySignature = value.policySignature?.trim()?.takeIf { it.isNotEmpty() }
         val fingerprintHash = value.fingerprintHash?.trim()?.takeIf { it.isNotEmpty() }
         val diagnosticsSessionId = value.diagnosticsSessionId?.trim()?.takeIf { it.isNotEmpty() }

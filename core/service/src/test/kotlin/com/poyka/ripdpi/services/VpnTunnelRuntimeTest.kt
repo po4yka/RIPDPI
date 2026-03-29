@@ -60,9 +60,17 @@ class VpnTunnelRuntimeTest {
                         ),
                 )
 
-            runtime.start(AppSettingsSerializer.defaultValue.activeDnsSettings(), overrideReason = null, logContext = null)
+            runtime.start(
+                AppSettingsSerializer.defaultValue.activeDnsSettings(),
+                overrideReason = null,
+                logContext = null,
+            )
             runtime.stop()
-            runtime.start(AppSettingsSerializer.defaultValue.activeDnsSettings(), overrideReason = null, logContext = null)
+            runtime.start(
+                AppSettingsSerializer.defaultValue.activeDnsSettings(),
+                overrideReason = null,
+                logContext = null,
+            )
 
             assertEquals(1L, runtime.tunnelRecoveryRetryCount)
         }
@@ -86,7 +94,11 @@ class VpnTunnelRuntimeTest {
                 )
 
             runCatching {
-                runtime.start(AppSettingsSerializer.defaultValue.activeDnsSettings(), overrideReason = null, logContext = null)
+                runtime.start(
+                    AppSettingsSerializer.defaultValue.activeDnsSettings(),
+                    overrideReason = null,
+                    logContext = null,
+                )
             }
 
             assertTrue(session.closed)
@@ -111,7 +123,11 @@ class VpnTunnelRuntimeTest {
                         ),
                 )
 
-            runtime.start(AppSettingsSerializer.defaultValue.activeDnsSettings(), overrideReason = null, logContext = null)
+            runtime.start(
+                AppSettingsSerializer.defaultValue.activeDnsSettings(),
+                overrideReason = null,
+                logContext = null,
+            )
             val failure = runCatching { runtime.stop() }.exceptionOrNull()
 
             assertTrue(failure is IllegalStateException)
@@ -132,7 +148,11 @@ class VpnTunnelRuntimeTest {
                     vpnTunnelSessionProvider = TestVpnTunnelSessionProvider(session = TestVpnTunnelSession()),
                 )
 
-            runtime.start(AppSettingsSerializer.defaultValue.activeDnsSettings(), overrideReason = null, logContext = null)
+            runtime.start(
+                AppSettingsSerializer.defaultValue.activeDnsSettings(),
+                overrideReason = null,
+                logContext = null,
+            )
 
             assertEquals("udp", bridge.startedConfig?.socks5Udp)
         }
@@ -172,10 +192,18 @@ class VpnTunnelRuntimeTest {
                     vpnTunnelSessionProvider = TestVpnTunnelSessionProvider(session = TestVpnTunnelSession()),
                 )
 
-            runtime.start(AppSettingsSerializer.defaultValue.activeDnsSettings(), overrideReason = null, logContext = null)
+            runtime.start(
+                AppSettingsSerializer.defaultValue.activeDnsSettings(),
+                overrideReason = null,
+                logContext = null,
+            )
             val error =
                 runCatching {
-                    runtime.start(AppSettingsSerializer.defaultValue.activeDnsSettings(), overrideReason = null, logContext = null)
+                    runtime.start(
+                        AppSettingsSerializer.defaultValue.activeDnsSettings(),
+                        overrideReason = null,
+                        logContext = null,
+                    )
                 }.exceptionOrNull()
 
             assertTrue(error is IllegalStateException)
@@ -193,7 +221,11 @@ class VpnTunnelRuntimeTest {
                     vpnTunnelSessionProvider = TestVpnTunnelSessionProvider(session = TestVpnTunnelSession()),
                 )
 
-            runtime.start(AppSettingsSerializer.defaultValue.activeDnsSettings(), overrideReason = null, logContext = null)
+            runtime.start(
+                AppSettingsSerializer.defaultValue.activeDnsSettings(),
+                overrideReason = null,
+                logContext = null,
+            )
             val result = runtime.pollTelemetry()
 
             assertTrue(result.isFailure)
@@ -226,9 +258,17 @@ class VpnTunnelRuntimeTest {
                     vpnTunnelSessionProvider = TestVpnTunnelSessionProvider(session = TestVpnTunnelSession()),
                 )
 
-            runtime.start(AppSettingsSerializer.defaultValue.activeDnsSettings(), overrideReason = null, logContext = null)
+            runtime.start(
+                AppSettingsSerializer.defaultValue.activeDnsSettings(),
+                overrideReason = null,
+                logContext = null,
+            )
             runtime.stop()
-            runtime.start(AppSettingsSerializer.defaultValue.activeDnsSettings(), overrideReason = null, logContext = null)
+            runtime.start(
+                AppSettingsSerializer.defaultValue.activeDnsSettings(),
+                overrideReason = null,
+                logContext = null,
+            )
             assertEquals(1L, runtime.tunnelRecoveryRetryCount)
 
             runtime.stop()

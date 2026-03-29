@@ -5,9 +5,9 @@ import com.poyka.ripdpi.data.NativeRuntimeSnapshot
 import com.poyka.ripdpi.data.NetworkFingerprintProvider
 import com.poyka.ripdpi.data.ResolverOverrideStore
 import com.poyka.ripdpi.data.buildEncryptedDnsCandidatePlan
+import com.poyka.ripdpi.data.diagnostics.NetworkDnsPathPreferenceStore
 import com.poyka.ripdpi.data.toEncryptedDnsPathCandidate
 import com.poyka.ripdpi.data.toTemporaryResolverOverride
-import com.poyka.ripdpi.data.diagnostics.NetworkDnsPathPreferenceStore
 
 private const val FailoverThreshold = 2
 private const val AutoFailoverReasonPrefix = "vpn_encrypted_dns_auto_failover"
@@ -61,21 +61,24 @@ internal class VpnEncryptedDnsFailoverController(
         networkScopeKey: String?,
         telemetry: NativeRuntimeSnapshot,
     ): Boolean {
-        val encryptedDns = activeDns?.takeIf { it.isEncrypted } ?: run {
-            state.resetAll()
-            return false
-        }
-        val currentPath = encryptedDns.toEncryptedDnsPathCandidate() ?: run {
-            state.resetAll()
-            return false
-        }
+        val encryptedDns =
+            activeDns?.takeIf { it.isEncrypted } ?: run {
+                state.resetAll()
+                return false
+            }
+        val currentPath =
+            encryptedDns.toEncryptedDnsPathCandidate() ?: run {
+                state.resetAll()
+                return false
+            }
 
         if (state.networkScopeKey != networkScopeKey) {
             state.resetAll()
             state.networkScopeKey = networkScopeKey
-            state.preferredPath = networkScopeKey?.let { fingerprintHash ->
-                networkDnsPathPreferenceStore.getPreferredPath(fingerprintHash)
-            }
+            state.preferredPath =
+                networkScopeKey?.let { fingerprintHash ->
+                    networkDnsPathPreferenceStore.getPreferredPath(fingerprintHash)
+                }
         }
 
         val currentPathKey = currentPath.pathKey()
@@ -87,9 +90,10 @@ internal class VpnEncryptedDnsFailoverController(
             if (!controllerActivatedPath) {
                 state.resetTracking()
                 state.networkScopeKey = networkScopeKey
-                state.preferredPath = networkScopeKey?.let { fingerprintHash ->
-                    networkDnsPathPreferenceStore.getPreferredPath(fingerprintHash)
-                }
+                state.preferredPath =
+                    networkScopeKey?.let { fingerprintHash ->
+                        networkDnsPathPreferenceStore.getPreferredPath(fingerprintHash)
+                    }
             }
             state.currentPathKey = currentPathKey
             state.currentDnsSignature = currentDnsSignature

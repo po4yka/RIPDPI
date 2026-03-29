@@ -202,8 +202,9 @@ class MainActivityContentTest {
                 ),
             permissionStatusProvider = permissionStatusProvider,
             permissionCoordinator = PermissionCoordinator(),
-            crashReportReader = com.poyka.ripdpi.diagnostics.crash.CrashReportReader(
-                java.io.File(System.getProperty("java.io.tmpdir"), "ripdpi-test-crash-reports"),
-            ),
+            crashReportReader =
+                com.poyka.ripdpi.diagnostics.crash.CrashReportReader(
+                    java.io.File(System.getProperty("java.io.tmpdir"), "ripdpi-test-crash-reports"),
+                ),
         )
 }

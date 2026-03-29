@@ -214,7 +214,7 @@ private fun HttpParserEvasionsProfileCard(
                     } else {
                         stringResource(R.string.ripdpi_http_parser_badge_default)
                     }
-                    ) to
+                ) to
                     if (uiState.httpParser.hasCustomHttpParserEvasions) {
                         SummaryCapsuleTone.Active
                     } else {

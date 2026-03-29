@@ -104,6 +104,7 @@ class RipDpiProxy(
 
     private val json = Json { ignoreUnknownKeys = true }
     private val mutex = Mutex()
+
     @Volatile private var handle = 0L
     private var readinessSignal: CompletableDeferred<Unit>? = null
 

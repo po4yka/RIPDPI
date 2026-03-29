@@ -143,15 +143,13 @@ private fun Modifier.settingsRowModifier(
                 width = if (variant == SettingsRowVariant.Default) 0.dp else 1.dp,
                 color = rowColors.border,
                 shape = RipDpiThemeTokens.shapes.lg,
-            )
-            .then(
+            ).then(
                 if (variant == SettingsRowVariant.Default) {
                     Modifier
                 } else {
                     Modifier.padding(horizontal = components.compactPillHorizontalPadding)
                 },
-            )
-            .heightIn(min = minHeight)
+            ).heightIn(min = minHeight)
             .padding(vertical = components.settingsRowVerticalPadding)
     return when {
         checked != null && onCheckedChange != null -> {

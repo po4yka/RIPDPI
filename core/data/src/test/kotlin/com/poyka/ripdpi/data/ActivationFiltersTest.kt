@@ -102,11 +102,12 @@ class ActivationFiltersTest {
 
     @Test
     fun `normalizeActivationFilter normalizes all sub-ranges`() {
-        val filter = ActivationFilterModel(
-            round = NumericRangeModel(3, 1),
-            payloadSize = NumericRangeModel(null, 512),
-            streamBytes = NumericRangeModel(0, null),
-        )
+        val filter =
+            ActivationFilterModel(
+                round = NumericRangeModel(3, 1),
+                payloadSize = NumericRangeModel(null, 512),
+                streamBytes = NumericRangeModel(0, null),
+            )
         val normalized = normalizeActivationFilter(filter)
 
         assertEquals(NumericRangeModel(1, 3), normalized.round)
@@ -135,11 +136,12 @@ class ActivationFiltersTest {
 
     @Test
     fun `formatActivationFilterSummary includes all non-empty ranges`() {
-        val filter = ActivationFilterModel(
-            round = NumericRangeModel(1, 2),
-            payloadSize = NumericRangeModel(64, 512),
-            streamBytes = NumericRangeModel(0, 1199),
-        )
+        val filter =
+            ActivationFilterModel(
+                round = NumericRangeModel(1, 2),
+                payloadSize = NumericRangeModel(64, 512),
+                streamBytes = NumericRangeModel(0, 1199),
+            )
         assertEquals("round=1-2 size=64-512 stream=0-1199", formatActivationFilterSummary(filter))
     }
 
@@ -150,9 +152,10 @@ class ActivationFiltersTest {
 
     @Test
     fun `formatActivationFilterSummary omits empty sub-ranges`() {
-        val filter = ActivationFilterModel(
-            round = NumericRangeModel(1, 1),
-        )
+        val filter =
+            ActivationFilterModel(
+                round = NumericRangeModel(1, 1),
+            )
         assertEquals("round=1", formatActivationFilterSummary(filter))
     }
 
@@ -222,10 +225,11 @@ class ActivationFiltersTest {
 
     @Test
     fun `ActivationFilterModel round trips through proto`() {
-        val model = ActivationFilterModel(
-            round = NumericRangeModel(1, 3),
-            payloadSize = NumericRangeModel(64, 512),
-        )
+        val model =
+            ActivationFilterModel(
+                round = NumericRangeModel(1, 3),
+                payloadSize = NumericRangeModel(64, 512),
+            )
         val proto = model.toProto()
         assertTrue(proto.hasRound())
         assertTrue(proto.hasPayloadSize())
