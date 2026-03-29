@@ -173,6 +173,7 @@ class ProxyServiceAutoApplyLifecycleTest {
                 networkFingerprintProvider = fingerprintProvider,
                 networkDnsPathPreferenceStore = TestNetworkDnsPathPreferenceStore(),
                 rememberedNetworkPolicyStore = rememberedPolicies,
+                startupDnsProbe = VpnStartupDnsProbe(),
             )
         val coordinator =
             ProxyServiceRuntimeCoordinator(
