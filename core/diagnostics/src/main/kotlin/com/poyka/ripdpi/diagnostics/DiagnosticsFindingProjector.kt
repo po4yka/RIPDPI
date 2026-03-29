@@ -80,14 +80,21 @@ class DiagnosticsFindingProjector
             dns
                 .filter {
                     it.status == DnsObservationStatus.SUBSTITUTION ||
-                        it.status == DnsObservationStatus.EXPECTED_MISMATCH
+                        it.status == DnsObservationStatus.EXPECTED_MISMATCH ||
+                        it.status == DnsObservationStatus.NXDOMAIN
                 }.forEach { observation ->
+                    val summary =
+                        if (observation.status == DnsObservationStatus.NXDOMAIN) {
+                            "DNS records were deleted (NXDOMAIN)"
+                        } else {
+                            "DNS answers were substituted"
+                        }
                     pushDiagnosis(
                         diagnoses,
                         seen,
                         Diagnosis(
                             code = "dns_tampering",
-                            summary = "DNS answers were substituted",
+                            summary = summary,
                             target = observation.domain,
                             evidence = observation.udpAddresses + observation.encryptedAddresses,
                         ),

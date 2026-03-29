@@ -218,6 +218,16 @@ pub(crate) fn parse_dns_response(packet: &[u8], expected_id: u16) -> Result<Vec<
     if id != expected_id {
         return Err("dns_response_id_mismatch".to_string());
     }
+    let rcode = packet[3] & 0x0F;
+    if rcode == 3 {
+        return Err("dns_nxdomain".to_string());
+    }
+    if rcode == 2 {
+        return Err("dns_servfail".to_string());
+    }
+    if rcode == 5 {
+        return Err("dns_refused".to_string());
+    }
     let answer_count = u16::from_be_bytes([packet[6], packet[7]]) as usize;
     let question_count = u16::from_be_bytes([packet[4], packet[5]]) as usize;
     let mut offset = 12usize;
