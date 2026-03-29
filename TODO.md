@@ -167,7 +167,7 @@ File path prefix: `app/src/main/kotlin/com/poyka/ripdpi/`
   - Depends on: none (can be done in parallel with 4.1)
   - ~40 lines
 
-- [ ] **4.3 Replace ProbeResultRow with CompactProbeRow in Scan tab**
+- [x] **4.3 Replace ProbeResultRow with CompactProbeRow in Scan tab**
   - Files: `ui/screens/diagnostics/DiagnosticsScanSection.kt`
   - Replace `ProbeResultRow` items in the results section with
     `CompactProbeRow`. Wrap all probe results in a single containing card

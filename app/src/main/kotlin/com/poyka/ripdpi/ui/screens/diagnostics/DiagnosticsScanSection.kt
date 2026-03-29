@@ -234,40 +234,31 @@ internal fun ScanSection(
         }
         if (scan.latestResults.isNotEmpty()) {
             item {
-                SettingsCategoryHeader(
-                    title =
-                        if (strategyProbeSelected) {
-                            stringResource(R.string.diagnostics_probe_evidence_section)
-                        } else {
-                            stringResource(R.string.diagnostics_results_section)
-                        },
-                )
-            }
-            items(
-                items = scan.latestResults,
-                key = { it.id },
-                contentType = { probe ->
-                    if (probe.probeType ==
-                        "telegram_availability"
-                    ) {
-                        "telegram_probe"
+                val sectionTitle =
+                    if (strategyProbeSelected) {
+                        stringResource(R.string.diagnostics_probe_evidence_section)
                     } else {
-                        "probe"
+                        stringResource(R.string.diagnostics_results_section)
                     }
-                },
-            ) { probe ->
-                if (probe.probeType == "telegram_availability") {
-                    TelegramResultCard(
-                        probe = probe,
-                        onClick = { onSelectProbe(probe) },
-                        modifier = Modifier.ripDpiTestTag(RipDpiTestTags.diagnosticsProbe(probe.id)),
+                RipDpiCard {
+                    SettingsCategoryHeader(
+                        title = "$sectionTitle (${scan.latestResults.size})",
                     )
-                } else {
-                    ProbeResultRow(
-                        probe = probe,
-                        onClick = { onSelectProbe(probe) },
-                        modifier = Modifier.ripDpiTestTag(RipDpiTestTags.diagnosticsProbe(probe.id)),
-                    )
+                    scan.latestResults.forEach { probe ->
+                        if (probe.probeType == "telegram_availability") {
+                            TelegramResultCard(
+                                probe = probe,
+                                onClick = { onSelectProbe(probe) },
+                                modifier = Modifier.ripDpiTestTag(RipDpiTestTags.diagnosticsProbe(probe.id)),
+                            )
+                        } else {
+                            CompactProbeRow(
+                                probe = probe,
+                                onClick = { onSelectProbe(probe) },
+                                modifier = Modifier.ripDpiTestTag(RipDpiTestTags.diagnosticsProbe(probe.id)),
+                            )
+                        }
+                    }
                 }
             }
         }
