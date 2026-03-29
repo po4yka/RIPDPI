@@ -190,6 +190,9 @@
     <string name="diagnostics_health_attention">Attention</string>
     <string name="diagnostics_health_degraded">Degraded</string>
     <string name="diagnostics_health_idle">Idle</string>
+    <string name="diagnostics_network_details_section">Network details</string>
+    <string name="diagnostics_recent_activity_section">Recent activity</string>
+    <string name="diagnostics_remembered_networks_section">Remembered networks</string>
     <string name="diagnostics_attention_section">Watch list</string>
     <string name="diagnostics_results_section">Latest probe results</string>
     <string name="diagnostics_trends_section">Recent trends</string>

@@ -541,39 +541,55 @@ private fun OverviewSection(
                 }
             }
         }
-        overview.latestSnapshot?.let { snapshot ->
+        if (overview.latestSnapshot != null || overview.contextSummary != null) {
             item {
-                SnapshotCard(snapshot = snapshot)
+                val fieldCount =
+                    (overview.latestSnapshot?.fieldGroups?.sumOf { it.fields.size } ?: 0) +
+                        (overview.contextSummary?.fields?.size ?: 0)
+                CollapsibleSection(
+                    title = stringResource(R.string.diagnostics_network_details_section),
+                    badgeCount = fieldCount.takeIf { it > 0 },
+                ) {
+                    overview.latestSnapshot?.let { snapshot ->
+                        SnapshotCard(snapshot = snapshot)
+                    }
+                    overview.contextSummary?.let { contextSummary ->
+                        ContextGroupCard(group = contextSummary)
+                    }
+                }
             }
         }
-        overview.contextSummary?.let { contextSummary ->
+        if (overview.latestSession != null || overview.recentAutomaticProbe != null) {
             item {
-                ContextGroupCard(group = contextSummary)
-            }
-        }
-        overview.latestSession?.let { session ->
-            item {
-                SessionRow(
-                    session = session,
-                    onClick = { onSelectSession(session.id) },
-                )
+                CollapsibleSection(
+                    title = stringResource(R.string.diagnostics_recent_activity_section),
+                    defaultExpanded = true,
+                ) {
+                    overview.latestSession?.let { session ->
+                        SessionRow(
+                            session = session,
+                            onClick = { onSelectSession(session.id) },
+                        )
+                    }
+                    overview.recentAutomaticProbe?.let { automaticProbe ->
+                        AutomaticProbeHistoryCard(
+                            callout = automaticProbe,
+                            onOpenHistory = onOpenHistory,
+                        )
+                    }
+                    HistoryCalloutCard(onOpenHistory = onOpenHistory)
+                }
             }
         }
         if (overview.rememberedNetworks.isNotEmpty()) {
             item {
-                RememberedNetworkPoliciesCard(policies = overview.rememberedNetworks)
+                CollapsibleSection(
+                    title = stringResource(R.string.diagnostics_remembered_networks_section),
+                    badgeCount = overview.rememberedNetworks.size,
+                ) {
+                    RememberedNetworkPoliciesCard(policies = overview.rememberedNetworks)
+                }
             }
-        }
-        overview.recentAutomaticProbe?.let { automaticProbe ->
-            item {
-                AutomaticProbeHistoryCard(
-                    callout = automaticProbe,
-                    onOpenHistory = onOpenHistory,
-                )
-            }
-        }
-        item {
-            HistoryCalloutCard(onOpenHistory = onOpenHistory)
         }
         if (overview.warnings.isNotEmpty()) {
             item {
