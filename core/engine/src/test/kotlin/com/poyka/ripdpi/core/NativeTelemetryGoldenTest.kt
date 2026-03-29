@@ -53,12 +53,32 @@ class NativeTelemetryGoldenTest {
         }
 
     @Test
-    fun proxyTelemetryTelegramWsEventsMatchGolden() {
-        GoldenContractSupport.assertJsonGolden(
-            "proxy_running_telegram_ws_events.json",
-            json.encodeToString(NativeRuntimeSnapshot.serializer(), proxyTelemetryWithTelegramWsEvents()),
-        )
-    }
+    fun proxyTelemetryTelegramWsEventsRoundTripThroughProxyPolling() =
+        runTest {
+            val blocker = CompletableDeferred<Unit>()
+            val startedSignal = CompletableDeferred<Long>()
+            val bindings =
+                FakeRipDpiProxyBindings().apply {
+                    this.startedSignal = startedSignal
+                    startBlocker = blocker
+                    telemetryJson = proxyTelemetryTelegramWsPayload()
+                }
+            val proxy = RipDpiProxy(bindings)
+
+            val start =
+                async {
+                    proxy.startProxy(RipDpiProxyUIPreferences(listen = RipDpiListenConfig(port = 1080)))
+                }
+
+            startedSignal.await()
+            GoldenContractSupport.assertJsonGolden(
+                "proxy_running_telegram_ws_events.json",
+                json.encodeToString(NativeRuntimeSnapshot.serializer(), proxy.pollTelemetry()),
+            )
+
+            blocker.complete(Unit)
+            start.await()
+        }
 
     @Test
     fun tunnelReadyTelemetryPayloadParsesToGoldenSnapshot() {
@@ -237,36 +257,37 @@ class NativeTelemetryGoldenTest {
             ),
         )
 
-    private fun proxyTelemetryWithTelegramWsEvents(): NativeRuntimeSnapshot =
-        NativeRuntimeSnapshot(
-            source = "proxy",
-            state = "running",
-            health = "healthy",
-            listenerAddress = "127.0.0.1:<port>",
-            lastTarget = "149.154.167.91:443",
-            nativeEvents =
-                listOf(
-                    NativeRuntimeEvent(
-                        source = "proxy",
-                        level = "info",
-                        message = "listener started addr=127.0.0.1:<port> maxClients=512 groups=2",
-                        createdAt = 0L,
-                    ),
-                    NativeRuntimeEvent(
-                        source = "proxy",
-                        level = "info",
-                        message = "telegram dc detected target=149.154.167.91:443 dc=2",
-                        createdAt = 1L,
-                    ),
-                    NativeRuntimeEvent(
-                        source = "proxy",
-                        level = "info",
-                        message = "ws tunnel escalation target=149.154.167.91:443 dc=2 result=fallback",
-                        createdAt = 2L,
-                    ),
-                ),
-            capturedAt = 2L,
-        )
+    private fun proxyTelemetryTelegramWsPayload(): String =
+        """
+        {
+          "source": "proxy",
+          "state": "running",
+          "health": "healthy",
+          "listenerAddress": "127.0.0.1:<port>",
+          "lastTarget": "149.154.167.91:443",
+          "nativeEvents": [
+            {
+              "source": "proxy",
+              "level": "info",
+              "message": "listener started addr=127.0.0.1:<port> maxClients=512 groups=2",
+              "createdAt": 0
+            },
+            {
+              "source": "proxy",
+              "level": "info",
+              "message": "telegram dc detected target=149.154.167.91:443 dc=2",
+              "createdAt": 1
+            },
+            {
+              "source": "proxy",
+              "level": "warn",
+              "message": "ws tunnel escalation target=149.154.167.91:443 dc=2 result=failed",
+              "createdAt": 2
+            }
+          ],
+          "capturedAt": 2
+        }
+        """.trimIndent()
 
     private fun tunnelReadyPayload(): String =
         json.encodeToString(
