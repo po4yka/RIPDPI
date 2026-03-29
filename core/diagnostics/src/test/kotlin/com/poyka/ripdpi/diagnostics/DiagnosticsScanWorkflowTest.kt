@@ -10,6 +10,7 @@ import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.NetworkFingerprint
 import com.poyka.ripdpi.data.TcpChainStepKind
 import com.poyka.ripdpi.data.TcpChainStepModel
+import com.poyka.ripdpi.data.UdpChainStepModel
 import com.poyka.ripdpi.data.WifiNetworkIdentityTuple
 import com.poyka.ripdpi.data.activeDnsSettings
 import com.poyka.ripdpi.data.strategyFamily
@@ -53,6 +54,29 @@ class DiagnosticsScanWorkflowTest {
         assertEquals("hostfake", strategySignature.tcpStrategyFamily)
         assertEquals("quic_realistic_burst", strategySignature.quicStrategyFamily)
         assertEquals(activeDns.strategyFamily(), strategySignature.dnsStrategyFamily)
+    }
+
+    @Test
+    fun `valid seqovl recommendation config yields derived tlsrec seqovl family`() {
+        val report =
+            scanReportWithStrategyProbe(
+                proxyConfigJson = validSeqovlRecommendedProxyConfigJson(),
+                tcpFamily = "tlsrec_seqovl",
+                quicFamily = "quic_realistic_burst",
+            )
+
+        val enriched =
+            DiagnosticsScanWorkflow.enrichScanReport(
+                report = report,
+                settings = settings,
+                preferredDnsPath = null,
+            )
+
+        val recommendation = requireNotNull(enriched.strategyProbeReport).recommendation
+        val strategySignature = requireNotNull(recommendation.strategySignature)
+
+        assertEquals("tlsrec_seqovl", recommendation.tcpCandidateFamily)
+        assertEquals("tlsrec_seqovl", strategySignature.tcpStrategyFamily)
     }
 
     @Test
@@ -635,6 +659,30 @@ private fun validRecommendedProxyConfigJson(): String =
                             marker = "midhost+1",
                         ),
                     ),
+                udpSteps = listOf(UdpChainStepModel(count = 4)),
+            ),
+        quic = RipDpiQuicConfig(fakeProfile = "realistic_initial"),
+    ).toNativeConfigJson()
+
+private fun validSeqovlRecommendedProxyConfigJson(): String =
+    RipDpiProxyUIPreferences(
+        protocols = RipDpiProtocolConfig(desyncUdp = true),
+        chains =
+            RipDpiChainConfig(
+                tcpSteps =
+                    listOf(
+                        TcpChainStepModel(
+                            kind = TcpChainStepKind.TlsRec,
+                            marker = "extlen",
+                        ),
+                        TcpChainStepModel(
+                            kind = TcpChainStepKind.SeqOverlap,
+                            marker = "midsld",
+                            overlapSize = 12,
+                            fakeMode = "profile",
+                        ),
+                    ),
+                udpSteps = listOf(UdpChainStepModel(count = 4)),
             ),
         quic = RipDpiQuicConfig(fakeProfile = "realistic_initial"),
     ).toNativeConfigJson()
