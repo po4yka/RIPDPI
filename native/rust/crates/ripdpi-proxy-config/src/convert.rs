@@ -699,10 +699,8 @@ pub fn runtime_config_from_ui(payload: ProxyUiConfig) -> Result<RuntimeConfig, P
             || "0".to_string(),
             "fakePackets.fakeOffsetMarker",
         )?;
-        if fake_offset.base.is_adaptive() {
-            return Err(ProxyConfigError::InvalidConfig(
-                "Adaptive markers are not supported for fakeOffsetMarker".to_string(),
-            ));
+        if !fake_offset.supports_fake_offset() {
+            return Err(ProxyConfigError::InvalidConfig("Invalid fakePackets.fakeOffsetMarker".to_string()));
         }
         group.actions.fake_offset = Some(fake_offset);
         if fake_packets.fake_tls_use_original {

@@ -1,6 +1,6 @@
 use ripdpi_config::{
-    AutoTtlConfig, DesyncMode, OffsetBase, OffsetProto, QuicFakeProfile, TcpChainStepKind, WsTunnelMode,
-    DETECT_CONNECT, FM_DUPSID, FM_ORIG, HOST_AUTOLEARN_DEFAULT_MAX_HOSTS,
+    AutoTtlConfig, DesyncMode, OffsetBase, OffsetProto, QuicFakeProfile, TcpChainStepKind, UdpChainStepKind,
+    WsTunnelMode, DETECT_CONNECT, FM_DUPSID, FM_ORIG, HOST_AUTOLEARN_DEFAULT_MAX_HOSTS,
 };
 use ripdpi_packets::{HttpFakeProfile, TlsFakeProfile, UdpFakeProfile};
 use ripdpi_packets::{MH_DMIX, MH_HMIX, MH_METHODEOL, MH_SPACE, MH_UNIXEOL};
@@ -91,6 +91,31 @@ fn ui_payload_preserves_explicit_tlsrec_before_hostfake() {
     assert_eq!(config.groups[0].actions.tcp_chain.len(), 2);
     assert_eq!(config.groups[0].actions.tcp_chain[0].kind, TcpChainStepKind::TlsRec);
     assert_eq!(config.groups[0].actions.tcp_chain[1].kind, TcpChainStepKind::HostFake);
+}
+
+#[test]
+fn ui_payload_parses_ipfrag_steps_and_udp_split_bytes() {
+    let mut ui = minimal_ui();
+    ui.chains.tcp_steps = vec![tcp_step("tlsrec", "extlen"), tcp_step("ipfrag2", "host+2")];
+    ui.chains.udp_steps = vec![ProxyUiUdpChainStep {
+        kind: "ipfrag2_udp".to_string(),
+        count: 0,
+        split_bytes: 8,
+        activation_filter: None,
+    }];
+
+    let config = runtime_config_from_payload(ui_payload(ui)).expect("runtime config");
+    let group = &config.groups[0];
+
+    assert_eq!(group.actions.tcp_chain.len(), 2);
+    assert_eq!(group.actions.tcp_chain[0].kind, TcpChainStepKind::TlsRec);
+    assert_eq!(group.actions.tcp_chain[1].kind, TcpChainStepKind::IpFrag2);
+    assert_eq!(group.actions.tcp_chain[1].offset.base, OffsetBase::Host);
+    assert_eq!(group.actions.tcp_chain[1].offset.delta, 2);
+    assert_eq!(group.actions.udp_chain.len(), 1);
+    assert_eq!(group.actions.udp_chain[0].kind, UdpChainStepKind::IpFrag2Udp);
+    assert_eq!(group.actions.udp_chain[0].count, 0);
+    assert_eq!(group.actions.udp_chain[0].split_bytes, 8);
 }
 
 #[test]
@@ -240,6 +265,84 @@ fn adaptive_fake_offset_marker_is_rejected() {
     let err = runtime_config_from_payload(ui_payload(ui)).expect_err("adaptive fake offset");
 
     assert!(err.to_string().contains("fakeOffsetMarker"));
+}
+
+#[test]
+fn ui_payload_rejects_non_terminal_ipfrag2_step() {
+    let mut ui = minimal_ui();
+    ui.chains.tcp_steps =
+        vec![tcp_step("tlsrec", "extlen"), tcp_step("ipfrag2", "host+2"), tcp_step("split", "endhost")];
+
+    let err = runtime_config_from_payload(ui_payload(ui)).expect_err("non-terminal ipfrag2");
+
+    assert!(err.to_string().contains("ipfrag2 must be the only tcp send step"));
+}
+
+#[test]
+fn ui_payload_rejects_ipfrag2_udp_with_count() {
+    let mut ui = minimal_ui();
+    ui.chains.udp_steps = vec![ProxyUiUdpChainStep {
+        kind: "ipfrag2_udp".to_string(),
+        count: 1,
+        split_bytes: 8,
+        activation_filter: None,
+    }];
+
+    let err = runtime_config_from_payload(ui_payload(ui)).expect_err("ipfrag2_udp count");
+
+    assert!(err.to_string().contains("must not declare count"));
+}
+
+#[test]
+fn ui_payload_rejects_ipfrag2_udp_without_positive_split_bytes() {
+    let mut ui = minimal_ui();
+    ui.chains.udp_steps = vec![ProxyUiUdpChainStep {
+        kind: "ipfrag2_udp".to_string(),
+        count: 0,
+        split_bytes: 0,
+        activation_filter: None,
+    }];
+
+    let err = runtime_config_from_payload(ui_payload(ui)).expect_err("ipfrag2_udp splitBytes");
+
+    assert!(err.to_string().contains("must declare positive splitBytes"));
+}
+
+#[test]
+fn ui_payload_rejects_split_bytes_for_non_ipfrag_udp_steps() {
+    let mut ui = minimal_ui();
+    ui.chains.udp_steps =
+        vec![ProxyUiUdpChainStep { kind: "fake_burst".to_string(), count: 2, split_bytes: 8, activation_filter: None }];
+
+    let err = runtime_config_from_payload(ui_payload(ui)).expect_err("fake_burst splitBytes");
+
+    assert!(err.to_string().contains("splitBytes is only supported"));
+}
+
+#[test]
+fn ui_payload_rejects_mixed_ipfrag2_udp_chain() {
+    let mut ui = minimal_ui();
+    ui.chains.udp_steps = vec![
+        ProxyUiUdpChainStep { kind: "ipfrag2_udp".to_string(), count: 0, split_bytes: 8, activation_filter: None },
+        udp_step("fake_burst", 1),
+    ];
+
+    let err = runtime_config_from_payload(ui_payload(ui)).expect_err("mixed ipfrag2_udp chain");
+
+    assert!(err.to_string().contains("ipfrag2_udp must be the only udp chain step"));
+}
+
+#[test]
+fn ech_fake_offset_marker_is_rejected() {
+    for marker in ["echext", "echext+4"] {
+        let mut ui = minimal_ui();
+        ui.chains.tcp_steps = vec![tcp_step("fake", "host+1")];
+        ui.fake_packets.fake_offset_marker = marker.to_string();
+
+        let err = runtime_config_from_payload(ui_payload(ui)).expect_err("ech fake offset");
+
+        assert!(err.to_string().contains("fakeOffsetMarker"), "{marker} should reference fakeOffsetMarker");
+    }
 }
 
 #[test]

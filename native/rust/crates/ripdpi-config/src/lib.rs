@@ -154,6 +154,14 @@ mod tests {
     }
 
     #[test]
+    fn fake_offset_support_rejects_adaptive_and_ech_markers() {
+        assert!(OffsetExpr::marker(OffsetBase::Host, 1).supports_fake_offset());
+        assert!(OffsetExpr::marker(OffsetBase::ExtLen, 0).supports_fake_offset());
+        assert!(!OffsetExpr::marker(OffsetBase::EchExt, 0).supports_fake_offset());
+        assert!(!OffsetExpr::adaptive(OffsetBase::AutoHost).supports_fake_offset());
+    }
+
+    #[test]
     fn parse_activation_range_specs_validate_bounds() {
         assert_eq!(parse_round_range_spec("1-3").unwrap(), NumericRange::new(1, 3));
         assert_eq!(parse_payload_size_range_spec("64-512").unwrap(), NumericRange::new(64, 512));
@@ -208,6 +216,27 @@ mod tests {
 
         assert_eq!(group.actions.ttl, Some(9));
         assert_eq!(group.actions.auto_ttl, Some(AutoTtlConfig { delta: -1, min_ttl: 3, max_ttl: 12 }));
+    }
+
+    #[test]
+    fn parse_cli_rejects_ech_fake_offset_marker() {
+        for value in ["echext", "echext+4"] {
+            let args = vec!["--fake-offset".to_string(), value.to_string()];
+            assert!(parse_cli(&args, &StartupEnv::default()).is_err(), "{value} should be rejected");
+        }
+    }
+
+    #[test]
+    fn parse_cli_accepts_ech_split_marker() {
+        let args = vec!["--split".to_string(), "echext".to_string()];
+
+        let ParseResult::Run(config) = parse_cli(&args, &StartupEnv::default()).expect("parse cli") else {
+            panic!("expected runnable config");
+        };
+
+        assert_eq!(config.groups[0].actions.tcp_chain.len(), 1);
+        assert_eq!(config.groups[0].actions.tcp_chain[0].kind, TcpChainStepKind::Split);
+        assert_eq!(config.groups[0].actions.tcp_chain[0].offset, OffsetExpr::marker(OffsetBase::EchExt, 0));
     }
 
     #[test]

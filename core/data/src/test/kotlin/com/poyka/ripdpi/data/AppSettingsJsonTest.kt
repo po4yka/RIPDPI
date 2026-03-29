@@ -200,6 +200,41 @@ class AppSettingsJsonTest {
     }
 
     @Test
+    fun `ipfrag chain settings round trip through current json format`() {
+        val settings =
+            AppSettings
+                .newBuilder()
+                .setRipdpiMode("vpn")
+                .setStrategyChains(
+                    tcpSteps =
+                        listOf(
+                            TcpChainStepModel(TcpChainStepKind.TlsRec, "extlen"),
+                            TcpChainStepModel(TcpChainStepKind.IpFrag2, "host+2"),
+                        ),
+                    udpSteps =
+                        listOf(
+                            UdpChainStepModel(
+                                count = 0,
+                                kind = UdpChainStepKind.IpFrag2Udp,
+                                splitBytes = 5,
+                            ),
+                        ),
+                ).build()
+
+        val decoded = appSettingsFromJson(settings.toJson())
+
+        assertEquals(settings.toJson(), decoded.toJson())
+        assertEquals("ipfrag2", decoded.tcpChainStepsList[1].kind)
+        assertEquals("ipfrag2_udp", decoded.udpChainStepsList[0].kind)
+        assertEquals(0, decoded.udpChainStepsList[0].count)
+        assertEquals(8, decoded.udpChainStepsList[0].splitBytes)
+        assertEquals(
+            listOf(UdpChainStepModel(count = 0, kind = UdpChainStepKind.IpFrag2Udp, splitBytes = 8)),
+            decoded.effectiveUdpChainSteps(),
+        )
+    }
+
+    @Test
     fun `decoder ignores unknown keys and fills omitted values from defaults`() {
         val decoded =
             appSettingsFromJson(

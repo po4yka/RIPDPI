@@ -95,6 +95,17 @@ class MarkerExpressionsTest {
         assertFalse(isAdaptiveOffsetExpression("auto(unknown)"))
     }
 
+    @Test
+    fun `fake offset validator preserves generic markers except echext`() {
+        assertTrue(isValidFakeOffsetExpression("host+1"))
+        assertTrue(isValidFakeOffsetExpression("extlen"))
+        assertTrue(isValidFakeOffsetExpression("extlen:2:1"))
+        assertFalse(isValidFakeOffsetExpression("auto(host)"))
+        assertFalse(isValidFakeOffsetExpression("echext"))
+        assertFalse(isValidFakeOffsetExpression("echext+4"))
+        assertFalse(isValidFakeOffsetExpression("echext:2"))
+    }
+
     // -- adaptiveOffsetPreset --
 
     @Test

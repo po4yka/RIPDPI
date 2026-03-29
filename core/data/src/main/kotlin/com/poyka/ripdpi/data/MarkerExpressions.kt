@@ -20,6 +20,7 @@ const val AdaptiveMarkerExtLen = "auto(extlen)"
 
 private val NumericOffsetPattern = Regex("^[+-]?\\d+$")
 private val NamedOffsetPattern = Regex("^(abs|host|endhost|sld|midsld|endsld|method|extlen|echext|sniext)([+-]\\d+)?$")
+private val EchOffsetPattern = Regex("^echext([+-]\\d+)?$")
 private val AdaptiveOffsetPattern =
     Regex("^auto\\((balanced|host|midsld|endhost|method|sniext|extlen)\\)$", RegexOption.IGNORE_CASE)
 private val AdaptiveOffsetPresetPattern =
@@ -70,6 +71,13 @@ fun isValidOffsetExpression(value: String): Boolean {
 }
 
 fun isAdaptiveOffsetExpression(value: String): Boolean = AdaptiveOffsetPattern.matches(value.trim())
+
+fun isValidFakeOffsetExpression(value: String): Boolean {
+    if (!isValidOffsetExpression(value) || isAdaptiveOffsetExpression(value)) {
+        return false
+    }
+    return !EchOffsetPattern.matches(value.trim().substringBefore(':'))
+}
 
 fun adaptiveOffsetPreset(value: String): String? =
     AdaptiveOffsetPresetPattern
