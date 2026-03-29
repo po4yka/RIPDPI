@@ -14,6 +14,7 @@ use std::net::TcpListener;
 use ripdpi_config::{RuntimeConfig, TcpChainStepKind, UdpChainStepKind};
 
 use self::listeners::{build_listener, run_proxy_with_listener_internal};
+use crate::platform::IpFragmentationCapabilities;
 use crate::EmbeddedProxyControl;
 
 pub fn run_proxy(config: RuntimeConfig) -> io::Result<()> {
@@ -27,6 +28,28 @@ pub fn create_listener(config: &RuntimeConfig) -> io::Result<TcpListener> {
 }
 
 fn validate_ip_fragmentation_support(config: &RuntimeConfig) -> io::Result<()> {
+    let requires_raw_sockets = config
+        .groups
+        .iter()
+        .flat_map(|group| group.effective_tcp_chain())
+        .any(|step| step.kind == TcpChainStepKind::IpFrag2)
+        || config
+            .groups
+            .iter()
+            .flat_map(|group| group.effective_udp_chain())
+            .any(|step| step.kind == UdpChainStepKind::IpFrag2Udp);
+    if !requires_raw_sockets {
+        return Ok(());
+    }
+
+    let capabilities = crate::platform::probe_ip_fragmentation_capabilities(config.process.protect_path.as_deref())?;
+    validate_ip_fragmentation_capabilities(config, capabilities)
+}
+
+fn validate_ip_fragmentation_capabilities(
+    config: &RuntimeConfig,
+    capabilities: IpFragmentationCapabilities,
+) -> io::Result<()> {
     let requires_tcp_repair = config
         .groups
         .iter()
@@ -42,7 +65,6 @@ fn validate_ip_fragmentation_support(config: &RuntimeConfig) -> io::Result<()> {
         return Ok(());
     }
 
-    let capabilities = crate::platform::probe_ip_fragmentation_capabilities(config.process.protect_path.as_deref())?;
     let mut missing = Vec::new();
     if !capabilities.raw_ipv4 {
         missing.push("raw IPv4 sockets");
@@ -84,12 +106,16 @@ mod tests {
     use crate::runtime::state::RuntimeState;
     use crate::runtime_policy::RuntimePolicy;
     use crate::sync::{Arc, AtomicBool, AtomicUsize, Mutex};
-    use ripdpi_config::{DesyncGroup, OffsetExpr, TcpChainStep, TcpChainStepKind, DETECT_CONNECT, DETECT_HTTP_LOCAT};
+    use ripdpi_config::{
+        DesyncGroup, OffsetExpr, RuntimeConfig, TcpChainStep, TcpChainStepKind, UdpChainStep, UdpChainStepKind,
+        DETECT_CONNECT, DETECT_HTTP_LOCAT,
+    };
     use ripdpi_packets::{DEFAULT_FAKE_TLS, IS_HTTPS};
     use ripdpi_session::{
         encode_http_connect_reply, encode_socks4_reply, encode_socks5_reply, OutboundProgress, S_ATP_I4, S_ATP_I6,
         S_CMD_CONN, S_ER_CONN, S_VER5,
     };
+    use std::io::ErrorKind;
     use std::io::Read;
     use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, TcpListener, TcpStream};
     #[cfg(not(feature = "loom"))]
@@ -97,6 +123,7 @@ mod tests {
     use std::thread;
 
     use super::routing::{encode_upstream_socks_connect, failure_penalizes_strategy, failure_trigger_mask};
+    use super::validate_ip_fragmentation_capabilities;
 
     use ripdpi_failure_classifier::{ClassifiedFailure, FailureAction, FailureClass, FailureStage};
 
@@ -241,6 +268,70 @@ mod tests {
                 ClassifiedFailure::new(class, FailureStage::FirstResponse, FailureAction::RetryWithMatchingGroup, "");
             assert!(!failure_penalizes_strategy(&failure), "{class:?} should not penalize");
         }
+    }
+
+    fn runtime_config_with_ipfrag(tcp: bool, udp: bool, ipv6: bool) -> RuntimeConfig {
+        let mut config = RuntimeConfig::default();
+        config.network.ipv6 = ipv6;
+        let mut group = DesyncGroup::new(0);
+        if tcp {
+            group.actions.tcp_chain.push(TcpChainStep::new(TcpChainStepKind::IpFrag2, OffsetExpr::host(2)));
+        }
+        if udp {
+            group.actions.udp_chain.push(UdpChainStep {
+                kind: UdpChainStepKind::IpFrag2Udp,
+                count: 0,
+                split_bytes: 8,
+                activation_filter: None,
+            });
+        }
+        config.groups = vec![group];
+        config
+    }
+
+    #[test]
+    fn ipfrag_capability_validation_allows_non_fragmenting_configs() {
+        let config = RuntimeConfig::default();
+
+        validate_ip_fragmentation_capabilities(&config, crate::platform::IpFragmentationCapabilities::default())
+            .expect("non-ipfrag configs should skip capability gating");
+    }
+
+    #[test]
+    fn ipfrag_capability_validation_requires_ipv6_raw_socket_when_enabled() {
+        let config = runtime_config_with_ipfrag(false, true, true);
+        let err = validate_ip_fragmentation_capabilities(
+            &config,
+            crate::platform::IpFragmentationCapabilities { raw_ipv4: true, raw_ipv6: false, tcp_repair: false },
+        )
+        .expect_err("ipv6 ipfrag should require raw ipv6");
+
+        assert_eq!(err.kind(), ErrorKind::Unsupported);
+        assert!(err.to_string().contains("raw IPv6 sockets"));
+    }
+
+    #[test]
+    fn ipfrag_capability_validation_requires_tcp_repair_for_tcp_steps() {
+        let config = runtime_config_with_ipfrag(true, false, false);
+        let err = validate_ip_fragmentation_capabilities(
+            &config,
+            crate::platform::IpFragmentationCapabilities { raw_ipv4: true, raw_ipv6: false, tcp_repair: false },
+        )
+        .expect_err("tcp ipfrag should require tcp repair");
+
+        assert_eq!(err.kind(), ErrorKind::Unsupported);
+        assert!(err.to_string().contains("TCP repair"));
+    }
+
+    #[test]
+    fn ipfrag_capability_validation_does_not_require_ipv6_when_disabled() {
+        let config = runtime_config_with_ipfrag(false, true, false);
+
+        validate_ip_fragmentation_capabilities(
+            &config,
+            crate::platform::IpFragmentationCapabilities { raw_ipv4: true, raw_ipv6: false, tcp_repair: false },
+        )
+        .expect("ipv4-only ipfrag should not require raw ipv6");
     }
 
     #[test]

@@ -119,6 +119,10 @@ impl OffsetExpr {
             None
         }
     }
+
+    pub const fn supports_fake_offset(self) -> bool {
+        self.base.supports_fake_offset()
+    }
 }
 
 impl OffsetBase {
@@ -133,6 +137,10 @@ impl OffsetBase {
                 | Self::AutoSniExt
                 | Self::AutoExtLen
         )
+    }
+
+    pub const fn supports_fake_offset(self) -> bool {
+        !self.is_adaptive() && !matches!(self, Self::EchExt)
     }
 }
 

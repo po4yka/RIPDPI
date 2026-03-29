@@ -172,6 +172,35 @@ class DiagnosticsScanWorkflowTest {
     }
 
     @Test
+    fun `background auto persist eligibility accepts strong coverage with not applicable candidates`() {
+        val eligibility =
+            DiagnosticsScanWorkflow.evaluateBackgroundAutoPersistEligibility(
+                requireNotNull(
+                    scanReportWithStrategyProbe(
+                        proxyConfigJson = validRecommendedProxyConfigJson(),
+                        tcpFamily = "hostfake",
+                        quicFamily = "quic_realistic_burst",
+                        auditAssessment =
+                            auditAssessment().copy(
+                                coverage =
+                                    auditAssessment().coverage.copy(
+                                        tcpCandidatesPlanned = 4,
+                                        tcpCandidatesExecuted = 2,
+                                        tcpCandidatesNotApplicable = 2,
+                                        quicCandidatesPlanned = 3,
+                                        quicCandidatesExecuted = 2,
+                                        quicCandidatesNotApplicable = 1,
+                                        matrixCoveragePercent = 100,
+                                    ),
+                            ),
+                    ).strategyProbeReport,
+                ),
+            )
+
+        assertEquals(DiagnosticsScanWorkflow.BackgroundAutoPersistEligibility.Eligible, eligibility)
+    }
+
+    @Test
     fun `background auto persist eligibility rejects missing audit assessment`() {
         val eligibility =
             DiagnosticsScanWorkflow.evaluateBackgroundAutoPersistEligibility(
