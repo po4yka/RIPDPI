@@ -150,11 +150,11 @@ fun HomeScreen(
                     when (issue.recovery) {
                         PermissionRecovery.OpenSettings,
                         PermissionRecovery.OpenBatteryOptimizationSettings,
-                            -> stringResource(R.string.home_permission_issue_with_settings, issue.message)
+                        -> stringResource(R.string.home_permission_issue_with_settings, issue.message)
 
                         PermissionRecovery.ShowVpnPermissionDialog,
                         PermissionRecovery.RetryPrompt,
-                            -> stringResource(R.string.home_permission_issue_with_retry, issue.message)
+                        -> stringResource(R.string.home_permission_issue_with_retry, issue.message)
                     },
                 tone = WarningBannerTone.Restricted,
                 testTag = RipDpiTestTags.HomePermissionIssueBanner,
@@ -183,38 +183,49 @@ fun HomeScreen(
                             },
                         ),
             )
-        } ?: uiState.permissionSummary.recommendedIssue?.let { warning ->
-            WarningBanner(
-                title = warning.title,
-                message = warning.message,
-                tone = WarningBannerTone.Warning,
-                testTag = RipDpiTestTags.HomePermissionRecommendationBanner,
-                onDismiss = onDismissBatteryBanner,
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .then(
-                            if (warning.kind == PermissionKind.BatteryOptimization) {
-                                Modifier.ripDpiClickable(
-                                    role = Role.Button,
-                                    onClick = { onRepairPermission(PermissionKind.BatteryOptimization) },
-                                )
-                            } else {
-                                Modifier
-                            },
-                        ),
-            )
-        }
-
-        uiState.permissionSummary.backgroundGuidance?.let { guidance ->
-            WarningBanner(
-                title = guidance.title,
-                message = guidance.message,
-                tone = WarningBannerTone.Info,
-                modifier = Modifier.fillMaxWidth(),
-                testTag = RipDpiTestTags.HomeBackgroundGuidanceBanner,
-                onDismiss = onDismissBackgroundGuidance,
-            )
+        } ?: run {
+            val warning = uiState.permissionSummary.recommendedIssue
+            val guidance = uiState.permissionSummary.backgroundGuidance
+            if (warning != null) {
+                val combinedMessage =
+                    if (guidance != null) {
+                        "${warning.message} ${guidance.message}"
+                    } else {
+                        warning.message
+                    }
+                WarningBanner(
+                    title = warning.title,
+                    message = combinedMessage,
+                    tone = WarningBannerTone.Warning,
+                    testTag = RipDpiTestTags.HomePermissionRecommendationBanner,
+                    onDismiss = {
+                        onDismissBatteryBanner()
+                        if (guidance != null) onDismissBackgroundGuidance()
+                    },
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .then(
+                                if (warning.kind == PermissionKind.BatteryOptimization) {
+                                    Modifier.ripDpiClickable(
+                                        role = Role.Button,
+                                        onClick = { onRepairPermission(PermissionKind.BatteryOptimization) },
+                                    )
+                                } else {
+                                    Modifier
+                                },
+                            ),
+                )
+            } else if (guidance != null) {
+                WarningBanner(
+                    title = guidance.title,
+                    message = guidance.message,
+                    tone = WarningBannerTone.Info,
+                    modifier = Modifier.fillMaxWidth(),
+                    testTag = RipDpiTestTags.HomeBackgroundGuidanceBanner,
+                    onDismiss = onDismissBackgroundGuidance,
+                )
+            }
         }
 
         if (layout.widthClass == RipDpiWidthClass.Expanded) {
@@ -258,11 +269,13 @@ fun HomeScreen(
                 onToggleConnection = onToggleConnection,
             )
 
-            uiState.approachSummary?.let { summary ->
-                HomeApproachCard(
-                    summary = summary,
-                    onOpenDiagnostics = onOpenDiagnostics,
-                )
+            if (uiState.connectionState == ConnectionState.Connected) {
+                uiState.approachSummary?.let { summary ->
+                    HomeApproachCard(
+                        summary = summary,
+                        onOpenDiagnostics = onOpenDiagnostics,
+                    )
+                }
             }
             HomeHistoryCard(onOpenHistory = onOpenHistory)
 
@@ -388,12 +401,19 @@ private fun HomeStatusCard(
             style = type.screenTitle,
             color = colors.foreground,
         )
-        Text(
-            text = homeSupportingCopy(uiState),
-            style = type.body,
-            color = colors.mutedForeground,
-        )
-        Spacer(modifier = Modifier.height(spacing.sm))
+        if (uiState.connectionState == ConnectionState.Disconnected && uiState.approachSummary != null) {
+            Text(
+                text = uiState.approachSummary.title,
+                style = type.secondaryBody,
+                color = colors.mutedForeground,
+            )
+        } else if (uiState.connectionState != ConnectionState.Disconnected) {
+            Text(
+                text = homeSupportingCopy(uiState),
+                style = type.body,
+                color = colors.mutedForeground,
+            )
+        }
         HomeConnectionButton(
             state = uiState.connectionState,
             label = homePrimaryActionLabel(uiState),
@@ -443,21 +463,21 @@ private fun HomeConnectionButton(
         when (state) {
             ConnectionState.Connected,
             ConnectionState.Connecting,
-                -> colors.foreground
+            -> colors.foreground
 
             ConnectionState.Disconnected,
             ConnectionState.Error,
-                -> scheme.surface
+            -> scheme.surface
         }
     val contentColor =
         when (state) {
             ConnectionState.Connected,
             ConnectionState.Connecting,
-                -> colors.background
+            -> colors.background
 
             ConnectionState.Disconnected,
             ConnectionState.Error,
-                -> colors.foreground
+            -> colors.foreground
         }
     val haloColor =
         when (state) {
@@ -470,7 +490,7 @@ private fun HomeConnectionButton(
         when (state) {
             ConnectionState.Connected,
             ConnectionState.Connecting,
-                -> Color.Transparent
+            -> Color.Transparent
 
             ConnectionState.Disconnected -> colors.cardBorder
 
@@ -524,7 +544,7 @@ private fun HomeConnectionButton(
             animationSpec = tween(durationMillis = motion.duration(motion.stateDurationMillis)),
             label = "connectingHaloAlphaStatic",
         )
-        )
+    )
 
     LaunchedEffect(state, motion.animationsEnabled) {
         val priorState = previousState.value
@@ -690,8 +710,7 @@ private fun HomeConnectionButton(
                         scaleY = haloScale.value
                         alpha = connectingHaloAlpha
                         translationX = shakeOffset.value * 0.2f
-                    }
-                    .background(animatedHaloColor, CircleShape),
+                    }.background(animatedHaloColor, CircleShape),
         )
         Column(
             modifier =
@@ -700,14 +719,12 @@ private fun HomeConnectionButton(
                     .semantics(mergeDescendants = true) {
                         contentDescription = label
                         stateDescription = connectionStateDescription
-                    }
-                    .size(homeChrome.connectionButtonSize)
+                    }.size(homeChrome.connectionButtonSize)
                     .graphicsLayer {
                         scaleX = buttonScale.value * pressScale
                         scaleY = buttonScale.value * pressScale
                         translationX = shakeOffset.value
-                    }
-                    .background(animatedContainerColor, CircleShape)
+                    }.background(animatedContainerColor, CircleShape)
                     .border(width = 1.dp, color = animatedBorderColor, shape = CircleShape)
                     .clip(CircleShape)
                     .ripDpiClickable(
@@ -722,11 +739,10 @@ private fun HomeConnectionButton(
 
                                 ConnectionState.Disconnected,
                                 ConnectionState.Error,
-                                    -> RipDpiHapticFeedback.Action
+                                -> RipDpiHapticFeedback.Action
                             },
                         onClick = onClick,
-                    )
-                    .padding(
+                    ).padding(
                         horizontal = homeChrome.connectionHorizontalPadding,
                         vertical = homeChrome.connectionVerticalPadding,
                     ),
@@ -740,11 +756,11 @@ private fun HomeConnectionButton(
                         fadeIn(
                             animationSpec = tween(durationMillis = motion.duration(motion.quickDurationMillis)),
                         ) + scaleIn(initialScale = 0.88f)
-                        ) togetherWith (
+                    ) togetherWith (
                         fadeOut(
                             animationSpec = tween(durationMillis = motion.duration(motion.quickDurationMillis)),
                         ) + scaleOut(targetScale = 0.88f)
-                        )
+                    )
                 },
                 label = "homeConnectionIcon",
             ) { currentIcon ->
@@ -932,7 +948,7 @@ private fun homePrimaryActionLabel(uiState: MainUiState): String =
 
         ConnectionState.Disconnected,
         ConnectionState.Error,
-            -> {
+        -> {
             when (uiState.configuredMode) {
                 Mode.VPN -> stringResource(R.string.vpn_connect)
                 Mode.Proxy -> stringResource(R.string.proxy_start)
