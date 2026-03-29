@@ -9,6 +9,7 @@ import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -552,6 +553,11 @@ internal fun SessionRow(
     RipDpiCard(
         modifier = modifier,
         onClick = onClick,
+        paddingValues =
+            PaddingValues(
+                horizontal = RipDpiThemeTokens.layout.cardPadding,
+                vertical = 10.dp,
+            ),
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -560,7 +566,7 @@ internal fun SessionRow(
         ) {
             Column(
                 modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.xs),
+                verticalArrangement = Arrangement.spacedBy(2.dp),
             ) {
                 if (session.launchOrigin == DiagnosticsScanLaunchOrigin.AUTOMATIC_BACKGROUND) {
                     Surface(
@@ -763,15 +769,20 @@ internal fun ProbeResultRow(
     RipDpiCard(
         modifier = modifier,
         onClick = onClick,
+        paddingValues =
+            PaddingValues(
+                horizontal = RipDpiThemeTokens.layout.cardPadding,
+                vertical = 8.dp,
+            ),
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.Top,
+            verticalAlignment = Alignment.CenterVertically,
         ) {
             Column(
                 modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.xs),
+                verticalArrangement = Arrangement.spacedBy(2.dp),
             ) {
                 Text(
                     text = probe.target,
@@ -790,16 +801,6 @@ internal fun ProbeResultRow(
                 label = probe.outcome,
                 tone = statusTone(probe.tone),
             )
-        }
-        if (probe.details.isNotEmpty()) {
-            HorizontalDivider(color = colors.divider)
-            probe.details.take(2).forEach { detail ->
-                SettingsRow(
-                    title = detail.label,
-                    value = detail.value,
-                    monospaceValue = true,
-                )
-            }
         }
     }
 }
