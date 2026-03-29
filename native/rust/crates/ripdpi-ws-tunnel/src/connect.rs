@@ -14,7 +14,7 @@ use socket2::{Domain, Protocol, SockAddr, Socket, Type};
 use tungstenite::client::IntoClientRequest;
 use tungstenite::WebSocket;
 
-use crate::dc::ws_url;
+use crate::dc::{ws_host, ws_url, TelegramDc};
 use crate::protect;
 
 /// A connected WebSocket tunnel to a Telegram DC.
@@ -37,11 +37,16 @@ pub type WsStream = WebSocket<SslStream<TcpStream>>;
 pub(crate) const WS_READ_TIMEOUT: Duration = Duration::from_millis(10);
 
 fn resolve_ws_target_with(
-    dc: u8,
+    dc: TelegramDc,
     resolved_addr: Option<SocketAddr>,
     mut resolve_socket_addrs: impl FnMut(&str) -> io::Result<SocketAddr>,
 ) -> io::Result<(String, SocketAddr)> {
-    let host = format!("kws{dc}.web.telegram.org");
+    let host = ws_host(dc).ok_or_else(|| {
+        io::Error::new(
+            io::ErrorKind::InvalidInput,
+            format!("WS tunnel not supported for Telegram DC class {:?} raw={}", dc.class(), dc.raw()),
+        )
+    })?;
     let target = match resolved_addr {
         Some(target) => target,
         None => resolve_socket_addrs(&format!("{host}:443"))?,
@@ -49,7 +54,7 @@ fn resolve_ws_target_with(
     Ok((host, target))
 }
 
-fn resolve_ws_target(dc: u8, resolved_addr: Option<SocketAddr>) -> io::Result<(String, SocketAddr)> {
+fn resolve_ws_target(dc: TelegramDc, resolved_addr: Option<SocketAddr>) -> io::Result<(String, SocketAddr)> {
     resolve_ws_target_with(dc, resolved_addr, |addr| {
         addr.to_socket_addrs()?.next().ok_or_else(|| {
             io::Error::new(io::ErrorKind::AddrNotAvailable, format!("WS tunnel resolved no address: {addr}"))
@@ -146,8 +151,17 @@ fn connect_rustls_stream_with_config(
 /// If `protect_path` is provided, the underlying TCP socket is protected from
 /// Android VPN routing loops before connecting.
 #[cfg(not(feature = "chrome-fingerprint"))]
-pub fn open_ws_tunnel(dc: u8, resolved_addr: Option<SocketAddr>, protect_path: Option<&str>) -> io::Result<WsStream> {
-    let url = ws_url(dc);
+pub fn open_ws_tunnel(
+    dc: TelegramDc,
+    resolved_addr: Option<SocketAddr>,
+    protect_path: Option<&str>,
+) -> io::Result<WsStream> {
+    let url = ws_url(dc).ok_or_else(|| {
+        io::Error::new(
+            io::ErrorKind::InvalidInput,
+            format!("WS tunnel not supported for Telegram DC class {:?} raw={}", dc.class(), dc.raw()),
+        )
+    })?;
     let (host, target) = resolve_ws_target(dc, resolved_addr)?;
     let tcp = connect_tcp_socket(target, protect_path)?;
     let request = build_ws_request(url.as_str())?;
@@ -168,8 +182,17 @@ pub fn open_ws_tunnel(dc: u8, resolved_addr: Option<SocketAddr>, protect_path: O
 /// If `protect_path` is provided, the underlying TCP socket is protected from
 /// Android VPN routing loops before connecting.
 #[cfg(feature = "chrome-fingerprint")]
-pub fn open_ws_tunnel(dc: u8, resolved_addr: Option<SocketAddr>, protect_path: Option<&str>) -> io::Result<WsStream> {
-    let url = ws_url(dc);
+pub fn open_ws_tunnel(
+    dc: TelegramDc,
+    resolved_addr: Option<SocketAddr>,
+    protect_path: Option<&str>,
+) -> io::Result<WsStream> {
+    let url = ws_url(dc).ok_or_else(|| {
+        io::Error::new(
+            io::ErrorKind::InvalidInput,
+            format!("WS tunnel not supported for Telegram DC class {:?} raw={}", dc.class(), dc.raw()),
+        )
+    })?;
     let (host, target) = resolve_ws_target(dc, resolved_addr)?;
     let tcp = connect_tcp_socket(target, protect_path)?;
 
@@ -274,7 +297,7 @@ mod tests {
         let target = SocketAddr::from((Ipv4Addr::LOCALHOST, 443));
         let resolver_called = Cell::new(false);
 
-        let (_host, resolved) = resolve_ws_target_with(2, Some(target), |_| {
+        let (_host, resolved) = resolve_ws_target_with(TelegramDc::production(2), Some(target), |_| {
             resolver_called.set(true);
             Ok(target)
         })
@@ -282,6 +305,27 @@ mod tests {
 
         assert_eq!(resolved, target);
         assert!(!resolver_called.get());
+    }
+
+    #[test]
+    fn resolve_ws_target_uses_test_gateway_hostname() {
+        let target = SocketAddr::from((Ipv4Addr::LOCALHOST, 443));
+
+        let (host, resolved) =
+            resolve_ws_target_with(TelegramDc::from_raw(10_004).expect("test dc"), Some(target), |_| Ok(target))
+                .expect("resolve target");
+
+        assert_eq!(host, "kws4-test.web.telegram.org");
+        assert_eq!(resolved, target);
+    }
+
+    #[test]
+    fn resolve_ws_target_rejects_non_tunnelable_dc() {
+        let target = SocketAddr::from((Ipv4Addr::LOCALHOST, 443));
+        let error = resolve_ws_target_with(TelegramDc::from_raw(-2).expect("media dc"), Some(target), |_| Ok(target))
+            .expect_err("media dc should be rejected");
+
+        assert_eq!(error.kind(), io::ErrorKind::InvalidInput);
     }
 
     #[cfg(not(feature = "chrome-fingerprint"))]

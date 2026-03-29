@@ -88,6 +88,9 @@ pub(crate) struct NativeRuntimeSnapshot {
     pub(crate) autolearn_enabled: bool,
     pub(crate) learned_host_count: i32,
     pub(crate) penalized_host_count: i32,
+    pub(crate) blocked_host_count: i32,
+    pub(crate) last_block_signal: Option<String>,
+    pub(crate) last_block_provider: Option<String>,
     pub(crate) last_autolearn_host: Option<String>,
     pub(crate) last_autolearn_group: Option<i32>,
     pub(crate) last_autolearn_action: Option<String>,
@@ -112,6 +115,8 @@ struct TelemetryStrings {
     last_retry_reason: Option<String>,
     last_autolearn_host: Option<String>,
     last_autolearn_action: Option<String>,
+    last_block_signal: Option<String>,
+    last_block_provider: Option<String>,
 }
 
 pub(crate) struct ProxyTelemetryState {
@@ -131,6 +136,7 @@ pub(crate) struct ProxyTelemetryState {
     autolearn_enabled: AtomicBool,
     learned_host_count: AtomicU64,
     penalized_host_count: AtomicU64,
+    blocked_host_count: AtomicU64,
     last_autolearn_group: AtomicI64,
     slot_exhaustions: AtomicU64,
     strings: ArcSwap<TelemetryStrings>,
@@ -160,6 +166,7 @@ impl ProxyTelemetryState {
             autolearn_enabled: AtomicBool::new(false),
             learned_host_count: AtomicU64::new(0),
             penalized_host_count: AtomicU64::new(0),
+            blocked_host_count: AtomicU64::new(0),
             last_autolearn_group: AtomicI64::new(-1),
             slot_exhaustions: AtomicU64::new(0),
             strings: ArcSwap::from_pointee(TelemetryStrings {
@@ -174,6 +181,8 @@ impl ProxyTelemetryState {
                 last_retry_reason: None,
                 last_autolearn_host: None,
                 last_autolearn_action: None,
+                last_block_signal: None,
+                last_block_provider: None,
             }),
             tcp_connect_histogram: LatencyHistogram::new(),
             tls_handshake_histogram: LatencyHistogram::new(),
@@ -396,6 +405,20 @@ impl ProxyTelemetryState {
         }
     }
 
+    pub(crate) fn on_telegram_dc_detected(&self, target: String, dc: u8) {
+        let message = format!("telegram dc detected target={target} dc={dc}");
+        self.emit_event("proxy", "info", &message);
+        self.update_strings(|s| s.last_target = Some(target.clone()));
+    }
+
+    pub(crate) fn on_ws_tunnel_escalation(&self, target: String, dc: u8, success: bool) {
+        let level = if success { "info" } else { "warn" };
+        let result = if success { "success" } else { "failed" };
+        let message = format!("ws tunnel escalation target={target} dc={dc} result={result}");
+        self.emit_event("proxy", level, &message);
+        self.update_strings(|s| s.last_target = Some(target.clone()));
+    }
+
     pub(crate) fn on_upstream_connected(&self, upstream_address: String, upstream_rtt_ms: Option<u64>) {
         if let Some(rtt_ms) = upstream_rtt_ms {
             self.tcp_connect_histogram.record(rtt_ms);
@@ -410,16 +433,29 @@ impl ProxyTelemetryState {
         self.tls_handshake_histogram.record(latency_ms);
     }
 
-    pub(crate) fn set_autolearn_state(&self, enabled: bool, learned_host_count: usize, penalized_host_count: usize) {
+    pub(crate) fn set_autolearn_state(
+        &self,
+        enabled: bool,
+        learned_host_count: usize,
+        penalized_host_count: usize,
+        blocked_host_count: usize,
+        last_block_signal: Option<&str>,
+        last_block_provider: Option<&str>,
+    ) {
         self.autolearn_enabled.store(enabled, Ordering::Relaxed);
         self.learned_host_count.store(learned_host_count as u64, Ordering::Relaxed);
         self.penalized_host_count.store(penalized_host_count as u64, Ordering::Relaxed);
+        self.blocked_host_count.store(blocked_host_count as u64, Ordering::Relaxed);
+        self.update_strings(|s| {
+            s.last_block_signal = last_block_signal.map(ToOwned::to_owned);
+            s.last_block_provider = last_block_provider.map(ToOwned::to_owned);
+        });
     }
 
     pub(crate) fn on_autolearn_event(&self, action: &'static str, host: Option<String>, group_index: Option<usize>) {
         self.last_autolearn_group
             .store(group_index.and_then(|value| i64::try_from(value).ok()).unwrap_or(-1), Ordering::Relaxed);
-        let level = if action == "group_penalized" { "warn" } else { "info" };
+        let level = if matches!(action, "group_penalized" | "host_blocked") { "warn" } else { "info" };
         let message = format!(
             "autolearn action={} host={} group={}",
             action,
@@ -449,6 +485,8 @@ impl ProxyTelemetryState {
         let last_retry_reason = strings.last_retry_reason.clone();
         let last_autolearn_host = strings.last_autolearn_host.clone();
         let last_autolearn_action = strings.last_autolearn_action.clone();
+        let last_block_signal = strings.last_block_signal.clone();
+        let last_block_provider = strings.last_block_provider.clone();
         NativeRuntimeSnapshot {
             source: "proxy".to_string(),
             state: if self.running.load(Ordering::Relaxed) { "running".to_string() } else { "idle".to_string() },
@@ -488,6 +526,9 @@ impl ProxyTelemetryState {
             autolearn_enabled: self.autolearn_enabled.load(Ordering::Relaxed),
             learned_host_count: i32::try_from(self.learned_host_count.load(Ordering::Relaxed)).unwrap_or(i32::MAX),
             penalized_host_count: i32::try_from(self.penalized_host_count.load(Ordering::Relaxed)).unwrap_or(i32::MAX),
+            blocked_host_count: i32::try_from(self.blocked_host_count.load(Ordering::Relaxed)).unwrap_or(i32::MAX),
+            last_block_signal,
+            last_block_provider,
             last_autolearn_host,
             last_autolearn_group: match self.last_autolearn_group.load(Ordering::Relaxed) {
                 value if value >= 0 => i32::try_from(value).ok(),
@@ -603,12 +644,35 @@ impl RuntimeTelemetrySink for ProxyTelemetryObserver {
         self.state.on_retry_paced(target.to_string(), group_index, reason, backoff_ms);
     }
 
-    fn on_host_autolearn_state(&self, enabled: bool, learned_host_count: usize, penalized_host_count: usize) {
-        self.state.set_autolearn_state(enabled, learned_host_count, penalized_host_count);
+    fn on_host_autolearn_state(
+        &self,
+        enabled: bool,
+        learned_host_count: usize,
+        penalized_host_count: usize,
+        blocked_host_count: usize,
+        last_block_signal: Option<&str>,
+        last_block_provider: Option<&str>,
+    ) {
+        self.state.set_autolearn_state(
+            enabled,
+            learned_host_count,
+            penalized_host_count,
+            blocked_host_count,
+            last_block_signal,
+            last_block_provider,
+        );
     }
 
     fn on_host_autolearn_event(&self, action: &'static str, host: Option<&str>, group_index: Option<usize>) {
         self.state.on_autolearn_event(action, host.map(ToOwned::to_owned), group_index);
+    }
+
+    fn on_telegram_dc_detected(&self, target: std::net::SocketAddr, dc: u8) {
+        self.state.on_telegram_dc_detected(target.to_string(), dc);
+    }
+
+    fn on_ws_tunnel_escalation(&self, target: std::net::SocketAddr, dc: u8, success: bool) {
+        self.state.on_ws_tunnel_escalation(target.to_string(), dc, success);
     }
 }
 
@@ -683,7 +747,7 @@ mod tests {
             observer.on_route_selected(target, 1, Some("example.org"), "connect");
             observer.on_upstream_connected(target, Some(87));
             observer.on_route_advanced(target, 1, 2, 7, Some("example.org"));
-            observer.on_host_autolearn_state(true, 4, 1);
+            observer.on_host_autolearn_state(true, 4, 1, 2, Some("tcp_reset"), Some("rkn"));
             observer.on_host_autolearn_event("host_promoted", Some("example.org"), Some(2));
             observer.on_client_error(&std::io::Error::other("boom"));
             observer.on_client_finished();
@@ -705,6 +769,9 @@ mod tests {
             assert!(first.autolearn_enabled);
             assert_eq!(first.learned_host_count, 4);
             assert_eq!(first.penalized_host_count, 1);
+            assert_eq!(first.blocked_host_count, 2);
+            assert_eq!(first.last_block_signal.as_deref(), Some("tcp_reset"));
+            assert_eq!(first.last_block_provider.as_deref(), Some("rkn"));
             assert_eq!(first.last_autolearn_host.as_deref(), Some("example.org"));
             assert_eq!(first.last_autolearn_group, Some(2));
             assert_eq!(first.last_autolearn_action.as_deref(), Some("host_promoted"));
@@ -744,6 +811,26 @@ mod tests {
             assert_eq!(diversified.last_retry_reason.as_deref(), Some("candidate_order_diversified"));
             assert_eq!(diversified.candidate_diversification_count, 1);
             assert_eq!(diversified.native_events.len(), 1);
+        });
+    }
+
+    #[test]
+    fn proxy_ws_tunnel_events_are_recorded_without_schema_changes() {
+        with_proxy_event_capture(|buffers| {
+            let state = Arc::new(ProxyTelemetryState::new(None));
+            let observer = ProxyTelemetryObserver { state: state.clone() };
+            let target = SocketAddr::from(([149, 154, 167, 51], 443));
+
+            observer.on_telegram_dc_detected(target, 2);
+            observer.on_ws_tunnel_escalation(target, 2, false);
+
+            let snapshot = snapshot_with_captured_events(&state, &buffers);
+            assert_eq!(snapshot.last_target.as_deref(), Some("149.154.167.51:443"));
+            assert_eq!(snapshot.native_events.len(), 2);
+            assert!(snapshot.native_events[0].message.contains("telegram dc detected"));
+            assert!(snapshot.native_events[1].message.contains("ws tunnel escalation"));
+            assert_eq!(snapshot.native_events[0].level, "info");
+            assert_eq!(snapshot.native_events[1].level, "warn");
         });
     }
 
@@ -791,7 +878,7 @@ mod tests {
             observer.on_route_selected(target, 1, Some("example.org"), "connect");
             observer.on_upstream_connected(target, Some(87));
             observer.on_route_advanced(target, 1, 2, 7, Some("example.org"));
-            observer.on_host_autolearn_state(true, 4, 1);
+            observer.on_host_autolearn_state(true, 4, 1, 2, Some("tcp_reset"), Some("rkn"));
             observer.on_host_autolearn_event("host_promoted", Some("example.org"), Some(2));
             observer.on_client_error(&std::io::Error::other("boom"));
             observer.on_client_finished();
@@ -955,6 +1042,9 @@ mod tests {
             autolearn_enabled: true,
             learned_host_count: 5,
             penalized_host_count: 1,
+            blocked_host_count: 2,
+            last_block_signal: Some("tcp_reset".to_string()),
+            last_block_provider: Some("rkn".to_string()),
             last_autolearn_host: Some("example.org".to_string()),
             last_autolearn_group: Some(0),
             last_autolearn_action: Some("group_penalized".to_string()),

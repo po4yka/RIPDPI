@@ -365,7 +365,7 @@
     <string name="network_strategy_memory_helper">Только проверенные совпадения сетей применяются автоматически. Сырые SSID, BSSID и идентификаторы оператора не попадают в хранилище.</string>
     <string name="ws_tunnel_section_title">WebSocket-туннель</string>
     <string name="ws_tunnel_mode_label">Режим WS-туннеля</string>
-    <string name="ws_tunnel_mode_helper">Определяет, когда трафик Telegram направляется через WSS-туннель web.telegram.org.</string>
+    <string name="ws_tunnel_mode_helper">Определяет, когда MTProto-трафик Telegram направляется через WSS-туннель шлюзов web.telegram.org.</string>
     <string name="ws_tunnel_mode_off">Выкл</string>
     <string name="ws_tunnel_mode_always">Всегда (приоритет)</string>
     <string name="ws_tunnel_mode_fallback">Резерв (последний шанс)</string>
@@ -385,13 +385,22 @@
     <string name="host_autolearn_off_title">Обучение по хостам отключено</string>
     <string name="host_autolearn_off_body">RIPDPI будет использовать обычный выбор маршрута без запоминания хостов.</string>
     <string name="host_autolearn_limits_summary">Окно штрафа %1$dч · Лимит %2$d хостов</string>
-    <string name="host_autolearn_runtime_summary">Текущая сессия: %1$d запомнено · %2$d оштрафовано</string>
+    <string name="host_autolearn_runtime_summary">Текущая сессия: %1$d запомнено · %2$d оштрафовано · %3$d заблокировано</string>
     <string name="host_autolearn_store_present_summary">Сохранённые маршруты хостов доступны на этом устройстве.</string>
     <string name="host_autolearn_last_update_label">Последнее обновление</string>
     <string name="host_autolearn_action_host_promoted">Продвинут лучший маршрут</string>
     <string name="host_autolearn_action_group_penalized">Оштрафован неудачный маршрут</string>
+    <string name="host_autolearn_action_host_blocked">Обнаружен заблокированный хост</string>
     <string name="host_autolearn_action_store_reset">Сбросить сохранённые хосты</string>
     <string name="host_autolearn_route_group">Маршрут %1$d</string>
+    <string name="block_signal_http_blockpage">HTTP-блокстраница</string>
+    <string name="block_signal_http_redirect">Блокирующий редирект</string>
+    <string name="block_signal_tls_alert">TLS-оповещение</string>
+    <string name="block_signal_silent_drop">Тихий сброс</string>
+    <string name="block_signal_tcp_reset">TCP-сброс</string>
+    <string name="block_signal_connection_freeze">Зависание соединения</string>
+    <string name="block_signal_quic_breakage">Сбой QUIC</string>
+    <string name="block_signal_tcp_retransmissions">TCP-ретрансляции</string>
     <string name="host_autolearn_reset_hint_cli">Функция «Забыть» здесь недоступна, так как настройки командной строки могут указывать RIPDPI на другой файл запомненных хостов.</string>
     <string name="host_autolearn_reset_hint_waiting">Ещё ничего не сохранено. RIPDPI записывает файл запомненных хостов после успешного обучения по хосту.</string>
     <string name="host_autolearn_reset_hint_empty">Сохранённых маршрутов хостов для очистки пока нет.</string>
@@ -1336,9 +1345,12 @@ fakeddisorder endhost</string>
     <string name="diagnostics_field_route_group">Группа маршрута</string>
     <string name="diagnostics_field_autolearn">Автообучение</string>
     <string name="diagnostics_field_penalized_hosts">Оштрафованные хосты</string>
+    <string name="diagnostics_field_blocked_hosts">Заблокированные хосты</string>
     <string name="diagnostics_field_last_learned_host">Последний изученный хост</string>
     <string name="diagnostics_field_last_learned_group">Последняя изученная группа</string>
     <string name="diagnostics_field_last_autolearn_action">Последнее действие автообучения</string>
+    <string name="diagnostics_field_last_block_signal">Последний сигнал блокировки</string>
+    <string name="diagnostics_field_last_block_provider">Последний провайдер блокировки</string>
     <string name="diagnostics_field_restart_count">Количество перезапусков</string>
     <string name="diagnostics_field_last_native_error">Последняя нативная ошибка</string>
     <string name="diagnostics_field_permissions">Разрешения</string>
@@ -1495,9 +1507,11 @@ fakeddisorder endhost</string>
     <string name="diagnostics_autolearn_route_format">Маршрут %1$s</string>
     <string name="diagnostics_autolearn_promoted">Повышен лучший маршрут</string>
     <string name="diagnostics_autolearn_penalized">Оштрафован неудачный маршрут</string>
+    <string name="diagnostics_autolearn_host_blocked">Обнаружен заблокированный хост</string>
     <string name="diagnostics_autolearn_store_reset">Сброс сохранённых хостов</string>
     <string name="diagnostics_autolearn_learned_format">%1$d изучено</string>
     <string name="diagnostics_autolearn_penalized_format">%1$d оштрафовано</string>
+    <string name="diagnostics_autolearn_blocked_format">%1$d заблокировано</string>
 
     <!-- Diagnostics Telegram card -->
     <string name="diagnostics_telegram_download">Загрузка</string>

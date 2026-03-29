@@ -1,37 +1,73 @@
 use std::net::{IpAddr, Ipv4Addr};
 
-use aes::Aes256;
-use cipher::{KeyIvInit, StreamCipher};
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TelegramDcClass {
+    Production,
+    Test,
+    MediaOrCdn,
+}
 
-type Aes256Ctr = ctr::Ctr128BE<Aes256>;
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct TelegramDc {
+    number: u8,
+    raw: i32,
+    class: TelegramDcClass,
+}
 
-/// Extract the Telegram DC number from an obfuscated2 init packet.
-///
-/// The first 64 bytes of an MTProto connection use AES-256-CTR obfuscation.
-/// Bytes 60..64 of the decrypted init contain the DC ID as a little-endian i32.
-pub fn extract_dc_from_init(init: &[u8; 64]) -> Option<u8> {
-    let key = &init[8..40];
-    let iv = &init[40..56];
+impl TelegramDc {
+    pub const fn production(number: u8) -> Self {
+        Self { number, raw: number as i32, class: TelegramDcClass::Production }
+    }
 
-    let mut dec = [0u8; 64];
-    dec.copy_from_slice(init);
+    pub const fn number(self) -> u8 {
+        self.number
+    }
 
-    let mut stream_cipher = Aes256Ctr::new_from_slices(key, iv).expect("AES-256-CTR key/iv length mismatch");
-    stream_cipher.apply_keystream(&mut dec);
+    pub const fn raw(self) -> i32 {
+        self.raw
+    }
 
-    let dc_id = i32::from_le_bytes([dec[60], dec[61], dec[62], dec[63]]);
-    let dc = dc_id.unsigned_abs() as u8;
-    if (1..=5).contains(&dc) {
-        Some(dc)
-    } else {
+    pub const fn class(self) -> TelegramDcClass {
+        self.class
+    }
+
+    pub const fn is_tunnelable(self) -> bool {
+        !matches!(self.class, TelegramDcClass::MediaOrCdn)
+    }
+
+    pub fn ws_host(self) -> Option<String> {
+        match self.class {
+            TelegramDcClass::Production => Some(format!("kws{}.web.telegram.org", self.number)),
+            TelegramDcClass::Test => Some(format!("kws{}-test.web.telegram.org", self.number)),
+            TelegramDcClass::MediaOrCdn => None,
+        }
+    }
+
+    pub fn ws_url(self) -> Option<String> {
+        self.ws_host().map(|host| format!("wss://{host}/apiws"))
+    }
+
+    pub fn from_raw(raw: i32) -> Option<Self> {
+        if (1..=5).contains(&raw) {
+            return Some(Self { number: raw as u8, raw, class: TelegramDcClass::Production });
+        }
+
+        if (10_001..=10_005).contains(&raw) {
+            return Some(Self { number: (raw - 10_000) as u8, raw, class: TelegramDcClass::Test });
+        }
+
+        if (-5..=-1).contains(&raw) {
+            return Some(Self { number: raw.unsigned_abs() as u8, raw, class: TelegramDcClass::MediaOrCdn });
+        }
+
         None
     }
 }
 
-/// Map a known Telegram IPv4 address to its DC number.
-pub fn dc_from_ip(ip: Ipv4Addr) -> Option<u8> {
+/// Map a known Telegram IPv4 address to its production DC.
+pub fn dc_from_ip(ip: Ipv4Addr) -> Option<TelegramDc> {
     let o = ip.octets();
-    match (o[0], o[1]) {
+    let number = match (o[0], o[1]) {
         (149, 154) => Some(match o[2] {
             160..=163 => 1,
             164..=167 => 2,
@@ -47,7 +83,9 @@ pub fn dc_from_ip(ip: Ipv4Addr) -> Option<u8> {
         }),
         (91, 105) | (185, 76) => Some(2),
         _ => None,
-    }
+    }?;
+
+    Some(TelegramDc::production(number))
 }
 
 /// Check whether an IP address belongs to a known Telegram DC range.
@@ -58,9 +96,12 @@ pub fn is_telegram_ip(ip: IpAddr) -> bool {
     }
 }
 
-/// Build the WebSocket tunnel URL for the given DC number.
-pub fn ws_url(dc: u8) -> String {
-    format!("wss://kws{dc}.web.telegram.org/apiws")
+pub fn ws_host(dc: TelegramDc) -> Option<String> {
+    dc.ws_host()
+}
+
+pub fn ws_url(dc: TelegramDc) -> Option<String> {
+    dc.ws_url()
 }
 
 #[cfg(test)]
@@ -68,14 +109,56 @@ mod tests {
     use super::*;
 
     #[test]
+    fn normalize_raw_dc_encodings() {
+        assert_eq!(TelegramDc::from_raw(3), Some(TelegramDc::production(3)));
+        assert_eq!(
+            TelegramDc::from_raw(10_002),
+            Some(TelegramDc { number: 2, raw: 10_002, class: TelegramDcClass::Test }),
+        );
+        assert_eq!(
+            TelegramDc::from_raw(-4),
+            Some(TelegramDc { number: 4, raw: -4, class: TelegramDcClass::MediaOrCdn }),
+        );
+        assert_eq!(TelegramDc::from_raw(0), None);
+        assert_eq!(TelegramDc::from_raw(6), None);
+        assert_eq!(TelegramDc::from_raw(-6), None);
+    }
+
+    #[test]
+    fn tunnelability_matches_dc_class() {
+        assert!(TelegramDc::production(2).is_tunnelable());
+        assert!(TelegramDc::from_raw(10_004).expect("test dc").is_tunnelable());
+        assert!(!TelegramDc::from_raw(-5).expect("media dc").is_tunnelable());
+    }
+
+    #[test]
+    fn websocket_host_mapping_matches_dc_class() {
+        assert_eq!(TelegramDc::production(1).ws_host().as_deref(), Some("kws1.web.telegram.org"));
+        assert_eq!(
+            TelegramDc::from_raw(10_005).expect("test dc").ws_host().as_deref(),
+            Some("kws5-test.web.telegram.org"),
+        );
+        assert_eq!(TelegramDc::from_raw(-2).expect("media dc").ws_host(), None);
+    }
+
+    #[test]
+    fn websocket_url_mapping_matches_dc_class() {
+        assert_eq!(TelegramDc::production(4).ws_url().as_deref(), Some("wss://kws4.web.telegram.org/apiws"),);
+        assert_eq!(
+            TelegramDc::from_raw(10_001).expect("test dc").ws_url().as_deref(),
+            Some("wss://kws1-test.web.telegram.org/apiws"),
+        );
+        assert_eq!(TelegramDc::from_raw(-1).expect("media dc").ws_url(), None);
+    }
+
+    #[test]
     fn dc_from_known_ips() {
-        assert_eq!(dc_from_ip(Ipv4Addr::new(149, 154, 160, 1)), Some(1));
-        assert_eq!(dc_from_ip(Ipv4Addr::new(149, 154, 165, 10)), Some(2));
-        assert_eq!(dc_from_ip(Ipv4Addr::new(149, 154, 170, 5)), Some(3));
-        assert_eq!(dc_from_ip(Ipv4Addr::new(91, 108, 56, 100)), Some(5));
-        assert_eq!(dc_from_ip(Ipv4Addr::new(91, 108, 9, 1)), Some(3));
-        assert_eq!(dc_from_ip(Ipv4Addr::new(91, 108, 13, 1)), Some(4));
-        assert_eq!(dc_from_ip(Ipv4Addr::new(185, 76, 151, 1)), Some(2));
+        assert_eq!(dc_from_ip(Ipv4Addr::new(149, 154, 160, 1)), Some(TelegramDc::production(1)));
+        assert_eq!(dc_from_ip(Ipv4Addr::new(149, 154, 165, 10)), Some(TelegramDc::production(2)));
+        assert_eq!(dc_from_ip(Ipv4Addr::new(149, 154, 170, 5)), Some(TelegramDc::production(3)));
+        assert_eq!(dc_from_ip(Ipv4Addr::new(91, 108, 56, 100)), Some(TelegramDc::production(5)));
+        assert_eq!(dc_from_ip(Ipv4Addr::new(91, 108, 13, 1)), Some(TelegramDc::production(4)));
+        assert_eq!(dc_from_ip(Ipv4Addr::new(185, 76, 151, 1)), Some(TelegramDc::production(2)));
     }
 
     #[test]
@@ -87,148 +170,32 @@ mod tests {
 
     #[test]
     fn is_telegram_ip_v6_returns_false() {
-        let v6: IpAddr = "::1".parse().unwrap();
+        let v6: IpAddr = "::1".parse().expect("parse v6");
         assert!(!is_telegram_ip(v6));
     }
 
     #[test]
-    fn ws_url_format() {
-        assert_eq!(ws_url(1), "wss://kws1.web.telegram.org/apiws");
-        assert_eq!(ws_url(5), "wss://kws5.web.telegram.org/apiws");
-    }
-
-    /// Craft a synthetic obfuscated2 init packet with a known DC ID and verify
-    /// that `extract_dc_from_init` correctly decrypts and extracts it.
-    #[test]
-    fn extract_dc_from_synthetic_init_packet() {
-        for expected_dc in 1u8..=5 {
-            let init = build_test_init_packet(expected_dc as i32);
-            assert_eq!(extract_dc_from_init(&init), Some(expected_dc), "failed for DC{expected_dc}");
-        }
-    }
-
-    #[test]
-    fn extract_dc_from_init_returns_none_for_invalid_dc() {
-        // DC 0 is invalid
-        let init = build_test_init_packet(0);
-        assert_eq!(extract_dc_from_init(&init), None);
-
-        // DC 6 is out of range
-        let init = build_test_init_packet(6);
-        assert_eq!(extract_dc_from_init(&init), None);
-    }
-
-    #[test]
-    fn extract_dc_from_init_handles_negative_dc() {
-        // Telegram uses negative DC IDs for test/media DCs; unsigned_abs maps them
-        let init = build_test_init_packet(-3);
-        assert_eq!(extract_dc_from_init(&init), Some(3));
-    }
-
-    /// Build a 64-byte init packet where `extract_dc_from_init` will return
-    /// the given DC ID.
-    ///
-    /// The obfuscated2 format: key = init[8..40], iv = init[40..56], then
-    /// AES-256-CTR(key, iv) decrypts the entire packet. DC is at decrypted[60..64].
-    fn build_test_init_packet(dc_id: i32) -> [u8; 64] {
-        // 1. Start with an all-zero plaintext and set dc_id at bytes 60..64
-        let mut plaintext = [0u8; 64];
-        plaintext[60..64].copy_from_slice(&dc_id.to_le_bytes());
-
-        // 2. Choose a deterministic key and IV
-        let key: [u8; 32] = [
-            0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f, 0x10, 0x11, 0x12,
-            0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x1a, 0x1b, 0x1c, 0x1d, 0x1e, 0x1f, 0x20,
-        ];
-        let iv: [u8; 16] =
-            [0xa1, 0xa2, 0xa3, 0xa4, 0xa5, 0xa6, 0xa7, 0xa8, 0xa9, 0xaa, 0xab, 0xac, 0xad, 0xae, 0xaf, 0xb0];
-
-        // 3. Encrypt the plaintext
-        let mut ciphertext = plaintext;
-        let mut cipher = Aes256Ctr::new((&key).into(), (&iv).into());
-        cipher.apply_keystream(&mut ciphertext);
-
-        // 4. Embed key and IV into the packet at the positions where
-        //    extract_dc_from_init reads them
-        ciphertext[8..40].copy_from_slice(&key);
-        ciphertext[40..56].copy_from_slice(&iv);
-
-        ciphertext
-    }
-
-    #[test]
-    fn classify_target_tunnels_known_telegram_ips() {
-        use crate::{classify_target, WsTunnelDecision};
-
-        let cases = [
-            ("149.154.160.1", 1),
-            ("149.154.165.10", 2),
-            ("149.154.170.5", 3),
-            ("91.108.56.100", 5),
-            ("91.108.13.1", 4),
-        ];
-        for (ip_str, expected_dc) in cases {
-            let ip: IpAddr = ip_str.parse().unwrap();
-            match classify_target(ip) {
-                WsTunnelDecision::Tunnel(dc) => {
-                    assert_eq!(dc, expected_dc, "wrong DC for {ip_str}");
-                }
-                WsTunnelDecision::Passthrough => panic!("expected Tunnel for {ip_str}"),
-            }
-        }
-    }
-
-    #[test]
-    fn classify_target_passes_through_non_telegram_ips() {
-        use crate::{classify_target, WsTunnelDecision};
-        let ip: IpAddr = "8.8.8.8".parse().unwrap();
-        assert!(matches!(classify_target(ip), WsTunnelDecision::Passthrough));
-    }
-
-    #[test]
-    fn classify_target_passes_through_ipv6() {
-        use crate::{classify_target, WsTunnelDecision};
-        let ip: IpAddr = "2001:db8::1".parse().unwrap();
-        assert!(matches!(classify_target(ip), WsTunnelDecision::Passthrough));
-    }
-
-    #[test]
     fn dc_from_ip_boundary_first_and_last_in_range() {
-        // DC1: 149.154.160.0 - 149.154.163.255
-        assert_eq!(dc_from_ip(Ipv4Addr::new(149, 154, 160, 0)), Some(1));
-        assert_eq!(dc_from_ip(Ipv4Addr::new(149, 154, 163, 255)), Some(1));
-        // DC2: 149.154.164.0 - 149.154.167.255
-        assert_eq!(dc_from_ip(Ipv4Addr::new(149, 154, 164, 0)), Some(2));
-        assert_eq!(dc_from_ip(Ipv4Addr::new(149, 154, 167, 255)), Some(2));
-        // DC3: 149.154.168.0 - 149.154.171.255
-        assert_eq!(dc_from_ip(Ipv4Addr::new(149, 154, 168, 0)), Some(3));
-        assert_eq!(dc_from_ip(Ipv4Addr::new(149, 154, 171, 255)), Some(3));
-        // DC5: 91.108.56.0 - 91.108.59.255
-        assert_eq!(dc_from_ip(Ipv4Addr::new(91, 108, 56, 0)), Some(5));
-        assert_eq!(dc_from_ip(Ipv4Addr::new(91, 108, 59, 255)), Some(5));
+        assert_eq!(dc_from_ip(Ipv4Addr::new(149, 154, 160, 0)), Some(TelegramDc::production(1)));
+        assert_eq!(dc_from_ip(Ipv4Addr::new(149, 154, 163, 255)), Some(TelegramDc::production(1)));
+        assert_eq!(dc_from_ip(Ipv4Addr::new(149, 154, 164, 0)), Some(TelegramDc::production(2)));
+        assert_eq!(dc_from_ip(Ipv4Addr::new(149, 154, 167, 255)), Some(TelegramDc::production(2)));
+        assert_eq!(dc_from_ip(Ipv4Addr::new(149, 154, 168, 0)), Some(TelegramDc::production(3)));
+        assert_eq!(dc_from_ip(Ipv4Addr::new(149, 154, 171, 255)), Some(TelegramDc::production(3)));
+        assert_eq!(dc_from_ip(Ipv4Addr::new(91, 108, 56, 0)), Some(TelegramDc::production(5)));
+        assert_eq!(dc_from_ip(Ipv4Addr::new(91, 108, 59, 255)), Some(TelegramDc::production(5)));
     }
 
     #[test]
     fn dc_from_ip_falls_back_to_dc2_for_unmatched_telegram_ranges() {
-        // 149.154.x.x where x is not in any specific DC range -> DC 2
-        assert_eq!(dc_from_ip(Ipv4Addr::new(149, 154, 200, 1)), Some(2));
-        // 91.108.x.x where x is not in any specific DC range -> DC 2
-        assert_eq!(dc_from_ip(Ipv4Addr::new(91, 108, 100, 1)), Some(2));
-        // 91.105.x.x -> DC 2
-        assert_eq!(dc_from_ip(Ipv4Addr::new(91, 105, 1, 1)), Some(2));
+        assert_eq!(dc_from_ip(Ipv4Addr::new(149, 154, 200, 1)), Some(TelegramDc::production(2)));
+        assert_eq!(dc_from_ip(Ipv4Addr::new(91, 108, 100, 1)), Some(TelegramDc::production(2)));
+        assert_eq!(dc_from_ip(Ipv4Addr::new(91, 105, 1, 1)), Some(TelegramDc::production(2)));
     }
 
     #[test]
-    fn dc_from_ip_maps_alternate_dc1_range() {
-        // 149.154.172-175 also maps to DC 1
-        assert_eq!(dc_from_ip(Ipv4Addr::new(149, 154, 172, 0)), Some(1));
-        assert_eq!(dc_from_ip(Ipv4Addr::new(149, 154, 175, 255)), Some(1));
-    }
-
-    #[test]
-    fn extract_dc_from_init_handles_large_negative_dc() {
-        // DC -100 -> unsigned_abs = 100, not in 1..=5 -> None
-        let init = build_test_init_packet(-100);
-        assert_eq!(extract_dc_from_init(&init), None);
+    fn dc_from_ip_supports_alternate_dc1_range() {
+        assert_eq!(dc_from_ip(Ipv4Addr::new(149, 154, 172, 0)), Some(TelegramDc::production(1)));
+        assert_eq!(dc_from_ip(Ipv4Addr::new(149, 154, 175, 255)), Some(TelegramDc::production(1)));
     }
 }

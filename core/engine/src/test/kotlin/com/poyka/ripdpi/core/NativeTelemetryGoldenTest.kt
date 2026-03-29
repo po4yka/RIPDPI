@@ -53,6 +53,14 @@ class NativeTelemetryGoldenTest {
         }
 
     @Test
+    fun proxyTelemetryTelegramWsEventsMatchGolden() {
+        GoldenContractSupport.assertJsonGolden(
+            "proxy_running_telegram_ws_events.json",
+            json.encodeToString(NativeRuntimeSnapshot.serializer(), proxyTelemetryWithTelegramWsEvents()),
+        )
+    }
+
+    @Test
     fun tunnelReadyTelemetryPayloadParsesToGoldenSnapshot() {
         val parsed =
             json.decodeFromString(
@@ -170,6 +178,31 @@ class NativeTelemetryGoldenTest {
         assertEquals(2L, parsed.candidateDiversificationCount)
     }
 
+    @Test
+    fun proxyBlockingFieldsRoundTripThroughSnapshotJson() {
+        val snapshot =
+            NativeRuntimeSnapshot(
+                source = "proxy",
+                state = "running",
+                blockedHostCount = 2,
+                lastBlockSignal = "tcp_reset",
+                lastBlockProvider = "rkn",
+                lastAutolearnAction = "host_blocked",
+                capturedAt = 91L,
+            )
+
+        val parsed =
+            json.decodeFromString(
+                NativeRuntimeSnapshot.serializer(),
+                json.encodeToString(NativeRuntimeSnapshot.serializer(), snapshot),
+            )
+
+        assertEquals(2, parsed.blockedHostCount)
+        assertEquals("tcp_reset", parsed.lastBlockSignal)
+        assertEquals("rkn", parsed.lastBlockProvider)
+        assertEquals("host_blocked", parsed.lastAutolearnAction)
+    }
+
     private fun proxyTelemetryPayload(includeEvents: Boolean): String =
         json.encodeToString(
             NativeRuntimeSnapshot.serializer(),
@@ -180,6 +213,9 @@ class NativeTelemetryGoldenTest {
                 autolearnEnabled = true,
                 learnedHostCount = 3,
                 penalizedHostCount = 1,
+                blockedHostCount = 2,
+                lastBlockSignal = "tcp_reset",
+                lastBlockProvider = "rkn",
                 lastAutolearnHost = "example.org",
                 lastAutolearnGroup = 2,
                 lastAutolearnAction = "host_promoted",
@@ -199,6 +235,37 @@ class NativeTelemetryGoldenTest {
                     },
                 capturedAt = 0L,
             ),
+        )
+
+    private fun proxyTelemetryWithTelegramWsEvents(): NativeRuntimeSnapshot =
+        NativeRuntimeSnapshot(
+            source = "proxy",
+            state = "running",
+            health = "healthy",
+            listenerAddress = "127.0.0.1:<port>",
+            lastTarget = "149.154.167.91:443",
+            nativeEvents =
+                listOf(
+                    NativeRuntimeEvent(
+                        source = "proxy",
+                        level = "info",
+                        message = "listener started addr=127.0.0.1:<port> maxClients=512 groups=2",
+                        createdAt = 0L,
+                    ),
+                    NativeRuntimeEvent(
+                        source = "proxy",
+                        level = "info",
+                        message = "telegram dc detected target=149.154.167.91:443 dc=2",
+                        createdAt = 1L,
+                    ),
+                    NativeRuntimeEvent(
+                        source = "proxy",
+                        level = "info",
+                        message = "ws tunnel escalation target=149.154.167.91:443 dc=2 result=fallback",
+                        createdAt = 2L,
+                    ),
+                ),
+            capturedAt = 2L,
         )
 
     private fun tunnelReadyPayload(): String =

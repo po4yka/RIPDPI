@@ -6,6 +6,7 @@ use ripdpi_dns_resolver::{
     extract_ip_answers, EncryptedDnsEndpoint, EncryptedDnsProtocol, EncryptedDnsResolver, EncryptedDnsTransport,
 };
 use ripdpi_proxy_config::{ProxyEncryptedDnsContext, ProxyRuntimeContext};
+use ripdpi_ws_tunnel::TelegramDc;
 
 const WS_TUNNEL_PORT: u16 = 443;
 const DEFAULT_DOH_URL: &str = "https://dns.google/dns-query";
@@ -14,12 +15,12 @@ const DEFAULT_DOH_BOOTSTRAP_IPS: &[&str] = &["8.8.8.8", "8.8.4.4"];
 
 /// Resolve `kws{dc}.web.telegram.org` through the configured encrypted DNS
 /// endpoint and return the first socket address suitable for WS bootstrap.
-pub fn resolve_ws_tunnel_addr(dc: u8, runtime_context: Option<&ProxyRuntimeContext>) -> io::Result<SocketAddr> {
+pub fn resolve_ws_tunnel_addr(dc: TelegramDc, runtime_context: Option<&ProxyRuntimeContext>) -> io::Result<SocketAddr> {
     resolve_ws_tunnel_addr_with_default(dc, runtime_context, default_ws_tunnel_encrypted_dns_context)
 }
 
 fn resolve_ws_tunnel_addr_with_default(
-    dc: u8,
+    dc: TelegramDc,
     runtime_context: Option<&ProxyRuntimeContext>,
     default_context: impl FnOnce() -> ProxyEncryptedDnsContext,
 ) -> io::Result<SocketAddr> {
@@ -35,8 +36,8 @@ fn resolve_ws_tunnel_addr_with_default(
     select_first_resolved_addr(&answers, WS_TUNNEL_PORT)
 }
 
-fn ws_tunnel_host(dc: u8) -> String {
-    format!("kws{dc}.web.telegram.org")
+fn ws_tunnel_host(dc: TelegramDc) -> String {
+    ripdpi_ws_tunnel::ws_host(dc).expect("WS bootstrap only resolves tunnelable Telegram DCs")
 }
 
 fn default_ws_tunnel_encrypted_dns_context() -> ProxyEncryptedDnsContext {
@@ -130,7 +131,8 @@ mod tests {
         let stack = FixtureStack::start(dynamic_fixture_config()).expect("start fixture");
         let runtime_context = fixture_runtime_context(stack.manifest().dns_http_port);
 
-        let addr = resolve_ws_tunnel_addr(3, Some(&runtime_context)).expect("resolve ws tunnel addr");
+        let addr =
+            resolve_ws_tunnel_addr(TelegramDc::production(3), Some(&runtime_context)).expect("resolve ws tunnel addr");
 
         assert_eq!(addr, SocketAddr::new(stack.manifest().dns_answer_ipv4.parse().expect("fixture ip"), 443));
     }
@@ -139,7 +141,7 @@ mod tests {
     fn resolve_ws_tunnel_addr_uses_default_context_when_runtime_context_is_absent() {
         let stack = FixtureStack::start(dynamic_fixture_config()).expect("start fixture");
 
-        let addr = resolve_ws_tunnel_addr_with_default(2, None, || {
+        let addr = resolve_ws_tunnel_addr_with_default(TelegramDc::production(2), None, || {
             fixture_encrypted_dns_context(stack.manifest().dns_http_port)
         })
         .expect("resolve ws tunnel addr");
@@ -154,6 +156,11 @@ mod tests {
         let addr = select_first_resolved_addr(&answers, 443).expect("select address");
 
         assert_eq!(addr, SocketAddr::new(IpAddr::V4(Ipv4Addr::new(198, 18, 0, 10)), 443));
+    }
+
+    #[test]
+    fn ws_tunnel_host_supports_test_gateways() {
+        assert_eq!(ws_tunnel_host(TelegramDc::from_raw(10_004).expect("test dc")), "kws4-test.web.telegram.org");
     }
 
     fn fixture_runtime_context(dns_http_port: u16) -> ProxyRuntimeContext {

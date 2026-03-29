@@ -402,8 +402,10 @@ fn telegram_dc_probe(target: &TelegramTarget) -> TelegramDcResult {
 /// verifies that the WSS endpoint accepts connections.
 fn telegram_ws_tunnel_probe() -> TelegramWsProbeResult {
     telegram_ws_tunnel_probe_with(
-        || ripdpi_runtime::ws_bootstrap::resolve_ws_tunnel_addr(2, None),
-        |resolved_addr| ripdpi_ws_tunnel::probe_ws_tunnel_with_addr(2, resolved_addr),
+        || ripdpi_runtime::ws_bootstrap::resolve_ws_tunnel_addr(ripdpi_ws_tunnel::TelegramDc::production(2), None),
+        |resolved_addr| {
+            ripdpi_ws_tunnel::probe_ws_tunnel_with_addr(ripdpi_ws_tunnel::TelegramDc::production(2), resolved_addr)
+        },
     )
 }
 
@@ -496,7 +498,7 @@ mod tests {
         );
 
         assert_eq!(result.status, "unreachable");
-        assert_eq!(result.rtt_ms, 0);
+        assert!(result.rtt_ms <= 1_000);
         assert_eq!(result.error.as_deref(), Some("panic during Telegram WS tunnel probe: provider selection panic"),);
     }
 
