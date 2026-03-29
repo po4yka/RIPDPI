@@ -270,6 +270,32 @@ fn plan_tcp_fake_uses_fake_chunk_then_original_tail() {
 }
 
 #[test]
+fn plan_tcp_ipfrag2_emits_fragmented_first_write() {
+    let mut group = DesyncGroup::new(0);
+    group.actions.tcp_chain.push(TcpChainStep::new(TcpChainStepKind::IpFrag2, split_expr(5)));
+    let payload = b"hello world";
+
+    let plan = plan_tcp(&group, payload, 7, 64, tcp_context(payload)).expect("plan ipfrag2 tcp");
+
+    assert_eq!(plan.steps, vec![PlannedStep { kind: TcpChainStepKind::IpFrag2, start: 0, end: 5 }]);
+    assert_eq!(plan.actions, vec![DesyncAction::WriteIpFragmentedTcp { bytes: payload.to_vec(), split_offset: 5 }],);
+}
+
+#[test]
+fn plan_tcp_ipfrag2_falls_back_after_first_round() {
+    let mut group = DesyncGroup::new(0);
+    group.actions.tcp_chain.push(TcpChainStep::new(TcpChainStepKind::IpFrag2, split_expr(5)));
+    let payload = b"hello world";
+    let mut context = tcp_context(payload);
+    context.round = 2;
+
+    let plan = plan_tcp(&group, payload, 7, 64, context).expect("plan ipfrag2 tcp fallback");
+
+    assert_eq!(plan.steps, vec![PlannedStep { kind: TcpChainStepKind::IpFrag2, start: 0, end: 5 }]);
+    assert_eq!(plan.actions, vec![DesyncAction::Write(payload.to_vec())]);
+}
+
+#[test]
 fn plan_tcp_fake_prefers_resolved_fake_ttl_over_group_ttl() {
     let mut group = DesyncGroup::new(0);
     group.actions.ttl = Some(9);

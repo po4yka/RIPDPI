@@ -154,6 +154,7 @@ pub enum TcpChainStepKind {
     Disoob,
     TlsRec,
     TlsRandRec,
+    IpFrag2,
 }
 
 impl TcpChainStepKind {
@@ -179,6 +180,7 @@ impl TcpChainStepKind {
             Self::Disoob => Some(DesyncMode::Disoob),
             Self::TlsRec => None,
             Self::TlsRandRec => None,
+            Self::IpFrag2 => None,
         }
     }
 
@@ -220,12 +222,14 @@ pub enum UdpChainStepKind {
     DummyPrepend,
     QuicSniSplit,
     QuicFakeVersion,
+    IpFrag2Udp,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct UdpChainStep {
     pub kind: UdpChainStepKind,
     pub count: i32,
+    pub split_bytes: i32,
     pub activation_filter: Option<ActivationFilter>,
 }
 

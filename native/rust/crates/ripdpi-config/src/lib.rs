@@ -264,7 +264,7 @@ mod tests {
         assert_eq!(group.actions.quic_fake_host.as_deref(), Some("video.example.test"));
         assert_eq!(
             group.actions.udp_chain,
-            vec![UdpChainStep { kind: UdpChainStepKind::FakeBurst, count: 2, activation_filter: None }]
+            vec![UdpChainStep { kind: UdpChainStepKind::FakeBurst, count: 2, split_bytes: 0, activation_filter: None }]
         );
     }
 
@@ -582,7 +582,12 @@ mod tests {
                 TcpChainStep::new(TcpChainStepKind::TlsRec, tls_record),
                 TcpChainStep::new(TcpChainStepKind::Split, split_offset),
             ],
-            udp_chain: vec![UdpChainStep { kind: UdpChainStepKind::FakeBurst, count: 2, activation_filter: None }],
+            udp_chain: vec![UdpChainStep {
+                kind: UdpChainStepKind::FakeBurst,
+                count: 2,
+                split_bytes: 0,
+                activation_filter: None,
+            }],
             mod_http: MH_HMIX | MH_SPACE,
             tlsminor: Some(1),
             window_clamp: Some(2),
@@ -847,6 +852,7 @@ mod tests {
         group.actions.udp_chain.push(UdpChainStep {
             kind: UdpChainStepKind::FakeBurst,
             count: 1,
+            split_bytes: 0,
             activation_filter: None,
         });
         assert!(group.is_actionable());
@@ -930,7 +936,8 @@ mod tests {
         group.actions.tcp_chain.push(step.clone());
         assert_eq!(group.effective_tcp_chain(), vec![step]);
 
-        let udp_step = UdpChainStep { kind: UdpChainStepKind::QuicSniSplit, count: 1, activation_filter: None };
+        let udp_step =
+            UdpChainStep { kind: UdpChainStepKind::QuicSniSplit, count: 1, split_bytes: 0, activation_filter: None };
         group.actions.udp_chain.push(udp_step);
         assert_eq!(group.effective_udp_chain(), group.actions.udp_chain);
     }

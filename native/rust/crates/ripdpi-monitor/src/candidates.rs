@@ -237,8 +237,9 @@ pub(crate) fn build_tcp_candidates(base: &ProxyUiConfig) -> Vec<StrategyCandidat
     let tlsrec_fakeddisorder = build_tlsrec_fake_approx_candidate(base, "fakeddisorder");
     let tlsrec_hostfake = build_tlsrec_hostfake_candidate(base, false);
     let tlsrec_hostfake_split = build_tlsrec_hostfake_candidate(base, true);
+    let ipfrag_capable = supports_dual_stack_ip_fragmentation();
 
-    vec![
+    let mut candidates = vec![
         candidate_spec("baseline_current", "Current strategy", "baseline", baseline),
         candidate_spec("parser_only", "Parser-only", "parser", parser_only),
         candidate_spec("parser_unixeol", "Parser + Unix EOL", "parser_aggressive", parser_unixeol),
@@ -278,7 +279,17 @@ pub(crate) fn build_tcp_candidates(base: &ProxyUiConfig) -> Vec<StrategyCandidat
             tlsrec_hostfake_split,
             vec!["Adds a follow-up split after hostfake midhost reconstruction"],
         ),
-    ]
+    ];
+    if ipfrag_capable {
+        candidates.push(candidate_spec_with_notes(
+            "ipfrag2",
+            "IP fragmentation",
+            "ipfrag2",
+            build_ipfrag_candidate(base),
+            vec!["VPN-only raw-socket TCP fragmentation of the first application-data segment"],
+        ));
+    }
+    candidates
 }
 
 pub(crate) fn build_full_matrix_tcp_candidates(base: &ProxyUiConfig) -> Vec<StrategyCandidateSpec> {
@@ -293,7 +304,7 @@ pub(crate) fn build_full_matrix_tcp_candidates(base: &ProxyUiConfig) -> Vec<Stra
 }
 
 pub(crate) fn build_quic_candidates(base_tcp: &ProxyUiConfig) -> Vec<StrategyCandidateSpec> {
-    vec![
+    let mut candidates = vec![
         candidate_spec(
             "quic_disabled",
             "QUIC disabled",
@@ -314,7 +325,17 @@ pub(crate) fn build_quic_candidates(base_tcp: &ProxyUiConfig) -> Vec<StrategyCan
             build_quic_candidate(base_tcp, true, "realistic_initial"),
             vec!["Uses realistic QUIC Initial packets with the target SNI"],
         ),
-    ]
+    ];
+    if supports_dual_stack_ip_fragmentation() {
+        candidates.push(candidate_spec_with_notes(
+            "quic_ipfrag2",
+            "QUIC IP fragmentation",
+            "quic_ipfrag2",
+            build_quic_ipfrag_candidate(base_tcp),
+            vec!["VPN-only raw-socket fragmentation of the first QUIC Initial datagram"],
+        ));
+    }
+    candidates
 }
 
 pub(crate) fn candidate_spec(
@@ -477,13 +498,38 @@ pub(crate) fn build_quic_candidate(base_tcp: &ProxyUiConfig, enabled: bool, prof
     let mut config = sanitize_current_probe_config(base_tcp);
     config.protocols.desync_udp = enabled;
     config.chains.udp_steps = if enabled {
-        vec![ProxyUiUdpChainStep { kind: "fake_burst".to_string(), count: 4, activation_filter: None }]
+        vec![ProxyUiUdpChainStep { kind: "fake_burst".to_string(), count: 4, split_bytes: 0, activation_filter: None }]
     } else {
         Vec::new()
     };
     config.quic.fake_profile = profile.to_string();
     config.quic.fake_host.clear();
     config
+}
+
+pub(crate) fn build_ipfrag_candidate(base: &ProxyUiConfig) -> ProxyUiConfig {
+    let mut config = strategy_probe_base(base);
+    config.chains.tcp_steps = vec![tcp_step("ipfrag2", "host+2")];
+    config
+}
+
+pub(crate) fn build_quic_ipfrag_candidate(base_tcp: &ProxyUiConfig) -> ProxyUiConfig {
+    let mut config = sanitize_current_probe_config(base_tcp);
+    config.protocols.desync_udp = true;
+    config.chains.udp_steps = vec![ProxyUiUdpChainStep {
+        kind: "ipfrag2_udp".to_string(),
+        count: 0,
+        split_bytes: 8,
+        activation_filter: None,
+    }];
+    config.quic.fake_profile = "disabled".to_string();
+    config.quic.fake_host.clear();
+    config
+}
+
+fn supports_dual_stack_ip_fragmentation() -> bool {
+    let capabilities = ripdpi_runtime::platform::probe_ip_fragmentation_capabilities(None).unwrap_or_default();
+    capabilities.raw_ipv4 && capabilities.raw_ipv6 && capabilities.tcp_repair
 }
 
 pub(crate) fn build_activation_window_split_spec(base: &ProxyUiConfig) -> StrategyCandidateSpec {
@@ -625,6 +671,17 @@ mod tests {
         assert_eq!(ech_tlsrec.config.chains.tcp_steps[0].kind, "tlsrec");
         assert_eq!(ech_tlsrec.config.chains.tcp_steps[0].marker, "echext");
         assert!(ech_tlsrec.notes.iter().any(|note| note.contains("ECH-capable HTTPS path")));
+    }
+
+    #[test]
+    fn ipfrag_candidates_follow_platform_capability_probe() {
+        let base = minimal_ui_config();
+        let tcp_candidates = build_tcp_candidates(&base);
+        let quic_candidates = build_quic_candidates(&base);
+        let ipfrag_capable = supports_dual_stack_ip_fragmentation();
+
+        assert_eq!(tcp_candidates.iter().any(|candidate| candidate.id == "ipfrag2"), ipfrag_capable);
+        assert_eq!(quic_candidates.iter().any(|candidate| candidate.id == "quic_ipfrag2"), ipfrag_capable);
     }
 
     #[test]

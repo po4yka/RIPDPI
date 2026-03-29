@@ -28,6 +28,7 @@ import com.poyka.ripdpi.data.FakeTlsSniModeFixed
 import com.poyka.ripdpi.data.isAdaptiveOffsetExpression
 import com.poyka.ripdpi.data.isValidOffsetExpression
 import com.poyka.ripdpi.data.parseStrategyChainDsl
+import com.poyka.ripdpi.data.validateStrategyChainUsage
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.cards.SettingsRow
 import com.poyka.ripdpi.ui.components.indicators.StatusIndicatorTone
@@ -711,7 +712,17 @@ private fun ChainEditorWithCollapsibleHelp(
         placeholder = stringResource(R.string.config_placeholder_chain_dsl),
         enabled = visualEditorEnabled,
         multiline = true,
-        validator = { parseStrategyChainDsl(it).isSuccess },
+        validator = { value ->
+            parseStrategyChainDsl(value)
+                .map { chain ->
+                    validateStrategyChainUsage(
+                        tcpSteps = chain.tcpSteps,
+                        udpSteps = chain.udpSteps,
+                        mode = uiState.selectedMode,
+                        useCommandLineSettings = uiState.enableCmdSettings,
+                    )
+                }.isSuccess
+        },
         invalidMessage = stringResource(R.string.config_error_invalid_chain),
         disabledMessage = stringResource(R.string.advanced_settings_visual_controls_disabled),
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Ascii, imeAction = ImeAction.Done),
