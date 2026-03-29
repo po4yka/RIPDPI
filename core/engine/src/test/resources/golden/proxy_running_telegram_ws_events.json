@@ -53,8 +53,8 @@
         {
             "createdAt": 2,
             "fingerprintHash": null,
-            "level": "info",
-            "message": "ws tunnel escalation target=149.154.167.91:443 dc=2 result=fallback",
+            "level": "warn",
+            "message": "ws tunnel escalation target=149.154.167.91:443 dc=2 result=failed",
             "mode": null,
             "policySignature": null,
             "runtimeId": null,
