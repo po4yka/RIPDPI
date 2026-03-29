@@ -11,7 +11,7 @@ mod udp;
 use std::io;
 use std::net::TcpListener;
 
-use ripdpi_config::RuntimeConfig;
+use ripdpi_config::{RuntimeConfig, TcpChainStepKind, UdpChainStepKind};
 
 use self::listeners::{build_listener, run_proxy_with_listener_internal};
 use crate::EmbeddedProxyControl;
@@ -22,7 +22,42 @@ pub fn run_proxy(config: RuntimeConfig) -> io::Result<()> {
 }
 
 pub fn create_listener(config: &RuntimeConfig) -> io::Result<TcpListener> {
+    validate_ip_fragmentation_support(config)?;
     build_listener(config)
+}
+
+fn validate_ip_fragmentation_support(config: &RuntimeConfig) -> io::Result<()> {
+    let requires_tcp_repair = config
+        .groups
+        .iter()
+        .flat_map(|group| group.effective_tcp_chain())
+        .any(|step| step.kind == TcpChainStepKind::IpFrag2);
+    let requires_raw_sockets = requires_tcp_repair
+        || config
+            .groups
+            .iter()
+            .flat_map(|group| group.effective_udp_chain())
+            .any(|step| step.kind == UdpChainStepKind::IpFrag2Udp);
+    if !requires_raw_sockets {
+        return Ok(());
+    }
+
+    let capabilities = crate::platform::probe_ip_fragmentation_capabilities(config.process.protect_path.as_deref())?;
+    let mut missing = Vec::new();
+    if !capabilities.raw_ipv4 {
+        missing.push("raw IPv4 sockets");
+    }
+    if config.network.ipv6 && !capabilities.raw_ipv6 {
+        missing.push("raw IPv6 sockets");
+    }
+    if requires_tcp_repair && !capabilities.tcp_repair {
+        missing.push("TCP repair");
+    }
+    if missing.is_empty() {
+        Ok(())
+    } else {
+        Err(io::Error::new(io::ErrorKind::Unsupported, format!("ipfrag2 requires {}", missing.join(", "))))
+    }
 }
 
 pub fn run_proxy_with_listener(config: RuntimeConfig, listener: TcpListener) -> io::Result<()> {

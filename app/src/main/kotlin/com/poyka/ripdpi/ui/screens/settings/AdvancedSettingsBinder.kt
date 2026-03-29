@@ -34,6 +34,7 @@ import com.poyka.ripdpi.data.rewritePrimaryTcpMarker
 import com.poyka.ripdpi.data.setGroupActivationFilterCompat
 import com.poyka.ripdpi.data.setStrategyChains
 import com.poyka.ripdpi.data.supportsAdaptiveMarker
+import com.poyka.ripdpi.data.validateStrategyChainUsage
 import com.poyka.ripdpi.ui.components.feedback.WarningBannerTone
 
 private const val MinTtl = 1
@@ -163,8 +164,19 @@ private class AdvancedSettingsMutationWriter(
         }
     }
 
-    fun updateChainDsl(value: String) {
+    fun updateChainDsl(
+        value: String,
+        uiState: SettingsUiState,
+    ) {
         val parsed = parseStrategyChainDsl(value).getOrNull() ?: return
+        runCatching {
+            validateStrategyChainUsage(
+                tcpSteps = parsed.tcpSteps,
+                udpSteps = parsed.udpSteps,
+                mode = uiState.selectedMode,
+                useCommandLineSettings = uiState.enableCmdSettings,
+            )
+        }.getOrNull() ?: return
         updateValue("chainDsl", value) {
             setStrategyChains(parsed.tcpSteps, parsed.udpSteps)
         }
@@ -650,7 +662,7 @@ private val textHandlers: Map<AdvancedTextSetting, TextHandler> =
         AdvancedTextSetting.BufferSize to
             { value, _ -> updateIntValue("bufferSize", value) { bufferSize -> { setBufferSize(bufferSize) } } },
         AdvancedTextSetting.DefaultTtl to { value, _ -> updateDefaultTtl(value) },
-        AdvancedTextSetting.ChainDsl to { value, _ -> updateChainDsl(value) },
+        AdvancedTextSetting.ChainDsl to { value, uiState -> updateChainDsl(value, uiState) },
         AdvancedTextSetting.ActivationRoundFrom to
             { value, uiState ->
                 updateActivationRangeBoundary(

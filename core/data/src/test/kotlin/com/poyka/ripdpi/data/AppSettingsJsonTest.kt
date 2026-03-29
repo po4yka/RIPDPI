@@ -98,17 +98,6 @@ class AppSettingsJsonTest {
                                 marker = "sniext+2",
                             ),
                             TcpChainStepModel(
-                                kind = TcpChainStepKind.HostFake,
-                                marker = "endhost+8",
-                                midhostMarker = "midsld",
-                                fakeHostTemplate = "googlevideo.com",
-                                activationFilter =
-                                    ActivationFilterModel(
-                                        round = NumericRangeModel(start = 1, end = 1),
-                                        payloadSize = NumericRangeModel(start = 32, end = 256),
-                                    ),
-                            ),
-                            TcpChainStepModel(
                                 kind = TcpChainStepKind.TlsRandRec,
                                 marker = "sniext+4",
                                 fragmentCount = 5,
@@ -117,6 +106,17 @@ class AppSettingsJsonTest {
                                 activationFilter =
                                     ActivationFilterModel(
                                         streamBytes = NumericRangeModel(start = 0, end = 1199),
+                                    ),
+                            ),
+                            TcpChainStepModel(
+                                kind = TcpChainStepKind.HostFake,
+                                marker = "endhost+8",
+                                midhostMarker = "midsld",
+                                fakeHostTemplate = "googlevideo.com",
+                                activationFilter =
+                                    ActivationFilterModel(
+                                        round = NumericRangeModel(start = 1, end = 1),
+                                        payloadSize = NumericRangeModel(start = 32, end = 256),
                                     ),
                             ),
                         ),

@@ -11,6 +11,7 @@ pub fn plan_udp(group: &DesyncGroup, payload: &[u8], default_ttl: u8, context: A
         return vec![DesyncAction::Write(payload.to_vec())];
     }
     let mut actions = Vec::new();
+    let mut wrote_original = false;
     let chain = group.effective_udp_chain();
     if group.actions.drop_sack {
         actions.push(DesyncAction::AttachDropSack);
@@ -19,7 +20,10 @@ pub fn plan_udp(group: &DesyncGroup, payload: &[u8], default_ttl: u8, context: A
         let parsed_quic = parse_quic_initial(payload);
         let mut fake_burst_payload = None;
         for step in chain {
-            if !activation_filter_matches(step.activation_filter, context) || step.count <= 0 {
+            if !activation_filter_matches(step.activation_filter, context) {
+                continue;
+            }
+            if step.kind != UdpChainStepKind::IpFrag2Udp && step.count <= 0 {
                 continue;
             }
             let prelude_packets = match step.kind {
@@ -37,6 +41,16 @@ pub fn plan_udp(group: &DesyncGroup, payload: &[u8], default_ttl: u8, context: A
                 UdpChainStepKind::QuicFakeVersion => {
                     build_quic_fake_version_packets(group, payload, parsed_quic.as_ref(), step.count)
                 }
+                UdpChainStepKind::IpFrag2Udp => {
+                    if context.round == 1 && parsed_quic.is_some() && step.split_bytes > 0 {
+                        actions.push(DesyncAction::WriteIpFragmentedUdp {
+                            bytes: payload.to_vec(),
+                            split_offset: step.split_bytes as usize,
+                        });
+                        wrote_original = true;
+                    }
+                    Vec::new()
+                }
             };
             if prelude_packets.is_empty() {
                 continue;
@@ -51,7 +65,9 @@ pub fn plan_udp(group: &DesyncGroup, payload: &[u8], default_ttl: u8, context: A
             }
         }
     }
-    actions.push(DesyncAction::Write(payload.to_vec()));
+    if !wrote_original {
+        actions.push(DesyncAction::Write(payload.to_vec()));
+    }
     if group.actions.drop_sack {
         actions.push(DesyncAction::DetachDropSack);
     }

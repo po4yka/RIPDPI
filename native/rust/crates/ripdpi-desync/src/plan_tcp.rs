@@ -131,6 +131,19 @@ pub fn plan_tcp(
         let mut planned_kind = step.kind;
 
         match step.kind {
+            TcpChainStepKind::IpFrag2 => {
+                if context.round == 1 && pos > 0 && pos < tampered.bytes.len() as i64 {
+                    actions.push(DesyncAction::WriteIpFragmentedTcp {
+                        bytes: tampered.bytes.clone(),
+                        split_offset: pos as usize,
+                    });
+                } else {
+                    actions.push(DesyncAction::Write(tampered.bytes[lp as usize..].to_vec()));
+                }
+                steps.push(PlannedStep { kind: planned_kind, start: lp, end: pos });
+                lp = tampered.bytes.len() as i64;
+                continue;
+            }
             TcpChainStepKind::Split => {
                 push_split_actions(&mut actions, chunk);
             }

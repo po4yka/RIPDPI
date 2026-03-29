@@ -13,6 +13,7 @@ members = [
     "crates/ripdpi-telemetry",
     "crates/ripdpi-android",
     "crates/ripdpi-packets",
+    "crates/ripdpi-ipfrag",
     "crates/ripdpi-session",
     "crates/ripdpi-ws-tunnel",
     "crates/ripdpi-config",
@@ -42,6 +43,7 @@ ripdpi-monitor = { path = "crates/ripdpi-monitor" }
 ripdpi-runtime = { path = "crates/ripdpi-runtime" }
 ripdpi-telemetry = { path = "crates/ripdpi-telemetry" }
 ripdpi-packets = { path = "crates/ripdpi-packets" }
+ripdpi-ipfrag = { path = "crates/ripdpi-ipfrag" }
 ripdpi-session = { path = "crates/ripdpi-session" }
 ripdpi-ws-tunnel = { path = "crates/ripdpi-ws-tunnel" }
 ripdpi-config = { path = "crates/ripdpi-config" }

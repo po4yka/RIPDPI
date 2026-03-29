@@ -94,6 +94,8 @@ pub struct HostFakeSpan {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum DesyncAction {
     Write(Vec<u8>),
+    WriteIpFragmentedTcp { bytes: Vec<u8>, split_offset: usize },
+    WriteIpFragmentedUdp { bytes: Vec<u8>, split_offset: usize },
     WriteUrgent { prefix: Vec<u8>, urgent_byte: u8 },
     SetTtl(u8),
     RestoreDefaultTtl,

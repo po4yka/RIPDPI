@@ -7,6 +7,7 @@ import kotlinx.serialization.Serializable
 
 private const val TcpSection = "tcp"
 private const val UdpSection = "udp"
+private const val IpFragmentAlignmentBytes = 8
 
 @Serializable
 enum class TcpChainStepKind(
@@ -22,6 +23,7 @@ enum class TcpChainStepKind(
     Disoob("disoob"),
     TlsRec("tlsrec"),
     TlsRandRec("tlsrandrec"),
+    IpFrag2("ipfrag2"),
     ;
 
     companion object {
@@ -52,6 +54,7 @@ fun TcpChainStepKind.desyncMethodLabel(): String? =
         TcpChainStepKind.Disoob -> "disoob"
         TcpChainStepKind.TlsRec -> null
         TcpChainStepKind.TlsRandRec -> null
+        TcpChainStepKind.IpFrag2 -> "ipfrag2"
     }
 
 @Serializable
@@ -71,6 +74,7 @@ enum class UdpChainStepKind(
     val wireName: String,
 ) {
     FakeBurst("fake_burst"),
+    IpFrag2Udp("ipfrag2_udp"),
     ;
 
     companion object {
@@ -86,6 +90,7 @@ enum class UdpChainStepKind(
 data class UdpChainStepModel(
     val count: Int,
     val kind: UdpChainStepKind = UdpChainStepKind.FakeBurst,
+    val splitBytes: Int = 0,
     val activationFilter: ActivationFilterModel = ActivationFilterModel(),
 )
 
@@ -94,6 +99,29 @@ data class StrategyChainSet(
     val tcpSteps: List<TcpChainStepModel> = emptyList(),
     val udpSteps: List<UdpChainStepModel> = emptyList(),
 )
+
+fun StrategyChainSet.usesIpFragmentation(): Boolean = usesIpFragmentation(tcpSteps = tcpSteps, udpSteps = udpSteps)
+
+fun usesIpFragmentation(
+    tcpSteps: List<TcpChainStepModel>,
+    udpSteps: List<UdpChainStepModel>,
+): Boolean =
+    tcpSteps.any { it.kind == TcpChainStepKind.IpFrag2 } ||
+        udpSteps.any { it.kind == UdpChainStepKind.IpFrag2Udp }
+
+fun validateStrategyChainUsage(
+    tcpSteps: List<TcpChainStepModel>,
+    udpSteps: List<UdpChainStepModel>,
+    mode: Mode,
+    useCommandLineSettings: Boolean,
+) {
+    validateTcpChain(tcpSteps)
+    validateUdpChain(udpSteps)
+    if (usesIpFragmentation(tcpSteps = tcpSteps, udpSteps = udpSteps)) {
+        require(mode == Mode.VPN) { "ipfrag2 is only supported in VPN mode" }
+        require(!useCommandLineSettings) { "ipfrag2 is not supported while command line settings are enabled" }
+    }
+}
 
 fun AppSettings.effectiveTcpChainSteps(): List<TcpChainStepModel> =
     if (tcpChainStepsCount > 0) {
@@ -223,8 +251,22 @@ fun parseStrategyChainDsl(source: String): Result<StrategyChainSet> =
                         UdpChainStepKind.fromWireName(parts[0])
                             ?: error("Unknown UDP step '${parts[0]}' on line ${index + 1}")
                     val tokens = parts[1].split(Regex("\\s+")).filter { it.isNotBlank() }
-                    val count = tokens.firstOrNull()?.toIntOrNull() ?: error("Invalid UDP count on line ${index + 1}")
-                    require(count >= 0) { "Invalid UDP count on line ${index + 1}" }
+                    val primaryValue =
+                        tokens.firstOrNull()?.toIntOrNull()
+                            ?: error(
+                                if (kind == UdpChainStepKind.IpFrag2Udp) {
+                                    "Invalid UDP splitBytes on line ${index + 1}"
+                                } else {
+                                    "Invalid UDP count on line ${index + 1}"
+                                },
+                            )
+                    require(primaryValue >= 0) {
+                        if (kind == UdpChainStepKind.IpFrag2Udp) {
+                            "Invalid UDP splitBytes on line ${index + 1}"
+                        } else {
+                            "Invalid UDP count on line ${index + 1}"
+                        }
+                    }
                     var activationFilter = ActivationFilterModel()
                     tokens.drop(1).forEach { token ->
                         val (key, value) =
@@ -238,7 +280,15 @@ fun parseStrategyChainDsl(source: String): Result<StrategyChainSet> =
                                 lineNumber = index + 1,
                             )
                     }
-                    udpSteps += UdpChainStepModel(kind = kind, count = count, activationFilter = activationFilter)
+                    udpSteps +=
+                        normalizeUdpChainStepModel(
+                            UdpChainStepModel(
+                                kind = kind,
+                                count = if (kind == UdpChainStepKind.IpFrag2Udp) 0 else primaryValue,
+                                splitBytes = if (kind == UdpChainStepKind.IpFrag2Udp) primaryValue else 0,
+                                activationFilter = activationFilter,
+                            ),
+                        )
                 }
 
                 else -> {
@@ -248,6 +298,7 @@ fun parseStrategyChainDsl(source: String): Result<StrategyChainSet> =
         }
 
         validateTcpChain(tcpSteps)
+        validateUdpChain(udpSteps)
         StrategyChainSet(tcpSteps = tcpSteps, udpSteps = udpSteps)
     }
 
@@ -256,6 +307,8 @@ fun AppSettings.Builder.setStrategyChains(
     udpSteps: List<UdpChainStepModel>,
 ): AppSettings.Builder =
     apply {
+        validateTcpChain(tcpSteps)
+        validateUdpChain(udpSteps)
         clearTcpChainSteps()
         tcpSteps.forEach { addTcpChainSteps(it.toProto()) }
         clearUdpChainSteps()
@@ -285,10 +338,13 @@ private fun StrategyTcpStep.toModelOrNull(): TcpChainStepModel? {
 
 private fun StrategyUdpStep.toModelOrNull(): UdpChainStepModel? {
     val resolvedKind = UdpChainStepKind.fromWireName(kind) ?: return null
-    return UdpChainStepModel(
-        kind = resolvedKind,
-        count = count,
-        activationFilter = if (hasActivationFilter()) activationFilter.toModel() else ActivationFilterModel(),
+    return normalizeUdpChainStepModel(
+        UdpChainStepModel(
+            kind = resolvedKind,
+            count = count,
+            splitBytes = splitBytes,
+            activationFilter = if (hasActivationFilter()) activationFilter.toModel() else ActivationFilterModel(),
+        ),
     )
 }
 
@@ -311,25 +367,39 @@ private fun TcpChainStepModel.toProto(): StrategyTcpStep =
     }
 
 private fun UdpChainStepModel.toProto(): StrategyUdpStep =
-    StrategyUdpStep
-        .newBuilder()
-        .setKind(kind.wireName)
-        .setCount(count.coerceAtLeast(0))
-        .apply {
-            if (!this@toProto.activationFilter.isEmpty) {
-                setActivationFilter(this@toProto.activationFilter.toProto())
-            }
-        }.build()
+    normalizeUdpChainStepModel(this).let { step ->
+        StrategyUdpStep
+            .newBuilder()
+            .setKind(step.kind.wireName)
+            .setCount(step.count.coerceAtLeast(0))
+            .setSplitBytes(step.splitBytes.coerceAtLeast(0))
+            .apply {
+                if (!step.activationFilter.isEmpty) {
+                    setActivationFilter(step.activationFilter.toProto())
+                }
+            }.build()
+    }
 
 private fun validateTcpChain(steps: List<TcpChainStepModel>) {
     var sawSendStep = false
+    var sawIpFrag2 = false
     steps.forEachIndexed { index, step ->
         when (step.kind) {
             TcpChainStepKind.TlsRec,
             TcpChainStepKind.TlsRandRec,
-            -> require(!sawSendStep) { "${step.kind.wireName} must be declared before tcp send steps" }
+            -> {
+                require(!sawSendStep) { "${step.kind.wireName} must be declared before tcp send steps" }
+            }
 
-            else -> sawSendStep = true
+            else -> {
+                sawSendStep = true
+                if (step.kind == TcpChainStepKind.IpFrag2) {
+                    sawIpFrag2 = true
+                    require(index == steps.lastIndex) { "ipfrag2 must be the only tcp send step" }
+                } else {
+                    require(!sawIpFrag2) { "ipfrag2 must be the only tcp send step" }
+                }
+            }
         }
         if (step.kind == TcpChainStepKind.FakeSplit || step.kind == TcpChainStepKind.FakeDisorder) {
             require(index == steps.lastIndex) {
@@ -337,6 +407,14 @@ private fun validateTcpChain(steps: List<TcpChainStepModel>) {
             }
         }
         validateTcpStepOptions(step)
+    }
+}
+
+private fun validateUdpChain(steps: List<UdpChainStepModel>) {
+    val normalized = steps.map(::normalizeUdpChainStepModel)
+    normalized.forEach(::validateUdpStepOptions)
+    if (normalized.any { it.kind == UdpChainStepKind.IpFrag2Udp }) {
+        require(normalized.size == 1) { "ipfrag2_udp must be the only udp chain step" }
     }
 }
 
@@ -403,10 +481,15 @@ private fun formatTcpStepDsl(step: TcpChainStepModel): String =
 
 private fun formatUdpStepSummary(step: UdpChainStepModel): String =
     buildString {
-        append(step.kind.wireName)
+        val normalized = normalizeUdpChainStepModel(step)
+        append(normalized.kind.wireName)
         append('(')
-        append(step.count.coerceAtLeast(0))
-        val filterSummary = formatActivationFilterSummary(step.activationFilter)
+        if (normalized.kind == UdpChainStepKind.IpFrag2Udp) {
+            append(normalized.splitBytes)
+        } else {
+            append(normalized.count.coerceAtLeast(0))
+        }
+        val filterSummary = formatActivationFilterSummary(normalized.activationFilter)
         if (filterSummary.isNotBlank()) {
             append(' ')
             append(filterSummary)
@@ -416,10 +499,15 @@ private fun formatUdpStepSummary(step: UdpChainStepModel): String =
 
 private fun formatUdpStepDsl(step: UdpChainStepModel): String =
     buildString {
-        append(step.kind.wireName)
+        val normalized = normalizeUdpChainStepModel(step)
+        append(normalized.kind.wireName)
         append(' ')
-        append(step.count.coerceAtLeast(0))
-        appendActivationDsl(this, step.activationFilter)
+        if (normalized.kind == UdpChainStepKind.IpFrag2Udp) {
+            append(normalized.splitBytes)
+        } else {
+            append(normalized.count.coerceAtLeast(0))
+        }
+        appendActivationDsl(this, normalized.activationFilter)
     }
 
 private fun parseTcpStep(
@@ -587,6 +675,18 @@ fun normalizeTcpChainStepModel(step: TcpChainStepModel): TcpChainStepModel =
         activationFilter = normalizeActivationFilter(step.activationFilter),
     )
 
+fun normalizeUdpChainStepModel(step: UdpChainStepModel): UdpChainStepModel =
+    step.copy(
+        count = if (step.kind == UdpChainStepKind.IpFrag2Udp) 0 else step.count.coerceAtLeast(0),
+        splitBytes =
+            if (step.kind == UdpChainStepKind.IpFrag2Udp) {
+                roundIpFragmentBoundary(step.splitBytes)
+            } else {
+                0
+            },
+        activationFilter = normalizeActivationFilter(step.activationFilter),
+    )
+
 val TcpChainStepKind.isTlsPrelude: Boolean
     get() = this == TcpChainStepKind.TlsRec || this == TcpChainStepKind.TlsRandRec
 
@@ -622,6 +722,27 @@ private fun normalizeFakeHostTemplate(
             }
     return if (isIpv4Literal) "" else trimmed
 }
+
+private fun validateUdpStepOptions(step: UdpChainStepModel) {
+    when (step.kind) {
+        UdpChainStepKind.FakeBurst -> {
+            require(step.count >= 0) { "fake_burst count must be non-negative" }
+            require(step.splitBytes == 0) { "fake_burst must not declare splitBytes" }
+        }
+
+        UdpChainStepKind.IpFrag2Udp -> {
+            require(step.count == 0) { "ipfrag2_udp must not declare count" }
+            require(step.splitBytes > 0) { "ipfrag2_udp splitBytes must be greater than zero" }
+        }
+    }
+}
+
+private fun roundIpFragmentBoundary(value: Int): Int =
+    if (value <= 0) {
+        0
+    } else {
+        ((value + IpFragmentAlignmentBytes - 1) / IpFragmentAlignmentBytes) * IpFragmentAlignmentBytes
+    }
 
 private fun appendActivationDsl(
     builder: StringBuilder,

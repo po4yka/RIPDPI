@@ -185,7 +185,13 @@ pub(super) fn udp_associate_loop(
                     let entry = flow_state
                         .get(&(sender, target))
                         .ok_or_else(|| io::Error::other("udp flow entry missing after insert"))?;
-                    execute_udp_actions(&entry.upstream, target, &actions)?;
+                    execute_udp_actions(
+                        &entry.upstream,
+                        target,
+                        &actions,
+                        state.config.network.default_ttl,
+                        protect_path.as_deref(),
+                    )?;
                 }
             }
             Err(err) if matches!(err.kind(), io::ErrorKind::WouldBlock | io::ErrorKind::TimedOut) => {}
@@ -394,17 +400,40 @@ pub(super) fn encode_socks5_udp_packet(sender: SocketAddr, payload: &[u8]) -> Ve
     packet
 }
 
-fn execute_udp_actions(upstream: &UdpSocket, target: SocketAddr, actions: &[DesyncAction]) -> io::Result<()> {
+fn execute_udp_actions(
+    upstream: &UdpSocket,
+    target: SocketAddr,
+    actions: &[DesyncAction],
+    default_ttl: u8,
+    protect_path: Option<&str>,
+) -> io::Result<()> {
     for action in actions {
         match action {
             DesyncAction::Write(bytes) => {
                 upstream.send(bytes)?;
             }
+            DesyncAction::WriteIpFragmentedUdp { bytes, split_offset } => {
+                match platform::send_ip_fragmented_udp(
+                    upstream,
+                    target,
+                    bytes,
+                    *split_offset,
+                    default_ttl,
+                    protect_path,
+                ) {
+                    Ok(()) => {}
+                    Err(err) if err.kind() == io::ErrorKind::InvalidInput => {
+                        upstream.send(bytes)?;
+                    }
+                    Err(err) => return Err(err),
+                }
+            }
             DesyncAction::SetTtl(ttl) => {
                 set_udp_ttl(upstream, target, *ttl)?;
             }
             DesyncAction::RestoreDefaultTtl => {}
-            DesyncAction::WriteUrgent { .. }
+            DesyncAction::WriteIpFragmentedTcp { .. }
+            | DesyncAction::WriteUrgent { .. }
             | DesyncAction::SetMd5Sig { .. }
             | DesyncAction::AttachDropSack
             | DesyncAction::DetachDropSack

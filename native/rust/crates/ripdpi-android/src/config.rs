@@ -86,7 +86,7 @@ mod tests {
     }
 
     fn udp_step(kind: &str, count: i32) -> ProxyUiUdpChainStep {
-        ProxyUiUdpChainStep { kind: kind.to_string(), count, activation_filter: None }
+        ProxyUiUdpChainStep { kind: kind.to_string(), count, split_bytes: 0, activation_filter: None }
     }
 
     fn minimal_ui_config() -> ProxyUiConfig {

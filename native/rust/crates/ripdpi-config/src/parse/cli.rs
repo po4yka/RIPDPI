@@ -250,6 +250,7 @@ pub fn parse_cli(args: &[String], startup: &StartupEnv) -> Result<ParseResult, C
                 group!().actions.udp_chain.push(UdpChainStep {
                     kind: UdpChainStepKind::QuicSniSplit,
                     count: 1,
+                    split_bytes: 0,
                     activation_filter: None,
                 });
             }
@@ -258,6 +259,7 @@ pub fn parse_cli(args: &[String], startup: &StartupEnv) -> Result<ParseResult, C
                 group!().actions.udp_chain.push(UdpChainStep {
                     kind: UdpChainStepKind::DummyPrepend,
                     count: 1,
+                    split_bytes: 0,
                     activation_filter: None,
                 });
             }
@@ -269,6 +271,7 @@ pub fn parse_cli(args: &[String], startup: &StartupEnv) -> Result<ParseResult, C
                 group!().actions.udp_chain.push(UdpChainStep {
                     kind: UdpChainStepKind::QuicFakeVersion,
                     count: 1,
+                    split_bytes: 0,
                     activation_filter: None,
                 });
             }
@@ -554,6 +557,7 @@ pub fn parse_cli(args: &[String], startup: &StartupEnv) -> Result<ParseResult, C
                     group!().actions.udp_chain.push(UdpChainStep {
                         kind: UdpChainStepKind::FakeBurst,
                         count,
+                        split_bytes: 0,
                         activation_filter: None,
                     });
                 }

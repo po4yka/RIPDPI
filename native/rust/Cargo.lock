@@ -2523,6 +2523,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "ripdpi-ipfrag"
+version = "0.1.0"
+dependencies = [
+ "etherparse",
+ "thiserror 2.0.18",
+]
+
+[[package]]
 name = "ripdpi-monitor"
 version = "0.1.0"
 dependencies = [
@@ -2598,6 +2606,7 @@ dependencies = [
  "ripdpi-desync",
  "ripdpi-dns-resolver",
  "ripdpi-failure-classifier",
+ "ripdpi-ipfrag",
  "ripdpi-packets",
  "ripdpi-proxy-config",
  "ripdpi-session",

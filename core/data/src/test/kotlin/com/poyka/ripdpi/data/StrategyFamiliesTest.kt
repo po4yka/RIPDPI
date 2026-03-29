@@ -8,6 +8,8 @@ class StrategyFamiliesTest {
     fun `strategy lane family labels cover ech families`() {
         assertEquals("ECH extension split", strategyLaneFamilyLabel("ech_split"))
         assertEquals("ECH TLS record split", strategyLaneFamilyLabel("ech_tlsrec"))
+        assertEquals("IP fragmentation", strategyLaneFamilyLabel("ipfrag2"))
+        assertEquals("QUIC IP fragmentation", strategyLaneFamilyLabel("quic_ipfrag2"))
     }
 
     @Test
@@ -36,6 +38,7 @@ class StrategyFamiliesTest {
         assertEquals(
             "quic_compat_burst",
             deriveQuicStrategyFamily(
+                udpSteps = listOf(UdpChainStepModel(kind = UdpChainStepKind.FakeBurst, count = 4)),
                 desyncUdp = true,
                 quicInitialMode = QuicInitialModeRouteAndCache,
                 quicFakeProfile = QuicFakeProfileCompatDefault,
@@ -44,9 +47,23 @@ class StrategyFamiliesTest {
         assertEquals(
             "quic_realistic_burst",
             deriveQuicStrategyFamily(
+                udpSteps = listOf(UdpChainStepModel(kind = UdpChainStepKind.FakeBurst, count = 4)),
                 desyncUdp = true,
                 quicInitialMode = QuicInitialModeRouteAndCache,
                 quicFakeProfile = QuicFakeProfileRealisticInitial,
+            ),
+        )
+    }
+
+    @Test
+    fun `quic lane reports ip fragmentation when configured`() {
+        assertEquals(
+            "quic_ipfrag2",
+            deriveQuicStrategyFamily(
+                udpSteps = listOf(UdpChainStepModel(count = 0, kind = UdpChainStepKind.IpFrag2Udp, splitBytes = 8)),
+                desyncUdp = true,
+                quicInitialMode = QuicInitialModeRouteAndCache,
+                quicFakeProfile = QuicFakeProfileDisabled,
             ),
         )
     }

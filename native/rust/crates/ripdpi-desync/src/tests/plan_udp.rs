@@ -31,8 +31,8 @@ fn plan_udp_wraps_fake_burst_and_drop_sack_actions() {
     let mut group = DesyncGroup::new(0);
     group.actions.drop_sack = true;
     group.actions.udp_chain = vec![
-        UdpChainStep { kind: UdpChainStepKind::FakeBurst, count: 1, activation_filter: None },
-        UdpChainStep { kind: UdpChainStepKind::FakeBurst, count: 2, activation_filter: None },
+        UdpChainStep { kind: UdpChainStepKind::FakeBurst, count: 1, split_bytes: 0, activation_filter: None },
+        UdpChainStep { kind: UdpChainStepKind::FakeBurst, count: 2, split_bytes: 0, activation_filter: None },
     ];
     group.actions.ttl = Some(7);
     group.actions.fake_data = Some(b"udp-fake".to_vec());
@@ -65,13 +65,14 @@ fn plan_udp_step_activation_filter_skips_filtered_fake_bursts() {
         UdpChainStep {
             kind: UdpChainStepKind::FakeBurst,
             count: 1,
+            split_bytes: 0,
             activation_filter: Some(ActivationFilter {
                 round: Some(NumericRange::new(2, 4)),
                 payload_size: None,
                 stream_bytes: None,
             }),
         },
-        UdpChainStep { kind: UdpChainStepKind::FakeBurst, count: 2, activation_filter: None },
+        UdpChainStep { kind: UdpChainStepKind::FakeBurst, count: 2, split_bytes: 0, activation_filter: None },
     ];
     group.actions.fake_data = Some(b"udp-fake".to_vec());
 
@@ -97,7 +98,7 @@ fn plan_udp_uses_generated_quic_fake_initial_when_profile_is_active() {
     group.actions.quic_fake_profile = QuicFakeProfile::RealisticInitial;
     group.actions.quic_fake_host = Some("video.example.test".to_string());
     group.actions.udp_chain =
-        vec![UdpChainStep { kind: UdpChainStepKind::FakeBurst, count: 1, activation_filter: None }];
+        vec![UdpChainStep { kind: UdpChainStepKind::FakeBurst, count: 1, split_bytes: 0, activation_filter: None }];
     let payload = build_realistic_quic_initial(QUIC_V2_VERSION, Some("source.example.test")).expect("input quic");
 
     let actions = plan_udp(&group, &payload, 64, udp_context(&payload));
@@ -117,7 +118,7 @@ fn plan_udp_adaptive_profiles_tune_burst_count_and_quic_fake_payload() {
     group.actions.quic_fake_profile = QuicFakeProfile::RealisticInitial;
     group.actions.quic_fake_host = Some("video.example.test".to_string());
     group.actions.udp_chain =
-        vec![UdpChainStep { kind: UdpChainStepKind::FakeBurst, count: 2, activation_filter: None }];
+        vec![UdpChainStep { kind: UdpChainStepKind::FakeBurst, count: 2, split_bytes: 0, activation_filter: None }];
     let payload = build_realistic_quic_initial(QUIC_V2_VERSION, Some("source.example.test")).expect("input quic");
 
     let balanced = plan_udp(&group, &payload, 64, udp_context(&payload));
@@ -139,7 +140,7 @@ fn plan_udp_falls_back_to_raw_fake_payload_for_non_quic_input() {
     let mut group = DesyncGroup::new(0);
     group.actions.quic_fake_profile = QuicFakeProfile::CompatDefault;
     group.actions.udp_chain =
-        vec![UdpChainStep { kind: UdpChainStepKind::FakeBurst, count: 1, activation_filter: None }];
+        vec![UdpChainStep { kind: UdpChainStepKind::FakeBurst, count: 1, split_bytes: 0, activation_filter: None }];
     group.actions.fake_data = Some(b"udp-fake".to_vec());
 
     let actions = plan_udp(&group, b"payload", 64, udp_context(b"payload"));
@@ -161,7 +162,7 @@ fn plan_udp_dummy_prepend_emits_random_non_quic_datagrams() {
     let mut group = DesyncGroup::new(0);
     group.actions.ttl = Some(6);
     group.actions.udp_chain =
-        vec![UdpChainStep { kind: UdpChainStepKind::DummyPrepend, count: 2, activation_filter: None }];
+        vec![UdpChainStep { kind: UdpChainStepKind::DummyPrepend, count: 2, split_bytes: 0, activation_filter: None }];
 
     let actions = plan_udp(&group, b"payload", 64, udp_context(b"payload"));
 
@@ -187,7 +188,7 @@ fn plan_udp_dummy_prepend_emits_random_non_quic_datagrams() {
 fn plan_udp_quic_sni_split_emits_tampered_quic_initials() {
     let mut group = DesyncGroup::new(0);
     group.actions.udp_chain =
-        vec![UdpChainStep { kind: UdpChainStepKind::QuicSniSplit, count: 2, activation_filter: None }];
+        vec![UdpChainStep { kind: UdpChainStepKind::QuicSniSplit, count: 2, split_bytes: 0, activation_filter: None }];
     let payload = build_realistic_quic_initial(QUIC_V2_VERSION, Some("docs.example.test")).expect("input quic");
     let parsed = parse_quic_initial(&payload).expect("parse input quic");
     let expected = tamper_quic_initial_split_sni(&payload, parsed.tls_info.host_start).expect("tamper split");
@@ -211,8 +212,12 @@ fn plan_udp_quic_sni_split_emits_tampered_quic_initials() {
 fn plan_udp_quic_fake_version_emits_tampered_long_headers() {
     let mut group = DesyncGroup::new(0);
     group.actions.quic_fake_version = 0x1a2b_3c4d;
-    group.actions.udp_chain =
-        vec![UdpChainStep { kind: UdpChainStepKind::QuicFakeVersion, count: 2, activation_filter: None }];
+    group.actions.udp_chain = vec![UdpChainStep {
+        kind: UdpChainStepKind::QuicFakeVersion,
+        count: 2,
+        split_bytes: 0,
+        activation_filter: None,
+    }];
     let payload = build_realistic_quic_initial(QUIC_V2_VERSION, Some("docs.example.test")).expect("input quic");
     let expected = tamper_quic_version(&payload, group.actions.quic_fake_version).expect("tamper version");
 
@@ -232,12 +237,35 @@ fn plan_udp_quic_fake_version_emits_tampered_long_headers() {
 }
 
 #[test]
+fn plan_udp_ipfrag2_emits_fragmented_write_for_quic_initial() {
+    let mut group = DesyncGroup::new(0);
+    group.actions.udp_chain =
+        vec![UdpChainStep { kind: UdpChainStepKind::IpFrag2Udp, count: 0, split_bytes: 8, activation_filter: None }];
+    let payload = build_realistic_quic_initial(QUIC_V2_VERSION, Some("docs.example.test")).expect("input quic");
+
+    let actions = plan_udp(&group, &payload, 64, udp_context(&payload));
+
+    assert_eq!(actions, vec![DesyncAction::WriteIpFragmentedUdp { bytes: payload, split_offset: 8 }]);
+}
+
+#[test]
+fn plan_udp_ipfrag2_falls_back_to_normal_write_for_non_quic_payload() {
+    let mut group = DesyncGroup::new(0);
+    group.actions.udp_chain =
+        vec![UdpChainStep { kind: UdpChainStepKind::IpFrag2Udp, count: 0, split_bytes: 8, activation_filter: None }];
+
+    let actions = plan_udp(&group, b"not-quic", 64, udp_context(b"not-quic"));
+
+    assert_eq!(actions, vec![DesyncAction::Write(b"not-quic".to_vec())]);
+}
+
+#[test]
 fn plan_udp_skips_quic_specific_steps_when_payload_is_not_quic() {
     let mut group = DesyncGroup::new(0);
     group.actions.udp_chain = vec![
-        UdpChainStep { kind: UdpChainStepKind::DummyPrepend, count: 1, activation_filter: None },
-        UdpChainStep { kind: UdpChainStepKind::QuicSniSplit, count: 1, activation_filter: None },
-        UdpChainStep { kind: UdpChainStepKind::QuicFakeVersion, count: 1, activation_filter: None },
+        UdpChainStep { kind: UdpChainStepKind::DummyPrepend, count: 1, split_bytes: 0, activation_filter: None },
+        UdpChainStep { kind: UdpChainStepKind::QuicSniSplit, count: 1, split_bytes: 0, activation_filter: None },
+        UdpChainStep { kind: UdpChainStepKind::QuicFakeVersion, count: 1, split_bytes: 0, activation_filter: None },
     ];
 
     let actions = plan_udp(&group, b"payload", 64, udp_context(b"payload"));
@@ -259,7 +287,7 @@ fn plan_udp_uses_selected_udp_profile_when_no_raw_fake_is_set() {
     let mut group = DesyncGroup::new(0);
     group.actions.udp_fake_profile = UdpFakeProfile::DnsQuery;
     group.actions.udp_chain =
-        vec![UdpChainStep { kind: UdpChainStepKind::FakeBurst, count: 1, activation_filter: None }];
+        vec![UdpChainStep { kind: UdpChainStepKind::FakeBurst, count: 1, split_bytes: 0, activation_filter: None }];
 
     let actions = plan_udp(&group, b"payload", 64, udp_context(b"payload"));
 

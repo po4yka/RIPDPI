@@ -301,6 +301,7 @@ internal object RipDpiProxyJsonCodec {
     private data class NativeUdpChainStep(
         val kind: String,
         val count: Int,
+        val splitBytes: Int = 0,
         val activationFilter: NativeActivationFilter? = null,
     )
 
@@ -587,6 +588,7 @@ internal object RipDpiProxyJsonCodec {
                         UdpChainStepModel(
                             kind = kind,
                             count = step.count,
+                            splitBytes = step.splitBytes,
                             activationFilter =
                                 step.activationFilter?.let(RangeCodec::toModel) ?: ActivationFilterModel(),
                         )
@@ -615,6 +617,7 @@ internal object RipDpiProxyJsonCodec {
                         NativeUdpChainStep(
                             kind = it.kind.wireName,
                             count = it.count,
+                            splitBytes = it.splitBytes,
                             activationFilter = RangeCodec.toNative(it.activationFilter),
                         )
                     },

@@ -12,6 +12,7 @@ data class StrategyLaneFamilies(
 fun AppSettings.deriveStrategyLaneFamilies(activeDns: ActiveDnsSettings = activeDnsSettings()): StrategyLaneFamilies =
     deriveStrategyLaneFamilies(
         tcpSteps = effectiveTcpChainSteps(),
+        udpSteps = effectiveUdpChainSteps(),
         desyncUdp = desyncUdp,
         quicInitialMode = effectiveQuicInitialMode(),
         quicFakeProfile = effectiveQuicFakeProfile(),
@@ -20,6 +21,7 @@ fun AppSettings.deriveStrategyLaneFamilies(activeDns: ActiveDnsSettings = active
 
 fun deriveStrategyLaneFamilies(
     tcpSteps: List<TcpChainStepModel>,
+    udpSteps: List<UdpChainStepModel>,
     desyncUdp: Boolean,
     quicInitialMode: String,
     quicFakeProfile: String,
@@ -29,6 +31,7 @@ fun deriveStrategyLaneFamilies(
         tcpStrategyFamily = deriveTcpStrategyFamily(tcpSteps),
         quicStrategyFamily =
             deriveQuicStrategyFamily(
+                udpSteps = udpSteps,
                 desyncUdp = desyncUdp,
                 quicInitialMode = quicInitialMode,
                 quicFakeProfile = quicFakeProfile,
@@ -50,6 +53,10 @@ fun deriveTcpStrategyFamily(tcpSteps: List<TcpChainStepModel>): String? {
     return when {
         primary.kind == TcpChainStepKind.HostFake -> {
             "hostfake"
+        }
+
+        primary.kind == TcpChainStepKind.IpFrag2 -> {
+            "ipfrag2"
         }
 
         primary.kind == TcpChainStepKind.FakeSplit || primary.kind == TcpChainStepKind.FakeDisorder -> {
@@ -80,11 +87,18 @@ fun deriveTcpStrategyFamily(tcpSteps: List<TcpChainStepModel>): String? {
 }
 
 fun deriveQuicStrategyFamily(
+    udpSteps: List<UdpChainStepModel>,
     desyncUdp: Boolean,
     quicInitialMode: String,
     quicFakeProfile: String,
 ): String {
     if (!desyncUdp || !quicInitialModeUsesRouting(quicInitialMode)) {
+        return "quic_disabled"
+    }
+    if (udpSteps.any { it.kind == UdpChainStepKind.IpFrag2Udp }) {
+        return "quic_ipfrag2"
+    }
+    if (udpSteps.none { it.kind == UdpChainStepKind.FakeBurst && it.count > 0 }) {
         return "quic_disabled"
     }
     return when (normalizeQuicFakeProfile(quicFakeProfile)) {
@@ -123,11 +137,13 @@ fun strategyLaneFamilyLabel(family: String): String =
         "disoob" -> "Disorder OOB"
         "tlsrec" -> "TLS record"
         "tlsrandrec" -> "TLS random record"
+        "ipfrag2" -> "IP fragmentation"
         "ech_split" -> "ECH extension split"
         "ech_tlsrec" -> "ECH TLS record split"
         "tlsrec_split" -> "TLS record split"
         "tlsrec_disorder" -> "TLS record disorder"
         "tlsrec_fake" -> "TLS record fake"
+        "quic_ipfrag2" -> "QUIC IP fragmentation"
         "quic_disabled" -> "QUIC disabled"
         "quic_compat_burst" -> "QUIC compat burst"
         "quic_realistic_burst" -> "QUIC realistic burst"

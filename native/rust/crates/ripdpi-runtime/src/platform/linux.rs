@@ -8,7 +8,7 @@
 //! Standard socket options use `socket2::SockRef` (see [`set_stream_ttl`]).
 //! Last audited: 2026-03-24 against socket2 0.5.10.
 
-use std::io::{self, Read};
+use std::io::{self, Read, Write};
 use std::mem::{size_of, zeroed};
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, TcpStream, UdpSocket};
 use std::os::fd::AsRawFd;
@@ -18,9 +18,10 @@ use std::thread;
 use std::time::{Duration, Instant};
 
 use ripdpi_desync::TcpSegmentHint;
-use socket2::SockRef;
+use ripdpi_ipfrag::{build_tcp_fragment_pair, build_udp_fragment_pair, TcpFragmentSpec, UdpFragmentSpec};
+use socket2::{Domain, Protocol, SockAddr, SockRef, Socket, Type};
 
-use super::TcpStageWait;
+use super::{IpFragmentationCapabilities, TcpStageWait};
 
 /// Thin wrapper around `libc::setsockopt` that handles the return-code check
 /// and `io::Error` conversion.
@@ -72,6 +73,26 @@ struct TcpMd5Sig {
 const SO_ORIGINAL_DST: libc::c_int = 80;
 const IP6T_SO_ORIGINAL_DST: libc::c_int = 80;
 const TCP_ESTABLISHED: u8 = 1;
+const TCP_REPAIR: libc::c_int = 19;
+const TCP_REPAIR_QUEUE: libc::c_int = 20;
+const TCP_QUEUE_SEQ: libc::c_int = 21;
+const TCP_REPAIR_OFF_NO_WP: libc::c_int = -1;
+const TCP_REPAIR_WINDOW: libc::c_int = 29;
+const TCP_REPAIR_ON: libc::c_int = 1;
+const TCP_REPAIR_OFF: libc::c_int = 0;
+const TCP_NO_QUEUE: libc::c_int = 0;
+const TCP_RECV_QUEUE: libc::c_int = 1;
+const TCP_SEND_QUEUE: libc::c_int = 2;
+
+#[repr(C)]
+#[derive(Clone, Copy, Debug, Default)]
+struct TcpRepairWindow {
+    snd_wl1: u32,
+    snd_wnd: u32,
+    max_window: u32,
+    rcv_wnd: u32,
+    rcv_wup: u32,
+}
 
 #[repr(C)]
 struct LinuxTcpInfo {
@@ -433,6 +454,87 @@ pub fn send_fake_tcp(
     result
 }
 
+pub fn probe_ip_fragmentation_capabilities(protect_path: Option<&str>) -> io::Result<IpFragmentationCapabilities> {
+    let raw_ipv4 =
+        probe_raw_socket(Domain::IPV4, libc::IPPROTO_RAW, protect_path, libc::IPPROTO_IP, libc::IP_HDRINCL).is_ok();
+    let raw_ipv6 =
+        probe_raw_socket(Domain::IPV6, libc::IPPROTO_RAW, protect_path, libc::IPPROTO_IPV6, libc::IPV6_HDRINCL).is_ok();
+    let tcp_repair = probe_tcp_repair(protect_path).is_ok();
+    Ok(IpFragmentationCapabilities { raw_ipv4, raw_ipv6, tcp_repair })
+}
+
+pub fn send_ip_fragmented_udp(
+    upstream: &UdpSocket,
+    target: SocketAddr,
+    payload: &[u8],
+    split_offset: usize,
+    default_ttl: u8,
+    protect_path: Option<&str>,
+) -> io::Result<()> {
+    let source = upstream.local_addr()?;
+    let ttl = resolve_raw_ttl(default_ttl);
+    let pair = build_udp_fragment_pair(
+        UdpFragmentSpec {
+            src: source,
+            dst: target,
+            ttl,
+            identification: fragment_identification(source, target, payload.len()),
+        },
+        payload,
+        split_offset,
+    )
+    .map_err(build_error_to_io)?;
+    send_raw_fragments(target, [&pair.first, &pair.second], protect_path)
+}
+
+pub fn send_ip_fragmented_tcp(
+    stream: &TcpStream,
+    payload: &[u8],
+    split_offset: usize,
+    default_ttl: u8,
+    protect_path: Option<&str>,
+) -> io::Result<()> {
+    let source = stream.local_addr()?;
+    let target = stream.peer_addr()?;
+    let ttl = get_stream_ttl(stream).unwrap_or_else(|_| resolve_raw_ttl(default_ttl));
+    let fd = stream.as_raw_fd();
+
+    set_tcp_repair(fd, TCP_REPAIR_ON)?;
+    let result = (|| -> io::Result<()> {
+        set_tcp_repair_queue(fd, TCP_SEND_QUEUE)?;
+        let sequence_number = get_tcp_queue_seq(fd)?;
+        let repair_window = get_tcp_repair_window(fd)?;
+
+        set_tcp_repair_queue(fd, TCP_RECV_QUEUE)?;
+        let acknowledgment_number = get_tcp_queue_seq(fd)?;
+
+        let pair = build_tcp_fragment_pair(
+            TcpFragmentSpec {
+                src: source,
+                dst: target,
+                ttl,
+                identification: fragment_identification(source, target, payload.len()),
+                sequence_number,
+                acknowledgment_number,
+                window_size: repair_window.rcv_wnd.min(u32::from(u16::MAX)) as u16,
+            },
+            payload,
+            split_offset,
+        )
+        .map_err(build_error_to_io)?;
+
+        set_tcp_repair_queue(fd, TCP_SEND_QUEUE)?;
+        (&*stream).write_all(payload)?;
+        set_tcp_repair_queue(fd, TCP_NO_QUEUE)?;
+        disable_tcp_repair(fd)?;
+        send_raw_fragments(target, [&pair.first, &pair.second], protect_path)
+    })();
+
+    let _ = set_tcp_repair_queue(fd, TCP_NO_QUEUE);
+    let _ = disable_tcp_repair(fd);
+    result
+}
+
 pub fn wait_tcp_stage(stream: &TcpStream, wait_send: bool, await_interval: Duration) -> io::Result<()> {
     wait_tcp_stage_fd(stream.as_raw_fd(), wait_send, await_interval)
 }
@@ -448,6 +550,100 @@ fn peer_addr(fd: libc::c_int) -> io::Result<libc::sockaddr_storage> {
     } else {
         Err(io::Error::last_os_error())
     }
+}
+
+fn probe_raw_socket(
+    domain: Domain,
+    protocol: libc::c_int,
+    protect_path: Option<&str>,
+    level: libc::c_int,
+    option_name: libc::c_int,
+) -> io::Result<()> {
+    let socket = Socket::new(domain, Type::RAW, Some(Protocol::from(protocol)))?;
+    if let Some(path) = protect_path {
+        protect_socket(&socket, path)?;
+    }
+    unsafe { setsockopt_raw(socket.as_raw_fd(), level, option_name, &1i32) }
+}
+
+fn probe_tcp_repair(protect_path: Option<&str>) -> io::Result<()> {
+    let socket = Socket::new(Domain::IPV4, Type::STREAM, Some(Protocol::TCP))?;
+    if let Some(path) = protect_path {
+        protect_socket(&socket, path)?;
+    }
+    let fd = socket.as_raw_fd();
+    set_tcp_repair(fd, TCP_REPAIR_ON)?;
+    disable_tcp_repair(fd)
+}
+
+fn resolve_raw_ttl(default_ttl: u8) -> u8 {
+    if default_ttl != 0 {
+        default_ttl
+    } else {
+        64
+    }
+}
+
+fn fragment_identification(source: SocketAddr, target: SocketAddr, payload_len: usize) -> u32 {
+    let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap_or_default().subsec_nanos();
+    let source_mix = u32::from(source.port()) << 16;
+    let target_mix = u32::from(target.port());
+    now ^ source_mix ^ target_mix ^ (payload_len as u32)
+}
+
+fn build_error_to_io(error: ripdpi_ipfrag::BuildError) -> io::Error {
+    match error {
+        ripdpi_ipfrag::BuildError::InvalidSplit { .. } => io::Error::new(io::ErrorKind::InvalidInput, error),
+        _ => io::Error::new(io::ErrorKind::InvalidData, error),
+    }
+}
+
+fn send_raw_fragments(target: SocketAddr, packets: [&[u8]; 2], protect_path: Option<&str>) -> io::Result<()> {
+    let socket = match target {
+        SocketAddr::V4(_) => {
+            let socket = Socket::new(Domain::IPV4, Type::RAW, Some(Protocol::from(libc::IPPROTO_RAW)))?;
+            if let Some(path) = protect_path {
+                protect_socket(&socket, path)?;
+            }
+            unsafe { setsockopt_raw(socket.as_raw_fd(), libc::IPPROTO_IP, libc::IP_HDRINCL, &1i32) }?;
+            socket
+        }
+        SocketAddr::V6(_) => {
+            let socket = Socket::new(Domain::IPV6, Type::RAW, Some(Protocol::from(libc::IPPROTO_RAW)))?;
+            if let Some(path) = protect_path {
+                protect_socket(&socket, path)?;
+            }
+            unsafe { setsockopt_raw(socket.as_raw_fd(), libc::IPPROTO_IPV6, libc::IPV6_HDRINCL, &1i32) }?;
+            socket
+        }
+    };
+    let sockaddr = SockAddr::from(target);
+    for packet in packets {
+        socket.send_to(packet, &sockaddr)?;
+    }
+    Ok(())
+}
+
+fn set_tcp_repair(fd: libc::c_int, value: libc::c_int) -> io::Result<()> {
+    unsafe { setsockopt_raw(fd, libc::IPPROTO_TCP, TCP_REPAIR, &value) }
+}
+
+fn set_tcp_repair_queue(fd: libc::c_int, value: libc::c_int) -> io::Result<()> {
+    unsafe { setsockopt_raw(fd, libc::IPPROTO_TCP, TCP_REPAIR_QUEUE, &value) }
+}
+
+fn get_tcp_queue_seq(fd: libc::c_int) -> io::Result<u32> {
+    let (value, _): (u32, _) = unsafe { getsockopt_raw(fd, libc::IPPROTO_TCP, TCP_QUEUE_SEQ) }?;
+    Ok(value)
+}
+
+fn get_tcp_repair_window(fd: libc::c_int) -> io::Result<TcpRepairWindow> {
+    let (value, _): (TcpRepairWindow, _) = unsafe { getsockopt_raw(fd, libc::IPPROTO_TCP, TCP_REPAIR_WINDOW) }?;
+    Ok(value)
+}
+
+fn disable_tcp_repair(fd: libc::c_int) -> io::Result<()> {
+    set_tcp_repair(fd, TCP_REPAIR_OFF_NO_WP).or_else(|_| set_tcp_repair(fd, TCP_REPAIR_OFF))
 }
 
 fn storage_to_socket_addr(storage: &libc::sockaddr_storage) -> io::Result<SocketAddr> {

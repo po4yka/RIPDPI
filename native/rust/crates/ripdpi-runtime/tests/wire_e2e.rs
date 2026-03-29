@@ -71,9 +71,9 @@ fn udp_quic_chain_config() -> ripdpi_config::RuntimeConfig {
     config.groups[0].actions.ttl = Some(8);
     config.groups[0].actions.quic_fake_version = 0x1a2b_3c4d;
     config.groups[0].actions.udp_chain = vec![
-        UdpChainStep { kind: UdpChainStepKind::DummyPrepend, count: 1, activation_filter: None },
-        UdpChainStep { kind: UdpChainStepKind::QuicSniSplit, count: 1, activation_filter: None },
-        UdpChainStep { kind: UdpChainStepKind::QuicFakeVersion, count: 1, activation_filter: None },
+        UdpChainStep { kind: UdpChainStepKind::DummyPrepend, count: 1, split_bytes: 0, activation_filter: None },
+        UdpChainStep { kind: UdpChainStepKind::QuicSniSplit, count: 1, split_bytes: 0, activation_filter: None },
+        UdpChainStep { kind: UdpChainStepKind::QuicFakeVersion, count: 1, split_bytes: 0, activation_filter: None },
     ];
     config
 }
