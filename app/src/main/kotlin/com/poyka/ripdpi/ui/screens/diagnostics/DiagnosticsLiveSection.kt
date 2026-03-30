@@ -27,10 +27,12 @@ import com.poyka.ripdpi.activities.DiagnosticsMetricUiModel
 import com.poyka.ripdpi.activities.DiagnosticsTone
 import com.poyka.ripdpi.ui.components.indicators.StatusIndicator
 import com.poyka.ripdpi.ui.components.navigation.SettingsCategoryHeader
+import com.poyka.ripdpi.ui.debug.TrackRecomposition
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
 @Composable
 internal fun LiveSection(live: DiagnosticsLiveUiModel) {
+    TrackRecomposition("LiveSection")
     LiveSectionContent(
         live = live,
     )
@@ -38,6 +40,7 @@ internal fun LiveSection(live: DiagnosticsLiveUiModel) {
 
 @Composable
 private fun LiveSectionContent(live: DiagnosticsLiveUiModel) {
+    TrackRecomposition("LiveSectionContent")
     val spacing = RipDpiThemeTokens.spacing
     val layout = RipDpiThemeTokens.layout
     LazyColumn(
@@ -103,6 +106,7 @@ private fun LiveSectionContent(live: DiagnosticsLiveUiModel) {
 
 @Composable
 internal fun LiveHeroCard(live: DiagnosticsLiveUiModel) {
+    TrackRecomposition("LiveHeroCard")
     val colors = RipDpiThemeTokens.colors
     val spacing = RipDpiThemeTokens.spacing
     val motion = RipDpiThemeTokens.motion
@@ -184,6 +188,7 @@ internal fun LiveHeroCard(live: DiagnosticsLiveUiModel) {
 
 @Composable
 internal fun LiveHighlightsGrid(highlights: List<DiagnosticsMetricUiModel>) {
+    TrackRecomposition("LiveHighlightsGrid")
     val spacing = RipDpiThemeTokens.spacing
     val rows = remember(highlights) { highlights.chunked(2) }
     Column(verticalArrangement = Arrangement.spacedBy(spacing.sm)) {

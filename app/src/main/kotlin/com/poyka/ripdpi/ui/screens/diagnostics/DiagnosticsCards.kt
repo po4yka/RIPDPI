@@ -72,6 +72,7 @@ import com.poyka.ripdpi.ui.components.cards.SettingsRow
 import com.poyka.ripdpi.ui.components.indicators.StatusIndicator
 import com.poyka.ripdpi.ui.components.indicators.StatusIndicatorTone
 import com.poyka.ripdpi.ui.components.navigation.SettingsCategoryHeader
+import com.poyka.ripdpi.ui.debug.TrackRecomposition
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiIconSizes
@@ -94,6 +95,7 @@ internal fun CollapsibleSection(
     defaultExpanded: Boolean = false,
     content: @Composable () -> Unit,
 ) {
+    TrackRecomposition("CollapsibleSection")
     val colors = RipDpiThemeTokens.colors
     val spacing = RipDpiThemeTokens.spacing
     var expanded by remember { mutableStateOf(defaultExpanded) }
@@ -262,6 +264,7 @@ internal fun ContextGroupCard(group: DiagnosticsContextGroupUiModel) {
 
 @Composable
 internal fun MetricsRow(metrics: List<DiagnosticsMetricUiModel>) {
+    TrackRecomposition("MetricsRow")
     val spacing = RipDpiThemeTokens.spacing
     if (metrics.isEmpty()) {
         return
@@ -318,6 +321,7 @@ internal fun TelemetryMetricCard(metric: DiagnosticsMetricUiModel) {
 
 @Composable
 internal fun TelemetrySparkline(trend: com.poyka.ripdpi.activities.DiagnosticsSparklineUiModel) {
+    TrackRecomposition("TelemetrySparkline")
     val colors = RipDpiThemeTokens.colors
     val spacing = RipDpiThemeTokens.spacing
     val motion = RipDpiThemeTokens.motion
@@ -684,6 +688,7 @@ internal fun SessionRow(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    TrackRecomposition("SessionRow")
     RipDpiCard(
         modifier = modifier,
         onClick = onClick,
@@ -899,6 +904,7 @@ internal fun ProbeResultRow(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    TrackRecomposition("ProbeResultRow")
     val colors = RipDpiThemeTokens.colors
     RipDpiCard(
         modifier = modifier,
@@ -945,6 +951,7 @@ internal fun EventRow(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    TrackRecomposition("EventRow")
     val colors = RipDpiThemeTokens.colors
     val friendlySummary = friendlyErrorSummary(event.message)
     RipDpiCard(
