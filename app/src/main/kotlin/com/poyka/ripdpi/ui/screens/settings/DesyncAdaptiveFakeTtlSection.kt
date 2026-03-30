@@ -6,6 +6,10 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -18,6 +22,10 @@ import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.cards.RipDpiCardVariant
+import com.poyka.ripdpi.ui.components.feedback.RipDpiDialog
+import com.poyka.ripdpi.ui.components.feedback.RipDpiDialogAction
+import com.poyka.ripdpi.ui.components.feedback.RipDpiDialogTone
+import com.poyka.ripdpi.ui.components.feedback.RipDpiDialogVisuals
 import com.poyka.ripdpi.ui.components.indicators.StatusIndicator
 import com.poyka.ripdpi.ui.components.indicators.StatusIndicatorTone
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
@@ -204,9 +212,36 @@ internal fun AdaptiveFakeTtlProfileCard(
             )
         }
         if (uiState.canResetAdaptiveFakeTtlProfile) {
+            var showResetDialog by remember { mutableStateOf(false) }
+
+            if (showResetDialog) {
+                RipDpiDialog(
+                    onDismissRequest = { showResetDialog = false },
+                    title = stringResource(R.string.confirm_reset_adaptive_fake_ttl_title),
+                    dismissAction =
+                        RipDpiDialogAction(
+                            label = stringResource(R.string.confirm_reset_adaptive_fake_ttl_dismiss),
+                            onClick = { showResetDialog = false },
+                        ),
+                    confirmAction =
+                        RipDpiDialogAction(
+                            label = stringResource(R.string.confirm_reset_adaptive_fake_ttl_confirm),
+                            onClick = {
+                                showResetDialog = false
+                                onResetAdaptiveFakeTtlProfile()
+                            },
+                        ),
+                    visuals =
+                        RipDpiDialogVisuals(
+                            message = stringResource(R.string.confirm_reset_adaptive_fake_ttl_body),
+                            tone = RipDpiDialogTone.Destructive,
+                        ),
+                )
+            }
+
             RipDpiButton(
                 text = stringResource(R.string.adaptive_fake_ttl_reset_action),
-                onClick = onResetAdaptiveFakeTtlProfile,
+                onClick = { showResetDialog = true },
                 variant = RipDpiButtonVariant.Outline,
                 modifier = Modifier.align(Alignment.End),
             )

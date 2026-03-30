@@ -10,6 +10,10 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
@@ -21,6 +25,10 @@ import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.cards.RipDpiCardVariant
 import com.poyka.ripdpi.ui.components.cards.SettingsRow
+import com.poyka.ripdpi.ui.components.feedback.RipDpiDialog
+import com.poyka.ripdpi.ui.components.feedback.RipDpiDialogAction
+import com.poyka.ripdpi.ui.components.feedback.RipDpiDialogTone
+import com.poyka.ripdpi.ui.components.feedback.RipDpiDialogVisuals
 import com.poyka.ripdpi.ui.components.indicators.StatusIndicator
 import com.poyka.ripdpi.ui.components.indicators.StatusIndicatorTone
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
@@ -38,6 +46,32 @@ internal fun LazyListScope.hostAutolearnSection(
     item(key = "advanced_host_autolearn") {
         val colors = RipDpiThemeTokens.colors
         val spacing = RipDpiThemeTokens.spacing
+        var showForgetDialog by remember { mutableStateOf(false) }
+
+        if (showForgetDialog) {
+            RipDpiDialog(
+                onDismissRequest = { showForgetDialog = false },
+                title = stringResource(R.string.confirm_forget_learned_hosts_title),
+                dismissAction =
+                    RipDpiDialogAction(
+                        label = stringResource(R.string.confirm_forget_learned_hosts_dismiss),
+                        onClick = { showForgetDialog = false },
+                    ),
+                confirmAction =
+                    RipDpiDialogAction(
+                        label = stringResource(R.string.confirm_forget_learned_hosts_confirm),
+                        onClick = {
+                            showForgetDialog = false
+                            onForgetLearnedHosts()
+                        },
+                    ),
+                visuals =
+                    RipDpiDialogVisuals(
+                        message = stringResource(R.string.confirm_forget_learned_hosts_body),
+                        tone = RipDpiDialogTone.Destructive,
+                    ),
+            )
+        }
 
         AdvancedSettingsSection(
             title = stringResource(R.string.host_autolearn_section_title),
@@ -107,7 +141,7 @@ internal fun LazyListScope.hostAutolearnSection(
                 ) {
                     RipDpiButton(
                         text = stringResource(R.string.host_autolearn_forget_action),
-                        onClick = onForgetLearnedHosts,
+                        onClick = { showForgetDialog = true },
                         enabled = uiState.canForgetLearnedHosts,
                         variant = RipDpiButtonVariant.Outline,
                         trailingIcon = RipDpiIcons.Close,

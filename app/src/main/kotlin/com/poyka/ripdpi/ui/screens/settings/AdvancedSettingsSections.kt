@@ -9,7 +9,10 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
@@ -20,6 +23,10 @@ import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.cards.SettingsRow
+import com.poyka.ripdpi.ui.components.feedback.RipDpiDialog
+import com.poyka.ripdpi.ui.components.feedback.RipDpiDialogAction
+import com.poyka.ripdpi.ui.components.feedback.RipDpiDialogTone
+import com.poyka.ripdpi.ui.components.feedback.RipDpiDialogVisuals
 import com.poyka.ripdpi.ui.components.inputs.RipDpiDropdown
 import com.poyka.ripdpi.ui.components.inputs.RipDpiDropdownOption
 import com.poyka.ripdpi.ui.components.navigation.SettingsCategoryHeader
@@ -144,6 +151,33 @@ private fun DiagnosticsExportHistoryToggle(
 
 @Composable
 private fun TelemetrySaltResetAction(onRotateTelemetrySalt: () -> Unit) {
+    var showConfirmDialog by remember { mutableStateOf(false) }
+
+    if (showConfirmDialog) {
+        RipDpiDialog(
+            onDismissRequest = { showConfirmDialog = false },
+            title = stringResource(R.string.confirm_rotate_telemetry_salt_title),
+            dismissAction =
+                RipDpiDialogAction(
+                    label = stringResource(R.string.confirm_rotate_telemetry_salt_dismiss),
+                    onClick = { showConfirmDialog = false },
+                ),
+            confirmAction =
+                RipDpiDialogAction(
+                    label = stringResource(R.string.confirm_rotate_telemetry_salt_confirm),
+                    onClick = {
+                        showConfirmDialog = false
+                        onRotateTelemetrySalt()
+                    },
+                ),
+            visuals =
+                RipDpiDialogVisuals(
+                    message = stringResource(R.string.confirm_rotate_telemetry_salt_body),
+                    tone = RipDpiDialogTone.Destructive,
+                ),
+        )
+    }
+
     Text(
         text = stringResource(R.string.settings_telemetry_salt_reset_body),
         style = RipDpiThemeTokens.type.caption,
@@ -155,7 +189,7 @@ private fun TelemetrySaltResetAction(onRotateTelemetrySalt: () -> Unit) {
     ) {
         RipDpiButton(
             text = stringResource(R.string.settings_telemetry_salt_reset_action),
-            onClick = onRotateTelemetrySalt,
+            onClick = { showConfirmDialog = true },
             variant = RipDpiButtonVariant.Outline,
             trailingIcon = RipDpiIcons.Close,
         )
@@ -346,6 +380,33 @@ internal fun LazyListScope.networkStrategyMemorySection(
     onClearRememberedNetworks: () -> Unit,
 ) {
     item(key = "advanced_network_strategy_memory") {
+        var showClearDialog by remember { mutableStateOf(false) }
+
+        if (showClearDialog) {
+            RipDpiDialog(
+                onDismissRequest = { showClearDialog = false },
+                title = stringResource(R.string.confirm_clear_remembered_networks_title),
+                dismissAction =
+                    RipDpiDialogAction(
+                        label = stringResource(R.string.confirm_clear_remembered_networks_dismiss),
+                        onClick = { showClearDialog = false },
+                    ),
+                confirmAction =
+                    RipDpiDialogAction(
+                        label = stringResource(R.string.confirm_clear_remembered_networks_confirm),
+                        onClick = {
+                            showClearDialog = false
+                            onClearRememberedNetworks()
+                        },
+                    ),
+                visuals =
+                    RipDpiDialogVisuals(
+                        message = stringResource(R.string.confirm_clear_remembered_networks_body),
+                        tone = RipDpiDialogTone.Destructive,
+                    ),
+            )
+        }
+
         AdvancedSettingsSection(
             title = stringResource(R.string.network_strategy_memory_section_title),
             testTag = RipDpiTestTags.advancedSection("network_strategy_memory"),
@@ -375,7 +436,7 @@ internal fun LazyListScope.networkStrategyMemorySection(
                 ) {
                     RipDpiButton(
                         text = stringResource(R.string.network_strategy_memory_clear_action),
-                        onClick = onClearRememberedNetworks,
+                        onClick = { showClearDialog = true },
                         enabled = uiState.canClearRememberedNetworks,
                         modifier = Modifier.ripDpiTestTag(RipDpiTestTags.AdvancedClearRememberedNetworks),
                         variant = RipDpiButtonVariant.Outline,

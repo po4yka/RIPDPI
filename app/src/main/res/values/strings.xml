@@ -1650,4 +1650,50 @@ Source: %2$s</string>
     <string name="crash_report_body">The app stopped unexpectedly due to:\n%1$s\n\nWould you like to share the crash report with the developer?</string>
     <string name="crash_report_share">Share report</string>
     <string name="crash_report_dismiss">Dismiss</string>
+
+    <!-- Destructive action confirmation dialogs -->
+    <string name="confirm_forget_learned_hosts_title">Forget learned hosts?</string>
+    <string name="confirm_forget_learned_hosts_body">All auto-learned host entries will be removed. The engine will start learning again from scratch on the next session.</string>
+    <string name="confirm_forget_learned_hosts_confirm">Forget</string>
+    <string name="confirm_forget_learned_hosts_dismiss">Cancel</string>
+
+    <string name="confirm_clear_remembered_networks_title">Clear remembered networks?</string>
+    <string name="confirm_clear_remembered_networks_body">Saved per-network strategy selections will be deleted. The app will re-evaluate each network on reconnect.</string>
+    <string name="confirm_clear_remembered_networks_confirm">Clear</string>
+    <string name="confirm_clear_remembered_networks_dismiss">Cancel</string>
+
+    <string name="confirm_rotate_telemetry_salt_title">Reset telemetry salt?</string>
+    <string name="confirm_rotate_telemetry_salt_body">Previously recorded network fingerprint hashes can no longer be correlated with future sessions.</string>
+    <string name="confirm_rotate_telemetry_salt_confirm">Reset</string>
+    <string name="confirm_rotate_telemetry_salt_dismiss">Cancel</string>
+
+    <string name="confirm_reset_adaptive_split_title">Reset adaptive split?</string>
+    <string name="confirm_reset_adaptive_split_body">The split position marker will revert to manual mode. You will need to reconfigure or pick a preset again.</string>
+    <string name="confirm_reset_adaptive_split_confirm">Reset</string>
+    <string name="confirm_reset_adaptive_split_dismiss">Cancel</string>
+
+    <string name="confirm_reset_adaptive_fake_ttl_title">Reset adaptive fake TTL?</string>
+    <string name="confirm_reset_adaptive_fake_ttl_body">The TTL profile will revert to a fixed value. Runtime learning data will be discarded on the next session.</string>
+    <string name="confirm_reset_adaptive_fake_ttl_confirm">Reset</string>
+    <string name="confirm_reset_adaptive_fake_ttl_dismiss">Cancel</string>
+
+    <string name="confirm_reset_activation_window_title">Reset activation window?</string>
+    <string name="confirm_reset_activation_window_body">Custom round, payload, and stream-byte filters will be removed. All packets will be processed without window restrictions.</string>
+    <string name="confirm_reset_activation_window_confirm">Reset</string>
+    <string name="confirm_reset_activation_window_dismiss">Cancel</string>
+
+    <string name="confirm_reset_http_parser_evasions_title">Reset HTTP parser evasions?</string>
+    <string name="confirm_reset_http_parser_evasions_body">All safe and aggressive header-mutation toggles will revert to defaults. A service restart may be required to apply.</string>
+    <string name="confirm_reset_http_parser_evasions_confirm">Reset</string>
+    <string name="confirm_reset_http_parser_evasions_dismiss">Cancel</string>
+
+    <string name="confirm_reset_fake_payload_library_title">Reset fake payload presets?</string>
+    <string name="confirm_reset_fake_payload_library_body">Custom TCP and UDP fake-payload profiles will revert to built-in defaults.</string>
+    <string name="confirm_reset_fake_payload_library_confirm">Reset</string>
+    <string name="confirm_reset_fake_payload_library_dismiss">Cancel</string>
+
+    <string name="confirm_reset_fake_tls_profile_title">Reset fake TLS profile?</string>
+    <string name="confirm_reset_fake_tls_profile_body">SNI, mutations, and size overrides will revert to defaults. A service restart may be required to apply.</string>
+    <string name="confirm_reset_fake_tls_profile_confirm">Reset</string>
+    <string name="confirm_reset_fake_tls_profile_dismiss">Cancel</string>
 </resources>
