@@ -7,6 +7,7 @@ import com.poyka.ripdpi.data.diagnostics.ProbeResultEntity
 import com.poyka.ripdpi.data.diagnostics.ScanSessionEntity
 import com.poyka.ripdpi.data.diagnostics.TelemetrySampleEntity
 import com.poyka.ripdpi.proto.AppSettings
+import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
 import org.junit.Assert.assertEquals
@@ -91,106 +92,110 @@ class DiagnosticsArchiveComponentsTest {
     }
 
     @Test
-    fun `selector chooses latest completed session and partitions passive data`() {
-        val latestCompleted =
-            scanSession(
-                id = "session-latest",
-                reportJson = json.encodeToString(scanReport("session-latest").toEngineScanReportWire()),
-                strategyId = "strategy-fast",
-            )
-        val running =
-            scanSession(
-                id = "session-running",
-                status = "running",
-                reportJson = null,
-                startedAt = 20L,
-            )
-        val sourceData =
-            DiagnosticsArchiveSourceData(
-                sessions = listOf(latestCompleted, running),
-                usageSessions = emptyList(),
-                snapshots =
-                    listOf(
-                        networkSnapshotEntity(id = "snap-session", sessionId = "session-latest", capturedAt = 15L),
-                        networkSnapshotEntity(id = "snap-passive", sessionId = null, capturedAt = 18L),
-                    ),
-                telemetry = listOf(telemetrySample(publicIp = "198.51.100.8")),
-                events =
-                    listOf(
-                        nativeEvent(id = "ev-session", sessionId = "session-latest"),
-                        nativeEvent(id = "ev-global", sessionId = null),
-                        nativeEvent(id = "ev-other", sessionId = "session-running"),
-                    ),
-                contexts =
-                    listOf(
-                        diagnosticContextEntity(id = "ctx-session", sessionId = "session-latest", capturedAt = 16L),
-                        diagnosticContextEntity(id = "ctx-passive", sessionId = null, capturedAt = 19L),
-                    ),
-                approachSummaries = listOf(approachSummary(strategyId = "strategy-fast")),
-                appSettings = appSettings(),
-                buildProvenance = buildProvenance(),
-                collectionWarnings = emptyList(),
-                logcatSnapshot = null,
-            )
+    fun `selector chooses latest completed session and partitions passive data`() =
+        runTest {
+            val latestCompleted =
+                scanSession(
+                    id = "session-latest",
+                    reportJson = json.encodeToString(scanReport("session-latest").toEngineScanReportWire()),
+                    strategyId = "strategy-fast",
+                )
+            val running =
+                scanSession(
+                    id = "session-running",
+                    status = "running",
+                    reportJson = null,
+                    startedAt = 20L,
+                )
+            val sourceData =
+                DiagnosticsArchiveSourceData(
+                    sessions = listOf(latestCompleted, running),
+                    usageSessions = emptyList(),
+                    snapshots =
+                        listOf(
+                            networkSnapshotEntity(id = "snap-session", sessionId = "session-latest", capturedAt = 15L),
+                            networkSnapshotEntity(id = "snap-passive", sessionId = null, capturedAt = 18L),
+                        ),
+                    telemetry = listOf(telemetrySample(publicIp = "198.51.100.8")),
+                    events =
+                        listOf(
+                            nativeEvent(id = "ev-session", sessionId = "session-latest"),
+                            nativeEvent(id = "ev-global", sessionId = null),
+                            nativeEvent(id = "ev-other", sessionId = "session-running"),
+                        ),
+                    contexts =
+                        listOf(
+                            diagnosticContextEntity(id = "ctx-session", sessionId = "session-latest", capturedAt = 16L),
+                            diagnosticContextEntity(id = "ctx-passive", sessionId = null, capturedAt = 19L),
+                        ),
+                    approachSummaries = listOf(approachSummary(strategyId = "strategy-fast")),
+                    appSettings = appSettings(),
+                    buildProvenance = buildProvenance(),
+                    collectionWarnings = emptyList(),
+                    logcatSnapshot = null,
+                )
 
-        val selectedSession = selector.selectPrimarySession(null, null, sourceData.sessions)
-        val selection =
-            selector.buildSelection(
-                request = archiveRequest(sessionId = null),
-                primarySession = selectedSession,
-                primaryResults = listOf(probeResult(sessionId = "session-latest")),
-                sourceData = sourceData,
-            )
+            val selectedSession = selector.selectPrimarySession(null, null, sourceData.sessions)
+            val selection =
+                selector.buildSelection(
+                    request = archiveRequest(sessionId = null),
+                    primarySession = selectedSession,
+                    primaryResults = listOf(probeResult(sessionId = "session-latest")),
+                    sourceData = sourceData,
+                    loadProbeResults = { emptyList() },
+                )
 
-        assertEquals("session-latest", selectedSession?.id)
-        assertEquals("session-latest", selection.payload.session?.id)
-        assertEquals(1, selection.primarySnapshots.size)
-        assertEquals(1, selection.primaryContexts.size)
-        assertEquals(1, selection.primaryEvents.size)
-        assertNotNull(selection.latestPassiveSnapshot)
-        assertNotNull(selection.latestPassiveContext)
-        assertEquals(listOf("ev-global", "ev-other"), selection.globalEvents.map { it.id })
-        assertEquals("strategy-fast", selection.selectedApproachSummary?.approachId?.value)
-        assertEquals(
-            DiagnosticsArchiveSessionSelectionStatus.LATEST_COMPLETED_SESSION,
-            selection.sessionSelectionStatus,
-        )
-        assertEquals(
-            DiagnosticsArchiveFormat.includedFiles(logcatIncluded = false),
-            selection.includedFiles,
-        )
-    }
+            assertEquals("session-latest", selectedSession?.id)
+            assertEquals("session-latest", selection.payload.session?.id)
+            assertEquals(1, selection.primarySnapshots.size)
+            assertEquals(1, selection.primaryContexts.size)
+            assertEquals(1, selection.primaryEvents.size)
+            assertNotNull(selection.latestPassiveSnapshot)
+            assertNotNull(selection.latestPassiveContext)
+            assertEquals(listOf("ev-global", "ev-other"), selection.globalEvents.map { it.id })
+            assertEquals("strategy-fast", selection.selectedApproachSummary?.approachId?.value)
+            assertEquals(
+                DiagnosticsArchiveSessionSelectionStatus.LATEST_COMPLETED_SESSION,
+                selection.sessionSelectionStatus,
+            )
+            assertEquals(
+                DiagnosticsArchiveFormat.includedFiles(logcatIncluded = false),
+                selection.includedFiles,
+            )
+        }
 
     @Test
-    fun `selector marks support bundle exports explicitly`() {
-        val sourceData =
-            DiagnosticsArchiveSourceData(
-                sessions = listOf(scanSession(id = "session-1")),
-                usageSessions = emptyList(),
-                snapshots = emptyList(),
-                telemetry = emptyList(),
-                events = emptyList(),
-                contexts = emptyList(),
-                approachSummaries = emptyList(),
-                appSettings = appSettings(),
-                buildProvenance = buildProvenance(),
-                collectionWarnings = emptyList(),
-                logcatSnapshot = null,
-            )
+    fun `selector marks support bundle exports explicitly`() =
+        runTest {
+            val sourceData =
+                DiagnosticsArchiveSourceData(
+                    sessions = listOf(scanSession(id = "session-1")),
+                    usageSessions = emptyList(),
+                    snapshots = emptyList(),
+                    telemetry = emptyList(),
+                    events = emptyList(),
+                    contexts = emptyList(),
+                    approachSummaries = emptyList(),
+                    appSettings = appSettings(),
+                    buildProvenance = buildProvenance(),
+                    collectionWarnings = emptyList(),
+                    logcatSnapshot = null,
+                )
 
-        val selection =
-            selector.buildSelection(
-                request = archiveRequest(reason = DiagnosticsArchiveReason.SHARE_DEBUG_BUNDLE, sessionId = null),
-                primarySession = sourceData.sessions.single(),
-                primaryResults = emptyList(),
-                sourceData = sourceData,
-            )
+            val selection =
+                selector.buildSelection(
+                    request = archiveRequest(reason = DiagnosticsArchiveReason.SHARE_DEBUG_BUNDLE, sessionId = null),
+                    primarySession = sourceData.sessions.single(),
+                    primaryResults = emptyList(),
+                    sourceData = sourceData,
+                    loadProbeResults = { emptyList() },
+                )
 
-        assertEquals(
-            DiagnosticsArchiveSessionSelectionStatus.SUPPORT_BUNDLE,
-            selection.sessionSelectionStatus,
-        )
-    }
+            assertEquals(
+                DiagnosticsArchiveSessionSelectionStatus.SUPPORT_BUNDLE,
+                selection.sessionSelectionStatus,
+            )
+        }
 
     @Test
     fun `selector rejects missing requested session`() {
@@ -214,6 +219,7 @@ class DiagnosticsArchiveComponentsTest {
     fun `renderer emits redacted archive entries with manifest summaries`() {
         val selection =
             DiagnosticsArchiveSelection(
+                runType = DiagnosticsArchiveRunType.SINGLE_SESSION,
                 request = archiveRequest(),
                 payload =
                     DiagnosticsArchivePayload(
@@ -403,27 +409,27 @@ class DiagnosticsArchiveComponentsTest {
             assertEquals(sha256Hex(entry.bytes), file.sha256)
         }
         GoldenContractSupport.assertJsonGolden(
-            "archive/manifest_v2.json",
+            "archive/manifest_v3.json",
             entries.getValue("manifest.json").bytes.decodeToString(),
         )
         GoldenContractSupport.assertJsonGolden(
-            "archive/archive_provenance_v2.json",
+            "archive/archive_provenance_v3.json",
             entries.getValue("archive-provenance.json").bytes.decodeToString(),
         )
         GoldenContractSupport.assertJsonGolden(
-            "archive/runtime_config_v2.json",
+            "archive/runtime_config_v3.json",
             entries.getValue("runtime-config.json").bytes.decodeToString(),
         )
         GoldenContractSupport.assertJsonGolden(
-            "archive/analysis_v2.json",
+            "archive/analysis_v3.json",
             entries.getValue("analysis.json").bytes.decodeToString(),
         )
         GoldenContractSupport.assertJsonGolden(
-            "archive/completeness_v2.json",
+            "archive/completeness_v3.json",
             entries.getValue("completeness.json").bytes.decodeToString(),
         )
         GoldenContractSupport.assertJsonGolden(
-            "archive/integrity_v2.json",
+            "archive/integrity_v3.json",
             entries.getValue("integrity.json").bytes.decodeToString(),
         )
     }
@@ -434,6 +440,7 @@ class DiagnosticsArchiveComponentsTest {
         val invalidContext = diagnosticContextEntity(sessionId = "session-1").copy(payloadJson = "{bad")
         val selection =
             DiagnosticsArchiveSelection(
+                runType = DiagnosticsArchiveRunType.SINGLE_SESSION,
                 request = archiveRequest(reason = DiagnosticsArchiveReason.SAVE_ARCHIVE),
                 payload =
                     DiagnosticsArchivePayload(

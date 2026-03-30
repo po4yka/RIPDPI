@@ -1,0 +1,19 @@
+{
+    "failureEnvelope": {
+        "failureClassTransitions": [
+            "native:proxy:warning"
+        ],
+        "firstFailureTimestamp": 60,
+        "lastFailureTimestamp": 60,
+        "latestFailureClass": "warning",
+        "retryCounters": {
+            "proxyRouteRetryCount": 0,
+            "totalRetryCount": 0,
+            "tunnelRecoveryRetryCount": 0
+        }
+    },
+    "strategyExecutionDetail": {
+        "quicCandidates": [],
+        "tcpCandidates": []
+    }
+}

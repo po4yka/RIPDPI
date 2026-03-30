@@ -223,7 +223,7 @@ class HomeScreenTest {
                                         ),
                                     analysisSheet =
                                         HomeDiagnosticsAnalysisSheetUiState(
-                                            sessionId = "audit-session",
+                                            runId = "home-run",
                                             headline = "Analysis complete",
                                             summary = "Settings were applied.",
                                         ),

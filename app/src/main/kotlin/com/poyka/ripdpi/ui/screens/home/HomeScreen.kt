@@ -450,6 +450,13 @@ private fun HomeDiagnosticsCard(
                     color = colors.foreground,
                 )
             }
+            result.stageCountSummary?.let { stageCount ->
+                Text(
+                    text = stageCount,
+                    style = RipDpiThemeTokens.type.secondaryBody,
+                    color = colors.mutedForeground,
+                )
+            }
             if (result.stale) {
                 Text(
                     text = stringResource(R.string.home_diagnostics_run_again),
@@ -532,6 +539,17 @@ private fun HomeDiagnosticsBottomSheetHost(
                 style = RipDpiThemeTokens.type.body,
                 color = colors.foreground,
             )
+            Text(
+                text =
+                    "${sheet.completedStageCount} completed" +
+                        if (sheet.failedStageCount > 0) {
+                            " · ${sheet.failedStageCount} failed"
+                        } else {
+                            ""
+                        },
+                style = RipDpiThemeTokens.type.secondaryBody,
+                color = colors.mutedForeground,
+            )
             sheet.confidenceSummary?.let { value ->
                 SettingsRow(title = stringResource(R.string.home_diagnostics_confidence_label), value = value)
             }
@@ -556,6 +574,32 @@ private fun HomeDiagnosticsBottomSheetHost(
                     style = RipDpiThemeTokens.type.secondaryBody,
                     color = colors.mutedForeground,
                 )
+            }
+            if (sheet.stageSummaries.isNotEmpty()) {
+                val recommendationMarker = stringResource(R.string.home_diagnostics_stage_recommendation_marker)
+                val failedMarker = stringResource(R.string.home_diagnostics_stage_failed_marker)
+                Text(
+                    text = stringResource(R.string.home_diagnostics_stage_results_label),
+                    style = RipDpiThemeTokens.type.bodyEmphasis,
+                    color = colors.foreground,
+                )
+                sheet.stageSummaries.forEach { stage ->
+                    SettingsRow(
+                        title = stage.label,
+                        value =
+                            buildString {
+                                append(stage.summary)
+                                if (stage.recommendationContributor) {
+                                    append(" · ")
+                                    append(recommendationMarker)
+                                }
+                                if (stage.failed) {
+                                    append(" · ")
+                                    append(failedMarker)
+                                }
+                            },
+                    )
+                }
             }
         }
     }

@@ -1,0 +1,163 @@
+{
+    "approachCount": 1,
+    "archiveReason": "SHARE_ARCHIVE",
+    "buildProvenance": {
+        "appVersionCode": 2,
+        "appVersionName": "0.0.2",
+        "applicationId": "com.poyka.ripdpi",
+        "buildType": "debug",
+        "gitCommit": "unavailable",
+        "nativeLibraries": [
+            "libripdpi.so:unavailable",
+            "libripdpi-tunnel.so:unavailable"
+        ]
+    },
+    "classifierVersion": "ru_ooni_v1",
+    "contextSnapshotCount": 1,
+    "contextSummary": {
+        "device": {
+            "androidVersion": "14 (API 34)",
+            "appVersionName": "0.0.1",
+            "buildType": "debug",
+            "deviceName": "Google Pixel",
+            "locale": "en-US",
+            "timezone": "UTC"
+        },
+        "environment": {
+            "batterySaverState": "off",
+            "networkMeteredState": "false",
+            "powerSaveModeState": "off",
+            "roamingState": "false"
+        },
+        "permissions": {
+            "batteryOptimizationState": "ignored",
+            "dataSaverState": "disabled",
+            "notificationPermissionState": "granted",
+            "vpnPermissionState": "granted"
+        },
+        "service": {
+            "activeMode": "vpn",
+            "chainSummary": "tcp: split(1)",
+            "configSource": "ui",
+            "desyncMethod": "split",
+            "lastNativeErrorHeadline": "none",
+            "proxyEndpoint": "redacted",
+            "restartCount": 0,
+            "routeGroup": "wifi",
+            "selectedProfileName": "Default",
+            "serviceStatus": "connected"
+        }
+    },
+    "createdAt": 42,
+    "diagnosisCount": 1,
+    "fileName": "ripdpi-diagnostics-42.zip",
+    "globalEventCount": 1,
+    "includedFiles": [
+        "summary.txt",
+        "manifest.json",
+        "report.json",
+        "strategy-matrix.json",
+        "probe-results.csv",
+        "archive-provenance.json",
+        "runtime-config.json",
+        "analysis.json",
+        "completeness.json",
+        "native-events.csv",
+        "telemetry.csv",
+        "network-snapshots.json",
+        "diagnostic-context.json",
+        "logcat.txt",
+        "integrity.json"
+    ],
+    "includedSessionId": "session-1",
+    "integrityAlgorithm": "sha256",
+    "lastFailure": "proxy: warning",
+    "latestTelemetrySummary": {
+        "proxyRouteRetryCount": 0,
+        "proxyRttBand": "unknown",
+        "resolverRttBand": "unknown",
+        "retryCount": 0,
+        "rttBand": "unknown",
+        "tunnelRecoveryRetryCount": 0
+    },
+    "lifecycleMilestones": [],
+    "logcatByteCount": 48,
+    "logcatCaptureScope": "app_visible_snapshot",
+    "logcatIncluded": true,
+    "mode": "vpn",
+    "networkSummary": {
+        "captivePortalDetected": false,
+        "dnsServers": "redacted(1)",
+        "localAddresses": "redacted(1)",
+        "networkValidated": true,
+        "privateDnsMode": "strict",
+        "publicAsn": "redacted",
+        "publicIp": "redacted",
+        "transport": "wifi",
+        "wifiDetails": {
+            "band": "5 GHz",
+            "bssid": "redacted",
+            "gateway": "redacted",
+            "ssid": "redacted",
+            "wifiStandard": "802.11ac"
+        }
+    },
+    "packVersions": {
+        "ru-independent-media": 1
+    },
+    "privacyMode": "split_output",
+    "recentNativeWarnings": [
+        "proxy: warning"
+    ],
+    "requestedSessionId": "session-1",
+    "runType": "single_session",
+    "schemaVersion": 3,
+    "scope": "hybrid",
+    "sectionStatusSummary": {
+        "analysis.json": "included",
+        "archive-provenance.json": "included",
+        "completeness.json": "included",
+        "diagnostic-context.json": "redacted",
+        "integrity.json": "included",
+        "logcat.txt": "included",
+        "manifest.json": "redacted",
+        "native-events.csv": "included",
+        "network-snapshots.json": "redacted",
+        "probe-results.csv": "included",
+        "report.json": "redacted",
+        "runtime-config.json": "included",
+        "strategy-matrix.json": "included",
+        "summary.txt": "redacted",
+        "telemetry.csv": "included"
+    },
+    "selectedApproach": {
+        "approachId": {
+            "kind": "Strategy",
+            "value": "strategy-fast"
+        },
+        "displayName": "Fast Strategy",
+        "lastUsedAt": 99,
+        "lastValidatedResult": "ok",
+        "outcomeBreakdown": [],
+        "recentRuntimeHealth": {
+            "restartCount": 0,
+            "routeChanges": 0,
+            "totalErrors": 0
+        },
+        "secondaryLabel": "Strategy",
+        "topFailureOutcomes": [],
+        "totalRuntimeDurationMs": 100,
+        "usageCount": 2,
+        "validatedScanCount": 1,
+        "validatedSuccessCount": 1,
+        "validatedSuccessRate": 1.0,
+        "verificationState": "validated"
+    },
+    "selectedSessionId": "session-1",
+    "sessionEventCount": 1,
+    "sessionResultCount": 1,
+    "sessionSelectionStatus": "requested_session",
+    "sessionSnapshotCount": 1,
+    "stageIndex": [],
+    "telemetrySampleCount": 1
+}

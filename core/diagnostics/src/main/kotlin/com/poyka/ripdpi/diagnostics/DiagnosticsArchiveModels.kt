@@ -19,6 +19,8 @@ import java.io.File
 @Serializable
 data class DiagnosticsArchiveRequest(
     val requestedSessionId: String? = null,
+    val sessionIds: List<String> = emptyList(),
+    val homeRunId: String? = null,
     val reason: DiagnosticsArchiveReason,
     val requestedAt: Long,
 )
@@ -28,12 +30,13 @@ enum class DiagnosticsArchiveReason {
     SHARE_ARCHIVE,
     SAVE_ARCHIVE,
     SHARE_DEBUG_BUNDLE,
+    SHARE_HOME_ANALYSIS,
 }
 
 internal object DiagnosticsArchiveFormat {
     const val directoryName = "diagnostics-archives"
     const val fileNamePrefix = "ripdpi-diagnostics-"
-    const val schemaVersion = 2
+    const val schemaVersion = 3
     const val privacyMode = "split_output"
     const val scope = "hybrid"
     const val maxArchiveFiles = 5
@@ -42,13 +45,21 @@ internal object DiagnosticsArchiveFormat {
     const val globalEventLimit = 80
     const val snapshotLimit = 250
 
-    fun includedFiles(logcatIncluded: Boolean): List<String> =
+    fun includedFiles(
+        logcatIncluded: Boolean,
+        composite: Boolean = false,
+    ): List<String> =
         buildList {
             add("summary.txt")
             add("manifest.json")
             add("report.json")
             add("strategy-matrix.json")
             add("probe-results.csv")
+            if (composite) {
+                add("home-analysis.json")
+                add("stage-index.json")
+                add("stage-summaries.json")
+            }
             add("archive-provenance.json")
             add("runtime-config.json")
             add("analysis.json")
@@ -90,6 +101,7 @@ internal data class DiagnosticsArchiveSourceData(
 )
 
 internal data class DiagnosticsArchiveSelection(
+    val runType: DiagnosticsArchiveRunType,
     val request: DiagnosticsArchiveRequest,
     val payload: DiagnosticsArchivePayload,
     val primarySession: ScanSessionEntity?,
@@ -107,12 +119,34 @@ internal data class DiagnosticsArchiveSelection(
     val sessionContextModel: DiagnosticContextModel?,
     val buildProvenance: DiagnosticsArchiveBuildProvenance,
     val sessionSelectionStatus: DiagnosticsArchiveSessionSelectionStatus,
+    val homeRunId: String? = null,
+    val homeCompositeOutcome: DiagnosticsHomeCompositeOutcome? = null,
+    val compositeStages: List<DiagnosticsArchiveCompositeStageSelection> = emptyList(),
     val effectiveStrategySignature: BypassStrategySignature?,
     val appSettings: AppSettings,
     val sourceCounts: DiagnosticsArchiveSourceCounts,
     val collectionWarnings: List<String>,
     val includedFiles: List<String>,
     val logcatSnapshot: LogcatSnapshot?,
+)
+
+@Serializable
+internal enum class DiagnosticsArchiveRunType {
+    @SerialName("single_session")
+    SINGLE_SESSION,
+
+    @SerialName("home_composite")
+    HOME_COMPOSITE,
+}
+
+internal data class DiagnosticsArchiveCompositeStageSelection(
+    val stageSummary: DiagnosticsHomeCompositeStageSummary,
+    val session: ScanSessionEntity?,
+    val report: EngineScanReportWire?,
+    val results: List<ProbeResultEntity>,
+    val snapshots: List<NetworkSnapshotEntity>,
+    val contexts: List<DiagnosticContextEntity>,
+    val events: List<NativeSessionEventEntity>,
 )
 
 @Serializable
@@ -217,11 +251,14 @@ internal data class DiagnosticsArchiveTriggerMetadata(
 
 @Serializable
 internal data class DiagnosticsArchiveProvenancePayload(
+    val runType: DiagnosticsArchiveRunType = DiagnosticsArchiveRunType.SINGLE_SESSION,
+    val homeRunId: String? = null,
     val archiveReason: DiagnosticsArchiveReason,
     val requestedAt: Long,
     val createdAt: Long,
     val requestedSessionId: String? = null,
     val selectedSessionId: String? = null,
+    val bundleSessionIds: List<String> = emptyList(),
     val sessionSelectionStatus: DiagnosticsArchiveSessionSelectionStatus,
     val triggerMetadata: DiagnosticsArchiveTriggerMetadata? = null,
     val buildProvenance: DiagnosticsArchiveBuildProvenance,
@@ -422,16 +459,63 @@ internal data class DiagnosticsArchiveIntegrityPayload(
 )
 
 @Serializable
+internal data class DiagnosticsArchiveHomeAnalysisPayload(
+    val runId: String,
+    val fingerprintHash: String? = null,
+    val actionable: Boolean,
+    val headline: String,
+    val summary: String,
+    val recommendationSummary: String? = null,
+    val confidenceSummary: String? = null,
+    val coverageSummary: String? = null,
+    val recommendedSessionId: String? = null,
+    val appliedSettings: List<DiagnosticsAppliedSetting> = emptyList(),
+    val completedStageCount: Int,
+    val failedStageCount: Int,
+    val skippedStageCount: Int,
+    val bundleSessionIds: List<String> = emptyList(),
+)
+
+@Serializable
+internal data class DiagnosticsArchiveStageIndexEntry(
+    val stageKey: String,
+    val stageLabel: String,
+    val profileId: String,
+    val pathMode: String,
+    val sessionId: String? = null,
+    val status: String,
+    val headline: String,
+    val summary: String,
+    val recommendationContributor: Boolean = false,
+)
+
+@Serializable
+internal data class DiagnosticsArchiveStageIndexPayload(
+    val runId: String,
+    val stages: List<DiagnosticsArchiveStageIndexEntry>,
+)
+
+@Serializable
+internal data class DiagnosticsArchiveStageSummariesPayload(
+    val runId: String,
+    val stages: List<DiagnosticsArchiveStageIndexEntry>,
+)
+
+@Serializable
 internal data class DiagnosticsArchiveManifest(
     val fileName: String,
     val createdAt: Long,
     val schemaVersion: Int,
     val privacyMode: String,
     val scope: String,
+    val runType: DiagnosticsArchiveRunType = DiagnosticsArchiveRunType.SINGLE_SESSION,
+    val homeRunId: String? = null,
     val archiveReason: DiagnosticsArchiveReason? = null,
     val requestedSessionId: String? = null,
     val selectedSessionId: String? = null,
     val sessionSelectionStatus: DiagnosticsArchiveSessionSelectionStatus? = null,
+    val recommendedSessionId: String? = null,
+    val stageIndex: List<DiagnosticsArchiveStageIndexEntry> = emptyList(),
     val includedSessionId: String?,
     val sessionResultCount: Int,
     val sessionSnapshotCount: Int,

@@ -3,7 +3,9 @@ package com.poyka.ripdpi.activities
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.diagnostics.DiagnosticScanSession
-import com.poyka.ripdpi.diagnostics.DiagnosticsHomeAuditOutcome
+import com.poyka.ripdpi.diagnostics.DiagnosticsHomeCompositeOutcome
+import com.poyka.ripdpi.diagnostics.DiagnosticsHomeCompositeStageStatus
+import com.poyka.ripdpi.diagnostics.DiagnosticsHomeCompositeStageSummary
 import com.poyka.ripdpi.diagnostics.DiagnosticsHomeVerificationOutcome
 import com.poyka.ripdpi.diagnostics.DiagnosticsManualScanStartResult
 import com.poyka.ripdpi.diagnostics.ScanPathMode
@@ -66,18 +68,38 @@ class MainHomeDiagnosticsActionsTest {
             val homeDiagnosticsState =
                 MutableStateFlow(
                     HomeDiagnosticsRuntimeState(
-                        latestAuditOutcome =
-                            DiagnosticsHomeAuditOutcome(
-                                sessionId = "audit-session",
+                        latestCompositeOutcome =
+                            DiagnosticsHomeCompositeOutcome(
+                                runId = "home-run",
                                 fingerprintHash = "fp-1",
                                 actionable = true,
                                 headline = "Applied",
                                 summary = "Ready to verify",
+                                recommendedSessionId = "audit-session",
+                                stageSummaries =
+                                    listOf(
+                                        DiagnosticsHomeCompositeStageSummary(
+                                            stageKey = "automatic_audit",
+                                            stageLabel = "Automatic audit",
+                                            profileId = "automatic-audit",
+                                            pathMode = ScanPathMode.RAW_PATH,
+                                            sessionId = "audit-session",
+                                            status = DiagnosticsHomeCompositeStageStatus.COMPLETED,
+                                            headline = "Applied",
+                                            summary = "Ready to verify",
+                                            recommendationContributor = true,
+                                        ),
+                                    ),
+                                completedStageCount = 1,
+                                failedStageCount = 0,
+                                skippedStageCount = 0,
+                                bundleSessionIds = listOf("audit-session"),
                             ),
                         currentFingerprintHash = "fp-1",
                         waitingForVerifiedVpnStart = true,
                     ),
                 )
+            val diagnosticsHomeCompositeRunService = StubDiagnosticsHomeCompositeRunService()
             val actions =
                 MainHomeDiagnosticsActions(
                     mutations =
@@ -90,6 +112,7 @@ class MainHomeDiagnosticsActionsTest {
                     diagnosticsScanController = diagnosticsScanController,
                     diagnosticsShareService = StubDiagnosticsShareService(),
                     diagnosticsHomeWorkflowService = diagnosticsHomeWorkflowService,
+                    diagnosticsHomeCompositeRunService = diagnosticsHomeCompositeRunService,
                     serviceStateStore = serviceStateStore,
                     runtimeState = runtimeState,
                     permissionState = permissionState,

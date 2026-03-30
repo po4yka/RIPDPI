@@ -34,13 +34,29 @@ internal class DefaultDiagnosticsArchiveExporter
         override suspend fun createArchive(request: DiagnosticsArchiveRequest): DiagnosticsArchive {
             fileStore.cleanup()
             val sourceData = sourceLoader.load()
+            val compositeOutcome =
+                request.homeRunId
+                    ?.takeIf { request.sessionIds.isNotEmpty() }
+                    ?.let { runId -> sourceLoader.getCompletedHomeRun(runId) }
+            val compositeSessions =
+                if (request.homeRunId != null && request.sessionIds.isNotEmpty()) {
+                    sourceLoader.getScanSessions(request.sessionIds)
+                } else {
+                    emptyList()
+                }
             val requestedSession = request.requestedSessionId?.let { sourceLoader.getScanSession(it) }
             val primarySession =
-                sessionSelector.selectPrimarySession(
-                    requestedSessionId = request.requestedSessionId,
-                    requestedSession = requestedSession,
-                    sessions = sourceData.sessions,
-                )
+                if (compositeOutcome != null) {
+                    compositeOutcome.recommendedSessionId
+                        ?.let { recommendedId -> compositeSessions.firstOrNull { it.id == recommendedId } }
+                        ?: compositeSessions.firstOrNull()
+                } else {
+                    sessionSelector.selectPrimarySession(
+                        requestedSessionId = request.requestedSessionId,
+                        requestedSession = requestedSession,
+                        sessions = sourceData.sessions,
+                    )
+                }
             val primaryResults = primarySession?.id?.let { sourceLoader.getProbeResults(it) }.orEmpty()
             val selection =
                 sessionSelector.buildSelection(
@@ -48,6 +64,9 @@ internal class DefaultDiagnosticsArchiveExporter
                     primarySession = primarySession,
                     primaryResults = primaryResults,
                     sourceData = sourceData,
+                    compositeOutcome = compositeOutcome,
+                    compositeSessions = compositeSessions,
+                    loadProbeResults = { sessionId -> sourceLoader.getProbeResults(sessionId) },
                 )
             val target = fileStore.createTarget()
             zipWriter.write(target.file, renderer.render(target, selection))
