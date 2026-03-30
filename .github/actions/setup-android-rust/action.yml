@@ -71,6 +71,31 @@ runs:
 
     - uses: mozilla-actions/sccache-action@v0.0.9
 
+    - name: Configure shared Gradle build cache
+      if: inputs.setup-gradle == 'true'
+      shell: bash
+      run: |
+        mkdir -p ~/.gradle/init.d
+        cat > ~/.gradle/init.d/ci-build-cache.gradle << 'GRADLE'
+        settingsEvaluated { settings ->
+          settings.buildCache {
+            local {
+              directory = new File(System.getenv("RUNNER_TEMP"), "gradle-build-cache")
+            }
+          }
+        }
+        GRADLE
+
+    - name: Restore shared Gradle build cache
+      if: inputs.setup-gradle == 'true'
+      uses: actions/cache@v5
+      with:
+        path: ${{ runner.temp }}/gradle-build-cache
+        key: gradle-build-cache-${{ hashFiles('**/*.gradle*', 'gradle.properties', 'gradle/libs.versions.toml') }}-${{ github.sha }}
+        restore-keys: |
+          gradle-build-cache-${{ hashFiles('**/*.gradle*', 'gradle.properties', 'gradle/libs.versions.toml') }}-
+          gradle-build-cache-
+
     - uses: gradle/actions/setup-gradle@v6
       if: inputs.setup-gradle == 'true'
       with:

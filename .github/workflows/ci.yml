@@ -50,11 +50,6 @@ jobs:
           rust-cache-save: ${{ github.ref == 'refs/heads/main' }}
           gradle-cache-read-only: ${{ github.event_name == 'pull_request' }}
 
-      - name: Install cargo-bloat
-        uses: taiki-e/install-action@v2
-        with:
-          tool: cargo-bloat
-
       - name: Build debug APK and run unit tests
         env:
           RUSTC_WRAPPER: sccache
@@ -68,21 +63,6 @@ jobs:
 
       - name: Verify packaged native library sizes
         run: python3 scripts/ci/verify_native_sizes.py
-
-      - name: Verify representative native bloat hotspots
-        run: python3 scripts/ci/verify_native_bloat.py
-
-      - name: Dump current native bloat baseline (on failure)
-        if: failure()
-        run: python3 scripts/ci/verify_native_bloat.py --dump-current > /tmp/native-bloat-baseline.json
-
-      - name: Upload native bloat baseline (on failure)
-        if: failure()
-        uses: actions/upload-artifact@v7
-        with:
-          name: native-bloat-baseline
-          path: /tmp/native-bloat-baseline.json
-          retention-days: 14
 
       - name: Upload test results
         if: always()
@@ -131,6 +111,39 @@ jobs:
           path: app/build/intermediates/native_symbol_tables/release/extractReleaseNativeSymbolTables/out/**
           if-no-files-found: ignore
           retention-days: 7
+
+  native-bloat:
+    if: github.event_name != 'schedule'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: ./.github/actions/setup-android-rust
+        with:
+          rust-components: ""
+          rust-cache-shared-key: rust-android
+          rust-cache-save: "false"
+          setup-gradle: "false"
+
+      - name: Install cargo-bloat
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-bloat
+
+      - name: Verify representative native bloat hotspots
+        run: python3 scripts/ci/verify_native_bloat.py
+
+      - name: Dump current native bloat baseline (on failure)
+        if: failure()
+        run: python3 scripts/ci/verify_native_bloat.py --dump-current > /tmp/native-bloat-baseline.json
+
+      - name: Upload native bloat baseline (on failure)
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: native-bloat-baseline
+          path: /tmp/native-bloat-baseline.json
+          retention-days: 14
 
   cargo-deny:
     if: github.event_name != 'schedule'
