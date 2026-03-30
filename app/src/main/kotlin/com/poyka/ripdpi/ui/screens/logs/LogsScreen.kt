@@ -91,9 +91,8 @@ fun LogsRoute(
     )
 }
 
-@OptIn(ExperimentalFoundationApi::class)
+@OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @Composable
-@OptIn(ExperimentalMaterial3Api::class)
 internal fun LogsScreen(
     uiState: LogsUiState,
     onRefresh: () -> Unit,
