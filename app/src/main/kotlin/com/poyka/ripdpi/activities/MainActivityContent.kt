@@ -74,6 +74,8 @@ internal fun MainActivityContent(
                                 onLaunchHomeHandled = controller::consumeLaunchHomeRequest,
                                 launchRouteRequested = shellState.launchRouteRequested,
                                 onLaunchRouteHandled = controller::consumeLaunchRouteRequest,
+                                relockRequested = shellState.relockRequested,
+                                onRelockHandled = controller::consumeRelockRequest,
                             ),
                         snackbarHostState = snackbarHostState,
                     )

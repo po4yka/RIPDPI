@@ -14,6 +14,7 @@ internal data class MainActivityShellState(
     val launchRouteRequested: String? = null,
     val startConfiguredModeRequested: Boolean = false,
     val vpnPermissionDialogVisible: Boolean = false,
+    val relockRequested: Boolean = false,
 )
 
 internal sealed interface MainActivityUiEvent {
@@ -93,6 +94,10 @@ internal class MainActivityShellController(
                     fileName = effect.fileName,
                 )
             }
+
+            MainEffect.RelockRequested -> {
+                _state.update { it.copy(relockRequested = true) }
+            }
         }
     }
 
@@ -114,6 +119,10 @@ internal class MainActivityShellController(
 
     fun dismissVpnPermissionDialog() {
         _state.update { it.copy(vpnPermissionDialogVisible = false) }
+    }
+
+    fun consumeRelockRequest() {
+        _state.update { it.copy(relockRequested = false) }
     }
 
     fun onConnectionStateChanged(connectionState: ConnectionState) {

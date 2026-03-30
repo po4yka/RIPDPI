@@ -1187,6 +1187,8 @@ fakeddisorder endhost</string>
     <string name="settings_biometric_body_with_pin">Биометрическая разблокировка включена с резервным PIN-кодом.</string>
     <string name="settings_biometric_body_without_pin">Биометрическая разблокировка включена. Добавьте резервный PIN-код для запасного доступа.</string>
     <string name="settings_biometric_body_disabled">Запрашивать биометрическую аутентификацию перед открытием панели управления.</string>
+    <string name="settings_biometric_unavailable">Биометрическое оборудование недоступно на этом устройстве.</string>
+    <string name="settings_biometric_no_enrollment">Биометрия не настроена. Добавьте отпечаток в настройках устройства.</string>
     <string name="settings_biometric_confirm_title">Включить аутентификацию?</string>
     <string name="settings_biometric_confirm_message">Вам потребуется подтверждать личность каждый раз при открытии панели управления.</string>
     <string name="settings_biometric_confirm_enable">Включить</string>
@@ -1246,6 +1248,10 @@ fakeddisorder endhost</string>
     <string name="biometric_prompt_pin_lockout_title">Слишком много попыток</string>
     <string name="biometric_prompt_pin_lockout_body">Повторите через %1$d сек.</string>
     <string name="biometric_prompt_use_biometric">Вернуться к биометрии</string>
+    <string name="biometric_dialog_title">Разблокировать RIPDPI</string>
+    <string name="biometric_dialog_subtitle">Подтвердите свою личность</string>
+    <string name="biometric_dialog_cancel">Отмена</string>
+    <string name="biometric_auth_error_title">Ошибка аутентификации</string>
     <string name="ripdpi_source">https://github.com/hufrea/ripdpi</string>
     <string name="about_description">Интерфейс локальной конфигурации на Compose для сохранённого движка RIPDPI, сервиса и стека DataStore.</string>
     <string name="about_build_section">Сборка</string>
