@@ -228,12 +228,21 @@ pub fn plan_tcp(
                     push_split_actions(&mut actions, chunk);
                 } else {
                     let overlap = step.overlap_size.max(1) as usize;
-                    let fake_prefix =
-                        build_seqovl_fake_prefix(group, &tampered.bytes, seed, overlap, step.seqovl_fake_mode)?;
+                    let fake_prefix = build_seqovl_fake_prefix(
+                        group,
+                        &tampered.bytes,
+                        seed,
+                        overlap,
+                        step.seqovl_fake_mode,
+                    )?;
                     let split = (pos - lp) as usize;
                     let real_chunk = chunk[..split].to_vec();
                     let remainder = tampered.bytes[pos as usize..].to_vec();
-                    actions.push(DesyncAction::WriteSeqOverlap { real_chunk, fake_prefix, remainder });
+                    actions.push(DesyncAction::WriteSeqOverlap {
+                        real_chunk,
+                        fake_prefix,
+                        remainder,
+                    });
                     steps.push(PlannedStep { kind: planned_kind, start: lp, end: pos });
                     lp = tampered.bytes.len() as i64;
                     continue;

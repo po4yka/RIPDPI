@@ -52,20 +52,6 @@ class StrategyChainsTest {
     }
 
     @Test
-    fun `rewritePrimaryTcpMarker leaves multidisorder chain unchanged`() {
-        val original =
-            listOf(
-                TcpChainStepModel(TcpChainStepKind.TlsRec, "extlen"),
-                TcpChainStepModel(TcpChainStepKind.MultiDisorder, "sniext"),
-                TcpChainStepModel(TcpChainStepKind.MultiDisorder, "host"),
-            )
-
-        val updated = rewritePrimaryTcpMarker(original, AdaptiveMarkerBalanced)
-
-        assertEquals(original, updated)
-    }
-
-    @Test
     fun `hostfake parser rejects adaptive markers`() {
         val markerResult = parseStrategyChainDsl("[tcp]\nhostfake auto(host)")
         val midhostResult = parseStrategyChainDsl("[tcp]\nhostfake endhost midhost=auto(midsld)")

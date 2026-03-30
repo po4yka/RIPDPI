@@ -299,7 +299,13 @@ fn log_ipfrag2_flow_fallback(error: &impl std::fmt::Display) {
 }
 
 fn should_fallback_seqovl_error_kind(kind: io::ErrorKind) -> bool {
-    matches!(kind, io::ErrorKind::InvalidInput | io::ErrorKind::WouldBlock | io::ErrorKind::Unsupported | io::ErrorKind::PermissionDenied)
+    matches!(
+        kind,
+        io::ErrorKind::InvalidInput
+            | io::ErrorKind::WouldBlock
+            | io::ErrorKind::Unsupported
+            | io::ErrorKind::PermissionDenied
+    )
 }
 
 fn await_writable_action_name(strategy_family: &'static str) -> &'static str {
@@ -529,13 +535,7 @@ fn execute_tcp_actions(
                     }
                 }
                 DesyncAction::WriteSeqOverlap { real_chunk, fake_prefix, remainder } => {
-                    match platform::send_seqovl_tcp(
-                        writer,
-                        real_chunk,
-                        fake_prefix,
-                        default_ttl,
-                        None,
-                    ) {
+                    match platform::send_seqovl_tcp(writer, real_chunk, fake_prefix, default_ttl, None) {
                         Ok(()) => {
                             bytes_committed += real_chunk.len();
                             if !remainder.is_empty() {
@@ -1288,6 +1288,7 @@ fn execute_multi_disorder_tcp_plan(
 
     let strategy_family = strategy_family.unwrap_or("multidisorder");
     let fallback = strategy_fallback_family(strategy_family);
+    let inter_segment_delay_ms = send_steps.first().map_or(0, |s| s.inter_segment_delay_ms);
     strategy_result(
         platform::send_multi_disorder_tcp(
             writer,
@@ -1295,6 +1296,7 @@ fn execute_multi_disorder_tcp_plan(
             &segments,
             config.network.default_ttl,
             config.process.protect_path.as_deref(),
+            inter_segment_delay_ms,
         ),
         "write_multidisorder",
         strategy_family,

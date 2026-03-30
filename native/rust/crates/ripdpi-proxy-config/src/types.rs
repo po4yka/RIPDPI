@@ -141,6 +141,8 @@ pub struct ProxyUiTcpChainStep {
     #[serde(default)]
     pub max_fragment_size: i32,
     #[serde(default)]
+    pub inter_segment_delay_ms: u32,
+    #[serde(default)]
     pub activation_filter: Option<ProxyUiActivationFilter>,
 }
 
@@ -552,6 +554,7 @@ fn default_tcp_chain_steps() -> Vec<ProxyUiTcpChainStep> {
         fragment_count: 0,
         min_fragment_size: 0,
         max_fragment_size: 0,
+        inter_segment_delay_ms: 0,
         activation_filter: None,
     }]
 }

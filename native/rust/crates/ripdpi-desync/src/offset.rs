@@ -26,32 +26,32 @@ pub(crate) fn gen_offset(
             expr.delta + lp + rng.next_mod(available.max(1)) as i64
         }
         OffsetBase::Host => {
-            let host = resolve_host_range(buffer, info, expr.proto)?;
-            host.start_offset(0)? as i64 + expr.delta
+            let (host_start, _, _) = resolve_host_range(buffer, info, expr.proto)?;
+            host_start as i64 + expr.delta
         }
         OffsetBase::EndHost => {
-            let host = resolve_host_range(buffer, info, expr.proto)?;
-            host.end_offset(host.host.len())? as i64 + expr.delta
+            let (_, host_end, _) = resolve_host_range(buffer, info, expr.proto)?;
+            host_end as i64 + expr.delta
         }
         OffsetBase::HostMid => {
-            let host = resolve_host_range(buffer, info, expr.proto)?;
-            host.start_offset(host.host.len() / 2)? as i64 + expr.delta
+            let (host_start, host_end, _) = resolve_host_range(buffer, info, expr.proto)?;
+            host_start as i64 + ((host_end - host_start) / 2) as i64 + expr.delta
         }
         OffsetBase::HostRand => {
-            let host = resolve_host_range(buffer, info, expr.proto)?;
-            let host_index = rng.next_mod(host.host.len().max(1));
-            host.start_offset(host_index)? as i64 + expr.delta
+            let (host_start, host_end, _) = resolve_host_range(buffer, info, expr.proto)?;
+            let host_len = host_end.saturating_sub(host_start);
+            host_start as i64 + rng.next_mod(host_len.max(1)) as i64 + expr.delta
         }
         OffsetBase::Sld | OffsetBase::MidSld | OffsetBase::EndSld => {
-            let host = resolve_host_range(buffer, info, expr.proto)?;
-            let (sld_start, sld_end) = second_level_domain_span(host.host)?;
-            let offset = match expr.base {
-                OffsetBase::Sld => host.start_offset(sld_start)?,
-                OffsetBase::MidSld => host.start_offset(sld_start + ((sld_end - sld_start) / 2))?,
-                OffsetBase::EndSld => host.end_offset(sld_end)?,
+            let (host_start, _, host) = resolve_host_range(buffer, info, expr.proto)?;
+            let (sld_start, sld_end) = second_level_domain_span(host)?;
+            let anchor = match expr.base {
+                OffsetBase::Sld => sld_start,
+                OffsetBase::MidSld => sld_start + ((sld_end - sld_start) / 2),
+                OffsetBase::EndSld => sld_end,
                 _ => unreachable!(),
             };
-            offset as i64 + expr.delta
+            (host_start + anchor) as i64 + expr.delta
         }
         OffsetBase::Method => {
             init_proto_info(buffer, info);
@@ -59,15 +59,15 @@ pub(crate) fn gen_offset(
         }
         OffsetBase::ExtLen => {
             init_proto_info(buffer, info);
-            info.tls.as_ref().map(|tls| tls.markers.ext_len_start as i64 + expr.delta)?
+            info.tls.map(|tls| tls.ext_len_start as i64 + expr.delta)?
         }
         OffsetBase::EchExt => {
             init_proto_info(buffer, info);
-            info.tls.as_ref().and_then(|tls| tls.markers.ech_ext_start.map(|offset| offset as i64 + expr.delta))?
+            info.tls.and_then(|tls| tls.ech_ext_start.map(|offset| offset as i64 + expr.delta))?
         }
         OffsetBase::SniExt => {
             init_proto_info(buffer, info);
-            info.tls.as_ref().map(|tls| tls.markers.sni_ext_start as i64 + expr.delta)?
+            info.tls.map(|tls| tls.sni_ext_start as i64 + expr.delta)?
         }
         OffsetBase::AutoBalanced
         | OffsetBase::AutoHost

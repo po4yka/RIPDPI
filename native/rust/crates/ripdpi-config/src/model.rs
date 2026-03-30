@@ -220,6 +220,7 @@ pub struct TcpChainStep {
     pub fragment_count: i32,
     pub min_fragment_size: i32,
     pub max_fragment_size: i32,
+    pub inter_segment_delay_ms: u32,
 }
 
 impl TcpChainStep {
@@ -235,6 +236,7 @@ impl TcpChainStep {
             fragment_count: 0,
             min_fragment_size: 0,
             max_fragment_size: 0,
+            inter_segment_delay_ms: 0,
         }
     }
 }
