@@ -635,6 +635,70 @@ pub fn send_multi_disorder_tcp(
     result
 }
 
+pub fn send_seqovl_tcp(
+    stream: &TcpStream,
+    real_chunk: &[u8],
+    fake_prefix: &[u8],
+    default_ttl: u8,
+    protect_path: Option<&str>,
+) -> io::Result<()> {
+    if real_chunk.is_empty() {
+        return Ok(());
+    }
+
+    let source = stream.local_addr()?;
+    let target = stream.peer_addr()?;
+    let ttl = get_stream_ttl(stream).unwrap_or_else(|_| resolve_raw_ttl(default_ttl));
+    let fd = stream.as_raw_fd();
+    let settings = capture_stream_socket_settings(stream);
+
+    set_tcp_repair(fd, TCP_REPAIR_ON)?;
+    let result = (|| -> io::Result<()> {
+        let snapshot = snapshot_tcp_repair_state(fd)?;
+
+        // Build overlapping packet: seq shifted back by fake_prefix length,
+        // payload = [fake_prefix][real_chunk]. Server accepts only bytes at
+        // seq >= snapshot.sequence_number, discarding the fake prefix. DPI
+        // typically caches "first received" and sees the fake data.
+        let overlap_seq = snapshot.sequence_number.wrapping_sub(fake_prefix.len() as u32);
+        let mut overlap_payload = Vec::with_capacity(fake_prefix.len() + real_chunk.len());
+        overlap_payload.extend_from_slice(fake_prefix);
+        overlap_payload.extend_from_slice(real_chunk);
+
+        let identification = snapshot.sequence_number;
+        let packet = build_tcp_segment_packet(
+            source,
+            target,
+            ttl,
+            identification,
+            overlap_seq,
+            snapshot.acknowledgment_number,
+            snapshot.window_size,
+            snapshot.options.timestamp,
+            true,
+            &overlap_payload,
+        )?;
+        send_raw_packets(target, std::iter::once(packet.as_slice()), protect_path)?;
+
+        // Advance stream seq past real_chunk so the remainder can be written
+        // normally through the replacement socket.
+        let replacement = build_replacement_tcp_socket(
+            source,
+            target,
+            real_chunk.len(),
+            &snapshot,
+            protect_path,
+        )?;
+        swap_stream_to_replacement(stream, &replacement, settings)?;
+        set_tcp_repair_queue(fd, TCP_NO_QUEUE)?;
+        disable_tcp_repair(fd)
+    })();
+
+    let _ = set_tcp_repair_queue(fd, TCP_NO_QUEUE);
+    let _ = disable_tcp_repair(fd);
+    result
+}
+
 pub fn wait_tcp_stage(stream: &TcpStream, wait_send: bool, await_interval: Duration) -> io::Result<()> {
     wait_tcp_stage_fd(stream.as_raw_fd(), wait_send, await_interval)
 }
@@ -1259,6 +1323,7 @@ fn write_region(region: *mut u8, data: &[u8], len: usize) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use etherparse::{Ipv4Header, TcpHeader};
     use std::mem::zeroed;
     use std::net::TcpListener;
     use std::slice;
@@ -1292,6 +1357,21 @@ mod tests {
     fn get_recv_ttl(fd: libc::c_int) -> io::Result<bool> {
         let (val, _): (libc::c_int, _) = unsafe { getsockopt_raw(fd, libc::IPPROTO_IP, libc::IP_RECVTTL) }?;
         Ok(val != 0)
+    }
+
+    fn sample_tcp_repair_snapshot() -> TcpRepairSnapshot {
+        TcpRepairSnapshot {
+            sequence_number: 0x0102_0304,
+            acknowledgment_number: 0x0506_0708,
+            window_size: 4096,
+            repair_window: TcpRepairWindow { rcv_wnd: 4096, ..Default::default() },
+            options: TcpRepairOptionsSnapshot {
+                mss: Some(1440),
+                sack_permitted: true,
+                window_scale: Some(TcpWindowScaleSnapshot { send: 7, receive: 8 }),
+                timestamp: Some(TcpTimestampSnapshot { value: 0x1122_3344, echo_reply: 0x5566_7788, usec_ts: false }),
+            },
+        }
     }
 
     #[test]
@@ -1522,5 +1602,80 @@ mod tests {
         assert!(options.sack_permitted);
         assert_eq!(options.window_scale, None);
         assert_eq!(options.timestamp, None);
+    }
+
+    #[test]
+    fn build_multi_disorder_packets_preserves_payload_ranges_sequence_numbers_and_flags() {
+        let source = SocketAddr::from(([203, 0, 113, 10], 50_000));
+        let target = SocketAddr::from(([198, 51, 100, 20], 443));
+        let payload = b"multidisorder-payload";
+        let segments = [
+            crate::platform::TcpPayloadSegment { start: 0, end: 5 },
+            crate::platform::TcpPayloadSegment { start: 5, end: 14 },
+            crate::platform::TcpPayloadSegment { start: 14, end: payload.len() },
+        ];
+        let snapshot = sample_tcp_repair_snapshot();
+
+        let packets = build_multi_disorder_packets(source, target, 37, payload, &segments, &snapshot)
+            .expect("build multidisorder packets");
+
+        assert_eq!(packets.len(), 3);
+
+        let mut identifications = Vec::new();
+        for (index, (packet, segment)) in packets.iter().zip(segments.iter()).enumerate() {
+            let (ip, transport) = Ipv4Header::from_slice(packet).expect("parse ipv4 packet");
+            let (tcp, tcp_payload) = TcpHeader::from_slice(transport).expect("parse tcp packet");
+
+            identifications.push(ip.identification);
+            assert_eq!(ip.time_to_live, 37);
+            assert_eq!(
+                tcp.sequence_number,
+                sequence_after_payload(snapshot.sequence_number, segment.start).expect("seq")
+            );
+            assert_eq!(tcp.acknowledgment_number, snapshot.acknowledgment_number);
+            assert_eq!(tcp.window_size, snapshot.window_size);
+            assert!(tcp.ack);
+            assert_eq!(tcp.psh, index == segments.len() - 1);
+            assert!(tcp.header_len() > TcpHeader::MIN_LEN);
+            assert_eq!(tcp_payload, &payload[segment.start..segment.end]);
+        }
+
+        assert_eq!(identifications[1], identifications[0].wrapping_add(1));
+        assert_eq!(identifications[2], identifications[1].wrapping_add(1));
+    }
+
+    #[test]
+    fn build_multi_disorder_packets_rejects_non_contiguous_segment_ranges() {
+        let source = SocketAddr::from(([203, 0, 113, 10], 50_000));
+        let target = SocketAddr::from(([198, 51, 100, 20], 443));
+        let payload = b"multidisorder";
+        let segments = [
+            crate::platform::TcpPayloadSegment { start: 0, end: 4 },
+            crate::platform::TcpPayloadSegment { start: 5, end: payload.len() },
+        ];
+
+        let err = build_multi_disorder_packets(source, target, 37, payload, &segments, &sample_tcp_repair_snapshot())
+            .expect_err("reject gapped segments");
+
+        assert_eq!(err.kind(), io::ErrorKind::InvalidInput);
+        assert!(err.to_string().contains("invalid multidisorder TCP payload segments"));
+    }
+
+    #[test]
+    fn build_multi_disorder_packets_rejects_partial_payload_coverage() {
+        let source = SocketAddr::from(([203, 0, 113, 10], 50_000));
+        let target = SocketAddr::from(([198, 51, 100, 20], 443));
+        let payload = b"multidisorder";
+        let segments = [
+            crate::platform::TcpPayloadSegment { start: 0, end: 4 },
+            crate::platform::TcpPayloadSegment { start: 4, end: 8 },
+            crate::platform::TcpPayloadSegment { start: 8, end: 11 },
+        ];
+
+        let err = build_multi_disorder_packets(source, target, 37, payload, &segments, &sample_tcp_repair_snapshot())
+            .expect_err("reject truncated coverage");
+
+        assert_eq!(err.kind(), io::ErrorKind::InvalidInput);
+        assert!(err.to_string().contains("multidisorder TCP payload segments must cover the full payload"));
     }
 }
