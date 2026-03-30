@@ -194,6 +194,9 @@ class MainActivityContentTest {
             serviceStateStore = FakeServiceStateStore(),
             serviceController = serviceController,
             diagnosticsTimelineSource = StubDiagnosticsTimelineSource(),
+            diagnosticsScanController = StubDiagnosticsScanController(),
+            diagnosticsShareService = StubDiagnosticsShareService(),
+            diagnosticsHomeWorkflowService = StubDiagnosticsHomeWorkflowService(),
             stringResolver = FakeStringResolver(),
             trafficStatsReader = FakeTrafficStatsReader(),
             permissionPlatformBridge =

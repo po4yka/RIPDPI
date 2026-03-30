@@ -86,6 +86,13 @@ internal class MainActivityShellController(
             is MainEffect.ShowError -> {
                 _uiEvents.trySend(MainActivityUiEvent.ShowErrorSnackbar(effect.message))
             }
+
+            is MainEffect.ShareDiagnosticsArchive -> {
+                requestShareDiagnosticsArchive(
+                    filePath = effect.absolutePath,
+                    fileName = effect.fileName,
+                )
+            }
         }
     }
 
