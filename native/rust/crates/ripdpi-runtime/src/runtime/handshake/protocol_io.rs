@@ -1,11 +1,13 @@
 use std::io::{self, Read, Write};
-use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, TcpStream, ToSocketAddrs};
+use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, TcpStream};
 
 use ripdpi_config::RuntimeConfig;
 use ripdpi_session::{
     encode_http_connect_reply, encode_socks4_reply, encode_socks5_reply, SocketType, S_ATP_I4, S_ATP_I6, S_AUTH_BAD,
     S_AUTH_NONE, S_VER5,
 };
+
+use super::super::state::RuntimeState;
 
 #[derive(Clone, Copy)]
 pub(super) enum HandshakeKind {
@@ -109,15 +111,21 @@ pub(super) fn read_http_connect_request(client: &mut TcpStream) -> io::Result<Ve
 pub(in crate::runtime) fn resolve_name(
     host: &str,
     _socket_type: SocketType,
-    config: &RuntimeConfig,
+    state: &RuntimeState,
 ) -> Option<SocketAddr> {
     if let Ok(ip) = host.parse::<IpAddr>() {
         return Some(SocketAddr::new(ip, 0));
     }
-    if !config.network.resolve {
+    if !state.config.network.resolve {
         return None;
     }
-    (host, 0).to_socket_addrs().ok()?.find(|addr| config.network.ipv6 || addr.is_ipv4())
+    crate::ws_bootstrap::resolve_host_via_encrypted_dns(
+        host,
+        state.runtime_context.as_ref(),
+        state.config.process.protect_path.as_deref(),
+        state.config.network.ipv6,
+    )
+    .ok()
 }
 
 pub(super) fn send_success_reply(client: &mut TcpStream, handshake: HandshakeKind) -> io::Result<()> {
@@ -135,11 +143,12 @@ pub(super) fn read_shadowsocks_request(
     client: &mut TcpStream,
     first_byte: u8,
     config: &RuntimeConfig,
+    mut resolver: impl FnMut(&str, SocketType) -> Option<SocketAddr>,
 ) -> io::Result<(SocketAddr, Vec<u8>)> {
     let mut request = vec![first_byte];
     let mut chunk = [0u8; 4096];
     loop {
-        if let Some((target, header_len)) = parse_shadowsocks_target(&request, config) {
+        if let Some((target, header_len)) = parse_shadowsocks_target(&request, config, &mut resolver) {
             return Ok((target, request[header_len..].to_vec()));
         }
         let n = client.read(&mut chunk)?;
@@ -153,7 +162,11 @@ pub(super) fn read_shadowsocks_request(
     }
 }
 
-pub(super) fn parse_shadowsocks_target(packet: &[u8], config: &RuntimeConfig) -> Option<(SocketAddr, usize)> {
+pub(super) fn parse_shadowsocks_target(
+    packet: &[u8],
+    config: &RuntimeConfig,
+    mut resolver: impl FnMut(&str, SocketType) -> Option<SocketAddr>,
+) -> Option<(SocketAddr, usize)> {
     let atyp = *packet.first()?;
     match atyp {
         S_ATP_I4 => {
@@ -180,7 +193,7 @@ pub(super) fn parse_shadowsocks_target(packet: &[u8], config: &RuntimeConfig) ->
             }
             let host = std::str::from_utf8(&packet[2..2 + len]).ok()?;
             let port = u16::from_be_bytes([packet[2 + len], packet[3 + len]]);
-            let resolved = resolve_name(host, SocketType::Stream, config)?;
+            let resolved = resolver(host, SocketType::Stream)?;
             Some((SocketAddr::new(resolved.ip(), port), 2 + len + 2))
         }
         _ => None,
