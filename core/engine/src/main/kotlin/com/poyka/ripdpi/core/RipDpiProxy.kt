@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.core
 
+import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.data.NativeError
 import com.poyka.ripdpi.data.NativeNetworkSnapshot
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
@@ -12,8 +13,6 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.yield
 import kotlinx.serialization.json.Json
-import logcat.LogPriority
-import logcat.logcat
 import javax.inject.Inject
 import kotlin.coroutines.coroutineContext
 
@@ -124,10 +123,10 @@ class RipDpiProxy(
                             nativeBindings.create(preferences.toNativeConfigJson())
                         }
                     if (createdHandle == 0L) {
-                        logcat(LogPriority.ERROR) { "Proxy native session creation returned null handle" }
+                        Logger.e { "Proxy native session creation returned null handle" }
                         throw NativeError.SessionCreationFailed("proxy")
                     }
-                    logcat(LogPriority.DEBUG) { "Proxy native session created: handle=$createdHandle" }
+                    Logger.d { "Proxy native session created: handle=$createdHandle" }
                     this.handle = createdHandle
                     createdHandle
                 } catch (error: Exception) {
@@ -189,7 +188,7 @@ class RipDpiProxy(
                 readinessSignal
             } ?: throw NativeError.NotRunning("Proxy")
 
-        logcat(LogPriority.DEBUG) { "Awaiting proxy readiness (timeout=${timeoutMillis}ms)" }
+        Logger.d { "Awaiting proxy readiness (timeout=${timeoutMillis}ms)" }
         val deadline = System.currentTimeMillis() + timeoutMillis
         var pollCount = 0L
         while (true) {
@@ -208,11 +207,11 @@ class RipDpiProxy(
             pollCount++
             if (pollCount % readyLogPollInterval == 0L) {
                 val elapsed = timeoutMillis - (deadline - System.currentTimeMillis())
-                logcat(LogPriority.DEBUG) { "Proxy readiness: state=${telemetry.state} elapsed=${elapsed}ms" }
+                Logger.d { "Proxy readiness: state=${telemetry.state} elapsed=${elapsed}ms" }
             }
 
             if (System.currentTimeMillis() >= deadline) {
-                logcat(LogPriority.WARN) { "Proxy readiness timed out after ${timeoutMillis}ms" }
+                Logger.w { "Proxy readiness timed out after ${timeoutMillis}ms" }
                 error("Timed out waiting for proxy readiness")
             }
 

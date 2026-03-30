@@ -1,11 +1,11 @@
 package com.poyka.ripdpi.ui.debug
 
-import android.util.Log
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
+import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.BuildConfig
 import kotlinx.coroutines.delay
 import java.util.concurrent.ConcurrentHashMap
@@ -81,7 +81,7 @@ fun TrackRecomposition(tag: String) {
         count.intValue++
         RecompositionCounter.record(tag)
         if (count.intValue % 10 == 1) {
-            Log.d("RecomposeTracker", "$tag recomposed (#${count.intValue})")
+            Logger.withTag("RecomposeTracker").e { "$tag recomposed (#${count.intValue})" }
         }
     }
 }
@@ -93,13 +93,15 @@ fun TrackRecomposition(tag: String) {
 @Composable
 fun RecompositionReportEffect(intervalMs: Long = 5_000L) {
     if (!BuildConfig.DEBUG) return
+    Logger.withTag("RecomposeReport").e { "RecompositionReportEffect INSTALLED" }
     LaunchedEffect(Unit) {
+        Logger.withTag("RecomposeReport").e { "LaunchedEffect STARTED" }
         while (true) {
             delay(intervalMs)
             val report = RecompositionCounter.report()
             if (report.isNotEmpty()) {
                 report.lines().forEach { line ->
-                    Log.i("RecomposeReport", line)
+                    Logger.withTag("RecomposeReport").e { line }
                 }
             }
         }

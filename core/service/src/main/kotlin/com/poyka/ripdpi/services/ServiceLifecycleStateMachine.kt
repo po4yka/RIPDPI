@@ -1,7 +1,6 @@
 package com.poyka.ripdpi.services
 
-import logcat.LogPriority
-import logcat.logcat
+import co.touchlab.kermit.Logger
 
 internal class ServiceLifecycleStateMachine {
     enum class State {
@@ -18,7 +17,7 @@ internal class ServiceLifecycleStateMachine {
         when (state) {
             State.STOPPED -> {
                 state = State.STARTING
-                logcat(LogPriority.DEBUG) { "Lifecycle: STOPPED -> STARTING" }
+                Logger.d { "Lifecycle: STOPPED -> STARTING" }
                 true
             }
 
@@ -31,22 +30,22 @@ internal class ServiceLifecycleStateMachine {
         }
 
     fun markStarted() {
-        logcat(LogPriority.DEBUG) { "Lifecycle: $state -> RUNNING" }
+        Logger.d { "Lifecycle: $state -> RUNNING" }
         state = State.RUNNING
     }
 
     fun markStartFailed() {
-        logcat(LogPriority.DEBUG) { "Lifecycle: $state -> STOPPED (start failed)" }
+        Logger.d { "Lifecycle: $state -> STOPPED (start failed)" }
         state = State.STOPPED
     }
 
     fun beginStop() {
-        logcat(LogPriority.DEBUG) { "Lifecycle: $state -> STOPPING" }
+        Logger.d { "Lifecycle: $state -> STOPPING" }
         state = State.STOPPING
     }
 
     fun markStopped() {
-        logcat(LogPriority.DEBUG) { "Lifecycle: $state -> STOPPED" }
+        Logger.d { "Lifecycle: $state -> STOPPED" }
         state = State.STOPPED
     }
 }

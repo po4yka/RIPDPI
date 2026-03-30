@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.core
 
+import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.data.NativeError
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
 import com.poyka.ripdpi.data.TunnelStats
@@ -9,8 +10,6 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
-import logcat.LogPriority
-import logcat.logcat
 import javax.inject.Inject
 
 interface Tun2SocksBindings {
@@ -101,16 +100,16 @@ class Tun2SocksTunnel(
                     nativeBindings.create(json.encodeToString(config))
                 }
             if (createdHandle == 0L) {
-                logcat(LogPriority.ERROR) { "Tunnel native session creation returned null handle" }
+                Logger.e { "Tunnel native session creation returned null handle" }
                 throw NativeError.SessionCreationFailed("tunnel")
             }
-            logcat(LogPriority.DEBUG) { "Tunnel native session created: handle=$createdHandle" }
+            Logger.d { "Tunnel native session created: handle=$createdHandle" }
 
             try {
                 withContext(Dispatchers.IO) {
                     nativeBindings.start(createdHandle, tunFd)
                 }
-                logcat(LogPriority.DEBUG) { "Tunnel native start completed: tunFd=$tunFd" }
+                Logger.d { "Tunnel native start completed: tunFd=$tunFd" }
                 handle = createdHandle
             } catch (e: Exception) {
                 withContext(Dispatchers.IO) {

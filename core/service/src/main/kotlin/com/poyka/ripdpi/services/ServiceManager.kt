@@ -7,6 +7,7 @@ import android.content.pm.PackageManager
 import android.net.VpnService
 import android.os.Build
 import androidx.core.content.ContextCompat
+import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.data.DiagnosticsRuntimeCoordinator
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.START_ACTION
@@ -17,8 +18,6 @@ import dagger.Module
 import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
-import logcat.LogPriority
-import logcat.logcat
 import java.util.Optional
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -45,20 +44,20 @@ class DefaultServiceController
                 ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) !=
                 PackageManager.PERMISSION_GRANTED
             ) {
-                logcat(LogPriority.WARN) {
+                Logger.w {
                     "Cannot start service: POST_NOTIFICATIONS permission not granted"
                 }
                 return
             }
             if (mode == Mode.VPN && VpnService.prepare(context) != null) {
-                logcat(LogPriority.WARN) {
+                Logger.w {
                     "Cannot start VPN service: VPN consent not given"
                 }
                 return
             }
             when (mode) {
                 Mode.VPN -> {
-                    logcat(LogPriority.INFO) { "Starting VPN" }
+                    Logger.i { "Starting VPN" }
                     val intent =
                         Intent(context, RipDpiVpnService::class.java).apply {
                             action = START_ACTION
@@ -67,7 +66,7 @@ class DefaultServiceController
                 }
 
                 Mode.Proxy -> {
-                    logcat(LogPriority.INFO) { "Starting proxy" }
+                    Logger.i { "Starting proxy" }
                     val intent =
                         Intent(context, RipDpiProxyService::class.java).apply {
                             action = START_ACTION
@@ -84,7 +83,7 @@ class DefaultServiceController
             }
             when (currentMode) {
                 Mode.VPN -> {
-                    logcat(LogPriority.INFO) { "Stopping VPN" }
+                    Logger.i { "Stopping VPN" }
                     val intent =
                         Intent(context, RipDpiVpnService::class.java).apply {
                             action = STOP_ACTION
@@ -93,7 +92,7 @@ class DefaultServiceController
                 }
 
                 Mode.Proxy -> {
-                    logcat(LogPriority.INFO) { "Stopping proxy" }
+                    Logger.i { "Stopping proxy" }
                     val intent =
                         Intent(context, RipDpiProxyService::class.java).apply {
                             action = STOP_ACTION
