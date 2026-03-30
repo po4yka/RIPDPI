@@ -266,35 +266,40 @@ class DefaultDiagnosticsHomeCompositeRunService
             val actionable = auditOutcome?.actionable == true
             val fingerprintHash = auditOutcome?.fingerprintHash ?: progress.fingerprintHash
             val outcomeSummary =
-                buildString {
-                    append("Completed ")
-                    append(completedStageCount)
-                    append(" of ")
-                    append(stageSummaries.size)
-                    append(" diagnostics stages.")
-                    auditOutcome?.summary?.takeIf { it.isNotBlank() }?.let {
-                        append(' ')
-                        append(it)
-                    }
-                    if (failedStageCount > 0) {
-                        append(' ')
-                        append(failedStageCount)
-                        append(" stage")
-                        if (failedStageCount != 1) {
-                            append('s')
+                auditOutcome?.summary?.takeIf { it.isNotBlank() }
+                    ?: buildString {
+                        append("Completed ")
+                        append(completedStageCount)
+                        append(" of ")
+                        append(stageSummaries.size)
+                        append(" diagnostics stages.")
+                        if (failedStageCount > 0) {
+                            append(' ')
+                            append(failedStageCount)
+                            append(" stage")
+                            if (failedStageCount != 1) {
+                                append('s')
+                            }
+                            append(" finished with failures or were unavailable.")
                         }
-                        append(" finished with failures or were unavailable.")
                     }
-                }
             return DiagnosticsHomeCompositeOutcome(
                 runId = runId,
                 fingerprintHash = fingerprintHash,
                 actionable = actionable,
                 headline =
                     when {
-                        actionable -> "Analysis complete and settings applied"
-                        failedStageCount > 0 -> "Analysis complete with partial failures"
-                        else -> "Analysis complete"
+                        actionable -> {
+                            "Analysis complete and settings applied"
+                        }
+
+                        failedStageCount > 0 -> {
+                            "Analysis finished \u2014 $failedStageCount of ${stageSummaries.size} stages failed"
+                        }
+
+                        else -> {
+                            "Analysis complete"
+                        }
                     },
                 summary = outcomeSummary,
                 recommendationSummary = auditOutcome?.recommendationSummary,

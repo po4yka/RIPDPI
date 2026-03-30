@@ -561,7 +561,32 @@ private fun HomeDiagnosticsBottomSheetHost(
                 )
             }
             sheet.confidenceSummary?.let { value ->
-                SettingsRow(title = stringResource(R.string.home_diagnostics_confidence_label), value = value)
+                val confidenceColor =
+                    when {
+                        value.contains("low", ignoreCase = true) -> colors.destructive
+                        value.contains("medium", ignoreCase = true) -> colors.warning
+                        value.contains("high", ignoreCase = true) -> colors.success
+                        else -> colors.foreground
+                    }
+                Row(
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = RipDpiThemeTokens.spacing.sm),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        text = stringResource(R.string.home_diagnostics_confidence_label),
+                        style = RipDpiThemeTokens.type.body,
+                        color = colors.foreground,
+                    )
+                    Text(
+                        text = value,
+                        style = RipDpiThemeTokens.type.bodyEmphasis,
+                        color = confidenceColor,
+                    )
+                }
             }
             sheet.coverageSummary?.let { value ->
                 SettingsRow(title = stringResource(R.string.home_diagnostics_coverage_label), value = value)
@@ -1087,7 +1112,7 @@ private fun HomeConnectionButton(
             ) { currentModeLabel ->
                 Text(
                     text = currentModeLabel,
-                    style = type.monoSmall,
+                    style = type.caption,
                     color = animatedContentColor.copy(alpha = 0.72f),
                     textAlign = TextAlign.Center,
                 )
