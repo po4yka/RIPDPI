@@ -1,6 +1,7 @@
 package com.poyka.ripdpi
 
 import android.content.Context
+import androidx.core.content.edit
 import com.poyka.ripdpi.core.clearHostAutolearnStore
 import com.poyka.ripdpi.data.resolveAppSettingsStoreFile
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -39,7 +40,7 @@ class AppCompatibilityReset
                 }
             }
 
-            preferences.edit().putBoolean(CompatibilityResetAppliedKey, true).commit()
+            preferences.edit { putBoolean(CompatibilityResetAppliedKey, true) }
         }
     }
 
