@@ -8,6 +8,11 @@ import com.poyka.ripdpi.diagnostics.BypassApproachId
 import com.poyka.ripdpi.diagnostics.BypassApproachKind
 import com.poyka.ripdpi.diagnostics.BypassApproachSummary
 import com.poyka.ripdpi.diagnostics.BypassRuntimeHealthSummary
+import com.poyka.ripdpi.diagnostics.DiagnosticScanSession
+import com.poyka.ripdpi.diagnostics.DiagnosticsAppliedSetting
+import com.poyka.ripdpi.diagnostics.DiagnosticsHomeAuditOutcome
+import com.poyka.ripdpi.diagnostics.DiagnosticsManualScanStartResult
+import com.poyka.ripdpi.diagnostics.ScanPathMode
 import com.poyka.ripdpi.diagnostics.deriveBypassStrategySignature
 import com.poyka.ripdpi.diagnostics.stableId
 import com.poyka.ripdpi.permissions.PermissionCoordinator
@@ -517,6 +522,185 @@ class MainViewModelTest {
             collector.cancel()
         }
 
+    @Test
+    fun `home full analysis starts automatic audit profile`() =
+        runTest {
+            val scanController =
+                StubDiagnosticsScanController().apply {
+                    startResults += DiagnosticsManualScanStartResult.Started("audit-session")
+                }
+            val diagnosticsTimelineSource = FakeMainDiagnosticsTimelineSource()
+            val viewModel =
+                createViewModel(
+                    diagnosticsTimelineSource = diagnosticsTimelineSource,
+                    diagnosticsScanController = scanController,
+                    permissionStatusProvider = grantedPermissionStatusProvider(),
+                )
+            val collector = backgroundScope.launch { viewModel.uiState.collect {} }
+            advanceUntilIdle()
+
+            viewModel.onRunHomeFullAnalysis()
+            advanceUntilIdle()
+
+            assertEquals(ScanPathMode.RAW_PATH, scanController.lastStartedPathMode)
+            assertEquals("automatic-audit", scanController.lastActiveProfileId)
+            assertTrue(viewModel.uiState.value.homeDiagnostics.analysisAction.busy)
+            collector.cancel()
+        }
+
+    @Test
+    fun `actionable home audit enables verified vpn and shares archive for selected session`() =
+        runTest {
+            val scanController =
+                StubDiagnosticsScanController().apply {
+                    startResults += DiagnosticsManualScanStartResult.Started("audit-session")
+                }
+            val diagnosticsTimelineSource = FakeMainDiagnosticsTimelineSource()
+            val shareService = StubDiagnosticsShareService()
+            val homeWorkflowService =
+                StubDiagnosticsHomeWorkflowService().apply {
+                    currentFingerprint = "fp-1"
+                    auditOutcomes["audit-session"] =
+                        DiagnosticsHomeAuditOutcome(
+                            sessionId = "audit-session",
+                            fingerprintHash = "fp-1",
+                            actionable = true,
+                            headline = "Analysis complete and settings applied",
+                            summary = "Working TCP and QUIC winners found.",
+                            confidenceSummary = "Confidence high",
+                            coverageSummary = "Coverage 92%",
+                            recommendationSummary = "TCP split + QUIC fake",
+                            appliedSettings = listOf(DiagnosticsAppliedSetting("TCP/TLS lane", "Split")),
+                        )
+                }
+            val viewModel =
+                createViewModel(
+                    diagnosticsTimelineSource = diagnosticsTimelineSource,
+                    diagnosticsScanController = scanController,
+                    diagnosticsShareService = shareService,
+                    diagnosticsHomeWorkflowService = homeWorkflowService,
+                    permissionStatusProvider = grantedPermissionStatusProvider(),
+                )
+            val collector = backgroundScope.launch { viewModel.uiState.collect {} }
+            advanceUntilIdle()
+
+            viewModel.onRunHomeFullAnalysis()
+            diagnosticsTimelineSource.sessions.value = listOf(completedSession("audit-session"))
+            advanceUntilIdle()
+
+            assertTrue(viewModel.uiState.value.homeDiagnostics.verifiedVpnAction.enabled)
+            assertEquals(
+                "audit-session",
+                viewModel.uiState.value.homeDiagnostics.analysisSheet
+                    ?.sessionId,
+            )
+
+            viewModel.effects.test {
+                viewModel.onShareHomeAnalysis()
+
+                val effect = awaitItem() as MainEffect.ShareDiagnosticsArchive
+                assertEquals("audit-session", shareService.archiveRequest?.requestedSessionId)
+                assertEquals(shareService.archiveResult.absolutePath, effect.absolutePath)
+                assertEquals(shareService.archiveResult.fileName, effect.fileName)
+                cancelAndIgnoreRemainingEvents()
+            }
+            collector.cancel()
+        }
+
+    @Test
+    fun `network change invalidates actionable home audit result`() =
+        runTest {
+            val scanController =
+                StubDiagnosticsScanController().apply {
+                    startResults += DiagnosticsManualScanStartResult.Started("audit-session")
+                }
+            val diagnosticsTimelineSource = FakeMainDiagnosticsTimelineSource()
+            val serviceStateStore = FakeServiceStateStore()
+            val homeWorkflowService =
+                StubDiagnosticsHomeWorkflowService().apply {
+                    currentFingerprint = "fp-1"
+                    auditOutcomes["audit-session"] =
+                        DiagnosticsHomeAuditOutcome(
+                            sessionId = "audit-session",
+                            fingerprintHash = "fp-1",
+                            actionable = true,
+                            headline = "Applied",
+                            summary = "Fresh result",
+                        )
+                }
+            val viewModel =
+                createViewModel(
+                    diagnosticsTimelineSource = diagnosticsTimelineSource,
+                    diagnosticsScanController = scanController,
+                    diagnosticsHomeWorkflowService = homeWorkflowService,
+                    serviceStateStore = serviceStateStore,
+                    permissionStatusProvider = grantedPermissionStatusProvider(),
+                )
+            val collector = backgroundScope.launch { viewModel.uiState.collect {} }
+            advanceUntilIdle()
+
+            viewModel.onRunHomeFullAnalysis()
+            diagnosticsTimelineSource.sessions.value = listOf(completedSession("audit-session"))
+            advanceUntilIdle()
+            assertTrue(viewModel.uiState.value.homeDiagnostics.verifiedVpnAction.enabled)
+
+            homeWorkflowService.currentFingerprint = "fp-2"
+            serviceStateStore.setStatus(AppStatus.Running, Mode.VPN)
+            runCurrent()
+            serviceStateStore.setStatus(AppStatus.Halted, Mode.VPN)
+            advanceUntilIdle()
+
+            assertFalse(viewModel.uiState.value.homeDiagnostics.verifiedVpnAction.enabled)
+            assertTrue(
+                viewModel.uiState.value.homeDiagnostics.latestAudit
+                    ?.stale == true,
+            )
+            collector.cancel()
+        }
+
+    @Test
+    fun `verified vpn action starts vpn mode after actionable audit`() =
+        runTest {
+            val scanController =
+                StubDiagnosticsScanController().apply {
+                    startResults += DiagnosticsManualScanStartResult.Started("audit-session")
+                }
+            val diagnosticsTimelineSource = FakeMainDiagnosticsTimelineSource()
+            val serviceController = FakeServiceController()
+            val homeWorkflowService =
+                StubDiagnosticsHomeWorkflowService().apply {
+                    currentFingerprint = "fp-1"
+                    auditOutcomes["audit-session"] =
+                        DiagnosticsHomeAuditOutcome(
+                            sessionId = "audit-session",
+                            fingerprintHash = "fp-1",
+                            actionable = true,
+                            headline = "Applied",
+                            summary = "Ready to verify",
+                        )
+                }
+            val viewModel =
+                createViewModel(
+                    diagnosticsTimelineSource = diagnosticsTimelineSource,
+                    diagnosticsScanController = scanController,
+                    diagnosticsHomeWorkflowService = homeWorkflowService,
+                    serviceController = serviceController,
+                    permissionStatusProvider = grantedPermissionStatusProvider(),
+                )
+            val collector = backgroundScope.launch { viewModel.uiState.collect {} }
+            advanceUntilIdle()
+
+            viewModel.onRunHomeFullAnalysis()
+            diagnosticsTimelineSource.sessions.value = listOf(completedSession("audit-session"))
+            advanceUntilIdle()
+
+            viewModel.onStartVerifiedVpn()
+            advanceUntilIdle()
+
+            assertEquals(listOf(Mode.VPN), serviceController.startedModes)
+            collector.cancel()
+        }
+
     private fun createViewModel(
         appSettingsRepository: FakeAppSettingsRepository =
             FakeAppSettingsRepository(
@@ -531,6 +715,9 @@ class MainViewModelTest {
         serviceController: FakeServiceController = FakeServiceController(),
         permissionStatusProvider: FakePermissionStatusProvider = FakePermissionStatusProvider(),
         diagnosticsTimelineSource: FakeMainDiagnosticsTimelineSource = FakeMainDiagnosticsTimelineSource(),
+        diagnosticsScanController: StubDiagnosticsScanController = StubDiagnosticsScanController(),
+        diagnosticsShareService: StubDiagnosticsShareService = StubDiagnosticsShareService(),
+        diagnosticsHomeWorkflowService: StubDiagnosticsHomeWorkflowService = StubDiagnosticsHomeWorkflowService(),
         initialize: Boolean = true,
     ): MainViewModel =
         MainViewModel(
@@ -538,6 +725,9 @@ class MainViewModelTest {
             serviceStateStore = serviceStateStore,
             serviceController = serviceController,
             diagnosticsTimelineSource = diagnosticsTimelineSource,
+            diagnosticsScanController = diagnosticsScanController,
+            diagnosticsShareService = diagnosticsShareService,
+            diagnosticsHomeWorkflowService = diagnosticsHomeWorkflowService,
             stringResolver = FakeStringResolver(),
             trafficStatsReader = FakeTrafficStatsReader(),
             permissionPlatformBridge = FakePermissionPlatformBridge(),
@@ -552,6 +742,32 @@ class MainViewModelTest {
                 viewModel.initialize()
             }
         }
+
+    private fun grantedPermissionStatusProvider(): FakePermissionStatusProvider =
+        FakePermissionStatusProvider(
+            snapshot =
+                PermissionSnapshot(
+                    vpnConsent = PermissionStatus.Granted,
+                    notifications = PermissionStatus.Granted,
+                    batteryOptimization = PermissionStatus.Granted,
+                ),
+        )
+
+    private fun completedSession(
+        id: String,
+        summary: String = "Completed",
+        pathMode: ScanPathMode = ScanPathMode.RAW_PATH,
+    ): DiagnosticScanSession =
+        DiagnosticScanSession(
+            id = id,
+            profileId = "automatic-audit",
+            pathMode = pathMode.name,
+            serviceMode = "VPN",
+            status = "completed",
+            summary = summary,
+            startedAt = 10L,
+            finishedAt = 20L,
+        )
 }
 
 private class FakeMainDiagnosticsTimelineSource : com.poyka.ripdpi.diagnostics.DiagnosticsTimelineSource {

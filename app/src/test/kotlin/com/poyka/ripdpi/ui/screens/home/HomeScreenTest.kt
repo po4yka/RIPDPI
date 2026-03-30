@@ -3,9 +3,14 @@ package com.poyka.ripdpi.ui.screens.home
 import androidx.compose.ui.test.assertHasClickAction
 import androidx.compose.ui.test.assertHasNoClickAction
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
+import com.poyka.ripdpi.activities.HomeDiagnosticsActionUiState
+import com.poyka.ripdpi.activities.HomeDiagnosticsAnalysisSheetUiState
+import com.poyka.ripdpi.activities.HomeDiagnosticsUiState
+import com.poyka.ripdpi.activities.HomeDiagnosticsVerificationSheetUiState
 import com.poyka.ripdpi.activities.MainUiState
 import com.poyka.ripdpi.permissions.BackgroundGuidanceUiState
 import com.poyka.ripdpi.permissions.PermissionIssueUiState
@@ -118,6 +123,136 @@ class HomeScreenTest {
             .onNodeWithTag(RipDpiTestTags.WarningBannerDismiss)
             .performClick()
         assertTrue("Expected battery dismiss callback to fire", dismissed)
+    }
+
+    @Test
+    fun `home diagnostics card renders alongside connection and history sections`() {
+        composeRule.setContent {
+            RipDpiTheme {
+                HomeScreen(
+                    uiState = MainUiState(),
+                    onToggleConnection = {},
+                    onOpenDiagnostics = {},
+                    onOpenHistory = {},
+                    onRepairPermission = {},
+                    onOpenVpnPermissionDialog = {},
+                )
+            }
+        }
+
+        val connectionTop =
+            composeRule
+                .onNodeWithTag(RipDpiTestTags.HomeConnectionButton)
+                .fetchSemanticsNode()
+                .boundsInRoot
+                .top
+        val diagnosticsTop =
+            composeRule
+                .onNodeWithTag(RipDpiTestTags.HomeDiagnosticsCard)
+                .fetchSemanticsNode()
+                .boundsInRoot
+                .top
+        val historyTop =
+            composeRule
+                .onNodeWithTag(RipDpiTestTags.HomeHistoryCard)
+                .fetchSemanticsNode()
+                .boundsInRoot
+                .top
+
+        assertTrue(diagnosticsTop > connectionTop)
+    }
+
+    @Test
+    fun `verified vpn action stays disabled until analysis produces actionable result`() {
+        composeRule.setContent {
+            RipDpiTheme {
+                HomeScreen(
+                    uiState =
+                        MainUiState(
+                            homeDiagnostics =
+                                HomeDiagnosticsUiState(
+                                    analysisAction =
+                                        HomeDiagnosticsActionUiState(
+                                            label = "Run Full Analysis",
+                                            supportingText = "Run the audit first.",
+                                            enabled = true,
+                                        ),
+                                    verifiedVpnAction =
+                                        HomeDiagnosticsActionUiState(
+                                            label = "Start Verified VPN",
+                                            supportingText = "Run analysis first.",
+                                            enabled = false,
+                                        ),
+                                ),
+                        ),
+                    onToggleConnection = {},
+                    onOpenDiagnostics = {},
+                    onOpenHistory = {},
+                    onRepairPermission = {},
+                    onOpenVpnPermissionDialog = {},
+                )
+            }
+        }
+
+        composeRule.onNodeWithTag(RipDpiTestTags.HomeDiagnosticsRunAnalysis).assertHasClickAction()
+        composeRule.onNodeWithTag(RipDpiTestTags.HomeDiagnosticsVerifiedVpn).assertIsNotEnabled()
+    }
+
+    @Test
+    fun `analysis and verification sheets expose actions`() {
+        var shared = false
+        var openedDiagnostics = false
+        composeRule.setContent {
+            RipDpiTheme {
+                HomeScreen(
+                    uiState =
+                        MainUiState(
+                            homeDiagnostics =
+                                HomeDiagnosticsUiState(
+                                    analysisAction =
+                                        HomeDiagnosticsActionUiState(
+                                            label = "Run Full Analysis",
+                                            supportingText = "Ready",
+                                            enabled = true,
+                                        ),
+                                    verifiedVpnAction =
+                                        HomeDiagnosticsActionUiState(
+                                            label = "Start Verified VPN",
+                                            supportingText = "Ready",
+                                            enabled = true,
+                                        ),
+                                    analysisSheet =
+                                        HomeDiagnosticsAnalysisSheetUiState(
+                                            sessionId = "audit-session",
+                                            headline = "Analysis complete",
+                                            summary = "Settings were applied.",
+                                        ),
+                                    verificationSheet =
+                                        HomeDiagnosticsVerificationSheetUiState(
+                                            sessionId = "verify-session",
+                                            success = true,
+                                            headline = "VPN access confirmed",
+                                            summary = "Connectivity is working.",
+                                        ),
+                                ),
+                        ),
+                    onToggleConnection = {},
+                    onOpenDiagnostics = { openedDiagnostics = true },
+                    onOpenHistory = {},
+                    onRepairPermission = {},
+                    onOpenVpnPermissionDialog = {},
+                    onShareAnalysis = { shared = true },
+                )
+            }
+        }
+
+        composeRule.onNodeWithTag(RipDpiTestTags.HomeDiagnosticsAnalysisSheet).assertIsDisplayed()
+        composeRule.onNodeWithTag(RipDpiTestTags.HomeDiagnosticsShareAction).performClick()
+        assertTrue(shared)
+
+        composeRule.onNodeWithTag(RipDpiTestTags.HomeDiagnosticsVerificationSheet).assertIsDisplayed()
+        composeRule.onNodeWithTag(RipDpiTestTags.HomeDiagnosticsVerificationOpenDiagnosticsAction).performClick()
+        assertTrue(openedDiagnostics)
     }
 
     private fun uiStateWithBothBanners(): MainUiState =
