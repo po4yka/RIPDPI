@@ -357,7 +357,7 @@ mod tests {
 
     #[test]
     fn detects_http_blockpages_from_status_and_body() {
-        let response = b"HTTP/1.1 403 Forbidden\r\nServer: test\r\n\r\nAccess denied by policy";
+        let response = b"HTTP/1.1 403 Forbidden\r\nServer: test\r\n\r\nthis website has been blocked";
         let classified = classify_http_blockpage(response).expect("blockpage");
         assert_eq!(classified.class, FailureClass::HttpBlockpage);
     }
