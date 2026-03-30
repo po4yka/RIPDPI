@@ -99,6 +99,7 @@ All dependency versions are in `gradle/libs.versions.toml`.
 - detekt config: `config/detekt/detekt.yml`
 - Max line length: 120 characters
 - SDK targets: compileSdk 36, minSdk 27, targetSdk 35
+- **Never extend baselines** (detekt baselines, LoC baselines, lint baselines) to suppress new violations. Always fix the underlying issue -- refactor long files, resolve detekt findings, etc. Baselines exist only for legacy debt; new code must not add to them.
 
 ## Agent Skills
 
