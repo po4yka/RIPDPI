@@ -238,8 +238,9 @@ pub fn send_multi_disorder_tcp(
     default_ttl: u8,
     protect_path: Option<&str>,
     inter_segment_delay_ms: u32,
+    md5sig: bool,
 ) -> io::Result<()> {
-    linux::send_multi_disorder_tcp(stream, payload, segments, default_ttl, protect_path, inter_segment_delay_ms)
+    linux::send_multi_disorder_tcp(stream, payload, segments, default_ttl, protect_path, inter_segment_delay_ms, md5sig)
 }
 
 #[cfg(not(any(target_os = "linux", target_os = "android")))]
@@ -250,6 +251,7 @@ pub fn send_multi_disorder_tcp(
     _default_ttl: u8,
     _protect_path: Option<&str>,
     _inter_segment_delay_ms: u32,
+    _md5sig: bool,
 ) -> io::Result<()> {
     Err(io::Error::new(io::ErrorKind::Unsupported, "only supported on Linux/Android"))
 }
@@ -261,8 +263,9 @@ pub fn send_seqovl_tcp(
     fake_prefix: &[u8],
     default_ttl: u8,
     protect_path: Option<&str>,
+    md5sig: bool,
 ) -> io::Result<()> {
-    linux::send_seqovl_tcp(stream, real_chunk, fake_prefix, default_ttl, protect_path)
+    linux::send_seqovl_tcp(stream, real_chunk, fake_prefix, default_ttl, protect_path, md5sig)
 }
 
 #[cfg(not(any(target_os = "linux", target_os = "android")))]
@@ -272,6 +275,7 @@ pub fn send_seqovl_tcp(
     _fake_prefix: &[u8],
     _default_ttl: u8,
     _protect_path: Option<&str>,
+    _md5sig: bool,
 ) -> io::Result<()> {
     Err(io::Error::new(io::ErrorKind::Unsupported, "only supported on Linux/Android"))
 }

@@ -603,6 +603,7 @@ pub fn send_multi_disorder_tcp(
     default_ttl: u8,
     protect_path: Option<&str>,
     inter_segment_delay_ms: u32,
+    md5sig: bool,
 ) -> io::Result<()> {
     if payload.is_empty() {
         return Ok(());
@@ -623,7 +624,7 @@ pub fn send_multi_disorder_tcp(
     set_tcp_repair(fd, TCP_REPAIR_ON)?;
     let result = (|| -> io::Result<()> {
         let snapshot = snapshot_tcp_repair_state(fd)?;
-        let packets = build_multi_disorder_packets(source, target, ttl, payload, segments, &snapshot)?;
+        let packets = build_multi_disorder_packets(source, target, ttl, payload, segments, &snapshot, md5sig)?;
         let replacement = build_replacement_tcp_socket(source, target, payload.len(), &snapshot, protect_path)?;
         send_raw_packets_with_delay(
             target,
@@ -647,6 +648,7 @@ pub fn send_seqovl_tcp(
     fake_prefix: &[u8],
     default_ttl: u8,
     protect_path: Option<&str>,
+    md5sig: bool,
 ) -> io::Result<()> {
     if real_chunk.is_empty() {
         return Ok(());
@@ -683,6 +685,7 @@ pub fn send_seqovl_tcp(
             snapshot.options.timestamp,
             true,
             &overlap_payload,
+            md5sig,
         )?;
         send_raw_packets(target, std::iter::once(packet.as_slice()), protect_path)?;
 
@@ -1030,6 +1033,7 @@ fn build_multi_disorder_packets(
     payload: &[u8],
     segments: &[super::TcpPayloadSegment],
     snapshot: &TcpRepairSnapshot,
+    md5sig: bool,
 ) -> io::Result<Vec<Vec<u8>>> {
     let mut cursor = 0usize;
     let base_identification = fragment_identification(source, target, payload.len());
@@ -1051,6 +1055,7 @@ fn build_multi_disorder_packets(
             snapshot.options.timestamp,
             segment.end == payload.len(),
             &payload[segment.start..segment.end],
+            md5sig,
         )?);
         cursor = segment.end;
     }
@@ -1077,18 +1082,43 @@ fn build_tcp_segment_packet(
     timestamp: Option<TcpTimestampSnapshot>,
     push_flag: bool,
     payload: &[u8],
+    inject_md5: bool,
 ) -> io::Result<Vec<u8>> {
     let mut tcp = TcpHeader::new(source.port(), target.port(), sequence_number, window_size);
     tcp.ack = true;
     tcp.psh = push_flag && !payload.is_empty();
     tcp.acknowledgment_number = acknowledgment_number;
+
+    let mut raw_opts: Vec<u8> = Vec::new();
     if let Some(timestamp) = timestamp {
-        tcp.set_options(&[
-            TcpOptionElement::Noop,
-            TcpOptionElement::Noop,
-            TcpOptionElement::Timestamp(timestamp.value, timestamp.echo_reply),
-        ])
-        .map_err(|_| value_too_large_io("TCP options exceed supported raw packet size"))?;
+        // Noop, Noop, Timestamp (12 bytes total with padding)
+        raw_opts.extend_from_slice(&[1, 1]); // 2x Noop
+        raw_opts.push(8); // Kind=Timestamp
+        raw_opts.push(10); // Length=10
+        raw_opts.extend_from_slice(&timestamp.value.to_be_bytes());
+        raw_opts.extend_from_slice(&timestamp.echo_reply.to_be_bytes());
+    }
+    if inject_md5 {
+        // Noop padding before MD5 for 4-byte alignment
+        let padding_needed = (4 - (raw_opts.len() % 4)) % 4;
+        for _ in 0..padding_needed {
+            raw_opts.push(1); // Noop
+        }
+        raw_opts.push(19); // Kind=MD5 Signature (RFC 2385)
+        raw_opts.push(18); // Length=18 (2 header + 16 signature)
+        // Random 16-byte signature (deterministic from seq for reproducibility)
+        let seed = sequence_number;
+        for i in 0u32..4 {
+            raw_opts.extend_from_slice(&seed.wrapping_add(i).wrapping_mul(2654435761).to_be_bytes());
+        }
+    }
+    if !raw_opts.is_empty() {
+        // Pad to 4-byte boundary
+        while raw_opts.len() % 4 != 0 {
+            raw_opts.push(0); // End-of-options
+        }
+        tcp.set_options_raw(&raw_opts)
+            .map_err(|_| value_too_large_io("TCP options exceed supported raw packet size"))?;
     }
 
     match (source, target) {
