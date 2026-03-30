@@ -30,7 +30,11 @@ else
   # verify_native_bloat.py:cargo_environment().
   ndk_version="$(grep '^ripdpi.nativeNdkVersion=' "$repo_root/gradle.properties" | cut -d= -f2-)"
   min_sdk="$(grep '^ripdpi.minSdk=' "$repo_root/gradle.properties" | cut -d= -f2-)"
-  ndk_bin="$ANDROID_HOME/ndk/$ndk_version/toolchains/llvm/prebuilt/linux-x86_64/bin"
+  case "$(uname -s)" in
+    Darwin) ndk_host="darwin-x86_64" ;;
+    *)      ndk_host="linux-x86_64" ;;
+  esac
+  ndk_bin="$ANDROID_HOME/ndk/$ndk_version/toolchains/llvm/prebuilt/$ndk_host/bin"
 
   declare -A CLANG_TARGETS=(
     [aarch64-linux-android]="aarch64-linux-android"
