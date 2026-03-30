@@ -46,6 +46,7 @@ import com.poyka.ripdpi.activities.buildConfigPresets
 import com.poyka.ripdpi.activities.toConfigDraft
 import com.poyka.ripdpi.data.AppSettingsSerializer
 import com.poyka.ripdpi.data.Mode
+import com.poyka.ripdpi.ui.components.RipDpiHapticFeedback
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
@@ -61,6 +62,7 @@ import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldBehavior
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldDecoration
 import com.poyka.ripdpi.ui.components.navigation.RipDpiTopAppBar
 import com.poyka.ripdpi.ui.components.navigation.SettingsCategoryHeader
+import com.poyka.ripdpi.ui.components.rememberRipDpiHapticPerformer
 import com.poyka.ripdpi.ui.components.scaffold.RipDpiScreenScaffold
 import com.poyka.ripdpi.ui.navigation.Route
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
@@ -94,15 +96,18 @@ fun ModeEditorRoute(
     }
 
     val currentOnBack by rememberUpdatedState(onBack)
+    val performHaptic = rememberRipDpiHapticPerformer()
 
     LaunchedEffect(Unit) {
         viewModel.effects.collectLatest { effect ->
             when (effect) {
                 ConfigEffect.SaveSuccess -> {
+                    performHaptic(RipDpiHapticFeedback.Success)
                     currentOnBack()
                 }
 
                 ConfigEffect.ValidationFailed -> {
+                    performHaptic(RipDpiHapticFeedback.Error)
                     snackbarHostState.showRipDpiSnackbar(
                         message = validationMessage,
                         tone = RipDpiSnackbarTone.Warning,

@@ -12,8 +12,11 @@ import androidx.compose.ui.Modifier
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.poyka.ripdpi.activities.SettingsEffect
+import com.poyka.ripdpi.activities.SettingsNoticeTone
 import com.poyka.ripdpi.activities.SettingsViewModel
+import com.poyka.ripdpi.ui.components.RipDpiHapticFeedback
 import com.poyka.ripdpi.ui.components.feedback.WarningBannerTone
+import com.poyka.ripdpi.ui.components.rememberRipDpiHapticPerformer
 
 @Composable
 fun AdvancedSettingsRoute(
@@ -48,9 +51,17 @@ fun AdvancedSettingsRoute(
             ),
     ) { mutableStateOf<AdvancedNotice?>(null) }
 
+    val performHaptic = rememberRipDpiHapticPerformer()
+
     LaunchedEffect(Unit) {
         viewModel.effects.collect { effect ->
             if (effect is SettingsEffect.Notice) {
+                performHaptic(
+                    when (effect.tone) {
+                        SettingsNoticeTone.Error -> RipDpiHapticFeedback.Error
+                        SettingsNoticeTone.Info, SettingsNoticeTone.Warning -> RipDpiHapticFeedback.Acknowledge
+                    },
+                )
                 notice = mapNoticeEffect(effect)
             }
         }
