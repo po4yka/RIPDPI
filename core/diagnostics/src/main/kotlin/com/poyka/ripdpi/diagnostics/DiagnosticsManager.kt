@@ -88,7 +88,7 @@ interface DiagnosticsDetailLoader {
 interface DiagnosticsShareService {
     suspend fun buildShareSummary(sessionId: String?): ShareSummary
 
-    suspend fun createArchive(sessionId: String?): DiagnosticsArchive
+    suspend fun createArchive(request: DiagnosticsArchiveRequest): DiagnosticsArchive
 }
 
 interface DiagnosticsResolverActions {
@@ -150,7 +150,7 @@ abstract class DiagnosticsManagerModule {
 
     @Binds
     @Singleton
-    abstract fun bindDiagnosticsArchiveExporter(
+    internal abstract fun bindDiagnosticsArchiveExporter(
         exporter: DefaultDiagnosticsArchiveExporter,
     ): DiagnosticsArchiveExporter
 

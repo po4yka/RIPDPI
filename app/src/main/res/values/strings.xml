@@ -231,11 +231,11 @@
     <string name="diagnostics_share_summary_body">Build a concise incident brief from the latest or selected diagnostics session and send it through the Android share sheet.</string>
     <string name="diagnostics_share_summary_action">Share summary</string>
     <string name="diagnostics_share_archive_title">Share diagnostics archive</string>
-    <string name="diagnostics_share_archive_body">Build a ZIP with the focused session, strategy matrix, snapshots, contexts, recent live telemetry, global runtime events, and the app-visible logcat snapshot, then send it directly through the Android share sheet.</string>
+    <string name="diagnostics_share_archive_body">Build a ZIP with the focused session, strategy matrix, recent telemetry, runtime configuration, archive provenance, completeness notes, integrity hashes, and the app-visible logcat snapshot, then send it directly through the Android share sheet. Summary and manifest files stay redacted.</string>
     <string name="diagnostics_share_archive_action">Share archive</string>
     <string name="diagnostics_share_archive_chooser">Share diagnostics archive</string>
     <string name="diagnostics_save_archive_title">Save diagnostics archive</string>
-    <string name="diagnostics_save_archive_body">Save %1$s locally. The archive keeps raw report data and the app-visible logcat snapshot, but redacts network identity fields in summary and manifest files.</string>
+    <string name="diagnostics_save_archive_body">Save %1$s locally. The archive keeps raw report data, runtime configuration, provenance, completeness, and integrity metadata, while summary and manifest files continue to redact network identity fields.</string>
     <string name="diagnostics_save_archive_action">Save archive</string>
     <string name="diagnostics_archive_save_failed">Failed to save diagnostics archive</string>
     <string name="diagnostics_save_logs_title">Save local logs</string>
@@ -1558,8 +1558,8 @@ Source: %2$s</string>
     <!-- Diagnostics share preview -->
     <string name="diagnostics_share_title">RIPDPI diagnostics</string>
     <string name="diagnostics_share_no_session">Select a diagnostics session to generate a summary.</string>
-    <string name="diagnostics_share_archive_line">Archive includes the focused diagnostics session in full.</string>
-    <string name="diagnostics_share_telemetry_line">It also adds recent live telemetry and global runtime events.</string>
+    <string name="diagnostics_share_archive_line">Archive includes the focused diagnostics session, provenance, and runtime configuration metadata.</string>
+    <string name="diagnostics_share_telemetry_line">It also adds recent live telemetry, global runtime events, completeness notes, and integrity hashes.</string>
     <string name="diagnostics_share_redaction_line">Summary and manifest redact support context and network identity fields, while raw report data stays intact.</string>
     <string name="diagnostics_share_approach_format">Archive includes approach analytics for %1$s with %2$s validation and runtime health context.</string>
     <string name="diagnostics_share_metric_path">Path</string>

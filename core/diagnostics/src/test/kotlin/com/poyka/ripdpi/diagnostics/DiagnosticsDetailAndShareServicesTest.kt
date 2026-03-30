@@ -202,14 +202,21 @@ class DiagnosticsDetailAndShareServicesTest {
                     sessionId = session.id,
                     createdAt = 42L,
                     scope = "hybrid",
-                    schemaVersion = 1,
+                    schemaVersion = 2,
                     privacyMode = "split_output",
                 )
             val archiveExporter = RecordingDiagnosticsArchiveExporter(expectedArchive)
             val shareService = DefaultDiagnosticsShareService(stores, stores, archiveExporter, json)
 
             val summary = shareService.buildShareSummary(session.id)
-            val archive = shareService.createArchive(session.id)
+            val archive =
+                shareService.createArchive(
+                    DiagnosticsArchiveRequest(
+                        requestedSessionId = session.id,
+                        reason = DiagnosticsArchiveReason.SHARE_ARCHIVE,
+                        requestedAt = 123L,
+                    ),
+                )
 
             assertTrue(summary.title.startsWith("RIPDPI diagnostics"))
             assertTrue(summary.body.contains("summary=Blocked DNS"))
@@ -220,7 +227,8 @@ class DiagnosticsDetailAndShareServicesTest {
             assertTrue(summary.body.contains("pack.ru-independent-media=1"))
             assertEquals("Path", summary.compactMetrics.first().label)
             assertSame(expectedArchive, archive)
-            assertEquals(session.id, archiveExporter.requestedSessionId)
+            assertEquals(session.id, archiveExporter.requestedRequest?.requestedSessionId)
+            assertEquals(DiagnosticsArchiveReason.SHARE_ARCHIVE, archiveExporter.requestedRequest?.reason)
         }
 
     @Test
@@ -399,12 +407,12 @@ class DiagnosticsDetailAndShareServicesTest {
 private class RecordingDiagnosticsArchiveExporter(
     private val archive: DiagnosticsArchive,
 ) : DiagnosticsArchiveExporter {
-    var requestedSessionId: String? = null
+    var requestedRequest: DiagnosticsArchiveRequest? = null
 
     override fun cleanupCache() = Unit
 
-    override suspend fun createArchive(sessionId: String?): DiagnosticsArchive {
-        requestedSessionId = sessionId
+    override suspend fun createArchive(request: DiagnosticsArchiveRequest): DiagnosticsArchive {
+        requestedRequest = request
         return archive
     }
 }
@@ -418,7 +426,7 @@ private fun unusedArchive(sessionId: String?) =
         sessionId = sessionId,
         createdAt = 0L,
         scope = "hybrid",
-        schemaVersion = 1,
+        schemaVersion = 2,
         privacyMode = "split_output",
     )
 

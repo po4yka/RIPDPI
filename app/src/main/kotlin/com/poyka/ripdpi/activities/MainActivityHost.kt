@@ -12,6 +12,8 @@ import androidx.lifecycle.lifecycleScope
 import com.poyka.ripdpi.BuildConfig
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.automation.AutomationController
+import com.poyka.ripdpi.diagnostics.DiagnosticsArchiveReason
+import com.poyka.ripdpi.diagnostics.DiagnosticsArchiveRequest
 import com.poyka.ripdpi.diagnostics.DiagnosticsShareService
 import com.poyka.ripdpi.diagnostics.LogcatSnapshotCollector
 import dagger.Binds
@@ -269,7 +271,13 @@ internal class DefaultMainActivityHost
             activity.lifecycleScope.launch {
                 runCatching {
                     withContext(Dispatchers.IO) {
-                        diagnosticsShareService.createArchive(null)
+                        diagnosticsShareService.createArchive(
+                            DiagnosticsArchiveRequest(
+                                requestedSessionId = null,
+                                reason = DiagnosticsArchiveReason.SHARE_DEBUG_BUNDLE,
+                                requestedAt = System.currentTimeMillis(),
+                            ),
+                        )
                     }
                 }.onSuccess { archive ->
                     shareDiagnosticsArchive(archive.absolutePath, archive.fileName)

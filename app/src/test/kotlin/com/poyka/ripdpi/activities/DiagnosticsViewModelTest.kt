@@ -2702,6 +2702,7 @@ class DiagnosticsViewModelTest {
 
             val shareArchive = shareArchiveEffect.await() as DiagnosticsEffect.ShareArchiveRequested
             assertEquals("session-1", manager.lastArchiveSessionId)
+            assertEquals("SHARE_ARCHIVE", manager.lastArchiveReason)
             assertEquals("/tmp/archive-session-1.zip", shareArchive.absolutePath)
 
             val saveArchiveEffect = async { viewModel.effects.first() }
@@ -2710,6 +2711,7 @@ class DiagnosticsViewModelTest {
 
             val saveArchive = saveArchiveEffect.await() as DiagnosticsEffect.SaveArchiveRequested
             assertEquals("session-1", manager.lastArchiveSessionId)
+            assertEquals("SAVE_ARCHIVE", manager.lastArchiveReason)
             assertEquals("/tmp/archive-session-1.zip", saveArchive.absolutePath)
             collector.cancel()
         }

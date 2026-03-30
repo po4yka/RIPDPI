@@ -213,11 +213,11 @@
     <string name="diagnostics_share_summary_body">Составьте краткий отчёт об инциденте из последней или выбранной сессии диагностики и отправьте его через стандартное меню «Поделиться» Android.</string>
     <string name="diagnostics_share_summary_action">Поделиться сводкой</string>
     <string name="diagnostics_share_archive_title">Поделиться архивом диагностики</string>
-    <string name="diagnostics_share_archive_body">Создайте ZIP с выбранной сессией, последними данными телеметрии, глобальными событиями среды выполнения и снимком logcat, видимым приложению, затем отправьте его через стандартное меню «Поделиться» Android.</string>
+    <string name="diagnostics_share_archive_body">Создайте ZIP с выбранной сессией, матрицей стратегий, недавней телеметрией, конфигурацией времени выполнения, метаданными происхождения архива, заметками о полноте и хэшами целостности, а затем отправьте его через стандартное меню «Поделиться» Android. Файлы сводки и манифеста остаются редактированными.</string>
     <string name="diagnostics_share_archive_action">Поделиться архивом</string>
     <string name="diagnostics_share_archive_chooser">Поделиться архивом диагностики</string>
     <string name="diagnostics_save_archive_title">Сохранить архив диагностики</string>
-    <string name="diagnostics_save_archive_body">Сохранить %1$s локально. Архив содержит необработанные данные отчёта и снимок logcat, видимый приложению, но скрывает поля сетевой идентификации в сводке и файлах манифеста.</string>
+    <string name="diagnostics_save_archive_body">Сохранить %1$s локально. Архив содержит необработанные данные отчёта, конфигурацию времени выполнения, метаданные происхождения, полноты и целостности, а сводка и манифест по-прежнему скрывают поля сетевой идентификации.</string>
     <string name="diagnostics_save_archive_action">Сохранить архив</string>
     <string name="diagnostics_archive_save_failed">Не удалось сохранить архив диагностики</string>
     <string name="diagnostics_save_logs_title">Сохранить локальные журналы</string>
@@ -1492,8 +1492,8 @@ fakeddisorder endhost</string>
     <!-- Diagnostics share preview -->
     <string name="diagnostics_share_title">Диагностика RIPDPI</string>
     <string name="diagnostics_share_no_session">Выберите сессию диагностики для создания сводки.</string>
-    <string name="diagnostics_share_archive_line">Архив содержит выбранную сессию диагностики полностью.</string>
-    <string name="diagnostics_share_telemetry_line">Также включены недавние данные телеметрии и глобальные события среды выполнения.</string>
+    <string name="diagnostics_share_archive_line">Архив содержит выбранную сессию диагностики, метаданные происхождения и конфигурацию времени выполнения.</string>
+    <string name="diagnostics_share_telemetry_line">Также включены недавние данные телеметрии, глобальные события среды выполнения, заметки о полноте и хэши целостности.</string>
     <string name="diagnostics_share_redaction_line">В сводке и манифесте скрываются контекст поддержки и поля сетевой идентификации, а необработанные данные отчёта остаются нетронутыми.</string>
     <string name="diagnostics_share_approach_format">Архив включает аналитику подходов для %1$s с проверкой %2$s и контекстом состояния среды выполнения.</string>
     <string name="diagnostics_share_metric_path">Путь</string>
