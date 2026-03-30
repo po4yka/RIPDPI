@@ -4,7 +4,6 @@ import com.poyka.ripdpi.platform.LauncherIconController
 import com.poyka.ripdpi.security.PinLockoutManager
 import com.poyka.ripdpi.security.PinVerifier
 import com.poyka.ripdpi.security.PinVerifyResult
-import java.security.MessageDigest
 
 internal class SettingsCustomizationActions(
     private val mutations: SettingsMutationRunner,
@@ -73,6 +72,7 @@ internal class SettingsCustomizationActions(
     }
 
     fun setBiometricEnabled(enabled: Boolean) {
+        if (enabled && !currentUiState().hasBackupPin) return
         mutations.updateSetting(
             key = "biometricEnabled",
             value = enabled.toString(),
@@ -82,6 +82,7 @@ internal class SettingsCustomizationActions(
     }
 
     fun setBackupPin(pin: String) {
+        if (pin.isNotBlank() && (pin.length != 4 || !pin.all { it.isDigit() })) return
         val hashed = if (pin.isBlank()) "" else pinVerifier.hashPin(pin)
         mutations.updateSetting(
             key = "backupPin",
@@ -95,6 +96,8 @@ internal class SettingsCustomizationActions(
         if (pinLockoutManager.isLockedOut()) {
             return PinVerifyResult.LockedOut(pinLockoutManager.remainingLockoutMs())
         }
+
+        if (pin.length != 4 || !pin.all { it.isDigit() }) return PinVerifyResult.Failed
 
         val storedHash = currentUiState().backupPinHash
         val matched = storedHash.isNotBlank() && matchesStoredPin(pin, storedHash)
@@ -115,22 +118,5 @@ internal class SettingsCustomizationActions(
     private fun matchesStoredPin(
         pin: String,
         storedHash: String,
-    ): Boolean {
-        if (pinVerifier.verify(pin, storedHash)) return true
-        val isLegacyMatch =
-            MessageDigest.isEqual(
-                legacySha256Hash(pin).toByteArray(Charsets.UTF_8),
-                storedHash.toByteArray(Charsets.UTF_8),
-            )
-        if (isLegacyMatch) {
-            val newHash = pinVerifier.hashPin(pin)
-            mutations.updateSetting(key = "backupPin", value = newHash) { setBackupPin(newHash) }
-        }
-        return isLegacyMatch
-    }
-
-    private fun legacySha256Hash(pin: String): String {
-        val digest = MessageDigest.getInstance("SHA-256")
-        return digest.digest(pin.toByteArray()).joinToString("") { "%02x".format(it) }
-    }
+    ): Boolean = pinVerifier.verify(pin, storedHash)
 }

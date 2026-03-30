@@ -1193,6 +1193,9 @@ fakeddisorder endhost</string>
     <string name="settings_biometric_confirm_message">Вам потребуется подтверждать личность каждый раз при открытии панели управления.</string>
     <string name="settings_biometric_confirm_enable">Включить</string>
     <string name="settings_biometric_confirm_cancel">Отмена</string>
+    <string name="settings_biometric_pin_required_title">Необходим резервный PIN</string>
+    <string name="settings_biometric_pin_required_message">Установите резервный PIN перед включением биометрической разблокировки. PIN обеспечивает запасной доступ, если биометрия станет недоступна.</string>
+    <string name="settings_biometric_pin_required_ok">OK</string>
     <string name="settings_warning_backup_pin_title">Рекомендуется установить резервный PIN-код</string>
     <string name="settings_warning_backup_pin_body">Установите четырёхзначный резервный PIN-код, чтобы иметь доступ к RIPDPI в случае недоступности биометрии.</string>
     <string name="settings_backup_pin_body">Сохраните четырёхзначный PIN-код на этом устройстве для резервной аутентификации.</string>
@@ -1252,6 +1255,8 @@ fakeddisorder endhost</string>
     <string name="biometric_dialog_subtitle">Подтвердите свою личность</string>
     <string name="biometric_dialog_cancel">Отмена</string>
     <string name="biometric_auth_error_title">Ошибка аутентификации</string>
+    <string name="notice_pin_key_lost_title">Резервный PIN сброшен</string>
+    <string name="notice_pin_key_lost_message">Резервный PIN-код был сброшен, так как ключ безопасности устройства больше недоступен. Установите новый резервный PIN.</string>
     <string name="ripdpi_source">https://github.com/hufrea/ripdpi</string>
     <string name="about_description">Интерфейс локальной конфигурации на Compose для сохранённого движка RIPDPI, сервиса и стека DataStore.</string>
     <string name="about_build_section">Сборка</string>

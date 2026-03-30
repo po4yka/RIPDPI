@@ -127,6 +127,7 @@ internal fun SettingsScreen(
             }
         }
     var showBiometricConfirmDialog by rememberSaveable { mutableStateOf(false) }
+    var showPinRequiredDialog by rememberSaveable { mutableStateOf(false) }
     var backupPinDraft by rememberSaveable { mutableStateOf("") }
     val pinErrorText =
         when {
@@ -141,32 +142,30 @@ internal fun SettingsScreen(
     val canSaveBackupPin = backupPinDraft.length == 4
     val showBackupPinEditor = uiState.biometricEnabled || uiState.hasBackupPin || backupPinDraft.isNotBlank()
 
-    if (showBiometricConfirmDialog) {
+    if (showPinRequiredDialog) {
         RipDpiDialog(
-            onDismissRequest = { showBiometricConfirmDialog = false },
-            title = stringResource(R.string.settings_biometric_confirm_title),
-            dialogTestTag = RipDpiTestTags.SettingsBiometricConfirmDialog,
+            onDismissRequest = { showPinRequiredDialog = false },
+            title = stringResource(R.string.settings_biometric_pin_required_title),
             dismissAction =
                 RipDpiDialogAction(
-                    label = stringResource(R.string.settings_biometric_confirm_cancel),
-                    onClick = { showBiometricConfirmDialog = false },
-                    testTag = RipDpiTestTags.SettingsBiometricConfirmCancel,
-                ),
-            confirmAction =
-                RipDpiDialogAction(
-                    label = stringResource(R.string.settings_biometric_confirm_enable),
-                    onClick = {
-                        showBiometricConfirmDialog = false
-                        onBiometricChanged(true)
-                    },
-                    testTag = RipDpiTestTags.SettingsBiometricConfirmEnable,
+                    label = stringResource(R.string.settings_biometric_pin_required_ok),
+                    onClick = { showPinRequiredDialog = false },
                 ),
             visuals =
                 RipDpiDialogVisuals(
-                    message = stringResource(R.string.settings_biometric_confirm_message),
+                    message = stringResource(R.string.settings_biometric_pin_required_message),
                 ),
         )
     }
+
+    BiometricConfirmDialog(
+        visible = showBiometricConfirmDialog,
+        onDismiss = { showBiometricConfirmDialog = false },
+        onConfirm = {
+            showBiometricConfirmDialog = false
+            onBiometricChanged(true)
+        },
+    )
 
     RipDpiSettingsScaffold(
         modifier =
@@ -263,39 +262,16 @@ internal fun SettingsScreen(
                     )
                     SettingsRow(
                         title = stringResource(R.string.settings_biometric_title),
-                        subtitle =
-                            stringResource(
-                                when {
-                                    !uiState.isBiometricHardwareAvailable -> {
-                                        when (uiState.biometricAvailability) {
-                                            androidx.biometric.BiometricManager.BIOMETRIC_ERROR_NONE_ENROLLED -> {
-                                                R.string.settings_biometric_no_enrollment
-                                            }
-
-                                            else -> {
-                                                R.string.settings_biometric_unavailable
-                                            }
-                                        }
-                                    }
-
-                                    uiState.biometricEnabled && uiState.hasBackupPin -> {
-                                        R.string.settings_biometric_body_with_pin
-                                    }
-
-                                    uiState.biometricEnabled -> {
-                                        R.string.settings_biometric_body_without_pin
-                                    }
-
-                                    else -> {
-                                        R.string.settings_biometric_body_disabled
-                                    }
-                                },
-                            ),
+                        subtitle = stringResource(biometricSubtitleRes(uiState)),
                         checked = uiState.biometricEnabled,
                         enabled = uiState.isBiometricHardwareAvailable,
                         onCheckedChange = { enabled ->
                             if (enabled) {
-                                showBiometricConfirmDialog = true
+                                if (uiState.hasBackupPin) {
+                                    showBiometricConfirmDialog = true
+                                } else {
+                                    showPinRequiredDialog = true
+                                }
                             } else {
                                 onBiometricChanged(false)
                             }
@@ -491,6 +467,64 @@ internal fun SettingsScreen(
                 )
             }
         }
+    }
+}
+
+private fun biometricSubtitleRes(uiState: SettingsUiState): Int =
+    when {
+        !uiState.isBiometricHardwareAvailable -> {
+            when (uiState.biometricAvailability) {
+                androidx.biometric.BiometricManager.BIOMETRIC_ERROR_NONE_ENROLLED -> {
+                    R.string.settings_biometric_no_enrollment
+                }
+
+                else -> {
+                    R.string.settings_biometric_unavailable
+                }
+            }
+        }
+
+        uiState.biometricEnabled && uiState.hasBackupPin -> {
+            R.string.settings_biometric_body_with_pin
+        }
+
+        uiState.biometricEnabled -> {
+            R.string.settings_biometric_body_without_pin
+        }
+
+        else -> {
+            R.string.settings_biometric_body_disabled
+        }
+    }
+
+@Composable
+private fun BiometricConfirmDialog(
+    visible: Boolean,
+    onDismiss: () -> Unit,
+    onConfirm: () -> Unit,
+) {
+    if (visible) {
+        RipDpiDialog(
+            onDismissRequest = onDismiss,
+            title = stringResource(R.string.settings_biometric_confirm_title),
+            dialogTestTag = RipDpiTestTags.SettingsBiometricConfirmDialog,
+            dismissAction =
+                RipDpiDialogAction(
+                    label = stringResource(R.string.settings_biometric_confirm_cancel),
+                    onClick = onDismiss,
+                    testTag = RipDpiTestTags.SettingsBiometricConfirmCancel,
+                ),
+            confirmAction =
+                RipDpiDialogAction(
+                    label = stringResource(R.string.settings_biometric_confirm_enable),
+                    onClick = onConfirm,
+                    testTag = RipDpiTestTags.SettingsBiometricConfirmEnable,
+                ),
+            visuals =
+                RipDpiDialogVisuals(
+                    message = stringResource(R.string.settings_biometric_confirm_message),
+                ),
+        )
     }
 }
 
