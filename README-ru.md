@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="app/src/main/res/drawable-nodpi/ic_launcher.png" width="120" alt="RIPDPI Logo"/>
+  <img src="app/src/main/res/mipmap-xxxhdpi/ic_launcher.png" width="120" alt="RIPDPI Logo"/>
 </p>
 
 <h1 align="center">RIPDPI</h1>
