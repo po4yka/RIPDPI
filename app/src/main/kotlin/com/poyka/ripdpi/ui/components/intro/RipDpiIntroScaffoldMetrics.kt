@@ -9,12 +9,11 @@ import com.poyka.ripdpi.ui.theme.RipDpiWidthClass
 
 @Immutable
 internal data class RipDpiIntroScaffoldMetrics(
-    val topActionRowHeight: Dp = 37.dp,
-    val topActionTopPadding: Dp = 16.dp,
-    val illustrationSize: Dp = 64.dp,
+    val topActionRowHeight: Dp = 44.dp,
+    val illustrationSize: Dp = 80.dp,
     val illustrationCornerRadius: Dp = 16.dp,
     val illustrationBorderWidth: Dp = 1.5.dp,
-    val illustrationIconSize: Dp = 24.dp,
+    val illustrationIconSize: Dp = 32.dp,
     val illustrationIconStrokeWidth: Dp = 2.dp,
     val illustrationToTitleGap: Dp = 40.dp,
     val titleToBodyGap: Dp = 16.dp,
@@ -41,8 +40,8 @@ internal fun rememberRipDpiIntroScaffoldMetrics(): RipDpiIntroScaffoldMetrics {
 
         RipDpiWidthClass.Medium -> {
             RipDpiIntroScaffoldMetrics(
-                topActionRowHeight = 44.dp,
-                illustrationSize = 80.dp,
+                topActionRowHeight = 48.dp,
+                illustrationSize = 96.dp,
                 illustrationToTitleGap = 48.dp,
                 titleHorizontalPadding = 20.dp,
                 bodyHorizontalPadding = 24.dp,
@@ -53,8 +52,8 @@ internal fun rememberRipDpiIntroScaffoldMetrics(): RipDpiIntroScaffoldMetrics {
 
         RipDpiWidthClass.Expanded -> {
             RipDpiIntroScaffoldMetrics(
-                topActionRowHeight = 48.dp,
-                illustrationSize = 88.dp,
+                topActionRowHeight = 52.dp,
+                illustrationSize = 104.dp,
                 illustrationToTitleGap = 52.dp,
                 titleHorizontalPadding = 24.dp,
                 bodyHorizontalPadding = 28.dp,
