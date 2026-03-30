@@ -237,6 +237,7 @@
     <string name="diagnostics_save_archive_title">Save diagnostics archive</string>
     <string name="diagnostics_save_archive_body">Save %1$s locally. The archive keeps raw report data and the app-visible logcat snapshot, but redacts network identity fields in summary and manifest files.</string>
     <string name="diagnostics_save_archive_action">Save archive</string>
+    <string name="diagnostics_archive_save_failed">Failed to save diagnostics archive</string>
     <string name="diagnostics_save_logs_title">Save local logs</string>
     <string name="diagnostics_save_logs_body">Export the same app-visible logcat snapshot as a plain-text file when you need just the raw local trace.</string>
     <string name="home_status_section">Connection</string>

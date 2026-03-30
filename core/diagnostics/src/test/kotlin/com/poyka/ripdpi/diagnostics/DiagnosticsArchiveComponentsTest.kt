@@ -13,6 +13,7 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
+import org.junit.Assert.fail
 import org.junit.Test
 import java.nio.file.Files
 import java.util.zip.ZipFile
@@ -148,6 +149,24 @@ class DiagnosticsArchiveComponentsTest {
             DiagnosticsArchiveFormat.includedFiles(logcatIncluded = false),
             selection.includedFiles,
         )
+    }
+
+    @Test
+    fun `selector rejects missing requested session`() {
+        val error =
+            try {
+                selector.selectPrimarySession(
+                    requestedSessionId = "missing-session",
+                    requestedSession = null,
+                    sessions = listOf(scanSession(id = "session-1")),
+                )
+                fail("Expected selectPrimarySession to reject a missing requested session")
+                null
+            } catch (error: IllegalArgumentException) {
+                error
+            }
+
+        assertTrue(error?.message.orEmpty().contains("missing-session"))
     }
 
     @Test

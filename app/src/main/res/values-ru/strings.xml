@@ -219,6 +219,7 @@
     <string name="diagnostics_save_archive_title">Сохранить архив диагностики</string>
     <string name="diagnostics_save_archive_body">Сохранить %1$s локально. Архив содержит необработанные данные отчёта и снимок logcat, видимый приложению, но скрывает поля сетевой идентификации в сводке и файлах манифеста.</string>
     <string name="diagnostics_save_archive_action">Сохранить архив</string>
+    <string name="diagnostics_archive_save_failed">Не удалось сохранить архив диагностики</string>
     <string name="diagnostics_save_logs_title">Сохранить локальные журналы</string>
     <string name="diagnostics_save_logs_body">Экспортировать тот же снимок logcat, видимый приложению, в виде текстового файла, если нужен только необработанный локальный трейс.</string>
     <string name="home_status_section">Подключение</string>
