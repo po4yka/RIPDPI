@@ -402,7 +402,13 @@ fn telegram_dc_probe(target: &TelegramTarget) -> TelegramDcResult {
 /// verifies that the WSS endpoint accepts connections.
 fn telegram_ws_tunnel_probe() -> TelegramWsProbeResult {
     telegram_ws_tunnel_probe_with(
-        || ripdpi_runtime::ws_bootstrap::resolve_ws_tunnel_addr(ripdpi_ws_tunnel::TelegramDc::production(2), None),
+        || {
+            ripdpi_runtime::ws_bootstrap::resolve_ws_tunnel_addr(
+                ripdpi_ws_tunnel::TelegramDc::production(2),
+                None,
+                None,
+            )
+        },
         |resolved_addr| {
             ripdpi_ws_tunnel::probe_ws_tunnel_with_addr(ripdpi_ws_tunnel::TelegramDc::production(2), resolved_addr)
         },
