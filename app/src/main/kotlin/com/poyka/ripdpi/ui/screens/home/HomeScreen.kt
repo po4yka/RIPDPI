@@ -17,8 +17,10 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
@@ -46,6 +48,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
@@ -53,6 +56,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -120,6 +124,7 @@ fun HomeRoute(
     )
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun HomeScreen(
     uiState: MainUiState,
@@ -141,6 +146,8 @@ fun HomeScreen(
     val spacing = RipDpiThemeTokens.spacing
     val layout = RipDpiThemeTokens.layout
     val type = RipDpiThemeTokens.type
+    val clipboardManager = LocalClipboardManager.current
+    val performHaptic = rememberRipDpiHapticPerformer()
 
     RipDpiDashboardScaffold(
         modifier =
@@ -155,7 +162,16 @@ fun HomeScreen(
                 title = stringResource(R.string.home_status_error_title),
                 message = uiState.errorMessage,
                 tone = WarningBannerTone.Error,
-                modifier = Modifier.fillMaxWidth(),
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .combinedClickable(
+                            onClick = {},
+                            onLongClick = {
+                                clipboardManager.setText(AnnotatedString(uiState.errorMessage))
+                                performHaptic(RipDpiHapticFeedback.Acknowledge)
+                            },
+                        ),
                 testTag = RipDpiTestTags.HomeErrorBanner,
             )
         }

@@ -5,7 +5,9 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.AnnotatedString
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.DiagnosticsApproachDetailUiModel
 import com.poyka.ripdpi.activities.DiagnosticsDiagnosisUiModel
@@ -14,6 +16,7 @@ import com.poyka.ripdpi.activities.DiagnosticsProbeResultUiModel
 import com.poyka.ripdpi.activities.DiagnosticsProfileOptionUiModel
 import com.poyka.ripdpi.activities.DiagnosticsSessionDetailUiModel
 import com.poyka.ripdpi.activities.DiagnosticsStrategyProbeCandidateDetailUiModel
+import com.poyka.ripdpi.ui.components.RipDpiHapticFeedback
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
@@ -21,6 +24,7 @@ import com.poyka.ripdpi.ui.components.cards.SettingsRow
 import com.poyka.ripdpi.ui.components.feedback.RipDpiBottomSheet
 import com.poyka.ripdpi.ui.components.indicators.StatusIndicator
 import com.poyka.ripdpi.ui.components.indicators.StatusIndicatorTone
+import com.poyka.ripdpi.ui.components.rememberRipDpiHapticPerformer
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
@@ -191,6 +195,8 @@ internal fun DiagnosticsBottomSheetHost(
     }
 
     selectedProbe?.let { probe ->
+        val clipboardManager = LocalClipboardManager.current
+        val performHaptic = rememberRipDpiHapticPerformer()
         RipDpiBottomSheet(
             onDismissRequest = onDismissProbeDetail,
             title = probe.target,
@@ -213,6 +219,26 @@ internal fun DiagnosticsBottomSheetHost(
                     monospaceValue = true,
                 )
             }
+            RipDpiButton(
+                text = stringResource(R.string.diagnostics_probe_copy_action),
+                onClick = {
+                    val text =
+                        buildString {
+                            appendLine("${probe.probeType} -> ${probe.target}")
+                            appendLine("Outcome: ${probe.outcome}")
+                            probe.probeRetryCount?.takeIf { it > 0 }?.let { count ->
+                                appendLine("Retries: $count")
+                            }
+                            probe.details.forEach { detail ->
+                                appendLine("${detail.label}: ${detail.value}")
+                            }
+                        }
+                    clipboardManager.setText(AnnotatedString(text.trimEnd()))
+                    performHaptic(RipDpiHapticFeedback.Acknowledge)
+                },
+                variant = RipDpiButtonVariant.Outline,
+                modifier = Modifier.fillMaxWidth(),
+            )
         }
     }
 

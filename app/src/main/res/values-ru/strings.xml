@@ -1629,6 +1629,8 @@ fakeddisorder endhost</string>
     <string name="crash_report_body">Приложение неожиданно остановилось из-за:\n%1$s\n\nОтправить отчёт об ошибке разработчику?</string>
     <string name="crash_report_share">Отправить отчёт</string>
     <string name="crash_report_dismiss">Закрыть</string>
+    <string name="copied_to_clipboard">Скопировано в буфер обмена</string>
+    <string name="diagnostics_probe_copy_action">Копировать результат</string>
 
     <!-- Destructive action confirmation dialogs -->
     <string name="confirm_forget_learned_hosts_title">Забыть изученные хосты?</string>
