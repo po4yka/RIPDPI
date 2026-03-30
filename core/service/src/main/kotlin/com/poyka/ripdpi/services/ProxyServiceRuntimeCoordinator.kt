@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.services
 
+import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.data.FailureReason
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.NativeNetworkSnapshotProvider
@@ -17,9 +18,6 @@ import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import logcat.LogPriority
-import logcat.asLog
-import logcat.logcat
 import javax.inject.Inject
 
 internal class ProxyServiceRuntimeCoordinator(
@@ -178,7 +176,7 @@ internal class ProxyServiceRuntimeCoordinator(
         newStatus: ServiceStatus,
         failureReason: FailureReason?,
     ) {
-        logcat(LogPriority.DEBUG) { "Proxy status: $status -> $newStatus" }
+        Logger.d { "Proxy status: $status -> $newStatus" }
         status = newStatus
         statusReporter.reportStatus(
             newStatus = newStatus,
@@ -191,7 +189,7 @@ internal class ProxyServiceRuntimeCoordinator(
 
     override fun onPermissionRevoked(event: PermissionChangeEvent) {
         if (event.kind == PermissionChangeEvent.KIND_NOTIFICATIONS) {
-            logcat(LogPriority.WARN) { "Notification permission revoked while proxy running" }
+            Logger.w { "Notification permission revoked while proxy running" }
         }
     }
 
@@ -207,13 +205,13 @@ internal class ProxyServiceRuntimeCoordinator(
         val failureReason =
             result.exceptionOrNull()?.let { throwable ->
                 val error = throwable as? Exception ?: IllegalStateException("Proxy runtime failed", throwable)
-                logcat(LogPriority.ERROR) { "Proxy failed\n${error.asLog()}" }
+                Logger.e(error) { "Proxy failed" }
                 classifyFailureReason(error)
             } ?: result
                 .getOrNull()
                 ?.takeIf { it != 0 }
                 ?.let { code ->
-                    logcat(LogPriority.ERROR) { "Proxy stopped with code $code" }
+                    Logger.e { "Proxy stopped with code $code" }
                     FailureReason.NativeError("Proxy exited with code $code")
                 }
 

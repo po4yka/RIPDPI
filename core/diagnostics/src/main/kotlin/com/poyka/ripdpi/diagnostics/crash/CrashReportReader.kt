@@ -1,11 +1,9 @@
 package com.poyka.ripdpi.diagnostics.crash
 
+import co.touchlab.kermit.Logger
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
-import logcat.LogPriority
-import logcat.asLog
-import logcat.logcat
 import java.io.File
 
 class CrashReportReader(
@@ -24,7 +22,7 @@ class CrashReportReader(
             try {
                 json.decodeFromString<CrashReport>(file.readText(Charsets.UTF_8))
             } catch (e: Exception) {
-                logcat(LogPriority.WARN) { "Corrupt crash report, deleting\n${e.asLog()}" }
+                Logger.w(e) { "Corrupt crash report, deleting" }
                 file.delete()
                 null
             }

@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.services
 
+import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.core.Tun2SocksBridgeFactory
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.FailureReason
@@ -22,9 +23,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.withLock
-import logcat.LogPriority
-import logcat.asLog
-import logcat.logcat
 import javax.inject.Inject
 
 internal class VpnServiceRuntimeCoordinator(
@@ -288,7 +286,7 @@ internal class VpnServiceRuntimeCoordinator(
         newStatus: ServiceStatus,
         failureReason: FailureReason?,
     ) {
-        logcat(LogPriority.DEBUG) { "VPN status: $status -> $newStatus" }
+        Logger.d { "VPN status: $status -> $newStatus" }
         status = newStatus
         statusReporter.reportStatus(
             newStatus = newStatus,
@@ -308,13 +306,13 @@ internal class VpnServiceRuntimeCoordinator(
     override fun onPermissionRevoked(event: PermissionChangeEvent) {
         when (event.kind) {
             PermissionChangeEvent.KIND_VPN_CONSENT -> {
-                logcat(LogPriority.ERROR) { "VPN consent revoked while running" }
+                Logger.e { "VPN consent revoked while running" }
                 updateStatus(ServiceStatus.Failed, FailureReason.PermissionLost("VPN"))
                 host.serviceScope.launch(ioDispatcher) { stop() }
             }
 
             PermissionChangeEvent.KIND_NOTIFICATIONS -> {
-                logcat(LogPriority.WARN) { "Notification permission revoked while VPN running" }
+                Logger.w { "Notification permission revoked while VPN running" }
             }
         }
     }
@@ -342,13 +340,13 @@ internal class VpnServiceRuntimeCoordinator(
         val failureReason =
             result.exceptionOrNull()?.let { throwable ->
                 val error = throwable as? Exception ?: IllegalStateException("Proxy runtime failed", throwable)
-                logcat(LogPriority.ERROR) { "Proxy failed\n${error.asLog()}" }
+                Logger.e(error) { "Proxy failed" }
                 classifyFailureReason(error, isTunnelContext = true)
             } ?: result
                 .getOrNull()
                 ?.takeIf { it != 0 }
                 ?.let { code ->
-                    logcat(LogPriority.ERROR) { "Proxy stopped with code $code" }
+                    Logger.e { "Proxy stopped with code $code" }
                     FailureReason.NativeError("Proxy exited with code $code")
                 }
 

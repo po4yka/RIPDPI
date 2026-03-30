@@ -10,13 +10,11 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.lifecycle.lifecycleScope
+import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.automation.AutomationController
 import com.poyka.ripdpi.permissions.PermissionResult
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
-import logcat.LogPriority
-import logcat.asLog
-import logcat.logcat
 import java.util.Optional
 import javax.inject.Inject
 
@@ -87,7 +85,7 @@ class MainActivity : ComponentActivity() {
             shellController.hostCommands.collect { command ->
                 runCatching { mainActivityHost.handle(command) }
                     .onFailure { error ->
-                        logcat(LogPriority.ERROR) { "Host command failed: $command\n${error.asLog()}" }
+                        Logger.e(error) { "Host command failed: $command" }
                     }
             }
         }

@@ -25,7 +25,7 @@ uiautomator = "2.3.0"
 detekt = "1.23.8"
 detekt-compose-rules = "0.5.6"
 ktlint-plugin = "14.2.0"
-logcat = "0.4"
+kermit = "2.0.5"
 splashscreen = "1.2.0"
 kotlinx-collections-immutable = "0.4.0"
 kotlinx-serialization = "1.10.0"
@@ -75,7 +75,7 @@ androidx-test-uiautomator = { module = "androidx.test.uiautomator:uiautomator", 
 detekt-api = { module = "io.gitlab.arturbosch.detekt:detekt-api", version.ref = "detekt" }
 detekt-test = { module = "io.gitlab.arturbosch.detekt:detekt-test", version.ref = "detekt" }
 detekt-compose-rules = { module = "io.nlopez.compose.rules:detekt", version.ref = "detekt-compose-rules" }
-logcat = { module = "com.squareup.logcat:logcat", version.ref = "logcat" }
+kermit = { module = "co.touchlab:kermit", version.ref = "kermit" }
 androidx-core-splashscreen = { module = "androidx.core:core-splashscreen", version.ref = "splashscreen" }
 androidx-profileinstaller = { module = "androidx.profileinstaller:profileinstaller", version.ref = "profileinstaller" }
 kotlinx-collections-immutable = { module = "org.jetbrains.kotlinx:kotlinx-collections-immutable", version.ref = "kotlinx-collections-immutable" }

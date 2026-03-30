@@ -1,10 +1,8 @@
 package com.poyka.ripdpi.diagnostics
 
+import co.touchlab.kermit.Logger
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import logcat.LogPriority
-import logcat.asLog
-import logcat.logcat
 import javax.inject.Inject
 
 data class LogcatSnapshot(
@@ -27,7 +25,7 @@ open class LogcatSnapshotCollector
                     try {
                         readLogcatOutput()
                     } catch (error: Exception) {
-                        logcat(LogPriority.ERROR) { "Failed to collect logs\n${error.asLog()}" }
+                        Logger.e(error) { "Failed to collect logs" }
                         null
                     }
 

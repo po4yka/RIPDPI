@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.diagnostics
 
+import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.core.applyToSettings
 import com.poyka.ripdpi.core.decodeRipDpiProxyUiPreferences
 import com.poyka.ripdpi.data.AppSettingsRepository
@@ -18,9 +19,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
-import logcat.LogPriority
-import logcat.asLog
-import logcat.logcat
 import java.util.concurrent.atomic.AtomicBoolean
 import javax.inject.Inject
 import javax.inject.Named
@@ -63,7 +61,7 @@ class DefaultDiagnosticsBootstrapper
         }
 
         private fun logRuntimeHistoryBootstrapFailure(error: Throwable) {
-            logcat(LogPriority.WARN) { "Runtime history bootstrap skipped\n${error.asLog()}" }
+            Logger.w(error) { "Runtime history bootstrap skipped" }
         }
     }
 

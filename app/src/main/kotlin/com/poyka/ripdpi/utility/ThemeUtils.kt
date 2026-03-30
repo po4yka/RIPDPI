@@ -1,8 +1,7 @@
 package com.poyka.ripdpi.utility
 
 import androidx.appcompat.app.AppCompatDelegate
-import logcat.LogPriority
-import logcat.logcat
+import co.touchlab.kermit.Logger
 
 fun applyTheme(name: String) {
     val mode =
@@ -20,7 +19,7 @@ fun applyTheme(name: String) {
             }
 
             else -> {
-                logcat("ThemeUtils", LogPriority.WARN) { "Invalid value for app_theme: $name" }
+                Logger.withTag("ThemeUtils").w { "Invalid value for app_theme: $name" }
                 return
             }
         }
