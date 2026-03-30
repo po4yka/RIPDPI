@@ -8,7 +8,11 @@
 mod support;
 
 use local_network_fixture::{FixtureConfig, FixtureStack};
+#[cfg(target_os = "linux")]
+use ripdpi_config::{OffsetExpr, TcpChainStep, TcpChainStepKind};
 use ripdpi_config::{UdpChainStep, UdpChainStepKind};
+#[cfg(target_os = "linux")]
+use ripdpi_packets::IS_TCP;
 use ripdpi_packets::{parse_quic_initial, IS_UDP};
 use std::sync::{Mutex, MutexGuard, OnceLock, PoisonError};
 use std::time::Duration;
@@ -75,6 +79,18 @@ fn udp_quic_chain_config() -> ripdpi_config::RuntimeConfig {
         UdpChainStep { kind: UdpChainStepKind::QuicSniSplit, count: 1, split_bytes: 0, activation_filter: None },
         UdpChainStep { kind: UdpChainStepKind::QuicFakeVersion, count: 1, split_bytes: 0, activation_filter: None },
     ];
+    config
+}
+
+#[cfg(target_os = "linux")]
+fn tcp_multidisorder_config(first_offset: i64, second_offset: i64) -> ripdpi_config::RuntimeConfig {
+    let mut config = ephemeral_proxy_config(&["--ip", "127.0.0.1"]);
+    config.groups[0].matches.proto = IS_TCP;
+    config.groups[0].actions.tcp_chain = vec![
+        TcpChainStep::new(TcpChainStepKind::MultiDisorder, OffsetExpr::absolute(first_offset)),
+        TcpChainStep::new(TcpChainStepKind::MultiDisorder, OffsetExpr::absolute(second_offset)),
+    ];
+    config.network.delay_conn = true;
     config
 }
 
@@ -265,6 +281,48 @@ mod af_packet_tests {
             !has_timestamps,
             "no TCP segment to echo port should contain Timestamps option (kind=8) after stripping"
         );
+    }
+
+    #[test]
+    fn af_packet_tcp_multidisorder_sends_payload_segments_in_reverse_sequence_order() {
+        if !packet_capture_e2e_enabled() {
+            eprintln!("skipping: RIPDPI_RUN_PACKET_CAPTURE_E2E!=1");
+            return;
+        }
+        let _guard = test_guard();
+        let fixture = FixtureStack::start(wire_fixture_config()).expect("start fixture");
+        let capture = LoopbackCapture::start(fixture.manifest().tcp_echo_port).expect("start loopback capture");
+        let payload = b"multidisorder wire payload";
+
+        let proxy = start_proxy(tcp_multidisorder_config(5, 14), None);
+        let body = socks_connect_ip_round_trip_with_retry(proxy.port, fixture.manifest().tcp_echo_port, payload);
+        assert_eq!(body, payload);
+
+        std::thread::sleep(Duration::from_millis(200));
+        drop(proxy);
+
+        let tcp_packets = capture.packets_to_port(fixture.manifest().tcp_echo_port);
+        let data_segments: Vec<_> = tcp_packets.iter().filter(|packet| !packet.payload.is_empty()).collect();
+        assert!(data_segments.len() >= 3, "expected at least 3 outbound payload segments, got {}", data_segments.len());
+
+        let first_three = &data_segments[..3];
+        assert_eq!(
+            first_three.iter().map(|packet| packet.payload.as_slice()).collect::<Vec<_>>(),
+            vec![&payload[14..], &payload[5..14], &payload[..5]]
+        );
+
+        let sequence_numbers = first_three
+            .iter()
+            .map(|packet| packet.tcp_sequence_number.expect("tcp sequence number"))
+            .collect::<Vec<_>>();
+        assert!(
+            sequence_numbers[0] > sequence_numbers[1] && sequence_numbers[1] > sequence_numbers[2],
+            "expected descending TCP sequence numbers for reverse send order, got {sequence_numbers:?}"
+        );
+
+        let reassembled =
+            first_three.iter().rev().flat_map(|packet| packet.payload.iter().copied()).collect::<Vec<_>>();
+        assert_eq!(reassembled, payload);
     }
 
     #[test]

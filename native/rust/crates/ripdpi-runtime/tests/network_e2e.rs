@@ -8,9 +8,9 @@ use local_network_fixture::{
     FixtureConfig, FixtureEvent, FixtureFaultOutcome, FixtureFaultScope, FixtureFaultSpec, FixtureFaultTarget,
     FixtureStack,
 };
-use ripdpi_config::TcpChainStep;
-use ripdpi_config::TcpChainStepKind;
-use ripdpi_config::{DesyncGroup, QuicInitialMode, RuntimeConfig};
+use ripdpi_config::{DesyncGroup, QuicInitialMode, RuntimeConfig, TcpChainStep, TcpChainStepKind};
+#[cfg(any(target_os = "linux", target_os = "android"))]
+use ripdpi_config::{OffsetBase, OffsetExpr};
 use ripdpi_packets::IS_HTTPS;
 use ripdpi_packets::{IS_TCP, IS_UDP};
 use ripdpi_proxy_config::{runtime_config_from_ui, ProxyUiConfig};
@@ -913,6 +913,31 @@ fn tls_round_trip_with_disorder_desync_completes_handshake() {
 
     let events = fixture.events().snapshot();
     assert!(events.iter().any(|e| e.service == "tls_echo" && e.detail == "handshake"));
+    drop(proxy);
+}
+
+#[test]
+#[cfg(any(target_os = "linux", target_os = "android"))]
+fn tls_round_trip_with_tlsrec_multidisorder_desync_completes_handshake() {
+    let _guard = test_guard();
+    let fixture = FixtureStack::start(ephemeral_fixture_config()).expect("start fixture");
+
+    let mut config = ui_proxy_config();
+    config.groups[0].matches.proto = IS_TCP | IS_HTTPS;
+    config.groups[0].actions.tcp_chain = vec![
+        TcpChainStep::new(TcpChainStepKind::TlsRec, OffsetExpr::marker(OffsetBase::ExtLen, 0)),
+        TcpChainStep::new(TcpChainStepKind::MultiDisorder, OffsetExpr::absolute(17)),
+        TcpChainStep::new(TcpChainStepKind::MultiDisorder, OffsetExpr::absolute(64)),
+    ];
+    config.network.delay_conn = true;
+    let proxy = start_proxy(config, None);
+
+    let response = socks5_tls_round_trip_with_retry(proxy.port, &fixture, None);
+    assert!(response.contains("fixture tls ok"), "TLS with tlsrec multidisorder desync should complete: {response:?}");
+
+    let events = fixture.events().snapshot();
+    assert!(events.iter().any(|e| e.service == "tls_echo" && e.detail == "handshake"));
+    assert!(!events.iter().any(|e| e.service == "tls_echo" && e.detail.starts_with("handshake_error:")));
     drop(proxy);
 }
 
