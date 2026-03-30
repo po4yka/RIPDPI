@@ -445,7 +445,8 @@ fn execute_udp_actions(
             | DesyncAction::DetachDropSack
             | DesyncAction::AwaitWritable
             | DesyncAction::SetWindowClamp(_)
-            | DesyncAction::RestoreWindowClamp => {}
+            | DesyncAction::RestoreWindowClamp
+            | DesyncAction::WriteSeqOverlap { .. } => {}
         }
     }
     Ok(())

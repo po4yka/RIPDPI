@@ -1,4 +1,4 @@
-use crate::fake::{build_fake_packet, build_hostfake_bytes, resolve_hostfake_span};
+use crate::fake::{build_fake_packet, build_hostfake_bytes, build_seqovl_fake_prefix, resolve_hostfake_span};
 use crate::offset::resolve_offset;
 use crate::tls_prelude::apply_tls_prelude_steps;
 use crate::types::{
@@ -93,7 +93,6 @@ fn plan_multi_disorder_steps(
 ) -> Result<Vec<PlannedStep>, DesyncError> {
     let payload_len = tampered.len() as i64;
     let mut resolved_markers = Vec::with_capacity(send_steps.len());
-    let mut cursor = 0i64;
 
     for step in send_steps {
         if step.kind != TcpChainStepKind::MultiDisorder {
@@ -106,7 +105,7 @@ fn plan_multi_disorder_steps(
             step.offset,
             tampered,
             tampered.len(),
-            cursor,
+            0,
             info,
             rng,
             context,
@@ -117,15 +116,15 @@ fn plan_multi_disorder_steps(
             }
             return Err(DesyncError);
         };
-        if pos < 0 || pos < cursor {
+        if pos < 0 {
             return Err(DesyncError);
         }
         if pos > payload_len {
             pos = payload_len;
         }
         resolved_markers.push(pos);
-        cursor = pos;
     }
+    resolved_markers.sort_unstable();
 
     let mut boundaries = Vec::with_capacity(resolved_markers.len() + 2);
     boundaries.push(0);
@@ -226,8 +225,28 @@ pub fn plan_tcp(
             TcpChainStepKind::SeqOverlap => {
                 if !context.seqovl_supported || !seqovl_hard_gate_matches(context, pos) {
                     planned_kind = TcpChainStepKind::Split;
+                    push_split_actions(&mut actions, chunk);
+                } else {
+                    let overlap = step.overlap_size.max(1) as usize;
+                    let fake_prefix = build_seqovl_fake_prefix(
+                        group,
+                        &tampered.bytes,
+                        seed,
+                        overlap,
+                        step.seqovl_fake_mode,
+                    )?;
+                    let split = (pos - lp) as usize;
+                    let real_chunk = chunk[..split].to_vec();
+                    let remainder = tampered.bytes[pos as usize..].to_vec();
+                    actions.push(DesyncAction::WriteSeqOverlap {
+                        real_chunk,
+                        fake_prefix,
+                        remainder,
+                    });
+                    steps.push(PlannedStep { kind: planned_kind, start: lp, end: pos });
+                    lp = tampered.bytes.len() as i64;
+                    continue;
                 }
-                push_split_actions(&mut actions, chunk);
             }
             TcpChainStepKind::Oob => {
                 actions.push(DesyncAction::WriteUrgent {

@@ -276,14 +276,15 @@ fn plan_tcp_seqovl_keeps_kind_when_supported_in_first_window() {
     let plan = plan_tcp(&group, payload, 7, 64, context).expect("plan seqovl tcp");
 
     assert_eq!(plan.steps, vec![PlannedStep { kind: TcpChainStepKind::SeqOverlap, start: 0, end: 5 }]);
-    assert_eq!(
-        plan.actions,
-        vec![
-            DesyncAction::Write(b"hello".to_vec()),
-            DesyncAction::AwaitWritable,
-            DesyncAction::Write(b" world".to_vec()),
-        ]
-    );
+    assert_eq!(plan.actions.len(), 1);
+    match &plan.actions[0] {
+        DesyncAction::WriteSeqOverlap { real_chunk, fake_prefix, remainder } => {
+            assert_eq!(real_chunk, b"hello");
+            assert_eq!(fake_prefix.len(), 12); // overlap_size from seqovl_step
+            assert_eq!(remainder, b" world");
+        }
+        other => panic!("expected WriteSeqOverlap, got {other:?}"),
+    }
 }
 
 #[test]
@@ -333,10 +334,15 @@ fn plan_tcp_seqovl_keeps_kind_when_large_first_write_still_splits_inside_first_w
     let plan = plan_tcp(&group, &payload, 7, 64, context).expect("plan seqovl large first write");
 
     assert_eq!(plan.steps, vec![PlannedStep { kind: TcpChainStepKind::SeqOverlap, start: 0, end: 1_500 }]);
-    assert_eq!(
-        plan.actions,
-        vec![DesyncAction::Write(vec![b'a'; 1_500]), DesyncAction::AwaitWritable, DesyncAction::Write(vec![b'a'; 101]),]
-    );
+    assert_eq!(plan.actions.len(), 1);
+    match &plan.actions[0] {
+        DesyncAction::WriteSeqOverlap { real_chunk, fake_prefix, remainder } => {
+            assert_eq!(real_chunk.len(), 1_500);
+            assert_eq!(fake_prefix.len(), 12);
+            assert_eq!(remainder.len(), 101);
+        }
+        other => panic!("expected WriteSeqOverlap, got {other:?}"),
+    }
 }
 
 #[test]
@@ -635,25 +641,75 @@ fn plan_tcp_multidisorder_groups_terminal_markers_into_logical_segments() {
 }
 
 #[test]
-fn plan_tcp_multidisorder_preserves_tlsrec_prelude_before_grouped_tls_markers() {
+fn plan_tcp_multidisorder_resolves_semantic_tls_markers_after_tlsrec_prelude() {
     let mut group = DesyncGroup::new(0);
     group.actions.tcp_chain = vec![
         TcpChainStep::new(TcpChainStepKind::TlsRec, OffsetExpr::marker(OffsetBase::ExtLen, 0)),
-        TcpChainStep::new(TcpChainStepKind::MultiDisorder, OffsetExpr::absolute(5)),
-        TcpChainStep::new(TcpChainStepKind::MultiDisorder, OffsetExpr::absolute(17)),
+        TcpChainStep::new(TcpChainStepKind::MultiDisorder, OffsetExpr::marker(OffsetBase::SniExt, 0)),
+        TcpChainStep::new(TcpChainStepKind::MultiDisorder, OffsetExpr::marker(OffsetBase::MidSld, 0)),
     ];
+    let prelude_steps = group.actions.tcp_chain[..1].to_vec();
+    let tampered =
+        apply_tls_prelude_steps(&group, &prelude_steps, DEFAULT_FAKE_TLS, 9, tcp_context(DEFAULT_FAKE_TLS))
+            .expect("tampered tlsrec payload");
+    let mut info = ProtoInfo::default();
+    let mut rng = OracleRng::seeded(9);
+    let sniext = gen_offset(
+        OffsetExpr::marker(OffsetBase::SniExt, 0),
+        &tampered.bytes,
+        tampered.bytes.len(),
+        0,
+        &mut info,
+        &mut rng,
+    )
+    .expect("resolve tls sni extension in reserialized client hello");
+    let midsld = gen_offset(
+        OffsetExpr::marker(OffsetBase::MidSld, 0),
+        &tampered.bytes,
+        tampered.bytes.len(),
+        0,
+        &mut info,
+        &mut rng,
+    )
+    .expect("resolve midsld in reserialized client hello");
 
     let plan =
         plan_tcp(&group, DEFAULT_FAKE_TLS, 9, 32, tcp_context(DEFAULT_FAKE_TLS)).expect("plan tlsrec multidisorder");
 
     assert!(plan.actions.is_empty());
-    assert!(plan.tampered.len() > DEFAULT_FAKE_TLS.len());
+    assert_eq!(plan.tampered, tampered.bytes);
     assert_eq!(
         plan.steps,
         vec![
-            PlannedStep { kind: TcpChainStepKind::MultiDisorder, start: 0, end: 5 },
-            PlannedStep { kind: TcpChainStepKind::MultiDisorder, start: 5, end: 17 },
-            PlannedStep { kind: TcpChainStepKind::MultiDisorder, start: 17, end: plan.tampered.len() as i64 },
+            PlannedStep { kind: TcpChainStepKind::MultiDisorder, start: 0, end: sniext },
+            PlannedStep { kind: TcpChainStepKind::MultiDisorder, start: sniext, end: midsld },
+            PlannedStep { kind: TcpChainStepKind::MultiDisorder, start: midsld, end: plan.tampered.len() as i64 },
+        ]
+    );
+}
+
+#[test]
+fn plan_tcp_multidisorder_sorts_resolved_markers_before_segmenting() {
+    let markers = http_marker_info(DEFAULT_FAKE_HTTP).expect("http markers");
+    let host = &DEFAULT_FAKE_HTTP[markers.host_start..markers.host_end];
+    let (sld_start, sld_end) = second_level_domain_span(host).expect("sld span");
+    let midsld = (markers.host_start + sld_start + ((sld_end - sld_start) / 2)) as i64;
+    let mut group = DesyncGroup::new(0);
+    group.actions.tcp_chain = vec![
+        TcpChainStep::new(TcpChainStepKind::MultiDisorder, OffsetExpr::marker(OffsetBase::MidSld, 0)),
+        TcpChainStep::new(TcpChainStepKind::MultiDisorder, OffsetExpr::marker(OffsetBase::Host, 0)),
+    ];
+
+    let plan =
+        plan_tcp(&group, DEFAULT_FAKE_HTTP, 9, 32, tcp_context(DEFAULT_FAKE_HTTP)).expect("plan reordered multidisorder");
+
+    assert!(plan.actions.is_empty());
+    assert_eq!(
+        plan.steps,
+        vec![
+            PlannedStep { kind: TcpChainStepKind::MultiDisorder, start: 0, end: markers.host_start as i64 },
+            PlannedStep { kind: TcpChainStepKind::MultiDisorder, start: markers.host_start as i64, end: midsld },
+            PlannedStep { kind: TcpChainStepKind::MultiDisorder, start: midsld, end: plan.tampered.len() as i64 },
         ]
     );
 }
