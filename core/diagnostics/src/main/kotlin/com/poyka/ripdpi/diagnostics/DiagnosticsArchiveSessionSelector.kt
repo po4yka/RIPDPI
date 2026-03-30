@@ -33,11 +33,14 @@ class DiagnosticsArchiveSessionSelector
             }
 
         @Suppress("LongMethod")
-        internal fun buildSelection(
+        internal suspend fun buildSelection(
             request: DiagnosticsArchiveRequest,
             primarySession: ScanSessionEntity?,
             primaryResults: List<ProbeResultEntity>,
             sourceData: DiagnosticsArchiveSourceData,
+            compositeOutcome: DiagnosticsHomeCompositeOutcome? = null,
+            compositeSessions: List<ScanSessionEntity> = emptyList(),
+            loadProbeResults: suspend (String) -> List<ProbeResultEntity>,
         ): DiagnosticsArchiveSelection {
             val primaryReport =
                 primarySession
@@ -115,7 +118,58 @@ class DiagnosticsArchiveSessionSelector
                     globalEvents = globalEvents,
                     approachSummaries = sourceData.approachSummaries,
                 )
+            val isComposite = compositeOutcome != null && request.homeRunId != null && request.sessionIds.isNotEmpty()
+            val compositeStages =
+                if (isComposite) {
+                    compositeOutcome.stageSummaries.map { stageSummary ->
+                        val session = compositeSessions.firstOrNull { it.id == stageSummary.sessionId }
+                        val report =
+                            session
+                                ?.reportJson
+                                ?.takeIf(String::isNotBlank)
+                                ?.let(json::decodeEngineScanReportWire)
+                        DiagnosticsArchiveCompositeStageSelection(
+                            stageSummary = stageSummary,
+                            session = session,
+                            report = report,
+                            results =
+                                session
+                                    ?.id
+                                    ?.let { sessionId -> loadProbeResults(sessionId) }
+                                    .orEmpty(),
+                            snapshots = sourceData.snapshots.filter { it.sessionId == session?.id },
+                            contexts = sourceData.contexts.filter { it.sessionId == session?.id },
+                            events = sourceData.events.filter { it.sessionId == session?.id },
+                        )
+                    }
+                } else {
+                    emptyList()
+                }
+            val includedFiles =
+                if (isComposite) {
+                    DiagnosticsArchiveFormat.includedFiles(sourceData.logcatSnapshot != null, composite = true) +
+                        compositeStages.flatMap { stage ->
+                            val prefix = "stages/${stage.stageSummary.stageKey}"
+                            listOf(
+                                "$prefix/report.json",
+                                "$prefix/probe-results.csv",
+                                "$prefix/strategy-matrix.json",
+                                "$prefix/network-snapshots.json",
+                                "$prefix/diagnostic-context.json",
+                                "$prefix/native-events.csv",
+                                "$prefix/telemetry.csv",
+                            )
+                        }
+                } else {
+                    DiagnosticsArchiveFormat.includedFiles(sourceData.logcatSnapshot != null)
+                }
             return DiagnosticsArchiveSelection(
+                runType =
+                    if (isComposite) {
+                        DiagnosticsArchiveRunType.HOME_COMPOSITE
+                    } else {
+                        DiagnosticsArchiveRunType.SINGLE_SESSION
+                    },
                 request = request,
                 payload = payload,
                 primarySession = primarySession,
@@ -138,6 +192,10 @@ class DiagnosticsArchiveSessionSelector
                             DiagnosticsArchiveSessionSelectionStatus.SUPPORT_BUNDLE
                         }
 
+                        isComposite -> {
+                            DiagnosticsArchiveSessionSelectionStatus.LATEST_COMPLETED_SESSION
+                        }
+
                         request.requestedSessionId != null -> {
                             DiagnosticsArchiveSessionSelectionStatus.REQUESTED_SESSION
                         }
@@ -150,6 +208,9 @@ class DiagnosticsArchiveSessionSelector
                             DiagnosticsArchiveSessionSelectionStatus.LATEST_LIVE_STATE
                         }
                     },
+                homeRunId = request.homeRunId,
+                homeCompositeOutcome = compositeOutcome,
+                compositeStages = compositeStages,
                 effectiveStrategySignature = effectiveStrategySignature,
                 appSettings = sourceData.appSettings,
                 sourceCounts =
@@ -164,7 +225,7 @@ class DiagnosticsArchiveSessionSelector
                         sessionEvents = primaryEvents.size,
                     ),
                 collectionWarnings = sourceData.collectionWarnings,
-                includedFiles = DiagnosticsArchiveFormat.includedFiles(sourceData.logcatSnapshot != null),
+                includedFiles = includedFiles,
                 logcatSnapshot = sourceData.logcatSnapshot,
             )
         }

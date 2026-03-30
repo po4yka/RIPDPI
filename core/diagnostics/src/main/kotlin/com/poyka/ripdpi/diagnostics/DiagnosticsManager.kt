@@ -10,6 +10,7 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import java.util.UUID
 import javax.inject.Named
@@ -97,6 +98,7 @@ interface DiagnosticsResolverActions {
     suspend fun saveResolverRecommendation(sessionId: String)
 }
 
+@Serializable
 data class DiagnosticsAppliedSetting(
     val label: String,
     val value: String,
@@ -128,6 +130,74 @@ interface DiagnosticsHomeWorkflowService {
     suspend fun finalizeHomeAudit(sessionId: String): DiagnosticsHomeAuditOutcome
 
     suspend fun summarizeVerification(sessionId: String): DiagnosticsHomeVerificationOutcome
+}
+
+data class DiagnosticsHomeCompositeRunStarted(
+    val runId: String,
+)
+
+enum class DiagnosticsHomeCompositeRunStatus {
+    RUNNING,
+    COMPLETED,
+}
+
+enum class DiagnosticsHomeCompositeStageStatus {
+    PENDING,
+    RUNNING,
+    COMPLETED,
+    FAILED,
+    SKIPPED,
+    UNAVAILABLE,
+}
+
+data class DiagnosticsHomeCompositeStageSummary(
+    val stageKey: String,
+    val stageLabel: String,
+    val profileId: String,
+    val pathMode: ScanPathMode,
+    val sessionId: String? = null,
+    val status: DiagnosticsHomeCompositeStageStatus,
+    val headline: String,
+    val summary: String,
+    val recommendationContributor: Boolean = false,
+)
+
+data class DiagnosticsHomeCompositeOutcome(
+    val runId: String,
+    val fingerprintHash: String? = null,
+    val actionable: Boolean,
+    val headline: String,
+    val summary: String,
+    val recommendationSummary: String? = null,
+    val confidenceSummary: String? = null,
+    val coverageSummary: String? = null,
+    val appliedSettings: List<DiagnosticsAppliedSetting> = emptyList(),
+    val recommendedSessionId: String? = null,
+    val stageSummaries: List<DiagnosticsHomeCompositeStageSummary> = emptyList(),
+    val completedStageCount: Int = 0,
+    val failedStageCount: Int = 0,
+    val skippedStageCount: Int = 0,
+    val bundleSessionIds: List<String> = emptyList(),
+)
+
+data class DiagnosticsHomeCompositeProgress(
+    val runId: String,
+    val fingerprintHash: String? = null,
+    val status: DiagnosticsHomeCompositeRunStatus = DiagnosticsHomeCompositeRunStatus.RUNNING,
+    val activeStageIndex: Int? = null,
+    val activeSessionId: String? = null,
+    val stages: List<DiagnosticsHomeCompositeStageSummary> = emptyList(),
+    val outcome: DiagnosticsHomeCompositeOutcome? = null,
+)
+
+interface DiagnosticsHomeCompositeRunService {
+    suspend fun startHomeAnalysis(): DiagnosticsHomeCompositeRunStarted
+
+    fun observeHomeRun(runId: String): Flow<DiagnosticsHomeCompositeProgress>
+
+    suspend fun finalizeHomeRun(runId: String): DiagnosticsHomeCompositeOutcome
+
+    suspend fun getCompletedRun(runId: String): DiagnosticsHomeCompositeOutcome?
 }
 
 @Module
@@ -186,6 +256,12 @@ abstract class DiagnosticsManagerModule {
     abstract fun bindDiagnosticsHomeWorkflowService(
         service: DefaultDiagnosticsHomeWorkflowService,
     ): DiagnosticsHomeWorkflowService
+
+    @Binds
+    @Singleton
+    abstract fun bindDiagnosticsHomeCompositeRunService(
+        service: DefaultDiagnosticsHomeCompositeRunService,
+    ): DiagnosticsHomeCompositeRunService
 
     @Binds
     @Singleton

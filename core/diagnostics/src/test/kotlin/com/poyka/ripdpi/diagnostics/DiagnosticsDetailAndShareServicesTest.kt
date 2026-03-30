@@ -202,7 +202,7 @@ class DiagnosticsDetailAndShareServicesTest {
                     sessionId = session.id,
                     createdAt = 42L,
                     scope = "hybrid",
-                    schemaVersion = 2,
+                    schemaVersion = 3,
                     privacyMode = "split_output",
                 )
             val archiveExporter = RecordingDiagnosticsArchiveExporter(expectedArchive)
@@ -426,7 +426,7 @@ private fun unusedArchive(sessionId: String?) =
         sessionId = sessionId,
         createdAt = 0L,
         scope = "hybrid",
-        schemaVersion = 2,
+        schemaVersion = 3,
         privacyMode = "split_output",
     )
 

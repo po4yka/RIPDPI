@@ -40,6 +40,12 @@ class DiagnosticsArchiveRenderer
                     snapshotPayload = snapshotPayload,
                     contextPayload = contextPayload,
                 )
+            val compositeEntries =
+                if (selection.runType == DiagnosticsArchiveRunType.HOME_COMPOSITE) {
+                    buildCompositeEntries(selection)
+                } else {
+                    emptyList()
+                }
             val baseEntries =
                 buildList {
                     add(
@@ -79,6 +85,7 @@ class DiagnosticsArchiveRenderer
                             content = buildProbeResultsCsv(selection.primaryResults),
                         ),
                     )
+                    addAll(compositeEntries)
                     add(
                         jsonEntry(
                             name = "archive-provenance.json",
@@ -220,10 +227,24 @@ class DiagnosticsArchiveRenderer
                     schemaVersion = DiagnosticsArchiveFormat.schemaVersion,
                     privacyMode = DiagnosticsArchiveFormat.privacyMode,
                     scope = DiagnosticsArchiveFormat.scope,
+                    runType = selection.runType,
+                    homeRunId = selection.homeRunId,
                     archiveReason = selection.request.reason,
-                    requestedSessionId = selection.request.requestedSessionId,
-                    selectedSessionId = selection.primarySession?.id,
+                    requestedSessionId =
+                        if (selection.runType == DiagnosticsArchiveRunType.SINGLE_SESSION) {
+                            selection.request.requestedSessionId
+                        } else {
+                            null
+                        },
+                    selectedSessionId =
+                        if (selection.runType == DiagnosticsArchiveRunType.SINGLE_SESSION) {
+                            selection.primarySession?.id
+                        } else {
+                            null
+                        },
                     sessionSelectionStatus = selection.sessionSelectionStatus,
+                    recommendedSessionId = selection.homeCompositeOutcome?.recommendedSessionId,
+                    stageIndex = buildStageIndexEntries(selection),
                     includedSessionId = selection.primarySession?.id,
                     sessionResultCount = selection.primaryResults.size,
                     sessionSnapshotCount = selection.primarySnapshots.size,
@@ -300,11 +321,19 @@ class DiagnosticsArchiveRenderer
                     timezone = context?.device?.timezone,
                 )
             return DiagnosticsArchiveProvenancePayload(
+                runType = selection.runType,
+                homeRunId = selection.homeRunId,
                 archiveReason = selection.request.reason,
                 requestedAt = selection.request.requestedAt,
                 createdAt = target.createdAt,
-                requestedSessionId = selection.request.requestedSessionId,
+                requestedSessionId =
+                    if (selection.runType == DiagnosticsArchiveRunType.SINGLE_SESSION) {
+                        selection.request.requestedSessionId
+                    } else {
+                        null
+                    },
                 selectedSessionId = selection.primarySession?.id,
+                bundleSessionIds = selection.homeCompositeOutcome?.bundleSessionIds.orEmpty(),
                 sessionSelectionStatus = selection.sessionSelectionStatus,
                 triggerMetadata =
                     selection.primarySession?.let {
@@ -515,7 +544,13 @@ class DiagnosticsArchiveRenderer
                     put(
                         fileName,
                         when (fileName) {
-                            "summary.txt", "manifest.json", "report.json" -> {
+                            "summary.txt",
+                            "manifest.json",
+                            "report.json",
+                            "home-analysis.json",
+                            "stage-index.json",
+                            "stage-summaries.json",
+                            -> {
                                 DiagnosticsArchiveSectionStatus.REDACTED
                             }
 
@@ -560,7 +595,47 @@ class DiagnosticsArchiveRenderer
                             }
 
                             else -> {
-                                DiagnosticsArchiveSectionStatus.INCLUDED
+                                when {
+                                    fileName.endsWith("/report.json") -> {
+                                        DiagnosticsArchiveSectionStatus.REDACTED
+                                    }
+
+                                    fileName.endsWith("/network-snapshots.json") -> {
+                                        if (snapshotsTruncated) {
+                                            DiagnosticsArchiveSectionStatus.TRUNCATED
+                                        } else {
+                                            DiagnosticsArchiveSectionStatus.REDACTED
+                                        }
+                                    }
+
+                                    fileName.endsWith("/diagnostic-context.json") -> {
+                                        if (contextsTruncated) {
+                                            DiagnosticsArchiveSectionStatus.TRUNCATED
+                                        } else {
+                                            DiagnosticsArchiveSectionStatus.REDACTED
+                                        }
+                                    }
+
+                                    fileName.endsWith("/telemetry.csv") -> {
+                                        if (telemetryTruncated) {
+                                            DiagnosticsArchiveSectionStatus.TRUNCATED
+                                        } else {
+                                            DiagnosticsArchiveSectionStatus.INCLUDED
+                                        }
+                                    }
+
+                                    fileName.endsWith("/native-events.csv") -> {
+                                        if (nativeEventsTruncated) {
+                                            DiagnosticsArchiveSectionStatus.TRUNCATED
+                                        } else {
+                                            DiagnosticsArchiveSectionStatus.INCLUDED
+                                        }
+                                    }
+
+                                    else -> {
+                                        DiagnosticsArchiveSectionStatus.INCLUDED
+                                    }
+                                }
                             }
                         },
                     )
@@ -690,11 +765,19 @@ class DiagnosticsArchiveRenderer
                         add("RIPDPI diagnostics archive")
                         add("generatedAt=$createdAt")
                         add("scope=${DiagnosticsArchiveFormat.scope}")
+                        add("runType=${selection.runType.name.lowercase()}")
                         add("privacyMode=${DiagnosticsArchiveFormat.privacyMode}")
                         add("logcatIncluded=${selection.logcatSnapshot != null}")
                         add("logcatCaptureScope=${LogcatSnapshotCollector.AppVisibleSnapshotScope}")
                         add("logcatByteCount=${selection.logcatSnapshot?.byteCount ?: 0}")
                         add("selectedSession=${selection.primarySession?.id ?: "latest-live"}")
+                        selection.homeRunId?.let { add("homeRunId=$it") }
+                        selection.homeCompositeOutcome?.recommendedSessionId?.let { add("recommendedSession=$it") }
+                        selection.homeCompositeOutcome?.let { outcome ->
+                            add("stageCount=${outcome.stageSummaries.size}")
+                            add("completedStageCount=${outcome.completedStageCount}")
+                            add("failedStageCount=${outcome.failedStageCount}")
+                        }
                         runtimeId?.let { add("runtimeId=$it") }
                         mode?.let { add("mode=$it") }
                         policySignature?.let { add("policySignature=$it") }
@@ -711,9 +794,176 @@ class DiagnosticsArchiveRenderer
                             add("approachUsageCount=${it.usageCount}")
                             add("approachRuntimeMs=${it.totalRuntimeDurationMs}")
                         }
+                        selection.homeCompositeOutcome
+                            ?.stageSummaries
+                            ?.forEach { stage ->
+                                add(
+                                    "stage=${stage.stageKey}:${stage.status.name.lowercase()}:" +
+                                        (stage.sessionId ?: "no-session"),
+                                )
+                            }
                     },
             )
         }
+
+        private fun buildCompositeEntries(selection: DiagnosticsArchiveSelection): List<DiagnosticsArchiveEntry> {
+            val outcome = selection.homeCompositeOutcome ?: return emptyList()
+            return buildList {
+                add(
+                    jsonEntry(
+                        name = "home-analysis.json",
+                        serializer = DiagnosticsArchiveHomeAnalysisPayload.serializer(),
+                        value =
+                            DiagnosticsArchiveHomeAnalysisPayload(
+                                runId = outcome.runId,
+                                fingerprintHash = outcome.fingerprintHash,
+                                actionable = outcome.actionable,
+                                headline = outcome.headline,
+                                summary = outcome.summary,
+                                recommendationSummary = outcome.recommendationSummary,
+                                confidenceSummary = outcome.confidenceSummary,
+                                coverageSummary = outcome.coverageSummary,
+                                recommendedSessionId = outcome.recommendedSessionId,
+                                appliedSettings = outcome.appliedSettings,
+                                completedStageCount = outcome.completedStageCount,
+                                failedStageCount = outcome.failedStageCount,
+                                skippedStageCount = outcome.skippedStageCount,
+                                bundleSessionIds = outcome.bundleSessionIds,
+                            ),
+                    ),
+                )
+                add(
+                    jsonEntry(
+                        name = "stage-index.json",
+                        serializer = DiagnosticsArchiveStageIndexPayload.serializer(),
+                        value =
+                            DiagnosticsArchiveStageIndexPayload(
+                                runId = outcome.runId,
+                                stages = buildStageIndexEntries(selection),
+                            ),
+                    ),
+                )
+                add(
+                    jsonEntry(
+                        name = "stage-summaries.json",
+                        serializer = DiagnosticsArchiveStageSummariesPayload.serializer(),
+                        value =
+                            DiagnosticsArchiveStageSummariesPayload(
+                                runId = outcome.runId,
+                                stages = buildStageIndexEntries(selection),
+                            ),
+                    ),
+                )
+                selection.compositeStages.forEach { stage ->
+                    addAll(buildStageEntries(stage, selection))
+                }
+            }
+        }
+
+        private fun buildStageIndexEntries(
+            selection: DiagnosticsArchiveSelection,
+        ): List<DiagnosticsArchiveStageIndexEntry> =
+            selection.compositeStages.map { stage ->
+                stage.stageSummary.toArchiveStageIndexEntry()
+            }
+
+        private fun buildStageEntries(
+            stage: DiagnosticsArchiveCompositeStageSelection,
+            selection: DiagnosticsArchiveSelection,
+        ): List<DiagnosticsArchiveEntry> {
+            val prefix = "stages/${stage.stageSummary.stageKey}"
+            val snapshotPayload =
+                DiagnosticsArchiveSnapshotPayload(
+                    sessionSnapshots =
+                        stage.snapshots
+                            .mapNotNull(
+                                redactor::decodeNetworkSnapshot,
+                            ).map(redactor::redact),
+                    latestPassiveSnapshot = null,
+                )
+            val contextPayload =
+                DiagnosticsArchiveContextPayload(
+                    sessionContexts =
+                        stage.contexts
+                            .mapNotNull(
+                                redactor::decodeDiagnosticContext,
+                            ).map(redactor::redact),
+                    latestPassiveContext = null,
+                )
+            val stagePayload =
+                DiagnosticsArchivePayload(
+                    schemaVersion = DiagnosticsArchiveFormat.schemaVersion,
+                    scope = DiagnosticsArchiveFormat.scope,
+                    privacyMode = DiagnosticsArchiveFormat.privacyMode,
+                    session = stage.session,
+                    primaryReport = stage.report,
+                    results = stage.results,
+                    sessionSnapshots = stage.snapshots.map(redactor::redact),
+                    sessionContexts = stage.contexts.map(redactor::redact),
+                    sessionEvents = stage.events,
+                    latestPassiveSnapshot = null,
+                    latestPassiveContext = null,
+                    telemetry = selection.payload.telemetry,
+                    globalEvents = emptyList(),
+                    approachSummaries = selection.payload.approachSummaries,
+                )
+            return buildList {
+                add(
+                    jsonEntry(
+                        name = "$prefix/report.json",
+                        serializer = DiagnosticsArchivePayload.serializer(),
+                        value = stagePayload,
+                    ),
+                )
+                add(
+                    jsonEntry(
+                        name = "$prefix/strategy-matrix.json",
+                        serializer = StrategyMatrixArchivePayload.serializer(),
+                        value =
+                            StrategyMatrixArchivePayload(
+                                sessionId = stage.session?.id,
+                                profileId = stage.session?.profileId,
+                                strategyProbeReport = stage.report?.strategyProbeReport,
+                            ),
+                    ),
+                )
+                add(textEntry(name = "$prefix/probe-results.csv", content = buildProbeResultsCsv(stage.results)))
+                add(
+                    jsonEntry(
+                        name = "$prefix/network-snapshots.json",
+                        serializer = DiagnosticsArchiveSnapshotPayload.serializer(),
+                        value = snapshotPayload,
+                    ),
+                )
+                add(
+                    jsonEntry(
+                        name = "$prefix/diagnostic-context.json",
+                        serializer = DiagnosticsArchiveContextPayload.serializer(),
+                        value = contextPayload,
+                    ),
+                )
+                add(
+                    textEntry(
+                        name = "$prefix/native-events.csv",
+                        content = buildNativeEventsCsv(stage.events, emptyList()),
+                    ),
+                )
+                add(textEntry(name = "$prefix/telemetry.csv", content = buildTelemetryCsv(stagePayload)))
+            }
+        }
+
+        private fun DiagnosticsHomeCompositeStageSummary.toArchiveStageIndexEntry(): DiagnosticsArchiveStageIndexEntry =
+            DiagnosticsArchiveStageIndexEntry(
+                stageKey = stageKey,
+                stageLabel = stageLabel,
+                profileId = profileId,
+                pathMode = pathMode.name,
+                sessionId = sessionId,
+                status = status.name.lowercase(),
+                headline = headline,
+                summary = summary,
+                recommendationContributor = recommendationContributor,
+            )
 
         private fun buildSummaryDocument(selection: DiagnosticsArchiveSelection) =
             projector.project(

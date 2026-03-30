@@ -20,6 +20,7 @@ internal class DiagnosticsArchiveSourceLoader
         private val bypassUsageHistoryStore: BypassUsageHistoryStore,
         private val logcatSnapshotCollector: LogcatSnapshotCollector,
         private val buildInfoProvider: DiagnosticsArchiveBuildInfoProvider,
+        private val diagnosticsHomeCompositeRunService: DiagnosticsHomeCompositeRunService,
         @param:Named("diagnosticsJson")
         private val json: Json,
     ) {
@@ -83,6 +84,12 @@ internal class DiagnosticsArchiveSourceLoader
         internal suspend fun getScanSession(sessionId: String): ScanSessionEntity? =
             scanRecordStore.getScanSession(sessionId)
 
+        internal suspend fun getScanSessions(sessionIds: List<String>): List<ScanSessionEntity> =
+            sessionIds.mapNotNull { sessionId -> scanRecordStore.getScanSession(sessionId) }
+
         internal suspend fun getProbeResults(sessionId: String): List<ProbeResultEntity> =
             scanRecordStore.getProbeResults(sessionId)
+
+        internal suspend fun getCompletedHomeRun(runId: String): DiagnosticsHomeCompositeOutcome? =
+            diagnosticsHomeCompositeRunService.getCompletedRun(runId)
     }

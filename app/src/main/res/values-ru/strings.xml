@@ -269,6 +269,9 @@
     <string name="home_diagnostics_recommendation_label">Рекомендация</string>
     <string name="home_diagnostics_applied_settings_label">Применённые настройки</string>
     <string name="home_diagnostics_no_settings_applied">Настройки автоматически не применялись.</string>
+    <string name="home_diagnostics_stage_results_label">Результаты этапов</string>
+    <string name="home_diagnostics_stage_recommendation_marker">активная рекомендация</string>
+    <string name="home_diagnostics_stage_failed_marker">с ошибкой</string>
     <string name="home_history_title">Просмотреть сохранённые сессии и сбои</string>
     <string name="home_history_body">История хранит долговременные сессии подключения, выборки диагностики среды выполнения и нативные сбои за пределами инструментов Диагностики в реальном времени.</string>
     <string name="home_history_cta">Открыть историю</string>

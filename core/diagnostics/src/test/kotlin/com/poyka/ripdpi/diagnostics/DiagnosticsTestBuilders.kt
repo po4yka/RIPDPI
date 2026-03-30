@@ -28,6 +28,22 @@ import javax.inject.Provider
 private const val TestAutomaticHandoverProbeDelayMs = 15_000L
 private const val TestAutomaticHandoverProbeCooldownMs = 24L * 60L * 60L * 1_000L
 
+private class FakeDiagnosticsHomeCompositeRunService : DiagnosticsHomeCompositeRunService {
+    override suspend fun startHomeAnalysis(): DiagnosticsHomeCompositeRunStarted = error("unused")
+
+    override fun observeHomeRun(runId: String): StateFlow<DiagnosticsHomeCompositeProgress> =
+        MutableStateFlow(
+            DiagnosticsHomeCompositeProgress(
+                runId = runId,
+                stages = emptyList(),
+            ),
+        )
+
+    override suspend fun finalizeHomeRun(runId: String): DiagnosticsHomeCompositeOutcome = error("unused")
+
+    override suspend fun getCompletedRun(runId: String): DiagnosticsHomeCompositeOutcome? = null
+}
+
 internal data class DiagnosticsServicesBundle(
     val bootstrapper: DiagnosticsBootstrapper,
     val timelineSource: DefaultDiagnosticsTimelineSource,
@@ -106,6 +122,7 @@ internal fun createDiagnosticsServices(
                                         ),
                                 )
                         },
+                    diagnosticsHomeCompositeRunService = FakeDiagnosticsHomeCompositeRunService(),
                     json = json,
                 ),
             sessionSelector =

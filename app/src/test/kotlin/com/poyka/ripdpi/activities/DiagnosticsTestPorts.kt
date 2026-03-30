@@ -134,7 +134,7 @@ internal class FakeDiagnosticsManager(
                 sessionId = request.requestedSessionId,
                 createdAt = 42L,
                 scope = "hybrid",
-                schemaVersion = 2,
+                schemaVersion = 3,
                 privacyMode = "split_output",
             )
         }
