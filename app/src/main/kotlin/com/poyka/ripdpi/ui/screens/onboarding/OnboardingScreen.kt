@@ -157,7 +157,7 @@ fun OnboardingScreen(
                     Modifier
                         .fillMaxWidth()
                         .height(introLayout.topActionRowHeight),
-                contentAlignment = Alignment.TopEnd,
+                contentAlignment = Alignment.CenterEnd,
             ) {
                 Text(
                     text = stringResource(R.string.onboarding_skip),
@@ -166,7 +166,6 @@ fun OnboardingScreen(
                     modifier =
                         Modifier
                             .ripDpiTestTag(RipDpiTestTags.OnboardingSkip)
-                            .padding(top = introLayout.topActionTopPadding)
                             .ripDpiClickable(role = Role.Button, onClick = onSkip),
                 )
             }
