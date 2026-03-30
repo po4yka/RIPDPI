@@ -87,6 +87,10 @@ fn http_connect_round_trip_reaches_fixture() {
 
 #[test]
 fn domain_resolution_policy_is_enforced_end_to_end() {
+    if !nested_proxy_e2e_enabled() {
+        eprintln!("skipping domain_resolution_policy_is_enforced_end_to_end because RIPDPI_RUN_NESTED_PROXY_E2E!=1");
+        return;
+    }
     let _guard = test_guard();
     let fixture = FixtureStack::start(ephemeral_fixture_config()).expect("start fixture");
     domain_resolution_policy_is_enforced(&fixture);
@@ -230,6 +234,12 @@ fn socks5_udp_quic_initial_v2_routes_by_hostname_when_enabled() {
 
 #[test]
 fn socks5_delay_connect_replies_before_first_payload_and_round_trips() {
+    if !nested_proxy_e2e_enabled() {
+        eprintln!(
+            "skipping socks5_delay_connect_replies_before_first_payload_and_round_trips because RIPDPI_RUN_NESTED_PROXY_E2E!=1"
+        );
+        return;
+    }
     let _guard = test_guard();
     let fixture = FixtureStack::start(ephemeral_fixture_config()).expect("start fixture");
 
@@ -920,7 +930,6 @@ fn tls_round_trip_with_disorder_desync_completes_handshake() {
 #[cfg(any(target_os = "linux", target_os = "android"))]
 fn tls_round_trip_with_tlsrec_multidisorder_desync_completes_handshake() {
     let _guard = test_guard();
-    let fixture = FixtureStack::start(ephemeral_fixture_config()).expect("start fixture");
 
     let mut config = ui_proxy_config();
     config.groups[0].matches.proto = IS_TCP | IS_HTTPS;
@@ -930,6 +939,18 @@ fn tls_round_trip_with_tlsrec_multidisorder_desync_completes_handshake() {
         TcpChainStep::new(TcpChainStepKind::MultiDisorder, OffsetExpr::absolute(64)),
     ];
     config.network.delay_conn = true;
+
+    let caps = ripdpi_runtime::platform::probe_ip_fragmentation_capabilities(None).unwrap_or_default();
+    if !caps.raw_ipv4 || !caps.tcp_repair {
+        eprintln!(
+            "skipping tls_round_trip_with_tlsrec_multidisorder_desync_completes_handshake: \
+             raw-packet desync capabilities unavailable (raw_ipv4={}, tcp_repair={})",
+            caps.raw_ipv4, caps.tcp_repair
+        );
+        return;
+    }
+
+    let fixture = FixtureStack::start(ephemeral_fixture_config()).expect("start fixture");
     let proxy = start_proxy(config, None);
 
     let response = socks5_tls_round_trip_with_retry(proxy.port, &fixture, None);
