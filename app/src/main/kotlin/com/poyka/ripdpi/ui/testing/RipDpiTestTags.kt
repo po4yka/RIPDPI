@@ -92,6 +92,12 @@ internal object RipDpiTestTags {
 
     const val OnboardingSkip = "onboarding-skip"
     const val OnboardingContinue = "onboarding-continue"
+    const val OnboardingModeVpn = "onboarding-mode-vpn"
+    const val OnboardingModeProxy = "onboarding-mode-proxy"
+    const val OnboardingRunTest = "onboarding-run-test"
+    const val OnboardingTestResult = "onboarding-test-result"
+
+    val onboardingDnsProvider: (String) -> String = { providerId -> "onboarding-dns-${sanitize(providerId)}" }
 
     const val BiometricPromptPrimaryAction = "biometric-prompt-primary-action"
     const val BiometricPromptSecondaryAction = "biometric-prompt-secondary-action"

@@ -67,7 +67,7 @@ internal fun AuthPromptScaffold(
                     Modifier
                         .fillMaxWidth()
                         .height(introLayout.topActionRowHeight),
-                contentAlignment = Alignment.TopEnd,
+                contentAlignment = Alignment.CenterEnd,
             ) {
                 if (topActionText != null && onTopAction != null) {
                     androidx.compose.material3.Text(
@@ -76,7 +76,6 @@ internal fun AuthPromptScaffold(
                         color = colors.mutedForeground,
                         modifier =
                             Modifier
-                                .padding(top = introLayout.topActionTopPadding)
                                 .ripDpiClickable(role = Role.Button, onClick = onTopAction),
                     )
                 }

@@ -264,10 +264,13 @@ private fun IntroLargeFontPreview() {
 internal fun RipDpiIntroLargeFontPreviewScene() {
     RipDpiTheme(themePreference = "dark") {
         OnboardingScreen(
-            uiState = OnboardingUiState(currentPage = 1, totalPages = 3),
+            uiState = OnboardingUiState(currentPage = 1, totalPages = 9),
             onPageChanged = {},
             onSkip = {},
             onContinue = {},
+            onModeSelected = {},
+            onDnsSelected = {},
+            onRunTest = {},
         )
     }
 }

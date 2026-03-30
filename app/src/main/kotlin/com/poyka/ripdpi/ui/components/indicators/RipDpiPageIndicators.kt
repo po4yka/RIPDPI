@@ -8,7 +8,9 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -23,6 +25,7 @@ fun RipDpiPageIndicators(
     currentPage: Int,
     pageCount: Int,
     modifier: Modifier = Modifier,
+    sectionBreakAfter: Int? = null,
 ) {
     val colors = RipDpiThemeTokens.colors
     val introLayout = rememberRipDpiIntroScaffoldMetrics()
@@ -33,6 +36,9 @@ fun RipDpiPageIndicators(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         repeat(pageCount.coerceAtLeast(0)) { index ->
+            if (sectionBreakAfter != null && index == sectionBreakAfter) {
+                Spacer(modifier = Modifier.width(introLayout.indicatorSpacing))
+            }
             val selected = index == currentPage
             val width by animateDpAsState(
                 targetValue =

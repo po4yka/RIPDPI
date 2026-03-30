@@ -29,6 +29,9 @@ class OnboardingScreenTest {
                     onPageChanged = {},
                     onSkip = {},
                     onContinue = {},
+                    onModeSelected = {},
+                    onDnsSelected = {},
+                    onRunTest = {},
                 )
             }
         }

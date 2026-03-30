@@ -1,6 +1,5 @@
 package com.poyka.ripdpi.ui.screens.onboarding
 
-import androidx.annotation.StringRes
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -42,9 +41,11 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.poyka.ripdpi.R
+import com.poyka.ripdpi.activities.ConnectionTestState
 import com.poyka.ripdpi.activities.OnboardingEffect
 import com.poyka.ripdpi.activities.OnboardingUiState
 import com.poyka.ripdpi.activities.OnboardingViewModel
+import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.indicators.RipDpiPageIndicators
 import com.poyka.ripdpi.ui.components.intro.rememberRipDpiIntroScaffoldMetrics
@@ -57,28 +58,6 @@ import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 import kotlin.math.absoluteValue
-
-private val OnboardingPages =
-    listOf(
-        OnboardingPageModel(
-            titleRes = R.string.onboarding_local_first_title,
-            descriptionRes = R.string.onboarding_local_first_body,
-            buttonLabelRes = R.string.onboarding_continue,
-            illustration = OnboardingIllustration.LocalFirst,
-        ),
-        OnboardingPageModel(
-            titleRes = R.string.onboarding_permission_title,
-            descriptionRes = R.string.onboarding_permission_body,
-            buttonLabelRes = R.string.onboarding_continue,
-            illustration = OnboardingIllustration.Permission,
-        ),
-        OnboardingPageModel(
-            titleRes = R.string.onboarding_modes_title,
-            descriptionRes = R.string.onboarding_modes_body,
-            buttonLabelRes = R.string.onboarding_get_started,
-            illustration = OnboardingIllustration.Modes,
-        ),
-    )
 
 @Composable
 fun OnboardingRoute(
@@ -103,6 +82,9 @@ fun OnboardingRoute(
         modifier = modifier,
         onPageChanged = viewModel::setCurrentPage,
         onSkip = viewModel::skip,
+        onModeSelected = viewModel::selectMode,
+        onDnsSelected = viewModel::selectDnsProvider,
+        onRunTest = viewModel::runConnectionTest,
         onContinue = {
             if (uiState.currentPage == OnboardingPages.lastIndex) {
                 viewModel.finish()
@@ -119,6 +101,9 @@ fun OnboardingScreen(
     onPageChanged: (Int) -> Unit,
     onSkip: () -> Unit,
     onContinue: () -> Unit,
+    onModeSelected: (Mode) -> Unit,
+    onDnsSelected: (String) -> Unit,
+    onRunTest: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val colors = RipDpiThemeTokens.colors
@@ -144,6 +129,8 @@ fun OnboardingScreen(
     }
 
     val settledPage = pagerState.settledPage.coerceIn(0, OnboardingPages.lastIndex)
+    val currentPage = OnboardingPages[settledPage]
+    val isLastPage = settledPage == OnboardingPages.lastIndex
 
     RipDpiIntroScaffold(
         modifier =
@@ -181,10 +168,11 @@ fun OnboardingScreen(
                 RipDpiPageIndicators(
                     currentPage = settledPage,
                     pageCount = uiState.totalPages.coerceAtMost(OnboardingPages.size),
+                    sectionBreakAfter = OnboardingInfoPageCount,
                 )
                 Spacer(modifier = Modifier.height(introLayout.footerProgressGap))
                 RipDpiButton(
-                    text = stringResource(OnboardingPages[settledPage].buttonLabelRes),
+                    text = stringResource(currentPage.buttonLabelRes),
                     onClick = onContinue,
                     modifier =
                         Modifier
@@ -192,7 +180,7 @@ fun OnboardingScreen(
                             .padding(horizontal = introLayout.footerButtonHorizontalInset)
                             .heightIn(min = introLayout.footerButtonMinHeight)
                             .ripDpiTestTag(RipDpiTestTags.OnboardingContinue),
-                    trailingIcon = RipDpiIcons.ChevronRight,
+                    trailingIcon = if (isLastPage) null else RipDpiIcons.ChevronRight,
                 )
             }
         },
@@ -204,18 +192,33 @@ fun OnboardingScreen(
                     .weight(1f)
                     .fillMaxWidth(),
         ) { page ->
-            OnboardingPageScene(
-                pageModel = OnboardingPages[page],
-                pageOffset = pagerState.onboardingPageOffset(page),
-                modifier = Modifier.fillMaxSize(),
-            )
+            when (val pageModel = OnboardingPages[page]) {
+                is OnboardingPage.Informational -> {
+                    OnboardingInfoPageScene(
+                        pageModel = pageModel,
+                        pageOffset = pagerState.onboardingPageOffset(page),
+                        modifier = Modifier.fillMaxSize(),
+                    )
+                }
+
+                is OnboardingPage.Setup -> {
+                    OnboardingSetupPageScene(
+                        pageModel = pageModel,
+                        uiState = uiState,
+                        onModeSelected = onModeSelected,
+                        onDnsSelected = onDnsSelected,
+                        onRunTest = onRunTest,
+                        modifier = Modifier.fillMaxSize(),
+                    )
+                }
+            }
         }
     }
 }
 
 @Composable
-private fun OnboardingPageScene(
-    pageModel: OnboardingPageModel,
+private fun OnboardingInfoPageScene(
+    pageModel: OnboardingPage.Informational,
     pageOffset: Float,
     modifier: Modifier = Modifier,
 ) {
@@ -249,7 +252,7 @@ private fun OnboardingPageScene(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {
-        OnboardingIllustration(
+        OnboardingIllustrationBox(
             illustration = pageModel.illustration,
             modifier =
                 Modifier
@@ -257,6 +260,7 @@ private fun OnboardingPageScene(
                     .graphicsLayer {
                         translationX = -clampedOffset * illustrationTravelPx
                         translationY = (1f - pageProgress) * illustrationLiftPx
+                        rotationZ = clampedOffset * 2f
                         scaleX = 0.88f + (pageProgress * 0.12f)
                         scaleY = 0.88f + (pageProgress * 0.12f)
                         alpha = (0.4f + (pageProgress * 0.6f)).coerceIn(0f, 1f)
@@ -296,7 +300,62 @@ private fun OnboardingPageScene(
 }
 
 @Composable
-private fun OnboardingIllustration(
+private fun OnboardingSetupPageScene(
+    pageModel: OnboardingPage.Setup,
+    uiState: OnboardingUiState,
+    onModeSelected: (Mode) -> Unit,
+    onDnsSelected: (String) -> Unit,
+    onRunTest: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val colors = RipDpiThemeTokens.colors
+    val type = RipDpiThemeTokens.type
+    val introLayout = rememberRipDpiIntroScaffoldMetrics()
+
+    Column(
+        modifier = modifier.padding(horizontal = introLayout.bodyHorizontalPadding),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Spacer(modifier = Modifier.height(introLayout.illustrationToTitleGap))
+        Text(
+            text = stringResource(pageModel.titleRes),
+            style = type.introTitle,
+            color = colors.foreground,
+            textAlign = TextAlign.Center,
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = introLayout.titleHorizontalPadding),
+        )
+        Spacer(modifier = Modifier.height(introLayout.titleToBodyGap))
+
+        when (pageModel.kind) {
+            SetupPageKind.ModeSelection -> {
+                OnboardingModeSelectionContent(
+                    selectedMode = uiState.selectedMode,
+                    onModeSelected = onModeSelected,
+                )
+            }
+
+            SetupPageKind.DnsSelection -> {
+                OnboardingDnsSelectionContent(
+                    selectedProviderId = uiState.selectedDnsProviderId,
+                    onDnsSelected = onDnsSelected,
+                )
+            }
+
+            SetupPageKind.ConnectionTest -> {
+                OnboardingConnectionTestContent(
+                    testState = uiState.connectionTestState,
+                    onRunTest = onRunTest,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun OnboardingIllustrationBox(
     illustration: OnboardingIllustration,
     modifier: Modifier = Modifier,
 ) {
@@ -315,6 +374,13 @@ private fun OnboardingIllustration(
         contentAlignment = Alignment.Center,
     ) {
         Canvas(modifier = Modifier.size(introLayout.illustrationIconSize)) {
+            val stroke =
+                Stroke(
+                    width = strokeWidth.toPx(),
+                    cap = StrokeCap.Round,
+                    join = StrokeJoin.Round,
+                )
+
             when (illustration) {
                 OnboardingIllustration.LocalFirst -> {
                     drawCircle(
@@ -349,37 +415,24 @@ private fun OnboardingIllustration(
                             lineTo(size.width * 0.22f, size.height * 0.22f)
                             close()
                         }
-                    drawPath(
-                        path = shield,
-                        color = colors.foreground,
-                        style =
-                            Stroke(
-                                width = strokeWidth.toPx(),
-                                cap = StrokeCap.Round,
-                                join = StrokeJoin.Round,
-                            ),
-                    )
+                    drawPath(path = shield, color = colors.foreground, style = stroke)
                 }
 
                 OnboardingIllustration.Modes -> {
-                    val stroke =
-                        Stroke(
-                            width = strokeWidth.toPx(),
-                            cap = StrokeCap.Round,
-                        )
+                    val modeStroke = Stroke(width = strokeWidth.toPx(), cap = StrokeCap.Round)
                     drawRoundRect(
                         color = colors.foreground,
                         topLeft = Offset(size.width * 0.12f, size.height * 0.18f),
                         size = Size(size.width * 0.76f, size.height * 0.16f),
                         cornerRadius = CornerRadius(99f, 99f),
-                        style = stroke,
+                        style = modeStroke,
                     )
                     drawRoundRect(
                         color = colors.foreground,
                         topLeft = Offset(size.width * 0.12f, size.height * 0.66f),
                         size = Size(size.width * 0.76f, size.height * 0.16f),
                         cornerRadius = CornerRadius(99f, 99f),
-                        style = stroke,
+                        style = modeStroke,
                     )
                     drawLine(
                         color = colors.foreground,
@@ -396,25 +449,121 @@ private fun OnboardingIllustration(
                         cap = StrokeCap.Round,
                     )
                 }
+
+                OnboardingIllustration.Diagnostics -> {
+                    // Magnifying glass over heartbeat wave
+                    val cx = size.width * 0.42f
+                    val cy = size.height * 0.42f
+                    val r = size.minDimension * 0.25f
+                    drawCircle(
+                        color = colors.foreground,
+                        center = Offset(cx, cy),
+                        radius = r,
+                        style = stroke,
+                    )
+                    drawLine(
+                        color = colors.foreground,
+                        start = Offset(cx + r * 0.7f, cy + r * 0.7f),
+                        end = Offset(size.width * 0.82f, size.height * 0.82f),
+                        strokeWidth = strokeWidth.toPx(),
+                        cap = StrokeCap.Round,
+                    )
+                    // Heartbeat wave inside lens
+                    val wave =
+                        Path().apply {
+                            moveTo(cx - r * 0.6f, cy)
+                            lineTo(cx - r * 0.2f, cy)
+                            lineTo(cx, cy - r * 0.5f)
+                            lineTo(cx + r * 0.2f, cy + r * 0.3f)
+                            lineTo(cx + r * 0.4f, cy)
+                            lineTo(cx + r * 0.6f, cy)
+                        }
+                    drawPath(path = wave, color = colors.foreground, style = stroke)
+                }
+
+                OnboardingIllustration.BypassModes -> {
+                    // Source dot -> two paths -> destination dot
+                    val srcX = size.width * 0.1f
+                    val dstX = size.width * 0.9f
+                    val midY = size.height * 0.5f
+                    val topY = size.height * 0.28f
+                    val botY = size.height * 0.72f
+                    // Source and destination dots
+                    drawCircle(
+                        color = colors.foreground,
+                        center = Offset(srcX, midY),
+                        radius = size.minDimension * 0.06f,
+                    )
+                    drawCircle(
+                        color = colors.foreground,
+                        center = Offset(dstX, midY),
+                        radius = size.minDimension * 0.06f,
+                    )
+                    // Top path (VPN/shield)
+                    val topPath =
+                        Path().apply {
+                            moveTo(srcX, midY)
+                            quadraticTo(size.width * 0.3f, topY, size.width * 0.5f, topY)
+                            quadraticTo(size.width * 0.7f, topY, dstX, midY)
+                        }
+                    drawPath(path = topPath, color = colors.foreground, style = stroke)
+                    // Bottom path (Proxy)
+                    val botPath =
+                        Path().apply {
+                            moveTo(srcX, midY)
+                            quadraticTo(size.width * 0.3f, botY, size.width * 0.5f, botY)
+                            quadraticTo(size.width * 0.7f, botY, dstX, midY)
+                        }
+                    drawPath(path = botPath, color = colors.foreground, style = stroke)
+                }
+
+                OnboardingIllustration.Privacy -> {
+                    // Eye outline with strike-through
+                    val eyeY = size.height * 0.5f
+                    val eyePath =
+                        Path().apply {
+                            moveTo(size.width * 0.08f, eyeY)
+                            cubicTo(
+                                size.width * 0.25f,
+                                size.height * 0.2f,
+                                size.width * 0.75f,
+                                size.height * 0.2f,
+                                size.width * 0.92f,
+                                eyeY,
+                            )
+                            cubicTo(
+                                size.width * 0.75f,
+                                size.height * 0.8f,
+                                size.width * 0.25f,
+                                size.height * 0.8f,
+                                size.width * 0.08f,
+                                eyeY,
+                            )
+                            close()
+                        }
+                    drawPath(path = eyePath, color = colors.foreground, style = stroke)
+                    // Pupil
+                    drawCircle(
+                        color = colors.foreground,
+                        center = Offset(size.width * 0.5f, eyeY),
+                        radius = size.minDimension * 0.1f,
+                        style = stroke,
+                    )
+                    // Strike-through line
+                    drawLine(
+                        color = colors.foreground,
+                        start = Offset(size.width * 0.15f, size.height * 0.15f),
+                        end = Offset(size.width * 0.85f, size.height * 0.85f),
+                        strokeWidth = strokeWidth.toPx(),
+                        cap = StrokeCap.Round,
+                    )
+                }
             }
         }
     }
 }
 
 private fun PagerState.onboardingPageOffset(page: Int): Float = (currentPage - page) + currentPageOffsetFraction
-
-private data class OnboardingPageModel(
-    @param:StringRes val titleRes: Int,
-    @param:StringRes val descriptionRes: Int,
-    @param:StringRes val buttonLabelRes: Int,
-    val illustration: OnboardingIllustration,
-)
-
-private enum class OnboardingIllustration {
-    LocalFirst,
-    Permission,
-    Modes,
-}
 
 @Preview(showBackground = true, widthDp = 360, heightDp = 800)
 @Composable
@@ -425,6 +574,29 @@ private fun OnboardingScreenPreview() {
             onPageChanged = {},
             onSkip = {},
             onContinue = {},
+            onModeSelected = {},
+            onDnsSelected = {},
+            onRunTest = {},
+        )
+    }
+}
+
+@Preview(showBackground = true, widthDp = 360, heightDp = 800)
+@Composable
+private fun OnboardingScreenSetupPreview() {
+    RipDpiTheme(themePreference = "light") {
+        OnboardingScreen(
+            uiState =
+                OnboardingUiState(
+                    currentPage = OnboardingInfoPageCount,
+                    totalPages = OnboardingPages.size,
+                ),
+            onPageChanged = {},
+            onSkip = {},
+            onContinue = {},
+            onModeSelected = {},
+            onDnsSelected = {},
+            onRunTest = {},
         )
     }
 }
@@ -438,6 +610,9 @@ private fun OnboardingScreenDarkPreview() {
             onPageChanged = {},
             onSkip = {},
             onContinue = {},
+            onModeSelected = {},
+            onDnsSelected = {},
+            onRunTest = {},
         )
     }
 }
