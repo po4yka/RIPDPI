@@ -148,6 +148,7 @@ mod tests {
     use crate::tls::{is_tls_client_hello, tls_marker_info};
     use crate::types::DEFAULT_FAKE_TLS;
 
+    #[allow(dead_code)]
     mod rust_packet_seeds {
         use crate as ripdpi_packets;
 
