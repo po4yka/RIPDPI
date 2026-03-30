@@ -100,10 +100,6 @@ fn connect_tcp_socket_with_impl(
         .map_err(|e| io::Error::new(e.kind(), format!("WS tunnel TCP connect to {target}: {e}")))?;
     let tcp: TcpStream = socket.into();
     tcp.set_nodelay(true)?;
-
-    // Keep WS reads on a short cadence so the relay can drain queued outbound
-    // frames promptly even when the peer is idle on downlink.
-    tcp.set_read_timeout(Some(WS_READ_TIMEOUT))?;
     Ok(tcp)
 }
 
@@ -113,6 +109,30 @@ fn connect_tcp_socket(
     connect_timeout: Option<Duration>,
 ) -> io::Result<TcpStream> {
     connect_tcp_socket_with(target, protect_path, connect_timeout, protect::protect_socket)
+}
+
+fn configure_bootstrap_socket(tcp: &TcpStream, connect_timeout: Option<Duration>) -> io::Result<()> {
+    tcp.set_read_timeout(connect_timeout)?;
+    tcp.set_write_timeout(connect_timeout)?;
+    Ok(())
+}
+
+fn configure_relay_socket(tcp: &TcpStream) -> io::Result<()> {
+    // The relay polls reads on a short cadence so queued outbound frames do not
+    // wait indefinitely behind an idle downlink.
+    tcp.set_read_timeout(Some(WS_READ_TIMEOUT))?;
+    tcp.set_write_timeout(None)?;
+    Ok(())
+}
+
+#[cfg(not(feature = "chrome-fingerprint"))]
+fn configure_established_ws_stream(ws: &mut WsStream) -> io::Result<()> {
+    configure_relay_socket(&ws.get_mut().sock)
+}
+
+#[cfg(feature = "chrome-fingerprint")]
+fn configure_established_ws_stream(ws: &mut WsStream) -> io::Result<()> {
+    configure_relay_socket(ws.get_mut().get_ref())
 }
 
 fn build_ws_request(url: &str) -> io::Result<tungstenite::http::Request<()>> {
@@ -140,11 +160,6 @@ fn build_rustls_client_config(roots: RootCertStore) -> Arc<ClientConfig> {
 }
 
 #[cfg(not(feature = "chrome-fingerprint"))]
-fn connect_rustls_stream(host: &str, tcp: TcpStream) -> io::Result<RustlsClientStream> {
-    connect_rustls_stream_with_config(host, tcp, build_rustls_client_config(default_root_store()))
-}
-
-#[cfg(not(feature = "chrome-fingerprint"))]
 fn connect_rustls_stream_with_config(
     host: &str,
     tcp: TcpStream,
@@ -163,6 +178,29 @@ fn connect_rustls_stream_with_config(
     }
 
     Ok(tls)
+}
+
+#[cfg(not(feature = "chrome-fingerprint"))]
+fn open_rustls_ws_tunnel_with_config(
+    url: &str,
+    host: &str,
+    target: SocketAddr,
+    protect_path: Option<&str>,
+    connect_timeout: Option<Duration>,
+    tls_config: Arc<ClientConfig>,
+) -> io::Result<WsStream> {
+    let tcp = connect_tcp_socket(target, protect_path, connect_timeout)?;
+    configure_bootstrap_socket(&tcp, connect_timeout)?;
+
+    let request = build_ws_request(url)?;
+    let tls = connect_rustls_stream_with_config(host, tcp, tls_config)?;
+
+    // WebSocket handshake over the pre-established rustls stream.
+    let (mut ws, _response) = tungstenite::client(request, tls)
+        .map_err(|e| io::Error::new(io::ErrorKind::ConnectionRefused, format!("WS handshake: {e}")))?;
+    configure_established_ws_stream(&mut ws)?;
+
+    Ok(ws)
 }
 
 /// Open a WebSocket tunnel to the given Telegram DC.
@@ -187,15 +225,14 @@ pub(crate) fn open_ws_tunnel_with_timeout(
         )
     })?;
     let (host, target) = resolve_ws_target(dc, resolved_addr)?;
-    let tcp = connect_tcp_socket(target, protect_path, connect_timeout)?;
-    let request = build_ws_request(url.as_str())?;
-    let tls = connect_rustls_stream(&host, tcp)?;
-
-    // WebSocket handshake over the pre-established rustls stream
-    let (ws, _response) = tungstenite::client(request, tls)
-        .map_err(|e| io::Error::new(io::ErrorKind::ConnectionRefused, format!("WS handshake: {e}")))?;
-
-    Ok(ws)
+    open_rustls_ws_tunnel_with_config(
+        url.as_str(),
+        &host,
+        target,
+        protect_path,
+        connect_timeout,
+        build_rustls_client_config(default_root_store()),
+    )
 }
 
 #[cfg(not(feature = "chrome-fingerprint"))]
@@ -229,6 +266,7 @@ pub(crate) fn open_ws_tunnel_with_timeout(
     })?;
     let (host, target) = resolve_ws_target(dc, resolved_addr)?;
     let tcp = connect_tcp_socket(target, protect_path, connect_timeout)?;
+    configure_bootstrap_socket(&tcp, connect_timeout)?;
 
     // BoringSSL TLS handshake -- produces Chrome-native cipher suite ordering,
     // GREASE values, and extension layout for DPI fingerprint evasion.
@@ -241,9 +279,10 @@ pub(crate) fn open_ws_tunnel_with_timeout(
 
     let request = build_ws_request(url.as_str())?;
 
-    // WebSocket handshake over the pre-established BoringSSL stream
-    let (ws, _response) = tungstenite::client(request, tls_stream)
+    // WebSocket handshake over the pre-established BoringSSL stream.
+    let (mut ws, _response) = tungstenite::client(request, tls_stream)
         .map_err(|e| io::Error::new(io::ErrorKind::ConnectionRefused, format!("WS handshake: {e}")))?;
+    configure_established_ws_stream(&mut ws)?;
 
     Ok(ws)
 }
@@ -266,7 +305,7 @@ mod tests {
     use std::sync::atomic::{AtomicBool, Ordering};
     use std::sync::mpsc;
     use std::sync::Arc;
-    use std::thread;
+    use std::thread::{self, JoinHandle};
 
     #[cfg(not(feature = "chrome-fingerprint"))]
     use rcgen::generate_simple_self_signed;
@@ -306,12 +345,8 @@ mod tests {
 
         let events = [rx.recv().expect("first event"), rx.recv().expect("second event")];
         assert_eq!(events, ["protect", "accept"]);
-        let timeout = stream.read_timeout().expect("read timeout").expect("timeout should be set");
-        assert!(timeout >= WS_READ_TIMEOUT, "timeout {timeout:?} should be >= {WS_READ_TIMEOUT:?}");
-        assert!(
-            timeout <= WS_READ_TIMEOUT + Duration::from_millis(5),
-            "timeout {timeout:?} too far from {WS_READ_TIMEOUT:?}",
-        );
+        assert_eq!(stream.read_timeout().expect("read timeout"), None);
+        assert_eq!(stream.write_timeout().expect("write timeout"), None);
         assert!(stream.nodelay().expect("nodelay"));
 
         accept_thread.join().expect("join accept thread");
@@ -393,6 +428,65 @@ mod tests {
     }
 
     #[cfg(not(feature = "chrome-fingerprint"))]
+    fn spawn_localhost_rustls_ws_server(
+        listener: TcpListener,
+        server_config: Arc<ServerConfig>,
+        handshake_delay: Duration,
+    ) -> JoinHandle<()> {
+        thread::spawn(move || {
+            let (stream, _) = listener.accept().expect("accept connection");
+            if handshake_delay > Duration::ZERO {
+                thread::sleep(handshake_delay);
+            }
+
+            let connection = ServerConnection::new(server_config).expect("server connection");
+            let mut tls = StreamOwned::new(connection, stream);
+            while tls.conn.is_handshaking() {
+                if tls.conn.complete_io(&mut tls.sock).is_err() {
+                    return;
+                }
+            }
+
+            let _ = tungstenite::accept_hdr(
+                tls,
+                #[allow(clippy::result_large_err)]
+                |request: &tungstenite::handshake::server::Request,
+                 mut response: tungstenite::handshake::server::Response| {
+                    assert_eq!(
+                        request.headers().get("Sec-WebSocket-Protocol").and_then(|value| value.to_str().ok()),
+                        Some("binary"),
+                    );
+                    response
+                        .headers_mut()
+                        .insert("Sec-WebSocket-Protocol", tungstenite::http::HeaderValue::from_static("binary"));
+                    Ok(response)
+                },
+            );
+        })
+    }
+
+    #[cfg(not(feature = "chrome-fingerprint"))]
+    fn assert_relay_socket_timeouts(tcp: &TcpStream) {
+        let read_timeout = tcp.read_timeout().expect("read timeout").expect("relay read timeout should be set");
+        assert!(read_timeout >= WS_READ_TIMEOUT, "timeout {read_timeout:?} should be >= {WS_READ_TIMEOUT:?}",);
+        assert!(
+            read_timeout <= WS_READ_TIMEOUT + Duration::from_millis(5),
+            "timeout {read_timeout:?} too far from {WS_READ_TIMEOUT:?}",
+        );
+        assert_eq!(tcp.write_timeout().expect("write timeout"), None);
+        assert!(tcp.nodelay().expect("nodelay"));
+    }
+
+    #[cfg(not(feature = "chrome-fingerprint"))]
+    fn assert_timeout_error_kind(error: &io::Error) {
+        assert!(
+            matches!(error.kind(), io::ErrorKind::TimedOut | io::ErrorKind::WouldBlock),
+            "expected timeout-style error, got {:?}: {error}",
+            error.kind(),
+        );
+    }
+
+    #[cfg(not(feature = "chrome-fingerprint"))]
     #[test]
     fn connect_rustls_stream_completes_explicit_tls_handshake() {
         let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("bind listener");
@@ -453,6 +547,53 @@ mod tests {
         let (_ws, response) = tungstenite::client(request, tls).expect("websocket handshake");
 
         assert_eq!(response.status(), tungstenite::http::StatusCode::SWITCHING_PROTOCOLS);
+        server_thread.join().expect("join server thread");
+    }
+
+    #[cfg(not(feature = "chrome-fingerprint"))]
+    #[test]
+    fn open_rustls_ws_tunnel_uses_connect_timeout_for_delayed_handshake() {
+        let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("bind listener");
+        let target = listener.local_addr().expect("listener addr");
+        let (server_config, certificate_der) = localhost_server_config();
+        let server_thread = spawn_localhost_rustls_ws_server(listener, server_config, Duration::from_millis(40));
+
+        let tls_config = build_rustls_client_config(localhost_root_store(certificate_der));
+        let mut ws = open_rustls_ws_tunnel_with_config(
+            "wss://localhost/apiws",
+            "localhost",
+            target,
+            None,
+            Some(Duration::from_millis(250)),
+            tls_config,
+        )
+        .expect("open websocket tunnel");
+
+        assert_relay_socket_timeouts(&ws.get_mut().sock);
+        drop(ws);
+        server_thread.join().expect("join server thread");
+    }
+
+    #[cfg(not(feature = "chrome-fingerprint"))]
+    #[test]
+    fn open_rustls_ws_tunnel_times_out_when_handshake_exceeds_budget() {
+        let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("bind listener");
+        let target = listener.local_addr().expect("listener addr");
+        let (server_config, certificate_der) = localhost_server_config();
+        let server_thread = spawn_localhost_rustls_ws_server(listener, server_config, Duration::from_millis(80));
+
+        let tls_config = build_rustls_client_config(localhost_root_store(certificate_der));
+        let error = open_rustls_ws_tunnel_with_config(
+            "wss://localhost/apiws",
+            "localhost",
+            target,
+            None,
+            Some(Duration::from_millis(20)),
+            tls_config,
+        )
+        .expect_err("handshake should time out");
+
+        assert_timeout_error_kind(&error);
         server_thread.join().expect("join server thread");
     }
 
