@@ -1,6 +1,8 @@
 package com.poyka.ripdpi.ui.screens.logs
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -16,15 +18,19 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
@@ -35,11 +41,15 @@ import com.poyka.ripdpi.activities.LogSeverity
 import com.poyka.ripdpi.activities.LogSubsystem
 import com.poyka.ripdpi.activities.LogsUiState
 import com.poyka.ripdpi.activities.LogsViewModel
+import com.poyka.ripdpi.ui.components.RipDpiHapticFeedback
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.cards.RipDpiCardVariant
 import com.poyka.ripdpi.ui.components.cards.SettingsRow
+import com.poyka.ripdpi.ui.components.feedback.RipDpiSnackbarHost
+import com.poyka.ripdpi.ui.components.feedback.RipDpiSnackbarTone
+import com.poyka.ripdpi.ui.components.feedback.showRipDpiSnackbar
 import com.poyka.ripdpi.ui.components.indicators.LogRow
 import com.poyka.ripdpi.ui.components.indicators.LogRowTone
 import com.poyka.ripdpi.ui.components.indicators.StatusIndicator
@@ -47,12 +57,14 @@ import com.poyka.ripdpi.ui.components.indicators.StatusIndicatorTone
 import com.poyka.ripdpi.ui.components.inputs.RipDpiChip
 import com.poyka.ripdpi.ui.components.navigation.RipDpiTopAppBar
 import com.poyka.ripdpi.ui.components.navigation.SettingsCategoryHeader
+import com.poyka.ripdpi.ui.components.rememberRipDpiHapticPerformer
 import com.poyka.ripdpi.ui.components.scaffold.RipDpiScreenScaffold
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 import kotlinx.collections.immutable.persistentListOf
+import kotlinx.coroutines.launch
 
 @Composable
 fun LogsRoute(
@@ -76,6 +88,7 @@ fun LogsRoute(
     )
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 internal fun LogsScreen(
     uiState: LogsUiState,
@@ -93,6 +106,11 @@ internal fun LogsScreen(
     val layout = RipDpiThemeTokens.layout
     val filteredLogs = uiState.filteredLogs
     val listState = rememberLazyListState()
+    val clipboardManager = LocalClipboardManager.current
+    val snackbarHostState = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
+    val performHaptic = rememberRipDpiHapticPerformer()
+    val copiedMessage = stringResource(R.string.copied_to_clipboard)
     val isAtLiveEdge by remember(listState) {
         derivedStateOf {
             val lastVisibleItemIndex =
@@ -122,6 +140,7 @@ internal fun LogsScreen(
                 .ripDpiTestTag(RipDpiTestTags.LogsScreen)
                 .fillMaxSize()
                 .background(colors.background),
+        snackbarHost = { RipDpiSnackbarHost(snackbarHostState) },
         topBar = {
             RipDpiTopAppBar(title = stringResource(R.string.logs))
         },
@@ -173,6 +192,18 @@ internal fun LogsScreen(
                     LogsStreamCard(
                         entries = filteredLogs,
                         listState = listState,
+                        onCopyEntry = { entry ->
+                            clipboardManager.setText(
+                                AnnotatedString("${entry.timestamp} [${entry.subsystem.name}] ${entry.message}"),
+                            )
+                            performHaptic(RipDpiHapticFeedback.Acknowledge)
+                            scope.launch {
+                                snackbarHostState.showRipDpiSnackbar(
+                                    message = copiedMessage,
+                                    tone = RipDpiSnackbarTone.Default,
+                                )
+                            }
+                        },
                         modifier =
                             Modifier
                                 .fillMaxWidth()
@@ -375,10 +406,12 @@ private fun LogsOverviewCard(
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun LogsStreamCard(
     entries: List<LogEntry>,
     listState: androidx.compose.foundation.lazy.LazyListState,
+    onCopyEntry: (LogEntry) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val colors = RipDpiThemeTokens.colors
@@ -420,7 +453,13 @@ private fun LogsStreamCard(
                 key = { _, entry -> entry.id },
             ) { index, entry ->
                 Column(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .combinedClickable(
+                                onClick = {},
+                                onLongClick = { onCopyEntry(entry) },
+                            ),
                     verticalArrangement = Arrangement.spacedBy(spacing.sm),
                 ) {
                     LogRow(

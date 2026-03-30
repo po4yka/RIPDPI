@@ -1696,4 +1696,7 @@ Source: %2$s</string>
     <string name="confirm_reset_fake_tls_profile_body">SNI, mutations, and size overrides will revert to defaults. A service restart may be required to apply.</string>
     <string name="confirm_reset_fake_tls_profile_confirm">Reset</string>
     <string name="confirm_reset_fake_tls_profile_dismiss">Cancel</string>
+
+    <string name="copied_to_clipboard">Copied to clipboard</string>
+    <string name="diagnostics_probe_copy_action">Copy result</string>
 </resources>
