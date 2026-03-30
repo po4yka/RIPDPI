@@ -31,8 +31,8 @@ mod udp_assoc;
 
 use self::bridge::{enqueue_tun_packet, flush_device_tx_queue, pump_active_sessions, shutdown_active_sessions};
 use self::dns_intercept::{
-    build_encrypted_dns_resolver, dns_query_name, handle_dns_result, parse_dns_cache, parse_mapdns_runtime,
-    resolve_mapped_target, spawn_dns_worker, DnsRequest, MapDnsRuntime,
+    build_encrypted_dns_resolver, dns_query_name, drain_dns_responses, handle_dns_result, parse_dns_cache,
+    parse_mapdns_runtime, resolve_mapped_target, route_dns_packet, spawn_dns_worker, MapDnsRuntime,
 };
 use self::packet::{build_udp_response, is_injected_rst, TcpFlowKey};
 use self::tcp_accept::{
@@ -188,59 +188,17 @@ pub async fn io_loop_task(
 
                 IpClass::UdpDns { src, payload } => {
                     let host = dns_query_name(payload);
-                    match (&mapdns_runtime, dns_cache.as_ref(), dns_req_tx.as_ref()) {
-                        (Some(_), Some(_), Some(request_tx)) => {
-                            let request = DnsRequest { src, query: payload.to_vec(), host };
-                            match request_tx.try_send(request) {
-                                Ok(()) => {}
-                                Err(tokio::sync::mpsc::error::TrySendError::Full(request)) => {
-                                    if let (Some(mapdns), Some(cache)) = (mapdns_runtime, dns_cache.as_ref()) {
-                                        send_dns_servfail(
-                                            &mut device,
-                                            &stats,
-                                            mapdns,
-                                            cache,
-                                            request.src,
-                                            &request.query,
-                                            request.host.as_deref(),
-                                            "dns worker queue full",
-                                        );
-                                    }
-                                }
-                                Err(tokio::sync::mpsc::error::TrySendError::Closed(request)) => {
-                                    if let (Some(mapdns), Some(cache)) = (mapdns_runtime, dns_cache.as_ref()) {
-                                        send_dns_servfail(
-                                            &mut device,
-                                            &stats,
-                                            mapdns,
-                                            cache,
-                                            request.src,
-                                            &request.query,
-                                            request.host.as_deref(),
-                                            "dns worker unavailable",
-                                        );
-                                    }
-                                    dns_req_tx = None;
-                                    dns_resp_rx = None;
-                                }
-                            }
-                        }
-                        (Some(mapdns), Some(cache), None) => {
-                            send_dns_servfail(
-                                &mut device,
-                                &stats,
-                                *mapdns,
-                                cache,
-                                src,
-                                payload,
-                                host.as_deref(),
-                                "encrypted DNS resolver is not configured",
-                            );
-                        }
-                        _ => {
-                            debug!("DNS intercept hit without mapdns runtime; dropping packet");
-                        }
-                    }
+                    route_dns_packet(
+                        &mut device,
+                        &stats,
+                        mapdns_runtime,
+                        dns_cache.as_ref(),
+                        &mut dns_req_tx,
+                        &mut dns_resp_rx,
+                        src,
+                        payload,
+                        host,
+                    );
                 }
 
                 IpClass::Udp { src, dst, payload } => {
@@ -263,24 +221,7 @@ pub async fn io_loop_task(
         }
 
         if let (Some(mapdns), Some(cache)) = (mapdns_runtime, dns_cache.as_mut()) {
-            loop {
-                let dns_response = match dns_resp_rx.as_mut() {
-                    Some(receiver) => match receiver.try_recv() {
-                        Ok(response) => Some(response),
-                        Err(tokio::sync::mpsc::error::TryRecvError::Empty) => None,
-                        Err(tokio::sync::mpsc::error::TryRecvError::Disconnected) => {
-                            dns_req_tx = None;
-                            dns_resp_rx = None;
-                            None
-                        }
-                    },
-                    None => None,
-                };
-                let Some(response) = dns_response else {
-                    break;
-                };
-                handle_dns_result(&mut device, &stats, mapdns, cache, response);
-            }
+            drain_dns_responses(&mut device, &stats, mapdns, cache, &mut dns_resp_rx, &mut dns_req_tx);
         }
 
         // ── Phase 2: advance smoltcp state machines ───────────────────────────
