@@ -6,6 +6,10 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import com.poyka.ripdpi.R
@@ -16,6 +20,10 @@ import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.cards.RipDpiCardVariant
+import com.poyka.ripdpi.ui.components.feedback.RipDpiDialog
+import com.poyka.ripdpi.ui.components.feedback.RipDpiDialogAction
+import com.poyka.ripdpi.ui.components.feedback.RipDpiDialogTone
+import com.poyka.ripdpi.ui.components.feedback.RipDpiDialogVisuals
 import com.poyka.ripdpi.ui.components.indicators.StatusIndicator
 import com.poyka.ripdpi.ui.components.indicators.StatusIndicatorTone
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
@@ -121,13 +129,40 @@ internal fun FakeTlsProfileCard(
             )
         }
         if (uiState.canResetFakeTlsProfile) {
+            var showResetDialog by remember { mutableStateOf(false) }
+
+            if (showResetDialog) {
+                RipDpiDialog(
+                    onDismissRequest = { showResetDialog = false },
+                    title = stringResource(R.string.confirm_reset_fake_tls_profile_title),
+                    dismissAction =
+                        RipDpiDialogAction(
+                            label = stringResource(R.string.confirm_reset_fake_tls_profile_dismiss),
+                            onClick = { showResetDialog = false },
+                        ),
+                    confirmAction =
+                        RipDpiDialogAction(
+                            label = stringResource(R.string.confirm_reset_fake_tls_profile_confirm),
+                            onClick = {
+                                showResetDialog = false
+                                onResetFakeTlsProfile()
+                            },
+                        ),
+                    visuals =
+                        RipDpiDialogVisuals(
+                            message = stringResource(R.string.confirm_reset_fake_tls_profile_body),
+                            tone = RipDpiDialogTone.Destructive,
+                        ),
+                )
+            }
+
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.End,
             ) {
                 RipDpiButton(
                     text = stringResource(R.string.ripdpi_fake_tls_reset_action),
-                    onClick = onResetFakeTlsProfile,
+                    onClick = { showResetDialog = true },
                     variant = RipDpiButtonVariant.Outline,
                     trailingIcon = RipDpiIcons.Close,
                 )

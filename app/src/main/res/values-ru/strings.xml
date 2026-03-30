@@ -1630,4 +1630,50 @@ fakeddisorder endhost</string>
     <string name="crash_report_share">Отправить отчёт</string>
     <string name="crash_report_dismiss">Закрыть</string>
 
+    <!-- Destructive action confirmation dialogs -->
+    <string name="confirm_forget_learned_hosts_title">Забыть изученные хосты?</string>
+    <string name="confirm_forget_learned_hosts_body">Все автоматически изученные записи хостов будут удалены. Движок начнёт обучение заново при следующей сессии.</string>
+    <string name="confirm_forget_learned_hosts_confirm">Забыть</string>
+    <string name="confirm_forget_learned_hosts_dismiss">Отмена</string>
+
+    <string name="confirm_clear_remembered_networks_title">Очистить запомненные сети?</string>
+    <string name="confirm_clear_remembered_networks_body">Сохранённые стратегии для каждой сети будут удалены. Приложение заново оценит каждую сеть при подключении.</string>
+    <string name="confirm_clear_remembered_networks_confirm">Очистить</string>
+    <string name="confirm_clear_remembered_networks_dismiss">Отмена</string>
+
+    <string name="confirm_rotate_telemetry_salt_title">Сбросить соль телеметрии?</string>
+    <string name="confirm_rotate_telemetry_salt_body">Ранее записанные хеши сетевых отпечатков больше нельзя будет сопоставить с будущими сессиями.</string>
+    <string name="confirm_rotate_telemetry_salt_confirm">Сбросить</string>
+    <string name="confirm_rotate_telemetry_salt_dismiss">Отмена</string>
+
+    <string name="confirm_reset_adaptive_split_title">Сбросить адаптивный сплит?</string>
+    <string name="confirm_reset_adaptive_split_body">Маркер позиции разделения вернётся в ручной режим. Потребуется повторная настройка или выбор пресета.</string>
+    <string name="confirm_reset_adaptive_split_confirm">Сбросить</string>
+    <string name="confirm_reset_adaptive_split_dismiss">Отмена</string>
+
+    <string name="confirm_reset_adaptive_fake_ttl_title">Сбросить адаптивный fake TTL?</string>
+    <string name="confirm_reset_adaptive_fake_ttl_body">Профиль TTL вернётся к фиксированному значению. Данные обучения будут удалены при следующей сессии.</string>
+    <string name="confirm_reset_adaptive_fake_ttl_confirm">Сбросить</string>
+    <string name="confirm_reset_adaptive_fake_ttl_dismiss">Отмена</string>
+
+    <string name="confirm_reset_activation_window_title">Сбросить окно активации?</string>
+    <string name="confirm_reset_activation_window_body">Пользовательские фильтры раундов, размера и потока будут удалены. Все пакеты будут обрабатываться без ограничений.</string>
+    <string name="confirm_reset_activation_window_confirm">Сбросить</string>
+    <string name="confirm_reset_activation_window_dismiss">Отмена</string>
+
+    <string name="confirm_reset_http_parser_evasions_title">Сбросить обход HTTP-парсера?</string>
+    <string name="confirm_reset_http_parser_evasions_body">Все безопасные и агрессивные настройки мутации заголовков вернутся к значениям по умолчанию. Может потребоваться перезапуск сервиса.</string>
+    <string name="confirm_reset_http_parser_evasions_confirm">Сбросить</string>
+    <string name="confirm_reset_http_parser_evasions_dismiss">Отмена</string>
+
+    <string name="confirm_reset_fake_payload_library_title">Сбросить пресеты fake-нагрузки?</string>
+    <string name="confirm_reset_fake_payload_library_body">Пользовательские профили TCP и UDP fake-нагрузки вернутся к встроенным значениям по умолчанию.</string>
+    <string name="confirm_reset_fake_payload_library_confirm">Сбросить</string>
+    <string name="confirm_reset_fake_payload_library_dismiss">Отмена</string>
+
+    <string name="confirm_reset_fake_tls_profile_title">Сбросить профиль fake TLS?</string>
+    <string name="confirm_reset_fake_tls_profile_body">SNI, мутации и переопределения размера вернутся к значениям по умолчанию. Может потребоваться перезапуск сервиса.</string>
+    <string name="confirm_reset_fake_tls_profile_confirm">Сбросить</string>
+    <string name="confirm_reset_fake_tls_profile_dismiss">Отмена</string>
+
 </resources>
