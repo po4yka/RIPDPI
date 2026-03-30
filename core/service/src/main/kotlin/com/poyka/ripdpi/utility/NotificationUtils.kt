@@ -10,6 +10,7 @@ import androidx.annotation.StringRes
 import androidx.core.app.NotificationCompat
 import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.core.service.R
+import com.poyka.ripdpi.data.LogTags
 import com.poyka.ripdpi.data.STOP_ACTION
 
 fun registerNotificationChannel(
@@ -19,7 +20,7 @@ fun registerNotificationChannel(
 ) {
     val manager = context.getSystemService(NotificationManager::class.java)
     if (manager == null) {
-        Logger.withTag("NotificationUtils").w { "NotificationManager unavailable, skipping channel registration" }
+        Logger.withTag(LogTags.SERVICE).w { "NotificationManager unavailable, skipping channel registration" }
         return
     }
 
@@ -36,7 +37,7 @@ fun registerNotificationChannel(
     try {
         manager.createNotificationChannel(channel)
     } catch (e: Exception) {
-        Logger.withTag("NotificationUtils").w { "Failed to create notification channel '$id': ${e.message}" }
+        Logger.withTag(LogTags.SERVICE).w { "Failed to create notification channel '$id': ${e.message}" }
     }
 }
 

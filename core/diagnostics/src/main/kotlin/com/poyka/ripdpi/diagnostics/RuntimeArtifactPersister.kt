@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.diagnostics
 
+import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.data.Sender
 import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.data.ServiceTelemetrySnapshot
@@ -31,7 +32,9 @@ class RuntimeArtifactPersister
         private val persistedEventKeys = LinkedHashSet<String>()
 
         suspend fun captureSnapshotOrNull(): NetworkSnapshotModel? =
-            runCatching { networkMetadataProvider.captureSnapshot() }.getOrNull()
+            runCatching {
+                networkMetadataProvider.captureSnapshot()
+            }.onFailure { Logger.w(it) { "Failed to capture network snapshot" } }.getOrNull()
 
         suspend fun persistConnectionSample(
             connectionSessionId: String,

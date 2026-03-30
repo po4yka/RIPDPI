@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.data.diagnostics
 
+import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.NetworkFingerprintSummary
 import com.poyka.ripdpi.data.RememberedNetworkPolicyJson
@@ -289,7 +290,9 @@ fun RememberedNetworkPolicyEntity.decodeSummary(
             ignoreUnknownKeys = true
         },
 ): NetworkFingerprintSummary? =
-    runCatching { json.decodeFromString(NetworkFingerprintSummary.serializer(), summaryJson) }.getOrNull()
+    runCatching {
+        json.decodeFromString(NetworkFingerprintSummary.serializer(), summaryJson)
+    }.onFailure { Logger.w(it) { "Failed to decode network fingerprint summary" } }.getOrNull()
 
 fun RememberedNetworkPolicyEntity.toPolicyJson(
     json: Json = Json { ignoreUnknownKeys = true },
@@ -305,7 +308,7 @@ fun RememberedNetworkPolicyEntity.toPolicyJson(
                             .serializer(),
                         payload,
                     )
-                }.getOrNull()
+                }.onFailure { Logger.w(it) { "Failed to decode VPN DNS policy" } }.getOrNull()
             }
     return RememberedNetworkPolicyJson(
         fingerprintHash = fingerprintHash,

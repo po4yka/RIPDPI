@@ -17,7 +17,7 @@ class RipDpiApp : Application() {
         CrashReportWriter.install(this, BuildConfig.VERSION_NAME, BuildConfig.VERSION_CODE.toLong())
         super.onCreate()
         Logger.setLogWriters(platformLogWriter())
-        Logger.setMinSeverity(if (BuildConfig.DEBUG) Severity.Verbose else Severity.Assert)
+        Logger.setMinSeverity(if (BuildConfig.DEBUG) Severity.Verbose else Severity.Warn)
         startupInitializer.initialize()
     }
 }
