@@ -76,23 +76,12 @@ pub(super) fn flush_pending_to_smoltcp(tcp: &mut TcpSocket, pending: &mut Vec<u8
     Ok(())
 }
 
-pub(super) fn try_write_tun_packet(tun: &AsyncFd<std::fs::File>, stats: &Arc<Stats>, raw: &[u8], context: &str) {
+pub(super) fn enqueue_tun_packet(device: &mut TunDevice, raw: Vec<u8>, context: &str) {
     if raw.is_empty() {
         return;
     }
-
-    match tun.try_io(Interest::WRITABLE, |inner| {
-        let mut file = inner;
-        file.write_all(raw)
-    }) {
-        Ok(()) => {
-            stats.rx_packets.fetch_add(1, Ordering::Relaxed);
-            stats.rx_bytes.fetch_add(raw.len() as u64, Ordering::Relaxed);
-        }
-        Err(err) => {
-            debug!("{context} response write dropped: {err:?}");
-        }
-    }
+    debug!(bytes = raw.len(), "{context} response queued for tun flush");
+    device.tx_queue.push_back(raw);
 }
 
 pub(super) async fn pump_active_sessions(socket_set: &mut SocketSet<'static>, sessions: &mut ActiveSessions) {

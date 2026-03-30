@@ -4,14 +4,13 @@ use std::net::SocketAddr;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant as StdInstant};
 
-use tokio::io::unix::AsyncFd;
 use tokio_util::sync::CancellationToken;
 use tracing::debug;
 
 use crate::session::{Auth, UdpSession};
-use crate::Stats;
+use crate::TunDevice;
 
-use super::bridge::try_write_tun_packet;
+use super::bridge::enqueue_tun_packet;
 use super::packet::build_udp_response;
 
 pub(super) struct UdpAssociation {
@@ -89,8 +88,7 @@ pub(super) async fn create_udp_association(
 }
 
 pub(super) fn handle_udp_event(
-    tun: &AsyncFd<std::fs::File>,
-    stats: &Arc<Stats>,
+    device: &mut TunDevice,
     udp_associations: &mut HashMap<SocketAddr, UdpAssociation>,
     event: UdpEvent,
 ) {
@@ -98,7 +96,7 @@ pub(super) fn handle_udp_event(
         UdpEvent::Packet { src, association_id, raw } => {
             let current_id = udp_associations.get(&src).map(|association| association.id);
             if current_id == Some(association_id) {
-                try_write_tun_packet(tun, stats, &raw, "udp");
+                enqueue_tun_packet(device, raw, "udp");
             }
         }
         UdpEvent::Closed { src, association_id } => {
@@ -196,5 +194,70 @@ pub(super) async fn shutdown_udp_associations(udp_associations: &mut HashMap<Soc
     for (_src, association) in udp_associations.drain() {
         association.cancel.cancel();
         let _ = tokio::time::timeout(Duration::from_secs(5), association.worker).await;
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    use std::net::{IpAddr, Ipv4Addr};
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+    use tokio::net::TcpListener;
+
+    async fn spawn_udp_associate_stub() -> SocketAddr {
+        let listener = TcpListener::bind("127.0.0.1:0").await.expect("bind proxy listener");
+        let proxy_addr = listener.local_addr().expect("proxy addr");
+
+        tokio::spawn(async move {
+            let (mut stream, _) = listener.accept().await.expect("accept proxy");
+            let mut buf = [0u8; 64];
+
+            let _ = stream.read(&mut buf).await.expect("read greeting");
+            stream.write_all(&[0x05, 0x00]).await.expect("write no-auth");
+
+            let _ = stream.read(&mut buf).await.expect("read udp associate");
+            stream
+                .write_all(&[0x05, 0x00, 0x00, 0x01, 127, 0, 0, 1, 0x13, 0x88])
+                .await
+                .expect("write udp associate reply");
+            tokio::time::sleep(Duration::from_secs(1)).await;
+        });
+
+        proxy_addr
+    }
+
+    #[tokio::test]
+    async fn handle_udp_event_queues_matching_association_packet() {
+        let proxy_addr = spawn_udp_associate_stub().await;
+        let src = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(10, 0, 0, 2)), 53000);
+        let (udp_tx, _udp_rx) = tokio::sync::mpsc::channel(1);
+        let cancel = CancellationToken::new();
+        let association = create_udp_association(
+            proxy_addr,
+            Auth::NoAuth,
+            src,
+            7,
+            Duration::from_secs(1),
+            cancel.child_token(),
+            udp_tx,
+        )
+        .await
+        .expect("udp association");
+        let worker = association.worker.abort_handle();
+        let mut associations = HashMap::from([(src, association)]);
+        let mut device = TunDevice::new(1500);
+
+        handle_udp_event(
+            &mut device,
+            &mut associations,
+            UdpEvent::Packet { src, association_id: 7, raw: vec![1, 2, 3, 4] },
+        );
+
+        assert_eq!(device.tx_queue.front().expect("queued udp packet"), &vec![1, 2, 3, 4]);
+        if let Some(association) = associations.remove(&src) {
+            association.cancel.cancel();
+            worker.abort();
+        }
     }
 }
