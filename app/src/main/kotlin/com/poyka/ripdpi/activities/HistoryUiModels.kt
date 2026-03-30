@@ -65,4 +65,5 @@ data class HistoryUiState(
     val selectedConnectionDetail: HistoryConnectionDetailUiModel? = null,
     val selectedDiagnosticsDetail: DiagnosticsSessionDetailUiModel? = null,
     val selectedEvent: DiagnosticsEventUiModel? = null,
+    val isRefreshing: Boolean = false,
 )
