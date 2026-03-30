@@ -79,8 +79,6 @@ class BiometricAuthManager {
     fun canAuthenticate(context: Context): Int = BiometricManager.from(context).canAuthenticate(AUTHENTICATORS)
 
     private companion object {
-        const val AUTHENTICATORS =
-            BiometricManager.Authenticators.BIOMETRIC_STRONG or
-                BiometricManager.Authenticators.BIOMETRIC_WEAK
+        const val AUTHENTICATORS = BiometricManager.Authenticators.BIOMETRIC_STRONG
     }
 }
