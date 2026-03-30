@@ -2,6 +2,7 @@ package com.poyka.ripdpi.diagnostics.crash
 
 import android.content.Context
 import android.os.Build
+import com.poyka.ripdpi.diagnostics.BreadcrumbLogWriter
 import java.io.File
 import java.io.FileOutputStream
 import java.text.SimpleDateFormat
@@ -20,6 +21,7 @@ class CrashReportWriter private constructor(
     private val appVersionName: String,
     private val appVersionCode: Long,
     private val previousHandler: Thread.UncaughtExceptionHandler?,
+    private val breadcrumbProvider: () -> List<BreadcrumbLogWriter.BreadcrumbEntry>,
 ) : Thread.UncaughtExceptionHandler {
     @Suppress("TooGenericExceptionCaught")
     override fun uncaughtException(
@@ -63,8 +65,33 @@ class CrashReportWriter private constructor(
         appendJsonString(sb, "appVersionName", appVersionName)
         sb.append(',')
         appendJsonLong(sb, "appVersionCode", appVersionCode)
+        sb.append(',')
+        appendBreadcrumbs(sb)
         sb.append('}')
         return sb.toString()
+    }
+
+    @Suppress("TooGenericExceptionCaught")
+    private fun appendBreadcrumbs(sb: StringBuilder) {
+        sb.append("\"breadcrumbs\":[")
+        try {
+            val entries = breadcrumbProvider()
+            entries.forEachIndexed { index, entry ->
+                if (index > 0) sb.append(',')
+                sb.append('{')
+                appendJsonLong(sb, "timestamp", entry.timestamp)
+                sb.append(',')
+                appendJsonString(sb, "severity", entry.severity)
+                sb.append(',')
+                appendJsonString(sb, "tag", entry.tag)
+                sb.append(',')
+                appendJsonString(sb, "message", entry.message)
+                sb.append('}')
+            }
+        } catch (_: Throwable) {
+            // Breadcrumb serialization must not break the crash report.
+        }
+        sb.append(']')
     }
 
     private fun writeSync(json: String) {
@@ -86,10 +113,18 @@ class CrashReportWriter private constructor(
             context: Context,
             versionName: String,
             versionCode: Long,
+            breadcrumbProvider: () -> List<BreadcrumbLogWriter.BreadcrumbEntry> = { emptyList() },
         ) {
             val crashDir = File(context.filesDir, CRASH_DIR_NAME)
             val previous = Thread.getDefaultUncaughtExceptionHandler()
-            val writer = CrashReportWriter(crashDir, versionName, versionCode, previous)
+            val writer =
+                CrashReportWriter(
+                    crashDir,
+                    versionName,
+                    versionCode,
+                    previous,
+                    breadcrumbProvider,
+                )
             Thread.setDefaultUncaughtExceptionHandler(writer)
         }
     }

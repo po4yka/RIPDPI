@@ -133,6 +133,7 @@ class DiagnosticsArchiveComponentsTest {
                     buildProvenance = buildProvenance(),
                     collectionWarnings = emptyList(),
                     logcatSnapshot = null,
+                    fileLogSnapshot = null,
                 )
 
             val selectedSession = selector.selectPrimarySession(null, null, sourceData.sessions)
@@ -180,6 +181,7 @@ class DiagnosticsArchiveComponentsTest {
                     buildProvenance = buildProvenance(),
                     collectionWarnings = emptyList(),
                     logcatSnapshot = null,
+                    fileLogSnapshot = null,
                 )
 
             val selection =
@@ -273,6 +275,7 @@ class DiagnosticsArchiveComponentsTest {
                         captureScope = LogcatSnapshotCollector.AppVisibleSnapshotScope,
                         byteCount = 48,
                     ),
+                fileLogSnapshot = null,
             )
         val target =
             DiagnosticsArchiveTarget(
@@ -494,6 +497,7 @@ class DiagnosticsArchiveComponentsTest {
                         captureScope = LogcatSnapshotCollector.AppVisibleSnapshotScope,
                         byteCount = LogcatSnapshotCollector.MAX_LOGCAT_BYTES,
                     ),
+                fileLogSnapshot = null,
             )
         val target =
             DiagnosticsArchiveTarget(
