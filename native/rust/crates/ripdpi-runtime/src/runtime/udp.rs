@@ -112,7 +112,7 @@ pub(super) fn udp_associate_loop(
                 let known_client = udp_client_addr;
                 if known_client.is_none() || known_client == Some(sender) {
                     udp_client_addr = Some(sender);
-                    let Some((target, payload)) = parse_socks5_udp_packet(&client_buffer[..n], &state.config) else {
+                    let Some((target, payload)) = parse_socks5_udp_packet(&client_buffer[..n], &state) else {
                         continue;
                     };
                     let host_info = extract_host_info(&state.config, payload);
@@ -350,7 +350,8 @@ fn expire_udp_flows(
     Ok(())
 }
 
-pub(super) fn parse_socks5_udp_packet<'a>(packet: &'a [u8], config: &RuntimeConfig) -> Option<(SocketAddr, &'a [u8])> {
+pub(super) fn parse_socks5_udp_packet<'a>(packet: &'a [u8], state: &RuntimeState) -> Option<(SocketAddr, &'a [u8])> {
+    let config = &state.config;
     if packet.len() < 4 || packet[2] != 0 {
         return None;
     }
@@ -381,7 +382,7 @@ pub(super) fn parse_socks5_udp_packet<'a>(packet: &'a [u8], config: &RuntimeConf
             }
             let host = std::str::from_utf8(&packet[5..offset]).ok()?;
             let port = u16::from_be_bytes([packet[offset], packet[offset + 1]]);
-            let resolved = super::handshake::resolve_name(host, SocketType::Datagram, config)?;
+            let resolved = super::handshake::resolve_name(host, SocketType::Datagram, state)?;
             Some((SocketAddr::new(resolved.ip(), port), &packet[offset + 2..]))
         }
         _ => None,
@@ -474,17 +475,82 @@ fn should_cache_udp_host(config: &RuntimeConfig, host: Option<&crate::runtime_po
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::adaptive_fake_ttl::AdaptiveFakeTtlResolver;
+    use crate::adaptive_tuning::AdaptivePlannerResolver;
+    use crate::retry_stealth::RetryPacer;
+    use crate::runtime::state::RuntimeState;
+    use crate::runtime_policy::RuntimePolicy;
+    use crate::strategy_evolver::StrategyEvolver;
+    use crate::sync::{Arc, AtomicBool, AtomicUsize, Mutex};
+    use local_network_fixture::{FixtureConfig, FixtureStack};
+    use ripdpi_proxy_config::{ProxyEncryptedDnsContext, ProxyRuntimeContext};
     use std::net::IpAddr;
+
+    fn test_runtime_state(config: RuntimeConfig) -> RuntimeState {
+        test_runtime_state_with_context(config, None)
+    }
+
+    fn test_runtime_state_with_context(
+        config: RuntimeConfig,
+        runtime_context: Option<ProxyRuntimeContext>,
+    ) -> RuntimeState {
+        RuntimeState {
+            config: Arc::new(config.clone()),
+            cache: Arc::new(Mutex::new(RuntimePolicy::load(&config))),
+            adaptive_fake_ttl: Arc::new(Mutex::new(AdaptiveFakeTtlResolver::default())),
+            adaptive_tuning: Arc::new(Mutex::new(AdaptivePlannerResolver::default())),
+            retry_stealth: Arc::new(Mutex::new(RetryPacer::default())),
+            strategy_evolver: Arc::new(Mutex::new(StrategyEvolver::new(false, 0.0))),
+            active_clients: Arc::new(AtomicUsize::new(0)),
+            telemetry: None,
+            runtime_context,
+            control: None,
+            ttl_unavailable: Arc::new(AtomicBool::new(false)),
+        }
+    }
+
+    fn fixture_runtime_context(dns_http_port: u16) -> ProxyRuntimeContext {
+        ProxyRuntimeContext {
+            encrypted_dns: Some(ProxyEncryptedDnsContext {
+                resolver_id: Some("fixture-doh".to_string()),
+                protocol: "doh".to_string(),
+                host: "127.0.0.1".to_string(),
+                port: dns_http_port,
+                tls_server_name: None,
+                bootstrap_ips: vec!["127.0.0.1".to_string()],
+                doh_url: Some(format!("http://127.0.0.1:{dns_http_port}/dns-query")),
+                dnscrypt_provider_name: None,
+                dnscrypt_public_key: None,
+            }),
+        }
+    }
+
+    fn dynamic_fixture_config() -> FixtureConfig {
+        FixtureConfig {
+            tcp_echo_port: 0,
+            udp_echo_port: 0,
+            tls_echo_port: 0,
+            dns_udp_port: 0,
+            dns_http_port: 0,
+            dns_dot_port: 0,
+            dns_dnscrypt_port: 0,
+            dns_doq_port: 0,
+            socks5_port: 0,
+            control_port: 0,
+            ..FixtureConfig::default()
+        }
+    }
 
     #[test]
     fn udp_packet_round_trip_preserves_sender_and_payload() {
         let config = RuntimeConfig::default();
+        let state = test_runtime_state(config);
         let sender = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(203, 0, 113, 7)), 5353);
         let payload = b"dns-payload";
         let packet = encode_socks5_udp_packet(sender, payload);
 
         let (decoded_sender, decoded_payload) =
-            parse_socks5_udp_packet(&packet, &config).expect("parse udp relay packet");
+            parse_socks5_udp_packet(&packet, &state).expect("parse udp relay packet");
         assert_eq!(decoded_sender, sender);
         assert_eq!(decoded_payload, payload);
     }
@@ -509,27 +575,29 @@ mod tests {
     fn udp_packet_round_trip_preserves_ipv6_sender_and_payload() {
         let mut config = RuntimeConfig::default();
         config.network.ipv6 = true;
+        let state = test_runtime_state(config.clone());
         let sender = SocketAddr::new(IpAddr::V6(Ipv6Addr::new(0x2001, 0xdb8, 0, 0, 0, 0, 0, 1)), 8443);
         let payload = b"quic-initial-stub";
         let packet = encode_socks5_udp_packet(sender, payload);
 
         let (decoded_sender, decoded_payload) =
-            parse_socks5_udp_packet(&packet, &config).expect("parse ipv6 udp packet");
+            parse_socks5_udp_packet(&packet, &state).expect("parse ipv6 udp packet");
         assert_eq!(decoded_sender, sender);
         assert_eq!(decoded_payload, payload);
 
         // IPv6 rejected when ipv6 disabled
         config.network.ipv6 = false;
-        assert!(parse_socks5_udp_packet(&packet, &config).is_none());
+        assert!(parse_socks5_udp_packet(&packet, &test_runtime_state(config)).is_none());
     }
 
     #[test]
     fn udp_packet_round_trip_empty_payload() {
         let config = RuntimeConfig::default();
+        let state = test_runtime_state(config);
         let sender = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(10, 0, 0, 1)), 443);
         let packet = encode_socks5_udp_packet(sender, b"");
 
-        let (decoded_sender, decoded_payload) = parse_socks5_udp_packet(&packet, &config).expect("parse empty payload");
+        let (decoded_sender, decoded_payload) = parse_socks5_udp_packet(&packet, &state).expect("parse empty payload");
         assert_eq!(decoded_sender, sender);
         assert!(decoded_payload.is_empty());
     }
@@ -537,18 +605,36 @@ mod tests {
     #[test]
     fn udp_packet_parse_rejects_malformed_packets() {
         let config = RuntimeConfig::default();
+        let state = test_runtime_state(config);
 
         // Too short
-        assert!(parse_socks5_udp_packet(&[0, 0, 0], &config).is_none());
+        assert!(parse_socks5_udp_packet(&[0, 0, 0], &state).is_none());
 
         // Non-zero fragment byte (index 2)
-        assert!(parse_socks5_udp_packet(&[0, 0, 1, S_ATP_I4, 127, 0, 0, 1, 0, 80], &config).is_none());
+        assert!(parse_socks5_udp_packet(&[0, 0, 1, S_ATP_I4, 127, 0, 0, 1, 0, 80], &state).is_none());
 
         // IPv4 truncated (missing port)
-        assert!(parse_socks5_udp_packet(&[0, 0, 0, S_ATP_I4, 127, 0, 0, 1], &config).is_none());
+        assert!(parse_socks5_udp_packet(&[0, 0, 0, S_ATP_I4, 127, 0, 0, 1], &state).is_none());
 
         // Unknown address type
-        assert!(parse_socks5_udp_packet(&[0, 0, 0, 0x05, 0, 0, 0, 0, 0, 0], &config).is_none());
+        assert!(parse_socks5_udp_packet(&[0, 0, 0, 0x05, 0, 0, 0, 0, 0, 0], &state).is_none());
+    }
+
+    #[test]
+    fn udp_associate_domain_targets_resolve_through_encrypted_dns_runtime_context() {
+        let stack = FixtureStack::start(dynamic_fixture_config()).expect("start fixture");
+        let runtime_context = fixture_runtime_context(stack.manifest().dns_http_port);
+        let state = test_runtime_state_with_context(RuntimeConfig::default(), Some(runtime_context));
+        let packet = [
+            0, 0, 0, 0x03, 12, b'f', b'i', b'x', b't', b'u', b'r', b'e', b'.', b't', b'e', b's', b't', 0x01, 0xbb,
+            b'd', b'n', b's',
+        ];
+
+        let (target, payload) = parse_socks5_udp_packet(&packet, &state).expect("parse udp associate domain target");
+
+        assert_eq!(target.ip(), stack.manifest().dns_answer_ipv4.parse::<IpAddr>().expect("fixture ip"));
+        assert_eq!(target.port(), 443);
+        assert_eq!(payload, b"dns");
     }
 
     #[test]

@@ -6,14 +6,11 @@ use ripdpi_config::{
     DETECT_CONNECT, DETECT_CONNECTION_FREEZE, DETECT_DNS_TAMPER, DETECT_HTTP_BLOCKPAGE, DETECT_HTTP_LOCAT,
     DETECT_SILENT_DROP, DETECT_TCP_RESET, DETECT_TLS_ALERT, DETECT_TLS_HANDSHAKE_FAILURE,
 };
-use ripdpi_dns_resolver::{
-    extract_ip_answers, EncryptedDnsEndpoint, EncryptedDnsProtocol, EncryptedDnsResolver, EncryptedDnsTransport,
-};
+use ripdpi_dns_resolver::extract_ip_answers;
 use ripdpi_failure_classifier::{
     block_signal_from_failure, classify_http_response_block, classify_tls_alert, classify_tls_handshake_failure,
     classify_transport_error, confirm_dns_tampering, ClassifiedFailure, FailureAction, FailureClass, FailureStage,
 };
-use ripdpi_proxy_config::ProxyEncryptedDnsContext;
 use ripdpi_session::{
     detect_response_trigger, TriggerEvent, S_ATP_I4, S_ATP_I6, S_AUTH_NONE, S_CMD_CONN, S_ER_GEN, S_VER5,
 };
@@ -21,6 +18,7 @@ use socket2::{Domain, Protocol, SockAddr, Socket, Type};
 
 use crate::platform;
 use crate::runtime_policy::{ConnectionRoute, RouteAdvance, TransportProtocol};
+use crate::ws_bootstrap::{build_encrypted_dns_resolver, encrypted_dns_label, runtime_encrypted_dns_context};
 
 use super::adaptive::{note_adaptive_fake_ttl_failure, note_adaptive_tcp_failure, note_evolver_failure};
 use super::retry::{build_retry_selection_penalties, maybe_emit_candidate_diversification, note_retry_failure};
@@ -276,15 +274,10 @@ pub(super) fn classify_response_failure(
 }
 
 fn confirm_dns_tampering_for_host(state: &RuntimeState, host: &str, target_ip: IpAddr) -> Option<ClassifiedFailure> {
-    let resolver_context = state
-        .runtime_context
-        .as_ref()
-        .and_then(|context| context.encrypted_dns.as_ref())
-        .cloned()
-        .or_else(default_encrypted_dns_context);
-    let resolver_context = resolver_context?;
+    let resolver_context = runtime_encrypted_dns_context(state.runtime_context.as_ref());
     let resolver =
-        EncryptedDnsResolver::new(encrypted_dns_endpoint(&resolver_context)?, EncryptedDnsTransport::Direct).ok()?;
+        build_encrypted_dns_resolver(state.runtime_context.as_ref(), state.config.process.protect_path.as_deref())
+            .ok()?;
     let query_id = ((SystemTime::now().duration_since(UNIX_EPOCH).ok()?.as_nanos() as u64) & 0xffff) as u16;
     let query = build_dns_query(host, query_id.max(1)).ok()?;
     let response = resolver.exchange_blocking(&query).ok()?;
@@ -294,52 +287,6 @@ fn confirm_dns_tampering_for_host(state: &RuntimeState, host: &str, target_ip: I
         .filter_map(|answer| answer.parse::<IpAddr>().ok())
         .collect::<Vec<_>>();
     confirm_dns_tampering(host, target_ip, &answers, &encrypted_dns_label(&resolver_context))
-}
-
-fn encrypted_dns_endpoint(context: &ProxyEncryptedDnsContext) -> Option<EncryptedDnsEndpoint> {
-    let protocol = match context.protocol.trim().to_ascii_lowercase().as_str() {
-        "dot" => EncryptedDnsProtocol::Dot,
-        "dnscrypt" => EncryptedDnsProtocol::DnsCrypt,
-        _ => EncryptedDnsProtocol::Doh,
-    };
-    let bootstrap_ips =
-        context.bootstrap_ips.iter().filter_map(|value| value.parse::<IpAddr>().ok()).collect::<Vec<_>>();
-    if bootstrap_ips.is_empty() {
-        return None;
-    }
-    Some(EncryptedDnsEndpoint {
-        protocol,
-        resolver_id: context.resolver_id.clone(),
-        host: context.host.clone(),
-        port: context.port,
-        tls_server_name: context.tls_server_name.clone(),
-        bootstrap_ips,
-        doh_url: context.doh_url.clone(),
-        dnscrypt_provider_name: context.dnscrypt_provider_name.clone(),
-        dnscrypt_public_key: context.dnscrypt_public_key.clone(),
-    })
-}
-
-fn encrypted_dns_label(context: &ProxyEncryptedDnsContext) -> String {
-    context
-        .doh_url
-        .clone()
-        .filter(|value| !value.trim().is_empty())
-        .unwrap_or_else(|| format!("{}:{}", context.host, context.port))
-}
-
-fn default_encrypted_dns_context() -> Option<ProxyEncryptedDnsContext> {
-    Some(ProxyEncryptedDnsContext {
-        resolver_id: Some("cloudflare".to_string()),
-        protocol: "doh".to_string(),
-        host: "cloudflare-dns.com".to_string(),
-        port: 443,
-        tls_server_name: Some("cloudflare-dns.com".to_string()),
-        bootstrap_ips: vec!["1.1.1.1".to_string(), "1.0.0.1".to_string()],
-        doh_url: Some("https://cloudflare-dns.com/dns-query".to_string()),
-        dnscrypt_provider_name: None,
-        dnscrypt_public_key: None,
-    })
 }
 
 fn build_dns_query(domain: &str, query_id: u16) -> Result<Vec<u8>, io::Error> {
@@ -460,19 +407,29 @@ fn connect_via_socks(
     connect_timeout: Option<Duration>,
 ) -> io::Result<TcpStream> {
     let mut stream = connect_socket(upstream, bind_ip, protect_path, tfo, connect_timeout)?;
-    stream.write_all(&[S_VER5, 1, S_AUTH_NONE])?;
-    let mut auth = [0u8; 2];
-    stream.read_exact(&mut auth)?;
-    if auth != [S_VER5, S_AUTH_NONE] {
-        return Err(io::Error::new(io::ErrorKind::PermissionDenied, "upstream socks auth failed"));
-    }
+    stream.set_read_timeout(connect_timeout)?;
+    stream.set_write_timeout(connect_timeout)?;
 
-    let request = encode_upstream_socks_connect(target);
-    stream.write_all(&request)?;
-    let reply = read_upstream_socks_reply(&mut stream)?;
-    if reply.get(1).copied().unwrap_or(S_ER_GEN) != 0 {
-        return Err(io::Error::new(io::ErrorKind::ConnectionRefused, "upstream socks connect failed"));
-    }
+    let handshake_result = (|| {
+        stream.write_all(&[S_VER5, 1, S_AUTH_NONE])?;
+        let mut auth = [0u8; 2];
+        stream.read_exact(&mut auth)?;
+        if auth != [S_VER5, S_AUTH_NONE] {
+            return Err(io::Error::new(io::ErrorKind::PermissionDenied, "upstream socks auth failed"));
+        }
+
+        let request = encode_upstream_socks_connect(target);
+        stream.write_all(&request)?;
+        let reply = read_upstream_socks_reply(&mut stream)?;
+        if reply.get(1).copied().unwrap_or(S_ER_GEN) != 0 {
+            return Err(io::Error::new(io::ErrorKind::ConnectionRefused, "upstream socks connect failed"));
+        }
+        Ok(())
+    })();
+
+    handshake_result?;
+    stream.set_read_timeout(None)?;
+    stream.set_write_timeout(None)?;
     Ok(stream)
 }
 
@@ -669,6 +626,10 @@ pub(super) fn reconnect_target(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::io::{Read, Write};
+    use std::net::TcpListener;
+    use std::thread;
+    use std::time::Instant;
 
     #[test]
     fn outbound_connects_do_not_reuse_listener_bind_ip() {
@@ -717,6 +678,93 @@ mod tests {
         assert!(!should_track_strategy_target(SocketAddr::from(([198, 19, 42, 7], 853))));
         assert!(should_track_strategy_target(SocketAddr::from(([198, 18, 0, 53], 443))));
         assert!(should_track_strategy_target(SocketAddr::from(([142, 251, 127, 84], 443))));
+    }
+
+    #[test]
+    fn upstream_socks_auth_timeout_uses_connect_timeout() {
+        let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("bind upstream socks listener");
+        let upstream = listener.local_addr().expect("listener addr");
+        let target = SocketAddr::from(([203, 0, 113, 7], 443));
+        let server = thread::spawn(move || {
+            let (_stream, _) = listener.accept().expect("accept upstream socks client");
+            thread::sleep(Duration::from_millis(250));
+        });
+
+        let started = Instant::now();
+        let err = connect_via_socks(
+            target,
+            upstream,
+            IpAddr::V4(Ipv4Addr::UNSPECIFIED),
+            None,
+            false,
+            Some(Duration::from_millis(75)),
+        )
+        .expect_err("auth stall should time out");
+
+        assert!(matches!(err.kind(), io::ErrorKind::TimedOut | io::ErrorKind::WouldBlock));
+        assert!(started.elapsed() < Duration::from_millis(200));
+        server.join().expect("join upstream socks server");
+    }
+
+    #[test]
+    fn upstream_socks_connect_reply_timeout_uses_connect_timeout() {
+        let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("bind upstream socks listener");
+        let upstream = listener.local_addr().expect("listener addr");
+        let target = SocketAddr::from(([203, 0, 113, 7], 443));
+        let server = thread::spawn(move || {
+            let (mut stream, _) = listener.accept().expect("accept upstream socks client");
+            let mut auth = [0u8; 3];
+            stream.read_exact(&mut auth).expect("read auth request");
+            stream.write_all(&[S_VER5, S_AUTH_NONE]).expect("write auth response");
+            let mut connect = [0u8; 10];
+            stream.read_exact(&mut connect).expect("read connect request");
+            thread::sleep(Duration::from_millis(250));
+        });
+
+        let started = Instant::now();
+        let err = connect_via_socks(
+            target,
+            upstream,
+            IpAddr::V4(Ipv4Addr::UNSPECIFIED),
+            None,
+            false,
+            Some(Duration::from_millis(75)),
+        )
+        .expect_err("connect reply stall should time out");
+
+        assert!(matches!(err.kind(), io::ErrorKind::TimedOut | io::ErrorKind::WouldBlock));
+        assert!(started.elapsed() < Duration::from_millis(200));
+        server.join().expect("join upstream socks server");
+    }
+
+    #[test]
+    fn upstream_socks_connect_clears_temporary_timeouts_after_success() {
+        let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("bind upstream socks listener");
+        let upstream = listener.local_addr().expect("listener addr");
+        let target = SocketAddr::from(([203, 0, 113, 7], 443));
+        let server = thread::spawn(move || {
+            let (mut stream, _) = listener.accept().expect("accept upstream socks client");
+            let mut auth = [0u8; 3];
+            stream.read_exact(&mut auth).expect("read auth request");
+            stream.write_all(&[S_VER5, S_AUTH_NONE]).expect("write auth response");
+            let mut connect = [0u8; 10];
+            stream.read_exact(&mut connect).expect("read connect request");
+            stream.write_all(&[S_VER5, 0, 0, S_ATP_I4, 127, 0, 0, 1, 0x1f, 0x90]).expect("write connect success");
+        });
+
+        let stream = connect_via_socks(
+            target,
+            upstream,
+            IpAddr::V4(Ipv4Addr::UNSPECIFIED),
+            None,
+            false,
+            Some(Duration::from_millis(75)),
+        )
+        .expect("connect via upstream socks");
+
+        assert_eq!(stream.read_timeout().expect("read timeout"), None);
+        assert_eq!(stream.write_timeout().expect("write timeout"), None);
+        server.join().expect("join upstream socks server");
     }
 }
 

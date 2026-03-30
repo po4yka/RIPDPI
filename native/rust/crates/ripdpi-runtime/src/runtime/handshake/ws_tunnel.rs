@@ -94,7 +94,7 @@ fn run_ws_tunnel_with<ReadSeed, ResolveAddr, RelayWs>(
 ) -> WsTunnelResult
 where
     ReadSeed: FnOnce(&mut TcpStream) -> Result<Vec<u8>, SeedReadError>,
-    ResolveAddr: FnOnce(TelegramDc, Option<&ProxyRuntimeContext>) -> io::Result<SocketAddr>,
+    ResolveAddr: FnOnce(TelegramDc, Option<&ProxyRuntimeContext>, Option<&str>) -> io::Result<SocketAddr>,
     RelayWs: FnOnce(TcpStream, TelegramDc, Vec<u8>, &WsTunnelConfig) -> io::Result<()>,
 {
     let seed_request = match read_seed(&mut client) {
@@ -115,7 +115,7 @@ fn run_ws_tunnel_with_seed_impl<ResolveAddr, RelayWs>(
     relay_ws: RelayWs,
 ) -> WsTunnelResult
 where
-    ResolveAddr: FnOnce(TelegramDc, Option<&ProxyRuntimeContext>) -> io::Result<SocketAddr>,
+    ResolveAddr: FnOnce(TelegramDc, Option<&ProxyRuntimeContext>, Option<&str>) -> io::Result<SocketAddr>,
     RelayWs: FnOnce(TcpStream, TelegramDc, Vec<u8>, &WsTunnelConfig) -> io::Result<()>,
 {
     if seed_request.len() < 64 {
@@ -135,17 +135,18 @@ where
             WsTunnelResult::UnmappableDc { raw_dc, dc, seed_request }
         }
         MtprotoSeedClassification::ValidatedMtproto { dc } => {
-            let resolved_addr = match resolve_addr(dc, state.runtime_context.as_ref()) {
-                Ok(addr) => addr,
-                Err(error) => {
-                    tracing::warn!(
-                        "WS tunnel encrypted DNS bootstrap failed for raw DC {} (class {:?}): {error}",
-                        dc.raw(),
-                        dc.class()
-                    );
-                    return WsTunnelResult::BootstrapFailed { dc, seed_request, error };
-                }
-            };
+            let resolved_addr =
+                match resolve_addr(dc, state.runtime_context.as_ref(), state.config.process.protect_path.as_deref()) {
+                    Ok(addr) => addr,
+                    Err(error) => {
+                        tracing::warn!(
+                            "WS tunnel encrypted DNS bootstrap failed for raw DC {} (class {:?}): {error}",
+                            dc.raw(),
+                            dc.class()
+                        );
+                        return WsTunnelResult::BootstrapFailed { dc, seed_request, error };
+                    }
+                };
             let config = WsTunnelConfig {
                 protect_path: state.config.process.protect_path.clone(),
                 resolved_addr: Some(resolved_addr),
@@ -304,7 +305,7 @@ mod tests {
             relay_client,
             seed_request,
             &state,
-            |_dc, _context| unreachable!("should not resolve"),
+            |_dc, _context, _protect_path| unreachable!("should not resolve"),
             |_client, _dc, _seed_request, _config| unreachable!("should not relay"),
         );
 
@@ -320,7 +321,7 @@ mod tests {
             relay_client,
             build_test_init_packet(-3),
             &state,
-            |_dc, _context| unreachable!("should not resolve"),
+            |_dc, _context, _protect_path| unreachable!("should not resolve"),
             |_client, _dc, _seed_request, _config| unreachable!("should not relay"),
         );
 
@@ -346,7 +347,7 @@ mod tests {
             relay_client,
             seed_request.clone(),
             &state,
-            |dc, _context| {
+            |dc, _context, _protect_path| {
                 assert_eq!(dc, TelegramDc::from_raw(10_002).expect("test dc"));
                 Ok(resolved_addr)
             },
@@ -376,7 +377,7 @@ mod tests {
             relay_client,
             seed_request.clone(),
             &state,
-            |_dc, _context| Err(io::Error::new(io::ErrorKind::TimedOut, "bootstrap timed out")),
+            |_dc, _context, _protect_path| Err(io::Error::new(io::ErrorKind::TimedOut, "bootstrap timed out")),
             |_client, _dc, _seed_request, _config| unreachable!("relay must not run without a resolved address"),
         );
 
@@ -399,7 +400,7 @@ mod tests {
             relay_client,
             seed_request.clone(),
             &state,
-            |_dc, _context| Ok(SocketAddr::from((Ipv4Addr::LOCALHOST, 443))),
+            |_dc, _context, _protect_path| Ok(SocketAddr::from((Ipv4Addr::LOCALHOST, 443))),
             |_client, _dc, _forwarded_seed, _config| Err(io::Error::new(io::ErrorKind::ConnectionRefused, "boom")),
         );
 
@@ -425,7 +426,7 @@ mod tests {
             relay_client,
             &state,
             read_mtproto_seed,
-            |_dc, _context| unreachable!("should not resolve"),
+            |_dc, _context, _protect_path| unreachable!("should not resolve"),
             |_client, _dc, _seed_request, _config| unreachable!("should not relay"),
         );
 
