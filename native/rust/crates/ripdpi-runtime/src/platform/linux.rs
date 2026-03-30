@@ -1693,7 +1693,7 @@ mod tests {
         ];
         let snapshot = sample_tcp_repair_snapshot();
 
-        let packets = build_multi_disorder_packets(source, target, 37, payload, &segments, &snapshot)
+        let packets = build_multi_disorder_packets(source, target, 37, payload, &segments, &snapshot, false)
             .expect("build multidisorder packets");
 
         assert_eq!(packets.len(), 3);
@@ -1731,8 +1731,9 @@ mod tests {
             crate::platform::TcpPayloadSegment { start: 5, end: payload.len() },
         ];
 
-        let err = build_multi_disorder_packets(source, target, 37, payload, &segments, &sample_tcp_repair_snapshot())
-            .expect_err("reject gapped segments");
+        let err =
+            build_multi_disorder_packets(source, target, 37, payload, &segments, &sample_tcp_repair_snapshot(), false)
+                .expect_err("reject gapped segments");
 
         assert_eq!(err.kind(), io::ErrorKind::InvalidInput);
         assert!(err.to_string().contains("invalid multidisorder TCP payload segments"));
@@ -1749,8 +1750,9 @@ mod tests {
             crate::platform::TcpPayloadSegment { start: 8, end: 11 },
         ];
 
-        let err = build_multi_disorder_packets(source, target, 37, payload, &segments, &sample_tcp_repair_snapshot())
-            .expect_err("reject truncated coverage");
+        let err =
+            build_multi_disorder_packets(source, target, 37, payload, &segments, &sample_tcp_repair_snapshot(), false)
+                .expect_err("reject truncated coverage");
 
         assert_eq!(err.kind(), io::ErrorKind::InvalidInput);
         assert!(err.to_string().contains("multidisorder TCP payload segments must cover the full payload"));
