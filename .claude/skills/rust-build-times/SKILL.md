@@ -1,22 +1,22 @@
 ---
 name: rust-build-times
-description: Rust build time optimization skill for reducing slow compilation. Use when using cargo-timings to profile builds, configuring sccache for Rust, using the Cranelift backend, splitting workspaces for parallelism, choosing between thin LTO and fat LTO, or using the mold linker with Rust. Activates on queries about slow Rust compilation, cargo-timings, sccache Rust, cranelift backend, Rust workspace splitting, LTO tradeoffs, or mold linker with Rust.
+description: Rust build time optimization skill for reducing slow compilation. Use when using cargo-timings to profile builds, configuring sccache for Rust, splitting workspaces for parallelism, choosing between thin LTO and fat LTO, or optimizing Android NDK cross-compilation builds. Activates on queries about slow Rust compilation, cargo-timings, sccache Rust, Rust workspace splitting, LTO tradeoffs, Android NDK build times, or cross-compilation caching.
 ---
 
 # Rust Build Times
 
 ## Purpose
 
-Guide agents through diagnosing and improving Rust compilation speed: `cargo-timings` for build profiling, `sccache` for caching, the Cranelift codegen backend for faster dev builds, workspace crate splitting, LTO configuration trade-offs, and fast linkers (mold/lld).
+Guide agents through diagnosing and improving Rust compilation speed: `cargo-timings` for build profiling, `sccache` for caching (especially across Android NDK targets), workspace crate splitting, LTO configuration trade-offs, and linker selection for host and cross builds.
 
 ## Triggers
 
 - "My Rust project takes too long to compile"
 - "How do I profile which crates are slow to build?"
 - "How do I set up sccache for Rust?"
-- "What is the Cranelift backend and how does it help?"
 - "Should I use thin LTO or fat LTO?"
-- "How do I use the mold linker with Rust?"
+- "Android cross-compilation is slow"
+- "How do I speed up builds across 4 NDK targets?"
 
 ## Workflow
 
@@ -25,9 +25,7 @@ Guide agents through diagnosing and improving Rust compilation speed: `cargo-tim
 ```bash
 # Build with timing report
 cargo build --timings
-
-# Opens build/cargo-timings/cargo-timing.html
-# Shows: crate compilation timeline, parallelism, bottlenecks
+# Opens target/cargo-timings/cargo-timing.html
 
 # For release builds
 cargo build --release --timings
@@ -39,122 +37,105 @@ cargo build --release --timings
 ```
 
 ```bash
-# cargo-llvm-lines — count LLVM IR lines per function (monomorphization)
+# cargo-llvm-lines -- count LLVM IR lines per function (monomorphization bloat)
 cargo install cargo-llvm-lines
 cargo llvm-lines --release | head -20
-# Shows functions generating the most LLVM IR (template explosion)
 ```
+### 2. sccache -- compilation caching
 
-### 2. sccache — compilation caching for Rust
+sccache is critical for this project: 23 crates x 4 Android targets = massive redundant work without caching.
 
 ```bash
 # Install
-cargo install sccache
-# or: brew install sccache
+cargo install sccache  # or: brew install sccache
 
-# Configure for Rust builds
+# Configure for Rust builds (.cargo/config.toml or env)
 export RUSTC_WRAPPER=sccache
 
-# Add to .cargo/config.toml (project or global)
-# ~/.cargo/config.toml
-[build]
-rustc-wrapper = "sccache"
-
-# Check cache stats
+# Check cache stats (hit rate should be >80% on rebuild)
 sccache --show-stats
-
-# S3 backend for CI teams
-export SCCACHE_BUCKET=my-rust-cache
-export SCCACHE_REGION=us-east-1
-export AWS_ACCESS_KEY_ID=xxx
-export AWS_SECRET_ACCESS_KEY=yyy
-sccache --start-server
-
-# GitHub Actions with sccache
-# - uses: mozilla-actions/sccache-action@v0.0.4
 ```
 
-### 3. Cranelift codegen backend
+```yaml
+# GitHub Actions -- use mozilla-actions/sccache-action@v0.0.9
+- uses: mozilla-actions/sccache-action@v0.0.9
+  env:
+    RUSTC_WRAPPER: sccache
+```
 
-Cranelift is a fast codegen backend (vs LLVM) — produces slower code but compiles much faster. Ideal for development builds:
+### 3. Android NDK cross-compilation build times
+
+This project cross-compiles to 4 Android targets: `aarch64-linux-android`, `armv7-linux-androideabi`, `i686-linux-android`, `x86_64-linux-android`. This 4x multiplier is the biggest build time factor.
+
+**sccache across targets:** Most crate compilations differ only by target triple. sccache deduplicates effectively across targets for pure-Rust crates (no C/FFI deps). Ensure `RUSTC_WRAPPER=sccache` is set for all target builds.
+
+**Parallel target builds in CI:**
+
+```yaml
+# Build targets in parallel CI jobs rather than sequentially
+strategy:
+  matrix:
+    target:
+      - aarch64-linux-android
+      - armv7-linux-androideabi
+      - i686-linux-android
+      - x86_64-linux-android
+# Each job builds one target; wall-clock time = 1 target build
+```
+
+**Build only needed targets during development:**
 
 ```bash
-# Install nightly (Cranelift requires nightly for now)
-rustup toolchain install nightly
-rustup component add rustc-codegen-cranelift-preview --toolchain nightly
+# Dev: build only arm64 (most common emulator/device)
+cargo build --target aarch64-linux-android
 
-# Use Cranelift for dev builds only
-# .cargo/config.toml
-[unstable]
-codegen-backend = true
-
-[profile.dev]
-codegen-backend = "cranelift"
+# CI/release: all 4 targets
+for target in aarch64-linux-android armv7-linux-androideabi \
+              i686-linux-android x86_64-linux-android; do
+  cargo build --release --target "$target"
+done
 ```
 
-```bash
-# Use per-build
-CARGO_PROFILE_DEV_CODEGEN_BACKEND=cranelift \
-RUSTFLAGS="-Zunstable-options" \
-cargo +nightly build
-```
-
-Cranelift vs LLVM trade-off:
-- Dev builds: 20–40% faster compilation with Cranelift
-- Runtime performance: LLVM-compiled code is faster (Cranelift skips many optimizations)
-- Release builds: always use LLVM
+**NDK linker:** Android NDK ships its own `lld` linker. Do not substitute `mold` or other linkers for Android targets.
 
 ### 4. Workspace splitting for parallelism
 
-A single large crate compiles sequentially. Split into smaller crates to enable Cargo parallelism:
-
-```toml
-# Before: one giant crate
-[package]
-name = "monolith"    # everything in one crate = sequential compile
-
-# After: workspace with parallel crates
-[workspace]
-members = [
-    "core",          # compiled in parallel
-    "networking",    # no deps on ui → parallel with ui
-    "ui",            # no deps on networking → parallel
-    "server",        # depends on core + networking
-    "cli",           # depends on core + ui
-]
-```
+This project already has 23 crates. Key rules for maintaining parallelism:
 
 ```bash
 # Visualize dependency graph
 cargo tree | head -30
-cargo tree --graph | dot -Tsvg > deps.svg   # visual graph
+cargo tree --depth 1          # top-level deps only
+cargo tree --prefix depth     # show depth for each crate
 
 # Check how many crates compile in parallel
-cargo build -j$(nproc) --timings    # maximize parallelism
+cargo build --timings         # timeline shows parallelism
 ```
 
 Rules for effective workspace splitting:
 - Break circular dependencies first
 - Separate proc-macros into their own crate (they block everything)
-- Keep frequently-changed code isolated (less invalidation)
+- Keep frequently-changed code isolated (less cache invalidation)
 
 ### 5. LTO configuration
 
-LTO improves runtime performance but increases link time:
+Current project config: `lto = "thin"`, `codegen-units = 1`, `strip = "symbols"`, `panic = "abort"` for release. This is well-optimized.
 
 ```toml
-# Cargo.toml profile configuration
+# Profile reference (from this project's Cargo.toml)
 [profile.release]
-lto = "thin"         # thin LTO: good performance, much faster than "fat"
-codegen-units = 1    # needed for best optimization (but disables parallelism)
+lto = "thin"         # good perf, much faster than "fat"
+codegen-units = 1    # best optimization (disables parallel codegen)
+strip = "symbols"    # smaller binaries
+panic = "abort"      # smaller binaries, no unwinding overhead
 
-[profile.release-fast]
+[profile.android-jni]
 inherits = "release"
-lto = "fat"          # full LTO: maximum performance, very slow link
+opt-level = "z"      # size-optimized for Android
+panic = "unwind"     # JNI requires unwinding
 
 [profile.dev]
-lto = "off"          # never use LTO in dev (compilation speed)
-codegen-units = 16   # maximize parallel codegen in dev
+debug = "line-tables-only"  # faster than full debug info
 ```
 
 LTO comparison:
@@ -162,66 +143,58 @@ LTO comparison:
 | Setting | Link time | Runtime perf | Use when |
 |---------|-----------|-------------|---------|
 | `lto = false` | Fast | Baseline | Dev builds |
-| `lto = "thin"` | Moderate | +5–15% | Most release builds |
-| `lto = "fat"` | Slow | +15–30% | Maximum performance |
+| `lto = "thin"` | Moderate | +5-15% | Most release builds |
+| `lto = "fat"` | Slow | +15-30% | Maximum performance |
 | `codegen-units = 1` | Slowest | Best | With LTO for release |
 
-### 6. Fast linkers
+### 6. Linkers
 
-The linker is often the bottleneck for large Rust projects:
+**Host builds (macOS/Linux dev):**
 
 ```bash
-# mold — fastest general-purpose linker (Linux)
-sudo apt-get install mold
-
-# .cargo/config.toml
-[target.x86_64-unknown-linux-gnu]
-linker = "clang"
-rustflags = ["-C", "link-arg=-fuse-ld=mold"]
-
-# Or use cargo-zigbuild (uses zig cc as linker)
-cargo install cargo-zigbuild
-cargo zigbuild --release
-
-# lld — LLVM's linker (faster than GNU ld, available everywhere)
+# lld -- LLVM's linker (faster than GNU ld, widely available)
 # .cargo/config.toml
 [target.x86_64-unknown-linux-gnu]
 rustflags = ["-C", "link-arg=-fuse-ld=lld"]
 
-# On macOS: zld or the default lld
-[target.x86_64-apple-darwin]
-rustflags = ["-C", "link-arg=-fuse-ld=/usr/local/bin/zld"]
+# mold -- fastest linker, Linux ELF only (not for macOS or Android)
+# .cargo/config.toml (Linux host builds only)
+[target.x86_64-unknown-linux-gnu]
+linker = "clang"
+rustflags = ["-C", "link-arg=-fuse-ld=mold"]
 ```
 
-Linker speed comparison (large project, typical):
+**macOS:** The default Apple linker is adequate. No special configuration needed.
+
+**Android targets:** NDK provides its own `lld`. Do not override the linker for `*-linux-android*` targets.
+
+Linker speed comparison (host builds, large project):
 - GNU ld: baseline
-- lld: ~2× faster
-- mold: ~5–10× faster
-- gold: ~1.5× faster
+- lld: ~2x faster
+- mold: ~5-10x faster (Linux ELF only)
 
 ### 7. Other quick wins
 
+```toml
+# Reduce debug info level (faster dev builds)
+[profile.dev]
+debug = "line-tables-only"   # already configured in this project
+
+# Split debug info (reduces linker input on macOS)
+[profile.dev]
+split-debuginfo = "unpacked"
+```
+
 ```bash
-# Reduce debug info level (faster but less debuggable)
-# Cargo.toml
-[profile.dev]
-debug = 1           # 0=off, 1=line tables, 2=full (default)
-# debug=1 saves 20-40% on debug build time
-
-# Split debug info (reduces linker input)
-[profile.dev]
-split-debuginfo = "unpacked"   # macOS: equivalent of gsplit-dwarf
-
 # Disable incremental compilation (sometimes faster for full rebuilds)
 CARGO_INCREMENTAL=0 cargo build
 
-# Reduce proc-macro compile time (pin heavy proc-macro deps)
-# Heavy proc-macros: serde, tokio, axum — keep versions stable
+# Heavy proc-macros (serde, tokio) -- keep versions pinned to avoid recompilation
 ```
 
 ## Related skills
 
-- Use `skills/rust/cargo-workflows` for Cargo workspace and profile configuration
-- Use `skills/build-systems/build-acceleration` for C/C++ equivalent build acceleration
-- Use `skills/debuggers/dwarf-debug-format` for debug info size/split-dwarf tradeoffs
-- Use `skills/binaries/linkers-lto` for LTO internals
+- Use `rust-profiling` for flamegraphs, cargo-llvm-lines, cargo-bloat analysis
+- Use `cargo-workflows` for workspace and profile configuration
+- Use `rust-cross` for cross-compilation setup and toolchain configuration
+- Use `linkers-lto` for LTO internals and linker flag details

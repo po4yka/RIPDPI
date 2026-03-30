@@ -192,19 +192,6 @@ rustc --print sysroot
 }
 ```
 
-## Debugging #[no_std] Binaries
-
-```bash
-# Connect to embedded target via OpenOCD + GDB
-openocd -f interface/stlink.cfg -f target/stm32f4x.cfg &
-rust-gdb target/thumbv7em-none-eabihf/debug/firmware \
-    --ex "target remote localhost:3333"
-
-# Or use probe-rs
-cargo install probe-run
-probe-run --chip STM32F411CE target/thumbv7em-none-eabihf/debug/firmware
-```
-
 ## Symbol Demangling
 
 ```bash

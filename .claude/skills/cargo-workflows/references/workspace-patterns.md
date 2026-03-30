@@ -1,194 +1,102 @@
-# Cargo Workspace Patterns Reference
+# RIPDPI Workspace Patterns Reference
 
-## Workspace Dependency Management
+## Workspace dependency management
 
-### Centralizing versions
+All dependency versions are centralized in the root `native/rust/Cargo.toml`:
 
 ```toml
-# Root Cargo.toml
 [workspace.dependencies]
-# Pin all workspace members to same versions
-tokio = { version = "1.35", features = ["full"] }
-serde = { version = "1.0", features = ["derive"] }
-tracing = "0.1"
-anyhow = "1.0"
-thiserror = "1.0"
+# Internal crates use path deps
+ripdpi-packets = { path = "crates/ripdpi-packets" }
 
-[workspace.package]
-version = "0.1.0"
-edition = "2021"
-authors = ["team@example.com"]
-license = "MIT OR Apache-2.0"
-repository = "https://github.com/org/repo"
+# External crates pinned to compatible ranges
+jni = "0.22"
+tokio = { version = "1", default-features = false }
+serde = { version = "1", features = ["derive"] }
 ```
 
-```toml
-# Member Cargo.toml
-[package]
-name = "myapp-core"
-version.workspace = true
-edition.workspace = true
-authors.workspace = true
-license.workspace = true
-
-[dependencies]
-tokio.workspace = true         # Inherit, including features
-serde = { workspace = true, features = ["derive"] }  # Can add features
-```
-
-## Feature Resolution (resolver = "2")
-
-With `resolver = "2"` (required in edition 2021 workspaces):
-
-```toml
-[workspace]
-resolver = "2"
-```
-
-- Build deps, dev-deps, and regular deps get independent feature resolution
-- Prevents a dev-only dependency from enabling features in prod builds
-- `target.cfg()` conditional features respected independently
-
-## Virtual Manifest Pattern
-
-A workspace without its own `[package]` — just orchestrates members:
-
-```toml
-# Root Cargo.toml (virtual manifest)
-[workspace]
-members = ["crates/*", "tools/*"]
-resolver = "2"
-
-[workspace.package]
-version = "0.1.0"
-edition = "2021"
-
-[profile.release]
-lto = "thin"
-```
-
-Useful for monorepos where the root is not a published crate.
-
-## Path vs Registry Dependencies
+Members inherit with `workspace = true` and can add features:
 
 ```toml
 [dependencies]
-# Path (local development)
-mylib = { path = "../mylib" }
-
-# Registry (published)
-mylib = { version = "1.0" }
-
-# Git (unpublished / fork)
-mylib = { git = "https://github.com/user/mylib", branch = "main" }
-mylib = { git = "https://github.com/user/mylib", rev = "abc1234" }
-
-# Override registry dep with local path (for development)
-# In root Cargo.toml:
-[patch.crates-io]
-serde = { path = "../my-serde-fork" }
+serde.workspace = true
+tokio = { workspace = true, features = ["rt", "net"] }
 ```
 
-## Selective Build Commands
+## Workspace-level lints (Cargo.toml)
+
+Clippy lints are configured at workspace level and inherited by all members:
+
+```toml
+[workspace.lints.clippy]
+correctness = { level = "deny", priority = -1 }
+suspicious = { level = "deny", priority = -1 }
+style = { level = "warn", priority = -1 }
+# JNI/FFI allowances
+missing_safety_doc = "allow"
+not_unsafe_ptr_arg_deref = "allow"
+```
+
+Members opt in with:
+```toml
+[lints]
+workspace = true
+```
+
+## Gradle property reference (native build)
+
+| Property | Purpose | Example |
+|----------|---------|---------|
+| `ripdpi.nativeAbis` | ABIs for CI/release | `arm64-v8a,armeabi-v7a,x86_64,x86` |
+| `ripdpi.localNativeAbisDefault` | ABIs for local dev | `arm64-v8a` |
+| `ripdpi.localNativeAbis` | Per-invocation ABI override | `arm64-v8a` |
+| `ripdpi.nativeCargoProfile` | Default cargo profile | `android-jni` |
+| `ripdpi.localNativeCargoProfileDefault` | Local dev profile | `android-jni-dev` |
+| `ripdpi.nativeNdkVersion` | NDK version string | `27.2.12479018` |
+| `ripdpi.minSdk` | Android minSdk (passed to clang target) | `26` |
+
+## Artifact mapping
+
+The Gradle task maps Cargo output names to Android library names:
+
+| Cargo package | Cargo output | Android .so |
+|---------------|-------------|-------------|
+| ripdpi-android | libripdpi_android.so | libripdpi.so |
+| ripdpi-tunnel-android | libripdpi_tunnel_android.so | libripdpi-tunnel.so |
+
+## Selective build commands
 
 ```bash
-# Build only specific workspace member
-cargo build -p myapp-core
-cargo build -p myapp-cli --release
+cd native/rust
+
+# Build specific workspace member
+cargo build -p ripdpi-packets
+cargo check -p ripdpi-ws-tunnel
 
 # Test specific member
-cargo test -p myapp-core
+cargo nextest run -p ripdpi-session
 
 # Test all members
-cargo test --workspace
+cargo nextest run --workspace
 
-# Build all members
-cargo build --workspace
+# Exclude member from workspace build
+cargo build --workspace --exclude ripdpi-bench
 
-# Exclude member
-cargo build --workspace --exclude myapp-codegen
+# Cross-compile check (host only -- no NDK linker)
+cargo check --target aarch64-linux-android -p ripdpi-packets
 ```
 
-## Cargo.lock Management
+## Cargo.lock management
+
+The lock file is checked into git (application, not library):
 
 ```bash
-# Libraries: Cargo.lock in .gitignore (let users choose versions)
-# Applications: Cargo.lock in version control (reproducible builds)
+# Update single dep precisely
+cargo update -p tokio --precise 1.42.0
 
-# Generate deterministic lock file
-cargo generate-lockfile
-
-# Update single dep
-cargo update -p tokio --precise 1.35.1
-
-# Show what would change
+# Preview changes
 cargo update --dry-run
-```
 
-## CI Configuration Patterns
-
-### GitHub Actions matrix
-
-```yaml
-strategy:
-  matrix:
-    rust: [stable, beta, nightly]
-    os: [ubuntu-latest, macos-latest, windows-latest]
-
-steps:
-  - uses: dtolnay/rust-toolchain@master
-    with:
-      toolchain: ${{ matrix.rust }}
-      components: rustfmt, clippy
-
-  - uses: Swatinem/rust-cache@v2
-
-  - run: cargo check --workspace --all-features
-  - run: cargo test --workspace
-  - run: cargo clippy --workspace -- -D warnings
-  - run: cargo fmt --check
-```
-
-### MSRV (minimum supported Rust version)
-
-```toml
-[package]
-rust-version = "1.70"   # MSRV declaration
-
-[workspace.package]
-rust-version = "1.70"
-```
-
-```bash
-# Test against MSRV
-rustup install 1.70
-cargo +1.70 check --workspace
-```
-
-## Published Crate Checklist
-
-```toml
-[package]
-name = "mycrate"
-version = "1.0.0"
-edition = "2021"
-description = "Short description"
-license = "MIT OR Apache-2.0"
-repository = "https://github.com/..."
-documentation = "https://docs.rs/mycrate"
-readme = "README.md"
-keywords = ["systems", "async"]
-categories = ["network-programming"]
-exclude = ["tests/fixtures/**", ".github/**"]
-```
-
-```bash
-# Verify what will be published
-cargo package --list
-
-# Dry run publish
-cargo publish --dry-run
-
-# Publish to crates.io
-cargo publish
+# Regenerate lock file
+cargo generate-lockfile
 ```

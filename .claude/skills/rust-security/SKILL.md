@@ -1,26 +1,32 @@
 ---
 name: rust-security
-description: Rust security skill for supply chain safety and memory-safe development. Use when auditing dependencies with cargo-audit, enforcing policies with cargo-deny, reviewing RUSTSEC advisories, writing memory-safe FFI patterns, or integrating fuzzing and Miri into a security review pipeline. Activates on queries about cargo-audit, cargo-deny, RUSTSEC advisories, supply chain security, Rust CVEs, safe FFI, or fuzzing for security.
+description: Rust supply chain security skill. Use when auditing dependencies with cargo-audit, enforcing policies with cargo-deny, reviewing RUSTSEC advisories, or hardening the dependency supply chain. Activates on queries about cargo-audit, cargo-deny, RUSTSEC advisories, supply chain security, Rust CVEs, or dependency policy enforcement.
 ---
 
-# Rust Security
+# Rust Supply Chain Security
 
 ## Purpose
 
-Guide agents through Rust security practices: dependency auditing with cargo-audit, policy enforcement with cargo-deny, RUSTSEC advisory database, memory-safe patterns for FFI, and combining fuzzing with Miri for security review.
+Guide agents through Rust supply chain security: vulnerability scanning with cargo-audit, policy enforcement with cargo-deny (as configured in this project), and RUSTSEC advisory triage. For FFI safety, fuzzing, sanitizers, and Miri, see cross-references at the end.
 
 ## Triggers
 
 - "How do I check my Rust dependencies for CVEs?"
-- "How do I use cargo-audit?"
+- "How do I use cargo-audit / cargo-deny?"
 - "How do I enforce dependency policies in CI?"
 - "What's the RUSTSEC advisory database?"
-- "How do I write memory-safe FFI in Rust?"
-- "How do I fuzz-test my Rust library for security bugs?"
+- "A dependency has a security advisory -- what do I do?"
+
+## Project context
+
+- 23 Rust crates under `native/rust/`
+- Policy config: `native/rust/deny.toml`
+- CI job: `cargo-deny` in `.github/workflows/ci.yml` (cargo-deny v0.19.0, installed via `taiki-e/install-action@v2`)
+- CI invocation: `cargo deny --manifest-path native/rust/Cargo.toml check`
 
 ## Workflow
 
-### 1. cargo-audit — vulnerability scanning
+### 1. cargo-audit -- vulnerability scanning
 
 ```bash
 # Install
@@ -29,13 +35,13 @@ cargo install cargo-audit --locked
 # Scan current project
 cargo audit
 
-# Full output including ignored
+# Strict mode: treat warnings as errors (good for CI)
 cargo audit --deny warnings
 
-# Audit the lockfile (CI-friendly)
-cargo audit --file Cargo.lock
+# Audit a specific lockfile
+cargo audit --file native/rust/Cargo.lock
 
-# JSON output for CI integration
+# JSON output for scripting
 cargo audit --json | jq '.vulnerabilities.list[].advisory.id'
 ```
 
@@ -48,200 +54,109 @@ error[RUSTSEC-2023-0052]: Vulnerability in `vm-superio`
     Solution: upgrade to `>= 0.7.0`
 ```
 
-### 2. cargo-deny — policy enforcement
+### 2. cargo-deny -- policy enforcement
 
 cargo-deny goes beyond audit: it enforces license policies, bans specific crates, checks source origins, and validates duplicate dependency versions.
 
 ```bash
-cargo install cargo-deny --locked
+# Run all checks against project config
+cargo deny --manifest-path native/rust/Cargo.toml check
 
-# Initialize deny.toml
-cargo deny init
-
-# Run all checks
-cargo deny check
-
-# Run specific check
-cargo deny check advisories
-cargo deny check licenses
-cargo deny check bans
-cargo deny check sources
+# Run a specific check
+cargo deny --manifest-path native/rust/Cargo.toml check advisories
+cargo deny --manifest-path native/rust/Cargo.toml check licenses
+cargo deny --manifest-path native/rust/Cargo.toml check bans
+cargo deny --manifest-path native/rust/Cargo.toml check sources
 ```
 
-`deny.toml` configuration:
+#### Project deny.toml (`native/rust/deny.toml`)
 
-```toml
-[advisories]
-vulnerability = "deny"      # Deny known vulnerabilities
-unmaintained = "warn"       # Warn on unmaintained crates
-yanked = "deny"             # Deny yanked versions
+The project config enforces:
 
-# Ignore specific advisories
-ignore = [
-    "RUSTSEC-2021-0145",    # known false positive for our usage
-]
+- **advisories**: vulnerabilities denied by default; `ignore = []` (no exemptions)
+- **licenses**: allowlist of permissive licenses (MIT, Apache-2.0, BSD-2-Clause, BSD-3-Clause, ISC, 0BSD, Zlib, CDLA-Permissive-2.0, Unicode-3.0, OpenSSL); confidence threshold 0.8
+- **bans**: `multiple-versions = "warn"`, `wildcards = "warn"`, `highlight = "all"`
+- **sources**: `unknown-registry = "deny"`, `unknown-git = "warn"`, only crates.io allowed via `allow-registry`
 
-[licenses]
-unlicensed = "deny"
-allow = [
-    "MIT", "Apache-2.0", "Apache-2.0 WITH LLVM-exception",
-    "BSD-2-Clause", "BSD-3-Clause", "ISC", "Unicode-DFS-2016",
-]
-# Deny GPL for proprietary projects
-deny = ["GPL-2.0", "GPL-3.0"]
-
-[bans]
-multiple-versions = "warn"  # Warn if same crate appears twice
-wildcards = "deny"          # Deny wildcard dependencies
-
-[[bans.deny]]
-name = "openssl"            # Force rustls instead
-wrappers = ["reqwest"]      # Allow if only required by these
-
-[sources]
-unknown-registry = "deny"
-unknown-git = "deny"
-allow-git = [
-    "https://github.com/my-org/private-crate",
-]
-```
-
-GitHub Actions CI integration:
-
-```yaml
-- name: Security audit
-  run: |
-    cargo install cargo-deny --locked
-    cargo deny check
-```
+When modifying `deny.toml`, always run `cargo deny --manifest-path native/rust/Cargo.toml check` locally before pushing to validate changes.
 
 ### 3. RUSTSEC advisory database
 
 The RUSTSEC database at https://rustsec.org/ tracks vulnerabilities, unmaintained crates, and unsound code.
 
 ```bash
-# Browse advisories from CLI
-cargo audit --db ~/.cargo/advisory-db fetch
+# Sync and browse local advisory DB
+cargo audit fetch
 ls ~/.cargo/advisory-db/crates/
 
-# Check a specific advisory
-curl https://rustsec.org/advisories/RUSTSEC-2023-0001.json | jq .
+# View a specific advisory on the web
+# https://rustsec.org/advisories/RUSTSEC-2023-0001.html
 
-# Common categories
-# type: vulnerability — exploitable security bug
-# type: unmaintained — no longer maintained (supply chain risk)
-# type: unsound — documented unsoundness in safe API
-# type: yanked — crate version yanked from crates.io
+# Advisory categories:
+# vulnerability -- exploitable security bug
+# unmaintained -- no longer maintained (supply chain risk)
+# unsound     -- documented unsoundness in safe API
+# yanked      -- crate version yanked from crates.io
 ```
 
-### 4. Memory-safe FFI patterns
-
-Common sources of unsafety at the Rust/C boundary:
-
-```rust
-// UNSAFE pattern — raw pointer from C, no lifetime
-extern "C" fn process_data(data: *const u8, len: usize) {
-    // Don't do this — no bounds check, no lifetime guarantee
-    let slice = unsafe { std::slice::from_raw_parts(data, len) };
-}
-
-// SAFE pattern — validate before using
-extern "C" fn process_data(data: *const u8, len: usize) -> i32 {
-    // Validate pointer and length
-    if data.is_null() || len == 0 || len > 1024 * 1024 {
-        return -1;
-    }
-    // Safety: non-null, len validated, called from C with valid buffer
-    let slice = unsafe { std::slice::from_raw_parts(data, len) };
-    do_work(slice);
-    0
-}
-
-// Use safe wrapper crates for common patterns
-use nix::unistd::read;   // safe POSIX wrappers
-use windows::Win32::System::Memory::VirtualAlloc;  // safe Windows bindings
-```
-
-### 5. Fuzzing for security bugs
+### 4. Responding to a new advisory
 
 ```bash
-# cargo-fuzz — libFuzzer-based
-cargo install cargo-fuzz
+# 1. Identify affected crate and version
+cargo audit 2>&1 | grep -A3 'RUSTSEC-'
 
-# Initialize
-cargo fuzz init
-cargo fuzz add my_target
+# 2. Check if an upgrade is available
+cargo update -p <crate_name> --dry-run
 
-# fuzz/fuzz_targets/my_target.rs
-# #![no_main]
-# use libfuzzer_sys::fuzz_target;
-# fuzz_target!(|data: &[u8]| {
-#     if let Ok(s) = std::str::from_utf8(data) {
-#         let _ = my_lib::parse(s);
-#     }
-# });
+# 3. If upgrade exists, apply it
+cargo update -p <crate_name>
 
-# Run fuzzing (long-running)
-cargo fuzz run my_target
+# 4. If no fix yet, assess and optionally add to deny.toml ignore list
+#    Only add with a comment explaining why and a tracking issue
+#    Example in deny.toml:
+#    ignore = [
+#        { id = "RUSTSEC-2024-XXXX", reason = "not reachable in our code path, tracking #123" },
+#    ]
 
-# With sanitizers for security coverage
-cargo fuzz run my_target -- -sanitizer=address
-
-# Reproduce a crash
-cargo fuzz run my_target artifacts/my_target/crash-xxxx
+# 5. Verify
+cargo deny --manifest-path native/rust/Cargo.toml check advisories
 ```
 
-```bash
-# Honggfuzz — good for security targets
-cargo install honggfuzz
-cargo hfuzz run my_target
-```
-
-### 6. Miri for soundness
+### 5. Supply chain hardening
 
 ```bash
-# Install Miri
-rustup +nightly component add miri
+# Always commit Cargo.lock for applications/binaries
+# Use --locked in CI to enforce lockfile matches
+cargo fetch --locked
 
-# Run tests under Miri
-cargo +nightly miri test
+# Audit full dependency tree
+cargo tree                  # view full tree
+cargo tree -d               # show duplicate versions
 
-# Check for UB in unsafe code
-MIRIFLAGS="-Zmiri-disable-isolation -Zmiri-backtrace=full" \
-  cargo +nightly miri test
+# Find unused dependencies
+cargo machete
 
-# Miri detects:
-# - Use-after-free
-# - Dangling references
-# - Invalid pointer arithmetic
-# - Data races (with -Zmiri-tree-borrows)
-# - Uninitialized memory reads
-```
-
-### 7. Supply chain hardening
-
-```bash
-# Pin Cargo.lock in applications (not libraries)
-# Always commit Cargo.lock for binaries
-
-# Verify checksums (cargo already does this)
-cargo fetch --locked    # fails if Cargo.lock doesn't match
-
-# Audit all dependencies including transitive
-cargo tree              # view full dependency tree
-cargo tree -d           # show duplicate versions
-
-# Use cargo-vet for peer review of new deps
+# Vet dependencies with cargo-vet (peer review)
 cargo install cargo-vet
-cargo vet              # check all deps have been vetted
-
-# Minimal dependency principle
-cargo machete          # finds unused dependencies
+cargo vet
 ```
+
+### 6. CI integration
+
+The project CI runs cargo-deny as a standalone job on every PR (skipped for scheduled builds). The job:
+
+1. Checks out the repo
+2. Installs cargo-deny v0.19.0 via `taiki-e/install-action@v2`
+3. Runs `cargo deny --manifest-path native/rust/Cargo.toml check`
+
+If the CI job fails:
+- Check the failing check category (advisories, licenses, bans, sources)
+- Run the same command locally to reproduce
+- Fix the root cause; do not extend `ignore` lists without a tracking issue
 
 ## Related skills
 
-- Use `skills/rust/rust-sanitizers-miri` for Miri and sanitizer details
-- Use `skills/runtimes/fuzzing` for fuzzing strategy and corpus management
-- Use `skills/rust/rust-unsafe` for unsafe code audit patterns
-- Use `skills/rust/cargo-workflows` for Cargo.lock and workspace management
+- `.claude/skills/rust-sanitizers-miri` -- Miri and sanitizer usage for memory safety validation
+- `.claude/skills/rust-unsafe` -- unsafe code audit patterns and safe abstraction design
+- `.github/skills/rust-jni-bridge` -- JNI FFI patterns (the project's FFI boundary)
+- `.claude/skills/cargo-workflows` -- Cargo.lock management, workspaces, and feature flags

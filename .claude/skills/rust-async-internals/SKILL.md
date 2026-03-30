@@ -1,253 +1,196 @@
 ---
 name: rust-async-internals
-description: Rust async internals skill for understanding and debugging async Rust. Use when understanding the Future trait and poll model, Pin and Unpin, tokio task scheduling, debugging async stack traces with tokio-console, tracking waker leaks, using select! and join!, or avoiding blocking in async contexts. Activates on queries about Rust async internals, Future poll, Pin, Unpin, tokio-console, waker, async stack traces, select!, join!, or blocking in async.
+description: Rust async internals skill for debugging async Rust in the RIPDPI project. Use when diagnosing select!/join! pitfalls, blocking-in-async issues, JNI-to-async bridging, tokio runtime configuration for Android NDK, CancellationToken patterns, or the io_loop event-driven architecture. Activates on queries about async internals, select!, blocking in async, JNI async bridging, CancellationToken, or io_loop design.
 ---
 
-# Rust Async Internals
+# Rust Async Internals -- RIPDPI
 
 ## Purpose
 
-Guide agents through Rust async/await internals: the `Future` trait and poll loop, `Pin`/`Unpin` for self-referential types, tokio's task model, diagnosing async stack traces with tokio-console, finding waker leaks, and common `select!`/`join!` pitfalls.
+Guide agents through async patterns specific to RIPDPI: JNI-to-async bridging,
+the io_loop event-driven architecture, tokio runtime configuration for Android
+NDK, CancellationToken-based shutdown, and common select!/join! pitfalls.
 
 ## Triggers
 
-- "How does async/await actually work in Rust?"
-- "What is Pin and Unpin in async Rust?"
-- "My async code is slow — how do I profile it?"
-- "How do I use tokio-console to debug async tasks?"
-- "I have a blocking call in async — what do I do?"
+- "Why is the tunnel blocking / slow?"
+- "How does JNI call into async Rust here?"
 - "How does select! work and what are the pitfalls?"
+- "How is the tokio runtime configured?"
+- "How does cancellation / shutdown work?"
 
-## Workflow
+## Project async architecture
 
-### 1. The Future trait — poll model
+RIPDPI has two independent tokio runtimes bridged from JNI:
 
-```rust
-// std::future::Future (simplified)
-pub trait Future {
-    type Output;
-    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output>;
-}
+1. **Tunnel runtime** (`ripdpi-tunnel-android`): shared `multi_thread(2)` runtime
+   stored in a `OnceCell<Arc<Runtime>>`. A dedicated `std::thread` calls
+   `runtime.block_on(run_tunnel(...))` so the JNI thread is not blocked.
 
-pub enum Poll<T> {
-    Ready(T),    // computation done, T is the result
-    Pending,     // not ready yet, waker registered, will be polled again
-}
-```
+2. **Proxy runtime** (`ripdpi-android`): `run_proxy_with_embedded_control` blocks
+   the calling JNI thread directly (the Android Service thread). Uses an
+   `IdleGuard` drop-safety pattern to reset state on panic.
 
-Execution model:
-1. Calling `.await` calls `poll()` on the future
-2. If `Pending`: current task registers its waker and yields to the runtime
-3. When the waker is triggered (I/O ready, timer fired), the runtime re-polls
-4. If `Ready(val)`: the `.await` expression evaluates to `val`
-
-### 2. Implementing a simple Future
+### JNI-to-async bridge pattern
 
 ```rust
-use std::{
-    future::Future,
-    pin::Pin,
-    task::{Context, Poll},
-    time::{Duration, Instant},
-};
-
-struct Delay { deadline: Instant }
-
-impl Delay {
-    fn new(dur: Duration) -> Self {
-        Delay { deadline: Instant::now() + dur }
-    }
-}
-
-impl Future for Delay {
-    type Output = ();
-
-    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<()> {
-        if Instant::now() >= self.deadline {
-            Poll::Ready(())
-        } else {
-            // Register the waker — runtime calls waker.wake() to re-poll
-            // In production: register with I/O reactor or timer wheel
-            let waker = cx.waker().clone();
-            let deadline = self.deadline;
-            std::thread::spawn(move || {
-                let now = Instant::now();
-                if deadline > now {
-                    std::thread::sleep(deadline - now);
-                }
-                waker.wake();  // notify runtime to re-poll
-            });
-            Poll::Pending
-        }
-    }
-}
-
-// Usage
-async fn main() {
-    Delay::new(Duration::from_secs(1)).await;
-    println!("Done");
-}
+// ripdpi-tunnel-android/src/session/lifecycle.rs -- the canonical pattern
+//
+// JNI create_session() returns a jlong handle.
+// JNI start_session() spawns a std::thread that calls runtime.block_on():
+let worker = std::thread::Builder::new()
+    .name("ripdpi-tunnel-worker".into())
+    .spawn(move || {
+        let result = std::panic::catch_unwind(AssertUnwindSafe(|| {
+            runtime.block_on(run_tunnel(config, fd, cancel, stats))
+        }));
+        // Handle Ok/Err/panic, update last_error and telemetry
+    });
+// The JNI thread returns immediately; stop_session() cancels via token.
 ```
 
-### 3. Pin and Unpin
+Key rules for this pattern:
+- Never call `block_on` from a JNI callback thread directly for long-running
+  work -- spawn a dedicated thread so the JNI call returns promptly.
+- Duplicate file descriptors (`nix::unistd::dup`) before passing to async --
+  Android VpnService can revoke the original fd at any time.
+- Wrap `block_on` in `catch_unwind` -- a panic must not unwind through JNI.
 
-`Pin<P>` prevents moving the value behind pointer `P`. This matters because async state machines contain self-referential pointers (a reference into the same struct where the future lives):
+### Runtime configuration for Android NDK
 
 ```rust
-// Why Pin is needed: async fn compiles to a state machine struct
-// that may have self-references across await points
-
-async fn example() {
-    let data = vec![1, 2, 3];
-    let ref_to_data = &data;              // reference into same stack frame
-    some_async_op().await;                // suspension point
-    println!("{:?}", ref_to_data);       // reference still used after suspend
-}
-// The state machine stores both `data` and `ref_to_data`.
-// If the struct were moved, `ref_to_data` would dangle.
-// Pin<&mut State> prevents moving the state machine.
-
-// Unpin: a marker trait for types that are safe to move even when pinned
-// Most types implement Unpin automatically
-// Futures generated by async/await do NOT implement Unpin
-
-// Creating a Pin from Box (heap allocation → safe)
-let boxed: Pin<Box<dyn Future<Output = ()>>> = Box::pin(my_future);
-
-// Pinning to stack (unsafe, use pin! macro)
-use std::pin::pin;
-let fut = pin!(my_future);
-fut.await;   // or poll it directly
+// ripdpi-tunnel-android/src/session/registry.rs
+tokio::runtime::Builder::new_multi_thread()
+    .worker_threads(2)          // constrained for mobile battery/CPU
+    .thread_stack_size(1024 * 1024) // 1 MiB -- Android default is small
+    .thread_name("ripdpi-tunnel-tokio")
+    .enable_all()
+    .build()
 ```
 
-### 4. tokio task model
+Android-specific considerations:
+- `worker_threads(2)` balances throughput vs battery drain on mobile.
+- Explicit `thread_stack_size(1 MiB)` -- Android NDK default stack is often
+  too small for deep async state machines.
+- The runtime is stored in `OnceCell<Arc<Runtime>>` and shared across sessions
+  to avoid repeated thread pool creation.
+- `current_thread` runtime is used only in tests and the DNS resolver's
+  synchronous `resolve_blocking()` path.
+
+## io_loop event-driven architecture
+
+The core tunnel runs a single-task 6-phase loop (`io_loop_task` in
+`ripdpi-tunnel-core/src/io_loop.rs`):
+
+1. **Drain TUN fd** -- read raw IP packets via `AsyncFd::try_io`, classify
+2. **smoltcp poll** -- advance TCP state machines in userspace
+3. **New sessions** -- detect ESTABLISHED sockets, spawn `TcpSession` tasks
+4. **Duplex bridge** -- pump data between smoltcp sockets and session tasks
+5. **Flush tx_queue** -- write smoltcp packets back to TUN fd
+6. **Wait** -- `select!` on TUN readable / smoltcp timer / UDP / DNS / cancel
+
+Phase 6 select pattern:
 
 ```rust
-use tokio::task;
-
-// Spawn a task (runs concurrently on the runtime thread pool)
-let handle = tokio::spawn(async {
-    // ... async work ...
-    42
-});
-let result = handle.await.unwrap();  // wait for completion
-
-// spawn_blocking — for CPU-bound or blocking I/O
-let result = task::spawn_blocking(|| {
-    // runs on a dedicated blocking thread pool
-    std::fs::read_to_string("big_file.txt")
-}).await.unwrap();
-
-// yield to runtime (cooperative multitasking)
-tokio::task::yield_now().await;
-
-// LocalSet — for !Send futures (single-threaded)
-let local = task::LocalSet::new();
-local.run_until(async {
-    task::spawn_local(async { /* !Send future */ }).await.unwrap();
-}).await;
-```
-
-### 5. tokio-console — async task inspector
-
-```toml
-# Cargo.toml
-[dependencies]
-console-subscriber = "0.3"
-tokio = { version = "1", features = ["full", "tracing"] }
-```
-
-```rust
-// main.rs
-fn main() {
-    console_subscriber::init();  // must be called before tokio runtime
-    tokio::runtime::Builder::new_multi_thread()
-        .enable_all()
-        .build()
-        .unwrap()
-        .block_on(async_main());
+tokio::select! {
+    _ = tun.readable() => {},
+    _ = tokio::time::sleep(smol_delay) => {},
+    udp_event = udp_rx.recv() => { handle_udp_event(...) }
+    dns_result = async { ... }, if dns_resp_rx.is_some() => { ... }
+    _ = cancel.cancelled() => { break; }
 }
 ```
 
-```bash
-# Install tokio-console CLI
-cargo install --locked tokio-console
+This is NOT a typical "spawn per connection" design. One task owns the entire
+smoltcp stack. Individual TCP/UDP sessions ARE spawned as separate tokio tasks
+that communicate back via `mpsc` channels and `tokio::io::duplex` pairs.
 
-# Run your app with tracing enabled
-RUSTFLAGS="--cfg tokio_unstable" cargo run
-
-# In another terminal, connect tokio-console
-tokio-console
-
-# tokio-console shows:
-# - Running tasks with their names, poll times, and wakeup counts
-# - Slow tasks (high poll duration = blocking in async!)
-# - Tasks that have been pending for a long time (stuck?)
-# - Resource contention (mutex/semaphore wait times)
-```
-
-### 6. Blocking in async — common mistake
+## Blocking in async -- common mistakes
 
 ```rust
-// WRONG: blocking call in async context blocks entire thread
+// WRONG: blocks a runtime thread, starves other tasks
 async fn bad() {
-    std::thread::sleep(Duration::from_secs(1));  // blocks runtime thread!
-    std::fs::read_to_string("file.txt").unwrap(); // blocking I/O blocks runtime!
+    std::thread::sleep(Duration::from_secs(1));
+    std::fs::read_to_string("file.txt").unwrap();
 }
 
-// CORRECT: use async equivalents
+// CORRECT: async equivalents
 async fn good() {
-    tokio::time::sleep(Duration::from_secs(1)).await;   // async sleep
-    tokio::fs::read_to_string("file.txt").await.unwrap(); // async I/O
+    tokio::time::sleep(Duration::from_secs(1)).await;
+    tokio::fs::read_to_string("file.txt").await.unwrap();
 }
 
-// CORRECT: if you must block, use spawn_blocking
+// CORRECT: offload unavoidable blocking work
 async fn with_blocking() {
-    let content = tokio::task::spawn_blocking(|| {
-        heavy_cpu_computation()   // runs on blocking thread pool
-    }).await.unwrap();
+    tokio::task::spawn_blocking(|| heavy_cpu_work()).await.unwrap();
 }
 ```
 
-### 7. select! and join! pitfalls
+In RIPDPI specifically: the WS tunnel (`ripdpi-ws-tunnel`) uses synchronous
+`std::net::TcpStream` + tungstenite deliberately -- it runs on a dedicated
+thread, not inside the tokio runtime. This is intentional, not a bug.
+
+## select! and join! pitfalls
 
 ```rust
-use tokio::select;
-
-// select! — complete when FIRST branch completes, cancels others
-select! {
-    result = fetch_a() => println!("A: {:?}", result),
-    result = fetch_b() => println!("B: {:?}", result),
-    // Pitfall: the LOSING branches are DROPPED immediately
-    // If fetch_a wins, fetch_b's future is dropped (and its state machine cleaned up)
-    // This is correct and safe — but can be surprising
+// select! completes when FIRST branch finishes; LOSING branches are DROPPED.
+// Their futures are cancelled -- any in-progress work is lost.
+tokio::select! {
+    result = fetch_a() => { /* fetch_b() dropped */ }
+    result = fetch_b() => { /* fetch_a() dropped */ }
 }
 
-// join! — wait for ALL to complete
+// Biased select: always checks branches in order. Use for priority shutdown.
+loop {
+    tokio::select! {
+        biased;
+        _ = cancel.cancelled() => break,  // always checked first
+        msg = rx.recv() => process(msg),
+    }
+}
+
+// join! waits for ALL to complete -- no cancellation surprise.
 let (a, b) = tokio::join!(fetch_a(), fetch_b());
-
-// Biased select (always check first branch first)
-loop {
-    select! {
-        biased;                        // prevents fairness, checks in order
-        _ = shutdown_signal.recv() => break,
-        msg = queue.recv() => process(msg),
-    }
-}
-
-// select! with values from loop (use fuse)
-let mut fut = some_future().fuse();   // FusedFuture: safe to poll after completion
-loop {
-    select! {
-        val = &mut fut => { /* ... */ break; }
-        _ = interval.tick() => { /* periodic work */ }
-    }
-}
 ```
+
+### CancellationToken pattern (used throughout RIPDPI)
+
+```rust
+// Parent creates token, passes child tokens to spawned work
+let cancel = CancellationToken::new();
+let child_cancel = cancel.child_token();
+
+tokio::spawn(async move {
+    tokio::select! {
+        _ = child_cancel.cancelled() => { /* clean shutdown */ }
+        _ = do_work() => {}
+    }
+});
+
+// Later: cancel.cancel() propagates to all child tokens
+```
+
+RIPDPI uses `tokio_util::sync::CancellationToken` (not `tokio::sync::Notify`)
+for structured shutdown. The tunnel session state machine transitions through
+`Ready -> Starting -> Running -> Destroyed`, with the token stored in the
+`Starting` and `Running` variants.
+
+## Debugging async issues
+
+- **Task starvation**: Look for blocking calls in async context. The io_loop
+  is especially sensitive -- a single blocked poll starves all TCP sessions.
+- **Deadlock at shutdown**: Check that `cancel.cancelled()` is in every
+  `select!` loop. Missing it causes tasks that never terminate.
+- **fd leaks**: Verify `OwnedFd` cleanup on all error paths in JNI lifecycle
+  functions. The dup'd fd must be closed even if `start_session` fails.
+
+Note: `tokio-console` is not practical for this project -- it requires the
+`tokio_unstable` cfg flag and `console-subscriber`, which add overhead and
+complexity to Android NDK cross-compilation. Use `tracing` spans and
+`RUST_LOG` filtering instead.
 
 ## Related skills
 
-- Use `skills/rust/rust-debugging` for GDB/LLDB debugging of async Rust programs
-- Use `skills/rust/rust-profiling` for cargo-flamegraph with async stack frames
-- Use `skills/low-level-programming/cpp-coroutines` for C++20 coroutine comparison
-- Use `skills/low-level-programming/memory-model` for memory ordering in async contexts
+- `.claude/skills/rust-debugging/` -- GDB/LLDB debugging of async Rust
+- `.claude/skills/rust-profiling/` -- cargo-flamegraph with async stack frames
+- `.claude/skills/memory-model/` -- memory ordering in async contexts

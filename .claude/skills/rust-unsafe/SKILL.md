@@ -3,246 +3,202 @@ name: rust-unsafe
 description: Rust unsafe code skill for systems programming. Use when writing or reviewing unsafe Rust, understanding what operations require unsafe, implementing safe abstractions over unsafe code, auditing unsafe blocks, or understanding raw pointers, transmute, and extern. Activates on queries about unsafe Rust, raw pointers, transmute, unsafe blocks, writing safe wrappers, UnsafeCell, unsafe trait impl, or auditing unsafe code.
 ---
 
-# Rust unsafe
+# Rust unsafe -- RIPDPI
 
 ## Purpose
 
-Guide agents through writing, reviewing, and reasoning about unsafe Rust: what operations require `unsafe`, how to write safe abstractions, audit patterns, common pitfalls, and when to reach for `unsafe`.
+Guide agents through writing, reviewing, and auditing unsafe Rust in RIPDPI's 23 native crates. The dominant unsafe patterns are JNI FFI, Linux ioctl/tun device operations, and signal handling.
 
-## Triggers
+## Governance: `#![forbid(unsafe_code)]`
 
-- "When do I need to use unsafe in Rust?"
-- "How do I write a safe abstraction over unsafe code?"
-- "How do I audit an unsafe block?"
-- "What are the rules for raw pointers in Rust?"
-- "What does transmute do and when is it safe?"
-- "How do I implement UnsafeCell correctly?"
+Pure-logic crates MUST carry `#![forbid(unsafe_code)]` at the crate root. Currently enforced in: `ripdpi-failure-classifier`, `ripdpi-ipfrag`, `ripdpi-desync`, `ripdpi-session`, `ripdpi-config`, `ripdpi-packets`. When creating a new crate that has no FFI or OS-level calls, add the attribute. When reviewing, verify it has not been removed without justification.
 
-## Workflow
-
-### 1. The five unsafe superpowers
-
-`unsafe` grants exactly five capabilities not available in safe Rust:
+## The five unsafe superpowers
 
 1. **Dereference raw pointers** (`*const T`, `*mut T`)
-2. **Call unsafe functions** (including `extern "C"` functions)
+2. **Call unsafe functions** (including `extern "C"` / `extern "system"`)
 3. **Access or modify mutable static variables**
 4. **Implement unsafe traits** (`Send`, `Sync`)
 5. **Access fields of unions**
 
-Everything else in Rust — including memory allocation, borrowing, closures — follows safe rules even inside `unsafe` blocks.
+## JNI FFI patterns (ripdpi-android, ripdpi-tunnel-android)
 
-### 2. Raw pointers
+### Export and no_mangle
+
+Every JNI entry point uses `#[unsafe(no_mangle)]` (Rust 2024 syntax) and `extern "system"`:
 
 ```rust
-// Creating raw pointers (safe — no dereference yet)
-let x = 42u32;
-let ptr: *const u32 = &x;
-let mut_ptr: *mut u32 = &mut some_val as *mut u32;
-
-// Null pointer
-let null: *const u32 = std::ptr::null();
-let null_mut: *mut u32 = std::ptr::null_mut();
-
-// Dereference (unsafe)
-let val = unsafe { *ptr };
-
-// Null check
-if !ptr.is_null() {
-    let val = unsafe { *ptr };
+#[unsafe(no_mangle)]
+pub extern "system" fn Java_com_poyka_ripdpi_core_Tun2SocksNativeBindings_jniCreate(
+    env: EnvUnowned<'_>,
+    _thiz: JObject,
+    config_json: JString,
+) -> jlong {
+    tunnel_create_entry(env, config_json)
 }
-
-// Offset (safe to compute, unsafe to dereference)
-let arr = [1u32, 2, 3, 4, 5];
-let p = arr.as_ptr();
-let third = unsafe { *p.add(2) };   // arr[2]
-let also_third = unsafe { *p.offset(2) };
-
-// Slice from raw parts
-let slice: &[u32] = unsafe {
-    std::slice::from_raw_parts(p, arr.len())
-};
 ```
 
-Rules for sound raw pointer dereference:
-- Pointer must be non-null
-- Pointer must be aligned for `T`
-- Memory must be initialized for `T`
-- Must not violate aliasing rules (only one `&mut` to a location)
-- Memory must be valid for the lifetime of the reference
+### Panic safety at the FFI boundary
 
-### 3. unsafe functions and traits
+Unwinding across `extern "system"` is UB. All JNI entry points MUST catch panics. The project uses `EnvUnowned::with_env` + `Outcome`:
 
 ```rust
-// Declare unsafe function (callers must uphold invariants)
-/// # Safety
-/// `ptr` must be non-null and aligned to `T`, and point to initialized data.
-/// The caller must ensure no other mutable reference to the same location exists.
-unsafe fn read_ptr<T>(ptr: *const T) -> T {
-    ptr.read()  // ptr::read is unsafe
-}
-
-// Call unsafe function
-let val = unsafe { read_ptr(some_ptr) };
-
-// Unsafe trait — implementor must uphold safety invariants
-unsafe trait MyUnsafeTrait {
-    fn operation(&self);
-}
-
-// Implementing an unsafe trait is unsafe
-unsafe impl MyUnsafeTrait for MyType {
-    fn operation(&self) { /* must uphold the trait's invariants */ }
-}
-
-// Send and Sync
-// Send: type can be moved to another thread
-// Sync: type can be shared between threads (&T is Send)
-unsafe impl Send for MyType {}
-unsafe impl Sync for MyType {}
-```
-
-### 4. Safe abstractions over unsafe
-
-```rust
-// The golden rule: unsafe blocks should be small, isolated, and
-// wrapped in a safe API that maintains the invariant
-
-pub struct MyVec<T> {
-    ptr: *mut T,
-    len: usize,
-    cap: usize,
-}
-
-impl<T> MyVec<T> {
-    pub fn new() -> Self {
-        MyVec { ptr: std::ptr::NonNull::dangling().as_ptr(), len: 0, cap: 0 }
-    }
-
-    // Safe public API
-    pub fn get(&self, index: usize) -> Option<&T> {
-        if index < self.len {
-            // Safety: index < len guarantees ptr+index is in bounds and initialized
-            Some(unsafe { &*self.ptr.add(index) })
-        } else {
-            None
-        }
-    }
-
-    // # Safety comment documents the invariant
-    pub fn push(&mut self, val: T) {
-        if self.len == self.cap {
-            self.grow();
-        }
-        // Safety: len < cap after grow(), so ptr+len is in bounds
-        unsafe { self.ptr.add(self.len).write(val) };
-        self.len += 1;
-    }
-}
-
-// Implement Drop to clean up
-impl<T> Drop for MyVec<T> {
-    fn drop(&mut self) {
-        // Safety: ptr was allocated with this layout, and all elements are initialized
-        unsafe {
-            std::ptr::drop_in_place(std::slice::from_raw_parts_mut(self.ptr, self.len));
-            std::alloc::dealloc(self.ptr as *mut u8,
-                std::alloc::Layout::array::<T>(self.cap).unwrap());
-        }
+pub(crate) fn proxy_create_entry(mut env: EnvUnowned<'_>, config_json: JString) -> jlong {
+    match env.with_env(move |env| -> jni::errors::Result<jlong> {
+        Ok(create_session(env, config_json))
+    }).into_outcome() {
+        Outcome::Ok(handle) => handle,
+        Outcome::Err(err) => { /* throw Java exception, return 0 */ }
+        Outcome::Panic(payload) => { /* throw Java exception with panic message, return 0 */ }
     }
 }
 ```
 
-### 5. transmute
+**Rule:** Never write a bare `extern "system" fn` body without `with_env`/`catch_unwind` wrapping.
+
+### JString::from_raw and JLongArray::from_raw
+
+These take ownership of a raw JNI local reference. Safety invariants:
+- The raw pointer must be a valid JNI local ref in the current frame
+- Only call once per raw pointer (double-free otherwise)
+- The resulting object must not outlive the JNI local frame
 
 ```rust
-// transmute: reinterpret bits of one type as another
-// Both types must have the same size
-
-// Safe uses:
-let x: u32 = 0x3f800000;
-let f: f32 = unsafe { std::mem::transmute(x) };  // bits → float
-
-// Transmute slice pointer (sound if types have same size/align)
-let bytes: &[u8] = &[0x00, 0x00, 0x80, 0x3f];
-let floats: &[f32] = unsafe {
-    std::slice::from_raw_parts(bytes.as_ptr() as *const f32, 1)
-};
-
-// Prefer safe alternatives when available:
-let f = f32::from_bits(x);         // instead of transmute for float bits
-let n = u32::from_ne_bytes(bytes); // instead of transmute for byte arrays
+// Safety: `raw` is a valid jstring local ref returned by the JVM;
+// null-checked above; consumed exactly once.
+let string = unsafe { JString::from_raw(env, raw) };
 ```
 
-Common transmute pitfalls:
-- Wrong sizes (compile error, but check for generic types)
-- Creating invalid enum values
-- Creating references with wrong lifetimes
+### EnvUnowned::from_raw
 
-### 6. UnsafeCell — interior mutability
+Used in tests to convert a raw `JNIEnv` pointer. The resulting `EnvUnowned` must not outlive the `Env` it was derived from:
 
 ```rust
-use std::cell::UnsafeCell;
+// Safety: env pointer is valid for the lifetime of the Env borrow.
+unsafe { EnvUnowned::from_raw(env.get_raw()) }
+```
 
-// UnsafeCell is the only way to mutate through a shared reference
-struct MyCell<T> {
-    value: UnsafeCell<T>,
+### Raw fd across JNI
+
+When receiving a file descriptor from Java (e.g., TUN fd from VpnService), always dup before taking ownership:
+
+```rust
+// Safety: BorrowedFd does not take ownership; dup creates an independent fd.
+let owned_fd = unsafe { nix::unistd::dup(BorrowedFd::borrow_raw(tun_fd)) };
+```
+
+## Linux ioctl / tun-driver patterns (ripdpi-tun-driver)
+
+### mem::zeroed for C structs
+
+`libc::ifreq` is a plain C struct with no Rust-level invariants. All-zero bytes is a valid representation:
+
+```rust
+// Safety: ifreq is a plain C struct; all-zero bytes is valid.
+let mut ifr: libc::ifreq = unsafe { mem::zeroed() };
+ifr.ifr_name = self.make_ifr_name();
+```
+
+**Do not** use `mem::zeroed()` for types with Rust invariants (bool, enum, NonNull, references).
+
+### ioctl calls
+
+Each ioctl call needs a safety comment documenting: (1) fd validity, (2) struct field validity, (3) which ioctl number and what it does:
+
+```rust
+// Safety: sock is a valid AF_INET/SOCK_DGRAM fd; &ifr has ifr_name set and
+// ifru_mtu populated; SIOCSIFMTU (0x8922) sets the interface MTU.
+let res = unsafe { libc::ioctl(sock.as_raw_fd(), libc::SIOCSIFMTU, &ifr as *const _) };
+if res < 0 {
+    return Err(TunnelError::Ioctl(format!("SIOCSIFMTU: {}", std::io::Error::last_os_error())));
 }
+```
 
-impl<T: Copy> MyCell<T> {
-    fn new(val: T) -> Self {
-        MyCell { value: UnsafeCell::new(val) }
-    }
+### Union field access
 
-    fn get(&self) -> T {
-        // Safety: single-threaded, no concurrent mutation
-        unsafe { *self.value.get() }
-    }
+`ifreq.ifr_ifru` is a C union. Access is unsafe because Rust cannot guarantee which variant was last written. Always zero-initialize first, then write-before-read:
 
-    fn set(&self, val: T) {
-        // Safety: single-threaded, no outstanding references
-        unsafe { *self.value.get() = val }
+```rust
+unsafe {
+    ifr.ifr_ifru.ifru_flags = IFF_TUN | IFF_NO_PI;
+    if multi_queue {
+        ifr.ifr_ifru.ifru_flags |= IFF_MULTI_QUEUE;
     }
 }
 ```
 
-### 7. Unsafe audit checklist
+### sockaddr casts
+
+Casting `sockaddr` to `sockaddr_in` is valid because they are layout-compatible (both start with `sa_family_t`). Document this in the safety comment:
+
+```rust
+// Safety: sockaddr_in is layout-compatible with sockaddr; we set sin_family
+// and sin_addr which are the fields the kernel reads for SIOCSIFADDR.
+unsafe {
+    let sin = &mut ifr.ifr_ifru.ifru_addr as *mut _ as *mut libc::sockaddr_in;
+    (*sin).sin_family = libc::AF_INET as libc::sa_family_t;
+    (*sin).sin_addr.s_addr = libc::htonl(u32::from(addr));
+}
+```
+
+## Signal handling (android-support)
+
+```rust
+// Safety: Ignoring SIGPIPE is async-signal-safe. The previous handler is
+// discarded; we don't need to restore it.
+let _ = unsafe { signal(Signal::SIGPIPE, SigHandler::SigIgn) };
+```
+
+Call `ignore_sigpipe()` exactly once from `JNI_OnLoad`. On Android, ART does not ignore SIGPIPE for native code; writing to a closed socket delivers SIGPIPE and terminates the process.
+
+## Transmute safety table
+
+| From | To | Safe? | Preferred alternative |
+|------|-----|-------|----------------------|
+| `u32` | `f32` | Yes | `f32::from_bits(u)` |
+| `[u8; 4]` | `u32` | Yes | `u32::from_ne_bytes(arr)` |
+| `&T` | `*const T` | Yes | `ptr as *const T` |
+| `Box<T>` | `*mut T` | Yes | `Box::into_raw(b)` |
+| `&'a T` | `&'b T` (longer lifetime) | **No** | Restructure lifetimes |
+| `u8` | `bool` | **No** unless 0/1 | Match on value |
+| `u8` | `MyEnum` | **No** unless valid tag | `MyEnum::try_from(u)` |
+| `Vec<T>` | `Vec<U>` | **No** | Manual conversion |
+
+## Audit checklist
 
 When reviewing an `unsafe` block:
 
-- [ ] Is there a `// Safety:` comment explaining the invariant?
-- [ ] Is the raw pointer non-null?
-- [ ] Is the raw pointer correctly aligned for the target type?
-- [ ] Is the memory initialized?
-- [ ] Is the lifetime of the reference valid?
-- [ ] Are aliasing rules respected (no simultaneous `&` and `&mut`)?
-- [ ] For `extern "C"`: are C invariants documented and verified?
+- [ ] Is there a `// Safety:` comment explaining which invariant is upheld?
+- [ ] For raw pointers: non-null, aligned, initialized, valid lifetime?
+- [ ] For `extern "system"` JNI: is the body wrapped in `with_env`/`catch_unwind`?
+- [ ] For JNI object construction (`from_raw`): is the raw ref valid and consumed exactly once?
+- [ ] For `mem::zeroed()`: is the type a plain C struct with no Rust invariants?
+- [ ] For ioctl: is fd valid, struct populated correctly, return value checked?
+- [ ] For union access: was the field written before being read?
 - [ ] For `Send`/`Sync` impl: is thread safety actually guaranteed?
 - [ ] Is the unsafe block as small as possible?
-- [ ] Is there a test under Miri for the unsafe code?
+- [ ] Can this be tested under Miri? (`MIRIFLAGS="-Zmiri-strict-provenance" cargo +nightly miri test`)
 
-### 8. When to use unsafe
+## When to use unsafe in RIPDPI
 
 ```
-Before reaching for unsafe, check:
-├── Does std have a safe API? (Vec, Box, Arc — usually yes)
-├── Does a crate handle it? (memmap2, nix, windows-sys)
-├── Can you restructure to avoid it?
-└── Is the performance gain measured and significant?
+Legitimate (already present):
+  - JNI FFI exports (#[unsafe(no_mangle)], extern "system")
+  - JNI object construction (JString::from_raw, EnvUnowned::from_raw)
+  - Linux TUN device (ioctl, mem::zeroed, union field access, raw fd)
+  - Signal handling (ignore_sigpipe)
 
-Legitimate uses:
-├── FFI to C libraries (extern "C")
-├── OS-level APIs (syscalls, mmap, ioctl)
-├── Performance-critical data structures (custom allocators, SoA)
-├── Hardware access (embedded, drivers)
-└── Implementing safe abstractions (the standard library itself)
+Should NOT need unsafe:
+  - Pure packet parsing / protocol logic -> use #![forbid(unsafe_code)]
+  - Configuration / session management -> use #![forbid(unsafe_code)]
+  - Anything a safe crate (nix, jni) already wraps
 ```
-
-For unsafe patterns and audit examples, see [references/unsafe-patterns.md](references/unsafe-patterns.md).
 
 ## Related skills
 
-- Use `skills/rust/rust-sanitizers-miri` — Miri is the essential tool for testing unsafe code
-- Use `skills/rust/rust-ffi` for unsafe patterns in FFI contexts
-- Use `skills/rust/rust-debugging` for debugging panics in unsafe code
-- Use `skills/low-level-programming/memory-model` for aliasing and memory ordering in unsafe
+- `rust-sanitizers-miri` -- Miri is the essential tool for testing unsafe code
+- `rust-ffi` -- FFI patterns, bindgen, cbindgen
+- `rust-debugging` -- debugging panics in unsafe code
+- `memory-model` -- aliasing and memory ordering in unsafe
+
+For detailed reference patterns, see [references/unsafe-patterns.md](references/unsafe-patterns.md).
