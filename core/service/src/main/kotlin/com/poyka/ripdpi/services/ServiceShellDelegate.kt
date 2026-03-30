@@ -1,13 +1,12 @@
 package com.poyka.ripdpi.services
 
+import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.data.START_ACTION
 import com.poyka.ripdpi.data.STOP_ACTION
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import logcat.LogPriority
-import logcat.logcat
 
 internal class ServiceShellDelegate(
     private val serviceScope: CoroutineScope,
@@ -34,7 +33,7 @@ internal class ServiceShellDelegate(
             }
 
             else -> {
-                logcat(LogPriority.WARN) { "Unknown action for $serviceLabel service: $action" }
+                Logger.w { "Unknown action for $serviceLabel service: $action" }
                 android.app.Service.START_STICKY
             }
         }

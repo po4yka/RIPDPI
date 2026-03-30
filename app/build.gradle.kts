@@ -93,7 +93,7 @@ dependencies {
     // Proto DataStore
     implementation(libs.androidx.datastore)
 
-    implementation(libs.logcat)
+    implementation(libs.kermit)
     implementation(libs.kotlinx.collections.immutable)
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.retrofit)

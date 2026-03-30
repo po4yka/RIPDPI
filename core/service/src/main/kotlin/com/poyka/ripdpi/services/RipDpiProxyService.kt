@@ -10,6 +10,7 @@ import android.os.Build
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.LifecycleService
 import androidx.lifecycle.lifecycleScope
+import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.core.service.R
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
 import com.poyka.ripdpi.data.ServiceStateStore
@@ -19,8 +20,6 @@ import com.poyka.ripdpi.utility.createConnectionNotification
 import com.poyka.ripdpi.utility.createDynamicConnectionNotification
 import com.poyka.ripdpi.utility.registerNotificationChannel
 import dagger.hilt.android.AndroidEntryPoint
-import logcat.LogPriority
-import logcat.logcat
 import javax.inject.Inject
 
 @AndroidEntryPoint
@@ -70,7 +69,7 @@ class RipDpiProxyService :
             ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) !=
             PackageManager.PERMISSION_GRANTED
         ) {
-            logcat(LogPriority.WARN) { "Sticky restart aborted: notification permission revoked" }
+            Logger.w { "Sticky restart aborted: notification permission revoked" }
             stopSelf(startId)
             return START_NOT_STICKY
         }
@@ -109,7 +108,7 @@ class RipDpiProxyService :
             getSystemService(NotificationManager::class.java)
                 ?.notify(FOREGROUND_SERVICE_ID, notification)
         } catch (e: SecurityException) {
-            logcat(LogPriority.WARN) { "Cannot update notification: permission revoked" }
+            Logger.w { "Cannot update notification: permission revoked" }
         }
     }
 

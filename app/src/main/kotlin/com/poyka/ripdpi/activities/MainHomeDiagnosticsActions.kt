@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.activities
 
+import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.Mode
@@ -28,9 +29,6 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
-import logcat.LogPriority
-import logcat.asLog
-import logcat.logcat
 
 private const val HomeVerificationProfileId = "default"
 
@@ -344,8 +342,8 @@ internal class MainHomeDiagnosticsActions(
                     ),
                 )
             }.onFailure { error ->
-                logcat(tag = "HomeDiagnostics", priority = LogPriority.ERROR) {
-                    "Failed to create home analysis archive\n${error.asLog()}"
+                Logger.withTag("HomeDiagnostics").e(error) {
+                    "Failed to create home analysis archive"
                 }
                 homeDiagnosticsState.update { it.copy(analysisSheetVisible = false) }
                 mutations.emit(

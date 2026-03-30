@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.services
 
+import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.data.FailureReason
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
@@ -17,9 +18,6 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
-import logcat.LogPriority
-import logcat.asLog
-import logcat.logcat
 
 internal interface ServiceCoordinatorHost {
     val serviceScope: CoroutineScope
@@ -84,7 +82,7 @@ internal abstract class BaseServiceRuntimeCoordinator<TSession>(
     protected abstract val serviceLabel: String
 
     suspend fun start() {
-        logcat(LogPriority.INFO) { "Starting $serviceLabel" }
+        Logger.i { "Starting $serviceLabel" }
 
         var matchedRememberedPolicy: com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyEntity? = null
         val session = createRuntimeSession()
@@ -92,7 +90,7 @@ internal abstract class BaseServiceRuntimeCoordinator<TSession>(
             runCatching {
                 mutex.withLock {
                     if (!lifecycleState.tryBeginStart()) {
-                        logcat(LogPriority.WARN) {
+                        Logger.w {
                             "Ignoring $serviceLabel start while lifecycle state is ${lifecycleState.state}"
                         }
                         return@withLock false
@@ -127,7 +125,7 @@ internal abstract class BaseServiceRuntimeCoordinator<TSession>(
 
         if (failure != null) {
             val error = failure as? Exception ?: IllegalStateException("Failed to start $serviceLabel", failure)
-            logcat(LogPriority.ERROR) { "Failed to start $serviceLabel\n${error.asLog()}" }
+            Logger.e(error) { "Failed to start $serviceLabel" }
             matchedRememberedPolicy?.let { policy ->
                 rememberedNetworkPolicyStore.recordFailure(policy)
             }
@@ -141,17 +139,17 @@ internal abstract class BaseServiceRuntimeCoordinator<TSession>(
         stopSelfStartId: Int? = null,
         skipRuntimeShutdown: Boolean = false,
     ) {
-        logcat(LogPriority.INFO) { "Stopping $serviceLabel" }
+        Logger.i { "Stopping $serviceLabel" }
 
         if (stopping) {
-            logcat(LogPriority.WARN) { "$serviceLabel stop already in progress" }
+            Logger.w { "$serviceLabel stop already in progress" }
             return
         }
 
         val stopped =
             mutex.withLock {
                 if (stopping) {
-                    logcat(LogPriority.WARN) { "$serviceLabel stop already in progress" }
+                    Logger.w { "$serviceLabel stop already in progress" }
                     return@withLock false
                 }
 
@@ -167,7 +165,7 @@ internal abstract class BaseServiceRuntimeCoordinator<TSession>(
                     stopModeRuntime(skipRuntimeShutdown)
                 }.onFailure { failure ->
                     val error = failure as? Exception ?: IllegalStateException("Failed to stop $serviceLabel", failure)
-                    logcat(LogPriority.ERROR) { "Failed to stop $serviceLabel\n${error.asLog()}" }
+                    Logger.e(error) { "Failed to stop $serviceLabel" }
                 }
                 try {
                     val session = runtimeSession
@@ -217,7 +215,7 @@ internal abstract class BaseServiceRuntimeCoordinator<TSession>(
         permissionWatchdogJob =
             host.serviceScope.launch(ioDispatcher) {
                 permissionWatchdog.changes.collect { event ->
-                    logcat(LogPriority.WARN) { "Permission change detected: ${event.kind}" }
+                    Logger.w { "Permission change detected: ${event.kind}" }
                     onPermissionRevoked(event)
                 }
             }
@@ -247,7 +245,7 @@ internal abstract class BaseServiceRuntimeCoordinator<TSession>(
             return
         }
         if (currentFingerprint.captivePortalDetected) {
-            logcat(LogPriority.INFO) {
+            Logger.i {
                 "$serviceLabel: captive portal detected, deferring handover until network is validated"
             }
             return
@@ -313,7 +311,7 @@ internal abstract class BaseServiceRuntimeCoordinator<TSession>(
                 val backoffMs =
                     (HandoverRetryBaseMs * (1L shl retryCount.coerceAtMost(4)))
                         .coerceAtMost(HandoverRetryMaxMs)
-                logcat(LogPriority.WARN) {
+                Logger.w {
                     "$serviceLabel handover failed (attempt ${retryCount + 1}/$MaxHandoverRetries), " +
                         "retrying in ${backoffMs}ms"
                 }
@@ -329,8 +327,8 @@ internal abstract class BaseServiceRuntimeCoordinator<TSession>(
                         "Failed to restart $serviceLabel after handover",
                         failure,
                     )
-                logcat(LogPriority.ERROR) {
-                    "Failed to restart $serviceLabel after handover (exhausted retries)\n${error.asLog()}"
+                Logger.e(error) {
+                    "Failed to restart $serviceLabel after handover (exhausted retries)"
                 }
                 val reason = classifyHandoverFailure(error)
                 updateStatus(ServiceStatus.Failed, reason)

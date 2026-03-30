@@ -1,12 +1,10 @@
 package com.poyka.ripdpi
 
+import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.data.ApplicationScope
 import com.poyka.ripdpi.diagnostics.DiagnosticsBootstrapper
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
-import logcat.LogPriority
-import logcat.asLog
-import logcat.logcat
 import javax.inject.Inject
 import javax.inject.Provider
 import javax.inject.Singleton
@@ -25,7 +23,7 @@ class AppStartupInitializer
                     appCompatibilityReset.resetIfNeeded()
                     diagnosticsBootstrapperProvider.get().initialize()
                 }.onFailure { error ->
-                    logcat(LogPriority.WARN) { "Diagnostics bootstrap skipped\n${error.asLog()}" }
+                    Logger.w(error) { "Diagnostics bootstrap skipped" }
                 }
             }
         }

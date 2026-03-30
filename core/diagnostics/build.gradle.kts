@@ -22,7 +22,7 @@ dependencies {
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.kotlinx.coroutines.core)
     implementation(libs.kotlinx.serialization.json)
-    implementation(libs.logcat)
+    implementation(libs.kermit)
 
     testImplementation(libs.bundles.unit.test)
 }

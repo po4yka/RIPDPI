@@ -9,6 +9,7 @@ import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.FileProvider
 import androidx.lifecycle.lifecycleScope
+import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.BuildConfig
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.automation.AutomationController
@@ -24,9 +25,6 @@ import dagger.hilt.android.scopes.ActivityScoped
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import logcat.LogPriority
-import logcat.asLog
-import logcat.logcat
 import java.io.File
 import java.io.IOException
 import java.io.OutputStream
@@ -230,17 +228,17 @@ internal class DefaultMainActivityHost
 
                 val destination =
                     uri ?: run {
-                        logcat(LogPriority.ERROR) { "No data in result" }
+                        Logger.e { "No data in result" }
                         return@launch
                     }
                 activity.contentResolver.openOutputStream(destination)?.use { stream ->
                     try {
                         stream.write(logcatSnapshot.content.toByteArray())
                     } catch (error: IOException) {
-                        logcat(LogPriority.ERROR) { "Failed to save logs\n${error.asLog()}" }
+                        Logger.e(error) { "Failed to save logs" }
                     }
                 } ?: run {
-                    logcat(LogPriority.ERROR) { "Failed to open output stream" }
+                    Logger.e { "Failed to open output stream" }
                 }
             }
         }
@@ -261,7 +259,7 @@ internal class DefaultMainActivityHost
                 }.onSuccess {
                     pendingDiagnosticsArchive = null
                 }.onFailure { error ->
-                    logcat(LogPriority.ERROR) { "Failed to save diagnostics archive\n${error.asLog()}" }
+                    Logger.e(error) { "Failed to save diagnostics archive" }
                     Toast.makeText(activity, R.string.diagnostics_archive_save_failed, Toast.LENGTH_SHORT).show()
                 }
             }
@@ -282,7 +280,7 @@ internal class DefaultMainActivityHost
                 }.onSuccess { archive ->
                     shareDiagnosticsArchive(archive.absolutePath, archive.fileName)
                 }.onFailure { error ->
-                    logcat(LogPriority.ERROR) { "Failed to prepare support bundle\n${error.asLog()}" }
+                    Logger.e(error) { "Failed to prepare support bundle" }
                     Toast.makeText(activity, R.string.debug_bundle_failed, Toast.LENGTH_SHORT).show()
                 }
             }
@@ -311,7 +309,7 @@ internal class DefaultMainActivityHost
                     ),
                 )
             }.onFailure { error ->
-                logcat(LogPriority.ERROR) { "Failed to share diagnostics archive\n${error.asLog()}" }
+                Logger.e(error) { "Failed to share diagnostics archive" }
                 Toast.makeText(activity, R.string.home_diagnostics_share_failed, Toast.LENGTH_SHORT).show()
             }
         }

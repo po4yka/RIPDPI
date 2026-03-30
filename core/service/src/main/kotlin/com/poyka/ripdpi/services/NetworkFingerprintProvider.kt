@@ -11,6 +11,7 @@ import android.net.wifi.WifiManager
 import android.os.Build
 import android.telephony.TelephonyManager
 import androidx.core.content.ContextCompat
+import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.data.CellularNetworkIdentityTuple
 import com.poyka.ripdpi.data.NetworkFingerprint
 import com.poyka.ripdpi.data.NetworkFingerprintProvider
@@ -20,9 +21,6 @@ import dagger.Module
 import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
-import logcat.LogPriority
-import logcat.asLog
-import logcat.logcat
 import java.net.InetAddress
 import java.util.Locale
 import javax.inject.Inject
@@ -336,9 +334,7 @@ internal class AndroidNetworkFingerprintProvider
             try {
                 snapshotSource.capture()?.let(mapper::map)
             } catch (error: Exception) {
-                logcat(LogPriority.WARN) {
-                    "Unable to capture network fingerprint\n${error.asLog()}"
-                }
+                Logger.w(error) { "Unable to capture network fingerprint" }
                 null
             }
     }
