@@ -27,6 +27,7 @@ import logcat.asLog
 import logcat.logcat
 import java.io.File
 import java.io.IOException
+import java.io.OutputStream
 import java.util.Optional
 import javax.inject.Inject
 
@@ -244,12 +245,22 @@ internal class DefaultMainActivityHost
 
         private fun handleDiagnosticsArchiveResult(uri: Uri?) {
             val archive = pendingDiagnosticsArchive ?: return
-            pendingDiagnosticsArchive = null
-            activity.lifecycleScope.launch(Dispatchers.IO) {
-                val destination = uri ?: return@launch
-                val source = File(archive.filePath)
-                activity.contentResolver.openOutputStream(destination)?.use { stream ->
-                    source.inputStream().use { input -> input.copyTo(stream) }
+            if (uri == null) {
+                pendingDiagnosticsArchive = null
+                return
+            }
+            activity.lifecycleScope.launch {
+                runCatching {
+                    withContext(Dispatchers.IO) {
+                        copyDiagnosticsArchive(source = File(archive.filePath)) {
+                            activity.contentResolver.openOutputStream(uri)
+                        }
+                    }
+                }.onSuccess {
+                    pendingDiagnosticsArchive = null
+                }.onFailure { error ->
+                    logcat(LogPriority.ERROR) { "Failed to save diagnostics archive\n${error.asLog()}" }
+                    Toast.makeText(activity, R.string.diagnostics_archive_save_failed, Toast.LENGTH_SHORT).show()
                 }
             }
         }
@@ -297,6 +308,17 @@ internal class DefaultMainActivityHost
             val fileName: String,
         )
     }
+
+internal fun copyDiagnosticsArchive(
+    source: File,
+    openDestinationStream: () -> OutputStream?,
+) {
+    source.inputStream().use { input ->
+        openDestinationStream()?.use { stream ->
+            input.copyTo(stream)
+        } ?: throw IOException("Failed to open diagnostics archive destination")
+    }
+}
 
 @Module
 @InstallIn(ActivityComponent::class)

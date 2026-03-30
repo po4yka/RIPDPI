@@ -20,8 +20,15 @@ class DiagnosticsArchiveSessionSelector
             sessions: List<ScanSessionEntity>,
         ): ScanSessionEntity? =
             when {
-                requestedSessionId != null -> requestedSession
-                else -> sessions.firstOrNull { it.reportJson != null } ?: sessions.firstOrNull()
+                requestedSessionId != null -> {
+                    requireNotNull(requestedSession) {
+                        "Requested diagnostics session '$requestedSessionId' is no longer available"
+                    }
+                }
+
+                else -> {
+                    sessions.firstOrNull { it.reportJson != null } ?: sessions.firstOrNull()
+                }
             }
 
         @Suppress("LongMethod")
