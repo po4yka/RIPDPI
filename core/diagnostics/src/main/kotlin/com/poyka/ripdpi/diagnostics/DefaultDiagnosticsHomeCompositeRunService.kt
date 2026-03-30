@@ -189,9 +189,9 @@ class DefaultDiagnosticsHomeCompositeRunService
                     auditOutcome = diagnosticsHomeWorkflowService.finalizeHomeAudit(stageSessionId)
                     updateStage(runId, index) { current ->
                         current.copy(
-                            headline = auditOutcome?.headline ?: current.headline,
-                            summary = auditOutcome?.summary ?: current.summary,
-                            recommendationContributor = auditOutcome?.actionable == true,
+                            headline = auditOutcome.headline,
+                            summary = auditOutcome.summary,
+                            recommendationContributor = auditOutcome.actionable,
                         )
                     }
                 }
