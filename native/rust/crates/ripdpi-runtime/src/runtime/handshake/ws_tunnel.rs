@@ -282,13 +282,17 @@ mod tests {
         let non_telegram_target = SocketAddr::from((Ipv4Addr::new(203, 0, 113, 10), 443));
 
         let mut always = runtime_state();
-        Arc::make_mut(&mut always.config).adaptive.ws_tunnel_mode = ripdpi_config::WsTunnelMode::Always;
+        let mut cfg = (*always.config).clone();
+        cfg.adaptive.ws_tunnel_mode = ripdpi_config::WsTunnelMode::Always;
+        always.config = Arc::new(cfg);
         assert_eq!(should_ws_tunnel_first(target, &always), Some(TelegramDc::production(2)));
         assert_eq!(should_ws_tunnel_first(non_telegram_target, &always), None);
         assert_eq!(should_ws_tunnel_fallback(target, &always), None);
 
         let mut fallback = runtime_state();
-        Arc::make_mut(&mut fallback.config).adaptive.ws_tunnel_mode = ripdpi_config::WsTunnelMode::Fallback;
+        let mut cfg = (*fallback.config).clone();
+        cfg.adaptive.ws_tunnel_mode = ripdpi_config::WsTunnelMode::Fallback;
+        fallback.config = Arc::new(cfg);
         assert_eq!(should_ws_tunnel_fallback(target, &fallback), Some(TelegramDc::production(2)));
         assert_eq!(should_ws_tunnel_fallback(non_telegram_target, &fallback), None);
         assert_eq!(should_ws_tunnel_first(target, &fallback), None);
@@ -339,7 +343,9 @@ mod tests {
     fn run_ws_tunnel_with_seed_validates_and_relays_test_dc() {
         let (_app, relay_client) = connected_pair();
         let mut state = runtime_state();
-        Arc::make_mut(&mut state.config).timeouts.connect_timeout_ms = 1_500;
+        let mut cfg = (*state.config).clone();
+        cfg.timeouts.connect_timeout_ms = 1_500;
+        state.config = Arc::new(cfg);
         let seed_request = build_test_init_packet(10_002);
         let resolved_addr = SocketAddr::from((Ipv4Addr::LOCALHOST, 443));
 
