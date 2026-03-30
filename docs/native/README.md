@@ -93,12 +93,19 @@ Service startup and live restarts now resolve connection policy through one Kotl
 
 The in-repo Rust stack currently exposes:
 
-- semantic marker offsets such as `host`, `endhost`, `midsld`, `method`, `extlen`, and `sniext`
+- 13 TCP chain step kinds: `split`, `seqovl`, `disorder`, `multidisorder`, `fake`, `fakesplit`, `fakedisorder`, `hostfake`, `oob`, `disoob`, `tlsrec`, `tlsrandrec`, `ipfrag2`
+- semantic marker offsets: `host`, `endhost`, `midsld`, `endsld`, `method`, `extlen`, `sniext`, `echext` (ECH extension, 0xFE0D), `payloadend`, `payloadmid`, `payloadrand`, `hostrand`
 - adaptive `auto(...)` split markers backed by `TCP_INFO` hints (`snd_mss`, `advmss`, `pmtu`)
 - ordered TCP and UDP strategy chains with per-step activation filters
-- manual-chain `multidisorder` runs where contiguous terminal TCP steps define multiple split markers and send the resulting segments in reverse order on Linux/Android
+- `seqovl` -- TCP sequence overlap with fake prefix via TCP_REPAIR and raw socket injection (configurable `overlap_size` 1-32 and `fake_mode`)
+- `multidisorder` with configurable `inter_segment_delay_ms` (0-100ms) to prevent router burst-reordering
+- `ipfrag2` -- IP-level packet fragmentation (DF cleared, MF set, 8-byte aligned) for both TCP and UDP/QUIC, with IPv4 and IPv6 Fragment Extension Header support
+- `echext` marker for ECH fragmentation -- graceful no-op when ECH extension absent
+- `md5sig` -- TCP MD5 Signature option (Kind=19) injection in both socket-level fake sends and per-packet raw packet construction
+- MTProto WebSocket tunnel (`ripdpi-ws-tunnel`) for Telegram traffic through official `kws{dc}.web.telegram.org` gateways with Always/Fallback modes, obfuscated2 validation, and DC normalization
 - richer fake TLS mutation controls and built-in fake payload profile libraries for HTTP, TLS, UDP, and QUIC Initial traffic
 - host-oriented fake steps such as `hostfake` plus partial `fakedsplit` / `fakeddisorder` approximations on Linux/Android
+- automatic block signal detection (8 signal types: HttpBlockpage, HttpRedirect, TlsAlert, SilentDrop, TcpReset, ConnectionFreeze, QuicBreakage, TcpRetransmissions) with 2-confirmation state machine and per-network persistence
 - host autolearn segmented per network scope, remembered policy replay, and automatic diagnostics probing/audit with rotating cohorts, confidence scoring, and manual recommendations
 - separate TCP, QUIC, and DNS strategy-family labels used by diagnostics, telemetry, and remembered-policy ranking
 - adaptive tuning beyond fake TTL, including split placement, TLS record sizing, UDP burst behavior, and QUIC fake-profile selection
@@ -155,6 +162,13 @@ Structured telemetry, diagnostics-event payloads, and strategy-probe progress/re
 - `native/rust/crates/ripdpi-dns-resolver`
 - `native/rust/crates/ripdpi-proxy-config`
 - `native/rust/crates/ripdpi-runtime`
+- `native/rust/crates/ripdpi-ws-tunnel` -- MTProto WebSocket tunnel for Telegram traffic through official web gateways
+- `native/rust/crates/ripdpi-ipfrag` -- IP-level packet fragmentation for DPI bypass (TCP and UDP/QUIC)
+- `native/rust/crates/ripdpi-desync` -- DPI evasion packet crafting and strategy planning
+- `native/rust/crates/ripdpi-failure-classifier` -- connection failure classification and block signal detection
+- `native/rust/crates/ripdpi-session` -- session state machine and policy store
+- `native/rust/crates/ripdpi-packets` -- packet parsing utilities (TLS, HTTP, QUIC markers)
+- `native/rust/crates/ripdpi-tun-driver` -- raw TUN socket handling
 - `native/rust/crates/android-support`
 
 ## Native Test Support Crates
