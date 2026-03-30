@@ -5,7 +5,11 @@ import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.diagnostics.DiagnosticsArchiveReason
 import com.poyka.ripdpi.diagnostics.DiagnosticsArchiveRequest
-import com.poyka.ripdpi.diagnostics.DiagnosticsHomeAuditOutcome
+import com.poyka.ripdpi.diagnostics.DiagnosticsHomeCompositeOutcome
+import com.poyka.ripdpi.diagnostics.DiagnosticsHomeCompositeProgress
+import com.poyka.ripdpi.diagnostics.DiagnosticsHomeCompositeRunService
+import com.poyka.ripdpi.diagnostics.DiagnosticsHomeCompositeRunStatus
+import com.poyka.ripdpi.diagnostics.DiagnosticsHomeCompositeStageStatus
 import com.poyka.ripdpi.diagnostics.DiagnosticsHomeVerificationOutcome
 import com.poyka.ripdpi.diagnostics.DiagnosticsHomeWorkflowService
 import com.poyka.ripdpi.diagnostics.DiagnosticsManualScanStartResult
@@ -19,18 +23,19 @@ import com.poyka.ripdpi.permissions.PermissionStatus
 import com.poyka.ripdpi.permissions.PermissionSummaryUiState
 import com.poyka.ripdpi.platform.StringResolver
 import com.poyka.ripdpi.proto.AppSettings
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 
-private const val HomeAutomaticAuditProfileId = "automatic-audit"
 private const val HomeVerificationProfileId = "default"
 
 internal data class HomeDiagnosticsRuntimeState(
-    val activeAuditSessionId: String? = null,
-    val activeAuditProgress: String? = null,
-    val latestAuditOutcome: DiagnosticsHomeAuditOutcome? = null,
+    val activeRunId: String? = null,
+    val activeRunProgress: DiagnosticsHomeCompositeProgress? = null,
+    val activeRunStageProgress: String? = null,
+    val latestCompositeOutcome: DiagnosticsHomeCompositeOutcome? = null,
     val analysisSheetVisible: Boolean = false,
     val activeVerificationSessionId: String? = null,
     val waitingForVerifiedVpnStart: Boolean = false,
@@ -47,6 +52,7 @@ internal class MainHomeDiagnosticsActions(
     private val diagnosticsScanController: DiagnosticsScanController,
     private val diagnosticsShareService: DiagnosticsShareService,
     private val diagnosticsHomeWorkflowService: DiagnosticsHomeWorkflowService,
+    private val diagnosticsHomeCompositeRunService: DiagnosticsHomeCompositeRunService,
     private val serviceStateStore: com.poyka.ripdpi.data.ServiceStateStore,
     private val runtimeState: MutableStateFlow<ConnectionRuntimeState>,
     private val permissionState: MutableStateFlow<PermissionRuntimeState>,
@@ -54,6 +60,8 @@ internal class MainHomeDiagnosticsActions(
     private val stringResolver: StringResolver,
     private val requestVpnStart: () -> Unit,
 ) {
+    private var activeRunObservation: Job? = null
+
     fun initialize() {
         mutations.launch {
             refreshFingerprint()
@@ -64,11 +72,11 @@ internal class MainHomeDiagnosticsActions(
                 val progressMessage = progress?.message
                 homeDiagnosticsState.update { current ->
                     current.copy(
-                        activeAuditProgress =
-                            if (progressSessionId == current.activeAuditSessionId) {
+                        activeRunStageProgress =
+                            if (progressSessionId == current.activeRunProgress?.activeSessionId) {
                                 progressMessage
                             } else {
-                                current.activeAuditProgress
+                                current.activeRunStageProgress
                             },
                         verificationProgress =
                             when {
@@ -86,12 +94,12 @@ internal class MainHomeDiagnosticsActions(
                             },
                         externalScanActive =
                             progress != null &&
-                                progressSessionId != current.activeAuditSessionId &&
+                                progressSessionId != current.activeRunProgress?.activeSessionId &&
                                 progressSessionId != current.activeVerificationSessionId,
                         externalScanMessage =
                             if (
                                 progress != null &&
-                                progressSessionId != current.activeAuditSessionId &&
+                                progressSessionId != current.activeRunProgress?.activeSessionId &&
                                 progressSessionId != current.activeVerificationSessionId
                             ) {
                                 progressMessage
@@ -103,11 +111,11 @@ internal class MainHomeDiagnosticsActions(
                 if (progress == null) {
                     homeDiagnosticsState.update { current ->
                         current.copy(
-                            activeAuditProgress =
-                                if (current.activeAuditSessionId == null) {
+                            activeRunStageProgress =
+                                if (current.activeRunId == null) {
                                     null
                                 } else {
-                                    current.activeAuditProgress
+                                    current.activeRunStageProgress
                                 },
                             verificationProgress =
                                 if (current.activeVerificationSessionId == null &&
@@ -124,33 +132,7 @@ internal class MainHomeDiagnosticsActions(
         }
         mutations.launch {
             diagnosticsTimelineSource.sessions.collect { sessions ->
-                val current = homeDiagnosticsState.value
-                current.activeAuditSessionId?.let { sessionId ->
-                    val session = sessions.firstOrNull { it.id == sessionId && it.status != "running" }
-                    if (session != null) {
-                        val outcome =
-                            runCatching { diagnosticsHomeWorkflowService.finalizeHomeAudit(sessionId) }
-                                .getOrElse {
-                                    DiagnosticsHomeAuditOutcome(
-                                        sessionId = sessionId,
-                                        actionable = false,
-                                        fingerprintHash = current.currentFingerprintHash,
-                                        headline = "Analysis finished without a reusable result",
-                                        summary = session.summary,
-                                    )
-                                }
-                        homeDiagnosticsState.update {
-                            it.copy(
-                                activeAuditSessionId = null,
-                                activeAuditProgress = null,
-                                latestAuditOutcome = outcome,
-                                analysisSheetVisible = true,
-                            )
-                        }
-                        refreshFingerprint(outcome.fingerprintHash)
-                    }
-                }
-                current.activeVerificationSessionId?.let { sessionId ->
+                homeDiagnosticsState.value.activeVerificationSessionId?.let { sessionId ->
                     val session = sessions.firstOrNull { it.id == sessionId && it.status != "running" }
                     if (session != null) {
                         val outcome =
@@ -249,9 +231,13 @@ internal class MainHomeDiagnosticsActions(
 
     fun runFullAnalysis() {
         mutations.launch {
+            activeRunObservation?.cancel()
             homeDiagnosticsState.update {
                 it.copy(
-                    latestAuditOutcome = null,
+                    activeRunId = null,
+                    activeRunProgress = null,
+                    activeRunStageProgress = null,
+                    latestCompositeOutcome = null,
                     analysisSheetVisible = false,
                     verificationSheet = null,
                     activeVerificationSessionId = null,
@@ -260,34 +246,40 @@ internal class MainHomeDiagnosticsActions(
                 )
             }
             runCatching {
-                diagnosticsScanController.startScan(
-                    pathMode = ScanPathMode.RAW_PATH,
-                    selectedProfileId = HomeAutomaticAuditProfileId,
-                )
-            }.onSuccess { result ->
-                when (result) {
-                    is DiagnosticsManualScanStartResult.Started -> {
-                        homeDiagnosticsState.update {
-                            it.copy(
-                                activeAuditSessionId = result.sessionId,
-                                activeAuditProgress =
-                                    stringResolver.getString(
-                                        R.string.home_diagnostics_analysis_running,
-                                    ),
-                                latestAuditOutcome = null,
-                                analysisSheetVisible = false,
-                            )
+                diagnosticsHomeCompositeRunService.startHomeAnalysis()
+            }.onSuccess { started ->
+                homeDiagnosticsState.update {
+                    it.copy(
+                        activeRunId = started.runId,
+                        activeRunStageProgress = stringResolver.getString(R.string.home_diagnostics_analysis_running),
+                    )
+                }
+                activeRunObservation =
+                    mutations.launch {
+                        diagnosticsHomeCompositeRunService.observeHomeRun(started.runId).collect { progress ->
+                            homeDiagnosticsState.update { current ->
+                                current.copy(
+                                    activeRunId =
+                                        if (progress.status == DiagnosticsHomeCompositeRunStatus.RUNNING) {
+                                            progress.runId
+                                        } else {
+                                            null
+                                        },
+                                    activeRunProgress = progress,
+                                    latestCompositeOutcome = progress.outcome ?: current.latestCompositeOutcome,
+                                    analysisSheetVisible =
+                                        if (progress.outcome != null) {
+                                            true
+                                        } else {
+                                            current.analysisSheetVisible
+                                        },
+                                )
+                            }
+                            progress.outcome?.let { outcome ->
+                                refreshFingerprint(outcome.fingerprintHash)
+                            }
                         }
                     }
-
-                    is DiagnosticsManualScanStartResult.RequiresHiddenProbeResolution -> {
-                        mutations.emit(
-                            MainEffect.ShowError(
-                                stringResolver.getString(R.string.diagnostics_error_hidden_probe_running),
-                            ),
-                        )
-                    }
-                }
             }.onFailure { error ->
                 val message =
                     when (error) {
@@ -306,7 +298,7 @@ internal class MainHomeDiagnosticsActions(
 
     fun startVerifiedVpn() {
         mutations.launch {
-            val latestOutcome = homeDiagnosticsState.value.latestAuditOutcome ?: return@launch
+            val latestOutcome = homeDiagnosticsState.value.latestCompositeOutcome ?: return@launch
             val currentFingerprint = diagnosticsHomeWorkflowService.currentFingerprintHash()
             homeDiagnosticsState.update { it.copy(currentFingerprintHash = currentFingerprint) }
             if (
@@ -328,14 +320,16 @@ internal class MainHomeDiagnosticsActions(
         }
     }
 
-    fun shareLatestAuditArchive() {
+    fun shareLatestHomeAnalysis() {
         mutations.launch {
-            val sessionId = homeDiagnosticsState.value.latestAuditOutcome?.sessionId ?: return@launch
+            val outcome = homeDiagnosticsState.value.latestCompositeOutcome ?: return@launch
             runCatching {
                 diagnosticsShareService.createArchive(
                     DiagnosticsArchiveRequest(
-                        requestedSessionId = sessionId,
-                        reason = DiagnosticsArchiveReason.SHARE_ARCHIVE,
+                        requestedSessionId = null,
+                        sessionIds = outcome.bundleSessionIds,
+                        homeRunId = outcome.runId,
+                        reason = DiagnosticsArchiveReason.SHARE_HOME_ANALYSIS,
                         requestedAt = System.currentTimeMillis(),
                     ),
                 )
@@ -433,10 +427,10 @@ internal fun buildHomeDiagnosticsUiState(
     stringResolver: StringResolver,
 ): HomeDiagnosticsUiState {
     val fingerprintMismatch =
-        runtime.latestAuditOutcome?.fingerprintHash != null &&
+        runtime.latestCompositeOutcome?.fingerprintHash != null &&
             runtime.currentFingerprintHash != null &&
-            runtime.latestAuditOutcome.fingerprintHash != runtime.currentFingerprintHash
-    val analysisBusy = runtime.activeAuditSessionId != null
+            runtime.latestCompositeOutcome.fingerprintHash != runtime.currentFingerprintHash
+    val analysisBusy = runtime.activeRunProgress?.status == DiagnosticsHomeCompositeRunStatus.RUNNING
     val verificationBusy = runtime.waitingForVerifiedVpnStart || runtime.activeVerificationSessionId != null
     val analysisEnabled =
         !analysisBusy &&
@@ -447,8 +441,18 @@ internal fun buildHomeDiagnosticsUiState(
     val analysisSupportingText =
         when {
             analysisBusy -> {
-                runtime.activeAuditProgress
-                    ?: stringResolver.getString(R.string.home_diagnostics_analysis_running)
+                val progress = runtime.activeRunProgress
+                val activeStageIndex = progress?.activeStageIndex
+                val stageLabel = progress?.stages?.getOrNull(activeStageIndex ?: -1)?.stageLabel
+                val stagePrefix =
+                    if (activeStageIndex != null && progress != null) {
+                        "Stage ${activeStageIndex + 1} of ${progress.stages.size}"
+                    } else {
+                        null
+                    }
+                listOfNotNull(stagePrefix, runtime.activeRunStageProgress ?: stageLabel)
+                    .joinToString(" · ")
+                    .ifBlank { stringResolver.getString(R.string.home_diagnostics_analysis_running) }
             }
 
             verificationBusy -> {
@@ -478,7 +482,7 @@ internal fun buildHomeDiagnosticsUiState(
             !runtime.externalScanActive &&
             appStatus == AppStatus.Halted &&
             connectionState != ConnectionState.Connecting &&
-            runtime.latestAuditOutcome?.actionable == true &&
+            runtime.latestCompositeOutcome?.actionable == true &&
             !fingerprintMismatch
     val verificationSupportingText =
         when {
@@ -496,11 +500,11 @@ internal fun buildHomeDiagnosticsUiState(
                     ?: stringResolver.getString(R.string.home_diagnostics_busy_other_scan)
             }
 
-            runtime.latestAuditOutcome == null -> {
+            runtime.latestCompositeOutcome == null -> {
                 stringResolver.getString(R.string.home_diagnostics_run_analysis_first)
             }
 
-            runtime.latestAuditOutcome.actionable.not() -> {
+            runtime.latestCompositeOutcome.actionable.not() -> {
                 stringResolver.getString(R.string.home_diagnostics_no_actionable_result)
             }
 
@@ -533,27 +537,48 @@ internal fun buildHomeDiagnosticsUiState(
                 busy = verificationBusy,
             ),
         latestAudit =
-            runtime.latestAuditOutcome?.let { outcome ->
+            runtime.latestCompositeOutcome?.let { outcome ->
                 HomeDiagnosticsLatestAuditUiState(
                     headline = outcome.headline,
                     summary = outcome.summary,
                     recommendationSummary = outcome.recommendationSummary,
+                    stageCountSummary =
+                        "${outcome.completedStageCount}/${outcome.stageSummaries.size} stages complete" +
+                            if (outcome.failedStageCount > 0) {
+                                " · ${outcome.failedStageCount} failed"
+                            } else {
+                                ""
+                            },
                     stale = fingerprintMismatch,
                     actionable = outcome.actionable && !fingerprintMismatch,
                 )
             },
         analysisSheet =
-            runtime.latestAuditOutcome
+            runtime.latestCompositeOutcome
                 ?.takeIf { runtime.analysisSheetVisible }
                 ?.let { outcome ->
                     HomeDiagnosticsAnalysisSheetUiState(
-                        sessionId = outcome.sessionId,
+                        runId = outcome.runId,
                         headline = outcome.headline,
                         summary = outcome.summary,
                         confidenceSummary = outcome.confidenceSummary,
                         coverageSummary = outcome.coverageSummary,
                         recommendationSummary = outcome.recommendationSummary,
                         appliedSettings = outcome.appliedSettings,
+                        stageSummaries =
+                            outcome.stageSummaries.map { stage ->
+                                HomeDiagnosticsStageUiState(
+                                    label = stage.stageLabel,
+                                    headline = stage.headline,
+                                    summary = stage.summary,
+                                    failed =
+                                        stage.status == DiagnosticsHomeCompositeStageStatus.FAILED ||
+                                            stage.status == DiagnosticsHomeCompositeStageStatus.UNAVAILABLE,
+                                    recommendationContributor = stage.recommendationContributor,
+                                )
+                            },
+                        completedStageCount = outcome.completedStageCount,
+                        failedStageCount = outcome.failedStageCount,
                     )
                 },
         verificationSheet =

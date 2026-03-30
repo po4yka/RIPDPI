@@ -11,7 +11,9 @@ import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.diagnostics.DiagnosticsAppliedSetting
-import com.poyka.ripdpi.diagnostics.DiagnosticsHomeAuditOutcome
+import com.poyka.ripdpi.diagnostics.DiagnosticsHomeCompositeOutcome
+import com.poyka.ripdpi.diagnostics.DiagnosticsHomeCompositeRunService
+import com.poyka.ripdpi.diagnostics.DiagnosticsHomeCompositeStageSummary
 import com.poyka.ripdpi.diagnostics.DiagnosticsHomeVerificationOutcome
 import com.poyka.ripdpi.diagnostics.DiagnosticsHomeWorkflowService
 import com.poyka.ripdpi.diagnostics.DiagnosticsScanController
@@ -92,19 +94,32 @@ data class HomeDiagnosticsLatestAuditUiState(
     val headline: String,
     val summary: String,
     val recommendationSummary: String? = null,
+    val stageCountSummary: String? = null,
     val stale: Boolean = false,
     val actionable: Boolean = false,
 )
 
 @Immutable
+data class HomeDiagnosticsStageUiState(
+    val label: String,
+    val headline: String,
+    val summary: String,
+    val failed: Boolean = false,
+    val recommendationContributor: Boolean = false,
+)
+
+@Immutable
 data class HomeDiagnosticsAnalysisSheetUiState(
-    val sessionId: String,
+    val runId: String,
     val headline: String,
     val summary: String,
     val confidenceSummary: String? = null,
     val coverageSummary: String? = null,
     val recommendationSummary: String? = null,
     val appliedSettings: List<DiagnosticsAppliedSetting> = emptyList(),
+    val stageSummaries: List<HomeDiagnosticsStageUiState> = emptyList(),
+    val completedStageCount: Int = 0,
+    val failedStageCount: Int = 0,
 )
 
 @Immutable
@@ -213,6 +228,7 @@ class MainViewModel
         diagnosticsScanController: DiagnosticsScanController,
         diagnosticsShareService: DiagnosticsShareService,
         diagnosticsHomeWorkflowService: DiagnosticsHomeWorkflowService,
+        diagnosticsHomeCompositeRunService: DiagnosticsHomeCompositeRunService,
         private val stringResolver: StringResolver,
         trafficStatsReader: TrafficStatsReader,
         permissionPlatformBridge: PermissionPlatformBridge,
@@ -281,6 +297,7 @@ class MainViewModel
                 diagnosticsScanController = diagnosticsScanController,
                 diagnosticsShareService = diagnosticsShareService,
                 diagnosticsHomeWorkflowService = diagnosticsHomeWorkflowService,
+                diagnosticsHomeCompositeRunService = diagnosticsHomeCompositeRunService,
                 serviceStateStore = serviceStateStore,
                 runtimeState = runtimeState,
                 permissionState = permissionState,
@@ -472,7 +489,7 @@ class MainViewModel
 
         fun onStartVerifiedVpn() = homeDiagnosticsActions.startVerifiedVpn()
 
-        fun onShareHomeAnalysis() = homeDiagnosticsActions.shareLatestAuditArchive()
+        fun onShareHomeAnalysis() = homeDiagnosticsActions.shareLatestHomeAnalysis()
 
         fun dismissHomeAnalysisSheet() = homeDiagnosticsActions.dismissAnalysisSheet()
 

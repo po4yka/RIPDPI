@@ -7,6 +7,7 @@ import com.poyka.ripdpi.data.diagnostics.ProbeResultEntity
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
@@ -17,8 +18,26 @@ import java.util.zip.ZipFile
 class DiagnosticsArchiveExporterTest {
     private val json = diagnosticsTestJson()
 
+    private val compositeRunService =
+        object : DiagnosticsHomeCompositeRunService {
+            private val completedRuns = mutableMapOf<String, DiagnosticsHomeCompositeOutcome>()
+
+            override suspend fun startHomeAnalysis(): DiagnosticsHomeCompositeRunStarted = error("unused")
+
+            override fun observeHomeRun(runId: String) = error("unused")
+
+            override suspend fun finalizeHomeRun(runId: String): DiagnosticsHomeCompositeOutcome =
+                requireNotNull(completedRuns[runId]) { "Missing completed run $runId" }
+
+            override suspend fun getCompletedRun(runId: String): DiagnosticsHomeCompositeOutcome? = completedRuns[runId]
+
+            fun putCompletedRun(outcome: DiagnosticsHomeCompositeOutcome) {
+                completedRuns[outcome.runId] = outcome
+            }
+        }
+
     @Test
-    fun `createArchive persists requested session export and writes schema v2 archive`() =
+    fun `createArchive persists requested session export and writes schema v3 archive`() =
         runTest {
             val stores = FakeDiagnosticsHistoryStores()
             val session =
@@ -95,7 +114,7 @@ class DiagnosticsArchiveExporterTest {
                 )
 
             assertEquals(session.id, archive.sessionId)
-            assertEquals(2, archive.schemaVersion)
+            assertEquals(3, archive.schemaVersion)
             assertEquals(1, stores.exportsState.value.size)
             assertEquals(
                 session.id,
@@ -200,6 +219,142 @@ class DiagnosticsArchiveExporterTest {
             assertTrue(stores.exportsState.value.isEmpty())
         }
 
+    @Test
+    fun `createArchive writes composite home analysis bundle with staged files`() =
+        runTest {
+            val stores = FakeDiagnosticsHistoryStores()
+            val auditSession =
+                diagnosticsSession(
+                    id = "audit-session",
+                    profileId = "automatic-audit",
+                    pathMode = ScanPathMode.RAW_PATH.name,
+                    summary = "Audit complete",
+                ).copy(serviceMode = "vpn")
+            val defaultSession =
+                diagnosticsSession(
+                    id = "default-session",
+                    profileId = "default",
+                    pathMode = ScanPathMode.RAW_PATH.name,
+                    summary = "Default diagnostics complete",
+                ).copy(serviceMode = "vpn")
+            val dpiSession =
+                diagnosticsSession(
+                    id = "dpi-session",
+                    profileId = "ru-dpi-full",
+                    pathMode = ScanPathMode.RAW_PATH.name,
+                    summary = "DPI full diagnostics complete",
+                ).copy(serviceMode = "vpn")
+            stores.sessionsState.value = listOf(auditSession, defaultSession, dpiSession)
+            stores.replaceProbeResults("audit-session", listOf(probeResultEntity("audit-session", "blocked.example")))
+            stores.replaceProbeResults(
+                "default-session",
+                listOf(probeResultEntity("default-session", "default.example")),
+            )
+            stores.replaceProbeResults("dpi-session", listOf(probeResultEntity("dpi-session", "dpi.example")))
+
+            val outcome =
+                DiagnosticsHomeCompositeOutcome(
+                    runId = "home-run-1",
+                    fingerprintHash = "fp-home",
+                    actionable = true,
+                    headline = "Analysis complete and settings applied",
+                    summary = "Composite diagnostics finished.",
+                    recommendationSummary = "TCP split + QUIC fake",
+                    confidenceSummary = "Confidence high",
+                    coverageSummary = "Coverage 92%",
+                    appliedSettings = listOf(DiagnosticsAppliedSetting("TCP/TLS lane", "Split")),
+                    recommendedSessionId = "audit-session",
+                    stageSummaries =
+                        listOf(
+                            DiagnosticsHomeCompositeStageSummary(
+                                stageKey = "automatic_audit",
+                                stageLabel = "Automatic audit",
+                                profileId = "automatic-audit",
+                                pathMode = ScanPathMode.RAW_PATH,
+                                sessionId = "audit-session",
+                                status = DiagnosticsHomeCompositeStageStatus.COMPLETED,
+                                headline = "Audit complete",
+                                summary = "Found a reusable recommendation.",
+                                recommendationContributor = true,
+                            ),
+                            DiagnosticsHomeCompositeStageSummary(
+                                stageKey = "default_connectivity",
+                                stageLabel = "Default diagnostics",
+                                profileId = "default",
+                                pathMode = ScanPathMode.RAW_PATH,
+                                sessionId = "default-session",
+                                status = DiagnosticsHomeCompositeStageStatus.COMPLETED,
+                                headline = "Default diagnostics complete",
+                                summary = "General connectivity checks passed.",
+                            ),
+                            DiagnosticsHomeCompositeStageSummary(
+                                stageKey = "dpi_full",
+                                stageLabel = "DPI detector full",
+                                profileId = "ru-dpi-full",
+                                pathMode = ScanPathMode.RAW_PATH,
+                                sessionId = "dpi-session",
+                                status = DiagnosticsHomeCompositeStageStatus.FAILED,
+                                headline = "DPI full partial failure",
+                                summary = "Some extended checks were unavailable.",
+                            ),
+                        ),
+                    completedStageCount = 2,
+                    failedStageCount = 1,
+                    skippedStageCount = 0,
+                    bundleSessionIds = listOf("audit-session", "default-session", "dpi-session"),
+                )
+            compositeRunService.putCompletedRun(outcome)
+            val exporter = createArchiveExporter(stores)
+
+            val archive =
+                exporter.createArchive(
+                    DiagnosticsArchiveRequest(
+                        sessionIds = outcome.bundleSessionIds,
+                        homeRunId = outcome.runId,
+                        reason = DiagnosticsArchiveReason.SHARE_HOME_ANALYSIS,
+                        requestedAt = 27L,
+                    ),
+                )
+
+            assertEquals("audit-session", archive.sessionId)
+            assertEquals(3, archive.schemaVersion)
+
+            ZipFile(archive.absolutePath).use { zip ->
+                val manifest =
+                    json.decodeFromString(
+                        DiagnosticsArchiveManifest.serializer(),
+                        zip.getInputStream(zip.getEntry("manifest.json")).bufferedReader().readText(),
+                    )
+
+                assertEquals(DiagnosticsArchiveRunType.HOME_COMPOSITE, manifest.runType)
+                assertEquals(outcome.runId, manifest.homeRunId)
+                assertEquals(outcome.recommendedSessionId, manifest.recommendedSessionId)
+                assertNotNull(zip.getEntry("home-analysis.json"))
+                assertNotNull(zip.getEntry("stage-index.json"))
+                assertNotNull(zip.getEntry("stage-summaries.json"))
+                assertNotNull(zip.getEntry("stages/automatic_audit/report.json"))
+                assertNotNull(zip.getEntry("stages/default_connectivity/report.json"))
+                assertNotNull(zip.getEntry("stages/dpi_full/report.json"))
+
+                GoldenContractSupport.assertJsonGolden(
+                    "archive/manifest_home_composite_v3.json",
+                    zip.getInputStream(zip.getEntry("manifest.json")).bufferedReader().readText(),
+                )
+                GoldenContractSupport.assertJsonGolden(
+                    "archive/home_analysis_composite_v3.json",
+                    zip.getInputStream(zip.getEntry("home-analysis.json")).bufferedReader().readText(),
+                )
+                GoldenContractSupport.assertJsonGolden(
+                    "archive/stage_index_composite_v3.json",
+                    zip.getInputStream(zip.getEntry("stage-index.json")).bufferedReader().readText(),
+                )
+                GoldenContractSupport.assertJsonGolden(
+                    "archive/stage_summaries_composite_v3.json",
+                    zip.getInputStream(zip.getEntry("stage-summaries.json")).bufferedReader().readText(),
+                )
+            }
+        }
+
     private fun createArchiveExporter(stores: FakeDiagnosticsHistoryStores): DefaultDiagnosticsArchiveExporter {
         val context = TestContext()
         return DefaultDiagnosticsArchiveExporter(
@@ -212,6 +367,7 @@ class DiagnosticsArchiveExporterTest {
                     bypassUsageHistoryStore = stores,
                     logcatSnapshotCollector = FakeLogcatSnapshotCollector(snapshot = null),
                     buildInfoProvider = testBuildInfoProvider(),
+                    diagnosticsHomeCompositeRunService = compositeRunService,
                     json = json,
                 ),
             sessionSelector = DiagnosticsArchiveSessionSelector(DiagnosticsArchiveRedactor(json), json),
@@ -253,4 +409,18 @@ class DiagnosticsArchiveExporterTest {
                         ),
                 )
         }
+
+    private fun probeResultEntity(
+        sessionId: String,
+        target: String,
+    ): ProbeResultEntity =
+        ProbeResultEntity(
+            id = UUID.randomUUID().toString(),
+            sessionId = sessionId,
+            probeType = "https",
+            target = target,
+            outcome = "ok",
+            detailJson = "[]",
+            createdAt = 30L,
+        )
 }

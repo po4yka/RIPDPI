@@ -197,6 +197,7 @@ class MainActivityContentTest {
             diagnosticsScanController = StubDiagnosticsScanController(),
             diagnosticsShareService = StubDiagnosticsShareService(),
             diagnosticsHomeWorkflowService = StubDiagnosticsHomeWorkflowService(),
+            diagnosticsHomeCompositeRunService = StubDiagnosticsHomeCompositeRunService(),
             stringResolver = FakeStringResolver(),
             trafficStatsReader = FakeTrafficStatsReader(),
             permissionPlatformBridge =

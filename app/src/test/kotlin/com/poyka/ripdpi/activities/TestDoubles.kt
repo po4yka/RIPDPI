@@ -25,6 +25,13 @@ import com.poyka.ripdpi.diagnostics.DiagnosticsArchiveRequest
 import com.poyka.ripdpi.diagnostics.DiagnosticsBootstrapper
 import com.poyka.ripdpi.diagnostics.DiagnosticsDetailLoader
 import com.poyka.ripdpi.diagnostics.DiagnosticsHomeAuditOutcome
+import com.poyka.ripdpi.diagnostics.DiagnosticsHomeCompositeOutcome
+import com.poyka.ripdpi.diagnostics.DiagnosticsHomeCompositeProgress
+import com.poyka.ripdpi.diagnostics.DiagnosticsHomeCompositeRunService
+import com.poyka.ripdpi.diagnostics.DiagnosticsHomeCompositeRunStarted
+import com.poyka.ripdpi.diagnostics.DiagnosticsHomeCompositeRunStatus
+import com.poyka.ripdpi.diagnostics.DiagnosticsHomeCompositeStageStatus
+import com.poyka.ripdpi.diagnostics.DiagnosticsHomeCompositeStageSummary
 import com.poyka.ripdpi.diagnostics.DiagnosticsHomeVerificationOutcome
 import com.poyka.ripdpi.diagnostics.DiagnosticsHomeWorkflowService
 import com.poyka.ripdpi.diagnostics.DiagnosticsManualScanResolution
@@ -299,7 +306,7 @@ class StubDiagnosticsShareService : DiagnosticsShareService {
             sessionId = "session",
             createdAt = 1L,
             scope = "session",
-            schemaVersion = 2,
+            schemaVersion = 3,
             privacyMode = "redacted",
         )
 
@@ -348,6 +355,112 @@ class StubDiagnosticsHomeWorkflowService : DiagnosticsHomeWorkflowService {
                 summary = "No verification outcome",
             )
     }
+}
+
+class StubDiagnosticsHomeCompositeRunService : DiagnosticsHomeCompositeRunService {
+    var nextRunId: String = "home-run"
+    val startedRunIds = mutableListOf<String>()
+    val runs = mutableMapOf<String, MutableStateFlow<DiagnosticsHomeCompositeProgress>>()
+
+    override suspend fun startHomeAnalysis(): DiagnosticsHomeCompositeRunStarted {
+        val runId = nextRunId
+        startedRunIds += runId
+        runs.getOrPut(runId) {
+            MutableStateFlow(
+                DiagnosticsHomeCompositeProgress(
+                    runId = runId,
+                    stages = emptyList(),
+                ),
+            )
+        }
+        return DiagnosticsHomeCompositeRunStarted(runId)
+    }
+
+    override fun observeHomeRun(runId: String): Flow<DiagnosticsHomeCompositeProgress> =
+        runs.getOrPut(runId) {
+            MutableStateFlow(
+                DiagnosticsHomeCompositeProgress(
+                    runId = runId,
+                    stages = emptyList(),
+                ),
+            )
+        }
+
+    override suspend fun finalizeHomeRun(runId: String): DiagnosticsHomeCompositeOutcome =
+        runs
+            .getOrPut(runId) {
+                MutableStateFlow(
+                    DiagnosticsHomeCompositeProgress(
+                        runId = runId,
+                        stages = emptyList(),
+                    ),
+                )
+            }.value
+            .outcome
+            ?: error("No finalized run for $runId")
+
+    override suspend fun getCompletedRun(runId: String): DiagnosticsHomeCompositeOutcome? = runs[runId]?.value?.outcome
+
+    fun emitProgress(
+        runId: String = nextRunId,
+        progress: DiagnosticsHomeCompositeProgress,
+    ) {
+        runs.getOrPut(runId) { MutableStateFlow(progress) }.value = progress
+    }
+
+    fun completeRun(
+        runId: String = nextRunId,
+        outcome: DiagnosticsHomeCompositeOutcome,
+    ) {
+        emitProgress(
+            runId = runId,
+            progress =
+                DiagnosticsHomeCompositeProgress(
+                    runId = runId,
+                    fingerprintHash = outcome.fingerprintHash,
+                    status = DiagnosticsHomeCompositeRunStatus.COMPLETED,
+                    stages = outcome.stageSummaries,
+                    outcome = outcome,
+                ),
+        )
+    }
+
+    fun runningProgress(
+        runId: String = nextRunId,
+        activeStageIndex: Int = 0,
+        activeSessionId: String? = null,
+        stages: List<DiagnosticsHomeCompositeStageSummary> = emptyList(),
+    ): DiagnosticsHomeCompositeProgress =
+        DiagnosticsHomeCompositeProgress(
+            runId = runId,
+            status = DiagnosticsHomeCompositeRunStatus.RUNNING,
+            activeStageIndex = activeStageIndex,
+            activeSessionId = activeSessionId,
+            stages = stages,
+        )
+
+    fun stage(
+        key: String,
+        label: String,
+        profileId: String,
+        pathMode: com.poyka.ripdpi.diagnostics.ScanPathMode,
+        sessionId: String? = null,
+        status: DiagnosticsHomeCompositeStageStatus = DiagnosticsHomeCompositeStageStatus.PENDING,
+        headline: String = label,
+        summary: String = "",
+        recommendationContributor: Boolean = false,
+    ): DiagnosticsHomeCompositeStageSummary =
+        DiagnosticsHomeCompositeStageSummary(
+            stageKey = key,
+            stageLabel = label,
+            profileId = profileId,
+            pathMode = pathMode,
+            sessionId = sessionId,
+            status = status,
+            headline = headline,
+            summary = summary,
+            recommendationContributor = recommendationContributor,
+        )
 }
 
 class StubDiagnosticsResolverActions : DiagnosticsResolverActions {
