@@ -191,30 +191,142 @@ When `md5sig` is enabled, fake packets include a TCP MD5 Signature option (Kind=
 - Raw packet paths (`seqovl`, `multidisorder`, `ipfrag2`): Kind=19 option injected directly into TCP header via `set_options_raw()` in `build_tcp_segment_packet()`
 - 18-byte option (kind + length + 16-byte deterministic signature from sequence number)
 
+### TCP option manipulation
+
+#### Drop SACK (`drop_sack`)
+
+When enabled, attaches a kernel-level filter that strips TCP SACK options from outbound segments. Some DPI implementations use SACK negotiation to fingerprint OS and track connections. Toggled per-step via `AttachDropSack` / `DetachDropSack` actions.
+
+#### Timestamp stripping (`strip_timestamps`)
+
+Removes TCP timestamp option from outbound packets. Prevents DPI from using timestamp-based RTT estimation and OS fingerprinting.
+
+#### OOB data (`oob_data`)
+
+Configures the urgent byte value used by `oob` and `disoob` chain steps. The urgent pointer mechanism sends one byte out-of-band, which can desynchronize DPI reassembly state. Default: `'a'` (0x61).
+
+#### TLS minor version override (`tlsminor`)
+
+Forces the TLS record layer minor version byte. Value is the minor version: `0x01` = TLS 1.0, `0x02` = TLS 1.1, `0x03` = TLS 1.2, `0x04` = TLS 1.3. Some DPI filters target specific TLS versions.
+
+#### HTTP modifications (`mod_http`)
+
+Bitflag field enabling HTTP header-level tampering for plaintext HTTP traffic. Applied during the fake payload construction phase.
+
+### Auto TTL (`auto_ttl`)
+
+Adaptive fake TTL derived from the server's response TTL. Configuration:
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `delta` | `i8` | TTL adjustment from detected server hop distance (negative = reduce) |
+| `min_ttl` | `u8` | Floor value (default 3) |
+| `max_ttl` | `u8` | Ceiling value (default 20) |
+
+The runtime infers hop distance from the SYN-ACK TTL (common initial TTLs: 64, 128, 255), then applies `detected_hops + delta` clamped to `[min_ttl, max_ttl]`. This ensures fake packets reach the DPI box but expire before the server.
+
+### Entropy padding
+
+Counters entropy-based DPI detection models used by GFW (popcount) and middlebox (Shannon entropy).
+
+| Mode | Detection model | Technique |
+| --- | --- | --- |
+| `popcount` | GFW bitwise popcount | Pads payload with printable ASCII to reach target popcount ratio |
+| `shannon` | middlebox Shannon entropy analysis | Adjusts byte distribution to target Shannon entropy |
+| `combined` | Both models simultaneously | Applies both padding strategies |
+| `disabled` | None | No entropy manipulation (default) |
+
+Configuration:
+
+| Field | Type | Default | Description |
+| --- | --- | --- | --- |
+| `entropy_mode` | `EntropyMode` | `disabled` | Padding mode |
+| `entropy_padding_target_permil` | `u32` | - | Target popcount in permil (e.g. 3400 = 3.4%) |
+| `entropy_padding_max` | `u32` | 256 | Maximum padding bytes |
+| `shannon_entropy_target_permil` | `u32` | - | Target Shannon entropy in permil (e.g. 7920 = 7.92 bits/byte) |
+
 ### Fake payload and fake transport surface
 
 The fake-transport path now includes:
 
 - built-in fake payload profile libraries for HTTP, TLS, UDP, and QUIC Initial traffic
 - richer fake TLS mutations (`orig`, `rand`, `rndsni`, `dupsid`, `padencap`, size tuning)
-- fixed or adaptive fake TTL for TCP fake sends
+- fixed or adaptive fake TTL for TCP fake sends (see Auto TTL above)
 - `md5sig`, fake offset markers, and QUIC fake Initial profile selection
+- `fake_host_template` for custom SNI in hostfake steps
+- `midhost_offset` for precise host-field split positioning in hostfake
 - TCP window clamping (`TCP_WINDOW_CLAMP`) to force small server response segments
 - QUIC source port binding to evade port-based GFW filtering
 
 `hostfake`, `fakedsplit`, and `fakeddisorder` reuse that same fake-payload and fake-transport pipeline instead of shipping separate blob knobs. `multidisorder` is different: it uses packet-owned TCP repair plus raw IPv4/IPv6 injection to emit the real payload segments in reverse order, then hands the live stream off to a repaired replacement socket.
 
+### QUIC DPI evasion surface
+
+Beyond UDP chain steps, the QUIC subsystem exposes:
+
+| Field | Type | Default | Description |
+| --- | --- | --- | --- |
+| `quic_fake_profile` | `QuicFakeProfile` | disabled | Fake Initial profile: `compat_default` or `realistic_initial` |
+| `quic_fake_host` | `String` | - | Custom SNI for fake QUIC Initial packets |
+| `quic_fake_version` | `u32` | `0x1a2a3a4a` | QUIC version field in fake packets |
+| `quic_bind_low_port` | `bool` | false | Bind to ports < 1024 for realism |
+| `quic_migrate_after_handshake` | `bool` | false | Trigger connection migration after handshake |
+| `quic_initial_mode` | enum | `route_and_cache` | `route` / `route_and_cache` / `disabled` -- how QUIC Initial packets are processed |
+| `support_v1` | `bool` | true | Enable QUIC v1 |
+| `support_v2` | `bool` | false | Enable QUIC v2 |
+
+### Activation filters
+
+Each TCP/UDP chain step can carry an `activation_filter` that restricts when the step fires:
+
+| Dimension | Type | Description |
+| --- | --- | --- |
+| `round` | `NumericRange` | Outbound pass number (e.g. `1-1` = first pass only) |
+| `payload_size` | `NumericRange` | Payload byte length range |
+| `stream_bytes` | `NumericRange` | Cumulative stream byte range (e.g. `0-1500` = first MSS window) |
+
+When a filter does not match, the step is silently skipped. This enables different strategies for initial vs. subsequent packets, small vs. large payloads, and early vs. late stream positions.
+
+### Proxy protocol support
+
+| Protocol | Field | Description |
+| --- | --- | --- |
+| SOCKS5 | default | Local SOCKS5 proxy (RFC 1928) with optional auth |
+| SOCKS4/4a | built-in | SOCKS4 protocol family support |
+| HTTP CONNECT | `http_connect` | HTTPS CONNECT method proxy |
+| Shadowsocks | `shadowsocks` | Shadowsocks protocol support |
+
+### External SOCKS upstream (`ext_socks`)
+
+Chains traffic through an external SOCKS proxy before applying desync. Configuration:
+
+- `ext_socks.addr` -- upstream SOCKS server address
+- `ext_socks.auth` -- optional username/password
+
+This enables proxy chaining: client -> RIPDPI (desync) -> upstream SOCKS -> internet.
+
+### Connection behavior
+
+| Field | Type | Default | Description |
+| --- | --- | --- | --- |
+| `delay_conn` | `bool` | false | Delay upstream connection until first client data received |
+| `tfo` | `bool` | false | Enable TCP Fast Open for faster handshakes |
+| `max_route_retries` | `usize` | 8 | Maximum retry attempts across desync groups before giving up |
+
 ### Runtime adaptation
 
 The shared runtime layer now also adds:
 
-- Geneva-style strategy evolution (`StrategyEvolver`) with epsilon-greedy + UCB1 selection across combo dimensions
-- host autolearn and per-host preferred group promotion scoped by `networkScopeKey`
+- Geneva-style strategy evolution (`StrategyEvolver`) with epsilon-greedy + UCB1 selection across combo dimensions, configurable via `strategy_evolution` (bool) and `evolution_epsilon_permil` (default 100 = 10% exploration rate)
+- host autolearn and per-host preferred group promotion scoped by `networkScopeKey`, with configurable `penalty_ttl_secs` (default 600), `max_hosts` (default 1024), and optional `store_path` for persistence
+- `cache_prefix` (u8) for isolated policy caches when multiple profiles share storage, with `cache_ttl` and optional `cache_file`
 - validated remembered-network policy replay with hashed network fingerprints and optional VPN DNS override
 - automatic diagnostics probing plus `full_matrix_v1` audit runs with rotating curated target cohorts, hidden handover-triggered `quick_v1` probes, and manual recommendation output
 - separate TCP, QUIC, and DNS strategy-family labels for scoring and diagnostics
-- activation windows keyed by outbound round, payload size, and stream-byte ranges
-- retry-stealth pacing and seeded candidate diversification in both live runtime retries and diagnostics probes
+- activation windows keyed by outbound round, payload size, and stream-byte ranges (see Activation Filters above)
+- retry-stealth pacing with family cooldowns (same-signature 15s, exponential backoff 300-3000ms, 35% jitter) and seeded candidate diversification in both live runtime retries and diagnostics probes
+- adaptive UDP burst profiles: `balanced` (default), `conservative`, `aggressive`
+- adaptive TLS random record profiles: `balanced` (default), `tight`, `wide`
 
 ### Network-aware policy resolution
 
@@ -268,6 +380,57 @@ Relevant sources:
 - `native/rust/crates/ripdpi-ws-tunnel/src/connect.rs`
 - `native/rust/crates/ripdpi-ws-tunnel/src/relay.rs`
 - `native/rust/crates/ripdpi-runtime/src/runtime/handshake/ws_tunnel.rs`
+
+## Failure Classification and Block Detection
+
+The `ripdpi-failure-classifier` crate classifies connection failures into actionable categories.
+
+### Failure classes
+
+Each classified failure carries a recommended action:
+
+| Action | Description |
+| --- | --- |
+| `None` | No action needed |
+| `RetryWithMatchingGroup` | Try alternative desync group |
+| `ResolverOverrideRecommended` | Suggest DNS resolver change |
+| `DiagnosticsOnly` | Informational, log only |
+| `SurfaceOnly` | Display to user |
+
+### Block signal detection
+
+Eight distinct signal types identify how blocking manifests:
+
+| Signal | Detection method |
+| --- | --- |
+| `HttpBlockpage` | Response body matches built-in blockpage fingerprint database (ISP, government, CDN patterns) |
+| `HttpRedirect` | 3xx redirect to known block/error page |
+| `TlsAlert` | TLS handshake failure or access_denied alert |
+| `SilentDrop` | Connection drops with no response |
+| `TcpReset` | RST received during handshake |
+| `ConnectionFreeze` | Mid-stream stall detected via `freeze_window_ms` (default 5000ms), `freeze_min_bytes` (512), `freeze_max_stalls` |
+| `QuicBreakage` | QUIC protocol-level failure |
+| `TcpRetransmissions` | >= 3 TCP retransmissions within 60s window (via `TCP_INFO` socket option) |
+
+Block signals feed into the host autolearn 2-confirmation state machine: a host is marked as blocked only after two independent confirmations within the confirmation window.
+
+### Blockpage fingerprint database
+
+Built-in CSV database of known blockpage patterns with:
+- Multi-location matching (body, headers)
+- Pattern types: exact, prefix, contains
+- Provider identification (ISP name, government agency)
+- Rate-limit exclusion (HTTP 429 is NOT a blockpage)
+
+## VPN Tunnel DNS Interception
+
+In VPN mode, `ripdpi-tunnel-core` intercepts DNS queries at the TUN interface:
+
+- Maps external IPs to synthetic local-network IPs (198.18.0.0/15 range)
+- LRU DNS response cache with real-to-synthetic and reverse mappings
+- Encrypted DNS forwarding through the active resolver (DoH/DoT/DNSCrypt/DoQ)
+- Per-network-scope cache isolation
+- Transparent to applications -- no DNS configuration changes needed
 
 ## Implemented Diagnostic Mechanisms
 
