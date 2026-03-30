@@ -442,10 +442,10 @@ internal fun buildHomeDiagnosticsUiState(
         when {
             analysisBusy -> {
                 val progress = runtime.activeRunProgress
-                val activeStageIndex = progress?.activeStageIndex
-                val stageLabel = progress?.stages?.getOrNull(activeStageIndex ?: -1)?.stageLabel
+                val activeStageIndex = progress.activeStageIndex
+                val stageLabel = progress.stages.getOrNull(activeStageIndex ?: -1)?.stageLabel
                 val stagePrefix =
-                    if (activeStageIndex != null && progress != null) {
+                    if (activeStageIndex != null) {
                         "Stage ${activeStageIndex + 1} of ${progress.stages.size}"
                     } else {
                         null
