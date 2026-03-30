@@ -29,6 +29,8 @@ use crate::types::*;
 
 type DotTlsStream = TokioTlsStream<TokioTcpStream>;
 const MAX_POOLED_IDLE_DURATION: Duration = Duration::from_secs(20);
+const MAX_DOH_RESPONSE_BYTES: usize = 65_535;
+const MAX_DOH_HEADER_BYTES: usize = 8 * 1024;
 
 trait TcpClientStream: tokio::io::AsyncRead + tokio::io::AsyncWrite + Unpin {
     fn set_nodelay_if_supported(&self, enabled: bool) -> io::Result<()> {
@@ -54,6 +56,13 @@ enum PooledConnection {
 struct IdlePooledConnection {
     connection: PooledConnection,
     idle_since: Instant,
+}
+
+#[derive(Debug, Clone, Copy)]
+struct DohHttpResponseHead {
+    status: reqwest::StatusCode,
+    content_length: Option<usize>,
+    chunked: bool,
 }
 
 impl std::fmt::Debug for PooledConnection {
@@ -450,15 +459,7 @@ impl EncryptedDnsResolver {
             stream.write_all(request.as_bytes()).await.map_err(|err| EncryptedDnsError::Request(err.to_string()))?;
             stream.write_all(query_bytes).await.map_err(|err| EncryptedDnsError::Request(err.to_string()))?;
             stream.flush().await.map_err(|err| EncryptedDnsError::Request(err.to_string()))?;
-            let mut buffer = [0u8; 4096];
-            loop {
-                match stream.read(&mut buffer).await {
-                    Ok(0) => break,
-                    Ok(read) => response.extend_from_slice(&buffer[..read]),
-                    Err(err) if should_ignore_tls_eof(&err) && !response.is_empty() => break,
-                    Err(err) => return Err(EncryptedDnsError::Request(err.to_string())),
-                }
-            }
+            response = read_doh_response(stream).await?;
             Ok::<(), EncryptedDnsError>(())
         })
         .await
@@ -467,7 +468,7 @@ impl EncryptedDnsResolver {
             Err(_) => return Err(EncryptedDnsError::Request("DoH exchange timed out".to_string())),
         }
 
-        parse_doh_http_response(&response)
+        Ok(response)
     }
 
     async fn exchange_dot(&self, query_bytes: &[u8]) -> Result<Vec<u8>, EncryptedDnsError> {
@@ -947,12 +948,54 @@ fn doh_host_header(url: &Url) -> Result<String, EncryptedDnsError> {
     Ok(host_header)
 }
 
-fn parse_doh_http_response(response: &[u8]) -> Result<Vec<u8>, EncryptedDnsError> {
-    let Some(header_end) = response.windows(4).position(|window| window == b"\r\n\r\n") else {
-        return Err(EncryptedDnsError::Request("DoH response missing HTTP header terminator".to_string()));
-    };
-    let header_bytes = &response[..header_end];
-    let body = &response[header_end + 4..];
+async fn read_doh_response<S>(stream: &mut S) -> Result<Vec<u8>, EncryptedDnsError>
+where
+    S: tokio::io::AsyncRead + Unpin,
+{
+    let (head, body) = read_doh_response_head(stream).await?;
+    if !head.status.is_success() {
+        return Err(EncryptedDnsError::HttpStatus(head.status));
+    }
+
+    if head.chunked {
+        return read_chunked_doh_body(stream, body).await;
+    }
+
+    if let Some(content_length) = head.content_length {
+        return read_doh_body_with_content_length(stream, body, content_length).await;
+    }
+
+    read_doh_body_until_eof(stream, body).await
+}
+
+async fn read_doh_response_head<S>(stream: &mut S) -> Result<(DohHttpResponseHead, Vec<u8>), EncryptedDnsError>
+where
+    S: tokio::io::AsyncRead + Unpin,
+{
+    let mut response = Vec::new();
+
+    loop {
+        if let Some(header_end) = find_http_header_terminator(&response) {
+            if header_end > MAX_DOH_HEADER_BYTES {
+                return Err(EncryptedDnsError::Request("DoH response headers exceed maximum size".to_string()));
+            }
+
+            let head = parse_doh_http_response_head(&response[..header_end])?;
+            let body = response[header_end + 4..].to_vec();
+            return Ok((head, body));
+        }
+
+        if response.len() > MAX_DOH_HEADER_BYTES {
+            return Err(EncryptedDnsError::Request("DoH response headers exceed maximum size".to_string()));
+        }
+
+        if read_more_doh_bytes(stream, &mut response).await? == 0 {
+            return Err(EncryptedDnsError::Request("DoH response missing HTTP header terminator".to_string()));
+        }
+    }
+}
+
+fn parse_doh_http_response_head(header_bytes: &[u8]) -> Result<DohHttpResponseHead, EncryptedDnsError> {
     let mut lines = header_bytes.split(|byte| *byte == b'\n');
     let status_line = lines
         .next()
@@ -994,34 +1037,76 @@ fn parse_doh_http_response(response: &[u8]) -> Result<Vec<u8>, EncryptedDnsError
         }
     }
 
-    if !status.is_success() {
-        return Err(EncryptedDnsError::HttpStatus(status));
-    }
-
-    if chunked {
-        return decode_chunked_body(body);
-    }
-
-    if let Some(content_length) = content_length {
-        if body.len() < content_length {
-            return Err(EncryptedDnsError::Request("DoH response body shorter than Content-Length".to_string()));
-        }
-        return Ok(body[..content_length].to_vec());
-    }
-
-    Ok(body.to_vec())
+    Ok(DohHttpResponseHead { status, content_length, chunked })
 }
 
-fn decode_chunked_body(body: &[u8]) -> Result<Vec<u8>, EncryptedDnsError> {
+async fn read_doh_body_with_content_length<S>(
+    stream: &mut S,
+    mut body: Vec<u8>,
+    content_length: usize,
+) -> Result<Vec<u8>, EncryptedDnsError>
+where
+    S: tokio::io::AsyncRead + Unpin,
+{
+    if content_length > MAX_DOH_RESPONSE_BYTES {
+        return Err(EncryptedDnsError::Request("DoH response Content-Length exceeds maximum size".to_string()));
+    }
+
+    if body.len() >= content_length {
+        body.truncate(content_length);
+        return Ok(body);
+    }
+
+    while body.len() < content_length {
+        if read_more_doh_bytes(stream, &mut body).await? == 0 {
+            return Err(EncryptedDnsError::Request("DoH response body shorter than Content-Length".to_string()));
+        }
+    }
+
+    body.truncate(content_length);
+    Ok(body)
+}
+
+async fn read_doh_body_until_eof<S>(stream: &mut S, mut body: Vec<u8>) -> Result<Vec<u8>, EncryptedDnsError>
+where
+    S: tokio::io::AsyncRead + Unpin,
+{
+    if body.len() > MAX_DOH_RESPONSE_BYTES {
+        return Err(EncryptedDnsError::Request("DoH response body exceeds maximum size".to_string()));
+    }
+
+    loop {
+        let previous_len = body.len();
+        if read_more_doh_bytes(stream, &mut body).await? == 0 {
+            return Ok(body);
+        }
+        if body.len() > MAX_DOH_RESPONSE_BYTES {
+            return Err(EncryptedDnsError::Request("DoH response body exceeds maximum size".to_string()));
+        }
+        if body.len() == previous_len {
+            return Ok(body);
+        }
+    }
+}
+
+async fn read_chunked_doh_body<S>(stream: &mut S, mut buffer: Vec<u8>) -> Result<Vec<u8>, EncryptedDnsError>
+where
+    S: tokio::io::AsyncRead + Unpin,
+{
     let mut decoded = Vec::new();
     let mut cursor = 0usize;
 
     loop {
-        let size_end = find_crlf(&body[cursor..])
-            .map(|offset| cursor + offset)
-            .ok_or_else(|| EncryptedDnsError::Request("chunked DoH response missing size delimiter".to_string()))?;
-        let size_line =
-            std::str::from_utf8(&body[cursor..size_end]).map_err(|err| EncryptedDnsError::Request(err.to_string()))?;
+        let size_end = loop {
+            if let Some(offset) = find_crlf(&buffer[cursor..]) {
+                break cursor + offset;
+            }
+            if read_more_doh_bytes(stream, &mut buffer).await? == 0 {
+                return Err(EncryptedDnsError::Request("chunked DoH response missing size delimiter".to_string()));
+            }
+        };
+        let size_line = std::str::from_utf8(&buffer[cursor..size_end])
+            .map_err(|err| EncryptedDnsError::Request(err.to_string()))?;
         let size = usize::from_str_radix(size_line.split(';').next().unwrap_or_default().trim(), 16)
             .map_err(|err| EncryptedDnsError::Request(err.to_string()))?;
         cursor = size_end + 2;
@@ -1029,16 +1114,42 @@ fn decode_chunked_body(body: &[u8]) -> Result<Vec<u8>, EncryptedDnsError> {
         if size == 0 {
             return Ok(decoded);
         }
-        if body.len() < cursor + size + 2 {
-            return Err(EncryptedDnsError::Request("chunked DoH response truncated".to_string()));
+
+        if decoded.len() + size > MAX_DOH_RESPONSE_BYTES {
+            return Err(EncryptedDnsError::Request("chunked DoH response exceeds maximum size".to_string()));
         }
 
-        decoded.extend_from_slice(&body[cursor..cursor + size]);
+        while buffer.len() < cursor + size + 2 {
+            if read_more_doh_bytes(stream, &mut buffer).await? == 0 {
+                return Err(EncryptedDnsError::Request("chunked DoH response truncated".to_string()));
+            }
+        }
+
+        decoded.extend_from_slice(&buffer[cursor..cursor + size]);
         cursor += size;
-        if &body[cursor..cursor + 2] != b"\r\n" {
+        if &buffer[cursor..cursor + 2] != b"\r\n" {
             return Err(EncryptedDnsError::Request("chunked DoH response missing chunk terminator".to_string()));
         }
         cursor += 2;
+
+        buffer.drain(..cursor);
+        cursor = 0;
+    }
+}
+
+async fn read_more_doh_bytes<S>(stream: &mut S, buffer: &mut Vec<u8>) -> Result<usize, EncryptedDnsError>
+where
+    S: tokio::io::AsyncRead + Unpin,
+{
+    let mut chunk = [0u8; 4096];
+    match stream.read(&mut chunk).await {
+        Ok(0) => Ok(0),
+        Ok(read) => {
+            buffer.extend_from_slice(&chunk[..read]);
+            Ok(read)
+        }
+        Err(err) if should_ignore_tls_eof(&err) && !buffer.is_empty() => Ok(0),
+        Err(err) => Err(EncryptedDnsError::Request(err.to_string())),
     }
 }
 
@@ -1050,6 +1161,10 @@ fn trim_ascii(bytes: &[u8]) -> &[u8] {
 
 fn find_crlf(bytes: &[u8]) -> Option<usize> {
     bytes.windows(2).position(|window| window == b"\r\n")
+}
+
+fn find_http_header_terminator(bytes: &[u8]) -> Option<usize> {
+    bytes.windows(4).position(|window| window == b"\r\n\r\n")
 }
 
 fn should_ignore_tls_eof(error: &io::Error) -> bool {
@@ -1101,6 +1216,54 @@ mod tests {
             matches!(pool.take().await, Some(PooledConnection::DnsCrypt(_))),
             "fresh pooled entries should still be reused",
         );
+    }
+
+    #[tokio::test]
+    async fn read_doh_body_with_content_length_rejects_oversized_length() {
+        let error = read_doh_body_with_content_length(&mut tokio::io::empty(), Vec::new(), MAX_DOH_RESPONSE_BYTES + 1)
+            .await
+            .expect_err("oversized Content-Length should fail");
+
+        match error {
+            EncryptedDnsError::Request(message) => {
+                assert!(message.contains("Content-Length exceeds maximum size"));
+            }
+            other => panic!("expected request error, got {other:?}"),
+        }
+    }
+
+    #[tokio::test]
+    async fn read_chunked_doh_body_rejects_chunk_larger_than_limit() {
+        let error = read_chunked_doh_body(&mut tokio::io::empty(), b"10000\r\n".to_vec())
+            .await
+            .expect_err("oversized chunk should fail");
+
+        match error {
+            EncryptedDnsError::Request(message) => {
+                assert!(message.contains("chunked DoH response exceeds maximum size"));
+            }
+            other => panic!("expected request error, got {other:?}"),
+        }
+    }
+
+    #[tokio::test]
+    async fn read_doh_response_head_rejects_oversized_headers() {
+        let oversized_headers = format!("HTTP/1.1 200 OK\r\nX-Fill: {}\r\n\r\n", "a".repeat(MAX_DOH_HEADER_BYTES),);
+        let (mut client, mut server) = tokio::io::duplex(oversized_headers.len() + 16);
+        let writer = tokio::spawn(async move {
+            server.write_all(oversized_headers.as_bytes()).await.expect("write oversized headers");
+            server.shutdown().await.expect("shutdown writer");
+        });
+
+        let error = read_doh_response_head(&mut client).await.expect_err("oversized headers should fail");
+        writer.await.expect("writer task");
+
+        match error {
+            EncryptedDnsError::Request(message) => {
+                assert!(message.contains("headers exceed maximum size"));
+            }
+            other => panic!("expected request error, got {other:?}"),
+        }
     }
 
     fn turmoil_test_endpoint(host: &str, port: u16, bootstrap_ips: Vec<IpAddr>) -> EncryptedDnsEndpoint {

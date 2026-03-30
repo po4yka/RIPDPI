@@ -860,6 +860,19 @@ fn serve_dot_sequence(
 }
 
 fn serve_https_doh(stream: TcpStream, config: Arc<ServerConfig>, expected_query: &[u8], response_body: &[u8]) {
+    let response = format!(
+        "HTTP/1.1 200 OK\r\nContent-Type: {DNS_MESSAGE_MEDIA_TYPE}\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
+        response_body.len()
+    );
+    serve_https_doh_raw(stream, config, expected_query, &[response.into_bytes(), response_body.to_vec()]);
+}
+
+fn serve_https_doh_raw(
+    stream: TcpStream,
+    config: Arc<ServerConfig>,
+    expected_query: &[u8],
+    response_parts: &[Vec<u8>],
+) {
     let connection = ServerConnection::new(config).expect("server connection");
     let mut tls_stream = StreamOwned::new(connection, stream);
     while tls_stream.conn.is_handshaking() {
@@ -870,12 +883,9 @@ fn serve_https_doh(stream: TcpStream, config: Arc<ServerConfig>, expected_query:
     assert_eq!(request_line, "POST /dns-query HTTP/1.1");
     assert_eq!(body, expected_query);
 
-    let response = format!(
-        "HTTP/1.1 200 OK\r\nContent-Type: {DNS_MESSAGE_MEDIA_TYPE}\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
-        response_body.len()
-    );
-    tls_stream.write_all(response.as_bytes()).expect("write headers");
-    tls_stream.write_all(response_body).expect("write body");
+    for part in response_parts {
+        tls_stream.write_all(part).expect("write response part");
+    }
     tls_stream.flush().expect("flush response");
 }
 
@@ -1143,6 +1153,31 @@ fn spawn_doh_fixture(
     (port, certificate_der, vec![handle])
 }
 
+fn spawn_custom_doh_fixture(
+    query: &[u8],
+    response_parts: Vec<Vec<u8>>,
+) -> (u16, CertificateDer<'static>, thread::JoinHandle<()>) {
+    let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("listener");
+    let port = listener.local_addr().expect("local addr").port();
+    let certificate = rcgen::generate_simple_self_signed(vec!["fixture.test".to_string()]).expect("certificate");
+    let certificate_der: CertificateDer<'static> = certificate.cert.der().clone();
+    let key_der = PrivateKeyDer::Pkcs8(PrivatePkcs8KeyDer::from(certificate.signing_key.serialize_der()));
+    let server_config = Arc::new(
+        ServerConfig::builder_with_provider(rustls::crypto::ring::default_provider().into())
+            .with_safe_default_protocol_versions()
+            .expect("ring provider supports default TLS versions")
+            .with_no_client_auth()
+            .with_single_cert(vec![certificate_der.clone()], key_der)
+            .expect("server config"),
+    );
+    let server_query = query.to_vec();
+    let handle = thread::spawn(move || {
+        let (stream, _) = listener.accept().expect("accept");
+        serve_https_doh_raw(stream, server_config, &server_query, &response_parts);
+    });
+    (port, certificate_der, handle)
+}
+
 fn fixture_doh_endpoint(port: u16) -> EncryptedDnsEndpoint {
     EncryptedDnsEndpoint {
         protocol: EncryptedDnsProtocol::Doh,
@@ -1155,6 +1190,85 @@ fn fixture_doh_endpoint(port: u16) -> EncryptedDnsEndpoint {
         dnscrypt_provider_name: None,
         dnscrypt_public_key: None,
     }
+}
+
+fn manual_doh_resolver(port: u16, certificate_der: CertificateDer<'static>) -> EncryptedDnsResolver {
+    EncryptedDnsResolver::with_extra_tls_roots_and_connect_hooks(
+        fixture_doh_endpoint(port),
+        EncryptedDnsTransport::Direct,
+        DEFAULT_TIMEOUT,
+        vec![certificate_der],
+        EncryptedDnsConnectHooks::new()
+            .with_direct_tcp_connector(|target, timeout| TcpStream::connect_timeout(&target, timeout)),
+    )
+    .expect("resolver builds")
+}
+
+#[tokio::test]
+async fn manual_doh_rejects_oversized_content_length_response() {
+    let query = build_query("fixture.test");
+    let oversized_length = 65_536usize;
+    let response_parts = vec![format!(
+        "HTTP/1.1 200 OK\r\nContent-Type: {DNS_MESSAGE_MEDIA_TYPE}\r\nContent-Length: {oversized_length}\r\nConnection: close\r\n\r\n"
+    )
+    .into_bytes()];
+    let (port, certificate_der, server) = spawn_custom_doh_fixture(&query, response_parts);
+    let resolver = manual_doh_resolver(port, certificate_der);
+
+    let error = resolver.exchange(&query).await.expect_err("oversized Content-Length should be rejected");
+
+    match error {
+        EncryptedDnsError::Request(message) => {
+            assert!(message.contains("Content-Length exceeds maximum size"));
+        }
+        other => panic!("expected request error, got {other:?}"),
+    }
+    server.join().expect("server joins");
+}
+
+#[tokio::test]
+async fn manual_doh_rejects_oversized_chunked_response() {
+    let query = build_query("fixture.test");
+    let response_parts = vec![
+        format!(
+            "HTTP/1.1 200 OK\r\nContent-Type: {DNS_MESSAGE_MEDIA_TYPE}\r\nTransfer-Encoding: chunked\r\nConnection: close\r\n\r\n"
+        )
+        .into_bytes(),
+        b"10000\r\n".to_vec(),
+    ];
+    let (port, certificate_der, server) = spawn_custom_doh_fixture(&query, response_parts);
+    let resolver = manual_doh_resolver(port, certificate_der);
+
+    let error = resolver.exchange(&query).await.expect_err("oversized chunked response should be rejected");
+
+    match error {
+        EncryptedDnsError::Request(message) => {
+            assert!(message.contains("chunked DoH response exceeds maximum size"));
+        }
+        other => panic!("expected request error, got {other:?}"),
+    }
+    server.join().expect("server joins");
+}
+
+#[tokio::test]
+async fn manual_doh_rejects_oversized_unframed_response() {
+    let query = build_query("fixture.test");
+    let response_parts = vec![
+        format!("HTTP/1.1 200 OK\r\nContent-Type: {DNS_MESSAGE_MEDIA_TYPE}\r\nConnection: close\r\n\r\n").into_bytes(),
+        vec![0u8; 65_536],
+    ];
+    let (port, certificate_der, server) = spawn_custom_doh_fixture(&query, response_parts);
+    let resolver = manual_doh_resolver(port, certificate_der);
+
+    let error = resolver.exchange(&query).await.expect_err("oversized unframed response should be rejected");
+
+    match error {
+        EncryptedDnsError::Request(message) => {
+            assert!(message.contains("DoH response body exceeds maximum size"));
+        }
+        other => panic!("expected request error, got {other:?}"),
+    }
+    server.join().expect("server joins");
 }
 
 #[test]
