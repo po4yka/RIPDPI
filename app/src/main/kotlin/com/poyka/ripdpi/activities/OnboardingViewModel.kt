@@ -3,6 +3,10 @@ package com.poyka.ripdpi.activities
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.poyka.ripdpi.data.AppSettingsRepository
+import com.poyka.ripdpi.data.DnsProviderCloudflare
+import com.poyka.ripdpi.data.Mode
+import com.poyka.ripdpi.ui.screens.onboarding.OnboardingConnectionTestRunner
+import com.poyka.ripdpi.ui.screens.onboarding.OnboardingPages
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
@@ -14,11 +18,28 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
-private const val DefaultOnboardingPageCount = 3
+private val DefaultOnboardingPageCount = OnboardingPages.size
+
+sealed interface ConnectionTestState {
+    data object Idle : ConnectionTestState
+
+    data object Running : ConnectionTestState
+
+    data class Success(
+        val latencyMs: Long,
+    ) : ConnectionTestState
+
+    data class Failed(
+        val reason: String,
+    ) : ConnectionTestState
+}
 
 data class OnboardingUiState(
     val currentPage: Int = 0,
     val totalPages: Int = DefaultOnboardingPageCount,
+    val selectedMode: Mode = Mode.VPN,
+    val selectedDnsProviderId: String = DnsProviderCloudflare,
+    val connectionTestState: ConnectionTestState = ConnectionTestState.Idle,
 )
 
 sealed interface OnboardingEffect {
@@ -30,6 +51,7 @@ class OnboardingViewModel
     @Inject
     constructor(
         private val appSettingsRepository: AppSettingsRepository,
+        private val connectionTestRunner: OnboardingConnectionTestRunner,
     ) : ViewModel() {
         private val _uiState = MutableStateFlow(OnboardingUiState())
         val uiState: StateFlow<OnboardingUiState> = _uiState.asStateFlow()
@@ -55,14 +77,33 @@ class OnboardingViewModel
             }
         }
 
+        fun selectMode(mode: Mode) {
+            _uiState.update { it.copy(selectedMode = mode) }
+        }
+
+        fun selectDnsProvider(providerId: String) {
+            _uiState.update { it.copy(selectedDnsProviderId = providerId) }
+        }
+
+        fun runConnectionTest() {
+            _uiState.update { it.copy(connectionTestState = ConnectionTestState.Running) }
+            viewModelScope.launch {
+                val result = connectionTestRunner.runTest()
+                _uiState.update { it.copy(connectionTestState = result) }
+            }
+        }
+
         fun skip() {
             finish()
         }
 
         fun finish() {
+            val state = _uiState.value
             viewModelScope.launch {
                 appSettingsRepository.update {
                     setOnboardingComplete(true)
+                    setRipdpiMode(state.selectedMode.preferenceValue)
+                    setDnsProviderId(state.selectedDnsProviderId)
                 }
                 _effects.send(OnboardingEffect.OnboardingComplete)
             }
