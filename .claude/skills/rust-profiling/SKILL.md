@@ -1,244 +1,209 @@
 ---
 name: rust-profiling
-description: Rust profiling skill for performance analysis. Use when generating flamegraphs from Rust binaries, measuring monomorphization bloat with cargo-llvm-lines, analysing binary size with cargo-bloat, microbenchmarking with Criterion, or interpreting inlined frames in profiles. Activates on queries about cargo flamegraph, cargo-bloat, cargo-llvm-lines, Criterion benchmarks, Rust performance profiling, or binary size analysis.
+description: Rust profiling skill for RIPDPI performance analysis. Use when profiling Android .so binaries with simpleperf/perfetto, measuring monomorphization bloat with cargo-llvm-lines, analysing binary size with cargo-bloat against android-jni profile, microbenchmarking with Criterion (ripdpi-bench), reading flamegraphs, or optimising APK .so size. Activates on queries about cargo-bloat, cargo-llvm-lines, Criterion benchmarks, Rust performance profiling, simpleperf, perfetto, binary size, or APK size.
 ---
 
-# Rust Profiling
+# Rust Profiling (RIPDPI)
 
-## Purpose
+## Project context
 
-Guide agents through Rust performance profiling: flamegraphs via cargo-flamegraph, binary size analysis, monomorphization bloat measurement, Criterion microbenchmarks, and interpreting profiling results with inlined Rust frames.
+- 23 Rust crates at `native/rust/`, cross-compiled to Android NDK targets
+- Custom Cargo profiles in `native/rust/Cargo.toml`:
+  - `android-jni` -- release for APK: `opt-level="z"`, `panic="unwind"`, inherits release (thin LTO, codegen-units=1, strip=symbols)
+  - `android-jni-dev` -- dev for on-device debugging: `opt-level=1`, `debug="line-tables-only"`, `panic="unwind"`
+  - `bench` -- host benchmarks: `debug=false`, `lto="thin"`
+- Benchmark crate: `native/rust/crates/ripdpi-bench/` with `config_parse` and `relay_throughput` benchmarks
+- Criterion 0.8 (workspace dependency)
 
-## Triggers
+## 1. Android on-device profiling (primary workflow)
 
-- "How do I generate a flamegraph for a Rust program?"
-- "My Rust binary is huge — how do I find what's causing it?"
-- "How do I write Criterion benchmarks?"
-- "How do I measure monomorphization bloat?"
-- "Rust performance is worse than expected — how do I profile it?"
-- "How do I use perf with Rust?"
+Host tools like `perf`, `heaptrack`, `DHAT` do not work for Android targets.
+Use `simpleperf` or Perfetto instead.
 
-## Workflow
-
-### 1. Build for profiling
+### simpleperf (CPU profiling)
 
 ```bash
-# Release with debug symbols (needed for readable profiles)
-# Cargo.toml:
-[profile.release-with-debug]
-inherits = "release"
-debug = true
+# Push debug .so to device (built with android-jni-dev for symbols)
+adb push target/aarch64-linux-android/android-jni-dev/libripdpi.so /data/local/tmp/
 
-cargo build --profile release-with-debug
+# Record while app runs (app must be debuggable or device rooted)
+adb shell simpleperf record -p $(adb shell pidof com.poyka.ripdpi) \
+    -g --duration 10 -o /data/local/tmp/perf.data
 
-# Or quick: release + debug info inline
-CARGO_PROFILE_RELEASE_DEBUG=true cargo build --release
+# Pull and convert to flamegraph
+adb pull /data/local/tmp/perf.data .
+simpleperf report-sample --protobuf perf.data -o perf.trace
+# Or generate flamegraph directly:
+simpleperf_report_lib.py -i perf.data --symfs . | flamegraph.pl > fg.svg
 ```
 
-### 2. Flamegraphs with cargo-flamegraph
+Android NDK ships `simpleperf` at `$ANDROID_NDK/simpleperf/`.
+
+### Perfetto (system-wide tracing)
 
 ```bash
-# Install
-cargo install flamegraph
+# Record CPU scheduling + callstacks
+adb shell perfetto -c - --txt -o /data/local/tmp/trace <<'EOF'
+buffers { size_kb: 65536 }
+data_sources { config {
+    name: "linux.process_stats"
+    target_buffer: 0
+}}
+data_sources { config {
+    name: "linux.perf"
+    target_buffer: 0
+    perf_event_config {
+        timebase { frequency: 999 }
+        callstack_sampling { kernel_frames: true }
+    }
+}}
+duration_ms: 10000
+EOF
 
-# Linux: uses perf (requires perf_event_paranoid ≤ 1)
-sudo sh -c 'echo 1 > /proc/sys/kernel/perf_event_paranoid'
-cargo flamegraph --bin myapp -- arg1 arg2
-
-# macOS: uses DTrace (requires sudo)
-sudo cargo flamegraph --bin myapp -- arg1 arg2
-
-# Profile tests
-cargo flamegraph --test mytest -- test_filter
-
-# Profile benchmarks
-cargo flamegraph --bench mybench -- --bench
-
-# Output
-# Generates flamegraph.svg in current directory
-# Open in browser: firefox flamegraph.svg
+adb pull /data/local/tmp/trace .
+# Open at https://ui.perfetto.dev
 ```
 
-Custom flamegraph options:
-```bash
-# More samples
-cargo flamegraph --freq 1000 --bin myapp
+### Reading Android profiles
 
-# Filter to specific threads
-cargo flamegraph --bin myapp -- args 2>/dev/null
+- Use `android-jni-dev` profile for symbol info (`debug="line-tables-only"`)
+- `android-jni` strips symbols -- profiles will show raw addresses only
+- For release builds, keep an unstripped copy: check `target/aarch64-linux-android/android-jni/libripdpi.so` before strip
 
-# Using perf directly for more control
-perf record -g -F 999 ./target/release-with-debug/myapp args
-perf script | stackcollapse-perf.pl | flamegraph.pl > out.svg
-```
+## 2. Binary size analysis (cargo-bloat)
 
-### 3. Binary size analysis with cargo-bloat
+Always target `--profile android-jni` to match what ships in the APK.
 
 ```bash
-# Install
-cargo install cargo-bloat
+cd native/rust
 
-# Show top functions by size
-cargo bloat --release -n 20
+# Per-crate breakdown (what matters for APK)
+cargo bloat --profile android-jni --target aarch64-linux-android --crates
 
-# Show per-crate size breakdown
-cargo bloat --release --crates
+# Top 20 functions by size
+cargo bloat --profile android-jni --target aarch64-linux-android -n 20
 
-# Include only specific crate
-cargo bloat --release --filter myapp
-
-# Compare before/after a change
-cargo bloat --release --crates > before.txt
+# Compare before/after
+cargo bloat --profile android-jni --target aarch64-linux-android --crates > before.txt
 # make changes
-cargo bloat --release --crates > after.txt
+cargo bloat --profile android-jni --target aarch64-linux-android --crates > after.txt
 diff before.txt after.txt
 ```
 
-Typical output:
-```
- File  .text    Size    Crate Name
- 2.4%   3.0% 47.0KiB      std <std macros>
- 1.8%   2.3% 35.5KiB   myapp myapp::heavy_module::process
- 1.2%   1.5% 23.1KiB    serde serde::de::...
-```
+### .so stripping vs debug=0 trade-offs
 
-### 4. Monomorphization bloat with cargo-llvm-lines
+The `android-jni` profile sets `strip = "symbols"` (inherited from release).
 
-```bash
-# Install
-cargo install cargo-llvm-lines
+| Setting | .so size | Debuggable | Notes |
+|---------|----------|------------|-------|
+| `strip = "symbols"` (current) | Smallest | No | Default for APK; removes all symbols + debug info |
+| `strip = "debuginfo"` | ~5-10% larger | Partial | Keeps symbol names for profiling, drops DWARF |
+| `strip = "none"` + `debug = 0` | ~10-15% larger | No | No debug info generated, but ELF symbols remain |
+| `strip = "none"` + `debug = "line-tables-only"` | ~30-50% larger | Yes | For on-device profiling; do not ship |
 
-# Show LLVM IR line counts (proxy for monomorphization)
-cargo llvm-lines --release | head -40
+For APK size, `strip = "symbols"` with `opt-level = "z"` is optimal.
+Keep unstripped builds only for profiling sessions.
 
-# Filter to your crate only
-cargo llvm-lines --release | grep '^myapp'
-```
-
-Typical output:
-```
-   Lines      Copies  Function name
-   85330           1  [LLVM passes]
-    7761          92  core::fmt::write
-    4672          11  myapp::process::<impl MyTrait for T>
-    3201          47  <alloc::vec::Vec<T> as core::ops::Drop>::drop
-```
-
-High `Copies` count = monomorphization expansion. Fix:
-```rust
-// Before: generic, gets monomorphized for every T
-fn process<T: AsRef<[u8]>>(data: T) -> usize {
-    do_work(data.as_ref())
-}
-
-// After: thin generic wrapper + concrete inner
-fn process<T: AsRef<[u8]>>(data: T) -> usize {
-    fn inner(data: &[u8]) -> usize { do_work(data) }
-    inner(data.as_ref())
-}
-```
-
-### 5. Criterion microbenchmarks
-
-```toml
-# Cargo.toml
-[dev-dependencies]
-criterion = { version = "0.5", features = ["html_reports"] }
-
-[[bench]]
-name = "my_bench"
-harness = false
-```
-
-```rust
-// benches/my_bench.rs
-use criterion::{black_box, criterion_group, criterion_main, Criterion, BenchmarkId};
-
-fn bench_process(c: &mut Criterion) {
-    // Simple benchmark
-    c.bench_function("process 1000 items", |b| {
-        let data: Vec<i32> = (0..1000).collect();
-        b.iter(|| process(black_box(&data)))  // black_box prevents optimization
-    });
-}
-
-fn bench_sizes(c: &mut Criterion) {
-    let mut group = c.benchmark_group("process_sizes");
-
-    for size in [100, 1000, 10000].iter() {
-        let data: Vec<i32> = (0..*size).collect();
-        group.bench_with_input(
-            BenchmarkId::from_parameter(size),
-            &data,
-            |b, data| b.iter(|| process(black_box(data))),
-        );
-    }
-    group.finish();
-}
-
-criterion_group!(benches, bench_process, bench_sizes);
-criterion_main!(benches);
-```
+## 3. Monomorphization bloat (cargo-llvm-lines)
 
 ```bash
+cd native/rust
+
+cargo llvm-lines --release -p ripdpi-ws-tunnel | head -30
+cargo llvm-lines --release -p ripdpi-session | head -30
+```
+
+High `Copies` count = monomorphization expansion. Fix with the inner-function pattern:
+
+```rust
+// Before: monomorphized for every T
+fn send<T: AsRef<[u8]>>(data: T) { send_inner(data.as_ref()) }
+
+// After: thin generic wrapper + concrete inner (single copy)
+fn send<T: AsRef<[u8]>>(data: T) { fn inner(data: &[u8]) { /* ... */ } inner(data.as_ref()) }
+```
+
+## 4. Criterion microbenchmarks (ripdpi-bench)
+
+The project uses Criterion 0.8 with two benchmarks: `config_parse` and `relay_throughput`.
+
+```bash
+cd native/rust
+
 # Run all benchmarks
-cargo bench
+cargo bench -p ripdpi-bench
 
 # Run specific benchmark
-cargo bench --bench my_bench
+cargo bench -p ripdpi-bench --bench relay_throughput
 
-# Run with filter
-cargo bench -- process_sizes
+# Filter to specific function
+cargo bench -p ripdpi-bench -- "throughput/4096"
 
-# Compare with baseline (save/load)
-cargo bench -- --save-baseline before
+# Save baseline and compare
+cargo bench -p ripdpi-bench -- --save-baseline before
 # make changes
-cargo bench -- --baseline before
+cargo bench -p ripdpi-bench -- --baseline before
 
 # View HTML report
 open target/criterion/report/index.html
 ```
 
-### 6. perf with Rust (Linux)
+See [references/cargo-flamegraph-setup.md](references/cargo-flamegraph-setup.md) for writing new benchmarks with throughput reporting and async support.
+
+## 5. Host flamegraphs (cargo-flamegraph)
+
+Works for host-target binaries and benchmarks only (not Android targets).
 
 ```bash
-# Record
-perf record -g ./target/release-with-debug/myapp args
-perf record -g -F 999 ./target/release-with-debug/myapp args  # higher freq
+# Profile a benchmark on host
+cargo flamegraph --bench relay_throughput -p ripdpi-bench -- --bench
 
-# Report
-perf report                     # interactive TUI
-perf report --stdio --no-call-graph | head -40   # text
+# macOS: requires DTrace + sudo
+sudo cargo flamegraph --bench relay_throughput -p ripdpi-bench -- --bench
 
-# Annotate specific function
-perf annotate myapp::hot_function
-
-# stat (quick counters)
-perf stat ./target/release/myapp args
+# Linux: requires perf_event_paranoid <= 1
+cargo flamegraph --bin ripdpi-cli -- args
 ```
 
-Rust-specific perf tips:
-- Build with `debug = 1` (line tables only) for faster builds with line-level attribution
-- Use `RUSTFLAGS="-C force-frame-pointers=yes"` for better call graphs without DWARF unwinding
-- Disable ASLR for reproducible addresses: `setarch $(uname -m) -R ./myapp`
+### Reading flamegraphs
 
-### 7. heaptrack / DHAT for allocations
+| Axis | Meaning |
+|------|---------|
+| X (width) | CPU time proportion (wider = hotter) -- NOT time sequence |
+| Y (height) | Call stack depth (bottom = entry point) |
+| Color | Random (no significance) unless differential |
 
-```bash
-# heaptrack (Linux)
-heaptrack ./target/release/myapp args
-heaptrack_print heaptrack.myapp.*.zst | head -50
+What to look for:
 
-# DHAT via Valgrind
-valgrind --tool=dhat ./target/debug/myapp args
-# Open dhat-out.* with dh_view.html
-```
+| Pattern | Meaning | Action |
+|---------|---------|--------|
+| Wide plateau at top | Leaf hotspot | Optimize that function |
+| Wide frame, tall narrow towers | Hot dispatch | Reduce call overhead |
+| Unexpected `alloc`/`drop` frames | Excessive allocation | Pool or reuse buffers |
+| Many `<closure>` frames | Closure overhead in tight loops | Extract to named function |
 
-For flamegraph setup and Criterion configuration, see [references/cargo-flamegraph-setup.md](references/cargo-flamegraph-setup.md).
+Differential flamegraphs: red = regression, blue = improvement.
+
+## 6. Host-only profiling tools (brief reference)
+
+These require running on the host, not on Android:
+
+- **`perf stat`/`perf record`** -- Linux only; use `RUSTFLAGS="-C force-frame-pointers=yes"` for better call graphs
+- **`heaptrack`** -- Linux heap profiler; `heaptrack ./target/release/binary`
+- **`DHAT`** -- Valgrind heap profiler; `valgrind --tool=dhat ./target/debug/binary`
+- **DTrace** -- macOS; used automatically by `cargo flamegraph`
+
+For host-target testing with `ripdpi-cli`, these work directly.
+For Android profiling, use simpleperf/Perfetto (section 1).
+
+## References
+
+- [references/cargo-flamegraph-setup.md](references/cargo-flamegraph-setup.md) -- flamegraph setup and Criterion config details
+- Android NDK simpleperf docs: `$ANDROID_NDK/simpleperf/doc/`
+- Perfetto UI: https://ui.perfetto.dev
 
 ## Related skills
 
-- Use `skills/rust/rustc-basics` for build configuration (debug symbols, profiles)
-- Use `skills/profilers/linux-perf` for perf fundamentals
-- Use `skills/profilers/flamegraphs` for reading and interpreting flamegraph SVGs
-- Use `skills/profilers/valgrind` for allocation profiling with massif/DHAT
+- `rust-build-times` -- build time optimization, LTO trade-offs
+- `cargo-workflows` -- workspace management, feature flags, profiles
+- `flamegraphs` (global) -- detailed flamegraph generation from any profiler input
