@@ -9,11 +9,14 @@
     <ID>CyclomaticComplexMethod:DnsResolverConfig.kt$fun activeDnsSettings( dnsMode: String, dnsProviderId: String, dnsIp: String, encryptedDnsProtocol: String = "", encryptedDnsHost: String = "", encryptedDnsPort: Int = 0, encryptedDnsTlsServerName: String = "", encryptedDnsBootstrapIps: Iterable&lt;String&gt; = emptyList(), encryptedDnsDohUrl: String = "", encryptedDnsDnscryptProviderName: String = "", encryptedDnsDnscryptPublicKey: String = "", ): ActiveDnsSettings</ID>
     <ID>CyclomaticComplexMethod:EncryptedDnsPathSelection.kt$fun buildEncryptedDnsCandidatePlan( activeDns: ActiveDnsSettings, preferredPath: EncryptedDnsPathCandidate? = null, ): List&lt;EncryptedDnsPathCandidate&gt;</ID>
     <ID>CyclomaticComplexMethod:ServiceTelemetry.kt$private fun classifyFailureText(text: String): FailureClass?</ID>
+    <ID>CyclomaticComplexMethod:StrategyChains.kt$private fun parseTcpStep( kind: TcpChainStepKind, spec: String, lineNumber: Int, ): TcpChainStepModel</ID>
+    <ID>CyclomaticComplexMethod:StrategyFamilies.kt$fun deriveTcpStrategyFamily(tcpSteps: List&lt;TcpChainStepModel&gt;): String?</ID>
     <ID>CyclomaticComplexMethod:StrategyFamilies.kt$fun strategyLaneFamilyLabel(family: String): String</ID>
     <ID>LongMethod:AppSettingsJson.kt$private fun AppSettings.toSnapshot(): AppSettingsSnapshot</ID>
     <ID>LongMethod:AppSettingsJson.kt$private fun AppSettingsSnapshot.toAppSettings(): AppSettings</ID>
     <ID>LongMethod:AppSettingsJsonTest.kt$AppSettingsJsonTest$@Test fun `settings round trip through current json format`()</ID>
     <ID>LongMethod:HostPackCatalogTest.kt$HostPackCatalogTest$@Test fun `curated geosite extraction keeps root and full domains only`()</ID>
+    <ID>LongMethod:StrategyChains.kt$fun parseStrategyChainDsl(source: String): Result&lt;StrategyChainSet&gt;</ID>
     <ID>LongMethod:StrategyChains.kt$private fun parseTcpStep( kind: TcpChainStepKind, spec: String, lineNumber: Int, ): TcpChainStepModel</ID>
     <ID>MagicNumber:AdaptiveFakeTtlSettings.kt$255</ID>
     <ID>MagicNumber:DnsResolverConfig.kt$443</ID>
@@ -31,6 +34,7 @@
     <ID>MagicNumber:ServiceTelemetry.kt$50L</ID>
     <ID>MagicNumber:StrategyChains.kt$16</ID>
     <ID>MagicNumber:StrategyChains.kt$255</ID>
+    <ID>MagicNumber:StrategyChains.kt$32</ID>
     <ID>MagicNumber:StrategyChains.kt$4</ID>
     <ID>MagicNumber:StrategyChains.kt$4096</ID>
     <ID>ReturnCount:ActivationFilters.kt$fun formatNumericRange(range: NumericRangeModel): String?</ID>
@@ -43,6 +47,7 @@
     <ID>ReturnCount:ServiceTelemetry.kt$fun classifyFailureClass( failureReason: FailureReason?, proxyTelemetry: NativeRuntimeSnapshot, tunnelTelemetry: NativeRuntimeSnapshot, ): FailureClass?</ID>
     <ID>ReturnCount:StrategyChains.kt$fun rewritePrimaryTcpMarker( tcpSteps: List&lt;TcpChainStepModel&gt;, marker: String, ): List&lt;TcpChainStepModel&gt;</ID>
     <ID>ReturnCount:StrategyChains.kt$private fun normalizeFakeHostTemplate( kind: TcpChainStepKind, template: String, ): String</ID>
+    <ID>ReturnCount:StrategyFamilies.kt$fun deriveQuicStrategyFamily( udpSteps: List&lt;UdpChainStepModel&gt;, desyncUdp: Boolean, quicInitialMode: String, quicFakeProfile: String, ): String</ID>
     <ID>TooManyFunctions:StrategyChains.kt$com.poyka.ripdpi.data.StrategyChains.kt</ID>
     <ID>TopLevelPropertyNaming:Actions.kt$const val START_ACTION = "start"</ID>
     <ID>TopLevelPropertyNaming:Actions.kt$const val STOP_ACTION = "stop"</ID>

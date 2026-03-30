@@ -1,6 +1,12 @@
 {
   "entries": [
     {
+      "path": "app/src/main/kotlin/com/poyka/ripdpi/activities/DiagnosticsUiContextSupport.kt",
+      "kind": "kotlin",
+      "measuredLoc": 733,
+      "limit": 700
+    },
+    {
       "path": "app/src/main/kotlin/com/poyka/ripdpi/activities/DiagnosticsUiSectionBuilders.kt",
       "kind": "kotlin",
       "measuredLoc": 821,
@@ -11,6 +17,12 @@
       "kind": "kotlin",
       "measuredLoc": 713,
       "limit": 700
+    },
+    {
+      "path": "app/src/main/kotlin/com/poyka/ripdpi/ui/screens/home/HomeScreen.kt",
+      "kind": "compose",
+      "measuredLoc": 1314,
+      "limit": 1000
     },
     {
       "path": "app/src/main/kotlin/com/poyka/ripdpi/ui/screens/diagnostics/DiagnosticsCards.kt",
@@ -40,6 +52,18 @@
       "path": "app/src/main/kotlin/com/poyka/ripdpi/ui/screens/settings/AdvancedSettingsBinder.kt",
       "kind": "kotlin",
       "measuredLoc": 775,
+      "limit": 700
+    },
+    {
+      "path": "core/data/src/main/kotlin/com/poyka/ripdpi/data/StrategyChains.kt",
+      "kind": "kotlin",
+      "measuredLoc": 822,
+      "limit": 700
+    },
+    {
+      "path": "core/diagnostics/src/main/kotlin/com/poyka/ripdpi/diagnostics/DiagnosticsArchiveRenderer.kt",
+      "kind": "kotlin",
+      "measuredLoc": 1188,
       "limit": 700
     },
     {
