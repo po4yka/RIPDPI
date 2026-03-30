@@ -79,6 +79,18 @@ For strategy-probe runs, the native diagnostics path also exposes richer structu
 - `StrategyProbeReport.auditAssessment` carries confidence, matrix coverage, winner coverage, rationale, and warnings for `full_matrix_v1`
 - `StrategyProbeReport.targetSelection` records which rotating audit cohort was selected, plus the concrete domain and QUIC hosts that were probed
 
+```mermaid
+flowchart LR
+    A["Scan request"] --> B{"Scan type"}
+    B -- quick_v1 --> C["Fast recommendation\nsmall candidate set"]
+    B -- full_matrix_v1 --> D["Full audit\nrotating target cohort"]
+    C & D --> E["Candidate planning\nTCP + QUIC lanes"]
+    E --> F["Probe execution\nper-candidate with\nretry + diversification"]
+    F --> G["Result classification\nper-candidate outcome"]
+    G --> H["Winner selection\nconfidence + coverage scoring"]
+    H --> I["Report generation\nassessment + warnings"]
+```
+
 ## Connection Policy and Network Memory
 
 Service startup and live restarts now resolve connection policy through one Kotlin path in `ConnectionPolicyResolver`.
@@ -88,6 +100,20 @@ Service startup and live restarts now resolve connection policy through one Kotl
 - `remembered_network_policies` stores exact normalized `proxyConfigJson`, optional VPN DNS override, and separate TCP/QUIC/DNS strategy families for validated per-network winners.
 - Host autolearn is segmented by `networkScopeKey` in `host-autolearn-v2.json`, so one network does not poison another network's preferred groups.
 - Actionable handovers from `NetworkHandoverMonitor` trigger full proxy or proxy+tunnel restarts under the service mutex, then publish a success event used by diagnostics to schedule a hidden `quick_v1` probe for first-seen networks.
+
+```mermaid
+flowchart TD
+    A["Network change detected\nor service startup"] --> B["NetworkFingerprintProvider\ncapture fingerprint"]
+    B --> C["SHA-256 hash"]
+    C --> D{"Remembered policy\nfor this hash?"}
+    D -- Yes --> E["Apply exact\nproxyConfigJson\n+ VPN DNS override"]
+    D -- No --> F["Use current\nUI settings"]
+    E & F --> G["Start proxy\n+ tunnel if VPN"]
+    G --> H{"Handover detected?"}
+    H -- Yes --> I["Re-resolve policy\nfull restart under mutex"]
+    I --> B
+    H -- No --> J["Steady state\npassive monitoring"]
+```
 
 ## Current Proxy Strategy Surface
 
@@ -183,6 +209,47 @@ Structured telemetry, diagnostics-event payloads, and strategy-probe progress/re
 - `native/rust/crates/ripdpi-packets` -- packet parsing utilities (TLS, HTTP, QUIC markers)
 - `native/rust/crates/ripdpi-tun-driver` -- raw TUN socket handling
 - `native/rust/crates/android-support`
+
+### Crate dependency graph
+
+```mermaid
+flowchart TD
+    subgraph "Shipping binaries"
+        AND["ripdpi-android\nlibripdpi.so"]
+        TAND["ripdpi-tunnel-android\nlibripdpi-tunnel.so"]
+        CLI["ripdpi-cli\ndesktop binary"]
+    end
+
+    subgraph "Core runtime"
+        RT["ripdpi-runtime"]
+        DSN["ripdpi-desync"]
+        CFG["ripdpi-proxy-config"]
+        DNS["ripdpi-dns-resolver"]
+        WST["ripdpi-ws-tunnel"]
+        FRAG["ripdpi-ipfrag"]
+        SESS["ripdpi-session"]
+        FC["ripdpi-failure-classifier"]
+        PKT["ripdpi-packets"]
+    end
+
+    subgraph "Tunnel"
+        TC["ripdpi-tunnel-core"]
+        TD["ripdpi-tun-driver"]
+    end
+
+    subgraph "Diagnostics"
+        MON["ripdpi-monitor"]
+    end
+
+    AND --> RT & MON & CFG
+    TAND --> TC
+    CLI --> RT & CFG
+
+    RT --> DSN & DNS & WST & FRAG & SESS & FC & CFG & PKT
+    TC --> DNS & TD
+    MON --> RT & DNS & CFG
+    DSN --> PKT & FRAG
+```
 
 ## Native Test Support Crates
 
