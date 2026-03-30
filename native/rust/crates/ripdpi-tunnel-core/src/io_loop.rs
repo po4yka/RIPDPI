@@ -29,7 +29,7 @@ mod packet;
 mod tcp_accept;
 mod udp_assoc;
 
-use self::bridge::{flush_device_tx_queue, pump_active_sessions, shutdown_active_sessions, try_write_tun_packet};
+use self::bridge::{enqueue_tun_packet, flush_device_tx_queue, pump_active_sessions, shutdown_active_sessions};
 use self::dns_intercept::{
     build_encrypted_dns_resolver, dns_query_name, handle_dns_result, parse_dns_cache, parse_mapdns_runtime,
     resolve_mapped_target, spawn_dns_worker, DnsRequest, MapDnsRuntime,
@@ -64,7 +64,7 @@ const PENDING_LISTEN_GC_INTERVAL: u32 = 100;
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
 fn send_dns_servfail(
-    tun: &AsyncFd<std::fs::File>,
+    device: &mut TunDevice,
     stats: &Arc<Stats>,
     mapdns: MapDnsRuntime,
     cache: &DnsCache,
@@ -77,7 +77,7 @@ fn send_dns_servfail(
     match cache.servfail_response(query) {
         Ok(servfail) => {
             let raw = build_udp_response(mapdns.intercept_addr, src, &servfail);
-            try_write_tun_packet(tun, stats, &raw, "dns-servfail");
+            enqueue_tun_packet(device, raw, "dns-servfail");
         }
         Err(err) => debug!("failed to synthesize SERVFAIL ({reason}): {err}"),
     }
@@ -196,7 +196,7 @@ pub async fn io_loop_task(
                                 Err(tokio::sync::mpsc::error::TrySendError::Full(request)) => {
                                     if let (Some(mapdns), Some(cache)) = (mapdns_runtime, dns_cache.as_ref()) {
                                         send_dns_servfail(
-                                            tun,
+                                            &mut device,
                                             &stats,
                                             mapdns,
                                             cache,
@@ -210,7 +210,7 @@ pub async fn io_loop_task(
                                 Err(tokio::sync::mpsc::error::TrySendError::Closed(request)) => {
                                     if let (Some(mapdns), Some(cache)) = (mapdns_runtime, dns_cache.as_ref()) {
                                         send_dns_servfail(
-                                            tun,
+                                            &mut device,
                                             &stats,
                                             mapdns,
                                             cache,
@@ -227,7 +227,7 @@ pub async fn io_loop_task(
                         }
                         (Some(mapdns), Some(cache), None) => {
                             send_dns_servfail(
-                                tun,
+                                &mut device,
                                 &stats,
                                 *mapdns,
                                 cache,
@@ -279,7 +279,7 @@ pub async fn io_loop_task(
                 let Some(response) = dns_response else {
                     break;
                 };
-                handle_dns_result(tun, &stats, mapdns, cache, response);
+                handle_dns_result(&mut device, &stats, mapdns, cache, response);
             }
         }
 
@@ -317,7 +317,7 @@ pub async fn io_loop_task(
 
         // Drain any UDP response packets that arrived between loop iterations.
         while let Ok(event) = udp_rx.try_recv() {
-            handle_udp_event(tun, &stats, &mut udp_associations, event);
+            handle_udp_event(&mut device, &mut udp_associations, event);
         }
 
         tokio::select! {
@@ -325,7 +325,7 @@ pub async fn io_loop_task(
             _ = tokio::time::sleep(smol_delay) => {},
             udp_event = udp_rx.recv() => {
                 if let Some(udp_event) = udp_event {
-                    handle_udp_event(tun, &stats, &mut udp_associations, udp_event);
+                    handle_udp_event(&mut device, &mut udp_associations, udp_event);
                 }
             }
             dns_result = async {
@@ -337,7 +337,7 @@ pub async fn io_loop_task(
                 match dns_result {
                     Some(response) => {
                         if let (Some(mapdns), Some(cache)) = (mapdns_runtime, dns_cache.as_mut()) {
-                            handle_dns_result(tun, &stats, mapdns, cache, response);
+                            handle_dns_result(&mut device, &stats, mapdns, cache, response);
                         }
                     }
                     None => {

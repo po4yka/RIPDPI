@@ -192,6 +192,14 @@ where
                 tracing::debug!("WS tunnel Always mode: short init while sniffing MTProto: {error}");
                 return connect_after_ws_attempt_fn(client, target, state, dc_host, seed_request);
             }
+            WsTunnelResult::BootstrapFailed { dc, seed_request, error } => {
+                tracing::warn!(
+                    "WS tunnel Always mode: bootstrap failed for raw DC {} (class {:?}): {error}",
+                    dc.raw(),
+                    dc.class()
+                );
+                return connect_after_ws_attempt_fn(client, target, state, dc_host, seed_request);
+            }
             WsTunnelResult::WsOpenOrRelayFailed { dc, seed_request, error } => {
                 tracing::warn!(
                     "WS tunnel Always mode: relay failed for raw DC {} (class {:?}): {error}",
@@ -286,6 +294,16 @@ where
                                 if let Some(dc) = super::ws_tunnel::detect_telegram_dc(target) {
                                     telemetry.on_ws_tunnel_escalation(target, dc, false);
                                 }
+                            }
+                        }
+                        WsTunnelResult::BootstrapFailed { dc, error, .. } => {
+                            tracing::warn!(
+                                "WS tunnel fallback: bootstrap failed for raw DC {} (class {:?}): {error}",
+                                dc.raw(),
+                                dc.class()
+                            );
+                            if let Some(telemetry) = &state.telemetry {
+                                telemetry.on_ws_tunnel_escalation(target, dc.number(), false);
                             }
                         }
                         WsTunnelResult::WsOpenOrRelayFailed { dc, error, .. } => {
@@ -599,6 +617,44 @@ mod tests {
     }
 
     #[test]
+    fn always_mode_replays_seed_through_plain_connect_after_bootstrap_failure() {
+        let (_peer, mut client) = connected_pair();
+        let mut config = RuntimeConfig::default();
+        config.adaptive.ws_tunnel_mode = WsTunnelMode::Always;
+        let state = runtime_state(config, None);
+        let target = SocketAddr::from(([149, 154, 167, 91], 443));
+        let seed_request = vec![7_u8; 64];
+        let bootstrap_seed = seed_request.clone();
+        let expected_seed = seed_request.clone();
+
+        let result = connect_and_relay_with(
+            &mut client,
+            target,
+            &state,
+            Some("telegram-dc2".to_string()),
+            SuccessReply::Socks5,
+            |_client, _reply, _upstream| Ok(()),
+            move |_client, _state| WsTunnelResult::BootstrapFailed {
+                dc: TelegramDc::production(2),
+                seed_request: bootstrap_seed.clone(),
+                error: io::Error::new(io::ErrorKind::TimedOut, "bootstrap timed out"),
+            },
+            |_client, _seed_request, _state| unreachable!("fallback WS should not be used"),
+            |_client, _state, _target, _handshake| unreachable!("desync path should not run"),
+            |_client, _target, _state, _dc_host, _reply| unreachable!("plain immediate relay should not run"),
+            |_client, _target, _state, _dc_host, _route, _payload| unreachable!("plain delayed relay should not run"),
+            move |_client, replay_target, _state, dc_host, replay_seed| {
+                assert_eq!(replay_target, target);
+                assert_eq!(dc_host.as_deref(), Some("telegram-dc2"));
+                assert_eq!(replay_seed, expected_seed);
+                Ok(())
+            },
+        );
+
+        assert!(result.is_ok());
+    }
+
+    #[test]
     fn fallback_mode_reuses_preserved_seed_for_validated_mtproto() {
         let (_peer, mut client) = connected_pair();
         let mut config = RuntimeConfig::default();
@@ -692,6 +748,51 @@ mod tests {
 
         assert_eq!(err.kind(), io::ErrorKind::TimedOut);
         assert_eq!(write_count.load(StdOrdering::Relaxed), 0);
+        assert_eq!(telemetry.ws_escalations.lock().expect("ws escalations lock").as_slice(), &[(target, 2, false)],);
+    }
+
+    #[test]
+    fn fallback_mode_returns_original_error_for_bootstrap_failure() {
+        let (_peer, mut client) = connected_pair();
+        let mut config = RuntimeConfig::default();
+        config.adaptive.ws_tunnel_mode = WsTunnelMode::Fallback;
+        let telemetry = StdArc::new(TestTelemetry::default());
+        let state = runtime_state(config, Some(telemetry.clone()));
+        let target = SocketAddr::from(([149, 154, 167, 91], 443));
+        let seed_request = vec![3_u8; 64];
+        let fallback_seed = seed_request.clone();
+        let preserved_seed = seed_request.clone();
+
+        let err = connect_and_relay_with(
+            &mut client,
+            target,
+            &state,
+            Some("telegram-dc2".to_string()),
+            SuccessReply::Socks5,
+            |_client, _reply, _upstream| Ok(()),
+            |_client, _state| unreachable!("fresh WS sniff should not be used"),
+            move |_client, replay_seed, _state| {
+                assert_eq!(replay_seed, fallback_seed);
+                WsTunnelResult::BootstrapFailed {
+                    dc: TelegramDc::production(2),
+                    seed_request: replay_seed,
+                    error: io::Error::new(io::ErrorKind::TimedOut, "bootstrap timed out"),
+                }
+            },
+            |_client, _state, _target, _handshake| Ok(DelayConnect::Immediate),
+            move |_client, _target, _state, _dc_host, _reply| {
+                Err(ConnectRelayError::with_seed_request(
+                    io::Error::new(io::ErrorKind::TimedOut, "desync timeout"),
+                    true,
+                    Some(preserved_seed.clone()),
+                ))
+            },
+            |_client, _target, _state, _dc_host, _route, _payload| unreachable!("delayed relay should not run"),
+            |_client, _target, _state, _dc_host, _seed_request| unreachable!("after-WS plain fallback should not run"),
+        )
+        .expect_err("bootstrap failure should keep original error");
+
+        assert_eq!(err.kind(), io::ErrorKind::TimedOut);
         assert_eq!(telemetry.ws_escalations.lock().expect("ws escalations lock").as_slice(), &[(target, 2, false)],);
     }
 }
