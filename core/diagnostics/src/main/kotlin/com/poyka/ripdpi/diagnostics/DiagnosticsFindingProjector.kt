@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.diagnostics
 
+import java.util.Locale
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -542,7 +543,11 @@ class DiagnosticsFindingProjector
                                     listOf(
                                         "targetBps=$targetBps",
                                         "controlBps=$controlMedian",
-                                        "ratio=${String.format("%.2f", targetBps.toDouble() / controlMedian)}",
+                                        "ratio=${String.format(
+                                            Locale.ROOT,
+                                            "%.2f",
+                                            targetBps.toDouble() / controlMedian,
+                                        )}",
                                     ),
                             ),
                         )
