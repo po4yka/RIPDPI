@@ -15,6 +15,7 @@ import com.poyka.ripdpi.ui.components.RipDpiHapticFeedback
 import com.poyka.ripdpi.ui.components.feedback.RipDpiSnackbarTone
 import com.poyka.ripdpi.ui.components.feedback.showRipDpiSnackbar
 import com.poyka.ripdpi.ui.components.rememberRipDpiHapticPerformer
+import com.poyka.ripdpi.ui.debug.RecompositionReportEffect
 import com.poyka.ripdpi.ui.navigation.RipDpiNavHost
 import com.poyka.ripdpi.ui.navigation.RipDpiNavHostActions
 import com.poyka.ripdpi.ui.navigation.RipDpiNavHostLaunchRequests
@@ -33,6 +34,8 @@ internal fun MainActivityContent(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val shellState by controller.state.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
+
+    RecompositionReportEffect()
 
     MainActivityEffects(
         viewModel = viewModel,

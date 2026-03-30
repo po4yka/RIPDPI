@@ -86,6 +86,7 @@ import com.poyka.ripdpi.ui.components.indicators.StatusIndicatorTone
 import com.poyka.ripdpi.ui.components.rememberRipDpiHapticPerformer
 import com.poyka.ripdpi.ui.components.ripDpiClickable
 import com.poyka.ripdpi.ui.components.scaffold.RipDpiDashboardScaffold
+import com.poyka.ripdpi.ui.debug.TrackRecomposition
 import com.poyka.ripdpi.ui.navigation.Route
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
@@ -144,6 +145,7 @@ fun HomeScreen(
     onDismissAnalysisSheet: () -> Unit = {},
     onDismissVerificationSheet: () -> Unit = {},
 ) {
+    TrackRecomposition("HomeScreen")
     val colors = RipDpiThemeTokens.colors
     val spacing = RipDpiThemeTokens.spacing
     val layout = RipDpiThemeTokens.layout
@@ -693,6 +695,7 @@ private fun HomeStatusCard(
     uiState: MainUiState,
     onToggleConnection: () -> Unit,
 ) {
+    TrackRecomposition("HomeStatusCard")
     val colors = RipDpiThemeTokens.colors
     val spacing = RipDpiThemeTokens.spacing
     val type = RipDpiThemeTokens.type
@@ -750,6 +753,7 @@ private fun HomeConnectionButton(
     modeLabel: String,
     onClick: () -> Unit,
 ) {
+    TrackRecomposition("HomeConnectionButton")
     val colors = RipDpiThemeTokens.colors
     val motion = RipDpiThemeTokens.motion
     val type = RipDpiThemeTokens.type
@@ -1139,6 +1143,7 @@ private fun HomeConnectionButton(
 
 @Composable
 private fun HomeStatsGrid(uiState: MainUiState) {
+    TrackRecomposition("HomeStatsGrid")
     val spacing = RipDpiThemeTokens.spacing
     val context = LocalContext.current
     val resolvedMode = currentMode(uiState)
