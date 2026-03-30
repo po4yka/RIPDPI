@@ -23,6 +23,7 @@ use self::first_exchange::{first_response_timeout, response_trigger_supported, t
 #[cfg(test)]
 use self::tls_boundary::{
     OutboundTlsFirstRecordAssembler, TlsRecordBoundaryTracker, FIRST_TLS_RECORD_ASSEMBLY_TIMEOUT,
+    FIRST_TLS_RECORD_BYTES_LIMIT,
 };
 #[cfg(test)]
 use ripdpi_config::{DETECT_TLS_HANDSHAKE_FAILURE, DETECT_TORST};
@@ -221,6 +222,36 @@ mod tests {
         let mut invalid = TlsRecordBoundaryTracker::for_first_response(DEFAULT_FAKE_TLS, &config);
         invalid.observe(&[0x13, 0x03, 0x03, 0x00, 0x01, 0x00]);
         assert!(!invalid.active());
+    }
+
+    #[test]
+    fn tls_record_tracker_uses_default_limit_when_timeout_bytes_limit_is_zero() {
+        let mut config = RuntimeConfig::default();
+        config.timeouts.partial_timeout_ms = 50;
+        config.timeouts.timeout_bytes_limit = 0;
+
+        let mut tracker = TlsRecordBoundaryTracker::for_first_response(DEFAULT_FAKE_TLS, &config);
+        tracker.observe(&[0x16, 0x03, 0x03, 0xff, 0xff]);
+        tracker.observe(&vec![0xaa; FIRST_TLS_RECORD_BYTES_LIMIT - 5]);
+        assert!(tracker.active());
+        tracker.observe(&[0xbb]);
+
+        assert!(!tracker.active());
+    }
+
+    #[test]
+    fn tls_record_tracker_uses_default_limit_when_timeout_bytes_limit_is_negative() {
+        let mut config = RuntimeConfig::default();
+        config.timeouts.partial_timeout_ms = 50;
+        config.timeouts.timeout_bytes_limit = -1;
+
+        let mut tracker = TlsRecordBoundaryTracker::for_first_response(DEFAULT_FAKE_TLS, &config);
+        tracker.observe(&[0x16, 0x03, 0x03, 0xff, 0xff]);
+        tracker.observe(&vec![0xaa; FIRST_TLS_RECORD_BYTES_LIMIT - 5]);
+        assert!(tracker.active());
+        tracker.observe(&[0xbb]);
+
+        assert!(!tracker.active());
     }
 
     // -- Characterization: TLS record tracker state transitions --
