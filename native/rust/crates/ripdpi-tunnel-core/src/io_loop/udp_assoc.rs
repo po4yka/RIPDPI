@@ -260,4 +260,169 @@ mod tests {
             worker.abort();
         }
     }
+
+    #[tokio::test]
+    async fn handle_udp_event_ignores_stale_association_id() {
+        let proxy_addr = spawn_udp_associate_stub().await;
+        let src = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(10, 0, 0, 2)), 53001);
+        let (udp_tx, _udp_rx) = tokio::sync::mpsc::channel(1);
+        let cancel = CancellationToken::new();
+        let association = create_udp_association(
+            proxy_addr,
+            Auth::NoAuth,
+            src,
+            10,
+            Duration::from_secs(1),
+            cancel.child_token(),
+            udp_tx,
+        )
+        .await
+        .expect("udp association");
+        let worker = association.worker.abort_handle();
+        let mut associations = HashMap::from([(src, association)]);
+        let mut device = TunDevice::new(1500);
+
+        // Send a packet with a stale association_id (99 != 10)
+        handle_udp_event(
+            &mut device,
+            &mut associations,
+            UdpEvent::Packet { src, association_id: 99, raw: vec![5, 6, 7] },
+        );
+
+        assert!(device.tx_queue.is_empty(), "stale association_id should not enqueue packet");
+        if let Some(association) = associations.remove(&src) {
+            association.cancel.cancel();
+            worker.abort();
+        }
+    }
+
+    #[tokio::test]
+    async fn handle_udp_event_removes_closed_association() {
+        let proxy_addr = spawn_udp_associate_stub().await;
+        let src = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(10, 0, 0, 2)), 53002);
+        let (udp_tx, _udp_rx) = tokio::sync::mpsc::channel(1);
+        let cancel = CancellationToken::new();
+        let association = create_udp_association(
+            proxy_addr,
+            Auth::NoAuth,
+            src,
+            20,
+            Duration::from_secs(1),
+            cancel.child_token(),
+            udp_tx,
+        )
+        .await
+        .expect("udp association");
+        let worker = association.worker.abort_handle();
+        let mut associations = HashMap::from([(src, association)]);
+        let mut device = TunDevice::new(1500);
+
+        handle_udp_event(&mut device, &mut associations, UdpEvent::Closed { src, association_id: 20 });
+
+        assert!(associations.is_empty(), "closed event should remove association");
+        worker.abort();
+    }
+
+    #[tokio::test]
+    async fn handle_udp_event_ignores_stale_close() {
+        let proxy_addr = spawn_udp_associate_stub().await;
+        let src = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(10, 0, 0, 2)), 53003);
+        let (udp_tx, _udp_rx) = tokio::sync::mpsc::channel(1);
+        let cancel = CancellationToken::new();
+        let association = create_udp_association(
+            proxy_addr,
+            Auth::NoAuth,
+            src,
+            30,
+            Duration::from_secs(1),
+            cancel.child_token(),
+            udp_tx,
+        )
+        .await
+        .expect("udp association");
+        let worker = association.worker.abort_handle();
+        let mut associations = HashMap::from([(src, association)]);
+        let mut device = TunDevice::new(1500);
+
+        // Close event with wrong association_id should be ignored
+        handle_udp_event(&mut device, &mut associations, UdpEvent::Closed { src, association_id: 999 });
+
+        assert_eq!(associations.len(), 1, "stale close should not remove current association");
+        if let Some(association) = associations.remove(&src) {
+            association.cancel.cancel();
+            worker.abort();
+        }
+    }
+
+    #[test]
+    fn touch_udp_activity_updates_timestamp() {
+        let last_activity = Arc::new(Mutex::new(StdInstant::now() - Duration::from_secs(60)));
+        let before = *last_activity.lock().unwrap();
+
+        touch_udp_activity(&last_activity);
+
+        let after = *last_activity.lock().unwrap();
+        assert!(after > before, "timestamp should be refreshed after touch");
+        assert!(after.elapsed() < Duration::from_secs(1), "timestamp should be very recent");
+    }
+
+    #[test]
+    fn idle_detection_true_after_timeout() {
+        let last_activity = Arc::new(Mutex::new(StdInstant::now() - Duration::from_secs(60)));
+        assert!(udp_association_is_idle(&last_activity, Duration::from_secs(30)), "should be idle after timeout");
+    }
+
+    #[test]
+    fn idle_detection_false_when_fresh() {
+        let last_activity = Arc::new(Mutex::new(StdInstant::now()));
+        assert!(
+            !udp_association_is_idle(&last_activity, Duration::from_secs(30)),
+            "should not be idle when recently active"
+        );
+    }
+
+    #[tokio::test]
+    async fn shutdown_cancels_all_associations() {
+        let proxy_addr = spawn_udp_associate_stub().await;
+        let src1 = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(10, 0, 0, 2)), 53010);
+        let src2 = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(10, 0, 0, 2)), 53011);
+        let (udp_tx, _udp_rx) = tokio::sync::mpsc::channel(4);
+        let cancel = CancellationToken::new();
+
+        let a1 = create_udp_association(
+            proxy_addr,
+            Auth::NoAuth,
+            src1,
+            1,
+            Duration::from_secs(1),
+            cancel.child_token(),
+            udp_tx.clone(),
+        )
+        .await
+        .expect("association 1");
+
+        // Need a second proxy stub for the second association
+        let proxy_addr2 = spawn_udp_associate_stub().await;
+        let a2 = create_udp_association(
+            proxy_addr2,
+            Auth::NoAuth,
+            src2,
+            2,
+            Duration::from_secs(1),
+            cancel.child_token(),
+            udp_tx,
+        )
+        .await
+        .expect("association 2");
+
+        let cancel1 = a1.cancel.clone();
+        let cancel2 = a2.cancel.clone();
+        let mut associations = HashMap::from([(src1, a1), (src2, a2)]);
+
+        shutdown_udp_associations(&mut associations).await;
+
+        assert!(associations.is_empty(), "all associations should be drained");
+        assert!(cancel1.is_cancelled(), "association 1 cancel token should be cancelled");
+        assert!(cancel2.is_cancelled(), "association 2 cancel token should be cancelled");
+    }
 }
