@@ -1101,9 +1101,7 @@ fn build_tcp_segment_packet(
     if inject_md5 {
         // Noop padding before MD5 for 4-byte alignment
         let padding_needed = (4 - (raw_opts.len() % 4)) % 4;
-        for _ in 0..padding_needed {
-            raw_opts.push(1); // Noop
-        }
+        raw_opts.extend(std::iter::repeat_n(1u8, padding_needed)); // Noop
         raw_opts.push(19); // Kind=MD5 Signature (RFC 2385)
         raw_opts.push(18); // Length=18 (2 header + 16 signature)
                            // Random 16-byte signature (deterministic from seq for reproducibility)
@@ -1114,7 +1112,7 @@ fn build_tcp_segment_packet(
     }
     if !raw_opts.is_empty() {
         // Pad to 4-byte boundary
-        while raw_opts.len() % 4 != 0 {
+        while !raw_opts.len().is_multiple_of(4) {
             raw_opts.push(0); // End-of-options
         }
         tcp.set_options_raw(&raw_opts)

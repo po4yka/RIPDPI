@@ -125,6 +125,7 @@ pub(super) fn connect_and_relay(
     )
 }
 
+#[allow(clippy::too_many_arguments)]
 fn connect_and_relay_with<
     WriteSuccessReply,
     RunWsTunnel,
