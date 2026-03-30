@@ -101,6 +101,7 @@ pub(super) fn udp_associate_loop(
     let mut client_buffer = [0u8; 65_535];
     let mut upstream_buffer = [0u8; 65_535];
     let mut flow_state = HashMap::<(SocketAddr, SocketAddr), UdpFlowActivationState>::new();
+    let flow_limit = udp_flow_limit(&state.config);
 
     while running.load(Ordering::Relaxed) {
         expire_udp_flows(&state, &mut flow_state, Instant::now())?;
@@ -115,6 +116,20 @@ pub(super) fn udp_associate_loop(
                     let Some((target, payload)) = parse_socks5_udp_packet(&client_buffer[..n], &state) else {
                         continue;
                     };
+                    let flow_key = (sender, target);
+                    if udp_flow_at_capacity(&flow_state, flow_key, flow_limit) {
+                        tracing::warn!(
+                            client = %sender,
+                            %target,
+                            flows = flow_state.len(),
+                            limit = flow_limit,
+                            "UDP flow rejected: at capacity"
+                        );
+                        if let Some(telemetry) = &state.telemetry {
+                            telemetry.on_client_slot_exhausted();
+                        }
+                        continue;
+                    }
                     let host_info = extract_host_info(&state.config, payload);
                     let host = host_info.as_ref().map(|value| value.host.clone());
                     let Ok(route) = select_route_for_transport(
@@ -150,7 +165,7 @@ pub(super) fn udp_associate_loop(
                             host.as_deref(),
                             payload,
                         )?;
-                        if let std::collections::hash_map::Entry::Vacant(e) = flow_state.entry((sender, target)) {
+                        if let std::collections::hash_map::Entry::Vacant(e) = flow_state.entry(flow_key) {
                             e.insert(UdpFlowActivationState {
                                 session: SessionState::default(),
                                 last_used: now,
@@ -163,7 +178,7 @@ pub(super) fn udp_associate_loop(
                             });
                         }
                         let entry = flow_state
-                            .get_mut(&(sender, target))
+                            .get_mut(&flow_key)
                             .ok_or_else(|| io::Error::other("udp flow entry missing after insert"))?;
                         entry.last_used = now;
                         entry.route = route.clone();
@@ -271,6 +286,18 @@ pub(super) fn udp_associate_loop(
 
     expire_udp_flows(&state, &mut flow_state, Instant::now())?;
     Ok(())
+}
+
+fn udp_flow_limit(config: &RuntimeConfig) -> usize {
+    config.network.max_open.max(1) as usize
+}
+
+fn udp_flow_at_capacity<T>(
+    flow_state: &HashMap<(SocketAddr, SocketAddr), T>,
+    flow_key: (SocketAddr, SocketAddr),
+    flow_limit: usize,
+) -> bool {
+    !flow_state.contains_key(&flow_key) && flow_state.len() >= flow_limit
 }
 
 fn expire_udp_flows(
@@ -648,5 +675,30 @@ mod tests {
             build_udp_upstream_socket(SocketAddr::new(IpAddr::V4(Ipv4Addr::new(192, 0, 2, 10)), 443), None, false)
                 .expect("udp upstream socket");
         assert!(upstream.local_addr().expect("upstream relay addr").is_ipv4());
+    }
+
+    #[test]
+    fn udp_flow_limit_floors_non_positive_limits_to_one() {
+        let mut config = RuntimeConfig::default();
+        config.network.max_open = 0;
+        assert_eq!(udp_flow_limit(&config), 1);
+
+        config.network.max_open = -8;
+        assert_eq!(udp_flow_limit(&config), 1);
+    }
+
+    #[test]
+    fn udp_flow_capacity_rejects_only_new_flows_once_limit_is_reached() {
+        let client = SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 10_800);
+        let first_target = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(192, 0, 2, 10)), 443);
+        let second_target = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(192, 0, 2, 11)), 443);
+        let third_target = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(192, 0, 2, 12)), 443);
+        let mut flow_state = HashMap::<(SocketAddr, SocketAddr), ()>::new();
+
+        flow_state.insert((client, first_target), ());
+        flow_state.insert((client, second_target), ());
+
+        assert!(!udp_flow_at_capacity(&flow_state, (client, first_target), 2));
+        assert!(udp_flow_at_capacity(&flow_state, (client, third_target), 2));
     }
 }
