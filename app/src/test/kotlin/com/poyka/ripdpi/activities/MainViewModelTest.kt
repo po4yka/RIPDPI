@@ -532,7 +532,11 @@ class MainViewModelTest {
             val compositeRunService = StubDiagnosticsHomeCompositeRunService()
             val viewModel =
                 createViewModel(
-                    diagnosticsHomeCompositeRunService = compositeRunService,
+                    homeDiagnosticsServices =
+                        HomeDiagnosticsServices(
+                            workflowService = StubDiagnosticsHomeWorkflowService(),
+                            compositeRunService = compositeRunService,
+                        ),
                     permissionStatusProvider = grantedPermissionStatusProvider(),
                 )
             val collector = backgroundScope.launch { viewModel.uiState.collect {} }
@@ -558,8 +562,11 @@ class MainViewModelTest {
             val viewModel =
                 createViewModel(
                     diagnosticsShareService = shareService,
-                    diagnosticsHomeWorkflowService = homeWorkflowService,
-                    diagnosticsHomeCompositeRunService = compositeRunService,
+                    homeDiagnosticsServices =
+                        HomeDiagnosticsServices(
+                            workflowService = homeWorkflowService,
+                            compositeRunService = compositeRunService,
+                        ),
                     permissionStatusProvider = grantedPermissionStatusProvider(),
                 )
             val collector = backgroundScope.launch { viewModel.uiState.collect {} }
@@ -614,8 +621,11 @@ class MainViewModelTest {
                 }
             val viewModel =
                 createViewModel(
-                    diagnosticsHomeWorkflowService = homeWorkflowService,
-                    diagnosticsHomeCompositeRunService = compositeRunService,
+                    homeDiagnosticsServices =
+                        HomeDiagnosticsServices(
+                            workflowService = homeWorkflowService,
+                            compositeRunService = compositeRunService,
+                        ),
                     serviceStateStore = serviceStateStore,
                     permissionStatusProvider = grantedPermissionStatusProvider(),
                 )
@@ -660,8 +670,11 @@ class MainViewModelTest {
                 }
             val viewModel =
                 createViewModel(
-                    diagnosticsHomeWorkflowService = homeWorkflowService,
-                    diagnosticsHomeCompositeRunService = compositeRunService,
+                    homeDiagnosticsServices =
+                        HomeDiagnosticsServices(
+                            workflowService = homeWorkflowService,
+                            compositeRunService = compositeRunService,
+                        ),
                     serviceController = serviceController,
                     permissionStatusProvider = grantedPermissionStatusProvider(),
                 )
@@ -703,9 +716,11 @@ class MainViewModelTest {
         diagnosticsTimelineSource: FakeMainDiagnosticsTimelineSource = FakeMainDiagnosticsTimelineSource(),
         diagnosticsScanController: StubDiagnosticsScanController = StubDiagnosticsScanController(),
         diagnosticsShareService: StubDiagnosticsShareService = StubDiagnosticsShareService(),
-        diagnosticsHomeWorkflowService: StubDiagnosticsHomeWorkflowService = StubDiagnosticsHomeWorkflowService(),
-        diagnosticsHomeCompositeRunService: StubDiagnosticsHomeCompositeRunService =
-            StubDiagnosticsHomeCompositeRunService(),
+        homeDiagnosticsServices: HomeDiagnosticsServices =
+            HomeDiagnosticsServices(
+                workflowService = StubDiagnosticsHomeWorkflowService(),
+                compositeRunService = StubDiagnosticsHomeCompositeRunService(),
+            ),
         initialize: Boolean = true,
     ): MainViewModel =
         MainViewModel(
@@ -715,8 +730,7 @@ class MainViewModelTest {
             diagnosticsTimelineSource = diagnosticsTimelineSource,
             diagnosticsScanController = diagnosticsScanController,
             diagnosticsShareService = diagnosticsShareService,
-            diagnosticsHomeWorkflowService = diagnosticsHomeWorkflowService,
-            diagnosticsHomeCompositeRunService = diagnosticsHomeCompositeRunService,
+            homeDiagnosticsServices = homeDiagnosticsServices,
             stringResolver = FakeStringResolver(),
             trafficStatsReader = FakeTrafficStatsReader(),
             permissionPlatformBridge = FakePermissionPlatformBridge(),

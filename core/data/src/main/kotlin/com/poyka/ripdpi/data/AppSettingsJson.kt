@@ -101,7 +101,8 @@ internal data class AppSettingsSnapshot(
     val onboardingComplete: Boolean = defaultSettings.onboardingComplete,
     val webrtcProtectionEnabled: Boolean = defaultSettings.webrtcProtectionEnabled,
     val biometricEnabled: Boolean = defaultSettings.biometricEnabled,
-    val backupPin: String = defaultSettings.backupPin,
+    @kotlinx.serialization.Transient
+    val backupPin: String = "",
     val appIconVariant: String = defaultSettings.appIconVariant,
     val appIconStyle: String = defaultSettings.appIconStyle,
     val tcpChainSteps: List<AppSettingsTcpChainSnapshot> = emptyList(),
@@ -189,7 +190,6 @@ private fun AppSettings.toSnapshot(): AppSettingsSnapshot =
             onboardingComplete = onboardingComplete,
             webrtcProtectionEnabled = webrtcProtectionEnabled,
             biometricEnabled = biometricEnabled,
-            backupPin = backupPin,
             appIconVariant = appIconVariant,
             appIconStyle = appIconStyle,
             tcpChainSteps =
@@ -330,7 +330,6 @@ private fun AppSettingsSnapshot.toAppSettings(): AppSettings {
         .setOnboardingComplete(onboardingComplete)
         .setWebrtcProtectionEnabled(webrtcProtectionEnabled)
         .setBiometricEnabled(biometricEnabled)
-        .setBackupPin(backupPin)
         .setAppIconVariant(appIconVariant)
         .setAppIconStyle(appIconStyle)
         .setQuicInitialMode(quicInitialMode)

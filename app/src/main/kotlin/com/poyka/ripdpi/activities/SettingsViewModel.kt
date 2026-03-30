@@ -116,6 +116,13 @@ class SettingsViewModel
                 val settings = appSettingsRepository.snapshot()
                 if (settings.backupPin.isNotBlank() && !pinVerifier.isKeyAvailable()) {
                     appSettingsRepository.update { setBackupPin("") }
+                    _effects.send(
+                        SettingsEffect.Notice(
+                            title = stringResolver.getString(R.string.notice_pin_key_lost_title),
+                            message = stringResolver.getString(R.string.notice_pin_key_lost_message),
+                            tone = SettingsNoticeTone.Warning,
+                        ),
+                    )
                 }
             }
         }
