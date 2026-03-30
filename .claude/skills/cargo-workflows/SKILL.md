@@ -1,294 +1,208 @@
 ---
 name: cargo-workflows
-description: Cargo workflow skill for Rust projects. Use when managing workspaces, feature flags, build scripts, cargo cache, incremental builds, dependency auditing, or CI configuration with Cargo. Activates on queries about cargo workspaces, Cargo.toml features, build.rs, cargo nextest, cargo deny, cargo check vs build, or Cargo.lock management.
+description: Cargo workflow skill for the RIPDPI Rust workspace (23 crates, Android NDK cross-compilation). Use when managing the workspace, feature flags, build scripts, Gradle-Cargo integration, cargo-deny, cargo-audit, nextest, CI caching, or cross-compilation. Activates on queries about Cargo.toml, native builds, JNI libraries, cdylib crates, or dependency auditing.
 ---
 
-# Cargo Workflows
+# Cargo Workflows -- RIPDPI
 
-## Purpose
-
-Guide agents through Cargo workspaces, feature management, build scripts (`build.rs`), CI integration, incremental compilation, and the Cargo tool ecosystem.
-
-## Triggers
-
-- "How do I set up a Cargo workspace with multiple crates?"
-- "How do features work in Cargo?"
-- "How do I write a build.rs script?"
-- "How do I speed up Cargo builds in CI?"
-- "How do I audit my Rust dependencies?"
-- "What is cargo nextest and should I use it?"
-
-## Workflow
-
-### 1. Workspace setup
+## Project layout
 
 ```text
-my-project/
-├── Cargo.toml           # Workspace root
-├── Cargo.lock           # Single lock file for all members
-├── crates/
-│   ├── core/
-│   │   └── Cargo.toml
-│   ├── cli/
-│   │   └── Cargo.toml
-│   └── server/
-│       └── Cargo.toml
-└── tools/
-    └── codegen/
-        └── Cargo.toml
+native/rust/
+  Cargo.toml              # Virtual workspace manifest (23 crates)
+  Cargo.lock              # Checked in -- reproducible builds
+  .cargo/config.toml      # Per-target rustflags for Android NDK
+  .config/nextest.toml    # nextest profiles (default + ci)
+  deny.toml               # cargo-deny policy
+  crates/
+    ripdpi-android/       # cdylib -- JNI entry point (libripdpi.so)
+    ripdpi-tunnel-android/# cdylib -- JNI tunnel entry point (libripdpi-tunnel.so)
+    ripdpi-cli/           # Host-only CLI binary
+    ripdpi-bench/         # Criterion benchmarks
+    ... (19 more library crates)
 ```
 
-```toml
-# Workspace root Cargo.toml
-[workspace]
-members = [
-    "crates/core",
-    "crates/cli",
-    "crates/server",
-    "tools/codegen",
-]
-resolver = "2"   # Feature resolver v2 (required for edition 2021)
+## Android NDK cross-compilation
 
-# Shared dependency versions (workspace.dependencies)
-[workspace.dependencies]
-serde = { version = "1", features = ["derive"] }
-tokio = { version = "1", features = ["full"] }
-anyhow = "1"
+### How it works (no cargo-ndk)
 
-# Shared profile settings
-[profile.release]
-lto = "thin"
-codegen-units = 1
-```
+This project does NOT use `cargo-ndk`. Instead, a custom Gradle convention plugin
+(`ripdpi.android.rust-native`) invokes `cargo build` directly with per-ABI
+environment variables pointing to NDK clang linkers and `llvm-ar`.
 
-```toml
-# Member Cargo.toml
-[package]
-name = "myapp-core"
-version.workspace = true
-edition.workspace = true
+Key file: `build-logic/convention/src/main/kotlin/ripdpi.android.rust-native.gradle.kts`
 
-[dependencies]
-serde.workspace = true    # Inherit from workspace
-anyhow.workspace = true
-```
+### Target ABIs and Rust triples
 
-### 2. Feature flags
+| Android ABI     | Rust target                  | Clang target prefix          |
+|-----------------|------------------------------|------------------------------|
+| arm64-v8a       | aarch64-linux-android        | aarch64-linux-android        |
+| armeabi-v7a     | armv7-linux-androideabi      | armv7a-linux-androideabi     |
+| x86_64          | x86_64-linux-android         | x86_64-linux-android         |
+| x86             | i686-linux-android           | i686-linux-android           |
 
-```toml
-[features]
-default = ["std"]
-
-# Simple flag
-std = []
-
-# Feature that enables another feature
-full = ["std", "async", "serde-support"]
-
-# Feature with optional dependency
-async = ["dep:tokio"]
-serde-support = ["dep:serde", "serde/derive"]
-
-[dependencies]
-tokio = { version = "1", optional = true }
-serde = { version = "1", optional = true }
-```
+### Required Rust targets
 
 ```bash
-# Build with specific features
-cargo build --features "async,serde-support"
-
-# Build with no default features
-cargo build --no-default-features
-
-# Build with all features
-cargo build --all-features
-
-# Check feature combinations
-cargo check --no-default-features
-cargo check --all-features
+rustup target add aarch64-linux-android armv7-linux-androideabi \
+    x86_64-linux-android i686-linux-android
 ```
 
-Feature gotchas:
+### Cargo profiles for Android
 
-- Features are additive: once enabled anywhere in the dependency graph, they stay enabled
-- `resolver = "2"` prevents feature leakage between dev-dependencies and regular deps
-- Use `dep:optional_dep` syntax (edition 2021) to avoid implicit feature creation
+```toml
+# Cargo.toml -- custom profiles
+[profile.android-jni]       # Release: opt-level "z", panic = "unwind"
+inherits = "release"
 
-### 3. Build scripts (build.rs)
-
-```rust
-// build.rs (at crate root, runs before compilation)
-use std::env;
-use std::path::PathBuf;
-
-fn main() {
-    // Re-run if these files change
-    println!("cargo:rerun-if-changed=build.rs");
-    println!("cargo:rerun-if-changed=wrapper.h");
-    println!("cargo:rerun-if-env-changed=MY_LIB_PATH");
-
-    // Link a system library
-    println!("cargo:rustc-link-lib=mylib");
-    println!("cargo:rustc-link-search=/usr/local/lib");
-
-    // Pass a cfg flag to Rust code
-    let target = env::var("TARGET").unwrap();
-    if target.contains("linux") {
-        println!("cargo:rustc-cfg=target_os_linux");
-    }
-
-    // Set environment variable for downstream crates
-    println!("cargo:rustc-env=MY_GENERATED_VAR=value");
-
-    // Generate bindings with bindgen
-    let bindings = bindgen::Builder::default()
-        .header("wrapper.h")
-        .generate()
-        .expect("Unable to generate bindings");
-
-    let out_path = PathBuf::from(env::var("OUT_DIR").unwrap());
-    bindings.write_to_file(out_path.join("bindings.rs")).unwrap();
-}
+[profile.android-jni-dev]   # Dev: opt-level 1, panic = "unwind"
+inherits = "dev"
 ```
 
-| `println!` directive | Effect |
-|---------------------|--------|
-| `cargo:rerun-if-changed=FILE` | Re-run build script if file changes |
-| `cargo:rerun-if-env-changed=VAR` | Re-run if env var changes |
-| `cargo:rustc-link-lib=NAME` | Link library |
-| `cargo:rustc-link-search=PATH` | Add library search path |
-| `cargo:rustc-cfg=FLAG` | Enable `#[cfg(FLAG)]` in code |
-| `cargo:rustc-env=KEY=VAL` | Set `env!("KEY")` at compile time |
-| `cargo:warning=MSG` | Emit build warning |
+The active profile is selected by Gradle property `ripdpi.nativeCargoProfile`.
+Local dev overrides via `ripdpi.localNativeCargoProfileDefault` and
+`ripdpi.localNativeAbisDefault` in `gradle.properties` or `local.properties`.
 
-### 4. Incremental builds and CI caching
+### .cargo/config.toml (cross-compilation flags)
+
+All four Android targets share the same rustflags:
+- `-C link-arg=-Wl,-z,max-page-size=16384` (Android 15+ 16 KiB page size)
+- `-C force-frame-pointers=yes` (profiling / crash symbolication)
+
+Linkers are NOT configured here -- the Gradle task sets `CARGO_TARGET_<TRIPLE>_LINKER`
+environment variables pointing to NDK clang at build time.
+
+## Gradle <-> Cargo integration
+
+### Build flow
+
+1. Gradle task `buildRustNativeLibs` (registered by `ripdpi.android.rust-native` plugin)
+2. Runs `cargo build --locked --target <triple> --profile <profile> -p ripdpi-android -p ripdpi-tunnel-android`
+3. Builds all ABIs in parallel (one thread per ABI, capped at CPU count)
+4. Each ABI gets its own `CARGO_TARGET_DIR` to avoid lock contention
+5. Copies `libripdpi_android.so` -> `libripdpi.so` and `libripdpi_tunnel_android.so` -> `libripdpi-tunnel.so`
+6. Output lands in `build/generated/jniLibs/<abi>/` and is wired into Android `jniLibs` source set
+7. Task is wired into `merge*JniLibFolders`, `copy*JniLibsProjectOnly`, `merge*NativeLibs`, and `preBuild`
+
+### Building locally
+
+```bash
+# Full Android build (builds Rust + Kotlin + APK)
+./gradlew :core:engine:assembleDebug
+
+# Rust-only (triggers Gradle's Rust task)
+./gradlew :core:engine:buildRustNativeLibs
+
+# Host-only (no Android NDK, for tests/benchmarks)
+cd native/rust && cargo build -p ripdpi-cli
+cd native/rust && cargo bench -p ripdpi-bench
+```
+
+## cdylib crates and JNI considerations
+
+Two crates produce shared libraries loaded via `System.loadLibrary()`:
+- `ripdpi-android` -> `libripdpi.so` (DPI bypass engine)
+- `ripdpi-tunnel-android` -> `libripdpi-tunnel.so` (VPN tunnel)
+
+Key rules for cdylib JNI crates:
+- `crate-type = ["cdylib"]` in `[lib]` -- produces `.so` for Android
+- `panic = "unwind"` required (not `"abort"`) so JNI can catch panics
+- Exported `#[no_mangle] pub extern "system" fn Java_...` entry points
+- The `jni` crate (v0.22) provides `JNIEnv`, `JClass`, `JString` wrappers
+- Clippy allows `missing_safety_doc` and `not_unsafe_ptr_arg_deref` workspace-wide for JNI/FFI
+
+## Feature flags
+
+```toml
+# Example: ripdpi-android
+[features]
+loom = ["dep:loom"]   # Enable loom for concurrency testing
+```
+
+Feature rules:
+- Features are additive -- once enabled anywhere in the dep graph, they stay on
+- `resolver = "2"` prevents dev-dep features from leaking into regular deps
+- Use `dep:optional_dep` syntax to avoid implicit feature creation
+
+## Testing
+
+```bash
+# Run all workspace tests with nextest (preferred)
+cd native/rust && cargo nextest run
+
+# CI profile (retries=2, no fail-fast)
+cd native/rust && cargo nextest run --profile ci
+
+# Run single crate tests
+cd native/rust && cargo nextest run -p ripdpi-packets
+
+# Standard cargo test (for doc-tests, which nextest skips)
+cd native/rust && cargo test --doc
+```
+
+nextest config at `native/rust/.config/nextest.toml`:
+- `default` profile: fail-fast=true, slow-timeout=30s
+- `ci` profile: retries=2, fail-fast=false
+
+## Dependency auditing
+
+```bash
+cd native/rust
+
+# Security advisory check
+cargo audit
+
+# Full policy check (licenses, bans, advisories, sources)
+cargo deny check
+```
+
+### deny.toml policy (native/rust/deny.toml)
+
+- **Licenses**: MIT, Apache-2.0, BSD-2/3-Clause, ISC, 0BSD, Zlib, Unicode-3.0, OpenSSL allowed
+- **Bans**: multiple-versions=warn, wildcards=warn
+- **Sources**: unknown registries denied, unknown git warned
+- **Advisories**: no ignored advisories (empty ignore list)
+
+## CI caching
 
 ```yaml
-# GitHub Actions with sccache
+# Preferred: Swatinem/rust-cache
 - uses: Swatinem/rust-cache@v2
   with:
     cache-on-failure: true
-    shared-key: "release-build"
+    workspaces: "native/rust -> target"
 
-# Or manual cache
-- uses: actions/cache@v3
+# Manual cache (use v4, not v3)
+- uses: actions/cache@v4
   with:
     path: |
       ~/.cargo/registry/index/
       ~/.cargo/registry/cache/
       ~/.cargo/git/db/
-      target/
-    key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+      native/rust/target/
+    key: ${{ runner.os }}-cargo-${{ hashFiles('native/rust/Cargo.lock') }}
 ```
+
+## Workspace commands cheat sheet
 
 ```bash
-# Warm cache locally
-cargo fetch                    # Download all deps without building
-cargo build --tests            # Build everything including test bins
+cd native/rust
 
-# Check if incremental hurts release builds (it often does)
-[profile.release]
-incremental = false            # Default; leave false for release
+cargo check --workspace                # Type-check all crates
+cargo clippy --workspace -- -D warnings # Lint (workspace lints in Cargo.toml)
+cargo fmt --check                       # Format check
+cargo build -p ripdpi-cli               # Build single crate
+cargo tree --duplicates                 # Find duplicate deps
+cargo tree -i serde                     # Who depends on serde?
+cargo update -p tokio --precise 1.42.0  # Pin single dep version
+cargo deny check                        # Run full deny policy
+cargo audit                             # Security advisories only
 ```
-
-### 5. cargo nextest (faster test runner)
-
-```bash
-# Install
-cargo install cargo-nextest
-
-# Run tests (parallel by default, better output)
-cargo nextest run
-
-# Run with specific filter
-cargo nextest run test_name_pattern
-
-# List tests without running
-cargo nextest list
-
-# Use in CI (JUnit output)
-cargo nextest run --profile ci
-```
-
-`nextest.toml`:
-
-```toml
-[profile.ci]
-fail-fast = false
-test-threads = "num-cpus"
-retries = { backoff = "exponential", count = 2, delay = "1s" }
-
-[profile.default]
-test-threads = "num-cpus"
-```
-
-### 6. Dependency management and auditing
-
-```bash
-# Check for security advisories
-cargo install cargo-audit
-cargo audit
-
-# Deny specific licenses, duplicates, advisories
-cargo install cargo-deny
-cargo deny check
-
-# Check for unused dependencies
-cargo install cargo-machete
-cargo machete
-
-# Update dependencies
-cargo update                    # Update to compatible versions
-cargo update -p serde           # Update single package
-cargo upgrade                   # Update to latest (cargo-edit)
-```
-
-`deny.toml`:
-
-```toml
-[licenses]
-allow = ["MIT", "Apache-2.0", "BSD-2-Clause", "BSD-3-Clause"]
-deny = ["GPL-2.0", "AGPL-3.0"]
-
-[bans]
-multiple-versions = "warn"
-deny = [{ name = "openssl", reason = "Use rustls instead" }]
-
-[advisories]
-ignore = []  # List advisory IDs to ignore
-```
-
-### 7. Useful cargo commands
-
-```bash
-# Build only specific binary
-cargo build --bin myapp
-
-# Build only specific example
-cargo build --example myexample
-
-# Run with arguments
-cargo run -- --flag arg1 arg2
-
-# Expand macros (for debugging proc macros)
-cargo install cargo-expand
-cargo expand module::path
-
-# Tree of dependencies
-cargo tree
-cargo tree --duplicates      # Show crates with multiple versions
-cargo tree -i serde          # Who depends on serde?
-
-# Cargo.toml metadata
-cargo metadata --format-version 1 | jq '.packages[].name'
-```
-
-For workspace patterns and dependency resolution details, see [references/workspace-patterns.md](references/workspace-patterns.md).
 
 ## Related skills
 
-- Use `skills/rust/rustc-basics` for compiler flags and profile configuration
-- Use `skills/rust/rust-debugging` for debugging Cargo-built binaries
-- Use `skills/rust/rust-ffi` for `build.rs` with C library bindings
-- Use `skills/build-systems/cmake` when integrating Rust into a CMake build
+- `rust-debugging` -- GDB/LLDB, async debugging, backtraces
+- `rust-security` -- cargo-audit, cargo-deny, supply chain safety
+- `rust-build-times` -- cargo-timings, sccache, Cranelift, LTO tuning
+- `rust-profiling` -- flamegraphs, cargo-bloat, Criterion benchmarks
+- `rust-unsafe` -- unsafe code review, JNI safety patterns

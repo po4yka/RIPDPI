@@ -1,28 +1,71 @@
 ---
 name: memory-model
-description: C++ and Rust memory model skill for concurrent programming. Use when understanding memory ordering, writing lock-free data structures, using std::atomic or Rust atomics, diagnosing data races, or selecting the correct memory order for atomic operations. Activates on queries about memory ordering, acquire-release, seq_cst, relaxed atomics, happens-before, memory barriers, std::atomic, or Rust atomic ordering.
+description: Rust memory model skill for concurrent programming on ARM64 Android. Use when understanding memory ordering, writing lock-free code, using Rust atomics, diagnosing data races, or selecting the correct memory order for atomic operations. Activates on queries about memory ordering, acquire-release, seq_cst, relaxed atomics, happens-before, memory barriers, or Rust atomic ordering.
 ---
 
 # Memory Model
 
 ## Purpose
 
-Guide agents through C++ and Rust memory models: memory orderings, the happens-before relation, atomic operations, fences, and practical patterns for lock-free data structures.
+Guide agents through Rust memory ordering on ARM64 Android: orderings, the happens-before relation, atomic operations, fences, and patterns used in the RIPDPI codebase.
 
 ## Triggers
 
-- "What is the C++ memory model?"
 - "What memory order should I use for my atomic operation?"
 - "What is the difference between acquire-release and seq_cst?"
-- "How do I use std::atomic in C++?"
 - "What is acquire/release in Rust atomics?"
-- "How do I implement a lock-free queue?"
+- "Is this atomic ordering correct for ARM64?"
+
+## RIPDPI project context
+
+Target: ARM64 Android (weakly ordered -- all barriers needed explicitly).
+No C++ source code. All concurrency is in Rust crates under `native/rust/`.
+
+### Crates using atomics
+
+| Crate | File | Types | Orderings | Pattern |
+|-------|------|-------|-----------|---------|
+| ripdpi-cli | telemetry.rs | AtomicU64 | Relaxed | Statistics counters |
+| ripdpi-ws-tunnel | relay.rs | AtomicBool | Release/Acquire | Shutdown flag (cross-thread signal) |
+| ripdpi-ws-tunnel | connect.rs | AtomicBool | SeqCst | Test-only assertion flag |
+| ripdpi-monitor | engine.rs | AtomicBool | (needs audit) | Cancel flag |
+| ripdpi-dns-resolver | tests.rs | AtomicUsize | Relaxed | Test call counters |
+| local-network-fixture | http/socks/echo.rs | AtomicBool | Relaxed | Stop flags (poll loops) |
+
+### Common patterns in this codebase
+
+**1. Statistics counter (Relaxed)** -- used in telemetry:
+```rust
+// Correct: counters only need atomicity, not ordering.
+self.total_sessions.fetch_add(1, Ordering::Relaxed);
+let sessions = self.total_sessions.load(Ordering::Relaxed);
+```
+
+**2. Shutdown/cancel flag (Release/Acquire)** -- used in ws-tunnel relay:
+```rust
+// Signal side: Release ensures prior work is visible.
+shutdown.store(true, Ordering::Release);
+
+// Poll side: Acquire ensures we see work done before the signal.
+if shutdown.load(Ordering::Acquire) { break; }
+```
+
+**3. Stop flag in poll loop (Relaxed)** -- used in test fixtures:
+```rust
+// Acceptable when the flag only controls loop termination
+// and no other data needs to be synchronized.
+while !stop.load(Ordering::Relaxed) {
+    // accept connections ...
+}
+```
+
+Note: fixture stop flags use Relaxed because they do not publish/subscribe
+any shared data -- they only signal "stop looping." On ARM64 this may
+delay observation by a few iterations, which is acceptable for test teardown.
 
 ## Workflow
 
 ### 1. Memory ordering overview
-
-Modern CPUs and compilers reorder operations for performance. The memory model specifies what reorderings are allowed and how synchronisation is achieved.
 
 ```text
 Ordering strength (weakest to strongest):
@@ -32,162 +75,85 @@ Stronger ordering = more synchronization = more correct, but slower
 Weaker ordering  = fewer barriers = faster, but needs careful analysis
 ```
 
-### 2. Memory orderings
-
-| Order | C++ | Rust | What it means |
-|-------|-----|------|--------------|
-| Relaxed | `memory_order_relaxed` | `Ordering::Relaxed` | No ordering guarantee; just atomicity |
-| Consume | `memory_order_consume` | (use Acquire) | Data dependency ordering |
-| Acquire | `memory_order_acquire` | `Ordering::Acquire` | This load sees all writes before the matching release |
-| Release | `memory_order_release` | `Ordering::Release` | All writes before this store are visible to acquire |
-| AcqRel | `memory_order_acq_rel` | `Ordering::AcqRel` | Both acquire and release on RMW ops |
-| SeqCst | `memory_order_seq_cst` | `Ordering::SeqCst` | Total order across all seq_cst operations |
-
-### 3. C++ std::atomic
-
-```cpp
-#include <atomic>
-#include <thread>
-
-std::atomic<int> counter{0};
-std::atomic<bool> ready{false};
-
-// Producer thread
-void producer() {
-    data = 42;                              // (1) write data
-    ready.store(true, std::memory_order_release);  // (2) signal
-}
-
-// Consumer thread
-void consumer() {
-    while (!ready.load(std::memory_order_acquire));  // (3) wait
-    assert(data == 42);                              // (4) guaranteed to see (1)
-}
-```
-
-Acquire-release guarantees: if thread A does a **release store** to X, and thread B does an **acquire load** that sees A's value, then all writes by A before the release are visible to B after the acquire.
-
-### 4. Choosing the right ordering
+### 2. Choosing the right ordering
 
 ```text
 Use case?
-├── Counter (just needs atomicity, order irrelevant)    → Relaxed
-├── Reference counting (decrement + final check)        → AcqRel (dec), Acquire (load 0 check)
-├── Publish data from one thread to another             → Release (store), Acquire (load)
-├── Mutual exclusion / mutex implementation             → AcqRel / SeqCst
-├── Lock-free queue multiple producers/consumers        → SeqCst (safest to start)
-└── Sequence number check (simple flag)                 → Release + Acquire
++-- Counter (just needs atomicity, order irrelevant)    -> Relaxed
++-- Shutdown/cancel flag (no dependent data)            -> Relaxed (or Acquire if data depends on it)
++-- Publish data from one thread to another             -> Release (store), Acquire (load)
++-- Reference counting (decrement + final check)        -> Relaxed (inc), AcqRel (dec), Acquire (zero check)
++-- Mutual exclusion / mutex implementation             -> AcqRel / SeqCst
++-- Need global ordering across multiple atomics        -> SeqCst (but benchmark!)
 ```
 
-### 5. Common patterns
+### 3. Memory orderings reference
 
-```cpp
-// Pattern 1: Spinlock
-class Spinlock {
-    std::atomic_flag flag = ATOMIC_FLAG_INIT;
-public:
-    void lock() {
-        while (flag.test_and_set(std::memory_order_acquire))
-            ; // spin
-    }
-    void unlock() {
-        flag.clear(std::memory_order_release);
-    }
-};
+| Order | Rust | What it means |
+|-------|------|--------------|
+| Relaxed | `Ordering::Relaxed` | No ordering guarantee; just atomicity |
+| Acquire | `Ordering::Acquire` | This load sees all writes before the matching release |
+| Release | `Ordering::Release` | All writes before this store are visible to acquire |
+| AcqRel | `Ordering::AcqRel` | Both acquire and release on RMW ops |
+| SeqCst | `Ordering::SeqCst` | Total order across all seq_cst operations |
 
-// Pattern 2: Reference counting
-class RefCounted {
-    std::atomic<int> refcount{1};
-public:
-    void addref() {
-        refcount.fetch_add(1, std::memory_order_relaxed);  // only need atomicity
-    }
-    void release() {
-        if (refcount.fetch_sub(1, std::memory_order_acq_rel) == 1) {
-            // AcqRel ensures we see all writes from other releasers
-            delete this;
-        }
-    }
-};
+### 4. Valid orderings by operation type
 
-// Pattern 3: One-time initialisation
-class LazyInit {
-    std::atomic<void*> ptr{nullptr};
-    std::mutex mtx;
-public:
-    void* get() {
-        void* p = ptr.load(std::memory_order_acquire);
-        if (p == nullptr) {
-            std::lock_guard lock(mtx);
-            p = ptr.load(std::memory_order_relaxed);
-            if (p == nullptr) {
-                p = create();
-                ptr.store(p, std::memory_order_release);
-            }
-        }
-        return p;
-    }
-};
-```
+| Operation type | Valid orderings |
+|----------------|----------------|
+| Atomic load | Relaxed, Acquire, SeqCst |
+| Atomic store | Relaxed, Release, SeqCst |
+| Read-Modify-Write (fetch_add, CAS) | All orderings |
+| Fence | Acquire, Release, AcqRel, SeqCst |
 
-### 6. Rust atomics
+### 5. Publish/subscribe pattern (idiomatic Rust)
 
 ```rust
-use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicBool, Ordering, fence};
 use std::sync::Arc;
 
-// Simple counter
-let counter = Arc::new(AtomicUsize::new(0));
+struct SharedState {
+    ready: AtomicBool,
+    data: std::sync::Mutex<Option<u64>>,  // Mutex guards non-atomic data
+}
 
-// Increment
-counter.fetch_add(1, Ordering::Relaxed);
+// Publisher: write data, then signal readiness.
+let state = Arc::new(SharedState {
+    ready: AtomicBool::new(false),
+    data: std::sync::Mutex::new(None),
+});
+*state.data.lock().unwrap() = Some(42);
+state.ready.store(true, Ordering::Release);
 
-// Read
-let val = counter.load(Ordering::Relaxed);
-
-// Publish/subscribe pattern
-static READY: AtomicBool = AtomicBool::new(false);
-
-// Publisher thread
-unsafe { DATA = 42; }  // Write data
-READY.store(true, Ordering::Release);  // Signal
-
-// Subscriber thread
-while !READY.load(Ordering::Acquire) {}
-let d = unsafe { DATA };  // Safe: guaranteed to see publisher's write
+// Subscriber: wait for signal, then read data.
+while !state.ready.load(Ordering::Acquire) {
+    std::hint::spin_loop();
+}
+let val = state.data.lock().unwrap().unwrap(); // Guaranteed to see 42
 ```
 
-### 7. Fences
-
-Fences provide ordering without an atomic operation on a specific variable:
-
-```cpp
-// C++ fence — equivalent to a global memory barrier
-std::atomic_thread_fence(std::memory_order_acquire);  // Acquire fence
-std::atomic_thread_fence(std::memory_order_release);  // Release fence
-
-// Typical use: multiple atomic writes then one fence
-relaxed_atomic_a.store(1, std::memory_order_relaxed);
-relaxed_atomic_b.store(2, std::memory_order_relaxed);
-std::atomic_thread_fence(std::memory_order_release);  // barrier for all above
-sentinel.store(true, std::memory_order_relaxed);
-```
-
-### 8. Common mistakes
+### 6. Common mistakes
 
 | Mistake | Fix |
 |---------|-----|
 | Using Relaxed for publish/subscribe | Use Release on store, Acquire on load |
 | Using SeqCst everywhere | Profile first; use weakest correct ordering |
-| Forgetting that non-atomic loads are not atomic | All shared mutable data needs atomic or mutex |
-| Using `volatile` for thread safety in C++ | `volatile` is not a memory ordering tool; use `atomic` |
-| Assuming sequential consistency without SeqCst | Each platform has different default consistency |
+| Using `unsafe` mutable statics for shared data | Use Mutex, RwLock, or atomics |
+| Assuming ARM64 behaves like x86 TSO | ARM64 is weakly ordered; test on-device |
 
-For memory ordering rules and happens-before reference, see [references/cpp-memory-ordering.md](references/cpp-memory-ordering.md).
+### 7. ARM64 considerations
+
+ARM64 (this project's target) is weakly ordered. Key implications:
+- Relaxed loads/stores have no barrier cost but provide no ordering
+- Acquire loads emit a `dmb ish` barrier; Release stores emit `dmb ish`
+- SeqCst emits `dmb ish` + sequential constraint (expensive)
+- x86 tests may pass with incorrect orderings that fail on ARM64
+- Always validate concurrent code on ARM64 device or with Miri
+
+For cross-language equivalences and platform details, see [references/platform-memory-models.md](references/platform-memory-models.md).
 
 ## Related skills
 
-- Use `skills/runtimes/sanitizers` — TSan detects data races involving non-atomic accesses
-- Use `skills/rust/rust-sanitizers-miri` for detecting Rust memory ordering violations with Miri
-- Use `skills/low-level-programming/assembly-x86` to understand generated fence instructions
-- Use `skills/debuggers/gdb` for debugging concurrent programs with thread inspection
+- Use `skills/rust-sanitizers-miri/` -- Miri detects Rust memory ordering violations
+- Use `skills/rust-unsafe/` -- understanding unsafe blocks around atomic patterns
+- Use `skills/rust-async-internals/` -- async task scheduling and atomics interaction

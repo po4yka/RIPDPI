@@ -98,7 +98,7 @@ fn bad<'a>() -> &'a u32 {
 MIRIFLAGS="-Zmiri-disable-isolation" cargo +nightly miri test
 
 # CI (strict)
-MIRIFLAGS="-Zmiri-strict-provenance -Zmiri-check-number-validity" \
+MIRIFLAGS="-Zmiri-strict-provenance" \
     cargo +nightly miri test
 
 # Concurrency testing with randomized scheduling
@@ -112,21 +112,33 @@ MIRIFLAGS="-Zmiri-ignore-leaks -Zmiri-disable-isolation" \
 
 ## Miri Limitations
 
+**Critical for RIPDPI**: Miri cannot execute JNI calls, libc FFI, or inline assembly. The JNI interop crates (`ripdpi-android`, `ripdpi-tunnel-android`) and any crate calling libc syscalls directly must stub out FFI for Miri.
+
 Miri cannot run:
-- Code using FFI/`extern "C"` functions not supported by Miri's shims
-- Assembly (`asm!`) blocks
-- Platform-specific syscalls not implemented in Miri
+- `extern "C"` / `extern "system"` functions not covered by Miri shims
+- JNI calls (`JNIEnv`, `jni::JNIEnv` wrappers)
+- Assembly (`asm!`, `global_asm!`) blocks
+- Platform-specific syscalls (epoll, ioctl, etc.)
 - Very long-running programs (interpreter overhead ~100x)
 
 Workarounds:
 ```rust
-// Mock FFI functions for Miri testing
+// Gate real FFI behind #[cfg(not(miri))]
 #[cfg(not(miri))]
-use real_ffi::dangerous_function;
+extern "C" {
+    fn platform_call(fd: i32) -> i32;
+}
 
 #[cfg(miri)]
-fn dangerous_function(x: u32) -> u32 {
-    x  // stub for Miri
+unsafe fn platform_call(_fd: i32) -> i32 {
+    0 // safe stub for Miri
+}
+
+// Skip JNI-dependent tests entirely
+#[test]
+#[cfg_attr(miri, ignore)]
+fn test_jni_lifecycle() {
+    // requires real JVM -- skipped under Miri
 }
 ```
 

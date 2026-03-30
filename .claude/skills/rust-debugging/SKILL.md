@@ -1,237 +1,243 @@
 ---
 name: rust-debugging
-description: Rust debugging skill for systems programming. Use when debugging Rust binaries with GDB or LLDB, enabling Rust pretty-printers, interpreting panics and backtraces, debugging async/await with tokio-console, stepping through no_std code, or using dbg! and tracing macros effectively. Activates on queries about rust-gdb, rust-lldb, RUST_BACKTRACE, Rust panics, debugging async Rust, tokio-console, or pretty-printers.
+description: Rust debugging skill for Android NDK targets. Use when debugging Rust native libraries on Android (JNI panics, logcat tracing, tombstones, addr2line), using GDB/LLDB with Rust pretty-printers, interpreting panics and backtraces, or debugging async tokio code. Activates on queries about native crashes, JNI debugging, rust-gdb, rust-lldb, RUST_BACKTRACE, Rust panics on Android, tracing-to-logcat, or tokio-console.
 ---
 
-# Rust Debugging
+# Rust Debugging (Android NDK Focus)
 
 ## Purpose
 
-Guide agents through debugging Rust programs: GDB/LLDB with Rust pretty-printers, backtrace configuration, panic triage, async debugging with tokio-console, and `#[no_std]` debugging strategies.
+Guide debugging of Rust native libraries running on Android via JNI. Covers
+Android-specific tooling (logcat, tombstones, addr2line), JNI panic safety,
+tracing-to-logcat wiring, and standard GDB/LLDB workflows.
 
 ## Triggers
 
-- "How do I use GDB/LLDB to debug a Rust binary?"
-- "How do I get a full backtrace from a Rust panic?"
+- "Native crash in Rust on Android"
+- "How do I debug JNI panics?"
+- "How do I see Rust logs in logcat?"
+- "RUST_BACKTRACE not working on Android"
+- "How do I use GDB/LLDB to debug Rust?"
 - "How do I debug async Rust / Tokio?"
-- "Rust pretty-printers aren't working in GDB"
-- "How do I debug a Rust panic in production?"
-- "How do I use dbg! and tracing in Rust?"
+
+## Project Architecture
+
+Two `cdylib` crates are loaded via JNI on Android:
+- `ripdpi-android` -- proxy engine (loaded as `libripdpi_native.so`)
+- `ripdpi-tunnel-android` -- tun2socks tunnel (loaded as `libripdpi_tunnel_native.so`)
+
+Shared infrastructure lives in `android-support` crate:
+- `init_android_logging(tag)` -- wires `tracing` to logcat via `android_logger` + `tracing_subscriber`
+- `install_panic_hook()` -- logs panic + full backtrace via `log::error!` (visible in logcat)
+- `ignore_sigpipe()` -- prevents SIGPIPE kills on socket disconnect
+
+Both crates call these in `JNI_OnLoad`, wrapped in `catch_unwind`.
 
 ## Workflow
 
-### 1. Build for debugging
+### 1. Android-Specific Debugging
+
+#### Logcat native crash filtering
 
 ```bash
-# Debug build (default) — full debug info, no optimization
-cargo build
+# Filter Rust native logs (tags set in JNI_OnLoad)
+adb logcat -s ripdpi-native:V ripdpi-tunnel-native:V
 
-# Release with debug info (for profiling real workloads)
-cargo build --release --profile release-with-debug
-# Or configure in Cargo.toml:
-# [profile.release-with-debug]
-# inherits = "release"
-# debug = true
+# Filter crash/panic output
+adb logcat | grep -E "PANIC:|backtrace|signal|SIGABRT|SIGSEGV"
 
-# Run directly
-cargo run
-cargo run -- arg1 arg2
+# Verbose native + runtime logs
+adb logcat -s RustStdoutStderr:V AndroidRuntime:E DEBUG:*
 ```
 
-### 2. GDB with Rust pretty-printers
+#### Tombstone analysis after native crash
 
 ```bash
-# Use rust-gdb wrapper (sets up pretty-printers automatically)
+# Pull latest tombstone
+adb shell ls -lt /data/tombstones/ | head -5
+adb pull /data/tombstones/tombstone_00
+
+# Or use bugreport
+adb bugreport bugreport.zip
+```
+
+#### Symbolicate with addr2line (NDK)
+
+```bash
+# Find NDK addr2line (adjust NDK version)
+ADDR2LINE=$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/*/bin/llvm-addr2line
+
+# Symbolicate addresses from tombstone/logcat
+$ADDR2LINE -e native/rust/target/aarch64-linux-android/debug/libripdpi_native.so \
+    0x12345 0x67890
+
+# Demangle Rust symbols
+$ADDR2LINE -Cfe native/rust/target/aarch64-linux-android/debug/libripdpi_native.so \
+    0x12345
+```
+
+#### LLDB via Android Studio
+
+1. Open the Android project in Android Studio
+2. Run > Edit Configurations > Debugger tab > Debug type: **Dual (Java + Native)**
+3. Add symbol search path: `native/rust/target/aarch64-linux-android/debug/`
+4. Set breakpoints in Rust source files
+5. Run with debugger attached -- Studio invokes `lldb-server` on device
+
+#### RUST_BACKTRACE on Android
+
+`RUST_BACKTRACE` env vars are **not inherited** by Android app processes.
+The project handles this via `install_panic_hook()` which calls
+`Backtrace::force_capture()` unconditionally -- no env var needed.
+
+If you need backtraces in a standalone binary (not app process):
+```bash
+adb shell "cd /data/local/tmp && RUST_BACKTRACE=1 ./my_test_binary"
+```
+
+### 2. JNI Panic Safety
+
+**Rule: Rust panics must never unwind across `extern "system"` JNI boundaries.**
+Unwinding across FFI is undefined behavior and typically aborts the process.
+
+This project's pattern (both cdylib crates):
+
+```rust
+// JNI_OnLoad wraps all init in catch_unwind
+#[unsafe(no_mangle)]
+pub extern "system" fn JNI_OnLoad(vm: JavaVM, _reserved: *mut c_void) -> jint {
+    match std::panic::catch_unwind(|| {
+        android_support::ignore_sigpipe();
+        init_android_logging("ripdpi-native");
+        android_support::install_panic_hook();
+        JNI_VERSION
+    }) {
+        Ok(version) => version,
+        Err(_) => jni::sys::JNI_ERR,
+    }
+}
+```
+
+For individual JNI methods, the `jni` crate's `Outcome` enum handles panics:
+```rust
+// android-support uses EnvUnowned::with_env() which returns Outcome
+match env.with_env(|env| { /* ... */ }).into_outcome() {
+    Outcome::Ok(val) => val,
+    Outcome::Err(err) => { /* log + throw Java exception */ }
+    Outcome::Panic(_) => { /* log, already caught */ }
+}
+```
+
+When adding new JNI exports: always use `EnvUnowned::with_env()` or wrap the
+body in `catch_unwind(AssertUnwindSafe(|| { ... }))`.
+
+### 3. Tracing to Logcat
+
+The `android-support` crate wires tracing to logcat:
+
+```
+tracing macros -> tracing_subscriber::registry()
+    -> AndroidLogLayer (forwards to android_logger)
+    -> EventRingLayer (buffers events for Kotlin polling)
+LogTracer bridges log crate -> tracing (for non-tracing deps)
+```
+
+Initialized in `init_android_logging(tag)` which calls `android_logger::init_once`,
+`LogTracer::init()`, and sets up the subscriber registry. Default log level is
+Debug in debug builds, Info in release. Override per scope at runtime:
+```rust
+android_support::set_android_log_scope_level("proxy", LevelFilter::Trace);
+android_support::clear_android_log_scope_level("proxy");
+```
+
+### 4. Build for Debugging
+
+```bash
+cargo build --target aarch64-linux-android          # debug
+cargo build --target aarch64-linux-android --release # release w/ debug info
+# Ensure Cargo.toml has: [profile.release] debug = true
+```
+
+### 5. GDB/LLDB with Rust Pretty-Printers
+
+```bash
+# Use rust-gdb/rust-lldb wrappers (auto-configure pretty-printers)
 rust-gdb target/debug/myapp
-
-# Or set up manually in ~/.gdbinit:
-# python
-# import subprocess, sys
-# ...
+rust-lldb target/debug/myapp
 ```
 
-Common GDB session for Rust:
-```gdb
-# Basic
-(gdb) break main
-(gdb) run arg1 arg2
-(gdb) next           # step over
-(gdb) step           # step into
-(gdb) continue
-
-# Rust-aware inspection
-(gdb) print my_string     # Shows String content via pretty-printer
-(gdb) print my_vec        # Shows Vec elements
-(gdb) print my_option     # Shows Some(value) or None
-(gdb) info locals
-
+Essential commands:
+```
 # Break on panic
 (gdb) break rust_panic
-(gdb) break core::panicking::panic
+(lldb) b rust_panic
+
+# Break on function
+(gdb) break myapp::module::function_name
+(lldb) b myapp::module::function_name
+
+# Inspect Rust types (pretty-printed)
+(gdb) print my_string    # "hello world"
+(gdb) print my_vec       # vec![1, 2, 3]
+(gdb) print my_option    # Some(42) or None
 
 # Backtrace
-(gdb) bt              # Short backtrace
-(gdb) bt full         # Full with locals
+(gdb) bt full
+(lldb) thread backtrace all
 ```
 
-### 3. LLDB with Rust pretty-printers
+For full GDB/LLDB command reference, see
+[references/rust-gdb-pretty-printers.md](references/rust-gdb-pretty-printers.md).
 
-```bash
-# Use rust-lldb wrapper
-rust-lldb target/debug/myapp
-
-# Manual setup
-lldb target/debug/myapp
-(lldb) command script import /path/to/rust/lib/rustlib/etc/lldb_lookup.py
-(lldb) command source /path/to/rust/lib/rustlib/etc/lldb_commands
-```
-
-Common LLDB session:
-```lldb
-(lldb) b main::main
-(lldb) r arg1 arg2
-(lldb) n              # next (step over)
-(lldb) s              # step into
-(lldb) c              # continue
-(lldb) frame variable # show locals
-(lldb) p my_string    # print variable with pretty-printer
-(lldb) bt             # backtrace
-(lldb) bt all         # all threads
-```
-
-### 4. Backtrace configuration
-
-```bash
-# Short backtrace (default on panic)
-RUST_BACKTRACE=1 ./myapp
-
-# Full backtrace with all frames
-RUST_BACKTRACE=full ./myapp
-
-# With symbols (requires debug build or separate debug info)
-RUST_BACKTRACE=full ./target/debug/myapp
-
-# Capture backtrace programmatically
-use std::backtrace::Backtrace;
-let bt = Backtrace::capture();
-eprintln!("{bt}");
-```
-
-For release binaries, keep debug symbols in a separate file:
-```bash
-# Build release with debug info
-cargo build --release
-objcopy --only-keep-debug target/release/myapp target/release/myapp.debug
-strip --strip-debug target/release/myapp
-objcopy --add-gnu-debuglink=target/release/myapp.debug target/release/myapp
-```
-
-### 5. Panic triage
+### 6. The dbg! Macro
 
 ```rust
-// Set a custom panic hook for structured logging
-use std::panic;
-
-panic::set_hook(Box::new(|info| {
-    let backtrace = std::backtrace::Backtrace::force_capture();
-    eprintln!("PANIC: {info}");
-    eprintln!("{backtrace}");
-    // Log to file, send to Sentry, etc.
-}));
-```
-
-Common panic patterns:
-| Panic message | Likely cause |
-|---------------|-------------|
-| `index out of bounds: the len is N but the index is M` | Array/vec OOB access |
-| `called Option::unwrap() on a None value` | Unwrap on None |
-| `called Result::unwrap() on an Err value` | Unwrap on error |
-| `attempt to subtract with overflow` | Integer underflow (debug build) |
-| `assertion failed` | Failed `assert!` or `assert_eq!` |
-| `stack overflow` | Infinite recursion |
-
-Use `panic = "abort"` in release to get a crash dump instead of unwind.
-
-### 6. The dbg! macro
-
-```rust
-// dbg! prints file, line, value and returns the value
 let result = dbg!(some_computation(x));
 // prints: [src/main.rs:15] some_computation(x) = 42
-
-// Chain multiple values
-let (a, b) = dbg!((compute_a(), compute_b()));
-
-// Inspect inside iterator chains
-let sum: i32 = (0..10)
-    .filter(|x| dbg!(x % 2 == 0))
-    .map(|x| dbg!(x * x))
-    .sum();
 ```
 
-### 7. Structured logging with tracing
+**Note:** `dbg!` writes to stderr, which is **not visible in logcat** on
+Android. Use `tracing::debug!()` instead for on-device debugging.
 
-```toml
-[dependencies]
-tracing = "0.1"
-tracing-subscriber = { version = "0.3", features = ["env-filter"] }
-```
+### 7. Structured Logging with tracing
 
 ```rust
 use tracing::{debug, error, info, instrument, warn};
 
 #[instrument]  // Auto-traces function entry/exit with arguments
 fn process(id: u64, data: &str) -> Result<(), Error> {
-    debug!("Processing item");
     info!(item_id = id, "Started processing");
-
     if data.is_empty() {
         warn!(item_id = id, "Empty data");
-        return Err(Error::EmptyData);
     }
-
-    error!(item_id = id, err = ?some_result, "Failed");
     Ok(())
 }
-
-// Initialize in main
-tracing_subscriber::fmt()
-    .with_env_filter("myapp=debug,warn")
-    .init();
 ```
 
-```bash
-# Control log levels at runtime
-RUST_LOG=debug ./myapp
-RUST_LOG=myapp::module=trace,warn ./myapp
-```
+### 8. Async Debugging with tokio-console
 
-### 8. Async debugging with tokio-console
+**Caveat:** `console-subscriber` is **not** in the project's dependencies.
+It requires `tokio_unstable` cfg and opens a TCP port -- not suitable for
+production Android builds. For local dev only, add `console-subscriber`
+temporarily and build with `RUSTFLAGS="--cfg tokio_unstable"`.
 
-```toml
-[dependencies]
-console-subscriber = "0.3"
-tokio = { version = "1", features = ["full", "tracing"] }
-```
+For async debugging on Android, rely on `#[instrument]` tracing spans
+which appear in logcat with enter/exit events.
 
-```rust
-// In main
-console_subscriber::init();
-```
+### 9. Panic Triage Quick Reference
 
-```bash
-# Install and run tokio-console
-cargo install tokio-console
-tokio-console  # Connects to running Rust process at port 6669
-```
+| Panic message | Likely cause |
+|---|---|
+| `called Option::unwrap() on a None value` | Unwrap on None |
+| `called Result::unwrap() on an Err value` | Unwrap on error |
+| `index out of bounds` | Array/vec OOB access |
+| `attempt to subtract with overflow` | Integer underflow |
+| Signal 6 (SIGABRT) in tombstone | Rust panic with `panic = "abort"` |
+| Signal 11 (SIGSEGV) in tombstone | Null pointer / use-after-free in unsafe |
 
-tokio-console shows: task states, waker activity, blocked tasks, poll durations.
+## Related Skills
 
-For GDB/LLDB command reference and pretty-printer setup, see [references/rust-gdb-pretty-printers.md](references/rust-gdb-pretty-printers.md).
-
-## Related skills
-
-- Use `skills/rust/rustc-basics` for debug info flags and build configuration
-- Use `skills/debuggers/gdb` for GDB fundamentals
-- Use `skills/debuggers/lldb` for LLDB fundamentals
-- Use `skills/rust/rust-sanitizers-miri` for memory safety and undefined behaviour
+- [rust-unsafe](../rust-unsafe/) -- unsafe code review and FFI patterns
+- [rust-async-internals](../rust-async-internals/) -- Future trait, poll model, waker debugging
+- [rust-sanitizers-miri](../rust-sanitizers-miri/) -- ASan, TSan, Miri for memory safety
+- [rust-profiling](../rust-profiling/) -- flamegraphs, cargo-bloat, Criterion benchmarks
