@@ -273,7 +273,7 @@
     <string name="home_diagnostics_permission_required">VPN permission is required before this workflow can run.</string>
     <string name="home_diagnostics_finish_analysis_first">Finish the full analysis before starting verified VPN.</string>
     <string name="home_diagnostics_run_analysis_first">Run a full analysis first.</string>
-    <string name="home_diagnostics_no_actionable_result">The latest analysis did not produce settings that can be applied automatically.</string>
+    <string name="home_diagnostics_no_actionable_result">No applicable settings found. Run a new analysis or check results in Diagnostics.</string>
     <string name="home_diagnostics_disconnect_first">Disconnect the current session before starting verified VPN.</string>
     <string name="home_diagnostics_run_again">The network changed. Run the full analysis again.</string>
     <string name="home_diagnostics_share_failed">Failed to share analysis logs and results.</string>
