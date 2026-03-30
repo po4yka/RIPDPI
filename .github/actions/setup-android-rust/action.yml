@@ -1,0 +1,77 @@
+name: Setup Android + Rust
+description: Shared setup for Java, Rust toolchain, Android SDK/NDK, sccache, and Gradle
+
+inputs:
+  rust-components:
+    description: Comma-separated Rust components to install (e.g. "rustfmt, clippy")
+    required: false
+    default: ""
+  rust-targets:
+    description: Space-separated Rust targets to add
+    required: false
+    default: "aarch64-linux-android armv7-linux-androideabi i686-linux-android x86_64-linux-android"
+  rust-cache-shared-key:
+    description: Shared key for Swatinem/rust-cache
+    required: false
+    default: "rust-android"
+  rust-cache-save:
+    description: Whether to save the Rust cache (set false for restore-only)
+    required: false
+    default: "true"
+  gradle-cache-read-only:
+    description: Whether Gradle cache is read-only
+    required: false
+    default: "false"
+  java-version:
+    description: Java version to install
+    required: false
+    default: "17"
+  setup-gradle:
+    description: Whether to set up Gradle
+    required: false
+    default: "true"
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-java@v5
+      with:
+        distribution: temurin
+        java-version: ${{ inputs.java-version }}
+
+    # Keep in sync with native/rust/rust-toolchain.toml
+    - uses: dtolnay/rust-toolchain@master
+      with:
+        toolchain: "1.94.0"
+        components: ${{ inputs.rust-components }}
+
+    - uses: android-actions/setup-android@v4
+
+    - uses: Swatinem/rust-cache@v2
+      with:
+        workspaces: native/rust -> target
+        cache-on-failure: true
+        shared-key: ${{ inputs.rust-cache-shared-key }}
+        save-if: ${{ inputs.rust-cache-save }}
+
+    - name: Read native toolchain policy
+      id: native-toolchain
+      shell: bash
+      run: |
+        echo "ndk=$(grep '^ripdpi.nativeNdkVersion=' gradle.properties | cut -d= -f2-)" >> "$GITHUB_OUTPUT"
+
+    - name: Install Rust Android targets
+      if: inputs.rust-targets != ''
+      shell: bash
+      run: rustup target add ${{ inputs.rust-targets }}
+
+    - name: Install NDK
+      shell: bash
+      run: sdkmanager --install "ndk;${{ steps.native-toolchain.outputs.ndk }}"
+
+    - uses: mozilla-actions/sccache-action@v0.0.9
+
+    - uses: gradle/actions/setup-gradle@v6
+      if: inputs.setup-gradle == 'true'
+      with:
+        cache-read-only: ${{ inputs.gradle-cache-read-only }}

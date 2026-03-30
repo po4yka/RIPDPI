@@ -34,7 +34,7 @@ permissions:
 
 concurrency:
   group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   build:
@@ -43,48 +43,17 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - uses: actions/setup-java@v5
+      - uses: ./.github/actions/setup-android-rust
         with:
-          distribution: temurin
-          java-version: 17
-
-      # Keep in sync with native/rust/rust-toolchain.toml
-      - uses: dtolnay/rust-toolchain@master
-        with:
-          toolchain: "1.94.0"
-          components: rustfmt, clippy
-
-      - uses: android-actions/setup-android@v4
-
-      - uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: native/rust -> target
-          cache-on-failure: true
-
-      - name: Install native verification tools
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y binutils
+          rust-components: ""
+          rust-cache-shared-key: rust-android
+          rust-cache-save: ${{ github.ref == 'refs/heads/main' }}
+          gradle-cache-read-only: ${{ github.event_name == 'pull_request' }}
 
       - name: Install cargo-bloat
         uses: taiki-e/install-action@v2
         with:
           tool: cargo-bloat
-
-      - name: Read native toolchain policy
-        id: native-toolchain
-        run: |
-          echo "ndk=$(grep '^ripdpi.nativeNdkVersion=' gradle.properties | cut -d= -f2-)" >> "$GITHUB_OUTPUT"
-
-      - name: Install Rust Android targets
-        run: rustup target add aarch64-linux-android armv7-linux-androideabi i686-linux-android x86_64-linux-android
-
-      - name: Install NDK
-        run: sdkmanager --install "ndk;${{ steps.native-toolchain.outputs.ndk }}"
-
-      - uses: mozilla-actions/sccache-action@v0.0.9
-
-      - uses: gradle/actions/setup-gradle@v6
 
       - name: Build debug APK and run unit tests
         env:
@@ -115,125 +84,6 @@ jobs:
           path: /tmp/native-bloat-baseline.json
           retention-days: 14
 
-      - name: Upload test results
-        if: always()
-        uses: actions/upload-artifact@v7
-        with:
-          name: test-results
-          path: |
-            **/build/reports/tests/
-            **/build/golden-diffs/
-            **/build/outputs/roborazzi/
-            **/build/outputs/roborazzi/
-          retention-days: 7
-
-  static-analysis:
-    if: github.event_name != 'schedule'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v6
-
-      - uses: actions/setup-java@v5
-        with:
-          distribution: temurin
-          java-version: 17
-
-      # Keep in sync with native/rust/rust-toolchain.toml
-      - uses: dtolnay/rust-toolchain@master
-        with:
-          toolchain: "1.94.0"
-          components: rustfmt, clippy
-
-      - uses: android-actions/setup-android@v4
-
-      - uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: native/rust -> target
-          cache-on-failure: true
-
-      - name: Read native toolchain policy
-        id: native-toolchain
-        run: |
-          echo "ndk=$(grep '^ripdpi.nativeNdkVersion=' gradle.properties | cut -d= -f2-)" >> "$GITHUB_OUTPUT"
-
-      - name: Install Rust Android targets
-        run: rustup target add aarch64-linux-android armv7-linux-androideabi i686-linux-android x86_64-linux-android
-
-      - name: Install NDK
-        run: sdkmanager --install "ndk;${{ steps.native-toolchain.outputs.ndk }}"
-
-      - uses: mozilla-actions/sccache-action@v0.0.9
-
-      - uses: gradle/actions/setup-gradle@v6
-
-      - name: Install cargo-deny and cargo-nextest
-        uses: taiki-e/install-action@v2
-        with:
-          tool: cargo-deny@0.19.0,cargo-nextest
-
-      - name: Run cargo-deny
-        run: cargo deny --manifest-path native/rust/Cargo.toml check
-
-      - name: Run native Rust checks
-        env:
-          RUSTC_WRAPPER: sccache
-        run: bash scripts/ci/run-rust-native-checks.sh
-
-      - name: Run static analysis
-        run: ./gradlew staticAnalysis
-
-      - name: Upload reports
-        if: always()
-        uses: actions/upload-artifact@v7
-        with:
-          name: static-analysis-reports
-          path: |
-            **/build/reports/detekt/
-            build/reports/file-loc-limits/
-            **/build/reports/ktlint/
-            **/build/reports/lint-results*.html
-            native/rust/target/golden-diffs/
-          retention-days: 7
-
-  release-verification:
-    if: github.event_name != 'schedule'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v6
-
-      - uses: actions/setup-java@v5
-        with:
-          distribution: temurin
-          java-version: 17
-
-      # Keep in sync with native/rust/rust-toolchain.toml
-      - uses: dtolnay/rust-toolchain@master
-        with:
-          toolchain: "1.94.0"
-          components: rustfmt, clippy
-
-      - uses: android-actions/setup-android@v4
-
-      - uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: native/rust -> target
-          cache-on-failure: true
-
-      - name: Read native toolchain policy
-        id: native-toolchain-release
-        run: |
-          echo "ndk=$(grep '^ripdpi.nativeNdkVersion=' gradle.properties | cut -d= -f2-)" >> "$GITHUB_OUTPUT"
-
-      - name: Install Rust Android targets
-        run: rustup target add aarch64-linux-android armv7-linux-androideabi i686-linux-android x86_64-linux-android
-
-      - name: Install NDK
-        run: sdkmanager --install "ndk;${{ steps.native-toolchain-release.outputs.ndk }}"
-
-      - uses: mozilla-actions/sccache-action@v0.0.9
-
-      - uses: gradle/actions/setup-gradle@v6
-
       - name: Verify minified release build
         env:
           RUSTC_WRAPPER: sccache
@@ -258,7 +108,19 @@ jobs:
           if-no-files-found: ignore
           retention-days: 7
 
-  rust-network-e2e:
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: test-results
+          path: |
+            **/build/reports/tests/
+            **/build/golden-diffs/
+            **/build/outputs/roborazzi/
+          retention-days: 7
+
+  rust-static-analysis:
+    if: github.event_name != 'schedule'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -268,6 +130,74 @@ jobs:
         with:
           toolchain: "1.94.0"
           components: rustfmt, clippy
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: native/rust -> target
+          cache-on-failure: true
+          shared-key: rust-static-analysis
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+
+      - uses: mozilla-actions/sccache-action@v0.0.9
+
+      - name: Install cargo-deny and cargo-nextest
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-deny@0.19.0,cargo-nextest
+
+      - name: Run cargo-deny
+        run: cargo deny --manifest-path native/rust/Cargo.toml check
+
+      - name: Run native Rust checks
+        env:
+          RUSTC_WRAPPER: sccache
+        run: bash scripts/ci/run-rust-native-checks.sh
+
+      - name: Upload Rust analysis reports
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: rust-static-analysis-reports
+          path: native/rust/target/golden-diffs/
+          retention-days: 7
+
+  gradle-static-analysis:
+    if: github.event_name != 'schedule'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: ./.github/actions/setup-android-rust
+        with:
+          rust-components: ""
+          rust-cache-shared-key: rust-android
+          rust-cache-save: "false"
+          gradle-cache-read-only: ${{ github.event_name == 'pull_request' }}
+
+      - name: Run static analysis
+        run: ./gradlew staticAnalysis
+
+      - name: Upload Gradle analysis reports
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: gradle-static-analysis-reports
+          path: |
+            **/build/reports/detekt/
+            build/reports/file-loc-limits/
+            **/build/reports/ktlint/
+            **/build/reports/lint-results*.html
+          retention-days: 7
+
+  rust-network-e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      # Keep in sync with native/rust/rust-toolchain.toml
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: "1.94.0"
 
       - uses: Swatinem/rust-cache@v2
         with:
@@ -324,7 +254,6 @@ jobs:
       - uses: dtolnay/rust-toolchain@master
         with:
           toolchain: "1.94.0"
-          components: rustfmt, clippy
 
       - uses: Swatinem/rust-cache@v2
         with:
@@ -341,43 +270,18 @@ jobs:
 
   coverage:
     if: github.event_name != 'schedule'
-    needs: [build, static-analysis]
     runs-on: ubuntu-latest
     env:
       RIPDPI_ENFORCE_COVERAGE_THRESHOLDS: "1"
     steps:
       - uses: actions/checkout@v6
 
-      - uses: actions/setup-java@v5
+      - uses: ./.github/actions/setup-android-rust
         with:
-          distribution: temurin
-          java-version: 17
-
-      # Keep in sync with native/rust/rust-toolchain.toml
-      - uses: dtolnay/rust-toolchain@master
-        with:
-          toolchain: "1.94.0"
-          components: rustfmt, clippy, llvm-tools
-
-      - uses: android-actions/setup-android@v4
-
-      - uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: native/rust -> target
-          cache-on-failure: true
-
-      - name: Read native toolchain policy
-        id: native-toolchain-coverage
-        run: |
-          echo "ndk=$(grep '^ripdpi.nativeNdkVersion=' gradle.properties | cut -d= -f2-)" >> "$GITHUB_OUTPUT"
-
-      - name: Install Rust Android targets
-        run: rustup target add aarch64-linux-android armv7-linux-androideabi i686-linux-android x86_64-linux-android
-
-      - name: Install NDK
-        run: sdkmanager --install "ndk;${{ steps.native-toolchain-coverage.outputs.ndk }}"
-
-      - uses: gradle/actions/setup-gradle@v6
+          rust-components: llvm-tools
+          rust-cache-shared-key: rust-android
+          rust-cache-save: "false"
+          gradle-cache-read-only: ${{ github.event_name == 'pull_request' }}
 
       - name: Install cargo-llvm-cov
         uses: taiki-e/install-action@v2
@@ -482,36 +386,13 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - uses: actions/setup-java@v5
+      - uses: ./.github/actions/setup-android-rust
         with:
-          distribution: temurin
-          java-version: 17
-
-      # Keep in sync with native/rust/rust-toolchain.toml
-      - uses: dtolnay/rust-toolchain@master
-        with:
-          toolchain: "1.94.0"
-
-      - uses: android-actions/setup-android@v4
-
-      - uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: native/rust -> target
-          cache-on-failure: true
-
-      - name: Read native toolchain policy
-        id: native-toolchain
-        run: |
-          echo "ndk=$(grep '^ripdpi.nativeNdkVersion=' gradle.properties | cut -d= -f2-)" >> "$GITHUB_OUTPUT"
-
-      - name: Install Rust Android targets
-        run: rustup target add x86_64-linux-android
-
-      - name: Install NDK
-        run: sdkmanager --install "ndk;${{ steps.native-toolchain.outputs.ndk }}"
-
-      - uses: mozilla-actions/sccache-action@v0.0.9
-      - uses: gradle/actions/setup-gradle@v6
+          rust-components: ""
+          rust-targets: x86_64-linux-android
+          rust-cache-shared-key: rust-android
+          rust-cache-save: "false"
+          gradle-cache-read-only: ${{ github.event_name == 'pull_request' }}
 
       - name: Enable KVM for emulator
         run: |
@@ -585,7 +466,6 @@ jobs:
       - uses: dtolnay/rust-toolchain@master
         with:
           toolchain: "1.94.0"
-          components: rustfmt, clippy
 
       - uses: Swatinem/rust-cache@v2
         with:
@@ -629,7 +509,6 @@ jobs:
       - uses: dtolnay/rust-toolchain@master
         with:
           toolchain: "1.94.0"
-          components: rustfmt, clippy
 
       - uses: Swatinem/rust-cache@v2
         with:
@@ -672,36 +551,11 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - uses: actions/setup-java@v5
+      - uses: ./.github/actions/setup-android-rust
         with:
-          distribution: temurin
-          java-version: 17
-
-      # Keep in sync with native/rust/rust-toolchain.toml
-      - uses: dtolnay/rust-toolchain@master
-        with:
-          toolchain: "1.94.0"
-          components: rustfmt, clippy, llvm-tools
-
-      - uses: android-actions/setup-android@v4
-
-      - uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: native/rust -> target
-          cache-on-failure: true
-
-      - name: Read native toolchain policy
-        id: nightly-native-toolchain
-        run: |
-          echo "ndk=$(grep '^ripdpi.nativeNdkVersion=' gradle.properties | cut -d= -f2-)" >> "$GITHUB_OUTPUT"
-
-      - name: Install Rust Android targets
-        run: rustup target add aarch64-linux-android armv7-linux-androideabi i686-linux-android x86_64-linux-android
-
-      - name: Install NDK
-        run: sdkmanager --install "ndk;${{ steps.nightly-native-toolchain.outputs.ndk }}"
-
-      - uses: gradle/actions/setup-gradle@v6
+          rust-components: llvm-tools
+          rust-cache-shared-key: rust-android
+          rust-cache-save: "false"
 
       - name: Install cargo-llvm-cov
         uses: taiki-e/install-action@v2
@@ -731,36 +585,13 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - uses: actions/setup-java@v5
+      - uses: ./.github/actions/setup-android-rust
         with:
-          distribution: temurin
-          java-version: 17
-
-      # Keep in sync with native/rust/rust-toolchain.toml
-      - uses: dtolnay/rust-toolchain@master
-        with:
-          toolchain: "1.94.0"
-          components: rustfmt, clippy
-
-      - uses: android-actions/setup-android@v4
-
-      - uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: native/rust -> target
-          cache-on-failure: true
-
-      - name: Read native toolchain policy
-        id: native-toolchain
-        run: |
-          echo "ndk=$(grep '^ripdpi.nativeNdkVersion=' gradle.properties | cut -d= -f2-)" >> "$GITHUB_OUTPUT"
-
-      - name: Install Rust Android targets
-        run: rustup target add x86_64-linux-android
-
-      - name: Install NDK
-        run: sdkmanager --install "ndk;${{ steps.native-toolchain.outputs.ndk }}"
-
-      - uses: gradle/actions/setup-gradle@v6
+          rust-components: ""
+          rust-targets: x86_64-linux-android
+          rust-cache-shared-key: rust-android
+          rust-cache-save: "false"
+          gradle-cache-read-only: ${{ github.event_name == 'pull_request' }}
 
       - name: Cache Appium dependencies
         if: github.event_name == 'workflow_dispatch' && github.event.inputs.run_appium_smoke == 'true'
@@ -792,22 +623,6 @@ jobs:
           profile: pixel_8
           emulator-options: -no-window -noaudio -no-boot-anim -gpu swiftshader_indirect
           script: bash scripts/ci/run-android-e2e-emulator.sh "${{ github.event_name }}" "${{ github.event.inputs.run_maestro_smoke }}" "${{ github.event.inputs.run_appium_smoke }}"
-
-      - name: Upload Android E2E artifacts
-        if: always()
-        uses: actions/upload-artifact@v7
-        with:
-          name: android-network-e2e-artifacts
-          path: |
-            android-logcat.txt
-            app/build/reports/androidTests/
-            app/build/reports/coverage/
-            app/build/outputs/code_coverage/
-            ${{ runner.temp }}/local-network-fixture/
-            ${{ runner.temp }}/appium-smoke.log
-            appium/appium-report.html
-            appium/screenshots/
-          retention-days: 7
 
       - name: Capture fixture state
         if: always()
@@ -853,7 +668,6 @@ jobs:
       - uses: dtolnay/rust-toolchain@master
         with:
           toolchain: "1.94.0"
-          components: rustfmt, clippy
 
       - uses: Swatinem/rust-cache@v2
         with:
@@ -889,7 +703,6 @@ jobs:
       - uses: dtolnay/rust-toolchain@master
         with:
           toolchain: "1.94.0"
-          components: rustfmt, clippy
 
       - uses: Swatinem/rust-cache@v2
         with:
