@@ -1,10 +1,30 @@
-use ripdpi_config::{ActivationFilter, EntropyMode, NumericRange, OffsetBase, QuicFakeProfile, TcpChainStepKind};
+use std::ops::Range;
 
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+use ripdpi_config::{ActivationFilter, EntropyMode, NumericRange, OffsetBase, QuicFakeProfile, TcpChainStepKind};
+use ripdpi_packets::{HttpMarkerInfo, TlsMarkerInfo};
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct TlsProtoInfo {
+    pub markers: TlsMarkerInfo,
+    pub host_bytes: Box<[u8]>,
+    pub host_spans: Box<[Range<usize>]>,
+}
+
+impl TlsProtoInfo {
+    pub fn host_start(&self) -> usize {
+        self.host_spans.first().map_or(self.markers.host_start, |span| span.start)
+    }
+
+    pub fn host_end(&self) -> usize {
+        self.host_spans.last().map_or(self.markers.host_end, |span| span.end)
+    }
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct ProtoInfo {
     pub kind: u32,
-    pub(crate) http: Option<ripdpi_packets::HttpMarkerInfo>,
-    pub(crate) tls: Option<ripdpi_packets::TlsMarkerInfo>,
+    pub(crate) http: Option<HttpMarkerInfo>,
+    pub(crate) tls: Option<TlsProtoInfo>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -97,6 +117,7 @@ pub enum DesyncAction {
     Write(Vec<u8>),
     WriteIpFragmentedTcp { bytes: Vec<u8>, split_offset: usize },
     WriteIpFragmentedUdp { bytes: Vec<u8>, split_offset: usize },
+    WriteSeqOverlap { real_chunk: Vec<u8>, fake_prefix: Vec<u8>, remainder: Vec<u8> },
     WriteUrgent { prefix: Vec<u8>, urgent_byte: u8 },
     SetTtl(u8),
     RestoreDefaultTtl,
