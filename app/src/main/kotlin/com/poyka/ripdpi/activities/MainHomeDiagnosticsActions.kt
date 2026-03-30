@@ -28,6 +28,9 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
+import logcat.LogPriority
+import logcat.asLog
+import logcat.logcat
 
 private const val HomeVerificationProfileId = "default"
 
@@ -340,7 +343,11 @@ internal class MainHomeDiagnosticsActions(
                         fileName = archive.fileName,
                     ),
                 )
-            }.onFailure {
+            }.onFailure { error ->
+                logcat(tag = "HomeDiagnostics", priority = LogPriority.ERROR) {
+                    "Failed to create home analysis archive\n${error.asLog()}"
+                }
+                homeDiagnosticsState.update { it.copy(analysisSheetVisible = false) }
                 mutations.emit(
                     MainEffect.ShowError(
                         stringResolver.getString(R.string.home_diagnostics_share_failed),
