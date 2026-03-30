@@ -542,13 +542,9 @@ internal fun buildHomeDiagnosticsUiState(
                     headline = outcome.headline,
                     summary = outcome.summary,
                     recommendationSummary = outcome.recommendationSummary,
-                    stageCountSummary =
-                        "${outcome.completedStageCount}/${outcome.stageSummaries.size} stages complete" +
-                            if (outcome.failedStageCount > 0) {
-                                " · ${outcome.failedStageCount} failed"
-                            } else {
-                                ""
-                            },
+                    completedStageCount = outcome.completedStageCount,
+                    failedStageCount = outcome.failedStageCount,
+                    totalStageCount = outcome.stageSummaries.size,
                     stale = fingerprintMismatch,
                     actionable = outcome.actionable && !fingerprintMismatch,
                 )

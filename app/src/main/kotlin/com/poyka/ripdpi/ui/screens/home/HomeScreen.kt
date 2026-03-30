@@ -33,6 +33,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -75,6 +76,7 @@ import com.poyka.ripdpi.ui.components.feedback.RipDpiBottomSheet
 import com.poyka.ripdpi.ui.components.feedback.RipDpiSheetAction
 import com.poyka.ripdpi.ui.components.feedback.WarningBanner
 import com.poyka.ripdpi.ui.components.feedback.WarningBannerTone
+import com.poyka.ripdpi.ui.components.indicators.StageProgressIndicator
 import com.poyka.ripdpi.ui.components.indicators.StatusIndicator
 import com.poyka.ripdpi.ui.components.indicators.StatusIndicatorTone
 import com.poyka.ripdpi.ui.components.rememberRipDpiHapticPerformer
@@ -432,17 +434,26 @@ private fun HomeDiagnosticsCard(
             color = colors.foreground,
         )
         uiState.homeDiagnostics.latestAudit?.let { result ->
-            Spacer(modifier = Modifier.height(spacing.xs))
+            Spacer(modifier = Modifier.height(spacing.sm))
+            val headlineColor =
+                when {
+                    result.failedStageCount > 0 -> colors.destructive
+                    result.completedStageCount == result.totalStageCount && result.totalStageCount > 0 -> colors.success
+                    else -> colors.foreground
+                }
             Text(
                 text = result.headline,
                 style = RipDpiThemeTokens.type.bodyEmphasis,
-                color = colors.foreground,
+                color = headlineColor,
             )
-            Text(
-                text = result.summary,
-                style = RipDpiThemeTokens.type.secondaryBody,
-                color = colors.mutedForeground,
-            )
+            if (result.totalStageCount > 0) {
+                Spacer(modifier = Modifier.height(spacing.xs))
+                StageProgressIndicator(
+                    completedCount = result.completedStageCount,
+                    failedCount = result.failedStageCount,
+                    totalCount = result.totalStageCount,
+                )
+            }
             result.recommendationSummary?.let { recommendation ->
                 Text(
                     text = recommendation,
@@ -450,21 +461,22 @@ private fun HomeDiagnosticsCard(
                     color = colors.foreground,
                 )
             }
-            result.stageCountSummary?.let { stageCount ->
-                Text(
-                    text = stageCount,
-                    style = RipDpiThemeTokens.type.secondaryBody,
-                    color = colors.mutedForeground,
-                )
-            }
             if (result.stale) {
                 Text(
                     text = stringResource(R.string.home_diagnostics_run_again),
                     style = RipDpiThemeTokens.type.secondaryBody,
-                    color = colors.mutedForeground,
+                    color = colors.warning,
                 )
             }
         }
+        Spacer(modifier = Modifier.height(spacing.md))
+        HorizontalDivider(color = colors.divider)
+        Spacer(modifier = Modifier.height(spacing.md))
+        Text(
+            text = uiState.homeDiagnostics.analysisAction.supportingText,
+            style = RipDpiThemeTokens.type.secondaryBody,
+            color = colors.mutedForeground,
+        )
         Spacer(modifier = Modifier.height(spacing.sm))
         RipDpiButton(
             text = uiState.homeDiagnostics.analysisAction.label,
@@ -476,11 +488,18 @@ private fun HomeDiagnosticsCard(
                     .fillMaxWidth()
                     .ripDpiTestTag(RipDpiTestTags.HomeDiagnosticsRunAnalysis),
         )
+        Spacer(modifier = Modifier.height(spacing.md))
         Text(
-            text = uiState.homeDiagnostics.analysisAction.supportingText,
+            text = uiState.homeDiagnostics.verifiedVpnAction.supportingText,
             style = RipDpiThemeTokens.type.secondaryBody,
-            color = colors.mutedForeground,
+            color =
+                if (!uiState.homeDiagnostics.verifiedVpnAction.enabled) {
+                    colors.mutedForeground
+                } else {
+                    colors.foreground
+                },
         )
+        Spacer(modifier = Modifier.height(spacing.sm))
         RipDpiButton(
             text = uiState.homeDiagnostics.verifiedVpnAction.label,
             onClick = onStartVerifiedVpn,
@@ -490,11 +509,6 @@ private fun HomeDiagnosticsCard(
                 Modifier
                     .fillMaxWidth()
                     .ripDpiTestTag(RipDpiTestTags.HomeDiagnosticsVerifiedVpn),
-        )
-        Text(
-            text = uiState.homeDiagnostics.verifiedVpnAction.supportingText,
-            style = RipDpiThemeTokens.type.secondaryBody,
-            color = colors.mutedForeground,
         )
     }
 }
@@ -539,17 +553,13 @@ private fun HomeDiagnosticsBottomSheetHost(
                 style = RipDpiThemeTokens.type.body,
                 color = colors.foreground,
             )
-            Text(
-                text =
-                    "${sheet.completedStageCount} completed" +
-                        if (sheet.failedStageCount > 0) {
-                            " · ${sheet.failedStageCount} failed"
-                        } else {
-                            ""
-                        },
-                style = RipDpiThemeTokens.type.secondaryBody,
-                color = colors.mutedForeground,
-            )
+            if (sheet.stageSummaries.isNotEmpty()) {
+                StageProgressIndicator(
+                    completedCount = sheet.completedStageCount,
+                    failedCount = sheet.failedStageCount,
+                    totalCount = sheet.stageSummaries.size,
+                )
+            }
             sheet.confidenceSummary?.let { value ->
                 SettingsRow(title = stringResource(R.string.home_diagnostics_confidence_label), value = value)
             }
