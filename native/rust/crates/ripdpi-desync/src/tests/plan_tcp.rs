@@ -649,9 +649,8 @@ fn plan_tcp_multidisorder_resolves_semantic_tls_markers_after_tlsrec_prelude() {
         TcpChainStep::new(TcpChainStepKind::MultiDisorder, OffsetExpr::marker(OffsetBase::MidSld, 0)),
     ];
     let prelude_steps = group.actions.tcp_chain[..1].to_vec();
-    let tampered =
-        apply_tls_prelude_steps(&group, &prelude_steps, DEFAULT_FAKE_TLS, 9, tcp_context(DEFAULT_FAKE_TLS))
-            .expect("tampered tlsrec payload");
+    let tampered = apply_tls_prelude_steps(&group, &prelude_steps, DEFAULT_FAKE_TLS, 9, tcp_context(DEFAULT_FAKE_TLS))
+        .expect("tampered tlsrec payload");
     let mut info = ProtoInfo::default();
     let mut rng = OracleRng::seeded(9);
     let sniext = gen_offset(
@@ -700,8 +699,8 @@ fn plan_tcp_multidisorder_sorts_resolved_markers_before_segmenting() {
         TcpChainStep::new(TcpChainStepKind::MultiDisorder, OffsetExpr::marker(OffsetBase::Host, 0)),
     ];
 
-    let plan =
-        plan_tcp(&group, DEFAULT_FAKE_HTTP, 9, 32, tcp_context(DEFAULT_FAKE_HTTP)).expect("plan reordered multidisorder");
+    let plan = plan_tcp(&group, DEFAULT_FAKE_HTTP, 9, 32, tcp_context(DEFAULT_FAKE_HTTP))
+        .expect("plan reordered multidisorder");
 
     assert!(plan.actions.is_empty());
     assert_eq!(
