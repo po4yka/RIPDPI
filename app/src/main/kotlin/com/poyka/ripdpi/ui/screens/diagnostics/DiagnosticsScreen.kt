@@ -82,6 +82,7 @@ import com.poyka.ripdpi.ui.components.navigation.RipDpiTopAppBar
 import com.poyka.ripdpi.ui.components.navigation.SettingsCategoryHeader
 import com.poyka.ripdpi.ui.components.rememberRipDpiHapticPerformer
 import com.poyka.ripdpi.ui.components.scaffold.RipDpiScreenScaffold
+import com.poyka.ripdpi.ui.debug.TrackRecomposition
 import com.poyka.ripdpi.ui.navigation.Route
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
@@ -297,6 +298,7 @@ fun DiagnosticsScreen(
     onOpenHistory: () -> Unit,
 ) {
     val colors = RipDpiThemeTokens.colors
+    TrackRecomposition("DiagnosticsScreen")
     val layout = RipDpiThemeTokens.layout
     val spacing = RipDpiThemeTokens.spacing
     var showDebugInfo by rememberSaveable { mutableStateOf(false) }
@@ -505,6 +507,7 @@ private fun OverviewSection(
     onSelectSession: (String) -> Unit,
     onOpenHistory: () -> Unit,
 ) {
+    TrackRecomposition("DiagnosticsOverview")
     val spacing = RipDpiThemeTokens.spacing
     val layout = RipDpiThemeTokens.layout
     LazyColumn(
