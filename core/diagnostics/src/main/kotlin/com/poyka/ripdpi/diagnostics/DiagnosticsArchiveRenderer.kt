@@ -143,6 +143,9 @@ class DiagnosticsArchiveRenderer
                     selection.logcatSnapshot?.let { snapshot ->
                         add(DiagnosticsArchiveEntry(name = "logcat.txt", bytes = snapshot.content.toByteArray()))
                     }
+                    selection.fileLogSnapshot?.let { content ->
+                        add(DiagnosticsArchiveEntry(name = "app-log.txt", bytes = content.toByteArray()))
+                    }
                 }
             return baseEntries +
                 jsonEntry(

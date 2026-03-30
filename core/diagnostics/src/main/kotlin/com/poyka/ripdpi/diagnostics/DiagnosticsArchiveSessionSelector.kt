@@ -147,7 +147,11 @@ class DiagnosticsArchiveSessionSelector
                 }
             val includedFiles =
                 if (isComposite) {
-                    DiagnosticsArchiveFormat.includedFiles(sourceData.logcatSnapshot != null, composite = true) +
+                    DiagnosticsArchiveFormat.includedFiles(
+                        logcatIncluded = sourceData.logcatSnapshot != null,
+                        fileLogIncluded = sourceData.fileLogSnapshot != null,
+                        composite = true,
+                    ) +
                         compositeStages.flatMap { stage ->
                             val prefix = "stages/${stage.stageSummary.stageKey}"
                             listOf(
@@ -161,7 +165,10 @@ class DiagnosticsArchiveSessionSelector
                             )
                         }
                 } else {
-                    DiagnosticsArchiveFormat.includedFiles(sourceData.logcatSnapshot != null)
+                    DiagnosticsArchiveFormat.includedFiles(
+                        logcatIncluded = sourceData.logcatSnapshot != null,
+                        fileLogIncluded = sourceData.fileLogSnapshot != null,
+                    )
                 }
             return DiagnosticsArchiveSelection(
                 runType =
@@ -227,6 +234,7 @@ class DiagnosticsArchiveSessionSelector
                 collectionWarnings = sourceData.collectionWarnings,
                 includedFiles = includedFiles,
                 logcatSnapshot = sourceData.logcatSnapshot,
+                fileLogSnapshot = sourceData.fileLogSnapshot,
             )
         }
     }
