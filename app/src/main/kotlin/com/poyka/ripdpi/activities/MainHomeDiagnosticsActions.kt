@@ -28,6 +28,9 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
+import logcat.LogPriority
+import logcat.asLog
+import logcat.logcat
 
 private const val HomeVerificationProfileId = "default"
 
@@ -340,7 +343,11 @@ internal class MainHomeDiagnosticsActions(
                         fileName = archive.fileName,
                     ),
                 )
-            }.onFailure {
+            }.onFailure { error ->
+                logcat(tag = "HomeDiagnostics", priority = LogPriority.ERROR) {
+                    "Failed to create home analysis archive\n${error.asLog()}"
+                }
+                homeDiagnosticsState.update { it.copy(analysisSheetVisible = false) }
                 mutations.emit(
                     MainEffect.ShowError(
                         stringResolver.getString(R.string.home_diagnostics_share_failed),
@@ -442,10 +449,10 @@ internal fun buildHomeDiagnosticsUiState(
         when {
             analysisBusy -> {
                 val progress = runtime.activeRunProgress
-                val activeStageIndex = progress?.activeStageIndex
-                val stageLabel = progress?.stages?.getOrNull(activeStageIndex ?: -1)?.stageLabel
+                val activeStageIndex = progress.activeStageIndex
+                val stageLabel = progress.stages.getOrNull(activeStageIndex ?: -1)?.stageLabel
                 val stagePrefix =
-                    if (activeStageIndex != null && progress != null) {
+                    if (activeStageIndex != null) {
                         "Stage ${activeStageIndex + 1} of ${progress.stages.size}"
                     } else {
                         null
@@ -542,13 +549,9 @@ internal fun buildHomeDiagnosticsUiState(
                     headline = outcome.headline,
                     summary = outcome.summary,
                     recommendationSummary = outcome.recommendationSummary,
-                    stageCountSummary =
-                        "${outcome.completedStageCount}/${outcome.stageSummaries.size} stages complete" +
-                            if (outcome.failedStageCount > 0) {
-                                " · ${outcome.failedStageCount} failed"
-                            } else {
-                                ""
-                            },
+                    completedStageCount = outcome.completedStageCount,
+                    failedStageCount = outcome.failedStageCount,
+                    totalStageCount = outcome.stageSummaries.size,
                     stale = fingerprintMismatch,
                     actionable = outcome.actionable && !fingerprintMismatch,
                 )

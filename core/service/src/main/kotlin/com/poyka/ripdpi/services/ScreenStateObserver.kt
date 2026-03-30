@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.os.PowerManager
+import androidx.core.content.ContextCompat
 import com.poyka.ripdpi.data.ApplicationScope
 import dagger.Binds
 import dagger.Module
@@ -56,7 +57,12 @@ class DefaultScreenStateObserver
                         addAction(Intent.ACTION_SCREEN_ON)
                         addAction(Intent.ACTION_SCREEN_OFF)
                     }
-                context.registerReceiver(receiver, filter)
+                ContextCompat.registerReceiver(
+                    context,
+                    receiver,
+                    filter,
+                    ContextCompat.RECEIVER_NOT_EXPORTED,
+                )
 
                 awaitClose {
                     runCatching { context.unregisterReceiver(receiver) }
