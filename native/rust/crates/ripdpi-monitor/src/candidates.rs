@@ -506,6 +506,7 @@ pub(crate) fn build_tlsrec_hostfake_candidate(base: &ProxyUiConfig, with_split: 
             min_fragment_size: 0,
             max_fragment_size: 0,
             activation_filter: None,
+            inter_segment_delay_ms: 0,
         },
     ];
     if with_split {
@@ -534,6 +535,7 @@ pub(crate) fn build_tlsrec_seqovl_candidate(base: &ProxyUiConfig, marker: &str) 
                 payload_size: None,
                 stream_bytes: Some(ProxyUiNumericRange { start: Some(0), end: Some(1500) }),
             }),
+            inter_segment_delay_ms: 0,
         },
     ];
     config
@@ -676,6 +678,7 @@ pub(crate) fn tcp_step(kind: &str, marker: &str) -> ProxyUiTcpChainStep {
         min_fragment_size: 0,
         max_fragment_size: 0,
         activation_filter: None,
+        inter_segment_delay_ms: 0,
     }
 }
 
