@@ -245,6 +245,13 @@ fn primary_tcp_strategy_family(group: &DesyncGroup) -> Option<&'static str> {
                 "seqovl"
             }
         }
+        TcpChainStepKind::MultiDisorder => {
+            if has_tls_prelude {
+                "tlsrec_multidisorder"
+            } else {
+                "multidisorder"
+            }
+        }
         TcpChainStepKind::Disorder => "disorder",
         TcpChainStepKind::Oob => "oob",
         TcpChainStepKind::Disoob => "disoob",
@@ -326,7 +333,7 @@ fn restore_ttl_action_name(strategy_family: &'static str) -> &'static str {
 pub(super) fn requires_special_tcp_execution(group: &DesyncGroup) -> bool {
     let supports_fake_retransmit = platform::supports_fake_retransmit();
     group.effective_tcp_chain().iter().any(|step| {
-        matches!(step.kind, TcpChainStepKind::Fake | TcpChainStepKind::IpFrag2)
+        matches!(step.kind, TcpChainStepKind::MultiDisorder | TcpChainStepKind::Fake | TcpChainStepKind::IpFrag2)
             || (supports_fake_retransmit
                 && matches!(step.kind, TcpChainStepKind::FakeSplit | TcpChainStepKind::FakeDisorder))
     })
@@ -593,6 +600,7 @@ fn execute_tcp_plan(
     strategy_family: Option<&'static str>,
     session_ttl_unavailable: &AtomicBool,
 ) -> Result<usize, OutboundSendError> {
+    let has_multi_disorder = plan.steps.iter().any(|step| step.kind == TcpChainStepKind::MultiDisorder);
     let fake =
         if plan.steps.iter().any(|step| {
             matches!(step.kind, TcpChainStepKind::Fake | TcpChainStepKind::FakeSplit | TcpChainStepKind::FakeDisorder)
@@ -612,6 +620,9 @@ fn execute_tcp_plan(
     };
     let send_steps =
         group.effective_tcp_chain().into_iter().filter(|step| !step.kind.is_tls_prelude()).collect::<Vec<_>>();
+    if has_multi_disorder {
+        return execute_multi_disorder_tcp_plan(writer, config, &send_steps, plan, strategy_family);
+    }
     if send_steps.len() < plan.steps.len() {
         return Err(OutboundSendError::Transport(io::Error::new(
             io::ErrorKind::InvalidData,
@@ -640,6 +651,7 @@ fn execute_tcp_plan(
         let step_family = match step.kind {
             TcpChainStepKind::Split => "split",
             TcpChainStepKind::SeqOverlap => strategy_family.unwrap_or("seqovl"),
+            TcpChainStepKind::MultiDisorder => strategy_family.unwrap_or("multidisorder"),
             TcpChainStepKind::Oob => "oob",
             TcpChainStepKind::Disorder => "disorder",
             TcpChainStepKind::Disoob => "disoob",
@@ -1165,6 +1177,12 @@ fn execute_tcp_plan(
                     )?;
                 }
             }
+            TcpChainStepKind::MultiDisorder => {
+                return Err(OutboundSendError::Transport(io::Error::new(
+                    io::ErrorKind::InvalidData,
+                    "multidisorder must be executed as a grouped tcp plan",
+                )));
+            }
             TcpChainStepKind::TlsRec | TcpChainStepKind::TlsRandRec => {
                 return Err(OutboundSendError::Transport(io::Error::new(
                     io::ErrorKind::InvalidData,
@@ -1193,6 +1211,69 @@ fn execute_tcp_plan(
     }
 
     Ok(bytes_committed)
+}
+
+fn execute_multi_disorder_tcp_plan(
+    writer: &mut TcpStream,
+    config: &RuntimeConfig,
+    send_steps: &[ripdpi_config::TcpChainStep],
+    plan: &DesyncPlan,
+    strategy_family: Option<&'static str>,
+) -> Result<usize, OutboundSendError> {
+    if send_steps.len() < 2 || send_steps.iter().any(|step| step.kind != TcpChainStepKind::MultiDisorder) {
+        return Err(OutboundSendError::Transport(io::Error::new(
+            io::ErrorKind::InvalidData,
+            "invalid multidisorder tcp chain configuration",
+        )));
+    }
+    if plan.steps.len() < 3 || plan.steps.iter().any(|step| step.kind != TcpChainStepKind::MultiDisorder) {
+        return Err(OutboundSendError::Transport(io::Error::new(
+            io::ErrorKind::InvalidData,
+            "multidisorder requires at least three non-empty planned segments",
+        )));
+    }
+
+    let mut cursor = 0usize;
+    let mut segments = Vec::with_capacity(plan.steps.len());
+    for step in &plan.steps {
+        let start = usize::try_from(step.start).map_err(|_| {
+            OutboundSendError::Transport(io::Error::new(io::ErrorKind::InvalidData, "negative tcp plan start"))
+        })?;
+        let end = usize::try_from(step.end).map_err(|_| {
+            OutboundSendError::Transport(io::Error::new(io::ErrorKind::InvalidData, "negative tcp plan end"))
+        })?;
+        if start != cursor || end <= start || end > plan.tampered.len() {
+            return Err(OutboundSendError::Transport(io::Error::new(
+                io::ErrorKind::InvalidData,
+                "invalid multidisorder tcp segment bounds",
+            )));
+        }
+        segments.push(platform::TcpPayloadSegment { start, end });
+        cursor = end;
+    }
+    if cursor != plan.tampered.len() {
+        return Err(OutboundSendError::Transport(io::Error::new(
+            io::ErrorKind::InvalidData,
+            "multidisorder tcp plan does not cover the full payload",
+        )));
+    }
+
+    let strategy_family = strategy_family.unwrap_or("multidisorder");
+    let fallback = strategy_fallback_family(strategy_family);
+    strategy_result(
+        platform::send_multi_disorder_tcp(
+            writer,
+            &plan.tampered,
+            &segments,
+            config.network.default_ttl,
+            config.process.protect_path.as_deref(),
+        ),
+        "write_multidisorder",
+        strategy_family,
+        fallback,
+        0,
+    )
+    .map(|()| plan.tampered.len())
 }
 
 fn send_out_of_band(writer: &TcpStream, prefix: &[u8], urgent_byte: u8) -> io::Result<()> {
@@ -1598,6 +1679,11 @@ mod tests {
         group.actions.tcp_chain.clear();
         group.actions.tcp_chain.push(TcpChainStep::new(TcpChainStepKind::Fake, test_offset()));
         assert!(requires_special_tcp_execution(&group));
+
+        group.actions.tcp_chain.clear();
+        group.actions.tcp_chain.push(TcpChainStep::new(TcpChainStepKind::MultiDisorder, test_offset()));
+        group.actions.tcp_chain.push(TcpChainStep::new(TcpChainStepKind::MultiDisorder, OffsetExpr::absolute(4)));
+        assert!(requires_special_tcp_execution(&group));
     }
 
     #[test]
@@ -1616,6 +1702,20 @@ mod tests {
         assert_eq!(strategy_fallback_family("tlsrec_seqovl"), Some("tlsrec_split"));
         assert_eq!(write_action_name("tlsrec_seqovl"), "write_seqovl");
         assert_eq!(await_writable_action_name("tlsrec_seqovl"), "await_writable_seqovl");
+    }
+
+    #[test]
+    fn multidisorder_strategy_family_maps_tlsrec_variant_without_fallback() {
+        let mut group = test_group();
+        group.actions.tcp_chain.push(TcpChainStep::new(TcpChainStepKind::MultiDisorder, test_offset()));
+        group.actions.tcp_chain.push(TcpChainStep::new(TcpChainStepKind::MultiDisorder, OffsetExpr::absolute(4)));
+
+        assert_eq!(primary_tcp_strategy_family(&group), Some("multidisorder"));
+        assert_eq!(strategy_fallback_family("multidisorder"), None);
+
+        group.actions.tcp_chain.insert(0, TcpChainStep::new(TcpChainStepKind::TlsRec, test_offset()));
+        assert_eq!(primary_tcp_strategy_family(&group), Some("tlsrec_multidisorder"));
+        assert_eq!(strategy_fallback_family("tlsrec_multidisorder"), None);
     }
 
     #[test]

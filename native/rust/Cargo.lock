@@ -2595,6 +2595,7 @@ dependencies = [
  "aes",
  "arc-swap",
  "ctr",
+ "etherparse",
  "libc",
  "local-network-fixture",
  "loom",

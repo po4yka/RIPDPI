@@ -16,6 +16,7 @@ enum class TcpChainStepKind(
     Split("split"),
     SeqOverlap("seqovl"),
     Disorder("disorder"),
+    MultiDisorder("multidisorder"),
     Fake("fake"),
     FakeSplit("fakedsplit"),
     FakeDisorder("fakeddisorder"),
@@ -48,6 +49,7 @@ fun TcpChainStepKind.desyncMethodLabel(): String? =
         TcpChainStepKind.Split -> "split"
         TcpChainStepKind.SeqOverlap -> "seqovl"
         TcpChainStepKind.Disorder -> "disorder"
+        TcpChainStepKind.MultiDisorder -> "multidisorder"
         TcpChainStepKind.Fake -> "fake"
         TcpChainStepKind.FakeSplit -> "fake"
         TcpChainStepKind.FakeDisorder -> "disorder"
@@ -393,6 +395,7 @@ private fun validateTcpChain(steps: List<TcpChainStepModel>) {
     var sawIpFrag2 = false
     var sawSeqOverlap = false
     var sendStepCount = 0
+    var multidisorderCount = 0
     steps.forEachIndexed { index, step ->
         when (step.kind) {
             TcpChainStepKind.TlsRec,
@@ -407,6 +410,13 @@ private fun validateTcpChain(steps: List<TcpChainStepModel>) {
                     require(!sawSeqOverlap) { "seqovl must appear at most once per tcp chain" }
                     require(sendStepCount == 0) { "seqovl must be the first tcp send step" }
                     sawSeqOverlap = true
+                }
+                if (step.kind == TcpChainStepKind.MultiDisorder) {
+                    multidisorderCount += 1
+                } else {
+                    require(multidisorderCount == 0) {
+                        "multidisorder must be the only tcp send step family"
+                    }
                 }
                 if (step.kind == TcpChainStepKind.IpFrag2) {
                     sawIpFrag2 = true
@@ -423,6 +433,14 @@ private fun validateTcpChain(steps: List<TcpChainStepModel>) {
             }
         }
         validateTcpStepOptions(step)
+    }
+    if (multidisorderCount > 0) {
+        require(sendStepCount == multidisorderCount) {
+            "multidisorder must be the only tcp send step family"
+        }
+        require(multidisorderCount >= 2) {
+            "multidisorder must declare at least two markers"
+        }
     }
 }
 

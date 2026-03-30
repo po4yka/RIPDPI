@@ -17,6 +17,7 @@ use std::ptr;
 use std::thread;
 use std::time::{Duration, Instant};
 
+use etherparse::{ip_number, Ipv4Header, Ipv6FlowLabel, Ipv6Header, TcpHeader, TcpOptionElement};
 use ripdpi_desync::TcpSegmentHint;
 use ripdpi_ipfrag::{
     build_tcp_fragment_pair, build_udp_fragment_pair, TcpFragmentSpec, TcpTimestampOption, UdpFragmentSpec,
@@ -595,6 +596,45 @@ pub fn send_ip_fragmented_tcp(
     result
 }
 
+pub fn send_multi_disorder_tcp(
+    stream: &TcpStream,
+    payload: &[u8],
+    segments: &[super::TcpPayloadSegment],
+    default_ttl: u8,
+    protect_path: Option<&str>,
+) -> io::Result<()> {
+    if payload.is_empty() {
+        return Ok(());
+    }
+    if segments.len() < 3 {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            "multidisorder requires at least three non-empty TCP segments",
+        ));
+    }
+
+    let source = stream.local_addr()?;
+    let target = stream.peer_addr()?;
+    let ttl = get_stream_ttl(stream).unwrap_or_else(|_| resolve_raw_ttl(default_ttl));
+    let fd = stream.as_raw_fd();
+    let settings = capture_stream_socket_settings(stream);
+
+    set_tcp_repair(fd, TCP_REPAIR_ON)?;
+    let result = (|| -> io::Result<()> {
+        let snapshot = snapshot_tcp_repair_state(fd)?;
+        let packets = build_multi_disorder_packets(source, target, ttl, payload, segments, &snapshot)?;
+        let replacement = build_replacement_tcp_socket(source, target, payload.len(), &snapshot, protect_path)?;
+        send_raw_packets(target, packets.iter().rev().map(Vec::as_slice), protect_path)?;
+        swap_stream_to_replacement(stream, &replacement, settings)?;
+        set_tcp_repair_queue(fd, TCP_NO_QUEUE)?;
+        disable_tcp_repair(fd)
+    })();
+
+    let _ = set_tcp_repair_queue(fd, TCP_NO_QUEUE);
+    let _ = disable_tcp_repair(fd);
+    result
+}
+
 pub fn wait_tcp_stage(stream: &TcpStream, wait_send: bool, await_interval: Duration) -> io::Result<()> {
     wait_tcp_stage_fd(stream.as_raw_fd(), wait_send, await_interval)
 }
@@ -658,22 +698,26 @@ fn build_error_to_io(error: ripdpi_ipfrag::BuildError) -> io::Error {
     }
 }
 
+fn value_too_large_io(message: &'static str) -> io::Error {
+    io::Error::new(io::ErrorKind::InvalidInput, message)
+}
+
 fn snapshot_tcp_repair_state(fd: libc::c_int) -> io::Result<TcpRepairSnapshot> {
     if pending_tcp_read_bytes(fd)? != 0 {
         return Err(io::Error::new(
             io::ErrorKind::WouldBlock,
-            "ipfrag2 requires an empty inbound queue before raw injection",
+            "packet-owned TCP desync requires an empty inbound queue before raw injection",
         ));
     }
     if tcp_has_notsent(fd)? {
         return Err(io::Error::new(
             io::ErrorKind::WouldBlock,
-            "ipfrag2 requires an empty TCP send queue before raw injection",
+            "packet-owned TCP desync requires an empty TCP send queue before raw injection",
         ));
     }
 
     let info = read_tcp_info(fd)?.ok_or_else(|| {
-        io::Error::new(io::ErrorKind::Unsupported, "ipfrag2 requires TCP_INFO support for repair snapshot")
+        io::Error::new(io::ErrorKind::Unsupported, "packet-owned TCP desync requires TCP_INFO support")
     })?;
 
     set_tcp_repair_queue(fd, TCP_SEND_QUEUE)?;
@@ -699,7 +743,7 @@ fn snapshot_tcp_repair_options(fd: libc::c_int, info: LinuxTcpInfo) -> io::Resul
         let value = read_tcp_timestamp(fd).map_err(|error| {
             io::Error::new(
                 io::ErrorKind::Unsupported,
-                format!("ipfrag2 could not snapshot negotiated TCP timestamps: {error}"),
+                format!("packet-owned TCP desync could not snapshot negotiated TCP timestamps: {error}"),
             )
         })?;
         Some(TcpTimestampSnapshot { value, echo_reply: 0, usec_ts: info.tcpi_options & TCPI_OPT_USEC_TS != 0 })
@@ -832,6 +876,13 @@ fn apply_stream_socket_settings(stream: &TcpStream, settings: StreamSocketSettin
 }
 
 fn send_raw_fragments(target: SocketAddr, packets: [&[u8]; 2], protect_path: Option<&str>) -> io::Result<()> {
+    send_raw_packets(target, packets, protect_path)
+}
+
+fn send_raw_packets<'a, I>(target: SocketAddr, packets: I, protect_path: Option<&str>) -> io::Result<()>
+where
+    I: IntoIterator<Item = &'a [u8]>,
+{
     let socket = match target {
         SocketAddr::V4(_) => {
             let socket = Socket::new(Domain::IPV4, Type::RAW, Some(Protocol::from(libc::IPPROTO_RAW)))?;
@@ -859,6 +910,123 @@ fn send_raw_fragments(target: SocketAddr, packets: [&[u8]; 2], protect_path: Opt
 
 fn set_tcp_repair(fd: libc::c_int, value: libc::c_int) -> io::Result<()> {
     unsafe { setsockopt_raw(fd, libc::IPPROTO_TCP, TCP_REPAIR, &value) }
+}
+
+fn build_multi_disorder_packets(
+    source: SocketAddr,
+    target: SocketAddr,
+    ttl: u8,
+    payload: &[u8],
+    segments: &[super::TcpPayloadSegment],
+    snapshot: &TcpRepairSnapshot,
+) -> io::Result<Vec<Vec<u8>>> {
+    let mut cursor = 0usize;
+    let base_identification = fragment_identification(source, target, payload.len());
+    let mut packets = Vec::with_capacity(segments.len());
+
+    for (index, segment) in segments.iter().enumerate() {
+        if segment.start != cursor || segment.end <= segment.start || segment.end > payload.len() {
+            return Err(io::Error::new(io::ErrorKind::InvalidInput, "invalid multidisorder TCP payload segments"));
+        }
+        let sequence_number = sequence_after_payload(snapshot.sequence_number, segment.start)?;
+        packets.push(build_tcp_segment_packet(
+            source,
+            target,
+            ttl,
+            base_identification.wrapping_add(index as u32),
+            sequence_number,
+            snapshot.acknowledgment_number,
+            snapshot.window_size,
+            snapshot.options.timestamp,
+            segment.end == payload.len(),
+            &payload[segment.start..segment.end],
+        )?);
+        cursor = segment.end;
+    }
+
+    if cursor != payload.len() {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            "multidisorder TCP payload segments must cover the full payload",
+        ));
+    }
+
+    Ok(packets)
+}
+
+#[allow(clippy::too_many_arguments)]
+fn build_tcp_segment_packet(
+    source: SocketAddr,
+    target: SocketAddr,
+    ttl: u8,
+    identification: u32,
+    sequence_number: u32,
+    acknowledgment_number: u32,
+    window_size: u16,
+    timestamp: Option<TcpTimestampSnapshot>,
+    push_flag: bool,
+    payload: &[u8],
+) -> io::Result<Vec<u8>> {
+    let mut tcp = TcpHeader::new(source.port(), target.port(), sequence_number, window_size);
+    tcp.ack = true;
+    tcp.psh = push_flag && !payload.is_empty();
+    tcp.acknowledgment_number = acknowledgment_number;
+    if let Some(timestamp) = timestamp {
+        tcp.set_options(&[
+            TcpOptionElement::Noop,
+            TcpOptionElement::Noop,
+            TcpOptionElement::Timestamp(timestamp.value, timestamp.echo_reply),
+        ])
+        .map_err(|_| value_too_large_io("TCP options exceed supported raw packet size"))?;
+    }
+
+    match (source, target) {
+        (SocketAddr::V4(src), SocketAddr::V4(dst)) => {
+            tcp.checksum = tcp
+                .calc_checksum_ipv4_raw(src.ip().octets(), dst.ip().octets(), payload)
+                .map_err(|_| value_too_large_io("raw TCP payload exceeds IPv4 checksum limits"))?;
+            let payload_length = u16::try_from(tcp.header_len() + payload.len())
+                .map_err(|_| value_too_large_io("IPv4 packet too large"))?;
+            let mut ip = Ipv4Header::new(payload_length, ttl, ip_number::TCP, src.ip().octets(), dst.ip().octets())
+                .map_err(|_| value_too_large_io("IPv4 packet too large"))?;
+            ip.identification = identification as u16;
+            ip.dont_fragment = false;
+            ip.more_fragments = false;
+            ip.header_checksum = ip.calc_header_checksum();
+
+            let mut bytes = Vec::with_capacity(Ipv4Header::MIN_LEN + tcp.header_len() + payload.len());
+            ip.write(&mut bytes).map_err(io::Error::other)?;
+            tcp.write(&mut bytes).map_err(io::Error::other)?;
+            bytes.extend_from_slice(payload);
+            Ok(bytes)
+        }
+        (SocketAddr::V6(src), SocketAddr::V6(dst)) => {
+            tcp.checksum = tcp
+                .calc_checksum_ipv6_raw(src.ip().octets(), dst.ip().octets(), payload)
+                .map_err(|_| value_too_large_io("raw TCP payload exceeds IPv6 checksum limits"))?;
+            let payload_length = u16::try_from(tcp.header_len() + payload.len())
+                .map_err(|_| value_too_large_io("IPv6 packet too large"))?;
+            let ip = Ipv6Header {
+                traffic_class: 0,
+                flow_label: Ipv6FlowLabel::ZERO,
+                payload_length,
+                next_header: ip_number::TCP,
+                hop_limit: ttl,
+                source: src.ip().octets(),
+                destination: dst.ip().octets(),
+            };
+
+            let mut bytes = Vec::with_capacity(Ipv6Header::LEN + tcp.header_len() + payload.len());
+            ip.write(&mut bytes).map_err(io::Error::other)?;
+            tcp.write(&mut bytes).map_err(io::Error::other)?;
+            bytes.extend_from_slice(payload);
+            Ok(bytes)
+        }
+        _ => Err(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            "multidisorder raw TCP send requires matching source and destination IP families",
+        )),
+    }
 }
 
 fn set_tcp_repair_option(fd: libc::c_int, value: TcpRepairOpt) -> io::Result<()> {

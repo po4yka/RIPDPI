@@ -792,6 +792,7 @@ pub fn parse_tcp_chain_step_kind(value: &str) -> Result<TcpChainStepKind, ProxyC
         "split" => Ok(TcpChainStepKind::Split),
         "seqovl" => Ok(TcpChainStepKind::SeqOverlap),
         "disorder" => Ok(TcpChainStepKind::Disorder),
+        "multidisorder" => Ok(TcpChainStepKind::MultiDisorder),
         "fake" => Ok(TcpChainStepKind::Fake),
         "fakedsplit" => Ok(TcpChainStepKind::FakeSplit),
         "fakeddisorder" => Ok(TcpChainStepKind::FakeDisorder),
@@ -836,6 +837,7 @@ fn validate_tcp_chain(steps: &[TcpChainStep]) -> Result<(), ProxyConfigError> {
     let mut saw_ipfrag2 = false;
     let mut saw_seqovl = false;
     let mut send_step_count = 0usize;
+    let mut multidisorder_count = 0usize;
     for (index, step) in steps.iter().enumerate() {
         if step.kind.is_tls_prelude() {
             if saw_send_step {
@@ -864,6 +866,13 @@ fn validate_tcp_chain(steps: &[TcpChainStep]) -> Result<(), ProxyConfigError> {
                 }
                 saw_seqovl = true;
             }
+            if step.kind == TcpChainStepKind::MultiDisorder {
+                multidisorder_count += 1;
+            } else if multidisorder_count != 0 {
+                return Err(ProxyConfigError::InvalidConfig(
+                    "multidisorder must be the only tcp send step family".to_string(),
+                ));
+            }
             if step.kind == TcpChainStepKind::IpFrag2 {
                 saw_ipfrag2 = true;
                 if index + 1 != steps.len() {
@@ -885,6 +894,16 @@ fn validate_tcp_chain(steps: &[TcpChainStep]) -> Result<(), ProxyConfigError> {
                     _ => unreachable!(),
                 }
             )));
+        }
+    }
+    if multidisorder_count > 0 {
+        if send_step_count != multidisorder_count {
+            return Err(ProxyConfigError::InvalidConfig(
+                "multidisorder must be the only tcp send step family".to_string(),
+            ));
+        }
+        if multidisorder_count < 2 {
+            return Err(ProxyConfigError::InvalidConfig("multidisorder must declare at least two markers".to_string()));
         }
     }
     Ok(())

@@ -96,6 +96,7 @@ The in-repo Rust stack currently exposes:
 - semantic marker offsets such as `host`, `endhost`, `midsld`, `method`, `extlen`, and `sniext`
 - adaptive `auto(...)` split markers backed by `TCP_INFO` hints (`snd_mss`, `advmss`, `pmtu`)
 - ordered TCP and UDP strategy chains with per-step activation filters
+- manual-chain `multidisorder` runs where contiguous terminal TCP steps define multiple split markers and send the resulting segments in reverse order on Linux/Android
 - richer fake TLS mutation controls and built-in fake payload profile libraries for HTTP, TLS, UDP, and QUIC Initial traffic
 - host-oriented fake steps such as `hostfake` plus partial `fakedsplit` / `fakeddisorder` approximations on Linux/Android
 - host autolearn segmented per network scope, remembered policy replay, and automatic diagnostics probing/audit with rotating cohorts, confidence scoring, and manual recommendations
@@ -107,6 +108,8 @@ The in-repo Rust stack currently exposes:
 - DNS-over-QUIC (DoQ, RFC 9250) support alongside DoH, DoT, and DNSCrypt
 - 10-second TCP connect timeout to prevent thread exhaustion on unreachable upstream hosts
 - retry-stealth pacing with jitter and cooldown-aware candidate diversification for both the live runtime and the diagnostics probe runner
+
+`multidisorder` is DSL/manual-chain only in v1. Express it as a contiguous terminal run such as `tlsrec extlen`, `multidisorder sniext`, `multidisorder host`. It relies on raw IPv4/IPv6 sockets plus TCP repair, similar to `ipfrag2`.
 
 See [proxy-engine.md](proxy-engine.md) for the proxy-specific details.
 

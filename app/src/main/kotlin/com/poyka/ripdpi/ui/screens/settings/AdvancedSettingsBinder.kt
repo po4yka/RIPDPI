@@ -529,6 +529,10 @@ private fun AdvancedSettingsMutationWriter.updatePrimaryDesyncMethod(
     value: String,
     uiState: SettingsUiState,
 ) {
+    if (uiState.desync.tcpChainSteps.any { it.kind == TcpChainStepKind.MultiDisorder }) {
+        return
+    }
+
     val primaryIndex = uiState.desync.tcpChainSteps.indexOfFirst { !it.kind.isTlsPrelude }
     val replacementKind =
         when (value) {
@@ -548,6 +552,10 @@ private fun AdvancedSettingsMutationWriter.updatePrimaryDesyncMethod(
 
             "disorder" -> {
                 TcpChainStepKind.Disorder
+            }
+
+            TcpChainStepKind.MultiDisorder.wireName -> {
+                return
             }
 
             "fake" -> {

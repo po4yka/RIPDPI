@@ -304,6 +304,47 @@ class RipDpiProxyPreferencesTest {
     }
 
     @Test
+    fun uiPreferencesEncodeAndRoundTripMultidisorderChainOptions() {
+        val original =
+            RipDpiProxyUIPreferences(
+                chains =
+                    RipDpiChainConfig(
+                        tcpSteps =
+                            listOf(
+                                TcpChainStepModel(
+                                    kind = TcpChainStepKind.TlsRec,
+                                    marker = "extlen",
+                                ),
+                                TcpChainStepModel(
+                                    kind = TcpChainStepKind.MultiDisorder,
+                                    marker = "sniext",
+                                ),
+                                TcpChainStepModel(
+                                    kind = TcpChainStepKind.MultiDisorder,
+                                    marker = "host",
+                                ),
+                            ),
+                    ),
+            )
+
+        val steps =
+            original
+                .toNativeConfigJson()
+                .parseJsonObject()
+                .objectAt("chains")
+                .array("tcpSteps")
+                .map { it.jsonObject }
+        val decoded = decodeRipDpiProxyUiPreferences(original.toNativeConfigJson())
+
+        assertEquals("tlsrec", steps[0].string("kind"))
+        assertEquals("multidisorder", steps[1].string("kind"))
+        assertEquals("sniext", steps[1].string("marker"))
+        assertEquals("multidisorder", steps[2].string("kind"))
+        assertEquals("host", steps[2].string("marker"))
+        assertEquals(original.chains.tcpSteps, decoded?.chains?.tcpSteps)
+    }
+
+    @Test
     fun decodeUiPreferencesRoundTripsHostfakeAndQuicProfile() {
         val original =
             RipDpiProxyUIPreferences(

@@ -14,6 +14,12 @@ pub type TcpStageWait = (bool, Duration);
 
 static SEQOVL_SUPPORTED: OnceLock<bool> = OnceLock::new();
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct TcpPayloadSegment {
+    pub start: usize,
+    pub end: usize,
+}
+
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct IpFragmentationCapabilities {
     pub raw_ipv4: bool,
@@ -217,6 +223,28 @@ pub fn send_ip_fragmented_tcp(
     _stream: &TcpStream,
     _payload: &[u8],
     _split_offset: usize,
+    _default_ttl: u8,
+    _protect_path: Option<&str>,
+) -> io::Result<()> {
+    Err(io::Error::new(io::ErrorKind::Unsupported, "only supported on Linux/Android"))
+}
+
+#[cfg(any(target_os = "linux", target_os = "android"))]
+pub fn send_multi_disorder_tcp(
+    stream: &TcpStream,
+    payload: &[u8],
+    segments: &[TcpPayloadSegment],
+    default_ttl: u8,
+    protect_path: Option<&str>,
+) -> io::Result<()> {
+    linux::send_multi_disorder_tcp(stream, payload, segments, default_ttl, protect_path)
+}
+
+#[cfg(not(any(target_os = "linux", target_os = "android")))]
+pub fn send_multi_disorder_tcp(
+    _stream: &TcpStream,
+    _payload: &[u8],
+    _segments: &[TcpPayloadSegment],
     _default_ttl: u8,
     _protect_path: Option<&str>,
 ) -> io::Result<()> {
