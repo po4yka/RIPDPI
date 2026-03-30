@@ -92,6 +92,6 @@ The support bundle is the preferred artifact because it now includes:
 
 ## Build Notes
 
-- Debug builds install verbose app logging through `AndroidLogcatLogger`.
+- Debug builds install verbose app logging through Kermit's `platformLogWriter()`.
 - Release behavior stays on-demand; there is no always-on file logger in this phase.
 - The automation launch extras only work in debug builds, because `DebugAutomationController` is bound from `app/src/debug/`.
