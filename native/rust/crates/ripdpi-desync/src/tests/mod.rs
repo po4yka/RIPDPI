@@ -53,5 +53,6 @@ pub(super) fn tlsrandrec_step(marker: i64, count: i32, min_size: i32, max_size: 
         fragment_count: count,
         min_fragment_size: min_size,
         max_fragment_size: max_size,
+        inter_segment_delay_ms: 0,
     }
 }

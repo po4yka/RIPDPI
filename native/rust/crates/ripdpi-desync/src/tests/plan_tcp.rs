@@ -16,6 +16,7 @@ fn seqovl_step(pos: i64) -> TcpChainStep {
         fragment_count: 0,
         min_fragment_size: 0,
         max_fragment_size: 0,
+        inter_segment_delay_ms: 0,
     }
 }
 
@@ -153,6 +154,7 @@ fn plan_tcp_tlsrandrec_supports_adaptive_marker_resolution() {
         fragment_count: 4,
         min_fragment_size: 16,
         max_fragment_size: 32,
+        inter_segment_delay_ms: 0,
     }];
     let mut explicit_group = DesyncGroup::new(0);
     explicit_group.actions.tcp_chain = vec![TcpChainStep {
@@ -166,6 +168,7 @@ fn plan_tcp_tlsrandrec_supports_adaptive_marker_resolution() {
         fragment_count: 4,
         min_fragment_size: 16,
         max_fragment_size: 32,
+        inter_segment_delay_ms: 0,
     }];
 
     let auto_plan = plan_tcp(
@@ -808,6 +811,7 @@ fn plan_tcp_step_activation_filter_skips_tls_prelude_only() {
             fragment_count: 0,
             min_fragment_size: 0,
             max_fragment_size: 0,
+            inter_segment_delay_ms: 0,
         },
         TcpChainStep::new(TcpChainStepKind::Split, split_expr(4)),
     ];
@@ -875,6 +879,7 @@ fn plan_tcp_hostfake_emits_fake_real_fake_sequence_for_http_host() {
         fragment_count: 0,
         min_fragment_size: 0,
         max_fragment_size: 0,
+        inter_segment_delay_ms: 0,
     }];
 
     let plan = plan_tcp(&group, payload, 23, 32, tcp_context(payload)).expect("plan hostfake");
@@ -929,6 +934,7 @@ fn hostfake_degrades_to_split_when_step_ends_before_endhost() {
         fragment_count: 0,
         min_fragment_size: 0,
         max_fragment_size: 0,
+        inter_segment_delay_ms: 0,
     }];
 
     let plan = plan_tcp(&group, payload, 9, 32, tcp_context(payload)).expect("plan degraded hostfake");

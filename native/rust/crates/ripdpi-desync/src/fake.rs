@@ -19,9 +19,7 @@ pub fn resolve_hostfake_span(
     seed: u32,
 ) -> Option<HostFakeSpan> {
     let mut info = ProtoInfo::default();
-    let host = resolve_host_range(buffer, &mut info, OffsetProto::Any)?;
-    let host_start = host.start;
-    let host_end = host.end;
+    let (host_start, host_end, _) = resolve_host_range(buffer, &mut info, OffsetProto::Any)?;
     if host_start < step_start || host_end > step_end || host_start >= host_end {
         return None;
     }

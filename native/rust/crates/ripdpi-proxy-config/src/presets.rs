@@ -84,6 +84,7 @@ fn tcp_step(kind: &str, marker: &str) -> ProxyUiTcpChainStep {
         fragment_count: 0,
         min_fragment_size: 0,
         max_fragment_size: 0,
+        inter_segment_delay_ms: 0,
         activation_filter: None,
     }
 }

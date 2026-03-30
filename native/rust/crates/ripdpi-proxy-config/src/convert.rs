@@ -95,6 +95,7 @@ fn synthesize_tlsrec_prelude_for_bare_hostfake(chain: &mut Vec<TcpChainStep>) {
             fragment_count: 0,
             min_fragment_size: 0,
             max_fragment_size: 0,
+            inter_segment_delay_ms: 0,
         },
     );
 }
@@ -677,6 +678,7 @@ pub fn runtime_config_from_ui(payload: ProxyUiConfig) -> Result<RuntimeConfig, P
             fragment_count,
             min_fragment_size,
             max_fragment_size,
+            inter_segment_delay_ms: step.inter_segment_delay_ms.min(100),
         });
     }
     synthesize_tlsrec_prelude_for_bare_hostfake(&mut group.actions.tcp_chain);
