@@ -48,7 +48,6 @@ extensions.configure<ApplicationExtension> {
         debug {
             buildConfigField("String", "VERSION_NAME", "\"${defaultConfig.versionName}-debug\"")
             enableAndroidTestCoverage = true
-            isProfileable = true
         }
     }
 
