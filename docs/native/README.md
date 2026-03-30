@@ -114,7 +114,20 @@ The in-repo Rust stack currently exposes:
 - QUIC-level DPI evasion: SNI splitting across CRYPTO frames, source port manipulation, dummy UDP prepend, version negotiation trick, and post-handshake connection migration
 - DNS-over-QUIC (DoQ, RFC 9250) support alongside DoH, DoT, and DNSCrypt
 - 10-second TCP connect timeout to prevent thread exhaustion on unreachable upstream hosts
-- retry-stealth pacing with jitter and cooldown-aware candidate diversification for both the live runtime and the diagnostics probe runner
+- retry-stealth pacing with family cooldowns, exponential backoff (300-3000ms), 35% jitter, and cooldown-aware candidate diversification
+- entropy padding (popcount/Shannon/combined modes) to counter GFW and middlebox entropy-based detection
+- auto TTL with adaptive delta, min/max bounds, derived from server SYN-ACK TTL
+- connection freeze detection (`freeze_window_ms`, `freeze_min_bytes`, `freeze_max_stalls`)
+- TCP option manipulation: `drop_sack`, `strip_timestamps`, `oob_data` (urgent byte), `tlsminor` (TLS version override), `mod_http` (HTTP header bitflags)
+- QUIC fake profiles (`compat_default`, `realistic_initial`), fake host, fake version, low port binding, post-handshake migration
+- per-step activation filters on round, payload size, and stream byte ranges
+- proxy protocol support: SOCKS5, SOCKS4/4a, HTTP CONNECT, Shadowsocks
+- external SOCKS upstream chaining (`ext_socks`)
+- delayed upstream connection (`delay_conn`), TCP Fast Open (`tfo`), bounded retries (`max_route_retries`)
+- blockpage fingerprint database with ISP/government pattern matching and provider identification
+- VPN tunnel DNS interception with real-to-synthetic IP mapping, LRU cache, and encrypted DNS forwarding
+- adaptive profiles: UDP burst (balanced/conservative/aggressive), TLS random record (balanced/tight/wide)
+- cache prefix scoping and optional file-backed policy cache persistence
 
 `multidisorder` is DSL/manual-chain only in v1. Express it as a contiguous terminal run such as `tlsrec extlen`, `multidisorder sniext`, `multidisorder host`. It relies on raw IPv4/IPv6 sockets plus TCP repair, similar to `ipfrag2`.
 
