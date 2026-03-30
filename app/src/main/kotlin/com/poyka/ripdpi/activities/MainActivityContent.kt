@@ -11,8 +11,10 @@ import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.poyka.ripdpi.ui.components.RipDpiHapticFeedback
 import com.poyka.ripdpi.ui.components.feedback.RipDpiSnackbarTone
 import com.poyka.ripdpi.ui.components.feedback.showRipDpiSnackbar
+import com.poyka.ripdpi.ui.components.rememberRipDpiHapticPerformer
 import com.poyka.ripdpi.ui.navigation.RipDpiNavHost
 import com.poyka.ripdpi.ui.navigation.RipDpiNavHostActions
 import com.poyka.ripdpi.ui.navigation.RipDpiNavHostLaunchRequests
@@ -102,10 +104,13 @@ private fun MainActivityEffects(
         }
     }
 
+    val performHaptic = rememberRipDpiHapticPerformer()
+
     LaunchedEffect(controller) {
         controller.uiEvents.collect { event ->
             when (event) {
                 is MainActivityUiEvent.ShowErrorSnackbar -> {
+                    performHaptic(RipDpiHapticFeedback.Error)
                     snackbarHostState.showRipDpiSnackbar(
                         message = event.message,
                         tone = RipDpiSnackbarTone.Error,
