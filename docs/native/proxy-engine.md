@@ -104,20 +104,92 @@ The runtime now supports:
 - ordered TCP and UDP chain steps with per-step activation filters and group activation windows
 - grouped `multidisorder` TCP runs where each contiguous terminal step contributes one marker and the runtime sends the resulting regions in reverse order
 
-Notable TCP step kinds now include:
+#### TCP chain step kinds (complete reference)
 
-- `hostfake`
-- Linux/Android-focused `multidisorder` (manual-chain only in v1)
-- partial Linux/Android-focused `fakedsplit`
-- partial Linux/Android-focused `fakeddisorder`
+| Kind | Description | Key parameters | Platform |
+| --- | --- | --- | --- |
+| `split` | TCP segmentation at marker offset | offset | All |
+| `seqovl` | Sequence overlap -- fake prefix sent with seq shifted back via TCP_REPAIR, server discards overlap, DPI caches fake | offset, `overlap_size` (1-32, default 12), `fake_mode` (`profile` or `rand`) | Linux/Android |
+| `disorder` | Send segment with TTL trick (DPI sees, server ignores expired packet) | offset | All |
+| `multidisorder` | Split at 2+ markers, send resulting 3+ segments in reverse order via raw sockets | 2+ marker offsets, `inter_segment_delay_ms` (0-100, default 0) | Linux/Android |
+| `fake` | Fake packet (TTL/checksum-invalidated) before real payload | TTL, `md5sig` | All |
+| `fakesplit` | Fake packet + split at marker | TTL, `md5sig`, offset | All |
+| `fakedisorder` | Fake packet + disorder | TTL, `md5sig`, offset | All |
+| `hostfake` | Fake packet with spoofed hostname | `midhost_offset`, `fake_host_template` | All |
+| `oob` | Out-of-band urgent data byte injection | `oob_data` byte | All |
+| `disoob` | Disorder + OOB combination | `oob_data` byte | All |
+| `tlsrec` | TLS record splitting at extension boundary | offset (e.g. `extlen`, `sniext`, `echext`) | All |
+| `tlsrandrec` | Random TLS record fragmentation | `fragment_count`, `min_fragment_size`, `max_fragment_size` | All |
+| `ipfrag2` | IP-level packet fragmentation (DF cleared, MF set, 8-byte aligned offset) | offset | Linux/Android |
 
-These are typed RIPDPI steps.
+Steps requiring raw sockets (`seqovl`, `multidisorder`, `ipfrag2`) probe TCP_REPAIR and raw socket capabilities at startup and gracefully degrade to `split` when unavailable.
 
-Notable UDP step kinds for QUIC DPI evasion:
+#### Offset markers (complete reference)
+
+| Marker | Description |
+| --- | --- |
+| `host` | Start of HTTP Host or TLS SNI hostname |
+| `endhost` | End of hostname |
+| `midsld` | Middle of second-level domain (e.g. `yout\|ube` in youtube.com) |
+| `endsld` | End of second-level domain |
+| `method` | Start of HTTP method |
+| `extlen` | TLS extensions length field |
+| `sniext` | Start of TLS SNI extension |
+| `echext` | Start of TLS ECH extension (type 0xFE0D) -- graceful no-op when ECH absent |
+| `payloadend` | End of payload |
+| `payloadmid` | Midpoint of payload |
+| `payloadrand` | Random offset within payload |
+| `hostrand` | Random offset within hostname |
+| `auto(balanced)` | Adaptive offset from TCP_INFO (balanced heuristic) |
+| `auto(host)` | Adaptive offset from TCP_INFO (host-aware heuristic) |
+| `auto(sniext)` | Adaptive SNI extension offset |
+| `auto(midsld)` | Adaptive mid-SLD offset |
+| `auto(endhost)` | Adaptive end-of-host offset |
+| N (integer) | Absolute byte offset |
+
+All markers support delta arithmetic: `sniext+1`, `echext+4`, `host-2`.
+
+#### UDP chain step kinds for QUIC DPI evasion
 
 - `DummyPrepend` -- random UDP datagram before QUIC Initial to reset GFW flow state
 - `QuicSniSplit` -- re-encrypt Initial with ClientHello split across CRYPTO frames
 - `QuicFakeVersion` -- replace QUIC version field to prevent DPI decryption
+- `IpFrag2Udp` -- IP-level fragmentation of QUIC Initial packet (8-byte aligned)
+
+### Packet-owned TCP techniques
+
+#### Sequence overlap (seqovl)
+
+Sends a fake prefix with TCP sequence number shifted backward by `overlap_size` bytes via TCP_REPAIR. The server's TCP stack accepts only bytes at `seq >= original`, discarding the fake prefix. DPI typically processes "first received" and caches the fake data.
+
+Controlled by `overlap_size` (1-32, default 12) and `seqovl_fake_mode` (`profile` reuses the fake payload builder, `rand` fills with random bytes). Requires TCP_REPAIR capability (probed at startup via `seqovl_supported()`). Falls back to `split` when unavailable.
+
+#### IP fragmentation (ipfrag2)
+
+Fragments IP packets so DPI-relevant payload (SNI in TLS, hostname in HTTP) falls into the second fragment. middlebox has limited reassembly timeout (~1-3s).
+
+- TCP variant: fragments ClientHello at 8-byte aligned offset, clears DF bit, sets MF flag on first fragment
+- UDP variant (`IpFrag2Udp`): fragments QUIC Initial similarly
+- Supports both IPv4 (fragment offset in IP header) and IPv6 (Fragment Extension Header)
+- Round 1 only restriction prevents cascading fragmentation
+
+#### Multi-disorder inter-segment delay
+
+`inter_segment_delay_ms` (0-100, default 0) inserts a `thread::sleep` between reversed-order segment sends. Without delay, routers may coalesce the burst and reorder packets back to original order.
+
+#### ECH fragmentation
+
+The `echext` marker targets the Encrypted Client Hello extension (type `0xFE0D`) in TLS ClientHello. middlebox blocks ECH+Cloudflare combinations; splitting at the ECH boundary prevents detection without full TCP reassembly.
+
+When ECH is absent, `echext`-based steps are silently skipped (graceful no-op). Combine with `tlsrec` for TLS record-level splitting at the ECH boundary.
+
+#### TCP MD5 signature option (md5sig)
+
+When `md5sig` is enabled, fake packets include a TCP MD5 Signature option (Kind=19, RFC 2385) with 16 random bytes. Some DPI implementations drop packets with unrecognized TCP options from connection tracking.
+
+- Socket-level path (`Write` action): kernel applies MD5 via `setsockopt(TCP_MD5SIG)` during fake send window
+- Raw packet paths (`seqovl`, `multidisorder`, `ipfrag2`): Kind=19 option injected directly into TCP header via `set_options_raw()` in `build_tcp_segment_packet()`
+- 18-byte option (kind + length + 16-byte deterministic signature from sequence number)
 
 ### Fake payload and fake transport surface
 
@@ -154,6 +226,48 @@ Before the native runtime starts, the Android service layer now resolves policy 
 - `NetworkHandoverMonitor` re-runs the same resolver on actionable handovers and forces a full runtime restart even when the signature stays the same, so sockets and resolver state are rebound to the new path.
 
 The packet-level pieces live in the native runtime and diagnostics monitor, while Kotlin owns policy resolution, remembered-policy replay, and handover-triggered restart orchestration.
+
+## MTProto WebSocket Tunnel
+
+The proxy runtime can tunnel Telegram MTProto traffic through Telegram's official WebSocket gateways (`kws{dc}.web.telegram.org/apiws`), making it indistinguishable from Telegram Web client traffic.
+
+### Modes
+
+| Mode | Behavior |
+| --- | --- |
+| `off` | No WS tunneling (default) |
+| `always` | Detect known Telegram DC IPs, validate MTProto init, tunnel via WSS |
+| `fallback` | Run normal desync first; escalate to WS tunnel on failure |
+
+### Detection pipeline
+
+1. **DC IP prefilter** -- only known Telegram IP ranges trigger detection
+2. **Read 64-byte init** -- MTProto obfuscated2 transport header
+3. **Blocked prefix rejection** -- rejects TLS, HTTP, and reserved signatures
+4. **Obfuscated2 decryption** -- AES-256-CTR with key/IV from init bytes
+5. **Protocol tag validation** -- must match Telegram allowed MTProto tags
+6. **DC normalization** -- production (1-5), test (10001-10005), media/CDN (-1 to -5, recognized but not tunnelable)
+
+### Gateway mapping
+
+- Production: `wss://kws{dc}.web.telegram.org/apiws`
+- Test: `wss://kws{dc}-test.web.telegram.org/apiws`
+
+### Seed preservation
+
+When validation fails (not MTProto, unmappable DC, short init), the already-consumed 64 bytes are preserved and reused as the desync `seed_request` for the normal relay path.
+
+### DNS bootstrap
+
+Resolves Telegram WebSocket hostnames through the active encrypted DNS context when available; falls back to standard resolution otherwise. Shares the same DC host mapping as the transport crate.
+
+Relevant sources:
+
+- `native/rust/crates/ripdpi-ws-tunnel/src/dc.rs`
+- `native/rust/crates/ripdpi-ws-tunnel/src/mtproto.rs`
+- `native/rust/crates/ripdpi-ws-tunnel/src/connect.rs`
+- `native/rust/crates/ripdpi-ws-tunnel/src/relay.rs`
+- `native/rust/crates/ripdpi-runtime/src/runtime/handshake/ws_tunnel.rs`
 
 ## Implemented Diagnostic Mechanisms
 
