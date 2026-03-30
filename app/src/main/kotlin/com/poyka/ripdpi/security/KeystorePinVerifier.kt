@@ -3,6 +3,7 @@ package com.poyka.ripdpi.security
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
 import java.security.KeyStore
+import java.security.MessageDigest
 import javax.crypto.KeyGenerator
 import javax.crypto.Mac
 import javax.crypto.SecretKey
@@ -28,7 +29,10 @@ class KeystorePinVerifier
         ): Boolean {
             if (storedHash.isBlank()) return false
             if (!isKeyAvailable()) return false
-            return hashPin(candidatePin) == storedHash
+            return MessageDigest.isEqual(
+                hashPin(candidatePin).toByteArray(Charsets.UTF_8),
+                storedHash.toByteArray(Charsets.UTF_8),
+            )
         }
 
         override fun isKeyAvailable(): Boolean =

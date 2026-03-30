@@ -1,7 +1,9 @@
 package com.poyka.ripdpi.activities
 
 import com.poyka.ripdpi.platform.LauncherIconController
+import com.poyka.ripdpi.security.PinLockoutManager
 import com.poyka.ripdpi.security.PinVerifier
+import com.poyka.ripdpi.security.PinVerifyResult
 import java.security.MessageDigest
 
 internal class SettingsCustomizationActions(
@@ -9,6 +11,7 @@ internal class SettingsCustomizationActions(
     private val launcherIconController: LauncherIconController,
     private val currentUiState: () -> SettingsUiState,
     private val pinVerifier: PinVerifier,
+    private val pinLockoutManager: PinLockoutManager,
 ) {
     fun setWebRtcProtectionEnabled(enabled: Boolean) {
         mutations.updateSetting(
@@ -88,20 +91,37 @@ internal class SettingsCustomizationActions(
         }
     }
 
-    fun verifyBackupPin(pin: String): Boolean {
-        val state = currentUiState()
-        val storedHash = state.backupPinHash
-        if (storedHash.isBlank()) return false
-
-        if (pinVerifier.verify(pin, storedHash)) return true
-
-        if (legacySha256Hash(pin) == storedHash) {
-            val newHash = pinVerifier.hashPin(pin)
-            mutations.updateSetting(key = "backupPin", value = newHash) { setBackupPin(newHash) }
-            return true
+    fun verifyBackupPin(pin: String): PinVerifyResult {
+        if (pinLockoutManager.isLockedOut()) {
+            return PinVerifyResult.LockedOut(pinLockoutManager.remainingLockoutMs())
         }
 
-        return false
+        val state = currentUiState()
+        val storedHash = state.backupPinHash
+        if (storedHash.isBlank()) return PinVerifyResult.Failed
+
+        if (pinVerifier.verify(pin, storedHash)) {
+            pinLockoutManager.recordSuccess()
+            return PinVerifyResult.Success
+        }
+
+        if (MessageDigest.isEqual(
+                legacySha256Hash(pin).toByteArray(Charsets.UTF_8),
+                storedHash.toByteArray(Charsets.UTF_8),
+            )
+        ) {
+            val newHash = pinVerifier.hashPin(pin)
+            mutations.updateSetting(key = "backupPin", value = newHash) { setBackupPin(newHash) }
+            pinLockoutManager.recordSuccess()
+            return PinVerifyResult.Success
+        }
+
+        pinLockoutManager.recordFailure()
+        return if (pinLockoutManager.isLockedOut()) {
+            PinVerifyResult.LockedOut(pinLockoutManager.remainingLockoutMs())
+        } else {
+            PinVerifyResult.Failed
+        }
     }
 
     private fun legacySha256Hash(pin: String): String {

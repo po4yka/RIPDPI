@@ -12,7 +12,9 @@ import com.poyka.ripdpi.hosts.HostPackCatalogRepository
 import com.poyka.ripdpi.platform.HostAutolearnStoreController
 import com.poyka.ripdpi.platform.LauncherIconController
 import com.poyka.ripdpi.platform.StringResolver
+import com.poyka.ripdpi.security.PinLockoutManager
 import com.poyka.ripdpi.security.PinVerifier
+import com.poyka.ripdpi.security.PinVerifyResult
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
@@ -38,6 +40,7 @@ class SettingsViewModel
         private val hostAutolearnStoreController: HostAutolearnStoreController,
         private val telemetrySaltStore: com.poyka.ripdpi.services.TelemetryInstallSaltStore,
         private val pinVerifier: PinVerifier,
+        private val pinLockoutManager: PinLockoutManager,
     ) : ViewModel() {
         private val _effects = Channel<SettingsEffect>(Channel.BUFFERED)
         private val hostAutolearnStoreRefresh = MutableStateFlow(0)
@@ -80,6 +83,7 @@ class SettingsViewModel
                 launcherIconController = launcherIconController,
                 currentUiState = { uiState.value },
                 pinVerifier = pinVerifier,
+                pinLockoutManager = pinLockoutManager,
             )
         }
         private val maintenanceActions by lazy {
@@ -171,7 +175,11 @@ class SettingsViewModel
 
         fun setBackupPin(pin: String) = customizationActions.setBackupPin(pin)
 
-        fun verifyBackupPin(pin: String): Boolean = customizationActions.verifyBackupPin(pin)
+        fun verifyBackupPin(pin: String): PinVerifyResult = customizationActions.verifyBackupPin(pin)
+
+        fun isPinLockedOut(): Boolean = pinLockoutManager.isLockedOut()
+
+        fun pinLockoutRemainingMs(): Long = pinLockoutManager.remainingLockoutMs()
 
         fun resetSettings() = maintenanceActions.resetSettings()
 
