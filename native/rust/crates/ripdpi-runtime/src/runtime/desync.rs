@@ -211,6 +211,7 @@ pub(super) fn send_with_group(
                     Duration::from_millis(state.config.timeouts.await_interval.max(1) as u64),
                     strategy_family,
                     &state.ttl_unavailable,
+                    group.actions.md5sig,
                 )?;
                 Ok(OutboundSendOutcome { bytes_committed, strategy_family })
             }
@@ -357,6 +358,7 @@ fn execute_tcp_actions(
     await_interval: Duration,
     strategy_family: Option<&'static str>,
     session_ttl_unavailable: &AtomicBool,
+    md5sig: bool,
 ) -> Result<usize, OutboundSendError> {
     // When default_ttl is 0 (auto-detect), lazily read the current TTL on
     // the first SetTtl action so we always have a value to restore.
@@ -535,7 +537,7 @@ fn execute_tcp_actions(
                     }
                 }
                 DesyncAction::WriteSeqOverlap { real_chunk, fake_prefix, remainder } => {
-                    match platform::send_seqovl_tcp(writer, real_chunk, fake_prefix, default_ttl, None) {
+                    match platform::send_seqovl_tcp(writer, real_chunk, fake_prefix, default_ttl, None, md5sig) {
                         Ok(()) => {
                             bytes_committed += real_chunk.len();
                             if !remainder.is_empty() {
@@ -646,10 +648,11 @@ fn execute_tcp_plan(
     } else {
         platform::detect_default_ttl().unwrap_or(64)
     };
+    let md5sig = group.actions.md5sig;
     let send_steps =
         group.effective_tcp_chain().into_iter().filter(|step| !step.kind.is_tls_prelude()).collect::<Vec<_>>();
     if has_multi_disorder {
-        return execute_multi_disorder_tcp_plan(writer, config, &send_steps, plan, strategy_family);
+        return execute_multi_disorder_tcp_plan(writer, config, &send_steps, plan, strategy_family, md5sig);
     }
     if send_steps.len() < plan.steps.len() {
         return Err(OutboundSendError::Transport(io::Error::new(
@@ -855,7 +858,7 @@ fn execute_tcp_plan(
                     chunk,
                     fake_chunk,
                     resolved_fake_ttl.or(group.actions.ttl).unwrap_or(8),
-                    group.actions.md5sig,
+                    md5sig,
                     config.network.default_ttl,
                     (config.timeouts.wait_send, Duration::from_millis(config.timeouts.await_interval.max(1) as u64)),
                     "send_fake",
@@ -897,7 +900,7 @@ fn execute_tcp_plan(
                     chunk,
                     &first_fake,
                     fake_ttl,
-                    group.actions.md5sig,
+                    md5sig,
                     config.network.default_ttl,
                     (config.timeouts.wait_send, Duration::from_millis(config.timeouts.await_interval.max(1) as u64)),
                     "send_fake_fakesplit",
@@ -910,7 +913,7 @@ fn execute_tcp_plan(
                     second,
                     &second_fake,
                     fake_ttl,
-                    group.actions.md5sig,
+                    md5sig,
                     config.network.default_ttl,
                     (config.timeouts.wait_send, Duration::from_millis(config.timeouts.await_interval.max(1) as u64)),
                     "send_fake_fakesplit",
@@ -978,7 +981,7 @@ fn execute_tcp_plan(
                     chunk,
                     &first_fake,
                     1,
-                    group.actions.md5sig,
+                    md5sig,
                     config.network.default_ttl,
                     (config.timeouts.wait_send, Duration::from_millis(config.timeouts.await_interval.max(1) as u64)),
                     "send_fake_fakeddisorder",
@@ -996,7 +999,7 @@ fn execute_tcp_plan(
                             chunk,
                             &first_fake,
                             fake_ttl,
-                            group.actions.md5sig,
+                            md5sig,
                             config.network.default_ttl,
                             (
                                 config.timeouts.wait_send,
@@ -1015,7 +1018,7 @@ fn execute_tcp_plan(
                     second,
                     &second_fake,
                     fake_ttl,
-                    group.actions.md5sig,
+                    md5sig,
                     config.network.default_ttl,
                     (config.timeouts.wait_send, Duration::from_millis(config.timeouts.await_interval.max(1) as u64)),
                     "send_fake_fakesplit",
@@ -1107,7 +1110,7 @@ fn execute_tcp_plan(
                     real_host,
                     &fake_host,
                     resolved_fake_ttl.or(group.actions.ttl).unwrap_or(8),
-                    group.actions.md5sig,
+                    md5sig,
                     config.network.default_ttl,
                     (config.timeouts.wait_send, Duration::from_millis(config.timeouts.await_interval.max(1) as u64)),
                     "send_fake_hostfake",
@@ -1176,7 +1179,7 @@ fn execute_tcp_plan(
                     real_host,
                     &fake_host,
                     resolved_fake_ttl.or(group.actions.ttl).unwrap_or(8),
-                    group.actions.md5sig,
+                    md5sig,
                     config.network.default_ttl,
                     (config.timeouts.wait_send, Duration::from_millis(config.timeouts.await_interval.max(1) as u64)),
                     "send_fake_hostfake",
@@ -1247,6 +1250,7 @@ fn execute_multi_disorder_tcp_plan(
     send_steps: &[ripdpi_config::TcpChainStep],
     plan: &DesyncPlan,
     strategy_family: Option<&'static str>,
+    md5sig: bool,
 ) -> Result<usize, OutboundSendError> {
     if send_steps.len() < 2 || send_steps.iter().any(|step| step.kind != TcpChainStepKind::MultiDisorder) {
         return Err(OutboundSendError::Transport(io::Error::new(
@@ -1297,6 +1301,7 @@ fn execute_multi_disorder_tcp_plan(
             config.network.default_ttl,
             config.process.protect_path.as_deref(),
             inter_segment_delay_ms,
+            md5sig,
         ),
         "write_multidisorder",
         strategy_family,
@@ -1783,6 +1788,7 @@ mod tests {
                 actions: Vec::new(),
             },
             Some("multidisorder"),
+            false,
         )
         .expect_err("reject gapped multidisorder plan");
 
@@ -1808,6 +1814,7 @@ mod tests {
                 actions: Vec::new(),
             },
             Some("multidisorder"),
+            false,
         )
         .expect_err("reject truncated multidisorder plan");
 
