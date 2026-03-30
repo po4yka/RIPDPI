@@ -32,7 +32,7 @@ fn validate_ip_fragmentation_support(config: &RuntimeConfig) -> io::Result<()> {
         .groups
         .iter()
         .flat_map(|group| group.effective_tcp_chain())
-        .any(|step| step.kind == TcpChainStepKind::IpFrag2)
+        .any(|step| matches!(step.kind, TcpChainStepKind::IpFrag2 | TcpChainStepKind::MultiDisorder))
         || config
             .groups
             .iter()
@@ -50,34 +50,34 @@ fn validate_ip_fragmentation_capabilities(
     config: &RuntimeConfig,
     capabilities: IpFragmentationCapabilities,
 ) -> io::Result<()> {
-    let requires_tcp_ipfrag = config
+    let requires_packet_owned_tcp = config
         .groups
         .iter()
         .flat_map(|group| group.effective_tcp_chain())
-        .any(|step| step.kind == TcpChainStepKind::IpFrag2);
+        .any(|step| matches!(step.kind, TcpChainStepKind::IpFrag2 | TcpChainStepKind::MultiDisorder));
     let requires_udp_ipfrag = config
         .groups
         .iter()
         .flat_map(|group| group.effective_udp_chain())
         .any(|step| step.kind == UdpChainStepKind::IpFrag2Udp);
-    if !requires_tcp_ipfrag && !requires_udp_ipfrag {
+    if !requires_packet_owned_tcp && !requires_udp_ipfrag {
         return Ok(());
     }
 
     let mut missing = Vec::new();
-    if (requires_tcp_ipfrag || requires_udp_ipfrag) && !capabilities.raw_ipv4 {
+    if (requires_packet_owned_tcp || requires_udp_ipfrag) && !capabilities.raw_ipv4 {
         missing.push("raw IPv4 sockets");
     }
-    if (requires_tcp_ipfrag || requires_udp_ipfrag) && config.network.ipv6 && !capabilities.raw_ipv6 {
+    if (requires_packet_owned_tcp || requires_udp_ipfrag) && config.network.ipv6 && !capabilities.raw_ipv6 {
         missing.push("raw IPv6 sockets");
     }
-    if requires_tcp_ipfrag && !capabilities.tcp_repair {
+    if requires_packet_owned_tcp && !capabilities.tcp_repair {
         missing.push("TCP repair");
     }
     if missing.is_empty() {
         Ok(())
     } else {
-        Err(io::Error::new(io::ErrorKind::Unsupported, format!("ipfrag2 requires {}", missing.join(", "))))
+        Err(io::Error::new(io::ErrorKind::Unsupported, format!("raw-packet desync requires {}", missing.join(", "))))
     }
 }
 
@@ -288,6 +288,16 @@ mod tests {
         config
     }
 
+    fn runtime_config_with_multidisorder(ipv6: bool) -> RuntimeConfig {
+        let mut config = RuntimeConfig::default();
+        config.network.ipv6 = ipv6;
+        let mut group = DesyncGroup::new(0);
+        group.actions.tcp_chain.push(TcpChainStep::new(TcpChainStepKind::MultiDisorder, OffsetExpr::host(0)));
+        group.actions.tcp_chain.push(TcpChainStep::new(TcpChainStepKind::MultiDisorder, OffsetExpr::host(2)));
+        config.groups = vec![group];
+        config
+    }
+
     #[test]
     fn ipfrag_capability_validation_allows_non_fragmenting_configs() {
         let config = RuntimeConfig::default();
@@ -320,6 +330,30 @@ mod tests {
 
         assert_eq!(err.kind(), ErrorKind::Unsupported);
         assert!(err.to_string().contains("TCP repair"));
+    }
+
+    #[test]
+    fn multidisorder_capability_validation_requires_tcp_repair_for_packet_owned_tcp() {
+        let config = runtime_config_with_multidisorder(false);
+        let err = validate_ip_fragmentation_capabilities(
+            &config,
+            crate::platform::IpFragmentationCapabilities { raw_ipv4: true, raw_ipv6: false, tcp_repair: false },
+        )
+        .expect_err("multidisorder should require tcp repair");
+
+        assert_eq!(err.kind(), ErrorKind::Unsupported);
+        assert!(err.to_string().contains("TCP repair"));
+    }
+
+    #[test]
+    fn multidisorder_capability_validation_accepts_raw_sockets_and_tcp_repair() {
+        let config = runtime_config_with_multidisorder(true);
+
+        validate_ip_fragmentation_capabilities(
+            &config,
+            crate::platform::IpFragmentationCapabilities { raw_ipv4: true, raw_ipv6: true, tcp_repair: true },
+        )
+        .expect("multidisorder should pass when raw sockets and tcp repair are available");
     }
 
     #[test]

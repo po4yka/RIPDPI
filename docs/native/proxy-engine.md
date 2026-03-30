@@ -102,10 +102,12 @@ The runtime now supports:
 - semantic marker offsets such as `host`, `endhost`, `midsld`, `method`, `extlen`, and `sniext`
 - adaptive markers such as `auto(balanced)` and `auto(host)` that resolve per payload from live `TCP_INFO`
 - ordered TCP and UDP chain steps with per-step activation filters and group activation windows
+- grouped `multidisorder` TCP runs where each contiguous terminal step contributes one marker and the runtime sends the resulting regions in reverse order
 
 Notable TCP step kinds now include:
 
 - `hostfake`
+- Linux/Android-focused `multidisorder` (manual-chain only in v1)
 - partial Linux/Android-focused `fakedsplit`
 - partial Linux/Android-focused `fakeddisorder`
 
@@ -128,7 +130,7 @@ The fake-transport path now includes:
 - TCP window clamping (`TCP_WINDOW_CLAMP`) to force small server response segments
 - QUIC source port binding to evade port-based GFW filtering
 
-`hostfake`, `fakedsplit`, and `fakeddisorder` reuse that same fake-payload and fake-transport pipeline instead of shipping separate blob knobs.
+`hostfake`, `fakedsplit`, and `fakeddisorder` reuse that same fake-payload and fake-transport pipeline instead of shipping separate blob knobs. `multidisorder` is different: it uses packet-owned TCP repair plus raw IPv4/IPv6 injection to emit the real payload segments in reverse order, then hands the live stream off to a repaired replacement socket.
 
 ### Runtime adaptation
 

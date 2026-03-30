@@ -610,6 +610,43 @@ fn plan_tcp_chain_preserves_tlsrec_prelude_and_send_step_order() {
 }
 
 #[test]
+fn plan_tcp_multidisorder_groups_terminal_markers_into_logical_segments() {
+    let markers = http_marker_info(DEFAULT_FAKE_HTTP).expect("http markers");
+    let host = &DEFAULT_FAKE_HTTP[markers.host_start..markers.host_end];
+    let (sld_start, sld_end) = second_level_domain_span(host).expect("sld span");
+    let midsld = (markers.host_start + sld_start + ((sld_end - sld_start) / 2)) as i64;
+    let mut group = DesyncGroup::new(0);
+    group.actions.tcp_chain = vec![
+        TcpChainStep::new(TcpChainStepKind::MultiDisorder, OffsetExpr::marker(OffsetBase::Host, 0)),
+        TcpChainStep::new(TcpChainStepKind::MultiDisorder, OffsetExpr::marker(OffsetBase::MidSld, 0)),
+    ];
+
+    let plan = plan_tcp(&group, DEFAULT_FAKE_HTTP, 9, 32, tcp_context(DEFAULT_FAKE_HTTP)).expect("plan multidisorder");
+
+    assert!(plan.actions.is_empty());
+    assert_eq!(
+        plan.steps,
+        vec![
+            PlannedStep { kind: TcpChainStepKind::MultiDisorder, start: 0, end: markers.host_start as i64 },
+            PlannedStep { kind: TcpChainStepKind::MultiDisorder, start: markers.host_start as i64, end: midsld },
+            PlannedStep { kind: TcpChainStepKind::MultiDisorder, start: midsld, end: plan.tampered.len() as i64 },
+        ]
+    );
+}
+
+#[test]
+fn plan_tcp_multidisorder_requires_three_non_empty_segments() {
+    let payload = b"abcdef";
+    let mut group = DesyncGroup::new(0);
+    group.actions.tcp_chain = vec![
+        TcpChainStep::new(TcpChainStepKind::MultiDisorder, OffsetExpr::absolute(0)),
+        TcpChainStep::new(TcpChainStepKind::MultiDisorder, OffsetExpr::absolute(3)),
+    ];
+
+    assert!(plan_tcp(&group, payload, 1, 64, tcp_context(payload)).is_err());
+}
+
+#[test]
 fn plan_tcp_group_activation_filter_can_disable_desync() {
     let mut group = DesyncGroup::new(0);
     group.set_activation_filter(ActivationFilter {

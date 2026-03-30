@@ -151,6 +151,41 @@ fn ui_payload_rejects_non_leading_seqovl_step() {
 }
 
 #[test]
+fn ui_payload_parses_multidisorder_terminal_run() {
+    let mut ui = minimal_ui();
+    ui.chains.tcp_steps =
+        vec![tcp_step("tlsrec", "extlen"), tcp_step("multidisorder", "sniext"), tcp_step("multidisorder", "host")];
+
+    let config = runtime_config_from_payload(ui_payload(ui)).expect("runtime config");
+    let tcp_chain = &config.groups[0].actions.tcp_chain;
+
+    assert_eq!(tcp_chain.len(), 3);
+    assert_eq!(tcp_chain[0].kind, TcpChainStepKind::TlsRec);
+    assert_eq!(tcp_chain[1].kind, TcpChainStepKind::MultiDisorder);
+    assert_eq!(tcp_chain[2].kind, TcpChainStepKind::MultiDisorder);
+}
+
+#[test]
+fn ui_payload_rejects_singleton_multidisorder_step() {
+    let mut ui = minimal_ui();
+    ui.chains.tcp_steps = vec![tcp_step("multidisorder", "host+1")];
+
+    let err = runtime_config_from_payload(ui_payload(ui)).expect_err("singleton multidisorder");
+
+    assert!(err.to_string().contains("multidisorder must declare at least two markers"));
+}
+
+#[test]
+fn ui_payload_rejects_mixed_multidisorder_chain() {
+    let mut ui = minimal_ui();
+    ui.chains.tcp_steps = vec![tcp_step("multidisorder", "host+1"), tcp_step("split", "midsld")];
+
+    let err = runtime_config_from_payload(ui_payload(ui)).expect_err("mixed multidisorder");
+
+    assert!(err.to_string().contains("multidisorder must be the only tcp send step family"));
+}
+
+#[test]
 fn ui_payload_parses_ipfrag_steps_and_udp_split_bytes() {
     let mut ui = minimal_ui();
     ui.chains.tcp_steps = vec![tcp_step("tlsrec", "extlen"), tcp_step("ipfrag2", "host+2")];
