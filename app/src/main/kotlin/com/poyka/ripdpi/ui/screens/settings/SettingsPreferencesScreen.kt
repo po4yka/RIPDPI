@@ -266,6 +266,18 @@ internal fun SettingsScreen(
                         subtitle =
                             stringResource(
                                 when {
+                                    !uiState.isBiometricHardwareAvailable -> {
+                                        when (uiState.biometricAvailability) {
+                                            androidx.biometric.BiometricManager.BIOMETRIC_ERROR_NONE_ENROLLED -> {
+                                                R.string.settings_biometric_no_enrollment
+                                            }
+
+                                            else -> {
+                                                R.string.settings_biometric_unavailable
+                                            }
+                                        }
+                                    }
+
                                     uiState.biometricEnabled && uiState.hasBackupPin -> {
                                         R.string.settings_biometric_body_with_pin
                                     }
@@ -280,6 +292,7 @@ internal fun SettingsScreen(
                                 },
                             ),
                         checked = uiState.biometricEnabled,
+                        enabled = uiState.isBiometricHardwareAvailable,
                         onCheckedChange = { enabled ->
                             if (enabled) {
                                 showBiometricConfirmDialog = true

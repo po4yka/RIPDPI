@@ -32,6 +32,7 @@ import com.poyka.ripdpi.platform.PermissionPlatformBridge
 import com.poyka.ripdpi.platform.StringResolver
 import com.poyka.ripdpi.platform.TrafficStatsReader
 import com.poyka.ripdpi.proto.AppSettings
+import com.poyka.ripdpi.security.AppLockLifecycleObserver
 import com.poyka.ripdpi.services.ServiceController
 import com.poyka.ripdpi.ui.navigation.Route
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -79,6 +80,8 @@ sealed interface MainEffect {
         val absolutePath: String,
         val fileName: String,
     ) : MainEffect
+
+    data object RelockRequested : MainEffect
 }
 
 @Immutable
@@ -237,8 +240,10 @@ class MainViewModel
         permissionStatusProvider: PermissionStatusProvider,
         permissionCoordinator: PermissionCoordinator,
         private val crashReportReader: CrashReportReader,
+        private val appLockLifecycleObserver: AppLockLifecycleObserver,
     ) : ViewModel() {
         private var initialized = false
+        private var authenticated = false
         private val runtimeState = MutableStateFlow(ConnectionRuntimeState())
         private val permissionState = MutableStateFlow(PermissionRuntimeState())
         private val homeDiagnosticsState = MutableStateFlow(HomeDiagnosticsRuntimeState())
@@ -413,6 +418,13 @@ class MainViewModel
             permissionActions.refreshPermissionSnapshot()
             connectionActions.initialize()
             homeDiagnosticsActions.initialize()
+            appLockLifecycleObserver.isAuthenticated = { authenticated }
+            appLockLifecycleObserver.isBiometricEnabled = { settingsState.value.biometricEnabled }
+            appLockLifecycleObserver.onRelockNeeded = {
+                authenticated = false
+                _effects.trySend(MainEffect.RelockRequested)
+            }
+            appLockLifecycleObserver.startObserving()
             viewModelScope.launch {
                 val report = crashReportReader.read()
                 if (report != null) {
@@ -505,5 +517,9 @@ class MainViewModel
             viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
                 crashReportReader.delete()
             }
+        }
+
+        fun onAuthenticated() {
+            authenticated = true
         }
     }

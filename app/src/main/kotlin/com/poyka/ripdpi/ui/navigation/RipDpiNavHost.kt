@@ -70,6 +70,8 @@ data class RipDpiNavHostLaunchRequests(
     val onLaunchHomeHandled: () -> Unit = {},
     val launchRouteRequested: String? = null,
     val onLaunchRouteHandled: () -> Unit = {},
+    val relockRequested: Boolean = false,
+    val onRelockHandled: () -> Unit = {},
 )
 
 @Composable
@@ -101,6 +103,12 @@ fun RipDpiNavHost(
                     launchSingleTop = true
                     restoreState = true
                 }
+            }
+        },
+        relockToRoute = { route ->
+            navController.navigate(route) {
+                popUpTo(0) { inclusive = true }
+                launchSingleTop = true
             }
         },
     )
@@ -145,6 +153,7 @@ private fun HandleLaunchRequests(
     currentRoute: String?,
     navigateHome: () -> Unit,
     navigateToRoute: (String) -> Unit,
+    relockToRoute: (String) -> Unit,
 ) {
     LaunchedEffect(launchRequests.launchHomeRequested, currentRoute) {
         if (!launchRequests.launchHomeRequested || currentRoute == null) {
@@ -171,6 +180,13 @@ private fun HandleLaunchRequests(
         }
         navigateToRoute(requestedRoute)
         launchRequests.onLaunchRouteHandled()
+    }
+
+    LaunchedEffect(launchRequests.relockRequested) {
+        if (launchRequests.relockRequested) {
+            relockToRoute(Route.BiometricPrompt.route)
+            launchRequests.onRelockHandled()
+        }
     }
 }
 
@@ -287,6 +303,7 @@ private fun NavGraphBuilder.addPrimaryRoutes(
     composable(Route.BiometricPrompt.route) {
         BiometricPromptRoute(
             onAuthenticated = {
+                mainViewModel.onAuthenticated()
                 navController.navigate(Route.Home.route) {
                     popUpTo(Route.BiometricPrompt.route) { inclusive = true }
                     launchSingleTop = true

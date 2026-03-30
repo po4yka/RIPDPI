@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.activities
 
+import android.app.Application
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.poyka.ripdpi.R
@@ -12,6 +13,7 @@ import com.poyka.ripdpi.hosts.HostPackCatalogRepository
 import com.poyka.ripdpi.platform.HostAutolearnStoreController
 import com.poyka.ripdpi.platform.LauncherIconController
 import com.poyka.ripdpi.platform.StringResolver
+import com.poyka.ripdpi.security.BiometricAuthManager
 import com.poyka.ripdpi.security.PinLockoutManager
 import com.poyka.ripdpi.security.PinVerifier
 import com.poyka.ripdpi.security.PinVerifyResult
@@ -41,7 +43,9 @@ class SettingsViewModel
         private val telemetrySaltStore: com.poyka.ripdpi.services.TelemetryInstallSaltStore,
         private val pinVerifier: PinVerifier,
         private val pinLockoutManager: PinLockoutManager,
+        private val application: Application,
     ) : ViewModel() {
+        private val biometricAuthManager = BiometricAuthManager()
         private val _effects = Channel<SettingsEffect>(Channel.BUFFERED)
         private val hostAutolearnStoreRefresh = MutableStateFlow(0)
         private val hostPackCatalogState = MutableStateFlow(HostPackCatalogUiState())
@@ -62,6 +66,7 @@ class SettingsViewModel
                     proxyTelemetry = telemetry.proxyTelemetry,
                     hostAutolearnStorePresent = hostAutolearnStoreController.hasStore(),
                     rememberedNetworkCount = rememberedPolicies.size,
+                    biometricAvailability = biometricAuthManager.canAuthenticate(application),
                 )
             }.stateIn(
                 scope = viewModelScope,
@@ -73,6 +78,7 @@ class SettingsViewModel
                         proxyTelemetry = serviceStateStore.telemetry.value.proxyTelemetry,
                         hostAutolearnStorePresent = hostAutolearnStoreController.hasStore(),
                         rememberedNetworkCount = 0,
+                        biometricAvailability = biometricAuthManager.canAuthenticate(application),
                     ),
             )
 

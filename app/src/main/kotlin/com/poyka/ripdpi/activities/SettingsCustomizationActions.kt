@@ -96,32 +96,37 @@ internal class SettingsCustomizationActions(
             return PinVerifyResult.LockedOut(pinLockoutManager.remainingLockoutMs())
         }
 
-        val state = currentUiState()
-        val storedHash = state.backupPinHash
-        if (storedHash.isBlank()) return PinVerifyResult.Failed
+        val storedHash = currentUiState().backupPinHash
+        val matched = storedHash.isNotBlank() && matchesStoredPin(pin, storedHash)
 
-        if (pinVerifier.verify(pin, storedHash)) {
+        if (matched) {
             pinLockoutManager.recordSuccess()
-            return PinVerifyResult.Success
+        } else {
+            pinLockoutManager.recordFailure()
         }
 
-        if (MessageDigest.isEqual(
+        return when {
+            matched -> PinVerifyResult.Success
+            pinLockoutManager.isLockedOut() -> PinVerifyResult.LockedOut(pinLockoutManager.remainingLockoutMs())
+            else -> PinVerifyResult.Failed
+        }
+    }
+
+    private fun matchesStoredPin(
+        pin: String,
+        storedHash: String,
+    ): Boolean {
+        if (pinVerifier.verify(pin, storedHash)) return true
+        val isLegacyMatch =
+            MessageDigest.isEqual(
                 legacySha256Hash(pin).toByteArray(Charsets.UTF_8),
                 storedHash.toByteArray(Charsets.UTF_8),
             )
-        ) {
+        if (isLegacyMatch) {
             val newHash = pinVerifier.hashPin(pin)
             mutations.updateSetting(key = "backupPin", value = newHash) { setBackupPin(newHash) }
-            pinLockoutManager.recordSuccess()
-            return PinVerifyResult.Success
         }
-
-        pinLockoutManager.recordFailure()
-        return if (pinLockoutManager.isLockedOut()) {
-            PinVerifyResult.LockedOut(pinLockoutManager.remainingLockoutMs())
-        } else {
-            PinVerifyResult.Failed
-        }
+        return isLegacyMatch
     }
 
     private fun legacySha256Hash(pin: String): String {

@@ -4,9 +4,9 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import android.widget.Toast
-import androidx.activity.ComponentActivity
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.FileProvider
 import androidx.lifecycle.lifecycleScope
 import co.touchlab.kermit.Logger
@@ -70,7 +70,7 @@ internal sealed interface MainActivityHostCommand {
 
 internal interface MainActivityHost {
     fun register(
-        activity: ComponentActivity,
+        activity: AppCompatActivity,
         viewModel: MainViewModel,
     )
 
@@ -85,7 +85,7 @@ internal class DefaultMainActivityHost
         private val logcatSnapshotCollector: LogcatSnapshotCollector,
         private val automationController: Optional<AutomationController>,
     ) : MainActivityHost {
-        private lateinit var activity: ComponentActivity
+        private lateinit var activity: AppCompatActivity
         private lateinit var viewModel: MainViewModel
         private lateinit var vpnPermissionLauncher: ActivityResultLauncher<Intent>
         private lateinit var notificationPermissionLauncher: ActivityResultLauncher<String>
@@ -96,7 +96,7 @@ internal class DefaultMainActivityHost
         private var registered = false
 
         override fun register(
-            activity: ComponentActivity,
+            activity: AppCompatActivity,
             viewModel: MainViewModel,
         ) {
             if (registered) {
