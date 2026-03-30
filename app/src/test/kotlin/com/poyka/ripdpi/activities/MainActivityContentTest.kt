@@ -215,6 +215,6 @@ class MainActivityContentTest {
                 ),
             appLockLifecycleObserver =
                 com.poyka.ripdpi.security
-                    .AppLockLifecycleObserver(),
+                    .AppLockLifecycleObserver(RuntimeEnvironment.getApplication()),
         )
 }
