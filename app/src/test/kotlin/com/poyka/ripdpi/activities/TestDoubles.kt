@@ -19,8 +19,14 @@ import com.poyka.ripdpi.diagnostics.DiagnosticNetworkSnapshot
 import com.poyka.ripdpi.diagnostics.DiagnosticProfile
 import com.poyka.ripdpi.diagnostics.DiagnosticScanSession
 import com.poyka.ripdpi.diagnostics.DiagnosticTelemetrySample
+import com.poyka.ripdpi.diagnostics.DiagnosticsAppliedSetting
+import com.poyka.ripdpi.diagnostics.DiagnosticsArchive
+import com.poyka.ripdpi.diagnostics.DiagnosticsArchiveRequest
 import com.poyka.ripdpi.diagnostics.DiagnosticsBootstrapper
 import com.poyka.ripdpi.diagnostics.DiagnosticsDetailLoader
+import com.poyka.ripdpi.diagnostics.DiagnosticsHomeAuditOutcome
+import com.poyka.ripdpi.diagnostics.DiagnosticsHomeVerificationOutcome
+import com.poyka.ripdpi.diagnostics.DiagnosticsHomeWorkflowService
 import com.poyka.ripdpi.diagnostics.DiagnosticsManualScanResolution
 import com.poyka.ripdpi.diagnostics.DiagnosticsManualScanStartResult
 import com.poyka.ripdpi.diagnostics.DiagnosticsResolverActions
@@ -241,14 +247,19 @@ class StubDiagnosticsScanController : DiagnosticsScanController {
     var cancelCount: Int = 0
         private set
     var lastActiveProfileId: String? = null
+    val startedRequests = mutableListOf<Pair<com.poyka.ripdpi.diagnostics.ScanPathMode, String?>>()
+    val startResults = ArrayDeque<DiagnosticsManualScanStartResult>()
+    var startFailure: Throwable? = null
 
     override suspend fun startScan(
         pathMode: com.poyka.ripdpi.diagnostics.ScanPathMode,
         selectedProfileId: String?,
     ): DiagnosticsManualScanStartResult {
+        startFailure?.let { throw it }
         lastStartedPathMode = pathMode
-        lastActiveProfileId = selectedProfileId ?: lastActiveProfileId
-        return DiagnosticsManualScanStartResult.Started("session")
+        lastActiveProfileId = selectedProfileId
+        startedRequests += pathMode to selectedProfileId
+        return startResults.removeFirstOrNull() ?: DiagnosticsManualScanStartResult.Started("session")
     }
 
     override suspend fun resolveHiddenProbeConflict(
@@ -279,6 +290,19 @@ class StubDiagnosticsDetailLoader : DiagnosticsDetailLoader {
 }
 
 class StubDiagnosticsShareService : DiagnosticsShareService {
+    var archiveRequest: DiagnosticsArchiveRequest? = null
+    var archiveFailure: Throwable? = null
+    var archiveResult: DiagnosticsArchive =
+        DiagnosticsArchive(
+            fileName = "diagnostics.zip",
+            absolutePath = "/tmp/diagnostics.zip",
+            sessionId = "session",
+            createdAt = 1L,
+            scope = "session",
+            schemaVersion = 2,
+            privacyMode = "redacted",
+        )
+
     override suspend fun buildShareSummary(sessionId: String?): com.poyka.ripdpi.diagnostics.ShareSummary {
         error("unused")
     }
@@ -286,7 +310,43 @@ class StubDiagnosticsShareService : DiagnosticsShareService {
     override suspend fun createArchive(
         request: com.poyka.ripdpi.diagnostics.DiagnosticsArchiveRequest,
     ): com.poyka.ripdpi.diagnostics.DiagnosticsArchive {
-        error("unused")
+        archiveRequest = request
+        archiveFailure?.let { throw it }
+        return archiveResult
+    }
+}
+
+class StubDiagnosticsHomeWorkflowService : DiagnosticsHomeWorkflowService {
+    var currentFingerprint: String? = "fingerprint-current"
+    val finalizedSessionIds = mutableListOf<String>()
+    val verificationSessionIds = mutableListOf<String>()
+    val auditOutcomes = mutableMapOf<String, DiagnosticsHomeAuditOutcome>()
+    val verificationOutcomes = mutableMapOf<String, DiagnosticsHomeVerificationOutcome>()
+
+    override suspend fun currentFingerprintHash(): String? = currentFingerprint
+
+    override suspend fun finalizeHomeAudit(sessionId: String): DiagnosticsHomeAuditOutcome {
+        finalizedSessionIds += sessionId
+        return auditOutcomes[sessionId]
+            ?: DiagnosticsHomeAuditOutcome(
+                sessionId = sessionId,
+                fingerprintHash = currentFingerprint,
+                actionable = false,
+                headline = "Analysis complete",
+                summary = "No reusable outcome",
+                appliedSettings = emptyList<DiagnosticsAppliedSetting>(),
+            )
+    }
+
+    override suspend fun summarizeVerification(sessionId: String): DiagnosticsHomeVerificationOutcome {
+        verificationSessionIds += sessionId
+        return verificationOutcomes[sessionId]
+            ?: DiagnosticsHomeVerificationOutcome(
+                sessionId = sessionId,
+                success = false,
+                headline = "Verification incomplete",
+                summary = "No verification outcome",
+            )
     }
 }
 

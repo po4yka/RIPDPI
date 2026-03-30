@@ -1,5 +1,7 @@
 package com.poyka.ripdpi.diagnostics
 
+import com.poyka.ripdpi.core.applyToSettings
+import com.poyka.ripdpi.core.decodeRipDpiProxyUiPreferences
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.ApplicationIoScope
 import com.poyka.ripdpi.data.NetworkFingerprintProvider
@@ -144,6 +146,219 @@ class DiagnosticsRecommendationStore
                 ?.reportJson
                 ?.let { DiagnosticsSessionQueries.decodeScanReport(json, it) }
                 ?.resolverRecommendation
+    }
+
+@Singleton
+class DefaultDiagnosticsHomeWorkflowService
+    @Inject
+    constructor(
+        private val appSettingsRepository: AppSettingsRepository,
+        private val scanRecordStore: DiagnosticsScanRecordStore,
+        private val artifactReadStore: DiagnosticsArtifactReadStore,
+        private val networkFingerprintProvider: NetworkFingerprintProvider,
+        private val resolverActions: DiagnosticsResolverActions,
+        @param:Named("diagnosticsJson")
+        private val json: Json,
+    ) : DiagnosticsHomeWorkflowService {
+        override suspend fun currentFingerprintHash(): String? = networkFingerprintProvider.capture()?.scopeKey()
+
+        override suspend fun finalizeHomeAudit(sessionId: String): DiagnosticsHomeAuditOutcome =
+            withContext(Dispatchers.IO) {
+                val session = scanRecordStore.getScanSession(sessionId)
+                val report = session?.reportJson?.let { DiagnosticsSessionQueries.decodeScanReport(json, it) }
+                val fingerprintHash =
+                    session?.triggerCurrentFingerprintHash
+                        ?: artifactReadStore
+                            .getNativeEventsForSession(sessionId, limit = 80)
+                            .lastOrNull { !it.fingerprintHash.isNullOrBlank() }
+                            ?.fingerprintHash
+                        ?: currentFingerprintHash()
+
+                if (session == null || report == null) {
+                    return@withContext DiagnosticsHomeAuditOutcome(
+                        sessionId = sessionId,
+                        fingerprintHash = fingerprintHash,
+                        actionable = false,
+                        headline = "Analysis finished without a reusable result",
+                        summary = session?.summary ?: "Diagnostics session could not be loaded.",
+                    )
+                }
+
+                val strategyProbe = report.strategyProbeReport
+                val resolverRecommendation = report.resolverRecommendation
+                val strategyApplied =
+                    strategyProbe
+                        ?.takeIf {
+                            DiagnosticsScanWorkflow.evaluateBackgroundAutoPersistEligibility(it) ==
+                                DiagnosticsScanWorkflow.BackgroundAutoPersistEligibility.Eligible
+                        }?.recommendation
+                        ?.let { recommendation ->
+                            decodeRipDpiProxyUiPreferences(
+                                recommendation.recommendedProxyConfigJson,
+                            )?.let { preferences ->
+                                val settingsBefore = appSettingsRepository.snapshot()
+                                appSettingsRepository.replace(preferences.applyToSettings(settingsBefore))
+                                StrategyApplyResult(
+                                    recommendation = recommendation,
+                                    appliedSettings =
+                                        buildStrategyAppliedSettings(
+                                            recommendation = recommendation,
+                                            report = strategyProbe,
+                                            chainSummary = preferences.chainSummary,
+                                        ),
+                                )
+                            }
+                        }
+                val resolverApplied =
+                    if (strategyApplied == null && resolverRecommendation?.persistable == true) {
+                        resolverActions.saveResolverRecommendation(sessionId)
+                        buildResolverAppliedSettings(resolverRecommendation)
+                    } else {
+                        emptyList()
+                    }
+                val actionable = strategyApplied != null || resolverApplied.isNotEmpty()
+                val assessment = strategyProbe?.auditAssessment
+
+                DiagnosticsHomeAuditOutcome(
+                    sessionId = sessionId,
+                    fingerprintHash = fingerprintHash,
+                    actionable = actionable,
+                    headline =
+                        when {
+                            actionable -> {
+                                "Analysis complete and settings applied"
+                            }
+
+                            strategyProbe?.completionKind == StrategyProbeCompletionKind.DNS_SHORT_CIRCUITED -> {
+                                "Analysis complete, but only DNS evidence was available"
+                            }
+
+                            else -> {
+                                "Analysis complete, but no settings were applied"
+                            }
+                        },
+                    summary = report.summary.ifBlank { session.summary },
+                    confidenceSummary =
+                        assessment?.let {
+                            "Confidence ${it.confidence.level.name.lowercase()} (${it.confidence.score})"
+                        },
+                    coverageSummary =
+                        assessment?.let {
+                            "Matrix ${it.coverage.matrixCoveragePercent}% · winners ${it.coverage.winnerCoveragePercent}%"
+                        },
+                    recommendationSummary =
+                        when {
+                            strategyApplied != null -> {
+                                "${strategyApplied.recommendation.tcpCandidateLabel} + " +
+                                    strategyApplied.recommendation.quicCandidateLabel
+                            }
+
+                            resolverRecommendation != null -> {
+                                resolverRecommendation.rationale
+                            }
+
+                            else -> {
+                                null
+                            }
+                        },
+                    appliedSettings = strategyApplied?.appliedSettings ?: resolverApplied,
+                )
+            }
+
+        override suspend fun summarizeVerification(sessionId: String): DiagnosticsHomeVerificationOutcome =
+            withContext(Dispatchers.IO) {
+                val session = scanRecordStore.getScanSession(sessionId)
+                val report = session?.reportJson?.let { DiagnosticsSessionQueries.decodeScanReport(json, it) }
+                if (session == null || report == null) {
+                    return@withContext DiagnosticsHomeVerificationOutcome(
+                        sessionId = sessionId,
+                        success = false,
+                        headline = "VPN verification was incomplete",
+                        summary = session?.summary ?: "Verification session could not be loaded.",
+                    )
+                }
+
+                val normalizedOutcomes = report.results.map { it.outcome.lowercase() }
+                val successCount =
+                    normalizedOutcomes.count { outcome ->
+                        outcome.contains("ok") || outcome == "http_redirect" || outcome == "tls_version_split"
+                    }
+                val failureCount =
+                    normalizedOutcomes.count { outcome ->
+                        outcome.contains("blocked") ||
+                            outcome.contains("unreachable") ||
+                            outcome.contains("failed") ||
+                            outcome.contains("error") ||
+                            outcome.contains("timeout")
+                    }
+                val connectivityIssue = report.diagnoses.any { it.code == "network_connectivity_issue" }
+                val success = !connectivityIssue && successCount > 0 && successCount >= failureCount
+
+                DiagnosticsHomeVerificationOutcome(
+                    sessionId = sessionId,
+                    success = success,
+                    headline =
+                        if (success) {
+                            "VPN access confirmed"
+                        } else {
+                            "VPN started, but access is still limited"
+                        },
+                    summary = report.summary.ifBlank { session.summary },
+                    detail = report.diagnoses.firstOrNull()?.summary,
+                )
+            }
+
+        private data class StrategyApplyResult(
+            val recommendation: StrategyProbeRecommendation,
+            val appliedSettings: List<DiagnosticsAppliedSetting>,
+        )
+
+        private fun buildStrategyAppliedSettings(
+            recommendation: StrategyProbeRecommendation,
+            report: StrategyProbeReport,
+            chainSummary: String,
+        ): List<DiagnosticsAppliedSetting> =
+            buildList {
+                val strategySignature = recommendation.strategySignature
+                val tcpLabel =
+                    strategySignature?.tcpStrategyFamily?.toHumanLabel()
+                        ?: report.tcpCandidates
+                            .firstOrNull { it.id == recommendation.tcpCandidateId }
+                            ?.family
+                            ?.toHumanLabel()
+                val quicLabel =
+                    strategySignature?.quicStrategyFamily?.toHumanLabel()
+                        ?: report.quicCandidates
+                            .firstOrNull { it.id == recommendation.quicCandidateId }
+                            ?.family
+                            ?.toHumanLabel()
+                tcpLabel?.let {
+                    add(DiagnosticsAppliedSetting(label = "TCP/TLS lane", value = it))
+                }
+                quicLabel?.let {
+                    add(DiagnosticsAppliedSetting(label = "QUIC lane", value = it))
+                }
+                recommendation.dnsStrategyLabel?.let {
+                    add(DiagnosticsAppliedSetting(label = "DNS lane", value = it))
+                }
+                add(DiagnosticsAppliedSetting(label = "Chain", value = chainSummary))
+            }
+
+        private fun buildResolverAppliedSettings(
+            recommendation: ResolverRecommendation,
+        ): List<DiagnosticsAppliedSetting> =
+            listOf(
+                DiagnosticsAppliedSetting(
+                    label = "Resolver",
+                    value = recommendation.selectedResolverId,
+                ),
+                DiagnosticsAppliedSetting(
+                    label = "Protocol",
+                    value = recommendation.selectedProtocol.uppercase(),
+                ),
+            )
+
+        private fun String.toHumanLabel(): String = replace('_', ' ').replaceFirstChar { it.uppercase() }
     }
 
 @Singleton

@@ -57,6 +57,8 @@ import com.poyka.ripdpi.data.normalizeTcpChainStepModel
 import com.poyka.ripdpi.data.normalizeTlsFakeProfile
 import com.poyka.ripdpi.data.normalizeUdpChainStepModel
 import com.poyka.ripdpi.data.normalizeUdpFakeProfile
+import com.poyka.ripdpi.data.setGroupActivationFilterCompat
+import com.poyka.ripdpi.data.setStrategyChains
 import com.poyka.ripdpi.proto.AppSettings
 
 data class RipDpiListenConfig(
@@ -358,6 +360,80 @@ fun RipDpiProxyUIPreferences.deriveStrategyLaneFamilies(activeDns: ActiveDnsSett
         quicFakeProfile = quic.fakeProfile,
         activeDns = activeDns,
     )
+
+fun RipDpiProxyUIPreferences.applyToSettings(settings: AppSettings): AppSettings =
+    settings
+        .toBuilder()
+        .apply {
+            setProxyIp(listen.ip)
+            setProxyPort(listen.port)
+            setMaxConnections(listen.maxConnections)
+            setBufferSize(listen.bufferSize)
+            setTcpFastOpen(listen.tcpFastOpen)
+            setDefaultTtl(if (listen.customTtl) listen.defaultTtl else 0)
+            setCustomTtl(listen.customTtl)
+            setFreezeDetectionEnabled(listen.freezeDetectionEnabled)
+            setNoDomain(!protocols.resolveDomains)
+            setDesyncHttp(protocols.desyncHttp)
+            setDesyncHttps(protocols.desyncHttps)
+            setDesyncUdp(protocols.desyncUdp)
+            setGroupActivationFilterCompat(chains.groupActivationFilter)
+            setStrategyChains(
+                tcpSteps = chains.tcpSteps,
+                udpSteps = chains.udpSteps,
+            )
+            setFakeTtl(fakePackets.fakeTtl)
+            setAdaptiveFakeTtlEnabled(fakePackets.adaptiveFakeTtlEnabled)
+            setAdaptiveFakeTtlDelta(fakePackets.adaptiveFakeTtlDelta)
+            setAdaptiveFakeTtlMin(fakePackets.adaptiveFakeTtlMin)
+            setAdaptiveFakeTtlMax(fakePackets.adaptiveFakeTtlMax)
+            setAdaptiveFakeTtlFallback(fakePackets.adaptiveFakeTtlFallback)
+            setFakeSni(fakePackets.fakeSni)
+            setHttpFakeProfile(fakePackets.httpFakeProfile)
+            setFakeTlsUseOriginal(fakePackets.fakeTlsUseOriginal)
+            setFakeTlsRandomize(fakePackets.fakeTlsRandomize)
+            setFakeTlsDupSessionId(fakePackets.fakeTlsDupSessionId)
+            setFakeTlsPadEncap(fakePackets.fakeTlsPadEncap)
+            setFakeTlsSize(fakePackets.fakeTlsSize)
+            setFakeTlsSniMode(fakePackets.fakeTlsSniMode)
+            setTlsFakeProfile(fakePackets.tlsFakeProfile)
+            setUdpFakeProfile(fakePackets.udpFakeProfile)
+            setFakeOffsetMarker(fakePackets.fakeOffsetMarker)
+            setOobData(fakePackets.oobChar.toString())
+            setDropSack(fakePackets.dropSack)
+            setHostMixedCase(parserEvasions.hostMixedCase)
+            setDomainMixedCase(parserEvasions.domainMixedCase)
+            setHostRemoveSpaces(parserEvasions.hostRemoveSpaces)
+            setHttpMethodEol(parserEvasions.httpMethodEol)
+            setHttpUnixEol(parserEvasions.httpUnixEol)
+            setQuicInitialMode(quic.initialMode)
+            setQuicSupportV1(quic.supportV1)
+            setQuicSupportV2(quic.supportV2)
+            setQuicFakeProfile(quic.fakeProfile)
+            setQuicFakeHost(quic.fakeHost)
+            setHostsMode(hosts.mode.wireName)
+            when (hosts.mode) {
+                RipDpiHostsConfig.Mode.Disable -> {
+                    setHostsBlacklist("")
+                    setHostsWhitelist("")
+                }
+
+                RipDpiHostsConfig.Mode.Blacklist -> {
+                    setHostsBlacklist(hosts.entries.orEmpty())
+                    setHostsWhitelist("")
+                }
+
+                RipDpiHostsConfig.Mode.Whitelist -> {
+                    setHostsBlacklist("")
+                    setHostsWhitelist(hosts.entries.orEmpty())
+                }
+            }
+            setHostAutolearnEnabled(hostAutolearn.enabled)
+            setHostAutolearnPenaltyTtlHours(hostAutolearn.penaltyTtlHours)
+            setHostAutolearnMaxHosts(hostAutolearn.maxHosts)
+            setWsTunnelEnabled(wsTunnel.enabled)
+            setWsTunnelMode(wsTunnel.mode.orEmpty())
+        }.build()
 
 private fun normalizeListenConfig(config: RipDpiListenConfig): RipDpiListenConfig =
     config.copy(ip = config.ip.ifBlank { "127.0.0.1" })

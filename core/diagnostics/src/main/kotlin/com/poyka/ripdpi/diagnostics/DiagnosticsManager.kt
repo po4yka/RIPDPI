@@ -97,6 +97,39 @@ interface DiagnosticsResolverActions {
     suspend fun saveResolverRecommendation(sessionId: String)
 }
 
+data class DiagnosticsAppliedSetting(
+    val label: String,
+    val value: String,
+)
+
+data class DiagnosticsHomeAuditOutcome(
+    val sessionId: String,
+    val fingerprintHash: String? = null,
+    val actionable: Boolean,
+    val headline: String,
+    val summary: String,
+    val confidenceSummary: String? = null,
+    val coverageSummary: String? = null,
+    val recommendationSummary: String? = null,
+    val appliedSettings: List<DiagnosticsAppliedSetting> = emptyList(),
+)
+
+data class DiagnosticsHomeVerificationOutcome(
+    val sessionId: String,
+    val success: Boolean,
+    val headline: String,
+    val summary: String,
+    val detail: String? = null,
+)
+
+interface DiagnosticsHomeWorkflowService {
+    suspend fun currentFingerprintHash(): String?
+
+    suspend fun finalizeHomeAudit(sessionId: String): DiagnosticsHomeAuditOutcome
+
+    suspend fun summarizeVerification(sessionId: String): DiagnosticsHomeVerificationOutcome
+}
+
 @Module
 @InstallIn(SingletonComponent::class)
 abstract class DiagnosticsManagerModule {
@@ -147,6 +180,12 @@ abstract class DiagnosticsManagerModule {
     @Binds
     @Singleton
     abstract fun bindDiagnosticsResolverActions(actions: DefaultDiagnosticsResolverActions): DiagnosticsResolverActions
+
+    @Binds
+    @Singleton
+    abstract fun bindDiagnosticsHomeWorkflowService(
+        service: DefaultDiagnosticsHomeWorkflowService,
+    ): DiagnosticsHomeWorkflowService
 
     @Binds
     @Singleton

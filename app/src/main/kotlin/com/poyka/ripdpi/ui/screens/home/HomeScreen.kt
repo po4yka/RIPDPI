@@ -32,6 +32,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -65,8 +66,13 @@ import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.permissions.PermissionKind
 import com.poyka.ripdpi.permissions.PermissionRecovery
 import com.poyka.ripdpi.ui.components.RipDpiHapticFeedback
+import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
+import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.cards.RipDpiCardVariant
+import com.poyka.ripdpi.ui.components.cards.SettingsRow
+import com.poyka.ripdpi.ui.components.feedback.RipDpiBottomSheet
+import com.poyka.ripdpi.ui.components.feedback.RipDpiSheetAction
 import com.poyka.ripdpi.ui.components.feedback.WarningBanner
 import com.poyka.ripdpi.ui.components.feedback.WarningBannerTone
 import com.poyka.ripdpi.ui.components.indicators.StatusIndicator
@@ -106,6 +112,11 @@ fun HomeRoute(
         onOpenVpnPermissionDialog = onOpenVpnPermissionDialog,
         onDismissBatteryBanner = viewModel::onDismissBatteryBanner,
         onDismissBackgroundGuidance = viewModel::onDismissBackgroundGuidance,
+        onRunFullAnalysis = viewModel::onRunHomeFullAnalysis,
+        onStartVerifiedVpn = viewModel::onStartVerifiedVpn,
+        onShareAnalysis = viewModel::onShareHomeAnalysis,
+        onDismissAnalysisSheet = viewModel::dismissHomeAnalysisSheet,
+        onDismissVerificationSheet = viewModel::dismissHomeVerificationSheet,
     )
 }
 
@@ -120,6 +131,11 @@ fun HomeScreen(
     modifier: Modifier = Modifier,
     onDismissBatteryBanner: () -> Unit = {},
     onDismissBackgroundGuidance: () -> Unit = {},
+    onRunFullAnalysis: () -> Unit = {},
+    onStartVerifiedVpn: () -> Unit = {},
+    onShareAnalysis: () -> Unit = {},
+    onDismissAnalysisSheet: () -> Unit = {},
+    onDismissVerificationSheet: () -> Unit = {},
 ) {
     val colors = RipDpiThemeTokens.colors
     val spacing = RipDpiThemeTokens.spacing
@@ -243,6 +259,11 @@ fun HomeScreen(
                         uiState = uiState,
                         onToggleConnection = onToggleConnection,
                     )
+                    HomeDiagnosticsCard(
+                        uiState = uiState,
+                        onRunFullAnalysis = onRunFullAnalysis,
+                        onStartVerifiedVpn = onStartVerifiedVpn,
+                    )
 
                     uiState.approachSummary?.let { summary ->
                         HomeApproachCard(
@@ -269,6 +290,11 @@ fun HomeScreen(
                 uiState = uiState,
                 onToggleConnection = onToggleConnection,
             )
+            HomeDiagnosticsCard(
+                uiState = uiState,
+                onRunFullAnalysis = onRunFullAnalysis,
+                onStartVerifiedVpn = onStartVerifiedVpn,
+            )
 
             if (uiState.connectionState == ConnectionState.Connected) {
                 uiState.approachSummary?.let { summary ->
@@ -289,6 +315,14 @@ fun HomeScreen(
                 HomeStatsGrid(uiState = uiState)
             }
         }
+
+        HomeDiagnosticsBottomSheetHost(
+            uiState = uiState,
+            onOpenDiagnostics = onOpenDiagnostics,
+            onShareAnalysis = onShareAnalysis,
+            onDismissAnalysisSheet = onDismissAnalysisSheet,
+            onDismissVerificationSheet = onDismissVerificationSheet,
+        )
     }
 }
 
@@ -366,6 +400,196 @@ private fun HomeHistoryCard(onOpenHistory: () -> Unit) {
             style = RipDpiThemeTokens.type.secondaryBody,
             color = colors.mutedForeground,
         )
+    }
+}
+
+@Composable
+private fun HomeDiagnosticsCard(
+    uiState: MainUiState,
+    onRunFullAnalysis: () -> Unit,
+    onStartVerifiedVpn: () -> Unit,
+) {
+    val colors = RipDpiThemeTokens.colors
+    val spacing = RipDpiThemeTokens.spacing
+
+    RipDpiCard(
+        modifier = Modifier.ripDpiTestTag(RipDpiTestTags.HomeDiagnosticsCard),
+        variant = RipDpiCardVariant.Elevated,
+    ) {
+        Text(
+            text = stringResource(R.string.home_diagnostics_section),
+            style = RipDpiThemeTokens.type.sectionTitle,
+            color = colors.mutedForeground,
+        )
+        Text(
+            text = stringResource(R.string.home_diagnostics_title),
+            style = RipDpiThemeTokens.type.bodyEmphasis,
+            color = colors.foreground,
+        )
+        Text(
+            text = stringResource(R.string.home_diagnostics_body),
+            style = RipDpiThemeTokens.type.body,
+            color = colors.foreground,
+        )
+        uiState.homeDiagnostics.latestAudit?.let { result ->
+            Spacer(modifier = Modifier.height(spacing.xs))
+            Text(
+                text = result.headline,
+                style = RipDpiThemeTokens.type.bodyEmphasis,
+                color = colors.foreground,
+            )
+            Text(
+                text = result.summary,
+                style = RipDpiThemeTokens.type.secondaryBody,
+                color = colors.mutedForeground,
+            )
+            result.recommendationSummary?.let { recommendation ->
+                Text(
+                    text = recommendation,
+                    style = RipDpiThemeTokens.type.secondaryBody,
+                    color = colors.foreground,
+                )
+            }
+            if (result.stale) {
+                Text(
+                    text = stringResource(R.string.home_diagnostics_run_again),
+                    style = RipDpiThemeTokens.type.secondaryBody,
+                    color = colors.mutedForeground,
+                )
+            }
+        }
+        Spacer(modifier = Modifier.height(spacing.sm))
+        RipDpiButton(
+            text = uiState.homeDiagnostics.analysisAction.label,
+            onClick = onRunFullAnalysis,
+            enabled = uiState.homeDiagnostics.analysisAction.enabled,
+            variant = RipDpiButtonVariant.Primary,
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .ripDpiTestTag(RipDpiTestTags.HomeDiagnosticsRunAnalysis),
+        )
+        Text(
+            text = uiState.homeDiagnostics.analysisAction.supportingText,
+            style = RipDpiThemeTokens.type.secondaryBody,
+            color = colors.mutedForeground,
+        )
+        RipDpiButton(
+            text = uiState.homeDiagnostics.verifiedVpnAction.label,
+            onClick = onStartVerifiedVpn,
+            enabled = uiState.homeDiagnostics.verifiedVpnAction.enabled,
+            variant = RipDpiButtonVariant.Outline,
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .ripDpiTestTag(RipDpiTestTags.HomeDiagnosticsVerifiedVpn),
+        )
+        Text(
+            text = uiState.homeDiagnostics.verifiedVpnAction.supportingText,
+            style = RipDpiThemeTokens.type.secondaryBody,
+            color = colors.mutedForeground,
+        )
+    }
+}
+
+@Composable
+@OptIn(ExperimentalMaterial3Api::class)
+private fun HomeDiagnosticsBottomSheetHost(
+    uiState: MainUiState,
+    onOpenDiagnostics: () -> Unit,
+    onShareAnalysis: () -> Unit,
+    onDismissAnalysisSheet: () -> Unit,
+    onDismissVerificationSheet: () -> Unit,
+) {
+    val colors = RipDpiThemeTokens.colors
+
+    uiState.homeDiagnostics.analysisSheet?.let { sheet ->
+        RipDpiBottomSheet(
+            onDismissRequest = onDismissAnalysisSheet,
+            title = stringResource(R.string.home_diagnostics_analysis_sheet_title),
+            message = sheet.headline,
+            icon = RipDpiIcons.Search,
+            testTag = RipDpiTestTags.HomeDiagnosticsAnalysisSheet,
+            primaryAction =
+                RipDpiSheetAction(
+                    label = stringResource(R.string.home_diagnostics_share_action),
+                    onClick = onShareAnalysis,
+                    testTag = RipDpiTestTags.HomeDiagnosticsShareAction,
+                ),
+            secondaryAction =
+                RipDpiSheetAction(
+                    label = stringResource(R.string.home_diagnostics_open_diagnostics_action),
+                    onClick = {
+                        onDismissAnalysisSheet()
+                        onOpenDiagnostics()
+                    },
+                    testTag = RipDpiTestTags.HomeDiagnosticsOpenDiagnosticsAction,
+                    variant = RipDpiButtonVariant.Outline,
+                ),
+        ) {
+            Text(
+                text = sheet.summary,
+                style = RipDpiThemeTokens.type.body,
+                color = colors.foreground,
+            )
+            sheet.confidenceSummary?.let { value ->
+                SettingsRow(title = stringResource(R.string.home_diagnostics_confidence_label), value = value)
+            }
+            sheet.coverageSummary?.let { value ->
+                SettingsRow(title = stringResource(R.string.home_diagnostics_coverage_label), value = value)
+            }
+            sheet.recommendationSummary?.let { value ->
+                SettingsRow(title = stringResource(R.string.home_diagnostics_recommendation_label), value = value)
+            }
+            if (sheet.appliedSettings.isNotEmpty()) {
+                Text(
+                    text = stringResource(R.string.home_diagnostics_applied_settings_label),
+                    style = RipDpiThemeTokens.type.bodyEmphasis,
+                    color = colors.foreground,
+                )
+                sheet.appliedSettings.forEach { applied ->
+                    SettingsRow(title = applied.label, value = applied.value)
+                }
+            } else {
+                Text(
+                    text = stringResource(R.string.home_diagnostics_no_settings_applied),
+                    style = RipDpiThemeTokens.type.secondaryBody,
+                    color = colors.mutedForeground,
+                )
+            }
+        }
+    }
+
+    uiState.homeDiagnostics.verificationSheet?.let { sheet ->
+        RipDpiBottomSheet(
+            onDismissRequest = onDismissVerificationSheet,
+            title = stringResource(R.string.home_diagnostics_verified_sheet_title),
+            message = sheet.headline,
+            icon = if (sheet.success) RipDpiIcons.Connected else RipDpiIcons.Warning,
+            testTag = RipDpiTestTags.HomeDiagnosticsVerificationSheet,
+            primaryAction =
+                RipDpiSheetAction(
+                    label = stringResource(R.string.home_diagnostics_open_diagnostics_action),
+                    onClick = {
+                        onDismissVerificationSheet()
+                        onOpenDiagnostics()
+                    },
+                    testTag = RipDpiTestTags.HomeDiagnosticsVerificationOpenDiagnosticsAction,
+                ),
+        ) {
+            Text(
+                text = sheet.summary,
+                style = RipDpiThemeTokens.type.body,
+                color = colors.foreground,
+            )
+            sheet.detail?.let { detail ->
+                Text(
+                    text = detail,
+                    style = RipDpiThemeTokens.type.secondaryBody,
+                    color = colors.mutedForeground,
+                )
+            }
+        }
     }
 }
 
