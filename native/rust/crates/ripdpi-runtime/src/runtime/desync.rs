@@ -298,6 +298,10 @@ fn log_ipfrag2_flow_fallback(error: &impl std::fmt::Display) {
     tracing::debug!("falling back to normal TCP write for ipfrag2 after per-flow repair downgrade: {error}");
 }
 
+fn should_fallback_seqovl_error_kind(kind: io::ErrorKind) -> bool {
+    matches!(kind, io::ErrorKind::InvalidInput | io::ErrorKind::WouldBlock | io::ErrorKind::Unsupported | io::ErrorKind::PermissionDenied)
+}
+
 fn await_writable_action_name(strategy_family: &'static str) -> &'static str {
     match strategy_family {
         "split" => "await_writable_split",
@@ -522,6 +526,30 @@ fn execute_tcp_actions(
                             }
                             Err(err) => return Err(OutboundSendError::Transport(err)),
                         }
+                    }
+                }
+                DesyncAction::WriteSeqOverlap { real_chunk, fake_prefix, remainder } => {
+                    match platform::send_seqovl_tcp(
+                        writer,
+                        real_chunk,
+                        fake_prefix,
+                        default_ttl,
+                        None,
+                    ) {
+                        Ok(()) => {
+                            bytes_committed += real_chunk.len();
+                            if !remainder.is_empty() {
+                                bytes_committed += write_transport_payload(writer, remainder)?;
+                            }
+                        }
+                        Err(err) if should_fallback_seqovl_error_kind(err.kind()) => {
+                            tracing::warn!("seqovl fallback to split: {err}");
+                            bytes_committed += write_transport_payload(writer, real_chunk)?;
+                            if !remainder.is_empty() {
+                                bytes_committed += write_transport_payload(writer, remainder)?;
+                            }
+                        }
+                        Err(err) => return Err(OutboundSendError::Transport(err)),
                     }
                 }
                 DesyncAction::WriteIpFragmentedUdp { .. } => {
@@ -1629,6 +1657,8 @@ fn await_transport_writable_action(
 mod tests {
     use super::*;
     use ripdpi_config::{NumericRange, OffsetExpr, TcpChainStep};
+    use ripdpi_desync::PlannedStep;
+    use std::net::{Ipv4Addr, TcpListener};
 
     fn test_group() -> DesyncGroup {
         DesyncGroup::new(0)
@@ -1636,6 +1666,21 @@ mod tests {
 
     fn test_offset() -> OffsetExpr {
         OffsetExpr::absolute(0)
+    }
+
+    fn connected_pair() -> (TcpStream, TcpStream) {
+        let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("bind listener");
+        let addr = listener.local_addr().expect("listener addr");
+        let client = TcpStream::connect(addr).expect("connect client");
+        let (server, _) = listener.accept().expect("accept client");
+        (client, server)
+    }
+
+    fn multidisorder_chain() -> Vec<TcpChainStep> {
+        vec![
+            TcpChainStep::new(TcpChainStepKind::MultiDisorder, OffsetExpr::absolute(2)),
+            TcpChainStep::new(TcpChainStepKind::MultiDisorder, OffsetExpr::absolute(4)),
+        ]
     }
 
     #[test]
@@ -1716,6 +1761,56 @@ mod tests {
         group.actions.tcp_chain.insert(0, TcpChainStep::new(TcpChainStepKind::TlsRec, test_offset()));
         assert_eq!(primary_tcp_strategy_family(&group), Some("tlsrec_multidisorder"));
         assert_eq!(strategy_fallback_family("tlsrec_multidisorder"), None);
+    }
+
+    #[test]
+    fn execute_multidisorder_tcp_plan_rejects_non_contiguous_segment_bounds() {
+        let (mut client, _server) = connected_pair();
+        let err = execute_multi_disorder_tcp_plan(
+            &mut client,
+            &RuntimeConfig::default(),
+            &multidisorder_chain(),
+            &DesyncPlan {
+                tampered: b"abcdef".to_vec(),
+                steps: vec![
+                    PlannedStep { kind: TcpChainStepKind::MultiDisorder, start: 0, end: 2 },
+                    PlannedStep { kind: TcpChainStepKind::MultiDisorder, start: 3, end: 4 },
+                    PlannedStep { kind: TcpChainStepKind::MultiDisorder, start: 4, end: 6 },
+                ],
+                proto: Default::default(),
+                actions: Vec::new(),
+            },
+            Some("multidisorder"),
+        )
+        .expect_err("reject gapped multidisorder plan");
+
+        assert_eq!(err.kind(), io::ErrorKind::InvalidData);
+        assert!(err.to_string().contains("invalid multidisorder tcp segment bounds"));
+    }
+
+    #[test]
+    fn execute_multidisorder_tcp_plan_rejects_partial_payload_coverage() {
+        let (mut client, _server) = connected_pair();
+        let err = execute_multi_disorder_tcp_plan(
+            &mut client,
+            &RuntimeConfig::default(),
+            &multidisorder_chain(),
+            &DesyncPlan {
+                tampered: b"abcdef".to_vec(),
+                steps: vec![
+                    PlannedStep { kind: TcpChainStepKind::MultiDisorder, start: 0, end: 2 },
+                    PlannedStep { kind: TcpChainStepKind::MultiDisorder, start: 2, end: 4 },
+                    PlannedStep { kind: TcpChainStepKind::MultiDisorder, start: 4, end: 5 },
+                ],
+                proto: Default::default(),
+                actions: Vec::new(),
+            },
+            Some("multidisorder"),
+        )
+        .expect_err("reject truncated multidisorder plan");
+
+        assert_eq!(err.kind(), io::ErrorKind::InvalidData);
+        assert!(err.to_string().contains("multidisorder tcp plan does not cover the full payload"));
     }
 
     #[test]
