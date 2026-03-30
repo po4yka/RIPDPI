@@ -1282,6 +1282,9 @@ Source: %2$s</string>
     <string name="settings_biometric_confirm_message">You\'ll need to verify your identity each time you open the dashboard.</string>
     <string name="settings_biometric_confirm_enable">Enable</string>
     <string name="settings_biometric_confirm_cancel">Cancel</string>
+    <string name="settings_biometric_pin_required_title">Backup PIN required</string>
+    <string name="settings_biometric_pin_required_message">Set a backup PIN before enabling biometric unlock. The PIN provides fallback access if biometric authentication becomes unavailable.</string>
+    <string name="settings_biometric_pin_required_ok">OK</string>
     <string name="settings_warning_backup_pin_title">Backup PIN recommended</string>
     <string name="settings_warning_backup_pin_body">Set a four-digit fallback PIN so you can still unlock RIPDPI if biometrics are unavailable.</string>
     <string name="settings_backup_pin_body">Store a four-digit PIN on this device for fallback authentication.</string>
@@ -1341,6 +1344,8 @@ Source: %2$s</string>
     <string name="biometric_dialog_subtitle">Confirm your identity</string>
     <string name="biometric_dialog_cancel">Cancel</string>
     <string name="biometric_auth_error_title">Authentication failed</string>
+    <string name="notice_pin_key_lost_title">Backup PIN reset</string>
+    <string name="notice_pin_key_lost_message">Your backup PIN was cleared because the device security key is no longer available. Please set a new backup PIN.</string>
     <string name="ripdpi_source">https://github.com/hufrea/ripdpi</string>
     <string name="about_description">Compose-based local configuration surface for the preserved RIPDPI engine, service, and DataStore stack.</string>
     <string name="about_build_section">Build</string>

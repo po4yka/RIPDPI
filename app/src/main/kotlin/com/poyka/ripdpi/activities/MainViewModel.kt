@@ -12,10 +12,8 @@ import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.diagnostics.DiagnosticsAppliedSetting
 import com.poyka.ripdpi.diagnostics.DiagnosticsHomeCompositeOutcome
-import com.poyka.ripdpi.diagnostics.DiagnosticsHomeCompositeRunService
 import com.poyka.ripdpi.diagnostics.DiagnosticsHomeCompositeStageSummary
 import com.poyka.ripdpi.diagnostics.DiagnosticsHomeVerificationOutcome
-import com.poyka.ripdpi.diagnostics.DiagnosticsHomeWorkflowService
 import com.poyka.ripdpi.diagnostics.DiagnosticsScanController
 import com.poyka.ripdpi.diagnostics.DiagnosticsShareService
 import com.poyka.ripdpi.diagnostics.DiagnosticsTimelineSource
@@ -232,8 +230,7 @@ class MainViewModel
         diagnosticsTimelineSource: DiagnosticsTimelineSource,
         diagnosticsScanController: DiagnosticsScanController,
         diagnosticsShareService: DiagnosticsShareService,
-        diagnosticsHomeWorkflowService: DiagnosticsHomeWorkflowService,
-        diagnosticsHomeCompositeRunService: DiagnosticsHomeCompositeRunService,
+        homeDiagnosticsServices: HomeDiagnosticsServices,
         private val stringResolver: StringResolver,
         trafficStatsReader: TrafficStatsReader,
         permissionPlatformBridge: PermissionPlatformBridge,
@@ -303,8 +300,8 @@ class MainViewModel
                 diagnosticsTimelineSource = diagnosticsTimelineSource,
                 diagnosticsScanController = diagnosticsScanController,
                 diagnosticsShareService = diagnosticsShareService,
-                diagnosticsHomeWorkflowService = diagnosticsHomeWorkflowService,
-                diagnosticsHomeCompositeRunService = diagnosticsHomeCompositeRunService,
+                diagnosticsHomeWorkflowService = homeDiagnosticsServices.workflowService,
+                diagnosticsHomeCompositeRunService = homeDiagnosticsServices.compositeRunService,
                 serviceStateStore = serviceStateStore,
                 runtimeState = runtimeState,
                 permissionState = permissionState,

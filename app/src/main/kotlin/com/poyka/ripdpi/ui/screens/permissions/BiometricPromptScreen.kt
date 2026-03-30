@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.ui.screens.permissions
 
+import android.view.WindowManager
 import androidx.biometric.BiometricManager
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -8,6 +9,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
@@ -18,6 +20,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -62,6 +65,13 @@ fun BiometricPromptRoute(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
+    val window = (context as? android.app.Activity)?.window
+    DisposableEffect(Unit) {
+        window?.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
+        onDispose {
+            window?.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
+        }
+    }
     val biometricAuthManager = remember { BiometricAuthManager() }
     val coroutineScope = rememberCoroutineScope()
     val pinErrorText = stringResource(R.string.biometric_prompt_pin_error)
@@ -69,7 +79,7 @@ fun BiometricPromptRoute(
     val biometricSubtitle = stringResource(R.string.biometric_dialog_subtitle)
     val biometricCancel = stringResource(R.string.biometric_dialog_cancel)
     var stage by rememberSaveable { mutableStateOf(BiometricPromptStage.Biometric) }
-    var pin by rememberSaveable { mutableStateOf("") }
+    var pin by remember { mutableStateOf("") }
     var pinError by rememberSaveable { mutableStateOf<String?>(null) }
     var lockoutRemainingMs by rememberSaveable { mutableLongStateOf(0L) }
     var biometricError by rememberSaveable { mutableStateOf<String?>(null) }
@@ -92,30 +102,18 @@ fun BiometricPromptRoute(
         }
     }
 
-    LaunchedEffect(uiState.isHydrated, uiState.biometricEnabled) {
-        if (uiState.isHydrated && !uiState.biometricEnabled) onAuthenticated()
-    }
-
-    LaunchedEffect(stage, uiState.isHydrated) {
-        if (!uiState.isHydrated || stage != BiometricPromptStage.Biometric) return@LaunchedEffect
-        if (biometricAuthManager.canAuthenticate(context) != BiometricManager.BIOMETRIC_SUCCESS) {
-            if (uiState.hasBackupPin) stage = BiometricPromptStage.Pin
-        } else {
-            launchBiometric()
-        }
-    }
-
-    LaunchedEffect(stage) {
-        if (stage == BiometricPromptStage.Pin && viewModel.isPinLockedOut()) {
-            lockoutRemainingMs = viewModel.pinLockoutRemainingMs()
-        }
-    }
-
-    LaunchedEffect(lockoutRemainingMs) {
-        if (lockoutRemainingMs <= 0L) return@LaunchedEffect
-        delay(timeMillis = 1_000L)
-        lockoutRemainingMs = viewModel.pinLockoutRemainingMs()
-    }
+    BiometricPromptEffects(
+        uiState = uiState,
+        stage = stage,
+        lockoutRemainingMs = lockoutRemainingMs,
+        viewModel = viewModel,
+        context = context,
+        biometricAuthManager = biometricAuthManager,
+        onAuthenticated = onAuthenticated,
+        launchBiometric = launchBiometric,
+        onStageChange = { stage = it },
+        onLockoutChange = { lockoutRemainingMs = it },
+    )
 
     BiometricPromptScreen(
         uiState = uiState,
@@ -157,6 +155,45 @@ fun BiometricPromptRoute(
             }
         },
     )
+}
+
+@Composable
+private fun BiometricPromptEffects(
+    uiState: SettingsUiState,
+    stage: BiometricPromptStage,
+    lockoutRemainingMs: Long,
+    viewModel: SettingsViewModel,
+    context: android.content.Context,
+    biometricAuthManager: BiometricAuthManager,
+    onAuthenticated: () -> Unit,
+    launchBiometric: () -> Unit,
+    onStageChange: (BiometricPromptStage) -> Unit,
+    onLockoutChange: (Long) -> Unit,
+) {
+    LaunchedEffect(uiState.isHydrated, uiState.biometricEnabled) {
+        if (uiState.isHydrated && !uiState.biometricEnabled) onAuthenticated()
+    }
+
+    LaunchedEffect(stage, uiState.isHydrated) {
+        if (!uiState.isHydrated || stage != BiometricPromptStage.Biometric) return@LaunchedEffect
+        if (biometricAuthManager.canAuthenticate(context) != BiometricManager.BIOMETRIC_SUCCESS) {
+            if (uiState.hasBackupPin) onStageChange(BiometricPromptStage.Pin)
+        } else {
+            launchBiometric()
+        }
+    }
+
+    LaunchedEffect(stage) {
+        if (stage == BiometricPromptStage.Pin && viewModel.isPinLockedOut()) {
+            onLockoutChange(viewModel.pinLockoutRemainingMs())
+        }
+    }
+
+    LaunchedEffect(lockoutRemainingMs) {
+        if (lockoutRemainingMs <= 0L) return@LaunchedEffect
+        delay(timeMillis = 1_000L)
+        onLockoutChange(viewModel.pinLockoutRemainingMs())
+    }
 }
 
 @Composable
@@ -245,7 +282,7 @@ private fun BiometricPromptBanner(
     biometricError: String?,
 ) {
     if (isPinStage && isLockedOut) {
-        val remainingSeconds = ((lockoutRemainingMs + 999) / 1_000).toInt()
+        val remainingSeconds = ((lockoutRemainingMs + MsPerSecond - 1) / MsPerSecond).toInt()
         WarningBanner(
             title = stringResource(R.string.biometric_prompt_pin_lockout_title),
             message = stringResource(R.string.biometric_prompt_pin_lockout_body, remainingSeconds),
@@ -314,6 +351,40 @@ private fun BiometricPromptFooter(
                     .padding(horizontal = introLayout.footerButtonHorizontalInset)
                     .heightIn(min = introLayout.footerButtonMinHeight)
                     .ripDpiTestTag(RipDpiTestTags.BiometricPromptSecondaryAction),
+        )
+    }
+}
+
+@Composable
+private fun BiometricPromptPinInput(
+    pin: String,
+    onPinChanged: (String) -> Unit,
+    pinError: String?,
+    horizontalPadding: androidx.compose.ui.unit.Dp,
+) {
+    Column(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .padding(horizontal = horizontalPadding),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        RipDpiTextField(
+            value = pin,
+            onValueChange = onPinChanged,
+            decoration =
+                RipDpiTextFieldDecoration(
+                    label = stringResource(R.string.biometric_prompt_pin_label),
+                    placeholder = stringResource(R.string.biometric_prompt_pin_placeholder),
+                    helperText = stringResource(R.string.biometric_prompt_pin_helper),
+                    errorText = pinError,
+                    testTag = RipDpiTestTags.BiometricPromptPinField,
+                ),
+            behavior =
+                RipDpiTextFieldBehavior(
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    visualTransformation = PasswordVisualTransformation(),
+                ),
         )
     }
 }
