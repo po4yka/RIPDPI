@@ -292,23 +292,28 @@ internal class DefaultMainActivityHost
             filePath: String,
             fileName: String,
         ) {
-            val archiveUri =
-                FileProvider.getUriForFile(
-                    activity,
-                    "${BuildConfig.APPLICATION_ID}.diagnostics.fileprovider",
-                    File(filePath),
+            runCatching {
+                val archiveUri =
+                    FileProvider.getUriForFile(
+                        activity,
+                        "${BuildConfig.APPLICATION_ID}.diagnostics.fileprovider",
+                        File(filePath),
+                    )
+                val shareIntent =
+                    DiagnosticsShareIntents.createArchiveShareIntent(
+                        archiveUri = archiveUri,
+                        fileName = fileName,
+                    )
+                activity.startActivity(
+                    Intent.createChooser(
+                        shareIntent,
+                        activity.getString(R.string.diagnostics_share_archive_chooser),
+                    ),
                 )
-            val shareIntent =
-                DiagnosticsShareIntents.createArchiveShareIntent(
-                    archiveUri = archiveUri,
-                    fileName = fileName,
-                )
-            activity.startActivity(
-                Intent.createChooser(
-                    shareIntent,
-                    activity.getString(R.string.diagnostics_share_archive_chooser),
-                ),
-            )
+            }.onFailure { error ->
+                logcat(LogPriority.ERROR) { "Failed to share diagnostics archive\n${error.asLog()}" }
+                Toast.makeText(activity, R.string.home_diagnostics_share_failed, Toast.LENGTH_SHORT).show()
+            }
         }
 
         private data class PendingDiagnosticsArchive(

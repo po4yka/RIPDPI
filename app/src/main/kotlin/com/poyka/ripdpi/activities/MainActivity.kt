@@ -14,6 +14,9 @@ import com.poyka.ripdpi.automation.AutomationController
 import com.poyka.ripdpi.permissions.PermissionResult
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
+import logcat.LogPriority
+import logcat.asLog
+import logcat.logcat
 import java.util.Optional
 import javax.inject.Inject
 
@@ -82,7 +85,10 @@ class MainActivity : ComponentActivity() {
         mainActivityHost.register(this, viewModel)
         lifecycleScope.launch {
             shellController.hostCommands.collect { command ->
-                mainActivityHost.handle(command)
+                runCatching { mainActivityHost.handle(command) }
+                    .onFailure { error ->
+                        logcat(LogPriority.ERROR) { "Host command failed: $command\n${error.asLog()}" }
+                    }
             }
         }
         splashScreen.setKeepOnScreenCondition { !viewModel.startupState.value.isReady }
