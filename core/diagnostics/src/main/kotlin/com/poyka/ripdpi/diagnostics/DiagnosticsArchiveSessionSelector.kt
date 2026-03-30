@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.diagnostics
 
+import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.diagnostics.DiagnosticContextEntity
 import com.poyka.ripdpi.data.diagnostics.ProbeResultEntity
 import com.poyka.ripdpi.data.diagnostics.ScanSessionEntity
@@ -33,6 +34,7 @@ class DiagnosticsArchiveSessionSelector
 
         @Suppress("LongMethod")
         internal fun buildSelection(
+            request: DiagnosticsArchiveRequest,
             primarySession: ScanSessionEntity?,
             primaryResults: List<ProbeResultEntity>,
             sourceData: DiagnosticsArchiveSourceData,
@@ -81,6 +83,21 @@ class DiagnosticsArchiveSessionSelector
                 redactor.decodeDiagnosticContext(latestPassiveContext)
             val sessionContextModel =
                 primaryContexts.maxByOrNull(DiagnosticContextEntity::capturedAt)?.let(redactor::decodeDiagnosticContext)
+            val routeGroup =
+                sessionContextModel?.service?.routeGroup ?: latestContextModel?.service?.routeGroup
+            val modeOverride =
+                primarySession
+                    ?.serviceMode
+                    ?.takeIf { it.isNotBlank() }
+                    ?.let(Mode::fromString)
+            val effectiveStrategySignature =
+                runCatching {
+                    deriveBypassStrategySignature(
+                        settings = sourceData.appSettings,
+                        routeGroup = routeGroup,
+                        modeOverride = modeOverride,
+                    )
+                }.getOrNull()
             val payload =
                 DiagnosticsArchivePayload(
                     schemaVersion = DiagnosticsArchiveFormat.schemaVersion,
@@ -99,6 +116,7 @@ class DiagnosticsArchiveSessionSelector
                     approachSummaries = sourceData.approachSummaries,
                 )
             return DiagnosticsArchiveSelection(
+                request = request,
                 payload = payload,
                 primarySession = primarySession,
                 primaryReport = primaryReport,
@@ -113,6 +131,39 @@ class DiagnosticsArchiveSessionSelector
                 latestSnapshotModel = latestSnapshotModel,
                 latestContextModel = latestContextModel,
                 sessionContextModel = sessionContextModel,
+                buildProvenance = sourceData.buildProvenance,
+                sessionSelectionStatus =
+                    when {
+                        request.reason == DiagnosticsArchiveReason.SHARE_DEBUG_BUNDLE -> {
+                            DiagnosticsArchiveSessionSelectionStatus.SUPPORT_BUNDLE
+                        }
+
+                        request.requestedSessionId != null -> {
+                            DiagnosticsArchiveSessionSelectionStatus.REQUESTED_SESSION
+                        }
+
+                        primarySession?.reportJson != null -> {
+                            DiagnosticsArchiveSessionSelectionStatus.LATEST_COMPLETED_SESSION
+                        }
+
+                        else -> {
+                            DiagnosticsArchiveSessionSelectionStatus.LATEST_LIVE_STATE
+                        }
+                    },
+                effectiveStrategySignature = effectiveStrategySignature,
+                appSettings = sourceData.appSettings,
+                sourceCounts =
+                    DiagnosticsArchiveSourceCounts(
+                        telemetrySamples = sourceData.telemetry.size,
+                        nativeEvents = sourceData.events.size,
+                        snapshots = sourceData.snapshots.size,
+                        contexts = sourceData.contexts.size,
+                        sessionResults = primaryResults.size,
+                        sessionSnapshots = primarySnapshots.size,
+                        sessionContexts = primaryContexts.size,
+                        sessionEvents = primaryEvents.size,
+                    ),
+                collectionWarnings = sourceData.collectionWarnings,
                 includedFiles = DiagnosticsArchiveFormat.includedFiles(sourceData.logcatSnapshot != null),
                 logcatSnapshot = sourceData.logcatSnapshot,
             )

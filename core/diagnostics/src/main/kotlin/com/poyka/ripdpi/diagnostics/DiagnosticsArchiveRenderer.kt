@@ -11,6 +11,7 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
+import java.security.MessageDigest
 import javax.inject.Inject
 import javax.inject.Named
 
@@ -28,66 +29,121 @@ class DiagnosticsArchiveRenderer
             target: DiagnosticsArchiveTarget,
             selection: DiagnosticsArchiveSelection,
         ): List<DiagnosticsArchiveEntry> {
-            val entries = buildBaseEntries(target, selection).toMutableList()
-            selection.logcatSnapshot?.let { snapshot ->
-                entries += DiagnosticsArchiveEntry(name = "logcat.txt", bytes = snapshot.content.toByteArray())
-            }
-            entries +=
-                DiagnosticsArchiveEntry(
-                    name = "telemetry.csv",
-                    bytes = buildTelemetryCsv(selection.payload).toByteArray(),
+            val redactedPayload = buildRedactedPayload(selection)
+            val snapshotPayload = buildSnapshotPayload(selection)
+            val contextPayload = buildContextPayload(selection)
+            val sectionStatuses = buildSectionStatuses(selection)
+            val completeness =
+                buildCompleteness(
+                    selection = selection,
+                    sectionStatuses = sectionStatuses,
+                    snapshotPayload = snapshotPayload,
+                    contextPayload = contextPayload,
                 )
-            entries +=
-                DiagnosticsArchiveEntry(
-                    name = "manifest.json",
-                    bytes = encodeManifest(target, selection).toByteArray(),
-                )
-            return entries
-        }
-
-        private fun buildBaseEntries(
-            target: DiagnosticsArchiveTarget,
-            selection: DiagnosticsArchiveSelection,
-        ): List<DiagnosticsArchiveEntry> =
-            listOf(
-                textEntry(
-                    name = "summary.txt",
-                    content = buildSummary(createdAt = target.createdAt, selection = selection),
-                ),
-                jsonEntry(
-                    name = "report.json",
-                    serializer = DiagnosticsArchivePayload.serializer(),
-                    value = buildRedactedPayload(selection),
-                ),
-                jsonEntry(
-                    name = "strategy-matrix.json",
-                    serializer = StrategyMatrixArchivePayload.serializer(),
-                    value =
-                        StrategyMatrixArchivePayload(
-                            sessionId = selection.primarySession?.id,
-                            profileId = selection.primarySession?.profileId,
-                            strategyProbeReport = selection.primaryReport?.strategyProbeReport,
+            val baseEntries =
+                buildList {
+                    add(
+                        textEntry(
+                            name = "summary.txt",
+                            content = buildSummary(createdAt = target.createdAt, selection = selection),
                         ),
-                ),
-                textEntry(
-                    name = "probe-results.csv",
-                    content = buildProbeResultsCsv(selection.primaryResults),
-                ),
-                textEntry(
-                    name = "native-events.csv",
-                    content = buildNativeEventsCsv(selection.primaryEvents, selection.globalEvents),
-                ),
+                    )
+                    add(
+                        DiagnosticsArchiveEntry(
+                            name = "manifest.json",
+                            bytes = encodeManifest(target, selection, sectionStatuses).toByteArray(),
+                        ),
+                    )
+                    add(
+                        jsonEntry(
+                            name = "report.json",
+                            serializer = DiagnosticsArchivePayload.serializer(),
+                            value = redactedPayload,
+                        ),
+                    )
+                    add(
+                        jsonEntry(
+                            name = "strategy-matrix.json",
+                            serializer = StrategyMatrixArchivePayload.serializer(),
+                            value =
+                                StrategyMatrixArchivePayload(
+                                    sessionId = selection.primarySession?.id,
+                                    profileId = selection.primarySession?.profileId,
+                                    strategyProbeReport = selection.primaryReport?.strategyProbeReport,
+                                ),
+                        ),
+                    )
+                    add(
+                        textEntry(
+                            name = "probe-results.csv",
+                            content = buildProbeResultsCsv(selection.primaryResults),
+                        ),
+                    )
+                    add(
+                        jsonEntry(
+                            name = "archive-provenance.json",
+                            serializer = DiagnosticsArchiveProvenancePayload.serializer(),
+                            value = buildArchiveProvenance(target, selection),
+                        ),
+                    )
+                    add(
+                        jsonEntry(
+                            name = "runtime-config.json",
+                            serializer = DiagnosticsArchiveRuntimeConfigPayload.serializer(),
+                            value = buildRuntimeConfig(selection),
+                        ),
+                    )
+                    add(
+                        jsonEntry(
+                            name = "analysis.json",
+                            serializer = DiagnosticsArchiveAnalysisPayload.serializer(),
+                            value = buildAnalysis(selection),
+                        ),
+                    )
+                    add(
+                        jsonEntry(
+                            name = "completeness.json",
+                            serializer = DiagnosticsArchiveCompletenessPayload.serializer(),
+                            value = completeness,
+                        ),
+                    )
+                    add(
+                        textEntry(
+                            name = "native-events.csv",
+                            content = buildNativeEventsCsv(selection.primaryEvents, selection.globalEvents),
+                        ),
+                    )
+                    add(
+                        textEntry(
+                            name = "telemetry.csv",
+                            content = buildTelemetryCsv(selection.payload),
+                        ),
+                    )
+                    add(
+                        jsonEntry(
+                            name = "network-snapshots.json",
+                            serializer = DiagnosticsArchiveSnapshotPayload.serializer(),
+                            value = snapshotPayload,
+                        ),
+                    )
+                    add(
+                        jsonEntry(
+                            name = "diagnostic-context.json",
+                            serializer = DiagnosticsArchiveContextPayload.serializer(),
+                            value = contextPayload,
+                        ),
+                    )
+                    selection.logcatSnapshot?.let { snapshot ->
+                        add(DiagnosticsArchiveEntry(name = "logcat.txt", bytes = snapshot.content.toByteArray()))
+                    }
+                }
+            return baseEntries +
                 jsonEntry(
-                    name = "network-snapshots.json",
-                    serializer = DiagnosticsArchiveSnapshotPayload.serializer(),
-                    value = buildSnapshotPayload(selection),
-                ),
-                jsonEntry(
-                    name = "diagnostic-context.json",
-                    serializer = DiagnosticsArchiveContextPayload.serializer(),
-                    value = buildContextPayload(selection),
-                ),
-            )
+                    name = "integrity.json",
+                    serializer = DiagnosticsArchiveIntegrityPayload.serializer(),
+                    value = buildIntegrityPayload(target, baseEntries),
+                )
+        }
 
         private fun buildRedactedPayload(selection: DiagnosticsArchiveSelection): DiagnosticsArchivePayload =
             selection.payload.copy(
@@ -144,6 +200,7 @@ class DiagnosticsArchiveRenderer
         private fun encodeManifest(
             target: DiagnosticsArchiveTarget,
             selection: DiagnosticsArchiveSelection,
+            sectionStatuses: Map<String, DiagnosticsArchiveSectionStatus>,
         ): String {
             val summaryDocument = buildSummaryDocument(selection)
             val allEvents = selection.primaryEvents + selection.globalEvents
@@ -163,6 +220,10 @@ class DiagnosticsArchiveRenderer
                     schemaVersion = DiagnosticsArchiveFormat.schemaVersion,
                     privacyMode = DiagnosticsArchiveFormat.privacyMode,
                     scope = DiagnosticsArchiveFormat.scope,
+                    archiveReason = selection.request.reason,
+                    requestedSessionId = selection.request.requestedSessionId,
+                    selectedSessionId = selection.primarySession?.id,
+                    sessionSelectionStatus = selection.sessionSelectionStatus,
                     includedSessionId = selection.primarySession?.id,
                     sessionResultCount = selection.primaryResults.size,
                     sessionSnapshotCount = selection.primarySnapshots.size,
@@ -192,6 +253,9 @@ class DiagnosticsArchiveRenderer
                     classifierVersion = summaryDocument.classifierVersion,
                     diagnosisCount = summaryDocument.diagnoses.size,
                     packVersions = summaryDocument.packVersions,
+                    buildProvenance = selection.buildProvenance.toSummary(),
+                    sectionStatusSummary = sectionStatuses,
+                    integrityAlgorithm = "sha256",
                     includedFiles = selection.includedFiles,
                     logcatIncluded = selection.logcatSnapshot != null,
                     logcatCaptureScope = LogcatSnapshotCollector.AppVisibleSnapshotScope,
@@ -207,6 +271,402 @@ class DiagnosticsArchiveRenderer
                 }
             return json.encodeToString(JsonElement.serializer(), normalizedManifest)
         }
+
+        private fun buildArchiveProvenance(
+            target: DiagnosticsArchiveTarget,
+            selection: DiagnosticsArchiveSelection,
+        ): DiagnosticsArchiveProvenancePayload {
+            val allEvents = selection.primaryEvents + selection.globalEvents
+            val context = selection.sessionContextModel ?: selection.latestContextModel
+            val runtimeProvenance =
+                DiagnosticsArchiveRuntimeProvenance(
+                    runtimeId = allEvents.latestCorrelation { it.runtimeId },
+                    mode = selection.primarySession?.serviceMode ?: allEvents.latestCorrelation { it.mode },
+                    policySignature = allEvents.latestCorrelation { it.policySignature },
+                    fingerprintHash =
+                        selection.payload.telemetry
+                            .firstOrNull()
+                            ?.telemetryNetworkFingerprintHash
+                            ?: allEvents.latestCorrelation { it.fingerprintHash },
+                    networkScope =
+                        selection.payload.telemetry
+                            .firstOrNull()
+                            ?.telemetryNetworkFingerprintHash
+                            ?: allEvents.latestCorrelation { it.fingerprintHash },
+                    androidVersion = context?.device?.androidVersion,
+                    apiLevel = context?.device?.apiLevel,
+                    primaryAbi = context?.device?.primaryAbi,
+                    locale = context?.device?.locale,
+                    timezone = context?.device?.timezone,
+                )
+            return DiagnosticsArchiveProvenancePayload(
+                archiveReason = selection.request.reason,
+                requestedAt = selection.request.requestedAt,
+                createdAt = target.createdAt,
+                requestedSessionId = selection.request.requestedSessionId,
+                selectedSessionId = selection.primarySession?.id,
+                sessionSelectionStatus = selection.sessionSelectionStatus,
+                triggerMetadata =
+                    selection.primarySession?.let {
+                        DiagnosticsArchiveTriggerMetadata(
+                            launchOrigin = it.launchOrigin,
+                            triggerType = it.triggerType,
+                            triggerClassification = it.triggerClassification,
+                            triggerOccurredAt = it.triggerOccurredAt,
+                        )
+                    },
+                buildProvenance = selection.buildProvenance,
+                runtimeProvenance = runtimeProvenance,
+            )
+        }
+
+        private fun buildRuntimeConfig(selection: DiagnosticsArchiveSelection): DiagnosticsArchiveRuntimeConfigPayload {
+            val context = selection.sessionContextModel ?: selection.latestContextModel
+            val service = context?.service
+            val permissions = context?.permissions
+            val environment = context?.environment
+            val snapshot = selection.latestSnapshotModel
+            val telemetry = selection.payload.telemetry.firstOrNull()
+            return DiagnosticsArchiveRuntimeConfigPayload(
+                configuredMode = service?.configuredMode ?: "unavailable",
+                activeMode = service?.activeMode ?: "unavailable",
+                serviceStatus = service?.serviceStatus ?: "unavailable",
+                selectedProfileId = service?.selectedProfileId ?: selection.primarySession?.profileId ?: "unavailable",
+                selectedProfileName = service?.selectedProfileName ?: "unavailable",
+                configSource = service?.configSource ?: "unavailable",
+                desyncMethod = service?.desyncMethod ?: "unavailable",
+                chainSummary = service?.chainSummary ?: "unavailable",
+                routeGroup = service?.routeGroup ?: "unavailable",
+                restartCount = service?.restartCount ?: 0,
+                sessionUptimeMs = service?.sessionUptimeMs,
+                hostAutolearnEnabled = service?.hostAutolearnEnabled ?: "unavailable",
+                learnedHostCount = service?.learnedHostCount ?: 0,
+                penalizedHostCount = service?.penalizedHostCount ?: 0,
+                blockedHostCount = service?.blockedHostCount ?: 0,
+                lastBlockSignal = service?.lastBlockSignal ?: "unavailable",
+                lastBlockProvider = service?.lastBlockProvider ?: "unavailable",
+                lastAutolearnHost = service?.lastAutolearnHost ?: "unavailable",
+                lastAutolearnGroup = service?.lastAutolearnGroup ?: "unavailable",
+                lastAutolearnAction = service?.lastAutolearnAction ?: "unavailable",
+                lastNativeErrorHeadline = service?.lastNativeErrorHeadline ?: "unavailable",
+                resolverId = telemetry?.resolverId ?: "unavailable",
+                resolverProtocol = telemetry?.resolverProtocol ?: "unavailable",
+                resolverEndpoint = telemetry?.resolverEndpoint ?: "unavailable",
+                resolverLatencyMs = telemetry?.resolverLatencyMs,
+                resolverFallbackActive = telemetry?.resolverFallbackActive ?: false,
+                resolverFallbackReason = telemetry?.resolverFallbackReason ?: "unavailable",
+                networkHandoverClass = telemetry?.networkHandoverClass ?: "unavailable",
+                transport = snapshot?.transport ?: "unavailable",
+                privateDnsMode = snapshot?.privateDnsMode ?: "unavailable",
+                mtu = snapshot?.mtu,
+                networkValidated = snapshot?.networkValidated,
+                captivePortalDetected = snapshot?.captivePortalDetected,
+                batterySaverState = environment?.batterySaverState ?: "unavailable",
+                powerSaveModeState = environment?.powerSaveModeState ?: "unavailable",
+                dataSaverState = permissions?.dataSaverState ?: "unavailable",
+                batteryOptimizationState = permissions?.batteryOptimizationState ?: "unavailable",
+                vpnPermissionState = permissions?.vpnPermissionState ?: "unavailable",
+                notificationPermissionState = permissions?.notificationPermissionState ?: "unavailable",
+                networkMeteredState = environment?.networkMeteredState ?: "unavailable",
+                roamingState = environment?.roamingState ?: "unavailable",
+                commandLineSettingsEnabled = selection.appSettings.enableCmdSettings,
+                commandLineArgsHash =
+                    selection.appSettings
+                        .takeIf { it.enableCmdSettings }
+                        ?.cmdArgs
+                        ?.takeIf { it.isNotBlank() }
+                        ?.let(::sha256Hex),
+                effectiveStrategySignature = selection.effectiveStrategySignature,
+            )
+        }
+
+        private fun buildAnalysis(selection: DiagnosticsArchiveSelection): DiagnosticsArchiveAnalysisPayload {
+            val telemetry = selection.payload.telemetry.sortedBy { it.createdAt }
+            val failureSamples =
+                telemetry.filter {
+                    !it.failureClass.isNullOrBlank() ||
+                        !it.lastFailureClass.isNullOrBlank() ||
+                        !it.lastFallbackAction.isNullOrBlank()
+                }
+            val failureEvents =
+                (selection.primaryEvents + selection.globalEvents)
+                    .filter {
+                        it.level.equals("warn", ignoreCase = true) || it.level.equals("error", ignoreCase = true)
+                    }.sortedBy { it.createdAt }
+            val latestTelemetry = selection.payload.telemetry.firstOrNull()
+            val strategyProbe = selection.primaryReport?.strategyProbeReport
+            val observations = selection.primaryReport?.observations.orEmpty()
+            return DiagnosticsArchiveAnalysisPayload(
+                failureEnvelope =
+                    DiagnosticsArchiveFailureEnvelope(
+                        firstFailureTimestamp =
+                            listOfNotNull(
+                                failureSamples.firstOrNull()?.createdAt,
+                                failureEvents.firstOrNull()?.createdAt,
+                            ).minOrNull(),
+                        lastFailureTimestamp =
+                            listOfNotNull(
+                                failureSamples.lastOrNull()?.createdAt,
+                                failureEvents.lastOrNull()?.createdAt,
+                            ).maxOrNull(),
+                        latestFailureClass =
+                            latestTelemetry?.failureClass
+                                ?: latestTelemetry?.lastFailureClass
+                                ?: failureEvents.lastOrNull()?.message,
+                        lastFallbackAction = latestTelemetry?.lastFallbackAction,
+                        retryCounters =
+                            DiagnosticsArchiveRetryCounters(
+                                proxyRouteRetryCount = latestTelemetry?.proxyRouteRetryCount ?: 0,
+                                tunnelRecoveryRetryCount = latestTelemetry?.tunnelRecoveryRetryCount ?: 0,
+                                totalRetryCount = latestTelemetry?.retryCount() ?: 0,
+                            ),
+                        failureClassTransitions =
+                            (
+                                failureSamples.flatMap { sample ->
+                                    listOfNotNull(sample.failureClass, sample.lastFailureClass)
+                                } +
+                                    failureEvents.map { event -> "native:${event.source}:${event.message}" }
+                            ).distinctConsecutive(),
+                    ),
+                strategyExecutionDetail =
+                    DiagnosticsArchiveStrategyExecutionDetail(
+                        suiteId = strategyProbe?.suiteId,
+                        completionKind = strategyProbe?.completionKind?.name,
+                        tcpCandidates =
+                            strategyProbe
+                                ?.tcpCandidates
+                                ?.map { candidate ->
+                                    candidate.toExecutionDetail(
+                                        lane = "tcp",
+                                        observations = observations,
+                                    )
+                                }.orEmpty(),
+                        quicCandidates =
+                            strategyProbe
+                                ?.quicCandidates
+                                ?.map { candidate ->
+                                    candidate.toExecutionDetail(
+                                        lane = "quic",
+                                        observations = observations,
+                                    )
+                                }.orEmpty(),
+                    ),
+                recommendationTrace = buildRecommendationTrace(selection),
+            )
+        }
+
+        private fun buildRecommendationTrace(
+            selection: DiagnosticsArchiveSelection,
+        ): DiagnosticsArchiveRecommendationTrace? {
+            val strategyProbe = selection.primaryReport?.strategyProbeReport
+            val resolver = selection.primaryReport?.resolverRecommendation
+            if (strategyProbe == null && resolver == null) {
+                return null
+            }
+            val assessment = strategyProbe?.auditAssessment
+            val recommendation = strategyProbe?.recommendation
+            val evidence =
+                buildList {
+                    recommendation?.rationale?.takeIf(String::isNotBlank)?.let { add(it) }
+                    resolver?.rationale?.takeIf(String::isNotBlank)?.let { add("resolver:$it") }
+                    assessment
+                        ?.confidence
+                        ?.rationale
+                        ?.takeIf(String::isNotBlank)
+                        ?.let { add(it) }
+                    addAll(assessment?.confidence?.warnings.orEmpty())
+                    strategyProbe?.targetSelection?.cohortLabel?.let { add("targetCohort=$it") }
+                    recommendation?.tcpCandidateLabel?.let { add("tcpWinner=$it") }
+                    recommendation?.quicCandidateLabel?.let { add("quicWinner=$it") }
+                }
+            return DiagnosticsArchiveRecommendationTrace(
+                selectedApproach =
+                    selection.selectedApproachSummary?.displayName
+                        ?: recommendation?.tcpCandidateLabel
+                        ?: resolver?.selectedResolverId
+                        ?: "unavailable",
+                selectedStrategy =
+                    recommendation
+                        ?.let { "${it.tcpCandidateLabel} + ${it.quicCandidateLabel}" }
+                        ?: "unavailable",
+                selectedResolver =
+                    recommendation?.dnsStrategyLabel
+                        ?: resolver?.selectedResolverId,
+                confidenceLevel = assessment?.confidence?.level?.name,
+                confidenceScore = assessment?.confidence?.score,
+                coveragePercent = assessment?.coverage?.matrixCoveragePercent,
+                winnerCoveragePercent = assessment?.coverage?.winnerCoveragePercent,
+                targetCohort = strategyProbe?.targetSelection?.cohortLabel,
+                evidence = evidence.distinct(),
+            )
+        }
+
+        private fun buildSectionStatuses(
+            selection: DiagnosticsArchiveSelection,
+        ): Map<String, DiagnosticsArchiveSectionStatus> {
+            val telemetryTruncated = selection.sourceCounts.telemetrySamples >= DiagnosticsArchiveFormat.telemetryLimit
+            val nativeEventsTruncated = selection.sourceCounts.nativeEvents >= DiagnosticsArchiveFormat.globalEventLimit
+            val snapshotsTruncated = selection.sourceCounts.snapshots >= DiagnosticsArchiveFormat.snapshotLimit
+            val contextsTruncated = selection.sourceCounts.contexts >= DiagnosticsArchiveFormat.snapshotLimit
+            val logcatTruncated =
+                (selection.logcatSnapshot?.byteCount ?: 0) >= LogcatSnapshotCollector.MAX_LOGCAT_BYTES
+            return buildMap {
+                selection.includedFiles.forEach { fileName ->
+                    put(
+                        fileName,
+                        when (fileName) {
+                            "summary.txt", "manifest.json", "report.json" -> {
+                                DiagnosticsArchiveSectionStatus.REDACTED
+                            }
+
+                            "network-snapshots.json" -> {
+                                if (snapshotsTruncated) {
+                                    DiagnosticsArchiveSectionStatus.TRUNCATED
+                                } else {
+                                    DiagnosticsArchiveSectionStatus.REDACTED
+                                }
+                            }
+
+                            "diagnostic-context.json" -> {
+                                if (contextsTruncated) {
+                                    DiagnosticsArchiveSectionStatus.TRUNCATED
+                                } else {
+                                    DiagnosticsArchiveSectionStatus.REDACTED
+                                }
+                            }
+
+                            "telemetry.csv" -> {
+                                if (telemetryTruncated) {
+                                    DiagnosticsArchiveSectionStatus.TRUNCATED
+                                } else {
+                                    DiagnosticsArchiveSectionStatus.INCLUDED
+                                }
+                            }
+
+                            "native-events.csv" -> {
+                                if (nativeEventsTruncated) {
+                                    DiagnosticsArchiveSectionStatus.TRUNCATED
+                                } else {
+                                    DiagnosticsArchiveSectionStatus.INCLUDED
+                                }
+                            }
+
+                            "logcat.txt" -> {
+                                if (logcatTruncated) {
+                                    DiagnosticsArchiveSectionStatus.TRUNCATED
+                                } else {
+                                    DiagnosticsArchiveSectionStatus.INCLUDED
+                                }
+                            }
+
+                            else -> {
+                                DiagnosticsArchiveSectionStatus.INCLUDED
+                            }
+                        },
+                    )
+                }
+            }
+        }
+
+        private fun buildCompleteness(
+            selection: DiagnosticsArchiveSelection,
+            sectionStatuses: Map<String, DiagnosticsArchiveSectionStatus>,
+            snapshotPayload: DiagnosticsArchiveSnapshotPayload,
+            contextPayload: DiagnosticsArchiveContextPayload,
+        ): DiagnosticsArchiveCompletenessPayload {
+            val snapshotDecodeFailures =
+                selection.primarySnapshots.size +
+                    if (selection.latestPassiveSnapshot != null) {
+                        1
+                    } else {
+                        0 -
+                            (
+                                snapshotPayload.sessionSnapshots.size +
+                                    if (snapshotPayload.latestPassiveSnapshot != null) 1 else 0
+                            )
+                    }
+            val contextDecodeFailures =
+                selection.primaryContexts.size +
+                    if (selection.latestPassiveContext != null) {
+                        1
+                    } else {
+                        0 -
+                            (
+                                contextPayload.sessionContexts.size +
+                                    if (contextPayload.latestPassiveContext != null) 1 else 0
+                            )
+                    }
+            val collectionWarnings =
+                buildList {
+                    addAll(selection.collectionWarnings)
+                    if (snapshotDecodeFailures > 0) {
+                        add("snapshot_decode_failed_count:$snapshotDecodeFailures")
+                    }
+                    if (contextDecodeFailures > 0) {
+                        add("context_decode_failed_count:$contextDecodeFailures")
+                    }
+                    if (selection.buildProvenance.gitCommit == "unavailable") {
+                        add("git_commit_unavailable")
+                    }
+                    selection.buildProvenance.nativeLibraries
+                        .filter { it.version == "unavailable" }
+                        .forEach { add("native_library_version_unavailable:${it.name}") }
+                }
+            return DiagnosticsArchiveCompletenessPayload(
+                sectionStatuses = sectionStatuses,
+                appliedLimits =
+                    DiagnosticsArchiveAppliedLimits(
+                        telemetrySamples = DiagnosticsArchiveFormat.telemetryLimit,
+                        nativeEvents = DiagnosticsArchiveFormat.globalEventLimit,
+                        snapshots = DiagnosticsArchiveFormat.snapshotLimit,
+                        logcatBytes = LogcatSnapshotCollector.MAX_LOGCAT_BYTES,
+                    ),
+                sourceCounts = selection.sourceCounts,
+                includedCounts =
+                    DiagnosticsArchiveSourceCounts(
+                        telemetrySamples = selection.payload.telemetry.size,
+                        nativeEvents = selection.primaryEvents.size + selection.globalEvents.size,
+                        snapshots =
+                            snapshotPayload.sessionSnapshots.size +
+                                if (snapshotPayload.latestPassiveSnapshot != null) 1 else 0,
+                        contexts =
+                            contextPayload.sessionContexts.size +
+                                if (contextPayload.latestPassiveContext != null) 1 else 0,
+                        sessionResults = selection.primaryResults.size,
+                        sessionSnapshots = snapshotPayload.sessionSnapshots.size,
+                        sessionContexts = contextPayload.sessionContexts.size,
+                        sessionEvents = selection.primaryEvents.size,
+                    ),
+                collectionWarnings = collectionWarnings,
+                truncation =
+                    DiagnosticsArchiveTruncation(
+                        telemetrySamples =
+                            selection.sourceCounts.telemetrySamples >= DiagnosticsArchiveFormat.telemetryLimit,
+                        nativeEvents = selection.sourceCounts.nativeEvents >= DiagnosticsArchiveFormat.globalEventLimit,
+                        snapshots = selection.sourceCounts.snapshots >= DiagnosticsArchiveFormat.snapshotLimit,
+                        contexts = selection.sourceCounts.contexts >= DiagnosticsArchiveFormat.snapshotLimit,
+                        logcat = (selection.logcatSnapshot?.byteCount ?: 0) >= LogcatSnapshotCollector.MAX_LOGCAT_BYTES,
+                    ),
+            )
+        }
+
+        private fun buildIntegrityPayload(
+            target: DiagnosticsArchiveTarget,
+            entries: List<DiagnosticsArchiveEntry>,
+        ): DiagnosticsArchiveIntegrityPayload =
+            DiagnosticsArchiveIntegrityPayload(
+                hashAlgorithm = "sha256",
+                schemaVersion = DiagnosticsArchiveFormat.schemaVersion,
+                generatedAt = target.createdAt,
+                files =
+                    entries.map { entry ->
+                        DiagnosticsArchiveIntegrityFileEntry(
+                            name = entry.name,
+                            byteCount = entry.bytes.size,
+                            sha256 = sha256Hex(entry.bytes),
+                        )
+                    },
+            )
 
         internal fun buildSummary(
             createdAt: Long,
@@ -432,3 +892,91 @@ private fun BypassApproachSummary.successRateLabel(): String =
     validatedSuccessRate?.let { rate ->
         "${(rate * SuccessRatePercentScale).toInt()}%"
     } ?: "unverified"
+
+private fun DiagnosticsArchiveBuildProvenance.toSummary(): DiagnosticsArchiveBuildProvenanceSummary =
+    DiagnosticsArchiveBuildProvenanceSummary(
+        applicationId = applicationId,
+        appVersionName = appVersionName,
+        appVersionCode = appVersionCode,
+        buildType = buildType,
+        gitCommit = gitCommit,
+        nativeLibraries = nativeLibraries.map { "${it.name}:${it.version}" },
+    )
+
+private fun StrategyProbeCandidateSummary.toExecutionDetail(
+    lane: String,
+    observations: List<ObservationFact>,
+): DiagnosticsArchiveCandidateExecutionDetail {
+    val strategyFacts = observations.mapNotNull(ObservationFact::strategy).filter { it.candidateId == id }
+    val statusCounts =
+        strategyFacts
+            .groupingBy { it.status.name.lowercase() }
+            .eachCount()
+            .toSortedMap()
+    val transportFailureCounts =
+        strategyFacts
+            .map { it.transportFailure.name.lowercase() }
+            .filterNot { it == TransportFailureKind.NONE.name.lowercase() }
+            .groupingBy { it }
+            .eachCount()
+            .toSortedMap()
+    val tlsErrorSamples =
+        strategyFacts
+            .flatMap { fact -> listOfNotNull(fact.tlsError, fact.tlsEchError) }
+            .distinct()
+            .take(5)
+    return DiagnosticsArchiveCandidateExecutionDetail(
+        lane = lane,
+        id = id,
+        label = label,
+        family = family,
+        outcome = outcome,
+        rationale = rationale,
+        succeededTargets = succeededTargets,
+        totalTargets = totalTargets,
+        weightedSuccessScore = weightedSuccessScore,
+        totalWeight = totalWeight,
+        qualityScore = qualityScore,
+        averageLatencyMs = averageLatencyMs,
+        skipped = skipped,
+        skipReasons =
+            buildList {
+                if (skipped) {
+                    add(rationale)
+                }
+                addAll(
+                    notes.filter {
+                        it.contains("skip", ignoreCase = true) ||
+                            it.contains("not applicable", ignoreCase = true)
+                    },
+                )
+            }.distinct(),
+        notes = notes,
+        factBreakdown =
+            DiagnosticsArchiveCandidateFactBreakdown(
+                observationCount = strategyFacts.size,
+                statusCounts = statusCounts,
+                transportFailureCounts = transportFailureCounts,
+                tlsErrorSamples = tlsErrorSamples,
+            ),
+    )
+}
+
+private fun List<String>.distinctConsecutive(): List<String> {
+    val result = mutableListOf<String>()
+    for (value in this) {
+        if (value.isBlank()) continue
+        if (result.lastOrNull() != value) {
+            result += value
+        }
+    }
+    return result
+}
+
+private fun sha256Hex(value: String): String = sha256Hex(value.toByteArray())
+
+private fun sha256Hex(value: ByteArray): String =
+    MessageDigest
+        .getInstance("SHA-256")
+        .digest(value)
+        .joinToString(separator = "") { byte -> "%02x".format(byte) }

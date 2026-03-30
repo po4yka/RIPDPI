@@ -1,6 +1,8 @@
 package com.poyka.ripdpi.activities
 
 import com.poyka.ripdpi.diagnostics.DiagnosticsArchive
+import com.poyka.ripdpi.diagnostics.DiagnosticsArchiveReason
+import com.poyka.ripdpi.diagnostics.DiagnosticsArchiveRequest
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.update
 
@@ -29,7 +31,14 @@ internal class DiagnosticsShareActions(
                 successMessage = "Archive ready to share",
                 failureMessage = "Failed to generate archive",
             ) { targetSessionId ->
-                val archive = diagnosticsShareService.createArchive(targetSessionId)
+                val archive =
+                    diagnosticsShareService.createArchive(
+                        DiagnosticsArchiveRequest(
+                            requestedSessionId = targetSessionId,
+                            reason = DiagnosticsArchiveReason.SHARE_ARCHIVE,
+                            requestedAt = System.currentTimeMillis(),
+                        ),
+                    )
                 emit(
                     DiagnosticsEffect.ShareArchiveRequested(
                         absolutePath = archive.absolutePath,
@@ -49,7 +58,14 @@ internal class DiagnosticsShareActions(
                 successMessage = "Archive saved to export flow",
                 failureMessage = "Failed to prepare archive",
             ) { targetSessionId ->
-                val archive = diagnosticsShareService.createArchive(targetSessionId)
+                val archive =
+                    diagnosticsShareService.createArchive(
+                        DiagnosticsArchiveRequest(
+                            requestedSessionId = targetSessionId,
+                            reason = DiagnosticsArchiveReason.SAVE_ARCHIVE,
+                            requestedAt = System.currentTimeMillis(),
+                        ),
+                    )
                 emit(
                     DiagnosticsEffect.SaveArchiveRequested(
                         absolutePath = archive.absolutePath,

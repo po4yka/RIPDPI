@@ -6,6 +6,7 @@ import com.poyka.ripdpi.data.diagnostics.NetworkSnapshotEntity
 import com.poyka.ripdpi.data.diagnostics.ProbeResultEntity
 import com.poyka.ripdpi.data.diagnostics.ScanSessionEntity
 import com.poyka.ripdpi.data.diagnostics.TelemetrySampleEntity
+import com.poyka.ripdpi.proto.AppSettings
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
 import org.junit.Assert.assertEquals
@@ -16,6 +17,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
 import org.junit.Test
 import java.nio.file.Files
+import java.security.MessageDigest
 import java.util.zip.ZipFile
 
 class DiagnosticsArchiveComponentsTest {
@@ -125,12 +127,16 @@ class DiagnosticsArchiveComponentsTest {
                         diagnosticContextEntity(id = "ctx-passive", sessionId = null, capturedAt = 19L),
                     ),
                 approachSummaries = listOf(approachSummary(strategyId = "strategy-fast")),
+                appSettings = appSettings(),
+                buildProvenance = buildProvenance(),
+                collectionWarnings = emptyList(),
                 logcatSnapshot = null,
             )
 
         val selectedSession = selector.selectPrimarySession(null, null, sourceData.sessions)
         val selection =
             selector.buildSelection(
+                request = archiveRequest(sessionId = null),
                 primarySession = selectedSession,
                 primaryResults = listOf(probeResult(sessionId = "session-latest")),
                 sourceData = sourceData,
@@ -146,8 +152,43 @@ class DiagnosticsArchiveComponentsTest {
         assertEquals(listOf("ev-global", "ev-other"), selection.globalEvents.map { it.id })
         assertEquals("strategy-fast", selection.selectedApproachSummary?.approachId?.value)
         assertEquals(
+            DiagnosticsArchiveSessionSelectionStatus.LATEST_COMPLETED_SESSION,
+            selection.sessionSelectionStatus,
+        )
+        assertEquals(
             DiagnosticsArchiveFormat.includedFiles(logcatIncluded = false),
             selection.includedFiles,
+        )
+    }
+
+    @Test
+    fun `selector marks support bundle exports explicitly`() {
+        val sourceData =
+            DiagnosticsArchiveSourceData(
+                sessions = listOf(scanSession(id = "session-1")),
+                usageSessions = emptyList(),
+                snapshots = emptyList(),
+                telemetry = emptyList(),
+                events = emptyList(),
+                contexts = emptyList(),
+                approachSummaries = emptyList(),
+                appSettings = appSettings(),
+                buildProvenance = buildProvenance(),
+                collectionWarnings = emptyList(),
+                logcatSnapshot = null,
+            )
+
+        val selection =
+            selector.buildSelection(
+                request = archiveRequest(reason = DiagnosticsArchiveReason.SHARE_DEBUG_BUNDLE, sessionId = null),
+                primarySession = sourceData.sessions.single(),
+                primaryResults = emptyList(),
+                sourceData = sourceData,
+            )
+
+        assertEquals(
+            DiagnosticsArchiveSessionSelectionStatus.SUPPORT_BUNDLE,
+            selection.sessionSelectionStatus,
         )
     }
 
@@ -173,6 +214,7 @@ class DiagnosticsArchiveComponentsTest {
     fun `renderer emits redacted archive entries with manifest summaries`() {
         val selection =
             DiagnosticsArchiveSelection(
+                request = archiveRequest(),
                 payload =
                     DiagnosticsArchivePayload(
                         schemaVersion = DiagnosticsArchiveFormat.schemaVersion,
@@ -202,6 +244,22 @@ class DiagnosticsArchiveComponentsTest {
                 latestSnapshotModel = networkSnapshotModel(),
                 latestContextModel = diagnosticContextModel(),
                 sessionContextModel = diagnosticContextModel(),
+                buildProvenance = buildProvenance(),
+                sessionSelectionStatus = DiagnosticsArchiveSessionSelectionStatus.REQUESTED_SESSION,
+                effectiveStrategySignature = null,
+                appSettings = appSettings(),
+                sourceCounts =
+                    DiagnosticsArchiveSourceCounts(
+                        telemetrySamples = 1,
+                        nativeEvents = 2,
+                        snapshots = 2,
+                        contexts = 2,
+                        sessionResults = 1,
+                        sessionSnapshots = 1,
+                        sessionContexts = 1,
+                        sessionEvents = 1,
+                    ),
+                collectionWarnings = emptyList(),
                 includedFiles = DiagnosticsArchiveFormat.includedFiles(logcatIncluded = true),
                 logcatSnapshot =
                     LogcatSnapshot(
@@ -222,6 +280,21 @@ class DiagnosticsArchiveComponentsTest {
             json.decodeFromString(
                 DiagnosticsArchiveManifest.serializer(),
                 entries.getValue("manifest.json").bytes.decodeToString(),
+            )
+        val runtimeConfig =
+            json.decodeFromString(
+                DiagnosticsArchiveRuntimeConfigPayload.serializer(),
+                entries.getValue("runtime-config.json").bytes.decodeToString(),
+            )
+        val provenance =
+            json.decodeFromString(
+                DiagnosticsArchiveProvenancePayload.serializer(),
+                entries.getValue("archive-provenance.json").bytes.decodeToString(),
+            )
+        val integrity =
+            json.decodeFromString(
+                DiagnosticsArchiveIntegrityPayload.serializer(),
+                entries.getValue("integrity.json").bytes.decodeToString(),
             )
 
         assertTrue(entries.containsKey("summary.txt"))
@@ -299,11 +372,155 @@ class DiagnosticsArchiveComponentsTest {
         )
         assertEquals("session-1", manifest.includedSessionId)
         assertEquals(DiagnosticsArchiveFormat.includedFiles(logcatIncluded = true), manifest.includedFiles)
+        assertEquals(DiagnosticsArchiveReason.SHARE_ARCHIVE, manifest.archiveReason)
         assertEquals("redacted", manifest.networkSummary?.publicIp)
         assertEquals("redacted", manifest.contextSummary?.service?.proxyEndpoint)
         assertEquals("ru_ooni_v1", manifest.classifierVersion)
         assertEquals(1, manifest.diagnosisCount)
         assertEquals(1, manifest.packVersions["ru-independent-media"])
+        assertEquals("sha256", manifest.integrityAlgorithm)
+        assertTrue(entries.containsKey("archive-provenance.json"))
+        assertTrue(entries.containsKey("runtime-config.json"))
+        assertTrue(entries.containsKey("analysis.json"))
+        assertTrue(entries.containsKey("completeness.json"))
+        assertTrue(entries.containsKey("integrity.json"))
+        assertTrue(runtimeConfig.commandLineSettingsEnabled)
+        assertNotNull(runtimeConfig.commandLineArgsHash)
+        assertFalse(
+            entries
+                .getValue("runtime-config.json")
+                .bytes
+                .decodeToString()
+                .contains("--fake --split 2"),
+        )
+        assertEquals("session-1", provenance.selectedSessionId)
+        assertEquals(DiagnosticsArchiveSessionSelectionStatus.REQUESTED_SESSION, provenance.sessionSelectionStatus)
+        assertEquals("unavailable", provenance.buildProvenance.gitCommit)
+        assertEquals(entries.keys - "integrity.json", integrity.files.map { it.name }.toSet())
+        integrity.files.forEach { file ->
+            val entry = entries.getValue(file.name)
+            assertEquals(entry.bytes.size, file.byteCount)
+            assertEquals(sha256Hex(entry.bytes), file.sha256)
+        }
+        GoldenContractSupport.assertJsonGolden(
+            "archive/manifest_v2.json",
+            entries.getValue("manifest.json").bytes.decodeToString(),
+        )
+        GoldenContractSupport.assertJsonGolden(
+            "archive/archive_provenance_v2.json",
+            entries.getValue("archive-provenance.json").bytes.decodeToString(),
+        )
+        GoldenContractSupport.assertJsonGolden(
+            "archive/runtime_config_v2.json",
+            entries.getValue("runtime-config.json").bytes.decodeToString(),
+        )
+        GoldenContractSupport.assertJsonGolden(
+            "archive/analysis_v2.json",
+            entries.getValue("analysis.json").bytes.decodeToString(),
+        )
+        GoldenContractSupport.assertJsonGolden(
+            "archive/completeness_v2.json",
+            entries.getValue("completeness.json").bytes.decodeToString(),
+        )
+        GoldenContractSupport.assertJsonGolden(
+            "archive/integrity_v2.json",
+            entries.getValue("integrity.json").bytes.decodeToString(),
+        )
+    }
+
+    @Test
+    fun `renderer marks truncated collections and decode failures in completeness metadata`() {
+        val invalidSnapshot = networkSnapshotEntity(sessionId = "session-1").copy(payloadJson = "{bad")
+        val invalidContext = diagnosticContextEntity(sessionId = "session-1").copy(payloadJson = "{bad")
+        val selection =
+            DiagnosticsArchiveSelection(
+                request = archiveRequest(reason = DiagnosticsArchiveReason.SAVE_ARCHIVE),
+                payload =
+                    DiagnosticsArchivePayload(
+                        schemaVersion = DiagnosticsArchiveFormat.schemaVersion,
+                        scope = DiagnosticsArchiveFormat.scope,
+                        privacyMode = DiagnosticsArchiveFormat.privacyMode,
+                        session = scanSession(id = "session-1"),
+                        results = listOf(probeResult(sessionId = "session-1")),
+                        sessionSnapshots = listOf(invalidSnapshot),
+                        sessionContexts = listOf(invalidContext),
+                        sessionEvents = listOf(nativeEvent(id = "ev-session", sessionId = "session-1")),
+                        latestPassiveSnapshot = invalidSnapshot.copy(id = "passive-snap", sessionId = null),
+                        latestPassiveContext = invalidContext.copy(id = "passive-ctx", sessionId = null),
+                        telemetry = listOf(telemetrySample(publicIp = "198.51.100.8")),
+                        globalEvents = listOf(nativeEvent(id = "ev-global", sessionId = null)),
+                        approachSummaries = emptyList(),
+                    ),
+                primarySession = scanSession(id = "session-1"),
+                primaryReport = scanReport("session-1").toEngineScanReportWire(),
+                primaryResults = listOf(probeResult(sessionId = "session-1")),
+                primarySnapshots = listOf(invalidSnapshot),
+                primaryContexts = listOf(invalidContext),
+                primaryEvents = listOf(nativeEvent(id = "ev-session", sessionId = "session-1")),
+                latestPassiveSnapshot = invalidSnapshot.copy(id = "passive-snap", sessionId = null),
+                latestPassiveContext = invalidContext.copy(id = "passive-ctx", sessionId = null),
+                globalEvents = listOf(nativeEvent(id = "ev-global", sessionId = null)),
+                selectedApproachSummary = null,
+                latestSnapshotModel = networkSnapshotModel(),
+                latestContextModel = diagnosticContextModel(),
+                sessionContextModel = diagnosticContextModel(),
+                buildProvenance = buildProvenance(),
+                sessionSelectionStatus = DiagnosticsArchiveSessionSelectionStatus.REQUESTED_SESSION,
+                effectiveStrategySignature = null,
+                appSettings = appSettings(),
+                sourceCounts =
+                    DiagnosticsArchiveSourceCounts(
+                        telemetrySamples = DiagnosticsArchiveFormat.telemetryLimit,
+                        nativeEvents = DiagnosticsArchiveFormat.globalEventLimit,
+                        snapshots = DiagnosticsArchiveFormat.snapshotLimit,
+                        contexts = DiagnosticsArchiveFormat.snapshotLimit,
+                        sessionResults = 1,
+                        sessionSnapshots = 1,
+                        sessionContexts = 1,
+                        sessionEvents = 1,
+                    ),
+                collectionWarnings = listOf("logcat_capture_failed:none"),
+                includedFiles = DiagnosticsArchiveFormat.includedFiles(logcatIncluded = true),
+                logcatSnapshot =
+                    LogcatSnapshot(
+                        content = "x".repeat(LogcatSnapshotCollector.MAX_LOGCAT_BYTES),
+                        captureScope = LogcatSnapshotCollector.AppVisibleSnapshotScope,
+                        byteCount = LogcatSnapshotCollector.MAX_LOGCAT_BYTES,
+                    ),
+            )
+        val target =
+            DiagnosticsArchiveTarget(
+                file = Files.createTempFile("archive-render", ".zip").toFile(),
+                fileName = "ripdpi-diagnostics-43.zip",
+                createdAt = 43L,
+            )
+
+        val entries = renderer.render(target, selection).associateBy(DiagnosticsArchiveEntry::name)
+        val completeness =
+            json.decodeFromString(
+                DiagnosticsArchiveCompletenessPayload.serializer(),
+                entries.getValue("completeness.json").bytes.decodeToString(),
+            )
+
+        assertTrue(completeness.truncation.telemetrySamples)
+        assertTrue(completeness.truncation.nativeEvents)
+        assertTrue(completeness.truncation.snapshots)
+        assertTrue(completeness.truncation.contexts)
+        assertTrue(completeness.truncation.logcat)
+        assertEquals(
+            DiagnosticsArchiveSectionStatus.TRUNCATED,
+            completeness.sectionStatuses["telemetry.csv"],
+        )
+        assertEquals(
+            DiagnosticsArchiveSectionStatus.TRUNCATED,
+            completeness.sectionStatuses["native-events.csv"],
+        )
+        assertEquals(
+            DiagnosticsArchiveSectionStatus.TRUNCATED,
+            completeness.sectionStatuses["logcat.txt"],
+        )
+        assertTrue(completeness.collectionWarnings.any { it.contains("snapshot_decode_failed_count:2") })
+        assertTrue(completeness.collectionWarnings.any { it.contains("context_decode_failed_count:2") })
     }
 
     @Test
@@ -534,4 +751,48 @@ class DiagnosticsArchiveComponentsTest {
                     roamingState = "false",
                 ),
         )
+
+    private fun archiveRequest(
+        reason: DiagnosticsArchiveReason = DiagnosticsArchiveReason.SHARE_ARCHIVE,
+        sessionId: String? = "session-1",
+    ) = DiagnosticsArchiveRequest(
+        requestedSessionId = sessionId,
+        reason = reason,
+        requestedAt = 24L,
+    )
+
+    private fun buildProvenance() =
+        DiagnosticsArchiveBuildProvenance(
+            applicationId = "com.poyka.ripdpi",
+            appVersionName = "0.0.2",
+            appVersionCode = 2L,
+            buildType = "debug",
+            gitCommit = "unavailable",
+            nativeLibraries =
+                listOf(
+                    DiagnosticsArchiveNativeLibraryProvenance(
+                        name = "libripdpi.so",
+                        version = "unavailable",
+                    ),
+                    DiagnosticsArchiveNativeLibraryProvenance(
+                        name = "libripdpi-tunnel.so",
+                        version = "unavailable",
+                    ),
+                ),
+        )
+
+    private fun appSettings(): AppSettings =
+        AppSettings
+            .newBuilder()
+            .setRipdpiMode("vpn")
+            .setEnableCmdSettings(true)
+            .setCmdArgs("--fake --split 2")
+            .setDiagnosticsActiveProfileId("default")
+            .build()
+
+    private fun sha256Hex(value: ByteArray): String =
+        MessageDigest
+            .getInstance("SHA-256")
+            .digest(value)
+            .joinToString(separator = "") { byte -> "%02x".format(byte) }
 }

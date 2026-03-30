@@ -259,7 +259,9 @@ class StubInstrumentedDiagnosticsShareService : DiagnosticsShareService {
         error("unused")
     }
 
-    override suspend fun createArchive(sessionId: String?): com.poyka.ripdpi.diagnostics.DiagnosticsArchive {
+    override suspend fun createArchive(
+        request: com.poyka.ripdpi.diagnostics.DiagnosticsArchiveRequest,
+    ): com.poyka.ripdpi.diagnostics.DiagnosticsArchive {
         error("unused")
     }
 }

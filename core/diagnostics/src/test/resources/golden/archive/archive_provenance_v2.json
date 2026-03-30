@@ -1,0 +1,34 @@
+{
+    "archiveReason": "SHARE_ARCHIVE",
+    "buildProvenance": {
+        "appVersionCode": 2,
+        "appVersionName": "0.0.2",
+        "applicationId": "com.poyka.ripdpi",
+        "buildType": "debug",
+        "gitCommit": "unavailable",
+        "nativeLibraries": [
+            {
+                "name": "libripdpi.so",
+                "version": "unavailable"
+            },
+            {
+                "name": "libripdpi-tunnel.so",
+                "version": "unavailable"
+            }
+        ]
+    },
+    "createdAt": 42,
+    "requestedAt": 24,
+    "requestedSessionId": "session-1",
+    "runtimeProvenance": {
+        "androidVersion": "14",
+        "apiLevel": 34,
+        "locale": "en-US",
+        "mode": "vpn",
+        "primaryAbi": "arm64-v8a",
+        "timezone": "UTC"
+    },
+    "selectedSessionId": "session-1",
+    "sessionSelectionStatus": "requested_session",
+    "triggerMetadata": {}
+}

@@ -12,11 +12,11 @@ fun interface DiagnosticsArchiveIdGenerator {
 interface DiagnosticsArchiveExporter {
     fun cleanupCache()
 
-    suspend fun createArchive(sessionId: String?): DiagnosticsArchive
+    suspend fun createArchive(request: DiagnosticsArchiveRequest): DiagnosticsArchive
 }
 
 @Singleton
-class DefaultDiagnosticsArchiveExporter
+internal class DefaultDiagnosticsArchiveExporter
     @Inject
     constructor(
         private val artifactWriteStore: DiagnosticsArtifactWriteStore,
@@ -31,19 +31,20 @@ class DefaultDiagnosticsArchiveExporter
             fileStore.cleanup()
         }
 
-        override suspend fun createArchive(sessionId: String?): DiagnosticsArchive {
+        override suspend fun createArchive(request: DiagnosticsArchiveRequest): DiagnosticsArchive {
             fileStore.cleanup()
             val sourceData = sourceLoader.load()
-            val requestedSession = sessionId?.let { sourceLoader.getScanSession(it) }
+            val requestedSession = request.requestedSessionId?.let { sourceLoader.getScanSession(it) }
             val primarySession =
                 sessionSelector.selectPrimarySession(
-                    requestedSessionId = sessionId,
+                    requestedSessionId = request.requestedSessionId,
                     requestedSession = requestedSession,
                     sessions = sourceData.sessions,
                 )
             val primaryResults = primarySession?.id?.let { sourceLoader.getProbeResults(it) }.orEmpty()
             val selection =
                 sessionSelector.buildSelection(
+                    request = request,
                     primarySession = primarySession,
                     primaryResults = primaryResults,
                     sourceData = sourceData,

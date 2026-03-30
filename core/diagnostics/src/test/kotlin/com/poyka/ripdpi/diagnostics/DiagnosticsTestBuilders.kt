@@ -79,10 +79,33 @@ internal fun createDiagnosticsServices(
             artifactWriteStore = stores,
             sourceLoader =
                 DiagnosticsArchiveSourceLoader(
+                    appSettingsRepository = appSettingsRepository,
                     scanRecordStore = stores,
                     artifactReadStore = stores,
                     bypassUsageHistoryStore = stores,
                     logcatSnapshotCollector = logcatSnapshotCollector,
+                    buildInfoProvider =
+                        object : DiagnosticsArchiveBuildInfoProvider {
+                            override fun buildProvenance(): DiagnosticsArchiveBuildProvenance =
+                                DiagnosticsArchiveBuildProvenance(
+                                    applicationId = context.packageName,
+                                    appVersionName = "0.0.1-test",
+                                    appVersionCode = 1L,
+                                    buildType = "debug",
+                                    gitCommit = "test-commit",
+                                    nativeLibraries =
+                                        listOf(
+                                            DiagnosticsArchiveNativeLibraryProvenance(
+                                                name = "libripdpi.so",
+                                                version = "test-native",
+                                            ),
+                                            DiagnosticsArchiveNativeLibraryProvenance(
+                                                name = "libripdpi-tunnel.so",
+                                                version = "test-native",
+                                            ),
+                                        ),
+                                )
+                        },
                     json = json,
                 ),
             sessionSelector =

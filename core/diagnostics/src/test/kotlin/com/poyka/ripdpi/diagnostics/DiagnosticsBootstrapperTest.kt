@@ -161,7 +161,7 @@ private class RecordingArchiveExporter : DiagnosticsArchiveExporter {
         cleanupCalls += 1
     }
 
-    override suspend fun createArchive(sessionId: String?): DiagnosticsArchive {
+    override suspend fun createArchive(request: DiagnosticsArchiveRequest): DiagnosticsArchive {
         error("unused")
     }
 }
