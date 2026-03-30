@@ -1,5 +1,6 @@
 use std::io::{self, Read};
 use std::net::{IpAddr, SocketAddr, TcpStream};
+use std::time::Duration;
 
 use ripdpi_proxy_config::ProxyRuntimeContext;
 use ripdpi_ws_tunnel::{MtprotoSeedClassification, TelegramDc, WsTunnelConfig};
@@ -148,6 +149,10 @@ where
             let config = WsTunnelConfig {
                 protect_path: state.config.process.protect_path.clone(),
                 resolved_addr: Some(resolved_addr),
+                connect_timeout: match state.config.timeouts.connect_timeout_ms {
+                    0 => None,
+                    millis => Some(Duration::from_millis(millis as u64)),
+                },
             };
             match relay_ws(client, dc, seed_request.clone(), &config) {
                 Ok(()) => WsTunnelResult::ValidatedMtproto { dc },
@@ -332,7 +337,8 @@ mod tests {
     #[test]
     fn run_ws_tunnel_with_seed_validates_and_relays_test_dc() {
         let (_app, relay_client) = connected_pair();
-        let state = runtime_state();
+        let mut state = runtime_state();
+        Arc::make_mut(&mut state.config).timeouts.connect_timeout_ms = 1_500;
         let seed_request = build_test_init_packet(10_002);
         let resolved_addr = SocketAddr::from((Ipv4Addr::LOCALHOST, 443));
 
@@ -348,6 +354,7 @@ mod tests {
                 assert_eq!(dc, TelegramDc::from_raw(10_002).expect("test dc"));
                 assert_eq!(forwarded_seed, seed_request);
                 assert_eq!(config.resolved_addr, Some(resolved_addr));
+                assert_eq!(config.connect_timeout, Some(Duration::from_millis(1_500)));
                 Ok(())
             },
         );
