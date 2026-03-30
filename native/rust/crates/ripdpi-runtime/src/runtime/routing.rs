@@ -238,7 +238,7 @@ pub(super) fn note_block_signal_for_failure(
         .control
         .as_ref()
         .and_then(|control| control.current_network_snapshot())
-        .map_or(true, |snapshot| snapshot.validated && !snapshot.captive_portal);
+        .is_none_or(|snapshot| snapshot.validated && !snapshot.captive_portal);
     if let Ok(mut cache) = state.cache.lock() {
         cache.note_block_signal(&state.config, host, signal.signal, signal.provider.as_deref(), confirmation_allowed);
         flush_autolearn_updates(state, &mut cache);
