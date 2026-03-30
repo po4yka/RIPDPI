@@ -9,6 +9,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -23,6 +24,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.SettingsUiState
 import com.poyka.ripdpi.activities.SettingsViewModel
+import com.poyka.ripdpi.security.PinVerifyResult
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.feedback.WarningBanner
@@ -35,6 +37,7 @@ import com.poyka.ripdpi.ui.navigation.Route
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
+import kotlinx.coroutines.delay
 
 enum class BiometricPromptStage {
     Biometric,
@@ -52,10 +55,24 @@ fun BiometricPromptRoute(
     var stage by rememberSaveable { mutableStateOf(BiometricPromptStage.Biometric) }
     var pin by rememberSaveable { mutableStateOf("") }
     var pinError by rememberSaveable { mutableStateOf<String?>(null) }
+    var lockoutRemainingMs by rememberSaveable { mutableLongStateOf(0L) }
 
     LaunchedEffect(uiState.isHydrated, uiState.biometricEnabled) {
         if (uiState.isHydrated && !uiState.biometricEnabled) {
             onAuthenticated()
+        }
+    }
+
+    LaunchedEffect(stage) {
+        if (stage == BiometricPromptStage.Pin && viewModel.isPinLockedOut()) {
+            lockoutRemainingMs = viewModel.pinLockoutRemainingMs()
+        }
+    }
+
+    LaunchedEffect(lockoutRemainingMs) {
+        if (lockoutRemainingMs > 0L) {
+            delay(1_000L)
+            lockoutRemainingMs = viewModel.pinLockoutRemainingMs()
         }
     }
 
@@ -64,6 +81,7 @@ fun BiometricPromptRoute(
         stage = stage,
         pin = pin,
         pinError = pinError,
+        lockoutRemainingMs = lockoutRemainingMs,
         modifier = modifier,
         onAuthenticate = onAuthenticated,
         onUseBackupPin = {
@@ -80,10 +98,19 @@ fun BiometricPromptRoute(
             pinError = null
         },
         onSubmitPin = {
-            if (viewModel.verifyBackupPin(pin)) {
-                onAuthenticated()
-            } else {
-                pinError = pinErrorText
+            when (val result = viewModel.verifyBackupPin(pin)) {
+                is PinVerifyResult.Success -> {
+                    onAuthenticated()
+                }
+
+                is PinVerifyResult.Failed -> {
+                    pinError = pinErrorText
+                }
+
+                is PinVerifyResult.LockedOut -> {
+                    lockoutRemainingMs = result.remainingMs
+                    pinError = null
+                }
             }
         },
     )
@@ -101,7 +128,9 @@ fun BiometricPromptScreen(
     onPinChanged: (String) -> Unit,
     onSubmitPin: () -> Unit,
     modifier: Modifier = Modifier,
+    lockoutRemainingMs: Long = 0L,
 ) {
+    val isLockedOut = lockoutRemainingMs > 0L
     val hasBackupPin = uiState.hasBackupPin
     val isPinStage = stage == BiometricPromptStage.Pin && hasBackupPin
     val introLayout = rememberRipDpiIntroScaffoldMetrics()
@@ -131,7 +160,14 @@ fun BiometricPromptScreen(
             },
         modifier = modifier.ripDpiTestTag(RipDpiTestTags.screen(Route.BiometricPrompt)),
         banner = {
-            if (!isPinStage && !hasBackupPin) {
+            if (isPinStage && isLockedOut) {
+                val remainingSeconds = ((lockoutRemainingMs + 999) / 1_000).toInt()
+                WarningBanner(
+                    title = stringResource(R.string.biometric_prompt_pin_lockout_title),
+                    message = stringResource(R.string.biometric_prompt_pin_lockout_body, remainingSeconds),
+                    tone = WarningBannerTone.Restricted,
+                )
+            } else if (!isPinStage && !hasBackupPin) {
                 WarningBanner(
                     title = stringResource(R.string.biometric_prompt_no_pin_title),
                     message = stringResource(R.string.biometric_prompt_no_pin_body),
@@ -172,6 +208,7 @@ fun BiometricPromptScreen(
             RipDpiButton(
                 text = stringResource(R.string.biometric_prompt_action),
                 onClick = if (isPinStage) onSubmitPin else onAuthenticate,
+                enabled = !isPinStage || !isLockedOut,
                 modifier =
                     Modifier
                         .fillMaxWidth()

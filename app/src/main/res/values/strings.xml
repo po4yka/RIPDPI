@@ -1332,6 +1332,8 @@ Source: %2$s</string>
     <string name="biometric_prompt_pin_placeholder">0000</string>
     <string name="biometric_prompt_pin_helper">Digits only. The PIN is checked locally and never leaves this device.</string>
     <string name="biometric_prompt_pin_error">The backup PIN does not match.</string>
+    <string name="biometric_prompt_pin_lockout_title">Too many attempts</string>
+    <string name="biometric_prompt_pin_lockout_body">Try again in %1$d seconds.</string>
     <string name="biometric_prompt_use_biometric">Back to biometrics</string>
     <string name="ripdpi_source">https://github.com/hufrea/ripdpi</string>
     <string name="about_description">Compose-based local configuration surface for the preserved RIPDPI engine, service, and DataStore stack.</string>

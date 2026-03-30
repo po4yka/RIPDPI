@@ -1243,6 +1243,8 @@ fakeddisorder endhost</string>
     <string name="biometric_prompt_pin_placeholder">0000</string>
     <string name="biometric_prompt_pin_helper">Только цифры. PIN проверяется локально и никогда не покидает устройство.</string>
     <string name="biometric_prompt_pin_error">Резервный PIN не совпадает.</string>
+    <string name="biometric_prompt_pin_lockout_title">Слишком много попыток</string>
+    <string name="biometric_prompt_pin_lockout_body">Повторите через %1$d сек.</string>
     <string name="biometric_prompt_use_biometric">Вернуться к биометрии</string>
     <string name="ripdpi_source">https://github.com/hufrea/ripdpi</string>
     <string name="about_description">Интерфейс локальной конфигурации на Compose для сохранённого движка RIPDPI, сервиса и стека DataStore.</string>
