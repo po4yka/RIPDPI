@@ -343,6 +343,44 @@ class MainHomeDiagnosticsActionsTest {
         assertEquals("Other scan running", uiState.verifiedVpnAction.supportingText)
     }
 
+    @Test
+    fun `share failure dismisses analysis sheet and emits error`() =
+        runTest {
+            val effects = Channel<MainEffect>(Channel.BUFFERED)
+            val shareService =
+                StubDiagnosticsShareService().apply {
+                    archiveFailure = IllegalStateException("archive creation failed")
+                }
+            val homeDiagnosticsState =
+                MutableStateFlow(
+                    HomeDiagnosticsRuntimeState(
+                        latestCompositeOutcome = compositeOutcome(),
+                        analysisSheetVisible = true,
+                    ),
+                )
+            val actions =
+                createActions(
+                    scope = backgroundScope,
+                    effects = effects,
+                    diagnosticsShareService = shareService,
+                    homeDiagnosticsState = homeDiagnosticsState,
+                )
+
+            actions.shareLatestHomeAnalysis()
+            runCurrent()
+            advanceUntilIdle()
+
+            assertFalse(
+                "analysisSheetVisible should be false after share failure",
+                homeDiagnosticsState.value.analysisSheetVisible,
+            )
+            val effect = effects.tryReceive().getOrNull()
+            assertTrue(
+                "expected ShowError effect but got $effect",
+                effect is MainEffect.ShowError,
+            )
+        }
+
     private fun createActions(
         scope: CoroutineScope,
         effects: Channel<MainEffect> = Channel(Channel.BUFFERED),
