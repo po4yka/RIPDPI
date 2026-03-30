@@ -210,6 +210,7 @@ class AdvancedSettingsSectionsTest {
         )
 
         composeRule.onNodeWithTag(RipDpiTestTags.AdvancedClearRememberedNetworks).performClick()
+        composeRule.onNodeWithText("Clear").performClick()
         assertTrue(cleared)
     }
 
