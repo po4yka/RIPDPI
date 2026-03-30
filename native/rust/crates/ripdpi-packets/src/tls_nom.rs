@@ -41,7 +41,7 @@ fn parse_client_hello_handshake_nom<'a>(
     input: &'a [u8],
 ) -> IResult<&'a [u8], ClientHelloParsed<'a>> {
     // Handshake type: ClientHello (0x01)
-    let (input, _) = tag(&[0x01])(input)?;
+    let (input, _) = tag(&[0x01u8] as &[u8])(input)?;
     // Handshake length (3 bytes)
     let (input, hs_len) = be_u24(input)?;
     let (_, input) =
