@@ -10,6 +10,8 @@ class StrategyFamiliesTest {
         assertEquals("ECH TLS record split", strategyLaneFamilyLabel("ech_tlsrec"))
         assertEquals("Sequence overlap", strategyLaneFamilyLabel("seqovl"))
         assertEquals("TLS record + sequence overlap", strategyLaneFamilyLabel("tlsrec_seqovl"))
+        assertEquals("Multi-disorder", strategyLaneFamilyLabel("multidisorder"))
+        assertEquals("TLS record multi-disorder", strategyLaneFamilyLabel("tlsrec_multidisorder"))
         assertEquals("IP fragmentation", strategyLaneFamilyLabel("ipfrag2"))
         assertEquals("QUIC IP fragmentation", strategyLaneFamilyLabel("quic_ipfrag2"))
     }
@@ -51,6 +53,20 @@ class StrategyFamiliesTest {
             )
 
         assertEquals("tlsrec_seqovl", family)
+    }
+
+    @Test
+    fun `tcp lane derives tlsrec multidisorder family`() {
+        val family =
+            deriveTcpStrategyFamily(
+                listOf(
+                    TcpChainStepModel(kind = TcpChainStepKind.TlsRec, marker = "extlen"),
+                    TcpChainStepModel(kind = TcpChainStepKind.MultiDisorder, marker = "sniext"),
+                    TcpChainStepModel(kind = TcpChainStepKind.MultiDisorder, marker = "host"),
+                ),
+            )
+
+        assertEquals("tlsrec_multidisorder", family)
     }
 
     @Test

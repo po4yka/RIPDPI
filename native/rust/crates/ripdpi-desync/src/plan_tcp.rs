@@ -84,6 +84,70 @@ fn seqovl_hard_gate_matches(context: ActivationContext, split_end: i64) -> bool 
     context.stream_start.saturating_add(split_end) <= 1500
 }
 
+fn plan_multi_disorder_steps(
+    send_steps: &[TcpChainStep],
+    tampered: &[u8],
+    info: &mut ProtoInfo,
+    rng: &mut OracleRng,
+    context: ActivationContext,
+) -> Result<Vec<PlannedStep>, DesyncError> {
+    let payload_len = tampered.len() as i64;
+    let mut resolved_markers = Vec::with_capacity(send_steps.len());
+    let mut cursor = 0i64;
+
+    for step in send_steps {
+        if step.kind != TcpChainStepKind::MultiDisorder {
+            return Err(DesyncError);
+        }
+        if !activation_filter_matches(step.activation_filter, context) {
+            continue;
+        }
+        let Some(mut pos) = resolve_offset(
+            step.offset,
+            tampered,
+            tampered.len(),
+            cursor,
+            info,
+            rng,
+            context,
+            context.adaptive.split_offset_base,
+        ) else {
+            if step.offset.base.is_adaptive() || allows_missing_marker_offset(step) {
+                continue;
+            }
+            return Err(DesyncError);
+        };
+        if pos < 0 || pos < cursor {
+            return Err(DesyncError);
+        }
+        if pos > payload_len {
+            pos = payload_len;
+        }
+        resolved_markers.push(pos);
+        cursor = pos;
+    }
+
+    let mut boundaries = Vec::with_capacity(resolved_markers.len() + 2);
+    boundaries.push(0);
+    boundaries.extend(resolved_markers);
+    boundaries.push(payload_len);
+
+    let steps = boundaries
+        .windows(2)
+        .filter_map(|window| {
+            let start = window[0];
+            let end = window[1];
+            (end > start).then_some(PlannedStep { kind: TcpChainStepKind::MultiDisorder, start, end })
+        })
+        .collect::<Vec<_>>();
+
+    if steps.len() < 3 {
+        return Err(DesyncError);
+    }
+
+    Ok(steps)
+}
+
 pub fn plan_tcp(
     group: &DesyncGroup,
     input: &[u8],
@@ -108,6 +172,11 @@ pub fn plan_tcp(
     let mut actions = Vec::new();
     let mut lp = 0i64;
     let fake_ttl = context.resolved_fake_ttl.or(group.actions.ttl).unwrap_or(8);
+
+    if send_steps.iter().any(|step| step.kind == TcpChainStepKind::MultiDisorder) {
+        let steps = plan_multi_disorder_steps(&send_steps, &tampered.bytes, &mut info, &mut rng, context)?;
+        return Ok(DesyncPlan { tampered: tampered.bytes, steps, proto: info, actions });
+    }
 
     for step in send_steps {
         if !activation_filter_matches(step.activation_filter, context) {
@@ -258,6 +327,7 @@ pub fn plan_tcp(
                     push_split_actions(&mut actions, tampered.bytes[span.host_end..pos as usize].to_vec());
                 }
             }
+            TcpChainStepKind::MultiDisorder => return Err(DesyncError),
             TcpChainStepKind::TlsRec | TcpChainStepKind::TlsRandRec => return Err(DesyncError),
         }
         steps.push(PlannedStep { kind: planned_kind, start: lp, end: pos });

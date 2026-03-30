@@ -152,6 +152,55 @@ class StrategyChainsTest {
     }
 
     @Test
+    fun `multidisorder dsl round trip preserves grouped markers and summary`() {
+        val dsl =
+            """
+            [tcp]
+            tlsrec extlen
+            multidisorder sniext
+            multidisorder host
+            """.trimIndent()
+
+        val parsed = parseStrategyChainDsl(dsl).getOrThrow()
+
+        assertEquals(
+            listOf(
+                TcpChainStepModel(TcpChainStepKind.TlsRec, "extlen"),
+                TcpChainStepModel(TcpChainStepKind.MultiDisorder, "sniext"),
+                TcpChainStepModel(TcpChainStepKind.MultiDisorder, "host"),
+            ),
+            parsed.tcpSteps,
+        )
+        assertEquals(dsl, formatStrategyChainDsl(parsed.tcpSteps, parsed.udpSteps))
+        assertEquals(
+            "tcp: tlsrec(extlen) -> multidisorder(sniext) -> multidisorder(host)",
+            formatChainSummary(parsed.tcpSteps, parsed.udpSteps),
+        )
+        assertEquals("multidisorder", primaryDesyncMethod(parsed.tcpSteps))
+    }
+
+    @Test
+    fun `multidisorder validation rejects singleton and mixed send families`() {
+        val singleton =
+            listOf(
+                TcpChainStepModel(TcpChainStepKind.MultiDisorder, "host+1"),
+            )
+        val mixed =
+            listOf(
+                TcpChainStepModel(TcpChainStepKind.TlsRec, "extlen"),
+                TcpChainStepModel(TcpChainStepKind.MultiDisorder, "sniext"),
+                TcpChainStepModel(TcpChainStepKind.Split, "host"),
+            )
+
+        assertThrows(IllegalArgumentException::class.java) {
+            AppSettings.newBuilder().setStrategyChains(singleton, emptyList())
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            AppSettings.newBuilder().setStrategyChains(mixed, emptyList())
+        }
+    }
+
+    @Test
     fun `dsl round trip preserves tcp and udp chain order`() {
         val dsl =
             """

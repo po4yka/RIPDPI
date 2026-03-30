@@ -75,6 +75,10 @@ fun deriveTcpStrategyFamily(tcpSteps: List<TcpChainStepModel>): String? {
             "tlsrec_split"
         }
 
+        primary.kind == TcpChainStepKind.MultiDisorder && tlsPrelude != null -> {
+            "tlsrec_multidisorder"
+        }
+
         primary.kind == TcpChainStepKind.Disorder && tlsPrelude != null -> {
             "tlsrec_disorder"
         }
@@ -141,6 +145,7 @@ fun strategyLaneFamilyLabel(family: String): String =
         "tlsrec_seqovl" -> "TLS record + sequence overlap"
         "fake_approx" -> "Fake approximation"
         "split" -> "Split"
+        "multidisorder" -> "Multi-disorder"
         "disorder" -> "Disorder"
         "fake" -> "Fake"
         "oob" -> "OOB"
@@ -151,6 +156,7 @@ fun strategyLaneFamilyLabel(family: String): String =
         "ech_split" -> "ECH extension split"
         "ech_tlsrec" -> "ECH TLS record split"
         "tlsrec_split" -> "TLS record split"
+        "tlsrec_multidisorder" -> "TLS record multi-disorder"
         "tlsrec_disorder" -> "TLS record disorder"
         "tlsrec_fake" -> "TLS record fake"
         "quic_ipfrag2" -> "QUIC IP fragmentation"

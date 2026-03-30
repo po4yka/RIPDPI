@@ -227,6 +227,32 @@ class AppSettingsJsonTest {
     }
 
     @Test
+    fun `multidisorder chain settings round trip through current json format`() {
+        val settings =
+            AppSettings
+                .newBuilder()
+                .setStrategyChains(
+                    tcpSteps =
+                        listOf(
+                            TcpChainStepModel(TcpChainStepKind.TlsRec, "extlen"),
+                            TcpChainStepModel(TcpChainStepKind.MultiDisorder, "sniext"),
+                            TcpChainStepModel(TcpChainStepKind.MultiDisorder, "host"),
+                        ),
+                    udpSteps = emptyList(),
+                ).build()
+
+        val decoded = appSettingsFromJson(settings.toJson())
+
+        assertEquals(settings.toJson(), decoded.toJson())
+        assertEquals("multidisorder", decoded.tcpChainStepsList[1].kind)
+        assertEquals("multidisorder", decoded.tcpChainStepsList[2].kind)
+        assertEquals(
+            "tcp: tlsrec(extlen) -> multidisorder(sniext) -> multidisorder(host)",
+            decoded.effectiveChainSummary(),
+        )
+    }
+
+    @Test
     fun `ipfrag chain settings round trip through current json format`() {
         val settings =
             AppSettings

@@ -234,6 +234,35 @@ class AdvancedSettingsRouteBinderTest {
     }
 
     @Test
+    fun `binder does not rewrite multidisorder chain through visual desync picker`() {
+        val recorder = RecordingSettingsMutations()
+        val binder = AdvancedSettingsBinder(recorder::updateSetting)
+        val uiState =
+            SettingsUiState(
+                desync =
+                    DesyncCoreUiState(
+                        desyncMethod = TcpChainStepKind.MultiDisorder.wireName,
+                        tcpChainSteps =
+                            listOf(
+                                TcpChainStepModel(TcpChainStepKind.TlsRec, "extlen"),
+                                TcpChainStepModel(TcpChainStepKind.MultiDisorder, "sniext"),
+                                TcpChainStepModel(TcpChainStepKind.MultiDisorder, "host"),
+                            ),
+                        chainSummary = "tcp: tlsrec(extlen) -> multidisorder(sniext) -> multidisorder(host)",
+                        splitMarker = "host",
+                    ),
+            )
+
+        binder.onOptionSelected(
+            setting = AdvancedOptionSetting.DesyncMethod,
+            value = TcpChainStepKind.MultiDisorder.wireName,
+            uiState = uiState,
+        )
+
+        assertTrue(recorder.updates.isEmpty())
+    }
+
+    @Test
     fun `binder saves normalized activation window range`() {
         val recorder = RecordingSettingsMutations()
         val binder = AdvancedSettingsBinder(recorder::updateSetting)
