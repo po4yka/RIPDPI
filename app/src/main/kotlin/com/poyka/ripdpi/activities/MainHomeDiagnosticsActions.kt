@@ -3,6 +3,7 @@ package com.poyka.ripdpi.activities
 import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.data.AppStatus
+import com.poyka.ripdpi.data.LogTags
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.diagnostics.DiagnosticsArchiveReason
 import com.poyka.ripdpi.diagnostics.DiagnosticsArchiveRequest
@@ -342,7 +343,7 @@ internal class MainHomeDiagnosticsActions(
                     ),
                 )
             }.onFailure { error ->
-                Logger.withTag("HomeDiagnostics").e(error) {
+                Logger.withTag(LogTags.DIAGNOSTICS).e(error) {
                     "Failed to create home analysis archive"
                 }
                 homeDiagnosticsState.update { it.copy(analysisSheetVisible = false) }
