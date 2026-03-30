@@ -58,6 +58,7 @@ import com.poyka.ripdpi.activities.DiagnosticsStrategyProbeCandidateDetailUiMode
 import com.poyka.ripdpi.activities.DiagnosticsTone
 import com.poyka.ripdpi.activities.DiagnosticsUiState
 import com.poyka.ripdpi.activities.DiagnosticsViewModel
+import com.poyka.ripdpi.ui.components.RipDpiHapticFeedback
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.buttons.RipDpiIconButton
@@ -79,6 +80,7 @@ import com.poyka.ripdpi.ui.components.inputs.RipDpiTextField
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldDecoration
 import com.poyka.ripdpi.ui.components.navigation.RipDpiTopAppBar
 import com.poyka.ripdpi.ui.components.navigation.SettingsCategoryHeader
+import com.poyka.ripdpi.ui.components.rememberRipDpiHapticPerformer
 import com.poyka.ripdpi.ui.components.scaffold.RipDpiScreenScaffold
 import com.poyka.ripdpi.ui.navigation.Route
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
@@ -127,6 +129,7 @@ fun DiagnosticsRoute(
     val currentOnShareArchive by rememberUpdatedState(onShareArchive)
     val currentOnShareSummary by rememberUpdatedState(onShareSummary)
     val currentOnOpenDnsSettings by rememberUpdatedState(onOpenDnsSettings)
+    val performHaptic = rememberRipDpiHapticPerformer()
 
     LaunchedEffect(Unit) {
         viewModel.effects.collect { effect ->
@@ -144,6 +147,7 @@ fun DiagnosticsRoute(
                 }
 
                 is DiagnosticsEffect.ScanStarted -> {
+                    performHaptic(RipDpiHapticFeedback.Acknowledge)
                     snackbarHostState.showRipDpiSnackbar(
                         message = effect.scanTypeLabel,
                         tone = RipDpiSnackbarTone.Info,
@@ -160,6 +164,13 @@ fun DiagnosticsRoute(
                 }
 
                 is DiagnosticsEffect.ScanCompleted -> {
+                    performHaptic(
+                        when (effect.tone) {
+                            DiagnosticsTone.Positive -> RipDpiHapticFeedback.Success
+                            DiagnosticsTone.Negative, DiagnosticsTone.Warning -> RipDpiHapticFeedback.Error
+                            else -> RipDpiHapticFeedback.Acknowledge
+                        },
+                    )
                     val result =
                         snackbarHostState.showRipDpiSnackbar(
                             message = effect.summary,
@@ -181,6 +192,7 @@ fun DiagnosticsRoute(
                 }
 
                 is DiagnosticsEffect.ScanStartFailed -> {
+                    performHaptic(RipDpiHapticFeedback.Error)
                     snackbarHostState.showRipDpiSnackbar(
                         message = effect.message,
                         tone = RipDpiSnackbarTone.Error,
