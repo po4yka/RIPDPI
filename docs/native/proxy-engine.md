@@ -124,6 +124,25 @@ The runtime now supports:
 
 Steps requiring raw sockets (`seqovl`, `multidisorder`, `ipfrag2`) probe TCP_REPAIR and raw socket capabilities at startup and gracefully degrade to `split` when unavailable.
 
+#### TCP desync pipeline
+
+```mermaid
+flowchart TD
+    A["Outbound TCP payload"] --> B{"Activation filter matches?"}
+    B -- No --> PASS["Pass through unchanged"]
+    B -- Yes --> C{"Step kind"}
+    C -- split --> D["TCP segmentation at marker"]
+    C -- seqovl --> E["TCP_REPAIR + shifted seq\n+ fake prefix via raw socket"]
+    C -- disorder --> F["Send with TTL trick\nDPI sees, server ignores"]
+    C -- multidisorder --> G["Split at N markers\nreverse-order via raw sockets\n+ optional inter-segment delay"]
+    C -- "fake / fakesplit\nfakedisorder" --> H["Build fake payload\nset TTL + md5sig\nsend fake, then real"]
+    C -- "ipfrag2" --> I["IP-level fragmentation\nDF=0, MF=1, 8B aligned\nvia raw socket"]
+    C -- "tlsrec / tlsrandrec" --> J["TLS record splitting\nat extension boundary"]
+    C -- "oob / disoob" --> K["Urgent byte injection\n+ optional disorder"]
+    C -- hostfake --> L["Fake with spoofed SNI\nvia midhost_offset template"]
+    D & E & F & G & H & I & J & K & L --> M["Upstream server"]
+```
+
 #### Offset markers (complete reference)
 
 | Marker | Description |
@@ -190,6 +209,25 @@ When `md5sig` is enabled, fake packets include a TCP MD5 Signature option (Kind=
 - Socket-level path (`Write` action): kernel applies MD5 via `setsockopt(TCP_MD5SIG)` during fake send window
 - Raw packet paths (`seqovl`, `multidisorder`, `ipfrag2`): Kind=19 option injected directly into TCP header via `set_options_raw()` in `build_tcp_segment_packet()`
 - 18-byte option (kind + length + 16-byte deterministic signature from sequence number)
+
+#### Fake packet dual path
+
+```mermaid
+flowchart LR
+    FP["Fake payload builder\n(profile / rand / rndsni)"] --> SP{"Send path?"}
+    SP -- "Socket path\n(fake/fakesplit/fakedisorder)" --> S1["SetTtl(fake_ttl)"]
+    S1 --> S2{"md5sig?"}
+    S2 -- Yes --> S3["SetMd5Sig(5)\nkernel applies Kind=19"]
+    S2 -- No --> S4["Write(fake) via socket"]
+    S3 --> S4
+    S4 --> S5["SetMd5Sig(0)\nRestoreDefaultTtl"]
+
+    SP -- "Raw packet path\n(seqovl/multidisorder/ipfrag2)" --> R1["build_tcp_segment_packet()"]
+    R1 --> R2{"inject_md5?"}
+    R2 -- Yes --> R3["Append Kind=19\n18B option via\nset_options_raw()"]
+    R2 -- No --> R4["send_raw_packets()\nvia IPPROTO_RAW"]
+    R3 --> R4
+```
 
 ### TCP option manipulation
 
@@ -328,6 +366,23 @@ The shared runtime layer now also adds:
 - adaptive UDP burst profiles: `balanced` (default), `conservative`, `aggressive`
 - adaptive TLS random record profiles: `balanced` (default), `tight`, `wide`
 
+```mermaid
+flowchart TD
+    A["Connection attempt"] --> B{"Success?"}
+    B -- Yes --> C["Promote group in\nhost autolearn"]
+    B -- No --> D["Classify failure\n(8 block signal types)"]
+    D --> E{"Same-signature\ncooldown active?"}
+    E -- Yes --> F["Skip retry"]
+    E -- No --> G{"Family cooldown\nactive?"}
+    G -- Yes --> F
+    G -- No --> H["Exponential backoff\n300 / 700 / 1500 / 3000ms\n+ 35% jitter"]
+    H --> I["Candidate diversification\n(seeded reorder)"]
+    I --> J{"Strategy evolution\nepsilon-greedy?"}
+    J -- "Explore" --> K["Try alternative\ncombo dimension"]
+    J -- "Exploit" --> L["Use best known\ngroup for host"]
+    K & L --> A
+```
+
 ### Network-aware policy resolution
 
 Before the native runtime starts, the Android service layer now resolves policy against the current network:
@@ -359,6 +414,21 @@ The proxy runtime can tunnel Telegram MTProto traffic through Telegram's officia
 4. **Obfuscated2 decryption** -- AES-256-CTR with key/IV from init bytes
 5. **Protocol tag validation** -- must match Telegram allowed MTProto tags
 6. **DC normalization** -- production (1-5), test (10001-10005), media/CDN (-1 to -5, recognized but not tunnelable)
+
+```mermaid
+flowchart TD
+    A["Incoming connection"] --> B{"Known Telegram DC IP?"}
+    B -- No --> PASS["Normal desync path"]
+    B -- Yes --> C["Read 64-byte init"]
+    C --> D{"Validate MTProto\nobfuscated2 + protocol tag\n+ DC normalization"}
+    D -- "Not MTProto" --> SEED["Preserve seed bytes\nnormal relay path"]
+    D -- "Unmappable DC\n(media/CDN)" --> SEED
+    D -- "Valid MTProto\nDC 1-5 or test" --> E{"WsTunnelMode?"}
+    E -- always --> WSS["Open WSS to\nkws{dc}.web.telegram.org/apiws\nrelay MTProto over WebSocket"]
+    E -- fallback --> F["Run desync first"]
+    F -- "Desync succeeds" --> G["Normal relay"]
+    F -- "Desync fails" --> WSS
+```
 
 ### Gateway mapping
 
@@ -412,7 +482,17 @@ Eight distinct signal types identify how blocking manifests:
 | `QuicBreakage` | QUIC protocol-level failure |
 | `TcpRetransmissions` | >= 3 TCP retransmissions within 60s window (via `TCP_INFO` socket option) |
 
-Block signals feed into the host autolearn 2-confirmation state machine: a host is marked as blocked only after two independent confirmations within the confirmation window.
+Block signals feed into the host autolearn 2-confirmation state machine:
+
+```mermaid
+stateDiagram-v2
+    [*] --> Unblocked
+    Unblocked --> Signal1Detected: Block signal observed
+    Signal1Detected --> Confirmed: 2nd signal within\nconfirmation window
+    Signal1Detected --> Unblocked: Window expired\nno 2nd signal
+    Confirmed --> Penalized: Apply penalty TTL\nadd to autolearn
+    Penalized --> Unblocked: Penalty TTL expired\nor success observed
+```
 
 ### Blockpage fingerprint database
 

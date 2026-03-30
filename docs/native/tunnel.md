@@ -10,6 +10,41 @@ Supported encrypted DNS protocols: DoH (DNS over HTTPS), DoT (DNS over TLS), DNS
 
 The built shared library is `libripdpi-tunnel.so`.
 
+### VPN packet flow
+
+```mermaid
+flowchart LR
+    A["Android app\nIP packets"] --> B["TUN fd"]
+    B --> C["ripdpi-tunnel-core\npacket parsing"]
+    C --> D{"DNS query?"}
+    D -- Yes --> E["MapDNS listener\n198.18.0.53"]
+    D -- No --> F["SOCKS5 session\nto 127.0.0.1:1080"]
+    E --> G["Encrypted resolver\nDoH / DoT / DNSCrypt / DoQ"]
+    G --> H["Map real IP\nto synthetic 198.18.x.x"]
+    H --> I["DNS response\nback to app"]
+    F --> J["ripdpi-runtime\n(desync pipeline)"]
+    J --> K["Upstream server"]
+```
+
+### DNS interception flow
+
+```mermaid
+flowchart TD
+    A["DNS query from app"] --> B["MapDNS intercept\n198.18.0.53"]
+    B --> C{"Synthetic IP\nin LRU cache?"}
+    C -- Hit --> D["Return cached\nreal-to-synthetic mapping"]
+    C -- Miss --> E["Forward to encrypted\nresolver"]
+    E --> F{"Resolver protocol"}
+    F -- DoH --> G["HTTPS query"]
+    F -- DoT --> H["TLS query\nport 853"]
+    F -- DNSCrypt --> I["DNSCrypt v2 query"]
+    F -- DoQ --> J["QUIC query\nRFC 9250"]
+    G & H & I & J --> K["Real IP response"]
+    K --> L["Allocate synthetic IP\nfrom 198.18.0.0/15 pool"]
+    L --> M["Store in LRU cache\nreal <-> synthetic"]
+    M --> N["Return synthetic IP\nto app"]
+```
+
 ## App Call Chain
 
 Start path:
