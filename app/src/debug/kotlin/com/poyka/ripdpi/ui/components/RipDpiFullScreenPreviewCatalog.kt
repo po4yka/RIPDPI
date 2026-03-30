@@ -236,6 +236,7 @@ internal fun RipDpiLogsPreviewScene() {
     RipDpiTheme(themePreference = "light") {
         LogsScreen(
             uiState = LogsUiState(logs = previewLogEntries),
+            onRefresh = {},
             onToggleSubsystemFilter = {},
             onToggleSeverityFilter = {},
             onAutoScrollChanged = {},
@@ -252,6 +253,7 @@ internal fun RipDpiLogsEmptyDarkPreviewScene() {
     RipDpiTheme(themePreference = "dark") {
         LogsScreen(
             uiState = LogsUiState(),
+            onRefresh = {},
             onToggleSubsystemFilter = {},
             onToggleSeverityFilter = {},
             onAutoScrollChanged = {},
@@ -369,6 +371,7 @@ internal fun RipDpiHistoryPreviewScene() {
                         ),
                 ),
             onBack = {},
+            onRefresh = {},
             onSelectSection = {},
             onConnectionModeFilter = {},
             onConnectionStatusFilter = {},

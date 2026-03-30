@@ -22,6 +22,7 @@ import kotlinx.collections.immutable.ImmutableSet
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.collections.immutable.toImmutableSet
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -87,6 +88,7 @@ data class LogsUiState(
     val showActiveSessionOnly: Boolean = false,
     val isAutoScroll: Boolean = true,
     val bufferCapacity: Int = MaxLogEntries,
+    val isRefreshing: Boolean = false,
 ) {
     val filteredLogs: List<LogEntry>
         get() =
@@ -127,6 +129,7 @@ class LogsViewModel
         private val activeSessionOnly = MutableStateFlow(false)
         private val autoScrollEnabled = MutableStateFlow(true)
         private val clearedAfterMs = MutableStateFlow<Long?>(null)
+        private val refreshing = MutableStateFlow(false)
 
         private val runtimeEventLogs =
             serviceStateStore.telemetry.map { telemetry ->
@@ -190,19 +193,16 @@ class LogsViewModel
                 activeSeverities,
                 activeSessionOnly,
                 autoScrollEnabled,
-            ) {
-                logs: List<LogEntry>,
-                subsystems: Set<LogSubsystem>,
-                severities: Set<LogSeverity>,
-                activeOnly: Boolean,
-                autoScroll: Boolean,
-                ->
+                refreshing,
+            ) { values ->
+                @Suppress("UNCHECKED_CAST")
                 LogsUiState(
-                    logs = logs.toImmutableList(),
-                    activeSubsystems = subsystems.toImmutableSet(),
-                    activeSeverities = severities.toImmutableSet(),
-                    showActiveSessionOnly = activeOnly,
-                    isAutoScroll = autoScroll,
+                    logs = (values[0] as List<LogEntry>).toImmutableList(),
+                    activeSubsystems = (values[1] as Set<LogSubsystem>).toImmutableSet(),
+                    activeSeverities = (values[2] as Set<LogSeverity>).toImmutableSet(),
+                    showActiveSessionOnly = values[3] as Boolean,
+                    isAutoScroll = values[4] as Boolean,
+                    isRefreshing = values[5] as Boolean,
                 )
             }.stateIn(
                 scope = viewModelScope,
@@ -247,6 +247,14 @@ class LogsViewModel
 
         fun setAutoScroll(enabled: Boolean) {
             autoScrollEnabled.value = enabled
+        }
+
+        fun refresh() {
+            viewModelScope.launch {
+                refreshing.value = true
+                delay(REFRESH_SETTLE_DELAY_MS)
+                refreshing.value = false
+            }
         }
 
         fun appendLog(
@@ -364,6 +372,10 @@ class LogsViewModel
 
         private fun formatTimestamp(timestampMs: Long): String =
             SimpleDateFormat("HH:mm:ss", Locale.US).format(Date(timestampMs))
+
+        private companion object {
+            const val REFRESH_SETTLE_DELAY_MS = 300L
+        }
     }
 
 private fun activeDiagnosticsSessionIds(

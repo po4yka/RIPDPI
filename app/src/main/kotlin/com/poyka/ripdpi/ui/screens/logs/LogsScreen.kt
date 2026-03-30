@@ -17,9 +17,11 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
@@ -77,6 +79,7 @@ fun LogsRoute(
 
     LogsScreen(
         uiState = uiState,
+        onRefresh = viewModel::refresh,
         onToggleSubsystemFilter = viewModel::toggleSubsystemFilter,
         onToggleSeverityFilter = viewModel::toggleSeverityFilter,
         onAutoScrollChanged = viewModel::setAutoScroll,
@@ -90,8 +93,10 @@ fun LogsRoute(
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
+@OptIn(ExperimentalMaterial3Api::class)
 internal fun LogsScreen(
     uiState: LogsUiState,
+    onRefresh: () -> Unit,
     onToggleSubsystemFilter: (LogSubsystem) -> Unit,
     onToggleSeverityFilter: (LogSeverity) -> Unit,
     onAutoScrollChanged: (Boolean) -> Unit,
@@ -145,70 +150,76 @@ internal fun LogsScreen(
             RipDpiTopAppBar(title = stringResource(R.string.logs))
         },
     ) { innerPadding ->
-        Box(
+        PullToRefreshBox(
+            isRefreshing = uiState.isRefreshing,
+            onRefresh = onRefresh,
             modifier =
                 Modifier
                     .fillMaxSize()
                     .background(colors.background)
                     .padding(innerPadding),
-            contentAlignment = Alignment.TopCenter,
         ) {
-            Column(
-                modifier =
-                    Modifier
-                        .fillMaxSize()
-                        .widthIn(max = layout.contentMaxWidth)
-                        .padding(
-                            start = layout.horizontalPadding,
-                            top = spacing.sm,
-                            end = layout.horizontalPadding,
-                            bottom = spacing.sm,
-                        ),
-                verticalArrangement = Arrangement.spacedBy(spacing.md),
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.TopCenter,
             ) {
-                LogsOverviewCard(
-                    uiState = uiState,
-                    onSaveLogs = onSaveLogs,
-                    onShareSupportBundle = onShareSupportBundle,
-                    onClearLogs = onClearLogs,
-                )
-
-                LogsFiltersSection(
-                    uiState = uiState,
-                    onToggleSubsystemFilter = onToggleSubsystemFilter,
-                    onToggleSeverityFilter = onToggleSeverityFilter,
-                    onAutoScrollChanged = onAutoScrollChanged,
-                    onActiveSessionOnlyChanged = onActiveSessionOnlyChanged,
-                )
-
-                SettingsCategoryHeader(title = stringResource(R.string.logs_stream_section))
-
-                if (filteredLogs.isEmpty()) {
-                    LogsEmptyStateCard(
-                        hasBufferedLogs = uiState.logs.isNotEmpty(),
-                        modifier = Modifier.fillMaxWidth(),
+                Column(
+                    modifier =
+                        Modifier
+                            .fillMaxSize()
+                            .widthIn(max = layout.contentMaxWidth)
+                            .padding(
+                                start = layout.horizontalPadding,
+                                top = spacing.sm,
+                                end = layout.horizontalPadding,
+                                bottom = spacing.sm,
+                            ),
+                    verticalArrangement = Arrangement.spacedBy(spacing.md),
+                ) {
+                    LogsOverviewCard(
+                        uiState = uiState,
+                        onSaveLogs = onSaveLogs,
+                        onShareSupportBundle = onShareSupportBundle,
+                        onClearLogs = onClearLogs,
                     )
-                } else {
-                    LogsStreamCard(
-                        entries = filteredLogs,
-                        listState = listState,
-                        onCopyEntry = { entry ->
-                            clipboardManager.setText(
-                                AnnotatedString("${entry.timestamp} [${entry.subsystem.name}] ${entry.message}"),
-                            )
-                            performHaptic(RipDpiHapticFeedback.Acknowledge)
-                            scope.launch {
-                                snackbarHostState.showRipDpiSnackbar(
-                                    message = copiedMessage,
-                                    tone = RipDpiSnackbarTone.Default,
+
+                    LogsFiltersSection(
+                        uiState = uiState,
+                        onToggleSubsystemFilter = onToggleSubsystemFilter,
+                        onToggleSeverityFilter = onToggleSeverityFilter,
+                        onAutoScrollChanged = onAutoScrollChanged,
+                        onActiveSessionOnlyChanged = onActiveSessionOnlyChanged,
+                    )
+
+                    SettingsCategoryHeader(title = stringResource(R.string.logs_stream_section))
+
+                    if (filteredLogs.isEmpty()) {
+                        LogsEmptyStateCard(
+                            hasBufferedLogs = uiState.logs.isNotEmpty(),
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                    } else {
+                        LogsStreamCard(
+                            entries = filteredLogs,
+                            listState = listState,
+                            onCopyEntry = { entry ->
+                                clipboardManager.setText(
+                                    AnnotatedString("${entry.timestamp} [${entry.subsystem.name}] ${entry.message}"),
                                 )
-                            }
-                        },
-                        modifier =
-                            Modifier
-                                .fillMaxWidth()
-                                .weight(1f),
-                    )
+                                performHaptic(RipDpiHapticFeedback.Acknowledge)
+                                scope.launch {
+                                    snackbarHostState.showRipDpiSnackbar(
+                                        message = copiedMessage,
+                                        tone = RipDpiSnackbarTone.Default,
+                                    )
+                                }
+                            },
+                            modifier =
+                                Modifier
+                                    .fillMaxWidth()
+                                    .weight(1f),
+                        )
+                    }
                 }
             }
         }
@@ -617,6 +628,7 @@ private fun LogsScreenPreview() {
     RipDpiTheme {
         LogsScreen(
             uiState = LogsUiState(logs = previewLogs),
+            onRefresh = {},
             onToggleSubsystemFilter = {},
             onToggleSeverityFilter = {},
             onAutoScrollChanged = {},
@@ -634,6 +646,7 @@ private fun LogsScreenDarkPreview() {
     RipDpiTheme(themePreference = "dark") {
         LogsScreen(
             uiState = LogsUiState(),
+            onRefresh = {},
             onToggleSubsystemFilter = {},
             onToggleSeverityFilter = {},
             onAutoScrollChanged = {},
