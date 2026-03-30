@@ -56,7 +56,7 @@ class PinLockoutManager
                 .edit()
                 .putInt(KEY_FAILED_ATTEMPTS, failedAttempts)
                 .putLong(KEY_LOCKOUT_END, lockoutEndEpochMs)
-                .apply()
+                .commit()
         }
 
         private fun restore() {

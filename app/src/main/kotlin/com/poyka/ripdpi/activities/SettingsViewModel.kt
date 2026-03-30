@@ -115,7 +115,10 @@ class SettingsViewModel
             viewModelScope.launch {
                 val settings = appSettingsRepository.snapshot()
                 if (settings.backupPin.isNotBlank() && !pinVerifier.isKeyAvailable()) {
-                    appSettingsRepository.update { setBackupPin("") }
+                    appSettingsRepository.update {
+                        setBackupPin("")
+                        setBiometricEnabled(false)
+                    }
                     _effects.send(
                         SettingsEffect.Notice(
                             title = stringResolver.getString(R.string.notice_pin_key_lost_title),

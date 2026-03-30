@@ -742,7 +742,7 @@ class MainViewModelTest {
                 ),
             appLockLifecycleObserver =
                 com.poyka.ripdpi.security
-                    .AppLockLifecycleObserver(),
+                    .AppLockLifecycleObserver(RuntimeEnvironment.getApplication()),
         ).also { viewModel ->
             if (initialize) {
                 viewModel.initialize()
