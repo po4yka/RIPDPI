@@ -1528,6 +1528,7 @@ fn send_fake_tcp_action_named(
     .map(|()| bytes_committed + original_prefix.len())
 }
 
+#[allow(clippy::too_many_arguments)]
 fn send_ip_fragmented_tcp_action_named(
     stream: &TcpStream,
     payload: &[u8],
@@ -1664,7 +1665,7 @@ fn await_transport_writable_action(
 mod tests {
     use super::*;
     use ripdpi_config::{NumericRange, OffsetExpr, TcpChainStep};
-    use ripdpi_desync::PlannedStep;
+    use ripdpi_desync::{PlannedStep, ProtoInfo};
     use std::net::{Ipv4Addr, TcpListener};
 
     fn test_group() -> DesyncGroup {
@@ -1784,7 +1785,7 @@ mod tests {
                     PlannedStep { kind: TcpChainStepKind::MultiDisorder, start: 3, end: 4 },
                     PlannedStep { kind: TcpChainStepKind::MultiDisorder, start: 4, end: 6 },
                 ],
-                proto: Default::default(),
+                proto: ProtoInfo::default(),
                 actions: Vec::new(),
             },
             Some("multidisorder"),
@@ -1810,7 +1811,7 @@ mod tests {
                     PlannedStep { kind: TcpChainStepKind::MultiDisorder, start: 2, end: 4 },
                     PlannedStep { kind: TcpChainStepKind::MultiDisorder, start: 4, end: 5 },
                 ],
-                proto: Default::default(),
+                proto: ProtoInfo::default(),
                 actions: Vec::new(),
             },
             Some("multidisorder"),

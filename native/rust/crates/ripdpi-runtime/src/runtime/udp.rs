@@ -134,8 +134,7 @@ pub(super) fn udp_associate_loop(
                         host.clone().filter(|_| should_cache_udp_host(&state.config, host_info.as_ref()))
                     {
                         if let Ok(mut cache) = state.cache.lock() {
-                            let _ =
-                                cache.store(&state.config, target, route.group_index, route.attempted_mask, Some(host));
+                            cache.store(&state.config, target, route.group_index, route.attempted_mask, Some(host));
                         }
                     }
                     let Some(group) = state.config.groups.get(route.group_index) else {
