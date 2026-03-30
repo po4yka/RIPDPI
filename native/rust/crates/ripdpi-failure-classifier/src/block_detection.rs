@@ -130,9 +130,7 @@ pub fn classify_http_response_block(response: &[u8]) -> Option<ClassifiedFailure
     }
 
     let provider = provider.filter(|value| !value.trim().is_empty());
-    if provider.is_none() {
-        return None;
-    }
+    provider.as_ref()?;
 
     let mut failure = ClassifiedFailure::new(
         FailureClass::HttpBlockpage,
