@@ -95,11 +95,7 @@ fn parse_tls_proto_info(buffer: &[u8]) -> Option<TlsProtoInfo> {
 
 fn build_tls_proto_info(buffer: &[u8], markers: ripdpi_packets::TlsMarkerInfo) -> Option<TlsProtoInfo> {
     let host = buffer.get(markers.host_start..markers.host_end)?.to_vec().into_boxed_slice();
-    Some(TlsProtoInfo {
-        markers,
-        host_bytes: host,
-        host_spans: vec![markers.host_start..markers.host_end].into_boxed_slice(),
-    })
+    Some(TlsProtoInfo { markers, host_bytes: host, host_spans: Box::new([markers.host_start..markers.host_end]) })
 }
 
 fn parse_multi_record_tls_proto_info(buffer: &[u8]) -> Option<TlsProtoInfo> {
