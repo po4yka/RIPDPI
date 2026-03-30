@@ -2,20 +2,20 @@ use std::io;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::str::FromStr;
 use std::sync::Arc;
+use std::time::Duration;
 
 use ripdpi_dns_resolver::{
     EncryptedDnsEndpoint, EncryptedDnsErrorKind, EncryptedDnsExchangeSuccess, EncryptedDnsProtocol,
     EncryptedDnsResolver, EncryptedDnsTransport,
 };
 use ripdpi_tunnel_config::Config;
-use tokio::io::unix::AsyncFd;
 use tokio_util::sync::CancellationToken;
 use tracing::{debug, warn};
 
 use crate::dns_cache::DnsCache;
-use crate::Stats;
+use crate::{Stats, TunDevice};
 
-use super::bridge::try_write_tun_packet;
+use super::bridge::enqueue_tun_packet;
 use super::packet::build_udp_response;
 
 #[derive(Debug, Clone, Copy)]
@@ -69,6 +69,7 @@ pub(super) fn parse_mapdns_runtime(config: &Config) -> io::Result<Option<MapDnsR
                 format!("invalid mapdns.netmask '{}': {err}", mapdns.netmask.as_deref().unwrap_or("255.254.0.0")),
             )
         })?;
+    let synthetic_net = synthetic_net & synthetic_mask;
 
     Ok(Some(MapDnsRuntime {
         intercept_addr: SocketAddr::new(IpAddr::V4(intercept_ip), mapdns.port),
@@ -163,8 +164,6 @@ pub(super) fn build_encrypted_dns_resolver(config: &Config) -> io::Result<Option
     Ok(Some(resolver))
 }
 
-use std::time::Duration;
-
 pub(super) fn dns_query_name(packet: &[u8]) -> Option<String> {
     if packet.len() < 12 {
         return None;
@@ -196,7 +195,7 @@ pub(super) fn dns_query_name(packet: &[u8]) -> Option<String> {
 }
 
 pub(super) fn handle_dns_result(
-    tun: &AsyncFd<std::fs::File>,
+    device: &mut TunDevice,
     stats: &Arc<Stats>,
     mapdns: MapDnsRuntime,
     dns_cache: &mut DnsCache,
@@ -213,7 +212,7 @@ pub(super) fn handle_dns_result(
                     Some(upstream.latency_ms),
                 );
                 let raw = build_udp_response(mapdns.intercept_addr, response.src, &result.response);
-                try_write_tun_packet(tun, stats, &raw, "dns");
+                enqueue_tun_packet(device, raw, "dns");
             }
             Err(err) => {
                 let message = err.to_string();
@@ -221,7 +220,7 @@ pub(super) fn handle_dns_result(
                 match dns_cache.servfail_response(&response.query) {
                     Ok(servfail) => {
                         let raw = build_udp_response(mapdns.intercept_addr, response.src, &servfail);
-                        try_write_tun_packet(tun, stats, &raw, "dns-servfail");
+                        enqueue_tun_packet(device, raw, "dns-servfail");
                     }
                     Err(servfail_err) => debug!("failed to synthesize SERVFAIL after rewrite error: {servfail_err}"),
                 }
@@ -233,7 +232,7 @@ pub(super) fn handle_dns_result(
             match dns_cache.servfail_response(&response.query) {
                 Ok(servfail) => {
                     let raw = build_udp_response(mapdns.intercept_addr, response.src, &servfail);
-                    try_write_tun_packet(tun, stats, &raw, "dns-servfail");
+                    enqueue_tun_packet(device, raw, "dns-servfail");
                 }
                 Err(servfail_err) => debug!("failed to synthesize SERVFAIL after upstream failure: {servfail_err}"),
             }
@@ -310,7 +309,11 @@ pub(super) fn spawn_dns_worker(
 mod tests {
     use super::*;
     use std::net::{IpAddr, Ipv4Addr, SocketAddr};
+    use std::sync::Arc;
 
+    use hickory_proto::op::{Message, MessageType, OpCode, Query, ResponseCode};
+    use hickory_proto::rr::rdata::A;
+    use hickory_proto::rr::{Name, RData, Record, RecordType};
     use ripdpi_dns_resolver::EncryptedDnsProtocol;
 
     fn tunnel_config_with_mapdns(mapdns: Option<ripdpi_tunnel_config::MapDnsConfig>) -> ripdpi_tunnel_config::Config {
@@ -329,6 +332,31 @@ mod tests {
             mapdns,
             misc: ripdpi_tunnel_config::MiscConfig::default(),
         }
+    }
+
+    fn build_query(name: &str) -> Vec<u8> {
+        let mut message = Message::new();
+        message
+            .set_id(0x1234)
+            .set_message_type(MessageType::Query)
+            .set_op_code(OpCode::Query)
+            .set_recursion_desired(true)
+            .add_query(Query::query(Name::from_ascii(name).expect("name"), RecordType::A));
+        message.to_vec().expect("query encodes")
+    }
+
+    fn build_response(name: &str, ip: Ipv4Addr) -> Vec<u8> {
+        let mut message = Message::new();
+        message
+            .set_id(0x1234)
+            .set_message_type(MessageType::Response)
+            .set_op_code(OpCode::Query)
+            .set_recursion_desired(true)
+            .set_recursion_available(true)
+            .set_response_code(ResponseCode::NoError)
+            .add_query(Query::query(Name::from_ascii(name).expect("name"), RecordType::A))
+            .add_answer(Record::from_rdata(Name::from_ascii(name).expect("name"), 60, RData::A(A(ip))));
+        message.to_vec().expect("response encodes")
     }
 
     #[test]
@@ -356,9 +384,79 @@ mod tests {
         let runtime = parse_mapdns_runtime(&config).expect("runtime").expect("mapdns runtime");
 
         assert_eq!(runtime.intercept_addr, SocketAddr::new(IpAddr::V4(Ipv4Addr::new(198, 18, 0, 10)), 5300));
-        assert_eq!(runtime.synthetic_net, u32::from(Ipv4Addr::new(198, 18, 0, 10)));
+        assert_eq!(runtime.synthetic_net, u32::from(Ipv4Addr::new(198, 18, 0, 0)));
         assert_eq!(runtime.synthetic_mask, u32::from(Ipv4Addr::new(255, 254, 0, 0)));
         assert_eq!(runtime.intercept_port, 5300);
+    }
+
+    #[test]
+    fn parse_mapdns_runtime_normalizes_explicit_network_with_host_bits() {
+        let config = tunnel_config_with_mapdns(Some(ripdpi_tunnel_config::MapDnsConfig {
+            address: "198.18.0.10".to_string(),
+            port: 5300,
+            network: Some("100.64.0.123".to_string()),
+            netmask: Some("255.192.0.0".to_string()),
+            cache_size: 8,
+            resolver_id: None,
+            encrypted_dns_protocol: None,
+            encrypted_dns_host: None,
+            encrypted_dns_port: None,
+            encrypted_dns_tls_server_name: None,
+            encrypted_dns_bootstrap_ips: Vec::new(),
+            encrypted_dns_doh_url: None,
+            encrypted_dns_dnscrypt_provider_name: None,
+            encrypted_dns_dnscrypt_public_key: None,
+            dns_query_timeout_ms: 4000,
+            resolver_fallback_active: false,
+            resolver_fallback_reason: None,
+        }));
+
+        let runtime = parse_mapdns_runtime(&config).expect("runtime").expect("mapdns runtime");
+
+        assert_eq!(runtime.synthetic_net, u32::from(Ipv4Addr::new(100, 64, 0, 0)));
+        assert_eq!(runtime.synthetic_mask, u32::from(Ipv4Addr::new(255, 192, 0, 0)));
+    }
+
+    #[test]
+    fn normalized_default_mapdns_network_preserves_reverse_lookup() {
+        let config = tunnel_config_with_mapdns(Some(ripdpi_tunnel_config::MapDnsConfig {
+            address: "198.18.0.10".to_string(),
+            port: 5300,
+            network: None,
+            netmask: None,
+            cache_size: 8,
+            resolver_id: None,
+            encrypted_dns_protocol: None,
+            encrypted_dns_host: None,
+            encrypted_dns_port: None,
+            encrypted_dns_tls_server_name: None,
+            encrypted_dns_bootstrap_ips: Vec::new(),
+            encrypted_dns_doh_url: None,
+            encrypted_dns_dnscrypt_provider_name: None,
+            encrypted_dns_dnscrypt_public_key: None,
+            dns_query_timeout_ms: 4000,
+            resolver_fallback_active: false,
+            resolver_fallback_reason: None,
+        }));
+
+        let runtime = parse_mapdns_runtime(&config).expect("runtime").expect("mapdns runtime");
+        let mut cache = DnsCache::new(runtime.synthetic_net, runtime.synthetic_mask, 8);
+        let query = build_query("fixture.test");
+        let upstream = build_response("fixture.test", Ipv4Addr::new(203, 0, 113, 10));
+        let rewritten = cache.rewrite_response(&query, &upstream).expect("rewrite succeeds");
+        let message = Message::from_vec(&rewritten.response).expect("rewritten response parses");
+        let synthetic_ip = message
+            .answers()
+            .iter()
+            .find_map(|record| match record.data() {
+                RData::A(address) => Some(address.0),
+                _ => None,
+            })
+            .expect("rewritten ipv4 answer");
+        let stats = Arc::new(Stats::default());
+        let resolved = resolve_mapped_target(&stats, &mut Some(cache), SocketAddr::new(IpAddr::V4(synthetic_ip), 443));
+
+        assert_eq!(resolved, SocketAddr::new(IpAddr::V4(Ipv4Addr::new(203, 0, 113, 10)), 443));
     }
 
     #[test]
@@ -437,5 +535,41 @@ mod tests {
 
         assert_eq!(dns_query_name(&plain_query), Some("www.example.com".to_string()));
         assert_eq!(dns_query_name(&compressed_query), None);
+    }
+
+    #[test]
+    fn handle_dns_result_queues_response_for_later_tun_flush() {
+        let mapdns = MapDnsRuntime {
+            intercept_addr: SocketAddr::new(IpAddr::V4(Ipv4Addr::new(198, 18, 0, 10)), 53),
+            synthetic_net: u32::from(Ipv4Addr::new(198, 18, 0, 0)),
+            synthetic_mask: u32::from(Ipv4Addr::new(255, 254, 0, 0)),
+            intercept_port: 53,
+        };
+        let mut cache = DnsCache::new(mapdns.synthetic_net, mapdns.synthetic_mask, 8);
+        let mut device = TunDevice::new(1500);
+        let stats = Arc::new(Stats::default());
+        let query = build_query("fixture.test");
+        let upstream = build_response("fixture.test", Ipv4Addr::new(203, 0, 113, 10));
+
+        handle_dns_result(
+            &mut device,
+            &stats,
+            mapdns,
+            &mut cache,
+            DnsResponse {
+                src: SocketAddr::new(IpAddr::V4(Ipv4Addr::new(10, 0, 0, 2)), 53000),
+                query,
+                host: Some("fixture.test".to_string()),
+                upstream: Ok(EncryptedDnsExchangeSuccess {
+                    response_bytes: upstream,
+                    endpoint_label: "fixture".to_string(),
+                    latency_ms: 12,
+                }),
+                resolver_error_kind: None,
+            },
+        );
+
+        assert_eq!(device.tx_queue.len(), 1);
+        assert!(!device.tx_queue.front().expect("queued packet").is_empty());
     }
 }

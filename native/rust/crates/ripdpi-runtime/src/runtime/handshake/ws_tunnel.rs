@@ -52,6 +52,7 @@ pub(super) enum WsTunnelResult {
     NotMtproto { seed_request: Vec<u8> },
     UnmappableDc { raw_dc: i32, dc: Option<TelegramDc>, seed_request: Vec<u8> },
     ShortInit { seed_request: Vec<u8>, error: io::Error },
+    BootstrapFailed { dc: TelegramDc, seed_request: Vec<u8>, error: io::Error },
     WsOpenOrRelayFailed { dc: TelegramDc, seed_request: Vec<u8>, error: io::Error },
 }
 
@@ -134,17 +135,20 @@ where
         }
         MtprotoSeedClassification::ValidatedMtproto { dc } => {
             let resolved_addr = match resolve_addr(dc, state.runtime_context.as_ref()) {
-                Ok(addr) => Some(addr),
-                Err(err) => {
+                Ok(addr) => addr,
+                Err(error) => {
                     tracing::warn!(
-                        "WS tunnel encrypted DNS bootstrap failed for raw DC {} (class {:?}): {err}",
+                        "WS tunnel encrypted DNS bootstrap failed for raw DC {} (class {:?}): {error}",
                         dc.raw(),
                         dc.class()
                     );
-                    None
+                    return WsTunnelResult::BootstrapFailed { dc, seed_request, error };
                 }
             };
-            let config = WsTunnelConfig { protect_path: state.config.process.protect_path.clone(), resolved_addr };
+            let config = WsTunnelConfig {
+                protect_path: state.config.process.protect_path.clone(),
+                resolved_addr: Some(resolved_addr),
+            };
             match relay_ws(client, dc, seed_request.clone(), &config) {
                 Ok(()) => WsTunnelResult::ValidatedMtproto { dc },
                 Err(error) => {
@@ -352,6 +356,29 @@ mod tests {
             result,
             WsTunnelResult::ValidatedMtproto { dc }
             if dc == TelegramDc::from_raw(10_002).expect("test dc")
+        ));
+    }
+
+    #[test]
+    fn run_ws_tunnel_with_seed_fails_closed_on_bootstrap_error() {
+        let (_app, relay_client) = connected_pair();
+        let state = runtime_state();
+        let seed_request = build_test_init_packet(10_002);
+
+        let result = run_ws_tunnel_with_seed_impl(
+            relay_client,
+            seed_request.clone(),
+            &state,
+            |_dc, _context| Err(io::Error::new(io::ErrorKind::TimedOut, "bootstrap timed out")),
+            |_client, _dc, _seed_request, _config| unreachable!("relay must not run without a resolved address"),
+        );
+
+        assert!(matches!(
+            result,
+            WsTunnelResult::BootstrapFailed { dc, seed_request: preserved, error }
+            if dc == TelegramDc::from_raw(10_002).expect("test dc")
+                && preserved == seed_request
+                && error.kind() == io::ErrorKind::TimedOut
         ));
     }
 
