@@ -16,8 +16,8 @@ pub use pool::{ResolverPool, ResolverPoolBuilder};
 pub use resolver::EncryptedDnsResolver;
 pub use transport::extract_ip_answers;
 pub use types::{
-    EncryptedDnsEndpoint, EncryptedDnsError, EncryptedDnsErrorKind, EncryptedDnsExchangeSuccess, EncryptedDnsProtocol,
-    EncryptedDnsTransport,
+    EncryptedDnsConnectHooks, EncryptedDnsEndpoint, EncryptedDnsError, EncryptedDnsErrorKind,
+    EncryptedDnsExchangeSuccess, EncryptedDnsProtocol, EncryptedDnsTransport,
 };
 
 // Internal re-exports for test access

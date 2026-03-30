@@ -11,6 +11,7 @@ use rustls::pki_types::{CertificateDer, PrivateKeyDer, PrivatePkcs8KeyDer};
 use rustls::{ServerConfig, ServerConnection, StreamOwned};
 use std::io::{Read, Write};
 use std::net::{IpAddr, Ipv4Addr, TcpListener, TcpStream};
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 use std::thread;
 use std::time::Duration;
@@ -145,6 +146,60 @@ async fn exchange_with_metadata_reports_endpoint_and_latency() {
 }
 
 #[tokio::test]
+async fn direct_doh_connect_hooks_are_used_for_manual_transport() {
+    let query = build_query("fixture.test");
+    let answer_ip = Ipv4Addr::new(198, 18, 0, 44);
+    let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("listener");
+    let port = listener.local_addr().expect("local addr").port();
+    let certificate = generate_simple_self_signed(vec!["fixture.test".to_string()]).expect("certificate");
+    let certificate_der: CertificateDer<'static> = certificate.cert.der().clone();
+    let key_der = PrivateKeyDer::Pkcs8(PrivatePkcs8KeyDer::from(certificate.signing_key.serialize_der()));
+    let server_config = Arc::new(
+        ServerConfig::builder_with_provider(rustls::crypto::ring::default_provider().into())
+            .with_safe_default_protocol_versions()
+            .expect("ring provider supports default TLS versions")
+            .with_no_client_auth()
+            .with_single_cert(vec![certificate_der.clone()], key_der)
+            .expect("server config"),
+    );
+    let server_query = query.clone();
+    let server_response = build_response(&query, answer_ip);
+    let server = thread::spawn(move || {
+        let (stream, _) = listener.accept().expect("accept");
+        serve_https_doh(stream, server_config, &server_query, &server_response);
+    });
+
+    let connects = Arc::new(AtomicUsize::new(0));
+    let connect_hook_calls = connects.clone();
+    let resolver = EncryptedDnsResolver::with_extra_tls_roots_and_connect_hooks(
+        EncryptedDnsEndpoint {
+            protocol: EncryptedDnsProtocol::Doh,
+            resolver_id: Some("fixture".to_string()),
+            host: "fixture.test".to_string(),
+            port,
+            tls_server_name: Some("fixture.test".to_string()),
+            bootstrap_ips: vec![IpAddr::V4(Ipv4Addr::LOCALHOST)],
+            doh_url: Some(format!("https://fixture.test:{port}/dns-query")),
+            dnscrypt_provider_name: None,
+            dnscrypt_public_key: None,
+        },
+        EncryptedDnsTransport::Direct,
+        DEFAULT_TIMEOUT,
+        vec![certificate_der],
+        EncryptedDnsConnectHooks::new().with_direct_tcp_connector(move |target, timeout| {
+            connect_hook_calls.fetch_add(1, Ordering::Relaxed);
+            TcpStream::connect_timeout(&target, timeout)
+        }),
+    )
+    .expect("resolver builds");
+
+    let response = resolver.exchange(&query).await.expect("DoH response");
+    assert_eq!(extract_ip_answers(&response).expect("answers parse"), vec![answer_ip.to_string()]);
+    assert!(connects.load(Ordering::Relaxed) >= 1, "DoH should use the direct TCP hook");
+    server.join().expect("server joins");
+}
+
+#[tokio::test]
 async fn doh_exchange_supports_socks_transport() {
     let query = build_query("fixture.test");
     let answer_ip = Ipv4Addr::new(198, 18, 0, 10);
@@ -240,6 +295,60 @@ fn dot_exchange_supports_direct_and_tls_validation() {
     let response = resolver.exchange_blocking(&query).expect("DoT response");
     let answers = extract_ip_answers(&response).expect("answers parse");
     assert_eq!(answers, vec![answer_ip.to_string()]);
+    server.join().expect("server thread completes");
+}
+
+#[test]
+fn direct_dot_connect_hooks_are_used() {
+    let query = build_query("fixture.test");
+    let answer_ip = Ipv4Addr::new(198, 18, 0, 45);
+    let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("listener");
+    let port = listener.local_addr().expect("local addr").port();
+    let certificate = generate_simple_self_signed(vec!["fixture.test".to_string()]).expect("certificate");
+    let certificate_der: CertificateDer<'static> = certificate.cert.der().clone();
+    let key_der = PrivateKeyDer::Pkcs8(PrivatePkcs8KeyDer::from(certificate.signing_key.serialize_der()));
+    let server_config = Arc::new(
+        ServerConfig::builder_with_provider(rustls::crypto::ring::default_provider().into())
+            .with_safe_default_protocol_versions()
+            .expect("ring provider supports default TLS versions")
+            .with_no_client_auth()
+            .with_single_cert(vec![certificate_der.clone()], key_der)
+            .expect("server config"),
+    );
+    let server_query = query.clone();
+    let server_response = build_response(&query, answer_ip);
+    let server = thread::spawn(move || {
+        let (stream, _) = listener.accept().expect("accept");
+        serve_dot(stream, server_config, &server_query, &server_response);
+    });
+
+    let connects = Arc::new(AtomicUsize::new(0));
+    let connect_hook_calls = connects.clone();
+    let resolver = EncryptedDnsResolver::with_extra_tls_roots_and_connect_hooks(
+        EncryptedDnsEndpoint {
+            protocol: EncryptedDnsProtocol::Dot,
+            resolver_id: Some("fixture".to_string()),
+            host: "fixture.test".to_string(),
+            port,
+            tls_server_name: Some("fixture.test".to_string()),
+            bootstrap_ips: vec![IpAddr::V4(Ipv4Addr::LOCALHOST)],
+            doh_url: None,
+            dnscrypt_provider_name: None,
+            dnscrypt_public_key: None,
+        },
+        EncryptedDnsTransport::Direct,
+        DEFAULT_TIMEOUT,
+        vec![certificate_der],
+        EncryptedDnsConnectHooks::new().with_direct_tcp_connector(move |target, timeout| {
+            connect_hook_calls.fetch_add(1, Ordering::Relaxed);
+            TcpStream::connect_timeout(&target, timeout)
+        }),
+    )
+    .expect("resolver builds");
+
+    let response = resolver.exchange_blocking(&query).expect("DoT response");
+    assert_eq!(extract_ip_answers(&response).expect("answers parse"), vec![answer_ip.to_string()]);
+    assert!(connects.load(Ordering::Relaxed) >= 1, "DoT should use the direct TCP hook");
     server.join().expect("server thread completes");
 }
 
@@ -375,6 +484,68 @@ fn dnscrypt_exchange_supports_direct_transport() {
     let answers = extract_ip_answers(&response).expect("answers parse");
     assert_eq!(answers, vec![answer_ip.to_string()]);
     handle.join().expect("server thread completes");
+}
+
+#[test]
+fn direct_dnscrypt_connect_hooks_are_used() {
+    let query = build_query("fixture.test");
+    let answer_ip = Ipv4Addr::new(198, 18, 0, 46);
+    let server = DnsCryptTestServer::new("resolver.test");
+    let (port, handle) = start_dnscrypt_server(server.clone(), build_response(&query, answer_ip));
+    let connects = Arc::new(AtomicUsize::new(0));
+    let connect_hook_calls = connects.clone();
+    let resolver = EncryptedDnsResolver::with_connect_hooks(
+        EncryptedDnsEndpoint {
+            protocol: EncryptedDnsProtocol::DnsCrypt,
+            resolver_id: Some("fixture-dnscrypt".to_string()),
+            host: "127.0.0.1".to_string(),
+            port,
+            tls_server_name: None,
+            bootstrap_ips: vec![IpAddr::V4(Ipv4Addr::LOCALHOST)],
+            doh_url: None,
+            dnscrypt_provider_name: Some(server.provider_name.clone()),
+            dnscrypt_public_key: Some(server.provider_public_key_hex.clone()),
+        },
+        EncryptedDnsTransport::Direct,
+        EncryptedDnsConnectHooks::new().with_direct_tcp_connector(move |target, timeout| {
+            connect_hook_calls.fetch_add(1, Ordering::Relaxed);
+            TcpStream::connect_timeout(&target, timeout)
+        }),
+    )
+    .expect("resolver builds");
+
+    let response = resolver.exchange_blocking(&query).expect("DNSCrypt response");
+    assert_eq!(extract_ip_answers(&response).expect("answers parse"), vec![answer_ip.to_string()]);
+    assert!(connects.load(Ordering::Relaxed) >= 1, "DNSCrypt should use the direct TCP hook");
+    handle.join().expect("server thread completes");
+}
+
+#[tokio::test]
+async fn direct_doq_udp_bind_hooks_are_used() {
+    let binds = Arc::new(AtomicUsize::new(0));
+    let bind_hook_calls = binds.clone();
+    let resolver = EncryptedDnsResolver::with_connect_hooks(
+        EncryptedDnsEndpoint {
+            protocol: EncryptedDnsProtocol::Doq,
+            resolver_id: Some("fixture-doq".to_string()),
+            host: "127.0.0.1".to_string(),
+            port: 853,
+            tls_server_name: Some("127.0.0.1".to_string()),
+            bootstrap_ips: vec![IpAddr::V4(Ipv4Addr::LOCALHOST)],
+            doh_url: None,
+            dnscrypt_provider_name: None,
+            dnscrypt_public_key: None,
+        },
+        EncryptedDnsTransport::Direct,
+        EncryptedDnsConnectHooks::new().with_direct_udp_binder(move |bind_addr| {
+            bind_hook_calls.fetch_add(1, Ordering::Relaxed);
+            std::net::UdpSocket::bind(bind_addr)
+        }),
+    )
+    .expect("resolver builds");
+
+    let _ = resolver.endpoint();
+    assert_eq!(binds.load(Ordering::Relaxed), 1, "DoQ should use the direct UDP bind hook");
 }
 
 #[test]

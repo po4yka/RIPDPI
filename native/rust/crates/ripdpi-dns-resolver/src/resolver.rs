@@ -20,6 +20,7 @@ use tokio::sync::Mutex as AsyncMutex;
 use tokio::time::timeout;
 use tokio_rustls::client::TlsStream as TokioTlsStream;
 use tokio_rustls::TlsConnector;
+use url::Url;
 
 use crate::dnscrypt::*;
 use crate::health::HealthRegistry;
@@ -101,6 +102,7 @@ struct ResolverInner {
     timeout: Duration,
     #[cfg_attr(feature = "hickory-backend", allow(dead_code))]
     doh_client: Option<reqwest::Client>,
+    connect_hooks: EncryptedDnsConnectHooks,
     dot_tls_config: Arc<ClientConfig>,
     /// Stored for `can_use_hickory()` fallback decisions. Only present when the
     /// hickory-backend feature is enabled; otherwise consumed only by the constructor.
@@ -125,12 +127,29 @@ impl EncryptedDnsResolver {
         Self::with_timeout(endpoint, transport, DEFAULT_TIMEOUT)
     }
 
+    pub fn with_connect_hooks(
+        endpoint: EncryptedDnsEndpoint,
+        transport: EncryptedDnsTransport,
+        connect_hooks: EncryptedDnsConnectHooks,
+    ) -> Result<Self, EncryptedDnsError> {
+        Self::with_timeout_and_connect_hooks(endpoint, transport, DEFAULT_TIMEOUT, connect_hooks)
+    }
+
     pub fn with_timeout(
         endpoint: EncryptedDnsEndpoint,
         transport: EncryptedDnsTransport,
         timeout: Duration,
     ) -> Result<Self, EncryptedDnsError> {
-        Self::with_extra_tls_roots(endpoint, transport, timeout, Vec::new())
+        Self::with_timeout_and_connect_hooks(endpoint, transport, timeout, EncryptedDnsConnectHooks::default())
+    }
+
+    pub fn with_timeout_and_connect_hooks(
+        endpoint: EncryptedDnsEndpoint,
+        transport: EncryptedDnsTransport,
+        timeout: Duration,
+        connect_hooks: EncryptedDnsConnectHooks,
+    ) -> Result<Self, EncryptedDnsError> {
+        Self::with_extra_tls_roots_and_connect_hooks(endpoint, transport, timeout, Vec::new(), connect_hooks)
     }
 
     pub fn with_tls_verifier(
@@ -138,7 +157,21 @@ impl EncryptedDnsResolver {
         transport: EncryptedDnsTransport,
         tls_verifier: Option<Arc<dyn ServerCertVerifier>>,
     ) -> Result<Self, EncryptedDnsError> {
-        Self::with_health(endpoint, transport, DEFAULT_TIMEOUT, Vec::new(), None, tls_verifier)
+        Self::with_tls_verifier_and_connect_hooks(
+            endpoint,
+            transport,
+            tls_verifier,
+            EncryptedDnsConnectHooks::default(),
+        )
+    }
+
+    pub fn with_tls_verifier_and_connect_hooks(
+        endpoint: EncryptedDnsEndpoint,
+        transport: EncryptedDnsTransport,
+        tls_verifier: Option<Arc<dyn ServerCertVerifier>>,
+        connect_hooks: EncryptedDnsConnectHooks,
+    ) -> Result<Self, EncryptedDnsError> {
+        Self::with_health(endpoint, transport, DEFAULT_TIMEOUT, Vec::new(), None, tls_verifier, connect_hooks)
     }
 
     #[doc(hidden)]
@@ -148,7 +181,24 @@ impl EncryptedDnsResolver {
         timeout: Duration,
         tls_roots: Vec<CertificateDer<'static>>,
     ) -> Result<Self, EncryptedDnsError> {
-        Self::with_health(endpoint, transport, timeout, tls_roots, None, None)
+        Self::with_extra_tls_roots_and_connect_hooks(
+            endpoint,
+            transport,
+            timeout,
+            tls_roots,
+            EncryptedDnsConnectHooks::default(),
+        )
+    }
+
+    #[doc(hidden)]
+    pub fn with_extra_tls_roots_and_connect_hooks(
+        endpoint: EncryptedDnsEndpoint,
+        transport: EncryptedDnsTransport,
+        timeout: Duration,
+        tls_roots: Vec<CertificateDer<'static>>,
+        connect_hooks: EncryptedDnsConnectHooks,
+    ) -> Result<Self, EncryptedDnsError> {
+        Self::with_health(endpoint, transport, timeout, tls_roots, None, None, connect_hooks)
     }
 
     pub(crate) fn with_health(
@@ -158,10 +208,13 @@ impl EncryptedDnsResolver {
         tls_roots: Vec<CertificateDer<'static>>,
         health: Option<crate::health::HealthRegistry>,
         tls_verifier: Option<Arc<dyn ServerCertVerifier>>,
+        connect_hooks: EncryptedDnsConnectHooks,
     ) -> Result<Self, EncryptedDnsError> {
         let normalized = normalize_endpoint(endpoint, &transport)?;
         let dot_tls_config = build_client_config(tls_verifier.as_ref(), &tls_roots);
-        let doh_client = if normalized.protocol == EncryptedDnsProtocol::Doh {
+        let doh_client = if normalized.protocol == EncryptedDnsProtocol::Doh
+            && !(matches!(&transport, EncryptedDnsTransport::Direct) && connect_hooks.has_direct_tcp_connector())
+        {
             Some(build_doh_client(
                 &normalized,
                 &transport,
@@ -181,7 +234,7 @@ impl EncryptedDnsResolver {
                 quinn::crypto::rustls::QuicClientConfig::try_from(doq_tls)
                     .map_err(|e| EncryptedDnsError::Tls(format!("DoQ TLS config: {e}")))?,
             ));
-            let mut endpoint = quinn::Endpoint::client("0.0.0.0:0".parse().unwrap())
+            let mut endpoint = build_doq_endpoint(&normalized, &connect_hooks)
                 .map_err(|e| EncryptedDnsError::Request(format!("DoQ endpoint: {e}")))?;
             endpoint.set_default_client_config(client_config);
             Some(endpoint)
@@ -195,6 +248,7 @@ impl EncryptedDnsResolver {
                 transport,
                 timeout,
                 doh_client,
+                connect_hooks,
                 dot_tls_config,
                 #[cfg(feature = "hickory-backend")]
                 tls_roots,
@@ -314,10 +368,19 @@ impl EncryptedDnsResolver {
     /// TLS stack using system/webpki roots and cannot honor those overrides.
     #[cfg(feature = "hickory-backend")]
     fn can_use_hickory(&self) -> bool {
-        self.inner.tls_roots.is_empty() && self.inner.tls_verifier.is_none()
+        self.inner.tls_roots.is_empty() && self.inner.tls_verifier.is_none() && !self.uses_direct_tcp_connector()
+    }
+
+    fn uses_direct_tcp_connector(&self) -> bool {
+        matches!(self.inner.transport, EncryptedDnsTransport::Direct)
+            && self.inner.connect_hooks.has_direct_tcp_connector()
     }
 
     async fn exchange_doh(&self, query_bytes: &[u8]) -> Result<Vec<u8>, EncryptedDnsError> {
+        if self.uses_direct_tcp_connector() {
+            return self.exchange_doh_manually(query_bytes).await;
+        }
+
         let client = self
             .inner
             .doh_client
@@ -339,6 +402,72 @@ impl EncryptedDnsResolver {
         }
 
         response.bytes().await.map(|value| value.to_vec()).map_err(|err| EncryptedDnsError::Request(err.to_string()))
+    }
+
+    async fn exchange_doh_manually(&self, query_bytes: &[u8]) -> Result<Vec<u8>, EncryptedDnsError> {
+        let url = self.inner.endpoint.doh_url.as_ref().ok_or(EncryptedDnsError::MissingDohUrl)?;
+        let url = Url::parse(url).map_err(|err| EncryptedDnsError::InvalidUrl(err.to_string()))?;
+        let mut tcp_stream = self.connect_plain_tcp().await?;
+
+        if url.scheme().eq_ignore_ascii_case("https") {
+            let tls_name =
+                self.inner.endpoint.tls_server_name.clone().unwrap_or_else(|| self.inner.endpoint.host.clone());
+            let server_name = ServerName::try_from(tls_name).map_err(|err| EncryptedDnsError::Tls(err.to_string()))?;
+            let connector = TlsConnector::from(self.inner.dot_tls_config.clone());
+            let mut tls_stream = match timeout(self.inner.timeout, connector.connect(server_name, tcp_stream)).await {
+                Ok(Ok(stream)) => stream,
+                Ok(Err(err)) => return Err(EncryptedDnsError::Tls(err.to_string())),
+                Err(_) => return Err(EncryptedDnsError::Tls("DoH TLS handshake timed out".to_string())),
+            };
+            self.exchange_doh_over_stream(&mut tls_stream, &url, query_bytes).await
+        } else {
+            self.exchange_doh_over_stream(&mut tcp_stream, &url, query_bytes).await
+        }
+    }
+
+    async fn exchange_doh_over_stream<S>(
+        &self,
+        stream: &mut S,
+        url: &Url,
+        query_bytes: &[u8],
+    ) -> Result<Vec<u8>, EncryptedDnsError>
+    where
+        S: tokio::io::AsyncRead + tokio::io::AsyncWrite + Unpin,
+    {
+        let request_target = doh_request_target(url);
+        let host_header = doh_host_header(url)?;
+        let request = format!(
+            "POST {request_target} HTTP/1.1\r\nHost: {host_header}\r\n{}: {}\r\n{}: {}\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
+            CONTENT_TYPE.as_str(),
+            DNS_MESSAGE_MEDIA_TYPE,
+            ACCEPT.as_str(),
+            DNS_MESSAGE_MEDIA_TYPE,
+            query_bytes.len(),
+        );
+
+        let mut response = Vec::new();
+        match timeout(self.inner.timeout, async {
+            stream.write_all(request.as_bytes()).await.map_err(|err| EncryptedDnsError::Request(err.to_string()))?;
+            stream.write_all(query_bytes).await.map_err(|err| EncryptedDnsError::Request(err.to_string()))?;
+            stream.flush().await.map_err(|err| EncryptedDnsError::Request(err.to_string()))?;
+            let mut buffer = [0u8; 4096];
+            loop {
+                match stream.read(&mut buffer).await {
+                    Ok(0) => break,
+                    Ok(read) => response.extend_from_slice(&buffer[..read]),
+                    Err(err) if should_ignore_tls_eof(&err) && !response.is_empty() => break,
+                    Err(err) => return Err(EncryptedDnsError::Request(err.to_string())),
+                }
+            }
+            Ok::<(), EncryptedDnsError>(())
+        })
+        .await
+        {
+            Ok(result) => result?,
+            Err(_) => return Err(EncryptedDnsError::Request("DoH exchange timed out".to_string())),
+        }
+
+        parse_doh_http_response(&response)
     }
 
     async fn exchange_dot(&self, query_bytes: &[u8]) -> Result<Vec<u8>, EncryptedDnsError> {
@@ -546,7 +675,55 @@ impl EncryptedDnsResolver {
     }
 
     async fn connect_direct_tcp(&self) -> Result<TokioTcpStream, EncryptedDnsError> {
+        if let Some(connector) = &self.inner.connect_hooks.direct_tcp_connector {
+            return self.connect_direct_tcp_with_hook(connector.clone()).await;
+        }
         self.connect_direct_tcp_with(TokioTcpStream::connect).await
+    }
+
+    async fn connect_direct_tcp_with_hook(
+        &self,
+        connector: Arc<DirectTcpConnector>,
+    ) -> Result<TokioTcpStream, EncryptedDnsError> {
+        let endpoint = &self.inner.endpoint;
+        let ips = if let Some(health) = &self.inner.health {
+            health.rank_bootstrap_ips(&endpoint.bootstrap_ips)
+        } else {
+            endpoint.bootstrap_ips.clone()
+        };
+        let mut last_error = None;
+
+        for ip in ips {
+            let address = SocketAddr::new(ip, endpoint.port);
+            let started = Instant::now();
+            let connector = connector.clone();
+            let timeout = self.inner.timeout;
+            match tokio::task::spawn_blocking(move || connector(address, timeout)).await {
+                Ok(Ok(stream)) => {
+                    let _ = stream.set_nodelay(true);
+                    stream.set_nonblocking(true).map_err(|err| EncryptedDnsError::Request(err.to_string()))?;
+                    let stream =
+                        TokioTcpStream::from_std(stream).map_err(|err| EncryptedDnsError::Request(err.to_string()))?;
+                    if let Some(health) = &self.inner.health {
+                        let latency_ms = started.elapsed().as_millis().try_into().unwrap_or(u64::MAX);
+                        health.record_bootstrap_outcome(ip, true, latency_ms);
+                    }
+                    return Ok(stream);
+                }
+                Ok(Err(err)) => {
+                    if let Some(health) = &self.inner.health {
+                        let latency_ms = started.elapsed().as_millis().try_into().unwrap_or(u64::MAX);
+                        health.record_bootstrap_outcome(ip, false, latency_ms);
+                    }
+                    last_error = Some(err.to_string());
+                }
+                Err(err) => {
+                    return Err(EncryptedDnsError::TaskJoin(err.to_string()));
+                }
+            }
+        }
+
+        Err(EncryptedDnsError::Request(last_error.unwrap_or_else(|| "no bootstrap addresses".to_string())))
     }
 
     async fn connect_direct_tcp_with<S, C, F>(&self, mut connect: C) -> Result<S, EncryptedDnsError>
@@ -726,6 +903,157 @@ impl EncryptedDnsResolver {
         let ip = self.inner.endpoint.bootstrap_ips.first().ok_or(EncryptedDnsError::MissingBootstrapIps)?;
         Ok(SocketAddr::new(*ip, self.inner.endpoint.port))
     }
+}
+
+fn build_doq_endpoint(
+    endpoint: &EncryptedDnsEndpoint,
+    connect_hooks: &EncryptedDnsConnectHooks,
+) -> io::Result<quinn::Endpoint> {
+    let bind_addr = doq_bind_addr(endpoint)?;
+    if let Some(binder) = &connect_hooks.direct_udp_binder {
+        let socket = binder(bind_addr)?;
+        return quinn::Endpoint::new(quinn::EndpointConfig::default(), None, socket, Arc::new(quinn::TokioRuntime));
+    }
+    quinn::Endpoint::client(bind_addr)
+}
+
+fn doq_bind_addr(endpoint: &EncryptedDnsEndpoint) -> io::Result<SocketAddr> {
+    let Some(ip) = endpoint.bootstrap_ips.first() else {
+        return Err(io::Error::new(io::ErrorKind::InvalidInput, "DoQ bootstrap requires at least one bootstrap IP"));
+    };
+
+    let bind_ip = match ip {
+        std::net::IpAddr::V4(_) => std::net::IpAddr::V4(std::net::Ipv4Addr::UNSPECIFIED),
+        std::net::IpAddr::V6(_) => std::net::IpAddr::V6(std::net::Ipv6Addr::UNSPECIFIED),
+    };
+    Ok(SocketAddr::new(bind_ip, 0))
+}
+
+fn doh_request_target(url: &Url) -> String {
+    let mut target = if url.path().is_empty() { "/".to_string() } else { url.path().to_string() };
+    if let Some(query) = url.query() {
+        target.push('?');
+        target.push_str(query);
+    }
+    target
+}
+
+fn doh_host_header(url: &Url) -> Result<String, EncryptedDnsError> {
+    let host = url.host_str().ok_or(EncryptedDnsError::MissingHost)?;
+    let host_header = match url.port() {
+        Some(port) if Some(port) != url.port_or_known_default() => format!("{host}:{port}"),
+        _ => host.to_string(),
+    };
+    Ok(host_header)
+}
+
+fn parse_doh_http_response(response: &[u8]) -> Result<Vec<u8>, EncryptedDnsError> {
+    let Some(header_end) = response.windows(4).position(|window| window == b"\r\n\r\n") else {
+        return Err(EncryptedDnsError::Request("DoH response missing HTTP header terminator".to_string()));
+    };
+    let header_bytes = &response[..header_end];
+    let body = &response[header_end + 4..];
+    let mut lines = header_bytes.split(|byte| *byte == b'\n');
+    let status_line = lines
+        .next()
+        .map(trim_ascii)
+        .ok_or_else(|| EncryptedDnsError::Request("DoH response missing status line".to_string()))?;
+    let status_line = std::str::from_utf8(status_line).map_err(|err| EncryptedDnsError::Request(err.to_string()))?;
+    let status = status_line
+        .split_whitespace()
+        .nth(1)
+        .ok_or_else(|| EncryptedDnsError::Request("DoH response missing status code".to_string()))?
+        .parse::<u16>()
+        .map_err(|err| EncryptedDnsError::Request(err.to_string()))?;
+    let status = reqwest::StatusCode::from_u16(status).map_err(|err| EncryptedDnsError::Request(err.to_string()))?;
+
+    let mut chunked = false;
+    let mut content_length = None;
+    for line in lines {
+        let line = trim_ascii(line);
+        if line.is_empty() {
+            continue;
+        }
+        let Some(separator) = line.iter().position(|byte| *byte == b':') else {
+            continue;
+        };
+        let name = &line[..separator];
+        let value = &line[separator + 1..];
+        let value = trim_ascii(value);
+        if name.eq_ignore_ascii_case(b"transfer-encoding") {
+            let encoding = std::str::from_utf8(value).map_err(|err| EncryptedDnsError::Request(err.to_string()))?;
+            chunked = encoding.split(',').any(|item| item.trim().eq_ignore_ascii_case("chunked"));
+        }
+        if name.eq_ignore_ascii_case(b"content-length") {
+            let parsed = std::str::from_utf8(value)
+                .map_err(|err| EncryptedDnsError::Request(err.to_string()))?
+                .trim()
+                .parse::<usize>()
+                .map_err(|err| EncryptedDnsError::Request(err.to_string()))?;
+            content_length = Some(parsed);
+        }
+    }
+
+    if !status.is_success() {
+        return Err(EncryptedDnsError::HttpStatus(status));
+    }
+
+    if chunked {
+        return decode_chunked_body(body);
+    }
+
+    if let Some(content_length) = content_length {
+        if body.len() < content_length {
+            return Err(EncryptedDnsError::Request("DoH response body shorter than Content-Length".to_string()));
+        }
+        return Ok(body[..content_length].to_vec());
+    }
+
+    Ok(body.to_vec())
+}
+
+fn decode_chunked_body(body: &[u8]) -> Result<Vec<u8>, EncryptedDnsError> {
+    let mut decoded = Vec::new();
+    let mut cursor = 0usize;
+
+    loop {
+        let size_end = find_crlf(&body[cursor..])
+            .map(|offset| cursor + offset)
+            .ok_or_else(|| EncryptedDnsError::Request("chunked DoH response missing size delimiter".to_string()))?;
+        let size_line =
+            std::str::from_utf8(&body[cursor..size_end]).map_err(|err| EncryptedDnsError::Request(err.to_string()))?;
+        let size = usize::from_str_radix(size_line.split(';').next().unwrap_or_default().trim(), 16)
+            .map_err(|err| EncryptedDnsError::Request(err.to_string()))?;
+        cursor = size_end + 2;
+
+        if size == 0 {
+            return Ok(decoded);
+        }
+        if body.len() < cursor + size + 2 {
+            return Err(EncryptedDnsError::Request("chunked DoH response truncated".to_string()));
+        }
+
+        decoded.extend_from_slice(&body[cursor..cursor + size]);
+        cursor += size;
+        if &body[cursor..cursor + 2] != b"\r\n" {
+            return Err(EncryptedDnsError::Request("chunked DoH response missing chunk terminator".to_string()));
+        }
+        cursor += 2;
+    }
+}
+
+fn trim_ascii(bytes: &[u8]) -> &[u8] {
+    let start = bytes.iter().position(|byte| !byte.is_ascii_whitespace()).unwrap_or(bytes.len());
+    let end = bytes.iter().rposition(|byte| !byte.is_ascii_whitespace()).map_or(start, |index| index + 1);
+    &bytes[start..end]
+}
+
+fn find_crlf(bytes: &[u8]) -> Option<usize> {
+    bytes.windows(2).position(|window| window == b"\r\n")
+}
+
+fn should_ignore_tls_eof(error: &io::Error) -> bool {
+    error.kind() == io::ErrorKind::UnexpectedEof && error.to_string().contains("close_notify")
 }
 
 #[cfg(test)]

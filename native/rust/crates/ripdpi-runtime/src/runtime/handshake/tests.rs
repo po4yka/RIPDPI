@@ -5,9 +5,12 @@ use crate::retry_stealth::RetryPacer;
 use crate::runtime::state::RuntimeState;
 use crate::runtime_policy::RuntimePolicy;
 use crate::sync::{Arc, AtomicBool, AtomicUsize, Mutex};
+use local_network_fixture::{FixtureConfig, FixtureStack};
 use ripdpi_config::{DesyncGroup, RuntimeConfig};
+use ripdpi_proxy_config::{ProxyEncryptedDnsContext, ProxyRuntimeContext};
 use ripdpi_session::{
-    encode_http_connect_reply, encode_socks4_reply, encode_socks5_reply, S_ATP_I4, S_ATP_I6, S_CMD_CONN, S_ER_GEN,
+    encode_http_connect_reply, encode_socks4_reply, encode_socks5_reply, parse_http_connect_request,
+    parse_socks4_request, parse_socks5_request, SessionConfig, SocketType, S_ATP_I4, S_ATP_I6, S_CMD_CONN, S_ER_GEN,
     S_VER5,
 };
 use std::io::{Read, Write};
@@ -23,6 +26,10 @@ fn connected_pair() -> (TcpStream, TcpStream) {
 }
 
 fn runtime_state(config: RuntimeConfig) -> RuntimeState {
+    runtime_state_with_context(config, None)
+}
+
+fn runtime_state_with_context(config: RuntimeConfig, runtime_context: Option<ProxyRuntimeContext>) -> RuntimeState {
     RuntimeState {
         config: Arc::new(config.clone()),
         cache: Arc::new(Mutex::new(RuntimePolicy::load(&config))),
@@ -32,9 +39,45 @@ fn runtime_state(config: RuntimeConfig) -> RuntimeState {
         strategy_evolver: Arc::new(Mutex::new(crate::strategy_evolver::StrategyEvolver::new(false, 0.0))),
         active_clients: Arc::new(AtomicUsize::new(0)),
         telemetry: None,
-        runtime_context: None,
+        runtime_context,
         control: None,
         ttl_unavailable: Arc::new(AtomicBool::new(false)),
+    }
+}
+
+fn resolve_ip_literal(host: &str, _socket_type: SocketType) -> Option<SocketAddr> {
+    host.parse::<IpAddr>().ok().map(|ip| SocketAddr::new(ip, 0))
+}
+
+fn fixture_runtime_context(dns_http_port: u16) -> ProxyRuntimeContext {
+    ProxyRuntimeContext {
+        encrypted_dns: Some(ProxyEncryptedDnsContext {
+            resolver_id: Some("fixture-doh".to_string()),
+            protocol: "doh".to_string(),
+            host: "127.0.0.1".to_string(),
+            port: dns_http_port,
+            tls_server_name: None,
+            bootstrap_ips: vec!["127.0.0.1".to_string()],
+            doh_url: Some(format!("http://127.0.0.1:{dns_http_port}/dns-query")),
+            dnscrypt_provider_name: None,
+            dnscrypt_public_key: None,
+        }),
+    }
+}
+
+fn dynamic_fixture_config() -> FixtureConfig {
+    FixtureConfig {
+        tcp_echo_port: 0,
+        udp_echo_port: 0,
+        tls_echo_port: 0,
+        dns_udp_port: 0,
+        dns_http_port: 0,
+        dns_dot_port: 0,
+        dns_dnscrypt_port: 0,
+        dns_doq_port: 0,
+        socks5_port: 0,
+        control_port: 0,
+        ..FixtureConfig::default()
     }
 }
 
@@ -75,13 +118,14 @@ fn read_socks5_request_reads_domain_target() {
 fn parse_shadowsocks_target_handles_ipv4_and_resolved_domain_targets() {
     let config = RuntimeConfig::default();
     let ipv4_packet = [S_ATP_I4, 127, 0, 0, 1, 0x01, 0xbb];
-    let (ipv4_target, ipv4_header_len) = parse_shadowsocks_target(&ipv4_packet, &config).expect("parse ipv4 target");
+    let (ipv4_target, ipv4_header_len) =
+        parse_shadowsocks_target(&ipv4_packet, &config, resolve_ip_literal).expect("parse ipv4 target");
     assert_eq!(ipv4_target, SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 443));
     assert_eq!(ipv4_header_len, ipv4_packet.len());
 
     let domain_packet = [0x03, 9, b'1', b'2', b'7', b'.', b'0', b'.', b'0', b'.', b'1', 0x00, 0x50];
     let (domain_target, domain_header_len) =
-        parse_shadowsocks_target(&domain_packet, &config).expect("parse domain target");
+        parse_shadowsocks_target(&domain_packet, &config, resolve_ip_literal).expect("parse domain target");
     assert_eq!(domain_target, SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 80));
     assert_eq!(domain_header_len, domain_packet.len());
 }
@@ -94,8 +138,52 @@ fn parse_shadowsocks_target_respects_ipv6_and_resolve_flags() {
     let ipv6_packet = [S_ATP_I6, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 53];
     let domain_packet = [0x03, 9, b'1', b'2', b'7', b'.', b'0', b'.', b'0', b'.', b'1', 0, 80];
 
-    assert!(parse_shadowsocks_target(&ipv6_packet, &config).is_none());
-    assert!(parse_shadowsocks_target(&domain_packet, &config).is_none());
+    assert!(parse_shadowsocks_target(&ipv6_packet, &config, resolve_ip_literal).is_none());
+    assert!(parse_shadowsocks_target(&domain_packet, &config, resolve_ip_literal).is_none());
+}
+
+#[test]
+fn domain_protocols_resolve_through_encrypted_dns_runtime_context() {
+    let stack = FixtureStack::start(dynamic_fixture_config()).expect("start fixture");
+    let runtime_context = fixture_runtime_context(stack.manifest().dns_http_port);
+    let state = runtime_state_with_context(RuntimeConfig::default(), Some(runtime_context));
+    let resolver = |host: &str, socket_type: SocketType| resolve_name(host, socket_type, &state);
+    let session = SessionConfig { resolve: state.config.network.resolve, ipv6: state.config.network.ipv6 };
+    let expected_ip = stack.manifest().dns_answer_ipv4.parse::<IpAddr>().expect("fixture ip");
+
+    let socks4_request = [
+        0x04, 0x01, 0x01, 0xbb, 0, 0, 0, 1, 0, b'f', b'i', b'x', b't', b'u', b'r', b'e', b'.', b't', b'e', b's', b't',
+        0,
+    ];
+    let socks4_target = parse_socks4_request(&socks4_request, session, &resolver).expect("parse socks4 request");
+    let ripdpi_session::ClientRequest::Socks4Connect(socks4_target) = socks4_target else {
+        panic!("expected SOCKS4 connect request");
+    };
+    assert_eq!(socks4_target.addr.ip(), expected_ip);
+
+    let socks5_request = [
+        S_VER5, S_CMD_CONN, 0, 0x03, 12, b'f', b'i', b'x', b't', b'u', b'r', b'e', b'.', b't', b'e', b's', b't', 0x01,
+        0xbb,
+    ];
+    let socks5_target =
+        parse_socks5_request(&socks5_request, SocketType::Stream, session, &resolver).expect("parse socks5 request");
+    let ripdpi_session::ClientRequest::Socks5Connect(socks5_target) = socks5_target else {
+        panic!("expected SOCKS5 connect request");
+    };
+    assert_eq!(socks5_target.addr.ip(), expected_ip);
+
+    let http_request = b"CONNECT fixture.test:443 HTTP/1.1\r\nHost: fixture.test:443\r\n\r\n";
+    let http_target = parse_http_connect_request(http_request, &resolver).expect("parse http connect request");
+    let ripdpi_session::ClientRequest::HttpConnect(http_target) = http_target else {
+        panic!("expected HTTP CONNECT request");
+    };
+    assert_eq!(http_target.addr.ip(), expected_ip);
+
+    let shadowsocks_request = [0x03, 12, b'f', b'i', b'x', b't', b'u', b'r', b'e', b'.', b't', b'e', b's', b't', 0, 80];
+    let (shadowsocks_target, header_len) =
+        parse_shadowsocks_target(&shadowsocks_request, &state.config, resolver).expect("parse shadowsocks target");
+    assert_eq!(shadowsocks_target.ip(), expected_ip);
+    assert_eq!(header_len, shadowsocks_request.len());
 }
 
 #[test]

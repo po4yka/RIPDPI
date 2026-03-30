@@ -80,7 +80,7 @@ fn handle_transparent(mut client: TcpStream, state: &RuntimeState) -> io::Result
 fn handle_socks4(mut client: TcpStream, state: &RuntimeState, version: u8) -> io::Result<()> {
     let request = read_socks4_request(&mut client, version)?;
     let session = SessionConfig { resolve: state.config.network.resolve, ipv6: state.config.network.ipv6 };
-    let resolver = |host: &str, socket_type: SocketType| resolve_name(host, socket_type, &state.config);
+    let resolver = |host: &str, socket_type: SocketType| resolve_name(host, socket_type, state);
     let parsed = parse_socks4_request(&request, session, &resolver);
     match parsed {
         Ok(ClientRequest::Socks4Connect(target)) => {
@@ -113,7 +113,7 @@ fn handle_socks5(mut client: TcpStream, state: &RuntimeState, version: u8) -> io
     negotiate_socks5(&mut client)?;
     let request = read_socks5_request(&mut client)?;
     let session = SessionConfig { resolve: state.config.network.resolve, ipv6: state.config.network.ipv6 };
-    let resolver = |host: &str, socket_type: SocketType| resolve_name(host, socket_type, &state.config);
+    let resolver = |host: &str, socket_type: SocketType| resolve_name(host, socket_type, state);
 
     match parse_socks5_request(&request, SocketType::Stream, session, &resolver) {
         Ok(ClientRequest::Socks5Connect(target)) => {
@@ -151,7 +151,7 @@ fn handle_socks5(mut client: TcpStream, state: &RuntimeState, version: u8) -> io
 
 fn handle_http_connect(mut client: TcpStream, state: &RuntimeState) -> io::Result<()> {
     let request = read_http_connect_request(&mut client)?;
-    let resolver = |host: &str, socket_type: SocketType| resolve_name(host, socket_type, &state.config);
+    let resolver = |host: &str, socket_type: SocketType| resolve_name(host, socket_type, state);
     match parse_http_connect_request(&request, &resolver) {
         Ok(ClientRequest::HttpConnect(target)) => {
             let dc_host = detect_telegram_dc(target.addr).map(|dc| {
@@ -174,7 +174,8 @@ fn handle_http_connect(mut client: TcpStream, state: &RuntimeState) -> io::Resul
 }
 
 fn handle_shadowsocks(mut client: TcpStream, state: &RuntimeState, first_byte: u8) -> io::Result<()> {
-    let (target, first_request) = read_shadowsocks_request(&mut client, first_byte, &state.config)?;
+    let resolver = |host: &str, socket_type: SocketType| resolve_name(host, socket_type, state);
+    let (target, first_request) = read_shadowsocks_request(&mut client, first_byte, &state.config, resolver)?;
     let host = extract_host(&state.config, &first_request);
     let payload = if first_request.is_empty() { None } else { Some(first_request.as_slice()) };
     let (upstream, route) = super::routing::connect_target(target, state, payload, false, host)?;

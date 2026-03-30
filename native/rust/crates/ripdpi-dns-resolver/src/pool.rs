@@ -252,6 +252,7 @@ impl ResolverPoolBuilder {
                 self.tls_roots.clone(),
                 Some(health.clone()),
                 None,
+                crate::types::EncryptedDnsConnectHooks::default(),
             )?;
             labels.push(resolver.endpoint_label());
             resolvers.push(resolver);
