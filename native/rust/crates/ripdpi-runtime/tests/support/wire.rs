@@ -110,7 +110,6 @@ pub mod capture {
         pub ttl: u8,
         pub tcp_window: Option<u16>,
         pub tcp_flags: Option<u8>,
-        pub tcp_sequence_number: Option<u32>,
         pub tcp_options: Option<Vec<u8>>,
         pub payload: Vec<u8>,
     }
@@ -250,7 +249,6 @@ pub mod capture {
 
         let src_port = u16::from_be_bytes([data[0], data[1]]);
         let dst_port = u16::from_be_bytes([data[2], data[3]]);
-        let sequence_number = u32::from_be_bytes([data[4], data[5], data[6], data[7]]);
 
         if src_port != filter_port && dst_port != filter_port {
             return None;
@@ -272,7 +270,6 @@ pub mod capture {
             ttl,
             tcp_window: Some(window),
             tcp_flags: Some(flags),
-            tcp_sequence_number: Some(sequence_number),
             tcp_options: options,
             payload,
         })
@@ -299,7 +296,6 @@ pub mod capture {
             ttl,
             tcp_window: None,
             tcp_flags: None,
-            tcp_sequence_number: None,
             tcp_options: None,
             payload,
         })
