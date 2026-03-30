@@ -359,10 +359,12 @@ class StubDiagnosticsHomeWorkflowService : DiagnosticsHomeWorkflowService {
 
 class StubDiagnosticsHomeCompositeRunService : DiagnosticsHomeCompositeRunService {
     var nextRunId: String = "home-run"
+    var startFailure: Throwable? = null
     val startedRunIds = mutableListOf<String>()
     val runs = mutableMapOf<String, MutableStateFlow<DiagnosticsHomeCompositeProgress>>()
 
     override suspend fun startHomeAnalysis(): DiagnosticsHomeCompositeRunStarted {
+        startFailure?.let { throw it }
         val runId = nextRunId
         startedRunIds += runId
         runs.getOrPut(runId) {
