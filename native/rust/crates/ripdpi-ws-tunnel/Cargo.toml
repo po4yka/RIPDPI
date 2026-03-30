@@ -12,7 +12,7 @@ chrome-fingerprint = ["dep:boring"]
 aes = { workspace = true }
 boring = { workspace = true, optional = true }
 ctr = "0.9"
-cipher = "0.4"
+cipher = "0.5"
 tracing = { workspace = true }
 socket2 = { workspace = true }
 bytes = "1"
