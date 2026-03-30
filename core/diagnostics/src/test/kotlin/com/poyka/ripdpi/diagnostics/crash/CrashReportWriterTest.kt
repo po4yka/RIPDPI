@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.diagnostics.crash
 
+import com.poyka.ripdpi.diagnostics.BreadcrumbLogWriter
 import kotlinx.serialization.json.Json
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
@@ -28,10 +29,12 @@ class CrashReportWriterTest {
                 String::class.java,
                 Long::class.javaPrimitiveType,
                 Thread.UncaughtExceptionHandler::class.java,
+                Function0::class.java,
             )
         field.isAccessible = true
+        val noBreadcrumbs: () -> List<BreadcrumbLogWriter.BreadcrumbEntry> = { emptyList() }
         val writer =
-            field.newInstance(crashDir, "1.2.3", 42L, previousHandler)
+            field.newInstance(crashDir, "1.2.3", 42L, previousHandler, noBreadcrumbs)
                 as Thread.UncaughtExceptionHandler
         return writer to File(crashDir, CrashReportWriter.CRASH_FILE_NAME)
     }

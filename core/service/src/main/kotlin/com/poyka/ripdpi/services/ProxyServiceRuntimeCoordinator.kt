@@ -189,7 +189,7 @@ internal class ProxyServiceRuntimeCoordinator(
 
     override fun onPermissionRevoked(event: PermissionChangeEvent) {
         if (event.kind == PermissionChangeEvent.KIND_NOTIFICATIONS) {
-            Logger.w { "Notification permission revoked while proxy running" }
+            Logger.i { "Notification permission revoked while proxy running" }
         }
     }
 

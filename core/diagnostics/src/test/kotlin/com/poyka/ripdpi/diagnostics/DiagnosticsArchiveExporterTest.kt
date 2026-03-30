@@ -366,6 +366,12 @@ class DiagnosticsArchiveExporterTest {
                     artifactReadStore = stores,
                     bypassUsageHistoryStore = stores,
                     logcatSnapshotCollector = FakeLogcatSnapshotCollector(snapshot = null),
+                    fileLogWriter =
+                        FileLogWriter(
+                            java.nio.file.Files
+                                .createTempDirectory("file-log-test")
+                                .toFile(),
+                        ),
                     buildInfoProvider = testBuildInfoProvider(),
                     diagnosticsHomeCompositeRunService = compositeRunService,
                     json = json,

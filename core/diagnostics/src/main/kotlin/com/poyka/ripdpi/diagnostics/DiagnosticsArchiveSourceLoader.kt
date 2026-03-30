@@ -19,6 +19,7 @@ internal class DiagnosticsArchiveSourceLoader
         private val artifactReadStore: DiagnosticsArtifactReadStore,
         private val bypassUsageHistoryStore: BypassUsageHistoryStore,
         private val logcatSnapshotCollector: LogcatSnapshotCollector,
+        private val fileLogWriter: FileLogWriter,
         private val buildInfoProvider: DiagnosticsArchiveBuildInfoProvider,
         private val diagnosticsHomeCompositeRunService: DiagnosticsHomeCompositeRunService,
         @param:Named("diagnosticsJson")
@@ -42,6 +43,7 @@ internal class DiagnosticsArchiveSourceLoader
                 artifactReadStore.observeContexts(limit = DiagnosticsArchiveFormat.snapshotLimit).first()
             val logcatCapture = runCatching { logcatSnapshotCollector.capture() }
             val logcatSnapshot = logcatCapture.getOrNull()
+            val fileLogSnapshot = runCatching { fileLogWriter.readLogContent() }.getOrNull()
             val approachSummaries =
                 DiagnosticsSessionQueries.buildApproachSummaries(
                     scanSessions = sessions,
@@ -78,6 +80,7 @@ internal class DiagnosticsArchiveSourceLoader
                 buildProvenance = buildInfoProvider.buildProvenance(),
                 collectionWarnings = collectionWarnings,
                 logcatSnapshot = logcatSnapshot,
+                fileLogSnapshot = fileLogSnapshot,
             )
         }
 

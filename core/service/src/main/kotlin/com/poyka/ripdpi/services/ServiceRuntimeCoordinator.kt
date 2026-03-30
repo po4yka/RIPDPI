@@ -90,7 +90,7 @@ internal abstract class BaseServiceRuntimeCoordinator<TSession>(
             runCatching {
                 mutex.withLock {
                     if (!lifecycleState.tryBeginStart()) {
-                        Logger.w {
+                        Logger.d {
                             "Ignoring $serviceLabel start while lifecycle state is ${lifecycleState.state}"
                         }
                         return@withLock false
@@ -142,14 +142,14 @@ internal abstract class BaseServiceRuntimeCoordinator<TSession>(
         Logger.i { "Stopping $serviceLabel" }
 
         if (stopping) {
-            Logger.w { "$serviceLabel stop already in progress" }
+            Logger.d { "$serviceLabel stop already in progress" }
             return
         }
 
         val stopped =
             mutex.withLock {
                 if (stopping) {
-                    Logger.w { "$serviceLabel stop already in progress" }
+                    Logger.d { "$serviceLabel stop already in progress" }
                     return@withLock false
                 }
 
@@ -215,7 +215,7 @@ internal abstract class BaseServiceRuntimeCoordinator<TSession>(
         permissionWatchdogJob =
             host.serviceScope.launch(ioDispatcher) {
                 permissionWatchdog.changes.collect { event ->
-                    Logger.w { "Permission change detected: ${event.kind}" }
+                    Logger.i { "Permission change detected: ${event.kind}" }
                     onPermissionRevoked(event)
                 }
             }

@@ -100,6 +100,12 @@ internal fun createDiagnosticsServices(
                     artifactReadStore = stores,
                     bypassUsageHistoryStore = stores,
                     logcatSnapshotCollector = logcatSnapshotCollector,
+                    fileLogWriter =
+                        FileLogWriter(
+                            java.nio.file.Files
+                                .createTempDirectory("file-log-test")
+                                .toFile(),
+                        ),
                     buildInfoProvider =
                         object : DiagnosticsArchiveBuildInfoProvider {
                             override fun buildProvenance(): DiagnosticsArchiveBuildProvenance =

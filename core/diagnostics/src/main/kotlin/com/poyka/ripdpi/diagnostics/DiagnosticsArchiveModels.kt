@@ -47,6 +47,7 @@ internal object DiagnosticsArchiveFormat {
 
     fun includedFiles(
         logcatIncluded: Boolean,
+        fileLogIncluded: Boolean = false,
         composite: Boolean = false,
     ): List<String> =
         buildList {
@@ -70,6 +71,9 @@ internal object DiagnosticsArchiveFormat {
             add("diagnostic-context.json")
             if (logcatIncluded) {
                 add("logcat.txt")
+            }
+            if (fileLogIncluded) {
+                add("app-log.txt")
             }
             add("integrity.json")
         }
@@ -98,6 +102,7 @@ internal data class DiagnosticsArchiveSourceData(
     val buildProvenance: DiagnosticsArchiveBuildProvenance,
     val collectionWarnings: List<String>,
     val logcatSnapshot: LogcatSnapshot?,
+    val fileLogSnapshot: String?,
 )
 
 internal data class DiagnosticsArchiveSelection(
@@ -128,6 +133,7 @@ internal data class DiagnosticsArchiveSelection(
     val collectionWarnings: List<String>,
     val includedFiles: List<String>,
     val logcatSnapshot: LogcatSnapshot?,
+    val fileLogSnapshot: String?,
 )
 
 @Serializable

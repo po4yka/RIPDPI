@@ -312,7 +312,7 @@ internal class VpnServiceRuntimeCoordinator(
             }
 
             PermissionChangeEvent.KIND_NOTIFICATIONS -> {
-                Logger.w { "Notification permission revoked while VPN running" }
+                Logger.i { "Notification permission revoked while VPN running" }
             }
         }
     }

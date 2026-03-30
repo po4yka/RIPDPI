@@ -44,13 +44,13 @@ class DefaultServiceController
                 ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) !=
                 PackageManager.PERMISSION_GRANTED
             ) {
-                Logger.w {
+                Logger.i {
                     "Cannot start service: POST_NOTIFICATIONS permission not granted"
                 }
                 return
             }
             if (mode == Mode.VPN && VpnService.prepare(context) != null) {
-                Logger.w {
+                Logger.i {
                     "Cannot start VPN service: VPN consent not given"
                 }
                 return
