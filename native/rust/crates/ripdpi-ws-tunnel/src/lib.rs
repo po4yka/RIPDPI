@@ -6,6 +6,7 @@ mod relay;
 
 use std::io;
 use std::net::{IpAddr, SocketAddr, TcpStream};
+use std::time::Duration;
 
 pub use dc::{dc_from_ip, is_telegram_ip, ws_host, ws_url, TelegramDc, TelegramDcClass};
 pub use mtproto::{classify_mtproto_seed, decrypt_init_packet, extract_dc_from_init, MtprotoSeedClassification};
@@ -18,6 +19,8 @@ pub struct WsTunnelConfig {
     /// Optional pre-resolved Telegram WS endpoint, usually supplied by the
     /// runtime through encrypted DNS.
     pub resolved_addr: Option<SocketAddr>,
+    /// Optional TCP connect timeout for the WS bootstrap path.
+    pub connect_timeout: Option<Duration>,
 }
 
 /// Result of classifying a target IP for WS tunnel eligibility.
@@ -52,7 +55,7 @@ pub fn relay_ws_tunnel(
     seed_request: Vec<u8>,
     config: &WsTunnelConfig,
 ) -> io::Result<()> {
-    relay_ws_tunnel_with(client, dc, seed_request, config, connect::open_ws_tunnel, relay::ws_relay)
+    relay_ws_tunnel_with(client, dc, seed_request, config, connect::open_ws_tunnel_with_timeout, relay::ws_relay)
 }
 
 fn relay_ws_tunnel_with<OpenWs, RelayWs, Ws>(
@@ -64,7 +67,7 @@ fn relay_ws_tunnel_with<OpenWs, RelayWs, Ws>(
     relay_ws: RelayWs,
 ) -> io::Result<()>
 where
-    OpenWs: FnOnce(TelegramDc, Option<SocketAddr>, Option<&str>) -> io::Result<Ws>,
+    OpenWs: FnOnce(TelegramDc, Option<SocketAddr>, Option<&str>, Option<Duration>) -> io::Result<Ws>,
     RelayWs: FnOnce(TcpStream, Ws, &[u8]) -> io::Result<()>,
 {
     if seed_request.len() < 64 {
@@ -74,7 +77,7 @@ where
         ));
     }
 
-    let ws = open_ws(dc, config.resolved_addr, config.protect_path.as_deref())?;
+    let ws = open_ws(dc, config.resolved_addr, config.protect_path.as_deref(), config.connect_timeout)?;
     relay_ws(client, ws, &seed_request)
 }
 
@@ -151,8 +154,12 @@ mod tests {
             relay_client,
             TelegramDc::production(3),
             vec![0x42; 63],
-            &WsTunnelConfig { protect_path: Some("/tmp/protect.sock".to_string()), resolved_addr: None },
-            |_dc, _resolved_addr, _protect_path| Ok(()),
+            &WsTunnelConfig {
+                protect_path: Some("/tmp/protect.sock".to_string()),
+                resolved_addr: None,
+                connect_timeout: None,
+            },
+            |_dc, _resolved_addr, _protect_path, _connect_timeout| Ok(()),
             |_client, _ws: (), _seed_request| Ok(()),
         )
         .expect_err("short seed should fail");
@@ -170,11 +177,16 @@ mod tests {
             relay_client,
             TelegramDc::production(2),
             seed_request.clone(),
-            &WsTunnelConfig { protect_path: Some("/tmp/protect.sock".to_string()), resolved_addr: Some(injected_addr) },
-            |dc, resolved_addr, protect_path| {
+            &WsTunnelConfig {
+                protect_path: Some("/tmp/protect.sock".to_string()),
+                resolved_addr: Some(injected_addr),
+                connect_timeout: Some(Duration::from_millis(321)),
+            },
+            |dc, resolved_addr, protect_path, connect_timeout| {
                 assert_eq!(dc, TelegramDc::production(2));
                 assert_eq!(resolved_addr, Some(injected_addr));
                 assert_eq!(protect_path, Some("/tmp/protect.sock"));
+                assert_eq!(connect_timeout, Some(Duration::from_millis(321)));
                 Ok(())
             },
             |_client, _ws, forwarded_seed| {
@@ -194,8 +206,10 @@ mod tests {
             relay_client,
             TelegramDc::production(1),
             seed_request,
-            &WsTunnelConfig { protect_path: None, resolved_addr: None },
-            |_dc, _resolved_addr, _protect_path| Err(io::Error::new(io::ErrorKind::ConnectionRefused, "boom")),
+            &WsTunnelConfig { protect_path: None, resolved_addr: None, connect_timeout: None },
+            |_dc, _resolved_addr, _protect_path, _connect_timeout| {
+                Err(io::Error::new(io::ErrorKind::ConnectionRefused, "boom"))
+            },
             |_client, _ws: (), _seed_request| Ok(()),
         )
         .expect_err("open failure should surface");
@@ -212,8 +226,8 @@ mod tests {
             relay_client,
             TelegramDc::production(5),
             seed_request.clone(),
-            &WsTunnelConfig { protect_path: None, resolved_addr: None },
-            |_dc, _resolved_addr, _protect_path| Ok(()),
+            &WsTunnelConfig { protect_path: None, resolved_addr: None, connect_timeout: None },
+            |_dc, _resolved_addr, _protect_path, _connect_timeout| Ok(()),
             |_client, _ws: (), forwarded_seed| {
                 assert_eq!(forwarded_seed, seed_request.as_slice());
                 Err(io::Error::new(io::ErrorKind::BrokenPipe, "relay boom"))

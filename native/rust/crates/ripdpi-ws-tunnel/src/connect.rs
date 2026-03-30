@@ -65,7 +65,27 @@ fn resolve_ws_target(dc: TelegramDc, resolved_addr: Option<SocketAddr>) -> io::R
 fn connect_tcp_socket_with(
     target: SocketAddr,
     protect_path: Option<&str>,
+    connect_timeout: Option<Duration>,
     mut protect_socket: impl FnMut(&Socket, &str) -> io::Result<()>,
+) -> io::Result<TcpStream> {
+    connect_tcp_socket_with_impl(
+        target,
+        protect_path,
+        connect_timeout,
+        &mut protect_socket,
+        |socket, target, timeout| match timeout {
+            Some(timeout) => socket.connect_timeout(&SockAddr::from(target), timeout),
+            None => socket.connect(&SockAddr::from(target)),
+        },
+    )
+}
+
+fn connect_tcp_socket_with_impl(
+    target: SocketAddr,
+    protect_path: Option<&str>,
+    connect_timeout: Option<Duration>,
+    mut protect_socket: impl FnMut(&Socket, &str) -> io::Result<()>,
+    mut connect_socket: impl FnMut(&Socket, SocketAddr, Option<Duration>) -> io::Result<()>,
 ) -> io::Result<TcpStream> {
     let domain = match target {
         std::net::SocketAddr::V4(_) => Domain::IPV4,
@@ -76,8 +96,7 @@ fn connect_tcp_socket_with(
     if let Some(path) = protect_path {
         protect_socket(&socket, path)?;
     }
-    socket
-        .connect(&SockAddr::from(target))
+    connect_socket(&socket, target, connect_timeout)
         .map_err(|e| io::Error::new(e.kind(), format!("WS tunnel TCP connect to {target}: {e}")))?;
     let tcp: TcpStream = socket.into();
     tcp.set_nodelay(true)?;
@@ -88,8 +107,12 @@ fn connect_tcp_socket_with(
     Ok(tcp)
 }
 
-fn connect_tcp_socket(target: SocketAddr, protect_path: Option<&str>) -> io::Result<TcpStream> {
-    connect_tcp_socket_with(target, protect_path, protect::protect_socket)
+fn connect_tcp_socket(
+    target: SocketAddr,
+    protect_path: Option<&str>,
+    connect_timeout: Option<Duration>,
+) -> io::Result<TcpStream> {
+    connect_tcp_socket_with(target, protect_path, connect_timeout, protect::protect_socket)
 }
 
 fn build_ws_request(url: &str) -> io::Result<tungstenite::http::Request<()>> {
@@ -151,10 +174,11 @@ fn connect_rustls_stream_with_config(
 /// If `protect_path` is provided, the underlying TCP socket is protected from
 /// Android VPN routing loops before connecting.
 #[cfg(not(feature = "chrome-fingerprint"))]
-pub fn open_ws_tunnel(
+pub(crate) fn open_ws_tunnel_with_timeout(
     dc: TelegramDc,
     resolved_addr: Option<SocketAddr>,
     protect_path: Option<&str>,
+    connect_timeout: Option<Duration>,
 ) -> io::Result<WsStream> {
     let url = ws_url(dc).ok_or_else(|| {
         io::Error::new(
@@ -163,7 +187,7 @@ pub fn open_ws_tunnel(
         )
     })?;
     let (host, target) = resolve_ws_target(dc, resolved_addr)?;
-    let tcp = connect_tcp_socket(target, protect_path)?;
+    let tcp = connect_tcp_socket(target, protect_path, connect_timeout)?;
     let request = build_ws_request(url.as_str())?;
     let tls = connect_rustls_stream(&host, tcp)?;
 
@@ -174,6 +198,15 @@ pub fn open_ws_tunnel(
     Ok(ws)
 }
 
+#[cfg(not(feature = "chrome-fingerprint"))]
+pub fn open_ws_tunnel(
+    dc: TelegramDc,
+    resolved_addr: Option<SocketAddr>,
+    protect_path: Option<&str>,
+) -> io::Result<WsStream> {
+    open_ws_tunnel_with_timeout(dc, resolved_addr, protect_path, None)
+}
+
 /// Open a WebSocket tunnel to the given Telegram DC.
 ///
 /// Uses BoringSSL for TLS, producing a Chrome-compatible JA3/JA4 fingerprint
@@ -182,10 +215,11 @@ pub fn open_ws_tunnel(
 /// If `protect_path` is provided, the underlying TCP socket is protected from
 /// Android VPN routing loops before connecting.
 #[cfg(feature = "chrome-fingerprint")]
-pub fn open_ws_tunnel(
+pub(crate) fn open_ws_tunnel_with_timeout(
     dc: TelegramDc,
     resolved_addr: Option<SocketAddr>,
     protect_path: Option<&str>,
+    connect_timeout: Option<Duration>,
 ) -> io::Result<WsStream> {
     let url = ws_url(dc).ok_or_else(|| {
         io::Error::new(
@@ -194,7 +228,7 @@ pub fn open_ws_tunnel(
         )
     })?;
     let (host, target) = resolve_ws_target(dc, resolved_addr)?;
-    let tcp = connect_tcp_socket(target, protect_path)?;
+    let tcp = connect_tcp_socket(target, protect_path, connect_timeout)?;
 
     // BoringSSL TLS handshake -- produces Chrome-native cipher suite ordering,
     // GREASE values, and extension layout for DPI fingerprint evasion.
@@ -212,6 +246,15 @@ pub fn open_ws_tunnel(
         .map_err(|e| io::Error::new(io::ErrorKind::ConnectionRefused, format!("WS handshake: {e}")))?;
 
     Ok(ws)
+}
+
+#[cfg(feature = "chrome-fingerprint")]
+pub fn open_ws_tunnel(
+    dc: TelegramDc,
+    resolved_addr: Option<SocketAddr>,
+    protect_path: Option<&str>,
+) -> io::Result<WsStream> {
+    open_ws_tunnel_with_timeout(dc, resolved_addr, protect_path, None)
 }
 
 #[cfg(test)]
@@ -254,7 +297,7 @@ mod tests {
             accept_tx.send("accept").expect("record accept");
         });
 
-        let stream = connect_tcp_socket_with(target, Some("/tmp/protect.sock"), |_, path| {
+        let stream = connect_tcp_socket_with(target, Some("/tmp/protect.sock"), None, |_, path| {
             assert_eq!(path, "/tmp/protect.sock");
             tx.send("protect").expect("record protect");
             Ok(())
@@ -282,7 +325,7 @@ mod tests {
         let called_flag = called.clone();
         let accept_thread = thread::spawn(move || listener.accept().expect("accept connection"));
 
-        let _stream = connect_tcp_socket_with(target, None, |_, _| {
+        let _stream = connect_tcp_socket_with(target, None, None, |_, _| {
             called_flag.store(true, Ordering::SeqCst);
             Ok(())
         })
@@ -364,7 +407,7 @@ mod tests {
             }
         });
 
-        let tcp = connect_tcp_socket(target, None).expect("connect tcp socket");
+        let tcp = connect_tcp_socket(target, None, None).expect("connect tcp socket");
         let tls_config = build_rustls_client_config(localhost_root_store(certificate_der));
         let tls = connect_rustls_stream_with_config("localhost", tcp, tls_config).expect("connect rustls stream");
 
@@ -403,7 +446,7 @@ mod tests {
             .expect("accept websocket");
         });
 
-        let tcp = connect_tcp_socket(target, None).expect("connect tcp socket");
+        let tcp = connect_tcp_socket(target, None, None).expect("connect tcp socket");
         let tls_config = build_rustls_client_config(localhost_root_store(certificate_der));
         let tls = connect_rustls_stream_with_config("localhost", tcp, tls_config).expect("connect rustls stream");
         let request = build_ws_request("wss://localhost/apiws").expect("build ws request");
@@ -411,5 +454,30 @@ mod tests {
 
         assert_eq!(response.status(), tungstenite::http::StatusCode::SWITCHING_PROTOCOLS);
         server_thread.join().expect("join server thread");
+    }
+
+    #[test]
+    fn connect_tcp_socket_passes_configured_connect_timeout() {
+        let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("bind listener");
+        let target = listener.local_addr().expect("listener addr");
+        let accept_thread = thread::spawn(move || listener.accept().expect("accept connection"));
+        let observed_timeout = Cell::new(None);
+        let expected_timeout = Duration::from_millis(321);
+
+        let stream = connect_tcp_socket_with_impl(
+            target,
+            None,
+            Some(expected_timeout),
+            |_socket, _path| unreachable!("protect should not run"),
+            |socket, target, timeout| {
+                observed_timeout.set(timeout);
+                socket.connect_timeout(&SockAddr::from(target), timeout.expect("connect timeout"))
+            },
+        )
+        .expect("connect socket");
+
+        assert_eq!(observed_timeout.get(), Some(expected_timeout));
+        assert!(stream.nodelay().expect("nodelay"));
+        accept_thread.join().expect("join accept thread");
     }
 }
