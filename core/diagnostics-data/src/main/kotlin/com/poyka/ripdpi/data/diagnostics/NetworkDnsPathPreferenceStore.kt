@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.data.diagnostics
 
+import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.data.EncryptedDnsPathCandidate
 import com.poyka.ripdpi.data.NetworkFingerprint
 import com.poyka.ripdpi.data.NetworkFingerprintSummary
@@ -72,12 +73,16 @@ class DefaultNetworkDnsPathPreferenceStore
 fun NetworkDnsPathPreferenceEntity.decodePath(
     json: Json = Json { ignoreUnknownKeys = true },
 ): EncryptedDnsPathCandidate? =
-    runCatching { json.decodeFromString(EncryptedDnsPathCandidate.serializer(), pathJson) }.getOrNull()
+    runCatching {
+        json.decodeFromString(EncryptedDnsPathCandidate.serializer(), pathJson)
+    }.onFailure { Logger.w(it) { "Failed to decode DNS path candidate" } }.getOrNull()
 
 fun NetworkDnsPathPreferenceEntity.decodeSummary(
     json: Json = Json { ignoreUnknownKeys = true },
 ): NetworkFingerprintSummary? =
-    runCatching { json.decodeFromString(NetworkFingerprintSummary.serializer(), summaryJson) }.getOrNull()
+    runCatching {
+        json.decodeFromString(NetworkFingerprintSummary.serializer(), summaryJson)
+    }.onFailure { Logger.w(it) { "Failed to decode network fingerprint summary" } }.getOrNull()
 
 @Module
 @InstallIn(SingletonComponent::class)

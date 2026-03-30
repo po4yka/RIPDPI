@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.diagnostics
 
+import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.data.NetworkFingerprintSummary
 import com.poyka.ripdpi.data.RememberedNetworkPolicySource
 import com.poyka.ripdpi.data.VpnDnsPolicyJson
@@ -297,7 +298,7 @@ private fun decodeProbeDetails(
 ): List<ProbeDetail> =
     runCatching {
         json.decodeFromString(ListSerializer(ProbeDetail.serializer()), payload)
-    }.getOrElse { emptyList() }
+    }.onFailure { Logger.w(it) { "Failed to decode probe details" } }.getOrElse { emptyList() }
 
 private fun <T> decodeOrNull(
     json: Json,
@@ -305,5 +306,8 @@ private fun <T> decodeOrNull(
     payload: String?,
 ): T? =
     payload?.takeIf { it.isNotBlank() }?.let {
-        runCatching { json.decodeFromString(serializer, it) }.getOrNull()
+        runCatching { json.decodeFromString(serializer, it) }
+            .onFailure { e ->
+                Logger.w(e) { "Failed to decode ${serializer.descriptor.serialName}" }
+            }.getOrNull()
     }

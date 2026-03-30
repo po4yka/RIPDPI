@@ -22,6 +22,7 @@ dependencies {
     implementation(project(":core:data"))
     implementation(libs.bundles.room)
     implementation(libs.androidx.core.ktx)
+    implementation(libs.kermit)
     implementation(libs.kotlinx.serialization.json)
     ksp(libs.androidx.room.compiler)
 
