@@ -21,14 +21,12 @@
     <string name="diagnostics_dashboard_section">Панель</string>
     <string name="diagnostics_overview_run_scan_action">Запустить проверку</string>
     <string name="diagnostics_scan_section">Сканирование</string>
-    <string name="diagnostics_monitor_section">Мониторинг в реальном времени</string>
     <string name="diagnostics_tools_section">Инструменты</string>
     <string name="diagnostics_approaches_title">Подходы</string>
     <string name="diagnostics_approaches_profiles">Профили</string>
     <string name="diagnostics_approaches_strategies">Стратегии</string>
     <string name="diagnostics_approaches_signature_title">Сигнатура конфигурации</string>
     <string name="diagnostics_history_section">История</string>
-    <string name="diagnostics_share_section">Поделиться</string>
     <string name="diagnostics_status_running">Выполняется</string>
     <string name="diagnostics_action_raw">Запустить сканирование напрямую</string>
     <string name="diagnostics_action_in_path">Запустить сканирование по маршруту</string>
@@ -887,12 +885,6 @@ fakeddisorder endhost</string>
     <string name="logs_latest_none">Простой</string>
     <string name="logs_filters_section">Фильтры</string>
     <string name="logs_filters_helper">Выберите один или несколько типов событий для фильтрации потока.</string>
-    <string name="logs_filters_summary_all">Все типы событий</string>
-    <string name="logs_filters_summary_count">%1$d фильтров активно</string>
-    <string name="logs_type_dns">DNS</string>
-    <string name="logs_type_conn">CONN</string>
-    <string name="logs_type_err">ERR</string>
-    <string name="logs_type_warn">WARN</string>
     <string name="logs_auto_scroll_title">Автопрокрутка к новым записям</string>
     <string name="logs_auto_scroll_body">Держать последнюю подходящую запись в поле зрения по мере поступления новых данных диагностики.</string>
     <string name="logs_stream_section">Поток логов</string>
@@ -1518,7 +1510,6 @@ fakeddisorder endhost</string>
     <!-- Diagnostics scan UI -->
     <string name="diagnostics_scan_automatic_audit">Автоматический аудит</string>
     <string name="diagnostics_scan_automatic_probing">Автоматическое зондирование</string>
-    <string name="diagnostics_scan_cli_active_format">%1$s работает только с визуальными настройками RIPDPI. Активен режим командной строки.</string>
     <string name="diagnostics_scan_raw_path_format">%1$s запускает временную среду выполнения RIPDPI по прямому пути и возвращает ручную рекомендацию.</string>
     <string name="diagnostics_scan_raw_only_format">%1$s работает только по прямому пути, так как запускает изолированные временные испытания стратегий.</string>
 
