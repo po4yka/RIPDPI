@@ -635,6 +635,30 @@ fn plan_tcp_multidisorder_groups_terminal_markers_into_logical_segments() {
 }
 
 #[test]
+fn plan_tcp_multidisorder_preserves_tlsrec_prelude_before_grouped_tls_markers() {
+    let mut group = DesyncGroup::new(0);
+    group.actions.tcp_chain = vec![
+        TcpChainStep::new(TcpChainStepKind::TlsRec, OffsetExpr::marker(OffsetBase::ExtLen, 0)),
+        TcpChainStep::new(TcpChainStepKind::MultiDisorder, OffsetExpr::absolute(5)),
+        TcpChainStep::new(TcpChainStepKind::MultiDisorder, OffsetExpr::absolute(17)),
+    ];
+
+    let plan =
+        plan_tcp(&group, DEFAULT_FAKE_TLS, 9, 32, tcp_context(DEFAULT_FAKE_TLS)).expect("plan tlsrec multidisorder");
+
+    assert!(plan.actions.is_empty());
+    assert!(plan.tampered.len() > DEFAULT_FAKE_TLS.len());
+    assert_eq!(
+        plan.steps,
+        vec![
+            PlannedStep { kind: TcpChainStepKind::MultiDisorder, start: 0, end: 5 },
+            PlannedStep { kind: TcpChainStepKind::MultiDisorder, start: 5, end: 17 },
+            PlannedStep { kind: TcpChainStepKind::MultiDisorder, start: 17, end: plan.tampered.len() as i64 },
+        ]
+    );
+}
+
+#[test]
 fn plan_tcp_multidisorder_requires_three_non_empty_segments() {
     let payload = b"abcdef";
     let mut group = DesyncGroup::new(0);
