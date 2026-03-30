@@ -84,6 +84,30 @@ jobs:
           path: /tmp/native-bloat-baseline.json
           retention-days: 14
 
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: test-results
+          path: |
+            **/build/reports/tests/
+            **/build/golden-diffs/
+            **/build/outputs/roborazzi/
+          retention-days: 7
+
+  release-verification:
+    if: github.event_name != 'schedule'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: ./.github/actions/setup-android-rust
+        with:
+          rust-components: ""
+          rust-cache-shared-key: rust-android
+          rust-cache-save: "false"
+          gradle-cache-read-only: ${{ github.event_name == 'pull_request' }}
+
       - name: Verify minified release build
         env:
           RUSTC_WRAPPER: sccache
@@ -108,18 +132,21 @@ jobs:
           if-no-files-found: ignore
           retention-days: 7
 
-      - name: Upload test results
-        if: always()
-        uses: actions/upload-artifact@v7
-        with:
-          name: test-results
-          path: |
-            **/build/reports/tests/
-            **/build/golden-diffs/
-            **/build/outputs/roborazzi/
-          retention-days: 7
+  cargo-deny:
+    if: github.event_name != 'schedule'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
 
-  rust-static-analysis:
+      - name: Install cargo-deny
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-deny@0.19.0
+
+      - name: Run cargo-deny
+        run: cargo deny --manifest-path native/rust/Cargo.toml check
+
+  rust-lint:
     if: github.event_name != 'schedule'
     runs-on: ubuntu-latest
     steps:
@@ -135,29 +162,67 @@ jobs:
         with:
           workspaces: native/rust -> target
           cache-on-failure: true
-          shared-key: rust-static-analysis
+          shared-key: rust-lint
           save-if: ${{ github.ref == 'refs/heads/main' }}
 
       - uses: mozilla-actions/sccache-action@v0.0.9
 
-      - name: Install cargo-deny and cargo-nextest
-        uses: taiki-e/install-action@v2
-        with:
-          tool: cargo-deny@0.19.0,cargo-nextest
-
-      - name: Run cargo-deny
-        run: cargo deny --manifest-path native/rust/Cargo.toml check
-
-      - name: Run native Rust checks
+      - name: Run Rust lint checks
         env:
           RUSTC_WRAPPER: sccache
-        run: bash scripts/ci/run-rust-native-checks.sh
+        run: bash scripts/ci/run-rust-lint.sh
+
+  rust-cross-check:
+    if: github.event_name != 'schedule'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: ./.github/actions/setup-android-rust
+        with:
+          rust-components: ""
+          rust-cache-shared-key: rust-cross-check
+          rust-cache-save: ${{ github.ref == 'refs/heads/main' }}
+          setup-gradle: "false"
+
+      - name: Run Android ABI cross-compilation checks
+        run: bash scripts/ci/run-rust-cross-check.sh
+
+  rust-workspace-tests:
+    if: github.event_name != 'schedule'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      # Keep in sync with native/rust/rust-toolchain.toml
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: "1.94.0"
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: native/rust -> target
+          cache-on-failure: true
+          shared-key: rust-workspace-tests
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+
+      - uses: mozilla-actions/sccache-action@v0.0.9
+
+      - name: Install cargo-nextest
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-nextest
+
+      - name: Run Rust workspace tests and architecture checks
+        env:
+          RUSTC_WRAPPER: sccache
+        run: bash scripts/ci/run-rust-workspace-tests.sh
 
       - name: Upload Rust analysis reports
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: rust-static-analysis-reports
+          name: rust-workspace-tests-reports
           path: native/rust/target/golden-diffs/
           retention-days: 7
 
