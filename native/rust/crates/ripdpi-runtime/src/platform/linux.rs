@@ -17,7 +17,7 @@ use std::ptr;
 use std::thread;
 use std::time::{Duration, Instant};
 
-use etherparse::{ip_number, Ipv4Header, Ipv6FlowLabel, Ipv6Header, TcpHeader, TcpOptionElement};
+use etherparse::{ip_number, Ipv4Header, Ipv6FlowLabel, Ipv6Header, TcpHeader};
 use ripdpi_desync::TcpSegmentHint;
 use ripdpi_ipfrag::{
     build_tcp_fragment_pair, build_udp_fragment_pair, TcpFragmentSpec, TcpTimestampOption, UdpFragmentSpec,
@@ -1106,7 +1106,7 @@ fn build_tcp_segment_packet(
         }
         raw_opts.push(19); // Kind=MD5 Signature (RFC 2385)
         raw_opts.push(18); // Length=18 (2 header + 16 signature)
-        // Random 16-byte signature (deterministic from seq for reproducibility)
+                           // Random 16-byte signature (deterministic from seq for reproducibility)
         let seed = sequence_number;
         for i in 0u32..4 {
             raw_opts.extend_from_slice(&seed.wrapping_add(i).wrapping_mul(2654435761).to_be_bytes());
