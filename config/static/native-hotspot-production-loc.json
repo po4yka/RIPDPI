@@ -22,7 +22,7 @@
     },
     {
       "path": "native/rust/crates/ripdpi-android/src/lib.rs",
-      "maxProductionLoc": 159
+      "maxProductionLoc": 166
     },
     {
       "path": "native/rust/crates/ripdpi-android/src/proxy.rs",
@@ -50,11 +50,11 @@
     },
     {
       "path": "native/rust/crates/ripdpi-config/src/model.rs",
-      "maxProductionLoc": 591
+      "maxProductionLoc": 618
     },
     {
       "path": "native/rust/crates/ripdpi-config/src/parse/cli.rs",
-      "maxProductionLoc": 652
+      "maxProductionLoc": 693
     },
     {
       "path": "native/rust/crates/ripdpi-config/src/parse/fake_profiles.rs",
@@ -62,11 +62,11 @@
     },
     {
       "path": "native/rust/crates/ripdpi-config/src/parse/offsets.rs",
-      "maxProductionLoc": 114
+      "maxProductionLoc": 115
     },
     {
       "path": "native/rust/crates/ripdpi-desync/src/lib.rs",
-      "maxProductionLoc": 19
+      "maxProductionLoc": 21
     },
     {
       "path": "native/rust/crates/ripdpi-monitor/src/engine.rs",
@@ -90,7 +90,7 @@
     },
     {
       "path": "native/rust/crates/ripdpi-monitor/src/engine/runners/strategy.rs",
-      "maxProductionLoc": 784
+      "maxProductionLoc": 859
     },
     {
       "path": "native/rust/crates/ripdpi-monitor/src/engine/runtime.rs",
@@ -102,15 +102,15 @@
     },
     {
       "path": "native/rust/crates/ripdpi-runtime/src/runtime/relay.rs",
-      "maxProductionLoc": 74
+      "maxProductionLoc": 75
     },
     {
       "path": "native/rust/crates/ripdpi-runtime/src/runtime/relay/failure_retry.rs",
-      "maxProductionLoc": 298
+      "maxProductionLoc": 299
     },
     {
       "path": "native/rust/crates/ripdpi-runtime/src/runtime/relay/first_exchange.rs",
-      "maxProductionLoc": 161
+      "maxProductionLoc": 165
     },
     {
       "path": "native/rust/crates/ripdpi-runtime/src/runtime/relay/stream_copy.rs",
