@@ -31,12 +31,12 @@ fn validate_ip_fragmentation_support(config: &RuntimeConfig) -> io::Result<()> {
     let requires_raw_sockets = config
         .groups
         .iter()
-        .flat_map(|group| group.effective_tcp_chain())
+        .flat_map(ripdpi_config::DesyncGroup::effective_tcp_chain)
         .any(|step| matches!(step.kind, TcpChainStepKind::IpFrag2 | TcpChainStepKind::MultiDisorder))
         || config
             .groups
             .iter()
-            .flat_map(|group| group.effective_udp_chain())
+            .flat_map(ripdpi_config::DesyncGroup::effective_udp_chain)
             .any(|step| step.kind == UdpChainStepKind::IpFrag2Udp);
     if !requires_raw_sockets {
         return Ok(());
@@ -53,12 +53,12 @@ fn validate_ip_fragmentation_capabilities(
     let requires_packet_owned_tcp = config
         .groups
         .iter()
-        .flat_map(|group| group.effective_tcp_chain())
+        .flat_map(ripdpi_config::DesyncGroup::effective_tcp_chain)
         .any(|step| matches!(step.kind, TcpChainStepKind::IpFrag2 | TcpChainStepKind::MultiDisorder));
     let requires_udp_ipfrag = config
         .groups
         .iter()
-        .flat_map(|group| group.effective_udp_chain())
+        .flat_map(ripdpi_config::DesyncGroup::effective_udp_chain)
         .any(|step| step.kind == UdpChainStepKind::IpFrag2Udp);
     if !requires_packet_owned_tcp && !requires_udp_ipfrag {
         return Ok(());

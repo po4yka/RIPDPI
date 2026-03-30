@@ -34,10 +34,9 @@ impl RuntimePolicy {
             .values()
             .filter_map(|record| record.last_blocked_at_ms.map(|timestamp| (timestamp, record)))
             .max_by_key(|(timestamp, _)| *timestamp)
-            .map(|(_, record)| {
+            .map_or((None, None), |(_, record)| {
                 (record.last_block_signal.map(|value| value.as_str().to_string()), record.last_block_provider.clone())
-            })
-            .unwrap_or((None, None));
+            });
         HostAutolearnState {
             enabled: config.host_autolearn.enabled,
             learned_host_count: self.learned_hosts(config).len(),
