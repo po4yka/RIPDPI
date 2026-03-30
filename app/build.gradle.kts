@@ -72,8 +72,10 @@ dependencies {
     implementation(libs.androidx.core.splashscreen)
     implementation(libs.androidx.profileinstaller)
     implementation(libs.androidx.appcompat)
+    implementation(libs.androidx.biometric)
 
     implementation(libs.bundles.lifecycle.app)
+    implementation(libs.androidx.lifecycle.process)
 
     // Compose
     implementation(platform(libs.androidx.compose.bom))

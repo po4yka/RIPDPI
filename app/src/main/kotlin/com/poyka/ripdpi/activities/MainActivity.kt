@@ -4,10 +4,10 @@ import android.content.Context
 import android.content.Intent
 import android.net.VpnService
 import android.os.Bundle
-import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
+import androidx.appcompat.app.AppCompatActivity
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.lifecycle.lifecycleScope
 import co.touchlab.kermit.Logger
@@ -19,7 +19,7 @@ import java.util.Optional
 import javax.inject.Inject
 
 @AndroidEntryPoint
-class MainActivity : ComponentActivity() {
+class MainActivity : AppCompatActivity() {
     @Inject
     internal lateinit var mainActivityHost: MainActivityHost
 

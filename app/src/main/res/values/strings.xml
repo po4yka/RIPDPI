@@ -1276,6 +1276,8 @@ Source: %2$s</string>
     <string name="settings_biometric_body_with_pin">Biometric unlock is enabled with a local backup PIN fallback.</string>
     <string name="settings_biometric_body_without_pin">Biometric unlock is enabled. Add a backup PIN for fallback access.</string>
     <string name="settings_biometric_body_disabled">Ask for biometric authentication before opening the dashboard.</string>
+    <string name="settings_biometric_unavailable">Biometric hardware not available on this device.</string>
+    <string name="settings_biometric_no_enrollment">No biometrics enrolled. Add a fingerprint in device settings.</string>
     <string name="settings_biometric_confirm_title">Enable authentication?</string>
     <string name="settings_biometric_confirm_message">You\'ll need to verify your identity each time you open the dashboard.</string>
     <string name="settings_biometric_confirm_enable">Enable</string>
@@ -1335,6 +1337,10 @@ Source: %2$s</string>
     <string name="biometric_prompt_pin_lockout_title">Too many attempts</string>
     <string name="biometric_prompt_pin_lockout_body">Try again in %1$d seconds.</string>
     <string name="biometric_prompt_use_biometric">Back to biometrics</string>
+    <string name="biometric_dialog_title">Unlock RIPDPI</string>
+    <string name="biometric_dialog_subtitle">Confirm your identity</string>
+    <string name="biometric_dialog_cancel">Cancel</string>
+    <string name="biometric_auth_error_title">Authentication failed</string>
     <string name="ripdpi_source">https://github.com/hufrea/ripdpi</string>
     <string name="about_description">Compose-based local configuration surface for the preserved RIPDPI engine, service, and DataStore stack.</string>
     <string name="about_build_section">Build</string>

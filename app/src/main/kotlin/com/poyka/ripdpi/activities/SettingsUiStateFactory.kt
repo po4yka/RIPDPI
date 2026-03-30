@@ -47,6 +47,7 @@ internal fun AppSettings.toUiState(
     proxyTelemetry: NativeRuntimeSnapshot = NativeRuntimeSnapshot.idle(source = "proxy"),
     hostAutolearnStorePresent: Boolean = false,
     rememberedNetworkCount: Int = 0,
+    biometricAvailability: Int = androidx.biometric.BiometricManager.BIOMETRIC_SUCCESS,
 ): SettingsUiState {
     val normalizedMode = ripdpiMode.ifEmpty { "vpn" }
     val activeDns = activeDnsSettings()
@@ -216,6 +217,7 @@ internal fun AppSettings.toUiState(
         onboardingComplete = onboardingComplete,
         webrtcProtectionEnabled = webrtcProtectionEnabled,
         biometricEnabled = biometricEnabled,
+        biometricAvailability = biometricAvailability,
         backupPinHash = backupPin,
         diagnosticsMonitorEnabled = diagnosticsMonitorEnabled,
         diagnosticsSampleIntervalSeconds =

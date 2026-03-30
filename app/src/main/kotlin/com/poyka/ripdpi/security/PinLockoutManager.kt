@@ -24,11 +24,7 @@ class PinLockoutManager
             restore()
         }
 
-        fun isLockedOut(): Boolean {
-            if (lockoutEndEpochMs == 0L) return false
-            if (timeSource() >= lockoutEndEpochMs) return false
-            return true
-        }
+        fun isLockedOut(): Boolean = lockoutEndEpochMs != 0L && timeSource() < lockoutEndEpochMs
 
         fun remainingLockoutMs(): Long {
             if (!isLockedOut()) return 0L
@@ -49,15 +45,11 @@ class PinLockoutManager
             persist()
         }
 
-        private fun computeDelay(attempts: Int): Long =
-            when {
-                attempts < GRACE_ATTEMPTS -> 0L
-                attempts == GRACE_ATTEMPTS -> 30_000L
-                attempts == GRACE_ATTEMPTS + 1 -> 60_000L
-                attempts == GRACE_ATTEMPTS + 2 -> 120_000L
-                attempts == GRACE_ATTEMPTS + 3 -> 300_000L
-                else -> MAX_LOCKOUT_MS
-            }
+        private fun computeDelay(attempts: Int): Long {
+            val tier = attempts - GRACE_ATTEMPTS
+            if (tier < 0) return 0L
+            return LOCKOUT_DELAYS.getOrElse(tier) { MAX_LOCKOUT_MS }
+        }
 
         private fun persist() {
             prefs
@@ -78,5 +70,6 @@ class PinLockoutManager
             const val KEY_LOCKOUT_END = "lockout_end_ms"
             const val GRACE_ATTEMPTS = 3
             const val MAX_LOCKOUT_MS = 600_000L
+            private val LOCKOUT_DELAYS = longArrayOf(30_000L, 60_000L, 120_000L, 300_000L)
         }
     }

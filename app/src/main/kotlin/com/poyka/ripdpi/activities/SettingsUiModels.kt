@@ -374,6 +374,7 @@ data class SettingsUiState(
     val onboardingComplete: Boolean = false,
     val webrtcProtectionEnabled: Boolean = false,
     val biometricEnabled: Boolean = false,
+    val biometricAvailability: Int = androidx.biometric.BiometricManager.BIOMETRIC_SUCCESS,
     val backupPinHash: String = "",
     val diagnosticsMonitorEnabled: Boolean = true,
     val diagnosticsSampleIntervalSeconds: Int = 15,
@@ -399,6 +400,9 @@ data class SettingsUiState(
 ) {
     val hasBackupPin: Boolean
         get() = backupPinHash.isNotBlank()
+
+    val isBiometricHardwareAvailable: Boolean
+        get() = biometricAvailability == androidx.biometric.BiometricManager.BIOMETRIC_SUCCESS
 
     val isServiceRunning: Boolean
         get() = serviceStatus == AppStatus.Running
