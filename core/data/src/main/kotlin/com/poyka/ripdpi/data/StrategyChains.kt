@@ -40,9 +40,7 @@ enum class TcpChainStepKind(
 val TcpChainStepKind.supportsAdaptiveMarker: Boolean
     get() =
         when (this) {
-            TcpChainStepKind.HostFake,
-            TcpChainStepKind.MultiDisorder,
-            -> false
+            TcpChainStepKind.HostFake -> false
             else -> true
         }
 

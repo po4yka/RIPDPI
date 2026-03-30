@@ -27,6 +27,7 @@ fn tcp_step(kind: &str, marker: &str) -> ProxyUiTcpChainStep {
         fragment_count: 0,
         min_fragment_size: 0,
         max_fragment_size: 0,
+        inter_segment_delay_ms: 0,
         activation_filter: None,
     }
 }
@@ -42,6 +43,7 @@ fn seqovl_step(marker: &str, overlap_size: i32, fake_mode: &str) -> ProxyUiTcpCh
         fragment_count: 0,
         min_fragment_size: 0,
         max_fragment_size: 0,
+        inter_segment_delay_ms: 0,
         activation_filter: None,
     }
 }
@@ -67,6 +69,7 @@ fn ui_payload_parses_hostfake_and_quic_profile() {
         fragment_count: 0,
         min_fragment_size: 0,
         max_fragment_size: 0,
+        inter_segment_delay_ms: 0,
         activation_filter: None,
     }];
     ui.chains.udp_steps.push(udp_step("fake_burst", 3));
@@ -103,6 +106,7 @@ fn ui_payload_preserves_explicit_tlsrec_before_hostfake() {
             fragment_count: 0,
             min_fragment_size: 0,
             max_fragment_size: 0,
+            inter_segment_delay_ms: 0,
             activation_filter: None,
         },
     ];
@@ -342,6 +346,7 @@ fn adaptive_hostfake_midhost_marker_is_rejected() {
         fragment_count: 0,
         min_fragment_size: 0,
         max_fragment_size: 0,
+        inter_segment_delay_ms: 0,
         activation_filter: None,
     });
 

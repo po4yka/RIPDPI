@@ -7,7 +7,6 @@ import com.poyka.ripdpi.activities.SettingsEffect
 import com.poyka.ripdpi.activities.SettingsMutation
 import com.poyka.ripdpi.activities.SettingsNoticeTone
 import com.poyka.ripdpi.activities.SettingsUiState
-import com.poyka.ripdpi.data.AdaptiveMarkerBalanced
 import com.poyka.ripdpi.data.AppSettingsSerializer
 import com.poyka.ripdpi.data.CanonicalDefaultSplitMarker
 import com.poyka.ripdpi.data.TcpChainStepKind
@@ -238,40 +237,26 @@ class AdvancedSettingsRouteBinderTest {
     fun `binder does not rewrite multidisorder chain through visual desync picker`() {
         val recorder = RecordingSettingsMutations()
         val binder = AdvancedSettingsBinder(recorder::updateSetting)
-        val uiState = multidisorderUiState()
+        val uiState =
+            SettingsUiState(
+                desync =
+                    DesyncCoreUiState(
+                        desyncMethod = TcpChainStepKind.MultiDisorder.wireName,
+                        tcpChainSteps =
+                            listOf(
+                                TcpChainStepModel(TcpChainStepKind.TlsRec, "extlen"),
+                                TcpChainStepModel(TcpChainStepKind.MultiDisorder, "sniext"),
+                                TcpChainStepModel(TcpChainStepKind.MultiDisorder, "host"),
+                            ),
+                        chainSummary = "tcp: tlsrec(extlen) -> multidisorder(sniext) -> multidisorder(host)",
+                        splitMarker = "host",
+                    ),
+            )
 
         binder.onOptionSelected(
             setting = AdvancedOptionSetting.DesyncMethod,
             value = TcpChainStepKind.MultiDisorder.wireName,
             uiState = uiState,
-        )
-
-        assertTrue(recorder.updates.isEmpty())
-    }
-
-    @Test
-    fun `binder does not rewrite multidisorder chain through split marker text input`() {
-        val recorder = RecordingSettingsMutations()
-        val binder = AdvancedSettingsBinder(recorder::updateSetting)
-
-        binder.onTextConfirmed(
-            setting = AdvancedTextSetting.SplitMarker,
-            value = "host+2",
-            uiState = multidisorderUiState(),
-        )
-
-        assertTrue(recorder.updates.isEmpty())
-    }
-
-    @Test
-    fun `binder does not rewrite multidisorder chain through adaptive split preset`() {
-        val recorder = RecordingSettingsMutations()
-        val binder = AdvancedSettingsBinder(recorder::updateSetting)
-
-        binder.onOptionSelected(
-            setting = AdvancedOptionSetting.AdaptiveSplitPreset,
-            value = AdaptiveMarkerBalanced,
-            uiState = multidisorderUiState(),
         )
 
         assertTrue(recorder.updates.isEmpty())
@@ -323,20 +308,4 @@ class AdvancedSettingsRouteBinderTest {
             return updates.single()
         }
     }
-
-    private fun multidisorderUiState(): SettingsUiState =
-        SettingsUiState(
-            desync =
-                DesyncCoreUiState(
-                    desyncMethod = TcpChainStepKind.MultiDisorder.wireName,
-                    tcpChainSteps =
-                        listOf(
-                            TcpChainStepModel(TcpChainStepKind.TlsRec, "extlen"),
-                            TcpChainStepModel(TcpChainStepKind.MultiDisorder, "sniext"),
-                            TcpChainStepModel(TcpChainStepKind.MultiDisorder, "host"),
-                        ),
-                    chainSummary = "tcp: tlsrec(extlen) -> multidisorder(sniext) -> multidisorder(host)",
-                    splitMarker = "host",
-                ),
-        )
 }

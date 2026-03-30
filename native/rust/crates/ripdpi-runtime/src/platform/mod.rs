@@ -54,11 +54,8 @@ pub fn detect_default_ttl() -> io::Result<u8> {
 }
 
 pub fn seqovl_supported() -> bool {
-    *SEQOVL_SUPPORTED.get_or_init(|| {
-        probe_ip_fragmentation_capabilities(None)
-            .map(|caps| caps.tcp_repair)
-            .unwrap_or(false)
-    })
+    *SEQOVL_SUPPORTED
+        .get_or_init(|| probe_ip_fragmentation_capabilities(None).map(|caps| caps.tcp_repair).unwrap_or(false))
 }
 
 #[cfg(any(target_os = "linux", target_os = "android"))]
@@ -240,8 +237,9 @@ pub fn send_multi_disorder_tcp(
     segments: &[TcpPayloadSegment],
     default_ttl: u8,
     protect_path: Option<&str>,
+    inter_segment_delay_ms: u32,
 ) -> io::Result<()> {
-    linux::send_multi_disorder_tcp(stream, payload, segments, default_ttl, protect_path)
+    linux::send_multi_disorder_tcp(stream, payload, segments, default_ttl, protect_path, inter_segment_delay_ms)
 }
 
 #[cfg(not(any(target_os = "linux", target_os = "android")))]
@@ -251,6 +249,7 @@ pub fn send_multi_disorder_tcp(
     _segments: &[TcpPayloadSegment],
     _default_ttl: u8,
     _protect_path: Option<&str>,
+    _inter_segment_delay_ms: u32,
 ) -> io::Result<()> {
     Err(io::Error::new(io::ErrorKind::Unsupported, "only supported on Linux/Android"))
 }

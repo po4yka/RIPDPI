@@ -1049,6 +1049,7 @@ mod tests {
                 fragment_count: 3,
                 min_fragment_size: 12,
                 max_fragment_size: 64,
+                inter_segment_delay_ms: 0,
             },
         ];
 
@@ -1169,6 +1170,7 @@ mod tests {
                 fragment_count: 3,
                 min_fragment_size: 12,
                 max_fragment_size: 64,
+                inter_segment_delay_ms: 0,
             },
         ];
         let target = addr(443);

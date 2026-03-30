@@ -669,39 +669,6 @@ class SettingsUiStateTest {
     }
 
     @Test
-    fun `adaptive split visual editor is disabled for multidisorder chains`() {
-        val settings =
-            defaults
-                .toBuilder()
-                .clearTcpChainSteps()
-                .addTcpChainSteps(
-                    StrategyTcpStep
-                        .newBuilder()
-                        .setKind("tlsrec")
-                        .setMarker("extlen")
-                        .build(),
-                ).addTcpChainSteps(
-                    StrategyTcpStep
-                        .newBuilder()
-                        .setKind("multidisorder")
-                        .setMarker("sniext")
-                        .build(),
-                ).addTcpChainSteps(
-                    StrategyTcpStep
-                        .newBuilder()
-                        .setKind("multidisorder")
-                        .setMarker("host")
-                        .build(),
-                ).build()
-
-        val state = settings.toUiState()
-
-        assertEquals("sniext", state.desync.splitMarker)
-        assertFalse(state.desync.adaptiveSplitVisualEditorSupported)
-        assertFalse(state.canResetAdaptiveSplitPreset)
-    }
-
-    @Test
     fun `manual adaptive split state does not expose reset`() {
         val settings =
             defaults

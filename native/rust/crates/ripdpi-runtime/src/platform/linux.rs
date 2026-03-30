@@ -602,6 +602,7 @@ pub fn send_multi_disorder_tcp(
     segments: &[super::TcpPayloadSegment],
     default_ttl: u8,
     protect_path: Option<&str>,
+    inter_segment_delay_ms: u32,
 ) -> io::Result<()> {
     if payload.is_empty() {
         return Ok(());
@@ -624,7 +625,12 @@ pub fn send_multi_disorder_tcp(
         let snapshot = snapshot_tcp_repair_state(fd)?;
         let packets = build_multi_disorder_packets(source, target, ttl, payload, segments, &snapshot)?;
         let replacement = build_replacement_tcp_socket(source, target, payload.len(), &snapshot, protect_path)?;
-        send_raw_packets(target, packets.iter().rev().map(Vec::as_slice), protect_path)?;
+        send_raw_packets_with_delay(
+            target,
+            packets.iter().rev().map(Vec::as_slice),
+            protect_path,
+            inter_segment_delay_ms,
+        )?;
         swap_stream_to_replacement(stream, &replacement, settings)?;
         set_tcp_repair_queue(fd, TCP_NO_QUEUE)?;
         disable_tcp_repair(fd)
@@ -682,13 +688,7 @@ pub fn send_seqovl_tcp(
 
         // Advance stream seq past real_chunk so the remainder can be written
         // normally through the replacement socket.
-        let replacement = build_replacement_tcp_socket(
-            source,
-            target,
-            real_chunk.len(),
-            &snapshot,
-            protect_path,
-        )?;
+        let replacement = build_replacement_tcp_socket(source, target, real_chunk.len(), &snapshot, protect_path)?;
         swap_stream_to_replacement(stream, &replacement, settings)?;
         set_tcp_repair_queue(fd, TCP_NO_QUEUE)?;
         disable_tcp_repair(fd)
@@ -970,6 +970,53 @@ where
         socket.send_to(packet, &sockaddr)?;
     }
     Ok(())
+}
+
+fn send_raw_packets_with_delay<'a, I>(
+    target: SocketAddr,
+    packets: I,
+    protect_path: Option<&str>,
+    inter_segment_delay_ms: u32,
+) -> io::Result<()>
+where
+    I: IntoIterator<Item = &'a [u8]>,
+{
+    if inter_segment_delay_ms == 0 {
+        return send_raw_packets(target, packets, protect_path);
+    }
+    let socket = open_raw_socket(target, protect_path)?;
+    let sockaddr = SockAddr::from(target);
+    let delay = std::time::Duration::from_millis(u64::from(inter_segment_delay_ms));
+    let mut first = true;
+    for packet in packets {
+        if !first {
+            std::thread::sleep(delay);
+        }
+        socket.send_to(packet, &sockaddr)?;
+        first = false;
+    }
+    Ok(())
+}
+
+fn open_raw_socket(target: SocketAddr, protect_path: Option<&str>) -> io::Result<Socket> {
+    match target {
+        SocketAddr::V4(_) => {
+            let socket = Socket::new(Domain::IPV4, Type::RAW, Some(Protocol::from(libc::IPPROTO_RAW)))?;
+            if let Some(path) = protect_path {
+                protect_socket(&socket, path)?;
+            }
+            unsafe { setsockopt_raw(socket.as_raw_fd(), libc::IPPROTO_IP, libc::IP_HDRINCL, &1i32) }?;
+            Ok(socket)
+        }
+        SocketAddr::V6(_) => {
+            let socket = Socket::new(Domain::IPV6, Type::RAW, Some(Protocol::from(libc::IPPROTO_RAW)))?;
+            if let Some(path) = protect_path {
+                protect_socket(&socket, path)?;
+            }
+            unsafe { setsockopt_raw(socket.as_raw_fd(), libc::IPPROTO_IPV6, libc::IPV6_HDRINCL, &1i32) }?;
+            Ok(socket)
+        }
+    }
 }
 
 fn set_tcp_repair(fd: libc::c_int, value: libc::c_int) -> io::Result<()> {
