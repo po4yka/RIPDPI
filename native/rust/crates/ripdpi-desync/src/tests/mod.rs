@@ -4,6 +4,7 @@ mod plan_tcp;
 mod plan_udp;
 mod tls_prelude;
 
+#[allow(dead_code)]
 mod rust_packet_seeds {
     include!(concat!(env!("CARGO_MANIFEST_DIR"), "/../ripdpi-packets/tests/rust_packet_seeds.rs"));
 }

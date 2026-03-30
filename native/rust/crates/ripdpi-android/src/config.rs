@@ -83,6 +83,7 @@ mod tests {
             fragment_count: 0,
             min_fragment_size: 0,
             max_fragment_size: 0,
+            inter_segment_delay_ms: 0,
             activation_filter: None,
         }
     }
@@ -233,6 +234,7 @@ mod tests {
                             fragment_count,
                             min_fragment_size: 0,
                             max_fragment_size: 0,
+                            inter_segment_delay_ms: 0,
                             activation_filter: use_activation_filter.then_some(ProxyUiActivationFilter::default()),
                         }]
                     },
@@ -338,6 +340,7 @@ mod tests {
             fragment_count: 0,
             min_fragment_size: 0,
             max_fragment_size: 0,
+            inter_segment_delay_ms: 0,
             activation_filter: Some(ProxyUiActivationFilter::default()),
         }];
 

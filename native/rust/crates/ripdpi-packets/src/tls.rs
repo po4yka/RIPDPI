@@ -525,6 +525,7 @@ mod tests {
     use super::*;
     use crate::types::DEFAULT_FAKE_TLS;
 
+    #[allow(dead_code)]
     mod rust_packet_seeds {
         use crate as ripdpi_packets;
 
