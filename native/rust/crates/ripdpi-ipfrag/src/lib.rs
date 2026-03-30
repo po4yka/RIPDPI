@@ -3,7 +3,8 @@
 use std::net::SocketAddr;
 
 use etherparse::{
-    ip_number, IpFragOffset, IpNumber, Ipv4Header, Ipv6FlowLabel, Ipv6FragmentHeader, Ipv6Header, TcpHeader, UdpHeader,
+    ip_number, IpFragOffset, IpNumber, Ipv4Header, Ipv6FlowLabel, Ipv6FragmentHeader, Ipv6Header, TcpHeader,
+    TcpOptionElement, UdpHeader,
 };
 use thiserror::Error;
 
@@ -33,6 +34,13 @@ pub struct TcpFragmentSpec {
     pub sequence_number: u32,
     pub acknowledgment_number: u32,
     pub window_size: u16,
+    pub timestamp: Option<TcpTimestampOption>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct TcpTimestampOption {
+    pub value: u32,
+    pub echo_reply: u32,
 }
 
 #[derive(Debug, Error, Clone, PartialEq, Eq)]
@@ -106,9 +114,17 @@ pub fn build_tcp_fragment_pair(
     tcp.ack = true;
     tcp.psh = !payload.is_empty();
     tcp.acknowledgment_number = spec.acknowledgment_number;
+    if let Some(timestamp) = spec.timestamp {
+        tcp.set_options(&[
+            TcpOptionElement::Noop,
+            TcpOptionElement::Noop,
+            TcpOptionElement::Timestamp(timestamp.value, timestamp.echo_reply),
+        ])
+        .map_err(|_| BuildError::ValueTooLarge)?;
+    }
 
     let minimum_transport_split =
-        TcpHeader::MIN_LEN.checked_add(minimum_payload_split).ok_or(BuildError::ValueTooLarge)?;
+        tcp.header_len().checked_add(minimum_payload_split).ok_or(BuildError::ValueTooLarge)?;
 
     match (spec.src, spec.dst) {
         (SocketAddr::V4(src), SocketAddr::V4(dst)) => {
@@ -387,6 +403,7 @@ mod tests {
             sequence_number: 0x0102_0304,
             acknowledgment_number: 0x0506_0708,
             window_size: 4096,
+            timestamp: None,
         };
         let payload = b"fragmented tls client hello";
 
@@ -418,6 +435,7 @@ mod tests {
             sequence_number: 0x0102_0304,
             acknowledgment_number: 0x0506_0708,
             window_size: 4096,
+            timestamp: None,
         };
         let payload = b"fragmented tls client hello over ipv6";
 
@@ -457,6 +475,7 @@ mod tests {
             sequence_number: 0x0102_0304,
             acknowledgment_number: 0x0506_0708,
             window_size: 4096,
+            timestamp: None,
         };
         let payload = b"fragmented tls client hello";
 
@@ -479,5 +498,70 @@ mod tests {
 
         let err = build_udp_fragment_pair(spec, payload, 16).expect_err("reject degenerate udp fragment pair");
         assert!(matches!(err, BuildError::InvalidSplit { .. }));
+    }
+
+    #[test]
+    fn tcp_ipv4_fragment_pair_serializes_timestamp_option_when_requested() {
+        let spec = TcpFragmentSpec {
+            src: SocketAddr::from(([203, 0, 113, 10], 50000)),
+            dst: SocketAddr::from(([198, 51, 100, 20], 443)),
+            ttl: 64,
+            identification: 0x1111,
+            sequence_number: 0x0102_0304,
+            acknowledgment_number: 0x0506_0708,
+            window_size: 4096,
+            timestamp: Some(TcpTimestampOption { value: 0x1122_3344, echo_reply: 0 }),
+        };
+        let payload = b"timestamped payload";
+
+        let pair = build_tcp_fragment_pair(spec, payload, 5).expect("build tcp ipv4 fragments with timestamp");
+        assert_eq!(pair.effective_transport_split, 40);
+
+        let transport = reassemble_ipv4_transport(&pair.first, &pair.second);
+        let (tcp, tcp_payload) = TcpHeader::from_slice(&transport).expect("parse tcp transport");
+        let options = tcp.options_iterator().collect::<Vec<_>>();
+
+        assert_eq!(tcp.header_len(), 32);
+        assert_eq!(
+            options,
+            vec![
+                Ok(TcpOptionElement::Noop),
+                Ok(TcpOptionElement::Noop),
+                Ok(TcpOptionElement::Timestamp(0x1122_3344, 0)),
+            ]
+        );
+        assert_eq!(tcp_payload, payload);
+    }
+
+    #[test]
+    fn tcp_ipv6_fragment_pair_serializes_timestamp_option_when_requested() {
+        let spec = TcpFragmentSpec {
+            src: SocketAddr::from(([0x20, 0x01, 0x0d, 0xb8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1], 50000)),
+            dst: SocketAddr::from(([0x20, 0x01, 0x0d, 0xb8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2], 443)),
+            ttl: 48,
+            identification: 0x1020_3040,
+            sequence_number: 0x0102_0304,
+            acknowledgment_number: 0x0506_0708,
+            window_size: 4096,
+            timestamp: Some(TcpTimestampOption { value: 0x5566_7788, echo_reply: 0 }),
+        };
+        let payload = b"ipv6 timestamped payload";
+
+        let pair = build_tcp_fragment_pair(spec, payload, 3).expect("build tcp ipv6 fragments with timestamp");
+        let transport = reassemble_ipv6_transport(&pair.first, &pair.second);
+        let (tcp, tcp_payload) = TcpHeader::from_slice(&transport).expect("parse tcp transport");
+        let options = tcp.options_iterator().collect::<Vec<_>>();
+
+        assert_eq!(tcp.header_len(), 32);
+        assert_eq!(
+            options,
+            vec![
+                Ok(TcpOptionElement::Noop),
+                Ok(TcpOptionElement::Noop),
+                Ok(TcpOptionElement::Timestamp(0x5566_7788, 0)),
+            ]
+        );
+        assert_eq!(pair.effective_transport_split % IP_FRAGMENT_ALIGNMENT_BYTES, 0);
+        assert_eq!(tcp_payload, payload);
     }
 }
