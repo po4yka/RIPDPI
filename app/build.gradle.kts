@@ -49,6 +49,13 @@ extensions.configure<ApplicationExtension> {
             buildConfigField("String", "VERSION_NAME", "\"${defaultConfig.versionName}-debug\"")
             enableAndroidTestCoverage = true
         }
+        create("benchmark") {
+            initWith(getByName("release"))
+            isProfileable = true
+            signingConfig = signingConfigs.getByName("debug")
+            matchingFallbacks += "release"
+            buildConfigField("String", "VERSION_NAME", "\"${defaultConfig.versionName}-bench\"")
+        }
     }
 
     // https://android.izzysoft.de/articles/named/iod-scan-apkchecks?lang=en#blobs

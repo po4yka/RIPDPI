@@ -19,14 +19,14 @@
     <string name="diagnostics_overview_section">Overview</string>
     <string name="diagnostics_dashboard_section">Dashboard</string>
     <string name="diagnostics_scan_section">Scan</string>
-    <string name="diagnostics_monitor_section">Live monitor</string>
+
     <string name="diagnostics_tools_section">Tools</string>
     <string name="diagnostics_approaches_title">Approaches</string>
     <string name="diagnostics_approaches_profiles">Profiles</string>
     <string name="diagnostics_approaches_strategies">Strategies</string>
     <string name="diagnostics_approaches_signature_title">Configuration signature</string>
     <string name="diagnostics_history_section">History</string>
-    <string name="diagnostics_share_section">Share</string>
+
     <string name="diagnostics_status_running">Running</string>
     <string name="diagnostics_action_raw">Run raw-path scan</string>
     <string name="diagnostics_action_in_path">Run in-path scan</string>
@@ -273,7 +273,7 @@
     <string name="home_diagnostics_permission_required">VPN permission is required before this workflow can run.</string>
     <string name="home_diagnostics_finish_analysis_first">Finish the full analysis before starting verified VPN.</string>
     <string name="home_diagnostics_run_analysis_first">Run a full analysis first.</string>
-    <string name="home_diagnostics_no_actionable_result">The latest analysis did not produce settings that can be applied automatically.</string>
+    <string name="home_diagnostics_no_actionable_result">No applicable settings found. Run a new analysis or check results in Diagnostics.</string>
     <string name="home_diagnostics_disconnect_first">Disconnect the current session before starting verified VPN.</string>
     <string name="home_diagnostics_run_again">The network changed. Run the full analysis again.</string>
     <string name="home_diagnostics_share_failed">Failed to share analysis logs and results.</string>
@@ -932,13 +932,7 @@ fakeddisorder endhost</string>
     <string name="logs_latest_none">Idle</string>
     <string name="logs_filters_section">Filters</string>
     <string name="logs_filters_helper">Filter by subsystem or severity to focus on the runtime you are debugging.</string>
-    <string name="logs_filters_summary_all">All event types</string>
-    <string name="logs_filters_summary_count">%1$d filters active</string>
     <string name="logs_filters_summary_compact">%1$d subsystems • %2$d severities</string>
-    <string name="logs_type_dns">DNS</string>
-    <string name="logs_type_conn">CONN</string>
-    <string name="logs_type_err">ERR</string>
-    <string name="logs_type_warn">WARN</string>
     <string name="logs_subsystems_title">Subsystems</string>
     <string name="logs_subsystem_service">SERVICE</string>
     <string name="logs_subsystem_proxy">PROXY</string>
@@ -1578,7 +1572,7 @@ Source: %2$s</string>
     <!-- Diagnostics scan UI -->
     <string name="diagnostics_scan_automatic_audit">Automatic audit</string>
     <string name="diagnostics_scan_automatic_probing">Automatic probing</string>
-    <string name="diagnostics_scan_cli_active_format">%1$s only works with visual RIPDPI settings. Command-line mode is active.</string>
+
     <string name="diagnostics_scan_raw_path_format">%1$s starts a temporary raw-path RIPDPI runtime and returns a manual recommendation.</string>
     <string name="diagnostics_scan_raw_only_format">%1$s is raw-path only because it launches isolated temporary strategy trials.</string>
     <string name="diagnostics_scan_workflow_blocked_command_line_body_format">%1$s is blocked because %2$s is enabled. Turn it off in Advanced Settings before running this workflow so RIPDPI can launch isolated temporary strategy trials with the visual configuration.</string>
