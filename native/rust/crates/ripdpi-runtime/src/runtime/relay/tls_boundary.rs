@@ -3,7 +3,7 @@ use std::time::{Duration, Instant};
 use ripdpi_config::RuntimeConfig;
 
 pub(super) const FIRST_TLS_RECORD_ASSEMBLY_TIMEOUT: Duration = Duration::from_millis(75);
-const FIRST_TLS_RECORD_BYTES_LIMIT: usize = 16_384;
+pub(super) const FIRST_TLS_RECORD_BYTES_LIMIT: usize = 16_384;
 
 #[derive(Default)]
 pub(super) struct TlsRecordBoundaryTracker {
@@ -21,7 +21,7 @@ impl TlsRecordBoundaryTracker {
         if !ripdpi_packets::is_tls_client_hello(request) || config.timeouts.partial_timeout_ms == 0 {
             return Self::default();
         }
-        Self::enabled(config.timeouts.timeout_bytes_limit.max(0) as usize)
+        Self::enabled(first_response_bytes_limit(config))
     }
 
     fn enabled(bytes_limit: usize) -> Self {
@@ -100,6 +100,13 @@ impl TlsRecordBoundaryTracker {
             self.record_pos += take;
             pos += take;
         }
+    }
+}
+
+fn first_response_bytes_limit(config: &RuntimeConfig) -> usize {
+    match usize::try_from(config.timeouts.timeout_bytes_limit) {
+        Ok(limit) if limit != 0 => limit,
+        _ => FIRST_TLS_RECORD_BYTES_LIMIT,
     }
 }
 
