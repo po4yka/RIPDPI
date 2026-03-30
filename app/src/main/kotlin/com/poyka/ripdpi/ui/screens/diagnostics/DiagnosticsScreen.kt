@@ -623,6 +623,7 @@ private fun OverviewSection(
 
 @Composable
 private fun RememberedNetworkPoliciesCard(policies: List<DiagnosticsRememberedNetworkUiModel>) {
+    TrackRecomposition("RememberedNetworkPoliciesCard")
     val spacing = RipDpiThemeTokens.spacing
     val colors = RipDpiThemeTokens.colors
     val type = RipDpiThemeTokens.type
@@ -745,6 +746,7 @@ private fun DiagnosticsHealthHero(
     isActiveScan: Boolean,
     onSelectSection: (DiagnosticsSection) -> Unit,
 ) {
+    TrackRecomposition("DiagnosticsHealthHero")
     val colors = RipDpiThemeTokens.colors
     val spacing = RipDpiThemeTokens.spacing
     val tone = warningBannerTone(overview.health)
@@ -798,6 +800,7 @@ private fun ToolsSection(
     onSaveArchive: (String?) -> Unit,
     onSaveLogs: () -> Unit,
 ) {
+    TrackRecomposition("ToolsSection")
     val spacing = RipDpiThemeTokens.spacing
     val layout = RipDpiThemeTokens.layout
     LazyColumn(
@@ -942,6 +945,7 @@ private fun ApproachesSection(
     onSelectMode: (DiagnosticsApproachMode) -> Unit,
     onSelectApproach: (String) -> Unit,
 ) {
+    TrackRecomposition("ApproachesSection")
     val spacing = RipDpiThemeTokens.spacing
     val layout = RipDpiThemeTokens.layout
     LazyColumn(
@@ -1027,6 +1031,7 @@ private fun EventsSection(
     onSearch: (String) -> Unit,
     onAutoScroll: (Boolean) -> Unit,
 ) {
+    TrackRecomposition("EventsSection")
     val spacing = RipDpiThemeTokens.spacing
     val layout = RipDpiThemeTokens.layout
     val motion = RipDpiThemeTokens.motion
@@ -1160,6 +1165,7 @@ private fun ShareSection(
     onSaveArchive: (String?) -> Unit,
     onSaveLogs: () -> Unit,
 ) {
+    TrackRecomposition("ShareSection")
     val spacing = RipDpiThemeTokens.spacing
     val layout = RipDpiThemeTokens.layout
     LazyColumn(
@@ -1239,6 +1245,7 @@ private fun DiagnosticsPerformanceCard(
     selectedSection: DiagnosticsSection,
     modifier: Modifier = Modifier,
 ) {
+    TrackRecomposition("DiagnosticsPerformanceCard")
     val colors = RipDpiThemeTokens.colors
     var expanded by remember { mutableStateOf(false) }
     val timingBreakdown =

@@ -66,6 +66,7 @@ import com.poyka.ripdpi.ui.components.feedback.WarningBannerTone
 import com.poyka.ripdpi.ui.components.indicators.StatusIndicator
 import com.poyka.ripdpi.ui.components.indicators.StatusIndicatorTone
 import com.poyka.ripdpi.ui.components.navigation.SettingsCategoryHeader
+import com.poyka.ripdpi.ui.debug.TrackRecomposition
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
@@ -88,6 +89,7 @@ internal fun ScanSection(
     onSelectStrategyProbeCandidate: (DiagnosticsStrategyProbeCandidateDetailUiModel) -> Unit,
     onSelectProbe: (DiagnosticsProbeResultUiModel) -> Unit,
 ) {
+    TrackRecomposition("ScanSection")
     val spacing = RipDpiThemeTokens.spacing
     val layout = RipDpiThemeTokens.layout
     val motion = RipDpiThemeTokens.motion
@@ -357,6 +359,7 @@ private fun ScanProgressCard(
     strategyProbeSelected: Boolean,
     modifier: Modifier = Modifier,
 ) {
+    TrackRecomposition("ScanProgressCard")
     val spacing = RipDpiThemeTokens.spacing
     val motion = RipDpiThemeTokens.motion
     RipDpiCard(modifier = modifier) {
@@ -507,6 +510,7 @@ private fun LiveProbeResultRow(
     probe: CompletedProbeUiModel,
     modifier: Modifier = Modifier,
 ) {
+    TrackRecomposition("LiveProbeResultRow")
     val palette = metricPalette(probe.tone)
     Row(
         modifier =
@@ -609,6 +613,7 @@ internal fun ResolverRecommendationCard(
     onKeepForSession: () -> Unit,
     onSaveAsSetting: () -> Unit,
 ) {
+    TrackRecomposition("ResolverRecommendationCard")
     val spacing = RipDpiThemeTokens.spacing
     RipDpiCard(
         modifier = Modifier.ripDpiTestTag(RipDpiTestTags.DiagnosticsResolverRecommendationCard),
@@ -678,6 +683,7 @@ internal fun DiagnosticsScanWorkflowCard(
     onRequestVpnPermission: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    TrackRecomposition("DiagnosticsScanWorkflowCard")
     val colors = RipDpiThemeTokens.colors
     val spacing = RipDpiThemeTokens.spacing
     val status = workflowStatus(scan, strategyProbeSelected, isFullAudit)
@@ -1089,6 +1095,7 @@ private fun DiagnosisSummaryCard(
     title: String,
     diagnoses: List<DiagnosticsDiagnosisUiModel>,
 ) {
+    TrackRecomposition("DiagnosisSummaryCard")
     val colors = RipDpiThemeTokens.colors
     val spacing = RipDpiThemeTokens.spacing
     RipDpiCard(variant = RipDpiCardVariant.Elevated) {
@@ -1191,6 +1198,7 @@ internal fun StrategyProbeReportCard(
     report: DiagnosticsStrategyProbeReportUiModel,
     onSelectCandidate: (DiagnosticsStrategyProbeCandidateDetailUiModel) -> Unit,
 ) {
+    TrackRecomposition("StrategyProbeReportCard")
     val spacing = RipDpiThemeTokens.spacing
     val colors = RipDpiThemeTokens.colors
     val manualApplyBadge = stringResource(R.string.diagnostics_profile_badge_manual_apply)
