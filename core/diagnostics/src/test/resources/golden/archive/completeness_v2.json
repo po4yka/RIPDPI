@@ -1,0 +1,59 @@
+{
+    "appliedLimits": {
+        "logcatBytes": 524288,
+        "nativeEvents": 80,
+        "snapshots": 250,
+        "telemetrySamples": 120
+    },
+    "collectionWarnings": [
+        "snapshot_decode_failed_count:2",
+        "context_decode_failed_count:2",
+        "git_commit_unavailable",
+        "native_library_version_unavailable:libripdpi.so",
+        "native_library_version_unavailable:libripdpi-tunnel.so"
+    ],
+    "includedCounts": {
+        "contexts": 2,
+        "nativeEvents": 2,
+        "sessionContexts": 1,
+        "sessionEvents": 1,
+        "sessionResults": 1,
+        "sessionSnapshots": 1,
+        "snapshots": 2,
+        "telemetrySamples": 1
+    },
+    "sectionStatuses": {
+        "analysis.json": "included",
+        "archive-provenance.json": "included",
+        "completeness.json": "included",
+        "diagnostic-context.json": "redacted",
+        "integrity.json": "included",
+        "logcat.txt": "included",
+        "manifest.json": "redacted",
+        "native-events.csv": "included",
+        "network-snapshots.json": "redacted",
+        "probe-results.csv": "included",
+        "report.json": "redacted",
+        "runtime-config.json": "included",
+        "strategy-matrix.json": "included",
+        "summary.txt": "redacted",
+        "telemetry.csv": "included"
+    },
+    "sourceCounts": {
+        "contexts": 2,
+        "nativeEvents": 2,
+        "sessionContexts": 1,
+        "sessionEvents": 1,
+        "sessionResults": 1,
+        "sessionSnapshots": 1,
+        "snapshots": 2,
+        "telemetrySamples": 1
+    },
+    "truncation": {
+        "contexts": false,
+        "logcat": false,
+        "nativeEvents": false,
+        "snapshots": false,
+        "telemetrySamples": false
+    }
+}

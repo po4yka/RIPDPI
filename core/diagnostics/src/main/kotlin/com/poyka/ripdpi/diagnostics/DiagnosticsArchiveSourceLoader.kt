@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.diagnostics
 
+import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.diagnostics.BypassUsageHistoryStore
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsArtifactReadStore
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsScanRecordStore
@@ -10,17 +11,20 @@ import kotlinx.serialization.json.Json
 import javax.inject.Inject
 import javax.inject.Named
 
-class DiagnosticsArchiveSourceLoader
+internal class DiagnosticsArchiveSourceLoader
     @Inject
     constructor(
+        private val appSettingsRepository: AppSettingsRepository,
         private val scanRecordStore: DiagnosticsScanRecordStore,
         private val artifactReadStore: DiagnosticsArtifactReadStore,
         private val bypassUsageHistoryStore: BypassUsageHistoryStore,
         private val logcatSnapshotCollector: LogcatSnapshotCollector,
+        private val buildInfoProvider: DiagnosticsArchiveBuildInfoProvider,
         @param:Named("diagnosticsJson")
         private val json: Json,
     ) {
         internal suspend fun load(): DiagnosticsArchiveSourceData {
+            val appSettings = appSettingsRepository.snapshot()
             val sessions = scanRecordStore.observeRecentScanSessions(limit = 50).first()
             val usageSessions =
                 bypassUsageHistoryStore
@@ -35,13 +39,32 @@ class DiagnosticsArchiveSourceLoader
                 artifactReadStore.observeNativeEvents(limit = DiagnosticsArchiveFormat.globalEventLimit).first()
             val contexts =
                 artifactReadStore.observeContexts(limit = DiagnosticsArchiveFormat.snapshotLimit).first()
-            val logcatSnapshot = runCatching { logcatSnapshotCollector.capture() }.getOrNull()
+            val logcatCapture = runCatching { logcatSnapshotCollector.capture() }
+            val logcatSnapshot = logcatCapture.getOrNull()
             val approachSummaries =
                 DiagnosticsSessionQueries.buildApproachSummaries(
                     scanSessions = sessions,
                     usageSessions = usageSessions,
                     json = json,
                 )
+            val collectionWarnings =
+                buildList {
+                    logcatCapture.exceptionOrNull()?.message?.takeIf { it.isNotBlank() }?.let { message ->
+                        add("logcat_capture_failed:$message")
+                    }
+                    if (telemetry.size >= DiagnosticsArchiveFormat.telemetryLimit) {
+                        add("telemetry_samples_truncated_at_${DiagnosticsArchiveFormat.telemetryLimit}")
+                    }
+                    if (events.size >= DiagnosticsArchiveFormat.globalEventLimit) {
+                        add("native_events_truncated_at_${DiagnosticsArchiveFormat.globalEventLimit}")
+                    }
+                    if (snapshots.size >= DiagnosticsArchiveFormat.snapshotLimit) {
+                        add("network_snapshots_truncated_at_${DiagnosticsArchiveFormat.snapshotLimit}")
+                    }
+                    if (contexts.size >= DiagnosticsArchiveFormat.snapshotLimit) {
+                        add("diagnostic_contexts_truncated_at_${DiagnosticsArchiveFormat.snapshotLimit}")
+                    }
+                }
             return DiagnosticsArchiveSourceData(
                 sessions = sessions,
                 usageSessions = usageSessions,
@@ -50,6 +73,9 @@ class DiagnosticsArchiveSourceLoader
                 events = events,
                 contexts = contexts,
                 approachSummaries = approachSummaries,
+                appSettings = appSettings,
+                buildProvenance = buildInfoProvider.buildProvenance(),
+                collectionWarnings = collectionWarnings,
                 logcatSnapshot = logcatSnapshot,
             )
         }

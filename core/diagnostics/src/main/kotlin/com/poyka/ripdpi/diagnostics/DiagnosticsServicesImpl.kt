@@ -126,8 +126,8 @@ class DefaultDiagnosticsShareService
                 )
             }
 
-        override suspend fun createArchive(sessionId: String?): DiagnosticsArchive =
-            withContext(Dispatchers.IO) { archiveExporter.createArchive(sessionId) }
+        override suspend fun createArchive(request: DiagnosticsArchiveRequest): DiagnosticsArchive =
+            withContext(Dispatchers.IO) { archiveExporter.createArchive(request) }
     }
 
 @Singleton

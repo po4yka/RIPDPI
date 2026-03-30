@@ -17,6 +17,7 @@ import com.poyka.ripdpi.diagnostics.DiagnosticScanSession
 import com.poyka.ripdpi.diagnostics.DiagnosticSessionDetail
 import com.poyka.ripdpi.diagnostics.DiagnosticTelemetrySample
 import com.poyka.ripdpi.diagnostics.DiagnosticsArchive
+import com.poyka.ripdpi.diagnostics.DiagnosticsArchiveRequest
 import com.poyka.ripdpi.diagnostics.DiagnosticsBootstrapper
 import com.poyka.ripdpi.diagnostics.DiagnosticsDetailLoader
 import com.poyka.ripdpi.diagnostics.DiagnosticsManualScanResolution
@@ -63,6 +64,8 @@ internal class FakeDiagnosticsManager(
     var initializeCalls: Int = 0
         private set
     var lastArchiveSessionId: String? = null
+        private set
+    var lastArchiveReason: String? = null
         private set
     var lastActiveProfileId: String? = null
         private set
@@ -121,16 +124,17 @@ internal class FakeDiagnosticsManager(
                 compactMetrics = listOf(SummaryMetric("Path", "RAW_PATH")),
             )
         }
-        shareService.onCreateArchive = { sessionId ->
+        shareService.onCreateArchive = { request ->
             archiveFailure?.let { throw it }
-            lastArchiveSessionId = sessionId
+            lastArchiveSessionId = request.requestedSessionId
+            lastArchiveReason = request.reason.name
             DiagnosticsArchive(
                 fileName = "archive.zip",
-                absolutePath = "/tmp/archive-${sessionId ?: "all"}.zip",
-                sessionId = sessionId,
+                absolutePath = "/tmp/archive-${request.requestedSessionId ?: "all"}.zip",
+                sessionId = request.requestedSessionId,
                 createdAt = 42L,
                 scope = "hybrid",
-                schemaVersion = 1,
+                schemaVersion = 2,
                 privacyMode = "split_output",
             )
         }
@@ -209,13 +213,13 @@ internal class FakeDiagnosticsDetailLoader : DiagnosticsDetailLoader {
 
 internal class FakeDiagnosticsShareService : DiagnosticsShareService {
     var onBuildShareSummary: (suspend (String?) -> ShareSummary)? = null
-    var onCreateArchive: (suspend (String?) -> DiagnosticsArchive)? = null
+    var onCreateArchive: (suspend (DiagnosticsArchiveRequest) -> DiagnosticsArchive)? = null
 
     override suspend fun buildShareSummary(sessionId: String?): ShareSummary =
         requireNotNull(onBuildShareSummary) { "Missing buildShareSummary handler" }(sessionId)
 
-    override suspend fun createArchive(sessionId: String?): DiagnosticsArchive =
-        requireNotNull(onCreateArchive) { "Missing createArchive handler" }(sessionId)
+    override suspend fun createArchive(request: DiagnosticsArchiveRequest): DiagnosticsArchive =
+        requireNotNull(onCreateArchive) { "Missing createArchive handler" }(request)
 }
 
 internal class FakeDiagnosticsResolverActions : DiagnosticsResolverActions {
