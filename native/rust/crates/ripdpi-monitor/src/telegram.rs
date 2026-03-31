@@ -1,9 +1,10 @@
 use std::io::{self, ErrorKind, Read, Write};
 use std::net::{IpAddr, Shutdown, SocketAddr, TcpStream};
+use std::sync::Arc;
 use std::time::Duration;
 
 use crate::http::{extract_host_from_url, extract_path_from_url, read_http_headers};
-use crate::tls::{open_probe_stream, TlsClientProfile};
+use crate::tls::{open_probe_stream, NoCertificateVerification, TlsClientProfile};
 use crate::transport::{TargetAddress, TransportConfig};
 use crate::types::{ProbeDetail, ProbeResult, TelegramTarget};
 use crate::util::*;
@@ -163,6 +164,9 @@ fn telegram_download_probe(target: &TelegramTarget, transport: &TransportConfig)
     };
     let path = extract_path_from_url(&target.media_url);
 
+    // Diagnostic probe: explicitly skip certificate verification to detect
+    // censorship-induced TLS interception (MITM middleboxes).
+    let no_verify: Arc<dyn rustls::client::danger::ServerCertVerifier> = Arc::new(NoCertificateVerification);
     let mut stream = match open_probe_stream(
         &TargetAddress::Host(host.clone()),
         443,
@@ -170,7 +174,7 @@ fn telegram_download_probe(target: &TelegramTarget, transport: &TransportConfig)
         Some(&host),
         false,
         TlsClientProfile::Auto,
-        None,
+        Some(&no_verify),
     ) {
         Ok(result) => result.stream,
         Err(err) => return TelegramTransferResult::blocked(err),
@@ -273,6 +277,9 @@ fn telegram_upload_probe(target: &TelegramTarget, transport: &TransportConfig) -
         Err(err) => return TelegramTransferResult::blocked(err.to_string()),
     };
 
+    // Diagnostic probe: explicitly skip certificate verification to detect
+    // censorship-induced TLS interception (MITM middleboxes).
+    let no_verify: Arc<dyn rustls::client::danger::ServerCertVerifier> = Arc::new(NoCertificateVerification);
     let mut stream = match open_probe_stream(
         &TargetAddress::Ip(upload_ip),
         target.upload_port,
@@ -280,7 +287,7 @@ fn telegram_upload_probe(target: &TelegramTarget, transport: &TransportConfig) -
         Some("telegram.org"),
         false,
         TlsClientProfile::Auto,
-        None,
+        Some(&no_verify),
     ) {
         Ok(result) => result.stream,
         Err(err) => return TelegramTransferResult::blocked(err),

@@ -68,7 +68,7 @@ class QuickTileService :
                     openHome = true,
                     requestStartConfiguredMode = true,
                 ),
-                PendingIntent.FLAG_UPDATE_CURRENT,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
                 false,
             ),
         )
