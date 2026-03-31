@@ -65,13 +65,7 @@ fun BiometricPromptRoute(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
-    val window = (context as? android.app.Activity)?.window
-    DisposableEffect(Unit) {
-        window?.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
-        onDispose {
-            window?.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
-        }
-    }
+    SecureWindowEffect(context)
     val biometricAuthManager = remember { BiometricAuthManager() }
     val coroutineScope = rememberCoroutineScope()
     val pinErrorText = stringResource(R.string.biometric_prompt_pin_error)
@@ -84,23 +78,17 @@ fun BiometricPromptRoute(
     var lockoutRemainingMs by rememberSaveable { mutableLongStateOf(0L) }
     var biometricError by rememberSaveable { mutableStateOf<String?>(null) }
 
-    val launchBiometric: () -> Unit = {
-        biometricError = null
-        coroutineScope.launch {
-            val result =
-                biometricAuthManager.authenticate(
-                    context as FragmentActivity,
-                    biometricTitle,
-                    biometricSubtitle,
-                    biometricCancel,
-                )
-            if (result is BiometricAuthResult.Success) {
-                onAuthenticated()
-            } else if (result is BiometricAuthResult.Error) {
-                biometricError = result.message
-            }
-        }
-    }
+    val launchBiometric: () -> Unit =
+        launchBiometricCallback(
+            coroutineScope = coroutineScope,
+            biometricAuthManager = biometricAuthManager,
+            context = context,
+            biometricTitle = biometricTitle,
+            biometricSubtitle = biometricSubtitle,
+            biometricCancel = biometricCancel,
+            onAuthenticated = onAuthenticated,
+            onError = { biometricError = it },
+        )
 
     BiometricPromptEffects(
         uiState = uiState,
@@ -156,6 +144,43 @@ fun BiometricPromptRoute(
         },
     )
 }
+
+@Composable
+private fun SecureWindowEffect(context: android.content.Context) {
+    val window = (context as? android.app.Activity)?.window
+    DisposableEffect(Unit) {
+        window?.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
+        onDispose { window?.clearFlags(WindowManager.LayoutParams.FLAG_SECURE) }
+    }
+}
+
+private fun launchBiometricCallback(
+    coroutineScope: kotlinx.coroutines.CoroutineScope,
+    biometricAuthManager: BiometricAuthManager,
+    context: android.content.Context,
+    biometricTitle: String,
+    biometricSubtitle: String,
+    biometricCancel: String,
+    onAuthenticated: () -> Unit,
+    onError: (String?) -> Unit,
+): () -> Unit =
+    {
+        onError(null)
+        coroutineScope.launch {
+            val result =
+                biometricAuthManager.authenticate(
+                    context as FragmentActivity,
+                    biometricTitle,
+                    biometricSubtitle,
+                    biometricCancel,
+                )
+            if (result is BiometricAuthResult.Success) {
+                onAuthenticated()
+            } else if (result is BiometricAuthResult.Error) {
+                onError(result.message)
+            }
+        }
+    }
 
 @Composable
 private fun BiometricPromptEffects(
