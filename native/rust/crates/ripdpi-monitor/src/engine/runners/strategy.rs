@@ -603,7 +603,7 @@ impl ExecutionStageRunner for StrategyTcpRunner {
                     RunnerArtifacts::from_results(
                         execution.results.clone(),
                         "strategy_probe",
-                        "info",
+                        "debug",
                         format!("Skipped execution for {}", spec.label),
                     ),
                 );
