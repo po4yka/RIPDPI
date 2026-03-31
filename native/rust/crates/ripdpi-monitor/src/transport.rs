@@ -60,6 +60,8 @@ impl ConnectionStream {
                 let _ = stream.shutdown(Shutdown::Both);
             }
             Self::Tls(stream) => {
+                stream.conn.send_close_notify();
+                let _ = stream.flush();
                 let _ = stream.sock.shutdown(Shutdown::Both);
             }
         }
