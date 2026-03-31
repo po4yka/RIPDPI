@@ -125,3 +125,130 @@ pub fn parse_offset_expr(spec: &str) -> Result<OffsetExpr, ConfigError> {
 
     Ok(expr.with_repeat_skip(repeats, skip))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{NumericRange, OffsetBase, OffsetExpr};
+
+    #[test]
+    fn parse_offset_expr_repeat_and_skip_values() {
+        let repeated = parse_offset_expr("host+2:3").unwrap();
+        assert_eq!(repeated, OffsetExpr::marker(OffsetBase::Host, 2).with_repeat_skip(3, 0));
+
+        let repeated_with_skip = parse_offset_expr("endhost-1:2:1").unwrap();
+        assert_eq!(repeated_with_skip, OffsetExpr::marker(OffsetBase::EndHost, -1).with_repeat_skip(2, 1));
+    }
+
+    #[test]
+    fn parse_offset_expr_named_markers() {
+        assert_eq!(parse_offset_expr("method+2").unwrap(), OffsetExpr::marker(OffsetBase::Method, 2));
+        assert_eq!(parse_offset_expr("midsld").unwrap(), OffsetExpr::marker(OffsetBase::MidSld, 0));
+        assert_eq!(parse_offset_expr("midsld-1").unwrap(), OffsetExpr::marker(OffsetBase::MidSld, -1));
+        assert_eq!(parse_offset_expr("echext").unwrap(), OffsetExpr::marker(OffsetBase::EchExt, 0));
+        assert_eq!(parse_offset_expr("echext+4").unwrap(), OffsetExpr::marker(OffsetBase::EchExt, 4));
+        assert_eq!(parse_offset_expr("sniext+4").unwrap(), OffsetExpr::marker(OffsetBase::SniExt, 4));
+        assert_eq!(parse_offset_expr("extlen").unwrap(), OffsetExpr::marker(OffsetBase::ExtLen, 0));
+        assert_eq!(parse_offset_expr("abs-5").unwrap(), OffsetExpr::absolute(-5));
+        assert_eq!(parse_offset_expr("-5").unwrap(), OffsetExpr::absolute(-5));
+    }
+
+    #[test]
+    fn parse_offset_expr_adaptive_markers() {
+        assert_eq!(parse_offset_expr("auto(balanced)").unwrap(), OffsetExpr::adaptive(OffsetBase::AutoBalanced));
+        assert_eq!(parse_offset_expr("auto(host)").unwrap(), OffsetExpr::adaptive(OffsetBase::AutoHost));
+        assert_eq!(parse_offset_expr("auto(midsld)").unwrap(), OffsetExpr::adaptive(OffsetBase::AutoMidSld));
+        assert_eq!(parse_offset_expr("auto(endhost)").unwrap(), OffsetExpr::adaptive(OffsetBase::AutoEndHost));
+        assert_eq!(parse_offset_expr("auto(method)").unwrap(), OffsetExpr::adaptive(OffsetBase::AutoMethod));
+        assert_eq!(parse_offset_expr("auto(sniext)").unwrap(), OffsetExpr::adaptive(OffsetBase::AutoSniExt));
+        assert_eq!(parse_offset_expr("auto(extlen)").unwrap(), OffsetExpr::adaptive(OffsetBase::AutoExtLen));
+    }
+
+    #[test]
+    fn parse_offset_expr_rejects_invalid_marker_syntax() {
+        for spec in [
+            "host+",
+            "midsld-",
+            "unknown",
+            "host+nope",
+            "5+zz",
+            "1+ss",
+            "5+se",
+            "3+hm",
+            "0+nr",
+            "method++1",
+            "auto()",
+            "auto(foo)",
+            "auto(echext)",
+        ] {
+            assert!(parse_offset_expr(spec).is_err(), "{spec} should be rejected");
+        }
+    }
+
+    #[test]
+    fn parse_activation_range_specs_validate_bounds() {
+        assert_eq!(parse_round_range_spec("1-3").unwrap(), NumericRange::new(1, 3));
+        assert_eq!(parse_payload_size_range_spec("64-512").unwrap(), NumericRange::new(64, 512));
+        assert_eq!(parse_stream_byte_range_spec("0-1199").unwrap(), NumericRange::new(0, 1199));
+
+        assert!(parse_round_range_spec("0-2").is_err());
+        assert!(parse_payload_size_range_spec("-1-5").is_err());
+        assert!(parse_stream_byte_range_spec("10-2").is_err());
+    }
+
+    #[test]
+    fn parse_auto_ttl_spec_validates_bounds() {
+        assert_eq!(parse_auto_ttl_spec("-1,3-12").unwrap(), AutoTtlConfig { delta: -1, min_ttl: 3, max_ttl: 12 });
+        assert_eq!(parse_auto_ttl_spec("0,8-8").unwrap(), AutoTtlConfig { delta: 0, min_ttl: 8, max_ttl: 8 });
+
+        for value in ["", "-1", "-1,3", "-1,0-12", "-1,12-3", "-1,3-256", "x,3-12"] {
+            assert!(parse_auto_ttl_spec(value).is_err(), "{value} should fail");
+        }
+    }
+
+    #[test]
+    fn parse_offset_expr_adaptive_rejects_repeat_skip() {
+        assert!(parse_offset_expr("auto(balanced):2").is_err());
+        assert!(parse_offset_expr("auto(host):1:1").is_err());
+    }
+
+    #[test]
+    fn parse_round_range_spec_single_value_is_point_range() {
+        let r = parse_round_range_spec("5").unwrap();
+        assert_eq!(r, NumericRange::new(5, 5));
+    }
+
+    #[test]
+    fn parse_round_range_spec_empty_rejected() {
+        assert!(parse_round_range_spec("").is_err());
+        assert!(parse_round_range_spec("  ").is_err());
+    }
+
+    #[test]
+    fn parse_round_range_spec_inverted_range_rejected() {
+        assert!(parse_round_range_spec("5-2").is_err());
+    }
+
+    // --- New coverage gap tests ---
+
+    #[test]
+    fn parse_offset_expr_absolute_zero() {
+        assert_eq!(parse_offset_expr("0").unwrap(), OffsetExpr::absolute(0));
+        assert_eq!(parse_offset_expr("abs+0").unwrap(), OffsetExpr::marker(OffsetBase::Abs, 0));
+    }
+
+    #[test]
+    fn parse_offset_expr_large_delta() {
+        let expr = parse_offset_expr("host+9999").unwrap();
+        assert_eq!(expr, OffsetExpr::marker(OffsetBase::Host, 9999));
+
+        let expr = parse_offset_expr("-32768").unwrap();
+        assert_eq!(expr, OffsetExpr::absolute(-32768));
+    }
+
+    #[test]
+    fn parse_stream_byte_range_spec_zero_zero() {
+        let r = parse_stream_byte_range_spec("0-0").unwrap();
+        assert_eq!(r, NumericRange::new(0, 0));
+    }
+}

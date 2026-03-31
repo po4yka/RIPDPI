@@ -22,3 +22,26 @@ impl fmt::Display for ConfigError {
 }
 
 impl std::error::Error for ConfigError {}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn config_error_display_with_value() {
+        let err = ConfigError::invalid("--ttl", Some("abc"));
+        assert_eq!(err.to_string(), "invalid value for --ttl: abc");
+    }
+
+    #[test]
+    fn config_error_display_without_value() {
+        let err = ConfigError::invalid("--unknown", None::<String>);
+        assert_eq!(err.to_string(), "invalid option: --unknown");
+    }
+
+    #[test]
+    fn config_error_implements_std_error() {
+        let err = ConfigError::invalid("test", Some("val"));
+        let _: &dyn std::error::Error = &err;
+    }
+}
