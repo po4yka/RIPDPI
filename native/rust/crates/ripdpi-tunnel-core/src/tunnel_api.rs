@@ -6,16 +6,13 @@
 
 use std::io;
 use std::net::IpAddr;
-use std::os::fd::BorrowedFd;
-use std::os::unix::io::FromRawFd;
 use std::sync::Arc;
-
-use nix::fcntl::{fcntl, FcntlArg, OFlag};
 
 use smoltcp::iface::{Config as IfaceConfig, Interface, SocketSet};
 use smoltcp::time::Instant;
 use smoltcp::wire::{HardwareAddress, IpAddress, IpCidr};
 use tokio_util::sync::CancellationToken;
+use tun_rs::AsyncDevice;
 
 use ripdpi_tunnel_config::Config;
 
@@ -66,19 +63,17 @@ pub async fn run_tunnel(
     cancel: CancellationToken,
     stats: Arc<Stats>,
 ) -> io::Result<()> {
-    // Set the fd to non-blocking so AsyncFd can register it with the reactor.
-    // SAFETY: `tun_fd` is valid for the duration of this block — it is not closed until
-    // `from_raw_fd` below, and `BorrowedFd` does not take ownership.
-    let borrowed_fd = unsafe { BorrowedFd::borrow_raw(tun_fd) };
-    let flags = fcntl(borrowed_fd, FcntlArg::F_GETFL)
-        .map_err(|e| io::Error::other(format!("read TUN fd flags during tunnel setup: {e}")))?;
-    fcntl(borrowed_fd, FcntlArg::F_SETFL(OFlag::from_bits_truncate(flags) | OFlag::O_NONBLOCK))
-        .map_err(|e| io::Error::other(format!("set TUN fd to non-blocking: {e}")))?;
+    // SAFETY: `tun_fd` is a valid, open file descriptor and ownership transfers
+    // to `AsyncDevice`.  The caller (JNI layer) dup'd the fd so it is safe for
+    // tun-rs to take ownership and close it on drop.  `AsyncDevice::from_fd` sets
+    // non-blocking mode and registers the fd with the tokio reactor.
+    let tun_async = unsafe { AsyncDevice::from_fd(tun_fd) }
+        .map_err(|e| io::Error::other(format!("create async TUN device from fd: {e}")))?;
 
-    // SAFETY: `tun_fd` is valid and its ownership transfers to `file`.
-    let file = unsafe { std::fs::File::from_raw_fd(tun_fd) };
-    let tun_async = tokio::io::unix::AsyncFd::new(file)
-        .map_err(|e| io::Error::other(format!("register TUN fd with async reactor: {e}")))?;
+    // The fd comes from Android VpnService (IFF_NO_PI) or a socketpair in tests —
+    // neither includes a packet information header.  Disable tun-rs's PI handling
+    // which would otherwise strip/prepend 4 bytes on macOS.
+    tun_async.set_ignore_packet_info(false);
 
     let mtu = config.tunnel.mtu as usize;
     let mut device = TunDevice::new(mtu);

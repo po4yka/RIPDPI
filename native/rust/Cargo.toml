@@ -24,6 +24,7 @@ members = [
     "crates/ripdpi-tunnel-android",
     "crates/ripdpi-cli",
     "crates/ripdpi-bench",
+    "crates/ripdpi-io-uring",
 ]
 
 [workspace.package]
@@ -49,6 +50,7 @@ ripdpi-ws-tunnel = { path = "crates/ripdpi-ws-tunnel" }
 ripdpi-config = { path = "crates/ripdpi-config" }
 ripdpi-desync = { path = "crates/ripdpi-desync" }
 ripdpi-cli = { path = "crates/ripdpi-cli" }
+ripdpi-io-uring = { path = "crates/ripdpi-io-uring" }
 criterion = { version = "0.8", features = ["html_reports"] }
 
 ripdpi-tun-driver = { path = "crates/ripdpi-tun-driver" }
@@ -89,6 +91,7 @@ hickory-resolver = { version = "0.25", default-features = false, features = ["tl
 smoltcp = { version = "0.13", default-features = false, features = ["std", "async", "medium-ip", "proto-ipv4", "proto-ipv6", "socket-tcp", "socket-udp"] }
 thiserror = "2"
 tokio = { version = "1", default-features = false }
+tun-rs = { version = "2.8", features = ["async"] }
 tokio-rustls = { version = "0.26", default-features = false }
 tokio-util = { version = "0.7", default-features = false }
 tracing = "0.1"
@@ -99,6 +102,8 @@ url = "2"
 boring = "5"
 tokio-boring = "5"
 webpki-roots = "1.0"
+io-uring = "0.7"
+flume = "0.11"
 
 [workspace.lints.clippy]
 # Correctness & suspicious (errors)
