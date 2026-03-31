@@ -123,6 +123,7 @@ data class HomeDiagnosticsAnalysisSheetUiState(
     val stageSummaries: List<HomeDiagnosticsStageUiState> = emptyList(),
     val completedStageCount: Int = 0,
     val failedStageCount: Int = 0,
+    val shareBusy: Boolean = false,
 )
 
 @Immutable

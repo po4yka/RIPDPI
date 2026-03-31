@@ -555,6 +555,7 @@ private fun HomeDiagnosticsBottomSheetHost(
                     label = stringResource(R.string.home_diagnostics_share_action),
                     onClick = onShareAnalysis,
                     testTag = RipDpiTestTags.HomeDiagnosticsShareAction,
+                    enabled = !sheet.shareBusy,
                 ),
             secondaryAction =
                 RipDpiSheetAction(
