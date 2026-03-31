@@ -126,7 +126,12 @@ impl<'pool> BufferHandle<'pool> {
     /// Get the full buffer slice (up to `buffer_size`), for use as a recv
     /// target.
     pub fn as_mut_buf(&mut self) -> &mut [u8] {
-        &mut self.pool.buffers[usize::from(self.index)][..]
+        // SAFETY: BufferHandle has exclusive logical ownership of buffers[index]
+        // (enforced by the free-list acquire/release protocol).
+        let idx = usize::from(self.index);
+        let ptr = self.pool.buffers[idx].as_ptr() as *mut u8;
+        let len = self.pool.buffers[idx].len();
+        unsafe { std::slice::from_raw_parts_mut(ptr, len) }
     }
 
     /// Convert into a `PendingBuffer` that does NOT return to the pool on
@@ -150,8 +155,12 @@ impl Deref for BufferHandle<'_> {
 
 impl DerefMut for BufferHandle<'_> {
     fn deref_mut(&mut self) -> &mut [u8] {
+        // SAFETY: BufferHandle has exclusive logical ownership of buffers[index]
+        // (enforced by the free-list acquire/release protocol).
+        let idx = usize::from(self.index);
+        let ptr = self.pool.buffers[idx].as_ptr() as *mut u8;
         let len = self.len;
-        &mut self.pool.buffers[usize::from(self.index)][..len]
+        unsafe { std::slice::from_raw_parts_mut(ptr, len) }
     }
 }
 

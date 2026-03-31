@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::future::Future;
 use std::io;
 use std::os::fd::RawFd;
 use std::pin::Pin;
@@ -9,7 +10,7 @@ use std::thread;
 
 use io_uring::opcode;
 use io_uring::squeue::Flags;
-use io_uring::types::{self, Fd};
+use io_uring::types::Fd;
 use io_uring::IoUring;
 
 use crate::bufpool::RegisteredBufferPool;
@@ -236,7 +237,7 @@ fn driver_loop(mut ring: IoUring, rx: flume::Receiver<Submission>, registry: Arc
                 }
                 Submission::SendZc { fd, buf_index, len, token } => {
                     let entry = opcode::SendZc::new(Fd(fd), std::ptr::null(), len)
-                        .buf_index(buf_index)
+                        .buf_index(Some(buf_index))
                         .build()
                         .user_data(token)
                         .flags(Flags::BUFFER_SELECT);
