@@ -22,13 +22,22 @@ if ! cargo llvm-cov --version >/dev/null 2>&1; then
     exit 1
 fi
 
+# Tests that need CAP_NET_ADMIN (BPF attach, TCP window clamp) are excluded
+# from CI — mirrors the nextest exclusions in run-rust-workspace-tests.sh.
+SKIP_PATTERNS=(
+    --skip 'platform::linux::tests::bpf_'
+    --skip 'platform::linux::tests::tcp_window_clamp'
+    --skip 'runtime::tests::window_clamp'
+)
+
 run_coverage() {
     RUST_TEST_THREADS=1 cargo llvm-cov test \
         --manifest-path "$workspace_manifest" \
         --workspace \
         --no-report \
         -- \
-        --test-threads=1
+        --test-threads=1 \
+        "${SKIP_PATTERNS[@]}"
 
     if [[ "$include_ignored" == "1" ]]; then
         RUST_TEST_THREADS=1 cargo llvm-cov test \
