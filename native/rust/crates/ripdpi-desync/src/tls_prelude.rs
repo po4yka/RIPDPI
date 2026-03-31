@@ -4,7 +4,7 @@ use crate::types::{
     DesyncError, ProtoInfo, TamperResult, TcpSegmentHint,
 };
 use ripdpi_config::{DesyncGroup, TcpChainStep, TcpChainStepKind};
-use ripdpi_packets::{is_http, is_tls_client_hello, mod_http_like_c, OracleRng};
+use ripdpi_packets::{is_http, is_tls_client_hello, mod_http_inplace, OracleRng};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct TlsPreludeState {
@@ -203,10 +203,7 @@ pub(crate) fn apply_tls_prelude_steps(
     let info = ProtoInfo::default();
 
     if group.actions.mod_http != 0 && is_http(&output) {
-        let mutation = mod_http_like_c(&output, group.actions.mod_http);
-        if mutation.rc == 0 {
-            output = mutation.bytes;
-        }
+        mod_http_inplace(&mut output, group.actions.mod_http);
     }
     if let Some(tlsminor) = group.actions.tlsminor {
         if is_tls_client_hello(&output) && output.len() > 2 {

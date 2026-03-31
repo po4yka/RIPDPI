@@ -5,10 +5,9 @@ use ripdpi_config::{
     DesyncGroup, OffsetProto, SeqOverlapFakeMode, TcpChainStep, FM_DUPSID, FM_ORIG, FM_PADENCAP, FM_RAND, FM_RNDSNI,
 };
 use ripdpi_packets::{
-    change_tls_sni_seeded_like_c, duplicate_tls_session_id_like_c, http_fake_profile_bytes, is_http,
-    is_tls_client_hello, padencap_tls_like_c, randomize_tls_seeded_like_c, randomize_tls_sni_seeded_like_c,
-    tls_fake_profile_bytes, tls_marker_info, tune_tls_padding_size_like_c, OracleRng, PacketMutation, IS_HTTP,
-    IS_HTTPS,
+    change_tls_sni_seeded_like_c, duplicate_tls_session_id_inplace, http_fake_profile_bytes, is_http,
+    is_tls_client_hello, padencap_tls_into, randomize_tls_seeded_inplace, randomize_tls_sni_seeded_inplace,
+    tls_fake_profile_bytes, tls_marker_info, tune_tls_padding_size_into, OracleRng, PacketMutation, IS_HTTP, IS_HTTPS,
 };
 
 pub fn resolve_hostfake_span(
@@ -211,24 +210,19 @@ pub fn build_fake_packet(group: &DesyncGroup, input: &[u8], seed: u32) -> Result
                 change_tls_sni_seeded_like_c(&output, sni, tls_sni_capacity(&output, fake_tls_target, sni), seed);
             apply_tls_mutation(&mut output, mutation);
         } else if (group.actions.fake_mod & FM_RNDSNI) != 0 {
-            let mutation = randomize_tls_sni_seeded_like_c(&output, seed);
-            apply_tls_mutation(&mut output, mutation);
+            randomize_tls_sni_seeded_inplace(&mut output, seed);
         }
         if (group.actions.fake_mod & FM_RAND) != 0 {
-            let mutation = randomize_tls_seeded_like_c(&output, seed);
-            apply_tls_mutation(&mut output, mutation);
+            randomize_tls_seeded_inplace(&mut output, seed);
         }
         if (group.actions.fake_mod & FM_DUPSID) != 0 {
-            let mutation = duplicate_tls_session_id_like_c(&output, input);
-            apply_tls_mutation(&mut output, mutation);
+            duplicate_tls_session_id_inplace(&mut output, input);
         }
         if fake_tls_target != output.len() {
-            let mutation = tune_tls_padding_size_like_c(&output, fake_tls_target);
-            apply_tls_mutation(&mut output, mutation);
+            tune_tls_padding_size_into(&mut output, fake_tls_target);
         }
         if (group.actions.fake_mod & FM_PADENCAP) != 0 {
-            let mutation = padencap_tls_like_c(&output, input.len());
-            apply_tls_mutation(&mut output, mutation);
+            padencap_tls_into(&mut output, input.len());
         }
     }
 

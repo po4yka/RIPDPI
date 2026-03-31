@@ -244,6 +244,15 @@ pub fn is_http_redirect(req: &[u8], resp: &[u8]) -> bool {
     location_host.len() < suffix.len() || &location_host[location_host.len() - suffix.len()..] != suffix
 }
 
+/// Apply HTTP header mutations in place on `buf`. Returns 0 if modified, -1 otherwise.
+pub fn mod_http_inplace(buf: &mut Vec<u8>, flags: u32) -> isize {
+    let mutation = mod_http_like_c(buf, flags);
+    if mutation.rc == 0 {
+        *buf = mutation.bytes;
+    }
+    mutation.rc
+}
+
 pub fn mod_http_like_c(input: &[u8], flags: u32) -> PacketMutation {
     fn apply_host_mixed_case(input: &[u8]) -> Option<Vec<u8>> {
         let parts = parse_http_parts(input)?;
