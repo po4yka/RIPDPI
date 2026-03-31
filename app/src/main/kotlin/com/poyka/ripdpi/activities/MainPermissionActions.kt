@@ -30,6 +30,7 @@ internal class MainPermissionActions(
     private val stringResolver: StringResolver,
     val permissionState: MutableStateFlow<PermissionRuntimeState>,
     private val onStartMode: (Mode) -> Unit,
+    private val onRunHomeAnalysis: () -> Unit,
     private val onShowPermissionIssue: (PermissionIssueUiState) -> Unit,
     private val onDismissError: () -> Unit,
 ) {
@@ -142,6 +143,7 @@ internal class MainPermissionActions(
                     }
 
                     PermissionAction.StartVpnMode,
+                    PermissionAction.RunHomeAnalysis,
                     is PermissionAction.RepairPermission,
                     -> {
                         val prepareIntent = permissionPlatformBridge.prepareVpnPermissionIntent()
@@ -285,6 +287,10 @@ internal class MainPermissionActions(
 
             PermissionAction.StartVpnMode -> {
                 onStartMode(Mode.VPN)
+            }
+
+            PermissionAction.RunHomeAnalysis -> {
+                onRunHomeAnalysis()
             }
 
             is PermissionAction.RepairPermission -> {
