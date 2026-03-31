@@ -282,6 +282,11 @@ mod tests {
                 count: 0,
                 split_bytes: 8,
                 activation_filter: None,
+                ip_frag_disorder: false,
+                ipv6_hop_by_hop: false,
+                ipv6_dest_opt: false,
+                ipv6_dest_opt2: false,
+                ipv6_frag_next_override: None,
             });
         }
         config.groups = vec![group];

@@ -491,7 +491,7 @@ fn execute_tcp_actions(
                 }
                 DesyncAction::AttachDropSack => {}
                 DesyncAction::DetachDropSack => {}
-                DesyncAction::WriteIpFragmentedTcp { bytes, split_offset } => {
+                DesyncAction::WriteIpFragmentedTcp { bytes, split_offset, disorder, ipv6_ext } => {
                     if let Some(strategy_family) = strategy_family {
                         match send_ip_fragmented_tcp_action_named(
                             writer,
@@ -499,6 +499,8 @@ fn execute_tcp_actions(
                             *split_offset,
                             default_ttl,
                             None,
+                            *disorder,
+                            ipv6_ext,
                             "write_ipfrag2",
                             strategy_family,
                             fallback,
@@ -524,7 +526,15 @@ fn execute_tcp_actions(
                             Err(err) => return Err(err),
                         }
                     } else {
-                        match platform::send_ip_fragmented_tcp(writer, bytes, *split_offset, default_ttl, None) {
+                        match platform::send_ip_fragmented_tcp(
+                            writer,
+                            bytes,
+                            *split_offset,
+                            default_ttl,
+                            None,
+                            *disorder,
+                            ipv6_ext,
+                        ) {
                             Ok(()) => {
                                 bytes_committed += bytes.len();
                             }
@@ -1036,6 +1046,8 @@ fn execute_tcp_plan(
                     end,
                     config.network.default_ttl,
                     config.process.protect_path.as_deref(),
+                    false, // disorder not available in legacy plan path
+                    &ripdpi_ipfrag::Ipv6ExtHeaders::default(),
                     "write_ipfrag2",
                     step_family,
                     step_fallback,
@@ -1535,13 +1547,15 @@ fn send_ip_fragmented_tcp_action_named(
     split_offset: usize,
     default_ttl: u8,
     protect_path: Option<&str>,
+    disorder: bool,
+    ipv6_ext: &ripdpi_ipfrag::Ipv6ExtHeaders,
     action: &'static str,
     strategy_family: &'static str,
     fallback: Option<&'static str>,
     bytes_committed: usize,
 ) -> Result<usize, OutboundSendError> {
     strategy_result(
-        platform::send_ip_fragmented_tcp(stream, payload, split_offset, default_ttl, protect_path),
+        platform::send_ip_fragmented_tcp(stream, payload, split_offset, default_ttl, protect_path, disorder, ipv6_ext),
         action,
         strategy_family,
         fallback,
@@ -2353,7 +2367,12 @@ mod tests {
     fn actions_ipfrag2_fallback_with_strategy() {
         let (mut client, mut server) = connected_pair();
         let unavailable = default_ttl_unavailable();
-        let actions = vec![DesyncAction::WriteIpFragmentedTcp { bytes: b"hello".to_vec(), split_offset: 2 }];
+        let actions = vec![DesyncAction::WriteIpFragmentedTcp {
+            bytes: b"hello".to_vec(),
+            split_offset: 2,
+            disorder: false,
+            ipv6_ext: ripdpi_ipfrag::Ipv6ExtHeaders::default(),
+        }];
         let result = execute_tcp_actions(
             &mut client,
             &actions,
@@ -2376,7 +2395,12 @@ mod tests {
     fn actions_ipfrag2_fallback_no_strategy() {
         let (mut client, mut server) = connected_pair();
         let unavailable = default_ttl_unavailable();
-        let actions = vec![DesyncAction::WriteIpFragmentedTcp { bytes: b"world".to_vec(), split_offset: 2 }];
+        let actions = vec![DesyncAction::WriteIpFragmentedTcp {
+            bytes: b"world".to_vec(),
+            split_offset: 2,
+            disorder: false,
+            ipv6_ext: ripdpi_ipfrag::Ipv6ExtHeaders::default(),
+        }];
         let result =
             execute_tcp_actions(&mut client, &actions, 64, false, Duration::from_millis(10), None, &unavailable, false);
         assert_eq!(result.unwrap(), 5);
@@ -2409,7 +2433,12 @@ mod tests {
     fn actions_udp_frag_rejects_in_tcp() {
         let (mut client, _server) = connected_pair();
         let unavailable = default_ttl_unavailable();
-        let actions = vec![DesyncAction::WriteIpFragmentedUdp { bytes: b"data".to_vec(), split_offset: 2 }];
+        let actions = vec![DesyncAction::WriteIpFragmentedUdp {
+            bytes: b"data".to_vec(),
+            split_offset: 2,
+            disorder: false,
+            ipv6_ext: ripdpi_ipfrag::Ipv6ExtHeaders::default(),
+        }];
         let err =
             execute_tcp_actions(&mut client, &actions, 64, false, Duration::from_millis(10), None, &unavailable, false)
                 .unwrap_err();

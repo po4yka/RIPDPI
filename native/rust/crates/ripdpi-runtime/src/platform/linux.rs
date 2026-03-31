@@ -527,6 +527,8 @@ pub fn send_ip_fragmented_udp(
     split_offset: usize,
     default_ttl: u8,
     protect_path: Option<&str>,
+    disorder: bool,
+    ipv6_ext: &ripdpi_ipfrag::Ipv6ExtHeaders,
 ) -> io::Result<()> {
     let source = upstream.local_addr()?;
     let ttl = resolve_raw_ttl(default_ttl);
@@ -536,12 +538,17 @@ pub fn send_ip_fragmented_udp(
             dst: target,
             ttl,
             identification: fragment_identification(source, target, payload.len()),
+            ipv6_ext: *ipv6_ext,
         },
         payload,
         split_offset,
     )
     .map_err(build_error_to_io)?;
-    send_raw_fragments(target, [&pair.first, &pair.second], protect_path)
+    if disorder {
+        send_raw_fragments(target, [&pair.second, &pair.first], protect_path)
+    } else {
+        send_raw_fragments(target, [&pair.first, &pair.second], protect_path)
+    }
 }
 
 pub fn send_ip_fragmented_tcp(
@@ -550,6 +557,8 @@ pub fn send_ip_fragmented_tcp(
     split_offset: usize,
     default_ttl: u8,
     protect_path: Option<&str>,
+    disorder: bool,
+    ipv6_ext: &ripdpi_ipfrag::Ipv6ExtHeaders,
 ) -> io::Result<()> {
     if payload.is_empty() {
         return Ok(());
@@ -578,6 +587,7 @@ pub fn send_ip_fragmented_tcp(
                     .options
                     .timestamp
                     .map(|timestamp| TcpTimestampOption { value: timestamp.value, echo_reply: timestamp.echo_reply }),
+                ipv6_ext: *ipv6_ext,
             },
             payload,
             split_offset,
@@ -585,7 +595,11 @@ pub fn send_ip_fragmented_tcp(
         .map_err(build_error_to_io)?;
 
         let replacement = build_replacement_tcp_socket(source, target, payload.len(), &snapshot, protect_path)?;
-        send_raw_fragments(target, [&pair.first, &pair.second], protect_path)?;
+        if disorder {
+            send_raw_fragments(target, [&pair.second, &pair.first], protect_path)?;
+        } else {
+            send_raw_fragments(target, [&pair.first, &pair.second], protect_path)?;
+        }
         swap_stream_to_replacement(stream, &replacement, settings)?;
         set_tcp_repair_queue(fd, TCP_NO_QUEUE)?;
         disable_tcp_repair(fd)

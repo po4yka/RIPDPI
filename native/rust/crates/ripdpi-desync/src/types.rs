@@ -1,6 +1,7 @@
 use std::ops::Range;
 
 use ripdpi_config::{ActivationFilter, EntropyMode, NumericRange, OffsetBase, QuicFakeProfile, TcpChainStepKind};
+use ripdpi_ipfrag::Ipv6ExtHeaders;
 use ripdpi_packets::{HttpMarkerInfo, TlsMarkerInfo};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -115,8 +116,8 @@ pub struct HostFakeSpan {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum DesyncAction {
     Write(Vec<u8>),
-    WriteIpFragmentedTcp { bytes: Vec<u8>, split_offset: usize },
-    WriteIpFragmentedUdp { bytes: Vec<u8>, split_offset: usize },
+    WriteIpFragmentedTcp { bytes: Vec<u8>, split_offset: usize, disorder: bool, ipv6_ext: Ipv6ExtHeaders },
+    WriteIpFragmentedUdp { bytes: Vec<u8>, split_offset: usize, disorder: bool, ipv6_ext: Ipv6ExtHeaders },
     WriteSeqOverlap { real_chunk: Vec<u8>, fake_prefix: Vec<u8>, remainder: Vec<u8> },
     WriteUrgent { prefix: Vec<u8>, urgent_byte: u8 },
     SetTtl(u8),

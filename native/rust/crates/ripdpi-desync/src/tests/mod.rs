@@ -55,5 +55,11 @@ pub(super) fn tlsrandrec_step(marker: i64, count: i32, min_size: i32, max_size: 
         min_fragment_size: min_size,
         max_fragment_size: max_size,
         inter_segment_delay_ms: 0,
+        ip_frag_disorder: false,
+        ipv6_hop_by_hop: false,
+        ipv6_dest_opt: false,
+        ipv6_dest_opt2: false,
+        ipv6_routing: false,
+        ipv6_frag_next_override: None,
     }
 }
