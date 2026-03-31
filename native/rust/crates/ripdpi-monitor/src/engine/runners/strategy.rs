@@ -213,6 +213,47 @@ fn resolve_strategy_probe_audit_assessment(
     let all_tcp_tied = all_candidates_tied(tcp_candidates);
     let all_quic_tied = all_candidates_tied(quic_candidates);
 
+    let coverage = StrategyProbeAuditCoverage {
+        tcp_candidates_planned: tcp_counts.planned,
+        tcp_candidates_executed: tcp_counts.executed,
+        tcp_candidates_skipped: tcp_counts.skipped,
+        tcp_candidates_not_applicable: tcp_counts.not_applicable,
+        quic_candidates_planned: quic_counts.planned,
+        quic_candidates_executed: quic_counts.executed,
+        quic_candidates_skipped: quic_counts.skipped,
+        quic_candidates_not_applicable: quic_counts.not_applicable,
+        tcp_winner_succeeded_targets: tcp_winner.map_or(0, |candidate| candidate.succeeded_targets),
+        tcp_winner_total_targets: tcp_winner.map_or(0, |candidate| candidate.total_targets),
+        quic_winner_succeeded_targets: quic_winner.map_or(0, |candidate| candidate.succeeded_targets),
+        quic_winner_total_targets: quic_winner.map_or(0, |candidate| candidate.total_targets),
+        matrix_coverage_percent: round_percent(total_executed, total_planned),
+        winner_coverage_percent: (tcp_winner_coverage + quic_winner_coverage).div_ceil(2),
+        tcp_winner_coverage_percent: tcp_winner_coverage,
+        quic_winner_coverage_percent: quic_winner_coverage,
+    };
+
+    // Clean network: baseline works and all strategies tie with high coverage.
+    let no_evasion_needed = !dns_short_circuited
+        && all_tcp_tied
+        && all_quic_tied
+        && recommendation.tcp_candidate_id == "baseline_current"
+        && recommendation.quic_candidate_id == "baseline_current"
+        && tcp_winner_coverage >= 80
+        && quic_winner_coverage >= 80;
+
+    if no_evasion_needed {
+        return Some(StrategyProbeAuditAssessment {
+            dns_short_circuited: false,
+            coverage,
+            confidence: StrategyProbeAuditConfidence {
+                level: StrategyProbeAuditConfidenceLevel::High,
+                score: 100,
+                rationale: "All strategies performed equally — no evasion needed".to_string(),
+                warnings: Vec::new(),
+            },
+        });
+    }
+
     let mut score = 100i32;
     let mut warnings = Vec::new();
 
@@ -275,24 +316,7 @@ fn resolve_strategy_probe_audit_assessment(
 
     Some(StrategyProbeAuditAssessment {
         dns_short_circuited,
-        coverage: StrategyProbeAuditCoverage {
-            tcp_candidates_planned: tcp_counts.planned,
-            tcp_candidates_executed: tcp_counts.executed,
-            tcp_candidates_skipped: tcp_counts.skipped,
-            tcp_candidates_not_applicable: tcp_counts.not_applicable,
-            quic_candidates_planned: quic_counts.planned,
-            quic_candidates_executed: quic_counts.executed,
-            quic_candidates_skipped: quic_counts.skipped,
-            quic_candidates_not_applicable: quic_counts.not_applicable,
-            tcp_winner_succeeded_targets: tcp_winner.map_or(0, |candidate| candidate.succeeded_targets),
-            tcp_winner_total_targets: tcp_winner.map_or(0, |candidate| candidate.total_targets),
-            quic_winner_succeeded_targets: quic_winner.map_or(0, |candidate| candidate.succeeded_targets),
-            quic_winner_total_targets: quic_winner.map_or(0, |candidate| candidate.total_targets),
-            matrix_coverage_percent: round_percent(total_executed, total_planned),
-            winner_coverage_percent: (tcp_winner_coverage + quic_winner_coverage).div_ceil(2),
-            tcp_winner_coverage_percent: tcp_winner_coverage,
-            quic_winner_coverage_percent: quic_winner_coverage,
-        },
+        coverage,
         confidence: StrategyProbeAuditConfidence { level, score, rationale, warnings },
     })
 }
@@ -1315,5 +1339,74 @@ mod tests {
             .warnings
             .iter()
             .any(|w| w.contains("QUIC candidates produced identical results")));
+    }
+
+    #[test]
+    fn test_audit_assessment_high_when_baseline_tied_high_coverage() {
+        let tcp_candidates = vec![
+            strategy_candidate_summary("baseline_current", "baseline", 90, 100, 4, 5, false, "success"),
+            strategy_candidate_summary("tcp_split", "split", 90, 100, 4, 5, false, "success"),
+            strategy_candidate_summary("tcp_hostfake", "hostfake", 90, 100, 4, 5, false, "success"),
+        ];
+        let quic_candidates = vec![
+            strategy_candidate_summary("baseline_current", "baseline", 80, 100, 2, 2, false, "success"),
+            strategy_candidate_summary("quic_burst", "quic_burst", 80, 100, 2, 2, false, "success"),
+        ];
+        let rec = StrategyProbeRecommendation {
+            tcp_candidate_id: "baseline_current".to_string(),
+            tcp_candidate_label: "Current strategy".to_string(),
+            quic_candidate_id: "baseline_current".to_string(),
+            quic_candidate_label: "Current QUIC strategy".to_string(),
+            rationale: "all tied".to_string(),
+            recommended_proxy_config_json: String::new(),
+        };
+        let assessment = resolve_strategy_probe_audit_assessment(
+            STRATEGY_PROBE_SUITE_FULL_MATRIX_V1,
+            &tcp_candidates,
+            &quic_candidates,
+            &rec,
+            3,
+            2,
+            false,
+        )
+        .expect("should produce assessment");
+
+        assert_eq!(assessment.confidence.level, StrategyProbeAuditConfidenceLevel::High);
+        assert_eq!(assessment.confidence.score, 100);
+        assert!(assessment.confidence.rationale.contains("no evasion needed"));
+        assert!(assessment.confidence.warnings.is_empty());
+    }
+
+    #[test]
+    fn test_audit_assessment_low_when_baseline_tied_low_coverage() {
+        let tcp_candidates = vec![
+            strategy_candidate_summary("baseline_current", "baseline", 20, 100, 1, 5, false, "partial"),
+            strategy_candidate_summary("tcp_split", "split", 20, 100, 1, 5, false, "partial"),
+        ];
+        let quic_candidates = vec![
+            strategy_candidate_summary("baseline_current", "baseline", 20, 100, 0, 2, false, "failed"),
+            strategy_candidate_summary("quic_burst", "quic_burst", 20, 100, 0, 2, false, "failed"),
+        ];
+        let rec = StrategyProbeRecommendation {
+            tcp_candidate_id: "baseline_current".to_string(),
+            tcp_candidate_label: "Current strategy".to_string(),
+            quic_candidate_id: "baseline_current".to_string(),
+            quic_candidate_label: "Current QUIC strategy".to_string(),
+            rationale: "all tied".to_string(),
+            recommended_proxy_config_json: String::new(),
+        };
+        let assessment = resolve_strategy_probe_audit_assessment(
+            STRATEGY_PROBE_SUITE_FULL_MATRIX_V1,
+            &tcp_candidates,
+            &quic_candidates,
+            &rec,
+            2,
+            2,
+            false,
+        )
+        .expect("should produce assessment");
+
+        assert_eq!(assessment.confidence.level, StrategyProbeAuditConfidenceLevel::Low);
+        assert!(assessment.confidence.warnings.iter().any(|w| w.contains("identical results")));
     }
 }
