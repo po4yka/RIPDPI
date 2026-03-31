@@ -57,6 +57,10 @@ pub(crate) fn detect_strategy_probe_dns_tampering(
         } else if system_resolution_failed {
             // Both failed or encrypted also empty -- skip this target.
             continue;
+        } else if encrypted_ips.is_empty() {
+            // Encrypted resolver failed or returned nothing -- cannot determine
+            // substitution without a trusted reference.  Skip to avoid false positives.
+            continue;
         } else if system_ips.iter().all(|ip| !encrypted_ips.iter().any(|answer| answer == ip)) {
             (true, "dns_substitution")
         } else {
