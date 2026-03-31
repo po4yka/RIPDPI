@@ -29,10 +29,10 @@
 
     { "probeType": "tcp_fat_header", "pathMode": "RAW_PATH", "outcome": "tcp_fat_header_ok", "bucket": "Healthy", "uiTone": "Positive", "eventLevel": "info", "healthyEnoughForSummary": true },
     { "probeType": "tcp_fat_header", "pathMode": "RAW_PATH", "outcome": "tcp_16kb_blocked", "bucket": "Attention", "uiTone": "Warning", "eventLevel": "warn", "healthyEnoughForSummary": false },
-    { "probeType": "tcp_fat_header", "pathMode": "RAW_PATH", "outcome": "tcp_reset", "bucket": "Failed", "uiTone": "Negative", "eventLevel": "error", "healthyEnoughForSummary": false },
-    { "probeType": "tcp_fat_header", "pathMode": "RAW_PATH", "outcome": "tcp_timeout", "bucket": "Failed", "uiTone": "Negative", "eventLevel": "error", "healthyEnoughForSummary": false },
-    { "probeType": "tcp_fat_header", "pathMode": "RAW_PATH", "outcome": "tcp_connect_failed", "bucket": "Failed", "uiTone": "Negative", "eventLevel": "error", "healthyEnoughForSummary": false },
-    { "probeType": "tcp_fat_header", "pathMode": "RAW_PATH", "outcome": "tls_handshake_failed", "bucket": "Failed", "uiTone": "Negative", "eventLevel": "error", "healthyEnoughForSummary": false },
+    { "probeType": "tcp_fat_header", "pathMode": "RAW_PATH", "outcome": "tcp_reset", "bucket": "Attention", "uiTone": "Warning", "eventLevel": "warn", "healthyEnoughForSummary": false },
+    { "probeType": "tcp_fat_header", "pathMode": "RAW_PATH", "outcome": "tcp_timeout", "bucket": "Attention", "uiTone": "Warning", "eventLevel": "warn", "healthyEnoughForSummary": false },
+    { "probeType": "tcp_fat_header", "pathMode": "RAW_PATH", "outcome": "tcp_connect_failed", "bucket": "Inconclusive", "uiTone": "Neutral", "eventLevel": "warn", "healthyEnoughForSummary": false },
+    { "probeType": "tcp_fat_header", "pathMode": "RAW_PATH", "outcome": "tls_handshake_failed", "bucket": "Attention", "uiTone": "Warning", "eventLevel": "warn", "healthyEnoughForSummary": false },
     { "probeType": "tcp_fat_header", "pathMode": "RAW_PATH", "outcome": "whitelist_sni_ok", "bucket": "Healthy", "uiTone": "Positive", "eventLevel": "info", "healthyEnoughForSummary": true },
     { "probeType": "tcp_fat_header", "pathMode": "RAW_PATH", "outcome": "whitelist_sni_failed", "bucket": "Failed", "uiTone": "Negative", "eventLevel": "error", "healthyEnoughForSummary": false },
 
