@@ -2345,12 +2345,15 @@ mod tests {
         assert_eq!(result.unwrap(), 3);
     }
 
+    // ipfrag2 fallback tests: on non-Linux, send_ip_fragmented_tcp returns
+    // Unsupported and the fallback path plain-writes the data.  On Linux the
+    // raw-socket call needs CAP_NET_RAW which CI runners lack.
     #[test]
+    #[cfg(not(target_os = "linux"))]
     fn actions_ipfrag2_fallback_with_strategy() {
         let (mut client, mut server) = connected_pair();
         let unavailable = default_ttl_unavailable();
         let actions = vec![DesyncAction::WriteIpFragmentedTcp { bytes: b"hello".to_vec(), split_offset: 2 }];
-        // On macOS, send_ip_fragmented_tcp returns Unsupported which triggers ipfrag2 fallback
         let result = execute_tcp_actions(
             &mut client,
             &actions,
@@ -2369,6 +2372,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(not(target_os = "linux"))]
     fn actions_ipfrag2_fallback_no_strategy() {
         let (mut client, mut server) = connected_pair();
         let unavailable = default_ttl_unavailable();
@@ -2438,7 +2442,10 @@ mod tests {
         assert_eq!(result.unwrap(), 1);
     }
 
+    // These operations return Unsupported on macOS but succeed on Linux,
+    // so the "errors on unsupported" assertion only holds off-Linux.
     #[test]
+    #[cfg(not(target_os = "linux"))]
     fn actions_await_writable_errors_on_unsupported() {
         let (mut client, _server) = connected_pair();
         let unavailable = default_ttl_unavailable();
@@ -2454,11 +2461,11 @@ mod tests {
             false,
         )
         .unwrap_err();
-        // On macOS, wait_tcp_stage returns Unsupported
         assert!(matches!(err, OutboundSendError::StrategyExecution { .. }));
     }
 
     #[test]
+    #[cfg(not(target_os = "linux"))]
     fn actions_set_md5sig_errors_on_unsupported() {
         let (mut client, _server) = connected_pair();
         let unavailable = default_ttl_unavailable();
