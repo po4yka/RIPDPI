@@ -72,7 +72,15 @@ pub async fn run_tunnel(
 
     // The fd comes from Android VpnService (IFF_NO_PI) or a socketpair in tests —
     // neither includes a packet information header.  Disable tun-rs's PI handling
-    // which would otherwise strip/prepend 4 bytes on macOS.
+    // which would otherwise strip/prepend 4 bytes on BSD-family platforms.
+    #[cfg(any(
+        target_os = "macos",
+        target_os = "ios",
+        target_os = "tvos",
+        target_os = "freebsd",
+        target_os = "openbsd",
+        target_os = "netbsd",
+    ))]
     tun_async.set_ignore_packet_info(false);
 
     let mtu = config.tunnel.mtu as usize;
