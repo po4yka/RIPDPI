@@ -153,7 +153,8 @@ fun OnboardingScreen(
                     modifier =
                         Modifier
                             .ripDpiTestTag(RipDpiTestTags.OnboardingSkip)
-                            .ripDpiClickable(role = Role.Button, onClick = onSkip),
+                            .ripDpiClickable(role = Role.Button, onClick = onSkip)
+                            .padding(horizontal = 12.dp),
                 )
             }
         },
