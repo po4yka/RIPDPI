@@ -300,12 +300,27 @@ pub(crate) fn run_tcp_probe(target: &TcpTarget, whitelist_sni: &[String], transp
         fat_status_label(&initial.status)
     ));
 
-    let mut outcome = classify_fat_header_outcome(&initial.status).to_string();
+    // Single retry on connect failure to distinguish transient from consistent unreachability.
+    let mut probe_retry_count: usize = 0;
+    let effective_initial = if initial.status == FatHeaderStatus::ConnectFailed {
+        probe_retry_count = 1;
+        let retry = run_fat_header_attempt(target, transport, &initial_candidate, &base_host_header);
+        attempted_candidates.push(format!(
+            "{}:retry:{}",
+            if initial_candidate.is_empty() { "<empty>" } else { initial_candidate.as_str() },
+            fat_status_label(&retry.status)
+        ));
+        retry
+    } else {
+        initial.clone()
+    };
+
+    let mut outcome = classify_fat_header_outcome(&effective_initial.status).to_string();
     let mut winning_sni = None;
-    let mut final_observation = initial.clone();
+    let mut final_observation = effective_initial.clone();
 
     let tried_whitelist_candidates =
-        initial.status != FatHeaderStatus::Success && target.sni.is_some() && !whitelist_sni.is_empty();
+        effective_initial.status != FatHeaderStatus::Success && target.sni.is_some() && !whitelist_sni.is_empty();
     if tried_whitelist_candidates {
         for candidate in whitelist_sni {
             let candidate_result = run_fat_header_attempt(target, transport, candidate, candidate);
@@ -346,6 +361,7 @@ pub(crate) fn run_tcp_probe(target: &TcpTarget, whitelist_sni: &[String], transp
                 key: "lastError".to_string(),
                 value: final_observation.error.unwrap_or_else(|| "none".to_string()),
             },
+            ProbeDetail { key: "probeRetryCount".to_string(), value: probe_retry_count.to_string() },
         ],
     }
 }

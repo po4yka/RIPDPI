@@ -94,11 +94,18 @@
             "asn": "13335"
           },
           {
-            "id": "AWS-01",
-            "provider": "AWS",
-            "ip": "16.15.219.241",
+            "id": "GOOG-01",
+            "provider": "Google DNS",
+            "ip": "8.8.8.8",
             "port": 443,
-            "asn": "16509"
+            "asn": "15169"
+          },
+          {
+            "id": "Q9-01",
+            "provider": "Quad9",
+            "ip": "9.9.9.9",
+            "port": 443,
+            "asn": "19281"
           }
         ],
         "quicTargets": [],
@@ -766,11 +773,11 @@
             "asn": "63949"
           },
           {
-            "id": "AWS-01",
-            "provider": "AWS 1",
-            "ip": "16.15.219.241",
+            "id": "GOOG-01",
+            "provider": "Google DNS",
+            "ip": "8.8.8.8",
             "port": 443,
-            "asn": "16509"
+            "asn": "15169"
           },
           {
             "id": "AWS-02",
@@ -878,11 +885,11 @@
             "asn": "54113"
           },
           {
-            "id": "GC-01",
-            "provider": "Google Cloud",
-            "ip": "147.189.239.240",
+            "id": "Q9-01",
+            "provider": "Quad9",
+            "ip": "9.9.9.9",
             "port": 443,
-            "asn": "396982"
+            "asn": "19281"
           },
           {
             "id": "GC-02",
@@ -1569,11 +1576,18 @@
             "asn": "13335"
           },
           {
-            "id": "AWS-01",
-            "provider": "AWS",
-            "ip": "16.15.219.241",
+            "id": "GOOG-01",
+            "provider": "Google DNS",
+            "ip": "8.8.8.8",
             "port": 443,
-            "asn": "16509"
+            "asn": "15169"
+          },
+          {
+            "id": "Q9-01",
+            "provider": "Quad9",
+            "ip": "9.9.9.9",
+            "port": 443,
+            "asn": "19281"
           }
         ],
         "quicTargets": [
@@ -1936,18 +1950,18 @@
             "asn": "13335"
           },
           {
-            "id": "AWS-01",
-            "provider": "AWS",
-            "ip": "16.15.219.241",
+            "id": "GOOG-01",
+            "provider": "Google DNS",
+            "ip": "8.8.8.8",
             "port": 443,
-            "asn": "16509"
+            "asn": "15169"
           },
           {
-            "id": "GC-01",
-            "provider": "Google Cloud",
-            "ip": "147.189.239.240",
+            "id": "Q9-01",
+            "provider": "Quad9",
+            "ip": "9.9.9.9",
             "port": 443,
-            "asn": "396982"
+            "asn": "19281"
           }
         ],
         "quicTargets": [

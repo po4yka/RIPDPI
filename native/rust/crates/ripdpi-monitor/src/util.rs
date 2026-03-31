@@ -212,9 +212,9 @@ fn probe_outcome_bucket(probe_type: &str, path_mode: &ScanPathMode, outcome: &st
         "tcp_fat_header" => match outcome {
             "tcp_fat_header_ok" | "tcp_ok" | "fat_ok" | "whitelist_sni_ok" => ProbeOutcomeBucket::Healthy,
             "tcp_16kb_blocked" => ProbeOutcomeBucket::Attention,
-            "whitelist_sni_failed" | "tcp_reset" | "tcp_timeout" | "tcp_connect_failed" | "tls_handshake_failed" => {
-                ProbeOutcomeBucket::Failed
-            }
+            "tcp_connect_failed" => ProbeOutcomeBucket::Inconclusive,
+            "tcp_reset" | "tcp_timeout" | "tls_handshake_failed" => ProbeOutcomeBucket::Attention,
+            "whitelist_sni_failed" => ProbeOutcomeBucket::Failed,
             _ => legacy_outcome_bucket(outcome),
         },
         "quic_reachability" => match outcome {

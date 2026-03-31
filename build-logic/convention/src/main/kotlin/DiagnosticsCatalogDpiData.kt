@@ -83,7 +83,7 @@ internal object DiagnosticsCatalogDpiData {
             AK-11|Akamai Cloud|212.71.233.10|443|63949
             AK-10|Akamai Cloud|172.236.2.30|443|63949
             AK-11|Akamai Cloud|212.71.233.10|443|63949
-            AWS-01|AWS 1|16.15.219.241|443|16509
+            GOOG-01|Google DNS|8.8.8.8|443|15169
             AWS-02|AWS 1|76.223.67.41|443|16509
             AWS-03|AWS 1|168.100.27.4|443|16509
             AWS-04|AWS 2|54.196.100.238|443|14618
@@ -99,7 +99,7 @@ internal object DiagnosticsCatalogDpiData {
             CNT-07|Contabo 2|94.136.190.9|443|141995
             FST-01|Fastly|151.101.66.245|443|54113
             FST-02|Fastly|151.101.194.114|443|54113
-            GC-01|Google Cloud|147.189.239.240|443|396982
+            Q9-01|Quad9|9.9.9.9|443|19281
             GC-02|Google Cloud|35.227.66.60|443|396982
             GCR-01|Gcore 1|213.156.152.155|443|199524
             GCR-02|Gcore 1|92.223.13.10|443|199524

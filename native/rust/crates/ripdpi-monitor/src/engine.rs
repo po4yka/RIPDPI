@@ -201,7 +201,7 @@ mod tests {
         let mut results = vec![probe("network_environment", "wifi", "network_available")];
         results.extend((0..24).map(|index| probe("dns_integrity", format!("dns-{index}"), "dns_match")));
         results.extend((0..4).map(|index| probe("domain_reachability", format!("tls-{index}"), "tls_ok")));
-        results.push(probe("tcp_fat_header", "16.15.219.241:443 (AWS)", "whitelist_sni_ok"));
+        results.push(probe("tcp_fat_header", "8.8.8.8:443 (Google DNS)", "whitelist_sni_ok"));
         results.push(probe("tcp_fat_header", "172.67.70.222:443 (Cloudflare)", "whitelist_sni_failed"));
 
         assert_eq!(

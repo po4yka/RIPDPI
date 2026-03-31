@@ -7,7 +7,8 @@ internal object DiagnosticsCatalogSharedData {
         tcpTargets(
             """
             CF-01|Cloudflare|172.67.70.222|443|13335
-            AWS-01|AWS|16.15.219.241|443|16509
+            GOOG-01|Google DNS|8.8.8.8|443|15169
+            Q9-01|Quad9|9.9.9.9|443|19281
             """.trimIndent(),
         )
 
@@ -15,8 +16,8 @@ internal object DiagnosticsCatalogSharedData {
         tcpTargets(
             """
             CF-01|Cloudflare|172.67.70.222|443|13335
-            AWS-01|AWS|16.15.219.241|443|16509
-            GC-01|Google Cloud|147.189.239.240|443|396982
+            GOOG-01|Google DNS|8.8.8.8|443|15169
+            Q9-01|Quad9|9.9.9.9|443|19281
             """.trimIndent(),
         )
 

@@ -128,12 +128,14 @@ object DiagnosticsOutcomeTaxonomy {
 
                     "tcp_16kb_blocked" -> DiagnosticsOutcomeBucket.Attention
 
-                    "whitelist_sni_failed",
+                    "tcp_connect_failed" -> DiagnosticsOutcomeBucket.Inconclusive
+
                     "tcp_reset",
                     "tcp_timeout",
-                    "tcp_connect_failed",
                     "tls_handshake_failed",
-                    -> DiagnosticsOutcomeBucket.Failed
+                    -> DiagnosticsOutcomeBucket.Attention
+
+                    "whitelist_sni_failed" -> DiagnosticsOutcomeBucket.Failed
 
                     else -> legacyBucketForOutcome(outcome)
                 }
