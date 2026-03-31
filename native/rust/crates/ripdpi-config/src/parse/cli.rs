@@ -163,8 +163,7 @@ fn add_group(groups: &mut Vec<DesyncGroup>) -> Result<&mut DesyncGroup, ConfigEr
     if groups.len() >= 64 {
         return Err(ConfigError::invalid("groups", Some("too many groups")));
     }
-    let id = groups.len();
-    groups.push(DesyncGroup::new(id));
+    groups.push(DesyncGroup::new(groups.len()));
     Ok(groups.last_mut().expect("new group"))
 }
 

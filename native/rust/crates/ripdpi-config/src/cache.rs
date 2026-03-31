@@ -1,6 +1,6 @@
 use std::fs;
 use std::net::IpAddr;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::str::FromStr;
 
 use crate::ConfigError;
@@ -57,10 +57,6 @@ pub fn dump_cache_entries(entries: &[CacheEntry]) -> String {
         out.push_str(&format!("0 {} {} {} {} {}\n", entry.addr, entry.bits, entry.port, entry.time, host));
     }
     out
-}
-
-pub fn config_path(name: impl Into<PathBuf>) -> PathBuf {
-    name.into()
 }
 
 #[cfg(test)]
