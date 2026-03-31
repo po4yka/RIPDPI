@@ -1,5 +1,7 @@
 package com.poyka.ripdpi.ui.screens.logs
 
+import android.content.ClipData
+import android.content.ClipboardManager
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
@@ -30,9 +32,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
@@ -110,7 +111,7 @@ internal fun LogsScreen(
     val layout = RipDpiThemeTokens.layout
     val filteredLogs = uiState.filteredLogs
     val listState = rememberLazyListState()
-    val clipboardManager = LocalClipboardManager.current
+    val clipboardManager = LocalContext.current.getSystemService(ClipboardManager::class.java)
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     val performHaptic = rememberRipDpiHapticPerformer()
@@ -202,8 +203,11 @@ internal fun LogsScreen(
                             entries = filteredLogs,
                             listState = listState,
                             onCopyEntry = { entry ->
-                                clipboardManager.setText(
-                                    AnnotatedString("${entry.timestamp} [${entry.subsystem.name}] ${entry.message}"),
+                                clipboardManager?.setPrimaryClip(
+                                    ClipData.newPlainText(
+                                        "log",
+                                        "${entry.timestamp} [${entry.subsystem.name}] ${entry.message}",
+                                    ),
                                 )
                                 performHaptic(RipDpiHapticFeedback.Acknowledge)
                                 scope.launch {
