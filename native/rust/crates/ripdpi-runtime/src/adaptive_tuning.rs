@@ -48,7 +48,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use ring::digest;
 use ripdpi_config::{DesyncGroup, OffsetBase, QuicFakeProfile, TcpChainStepKind, UdpChainStepKind};
 use ripdpi_desync::{AdaptivePlannerHints, AdaptiveTlsRandRecProfile, AdaptiveUdpBurstProfile};
-use ripdpi_packets::{is_tls_client_hello, parse_quic_initial};
+use ripdpi_packets::{is_quic_initial, is_tls_client_hello};
 use serde::{Deserialize, Serialize};
 
 const ADAPTIVE_RETRY_WINDOW_MS: u64 = 15_000;
@@ -546,7 +546,7 @@ fn tcp_flow_kind(payload: &[u8]) -> AdaptiveFlowKind {
 }
 
 fn udp_flow_kind(payload: &[u8]) -> AdaptiveFlowKind {
-    if parse_quic_initial(payload).is_some() {
+    if is_quic_initial(payload) {
         AdaptiveFlowKind::UdpQuic
     } else {
         AdaptiveFlowKind::UdpOther
@@ -974,7 +974,7 @@ fn udp_burst_profile_candidates(group: &DesyncGroup) -> Vec<AdaptiveUdpBurstProf
 }
 
 fn quic_fake_profile_candidates(group: &DesyncGroup, payload: &[u8]) -> Vec<QuicFakeProfile> {
-    if parse_quic_initial(payload).is_none() {
+    if !is_quic_initial(payload) {
         return Vec::new();
     }
     match group.actions.quic_fake_profile {

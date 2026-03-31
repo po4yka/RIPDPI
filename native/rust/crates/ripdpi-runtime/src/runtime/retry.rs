@@ -5,7 +5,7 @@ use std::thread;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use ripdpi_desync::AdaptivePlannerHints;
-use ripdpi_packets::parse_quic_initial;
+use ripdpi_packets::is_quic_initial;
 
 use crate::retry_stealth::{adaptive_signature_hash, target_key, RetryDecision, RetryLane, RetrySignature};
 use crate::runtime_policy::{RetrySelectionPenalty, TransportProtocol};
@@ -56,9 +56,7 @@ pub(super) fn retry_lane(transport: TransportProtocol, payload: Option<&[u8]>) -
     match transport {
         TransportProtocol::Tcp if payload.is_some_and(ripdpi_packets::is_tls_client_hello) => RetryLane::TcpTls,
         TransportProtocol::Tcp => RetryLane::TcpOther,
-        TransportProtocol::Udp if payload.is_some_and(|bytes| parse_quic_initial(bytes).is_some()) => {
-            RetryLane::UdpQuic
-        }
+        TransportProtocol::Udp if payload.is_some_and(is_quic_initial) => RetryLane::UdpQuic,
         TransportProtocol::Udp => RetryLane::UdpOther,
     }
 }
