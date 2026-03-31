@@ -46,6 +46,7 @@ data class RipDpiSheetAction(
     val onClick: () -> Unit,
     val testTag: String? = null,
     val variant: RipDpiButtonVariant = RipDpiButtonVariant.Primary,
+    val enabled: Boolean = true,
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -225,6 +226,7 @@ private fun BottomSheetActionColumn(
                             .fillMaxWidth()
                             .ripDpiTestTag(action.testTag),
                     variant = action.variant,
+                    enabled = action.enabled,
                 )
             }
             secondaryAction?.let { action ->
@@ -236,6 +238,7 @@ private fun BottomSheetActionColumn(
                             .fillMaxWidth()
                             .ripDpiTestTag(action.testTag),
                     variant = RipDpiButtonVariant.Outline,
+                    enabled = action.enabled,
                 )
             }
         }
@@ -251,6 +254,7 @@ private fun BottomSheetActionColumn(
                     onClick = action.onClick,
                     modifier = Modifier.ripDpiTestTag(action.testTag),
                     variant = RipDpiButtonVariant.Outline,
+                    enabled = action.enabled,
                     density = RipDpiControlDensity.Compact,
                 )
             }
@@ -260,6 +264,7 @@ private fun BottomSheetActionColumn(
                     onClick = action.onClick,
                     modifier = Modifier.ripDpiTestTag(action.testTag),
                     variant = action.variant,
+                    enabled = action.enabled,
                     density = RipDpiControlDensity.Compact,
                 )
             }
