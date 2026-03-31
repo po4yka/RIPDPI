@@ -290,6 +290,8 @@ pub(super) fn run_proxy_with_listener_internal(
         runtime_context: control.as_ref().and_then(|value| value.runtime_context()),
         control: control.clone(),
         ttl_unavailable: Arc::new(AtomicBool::new(false)),
+        #[cfg(all(feature = "io-uring", any(target_os = "linux", target_os = "android")))]
+        io_uring: None,
     };
     let _cleanup = RuntimeCleanup {
         config: state.config.clone(),

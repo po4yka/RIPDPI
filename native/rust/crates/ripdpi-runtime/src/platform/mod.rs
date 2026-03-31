@@ -58,6 +58,12 @@ pub fn seqovl_supported() -> bool {
         .get_or_init(|| probe_ip_fragmentation_capabilities(None).map(|caps| caps.tcp_repair).unwrap_or(false))
 }
 
+/// Return io_uring capabilities detected at startup.
+#[cfg(all(feature = "io-uring", any(target_os = "linux", target_os = "android")))]
+pub fn io_uring_capabilities() -> ripdpi_io_uring::IoUringCapabilities {
+    ripdpi_io_uring::io_uring_capabilities()
+}
+
 #[cfg(any(target_os = "linux", target_os = "android"))]
 pub fn enable_tcp_fastopen_connect<T: std::os::fd::AsRawFd>(socket: &T) -> io::Result<()> {
     linux::enable_tcp_fastopen_connect(socket)
