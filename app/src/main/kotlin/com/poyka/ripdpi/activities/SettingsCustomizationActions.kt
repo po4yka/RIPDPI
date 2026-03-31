@@ -5,6 +5,8 @@ import com.poyka.ripdpi.security.PinLockoutManager
 import com.poyka.ripdpi.security.PinVerifier
 import com.poyka.ripdpi.security.PinVerifyResult
 
+private const val BackupPinLength = 4
+
 internal class SettingsCustomizationActions(
     private val mutations: SettingsMutationRunner,
     private val launcherIconController: LauncherIconController,
@@ -82,7 +84,7 @@ internal class SettingsCustomizationActions(
     }
 
     fun setBackupPin(pin: String) {
-        if (pin.isNotBlank() && (pin.length != 4 || !pin.all { it.isDigit() })) return
+        if (pin.isNotBlank() && (pin.length != BackupPinLength || !pin.all { it.isDigit() })) return
         val hashed = if (pin.isBlank()) "" else pinVerifier.hashPin(pin)
         mutations.updateSetting(
             key = "backupPin",
@@ -97,14 +99,13 @@ internal class SettingsCustomizationActions(
             return PinVerifyResult.LockedOut(pinLockoutManager.remainingLockoutMs())
         }
 
-        if (pin.length != 4 || !pin.all { it.isDigit() }) return PinVerifyResult.Failed
-
+        val validPin = pin.length == BackupPinLength && pin.all { it.isDigit() }
         val storedHash = currentUiState().backupPinHash
-        val matched = storedHash.isNotBlank() && matchesStoredPin(pin, storedHash)
+        val matched = validPin && storedHash.isNotBlank() && matchesStoredPin(pin, storedHash)
 
         if (matched) {
             pinLockoutManager.recordSuccess()
-        } else {
+        } else if (validPin) {
             pinLockoutManager.recordFailure()
         }
 
