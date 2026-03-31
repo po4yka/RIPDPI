@@ -1,13 +1,14 @@
 package com.poyka.ripdpi.ui.screens.diagnostics
 
+import android.content.ClipData
+import android.content.ClipboardManager
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.AnnotatedString
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.DiagnosticsApproachDetailUiModel
 import com.poyka.ripdpi.activities.DiagnosticsDiagnosisUiModel
@@ -195,7 +196,7 @@ internal fun DiagnosticsBottomSheetHost(
     }
 
     selectedProbe?.let { probe ->
-        val clipboardManager = LocalClipboardManager.current
+        val clipboardManager = LocalContext.current.getSystemService(ClipboardManager::class.java)
         val performHaptic = rememberRipDpiHapticPerformer()
         RipDpiBottomSheet(
             onDismissRequest = onDismissProbeDetail,
@@ -233,7 +234,7 @@ internal fun DiagnosticsBottomSheetHost(
                                 appendLine("${detail.label}: ${detail.value}")
                             }
                         }
-                    clipboardManager.setText(AnnotatedString(text.trimEnd()))
+                    clipboardManager?.setPrimaryClip(ClipData.newPlainText("probe", text.trimEnd()))
                     performHaptic(RipDpiHapticFeedback.Acknowledge)
                 },
                 variant = RipDpiButtonVariant.Outline,
