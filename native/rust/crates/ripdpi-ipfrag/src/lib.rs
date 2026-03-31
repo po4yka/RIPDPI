@@ -123,7 +123,7 @@ pub fn build_udp_fragment_pair(
                 ip_number::UDP,
                 &transport,
                 split,
-                &spec.ipv6_ext,
+                spec.ipv6_ext,
             )
         }
         _ => Err(BuildError::AddressFamilyMismatch),
@@ -182,7 +182,7 @@ pub fn build_tcp_fragment_pair(
                 ip_number::TCP,
                 &transport,
                 split,
-                &spec.ipv6_ext,
+                spec.ipv6_ext,
             )
         }
         _ => Err(BuildError::AddressFamilyMismatch),
@@ -295,7 +295,7 @@ fn build_ipv6_fragment_pair(
     next_header: IpNumber,
     transport: &[u8],
     split: usize,
-    ext: &Ipv6ExtHeaders,
+    ext: Ipv6ExtHeaders,
 ) -> Result<IpFragmentPair, BuildError> {
     let first_transport = &transport[..split];
     let second_transport = &transport[split..];
@@ -418,7 +418,7 @@ fn serialize_ipv6_fragment_ext(
     frag_dest_opt: Option<&[u8]>,
     transport: &[u8],
 ) -> Vec<u8> {
-    let frag_dest_len = frag_dest_opt.map_or(0, |d| d.len());
+    let frag_dest_len = frag_dest_opt.map_or(0, <[u8]>::len);
     let mut bytes = Vec::with_capacity(
         Ipv6Header::LEN + unfrag_ext.len() + Ipv6FragmentHeader::LEN + frag_dest_len + transport.len(),
     );
