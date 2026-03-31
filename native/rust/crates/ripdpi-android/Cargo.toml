@@ -42,3 +42,4 @@ tracing-subscriber = { workspace = true }
 
 [features]
 loom = ["dep:loom"]
+io-uring = ["ripdpi-runtime/io-uring"]

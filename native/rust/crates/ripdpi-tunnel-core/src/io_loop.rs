@@ -94,6 +94,18 @@ fn send_dns_servfail(
 /// 4. Duplex bridge -- pump data between smoltcp sockets and session tasks
 /// 5. Flush tx_queue -- write smoltcp-produced packets back to TUN fd
 /// 6. Wait -- sleep until TUN readable / poll_delay / cancellation
+/// Optional io_uring context for batch TUN I/O acceleration.
+///
+/// When provided, Phase 5 (flush tx_queue) uses io_uring batched writes
+/// instead of per-packet `try_send` calls. Phase 1 (drain TUN) still uses
+/// `try_recv` because the async select loop depends on `tun.readable()` for
+/// wakeup, which is incompatible with io_uring-driven reads.
+#[cfg(all(feature = "io-uring", any(target_os = "linux", target_os = "android")))]
+pub struct IoUringTunContext {
+    pub driver: std::sync::Arc<ripdpi_io_uring::IoUringDriver>,
+    pub tun_fd: std::os::fd::RawFd,
+}
+
 #[allow(clippy::too_many_arguments)]
 pub async fn io_loop_task(
     tun: &AsyncDevice,

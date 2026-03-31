@@ -1,6 +1,8 @@
 mod failure_retry;
 mod first_exchange;
 mod stream_copy;
+#[cfg(all(feature = "io-uring", any(target_os = "linux", target_os = "android")))]
+mod stream_copy_uring;
 mod tls_boundary;
 
 use std::io;
@@ -53,6 +55,28 @@ pub(super) fn relay(
         return Ok(());
     }
 
+    #[cfg(all(feature = "io-uring", any(target_os = "linux", target_os = "android")))]
+    let relay_result = {
+        let caps = ripdpi_io_uring::io_uring_capabilities();
+        if caps.send_zc {
+            if let Some(ref uring) = state.io_uring {
+                stream_copy_uring::relay_streams_uring(
+                    client,
+                    upstream,
+                    state,
+                    route.group_index,
+                    session_state,
+                    success_host.clone(),
+                    uring,
+                )
+            } else {
+                relay_streams(client, upstream, state, route.group_index, session_state, success_host.clone())
+            }
+        } else {
+            relay_streams(client, upstream, state, route.group_index, session_state, success_host.clone())
+        }
+    };
+    #[cfg(not(all(feature = "io-uring", any(target_os = "linux", target_os = "android"))))]
     let relay_result = relay_streams(client, upstream, state, route.group_index, session_state, success_host.clone());
     match relay_result {
         Ok(final_state) => {

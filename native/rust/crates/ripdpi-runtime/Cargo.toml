@@ -29,9 +29,11 @@ libc = { workspace = true }
 etherparse = { workspace = true }
 loom = { workspace = true, optional = true }
 nix = { workspace = true }
+ripdpi-io-uring = { workspace = true, optional = true }
 
 [features]
 loom = ["dep:loom"]
+io-uring = ["dep:ripdpi-io-uring"]
 
 [dev-dependencies]
 aes = { workspace = true }
