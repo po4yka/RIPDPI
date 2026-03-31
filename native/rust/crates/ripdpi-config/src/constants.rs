@@ -27,3 +27,68 @@ pub const FM_PADENCAP: u32 = 16;
 pub const HOST_AUTOLEARN_DEFAULT_PENALTY_TTL_SECS: i64 = 6 * 60 * 60;
 pub const HOST_AUTOLEARN_DEFAULT_MAX_HOSTS: usize = 512;
 pub const HOST_AUTOLEARN_DEFAULT_STORE_FILE: &str = "host-autolearn-v2.json";
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn detect_constants_are_distinct_powers_of_two() {
+        let flags = [
+            DETECT_HTTP_LOCAT,
+            DETECT_TLS_HANDSHAKE_FAILURE,
+            DETECT_RECONN,
+            DETECT_CONNECT,
+            DETECT_TCP_RESET,
+            DETECT_SILENT_DROP,
+            DETECT_TLS_ALERT,
+            DETECT_HTTP_BLOCKPAGE,
+            DETECT_DNS_TAMPER,
+            DETECT_QUIC_BREAKAGE,
+            DETECT_CONNECTION_FREEZE,
+        ];
+        for &flag in &flags {
+            assert!(flag.is_power_of_two(), "flag {flag} is not a power of two");
+        }
+        // All flags are unique
+        for i in 0..flags.len() {
+            for j in (i + 1)..flags.len() {
+                assert_ne!(flags[i], flags[j], "flags at {i} and {j} collide");
+            }
+        }
+    }
+
+    #[test]
+    fn detect_composite_constants() {
+        assert_eq!(DETECT_TLS_ERR, DETECT_TLS_HANDSHAKE_FAILURE | DETECT_TLS_ALERT);
+        assert_eq!(DETECT_TORST, DETECT_TCP_RESET | DETECT_SILENT_DROP | DETECT_CONNECTION_FREEZE);
+    }
+
+    // --- New coverage gap tests ---
+
+    #[test]
+    fn auto_flags_are_distinct_powers_of_two() {
+        let flags = [AUTO_RECONN, AUTO_NOPOST, AUTO_SORT];
+        for &flag in &flags {
+            assert!(flag.is_power_of_two(), "AUTO flag {flag} is not a power of two");
+        }
+        for i in 0..flags.len() {
+            for j in (i + 1)..flags.len() {
+                assert_ne!(flags[i], flags[j], "AUTO flags at {i} and {j} collide");
+            }
+        }
+    }
+
+    #[test]
+    fn fm_flags_are_distinct_powers_of_two() {
+        let flags = [FM_RAND, FM_ORIG, FM_RNDSNI, FM_DUPSID, FM_PADENCAP];
+        for &flag in &flags {
+            assert!(flag.is_power_of_two(), "FM flag {flag} is not a power of two");
+        }
+        for i in 0..flags.len() {
+            for j in (i + 1)..flags.len() {
+                assert_ne!(flags[i], flags[j], "FM flags at {i} and {j} collide");
+            }
+        }
+    }
+}
