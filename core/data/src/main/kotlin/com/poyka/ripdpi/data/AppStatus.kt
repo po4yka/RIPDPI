@@ -26,7 +26,7 @@ enum class Mode {
 
     companion object {
         fun fromString(name: String): Mode =
-            entries.firstOrNull { it.preferenceValue == name }
+            entries.firstOrNull { it.preferenceValue.equals(name, ignoreCase = true) }
                 ?: throw IllegalArgumentException("Invalid mode: $name")
     }
 }
