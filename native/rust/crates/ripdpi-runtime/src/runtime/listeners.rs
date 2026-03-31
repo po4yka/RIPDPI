@@ -237,6 +237,16 @@ fn is_connection_closed_error(err: &io::Error) -> bool {
 }
 
 fn detected_parallelism() -> usize {
+    // On Android, std::thread::available_parallelism() reads cgroup files that
+    // SELinux denies on Android 14+, polluting logcat with avc: denied entries.
+    // Use sysconf(_SC_NPROCESSORS_ONLN) directly to skip the cgroup probe.
+    #[cfg(target_os = "android")]
+    {
+        let n = unsafe { libc::sysconf(libc::_SC_NPROCESSORS_ONLN) };
+        if n > 0 {
+            return n as usize;
+        }
+    }
     thread::available_parallelism().map(NonZeroUsize::get).unwrap_or(WORKER_PARALLELISM_FALLBACK)
 }
 
