@@ -211,12 +211,13 @@ pub struct AdaptivePlannerResolver {
     states: HashMap<AdaptivePlannerKey, AdaptivePlannerState>,
     last_persist_at_ms: u64,
     dirty: bool,
+    persist_error_logged: bool,
 }
 
 impl AdaptivePlannerResolver {
     pub fn load(config: &ripdpi_config::RuntimeConfig) -> Self {
         let states = load_adaptive_store(config).unwrap_or_default();
-        Self { states, last_persist_at_ms: 0, dirty: false }
+        Self { states, last_persist_at_ms: 0, dirty: false, persist_error_logged: false }
     }
 
     pub fn resolve_tcp_hints(
@@ -339,7 +340,10 @@ impl AdaptivePlannerResolver {
                 self.dirty = false;
             }
             Err(err) => {
-                tracing::warn!("adaptive tuning store write failed (non-fatal): {err}");
+                if !self.persist_error_logged {
+                    tracing::warn!("adaptive tuning store write failed (non-fatal): {err}");
+                    self.persist_error_logged = true;
+                }
             }
         }
     }
