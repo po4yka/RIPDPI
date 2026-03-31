@@ -567,7 +567,7 @@ pub struct HostAutolearnSettings {
 
 impl Default for RuntimeNetworkSettings {
     fn default() -> Self {
-        let ipv6 = ipv6_supported();
+        let ipv6 = TcpListener::bind((Ipv6Addr::LOCALHOST, 0)).is_ok();
         Self {
             listen: ListenConfig {
                 listen_ip: IpAddr::V4(Ipv4Addr::LOCALHOST),
@@ -664,10 +664,6 @@ pub enum ParseResult {
     Run(Box<RuntimeConfig>),
     Help,
     Version,
-}
-
-fn ipv6_supported() -> bool {
-    TcpListener::bind((Ipv6Addr::LOCALHOST, 0)).is_ok()
 }
 
 pub(crate) fn common_suffix_match(host: &str, rule: &str) -> bool {
