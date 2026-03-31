@@ -2032,4 +2032,859 @@ mod tests {
         let padding_size = result.len() - payload.len();
         assert!(padding_size <= 10, "padding {padding_size} exceeds max 10");
     }
+
+    // ---------------------------------------------------------------
+    // Phase A: Pure helper function tests
+    // ---------------------------------------------------------------
+
+    #[test]
+    fn strategy_fallback_maps_all_families() {
+        assert_eq!(strategy_fallback_family("disorder"), Some("split"));
+        assert_eq!(strategy_fallback_family("seqovl"), Some("split"));
+        assert_eq!(strategy_fallback_family("tlsrec_seqovl"), Some("tlsrec_split"));
+        assert_eq!(strategy_fallback_family("disoob"), Some("oob"));
+        assert_eq!(strategy_fallback_family("fakeddisorder"), Some("fakedsplit"));
+        assert_eq!(strategy_fallback_family("split"), None);
+        assert_eq!(strategy_fallback_family("oob"), None);
+        assert_eq!(strategy_fallback_family("fake"), None);
+        assert_eq!(strategy_fallback_family("multidisorder"), None);
+        assert_eq!(strategy_fallback_family("unknown"), None);
+    }
+
+    #[test]
+    fn write_action_name_maps_all_families() {
+        assert_eq!(write_action_name("split"), "write_split");
+        assert_eq!(write_action_name("seqovl"), "write_seqovl");
+        assert_eq!(write_action_name("tlsrec_seqovl"), "write_seqovl");
+        assert_eq!(write_action_name("disorder"), "write_disorder");
+        assert_eq!(write_action_name("oob"), "write_oob");
+        assert_eq!(write_action_name("disoob"), "write_disoob");
+        assert_eq!(write_action_name("fake"), "write_fake");
+        assert_eq!(write_action_name("fakedsplit"), "write_fakesplit");
+        assert_eq!(write_action_name("fakeddisorder"), "write_fakeddisorder");
+        assert_eq!(write_action_name("hostfake"), "write_hostfake");
+        assert_eq!(write_action_name("unknown"), "write");
+    }
+
+    #[test]
+    fn set_ttl_action_name_maps_variants() {
+        assert_eq!(set_ttl_action_name("disorder"), "set_ttl_disorder");
+        assert_eq!(set_ttl_action_name("disoob"), "set_ttl_disoob");
+        assert_eq!(set_ttl_action_name("fakeddisorder"), "set_ttl_fakeddisorder");
+        assert_eq!(set_ttl_action_name("split"), "set_ttl");
+        assert_eq!(set_ttl_action_name("oob"), "set_ttl");
+    }
+
+    #[test]
+    fn restore_ttl_action_name_maps_variants() {
+        assert_eq!(restore_ttl_action_name("disorder"), "restore_default_ttl_disorder");
+        assert_eq!(restore_ttl_action_name("disoob"), "restore_default_ttl_disoob");
+        assert_eq!(restore_ttl_action_name("fakeddisorder"), "restore_default_ttl_fakeddisorder");
+        assert_eq!(restore_ttl_action_name("split"), "restore_default_ttl");
+    }
+
+    #[test]
+    fn await_writable_action_name_maps_all() {
+        assert_eq!(await_writable_action_name("split"), "await_writable_split");
+        assert_eq!(await_writable_action_name("seqovl"), "await_writable_seqovl");
+        assert_eq!(await_writable_action_name("tlsrec_seqovl"), "await_writable_seqovl");
+        assert_eq!(await_writable_action_name("disorder"), "await_writable_disorder");
+        assert_eq!(await_writable_action_name("oob"), "await_writable_oob");
+        assert_eq!(await_writable_action_name("disoob"), "await_writable_disoob");
+        assert_eq!(await_writable_action_name("fakedsplit"), "await_writable_fakesplit");
+        assert_eq!(await_writable_action_name("fakeddisorder"), "await_writable_fakeddisorder");
+        assert_eq!(await_writable_action_name("hostfake"), "await_writable_hostfake");
+        assert_eq!(await_writable_action_name("unknown"), "await_writable");
+    }
+
+    #[test]
+    fn ipfrag2_fallback_matches_expected_kinds() {
+        assert!(should_fallback_ipfrag2_tcp_error_kind(io::ErrorKind::InvalidInput));
+        assert!(should_fallback_ipfrag2_tcp_error_kind(io::ErrorKind::WouldBlock));
+        assert!(should_fallback_ipfrag2_tcp_error_kind(io::ErrorKind::Unsupported));
+        assert!(!should_fallback_ipfrag2_tcp_error_kind(io::ErrorKind::ConnectionReset));
+        assert!(!should_fallback_ipfrag2_tcp_error_kind(io::ErrorKind::BrokenPipe));
+    }
+
+    #[test]
+    fn seqovl_fallback_matches_expected_kinds() {
+        assert!(should_fallback_seqovl_error_kind(io::ErrorKind::InvalidInput));
+        assert!(should_fallback_seqovl_error_kind(io::ErrorKind::WouldBlock));
+        assert!(should_fallback_seqovl_error_kind(io::ErrorKind::Unsupported));
+        assert!(should_fallback_seqovl_error_kind(io::ErrorKind::PermissionDenied));
+        assert!(!should_fallback_seqovl_error_kind(io::ErrorKind::ConnectionReset));
+    }
+
+    #[test]
+    fn strategy_result_ok_passes_through() {
+        let result: Result<i32, OutboundSendError> = strategy_result(Ok(42), "action", "family", Some("fallback"), 0);
+        assert_eq!(result.unwrap(), 42);
+    }
+
+    #[test]
+    fn strategy_result_err_wraps_metadata() {
+        let result: Result<i32, OutboundSendError> = strategy_result(
+            Err(io::Error::new(io::ErrorKind::BrokenPipe, "broken")),
+            "write_split",
+            "split",
+            Some("disorder"),
+            100,
+        );
+        match result.unwrap_err() {
+            OutboundSendError::StrategyExecution { action, strategy_family, fallback, bytes_committed, .. } => {
+                assert_eq!(action, "write_split");
+                assert_eq!(strategy_family, "split");
+                assert_eq!(fallback, Some("disorder"));
+                assert_eq!(bytes_committed, 100);
+            }
+            OutboundSendError::Transport(err) => panic!("expected StrategyExecution, got Transport({err})"),
+        }
+    }
+
+    #[test]
+    fn transport_result_ok_passes_through() {
+        let result: Result<i32, OutboundSendError> = transport_result(Ok(42));
+        assert_eq!(result.unwrap(), 42);
+    }
+
+    #[test]
+    fn transport_result_err_wraps_as_transport() {
+        let result: Result<i32, OutboundSendError> =
+            transport_result(Err(io::Error::new(io::ErrorKind::BrokenPipe, "broken")));
+        assert!(matches!(result.unwrap_err(), OutboundSendError::Transport(_)));
+    }
+
+    // ---------------------------------------------------------------
+    // Phase B: Write helper tests
+    // ---------------------------------------------------------------
+
+    #[test]
+    fn write_payload_progress_full_payload() {
+        let (mut client, mut server) = connected_pair();
+        let payload = b"hello world test data";
+        write_payload_progress(&mut client, payload).expect("write succeeds");
+        let mut buf = vec![0u8; payload.len()];
+        use std::io::Read;
+        server.read_exact(&mut buf).expect("read succeeds");
+        assert_eq!(&buf, payload);
+    }
+
+    #[test]
+    fn write_payload_progress_closed_stream_errors() {
+        let (mut client, server) = connected_pair();
+        drop(server);
+        // Write enough data to overwhelm kernel buffers and trigger an error
+        let big = vec![0u8; 1024 * 1024];
+        let mut got_error = false;
+        for _ in 0..16 {
+            if write_payload_progress(&mut client, &big).is_err() {
+                got_error = true;
+                break;
+            }
+        }
+        assert!(got_error, "expected write error after filling kernel buffer to closed peer");
+    }
+
+    #[test]
+    fn write_transport_payload_returns_byte_count() {
+        let (mut client, _server) = connected_pair();
+        let result = write_transport_payload(&mut client, b"hello");
+        assert_eq!(result.unwrap(), 5);
+    }
+
+    #[test]
+    fn write_transport_payload_error_is_transport() {
+        let (mut client, server) = connected_pair();
+        drop(server);
+        let big = vec![0u8; 1024 * 1024];
+        let mut last_err = None;
+        for _ in 0..16 {
+            if let Err(err) = write_transport_payload(&mut client, &big) {
+                last_err = Some(err);
+                break;
+            }
+        }
+        let err = last_err.expect("expected transport error after filling kernel buffer");
+        assert!(matches!(err, OutboundSendError::Transport(_)));
+    }
+
+    #[test]
+    fn write_strategy_named_accumulates_committed() {
+        let (mut client, _server) = connected_pair();
+        let result = write_strategy_payload_named(&mut client, b"hello world", "write_split", "split", None, 50);
+        assert_eq!(result.unwrap(), 61); // 50 + 11
+    }
+
+    #[test]
+    fn write_strategy_named_error_has_metadata() {
+        let (mut client, server) = connected_pair();
+        drop(server);
+        let big = vec![0u8; 1024 * 1024];
+        let mut last_err = None;
+        for _ in 0..16 {
+            if let Err(err) =
+                write_strategy_payload_named(&mut client, &big, "write_split", "split", Some("disorder"), 50)
+            {
+                last_err = Some(err);
+                break;
+            }
+        }
+        match last_err.expect("expected strategy error") {
+            OutboundSendError::StrategyExecution { action, strategy_family, fallback, .. } => {
+                assert_eq!(action, "write_split");
+                assert_eq!(strategy_family, "split");
+                assert_eq!(fallback, Some("disorder"));
+            }
+            OutboundSendError::Transport(err) => panic!("expected StrategyExecution, got Transport({err})"),
+        }
+    }
+
+    // ---------------------------------------------------------------
+    // Phase C: execute_tcp_actions tests
+    // ---------------------------------------------------------------
+
+    fn default_ttl_unavailable() -> AtomicBool {
+        AtomicBool::new(false)
+    }
+
+    #[test]
+    fn actions_write_only_no_strategy() {
+        let (mut client, mut server) = connected_pair();
+        let unavailable = default_ttl_unavailable();
+        let actions = vec![DesyncAction::Write(b"hello".to_vec()), DesyncAction::Write(b"world".to_vec())];
+        let result =
+            execute_tcp_actions(&mut client, &actions, 64, false, Duration::from_millis(10), None, &unavailable, false);
+        // write_transport_payload returns bytes.len() (not accumulated), so last write's len is returned
+        assert_eq!(result.unwrap(), 5);
+        let mut buf = vec![0u8; 10];
+        use std::io::Read;
+        server.read_exact(&mut buf).expect("read");
+        assert_eq!(&buf, b"helloworld");
+    }
+
+    #[test]
+    fn actions_write_with_strategy() {
+        let (mut client, _server) = connected_pair();
+        let unavailable = default_ttl_unavailable();
+        let actions = vec![DesyncAction::Write(b"hello".to_vec())];
+        let result = execute_tcp_actions(
+            &mut client,
+            &actions,
+            64,
+            false,
+            Duration::from_millis(10),
+            Some("split"),
+            &unavailable,
+            false,
+        );
+        assert_eq!(result.unwrap(), 5);
+    }
+
+    #[test]
+    fn actions_set_ttl_and_restore() {
+        let (mut client, _server) = connected_pair();
+        let unavailable = default_ttl_unavailable();
+        let actions =
+            vec![DesyncAction::SetTtl(42), DesyncAction::Write(b"x".to_vec()), DesyncAction::RestoreDefaultTtl];
+        let result = execute_tcp_actions(
+            &mut client,
+            &actions,
+            64,
+            false,
+            Duration::from_millis(10),
+            Some("disorder"),
+            &unavailable,
+            false,
+        );
+        assert_eq!(result.unwrap(), 1);
+    }
+
+    #[test]
+    fn actions_set_ttl_auto_detect() {
+        let (mut client, _server) = connected_pair();
+        let unavailable = default_ttl_unavailable();
+        let actions = vec![DesyncAction::SetTtl(1), DesyncAction::RestoreDefaultTtl];
+        let result = execute_tcp_actions(
+            &mut client,
+            &actions,
+            0,
+            false,
+            Duration::from_millis(10),
+            Some("disorder"),
+            &unavailable,
+            false,
+        );
+        assert_eq!(result.unwrap(), 0);
+    }
+
+    #[test]
+    fn actions_write_urgent_no_strategy() {
+        let (mut client, _server) = connected_pair();
+        let unavailable = default_ttl_unavailable();
+        let actions = vec![DesyncAction::WriteUrgent { prefix: b"ab".to_vec(), urgent_byte: b'!' }];
+        let result =
+            execute_tcp_actions(&mut client, &actions, 64, false, Duration::from_millis(10), None, &unavailable, false);
+        assert_eq!(result.unwrap(), 3); // prefix.len() + 1
+    }
+
+    #[test]
+    fn actions_write_urgent_with_strategy() {
+        let (mut client, _server) = connected_pair();
+        let unavailable = default_ttl_unavailable();
+        let actions = vec![DesyncAction::WriteUrgent { prefix: b"ab".to_vec(), urgent_byte: b'!' }];
+        let result = execute_tcp_actions(
+            &mut client,
+            &actions,
+            64,
+            false,
+            Duration::from_millis(10),
+            Some("oob"),
+            &unavailable,
+            false,
+        );
+        assert_eq!(result.unwrap(), 3);
+    }
+
+    #[test]
+    fn actions_ipfrag2_fallback_with_strategy() {
+        let (mut client, mut server) = connected_pair();
+        let unavailable = default_ttl_unavailable();
+        let actions = vec![DesyncAction::WriteIpFragmentedTcp { bytes: b"hello".to_vec(), split_offset: 2 }];
+        // On macOS, send_ip_fragmented_tcp returns Unsupported which triggers ipfrag2 fallback
+        let result = execute_tcp_actions(
+            &mut client,
+            &actions,
+            64,
+            false,
+            Duration::from_millis(10),
+            Some("ipfrag2"),
+            &unavailable,
+            false,
+        );
+        assert_eq!(result.unwrap(), 5);
+        let mut buf = vec![0u8; 5];
+        use std::io::Read;
+        server.read_exact(&mut buf).expect("read");
+        assert_eq!(&buf, b"hello");
+    }
+
+    #[test]
+    fn actions_ipfrag2_fallback_no_strategy() {
+        let (mut client, mut server) = connected_pair();
+        let unavailable = default_ttl_unavailable();
+        let actions = vec![DesyncAction::WriteIpFragmentedTcp { bytes: b"world".to_vec(), split_offset: 2 }];
+        let result =
+            execute_tcp_actions(&mut client, &actions, 64, false, Duration::from_millis(10), None, &unavailable, false);
+        assert_eq!(result.unwrap(), 5);
+        let mut buf = vec![0u8; 5];
+        use std::io::Read;
+        server.read_exact(&mut buf).expect("read");
+        assert_eq!(&buf, b"world");
+    }
+
+    #[test]
+    fn actions_seqovl_fallback_to_split() {
+        let (mut client, mut server) = connected_pair();
+        let unavailable = default_ttl_unavailable();
+        let actions = vec![DesyncAction::WriteSeqOverlap {
+            real_chunk: b"ab".to_vec(),
+            fake_prefix: b"xx".to_vec(),
+            remainder: b"cd".to_vec(),
+        }];
+        // On macOS, send_seqovl_tcp returns Unsupported -> fallback writes real_chunk + remainder
+        let result =
+            execute_tcp_actions(&mut client, &actions, 64, false, Duration::from_millis(10), None, &unavailable, false);
+        assert_eq!(result.unwrap(), 4);
+        let mut buf = vec![0u8; 4];
+        use std::io::Read;
+        server.read_exact(&mut buf).expect("read");
+        assert_eq!(&buf, b"abcd");
+    }
+
+    #[test]
+    fn actions_udp_frag_rejects_in_tcp() {
+        let (mut client, _server) = connected_pair();
+        let unavailable = default_ttl_unavailable();
+        let actions = vec![DesyncAction::WriteIpFragmentedUdp { bytes: b"data".to_vec(), split_offset: 2 }];
+        let err =
+            execute_tcp_actions(&mut client, &actions, 64, false, Duration::from_millis(10), None, &unavailable, false)
+                .unwrap_err();
+        assert_eq!(err.kind(), io::ErrorKind::InvalidInput);
+        assert!(err.to_string().contains("udp fragmentation action reached tcp executor"));
+    }
+
+    #[test]
+    fn actions_attach_detach_drop_sack_noop() {
+        let (mut client, _server) = connected_pair();
+        let unavailable = default_ttl_unavailable();
+        let actions =
+            vec![DesyncAction::AttachDropSack, DesyncAction::Write(b"x".to_vec()), DesyncAction::DetachDropSack];
+        let result =
+            execute_tcp_actions(&mut client, &actions, 64, false, Duration::from_millis(10), None, &unavailable, false);
+        assert_eq!(result.unwrap(), 1);
+    }
+
+    #[test]
+    fn actions_window_clamp_ignored_on_unsupported() {
+        let (mut client, _server) = connected_pair();
+        let unavailable = default_ttl_unavailable();
+        let actions = vec![
+            DesyncAction::SetWindowClamp(1024),
+            DesyncAction::Write(b"x".to_vec()),
+            DesyncAction::RestoreWindowClamp,
+        ];
+        let result =
+            execute_tcp_actions(&mut client, &actions, 64, false, Duration::from_millis(10), None, &unavailable, false);
+        assert_eq!(result.unwrap(), 1);
+    }
+
+    #[test]
+    fn actions_await_writable_errors_on_unsupported() {
+        let (mut client, _server) = connected_pair();
+        let unavailable = default_ttl_unavailable();
+        let actions = vec![DesyncAction::Write(b"x".to_vec()), DesyncAction::AwaitWritable];
+        let err = execute_tcp_actions(
+            &mut client,
+            &actions,
+            64,
+            false,
+            Duration::from_millis(10),
+            Some("split"),
+            &unavailable,
+            false,
+        )
+        .unwrap_err();
+        // On macOS, wait_tcp_stage returns Unsupported
+        assert!(matches!(err, OutboundSendError::StrategyExecution { .. }));
+    }
+
+    #[test]
+    fn actions_set_md5sig_errors_on_unsupported() {
+        let (mut client, _server) = connected_pair();
+        let unavailable = default_ttl_unavailable();
+        let actions = vec![DesyncAction::SetMd5Sig { key_len: 16 }];
+        let err = execute_tcp_actions(
+            &mut client,
+            &actions,
+            64,
+            false,
+            Duration::from_millis(10),
+            Some("split"),
+            &unavailable,
+            false,
+        )
+        .unwrap_err();
+        assert!(matches!(err, OutboundSendError::StrategyExecution { .. }));
+    }
+
+    #[test]
+    fn actions_ttl_unavailable_skips_set_restore() {
+        let (mut client, _server) = connected_pair();
+        let unavailable = AtomicBool::new(true);
+        let actions =
+            vec![DesyncAction::SetTtl(1), DesyncAction::Write(b"data".to_vec()), DesyncAction::RestoreDefaultTtl];
+        let result = execute_tcp_actions(
+            &mut client,
+            &actions,
+            64,
+            false,
+            Duration::from_millis(10),
+            Some("disorder"),
+            &unavailable,
+            false,
+        );
+        assert_eq!(result.unwrap(), 4);
+    }
+
+    #[test]
+    fn actions_safety_net_restores_ttl_on_success() {
+        let (mut client, _server) = connected_pair();
+        let unavailable = default_ttl_unavailable();
+        // SetTtl modifies TTL, then write + no RestoreDefaultTtl -- safety net should restore
+        let actions = vec![DesyncAction::SetTtl(42), DesyncAction::Write(b"x".to_vec())];
+        let result = execute_tcp_actions(
+            &mut client,
+            &actions,
+            64,
+            false,
+            Duration::from_millis(10),
+            Some("disorder"),
+            &unavailable,
+            false,
+        );
+        // Should succeed and safety net restores TTL at lines 590-594
+        assert_eq!(result.unwrap(), 1);
+    }
+
+    // ---------------------------------------------------------------
+    // Phase D: TTL and OOB wrapper tests
+    // ---------------------------------------------------------------
+
+    #[test]
+    fn set_stream_ttl_loopback() {
+        let (client, _server) = connected_pair();
+        let result = set_stream_ttl(&client, 42);
+        assert!(result.is_ok(), "set_stream_ttl should succeed on loopback: {:?}", result.err());
+    }
+
+    #[test]
+    fn set_ttl_with_fallback_success() {
+        let (client, _server) = connected_pair();
+        let mut unavailable = false;
+        let result = set_ttl_with_android_fallback_named(&client, 42, &mut unavailable, "set_ttl", "disorder", None, 0);
+        assert!(result.unwrap());
+        assert!(!unavailable);
+    }
+
+    #[test]
+    fn set_ttl_with_fallback_skips_when_unavailable() {
+        let (client, _server) = connected_pair();
+        let mut unavailable = true;
+        let result = set_ttl_with_android_fallback_named(&client, 42, &mut unavailable, "set_ttl", "disorder", None, 0);
+        assert!(!result.unwrap());
+    }
+
+    #[test]
+    fn restore_ttl_with_fallback_success() {
+        let (client, _server) = connected_pair();
+        let mut unavailable = false;
+        let result = restore_default_ttl_with_android_fallback_named(
+            &client,
+            64,
+            &mut unavailable,
+            "restore_default_ttl",
+            "disorder",
+            None,
+            0,
+        );
+        assert!(result.unwrap());
+        assert!(!unavailable);
+    }
+
+    #[test]
+    fn restore_ttl_with_fallback_skips_when_unavailable() {
+        let (client, _server) = connected_pair();
+        let mut unavailable = true;
+        let result = restore_default_ttl_with_android_fallback_named(
+            &client,
+            64,
+            &mut unavailable,
+            "restore_default_ttl",
+            "disorder",
+            None,
+            0,
+        );
+        assert!(!result.unwrap());
+    }
+
+    #[test]
+    fn send_out_of_band_sends_prefix_plus_byte() {
+        let (client, _server) = connected_pair();
+        let result = send_out_of_band(&client, b"abc", b'!');
+        assert!(result.is_ok(), "send_out_of_band should succeed on loopback: {:?}", result.err());
+    }
+
+    #[test]
+    fn send_oob_action_named_accumulates() {
+        let (client, _server) = connected_pair();
+        let result = send_oob_action_named(&client, b"ab", b'!', "send_oob", "oob", None, 10);
+        assert_eq!(result.unwrap(), 13); // 10 + 2 + 1
+    }
+
+    #[test]
+    fn write_with_android_fallback_success() {
+        let (mut client, _server) = connected_pair();
+        let mut unavailable = false;
+        let (ttl_modified, committed) = write_payload_with_android_ttl_fallback(
+            &mut client,
+            b"hello",
+            64,
+            true,
+            &mut unavailable,
+            "write_disorder",
+            "disorder",
+            Some("split"),
+            50,
+        )
+        .unwrap();
+        assert!(ttl_modified);
+        assert_eq!(committed, 55); // 50 + 5
+        assert!(!unavailable);
+    }
+
+    // ---------------------------------------------------------------
+    // Phase E: execute_tcp_plan validation tests
+    // ---------------------------------------------------------------
+
+    #[test]
+    fn plan_rejects_step_count_mismatch() {
+        let (mut client, _server) = connected_pair();
+        let unavailable = default_ttl_unavailable();
+        // Group has 1 tcp_chain step but plan has 2 steps
+        let mut group = test_group();
+        group.actions.tcp_chain.push(TcpChainStep::new(TcpChainStepKind::Split, test_offset()));
+
+        let err = execute_tcp_plan(
+            &mut client,
+            &RuntimeConfig::default(),
+            &group,
+            &DesyncPlan {
+                tampered: b"abcdef".to_vec(),
+                steps: vec![
+                    PlannedStep { kind: TcpChainStepKind::Split, start: 0, end: 3 },
+                    PlannedStep { kind: TcpChainStepKind::Split, start: 3, end: 6 },
+                ],
+                proto: ProtoInfo::default(),
+                actions: Vec::new(),
+            },
+            0,
+            None,
+            Some("split"),
+            &unavailable,
+        )
+        .unwrap_err();
+        assert!(err.to_string().contains("tcp plan steps exceed configured send steps"));
+    }
+
+    #[test]
+    fn plan_rejects_negative_start() {
+        let (mut client, _server) = connected_pair();
+        let unavailable = default_ttl_unavailable();
+        let mut group = test_group();
+        group.actions.tcp_chain.push(TcpChainStep::new(TcpChainStepKind::Split, test_offset()));
+
+        let err = execute_tcp_plan(
+            &mut client,
+            &RuntimeConfig::default(),
+            &group,
+            &DesyncPlan {
+                tampered: b"abcdef".to_vec(),
+                steps: vec![PlannedStep { kind: TcpChainStepKind::Split, start: -1, end: 3 }],
+                proto: ProtoInfo::default(),
+                actions: Vec::new(),
+            },
+            0,
+            None,
+            Some("split"),
+            &unavailable,
+        )
+        .unwrap_err();
+        assert!(err.to_string().contains("negative tcp plan start"));
+    }
+
+    #[test]
+    fn plan_rejects_negative_end() {
+        let (mut client, _server) = connected_pair();
+        let unavailable = default_ttl_unavailable();
+        let mut group = test_group();
+        group.actions.tcp_chain.push(TcpChainStep::new(TcpChainStepKind::Split, test_offset()));
+
+        let err = execute_tcp_plan(
+            &mut client,
+            &RuntimeConfig::default(),
+            &group,
+            &DesyncPlan {
+                tampered: b"abcdef".to_vec(),
+                steps: vec![PlannedStep { kind: TcpChainStepKind::Split, start: 0, end: -1 }],
+                proto: ProtoInfo::default(),
+                actions: Vec::new(),
+            },
+            0,
+            None,
+            Some("split"),
+            &unavailable,
+        )
+        .unwrap_err();
+        assert!(err.to_string().contains("negative tcp plan end"));
+    }
+
+    #[test]
+    fn plan_rejects_out_of_order_bounds() {
+        let (mut client, _server) = connected_pair();
+        let unavailable = default_ttl_unavailable();
+        let mut group = test_group();
+        group.actions.tcp_chain.push(TcpChainStep::new(TcpChainStepKind::Split, test_offset()));
+
+        let err = execute_tcp_plan(
+            &mut client,
+            &RuntimeConfig::default(),
+            &group,
+            &DesyncPlan {
+                tampered: b"abcdef".to_vec(),
+                steps: vec![PlannedStep { kind: TcpChainStepKind::Split, start: 4, end: 2 }],
+                proto: ProtoInfo::default(),
+                actions: Vec::new(),
+            },
+            0,
+            None,
+            Some("split"),
+            &unavailable,
+        )
+        .unwrap_err();
+        assert!(err.to_string().contains("invalid tcp desync step bounds"));
+    }
+
+    #[test]
+    fn plan_rejects_end_beyond_payload() {
+        let (mut client, _server) = connected_pair();
+        let unavailable = default_ttl_unavailable();
+        let mut group = test_group();
+        group.actions.tcp_chain.push(TcpChainStep::new(TcpChainStepKind::Split, test_offset()));
+
+        let err = execute_tcp_plan(
+            &mut client,
+            &RuntimeConfig::default(),
+            &group,
+            &DesyncPlan {
+                tampered: b"abc".to_vec(),
+                steps: vec![PlannedStep { kind: TcpChainStepKind::Split, start: 0, end: 10 }],
+                proto: ProtoInfo::default(),
+                actions: Vec::new(),
+            },
+            0,
+            None,
+            Some("split"),
+            &unavailable,
+        )
+        .unwrap_err();
+        assert!(err.to_string().contains("invalid tcp desync step bounds"));
+    }
+
+    #[test]
+    fn plan_split_step_writes_chunk() {
+        let (mut client, mut server) = connected_pair();
+        let unavailable = default_ttl_unavailable();
+        let mut group = test_group();
+        group.actions.tcp_chain.push(TcpChainStep::new(TcpChainStepKind::Split, test_offset()));
+
+        let result = execute_tcp_plan(
+            &mut client,
+            &RuntimeConfig::default(),
+            &group,
+            &DesyncPlan {
+                tampered: b"hello".to_vec(),
+                steps: vec![PlannedStep { kind: TcpChainStepKind::Split, start: 0, end: 5 }],
+                proto: ProtoInfo::default(),
+                actions: Vec::new(),
+            },
+            0,
+            None,
+            Some("split"),
+            &unavailable,
+        );
+        // On macOS, await_writable returns Unsupported after the write succeeds.
+        // The write portion (5 bytes) has been committed to the socket.
+        // The error is from await_writable, not from the write itself.
+        if let Err(err) = &result {
+            assert!(matches!(err, OutboundSendError::StrategyExecution { .. }));
+        }
+        // Regardless of the await error, data should have been written
+        server.set_read_timeout(Some(Duration::from_millis(100))).ok();
+        let mut buf = vec![0u8; 5];
+        use std::io::Read;
+        let read_result = server.read(&mut buf);
+        assert!(read_result.is_ok(), "data should have been written before await error");
+    }
+
+    #[test]
+    fn plan_tlsrec_step_errors() {
+        let (mut client, _server) = connected_pair();
+        let unavailable = default_ttl_unavailable();
+        let mut group = test_group();
+        group.actions.tcp_chain.push(TcpChainStep::new(TcpChainStepKind::Split, test_offset()));
+
+        let err = execute_tcp_plan(
+            &mut client,
+            &RuntimeConfig::default(),
+            &group,
+            &DesyncPlan {
+                tampered: b"abcdef".to_vec(),
+                steps: vec![PlannedStep { kind: TcpChainStepKind::TlsRec, start: 0, end: 6 }],
+                proto: ProtoInfo::default(),
+                actions: Vec::new(),
+            },
+            0,
+            None,
+            Some("tlsrec"),
+            &unavailable,
+        )
+        .unwrap_err();
+        assert!(err.to_string().contains("tls prelude step must not appear in tcp send plan"));
+    }
+
+    #[test]
+    fn multidisorder_rejects_mixed_kinds_in_chain() {
+        let (mut client, _server) = connected_pair();
+        let chain = vec![
+            TcpChainStep::new(TcpChainStepKind::MultiDisorder, OffsetExpr::absolute(2)),
+            TcpChainStep::new(TcpChainStepKind::Split, OffsetExpr::absolute(4)),
+        ];
+        let err = execute_multi_disorder_tcp_plan(
+            &mut client,
+            &RuntimeConfig::default(),
+            &chain,
+            &DesyncPlan {
+                tampered: b"abcdef".to_vec(),
+                steps: vec![
+                    PlannedStep { kind: TcpChainStepKind::MultiDisorder, start: 0, end: 2 },
+                    PlannedStep { kind: TcpChainStepKind::MultiDisorder, start: 2, end: 4 },
+                    PlannedStep { kind: TcpChainStepKind::MultiDisorder, start: 4, end: 6 },
+                ],
+                proto: ProtoInfo::default(),
+                actions: Vec::new(),
+            },
+            Some("multidisorder"),
+            false,
+        )
+        .expect_err("reject mixed chain kinds");
+        assert!(err.to_string().contains("invalid multidisorder tcp chain configuration"));
+    }
+
+    #[test]
+    fn multidisorder_rejects_single_step() {
+        let (mut client, _server) = connected_pair();
+        let chain = vec![TcpChainStep::new(TcpChainStepKind::MultiDisorder, OffsetExpr::absolute(2))];
+        let err = execute_multi_disorder_tcp_plan(
+            &mut client,
+            &RuntimeConfig::default(),
+            &chain,
+            &DesyncPlan {
+                tampered: b"abcdef".to_vec(),
+                steps: vec![
+                    PlannedStep { kind: TcpChainStepKind::MultiDisorder, start: 0, end: 2 },
+                    PlannedStep { kind: TcpChainStepKind::MultiDisorder, start: 2, end: 4 },
+                    PlannedStep { kind: TcpChainStepKind::MultiDisorder, start: 4, end: 6 },
+                ],
+                proto: ProtoInfo::default(),
+                actions: Vec::new(),
+            },
+            Some("multidisorder"),
+            false,
+        )
+        .expect_err("reject single send step");
+        assert!(err.to_string().contains("invalid multidisorder tcp chain configuration"));
+    }
+
+    #[test]
+    fn multidisorder_rejects_too_few_planned() {
+        let (mut client, _server) = connected_pair();
+        let err = execute_multi_disorder_tcp_plan(
+            &mut client,
+            &RuntimeConfig::default(),
+            &multidisorder_chain(),
+            &DesyncPlan {
+                tampered: b"abcdef".to_vec(),
+                steps: vec![
+                    PlannedStep { kind: TcpChainStepKind::MultiDisorder, start: 0, end: 3 },
+                    PlannedStep { kind: TcpChainStepKind::MultiDisorder, start: 3, end: 6 },
+                ],
+                proto: ProtoInfo::default(),
+                actions: Vec::new(),
+            },
+            Some("multidisorder"),
+            false,
+        )
+        .expect_err("reject fewer than 3 planned segments");
+        assert!(err.to_string().contains("multidisorder requires at least three non-empty planned segments"));
+    }
 }
