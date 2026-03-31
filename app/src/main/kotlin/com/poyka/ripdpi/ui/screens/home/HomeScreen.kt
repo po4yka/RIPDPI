@@ -1,5 +1,7 @@
 package com.poyka.ripdpi.ui.screens.home
 
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.text.format.Formatter
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.animateColorAsState
@@ -49,7 +51,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
@@ -150,7 +151,7 @@ fun HomeScreen(
     val spacing = RipDpiThemeTokens.spacing
     val layout = RipDpiThemeTokens.layout
     val type = RipDpiThemeTokens.type
-    val clipboardManager = LocalClipboardManager.current
+    val clipboardManager = LocalContext.current.getSystemService(ClipboardManager::class.java)
     val performHaptic = rememberRipDpiHapticPerformer()
 
     RipDpiDashboardScaffold(
@@ -172,7 +173,7 @@ fun HomeScreen(
                         .combinedClickable(
                             onClick = {},
                             onLongClick = {
-                                clipboardManager.setText(AnnotatedString(uiState.errorMessage))
+                                clipboardManager?.setPrimaryClip(ClipData.newPlainText("error", uiState.errorMessage))
                                 performHaptic(RipDpiHapticFeedback.Acknowledge)
                             },
                         ),
