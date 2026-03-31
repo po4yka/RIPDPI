@@ -1,8 +1,9 @@
 use std::io::{ErrorKind, Write};
 use std::net::IpAddr;
+use std::sync::Arc;
 
 use crate::http::read_http_headers;
-use crate::tls::{open_probe_stream, TlsClientProfile};
+use crate::tls::{open_probe_stream, NoCertificateVerification, TlsClientProfile};
 use crate::transport::{TargetAddress, TransportConfig};
 use crate::types::TcpTarget;
 use crate::util::*;
@@ -49,6 +50,9 @@ pub(crate) fn run_fat_header_attempt(
 
     let tls_sni = if !sni.is_empty() { Some(sni) } else { None };
     let uses_tls = tls_sni.is_some();
+    // Diagnostic probe: explicitly skip certificate verification to detect
+    // censorship-induced TLS interception (MITM middleboxes).
+    let no_verify: Arc<dyn rustls::client::danger::ServerCertVerifier> = Arc::new(NoCertificateVerification);
     let mut stream = match open_probe_stream(
         &connect_target,
         target.port,
@@ -56,7 +60,7 @@ pub(crate) fn run_fat_header_attempt(
         tls_sni,
         false,
         TlsClientProfile::Auto,
-        None,
+        Some(&no_verify),
     ) {
         Ok(result) => result.stream,
         Err(err) => {
