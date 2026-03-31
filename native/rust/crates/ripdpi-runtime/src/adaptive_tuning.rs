@@ -338,6 +338,7 @@ impl AdaptivePlannerResolver {
             Ok(()) => {
                 self.last_persist_at_ms = now_ms;
                 self.dirty = false;
+                self.persist_error_logged = false;
             }
             Err(err) => {
                 if !self.persist_error_logged {
