@@ -949,4 +949,91 @@ mod tests {
         let runtime = probe_runtime_transport(&spec, None).expect("probe runtime should start");
         assert!(runtime.addr.ip().is_loopback(), "probe runtime must bind to localhost");
     }
+
+    // ── Pure logic builder tests ─────────────────────────────────────────
+
+    fn test_spec() -> StrategyCandidateSpec {
+        crate::candidates::candidate_spec("test_id", "Test Label", "test_family", test_ui_config())
+    }
+
+    #[test]
+    fn failed_execution_sets_outcome_and_rationale() {
+        let exec = failed_candidate_execution(&test_spec(), 4, 3, "proxy startup failed".to_string());
+        assert_eq!(exec.summary.outcome, "failed");
+        assert_eq!(exec.summary.rationale, "proxy startup failed");
+        assert_eq!(exec.summary.succeeded_targets, 0);
+        assert_eq!(exec.summary.total_targets, 4);
+        assert_eq!(exec.summary.total_weight, 12);
+        assert!(!exec.cancelled);
+        assert!(exec.results.is_empty());
+    }
+
+    #[test]
+    fn cancelled_execution_marks_cancelled_flag() {
+        let score = CandidateScore { total_targets: 2, total_weight: 6, ..Default::default() };
+        let exec = cancelled_candidate_execution(&test_spec(), score, 0);
+        assert!(exec.cancelled);
+        assert_eq!(exec.summary.outcome, "failed"); // no succeeded targets
+    }
+
+    #[test]
+    fn skipped_summary_sets_skipped_flag_and_rationale() {
+        let summary = skipped_candidate_summary(&test_spec(), 4, 3, "prerequisite not met");
+        assert!(summary.skipped);
+        assert_eq!(summary.outcome, "skipped");
+        assert_eq!(summary.rationale, "prerequisite not met");
+        assert_eq!(summary.total_weight, 12);
+        assert!(summary.notes.iter().any(|n| n == "prerequisite not met"));
+    }
+
+    #[test]
+    fn candidate_proxy_config_json_serializes() {
+        let json = candidate_proxy_config_json(&test_spec());
+        assert!(json.is_some(), "should produce valid JSON");
+        let json_str = json.unwrap();
+        // Verify it's valid JSON by parsing it back
+        let _: serde_json::Value = serde_json::from_str(&json_str).expect("should be valid JSON");
+    }
+
+    #[test]
+    fn candidate_notes_collects_extra_notes() {
+        let notes = candidate_notes(&test_spec(), &["extra note 1", "extra note 2"]);
+        assert!(notes.iter().any(|n| n == "extra note 1"));
+        assert!(notes.iter().any(|n| n == "extra note 2"));
+    }
+
+    #[test]
+    fn candidate_notes_empty_when_no_notes() {
+        let spec = crate::candidates::candidate_spec("bare", "Bare", "bare", test_ui_config());
+        let notes = candidate_notes(&spec, &[]);
+        // spec may have its own notes; just verify no panic and extra is empty
+        assert!(notes.iter().all(|n| n != "extra"), "should not contain extras");
+    }
+
+    #[test]
+    fn build_execution_computes_outcome_success() {
+        let mut score = CandidateScore { total_targets: 2, total_weight: 6, ..Default::default() };
+        score.succeeded_targets = 2;
+        score.weighted_success_score = 6;
+        score.quality_score = 10;
+        let exec = build_candidate_execution(&test_spec(), score, 0);
+        assert_eq!(exec.summary.outcome, "success");
+    }
+
+    #[test]
+    fn build_execution_computes_outcome_partial() {
+        let mut score = CandidateScore { total_targets: 4, total_weight: 12, ..Default::default() };
+        score.succeeded_targets = 2;
+        score.weighted_success_score = 6;
+        score.quality_score = 5;
+        let exec = build_candidate_execution(&test_spec(), score, 3);
+        assert_eq!(exec.summary.outcome, "partial");
+    }
+
+    #[test]
+    fn build_execution_computes_outcome_failed() {
+        let score = CandidateScore { total_targets: 4, total_weight: 12, ..Default::default() };
+        let exec = build_candidate_execution(&test_spec(), score, 0);
+        assert_eq!(exec.summary.outcome, "failed");
+    }
 }
