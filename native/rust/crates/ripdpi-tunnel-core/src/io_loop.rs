@@ -4,7 +4,7 @@
 //! entire smoltcp TCP/IP stack and bridges sessions to/from the SOCKS5 proxy.
 
 use std::collections::HashMap;
-use std::io::{self, Read};
+use std::io;
 use std::net::{IpAddr, SocketAddr};
 use std::sync::atomic::Ordering;
 use std::sync::Arc;
@@ -12,10 +12,9 @@ use std::time::Duration;
 
 use smoltcp::iface::{Interface, SocketSet};
 use smoltcp::time::Instant;
-use tokio::io::unix::AsyncFd;
-use tokio::io::Interest;
 use tokio_util::sync::CancellationToken;
 use tracing::{debug, info, warn};
+use tun_rs::AsyncDevice;
 
 use crate::classify::classify_ip_packet;
 use crate::dns_cache::DnsCache;
@@ -97,7 +96,7 @@ fn send_dns_servfail(
 /// 6. Wait -- sleep until TUN readable / poll_delay / cancellation
 #[allow(clippy::too_many_arguments)]
 pub async fn io_loop_task(
-    tun: &AsyncFd<std::fs::File>,
+    tun: &AsyncDevice,
     mut device: TunDevice,
     mut iface: Interface,
     mut socket_set: SocketSet<'static>,
@@ -162,10 +161,7 @@ pub async fn io_loop_task(
     loop {
         // ── Phase 1: drain TUN fd ─────────────────────────────────────────────
         loop {
-            let n = match tun.try_io(Interest::READABLE, |inner| {
-                let mut f = inner;
-                f.read(&mut buf)
-            }) {
+            let n = match tun.try_recv(&mut buf) {
                 Ok(0) => break, // EOF (unexpected for TUN; stop draining)
                 Ok(n) => n,
                 Err(e) if e.kind() == io::ErrorKind::WouldBlock => break, // no more data

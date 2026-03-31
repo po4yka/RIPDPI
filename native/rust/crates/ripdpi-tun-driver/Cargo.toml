@@ -9,5 +9,4 @@ workspace = true
 
 [dependencies]
 thiserror = { workspace = true }
-libc = { workspace = true }
-nix = { workspace = true }
+tun-rs = { workspace = true }
