@@ -50,7 +50,8 @@ pub(super) fn handle_client(mut client: TcpStream, state: &RuntimeState) -> io::
 }
 
 fn handle_transparent(mut client: TcpStream, state: &RuntimeState) -> io::Result<()> {
-    let target = platform::original_dst(&client)?;
+    let target = platform::original_dst(&client)
+        .map_err(|e| io::Error::other(format!("get transparent proxy original destination: {e}")))?;
     let local = client.local_addr()?;
     if local == target {
         return Err(io::Error::new(

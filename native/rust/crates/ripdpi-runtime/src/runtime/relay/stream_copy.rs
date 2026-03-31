@@ -78,10 +78,14 @@ pub(super) fn relay_streams(
     let _ = upstream.set_read_timeout(Some(RELAY_IDLE_TIMEOUT));
     let _ = upstream.set_write_timeout(None);
 
-    let client_reader = client.try_clone()?;
-    let client_writer = client.try_clone()?;
-    let upstream_reader = upstream.try_clone()?;
-    let upstream_writer = upstream.try_clone()?;
+    let client_reader =
+        client.try_clone().map_err(|e| io::Error::other(format!("clone client socket for relay reader: {e}")))?;
+    let client_writer =
+        client.try_clone().map_err(|e| io::Error::other(format!("clone client socket for relay writer: {e}")))?;
+    let upstream_reader =
+        upstream.try_clone().map_err(|e| io::Error::other(format!("clone upstream socket for relay reader: {e}")))?;
+    let upstream_writer =
+        upstream.try_clone().map_err(|e| io::Error::other(format!("clone upstream socket for relay writer: {e}")))?;
     let session_state = Arc::new(Mutex::new(session_seed));
     let outbound_session = session_state.clone();
     let inbound_session = session_state.clone();
