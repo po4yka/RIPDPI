@@ -91,7 +91,12 @@
         {
           "crate": "ripdpi_dns_resolver",
           "name": "ripdpi_dns_resolver::resolver::EncryptedDnsResolver::exchange_with_metadata::{{closure}}",
-          "size": 16821
+          "size": 26131
+        },
+        {
+          "crate": "ripdpi_runtime",
+          "name": "ripdpi_runtime::runtime::desync::send_with_group",
+          "size": 17014
         },
         {
           "crate": "aws_lc_sys",
@@ -147,7 +152,7 @@
         },
         {
           "name": "ripdpi_runtime",
-          "size": 300154
+          "size": 358192
         },
         {
           "name": "reqwest",
@@ -167,11 +172,11 @@
         },
         {
           "name": "ripdpi_proxy_config",
-          "size": 112697
+          "size": 130346
         },
         {
           "name": "ripdpi_dns_resolver",
-          "size": 77094
+          "size": 102849
         },
         {
           "name": "hickory_proto",
@@ -214,7 +219,7 @@
         {
           "crate": "ripdpi_dns_resolver",
           "name": "ripdpi_dns_resolver::resolver::EncryptedDnsResolver::exchange_with_metadata::{{closure}}",
-          "size": 20127
+          "size": 25795
         },
         {
           "crate": "std",
@@ -351,7 +356,7 @@
         },
         {
           "name": "ripdpi_dns_resolver",
-          "size": 75363
+          "size": 92010
         },
         {
           "name": "tokio",
