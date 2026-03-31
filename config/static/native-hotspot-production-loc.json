@@ -153,7 +153,7 @@
       "maxProductionLoc": 225
     },
     {
-      "path": "native/rust/crates/ripdpi-tunnel-core/src/io_loop/dns_intercept.rs",
+      "path": "native/rust/crates/ripdpi-tunnel-core/src/io_loop/dns_intercept/mod.rs",
       "maxProductionLoc": 283
     },
     {

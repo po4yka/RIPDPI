@@ -22,16 +22,12 @@ fn host_template_char(ch: char) -> Option<char> {
     }
 }
 
-fn is_ip_literal(value: &str) -> bool {
-    value.parse::<IpAddr>().is_ok()
-}
-
 fn normalize_domain_host(spec: &str, option: &str) -> Result<String, ConfigError> {
     let trimmed = spec.trim().trim_end_matches('.');
     if trimmed.is_empty() {
         return Err(ConfigError::invalid(option, Some(spec)));
     }
-    if trimmed.contains(':') || is_ip_literal(trimmed) {
+    if trimmed.contains(':') || trimmed.parse::<IpAddr>().is_ok() {
         return Err(ConfigError::invalid(option, Some(spec)));
     }
 

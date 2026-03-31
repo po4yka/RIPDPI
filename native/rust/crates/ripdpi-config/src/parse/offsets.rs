@@ -31,9 +31,8 @@ pub fn parse_stream_byte_range_spec(spec: &str) -> Result<NumericRange<i64>, Con
 }
 
 pub fn parse_auto_ttl_spec(spec: &str) -> Result<AutoTtlConfig, ConfigError> {
-    let trimmed = spec.trim();
     let (delta_raw, range_raw) =
-        trimmed.split_once(',').ok_or_else(|| ConfigError::invalid("--auto-ttl", Some(spec)))?;
+        spec.trim().split_once(',').ok_or_else(|| ConfigError::invalid("--auto-ttl", Some(spec)))?;
     let delta = delta_raw.trim().parse::<i8>().map_err(|_| ConfigError::invalid("--auto-ttl", Some(spec)))?;
     let (min_raw, max_raw) = range_raw.split_once('-').ok_or_else(|| ConfigError::invalid("--auto-ttl", Some(spec)))?;
     let min_ttl = min_raw.trim().parse::<u16>().map_err(|_| ConfigError::invalid("--auto-ttl", Some(spec)))?;

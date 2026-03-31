@@ -38,9 +38,7 @@ impl TlsRecordBoundaryTracker {
 
     fn looks_like_client_hello_prefix(bytes: &[u8]) -> bool {
         match bytes {
-            [] => false,
-            [0x16] => true,
-            [0x16, 0x03] => true,
+            [0x16] | [0x16, 0x03] => true,
             [0x16, 0x03, minor, ..] => *minor <= 0x04,
             _ => false,
         }
@@ -48,10 +46,6 @@ impl TlsRecordBoundaryTracker {
 
     pub(super) fn active(&self) -> bool {
         self.enabled && !self.disabled
-    }
-
-    fn record_complete(&self) -> bool {
-        self.active() && self.record_pos != 0 && self.record_pos == self.record_size
     }
 
     pub(super) fn waiting_for_tls_record(&self) -> bool {
@@ -138,7 +132,7 @@ impl OutboundTlsFirstRecordAssembler {
         self.buffer.extend_from_slice(chunk);
         let tracker = self.tracker.as_mut().expect("tls first-record tracker");
         tracker.observe(chunk);
-        if !tracker.active() || tracker.record_complete() {
+        if !tracker.active() || (tracker.record_pos != 0 && tracker.record_pos == tracker.record_size) {
             return self.take();
         }
         None
