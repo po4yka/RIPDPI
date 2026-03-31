@@ -692,16 +692,9 @@ fn now_millis() -> u64 {
         .map_or(0, |value| value.as_millis().min(u128::from(u64::MAX)) as u64)
 }
 
-fn adaptive_store_path(config: &ripdpi_config::RuntimeConfig) -> PathBuf {
-    if let Some(store_path) =
-        config.host_autolearn.store_path.as_deref().map(str::trim).filter(|value| !value.is_empty())
-    {
-        let host_path = Path::new(store_path);
-        if let Some(parent) = host_path.parent() {
-            return parent.join(ADAPTIVE_TUNING_STORE_FILE_NAME);
-        }
-    }
-    PathBuf::from(ADAPTIVE_TUNING_STORE_FILE_NAME)
+fn adaptive_store_path(config: &ripdpi_config::RuntimeConfig) -> Option<PathBuf> {
+    let store_path = config.host_autolearn.store_path.as_deref().map(str::trim).filter(|value| !value.is_empty())?;
+    Path::new(store_path).parent().map(|parent| parent.join(ADAPTIVE_TUNING_STORE_FILE_NAME))
 }
 
 fn adaptive_store_fingerprint(config: &ripdpi_config::RuntimeConfig) -> String {
@@ -728,7 +721,9 @@ fn valid_dimension_order(order: &[usize]) -> bool {
 fn load_adaptive_store(
     config: &ripdpi_config::RuntimeConfig,
 ) -> Result<HashMap<AdaptivePlannerKey, AdaptivePlannerState>, io::Error> {
-    let path = adaptive_store_path(config);
+    let Some(path) = adaptive_store_path(config) else {
+        return Ok(HashMap::new());
+    };
     if !path.exists() {
         return Ok(HashMap::new());
     }
@@ -762,6 +757,9 @@ fn write_adaptive_store(
     config: &ripdpi_config::RuntimeConfig,
     states: &HashMap<AdaptivePlannerKey, AdaptivePlannerState>,
 ) -> io::Result<()> {
+    let Some(path) = adaptive_store_path(config) else {
+        return Ok(());
+    };
     let mut scopes: BTreeMap<String, StoredAdaptiveNetworkScope> = BTreeMap::new();
     for (key, state) in states {
         scopes.entry(key.network_scope_key.clone()).or_default().entries.push(StoredAdaptivePlannerEntry {
@@ -781,7 +779,7 @@ fn write_adaptive_store(
     };
     let payload = serde_json::to_vec_pretty(&store)
         .map_err(|err| io::Error::other(format!("failed to serialize adaptive tuning store: {err}")))?;
-    atomic_write(&adaptive_store_path(config), &payload)
+    atomic_write(&path, &payload)
 }
 
 fn atomic_write(path: &Path, payload: &[u8]) -> io::Result<()> {
@@ -1508,7 +1506,7 @@ mod tests {
         let payload = b"GET / HTTP/1.1\r\nHost: persist.example.test\r\n\r\n";
         let group = tcp_group_with_adaptive_split();
         let config = config_with_adaptive_store(vec![group.clone()]);
-        let store_path = adaptive_store_path(&config);
+        let store_path = adaptive_store_path(&config).expect("test config has store_path");
         let target = addr(443);
 
         let mut resolver = AdaptivePlannerResolver::default();
@@ -1528,7 +1526,7 @@ mod tests {
         let payload = b"GET / HTTP/1.1\r\nHost: fingerprint.example.test\r\n\r\n";
         let group = tcp_group_with_adaptive_split();
         let config = config_with_adaptive_store(vec![group.clone()]);
-        let store_path = adaptive_store_path(&config);
+        let store_path = adaptive_store_path(&config).expect("test config has store_path");
         let target = addr(443);
 
         let mut resolver = AdaptivePlannerResolver::default();
@@ -1542,7 +1540,7 @@ mod tests {
             .tcp_chain
             .push(TcpChainStep::new(TcpChainStepKind::Split, OffsetExpr::adaptive(OffsetBase::AutoEndHost)));
         let changed_config = config_with_adaptive_store(vec![changed_group]);
-        let changed_store_path = adaptive_store_path(&changed_config);
+        let changed_store_path = adaptive_store_path(&changed_config).expect("test config has store_path");
         assert!(store_path.exists(), "flush should write adaptive store before reload test");
         fs::create_dir_all(changed_store_path.parent().expect("adaptive store parent"))
             .expect("create adaptive store parent directory");
@@ -1560,7 +1558,7 @@ mod tests {
         let payload = b"GET / HTTP/1.1\r\nHost: debounce.example.test\r\n\r\n";
         let group = tcp_group_with_adaptive_split();
         let config = config_with_adaptive_store(vec![group.clone()]);
-        let store_path = adaptive_store_path(&config);
+        let store_path = adaptive_store_path(&config).expect("test config has store_path");
         let target = addr(443);
 
         let mut resolver = AdaptivePlannerResolver::default();
@@ -1577,9 +1575,9 @@ mod tests {
     }
 
     #[test]
-    fn adaptive_store_uses_cwd_fallback_when_host_store_path_is_missing() {
+    fn adaptive_store_returns_none_when_host_store_path_is_missing() {
         let config = ripdpi_config::RuntimeConfig::default();
-        assert_eq!(adaptive_store_path(&config), PathBuf::from(ADAPTIVE_TUNING_STORE_FILE_NAME));
+        assert_eq!(adaptive_store_path(&config), None);
     }
 
     #[test]
