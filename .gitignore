@@ -44,6 +44,7 @@ PROMPT.md
 /specs/
 .worktrees/
 .claude/worktrees/
+.claude/settings.json
 security-audit-report.*
 
 # Test artifact: adaptive tuning state written by soak tests with random ephemeral ports
