@@ -30,7 +30,7 @@ pub(super) fn tcp_session_target_addr(
     dns_cache: &mut Option<DnsCache>,
     tcp: &TcpSocket,
 ) -> Option<SocketAddr> {
-    tcp_target_endpoint(tcp).map(|target| resolve_mapped_target(stats, dns_cache, target))
+    tcp_target_endpoint(tcp).and_then(|target| resolve_mapped_target(stats, dns_cache, target))
 }
 
 pub(super) fn socketaddr_to_listen_endpoint(addr: SocketAddr) -> IpListenEndpoint {

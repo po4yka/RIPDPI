@@ -24,6 +24,9 @@ use super::state::{flush_autolearn_updates, ClientSlotGuard, RuntimeCleanup, Run
 const WORKER_IDLE_TIMEOUT: Duration = Duration::from_secs(30);
 const WORKER_PARALLELISM_FALLBACK: usize = 4;
 const MAX_BASELINE_WORKERS: usize = 16;
+/// Maximum time to wait for in-flight client connections to finish after the
+/// listener stops accepting new connections.
+const GRACEFUL_DRAIN_TIMEOUT: Duration = Duration::from_secs(3);
 
 struct ClientJob {
     client: TcpStream,
@@ -206,7 +209,12 @@ fn process_client_job(job: ClientJob) {
     let _slot = slot;
     let result = super::handshake::handle_client(client, &state);
     if let Err(err) = &result {
-        tracing::error!("ripdpi client error: {err}");
+        let shutting_down = state.control.as_ref().map_or_else(process::shutdown_requested, |c| c.shutdown_requested());
+        if shutting_down && is_connection_closed_error(err) {
+            tracing::debug!("ripdpi client error during shutdown (expected): {err}");
+        } else {
+            tracing::error!("ripdpi client error: {err}");
+        }
         if let Some(telemetry) = &state.telemetry {
             telemetry.on_client_error(err);
         }
@@ -214,6 +222,18 @@ fn process_client_job(job: ClientJob) {
     if let Some(telemetry) = &state.telemetry {
         telemetry.on_client_finished();
     }
+}
+
+/// Returns `true` for I/O errors that are expected when the proxy shuts down
+/// while clients still have active connections (e.g. ECONNRESET, EPIPE).
+fn is_connection_closed_error(err: &io::Error) -> bool {
+    matches!(
+        err.kind(),
+        io::ErrorKind::ConnectionReset
+            | io::ErrorKind::ConnectionAborted
+            | io::ErrorKind::BrokenPipe
+            | io::ErrorKind::UnexpectedEof
+    )
 }
 
 fn detected_parallelism() -> usize {
@@ -363,6 +383,21 @@ pub(super) fn run_proxy_with_listener_internal(
     if let Some(telemetry) = &state.telemetry {
         telemetry.on_listener_stopped();
     }
+
+    // Give in-flight client connections a brief grace period to finish before
+    // the worker pool is dropped.  The pool `close()` prevents new jobs from
+    // being enqueued while existing workers drain their current job.
+    worker_pool.close();
+    let drain_deadline = std::time::Instant::now() + GRACEFUL_DRAIN_TIMEOUT;
+    while worker_pool.has_live_workers() {
+        let remaining = drain_deadline.saturating_duration_since(std::time::Instant::now());
+        if remaining.is_zero() {
+            tracing::debug!("graceful drain timeout reached; dropping remaining workers");
+            break;
+        }
+        thread::sleep(remaining.min(Duration::from_millis(50)));
+    }
+
     result
 }
 
