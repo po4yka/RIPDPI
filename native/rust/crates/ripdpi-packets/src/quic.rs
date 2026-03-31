@@ -336,7 +336,8 @@ fn decrypt_quic_initial_payload(buffer: &[u8], header: QuicInitialHeader<'_>) ->
 }
 
 fn defrag_quic_crypto_frames(payload: &[u8]) -> Option<(Vec<u8>, bool)> {
-    let mut pieces = Vec::new();
+    // First pass: collect frame (offset, payload_start, len) tuples without cloning data.
+    let mut frames: Vec<(usize, usize, usize)> = Vec::new();
     let mut cursor = 0usize;
     let mut max_end = 0usize;
 
@@ -354,32 +355,41 @@ fn defrag_quic_crypto_frames(payload: &[u8]) -> Option<(Vec<u8>, bool)> {
                 let offset: usize = offset.try_into().ok()?;
                 let frame_len: usize = frame_len.try_into().ok()?;
                 let end = cursor.checked_add(frame_len)?;
-                let chunk = payload.get(cursor..end)?;
-                cursor = end;
+                if end > payload.len() {
+                    return None;
+                }
                 let piece_end = offset.checked_add(frame_len)?;
                 if piece_end > QUIC_MAX_CRYPTO_LEN {
                     return None;
                 }
                 max_end = max_end.max(piece_end);
-                pieces.push((offset, chunk.to_vec()));
+                frames.push((offset, cursor, frame_len));
+                cursor = end;
             }
             _ => return None,
         }
     }
 
-    if pieces.is_empty() || max_end == 0 {
+    if frames.is_empty() || max_end == 0 {
         return None;
     }
 
+    // Fast path: single contiguous frame at offset 0 (the common case).
+    if frames.len() == 1 && frames[0].0 == 0 {
+        let (_, start, len) = frames[0];
+        return Some((payload[start..start + len].to_vec(), true));
+    }
+
+    // General case: reassemble from multiple/scattered frames.
     let mut data = vec![0u8; max_end];
     let mut covered = vec![false; max_end];
-    for (offset, chunk) in pieces {
-        let end = offset + chunk.len();
-        data[offset..end].copy_from_slice(&chunk);
+    for (offset, start, len) in frames {
+        let end = offset + len;
+        data[offset..end].copy_from_slice(&payload[start..start + len]);
         covered[offset..end].fill(true);
     }
 
-    Some((data, covered.iter().all(|covered| *covered)))
+    Some((data, covered.iter().all(|c| *c)))
 }
 
 pub fn is_quic_initial(buffer: &[u8]) -> bool {
