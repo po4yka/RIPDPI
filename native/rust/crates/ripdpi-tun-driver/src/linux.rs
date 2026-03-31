@@ -48,7 +48,7 @@ impl LinuxTunnel {
         use nix::sys::socket::{socket, AddressFamily, SockFlag, SockType};
         let domain = if af == libc::AF_INET6 { AddressFamily::Inet6 } else { AddressFamily::Inet };
         socket(domain, SockType::Datagram, SockFlag::empty(), None)
-            .map_err(|e| TunnelError::Io(std::io::Error::from(e)))
+            .map_err(|e| TunnelError::Io(std::io::Error::other(format!("open {domain} control socket for ioctl: {e}"))))
     }
 
     /// Build a `[c_char; IFNAMSIZ]` suitable for `ifreq.ifr_name`.
@@ -106,7 +106,11 @@ impl LinuxTunnel {
 impl TunnelDriver for LinuxTunnel {
     fn open(name: Option<&str>, multi_queue: bool) -> Result<Self, TunnelError> {
         // Open the TUN clone device.  std::fs::File handles O_CLOEXEC implicitly on Linux.
-        let file = std::fs::OpenOptions::new().read(true).write(true).open("/dev/net/tun").map_err(TunnelError::Io)?;
+        let file = std::fs::OpenOptions::new()
+            .read(true)
+            .write(true)
+            .open("/dev/net/tun")
+            .map_err(|e| TunnelError::Io(std::io::Error::other(format!("open /dev/net/tun: {e}"))))?;
         let fd: OwnedFd = file.into();
 
         // Build ifreq for TUNSETIFF.
@@ -183,7 +187,7 @@ impl TunnelDriver for LinuxTunnel {
         // set; SIOCSIFMTU (0x8922) sets the interface MTU and requires CAP_NET_ADMIN.
         let res = unsafe { libc::ioctl(sock.as_raw_fd(), libc::SIOCSIFMTU, &ifr as *const _) };
         if res < 0 {
-            return Err(TunnelError::Ioctl(format!("SIOCSIFMTU: {}", std::io::Error::last_os_error())));
+            return Err(TunnelError::Ioctl(format!("SIOCSIFMTU(mtu={mtu}): {}", std::io::Error::last_os_error())));
         }
         Ok(())
     }
@@ -212,7 +216,10 @@ impl TunnelDriver for LinuxTunnel {
         // in ifru_addr; SIOCSIFADDR (0x8916) assigns the IPv4 address to the interface.
         let res = unsafe { libc::ioctl(sock.as_raw_fd(), libc::SIOCSIFADDR, &ifr as *const _) };
         if res < 0 {
-            return Err(TunnelError::Ioctl(format!("SIOCSIFADDR: {}", std::io::Error::last_os_error())));
+            return Err(TunnelError::Ioctl(format!(
+                "SIOCSIFADDR({addr}/{prefix}): {}",
+                std::io::Error::last_os_error()
+            )));
         }
 
         // --- SIOCSIFNETMASK: assign the prefix length as a netmask ---
@@ -239,7 +246,7 @@ impl TunnelDriver for LinuxTunnel {
         if res < 0 {
             let err = std::io::Error::last_os_error();
             if err.raw_os_error() != Some(libc::EEXIST) {
-                return Err(TunnelError::Ioctl(format!("SIOCSIFNETMASK: {err}")));
+                return Err(TunnelError::Ioctl(format!("SIOCSIFNETMASK(/{prefix}): {err}")));
             }
         }
         Ok(())
@@ -264,7 +271,7 @@ impl TunnelDriver for LinuxTunnel {
         if res < 0 {
             let err = std::io::Error::last_os_error();
             if err.raw_os_error() != Some(libc::EEXIST) {
-                return Err(TunnelError::Ioctl(format!("SIOCSIFADDR(v6): {err}")));
+                return Err(TunnelError::Ioctl(format!("SIOCSIFADDR({addr}/{prefix}): {err}")));
             }
         }
         Ok(())

@@ -109,11 +109,14 @@ pub async fn io_loop_task(
 ) -> io::Result<()> {
     // ── One-time setup ────────────────────────────────────────────────────────
 
-    let proxy_sockaddr = proxy_addr(&config)?;
+    let proxy_sockaddr =
+        proxy_addr(&config).map_err(|e| io::Error::other(format!("resolve SOCKS5 proxy address: {e}")))?;
     let auth = make_auth(&config);
 
-    let mapdns_runtime = parse_mapdns_runtime(&config)?;
-    dns_cache = parse_dns_cache(&config, dns_cache)?;
+    let mapdns_runtime =
+        parse_mapdns_runtime(&config).map_err(|e| io::Error::other(format!("parse mapdns runtime config: {e}")))?;
+    dns_cache =
+        parse_dns_cache(&config, dns_cache).map_err(|e| io::Error::other(format!("initialize DNS cache: {e}")))?;
     if let Some(mapdns) = config.mapdns.as_ref() {
         stats.configure_resolver_fallback(mapdns.resolver_fallback_active, mapdns.resolver_fallback_reason.as_deref());
     }
@@ -141,7 +144,9 @@ pub async fn io_loop_task(
     let mut udp_associations: HashMap<SocketAddr, UdpAssociation> = HashMap::new();
     let mut next_udp_association_id = 1u64;
 
-    let (mut dns_req_tx, mut dns_resp_rx) = if let Some(resolver) = build_encrypted_dns_resolver(&config)? {
+    let (mut dns_req_tx, mut dns_resp_rx) = if let Some(resolver) = build_encrypted_dns_resolver(&config)
+        .map_err(|e| io::Error::other(format!("build encrypted DNS resolver: {e}")))?
+    {
         let (tx, rx) = spawn_dns_worker(resolver, cancel.child_token());
         (Some(tx), Some(rx))
     } else {
@@ -249,7 +254,9 @@ pub async fn io_loop_task(
         pump_active_sessions(&mut socket_set, &mut sessions).await;
 
         // ── Phase 5: flush smoltcp tx_queue -> TUN fd ─────────────────────────
-        flush_device_tx_queue(tun, &stats, &mut device).await?;
+        flush_device_tx_queue(tun, &stats, &mut device)
+            .await
+            .map_err(|e| io::Error::other(format!("flush TUN tx queue: {e}")))?;
 
         // ── Phase 6: wait for next event ──────────────────────────────────────
         let smol_delay = iface
