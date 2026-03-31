@@ -213,7 +213,11 @@ fn process_client_job(job: ClientJob) {
         if shutting_down && is_connection_closed_error(err) {
             tracing::debug!("ripdpi client error during shutdown (expected): {err}");
         } else if is_connection_closed_error(err) {
-            tracing::warn!("ripdpi client disconnected: {err}");
+            if state.control.is_some() {
+                tracing::debug!("ripdpi client disconnected: {err}");
+            } else {
+                tracing::warn!("ripdpi client disconnected: {err}");
+            }
         } else {
             tracing::error!("ripdpi client error: {err}");
         }
