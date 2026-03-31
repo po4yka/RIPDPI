@@ -855,18 +855,15 @@ fn execute_tcp_plan(
                 let fake =
                     fake.as_ref().ok_or_else(|| io::Error::new(io::ErrorKind::InvalidData, "missing fake packet"))?;
                 let span = chunk.len();
-                let fake_end = fake.fake_offset.saturating_add(span).min(fake.bytes.len());
-                let fake_chunk = &fake.bytes[fake.fake_offset..fake_end];
-                if fake_chunk.len() != span {
-                    return Err(OutboundSendError::Transport(io::Error::new(
-                        io::ErrorKind::InvalidData,
-                        "fake packet prefix length does not match original split span",
-                    )));
-                }
+                // Use cyclic wrapping when the fake payload is shorter than the
+                // split span.  This matches FakeSplit/FakeDisorder which already
+                // use build_fake_region_bytes() for the same purpose.
+                let fake_chunk: Vec<u8> =
+                    (0..span).map(|i| fake.bytes[(fake.fake_offset + i) % fake.bytes.len()]).collect();
                 bytes_committed = send_fake_tcp_action_named(
                     writer,
                     chunk,
-                    fake_chunk,
+                    &fake_chunk,
                     resolved_fake_ttl.or(group.actions.ttl).unwrap_or(8),
                     md5sig,
                     config.network.default_ttl,
