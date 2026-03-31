@@ -286,6 +286,7 @@ class MainViewModel
                 stringResolver = stringResolver,
                 permissionState = permissionState,
                 onStartMode = { mode -> connectionActions.startMode(mode) },
+                onRunHomeAnalysis = { homeDiagnosticsActions.runFullAnalysis() },
                 onShowPermissionIssue = { issue ->
                     permissionState.update { it.copy(issue = issue) }
                     connectionActions.showPermissionIssue(issue)
@@ -496,7 +497,7 @@ class MainViewModel
             }
         }
 
-        fun onRunHomeFullAnalysis() = homeDiagnosticsActions.runFullAnalysis()
+        fun onRunHomeFullAnalysis() = permissionActions.resolvePermissionAction(PermissionAction.RunHomeAnalysis)
 
         fun onStartVerifiedVpn() = homeDiagnosticsActions.startVerifiedVpn()
 
