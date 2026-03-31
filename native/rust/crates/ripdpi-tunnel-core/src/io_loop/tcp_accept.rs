@@ -9,7 +9,7 @@ use smoltcp::socket::tcp::{self, Socket as TcpSocket};
 use smoltcp::socket::Socket;
 use smoltcp::wire::{IpAddress, IpListenEndpoint};
 use tokio_util::sync::CancellationToken;
-use tracing::{debug, error, info, warn};
+use tracing::{debug, info, warn};
 
 use ripdpi_tunnel_config::Config;
 
@@ -119,6 +119,7 @@ pub(super) fn spawn_new_tcp_sessions(
     dns_cache: &mut Option<DnsCache>,
 ) {
     let mut new_sessions: Vec<(SocketHandle, SocketAddr)> = Vec::new();
+    let mut unresolvable: Vec<SocketHandle> = Vec::new();
 
     for (handle, socket) in socket_set.iter_mut() {
         if let Socket::Tcp(tcp) = socket {
@@ -128,11 +129,21 @@ pub(super) fn spawn_new_tcp_sessions(
                         new_sessions.push((handle, target));
                     }
                     None => {
-                        error!("TCP socket {:?} active but local_endpoint is None — skipped", handle);
+                        debug!("TCP socket {:?} has no resolvable target — aborting", handle);
+                        tcp.abort();
+                        unresolvable.push(handle);
                     }
                 }
             }
         }
+    }
+
+    for handle in unresolvable {
+        let pending_key = pending_listens.iter().find_map(|(key, (h, _))| (*h == handle).then_some(*key));
+        if let Some(key) = pending_key {
+            pending_listens.remove(&key);
+        }
+        socket_set.remove(handle);
     }
 
     for (handle, target_addr) in new_sessions {
