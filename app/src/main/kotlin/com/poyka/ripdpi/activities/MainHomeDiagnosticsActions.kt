@@ -21,7 +21,6 @@ import com.poyka.ripdpi.diagnostics.DiagnosticsShareService
 import com.poyka.ripdpi.diagnostics.DiagnosticsTimelineSource
 import com.poyka.ripdpi.diagnostics.ScanPathMode
 import com.poyka.ripdpi.permissions.PermissionKind
-import com.poyka.ripdpi.permissions.PermissionStatus
 import com.poyka.ripdpi.permissions.PermissionSummaryUiState
 import com.poyka.ripdpi.platform.StringResolver
 import com.poyka.ripdpi.proto.AppSettings
@@ -442,8 +441,7 @@ internal fun buildHomeDiagnosticsUiState(
         !analysisBusy &&
             !verificationBusy &&
             !runtime.externalScanActive &&
-            !settings.enableCmdSettings &&
-            permissionSummary.snapshot.vpnConsent == PermissionStatus.Granted
+            !settings.enableCmdSettings
     val analysisSupportingText =
         when {
             analysisBusy -> {
@@ -472,10 +470,6 @@ internal fun buildHomeDiagnosticsUiState(
 
             settings.enableCmdSettings -> {
                 stringResolver.getString(R.string.home_diagnostics_command_line_blocked)
-            }
-
-            permissionSummary.snapshot.vpnConsent != PermissionStatus.Granted -> {
-                stringResolver.getString(R.string.home_diagnostics_permission_required)
             }
 
             else -> {
