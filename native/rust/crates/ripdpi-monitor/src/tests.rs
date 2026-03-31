@@ -186,9 +186,6 @@ fn assert_strategy_probe_recommendation_matches_winners(strategy_probe: &crate::
     );
 }
 
-// TODO(po4yka): Tests for execution module functions (freeze_adaptive_fake_ttl_for_probe,
-// winning_candidate_index, CandidateScore) are now in execution.rs.
-
 #[test]
 fn probe_transport_freezes_adaptive_fake_ttl_to_seed() {
     let mut config = minimal_ui_config();
