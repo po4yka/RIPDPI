@@ -6,8 +6,11 @@ import java.io.File
 private const val HostAutolearnDirectoryName = "ripdpi"
 private const val HostAutolearnFileName = "host-autolearn-v2.json"
 
-fun resolveHostAutolearnStoreFile(context: Context): File =
-    File(context.noBackupFilesDir, HostAutolearnDirectoryName).resolve(HostAutolearnFileName)
+fun resolveHostAutolearnStoreFile(context: Context): File {
+    val dir = File(context.noBackupFilesDir, HostAutolearnDirectoryName)
+    dir.mkdirs()
+    return dir.resolve(HostAutolearnFileName)
+}
 
 fun resolveHostAutolearnStorePath(context: Context): String = resolveHostAutolearnStoreFile(context).absolutePath
 
