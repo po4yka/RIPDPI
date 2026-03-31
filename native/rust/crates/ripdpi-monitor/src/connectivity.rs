@@ -136,3 +136,39 @@ pub(crate) fn push_event(
     };
     emit_diagnostics_event(log_context.as_ref(), session_id, profile_id, path_mode, source, level, &message);
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn scan_path_mode_label_raw() {
+        assert_eq!(scan_path_mode_label(&ScanPathMode::RawPath), "RAW_PATH");
+    }
+
+    #[test]
+    fn scan_path_mode_label_in() {
+        assert_eq!(scan_path_mode_label(&ScanPathMode::InPath), "IN_PATH");
+    }
+
+    #[test]
+    fn set_progress_stores_value() {
+        let shared = Arc::new(Mutex::new(SharedState { progress: None, report: None, log_context: None }));
+        let progress = ScanProgress {
+            session_id: "test".to_string(),
+            phase: "running".to_string(),
+            completed_steps: 5,
+            total_steps: 10,
+            message: "halfway".to_string(),
+            is_finished: false,
+            latest_probe_target: None,
+            latest_probe_outcome: None,
+            strategy_probe_progress: None,
+        };
+        set_progress(&shared, progress);
+        let guard = shared.lock().unwrap();
+        let stored = guard.progress.as_ref().expect("progress stored");
+        assert_eq!(stored.session_id, "test");
+        assert_eq!(stored.completed_steps, 5);
+    }
+}
