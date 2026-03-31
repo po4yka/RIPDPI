@@ -38,6 +38,7 @@ internal data class HomeDiagnosticsRuntimeState(
     val activeRunStageProgress: String? = null,
     val latestCompositeOutcome: DiagnosticsHomeCompositeOutcome? = null,
     val analysisSheetVisible: Boolean = false,
+    val shareBusy: Boolean = false,
     val activeVerificationSessionId: String? = null,
     val waitingForVerifiedVpnStart: Boolean = false,
     val verificationProgress: String? = null,
@@ -323,7 +324,9 @@ internal class MainHomeDiagnosticsActions(
 
     fun shareLatestHomeAnalysis() {
         mutations.launch {
+            if (homeDiagnosticsState.value.shareBusy) return@launch
             val outcome = homeDiagnosticsState.value.latestCompositeOutcome ?: return@launch
+            homeDiagnosticsState.update { it.copy(shareBusy = true) }
             runCatching {
                 diagnosticsShareService.createArchive(
                     DiagnosticsArchiveRequest(
@@ -335,6 +338,7 @@ internal class MainHomeDiagnosticsActions(
                     ),
                 )
             }.onSuccess { archive ->
+                homeDiagnosticsState.update { it.copy(shareBusy = false) }
                 mutations.emit(
                     MainEffect.ShareDiagnosticsArchive(
                         absolutePath = archive.absolutePath,
@@ -345,7 +349,7 @@ internal class MainHomeDiagnosticsActions(
                 Logger.withTag(LogTags.DIAGNOSTICS).e(error) {
                     "Failed to create home analysis archive"
                 }
-                homeDiagnosticsState.update { it.copy(analysisSheetVisible = false) }
+                homeDiagnosticsState.update { it.copy(shareBusy = false) }
                 mutations.emit(
                     MainEffect.ShowError(
                         stringResolver.getString(R.string.home_diagnostics_share_failed),
@@ -575,6 +579,7 @@ internal fun buildHomeDiagnosticsUiState(
                             },
                         completedStageCount = outcome.completedStageCount,
                         failedStageCount = outcome.failedStageCount,
+                        shareBusy = runtime.shareBusy,
                     )
                 },
         verificationSheet =

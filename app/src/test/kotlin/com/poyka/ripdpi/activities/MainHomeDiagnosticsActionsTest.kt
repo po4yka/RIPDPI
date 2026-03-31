@@ -344,7 +344,7 @@ class MainHomeDiagnosticsActionsTest {
     }
 
     @Test
-    fun `share failure dismisses analysis sheet and emits error`() =
+    fun `share failure keeps analysis sheet open and emits error`() =
         runTest {
             val effects = Channel<MainEffect>(Channel.BUFFERED)
             val shareService =
@@ -370,9 +370,13 @@ class MainHomeDiagnosticsActionsTest {
             runCurrent()
             advanceUntilIdle()
 
-            assertFalse(
-                "analysisSheetVisible should be false after share failure",
+            assertTrue(
+                "analysisSheetVisible should remain true after share failure",
                 homeDiagnosticsState.value.analysisSheetVisible,
+            )
+            assertFalse(
+                "shareBusy should be false after share failure",
+                homeDiagnosticsState.value.shareBusy,
             )
             val effect = effects.tryReceive().getOrNull()
             assertTrue(
