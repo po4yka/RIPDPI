@@ -1,6 +1,10 @@
 [advisories]
 # Vulnerabilities are denied by default; list specific advisory IDs to ignore.
-ignore = []
+ignore = [
+    # paste 1.0.15 (proc-macro, no runtime risk) -- unmaintained but pulled
+    # transitively via netlink-packet-core; no updated upstream version available.
+    "RUSTSEC-2024-0436",
+]
 
 [licenses]
 confidence-threshold = 0.8
