@@ -1,10 +1,21 @@
 use crate::types::{activation_filter_matches, ActivationContext, AdaptiveUdpBurstProfile, DesyncAction};
 use ring::rand::{SecureRandom, SystemRandom};
-use ripdpi_config::{DesyncGroup, QuicFakeProfile, UdpChainStepKind};
+use ripdpi_config::{DesyncGroup, QuicFakeProfile, UdpChainStep, UdpChainStepKind};
+use ripdpi_ipfrag::Ipv6ExtHeaders;
 use ripdpi_packets::{
     build_realistic_quic_initial, default_fake_quic_compat, parse_quic_initial, tamper_quic_initial_split_sni,
     tamper_quic_version, udp_fake_profile_bytes, QuicInitialInfo,
 };
+
+fn ipv6_ext_from_udp_step(step: &UdpChainStep) -> Ipv6ExtHeaders {
+    Ipv6ExtHeaders {
+        hop_by_hop: step.ipv6_hop_by_hop,
+        dest_opt: step.ipv6_dest_opt,
+        dest_opt_fragmentable: step.ipv6_dest_opt2,
+        routing: false,
+        second_frag_next_override: step.ipv6_frag_next_override,
+    }
+}
 
 pub fn plan_udp(group: &DesyncGroup, payload: &[u8], default_ttl: u8, context: ActivationContext) -> Vec<DesyncAction> {
     if !activation_filter_matches(group.activation_filter(), context) {
@@ -46,6 +57,8 @@ pub fn plan_udp(group: &DesyncGroup, payload: &[u8], default_ttl: u8, context: A
                         actions.push(DesyncAction::WriteIpFragmentedUdp {
                             bytes: payload.to_vec(),
                             split_offset: step.split_bytes as usize,
+                            disorder: step.ip_frag_disorder,
+                            ipv6_ext: ipv6_ext_from_udp_step(&step),
                         });
                         wrote_original = true;
                     }

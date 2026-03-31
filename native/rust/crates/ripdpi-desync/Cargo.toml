@@ -9,6 +9,7 @@ workspace = true
 
 [dependencies]
 ripdpi-config = { workspace = true }
+ripdpi-ipfrag = { workspace = true }
 ripdpi-packets = { workspace = true }
 ring = { workspace = true }
 

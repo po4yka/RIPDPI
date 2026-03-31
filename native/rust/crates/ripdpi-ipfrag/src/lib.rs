@@ -17,12 +17,35 @@ pub struct IpFragmentPair {
     pub effective_transport_split: usize,
 }
 
+/// IPv6 extension headers to inject into fragment packets.
+///
+/// Headers in the unfragmentable part are placed before the Fragment Header
+/// in this order: Hop-by-Hop -> Destination Options -> Routing -> Fragment.
+/// The fragmentable Destination Options header is placed after the Fragment
+/// Header and before the transport payload.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct Ipv6ExtHeaders {
+    /// Insert a Hop-by-Hop Options header (next_header=0) with pad bytes.
+    pub hop_by_hop: bool,
+    /// Insert Destination Options header in unfragmentable part (before Fragment Header).
+    pub dest_opt: bool,
+    /// Insert Destination Options header in fragmentable part (after Fragment Header).
+    pub dest_opt_fragmentable: bool,
+    /// Insert Routing header (type 0, segments_left=0) in unfragmentable part.
+    pub routing: bool,
+    /// Override the second fragment's Fragment Header `next_header` field.
+    /// Per RFC 8200, only the first fragment's value is used for reassembly.
+    /// Setting this confuses DPI that checks per-fragment protocol types.
+    pub second_frag_next_override: Option<u8>,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct UdpFragmentSpec {
     pub src: SocketAddr,
     pub dst: SocketAddr,
     pub ttl: u8,
     pub identification: u32,
+    pub ipv6_ext: Ipv6ExtHeaders,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -35,6 +58,7 @@ pub struct TcpFragmentSpec {
     pub acknowledgment_number: u32,
     pub window_size: u16,
     pub timestamp: Option<TcpTimestampOption>,
+    pub ipv6_ext: Ipv6ExtHeaders,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -99,6 +123,7 @@ pub fn build_udp_fragment_pair(
                 ip_number::UDP,
                 &transport,
                 split,
+                &spec.ipv6_ext,
             )
         }
         _ => Err(BuildError::AddressFamilyMismatch),
@@ -157,6 +182,7 @@ pub fn build_tcp_fragment_pair(
                 ip_number::TCP,
                 &transport,
                 split,
+                &spec.ipv6_ext,
             )
         }
         _ => Err(BuildError::AddressFamilyMismatch),
@@ -232,6 +258,35 @@ fn serialize_ipv4_fragment(header: &Ipv4Header, payload: &[u8]) -> Vec<u8> {
     bytes
 }
 
+/// Minimum size of an IPv6 extension header (next_header + hdr_ext_len + 6 pad bytes).
+const IPV6_EXT_HDR_MIN_LEN: usize = 8;
+
+/// Serialize a PadN-filled IPv6 extension header.
+///
+/// Layout: `[next_header, hdr_ext_len, PadN_type=1, PadN_len, zero_padding...]`
+/// Total size is always `IPV6_EXT_HDR_MIN_LEN` (8 bytes), which is the minimum
+/// extension header size (hdr_ext_len=0 means 8 bytes including the 2 fixed bytes).
+fn serialize_pad_extension(next_header: u8, buf: &mut Vec<u8>) {
+    buf.push(next_header);
+    buf.push(0); // hdr_ext_len = 0 -> total 8 bytes
+                 // PadN option: type=1, length=4 (fills remaining 6 bytes: type + len + 4 zero bytes)
+    buf.push(1); // PadN option type
+    buf.push(4); // PadN data length
+    buf.extend_from_slice(&[0u8; 4]); // 4 zero padding bytes
+}
+
+/// Serialize an IPv6 Routing extension header (type 0, segments_left=0).
+///
+/// Layout: `[next_header, hdr_ext_len=0, routing_type=0, segments_left=0, reserved...]`
+fn serialize_routing_extension(next_header: u8, buf: &mut Vec<u8>) {
+    buf.push(next_header);
+    buf.push(0); // hdr_ext_len = 0 -> total 8 bytes
+    buf.push(0); // routing_type = 0
+    buf.push(0); // segments_left = 0
+    buf.extend_from_slice(&[0u8; 4]); // reserved
+}
+
+#[allow(clippy::too_many_arguments)]
 fn build_ipv6_fragment_pair(
     src: [u8; 16],
     dst: [u8; 16],
@@ -240,15 +295,76 @@ fn build_ipv6_fragment_pair(
     next_header: IpNumber,
     transport: &[u8],
     split: usize,
+    ext: &Ipv6ExtHeaders,
 ) -> Result<IpFragmentPair, BuildError> {
-    let first = &transport[..split];
-    let second = &transport[split..];
+    let first_transport = &transport[..split];
+    let second_transport = &transport[split..];
+
+    // Build the unfragmentable extension header chain.
+    // Order: HopByHop -> DestOpt -> Routing -> (Fragment Header follows)
+    let mut unfrag_ext = Vec::new();
+    // Each header's next_header points to the next extension or to the Fragment Header.
+    // We build in reverse logical order to know what next_header each should carry.
+    // Determine which unfragmentable extensions are present.
+    let unfrag_chain: Vec<u8> = {
+        let mut chain = Vec::new();
+        if ext.hop_by_hop {
+            chain.push(0); // IPPROTO_HOPOPTS
+        }
+        if ext.dest_opt {
+            chain.push(60); // IPPROTO_DSTOPTS
+        }
+        if ext.routing {
+            chain.push(43); // IPPROTO_ROUTING
+        }
+        chain
+    };
+
+    // Build headers with correct next_header chaining.
+    // The last unfragmentable extension's next_header = IPV6_FRAG (44).
+    for (i, &proto) in unfrag_chain.iter().enumerate() {
+        let next = if i + 1 < unfrag_chain.len() {
+            unfrag_chain[i + 1]
+        } else {
+            44 // IPV6_FRAG
+        };
+        match proto {
+            43 => serialize_routing_extension(next, &mut unfrag_ext),
+            _ => serialize_pad_extension(next, &mut unfrag_ext),
+        }
+    }
+
+    // The fragmentable destination options header goes after the Fragment Header
+    // and before the transport payload. It becomes part of the fragment payload.
+    let frag_dest_opt = if ext.dest_opt_fragmentable {
+        let mut buf = Vec::with_capacity(IPV6_EXT_HDR_MIN_LEN);
+        serialize_pad_extension(next_header.0, &mut buf);
+        Some(buf)
+    } else {
+        None
+    };
+
+    // The Fragment Header's next_header field:
+    // - If fragmentable dest_opt exists: 60 (DSTOPTS), since dest_opt2 wraps transport
+    // - Otherwise: the actual transport protocol (TCP/UDP)
+    let frag_hdr_next = if frag_dest_opt.is_some() { IpNumber(60) } else { next_header };
+
+    // IPv6 base header's next_header:
+    // - If unfragmentable extensions exist: first extension's protocol number
+    // - Otherwise: IPV6_FRAG (44)
+    let ipv6_next_header =
+        if let Some(&first_proto) = unfrag_chain.first() { IpNumber(first_proto) } else { ip_number::IPV6_FRAG };
+
+    // Calculate payload lengths including all extension headers.
+    let frag_dest_opt_len = frag_dest_opt.as_ref().map_or(0, Vec::len);
+    let first_payload_len = unfrag_ext.len() + Ipv6FragmentHeader::LEN + frag_dest_opt_len + first_transport.len();
+    let second_payload_len = unfrag_ext.len() + Ipv6FragmentHeader::LEN + frag_dest_opt_len + second_transport.len();
 
     let base_first = Ipv6Header {
         traffic_class: 0,
         flow_label: Ipv6FlowLabel::ZERO,
-        payload_length: u16::try_from(Ipv6FragmentHeader::LEN + first.len()).map_err(|_| BuildError::ValueTooLarge)?,
-        next_header: ip_number::IPV6_FRAG,
+        payload_length: u16::try_from(first_payload_len).map_err(|_| BuildError::ValueTooLarge)?,
+        next_header: ipv6_next_header,
         hop_limit: ttl,
         source: src,
         destination: dst,
@@ -256,33 +372,63 @@ fn build_ipv6_fragment_pair(
     let base_second = Ipv6Header {
         traffic_class: 0,
         flow_label: Ipv6FlowLabel::ZERO,
-        payload_length: u16::try_from(Ipv6FragmentHeader::LEN + second.len()).map_err(|_| BuildError::ValueTooLarge)?,
-        next_header: ip_number::IPV6_FRAG,
+        payload_length: u16::try_from(second_payload_len).map_err(|_| BuildError::ValueTooLarge)?,
+        next_header: ipv6_next_header,
         hop_limit: ttl,
         source: src,
         destination: dst,
     };
-    let first_fragment = Ipv6FragmentHeader::new(next_header, IpFragOffset::ZERO, true, identification);
+
+    let first_fragment = Ipv6FragmentHeader::new(frag_hdr_next, IpFragOffset::ZERO, true, identification);
+
+    // Phase 3: next-header forgery on second fragment
+    let second_frag_next = ext.second_frag_next_override.map_or(frag_hdr_next, IpNumber);
     let second_fragment = Ipv6FragmentHeader::new(
-        next_header,
+        second_frag_next,
         IpFragOffset::try_new(
-            u16::try_from(split / IP_FRAGMENT_ALIGNMENT_BYTES).map_err(|_| BuildError::ValueTooLarge)?,
+            u16::try_from((frag_dest_opt_len + split) / IP_FRAGMENT_ALIGNMENT_BYTES)
+                .map_err(|_| BuildError::ValueTooLarge)?,
         )
         .map_err(|_| BuildError::ValueTooLarge)?,
         false,
         identification,
     );
 
-    let first_bytes = serialize_ipv6_fragment(&base_first, &first_fragment, first);
-    let second_bytes = serialize_ipv6_fragment(&base_second, &second_fragment, second);
+    let first_bytes = serialize_ipv6_fragment_ext(
+        &base_first,
+        &unfrag_ext,
+        &first_fragment,
+        frag_dest_opt.as_deref(),
+        first_transport,
+    );
+    let second_bytes = serialize_ipv6_fragment_ext(
+        &base_second,
+        &unfrag_ext,
+        &second_fragment,
+        frag_dest_opt.as_deref(),
+        second_transport,
+    );
     Ok(IpFragmentPair { first: first_bytes, second: second_bytes, effective_transport_split: split })
 }
 
-fn serialize_ipv6_fragment(base: &Ipv6Header, fragment: &Ipv6FragmentHeader, payload: &[u8]) -> Vec<u8> {
-    let mut bytes = Vec::with_capacity(Ipv6Header::LEN + Ipv6FragmentHeader::LEN + payload.len());
+fn serialize_ipv6_fragment_ext(
+    base: &Ipv6Header,
+    unfrag_ext: &[u8],
+    fragment: &Ipv6FragmentHeader,
+    frag_dest_opt: Option<&[u8]>,
+    transport: &[u8],
+) -> Vec<u8> {
+    let frag_dest_len = frag_dest_opt.map_or(0, |d| d.len());
+    let mut bytes = Vec::with_capacity(
+        Ipv6Header::LEN + unfrag_ext.len() + Ipv6FragmentHeader::LEN + frag_dest_len + transport.len(),
+    );
     base.write(&mut bytes).expect("Vec<u8> write must not fail");
+    bytes.extend_from_slice(unfrag_ext);
     fragment.write(&mut bytes).expect("Vec<u8> write must not fail");
-    bytes.extend_from_slice(payload);
+    if let Some(dest_opt) = frag_dest_opt {
+        bytes.extend_from_slice(dest_opt);
+    }
+    bytes.extend_from_slice(transport);
     bytes
 }
 
@@ -301,11 +447,29 @@ mod tests {
         transport
     }
 
+    /// Skip over any extension headers between the IPv6 base header and the Fragment Header.
+    fn skip_to_fragment_header(mut data: &[u8], mut next_header: IpNumber) -> (&[u8], IpNumber) {
+        // Walk extension headers until we find the Fragment Header (44).
+        while next_header != ip_number::IPV6_FRAG {
+            // All extension headers have: next_header(1) + hdr_ext_len(1) + data
+            assert!(data.len() >= 2, "extension header too short");
+            let nh = IpNumber(data[0]);
+            let hdr_len = (usize::from(data[1]) + 1) * 8;
+            assert!(data.len() >= hdr_len, "extension header length exceeds data");
+            data = &data[hdr_len..];
+            next_header = nh;
+        }
+        (data, next_header)
+    }
+
     fn reassemble_ipv6_transport(first: &[u8], second: &[u8]) -> Vec<u8> {
         let (first_base, first_rest) = Ipv6Header::from_slice(first).expect("parse first ipv6 header");
+        let (first_rest, _) = skip_to_fragment_header(first_rest, first_base.next_header);
         let (_first_frag, first_payload) =
             Ipv6FragmentHeader::from_slice(first_rest).expect("parse first fragment header");
+
         let (second_base, second_rest) = Ipv6Header::from_slice(second).expect("parse second ipv6 header");
+        let (second_rest, _) = skip_to_fragment_header(second_rest, second_base.next_header);
         let (_second_frag, second_payload) =
             Ipv6FragmentHeader::from_slice(second_rest).expect("parse second fragment header");
         assert_eq!(first_base.destination, second_base.destination);
@@ -323,6 +487,7 @@ mod tests {
             dst: SocketAddr::from(([198, 51, 100, 20], 443)),
             ttl: 64,
             identification: 0x1234,
+            ipv6_ext: Ipv6ExtHeaders::default(),
         };
         let payload = b"quic initial payload";
 
@@ -358,6 +523,7 @@ mod tests {
             dst: SocketAddr::from(([0x20, 0x01, 0x0d, 0xb8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2], 443)),
             ttl: 48,
             identification: 0x1020_3040,
+            ipv6_ext: Ipv6ExtHeaders::default(),
         };
         let payload = b"hello over fragmented udp";
 
@@ -404,6 +570,7 @@ mod tests {
             acknowledgment_number: 0x0506_0708,
             window_size: 4096,
             timestamp: None,
+            ipv6_ext: Ipv6ExtHeaders::default(),
         };
         let payload = b"fragmented tls client hello";
 
@@ -436,6 +603,7 @@ mod tests {
             acknowledgment_number: 0x0506_0708,
             window_size: 4096,
             timestamp: None,
+            ipv6_ext: Ipv6ExtHeaders::default(),
         };
         let payload = b"fragmented tls client hello over ipv6";
 
@@ -476,6 +644,7 @@ mod tests {
             acknowledgment_number: 0x0506_0708,
             window_size: 4096,
             timestamp: None,
+            ipv6_ext: Ipv6ExtHeaders::default(),
         };
         let payload = b"fragmented tls client hello";
 
@@ -493,6 +662,7 @@ mod tests {
             dst: SocketAddr::from(([198, 51, 100, 20], 443)),
             ttl: 64,
             identification: 7,
+            ipv6_ext: Ipv6ExtHeaders::default(),
         };
         let payload = b"tiny";
 
@@ -511,6 +681,7 @@ mod tests {
             acknowledgment_number: 0x0506_0708,
             window_size: 4096,
             timestamp: Some(TcpTimestampOption { value: 0x1122_3344, echo_reply: 0 }),
+            ipv6_ext: Ipv6ExtHeaders::default(),
         };
         let payload = b"timestamped payload";
 
@@ -544,6 +715,7 @@ mod tests {
             acknowledgment_number: 0x0506_0708,
             window_size: 4096,
             timestamp: Some(TcpTimestampOption { value: 0x5566_7788, echo_reply: 0 }),
+            ipv6_ext: Ipv6ExtHeaders::default(),
         };
         let payload = b"ipv6 timestamped payload";
 
@@ -563,5 +735,140 @@ mod tests {
         );
         assert_eq!(pair.effective_transport_split % IP_FRAGMENT_ALIGNMENT_BYTES, 0);
         assert_eq!(tcp_payload, payload);
+    }
+
+    #[test]
+    fn ipv6_hop_by_hop_extension_header_is_inserted_before_fragment() {
+        let spec = UdpFragmentSpec {
+            src: SocketAddr::from(([0x20, 0x01, 0x0d, 0xb8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1], 40000)),
+            dst: SocketAddr::from(([0x20, 0x01, 0x0d, 0xb8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2], 443)),
+            ttl: 48,
+            identification: 0xAABB,
+            ipv6_ext: Ipv6ExtHeaders { hop_by_hop: true, ..Ipv6ExtHeaders::default() },
+        };
+        let payload = b"hello over fragmented udp with hbh";
+
+        let pair = build_udp_fragment_pair(spec, payload, 8).expect("build with hop-by-hop");
+        let (first_base, first_rest) = Ipv6Header::from_slice(&pair.first).expect("parse ipv6");
+
+        // IPv6 next_header should be HOPOPTS (0), not IPV6_FRAG (44)
+        assert_eq!(first_base.next_header, IpNumber(0));
+
+        // HBH header's next_header should be IPV6_FRAG (44)
+        assert_eq!(first_rest[0], 44);
+        assert_eq!(first_rest[1], 0); // hdr_ext_len = 0 -> 8 bytes
+
+        // Fragment header follows at offset 8
+        let (frag, _) = Ipv6FragmentHeader::from_slice(&first_rest[8..]).expect("parse fragment header");
+        assert_eq!(frag.next_header, ip_number::UDP);
+
+        // Reassembly still works
+        let transport = reassemble_ipv6_transport(&pair.first, &pair.second);
+        let (_, udp_payload) = UdpHeader::from_slice(&transport).expect("parse udp");
+        assert_eq!(udp_payload, payload);
+    }
+
+    #[test]
+    fn ipv6_dest_opt_unfragmentable_is_inserted_before_fragment() {
+        let spec = UdpFragmentSpec {
+            src: SocketAddr::from(([0x20, 0x01, 0x0d, 0xb8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1], 40000)),
+            dst: SocketAddr::from(([0x20, 0x01, 0x0d, 0xb8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2], 443)),
+            ttl: 48,
+            identification: 0xCCDD,
+            ipv6_ext: Ipv6ExtHeaders { dest_opt: true, ..Ipv6ExtHeaders::default() },
+        };
+        let payload = b"hello with dest opt unfrag";
+
+        let pair = build_udp_fragment_pair(spec, payload, 8).expect("build with dest_opt");
+        let (first_base, _) = Ipv6Header::from_slice(&pair.first).expect("parse ipv6");
+        assert_eq!(first_base.next_header, IpNumber(60)); // DSTOPTS
+
+        let transport = reassemble_ipv6_transport(&pair.first, &pair.second);
+        let (_, udp_payload) = UdpHeader::from_slice(&transport).expect("parse udp");
+        assert_eq!(udp_payload, payload);
+    }
+
+    #[test]
+    fn ipv6_multiple_extension_headers_chain_correctly() {
+        let spec = UdpFragmentSpec {
+            src: SocketAddr::from(([0x20, 0x01, 0x0d, 0xb8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1], 40000)),
+            dst: SocketAddr::from(([0x20, 0x01, 0x0d, 0xb8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2], 443)),
+            ttl: 48,
+            identification: 0xEEFF,
+            ipv6_ext: Ipv6ExtHeaders { hop_by_hop: true, dest_opt: true, routing: true, ..Ipv6ExtHeaders::default() },
+        };
+        let payload = b"hello with all unfrag extensions";
+
+        let pair = build_udp_fragment_pair(spec, payload, 8).expect("build with all extensions");
+        let (first_base, rest) = Ipv6Header::from_slice(&pair.first).expect("parse ipv6");
+
+        // Chain: IPv6(next=0) -> HBH(next=60) -> DestOpt(next=43) -> Routing(next=44) -> Frag(next=17)
+        assert_eq!(first_base.next_header, IpNumber(0)); // HOPOPTS
+        assert_eq!(rest[0], 60); // HBH -> DSTOPTS
+        assert_eq!(rest[8], 43); // DSTOPTS -> ROUTING
+        assert_eq!(rest[16], 44); // ROUTING -> IPV6_FRAG
+
+        let (frag, _) = Ipv6FragmentHeader::from_slice(&rest[24..]).expect("parse frag header");
+        assert_eq!(frag.next_header, ip_number::UDP);
+
+        let transport = reassemble_ipv6_transport(&pair.first, &pair.second);
+        let (_, udp_payload) = UdpHeader::from_slice(&transport).expect("parse udp");
+        assert_eq!(udp_payload, payload);
+    }
+
+    #[test]
+    fn ipv6_second_frag_next_override_forges_protocol() {
+        let spec = UdpFragmentSpec {
+            src: SocketAddr::from(([0x20, 0x01, 0x0d, 0xb8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1], 40000)),
+            dst: SocketAddr::from(([0x20, 0x01, 0x0d, 0xb8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2], 443)),
+            ttl: 48,
+            identification: 0x5678,
+            ipv6_ext: Ipv6ExtHeaders { second_frag_next_override: Some(6), ..Ipv6ExtHeaders::default() }, // forge as TCP
+        };
+        let payload = b"hello with forged next header";
+
+        let pair = build_udp_fragment_pair(spec, payload, 8).expect("build with forged next");
+
+        // First fragment's Fragment Header should have correct next_header (UDP=17)
+        let (_, first_rest) = Ipv6Header::from_slice(&pair.first).expect("parse first ipv6");
+        let (first_frag, _) = Ipv6FragmentHeader::from_slice(first_rest).expect("parse first frag");
+        assert_eq!(first_frag.next_header, ip_number::UDP);
+
+        // Second fragment's Fragment Header should have forged next_header (TCP=6)
+        let (_, second_rest) = Ipv6Header::from_slice(&pair.second).expect("parse second ipv6");
+        let (second_frag, _) = Ipv6FragmentHeader::from_slice(second_rest).expect("parse second frag");
+        assert_eq!(second_frag.next_header, IpNumber(6)); // Forged as TCP
+
+        // Reassembly still produces valid UDP (OS uses first frag's next_header)
+        let transport = reassemble_ipv6_transport(&pair.first, &pair.second);
+        let (_, udp_payload) = UdpHeader::from_slice(&transport).expect("parse udp");
+        assert_eq!(udp_payload, payload);
+    }
+
+    #[test]
+    fn ipv4_ignores_ipv6_ext_headers() {
+        let spec = UdpFragmentSpec {
+            src: SocketAddr::from(([192, 0, 2, 10], 40000)),
+            dst: SocketAddr::from(([198, 51, 100, 20], 443)),
+            ttl: 64,
+            identification: 0x4321,
+            ipv6_ext: Ipv6ExtHeaders {
+                hop_by_hop: true,
+                dest_opt: true,
+                second_frag_next_override: Some(6),
+                ..Ipv6ExtHeaders::default()
+            },
+        };
+        let payload = b"ipv4 ignores ipv6 extensions";
+
+        // Should succeed and produce standard IPv4 fragments
+        let pair = build_udp_fragment_pair(spec, payload, 8).expect("build ipv4 ignoring v6 ext");
+        let (first_header, _) = Ipv4Header::from_slice(&pair.first).expect("parse ipv4");
+        assert!(!first_header.dont_fragment);
+        assert!(first_header.more_fragments);
+
+        let transport = reassemble_ipv4_transport(&pair.first, &pair.second);
+        let (_, udp_payload) = UdpHeader::from_slice(&transport).expect("parse udp");
+        assert_eq!(udp_payload, payload);
     }
 }

@@ -255,6 +255,11 @@ pub fn parse_cli(args: &[String], startup: &StartupEnv) -> Result<ParseResult, C
                     count: 1,
                     split_bytes: 0,
                     activation_filter: None,
+                    ip_frag_disorder: false,
+                    ipv6_hop_by_hop: false,
+                    ipv6_dest_opt: false,
+                    ipv6_dest_opt2: false,
+                    ipv6_frag_next_override: None,
                 });
             }
             "--quic-low-port" => group!().actions.quic_bind_low_port = true,
@@ -264,6 +269,11 @@ pub fn parse_cli(args: &[String], startup: &StartupEnv) -> Result<ParseResult, C
                     count: 1,
                     split_bytes: 0,
                     activation_filter: None,
+                    ip_frag_disorder: false,
+                    ipv6_hop_by_hop: false,
+                    ipv6_dest_opt: false,
+                    ipv6_dest_opt2: false,
+                    ipv6_frag_next_override: None,
                 });
             }
             "--quic-fake-version" => {
@@ -276,6 +286,11 @@ pub fn parse_cli(args: &[String], startup: &StartupEnv) -> Result<ParseResult, C
                     count: 1,
                     split_bytes: 0,
                     activation_filter: None,
+                    ip_frag_disorder: false,
+                    ipv6_hop_by_hop: false,
+                    ipv6_dest_opt: false,
+                    ipv6_dest_opt2: false,
+                    ipv6_frag_next_override: None,
                 });
             }
             "--quic-migrate" => group!().actions.quic_migrate_after_handshake = true,
@@ -596,6 +611,11 @@ pub fn parse_cli(args: &[String], startup: &StartupEnv) -> Result<ParseResult, C
                         count,
                         split_bytes: 0,
                         activation_filter: None,
+                        ip_frag_disorder: false,
+                        ipv6_hop_by_hop: false,
+                        ipv6_dest_opt: false,
+                        ipv6_dest_opt2: false,
+                        ipv6_frag_next_override: None,
                     });
                 }
             }
@@ -899,7 +919,17 @@ mod tests {
         assert_eq!(group.actions.quic_fake_host.as_deref(), Some("video.example.test"));
         assert_eq!(
             group.actions.udp_chain,
-            vec![UdpChainStep { kind: UdpChainStepKind::FakeBurst, count: 2, split_bytes: 0, activation_filter: None }]
+            vec![UdpChainStep {
+                kind: UdpChainStepKind::FakeBurst,
+                count: 2,
+                split_bytes: 0,
+                activation_filter: None,
+                ip_frag_disorder: false,
+                ipv6_hop_by_hop: false,
+                ipv6_dest_opt: false,
+                ipv6_dest_opt2: false,
+                ipv6_frag_next_override: None
+            }]
         );
     }
 

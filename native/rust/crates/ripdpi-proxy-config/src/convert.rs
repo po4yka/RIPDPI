@@ -96,6 +96,12 @@ fn synthesize_tlsrec_prelude_for_bare_hostfake(chain: &mut Vec<TcpChainStep>) {
             min_fragment_size: 0,
             max_fragment_size: 0,
             inter_segment_delay_ms: 0,
+            ip_frag_disorder: false,
+            ipv6_hop_by_hop: false,
+            ipv6_dest_opt: false,
+            ipv6_dest_opt2: false,
+            ipv6_routing: false,
+            ipv6_frag_next_override: None,
         },
     );
 }
@@ -679,6 +685,12 @@ pub fn runtime_config_from_ui(payload: ProxyUiConfig) -> Result<RuntimeConfig, P
             min_fragment_size,
             max_fragment_size,
             inter_segment_delay_ms: step.inter_segment_delay_ms.min(100),
+            ip_frag_disorder: false,
+            ipv6_hop_by_hop: false,
+            ipv6_dest_opt: false,
+            ipv6_dest_opt2: false,
+            ipv6_routing: false,
+            ipv6_frag_next_override: None,
         });
     }
     synthesize_tlsrec_prelude_for_bare_hostfake(&mut group.actions.tcp_chain);
@@ -713,6 +725,11 @@ pub fn runtime_config_from_ui(payload: ProxyUiConfig) -> Result<RuntimeConfig, P
                 step.activation_filter.as_ref(),
                 "chains.udpSteps.activationFilter",
             )?,
+            ip_frag_disorder: false,
+            ipv6_hop_by_hop: false,
+            ipv6_dest_opt: false,
+            ipv6_dest_opt2: false,
+            ipv6_frag_next_override: None,
         });
     }
     validate_udp_chain(&group.actions.udp_chain)?;

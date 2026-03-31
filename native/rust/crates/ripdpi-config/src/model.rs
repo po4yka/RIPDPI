@@ -221,6 +221,19 @@ pub struct TcpChainStep {
     pub min_fragment_size: i32,
     pub max_fragment_size: i32,
     pub inter_segment_delay_ms: u32,
+    /// Send IP fragments in reverse order (second before first) to evade
+    /// DPI systems that expect sequential fragment delivery.
+    pub ip_frag_disorder: bool,
+    /// Insert IPv6 Hop-by-Hop Options extension header (no-op for IPv4).
+    pub ipv6_hop_by_hop: bool,
+    /// Insert IPv6 Destination Options header in unfragmentable part.
+    pub ipv6_dest_opt: bool,
+    /// Insert IPv6 Destination Options header in fragmentable part.
+    pub ipv6_dest_opt2: bool,
+    /// Insert IPv6 Routing extension header (type 0, segments_left=0).
+    pub ipv6_routing: bool,
+    /// Override second fragment's next_header (IPv6 only, RFC 8200 forgery).
+    pub ipv6_frag_next_override: Option<u8>,
 }
 
 impl TcpChainStep {
@@ -237,6 +250,12 @@ impl TcpChainStep {
             min_fragment_size: 0,
             max_fragment_size: 0,
             inter_segment_delay_ms: 0,
+            ip_frag_disorder: false,
+            ipv6_hop_by_hop: false,
+            ipv6_dest_opt: false,
+            ipv6_dest_opt2: false,
+            ipv6_routing: false,
+            ipv6_frag_next_override: None,
         }
     }
 }
@@ -256,6 +275,16 @@ pub struct UdpChainStep {
     pub count: i32,
     pub split_bytes: i32,
     pub activation_filter: Option<ActivationFilter>,
+    /// Send IP fragments in reverse order (second before first).
+    pub ip_frag_disorder: bool,
+    /// Insert IPv6 Hop-by-Hop Options extension header (no-op for IPv4).
+    pub ipv6_hop_by_hop: bool,
+    /// Insert IPv6 Destination Options header in unfragmentable part.
+    pub ipv6_dest_opt: bool,
+    /// Insert IPv6 Destination Options header in fragmentable part.
+    pub ipv6_dest_opt2: bool,
+    /// Override second fragment's next_header (IPv6 only).
+    pub ipv6_frag_next_override: Option<u8>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -800,6 +829,11 @@ mod tests {
             count: 1,
             split_bytes: 0,
             activation_filter: None,
+            ip_frag_disorder: false,
+            ipv6_hop_by_hop: false,
+            ipv6_dest_opt: false,
+            ipv6_dest_opt2: false,
+            ipv6_frag_next_override: None,
         });
         assert!(group.is_actionable());
     }
@@ -882,8 +916,17 @@ mod tests {
         group.actions.tcp_chain.push(step.clone());
         assert_eq!(group.effective_tcp_chain(), vec![step]);
 
-        let udp_step =
-            UdpChainStep { kind: UdpChainStepKind::QuicSniSplit, count: 1, split_bytes: 0, activation_filter: None };
+        let udp_step = UdpChainStep {
+            kind: UdpChainStepKind::QuicSniSplit,
+            count: 1,
+            split_bytes: 0,
+            activation_filter: None,
+            ip_frag_disorder: false,
+            ipv6_hop_by_hop: false,
+            ipv6_dest_opt: false,
+            ipv6_dest_opt2: false,
+            ipv6_frag_next_override: None,
+        };
         group.actions.udp_chain.push(udp_step);
         assert_eq!(group.effective_udp_chain(), group.actions.udp_chain);
     }
@@ -965,6 +1008,11 @@ mod tests {
                 count: 2,
                 split_bytes: 0,
                 activation_filter: None,
+                ip_frag_disorder: false,
+                ipv6_hop_by_hop: false,
+                ipv6_dest_opt: false,
+                ipv6_dest_opt2: false,
+                ipv6_frag_next_override: None,
             }],
             mod_http: MH_HMIX | MH_SPACE,
             tlsminor: Some(1),

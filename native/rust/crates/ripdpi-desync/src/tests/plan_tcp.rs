@@ -17,6 +17,12 @@ fn seqovl_step(pos: i64) -> TcpChainStep {
         min_fragment_size: 0,
         max_fragment_size: 0,
         inter_segment_delay_ms: 0,
+        ip_frag_disorder: false,
+        ipv6_hop_by_hop: false,
+        ipv6_dest_opt: false,
+        ipv6_dest_opt2: false,
+        ipv6_routing: false,
+        ipv6_frag_next_override: None,
     }
 }
 
@@ -155,6 +161,12 @@ fn plan_tcp_tlsrandrec_supports_adaptive_marker_resolution() {
         min_fragment_size: 16,
         max_fragment_size: 32,
         inter_segment_delay_ms: 0,
+        ip_frag_disorder: false,
+        ipv6_hop_by_hop: false,
+        ipv6_dest_opt: false,
+        ipv6_dest_opt2: false,
+        ipv6_routing: false,
+        ipv6_frag_next_override: None,
     }];
     let mut explicit_group = DesyncGroup::new(0);
     explicit_group.actions.tcp_chain = vec![TcpChainStep {
@@ -169,6 +181,12 @@ fn plan_tcp_tlsrandrec_supports_adaptive_marker_resolution() {
         min_fragment_size: 16,
         max_fragment_size: 32,
         inter_segment_delay_ms: 0,
+        ip_frag_disorder: false,
+        ipv6_hop_by_hop: false,
+        ipv6_dest_opt: false,
+        ipv6_dest_opt2: false,
+        ipv6_routing: false,
+        ipv6_frag_next_override: None,
     }];
 
     let auto_plan = plan_tcp(
@@ -380,7 +398,15 @@ fn plan_tcp_ipfrag2_emits_fragmented_first_write() {
     let plan = plan_tcp(&group, payload, 7, 64, tcp_context(payload)).expect("plan ipfrag2 tcp");
 
     assert_eq!(plan.steps, vec![PlannedStep { kind: TcpChainStepKind::IpFrag2, start: 0, end: 5 }]);
-    assert_eq!(plan.actions, vec![DesyncAction::WriteIpFragmentedTcp { bytes: payload.to_vec(), split_offset: 5 }],);
+    assert_eq!(
+        plan.actions,
+        vec![DesyncAction::WriteIpFragmentedTcp {
+            bytes: payload.to_vec(),
+            split_offset: 5,
+            disorder: false,
+            ipv6_ext: ripdpi_ipfrag::Ipv6ExtHeaders::default()
+        }],
+    );
 }
 
 #[test]
@@ -812,6 +838,12 @@ fn plan_tcp_step_activation_filter_skips_tls_prelude_only() {
             min_fragment_size: 0,
             max_fragment_size: 0,
             inter_segment_delay_ms: 0,
+            ip_frag_disorder: false,
+            ipv6_hop_by_hop: false,
+            ipv6_dest_opt: false,
+            ipv6_dest_opt2: false,
+            ipv6_routing: false,
+            ipv6_frag_next_override: None,
         },
         TcpChainStep::new(TcpChainStepKind::Split, split_expr(4)),
     ];
@@ -880,6 +912,12 @@ fn plan_tcp_hostfake_emits_fake_real_fake_sequence_for_http_host() {
         min_fragment_size: 0,
         max_fragment_size: 0,
         inter_segment_delay_ms: 0,
+        ip_frag_disorder: false,
+        ipv6_hop_by_hop: false,
+        ipv6_dest_opt: false,
+        ipv6_dest_opt2: false,
+        ipv6_routing: false,
+        ipv6_frag_next_override: None,
     }];
 
     let plan = plan_tcp(&group, payload, 23, 32, tcp_context(payload)).expect("plan hostfake");
@@ -935,6 +973,12 @@ fn hostfake_degrades_to_split_when_step_ends_before_endhost() {
         min_fragment_size: 0,
         max_fragment_size: 0,
         inter_segment_delay_ms: 0,
+        ip_frag_disorder: false,
+        ipv6_hop_by_hop: false,
+        ipv6_dest_opt: false,
+        ipv6_dest_opt2: false,
+        ipv6_routing: false,
+        ipv6_frag_next_override: None,
     }];
 
     let plan = plan_tcp(&group, payload, 9, 32, tcp_context(payload)).expect("plan degraded hostfake");

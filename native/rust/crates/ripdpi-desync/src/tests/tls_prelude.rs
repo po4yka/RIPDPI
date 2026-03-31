@@ -65,6 +65,12 @@ fn apply_tamper_tlsrandrec_is_noop_when_marker_cannot_be_resolved() {
         min_fragment_size: 16,
         max_fragment_size: 32,
         inter_segment_delay_ms: 0,
+        ip_frag_disorder: false,
+        ipv6_hop_by_hop: false,
+        ipv6_dest_opt: false,
+        ipv6_dest_opt2: false,
+        ipv6_routing: false,
+        ipv6_frag_next_override: None,
     }];
 
     let tampered = apply_tamper(&group, DEFAULT_FAKE_TLS, 7).expect("tamper tls");
