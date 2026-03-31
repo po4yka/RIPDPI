@@ -212,6 +212,8 @@ fn process_client_job(job: ClientJob) {
         let shutting_down = state.control.as_ref().map_or_else(process::shutdown_requested, |c| c.shutdown_requested());
         if shutting_down && is_connection_closed_error(err) {
             tracing::debug!("ripdpi client error during shutdown (expected): {err}");
+        } else if is_connection_closed_error(err) {
+            tracing::warn!("ripdpi client disconnected: {err}");
         } else {
             tracing::error!("ripdpi client error: {err}");
         }
