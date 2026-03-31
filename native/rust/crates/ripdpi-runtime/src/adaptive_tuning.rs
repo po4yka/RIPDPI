@@ -55,6 +55,7 @@ const ADAPTIVE_RETRY_WINDOW_MS: u64 = 15_000;
 const ADAPTIVE_TUNING_STORE_VERSION: u32 = 1;
 const ADAPTIVE_TUNING_STORE_FILE_NAME: &str = "adaptive-tuning-v1.json";
 const ADAPTIVE_TUNING_PERSIST_DEBOUNCE_MS: u64 = 2_000;
+const ADAPTIVE_TUNING_PERSIST_ERROR_COOLDOWN_MS: u64 = 300_000;
 const DEFAULT_NETWORK_SCOPE_KEY: &str = "default";
 const FNV_OFFSET: u64 = 0xcbf29ce484222325;
 const FNV_PRIME: u64 = 0x100000001b3;
@@ -211,13 +212,13 @@ pub struct AdaptivePlannerResolver {
     states: HashMap<AdaptivePlannerKey, AdaptivePlannerState>,
     last_persist_at_ms: u64,
     dirty: bool,
-    persist_error_logged: bool,
+    persist_error_logged_at_ms: u64,
 }
 
 impl AdaptivePlannerResolver {
     pub fn load(config: &ripdpi_config::RuntimeConfig) -> Self {
         let states = load_adaptive_store(config).unwrap_or_default();
-        Self { states, last_persist_at_ms: 0, dirty: false, persist_error_logged: false }
+        Self { states, last_persist_at_ms: 0, dirty: false, persist_error_logged_at_ms: 0 }
     }
 
     pub fn resolve_tcp_hints(
@@ -338,12 +339,12 @@ impl AdaptivePlannerResolver {
             Ok(()) => {
                 self.last_persist_at_ms = now_ms;
                 self.dirty = false;
-                self.persist_error_logged = false;
+                self.persist_error_logged_at_ms = 0;
             }
             Err(err) => {
-                if !self.persist_error_logged {
+                if now_ms.saturating_sub(self.persist_error_logged_at_ms) >= ADAPTIVE_TUNING_PERSIST_ERROR_COOLDOWN_MS {
                     tracing::warn!("adaptive tuning store write failed (non-fatal): {err}");
-                    self.persist_error_logged = true;
+                    self.persist_error_logged_at_ms = now_ms;
                 }
             }
         }
