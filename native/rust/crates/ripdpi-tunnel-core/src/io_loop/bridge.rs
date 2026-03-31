@@ -1,4 +1,4 @@
-use std::io::{self, Write};
+use std::io;
 use std::pin::Pin;
 use std::sync::atomic::Ordering;
 use std::sync::Arc;
@@ -7,9 +7,9 @@ use std::time::Duration;
 
 use smoltcp::iface::SocketSet;
 use smoltcp::socket::tcp::{self, Socket as TcpSocket};
-use tokio::io::unix::AsyncFd;
-use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt, Interest, ReadBuf};
+use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt, ReadBuf};
 use tracing::{debug, warn};
+use tun_rs::AsyncDevice;
 
 use crate::{ActiveSessions, Stats, TunDevice};
 
@@ -195,23 +195,20 @@ pub(super) async fn pump_active_sessions(socket_set: &mut SocketSet<'static>, se
 }
 
 pub(super) async fn flush_device_tx_queue(
-    tun: &AsyncFd<std::fs::File>,
+    tun: &AsyncDevice,
     stats: &Arc<Stats>,
     device: &mut TunDevice,
 ) -> io::Result<()> {
     while let Some(pkt) = device.tx_queue.pop_front() {
         loop {
-            match tun.try_io(Interest::WRITABLE, |inner| {
-                let mut file = inner;
-                file.write_all(&pkt)
-            }) {
-                Ok(()) => {
+            match tun.try_send(&pkt) {
+                Ok(_n) => {
                     stats.rx_packets.fetch_add(1, Ordering::Relaxed);
                     stats.rx_bytes.fetch_add(pkt.len() as u64, Ordering::Relaxed);
                     break;
                 }
                 Err(err) if err.kind() == io::ErrorKind::WouldBlock => {
-                    let _ = tun.writable().await?;
+                    tun.writable().await?;
                 }
                 Err(err) => {
                     warn!("TUN write error: {} (packet dropped)", err);

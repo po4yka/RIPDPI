@@ -17,11 +17,15 @@ tokio-util = { workspace = true, features = ["rt"] }
 thiserror = { workspace = true }
 tracing = { workspace = true }
 anyhow = { workspace = true }
-nix = { workspace = true }
+tun-rs = { workspace = true }
 hickory-proto = { workspace = true }
 lru = { workspace = true }
 etherparse = { workspace = true }
 fast-socks5 = { workspace = true }
+ripdpi-io-uring = { workspace = true, optional = true }
+
+[features]
+io-uring = ["dep:ripdpi-io-uring"]
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["test-util"] }
