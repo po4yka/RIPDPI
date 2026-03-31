@@ -70,13 +70,15 @@ pub async fn run_tunnel(
     // SAFETY: `tun_fd` is valid for the duration of this block — it is not closed until
     // `from_raw_fd` below, and `BorrowedFd` does not take ownership.
     let borrowed_fd = unsafe { BorrowedFd::borrow_raw(tun_fd) };
-    let flags = fcntl(borrowed_fd, FcntlArg::F_GETFL).map_err(io::Error::from)?;
+    let flags = fcntl(borrowed_fd, FcntlArg::F_GETFL)
+        .map_err(|e| io::Error::other(format!("read TUN fd flags during tunnel setup: {e}")))?;
     fcntl(borrowed_fd, FcntlArg::F_SETFL(OFlag::from_bits_truncate(flags) | OFlag::O_NONBLOCK))
-        .map_err(io::Error::from)?;
+        .map_err(|e| io::Error::other(format!("set TUN fd to non-blocking: {e}")))?;
 
     // SAFETY: `tun_fd` is valid and its ownership transfers to `file`.
     let file = unsafe { std::fs::File::from_raw_fd(tun_fd) };
-    let tun_async = tokio::io::unix::AsyncFd::new(file)?;
+    let tun_async = tokio::io::unix::AsyncFd::new(file)
+        .map_err(|e| io::Error::other(format!("register TUN fd with async reactor: {e}")))?;
 
     let mtu = config.tunnel.mtu as usize;
     let mut device = TunDevice::new(mtu);
@@ -93,7 +95,10 @@ pub async fn run_tunnel(
                 let _ = addrs.push(IpCidr::new(ip, prefix));
             });
             if let IpAddress::Ipv4(v4) = ip {
-                iface.routes_mut().add_default_ipv4_route(v4).map_err(|err| io::Error::other(err.to_string()))?;
+                iface
+                    .routes_mut()
+                    .add_default_ipv4_route(v4)
+                    .map_err(|e| io::Error::other(format!("install default IPv4 route for {ipv4_str}: {e}")))?;
             }
         }
     }
@@ -104,7 +109,10 @@ pub async fn run_tunnel(
                 let _ = addrs.push(IpCidr::new(ip, prefix));
             });
             if let IpAddress::Ipv6(v6) = ip {
-                iface.routes_mut().add_default_ipv6_route(v6).map_err(|err| io::Error::other(err.to_string()))?;
+                iface
+                    .routes_mut()
+                    .add_default_ipv6_route(v6)
+                    .map_err(|e| io::Error::other(format!("install default IPv6 route for {ipv6_str}: {e}")))?;
             }
         }
     }

@@ -130,7 +130,9 @@ pub(in crate::io_loop) fn build_encrypted_dns_resolver(config: &Config) -> io::R
         EncryptedDnsTransport::Direct,
         Duration::from_millis(u64::from(mapdns.dns_query_timeout_ms)),
     )
-    .map_err(|err| io::Error::new(io::ErrorKind::InvalidInput, err.to_string()))?;
+    .map_err(|err| {
+        io::Error::new(io::ErrorKind::InvalidInput, format!("initialize encrypted DNS resolver ({protocol:?}): {err}"))
+    })?;
 
     Ok(Some(resolver))
 }
