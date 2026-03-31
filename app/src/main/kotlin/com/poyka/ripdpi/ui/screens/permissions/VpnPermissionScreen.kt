@@ -76,7 +76,8 @@ internal fun AuthPromptScaffold(
                         color = colors.mutedForeground,
                         modifier =
                             Modifier
-                                .ripDpiClickable(role = Role.Button, onClick = onTopAction),
+                                .ripDpiClickable(role = Role.Button, onClick = onTopAction)
+                                .padding(horizontal = 12.dp),
                     )
                 }
             }

@@ -9,7 +9,7 @@ import com.poyka.ripdpi.ui.theme.RipDpiWidthClass
 
 @Immutable
 internal data class RipDpiIntroScaffoldMetrics(
-    val topActionRowHeight: Dp = 44.dp,
+    val topActionRowHeight: Dp = 48.dp,
     val illustrationSize: Dp = 80.dp,
     val illustrationCornerRadius: Dp = 16.dp,
     val illustrationBorderWidth: Dp = 1.5.dp,
