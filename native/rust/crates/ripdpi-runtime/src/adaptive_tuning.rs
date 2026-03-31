@@ -1028,11 +1028,12 @@ mod tests {
         SocketAddr::from(([127, 0, 0, 1], port))
     }
 
-    fn config_with_adaptive_store(groups: Vec<DesyncGroup>) -> ripdpi_config::RuntimeConfig {
+    fn config_with_adaptive_store(groups: Vec<DesyncGroup>) -> (ripdpi_config::RuntimeConfig, tempfile::TempDir) {
+        let tmp_dir = tempfile::tempdir().expect("create temp dir for adaptive store test");
         let mut config = ripdpi_config::RuntimeConfig { groups, ..ripdpi_config::RuntimeConfig::default() };
-        let store_dir = env::temp_dir().join(format!("ripdpi-adaptive-test-{}", next_temp_file_nonce()));
-        config.host_autolearn.store_path = Some(store_dir.join("host-autolearn.json").to_string_lossy().into_owned());
-        config
+        config.host_autolearn.store_path =
+            Some(tmp_dir.path().join("host-autolearn.json").to_string_lossy().into_owned());
+        (config, tmp_dir)
     }
 
     #[test]
@@ -1506,8 +1507,7 @@ mod tests {
     fn adaptive_store_round_trips_full_state() {
         let payload = b"GET / HTTP/1.1\r\nHost: persist.example.test\r\n\r\n";
         let group = tcp_group_with_adaptive_split();
-        let config = config_with_adaptive_store(vec![group.clone()]);
-        let store_path = adaptive_store_path(&config).expect("test config has store_path");
+        let (config, _tmp) = config_with_adaptive_store(vec![group.clone()]);
         let target = addr(443);
 
         let mut resolver = AdaptivePlannerResolver::default();
@@ -1518,15 +1518,13 @@ mod tests {
 
         let reloaded = AdaptivePlannerResolver::load(&config);
         assert_eq!(reloaded.states, resolver.states);
-
-        let _ = fs::remove_file(store_path);
     }
 
     #[test]
     fn adaptive_store_fingerprint_invalidates_stale_entries() {
         let payload = b"GET / HTTP/1.1\r\nHost: fingerprint.example.test\r\n\r\n";
         let group = tcp_group_with_adaptive_split();
-        let config = config_with_adaptive_store(vec![group.clone()]);
+        let (config, _tmp) = config_with_adaptive_store(vec![group.clone()]);
         let store_path = adaptive_store_path(&config).expect("test config has store_path");
         let target = addr(443);
 
@@ -1540,25 +1538,20 @@ mod tests {
             .actions
             .tcp_chain
             .push(TcpChainStep::new(TcpChainStepKind::Split, OffsetExpr::adaptive(OffsetBase::AutoEndHost)));
-        let changed_config = config_with_adaptive_store(vec![changed_group]);
+        let (changed_config, _changed_tmp) = config_with_adaptive_store(vec![changed_group]);
         let changed_store_path = adaptive_store_path(&changed_config).expect("test config has store_path");
         assert!(store_path.exists(), "flush should write adaptive store before reload test");
-        fs::create_dir_all(changed_store_path.parent().expect("adaptive store parent"))
-            .expect("create adaptive store parent directory");
         fs::copy(&store_path, &changed_store_path).expect("copy persisted store");
 
         let reloaded = AdaptivePlannerResolver::load(&changed_config);
         assert!(reloaded.states.is_empty(), "changed group layout should invalidate persisted adaptive state");
-
-        let _ = fs::remove_file(store_path);
-        let _ = fs::remove_file(changed_store_path);
     }
 
     #[test]
     fn adaptive_store_debounce_defers_write_until_flush() {
         let payload = b"GET / HTTP/1.1\r\nHost: debounce.example.test\r\n\r\n";
         let group = tcp_group_with_adaptive_split();
-        let config = config_with_adaptive_store(vec![group.clone()]);
+        let (config, _tmp) = config_with_adaptive_store(vec![group.clone()]);
         let store_path = adaptive_store_path(&config).expect("test config has store_path");
         let target = addr(443);
 
@@ -1571,8 +1564,6 @@ mod tests {
 
         resolver.flush_store(&config);
         assert!(store_path.exists(), "flush should force adaptive store write");
-
-        let _ = fs::remove_file(store_path);
     }
 
     #[test]
