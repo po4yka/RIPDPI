@@ -1050,6 +1050,12 @@ mod tests {
                 min_fragment_size: 12,
                 max_fragment_size: 64,
                 inter_segment_delay_ms: 0,
+                ip_frag_disorder: false,
+                ipv6_hop_by_hop: false,
+                ipv6_dest_opt: false,
+                ipv6_dest_opt2: false,
+                ipv6_routing: false,
+                ipv6_frag_next_override: None,
             },
         ];
 
@@ -1107,8 +1113,17 @@ mod tests {
             build_realistic_quic_initial(QUIC_V2_VERSION, Some("media.example.test")).expect("quic initial payload");
         let mut group = DesyncGroup::new(0);
         group.actions.quic_fake_profile = QuicFakeProfile::RealisticInitial;
-        group.actions.udp_chain =
-            vec![UdpChainStep { kind: UdpChainStepKind::FakeBurst, count: 2, split_bytes: 0, activation_filter: None }];
+        group.actions.udp_chain = vec![UdpChainStep {
+            kind: UdpChainStepKind::FakeBurst,
+            count: 2,
+            split_bytes: 0,
+            activation_filter: None,
+            ip_frag_disorder: false,
+            ipv6_hop_by_hop: false,
+            ipv6_dest_opt: false,
+            ipv6_dest_opt2: false,
+            ipv6_frag_next_override: None,
+        }];
 
         let mut resolver = AdaptivePlannerResolver::default();
         let target = addr(443);
@@ -1171,6 +1186,12 @@ mod tests {
                 min_fragment_size: 12,
                 max_fragment_size: 64,
                 inter_segment_delay_ms: 0,
+                ip_frag_disorder: false,
+                ipv6_hop_by_hop: false,
+                ipv6_dest_opt: false,
+                ipv6_dest_opt2: false,
+                ipv6_routing: false,
+                ipv6_frag_next_override: None,
             },
         ];
         let target = addr(443);

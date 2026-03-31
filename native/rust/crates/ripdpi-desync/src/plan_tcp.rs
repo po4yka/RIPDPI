@@ -5,7 +5,18 @@ use crate::types::{
     activation_filter_matches, ActivationContext, DesyncAction, DesyncError, DesyncPlan, PlannedStep, ProtoInfo,
 };
 use ripdpi_config::{DesyncGroup, TcpChainStep, TcpChainStepKind};
+use ripdpi_ipfrag::Ipv6ExtHeaders;
 use ripdpi_packets::OracleRng;
+
+fn ipv6_ext_from_tcp_step(step: &TcpChainStep) -> Ipv6ExtHeaders {
+    Ipv6ExtHeaders {
+        hop_by_hop: step.ipv6_hop_by_hop,
+        dest_opt: step.ipv6_dest_opt,
+        dest_opt_fragmentable: step.ipv6_dest_opt2,
+        routing: step.ipv6_routing,
+        second_frag_next_override: step.ipv6_frag_next_override,
+    }
+}
 
 fn allows_missing_marker_offset(step: &TcpChainStep) -> bool {
     matches!(step.offset.base, ripdpi_config::OffsetBase::EchExt)
@@ -211,6 +222,8 @@ pub fn plan_tcp(
                     actions.push(DesyncAction::WriteIpFragmentedTcp {
                         bytes: tampered.bytes.clone(),
                         split_offset: pos as usize,
+                        disorder: step.ip_frag_disorder,
+                        ipv6_ext: ipv6_ext_from_tcp_step(&step),
                     });
                 } else {
                     actions.push(DesyncAction::Write(tampered.bytes[lp as usize..].to_vec()));

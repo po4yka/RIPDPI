@@ -198,8 +198,19 @@ pub fn send_ip_fragmented_udp(
     split_offset: usize,
     default_ttl: u8,
     protect_path: Option<&str>,
+    disorder: bool,
+    ipv6_ext: &ripdpi_ipfrag::Ipv6ExtHeaders,
 ) -> io::Result<()> {
-    linux::send_ip_fragmented_udp(upstream, target, payload, split_offset, default_ttl, protect_path)
+    linux::send_ip_fragmented_udp(
+        upstream,
+        target,
+        payload,
+        split_offset,
+        default_ttl,
+        protect_path,
+        disorder,
+        ipv6_ext,
+    )
 }
 
 #[cfg(not(any(target_os = "linux", target_os = "android")))]
@@ -210,6 +221,8 @@ pub fn send_ip_fragmented_udp(
     _split_offset: usize,
     _default_ttl: u8,
     _protect_path: Option<&str>,
+    _disorder: bool,
+    _ipv6_ext: &ripdpi_ipfrag::Ipv6ExtHeaders,
 ) -> io::Result<()> {
     Err(io::Error::new(io::ErrorKind::Unsupported, "only supported on Linux/Android"))
 }
@@ -221,8 +234,10 @@ pub fn send_ip_fragmented_tcp(
     split_offset: usize,
     default_ttl: u8,
     protect_path: Option<&str>,
+    disorder: bool,
+    ipv6_ext: &ripdpi_ipfrag::Ipv6ExtHeaders,
 ) -> io::Result<()> {
-    linux::send_ip_fragmented_tcp(stream, payload, split_offset, default_ttl, protect_path)
+    linux::send_ip_fragmented_tcp(stream, payload, split_offset, default_ttl, protect_path, disorder, ipv6_ext)
 }
 
 #[cfg(not(any(target_os = "linux", target_os = "android")))]
@@ -232,6 +247,8 @@ pub fn send_ip_fragmented_tcp(
     _split_offset: usize,
     _default_ttl: u8,
     _protect_path: Option<&str>,
+    _disorder: bool,
+    _ipv6_ext: &ripdpi_ipfrag::Ipv6ExtHeaders,
 ) -> io::Result<()> {
     Err(io::Error::new(io::ErrorKind::Unsupported, "only supported on Linux/Android"))
 }

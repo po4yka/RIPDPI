@@ -445,7 +445,7 @@ fn execute_udp_actions(
             DesyncAction::Write(bytes) => {
                 upstream.send(bytes)?;
             }
-            DesyncAction::WriteIpFragmentedUdp { bytes, split_offset } => {
+            DesyncAction::WriteIpFragmentedUdp { bytes, split_offset, disorder, ipv6_ext } => {
                 match platform::send_ip_fragmented_udp(
                     upstream,
                     target,
@@ -453,6 +453,8 @@ fn execute_udp_actions(
                     *split_offset,
                     default_ttl,
                     protect_path,
+                    *disorder,
+                    ipv6_ext,
                 ) {
                     Ok(()) => {}
                     Err(err) if err.kind() == io::ErrorKind::InvalidInput => {
