@@ -37,7 +37,7 @@ object RecompositionCounter {
         snapshots.clear()
         snapshots.putAll(current)
 
-        if (lines.isEmpty()) return ""
+        if (lines.isEmpty() || lines.all { it.third == 0 }) return ""
 
         val sb = StringBuilder()
         sb.appendLine("--- Recomposition Report ---")
@@ -81,7 +81,7 @@ fun TrackRecomposition(tag: String) {
         count.intValue++
         RecompositionCounter.record(tag)
         if (count.intValue % 10 == 1) {
-            Logger.withTag("RecomposeTracker").e { "$tag recomposed (#${count.intValue})" }
+            Logger.withTag("RecomposeTracker").d { "$tag recomposed (#${count.intValue})" }
         }
     }
 }
@@ -93,15 +93,14 @@ fun TrackRecomposition(tag: String) {
 @Composable
 fun RecompositionReportEffect(intervalMs: Long = 5_000L) {
     if (!BuildConfig.DEBUG) return
-    Logger.withTag("RecomposeReport").e { "RecompositionReportEffect INSTALLED" }
     LaunchedEffect(Unit) {
-        Logger.withTag("RecomposeReport").e { "LaunchedEffect STARTED" }
+        Logger.withTag("RecomposeReport").d { "RecompositionReportEffect INSTALLED" }
         while (true) {
             delay(intervalMs)
             val report = RecompositionCounter.report()
             if (report.isNotEmpty()) {
                 report.lines().forEach { line ->
-                    Logger.withTag("RecomposeReport").e { line }
+                    Logger.withTag("RecomposeReport").d { line }
                 }
             }
         }

@@ -207,20 +207,21 @@ pub async fn io_loop_task(
                 }
 
                 IpClass::Udp { src, dst, payload } => {
-                    let resolved_dst = resolve_mapped_target(&stats, &mut dns_cache, dst);
-                    forward_udp_payload(
-                        proxy_sockaddr,
-                        &auth,
-                        src,
-                        resolved_dst,
-                        payload,
-                        &mut udp_associations,
-                        &mut next_udp_association_id,
-                        udp_idle_timeout,
-                        &cancel,
-                        &udp_tx,
-                    )
-                    .await;
+                    if let Some(resolved_dst) = resolve_mapped_target(&stats, &mut dns_cache, dst) {
+                        forward_udp_payload(
+                            proxy_sockaddr,
+                            &auth,
+                            src,
+                            resolved_dst,
+                            payload,
+                            &mut udp_associations,
+                            &mut next_udp_association_id,
+                            udp_idle_timeout,
+                            &cancel,
+                            &udp_tx,
+                        )
+                        .await;
+                    }
                 }
             }
         }

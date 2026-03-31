@@ -119,23 +119,23 @@ pub(super) fn resolve_mapped_target(
     stats: &Arc<Stats>,
     dns_cache: &mut Option<DnsCache>,
     dst: SocketAddr,
-) -> SocketAddr {
+) -> Option<SocketAddr> {
     let Some(cache) = dns_cache.as_mut() else {
-        return dst;
+        return Some(dst);
     };
     let IpAddr::V4(v4) = dst.ip() else {
-        return dst;
+        return Some(dst);
     };
     let ip = u32::from(v4);
     if !cache.contains_mapped_ip(ip) {
-        return dst;
+        return Some(dst);
     }
     let Some(entry) = cache.lookup(ip) else {
-        warn!("mapdns reverse lookup miss for synthetic target {}", dst);
-        return dst;
+        warn!("mapdns reverse lookup miss for synthetic target {}; dropping connection", dst);
+        return None;
     };
     stats.record_last_host(Some(&entry.host));
-    SocketAddr::new(IpAddr::V4(Ipv4Addr::from(entry.real_ip)), dst.port())
+    Some(SocketAddr::new(IpAddr::V4(Ipv4Addr::from(entry.real_ip)), dst.port()))
 }
 
 pub(super) fn spawn_dns_worker(
@@ -433,7 +433,20 @@ mod tests {
         let stats = Arc::new(Stats::default());
         let resolved = resolve_mapped_target(&stats, &mut Some(cache), SocketAddr::new(IpAddr::V4(synthetic_ip), 443));
 
-        assert_eq!(resolved, SocketAddr::new(IpAddr::V4(Ipv4Addr::new(203, 0, 113, 10)), 443));
+        assert_eq!(resolved, Some(SocketAddr::new(IpAddr::V4(Ipv4Addr::new(203, 0, 113, 10)), 443)));
+    }
+
+    #[test]
+    fn resolve_mapped_target_returns_none_for_unmapped_synthetic_ip() {
+        let mapdns = test_mapdns();
+        let cache = DnsCache::new(mapdns.synthetic_net, mapdns.synthetic_mask, 8);
+        let stats = Arc::new(Stats::default());
+        // 198.18.0.53 is within the synthetic range but has no cache entry (e.g. the
+        // VPN's own DNS intercept address). Attempting to proxy traffic to it would
+        // loop and time out, so resolve_mapped_target must return None.
+        let synthetic_dns = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(198, 18, 0, 53)), 853);
+        let resolved = resolve_mapped_target(&stats, &mut Some(cache), synthetic_dns);
+        assert_eq!(resolved, None);
     }
 
     #[test]
