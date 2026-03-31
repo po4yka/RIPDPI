@@ -27,6 +27,7 @@ pub(crate) enum JniProxyError {
 
 impl JniProxyError {
     pub(crate) fn throw(self, env: &mut Env<'_>) {
+        log::error!("JNI proxy error: {self:?}");
         match self {
             Self::InvalidConfig(message) => {
                 throw_illegal_argument_env(env, format!("invalid configuration: {message}"));
