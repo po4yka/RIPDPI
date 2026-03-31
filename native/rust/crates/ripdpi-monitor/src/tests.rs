@@ -14,7 +14,7 @@ use crate::connectivity::{run_dns_probe, run_domain_probe, run_tcp_probe};
 use crate::execution::freeze_adaptive_fake_ttl_for_probe;
 use crate::strategy::detect_strategy_probe_dns_tampering;
 use crate::test_fixtures::*;
-use crate::tls::{classify_tls_signal, try_tls_handshake, TlsClientProfile, TlsObservation};
+use crate::tls::{classify_tls_signal, try_tls_handshake, NoCertificateVerification, TlsClientProfile, TlsObservation};
 use crate::transport::{TargetAddress, TransportConfig};
 use crate::util::{probe_session_seed, DEFAULT_DNS_SERVER};
 
@@ -24,7 +24,7 @@ use ripdpi_proxy_config::{
 };
 
 use std::net::{IpAddr, Ipv4Addr};
-use std::sync::{Mutex, MutexGuard};
+use std::sync::{Arc, Mutex, MutexGuard};
 use std::thread;
 use std::time::Duration;
 
@@ -355,6 +355,7 @@ fn try_tls_handshake_forces_tls_on_non_default_https_port() {
     let _serial = lock_network_probes();
     let server = TlsHttpServer::start(TlsMode::Single("localhost".to_string()), FatServerMode::AlwaysOk);
     let target = TargetAddress::Ip(IpAddr::V4(Ipv4Addr::LOCALHOST));
+    let no_verify: Arc<dyn rustls::client::danger::ServerCertVerifier> = Arc::new(NoCertificateVerification);
     let mut tls = try_tls_handshake(
         &target,
         server.port(),
@@ -362,7 +363,7 @@ fn try_tls_handshake_forces_tls_on_non_default_https_port() {
         "localhost",
         false,
         TlsClientProfile::Tls13Only,
-        None,
+        Some(&no_verify),
     );
     for _ in 0..4 {
         if tls.status == "tls_ok" {
@@ -376,7 +377,7 @@ fn try_tls_handshake_forces_tls_on_non_default_https_port() {
             "localhost",
             false,
             TlsClientProfile::Tls13Only,
-            None,
+            Some(&no_verify),
         );
     }
 

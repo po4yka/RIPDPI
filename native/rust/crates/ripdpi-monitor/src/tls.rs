@@ -236,10 +236,8 @@ pub(crate) fn open_probe_stream(
     match tls_name {
         Some(name) if verify_certificates || port == 443 || !matches!(profile, TlsClientProfile::Auto) => {
             let config = match profile {
-                TlsClientProfile::Tls13WithEch => {
-                    build_ech_client_config(name, transport, verify_certificates, tls_verifier)?
-                }
-                _ => build_standard_client_config(profile, verify_certificates, tls_verifier),
+                TlsClientProfile::Tls13WithEch => build_ech_client_config(name, transport, tls_verifier)?,
+                _ => build_standard_client_config(profile, tls_verifier),
             };
             let server_name = make_server_name(name, target)?;
             let mut connection = ClientConnection::new(config, server_name).map_err(|err| err.to_string())?;
@@ -418,7 +416,6 @@ fn read_der_length(data: &[u8]) -> Option<(usize, usize)> {
 
 fn build_standard_client_config(
     profile: TlsClientProfile,
-    verify_certificates: bool,
     tls_verifier: Option<&Arc<dyn ServerCertVerifier>>,
 ) -> Arc<ClientConfig> {
     let builder = match profile {
@@ -436,26 +433,16 @@ fn build_standard_client_config(
                 .expect("ring provider supports TLS1.3")
         }
     };
-    if verify_certificates {
-        if let Some(verifier) = tls_verifier {
-            Arc::new(builder.dangerous().with_custom_certificate_verifier(verifier.clone()).with_no_client_auth())
-        } else {
-            Arc::new(builder.with_root_certificates(default_root_store()).with_no_client_auth())
-        }
+    if let Some(verifier) = tls_verifier {
+        Arc::new(builder.dangerous().with_custom_certificate_verifier(verifier.clone()).with_no_client_auth())
     } else {
-        Arc::new(
-            builder
-                .dangerous()
-                .with_custom_certificate_verifier(Arc::new(NoCertificateVerification))
-                .with_no_client_auth(),
-        )
+        Arc::new(builder.with_root_certificates(default_root_store()).with_no_client_auth())
     }
 }
 
 fn build_ech_client_config(
     server_name: &str,
     transport: &TransportConfig,
-    verify_certificates: bool,
     tls_verifier: Option<&Arc<dyn ServerCertVerifier>>,
 ) -> Result<Arc<ClientConfig>, String> {
     let ech_config_list = match resolve_https_ech_configs_via_encrypted_dns(server_name, transport) {
@@ -474,19 +461,10 @@ fn build_ech_client_config(
     let builder = ClientConfig::builder_with_provider(provider.into())
         .with_ech(EchMode::Enable(ech_config))
         .map_err(|err| err.to_string())?;
-    let config = if verify_certificates {
-        if let Some(verifier) = tls_verifier {
-            Arc::new(builder.dangerous().with_custom_certificate_verifier(verifier.clone()).with_no_client_auth())
-        } else {
-            Arc::new(builder.with_root_certificates(default_root_store()).with_no_client_auth())
-        }
+    let config = if let Some(verifier) = tls_verifier {
+        Arc::new(builder.dangerous().with_custom_certificate_verifier(verifier.clone()).with_no_client_auth())
     } else {
-        Arc::new(
-            builder
-                .dangerous()
-                .with_custom_certificate_verifier(Arc::new(NoCertificateVerification))
-                .with_no_client_auth(),
-        )
+        Arc::new(builder.with_root_certificates(default_root_store()).with_no_client_auth())
     };
     Ok(config)
 }
