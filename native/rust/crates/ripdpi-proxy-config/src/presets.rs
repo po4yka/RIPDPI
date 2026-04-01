@@ -2,6 +2,12 @@
 //!
 //! Each preset applies a known-good set of defaults to a `ProxyUiConfig`.
 
+use ripdpi_config::{
+    DesyncGroup, OffsetBase, OffsetExpr, RuntimeConfig, TcpChainStep, TcpChainStepKind, DETECT_CONNECT, FM_ORIG,
+    FM_RNDSNI,
+};
+use ripdpi_packets::{IS_HTTP, IS_HTTPS};
+
 use crate::{ProxyConfigError, ProxyUiConfig, ProxyUiTcpChainStep, FAKE_PAYLOAD_PROFILE_COMPAT_DEFAULT};
 
 /// Apply the named preset to `config`.
@@ -73,6 +79,111 @@ fn apply_ripdpi_default(c: &mut ProxyUiConfig) -> Result<(), ProxyConfigError> {
     Ok(())
 }
 
+/// Apply a runtime-level preset that injects fallback desync groups into the
+/// already-built `RuntimeConfig`. This runs *after* `runtime_config_from_ui`
+/// so we can add multiple groups without changing the single-chain UI model.
+pub fn apply_runtime_preset(preset_id: &str, config: &mut RuntimeConfig) -> Result<(), ProxyConfigError> {
+    match preset_id {
+        "ripdpi_default" => apply_ripdpi_default_fallback_groups(config),
+        // Other presets use single-group strategies for now.
+        _ => Ok(()),
+    }
+}
+
+/// Inject 3 fallback groups for the `ripdpi_default` preset so the runtime
+/// can automatically cascade through strategies when DPI blocks the primary.
+///
+/// Cascade order (field-tested against Russian middlebox):
+/// 1. Primary: disorder(host) -- current default, works on most ISPs
+/// 2. tlsrec(extlen) + fake(host+1) -- TLS record split + fake, proven combo
+/// 3. tlsrec(extlen) + disorder(host+1) -- TLS record + out-of-order delivery
+/// 4. split(host+2) -- minimal split for passive DPI (MGTS-style)
+fn apply_ripdpi_default_fallback_groups(config: &mut RuntimeConfig) -> Result<(), ProxyConfigError> {
+    let primary = config
+        .groups
+        .iter()
+        .find(|g| !g.actions.tcp_chain.is_empty())
+        .ok_or_else(|| {
+            ProxyConfigError::InvalidConfig("No actionable primary group found for fallback injection".into())
+        })?
+        .clone();
+
+    let fallback_groups = vec![
+        build_fallback_group(
+            0, // placeholder, reindex fixes it
+            "tlsrec_fake",
+            vec![
+                TcpChainStep::new(TcpChainStepKind::TlsRec, OffsetExpr::marker(OffsetBase::ExtLen, 0)),
+                TcpChainStep::new(TcpChainStepKind::Fake, OffsetExpr::marker(OffsetBase::Host, 1)),
+            ],
+            &primary,
+            true, // needs fake_mod
+        ),
+        build_fallback_group(
+            0,
+            "tlsrec_disorder",
+            vec![
+                TcpChainStep::new(TcpChainStepKind::TlsRec, OffsetExpr::marker(OffsetBase::ExtLen, 0)),
+                TcpChainStep::new(TcpChainStepKind::Disorder, OffsetExpr::marker(OffsetBase::Host, 1)),
+            ],
+            &primary,
+            false,
+        ),
+        build_fallback_group(
+            0,
+            "split_host",
+            vec![TcpChainStep::new(TcpChainStepKind::Split, OffsetExpr::marker(OffsetBase::Host, 2))],
+            &primary,
+            false,
+        ),
+    ];
+
+    // Insert before CONNECT passthrough group (must remain last).
+    let insert_pos =
+        config.groups.iter().position(|g| g.matches.detect == DETECT_CONNECT).unwrap_or(config.groups.len());
+
+    for (i, group) in fallback_groups.into_iter().enumerate() {
+        config.groups.insert(insert_pos + i, group);
+    }
+
+    reindex_groups(config);
+    config.network.delay_conn = config
+        .groups
+        .iter()
+        .any(|g| !g.matches.filters.hosts.is_empty() || (g.matches.proto & (IS_HTTP | IS_HTTPS)) != 0);
+
+    Ok(())
+}
+
+fn build_fallback_group(
+    id: usize,
+    label: &str,
+    tcp_chain: Vec<TcpChainStep>,
+    primary: &DesyncGroup,
+    needs_fake_mod: bool,
+) -> DesyncGroup {
+    let mut g = DesyncGroup::new(id);
+    g.matches.proto = primary.matches.proto;
+    g.actions.tcp_chain = tcp_chain;
+    g.actions.auto_ttl = primary.actions.auto_ttl;
+    g.actions.ttl = primary.actions.ttl;
+    g.actions.tls_fake_profile = primary.actions.tls_fake_profile;
+    g.actions.http_fake_profile = primary.actions.http_fake_profile;
+    g.actions.drop_sack = primary.actions.drop_sack;
+    if needs_fake_mod {
+        g.actions.fake_mod = FM_ORIG | FM_RNDSNI;
+    }
+    g.policy.label = label.to_string();
+    g
+}
+
+fn reindex_groups(config: &mut RuntimeConfig) {
+    for (i, group) in config.groups.iter_mut().enumerate() {
+        group.id = i;
+        group.bit = 1u64 << i;
+    }
+}
+
 fn tcp_step(kind: &str, marker: &str) -> ProxyUiTcpChainStep {
     ProxyUiTcpChainStep {
         kind: kind.to_string(),
@@ -137,5 +248,78 @@ mod tests {
             apply_preset(preset, &mut c).unwrap();
             runtime_config_from_ui(c).unwrap_or_else(|e| panic!("preset {preset} failed validation: {e}"));
         }
+    }
+
+    #[test]
+    fn ripdpi_default_runtime_preset_adds_fallback_groups() {
+        use crate::runtime_config_from_ui;
+        let mut c = base();
+        apply_preset("ripdpi_default", &mut c).unwrap();
+        let mut config = runtime_config_from_ui(c).unwrap();
+        let groups_before = config.groups.len();
+        apply_runtime_preset("ripdpi_default", &mut config).unwrap();
+        assert!(
+            config.groups.len() >= groups_before + 3,
+            "expected at least 3 fallback groups added, got {} total (was {})",
+            config.groups.len(),
+            groups_before,
+        );
+    }
+
+    #[test]
+    fn ripdpi_default_fallback_group_indices_are_sequential() {
+        use crate::runtime_config_from_ui;
+        let mut c = base();
+        apply_preset("ripdpi_default", &mut c).unwrap();
+        let mut config = runtime_config_from_ui(c).unwrap();
+        apply_runtime_preset("ripdpi_default", &mut config).unwrap();
+        for (i, group) in config.groups.iter().enumerate() {
+            assert_eq!(group.id, i, "group at index {i} has id {}", group.id);
+            assert_eq!(group.bit, 1u64 << i, "group at index {i} has wrong bit");
+        }
+    }
+
+    #[test]
+    fn ripdpi_default_connect_passthrough_remains_last() {
+        use crate::runtime_config_from_ui;
+        let mut c = base();
+        apply_preset("ripdpi_default", &mut c).unwrap();
+        let mut config = runtime_config_from_ui(c).unwrap();
+        apply_runtime_preset("ripdpi_default", &mut config).unwrap();
+        let last = config.groups.last().expect("at least one group");
+        assert_eq!(last.matches.detect, DETECT_CONNECT, "CONNECT passthrough must be the last group",);
+    }
+
+    #[test]
+    fn ripdpi_default_fallback_groups_inherit_proto_mask() {
+        use crate::runtime_config_from_ui;
+        let mut c = base();
+        apply_preset("ripdpi_default", &mut c).unwrap();
+        let mut config = runtime_config_from_ui(c).unwrap();
+        apply_runtime_preset("ripdpi_default", &mut config).unwrap();
+        let primary = &config.groups[0];
+        let proto = primary.matches.proto;
+        assert_ne!(proto, 0, "primary group should have protocol flags");
+        for group in &config.groups[1..] {
+            if group.matches.detect == DETECT_CONNECT {
+                continue;
+            }
+            assert_eq!(
+                group.matches.proto, proto,
+                "fallback group '{}' should inherit proto mask from primary",
+                group.policy.label,
+            );
+        }
+    }
+
+    #[test]
+    fn non_ripdpi_preset_runtime_is_noop() {
+        use crate::runtime_config_from_ui;
+        let mut c = base();
+        apply_preset("russia_mgts", &mut c).unwrap();
+        let mut config = runtime_config_from_ui(c).unwrap();
+        let groups_before = config.groups.len();
+        apply_runtime_preset("russia_mgts", &mut config).unwrap();
+        assert_eq!(config.groups.len(), groups_before, "non-ripdpi presets should not add groups");
     }
 }
