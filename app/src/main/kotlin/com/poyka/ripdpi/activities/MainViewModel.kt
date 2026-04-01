@@ -398,7 +398,6 @@ class MainViewModel
                             settings = settings,
                             appStatus = status,
                             connectionState = effectiveConnectionState,
-                            permissionSummary = permissionSummary,
                             runtime = homeDiagnostics,
                             stringResolver = stringResolver,
                         ),

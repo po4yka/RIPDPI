@@ -49,7 +49,7 @@
       "maxProductionLoc": 18
     },
     {
-      "path": "native/rust/crates/ripdpi-config/src/model.rs",
+      "path": "native/rust/crates/ripdpi-config/src/model/mod.rs",
       "maxProductionLoc": 618
     },
     {

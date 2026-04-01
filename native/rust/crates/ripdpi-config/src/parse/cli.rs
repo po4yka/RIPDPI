@@ -250,48 +250,18 @@ pub fn parse_cli(args: &[String], startup: &StartupEnv) -> Result<ParseResult, C
                 group!().actions.shannon_entropy_target_permil = Some((f * 1000.0) as u32);
             }
             "--quic-sni-split" => {
-                group!().actions.udp_chain.push(UdpChainStep {
-                    kind: UdpChainStepKind::QuicSniSplit,
-                    count: 1,
-                    split_bytes: 0,
-                    activation_filter: None,
-                    ip_frag_disorder: false,
-                    ipv6_hop_by_hop: false,
-                    ipv6_dest_opt: false,
-                    ipv6_dest_opt2: false,
-                    ipv6_frag_next_override: None,
-                });
+                group!().actions.udp_chain.push(UdpChainStep::new(UdpChainStepKind::QuicSniSplit, 1));
             }
             "--quic-low-port" => group!().actions.quic_bind_low_port = true,
             "--quic-dummy-prepend" => {
-                group!().actions.udp_chain.push(UdpChainStep {
-                    kind: UdpChainStepKind::DummyPrepend,
-                    count: 1,
-                    split_bytes: 0,
-                    activation_filter: None,
-                    ip_frag_disorder: false,
-                    ipv6_hop_by_hop: false,
-                    ipv6_dest_opt: false,
-                    ipv6_dest_opt2: false,
-                    ipv6_frag_next_override: None,
-                });
+                group!().actions.udp_chain.push(UdpChainStep::new(UdpChainStepKind::DummyPrepend, 1));
             }
             "--quic-fake-version" => {
                 let value = next_value(&effective_args, &mut idx, arg)?;
                 let version = u32::from_str_radix(value.trim_start_matches("0x").trim_start_matches("0X"), 16)
                     .map_err(|_| ConfigError::invalid(arg, Some(value)))?;
                 group!().actions.quic_fake_version = version;
-                group!().actions.udp_chain.push(UdpChainStep {
-                    kind: UdpChainStepKind::QuicFakeVersion,
-                    count: 1,
-                    split_bytes: 0,
-                    activation_filter: None,
-                    ip_frag_disorder: false,
-                    ipv6_hop_by_hop: false,
-                    ipv6_dest_opt: false,
-                    ipv6_dest_opt2: false,
-                    ipv6_frag_next_override: None,
-                });
+                group!().actions.udp_chain.push(UdpChainStep::new(UdpChainStepKind::QuicFakeVersion, 1));
             }
             "--quic-migrate" => group!().actions.quic_migrate_after_handshake = true,
             "-Z" | "--wait-send" => config.timeouts.wait_send = true,
@@ -606,17 +576,7 @@ pub fn parse_cli(args: &[String], startup: &StartupEnv) -> Result<ParseResult, C
                     return Err(ConfigError::invalid(arg, Some(value)));
                 }
                 if count > 0 {
-                    group!().actions.udp_chain.push(UdpChainStep {
-                        kind: UdpChainStepKind::FakeBurst,
-                        count,
-                        split_bytes: 0,
-                        activation_filter: None,
-                        ip_frag_disorder: false,
-                        ipv6_hop_by_hop: false,
-                        ipv6_dest_opt: false,
-                        ipv6_dest_opt2: false,
-                        ipv6_frag_next_override: None,
-                    });
+                    group!().actions.udp_chain.push(UdpChainStep::new(UdpChainStepKind::FakeBurst, count));
                 }
             }
             "--fake-quic-profile" => {

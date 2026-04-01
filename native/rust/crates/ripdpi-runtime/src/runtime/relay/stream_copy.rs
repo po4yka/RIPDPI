@@ -73,26 +73,22 @@ pub(super) fn relay_streams(
     session_seed: SessionState,
     remembered_host_seed: Option<String>,
 ) -> io::Result<SessionState> {
-    let _ = client.set_read_timeout(Some(RELAY_IDLE_TIMEOUT));
-    let _ = client.set_write_timeout(None);
-    let _ = upstream.set_read_timeout(Some(RELAY_IDLE_TIMEOUT));
-    let _ = upstream.set_write_timeout(None);
+    let _ = (client.set_read_timeout(Some(RELAY_IDLE_TIMEOUT)), client.set_write_timeout(None));
+    let _ = (upstream.set_read_timeout(Some(RELAY_IDLE_TIMEOUT)), upstream.set_write_timeout(None));
 
-    let client_reader =
-        client.try_clone().map_err(|e| io::Error::other(format!("clone client socket for relay reader: {e}")))?;
-    let client_writer =
-        client.try_clone().map_err(|e| io::Error::other(format!("clone client socket for relay writer: {e}")))?;
-    let upstream_reader =
-        upstream.try_clone().map_err(|e| io::Error::other(format!("clone upstream socket for relay reader: {e}")))?;
-    let upstream_writer =
-        upstream.try_clone().map_err(|e| io::Error::other(format!("clone upstream socket for relay writer: {e}")))?;
+    fn clone_err(role: &'static str) -> impl FnOnce(io::Error) -> io::Error {
+        move |e| io::Error::other(format!("clone {role} socket for relay: {e}"))
+    }
+    let client_reader = client.try_clone().map_err(clone_err("client"))?;
+    let client_writer = client.try_clone().map_err(clone_err("client"))?;
+    let upstream_reader = upstream.try_clone().map_err(clone_err("upstream"))?;
+    let upstream_writer = upstream.try_clone().map_err(clone_err("upstream"))?;
     let session_state = Arc::new(Mutex::new(session_seed));
     let outbound_session = session_state.clone();
     let inbound_session = session_state.clone();
     let outbound_state = state.clone();
-    let group = state
-        .config
-        .groups
+    let groups = &state.config.groups;
+    let group = groups
         .get(group_index)
         .cloned()
         .ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, "missing desync group"))?;
@@ -140,8 +136,7 @@ pub(super) fn relay_streams(
         let _ = platform::detach_drop_sack(&upstream);
     }
 
-    up_result?;
-    down_result?;
+    up_result.and(down_result)?;
 
     if freeze_detected.load(Ordering::Acquire) {
         return Err(io::Error::new(io::ErrorKind::TimedOut, CONNECTION_FREEZE_MARKER));
@@ -204,28 +199,16 @@ fn flush_outbound_payload(
         let mut state = session.lock().map_err(|_| io::Error::other("session mutex poisoned"))?;
         state.observe_outbound(payload)
     };
-    let parsed_host = extract_host(&state.config, payload);
-    if parsed_host.is_some() {
-        *remembered_host = parsed_host.clone();
-    }
-    let group = state
-        .config
-        .groups
+    *remembered_host = extract_host(&state.config, payload).or_else(|| remembered_host.take());
+    let groups = &state.config.groups;
+    let group = groups
         .get(group_index)
         .cloned()
         .ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, "missing desync group"))?;
     let peer_addr = writer.peer_addr()?;
-    let send_outcome = send_with_group(
-        writer,
-        state,
-        group_index,
-        &group,
-        payload,
-        progress,
-        parsed_host.as_deref().or(remembered_host.as_deref()),
-        peer_addr,
-    )
-    .map_err(OutboundSendError::into_io_error)?;
+    let send_outcome =
+        send_with_group(writer, state, group_index, &group, payload, progress, remembered_host.as_deref(), peer_addr)
+            .map_err(OutboundSendError::into_io_error)?;
     tracing::trace!(
         target = %peer_addr,
         strategy_family = send_outcome.strategy_family.unwrap_or("plain"),

@@ -68,6 +68,42 @@ fn strategy_probe_live_progress(
     }
 }
 
+/// Tracks consecutive failures within a candidate family, blocking the family
+/// after two consecutive failures to avoid wasting probe budget.
+struct FamilyFailureTracker<'a> {
+    blocked: Option<&'a str>,
+    last_failed: Option<&'a str>,
+    consecutive: usize,
+}
+
+impl<'a> FamilyFailureTracker<'a> {
+    fn new() -> Self {
+        Self { blocked: None, last_failed: None, consecutive: 0 }
+    }
+
+    fn record(&mut self, family: &'a str, failed: bool) {
+        if failed {
+            if self.last_failed == Some(family) {
+                self.consecutive += 1;
+            } else {
+                self.last_failed = Some(family);
+                self.consecutive = 1;
+            }
+            if self.consecutive >= 2 {
+                self.blocked = Some(family);
+                self.consecutive = 0;
+            }
+        } else {
+            self.last_failed = None;
+            self.consecutive = 0;
+            self.blocked = None;
+        }
+        if self.blocked.is_some() && family != self.blocked.unwrap_or_default() {
+            self.blocked = None;
+        }
+    }
+}
+
 fn probe_detail_value<'a>(result: &'a ProbeResult, key: &str) -> Option<&'a str> {
     result.details.iter().find(|detail| detail.key == key).map(|detail| detail.value.as_str())
 }
@@ -254,44 +290,28 @@ fn resolve_strategy_probe_audit_assessment(
         });
     }
 
+    let penalty_table: &[(bool, i32, &str)] = &[
+        (dns_short_circuited, 45, "Baseline DNS tampering short-circuited the audit before fallback candidates ran."),
+        (
+            weak_winner_coverage,
+            25,
+            "The winning TCP or QUIC lane recovered too few weighted targets to trust the recommendation.",
+        ),
+        (low_tcp_execution, 15, "TCP matrix coverage stayed below 75% of applicable candidates."),
+        (low_quic_execution, 15, "QUIC matrix coverage stayed below 75% of applicable candidates."),
+        (narrow_tcp_margin, 10, "TCP winner margin stayed below 10 points over the next candidate."),
+        (narrow_quic_margin, 10, "QUIC winner margin stayed below 10 points over the next candidate."),
+        (all_tcp_tied, 20, "All TCP candidates produced identical results; the winner is arbitrary."),
+        (all_quic_tied, 15, "All QUIC candidates produced identical results; the winner is arbitrary."),
+    ];
     let mut score = 100i32;
     let mut warnings = Vec::new();
-
-    if dns_short_circuited {
-        score -= 45;
-        warnings.push("Baseline DNS tampering short-circuited the audit before fallback candidates ran.".to_string());
+    for &(condition, penalty, message) in penalty_table {
+        if condition {
+            score -= penalty;
+            warnings.push(message.to_string());
+        }
     }
-    if weak_winner_coverage {
-        score -= 25;
-        warnings.push(
-            "The winning TCP or QUIC lane recovered too few weighted targets to trust the recommendation.".to_string(),
-        );
-    }
-    if low_tcp_execution {
-        score -= 15;
-        warnings.push("TCP matrix coverage stayed below 75% of applicable candidates.".to_string());
-    }
-    if low_quic_execution {
-        score -= 15;
-        warnings.push("QUIC matrix coverage stayed below 75% of applicable candidates.".to_string());
-    }
-    if narrow_tcp_margin {
-        score -= 10;
-        warnings.push("TCP winner margin stayed below 10 points over the next candidate.".to_string());
-    }
-    if narrow_quic_margin {
-        score -= 10;
-        warnings.push("QUIC winner margin stayed below 10 points over the next candidate.".to_string());
-    }
-    if all_tcp_tied {
-        score -= 20;
-        warnings.push("All TCP candidates produced identical results; the winner is arbitrary.".to_string());
-    }
-    if all_quic_tied {
-        score -= 15;
-        warnings.push("All QUIC candidates produced identical results; the winner is arbitrary.".to_string());
-    }
-
     let score = score.clamp(0, 100) as usize;
     let level = if score >= 80 {
         StrategyProbeAuditConfidenceLevel::High
@@ -540,12 +560,10 @@ impl ExecutionStageRunner for StrategyTcpRunner {
             strategy_plan.probe_seed,
         );
         let mut pending_tcp_specs = ordered_tcp_specs;
-        let mut blocked_tcp_family = None::<&str>;
-        let mut last_failed_tcp_family = None::<&str>;
-        let mut consecutive_tcp_family_failures = 0usize;
+        let mut tcp_failure_tracker = FamilyFailureTracker::new();
         while !pending_tcp_specs.is_empty() {
             let candidate_index = runtime.strategy.tcp_candidates.len() + 1;
-            let spec = pending_tcp_specs.remove(next_candidate_index(&pending_tcp_specs, blocked_tcp_family));
+            let spec = pending_tcp_specs.remove(next_candidate_index(&pending_tcp_specs, tcp_failure_tracker.blocked));
             if runtime.is_cancelled() {
                 return RunnerOutcome::Cancelled;
             }
@@ -649,25 +667,7 @@ impl ExecutionStageRunner for StrategyTcpRunner {
                 ),
             );
             runtime.strategy.tcp_candidates.push(execution.summary);
-            if failed {
-                if last_failed_tcp_family == Some(spec.family) {
-                    consecutive_tcp_family_failures += 1;
-                } else {
-                    last_failed_tcp_family = Some(spec.family);
-                    consecutive_tcp_family_failures = 1;
-                }
-                if consecutive_tcp_family_failures >= 2 {
-                    blocked_tcp_family = Some(spec.family);
-                    consecutive_tcp_family_failures = 0;
-                }
-            } else {
-                last_failed_tcp_family = None;
-                consecutive_tcp_family_failures = 0;
-                blocked_tcp_family = None;
-            }
-            if blocked_tcp_family.is_some() && spec.family != blocked_tcp_family.unwrap_or_default() {
-                blocked_tcp_family = None;
-            }
+            tcp_failure_tracker.record(spec.family, failed);
             if !pending_tcp_specs.is_empty() {
                 thread::sleep(Duration::from_millis(candidate_pause_ms(strategy_plan.probe_seed, &spec, failed)));
             }
@@ -724,12 +724,11 @@ impl ExecutionStageRunner for StrategyQuicRunner {
         let mut pending_quic_specs =
             interleave_candidate_families(quic_specs.clone(), stable_probe_hash(strategy_plan.probe_seed, "quic"));
         let mut quic_family_succeeded = false;
-        let mut blocked_quic_family = None::<&str>;
-        let mut last_failed_quic_family = None::<&str>;
-        let mut consecutive_quic_family_failures = 0usize;
+        let mut quic_failure_tracker = FamilyFailureTracker::new();
         while !pending_quic_specs.is_empty() {
             let candidate_index = runtime.strategy.quic_candidates.len() + 1;
-            let spec = pending_quic_specs.remove(next_candidate_index(&pending_quic_specs, blocked_quic_family));
+            let spec =
+                pending_quic_specs.remove(next_candidate_index(&pending_quic_specs, quic_failure_tracker.blocked));
             if runtime.is_cancelled() {
                 return RunnerOutcome::Cancelled;
             }
@@ -803,25 +802,7 @@ impl ExecutionStageRunner for StrategyQuicRunner {
                 ),
             );
             runtime.strategy.quic_candidates.push(execution.summary);
-            if failed {
-                if last_failed_quic_family == Some(spec.family) {
-                    consecutive_quic_family_failures += 1;
-                } else {
-                    last_failed_quic_family = Some(spec.family);
-                    consecutive_quic_family_failures = 1;
-                }
-                if consecutive_quic_family_failures >= 2 {
-                    blocked_quic_family = Some(spec.family);
-                    consecutive_quic_family_failures = 0;
-                }
-            } else {
-                last_failed_quic_family = None;
-                consecutive_quic_family_failures = 0;
-                blocked_quic_family = None;
-            }
-            if blocked_quic_family.is_some() && spec.family != blocked_quic_family.unwrap_or_default() {
-                blocked_quic_family = None;
-            }
+            quic_failure_tracker.record(spec.family, failed);
             if !pending_quic_specs.is_empty() {
                 thread::sleep(Duration::from_millis(candidate_pause_ms(strategy_plan.probe_seed, &spec, failed)));
             }

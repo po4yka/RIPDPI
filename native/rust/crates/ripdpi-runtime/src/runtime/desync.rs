@@ -500,7 +500,7 @@ fn execute_tcp_actions(
                             default_ttl,
                             None,
                             *disorder,
-                            ipv6_ext,
+                            *ipv6_ext,
                             "write_ipfrag2",
                             strategy_family,
                             fallback,
@@ -533,7 +533,7 @@ fn execute_tcp_actions(
                             default_ttl,
                             None,
                             *disorder,
-                            ipv6_ext,
+                            *ipv6_ext,
                         ) {
                             Ok(()) => {
                                 bytes_committed += bytes.len();
@@ -1044,7 +1044,7 @@ fn execute_tcp_plan(
                     config.network.default_ttl,
                     config.process.protect_path.as_deref(),
                     false, // disorder not available in legacy plan path
-                    &ripdpi_ipfrag::Ipv6ExtHeaders::default(),
+                    ripdpi_ipfrag::Ipv6ExtHeaders::default(),
                     "write_ipfrag2",
                     step_family,
                     step_fallback,
@@ -1545,7 +1545,7 @@ fn send_ip_fragmented_tcp_action_named(
     default_ttl: u8,
     protect_path: Option<&str>,
     disorder: bool,
-    ipv6_ext: &ripdpi_ipfrag::Ipv6ExtHeaders,
+    ipv6_ext: ripdpi_ipfrag::Ipv6ExtHeaders,
     action: &'static str,
     strategy_family: &'static str,
     fallback: Option<&'static str>,
