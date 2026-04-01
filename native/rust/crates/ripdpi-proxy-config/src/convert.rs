@@ -195,9 +195,8 @@ pub fn runtime_config_envelope_from_payload(
             }
             let native_log_level = config.native_log_level.clone();
             let mut runtime_config = runtime_config_from_ui(config)?;
-            if let Some(ref preset_id) = preset_id_opt {
-                presets::apply_runtime_preset(preset_id, &mut runtime_config)?;
-            }
+            let runtime_preset_id = preset_id_opt.as_deref().unwrap_or("ripdpi_default");
+            presets::apply_runtime_preset(runtime_preset_id, &mut runtime_config)?;
             Ok(RuntimeConfigEnvelope {
                 config: runtime_config,
                 runtime_context: sanitize_runtime_context(runtime_context),
