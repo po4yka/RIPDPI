@@ -238,14 +238,29 @@ The project uses GitHub Actions for continuous integration and release automatio
 **PR / push CI** (`.github/workflows/ci.yml`) currently runs:
 
 - `build`: debug APK build, ELF verification, native size verification, JVM unit tests
-- `static-analysis`: Rust formatting/clippy/tests, cargo-deny, Android static analysis
-- `rust-network-e2e`: repo-owned local-network proxy E2E plus focused vendored parity smoke
-- `android-network-e2e`: emulator-based instrumentation E2E against the local fixture stack
+- `release-verification`: release APK build verification
+- `native-bloat`: cargo-bloat checks for native code size
+- `cargo-deny`: dependency vulnerability scanning
+- `rust-lint`: Rust formatting and Clippy checks
+- `rust-cross-check`: Android ABI cross-compilation verification
+- `rust-workspace-tests`: Rust workspace tests via cargo-nextest
+- `gradle-static-analysis`: detekt, ktlint, Android lint
+- `rust-network-e2e`: local-network proxy E2E plus vendored parity smoke
+- `cli-packet-smoke`: CLI proxy behavioral verification with pcap capture
+- `rust-turmoil`: deterministic fault-injection network tests
+- `coverage`: JaCoCo and Rust LLVM coverage
+- `rust-loom`: exhaustive concurrency verification
 
 **Nightly / manual CI** adds:
 
-- `rust-native-soak`: host-side native soak for proxy and diagnostics runtimes
-- `linux-tun-e2e`: privileged Linux TUN E2E and TUN soak coverage
+- `rust-criterion-bench`: Criterion micro-benchmarks
+- `android-macrobenchmark`: Android macro-benchmarks
+- `rust-native-soak`: host-side native endurance tests
+- `rust-native-load`: high-concurrency ramp-up, burst, and saturation tests
+- `nightly-rust-coverage`: coverage including ignored tests
+- `android-network-e2e`: emulator-based instrumentation E2E
+- `linux-tun-e2e`: privileged Linux TUN E2E
+- `linux-tun-soak`: privileged Linux TUN endurance tests
 
 Golden diff artifacts, Android reports, fixture logs, and soak metrics are uploaded when produced by the workflow.
 
