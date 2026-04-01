@@ -168,7 +168,7 @@ Triggered by `v*` tags or manual dispatch.
 Key behaviors:
 
 1. Decode the base64 keystore secret.
-2. Run `./gradlew bundleRelease assembleRelease`.
+2. Run `./gradlew bundleRelease -Pripdpi.enableAbiSplits=false` then `./gradlew assembleRelease`.
 3. Upload AAB, APK, mapping files, compose mapping, and native symbols.
 4. Optionally create a GitHub Release.
 

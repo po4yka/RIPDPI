@@ -56,9 +56,10 @@ extensions.configure<ApplicationExtension> {
         targetSdk = providers.gradleProperty("ripdpi.targetSdk").get().toInt()
     }
 
+    val abiSplitsEnabled = providers.gradleProperty("ripdpi.enableAbiSplits").map(String::toBoolean).getOrElse(true)
     splits {
         abi {
-            isEnable = true
+            isEnable = abiSplitsEnabled
             isUniversalApk = true
             reset()
             val nativeAbis = parseAbiList(providers.gradleProperty("ripdpi.nativeAbis").get())

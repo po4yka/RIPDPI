@@ -52,14 +52,23 @@ jobs:
       - name: Decode keystore
         run: echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > $GITHUB_WORKSPACE/release.keystore
 
-      - name: Build release AAB and APK
+      - name: Build release AAB (no ABI splits)
         env:
           RUSTC_WRAPPER: sccache
           RIPDPI_SIGNING_STORE_FILE: ${{ github.workspace }}/release.keystore
           RIPDPI_SIGNING_STORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           RIPDPI_SIGNING_KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           RIPDPI_SIGNING_KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
-        run: ./gradlew bundleRelease assembleRelease
+        run: ./gradlew bundleRelease -Pripdpi.enableAbiSplits=false
+
+      - name: Build release APK (per-ABI splits)
+        env:
+          RUSTC_WRAPPER: sccache
+          RIPDPI_SIGNING_STORE_FILE: ${{ github.workspace }}/release.keystore
+          RIPDPI_SIGNING_STORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          RIPDPI_SIGNING_KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          RIPDPI_SIGNING_KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: ./gradlew assembleRelease
 
       - name: Upload release AAB
         uses: actions/upload-artifact@v7
