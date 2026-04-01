@@ -200,12 +200,17 @@ Structured telemetry, diagnostics-event payloads, and strategy-probe progress/re
 - `native/rust/crates/ripdpi-monitor`
 - `native/rust/crates/ripdpi-dns-resolver`
 - `native/rust/crates/ripdpi-proxy-config`
+- `native/rust/crates/ripdpi-config` -- CLI configuration parsing
 - `native/rust/crates/ripdpi-runtime`
+- `native/rust/crates/ripdpi-telemetry` -- telemetry data structures and contracts
+- `native/rust/crates/ripdpi-tunnel-config` -- tunnel configuration
 - `native/rust/crates/ripdpi-ws-tunnel` -- MTProto WebSocket tunnel for Telegram traffic through official web gateways
 - `native/rust/crates/ripdpi-ipfrag` -- IP-level packet fragmentation for DPI bypass (TCP and UDP/QUIC)
+- `native/rust/crates/ripdpi-io-uring` -- io_uring async I/O support (Linux only)
 - `native/rust/crates/ripdpi-desync` -- DPI evasion packet crafting and strategy planning
 - `native/rust/crates/ripdpi-failure-classifier` -- connection failure classification and block signal detection
 - `native/rust/crates/ripdpi-session` -- session state machine and policy store
+- `native/rust/crates/ripdpi-bench` -- benchmarking tools
 - `native/rust/crates/ripdpi-packets` -- packet parsing utilities (TLS, HTTP, QUIC markers)
 - `native/rust/crates/ripdpi-tun-driver` -- raw TUN socket handling
 - `native/rust/crates/android-support`
@@ -224,6 +229,8 @@ flowchart TD
         RT["ripdpi-runtime"]
         DSN["ripdpi-desync"]
         CFG["ripdpi-proxy-config"]
+        CCFG["ripdpi-config"]
+        TELEM["ripdpi-telemetry"]
         DNS["ripdpi-dns-resolver"]
         WST["ripdpi-ws-tunnel"]
         FRAG["ripdpi-ipfrag"]
@@ -243,12 +250,13 @@ flowchart TD
 
     AND --> RT & MON & CFG
     TAND --> TC
-    CLI --> RT & CFG
+    CLI --> RT & CFG & CCFG & TELEM
 
     RT --> DSN & DNS & WST & FRAG & SESS & FC & CFG & PKT
     TC --> DNS & TD
     MON --> RT & DNS & CFG
     DSN --> PKT & FRAG
+    CCFG --> PKT
 ```
 
 ## Native Test Support Crates

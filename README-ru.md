@@ -238,14 +238,29 @@ bash scripts/ci/run-rust-network-e2e.sh
 **CI для push / PR** (`.github/workflows/ci.yml`) сейчас запускает:
 
 - `build`: сборку debug APK, ELF verification, native size verification, JVM unit tests
-- `static-analysis`: Rust formatting/clippy/tests, cargo-deny, Android static analysis
-- `rust-network-e2e`: repo-owned local-network proxy E2E и focused vendored parity smoke
-- `android-network-e2e`: emulator-based instrumentation E2E поверх local fixture stack
+- `release-verification`: проверка release APK сборки
+- `native-bloat`: cargo-bloat проверки размера нативного кода
+- `cargo-deny`: сканирование зависимостей на уязвимости
+- `rust-lint`: Rust formatting и Clippy проверки
+- `rust-cross-check`: кросс-компиляция для Android ABI
+- `rust-workspace-tests`: Rust workspace тесты через cargo-nextest
+- `gradle-static-analysis`: detekt, ktlint, Android lint
+- `rust-network-e2e`: local-network proxy E2E и vendored parity smoke
+- `cli-packet-smoke`: поведенческая проверка CLI proxy с pcap capture
+- `rust-turmoil`: детерминированные fault-injection сетевые тесты
+- `coverage`: JaCoCo и Rust LLVM coverage
+- `rust-loom`: исчерпывающая верификация конкурентности
 
 **Nightly / manual CI** дополнительно запускает:
 
-- `rust-native-soak`: host-side native soak для proxy и diagnostics runtime
-- `linux-tun-e2e`: privileged Linux TUN E2E и TUN soak coverage
+- `rust-criterion-bench`: Criterion микро-бенчмарки
+- `android-macrobenchmark`: Android макро-бенчмарки
+- `rust-native-soak`: host-side native endurance тесты
+- `rust-native-load`: high-concurrency ramp-up, burst и saturation тесты
+- `nightly-rust-coverage`: coverage включая ignored тесты
+- `android-network-e2e`: emulator-based instrumentation E2E
+- `linux-tun-e2e`: privileged Linux TUN E2E
+- `linux-tun-soak`: privileged Linux TUN endurance тесты
 
 Workflow может сохранять golden diffs, Android reports, fixture logs и soak metrics.
 
