@@ -225,6 +225,7 @@ pub(crate) fn probe_runtime_transport(
         tracing::warn!(candidate = spec.id, error = %err, "probe runtime config validation failed");
         err.to_string()
     })?;
+    let _ = ripdpi_proxy_config::presets::apply_runtime_preset("ripdpi_default", &mut config);
     config.network.listen.listen_port = 0;
     match TemporaryProxyRuntime::start(config, runtime_context.cloned()) {
         Ok(runtime) => {

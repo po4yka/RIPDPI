@@ -99,14 +99,10 @@ pub fn apply_runtime_preset(preset_id: &str, config: &mut RuntimeConfig) -> Resu
 /// 3. tlsrec(extlen) + disorder(host+1) -- TLS record + out-of-order delivery
 /// 4. split(host+2) -- minimal split for passive DPI (MGTS-style)
 fn apply_ripdpi_default_fallback_groups(config: &mut RuntimeConfig) -> Result<(), ProxyConfigError> {
-    let primary = config
-        .groups
-        .iter()
-        .find(|g| !g.actions.tcp_chain.is_empty())
-        .ok_or_else(|| {
-            ProxyConfigError::InvalidConfig("No actionable primary group found for fallback injection".into())
-        })?
-        .clone();
+    let Some(primary) = config.groups.iter().find(|g| !g.actions.tcp_chain.is_empty()).cloned() else {
+        // No actionable primary group (e.g., empty chain config) -- skip fallback injection.
+        return Ok(());
+    };
 
     let fallback_groups = vec![
         build_fallback_group(
