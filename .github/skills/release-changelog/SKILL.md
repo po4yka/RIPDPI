@@ -23,7 +23,7 @@ The release pipeline lives in `.github/workflows/release.yml`.
 **Steps (single `release` job, `ubuntu-latest`):**
 1. Sets up Java 17, Rust stable, Android SDK, NDK (version from `gradle.properties`)
 2. Decodes release keystore from `KEYSTORE_BASE64` secret
-3. Runs `./gradlew bundleRelease assembleRelease` with signing env vars
+3. Runs `./gradlew bundleRelease -Pripdpi.enableAbiSplits=false` then `./gradlew assembleRelease` with signing env vars
 4. Uploads AAB, APK, R8 mapping, native symbols (90-day retention)
 5. Creates GitHub Release via `softprops/action-gh-release@v2` with
    `generate_release_notes: true`
