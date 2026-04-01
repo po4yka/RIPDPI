@@ -32,15 +32,17 @@ class RememberedPolicySessionTracker
                     clear()
                     return session
                 }
-            val existing = activeRememberedPolicySession
-            if (
-                existing != null &&
-                existing.usedRememberedPolicy == policy.usedRememberedPolicy &&
-                existing.fingerprintHash == policy.fingerprintHash &&
-                existing.policySignature == policy.policySignature
-            ) {
-                return session
+            return if (activeRememberedPolicySession?.matches(policy) == true) {
+                session
+            } else {
+                applyNewPolicy(session, policy)
             }
+        }
+
+        private suspend fun applyNewPolicy(
+            session: BypassUsageSessionEntity,
+            policy: ActiveConnectionPolicy,
+        ): BypassUsageSessionEntity {
             val rememberedPolicyAudit: RememberedPolicySessionAudit?
             val entity =
                 if (policy.usedRememberedPolicy) {
@@ -152,7 +154,12 @@ class RememberedPolicySessionTracker
             val fingerprintHash: String?,
             val policySignature: String,
             val mode: Mode,
-        )
+        ) {
+            fun matches(policy: ActiveConnectionPolicy): Boolean =
+                usedRememberedPolicy == policy.usedRememberedPolicy &&
+                    fingerprintHash == policy.fingerprintHash &&
+                    policySignature == policy.policySignature
+        }
     }
 
 private fun BypassUsageSessionEntity.withRememberedPolicyAudit(
