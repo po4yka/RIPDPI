@@ -75,8 +75,8 @@ When adding a new JNI binding class, add a keep rule to the module's `consumer-r
 
 | Property | Location | Current |
 |----------|----------|---------|
-| `versionCode` | `app/build.gradle.kts` | 1 |
-| `versionName` | `app/build.gradle.kts` | "0.0.1" |
+| `versionCode` | `app/build.gradle.kts` | 3 |
+| `versionName` | `app/build.gradle.kts` | "0.0.3" |
 
 **Artifact naming pattern** (from `ripdpi.android.application.gradle.kts`):
 

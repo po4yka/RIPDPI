@@ -39,8 +39,8 @@ Version code and name are defined in `app/build.gradle.kts`:
 
 ```kotlin
 defaultConfig {
-    versionCode = 2        // monotonically increasing integer
-    versionName = "0.0.2"  // semver string
+    versionCode = 3        // monotonically increasing integer
+    versionName = "0.0.3"  // semver string
 }
 ```
 
@@ -71,7 +71,7 @@ between the previous tag and HEAD to generate a changelog.
 
 **Steps to generate:**
 1. Find previous tag: `git tag -l 'v*' --sort=-creatordate | head -1`
-2. List commits: `git log v0.0.2..HEAD --oneline`
+2. List commits: `git log v0.0.3..HEAD --oneline`
 3. Group by prefix, omit `chore`/`test` from user-facing notes
 4. Keep scope when it adds clarity: `fix(security): ...`
 
