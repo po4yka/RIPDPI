@@ -3,11 +3,6 @@ use std::sync::Mutex;
 
 use io_uring::IoUring;
 
-/// Default buffer size matching the relay `RELAY_BUF` (16 KiB).
-pub const DEFAULT_BUFFER_SIZE: usize = 16_384;
-/// Default pool capacity (256 buffers = 4 MiB at 16 KiB each).
-pub const DEFAULT_POOL_CAPACITY: u16 = 256;
-
 /// A pool of fixed-size buffers registered with an io_uring instance.
 ///
 /// Registration pins the buffers in kernel memory, enabling zero-copy I/O
@@ -93,7 +88,7 @@ impl RegisteredBufferPool {
     /// Get a read-only slice of a registered buffer by index. Returns an
     /// empty slice if the index is out of bounds.
     pub fn buf_slice(&self, index: u16, len: usize) -> &[u8] {
-        self.buffers.get(usize::from(index)).map(|buf| &buf[..len.min(buf.len())]).unwrap_or(&[])
+        self.buffers.get(usize::from(index)).map_or(&[], |buf| &buf[..len.min(buf.len())])
     }
 }
 

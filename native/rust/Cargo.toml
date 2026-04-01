@@ -102,7 +102,7 @@ url = "2"
 boring = "5"
 tokio-boring = "5"
 webpki-roots = "1.0"
-io-uring = "0.7"
+io-uring = "=0.7.10"
 flume = "0.11"
 
 [workspace.lints.clippy]
