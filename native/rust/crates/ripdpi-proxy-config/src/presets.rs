@@ -199,6 +199,7 @@ fn tcp_step(kind: &str, marker: &str) -> ProxyUiTcpChainStep {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use ripdpi_packets::IS_UDP;
 
     fn base() -> ProxyUiConfig {
         let mut config = ProxyUiConfig::default();
@@ -299,6 +300,9 @@ mod tests {
         for group in &config.groups[1..] {
             if group.matches.detect == DETECT_CONNECT {
                 continue;
+            }
+            if group.matches.proto == IS_UDP {
+                continue; // dedicated UDP transport group
             }
             assert_eq!(
                 group.matches.proto, proto,
