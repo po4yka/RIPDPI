@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.services
 
 import android.Manifest
+import android.annotation.SuppressLint
 import android.app.PendingIntent
 import android.content.pm.PackageManager
 import android.net.VpnService
@@ -57,6 +58,7 @@ class QuickTileService :
         scope = null
     }
 
+    @SuppressLint("WrongConstant") // FLAG_IMMUTABLE is valid for PendingIntent but not in the compat wrapper's @IntDef
     override fun launchStartResolution() {
         TileServiceCompat.startActivityAndCollapse(
             this,
