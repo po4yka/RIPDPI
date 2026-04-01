@@ -90,8 +90,7 @@ fn kernel_version_at_least(target_major: u32, target_minor: u32) -> bool {
     let release = unsafe { std::ffi::CStr::from_ptr(utsname.release.as_ptr()) };
     let release = release.to_string_lossy();
     parse_major_minor(&release)
-        .map(|(major, minor)| major > target_major || (major == target_major && minor >= target_minor))
-        .unwrap_or(false)
+        .is_some_and(|(major, minor)| major > target_major || (major == target_major && minor >= target_minor))
 }
 
 fn parse_major_minor(release: &str) -> Option<(u32, u32)> {
@@ -132,8 +131,8 @@ mod tests {
     #[test]
     fn kernel_version_comparison() {
         // These are logic tests, not kernel-dependent.
-        assert!(parse_major_minor("7.0.0").map(|(maj, min)| maj > 6 || (maj == 6 && min >= 20)).unwrap_or(false));
-        assert!(!parse_major_minor("6.19.0").map(|(maj, min)| maj > 6 || (maj == 6 && min >= 20)).unwrap_or(false));
-        assert!(parse_major_minor("6.20.0").map(|(maj, min)| maj > 6 || (maj == 6 && min >= 20)).unwrap_or(false));
+        assert!(parse_major_minor("7.0.0").is_some_and(|(maj, min)| maj > 6 || (maj == 6 && min >= 20)));
+        assert!(!parse_major_minor("6.19.0").is_some_and(|(maj, min)| maj > 6 || (maj == 6 && min >= 20)));
+        assert!(parse_major_minor("6.20.0").is_some_and(|(maj, min)| maj > 6 || (maj == 6 && min >= 20)));
     }
 }
