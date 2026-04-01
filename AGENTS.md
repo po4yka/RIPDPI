@@ -85,7 +85,7 @@ All dependency versions are in `gradle/libs.versions.toml`.
 
 ## CI/CD
 
-- **`ci.yml`** -- Runs on push/PR to main: build, unit tests, static analysis; nightly soak and TUN E2E
+- **`ci.yml`** -- PR/push: `build`, `release-verification`, `native-bloat`, `cargo-deny`, `rust-lint`, `rust-cross-check`, `rust-workspace-tests`, `gradle-static-analysis`, `rust-network-e2e`, `cli-packet-smoke`, `rust-turmoil`, `coverage`, `rust-loom`; Nightly/manual: `rust-criterion-bench`, `android-macrobenchmark`, `rust-native-soak`, `rust-native-load`, `nightly-rust-coverage`, `android-network-e2e`, `linux-tun-e2e`, `linux-tun-soak`
 - **`codeql.yml`** -- Runs on push/PR to main plus weekly schedule: GitHub Actions CodeQL analysis; Kotlin analysis is currently disabled pending upstream support
 - **`release.yml`** -- Runs on `v*` tags: builds signed release APK, creates GitHub Release
 - **`mutation-testing.yml`** -- Weekly Rust mutation testing via cargo-mutants
@@ -113,17 +113,22 @@ Project-specific skills are in `.github/skills/` and are shared across Claude Co
 | `network-traffic-debug` | Capturing or inspecting SOCKS5, VPN, or tunnel traffic |
 | `android-compose-patterns` | Building Compose UI, ViewModels, navigation |
 | `jetpack-compose-api` | Compose API internals, correct API usage, recomposition, performance, accessibility |
+| `kotlin-test-patterns` | Writing any new test, reviewing test code, or debugging test failures in app/src/test, app/src/androidTest, or core/*/src/test |
 | `appium-automation-contract` | Choosing automation launch routes/presets and debugging test launch state |
 | `appium-test-authoring` | Writing or updating Appium page objects and tests |
 | `appium-test-debug` | Debugging flaky or failing Appium tests |
 | `gradle-build-system` | Adding dependencies, modules, or convention plugins |
 | `dependency-update` | Updating Gradle/Rust dependencies, Renovate config, or version catalogs |
 | `ci-workflow-authoring` | Modifying GitHub Actions workflows or CI job wiring |
+| `compose-performance` | Diagnosing unnecessary recompositions, analyzing Compose compiler stability reports, optimizing LazyColumn/LazyRow scroll performance, deciding between @Stable and @Immutable annotations, reviewing UI model class stability, interpreting compose-metrics and compose-reports output, debugging infinite transition animations on HomeScreen, reducing AdvancedSettingsScreen recomposition scope, or applying derivedStateOf to filter-heavy screens like LogsScreen, DiagnosticsScreen, and HistoryScreen |
+| `convention-plugin-development` | Adding a new convention plugin, modifying an existing plugin, changing shared SDK/ABI/profile properties in gradle.properties, debugging Gradle configuration cache issues in build-logic, wiring new AGP variant APIs, or updating the diagnostics catalog pipeline |
 | `detekt-custom-rules` | Adding or fixing custom detekt rules and DI guardrails |
+| `encrypted-dns` | Adding or modifying encrypted DNS protocols, debugging resolver failures, tuning health scoring, working with bootstrap IPs, investigating DNS tampering diagnostics, or understanding why a DoH/DoT/DNSCrypt/DoQ exchange fails |
 | `golden-test-management` | Working with snapshot/golden fixtures and blessing workflows |
 | `tdd` | Following project-standard red/green/refactor workflow |
 | `protobuf-datastore` | Modifying app settings schema or DataStore persistence |
-| `service-lifecycle` | Working with VPN/proxy service start/stop logic |
+| `protobuf-schema-evolution` | Adding, removing, or renaming proto fields in AppSettings; managing reserved field numbers; evolving the diagnostics wire contract between Kotlin and Rust; bumping DIAGNOSTICS_ENGINE_SCHEMA_VERSION; writing or updating golden contract tests; ensuring DataStore round-trip safety after schema changes; or reviewing any PR that touches .proto files, EngineContract.kt, or wire.rs |
+| `release-changelog` | Preparing a release, bumping version code/name, generating a changelog from conventional commits, writing Play Store whatsnew text, creating a git tag, running the release workflow, reviewing what changed since last release, or drafting GitHub release notes |
 | `release-signing` | Building signed release artifacts and release pipeline changes |
 | `rust-android-ndk` | Building Rust for Android, cross-compilation targets, and Gradle jniLibs integration |
 | `rust-code-style` | Rust code organization and style in `native/rust/` |
@@ -131,5 +136,6 @@ Project-specific skills are in `.github/skills/` and are shared across Claude Co
 | `rust-jni-bridge` | Implementing JNI in Rust (jni crate vs UniFFI), type mapping |
 | `rust-lint-config` | Updating Clippy, rustfmt, or cargo-deny configuration |
 | `local-ci-act` | Running CI workflows locally with act, troubleshooting CI failures |
+| `mutation-testing` | Running cargo-mutants on the native/rust workspace, interpreting mutation testing results, triaging survived mutants, improving test adequacy, configuring mutants.toml, reviewing mutants-output artifacts, or writing mutation-resistant tests |
 
 Treat the table above as an index only. The source of truth for each skill is its own `SKILL.md`.
