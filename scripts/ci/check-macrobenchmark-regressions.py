@@ -281,6 +281,10 @@ def main() -> int:
         for bench_name, metrics in sorted(current.items()):
             for metric_name, values in sorted(metrics.items()):
                 print(f"  {bench_name}/{metric_name}: median={values['median']:.1f} p95={values['p95']:.1f}")
+        if args.markdown_output:
+            md_path = Path(args.markdown_output)
+            md_path.parent.mkdir(parents=True, exist_ok=True)
+            md_path.write_text(render_markdown([], [], warn_only=False))
         return 0
 
     failures, rows = check_regressions(current, baseline, cold_pct, warm_pct)
