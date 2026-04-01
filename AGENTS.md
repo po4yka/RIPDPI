@@ -103,7 +103,10 @@ All dependency versions are in `gradle/libs.versions.toml`.
 
 ## Agent Skills
 
-Project-specific skills are in `.github/skills/` and are shared across Claude Code and Codex:
+Project-specific skills are split across two directories:
+
+- `.github/skills/` -- Android, Kotlin, Gradle, CI, and testing skills (shared across Claude Code and Codex)
+- `.claude/skills/` -- Rust native, low-level systems, and diagnostics skills (Claude Code only)
 
 | Skill | Use when |
 |-------|----------|
@@ -138,4 +141,22 @@ Project-specific skills are in `.github/skills/` and are shared across Claude Co
 | `local-ci-act` | Running CI workflows locally with act, troubleshooting CI failures |
 | `mutation-testing` | Running cargo-mutants on the native/rust workspace, interpreting mutation testing results, triaging survived mutants, improving test adequacy, configuring mutants.toml, reviewing mutants-output artifacts, or writing mutation-resistant tests |
 
-Treat the table above as an index only. The source of truth for each skill is its own `SKILL.md`.
+Additional Rust/native skills in `.claude/skills/`:
+
+| Skill | Use when |
+|-------|----------|
+| `cargo-workflows` | Managing the Rust workspace, feature flags, build scripts, Gradle-Cargo integration, or cross-compilation |
+| `desync-engine` | Working with DPI desync evasion pipeline, DesyncMode, DesyncGroup, TcpChainStep, UdpChainStep, OffsetExpr, or ActivationFilter |
+| `diagnostics-system` | Working with diagnostics scan pipeline, ScanRequest, ScanReport, ProbeTask, ripdpi-monitor, strategy probes, or diagnostics catalog |
+| `memory-model` | Understanding memory ordering, writing lock-free code, using Rust atomics, or diagnosing data races on ARM64 Android |
+| `play-store-screenshots` | Creating Play Store listing assets, marketing screenshots, or feature graphics |
+| `rust-async-internals` | Diagnosing select!/join! pitfalls, blocking-in-async issues, JNI-to-async bridging, or tokio runtime configuration for Android NDK |
+| `rust-build-times` | Profiling builds with cargo-timings, configuring sccache, splitting workspaces, or optimizing Android NDK cross-compilation times |
+| `rust-debugging` | Debugging Rust native libraries on Android (JNI panics, logcat tracing, tombstones, addr2line), using GDB/LLDB with Rust |
+| `rust-profiling` | Profiling Android .so binaries with simpleperf/perfetto, measuring monomorphization bloat, or micro-benchmarking with Criterion |
+| `rust-sanitizers-miri` | Running AddressSanitizer or ThreadSanitizer on Rust code, using Miri to detect undefined behaviour in unsafe Rust |
+| `rust-security` | Auditing dependencies with cargo-audit, enforcing policies with cargo-deny, or reviewing RUSTSEC advisories |
+| `rust-unsafe` | Writing or reviewing unsafe Rust, auditing unsafe blocks, understanding raw pointers, or implementing safe abstractions over FFI |
+| `ws-tunnel-telegram` | Working with MTProto WebSocket tunnel for Telegram traffic, ripdpi-ws-tunnel crate, DC IP database, or obfuscated2 classification |
+
+Treat the tables above as an index only. The source of truth for each skill is its own `SKILL.md`.
