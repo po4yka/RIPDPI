@@ -93,18 +93,13 @@ pub(super) fn gc_stale_pending_listens(
 ) {
     let now = StdInstant::now();
     pending_listens.retain(|flow_key, (handle, created_at)| {
-        if now.duration_since(*created_at) > timeout {
-            debug!(
-                "GC stale LISTEN socket for flow {} -> {} (age {:?})",
-                flow_key.src,
-                flow_key.dst,
-                now.duration_since(*created_at)
-            );
-            socket_set.remove(*handle);
-            false
-        } else {
-            true
+        let age = now.duration_since(*created_at);
+        if age <= timeout {
+            return true;
         }
+        debug!("GC stale LISTEN socket for flow {} -> {} (age {age:?})", flow_key.src, flow_key.dst);
+        socket_set.remove(*handle);
+        false
     });
 }
 
@@ -122,41 +117,37 @@ pub(super) fn spawn_new_tcp_sessions(
     let mut unresolvable: Vec<SocketHandle> = Vec::new();
 
     for (handle, socket) in socket_set.iter_mut() {
-        if let Socket::Tcp(tcp) = socket {
-            if tcp.may_send() && !sessions.contains(handle) {
-                match tcp_session_target_addr(stats, dns_cache, tcp) {
-                    Some(target) => {
-                        new_sessions.push((handle, target));
-                    }
-                    None => {
-                        debug!("TCP socket {:?} has no resolvable target — aborting", handle);
-                        tcp.abort();
-                        unresolvable.push(handle);
-                    }
-                }
+        let Socket::Tcp(tcp) = socket else { continue };
+        if !tcp.may_send() || sessions.contains(handle) {
+            continue;
+        }
+        match tcp_session_target_addr(stats, dns_cache, tcp) {
+            Some(target) => new_sessions.push((handle, target)),
+            None => {
+                debug!("TCP socket {:?} has no resolvable target — aborting", handle);
+                tcp.abort();
+                unresolvable.push(handle);
             }
         }
     }
 
-    for handle in unresolvable {
-        let pending_key = pending_listens.iter().find_map(|(key, (h, _))| (*h == handle).then_some(*key));
-        if let Some(key) = pending_key {
+    let remove_pending = |pending_listens: &mut HashMap<TcpFlowKey, (SocketHandle, StdInstant)>, handle| {
+        if let Some(key) = pending_listens.iter().find_map(|(k, (h, _))| (*h == handle).then_some(*k)) {
             pending_listens.remove(&key);
         }
+    };
+
+    for handle in unresolvable {
+        remove_pending(pending_listens, handle);
         socket_set.remove(handle);
     }
 
     for (handle, target_addr) in new_sessions {
-        let pending_key =
-            pending_listens.iter().find_map(|(key, (pending_handle, _))| (*pending_handle == handle).then_some(*key));
-        if let Some(pending_key) = pending_key {
-            pending_listens.remove(&pending_key);
-        }
+        remove_pending(pending_listens, handle);
 
-        let target = TargetAddr::Ip(target_addr);
         let (smoltcp_side, session_side) = tokio::io::duplex(DUPLEX_BUF);
         let child_cancel = cancel.child_token();
-        let session_inst = TcpSession::new(proxy_sockaddr, auth.clone(), target);
+        let session_inst = TcpSession::new(proxy_sockaddr, auth.clone(), TargetAddr::Ip(target_addr));
         let child_cancel_clone = child_cancel.clone();
         let join_handle = tokio::spawn(async move {
             let mut session_side = session_side;

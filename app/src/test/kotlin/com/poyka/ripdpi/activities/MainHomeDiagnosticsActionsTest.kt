@@ -14,7 +14,6 @@ import com.poyka.ripdpi.diagnostics.ScanKind
 import com.poyka.ripdpi.diagnostics.ScanPathMode
 import com.poyka.ripdpi.permissions.PermissionSnapshot
 import com.poyka.ripdpi.permissions.PermissionStatus
-import com.poyka.ripdpi.permissions.PermissionSummaryUiState
 import com.poyka.ripdpi.util.MainDispatcherRule
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -319,15 +318,6 @@ class MainHomeDiagnosticsActionsTest {
                         .build(),
                 appStatus = AppStatus.Halted,
                 connectionState = ConnectionState.Disconnected,
-                permissionSummary =
-                    PermissionSummaryUiState(
-                        snapshot =
-                            PermissionSnapshot(
-                                vpnConsent = PermissionStatus.Granted,
-                                notifications = PermissionStatus.Granted,
-                                batteryOptimization = PermissionStatus.Granted,
-                            ),
-                    ),
                 runtime =
                     HomeDiagnosticsRuntimeState(
                         latestCompositeOutcome = compositeOutcome(fingerprintHash = "fp-1"),

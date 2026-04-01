@@ -21,7 +21,6 @@ import com.poyka.ripdpi.diagnostics.DiagnosticsShareService
 import com.poyka.ripdpi.diagnostics.DiagnosticsTimelineSource
 import com.poyka.ripdpi.diagnostics.ScanPathMode
 import com.poyka.ripdpi.permissions.PermissionKind
-import com.poyka.ripdpi.permissions.PermissionSummaryUiState
 import com.poyka.ripdpi.platform.StringResolver
 import com.poyka.ripdpi.proto.AppSettings
 import kotlinx.coroutines.Job
@@ -431,7 +430,6 @@ internal fun buildHomeDiagnosticsUiState(
     settings: AppSettings,
     appStatus: AppStatus,
     connectionState: ConnectionState,
-    permissionSummary: PermissionSummaryUiState,
     runtime: HomeDiagnosticsRuntimeState,
     stringResolver: StringResolver,
 ): HomeDiagnosticsUiState {

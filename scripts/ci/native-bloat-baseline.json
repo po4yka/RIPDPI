@@ -11,7 +11,7 @@
   "packages": {
     "ripdpi-android": {
       "fileSize": 16700000,
-      "textSectionSize": 5564234,
+      "textSectionSize": 5702410,
       "functions": [
         {
           "crate": "aws_lc_sys",

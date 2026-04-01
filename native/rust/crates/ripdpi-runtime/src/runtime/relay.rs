@@ -15,23 +15,6 @@ use self::stream_copy::{relay_streams, CONNECTION_FREEZE_MARKER};
 use super::routing::{emit_failure_classified, note_block_signal_for_failure};
 use super::state::RuntimeState;
 
-#[cfg(test)]
-use std::time::{Duration, Instant};
-
-#[cfg(test)]
-use self::failure_retry::classify_first_write_failure;
-#[cfg(test)]
-use self::first_exchange::{first_response_timeout, response_trigger_supported, timeout_count_limit};
-#[cfg(test)]
-use self::tls_boundary::{
-    OutboundTlsFirstRecordAssembler, TlsRecordBoundaryTracker, FIRST_TLS_RECORD_ASSEMBLY_TIMEOUT,
-    FIRST_TLS_RECORD_BYTES_LIMIT,
-};
-#[cfg(test)]
-use ripdpi_config::{DETECT_TLS_HANDSHAKE_FAILURE, DETECT_TORST};
-#[cfg(test)]
-use ripdpi_failure_classifier::{FailureAction, FailureClass, FailureStage};
-
 pub(super) fn relay(
     mut client: TcpStream,
     upstream: TcpStream,
@@ -56,61 +39,62 @@ pub(super) fn relay(
     }
 
     #[cfg(all(feature = "io-uring", any(target_os = "linux", target_os = "android")))]
-    let relay_result = {
-        let caps = ripdpi_io_uring::io_uring_capabilities();
-        if caps.send_zc {
-            if let Some(ref uring) = state.io_uring {
-                stream_copy_uring::relay_streams_uring(
-                    client,
-                    upstream,
-                    state,
-                    route.group_index,
-                    session_state,
-                    success_host.clone(),
-                    uring,
-                )
-            } else {
-                relay_streams(client, upstream, state, route.group_index, session_state, success_host.clone())
-            }
-        } else {
-            relay_streams(client, upstream, state, route.group_index, session_state, success_host.clone())
-        }
-    };
+    let uring_driver = ripdpi_io_uring::io_uring_capabilities().send_zc.then(|| state.io_uring.as_ref()).flatten();
     #[cfg(not(all(feature = "io-uring", any(target_os = "linux", target_os = "android"))))]
-    let relay_result = relay_streams(client, upstream, state, route.group_index, session_state, success_host.clone());
-    match relay_result {
-        Ok(final_state) => {
-            if !success_recorded && final_state.recv_count > 0 {
-                record_stream_relay_success(
-                    state,
-                    target,
-                    &route,
-                    success_host.as_deref(),
-                    success_payload.as_deref(),
-                )?;
-            }
-            Ok(())
+    let uring_driver: Option<&std::convert::Infallible> = None;
+
+    let relay_result = if uring_driver.is_some() {
+        #[cfg(all(feature = "io-uring", any(target_os = "linux", target_os = "android")))]
+        {
+            stream_copy_uring::relay_streams_uring(
+                client,
+                upstream,
+                state,
+                route.group_index,
+                session_state,
+                success_host.clone(),
+                uring_driver.unwrap(),
+            )
         }
-        Err(ref err) if err.to_string().contains(CONNECTION_FREEZE_MARKER) => {
-            let failure = ripdpi_failure_classifier::classify_connection_freeze(
-                0,
-                state.config.timeouts.freeze_max_stalls,
-                state.config.timeouts.freeze_window_ms,
-            );
+        #[cfg(not(all(feature = "io-uring", any(target_os = "linux", target_os = "android"))))]
+        {
+            unreachable!()
+        }
+    } else {
+        relay_streams(client, upstream, state, route.group_index, session_state, success_host.clone())
+    };
+
+    if let Ok(ref final_state) = relay_result {
+        if !success_recorded && final_state.recv_count > 0 {
+            record_stream_relay_success(state, target, &route, success_host.as_deref(), success_payload.as_deref())?;
+        }
+    }
+    if let Err(ref err) = relay_result {
+        if err.to_string().contains(CONNECTION_FREEZE_MARKER) {
+            let t = &state.config.timeouts;
+            let failure =
+                ripdpi_failure_classifier::classify_connection_freeze(0, t.freeze_max_stalls, t.freeze_window_ms);
             note_block_signal_for_failure(state, success_host.as_deref(), &failure, None);
             emit_failure_classified(state, target, &failure, success_host.as_deref());
-            relay_result.map(|_| ())
         }
-        Err(_) => relay_result.map(|_| ()),
     }
+    relay_result.map(|_| ())
 }
 
 #[cfg(test)]
 mod tests {
-    #[cfg(test)]
+    use std::time::{Duration, Instant};
+
     use super::super::routing::trigger_flag;
+    use super::failure_retry::classify_first_write_failure;
+    use super::first_exchange::{first_response_timeout, response_trigger_supported, timeout_count_limit};
+    use super::tls_boundary::{
+        OutboundTlsFirstRecordAssembler, TlsRecordBoundaryTracker, FIRST_TLS_RECORD_ASSEMBLY_TIMEOUT,
+        FIRST_TLS_RECORD_BYTES_LIMIT,
+    };
     use super::*;
-    use ripdpi_config::{RuntimeConfig, DETECT_CONNECT, DETECT_HTTP_LOCAT};
+    use ripdpi_config::{RuntimeConfig, DETECT_CONNECT, DETECT_HTTP_LOCAT, DETECT_TLS_HANDSHAKE_FAILURE, DETECT_TORST};
+    use ripdpi_failure_classifier::{FailureAction, FailureClass, FailureStage};
     use ripdpi_packets::DEFAULT_FAKE_TLS;
     use ripdpi_session::TriggerEvent;
 
