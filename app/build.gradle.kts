@@ -1,4 +1,5 @@
 import com.android.build.api.dsl.ApplicationExtension
+import java.util.Properties
 
 plugins {
     id("ripdpi.android.application")
@@ -9,10 +10,24 @@ plugins {
     id("ripdpi.android.roborazzi")
 }
 
-val releaseStoreFilePath = providers.environmentVariable("RIPDPI_SIGNING_STORE_FILE")
-val releaseStorePassword = providers.environmentVariable("RIPDPI_SIGNING_STORE_PASSWORD")
-val releaseKeyAlias = providers.environmentVariable("RIPDPI_SIGNING_KEY_ALIAS")
-val releaseKeyPassword = providers.environmentVariable("RIPDPI_SIGNING_KEY_PASSWORD")
+val localProps =
+    Properties().apply {
+        rootProject
+            .file("local.properties")
+            .takeIf { it.exists() }
+            ?.inputStream()
+            ?.use(::load)
+    }
+
+fun localOrEnv(
+    propKey: String,
+    envKey: String,
+): String? = localProps.getProperty(propKey) ?: providers.environmentVariable(envKey).orNull
+
+val releaseStoreFilePath = localOrEnv("signing.storeFile", "RIPDPI_SIGNING_STORE_FILE")
+val releaseStorePassword = localOrEnv("signing.storePassword", "RIPDPI_SIGNING_STORE_PASSWORD")
+val releaseKeyAlias = localOrEnv("signing.keyAlias", "RIPDPI_SIGNING_KEY_ALIAS")
+val releaseKeyPassword = localOrEnv("signing.keyPassword", "RIPDPI_SIGNING_KEY_PASSWORD")
 
 extensions.configure<ApplicationExtension> {
     namespace = "com.poyka.ripdpi"
@@ -26,12 +41,12 @@ extensions.configure<ApplicationExtension> {
     }
 
     signingConfigs {
-        releaseStoreFilePath.orNull?.let { configuredStoreFile ->
+        releaseStoreFilePath?.let { configuredStoreFile ->
             create("release") {
                 storeFile = file(configuredStoreFile)
-                storePassword = releaseStorePassword.orNull
-                keyAlias = releaseKeyAlias.orNull
-                keyPassword = releaseKeyPassword.orNull
+                storePassword = releaseStorePassword
+                keyAlias = releaseKeyAlias
+                keyPassword = releaseKeyPassword
             }
         }
     }
