@@ -588,9 +588,9 @@ pub fn runtime_config_from_ui(payload: ProxyUiConfig) -> Result<RuntimeConfig, P
             group.actions.shannon_entropy_target_permil = Some(v);
         }
     }
-    group.matches.proto = (u32::from(protocols.desync_http) * IS_HTTP)
-        | (u32::from(protocols.desync_https) * IS_HTTPS)
-        | (u32::from(protocols.desync_udp) * IS_UDP);
+    let tcp_proto = (u32::from(protocols.desync_http) * IS_HTTP) | (u32::from(protocols.desync_https) * IS_HTTPS);
+    let udp_enabled = protocols.desync_udp;
+    group.matches.proto = tcp_proto;
     if let Some(filter) =
         parse_proxy_activation_filter(chains.group_activation_filter.as_ref(), "chains.groupActivationFilter")?
     {
@@ -784,9 +784,20 @@ pub fn runtime_config_from_ui(payload: ProxyUiConfig) -> Result<RuntimeConfig, P
         group.actions.oob_data = Some(fake_packets.oob_char);
     }
 
-    let action_proto = group.matches.proto;
+    let has_tcp_proto = group.matches.proto != 0;
     groups.push(group);
-    if action_proto != 0 {
+
+    if udp_enabled {
+        let mut udp_group = DesyncGroup::new(groups.len());
+        udp_group.matches.proto = IS_UDP;
+        udp_group.actions.udp_chain = groups[0].actions.udp_chain.clone();
+        udp_group.actions.quic_fake_profile = groups[0].actions.quic_fake_profile;
+        udp_group.actions.quic_fake_host = groups[0].actions.quic_fake_host.clone();
+        udp_group.matches.activation_filter = groups[0].matches.activation_filter;
+        groups.push(udp_group);
+    }
+
+    if has_tcp_proto || udp_enabled {
         let mut fallback = DesyncGroup::new(groups.len());
         fallback.matches.detect = DETECT_CONNECT;
         groups.push(fallback);

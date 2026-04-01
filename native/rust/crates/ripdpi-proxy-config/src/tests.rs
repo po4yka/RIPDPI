@@ -3,6 +3,7 @@ use ripdpi_config::{
     UdpChainStepKind, WsTunnelMode, DETECT_CONNECT, FM_DUPSID, FM_ORIG, HOST_AUTOLEARN_DEFAULT_MAX_HOSTS,
 };
 use ripdpi_packets::{HttpFakeProfile, TlsFakeProfile, UdpFakeProfile};
+use ripdpi_packets::{IS_HTTP, IS_HTTPS, IS_UDP};
 use ripdpi_packets::{MH_DMIX, MH_HMIX, MH_METHODEOL, MH_SPACE, MH_UNIXEOL};
 
 use super::*;
@@ -747,12 +748,65 @@ fn ui_udp_only_strategy_keeps_delay_connect_disabled() {
 fn actionable_ui_strategy_synthesizes_detect_connect_plain_fallback_group() {
     let config = runtime_config_from_ui(minimal_ui()).expect("runtime config");
 
-    assert_eq!(config.groups.len(), 2);
+    // minimal_ui() has desync_http=true, desync_https=true, desync_udp=true
+    // -> TCP group + UDP group + CONNECT-detect fallback
+    assert_eq!(config.groups.len(), 3);
     assert_eq!(config.groups[0].matches.detect, 0);
+    assert_eq!(config.groups[0].matches.proto, IS_HTTP | IS_HTTPS);
+    assert_eq!(config.groups[1].matches.proto, IS_UDP);
+    let fallback = &config.groups[2];
+    assert_eq!(fallback.matches.detect, DETECT_CONNECT);
+    assert!(fallback.actions.tcp_chain.is_empty());
+    assert!(fallback.actions.udp_chain.is_empty());
+    assert_eq!(fallback.matches.proto, 0);
+}
+
+#[test]
+fn tcp_and_udp_desync_produces_separate_groups() {
+    let mut ui = minimal_ui();
+    ui.protocols.desync_http = true;
+    ui.protocols.desync_https = true;
+    ui.protocols.desync_udp = true;
+
+    let config = runtime_config_from_ui(ui).expect("runtime config");
+
+    assert_eq!(config.groups.len(), 3);
+    assert_eq!(config.groups[0].matches.proto & IS_UDP, 0, "TCP group must not have IS_UDP");
+    assert_eq!(config.groups[0].matches.proto, IS_HTTP | IS_HTTPS);
+    assert_eq!(config.groups[1].matches.proto, IS_UDP);
+    assert!(config.groups[1].actions.tcp_chain.is_empty(), "UDP group should not carry tcp_chain");
+    assert_eq!(config.groups[2].matches.detect, DETECT_CONNECT);
+}
+
+#[test]
+fn udp_only_strategy_produces_single_action_group() {
+    let mut ui = minimal_ui();
+    ui.protocols.desync_http = false;
+    ui.protocols.desync_https = false;
+    ui.protocols.desync_udp = true;
+
+    let config = runtime_config_from_ui(ui).expect("runtime config");
+
+    // TCP group (proto=0, no actions) + UDP group + CONNECT fallback
+    assert_eq!(config.groups.len(), 3);
+    assert_eq!(config.groups[0].matches.proto, 0);
+    assert_eq!(config.groups[1].matches.proto, IS_UDP);
+    assert_eq!(config.groups[2].matches.detect, DETECT_CONNECT);
+}
+
+#[test]
+fn tcp_only_strategy_produces_two_groups() {
+    let mut ui = minimal_ui();
+    ui.protocols.desync_http = true;
+    ui.protocols.desync_https = true;
+    ui.protocols.desync_udp = false;
+    ui.chains.udp_steps.clear();
+
+    let config = runtime_config_from_ui(ui).expect("runtime config");
+
+    assert_eq!(config.groups.len(), 2);
+    assert_eq!(config.groups[0].matches.proto, IS_HTTP | IS_HTTPS);
     assert_eq!(config.groups[1].matches.detect, DETECT_CONNECT);
-    assert!(config.groups[1].actions.tcp_chain.is_empty());
-    assert!(config.groups[1].actions.udp_chain.is_empty());
-    assert_eq!(config.groups[1].matches.proto, 0);
 }
 
 // --- Validation edge-case tests ---
