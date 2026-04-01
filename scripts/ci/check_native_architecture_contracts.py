@@ -18,7 +18,7 @@ ADAPTER_FILES = (
 )
 CONFIG_ROOT = Path("native/rust/crates/ripdpi-config/src")
 CONFIG_PARSE_ROOT = CONFIG_ROOT / "parse"
-CONFIG_MODEL_PATH = CONFIG_ROOT / "model.rs"
+CONFIG_MODEL_PATH = CONFIG_ROOT / "model" / "mod.rs"
 PARSE_OWNED_FN_PREFIXES = ("parse_", "normalize_")
 PARSE_OWNED_FN_NAMES = {"data_from_str", "file_or_inline_bytes"}
 

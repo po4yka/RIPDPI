@@ -454,7 +454,7 @@ fn execute_udp_actions(
                     default_ttl,
                     protect_path,
                     *disorder,
-                    ipv6_ext,
+                    *ipv6_ext,
                 ) {
                     Ok(()) => {}
                     Err(err) if err.kind() == io::ErrorKind::InvalidInput => {

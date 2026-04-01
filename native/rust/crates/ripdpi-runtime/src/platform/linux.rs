@@ -528,7 +528,7 @@ pub fn send_ip_fragmented_udp(
     default_ttl: u8,
     protect_path: Option<&str>,
     disorder: bool,
-    ipv6_ext: &ripdpi_ipfrag::Ipv6ExtHeaders,
+    ipv6_ext: ripdpi_ipfrag::Ipv6ExtHeaders,
 ) -> io::Result<()> {
     let source = upstream.local_addr()?;
     let ttl = resolve_raw_ttl(default_ttl);
@@ -538,7 +538,7 @@ pub fn send_ip_fragmented_udp(
             dst: target,
             ttl,
             identification: fragment_identification(source, target, payload.len()),
-            ipv6_ext: *ipv6_ext,
+            ipv6_ext,
         },
         payload,
         split_offset,
@@ -558,7 +558,7 @@ pub fn send_ip_fragmented_tcp(
     default_ttl: u8,
     protect_path: Option<&str>,
     disorder: bool,
-    ipv6_ext: &ripdpi_ipfrag::Ipv6ExtHeaders,
+    ipv6_ext: ripdpi_ipfrag::Ipv6ExtHeaders,
 ) -> io::Result<()> {
     if payload.is_empty() {
         return Ok(());
@@ -587,7 +587,7 @@ pub fn send_ip_fragmented_tcp(
                     .options
                     .timestamp
                     .map(|timestamp| TcpTimestampOption { value: timestamp.value, echo_reply: timestamp.echo_reply }),
-                ipv6_ext: *ipv6_ext,
+                ipv6_ext,
             },
             payload,
             split_offset,

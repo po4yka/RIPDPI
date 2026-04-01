@@ -25,15 +25,7 @@ impl TlsRecordBoundaryTracker {
     }
 
     fn enabled(bytes_limit: usize) -> Self {
-        Self {
-            enabled: true,
-            disabled: false,
-            record_pos: 0,
-            record_size: 0,
-            header: [0; 5],
-            total_bytes: 0,
-            bytes_limit,
-        }
+        Self { enabled: true, bytes_limit, ..Self::default() }
     }
 
     fn looks_like_client_hello_prefix(bytes: &[u8]) -> bool {
