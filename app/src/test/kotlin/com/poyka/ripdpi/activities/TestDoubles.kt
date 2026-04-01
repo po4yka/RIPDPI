@@ -261,6 +261,7 @@ class StubDiagnosticsScanController : DiagnosticsScanController {
     override suspend fun startScan(
         pathMode: com.poyka.ripdpi.diagnostics.ScanPathMode,
         selectedProfileId: String?,
+        skipActiveScanCheck: Boolean,
     ): DiagnosticsManualScanStartResult {
         startFailure?.let { throw it }
         lastStartedPathMode = pathMode

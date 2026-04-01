@@ -52,9 +52,10 @@ internal class DefaultDiagnosticsScanController
         override suspend fun startScan(
             pathMode: ScanPathMode,
             selectedProfileId: String?,
+            skipActiveScanCheck: Boolean,
         ): DiagnosticsManualScanStartResult =
             startMutex.withLock {
-                when (val admission = scanAdmissionService.admitManualStart(selectedProfileId)) {
+                when (val admission = scanAdmissionService.admitManualStart(selectedProfileId, skipActiveScanCheck)) {
                     is ManualStartAdmission.Admitted -> {
                         pendingHiddenConflictRequest = null
                         DiagnosticsManualScanStartResult.Started(

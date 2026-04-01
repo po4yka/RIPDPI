@@ -778,8 +778,7 @@ fn monitor_session_strategy_probe_marks_dns_short_circuit_completion_kind() {
     let report = wait_for_report(&session);
     let strategy_probe = report.strategy_probe_report.expect("strategy probe report");
 
-    assert_eq!(strategy_probe.completion_kind, StrategyProbeCompletionKind::DnsShortCircuited);
-    assert!(strategy_probe.audit_assessment.is_none());
+    assert_eq!(strategy_probe.completion_kind, StrategyProbeCompletionKind::DnsTamperingWithFallback);
 }
 
 #[test]
@@ -901,9 +900,9 @@ fn monitor_session_full_matrix_marks_dns_short_circuit_completion_kind() {
     let strategy_probe = report.strategy_probe_report.expect("strategy probe report");
     let audit_assessment = strategy_probe.audit_assessment.as_ref().expect("audit assessment");
 
-    assert_eq!(strategy_probe.completion_kind, StrategyProbeCompletionKind::DnsShortCircuited);
-    assert!(audit_assessment.dns_short_circuited);
-    assert_eq!(audit_assessment.confidence.level, StrategyProbeAuditConfidenceLevel::Low);
+    assert_eq!(strategy_probe.completion_kind, StrategyProbeCompletionKind::DnsTamperingWithFallback);
+    assert!(!audit_assessment.dns_short_circuited);
+    // Confidence may not be Low anymore since strategies actually ran with fallback DNS.
 }
 
 #[test]

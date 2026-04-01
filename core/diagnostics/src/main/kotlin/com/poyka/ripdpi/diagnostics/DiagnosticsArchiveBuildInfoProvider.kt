@@ -9,6 +9,7 @@ import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import javax.inject.Inject
+import javax.inject.Named
 import javax.inject.Singleton
 
 internal interface DiagnosticsArchiveBuildInfoProvider {
@@ -20,6 +21,8 @@ internal class AndroidDiagnosticsArchiveBuildInfoProvider
     @Inject
     constructor(
         @param:ApplicationContext private val context: Context,
+        @param:Named("gitCommit") private val gitCommit: String,
+        @param:Named("nativeLibVersion") private val nativeLibVersion: String,
     ) : DiagnosticsArchiveBuildInfoProvider {
         override fun buildProvenance(): DiagnosticsArchiveBuildProvenance {
             val packageInfo = context.packageManager.getPackageInfo(context.packageName, 0)
@@ -33,16 +36,16 @@ internal class AndroidDiagnosticsArchiveBuildInfoProvider
                     } else {
                         "release"
                     },
-                gitCommit = "unavailable",
+                gitCommit = gitCommit,
                 nativeLibraries =
                     listOf(
                         DiagnosticsArchiveNativeLibraryProvenance(
                             name = "libripdpi.so",
-                            version = "unavailable",
+                            version = nativeLibVersion,
                         ),
                         DiagnosticsArchiveNativeLibraryProvenance(
                             name = "libripdpi-tunnel.so",
-                            version = "unavailable",
+                            version = nativeLibVersion,
                         ),
                     ),
             )

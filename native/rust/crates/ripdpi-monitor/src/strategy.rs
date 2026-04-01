@@ -25,6 +25,7 @@ pub(crate) fn detect_strategy_probe_dns_tampering(
     let resolver_label = strategy_probe_encrypted_dns_label(&resolver_context);
     let mut results = Vec::new();
     let mut classified = None;
+    let mut encrypted_ip_overrides: Vec<(String, IpAddr)> = Vec::new();
 
     for target in targets {
         if target.host.parse::<IpAddr>().is_ok() || target.host.eq_ignore_ascii_case("localhost") {
@@ -132,39 +133,47 @@ pub(crate) fn detect_strategy_probe_dns_tampering(
                 },
             ],
         });
-        if tampering_detected && classified.is_none() {
-            if system_resolution_failed {
-                // NXDOMAIN: system says domain doesn't exist, but encrypted resolver proves it does.
-                classified = Some(
-                    ClassifiedFailure::new(
-                        FailureClass::DnsTampering,
-                        FailureStage::Dns,
-                        FailureAction::ResolverOverrideRecommended,
-                        format!(
-                            "System DNS returned NXDOMAIN for {} but encrypted resolver returned valid addresses",
-                            target.host
-                        ),
-                    )
-                    .with_tag("host", target.host.clone())
-                    .with_tag("targetIp", "nxdomain".to_string())
-                    .with_tag(
-                        "encryptedAnswers",
-                        encrypted_ips.iter().map(ToString::to_string).collect::<Vec<_>>().join("|"),
-                    )
-                    .with_tag("resolver", resolver_label.clone()),
-                );
-            } else {
-                for system_ip in &system_ips {
-                    if let Some(failure) =
-                        confirm_dns_tampering(&target.host, *system_ip, &encrypted_ips, &resolver_label)
-                    {
-                        classified = Some(failure);
-                        break;
+        if tampering_detected {
+            // Collect the first encrypted IP as an override for strategy probing.
+            if let Some(&override_ip) = encrypted_ips.first() {
+                if !encrypted_ip_overrides.iter().any(|(h, _)| h == &target.host) {
+                    encrypted_ip_overrides.push((target.host.clone(), override_ip));
+                }
+            }
+            if classified.is_none() {
+                if system_resolution_failed {
+                    // NXDOMAIN: system says domain doesn't exist, but encrypted resolver proves it does.
+                    classified = Some(
+                        ClassifiedFailure::new(
+                            FailureClass::DnsTampering,
+                            FailureStage::Dns,
+                            FailureAction::ResolverOverrideRecommended,
+                            format!(
+                                "System DNS returned NXDOMAIN for {} but encrypted resolver returned valid addresses",
+                                target.host
+                            ),
+                        )
+                        .with_tag("host", target.host.clone())
+                        .with_tag("targetIp", "nxdomain".to_string())
+                        .with_tag(
+                            "encryptedAnswers",
+                            encrypted_ips.iter().map(ToString::to_string).collect::<Vec<_>>().join("|"),
+                        )
+                        .with_tag("resolver", resolver_label.clone()),
+                    );
+                } else {
+                    for system_ip in &system_ips {
+                        if let Some(failure) =
+                            confirm_dns_tampering(&target.host, *system_ip, &encrypted_ips, &resolver_label)
+                        {
+                            classified = Some(failure);
+                            break;
+                        }
                     }
                 }
             }
         }
     }
 
-    classified.map(|failure| StrategyProbeBaseline { failure, results })
+    classified.map(|failure| StrategyProbeBaseline { failure, results, encrypted_ip_overrides })
 }

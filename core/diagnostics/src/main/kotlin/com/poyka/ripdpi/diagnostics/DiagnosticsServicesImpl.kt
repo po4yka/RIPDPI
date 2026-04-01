@@ -231,6 +231,11 @@ class DefaultDiagnosticsHomeWorkflowService
                                 "Analysis complete, but only DNS evidence was available"
                             }
 
+                            strategyProbe?.completionKind ==
+                                StrategyProbeCompletionKind.DNS_TAMPERING_WITH_FALLBACK -> {
+                                "Analysis complete with DNS fallback"
+                            }
+
                             else -> {
                                 "Analysis complete, but no settings were applied"
                             }

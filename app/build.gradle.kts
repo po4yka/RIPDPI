@@ -55,13 +55,38 @@ extensions.configure<ApplicationExtension> {
         buildConfig = true
     }
 
+    val gitCommit: String =
+        providers
+            .exec { commandLine("git", "rev-parse", "--short", "HEAD") }
+            .standardOutput
+            .asText
+            .map { it.trim() }
+            .orElse("unavailable")
+            .get()
+
+    val nativeLibVersion: String =
+        providers
+            .provider {
+                rootProject.file("native/rust/Cargo.toml").useLines { lines ->
+                    lines
+                        .firstOrNull { it.trimStart().startsWith("version") && it.contains("\"") }
+                        ?.substringAfter('"')
+                        ?.substringBefore('"')
+                        ?: "unavailable"
+                }
+            }.get()
+
     buildTypes {
         release {
             signingConfig = signingConfigs.findByName("release")
             buildConfigField("String", "VERSION_NAME", "\"${defaultConfig.versionName}\"")
+            buildConfigField("String", "GIT_COMMIT", "\"$gitCommit\"")
+            buildConfigField("String", "NATIVE_LIB_VERSION", "\"$nativeLibVersion\"")
         }
         debug {
             buildConfigField("String", "VERSION_NAME", "\"${defaultConfig.versionName}-debug\"")
+            buildConfigField("String", "GIT_COMMIT", "\"$gitCommit\"")
+            buildConfigField("String", "NATIVE_LIB_VERSION", "\"$nativeLibVersion\"")
             enableAndroidTestCoverage = true
         }
         create("benchmark") {
@@ -70,6 +95,8 @@ extensions.configure<ApplicationExtension> {
             signingConfig = signingConfigs.getByName("debug")
             matchingFallbacks += "release"
             buildConfigField("String", "VERSION_NAME", "\"${defaultConfig.versionName}-bench\"")
+            buildConfigField("String", "GIT_COMMIT", "\"$gitCommit\"")
+            buildConfigField("String", "NATIVE_LIB_VERSION", "\"$nativeLibVersion\"")
         }
     }
 

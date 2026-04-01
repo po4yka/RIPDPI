@@ -130,6 +130,10 @@ pub(super) struct StrategyExecutionState {
     pub(super) quic_candidates: Vec<StrategyProbeCandidateSummary>,
     pub(super) summary: Option<String>,
     pub(super) strategy_probe_report: Option<StrategyProbeReport>,
+    /// When DNS tampering is detected, holds domain targets with `connect_ip`
+    /// set to encrypted-DNS-resolved addresses, bypassing poisoned system DNS.
+    pub(super) dns_override_domain_targets: Option<Vec<crate::types::DomainTarget>>,
+    pub(super) dns_override_quic_targets: Option<Vec<crate::types::QuicTarget>>,
 }
 
 pub(super) struct ExecutionRuntime {

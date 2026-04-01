@@ -53,6 +53,8 @@ pub(crate) struct StrategyProbeSuite {
 pub(crate) struct StrategyProbeBaseline {
     pub(crate) failure: ClassifiedFailure,
     pub(crate) results: Vec<ProbeResult>,
+    /// Per-host encrypted-DNS-resolved IPs for targets where DNS tampering was confirmed.
+    pub(crate) encrypted_ip_overrides: Vec<(String, std::net::IpAddr)>,
 }
 
 pub(crate) fn strategy_probe_config_json(config: &ProxyUiConfig) -> String {
