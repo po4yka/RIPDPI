@@ -36,7 +36,7 @@ skip()   { printf '  \033[0;33mSKIP\033[0m %s\n' "$*"; }
 declare -A JOB_MODE=(
   [rust-lint]="native"
   [rust-workspace-tests]="native"
-  [rust-cross-check]="act"
+  [rust-cross-check]="native"
   [cargo-deny]="native"
   [rust-loom]="native"
   [rust-turmoil]="native"
@@ -65,7 +65,6 @@ declare -A JOB_SKIP_REASON=(
   [rust-native-soak]="Schedule/dispatch-only long-running job"
   [rust-native-load]="Schedule/dispatch-only long-running job"
   [nightly-rust-coverage]="Schedule-only nightly job"
-  [rust-cross-check]="io-uring cross-compiles only on Linux (use act or CI)"
   [cli-packet-smoke]="Needs tcpdump/tshark + cap_net_raw (use --act-only or Linux)"
 )
 
@@ -78,6 +77,7 @@ ALL_NATIVE_JOBS=(
   rust-turmoil
   rust-network-e2e
   rust-criterion-bench
+  rust-cross-check
   gradle-static-analysis
   build
   native-bloat
@@ -85,7 +85,7 @@ ALL_NATIVE_JOBS=(
   coverage
 )
 
-ALL_ACT_JOBS=(rust-cross-check cli-packet-smoke)
+ALL_ACT_JOBS=(cli-packet-smoke)
 
 # ── Helpers ─────────────────────────────────────────────────────────
 
