@@ -36,7 +36,7 @@ skip()   { printf '  \033[0;33mSKIP\033[0m %s\n' "$*"; }
 declare -A JOB_MODE=(
   [rust-lint]="native"
   [rust-workspace-tests]="native"
-  [rust-cross-check]="native"
+  [rust-cross-check]="act"
   [cargo-deny]="native"
   [rust-loom]="native"
   [rust-turmoil]="native"
@@ -65,6 +65,7 @@ declare -A JOB_SKIP_REASON=(
   [rust-native-soak]="Schedule/dispatch-only long-running job"
   [rust-native-load]="Schedule/dispatch-only long-running job"
   [nightly-rust-coverage]="Schedule-only nightly job"
+  [rust-cross-check]="io-uring cross-compiles only on Linux (use act or CI)"
   [cli-packet-smoke]="Needs tcpdump/tshark + cap_net_raw (use --act-only or Linux)"
 )
 
@@ -77,7 +78,6 @@ ALL_NATIVE_JOBS=(
   rust-turmoil
   rust-network-e2e
   rust-criterion-bench
-  rust-cross-check
   gradle-static-analysis
   build
   native-bloat
@@ -85,7 +85,17 @@ ALL_NATIVE_JOBS=(
   coverage
 )
 
-ALL_ACT_JOBS=(cli-packet-smoke)
+ALL_ACT_JOBS=(rust-cross-check cli-packet-smoke)
+
+# ── Helpers ─────────────────────────────────────────────────────────
+
+require_cmd() {
+  local cmd="$1" install_hint="$2"
+  if ! command -v "$cmd" &>/dev/null; then
+    echo "ERROR: '$cmd' not installed. Install with: $install_hint" >&2
+    return 1
+  fi
+}
 
 # ── Native job runners ─────────────────────────────────────────────
 
@@ -94,6 +104,7 @@ run_native_rust_lint() {
 }
 
 run_native_cargo_deny() {
+  require_cmd cargo-deny "cargo install cargo-deny"
   cargo deny --manifest-path "$WORKSPACE_MANIFEST" check
 }
 
@@ -130,11 +141,15 @@ run_native_gradle_static_analysis() {
 run_native_build() {
   "$REPO_ROOT/gradlew" -p "$REPO_ROOT" assembleDebug testDebugUnitTest
   "$REPO_ROOT/gradlew" -p "$REPO_ROOT" verifyRoborazziDebug
-  python3 "$REPO_ROOT/scripts/ci/verify_native_elfs.py"
-  python3 "$REPO_ROOT/scripts/ci/verify_native_sizes.py"
+  # verify_native_elfs.py and verify_native_sizes.py are skipped locally:
+  # local debug builds only produce the host ABI with unstripped symbols,
+  # while CI builds all 4 ABIs with stripped symbols. These checks only
+  # make sense in the CI environment.
+  echo "  (skipping verify_native_elfs.py and verify_native_sizes.py -- CI-only checks)"
 }
 
 run_native_native_bloat() {
+  require_cmd cargo-bloat "cargo install cargo-bloat"
   python3 "$REPO_ROOT/scripts/ci/verify_native_bloat.py"
 }
 
@@ -143,6 +158,7 @@ run_native_release_verification() {
 }
 
 run_native_coverage() {
+  require_cmd cargo-llvm-cov "cargo install cargo-llvm-cov"
   "$REPO_ROOT/gradlew" -p "$REPO_ROOT" coverageReport
   bash "$REPO_ROOT/scripts/ci/run-rust-coverage.sh"
 }
@@ -241,7 +257,9 @@ cmd_run() {
       continue
     fi
 
-    info "Running: $job (mode: ${force_act:+act}${force_act:-$mode})"
+    local effective_mode="$mode"
+    [[ "$force_act" == "true" ]] && effective_mode="act"
+    info "Running: $job (mode: $effective_mode)"
     local job_start=$SECONDS
 
     if [[ "$force_act" == "true" ]] || [[ "$mode" == "act" ]]; then
