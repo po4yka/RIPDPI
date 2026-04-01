@@ -52,8 +52,11 @@ class ScanAdmissionService
             const val AutomaticProbeProfileId = "automatic-probing"
         }
 
-        internal suspend fun admitManualStart(selectedProfileId: String? = null): ManualStartAdmission {
-            if (activeScanRegistry.hasVisibleActiveScan()) {
+        internal suspend fun admitManualStart(
+            selectedProfileId: String? = null,
+            skipActiveScanCheck: Boolean = false,
+        ): ManualStartAdmission {
+            if (!skipActiveScanCheck && activeScanRegistry.hasVisibleActiveScan()) {
                 throw DiagnosticsScanStartRejectedException(DiagnosticsScanStartRejectionReason.ScanAlreadyActive)
             }
             val settings = appSettingsRepository.snapshot()

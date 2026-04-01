@@ -121,6 +121,7 @@ class DefaultDiagnosticsHomeCompositeRunService
                         diagnosticsScanController.startScan(
                             pathMode = spec.pathMode,
                             selectedProfileId = spec.profileId,
+                            skipActiveScanCheck = true,
                         )
                     }.fold(
                         onSuccess = { result ->

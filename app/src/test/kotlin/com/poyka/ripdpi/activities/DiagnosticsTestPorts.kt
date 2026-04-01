@@ -179,6 +179,7 @@ internal class FakeDiagnosticsScanController : DiagnosticsScanController {
     override suspend fun startScan(
         pathMode: ScanPathMode,
         selectedProfileId: String?,
+        skipActiveScanCheck: Boolean,
     ): DiagnosticsManualScanStartResult =
         onStartScan?.invoke(pathMode, selectedProfileId) ?: DiagnosticsManualScanStartResult.Started("session")
 
