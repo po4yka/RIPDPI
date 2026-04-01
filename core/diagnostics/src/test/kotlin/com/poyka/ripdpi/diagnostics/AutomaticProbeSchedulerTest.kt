@@ -397,6 +397,7 @@ class AutomaticProbeSchedulerTest {
                 launcherProvider = constantProvider(launcher),
                 automaticHandoverProbeDelayMs = automaticHandoverProbeDelayMs,
                 automaticHandoverProbeCooldownMs = automaticHandoverProbeCooldownMs,
+                automaticStrategyFailureProbeCooldownMs = automaticHandoverProbeCooldownMs,
                 scope = backgroundScope,
             )
         return SchedulerEnv(
