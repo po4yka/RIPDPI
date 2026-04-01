@@ -1,5 +1,8 @@
 package com.poyka.ripdpi.diagnostics
 
+import com.poyka.ripdpi.data.Mode
+import com.poyka.ripdpi.data.PolicyHandoverEvent
+import com.poyka.ripdpi.data.PolicyHandoverEventStore
 import com.poyka.ripdpi.data.RememberedNetworkPolicyProofDurationMs
 import com.poyka.ripdpi.data.RememberedNetworkPolicyProofTransferBytes
 import com.poyka.ripdpi.data.RememberedNetworkPolicySource
@@ -16,6 +19,7 @@ class RememberedPolicySessionTracker
     @Inject
     constructor(
         private val rememberedNetworkPolicyStore: RememberedNetworkPolicyStore,
+        private val policyHandoverEventStore: PolicyHandoverEventStore,
     ) {
         private var activeRememberedPolicySession: ActiveRememberedPolicySession? = null
 
@@ -67,6 +71,7 @@ class RememberedPolicySessionTracker
                     startedAt = policy.appliedAt,
                     fingerprintHash = policy.fingerprintHash,
                     policySignature = policy.policySignature,
+                    mode = policy.mode,
                 )
             return rememberedPolicyAudit?.let(session::withRememberedPolicyAudit) ?: session
         }
@@ -93,6 +98,7 @@ class RememberedPolicySessionTracker
                         failedAt = finalizedAt,
                         allowSuppression = true,
                     )
+                    publishStrategyFailureEvent(rememberedPolicySession, finalizedAt)
                 }
 
                 rememberedPolicySession.usedRememberedPolicy && proved -> {
@@ -116,6 +122,25 @@ class RememberedPolicySessionTracker
             clear()
         }
 
+        private fun publishStrategyFailureEvent(
+            session: ActiveRememberedPolicySession,
+            failedAt: Long,
+        ) {
+            val fingerprintHash = session.fingerprintHash ?: return
+            policyHandoverEventStore.publish(
+                PolicyHandoverEvent(
+                    mode = session.mode,
+                    currentFingerprintHash = fingerprintHash,
+                    classification = AutomaticProbeCoordinator.CLASSIFICATION_STRATEGY_FAILURE,
+                    currentNetworkValidated = true,
+                    currentCaptivePortalDetected = false,
+                    usedRememberedPolicy = true,
+                    policySignature = session.policySignature,
+                    occurredAt = failedAt,
+                ),
+            )
+        }
+
         fun clear() {
             activeRememberedPolicySession = null
         }
@@ -126,6 +151,7 @@ class RememberedPolicySessionTracker
             val startedAt: Long,
             val fingerprintHash: String?,
             val policySignature: String,
+            val mode: Mode,
         )
     }
 

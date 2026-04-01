@@ -37,6 +37,8 @@ class AutomaticProbeScheduler
         private val automaticHandoverProbeDelayMs: Long,
         @param:Named("automaticHandoverProbeCooldownMs")
         private val automaticHandoverProbeCooldownMs: Long,
+        @param:Named("automaticStrategyFailureProbeCooldownMs")
+        private val automaticStrategyFailureProbeCooldownMs: Long,
         @param:ApplicationIoScope
         private val scope: CoroutineScope,
     ) {
@@ -53,31 +55,37 @@ class AutomaticProbeScheduler
         }
 
         private suspend fun launchIfEligible(event: PolicyHandoverEvent) {
+            val isStrategyFailure =
+                event.classification == AutomaticProbeCoordinator.CLASSIFICATION_STRATEGY_FAILURE
             val settings = appSettingsRepository.snapshot()
             val launcher = launcherProvider.get()
+            val effectiveCooldownMs =
+                if (isStrategyFailure) automaticStrategyFailureProbeCooldownMs else automaticHandoverProbeCooldownMs
             val baseEligibility =
                 AutomaticProbeCoordinator.evaluateBaseEligibility(
                     settings = settings,
                     event = event,
                     hasActiveScan = launcher.hasActiveScan(),
                     recentRuns = recentProbeRuns,
-                    cooldownMs = automaticHandoverProbeCooldownMs,
+                    cooldownMs = effectiveCooldownMs,
                 )
             if (baseEligibility is AutomaticProbeCoordinator.Eligibility.Rejected) {
                 return
             }
 
-            val hasValidatedRememberedMatch =
-                rememberedNetworkPolicyStore.findValidatedMatch(
-                    fingerprintHash = event.currentFingerprintHash,
-                    mode = event.mode,
-                ) != null
-            val rememberedPolicyEligibility =
-                AutomaticProbeCoordinator.evaluateRememberedPolicyEligibility(
-                    hasValidatedRememberedMatch = hasValidatedRememberedMatch,
-                )
-            if (rememberedPolicyEligibility is AutomaticProbeCoordinator.Eligibility.Rejected) {
-                return
+            if (!isStrategyFailure) {
+                val hasValidatedRememberedMatch =
+                    rememberedNetworkPolicyStore.findValidatedMatch(
+                        fingerprintHash = event.currentFingerprintHash,
+                        mode = event.mode,
+                    ) != null
+                val rememberedPolicyEligibility =
+                    AutomaticProbeCoordinator.evaluateRememberedPolicyEligibility(
+                        hasValidatedRememberedMatch = hasValidatedRememberedMatch,
+                    )
+                if (rememberedPolicyEligibility is AutomaticProbeCoordinator.Eligibility.Rejected) {
+                    return
+                }
             }
 
             val now = System.currentTimeMillis()

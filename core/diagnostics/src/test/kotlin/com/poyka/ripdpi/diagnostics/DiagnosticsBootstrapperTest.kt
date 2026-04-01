@@ -93,6 +93,7 @@ class DiagnosticsBootstrapperTest {
                     launcherProvider = constantProvider(NoopAutomaticProbeLauncher),
                     automaticHandoverProbeDelayMs = 100L,
                     automaticHandoverProbeCooldownMs = 0L,
+                    automaticStrategyFailureProbeCooldownMs = 0L,
                     scope = scope,
                 ),
             importBundledProfilesOnInitialize = importBundledProfilesOnInitialize,

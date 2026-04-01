@@ -226,6 +226,7 @@ internal fun createDiagnosticsServices(
                 },
             automaticHandoverProbeDelayMs = automaticHandoverProbeDelayMs,
             automaticHandoverProbeCooldownMs = automaticHandoverProbeCooldownMs,
+            automaticStrategyFailureProbeCooldownMs = automaticHandoverProbeCooldownMs,
             scope = scope,
         )
     val recommendationStore = DiagnosticsRecommendationStore(stores, json)
@@ -304,9 +305,11 @@ internal fun createRuntimeHistoryMonitor(
     rememberedNetworkPolicyStore: RememberedNetworkPolicyStore =
         DefaultRememberedNetworkPolicyStore(stores, diagnosticsHistoryClock),
     activeConnectionPolicyStore: ActiveConnectionPolicyStore = EmptyActiveConnectionPolicyStore(),
+    policyHandoverEventStore: PolicyHandoverEventStore = FakePolicyHandoverEventStore(),
     scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.IO.limitedParallelism(1)),
 ): RuntimeHistoryStartup {
-    val rememberedPolicySessionTracker = RememberedPolicySessionTracker(rememberedNetworkPolicyStore)
+    val rememberedPolicySessionTracker =
+        RememberedPolicySessionTracker(rememberedNetworkPolicyStore, policyHandoverEventStore)
     val artifactPersister =
         RuntimeArtifactPersister(
             artifactWriteStore = stores,

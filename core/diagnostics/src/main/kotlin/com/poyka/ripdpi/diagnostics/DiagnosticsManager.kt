@@ -273,6 +273,7 @@ abstract class DiagnosticsManagerModule {
     companion object {
         private const val AutomaticHandoverProbeDelaySeconds = 15L
         private const val AutomaticHandoverProbeCooldownHours = 24L
+        private const val AutomaticStrategyFailureProbeCooldownHours = 4L
         private const val ImportBundledProfilesOnInitialize = true
         private const val MillisPerSecond = 1_000L
         private const val MinutesPerHour = 60L
@@ -313,6 +314,11 @@ abstract class DiagnosticsManagerModule {
         @Provides
         @Named("automaticHandoverProbeCooldownMs")
         fun provideAutomaticHandoverProbeCooldownMs(): Long = hoursToMillis(AutomaticHandoverProbeCooldownHours)
+
+        @Provides
+        @Named("automaticStrategyFailureProbeCooldownMs")
+        fun provideAutomaticStrategyFailureProbeCooldownMs(): Long =
+            hoursToMillis(AutomaticStrategyFailureProbeCooldownHours)
 
         @Provides
         @Named("importBundledProfilesOnInitialize")
