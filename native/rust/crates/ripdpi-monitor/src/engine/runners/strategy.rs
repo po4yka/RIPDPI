@@ -387,81 +387,48 @@ impl ExecutionStageRunner for StrategyDnsBaselineRunner {
             artifacts,
         );
         runtime.results.push(classified_failure_probe_result("Current strategy", &baseline.failure));
-        let tcp_candidates = strategy_plan
-            .suite
-            .tcp_candidates
-            .iter()
-            .map(|spec| {
-                skipped_candidate_summary(
-                    spec,
-                    plan.request.domain_targets.len() * 2,
-                    3,
-                    "DNS tampering detected before fallback; TCP strategy escalation skipped",
-                )
-            })
-            .collect::<Vec<_>>();
-        let quic_specs = filter_quic_candidates_for_failure(
-            strategy_plan.suite.quic_candidates.clone(),
-            Some(FailureClass::QuicBreakage),
-        );
-        let quic_candidates = quic_specs
-            .iter()
-            .map(|spec| {
-                skipped_candidate_summary(
-                    spec,
-                    plan.request.quic_targets.len(),
-                    2,
-                    "DNS tampering detected before fallback; QUIC strategy escalation skipped",
-                )
-            })
-            .collect::<Vec<_>>();
-        let Some(fallback_quic) = quic_specs.first().or_else(|| strategy_plan.suite.quic_candidates.first()) else {
-            return RunnerOutcome::Completed;
-        };
-        let Some(fallback_tcp) = strategy_plan.suite.tcp_candidates.first() else {
-            return RunnerOutcome::Completed;
-        };
-        let recommendation = StrategyProbeRecommendation {
-            tcp_candidate_id: fallback_tcp.id.to_string(),
-            tcp_candidate_label: fallback_tcp.label.to_string(),
-            quic_candidate_id: fallback_quic.id.to_string(),
-            quic_candidate_label: fallback_quic.label.to_string(),
-            rationale: format!(
-                "{} classified before fallback; keep current strategy and prefer resolver override",
-                baseline.failure.class.as_str(),
-            ),
-            recommended_proxy_config_json: crate::candidates::strategy_probe_config_json(&strategy_plan.base_payload),
-        };
-        let audit_assessment = resolve_strategy_probe_audit_assessment(
-            &strategy_plan.suite_id,
-            &tcp_candidates,
-            &quic_candidates,
-            &recommendation,
-            strategy_plan.suite.tcp_candidates.len(),
-            strategy_plan.suite.quic_candidates.len(),
-            true,
-        );
-        let strategy_probe_report = StrategyProbeReport {
-            suite_id: strategy_plan.suite_id.clone(),
-            tcp_candidates,
-            quic_candidates,
-            recommendation,
-            completion_kind: StrategyProbeCompletionKind::DnsShortCircuited,
-            audit_assessment,
-            target_selection: plan.request.strategy_probe.as_ref().and_then(|probe| probe.target_selection.clone()),
-        };
-        let report = build_report(
-            plan.session_id.clone(),
-            plan.request.clone(),
-            plan.started_at,
-            "DNS tampering classified before fallback; resolver override recommended".to_string(),
-            runtime.results.clone(),
-            runtime.observations.clone(),
-            Some(strategy_probe_report),
-            None,
-        );
-        runtime.finish_with_report(report);
-        RunnerOutcome::Finished
+
+        // Store baseline failure for downstream runners.
+        runtime.strategy.baseline_failure = Some(baseline.failure);
+
+        // If we have encrypted IP overrides, build override targets so TCP/QUIC
+        // runners can probe using trusted IPs instead of poisoned system DNS.
+        if !baseline.encrypted_ip_overrides.is_empty() {
+            let domain_overrides: Vec<_> = plan
+                .request
+                .domain_targets
+                .iter()
+                .map(|target| {
+                    let mut t = target.clone();
+                    if t.connect_ip.is_none() {
+                        if let Some((_, ip)) = baseline.encrypted_ip_overrides.iter().find(|(h, _)| h == &t.host) {
+                            t.connect_ip = Some(ip.to_string());
+                        }
+                    }
+                    t
+                })
+                .collect();
+            let quic_overrides: Vec<_> = plan
+                .request
+                .quic_targets
+                .iter()
+                .map(|target| {
+                    let mut t = target.clone();
+                    if t.connect_ip.is_none() {
+                        if let Some((_, ip)) = baseline.encrypted_ip_overrides.iter().find(|(h, _)| h == &t.host) {
+                            t.connect_ip = Some(ip.to_string());
+                        }
+                    }
+                    t
+                })
+                .collect();
+            runtime.strategy.dns_override_domain_targets = Some(domain_overrides);
+            runtime.strategy.dns_override_quic_targets = Some(quic_overrides);
+        }
+
+        // Continue to TCP/QUIC runners instead of short-circuiting, so we get
+        // actual strategy effectiveness data even on DNS-tampered networks.
+        RunnerOutcome::Completed
     }
 }
 
@@ -491,6 +458,10 @@ impl ExecutionStageRunner for StrategyTcpRunner {
         if tcp_specs.is_empty() {
             return RunnerOutcome::Completed;
         }
+        // Use encrypted-DNS-resolved targets when DNS tampering was detected.
+        // Clone to avoid holding an immutable borrow on `runtime` across mutable calls.
+        let domain_targets =
+            runtime.strategy.dns_override_domain_targets.clone().unwrap_or_else(|| plan.request.domain_targets.clone());
         let tcp_candidate_total = tcp_specs.len();
         let baseline_spec = tcp_specs.first().expect("tcp candidate");
         runtime.publish_strategy_probe_candidate_started(
@@ -505,7 +476,7 @@ impl ExecutionStageRunner for StrategyTcpRunner {
         );
         let baseline_execution = execute_tcp_candidate(
             baseline_spec,
-            &plan.request.domain_targets,
+            &domain_targets,
             strategy_plan.runtime_context.as_ref(),
             strategy_plan.probe_seed,
             tls_verifier,
@@ -580,7 +551,7 @@ impl ExecutionStageRunner for StrategyTcpRunner {
             if strategy_plan.suite.short_circuit_hostfake && spec.family == "hostfake" && hostfake_family_succeeded {
                 let summary = skipped_candidate_summary(
                     &spec,
-                    plan.request.domain_targets.len() * 2,
+                    domain_targets.len() * 2,
                     6,
                     "Earlier hostfake candidate already achieved full success",
                 );
@@ -599,12 +570,8 @@ impl ExecutionStageRunner for StrategyTcpRunner {
                 continue;
             }
             if spec.eligibility == CandidateEligibility::RequiresEchCapability && !baseline_ech_capable {
-                let execution = not_applicable_candidate_execution(
-                    &spec,
-                    plan.request.domain_targets.len() * 2,
-                    3,
-                    ECH_ELIGIBILITY_RATIONALE,
-                );
+                let execution =
+                    not_applicable_candidate_execution(&spec, domain_targets.len() * 2, 3, ECH_ELIGIBILITY_RATIONALE);
                 runtime.record_step_with_strategy_probe_progress(
                     plan,
                     self.phase(),
@@ -631,7 +598,7 @@ impl ExecutionStageRunner for StrategyTcpRunner {
 
             let execution = execute_tcp_candidate(
                 &spec,
-                &plan.request.domain_targets,
+                &domain_targets,
                 strategy_plan.runtime_context.as_ref(),
                 strategy_plan.probe_seed,
                 tls_verifier,
@@ -717,6 +684,10 @@ impl ExecutionStageRunner for StrategyQuicRunner {
                 .unwrap_or_else(|_| strategy_plan.suite.quic_candidates.clone()),
             runtime.strategy.baseline_failure.as_ref().map(|value| value.class),
         );
+        // Use encrypted-DNS-resolved targets when DNS tampering was detected.
+        // Clone to avoid holding an immutable borrow on `runtime` across mutable calls.
+        let quic_targets =
+            runtime.strategy.dns_override_quic_targets.clone().unwrap_or_else(|| plan.request.quic_targets.clone());
         let quic_candidate_total = quic_specs.len();
         if quic_candidate_total == 0 {
             return RunnerOutcome::Completed;
@@ -745,7 +716,7 @@ impl ExecutionStageRunner for StrategyQuicRunner {
             if strategy_plan.suite.short_circuit_quic_burst && spec.family == "quic_burst" && quic_family_succeeded {
                 let summary = skipped_candidate_summary(
                     &spec,
-                    plan.request.quic_targets.len(),
+                    quic_targets.len(),
                     2,
                     "Earlier QUIC burst candidate already achieved full success",
                 );
@@ -766,7 +737,7 @@ impl ExecutionStageRunner for StrategyQuicRunner {
 
             let execution = execute_quic_candidate(
                 &spec,
-                &plan.request.quic_targets,
+                &quic_targets,
                 strategy_plan.runtime_context.as_ref(),
                 strategy_plan.probe_seed,
                 runtime.cancel_token(),
@@ -885,7 +856,11 @@ impl ExecutionStageRunner for StrategyRecommendationRunner {
             tcp_candidates: runtime.strategy.tcp_candidates.clone(),
             quic_candidates: runtime.strategy.quic_candidates.clone(),
             recommendation,
-            completion_kind: StrategyProbeCompletionKind::Normal,
+            completion_kind: if runtime.strategy.dns_override_domain_targets.is_some() {
+                StrategyProbeCompletionKind::DnsTamperingWithFallback
+            } else {
+                StrategyProbeCompletionKind::Normal
+            },
             audit_assessment,
             target_selection: plan.request.strategy_probe.as_ref().and_then(|probe| probe.target_selection.clone()),
         });

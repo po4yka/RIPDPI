@@ -103,7 +103,8 @@ internal object DiagnosticsScanWorkflow {
         if (report.resolverRecommendation == null) return false
         return (
             report.strategyProbeReport == null ||
-                report.strategyProbeReport.completionKind == StrategyProbeCompletionKind.DNS_SHORT_CIRCUITED
+                report.strategyProbeReport.completionKind == StrategyProbeCompletionKind.DNS_SHORT_CIRCUITED ||
+                report.strategyProbeReport.completionKind == StrategyProbeCompletionKind.DNS_TAMPERING_WITH_FALLBACK
         ) &&
             serviceMode == Mode.VPN &&
             serviceStatus == com.poyka.ripdpi.data.AppStatus.Running &&

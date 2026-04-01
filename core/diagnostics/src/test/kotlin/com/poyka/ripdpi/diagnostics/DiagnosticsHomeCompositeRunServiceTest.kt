@@ -178,6 +178,7 @@ private class RecordingHomeCompositeScanController(
     override suspend fun startScan(
         pathMode: ScanPathMode,
         selectedProfileId: String?,
+        skipActiveScanCheck: Boolean,
     ): DiagnosticsManualScanStartResult {
         nextId += 1
         val sessionId = "scan-$nextId"
