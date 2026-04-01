@@ -37,8 +37,6 @@ pub fn protect_socket<T>(_socket: &T, _path: &str) -> io::Result<()> {
 
 #[cfg(test)]
 mod tests {
-    use std::net::UdpSocket;
-
     #[cfg(not(any(target_os = "linux", target_os = "android")))]
     #[test]
     fn protect_socket_reports_unsupported_off_android() {
@@ -52,6 +50,7 @@ mod tests {
     #[cfg(any(target_os = "linux", target_os = "android"))]
     #[test]
     fn protect_socket_fails_when_unix_path_does_not_exist() {
+        use std::net::UdpSocket;
         let sock = UdpSocket::bind("127.0.0.1:0").expect("bind udp");
         let err = super::protect_socket(&sock, "/tmp/ripdpi-nonexistent-protect.sock")
             .expect_err("should fail on missing path");

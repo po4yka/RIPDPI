@@ -1020,7 +1020,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::{env, fs, path::PathBuf};
+    use std::fs;
 
     use ripdpi_config::{OffsetExpr, TcpChainStep, UdpChainStep};
     use ripdpi_packets::{build_realistic_quic_initial, QUIC_V2_VERSION};
