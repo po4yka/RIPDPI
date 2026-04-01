@@ -39,7 +39,7 @@ internal object AutomaticProbeCoordinator {
         if (settings.enableCmdSettings) {
             return Eligibility.Rejected(RejectionReason.CMD_SETTINGS_ACTIVE)
         }
-        if (event.usedRememberedPolicy) {
+        if (event.usedRememberedPolicy && event.classification != CLASSIFICATION_STRATEGY_FAILURE) {
             return Eligibility.Rejected(RejectionReason.USED_REMEMBERED_POLICY)
         }
         if (hasActiveScan) {
@@ -91,7 +91,10 @@ internal object AutomaticProbeCoordinator {
 
     fun probeKey(event: PolicyHandoverEvent): String = "${event.mode.preferenceValue}|${event.currentFingerprintHash}"
 
-    private val SupportedHandoverClassifications = setOf("transport_switch", "link_refresh")
+    const val CLASSIFICATION_STRATEGY_FAILURE = "strategy_failure"
+
+    private val SupportedHandoverClassifications =
+        setOf("transport_switch", "link_refresh", CLASSIFICATION_STRATEGY_FAILURE)
     private const val RecentFailureLookbackMs = 15L * 60L * 1000L
     private const val FailedConnectionState = "Failed"
     private const val NetworkHandoverFailureClass = "network_handover"
