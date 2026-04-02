@@ -28,7 +28,6 @@ use crate::types::{
 };
 use crate::util::{stable_probe_hash, STRATEGY_PROBE_SUITE_FULL_MATRIX_V1};
 
-use super::super::report::build_report;
 use super::super::runtime::{
     ExecutionPlan, ExecutionRuntime, ExecutionStageId, ExecutionStageRunner, RunnerArtifacts, RunnerOutcome,
 };
@@ -384,6 +383,7 @@ impl ExecutionStageRunner for StrategyDnsBaselineRunner {
             "Strategy baseline DNS classification".to_string(),
             Some("dns_baseline".to_string()),
             Some(baseline.failure.class.as_str().to_string()),
+            None,
             artifacts,
         );
         runtime.results.push(classified_failure_probe_result("Current strategy", &baseline.failure));
@@ -491,7 +491,7 @@ impl ExecutionStageRunner for StrategyTcpRunner {
         if let Some(failure) = &runtime.strategy.baseline_failure {
             baseline_results.push(classified_failure_probe_result(baseline_spec.label, failure));
         }
-        runtime.record_step_with_strategy_probe_progress(
+        runtime.record_step(
             plan,
             self.phase(),
             format!("Tested {}", baseline_spec.label),
@@ -572,7 +572,7 @@ impl ExecutionStageRunner for StrategyTcpRunner {
             if spec.eligibility == CandidateEligibility::RequiresEchCapability && !baseline_ech_capable {
                 let execution =
                     not_applicable_candidate_execution(&spec, domain_targets.len() * 2, 3, ECH_ELIGIBILITY_RATIONALE);
-                runtime.record_step_with_strategy_probe_progress(
+                runtime.record_step(
                     plan,
                     self.phase(),
                     format!("Marked {} as not applicable", spec.label),
@@ -613,7 +613,7 @@ impl ExecutionStageRunner for StrategyTcpRunner {
                 hostfake_family_succeeded = true;
             }
             let failed = execution.summary.outcome == "failed";
-            runtime.record_step_with_strategy_probe_progress(
+            runtime.record_step(
                 plan,
                 self.phase(),
                 format!("Tested {}", spec.label),
@@ -752,7 +752,7 @@ impl ExecutionStageRunner for StrategyQuicRunner {
                 quic_family_succeeded = true;
             }
             let failed = execution.summary.outcome == "failed";
-            runtime.record_step_with_strategy_probe_progress(
+            runtime.record_step(
                 plan,
                 self.phase(),
                 format!("Tested {}", spec.label),
