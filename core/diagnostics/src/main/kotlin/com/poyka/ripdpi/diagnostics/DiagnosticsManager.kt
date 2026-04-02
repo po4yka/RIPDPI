@@ -105,6 +105,14 @@ data class DiagnosticsAppliedSetting(
     val value: String,
 )
 
+enum class StrategyAdequacy {
+    STRATEGY_APPLIED,
+    STRATEGY_RECOMMENDED,
+    ALL_CANDIDATES_FAILED,
+    DNS_ONLY_APPLIED,
+    NO_STRATEGY_PROBE,
+}
+
 data class DiagnosticsHomeAuditOutcome(
     val sessionId: String,
     val fingerprintHash: String? = null,
@@ -115,6 +123,7 @@ data class DiagnosticsHomeAuditOutcome(
     val coverageSummary: String? = null,
     val recommendationSummary: String? = null,
     val appliedSettings: List<DiagnosticsAppliedSetting> = emptyList(),
+    val strategyAdequacy: StrategyAdequacy? = null,
 )
 
 data class DiagnosticsHomeVerificationOutcome(

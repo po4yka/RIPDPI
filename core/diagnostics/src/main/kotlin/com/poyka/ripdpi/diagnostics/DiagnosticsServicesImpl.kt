@@ -229,6 +229,32 @@ class DefaultDiagnosticsHomeWorkflowService
                         resolverApplied.isNotEmpty() ||
                         strategyRecommendationApplied.isNotEmpty()
                 val assessment = strategyProbe?.auditAssessment
+                val strategyAdequacy =
+                    when {
+                        strategyApplied != null -> {
+                            StrategyAdequacy.STRATEGY_APPLIED
+                        }
+
+                        strategyRecommendationApplied.isNotEmpty() -> {
+                            StrategyAdequacy.STRATEGY_RECOMMENDED
+                        }
+
+                        strategyProbe != null && allTcpCandidatesFailed(strategyProbe) -> {
+                            StrategyAdequacy.ALL_CANDIDATES_FAILED
+                        }
+
+                        resolverApplied.isNotEmpty() -> {
+                            StrategyAdequacy.DNS_ONLY_APPLIED
+                        }
+
+                        strategyProbe == null -> {
+                            StrategyAdequacy.NO_STRATEGY_PROBE
+                        }
+
+                        else -> {
+                            null
+                        }
+                    }
 
                 DiagnosticsHomeAuditOutcome(
                     sessionId = sessionId,
@@ -236,6 +262,19 @@ class DefaultDiagnosticsHomeWorkflowService
                     actionable = actionable,
                     headline =
                         when {
+                            strategyApplied != null -> {
+                                "Analysis complete and settings applied"
+                            }
+
+                            strategyAdequacy == StrategyAdequacy.ALL_CANDIDATES_FAILED &&
+                                resolverApplied.isNotEmpty() -> {
+                                "DNS settings applied, but all bypass strategies failed"
+                            }
+
+                            strategyAdequacy == StrategyAdequacy.ALL_CANDIDATES_FAILED -> {
+                                "All bypass strategies failed on this network"
+                            }
+
                             actionable -> {
                                 "Analysis complete and settings applied"
                             }
@@ -282,6 +321,7 @@ class DefaultDiagnosticsHomeWorkflowService
                             }
                         },
                     appliedSettings = allApplied,
+                    strategyAdequacy = strategyAdequacy,
                 )
             }
 
@@ -391,6 +431,10 @@ class DefaultDiagnosticsHomeWorkflowService
                     value = recommendation.blockingPattern.toHumanLabel(),
                 ),
             )
+
+        private fun allTcpCandidatesFailed(report: StrategyProbeReport): Boolean =
+            report.tcpCandidates.isNotEmpty() &&
+                report.tcpCandidates.none { it.succeededTargets > 0 && !it.skipped }
 
         private fun String.toHumanLabel(): String = replace('_', ' ').replaceFirstChar { it.uppercase() }
     }
