@@ -3,6 +3,7 @@ package com.poyka.ripdpi.diagnostics
 import com.poyka.ripdpi.data.ApplicationIoScope
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsScanRecordStore
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.filterNotNull
@@ -109,94 +110,87 @@ class DefaultDiagnosticsHomeCompositeRunService
 
         private suspend fun executeRun(runId: String) {
             var auditOutcome: DiagnosticsHomeAuditOutcome? = null
-            HomeCompositeStageSpecs.forEachIndexed { index, spec ->
-                markStageRunning(
-                    runId = runId,
-                    stageIndex = index,
-                    headline = "${spec.label} running",
-                    summary = "Starting ${spec.label.lowercase()}.",
-                )
-                val stageSessionId =
-                    runCatching {
-                        diagnosticsScanController.startScan(
-                            pathMode = spec.pathMode,
-                            selectedProfileId = spec.profileId,
-                            skipActiveScanCheck = true,
-                        )
-                    }.fold(
-                        onSuccess = { result ->
-                            when (result) {
-                                is DiagnosticsManualScanStartResult.Started -> {
-                                    result.sessionId
-                                }
+            val auditSpec = HomeCompositeStageSpecs[0]
+            val auditIndex = 0
 
-                                is DiagnosticsManualScanStartResult.RequiresHiddenProbeResolution -> {
-                                    markStageFailure(
-                                        runId = runId,
-                                        stageIndex = index,
-                                        headline = "${spec.label} unavailable",
-                                        summary = "Another diagnostics run is already active.",
-                                    )
-                                    null
-                                }
-                            }
-                        },
-                        onFailure = {
-                            markStageFailure(
-                                runId = runId,
-                                stageIndex = index,
-                                headline = "${spec.label} failed",
-                                summary = it.message ?: "Unable to start ${spec.label.lowercase()}.",
-                            )
-                            null
-                        },
-                    )
-                if (stageSessionId == null) {
-                    return@forEachIndexed
-                }
-                updateStage(runId, index) { current ->
-                    current.copy(
-                        sessionId = stageSessionId,
-                        status = DiagnosticsHomeCompositeStageStatus.RUNNING,
-                        headline = "${spec.label} running",
-                        summary = "Collecting diagnostics for ${spec.label.lowercase()}.",
-                    )
-                }
-                val completedSession =
-                    diagnosticsTimelineSource.sessions
-                        .map { sessions ->
-                            sessions.firstOrNull { it.id == stageSessionId && it.status != "running" }
-                        }.filterNotNull()
-                        .first()
+            val auditCompletedSession = executeStage(runId, auditIndex, auditSpec)
+
+            if (auditCompletedSession != null) {
+                val auditSessionId = auditCompletedSession.first
+                val completedSession = auditCompletedSession.second
                 val completedSummary =
                     buildCompletedStageSummary(
-                        spec = spec,
-                        sessionId = stageSessionId,
+                        spec = auditSpec,
+                        sessionId = auditSessionId,
                         session = completedSession,
                     ).also { summary ->
-                        if (spec.profileId == "automatic-audit") {
-                            auditOutcome =
-                                DiagnosticsHomeAuditOutcome(
-                                    sessionId = summary.sessionId.orEmpty(),
-                                    fingerprintHash = diagnosticsHomeWorkflowService.currentFingerprintHash(),
-                                    actionable = summary.recommendationContributor,
-                                    headline = summary.headline,
-                                    summary = summary.summary,
-                                )
-                        }
+                        auditOutcome =
+                            DiagnosticsHomeAuditOutcome(
+                                sessionId = summary.sessionId.orEmpty(),
+                                fingerprintHash = diagnosticsHomeWorkflowService.currentFingerprintHash(),
+                                actionable = summary.recommendationContributor,
+                                headline = summary.headline,
+                                summary = summary.summary,
+                            )
                     }
-                updateStage(runId, index) { completedSummary }
-                if (spec.profileId == "automatic-audit" && completedSession.status == "completed") {
-                    auditOutcome = diagnosticsHomeWorkflowService.finalizeHomeAudit(stageSessionId)
-                    updateStage(runId, index) { current ->
+                updateStage(runId, auditIndex) { completedSummary }
+                if (completedSession.status == "completed") {
+                    auditOutcome = diagnosticsHomeWorkflowService.finalizeHomeAudit(auditSessionId)
+                    updateStage(runId, auditIndex) { current ->
                         current.copy(
                             headline = auditOutcome.headline,
                             summary = auditOutcome.summary,
                             recommendationContributor = auditOutcome.actionable,
                         )
                     }
+                } else {
+                    HomeCompositeStageSpecs.drop(1).forEachIndexed { i, spec ->
+                        val stageIndex = i + 1
+                        updateStage(runId, stageIndex) { current ->
+                            current.copy(
+                                status = DiagnosticsHomeCompositeStageStatus.SKIPPED,
+                                headline = "${spec.label} skipped",
+                                summary = "Skipped due to network unavailability.",
+                            )
+                        }
+                    }
+                    val outcome = buildOutcome(runId = runId, auditOutcome = auditOutcome)
+                    completedRuns[runId] = outcome
+                    progressState.update { current ->
+                        current.updatedRun(runId) { progress ->
+                            progress.copy(
+                                fingerprintHash = outcome.fingerprintHash,
+                                status = DiagnosticsHomeCompositeRunStatus.COMPLETED,
+                                activeStageIndex = null,
+                                activeSessionId = null,
+                                stages = outcome.stageSummaries,
+                                outcome = outcome,
+                            )
+                        }
+                    }
+                    return
                 }
             }
+
+            coroutineScope {
+                HomeCompositeStageSpecs.drop(1).forEachIndexed { i, spec ->
+                    val stageIndex = i + 1
+                    launch {
+                        val result = executeStage(runId, stageIndex, spec)
+                        if (result != null) {
+                            val (sessionId, completedSession) = result
+                            val completedSummary =
+                                buildCompletedStageSummary(
+                                    spec = spec,
+                                    sessionId = sessionId,
+                                    session = completedSession,
+                                )
+                            updateStage(runId, stageIndex) { completedSummary }
+                        }
+                    }
+                }
+            }
+
             val outcome = buildOutcome(runId = runId, auditOutcome = auditOutcome)
             completedRuns[runId] = outcome
             progressState.update { current ->
@@ -211,6 +205,70 @@ class DefaultDiagnosticsHomeCompositeRunService
                     )
                 }
             }
+        }
+
+        private suspend fun executeStage(
+            runId: String,
+            stageIndex: Int,
+            spec: HomeCompositeStageSpec,
+        ): Pair<String, DiagnosticScanSession>? {
+            markStageRunning(
+                runId = runId,
+                stageIndex = stageIndex,
+                headline = "${spec.label} running",
+                summary = "Starting ${spec.label.lowercase()}.",
+            )
+            val stageSessionId =
+                runCatching {
+                    diagnosticsScanController.startScan(
+                        pathMode = spec.pathMode,
+                        selectedProfileId = spec.profileId,
+                        skipActiveScanCheck = true,
+                    )
+                }.fold(
+                    onSuccess = { result ->
+                        when (result) {
+                            is DiagnosticsManualScanStartResult.Started -> {
+                                result.sessionId
+                            }
+
+                            is DiagnosticsManualScanStartResult.RequiresHiddenProbeResolution -> {
+                                markStageFailure(
+                                    runId = runId,
+                                    stageIndex = stageIndex,
+                                    headline = "${spec.label} unavailable",
+                                    summary = "Another diagnostics run is already active.",
+                                )
+                                null
+                            }
+                        }
+                    },
+                    onFailure = {
+                        markStageFailure(
+                            runId = runId,
+                            stageIndex = stageIndex,
+                            headline = "${spec.label} failed",
+                            summary = it.message ?: "Unable to start ${spec.label.lowercase()}.",
+                        )
+                        null
+                    },
+                )
+            if (stageSessionId == null) return null
+            updateStage(runId, stageIndex) { current ->
+                current.copy(
+                    sessionId = stageSessionId,
+                    status = DiagnosticsHomeCompositeStageStatus.RUNNING,
+                    headline = "${spec.label} running",
+                    summary = "Collecting diagnostics for ${spec.label.lowercase()}.",
+                )
+            }
+            val completedSession =
+                diagnosticsTimelineSource.sessions
+                    .map { sessions ->
+                        sessions.firstOrNull { it.id == stageSessionId && it.status != "running" }
+                    }.filterNotNull()
+                    .first()
+            return stageSessionId to completedSession
         }
 
         private suspend fun buildCompletedStageSummary(
