@@ -76,6 +76,7 @@ internal class DiagnosticsScanRequestFactory
                                 original.intent.profileId,
                                 pathMode,
                             ).copy(settings = original.settings),
+                    isManual = false,
                 )
             val scanContext = scanContextCollector.collect(intent)
             val plan = diagnosticsPlanner.plan(intent, scanContext)
@@ -176,6 +177,7 @@ internal class DiagnosticsScanRequestFactory
                 selectStrategyProbeTargetsForSession(
                     sessionId = sessionId,
                     intent = intentResolver.resolve(profile.id, pathMode).copy(settings = settings),
+                    isManual = scanOrigin == DiagnosticsScanOrigin.USER_INITIATED,
                 )
             val scanContext = scanContextCollector.collect(intent)
             val plan = diagnosticsPlanner.plan(intent, scanContext)
@@ -296,6 +298,7 @@ private fun resolveStrategyProbeRuntimeContext(
 internal fun selectStrategyProbeTargetsForSession(
     sessionId: String,
     intent: DiagnosticsIntent,
+    isManual: Boolean = false,
 ): DiagnosticsIntent {
     val strategyProbe = intent.strategyProbe ?: return intent
     if (intent.profileId != AutomaticAuditProfileId || strategyProbe.suiteId != StrategyProbeSuiteFullMatrixV1) {
@@ -306,11 +309,26 @@ internal fun selectStrategyProbeTargetsForSession(
             cohort.domainTargets.size == AutomaticAuditDomainTargetCount &&
                 cohort.quicTargets.size == AutomaticAuditQuicTargetCount
         }
-    val selectedCohort =
-        validCohorts
-            .takeIf { it.isNotEmpty() }
-            ?.let { cohorts -> cohorts[Math.floorMod(sessionId.hashCode(), cohorts.size)] }
-            ?: return intent
+    if (validCohorts.isEmpty()) return intent
+    if (isManual) {
+        val allDomainTargets = validCohorts.flatMap { it.domainTargets }.distinctBy { it.host }
+        val allQuicTargets = validCohorts.flatMap { it.quicTargets }.distinctBy { it.host }
+        return intent.copy(
+            domainTargets = allDomainTargets,
+            quicTargets = allQuicTargets,
+            strategyProbe =
+                strategyProbe.copy(
+                    targetSelection =
+                        StrategyProbeTargetSelection(
+                            cohortId = "all",
+                            cohortLabel = "All cohorts",
+                            domainHosts = allDomainTargets.map(DomainTarget::host),
+                            quicHosts = allQuicTargets.map(QuicTarget::host),
+                        ),
+                ),
+        )
+    }
+    val selectedCohort = validCohorts[Math.floorMod(sessionId.hashCode(), validCohorts.size)]
     return intent.copy(
         domainTargets = selectedCohort.domainTargets,
         quicTargets = selectedCohort.quicTargets,
