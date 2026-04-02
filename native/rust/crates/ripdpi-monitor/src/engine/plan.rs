@@ -46,13 +46,8 @@ fn build_strategy_execution_plan(session_id: &str, request: &ScanRequest) -> Res
             }
         };
     let suite = build_strategy_probe_suite(&strategy_probe.suite_id, &base_payload)?;
-    Ok(StrategyExecutionPlan {
-        suite_id: strategy_probe.suite_id,
-        probe_seed: probe_session_seed(base_payload.host_autolearn.network_scope_key.as_deref(), session_id),
-        base_payload,
-        runtime_context,
-        suite,
-    })
+    let probe_seed = probe_session_seed(base_payload.host_autolearn.network_scope_key.as_deref(), session_id);
+    Ok(StrategyExecutionPlan { suite_id: strategy_probe.suite_id, probe_seed, runtime_context, suite })
 }
 
 pub(super) fn connectivity_stage_order(request: &ScanRequest) -> Vec<ExecutionStageId> {

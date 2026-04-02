@@ -3,7 +3,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 
 use ripdpi_failure_classifier::ClassifiedFailure;
-use ripdpi_proxy_config::{ProxyRuntimeContext, ProxyUiConfig};
+use ripdpi_proxy_config::ProxyRuntimeContext;
 use rustls::client::danger::ServerCertVerifier;
 
 use crate::candidates::StrategyProbeSuite;
@@ -117,7 +117,6 @@ pub(super) struct ExecutionPlan {
 
 pub(super) struct StrategyExecutionPlan {
     pub(super) suite_id: String,
-    pub(super) base_payload: ProxyUiConfig,
     pub(super) runtime_context: Option<ProxyRuntimeContext>,
     pub(super) suite: StrategyProbeSuite,
     pub(super) probe_seed: u64,
@@ -239,26 +238,6 @@ impl ExecutionRuntime {
         message: String,
         latest_probe_target: Option<String>,
         latest_probe_outcome: Option<String>,
-        artifacts: RunnerArtifacts,
-    ) {
-        self.record_step_with_strategy_probe_progress(
-            plan,
-            phase,
-            message,
-            latest_probe_target,
-            latest_probe_outcome,
-            None,
-            artifacts,
-        );
-    }
-
-    pub(super) fn record_step_with_strategy_probe_progress(
-        &mut self,
-        plan: &ExecutionPlan,
-        phase: &str,
-        message: String,
-        latest_probe_target: Option<String>,
-        latest_probe_outcome: Option<String>,
         strategy_probe_progress: Option<StrategyProbeLiveProgress>,
         artifacts: RunnerArtifacts,
     ) {
@@ -307,7 +286,7 @@ impl ExecutionRuntime {
             candidate_id: candidate_id.to_string(),
             candidate_label: candidate_label.to_string(),
         };
-        self.record_step_with_strategy_probe_progress(
+        self.record_step(
             plan,
             phase,
             message,
