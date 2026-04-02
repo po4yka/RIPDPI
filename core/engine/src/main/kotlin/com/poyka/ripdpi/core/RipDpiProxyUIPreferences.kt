@@ -1,15 +1,9 @@
 package com.poyka.ripdpi.core
 
-import com.poyka.ripdpi.data.ActivationFilterModel
 import com.poyka.ripdpi.data.ActiveDnsSettings
-import com.poyka.ripdpi.data.DefaultAdaptiveFakeTtlDelta
 import com.poyka.ripdpi.data.DefaultAdaptiveFakeTtlFallback
-import com.poyka.ripdpi.data.DefaultAdaptiveFakeTtlMax
-import com.poyka.ripdpi.data.DefaultAdaptiveFakeTtlMin
 import com.poyka.ripdpi.data.DefaultFakeOffsetMarker
 import com.poyka.ripdpi.data.DefaultFakeSni
-import com.poyka.ripdpi.data.DefaultHostAutolearnMaxHosts
-import com.poyka.ripdpi.data.DefaultHostAutolearnPenaltyTtlHours
 import com.poyka.ripdpi.data.DefaultSplitMarker
 import com.poyka.ripdpi.data.DefaultTlsRecordMarker
 import com.poyka.ripdpi.data.FakePayloadProfileCompatDefault
@@ -18,8 +12,6 @@ import com.poyka.ripdpi.data.QuicInitialModeRouteAndCache
 import com.poyka.ripdpi.data.StrategyLaneFamilies
 import com.poyka.ripdpi.data.TcpChainStepKind
 import com.poyka.ripdpi.data.TcpChainStepModel
-import com.poyka.ripdpi.data.UdpChainStepModel
-import com.poyka.ripdpi.data.canonicalDefaultTcpChainSteps
 import com.poyka.ripdpi.data.deriveStrategyLaneFamilies
 import com.poyka.ripdpi.data.effectiveAdaptiveFakeTtlDelta
 import com.poyka.ripdpi.data.effectiveAdaptiveFakeTtlFallback
@@ -61,134 +53,26 @@ import com.poyka.ripdpi.data.setGroupActivationFilterCompat
 import com.poyka.ripdpi.data.setStrategyChains
 import com.poyka.ripdpi.proto.AppSettings
 
-data class RipDpiListenConfig(
-    val ip: String = "127.0.0.1",
-    val port: Int = 1080,
-    val maxConnections: Int = 512,
-    val bufferSize: Int = 16384,
-    val tcpFastOpen: Boolean = false,
-    val defaultTtl: Int = 0,
-    val customTtl: Boolean = false,
-    val freezeDetectionEnabled: Boolean = false,
-)
-
-data class RipDpiProtocolConfig(
-    val resolveDomains: Boolean = true,
-    val desyncHttp: Boolean = true,
-    val desyncHttps: Boolean = true,
-    val desyncUdp: Boolean = false,
-)
-
-data class RipDpiChainConfig(
-    val groupActivationFilter: ActivationFilterModel = ActivationFilterModel(),
-    val tcpSteps: List<TcpChainStepModel> = canonicalDefaultTcpChainSteps(),
-    val udpSteps: List<UdpChainStepModel> = emptyList(),
-)
-
-data class RipDpiFakePacketConfig(
-    val fakeTtl: Int = 8,
-    val adaptiveFakeTtlEnabled: Boolean = false,
-    val adaptiveFakeTtlDelta: Int = DefaultAdaptiveFakeTtlDelta,
-    val adaptiveFakeTtlMin: Int = DefaultAdaptiveFakeTtlMin,
-    val adaptiveFakeTtlMax: Int = DefaultAdaptiveFakeTtlMax,
-    val adaptiveFakeTtlFallback: Int = DefaultAdaptiveFakeTtlFallback,
-    val fakeSni: String = DefaultFakeSni,
-    val httpFakeProfile: String = FakePayloadProfileCompatDefault,
-    val fakeTlsUseOriginal: Boolean = false,
-    val fakeTlsRandomize: Boolean = false,
-    val fakeTlsDupSessionId: Boolean = false,
-    val fakeTlsPadEncap: Boolean = false,
-    val fakeTlsSize: Int = 0,
-    val fakeTlsSniMode: String = "fixed",
-    val tlsFakeProfile: String = FakePayloadProfileCompatDefault,
-    val udpFakeProfile: String = FakePayloadProfileCompatDefault,
-    val fakeOffsetMarker: String = DefaultFakeOffsetMarker,
-    val oobChar: Char = 'a',
-    val dropSack: Boolean = false,
-)
-
-data class RipDpiParserEvasionConfig(
-    val hostMixedCase: Boolean = false,
-    val domainMixedCase: Boolean = false,
-    val hostRemoveSpaces: Boolean = false,
-    val httpMethodEol: Boolean = false,
-    val httpUnixEol: Boolean = false,
-)
-
-data class RipDpiQuicConfig(
-    val initialMode: String = QuicInitialModeRouteAndCache,
-    val supportV1: Boolean = true,
-    val supportV2: Boolean = true,
-    val fakeProfile: String = QuicFakeProfileDisabled,
-    val fakeHost: String = "",
-)
-
-data class RipDpiHostsConfig(
-    val mode: Mode = Mode.Disable,
-    val entries: String? = null,
-) {
-    enum class Mode {
-        Disable,
-        Blacklist,
-        Whitelist,
-        ;
-
-        companion object {
-            fun fromWireName(name: String): Mode =
-                when (name) {
-                    "disable" -> Disable
-                    "blacklist" -> Blacklist
-                    "whitelist" -> Whitelist
-                    else -> throw IllegalArgumentException("Unknown hosts mode: $name")
-                }
-        }
-
-        val wireName: String
-            get() =
-                when (this) {
-                    Disable -> "disable"
-                    Blacklist -> "blacklist"
-                    Whitelist -> "whitelist"
-                }
-    }
-}
-
-data class RipDpiHostAutolearnConfig(
-    val enabled: Boolean = false,
-    val penaltyTtlHours: Int = DefaultHostAutolearnPenaltyTtlHours,
-    val maxHosts: Int = DefaultHostAutolearnMaxHosts,
-    val storePath: String? = null,
-    val networkScopeKey: String? = null,
-)
-
-data class RipDpiWsTunnelConfig(
-    val enabled: Boolean = false,
-    val mode: String? = null,
-)
-
 class RipDpiProxyUIPreferences(
+    val protocols: RipDpiProtocolConfig = RipDpiProtocolConfig(),
+    val parserEvasions: RipDpiParserEvasionConfig = RipDpiParserEvasionConfig(),
+    val wsTunnel: RipDpiWsTunnelConfig = RipDpiWsTunnelConfig(),
     listen: RipDpiListenConfig = RipDpiListenConfig(),
-    protocols: RipDpiProtocolConfig = RipDpiProtocolConfig(),
     chains: RipDpiChainConfig = RipDpiChainConfig(),
     fakePackets: RipDpiFakePacketConfig = RipDpiFakePacketConfig(),
-    parserEvasions: RipDpiParserEvasionConfig = RipDpiParserEvasionConfig(),
     quic: RipDpiQuicConfig = RipDpiQuicConfig(),
     hosts: RipDpiHostsConfig = RipDpiHostsConfig(),
     hostAutolearn: RipDpiHostAutolearnConfig = RipDpiHostAutolearnConfig(),
-    wsTunnel: RipDpiWsTunnelConfig = RipDpiWsTunnelConfig(),
     nativeLogLevel: String? = null,
     runtimeContext: RipDpiRuntimeContext? = null,
     logContext: RipDpiLogContext? = null,
 ) : RipDpiProxyPreferences {
     val listen: RipDpiListenConfig = normalizeListenConfig(listen)
-    val protocols: RipDpiProtocolConfig = protocols
     val chains: RipDpiChainConfig = normalizeChainConfig(chains)
     val fakePackets: RipDpiFakePacketConfig = normalizeFakePacketConfig(fakePackets)
-    val parserEvasions: RipDpiParserEvasionConfig = parserEvasions
     val quic: RipDpiQuicConfig = normalizeQuicConfig(quic)
     val hosts: RipDpiHostsConfig = normalizeHostsConfig(hosts)
     val hostAutolearn: RipDpiHostAutolearnConfig = normalizeHostAutolearnConfig(hostAutolearn)
-    val wsTunnel: RipDpiWsTunnelConfig = wsTunnel
     val nativeLogLevel: String? = nativeLogLevel?.trim()?.takeIf { it.isNotEmpty() }
     val runtimeContext: RipDpiRuntimeContext? = normalizeRuntimeContext(runtimeContext)
     val logContext: RipDpiLogContext? = normalizeLogContext(logContext)
@@ -446,7 +330,6 @@ private fun normalizeChainConfig(config: RipDpiChainConfig): RipDpiChainConfig =
     )
 
 private fun normalizeFakePacketConfig(config: RipDpiFakePacketConfig): RipDpiFakePacketConfig {
-    val normalizedFakeTtl = config.fakeTtl
     val normalizedAdaptiveFakeTtlMin = normalizeAdaptiveFakeTtlMin(config.adaptiveFakeTtlMin)
     return config.copy(
         adaptiveFakeTtlDelta = normalizeAdaptiveFakeTtlDelta(config.adaptiveFakeTtlDelta),
@@ -455,7 +338,7 @@ private fun normalizeFakePacketConfig(config: RipDpiFakePacketConfig): RipDpiFak
         adaptiveFakeTtlFallback =
             normalizeAdaptiveFakeTtlFallback(
                 config.adaptiveFakeTtlFallback,
-                normalizedFakeTtl.takeIf { it > 0 } ?: DefaultAdaptiveFakeTtlFallback,
+                config.fakeTtl.takeIf { it > 0 } ?: DefaultAdaptiveFakeTtlFallback,
             ),
         fakeSni = config.fakeSni.ifBlank { DefaultFakeSni },
         httpFakeProfile = normalizeHttpFakeProfile(config.httpFakeProfile.ifBlank { FakePayloadProfileCompatDefault }),
@@ -478,14 +361,7 @@ private fun normalizeHostsConfig(config: RipDpiHostsConfig): RipDpiHostsConfig {
     val normalizedMode = if (normalizedEntries == null) RipDpiHostsConfig.Mode.Disable else config.mode
     return RipDpiHostsConfig(
         mode = normalizedMode,
-        entries =
-            if (normalizedMode ==
-                RipDpiHostsConfig.Mode.Disable
-            ) {
-                null
-            } else {
-                normalizedEntries
-            },
+        entries = normalizedEntries.takeUnless { normalizedMode == RipDpiHostsConfig.Mode.Disable },
     )
 }
 
