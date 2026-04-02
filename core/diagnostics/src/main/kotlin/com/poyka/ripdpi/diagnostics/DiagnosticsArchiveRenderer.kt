@@ -516,6 +516,15 @@ class DiagnosticsArchiveRenderer
                     ) {
                         add("strategy_adequacy:all_tcp_candidates_failed")
                     }
+                    val blockedBootstraps =
+                        selection.primaryResults
+                            .filter {
+                                it.probeType == "tcp_fat_header" &&
+                                    it.outcome in setOf("tcp_reset", "tcp_16kb_blocked")
+                            }.map { it.target }
+                    if (blockedBootstraps.isNotEmpty()) {
+                        add("blocked_bootstrap_ips:${blockedBootstraps.joinToString(",")}")
+                    }
                 }
             return DiagnosticsArchiveRecommendationTrace(
                 selectedApproach =

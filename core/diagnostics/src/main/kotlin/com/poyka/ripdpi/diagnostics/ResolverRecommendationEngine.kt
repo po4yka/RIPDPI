@@ -13,6 +13,9 @@ import java.net.URI
 import java.util.Locale
 
 private const val ProbeTypeDnsIntegrity = "dns_integrity"
+private const val ProbeTypeTcpFatHeader = "tcp_fat_header"
+
+private val TcpFatHeaderBlockedOutcomes = setOf("tcp_reset", "tcp_16kb_blocked", "tcp_timeout", "tls_handshake_failed")
 private const val OutcomeDnsMatch = "dns_match"
 private const val OutcomeDnsSubstitution = "dns_substitution"
 private const val OutcomeDnsNxdomain = "dns_nxdomain"
@@ -44,9 +47,15 @@ internal object ResolverRecommendationEngine {
         preferredPath: EncryptedDnsPathCandidate?,
     ): ResolverRecommendation? {
         val dnsResults = report.results.filter { it.probeType == ProbeTypeDnsIntegrity }
+        val blockedBootstrapIps = extractBlockedBootstrapIps(report.results)
         return dnsResults.firstTriggerOutcome()?.let { triggerOutcome ->
             val currentPath = settings.activeDnsSettings().toEncryptedDnsPathCandidate()
-            selectCandidate(collectCandidates(dnsResults), preferredPath, currentPath)?.let { selected ->
+            selectCandidate(
+                collectCandidates(dnsResults),
+                preferredPath,
+                currentPath,
+                blockedBootstrapIps,
+            )?.let { selected ->
                 ResolverRecommendation(
                     triggerOutcome = triggerOutcome,
                     selectedResolverId = selected.path.resolverId,
@@ -59,13 +68,23 @@ internal object ResolverRecommendationEngine {
                     selectedDohUrl = selected.path.dohUrl,
                     selectedDnscryptProviderName = selected.path.dnscryptProviderName,
                     selectedDnscryptPublicKey = selected.path.dnscryptPublicKey,
-                    rationale = selected.rationale(triggerOutcome, preferredPath, currentPath),
+                    rationale = selected.rationale(triggerOutcome, preferredPath, currentPath, blockedBootstrapIps),
                     appliedTemporarily = false,
                     persistable = true,
                 )
             }
         }
     }
+
+    fun extractBlockedBootstrapIps(results: List<ProbeResult>): Set<String> =
+        results
+            .filter { it.probeType == ProbeTypeTcpFatHeader && it.outcome in TcpFatHeaderBlockedOutcomes }
+            .mapNotNull { result ->
+                result.target
+                    .substringBefore(':')
+                    .trim()
+                    .takeIf { it.isNotBlank() }
+            }.toSet()
 
     fun parseResolverPathCandidate(details: Map<String, String>): EncryptedDnsPathCandidate? {
         val resolverId = details["encryptedResolverId"].orEmpty().ifBlank { DnsProviderCustom }
@@ -214,11 +233,21 @@ private fun selectCandidate(
     candidates: List<Candidate>,
     preferredPath: EncryptedDnsPathCandidate?,
     currentPath: EncryptedDnsPathCandidate?,
+    blockedBootstrapIps: Set<String> = emptySet(),
 ): Candidate? {
     val preferredPathKey = preferredPath?.pathKey()
     val currentPathKey = currentPath?.pathKey()
     return candidates.minWithOrNull(
         compareBy<Candidate>(
+            {
+                if (blockedBootstrapIps.isNotEmpty() &&
+                    it.path.bootstrapIps.any { ip -> ip in blockedBootstrapIps }
+                ) {
+                    1
+                } else {
+                    0
+                }
+            },
             { if (it.matchCount > 0) 0 else 1 },
             { if (it.bootstrapValidatedCount > 0) 0 else 1 },
             { -it.matchCount },
@@ -238,6 +267,7 @@ private fun Candidate.rationale(
     triggerOutcome: String,
     preferredPath: EncryptedDnsPathCandidate?,
     currentPath: EncryptedDnsPathCandidate?,
+    blockedBootstrapIps: Set<String> = emptySet(),
 ): String {
     val latencyHint = "with ${averageLatencyMs ?: 0} ms average latency."
     val bootstrapHint =
@@ -247,6 +277,13 @@ private fun Candidate.rationale(
             ""
         }
     val protocolHint = path.protocolPreferenceHint(preferredPath, currentPath)
+    val blockedHint =
+        if (blockedBootstrapIps.isNotEmpty()) {
+            val avoided = blockedBootstrapIps.take(3).joinToString(", ")
+            " Avoided bootstrap IPs blocked by DPI: $avoided."
+        } else {
+            ""
+        }
     val statusDescription =
         if (matchCount > 0) {
             "${path.resolverLabel} returned matching encrypted answers over " +
@@ -261,7 +298,7 @@ private fun Candidate.rationale(
         } else {
             "System DNS showed $triggerOutcome while "
         }
-    return prefix + statusDescription + latencyHint + bootstrapHint + protocolHint
+    return prefix + statusDescription + latencyHint + bootstrapHint + protocolHint + blockedHint
 }
 
 private fun EncryptedDnsPathCandidate.protocolPreferenceHint(
