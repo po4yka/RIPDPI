@@ -449,11 +449,25 @@ mod tests {
     use std::sync::atomic::AtomicBool;
     use std::sync::{Arc, Mutex};
 
-    use super::{ExecutionPlan, ExecutionRuntime};
+    use super::{ExecutionPlan, ExecutionRuntime, ExecutionStageId};
     use crate::transport::TransportConfig;
     use crate::types::{
         DiagnosticProfileFamily, ScanKind, ScanPathMode, ScanRequest, SharedState, StrategyProbeProgressLane,
     };
+
+    #[test]
+    fn parallel_group_contains_expected_stages() {
+        // These are the stages run concurrently for CONNECTIVITY scans.
+        // If this list changes, update ExecutionCoordinator::run() accordingly.
+        let parallel_group: &[ExecutionStageId] =
+            &[ExecutionStageId::Dns, ExecutionStageId::Tcp, ExecutionStageId::Quic];
+        assert!(parallel_group.contains(&ExecutionStageId::Dns));
+        assert!(parallel_group.contains(&ExecutionStageId::Tcp));
+        assert!(parallel_group.contains(&ExecutionStageId::Quic));
+        assert!(!parallel_group.contains(&ExecutionStageId::Web));
+        assert!(!parallel_group.contains(&ExecutionStageId::Service));
+        assert!(!parallel_group.contains(&ExecutionStageId::StrategyTcpCandidates));
+    }
 
     fn test_plan() -> ExecutionPlan {
         ExecutionPlan {

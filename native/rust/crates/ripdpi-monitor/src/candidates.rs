@@ -872,4 +872,18 @@ mod tests {
         let result = build_quic_candidates_for_suite("nonexistent_v99", &base);
         assert!(result.is_err());
     }
+
+    #[test]
+    fn quick_v1_suite_has_threshold_2() {
+        let base = minimal_ui_config();
+        let suite = build_strategy_probe_suite("quick_v1", &base).expect("quick_v1 suite");
+        assert_eq!(suite.family_failure_threshold, 2);
+    }
+
+    #[test]
+    fn full_matrix_v1_suite_has_threshold_4() {
+        let base = minimal_ui_config();
+        let suite = build_strategy_probe_suite("full_matrix_v1", &base).expect("full_matrix_v1 suite");
+        assert_eq!(suite.family_failure_threshold, 4);
+    }
 }
