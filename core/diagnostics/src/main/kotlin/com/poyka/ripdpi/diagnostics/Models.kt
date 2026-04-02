@@ -480,6 +480,16 @@ data class ProbeResult(
 }
 
 @Serializable
+data class StrategyRecommendation(
+    val triggerOutcomes: List<String>,
+    val recommendedFamily: String,
+    val blockingPattern: String,
+    val rationale: String,
+    val evidence: List<String> = emptyList(),
+    val actionable: Boolean = true,
+)
+
+@Serializable
 data class ScanReport(
     val sessionId: String,
     val profileId: String,
@@ -489,6 +499,7 @@ data class ScanReport(
     val summary: String,
     val results: List<ProbeResult> = emptyList(),
     val resolverRecommendation: ResolverRecommendation? = null,
+    val strategyRecommendation: StrategyRecommendation? = null,
     val strategyProbeReport: StrategyProbeReport? = null,
     val observations: List<ObservationFact> = emptyList(),
     val engineAnalysisVersion: String? = null,

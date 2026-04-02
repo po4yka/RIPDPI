@@ -207,6 +207,7 @@ class DefaultDiagnosticsHomeWorkflowService
                                 )
                             }
                         }
+                val strategyRecommendation = report.strategyRecommendation
                 val resolverApplied =
                     if (strategyApplied == null && resolverRecommendation?.persistable == true) {
                         resolverActions.saveResolverRecommendation(sessionId)
@@ -214,7 +215,19 @@ class DefaultDiagnosticsHomeWorkflowService
                     } else {
                         emptyList()
                     }
-                val actionable = strategyApplied != null || resolverApplied.isNotEmpty()
+                val strategyRecommendationApplied =
+                    if (strategyApplied == null && strategyRecommendation?.actionable == true) {
+                        buildStrategyRecommendationAppliedSettings(strategyRecommendation)
+                    } else {
+                        emptyList()
+                    }
+                val allApplied =
+                    strategyApplied?.appliedSettings
+                        ?: (resolverApplied + strategyRecommendationApplied)
+                val actionable =
+                    strategyApplied != null ||
+                        resolverApplied.isNotEmpty() ||
+                        strategyRecommendationApplied.isNotEmpty()
                 val assessment = strategyProbe?.auditAssessment
 
                 DiagnosticsHomeAuditOutcome(
@@ -256,6 +269,10 @@ class DefaultDiagnosticsHomeWorkflowService
                                     strategyApplied.recommendation.quicCandidateLabel
                             }
 
+                            strategyRecommendation != null -> {
+                                strategyRecommendation.rationale
+                            }
+
                             resolverRecommendation != null -> {
                                 resolverRecommendation.rationale
                             }
@@ -264,7 +281,7 @@ class DefaultDiagnosticsHomeWorkflowService
                                 null
                             }
                         },
-                    appliedSettings = strategyApplied?.appliedSettings ?: resolverApplied,
+                    appliedSettings = allApplied,
                 )
             }
 
@@ -358,6 +375,20 @@ class DefaultDiagnosticsHomeWorkflowService
                 DiagnosticsAppliedSetting(
                     label = "Protocol",
                     value = recommendation.selectedProtocol.uppercase(),
+                ),
+            )
+
+        private fun buildStrategyRecommendationAppliedSettings(
+            recommendation: StrategyRecommendation,
+        ): List<DiagnosticsAppliedSetting> =
+            listOf(
+                DiagnosticsAppliedSetting(
+                    label = "Strategy recommendation",
+                    value = recommendation.recommendedFamily.toHumanLabel(),
+                ),
+                DiagnosticsAppliedSetting(
+                    label = "Blocking pattern",
+                    value = recommendation.blockingPattern.toHumanLabel(),
                 ),
             )
 
