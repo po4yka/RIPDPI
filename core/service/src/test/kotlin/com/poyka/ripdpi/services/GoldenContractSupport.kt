@@ -34,7 +34,7 @@ internal object GoldenContractSupport {
         val actual = normalizeText(actualText)
 
         if (System.getenv("RIPDPI_BLESS_GOLDENS") != null) {
-            goldenFile.parentFile.mkdirs()
+            goldenFile.parentFile?.mkdirs()
             goldenFile.writeText(actual)
             return
         }
@@ -85,7 +85,7 @@ internal object GoldenContractSupport {
     }
 
     private fun resolveRepoPath(relativePath: String): File {
-        var current = File(System.getProperty("user.dir")).absoluteFile
+        var current = File(System.getProperty("user.dir") ?: ".").absoluteFile
         while (!File(current, "settings.gradle.kts").exists()) {
             current =
                 current.parentFile ?: error("Unable to locate repository root from ${System.getProperty("user.dir")}")

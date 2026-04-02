@@ -108,7 +108,16 @@
             "asn": "19281"
           }
         ],
-        "quicTargets": [],
+        "quicTargets": [
+          {
+            "host": "www.youtube.com",
+            "port": 443
+          },
+          {
+            "host": "discord.com",
+            "port": 443
+          }
+        ],
         "serviceTargets": [],
         "circumventionTargets": [],
         "throughputTargets": [],
