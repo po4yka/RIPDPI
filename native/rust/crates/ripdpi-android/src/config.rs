@@ -312,7 +312,8 @@ mod tests {
         let config = runtime_config_from_payload(ui_payload(ui)).expect("ui config");
 
         assert_eq!(config.network.listen.listen_port, 1080);
-        assert_eq!(config.groups.len(), 2);
+        // TCP primary + 3 ripdpi_default fallback groups + CONNECT passthrough
+        assert_eq!(config.groups.len(), 5);
         assert_eq!(config.quic.initial_mode, QuicInitialMode::Route);
         assert!(!config.quic.support_v1);
         assert!(config.quic.support_v2);
