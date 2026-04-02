@@ -121,6 +121,33 @@ macro_rules! connectivity_runner {
                 }
                 RunnerOutcome::Completed
             }
+
+            fn run_collecting(
+                &self,
+                plan: &ExecutionPlan,
+                cancel: &std::sync::atomic::AtomicBool,
+                tls_verifier: Option<&Arc<dyn ServerCertVerifier>>,
+            ) -> Option<Vec<super::super::runtime::CollectedStep>> {
+                use std::sync::atomic::Ordering;
+                let mut steps = Vec::with_capacity($len(plan));
+                for item in $iter(plan) {
+                    if cancel.load(Ordering::Acquire) {
+                        return None;
+                    }
+                    let label = $label(item.clone());
+                    let probe = $body(item, plan, tls_verifier);
+                    let outcome = probe.outcome.clone();
+                    let artifacts = RunnerArtifacts::from_probe(probe, $source, &plan.request.path_mode);
+                    steps.push(super::super::runtime::CollectedStep {
+                        phase: self.phase(),
+                        message: label.clone(),
+                        latest_probe_target: Some(label),
+                        latest_probe_outcome: Some(outcome),
+                        artifacts,
+                    });
+                }
+                Some(steps)
+            }
         }
     };
 }

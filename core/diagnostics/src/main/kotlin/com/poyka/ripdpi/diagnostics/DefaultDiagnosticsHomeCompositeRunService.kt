@@ -2,15 +2,19 @@ package com.poyka.ripdpi.diagnostics
 
 import com.poyka.ripdpi.data.ApplicationIoScope
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsScanRecordStore
+import com.poyka.ripdpi.services.NetworkHandoverMonitor
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.serialization.json.Json
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
@@ -47,6 +51,12 @@ private val HomeCompositeStageSpecs =
         ),
     )
 
+private fun stageTimeoutMs(spec: HomeCompositeStageSpec): Long =
+    when (spec.profileId) {
+        "ru-dpi-full" -> 240_000L
+        else -> 120_000L
+    }
+
 @Singleton
 class DefaultDiagnosticsHomeCompositeRunService
     @Inject
@@ -55,6 +65,7 @@ class DefaultDiagnosticsHomeCompositeRunService
         private val diagnosticsTimelineSource: DiagnosticsTimelineSource,
         private val diagnosticsHomeWorkflowService: DiagnosticsHomeWorkflowService,
         private val scanRecordStore: DiagnosticsScanRecordStore,
+        private val networkHandoverMonitor: NetworkHandoverMonitor,
         @param:Named("diagnosticsJson")
         private val json: Json,
         @param:ApplicationIoScope
@@ -112,8 +123,15 @@ class DefaultDiagnosticsHomeCompositeRunService
             var auditOutcome: DiagnosticsHomeAuditOutcome? = null
             val auditSpec = HomeCompositeStageSpecs[0]
             val auditIndex = 0
+            val networkEvents = mutableListOf<com.poyka.ripdpi.services.NetworkHandoverEvent>()
+            val eventCollector =
+                scope.launch {
+                    networkHandoverMonitor.events.collect { event ->
+                        if (event.isActionable) networkEvents += event
+                    }
+                }
 
-            val auditCompletedSession = executeStage(runId, auditIndex, auditSpec)
+            val auditCompletedSession = executeStageWithTimeout(runId, auditIndex, auditSpec)
 
             if (auditCompletedSession != null) {
                 val auditSessionId = auditCompletedSession.first
@@ -154,7 +172,15 @@ class DefaultDiagnosticsHomeCompositeRunService
                             )
                         }
                     }
-                    val outcome = buildOutcome(runId = runId, auditOutcome = auditOutcome)
+                    eventCollector.cancel()
+                    val outcome =
+                        buildOutcome(
+                            runId = runId,
+                            auditOutcome = auditOutcome,
+                            coverageNote = null,
+                            dnsIssuesDetected = false,
+                            networkChanged = false,
+                        )
                     completedRuns[runId] = outcome
                     progressState.update { current ->
                         current.updatedRun(runId) { progress ->
@@ -176,7 +202,11 @@ class DefaultDiagnosticsHomeCompositeRunService
                 HomeCompositeStageSpecs.drop(1).forEachIndexed { i, spec ->
                     val stageIndex = i + 1
                     launch {
-                        val result = executeStage(runId, stageIndex, spec)
+                        var result = executeStage(runId, stageIndex, spec)
+                        if (result == null) {
+                            delay(2000)
+                            result = executeStage(runId, stageIndex, spec)
+                        }
                         if (result != null) {
                             val (sessionId, completedSession) = result
                             val completedSummary =
@@ -191,7 +221,18 @@ class DefaultDiagnosticsHomeCompositeRunService
                 }
             }
 
-            val outcome = buildOutcome(runId = runId, auditOutcome = auditOutcome)
+            eventCollector.cancel()
+            val networkChangedDuringRun = networkEvents.isNotEmpty()
+            val coverageNote = crossValidateStrategy(runId)
+            val dnsIssuesDetected = detectDnsIssues(runId)
+            val outcome =
+                buildOutcome(
+                    runId = runId,
+                    auditOutcome = auditOutcome,
+                    coverageNote = coverageNote,
+                    dnsIssuesDetected = dnsIssuesDetected,
+                    networkChanged = networkChangedDuringRun,
+                )
             completedRuns[runId] = outcome
             progressState.update { current ->
                 current.updatedRun(runId) { progress ->
@@ -271,6 +312,15 @@ class DefaultDiagnosticsHomeCompositeRunService
             return stageSessionId to completedSession
         }
 
+        private suspend fun executeStageWithTimeout(
+            runId: String,
+            stageIndex: Int,
+            spec: HomeCompositeStageSpec,
+        ): Pair<String, DiagnosticScanSession>? =
+            withTimeoutOrNull(stageTimeoutMs(spec)) {
+                executeStage(runId, stageIndex, spec)
+            }
+
         private suspend fun buildCompletedStageSummary(
             spec: HomeCompositeStageSpec,
             sessionId: String,
@@ -311,6 +361,9 @@ class DefaultDiagnosticsHomeCompositeRunService
         private fun buildOutcome(
             runId: String,
             auditOutcome: DiagnosticsHomeAuditOutcome?,
+            coverageNote: String?,
+            dnsIssuesDetected: Boolean,
+            networkChanged: Boolean,
         ): DiagnosticsHomeCompositeOutcome {
             val progress = requireNotNull(progressState.value[runId]) { "Unknown Home diagnostics run '$runId'" }
             val stageSummaries = progress.stages
@@ -325,23 +378,40 @@ class DefaultDiagnosticsHomeCompositeRunService
             val actionable = auditOutcome?.actionable == true
             val fingerprintHash = auditOutcome?.fingerprintHash ?: progress.fingerprintHash
             val outcomeSummary =
-                auditOutcome?.summary?.takeIf { it.isNotBlank() }
-                    ?: buildString {
-                        append("Completed ")
-                        append(completedStageCount)
-                        append(" of ")
-                        append(stageSummaries.size)
-                        append(" diagnostics stages.")
-                        if (failedStageCount > 0) {
-                            append(' ')
-                            append(failedStageCount)
-                            append(" stage")
-                            if (failedStageCount != 1) {
-                                append('s')
+                buildString {
+                    val base =
+                        auditOutcome?.summary?.takeIf { it.isNotBlank() }
+                            ?: run {
+                                append("Completed ")
+                                append(completedStageCount)
+                                append(" of ")
+                                append(stageSummaries.size)
+                                append(" diagnostics stages.")
+                                if (failedStageCount > 0) {
+                                    append(' ')
+                                    append(failedStageCount)
+                                    append(" stage")
+                                    if (failedStageCount != 1) {
+                                        append('s')
+                                    }
+                                    append(" finished with failures or were unavailable.")
+                                }
+                                null
                             }
-                            append(" finished with failures or were unavailable.")
-                        }
+                    if (base != null) append(base)
+                    if (coverageNote != null) {
+                        if (isNotEmpty()) append(' ')
+                        append(coverageNote)
                     }
+                    if (dnsIssuesDetected) {
+                        if (isNotEmpty()) append(' ')
+                        append("DNS issues were detected during the audit.")
+                    }
+                    if (networkChanged) {
+                        if (isNotEmpty()) append(' ')
+                        append("Network changed during analysis \u2014 results may not reflect current network.")
+                    }
+                }
             return DiagnosticsHomeCompositeOutcome(
                 runId = runId,
                 fingerprintHash = fingerprintHash,
@@ -372,6 +442,67 @@ class DefaultDiagnosticsHomeCompositeRunService
                 skippedStageCount = skippedStageCount,
                 bundleSessionIds = stageSummaries.mapNotNull { it.sessionId },
             )
+        }
+
+        private suspend fun crossValidateStrategy(runId: String): String? {
+            val auditSpec = HomeCompositeStageSpecs[0]
+            val dpiFullSpec = HomeCompositeStageSpecs[2]
+            val stages = progressState.value[runId]?.stages ?: return null
+            val auditSessionId =
+                stages.firstOrNull { it.stageKey == auditSpec.key }?.sessionId
+            val dpiFullSessionId =
+                stages.firstOrNull { it.stageKey == dpiFullSpec.key }?.sessionId
+            if (auditSessionId == null || dpiFullSessionId == null) return null
+            val auditReport =
+                scanRecordStore
+                    .getScanSession(auditSessionId)
+                    ?.reportJson
+                    ?.let { DiagnosticsSessionQueries.decodeScanReport(json, it) }
+            val dpiFullReport =
+                scanRecordStore
+                    .getScanSession(dpiFullSessionId)
+                    ?.reportJson
+                    ?.let { DiagnosticsSessionQueries.decodeScanReport(json, it) }
+            if (auditReport == null || dpiFullReport == null) return null
+            val auditProbeHosts =
+                auditReport.strategyProbeReport
+                    ?.targetSelection
+                    ?.domainHosts
+                    ?.toSet()
+                    ?: emptySet()
+            val coverageGapCount =
+                dpiFullReport.observations
+                    .filter { obs ->
+                        obs.kind == ObservationKind.DOMAIN &&
+                            obs.domain != null &&
+                            obs.target !in auditProbeHosts &&
+                            (
+                                obs.domain.transportFailure != TransportFailureKind.NONE ||
+                                    obs.domain.httpStatus == HttpProbeStatus.UNREACHABLE
+                            )
+                    }.size
+            return if (coverageGapCount > 0) {
+                "$coverageGapCount additional domain${if (coverageGapCount != 1) "s" else ""} showed connectivity issues not covered by the strategy probe."
+            } else {
+                null
+            }
+        }
+
+        private suspend fun detectDnsIssues(runId: String): Boolean {
+            val auditSpec = HomeCompositeStageSpecs[0]
+            val auditSessionId =
+                progressState.value[runId]
+                    ?.stages
+                    ?.firstOrNull { it.stageKey == auditSpec.key }
+                    ?.sessionId
+                    ?: return false
+            val auditReport =
+                scanRecordStore
+                    .getScanSession(auditSessionId)
+                    ?.reportJson
+                    ?.let { DiagnosticsSessionQueries.decodeScanReport(json, it) }
+                    ?: return false
+            return auditReport.resolverRecommendation != null
         }
 
         private fun markStageRunning(

@@ -48,6 +48,7 @@ pub(crate) struct StrategyProbeSuite {
     pub(crate) quic_candidates: Vec<StrategyCandidateSpec>,
     pub(crate) short_circuit_hostfake: bool,
     pub(crate) short_circuit_quic_burst: bool,
+    pub(crate) family_failure_threshold: usize,
 }
 
 pub(crate) struct StrategyProbeBaseline {
@@ -152,12 +153,14 @@ pub(crate) fn build_strategy_probe_suite(suite_id: &str, base: &ProxyUiConfig) -
             quic_candidates: build_quic_candidates(base),
             short_circuit_hostfake: true,
             short_circuit_quic_burst: true,
+            family_failure_threshold: 2,
         }),
         STRATEGY_PROBE_SUITE_FULL_MATRIX_V1 => Ok(StrategyProbeSuite {
             tcp_candidates: build_full_matrix_tcp_candidates(base),
             quic_candidates: build_quic_candidates(base),
             short_circuit_hostfake: false,
             short_circuit_quic_burst: false,
+            family_failure_threshold: 4,
         }),
         _ => Err(format!("Unsupported automatic probing suite: {suite_id}")),
     }
