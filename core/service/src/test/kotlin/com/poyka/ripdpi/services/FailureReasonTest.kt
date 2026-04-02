@@ -129,7 +129,7 @@ class FailureReasonTest {
 
     @Test
     fun `NativeError AlreadyRunning is both IllegalStateException and NativeError`() {
-        val error = NativeError.AlreadyRunning("proxy")
+        val error: Throwable = NativeError.AlreadyRunning("proxy")
         assertTrue(error is IllegalStateException)
         assertTrue(error is NativeError)
         assertEquals("proxy is already running", error.message)
@@ -138,7 +138,7 @@ class FailureReasonTest {
     @Test
     fun `NativeError NativeIoError preserves cause chain`() {
         val cause = IOException("fd closed")
-        val error = NativeError.NativeIoError("read failed", cause)
+        val error: Throwable = NativeError.NativeIoError("read failed", cause)
         assertTrue(error is IOException)
         assertTrue(error is NativeError)
         assertEquals("read failed", error.message)

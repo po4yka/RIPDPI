@@ -22,7 +22,7 @@ class NetworkFingerprintMapperTest {
                         CapturedWifiIdentity(
                             ssid = "\"Cafe Wifi\"",
                             bssid = "AA:BB:CC:DD:EE:FF",
-                            gatewayIpv4 = 0x0101A8C0.toInt(),
+                            gatewayIpv4 = 0x0101A8C0,
                         ),
                     metered = true,
                 ),
