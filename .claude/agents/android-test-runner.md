@@ -41,14 +41,14 @@ Pick suites based on what is requested:
 ## Emulator Setup (local)
 
 ```bash
-# CI uses: API 34, x86_64, google_apis, pixel_8 profile
+# CI uses: API 34, x86_64, google_apis, pixel_6 profile
 # Local quickstart:
 emulator -avd <avd_name> -no-audio -no-boot-anim -gpu host
 adb wait-for-device
 ```
 
 For CI, `reactivecircus/android-emulator-runner@v2` handles lifecycle with:
-`api-level: 34`, `arch: x86_64`, `target: google_apis`, `profile: pixel_8`.
+`api-level: 34`, `arch: x86_64`, `target: google_apis`, `profile: pixel_6`.
 
 ## Failure Artifact Collection
 

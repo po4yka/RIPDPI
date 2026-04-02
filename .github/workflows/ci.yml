@@ -660,6 +660,7 @@ jobs:
 
   android-network-e2e:
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v6
 
@@ -698,7 +699,7 @@ jobs:
           api-level: 34
           arch: x86_64
           target: google_apis
-          profile: pixel_8
+          profile: pixel_6
           emulator-options: -no-window -noaudio -no-boot-anim -gpu swiftshader_indirect
           script: bash scripts/ci/run-android-e2e-emulator.sh "${{ github.event_name }}" "${{ github.event.inputs.run_maestro_smoke }}" "${{ github.event.inputs.run_appium_smoke }}"
 
@@ -710,6 +711,7 @@ jobs:
 
       - name: Capture emulator logcat
         if: always()
+        timeout-minutes: 1
         run: adb logcat -d > android-logcat.txt || true
 
       - name: Stop local network fixture
