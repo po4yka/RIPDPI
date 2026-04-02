@@ -20,8 +20,8 @@ pub(super) struct QuicRunner;
 pub(super) struct TcpRunner;
 pub(super) struct ServiceRunner;
 pub(super) struct CircumventionRunner;
-pub(super) struct TelegramRunner;
 pub(super) struct ThroughputRunner;
+pub(super) struct TelegramRunner;
 
 impl ExecutionStageRunner for EnvironmentRunner {
     fn id(&self) -> ExecutionStageId {
@@ -53,19 +53,23 @@ impl ExecutionStageRunner for EnvironmentRunner {
             "Collected network environment".to_string(),
             Some(probe.target.clone()),
             Some(probe.outcome.clone()),
+            None,
             artifacts,
         );
-        if snapshot.transport == "none" {
+        let warn = |shared: &_, msg: String| {
             push_event(
-                &runtime.shared,
+                shared,
                 &plan.session_id,
                 &plan.request.profile_id,
                 &plan.request.path_mode,
                 "engine",
                 "warn",
-                "OS reports no network; aborting scan".to_string(),
-            );
-            let report = build_report(
+                msg,
+            )
+        };
+        if snapshot.transport == "none" {
+            warn(&runtime.shared, "OS reports no network; aborting scan".to_string());
+            runtime.finish_with_report(build_report(
                 plan.session_id.clone(),
                 plan.request.clone(),
                 plan.started_at,
@@ -74,20 +78,11 @@ impl ExecutionStageRunner for EnvironmentRunner {
                 runtime.observations.clone(),
                 None,
                 None,
-            );
-            runtime.finish_with_report(report);
+            ));
             return RunnerOutcome::Finished;
         }
         if !snapshot.validated && !snapshot.captive_portal {
-            push_event(
-                &runtime.shared,
-                &plan.session_id,
-                &plan.request.profile_id,
-                &plan.request.path_mode,
-                "engine",
-                "warn",
-                "OS reports unvalidated network; probe results may be unreliable".to_string(),
-            );
+            warn(&runtime.shared, "OS reports unvalidated network; probe results may be unreliable".to_string());
         }
         RunnerOutcome::Completed
     }
@@ -122,7 +117,7 @@ macro_rules! connectivity_runner {
                     let probe = $body(item, plan, tls_verifier);
                     let outcome = probe.outcome.clone();
                     let artifacts = RunnerArtifacts::from_probe(probe, $source, &plan.request.path_mode);
-                    runtime.record_step(plan, self.phase(), label.clone(), Some(label), Some(outcome), artifacts);
+                    runtime.record_step(plan, self.phase(), label.clone(), Some(label), Some(outcome), None, artifacts);
                 }
                 RunnerOutcome::Completed
             }
@@ -240,13 +235,15 @@ impl ExecutionStageRunner for TelegramRunner {
         }
         let probe = run_telegram_probe(target, &plan.transport);
         let outcome = probe.outcome.clone();
+        let artifacts = RunnerArtifacts::from_probe(probe, "telegram", &plan.request.path_mode);
         runtime.record_step(
             plan,
             self.phase(),
             "Telegram availability checked".to_string(),
             Some("telegram.org".to_string()),
             Some(outcome),
-            RunnerArtifacts::from_probe(probe, "telegram", &plan.request.path_mode),
+            None,
+            artifacts,
         );
         RunnerOutcome::Completed
     }
