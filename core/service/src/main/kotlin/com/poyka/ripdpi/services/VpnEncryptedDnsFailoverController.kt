@@ -5,6 +5,7 @@ import com.poyka.ripdpi.data.NativeRuntimeSnapshot
 import com.poyka.ripdpi.data.NetworkFingerprintProvider
 import com.poyka.ripdpi.data.ResolverOverrideStore
 import com.poyka.ripdpi.data.buildEncryptedDnsCandidatePlan
+import com.poyka.ripdpi.data.diagnostics.NetworkDnsBlockedPathStore
 import com.poyka.ripdpi.data.diagnostics.NetworkDnsPathPreferenceStore
 import com.poyka.ripdpi.data.toEncryptedDnsPathCandidate
 import com.poyka.ripdpi.data.toTemporaryResolverOverride
@@ -26,10 +27,12 @@ internal class VpnEncryptedDnsFailoverState {
     var currentPathSelectedByFailover: Boolean = false
     var currentPathPersisted: Boolean = false
     val attemptedPathKeys: LinkedHashSet<String> = linkedSetOf()
+    var blockedPathKeys: Set<String> = emptySet()
 
     fun resetAll() {
         networkScopeKey = null
         preferredPath = null
+        blockedPathKeys = emptySet()
         resetTracking()
     }
 
@@ -51,6 +54,7 @@ internal class VpnEncryptedDnsFailoverState {
 internal class VpnEncryptedDnsFailoverController(
     private val resolverOverrideStore: ResolverOverrideStore,
     private val networkDnsPathPreferenceStore: NetworkDnsPathPreferenceStore,
+    private val networkDnsBlockedPathStore: NetworkDnsBlockedPathStore,
     private val networkFingerprintProvider: NetworkFingerprintProvider,
     private val clock: ServiceClock = SystemServiceClock,
 ) {
@@ -79,6 +83,10 @@ internal class VpnEncryptedDnsFailoverController(
                 networkScopeKey?.let { fingerprintHash ->
                     networkDnsPathPreferenceStore.getPreferredPath(fingerprintHash)
                 }
+            state.blockedPathKeys =
+                networkScopeKey?.let { fingerprintHash ->
+                    networkDnsBlockedPathStore.getBlockedPathKeys(fingerprintHash)
+                } ?: emptySet()
         }
 
         val currentPathKey = currentPath.pathKey()
@@ -94,6 +102,10 @@ internal class VpnEncryptedDnsFailoverController(
                     networkScopeKey?.let { fingerprintHash ->
                         networkDnsPathPreferenceStore.getPreferredPath(fingerprintHash)
                     }
+                state.blockedPathKeys =
+                    networkScopeKey?.let { fingerprintHash ->
+                        networkDnsBlockedPathStore.getBlockedPathKeys(fingerprintHash)
+                    } ?: emptySet()
             }
             state.currentPathKey = currentPathKey
             state.currentDnsSignature = currentDnsSignature
@@ -139,10 +151,21 @@ internal class VpnEncryptedDnsFailoverController(
             return false
         }
 
+        val blockReason = classifyBlockReason(telemetry.lastDnsError.orEmpty())
+        if (blockReason != null && networkScopeKey != null) {
+            networkDnsBlockedPathStore.recordBlockedPath(
+                fingerprintHash = networkScopeKey,
+                pathKey = currentPathKey,
+                blockReason = blockReason,
+            )
+            state.blockedPathKeys = state.blockedPathKeys + currentPathKey
+        }
+
         val nextPath =
             buildEncryptedDnsCandidatePlan(
                 activeDns = encryptedDns,
                 preferredPath = state.preferredPath,
+                blockedPathKeys = state.blockedPathKeys,
             ).firstOrNull { candidate ->
                 val candidatePathKey = candidate.pathKey()
                 candidatePathKey != currentPathKey && candidatePathKey !in state.attemptedPathKeys
@@ -170,5 +193,16 @@ internal class VpnEncryptedDnsFailoverController(
     internal fun buildAutoFailoverReason(lastDnsError: String): String {
         val normalizedError = lastDnsError.trim().ifEmpty { "unknown_error" }
         return "$AutoFailoverReasonPrefix: $normalizedError"
+    }
+
+    internal fun classifyBlockReason(error: String): String? {
+        val lower = error.lowercase()
+        return when {
+            "connection reset" in lower || "broken pipe" in lower || "connection abort" in lower -> "sni_blocked"
+            "invalid peer certificate" in lower || "certificate" in lower -> "sni_blocked"
+            "timed out" in lower || "timeout" in lower -> "timeout"
+            "tls" in lower && ("handshake" in lower || "alert" in lower) -> "tls_error"
+            else -> null
+        }
     }
 }

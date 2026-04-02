@@ -244,6 +244,27 @@ internal class TestNetworkDnsPathPreferenceStore : NetworkDnsPathPreferenceStore
     }
 }
 
+internal class TestNetworkDnsBlockedPathStore : com.poyka.ripdpi.data.diagnostics.NetworkDnsBlockedPathStore {
+    private val blocked = mutableMapOf<String, MutableSet<String>>()
+    val recorded = mutableListOf<Triple<String, String, String>>()
+
+    override suspend fun getBlockedPathKeys(fingerprintHash: String): Set<String> = blocked[fingerprintHash].orEmpty()
+
+    override suspend fun recordBlockedPath(
+        fingerprintHash: String,
+        pathKey: String,
+        blockReason: String,
+    ) {
+        blocked.getOrPut(fingerprintHash) { mutableSetOf() }.add(pathKey)
+        recorded.add(Triple(fingerprintHash, pathKey, blockReason))
+    }
+
+    override suspend fun clearAll() {
+        blocked.clear()
+        recorded.clear()
+    }
+}
+
 internal class TestAppSettingsRepository(
     initial: AppSettings = AppSettingsSerializer.defaultValue,
 ) : AppSettingsRepository {

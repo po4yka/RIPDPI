@@ -218,18 +218,21 @@ class VpnEncryptedDnsFailoverControllerTest {
     private fun newEnv(): Env {
         val overrides = TestResolverOverrideStore()
         val preferredPaths = TestNetworkDnsPathPreferenceStore()
+        val blockedPaths = TestNetworkDnsBlockedPathStore()
         val fingerprint = sampleFingerprint()
         return Env(
             controller =
                 VpnEncryptedDnsFailoverController(
                     resolverOverrideStore = overrides,
                     networkDnsPathPreferenceStore = preferredPaths,
+                    networkDnsBlockedPathStore = blockedPaths,
                     networkFingerprintProvider = TestNetworkFingerprintProvider(fingerprint),
                     clock = TestServiceClock(now = 123L),
                 ),
             state = VpnEncryptedDnsFailoverState(),
             overrides = overrides,
             preferredPaths = preferredPaths,
+            blockedPaths = blockedPaths,
             fingerprint = fingerprint,
         )
     }
@@ -265,6 +268,7 @@ class VpnEncryptedDnsFailoverControllerTest {
         val state: VpnEncryptedDnsFailoverState,
         val overrides: TestResolverOverrideStore,
         val preferredPaths: TestNetworkDnsPathPreferenceStore,
+        val blockedPaths: TestNetworkDnsBlockedPathStore,
         val fingerprint: com.poyka.ripdpi.data.NetworkFingerprint,
     )
 }

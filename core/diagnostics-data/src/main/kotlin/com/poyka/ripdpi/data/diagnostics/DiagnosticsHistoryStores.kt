@@ -1,6 +1,8 @@
 package com.poyka.ripdpi.data.diagnostics
 
 import androidx.room.withTransaction
+import com.poyka.ripdpi.data.NetworkDnsBlockedPathRetentionLimit
+import com.poyka.ripdpi.data.NetworkDnsBlockedPathRetentionMaxAgeMs
 import com.poyka.ripdpi.data.NetworkDnsPathPreferenceRetentionLimit
 import com.poyka.ripdpi.data.NetworkDnsPathPreferenceRetentionMaxAgeMs
 import com.poyka.ripdpi.data.RememberedNetworkPolicyRetentionLimit
@@ -160,6 +162,18 @@ interface NetworkDnsPathPreferenceRecordStore {
     suspend fun clearNetworkDnsPathPreferences()
 
     suspend fun pruneNetworkDnsPathPreferences()
+}
+
+interface NetworkDnsBlockedPathStore {
+    suspend fun getBlockedPathKeys(fingerprintHash: String): Set<String>
+
+    suspend fun recordBlockedPath(
+        fingerprintHash: String,
+        pathKey: String,
+        blockReason: String,
+    )
+
+    suspend fun clearAll()
 }
 
 interface DiagnosticsHistoryRetentionStore {
@@ -407,6 +421,39 @@ class RoomNetworkDnsPathPreferenceRecordStore
     }
 
 @Singleton
+class RoomNetworkDnsBlockedPathStore
+    @Inject
+    constructor(
+        private val dao: DiagnosticsDao,
+        private val clock: DiagnosticsHistoryClock,
+    ) : NetworkDnsBlockedPathStore {
+        override suspend fun getBlockedPathKeys(fingerprintHash: String): Set<String> =
+            dao.getBlockedPathKeys(fingerprintHash).toSet()
+
+        override suspend fun recordBlockedPath(
+            fingerprintHash: String,
+            pathKey: String,
+            blockReason: String,
+        ) {
+            dao.upsertBlockedPath(
+                NetworkDnsBlockedPathEntity(
+                    fingerprintHash = fingerprintHash,
+                    pathKey = pathKey,
+                    blockReason = blockReason,
+                    updatedAt = clock.now(),
+                ),
+            )
+            val staleThreshold = clock.now() - NetworkDnsBlockedPathRetentionMaxAgeMs
+            dao.deleteBlockedPathsOlderThan(staleThreshold)
+            dao.trimBlockedPathsToCount(NetworkDnsBlockedPathRetentionLimit)
+        }
+
+        override suspend fun clearAll() {
+            dao.clearBlockedPaths()
+        }
+    }
+
+@Singleton
 class RoomDiagnosticsHistoryRetentionStore
     @Inject
     constructor(
@@ -427,6 +474,7 @@ class RoomDiagnosticsHistoryRetentionStore
             dao.deleteExportRecordsOlderThan(threshold)
             dao.deleteBypassUsageSessionsOlderThan(threshold)
             dao.deleteNetworkDnsPathPreferencesOlderThan(threshold)
+            dao.deleteBlockedPathsOlderThan(threshold)
         }
     }
 
@@ -464,6 +512,10 @@ abstract class DiagnosticsHistoryStoresModule {
     abstract fun bindNetworkDnsPathPreferenceRecordStore(
         store: RoomNetworkDnsPathPreferenceRecordStore,
     ): NetworkDnsPathPreferenceRecordStore
+
+    @Binds
+    @Singleton
+    abstract fun bindNetworkDnsBlockedPathStore(store: RoomNetworkDnsBlockedPathStore): NetworkDnsBlockedPathStore
 
     @Binds
     @Singleton

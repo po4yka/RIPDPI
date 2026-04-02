@@ -16,6 +16,7 @@ import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.data.ServiceStatus
 import com.poyka.ripdpi.data.classifyFailureReason
 import com.poyka.ripdpi.data.diagnostics.ActiveConnectionPolicy
+import com.poyka.ripdpi.data.diagnostics.NetworkDnsBlockedPathStore
 import com.poyka.ripdpi.data.diagnostics.NetworkDnsPathPreferenceStore
 import com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyStore
 import kotlinx.coroutines.CoroutineDispatcher
@@ -388,6 +389,7 @@ internal class VpnServiceRuntimeCoordinatorFactory
                     VpnEncryptedDnsFailoverController(
                         resolverOverrideStore = runtimeDependencies.resolverOverrideStore,
                         networkDnsPathPreferenceStore = runtimeDependencies.networkDnsPathPreferenceStore,
+                        networkDnsBlockedPathStore = runtimeDependencies.networkDnsBlockedPathStore,
                         networkFingerprintProvider = statusDependencies.networkFingerprintProvider,
                     ),
                 proxyRuntimeSupervisor =
@@ -422,6 +424,7 @@ internal class VpnServiceRuntimeRuntimeDependencies
         val policyHandoverEventStore: PolicyHandoverEventStore,
         val networkSnapshotProvider: NativeNetworkSnapshotProvider,
         val networkDnsPathPreferenceStore: NetworkDnsPathPreferenceStore,
+        val networkDnsBlockedPathStore: NetworkDnsBlockedPathStore,
         val resolverRefreshPlanner: VpnResolverRefreshPlanner,
         val proxyRuntimeSupervisorFactory: ProxyRuntimeSupervisorFactory,
         val screenStateObserver: ScreenStateObserver,
