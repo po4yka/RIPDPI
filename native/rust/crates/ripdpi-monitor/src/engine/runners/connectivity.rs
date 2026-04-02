@@ -65,7 +65,7 @@ impl ExecutionStageRunner for EnvironmentRunner {
                 "engine",
                 "warn",
                 msg,
-            )
+            );
         };
         if snapshot.transport == "none" {
             warn(&runtime.shared, "OS reports no network; aborting scan".to_string());
