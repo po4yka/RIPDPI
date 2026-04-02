@@ -93,6 +93,22 @@ fn ui_payload_parses_hostfake_and_quic_profile() {
 }
 
 #[test]
+fn ui_payload_without_preset_still_gets_fallback_groups() {
+    let ui = minimal_ui();
+    let config = runtime_config_from_payload(ui_payload(ui)).expect("runtime config");
+    // Primary group + 3 fallback groups + CONNECT passthrough = at least 5
+    assert!(
+        config.groups.len() >= 5,
+        "strategy_preset=None must still inject ripdpi_default fallback groups, got {} groups",
+        config.groups.len(),
+    );
+    let labels: Vec<&str> = config.groups.iter().map(|g| g.policy.label.as_str()).collect();
+    assert!(labels.contains(&"tlsrec_fake"), "missing tlsrec_fake fallback: {labels:?}");
+    assert!(labels.contains(&"tlsrec_disorder"), "missing tlsrec_disorder fallback: {labels:?}");
+    assert!(labels.contains(&"split_host"), "missing split_host fallback: {labels:?}");
+}
+
+#[test]
 fn ui_payload_preserves_explicit_tlsrec_before_hostfake() {
     let mut ui = minimal_ui();
     ui.chains.tcp_steps = vec![
