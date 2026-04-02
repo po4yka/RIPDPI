@@ -333,6 +333,28 @@ data class NetworkDnsPathPreferenceEntity(
     val updatedAt: Long,
 )
 
+@Entity(
+    tableName = "network_dns_blocked_paths",
+    indices = [
+        Index(
+            name = "index_network_dns_blocked_paths_lookup",
+            value = ["fingerprintHash", "pathKey"],
+            unique = true,
+        ),
+        Index(
+            name = "index_network_dns_blocked_paths_updatedAt",
+            value = ["updatedAt"],
+        ),
+    ],
+)
+data class NetworkDnsBlockedPathEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0L,
+    val fingerprintHash: String,
+    val pathKey: String,
+    val blockReason: String,
+    val updatedAt: Long,
+)
+
 @Suppress("TooManyFunctions")
 @Dao
 interface DiagnosticsDao {
@@ -617,6 +639,30 @@ interface DiagnosticsDao {
     )
     suspend fun trimNetworkDnsPathPreferencesToCount(retainCount: Int)
 
+    @Query("SELECT pathKey FROM network_dns_blocked_paths WHERE fingerprintHash = :fingerprintHash")
+    suspend fun getBlockedPathKeys(fingerprintHash: String): List<String>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertBlockedPath(entity: NetworkDnsBlockedPathEntity): Long
+
+    @Query("DELETE FROM network_dns_blocked_paths")
+    suspend fun clearBlockedPaths()
+
+    @Query("DELETE FROM network_dns_blocked_paths WHERE updatedAt < :threshold")
+    suspend fun deleteBlockedPathsOlderThan(threshold: Long)
+
+    @Query(
+        """
+        DELETE FROM network_dns_blocked_paths
+        WHERE id NOT IN (
+            SELECT id FROM network_dns_blocked_paths
+            ORDER BY updatedAt DESC
+            LIMIT :retainCount
+        )
+        """,
+    )
+    suspend fun trimBlockedPathsToCount(retainCount: Int)
+
     @Query("DELETE FROM probe_results WHERE createdAt < :threshold")
     suspend fun deleteProbeResultsOlderThan(threshold: Long)
 
@@ -638,8 +684,9 @@ interface DiagnosticsDao {
         BypassUsageSessionEntity::class,
         RememberedNetworkPolicyEntity::class,
         NetworkDnsPathPreferenceEntity::class,
+        NetworkDnsBlockedPathEntity::class,
     ],
-    version = 1,
+    version = 2,
     exportSchema = true,
 )
 abstract class DiagnosticsDatabase : RoomDatabase() {
@@ -719,6 +766,10 @@ object DiagnosticsDatabaseModule {
             )
             db.execSQL(
                 "DELETE FROM network_dns_path_preferences WHERE updatedAt < ?",
+                arrayOf(now - THIRTY_DAYS_MS),
+            )
+            db.execSQL(
+                "DELETE FROM network_dns_blocked_paths WHERE updatedAt < ?",
                 arrayOf(now - THIRTY_DAYS_MS),
             )
         }

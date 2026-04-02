@@ -526,6 +526,7 @@ class VpnServiceRuntimeCoordinatorTest {
                     VpnEncryptedDnsFailoverController(
                         resolverOverrideStore = overrides,
                         networkDnsPathPreferenceStore = preferredPaths,
+                        networkDnsBlockedPathStore = TestNetworkDnsBlockedPathStore(),
                         networkFingerprintProvider = fingerprintProvider,
                         clock = clock,
                     ),

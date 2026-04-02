@@ -4,6 +4,8 @@ import kotlinx.serialization.Serializable
 
 const val NetworkDnsPathPreferenceRetentionLimit = 64
 const val NetworkDnsPathPreferenceRetentionMaxAgeMs = 90L * 24L * 60L * 60L * 1_000L
+const val NetworkDnsBlockedPathRetentionLimit = 128
+const val NetworkDnsBlockedPathRetentionMaxAgeMs = 30L * 24L * 60L * 60L * 1_000L
 
 @Serializable
 data class EncryptedDnsPathCandidate(
@@ -93,6 +95,7 @@ fun builtInEncryptedDnsPathCandidates(): List<EncryptedDnsPathCandidate> =
 fun buildEncryptedDnsCandidatePlan(
     activeDns: ActiveDnsSettings,
     preferredPath: EncryptedDnsPathCandidate? = null,
+    blockedPathKeys: Set<String> = emptySet(),
 ): List<EncryptedDnsPathCandidate> {
     val currentPath = activeDns.toEncryptedDnsPathCandidate()
     val candidates =
@@ -133,6 +136,7 @@ fun buildEncryptedDnsCandidatePlan(
 
     fun candidateComparator(): Comparator<EncryptedDnsPathCandidate> =
         compareBy<EncryptedDnsPathCandidate>(
+            { if (it.pathKey() in blockedPathKeys) 1 else 0 },
             { if (preferredPath != null && it.pathKey() == preferredPath.pathKey()) 0 else 1 },
             { if (preferredPath != null && it.resolverId == preferredPath.resolverId) 0 else 1 },
             { if (currentPath != null && it.pathKey() == currentPath.pathKey()) 0 else 1 },
