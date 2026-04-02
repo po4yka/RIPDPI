@@ -510,6 +510,12 @@ class DiagnosticsArchiveRenderer
                     strategyProbe?.targetSelection?.cohortLabel?.let { add("targetCohort=$it") }
                     recommendation?.tcpCandidateLabel?.let { add("tcpWinner=$it") }
                     recommendation?.quicCandidateLabel?.let { add("quicWinner=$it") }
+                    if (strategyProbe != null &&
+                        strategyProbe.tcpCandidates.isNotEmpty() &&
+                        strategyProbe.tcpCandidates.none { it.succeededTargets > 0 && !it.skipped }
+                    ) {
+                        add("strategy_adequacy:all_tcp_candidates_failed")
+                    }
                 }
             return DiagnosticsArchiveRecommendationTrace(
                 selectedApproach =
