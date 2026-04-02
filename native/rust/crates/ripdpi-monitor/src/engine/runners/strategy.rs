@@ -68,16 +68,17 @@ fn strategy_probe_live_progress(
 }
 
 /// Tracks consecutive failures within a candidate family, blocking the family
-/// after two consecutive failures to avoid wasting probe budget.
+/// after `threshold` consecutive failures to avoid wasting probe budget.
 struct FamilyFailureTracker<'a> {
     blocked: Option<&'a str>,
     last_failed: Option<&'a str>,
     consecutive: usize,
+    threshold: usize,
 }
 
 impl<'a> FamilyFailureTracker<'a> {
-    fn new() -> Self {
-        Self { blocked: None, last_failed: None, consecutive: 0 }
+    fn new(threshold: usize) -> Self {
+        Self { blocked: None, last_failed: None, consecutive: 0, threshold }
     }
 
     fn record(&mut self, family: &'a str, failed: bool) {
@@ -88,7 +89,7 @@ impl<'a> FamilyFailureTracker<'a> {
                 self.last_failed = Some(family);
                 self.consecutive = 1;
             }
-            if self.consecutive >= 2 {
+            if self.consecutive >= self.threshold {
                 self.blocked = Some(family);
                 self.consecutive = 0;
             }
@@ -531,7 +532,7 @@ impl ExecutionStageRunner for StrategyTcpRunner {
             strategy_plan.probe_seed,
         );
         let mut pending_tcp_specs = ordered_tcp_specs;
-        let mut tcp_failure_tracker = FamilyFailureTracker::new();
+        let mut tcp_failure_tracker = FamilyFailureTracker::new(strategy_plan.suite.family_failure_threshold);
         while !pending_tcp_specs.is_empty() {
             let candidate_index = runtime.strategy.tcp_candidates.len() + 1;
             let spec = pending_tcp_specs.remove(next_candidate_index(&pending_tcp_specs, tcp_failure_tracker.blocked));
@@ -695,7 +696,7 @@ impl ExecutionStageRunner for StrategyQuicRunner {
         let mut pending_quic_specs =
             interleave_candidate_families(quic_specs.clone(), stable_probe_hash(strategy_plan.probe_seed, "quic"));
         let mut quic_family_succeeded = false;
-        let mut quic_failure_tracker = FamilyFailureTracker::new();
+        let mut quic_failure_tracker = FamilyFailureTracker::new(strategy_plan.suite.family_failure_threshold);
         while !pending_quic_specs.is_empty() {
             let candidate_index = runtime.strategy.quic_candidates.len() + 1;
             let spec =
