@@ -40,6 +40,9 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import java.security.MessageDigest
 
+/** Fallback group labels injected by `ripdpi_default` runtime preset. */
+private val DefaultFallbackGroupFamilies = listOf("tlsrec_fake", "tlsrec_disorder", "split_host")
+
 @Serializable
 data class BypassApproachId(
     val kind: BypassApproachKind,
@@ -89,6 +92,8 @@ data class BypassStrategySignature(
     val quicFakeHost: String? = null,
     val fakeOffsetMarker: String? = null,
     val routeGroup: String? = null,
+    @EncodeDefault(EncodeDefault.Mode.NEVER)
+    val fallbackGroupFamilies: List<String> = emptyList(),
 )
 
 @Serializable
@@ -286,6 +291,8 @@ fun deriveBypassStrategySignature(
                 .effectiveFakeOffsetMarker()
                 .takeUnless { it == DefaultFakeOffsetMarker },
         routeGroup = routeGroup?.takeUnless { it.isBlank() || it == "unknown" },
+        fallbackGroupFamilies =
+            if (!settings.enableCmdSettings) DefaultFallbackGroupFamilies else emptyList(),
     )
 }
 
@@ -422,6 +429,7 @@ fun deriveBypassStrategySignature(
                 },
         fakeOffsetMarker = preferences.fakePackets.fakeOffsetMarker.takeUnless { it == DefaultFakeOffsetMarker },
         routeGroup = routeGroup?.takeUnless { it.isBlank() || it == "unknown" },
+        fallbackGroupFamilies = DefaultFallbackGroupFamilies,
     )
 }
 
