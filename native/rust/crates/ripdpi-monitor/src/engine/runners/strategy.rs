@@ -890,6 +890,47 @@ mod tests {
     use ripdpi_failure_classifier::FailureClass;
     use ripdpi_proxy_config::{parse_proxy_config_json, ProxyConfigPayload, ProxyUiConfig};
 
+    use super::FamilyFailureTracker;
+
+    #[test]
+    fn family_tracker_blocks_after_threshold_2() {
+        let mut tracker = FamilyFailureTracker::new(2);
+        tracker.record("hostfake", true);
+        assert!(tracker.blocked != Some("hostfake"));
+        tracker.record("hostfake", true);
+        assert!(tracker.blocked == Some("hostfake"));
+    }
+
+    #[test]
+    fn family_tracker_blocks_after_threshold_4() {
+        let mut tracker = FamilyFailureTracker::new(4);
+        tracker.record("hostfake", true);
+        tracker.record("hostfake", true);
+        assert!(tracker.blocked != Some("hostfake"));
+        tracker.record("hostfake", true);
+        assert!(tracker.blocked != Some("hostfake"));
+        tracker.record("hostfake", true);
+        assert!(tracker.blocked == Some("hostfake"));
+    }
+
+    #[test]
+    fn family_tracker_resets_on_success() {
+        let mut tracker = FamilyFailureTracker::new(2);
+        tracker.record("hostfake", true);
+        tracker.record("hostfake", false); // success resets consecutive count and blocked
+        tracker.record("hostfake", true);
+        assert!(tracker.blocked != Some("hostfake")); // only 1 consecutive failure after reset
+    }
+
+    #[test]
+    fn family_tracker_resets_on_different_family() {
+        let mut tracker = FamilyFailureTracker::new(2);
+        tracker.record("hostfake", true);
+        tracker.record("split", true); // different family resets hostfake consecutive counter
+        tracker.record("hostfake", true);
+        assert!(tracker.blocked != Some("hostfake")); // only 1 consecutive for hostfake
+    }
+
     use super::{
         baseline_has_tls_ech_only, baseline_supports_ech_candidates, ordered_follow_up_tcp_candidates,
         resolve_recommended_proxy_config_json, resolve_strategy_probe_audit_assessment,

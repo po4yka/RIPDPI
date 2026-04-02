@@ -149,6 +149,7 @@ class DiagnosticsScanRequestFactoryTest {
                     profileId = "automatic-audit",
                     family = DiagnosticProfileFamily.AUTOMATIC_AUDIT,
                     suiteId = "full_matrix_v1",
+                    scanOrigin = DiagnosticsScanOrigin.AUTOMATIC_BACKGROUND,
                     strategyProbeTargetCohorts =
                         listOf(
                             auditCohort(
@@ -251,6 +252,167 @@ class DiagnosticsScanRequestFactoryTest {
             )
 
         val selected = selectStrategyProbeTargetsForSession("audit-session", intent)
+
+        assertEquals(intent.domainTargets.map(DomainTarget::host), selected.domainTargets.map(DomainTarget::host))
+        assertEquals(intent.quicTargets.map(QuicTarget::host), selected.quicTargets.map(QuicTarget::host))
+        assertNull(selected.strategyProbe?.targetSelection)
+    }
+
+    @Test
+    fun `manual analysis merges all valid cohorts`() {
+        val intent =
+            strategyProbeIntent(
+                settings = defaultDiagnosticsAppSettings(),
+                baseProxyConfigJson = null,
+                profileId = "automatic-audit",
+                family = DiagnosticProfileFamily.AUTOMATIC_AUDIT,
+                suiteId = "full_matrix_v1",
+                strategyProbeTargetCohorts =
+                    listOf(
+                        auditCohort(
+                            id = "global-core",
+                            label = "Global core",
+                            domainHosts = listOf("www.youtube.com", "discord.com", "proton.me"),
+                            quicHosts = listOf("www.youtube.com", "discord.com"),
+                        ),
+                        auditCohort(
+                            id = "media-messaging",
+                            label = "Media and messaging",
+                            domainHosts = listOf("meduza.io", "telegram.org", "signal.org"),
+                            quicHosts = listOf("discord.com", "www.whatsapp.com"),
+                        ),
+                    ),
+            )
+
+        val selected = selectStrategyProbeTargetsForSession("session-1", intent, isManual = true)
+        val selection = requireNotNull(selected.strategyProbe?.targetSelection)
+
+        assertEquals("all", selection.cohortId)
+        assertEquals("All cohorts", selection.cohortLabel)
+        // 6 unique domain hosts (3+3, no overlap)
+        assertEquals(6, selected.domainTargets.size)
+        // 3 unique QUIC hosts (discord.com appears in both cohorts)
+        assertEquals(3, selected.quicTargets.size)
+        assertEquals(6, selection.domainHosts.size)
+        assertEquals(3, selection.quicHosts.size)
+    }
+
+    @Test
+    fun `manual analysis deduplicates overlapping hosts`() {
+        val intent =
+            strategyProbeIntent(
+                settings = defaultDiagnosticsAppSettings(),
+                baseProxyConfigJson = null,
+                profileId = "automatic-audit",
+                family = DiagnosticProfileFamily.AUTOMATIC_AUDIT,
+                suiteId = "full_matrix_v1",
+                strategyProbeTargetCohorts =
+                    listOf(
+                        auditCohort(
+                            id = "cohort-a",
+                            label = "Cohort A",
+                            domainHosts = listOf("shared-a.example", "shared-b.example", "unique-a.example"),
+                            quicHosts = listOf("shared-quic.example", "unique-quic-a.example"),
+                        ),
+                        auditCohort(
+                            id = "cohort-b",
+                            label = "Cohort B",
+                            domainHosts = listOf("shared-a.example", "shared-b.example", "unique-b.example"),
+                            quicHosts = listOf("shared-quic.example", "unique-quic-b.example"),
+                        ),
+                    ),
+            )
+
+        val selected = selectStrategyProbeTargetsForSession("session-2", intent, isManual = true)
+        val selection = requireNotNull(selected.strategyProbe?.targetSelection)
+
+        assertEquals("all", selection.cohortId)
+        assertEquals("All cohorts", selection.cohortLabel)
+        // shared-a and shared-b appear in both cohorts but are deduplicated;
+        // unique-a and unique-b each appear once; total = 4 unique hosts
+        val domainHosts = selected.domainTargets.map(DomainTarget::host)
+        assertEquals(4, domainHosts.size)
+        assertTrue(domainHosts.contains("shared-a.example"))
+        assertTrue(domainHosts.contains("shared-b.example"))
+        assertTrue(domainHosts.contains("unique-a.example"))
+        assertTrue(domainHosts.contains("unique-b.example"))
+        // shared-quic.example appears in both cohorts but is deduplicated;
+        // unique-quic-a.example and unique-quic-b.example each appear once; total = 3 unique
+        val quicHosts = selected.quicTargets.map(QuicTarget::host)
+        assertEquals(3, quicHosts.size)
+        assertTrue(quicHosts.contains("shared-quic.example"))
+        assertTrue(quicHosts.contains("unique-quic-a.example"))
+        assertTrue(quicHosts.contains("unique-quic-b.example"))
+    }
+
+    @Test
+    fun `non-manual analysis still rotates cohorts`() {
+        val intent =
+            strategyProbeIntent(
+                settings = defaultDiagnosticsAppSettings(),
+                baseProxyConfigJson = null,
+                profileId = "automatic-audit",
+                family = DiagnosticProfileFamily.AUTOMATIC_AUDIT,
+                suiteId = "full_matrix_v1",
+                strategyProbeTargetCohorts =
+                    listOf(
+                        auditCohort(
+                            id = "global-core",
+                            label = "Global core",
+                            domainHosts = listOf("www.youtube.com", "discord.com", "proton.me"),
+                            quicHosts = listOf("www.youtube.com", "discord.com"),
+                        ),
+                        auditCohort(
+                            id = "media-messaging",
+                            label = "Media and messaging",
+                            domainHosts = listOf("meduza.io", "telegram.org", "signal.org"),
+                            quicHosts = listOf("discord.com", "www.whatsapp.com"),
+                        ),
+                    ),
+            )
+
+        val selected = selectStrategyProbeTargetsForSession("session-1", intent, isManual = false)
+        val selection = requireNotNull(selected.strategyProbe?.targetSelection)
+
+        assertNotEquals("all", selection.cohortId)
+        assertTrue(selection.cohortId in listOf("global-core", "media-messaging"))
+        // Single cohort selected: exactly 3 domain and 2 QUIC targets
+        assertEquals(3, selected.domainTargets.size)
+        assertEquals(2, selected.quicTargets.size)
+    }
+
+    @Test
+    fun `manual analysis with invalid cohorts falls back`() {
+        val intent =
+            strategyProbeIntent(
+                settings = defaultDiagnosticsAppSettings(),
+                baseProxyConfigJson = null,
+                profileId = "automatic-audit",
+                family = DiagnosticProfileFamily.AUTOMATIC_AUDIT,
+                suiteId = "full_matrix_v1",
+                domainTargets =
+                    listOf(
+                        DomainTarget(host = "fallback-a.example"),
+                        DomainTarget(host = "fallback-b.example"),
+                        DomainTarget(host = "fallback-c.example"),
+                    ),
+                quicTargets =
+                    listOf(
+                        QuicTarget(host = "fallback-quic-a.example"),
+                        QuicTarget(host = "fallback-quic-b.example"),
+                    ),
+                strategyProbeTargetCohorts =
+                    listOf(
+                        auditCohort(
+                            id = "invalid",
+                            label = "Invalid",
+                            domainHosts = listOf("only-one.example"),
+                            quicHosts = listOf("only-one-quic.example"),
+                        ),
+                    ),
+            )
+
+        val selected = selectStrategyProbeTargetsForSession("audit-session", intent, isManual = true)
 
         assertEquals(intent.domainTargets.map(DomainTarget::host), selected.domainTargets.map(DomainTarget::host))
         assertEquals(intent.quicTargets.map(QuicTarget::host), selected.quicTargets.map(QuicTarget::host))
@@ -429,6 +591,7 @@ class DiagnosticsScanRequestFactoryTest {
         domainTargets: List<DomainTarget> = listOf(DomainTarget(host = "example.org")),
         quicTargets: List<QuicTarget> = listOf(QuicTarget(host = "example.org")),
         strategyProbeTargetCohorts: List<StrategyProbeTargetCohortSpec> = emptyList(),
+        scanOrigin: DiagnosticsScanOrigin = DiagnosticsScanOrigin.USER_INITIATED,
     ): EngineScanRequestWire {
         val intent =
             strategyProbeIntent(
@@ -483,7 +646,7 @@ class DiagnosticsScanRequestFactoryTest {
                     ),
                 settings = settings,
                 pathMode = ScanPathMode.RAW_PATH,
-                scanOrigin = DiagnosticsScanOrigin.USER_INITIATED,
+                scanOrigin = scanOrigin,
                 exposeProgress = false,
                 registerActiveBridge = false,
             )
