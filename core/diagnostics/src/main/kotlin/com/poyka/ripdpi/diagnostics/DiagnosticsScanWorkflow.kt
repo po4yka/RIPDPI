@@ -12,6 +12,7 @@ import com.poyka.ripdpi.data.NetworkFingerprint
 import com.poyka.ripdpi.data.RememberedNetworkPolicyJson
 import com.poyka.ripdpi.data.TemporaryResolverOverride
 import com.poyka.ripdpi.data.activeDnsSettings
+import com.poyka.ripdpi.data.deriveStrategyLaneFamilies
 import com.poyka.ripdpi.data.strategyFamily
 import com.poyka.ripdpi.data.strategyLabel
 import com.poyka.ripdpi.data.toTemporaryResolverOverride
@@ -88,9 +89,15 @@ internal object DiagnosticsScanWorkflow {
                 settings = settings,
                 preferredPath = preferredDnsPath,
             )
+        val strategyRecommendation =
+            StrategyRecommendationEngine.compute(
+                report = report,
+                currentTcpFamily = settings.deriveStrategyLaneFamilies().tcpStrategyFamily,
+            )
         return report.copy(
             strategyProbeReport = strategyProbe,
             resolverRecommendation = resolverRecommendation,
+            strategyRecommendation = strategyRecommendation,
         )
     }
 
@@ -127,7 +134,17 @@ internal object DiagnosticsScanWorkflow {
         if (!resolverOverrideApplied) return false
         if (pathMode != ScanPathMode.RAW_PATH) return false
         val strategyProbe = report.strategyProbeReport ?: return false
-        return strategyProbe.completionKind == StrategyProbeCompletionKind.DNS_SHORT_CIRCUITED
+        if (strategyProbe.completionKind == StrategyProbeCompletionKind.DNS_SHORT_CIRCUITED) {
+            return true
+        }
+        // Also reprobe when DNS was fixed but strategy recommendation indicates TCP blocking.
+        // The strategy probe may have run with broken DNS and produced no useful winner.
+        if (strategyProbe.completionKind == StrategyProbeCompletionKind.DNS_TAMPERING_WITH_FALLBACK &&
+            report.strategyRecommendation?.actionable == true
+        ) {
+            return true
+        }
+        return false
     }
 
     fun evaluateBackgroundAutoPersistEligibility(
