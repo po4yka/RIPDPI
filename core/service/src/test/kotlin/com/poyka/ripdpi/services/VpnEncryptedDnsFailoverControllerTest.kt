@@ -215,6 +215,92 @@ class VpnEncryptedDnsFailoverControllerTest {
             assertNull(env.overrides.override.value)
         }
 
+    @Test
+    fun `catastrophic dns error on first query triggers immediate failover`() =
+        runTest {
+            val env = newEnv()
+            val currentDns = cloudflareDohDns()
+            val signature = dnsSignature(currentDns, overrideReason = null)
+
+            env.controller.evaluate(
+                state = env.state,
+                activeDns = currentDns,
+                currentDnsSignature = signature,
+                networkScopeKey = env.fingerprint.scopeKey(),
+                telemetry = dnsTelemetry(queries = 0, failures = 0),
+            )
+
+            // Single failure with catastrophic error and low query count should trigger immediately
+            val failoverTriggered =
+                env.controller.evaluate(
+                    state = env.state,
+                    activeDns = currentDns,
+                    currentDnsSignature = signature,
+                    networkScopeKey = env.fingerprint.scopeKey(),
+                    telemetry =
+                        dnsTelemetry(
+                            queries = 1,
+                            failures = 1,
+                            lastDnsError = "Connection reset by peer (os error 104)",
+                        ),
+                )
+
+            assertTrue(failoverTriggered)
+            assertNotNull(env.overrides.override.value)
+        }
+
+    @Test
+    fun `non-catastrophic dns error on first query does not trigger immediate failover`() =
+        runTest {
+            val env = newEnv()
+            val currentDns = cloudflareDohDns()
+            val signature = dnsSignature(currentDns, overrideReason = null)
+
+            env.controller.evaluate(
+                state = env.state,
+                activeDns = currentDns,
+                currentDnsSignature = signature,
+                networkScopeKey = env.fingerprint.scopeKey(),
+                telemetry = dnsTelemetry(queries = 0, failures = 0),
+            )
+
+            // Single failure with non-catastrophic error should NOT trigger immediately
+            val failoverTriggered =
+                env.controller.evaluate(
+                    state = env.state,
+                    activeDns = currentDns,
+                    currentDnsSignature = signature,
+                    networkScopeKey = env.fingerprint.scopeKey(),
+                    telemetry =
+                        dnsTelemetry(
+                            queries = 1,
+                            failures = 1,
+                            lastDnsError = "resolver timeout",
+                        ),
+                )
+
+            assertFalse(failoverTriggered)
+            assertNull(env.overrides.override.value)
+        }
+
+    @Test
+    fun `isCatastrophicDnsError classifies known patterns`() {
+        val controller =
+            VpnEncryptedDnsFailoverController(
+                resolverOverrideStore = TestResolverOverrideStore(),
+                networkDnsPathPreferenceStore = TestNetworkDnsPathPreferenceStore(),
+                networkDnsBlockedPathStore = TestNetworkDnsBlockedPathStore(),
+                networkFingerprintProvider = TestNetworkFingerprintProvider(sampleFingerprint()),
+            )
+        assertTrue(controller.isCatastrophicDnsError("Connection reset by peer (os error 104)"))
+        assertTrue(controller.isCatastrophicDnsError("Connection refused"))
+        assertTrue(controller.isCatastrophicDnsError("Operation not permitted (os error 1)"))
+        assertTrue(controller.isCatastrophicDnsError("Broken pipe"))
+        assertFalse(controller.isCatastrophicDnsError("resolver timeout"))
+        assertFalse(controller.isCatastrophicDnsError("tls handshake failed"))
+        assertFalse(controller.isCatastrophicDnsError(""))
+    }
+
     private fun newEnv(): Env {
         val overrides = TestResolverOverrideStore()
         val preferredPaths = TestNetworkDnsPathPreferenceStore()

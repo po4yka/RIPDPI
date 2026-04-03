@@ -7,10 +7,10 @@ use crate::types::{DiagnosticProfileFamily, ScanPathMode};
 
 // --- Constants ---
 
-pub(crate) const DEFAULT_DNS_SERVER: &str = "1.1.1.1:53";
-pub(crate) const DEFAULT_DOH_URL: &str = "https://cloudflare-dns.com/dns-query";
-pub(crate) const DEFAULT_DOH_BOOTSTRAP_IPS: &[&str] = &["1.1.1.1", "1.0.0.1"];
-pub(crate) const DEFAULT_DOH_HOST: &str = "cloudflare-dns.com";
+pub(crate) const DEFAULT_DNS_SERVER: &str = "94.140.14.14:53";
+pub(crate) const DEFAULT_DOH_URL: &str = "https://dns.adguard-dns.com/dns-query";
+pub(crate) const DEFAULT_DOH_BOOTSTRAP_IPS: &[&str] = &["94.140.14.14", "94.140.15.15"];
+pub(crate) const DEFAULT_DOH_HOST: &str = "dns.adguard-dns.com";
 pub(crate) const DEFAULT_DOH_PORT: u16 = 443;
 pub(crate) const CONNECT_TIMEOUT: Duration = Duration::from_secs(4);
 pub(crate) const IO_TIMEOUT: Duration = Duration::from_millis(1200);

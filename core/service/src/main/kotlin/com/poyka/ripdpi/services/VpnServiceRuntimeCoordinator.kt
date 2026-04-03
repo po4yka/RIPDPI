@@ -207,7 +207,19 @@ internal class VpnServiceRuntimeCoordinator(
         val telemetryFailure = telemetry.failureReason()
         val tunnelStoppedUnexpectedly =
             vpnTunnelRuntime.isRunning && telemetry.tunnelTelemetry.state != "running"
-        val shouldStop = !stopping && (telemetryFailure != null || tunnelStoppedUnexpectedly)
+
+        // Don't halt if DNS failover still has candidates to try — give the
+        // failover controller a chance to switch resolvers and rebuild the tunnel.
+        val session = runtimeSession
+        val dnsFailoverPending =
+            session != null &&
+                !session.encryptedDnsFailoverState.exhausted &&
+                session.currentDns?.isEncrypted == true
+
+        val shouldStop =
+            !stopping &&
+                (telemetryFailure != null || tunnelStoppedUnexpectedly) &&
+                !dnsFailoverPending
         if (!shouldStop) {
             return false
         }
