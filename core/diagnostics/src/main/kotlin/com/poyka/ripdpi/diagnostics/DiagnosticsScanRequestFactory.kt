@@ -333,11 +333,12 @@ internal fun selectStrategyProbeTargetsForSession(
             cohort.domainTargets.size == AutomaticAuditDomainTargetCount &&
                 cohort.quicTargets.size == AutomaticAuditQuicTargetCount
         }
-    val isFullMatrixSuite = strategyProbe?.suiteId == StrategyProbeSuiteFullMatrixV1
+    if (strategyProbe == null) return intent
+    val isFullMatrixSuite = strategyProbe.suiteId == StrategyProbeSuiteFullMatrixV1
     val isApplicable =
         isFullMatrixSuite &&
             intent.profileId == AutomaticAuditProfileId && validCohorts.isNotEmpty()
-    if (!isApplicable || strategyProbe == null) return intent
+    if (!isApplicable) return intent
     return if (isManual) {
         val allDomainTargets = validCohorts.flatMap { it.domainTargets }.distinctBy { it.host }
         val allQuicTargets = validCohorts.flatMap { it.quicTargets }.distinctBy { it.host }
