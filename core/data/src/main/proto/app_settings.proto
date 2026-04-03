@@ -172,4 +172,8 @@ message AppSettings {
 
   // Connection freeze detection (TSPU degradation mode)
   bool freeze_detection_enabled = 129;       // Detect throttled/frozen connections
+
+  // TCP window size control (wsize)
+  int32 wsize_window = 130;                  // TCP window size in bytes (0 = disabled)
+  int32 wsize_scale = 131;                   // Window scale factor (-1 = auto, 0-14 = explicit)
 }

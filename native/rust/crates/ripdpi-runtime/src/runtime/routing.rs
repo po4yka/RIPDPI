@@ -346,6 +346,11 @@ pub(super) fn connect_target_via_group(
     } else {
         None
     };
+    let pre_connect_rcvbuf = group.actions.wsize.map(|w| match w.scale {
+        Some(scale) if (scale as u32) < 32 => w.window.checked_shl(scale as u32).unwrap_or(u32::MAX),
+        Some(_) => u32::MAX,
+        None => w.window,
+    });
     let stream = if let Some(upstream) = group.policy.ext_socks {
         connect_via_socks(
             target,
@@ -363,6 +368,7 @@ pub(super) fn connect_target_via_group(
             state.config.process.protect_path.as_deref(),
             state.config.network.tfo,
             connect_timeout,
+            pre_connect_rcvbuf,
         )
     }?;
 
@@ -370,7 +376,9 @@ pub(super) fn connect_target_via_group(
         platform::attach_drop_sack(&stream)
             .map_err(|source| ConnectAttemptError { source, tcp_total_retransmissions: None })?;
     }
-    if let Some(clamp) = group.actions.window_clamp {
+    // wsize supersedes window_clamp when both are set.
+    let effective_clamp = group.actions.wsize.map(|w| w.window).or(group.actions.window_clamp);
+    if let Some(clamp) = effective_clamp {
         let _ = platform::set_tcp_window_clamp(&stream, clamp);
     }
     if group.actions.strip_timestamps {
@@ -484,7 +492,7 @@ pub(super) fn connect_socket(
     tfo: bool,
     connect_timeout: Option<Duration>,
 ) -> io::Result<TcpStream> {
-    connect_socket_detailed(target, bind_ip, protect_path, tfo, connect_timeout)
+    connect_socket_detailed(target, bind_ip, protect_path, tfo, connect_timeout, None)
         .map_err(ConnectAttemptError::into_io_error)
 }
 
@@ -494,6 +502,7 @@ fn connect_socket_detailed(
     protect_path: Option<&str>,
     tfo: bool,
     connect_timeout: Option<Duration>,
+    pre_connect_rcvbuf: Option<u32>,
 ) -> Result<TcpStream, ConnectAttemptError> {
     let domain = match target {
         SocketAddr::V4(_) => Domain::IPV4,
@@ -511,6 +520,9 @@ fn connect_socket_detailed(
     }
     bind_socket(&socket, bind_ip, target)
         .map_err(|source| ConnectAttemptError { source, tcp_total_retransmissions: None })?;
+    if let Some(rcvbuf) = pre_connect_rcvbuf {
+        let _ = platform::set_rcvbuf(&socket, rcvbuf);
+    }
     let connect_started = std::time::Instant::now();
     tracing::debug!(
         target = %target,

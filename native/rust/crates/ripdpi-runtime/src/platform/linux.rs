@@ -341,6 +341,24 @@ pub fn get_tcp_window_clamp(stream: &TcpStream) -> io::Result<u32> {
     Ok(val as u32)
 }
 
+/// Set the socket receive buffer size (`SO_RCVBUF`).
+///
+/// On Linux the kernel doubles the requested value to account for bookkeeping
+/// overhead.  Setting this **before** `connect()` influences the TCP window
+/// scale factor negotiated in the SYN packet.
+pub fn set_rcvbuf(fd: &impl AsRawFd, size: u32) -> io::Result<()> {
+    let val = size as libc::c_int;
+    // SAFETY: `SO_RCVBUF` accepts a `c_int` value and `fd` is a live socket.
+    unsafe { setsockopt_raw(fd.as_raw_fd(), libc::SOL_SOCKET, libc::SO_RCVBUF, &val) }
+}
+
+/// Read the current `SO_RCVBUF` value on a socket.
+#[cfg(test)]
+pub fn get_rcvbuf(fd: &impl AsRawFd) -> io::Result<u32> {
+    let (val, _len): (libc::c_int, _) = unsafe { getsockopt_raw(fd.as_raw_fd(), libc::SOL_SOCKET, libc::SO_RCVBUF) }?;
+    Ok(val as u32)
+}
+
 /// Bind a UDP socket to a source port that is at most `max_port`.
 ///
 /// Tries random ports in `[1024, max_port]` until one binds successfully.
@@ -1619,6 +1637,15 @@ mod tests {
         set_tcp_window_clamp(&client, 0).expect("restore clamp to 0");
         let val = get_tcp_window_clamp(&client).expect("read clamp after restore");
         assert!(val == 0 || val > 256, "clamp after restore should be 0 or large, got {val}");
+    }
+
+    #[test]
+    fn rcvbuf_set_and_readback() {
+        let (client, _server) = connected_pair();
+        set_rcvbuf(&client, 8192).expect("set rcvbuf to 8192");
+        let val = get_rcvbuf(&client).expect("read rcvbuf");
+        // Linux doubles SO_RCVBUF for kernel bookkeeping overhead.
+        assert!(val >= 8192, "rcvbuf should be at least 8192 after setting, got {val}");
     }
 
     #[test]
