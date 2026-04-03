@@ -171,6 +171,12 @@ pub struct TcpObservationFact {
     pub responses_seen: Option<usize>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub freeze_threshold_bytes: Option<usize>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub port: Option<u16>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub alt_port: Option<u16>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub alt_port_status: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]

@@ -253,6 +253,7 @@ fn scan_request(manifest: &FixtureManifest, http_port: u16) -> ScanRequest {
             asn: None,
             host_header: Some(manifest.fixture_domain.clone()),
             fat_header_requests: Some(4),
+            alt_port: None,
         }],
         quic_targets: vec![],
         service_targets: vec![],
