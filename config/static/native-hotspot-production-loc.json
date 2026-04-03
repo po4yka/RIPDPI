@@ -54,7 +54,7 @@
     },
     {
       "path": "native/rust/crates/ripdpi-config/src/parse/cli.rs",
-      "maxProductionLoc": 693
+      "maxProductionLoc": 694
     },
     {
       "path": "native/rust/crates/ripdpi-config/src/parse/fake_profiles.rs",
@@ -90,7 +90,7 @@
     },
     {
       "path": "native/rust/crates/ripdpi-monitor/src/engine/runners/strategy.rs",
-      "maxProductionLoc": 859
+      "maxProductionLoc": 890
     },
     {
       "path": "native/rust/crates/ripdpi-monitor/src/engine/runtime.rs",

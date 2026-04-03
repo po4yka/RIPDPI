@@ -12,8 +12,8 @@ class DnsResolverConfigTest {
         val defaultPath = canonicalDefaultEncryptedDnsPathCandidate()
 
         assertEquals(BuiltInDnsProviders.first(), defaultProvider)
-        assertEquals("1.1.1.1", canonicalDefaultPlainDnsIp())
-        assertEquals("1.1.1.1:53", canonicalDefaultUdpDnsServer())
+        assertEquals("94.140.14.14", canonicalDefaultPlainDnsIp())
+        assertEquals("94.140.14.14:53", canonicalDefaultUdpDnsServer())
         assertEquals(defaultProvider.providerId, defaultSettings.providerId)
         assertEquals(defaultSettings.providerId, defaultPath.resolverId)
         assertEquals(defaultSettings.encryptedDnsHost, defaultPath.host)
