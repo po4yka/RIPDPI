@@ -330,7 +330,7 @@ class DefaultDiagnosticsHomeCompositeRunService
                 updateStage(runId, dpiStrategyIndex) { dpiStrategySummary }
                 // If the audit stage did not produce actionable recommendations,
                 // let the strategy probe contribute its own recommendation.
-                if (auditOutcome?.actionable != true && dpiStrategySession.status == "completed") {
+                if (!auditOutcome.actionable && dpiStrategySession.status == "completed") {
                     val strategyAuditOutcome =
                         diagnosticsHomeWorkflowService.finalizeHomeAudit(dpiStrategySessionId)
                     if (strategyAuditOutcome.actionable) {
