@@ -1167,14 +1167,14 @@ fn monitor_json_contracts_match_goldens() {
 }
 
 #[test]
-fn default_runtime_encrypted_dns_context_uses_cloudflare() {
+fn default_runtime_encrypted_dns_context_uses_adguard() {
     let ctx = default_runtime_encrypted_dns_context();
-    assert_eq!(ctx.resolver_id.as_deref(), Some("cloudflare"));
-    assert!(ctx.doh_url.as_deref().unwrap_or("").contains("cloudflare-dns.com"));
-    assert!(ctx.bootstrap_ips.iter().any(|ip| ip == "1.1.1.1"));
+    assert_eq!(ctx.resolver_id.as_deref(), Some("adguard"));
+    assert!(ctx.doh_url.as_deref().unwrap_or("").contains("dns.adguard-dns.com"));
+    assert!(ctx.bootstrap_ips.iter().any(|ip| ip == "94.140.14.14"));
 }
 
 #[test]
-fn default_udp_dns_server_uses_cloudflare() {
-    assert_eq!(DEFAULT_DNS_SERVER, "1.1.1.1:53");
+fn default_udp_dns_server_uses_adguard() {
+    assert_eq!(DEFAULT_DNS_SERVER, "94.140.14.14:53");
 }

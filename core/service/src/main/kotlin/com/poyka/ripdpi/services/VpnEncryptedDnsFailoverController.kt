@@ -147,6 +147,16 @@ internal class VpnEncryptedDnsFailoverController(
         }
 
         state.consecutiveFailureEvents += 1
+
+        // Eager failover: when very few queries have been attempted and the error
+        // is catastrophic (connection reset, refused, etc.), skip the threshold and
+        // failover immediately.  This prevents the service from halting before the
+        // failover controller gets a second chance.
+        val queriesSincePathStart = telemetry.dnsQueriesTotal - state.pathStartQueries
+        if (queriesSincePathStart <= 3 && isCatastrophicDnsError(telemetry.lastDnsError.orEmpty())) {
+            state.consecutiveFailureEvents = FailoverThreshold
+        }
+
         if (state.consecutiveFailureEvents < FailoverThreshold) {
             return false
         }
@@ -204,5 +214,14 @@ internal class VpnEncryptedDnsFailoverController(
             "tls" in lower && ("handshake" in lower || "alert" in lower) -> "tls_error"
             else -> null
         }
+    }
+
+    internal fun isCatastrophicDnsError(error: String): Boolean {
+        val lower = error.lowercase()
+        return "connection reset" in lower ||
+            "connection refused" in lower ||
+            "connection abort" in lower ||
+            "operation not permitted" in lower ||
+            "broken pipe" in lower
     }
 }

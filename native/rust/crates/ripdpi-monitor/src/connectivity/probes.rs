@@ -66,8 +66,26 @@ pub(crate) fn run_dns_probe(target: &DnsTarget, transport: &TransportConfig, pat
     let udp_result = resolve_via_udp(&target.domain, &udp_server, transport);
     let udp_latency_ms = udp_started.elapsed().as_millis().to_string();
     let encrypted_started = std::time::Instant::now();
-    let encrypted_result = resolve_via_encrypted_dns(&target.domain, encrypted_endpoint.clone(), transport);
+    let mut encrypted_result = resolve_via_encrypted_dns(&target.domain, encrypted_endpoint.clone(), transport);
     let encrypted_latency_ms = encrypted_started.elapsed().as_millis().to_string();
+
+    // When the primary encrypted resolver fails and the target doesn't
+    // explicitly configure its own endpoint, try fallback resolvers before
+    // declaring encrypted_dns_blocked.
+    let mut fallback_resolver_used: Option<String> = None;
+    let target_uses_default_resolver =
+        target.encrypted_host.is_none() && target.encrypted_doh_url.is_none() && target.encrypted_protocol.is_none();
+    if encrypted_result.is_err() && target_uses_default_resolver {
+        let fallback_endpoints = build_fallback_encrypted_dns_endpoints(encrypted_endpoint.resolver_id.as_deref());
+        for fallback_ep in &fallback_endpoints {
+            if let Ok(result) = resolve_via_encrypted_dns(&target.domain, fallback_ep.clone(), transport) {
+                encrypted_result = Ok(result);
+                fallback_resolver_used = fallback_ep.resolver_id.clone();
+                break;
+            }
+        }
+    }
+
     let expected: BTreeSet<String> = target.expected_ips.iter().cloned().collect();
 
     let outcome = match (&udp_result, &encrypted_result) {
@@ -153,6 +171,7 @@ pub(crate) fn run_dns_probe(target: &DnsTarget, transport: &TransportConfig, pat
                     expected.iter().cloned().collect::<Vec<_>>().join("|")
                 },
             },
+            ProbeDetail { key: "resolverFallbackUsed".to_string(), value: fallback_resolver_used.unwrap_or_default() },
         ],
     }
 }
