@@ -12,6 +12,8 @@ import com.poyka.ripdpi.data.toEncryptedDnsPathCandidate
 import java.net.URI
 import java.util.Locale
 
+private const val MaxBlockedBootstrapDisplay = 3
+
 private const val ProbeTypeDnsIntegrity = "dns_integrity"
 private const val ProbeTypeTcpFatHeader = "tcp_fat_header"
 
@@ -279,7 +281,7 @@ private fun Candidate.rationale(
     val protocolHint = path.protocolPreferenceHint(preferredPath, currentPath)
     val blockedHint =
         if (blockedBootstrapIps.isNotEmpty()) {
-            val avoided = blockedBootstrapIps.take(3).joinToString(", ")
+            val avoided = blockedBootstrapIps.take(MaxBlockedBootstrapDisplay).joinToString(", ")
             " Avoided bootstrap IPs blocked by DPI: $avoided."
         } else {
             ""

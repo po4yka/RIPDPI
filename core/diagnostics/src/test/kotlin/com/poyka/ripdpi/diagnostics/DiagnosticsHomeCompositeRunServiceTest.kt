@@ -407,71 +407,8 @@ class DiagnosticsHomeCompositeRunServiceTest {
             val stores = FakeDiagnosticsHistoryStores()
             val timelineSource = MutableDiagnosticsTimelineSource()
 
-            // Build a scan report for the audit stage with targetSelection listing "youtube.com"
-            val auditReport =
-                ScanReport(
-                    sessionId = "scan-1",
-                    profileId = "automatic-audit",
-                    pathMode = ScanPathMode.RAW_PATH,
-                    startedAt = 10L,
-                    finishedAt = 20L,
-                    summary = "Audit complete",
-                    strategyProbeReport =
-                        StrategyProbeReport(
-                            suiteId = "quick_v1",
-                            recommendation =
-                                StrategyProbeRecommendation(
-                                    tcpCandidateId = "split",
-                                    tcpCandidateLabel = "Split",
-                                    quicCandidateId = "fake",
-                                    quicCandidateLabel = "Fake",
-                                    rationale = "Best performing candidate",
-                                    recommendedProxyConfigJson = "{}",
-                                ),
-                            targetSelection =
-                                StrategyProbeTargetSelection(
-                                    cohortId = "cohort-1",
-                                    cohortLabel = "Cohort 1",
-                                    domainHosts = listOf("youtube.com"),
-                                ),
-                        ),
-                )
-
-            // Build a scan report for dpi_full with a domain NOT in audit set that has a transport failure
-            val dpiFullReport =
-                ScanReport(
-                    sessionId = "scan-3",
-                    profileId = "ru-dpi-full",
-                    pathMode = ScanPathMode.RAW_PATH,
-                    startedAt = 10L,
-                    finishedAt = 20L,
-                    summary = "DPI full complete",
-                    observations =
-                        listOf(
-                            ObservationFact(
-                                kind = ObservationKind.DOMAIN,
-                                target = "meduza.io",
-                                domain =
-                                    DomainObservationFact(
-                                        host = "meduza.io",
-                                        transportFailure = TransportFailureKind.RESET,
-                                    ),
-                            ),
-                        ),
-                )
-
-            val auditReportJson =
-                kotlinx.serialization.json.Json.encodeToString(
-                    com.poyka.ripdpi.diagnostics.contract.engine.EngineScanReportWire
-                        .serializer(),
-                    auditReport.toEngineScanReportWire(),
-                )
-            val dpiFullReportJson =
-                kotlinx.serialization.json.Json.encodeToString(
-                    com.poyka.ripdpi.diagnostics.contract.engine.EngineScanReportWire
-                        .serializer(),
-                    dpiFullReport.toEngineScanReportWire(),
-                )
+            val auditReportJson = encodeScanReport(auditReportWithHosts("youtube.com"))
+            val dpiFullReportJson = encodeScanReport(dpiFullReportWithObservations("meduza.io"))
 
             val scanController =
                 RecordingHomeCompositeScanController(
@@ -531,6 +468,64 @@ class DiagnosticsHomeCompositeRunServiceTest {
                 outcome.summary.contains("additional domain") && outcome.summary.contains("connectivity issues"),
             )
         }
+
+    private fun auditReportWithHosts(vararg hosts: String): ScanReport =
+        ScanReport(
+            sessionId = "scan-1",
+            profileId = "automatic-audit",
+            pathMode = ScanPathMode.RAW_PATH,
+            startedAt = 10L,
+            finishedAt = 20L,
+            summary = "Audit complete",
+            strategyProbeReport =
+                StrategyProbeReport(
+                    suiteId = "quick_v1",
+                    recommendation =
+                        StrategyProbeRecommendation(
+                            tcpCandidateId = "split",
+                            tcpCandidateLabel = "Split",
+                            quicCandidateId = "fake",
+                            quicCandidateLabel = "Fake",
+                            rationale = "Best performing candidate",
+                            recommendedProxyConfigJson = "{}",
+                        ),
+                    targetSelection =
+                        StrategyProbeTargetSelection(
+                            cohortId = "cohort-1",
+                            cohortLabel = "Cohort 1",
+                            domainHosts = hosts.toList(),
+                        ),
+                ),
+        )
+
+    private fun dpiFullReportWithObservations(vararg failedHosts: String): ScanReport =
+        ScanReport(
+            sessionId = "scan-3",
+            profileId = "ru-dpi-full",
+            pathMode = ScanPathMode.RAW_PATH,
+            startedAt = 10L,
+            finishedAt = 20L,
+            summary = "DPI full complete",
+            observations =
+                failedHosts.map { host ->
+                    ObservationFact(
+                        kind = ObservationKind.DOMAIN,
+                        target = host,
+                        domain =
+                            DomainObservationFact(
+                                host = host,
+                                transportFailure = TransportFailureKind.RESET,
+                            ),
+                    )
+                },
+        )
+
+    private fun encodeScanReport(report: ScanReport): String =
+        kotlinx.serialization.json.Json.encodeToString(
+            com.poyka.ripdpi.diagnostics.contract.engine.EngineScanReportWire
+                .serializer(),
+            report.toEngineScanReportWire(),
+        )
 
     @Test
     fun `dns issues detected appends note to summary`() =
