@@ -5,6 +5,7 @@ import com.poyka.ripdpi.core.RipDpiProxyCmdPreferences
 import com.poyka.ripdpi.core.RipDpiProxyJsonPreferences
 import com.poyka.ripdpi.core.RipDpiProxyPreferences
 import com.poyka.ripdpi.core.RipDpiProxyUIPreferences
+import com.poyka.ripdpi.core.RipDpiRuntimeContext
 import com.poyka.ripdpi.core.decodeRipDpiProxyUiPreferences
 import com.poyka.ripdpi.core.deriveStrategyLaneFamilies
 import com.poyka.ripdpi.core.resolveHostAutolearnStorePath
@@ -32,6 +33,7 @@ import dagger.Module
 import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
+import java.io.File
 import java.security.MessageDigest
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -99,7 +101,22 @@ class DefaultConnectionPolicyResolver
                     baseDns = dnsResolution.activeDns,
                     preferredPath = preferredVpnDnsPath,
                 )
-            val runtimeContext = baselineVpnDnsSelection.activeDns.toRipDpiRuntimeContext()
+            val dnsRuntimeContext = baselineVpnDnsSelection.activeDns.toRipDpiRuntimeContext()
+            val protectPath = resolveVpnProtectPath(context, mode)
+            val runtimeContext =
+                when {
+                    protectPath == null -> {
+                        dnsRuntimeContext
+                    }
+
+                    dnsRuntimeContext == null -> {
+                        RipDpiRuntimeContext(protectPath = protectPath)
+                    }
+
+                    else -> {
+                        dnsRuntimeContext.copy(protectPath = protectPath)
+                    }
+                }
             val hostAutolearnStorePath = resolveHostAutolearnStorePath(context)
 
             val baselinePreferences =
@@ -202,12 +219,27 @@ class DefaultConnectionPolicyResolver
                     resolverOverride = dnsResolution.override,
                 )
             val effectiveDns = vpnDnsSelection.activeDns
+            val effectiveDnsRuntimeContext = effectiveDns.toRipDpiRuntimeContext()
+            val effectiveRuntimeContext =
+                when {
+                    protectPath == null -> {
+                        effectiveDnsRuntimeContext
+                    }
+
+                    effectiveDnsRuntimeContext == null -> {
+                        RipDpiRuntimeContext(protectPath = protectPath)
+                    }
+
+                    else -> {
+                        effectiveDnsRuntimeContext.copy(protectPath = protectPath)
+                    }
+                }
             val proxyPreferences =
                 RipDpiProxyJsonPreferences(
                     configJson = matchedPolicy.proxyConfigJson,
                     hostAutolearnStorePath = hostAutolearnStorePath,
                     networkScopeKey = networkScopeKey,
-                    runtimeContext = effectiveDns.toRipDpiRuntimeContext(),
+                    runtimeContext = effectiveRuntimeContext,
                 )
             val appliedPolicy =
                 rememberedPolicy?.copy(
@@ -324,6 +356,19 @@ private fun String.encodeSha256(): String {
             append((byte.toInt() and 0xF).toString(16))
         }
     }
+}
+
+/**
+ * Returns the absolute path to the protect socket file when in VPN mode, or null otherwise.
+ * The file exists only while [VpnProtectSocketServer] is running (i.e. VPN service is active).
+ */
+private fun resolveVpnProtectPath(
+    context: Context,
+    mode: Mode,
+): String? {
+    if (mode != Mode.VPN) return null
+    val file = File(context.filesDir, "protect_path")
+    return file.absolutePath
 }
 
 @Module

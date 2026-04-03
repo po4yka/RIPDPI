@@ -46,6 +46,7 @@ class RipDpiVpnService :
 
     private lateinit var coordinator: VpnServiceRuntimeCoordinator
     private lateinit var shellDelegate: ServiceShellDelegate
+    private lateinit var protectSocketServer: VpnProtectSocketServer
     private var revoked = false
 
     override val serviceScope = lifecycleScope
@@ -58,6 +59,12 @@ class RipDpiVpnService :
             R.string.vpn_channel_name,
         )
         coordinator = coordinatorFactory.create(host = this)
+        protectSocketServer =
+            VpnProtectSocketServer(
+                vpnService = this,
+                socketPath = java.io.File(filesDir, "protect_path").absolutePath,
+            )
+        protectSocketServer.start()
         shellDelegate =
             ServiceShellDelegate(
                 serviceScope = lifecycleScope,
@@ -75,6 +82,7 @@ class RipDpiVpnService :
     }
 
     override fun onDestroy() {
+        protectSocketServer.stop()
         if (!revoked) {
             coordinator.onDestroy()
         }
