@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.services
 
+import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.data.ActiveDnsSettings
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
 import com.poyka.ripdpi.data.NetworkFingerprintProvider
@@ -58,6 +59,10 @@ internal class VpnEncryptedDnsFailoverController(
     private val networkFingerprintProvider: NetworkFingerprintProvider,
     private val clock: ServiceClock = SystemServiceClock,
 ) {
+    private companion object {
+        private val log = Logger.withTag("DnsFailover")
+    }
+
     suspend fun evaluate(
         state: VpnEncryptedDnsFailoverState,
         activeDns: ActiveDnsSettings?,
@@ -87,6 +92,7 @@ internal class VpnEncryptedDnsFailoverController(
                 networkScopeKey?.let { fingerprintHash ->
                     networkDnsBlockedPathStore.getBlockedPathKeys(fingerprintHash)
                 } ?: emptySet()
+            log.d { "network scope changed to $networkScopeKey, preferred=${state.preferredPath?.pathKey()}" }
         }
 
         val currentPathKey = currentPath.pathKey()
@@ -117,6 +123,7 @@ internal class VpnEncryptedDnsFailoverController(
             state.currentPathPersisted = false
             state.attemptedPathKeys += currentPathKey
             state.expectedPathKey = null
+            log.d { "resolver changed pathKey=$currentPathKey attempts=${state.attemptedPathKeys.size}" }
         }
 
         val successfulQueriesSincePathActivated =
@@ -124,6 +131,7 @@ internal class VpnEncryptedDnsFailoverController(
                 (telemetry.dnsFailuresTotal - state.pathStartFailures)
         val successEvent = successfulQueriesSincePathActivated > 0 && telemetry.lastDnsError.isNullOrBlank()
         if (successEvent) {
+            log.d { "success on path ${state.currentPathKey}, resetting failure counter" }
             state.consecutiveFailureEvents = 0
             if (state.currentPathSelectedByFailover && !state.currentPathPersisted) {
                 val fingerprint = networkFingerprintProvider.capture()
@@ -134,6 +142,7 @@ internal class VpnEncryptedDnsFailoverController(
                     )
                     state.preferredPath = currentPath
                     state.currentPathPersisted = true
+                    log.i { "persisted preferred path ${state.currentPathKey} for $networkScopeKey" }
                 }
             }
         }
@@ -147,6 +156,7 @@ internal class VpnEncryptedDnsFailoverController(
         }
 
         state.consecutiveFailureEvents += 1
+        log.w { "failure #${state.consecutiveFailureEvents} error=${telemetry.lastDnsError}" }
 
         // Eager failover: when very few queries have been attempted and the error
         // is catastrophic (connection reset, refused, etc.), skip the threshold and
@@ -154,10 +164,12 @@ internal class VpnEncryptedDnsFailoverController(
         // failover controller gets a second chance.
         val queriesSincePathStart = telemetry.dnsQueriesTotal - state.pathStartQueries
         if (queriesSincePathStart <= 3 && isCatastrophicDnsError(telemetry.lastDnsError.orEmpty())) {
+            log.w { "catastrophic error on bootstrap, eager failover triggered (queries=$queriesSincePathStart)" }
             state.consecutiveFailureEvents = FailoverThreshold
         }
 
         if (state.consecutiveFailureEvents < FailoverThreshold) {
+            log.d { "failure #${state.consecutiveFailureEvents} < threshold $FailoverThreshold, waiting" }
             return false
         }
 
@@ -169,6 +181,7 @@ internal class VpnEncryptedDnsFailoverController(
                 blockReason = blockReason,
             )
             state.blockedPathKeys = state.blockedPathKeys + currentPathKey
+            log.w { "path $currentPathKey blocked reason=$blockReason" }
         }
 
         val nextPath =
@@ -182,6 +195,7 @@ internal class VpnEncryptedDnsFailoverController(
             }
 
         if (nextPath == null) {
+            log.w { "all candidates exhausted after ${state.attemptedPathKeys.size} attempts" }
             state.exhausted = true
             return false
         }
@@ -193,6 +207,7 @@ internal class VpnEncryptedDnsFailoverController(
             ),
         )
         state.expectedPathKey = nextPath.pathKey()
+        log.i { "switching to ${nextPath.pathKey()} (attempt #${state.attemptedPathKeys.size})" }
         state.attemptedPathKeys += state.expectedPathKey.orEmpty()
         state.consecutiveFailureEvents = 0
         state.exhausted = false

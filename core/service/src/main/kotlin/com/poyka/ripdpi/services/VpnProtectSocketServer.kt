@@ -27,6 +27,10 @@ internal class VpnProtectSocketServer(
     private val vpnService: VpnService,
     private val socketPath: String,
 ) {
+    private companion object {
+        private val log = Logger.withTag("ProtectSocket")
+    }
+
     @Volatile private var serverSocket: LocalServerSocket? = null
 
     @Volatile private var bindSocket: LocalSocket? = null
@@ -48,6 +52,7 @@ internal class VpnProtectSocketServer(
         val server = LocalServerSocket(fd)
         serverSocket = server
         running = true
+        log.i { "listening at $socketPath" }
 
         thread =
             Thread(
@@ -58,7 +63,7 @@ internal class VpnProtectSocketServer(
                             handleClient(client)
                         } catch (e: IOException) {
                             if (running) {
-                                Logger.w(e) { "protect socket accept error" }
+                                log.w(e) { "protect socket accept error" }
                             }
                         }
                     }
@@ -86,6 +91,7 @@ internal class VpnProtectSocketServer(
                         val fdInt = extractFdInt(fd)
                         if (fdInt >= 0) {
                             vpnService.protect(fdInt)
+                            log.d { "protected fd=$fdInt" }
                         }
                         runCatching { Os.close(fd) }
                     }
@@ -95,7 +101,7 @@ internal class VpnProtectSocketServer(
                 output.flush()
             }
         } catch (e: Exception) {
-            Logger.w(e) { "protect socket handle error" }
+            log.w(e) { "protect socket handle error" }
         }
     }
 
@@ -106,7 +112,7 @@ internal class VpnProtectSocketServer(
             field.isAccessible = true
             field.getInt(fd)
         } catch (e: Exception) {
-            Logger.w(e) { "failed to extract fd int" }
+            log.w(e) { "failed to extract fd int" }
             -1
         }
 
@@ -119,5 +125,6 @@ internal class VpnProtectSocketServer(
         thread?.interrupt()
         thread = null
         File(socketPath).delete()
+        log.i { "stopped" }
     }
 }
