@@ -97,6 +97,8 @@ pub(crate) fn observation_for_probe(result: &ProbeResult) -> Option<ProbeObserva
                 selected_sni: detail_value(result, "selectedSni").map(str::to_string),
                 bytes_sent: detail_value(result, "bytesSent").and_then(|value| value.parse::<usize>().ok()),
                 responses_seen: detail_value(result, "responsesSeen").and_then(|value| value.parse::<usize>().ok()),
+                freeze_threshold_bytes: detail_value(result, "freezeThresholdBytes")
+                    .and_then(|value| value.parse::<usize>().ok()),
             }),
             quic: None,
             service: None,
@@ -341,6 +343,7 @@ fn tcp_status(outcome: &str) -> TcpProbeStatus {
     match outcome {
         "whitelist_sni_ok" => TcpProbeStatus::WhitelistSniOk,
         "tcp_16kb_blocked" => TcpProbeStatus::Blocked16Kb,
+        "tcp_freeze_after_threshold" => TcpProbeStatus::FreezeAfterThreshold,
         "tcp_ok" | "fat_ok" => TcpProbeStatus::Ok,
         "tcp_connect_failed" => TcpProbeStatus::ConnectFailed,
         _ => TcpProbeStatus::Error,
@@ -489,6 +492,7 @@ mod tests {
     fn tcp_status_maps_all_variants() {
         assert_eq!(tcp_status("whitelist_sni_ok"), TcpProbeStatus::WhitelistSniOk);
         assert_eq!(tcp_status("tcp_16kb_blocked"), TcpProbeStatus::Blocked16Kb);
+        assert_eq!(tcp_status("tcp_freeze_after_threshold"), TcpProbeStatus::FreezeAfterThreshold);
         assert_eq!(tcp_status("tcp_ok"), TcpProbeStatus::Ok);
         assert_eq!(tcp_status("fat_ok"), TcpProbeStatus::Ok);
         assert_eq!(tcp_status("tcp_connect_failed"), TcpProbeStatus::ConnectFailed);
@@ -694,6 +698,27 @@ mod tests {
         assert_eq!(tcp.bytes_sent, Some(1024));
         assert_eq!(tcp.responses_seen, Some(3));
         assert_eq!(tcp.selected_sni, Some("test.sni".to_string()));
+    }
+
+    #[test]
+    fn tcp_observation_freeze_after_threshold() {
+        let result = probe(
+            "tcp_fat_header",
+            "provider.com",
+            "tcp_freeze_after_threshold",
+            &[
+                ("provider", "TestProvider"),
+                ("bytesSent", "16384"),
+                ("responsesSeen", "1"),
+                ("freezeThresholdBytes", "16384"),
+            ],
+        );
+        let obs = observation_for_probe(&result).expect("tcp observation");
+        let tcp = obs.tcp.expect("tcp payload");
+        assert_eq!(tcp.status, TcpProbeStatus::FreezeAfterThreshold);
+        assert_eq!(tcp.freeze_threshold_bytes, Some(16384));
+        assert_eq!(tcp.bytes_sent, Some(16384));
+        assert_eq!(tcp.responses_seen, Some(1));
     }
 
     #[test]
