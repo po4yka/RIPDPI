@@ -237,7 +237,7 @@ pub fn parse_cli(args: &[String], startup: &StartupEnv) -> Result<ParseResult, C
             }
             "--wsize" => {
                 let value = next_value(&effective_args, &mut idx, arg)?;
-                group!().actions.wsize = Some(parse_wsize(arg, &value)?);
+                group!().actions.wsize = Some(parse_wsize(arg, value)?);
             }
             "--strip-timestamps" => group!().actions.strip_timestamps = true,
             "--entropy-target" => {

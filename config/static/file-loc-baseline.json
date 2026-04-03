@@ -83,6 +83,12 @@
       "kind": "rust",
       "measuredLoc": 1538,
       "limit": 1500
+    },
+    {
+      "path": "native/rust/crates/ripdpi-runtime/src/platform/linux.rs",
+      "kind": "rust",
+      "measuredLoc": 1557,
+      "limit": 1500
     }
   ]
 }
