@@ -54,6 +54,24 @@ RIPDPI is an Android VPN/proxy application for DPI (Deep Packet Inspection) bypa
 - Automatic probing/audit is unavailable when `Use command line settings` is enabled because those workflows require isolated UI-config strategy trials
 - Remembered-network persistence is driven by validated recommendations; full-matrix audit results remain manual-apply only
 
+### VPN Socket Protection (TODO: JNI callback)
+
+The native Rust proxy needs `VpnService.protect(fd)` on upstream sockets so they bypass the TUN device. Without protection, `setsockopt(IP_TTL)` fails and fake-packet DPI evasion strategies degrade to no-ops.
+
+**Current state**: A `VpnProtectSocketServer` (Unix domain socket + SCM_RIGHTS) exists but only works during the brief VPN service lifecycle window. Diagnostics RAW_PATH scans explicitly stop the VPN service before probing, so the protect socket is destroyed before strategy probes run. However, RAW_PATH probes connect directly (no TUN), so TTL works without protection.
+
+**Future work**: Replace Unix socket approach with **JNI callback** for the main VPN runtime:
+- Store `JavaVM` + `VpnService` global ref at native startup
+- Call `VpnService.protect(fd)` directly from Rust via `jni` crate
+- This eliminates lifecycle timing issues (no socket server to start/stop)
+- Pattern used by ClashMeta, v2rayNG, Mullvad; Unix sockets are for cross-process (shadowsocks-android)
+
+**Key files**:
+- `core/service/.../VpnProtectSocketServer.kt` -- current Unix socket server
+- `native/rust/.../platform/linux.rs:protect_socket()` -- Rust client (line 216)
+- `native/rust/.../platform/linux.rs:send_fake_tcp()` -- TTL fallback (line 436)
+- `core/service/.../DefaultDiagnosticsRuntimeCoordinator.kt:runRawPathScan()` -- stops VPN before scan
+
 ## Native Code
 
 Two native libraries are built from repo-owned Android adapter crates in the native workspace:
