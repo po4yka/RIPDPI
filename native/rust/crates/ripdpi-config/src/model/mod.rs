@@ -327,6 +327,20 @@ pub struct AutoTtlConfig {
     pub max_ttl: u8,
 }
 
+/// TCP window size control. Combines pre-connect `SO_RCVBUF` (to influence
+/// window scale negotiation) with post-connect `TCP_WINDOW_CLAMP` (to cap the
+/// advertised receive window). Together they force the server to send small
+/// segments from the very first data packet.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct WsizeConfig {
+    /// Desired TCP receive window size in bytes.
+    pub window: u32,
+    /// Optional window scale factor override (0-14).
+    /// When set, `SO_RCVBUF` is tuned to produce this scale factor in the SYN.
+    /// When `None`, `SO_RCVBUF` is set to `window` to let the kernel pick.
+    pub scale: Option<u8>,
+}
+
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub enum WsTunnelMode {
     #[default]
@@ -414,6 +428,7 @@ pub struct DesyncGroupActionSettings {
     pub mod_http: u32,
     pub tlsminor: Option<u8>,
     pub window_clamp: Option<u32>,
+    pub wsize: Option<WsizeConfig>,
     pub strip_timestamps: bool,
     /// GFW popcount bypass: target popcount in permil (e.g. 3400 = 3.4).
     /// None = disabled. Pads fake payloads with printable ASCII to lower
@@ -910,6 +925,7 @@ mod tests {
             mod_http: MH_HMIX | MH_SPACE,
             tlsminor: Some(1),
             window_clamp: Some(2),
+            wsize: None,
             strip_timestamps: false,
             entropy_padding_target_permil: None,
             entropy_padding_max: 256,

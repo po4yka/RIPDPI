@@ -128,6 +128,8 @@ pub enum DesyncAction {
     AwaitWritable,
     SetWindowClamp(u32),
     RestoreWindowClamp,
+    SetWsize { window: u32 },
+    RestoreWsize,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

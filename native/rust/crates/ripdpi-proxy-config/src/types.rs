@@ -262,6 +262,10 @@ pub struct ProxyUiFakePacketConfig {
     #[serde(default)]
     pub window_clamp: Option<u32>,
     #[serde(default)]
+    pub wsize_window: Option<u32>,
+    #[serde(default)]
+    pub wsize_scale: Option<i32>,
+    #[serde(default)]
     pub strip_timestamps: bool,
     #[serde(default)]
     pub quic_bind_low_port: bool,
@@ -306,6 +310,8 @@ impl Default for ProxyUiFakePacketConfig {
             oob_char: b'a',
             drop_sack: false,
             window_clamp: None,
+            wsize_window: None,
+            wsize_scale: None,
             strip_timestamps: false,
             quic_bind_low_port: false,
             quic_migrate_after_handshake: false,
