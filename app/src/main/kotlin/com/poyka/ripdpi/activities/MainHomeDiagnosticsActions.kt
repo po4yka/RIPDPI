@@ -595,7 +595,9 @@ internal fun buildHomeDiagnosticsUiState(
                                     headline = stage.headline,
                                     summary = stage.summary,
                                     failed =
-                                        stage.status == DiagnosticsHomeCompositeStageStatus.FAILED ||
+                                        stage.status == DiagnosticsHomeCompositeStageStatus.FAILED,
+                                    skipped =
+                                        stage.status == DiagnosticsHomeCompositeStageStatus.SKIPPED ||
                                             stage.status == DiagnosticsHomeCompositeStageStatus.UNAVAILABLE,
                                     recommendationContributor = stage.recommendationContributor,
                                 )
