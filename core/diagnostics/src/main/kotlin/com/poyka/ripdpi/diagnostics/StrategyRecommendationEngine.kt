@@ -27,31 +27,43 @@ private const val FamilyDisorder = "disorder"
 private const val FamilyTlsrecFake = "tlsrec_fake"
 
 private const val MinTcpFailuresForRecommendation = 2
+private const val MaxEvidenceTargets = 3
 
 internal object StrategyRecommendationEngine {
+    private val outcomeToCategory: Map<Pair<String, String>, SignalCategory> =
+        mapOf(
+            (ProbeTypeTcpFatHeader to OutcomeTcpReset) to SignalCategory.TCP_RST,
+            (ProbeTypeTcpFatHeader to OutcomeTcp16kbBlocked) to SignalCategory.THRESHOLD_BLOCK,
+            (ProbeTypeTcpFatHeader to OutcomeTcpTimeout) to SignalCategory.SILENT_DROP,
+            (ProbeTypeTcpFatHeader to OutcomeTlsHandshakeFailed) to SignalCategory.TLS_INTERFERENCE,
+            (ProbeTypeDomainReachability to OutcomeUnreachable) to SignalCategory.DOMAIN_BLOCKED,
+            (ProbeTypeServiceReachability to OutcomeServiceBlocked) to SignalCategory.SERVICE_BLOCKED,
+            (ProbeTypeCircumventionReachability to OutcomeCircumventionBlocked) to SignalCategory.CIRCUMVENTION_BLOCKED,
+            (ProbeTypeThroughputWindow to OutcomeThroughputFailed) to SignalCategory.THROUGHPUT_BLOCKED,
+            (ProbeTypeQuicReachability to OutcomeQuicError) to SignalCategory.QUIC_BLOCKED,
+        )
+
     fun compute(
         report: ScanReport,
         currentTcpFamily: String?,
     ): StrategyRecommendation? {
         val signals = collectBlockingSignals(report.results)
         if (signals.isEmpty()) return null
-
         val pattern = classifyBlockingPattern(signals)
         val recommendedFamily =
             recommendFamily(pattern, currentTcpFamily)
-                ?: return null
-
-        if (recommendedFamily == currentTcpFamily) return null
-
-        val evidence = buildEvidence(signals)
-        return StrategyRecommendation(
-            triggerOutcomes = signals.map { it.outcome }.distinct(),
-            recommendedFamily = recommendedFamily,
-            blockingPattern = pattern,
-            rationale = buildRationale(pattern, recommendedFamily, signals),
-            evidence = evidence,
-            actionable = true,
-        )
+                ?.takeIf { it != currentTcpFamily }
+        return recommendedFamily?.let { family ->
+            val evidence = buildEvidence(signals)
+            StrategyRecommendation(
+                triggerOutcomes = signals.map { it.outcome }.distinct(),
+                recommendedFamily = family,
+                blockingPattern = pattern,
+                rationale = buildRationale(pattern, family, signals),
+                evidence = evidence,
+                actionable = true,
+            )
+        }
     }
 
     private fun collectBlockingSignals(results: List<ProbeResult>): List<BlockingSignal> =
@@ -62,141 +74,15 @@ internal object StrategyRecommendationEngine {
             }
         }
 
-    private fun classifyResult(result: ProbeResult): BlockingSignal? =
-        when (result.probeType) {
-            ProbeTypeTcpFatHeader -> {
-                when (result.outcome) {
-                    OutcomeTcpReset -> {
-                        BlockingSignal(
-                            probeType = result.probeType,
-                            target = result.target,
-                            outcome = result.outcome,
-                            category = SignalCategory.TCP_RST,
-                        )
-                    }
-
-                    OutcomeTcp16kbBlocked -> {
-                        BlockingSignal(
-                            probeType = result.probeType,
-                            target = result.target,
-                            outcome = result.outcome,
-                            category = SignalCategory.THRESHOLD_BLOCK,
-                        )
-                    }
-
-                    OutcomeTcpTimeout -> {
-                        BlockingSignal(
-                            probeType = result.probeType,
-                            target = result.target,
-                            outcome = result.outcome,
-                            category = SignalCategory.SILENT_DROP,
-                        )
-                    }
-
-                    OutcomeTlsHandshakeFailed -> {
-                        BlockingSignal(
-                            probeType = result.probeType,
-                            target = result.target,
-                            outcome = result.outcome,
-                            category = SignalCategory.TLS_INTERFERENCE,
-                        )
-                    }
-
-                    else -> {
-                        null
-                    }
-                }
-            }
-
-            ProbeTypeDomainReachability -> {
-                when (result.outcome) {
-                    OutcomeUnreachable -> {
-                        BlockingSignal(
-                            probeType = result.probeType,
-                            target = result.target,
-                            outcome = result.outcome,
-                            category = SignalCategory.DOMAIN_BLOCKED,
-                        )
-                    }
-
-                    else -> {
-                        null
-                    }
-                }
-            }
-
-            ProbeTypeServiceReachability -> {
-                when (result.outcome) {
-                    OutcomeServiceBlocked -> {
-                        BlockingSignal(
-                            probeType = result.probeType,
-                            target = result.target,
-                            outcome = result.outcome,
-                            category = SignalCategory.SERVICE_BLOCKED,
-                        )
-                    }
-
-                    else -> {
-                        null
-                    }
-                }
-            }
-
-            ProbeTypeCircumventionReachability -> {
-                when (result.outcome) {
-                    OutcomeCircumventionBlocked -> {
-                        BlockingSignal(
-                            probeType = result.probeType,
-                            target = result.target,
-                            outcome = result.outcome,
-                            category = SignalCategory.CIRCUMVENTION_BLOCKED,
-                        )
-                    }
-
-                    else -> {
-                        null
-                    }
-                }
-            }
-
-            ProbeTypeThroughputWindow -> {
-                when (result.outcome) {
-                    OutcomeThroughputFailed -> {
-                        BlockingSignal(
-                            probeType = result.probeType,
-                            target = result.target,
-                            outcome = result.outcome,
-                            category = SignalCategory.THROUGHPUT_BLOCKED,
-                        )
-                    }
-
-                    else -> {
-                        null
-                    }
-                }
-            }
-
-            ProbeTypeQuicReachability -> {
-                when (result.outcome) {
-                    OutcomeQuicError -> {
-                        BlockingSignal(
-                            probeType = result.probeType,
-                            target = result.target,
-                            outcome = result.outcome,
-                            category = SignalCategory.QUIC_BLOCKED,
-                        )
-                    }
-
-                    else -> {
-                        null
-                    }
-                }
-            }
-
-            else -> {
-                null
-            }
-        }
+    private fun classifyResult(result: ProbeResult): BlockingSignal? {
+        val category = outcomeToCategory[result.probeType to result.outcome] ?: return null
+        return BlockingSignal(
+            probeType = result.probeType,
+            target = result.target,
+            outcome = result.outcome,
+            category = category,
+        )
+    }
 
     private fun classifyBlockingPattern(signals: List<BlockingSignal>): String {
         val categories = signals.map { it.category }.toSet()
@@ -255,7 +141,7 @@ internal object StrategyRecommendationEngine {
         signals
             .groupBy { it.category }
             .map { (category, grouped) ->
-                val targets = grouped.map { it.target }.distinct().take(3)
+                val targets = grouped.map { it.target }.distinct().take(MaxEvidenceTargets)
                 val targetSuffix =
                     if (targets.size < grouped.size) " (+${grouped.size - targets.size} more)" else ""
                 "${category.label}: ${targets.joinToString(", ")}$targetSuffix"

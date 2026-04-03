@@ -487,6 +487,44 @@ class DiagnosticsArchiveRenderer
             )
         }
 
+        private fun buildRecommendationEvidence(
+            strategyProbe: StrategyProbeReport?,
+            resolver: ResolverRecommendation?,
+            assessment: StrategyProbeAuditAssessment?,
+            selection: DiagnosticsArchiveSelection,
+        ): List<String> {
+            val recommendation = strategyProbe?.recommendation
+            return buildList {
+                recommendation?.rationale?.takeIf(String::isNotBlank)?.let { add(it) }
+                resolver?.rationale?.takeIf(String::isNotBlank)?.let { add("resolver:$it") }
+                assessment
+                    ?.confidence
+                    ?.rationale
+                    ?.takeIf(String::isNotBlank)
+                    ?.let { add(it) }
+                addAll(assessment?.confidence?.warnings.orEmpty())
+                strategyProbe?.targetSelection?.cohortLabel?.let { add("targetCohort=$it") }
+                recommendation?.tcpCandidateLabel?.let { add("tcpWinner=$it") }
+                recommendation?.quicCandidateLabel?.let { add("quicWinner=$it") }
+                val allTcpCandidatesFailed =
+                    strategyProbe != null &&
+                        strategyProbe.tcpCandidates.isNotEmpty() &&
+                        strategyProbe.tcpCandidates.none { it.succeededTargets > 0 && !it.skipped }
+                if (allTcpCandidatesFailed) {
+                    add("strategy_adequacy:all_tcp_candidates_failed")
+                }
+                val blockedBootstraps =
+                    selection.primaryResults
+                        .filter {
+                            it.probeType == "tcp_fat_header" &&
+                                it.outcome in setOf("tcp_reset", "tcp_16kb_blocked")
+                        }.map { it.target }
+                if (blockedBootstraps.isNotEmpty()) {
+                    add("blocked_bootstrap_ips:${blockedBootstraps.joinToString(",")}")
+                }
+            }
+        }
+
         private fun buildRecommendationTrace(
             selection: DiagnosticsArchiveSelection,
         ): DiagnosticsArchiveRecommendationTrace? {
@@ -497,35 +535,7 @@ class DiagnosticsArchiveRenderer
             }
             val assessment = strategyProbe?.auditAssessment
             val recommendation = strategyProbe?.recommendation
-            val evidence =
-                buildList {
-                    recommendation?.rationale?.takeIf(String::isNotBlank)?.let { add(it) }
-                    resolver?.rationale?.takeIf(String::isNotBlank)?.let { add("resolver:$it") }
-                    assessment
-                        ?.confidence
-                        ?.rationale
-                        ?.takeIf(String::isNotBlank)
-                        ?.let { add(it) }
-                    addAll(assessment?.confidence?.warnings.orEmpty())
-                    strategyProbe?.targetSelection?.cohortLabel?.let { add("targetCohort=$it") }
-                    recommendation?.tcpCandidateLabel?.let { add("tcpWinner=$it") }
-                    recommendation?.quicCandidateLabel?.let { add("quicWinner=$it") }
-                    if (strategyProbe != null &&
-                        strategyProbe.tcpCandidates.isNotEmpty() &&
-                        strategyProbe.tcpCandidates.none { it.succeededTargets > 0 && !it.skipped }
-                    ) {
-                        add("strategy_adequacy:all_tcp_candidates_failed")
-                    }
-                    val blockedBootstraps =
-                        selection.primaryResults
-                            .filter {
-                                it.probeType == "tcp_fat_header" &&
-                                    it.outcome in setOf("tcp_reset", "tcp_16kb_blocked")
-                            }.map { it.target }
-                    if (blockedBootstraps.isNotEmpty()) {
-                        add("blocked_bootstrap_ips:${blockedBootstraps.joinToString(",")}")
-                    }
-                }
+            val evidence = buildRecommendationEvidence(strategyProbe, resolver, assessment, selection)
             return DiagnosticsArchiveRecommendationTrace(
                 selectedApproach =
                     selection.selectedApproachSummary?.displayName
