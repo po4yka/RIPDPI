@@ -217,6 +217,7 @@ pub fn protect_socket<T: AsRawFd>(socket: &T, path: &str) -> io::Result<()> {
     use nix::sys::socket::{sendmsg, ControlMessage, MsgFlags};
     use std::io::IoSlice;
 
+    tracing::debug!(path = path, "protect_socket: connecting");
     let stream = UnixStream::connect(path)?;
     stream.set_read_timeout(Some(Duration::from_secs(1)))?;
     stream.set_write_timeout(Some(Duration::from_secs(1)))?;
@@ -230,6 +231,7 @@ pub fn protect_socket<T: AsRawFd>(socket: &T, path: &str) -> io::Result<()> {
 
     let mut ack = [0u8; 1];
     (&stream).read_exact(&mut ack)?;
+    tracing::debug!(path = path, "protect_socket: fd protected");
     Ok(())
 }
 
@@ -513,11 +515,14 @@ pub fn send_fake_tcp(
         // pipe_r and pipe_w are OwnedFd -- closed automatically on drop.
 
         match set_stream_ttl(stream, ttl) {
-            Ok(()) => {}
+            Ok(()) => {
+                tracing::debug!(ttl = ttl, size = original_prefix.len(), "send_fake_tcp: fake packet with custom TTL");
+            }
             Err(err) if should_ignore_android_ttl_error(&err) => {
                 // TTL unavailable on this Android VPN/tun interface — skip the
                 // fake packet entirely and send only the original data so the
                 // TLS handshake is not left half-written.
+                tracing::warn!(error = %err, "send_fake_tcp: TTL unavailable on this platform, sending original data");
                 use std::io::Write;
                 (&*stream).write_all(original_prefix)?;
                 wait_tcp_stage_fd(fd, wait.0, wait.1)?;
