@@ -145,6 +145,16 @@ pub fn set_rcvbuf(_fd: &impl AsRawFd, _size: u32) -> io::Result<()> {
 }
 
 #[cfg(any(target_os = "linux", target_os = "android"))]
+pub fn send_fake_rst(stream: &TcpStream, default_ttl: u8, protect_path: Option<&str>) -> io::Result<()> {
+    linux::send_fake_rst(stream, default_ttl, protect_path)
+}
+
+#[cfg(not(any(target_os = "linux", target_os = "android")))]
+pub fn send_fake_rst(_stream: &TcpStream, _default_ttl: u8, _protect_path: Option<&str>) -> io::Result<()> {
+    Err(io::Error::new(io::ErrorKind::Unsupported, "only supported on Linux/Android"))
+}
+
+#[cfg(any(target_os = "linux", target_os = "android"))]
 pub fn attach_strip_timestamps(stream: &TcpStream) -> io::Result<()> {
     linux::attach_strip_timestamps(stream)
 }

@@ -350,6 +350,14 @@ pub fn plan_tcp(
                     push_split_actions(&mut actions, tampered.bytes[span.host_end..pos as usize].to_vec());
                 }
             }
+            TcpChainStepKind::FakeRst => {
+                // FakeRst injects a raw TCP RST with fake TTL to clear DPI state.
+                // It doesn't consume payload -- the chunk is written normally after.
+                actions.push(DesyncAction::SetTtl(disorder_ttl(fake_ttl)));
+                actions.push(DesyncAction::SendFakeRst);
+                actions.push(DesyncAction::RestoreDefaultTtl);
+                push_split_actions(&mut actions, chunk);
+            }
             TcpChainStepKind::MultiDisorder => return Err(DesyncError),
             TcpChainStepKind::TlsRec | TcpChainStepKind::TlsRandRec => return Err(DesyncError),
         }

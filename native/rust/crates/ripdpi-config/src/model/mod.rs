@@ -165,6 +165,7 @@ pub enum TcpChainStepKind {
     TlsRec,
     TlsRandRec,
     IpFrag2,
+    FakeRst,
 }
 
 impl TcpChainStepKind {
@@ -193,6 +194,7 @@ impl TcpChainStepKind {
             Self::TlsRec => None,
             Self::TlsRandRec => None,
             Self::IpFrag2 => None,
+            Self::FakeRst => None,
         }
     }
 
