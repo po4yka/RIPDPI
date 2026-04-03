@@ -33,6 +33,12 @@ data class NativeNetworkSnapshot(
     val trafficRxBytes: Long = 0L,
     /** System.currentTimeMillis() at capture time */
     val capturedAtMs: Long = 0L,
+    /**
+     * True when the VPN service was active (mode = VPN, status = Halted) at snapshot capture
+     * time, meaning transport == "none" because the VPN tunnel went down rather than because
+     * the physical network is absent.
+     */
+    val vpnServiceWasActive: Boolean = false,
 )
 
 /** Cellular network details, populated when transport is "cellular". */

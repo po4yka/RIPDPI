@@ -1,6 +1,8 @@
 package com.poyka.ripdpi.diagnostics
 
+import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.ApplicationIoScope
+import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsScanRecordStore
 import com.poyka.ripdpi.services.NetworkHandoverMonitor
 import kotlinx.coroutines.CoroutineScope
@@ -8,10 +10,12 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.toList
+import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
@@ -55,6 +59,14 @@ private val HomeCompositeStageSpecs =
         ),
     )
 
+private sealed interface StageSessionSignal {
+    data class Finished(
+        val session: DiagnosticScanSession,
+    ) : StageSessionSignal
+
+    data object VpnHalted : StageSessionSignal
+}
+
 private fun stageTimeoutMs(spec: HomeCompositeStageSpec): Long =
     when (spec.profileId) {
         "ru-dpi-full" -> DpiFullStageTimeoutMs
@@ -70,6 +82,7 @@ class DefaultDiagnosticsHomeCompositeRunService
         private val diagnosticsHomeWorkflowService: DiagnosticsHomeWorkflowService,
         private val scanRecordStore: DiagnosticsScanRecordStore,
         private val networkHandoverMonitor: NetworkHandoverMonitor,
+        private val serviceStateStore: ServiceStateStore,
         @param:Named("diagnosticsJson")
         private val json: Json,
         @param:ApplicationIoScope
@@ -137,69 +150,119 @@ class DefaultDiagnosticsHomeCompositeRunService
 
             val auditCompletedSession = executeStageWithTimeout(runId, auditIndex, auditSpec)
 
-            if (auditCompletedSession != null) {
-                val auditSessionId = auditCompletedSession.first
-                val completedSession = auditCompletedSession.second
-                val completedSummary =
-                    buildCompletedStageSummary(
-                        spec = auditSpec,
-                        sessionId = auditSessionId,
-                        session = completedSession,
-                    ).also { summary ->
-                        auditOutcome =
-                            DiagnosticsHomeAuditOutcome(
-                                sessionId = summary.sessionId.orEmpty(),
-                                fingerprintHash = diagnosticsHomeWorkflowService.currentFingerprintHash(),
-                                actionable = summary.recommendationContributor,
-                                headline = summary.headline,
-                                summary = summary.summary,
-                            )
-                    }
-                updateStage(runId, auditIndex) { completedSummary }
-                if (completedSession.status == "completed") {
-                    auditOutcome = diagnosticsHomeWorkflowService.finalizeHomeAudit(auditSessionId)
-                    updateStage(runId, auditIndex) { current ->
-                        current.copy(
-                            headline = auditOutcome.headline,
-                            summary = auditOutcome.summary,
-                            recommendationContributor = auditOutcome.actionable,
-                        )
-                    }
-                } else {
-                    HomeCompositeStageSpecs.drop(1).forEachIndexed { i, spec ->
-                        val stageIndex = i + 1
-                        updateStage(runId, stageIndex) { current ->
-                            current.copy(
-                                status = DiagnosticsHomeCompositeStageStatus.SKIPPED,
-                                headline = "${spec.label} skipped",
-                                summary = "Skipped due to network unavailability.",
-                            )
-                        }
-                    }
-                    eventCollector.cancel()
-                    val outcome =
-                        buildOutcome(
-                            runId = runId,
-                            auditOutcome = auditOutcome,
-                            coverageNote = null,
-                            dnsIssuesDetected = false,
-                            networkChanged = false,
-                        )
-                    completedRuns[runId] = outcome
-                    progressState.update { current ->
-                        current.updatedRun(runId) { progress ->
-                            progress.copy(
-                                fingerprintHash = outcome.fingerprintHash,
-                                status = DiagnosticsHomeCompositeRunStatus.COMPLETED,
-                                activeStageIndex = null,
-                                activeSessionId = null,
-                                stages = outcome.stageSummaries,
-                                outcome = outcome,
-                            )
-                        }
-                    }
-                    return
+            if (auditCompletedSession == null) {
+                // Stage either timed out or was marked failed by VPN-halt detection inside
+                // executeStage. Ensure the stage is recorded as failed if it is still running
+                // (the VPN-halt path already calls markStageFailure; the timeout path does not).
+                val currentStageStatus =
+                    progressState.value[runId]
+                        ?.stages
+                        ?.getOrNull(auditIndex)
+                        ?.status
+                if (currentStageStatus == DiagnosticsHomeCompositeStageStatus.RUNNING) {
+                    markStageFailure(
+                        runId = runId,
+                        stageIndex = auditIndex,
+                        headline = "${auditSpec.label} timed out",
+                        summary = "The audit stage did not complete within the allowed time.",
+                    )
                 }
+                HomeCompositeStageSpecs.drop(1).forEachIndexed { i, spec ->
+                    val stageIndex = i + 1
+                    updateStage(runId, stageIndex) { current ->
+                        current.copy(
+                            status = DiagnosticsHomeCompositeStageStatus.SKIPPED,
+                            headline = "${spec.label} skipped",
+                            summary = "Skipped due to audit stage failure.",
+                        )
+                    }
+                }
+                eventCollector.cancel()
+                val outcome =
+                    buildOutcome(
+                        runId = runId,
+                        auditOutcome = null,
+                        coverageNote = null,
+                        dnsIssuesDetected = false,
+                        networkChanged = false,
+                    )
+                completedRuns[runId] = outcome
+                progressState.update { current ->
+                    current.updatedRun(runId) { progress ->
+                        progress.copy(
+                            fingerprintHash = outcome.fingerprintHash,
+                            status = DiagnosticsHomeCompositeRunStatus.COMPLETED,
+                            activeStageIndex = null,
+                            activeSessionId = null,
+                            stages = outcome.stageSummaries,
+                            outcome = outcome,
+                        )
+                    }
+                }
+                return
+            }
+
+            val auditSessionId = auditCompletedSession.first
+            val auditSession = auditCompletedSession.second
+            val completedSummary =
+                buildCompletedStageSummary(
+                    spec = auditSpec,
+                    sessionId = auditSessionId,
+                    session = auditSession,
+                ).also { summary ->
+                    auditOutcome =
+                        DiagnosticsHomeAuditOutcome(
+                            sessionId = summary.sessionId.orEmpty(),
+                            fingerprintHash = diagnosticsHomeWorkflowService.currentFingerprintHash(),
+                            actionable = summary.recommendationContributor,
+                            headline = summary.headline,
+                            summary = summary.summary,
+                        )
+                }
+            updateStage(runId, auditIndex) { completedSummary }
+            if (auditSession.status == "completed") {
+                auditOutcome = diagnosticsHomeWorkflowService.finalizeHomeAudit(auditSessionId)
+                updateStage(runId, auditIndex) { current ->
+                    current.copy(
+                        headline = auditOutcome.headline,
+                        summary = auditOutcome.summary,
+                        recommendationContributor = auditOutcome.actionable,
+                    )
+                }
+            } else {
+                HomeCompositeStageSpecs.drop(1).forEachIndexed { i, spec ->
+                    val stageIndex = i + 1
+                    updateStage(runId, stageIndex) { current ->
+                        current.copy(
+                            status = DiagnosticsHomeCompositeStageStatus.SKIPPED,
+                            headline = "${spec.label} skipped",
+                            summary = "Skipped due to network unavailability.",
+                        )
+                    }
+                }
+                eventCollector.cancel()
+                val outcome =
+                    buildOutcome(
+                        runId = runId,
+                        auditOutcome = auditOutcome,
+                        coverageNote = null,
+                        dnsIssuesDetected = false,
+                        networkChanged = false,
+                    )
+                completedRuns[runId] = outcome
+                progressState.update { current ->
+                    current.updatedRun(runId) { progress ->
+                        progress.copy(
+                            fingerprintHash = outcome.fingerprintHash,
+                            status = DiagnosticsHomeCompositeRunStatus.COMPLETED,
+                            activeStageIndex = null,
+                            activeSessionId = null,
+                            stages = outcome.stageSummaries,
+                            outcome = outcome,
+                        )
+                    }
+                }
+                return
             }
 
             coroutineScope {
@@ -307,13 +370,35 @@ class DefaultDiagnosticsHomeCompositeRunService
                     summary = "Collecting diagnostics for ${spec.label.lowercase()}.",
                 )
             }
-            val completedSession =
+
+            val sessionFinished: Flow<StageSessionSignal> =
                 diagnosticsTimelineSource.sessions
                     .map { sessions ->
                         sessions.firstOrNull { it.id == stageSessionId && it.status != "running" }
                     }.filterNotNull()
-                    .first()
-            return stageSessionId to completedSession
+                    .map { StageSessionSignal.Finished(it) }
+
+            val vpnHalted: Flow<StageSessionSignal> =
+                serviceStateStore.status
+                    .drop(1) // skip current snapshot; only react to future transitions
+                    .filter { pair -> pair.first == AppStatus.Halted }
+                    .map { StageSessionSignal.VpnHalted }
+
+            return when (val signal = merge(sessionFinished, vpnHalted).first()) {
+                is StageSessionSignal.Finished -> {
+                    stageSessionId to signal.session
+                }
+
+                StageSessionSignal.VpnHalted -> {
+                    markStageFailure(
+                        runId = runId,
+                        stageIndex = stageIndex,
+                        headline = "${spec.label} failed",
+                        summary = "VPN service stopped while the stage was running.",
+                    )
+                    null
+                }
+            }
         }
 
         private suspend fun executeStageWithTimeout(

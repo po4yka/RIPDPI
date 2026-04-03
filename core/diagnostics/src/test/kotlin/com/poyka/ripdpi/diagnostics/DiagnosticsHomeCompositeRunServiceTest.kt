@@ -1,5 +1,7 @@
 package com.poyka.ripdpi.diagnostics
 
+import com.poyka.ripdpi.data.AppStatus
+import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.NetworkFingerprint
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsScanRecordStore
 import com.poyka.ripdpi.services.NetworkHandoverEvent
@@ -62,6 +64,7 @@ class DiagnosticsHomeCompositeRunServiceTest {
                     diagnosticsHomeWorkflowService = workflowService,
                     scanRecordStore = stores,
                     networkHandoverMonitor = NoOpNetworkHandoverMonitor(),
+                    serviceStateStore = FakeServiceStateStore(AppStatus.Running to Mode.VPN),
                     json = diagnosticsTestJson(),
                     scope = backgroundScope,
                 )
@@ -137,6 +140,7 @@ class DiagnosticsHomeCompositeRunServiceTest {
                     diagnosticsHomeWorkflowService = workflowService,
                     scanRecordStore = stores,
                     networkHandoverMonitor = NoOpNetworkHandoverMonitor(),
+                    serviceStateStore = FakeServiceStateStore(AppStatus.Running to Mode.VPN),
                     json = diagnosticsTestJson(),
                     scope = backgroundScope,
                 )
@@ -202,6 +206,7 @@ class DiagnosticsHomeCompositeRunServiceTest {
                     diagnosticsHomeWorkflowService = workflowService,
                     scanRecordStore = stores,
                     networkHandoverMonitor = NoOpNetworkHandoverMonitor(),
+                    serviceStateStore = FakeServiceStateStore(AppStatus.Running to Mode.VPN),
                     json = diagnosticsTestJson(),
                     scope = backgroundScope,
                 )
@@ -291,6 +296,7 @@ class DiagnosticsHomeCompositeRunServiceTest {
                     diagnosticsHomeWorkflowService = workflowService,
                     scanRecordStore = stores,
                     networkHandoverMonitor = monitor,
+                    serviceStateStore = FakeServiceStateStore(AppStatus.Running to Mode.VPN),
                     json = diagnosticsTestJson(),
                     scope = backgroundScope,
                 )
@@ -385,6 +391,7 @@ class DiagnosticsHomeCompositeRunServiceTest {
                     diagnosticsHomeWorkflowService = workflowService,
                     scanRecordStore = stores,
                     networkHandoverMonitor = NoOpNetworkHandoverMonitor(),
+                    serviceStateStore = FakeServiceStateStore(AppStatus.Running to Mode.VPN),
                     json = diagnosticsTestJson(),
                     scope = backgroundScope,
                 )
@@ -455,6 +462,7 @@ class DiagnosticsHomeCompositeRunServiceTest {
                     diagnosticsHomeWorkflowService = workflowService,
                     scanRecordStore = stores,
                     networkHandoverMonitor = NoOpNetworkHandoverMonitor(),
+                    serviceStateStore = FakeServiceStateStore(AppStatus.Running to Mode.VPN),
                     json = json,
                     scope = backgroundScope,
                 )
@@ -599,6 +607,7 @@ class DiagnosticsHomeCompositeRunServiceTest {
                     diagnosticsHomeWorkflowService = workflowService,
                     scanRecordStore = stores,
                     networkHandoverMonitor = NoOpNetworkHandoverMonitor(),
+                    serviceStateStore = FakeServiceStateStore(AppStatus.Running to Mode.VPN),
                     json = json,
                     scope = backgroundScope,
                 )
@@ -611,6 +620,78 @@ class DiagnosticsHomeCompositeRunServiceTest {
                 "Expected summary to mention DNS issues, got: ${outcome.summary}",
                 outcome.summary.contains("DNS issues were detected"),
             )
+        }
+
+    @Test
+    fun `vpn service halting during audit stage marks stage failed and completes run`() =
+        runTest {
+            val stores = FakeDiagnosticsHistoryStores()
+            val timelineSource = MutableDiagnosticsTimelineSource()
+            val serviceStateStore = FakeServiceStateStore(AppStatus.Running to Mode.VPN)
+
+            // Scan controller starts the audit but never emits a terminal session status,
+            // simulating a stuck engine because the VPN tunnel died.
+            val scanController =
+                RecordingHomeCompositeScanController(
+                    onStart = { _, profileId, sessionId ->
+                        // Only record the session as "running" — never transition to completed/failed.
+                        timelineSource.sessions.value =
+                            timelineSource.sessions.value +
+                            DiagnosticScanSession(
+                                id = sessionId,
+                                profileId = requireNotNull(profileId),
+                                pathMode = ScanPathMode.RAW_PATH.name,
+                                serviceMode = "VPN",
+                                status = "running",
+                                summary = "Running",
+                                startedAt = 10L,
+                                finishedAt = null,
+                            )
+                        // Immediately signal VPN halt to unblock the session-wait.
+                        serviceStateStore.setStatus(AppStatus.Halted, Mode.VPN)
+                    },
+                )
+            val workflowService =
+                object : DiagnosticsHomeWorkflowService {
+                    override suspend fun currentFingerprintHash(): String = "fp-halt"
+
+                    override suspend fun finalizeHomeAudit(sessionId: String): DiagnosticsHomeAuditOutcome =
+                        error("should not be called when VPN halted")
+
+                    override suspend fun summarizeVerification(sessionId: String): DiagnosticsHomeVerificationOutcome =
+                        error("unused")
+                }
+            val service =
+                DefaultDiagnosticsHomeCompositeRunService(
+                    diagnosticsScanController = scanController,
+                    diagnosticsTimelineSource = timelineSource,
+                    diagnosticsHomeWorkflowService = workflowService,
+                    scanRecordStore = stores,
+                    networkHandoverMonitor = NoOpNetworkHandoverMonitor(),
+                    serviceStateStore = serviceStateStore,
+                    json = diagnosticsTestJson(),
+                    scope = backgroundScope,
+                )
+
+            val started = service.startHomeAnalysis()
+            advanceUntilIdle()
+            val outcome = service.finalizeHomeRun(started.runId)
+
+            // Audit stage should be FAILED, remaining stages SKIPPED, run completed.
+            assertEquals(
+                DiagnosticsHomeCompositeStageStatus.FAILED,
+                outcome.stageSummaries.first { it.profileId == "automatic-audit" }.status,
+            )
+            assertEquals(
+                DiagnosticsHomeCompositeStageStatus.SKIPPED,
+                outcome.stageSummaries.first { it.profileId == "default" }.status,
+            )
+            assertEquals(
+                DiagnosticsHomeCompositeStageStatus.SKIPPED,
+                outcome.stageSummaries.first { it.profileId == "ru-dpi-full" }.status,
+            )
+            assertEquals(0, outcome.completedStageCount)
+            assertEquals(2, outcome.skippedStageCount)
         }
 
     private fun diagnosticScanSession(

@@ -474,6 +474,11 @@ pub struct NetworkSnapshot {
     /// System.currentTimeMillis() at capture time
     #[serde(default)]
     pub captured_at_ms: u64,
+    /// True when the VPN service was configured in VPN mode but halted at snapshot capture
+    /// time, meaning transport == "none" because the VPN tunnel went down rather than because
+    /// the physical network is absent.
+    #[serde(default)]
+    pub vpn_service_was_active: bool,
 }
 
 /// Cellular network details, populated when transport is "cellular".
@@ -647,6 +652,7 @@ mod tests {
             traffic_tx_bytes: 123456,
             traffic_rx_bytes: 654321,
             captured_at_ms: 1700000000000,
+            vpn_service_was_active: false,
         };
 
         let json = serde_json::to_value(&snapshot).expect("serialize network snapshot");

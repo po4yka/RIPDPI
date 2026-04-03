@@ -17,6 +17,7 @@
   "trafficTxBytes",
   "transport",
   "validated",
+  "vpnServiceWasActive",
   "wifi.channelWidth",
   "wifi.frequencyBand",
   "wifi.frequencyMhz",

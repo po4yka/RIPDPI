@@ -189,6 +189,7 @@ fn probe_outcome_bucket(probe_type: &str, path_mode: &ScanPathMode, outcome: &st
         "network_environment" => match outcome {
             "network_available" => ProbeOutcomeBucket::Healthy,
             "network_unavailable" => ProbeOutcomeBucket::Failed,
+            "vpn_tunnel_down" => ProbeOutcomeBucket::Attention,
             _ => legacy_outcome_bucket(outcome),
         },
         "dns_integrity" => match outcome {
@@ -401,6 +402,10 @@ mod tests {
         assert_eq!(
             classify_probe_outcome("network_environment", &ScanPathMode::RawPath, "network_available").bucket,
             ProbeOutcomeBucket::Healthy,
+        );
+        assert_eq!(
+            classify_probe_outcome("network_environment", &ScanPathMode::RawPath, "vpn_tunnel_down").bucket,
+            ProbeOutcomeBucket::Attention,
         );
         assert_eq!(
             classify_probe_outcome("dns_integrity", &ScanPathMode::RawPath, "dns_match").bucket,

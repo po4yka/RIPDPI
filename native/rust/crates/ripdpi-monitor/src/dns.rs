@@ -224,7 +224,7 @@ pub(crate) fn build_fallback_encrypted_dns_endpoints(primary_resolver_id: Option
             &["94.140.14.14", "94.140.15.15"],
             "https://dns.adguard-dns.com/dns-query",
         ),
-        ("dnssb", "doh.dns.sb", 443, &["185.222.222.222", "45.11.45.11"], "https://doh.dns.sb/dns-query"),
+        ("dnssb", "dns.sb", 443, &["185.222.222.222", "45.11.45.11"], "https://doh.dns.sb/dns-query"),
         ("google_ip", "8.8.8.8", 443, &["8.8.8.8", "8.8.4.4"], "https://8.8.8.8/dns-query"),
         ("mullvad", "dns.mullvad.net", 443, &["194.242.2.2"], "https://dns.mullvad.net/dns-query"),
     ];
