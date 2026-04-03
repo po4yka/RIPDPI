@@ -189,6 +189,61 @@ pub fn build_tcp_fragment_pair(
     }
 }
 
+/// Build a single TCP RST+ACK packet for fake RST injection.
+///
+/// The packet has the correct seq/ack from the live connection but a low TTL
+/// so it expires before reaching the server.  DPI processes the RST and clears
+/// its connection-tracking state while the real connection continues normally.
+pub fn build_fake_rst_packet(spec: &TcpFragmentSpec) -> Result<Vec<u8>, BuildError> {
+    let mut tcp = TcpHeader::new(spec.src.port(), spec.dst.port(), spec.sequence_number, 0);
+    tcp.rst = true;
+    tcp.ack = true;
+    tcp.acknowledgment_number = spec.acknowledgment_number;
+    // RST packets conventionally carry window=0.
+    let payload: &[u8] = &[];
+
+    match (spec.src, spec.dst) {
+        (SocketAddr::V4(src), SocketAddr::V4(dst)) => {
+            tcp.checksum = tcp
+                .calc_checksum_ipv4_raw(src.ip().octets(), dst.ip().octets(), payload)
+                .map_err(|_| BuildError::ValueTooLarge)?;
+            let transport = serialize_tcp_transport(&tcp, payload);
+            let mut ip = Ipv4Header::new(
+                u16::try_from(transport.len()).map_err(|_| BuildError::ValueTooLarge)?,
+                spec.ttl,
+                ip_number::TCP,
+                src.ip().octets(),
+                dst.ip().octets(),
+            )
+            .map_err(|_| BuildError::ValueTooLarge)?;
+            ip.identification = spec.identification as u16;
+            ip.dont_fragment = true;
+            ip.header_checksum = ip.calc_header_checksum();
+            Ok(serialize_ipv4_fragment(&ip, &transport))
+        }
+        (SocketAddr::V6(src), SocketAddr::V6(dst)) => {
+            tcp.checksum = tcp
+                .calc_checksum_ipv6_raw(src.ip().octets(), dst.ip().octets(), payload)
+                .map_err(|_| BuildError::ValueTooLarge)?;
+            let transport = serialize_tcp_transport(&tcp, payload);
+            let ip = Ipv6Header {
+                traffic_class: 0,
+                flow_label: Ipv6FlowLabel::ZERO,
+                payload_length: u16::try_from(transport.len()).map_err(|_| BuildError::ValueTooLarge)?,
+                next_header: ip_number::TCP,
+                hop_limit: spec.ttl,
+                source: src.ip().octets(),
+                destination: dst.ip().octets(),
+            };
+            let mut buf = Vec::with_capacity(Ipv6Header::LEN + transport.len());
+            ip.write(&mut buf).expect("Vec<u8> write must not fail");
+            buf.extend_from_slice(&transport);
+            Ok(buf)
+        }
+        _ => Err(BuildError::AddressFamilyMismatch),
+    }
+}
+
 fn serialize_udp_transport(header: UdpHeader, payload: &[u8]) -> Vec<u8> {
     let mut transport = Vec::with_capacity(UdpHeader::LEN + payload.len());
     header.write(&mut transport).expect("Vec<u8> write must not fail");
@@ -870,5 +925,72 @@ mod tests {
         let transport = reassemble_ipv4_transport(&pair.first, &pair.second);
         let (_, udp_payload) = UdpHeader::from_slice(&transport).expect("parse udp");
         assert_eq!(udp_payload, payload);
+    }
+
+    #[test]
+    fn build_fake_rst_packet_ipv4_has_rst_flag_and_correct_seq() {
+        let spec = TcpFragmentSpec {
+            src: "1.2.3.4:12345".parse().unwrap(),
+            dst: "5.6.7.8:443".parse().unwrap(),
+            ttl: 3,
+            identification: 0x1234,
+            sequence_number: 1000,
+            acknowledgment_number: 2000,
+            window_size: 0,
+            timestamp: None,
+            ipv6_ext: Ipv6ExtHeaders::default(),
+        };
+        let packet = build_fake_rst_packet(&spec).expect("build fake rst");
+        let (ip_header, remaining) = Ipv4Header::from_slice(&packet).expect("parse ipv4");
+        assert_eq!(ip_header.time_to_live, 3);
+        assert!(ip_header.dont_fragment);
+        let (tcp_header, payload) = TcpHeader::from_slice(remaining).expect("parse tcp");
+        assert!(tcp_header.rst);
+        assert!(tcp_header.ack);
+        assert_eq!(tcp_header.sequence_number, 1000);
+        assert_eq!(tcp_header.acknowledgment_number, 2000);
+        assert_eq!(tcp_header.window_size, 0);
+        assert!(payload.is_empty());
+    }
+
+    #[test]
+    fn build_fake_rst_packet_ipv6_has_rst_flag() {
+        let spec = TcpFragmentSpec {
+            src: "[::1]:12345".parse().unwrap(),
+            dst: "[::2]:443".parse().unwrap(),
+            ttl: 5,
+            identification: 0,
+            sequence_number: 3000,
+            acknowledgment_number: 4000,
+            window_size: 0,
+            timestamp: None,
+            ipv6_ext: Ipv6ExtHeaders::default(),
+        };
+        let packet = build_fake_rst_packet(&spec).expect("build fake rst v6");
+        let (ip_header, _) = Ipv6Header::from_slice(&packet).expect("parse ipv6");
+        assert_eq!(ip_header.hop_limit, 5);
+        let tcp_offset = Ipv6Header::LEN;
+        let (tcp_header, payload) = TcpHeader::from_slice(&packet[tcp_offset..]).expect("parse tcp");
+        assert!(tcp_header.rst);
+        assert!(tcp_header.ack);
+        assert_eq!(tcp_header.sequence_number, 3000);
+        assert_eq!(tcp_header.acknowledgment_number, 4000);
+        assert!(payload.is_empty());
+    }
+
+    #[test]
+    fn build_fake_rst_packet_rejects_mixed_address_families() {
+        let spec = TcpFragmentSpec {
+            src: "1.2.3.4:12345".parse().unwrap(),
+            dst: "[::2]:443".parse().unwrap(),
+            ttl: 3,
+            identification: 0,
+            sequence_number: 0,
+            acknowledgment_number: 0,
+            window_size: 0,
+            timestamp: None,
+            ipv6_ext: Ipv6ExtHeaders::default(),
+        };
+        assert_eq!(build_fake_rst_packet(&spec).unwrap_err(), BuildError::AddressFamilyMismatch);
     }
 }

@@ -277,6 +277,7 @@ fn primary_tcp_strategy_family(group: &DesyncGroup) -> Option<&'static str> {
         TcpChainStepKind::FakeDisorder => "fakeddisorder",
         TcpChainStepKind::HostFake => "hostfake",
         TcpChainStepKind::IpFrag2 => "ipfrag2",
+        TcpChainStepKind::FakeRst => "fakerst",
         TcpChainStepKind::TlsRec | TcpChainStepKind::TlsRandRec => "tlsrec",
     })
 }
@@ -613,6 +614,9 @@ fn execute_tcp_actions(
                 DesyncAction::RestoreWsize => {
                     let _ = platform::set_tcp_window_clamp(writer, 0);
                 }
+                DesyncAction::SendFakeRst => {
+                    let _ = platform::send_fake_rst(writer, default_ttl, None);
+                }
             }
         }
         Ok(bytes_committed)
@@ -723,6 +727,7 @@ fn execute_tcp_plan(
             TcpChainStepKind::FakeDisorder => "fakeddisorder",
             TcpChainStepKind::HostFake => "hostfake",
             TcpChainStepKind::IpFrag2 => "ipfrag2",
+            TcpChainStepKind::FakeRst => "fakerst",
             TcpChainStepKind::TlsRec | TcpChainStepKind::TlsRandRec => strategy_family.unwrap_or("tlsrec"),
         };
         let step_fallback = strategy_fallback_family(step_family);
@@ -1238,6 +1243,18 @@ fn execute_tcp_plan(
                         bytes_committed,
                     )?;
                 }
+            }
+            TcpChainStepKind::FakeRst => {
+                let _ =
+                    platform::send_fake_rst(writer, config.network.default_ttl, config.process.protect_path.as_deref());
+                bytes_committed = write_strategy_payload_named(
+                    writer,
+                    chunk,
+                    "write_fakerst",
+                    step_family,
+                    step_fallback,
+                    bytes_committed,
+                )?;
             }
             TcpChainStepKind::MultiDisorder => {
                 return Err(OutboundSendError::Transport(io::Error::new(

@@ -359,6 +359,40 @@ pub fn get_rcvbuf(fd: &impl AsRawFd) -> io::Result<u32> {
     Ok(val as u32)
 }
 
+/// Send a fake TCP RST packet with the current (fake) TTL to clear DPI state.
+///
+/// Uses `TCP_REPAIR` to snapshot the live connection's seq/ack numbers, builds
+/// a raw RST+ACK packet, and sends it via a raw socket.  The TTL should already
+/// be set to a low fake value by a preceding `SetTtl` action so the packet
+/// expires before reaching the server while DPI processes it.
+pub fn send_fake_rst(stream: &TcpStream, default_ttl: u8, protect_path: Option<&str>) -> io::Result<()> {
+    let source = stream.local_addr()?;
+    let target = stream.peer_addr()?;
+    let ttl = get_stream_ttl(stream).unwrap_or_else(|_| resolve_raw_ttl(default_ttl));
+    let fd = stream.as_raw_fd();
+
+    set_tcp_repair(fd, TCP_REPAIR_ON)?;
+    let result = (|| -> io::Result<()> {
+        let snapshot = snapshot_tcp_repair_state(fd)?;
+        let packet = ripdpi_ipfrag::build_fake_rst_packet(&ripdpi_ipfrag::TcpFragmentSpec {
+            src: source,
+            dst: target,
+            ttl,
+            identification: fragment_identification(source, target, 0),
+            sequence_number: snapshot.sequence_number,
+            acknowledgment_number: snapshot.acknowledgment_number,
+            window_size: 0,
+            timestamp: None,
+            ipv6_ext: ripdpi_ipfrag::Ipv6ExtHeaders::default(),
+        })
+        .map_err(build_error_to_io)?;
+        send_raw_packets(target, [packet.as_slice()], protect_path)
+    })();
+    let _ = set_tcp_repair_queue(fd, TCP_NO_QUEUE);
+    let _ = disable_tcp_repair(fd);
+    result
+}
+
 /// Bind a UDP socket to a source port that is at most `max_port`.
 ///
 /// Tries random ports in `[1024, max_port]` until one binds successfully.

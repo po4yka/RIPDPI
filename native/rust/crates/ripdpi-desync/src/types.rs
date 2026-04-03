@@ -130,6 +130,7 @@ pub enum DesyncAction {
     RestoreWindowClamp,
     SetWsize { window: u32 },
     RestoreWsize,
+    SendFakeRst,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

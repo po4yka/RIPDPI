@@ -843,6 +843,7 @@ pub fn parse_tcp_chain_step_kind(value: &str) -> Result<TcpChainStepKind, ProxyC
         "tlsrec" => Ok(TcpChainStepKind::TlsRec),
         "tlsrandrec" => Ok(TcpChainStepKind::TlsRandRec),
         "ipfrag2" => Ok(TcpChainStepKind::IpFrag2),
+        "fakerst" => Ok(TcpChainStepKind::FakeRst),
         _ => Err(ProxyConfigError::InvalidConfig(format!("Unknown tcpChainSteps kind: {value}"))),
     }
 }
