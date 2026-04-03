@@ -23,6 +23,8 @@ import com.poyka.ripdpi.diagnostics.DiagnosticsActiveConnectionPolicySource
 import com.poyka.ripdpi.diagnostics.DiagnosticsBootstrapper
 import com.poyka.ripdpi.diagnostics.DiagnosticsDetailLoader
 import com.poyka.ripdpi.diagnostics.DiagnosticsHistorySource
+import com.poyka.ripdpi.diagnostics.DiagnosticsHomeCompositeRunService
+import com.poyka.ripdpi.diagnostics.DiagnosticsHomeWorkflowService
 import com.poyka.ripdpi.diagnostics.DiagnosticsManagerModule
 import com.poyka.ripdpi.diagnostics.DiagnosticsRememberedPolicySource
 import com.poyka.ripdpi.diagnostics.DiagnosticsResolverActions
@@ -56,6 +58,8 @@ import com.poyka.ripdpi.testing.StubInstrumentedDiagnosticsActiveConnectionPolic
 import com.poyka.ripdpi.testing.StubInstrumentedDiagnosticsBootstrapper
 import com.poyka.ripdpi.testing.StubInstrumentedDiagnosticsDetailLoader
 import com.poyka.ripdpi.testing.StubInstrumentedDiagnosticsHistorySource
+import com.poyka.ripdpi.testing.StubInstrumentedDiagnosticsHomeCompositeRunService
+import com.poyka.ripdpi.testing.StubInstrumentedDiagnosticsHomeWorkflowService
 import com.poyka.ripdpi.testing.StubInstrumentedDiagnosticsRememberedPolicySource
 import com.poyka.ripdpi.testing.StubInstrumentedDiagnosticsResolverActions
 import com.poyka.ripdpi.testing.StubInstrumentedDiagnosticsScanController
@@ -211,6 +215,16 @@ class MainActivityNavigationInstrumentedTest {
     @JvmField
     var diagnosticsActiveConnectionPolicySource: DiagnosticsActiveConnectionPolicySource =
         StubInstrumentedDiagnosticsActiveConnectionPolicySource()
+
+    @BindValue
+    @JvmField
+    var diagnosticsHomeWorkflowService: DiagnosticsHomeWorkflowService =
+        StubInstrumentedDiagnosticsHomeWorkflowService()
+
+    @BindValue
+    @JvmField
+    var diagnosticsHomeCompositeRunService: DiagnosticsHomeCompositeRunService =
+        StubInstrumentedDiagnosticsHomeCompositeRunService()
 
     @BindValue
     @JvmField
@@ -425,6 +439,16 @@ class MainActivityOnboardingStartupInstrumentedTest {
 
     @BindValue
     @JvmField
+    var diagnosticsHomeWorkflowService: DiagnosticsHomeWorkflowService =
+        StubInstrumentedDiagnosticsHomeWorkflowService()
+
+    @BindValue
+    @JvmField
+    var diagnosticsHomeCompositeRunService: DiagnosticsHomeCompositeRunService =
+        StubInstrumentedDiagnosticsHomeCompositeRunService()
+
+    @BindValue
+    @JvmField
     var permissionStatusProvider: PermissionStatusProvider = MutablePermissionStatusProvider()
 
     @BindValue
@@ -556,6 +580,16 @@ class MainActivityBiometricStartupInstrumentedTest {
     @JvmField
     var diagnosticsActiveConnectionPolicySource: DiagnosticsActiveConnectionPolicySource =
         StubInstrumentedDiagnosticsActiveConnectionPolicySource()
+
+    @BindValue
+    @JvmField
+    var diagnosticsHomeWorkflowService: DiagnosticsHomeWorkflowService =
+        StubInstrumentedDiagnosticsHomeWorkflowService()
+
+    @BindValue
+    @JvmField
+    var diagnosticsHomeCompositeRunService: DiagnosticsHomeCompositeRunService =
+        StubInstrumentedDiagnosticsHomeCompositeRunService()
 
     @BindValue
     @JvmField
