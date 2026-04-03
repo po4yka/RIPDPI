@@ -134,23 +134,37 @@ fun buildEncryptedDnsCandidatePlan(
             ).filterTo(this) { protocol -> protocol != protocolSeed }
         }
 
-    fun candidateComparator(): Comparator<EncryptedDnsPathCandidate> =
-        compareBy<EncryptedDnsPathCandidate>(
-            { if (it.pathKey() in blockedPathKeys) 1 else 0 },
-            { if (preferredPath != null && it.pathKey() == preferredPath.pathKey()) 0 else 1 },
-            { if (preferredPath != null && it.resolverId == preferredPath.resolverId) 0 else 1 },
-            { if (currentPath != null && it.pathKey() == currentPath.pathKey()) 0 else 1 },
-            { if (currentPath != null && it.resolverId == currentPath.resolverId) 0 else 1 },
-            { providerOrder[it.resolverId] ?: Int.MAX_VALUE },
-            { it.resolverLabel.lowercase() },
-            { it.host.lowercase() },
-            { it.port },
-        )
+    val comparator = candidateComparator(blockedPathKeys, preferredPath, currentPath, providerOrder)
+    return interleaveByProtocol(candidates, protocolOrder, comparator)
+}
 
+private fun candidateComparator(
+    blockedPathKeys: Set<String>,
+    preferredPath: EncryptedDnsPathCandidate?,
+    currentPath: EncryptedDnsPathCandidate?,
+    providerOrder: Map<String, Int>,
+): Comparator<EncryptedDnsPathCandidate> =
+    compareBy<EncryptedDnsPathCandidate>(
+        { if (it.pathKey() in blockedPathKeys) 1 else 0 },
+        { if (preferredPath != null && it.pathKey() == preferredPath.pathKey()) 0 else 1 },
+        { if (preferredPath != null && it.resolverId == preferredPath.resolverId) 0 else 1 },
+        { if (currentPath != null && it.pathKey() == currentPath.pathKey()) 0 else 1 },
+        { if (currentPath != null && it.resolverId == currentPath.resolverId) 0 else 1 },
+        { providerOrder[it.resolverId] ?: Int.MAX_VALUE },
+        { it.resolverLabel.lowercase() },
+        { it.host.lowercase() },
+        { it.port },
+    )
+
+private fun interleaveByProtocol(
+    candidates: List<EncryptedDnsPathCandidate>,
+    protocolOrder: List<String>,
+    comparator: Comparator<EncryptedDnsPathCandidate>,
+): List<EncryptedDnsPathCandidate> {
     val grouped =
         candidates
             .groupBy { it.protocol }
-            .mapValues { (_, values) -> values.sortedWith(candidateComparator()).toMutableList() }
+            .mapValues { (_, values) -> values.sortedWith(comparator).toMutableList() }
     val ordered = mutableListOf<EncryptedDnsPathCandidate>()
     while (true) {
         var added = false
@@ -161,13 +175,11 @@ fun buildEncryptedDnsCandidatePlan(
                 added = true
             }
         }
-        if (!added) {
-            break
-        }
+        if (!added) break
     }
     grouped.values
         .flatMap { it }
-        .sortedWith(candidateComparator())
+        .sortedWith(comparator)
         .forEach(ordered::add)
     return ordered
 }

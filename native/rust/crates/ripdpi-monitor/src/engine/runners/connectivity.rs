@@ -88,39 +88,13 @@ impl ExecutionStageRunner for EnvironmentRunner {
     }
 }
 
+#[rustfmt::skip]
 macro_rules! connectivity_runner {
     ($runner:ident, $id:expr, $phase:expr, $len:expr, $iter:expr, $body:expr, $label:expr, $source:expr) => {
         impl ExecutionStageRunner for $runner {
-            fn id(&self) -> ExecutionStageId {
-                $id
-            }
-
-            fn phase(&self) -> &'static str {
-                $phase
-            }
-
-            fn total_steps(&self, plan: &ExecutionPlan) -> usize {
-                $len(plan)
-            }
-
-            fn run(
-                &self,
-                plan: &ExecutionPlan,
-                runtime: &mut ExecutionRuntime,
-                tls_verifier: Option<&Arc<dyn ServerCertVerifier>>,
-            ) -> RunnerOutcome {
-                for item in $iter(plan) {
-                    if runtime.is_cancelled() {
-                        return RunnerOutcome::Cancelled;
-                    }
-                    let label = $label(item.clone());
-                    let probe = $body(item, plan, tls_verifier);
-                    let outcome = probe.outcome.clone();
-                    let artifacts = RunnerArtifacts::from_probe(probe, $source, &plan.request.path_mode);
-                    runtime.record_step(plan, self.phase(), label.clone(), Some(label), Some(outcome), None, artifacts);
-                }
-                RunnerOutcome::Completed
-            }
+            fn id(&self) -> ExecutionStageId { $id }
+            fn phase(&self) -> &'static str { $phase }
+            fn total_steps(&self, plan: &ExecutionPlan) -> usize { $len(plan) }
 
             fn run_collecting(
                 &self,
@@ -131,9 +105,7 @@ macro_rules! connectivity_runner {
                 use std::sync::atomic::Ordering;
                 let mut steps = Vec::with_capacity($len(plan));
                 for item in $iter(plan) {
-                    if cancel.load(Ordering::Acquire) {
-                        return None;
-                    }
+                    if cancel.load(Ordering::Acquire) { return None; }
                     let label = $label(item.clone());
                     let probe = $body(item, plan, tls_verifier);
                     let outcome = probe.outcome.clone();
