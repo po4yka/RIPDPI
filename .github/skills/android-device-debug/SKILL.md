@@ -258,7 +258,7 @@ Common RIPDPI ANR cause: JNI call blocking the main thread. The proxy `jniStart`
 
 ## Emulator Management
 
-CI uses API 34, x86_64, google_apis, pixel_6 profile. Match for CI parity.
+CI uses API 34, x86_64, google_apis, default profile. Match for CI parity.
 
 ```bash
 # List existing AVDs
@@ -269,7 +269,7 @@ sdkmanager "system-images;android-34;google_apis;x86_64"
 
 # Create CI-parity AVD
 avdmanager create avd -n ripdpi-debug \
-  -k "system-images;android-34;google_apis;x86_64" -d pixel_6
+  -k "system-images;android-34;google_apis;x86_64" -d default
 
 # Start with GUI
 emulator -avd ripdpi-debug -gpu host
