@@ -69,6 +69,7 @@ object DiagnosticsOutcomeTaxonomy {
                 when (outcome) {
                     "network_available" -> DiagnosticsOutcomeBucket.Healthy
                     "network_unavailable" -> DiagnosticsOutcomeBucket.Failed
+                    "vpn_tunnel_down" -> DiagnosticsOutcomeBucket.Attention
                     else -> legacyBucketForOutcome(outcome)
                 }
             }

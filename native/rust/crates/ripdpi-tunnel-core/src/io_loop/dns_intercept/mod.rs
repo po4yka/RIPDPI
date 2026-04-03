@@ -268,6 +268,7 @@ pub(super) fn drain_dns_responses(
                 Ok(response) => Some(response),
                 Err(tokio::sync::mpsc::error::TryRecvError::Empty) => None,
                 Err(tokio::sync::mpsc::error::TryRecvError::Disconnected) => {
+                    stats.record_dns_failure(None, "dns worker exited unexpectedly", None);
                     *dns_req_tx = None;
                     *dns_resp_rx = None;
                     None

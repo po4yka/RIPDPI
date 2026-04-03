@@ -1,6 +1,8 @@
 package com.poyka.ripdpi.diagnostics
 
 import com.poyka.ripdpi.data.AppSettingsRepository
+import com.poyka.ripdpi.data.AppStatus
+import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.NativeNetworkSnapshotProvider
 import com.poyka.ripdpi.data.NetworkFingerprintProvider
 import com.poyka.ripdpi.data.ServiceStateStore
@@ -134,13 +136,25 @@ internal class DefaultScanContextCollector
                 } else {
                     intent.requestedPathMode
                 }
+            val serviceStatus = serviceStateStore.status.value
+            val rawSnapshot = nativeNetworkSnapshotProvider.capture()
+            // When transport is "none" and the VPN service is configured but halted, the
+            // physical network may still be present — the tunnel went down, not the radio.
+            // Annotate the snapshot so the native probe can emit "vpn_tunnel_down" instead of
+            // "network_unavailable", which would otherwise abort the diagnostic scan prematurely.
+            val vpnServiceWasActive =
+                rawSnapshot.transport == "none" &&
+                    serviceStatus.second == Mode.VPN &&
+                    serviceStatus.first == AppStatus.Halted
+            val networkSnapshot =
+                if (vpnServiceWasActive) rawSnapshot.copy(vpnServiceWasActive = true) else rawSnapshot
             return ScanContext(
                 settings = intent.settings,
                 pathMode = pathMode,
                 networkFingerprint = networkFingerprint,
                 preferredDnsPath = preferredDnsPath,
-                networkSnapshot = nativeNetworkSnapshotProvider.capture(),
-                serviceMode = serviceStateStore.status.value.second.name,
+                networkSnapshot = networkSnapshot,
+                serviceMode = serviceStatus.second.name,
                 contextSnapshot = contextSnapshot,
                 approachSnapshot = createStoredApproachSnapshot(json, intent.settings, profile, contextSnapshot),
             )

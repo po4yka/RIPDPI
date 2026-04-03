@@ -3,6 +3,7 @@
   "outcomes": [
     { "probeType": "network_environment", "pathMode": "RAW_PATH", "outcome": "network_available", "bucket": "Healthy", "uiTone": "Positive", "eventLevel": "info", "healthyEnoughForSummary": true },
     { "probeType": "network_environment", "pathMode": "RAW_PATH", "outcome": "network_unavailable", "bucket": "Failed", "uiTone": "Negative", "eventLevel": "error", "healthyEnoughForSummary": false },
+    { "probeType": "network_environment", "pathMode": "RAW_PATH", "outcome": "vpn_tunnel_down", "bucket": "Attention", "uiTone": "Warning", "eventLevel": "warn", "healthyEnoughForSummary": false },
 
     { "probeType": "dns_integrity", "pathMode": "RAW_PATH", "outcome": "dns_match", "bucket": "Healthy", "uiTone": "Positive", "eventLevel": "info", "healthyEnoughForSummary": true },
     { "probeType": "dns_integrity", "pathMode": "RAW_PATH", "outcome": "dns_expected_mismatch", "bucket": "Attention", "uiTone": "Warning", "eventLevel": "warn", "healthyEnoughForSummary": false },
