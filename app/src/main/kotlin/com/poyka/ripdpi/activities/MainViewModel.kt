@@ -126,6 +126,7 @@ data class HomeDiagnosticsStageUiState(
     val headline: String,
     val summary: String,
     val failed: Boolean = false,
+    val skipped: Boolean = false,
     val recommendationContributor: Boolean = false,
 )
 

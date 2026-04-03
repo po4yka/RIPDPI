@@ -34,7 +34,7 @@ fun StageProgressIndicator(
     val typeScale = RipDpiThemeTokens.type
     val pendingCount = (totalCount - completedCount - failedCount).coerceAtLeast(0)
 
-    val segmentShape = RoundedCornerShape(2.dp)
+    val segmentShape = RoundedCornerShape(3.dp)
     val animSpec =
         tween<androidx.compose.ui.graphics.Color>(
             durationMillis = motion.duration(motion.stateDurationMillis),
@@ -58,7 +58,7 @@ fun StageProgressIndicator(
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(2.dp),
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
         ) {
             repeat(totalCount) { index ->
                 val targetColor =
@@ -76,7 +76,7 @@ fun StageProgressIndicator(
                     modifier =
                         Modifier
                             .weight(1f)
-                            .height(4.dp)
+                            .height(6.dp)
                             .background(animatedColor, segmentShape),
                 )
             }
