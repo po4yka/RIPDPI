@@ -37,6 +37,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -93,6 +94,7 @@ import com.poyka.ripdpi.ui.debug.TrackRecomposition
 import com.poyka.ripdpi.ui.navigation.Route
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
+import com.poyka.ripdpi.ui.theme.RipDpiIconSizes
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
@@ -637,6 +639,7 @@ private fun HomeDiagnosticsBottomSheetHost(
             sheet.recommendationSummary?.let { value ->
                 SettingsRow(title = stringResource(R.string.home_diagnostics_recommendation_label), value = value)
             }
+            HorizontalDivider(color = colors.divider)
             if (sheet.appliedSettings.isNotEmpty()) {
                 Text(
                     text = stringResource(R.string.home_diagnostics_applied_settings_label),
@@ -654,29 +657,31 @@ private fun HomeDiagnosticsBottomSheetHost(
                 )
             }
             if (sheet.stageSummaries.isNotEmpty()) {
-                val recommendationMarker = stringResource(R.string.home_diagnostics_stage_recommendation_marker)
-                val failedMarker = stringResource(R.string.home_diagnostics_stage_failed_marker)
+                HorizontalDivider(color = colors.divider)
                 Text(
                     text = stringResource(R.string.home_diagnostics_stage_results_label),
                     style = RipDpiThemeTokens.type.bodyEmphasis,
                     color = colors.foreground,
                 )
-                sheet.stageSummaries.forEach { stage ->
-                    SettingsRow(
-                        title = stage.label,
-                        value =
-                            buildString {
-                                append(stage.summary)
-                                if (stage.recommendationContributor) {
-                                    append(" · ")
-                                    append(recommendationMarker)
-                                }
-                                if (stage.failed) {
-                                    append(" · ")
-                                    append(failedMarker)
-                                }
-                            },
-                    )
+                Column(
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .background(
+                                color = colors.muted.copy(alpha = 0.06f),
+                                shape = RoundedCornerShape(12.dp),
+                            ).padding(RipDpiThemeTokens.spacing.sm),
+                    verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.xs),
+                ) {
+                    sheet.stageSummaries.forEach { stage ->
+                        StageResultRow(
+                            label = stage.label,
+                            summary = stage.summary,
+                            failed = stage.failed,
+                            skipped = stage.skipped,
+                            recommendationContributor = stage.recommendationContributor,
+                        )
+                    }
                 }
             }
         }
@@ -711,6 +716,69 @@ private fun HomeDiagnosticsBottomSheetHost(
                     color = colors.mutedForeground,
                 )
             }
+        }
+    }
+}
+
+@Composable
+private fun StageResultRow(
+    label: String,
+    summary: String,
+    failed: Boolean,
+    skipped: Boolean,
+    recommendationContributor: Boolean,
+) {
+    val colors = RipDpiThemeTokens.colors
+    val spacing = RipDpiThemeTokens.spacing
+
+    val containerColor =
+        when {
+            failed -> colors.destructive.copy(alpha = 0.06f)
+            recommendationContributor -> colors.accent.copy(alpha = 0.06f)
+            else -> Color.Transparent
+        }
+    val statusIcon =
+        when {
+            failed -> RipDpiIcons.Error
+            skipped -> RipDpiIcons.Warning
+            else -> RipDpiIcons.Check
+        }
+    val statusColor =
+        when {
+            failed -> colors.destructive
+            skipped -> colors.mutedForeground
+            else -> colors.success
+        }
+
+    Row(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .background(containerColor, RoundedCornerShape(8.dp))
+                .padding(horizontal = spacing.sm, vertical = spacing.sm),
+        horizontalArrangement = Arrangement.spacedBy(spacing.sm),
+        verticalAlignment = Alignment.Top,
+    ) {
+        Icon(
+            imageVector = statusIcon,
+            contentDescription = null,
+            tint = statusColor,
+            modifier = Modifier.size(RipDpiIconSizes.Default),
+        )
+        Column(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(spacing.xs),
+        ) {
+            Text(
+                text = label,
+                style = RipDpiThemeTokens.type.bodyEmphasis,
+                color = colors.foreground,
+            )
+            Text(
+                text = summary,
+                style = RipDpiThemeTokens.type.secondaryBody,
+                color = colors.mutedForeground,
+            )
         }
     }
 }
