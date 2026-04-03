@@ -8,7 +8,7 @@ use crate::candidates::{
     StrategyProbeBaseline,
 };
 use crate::connectivity::{classify_dns_latency_quality, is_dns_injection_suspected};
-use crate::dns::resolve_via_encrypted_dns;
+use crate::dns::{build_fallback_encrypted_dns_endpoints, resolve_via_encrypted_dns};
 use crate::transport::{domain_connect_target, resolve_addresses, TargetAddress, TransportConfig};
 use crate::types::{DomainTarget, ProbeDetail, ProbeResult};
 
@@ -23,6 +23,7 @@ pub(crate) fn detect_strategy_probe_dns_tampering(
     let resolver_context = strategy_probe_encrypted_dns_context(runtime_context);
     let resolver_endpoint = strategy_probe_encrypted_dns_endpoint(&resolver_context).ok()?;
     let resolver_label = strategy_probe_encrypted_dns_label(&resolver_context);
+    let fallback_endpoints = build_fallback_encrypted_dns_endpoints(resolver_context.resolver_id.as_deref());
     let mut results = Vec::new();
     let mut classified = None;
     let mut encrypted_ip_overrides: Vec<(String, IpAddr)> = Vec::new();
@@ -45,10 +46,30 @@ pub(crate) fn detect_strategy_probe_dns_tampering(
         let encrypted_result =
             resolve_via_encrypted_dns(&target.host, resolver_endpoint.clone(), &TransportConfig::Direct);
         let encrypted_latency_ms = encrypted_started.elapsed().as_millis().to_string();
-        let encrypted_addresses =
+        let mut encrypted_addresses =
             encrypted_result.as_ref().ok().into_iter().flat_map(|value| value.iter()).cloned().collect::<Vec<_>>();
-        let encrypted_ips =
+        let mut encrypted_ips =
             encrypted_addresses.iter().filter_map(|value| value.parse::<IpAddr>().ok()).collect::<Vec<_>>();
+
+        // When the primary encrypted resolver fails, try fallback resolvers
+        // before giving up on this target.
+        let mut fallback_resolver_used: Option<String> = None;
+        if encrypted_ips.is_empty() {
+            for fallback_ep in &fallback_endpoints {
+                if let Ok(fallback_result) =
+                    resolve_via_encrypted_dns(&target.host, fallback_ep.clone(), &TransportConfig::Direct)
+                {
+                    if !fallback_result.is_empty() {
+                        encrypted_addresses = fallback_result;
+                        encrypted_ips =
+                            encrypted_addresses.iter().filter_map(|value| value.parse::<IpAddr>().ok()).collect();
+                        fallback_resolver_used = fallback_ep.resolver_id.clone();
+                        break;
+                    }
+                }
+            }
+        }
+
         let system_ips = system_targets.iter().map(SocketAddr::ip).collect::<Vec<_>>();
 
         // DNS record deletion (NXDOMAIN): system returns nothing but encrypted resolves fine.
@@ -59,7 +80,7 @@ pub(crate) fn detect_strategy_probe_dns_tampering(
             // Both failed or encrypted also empty -- skip this target.
             continue;
         } else if encrypted_ips.is_empty() {
-            // Encrypted resolver failed or returned nothing -- cannot determine
+            // All encrypted resolvers (primary + fallbacks) failed -- cannot determine
             // substitution without a trusted reference.  Skip to avoid false positives.
             continue;
         } else if system_ips.iter().all(|ip| !encrypted_ips.iter().any(|answer| answer == ip)) {
@@ -130,6 +151,10 @@ pub(crate) fn detect_strategy_probe_dns_tampering(
                 ProbeDetail {
                     key: "dnsInjectionSuspected".to_string(),
                     value: is_dns_injection_suspected(&system_latency_ms, outcome).to_string(),
+                },
+                ProbeDetail {
+                    key: "resolverFallbackUsed".to_string(),
+                    value: fallback_resolver_used.clone().unwrap_or_default(),
                 },
             ],
         });
