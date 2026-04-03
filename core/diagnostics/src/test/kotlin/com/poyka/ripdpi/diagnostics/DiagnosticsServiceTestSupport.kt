@@ -100,7 +100,11 @@ internal class FakeLogcatSnapshotCollector(
 internal class TestContext(
     private val testCacheDir: File = Files.createTempDirectory("diagnostics-service-test").toFile(),
 ) : ContextWrapper(null) {
+    private val testFilesDir: File = File(testCacheDir, "files").apply { mkdirs() }
+
     override fun getCacheDir(): File = testCacheDir
+
+    override fun getFilesDir(): File = testFilesDir
 
     override fun getNoBackupFilesDir(): File = File(testCacheDir, "no-backup").apply { mkdirs() }
 }

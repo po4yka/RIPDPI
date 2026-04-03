@@ -1,7 +1,9 @@
 package com.poyka.ripdpi.diagnostics
 
+import android.content.Context
 import com.poyka.ripdpi.core.RipDpiLogContext
 import com.poyka.ripdpi.core.RipDpiProxyUIPreferences
+import com.poyka.ripdpi.core.RipDpiRuntimeContext
 import com.poyka.ripdpi.core.toRipDpiRuntimeContext
 import com.poyka.ripdpi.data.EncryptedDnsPathCandidate
 import com.poyka.ripdpi.data.activeDnsSettings
@@ -15,7 +17,9 @@ import com.poyka.ripdpi.diagnostics.contract.engine.EngineScanRequestWire
 import com.poyka.ripdpi.diagnostics.domain.DiagnosticsIntent
 import com.poyka.ripdpi.diagnostics.domain.ScanContext
 import com.poyka.ripdpi.diagnostics.domain.ScanPlan
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.serialization.json.Json
+import java.io.File
 import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Named
@@ -56,6 +60,8 @@ internal data class PreparedDiagnosticsScan(
 internal class DiagnosticsScanRequestFactory
     @Inject
     constructor(
+        @param:ApplicationContext
+        private val context: Context,
         private val networkMetadataProvider: NetworkMetadataProvider,
         private val intentResolver: DiagnosticsIntentResolver,
         private val scanContextCollector: ScanContextCollector,
@@ -92,6 +98,7 @@ internal class DiagnosticsScanRequestFactory
                     ).withStrategyProbeBaseConfig(
                         settings = original.settings,
                         preferredDnsPath = scanContext.preferredDnsPath,
+                        protectPath = resolveProtectPath(context),
                     )
             val now = System.currentTimeMillis()
             return PreparedDiagnosticsScan(
@@ -193,6 +200,7 @@ internal class DiagnosticsScanRequestFactory
                     ).withStrategyProbeBaseConfig(
                         settings = settings,
                         preferredDnsPath = scanContext.preferredDnsPath,
+                        protectPath = resolveProtectPath(context),
                     )
             val now = System.currentTimeMillis()
             return PreparedDiagnosticsScan(
@@ -268,6 +276,7 @@ internal class DiagnosticsScanRequestFactory
 private fun EngineScanRequestWire.withStrategyProbeBaseConfig(
     settings: com.poyka.ripdpi.proto.AppSettings,
     preferredDnsPath: EncryptedDnsPathCandidate?,
+    protectPath: String?,
 ): EngineScanRequestWire {
     val strategyProbe = strategyProbe ?: return this
     if (!strategyProbe.baseProxyConfigJson.isNullOrBlank()) {
@@ -280,7 +289,12 @@ private fun EngineScanRequestWire.withStrategyProbeBaseConfig(
                     RipDpiProxyUIPreferences
                         .fromSettings(
                             settings = settings,
-                            runtimeContext = resolveStrategyProbeRuntimeContext(settings, preferredDnsPath),
+                            runtimeContext =
+                                resolveStrategyProbeRuntimeContext(
+                                    settings,
+                                    preferredDnsPath,
+                                    protectPath,
+                                ),
                         ).toNativeConfigJson(),
             ),
     )
@@ -289,11 +303,24 @@ private fun EngineScanRequestWire.withStrategyProbeBaseConfig(
 private fun resolveStrategyProbeRuntimeContext(
     settings: com.poyka.ripdpi.proto.AppSettings,
     preferredDnsPath: EncryptedDnsPathCandidate?,
-) = settings
-    .activeDnsSettings()
-    .toRipDpiRuntimeContext()
-    ?: preferredDnsPath?.toActiveDnsSettings()?.toRipDpiRuntimeContext()
-    ?: canonicalDefaultEncryptedDnsSettings().toRipDpiRuntimeContext()
+    protectPath: String?,
+): RipDpiRuntimeContext? {
+    // canonicalDefaultEncryptedDnsSettings always returns a valid context.
+    val dnsContext =
+        settings.activeDnsSettings().toRipDpiRuntimeContext()
+            ?: preferredDnsPath?.toActiveDnsSettings()?.toRipDpiRuntimeContext()
+            ?: canonicalDefaultEncryptedDnsSettings().toRipDpiRuntimeContext()!!
+    return dnsContext.copy(protectPath = protectPath)
+}
+
+/**
+ * Returns the absolute path to the protect_path socket file used by VpnService.protect(),
+ * or null if the file does not exist (e.g. VPN is not active or the platform does not use it).
+ */
+private fun resolveProtectPath(context: Context): String? {
+    val file = File(context.filesDir, "protect_path")
+    return if (file.exists()) file.absolutePath else null
+}
 
 internal fun selectStrategyProbeTargetsForSession(
     sessionId: String,

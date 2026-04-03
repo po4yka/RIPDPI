@@ -56,6 +56,8 @@ pub enum ProxyConfigPayload {
 pub struct ProxyRuntimeContext {
     #[serde(default)]
     pub encrypted_dns: Option<ProxyEncryptedDnsContext>,
+    #[serde(default)]
+    pub protect_path: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]

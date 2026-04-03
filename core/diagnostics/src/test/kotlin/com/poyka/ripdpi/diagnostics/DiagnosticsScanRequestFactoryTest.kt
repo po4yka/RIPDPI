@@ -146,6 +146,7 @@ class DiagnosticsScanRequestFactoryTest {
             val context = strategyProbeContext(settings = settings, preferredDnsPath = null)
             val factory =
                 DiagnosticsScanRequestFactory(
+                    context = TestContext(),
                     networkMetadataProvider = FakeNetworkMetadataProvider(),
                     intentResolver =
                         object : DiagnosticsIntentResolver {
@@ -222,6 +223,7 @@ class DiagnosticsScanRequestFactoryTest {
             val context = strategyProbeContext(settings = settings, preferredDnsPath = null)
             val factory =
                 DiagnosticsScanRequestFactory(
+                    context = TestContext(),
                     networkMetadataProvider = FakeNetworkMetadataProvider(),
                     intentResolver =
                         object : DiagnosticsIntentResolver {
@@ -300,6 +302,7 @@ class DiagnosticsScanRequestFactoryTest {
         val context = strategyProbeContext(settings = settings, preferredDnsPath = preferredDnsPath)
         val factory =
             DiagnosticsScanRequestFactory(
+                context = TestContext(),
                 networkMetadataProvider = FakeNetworkMetadataProvider(),
                 intentResolver =
                     object : DiagnosticsIntentResolver {

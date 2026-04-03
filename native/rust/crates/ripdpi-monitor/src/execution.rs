@@ -227,6 +227,11 @@ pub(crate) fn probe_runtime_transport(
     })?;
     let _ = ripdpi_proxy_config::presets::apply_runtime_preset("ripdpi_default", &mut config);
     config.network.listen.listen_port = 0;
+    if let Some(ref ctx) = runtime_context {
+        if let Some(ref path) = ctx.protect_path {
+            config.process.protect_path = Some(path.clone());
+        }
+    }
     match TemporaryProxyRuntime::start(config, runtime_context.cloned()) {
         Ok(runtime) => {
             tracing::debug!(candidate = spec.id, addr = %runtime.addr, "probe runtime started");
