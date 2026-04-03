@@ -64,12 +64,15 @@ class ServiceRuntimeCoordinatorFactoryTest {
                     networkHandoverMonitor = TestNetworkHandoverMonitor(),
                     policyHandoverEventStore = TestPolicyHandoverEventStore(),
                     networkSnapshotProvider = TestNativeNetworkSnapshotProvider(),
-                    networkDnsPathPreferenceStore = TestNetworkDnsPathPreferenceStore(),
-                    networkDnsBlockedPathStore = TestNetworkDnsBlockedPathStore(),
-                    resolverRefreshPlanner =
-                        VpnResolverRefreshPlanner(
-                            connectionPolicyResolver = resolver,
-                            resolverOverrideStore = overrides,
+                    dnsDependencies =
+                        VpnServiceRuntimeDnsDependencies(
+                            networkDnsPathPreferenceStore = TestNetworkDnsPathPreferenceStore(),
+                            networkDnsBlockedPathStore = TestNetworkDnsBlockedPathStore(),
+                            resolverRefreshPlanner =
+                                VpnResolverRefreshPlanner(
+                                    connectionPolicyResolver = resolver,
+                                    resolverOverrideStore = overrides,
+                                ),
                         ),
                     proxyRuntimeSupervisorFactory = proxyFactory,
                     screenStateObserver = TestScreenStateObserver(),

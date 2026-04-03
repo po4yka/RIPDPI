@@ -184,7 +184,11 @@ pub(super) fn send_with_group(
         resolved_fake_ttl,
         adaptive_hints,
     );
-    let effective_payload = apply_entropy_padding(group, payload, adaptive_hints.entropy_mode);
+    // Only apply evolver-suggested entropy padding when the group has fake
+    // steps; without fakes the padding bytes reach the upstream server and
+    // corrupt the application stream.
+    let entropy_override = adaptive_hints.entropy_mode.filter(|_| group_has_fake_steps(group));
+    let effective_payload = apply_entropy_padding(group, payload, entropy_override);
     let strategy_family = primary_tcp_strategy_family(group);
     if should_desync_tcp(group, context) {
         let seed = DESYNC_SEED_BASE + progress.round.saturating_sub(1);
@@ -224,6 +228,18 @@ pub(super) fn send_with_group(
         let bytes_committed = write_transport_payload(writer, &effective_payload)?;
         Ok(OutboundSendOutcome { bytes_committed, strategy_family: None })
     }
+}
+
+fn group_has_fake_steps(group: &DesyncGroup) -> bool {
+    group.effective_tcp_chain().iter().any(|step| {
+        matches!(
+            step.kind,
+            TcpChainStepKind::Fake
+                | TcpChainStepKind::FakeSplit
+                | TcpChainStepKind::FakeDisorder
+                | TcpChainStepKind::HostFake
+        )
+    })
 }
 
 fn should_desync_tcp(group: &DesyncGroup, context: ActivationContext) -> bool {
