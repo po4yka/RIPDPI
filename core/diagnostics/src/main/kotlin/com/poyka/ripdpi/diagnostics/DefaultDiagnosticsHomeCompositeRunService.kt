@@ -27,6 +27,7 @@ import javax.inject.Named
 import javax.inject.Singleton
 
 private const val DpiFullStageTimeoutMs = 240_000L
+private const val StrategyProbeStageTimeoutMs = 300_000L
 private const val DefaultStageTimeoutMs = 120_000L
 private const val StageRetryDelayMs = 2_000L
 
@@ -76,7 +77,7 @@ private sealed interface StageSessionSignal {
 private fun stageTimeoutMs(spec: HomeCompositeStageSpec): Long =
     when (spec.profileId) {
         "ru-dpi-full" -> DpiFullStageTimeoutMs
-        "ru-dpi-strategy" -> DpiFullStageTimeoutMs
+        "automatic-audit", "ru-dpi-strategy" -> StrategyProbeStageTimeoutMs
         else -> DefaultStageTimeoutMs
     }
 
