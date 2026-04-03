@@ -6,8 +6,8 @@ use ripdpi_failure_classifier::FailureClass;
 use rustls::client::danger::ServerCertVerifier;
 
 use crate::candidates::{
-    build_quic_candidates_for_suite, build_strategy_probe_summary, candidate_pause_ms, CandidateEligibility,
-    StrategyCandidateSpec,
+    build_quic_candidates_for_suite, build_strategy_probe_summary, candidate_pause_ms, probe_fake_ttl_capability,
+    CandidateEligibility, StrategyCandidateSpec,
 };
 use crate::classification::{
     classified_failure_probe_result, classify_strategy_probe_baseline_observations, filter_quic_candidates_for_failure,
@@ -39,6 +39,9 @@ pub(super) struct StrategyRecommendationRunner;
 
 const ECH_ELIGIBILITY_RATIONALE: &str =
     "Baseline did not expose an ECH-capable HTTPS target, so ECH extension splitting would be a no-op";
+
+const FAKE_TTL_ELIGIBILITY_RATIONALE: &str =
+    "setsockopt(IP_TTL) is unavailable on this platform (Android VPN/tun mode); fake-packet strategies that rely on TTL manipulation are skipped";
 
 fn resolve_recommended_proxy_config_json(
     quic_candidate: &crate::types::StrategyProbeCandidateSummary,
@@ -125,9 +128,12 @@ fn ordered_follow_up_tcp_candidates(
     failure_class: Option<FailureClass>,
     baseline_results: &[ProbeResult],
     probe_seed: u64,
+    fake_ttl_available: bool,
 ) -> Vec<StrategyCandidateSpec> {
-    let reordered =
-        reorder_tcp_candidates_for_failure(tcp_specs, failure_class).into_iter().skip(1).collect::<Vec<_>>();
+    let reordered = reorder_tcp_candidates_for_failure(tcp_specs, failure_class, fake_ttl_available)
+        .into_iter()
+        .skip(1)
+        .collect::<Vec<_>>();
     if !baseline_has_tls_ech_only(baseline_results) {
         return interleave_candidate_families(reordered, probe_seed);
     }
@@ -525,11 +531,16 @@ impl ExecutionStageRunner for StrategyTcpRunner {
         }
 
         let baseline_ech_capable = baseline_supports_ech_candidates(&baseline_execution.results);
+        let fake_ttl_available = probe_fake_ttl_capability();
+        if !fake_ttl_available {
+            tracing::debug!("TTL capability probe failed — fake-packet candidates will be marked not_applicable");
+        }
         let ordered_tcp_specs = ordered_follow_up_tcp_candidates(
             tcp_specs,
             runtime.strategy.baseline_failure.as_ref().map(|value| value.class),
             &baseline_execution.results,
             strategy_plan.probe_seed,
+            fake_ttl_available,
         );
         let mut pending_tcp_specs = ordered_tcp_specs;
         let mut tcp_failure_tracker = FamilyFailureTracker::new(strategy_plan.suite.family_failure_threshold);
@@ -591,6 +602,36 @@ impl ExecutionStageRunner for StrategyTcpRunner {
                         "strategy_probe",
                         "debug",
                         format!("Skipped execution for {}", spec.label),
+                    ),
+                );
+                runtime.strategy.tcp_candidates.push(execution.summary);
+                continue;
+            }
+            if spec.requires_fake_ttl && !fake_ttl_available {
+                let execution = not_applicable_candidate_execution(
+                    &spec,
+                    domain_targets.len() * 2,
+                    3,
+                    FAKE_TTL_ELIGIBILITY_RATIONALE,
+                );
+                runtime.record_step(
+                    plan,
+                    self.phase(),
+                    format!("Marked {} as not applicable (no TTL capability)", spec.label),
+                    Some(spec.label.to_string()),
+                    Some(execution.summary.outcome.clone()),
+                    Some(strategy_probe_live_progress(
+                        StrategyProbeProgressLane::Tcp,
+                        candidate_index,
+                        tcp_candidate_total,
+                        spec.id,
+                        spec.label,
+                    )),
+                    RunnerArtifacts::from_results(
+                        execution.results.clone(),
+                        "strategy_probe",
+                        "debug",
+                        format!("Skipped execution for {} — TTL manipulation unavailable", spec.label),
                     ),
                 );
                 runtime.strategy.tcp_candidates.push(execution.summary);
@@ -1083,6 +1124,7 @@ mod tests {
             Some(FailureClass::TlsAlert),
             &[baseline_https_result("tls_ech_only", "ech_config_available")],
             7,
+            true,
         );
         let ids = ordered.iter().take(2).map(|candidate| candidate.id).collect::<Vec<_>>();
 
@@ -1097,7 +1139,10 @@ mod tests {
     fn ordered_follow_up_tcp_candidates_keep_normal_order_without_tls_ech_only_baseline() {
         let candidates = build_tcp_candidates(&ProxyUiConfig::default());
         let expected = interleave_candidate_families(
-            reorder_tcp_candidates_for_failure(&candidates, Some(FailureClass::TlsAlert)).into_iter().skip(1).collect(),
+            reorder_tcp_candidates_for_failure(&candidates, Some(FailureClass::TlsAlert), true)
+                .into_iter()
+                .skip(1)
+                .collect(),
             7,
         );
 
@@ -1106,6 +1151,7 @@ mod tests {
             Some(FailureClass::TlsAlert),
             &[baseline_https_result("tls_ok", "ech_config_available")],
             7,
+            true,
         );
 
         assert_eq!(

@@ -150,11 +150,15 @@ pub(crate) fn classified_failure_probe_result(target: &str, failure: &Classified
 pub(crate) fn reorder_tcp_candidates_for_failure(
     candidates: &[StrategyCandidateSpec],
     failure_class: Option<FailureClass>,
+    fake_ttl_available: bool,
 ) -> Vec<StrategyCandidateSpec> {
     let preferred_ids: &[&str] = match failure_class {
         Some(FailureClass::HttpBlockpage) => &["baseline_current", "parser_only", "parser_unixeol", "split_host"],
         Some(FailureClass::TcpReset) => {
             &["baseline_current", "split_host", "tlsrec_split_host", "tlsrec_hostfake_split"]
+        }
+        Some(FailureClass::SilentDrop) if !fake_ttl_available => {
+            &["baseline_current", "tlsrec_split_host", "tlsrec_hostfake_split", "split_host"]
         }
         Some(FailureClass::SilentDrop) => {
             &["baseline_current", "tlsrec_fake_rich", "tlsrec_hostfake", "tlsrec_hostfake_split"]
