@@ -314,13 +314,13 @@ private fun resolveStrategyProbeRuntimeContext(
 }
 
 /**
- * Returns the absolute path to the protect_path socket file used by VpnService.protect(),
- * or null if the file does not exist (e.g. VPN is not active or the platform does not use it).
+ * Returns the absolute path to the protect_path socket file used by VpnService.protect().
+ *
+ * Always returns the expected path — the socket is created by VpnProtectSocketServer when
+ * the VPN service starts, which may happen after scan preparation but before the native
+ * proxy actually connects.  The native code tolerates a missing socket gracefully.
  */
-private fun resolveProtectPath(context: Context): String? {
-    val file = File(context.filesDir, "protect_path")
-    return if (file.exists()) file.absolutePath else null
-}
+private fun resolveProtectPath(context: Context): String = File(context.filesDir, "protect_path").absolutePath
 
 internal fun selectStrategyProbeTargetsForSession(
     sessionId: String,
