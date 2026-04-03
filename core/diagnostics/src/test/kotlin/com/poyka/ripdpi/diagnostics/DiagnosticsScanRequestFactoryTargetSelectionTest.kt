@@ -409,6 +409,7 @@ class DiagnosticsScanRequestFactoryTargetSelectionTest {
             )
         val factory =
             DiagnosticsScanRequestFactory(
+                context = TestContext(),
                 networkMetadataProvider = FakeNetworkMetadataProvider(),
                 intentResolver =
                     object : DiagnosticsIntentResolver {

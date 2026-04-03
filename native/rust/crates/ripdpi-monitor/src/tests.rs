@@ -678,6 +678,7 @@ fn baseline_dns_tampering_uses_runtime_context_before_candidate_trials() {
             dnscrypt_provider_name: None,
             dnscrypt_public_key: None,
         }),
+        protect_path: None,
     };
 
     let baseline = detect_strategy_probe_dns_tampering(
@@ -778,6 +779,7 @@ fn monitor_session_strategy_probe_marks_dns_short_circuit_completion_kind() {
             dnscrypt_provider_name: None,
             dnscrypt_public_key: None,
         }),
+        protect_path: None,
     };
     let mut request = strategy_probe_request_with_runtime_context(
         minimal_ui_config(),
@@ -894,6 +896,7 @@ fn monitor_session_full_matrix_marks_dns_short_circuit_completion_kind() {
             dnscrypt_provider_name: None,
             dnscrypt_public_key: None,
         }),
+        protect_path: None,
     };
     let mut request = strategy_probe_request_with_runtime_context(
         minimal_ui_config(),

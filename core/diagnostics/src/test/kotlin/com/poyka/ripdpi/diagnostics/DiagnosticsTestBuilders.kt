@@ -172,6 +172,7 @@ internal fun createDiagnosticsServices(
         )
     val requestFactory =
         DiagnosticsScanRequestFactory(
+            context = context,
             networkMetadataProvider = networkMetadataProvider,
             intentResolver = DefaultDiagnosticsIntentResolver(stores, appSettingsRepository, json),
             scanContextCollector =

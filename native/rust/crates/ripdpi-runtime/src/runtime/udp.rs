@@ -552,6 +552,7 @@ mod tests {
                 dnscrypt_provider_name: None,
                 dnscrypt_public_key: None,
             }),
+            protect_path: None,
         }
     }
 
