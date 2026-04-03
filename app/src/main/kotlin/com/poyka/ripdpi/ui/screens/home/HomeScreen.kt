@@ -4,6 +4,7 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.text.format.Formatter
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.Crossfade
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.LinearEasing
@@ -81,6 +82,7 @@ import com.poyka.ripdpi.ui.components.feedback.RipDpiBottomSheet
 import com.poyka.ripdpi.ui.components.feedback.RipDpiSheetAction
 import com.poyka.ripdpi.ui.components.feedback.WarningBanner
 import com.poyka.ripdpi.ui.components.feedback.WarningBannerTone
+import com.poyka.ripdpi.ui.components.indicators.AnalysisProgressIndicator
 import com.poyka.ripdpi.ui.components.indicators.StageProgressIndicator
 import com.poyka.ripdpi.ui.components.indicators.StatusIndicator
 import com.poyka.ripdpi.ui.components.indicators.StatusIndicatorTone
@@ -491,11 +493,32 @@ private fun HomeDiagnosticsCard(
         Spacer(modifier = Modifier.height(spacing.md))
         HorizontalDivider(color = colors.divider)
         Spacer(modifier = Modifier.height(spacing.md))
-        Text(
-            text = uiState.homeDiagnostics.analysisAction.supportingText,
-            style = RipDpiThemeTokens.type.secondaryBody,
-            color = colors.mutedForeground,
-        )
+        val analysisProgress = uiState.homeDiagnostics.analysisProgress
+        Crossfade(
+            targetState = uiState.homeDiagnostics.analysisAction.busy && analysisProgress != null,
+            animationSpec =
+                tween(
+                    durationMillis =
+                        RipDpiThemeTokens.motion.duration(
+                            RipDpiThemeTokens.motion.stateDurationMillis,
+                        ),
+                ),
+            label = "analysisProgressSwitch",
+        ) { showProgress ->
+            if (showProgress && analysisProgress != null) {
+                AnalysisProgressIndicator(
+                    stages = analysisProgress.stages,
+                    activeStageIndex = analysisProgress.activeStageIndex,
+                    stageLabel = uiState.homeDiagnostics.analysisAction.supportingText,
+                )
+            } else {
+                Text(
+                    text = uiState.homeDiagnostics.analysisAction.supportingText,
+                    style = RipDpiThemeTokens.type.secondaryBody,
+                    color = colors.mutedForeground,
+                )
+            }
+        }
         Spacer(modifier = Modifier.height(spacing.sm))
         RipDpiButton(
             text = uiState.homeDiagnostics.analysisAction.label,
