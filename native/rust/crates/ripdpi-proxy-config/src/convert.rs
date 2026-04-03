@@ -503,6 +503,7 @@ pub fn runtime_config_from_ui(payload: ProxyUiConfig) -> Result<RuntimeConfig, P
             }
         }
     };
+    config.adaptive.ws_tunnel_fake_sni = ws_tunnel.fake_sni.filter(|s| !s.is_empty());
     if listen.custom_ttl {
         let ttl = u8::try_from(listen.default_ttl)
             .map_err(|_| ProxyConfigError::InvalidConfig("Invalid defaultTtl".to_string()))?;

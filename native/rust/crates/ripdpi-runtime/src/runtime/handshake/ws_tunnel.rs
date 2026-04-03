@@ -154,6 +154,7 @@ where
                     0 => None,
                     millis => Some(Duration::from_millis(millis as u64)),
                 },
+                fake_sni: state.config.adaptive.ws_tunnel_fake_sni.clone(),
             };
             match relay_ws(client, dc, seed_request.clone(), &config) {
                 Ok(()) => WsTunnelResult::ValidatedMtproto { dc },

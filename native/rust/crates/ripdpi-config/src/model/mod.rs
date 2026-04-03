@@ -579,6 +579,7 @@ pub struct RuntimeAdaptiveSettings {
     pub cache_prefix: u8,
     pub network_scope_key: Option<String>,
     pub ws_tunnel_mode: WsTunnelMode,
+    pub ws_tunnel_fake_sni: Option<String>,
     pub strategy_evolution: bool,
     /// Exploration rate in thousandths (0-1000 maps to 0.0-1.0). Default: 100 (= 10%).
     pub evolution_epsilon_permil: u32,
@@ -1022,6 +1023,7 @@ mod tests {
             cache_prefix: 24,
             network_scope_key: Some("wifi:test".to_string()),
             ws_tunnel_mode: WsTunnelMode::Fallback,
+            ws_tunnel_fake_sni: None,
             strategy_evolution: false,
             evolution_epsilon_permil: 100,
         };

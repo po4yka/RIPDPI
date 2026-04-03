@@ -100,6 +100,7 @@ impl Default for RuntimeAdaptiveSettings {
             cache_prefix: 0,
             network_scope_key: None,
             ws_tunnel_mode: WsTunnelMode::Off,
+            ws_tunnel_fake_sni: None,
             strategy_evolution: false,
         }
     }
