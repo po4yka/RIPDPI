@@ -26,6 +26,7 @@ impl Default for DesyncGroupActionSettings {
             oob_data: None,
             tlsminor: None,
             window_clamp: None,
+            wsize: None,
             entropy_padding_target_permil: None,
             shannon_entropy_target_permil: None,
             fake_sni_list: Vec::new(),

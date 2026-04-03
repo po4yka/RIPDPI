@@ -607,6 +607,12 @@ fn execute_tcp_actions(
                 DesyncAction::RestoreWindowClamp => {
                     let _ = platform::set_tcp_window_clamp(writer, 0);
                 }
+                DesyncAction::SetWsize { window } => {
+                    let _ = platform::set_tcp_window_clamp(writer, *window);
+                }
+                DesyncAction::RestoreWsize => {
+                    let _ = platform::set_tcp_window_clamp(writer, 0);
+                }
             }
         }
         Ok(bytes_committed)

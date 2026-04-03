@@ -475,6 +475,8 @@ fn execute_udp_actions(
             | DesyncAction::AwaitWritable
             | DesyncAction::SetWindowClamp(_)
             | DesyncAction::RestoreWindowClamp
+            | DesyncAction::SetWsize { .. }
+            | DesyncAction::RestoreWsize
             | DesyncAction::WriteSeqOverlap { .. } => {}
         }
     }

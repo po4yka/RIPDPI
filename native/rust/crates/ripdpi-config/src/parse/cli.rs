@@ -7,8 +7,8 @@ use ripdpi_packets::{
 
 use crate::{
     Cidr, ConfigError, DesyncGroup, DesyncMode, EntropyMode, ParseResult, RuntimeConfig, SeqOverlapFakeMode,
-    StartupEnv, TcpChainStep, TcpChainStepKind, UdpChainStep, UdpChainStepKind, UpstreamSocksConfig, AUTO_NOPOST,
-    AUTO_RECONN, AUTO_SORT, DETECT_CONNECT, DETECT_DNS_TAMPER, DETECT_HTTP_BLOCKPAGE, DETECT_HTTP_LOCAT,
+    StartupEnv, TcpChainStep, TcpChainStepKind, UdpChainStep, UdpChainStepKind, UpstreamSocksConfig, WsizeConfig,
+    AUTO_NOPOST, AUTO_RECONN, AUTO_SORT, DETECT_CONNECT, DETECT_DNS_TAMPER, DETECT_HTTP_BLOCKPAGE, DETECT_HTTP_LOCAT,
     DETECT_QUIC_BREAKAGE, DETECT_RECONN, DETECT_SILENT_DROP, DETECT_TCP_RESET, DETECT_TLS_ALERT, DETECT_TLS_ERR,
     DETECT_TLS_HANDSHAKE_FAILURE, DETECT_TORST, HOST_AUTOLEARN_DEFAULT_STORE_FILE,
 };
@@ -159,6 +159,20 @@ fn next_value<'a>(args: &'a [String], idx: &mut usize, option: &str) -> Result<&
     args.get(*idx).map(String::as_str).ok_or_else(|| ConfigError::invalid(option, Option::<String>::None))
 }
 
+fn parse_wsize(arg: &str, value: &str) -> Result<WsizeConfig, ConfigError> {
+    if let Some((win_str, scale_str)) = value.split_once(':') {
+        let window = win_str.parse::<u32>().map_err(|_| ConfigError::invalid(arg, Some(value.to_string())))?;
+        let scale = scale_str.parse::<u8>().map_err(|_| ConfigError::invalid(arg, Some(value.to_string())))?;
+        if scale > 14 {
+            return Err(ConfigError::invalid(arg, Some(value.to_string())));
+        }
+        Ok(WsizeConfig { window, scale: Some(scale) })
+    } else {
+        let window = value.parse::<u32>().map_err(|_| ConfigError::invalid(arg, Some(value.to_string())))?;
+        Ok(WsizeConfig { window, scale: None })
+    }
+}
+
 fn add_group(groups: &mut Vec<DesyncGroup>) -> Result<&mut DesyncGroup, ConfigError> {
     if groups.len() >= 64 {
         return Err(ConfigError::invalid("groups", Some("too many groups")));
@@ -220,6 +234,10 @@ pub fn parse_cli(args: &[String], startup: &StartupEnv) -> Result<ParseResult, C
                 let value = next_value(&effective_args, &mut idx, arg)?;
                 group!().actions.window_clamp =
                     Some(value.parse::<u32>().map_err(|_| ConfigError::invalid(arg, Some(value)))?);
+            }
+            "--wsize" => {
+                let value = next_value(&effective_args, &mut idx, arg)?;
+                group!().actions.wsize = Some(parse_wsize(arg, &value)?);
             }
             "--strip-timestamps" => group!().actions.strip_timestamps = true,
             "--entropy-target" => {
@@ -1057,6 +1075,46 @@ mod tests {
             }
             _ => panic!("expected Run"),
         }
+    }
+
+    #[test]
+    fn cli_parses_wsize_window_only() {
+        let args: Vec<String> = ["--wsize", "4096"].iter().map(ToString::to_string).collect();
+        let startup = StartupEnv::default();
+        let result = parse_cli(&args, &startup).expect("parse");
+        match result {
+            ParseResult::Run(config) => {
+                assert_eq!(config.groups[0].actions.wsize, Some(WsizeConfig { window: 4096, scale: None }));
+            }
+            _ => panic!("expected Run"),
+        }
+    }
+
+    #[test]
+    fn cli_parses_wsize_with_scale() {
+        let args: Vec<String> = ["--wsize", "4096:2"].iter().map(ToString::to_string).collect();
+        let startup = StartupEnv::default();
+        let result = parse_cli(&args, &startup).expect("parse");
+        match result {
+            ParseResult::Run(config) => {
+                assert_eq!(config.groups[0].actions.wsize, Some(WsizeConfig { window: 4096, scale: Some(2) }));
+            }
+            _ => panic!("expected Run"),
+        }
+    }
+
+    #[test]
+    fn cli_rejects_wsize_invalid_scale() {
+        let args: Vec<String> = ["--wsize", "4096:15"].iter().map(ToString::to_string).collect();
+        let startup = StartupEnv::default();
+        assert!(parse_cli(&args, &startup).is_err());
+    }
+
+    #[test]
+    fn cli_rejects_wsize_invalid_value() {
+        let args: Vec<String> = ["--wsize", "abc"].iter().map(ToString::to_string).collect();
+        let startup = StartupEnv::default();
+        assert!(parse_cli(&args, &startup).is_err());
     }
 
     #[test]

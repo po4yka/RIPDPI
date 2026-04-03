@@ -6,8 +6,8 @@ use ripdpi_config::{
     parse_http_fake_profile as parse_http_fake_profile_id, parse_tls_fake_profile as parse_tls_fake_profile_id,
     parse_udp_fake_profile as parse_udp_fake_profile_id, ActivationFilter, DesyncGroup, DesyncMode, EntropyMode,
     NumericRange, OffsetBase, OffsetExpr, QuicFakeProfile, QuicInitialMode, RuntimeConfig, SeqOverlapFakeMode,
-    StartupEnv, TcpChainStep, TcpChainStepKind, UdpChainStep, UdpChainStepKind, DETECT_CONNECT, FM_DUPSID, FM_ORIG,
-    FM_PADENCAP, FM_RAND, FM_RNDSNI,
+    StartupEnv, TcpChainStep, TcpChainStepKind, UdpChainStep, UdpChainStepKind, WsizeConfig, DETECT_CONNECT, FM_DUPSID,
+    FM_ORIG, FM_PADENCAP, FM_RAND, FM_RNDSNI,
 };
 use ripdpi_packets::{HttpFakeProfile, TlsFakeProfile, UdpFakeProfile};
 use ripdpi_packets::{IS_HTTP, IS_HTTPS, IS_UDP, MH_DMIX, MH_HMIX, MH_METHODEOL, MH_SPACE, MH_UNIXEOL};
@@ -564,6 +564,10 @@ pub fn runtime_config_from_ui(payload: ProxyUiConfig) -> Result<RuntimeConfig, P
     group.actions.udp_fake_profile = parse_udp_fake_profile(&fake_packets.udp_fake_profile)?;
     group.actions.drop_sack = fake_packets.drop_sack;
     group.actions.window_clamp = fake_packets.window_clamp;
+    group.actions.wsize = fake_packets.wsize_window.filter(|&w| w > 0).map(|window| WsizeConfig {
+        window,
+        scale: fake_packets.wsize_scale.and_then(|s| if s >= 0 { Some(s as u8) } else { None }),
+    });
     group.actions.strip_timestamps = fake_packets.strip_timestamps;
     group.actions.quic_bind_low_port = fake_packets.quic_bind_low_port;
     group.actions.quic_migrate_after_handshake = fake_packets.quic_migrate_after_handshake;
