@@ -22,6 +22,10 @@ import javax.inject.Inject
 import javax.inject.Named
 import javax.inject.Singleton
 
+private const val DpiFullStageTimeoutMs = 240_000L
+private const val DefaultStageTimeoutMs = 120_000L
+private const val StageRetryDelayMs = 2_000L
+
 private data class HomeCompositeStageSpec(
     val key: String,
     val label: String,
@@ -53,8 +57,8 @@ private val HomeCompositeStageSpecs =
 
 private fun stageTimeoutMs(spec: HomeCompositeStageSpec): Long =
     when (spec.profileId) {
-        "ru-dpi-full" -> 240_000L
-        else -> 120_000L
+        "ru-dpi-full" -> DpiFullStageTimeoutMs
+        else -> DefaultStageTimeoutMs
     }
 
 @Singleton
@@ -204,7 +208,7 @@ class DefaultDiagnosticsHomeCompositeRunService
                     launch {
                         var result = executeStage(runId, stageIndex, spec)
                         if (result == null) {
-                            delay(2000)
+                            delay(StageRetryDelayMs)
                             result = executeStage(runId, stageIndex, spec)
                         }
                         if (result != null) {
@@ -452,27 +456,31 @@ class DefaultDiagnosticsHomeCompositeRunService
                 stages.firstOrNull { it.stageKey == auditSpec.key }?.sessionId
             val dpiFullSessionId =
                 stages.firstOrNull { it.stageKey == dpiFullSpec.key }?.sessionId
-            if (auditSessionId == null || dpiFullSessionId == null) return null
             val auditReport =
-                scanRecordStore
-                    .getScanSession(auditSessionId)
-                    ?.reportJson
-                    ?.let { DiagnosticsSessionQueries.decodeScanReport(json, it) }
+                auditSessionId?.let { id ->
+                    scanRecordStore
+                        .getScanSession(id)
+                        ?.reportJson
+                        ?.let { DiagnosticsSessionQueries.decodeScanReport(json, it) }
+                }
             val dpiFullReport =
-                scanRecordStore
-                    .getScanSession(dpiFullSessionId)
-                    ?.reportJson
-                    ?.let { DiagnosticsSessionQueries.decodeScanReport(json, it) }
-            if (auditReport == null || dpiFullReport == null) return null
+                dpiFullSessionId?.let { id ->
+                    scanRecordStore
+                        .getScanSession(id)
+                        ?.reportJson
+                        ?.let { DiagnosticsSessionQueries.decodeScanReport(json, it) }
+                }
             val auditProbeHosts =
-                auditReport.strategyProbeReport
+                auditReport
+                    ?.strategyProbeReport
                     ?.targetSelection
                     ?.domainHosts
                     ?.toSet()
                     ?: emptySet()
             val coverageGapCount =
-                dpiFullReport.observations
-                    .filter { obs ->
+                dpiFullReport
+                    ?.observations
+                    ?.filter { obs ->
                         obs.kind == ObservationKind.DOMAIN &&
                             obs.domain != null &&
                             obs.target !in auditProbeHosts &&
@@ -480,12 +488,12 @@ class DefaultDiagnosticsHomeCompositeRunService
                                 obs.domain.transportFailure != TransportFailureKind.NONE ||
                                     obs.domain.httpStatus == HttpProbeStatus.UNREACHABLE
                             )
-                    }.size
-            return if (coverageGapCount > 0) {
-                "$coverageGapCount additional domain${if (coverageGapCount != 1) "s" else ""} showed connectivity issues not covered by the strategy probe."
-            } else {
-                null
-            }
+                    }?.size ?: 0
+            val suffix = if (coverageGapCount != 1) "s" else ""
+            val message =
+                "$coverageGapCount additional domain$suffix" +
+                    " showed connectivity issues not covered by the strategy probe."
+            return if (coverageGapCount > 0) message else null
         }
 
         private suspend fun detectDnsIssues(runId: String): Boolean {
@@ -501,8 +509,7 @@ class DefaultDiagnosticsHomeCompositeRunService
                     .getScanSession(auditSessionId)
                     ?.reportJson
                     ?.let { DiagnosticsSessionQueries.decodeScanReport(json, it) }
-                    ?: return false
-            return auditReport.resolverRecommendation != null
+            return auditReport?.resolverRecommendation != null
         }
 
         private fun markStageRunning(
