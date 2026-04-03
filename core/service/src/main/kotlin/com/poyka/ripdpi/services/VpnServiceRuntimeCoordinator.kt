@@ -384,12 +384,14 @@ internal class VpnServiceRuntimeCoordinatorFactory
                         tun2SocksBridgeFactory = runtimeDependencies.tun2SocksBridgeFactory,
                         vpnTunnelSessionProvider = runtimeDependencies.vpnTunnelSessionProvider,
                     ),
-                resolverRefreshPlanner = runtimeDependencies.resolverRefreshPlanner,
+                resolverRefreshPlanner = runtimeDependencies.dnsDependencies.resolverRefreshPlanner,
                 encryptedDnsFailoverController =
                     VpnEncryptedDnsFailoverController(
                         resolverOverrideStore = runtimeDependencies.resolverOverrideStore,
-                        networkDnsPathPreferenceStore = runtimeDependencies.networkDnsPathPreferenceStore,
-                        networkDnsBlockedPathStore = runtimeDependencies.networkDnsBlockedPathStore,
+                        networkDnsPathPreferenceStore =
+                            runtimeDependencies.dnsDependencies.networkDnsPathPreferenceStore,
+                        networkDnsBlockedPathStore =
+                            runtimeDependencies.dnsDependencies.networkDnsBlockedPathStore,
                         networkFingerprintProvider = statusDependencies.networkFingerprintProvider,
                     ),
                 proxyRuntimeSupervisor =
@@ -423,11 +425,17 @@ internal class VpnServiceRuntimeRuntimeDependencies
         val networkHandoverMonitor: NetworkHandoverMonitor,
         val policyHandoverEventStore: PolicyHandoverEventStore,
         val networkSnapshotProvider: NativeNetworkSnapshotProvider,
+        val dnsDependencies: VpnServiceRuntimeDnsDependencies,
+        val proxyRuntimeSupervisorFactory: ProxyRuntimeSupervisorFactory,
+        val screenStateObserver: ScreenStateObserver,
+    )
+
+internal class VpnServiceRuntimeDnsDependencies
+    @Inject
+    constructor(
         val networkDnsPathPreferenceStore: NetworkDnsPathPreferenceStore,
         val networkDnsBlockedPathStore: NetworkDnsBlockedPathStore,
         val resolverRefreshPlanner: VpnResolverRefreshPlanner,
-        val proxyRuntimeSupervisorFactory: ProxyRuntimeSupervisorFactory,
-        val screenStateObserver: ScreenStateObserver,
     )
 
 internal class VpnServiceRuntimeStatusDependencies
