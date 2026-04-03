@@ -65,7 +65,15 @@ pub(crate) fn build_network_environment_probe(
     snapshot: Option<&ripdpi_proxy_config::NetworkSnapshot>,
 ) -> Option<ProbeResult> {
     let snap = snapshot?;
-    let outcome = if snap.transport == "none" { "network_unavailable" } else { "network_available" };
+    let outcome = if snap.transport == "none" {
+        if snap.vpn_service_was_active {
+            "vpn_tunnel_down"
+        } else {
+            "network_unavailable"
+        }
+    } else {
+        "network_available"
+    };
     let mut details = vec![
         ProbeDetail { key: "transport".to_string(), value: snap.transport.clone() },
         ProbeDetail { key: "validated".to_string(), value: snap.validated.to_string() },
@@ -74,6 +82,7 @@ pub(crate) fn build_network_environment_probe(
         ProbeDetail { key: "privateDnsMode".to_string(), value: snap.private_dns_mode.clone() },
         ProbeDetail { key: "dnsServerCount".to_string(), value: snap.dns_servers.len().to_string() },
         ProbeDetail { key: "capturedAtMs".to_string(), value: snap.captured_at_ms.to_string() },
+        ProbeDetail { key: "vpnServiceWasActive".to_string(), value: snap.vpn_service_was_active.to_string() },
     ];
     if let Some(mtu) = snap.mtu {
         details.push(ProbeDetail { key: "mtu".to_string(), value: mtu.to_string() });
@@ -166,6 +175,7 @@ mod tests {
             traffic_tx_bytes: 10,
             traffic_rx_bytes: 20,
             captured_at_ms: 1_700_000_000_000,
+            vpn_service_was_active: false,
         };
 
         let probe = build_network_environment_probe(Some(&snapshot)).expect("probe");
@@ -197,5 +207,29 @@ mod tests {
         assert_eq!(probe_detail_value(&probe, "wifiFrequencyBand"), "5ghz");
         assert_eq!(probe_detail_value(&probe, "wifiChannelWidth"), "unknown");
         assert_eq!(probe_detail_value(&probe, "cellularSignalDbm"), "unknown");
+    }
+
+    #[test]
+    fn network_environment_probe_emits_vpn_tunnel_down_when_vpn_service_was_active() {
+        let snapshot = NetworkSnapshot {
+            transport: "none".to_string(),
+            vpn_service_was_active: true,
+            ..NetworkSnapshot::default()
+        };
+
+        let probe = build_network_environment_probe(Some(&snapshot)).expect("probe");
+
+        assert_eq!(probe.outcome, "vpn_tunnel_down");
+        assert_eq!(probe_detail_value(&probe, "vpnServiceWasActive"), "true");
+    }
+
+    #[test]
+    fn network_environment_probe_emits_network_unavailable_when_vpn_was_not_active() {
+        let snapshot = NetworkSnapshot { transport: "none".to_string(), ..NetworkSnapshot::default() };
+
+        let probe = build_network_environment_probe(Some(&snapshot)).expect("probe");
+
+        assert_eq!(probe.outcome, "network_unavailable");
+        assert_eq!(probe_detail_value(&probe, "vpnServiceWasActive"), "false");
     }
 }

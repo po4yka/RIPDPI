@@ -590,6 +590,7 @@ fn network_snapshot_round_trips_wifi_snapshot() {
         traffic_tx_bytes: 1_234_567,
         traffic_rx_bytes: 9_876_543,
         captured_at_ms: 1_700_000_000_000,
+        vpn_service_was_active: false,
     };
     let json = serde_json::to_string(&snapshot).expect("serialize");
     let decoded: NetworkSnapshot = serde_json::from_str(&json).expect("deserialize");
@@ -620,6 +621,7 @@ fn network_snapshot_round_trips_cellular_snapshot() {
         traffic_tx_bytes: 0,
         traffic_rx_bytes: 0,
         captured_at_ms: 1_700_000_000_000,
+        vpn_service_was_active: false,
     };
     let json = serde_json::to_string(&snapshot).expect("serialize");
     let decoded: NetworkSnapshot = serde_json::from_str(&json).expect("deserialize");

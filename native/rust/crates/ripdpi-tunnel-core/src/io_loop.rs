@@ -298,6 +298,7 @@ pub async fn io_loop_task(
                         }
                     }
                     None => {
+                        stats.record_dns_failure(None, "dns worker exited unexpectedly", None);
                         dns_req_tx = None;
                         dns_resp_rx = None;
                     }

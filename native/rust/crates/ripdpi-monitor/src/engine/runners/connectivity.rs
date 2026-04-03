@@ -67,7 +67,7 @@ impl ExecutionStageRunner for EnvironmentRunner {
                 msg,
             );
         };
-        if snapshot.transport == "none" {
+        if snapshot.transport == "none" && !snapshot.vpn_service_was_active {
             warn(&runtime.shared, "OS reports no network; aborting scan".to_string());
             runtime.finish_with_report(build_report(
                 plan.session_id.clone(),
