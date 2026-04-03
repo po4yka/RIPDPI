@@ -14,6 +14,7 @@ use crate::util::*;
 pub(crate) enum FatHeaderStatus {
     Success,
     ThresholdCutoff,
+    FreezeAfterThreshold,
     Reset,
     Timeout,
     ConnectFailed,
@@ -105,6 +106,7 @@ pub(crate) fn classify_fat_header_outcome(status: &FatHeaderStatus) -> &'static 
     match status {
         FatHeaderStatus::Success => "tcp_fat_header_ok",
         FatHeaderStatus::ThresholdCutoff => "tcp_16kb_blocked",
+        FatHeaderStatus::FreezeAfterThreshold => "tcp_freeze_after_threshold",
         FatHeaderStatus::Reset => "tcp_reset",
         FatHeaderStatus::Timeout => "tcp_timeout",
         FatHeaderStatus::ConnectFailed => "tcp_connect_failed",
@@ -116,6 +118,7 @@ pub(crate) fn fat_status_label(status: &FatHeaderStatus) -> &'static str {
     match status {
         FatHeaderStatus::Success => "ok",
         FatHeaderStatus::ThresholdCutoff => "threshold_cutoff",
+        FatHeaderStatus::FreezeAfterThreshold => "freeze_after_threshold",
         FatHeaderStatus::Reset => "reset",
         FatHeaderStatus::Timeout => "timeout",
         FatHeaderStatus::ConnectFailed => "connect_failed",
@@ -125,7 +128,13 @@ pub(crate) fn fat_status_label(status: &FatHeaderStatus) -> &'static str {
 
 pub(crate) fn classify_fat_io_error(kind: ErrorKind, bytes_sent: usize, responses_seen: usize) -> FatHeaderStatus {
     match kind {
-        ErrorKind::TimedOut | ErrorKind::WouldBlock => FatHeaderStatus::Timeout,
+        ErrorKind::TimedOut | ErrorKind::WouldBlock => {
+            if late_stage_cutoff(bytes_sent, responses_seen) {
+                FatHeaderStatus::FreezeAfterThreshold
+            } else {
+                FatHeaderStatus::Timeout
+            }
+        }
         ErrorKind::ConnectionReset
         | ErrorKind::UnexpectedEof
         | ErrorKind::BrokenPipe
@@ -143,7 +152,11 @@ pub(crate) fn classify_fat_io_error(kind: ErrorKind, bytes_sent: usize, response
 pub(crate) fn classify_fat_error_message(message: &str, bytes_sent: usize, responses_seen: usize) -> FatHeaderStatus {
     let lower = message.to_ascii_lowercase();
     if lower.contains("timed out") {
-        FatHeaderStatus::Timeout
+        if late_stage_cutoff(bytes_sent, responses_seen) {
+            FatHeaderStatus::FreezeAfterThreshold
+        } else {
+            FatHeaderStatus::Timeout
+        }
     } else if lower.contains("connection reset")
         || lower.contains("broken pipe")
         || lower.contains("unexpected eof")
@@ -167,6 +180,24 @@ mod tests {
     fn classify_fat_io_error_timeout() {
         assert_eq!(classify_fat_io_error(ErrorKind::TimedOut, 0, 0), FatHeaderStatus::Timeout);
         assert_eq!(classify_fat_io_error(ErrorKind::WouldBlock, 0, 0), FatHeaderStatus::Timeout);
+    }
+
+    #[test]
+    fn classify_fat_io_error_timeout_before_threshold_unchanged() {
+        assert_eq!(classify_fat_io_error(ErrorKind::TimedOut, 100, 0), FatHeaderStatus::Timeout);
+    }
+
+    #[test]
+    fn classify_fat_io_error_freeze_after_threshold_bytes() {
+        assert_eq!(
+            classify_fat_io_error(ErrorKind::TimedOut, FAT_HEADER_THRESHOLD_BYTES, 0),
+            FatHeaderStatus::FreezeAfterThreshold
+        );
+    }
+
+    #[test]
+    fn classify_fat_io_error_freeze_after_threshold_with_responses() {
+        assert_eq!(classify_fat_io_error(ErrorKind::WouldBlock, 8 * 1024, 1), FatHeaderStatus::FreezeAfterThreshold);
     }
 
     #[test]
@@ -199,6 +230,24 @@ mod tests {
     }
 
     #[test]
+    fn classify_fat_error_message_timeout_before_threshold_unchanged() {
+        assert_eq!(classify_fat_error_message("timed out", 100, 0), FatHeaderStatus::Timeout);
+    }
+
+    #[test]
+    fn classify_fat_error_message_freeze_after_threshold() {
+        assert_eq!(
+            classify_fat_error_message("timed out", FAT_HEADER_THRESHOLD_BYTES, 0),
+            FatHeaderStatus::FreezeAfterThreshold
+        );
+    }
+
+    #[test]
+    fn classify_fat_error_message_freeze_after_threshold_with_responses() {
+        assert_eq!(classify_fat_error_message("timed out", 8 * 1024, 1), FatHeaderStatus::FreezeAfterThreshold);
+    }
+
+    #[test]
     fn classify_fat_error_message_connection_reset_early() {
         assert_eq!(classify_fat_error_message("connection reset", 100, 0), FatHeaderStatus::Reset);
     }
@@ -225,6 +274,7 @@ mod tests {
     fn classify_fat_header_outcome_all_variants() {
         assert_eq!(classify_fat_header_outcome(&FatHeaderStatus::Success), "tcp_fat_header_ok");
         assert_eq!(classify_fat_header_outcome(&FatHeaderStatus::ThresholdCutoff), "tcp_16kb_blocked");
+        assert_eq!(classify_fat_header_outcome(&FatHeaderStatus::FreezeAfterThreshold), "tcp_freeze_after_threshold");
         assert_eq!(classify_fat_header_outcome(&FatHeaderStatus::Reset), "tcp_reset");
         assert_eq!(classify_fat_header_outcome(&FatHeaderStatus::Timeout), "tcp_timeout");
         assert_eq!(classify_fat_header_outcome(&FatHeaderStatus::ConnectFailed), "tcp_connect_failed");
@@ -235,6 +285,7 @@ mod tests {
     fn fat_status_label_all_variants() {
         assert_eq!(fat_status_label(&FatHeaderStatus::Success), "ok");
         assert_eq!(fat_status_label(&FatHeaderStatus::ThresholdCutoff), "threshold_cutoff");
+        assert_eq!(fat_status_label(&FatHeaderStatus::FreezeAfterThreshold), "freeze_after_threshold");
         assert_eq!(fat_status_label(&FatHeaderStatus::Reset), "reset");
         assert_eq!(fat_status_label(&FatHeaderStatus::Timeout), "timeout");
         assert_eq!(fat_status_label(&FatHeaderStatus::ConnectFailed), "connect_failed");
