@@ -436,6 +436,8 @@ pub struct ProxyUiWsTunnelConfig {
     pub enabled: bool,
     #[serde(default)]
     pub mode: Option<String>,
+    #[serde(default)]
+    pub fake_sni: Option<String>,
 }
 
 // --- Android OS network state snapshot ---

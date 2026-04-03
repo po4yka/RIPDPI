@@ -671,6 +671,10 @@ pub fn parse_cli(args: &[String], startup: &StartupEnv) -> Result<ParseResult, C
                 let value = next_value(&effective_args, &mut idx, arg)?;
                 group!().policy.label = value.to_owned();
             }
+            "--ws-tunnel-fake-sni" => {
+                let value = next_value(&effective_args, &mut idx, arg)?;
+                config.adaptive.ws_tunnel_fake_sni = Some(value.to_string());
+            }
             "--strategy-evolution" => config.adaptive.strategy_evolution = true,
             "--evolution-epsilon" => {
                 let value = next_value(&effective_args, &mut idx, arg)?;

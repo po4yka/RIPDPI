@@ -176,4 +176,7 @@ message AppSettings {
   // TCP window size control (wsize)
   int32 wsize_window = 36;                   // TCP window size in bytes (0 = disabled)
   int32 wsize_scale = 131;                   // Window scale factor (-1 = auto, 0-14 = explicit)
+
+  // MTProto Fake-TLS domain selection
+  string ws_tunnel_fake_sni = 134;           // Cover domain for WS tunnel TLS SNI (empty = disabled)
 }

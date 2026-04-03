@@ -159,6 +159,62 @@ fn build_rustls_client_config(roots: RootCertStore) -> Arc<ClientConfig> {
     Arc::new(config)
 }
 
+/// Build a rustls config that skips certificate validation. Used when fake SNI
+/// is active -- the server's cert won't match the cover domain, but the WS
+/// tunnel authenticates via MTProto's own key exchange, not TLS certificates.
+#[cfg(not(feature = "chrome-fingerprint"))]
+fn build_rustls_client_config_no_verify() -> Arc<ClientConfig> {
+    let mut config = ClientConfig::builder_with_provider(rustls::crypto::ring::default_provider().into())
+        .with_safe_default_protocol_versions()
+        .expect("ring provider supports default TLS versions")
+        .dangerous()
+        .with_custom_certificate_verifier(Arc::new(NoVerification))
+        .with_no_client_auth();
+    config.alpn_protocols = vec![b"http/1.1".to_vec()];
+    Arc::new(config)
+}
+
+/// Certificate verifier that accepts any certificate.
+#[cfg(not(feature = "chrome-fingerprint"))]
+#[derive(Debug)]
+struct NoVerification;
+
+#[cfg(not(feature = "chrome-fingerprint"))]
+impl rustls::client::danger::ServerCertVerifier for NoVerification {
+    fn verify_server_cert(
+        &self,
+        _end_entity: &rustls::pki_types::CertificateDer<'_>,
+        _intermediates: &[rustls::pki_types::CertificateDer<'_>],
+        _server_name: &ServerName<'_>,
+        _ocsp_response: &[u8],
+        _now: rustls::pki_types::UnixTime,
+    ) -> Result<rustls::client::danger::ServerCertVerified, rustls::Error> {
+        Ok(rustls::client::danger::ServerCertVerified::assertion())
+    }
+
+    fn verify_tls12_signature(
+        &self,
+        _message: &[u8],
+        _cert: &rustls::pki_types::CertificateDer<'_>,
+        _dss: &rustls::DigitallySignedStruct,
+    ) -> Result<rustls::client::danger::HandshakeSignatureValid, rustls::Error> {
+        Ok(rustls::client::danger::HandshakeSignatureValid::assertion())
+    }
+
+    fn verify_tls13_signature(
+        &self,
+        _message: &[u8],
+        _cert: &rustls::pki_types::CertificateDer<'_>,
+        _dss: &rustls::DigitallySignedStruct,
+    ) -> Result<rustls::client::danger::HandshakeSignatureValid, rustls::Error> {
+        Ok(rustls::client::danger::HandshakeSignatureValid::assertion())
+    }
+
+    fn supported_verify_schemes(&self) -> Vec<rustls::SignatureScheme> {
+        rustls::crypto::ring::default_provider().signature_verification_algorithms.supported_schemes()
+    }
+}
+
 #[cfg(not(feature = "chrome-fingerprint"))]
 fn connect_rustls_stream_with_config(
     host: &str,
@@ -217,6 +273,7 @@ pub(crate) fn open_ws_tunnel_with_timeout(
     resolved_addr: Option<SocketAddr>,
     protect_path: Option<&str>,
     connect_timeout: Option<Duration>,
+    fake_sni: Option<&str>,
 ) -> io::Result<WsStream> {
     let url = ws_url(dc).ok_or_else(|| {
         io::Error::new(
@@ -225,14 +282,13 @@ pub(crate) fn open_ws_tunnel_with_timeout(
         )
     })?;
     let (host, target) = resolve_ws_target(dc, resolved_addr)?;
-    open_rustls_ws_tunnel_with_config(
-        url.as_str(),
-        &host,
-        target,
-        protect_path,
-        connect_timeout,
-        build_rustls_client_config(default_root_store()),
-    )
+    let tls_host = fake_sni.unwrap_or(&host);
+    let tls_config = if fake_sni.is_some() {
+        build_rustls_client_config_no_verify()
+    } else {
+        build_rustls_client_config(default_root_store())
+    };
+    open_rustls_ws_tunnel_with_config(url.as_str(), tls_host, target, protect_path, connect_timeout, tls_config)
 }
 
 #[cfg(not(feature = "chrome-fingerprint"))]
@@ -241,7 +297,7 @@ pub fn open_ws_tunnel(
     resolved_addr: Option<SocketAddr>,
     protect_path: Option<&str>,
 ) -> io::Result<WsStream> {
-    open_ws_tunnel_with_timeout(dc, resolved_addr, protect_path, None)
+    open_ws_tunnel_with_timeout(dc, resolved_addr, protect_path, None, None)
 }
 
 /// Open a WebSocket tunnel to the given Telegram DC.
@@ -257,6 +313,7 @@ pub(crate) fn open_ws_tunnel_with_timeout(
     resolved_addr: Option<SocketAddr>,
     protect_path: Option<&str>,
     connect_timeout: Option<Duration>,
+    fake_sni: Option<&str>,
 ) -> io::Result<WsStream> {
     let url = ws_url(dc).ok_or_else(|| {
         io::Error::new(
@@ -265,16 +322,20 @@ pub(crate) fn open_ws_tunnel_with_timeout(
         )
     })?;
     let (host, target) = resolve_ws_target(dc, resolved_addr)?;
+    let tls_host = fake_sni.unwrap_or(&host);
     let tcp = connect_tcp_socket(target, protect_path, connect_timeout)?;
     configure_bootstrap_socket(&tcp, connect_timeout)?;
 
     // BoringSSL TLS handshake -- produces Chrome-native cipher suite ordering,
     // GREASE values, and extension layout for DPI fingerprint evasion.
-    let connector = SslConnector::builder(SslMethod::tls())
-        .map_err(|e| io::Error::new(io::ErrorKind::Other, format!("boring SSL builder: {e}")))?
-        .build();
+    let mut builder = SslConnector::builder(SslMethod::tls())
+        .map_err(|e| io::Error::new(io::ErrorKind::Other, format!("boring SSL builder: {e}")))?;
+    if fake_sni.is_some() {
+        builder.set_verify(boring::ssl::SslVerifyMode::NONE);
+    }
+    let connector = builder.build();
     let tls_stream = connector
-        .connect(&host, tcp)
+        .connect(tls_host, tcp)
         .map_err(|e| io::Error::new(io::ErrorKind::ConnectionRefused, format!("boring TLS: {e}")))?;
 
     let request = build_ws_request(url.as_str())?;
@@ -293,7 +354,7 @@ pub fn open_ws_tunnel(
     resolved_addr: Option<SocketAddr>,
     protect_path: Option<&str>,
 ) -> io::Result<WsStream> {
-    open_ws_tunnel_with_timeout(dc, resolved_addr, protect_path, None)
+    open_ws_tunnel_with_timeout(dc, resolved_addr, protect_path, None, None)
 }
 
 #[cfg(test)]

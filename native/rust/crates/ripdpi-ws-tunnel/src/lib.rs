@@ -21,6 +21,12 @@ pub struct WsTunnelConfig {
     pub resolved_addr: Option<SocketAddr>,
     /// Optional TCP connect timeout for the WS bootstrap path.
     pub connect_timeout: Option<Duration>,
+    /// Optional cover domain for the TLS SNI field. When set, the TLS
+    /// ClientHello will use this domain instead of the real
+    /// `kws{dc}.web.telegram.org`, disguising the connection as traffic to a
+    /// whitelisted service (e.g. `yandex.ru`). Certificate validation is
+    /// disabled when fake SNI is active.
+    pub fake_sni: Option<String>,
 }
 
 /// Result of classifying a target IP for WS tunnel eligibility.
@@ -67,7 +73,7 @@ fn relay_ws_tunnel_with<OpenWs, RelayWs, Ws>(
     relay_ws: RelayWs,
 ) -> io::Result<()>
 where
-    OpenWs: FnOnce(TelegramDc, Option<SocketAddr>, Option<&str>, Option<Duration>) -> io::Result<Ws>,
+    OpenWs: FnOnce(TelegramDc, Option<SocketAddr>, Option<&str>, Option<Duration>, Option<&str>) -> io::Result<Ws>,
     RelayWs: FnOnce(TcpStream, Ws, &[u8]) -> io::Result<()>,
 {
     if seed_request.len() < 64 {
@@ -77,7 +83,13 @@ where
         ));
     }
 
-    let ws = open_ws(dc, config.resolved_addr, config.protect_path.as_deref(), config.connect_timeout)?;
+    let ws = open_ws(
+        dc,
+        config.resolved_addr,
+        config.protect_path.as_deref(),
+        config.connect_timeout,
+        config.fake_sni.as_deref(),
+    )?;
     relay_ws(client, ws, &seed_request)
 }
 
@@ -158,8 +170,9 @@ mod tests {
                 protect_path: Some("/tmp/protect.sock".to_string()),
                 resolved_addr: None,
                 connect_timeout: None,
+                fake_sni: None,
             },
-            |_dc, _resolved_addr, _protect_path, _connect_timeout| Ok(()),
+            |_dc, _resolved_addr, _protect_path, _connect_timeout, _fake_sni| Ok(()),
             |_client, _ws: (), _seed_request| Ok(()),
         )
         .expect_err("short seed should fail");
@@ -181,8 +194,9 @@ mod tests {
                 protect_path: Some("/tmp/protect.sock".to_string()),
                 resolved_addr: Some(injected_addr),
                 connect_timeout: Some(Duration::from_millis(321)),
+                fake_sni: None,
             },
-            |dc, resolved_addr, protect_path, connect_timeout| {
+            |dc, resolved_addr, protect_path, connect_timeout, _fake_sni| {
                 assert_eq!(dc, TelegramDc::production(2));
                 assert_eq!(resolved_addr, Some(injected_addr));
                 assert_eq!(protect_path, Some("/tmp/protect.sock"));
@@ -206,8 +220,8 @@ mod tests {
             relay_client,
             TelegramDc::production(1),
             seed_request,
-            &WsTunnelConfig { protect_path: None, resolved_addr: None, connect_timeout: None },
-            |_dc, _resolved_addr, _protect_path, _connect_timeout| {
+            &WsTunnelConfig { protect_path: None, resolved_addr: None, connect_timeout: None, fake_sni: None },
+            |_dc, _resolved_addr, _protect_path, _connect_timeout, _fake_sni| {
                 Err(io::Error::new(io::ErrorKind::ConnectionRefused, "boom"))
             },
             |_client, _ws: (), _seed_request| Ok(()),
@@ -226,8 +240,8 @@ mod tests {
             relay_client,
             TelegramDc::production(5),
             seed_request.clone(),
-            &WsTunnelConfig { protect_path: None, resolved_addr: None, connect_timeout: None },
-            |_dc, _resolved_addr, _protect_path, _connect_timeout| Ok(()),
+            &WsTunnelConfig { protect_path: None, resolved_addr: None, connect_timeout: None, fake_sni: None },
+            |_dc, _resolved_addr, _protect_path, _connect_timeout, _fake_sni| Ok(()),
             |_client, _ws: (), forwarded_seed| {
                 assert_eq!(forwarded_seed, seed_request.as_slice());
                 Err(io::Error::new(io::ErrorKind::BrokenPipe, "relay boom"))
