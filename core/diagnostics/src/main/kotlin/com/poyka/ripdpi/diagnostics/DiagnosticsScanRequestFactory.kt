@@ -311,7 +311,8 @@ internal fun selectStrategyProbeTargetsForSession(
             intent.profileId == AutomaticAuditProfileId &&
             strategyProbe.suiteId == StrategyProbeSuiteFullMatrixV1 &&
             validCohorts.isNotEmpty()
-    if (!isApplicable || strategyProbe == null) return intent
+    if (!isApplicable) return intent
+    strategyProbe ?: return intent
     return if (isManual) {
         val allDomainTargets = validCohorts.flatMap { it.domainTargets }.distinctBy { it.host }
         val allQuicTargets = validCohorts.flatMap { it.quicTargets }.distinctBy { it.host }
