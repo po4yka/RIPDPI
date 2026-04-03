@@ -356,32 +356,40 @@ pub(crate) fn run_tcp_probe(target: &TcpTarget, whitelist_sni: &[String], transp
         }
     }
 
+    let mut details = vec![
+        ProbeDetail { key: "provider".to_string(), value: target.provider.clone() },
+        ProbeDetail { key: "attempts".to_string(), value: attempted_candidates.join("|") },
+        ProbeDetail {
+            key: "selectedSni".to_string(),
+            value: winning_sni.unwrap_or_else(|| {
+                if initial_candidate.is_empty() {
+                    "<empty>".to_string()
+                } else {
+                    initial_candidate
+                }
+            }),
+        },
+        ProbeDetail { key: "asn".to_string(), value: target.asn.clone().unwrap_or_else(|| "unknown".to_string()) },
+        ProbeDetail { key: "bytesSent".to_string(), value: final_observation.bytes_sent.to_string() },
+        ProbeDetail { key: "responsesSeen".to_string(), value: final_observation.responses_seen.to_string() },
+        ProbeDetail {
+            key: "lastError".to_string(),
+            value: final_observation.error.unwrap_or_else(|| "none".to_string()),
+        },
+        ProbeDetail { key: "probeRetryCount".to_string(), value: probe_retry_count.to_string() },
+    ];
+    if final_observation.status == FatHeaderStatus::FreezeAfterThreshold {
+        details.push(ProbeDetail {
+            key: "freezeThresholdBytes".to_string(),
+            value: final_observation.bytes_sent.to_string(),
+        });
+    }
+
     ProbeResult {
         probe_type: "tcp_fat_header".to_string(),
         target: format!("{}:{} ({})", target.ip, target.port, target.provider),
         outcome,
-        details: vec![
-            ProbeDetail { key: "provider".to_string(), value: target.provider.clone() },
-            ProbeDetail { key: "attempts".to_string(), value: attempted_candidates.join("|") },
-            ProbeDetail {
-                key: "selectedSni".to_string(),
-                value: winning_sni.unwrap_or_else(|| {
-                    if initial_candidate.is_empty() {
-                        "<empty>".to_string()
-                    } else {
-                        initial_candidate
-                    }
-                }),
-            },
-            ProbeDetail { key: "asn".to_string(), value: target.asn.clone().unwrap_or_else(|| "unknown".to_string()) },
-            ProbeDetail { key: "bytesSent".to_string(), value: final_observation.bytes_sent.to_string() },
-            ProbeDetail { key: "responsesSeen".to_string(), value: final_observation.responses_seen.to_string() },
-            ProbeDetail {
-                key: "lastError".to_string(),
-                value: final_observation.error.unwrap_or_else(|| "none".to_string()),
-            },
-            ProbeDetail { key: "probeRetryCount".to_string(), value: probe_retry_count.to_string() },
-        ],
+        details,
     }
 }
 
