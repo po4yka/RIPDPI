@@ -38,6 +38,13 @@ import com.poyka.ripdpi.diagnostics.DiagnosticsActiveConnectionPolicySource
 import com.poyka.ripdpi.diagnostics.DiagnosticsBootstrapper
 import com.poyka.ripdpi.diagnostics.DiagnosticsDetailLoader
 import com.poyka.ripdpi.diagnostics.DiagnosticsHistorySource
+import com.poyka.ripdpi.diagnostics.DiagnosticsHomeAuditOutcome
+import com.poyka.ripdpi.diagnostics.DiagnosticsHomeCompositeOutcome
+import com.poyka.ripdpi.diagnostics.DiagnosticsHomeCompositeProgress
+import com.poyka.ripdpi.diagnostics.DiagnosticsHomeCompositeRunService
+import com.poyka.ripdpi.diagnostics.DiagnosticsHomeCompositeRunStarted
+import com.poyka.ripdpi.diagnostics.DiagnosticsHomeVerificationOutcome
+import com.poyka.ripdpi.diagnostics.DiagnosticsHomeWorkflowService
 import com.poyka.ripdpi.diagnostics.DiagnosticsRememberedPolicy
 import com.poyka.ripdpi.diagnostics.DiagnosticsRememberedPolicySource
 import com.poyka.ripdpi.diagnostics.DiagnosticsResolverActions
@@ -376,4 +383,43 @@ class StubInstrumentedVpnTunnelSessionProvider : VpnTunnelSessionProvider {
         dns: String,
         ipv6: Boolean,
     ): VpnTunnelSession = StubInstrumentedVpnTunnelSession()
+}
+
+class StubInstrumentedDiagnosticsHomeWorkflowService : DiagnosticsHomeWorkflowService {
+    override suspend fun currentFingerprintHash(): String? = null
+
+    override suspend fun finalizeHomeAudit(sessionId: String): DiagnosticsHomeAuditOutcome =
+        DiagnosticsHomeAuditOutcome(
+            sessionId = sessionId,
+            fingerprintHash = null,
+            actionable = false,
+            headline = "Test",
+            summary = "Test stub",
+        )
+
+    override suspend fun summarizeVerification(sessionId: String): DiagnosticsHomeVerificationOutcome =
+        DiagnosticsHomeVerificationOutcome(
+            sessionId = sessionId,
+            success = false,
+            headline = "Test",
+            summary = "Test stub",
+        )
+}
+
+class StubInstrumentedDiagnosticsHomeCompositeRunService : DiagnosticsHomeCompositeRunService {
+    override suspend fun startHomeAnalysis(): DiagnosticsHomeCompositeRunStarted =
+        DiagnosticsHomeCompositeRunStarted(runId = "test-run")
+
+    override fun observeHomeRun(runId: String): Flow<DiagnosticsHomeCompositeProgress> =
+        MutableStateFlow(DiagnosticsHomeCompositeProgress(runId = runId))
+
+    override suspend fun finalizeHomeRun(runId: String): DiagnosticsHomeCompositeOutcome =
+        DiagnosticsHomeCompositeOutcome(
+            runId = runId,
+            actionable = false,
+            headline = "Test",
+            summary = "Test stub",
+        )
+
+    override suspend fun getCompletedRun(runId: String): DiagnosticsHomeCompositeOutcome? = null
 }
