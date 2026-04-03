@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.diagnostics
 
+import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.ApplicationIoScope
 import com.poyka.ripdpi.data.ServiceStateStore
@@ -96,6 +97,10 @@ class DefaultDiagnosticsHomeCompositeRunService
         @param:ApplicationIoScope
         private val scope: CoroutineScope,
     ) : DiagnosticsHomeCompositeRunService {
+        private companion object {
+            private val log = Logger.withTag("HomeAnalysis")
+        }
+
         private val progressState = MutableStateFlow<Map<String, DiagnosticsHomeCompositeProgress>>(emptyMap())
         private val completedRuns = ConcurrentHashMap<String, DiagnosticsHomeCompositeOutcome>()
 
@@ -145,6 +150,7 @@ class DefaultDiagnosticsHomeCompositeRunService
         override suspend fun getCompletedRun(runId: String): DiagnosticsHomeCompositeOutcome? = completedRuns[runId]
 
         private suspend fun executeRun(runId: String) {
+            log.i { "started runId=$runId stages=${HomeCompositeStageSpecs.size}" }
             var auditOutcome: DiagnosticsHomeAuditOutcome? = null
             val auditSpec = HomeCompositeStageSpecs[0]
             val auditIndex = 0
@@ -177,6 +183,7 @@ class DefaultDiagnosticsHomeCompositeRunService
                 }
                 HomeCompositeStageSpecs.drop(1).forEachIndexed { i, spec ->
                     val stageIndex = i + 1
+                    log.i { "stage ${spec.key} skipped: audit failure" }
                     updateStage(runId, stageIndex) { current ->
                         current.copy(
                             status = DiagnosticsHomeCompositeStageStatus.SKIPPED,
@@ -231,6 +238,7 @@ class DefaultDiagnosticsHomeCompositeRunService
             if (auditSession.status == "completed") {
                 val finalizedAuditOutcome = diagnosticsHomeWorkflowService.finalizeHomeAudit(auditSessionId)
                 auditOutcome = finalizedAuditOutcome
+                log.i { "audit finalized actionable=${finalizedAuditOutcome.actionable}" }
                 updateStage(runId, auditIndex) { current ->
                     current.copy(
                         headline = finalizedAuditOutcome.headline,
@@ -241,6 +249,7 @@ class DefaultDiagnosticsHomeCompositeRunService
             } else {
                 HomeCompositeStageSpecs.drop(1).forEachIndexed { i, spec ->
                     val stageIndex = i + 1
+                    log.i { "stage ${spec.key} skipped: audit failure" }
                     updateStage(runId, stageIndex) { current ->
                         current.copy(
                             status = DiagnosticsHomeCompositeStageStatus.SKIPPED,
@@ -362,6 +371,9 @@ class DefaultDiagnosticsHomeCompositeRunService
                     )
                 }
             }
+            log.i {
+                "run completed: completed=${outcome.completedStageCount} failed=${outcome.failedStageCount} skipped=${outcome.skippedStageCount}"
+            }
         }
 
         private suspend fun executeStage(
@@ -375,6 +387,7 @@ class DefaultDiagnosticsHomeCompositeRunService
                 headline = "${spec.label} running",
                 summary = "Starting ${spec.label.lowercase()}.",
             )
+            log.i { "stage ${spec.key} started (profile=${spec.profileId} timeout=${stageTimeoutMs(spec)}ms)" }
             val stageSessionId =
                 runCatching {
                     diagnosticsScanController.startScan(
@@ -435,10 +448,12 @@ class DefaultDiagnosticsHomeCompositeRunService
 
             return when (val signal = merge(sessionFinished, vpnHalted).first()) {
                 is StageSessionSignal.Finished -> {
+                    log.i { "stage ${spec.key} completed status=${signal.session.status}" }
                     stageSessionId to signal.session
                 }
 
                 StageSessionSignal.VpnHalted -> {
+                    log.w { "VPN halted during stage ${spec.key}" }
                     markStageFailure(
                         runId = runId,
                         stageIndex = stageIndex,
@@ -457,6 +472,10 @@ class DefaultDiagnosticsHomeCompositeRunService
         ): Pair<String, DiagnosticScanSession>? =
             withTimeoutOrNull(stageTimeoutMs(spec)) {
                 executeStage(runId, stageIndex, spec)
+            }.also { result ->
+                if (result == null) {
+                    log.w { "stage ${spec.key} timed out after ${stageTimeoutMs(spec)}ms" }
+                }
             }
 
         private suspend fun buildCompletedStageSummary(

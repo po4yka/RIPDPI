@@ -396,6 +396,9 @@ impl ExecutionStageRunner for StrategyDnsBaselineRunner {
         runtime.results.push(classified_failure_probe_result("Current strategy", &baseline.failure));
 
         // Store baseline failure for downstream runners.
+        let class = baseline.failure.class;
+        let action = baseline.failure.action;
+        tracing::info!(failure_class = ?class, action = ?action, "strategy probe: baseline classified");
         runtime.strategy.baseline_failure = Some(baseline.failure);
 
         // If we have encrypted IP overrides, build override targets so TCP/QUIC
@@ -532,6 +535,7 @@ impl ExecutionStageRunner for StrategyTcpRunner {
 
         let baseline_ech_capable = baseline_supports_ech_candidates(&baseline_execution.results);
         let fake_ttl_available = probe_fake_ttl_capability();
+        tracing::info!(fake_ttl_available = fake_ttl_available, "strategy probe: TTL capability probed");
         if !fake_ttl_available {
             tracing::debug!("TTL capability probe failed — fake-packet candidates will be marked not_applicable");
         }
@@ -544,9 +548,12 @@ impl ExecutionStageRunner for StrategyTcpRunner {
         );
         let mut pending_tcp_specs = ordered_tcp_specs;
         let mut tcp_failure_tracker = FamilyFailureTracker::new(strategy_plan.suite.family_failure_threshold);
+        let planned_count = tcp_specs.len();
+        let mut executed_count = 1usize; // baseline already executed
         while !pending_tcp_specs.is_empty() {
             let candidate_index = runtime.strategy.tcp_candidates.len() + 1;
             let spec = pending_tcp_specs.remove(next_candidate_index(&pending_tcp_specs, tcp_failure_tracker.blocked));
+            tracing::debug!(candidate = spec.id, label = spec.label, "strategy probe: testing TCP candidate");
             if runtime.is_cancelled() {
                 return RunnerOutcome::Cancelled;
             }
@@ -582,6 +589,11 @@ impl ExecutionStageRunner for StrategyTcpRunner {
                 continue;
             }
             if spec.eligibility == CandidateEligibility::RequiresEchCapability && !baseline_ech_capable {
+                tracing::debug!(
+                    candidate = spec.id,
+                    reason = ECH_ELIGIBILITY_RATIONALE,
+                    "strategy probe: candidate not_applicable"
+                );
                 let execution =
                     not_applicable_candidate_execution(&spec, domain_targets.len() * 2, 3, ECH_ELIGIBILITY_RATIONALE);
                 runtime.record_step(
@@ -608,6 +620,11 @@ impl ExecutionStageRunner for StrategyTcpRunner {
                 continue;
             }
             if spec.requires_fake_ttl && !fake_ttl_available {
+                tracing::debug!(
+                    candidate = spec.id,
+                    reason = FAKE_TTL_ELIGIBILITY_RATIONALE,
+                    "strategy probe: candidate not_applicable"
+                );
                 let execution = not_applicable_candidate_execution(
                     &spec,
                     domain_targets.len() * 2,
@@ -676,11 +693,20 @@ impl ExecutionStageRunner for StrategyTcpRunner {
                 ),
             );
             runtime.strategy.tcp_candidates.push(execution.summary);
+            executed_count += 1;
             tcp_failure_tracker.record(spec.family, failed);
+            if tcp_failure_tracker.blocked.is_some() {
+                tracing::debug!(
+                    candidate = spec.id,
+                    family = spec.family,
+                    "strategy probe: candidate skipped, family blocked"
+                );
+            }
             if !pending_tcp_specs.is_empty() {
                 thread::sleep(Duration::from_millis(candidate_pause_ms(strategy_plan.probe_seed, &spec, failed)));
             }
         }
+        tracing::info!(executed = executed_count, planned = planned_count, "strategy probe: TCP suite completed");
         RunnerOutcome::Completed
     }
 }
