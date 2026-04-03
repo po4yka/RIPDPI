@@ -467,7 +467,7 @@ pub fn send_fake_tcp(
                 // fake packet entirely and send only the original data so the
                 // TLS handshake is not left half-written.
                 use std::io::Write;
-                stream.write_all(original_prefix)?;
+                (&*stream).write_all(original_prefix)?;
                 wait_tcp_stage_fd(fd, wait.0, wait.1)?;
                 return Ok(());
             }
