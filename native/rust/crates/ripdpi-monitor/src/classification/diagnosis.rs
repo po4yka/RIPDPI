@@ -288,6 +288,60 @@ pub(crate) fn classify_connectivity_diagnoses(request: &ScanRequest, results: &[
                 },
             );
         }
+        if result.outcome == "tcp_freeze_after_threshold" {
+            push_diagnosis(
+                &mut diagnoses,
+                &mut seen,
+                Diagnosis {
+                    code: "connection_freeze_detected".to_string(),
+                    summary: format!("Connection froze after data transfer threshold for {}", result.target),
+                    severity: "negative".to_string(),
+                    target: Some(result.target.clone()),
+                    evidence: diagnosis_evidence(
+                        result,
+                        &["bytesSent", "responsesSeen", "freezeThresholdBytes", "lastError"],
+                    ),
+                    recommendation: Some(
+                        "Connection was frozen after ~16KB of data. This pattern is consistent with \
+                         TSPU port-443 policing. Try using an alternative port."
+                            .to_string(),
+                    ),
+                    control_validated: None,
+                },
+            );
+        }
+        // Detect port-443-specific policing: main port failed but alt port succeeded.
+        let alt_port_ok = failure_detail_value(result, "altPortStatus") == Some("ok");
+        let main_port_443 = failure_detail_value(result, "port") == Some("443");
+        if alt_port_ok
+            && main_port_443
+            && matches!(
+                result.outcome.as_str(),
+                "tcp_freeze_after_threshold" | "tcp_16kb_blocked" | "tcp_reset" | "tcp_timeout"
+            )
+        {
+            let alt_port = failure_detail_value(result, "altPort").unwrap_or("8443");
+            push_diagnosis(
+                &mut diagnoses,
+                &mut seen,
+                Diagnosis {
+                    code: "port_443_policed".to_string(),
+                    summary: format!("Port 443 appears policed for {} but port {} works", result.target, alt_port),
+                    severity: "negative".to_string(),
+                    target: Some(result.target.clone()),
+                    evidence: diagnosis_evidence(
+                        result,
+                        &["port", "altPort", "altPortStatus", "altPortResponsesSeen", "bytesSent", "responsesSeen"],
+                    ),
+                    recommendation: Some(format!(
+                        "Port 443 is being specifically targeted by your ISP. \
+                         Switch to port {} or another non-standard HTTPS port to avoid policing.",
+                        alt_port
+                    )),
+                    control_validated: None,
+                },
+            );
+        }
         if result.outcome == "whitelist_sni_ok" {
             push_diagnosis(
                 &mut diagnoses,
@@ -759,6 +813,77 @@ mod tests {
         assert!(diagnoses.iter().any(|diagnosis| diagnosis.code == "whitelist_sni_bypassable"));
         assert!(diagnoses.iter().any(|diagnosis| diagnosis.code == "sni_triggered_tls_interference"));
         assert!(diagnoses.iter().any(|diagnosis| diagnosis.code == "quic_blocked"));
+    }
+
+    #[test]
+    fn classify_connectivity_diagnoses_detects_connection_freeze() {
+        let diagnoses = classify_connectivity_diagnoses(
+            &connectivity_request(),
+            &[connectivity_probe(
+                "tcp_fat_header",
+                "1.1.1.1:443 (Cloudflare)",
+                "tcp_freeze_after_threshold",
+                &[
+                    ("bytesSent", "16384"),
+                    ("responsesSeen", "1"),
+                    ("lastError", "timed out"),
+                    ("freezeThresholdBytes", "16384"),
+                ],
+            )],
+        );
+        assert!(diagnoses.iter().any(|d| d.code == "connection_freeze_detected"));
+        let diag = diagnoses.iter().find(|d| d.code == "connection_freeze_detected").unwrap();
+        assert_eq!(diag.severity, "negative");
+        assert!(diag.recommendation.is_some());
+    }
+
+    #[test]
+    fn classify_connectivity_diagnoses_detects_port_443_policing() {
+        let diagnoses = classify_connectivity_diagnoses(
+            &connectivity_request(),
+            &[connectivity_probe(
+                "tcp_fat_header",
+                "1.1.1.1:443 (Cloudflare)",
+                "tcp_freeze_after_threshold",
+                &[
+                    ("bytesSent", "16384"),
+                    ("responsesSeen", "1"),
+                    ("lastError", "timed out"),
+                    ("freezeThresholdBytes", "16384"),
+                    ("port", "443"),
+                    ("altPort", "8443"),
+                    ("altPortStatus", "ok"),
+                    ("altPortResponsesSeen", "16"),
+                ],
+            )],
+        );
+        assert!(diagnoses.iter().any(|d| d.code == "connection_freeze_detected"));
+        assert!(diagnoses.iter().any(|d| d.code == "port_443_policed"));
+        let diag = diagnoses.iter().find(|d| d.code == "port_443_policed").unwrap();
+        assert_eq!(diag.severity, "negative");
+        assert!(diag.recommendation.as_ref().unwrap().contains("8443"));
+    }
+
+    #[test]
+    fn classify_connectivity_diagnoses_no_port_policing_when_alt_port_also_fails() {
+        let diagnoses = classify_connectivity_diagnoses(
+            &connectivity_request(),
+            &[connectivity_probe(
+                "tcp_fat_header",
+                "1.1.1.1:443 (Cloudflare)",
+                "tcp_freeze_after_threshold",
+                &[
+                    ("bytesSent", "16384"),
+                    ("responsesSeen", "1"),
+                    ("lastError", "timed out"),
+                    ("port", "443"),
+                    ("altPort", "8443"),
+                    ("altPortStatus", "timeout"),
+                ],
+            )],
+        );
+        assert!(diagnoses.iter().any(|d| d.code == "connection_freeze_detected"));
+        assert!(!diagnoses.iter().any(|d| d.code == "port_443_policed"));
     }
 
     #[test]

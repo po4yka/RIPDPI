@@ -99,6 +99,9 @@ pub(crate) fn observation_for_probe(result: &ProbeResult) -> Option<ProbeObserva
                 responses_seen: detail_value(result, "responsesSeen").and_then(|value| value.parse::<usize>().ok()),
                 freeze_threshold_bytes: detail_value(result, "freezeThresholdBytes")
                     .and_then(|value| value.parse::<usize>().ok()),
+                port: detail_value(result, "port").and_then(|v| v.parse::<u16>().ok()),
+                alt_port: detail_value(result, "altPort").and_then(|v| v.parse::<u16>().ok()),
+                alt_port_status: detail_value(result, "altPortStatus").map(str::to_string),
             }),
             quic: None,
             service: None,
@@ -719,6 +722,28 @@ mod tests {
         assert_eq!(tcp.freeze_threshold_bytes, Some(16384));
         assert_eq!(tcp.bytes_sent, Some(16384));
         assert_eq!(tcp.responses_seen, Some(1));
+    }
+
+    #[test]
+    fn tcp_observation_includes_port_and_alt_port() {
+        let result = probe(
+            "tcp_fat_header",
+            "1.1.1.1:443 (Cloudflare)",
+            "tcp_freeze_after_threshold",
+            &[
+                ("provider", "Cloudflare"),
+                ("bytesSent", "16384"),
+                ("responsesSeen", "1"),
+                ("port", "443"),
+                ("altPort", "8443"),
+                ("altPortStatus", "ok"),
+            ],
+        );
+        let obs = observation_for_probe(&result).expect("tcp observation");
+        let tcp = obs.tcp.expect("tcp payload");
+        assert_eq!(tcp.port, Some(443));
+        assert_eq!(tcp.alt_port, Some(8443));
+        assert_eq!(tcp.alt_port_status.as_deref(), Some("ok"));
     }
 
     #[test]

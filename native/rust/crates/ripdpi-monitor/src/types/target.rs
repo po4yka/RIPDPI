@@ -60,6 +60,8 @@ pub struct TcpTarget {
     pub host_header: Option<String>,
     #[serde(default)]
     pub fat_header_requests: Option<usize>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub alt_port: Option<u16>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

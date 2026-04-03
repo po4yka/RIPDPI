@@ -378,11 +378,38 @@ pub(crate) fn run_tcp_probe(target: &TcpTarget, whitelist_sni: &[String], transp
         },
         ProbeDetail { key: "probeRetryCount".to_string(), value: probe_retry_count.to_string() },
     ];
+    details.push(ProbeDetail { key: "port".to_string(), value: target.port.to_string() });
     if final_observation.status == FatHeaderStatus::FreezeAfterThreshold {
         details.push(ProbeDetail {
             key: "freezeThresholdBytes".to_string(),
             value: final_observation.bytes_sent.to_string(),
         });
+    }
+    // When the main port fails and an alternative port is configured, probe the
+    // alt port to detect port-specific policing (e.g. TSPU targeting port 443).
+    if let Some(alt_port) = target.alt_port {
+        if matches!(
+            final_observation.status,
+            FatHeaderStatus::ThresholdCutoff
+                | FatHeaderStatus::FreezeAfterThreshold
+                | FatHeaderStatus::Reset
+                | FatHeaderStatus::Timeout
+        ) {
+            let alt_target = TcpTarget { port: alt_port, alt_port: None, ..target.clone() };
+            let alt_host = target.host_header.as_deref().or(target.sni.as_deref()).unwrap_or("localhost");
+            let alt_sni = target.sni.as_deref().unwrap_or("");
+            let alt_obs = run_fat_header_attempt(&alt_target, transport, alt_sni, alt_host);
+            details.push(ProbeDetail { key: "altPort".to_string(), value: alt_port.to_string() });
+            details.push(ProbeDetail {
+                key: "altPortStatus".to_string(),
+                value: fat_status_label(&alt_obs.status).to_string(),
+            });
+            details.push(ProbeDetail { key: "altPortBytesSent".to_string(), value: alt_obs.bytes_sent.to_string() });
+            details.push(ProbeDetail {
+                key: "altPortResponsesSeen".to_string(),
+                value: alt_obs.responses_seen.to_string(),
+            });
+        }
     }
 
     ProbeResult {
