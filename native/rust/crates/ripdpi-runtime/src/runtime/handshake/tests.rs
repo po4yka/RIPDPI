@@ -64,6 +64,7 @@ fn fixture_runtime_context(dns_http_port: u16) -> ProxyRuntimeContext {
             dnscrypt_provider_name: None,
             dnscrypt_public_key: None,
         }),
+        protect_path: None,
     }
 }
 

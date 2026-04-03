@@ -955,6 +955,7 @@ private fun executionCoordinatorFixtures(
     val appSettingsRepository = FakeAppSettingsRepository()
     val scanRequestFactory =
         DiagnosticsScanRequestFactory(
+            context = TestContext(),
             networkMetadataProvider = networkMetadataProvider,
             intentResolver = DefaultDiagnosticsIntentResolver(stores, appSettingsRepository, json),
             scanContextCollector =

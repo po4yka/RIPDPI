@@ -254,6 +254,7 @@ internal object RipDpiProxyJsonCodec {
     @Serializable
     private data class NativeRuntimeContext(
         val encryptedDns: NativeEncryptedDnsContext? = null,
+        val protectPath: String? = null,
     )
 
     @Serializable
@@ -459,22 +460,25 @@ internal object RipDpiProxyJsonCodec {
     private object ProxyRuntimeContextCodec {
         fun toModel(value: NativeRuntimeContext?): RipDpiRuntimeContext? =
             normalizeRuntimeContext(
-                RipDpiRuntimeContext(
-                    encryptedDns =
-                        value?.encryptedDns?.let {
-                            RipDpiEncryptedDnsContext(
-                                resolverId = it.resolverId,
-                                protocol = it.protocol,
-                                host = it.host,
-                                port = it.port,
-                                tlsServerName = it.tlsServerName,
-                                bootstrapIps = it.bootstrapIps,
-                                dohUrl = it.dohUrl,
-                                dnscryptProviderName = it.dnscryptProviderName,
-                                dnscryptPublicKey = it.dnscryptPublicKey,
-                            )
-                        },
-                ),
+                value?.let {
+                    RipDpiRuntimeContext(
+                        encryptedDns =
+                            it.encryptedDns?.let { dns ->
+                                RipDpiEncryptedDnsContext(
+                                    resolverId = dns.resolverId,
+                                    protocol = dns.protocol,
+                                    host = dns.host,
+                                    port = dns.port,
+                                    tlsServerName = dns.tlsServerName,
+                                    bootstrapIps = dns.bootstrapIps,
+                                    dohUrl = dns.dohUrl,
+                                    dnscryptProviderName = dns.dnscryptProviderName,
+                                    dnscryptPublicKey = dns.dnscryptPublicKey,
+                                )
+                            },
+                        protectPath = it.protectPath,
+                    )
+                },
             )
 
         fun toNative(value: RipDpiRuntimeContext?): NativeRuntimeContext? =
@@ -494,6 +498,7 @@ internal object RipDpiProxyJsonCodec {
                                 dnscryptPublicKey = it.dnscryptPublicKey,
                             )
                         },
+                    protectPath = context.protectPath,
                 )
             }
     }

@@ -48,7 +48,10 @@ fn sanitize_runtime_context(runtime_context: Option<ProxyRuntimeContext>) -> Opt
         value.resolver_id = trim_non_empty(value.resolver_id);
         Some(value)
     });
-    runtime_context.encrypted_dns.as_ref()?;
+    runtime_context.protect_path = trim_non_empty(runtime_context.protect_path);
+    if runtime_context.encrypted_dns.is_none() && runtime_context.protect_path.is_none() {
+        return None;
+    }
     Some(runtime_context)
 }
 
