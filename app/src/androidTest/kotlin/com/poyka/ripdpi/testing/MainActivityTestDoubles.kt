@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.testing
 
 import android.content.Intent
+import androidx.appcompat.app.AppCompatActivity
 import com.poyka.ripdpi.activities.MainActivityHost
 import com.poyka.ripdpi.activities.MainActivityHostCommand
 import com.poyka.ripdpi.activities.MainViewModel
@@ -149,7 +150,7 @@ internal class RecordingMainActivityHost : MainActivityHost {
     private var viewModel: MainViewModel? = null
 
     override fun register(
-        activity: androidx.activity.ComponentActivity,
+        activity: AppCompatActivity,
         viewModel: MainViewModel,
     ) {
         this.viewModel = viewModel

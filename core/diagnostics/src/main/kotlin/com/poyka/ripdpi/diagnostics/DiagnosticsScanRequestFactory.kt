@@ -306,13 +306,11 @@ internal fun selectStrategyProbeTargetsForSession(
             cohort.domainTargets.size == AutomaticAuditDomainTargetCount &&
                 cohort.quicTargets.size == AutomaticAuditQuicTargetCount
         }
+    val isFullMatrixSuite = strategyProbe?.suiteId == StrategyProbeSuiteFullMatrixV1
     val isApplicable =
-        strategyProbe != null &&
-            intent.profileId == AutomaticAuditProfileId &&
-            strategyProbe.suiteId == StrategyProbeSuiteFullMatrixV1 &&
-            validCohorts.isNotEmpty()
-    if (!isApplicable) return intent
-    val probe = strategyProbe!!
+        isFullMatrixSuite &&
+            intent.profileId == AutomaticAuditProfileId && validCohorts.isNotEmpty()
+    if (!isApplicable || strategyProbe == null) return intent
     return if (isManual) {
         val allDomainTargets = validCohorts.flatMap { it.domainTargets }.distinctBy { it.host }
         val allQuicTargets = validCohorts.flatMap { it.quicTargets }.distinctBy { it.host }
@@ -320,7 +318,7 @@ internal fun selectStrategyProbeTargetsForSession(
             domainTargets = allDomainTargets,
             quicTargets = allQuicTargets,
             strategyProbe =
-                probe.copy(
+                strategyProbe.copy(
                     targetSelection =
                         StrategyProbeTargetSelection(
                             cohortId = "all",
@@ -336,7 +334,7 @@ internal fun selectStrategyProbeTargetsForSession(
             domainTargets = selectedCohort.domainTargets,
             quicTargets = selectedCohort.quicTargets,
             strategyProbe =
-                probe.copy(
+                strategyProbe.copy(
                     targetSelection =
                         StrategyProbeTargetSelection(
                             cohortId = selectedCohort.id,
