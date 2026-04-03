@@ -412,6 +412,7 @@ fn tcp_probe_reports_threshold_cutoff() {
         asn: None,
         host_header: Some("plain-fat".to_string()),
         fat_header_requests: Some(16),
+        alt_port: None,
     };
 
     let result = run_tcp_probe(&target, &[], &TransportConfig::Direct);
@@ -435,6 +436,7 @@ fn tcp_probe_reports_whitelist_sni_success() {
         asn: Some("AS1337".to_string()),
         host_header: Some("deny.example".to_string()),
         fat_header_requests: Some(8),
+        alt_port: None,
     };
 
     let result =
@@ -455,6 +457,7 @@ fn tcp_probe_reports_whitelist_sni_failure() {
         asn: Some("AS1337".to_string()),
         host_header: Some("deny.example".to_string()),
         fat_header_requests: Some(8),
+        alt_port: None,
     };
 
     let result = run_tcp_probe(&target, &["missing.example".to_string()], &TransportConfig::Direct);
@@ -474,6 +477,7 @@ fn tcp_probe_skips_whitelist_when_sni_is_none() {
         asn: Some("AS1337".to_string()),
         host_header: None,
         fat_header_requests: Some(8),
+        alt_port: None,
     };
 
     let result =
