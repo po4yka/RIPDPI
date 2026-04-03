@@ -1,12 +1,16 @@
 package com.poyka.ripdpi.ui.screens.home
 
 import androidx.compose.ui.test.assertHasClickAction
-import androidx.compose.ui.test.assertHasNoClickAction
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.hasContentDescription
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
+import com.poyka.ripdpi.activities.AnalysisProgressUiState
+import com.poyka.ripdpi.activities.AnalysisStageStatus
+import com.poyka.ripdpi.activities.AnalysisStageUiState
 import com.poyka.ripdpi.activities.HomeDiagnosticsActionUiState
 import com.poyka.ripdpi.activities.HomeDiagnosticsAnalysisSheetUiState
 import com.poyka.ripdpi.activities.HomeDiagnosticsUiState
@@ -253,6 +257,97 @@ class HomeScreenTest {
         composeRule.onNodeWithTag(RipDpiTestTags.HomeDiagnosticsVerificationSheet).assertIsDisplayed()
         composeRule.onNodeWithTag(RipDpiTestTags.HomeDiagnosticsVerificationOpenDiagnosticsAction).performClick()
         assertTrue(openedDiagnostics)
+    }
+
+    @Test
+    fun `analysis progress indicator shown when analysis is busy with progress`() {
+        composeRule.setContent {
+            RipDpiTheme {
+                HomeScreen(
+                    uiState =
+                        MainUiState(
+                            homeDiagnostics =
+                                HomeDiagnosticsUiState(
+                                    analysisAction =
+                                        HomeDiagnosticsActionUiState(
+                                            label = "Run Full Analysis",
+                                            supportingText = "Stage 2 of 3 \u00B7 Testing TCP Desync",
+                                            enabled = false,
+                                            busy = true,
+                                        ),
+                                    verifiedVpnAction =
+                                        HomeDiagnosticsActionUiState(
+                                            label = "Start Verified VPN",
+                                            supportingText = "Finish analysis first.",
+                                            enabled = false,
+                                        ),
+                                    analysisProgress =
+                                        AnalysisProgressUiState(
+                                            stages =
+                                                listOf(
+                                                    AnalysisStageUiState(AnalysisStageStatus.COMPLETED),
+                                                    AnalysisStageUiState(AnalysisStageStatus.RUNNING),
+                                                    AnalysisStageUiState(AnalysisStageStatus.PENDING),
+                                                ),
+                                            activeStageIndex = 1,
+                                        ),
+                                ),
+                        ),
+                    onToggleConnection = {},
+                    onOpenDiagnostics = {},
+                    onOpenHistory = {},
+                    onRepairPermission = {},
+                    onOpenVpnPermissionDialog = {},
+                )
+            }
+        }
+
+        composeRule.waitForIdle()
+        composeRule
+            .onNode(hasContentDescription("1 completed, 1 running", substring = true))
+            .assertExists()
+        composeRule
+            .onNode(hasText("Stage 2 of 3", substring = true))
+            .assertExists()
+    }
+
+    @Test
+    fun `plain text shown when analysis is not busy`() {
+        composeRule.setContent {
+            RipDpiTheme {
+                HomeScreen(
+                    uiState =
+                        MainUiState(
+                            homeDiagnostics =
+                                HomeDiagnosticsUiState(
+                                    analysisAction =
+                                        HomeDiagnosticsActionUiState(
+                                            label = "Run Full Analysis",
+                                            supportingText = "Run the audit first.",
+                                            enabled = true,
+                                            busy = false,
+                                        ),
+                                    verifiedVpnAction =
+                                        HomeDiagnosticsActionUiState(
+                                            label = "Start Verified VPN",
+                                            supportingText = "Run analysis first.",
+                                            enabled = false,
+                                        ),
+                                ),
+                        ),
+                    onToggleConnection = {},
+                    onOpenDiagnostics = {},
+                    onOpenHistory = {},
+                    onRepairPermission = {},
+                    onOpenVpnPermissionDialog = {},
+                )
+            }
+        }
+
+        composeRule.waitForIdle()
+        composeRule
+            .onNode(hasText("Run the audit first."))
+            .assertExists()
     }
 
     private fun uiStateWithBothBanners(): MainUiState =
