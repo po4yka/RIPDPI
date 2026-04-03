@@ -539,6 +539,7 @@ fn http_blockpage_reorders_tcp_candidates_toward_parser_families() {
     let ordered = reorder_tcp_candidates_for_failure(
         &build_tcp_candidates(&minimal_ui_config()),
         Some(FailureClass::HttpBlockpage),
+        true,
     );
     let ids = ordered.iter().take(4).map(|candidate| candidate.id).collect::<Vec<_>>();
 
@@ -547,8 +548,11 @@ fn http_blockpage_reorders_tcp_candidates_toward_parser_families() {
 
 #[test]
 fn tcp_reset_reorders_tcp_candidates_toward_split_families() {
-    let ordered =
-        reorder_tcp_candidates_for_failure(&build_tcp_candidates(&minimal_ui_config()), Some(FailureClass::TcpReset));
+    let ordered = reorder_tcp_candidates_for_failure(
+        &build_tcp_candidates(&minimal_ui_config()),
+        Some(FailureClass::TcpReset),
+        true,
+    );
     let ids = ordered.iter().take(4).map(|candidate| candidate.id).collect::<Vec<_>>();
 
     assert_eq!(ids, vec!["baseline_current", "split_host", "tlsrec_split_host", "tlsrec_hostfake_split"]);
@@ -556,17 +560,35 @@ fn tcp_reset_reorders_tcp_candidates_toward_split_families() {
 
 #[test]
 fn silent_drop_reorders_tcp_candidates_toward_fake_tls_families() {
-    let ordered =
-        reorder_tcp_candidates_for_failure(&build_tcp_candidates(&minimal_ui_config()), Some(FailureClass::SilentDrop));
+    let ordered = reorder_tcp_candidates_for_failure(
+        &build_tcp_candidates(&minimal_ui_config()),
+        Some(FailureClass::SilentDrop),
+        true,
+    );
     let ids = ordered.iter().take(4).map(|candidate| candidate.id).collect::<Vec<_>>();
 
     assert_eq!(ids, vec!["baseline_current", "tlsrec_fake_rich", "tlsrec_hostfake", "tlsrec_hostfake_split"]);
 }
 
 #[test]
+fn silent_drop_deprioritizes_fake_candidates_when_ttl_unavailable() {
+    let ordered = reorder_tcp_candidates_for_failure(
+        &build_tcp_candidates(&minimal_ui_config()),
+        Some(FailureClass::SilentDrop),
+        false,
+    );
+    let ids = ordered.iter().take(4).map(|candidate| candidate.id).collect::<Vec<_>>();
+
+    assert_eq!(ids, vec!["baseline_current", "tlsrec_split_host", "tlsrec_hostfake_split", "split_host"]);
+}
+
+#[test]
 fn tls_alert_reorders_tcp_candidates_away_from_fake_heavy_paths() {
-    let ordered =
-        reorder_tcp_candidates_for_failure(&build_tcp_candidates(&minimal_ui_config()), Some(FailureClass::TlsAlert));
+    let ordered = reorder_tcp_candidates_for_failure(
+        &build_tcp_candidates(&minimal_ui_config()),
+        Some(FailureClass::TlsAlert),
+        true,
+    );
     let ids = ordered.iter().take(4).map(|candidate| candidate.id).collect::<Vec<_>>();
 
     assert_eq!(ids, vec!["baseline_current", "split_host", "tlsrec_split_host", "tlsrec_hostfake"]);

@@ -460,7 +460,19 @@ pub fn send_fake_tcp(
         let (pipe_r, pipe_w) = nix::unistd::pipe().map_err(io::Error::from)?;
         // pipe_r and pipe_w are OwnedFd -- closed automatically on drop.
 
-        set_stream_ttl(stream, ttl)?;
+        match set_stream_ttl(stream, ttl) {
+            Ok(()) => {}
+            Err(err) if should_ignore_android_ttl_error(&err) => {
+                // TTL unavailable on this Android VPN/tun interface — skip the
+                // fake packet entirely and send only the original data so the
+                // TLS handshake is not left half-written.
+                use std::io::Write;
+                stream.write_all(original_prefix)?;
+                wait_tcp_stage_fd(fd, wait.0, wait.1)?;
+                return Ok(());
+            }
+            Err(err) => return Err(err),
+        }
         if md5sig {
             set_tcp_md5sig(stream, 5)?;
         }
@@ -1266,6 +1278,21 @@ fn storage_to_socket_addr(storage: &libc::sockaddr_storage) -> io::Result<Socket
             Err(io::Error::new(io::ErrorKind::InvalidData, "unsupported socket family in original destination lookup"))
         }
     }
+}
+
+/// Returns true for TTL-related errors that are expected on Android VPN/tun
+/// interfaces where `setsockopt(IP_TTL)` is not permitted.
+#[cfg(any(test, target_os = "android"))]
+fn should_ignore_android_ttl_error(err: &io::Error) -> bool {
+    matches!(
+        err.raw_os_error(),
+        Some(libc::EROFS | libc::EINVAL | libc::ENOPROTOOPT | libc::EOPNOTSUPP | libc::EPERM | libc::EACCES)
+    )
+}
+
+#[cfg(not(any(test, target_os = "android")))]
+fn should_ignore_android_ttl_error(_err: &io::Error) -> bool {
+    false
 }
 
 /// Read the current TTL (IPv4) or hop limit (IPv6) from a TCP socket.

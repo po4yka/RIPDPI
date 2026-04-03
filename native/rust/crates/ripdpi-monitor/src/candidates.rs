@@ -28,6 +28,12 @@ pub(crate) struct StrategyCandidateSpec {
     pub(crate) notes: Vec<&'static str>,
     pub(crate) preserve_adaptive_fake_ttl: bool,
     pub(crate) warmup: CandidateWarmup,
+    /// When `true`, this candidate requires the ability to set a custom IP TTL
+    /// on outgoing sockets (via `setsockopt(IP_TTL)`). On Android VPN/tun mode
+    /// this syscall fails, so candidates that depend on TTL manipulation (fake,
+    /// fakedsplit, fakeddisorder, hostfake without a follow-up split) must be
+    /// skipped when TTL capability is unavailable.
+    pub(crate) requires_fake_ttl: bool,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -389,6 +395,7 @@ pub(crate) fn candidate_spec_with_notes_and_eligibility(
     config: ProxyUiConfig,
     notes: Vec<&'static str>,
 ) -> StrategyCandidateSpec {
+    let requires_fake_ttl = config_requires_fake_ttl(&config);
     StrategyCandidateSpec {
         id,
         label,
@@ -398,7 +405,35 @@ pub(crate) fn candidate_spec_with_notes_and_eligibility(
         notes,
         preserve_adaptive_fake_ttl: false,
         warmup: CandidateWarmup::None,
+        requires_fake_ttl,
     }
+}
+
+/// Returns `true` when the config contains at least one TCP step that relies on
+/// TTL manipulation to suppress the fake packet at the DPI device. Steps in
+/// this set send a segment with a short TTL that expires before it reaches the
+/// target server, so it is essential that `setsockopt(IP_TTL)` succeeds.
+fn config_requires_fake_ttl(config: &ProxyUiConfig) -> bool {
+    config
+        .chains
+        .tcp_steps
+        .iter()
+        .any(|step| matches!(step.kind.as_str(), "fake" | "fakedsplit" | "fakeddisorder" | "hostfake"))
+}
+
+/// Probes whether the current process is allowed to set a custom IP TTL on TCP
+/// sockets. On Android VPN/tun mode `setsockopt(IP_TTL)` fails with EPERM, so
+/// this function returns `false` in that environment.
+pub(crate) fn probe_fake_ttl_capability() -> bool {
+    use std::net::TcpListener;
+    let listener = match TcpListener::bind("127.0.0.1:0") {
+        Ok(l) => l,
+        Err(_) => return false,
+    };
+    let result = listener.set_ttl(1);
+    // Restore a sane TTL regardless of outcome — we borrowed the socket briefly.
+    let _ = listener.set_ttl(64);
+    result.is_ok()
 }
 
 pub(crate) fn sanitize_current_probe_config(base: &ProxyUiConfig) -> ProxyUiConfig {
@@ -634,6 +669,7 @@ pub(crate) fn build_adaptive_fake_ttl_spec(base: &ProxyUiConfig) -> StrategyCand
     config.fake_packets.adaptive_fake_ttl_min = ADAPTIVE_FAKE_TTL_DEFAULT_MIN;
     config.fake_packets.adaptive_fake_ttl_max = ADAPTIVE_FAKE_TTL_DEFAULT_MAX;
     config.fake_packets.adaptive_fake_ttl_fallback = ADAPTIVE_FAKE_TTL_DEFAULT_FALLBACK;
+    let requires_fake_ttl = config_requires_fake_ttl(&config);
     StrategyCandidateSpec {
         id: "adaptive_fake_ttl",
         label: "Adaptive fake TTL",
@@ -646,6 +682,7 @@ pub(crate) fn build_adaptive_fake_ttl_spec(base: &ProxyUiConfig) -> StrategyCand
         ],
         preserve_adaptive_fake_ttl: true,
         warmup: CandidateWarmup::AdaptiveFakeTtl,
+        requires_fake_ttl,
     }
 }
 
