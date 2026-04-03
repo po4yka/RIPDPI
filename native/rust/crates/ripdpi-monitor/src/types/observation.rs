@@ -39,6 +39,7 @@ pub enum TcpProbeStatus {
     Ok,
     ConnectFailed,
     Blocked16Kb,
+    FreezeAfterThreshold,
     WhitelistSniOk,
     Error,
 }
@@ -168,6 +169,8 @@ pub struct TcpObservationFact {
     pub bytes_sent: Option<usize>,
     #[serde(default)]
     pub responses_seen: Option<usize>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub freeze_threshold_bytes: Option<usize>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
