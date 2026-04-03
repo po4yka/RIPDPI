@@ -57,6 +57,12 @@ private val HomeCompositeStageSpecs =
             profileId = "ru-dpi-full",
             pathMode = ScanPathMode.RAW_PATH,
         ),
+        HomeCompositeStageSpec(
+            key = "dpi_strategy",
+            label = "DPI strategy probe",
+            profileId = "ru-dpi-strategy",
+            pathMode = ScanPathMode.RAW_PATH,
+        ),
     )
 
 private sealed interface StageSessionSignal {
@@ -70,6 +76,7 @@ private sealed interface StageSessionSignal {
 private fun stageTimeoutMs(spec: HomeCompositeStageSpec): Long =
     when (spec.profileId) {
         "ru-dpi-full" -> DpiFullStageTimeoutMs
+        "ru-dpi-strategy" -> DpiFullStageTimeoutMs
         else -> DefaultStageTimeoutMs
     }
 
@@ -221,12 +228,13 @@ class DefaultDiagnosticsHomeCompositeRunService
                 }
             updateStage(runId, auditIndex) { completedSummary }
             if (auditSession.status == "completed") {
-                auditOutcome = diagnosticsHomeWorkflowService.finalizeHomeAudit(auditSessionId)
+                val finalizedAuditOutcome = diagnosticsHomeWorkflowService.finalizeHomeAudit(auditSessionId)
+                auditOutcome = finalizedAuditOutcome
                 updateStage(runId, auditIndex) { current ->
                     current.copy(
-                        headline = auditOutcome.headline,
-                        summary = auditOutcome.summary,
-                        recommendationContributor = auditOutcome.actionable,
+                        headline = finalizedAuditOutcome.headline,
+                        summary = finalizedAuditOutcome.summary,
+                        recommendationContributor = finalizedAuditOutcome.actionable,
                     )
                 }
             } else {
@@ -265,8 +273,9 @@ class DefaultDiagnosticsHomeCompositeRunService
                 return
             }
 
+            // Run default_connectivity (index 1) and dpi_full (index 2) in parallel.
             coroutineScope {
-                HomeCompositeStageSpecs.drop(1).forEachIndexed { i, spec ->
+                HomeCompositeStageSpecs.drop(1).dropLast(1).forEachIndexed { i, spec ->
                     val stageIndex = i + 1
                     launch {
                         var result = executeStage(runId, stageIndex, spec)
@@ -283,6 +292,45 @@ class DefaultDiagnosticsHomeCompositeRunService
                                     session = completedSession,
                                 )
                             updateStage(runId, stageIndex) { completedSummary }
+                        }
+                    }
+                }
+            }
+
+            // Run dpi_strategy (index 3) sequentially after the parallel stages complete.
+            val dpiStrategySpec = HomeCompositeStageSpecs.last()
+            val dpiStrategyIndex = HomeCompositeStageSpecs.lastIndex
+            val dpiStrategyResult =
+                run {
+                    var result = executeStageWithTimeout(runId, dpiStrategyIndex, dpiStrategySpec)
+                    if (result == null) {
+                        delay(StageRetryDelayMs)
+                        result = executeStageWithTimeout(runId, dpiStrategyIndex, dpiStrategySpec)
+                    }
+                    result
+                }
+            if (dpiStrategyResult != null) {
+                val (dpiStrategySessionId, dpiStrategySession) = dpiStrategyResult
+                val dpiStrategySummary =
+                    buildCompletedStageSummary(
+                        spec = dpiStrategySpec,
+                        sessionId = dpiStrategySessionId,
+                        session = dpiStrategySession,
+                    )
+                updateStage(runId, dpiStrategyIndex) { dpiStrategySummary }
+                // If the audit stage did not produce actionable recommendations,
+                // let the strategy probe contribute its own recommendation.
+                if (auditOutcome?.actionable != true && dpiStrategySession.status == "completed") {
+                    val strategyAuditOutcome =
+                        diagnosticsHomeWorkflowService.finalizeHomeAudit(dpiStrategySessionId)
+                    if (strategyAuditOutcome.actionable) {
+                        auditOutcome = strategyAuditOutcome
+                        updateStage(runId, dpiStrategyIndex) { current ->
+                            current.copy(
+                                headline = strategyAuditOutcome.headline,
+                                summary = strategyAuditOutcome.summary,
+                                recommendationContributor = true,
+                            )
                         }
                     }
                 }

@@ -78,13 +78,14 @@ class DiagnosticsHomeCompositeRunServiceTest {
                     ScanPathMode.RAW_PATH to "automatic-audit",
                     ScanPathMode.RAW_PATH to "default",
                     ScanPathMode.RAW_PATH to "ru-dpi-full",
+                    ScanPathMode.RAW_PATH to "ru-dpi-strategy",
                 ),
                 scanController.startedRequests,
             )
             assertTrue(outcome.actionable)
             assertEquals("scan-1", outcome.recommendedSessionId)
-            assertEquals(listOf("scan-1", "scan-2", "scan-3"), outcome.bundleSessionIds)
-            assertEquals(3, outcome.completedStageCount)
+            assertEquals(listOf("scan-1", "scan-2", "scan-3", "scan-4"), outcome.bundleSessionIds)
+            assertEquals(4, outcome.completedStageCount)
             assertEquals(0, outcome.failedStageCount)
         }
 
@@ -149,15 +150,16 @@ class DiagnosticsHomeCompositeRunServiceTest {
             advanceUntilIdle()
             val outcome = service.finalizeHomeRun(started.runId)
 
-            assertEquals(3, scanController.startedRequests.size)
+            assertEquals(4, scanController.startedRequests.size)
             assertFalse(outcome.actionable)
-            assertEquals(2, outcome.completedStageCount)
+            assertEquals(3, outcome.completedStageCount)
             assertEquals(1, outcome.failedStageCount)
             assertEquals(
                 DiagnosticsHomeCompositeStageStatus.FAILED,
                 outcome.stageSummaries.first { it.profileId == "default" }.status,
             )
             assertTrue(outcome.bundleSessionIds.contains("scan-3"))
+            assertTrue(outcome.bundleSessionIds.contains("scan-4"))
         }
 
     @Test
@@ -215,10 +217,10 @@ class DiagnosticsHomeCompositeRunServiceTest {
             advanceUntilIdle()
             val outcome = service.finalizeHomeRun(started.runId)
 
-            // Only audit stage ran; remaining 2 were skipped
+            // Only audit stage ran; remaining 3 were skipped
             assertEquals(1, scanController.startedRequests.size)
             assertEquals(0, outcome.completedStageCount)
-            assertEquals(2, outcome.skippedStageCount)
+            assertEquals(3, outcome.skippedStageCount)
             assertEquals(
                 DiagnosticsHomeCompositeStageStatus.SKIPPED,
                 outcome.stageSummaries.first { it.profileId == "default" }.status,
@@ -226,6 +228,10 @@ class DiagnosticsHomeCompositeRunServiceTest {
             assertEquals(
                 DiagnosticsHomeCompositeStageStatus.SKIPPED,
                 outcome.stageSummaries.first { it.profileId == "ru-dpi-full" }.status,
+            )
+            assertEquals(
+                DiagnosticsHomeCompositeStageStatus.SKIPPED,
+                outcome.stageSummaries.first { it.profileId == "ru-dpi-strategy" }.status,
             )
         }
 
@@ -400,8 +406,8 @@ class DiagnosticsHomeCompositeRunServiceTest {
             advanceUntilIdle()
             val outcome = service.finalizeHomeRun(started.runId)
 
-            // All 3 stages should have eventually completed (default retried once)
-            assertEquals(3, outcome.completedStageCount)
+            // All 4 stages should have eventually completed (default retried once)
+            assertEquals(4, outcome.completedStageCount)
             assertEquals(0, outcome.failedStageCount)
             // "default" was attempted twice
             assertEquals(2, attemptCounts["default"])
@@ -690,8 +696,12 @@ class DiagnosticsHomeCompositeRunServiceTest {
                 DiagnosticsHomeCompositeStageStatus.SKIPPED,
                 outcome.stageSummaries.first { it.profileId == "ru-dpi-full" }.status,
             )
+            assertEquals(
+                DiagnosticsHomeCompositeStageStatus.SKIPPED,
+                outcome.stageSummaries.first { it.profileId == "ru-dpi-strategy" }.status,
+            )
             assertEquals(0, outcome.completedStageCount)
-            assertEquals(2, outcome.skippedStageCount)
+            assertEquals(3, outcome.skippedStageCount)
         }
 
     private fun diagnosticScanSession(
