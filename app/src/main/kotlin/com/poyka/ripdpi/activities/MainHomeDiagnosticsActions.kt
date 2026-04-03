@@ -551,6 +551,31 @@ internal fun buildHomeDiagnosticsUiState(
                     actionable = outcome.actionable && !fingerprintMismatch,
                 )
             },
+        analysisProgress =
+            runtime.activeRunProgress?.takeIf { analysisBusy }?.let { progress ->
+                AnalysisProgressUiState(
+                    stages =
+                        progress.stages.map { stage ->
+                            AnalysisStageUiState(
+                                status =
+                                    when (stage.status) {
+                                        DiagnosticsHomeCompositeStageStatus.PENDING -> AnalysisStageStatus.PENDING
+
+                                        DiagnosticsHomeCompositeStageStatus.RUNNING -> AnalysisStageStatus.RUNNING
+
+                                        DiagnosticsHomeCompositeStageStatus.COMPLETED,
+                                        DiagnosticsHomeCompositeStageStatus.SKIPPED,
+                                        -> AnalysisStageStatus.COMPLETED
+
+                                        DiagnosticsHomeCompositeStageStatus.FAILED,
+                                        DiagnosticsHomeCompositeStageStatus.UNAVAILABLE,
+                                        -> AnalysisStageStatus.FAILED
+                                    },
+                            )
+                        },
+                    activeStageIndex = progress.activeStageIndex,
+                )
+            },
         analysisSheet =
             runtime.latestCompositeOutcome
                 ?.takeIf { runtime.analysisSheetVisible }

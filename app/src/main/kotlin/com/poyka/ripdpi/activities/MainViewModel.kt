@@ -102,6 +102,24 @@ data class HomeDiagnosticsLatestAuditUiState(
     val actionable: Boolean = false,
 )
 
+enum class AnalysisStageStatus {
+    PENDING,
+    RUNNING,
+    COMPLETED,
+    FAILED,
+}
+
+@Immutable
+data class AnalysisStageUiState(
+    val status: AnalysisStageStatus,
+)
+
+@Immutable
+data class AnalysisProgressUiState(
+    val stages: List<AnalysisStageUiState>,
+    val activeStageIndex: Int?,
+)
+
 @Immutable
 data class HomeDiagnosticsStageUiState(
     val label: String,
@@ -140,6 +158,7 @@ data class HomeDiagnosticsUiState(
     val analysisAction: HomeDiagnosticsActionUiState = HomeDiagnosticsActionUiState(),
     val verifiedVpnAction: HomeDiagnosticsActionUiState = HomeDiagnosticsActionUiState(),
     val latestAudit: HomeDiagnosticsLatestAuditUiState? = null,
+    val analysisProgress: AnalysisProgressUiState? = null,
     val analysisSheet: HomeDiagnosticsAnalysisSheetUiState? = null,
     val verificationSheet: HomeDiagnosticsVerificationSheetUiState? = null,
 )

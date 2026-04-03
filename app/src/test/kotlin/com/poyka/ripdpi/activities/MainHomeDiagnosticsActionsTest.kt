@@ -4,6 +4,8 @@ import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.diagnostics.DiagnosticScanSession
 import com.poyka.ripdpi.diagnostics.DiagnosticsHomeCompositeOutcome
+import com.poyka.ripdpi.diagnostics.DiagnosticsHomeCompositeProgress
+import com.poyka.ripdpi.diagnostics.DiagnosticsHomeCompositeRunStatus
 import com.poyka.ripdpi.diagnostics.DiagnosticsHomeCompositeStageStatus
 import com.poyka.ripdpi.diagnostics.DiagnosticsHomeCompositeStageSummary
 import com.poyka.ripdpi.diagnostics.DiagnosticsHomeVerificationOutcome
@@ -374,6 +376,130 @@ class MainHomeDiagnosticsActionsTest {
                 effect is MainEffect.ShowError,
             )
         }
+
+    @Test
+    fun `buildHomeDiagnosticsUiState maps active run progress to analysisProgress`() {
+        val uiState =
+            buildHomeDiagnosticsUiState(
+                settings = com.poyka.ripdpi.data.AppSettingsSerializer.defaultValue,
+                appStatus = AppStatus.Halted,
+                connectionState = ConnectionState.Disconnected,
+                runtime =
+                    HomeDiagnosticsRuntimeState(
+                        activeRunProgress =
+                            DiagnosticsHomeCompositeProgress(
+                                runId = "run-1",
+                                status = DiagnosticsHomeCompositeRunStatus.RUNNING,
+                                activeStageIndex = 1,
+                                stages =
+                                    listOf(
+                                        stage(
+                                            key = "tcp_parser",
+                                            label = "TCP Parser-only",
+                                            profileId = "tcp-parser",
+                                            sessionId = "s1",
+                                            status = DiagnosticsHomeCompositeStageStatus.COMPLETED,
+                                        ),
+                                        stage(
+                                            key = "tcp_desync",
+                                            label = "TCP Desync",
+                                            profileId = "tcp-desync",
+                                            sessionId = "s2",
+                                            status = DiagnosticsHomeCompositeStageStatus.RUNNING,
+                                        ),
+                                        stage(
+                                            key = "udp_default",
+                                            label = "UDP Default",
+                                            profileId = "udp-default",
+                                            sessionId = "s3",
+                                            status = DiagnosticsHomeCompositeStageStatus.PENDING,
+                                        ),
+                                        stage(
+                                            key = "skipped_stage",
+                                            label = "Skipped",
+                                            profileId = "skipped",
+                                            sessionId = "s4",
+                                            status = DiagnosticsHomeCompositeStageStatus.SKIPPED,
+                                        ),
+                                    ),
+                            ),
+                    ),
+                stringResolver = FakeStringResolver(),
+            )
+
+        val progress = uiState.analysisProgress
+        assertTrue("analysisProgress should be non-null when busy", progress != null)
+        assertEquals(4, progress!!.stages.size)
+        assertEquals(1, progress.activeStageIndex)
+        assertEquals(AnalysisStageStatus.COMPLETED, progress.stages[0].status)
+        assertEquals(AnalysisStageStatus.RUNNING, progress.stages[1].status)
+        assertEquals(AnalysisStageStatus.PENDING, progress.stages[2].status)
+        assertEquals(AnalysisStageStatus.COMPLETED, progress.stages[3].status)
+    }
+
+    @Test
+    fun `buildHomeDiagnosticsUiState maps failed and unavailable stages correctly`() {
+        val uiState =
+            buildHomeDiagnosticsUiState(
+                settings = com.poyka.ripdpi.data.AppSettingsSerializer.defaultValue,
+                appStatus = AppStatus.Halted,
+                connectionState = ConnectionState.Disconnected,
+                runtime =
+                    HomeDiagnosticsRuntimeState(
+                        activeRunProgress =
+                            DiagnosticsHomeCompositeProgress(
+                                runId = "run-2",
+                                status = DiagnosticsHomeCompositeRunStatus.RUNNING,
+                                activeStageIndex = 2,
+                                stages =
+                                    listOf(
+                                        stage(
+                                            key = "s1",
+                                            label = "Stage 1",
+                                            profileId = "p1",
+                                            sessionId = "s1",
+                                            status = DiagnosticsHomeCompositeStageStatus.FAILED,
+                                        ),
+                                        stage(
+                                            key = "s2",
+                                            label = "Stage 2",
+                                            profileId = "p2",
+                                            sessionId = "s2",
+                                            status = DiagnosticsHomeCompositeStageStatus.UNAVAILABLE,
+                                        ),
+                                        stage(
+                                            key = "s3",
+                                            label = "Stage 3",
+                                            profileId = "p3",
+                                            sessionId = "s3",
+                                            status = DiagnosticsHomeCompositeStageStatus.RUNNING,
+                                        ),
+                                    ),
+                            ),
+                    ),
+                stringResolver = FakeStringResolver(),
+            )
+
+        val progress = uiState.analysisProgress
+        assertTrue("analysisProgress should be non-null", progress != null)
+        assertEquals(AnalysisStageStatus.FAILED, progress!!.stages[0].status)
+        assertEquals(AnalysisStageStatus.FAILED, progress.stages[1].status)
+        assertEquals(AnalysisStageStatus.RUNNING, progress.stages[2].status)
+    }
+
+    @Test
+    fun `buildHomeDiagnosticsUiState returns null analysisProgress when not busy`() {
+        val uiState =
+            buildHomeDiagnosticsUiState(
+                settings = com.poyka.ripdpi.data.AppSettingsSerializer.defaultValue,
+                appStatus = AppStatus.Halted,
+                connectionState = ConnectionState.Disconnected,
+                runtime = HomeDiagnosticsRuntimeState(),
+                stringResolver = FakeStringResolver(),
+            )
+
+        assertNull(uiState.analysisProgress)
+    }
 
     private fun createActions(
         scope: CoroutineScope,
