@@ -9,6 +9,7 @@ workspace = true
 
 [dependencies]
 libc = { workspace = true }
+ripdpi-packets = { path = "../ripdpi-packets" }
 serde = { workspace = true }
 
 [dev-dependencies]

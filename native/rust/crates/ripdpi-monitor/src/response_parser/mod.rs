@@ -8,6 +8,7 @@ pub(crate) mod ssh;
 pub(crate) mod tls;
 
 use ripdpi_packets::classify::ProtocolId;
+use ripdpi_packets::fields::FieldObserver;
 
 /// Parsed response fields relevant to diagnostics.
 #[derive(Debug, Clone, Default)]
@@ -31,6 +32,15 @@ pub(crate) struct ParsedResponse {
 pub(crate) trait ResponseParser {
     /// Feed response bytes. May be called multiple times.
     fn feed(&mut self, data: &[u8]);
+
+    /// Feed data and emit discovered fields to the observer.
+    ///
+    /// Default implementation delegates to [`feed`] with no field emission.
+    /// Override to emit [`ProtocolField`](ripdpi_packets::fields::ProtocolField)
+    /// variants as they are parsed.
+    fn feed_observed(&mut self, data: &[u8], _observer: &mut dyn FieldObserver) {
+        self.feed(data);
+    }
 
     /// Finalize and return parsed fields.
     fn finish(self: Box<Self>) -> ParsedResponse;
