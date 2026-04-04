@@ -162,6 +162,15 @@ data class DiagnosticsStrategyProbeLiveProgressUiModel(
     val candidateLabel: String,
 )
 
+@Immutable
+data class StrategyCandidateTimelineEntryUiModel(
+    val candidateId: String,
+    val candidateLabel: String,
+    val lane: DiagnosticsStrategyProbeProgressLaneUiModel,
+    val outcome: String,
+    val tone: DiagnosticsTone,
+)
+
 @Stable
 data class DiagnosticsProgressUiModel(
     val phase: String,
@@ -176,6 +185,7 @@ data class DiagnosticsProgressUiModel(
     val phaseSteps: List<PhaseStepUiModel>,
     val currentProbeLabel: String,
     val strategyProbeProgress: DiagnosticsStrategyProbeLiveProgressUiModel? = null,
+    val candidateTimeline: List<StrategyCandidateTimelineEntryUiModel> = emptyList(),
     val completedProbes: List<CompletedProbeUiModel> = emptyList(),
 )
 
@@ -627,6 +637,7 @@ internal data class ScanLifecycleState(
     val activeScanPathMode: ScanPathMode? = null,
     val activeScanKind: ScanKind? = null,
     val accumulatedProbes: ImmutableList<CompletedProbeUiModel> = persistentListOf(),
+    val accumulatedStrategyCandidates: ImmutableList<StrategyCandidateTimelineEntryUiModel> = persistentListOf(),
     val pendingAutoOpenAuditSessionId: String? = null,
     val hiddenProbeConflictDialog: HiddenProbeConflictDialogState? = null,
     val queuedManualScanRequest: QueuedManualScanRequest? = null,

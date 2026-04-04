@@ -36,6 +36,7 @@ internal class DiagnosticsScanActions(
                             activeScanPathMode = null,
                             activeScanKind = null,
                             accumulatedProbes = persistentListOf(),
+                            accumulatedStrategyCandidates = persistentListOf(),
                         )
                     }
                 } else if (progress == null) {
@@ -45,6 +46,7 @@ internal class DiagnosticsScanActions(
                             activeScanPathMode = null,
                             activeScanKind = null,
                             accumulatedProbes = persistentListOf(),
+                            accumulatedStrategyCandidates = persistentListOf(),
                         )
                     }
                 }
@@ -72,6 +74,39 @@ internal class DiagnosticsScanActions(
                                         outcome = outcome,
                                         pathMode = it.activeScanPathMode ?: ScanPathMode.RAW_PATH,
                                         scanKind = it.activeScanKind ?: ScanKind.CONNECTIVITY,
+                                    )
+                            ).toImmutableList(),
+                    )
+                }
+            }
+        }
+        mutations.launch {
+            diagnosticsTimelineSource.activeScanProgress.collect { progress ->
+                val strategyProgress = progress?.strategyProbeProgress ?: return@collect
+                val outcome = progress.latestProbeOutcome ?: return@collect
+                val target = progress.latestProbeTarget ?: return@collect
+                val existing = scanLifecycle.value.accumulatedStrategyCandidates
+                if (existing.any { it.candidateId == strategyProgress.candidateId }) return@collect
+                scanLifecycle.update {
+                    it.copy(
+                        accumulatedStrategyCandidates =
+                            (
+                                it.accumulatedStrategyCandidates +
+                                    StrategyCandidateTimelineEntryUiModel(
+                                        candidateId = strategyProgress.candidateId,
+                                        candidateLabel = strategyProgress.candidateLabel,
+                                        lane =
+                                            when (strategyProgress.lane) {
+                                                com.poyka.ripdpi.diagnostics.StrategyProbeProgressLane.TCP -> {
+                                                    DiagnosticsStrategyProbeProgressLaneUiModel.TCP
+                                                }
+
+                                                com.poyka.ripdpi.diagnostics.StrategyProbeProgressLane.QUIC -> {
+                                                    DiagnosticsStrategyProbeProgressLaneUiModel.QUIC
+                                                }
+                                            },
+                                        outcome = outcome,
+                                        tone = candidateTimelineTone(outcome),
                                     )
                             ).toImmutableList(),
                     )
@@ -199,6 +234,7 @@ internal class DiagnosticsScanActions(
                 activeScanPathMode = null,
                 activeScanKind = null,
                 accumulatedProbes = persistentListOf(),
+                accumulatedStrategyCandidates = persistentListOf(),
             )
         }
         mutations.launch {
@@ -441,3 +477,15 @@ internal fun buildScanCompletionEffect(
         action = scan.resolverRecommendation?.let { DiagnosticsEffect.SnackbarAction.OpenDnsSettings },
     )
 }
+
+private fun candidateTimelineTone(outcome: String): DiagnosticsTone =
+    when {
+        outcome.equals("success", ignoreCase = true) -> DiagnosticsTone.Positive
+
+        outcome.equals("partial", ignoreCase = true) -> DiagnosticsTone.Warning
+
+        outcome.equals("skipped", ignoreCase = true) ||
+            outcome.equals("not_applicable", ignoreCase = true) -> DiagnosticsTone.Neutral
+
+        else -> DiagnosticsTone.Negative
+    }
