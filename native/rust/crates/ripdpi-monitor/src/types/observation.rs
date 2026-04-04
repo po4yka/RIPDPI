@@ -124,6 +124,16 @@ pub struct DnsObservationFact {
     pub udp_latency_ms: Option<u64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub encrypted_latency_ms: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tampering_score: Option<u32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub response_anomaly_signals: Option<Vec<String>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cname_targets: Option<Vec<String>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub udp_response_size: Option<u32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub udp_has_edns0: Option<bool>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
