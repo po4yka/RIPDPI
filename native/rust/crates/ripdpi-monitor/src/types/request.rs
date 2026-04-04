@@ -52,6 +52,10 @@ pub struct ScanRequest {
     /// results with transport context, and emit environment metadata in the scan report.
     #[serde(default)]
     pub network_snapshot: Option<NetworkSnapshot>,
+    /// Optional scan deadline in milliseconds from now. When present, the engine will finalize
+    /// the scan at this deadline. Defaults to 270 000 ms (270 s) when absent.
+    #[serde(default)]
+    pub scan_deadline_ms: Option<u64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

@@ -477,6 +477,7 @@ mod tests {
             telegram_target: None,
             strategy_probe: None,
             network_snapshot: None,
+            scan_deadline_ms: None,
         };
         match transport_for_request(&request) {
             TransportConfig::Direct => {}
@@ -509,6 +510,7 @@ mod tests {
             telegram_target: None,
             strategy_probe: None,
             network_snapshot: None,
+            scan_deadline_ms: None,
         };
         match transport_for_request(&request) {
             TransportConfig::Socks5 { host, port } => {

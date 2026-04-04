@@ -178,6 +178,7 @@ internal class DiagnosticsScanRequestFactory
             launchTrigger: DiagnosticsScanLaunchTrigger? = null,
             exposeProgress: Boolean,
             registerActiveBridge: Boolean,
+            scanDeadlineMs: Long? = null,
         ): PreparedDiagnosticsScan {
             val sessionId = UUID.randomUUID().toString()
             val intent =
@@ -201,7 +202,7 @@ internal class DiagnosticsScanRequestFactory
                         settings = settings,
                         preferredDnsPath = scanContext.preferredDnsPath,
                         protectPath = resolveProtectPath(context),
-                    )
+                    ).copy(scanDeadlineMs = scanDeadlineMs)
             val now = System.currentTimeMillis()
             return PreparedDiagnosticsScan(
                 sessionId = sessionId,
