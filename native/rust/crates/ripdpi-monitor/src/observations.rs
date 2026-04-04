@@ -31,6 +31,15 @@ pub(crate) fn observation_for_probe(result: &ProbeResult) -> Option<ProbeObserva
                 },
                 udp_latency_ms: detail_value(result, "udpLatencyMs").and_then(|v| v.parse().ok()),
                 encrypted_latency_ms: detail_value(result, "encryptedLatencyMs").and_then(|v| v.parse().ok()),
+                tampering_score: detail_value(result, "udpTamperingScore").and_then(|v| v.parse().ok()),
+                response_anomaly_signals: detail_value(result, "udpAnomalySignals")
+                    .filter(|v| !v.is_empty())
+                    .map(|v| v.split('|').map(str::to_string).collect()),
+                cname_targets: detail_value(result, "udpCnameTargets")
+                    .filter(|v| !v.is_empty())
+                    .map(|v| v.split('|').map(str::to_string).collect()),
+                udp_response_size: detail_value(result, "udpResponseSize").and_then(|v| v.parse().ok()),
+                udp_has_edns0: detail_value(result, "udpHasEdns0").and_then(|v| v.parse().ok()),
             }),
             domain: None,
             tcp: None,

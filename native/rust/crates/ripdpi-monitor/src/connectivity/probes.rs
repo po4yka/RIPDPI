@@ -5,6 +5,7 @@ use ripdpi_packets::{build_realistic_quic_initial, parse_quic_initial, QUIC_V1_V
 use rustls::client::danger::ServerCertVerifier;
 
 use crate::dns::*;
+use crate::dns_analysis::analyze_dns_response;
 use crate::fat_header::*;
 use crate::http::*;
 use crate::tls::*;
@@ -63,7 +64,7 @@ pub(crate) fn run_dns_probe(target: &DnsTarget, transport: &TransportConfig, pat
         }
     };
     let udp_started = std::time::Instant::now();
-    let udp_result = resolve_via_udp(&target.domain, &udp_server, transport);
+    let (udp_result, raw_udp_response) = resolve_via_udp_with_raw(&target.domain, &udp_server, transport);
     let udp_latency_ms = udp_started.elapsed().as_millis().to_string();
     let encrypted_started = std::time::Instant::now();
     let mut encrypted_result = resolve_via_encrypted_dns(&target.domain, encrypted_endpoint.clone(), transport);
@@ -110,7 +111,7 @@ pub(crate) fn run_dns_probe(target: &DnsTarget, transport: &TransportConfig, pat
     };
     let injection_suspected = is_dns_injection_suspected(&udp_latency_ms, &outcome);
 
-    ProbeResult {
+    let mut result = ProbeResult {
         probe_type: "dns_integrity".to_string(),
         target: target.domain.clone(),
         outcome,
@@ -173,7 +174,34 @@ pub(crate) fn run_dns_probe(target: &DnsTarget, transport: &TransportConfig, pat
             },
             ProbeDetail { key: "resolverFallbackUsed".to_string(), value: fallback_resolver_used.unwrap_or_default() },
         ],
+    };
+
+    // Append protocol-level analysis details from raw UDP response.
+    if let Some(raw) = raw_udp_response.as_deref() {
+        let analysis = analyze_dns_response(raw);
+        result.details.extend([
+            ProbeDetail { key: "udpResponseSize".to_string(), value: analysis.response_size.to_string() },
+            ProbeDetail { key: "udpAaFlag".to_string(), value: analysis.aa_flag.to_string() },
+            ProbeDetail { key: "udpRcode".to_string(), value: analysis.rcode.to_string() },
+            ProbeDetail { key: "udpAnswerCount".to_string(), value: analysis.answer_count.to_string() },
+            ProbeDetail { key: "udpAuthorityCount".to_string(), value: analysis.authority_count.to_string() },
+            ProbeDetail { key: "udpAdditionalCount".to_string(), value: analysis.additional_count.to_string() },
+            ProbeDetail {
+                key: "udpMinTtl".to_string(),
+                value: analysis.min_ttl.map_or_else(String::new, |v| v.to_string()),
+            },
+            ProbeDetail {
+                key: "udpMaxTtl".to_string(),
+                value: analysis.max_ttl.map_or_else(String::new, |v| v.to_string()),
+            },
+            ProbeDetail { key: "udpHasEdns0".to_string(), value: analysis.has_edns0.to_string() },
+            ProbeDetail { key: "udpCnameTargets".to_string(), value: analysis.cname_targets.join("|") },
+            ProbeDetail { key: "udpTamperingScore".to_string(), value: analysis.tampering_score.to_string() },
+            ProbeDetail { key: "udpAnomalySignals".to_string(), value: analysis.signals.join("|") },
+        ]);
     }
+
+    result
 }
 
 pub(crate) fn run_domain_probe(

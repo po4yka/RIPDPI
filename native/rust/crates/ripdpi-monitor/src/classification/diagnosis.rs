@@ -158,6 +158,70 @@ pub(crate) fn classify_connectivity_diagnoses(request: &ScanRequest, results: &[
                     },
                 );
             }
+
+            // Protocol-level response anomaly: only when IP-level tampering
+            // is also detected to avoid false positives on legitimate but
+            // minimal resolvers.
+            if let Some(score_str) = failure_detail_value(result, "udpTamperingScore") {
+                let score: u32 = score_str.parse().unwrap_or(0);
+                if score >= 45 {
+                    let signals = failure_detail_value(result, "udpAnomalySignals").unwrap_or_default();
+                    push_diagnosis(
+                        &mut diagnoses,
+                        &mut seen,
+                        Diagnosis {
+                            code: "dns_response_anomaly".to_string(),
+                            summary: format!(
+                                "DNS response for {} shows protocol-level forgery indicators (score {score}): {signals}",
+                                result.target
+                            ),
+                            severity: "warning".to_string(),
+                            target: Some(result.target.clone()),
+                            evidence: diagnosis_evidence(
+                                result,
+                                &[
+                                    "udpTamperingScore",
+                                    "udpAnomalySignals",
+                                    "udpResponseSize",
+                                    "udpAaFlag",
+                                    "udpHasEdns0",
+                                    "udpAuthorityCount",
+                                    "udpMinTtl",
+                                    "udpMaxTtl",
+                                ],
+                            ),
+                            recommendation: Some(
+                                "Enable encrypted DNS to bypass forged responses".to_string(),
+                            ),
+                            control_validated: None,
+                        },
+                    );
+                }
+            }
+
+            // CNAME redirect to a different domain.
+            let cname_targets = failure_detail_value(result, "udpCnameTargets").unwrap_or_default();
+            if !cname_targets.is_empty() {
+                push_diagnosis(
+                    &mut diagnoses,
+                    &mut seen,
+                    Diagnosis {
+                        code: "dns_cname_redirect".to_string(),
+                        summary: format!(
+                            "DNS response for {} contains CNAME redirect to {}",
+                            result.target, cname_targets
+                        ),
+                        severity: "warning".to_string(),
+                        target: Some(result.target.clone()),
+                        evidence: diagnosis_evidence(
+                            result,
+                            &["udpCnameTargets", "udpAddresses", "encryptedAddresses"],
+                        ),
+                        recommendation: Some("Enable encrypted DNS to bypass DNS-based redirect".to_string()),
+                        control_validated: None,
+                    },
+                );
+            }
         }
     }
 
