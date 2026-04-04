@@ -1,6 +1,7 @@
 //! TLS response parser for diagnostics probes.
 
 use ripdpi_packets::classify::ProtocolId;
+use ripdpi_packets::fields::{FieldObserver, ProtocolField};
 
 use super::{ParsedResponse, ResponseParser, ResponseParserFactory};
 
@@ -12,17 +13,26 @@ impl ResponseParserFactory for TlsResponseParserFactory {
     }
 
     fn create(&self) -> Box<dyn ResponseParser> {
-        Box::new(TlsResponseParser { buffer: Vec::new() })
+        Box::new(TlsResponseParser { buffer: Vec::new(), emitted: false })
     }
 }
 
 struct TlsResponseParser {
     buffer: Vec<u8>,
+    emitted: bool,
 }
 
 impl ResponseParser for TlsResponseParser {
     fn feed(&mut self, data: &[u8]) {
         self.buffer.extend_from_slice(data);
+    }
+
+    fn feed_observed(&mut self, data: &[u8], observer: &mut dyn FieldObserver) {
+        self.buffer.extend_from_slice(data);
+        if self.emitted {
+            return;
+        }
+        emit_tls_fields(&self.buffer, &mut self.emitted, observer);
     }
 
     fn finish(self: Box<Self>) -> ParsedResponse {
@@ -67,6 +77,31 @@ impl ResponseParser for TlsResponseParser {
     }
 }
 
+fn emit_tls_fields(buf: &[u8], emitted: &mut bool, observer: &mut dyn FieldObserver) {
+    // TLS Alert record (content type 0x15).
+    if buf.len() >= 7 && buf[0] == 0x15 && buf[1] == 0x03 {
+        observer.on_field(&ProtocolField::TlsAlertLevel(buf[5]));
+        observer.on_field(&ProtocolField::TlsAlertCode(buf[6]));
+        *emitted = true;
+        return;
+    }
+
+    // TLS ServerHello (content type 0x16, handshake type 0x02).
+    if buf.len() >= 11 && buf[0] == 0x16 && buf[1] == 0x03 && buf[5] == 0x02 {
+        observer.on_field(&ProtocolField::TlsServerHelloSeen);
+        let version = match (buf[9], buf[10]) {
+            (0x03, 0x03) => "TLS 1.2",
+            (0x03, 0x04) => "TLS 1.3",
+            (0x03, 0x02) => "TLS 1.1",
+            (0x03, 0x01) => "TLS 1.0",
+            (0x03, 0x00) => "SSL 3.0",
+            _ => "unknown",
+        };
+        observer.on_field(&ProtocolField::TlsVersion(version.to_string()));
+        *emitted = true;
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -108,6 +143,37 @@ mod tests {
         let result = parser.finish();
         assert_eq!(result.tls_version, None);
         assert_eq!(result.tls_alert_code, None);
+    }
+
+    #[test]
+    fn feed_observed_emits_tls_alert() {
+        use ripdpi_packets::fields::FieldCache;
+
+        let factory = TlsResponseParserFactory;
+        let mut parser = factory.create();
+        let mut cache = FieldCache::new();
+        parser.feed_observed(&[0x15, 0x03, 0x03, 0x00, 0x02, 0x02, 0x28], &mut cache);
+
+        assert_eq!(cache.tls_alert_code(), Some(0x28));
+        assert!(!cache.has_tls_server_hello());
+    }
+
+    #[test]
+    fn feed_observed_emits_server_hello() {
+        use ripdpi_packets::fields::FieldCache;
+
+        let factory = TlsResponseParserFactory;
+        let mut parser = factory.create();
+        let mut cache = FieldCache::new();
+        let mut pkt = vec![0x16, 0x03, 0x03, 0x00, 0x30, 0x02, 0x00, 0x00, 0x2C, 0x03, 0x03];
+        pkt.extend([0u8; 32]);
+        pkt.push(0x00);
+        pkt.extend([0x00, 0x2F]);
+        pkt.push(0x00);
+        parser.feed_observed(&pkt, &mut cache);
+
+        assert!(cache.has_tls_server_hello());
+        assert_eq!(cache.tls_version(), Some("TLS 1.2"));
     }
 
     #[test]
