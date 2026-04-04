@@ -5,6 +5,7 @@ mod proxy;
 #[cfg(test)]
 mod support;
 mod telemetry;
+mod vpn_protect;
 
 use android_support::{init_android_logging, JNI_VERSION};
 use jni::objects::{JObject, JString};
@@ -187,6 +188,30 @@ export_diagnostics_jni!(
 
 pub(crate) fn to_handle(value: jlong) -> Option<u64> {
     u64::try_from(value).ok().filter(|handle| *handle != 0)
+}
+
+// --- VPN socket protection JNI callbacks ---
+
+#[unsafe(no_mangle)]
+pub extern "system" fn Java_com_poyka_ripdpi_core_RipDpiProxyNativeBindings_jniRegisterVpnProtect(
+    mut env: EnvUnowned,
+    _thiz: JObject,
+    vpn_service: JObject,
+) {
+    let _ = env.with_env(move |env| -> jni::errors::Result<()> {
+        let vm = env.get_java_vm()?;
+        let global_ref = env.new_global_ref(&vpn_service)?;
+        vpn_protect::register_vpn_protect(&vm, global_ref);
+        Ok(())
+    });
+}
+
+#[unsafe(no_mangle)]
+pub extern "system" fn Java_com_poyka_ripdpi_core_RipDpiProxyNativeBindings_jniUnregisterVpnProtect(
+    _env: EnvUnowned,
+    _thiz: JObject,
+) {
+    vpn_protect::unregister_vpn_protect();
 }
 
 #[cfg(test)]

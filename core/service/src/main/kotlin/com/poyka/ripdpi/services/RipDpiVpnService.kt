@@ -65,6 +65,8 @@ class RipDpiVpnService :
                 socketPath = java.io.File(filesDir, "protect_path").absolutePath,
             )
         protectSocketServer.start()
+        com.poyka.ripdpi.core.RipDpiProxyNativeBindings
+            .jniRegisterVpnProtect(this)
         shellDelegate =
             ServiceShellDelegate(
                 serviceScope = lifecycleScope,
@@ -82,6 +84,8 @@ class RipDpiVpnService :
     }
 
     override fun onDestroy() {
+        com.poyka.ripdpi.core.RipDpiProxyNativeBindings
+            .jniUnregisterVpnProtect()
         protectSocketServer.stop()
         if (!revoked) {
             coordinator.onDestroy()
