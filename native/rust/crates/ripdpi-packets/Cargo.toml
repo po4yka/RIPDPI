@@ -8,6 +8,7 @@ license.workspace = true
 workspace = true
 
 [dependencies]
+android-support = { path = "../android-support" }
 aes = { workspace = true }
 nom = { version = "8", default-features = false, features = ["alloc"] }
 ring = { workspace = true }
