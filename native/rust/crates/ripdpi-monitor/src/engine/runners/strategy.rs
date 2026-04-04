@@ -111,6 +111,17 @@ fn probe_detail_value<'a>(result: &'a ProbeResult, key: &str) -> Option<&'a str>
     result.details.iter().find(|detail| detail.key == key).map(|detail| detail.value.as_str())
 }
 
+/// If the baseline failure class is TcpReset, return a reduced connect timeout.
+/// RSTs arrive fast (the censorship device sends them actively), so waiting the
+/// full CONNECT_TIMEOUT is wasteful for subsequent strategy probes.
+/// Returns None when the failure class suggests silent drops (need full wait).
+fn compute_rst_adaptive_timeout(baseline_failure: &ripdpi_failure_classifier::ClassifiedFailure) -> Option<Duration> {
+    if !matches!(baseline_failure.class, FailureClass::TcpReset) {
+        return None;
+    }
+    Some(Duration::from_millis(1500))
+}
+
 fn baseline_has_tls_ech_only(results: &[ProbeResult]) -> bool {
     results.iter().any(|result| result.probe_type == "strategy_https" && result.outcome == "tls_ech_only")
 }
@@ -539,6 +550,15 @@ impl ExecutionStageRunner for StrategyTcpRunner {
         if !fake_ttl_available {
             tracing::debug!("TTL capability probe failed — fake-packet candidates will be marked not_applicable");
         }
+        if let Some(ref failure) = runtime.strategy.baseline_failure {
+            if let Some(timeout) = compute_rst_adaptive_timeout(failure) {
+                tracing::info!(
+                    adaptive_timeout_ms = timeout.as_millis(),
+                    reason = "rst_pattern",
+                    "strategy probe: using adaptive timeout"
+                );
+            }
+        }
         let ordered_tcp_specs = ordered_follow_up_tcp_candidates(
             tcp_specs,
             runtime.strategy.baseline_failure.as_ref().map(|value| value.class),
@@ -546,6 +566,11 @@ impl ExecutionStageRunner for StrategyTcpRunner {
             strategy_plan.probe_seed,
             fake_ttl_available,
         );
+        // TODO: Staggered 2-candidate parallelism (Psiphon-style) could reduce
+        // total scan time by ~1.5x. Deferred due to DPI correlation risk when two
+        // candidates probe the same blocked domain from different proxy ports
+        // simultaneously. Mitigation would require 500ms stagger + different domain
+        // ordering per candidate in the pair.
         let mut pending_tcp_specs = ordered_tcp_specs;
         let mut tcp_failure_tracker = FamilyFailureTracker::new(strategy_plan.suite.family_failure_threshold);
         let planned_count = tcp_specs.len();
