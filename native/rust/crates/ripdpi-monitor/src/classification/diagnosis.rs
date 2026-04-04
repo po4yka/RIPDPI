@@ -222,6 +222,44 @@ pub(crate) fn classify_connectivity_diagnoses(request: &ScanRequest, results: &[
                     },
                 );
             }
+
+            // Record-level divergence between UDP and encrypted resolvers.
+            if let Some(score_str) = failure_detail_value(result, "comparisonScore") {
+                let score: u32 = score_str.parse().unwrap_or(0);
+                if score >= 30 {
+                    let signals = failure_detail_value(result, "comparisonSignals").unwrap_or_default();
+                    push_diagnosis(
+                        &mut diagnoses,
+                        &mut seen,
+                        Diagnosis {
+                            code: "dns_record_divergence".to_string(),
+                            summary: format!(
+                                "DNS records for {} diverge between UDP and encrypted resolvers (score {score}): {signals}",
+                                result.target
+                            ),
+                            severity: "warning".to_string(),
+                            target: Some(result.target.clone()),
+                            evidence: diagnosis_evidence(
+                                result,
+                                &[
+                                    "comparisonScore",
+                                    "comparisonSignals",
+                                    "recordTypeMismatch",
+                                    "extraCnames",
+                                    "ttlDivergence",
+                                    "authorityMismatch",
+                                    "udpRecordTypes",
+                                    "encryptedRecordTypes",
+                                ],
+                            ),
+                            recommendation: Some(
+                                "Enable encrypted DNS to bypass DNS-level censorship".to_string(),
+                            ),
+                            control_validated: None,
+                        },
+                    );
+                }
+            }
         }
     }
 
