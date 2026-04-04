@@ -160,6 +160,8 @@ data class DiagnosticsStrategyProbeLiveProgressUiModel(
     val candidateTotal: Int,
     val candidateId: String,
     val candidateLabel: String,
+    val succeededTargets: Int = 0,
+    val totalTargets: Int = 0,
 )
 
 enum class DnsBaselineStatus {
@@ -174,6 +176,8 @@ data class StrategyCandidateTimelineEntryUiModel(
     val lane: DiagnosticsStrategyProbeProgressLaneUiModel,
     val outcome: String,
     val tone: DiagnosticsTone,
+    val succeededTargets: Int = 0,
+    val totalTargets: Int = 0,
 )
 
 @Stable

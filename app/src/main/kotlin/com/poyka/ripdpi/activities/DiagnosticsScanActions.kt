@@ -134,6 +134,8 @@ internal class DiagnosticsScanActions(
                                             },
                                         outcome = outcome,
                                         tone = candidateTimelineTone(outcome),
+                                        succeededTargets = strategyProgress.succeededTargets,
+                                        totalTargets = strategyProgress.totalTargets,
                                     )
                             ).toImmutableList(),
                     )

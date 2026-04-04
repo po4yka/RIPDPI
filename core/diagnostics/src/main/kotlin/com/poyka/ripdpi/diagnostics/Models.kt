@@ -446,6 +446,8 @@ data class StrategyProbeLiveProgress(
     val candidateTotal: Int,
     val candidateId: String,
     val candidateLabel: String,
+    val succeededTargets: Int = 0,
+    val totalTargets: Int = 0,
 )
 
 @Serializable

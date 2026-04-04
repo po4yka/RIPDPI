@@ -523,9 +523,9 @@ fn tcp_candidate_catalog_keeps_current_strategy_first() {
 
     assert_eq!(candidates.first().map(|candidate| candidate.id), Some("baseline_current"));
     assert_eq!(candidates.len(), 13);
-    assert_eq!(candidates.get(1).map(|candidate| candidate.id), Some("parser_only"));
-    assert_eq!(candidates.get(2).map(|candidate| candidate.id), Some("parser_unixeol"));
-    assert_eq!(candidates.get(3).map(|candidate| candidate.id), Some("parser_methodeol"));
+    assert_eq!(candidates.get(1).map(|candidate| candidate.id), Some("tlsrec_split_host"));
+    assert_eq!(candidates.get(2).map(|candidate| candidate.id), Some("tlsrec_hostfake_split"));
+    assert_eq!(candidates.get(3).map(|candidate| candidate.id), Some("tlsrec_fake_rich"));
     assert!(candidates.iter().any(|candidate| candidate.id == "ech_split"));
     assert!(candidates.iter().any(|candidate| candidate.id == "ech_tlsrec"));
     assert_eq!(
@@ -547,7 +547,7 @@ fn http_blockpage_reorders_tcp_candidates_toward_parser_families() {
     );
     let ids = ordered.iter().take(4).map(|candidate| candidate.id).collect::<Vec<_>>();
 
-    assert_eq!(ids, vec!["baseline_current", "parser_only", "parser_unixeol", "split_host"]);
+    assert_eq!(ids, vec!["baseline_current", "tlsrec_split_host", "split_host", "parser_only"]);
 }
 
 #[test]
@@ -559,7 +559,7 @@ fn tcp_reset_reorders_tcp_candidates_toward_split_families() {
     );
     let ids = ordered.iter().take(4).map(|candidate| candidate.id).collect::<Vec<_>>();
 
-    assert_eq!(ids, vec!["baseline_current", "split_host", "tlsrec_split_host", "tlsrec_hostfake_split"]);
+    assert_eq!(ids, vec!["baseline_current", "tlsrec_split_host", "tlsrec_hostfake_split", "split_host"]);
 }
 
 #[test]
@@ -571,7 +571,7 @@ fn silent_drop_reorders_tcp_candidates_toward_fake_tls_families() {
     );
     let ids = ordered.iter().take(4).map(|candidate| candidate.id).collect::<Vec<_>>();
 
-    assert_eq!(ids, vec!["baseline_current", "tlsrec_fake_rich", "tlsrec_hostfake", "tlsrec_hostfake_split"]);
+    assert_eq!(ids, vec!["baseline_current", "tlsrec_fake_rich", "tlsrec_hostfake_split", "tlsrec_fakeddisorder"]);
 }
 
 #[test]
@@ -595,7 +595,7 @@ fn tls_alert_reorders_tcp_candidates_away_from_fake_heavy_paths() {
     );
     let ids = ordered.iter().take(4).map(|candidate| candidate.id).collect::<Vec<_>>();
 
-    assert_eq!(ids, vec!["baseline_current", "split_host", "tlsrec_split_host", "tlsrec_hostfake"]);
+    assert_eq!(ids, vec!["baseline_current", "tlsrec_split_host", "tlsrec_hostfake_split", "split_host"]);
 }
 
 #[test]
