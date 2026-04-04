@@ -91,7 +91,7 @@ internal class FakeLogcatSnapshotCollector(
     private val snapshot: LogcatSnapshot? = null,
     private val failure: Throwable? = null,
 ) : LogcatSnapshotCollector() {
-    override suspend fun capture(): LogcatSnapshot? {
+    override suspend fun capture(sinceTimestampMs: Long?): LogcatSnapshot? {
         failure?.let { throw it }
         return snapshot
     }

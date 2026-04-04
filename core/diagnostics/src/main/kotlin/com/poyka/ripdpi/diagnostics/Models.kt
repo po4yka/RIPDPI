@@ -573,6 +573,7 @@ enum class StrategyProbeCompletionKind {
     NORMAL,
     DNS_SHORT_CIRCUITED,
     DNS_TAMPERING_WITH_FALLBACK,
+    PARTIAL_RESULTS,
 }
 
 @Serializable
