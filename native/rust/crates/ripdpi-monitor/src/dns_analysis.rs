@@ -6,7 +6,7 @@
 //! hickory-proto `Message` parsing (best-effort, graceful fallback).
 
 use hickory_proto::op::Message;
-use hickory_proto::rr::{RData, RecordType};
+use hickory_proto::rr::RData;
 
 /// Tampering signals extracted from a raw DNS response.
 #[derive(Debug, Clone, Default)]
