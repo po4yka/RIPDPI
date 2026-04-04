@@ -50,6 +50,7 @@ import com.poyka.ripdpi.activities.DiagnosticsStrategyProbeWinningCandidateUiMod
 import com.poyka.ripdpi.activities.DiagnosticsStrategyProbeWinningPathUiModel
 import com.poyka.ripdpi.activities.DiagnosticsTone
 import com.poyka.ripdpi.activities.DiagnosticsWorkflowRestrictionActionKindUiModel
+import com.poyka.ripdpi.activities.DnsBaselineStatus
 import com.poyka.ripdpi.activities.PhaseState
 import com.poyka.ripdpi.activities.PhaseStepUiModel
 import com.poyka.ripdpi.activities.StrategyCandidateTimelineEntryUiModel
@@ -410,6 +411,9 @@ private fun ScanProgressCard(
                 )
             }
         }
+        progress.dnsBaselineStatus?.let { dnsStatus ->
+            DnsBaselineBadge(status = dnsStatus)
+        }
         if (progress.candidateTimeline.isNotEmpty()) {
             CandidateTimeline(entries = progress.candidateTimeline)
         }
@@ -506,6 +510,31 @@ private fun PhaseChip(step: PhaseStepUiModel) {
                 color = animatedContent.copy(alpha = dotAlpha),
             )
         }
+    }
+}
+
+@Composable
+private fun DnsBaselineBadge(status: DnsBaselineStatus) {
+    val tone =
+        when (status) {
+            DnsBaselineStatus.CLEAN -> DiagnosticsTone.Positive
+            DnsBaselineStatus.TAMPERED -> DiagnosticsTone.Warning
+        }
+    val palette = metricPalette(tone)
+    Surface(
+        shape = RipDpiThemeTokens.shapes.full,
+        color = palette.container,
+        contentColor = palette.content,
+    ) {
+        Text(
+            text =
+                when (status) {
+                    DnsBaselineStatus.CLEAN -> "DNS: Clean"
+                    DnsBaselineStatus.TAMPERED -> "DNS: Tampered (DoH fallback)"
+                },
+            style = RipDpiThemeTokens.type.monoSmall,
+            modifier = Modifier.padding(horizontal = RipDpiThemeTokens.spacing.sm, vertical = 4.dp),
+        )
     }
 }
 

@@ -229,6 +229,7 @@ class DiagnosticsViewModel
                         activeScanPathMode = ui.scanLifecycle.activeScanPathMode,
                         completedProbes = ui.scanLifecycle.accumulatedProbes,
                         candidateTimeline = ui.scanLifecycle.accumulatedStrategyCandidates,
+                        dnsBaselineStatus = ui.scanLifecycle.dnsBaselineStatus,
                         hiddenProbeConflictDialog = ui.scanLifecycle.hiddenProbeConflictDialog,
                         queuedManualScanRequest = ui.scanLifecycle.queuedManualScanRequest,
                     ),

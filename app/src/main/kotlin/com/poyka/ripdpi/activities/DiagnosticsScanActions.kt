@@ -37,6 +37,7 @@ internal class DiagnosticsScanActions(
                             activeScanKind = null,
                             accumulatedProbes = persistentListOf(),
                             accumulatedStrategyCandidates = persistentListOf(),
+                            dnsBaselineStatus = null,
                         )
                     }
                 } else if (progress == null) {
@@ -47,6 +48,7 @@ internal class DiagnosticsScanActions(
                             activeScanKind = null,
                             accumulatedProbes = persistentListOf(),
                             accumulatedStrategyCandidates = persistentListOf(),
+                            dnsBaselineStatus = null,
                         )
                     }
                 }
@@ -77,6 +79,31 @@ internal class DiagnosticsScanActions(
                                     )
                             ).toImmutableList(),
                     )
+                }
+            }
+        }
+        mutations.launch {
+            diagnosticsTimelineSource.activeScanProgress.collect { progress ->
+                if (progress == null) return@collect
+                val target = progress.latestProbeTarget ?: return@collect
+                if (target == "dns_baseline" && scanLifecycle.value.dnsBaselineStatus == null) {
+                    val outcome = progress.latestProbeOutcome
+                    scanLifecycle.update {
+                        it.copy(
+                            dnsBaselineStatus =
+                                if (outcome == "dns_tampering") {
+                                    DnsBaselineStatus.TAMPERED
+                                } else {
+                                    DnsBaselineStatus.CLEAN
+                                },
+                        )
+                    }
+                } else if (scanLifecycle.value.dnsBaselineStatus == null &&
+                    progress.strategyProbeProgress != null
+                ) {
+                    // First TCP/QUIC candidate started without a dns_baseline event,
+                    // which means the baseline runner returned None (no tampering).
+                    scanLifecycle.update { it.copy(dnsBaselineStatus = DnsBaselineStatus.CLEAN) }
                 }
             }
         }
@@ -235,6 +262,7 @@ internal class DiagnosticsScanActions(
                 activeScanKind = null,
                 accumulatedProbes = persistentListOf(),
                 accumulatedStrategyCandidates = persistentListOf(),
+                dnsBaselineStatus = null,
             )
         }
         mutations.launch {
