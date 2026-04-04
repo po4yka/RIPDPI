@@ -53,6 +53,70 @@ RIPDPI is an Android VPN/proxy application for DPI (Deep Packet Inspection) bypa
 - Strategy-probe reports now carry `auditAssessment` and `targetSelection`; export/share summaries include the selected audit cohort and coverage/confidence details
 - Automatic probing/audit is unavailable when `Use command line settings` is enabled because those workflows require isolated UI-config strategy trials
 - Remembered-network persistence is driven by validated recommendations; full-matrix audit results remain manual-apply only
+
+### Home Composite Diagnostic Run
+
+The home analysis runs 4 stages sequentially:
+
+| Stage | Profile | Kind | Timeout |
+|-------|---------|------|---------|
+| automatic_audit | automatic-audit | STRATEGY_PROBE | 300s |
+| default_connectivity | default | CONNECTIVITY | 120s |
+| dpi_full | ru-dpi-full | CONNECTIVITY | 240s |
+| dpi_strategy | ru-dpi-strategy | STRATEGY_PROBE | 300s |
+
+- If the audit stage fails/times out, remaining stages are skipped
+- If the VPN service halts during a stage, it is marked FAILED and remaining stages are skipped
+- The `dpi_strategy` stage runs `finalizeHomeAudit()` as a fallback when the audit was not actionable
+- Native scan deadline is set to `stageTimeout - 30s` to ensure the native engine finalizes partial results before the Kotlin timeout fires
+- Partial results are recovered via a 3s grace period poll after cancellation
+
+### Strategy Probe Candidates
+
+**21 TCP candidates** (ordered modern-first for censored networks):
+
+| Category | Candidates | requires_fake_ttl |
+|----------|-----------|-------------------|
+| TLS record + split/hostfake | tlsrec_split_host, tlsrec_hostfake_split | false |
+| TLS record + fake | tlsrec_fake_rich, tlsrec_fakedsplit, tlsrec_fakeddisorder | true |
+| Split | split_host | false |
+| Disorder | disorder_host, tlsrec_disorder | true |
+| OOB (TCP urgent pointer) | oob_host, tlsrec_oob | false |
+| Disorder + OOB | disoob_host, tlsrec_disoob | true |
+| TLS random record | tlsrandrec_split, tlsrandrec_disorder | mixed |
+| Hostfake | tlsrec_hostfake | true |
+| Parser (legacy) | parser_only, parser_unixeol, parser_methodeol | false |
+| ECH (specialized) | ech_split, ech_tlsrec | false |
+
+**6 QUIC candidates**: quic_disabled, quic_compat_burst, quic_realistic_burst, quic_sni_split, quic_fake_version, quic_dummy_prepend
+
+**Performance optimizations**:
+- CONNECT_TIMEOUT: 2.5s (reduced from 4s)
+- Within-candidate domain parallelism: 3 domains tested concurrently via `thread::scope`
+- Tournament bracket: Round 1 qualifier tests each candidate against 1 domain, eliminating ~70% of failing candidates before the full-matrix round
+- RST-pattern adaptive timeout: 1.5s when baseline detects TcpReset
+- Candidate reordering: modern TLS-record techniques first, legacy parser tricks last
+
+### DNS Resolver Resilience
+
+- Default encrypted DNS: AdGuard (Russian company, least likely blocked)
+- Provider order: AdGuard > DNS.SB > Mullvad > Google IP > Cloudflare IP > Google > Quad9 > Cloudflare
+- Fallback resolver loop: when primary encrypted DNS fails, tries up to 3 alternative resolvers (AdGuard, DNS.SB, Google IP, Mullvad) in both strategy probes and connectivity probes
+- Eager failover: catastrophic DNS errors (connection reset, refused) trigger immediate resolver switch on first query
+- Service halt guard: VPN service doesn't halt while DNS failover candidates remain
+
+### Autolearn Host Filtering
+
+The autolearn system filters known telemetry/system hosts (Google, Huawei, Samsung, Apple, Microsoft, Xiaomi, Firebase) from promotion to prevent them from wasting autolearn capacity (max 512 hosts) and diluting preferred-group statistics for actually-blocked domains.
+
+### Structured Logging
+
+Key decision points are logged for diagnostics debugging:
+- `DnsFailover`: network scope changes, failure counts, path switches, exhaustion
+- `HomeAnalysis`: stage start/complete/timeout/skip with durations
+- `ProtectSocket`: server start/stop, fd protection
+- `strategy probe` (tracing): TTL capability, baseline classification, candidate start/skip/elimination
+- `send_fake_tcp` (tracing): TTL set/fallback decisions
 - DNS tampering detection: protocol-level anomaly signals (AA flag abuse, TTL anomalies, missing EDNS0/authority sections, small response size, malformed compression pointers), record-level comparison between UDP and encrypted resolvers (record type mismatch, TTL divergence, extra CNAMEs, authority mismatch, rcode mismatch), diagnosis codes `dns_response_anomaly`, `dns_cname_redirect`, `dns_record_divergence`
 - Response parser framework: pluggable `ResponseParser` trait with `FieldObserver` emission for HTTP (status/headers/body/redirect), TLS (alert/version/ServerHello), and SSH (banner extraction)
 
