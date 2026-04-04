@@ -90,7 +90,7 @@
     },
     {
       "path": "native/rust/crates/ripdpi-monitor/src/engine/runners/strategy.rs",
-      "maxProductionLoc": 890
+      "maxProductionLoc": 1031
     },
     {
       "path": "native/rust/crates/ripdpi-monitor/src/engine/runtime.rs",

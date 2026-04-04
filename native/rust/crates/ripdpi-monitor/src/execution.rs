@@ -463,6 +463,31 @@ pub(crate) fn skipped_candidate_summary(
     }
 }
 
+pub(crate) fn eliminated_candidate_summary(
+    spec: &StrategyCandidateSpec,
+    qualifier_succeeded: usize,
+    qualifier_total: usize,
+    total_weight_per_target: usize,
+) -> StrategyProbeCandidateSummary {
+    let rationale = format!("Eliminated in qualifier: {qualifier_succeeded}/{qualifier_total} succeeded");
+    StrategyProbeCandidateSummary {
+        id: spec.id.to_string(),
+        label: spec.label.to_string(),
+        family: spec.family.to_string(),
+        outcome: "eliminated".to_string(),
+        rationale: rationale.clone(),
+        succeeded_targets: qualifier_succeeded,
+        total_targets: qualifier_total,
+        weighted_success_score: 0,
+        total_weight: qualifier_total * total_weight_per_target,
+        quality_score: 0,
+        proxy_config_json: candidate_proxy_config_json(spec),
+        notes: candidate_notes(spec, &[&rationale]),
+        average_latency_ms: None,
+        skipped: false,
+    }
+}
+
 pub(crate) fn candidate_proxy_config_json(spec: &StrategyCandidateSpec) -> Option<String> {
     serde_json::to_string(&ProxyConfigPayload::Ui {
         strategy_preset: None,
