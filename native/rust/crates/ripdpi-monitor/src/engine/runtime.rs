@@ -196,6 +196,8 @@ impl ExecutionRuntime {
             candidate_total,
             candidate_id: candidate_id.to_string(),
             candidate_label: candidate_label.to_string(),
+            succeeded_targets: 0,
+            total_targets: 0,
         };
         self.publish_progress(
             plan,
@@ -262,6 +264,8 @@ impl ExecutionRuntime {
             candidate_total,
             candidate_id: candidate_id.to_string(),
             candidate_label: candidate_label.to_string(),
+            succeeded_targets: 0,
+            total_targets: 0,
         };
         self.record_step(
             plan,

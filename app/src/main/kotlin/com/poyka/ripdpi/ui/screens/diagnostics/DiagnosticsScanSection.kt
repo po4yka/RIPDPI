@@ -8,6 +8,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -15,6 +16,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -549,26 +551,73 @@ private fun CandidateTimeline(entries: List<StrategyCandidateTimelineEntryUiMode
             key = { it.candidateId },
             contentType = { "candidate_dot" },
         ) { entry ->
-            val palette = metricPalette(entry.tone)
-            Surface(
-                shape = RipDpiThemeTokens.shapes.full,
-                color = palette.container,
-                contentColor = palette.content,
-            ) {
-                Text(
-                    text =
-                        when {
-                            entry.outcome.equals("success", ignoreCase = true) -> "+"
+            CandidateTimelineChip(entry = entry)
+        }
+    }
+}
 
-                            entry.outcome.equals("skipped", ignoreCase = true) ||
-                                entry.outcome.equals("not_applicable", ignoreCase = true) -> "-"
+@Composable
+private fun CandidateTimelineChip(entry: StrategyCandidateTimelineEntryUiModel) {
+    val palette = metricPalette(entry.tone)
+    Surface(
+        shape = RipDpiThemeTokens.shapes.full,
+        color = palette.container,
+        contentColor = palette.content,
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+            horizontalArrangement = Arrangement.spacedBy(3.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text =
+                    when {
+                        entry.outcome.equals("success", ignoreCase = true) -> "+"
 
-                            else -> "x"
-                        },
-                    style = RipDpiThemeTokens.type.monoSmall,
-                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                        entry.outcome.equals("skipped", ignoreCase = true) ||
+                            entry.outcome.equals("not_applicable", ignoreCase = true) -> "-"
+
+                        else -> "x"
+                    },
+                style = RipDpiThemeTokens.type.monoSmall,
+            )
+            if (entry.totalTargets > 0) {
+                CandidateSparkline(
+                    succeeded = entry.succeededTargets,
+                    total = entry.totalTargets,
+                    color = palette.content,
                 )
             }
+        }
+    }
+}
+
+@Composable
+private fun CandidateSparkline(
+    succeeded: Int,
+    total: Int,
+    color: androidx.compose.ui.graphics.Color,
+) {
+    val barWidth = (total * 4).coerceAtMost(24)
+    val fraction = if (total > 0) succeeded.toFloat() / total.toFloat() else 0f
+    Canvas(
+        modifier = Modifier.size(width = barWidth.dp, height = 6.dp),
+    ) {
+        drawRoundRect(
+            color = color.copy(alpha = 0.25f),
+            size = size,
+            cornerRadius =
+                androidx.compose.ui.geometry
+                    .CornerRadius(3.dp.toPx()),
+        )
+        if (fraction > 0f) {
+            drawRoundRect(
+                color = color,
+                size = size.copy(width = size.width * fraction),
+                cornerRadius =
+                    androidx.compose.ui.geometry
+                        .CornerRadius(3.dp.toPx()),
+            )
         }
     }
 }

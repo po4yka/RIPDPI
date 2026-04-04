@@ -153,18 +153,20 @@ pub(crate) fn reorder_tcp_candidates_for_failure(
     fake_ttl_available: bool,
 ) -> Vec<StrategyCandidateSpec> {
     let preferred_ids: &[&str] = match failure_class {
-        Some(FailureClass::HttpBlockpage) => &["baseline_current", "parser_only", "parser_unixeol", "split_host"],
+        Some(FailureClass::HttpBlockpage) => &["baseline_current", "tlsrec_split_host", "split_host", "parser_only"],
         Some(FailureClass::TcpReset) => {
-            &["baseline_current", "split_host", "tlsrec_split_host", "tlsrec_hostfake_split"]
+            &["baseline_current", "tlsrec_split_host", "tlsrec_hostfake_split", "split_host"]
         }
         Some(FailureClass::SilentDrop) if !fake_ttl_available => {
             &["baseline_current", "tlsrec_split_host", "tlsrec_hostfake_split", "split_host"]
         }
         Some(FailureClass::SilentDrop) => {
-            &["baseline_current", "tlsrec_fake_rich", "tlsrec_hostfake", "tlsrec_hostfake_split"]
+            &["baseline_current", "tlsrec_fake_rich", "tlsrec_hostfake_split", "tlsrec_fakeddisorder"]
         }
-        Some(FailureClass::TlsAlert) => &["baseline_current", "split_host", "tlsrec_split_host", "tlsrec_hostfake"],
-        _ => &[],
+        Some(FailureClass::TlsAlert) => {
+            &["baseline_current", "tlsrec_split_host", "tlsrec_hostfake_split", "split_host"]
+        }
+        _ => &["baseline_current", "tlsrec_split_host", "tlsrec_hostfake_split", "tlsrec_fake_rich", "split_host"],
     };
     let mut ordered = Vec::with_capacity(candidates.len());
     for id in preferred_ids {

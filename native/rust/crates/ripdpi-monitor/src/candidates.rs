@@ -253,10 +253,28 @@ pub(crate) fn build_tcp_candidates(base: &ProxyUiConfig) -> Vec<StrategyCandidat
 
     let mut candidates = vec![
         candidate_spec("baseline_current", "Current strategy", "baseline", baseline),
+        candidate_spec("tlsrec_split_host", "TLS record + split host", "tlsrec_split", tlsrec_split_host),
+        candidate_spec_with_notes(
+            "tlsrec_hostfake_split",
+            "TLS record + hostfake split",
+            "hostfake",
+            tlsrec_hostfake_split,
+            vec!["Adds a follow-up split after hostfake midhost reconstruction"],
+        ),
+        candidate_spec_with_notes(
+            "tlsrec_fake_rich",
+            "TLS record + rich fake",
+            "tlsrec_fake",
+            tlsrec_fake_rich,
+            vec!["Randomized fake TLS material with original ClientHello framing"],
+        ),
+        candidate_spec("split_host", "Split Host", "split", split_host),
+        candidate_spec("tlsrec_fakeddisorder", "TLS record + fakeddisorder", "fake_approx", tlsrec_fakeddisorder),
+        candidate_spec("tlsrec_fakedsplit", "TLS record + fakedsplit", "fake_approx", tlsrec_fakedsplit),
+        candidate_spec("tlsrec_hostfake", "TLS record + hostfake", "hostfake", tlsrec_hostfake),
         candidate_spec("parser_only", "Parser-only", "parser", parser_only),
         candidate_spec("parser_unixeol", "Parser + Unix EOL", "parser_aggressive", parser_unixeol),
         candidate_spec("parser_methodeol", "Parser + Method EOL", "parser_aggressive", parser_methodeol),
-        candidate_spec("split_host", "Split Host", "split", split_host),
         candidate_spec_with_notes_and_eligibility(
             "ech_split",
             "ECH extension split",
@@ -272,24 +290,6 @@ pub(crate) fn build_tcp_candidates(base: &ProxyUiConfig) -> Vec<StrategyCandidat
             CandidateEligibility::RequiresEchCapability,
             ech_tlsrec,
             vec!["Runs only when the baseline proves an ECH-capable HTTPS path"],
-        ),
-        candidate_spec("tlsrec_split_host", "TLS record + split host", "tlsrec_split", tlsrec_split_host),
-        candidate_spec_with_notes(
-            "tlsrec_fake_rich",
-            "TLS record + rich fake",
-            "tlsrec_fake",
-            tlsrec_fake_rich,
-            vec!["Randomized fake TLS material with original ClientHello framing"],
-        ),
-        candidate_spec("tlsrec_fakedsplit", "TLS record + fakedsplit", "fake_approx", tlsrec_fakedsplit),
-        candidate_spec("tlsrec_fakeddisorder", "TLS record + fakeddisorder", "fake_approx", tlsrec_fakeddisorder),
-        candidate_spec("tlsrec_hostfake", "TLS record + hostfake", "hostfake", tlsrec_hostfake),
-        candidate_spec_with_notes(
-            "tlsrec_hostfake_split",
-            "TLS record + hostfake split",
-            "hostfake",
-            tlsrec_hostfake_split,
-            vec!["Adds a follow-up split after hostfake midhost reconstruction"],
         ),
     ];
     if ipfrag_capable {
