@@ -565,6 +565,45 @@ private fun DpiFailureClassBadge(failureClass: DpiFailureClass) {
 }
 
 @Composable
+private fun NetworkContextRow(context: ScanNetworkContextUiModel) {
+    val spacing = RipDpiThemeTokens.spacing
+    val palette = metricPalette(DiagnosticsTone.Info)
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(spacing.xs),
+    ) {
+        NetworkContextChip(
+            text = context.transport + (context.signalLabel?.let { " $it" } ?: ""),
+            palette = palette,
+        )
+        context.resolverLabel?.let { resolver ->
+            NetworkContextChip(text = resolver, palette = palette)
+        }
+        NetworkContextChip(
+            text = if (context.validated) "Validated" else "Not validated",
+            palette = palette,
+        )
+    }
+}
+
+@Composable
+private fun NetworkContextChip(
+    text: String,
+    palette: MetricPalette,
+) {
+    Surface(
+        shape = RipDpiThemeTokens.shapes.full,
+        color = palette.container,
+        contentColor = palette.content,
+    ) {
+        Text(
+            text = text,
+            style = RipDpiThemeTokens.type.monoSmall,
+            modifier = Modifier.padding(horizontal = RipDpiThemeTokens.spacing.sm, vertical = 4.dp),
+        )
+    }
+}
+
+@Composable
 private fun CandidateTimeline(entries: List<StrategyCandidateTimelineEntryUiModel>) {
     val spacing = RipDpiThemeTokens.spacing
     LazyRow(
