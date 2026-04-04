@@ -7,6 +7,7 @@ pub(crate) mod http;
 pub(crate) mod ssh;
 pub(crate) mod tls;
 
+use android_support::enum_map::EnumMap;
 use ripdpi_packets::classify::ProtocolId;
 use ripdpi_packets::fields::FieldObserver;
 
@@ -52,19 +53,23 @@ pub(crate) trait ResponseParserFactory: Send + Sync {
     fn create(&self) -> Box<dyn ResponseParser>;
 }
 
-/// Registry mapping [`ProtocolId`] to [`ResponseParserFactory`].
+/// Registry mapping [`ProtocolId`] to [`ResponseParserFactory`] with O(1) lookup.
 pub(crate) struct ResponseParserRegistry {
-    factories: Vec<Box<dyn ResponseParserFactory>>,
+    factories: EnumMap<ProtocolId, Box<dyn ResponseParserFactory>>,
 }
 
 impl ResponseParserRegistry {
     pub fn new(factories: Vec<Box<dyn ResponseParserFactory>>) -> Self {
-        Self { factories }
+        let mut map = EnumMap::new();
+        for factory in factories {
+            map.insert(factory.protocol_id(), factory);
+        }
+        Self { factories: map }
     }
 
-    /// Create a parser for the given protocol, if a factory is registered.
+    /// Create a parser for the given protocol, if a factory is registered. O(1).
     pub fn create(&self, id: ProtocolId) -> Option<Box<dyn ResponseParser>> {
-        self.factories.iter().find(|f| f.protocol_id() == id).map(|f| f.create())
+        self.factories.get(id).map(|f| f.create())
     }
 }
 

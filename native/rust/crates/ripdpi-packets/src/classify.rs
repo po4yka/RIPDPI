@@ -3,6 +3,8 @@
 //! Wraps existing stateless `is_*()` / `parse_*()` detection functions behind
 //! a common [`ProtocolClassifier`] trait with a registry for ordered lookup.
 
+use android_support::enum_map::{EnumKey, EnumMap};
+
 use crate::{is_http, is_tls_client_hello, parse_http, parse_tls};
 
 /// Protocol identifier for dispatch.
@@ -13,6 +15,13 @@ pub enum ProtocolId {
     Tls = 1,
     Quic = 2,
     Ssh = 3,
+}
+
+impl EnumKey for ProtocolId {
+    const COUNT: usize = 4;
+    fn index(self) -> usize {
+        self as usize
+    }
 }
 
 impl ProtocolId {
@@ -51,19 +60,27 @@ pub trait ProtocolClassifier: Send + Sync {
 /// Ordered registry of protocol classifiers.
 ///
 /// Tries classifiers in priority order (TLS before HTTP to avoid false
-/// positives on TLS record bytes), returns first match.
+/// positives on TLS record bytes) for `classify()`, and provides O(1)
+/// lookup by [`ProtocolId`] via an [`EnumMap`] for `get()`.
 pub struct ClassifierRegistry {
-    classifiers: Vec<Box<dyn ProtocolClassifier>>,
+    /// Ordered list for sequential classify() (priority-based).
+    ordered: Vec<Box<dyn ProtocolClassifier>>,
+    /// O(1) lookup by ProtocolId (indexes into `ordered`).
+    by_id: EnumMap<ProtocolId, usize>,
 }
 
 impl ClassifierRegistry {
     pub fn new(classifiers: Vec<Box<dyn ProtocolClassifier>>) -> Self {
-        Self { classifiers }
+        let mut by_id = EnumMap::new();
+        for (i, c) in classifiers.iter().enumerate() {
+            by_id.insert(c.id(), i);
+        }
+        Self { ordered: classifiers, by_id }
     }
 
     /// Classify a payload by trying each classifier in order.
     pub fn classify(&self, payload: &[u8]) -> Option<ClassifyResult> {
-        for classifier in &self.classifiers {
+        for classifier in &self.ordered {
             if classifier.matches(payload) {
                 return Some(ClassifyResult { protocol: classifier.id(), host: classifier.extract_host(payload) });
             }
@@ -73,12 +90,12 @@ impl ClassifierRegistry {
 
     /// Classify without extracting the host (faster, no allocations).
     pub fn classify_id(&self, payload: &[u8]) -> Option<ProtocolId> {
-        self.classifiers.iter().find(|c| c.matches(payload)).map(|c| c.id())
+        self.ordered.iter().find(|c| c.matches(payload)).map(|c| c.id())
     }
 
-    /// Get a specific classifier by protocol ID.
+    /// Get a specific classifier by protocol ID. O(1) via EnumMap.
     pub fn get(&self, id: ProtocolId) -> Option<&dyn ProtocolClassifier> {
-        self.classifiers.iter().find(|c| c.id() == id).map(AsRef::as_ref)
+        self.by_id.get(id).and_then(|&idx| self.ordered.get(idx)).map(AsRef::as_ref)
     }
 }
 
