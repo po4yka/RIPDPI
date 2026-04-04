@@ -306,6 +306,7 @@ internal class DiagnosticsUiStateFactory
                 scanStartedAt = input.scanStartedAt,
                 completedProbes = input.completedProbes,
                 candidateTimeline = input.candidateTimeline,
+                dnsBaselineStatus = input.dnsBaselineStatus,
                 hiddenProbeConflictDialog = input.hiddenProbeConflictDialog,
                 queuedManualScanRequest = input.queuedManualScanRequest,
             )
@@ -509,6 +510,7 @@ internal data class DiagnosticsUiStateInput(
     val activeScanPathMode: ScanPathMode?,
     val completedProbes: List<CompletedProbeUiModel> = emptyList(),
     val candidateTimeline: List<StrategyCandidateTimelineEntryUiModel> = emptyList(),
+    val dnsBaselineStatus: DnsBaselineStatus? = null,
     val hiddenProbeConflictDialog: HiddenProbeConflictDialogState? = null,
     val queuedManualScanRequest: QueuedManualScanRequest? = null,
 )

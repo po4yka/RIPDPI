@@ -172,6 +172,7 @@ internal fun DiagnosticsUiFactorySupport.toProgressUiModel(
     now: Long = System.currentTimeMillis(),
     completedProbes: List<CompletedProbeUiModel> = emptyList(),
     candidateTimeline: List<StrategyCandidateTimelineEntryUiModel> = emptyList(),
+    dnsBaselineStatus: DnsBaselineStatus? = null,
 ): DiagnosticsProgressUiModel {
     val fraction =
         if (progress.totalSteps <= 0) {
@@ -235,6 +236,7 @@ internal fun DiagnosticsUiFactorySupport.toProgressUiModel(
         phaseSteps = phaseSteps,
         currentProbeLabel = strategyProbeProgress?.candidateLabel ?: progress.message,
         strategyProbeProgress = strategyProbeProgress,
+        dnsBaselineStatus = dnsBaselineStatus,
         candidateTimeline = candidateTimeline,
         completedProbes = completedProbes,
     )
