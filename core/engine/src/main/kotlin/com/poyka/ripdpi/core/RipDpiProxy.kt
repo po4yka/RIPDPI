@@ -55,6 +55,18 @@ class RipDpiProxyNativeBindings
             init {
                 RipDpiNativeLoader.ensureLoaded()
             }
+
+            /**
+             * Register a VPN socket protection callback. Called when VPN service starts.
+             * Stores a global JNI reference to the VpnService for direct protect(fd) calls
+             * from native code, replacing the Unix domain socket approach.
+             */
+            @JvmStatic
+            external fun jniRegisterVpnProtect(vpnService: Any)
+
+            /** Unregister the VPN socket protection callback. Called when VPN service stops. */
+            @JvmStatic
+            external fun jniUnregisterVpnProtect()
         }
 
         override fun create(configJson: String): Long = jniCreate(configJson)

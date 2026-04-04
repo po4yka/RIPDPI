@@ -9,6 +9,7 @@ use socket2::{Domain, Protocol, Socket, Type};
 
 #[cfg(any(target_os = "linux", target_os = "android"))]
 pub(crate) mod linux;
+pub mod protect;
 
 pub type TcpStageWait = (bool, Duration);
 
@@ -86,11 +87,20 @@ pub fn set_tcp_md5sig(_stream: &TcpStream, _key_len: u16) -> io::Result<()> {
 
 #[cfg(any(target_os = "linux", target_os = "android"))]
 pub fn protect_socket<T: std::os::fd::AsRawFd>(socket: &T, path: &str) -> io::Result<()> {
+    // Prefer JNI callback (no Unix socket server needed).
+    if protect::has_protect_callback() {
+        return protect::protect_socket_via_callback(socket.as_raw_fd());
+    }
+    // Fallback: Unix domain socket + SCM_RIGHTS.
     linux::protect_socket(socket, path)
 }
 
 #[cfg(not(any(target_os = "linux", target_os = "android")))]
-pub fn protect_socket<T>(_socket: &T, _path: &str) -> io::Result<()> {
+pub fn protect_socket<T: std::os::fd::AsRawFd>(socket: &T, _path: &str) -> io::Result<()> {
+    // Prefer JNI callback on any platform.
+    if protect::has_protect_callback() {
+        return protect::protect_socket_via_callback(socket.as_raw_fd());
+    }
     Err(io::Error::new(io::ErrorKind::Unsupported, "only supported on Linux/Android"))
 }
 
