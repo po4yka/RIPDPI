@@ -185,6 +185,34 @@ detect DNS tampering by the ISP/middlebox.
   a preconfigured endpoint and calls `exchange_blocking()`
 - `extract_ip_answers()` (re-exported from ripdpi-dns-resolver) parses A/AAAA
   records from the response bytes
+- `build_fallback_encrypted_dns_endpoints()` in `dns.rs` provides 3-4 fallback
+  DoH resolvers when the primary fails. Used in both
+  `detect_strategy_probe_dns_tampering()` and `run_dns_probe()`.
+
+## Built-in DNS providers
+
+### Default provider and ordering
+
+Default encrypted DNS is **AdGuard** (changed from Cloudflare). Priority:
+AdGuard > DNS.SB > Mullvad > Google IP > Cloudflare IP > Google > Quad9 > Cloudflare.
+Defined in `BuiltInDnsProviders` (`DnsResolverConfig.kt`) and `DEFAULT_DOH_*` (`util.rs`).
+
+### DNS.SB TLS server name
+
+`tlsServerName` for DNS.SB is `"dns.sb"` (not `"doh.dns.sb"`). The DoT cert
+at port 853 is only valid for `dns.sb`; `doh.dns.sb` causes handshake failures.
+
+### Eager DNS failover
+
+`VpnEncryptedDnsFailoverController` triggers immediately on catastrophic errors
+(connection reset, refused, "operation not permitted") via `isCatastrophicDnsError()`,
+skipping the 2-failure threshold for bootstrap-phase queries (<=3 queries attempted).
+
+### DNS failure counting
+
+The native tunnel counts bootstrap connection failures in `dnsFailuresTotal`.
+Previously only DNS query failures (after successful connection) were counted;
+connection-level failures during bootstrap were silently dropped.
 
 ## Adding a new DNS protocol
 

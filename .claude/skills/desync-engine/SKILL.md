@@ -135,6 +135,45 @@ Step-by-step flow when a TCP payload is sent through `send_with_group()`:
 
 See `references/chain-step-catalog.md` for the full catalog with config fields.
 
+## Strategy probe candidates
+
+Candidates are ordered modern-first (most effective on censored networks tested first):
+
+1. **TLS-record techniques**: `tlsrec_split_host`, `tlsrec_hostfake_split`, `tlsrec_fake_rich`
+2. **Split**: `split_host`
+3. **Disorder/OOB** (see below)
+4. **Legacy parser tricks**: `parser_only`, `parser_unixeol`, `parser_methodeol`
+5. **ECH**: `ech_split`, `ech_tlsrec`
+
+### New TCP candidates added
+
+| ID | Steps | requires_fake_ttl |
+|----|-------|-------------------|
+| `disorder_host` | `disorder` at host+2 | true |
+| `tlsrec_disorder` | `tlsrec` + `disorder` at host+2 | true |
+| `oob_host` | `oob` at host+2 (MSG_OOB, no TTL) | **false** |
+| `tlsrec_oob` | `tlsrec` + `oob` at host+2 | **false** |
+| `disoob_host` | `disoob` at host+2 | true |
+| `tlsrec_disoob` | `tlsrec` + `disoob` at host+2 | true |
+| `tlsrandrec_split` | `tlsrandrec` at sniext+4 + `split` at host+2 | **false** |
+| `tlsrandrec_disorder` | `tlsrandrec` at sniext+4 + `disorder` at host+2 | true |
+
+### TTL requirements
+
+`config_requires_fake_ttl()` checks for: `"fake"`, `"fakedsplit"`, `"fakeddisorder"`, `"hostfake"`, `"disorder"`, `"disoob"`. Pure `"oob"` does NOT require TTL (uses `MSG_OOB` flag).
+
+### Non-rooted Android constraints
+
+**Not feasible** without root (`SOCK_RAW` + `TCP_REPAIR`): `FakeRst`, `MultiDisorder`. All other techniques work on non-rooted Android.
+
+### TTL fallback on Android VPN/tun
+
+`send_fake_tcp()` gracefully falls back to sending original data (without fake packet) when `setsockopt(IP_TTL)` fails on Android VPN/tun mode, instead of aborting the connection.
+
+### Tournament bracket
+
+Round 1 qualifier tests each candidate against 1 domain (2 probes: HTTP+HTTPS). Candidates failing both are eliminated before the full-matrix Round 2, saving ~70% of probe time on censored networks.
+
 ## UDP desync
 
 UDP desync (`plan_udp()` in `plan_udp.rs`) targets QUIC Initial packets.
