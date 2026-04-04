@@ -282,7 +282,8 @@ class DiagnosticsArchiveRenderer
                     integrityAlgorithm = "sha256",
                     includedFiles = selection.includedFiles,
                     logcatIncluded = selection.logcatSnapshot != null,
-                    logcatCaptureScope = LogcatSnapshotCollector.AppVisibleSnapshotScope,
+                    logcatCaptureScope =
+                        selection.logcatSnapshot?.captureScope ?: LogcatSnapshotCollector.AppVisibleSnapshotScope,
                     logcatByteCount = selection.logcatSnapshot?.byteCount ?: 0,
                 )
             val manifestElement =
@@ -796,7 +797,9 @@ class DiagnosticsArchiveRenderer
                         add("runType=${selection.runType.name.lowercase()}")
                         add("privacyMode=${DiagnosticsArchiveFormat.privacyMode}")
                         add("logcatIncluded=${selection.logcatSnapshot != null}")
-                        add("logcatCaptureScope=${LogcatSnapshotCollector.AppVisibleSnapshotScope}")
+                        add(
+                            "logcatCaptureScope=${selection.logcatSnapshot?.captureScope ?: LogcatSnapshotCollector.AppVisibleSnapshotScope}",
+                        )
                         add("logcatByteCount=${selection.logcatSnapshot?.byteCount ?: 0}")
                         add("selectedSession=${selection.primarySession?.id ?: "latest-live"}")
                         selection.homeRunId?.let { add("homeRunId=$it") }

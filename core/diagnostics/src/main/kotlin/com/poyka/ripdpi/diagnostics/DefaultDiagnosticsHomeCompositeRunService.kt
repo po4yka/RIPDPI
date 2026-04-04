@@ -475,6 +475,9 @@ class DefaultDiagnosticsHomeCompositeRunService
             }.also { result ->
                 if (result == null) {
                     log.w { "stage ${spec.key} timed out after ${stageTimeoutMs(spec)}ms" }
+                    // Signal the native side to stop — otherwise the Rust probe thread
+                    // runs orphaned until its own deadline or completion.
+                    runCatching { diagnosticsScanController.cancelActiveScan() }
                 }
             }
 

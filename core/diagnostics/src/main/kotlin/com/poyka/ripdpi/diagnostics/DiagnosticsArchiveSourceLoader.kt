@@ -41,7 +41,8 @@ internal class DiagnosticsArchiveSourceLoader
                 artifactReadStore.observeNativeEvents(limit = DiagnosticsArchiveFormat.globalEventLimit).first()
             val contexts =
                 artifactReadStore.observeContexts(limit = DiagnosticsArchiveFormat.snapshotLimit).first()
-            val logcatCapture = runCatching { logcatSnapshotCollector.capture() }
+            val earliestSessionStart = sessions.minOfOrNull { it.startedAt }
+            val logcatCapture = runCatching { logcatSnapshotCollector.capture(sinceTimestampMs = earliestSessionStart) }
             val logcatSnapshot = logcatCapture.getOrNull()
             val fileLogSnapshot = runCatching { fileLogWriter.readLogContent() }.getOrNull()
             val approachSummaries =
