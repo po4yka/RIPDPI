@@ -162,6 +162,11 @@ data class DiagnosticsStrategyProbeLiveProgressUiModel(
     val candidateLabel: String,
 )
 
+enum class DnsBaselineStatus {
+    CLEAN,
+    TAMPERED,
+}
+
 @Immutable
 data class StrategyCandidateTimelineEntryUiModel(
     val candidateId: String,
@@ -185,6 +190,7 @@ data class DiagnosticsProgressUiModel(
     val phaseSteps: List<PhaseStepUiModel>,
     val currentProbeLabel: String,
     val strategyProbeProgress: DiagnosticsStrategyProbeLiveProgressUiModel? = null,
+    val dnsBaselineStatus: DnsBaselineStatus? = null,
     val candidateTimeline: List<StrategyCandidateTimelineEntryUiModel> = emptyList(),
     val completedProbes: List<CompletedProbeUiModel> = emptyList(),
 )
@@ -638,6 +644,7 @@ internal data class ScanLifecycleState(
     val activeScanKind: ScanKind? = null,
     val accumulatedProbes: ImmutableList<CompletedProbeUiModel> = persistentListOf(),
     val accumulatedStrategyCandidates: ImmutableList<StrategyCandidateTimelineEntryUiModel> = persistentListOf(),
+    val dnsBaselineStatus: DnsBaselineStatus? = null,
     val pendingAutoOpenAuditSessionId: String? = null,
     val hiddenProbeConflictDialog: HiddenProbeConflictDialogState? = null,
     val queuedManualScanRequest: QueuedManualScanRequest? = null,
