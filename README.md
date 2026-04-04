@@ -282,11 +282,13 @@ To enable signed release builds, configure these repository secrets:
 
 ## Native Modules
 
-- `native/rust/crates/ripdpi-android`: proxy JNI bridge and proxy runtime telemetry surface
+- `native/rust/crates/ripdpi-android`: proxy JNI bridge, proxy runtime telemetry surface, and VPN socket protection JNI callbacks
 - `native/rust/crates/ripdpi-tunnel-android`: TUN-to-SOCKS JNI bridge and tunnel telemetry surface
-- `native/rust/crates/ripdpi-monitor`: active diagnostics scans and passive diagnostics events
+- `native/rust/crates/ripdpi-monitor`: active diagnostics scans, passive diagnostics events, DNS tampering detection, and response parser framework (HTTP/TLS/SSH)
 - `native/rust/crates/ripdpi-dns-resolver`: shared encrypted DNS resolver used by diagnostics and VPN mode
-- `native/rust/crates/ripdpi-runtime`: shared proxy runtime layer used by `libripdpi.so`
-- `native/rust/crates/android-support`: Android logging and JNI support helpers
+- `native/rust/crates/ripdpi-runtime`: shared proxy runtime layer used by `libripdpi.so`, protocol classification registry, and VPN socket protection callback registry
+- `native/rust/crates/ripdpi-packets`: protocol detection, packet mutation, protocol classification traits (`ProtocolClassifier`, `ProtocolField`, `FieldObserver`)
+- `native/rust/crates/ripdpi-failure-classifier`: response failure classification, blockpage fingerprinting, and field-based classification via `FieldCache`
+- `native/rust/crates/android-support`: Android logging, JNI support helpers, and generic data structures (`BoundedHeap`, `EnumMap`)
 
 Native integration details: [docs/native/README.md](docs/native/README.md)
