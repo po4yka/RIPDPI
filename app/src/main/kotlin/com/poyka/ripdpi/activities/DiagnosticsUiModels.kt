@@ -169,6 +169,20 @@ enum class DnsBaselineStatus {
     TAMPERED,
 }
 
+enum class DpiFailureClass(
+    val label: String,
+) {
+    TCP_RESET("TCP Reset"),
+    SILENT_DROP("Silent Drop"),
+    TLS_ALERT("TLS Alert"),
+    HTTP_BLOCKPAGE("HTTP Blockpage"),
+    QUIC_BREAKAGE("QUIC Breakage"),
+    TLS_HANDSHAKE_FAILURE("TLS Handshake Failure"),
+    CONNECTION_FREEZE("Connection Freeze"),
+    REDIRECT("Redirect"),
+    OTHER("Unknown DPI"),
+}
+
 @Immutable
 data class StrategyCandidateTimelineEntryUiModel(
     val candidateId: String,
@@ -195,6 +209,7 @@ data class DiagnosticsProgressUiModel(
     val currentProbeLabel: String,
     val strategyProbeProgress: DiagnosticsStrategyProbeLiveProgressUiModel? = null,
     val dnsBaselineStatus: DnsBaselineStatus? = null,
+    val dpiFailureClass: DpiFailureClass? = null,
     val candidateTimeline: List<StrategyCandidateTimelineEntryUiModel> = emptyList(),
     val completedProbes: List<CompletedProbeUiModel> = emptyList(),
 )
@@ -649,6 +664,7 @@ internal data class ScanLifecycleState(
     val accumulatedProbes: ImmutableList<CompletedProbeUiModel> = persistentListOf(),
     val accumulatedStrategyCandidates: ImmutableList<StrategyCandidateTimelineEntryUiModel> = persistentListOf(),
     val dnsBaselineStatus: DnsBaselineStatus? = null,
+    val dpiFailureClass: DpiFailureClass? = null,
     val pendingAutoOpenAuditSessionId: String? = null,
     val hiddenProbeConflictDialog: HiddenProbeConflictDialogState? = null,
     val queuedManualScanRequest: QueuedManualScanRequest? = null,

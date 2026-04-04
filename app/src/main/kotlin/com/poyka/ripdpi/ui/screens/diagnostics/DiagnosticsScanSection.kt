@@ -53,6 +53,7 @@ import com.poyka.ripdpi.activities.DiagnosticsStrategyProbeWinningPathUiModel
 import com.poyka.ripdpi.activities.DiagnosticsTone
 import com.poyka.ripdpi.activities.DiagnosticsWorkflowRestrictionActionKindUiModel
 import com.poyka.ripdpi.activities.DnsBaselineStatus
+import com.poyka.ripdpi.activities.DpiFailureClass
 import com.poyka.ripdpi.activities.PhaseState
 import com.poyka.ripdpi.activities.PhaseStepUiModel
 import com.poyka.ripdpi.activities.StrategyCandidateTimelineEntryUiModel
@@ -416,6 +417,9 @@ private fun ScanProgressCard(
         progress.dnsBaselineStatus?.let { dnsStatus ->
             DnsBaselineBadge(status = dnsStatus)
         }
+        progress.dpiFailureClass?.let { failureClass ->
+            DpiFailureClassBadge(failureClass = failureClass)
+        }
         if (progress.candidateTimeline.isNotEmpty()) {
             CandidateTimeline(entries = progress.candidateTimeline)
         }
@@ -534,6 +538,22 @@ private fun DnsBaselineBadge(status: DnsBaselineStatus) {
                     DnsBaselineStatus.CLEAN -> "DNS: Clean"
                     DnsBaselineStatus.TAMPERED -> "DNS: Tampered (DoH fallback)"
                 },
+            style = RipDpiThemeTokens.type.monoSmall,
+            modifier = Modifier.padding(horizontal = RipDpiThemeTokens.spacing.sm, vertical = 4.dp),
+        )
+    }
+}
+
+@Composable
+private fun DpiFailureClassBadge(failureClass: DpiFailureClass) {
+    val palette = metricPalette(DiagnosticsTone.Negative)
+    Surface(
+        shape = RipDpiThemeTokens.shapes.full,
+        color = palette.container,
+        contentColor = palette.content,
+    ) {
+        Text(
+            text = "DPI: ${failureClass.label}",
             style = RipDpiThemeTokens.type.monoSmall,
             modifier = Modifier.padding(horizontal = RipDpiThemeTokens.spacing.sm, vertical = 4.dp),
         )

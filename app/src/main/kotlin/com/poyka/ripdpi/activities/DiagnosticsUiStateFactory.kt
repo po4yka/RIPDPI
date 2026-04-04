@@ -307,6 +307,7 @@ internal class DiagnosticsUiStateFactory
                 completedProbes = input.completedProbes,
                 candidateTimeline = input.candidateTimeline,
                 dnsBaselineStatus = input.dnsBaselineStatus,
+                dpiFailureClass = input.dpiFailureClass,
                 hiddenProbeConflictDialog = input.hiddenProbeConflictDialog,
                 queuedManualScanRequest = input.queuedManualScanRequest,
             )
@@ -511,6 +512,7 @@ internal data class DiagnosticsUiStateInput(
     val completedProbes: List<CompletedProbeUiModel> = emptyList(),
     val candidateTimeline: List<StrategyCandidateTimelineEntryUiModel> = emptyList(),
     val dnsBaselineStatus: DnsBaselineStatus? = null,
+    val dpiFailureClass: DpiFailureClass? = null,
     val hiddenProbeConflictDialog: HiddenProbeConflictDialogState? = null,
     val queuedManualScanRequest: QueuedManualScanRequest? = null,
 )

@@ -160,13 +160,24 @@ pub(crate) fn reorder_tcp_candidates_for_failure(
         Some(FailureClass::SilentDrop) if !fake_ttl_available => {
             &["baseline_current", "tlsrec_split_host", "tlsrec_hostfake_split", "split_host"]
         }
-        Some(FailureClass::SilentDrop) => {
-            &["baseline_current", "tlsrec_fake_rich", "tlsrec_hostfake_split", "tlsrec_fakeddisorder"]
-        }
+        Some(FailureClass::SilentDrop) => &[
+            "baseline_current",
+            "tlsrec_fake_rich",
+            "tlsrec_disorder",
+            "tlsrec_hostfake_split",
+            "tlsrec_fakeddisorder",
+        ],
         Some(FailureClass::TlsAlert) => {
             &["baseline_current", "tlsrec_split_host", "tlsrec_hostfake_split", "split_host"]
         }
-        _ => &["baseline_current", "tlsrec_split_host", "tlsrec_hostfake_split", "tlsrec_fake_rich", "split_host"],
+        _ => &[
+            "baseline_current",
+            "tlsrec_split_host",
+            "tlsrec_hostfake_split",
+            "tlsrec_fake_rich",
+            "tlsrec_disorder",
+            "split_host",
+        ],
     };
     let mut ordered = Vec::with_capacity(candidates.len());
     for id in preferred_ids {
