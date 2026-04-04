@@ -3,6 +3,7 @@
 pub mod classify;
 pub mod entropy;
 mod fake_profiles;
+pub mod fields;
 mod http;
 mod quic;
 mod tls;

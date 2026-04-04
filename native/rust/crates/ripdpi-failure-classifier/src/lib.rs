@@ -6,6 +6,7 @@ use std::net::IpAddr;
 use serde::{Deserialize, Serialize};
 
 pub mod block_detection;
+pub mod field_classifier;
 
 pub use block_detection::{
     block_signal_from_failure, bundled_blockpage_fingerprints, classify_http_response_block,
