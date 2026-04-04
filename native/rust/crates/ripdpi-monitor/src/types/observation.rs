@@ -134,6 +134,12 @@ pub struct DnsObservationFact {
     pub udp_response_size: Option<u32>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub udp_has_edns0: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub comparison_score: Option<u32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub record_type_mismatch: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub malformed_pointers: Option<bool>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
