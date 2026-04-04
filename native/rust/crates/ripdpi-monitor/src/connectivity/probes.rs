@@ -5,7 +5,7 @@ use ripdpi_packets::{build_realistic_quic_initial, parse_quic_initial, QUIC_V1_V
 use rustls::client::danger::ServerCertVerifier;
 
 use crate::dns::*;
-use crate::dns_analysis::analyze_dns_response;
+use crate::dns_analysis::{analyze_dns_response, compare_dns_responses, parse_record_set};
 use crate::fat_header::*;
 use crate::http::*;
 use crate::tls::*;
@@ -67,7 +67,8 @@ pub(crate) fn run_dns_probe(target: &DnsTarget, transport: &TransportConfig, pat
     let (udp_result, raw_udp_response) = resolve_via_udp_with_raw(&target.domain, &udp_server, transport);
     let udp_latency_ms = udp_started.elapsed().as_millis().to_string();
     let encrypted_started = std::time::Instant::now();
-    let mut encrypted_result = resolve_via_encrypted_dns(&target.domain, encrypted_endpoint.clone(), transport);
+    let (mut encrypted_result, mut raw_encrypted_response) =
+        resolve_via_encrypted_dns_with_raw(&target.domain, encrypted_endpoint.clone(), transport);
     let encrypted_latency_ms = encrypted_started.elapsed().as_millis().to_string();
 
     // When the primary encrypted resolver fails and the target doesn't
@@ -79,8 +80,10 @@ pub(crate) fn run_dns_probe(target: &DnsTarget, transport: &TransportConfig, pat
     if encrypted_result.is_err() && target_uses_default_resolver {
         let fallback_endpoints = build_fallback_encrypted_dns_endpoints(encrypted_endpoint.resolver_id.as_deref());
         for fallback_ep in &fallback_endpoints {
-            if let Ok(result) = resolve_via_encrypted_dns(&target.domain, fallback_ep.clone(), transport) {
-                encrypted_result = Ok(result);
+            let (result, raw) = resolve_via_encrypted_dns_with_raw(&target.domain, fallback_ep.clone(), transport);
+            if result.is_ok() {
+                encrypted_result = result;
+                raw_encrypted_response = raw;
                 fallback_resolver_used = fallback_ep.resolver_id.clone();
                 break;
             }
@@ -198,6 +201,35 @@ pub(crate) fn run_dns_probe(target: &DnsTarget, transport: &TransportConfig, pat
             ProbeDetail { key: "udpCnameTargets".to_string(), value: analysis.cname_targets.join("|") },
             ProbeDetail { key: "udpTamperingScore".to_string(), value: analysis.tampering_score.to_string() },
             ProbeDetail { key: "udpAnomalySignals".to_string(), value: analysis.signals.join("|") },
+            ProbeDetail { key: "malformedPointers".to_string(), value: analysis.malformed_pointers.to_string() },
+        ]);
+    }
+
+    // Record-level comparison when both raw responses are available.
+    if let (Some(udp_raw), Some(enc_raw)) = (raw_udp_response.as_deref(), raw_encrypted_response.as_deref()) {
+        let udp_records = parse_record_set(udp_raw);
+        let enc_records = parse_record_set(enc_raw);
+        let comparison = compare_dns_responses(&udp_records, &enc_records);
+
+        let udp_types: Vec<&str> = udp_records.answers.iter().map(|r| r.rtype_name).collect();
+        let enc_types: Vec<&str> = enc_records.answers.iter().map(|r| r.rtype_name).collect();
+
+        result.details.extend([
+            ProbeDetail { key: "udpRecordTypes".to_string(), value: udp_types.join("|") },
+            ProbeDetail { key: "encryptedRecordTypes".to_string(), value: enc_types.join("|") },
+            ProbeDetail { key: "recordTypeMismatch".to_string(), value: comparison.record_type_mismatch.to_string() },
+            ProbeDetail {
+                key: "answerCountDivergence".to_string(),
+                value: comparison.answer_count_divergence.to_string(),
+            },
+            ProbeDetail {
+                key: "ttlDivergence".to_string(),
+                value: comparison.ttl_divergence.map_or_else(String::new, |v| v.to_string()),
+            },
+            ProbeDetail { key: "authorityMismatch".to_string(), value: comparison.authority_mismatch.to_string() },
+            ProbeDetail { key: "extraCnames".to_string(), value: comparison.extra_cnames.join("|") },
+            ProbeDetail { key: "comparisonScore".to_string(), value: comparison.comparison_score.to_string() },
+            ProbeDetail { key: "comparisonSignals".to_string(), value: comparison.comparison_signals.join("|") },
         ]);
     }
 

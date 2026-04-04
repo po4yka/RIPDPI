@@ -134,8 +134,24 @@ pub(crate) fn resolve_via_encrypted_dns(
     endpoint: EncryptedDnsEndpoint,
     transport: &TransportConfig,
 ) -> Result<Vec<String>, String> {
-    let response = exchange_encrypted_dns_query(domain, DNS_RECORD_TYPE_A, endpoint, transport)?;
-    extract_ip_answers(&response).map_err(|err| err.to_string())
+    let (result, _raw) = resolve_via_encrypted_dns_with_raw(domain, endpoint, transport);
+    result
+}
+
+/// Like [`resolve_via_encrypted_dns`] but also returns the raw response bytes
+/// for record-level comparison with the UDP response.
+pub(crate) fn resolve_via_encrypted_dns_with_raw(
+    domain: &str,
+    endpoint: EncryptedDnsEndpoint,
+    transport: &TransportConfig,
+) -> (Result<Vec<String>, String>, Option<Vec<u8>>) {
+    match exchange_encrypted_dns_query(domain, DNS_RECORD_TYPE_A, endpoint, transport) {
+        Ok(raw) => {
+            let parsed = extract_ip_answers(&raw).map_err(|err| err.to_string());
+            (parsed, Some(raw))
+        }
+        Err(err) => (Err(err), None),
+    }
 }
 
 pub(crate) fn resolve_https_ech_configs_via_encrypted_dns(
