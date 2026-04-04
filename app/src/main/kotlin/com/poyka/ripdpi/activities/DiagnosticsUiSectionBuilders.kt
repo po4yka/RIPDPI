@@ -64,6 +64,7 @@ internal fun DiagnosticsUiFactorySupport.buildScanUiModel(
     candidateTimeline: List<StrategyCandidateTimelineEntryUiModel> = emptyList(),
     dnsBaselineStatus: DnsBaselineStatus? = null,
     dpiFailureClass: DpiFailureClass? = null,
+    networkContext: ScanNetworkContextUiModel? = null,
     vpnPermissionDisabled: Boolean = false,
     hiddenProbeConflictDialog: HiddenProbeConflictDialogState? = null,
     queuedManualScanRequest: QueuedManualScanRequest? = null,
@@ -168,6 +169,7 @@ internal fun DiagnosticsUiFactorySupport.buildScanUiModel(
                     candidateTimeline = candidateTimeline,
                     dnsBaselineStatus = dnsBaselineStatus,
                     dpiFailureClass = dpiFailureClass,
+                    networkContext = networkContext,
                 )
             },
         latestSession = latestProfileSession?.let(::toSessionRowUiModel),

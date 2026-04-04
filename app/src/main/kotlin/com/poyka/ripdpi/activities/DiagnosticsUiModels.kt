@@ -184,6 +184,14 @@ enum class DpiFailureClass(
 }
 
 @Immutable
+data class ScanNetworkContextUiModel(
+    val transport: String,
+    val signalLabel: String?,
+    val resolverLabel: String?,
+    val validated: Boolean,
+)
+
+@Immutable
 data class StrategyCandidateTimelineEntryUiModel(
     val candidateId: String,
     val candidateLabel: String,
@@ -210,6 +218,7 @@ data class DiagnosticsProgressUiModel(
     val strategyProbeProgress: DiagnosticsStrategyProbeLiveProgressUiModel? = null,
     val dnsBaselineStatus: DnsBaselineStatus? = null,
     val dpiFailureClass: DpiFailureClass? = null,
+    val networkContext: ScanNetworkContextUiModel? = null,
     val candidateTimeline: List<StrategyCandidateTimelineEntryUiModel> = emptyList(),
     val completedProbes: List<CompletedProbeUiModel> = emptyList(),
 )

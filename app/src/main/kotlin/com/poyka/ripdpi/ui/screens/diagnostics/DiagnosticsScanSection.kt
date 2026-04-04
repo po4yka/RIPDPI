@@ -56,6 +56,7 @@ import com.poyka.ripdpi.activities.DnsBaselineStatus
 import com.poyka.ripdpi.activities.DpiFailureClass
 import com.poyka.ripdpi.activities.PhaseState
 import com.poyka.ripdpi.activities.PhaseStepUiModel
+import com.poyka.ripdpi.activities.ScanNetworkContextUiModel
 import com.poyka.ripdpi.activities.StrategyCandidateTimelineEntryUiModel
 import com.poyka.ripdpi.diagnostics.StrategyProbeAuditAssessment
 import com.poyka.ripdpi.diagnostics.StrategyProbeAuditConfidenceLevel
@@ -472,6 +473,9 @@ private fun ScanProgressCard(
                     color = RipDpiThemeTokens.colors.mutedForeground,
                 )
             }
+        }
+        progress.networkContext?.let { ctx ->
+            NetworkContextRow(context = ctx)
         }
     }
 }
