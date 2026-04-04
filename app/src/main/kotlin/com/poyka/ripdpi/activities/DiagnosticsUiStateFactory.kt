@@ -308,9 +308,33 @@ internal class DiagnosticsUiStateFactory
                 candidateTimeline = input.candidateTimeline,
                 dnsBaselineStatus = input.dnsBaselineStatus,
                 dpiFailureClass = input.dpiFailureClass,
+                networkContext = buildScanNetworkContext(input.liveSnapshots.firstOrNull(), input.currentTelemetry),
                 hiddenProbeConflictDialog = input.hiddenProbeConflictDialog,
                 queuedManualScanRequest = input.queuedManualScanRequest,
             )
+
+        private fun buildScanNetworkContext(
+            snapshot: com.poyka.ripdpi.diagnostics.DiagnosticNetworkSnapshot?,
+            telemetry: com.poyka.ripdpi.diagnostics.DiagnosticTelemetrySample?,
+        ): ScanNetworkContextUiModel? {
+            val net = snapshot?.snapshot ?: return null
+            val transport = net.transport.replaceFirstChar { it.uppercase() }
+            val signalLabel =
+                net.wifiDetails?.rssiDbm?.let { "$it dBm" }
+                    ?: net.cellularDetails?.signalDbm?.let { "$it dBm" }
+            val resolverLabel =
+                telemetry?.let { t ->
+                    val id = t.resolverId?.replaceFirstChar { it.uppercase() }
+                    val proto = t.resolverProtocol?.uppercase()
+                    if (id != null && proto != null) "$id $proto" else id ?: proto
+                }
+            return ScanNetworkContextUiModel(
+                transport = transport,
+                signalLabel = signalLabel,
+                resolverLabel = resolverLabel,
+                validated = net.networkValidated,
+            )
+        }
 
         private fun buildLiveState(input: DiagnosticsUiStateInput): DiagnosticsLiveUiModel =
             support.buildLiveUiModel(
