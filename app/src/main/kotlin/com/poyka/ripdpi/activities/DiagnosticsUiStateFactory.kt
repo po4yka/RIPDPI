@@ -305,6 +305,7 @@ internal class DiagnosticsUiStateFactory
                         ?.vpnPermissionState == "disabled",
                 scanStartedAt = input.scanStartedAt,
                 completedProbes = input.completedProbes,
+                candidateTimeline = input.candidateTimeline,
                 hiddenProbeConflictDialog = input.hiddenProbeConflictDialog,
                 queuedManualScanRequest = input.queuedManualScanRequest,
             )
@@ -507,6 +508,7 @@ internal data class DiagnosticsUiStateInput(
     val scanStartedAt: Long?,
     val activeScanPathMode: ScanPathMode?,
     val completedProbes: List<CompletedProbeUiModel> = emptyList(),
+    val candidateTimeline: List<StrategyCandidateTimelineEntryUiModel> = emptyList(),
     val hiddenProbeConflictDialog: HiddenProbeConflictDialogState? = null,
     val queuedManualScanRequest: QueuedManualScanRequest? = null,
 )

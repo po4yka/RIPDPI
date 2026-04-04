@@ -52,6 +52,7 @@ import com.poyka.ripdpi.activities.DiagnosticsTone
 import com.poyka.ripdpi.activities.DiagnosticsWorkflowRestrictionActionKindUiModel
 import com.poyka.ripdpi.activities.PhaseState
 import com.poyka.ripdpi.activities.PhaseStepUiModel
+import com.poyka.ripdpi.activities.StrategyCandidateTimelineEntryUiModel
 import com.poyka.ripdpi.diagnostics.StrategyProbeAuditAssessment
 import com.poyka.ripdpi.diagnostics.StrategyProbeAuditConfidenceLevel
 import com.poyka.ripdpi.diagnostics.StrategyProbeCompletionKind
@@ -409,6 +410,9 @@ private fun ScanProgressCard(
                 )
             }
         }
+        if (progress.candidateTimeline.isNotEmpty()) {
+            CandidateTimeline(entries = progress.candidateTimeline)
+        }
         AnimatedContent(
             targetState = progress.currentProbeLabel,
             transitionSpec = {
@@ -501,6 +505,41 @@ private fun PhaseChip(step: PhaseStepUiModel) {
                 style = RipDpiThemeTokens.type.monoSmall,
                 color = animatedContent.copy(alpha = dotAlpha),
             )
+        }
+    }
+}
+
+@Composable
+private fun CandidateTimeline(entries: List<StrategyCandidateTimelineEntryUiModel>) {
+    val spacing = RipDpiThemeTokens.spacing
+    LazyRow(
+        horizontalArrangement = Arrangement.spacedBy(spacing.xs),
+    ) {
+        items(
+            items = entries,
+            key = { it.candidateId },
+            contentType = { "candidate_dot" },
+        ) { entry ->
+            val palette = metricPalette(entry.tone)
+            Surface(
+                shape = RipDpiThemeTokens.shapes.full,
+                color = palette.container,
+                contentColor = palette.content,
+            ) {
+                Text(
+                    text =
+                        when {
+                            entry.outcome.equals("success", ignoreCase = true) -> "+"
+
+                            entry.outcome.equals("skipped", ignoreCase = true) ||
+                                entry.outcome.equals("not_applicable", ignoreCase = true) -> "-"
+
+                            else -> "x"
+                        },
+                    style = RipDpiThemeTokens.type.monoSmall,
+                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                )
+            }
         }
     }
 }
