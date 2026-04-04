@@ -394,6 +394,7 @@ class DefaultDiagnosticsHomeCompositeRunService
                         pathMode = spec.pathMode,
                         selectedProfileId = spec.profileId,
                         skipActiveScanCheck = true,
+                        scanDeadlineMs = stageTimeoutMs(spec) - 30_000L,
                     )
                 }.fold(
                     onSuccess = { result ->

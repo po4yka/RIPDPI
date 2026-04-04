@@ -66,6 +66,7 @@ interface DiagnosticsScanController {
         pathMode: ScanPathMode,
         selectedProfileId: String? = null,
         skipActiveScanCheck: Boolean = false,
+        scanDeadlineMs: Long? = null,
     ): DiagnosticsManualScanStartResult
 
     suspend fun resolveHiddenProbeConflict(

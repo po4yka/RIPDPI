@@ -69,6 +69,7 @@ data class EngineScanRequestWire(
     val networkSnapshot: NativeNetworkSnapshot? = null,
     val nativeLogLevel: String? = null,
     val logContext: RipDpiLogContext? = null,
+    val scanDeadlineMs: Long? = null,
 )
 
 @Serializable
