@@ -15,8 +15,8 @@ use crate::classification::{
 };
 use crate::connectivity::set_progress;
 use crate::execution::{
-    execute_quic_candidate, execute_tcp_candidate, not_applicable_candidate_execution, skipped_candidate_summary,
-    winning_candidate_index,
+    eliminated_candidate_summary, execute_quic_candidate, execute_tcp_candidate, not_applicable_candidate_execution,
+    skipped_candidate_summary, winning_candidate_index,
 };
 use crate::observations::observations_for_results;
 use crate::strategy::detect_strategy_probe_dns_tampering;
@@ -606,6 +606,67 @@ impl ExecutionStageRunner for StrategyTcpRunner {
         // simultaneously. Mitigation would require 500ms stagger + different domain
         // ordering per candidate in the pair.
         let mut pending_tcp_specs = ordered_tcp_specs;
+        // Round 1 qualifier: test each candidate against 1 domain first.
+        // Eliminates candidates that fail completely before the full-matrix run.
+        if domain_targets.len() > 1 {
+            let qualifier_targets = &domain_targets[..1];
+            let mut qualified_specs: Vec<StrategyCandidateSpec> = Vec::with_capacity(pending_tcp_specs.len());
+            let mut eliminated_count = 0usize;
+            for spec in pending_tcp_specs.drain(..) {
+                if runtime.is_cancelled() || runtime.is_past_deadline() {
+                    // Don't eliminate untested candidates on cancellation/deadline.
+                    qualified_specs.push(spec);
+                    continue;
+                }
+                // Baseline always qualifies; not-applicable candidates pass through.
+                let pass_through = spec.id == "baseline_current"
+                    || (spec.eligibility == CandidateEligibility::RequiresEchCapability && !baseline_ech_capable)
+                    || (spec.requires_fake_ttl && !fake_ttl_available);
+                if pass_through {
+                    qualified_specs.push(spec);
+                    continue;
+                }
+                let qualifier_execution = execute_tcp_candidate(
+                    &spec,
+                    qualifier_targets,
+                    strategy_plan.runtime_context.as_ref(),
+                    strategy_plan.probe_seed,
+                    tls_verifier,
+                    runtime.cancel_token(),
+                );
+                if qualifier_execution.cancelled {
+                    // Treat as pass-through so the main loop handles cancellation.
+                    qualified_specs.push(spec);
+                    continue;
+                }
+                if qualifier_execution.summary.succeeded_targets > 0 {
+                    qualified_specs.push(spec);
+                } else {
+                    let summary = eliminated_candidate_summary(
+                        &spec,
+                        qualifier_execution.summary.succeeded_targets,
+                        qualifier_execution.summary.total_targets,
+                        3,
+                    );
+                    runtime.strategy.tcp_candidates.push(summary);
+                    eliminated_count += 1;
+                }
+            }
+            // Safety: if all candidates were eliminated (shouldn't happen since
+            // baseline always qualifies), skip elimination to avoid empty run.
+            if qualified_specs.is_empty() {
+                tracing::warn!("strategy probe: Round 1 qualifier eliminated all candidates — skipping elimination");
+                // pending_tcp_specs was drained; leave it empty and let the main loop exit cleanly.
+            } else {
+                let qualified_count = qualified_specs.len();
+                tracing::info!(
+                    qualified = qualified_count,
+                    eliminated = eliminated_count,
+                    "strategy probe: Round 1 qualifier complete"
+                );
+                pending_tcp_specs = qualified_specs;
+            }
+        }
         let mut tcp_failure_tracker = FamilyFailureTracker::new(strategy_plan.suite.family_failure_threshold);
         let planned_count = tcp_specs.len();
         let mut executed_count = 1usize; // baseline already executed
