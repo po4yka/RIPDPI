@@ -2893,6 +2893,7 @@ name = "ripdpi-packets"
 version = "0.1.0"
 dependencies = [
  "aes",
+ "android-support",
  "nom 8.0.0",
  "proptest",
  "ring",
