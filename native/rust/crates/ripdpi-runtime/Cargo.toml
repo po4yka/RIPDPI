@@ -45,4 +45,4 @@ local-network-fixture = { workspace = true }
 native-soak-support = { workspace = true }
 rustls = { workspace = true }
 serde_json = { workspace = true }
-tempfile = "3.14"
+tempfile = "3.27"
