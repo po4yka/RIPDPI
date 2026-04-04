@@ -47,6 +47,8 @@
     <string name="diagnostics_audit_profile_title">Автоматический аудит</string>
     <string name="diagnostics_audit_ready_title">Аудит готов</string>
     <string name="diagnostics_audit_short_circuit_title">Аудит прерван досрочно</string>
+    <string name="diagnostics_probe_partial_results_title">Превышен лимит времени</string>
+    <string name="diagnostics_audit_partial_results_title">Превышен лимит времени аудита</string>
     <string name="diagnostics_audit_progress_title">Выполняется сетевой аудит</string>
     <string name="diagnostics_audit_unavailable_title">Автоматический аудит недоступен</string>
     <string name="diagnostics_probe_manual_apply_title">Как использовать этот результат</string>
@@ -87,6 +89,8 @@
     <string name="diagnostics_profile_audit_running_body">RIPDPI выполняет полную встроенную матрицу стратегий только по прямому пути. Текущая сессия VPN или прокси приостанавливается на время аудита и восстанавливается после.</string>
     <string name="diagnostics_profile_audit_ready_body">Последний автоматический аудит завершён: сформированы полная матрица, доказательства по каждому кандидату и ручная рекомендация.</string>
     <string name="diagnostics_profile_audit_short_circuit_body">Подмена DNS была обнаружена до запуска матрицы аудита. RIPDPI досрочно остановил резервные испытания и вернул ориентированный на резолвер результат с низкой уверенностью.</string>
+    <string name="diagnostics_profile_probe_partial_results_body">Время сканирования истекло до проверки всех кандидатов. Результаты основаны на %1$d из %2$d кандидатов.</string>
+    <string name="diagnostics_profile_audit_partial_results_body">Время аудита истекло до проверки всех кандидатов. Результаты основаны на %1$d из %2$d кандидатов.</string>
     <string name="diagnostics_profile_audit_unavailable_body">Автоматический аудит работает только с визуальными настройками RIPDPI. Отключите режим командной строки перед запуском этого процесса.</string>
     <string name="diagnostics_profile_badge_dns_http_https_tcp">DNS + HTTP + HTTPS + TCP</string>
     <string name="diagnostics_profile_badge_http_https_quic">HTTP + HTTPS + QUIC</string>
@@ -164,6 +168,7 @@
     <string name="diagnostics_eta_remaining">~%1$s осталось</string>
     <string name="diagnostics_audit_matrix_title">Матрица аудита</string>
     <string name="diagnostics_audit_short_circuit_matrix_title">Неполный аудит</string>
+    <string name="diagnostics_partial_results_matrix_title">Частичные результаты (%1$d/%2$d кандидатов)</string>
     <string name="diagnostics_audit_summary_title">Сводка аудита</string>
     <string name="diagnostics_audit_candidate_notes_title">Примечания</string>
     <string name="diagnostics_audit_candidate_signature_title">Конфигурация кандидата</string>

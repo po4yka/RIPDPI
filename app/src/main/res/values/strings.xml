@@ -47,6 +47,8 @@
     <string name="diagnostics_audit_profile_title">Automatic audit</string>
     <string name="diagnostics_audit_ready_title">Audit ready</string>
     <string name="diagnostics_audit_short_circuit_title">Audit short-circuited</string>
+    <string name="diagnostics_probe_partial_results_title">Scan budget exceeded</string>
+    <string name="diagnostics_audit_partial_results_title">Audit budget exceeded</string>
     <string name="diagnostics_audit_progress_title">Running network audit</string>
     <string name="diagnostics_audit_unavailable_title">Automatic audit unavailable</string>
     <string name="diagnostics_probe_manual_apply_title">How to use this result</string>
@@ -91,6 +93,8 @@
     <string name="diagnostics_profile_audit_running_body">RIPDPI is running the full built-in strategy matrix on raw path only. The current VPN or proxy session is paused and restored around the audit.</string>
     <string name="diagnostics_profile_audit_ready_body">The latest automatic audit finished with a full matrix, per-candidate evidence, and a manual recommendation.</string>
     <string name="diagnostics_profile_audit_short_circuit_body">DNS tampering was detected before the audit matrix ran. RIPDPI stopped the fallback trials early and returned a low-confidence resolver-oriented result.</string>
+    <string name="diagnostics_profile_probe_partial_results_body">The scan ran out of time before all candidates could be tested. Results are based on %1$d of %2$d candidates.</string>
+    <string name="diagnostics_profile_audit_partial_results_body">The audit ran out of time before all candidates could be tested. Results are based on %1$d of %2$d candidates.</string>
     <string name="diagnostics_profile_audit_unavailable_body">Automatic audit only works with visual RIPDPI settings. Turn off raw command-line mode before running this workflow.</string>
     <string name="diagnostics_profile_badge_dns_http_https_tcp">DNS + HTTP + HTTPS + TCP</string>
     <string name="diagnostics_profile_badge_http_https_quic">HTTP + HTTPS + QUIC</string>
@@ -168,6 +172,7 @@
     <string name="diagnostics_eta_remaining">~%1$s remaining</string>
     <string name="diagnostics_audit_matrix_title">Audit matrix</string>
     <string name="diagnostics_audit_short_circuit_matrix_title">Incomplete audit</string>
+    <string name="diagnostics_partial_results_matrix_title">Partial results (%1$d/%2$d candidates)</string>
     <string name="diagnostics_audit_confidence_title">Audit confidence</string>
     <string name="diagnostics_audit_medium_confidence_note">Confidence is moderate. Review the candidate evidence before copying this strategy into your main settings.</string>
     <string name="diagnostics_audit_low_confidence_title">Low-confidence audit result</string>
