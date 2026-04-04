@@ -358,7 +358,52 @@ pub(super) fn normalize_learned_host(host: &str) -> Option<String> {
     if normalized.parse::<IpAddr>().is_ok() {
         return None;
     }
+    if is_system_telemetry_host(&normalized) {
+        tracing::debug!(host = normalized.as_str(), "autolearn: skipping system telemetry host");
+        return None;
+    }
     Some(normalized)
+}
+
+/// Returns true for hosts belonging to OS/vendor telemetry, push notification,
+/// and cloud infrastructure services that are never DPI-blocked and should not
+/// consume autolearn slots.
+fn is_system_telemetry_host(host: &str) -> bool {
+    const EXCLUDED_SUFFIXES: &[&str] = &[
+        ".googleapis.com",
+        ".gstatic.com",
+        ".googlevideo.com",
+        ".google-analytics.com",
+        ".googleadservices.com",
+        "mtalk.google.com",
+        "connectivitycheck.gstatic.com",
+        ".hicloud.com",
+        ".dbankcloud.com",
+        ".dbankcloud.ru",
+        ".dbankcdn.com",
+        ".hwcdn.net",
+        ".samsungcloud.com",
+        ".samsungelectronics.com",
+        ".samsung-gasp.com",
+        ".icloud.com",
+        ".apple.com",
+        ".mzstatic.com",
+        ".msftconnecttest.com",
+        ".windowsupdate.com",
+        ".trafficmanager.net",
+        ".miui.com",
+        ".xiaomi.com",
+        ".firebaseio.com",
+        ".crashlytics.com",
+        ".app-measurement.com",
+    ];
+
+    for suffix in EXCLUDED_SUFFIXES {
+        if host == suffix.trim_start_matches('.') || host.ends_with(suffix) {
+            return true;
+        }
+    }
+    false
 }
 
 fn config_fingerprint(config: &RuntimeConfig) -> String {
@@ -839,6 +884,23 @@ mod tests {
     fn normalize_host_rejects_only_dots() {
         assert_eq!(normalize_learned_host("."), None);
         assert_eq!(normalize_learned_host("..."), None);
+    }
+
+    #[test]
+    fn normalize_rejects_system_telemetry_hosts() {
+        assert!(normalize_learned_host("metrics5.data.hicloud.com").is_none());
+        assert!(normalize_learned_host("socialuserlocation.googleapis.com").is_none());
+        assert!(normalize_learned_host("mtalk.google.com").is_none());
+        assert!(normalize_learned_host("weather-drru.music.dbankcloud.ru").is_none());
+        assert!(normalize_learned_host("connectivitycheck.gstatic.com").is_none());
+    }
+
+    #[test]
+    fn normalize_allows_real_user_domains() {
+        assert_eq!(normalize_learned_host("www.youtube.com"), Some("www.youtube.com".to_string()));
+        assert_eq!(normalize_learned_host("discord.com"), Some("discord.com".to_string()));
+        assert_eq!(normalize_learned_host("meduza.io"), Some("meduza.io".to_string()));
+        assert_eq!(normalize_learned_host("signal.org"), Some("signal.org".to_string()));
     }
 
     // ---- host_has_active_penalty tests ----
