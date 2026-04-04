@@ -178,6 +178,7 @@ pub(crate) fn reorder_tcp_candidates_for_failure(
             "tlsrec_disorder",
             "split_host",
             "tlsrec_oob",
+            "tlsrandrec_split",
         ],
     };
     let mut ordered = Vec::with_capacity(candidates.len());

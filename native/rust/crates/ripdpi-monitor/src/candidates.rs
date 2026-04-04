@@ -282,6 +282,18 @@ pub(crate) fn build_tcp_candidates(base: &ProxyUiConfig) -> Vec<StrategyCandidat
             "tlsrec_disoob",
             build_tlsrec_disoob_candidate(base),
         ),
+        candidate_spec(
+            "tlsrandrec_split",
+            "TLS random record + split",
+            "tlsrandrec_split",
+            build_tlsrandrec_split_candidate(base),
+        ),
+        candidate_spec(
+            "tlsrandrec_disorder",
+            "TLS random record + disorder",
+            "tlsrandrec_disorder",
+            build_tlsrandrec_disorder_candidate(base),
+        ),
         candidate_spec("tlsrec_fakeddisorder", "TLS record + fakeddisorder", "fake_approx", tlsrec_fakeddisorder),
         candidate_spec("tlsrec_fakedsplit", "TLS record + fakedsplit", "fake_approx", tlsrec_fakedsplit),
         candidate_spec("tlsrec_hostfake", "TLS record + hostfake", "hostfake", tlsrec_hostfake),
@@ -539,6 +551,18 @@ fn build_disoob_host_candidate(base: &ProxyUiConfig) -> ProxyUiConfig {
 fn build_tlsrec_disoob_candidate(base: &ProxyUiConfig) -> ProxyUiConfig {
     let mut config = strategy_probe_base(base);
     config.chains.tcp_steps = vec![tcp_step("tlsrec", "extlen"), tcp_step("disoob", "host+2")];
+    config
+}
+
+fn build_tlsrandrec_split_candidate(base: &ProxyUiConfig) -> ProxyUiConfig {
+    let mut config = strategy_probe_base(base);
+    config.chains.tcp_steps = vec![tcp_step("tlsrandrec", "sniext+4"), tcp_step("split", "host+2")];
+    config
+}
+
+fn build_tlsrandrec_disorder_candidate(base: &ProxyUiConfig) -> ProxyUiConfig {
+    let mut config = strategy_probe_base(base);
+    config.chains.tcp_steps = vec![tcp_step("tlsrandrec", "sniext+4"), tcp_step("disorder", "host+2")];
     config
 }
 
