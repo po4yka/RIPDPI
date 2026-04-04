@@ -53,6 +53,7 @@ internal class DefaultDiagnosticsScanController
             pathMode: ScanPathMode,
             selectedProfileId: String?,
             skipActiveScanCheck: Boolean,
+            scanDeadlineMs: Long?,
         ): DiagnosticsManualScanStartResult =
             startMutex.withLock {
                 when (val admission = scanAdmissionService.admitManualStart(selectedProfileId, skipActiveScanCheck)) {
@@ -69,6 +70,7 @@ internal class DefaultDiagnosticsScanController
                                         launchTrigger = null,
                                         exposeProgress = true,
                                         registerActiveBridge = true,
+                                        scanDeadlineMs = scanDeadlineMs,
                                     ),
                                 rawPathRunner = { block -> runtimeCoordinator.runRawPathScan(block) },
                             ),

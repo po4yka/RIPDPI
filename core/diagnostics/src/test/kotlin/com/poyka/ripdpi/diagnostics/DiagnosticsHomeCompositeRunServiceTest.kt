@@ -333,6 +333,7 @@ class DiagnosticsHomeCompositeRunServiceTest {
                         pathMode: ScanPathMode,
                         selectedProfileId: String?,
                         skipActiveScanCheck: Boolean,
+                        scanDeadlineMs: Long?,
                     ): DiagnosticsManualScanStartResult {
                         val count = (attemptCounts[selectedProfileId] ?: 0) + 1
                         attemptCounts[selectedProfileId ?: ""] = count
@@ -737,6 +738,7 @@ private class RecordingHomeCompositeScanController(
         pathMode: ScanPathMode,
         selectedProfileId: String?,
         skipActiveScanCheck: Boolean,
+        scanDeadlineMs: Long?,
     ): DiagnosticsManualScanStartResult {
         nextId += 1
         val sessionId = "scan-$nextId"

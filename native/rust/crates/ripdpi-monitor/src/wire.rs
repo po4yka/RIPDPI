@@ -82,6 +82,8 @@ pub struct EngineScanRequestWire {
     #[serde(default)]
     pub network_snapshot: Option<ripdpi_proxy_config::NetworkSnapshot>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub scan_deadline_ms: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub native_log_level: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub log_context: Option<ripdpi_proxy_config::ProxyLogContext>,
@@ -173,6 +175,7 @@ impl From<EngineScanRequestWire> for ScanRequest {
             telegram_target: value.telegram_target,
             strategy_probe: value.strategy_probe,
             network_snapshot: value.network_snapshot,
+            scan_deadline_ms: value.scan_deadline_ms,
         }
     }
 }
@@ -202,6 +205,7 @@ impl From<ScanRequest> for EngineScanRequestWire {
             telegram_target: value.telegram_target,
             strategy_probe: value.strategy_probe,
             network_snapshot: value.network_snapshot,
+            scan_deadline_ms: value.scan_deadline_ms,
             native_log_level: None,
             log_context: None,
         }

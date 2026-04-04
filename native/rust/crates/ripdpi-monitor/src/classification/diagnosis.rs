@@ -805,6 +805,7 @@ mod tests {
             telegram_target: None,
             strategy_probe: None,
             network_snapshot: None,
+            scan_deadline_ms: None,
         }
     }
 

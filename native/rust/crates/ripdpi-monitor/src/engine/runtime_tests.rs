@@ -46,6 +46,7 @@ fn test_plan() -> ExecutionPlan {
             telegram_target: None,
             strategy_probe: None,
             network_snapshot: None,
+            scan_deadline_ms: None,
         },
         started_at: 0,
         total_steps: 8,
