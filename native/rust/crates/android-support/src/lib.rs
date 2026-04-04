@@ -1,3 +1,4 @@
+pub mod bounded_heap;
 mod sync;
 
 use std::collections::{HashMap, VecDeque};

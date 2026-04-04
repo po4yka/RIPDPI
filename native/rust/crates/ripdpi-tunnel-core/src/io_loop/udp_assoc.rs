@@ -1,9 +1,11 @@
+use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::io;
 use std::net::SocketAddr;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant as StdInstant};
 
+use android_support::bounded_heap::BoundedHeap;
 use tokio_util::sync::CancellationToken;
 use tracing::debug;
 
@@ -27,10 +29,51 @@ pub(super) enum UdpEvent {
     Closed { src: SocketAddr, association_id: u64 },
 }
 
+/// Default maximum number of concurrent UDP associations.
+pub(super) const DEFAULT_MAX_UDP_ASSOCIATIONS: usize = 512;
+
+/// Eviction priority entry for UDP associations.
+///
+/// Orders by `last_activity` (oldest first = smallest = evicted first).
+#[derive(Debug, Eq, PartialEq)]
+pub(super) struct UdpEvictionEntry {
+    pub addr: SocketAddr,
+    pub last_activity_epoch: u64, // milliseconds since process start
+}
+
+impl Ord for UdpEvictionEntry {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.last_activity_epoch.cmp(&other.last_activity_epoch)
+    }
+}
+
+impl PartialOrd for UdpEvictionEntry {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+/// Evict the least-recently-active UDP association if the map exceeds capacity.
+pub(super) fn evict_if_over_capacity(
+    associations: &mut HashMap<SocketAddr, UdpAssociation>,
+    eviction_heap: &mut BoundedHeap<UdpEvictionEntry>,
+) {
+    if let Some(evicted) = eviction_heap.pop() {
+        if let Some(association) = associations.remove(&evicted.addr) {
+            debug!("UDP association {} evicted (idle eviction, capacity exceeded)", evicted.addr);
+            association.cancel.cancel();
+        }
+    }
+}
+
 pub(super) fn touch_udp_activity(last_activity: &Arc<Mutex<StdInstant>>) {
     if let Ok(mut guard) = last_activity.lock() {
         *guard = StdInstant::now();
     }
+}
+
+fn activity_epoch(last_activity: &Arc<Mutex<StdInstant>>) -> u64 {
+    last_activity.lock().map(|guard| guard.elapsed().as_millis() as u64).unwrap_or(u64::MAX)
 }
 
 fn udp_association_is_idle(last_activity: &Arc<Mutex<StdInstant>>, idle_timeout: Duration) -> bool {
@@ -115,6 +158,7 @@ pub(super) async fn forward_udp_payload(
     resolved_dst: SocketAddr,
     payload: &[u8],
     udp_associations: &mut HashMap<SocketAddr, UdpAssociation>,
+    udp_eviction_heap: &mut BoundedHeap<UdpEvictionEntry>,
     next_udp_association_id: &mut u64,
     udp_idle_timeout: Duration,
     cancel: &CancellationToken,
@@ -122,6 +166,11 @@ pub(super) async fn forward_udp_payload(
 ) {
     #[allow(clippy::map_entry)]
     if !udp_associations.contains_key(&src) {
+        // Evict least-recently-active if at capacity.
+        if udp_eviction_heap.is_full() {
+            evict_if_over_capacity(udp_associations, udp_eviction_heap);
+        }
+
         let association_id = *next_udp_association_id;
         *next_udp_association_id = next_udp_association_id.wrapping_add(1);
         match create_udp_association(
@@ -136,6 +185,8 @@ pub(super) async fn forward_udp_payload(
         .await
         {
             Ok(association) => {
+                let epoch = activity_epoch(&association.last_activity);
+                udp_eviction_heap.push(UdpEvictionEntry { addr: src, last_activity_epoch: epoch });
                 udp_associations.insert(src, association);
             }
             Err(err) => {

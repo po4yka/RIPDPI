@@ -3014,6 +3014,7 @@ dependencies = [
 name = "ripdpi-tunnel-core"
 version = "0.1.0"
 dependencies = [
+ "android-support",
  "anyhow",
  "etherparse",
  "fast-socks5",

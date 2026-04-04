@@ -37,7 +37,10 @@ use self::packet::{build_udp_response, is_injected_rst, TcpFlowKey};
 use self::tcp_accept::{
     ensure_pending_listen_for_syn, gc_stale_pending_listens, make_auth, proxy_addr, spawn_new_tcp_sessions,
 };
-use self::udp_assoc::{forward_udp_payload, handle_udp_event, shutdown_udp_associations, UdpAssociation, UdpEvent};
+use self::udp_assoc::{
+    forward_udp_payload, handle_udp_event, shutdown_udp_associations, UdpAssociation, UdpEvent, UdpEvictionEntry,
+    DEFAULT_MAX_UDP_ASSOCIATIONS,
+};
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -153,6 +156,8 @@ pub async fn io_loop_task(
     // Channel for UDP associations to return packets and lifecycle events.
     let (udp_tx, mut udp_rx) = tokio::sync::mpsc::channel::<UdpEvent>(256);
     let mut udp_associations: HashMap<SocketAddr, UdpAssociation> = HashMap::new();
+    let mut udp_eviction_heap: android_support::bounded_heap::BoundedHeap<UdpEvictionEntry> =
+        android_support::bounded_heap::BoundedHeap::new(DEFAULT_MAX_UDP_ASSOCIATIONS);
     let mut next_udp_association_id = 1u64;
 
     let (mut dns_req_tx, mut dns_resp_rx) = if let Some(resolver) = build_encrypted_dns_resolver(&config)
@@ -223,6 +228,7 @@ pub async fn io_loop_task(
                             resolved_dst,
                             payload,
                             &mut udp_associations,
+                            &mut udp_eviction_heap,
                             &mut next_udp_association_id,
                             udp_idle_timeout,
                             &cancel,
