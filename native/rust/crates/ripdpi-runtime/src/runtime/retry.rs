@@ -5,7 +5,7 @@ use std::thread;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use ripdpi_desync::AdaptivePlannerHints;
-use ripdpi_packets::is_quic_initial;
+use ripdpi_packets::classify::{default_registry, ProtocolId};
 
 use crate::retry_stealth::{adaptive_signature_hash, target_key, RetryDecision, RetryLane, RetrySignature};
 use crate::runtime_policy::{RetrySelectionPenalty, TransportProtocol};
@@ -53,11 +53,12 @@ pub(super) fn build_retry_signature(
 }
 
 pub(super) fn retry_lane(transport: TransportProtocol, payload: Option<&[u8]>) -> RetryLane {
-    match transport {
-        TransportProtocol::Tcp if payload.is_some_and(ripdpi_packets::is_tls_client_hello) => RetryLane::TcpTls,
-        TransportProtocol::Tcp => RetryLane::TcpOther,
-        TransportProtocol::Udp if payload.is_some_and(is_quic_initial) => RetryLane::UdpQuic,
-        TransportProtocol::Udp => RetryLane::UdpOther,
+    let proto = payload.and_then(|p| default_registry().classify_id(p));
+    match (transport, proto) {
+        (TransportProtocol::Tcp, Some(ProtocolId::Tls)) => RetryLane::TcpTls,
+        (TransportProtocol::Tcp, _) => RetryLane::TcpOther,
+        (TransportProtocol::Udp, Some(ProtocolId::Quic)) => RetryLane::UdpQuic,
+        (TransportProtocol::Udp, _) => RetryLane::UdpOther,
     }
 }
 
