@@ -61,6 +61,7 @@ internal fun DiagnosticsUiFactorySupport.buildScanUiModel(
     rawArgsEnabled: Boolean,
     scanStartedAt: Long?,
     completedProbes: List<CompletedProbeUiModel> = emptyList(),
+    candidateTimeline: List<StrategyCandidateTimelineEntryUiModel> = emptyList(),
     vpnPermissionDisabled: Boolean = false,
     hiddenProbeConflictDialog: HiddenProbeConflictDialogState? = null,
     queuedManualScanRequest: QueuedManualScanRequest? = null,
@@ -162,6 +163,7 @@ internal fun DiagnosticsUiFactorySupport.buildScanUiModel(
                     isFullAudit = selectedProfile?.isFullAudit == true,
                     scanStartedAt = scanStartedAt ?: System.currentTimeMillis(),
                     completedProbes = completedProbes,
+                    candidateTimeline = candidateTimeline,
                 )
             },
         latestSession = latestProfileSession?.let(::toSessionRowUiModel),
