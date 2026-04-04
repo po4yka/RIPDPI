@@ -427,6 +427,8 @@ pub struct ProxyUiConfig {
     pub ws_tunnel: ProxyUiWsTunnelConfig,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub native_log_level: Option<String>,
+    #[serde(default)]
+    pub root_mode: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]

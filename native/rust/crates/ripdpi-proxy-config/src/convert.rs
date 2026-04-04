@@ -455,6 +455,7 @@ pub fn runtime_config_from_ui(payload: ProxyUiConfig) -> Result<RuntimeConfig, P
         host_autolearn,
         ws_tunnel,
         native_log_level: _,
+        root_mode,
     } = payload;
 
     let listen_ip =
@@ -825,6 +826,8 @@ pub fn runtime_config_from_ui(payload: ProxyUiConfig) -> Result<RuntimeConfig, P
             "hostAutolearn.storePath is required when hostAutolearn.enabled is true".to_string(),
         ));
     }
+
+    config.process.root_mode = root_mode;
 
     Ok(config)
 }
