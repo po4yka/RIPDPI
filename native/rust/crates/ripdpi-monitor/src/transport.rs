@@ -1,5 +1,6 @@
 use std::io::{Read, Write};
 use std::net::{IpAddr, Ipv4Addr, Shutdown, SocketAddr, TcpStream, ToSocketAddrs, UdpSocket};
+use std::sync::mpsc;
 use std::thread;
 use std::time::Duration;
 
@@ -102,11 +103,22 @@ pub(crate) fn quic_connect_target(target: &QuicTarget) -> TargetAddress {
         .map_or_else(|| TargetAddress::Host(target.host.clone()), TargetAddress::Ip)
 }
 
+/// DNS resolution timeout — caps blocking `getaddrinfo` calls so that poisoned
+/// or unresponsive system resolvers cannot stall probes indefinitely.
+const DNS_RESOLVE_TIMEOUT: Duration = Duration::from_secs(5);
+
 pub(crate) fn resolve_addresses(target: &TargetAddress, port: u16) -> Result<Vec<SocketAddr>, String> {
     match target {
         TargetAddress::Ip(ip) => Ok(vec![SocketAddr::new(*ip, port)]),
         TargetAddress::Host(host) => {
-            (host.as_str(), port).to_socket_addrs().map(std::iter::Iterator::collect).map_err(|err| err.to_string())
+            let host = host.clone();
+            let (tx, rx) = mpsc::channel();
+            thread::spawn(move || {
+                let _ = tx.send(
+                    (host.as_str(), port).to_socket_addrs().map(Iterator::collect).map_err(|err| err.to_string()),
+                );
+            });
+            rx.recv_timeout(DNS_RESOLVE_TIMEOUT).map_err(|_| "dns_resolve_timeout".to_string())?
         }
     }
 }

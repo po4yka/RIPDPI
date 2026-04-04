@@ -579,8 +579,13 @@ impl ExecutionStageRunner for StrategyTcpRunner {
             let candidate_index = runtime.strategy.tcp_candidates.len() + 1;
             let spec = pending_tcp_specs.remove(next_candidate_index(&pending_tcp_specs, tcp_failure_tracker.blocked));
             tracing::debug!(candidate = spec.id, label = spec.label, "strategy probe: testing TCP candidate");
-            if runtime.is_cancelled() {
-                return RunnerOutcome::Cancelled;
+            if runtime.is_cancelled() || runtime.is_past_deadline() {
+                tracing::warn!(
+                    executed = executed_count,
+                    planned = planned_count,
+                    "strategy probe: TCP suite terminated early"
+                );
+                break;
             }
             runtime.publish_strategy_probe_candidate_started(
                 plan,
@@ -719,6 +724,16 @@ impl ExecutionStageRunner for StrategyTcpRunner {
             );
             runtime.strategy.tcp_candidates.push(execution.summary);
             executed_count += 1;
+            // Break out with partial results if the scan deadline has passed,
+            // so the recommendation runner can still process completed candidates.
+            if runtime.is_past_deadline() {
+                tracing::warn!(
+                    executed = executed_count,
+                    planned = planned_count,
+                    "strategy probe: TCP suite deadline-terminated"
+                );
+                break;
+            }
             tcp_failure_tracker.record(spec.family, failed);
             if tcp_failure_tracker.blocked.is_some() {
                 tracing::debug!(
@@ -793,8 +808,9 @@ impl ExecutionStageRunner for StrategyQuicRunner {
             let candidate_index = runtime.strategy.quic_candidates.len() + 1;
             let spec =
                 pending_quic_specs.remove(next_candidate_index(&pending_quic_specs, quic_failure_tracker.blocked));
-            if runtime.is_cancelled() {
-                return RunnerOutcome::Cancelled;
+            if runtime.is_cancelled() || runtime.is_past_deadline() {
+                tracing::warn!("strategy probe: QUIC suite terminated early");
+                break;
             }
             runtime.publish_strategy_probe_candidate_started(
                 plan,
@@ -866,6 +882,10 @@ impl ExecutionStageRunner for StrategyQuicRunner {
                 ),
             );
             runtime.strategy.quic_candidates.push(execution.summary);
+            if runtime.is_past_deadline() {
+                tracing::warn!("strategy probe: QUIC suite deadline-terminated");
+                break;
+            }
             quic_failure_tracker.record(spec.family, failed);
             if !pending_quic_specs.is_empty() {
                 thread::sleep(Duration::from_millis(candidate_pause_ms(strategy_plan.probe_seed, &spec, failed)));
@@ -951,6 +971,10 @@ impl ExecutionStageRunner for StrategyRecommendationRunner {
             recommendation,
             completion_kind: if runtime.strategy.dns_override_domain_targets.is_some() {
                 StrategyProbeCompletionKind::DnsTamperingWithFallback
+            } else if runtime.strategy.tcp_candidates.len() < strategy_plan.suite.tcp_candidates.len()
+                || runtime.strategy.quic_candidates.len() < strategy_plan.suite.quic_candidates.len()
+            {
+                StrategyProbeCompletionKind::PartialResults
             } else {
                 StrategyProbeCompletionKind::Normal
             },

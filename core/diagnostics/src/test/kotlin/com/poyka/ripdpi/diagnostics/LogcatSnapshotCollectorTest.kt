@@ -12,7 +12,7 @@ class LogcatSnapshotCollectorTest {
             val output = "03-12 10:00:00.000 I/RIPDPI: diagnostics ready\n"
             val collector =
                 object : LogcatSnapshotCollector() {
-                    override fun readLogcatOutput(): String = output
+                    override fun readLogcatOutput(sinceTimestampMs: Long?): String = output
                 }
 
             val snapshot = collector.capture()
@@ -24,11 +24,26 @@ class LogcatSnapshotCollectorTest {
         }
 
     @Test
+    fun `capture with timestamp uses time bound scope`() =
+        runTest {
+            val output = "03-12 10:00:00.000 I/RIPDPI: diagnostics ready\n"
+            val collector =
+                object : LogcatSnapshotCollector() {
+                    override fun readLogcatOutput(sinceTimestampMs: Long?): String = output
+                }
+
+            val snapshot = collector.capture(sinceTimestampMs = 1700000000000L)
+
+            requireNotNull(snapshot)
+            assertEquals(LogcatSnapshotCollector.TimeBoundSnapshotScope, snapshot.captureScope)
+        }
+
+    @Test
     fun `capture returns null when output is blank`() =
         runTest {
             val collector =
                 object : LogcatSnapshotCollector() {
-                    override fun readLogcatOutput(): String = "   "
+                    override fun readLogcatOutput(sinceTimestampMs: Long?): String = "   "
                 }
 
             assertNull(collector.capture())
@@ -39,7 +54,7 @@ class LogcatSnapshotCollectorTest {
         runTest {
             val collector =
                 object : LogcatSnapshotCollector() {
-                    override fun readLogcatOutput(): String = error("logcat unavailable")
+                    override fun readLogcatOutput(sinceTimestampMs: Long?): String = error("logcat unavailable")
                 }
 
             assertNull(collector.capture())
