@@ -165,7 +165,25 @@ internal class DefaultDiagnosticsScanController
         override suspend fun cancelActiveScan() {
             val canceledSessionId = activeScanRegistry.cancelActiveScan() ?: return
             val session = scanRecordStore.getScanSession(canceledSessionId) ?: return
-            if (session.status == "running") {
+            if (session.status != "running") return
+
+            // The native engine builds a partial report after receiving the
+            // cancellation signal.  awaitPartialReport() in ActiveScanRegistry
+            // polls for it during the grace period.  If available, persist the
+            // partial report so the session has actual results instead of just
+            // "scan canceled".
+            val partialReportJson =
+                activeScanRegistry.consumeCancelledSessionReport(canceledSessionId)
+            if (partialReportJson != null) {
+                scanRecordStore.upsertScanSession(
+                    session.copy(
+                        status = "completed",
+                        summary = "Scan completed with partial results",
+                        reportJson = partialReportJson,
+                        finishedAt = System.currentTimeMillis(),
+                    ),
+                )
+            } else {
                 DiagnosticsReportPersister.persistScanFailure(
                     canceledSessionId,
                     "Diagnostics scan canceled",
