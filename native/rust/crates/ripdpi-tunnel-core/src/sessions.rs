@@ -1,3 +1,7 @@
+use std::cmp::Ordering;
+use std::collections::HashMap;
+
+use android_support::bounded_heap::BoundedHeap;
 use smoltcp::iface::SocketHandle;
 use std::io;
 use tokio::io::DuplexStream;
@@ -23,22 +27,52 @@ pub struct SessionEntry {
     pub upstream_closed: bool,
 }
 
-/// Ordered map of active sessions, supporting oldest-first eviction.
+/// Eviction priority entry for the bounded heap.
 ///
-/// Insertion order is preserved so that `max > 0` eviction always removes the
-/// *oldest* entry (the one inserted first), matching the C reference
-/// `hev_list_add_tail` / first-in-first-out eviction.
+/// Orders by insertion sequence (oldest first = smallest = evicted first),
+/// preserving FIFO eviction behavior while enabling O(log n) operations.
+#[derive(Debug, Eq, PartialEq)]
+struct SessionHeapEntry {
+    handle: SocketHandle,
+    sequence: u64,
+}
+
+impl Ord for SessionHeapEntry {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.sequence.cmp(&other.sequence)
+    }
+}
+
+impl PartialOrd for SessionHeapEntry {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+/// Bounded session table with O(1) lookup and O(log n) eviction.
+///
+/// Uses a dual data structure: `HashMap` for fast lookup by socket handle,
+/// and `BoundedHeap` for priority-based eviction ordering. Inspired by
+/// protolens's `Heap<T>` pattern, adapted for RIPDPI's session management.
 pub struct ActiveSessions {
-    /// Ordered list of (socket_handle, session_entry) pairs.
-    /// Entry at index 0 is the oldest.
-    entries: Vec<(SocketHandle, SessionEntry)>,
+    /// Fast lookup by socket handle.
+    entries: HashMap<SocketHandle, SessionEntry>,
+    /// Priority heap for eviction ordering (oldest sequence first).
+    eviction_heap: BoundedHeap<SessionHeapEntry>,
+    /// Monotonic counter for insertion ordering.
+    next_sequence: u64,
     /// Maximum number of concurrent sessions; 0 = unlimited.
     max: usize,
 }
 
 impl ActiveSessions {
     pub fn new(max: usize) -> Self {
-        Self { entries: Vec::new(), max }
+        Self {
+            entries: HashMap::new(),
+            eviction_heap: BoundedHeap::new(if max > 0 { max } else { 0 }),
+            next_sequence: 0,
+            max,
+        }
     }
 
     /// Insert a new session.
@@ -50,34 +84,44 @@ impl ActiveSessions {
     /// Returns the evicted session's `SocketHandle` so the caller can remove
     /// it from the `SocketSet`, preventing socket handle leaks.
     pub fn insert(&mut self, handle: SocketHandle, entry: SessionEntry) -> Option<SocketHandle> {
-        let evicted_handle = if self.max > 0 && self.entries.len() >= self.max && !self.entries.is_empty() {
-            // Remove oldest (first element).
-            let (evicted_h, oldest) = self.entries.remove(0);
-            oldest.cancel.cancel();
-            // Dropping oldest.smoltcp_side causes session_side to see EOF.
-            drop(oldest.smoltcp_side);
-            // Don't await the handle — fire and forget, it will terminate via cancel.
-            oldest.handle.abort();
-            Some(evicted_h)
+        let seq = self.next_sequence;
+        self.next_sequence += 1;
+
+        let evicted_handle = if self.max > 0 {
+            let heap_entry = SessionHeapEntry { handle, sequence: seq };
+            if let Some(evicted) = self.eviction_heap.push_or_evict(heap_entry) {
+                // Eviction occurred — clean up the evicted session.
+                if let Some(oldest) = self.entries.remove(&evicted.handle) {
+                    oldest.cancel.cancel();
+                    drop(oldest.smoltcp_side);
+                    oldest.handle.abort();
+                    Some(evicted.handle)
+                } else {
+                    None
+                }
+            } else {
+                None
+            }
         } else {
             None
         };
-        self.entries.push((handle, entry));
+
+        self.entries.insert(handle, entry);
         evicted_handle
     }
 
     /// Check whether the given socket handle already has an active session.
     pub fn contains(&self, handle: SocketHandle) -> bool {
-        self.entries.iter().any(|(h, _)| *h == handle)
+        self.entries.contains_key(&handle)
     }
 
     /// Remove a session by socket handle, returning it if present.
     pub fn remove(&mut self, handle: SocketHandle) -> Option<SessionEntry> {
-        if let Some(pos) = self.entries.iter().position(|(h, _)| *h == handle) {
-            Some(self.entries.remove(pos).1)
-        } else {
-            None
+        let entry = self.entries.remove(&handle)?;
+        if self.max > 0 {
+            self.eviction_heap.remove_by(|e| e.handle == handle);
         }
+        Some(entry)
     }
 
     /// Number of active sessions.
@@ -92,10 +136,10 @@ impl ActiveSessions {
 
     /// Get a mutable reference to a session entry by socket handle.
     pub fn get_mut(&mut self, handle: SocketHandle) -> Option<&mut SessionEntry> {
-        self.entries.iter_mut().find(|(h, _)| *h == handle).map(|(_, e)| e)
+        self.entries.get_mut(&handle)
     }
 
-    /// Iterate over (SocketHandle, &mut SessionEntry) in insertion order.
+    /// Iterate over (SocketHandle, &mut SessionEntry).
     pub fn iter_mut(&mut self) -> impl Iterator<Item = (SocketHandle, &mut SessionEntry)> {
         self.entries.iter_mut().map(|(h, e)| (*h, e))
     }

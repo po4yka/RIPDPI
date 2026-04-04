@@ -8,6 +8,7 @@ license.workspace = true
 workspace = true
 
 [dependencies]
+android-support = { path = "../android-support" }
 ripdpi-tunnel-config = { workspace = true }
 ripdpi-tun-driver = { workspace = true }
 ripdpi-dns-resolver = { workspace = true }
