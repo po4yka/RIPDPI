@@ -1,20 +1,22 @@
 use std::net::SocketAddr;
 
 use ripdpi_config::{DesyncGroup, QuicInitialMode, RuntimeConfig};
-use ripdpi_packets::{
-    is_http, is_tls_client_hello, parse_http, parse_quic_initial, parse_tls, IS_HTTP, IS_HTTPS, IS_IPV4, IS_TCP, IS_UDP,
-};
+use ripdpi_packets::classify::{default_registry, ProtocolId};
+use ripdpi_packets::{is_http, is_tls_client_hello, parse_quic_initial, IS_HTTP, IS_HTTPS, IS_IPV4, IS_TCP, IS_UDP};
 
 use super::{ExtractedHost, HostSource, TransportProtocol};
 
 pub(crate) fn extract_host_info(config: &RuntimeConfig, payload: &[u8]) -> Option<ExtractedHost> {
-    parse_http(payload)
-        .map(|host| ExtractedHost { host: String::from_utf8_lossy(host.host).into_owned(), source: HostSource::Http })
-        .or_else(|| {
-            parse_tls(payload)
-                .map(|host| ExtractedHost { host: String::from_utf8_lossy(host).into_owned(), source: HostSource::Tls })
-        })
-        .or_else(|| extract_quic_host(config, payload))
+    if let Some(result) = default_registry().classify(payload) {
+        let source = match result.protocol {
+            ProtocolId::Http => HostSource::Http,
+            _ => HostSource::Tls,
+        };
+        if let Some(host) = result.host {
+            return Some(ExtractedHost { host, source });
+        }
+    }
+    extract_quic_host(config, payload)
 }
 
 pub(crate) fn extract_host(config: &RuntimeConfig, payload: &[u8]) -> Option<String> {
