@@ -251,7 +251,6 @@ pub(crate) fn build_tcp_candidates(base: &ProxyUiConfig) -> Vec<StrategyCandidat
     let tlsrec_hostfake = build_tlsrec_hostfake_candidate(base, false);
     let tlsrec_hostfake_split = build_tlsrec_hostfake_candidate(base, true);
     let ipfrag_capable = supports_tcp_ip_fragmentation();
-    let seqovl_supported = supports_seqovl();
 
     let mut candidates = vec![
         candidate_spec("baseline_current", "Current strategy", "baseline", baseline),
@@ -294,6 +293,20 @@ pub(crate) fn build_tcp_candidates(base: &ProxyUiConfig) -> Vec<StrategyCandidat
             "tlsrandrec_disorder",
             build_tlsrandrec_disorder_candidate(base),
         ),
+        candidate_spec_with_notes(
+            "tlsrec_seqovl_midsld",
+            "TLS record + seq overlap (midsld)",
+            "tlsrec_seqovl",
+            build_tlsrec_seqovl_candidate(base, "midsld"),
+            vec!["Sequence overlap at midsld; falls back to split if TCP_REPAIR unavailable"],
+        ),
+        candidate_spec_with_notes(
+            "tlsrec_seqovl_sniext",
+            "TLS record + seq overlap (sniext)",
+            "tlsrec_seqovl",
+            build_tlsrec_seqovl_candidate(base, "sniext"),
+            vec!["Sequence overlap at sniext; falls back to split if TCP_REPAIR unavailable"],
+        ),
         candidate_spec("tlsrec_fakeddisorder", "TLS record + fakeddisorder", "fake_approx", tlsrec_fakeddisorder),
         candidate_spec("tlsrec_fakedsplit", "TLS record + fakedsplit", "fake_approx", tlsrec_fakedsplit),
         candidate_spec("tlsrec_hostfake", "TLS record + hostfake", "hostfake", tlsrec_hostfake),
@@ -326,29 +339,11 @@ pub(crate) fn build_tcp_candidates(base: &ProxyUiConfig) -> Vec<StrategyCandidat
             vec!["VPN-only raw-socket TCP fragmentation of the first application-data segment"],
         ));
     }
-    if seqovl_supported {
-        candidates.push(candidate_spec_with_notes(
-            "tlsrec_seqovl_midsld",
-            "TLS record + seq overlap midsld",
-            "tlsrec_seqovl",
-            build_tlsrec_seqovl_candidate(base, "midsld"),
-            vec!["Only included when the native packet-owned seqovl capability is available"],
-        ));
-    }
     candidates
 }
 
 pub(crate) fn build_full_matrix_tcp_candidates(base: &ProxyUiConfig) -> Vec<StrategyCandidateSpec> {
     let mut candidates = build_tcp_candidates(base);
-    if supports_seqovl() {
-        candidates.push(candidate_spec_with_notes(
-            "tlsrec_seqovl_sniext",
-            "TLS record + seq overlap SNI ext",
-            "tlsrec_seqovl",
-            build_tlsrec_seqovl_candidate(base, "sniext"),
-            vec!["Uses the SNI extension marker for the sequence overlap split"],
-        ));
-    }
     candidates.extend([
         build_activation_window_split_spec(base),
         build_activation_window_hostfake_spec(base),

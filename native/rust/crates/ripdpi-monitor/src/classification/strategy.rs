@@ -154,9 +154,14 @@ pub(crate) fn reorder_tcp_candidates_for_failure(
 ) -> Vec<StrategyCandidateSpec> {
     let preferred_ids: &[&str] = match failure_class {
         Some(FailureClass::HttpBlockpage) => &["baseline_current", "tlsrec_split_host", "split_host", "parser_only"],
-        Some(FailureClass::TcpReset) => {
-            &["baseline_current", "tlsrec_split_host", "tlsrec_hostfake_split", "split_host", "tlsrec_oob"]
-        }
+        Some(FailureClass::TcpReset) => &[
+            "baseline_current",
+            "tlsrec_split_host",
+            "tlsrec_hostfake_split",
+            "split_host",
+            "tlsrec_oob",
+            "tlsrec_seqovl_midsld",
+        ],
         Some(FailureClass::SilentDrop) if !fake_ttl_available => {
             &["baseline_current", "tlsrec_split_host", "tlsrec_hostfake_split", "split_host"]
         }
@@ -168,7 +173,7 @@ pub(crate) fn reorder_tcp_candidates_for_failure(
             "tlsrec_fakeddisorder",
         ],
         Some(FailureClass::TlsAlert) => {
-            &["baseline_current", "tlsrec_split_host", "tlsrec_hostfake_split", "split_host"]
+            &["baseline_current", "tlsrec_split_host", "tlsrec_hostfake_split", "split_host", "tlsrec_seqovl_midsld"]
         }
         _ => &[
             "baseline_current",
