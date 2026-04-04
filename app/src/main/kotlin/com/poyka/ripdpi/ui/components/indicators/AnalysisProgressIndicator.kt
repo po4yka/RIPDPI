@@ -64,10 +64,6 @@ fun AnalysisProgressIndicator(
 
     val segmentShape = RoundedCornerShape(SegmentCornerRadius)
     val containerShape = RoundedCornerShape(ContainerCornerRadius)
-    val colorAnimSpec =
-        tween<androidx.compose.ui.graphics.Color>(
-            durationMillis = motion.duration(motion.stateDurationMillis),
-        )
 
     val infiniteTransition = rememberInfiniteTransition(label = "analysisPulse")
 
@@ -144,66 +140,69 @@ fun AnalysisProgressIndicator(
                 },
         verticalArrangement = Arrangement.spacedBy(spacing.xs),
     ) {
+        // Pipeline topology: [audit] → [connectivity | dpi_full] → [strategy]
+        // Stages 1 and 2 run in parallel and are stacked vertically.
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(SegmentGap),
+            verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
         ) {
-            stages.forEachIndexed { index, stage ->
-                val targetColor =
-                    when (stage.status) {
-                        AnalysisStageStatus.COMPLETED -> colors.success
-                        AnalysisStageStatus.FAILED -> colors.destructive
-                        AnalysisStageStatus.RUNNING -> colors.info
-                        AnalysisStageStatus.PENDING -> colors.muted
-                    }
-                val animatedColor by animateColorAsState(
-                    targetValue = targetColor,
-                    animationSpec = colorAnimSpec,
-                    label = "segmentColor$index",
+            // Stage 0 — audit
+            if (stages.isNotEmpty()) {
+                PipelineSegment(
+                    stage = stages[0],
+                    index = 0,
+                    activeStageIndex = activeStageIndex,
+                    pulseAlpha = pulseAlpha,
+                    shimmerAlpha = shimmerAlpha,
+                    modifier = Modifier.weight(2f),
                 )
-
-                val isActive = index == activeStageIndex
-                val isPending = stage.status == AnalysisStageStatus.PENDING
-                val isCompleted = stage.status == AnalysisStageStatus.COMPLETED
-
-                // Completion sweep scale animation
-                val completionScale = remember { Animatable(1f) }
-                if (motion.allowsInfiniteMotion) {
-                    LaunchedEffect(isCompleted) {
-                        if (isCompleted) {
-                            completionScale.animateTo(
-                                targetValue = COMPLETION_SCALE_PEAK,
-                                animationSpec =
-                                    tween(
-                                        durationMillis = motion.duration(motion.quickDurationMillis),
-                                    ),
-                            )
-                            completionScale.animateTo(
-                                targetValue = 1f,
-                                animationSpec =
-                                    tween(
-                                        durationMillis = motion.duration(motion.stateDurationMillis),
-                                    ),
-                            )
-                        }
-                    }
+            }
+            // Arrow connector
+            Text(
+                text = "\u203A",
+                style = typeScale.monoSmall,
+                color = colors.mutedForeground,
+            )
+            // Stages 1 & 2 — parallel (stacked)
+            if (stages.size >= 3) {
+                Column(
+                    modifier = Modifier.weight(3f),
+                    verticalArrangement = Arrangement.spacedBy(SegmentGap),
+                ) {
+                    PipelineSegment(
+                        stage = stages[1],
+                        index = 1,
+                        activeStageIndex = activeStageIndex,
+                        pulseAlpha = pulseAlpha,
+                        shimmerAlpha = shimmerAlpha,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    PipelineSegment(
+                        stage = stages[2],
+                        index = 2,
+                        activeStageIndex = activeStageIndex,
+                        pulseAlpha = pulseAlpha,
+                        shimmerAlpha = shimmerAlpha,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
                 }
-
-                Box(
-                    modifier =
-                        Modifier
-                            .weight(1f)
-                            .height(SegmentHeight)
-                            .graphicsLayer {
-                                scaleX = completionScale.value
-                                scaleY = completionScale.value
-                            }.then(
-                                when {
-                                    isActive -> Modifier.alpha(pulseAlpha)
-                                    isPending -> Modifier.alpha(shimmerAlpha)
-                                    else -> Modifier
-                                },
-                            ).background(animatedColor, segmentShape),
+            }
+            // Arrow connector
+            Text(
+                text = "\u203A",
+                style = typeScale.monoSmall,
+                color = colors.mutedForeground,
+            )
+            // Stage 3 — strategy
+            if (stages.size >= 4) {
+                PipelineSegment(
+                    stage = stages[3],
+                    index = 3,
+                    activeStageIndex = activeStageIndex,
+                    pulseAlpha = pulseAlpha,
+                    shimmerAlpha = shimmerAlpha,
+                    modifier = Modifier.weight(2f),
                 )
             }
         }
@@ -227,6 +226,65 @@ fun AnalysisProgressIndicator(
             )
         }
     }
+}
+
+@Composable
+private fun PipelineSegment(
+    stage: AnalysisStageUiState,
+    index: Int,
+    activeStageIndex: Int?,
+    pulseAlpha: Float,
+    shimmerAlpha: Float,
+    modifier: Modifier = Modifier,
+) {
+    val colors = RipDpiThemeTokens.colors
+    val motion = RipDpiThemeTokens.motion
+    val segmentShape = RoundedCornerShape(SegmentCornerRadius)
+    val targetColor =
+        when (stage.status) {
+            AnalysisStageStatus.COMPLETED -> colors.success
+            AnalysisStageStatus.FAILED -> colors.destructive
+            AnalysisStageStatus.RUNNING -> colors.info
+            AnalysisStageStatus.PENDING -> colors.muted
+        }
+    val animatedColor by animateColorAsState(
+        targetValue = targetColor,
+        animationSpec = tween(durationMillis = motion.duration(motion.stateDurationMillis)),
+        label = "segmentColor$index",
+    )
+    val isActive = index == activeStageIndex
+    val isPending = stage.status == AnalysisStageStatus.PENDING
+    val isCompleted = stage.status == AnalysisStageStatus.COMPLETED
+    val completionScale = remember { Animatable(1f) }
+    if (motion.allowsInfiniteMotion) {
+        LaunchedEffect(isCompleted) {
+            if (isCompleted) {
+                completionScale.animateTo(
+                    targetValue = COMPLETION_SCALE_PEAK,
+                    animationSpec = tween(durationMillis = motion.duration(motion.quickDurationMillis)),
+                )
+                completionScale.animateTo(
+                    targetValue = 1f,
+                    animationSpec = tween(durationMillis = motion.duration(motion.stateDurationMillis)),
+                )
+            }
+        }
+    }
+    Box(
+        modifier =
+            modifier
+                .height(SegmentHeight)
+                .graphicsLayer {
+                    scaleX = completionScale.value
+                    scaleY = completionScale.value
+                }.then(
+                    when {
+                        isActive -> Modifier.alpha(pulseAlpha)
+                        isPending -> Modifier.alpha(shimmerAlpha)
+                        else -> Modifier
+                    },
+                ).background(animatedColor, segmentShape),
+    )
 }
 
 @Suppress("UnusedPrivateMember")
