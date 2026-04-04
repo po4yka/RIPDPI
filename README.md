@@ -60,9 +60,10 @@ graph TD
         RT[ripdpi-runtime<br/>SOCKS5 proxy]
         MON[ripdpi-monitor<br/>diagnostics]
         TC[ripdpi-tunnel-core<br/>TUN bridge]
-        DNS[ripdpi-dns-resolver<br/>DoH / DoT / DNSCrypt]
+        DNS[ripdpi-dns-resolver<br/>DoH / DoT / DNSCrypt<br/>fallback chain]
         DSN[ripdpi-desync<br/>DPI evasion]
         CFG[ripdpi-proxy-config<br/>strategy bridge]
+        PKT[ripdpi-packets<br/>protocol classification]
     end
 
     APP --> SVC & DIAG & DATA & ENG
@@ -73,7 +74,7 @@ graph TD
 
     JNI_P --> RT & MON
     JNI_T --> TC
-    RT --> DSN & CFG & DNS
+    RT --> DSN & CFG & DNS & PKT
     MON --> RT & CFG & DNS
     TC --> DNS
 ```
@@ -87,15 +88,24 @@ Implemented diagnostic mechanisms:
 - Manual scans in `RAW_PATH` and `IN_PATH` modes
 - Automatic probing profiles in `RAW_PATH`, plus hidden `quick_v1` re-checks after first-seen network handovers
 - Automatic audit in `RAW_PATH` with rotating curated target cohorts, full TCP/QUIC matrix evaluation, confidence/coverage scoring, and manual recommendations
-- DNS integrity checks across UDP DNS and encrypted resolvers (DoH/DoT/DNSCrypt)
+- 4-stage home composite analysis: automatic audit, default connectivity, DPI full (ru-dpi-full), DPI strategy probe (ru-dpi-strategy) with per-stage timeouts
+- 21 TCP + 6 QUIC strategy probe candidates covering split, TLS record fragmentation, random TLS record fragmentation, disorder, OOB (TCP urgent pointer), disoob, fake packets, hostfake, parser evasion, and ECH techniques
+- Tournament bracket qualifier: tests each candidate against 1 domain first, eliminates ~70% of failing candidates before the full-matrix round
+- Within-candidate domain parallelism: 3 domains tested concurrently per candidate via `thread::scope`
+- DNS integrity checks across UDP DNS and encrypted resolvers (DoH/DoT/DNSCrypt) with fallback resolver chain (AdGuard, DNS.SB, Google IP, Mullvad)
 - Domain reachability checks with TLS and HTTP classification
 - TCP 16-20 KB cutoff detection with repeated fat-header requests
 - Whitelist SNI retry detection for restricted TLS paths
 - Resolver recommendations with diversified DoH/DoT/DNSCrypt path candidates, bootstrap validation, temporary session overrides, and save-to-settings actions
+- Eager DNS failover for catastrophic errors (connection reset, refused) on first query
 - Strategy-probe progress with live TCP/QUIC lane, candidate index, and candidate label during automatic probing/audit
+- Partial results recovery: 3s grace period after timeout to retrieve results from the native engine
+- Configurable native scan deadline (Kotlin timeout - 30s) ensures native engine finalizes before Kotlin gives up
 - Explicit remediation when automatic probing/audit is unavailable because `Use command line settings` blocks isolated strategy trials
 - Passive native telemetry while proxy or VPN service is running
-- Export bundles with `summary.txt`, `report.json`, `telemetry.csv`, and `manifest.json`
+- Structured logging across DNS failover, strategy probes, diagnostics stages, and VPN socket protection
+- Logcat capture from scan start timestamp (not just buffer snapshot) to preserve logs from long-running scans
+- Export bundles with `summary.txt`, `report.json`, `telemetry.csv`, `app-log.txt`, and `manifest.json`
 
 What the app records:
 
@@ -123,8 +133,11 @@ RIPDPI's current Android and native strategy stack includes:
 - richer fake TLS mutations (`orig`, `rand`, `rndsni`, `dupsid`, `padencap`, size tuning)
 - built-in fake payload profile libraries for HTTP, TLS, UDP, and QUIC Initial traffic
 - host-targeted fake chunks (`hostfake`) and Linux/Android-focused `fakedsplit` / `fakeddisorder` approximations
+- standalone disorder (TTL-based segment reordering), OOB (TCP urgent pointer injection), and disoob (disorder + OOB combo)
+- randomized TLS record fragmentation (`tlsrandrec`) with configurable fragment count and size bounds
+- QUIC evasion: SNI split, fake version field, dummy packet prepend, and fake burst profiles
 - per-network remembered policy replay with hashed network fingerprints and optional VPN-only DNS override
-- per-network host autolearn scoping, activation windows, and adaptive fake TTL for TCP fake sends
+- per-network host autolearn scoping with telemetry/system host filtering, activation windows, and adaptive fake TTL for TCP fake sends
 - separate TCP, QUIC, and DNS strategy families for diagnostics, telemetry, and remembered-policy scoring
 - handover-aware full restarts with background `quick_v1` strategy probes for first-seen networks
 - retry-stealth pacing with jitter, diversified candidate order, and adaptive tuning beyond fake TTL
