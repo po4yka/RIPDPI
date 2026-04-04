@@ -522,7 +522,7 @@ fn tcp_candidate_catalog_keeps_current_strategy_first() {
     let candidates = build_tcp_candidates(&minimal_ui_config());
 
     assert_eq!(candidates.first().map(|candidate| candidate.id), Some("baseline_current"));
-    assert_eq!(candidates.len(), 19);
+    assert_eq!(candidates.len(), 21);
     assert_eq!(candidates.get(1).map(|candidate| candidate.id), Some("tlsrec_split_host"));
     assert_eq!(candidates.get(2).map(|candidate| candidate.id), Some("tlsrec_hostfake_split"));
     assert_eq!(candidates.get(3).map(|candidate| candidate.id), Some("tlsrec_fake_rich"));
@@ -547,6 +547,15 @@ fn oob_candidates_ttl_requirements() {
     assert!(!tlsrec_oob.requires_fake_ttl, "TLS record + OOB uses MSG_OOB, not TTL");
     let disoob = candidates.iter().find(|c| c.id == "disoob_host").expect("disoob_host");
     assert!(disoob.requires_fake_ttl, "Disoob uses TTL for disorder part");
+}
+
+#[test]
+fn tlsrandrec_candidates_ttl_requirements() {
+    let candidates = build_tcp_candidates(&minimal_ui_config());
+    let randrec_split = candidates.iter().find(|c| c.id == "tlsrandrec_split").expect("tlsrandrec_split");
+    assert!(!randrec_split.requires_fake_ttl, "TlsRandRec + Split doesn't need TTL");
+    let randrec_disorder = candidates.iter().find(|c| c.id == "tlsrandrec_disorder").expect("tlsrandrec_disorder");
+    assert!(randrec_disorder.requires_fake_ttl, "TlsRandRec + Disorder needs TTL");
 }
 
 #[test]
