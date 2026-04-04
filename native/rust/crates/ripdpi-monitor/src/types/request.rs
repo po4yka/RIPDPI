@@ -86,6 +86,10 @@ pub struct StrategyProbeLiveProgress {
     pub candidate_total: usize,
     pub candidate_id: String,
     pub candidate_label: String,
+    #[serde(default)]
+    pub succeeded_targets: usize,
+    #[serde(default)]
+    pub total_targets: usize,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -285,6 +289,8 @@ mod tests {
                 candidate_total: 14,
                 candidate_id: "tcp_fake_tls".to_string(),
                 candidate_label: "TCP fake TLS".to_string(),
+                succeeded_targets: 0,
+                total_targets: 0,
             }),
         };
         let json = serde_json::to_string(&progress).expect("serialize");

@@ -221,6 +221,8 @@ internal fun DiagnosticsUiFactorySupport.toProgressUiModel(
                 candidateTotal = liveProgress.candidateTotal,
                 candidateId = liveProgress.candidateId,
                 candidateLabel = liveProgress.candidateLabel,
+                succeededTargets = liveProgress.succeededTargets,
+                totalTargets = liveProgress.totalTargets,
             )
         }
     return DiagnosticsProgressUiModel(

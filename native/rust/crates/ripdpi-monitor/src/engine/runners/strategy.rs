@@ -67,6 +67,28 @@ fn strategy_probe_live_progress(
         candidate_total,
         candidate_id: candidate_id.to_string(),
         candidate_label: candidate_label.to_string(),
+        succeeded_targets: 0,
+        total_targets: 0,
+    }
+}
+
+fn strategy_probe_live_progress_with_targets(
+    lane: StrategyProbeProgressLane,
+    candidate_index: usize,
+    candidate_total: usize,
+    candidate_id: &str,
+    candidate_label: &str,
+    succeeded_targets: usize,
+    total_targets: usize,
+) -> StrategyProbeLiveProgress {
+    StrategyProbeLiveProgress {
+        lane,
+        candidate_index,
+        candidate_total,
+        candidate_id: candidate_id.to_string(),
+        candidate_label: candidate_label.to_string(),
+        succeeded_targets,
+        total_targets,
     }
 }
 
@@ -518,12 +540,14 @@ impl ExecutionStageRunner for StrategyTcpRunner {
             format!("Tested {}", baseline_spec.label),
             Some(baseline_spec.label.to_string()),
             Some(baseline_execution.summary.outcome.clone()),
-            Some(strategy_probe_live_progress(
+            Some(strategy_probe_live_progress_with_targets(
                 StrategyProbeProgressLane::Tcp,
                 1,
                 tcp_candidate_total,
                 baseline_spec.id,
                 baseline_spec.label,
+                baseline_execution.summary.succeeded_targets,
+                baseline_execution.summary.total_targets,
             )),
             RunnerArtifacts::from_results(
                 baseline_results,
@@ -708,12 +732,14 @@ impl ExecutionStageRunner for StrategyTcpRunner {
                 format!("Tested {}", spec.label),
                 Some(spec.label.to_string()),
                 Some(execution.summary.outcome.clone()),
-                Some(strategy_probe_live_progress(
+                Some(strategy_probe_live_progress_with_targets(
                     StrategyProbeProgressLane::Tcp,
                     candidate_index,
                     tcp_candidate_total,
                     spec.id,
                     spec.label,
+                    execution.summary.succeeded_targets,
+                    execution.summary.total_targets,
                 )),
                 RunnerArtifacts::from_results(
                     execution.results.clone(),
@@ -867,12 +893,14 @@ impl ExecutionStageRunner for StrategyQuicRunner {
                 format!("Tested {}", spec.label),
                 Some(spec.label.to_string()),
                 Some(execution.summary.outcome.clone()),
-                Some(strategy_probe_live_progress(
+                Some(strategy_probe_live_progress_with_targets(
                     StrategyProbeProgressLane::Quic,
                     candidate_index,
                     quic_candidate_total,
                     spec.id,
                     spec.label,
+                    execution.summary.succeeded_targets,
+                    execution.summary.total_targets,
                 )),
                 RunnerArtifacts::from_results(
                     execution.results.clone(),
