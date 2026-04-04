@@ -1015,6 +1015,17 @@ private fun workflowStatus(
             )
         }
 
+        isFullAudit && scan.strategyProbeReport?.completionKind == StrategyProbeCompletionKind.PARTIAL_RESULTS -> {
+            val assessment = scan.strategyProbeReport.auditAssessment
+            val executed = (assessment?.tcpCandidatesExecuted ?: 0) + (assessment?.quicCandidatesExecuted ?: 0)
+            val planned = (assessment?.tcpCandidatesPlanned ?: 0) + (assessment?.quicCandidatesPlanned ?: 0)
+            WorkflowStatusUiModel(
+                title = stringResource(R.string.diagnostics_audit_partial_results_title),
+                body = stringResource(R.string.diagnostics_profile_audit_partial_results_body, executed, planned),
+                tone = StatusIndicatorTone.Warning,
+            )
+        }
+
         isFullAudit && scan.strategyProbeReport != null -> {
             WorkflowStatusUiModel(
                 title = stringResource(R.string.diagnostics_audit_ready_title),
@@ -1028,6 +1039,18 @@ private fun workflowStatus(
             WorkflowStatusUiModel(
                 title = stringResource(R.string.diagnostics_probe_short_circuit_title),
                 body = stringResource(R.string.diagnostics_profile_probe_short_circuit_body),
+                tone = StatusIndicatorTone.Warning,
+            )
+        }
+
+        strategyProbeSelected &&
+            scan.strategyProbeReport?.completionKind == StrategyProbeCompletionKind.PARTIAL_RESULTS -> {
+            val assessment = scan.strategyProbeReport.auditAssessment
+            val executed = (assessment?.tcpCandidatesExecuted ?: 0) + (assessment?.quicCandidatesExecuted ?: 0)
+            val planned = (assessment?.tcpCandidatesPlanned ?: 0) + (assessment?.quicCandidatesPlanned ?: 0)
+            WorkflowStatusUiModel(
+                title = stringResource(R.string.diagnostics_probe_partial_results_title),
+                body = stringResource(R.string.diagnostics_profile_probe_partial_results_body, executed, planned),
                 tone = StatusIndicatorTone.Warning,
             )
         }
@@ -1321,7 +1344,9 @@ internal fun StrategyProbeReportCard(
     val manualApplyBadge = stringResource(R.string.diagnostics_profile_badge_manual_apply)
     val isFullAudit = report.suiteId == "full_matrix_v1"
     val isDnsShortCircuited = report.completionKind == StrategyProbeCompletionKind.DNS_SHORT_CIRCUITED
-    val supportsWinningPath = isFullAudit && !isDnsShortCircuited && report.winningPath != null
+    val isPartialResults = report.completionKind == StrategyProbeCompletionKind.PARTIAL_RESULTS
+    val isIncomplete = isDnsShortCircuited || isPartialResults
+    val supportsWinningPath = isFullAudit && !isIncomplete && report.winningPath != null
     var showFullMatrix by rememberSaveable(
         report.suiteId,
         report.completionKind,
@@ -1335,16 +1360,15 @@ internal fun StrategyProbeReportCard(
     ) {
         StatusIndicator(
             label =
-                if (isDnsShortCircuited && isFullAudit) {
-                    stringResource(R.string.diagnostics_audit_short_circuit_title)
-                } else if (isDnsShortCircuited) {
-                    stringResource(R.string.diagnostics_probe_short_circuit_title)
-                } else if (isFullAudit) {
-                    stringResource(R.string.diagnostics_audit_ready_title)
-                } else {
-                    stringResource(R.string.diagnostics_probe_ready_title)
+                when {
+                    isDnsShortCircuited && isFullAudit -> stringResource(R.string.diagnostics_audit_short_circuit_title)
+                    isDnsShortCircuited -> stringResource(R.string.diagnostics_probe_short_circuit_title)
+                    isPartialResults && isFullAudit -> stringResource(R.string.diagnostics_audit_partial_results_title)
+                    isPartialResults -> stringResource(R.string.diagnostics_probe_partial_results_title)
+                    isFullAudit -> stringResource(R.string.diagnostics_audit_ready_title)
+                    else -> stringResource(R.string.diagnostics_probe_ready_title)
                 },
-            tone = if (isDnsShortCircuited) StatusIndicatorTone.Warning else StatusIndicatorTone.Active,
+            tone = if (isIncomplete) StatusIndicatorTone.Warning else StatusIndicatorTone.Active,
         )
         Text(
             text =
@@ -1355,6 +1379,14 @@ internal fun StrategyProbeReportCard(
 
                     isDnsShortCircuited -> {
                         stringResource(R.string.diagnostics_probe_short_circuit_recommendation_title)
+                    }
+
+                    isPartialResults -> {
+                        val assessment = report.auditAssessment
+                        val executed =
+                            (assessment?.tcpCandidatesExecuted ?: 0) + (assessment?.quicCandidatesExecuted ?: 0)
+                        val planned = (assessment?.tcpCandidatesPlanned ?: 0) + (assessment?.quicCandidatesPlanned ?: 0)
+                        stringResource(R.string.diagnostics_partial_results_matrix_title, executed, planned)
                     }
 
                     isFullAudit -> {
