@@ -128,6 +128,14 @@ class ActiveScanRegistry
     constructor(
         private val timelineSource: DefaultDiagnosticsTimelineSource,
     ) {
+        private companion object {
+            /** How long to wait for the native engine to finalize after cancellation. */
+            const val CANCEL_GRACE_PERIOD_MS = 3_000L
+
+            /** Poll interval while waiting for the partial report. */
+            const val CANCEL_POLL_INTERVAL_MS = 200L
+        }
+
         private val bridgeMutex = Mutex()
         private var activeDiagnosticsBridge: NetworkDiagnosticsBridge? = null
         private var activeScanSessionId: String? = null
@@ -174,6 +182,17 @@ class ActiveScanRegistry
                 }
             sessionId?.let { rememberCancellation(it, "Diagnostics scan canceled") }
             bridge?.cancelScan()
+
+            // Give the native engine a brief grace period to finalize its partial
+            // report after receiving the cancellation signal.  The Rust side sets
+            // is_finished=true and builds a report with whatever candidates completed.
+            if (bridge != null) {
+                val partialReport = awaitPartialReport(bridge, graceMs = CANCEL_GRACE_PERIOD_MS)
+                if (partialReport != null) {
+                    cancelledSessionSummaries[sessionId ?: ""] = partialReport
+                }
+            }
+
             executionJob?.cancelAndJoin()
             val needsManualCleanup =
                 bridge != null &&
@@ -190,6 +209,28 @@ class ActiveScanRegistry
             }
             updateProgress(null)
             return sessionId
+        }
+
+        /**
+         * Retrieve and remove the partial report captured during [cancelActiveScan].
+         */
+        fun consumeCancelledSessionReport(sessionId: String): String? = cancelledSessionSummaries.remove(sessionId)
+
+        /**
+         * After signaling cancellation, poll the native bridge for up to [graceMs]
+         * to retrieve the partial report the engine builds on cancellation.
+         */
+        private suspend fun awaitPartialReport(
+            bridge: NetworkDiagnosticsBridge,
+            graceMs: Long,
+        ): String? {
+            val deadline = System.currentTimeMillis() + graceMs
+            while (System.currentTimeMillis() < deadline) {
+                val report = runCatching { bridge.takeReportJson() }.getOrNull()
+                if (report != null) return report
+                delay(CANCEL_POLL_INTERVAL_MS)
+            }
+            return null
         }
 
         internal suspend fun cancelHiddenAutomaticProbe(
