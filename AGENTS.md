@@ -53,6 +53,8 @@ RIPDPI is an Android VPN/proxy application for DPI (Deep Packet Inspection) bypa
 - Strategy-probe reports now carry `auditAssessment` and `targetSelection`; export/share summaries include the selected audit cohort and coverage/confidence details
 - Automatic probing/audit is unavailable when `Use command line settings` is enabled because those workflows require isolated UI-config strategy trials
 - Remembered-network persistence is driven by validated recommendations; full-matrix audit results remain manual-apply only
+- DNS tampering detection: protocol-level anomaly signals (AA flag abuse, TTL anomalies, missing EDNS0/authority sections, small response size, malformed compression pointers), record-level comparison between UDP and encrypted resolvers (record type mismatch, TTL divergence, extra CNAMEs, authority mismatch, rcode mismatch), diagnosis codes `dns_response_anomaly`, `dns_cname_redirect`, `dns_record_divergence`
+- Response parser framework: pluggable `ResponseParser` trait with `FieldObserver` emission for HTTP (status/headers/body/redirect), TLS (alert/version/ServerHello), and SSH (banner extraction)
 
 ### VPN Socket Protection
 
@@ -87,6 +89,15 @@ Two native libraries are built from repo-owned Android adapter crates in the nat
 - Never edit `.so` files -- they are compiled from source
 - Local non-release builds default to `ripdpi.localNativeAbisDefault=arm64-v8a`.
 - Use `ripdpi.localNativeAbis=x86_64` for emulator-heavy local iteration. CI and release always build the full ABI set.
+
+### Native Infrastructure
+
+Supporting crates providing shared traits, data structures, and classification:
+
+- **`ripdpi-packets`** -- protocol classification (`ProtocolClassifier` trait + `ClassifierRegistry` with `EnumMap` O(1) dispatch), protocol field extraction (`ProtocolField` + `FieldObserver` + `FieldCache`), TLS/HTTP/QUIC detection and mutation
+- **`ripdpi-failure-classifier`** -- failure classification from pre-extracted fields (`classify_from_fields()` via `FieldCache`), blockpage CSV fingerprints, TLS alert/HTTP blockpage/redirect detection
+- **`ripdpi-monitor`** -- DNS tampering detection (`dns_analysis.rs` with 8 anomaly signals + record-level comparison + compression pointer validation), response parser framework (`response_parser/` with HTTP/TLS/SSH parsers and `FieldObserver` emission)
+- **`android-support`** -- generic data structures: `BoundedHeap<T>` (fixed-capacity min-heap for session eviction), `EnumMap<K,V>` (O(1) enum-keyed dispatch for registries)
 
 ## Build Logic
 
