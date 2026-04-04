@@ -155,7 +155,7 @@ pub(crate) fn reorder_tcp_candidates_for_failure(
     let preferred_ids: &[&str] = match failure_class {
         Some(FailureClass::HttpBlockpage) => &["baseline_current", "tlsrec_split_host", "split_host", "parser_only"],
         Some(FailureClass::TcpReset) => {
-            &["baseline_current", "tlsrec_split_host", "tlsrec_hostfake_split", "split_host"]
+            &["baseline_current", "tlsrec_split_host", "tlsrec_hostfake_split", "split_host", "tlsrec_oob"]
         }
         Some(FailureClass::SilentDrop) if !fake_ttl_available => {
             &["baseline_current", "tlsrec_split_host", "tlsrec_hostfake_split", "split_host"]
@@ -177,6 +177,7 @@ pub(crate) fn reorder_tcp_candidates_for_failure(
             "tlsrec_fake_rich",
             "tlsrec_disorder",
             "split_host",
+            "tlsrec_oob",
         ],
     };
     let mut ordered = Vec::with_capacity(candidates.len());
