@@ -152,7 +152,7 @@ impl ExecutionRuntime {
         self.scan_deadline.is_some_and(|d| std::time::Instant::now() >= d)
     }
 
-    fn publish_progress(
+    pub(super) fn publish_progress(
         &self,
         plan: &ExecutionPlan,
         phase: &str,

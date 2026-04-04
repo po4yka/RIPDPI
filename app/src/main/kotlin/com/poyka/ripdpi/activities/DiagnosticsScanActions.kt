@@ -38,6 +38,7 @@ internal class DiagnosticsScanActions(
                             accumulatedProbes = persistentListOf(),
                             accumulatedStrategyCandidates = persistentListOf(),
                             dnsBaselineStatus = null,
+                            dpiFailureClass = null,
                         )
                     }
                 } else if (progress == null) {
@@ -49,6 +50,7 @@ internal class DiagnosticsScanActions(
                             accumulatedProbes = persistentListOf(),
                             accumulatedStrategyCandidates = persistentListOf(),
                             dnsBaselineStatus = null,
+                            dpiFailureClass = null,
                         )
                     }
                 }
@@ -97,6 +99,11 @@ internal class DiagnosticsScanActions(
                                     DnsBaselineStatus.CLEAN
                                 },
                         )
+                    }
+                } else if (target == "baseline_failure_class" && scanLifecycle.value.dpiFailureClass == null) {
+                    val outcome = progress.latestProbeOutcome
+                    scanLifecycle.update {
+                        it.copy(dpiFailureClass = parseDpiFailureClass(outcome))
                     }
                 } else if (scanLifecycle.value.dnsBaselineStatus == null &&
                     progress.strategyProbeProgress != null
@@ -518,4 +525,17 @@ private fun candidateTimelineTone(outcome: String): DiagnosticsTone =
             outcome.equals("not_applicable", ignoreCase = true) -> DiagnosticsTone.Neutral
 
         else -> DiagnosticsTone.Negative
+    }
+
+private fun parseDpiFailureClass(outcome: String?): DpiFailureClass =
+    when (outcome) {
+        "tcp_reset" -> DpiFailureClass.TCP_RESET
+        "silent_drop" -> DpiFailureClass.SILENT_DROP
+        "tls_alert" -> DpiFailureClass.TLS_ALERT
+        "http_blockpage" -> DpiFailureClass.HTTP_BLOCKPAGE
+        "quic_breakage" -> DpiFailureClass.QUIC_BREAKAGE
+        "tls_handshake_failure" -> DpiFailureClass.TLS_HANDSHAKE_FAILURE
+        "connection_freeze" -> DpiFailureClass.CONNECTION_FREEZE
+        "redirect" -> DpiFailureClass.REDIRECT
+        else -> DpiFailureClass.OTHER
     }

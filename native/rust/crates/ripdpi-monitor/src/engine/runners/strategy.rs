@@ -533,6 +533,16 @@ impl ExecutionStageRunner for StrategyTcpRunner {
         let mut baseline_results = baseline_execution.results.clone();
         if let Some(failure) = &runtime.strategy.baseline_failure {
             baseline_results.push(classified_failure_probe_result(baseline_spec.label, failure));
+            // Publish the DPI failure class so the UI can show it as a badge.
+            runtime.publish_progress(
+                plan,
+                self.phase(),
+                runtime.completed_steps,
+                format!("DPI: {}", failure.class.as_str()),
+                Some("baseline_failure_class".to_string()),
+                Some(failure.class.as_str().to_string()),
+                None,
+            );
         }
         runtime.record_step(
             plan,
