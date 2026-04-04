@@ -3,6 +3,7 @@ mod candidates;
 mod classification;
 mod connectivity;
 mod dns;
+mod dns_analysis;
 mod engine;
 mod execution;
 mod fat_header;
