@@ -381,6 +381,27 @@ pub(crate) fn build_quic_candidates(base_tcp: &ProxyUiConfig) -> Vec<StrategyCan
             vec!["Uses realistic QUIC Initial packets with the target SNI"],
         ),
     ];
+    candidates.push(candidate_spec_with_notes(
+        "quic_sni_split",
+        "QUIC SNI split",
+        "quic_sni_split",
+        build_quic_sni_split_candidate(base_tcp),
+        vec!["Splits QUIC Initial at SNI boundary"],
+    ));
+    candidates.push(candidate_spec_with_notes(
+        "quic_fake_version",
+        "QUIC fake version",
+        "quic_fake_version",
+        build_quic_fake_version_candidate(base_tcp),
+        vec!["Sends QUIC packet with unrecognized version field"],
+    ));
+    candidates.push(candidate_spec_with_notes(
+        "quic_dummy_prepend",
+        "QUIC dummy prepend",
+        "quic_dummy_prepend",
+        build_quic_dummy_prepend_candidate(base_tcp),
+        vec!["Prepends random short-header packets before real Initial"],
+    ));
     if supports_udp_ip_fragmentation() {
         candidates.push(candidate_spec_with_notes(
             "quic_ipfrag2",
@@ -681,6 +702,48 @@ pub(crate) fn build_quic_ipfrag_candidate(base_tcp: &ProxyUiConfig) -> ProxyUiCo
         activation_filter: None,
     }];
     config.quic.fake_profile = "disabled".to_string();
+    config.quic.fake_host.clear();
+    config
+}
+
+fn build_quic_sni_split_candidate(base_tcp: &ProxyUiConfig) -> ProxyUiConfig {
+    let mut config = sanitize_current_probe_config(base_tcp);
+    config.protocols.desync_udp = true;
+    config.chains.udp_steps = vec![ProxyUiUdpChainStep {
+        kind: "quic_sni_split".to_string(),
+        count: 1,
+        split_bytes: 0,
+        activation_filter: None,
+    }];
+    config.quic.fake_profile = "compat_default".to_string();
+    config.quic.fake_host.clear();
+    config
+}
+
+fn build_quic_fake_version_candidate(base_tcp: &ProxyUiConfig) -> ProxyUiConfig {
+    let mut config = sanitize_current_probe_config(base_tcp);
+    config.protocols.desync_udp = true;
+    config.chains.udp_steps = vec![ProxyUiUdpChainStep {
+        kind: "quic_fake_version".to_string(),
+        count: 1,
+        split_bytes: 0,
+        activation_filter: None,
+    }];
+    config.quic.fake_profile = "compat_default".to_string();
+    config.quic.fake_host.clear();
+    config
+}
+
+fn build_quic_dummy_prepend_candidate(base_tcp: &ProxyUiConfig) -> ProxyUiConfig {
+    let mut config = sanitize_current_probe_config(base_tcp);
+    config.protocols.desync_udp = true;
+    config.chains.udp_steps = vec![ProxyUiUdpChainStep {
+        kind: "dummy_prepend".to_string(),
+        count: 3,
+        split_bytes: 0,
+        activation_filter: None,
+    }];
+    config.quic.fake_profile = "compat_default".to_string();
     config.quic.fake_host.clear();
     config
 }
