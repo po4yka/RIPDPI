@@ -522,7 +522,7 @@ fn tcp_candidate_catalog_keeps_current_strategy_first() {
     let candidates = build_tcp_candidates(&minimal_ui_config());
 
     assert_eq!(candidates.first().map(|candidate| candidate.id), Some("baseline_current"));
-    assert_eq!(candidates.len(), 15);
+    assert_eq!(candidates.len(), 18);
     assert_eq!(candidates.get(1).map(|candidate| candidate.id), Some("tlsrec_split_host"));
     assert_eq!(candidates.get(2).map(|candidate| candidate.id), Some("tlsrec_hostfake_split"));
     assert_eq!(candidates.get(3).map(|candidate| candidate.id), Some("tlsrec_fake_rich"));
@@ -536,6 +536,17 @@ fn tcp_candidate_catalog_keeps_current_strategy_first() {
         candidates.iter().find(|candidate| candidate.id == "ech_tlsrec").map(|candidate| candidate.family),
         Some("ech_tlsrec")
     );
+}
+
+#[test]
+fn oob_candidates_ttl_requirements() {
+    let candidates = build_tcp_candidates(&minimal_ui_config());
+    let oob = candidates.iter().find(|c| c.id == "oob_host").expect("oob_host");
+    assert!(!oob.requires_fake_ttl, "OOB uses MSG_OOB, not TTL");
+    let tlsrec_oob = candidates.iter().find(|c| c.id == "tlsrec_oob").expect("tlsrec_oob");
+    assert!(!tlsrec_oob.requires_fake_ttl, "TLS record + OOB uses MSG_OOB, not TTL");
+    let disoob = candidates.iter().find(|c| c.id == "disoob_host").expect("disoob_host");
+    assert!(disoob.requires_fake_ttl, "Disoob uses TTL for disorder part");
 }
 
 #[test]
