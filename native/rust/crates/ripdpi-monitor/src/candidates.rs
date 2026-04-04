@@ -240,6 +240,8 @@ pub(crate) fn build_tcp_candidates(base: &ProxyUiConfig) -> Vec<StrategyCandidat
     let parser_unixeol = build_parser_unixeol_candidate(base);
     let parser_methodeol = build_parser_methodeol_candidate(base);
     let split_host = build_split_host_candidate(base);
+    let disorder_host = build_disorder_host_candidate(base);
+    let tlsrec_disorder = build_tlsrec_disorder_candidate(base);
     let ech_split = build_ech_split_candidate(base);
     let ech_tlsrec = build_ech_tlsrec_candidate(base);
     let tlsrec_split_host = build_tlsrec_split_host_candidate(base);
@@ -269,6 +271,8 @@ pub(crate) fn build_tcp_candidates(base: &ProxyUiConfig) -> Vec<StrategyCandidat
             vec!["Randomized fake TLS material with original ClientHello framing"],
         ),
         candidate_spec("split_host", "Split Host", "split", split_host),
+        candidate_spec("disorder_host", "Disorder host", "disorder", disorder_host),
+        candidate_spec("tlsrec_disorder", "TLS record + disorder", "tlsrec_disorder", tlsrec_disorder),
         candidate_spec("tlsrec_fakeddisorder", "TLS record + fakeddisorder", "fake_approx", tlsrec_fakeddisorder),
         candidate_spec("tlsrec_fakedsplit", "TLS record + fakedsplit", "fake_approx", tlsrec_fakedsplit),
         candidate_spec("tlsrec_hostfake", "TLS record + hostfake", "hostfake", tlsrec_hostfake),
@@ -418,7 +422,7 @@ fn config_requires_fake_ttl(config: &ProxyUiConfig) -> bool {
         .chains
         .tcp_steps
         .iter()
-        .any(|step| matches!(step.kind.as_str(), "fake" | "fakedsplit" | "fakeddisorder" | "hostfake"))
+        .any(|step| matches!(step.kind.as_str(), "fake" | "fakedsplit" | "fakeddisorder" | "hostfake" | "disorder"))
 }
 
 /// Probes whether the current process is allowed to set a custom IP TTL on TCP
@@ -492,6 +496,18 @@ pub(crate) fn build_parser_methodeol_candidate(base: &ProxyUiConfig) -> ProxyUiC
 pub(crate) fn build_split_host_candidate(base: &ProxyUiConfig) -> ProxyUiConfig {
     let mut config = strategy_probe_base(base);
     config.chains.tcp_steps = vec![tcp_step("split", "host+2")];
+    config
+}
+
+fn build_disorder_host_candidate(base: &ProxyUiConfig) -> ProxyUiConfig {
+    let mut config = strategy_probe_base(base);
+    config.chains.tcp_steps = vec![tcp_step("disorder", "host+2")];
+    config
+}
+
+fn build_tlsrec_disorder_candidate(base: &ProxyUiConfig) -> ProxyUiConfig {
+    let mut config = strategy_probe_base(base);
+    config.chains.tcp_steps = vec![tcp_step("tlsrec", "extlen"), tcp_step("disorder", "host+2")];
     config
 }
 

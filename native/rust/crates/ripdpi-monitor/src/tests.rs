@@ -522,7 +522,7 @@ fn tcp_candidate_catalog_keeps_current_strategy_first() {
     let candidates = build_tcp_candidates(&minimal_ui_config());
 
     assert_eq!(candidates.first().map(|candidate| candidate.id), Some("baseline_current"));
-    assert_eq!(candidates.len(), 13);
+    assert_eq!(candidates.len(), 15);
     assert_eq!(candidates.get(1).map(|candidate| candidate.id), Some("tlsrec_split_host"));
     assert_eq!(candidates.get(2).map(|candidate| candidate.id), Some("tlsrec_hostfake_split"));
     assert_eq!(candidates.get(3).map(|candidate| candidate.id), Some("tlsrec_fake_rich"));
@@ -569,9 +569,18 @@ fn silent_drop_reorders_tcp_candidates_toward_fake_tls_families() {
         Some(FailureClass::SilentDrop),
         true,
     );
-    let ids = ordered.iter().take(4).map(|candidate| candidate.id).collect::<Vec<_>>();
+    let ids = ordered.iter().take(5).map(|candidate| candidate.id).collect::<Vec<_>>();
 
-    assert_eq!(ids, vec!["baseline_current", "tlsrec_fake_rich", "tlsrec_hostfake_split", "tlsrec_fakeddisorder"]);
+    assert_eq!(
+        ids,
+        vec![
+            "baseline_current",
+            "tlsrec_fake_rich",
+            "tlsrec_disorder",
+            "tlsrec_hostfake_split",
+            "tlsrec_fakeddisorder"
+        ]
+    );
 }
 
 #[test]
@@ -596,6 +605,15 @@ fn tls_alert_reorders_tcp_candidates_away_from_fake_heavy_paths() {
     let ids = ordered.iter().take(4).map(|candidate| candidate.id).collect::<Vec<_>>();
 
     assert_eq!(ids, vec!["baseline_current", "tlsrec_split_host", "tlsrec_hostfake_split", "split_host"]);
+}
+
+#[test]
+fn disorder_candidates_require_fake_ttl() {
+    let candidates = build_tcp_candidates(&minimal_ui_config());
+    let disorder = candidates.iter().find(|c| c.id == "disorder_host").expect("disorder_host");
+    assert!(disorder.requires_fake_ttl);
+    let tlsrec_disorder = candidates.iter().find(|c| c.id == "tlsrec_disorder").expect("tlsrec_disorder");
+    assert!(tlsrec_disorder.requires_fake_ttl);
 }
 
 #[test]

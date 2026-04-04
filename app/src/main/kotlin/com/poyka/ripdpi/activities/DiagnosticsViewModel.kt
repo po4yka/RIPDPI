@@ -230,6 +230,7 @@ class DiagnosticsViewModel
                         completedProbes = ui.scanLifecycle.accumulatedProbes,
                         candidateTimeline = ui.scanLifecycle.accumulatedStrategyCandidates,
                         dnsBaselineStatus = ui.scanLifecycle.dnsBaselineStatus,
+                        dpiFailureClass = ui.scanLifecycle.dpiFailureClass,
                         hiddenProbeConflictDialog = ui.scanLifecycle.hiddenProbeConflictDialog,
                         queuedManualScanRequest = ui.scanLifecycle.queuedManualScanRequest,
                     ),
