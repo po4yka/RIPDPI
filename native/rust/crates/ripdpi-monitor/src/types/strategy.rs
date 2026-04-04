@@ -18,6 +18,7 @@ pub enum StrategyProbeCompletionKind {
     Normal,
     DnsShortCircuited,
     DnsTamperingWithFallback,
+    PartialResults,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
