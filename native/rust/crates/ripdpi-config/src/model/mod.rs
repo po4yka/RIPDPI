@@ -563,6 +563,7 @@ pub struct RuntimeProcessSettings {
     pub protect_path: Option<String>,
     pub daemonize: bool,
     pub pid_file: Option<String>,
+    pub root_mode: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
