@@ -1286,7 +1286,7 @@ fakeddisorder endhost</string>
     <string name="warp_builtin_rules_title">Built-in Cloudflare rules</string>
     <string name="warp_builtin_rules_body">Keep Cloudflare WARP control-plane domains on the bootstrap/direct path instead of looping them back into WARP.</string>
     <string name="warp_endpoint_mode_title">Endpoint selection</string>
-    <string name="warp_endpoint_mode_body">Automatic uses the cached/scanned endpoint. Manual pins the WARP transport to the values below.</string>
+    <string name="warp_endpoint_mode_body">Automatic uses the provisioned or cached endpoint. Manual pins the WARP transport to the values below.</string>
     <string name="warp_manual_host_title">Manual endpoint host</string>
     <string name="warp_manual_host_body">Optional hostname to use for the pinned WARP endpoint.</string>
     <string name="warp_manual_ipv4_title">Manual endpoint IPv4</string>
