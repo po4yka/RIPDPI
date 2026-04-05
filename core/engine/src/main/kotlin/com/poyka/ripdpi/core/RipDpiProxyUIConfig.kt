@@ -27,6 +27,7 @@ import com.poyka.ripdpi.data.QuicFakeProfileDisabled
 import com.poyka.ripdpi.data.QuicInitialModeRouteAndCache
 import com.poyka.ripdpi.data.RelayKindOff
 import com.poyka.ripdpi.data.TcpChainStepModel
+import com.poyka.ripdpi.data.TlsFingerprintProfileNativeDefault
 import com.poyka.ripdpi.data.UdpChainStepModel
 import com.poyka.ripdpi.data.WarpEndpointSelectionAutomatic
 import com.poyka.ripdpi.data.WarpRouteModeOff
@@ -83,6 +84,7 @@ data class RipDpiFakePacketConfig(
     val entropyPaddingTargetPermil: Int = DefaultEntropyPaddingTargetPermil,
     val entropyPaddingMax: Int = DefaultEntropyPaddingMax,
     val shannonEntropyTargetPermil: Int = DefaultShannonEntropyTargetPermil,
+    val tlsFingerprintProfile: String = TlsFingerprintProfileNativeDefault,
 )
 
 data class RipDpiParserEvasionConfig(

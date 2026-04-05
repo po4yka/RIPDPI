@@ -384,6 +384,7 @@ internal object RipDpiProxyJsonCodec {
         val entropyPaddingTargetPermil: Int = 3400,
         val entropyPaddingMax: Int = 256,
         val shannonEntropyTargetPermil: Int = 7920,
+        val tlsFingerprintProfile: String = "native_default",
     )
 
     @Serializable
@@ -795,6 +796,7 @@ internal object RipDpiProxyJsonCodec {
                 entropyPaddingTargetPermil = value.entropyPaddingTargetPermil,
                 entropyPaddingMax = value.entropyPaddingMax,
                 shannonEntropyTargetPermil = value.shannonEntropyTargetPermil,
+                tlsFingerprintProfile = value.tlsFingerprintProfile,
             )
 
         fun toNative(value: RipDpiFakePacketConfig): NativeFakePacketConfig =
@@ -824,6 +826,7 @@ internal object RipDpiProxyJsonCodec {
                 entropyPaddingTargetPermil = value.entropyPaddingTargetPermil,
                 entropyPaddingMax = value.entropyPaddingMax,
                 shannonEntropyTargetPermil = value.shannonEntropyTargetPermil,
+                tlsFingerprintProfile = value.tlsFingerprintProfile,
             )
 
         fun toModel(value: NativeParserEvasionConfig): RipDpiParserEvasionConfig =

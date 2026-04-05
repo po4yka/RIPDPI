@@ -45,7 +45,11 @@ class WarpProvisioningClientTest {
                             .build()
                     }.build()
 
-            val provisioningClient = DefaultWarpProvisioningClient(client = client, json = json)
+            val provisioningClient =
+                DefaultWarpProvisioningClient(
+                    tlsClientFactory = TestOwnedTlsClientFactory(client),
+                    json = json,
+                )
             val result =
                 provisioningClient.register(
                     WarpRegisterDeviceRequest(
@@ -96,7 +100,11 @@ class WarpProvisioningClientTest {
                             .build()
                     }.build()
 
-            val provisioningClient = DefaultWarpProvisioningClient(client = client, json = json)
+            val provisioningClient =
+                DefaultWarpProvisioningClient(
+                    tlsClientFactory = TestOwnedTlsClientFactory(client),
+                    json = json,
+                )
             provisioningClient.refresh(
                 com.poyka.ripdpi.data.WarpCredentials(
                     deviceId = "device-123",
@@ -158,4 +166,15 @@ class WarpProvisioningClientTest {
           }
         }
         """.trimIndent()
+
+    private class TestOwnedTlsClientFactory(
+        private val client: OkHttpClient,
+    ) : OwnedTlsClientFactory {
+        override fun currentProfile(): String = "native_default"
+
+        override fun create(
+            forcedTlsVersions: List<okhttp3.TlsVersion>?,
+            configure: OkHttpClient.Builder.() -> Unit,
+        ): OkHttpClient = client
+    }
 }

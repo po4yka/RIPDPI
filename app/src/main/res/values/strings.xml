@@ -1872,6 +1872,7 @@ Source: %2$s</string>
     <string name="detection_resistance_badge_evolution">Strategy evolution</string>
     <string name="detection_resistance_badge_low_port">Low-port QUIC</string>
     <string name="detection_resistance_badge_quic_migrate">QUIC migration</string>
+    <string name="detection_resistance_summary_tls">TLS handshake profile</string>
     <string name="detection_resistance_summary_entropy">Traffic morphing</string>
     <string name="detection_resistance_summary_entropy_value">Popcount %1$d, Shannon %2$d</string>
     <string name="detection_resistance_summary_exploration">Adaptive exploration</string>
@@ -1880,6 +1881,8 @@ Source: %2$s</string>
     <string name="detection_resistance_summary_quic_migrate">Migrate after handshake</string>
     <string name="detection_resistance_summary_quic_low_port">Bind low source ports</string>
     <string name="detection_resistance_summary_off">Off</string>
+    <string name="detection_resistance_tls_fingerprint_title">TLS fingerprint profile</string>
+    <string name="detection_resistance_tls_fingerprint_body">Applies to HTTPS and TLS connections the app originates itself, including provisioning, catalog refresh, onboarding checks, and diagnostics metadata lookups.</string>
     <string name="detection_resistance_entropy_mode_title">Entropy shaping mode</string>
     <string name="detection_resistance_entropy_mode_body">Choose which payload-statistics model the fake-packet path should counter.</string>
     <string name="detection_resistance_entropy_padding_title">Popcount target (permil)</string>

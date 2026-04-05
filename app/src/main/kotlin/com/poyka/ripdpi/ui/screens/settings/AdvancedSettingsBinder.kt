@@ -21,6 +21,8 @@ import com.poyka.ripdpi.data.UdpChainStepModel
 import com.poyka.ripdpi.data.isAdaptiveOffsetExpression
 import com.poyka.ripdpi.data.isTlsPrelude
 import com.poyka.ripdpi.data.normalizeActivationFilter
+import com.poyka.ripdpi.data.normalizeAdaptiveFallbackCachePrefixV4
+import com.poyka.ripdpi.data.normalizeAdaptiveFallbackCacheTtlSeconds
 import com.poyka.ripdpi.data.normalizeHostAutolearnMaxHosts
 import com.poyka.ripdpi.data.normalizeHostAutolearnPenaltyTtlHours
 import com.poyka.ripdpi.data.normalizeOffsetExpression
@@ -28,8 +30,6 @@ import com.poyka.ripdpi.data.normalizePayloadSizeRange
 import com.poyka.ripdpi.data.normalizeQuicFakeHost
 import com.poyka.ripdpi.data.normalizeRoundRange
 import com.poyka.ripdpi.data.normalizeStreamBytesRange
-import com.poyka.ripdpi.data.normalizeAdaptiveFallbackCachePrefixV4
-import com.poyka.ripdpi.data.normalizeAdaptiveFallbackCacheTtlSeconds
 import com.poyka.ripdpi.data.normalizeWarpEndpointSelectionMode
 import com.poyka.ripdpi.data.normalizeWarpRouteMode
 import com.poyka.ripdpi.data.parseStrategyChainDsl
@@ -703,8 +703,7 @@ private val toggleHandlers: Map<AdvancedToggleSetting, ToggleHandler> =
         AdvancedToggleSetting.QuicBindLowPort to
             { enabled -> updateBoolean("quicBindLowPort", enabled) { setQuicBindLowPort(enabled) } },
         AdvancedToggleSetting.QuicMigrateAfterHandshake to
-            {
-                enabled ->
+            { enabled ->
                 updateBoolean("quicMigrateAfterHandshake", enabled) {
                     setQuicMigrateAfterHandshake(enabled)
                 }
@@ -738,15 +737,13 @@ private val toggleHandlers: Map<AdvancedToggleSetting, ToggleHandler> =
         AdvancedToggleSetting.AdaptiveFallbackTlsErr to
             { enabled -> updateBoolean("adaptiveFallbackTlsErr", enabled) { setAdaptiveFallbackTlsErr(enabled) } },
         AdvancedToggleSetting.AdaptiveFallbackHttpRedirect to
-            {
-                enabled ->
+            { enabled ->
                 updateBoolean("adaptiveFallbackHttpRedirect", enabled) {
                     setAdaptiveFallbackHttpRedirect(enabled)
                 }
             },
         AdvancedToggleSetting.AdaptiveFallbackConnectFailure to
-            {
-                enabled ->
+            { enabled ->
                 updateBoolean("adaptiveFallbackConnectFailure", enabled) {
                     setAdaptiveFallbackConnectFailure(enabled)
                 }
@@ -1050,11 +1047,15 @@ private val optionHandlers: Map<AdvancedOptionSetting, OptionHandler> =
             { value, _ -> updateWarpEndpointSelectionMode(value) },
         AdvancedOptionSetting.QuicInitialMode to
             { value, _ -> updateValue("quicInitialMode", value) { setQuicInitialMode(value) } },
+        AdvancedOptionSetting.TlsFingerprintProfile to
+            { value, _ -> updateValue("tlsFingerprintProfile", value) { setTlsFingerprintProfile(value) } },
         AdvancedOptionSetting.EntropyMode to
-            {
-                value, _ ->
+            { value, _ ->
                 updateValue("entropyMode", value) {
-                    setEntropyMode(com.poyka.ripdpi.data.entropyModeToProto(value))
+                    setEntropyMode(
+                        com.poyka.ripdpi.data
+                            .entropyModeToProto(value),
+                    )
                 }
             },
         AdvancedOptionSetting.UdpFakeProfile to

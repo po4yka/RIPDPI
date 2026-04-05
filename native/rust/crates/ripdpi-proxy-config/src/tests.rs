@@ -80,10 +80,12 @@ fn ui_payload_parses_hostfake_and_quic_profile() {
         max_fragment_size: 0,
         inter_segment_delay_ms: 0,
         activation_filter: None,
+        ipv6_extension_profile: "none".to_string(),
     }];
     ui.chains.udp_steps.push(udp_step("fake_burst", 3));
     ui.quic.fake_profile = "realistic_initial".to_string();
     ui.quic.fake_host = "Example.COM.".to_string();
+    ui.fake_packets.tls_fingerprint_profile = "chrome_stable".to_string();
 
     let config = runtime_config_from_payload(ui_payload(ui)).expect("runtime config");
 
@@ -133,6 +135,7 @@ fn ui_payload_preserves_explicit_tlsrec_before_hostfake() {
             max_fragment_size: 0,
             inter_segment_delay_ms: 0,
             activation_filter: None,
+            ipv6_extension_profile: "none".to_string(),
         },
     ];
 
@@ -223,6 +226,7 @@ fn ui_payload_parses_ipfrag_steps_and_udp_split_bytes() {
         count: 0,
         split_bytes: 8,
         activation_filter: None,
+        ipv6_extension_profile: "none".to_string(),
     }];
 
     let config = runtime_config_from_payload(ui_payload(ui)).expect("runtime config");
@@ -373,6 +377,7 @@ fn adaptive_hostfake_midhost_marker_is_rejected() {
         max_fragment_size: 0,
         inter_segment_delay_ms: 0,
         activation_filter: None,
+        ipv6_extension_profile: "none".to_string(),
     });
 
     let err = runtime_config_from_payload(ui_payload(ui)).expect_err("adaptive hostfake midhost");
@@ -410,6 +415,7 @@ fn ui_payload_rejects_ipfrag2_udp_with_count() {
         count: 1,
         split_bytes: 8,
         activation_filter: None,
+        ipv6_extension_profile: "none".to_string(),
     }];
 
     let err = runtime_config_from_payload(ui_payload(ui)).expect_err("ipfrag2_udp count");
@@ -425,6 +431,7 @@ fn ui_payload_rejects_ipfrag2_udp_without_positive_split_bytes() {
         count: 0,
         split_bytes: 0,
         activation_filter: None,
+        ipv6_extension_profile: "none".to_string(),
     }];
 
     let err = runtime_config_from_payload(ui_payload(ui)).expect_err("ipfrag2_udp splitBytes");
@@ -435,8 +442,13 @@ fn ui_payload_rejects_ipfrag2_udp_without_positive_split_bytes() {
 #[test]
 fn ui_payload_rejects_split_bytes_for_non_ipfrag_udp_steps() {
     let mut ui = minimal_ui();
-    ui.chains.udp_steps =
-        vec![ProxyUiUdpChainStep { kind: "fake_burst".to_string(), count: 2, split_bytes: 8, activation_filter: None }];
+    ui.chains.udp_steps = vec![ProxyUiUdpChainStep {
+        kind: "fake_burst".to_string(),
+        count: 2,
+        split_bytes: 8,
+        activation_filter: None,
+        ipv6_extension_profile: "none".to_string(),
+    }];
 
     let err = runtime_config_from_payload(ui_payload(ui)).expect_err("fake_burst splitBytes");
 
@@ -447,7 +459,13 @@ fn ui_payload_rejects_split_bytes_for_non_ipfrag_udp_steps() {
 fn ui_payload_rejects_mixed_ipfrag2_udp_chain() {
     let mut ui = minimal_ui();
     ui.chains.udp_steps = vec![
-        ProxyUiUdpChainStep { kind: "ipfrag2_udp".to_string(), count: 0, split_bytes: 8, activation_filter: None },
+        ProxyUiUdpChainStep {
+            kind: "ipfrag2_udp".to_string(),
+            count: 0,
+            split_bytes: 8,
+            activation_filter: None,
+            ipv6_extension_profile: "none".to_string(),
+        },
         udp_step("fake_burst", 1),
     ];
 

@@ -1,8 +1,8 @@
 package com.poyka.ripdpi.ui.screens.onboarding
 
 import com.poyka.ripdpi.activities.ConnectionTestState
-import java.net.HttpURLConnection
-import java.net.URL
+import com.poyka.ripdpi.services.OwnedTlsClientFactory
+import okhttp3.Request
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlin.system.measureTimeMillis
@@ -10,24 +10,31 @@ import kotlin.system.measureTimeMillis
 @Singleton
 class OnboardingConnectionTestRunner
     @Inject
-    constructor() {
+    constructor(
+        private val tlsClientFactory: OwnedTlsClientFactory,
+    ) {
         suspend fun runTest(): ConnectionTestState =
             try {
                 var responseCode: Int
                 val latencyMs =
                     measureTimeMillis {
-                        val connection =
-                            URL(CONNECTIVITY_CHECK_URL).openConnection() as HttpURLConnection
-                        connection.requestMethod = "HEAD"
-                        connection.connectTimeout = TIMEOUT_MS
-                        connection.readTimeout = TIMEOUT_MS
-                        connection.instanceFollowRedirects = false
-                        try {
-                            connection.connect()
-                            responseCode = connection.responseCode
-                        } finally {
-                            connection.disconnect()
-                        }
+                        val request =
+                            Request
+                                .Builder()
+                                .url(CONNECTIVITY_CHECK_URL)
+                                .head()
+                                .build()
+                        tlsClientFactory
+                            .create {
+                                connectTimeout(TIMEOUT_MS.toLong(), java.util.concurrent.TimeUnit.MILLISECONDS)
+                                readTimeout(TIMEOUT_MS.toLong(), java.util.concurrent.TimeUnit.MILLISECONDS)
+                                callTimeout(TIMEOUT_MS.toLong(), java.util.concurrent.TimeUnit.MILLISECONDS)
+                                followRedirects(false)
+                            }.newCall(request)
+                            .execute()
+                            .use { response ->
+                                responseCode = response.code
+                            }
                     }
                 if (responseCode in 200..399) {
                     ConnectionTestState.Success(latencyMs = latencyMs)

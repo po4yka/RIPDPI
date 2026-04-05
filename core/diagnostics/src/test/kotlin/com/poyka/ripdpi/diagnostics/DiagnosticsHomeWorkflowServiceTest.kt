@@ -10,6 +10,7 @@ import com.poyka.ripdpi.core.RipDpiWarpAmneziaConfig
 import com.poyka.ripdpi.core.RipDpiWarpConfig
 import com.poyka.ripdpi.core.RipDpiWarpManualEndpointConfig
 import com.poyka.ripdpi.data.EntropyModeCombined
+import com.poyka.ripdpi.data.TlsFingerprintProfileChromeStable
 import com.poyka.ripdpi.data.WarpEndpointSelectionManual
 import com.poyka.ripdpi.data.WarpRouteModeRules
 import com.poyka.ripdpi.data.diagnostics.DefaultNetworkDnsPathPreferenceStore
@@ -177,6 +178,7 @@ class DiagnosticsHomeWorkflowServiceTest {
                                                     entropyPaddingTargetPermil = 3600,
                                                     entropyPaddingMax = 384,
                                                     shannonEntropyTargetPermil = 7900,
+                                                    tlsFingerprintProfile = TlsFingerprintProfileChromeStable,
                                                 ),
                                             adaptiveFallback =
                                                 RipDpiAdaptiveFallbackConfig(
@@ -196,6 +198,11 @@ class DiagnosticsHomeWorkflowServiceTest {
                 ).finalizeHomeAudit("tier4-audit-session")
 
             assertTrue(outcome.actionable)
+            assertTrue(
+                outcome.appliedSettings.any {
+                    it.label == "TLS fingerprint" && it.value == "Chrome stable"
+                },
+            )
             assertTrue(
                 outcome.appliedSettings.any {
                     it.label == "Traffic morphing" &&

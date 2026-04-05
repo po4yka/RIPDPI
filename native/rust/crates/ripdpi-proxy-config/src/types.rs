@@ -25,6 +25,7 @@ pub const ADAPTIVE_FAKE_TTL_DEFAULT_FALLBACK: i32 = 8;
 pub const ADAPTIVE_FALLBACK_DEFAULT_CACHE_TTL_SECS: i64 = 90;
 pub const ADAPTIVE_FALLBACK_DEFAULT_CACHE_PREFIX_V4: u8 = 24;
 pub const HOST_AUTOLEARN_DEFAULT_PENALTY_TTL_HOURS: i64 = 6;
+pub const TLS_FINGERPRINT_PROFILE_NATIVE_DEFAULT: &str = "native_default";
 
 #[derive(Debug, thiserror::Error, Clone, PartialEq, Eq)]
 pub enum ProxyConfigError {
@@ -295,6 +296,8 @@ pub struct ProxyUiFakePacketConfig {
     /// Shannon entropy target in permil (e.g. 7920 = 7.92). 0 = default (7.92).
     #[serde(default)]
     pub shannon_entropy_target_permil: Option<u32>,
+    #[serde(default = "default_tls_fingerprint_profile")]
+    pub tls_fingerprint_profile: String,
 }
 
 impl Default for ProxyUiFakePacketConfig {
@@ -330,6 +333,7 @@ impl Default for ProxyUiFakePacketConfig {
             entropy_padding_target_permil: None,
             entropy_padding_max: None,
             shannon_entropy_target_permil: None,
+            tls_fingerprint_profile: default_tls_fingerprint_profile(),
         }
     }
 }
@@ -889,6 +893,10 @@ fn default_relay_local_socks_port() -> i32 {
 
 fn default_fake_payload_profile() -> String {
     FAKE_PAYLOAD_PROFILE_COMPAT_DEFAULT.to_string()
+}
+
+fn default_tls_fingerprint_profile() -> String {
+    TLS_FINGERPRINT_PROFILE_NATIVE_DEFAULT.to_string()
 }
 
 fn default_fake_offset_marker() -> String {
