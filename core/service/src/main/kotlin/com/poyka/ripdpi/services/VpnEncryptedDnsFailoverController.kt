@@ -12,6 +12,7 @@ import com.poyka.ripdpi.data.toEncryptedDnsPathCandidate
 import com.poyka.ripdpi.data.toTemporaryResolverOverride
 
 private const val FailoverThreshold = 2
+private const val EagerFailoverMaxQueries = 3
 private const val AutoFailoverReasonPrefix = "vpn_encrypted_dns_auto_failover"
 
 internal class VpnEncryptedDnsFailoverState {
@@ -163,7 +164,9 @@ internal class VpnEncryptedDnsFailoverController(
         // failover immediately.  This prevents the service from halting before the
         // failover controller gets a second chance.
         val queriesSincePathStart = telemetry.dnsQueriesTotal - state.pathStartQueries
-        if (queriesSincePathStart <= 3 && isCatastrophicDnsError(telemetry.lastDnsError.orEmpty())) {
+        if (queriesSincePathStart <= EagerFailoverMaxQueries &&
+            isCatastrophicDnsError(telemetry.lastDnsError.orEmpty())
+        ) {
             log.w { "catastrophic error on bootstrap, eager failover triggered (queries=$queriesSincePathStart)" }
             state.consecutiveFailureEvents = FailoverThreshold
         }

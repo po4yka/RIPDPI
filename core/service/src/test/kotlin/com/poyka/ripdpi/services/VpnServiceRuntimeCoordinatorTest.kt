@@ -179,7 +179,7 @@ class VpnServiceRuntimeCoordinatorTest {
     @Test
     fun tunnelTelemetryFailureTransitionsToFailedThenStopped() =
         runTest {
-            val env = newEnv()
+            val env = newEnv(resolutions = listOf(plainDnsResolution()))
 
             env.coordinator.start()
             runCurrent()
@@ -394,7 +394,7 @@ class VpnServiceRuntimeCoordinatorTest {
     @Test
     fun tunnelStoppedUnexpectedlyTransitionsToFailed() =
         runTest {
-            val env = newEnv()
+            val env = newEnv(resolutions = listOf(plainDnsResolution()))
 
             env.coordinator.start()
             runCurrent()
@@ -472,6 +472,16 @@ class VpnServiceRuntimeCoordinatorTest {
             assertEquals(AppStatus.Halted to Mode.VPN, env.store.status.value)
             assertTrue(env.store.eventHistory.any { it is ServiceEvent.Failed })
         }
+
+    private fun plainDnsResolution(): ConnectionPolicyResolution {
+        val settings =
+            AppSettingsSerializer.defaultValue
+                .toBuilder()
+                .setDnsMode(DnsModePlainUdp)
+                .setDnsIp("8.8.8.8")
+                .build()
+        return sampleResolution(mode = Mode.VPN, settings = settings, activeDns = settings.activeDnsSettings())
+    }
 
     private fun TestScope.newEnv(
         fingerprint: com.poyka.ripdpi.data.NetworkFingerprint? = sampleFingerprint(),

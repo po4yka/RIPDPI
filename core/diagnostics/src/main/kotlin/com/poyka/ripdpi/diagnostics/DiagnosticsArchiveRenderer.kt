@@ -797,9 +797,10 @@ class DiagnosticsArchiveRenderer
                         add("runType=${selection.runType.name.lowercase()}")
                         add("privacyMode=${DiagnosticsArchiveFormat.privacyMode}")
                         add("logcatIncluded=${selection.logcatSnapshot != null}")
-                        add(
-                            "logcatCaptureScope=${selection.logcatSnapshot?.captureScope ?: LogcatSnapshotCollector.AppVisibleSnapshotScope}",
-                        )
+                        val logcatScope =
+                            selection.logcatSnapshot?.captureScope
+                                ?: LogcatSnapshotCollector.AppVisibleSnapshotScope
+                        add("logcatCaptureScope=$logcatScope")
                         add("logcatByteCount=${selection.logcatSnapshot?.byteCount ?: 0}")
                         add("selectedSession=${selection.primarySession?.id ?: "latest-live"}")
                         selection.homeRunId?.let { add("homeRunId=$it") }

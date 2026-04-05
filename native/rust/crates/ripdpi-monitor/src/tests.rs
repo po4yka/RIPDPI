@@ -950,17 +950,14 @@ fn monitor_session_full_matrix_marks_dns_short_circuit_completion_kind() {
     );
     request.domain_targets = vec![DomainTarget {
         host: "blocked.example".to_string(),
-        connect_ip: Some("203.0.113.10".to_string()),
-        https_port: Some(443),
-        http_port: Some(80),
+        connect_ip: Some("127.0.0.1".to_string()),
+        https_port: Some(9),
+        http_port: Some(9),
         http_path: "/".to_string(),
         is_control: false,
     }];
-    request.quic_targets = vec![QuicTarget {
-        host: "blocked.example".to_string(),
-        connect_ip: Some("203.0.113.10".to_string()),
-        port: 443,
-    }];
+    request.quic_targets =
+        vec![QuicTarget { host: "blocked.example".to_string(), connect_ip: Some("127.0.0.1".to_string()), port: 9 }];
     let session = MonitorSession::new();
 
     session.start_scan("session-audit-dns-short".to_string(), request.into()).expect("start automatic audit");
