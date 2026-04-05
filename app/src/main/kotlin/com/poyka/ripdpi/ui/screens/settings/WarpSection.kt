@@ -183,15 +183,17 @@ internal fun LazyListScope.warpSection(
                         showDivider = true,
                     )
                 }
-                SettingsRow(
-                    title = stringResource(R.string.warp_scanner_enabled_title),
-                    subtitle = stringResource(R.string.warp_scanner_enabled_body),
-                    checked = uiState.warp.scannerEnabled,
-                    enabled = sectionEnabled && uiState.warp.enabled,
-                    onCheckedChange = { onToggleChanged(AdvancedToggleSetting.WarpScannerEnabled, it) },
-                    showDivider = uiState.warp.scannerControlsEnabled,
-                    testTag = RipDpiTestTags.advancedToggle(AdvancedToggleSetting.WarpScannerEnabled),
-                )
+                if (uiState.warp.scannerAvailable) {
+                    SettingsRow(
+                        title = stringResource(R.string.warp_scanner_enabled_title),
+                        subtitle = stringResource(R.string.warp_scanner_enabled_body),
+                        checked = uiState.warp.scannerEnabled,
+                        enabled = sectionEnabled && uiState.warp.enabled,
+                        onCheckedChange = { onToggleChanged(AdvancedToggleSetting.WarpScannerEnabled, it) },
+                        showDivider = uiState.warp.scannerControlsEnabled,
+                        testTag = RipDpiTestTags.advancedToggle(AdvancedToggleSetting.WarpScannerEnabled),
+                    )
+                }
                 if (uiState.warp.scannerControlsEnabled) {
                     AdvancedTextSetting(
                         title = stringResource(R.string.warp_scanner_parallelism_title),

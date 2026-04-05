@@ -541,7 +541,7 @@ pub fn runtime_config_from_ui(payload: ProxyUiConfig) -> Result<RuntimeConfig, P
         config.adaptive.auto_level |= AUTO_SORT;
     }
     config.adaptive.cache_ttl = adaptive_fallback.cache_ttl_seconds.max(0);
-    config.adaptive.cache_prefix = adaptive_fallback.cache_prefix_v4.clamp(1, 32);
+    config.adaptive.cache_prefix = (32 - adaptive_fallback.cache_prefix_v4.clamp(1, 32)).max(1);
     if listen.custom_ttl {
         let ttl = u8::try_from(listen.default_ttl)
             .map_err(|_| ProxyConfigError::InvalidConfig("Invalid defaultTtl".to_string()))?;

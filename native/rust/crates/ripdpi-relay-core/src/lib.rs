@@ -44,6 +44,7 @@ pub struct ResolvedRelayRuntimeConfig {
     pub chain_exit_uuid: Option<String>,
     pub hysteria_password: Option<String>,
     pub hysteria_salamander_key: Option<String>,
+    pub tls_fingerprint_profile: String,
     pub masque_auth_mode: Option<String>,
     pub masque_auth_token: Option<String>,
     pub masque_cloudflare_client_id: Option<String>,
@@ -162,6 +163,7 @@ impl VlessRealityBackend {
             &self.config.server_name,
             &self.config.reality_public_key,
             &self.config.reality_short_id,
+            &self.config.tls_fingerprint_profile,
         )
         .map_err(|e| io::Error::new(io::ErrorKind::InvalidInput, e.to_string()))?;
         let stream = ripdpi_vless::VlessRealityClient::connect(&cfg, target).await?;
@@ -182,6 +184,7 @@ impl ChainRelayBackend {
             &self.config.chain_entry_server_name,
             &self.config.chain_entry_public_key,
             &self.config.chain_entry_short_id,
+            &self.config.tls_fingerprint_profile,
         )
         .map_err(|e| io::Error::new(io::ErrorKind::InvalidInput, format!("chain entry config: {e}")))?;
 
@@ -192,6 +195,7 @@ impl ChainRelayBackend {
             &self.config.chain_exit_server_name,
             &self.config.chain_exit_public_key,
             &self.config.chain_exit_short_id,
+            &self.config.tls_fingerprint_profile,
         )
         .map_err(|e| io::Error::new(io::ErrorKind::InvalidInput, format!("chain exit config: {e}")))?;
 
@@ -221,6 +225,7 @@ impl MasqueBackend {
             cf_client_id: self.config.masque_cloudflare_client_id.clone(),
             cf_key_id: self.config.masque_cloudflare_key_id.clone(),
             cf_private_key_pem: self.config.masque_cloudflare_private_key_pem.clone(),
+            tls_fingerprint_profile: self.config.tls_fingerprint_profile.clone(),
         };
         let stream = ripdpi_masque::MasqueClient::connect(&cfg, target).await?;
         // Re-box: MasqueClient returns Box<dyn masque::AsyncIo>, which implements
