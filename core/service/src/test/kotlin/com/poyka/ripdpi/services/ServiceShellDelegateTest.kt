@@ -1,7 +1,7 @@
 package com.poyka.ripdpi.services
 
-import com.poyka.ripdpi.data.START_ACTION
-import com.poyka.ripdpi.data.STOP_ACTION
+import com.poyka.ripdpi.data.startAction
+import com.poyka.ripdpi.data.stopAction
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.runCurrent
@@ -25,9 +25,9 @@ class ServiceShellDelegateTest {
                     ioDispatcher = StandardTestDispatcher(testScheduler),
                 )
 
-            val startResult = delegate.onStartCommand(START_ACTION, 1)
+            val startResult = delegate.onStartCommand(startAction, 1)
             runCurrent()
-            val stopResult = delegate.onStartCommand(STOP_ACTION, 7)
+            val stopResult = delegate.onStartCommand(stopAction, 7)
             runCurrent()
 
             assertEquals(android.app.Service.START_STICKY, startResult)

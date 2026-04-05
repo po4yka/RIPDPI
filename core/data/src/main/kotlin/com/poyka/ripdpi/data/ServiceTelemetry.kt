@@ -1,5 +1,10 @@
 package com.poyka.ripdpi.data
 
+private const val LatencyFastMs = 50L
+private const val LatencyModerateMs = 100L
+private const val LatencySlowMs = 250L
+private const val LatencyVerySlowMs = 500L
+
 enum class FailureClass(
     val wireValue: String,
 ) {
@@ -98,6 +103,7 @@ fun aggregateRttBand(
         .maxByOrNull { it.ordinal }
         ?: RttBand.Unknown
 
+@Suppress("ReturnCount")
 fun classifyFailureClass(
     failureReason: FailureReason?,
     proxyTelemetry: NativeRuntimeSnapshot,
@@ -156,6 +162,7 @@ private fun latestFailureText(
         ?: tunnelTelemetry.resolverFallbackReason?.trim()?.takeIf { it.isNotEmpty() }
 }
 
+@Suppress("CyclomaticComplexMethod")
 private fun classifyFailureText(text: String): FailureClass? {
     val normalized = text.trim().lowercase()
     return when {
@@ -219,9 +226,9 @@ private fun classifyFailureText(text: String): FailureClass? {
 fun RttBand.Companion.fromLatencyMs(latencyMs: Long?): RttBand =
     when {
         latencyMs == null || latencyMs < 0L -> RttBand.Unknown
-        latencyMs < 50L -> RttBand.Lt50
-        latencyMs < 100L -> RttBand.Between50And99
-        latencyMs < 250L -> RttBand.Between100And249
-        latencyMs < 500L -> RttBand.Between250And499
+        latencyMs < LatencyFastMs -> RttBand.Lt50
+        latencyMs < LatencyModerateMs -> RttBand.Between50And99
+        latencyMs < LatencySlowMs -> RttBand.Between100And249
+        latencyMs < LatencyVerySlowMs -> RttBand.Between250And499
         else -> RttBand.Gte500
     }

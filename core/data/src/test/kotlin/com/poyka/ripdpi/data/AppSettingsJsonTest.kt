@@ -12,6 +12,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class AppSettingsJsonTest {
+    @Suppress("LongMethod")
     @Test
     fun `settings round trip through current json format`() {
         val settings =

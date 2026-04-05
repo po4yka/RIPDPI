@@ -13,11 +13,11 @@ import com.poyka.ripdpi.data.EncryptedDnsProtocolDoh
 import com.poyka.ripdpi.data.EncryptedDnsProtocolDoq
 import com.poyka.ripdpi.data.EncryptedDnsProtocolDot
 import com.poyka.ripdpi.data.Mode
-import com.poyka.ripdpi.data.START_ACTION
-import com.poyka.ripdpi.data.STOP_ACTION
 import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.data.setRawStrategyChainDsl
 import com.poyka.ripdpi.data.setStrategyChains
+import com.poyka.ripdpi.data.startAction
+import com.poyka.ripdpi.data.stopAction
 import com.poyka.ripdpi.debug.PacketSmokePhase
 import com.poyka.ripdpi.debug.PacketSmokePrepareState
 import com.poyka.ripdpi.debug.PacketSmokeRunnerProbeResult
@@ -1118,12 +1118,12 @@ class PacketSmokeInstrumentedTest {
     private fun startService(serviceClass: Class<*>) {
         ContextCompat.startForegroundService(
             appContext,
-            Intent(appContext, serviceClass).setAction(START_ACTION),
+            Intent(appContext, serviceClass).setAction(startAction),
         )
     }
 
     private fun stopService(serviceClass: Class<*>) {
-        appContext.startService(Intent(appContext, serviceClass).setAction(STOP_ACTION))
+        appContext.startService(Intent(appContext, serviceClass).setAction(stopAction))
     }
 
     private fun awaitServiceStatus(

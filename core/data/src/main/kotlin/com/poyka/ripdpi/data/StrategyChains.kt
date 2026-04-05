@@ -1,3 +1,5 @@
+@file:Suppress("TooManyFunctions")
+
 package com.poyka.ripdpi.data
 
 import com.poyka.ripdpi.proto.AppSettings
@@ -8,6 +10,18 @@ import kotlinx.serialization.Serializable
 private const val TcpSection = "tcp"
 private const val UdpSection = "udp"
 private const val IpFragmentAlignmentBytes = 8
+private const val MaxIpv4OctetValue = 255
+private const val MaxIpv4LabelCount = 4
+private const val MaxSeqOverlapSize = 32
+private const val MaxHostLabelLength = 16
+private const val MaxDnsTlsRandRecFragmentSize = 4096
+
+private fun hasInvalidHostnameStructure(trimmed: String): Boolean =
+    trimmed.isEmpty() || trimmed.contains(':') || trimmed.startsWith('.') ||
+        trimmed.endsWith('.') || trimmed.contains("..")
+
+private fun containsInvalidHostnameChar(trimmed: String): Boolean =
+    !trimmed.all { it.isLowerCase() || it.isDigit() || it == '-' || it == '.' }
 
 const val StrategyIpv6ExtensionProfileNone = "none"
 const val StrategyIpv6ExtensionProfileHopByHop = "hopByHop"
@@ -226,6 +240,7 @@ fun formatStrategyChainDsl(
 fun primaryTcpChainStep(tcpSteps: List<TcpChainStepModel>): TcpChainStepModel? =
     tcpSteps.firstOrNull { !it.kind.isTlsPrelude }
 
+@Suppress("ReturnCount")
 fun rewritePrimaryTcpMarker(
     tcpSteps: List<TcpChainStepModel>,
     marker: String,
@@ -263,6 +278,7 @@ fun replaceTlsPreludeTcpChainSteps(
 fun primaryDesyncMethod(tcpSteps: List<TcpChainStepModel>): String =
     primaryTcpChainStep(tcpSteps)?.kind?.desyncMethodLabel() ?: "none"
 
+@Suppress("LongMethod")
 fun parseStrategyChainDsl(source: String): Result<StrategyChainSet> =
     runCatching {
         val tcpSteps = mutableListOf<TcpChainStepModel>()
@@ -629,6 +645,7 @@ private fun formatUdpStepDsl(step: UdpChainStepModel): String =
         appendActivationDsl(this, normalized.activationFilter)
     }
 
+@Suppress("CyclomaticComplexMethod", "LongMethod")
 private fun parseTcpStep(
     kind: TcpChainStepKind,
     spec: String,
@@ -686,7 +703,7 @@ private fun parseTcpStep(
                 ) { "overlap is only supported for seqovl on line $lineNumber" }
                 overlapSpecified = true
                 overlapSize = value.toIntOrNull() ?: error("Invalid overlap on line $lineNumber")
-                require(overlapSize in 1..32) { "Invalid overlap on line $lineNumber" }
+                require(overlapSize in 1..MaxSeqOverlapSize) { "Invalid overlap on line $lineNumber" }
             }
 
             "fake" -> {
@@ -790,7 +807,7 @@ private fun validateTcpStepOptions(step: TcpChainStepModel) {
     }
     when (step.kind) {
         TcpChainStepKind.SeqOverlap -> {
-            require(step.overlapSize in 1..32) { "seqovl overlap must be between 1 and 32" }
+            require(step.overlapSize in 1..MaxSeqOverlapSize) { "seqovl overlap must be between 1 and 32" }
             require(isValidSeqOverlapFakeMode(step.fakeMode)) {
                 "seqovl fakeMode must be profile or rand"
             }
@@ -800,9 +817,11 @@ private fun validateTcpStepOptions(step: TcpChainStepModel) {
         }
 
         TcpChainStepKind.TlsRandRec -> {
-            require(step.fragmentCount in 2..16) { "tlsrandrec count must be between 2 and 16" }
-            require(step.minFragmentSize in 1..4096) { "tlsrandrec min must be between 1 and 4096" }
-            require(step.maxFragmentSize in step.minFragmentSize..4096) {
+            require(step.fragmentCount in 2..MaxHostLabelLength) { "tlsrandrec count must be between 2 and 16" }
+            require(step.minFragmentSize in 1..MaxDnsTlsRandRecFragmentSize) {
+                "tlsrandrec min must be between 1 and 4096"
+            }
+            require(step.maxFragmentSize in step.minFragmentSize..MaxDnsTlsRandRecFragmentSize) {
                 "tlsrandrec max must be between min and 4096"
             }
             require(step.overlapSize == 0) { "tlsrandrec must not declare overlapSize" }
@@ -893,6 +912,7 @@ private fun normalizeMidhostMarker(
     marker: String,
 ): String = if (kind == TcpChainStepKind.HostFake) normalizeOffsetExpression(marker, "").trim() else ""
 
+@Suppress("ReturnCount")
 private fun normalizeFakeHostTemplate(
     kind: TcpChainStepKind,
     template: String,
@@ -901,12 +921,10 @@ private fun normalizeFakeHostTemplate(
         return ""
     }
     val trimmed = template.trim().trimEnd('.').lowercase()
-    if (trimmed.isEmpty() || trimmed.contains(':') || trimmed.startsWith('.') || trimmed.endsWith('.') ||
-        trimmed.contains("..")
-    ) {
+    if (hasInvalidHostnameStructure(trimmed)) {
         return ""
     }
-    if (!trimmed.all { it.isLowerCase() || it.isDigit() || it == '-' || it == '.' }) {
+    if (containsInvalidHostnameChar(trimmed)) {
         return ""
     }
     if (trimmed.split('.').any { label -> label.isEmpty() || label.startsWith('-') || label.endsWith('-') }) {
@@ -914,9 +932,9 @@ private fun normalizeFakeHostTemplate(
     }
     val ipv4Parts = trimmed.split('.')
     val isIpv4Literal =
-        ipv4Parts.size == 4 &&
+        ipv4Parts.size == MaxIpv4LabelCount &&
             ipv4Parts.all { part ->
-                part.toIntOrNull()?.let { value -> value in 0..255 && value.toString() == part } == true
+                part.toIntOrNull()?.let { value -> value in 0..MaxIpv4OctetValue && value.toString() == part } == true
             }
     return if (isIpv4Literal) "" else trimmed
 }
