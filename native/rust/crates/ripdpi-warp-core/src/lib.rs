@@ -329,6 +329,17 @@ impl WarpRuntime {
         })?;
         let endpoint = resolve_endpoint(&self.config.endpoint).await?;
         let reserved = reserved_bytes_from_client_id(self.config.client_id.as_deref());
+        // AmneziaWG packet obfuscation is configured but the runtime byte-level
+        // obfuscation (header replacement, junk packets) is not yet implemented.
+        // The tunnel will function as standard WireGuard without obfuscation.
+        if self.config.amnezia.enabled {
+            tracing::warn!(
+                "AmneziaWG obfuscation parameters are configured (jc={}, h1-h4 ranges) \
+                 but runtime obfuscation is not yet implemented; \
+                 tunnel will use standard WireGuard framing",
+                self.config.amnezia.jc
+            );
+        }
         let tunnel = Arc::new(
             WireGuardTunnel::new(
                 &self.config.private_key,

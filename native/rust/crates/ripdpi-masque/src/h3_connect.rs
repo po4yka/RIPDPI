@@ -2,8 +2,8 @@ use std::io;
 use std::net::ToSocketAddrs;
 use std::sync::Arc;
 
-use bytes::Bytes;
-use tokio::io::{AsyncRead, AsyncWrite};
+use bytes::{Buf, Bytes};
+use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use url::Url;
 
 use crate::cloudflare;
@@ -113,52 +113,66 @@ async fn extended_connect(
 
     tracing::debug!(target, "H3 Extended CONNECT tunnel established");
 
-    // Wrap the H3 bidirectional stream as AsyncRead + AsyncWrite
-    Ok(H3TunnelStream { stream })
+    Ok(spawn_h3_bridge(stream))
 }
 
-/// Wrapper around an H3 bidirectional stream implementing tokio AsyncRead/AsyncWrite.
-struct H3TunnelStream {
-    // TODO(relay): use this field once full H3 stream adapter is implemented
-    #[allow(dead_code)]
-    stream: h3::client::RequestStream<h3_quinn::BidiStream<Bytes>, Bytes>,
-}
+/// Drives an H3 bidirectional stream, bridging it to a duplex tokio I/O pipe.
+///
+/// Spawns a background task that owns the `RequestStream` and shuttles data in
+/// both directions between the H3 stream and the returned `DuplexStream`.
+fn spawn_h3_bridge(mut stream: h3::client::RequestStream<h3_quinn::BidiStream<Bytes>, Bytes>) -> impl AsyncIo {
+    let (app_io, bridge_io) = tokio::io::duplex(64 * 1024);
+    let (mut bridge_reader, mut bridge_writer) = tokio::io::split(bridge_io);
 
-impl AsyncRead for H3TunnelStream {
-    fn poll_read(
-        self: std::pin::Pin<&mut Self>,
-        _cx: &mut std::task::Context<'_>,
-        _buf: &mut tokio::io::ReadBuf<'_>,
-    ) -> std::task::Poll<io::Result<()>> {
-        // H3 streams use a different read model (recv_data returns Bytes chunks).
-        // For the initial implementation, we signal EOF and rely on the H2 fallback
-        // path for production traffic. Full H3 stream adaptation requires a buffering
-        // layer that converts between `h3::RecvStream` chunks and `AsyncRead`.
-        //
-        // TODO(relay): implement full H3 stream -> AsyncRead adapter with chunk buffering
-        std::task::Poll::Ready(Ok(()))
-    }
-}
+    tokio::spawn(async move {
+        let mut send_buf = vec![0u8; 16 * 1024];
+        loop {
+            tokio::select! {
+                // Server → client: receive H3 data, write into the duplex pipe.
+                recv_result = stream.recv_data() => {
+                    match recv_result {
+                        Ok(Some(mut data)) => {
+                            let bytes = data.copy_to_bytes(data.remaining());
+                            if let Err(e) = bridge_writer.write_all(&bytes).await {
+                                tracing::debug!("H3 bridge write to duplex failed: {e}");
+                                break;
+                            }
+                        }
+                        Ok(None) => {
+                            tracing::debug!("H3 stream recv_data returned None (stream ended)");
+                            break;
+                        }
+                        Err(e) => {
+                            tracing::debug!("H3 stream recv_data error: {e}");
+                            break;
+                        }
+                    }
+                }
+                // Client → server: read from the duplex pipe, send as H3 data.
+                read_result = bridge_reader.read(&mut send_buf) => {
+                    match read_result {
+                        Ok(0) => {
+                            tracing::debug!("H3 bridge duplex reader closed");
+                            break;
+                        }
+                        Ok(n) => {
+                            let data = Bytes::copy_from_slice(&send_buf[..n]);
+                            if let Err(e) = stream.send_data(data).await {
+                                tracing::debug!("H3 stream send_data error: {e}");
+                                break;
+                            }
+                        }
+                        Err(e) => {
+                            tracing::debug!("H3 bridge read from duplex failed: {e}");
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+        // Gracefully finish the H3 send side.
+        let _ = stream.finish().await;
+    });
 
-impl AsyncWrite for H3TunnelStream {
-    fn poll_write(
-        self: std::pin::Pin<&mut Self>,
-        _cx: &mut std::task::Context<'_>,
-        buf: &[u8],
-    ) -> std::task::Poll<io::Result<usize>> {
-        // Similar to read -- H3 streams use send_data(Bytes) rather than poll_write.
-        // TODO(relay): implement full AsyncWrite -> H3 send_data adapter
-        std::task::Poll::Ready(Ok(buf.len()))
-    }
-
-    fn poll_flush(self: std::pin::Pin<&mut Self>, _cx: &mut std::task::Context<'_>) -> std::task::Poll<io::Result<()>> {
-        std::task::Poll::Ready(Ok(()))
-    }
-
-    fn poll_shutdown(
-        self: std::pin::Pin<&mut Self>,
-        _cx: &mut std::task::Context<'_>,
-    ) -> std::task::Poll<io::Result<()>> {
-        std::task::Poll::Ready(Ok(()))
-    }
+    app_io
 }
