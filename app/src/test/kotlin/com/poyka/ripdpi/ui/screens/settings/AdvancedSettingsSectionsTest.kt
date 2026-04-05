@@ -235,6 +235,36 @@ class AdvancedSettingsSectionsTest {
     }
 
     @Test
+    fun `adaptive fallback section renders controls`() {
+        setAdaptiveFallbackSection()
+
+        composeRule.onNodeWithTag(RipDpiTestTags.advancedSection("adaptive_fallback")).assertExists()
+        composeRule
+            .onNodeWithTag(RipDpiTestTags.advancedToggle(AdvancedToggleSetting.AdaptiveFallbackEnabled))
+            .assertExists()
+        composeRule
+            .onNodeWithTag(RipDpiTestTags.advancedInput(AdvancedTextSetting.AdaptiveFallbackCacheTtlSeconds))
+            .assertExists()
+        composeRule
+            .onNodeWithTag(RipDpiTestTags.advancedInput(AdvancedTextSetting.AdaptiveFallbackCachePrefixV4))
+            .assertExists()
+    }
+
+    @Test
+    fun `adaptive fallback trigger toggles are disabled when feature is off`() {
+        setAdaptiveFallbackSection(
+            uiState =
+                SettingsUiState(
+                    adaptiveFallback = com.poyka.ripdpi.activities.AdaptiveFallbackUiState(enabled = false),
+                ),
+        )
+
+        composeRule
+            .onNodeWithTag(RipDpiTestTags.advancedToggle(AdvancedToggleSetting.AdaptiveFallbackTorst))
+            .assertIsNotEnabled()
+    }
+
+    @Test
     fun `host autolearn status keeps block detail visible after later non block event`() {
         setHostAutolearnSection(
             uiState =
@@ -367,6 +397,25 @@ class AdvancedSettingsSectionsTest {
                         onToggleChanged = onToggleChanged,
                         onTextConfirmed = onTextConfirmed,
                         onForgetLearnedHosts = onForgetLearnedHosts,
+                    )
+                }
+            }
+        }
+    }
+
+    private fun setAdaptiveFallbackSection(
+        uiState: SettingsUiState = SettingsUiState(),
+        onToggleChanged: (AdvancedToggleSetting, Boolean) -> Unit = { _, _ -> },
+        onTextConfirmed: (AdvancedTextSetting, String) -> Unit = { _, _ -> },
+    ) {
+        composeRule.setContent {
+            RipDpiTheme {
+                LazyColumn(modifier = Modifier.height(TALL_VIEWPORT)) {
+                    adaptiveFallbackSection(
+                        uiState = uiState,
+                        visualEditorEnabled = !uiState.enableCmdSettings,
+                        onToggleChanged = onToggleChanged,
+                        onTextConfirmed = onTextConfirmed,
                     )
                 }
             }

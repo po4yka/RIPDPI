@@ -35,6 +35,8 @@ import com.poyka.ripdpi.data.effectiveUdpFakeProfile
 import com.poyka.ripdpi.data.formatChainSummary
 import com.poyka.ripdpi.data.isTlsPrelude
 import com.poyka.ripdpi.data.normalizeActivationFilter
+import com.poyka.ripdpi.data.normalizeAdaptiveFallbackCachePrefixV4
+import com.poyka.ripdpi.data.normalizeAdaptiveFallbackCacheTtlSeconds
 import com.poyka.ripdpi.data.normalizeAdaptiveFakeTtlDelta
 import com.poyka.ripdpi.data.normalizeAdaptiveFakeTtlFallback
 import com.poyka.ripdpi.data.normalizeAdaptiveFakeTtlMax
@@ -53,12 +55,14 @@ import com.poyka.ripdpi.data.normalizeUdpChainStepModel
 import com.poyka.ripdpi.data.normalizeUdpFakeProfile
 import com.poyka.ripdpi.data.setGroupActivationFilterCompat
 import com.poyka.ripdpi.data.setStrategyChains
+import com.poyka.ripdpi.data.toAdaptiveFallbackSettingsModel
 import com.poyka.ripdpi.data.toWarpSettingsModel
 import com.poyka.ripdpi.proto.AppSettings
 
 class RipDpiProxyUIPreferences(
     val protocols: RipDpiProtocolConfig = RipDpiProtocolConfig(),
     val parserEvasions: RipDpiParserEvasionConfig = RipDpiParserEvasionConfig(),
+    adaptiveFallback: RipDpiAdaptiveFallbackConfig = RipDpiAdaptiveFallbackConfig(),
     val wsTunnel: RipDpiWsTunnelConfig = RipDpiWsTunnelConfig(),
     listen: RipDpiListenConfig = RipDpiListenConfig(),
     chains: RipDpiChainConfig = RipDpiChainConfig(),
@@ -76,6 +80,7 @@ class RipDpiProxyUIPreferences(
     val listen: RipDpiListenConfig = normalizeListenConfig(listen)
     val chains: RipDpiChainConfig = normalizeChainConfig(chains)
     val fakePackets: RipDpiFakePacketConfig = normalizeFakePacketConfig(fakePackets)
+    val adaptiveFallback: RipDpiAdaptiveFallbackConfig = normalizeAdaptiveFallbackConfig(adaptiveFallback)
     val quic: RipDpiQuicConfig = normalizeQuicConfig(quic)
     val hosts: RipDpiHostsConfig = normalizeHostsConfig(hosts)
     val warp: RipDpiWarpConfig = normalizeWarpConfig(warp)
@@ -104,6 +109,7 @@ class RipDpiProxyUIPreferences(
             chains = chains,
             fakePackets = fakePackets,
             parserEvasions = parserEvasions,
+            adaptiveFallback = adaptiveFallback,
             quic = quic,
             hosts = hosts,
             warp = warp,
@@ -136,6 +142,7 @@ class RipDpiProxyUIPreferences(
                 chains = buildChainConfig(settings),
                 fakePackets = buildFakePacketConfig(settings),
                 parserEvasions = buildParserEvasionConfig(settings),
+                adaptiveFallback = buildAdaptiveFallbackConfig(settings),
                 quic = buildQuicConfig(settings),
                 hosts = buildHostsConfig(settings),
                 warp = buildWarpConfig(settings),
@@ -203,8 +210,24 @@ class RipDpiProxyUIPreferences(
                 domainMixedCase = settings.domainMixedCase,
                 hostRemoveSpaces = settings.hostRemoveSpaces,
                 httpMethodEol = settings.httpMethodEol,
+                httpMethodSpace = settings.httpMethodSpace,
                 httpUnixEol = settings.httpUnixEol,
+                httpHostPad = settings.httpHostPad,
             )
+
+        private fun buildAdaptiveFallbackConfig(settings: AppSettings): RipDpiAdaptiveFallbackConfig {
+            val adaptive = settings.toAdaptiveFallbackSettingsModel()
+            return RipDpiAdaptiveFallbackConfig(
+                enabled = adaptive.enabled,
+                torst = adaptive.torst,
+                tlsErr = adaptive.tlsErr,
+                httpRedirect = adaptive.httpRedirect,
+                connectFailure = adaptive.connectFailure,
+                autoSort = adaptive.autoSort,
+                cacheTtlSeconds = adaptive.cacheTtlSeconds,
+                cachePrefixV4 = adaptive.cachePrefixV4,
+            )
+        }
 
         private fun buildQuicConfig(settings: AppSettings): RipDpiQuicConfig =
             RipDpiQuicConfig(
@@ -346,7 +369,17 @@ fun RipDpiProxyUIPreferences.applyToSettings(settings: AppSettings): AppSettings
             setDomainMixedCase(parserEvasions.domainMixedCase)
             setHostRemoveSpaces(parserEvasions.hostRemoveSpaces)
             setHttpMethodEol(parserEvasions.httpMethodEol)
+            setHttpMethodSpace(parserEvasions.httpMethodSpace)
             setHttpUnixEol(parserEvasions.httpUnixEol)
+            setHttpHostPad(parserEvasions.httpHostPad)
+            setAdaptiveFallbackEnabled(adaptiveFallback.enabled)
+            setAdaptiveFallbackTorst(adaptiveFallback.torst)
+            setAdaptiveFallbackTlsErr(adaptiveFallback.tlsErr)
+            setAdaptiveFallbackHttpRedirect(adaptiveFallback.httpRedirect)
+            setAdaptiveFallbackConnectFailure(adaptiveFallback.connectFailure)
+            setAdaptiveFallbackAutoSort(adaptiveFallback.autoSort)
+            setAdaptiveFallbackCacheTtlSeconds(adaptiveFallback.cacheTtlSeconds)
+            setAdaptiveFallbackCachePrefixV4(adaptiveFallback.cachePrefixV4)
             setQuicInitialMode(quic.initialMode)
             setQuicSupportV1(quic.supportV1)
             setQuicSupportV2(quic.supportV2)
@@ -435,6 +468,12 @@ private fun normalizeQuicConfig(config: RipDpiQuicConfig): RipDpiQuicConfig =
         initialMode = normalizeQuicInitialMode(config.initialMode.ifBlank { QuicInitialModeRouteAndCache }),
         fakeProfile = normalizeQuicFakeProfile(config.fakeProfile.ifBlank { QuicFakeProfileDisabled }),
         fakeHost = normalizeQuicFakeHost(config.fakeHost),
+    )
+
+private fun normalizeAdaptiveFallbackConfig(config: RipDpiAdaptiveFallbackConfig): RipDpiAdaptiveFallbackConfig =
+    config.copy(
+        cacheTtlSeconds = normalizeAdaptiveFallbackCacheTtlSeconds(config.cacheTtlSeconds),
+        cachePrefixV4 = normalizeAdaptiveFallbackCachePrefixV4(config.cachePrefixV4),
     )
 
 private fun normalizeHostsConfig(config: RipDpiHostsConfig): RipDpiHostsConfig {

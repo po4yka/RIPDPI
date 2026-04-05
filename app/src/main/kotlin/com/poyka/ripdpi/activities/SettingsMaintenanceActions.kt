@@ -295,8 +295,10 @@ internal class SettingsMaintenanceActions(
                 setHostMixedCase(false)
                 setDomainMixedCase(false)
                 setHostRemoveSpaces(false)
+                setHttpHostPad(false)
                 setHttpMethodEol(false)
                 setHttpUnixEol(false)
+                setHttpMethodSpace(false)
             }
             emit(
                 if (currentServiceStatus() == AppStatus.Running) {

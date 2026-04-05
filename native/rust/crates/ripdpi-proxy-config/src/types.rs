@@ -21,6 +21,8 @@ pub const ADAPTIVE_FAKE_TTL_DEFAULT_DELTA: i32 = -1;
 pub const ADAPTIVE_FAKE_TTL_DEFAULT_MIN: i32 = 3;
 pub const ADAPTIVE_FAKE_TTL_DEFAULT_MAX: i32 = 12;
 pub const ADAPTIVE_FAKE_TTL_DEFAULT_FALLBACK: i32 = 8;
+pub const ADAPTIVE_FALLBACK_DEFAULT_CACHE_TTL_SECS: i64 = 90;
+pub const ADAPTIVE_FALLBACK_DEFAULT_CACHE_PREFIX_V4: u8 = 24;
 pub const HOST_AUTOLEARN_DEFAULT_PENALTY_TTL_HOURS: i64 = 6;
 
 #[derive(Debug, thiserror::Error, Clone, PartialEq, Eq)]
@@ -149,6 +151,8 @@ pub struct ProxyUiTcpChainStep {
     pub inter_segment_delay_ms: u32,
     #[serde(default)]
     pub activation_filter: Option<ProxyUiActivationFilter>,
+    #[serde(default = "default_ipv6_extension_profile")]
+    pub ipv6_extension_profile: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -160,6 +164,8 @@ pub struct ProxyUiUdpChainStep {
     pub split_bytes: i32,
     #[serde(default)]
     pub activation_filter: Option<ProxyUiActivationFilter>,
+    #[serde(default = "default_ipv6_extension_profile")]
+    pub ipv6_extension_profile: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -337,6 +343,46 @@ pub struct ProxyUiParserEvasionConfig {
     pub http_method_eol: bool,
     #[serde(default)]
     pub http_unix_eol: bool,
+    #[serde(default)]
+    pub http_method_space: bool,
+    #[serde(default)]
+    pub http_host_pad: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct ProxyUiAdaptiveFallbackConfig {
+    #[serde(default = "default_true")]
+    pub enabled: bool,
+    #[serde(default = "default_true")]
+    pub torst: bool,
+    #[serde(default = "default_true")]
+    pub tls_err: bool,
+    #[serde(default = "default_true")]
+    pub http_redirect: bool,
+    #[serde(default = "default_true")]
+    pub connect_failure: bool,
+    #[serde(default = "default_true")]
+    pub auto_sort: bool,
+    #[serde(default = "default_adaptive_fallback_cache_ttl_secs")]
+    pub cache_ttl_seconds: i64,
+    #[serde(default = "default_adaptive_fallback_cache_prefix_v4")]
+    pub cache_prefix_v4: u8,
+}
+
+impl Default for ProxyUiAdaptiveFallbackConfig {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            torst: true,
+            tls_err: true,
+            http_redirect: true,
+            connect_failure: true,
+            auto_sort: true,
+            cache_ttl_seconds: default_adaptive_fallback_cache_ttl_secs(),
+            cache_prefix_v4: default_adaptive_fallback_cache_prefix_v4(),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -522,6 +568,8 @@ pub struct ProxyUiConfig {
     #[serde(default)]
     pub parser_evasions: ProxyUiParserEvasionConfig,
     #[serde(default)]
+    pub adaptive_fallback: ProxyUiAdaptiveFallbackConfig,
+    #[serde(default)]
     pub quic: ProxyUiQuicConfig,
     #[serde(default)]
     pub hosts: ProxyUiHostsConfig,
@@ -681,6 +729,7 @@ fn default_tcp_chain_steps() -> Vec<ProxyUiTcpChainStep> {
         max_fragment_size: 0,
         inter_segment_delay_ms: 0,
         activation_filter: None,
+        ipv6_extension_profile: default_ipv6_extension_profile(),
     }]
 }
 
@@ -698,6 +747,10 @@ fn default_quic_initial_mode() -> String {
 
 fn default_quic_fake_profile() -> String {
     QUIC_FAKE_PROFILE_DISABLED.to_string()
+}
+
+fn default_ipv6_extension_profile() -> String {
+    "none".to_string()
 }
 
 fn default_warp_route_mode() -> String {
@@ -758,6 +811,14 @@ fn default_host_autolearn_penalty_ttl_hours() -> i64 {
 
 fn default_host_autolearn_max_hosts() -> usize {
     HOST_AUTOLEARN_DEFAULT_MAX_HOSTS
+}
+
+fn default_adaptive_fallback_cache_ttl_secs() -> i64 {
+    ADAPTIVE_FALLBACK_DEFAULT_CACHE_TTL_SECS
+}
+
+fn default_adaptive_fallback_cache_prefix_v4() -> u8 {
+    ADAPTIVE_FALLBACK_DEFAULT_CACHE_PREFIX_V4
 }
 
 #[cfg(test)]

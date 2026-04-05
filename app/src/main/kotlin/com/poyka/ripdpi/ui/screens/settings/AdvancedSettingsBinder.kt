@@ -28,6 +28,8 @@ import com.poyka.ripdpi.data.normalizePayloadSizeRange
 import com.poyka.ripdpi.data.normalizeQuicFakeHost
 import com.poyka.ripdpi.data.normalizeRoundRange
 import com.poyka.ripdpi.data.normalizeStreamBytesRange
+import com.poyka.ripdpi.data.normalizeAdaptiveFallbackCachePrefixV4
+import com.poyka.ripdpi.data.normalizeAdaptiveFallbackCacheTtlSeconds
 import com.poyka.ripdpi.data.normalizeWarpEndpointSelectionMode
 import com.poyka.ripdpi.data.normalizeWarpRouteMode
 import com.poyka.ripdpi.data.parseStrategyChainDsl
@@ -488,6 +490,24 @@ private fun AdvancedSettingsMutationWriter.updateHostAutolearnMaxHosts(value: St
     }
 }
 
+private fun AdvancedSettingsMutationWriter.updateAdaptiveFallbackCacheTtlSeconds(value: String) {
+    value.toIntOrNull()?.let { ttl ->
+        val normalized = normalizeAdaptiveFallbackCacheTtlSeconds(ttl)
+        updateValue("adaptiveFallbackCacheTtlSeconds", normalized.toString()) {
+            setAdaptiveFallbackCacheTtlSeconds(normalized)
+        }
+    }
+}
+
+private fun AdvancedSettingsMutationWriter.updateAdaptiveFallbackCachePrefixV4(value: String) {
+    value.toIntOrNull()?.let { prefix ->
+        val normalized = normalizeAdaptiveFallbackCachePrefixV4(prefix)
+        updateValue("adaptiveFallbackCachePrefixV4", normalized.toString()) {
+            setAdaptiveFallbackCachePrefixV4(normalized)
+        }
+    }
+}
+
 private fun AdvancedSettingsMutationWriter.updateWarpRouteMode(value: String) {
     val normalized = normalizeWarpRouteMode(value)
     updateValue("warpRouteMode", normalized) {
@@ -666,10 +686,14 @@ private val toggleHandlers: Map<AdvancedToggleSetting, ToggleHandler> =
             { enabled -> updateBoolean("domainMixedCase", enabled) { setDomainMixedCase(enabled) } },
         AdvancedToggleSetting.HostRemoveSpaces to
             { enabled -> updateBoolean("hostRemoveSpaces", enabled) { setHostRemoveSpaces(enabled) } },
+        AdvancedToggleSetting.HttpHostPad to
+            { enabled -> updateBoolean("httpHostPad", enabled) { setHttpHostPad(enabled) } },
         AdvancedToggleSetting.HttpMethodEol to
             { enabled -> updateBoolean("httpMethodEol", enabled) { setHttpMethodEol(enabled) } },
         AdvancedToggleSetting.HttpUnixEol to
             { enabled -> updateBoolean("httpUnixEol", enabled) { setHttpUnixEol(enabled) } },
+        AdvancedToggleSetting.HttpMethodSpace to
+            { enabled -> updateBoolean("httpMethodSpace", enabled) { setHttpMethodSpace(enabled) } },
         AdvancedToggleSetting.TlsrecEnabled to
             { _ -> Unit },
         AdvancedToggleSetting.QuicSupportV1 to
@@ -696,6 +720,28 @@ private val toggleHandlers: Map<AdvancedToggleSetting, ToggleHandler> =
                     setNetworkStrategyMemoryEnabled(enabled)
                 }
             },
+        AdvancedToggleSetting.AdaptiveFallbackEnabled to
+            { enabled -> updateBoolean("adaptiveFallbackEnabled", enabled) { setAdaptiveFallbackEnabled(enabled) } },
+        AdvancedToggleSetting.AdaptiveFallbackTorst to
+            { enabled -> updateBoolean("adaptiveFallbackTorst", enabled) { setAdaptiveFallbackTorst(enabled) } },
+        AdvancedToggleSetting.AdaptiveFallbackTlsErr to
+            { enabled -> updateBoolean("adaptiveFallbackTlsErr", enabled) { setAdaptiveFallbackTlsErr(enabled) } },
+        AdvancedToggleSetting.AdaptiveFallbackHttpRedirect to
+            {
+                enabled ->
+                updateBoolean("adaptiveFallbackHttpRedirect", enabled) {
+                    setAdaptiveFallbackHttpRedirect(enabled)
+                }
+            },
+        AdvancedToggleSetting.AdaptiveFallbackConnectFailure to
+            {
+                enabled ->
+                updateBoolean("adaptiveFallbackConnectFailure", enabled) {
+                    setAdaptiveFallbackConnectFailure(enabled)
+                }
+            },
+        AdvancedToggleSetting.AdaptiveFallbackAutoSort to
+            { enabled -> updateBoolean("adaptiveFallbackAutoSort", enabled) { setAdaptiveFallbackAutoSort(enabled) } },
     )
 
 private val textHandlers: Map<AdvancedTextSetting, TextHandler> =
@@ -856,6 +902,10 @@ private val textHandlers: Map<AdvancedTextSetting, TextHandler> =
             { value, _ -> updateHostAutolearnPenaltyTtlHours(value) },
         AdvancedTextSetting.HostAutolearnMaxHosts to
             { value, _ -> updateHostAutolearnMaxHosts(value) },
+        AdvancedTextSetting.AdaptiveFallbackCacheTtlSeconds to
+            { value, _ -> updateAdaptiveFallbackCacheTtlSeconds(value) },
+        AdvancedTextSetting.AdaptiveFallbackCachePrefixV4 to
+            { value, _ -> updateAdaptiveFallbackCachePrefixV4(value) },
         AdvancedTextSetting.HostsBlacklist to
             { value, _ -> updateValue("hostsBlacklist", value) { setHostsBlacklist(value) } },
         AdvancedTextSetting.HostsWhitelist to

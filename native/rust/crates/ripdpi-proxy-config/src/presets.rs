@@ -193,6 +193,7 @@ fn tcp_step(kind: &str, marker: &str) -> ProxyUiTcpChainStep {
         max_fragment_size: 0,
         inter_segment_delay_ms: 0,
         activation_filter: None,
+        ipv6_extension_profile: "none".to_string(),
     }
 }
 

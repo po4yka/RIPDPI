@@ -319,7 +319,9 @@ fun deriveBypassStrategySignature(
             hostMixedCase = preferences.parserEvasions.hostMixedCase,
             domainMixedCase = preferences.parserEvasions.domainMixedCase,
             hostRemoveSpaces = preferences.parserEvasions.hostRemoveSpaces,
+            httpMethodSpace = preferences.parserEvasions.httpMethodSpace,
             httpMethodEol = preferences.parserEvasions.httpMethodEol,
+            httpHostPad = preferences.parserEvasions.httpHostPad,
             httpUnixEol = preferences.parserEvasions.httpUnixEol,
         )
     val protocols =
