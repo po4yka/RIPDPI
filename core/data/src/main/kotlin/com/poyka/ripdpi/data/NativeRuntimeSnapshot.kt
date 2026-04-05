@@ -105,12 +105,14 @@ data class TunnelStats(
     val rxBytes: Long = 0,
 ) {
     companion object {
+        private const val RxBytesIndex = 3
+
         fun fromNative(stats: LongArray): TunnelStats =
             TunnelStats(
                 txPackets = stats.getOrElse(0) { 0L },
                 txBytes = stats.getOrElse(1) { 0L },
                 rxPackets = stats.getOrElse(2) { 0L },
-                rxBytes = stats.getOrElse(3) { 0L },
+                rxBytes = stats.getOrElse(RxBytesIndex) { 0L },
             )
     }
 }

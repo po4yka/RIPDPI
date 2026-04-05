@@ -12,12 +12,12 @@ import com.poyka.ripdpi.data.AppSettingsSerializer
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.ResolverOverrideStore
-import com.poyka.ripdpi.data.START_ACTION
-import com.poyka.ripdpi.data.STOP_ACTION
 import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.data.diagnostics.DiagnosticProfileEntity
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsProfileCatalog
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsScanRecordStore
+import com.poyka.ripdpi.data.startAction
+import com.poyka.ripdpi.data.stopAction
 import com.poyka.ripdpi.diagnostics.DiagnosticProfileFamily
 import com.poyka.ripdpi.diagnostics.DiagnosticsBootstrapper
 import com.poyka.ripdpi.diagnostics.DiagnosticsDetailLoader
@@ -530,12 +530,12 @@ class DiagnosticsNetworkE2ETest {
     private fun startService(serviceClass: Class<*>) {
         ContextCompat.startForegroundService(
             appContext,
-            Intent(appContext, serviceClass).setAction(START_ACTION),
+            Intent(appContext, serviceClass).setAction(startAction),
         )
     }
 
     private fun stopService(serviceClass: Class<*>) {
-        appContext.startService(Intent(appContext, serviceClass).setAction(STOP_ACTION))
+        appContext.startService(Intent(appContext, serviceClass).setAction(stopAction))
     }
 
     private fun awaitServiceStatus(
