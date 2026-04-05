@@ -181,11 +181,10 @@ class AndroidDiagnosticsContextProvider
             if (!hasPermission(Manifest.permission.ACCESS_NETWORK_STATE)) return "unknown"
             val capabilities =
                 connectivityManager.getNetworkCapabilities(connectivityManager.activeNetwork)
-                    ?: return "unknown"
-            return if (capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_ROAMING)) {
-                "disabled"
-            } else {
-                "enabled"
+            return when {
+                capabilities == null -> "unknown"
+                capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_ROAMING) -> "disabled"
+                else -> "enabled"
             }
         }
 

@@ -1,3 +1,5 @@
+@file:Suppress("DEPRECATION") // legacy CDMA/2G/3G network type constants: no replacement, networks are EOL
+
 package com.poyka.ripdpi.diagnostics
 
 import android.Manifest
@@ -95,6 +97,31 @@ class HttpPublicIpInfoResolver
             return org.trim().takeIf { it.startsWith("AS", ignoreCase = true) }
         }
     }
+
+private val mobileNetworkTypeNames: Map<Int, String> by lazy {
+    mapOf(
+        TelephonyManager.NETWORK_TYPE_GPRS to "GPRS",
+        TelephonyManager.NETWORK_TYPE_EDGE to "EDGE",
+        TelephonyManager.NETWORK_TYPE_UMTS to "UMTS",
+        TelephonyManager.NETWORK_TYPE_CDMA to "CDMA",
+        TelephonyManager.NETWORK_TYPE_EVDO_0 to "EVDO_0",
+        TelephonyManager.NETWORK_TYPE_EVDO_A to "EVDO_A",
+        TelephonyManager.NETWORK_TYPE_1xRTT to "1xRTT",
+        TelephonyManager.NETWORK_TYPE_HSDPA to "HSDPA",
+        TelephonyManager.NETWORK_TYPE_HSUPA to "HSUPA",
+        TelephonyManager.NETWORK_TYPE_HSPA to "HSPA",
+        TelephonyManager.NETWORK_TYPE_IDEN to "IDEN",
+        TelephonyManager.NETWORK_TYPE_EVDO_B to "EVDO_B",
+        TelephonyManager.NETWORK_TYPE_LTE to "LTE",
+        TelephonyManager.NETWORK_TYPE_EHRPD to "EHRPD",
+        TelephonyManager.NETWORK_TYPE_HSPAP to "HSPAP",
+        TelephonyManager.NETWORK_TYPE_GSM to "GSM",
+        TelephonyManager.NETWORK_TYPE_TD_SCDMA to "TD_SCDMA",
+        TelephonyManager.NETWORK_TYPE_IWLAN to "IWLAN",
+        TelephonyManager.NETWORK_TYPE_NR to "NR",
+        TelephonyManager.NETWORK_TYPE_UNKNOWN to "unknown",
+    )
+}
 
 @Singleton
 class AndroidNetworkMetadataProvider
@@ -248,8 +275,7 @@ class AndroidNetworkMetadataProvider
         @SuppressLint("MissingPermission")
         private fun resolveCellularDetails(capabilities: NetworkCapabilities?): CellularNetworkDetails? {
             if (capabilities?.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) != true) return null
-            val telephony = telephonyManager ?: return CellularNetworkDetails()
-            return resolveCellularDetailsFromTelephony(telephony)
+            return telephonyManager?.let { resolveCellularDetailsFromTelephony(it) } ?: CellularNetworkDetails()
         }
 
         @SuppressLint("MissingPermission")
@@ -320,71 +346,6 @@ class AndroidNetworkMetadataProvider
                 TelephonyManager.NETWORK_TYPE_UNKNOWN
             }
 
-        private fun resolveSignalDbm(signalStrength: android.telephony.SignalStrength?): Int? =
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                signalStrength?.cellSignalStrengths?.firstOrNull()?.dbm
-            } else {
-                null
-            }
-
-        private fun sanitizeWifiValue(value: String?): String {
-            val normalized = value?.trim()?.removePrefix("\"")?.removeSuffix("\"")
-            return when {
-                normalized.isNullOrBlank() -> "unknown"
-                normalized.equals("<unknown ssid>", ignoreCase = true) -> "unknown"
-                normalized == "02:00:00:00:00:00" -> "unknown"
-                else -> normalized
-            }
-        }
-
-        private fun sanitizeTelephonyValue(value: String?): String =
-            value?.trim()?.takeIf { it.isNotBlank() } ?: "unknown"
-
-        private fun describeWifiBand(frequencyMhz: Int?): String =
-            when {
-                frequencyMhz == null -> "unknown"
-                frequencyMhz in WifiBand24GhzMin..WifiBand24GhzMax -> "2.4 GHz"
-                frequencyMhz in WifiBand5GhzMin..WifiBand5GhzMax -> "5 GHz"
-                frequencyMhz in WifiBand6GhzMin..WifiBand6GhzMax -> "6 GHz"
-                else -> "$frequencyMhz MHz"
-            }
-
-        private fun describeWifiChannelWidth(wifiInfo: WifiInfo?): String {
-            val width = wifiInfo?.let { invokeInt(it, "getChannelWidth") } ?: return "unknown"
-            return when (width) {
-                WifiChannelWidth20Mhz -> "20 MHz"
-                WifiChannelWidth40Mhz -> "40 MHz"
-                WifiChannelWidth80Mhz -> "80 MHz"
-                WifiChannelWidth160Mhz -> "160 MHz"
-                WifiChannelWidth80Plus80Mhz -> "80+80 MHz"
-                WifiChannelWidth320Mhz -> "320 MHz"
-                else -> "unknown"
-            }
-        }
-
-        private fun describeWifiStandard(wifiInfo: WifiInfo?): String {
-            val standard = wifiInfo?.let { invokeInt(it, "getWifiStandard") } ?: return "unknown"
-            return when (standard) {
-                WifiStandardLegacy -> "legacy"
-                WifiStandard80211n -> "802.11n"
-                WifiStandard80211ac -> "802.11ac"
-                WifiStandard80211ax -> "802.11ax"
-                WifiStandard80211ad -> "802.11ad"
-                WifiStandard80211be -> "802.11be"
-                else -> "unknown"
-            }
-        }
-
-        private fun invokeBoolean(
-            target: Any,
-            methodName: String,
-        ): Boolean? = runCatching { target.javaClass.getMethod(methodName).invoke(target) as? Boolean }.getOrNull()
-
-        private fun invokeInt(
-            target: Any,
-            methodName: String,
-        ): Int? = runCatching { target.javaClass.getMethod(methodName).invoke(target) as Int }.getOrNull()
-
         private fun hasPhoneStatePermission(): Boolean =
             hasPermission(Manifest.permission.READ_PHONE_STATE) ||
                 hasPermission("android.permission.READ_BASIC_PHONE_STATE")
@@ -397,97 +358,138 @@ class AndroidNetworkMetadataProvider
             ContextCompat.checkSelfPermission(context, permission) == PackageManager.PERMISSION_GRANTED
 
         @Suppress("DEPRECATION") // legacy CDMA/2G/3G constants: no replacement, networks are EOL
-        private fun describeMobileNetworkType(type: Int): String =
-            when (type) {
-                TelephonyManager.NETWORK_TYPE_GPRS -> "GPRS"
-                TelephonyManager.NETWORK_TYPE_EDGE -> "EDGE"
-                TelephonyManager.NETWORK_TYPE_UMTS -> "UMTS"
-                TelephonyManager.NETWORK_TYPE_CDMA -> "CDMA"
-                TelephonyManager.NETWORK_TYPE_EVDO_0 -> "EVDO_0"
-                TelephonyManager.NETWORK_TYPE_EVDO_A -> "EVDO_A"
-                TelephonyManager.NETWORK_TYPE_1xRTT -> "1xRTT"
-                TelephonyManager.NETWORK_TYPE_HSDPA -> "HSDPA"
-                TelephonyManager.NETWORK_TYPE_HSUPA -> "HSUPA"
-                TelephonyManager.NETWORK_TYPE_HSPA -> "HSPA"
-                TelephonyManager.NETWORK_TYPE_IDEN -> "IDEN"
-                TelephonyManager.NETWORK_TYPE_EVDO_B -> "EVDO_B"
-                TelephonyManager.NETWORK_TYPE_LTE -> "LTE"
-                TelephonyManager.NETWORK_TYPE_EHRPD -> "EHRPD"
-                TelephonyManager.NETWORK_TYPE_HSPAP -> "HSPAP"
-                TelephonyManager.NETWORK_TYPE_GSM -> "GSM"
-                TelephonyManager.NETWORK_TYPE_TD_SCDMA -> "TD_SCDMA"
-                TelephonyManager.NETWORK_TYPE_IWLAN -> "IWLAN"
-                TelephonyManager.NETWORK_TYPE_NR -> "NR"
-                TelephonyManager.NETWORK_TYPE_UNKNOWN -> "unknown"
-                else -> type.toString()
-            }
-
-        private fun describeDataState(dataState: Int): String =
-            when (dataState) {
-                TelephonyManager.DATA_CONNECTED -> "connected"
-                TelephonyManager.DATA_CONNECTING -> "connecting"
-                TelephonyManager.DATA_DISCONNECTED -> "disconnected"
-                TelephonyManager.DATA_SUSPENDED -> "suspended"
-                else -> "unknown"
-            }
-
-        private fun describeServiceState(state: ServiceState?): String =
-            when (state?.state) {
-                ServiceState.STATE_IN_SERVICE -> "in_service"
-                ServiceState.STATE_OUT_OF_SERVICE -> "out_of_service"
-                ServiceState.STATE_EMERGENCY_ONLY -> "emergency_only"
-                ServiceState.STATE_POWER_OFF -> "power_off"
-                else -> "unknown"
-            }
-
-        private fun intToIpv4Address(value: Int): String =
-            InetAddress
-                .getByAddress(
-                    byteArrayOf(
-                        (value and ByteMask).toByte(),
-                        ((value shr BitsPerByte) and ByteMask).toByte(),
-                        ((value shr TwoBytesShift) and ByteMask).toByte(),
-                        ((value shr ThreeBytesShift) and ByteMask).toByte(),
-                    ),
-                ).hostAddress
-                .orEmpty()
+        private fun describeMobileNetworkType(type: Int): String = mobileNetworkTypeNames[type] ?: type.toString()
 
         companion object {
             // RSSI validity range
             private const val RssiMinDbm = -127
             private const val RssiMaxDbm = 0
-
-            // WiFi frequency bands (MHz)
-            private const val WifiBand24GhzMin = 2400
-            private const val WifiBand24GhzMax = 2500
-            private const val WifiBand5GhzMin = 4900
-            private const val WifiBand5GhzMax = 5900
-            private const val WifiBand6GhzMin = 5925
-            private const val WifiBand6GhzMax = 7125
-
-            // WiFi channel width codes (WifiInfo.CHANNEL_WIDTH_*)
-            private const val WifiChannelWidth20Mhz = 0
-            private const val WifiChannelWidth40Mhz = 1
-            private const val WifiChannelWidth80Mhz = 2
-            private const val WifiChannelWidth160Mhz = 3
-            private const val WifiChannelWidth80Plus80Mhz = 4
-            private const val WifiChannelWidth320Mhz = 5
-
-            // WiFi standard codes (WifiInfo.WIFI_STANDARD_*)
-            private const val WifiStandardLegacy = 1
-            private const val WifiStandard80211n = 4
-            private const val WifiStandard80211ac = 5
-            private const val WifiStandard80211ax = 6
-            private const val WifiStandard80211ad = 7
-            private const val WifiStandard80211be = 8
-
-            // IPv4 byte-extraction masks and shifts
-            private const val ByteMask = 0xff
-            private const val BitsPerByte = 8
-            private const val TwoBytesShift = 16
-            private const val ThreeBytesShift = 24
         }
     }
+
+// WiFi frequency bands (MHz)
+private const val WifiBand24GhzMin = 2400
+private const val WifiBand24GhzMax = 2500
+private const val WifiBand5GhzMin = 4900
+private const val WifiBand5GhzMax = 5900
+private const val WifiBand6GhzMin = 5925
+private const val WifiBand6GhzMax = 7125
+
+// WiFi channel width codes (WifiInfo.CHANNEL_WIDTH_*)
+private const val WifiChannelWidth20Mhz = 0
+private const val WifiChannelWidth40Mhz = 1
+private const val WifiChannelWidth80Mhz = 2
+private const val WifiChannelWidth160Mhz = 3
+private const val WifiChannelWidth80Plus80Mhz = 4
+private const val WifiChannelWidth320Mhz = 5
+
+// WiFi standard codes (WifiInfo.WIFI_STANDARD_*)
+private const val WifiStandardLegacy = 1
+private const val WifiStandard80211n = 4
+private const val WifiStandard80211ac = 5
+private const val WifiStandard80211ax = 6
+private const val WifiStandard80211ad = 7
+private const val WifiStandard80211be = 8
+
+// IPv4 byte-extraction masks and shifts
+private const val ByteMask = 0xff
+private const val BitsPerByte = 8
+private const val TwoBytesShift = 16
+private const val ThreeBytesShift = 24
+
+private fun sanitizeWifiValue(value: String?): String {
+    val normalized = value?.trim()?.removePrefix("\"")?.removeSuffix("\"")
+    return when {
+        normalized.isNullOrBlank() -> "unknown"
+        normalized.equals("<unknown ssid>", ignoreCase = true) -> "unknown"
+        normalized == "02:00:00:00:00:00" -> "unknown"
+        else -> normalized
+    }
+}
+
+private fun sanitizeTelephonyValue(value: String?): String = value?.trim()?.takeIf { it.isNotBlank() } ?: "unknown"
+
+private fun describeWifiBand(frequencyMhz: Int?): String =
+    when {
+        frequencyMhz == null -> "unknown"
+        frequencyMhz in WifiBand24GhzMin..WifiBand24GhzMax -> "2.4 GHz"
+        frequencyMhz in WifiBand5GhzMin..WifiBand5GhzMax -> "5 GHz"
+        frequencyMhz in WifiBand6GhzMin..WifiBand6GhzMax -> "6 GHz"
+        else -> "$frequencyMhz MHz"
+    }
+
+private fun describeWifiChannelWidth(wifiInfo: WifiInfo?): String {
+    val width = wifiInfo?.let { invokeInt(it, "getChannelWidth") } ?: return "unknown"
+    return when (width) {
+        WifiChannelWidth20Mhz -> "20 MHz"
+        WifiChannelWidth40Mhz -> "40 MHz"
+        WifiChannelWidth80Mhz -> "80 MHz"
+        WifiChannelWidth160Mhz -> "160 MHz"
+        WifiChannelWidth80Plus80Mhz -> "80+80 MHz"
+        WifiChannelWidth320Mhz -> "320 MHz"
+        else -> "unknown"
+    }
+}
+
+private fun describeWifiStandard(wifiInfo: WifiInfo?): String {
+    val standard = wifiInfo?.let { invokeInt(it, "getWifiStandard") } ?: return "unknown"
+    return when (standard) {
+        WifiStandardLegacy -> "legacy"
+        WifiStandard80211n -> "802.11n"
+        WifiStandard80211ac -> "802.11ac"
+        WifiStandard80211ax -> "802.11ax"
+        WifiStandard80211ad -> "802.11ad"
+        WifiStandard80211be -> "802.11be"
+        else -> "unknown"
+    }
+}
+
+private fun invokeBoolean(
+    target: Any,
+    methodName: String,
+): Boolean? = runCatching { target.javaClass.getMethod(methodName).invoke(target) as? Boolean }.getOrNull()
+
+private fun invokeInt(
+    target: Any,
+    methodName: String,
+): Int? = runCatching { target.javaClass.getMethod(methodName).invoke(target) as Int }.getOrNull()
+
+private fun describeDataState(dataState: Int): String =
+    when (dataState) {
+        TelephonyManager.DATA_CONNECTED -> "connected"
+        TelephonyManager.DATA_CONNECTING -> "connecting"
+        TelephonyManager.DATA_DISCONNECTED -> "disconnected"
+        TelephonyManager.DATA_SUSPENDED -> "suspended"
+        else -> "unknown"
+    }
+
+private fun describeServiceState(state: ServiceState?): String =
+    when (state?.state) {
+        ServiceState.STATE_IN_SERVICE -> "in_service"
+        ServiceState.STATE_OUT_OF_SERVICE -> "out_of_service"
+        ServiceState.STATE_EMERGENCY_ONLY -> "emergency_only"
+        ServiceState.STATE_POWER_OFF -> "power_off"
+        else -> "unknown"
+    }
+
+private fun resolveSignalDbm(signalStrength: android.telephony.SignalStrength?): Int? =
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+        signalStrength?.cellSignalStrengths?.firstOrNull()?.dbm
+    } else {
+        null
+    }
+
+private fun intToIpv4Address(value: Int): String =
+    InetAddress
+        .getByAddress(
+            byteArrayOf(
+                (value and ByteMask).toByte(),
+                ((value shr BitsPerByte) and ByteMask).toByte(),
+                ((value shr TwoBytesShift) and ByteMask).toByte(),
+                ((value shr ThreeBytesShift) and ByteMask).toByte(),
+            ),
+        ).hostAddress
+        .orEmpty()
 
 @Serializable
 private data class PublicIpResponse(

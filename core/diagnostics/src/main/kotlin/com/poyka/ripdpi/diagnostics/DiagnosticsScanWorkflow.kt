@@ -244,52 +244,56 @@ internal object DiagnosticsScanWorkflow {
             strategyProbe.quicCandidates.firstOrNull { it.id == baseRecommendation.quicCandidateId }
         val preferences = decodeRipDpiProxyUiPreferences(baseRecommendation.recommendedProxyConfigJson)
 
-        fun invalid() =
+        val validInputs =
+            if (preferences != null && winningTcpCandidate != null && winningQuicCandidate != null) {
+                val laneFamilies = preferences.deriveStrategyLaneFamilies(activeDns = activeDns)
+                val familiesMatch =
+                    laneFamilyMatches(
+                        derivedFamily = laneFamilies.tcpStrategyFamily,
+                        winningFamily = winningTcpCandidate.family,
+                        derivableFamilies = DerivableTcpStrategyFamilies,
+                    ) &&
+                        laneFamilyMatches(
+                            derivedFamily = laneFamilies.quicStrategyFamily,
+                            winningFamily = winningQuicCandidate.family,
+                            derivableFamilies = DerivableQuicStrategyFamilies,
+                        )
+                if (familiesMatch) Triple(preferences, winningTcpCandidate, winningQuicCandidate) else null
+            } else {
+                null
+            }
+        return if (validInputs != null) {
+            val (validPreferences, validTcpCandidate, validQuicCandidate) = validInputs
+            val strategySignature =
+                deriveBypassStrategySignature(
+                    preferences = validPreferences,
+                    routeGroup = null,
+                    modeOverride = Mode.fromString(settings.ripdpiMode.ifEmpty { Mode.VPN.preferenceValue }),
+                ).copy(
+                    dnsStrategyFamily = activeDns.strategyFamily(),
+                    dnsStrategyLabel = activeDns.strategyLabel(),
+                )
+            ValidatedStrategyProbeRecommendation(
+                recommendation =
+                    baseRecommendation.copy(
+                        tcpCandidateFamily = validTcpCandidate.family,
+                        quicCandidateFamily = validQuicCandidate.family,
+                        dnsStrategyFamily = activeDns.strategyFamily(),
+                        dnsStrategyLabel = activeDns.strategyLabel(),
+                        strategySignature = strategySignature,
+                    ),
+                winningTcpCandidate = validTcpCandidate,
+                winningQuicCandidate = validQuicCandidate,
+                isValid = true,
+            )
+        } else {
             ValidatedStrategyProbeRecommendation(
                 recommendation = baseRecommendation,
                 winningTcpCandidate = winningTcpCandidate,
                 winningQuicCandidate = winningQuicCandidate,
                 isValid = false,
             )
-
-        if (preferences == null || winningTcpCandidate == null || winningQuicCandidate == null) return invalid()
-
-        val laneFamilies = preferences.deriveStrategyLaneFamilies(activeDns = activeDns)
-        val familiesMatch =
-            laneFamilyMatches(
-                derivedFamily = laneFamilies.tcpStrategyFamily,
-                winningFamily = winningTcpCandidate.family,
-                derivableFamilies = DerivableTcpStrategyFamilies,
-            ) &&
-                laneFamilyMatches(
-                    derivedFamily = laneFamilies.quicStrategyFamily,
-                    winningFamily = winningQuicCandidate.family,
-                    derivableFamilies = DerivableQuicStrategyFamilies,
-                )
-        if (!familiesMatch) return invalid()
-
-        val strategySignature =
-            deriveBypassStrategySignature(
-                preferences = preferences,
-                routeGroup = null,
-                modeOverride = Mode.fromString(settings.ripdpiMode.ifEmpty { Mode.VPN.preferenceValue }),
-            ).copy(
-                dnsStrategyFamily = activeDns.strategyFamily(),
-                dnsStrategyLabel = activeDns.strategyLabel(),
-            )
-        return ValidatedStrategyProbeRecommendation(
-            recommendation =
-                baseRecommendation.copy(
-                    tcpCandidateFamily = winningTcpCandidate.family,
-                    quicCandidateFamily = winningQuicCandidate.family,
-                    dnsStrategyFamily = activeDns.strategyFamily(),
-                    dnsStrategyLabel = activeDns.strategyLabel(),
-                    strategySignature = strategySignature,
-                ),
-            winningTcpCandidate = winningTcpCandidate,
-            winningQuicCandidate = winningQuicCandidate,
-            isValid = true,
-        )
+        }
     }
 
     private fun laneFamilyMatches(

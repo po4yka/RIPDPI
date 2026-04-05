@@ -1,11 +1,11 @@
 package com.poyka.ripdpi.diagnostics
 
+import com.poyka.ripdpi.core.RipDpiAdaptiveFallbackConfig
+import com.poyka.ripdpi.core.RipDpiFakePacketConfig
 import com.poyka.ripdpi.core.RipDpiHostsConfig
 import com.poyka.ripdpi.core.RipDpiListenConfig
 import com.poyka.ripdpi.core.RipDpiProtocolConfig
 import com.poyka.ripdpi.core.RipDpiProxyUIPreferences
-import com.poyka.ripdpi.core.RipDpiAdaptiveFallbackConfig
-import com.poyka.ripdpi.core.RipDpiFakePacketConfig
 import com.poyka.ripdpi.core.RipDpiWarpAmneziaConfig
 import com.poyka.ripdpi.core.RipDpiWarpConfig
 import com.poyka.ripdpi.core.RipDpiWarpManualEndpointConfig
@@ -357,7 +357,7 @@ class DiagnosticsHomeWorkflowServiceTest {
         return DefaultDiagnosticsHomeWorkflowService(
             appSettingsRepository = appSettingsRepository,
             scanRecordStore = stores,
-            artifactReadStore = stores,
+            artifactQueryStore = stores,
             networkFingerprintProvider = networkFingerprintProvider,
             resolverActions = resolverActions,
             json = json,

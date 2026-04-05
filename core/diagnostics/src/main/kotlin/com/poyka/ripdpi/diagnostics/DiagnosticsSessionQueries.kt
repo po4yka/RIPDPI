@@ -2,7 +2,7 @@ package com.poyka.ripdpi.diagnostics
 
 import com.poyka.ripdpi.data.diagnostics.BypassUsageHistoryStore
 import com.poyka.ripdpi.data.diagnostics.BypassUsageSessionEntity
-import com.poyka.ripdpi.data.diagnostics.DiagnosticsArtifactReadStore
+import com.poyka.ripdpi.data.diagnostics.DiagnosticsArtifactQueryStore
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsScanRecordStore
 import com.poyka.ripdpi.data.diagnostics.ScanSessionEntity
 import kotlinx.coroutines.Dispatchers
@@ -20,7 +20,7 @@ internal object DiagnosticsSessionQueries {
     suspend fun loadSessionDetail(
         sessionId: String,
         scanRecordStore: DiagnosticsScanRecordStore,
-        artifactReadStore: DiagnosticsArtifactReadStore,
+        artifactReadStore: DiagnosticsArtifactQueryStore,
         mapper: DiagnosticsBoundaryMapper,
     ): DiagnosticSessionDetail =
         withContext(Dispatchers.IO) {

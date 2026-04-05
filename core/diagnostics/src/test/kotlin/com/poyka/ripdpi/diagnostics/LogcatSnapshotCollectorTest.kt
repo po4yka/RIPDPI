@@ -54,7 +54,8 @@ class LogcatSnapshotCollectorTest {
         runTest {
             val collector =
                 object : LogcatSnapshotCollector() {
-                    override fun readLogcatOutput(sinceTimestampMs: Long?): String = error("logcat unavailable")
+                    override fun readLogcatOutput(sinceTimestampMs: Long?): String =
+                        throw java.io.IOException("logcat unavailable")
                 }
 
             assertNull(collector.capture())

@@ -28,6 +28,7 @@ import com.poyka.ripdpi.data.diagnostics.BypassUsageHistoryStore
 import com.poyka.ripdpi.data.diagnostics.BypassUsageSessionEntity
 import com.poyka.ripdpi.data.diagnostics.DiagnosticContextEntity
 import com.poyka.ripdpi.data.diagnostics.DiagnosticProfileEntity
+import com.poyka.ripdpi.data.diagnostics.DiagnosticsArtifactQueryStore
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsArtifactReadStore
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsArtifactWriteStore
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsHistoryClock
@@ -113,6 +114,7 @@ internal class FakeDiagnosticsHistoryStores :
     DiagnosticsProfileCatalog,
     DiagnosticsScanRecordStore,
     DiagnosticsArtifactReadStore,
+    DiagnosticsArtifactQueryStore,
     DiagnosticsArtifactWriteStore,
     BypassUsageHistoryStore,
     RememberedNetworkPolicyRecordStore,

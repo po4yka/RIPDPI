@@ -64,22 +64,12 @@ interface DiagnosticsScanRecordStore {
 interface DiagnosticsArtifactReadStore {
     fun observeSnapshots(limit: Int = 100): Flow<List<NetworkSnapshotEntity>>
 
-    suspend fun getSnapshotsForSession(
-        sessionId: String,
-        limit: Int = 200,
-    ): List<NetworkSnapshotEntity>
-
     fun observeConnectionSnapshots(
         connectionSessionId: String,
         limit: Int = 100,
     ): Flow<List<NetworkSnapshotEntity>>
 
     fun observeContexts(limit: Int = 100): Flow<List<DiagnosticContextEntity>>
-
-    suspend fun getContextsForSession(
-        sessionId: String,
-        limit: Int = 200,
-    ): List<DiagnosticContextEntity>
 
     fun observeConnectionContexts(
         connectionSessionId: String,
@@ -88,12 +78,6 @@ interface DiagnosticsArtifactReadStore {
 
     fun observeTelemetry(limit: Int = 200): Flow<List<TelemetrySampleEntity>>
 
-    suspend fun getLatestTelemetrySampleForFingerprint(
-        activeMode: String,
-        fingerprintHash: String,
-        createdAfter: Long,
-    ): TelemetrySampleEntity?
-
     fun observeConnectionTelemetry(
         connectionSessionId: String,
         limit: Int = 200,
@@ -101,17 +85,35 @@ interface DiagnosticsArtifactReadStore {
 
     fun observeNativeEvents(limit: Int = 250): Flow<List<NativeSessionEventEntity>>
 
-    suspend fun getNativeEventsForSession(
-        sessionId: String,
-        limit: Int = 500,
-    ): List<NativeSessionEventEntity>
-
     fun observeConnectionNativeEvents(
         connectionSessionId: String,
         limit: Int = 250,
     ): Flow<List<NativeSessionEventEntity>>
 
     fun observeExportRecords(limit: Int = 50): Flow<List<ExportRecordEntity>>
+}
+
+interface DiagnosticsArtifactQueryStore {
+    suspend fun getSnapshotsForSession(
+        sessionId: String,
+        limit: Int = 200,
+    ): List<NetworkSnapshotEntity>
+
+    suspend fun getContextsForSession(
+        sessionId: String,
+        limit: Int = 200,
+    ): List<DiagnosticContextEntity>
+
+    suspend fun getLatestTelemetrySampleForFingerprint(
+        activeMode: String,
+        fingerprintHash: String,
+        createdAfter: Long,
+    ): TelemetrySampleEntity?
+
+    suspend fun getNativeEventsForSession(
+        sessionId: String,
+        limit: Int = 500,
+    ): List<NativeSessionEventEntity>
 }
 
 interface DiagnosticsArtifactWriteStore {
@@ -239,6 +241,7 @@ class RoomDiagnosticsArtifactStore
     constructor(
         private val dao: DiagnosticsDao,
     ) : DiagnosticsArtifactReadStore,
+        DiagnosticsArtifactQueryStore,
         DiagnosticsArtifactWriteStore {
         override fun observeSnapshots(limit: Int): Flow<List<NetworkSnapshotEntity>> = dao.observeSnapshots(limit)
 
@@ -492,6 +495,10 @@ abstract class DiagnosticsHistoryStoresModule {
     @Binds
     @Singleton
     abstract fun bindDiagnosticsArtifactReadStore(store: RoomDiagnosticsArtifactStore): DiagnosticsArtifactReadStore
+
+    @Binds
+    @Singleton
+    abstract fun bindDiagnosticsArtifactQueryStore(store: RoomDiagnosticsArtifactStore): DiagnosticsArtifactQueryStore
 
     @Binds
     @Singleton
