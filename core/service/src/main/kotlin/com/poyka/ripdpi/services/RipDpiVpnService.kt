@@ -13,9 +13,9 @@ import android.os.Build
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
 import co.touchlab.kermit.Logger
-import com.poyka.ripdpi.core.DEFAULT_TUN2SOCKS_TUNNEL_MTU
 import com.poyka.ripdpi.core.RipDpiLogContext
 import com.poyka.ripdpi.core.Tun2SocksConfig
+import com.poyka.ripdpi.core.defaultTun2SocksTunnelMtu
 import com.poyka.ripdpi.core.service.R
 import com.poyka.ripdpi.data.ActiveDnsSettings
 import com.poyka.ripdpi.data.DnsModeEncrypted
@@ -67,6 +67,8 @@ class RipDpiVpnService :
         protectSocketServer.start()
         com.poyka.ripdpi.core.RipDpiProxyNativeBindings
             .jniRegisterVpnProtect(this)
+        com.poyka.ripdpi.core.RipDpiWarpNativeBindings
+            .jniRegisterVpnProtect(this)
         shellDelegate =
             ServiceShellDelegate(
                 serviceScope = lifecycleScope,
@@ -85,6 +87,8 @@ class RipDpiVpnService :
 
     override fun onDestroy() {
         com.poyka.ripdpi.core.RipDpiProxyNativeBindings
+            .jniUnregisterVpnProtect()
+        com.poyka.ripdpi.core.RipDpiWarpNativeBindings
             .jniUnregisterVpnProtect()
         protectSocketServer.stop()
         if (!revoked) {
@@ -210,7 +214,7 @@ class RipDpiVpnService :
         Logger.v { "DNS: $dns" }
         val builder = Builder()
         builder.setSession("RIPDPI")
-        builder.setMtu(DEFAULT_TUN2SOCKS_TUNNEL_MTU)
+        builder.setMtu(defaultTun2SocksTunnelMtu)
         builder.setConfigureIntent(
             PendingIntent.getActivity(
                 this,
@@ -268,7 +272,7 @@ class RipDpiVpnService :
             logContext: RipDpiLogContext? = null,
         ): Tun2SocksConfig =
             Tun2SocksConfig(
-                tunnelMtu = DEFAULT_TUN2SOCKS_TUNNEL_MTU,
+                tunnelMtu = defaultTun2SocksTunnelMtu,
                 tunnelIpv4 = TUNNEL_IPV4_CIDR,
                 tunnelIpv6 = if (ipv6Enabled) TUNNEL_IPV6_CIDR else null,
                 socks5Port = socks5Port,

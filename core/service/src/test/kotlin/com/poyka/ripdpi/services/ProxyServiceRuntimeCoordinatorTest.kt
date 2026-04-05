@@ -279,6 +279,7 @@ class ProxyServiceRuntimeCoordinatorTest {
                         scope = backgroundScope,
                         dispatcher = dispatcher,
                         warpFactory = warpFactory,
+                        runtimeConfigResolver = TestWarpRuntimeConfigResolver(),
                     ),
                 proxyRuntimeSupervisor =
                     ProxyRuntimeSupervisor(

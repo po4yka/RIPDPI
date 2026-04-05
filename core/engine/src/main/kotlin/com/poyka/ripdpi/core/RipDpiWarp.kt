@@ -17,7 +17,7 @@ import javax.inject.Inject
 import kotlin.coroutines.coroutineContext
 
 interface RipDpiWarpRuntime {
-    suspend fun start(config: RipDpiWarpConfig): Int
+    suspend fun start(config: ResolvedRipDpiWarpConfig): Int
 
     suspend fun awaitReady(timeoutMillis: Long = defaultWarpReadyTimeoutMs)
 
@@ -55,6 +55,12 @@ class RipDpiWarpNativeBindings
             init {
                 RipDpiWarpNativeLoader.ensureLoaded()
             }
+
+            @JvmStatic
+            external fun jniRegisterVpnProtect(vpnService: Any)
+
+            @JvmStatic
+            external fun jniUnregisterVpnProtect()
         }
 
         override fun create(configJson: String): Long = jniCreate(configJson)
@@ -85,8 +91,28 @@ class RipDpiWarpNativeBindings
 private val warpJson = Json { ignoreUnknownKeys = true }
 
 @Serializable
-private data class WarpRuntimeNativeConfig(
+data class ResolvedRipDpiWarpEndpoint(
+    val host: String,
+    val ipv4: String? = null,
+    val ipv6: String? = null,
+    val port: Int,
+    val source: String = "provisioning",
+)
+
+@Serializable
+data class ResolvedRipDpiWarpConfig(
     val enabled: Boolean,
+    val profileId: String,
+    val accountKind: String,
+    val deviceId: String,
+    val accessToken: String,
+    val clientId: String? = null,
+    val privateKey: String,
+    val publicKey: String,
+    val peerPublicKey: String,
+    val interfaceAddressV4: String? = null,
+    val interfaceAddressV6: String? = null,
+    val endpoint: ResolvedRipDpiWarpEndpoint,
     val routeMode: String,
     val routeHosts: String,
     val builtInRulesEnabled: Boolean,
@@ -98,6 +124,37 @@ private data class WarpRuntimeNativeConfig(
     val amnezia: RipDpiWarpAmneziaConfig,
     val localSocksHost: String,
     val localSocksPort: Int,
+    val mtu: Int = DefaultWarpTunnelMtu,
+)
+
+internal const val DefaultWarpTunnelMtu = 1330
+
+@Serializable
+private data class WarpRuntimeNativeConfig(
+    val enabled: Boolean,
+    val profileId: String,
+    val accountKind: String,
+    val deviceId: String,
+    val accessToken: String,
+    val clientId: String? = null,
+    val privateKey: String,
+    val publicKey: String,
+    val peerPublicKey: String,
+    val interfaceAddressV4: String? = null,
+    val interfaceAddressV6: String? = null,
+    val endpoint: ResolvedRipDpiWarpEndpoint,
+    val routeMode: String,
+    val routeHosts: String,
+    val builtInRulesEnabled: Boolean,
+    val endpointSelectionMode: String,
+    val manualEndpoint: RipDpiWarpManualEndpointConfig,
+    val scannerEnabled: Boolean,
+    val scannerParallelism: Int,
+    val scannerMaxRttMs: Int,
+    val amnezia: RipDpiWarpAmneziaConfig,
+    val localSocksHost: String,
+    val localSocksPort: Int,
+    val mtu: Int,
 )
 
 class RipDpiWarp(
@@ -114,11 +171,22 @@ class RipDpiWarp(
 
     @Suppress("TooGenericExceptionCaught")
     @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
-    override suspend fun start(config: RipDpiWarpConfig): Int {
+    override suspend fun start(config: ResolvedRipDpiWarpConfig): Int {
         val startupSignal = CompletableDeferred<Unit>()
         val nativeConfig =
             WarpRuntimeNativeConfig(
                 enabled = config.enabled,
+                profileId = config.profileId,
+                accountKind = config.accountKind,
+                deviceId = config.deviceId,
+                accessToken = config.accessToken,
+                clientId = config.clientId,
+                privateKey = config.privateKey,
+                publicKey = config.publicKey,
+                peerPublicKey = config.peerPublicKey,
+                interfaceAddressV4 = config.interfaceAddressV4,
+                interfaceAddressV6 = config.interfaceAddressV6,
+                endpoint = config.endpoint,
                 routeMode = config.routeMode,
                 routeHosts = config.routeHosts,
                 builtInRulesEnabled = config.builtInRulesEnabled,
@@ -130,6 +198,7 @@ class RipDpiWarp(
                 amnezia = config.amnezia,
                 localSocksHost = config.localSocksHost,
                 localSocksPort = config.localSocksPort,
+                mtu = config.mtu,
             )
         val createdHandle =
             mutex.withLock {

@@ -587,6 +587,7 @@ class VpnServiceRuntimeCoordinatorTest {
                         scope = backgroundScope,
                         dispatcher = dispatcher,
                         warpFactory = warpFactory,
+                        runtimeConfigResolver = TestWarpRuntimeConfigResolver(),
                     ),
                 proxyRuntimeSupervisor =
                     ProxyRuntimeSupervisor(
