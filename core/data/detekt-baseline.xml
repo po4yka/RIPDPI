@@ -18,6 +18,9 @@
     <ID>LongMethod:StrategyChains.kt$fun parseStrategyChainDsl(source: String): Result&lt;StrategyChainSet&gt;</ID>
     <ID>LongMethod:StrategyChains.kt$private fun parseTcpStep( kind: TcpChainStepKind, spec: String, lineNumber: Int, ): TcpChainStepModel</ID>
     <ID>MagicNumber:AdaptiveFakeTtlSettings.kt$255</ID>
+    <ID>MagicNumber:AdaptiveFallback.kt$32</ID>
+    <ID>MagicNumber:AppSettingsJson.kt$443</ID>
+    <ID>MagicNumber:DetectionResistanceSettings.kt$3</ID>
     <ID>MagicNumber:DnsResolverConfig.kt$443</ID>
     <ID>MagicNumber:DnsResolverConfig.kt$80</ID>
     <ID>MagicNumber:DnsResolverConfig.kt$853</ID>
