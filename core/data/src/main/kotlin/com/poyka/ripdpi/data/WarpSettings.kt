@@ -6,6 +6,17 @@ const val WarpRouteModeOff = "off"
 const val WarpRouteModeRules = "rules"
 const val WarpEndpointSelectionAutomatic = "automatic"
 const val WarpEndpointSelectionManual = "manual"
+const val DefaultWarpProfileId = "default"
+const val WarpAccountKindConsumerFree = "consumer_free"
+const val WarpAccountKindConsumerPlus = "consumer_plus"
+const val WarpAccountKindZeroTrust = "zero_trust"
+const val WarpSetupStateNotConfigured = "not_configured"
+const val WarpSetupStateProvisioning = "provisioning"
+const val WarpSetupStateProvisioned = "provisioned"
+const val WarpSetupStateNeedsAttention = "needs_attention"
+const val WarpScannerModeAutomatic = "automatic"
+const val WarpScannerModeManual = "manual"
+const val WarpScannerModeRescan = "rescan"
 const val DefaultWarpLocalSocksPort = 11888
 const val DefaultWarpScannerParallelism = 10
 const val DefaultWarpScannerMaxRttMs = 1_500
@@ -44,11 +55,20 @@ data class WarpAmneziaSettings(
     val s4: Int = 0,
 )
 
+data class WarpProfileMetadata(
+    val profileId: String = DefaultWarpProfileId,
+    val accountKind: String = WarpAccountKindConsumerFree,
+    val zeroTrustOrg: String = "",
+    val setupState: String = WarpSetupStateNotConfigured,
+    val lastScannerMode: String = WarpScannerModeAutomatic,
+)
+
 data class WarpSettingsModel(
     val enabled: Boolean = false,
     val routeMode: String = WarpRouteModeOff,
     val routeHosts: String = "",
     val builtInRulesEnabled: Boolean = true,
+    val profile: WarpProfileMetadata = WarpProfileMetadata(),
     val endpointSelectionMode: String = WarpEndpointSelectionAutomatic,
     val manualEndpoint: WarpManualEndpoint = WarpManualEndpoint(),
     val scannerEnabled: Boolean = true,
@@ -69,12 +89,42 @@ fun normalizeWarpEndpointSelectionMode(value: String): String =
         else -> WarpEndpointSelectionAutomatic
     }
 
+fun normalizeWarpAccountKind(value: String): String =
+    when (value.trim().lowercase()) {
+        WarpAccountKindConsumerPlus -> WarpAccountKindConsumerPlus
+        WarpAccountKindZeroTrust -> WarpAccountKindZeroTrust
+        else -> WarpAccountKindConsumerFree
+    }
+
+fun normalizeWarpSetupState(value: String): String =
+    when (value.trim().lowercase()) {
+        WarpSetupStateProvisioning -> WarpSetupStateProvisioning
+        WarpSetupStateProvisioned -> WarpSetupStateProvisioned
+        WarpSetupStateNeedsAttention -> WarpSetupStateNeedsAttention
+        else -> WarpSetupStateNotConfigured
+    }
+
+fun normalizeWarpScannerMode(value: String): String =
+    when (value.trim().lowercase()) {
+        WarpScannerModeManual -> WarpScannerModeManual
+        WarpScannerModeRescan -> WarpScannerModeRescan
+        else -> WarpScannerModeAutomatic
+    }
+
 fun AppSettings.toWarpSettingsModel(): WarpSettingsModel =
     WarpSettingsModel(
         enabled = warpEnabled,
         routeMode = normalizeWarpRouteMode(warpRouteMode),
         routeHosts = warpRouteHosts,
         builtInRulesEnabled = warpBuiltinRulesEnabled,
+        profile =
+            WarpProfileMetadata(
+                profileId = warpProfileId.ifBlank { DefaultWarpProfileId },
+                accountKind = normalizeWarpAccountKind(warpAccountKind),
+                zeroTrustOrg = warpZeroTrustOrg,
+                setupState = normalizeWarpSetupState(warpSetupState),
+                lastScannerMode = normalizeWarpScannerMode(warpLastScannerMode),
+            ),
         endpointSelectionMode = normalizeWarpEndpointSelectionMode(warpEndpointSelectionMode),
         manualEndpoint =
             WarpManualEndpoint(

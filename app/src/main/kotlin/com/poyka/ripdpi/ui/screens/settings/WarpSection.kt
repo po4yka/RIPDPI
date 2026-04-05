@@ -44,6 +44,38 @@ internal fun LazyListScope.warpSection(
         ) {
             RipDpiCard {
                 SettingsRow(
+                    title = stringResource(R.string.warp_profile_id_title),
+                    subtitle = stringResource(R.string.warp_profile_id_body),
+                    value = uiState.warp.profileId,
+                    showDivider = true,
+                )
+                SettingsRow(
+                    title = stringResource(R.string.warp_account_kind_title),
+                    subtitle = stringResource(R.string.warp_account_kind_body),
+                    value = uiState.warp.accountKind,
+                    showDivider = true,
+                )
+                if (uiState.warp.hasZeroTrustOrganization) {
+                    SettingsRow(
+                        title = stringResource(R.string.warp_zero_trust_org_title),
+                        subtitle = stringResource(R.string.warp_zero_trust_org_body),
+                        value = uiState.warp.zeroTrustOrg,
+                        showDivider = true,
+                    )
+                }
+                SettingsRow(
+                    title = stringResource(R.string.warp_setup_state_title),
+                    subtitle = stringResource(R.string.warp_setup_state_body),
+                    value = uiState.warp.setupState,
+                    showDivider = true,
+                )
+                SettingsRow(
+                    title = stringResource(R.string.warp_last_scanner_mode_title),
+                    subtitle = stringResource(R.string.warp_last_scanner_mode_body),
+                    value = uiState.warp.lastScannerMode,
+                    showDivider = true,
+                )
+                SettingsRow(
                     title = stringResource(R.string.warp_enabled_title),
                     subtitle =
                         if (uiState.warpUiAvailable) {

@@ -8,17 +8,16 @@ import com.poyka.ripdpi.data.DefaultEntropyPaddingMax
 import com.poyka.ripdpi.data.DefaultEntropyPaddingTargetPermil
 import com.poyka.ripdpi.data.DefaultEvolutionEpsilon
 import com.poyka.ripdpi.data.DefaultFakeSni
+import com.poyka.ripdpi.data.DefaultShannonEntropyTargetPermil
 import com.poyka.ripdpi.data.DefaultTlsRandRecFragmentCount
 import com.poyka.ripdpi.data.DefaultTlsRandRecMaxFragmentSize
 import com.poyka.ripdpi.data.DefaultTlsRandRecMinFragmentSize
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
-import com.poyka.ripdpi.data.DefaultShannonEntropyTargetPermil
 import com.poyka.ripdpi.data.TcpChainStepKind
 import com.poyka.ripdpi.data.TcpChainStepModel
 import com.poyka.ripdpi.data.UdpChainStepModel
 import com.poyka.ripdpi.data.activeDnsSettings
-import com.poyka.ripdpi.data.entropyModeFromProto
 import com.poyka.ripdpi.data.effectiveAdaptiveFakeTtlDelta
 import com.poyka.ripdpi.data.effectiveAdaptiveFakeTtlFallback
 import com.poyka.ripdpi.data.effectiveAdaptiveFakeTtlMax
@@ -38,6 +37,7 @@ import com.poyka.ripdpi.data.effectiveTlsFakeProfile
 import com.poyka.ripdpi.data.effectiveTlsRecordMarker
 import com.poyka.ripdpi.data.effectiveUdpChainSteps
 import com.poyka.ripdpi.data.effectiveUdpFakeProfile
+import com.poyka.ripdpi.data.entropyModeFromProto
 import com.poyka.ripdpi.data.formatChainSummary
 import com.poyka.ripdpi.data.formatStrategyChainDsl
 import com.poyka.ripdpi.data.isTlsPrelude
@@ -45,8 +45,8 @@ import com.poyka.ripdpi.data.normalizeHostAutolearnMaxHosts
 import com.poyka.ripdpi.data.normalizeHostAutolearnPenaltyTtlHours
 import com.poyka.ripdpi.data.primaryDesyncMethod
 import com.poyka.ripdpi.data.primaryTcpChainStep
-import com.poyka.ripdpi.data.toAdaptiveFallbackSettingsModel
 import com.poyka.ripdpi.data.tlsPreludeTcpChainStep
+import com.poyka.ripdpi.data.toAdaptiveFallbackSettingsModel
 import com.poyka.ripdpi.data.toWarpSettingsModel
 import com.poyka.ripdpi.data.usesSeqOverlapFakeProfile
 import com.poyka.ripdpi.proto.AppSettings
@@ -252,6 +252,11 @@ private fun AppSettings.buildWarpUiState(): WarpUiState {
         routeMode = warp.routeMode,
         routeHosts = warp.routeHosts,
         builtInRulesEnabled = warp.builtInRulesEnabled,
+        profileId = warp.profile.profileId,
+        accountKind = warp.profile.accountKind,
+        zeroTrustOrg = warp.profile.zeroTrustOrg,
+        setupState = warp.profile.setupState,
+        lastScannerMode = warp.profile.lastScannerMode,
         endpointSelectionMode = warp.endpointSelectionMode,
         manualEndpointHost = warp.manualEndpoint.host,
         manualEndpointIpv4 = warp.manualEndpoint.ipv4,

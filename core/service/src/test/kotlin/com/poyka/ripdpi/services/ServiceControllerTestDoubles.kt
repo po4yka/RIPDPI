@@ -4,6 +4,9 @@ import com.poyka.ripdpi.core.RipDpiProxyFactory
 import com.poyka.ripdpi.core.RipDpiProxyPreferences
 import com.poyka.ripdpi.core.RipDpiProxyRuntime
 import com.poyka.ripdpi.core.RipDpiProxyUIPreferences
+import com.poyka.ripdpi.core.RipDpiRelayConfig
+import com.poyka.ripdpi.core.RipDpiRelayFactory
+import com.poyka.ripdpi.core.RipDpiRelayRuntime
 import com.poyka.ripdpi.core.RipDpiWarpConfig
 import com.poyka.ripdpi.core.RipDpiWarpFactory
 import com.poyka.ripdpi.core.RipDpiWarpRuntime
@@ -418,6 +421,78 @@ internal class TestRipDpiProxyFactory(
         get() = runtimes.last()
 
     override fun create(): RipDpiProxyRuntime =
+        runtimeFactory().also { runtime ->
+            runtimes += runtime
+        }
+}
+
+internal class TestRelayRuntime(
+    internal val events: MutableList<String> = mutableListOf(),
+) : RipDpiRelayRuntime {
+    private var exitCode = CompletableDeferred<Int>()
+    private val ready = CompletableDeferred<Unit>()
+
+    var startFailure: Throwable? = null
+    var awaitReadyFailure: Exception? = null
+    var stopFailure: Throwable? = null
+    var telemetryFailure: Throwable? = null
+    var telemetry: NativeRuntimeSnapshot =
+        NativeRuntimeSnapshot(
+            source = "relay",
+            state = "running",
+            health = "healthy",
+        )
+    var lastConfig: RipDpiRelayConfig? = null
+        private set
+    var stopCount: Int = 0
+        private set
+
+    override suspend fun start(config: RipDpiRelayConfig): Int {
+        lastConfig = config
+        events += "relay:start"
+        startFailure?.let {
+            ready.completeExceptionally(it)
+            throw it
+        }
+        ready.complete(Unit)
+        return exitCode.await()
+    }
+
+    override suspend fun awaitReady(timeoutMillis: Long) {
+        awaitReadyFailure?.let { throw it }
+        ready.await()
+    }
+
+    override suspend fun stop() {
+        stopCount += 1
+        events += "relay:stop"
+        stopFailure?.let { throw it }
+        if (!exitCode.isCompleted) {
+            exitCode.complete(0)
+        }
+    }
+
+    override suspend fun pollTelemetry(): NativeRuntimeSnapshot {
+        telemetryFailure?.let { throw it }
+        return telemetry
+    }
+
+    fun complete(code: Int) {
+        if (!exitCode.isCompleted) {
+            exitCode.complete(code)
+        }
+    }
+}
+
+internal class TestRipDpiRelayFactory(
+    private val runtimeFactory: () -> TestRelayRuntime = { TestRelayRuntime() },
+) : RipDpiRelayFactory {
+    val runtimes = mutableListOf<TestRelayRuntime>()
+
+    val lastRuntime: TestRelayRuntime
+        get() = runtimes.last()
+
+    override fun create(): RipDpiRelayRuntime =
         runtimeFactory().also { runtime ->
             runtimes += runtime
         }

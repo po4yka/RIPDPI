@@ -266,6 +266,12 @@ class ProxyServiceRuntimeCoordinatorTest {
                 networkHandoverMonitor = handoverMonitor,
                 policyHandoverEventStore = handoverEvents,
                 permissionWatchdog = TestPermissionWatchdog(),
+                upstreamRelaySupervisor =
+                    UpstreamRelaySupervisor(
+                        scope = backgroundScope,
+                        dispatcher = dispatcher,
+                        relayFactory = TestRipDpiRelayFactory(),
+                    ),
                 warpRuntimeSupervisor =
                     WarpRuntimeSupervisor(
                         scope = backgroundScope,
