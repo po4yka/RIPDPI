@@ -7,7 +7,6 @@
     <ID>ComplexCondition:StrategyChains.kt$!trimmed.all { it.isLowerCase() || it.isDigit() || it == '-' || it == '.' }</ID>
     <ID>ComplexCondition:StrategyChains.kt$trimmed.isEmpty() || trimmed.contains(':') || trimmed.startsWith('.') || trimmed.endsWith('.') || trimmed.contains("..")</ID>
     <ID>CyclomaticComplexMethod:DnsResolverConfig.kt$fun activeDnsSettings( dnsMode: String, dnsProviderId: String, dnsIp: String, encryptedDnsProtocol: String = "", encryptedDnsHost: String = "", encryptedDnsPort: Int = 0, encryptedDnsTlsServerName: String = "", encryptedDnsBootstrapIps: Iterable&lt;String&gt; = emptyList(), encryptedDnsDohUrl: String = "", encryptedDnsDnscryptProviderName: String = "", encryptedDnsDnscryptPublicKey: String = "", ): ActiveDnsSettings</ID>
-    <ID>CyclomaticComplexMethod:EncryptedDnsPathSelection.kt$fun buildEncryptedDnsCandidatePlan( activeDns: ActiveDnsSettings, preferredPath: EncryptedDnsPathCandidate? = null, ): List&lt;EncryptedDnsPathCandidate&gt;</ID>
     <ID>CyclomaticComplexMethod:ServiceTelemetry.kt$private fun classifyFailureText(text: String): FailureClass?</ID>
     <ID>CyclomaticComplexMethod:StrategyChains.kt$private fun parseTcpStep( kind: TcpChainStepKind, spec: String, lineNumber: Int, ): TcpChainStepModel</ID>
     <ID>CyclomaticComplexMethod:StrategyFamilies.kt$fun deriveTcpStrategyFamily(tcpSteps: List&lt;TcpChainStepModel&gt;): String?</ID>
