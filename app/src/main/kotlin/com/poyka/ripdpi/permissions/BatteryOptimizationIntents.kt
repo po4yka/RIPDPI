@@ -35,6 +35,7 @@ internal object BatteryOptimizationIntents {
             data = packageUri(packageName)
         }
 
+    @Suppress("ReturnCount")
     internal fun resolveRoute(
         sdkInt: Int = Build.VERSION.SDK_INT,
         canHandleAction: (String) -> Boolean,

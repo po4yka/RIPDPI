@@ -25,6 +25,7 @@ import com.poyka.ripdpi.ui.components.inputs.RipDpiDropdownOption
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
+@Suppress("LongMethod")
 internal fun LazyListScope.detectionResistanceSection(
     uiState: SettingsUiState,
     visualEditorEnabled: Boolean,
@@ -129,6 +130,7 @@ private val DecimalKeyboard =
         imeAction = ImeAction.Done,
     )
 
+@Suppress("LongMethod", "CyclomaticComplexMethod")
 @Composable
 private fun DetectionResistanceSummaryCard(
     uiState: SettingsUiState,

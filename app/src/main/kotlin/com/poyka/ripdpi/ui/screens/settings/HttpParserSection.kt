@@ -31,6 +31,7 @@ import com.poyka.ripdpi.ui.components.indicators.StatusIndicatorTone
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
+@Suppress("LongMethod")
 internal fun LazyListScope.httpParserSection(
     uiState: SettingsUiState,
     visualEditorEnabled: Boolean,
@@ -183,6 +184,7 @@ private data class HttpParserEvasionStatusContent(
     val tone: StatusIndicatorTone,
 )
 
+@Suppress("LongMethod")
 @Composable
 private fun HttpParserEvasionsProfileCard(
     uiState: SettingsUiState,

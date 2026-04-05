@@ -41,6 +41,10 @@ import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
+private const val dropdownDisabledAlpha = 0.38f
+private const val dropdownItemSpacingDp = 8
+private const val dropdownWidthFraction = 0.9f
+
 data class RipDpiDropdownOption<T>(
     val value: T,
     val label: String,
@@ -116,7 +120,7 @@ fun <T> RipDpiDropdown(
                 text = it,
                 style = type.caption,
                 color = visualState.supportingColor,
-                modifier = Modifier.alpha(if (enabled) 1f else 0.38f),
+                modifier = Modifier.alpha(if (enabled) 1f else dropdownDisabledAlpha),
             )
         }
     }
@@ -176,8 +180,8 @@ private fun DropdownField(
                         interactionSource = resolvedInteractionSource,
                     ) { setExpanded(true) }
                     .padding(horizontal = horizontalPadding)
-                    .alpha(if (enabled) 1f else 0.38f),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    .alpha(if (enabled) 1f else dropdownDisabledAlpha),
+            horizontalArrangement = Arrangement.spacedBy(dropdownItemSpacingDp.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
@@ -212,7 +216,7 @@ private fun <T> DropdownOptionsMenu(
         onDismissRequest = onDismiss,
         modifier =
             Modifier
-                .fillMaxWidth(0.9f)
+                .fillMaxWidth(dropdownWidthFraction)
                 .background(MaterialTheme.colorScheme.surface, RipDpiThemeTokens.shapes.xl),
     ) {
         options.forEach { option ->
@@ -305,6 +309,7 @@ private fun dropdownHorizontalPadding(
     }
 }
 
+@Suppress("UnusedPrivateMember")
 @Preview(showBackground = true)
 @Composable
 private fun RipDpiDropdownPreview() {

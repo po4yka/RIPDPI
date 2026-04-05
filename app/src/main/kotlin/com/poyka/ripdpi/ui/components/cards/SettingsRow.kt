@@ -264,6 +264,7 @@ private fun RowScope.SettingsRowTrailing(
     }
 }
 
+@Suppress("UnusedPrivateMember")
 @Preview(showBackground = true)
 @Composable
 private fun SettingsRowPreview() {

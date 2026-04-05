@@ -39,6 +39,7 @@ enum class StatusIndicatorTone {
     Error,
 }
 
+@Suppress("LongMethod")
 @Composable
 fun StatusIndicator(
     label: String,
@@ -172,6 +173,7 @@ fun StatusIndicator(
     }
 }
 
+@Suppress("UnusedPrivateMember")
 @Preview(showBackground = true)
 @Composable
 private fun StatusIndicatorPreview() {

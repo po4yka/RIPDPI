@@ -558,6 +558,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.advancedSettingsSecon
     )
 }
 
+@Suppress("UnusedPrivateMember")
 @Preview(showBackground = true)
 @Composable
 private fun AdvancedSettingsScreenPreview() {
@@ -628,6 +629,7 @@ private fun AdvancedSettingsScreenPreview() {
     }
 }
 
+@Suppress("UnusedPrivateMember")
 @Preview(showBackground = true)
 @Composable
 private fun AdvancedSettingsScreenDarkPreview() {

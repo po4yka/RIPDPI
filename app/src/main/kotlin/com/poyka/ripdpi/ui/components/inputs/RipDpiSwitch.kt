@@ -37,6 +37,12 @@ import com.poyka.ripdpi.ui.components.ripDpiToggleable
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
+private const val luminanceMidpoint = 0.5f
+
+private const val switchTrackDarkBlendFraction = 0.25f
+private const val switchTrackLightBlendFraction = 0.16f
+private const val switchThumbDarkBlendFraction = 0.5f
+
 private const val PressedCheckedTrackBlend = 0.18f
 private const val PressedDarkTrackBlend = 0.32f
 private const val PressedLightTrackBlend = 0.22f
@@ -207,7 +213,7 @@ private fun rememberSwitchVisualState(
 ): SwitchVisualState {
     val colors = RipDpiThemeTokens.colors
     val scheme = MaterialTheme.colorScheme
-    val isDark = scheme.background.luminance() < 0.5f
+    val isDark = scheme.background.luminance() < luminanceMidpoint
     val trackColor by animateColorAsState(
         targetValue =
             switchTrackColor(
@@ -330,11 +336,11 @@ private fun switchTrackColor(
         }
 
         isDark -> {
-            lerp(backgroundColor, foregroundColor, 0.25f)
+            lerp(backgroundColor, foregroundColor, switchTrackDarkBlendFraction)
         }
 
         else -> {
-            lerp(backgroundColor, foregroundColor, 0.16f)
+            lerp(backgroundColor, foregroundColor, switchTrackLightBlendFraction)
         }
     }
 
@@ -347,10 +353,11 @@ private fun switchThumbColor(
     when {
         checked && isDark -> backgroundColor
         checked -> backgroundColor
-        isDark -> lerp(backgroundColor, foregroundColor, 0.5f)
+        isDark -> lerp(backgroundColor, foregroundColor, switchThumbDarkBlendFraction)
         else -> backgroundColor
     }
 
+@Suppress("UnusedPrivateMember")
 @Preview(showBackground = true)
 @Composable
 private fun RipDpiSwitchPreview() {
@@ -390,6 +397,7 @@ private fun RipDpiSwitchPreview() {
     }
 }
 
+@Suppress("UnusedPrivateMember")
 @Preview(showBackground = true)
 @Composable
 private fun RipDpiSwitchDarkPreview() {

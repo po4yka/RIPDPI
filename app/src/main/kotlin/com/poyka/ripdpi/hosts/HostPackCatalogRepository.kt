@@ -33,6 +33,10 @@ import java.util.Locale
 import javax.inject.Inject
 import javax.inject.Singleton
 
+private const val byteUnsignedMask = 0xff
+private const val hexByteBase = 0x100
+private const val hexRadix = 16
+
 interface HostPackCatalogRepository {
     suspend fun loadSnapshot(): HostPackCatalogSnapshot
 
@@ -134,7 +138,7 @@ class DefaultHostPackCatalogRepository
 
         private fun loadBundledCatalog(): HostPackCatalog =
             runCatching {
-                context.assets.open(HOST_PACK_CATALOG_ASSET_PATH).bufferedReader().use { reader ->
+                context.assets.open(hostPackCatalogAssetPath).bufferedReader().use { reader ->
                     hostPackCatalogFromJson(reader.readText())
                 }
             }.getOrDefault(HostPackCatalog())
@@ -177,7 +181,7 @@ class DefaultHostPackCatalogRepository
             }
         }
 
-        private fun cacheFile(): File = File(context.filesDir, HOST_PACK_CATALOG_CACHE_PATH)
+        private fun cacheFile(): File = File(context.filesDir, hostPackCatalogCachePath)
     }
 
 internal fun parseHostPackChecksum(payload: String): String {
@@ -239,7 +243,7 @@ internal fun InputStream.copyToAndDigest(output: java.io.OutputStream): String {
 
 internal fun ByteArray.toHexString(): String =
     joinToString(separator = "") { byte ->
-        ((byte.toInt() and 0xff) + 0x100).toString(16).substring(1)
+        ((byte.toInt() and byteUnsignedMask) + hexByteBase).toString(hexRadix).substring(1)
     }
 
 internal fun formatHostPackGeneratedAt(epochMillis: Long): String =
@@ -266,5 +270,5 @@ abstract class HostPackCatalogBindingsModule {
     ): HostPackCatalogTempFileFactory
 }
 
-const val HOST_PACK_CATALOG_ASSET_PATH = "host-packs/catalog.json"
-const val HOST_PACK_CATALOG_CACHE_PATH = "host-packs/catalog-cache.json"
+const val hostPackCatalogAssetPath = "host-packs/catalog.json"
+const val hostPackCatalogCachePath = "host-packs/catalog-cache.json"

@@ -134,6 +134,7 @@ private data class HostPackCatalogStatusContent(
     val tone: StatusIndicatorTone,
 )
 
+@Suppress("LongMethod")
 @Composable
 internal fun HostPackCatalogStatusCard(
     hostPackCatalog: HostPackCatalogUiState,

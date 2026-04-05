@@ -19,6 +19,10 @@ import com.poyka.ripdpi.diagnostics.retryCount
 import com.poyka.ripdpi.diagnostics.rttBand
 import com.poyka.ripdpi.diagnostics.winningStrategyFamily
 
+private const val MaxOverviewRememberedNetworks = 6
+private const val MaxPassiveEvents = 8
+private const val LiveTelemetrySamples = 24
+
 internal fun DiagnosticsUiFactorySupport.buildOverviewUiModel(
     health: DiagnosticsHealth,
     progress: ScanProgress?,
@@ -45,7 +49,7 @@ internal fun DiagnosticsUiFactorySupport.buildOverviewUiModel(
         contextSummary = latestContext?.let(::toOverviewContextGroup),
         metrics = buildOverviewMetrics(health, sessions, nativeEvents, currentTelemetry),
         warnings = warnings,
-        rememberedNetworks = rememberedNetworkRows.take(6),
+        rememberedNetworks = rememberedNetworkRows.take(MaxOverviewRememberedNetworks),
     )
 
 internal data class BuildScanUiModelParams(
@@ -227,7 +231,7 @@ internal fun DiagnosticsUiFactorySupport.buildLiveUiModel(
         trends = buildLiveTrends(telemetry),
         snapshot = latestSnapshot,
         contextGroups = latestContext?.let(::toLiveContextGroups).orEmpty(),
-        passiveEvents = nativeEvents.take(8).map(::toEventUiModel),
+        passiveEvents = nativeEvents.take(MaxPassiveEvents).map(::toEventUiModel),
     )
 }
 
@@ -727,7 +731,7 @@ private fun DiagnosticsUiFactorySupport.buildLiveHighlights(
 private fun DiagnosticsUiFactorySupport.buildLiveTrends(
     telemetry: List<DiagnosticTelemetrySample>,
 ): List<DiagnosticsSparklineUiModel> {
-    val samples = telemetry.take(24).reversed()
+    val samples = telemetry.take(LiveTelemetrySamples).reversed()
     if (samples.isEmpty()) {
         return emptyList()
     }

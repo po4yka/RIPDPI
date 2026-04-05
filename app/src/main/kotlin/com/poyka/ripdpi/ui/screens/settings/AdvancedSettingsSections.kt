@@ -38,6 +38,11 @@ import com.poyka.ripdpi.utility.checkIp
 import com.poyka.ripdpi.utility.validateIntRange
 import com.poyka.ripdpi.utility.validatePort
 
+private const val diagnosticsSampleIntervalMin = 5
+private const val diagnosticsSampleIntervalMax = 300
+private const val diagnosticsRetentionMaxDays = 365
+private const val bufferSizeDiv = 4
+
 internal fun LazyListScope.diagnosticsHistorySection(
     uiState: SettingsUiState,
     onToggleChanged: (AdvancedToggleSetting, Boolean) -> Unit,
@@ -113,7 +118,7 @@ private fun DiagnosticsRetentionFields(
         description = stringResource(R.string.settings_diagnostics_sample_body),
         value = uiState.diagnosticsSampleIntervalSeconds.toString(),
         enabled = uiState.diagnosticsMonitorEnabled,
-        validator = { validateIntRange(it, 5, 300) },
+        validator = { validateIntRange(it, diagnosticsSampleIntervalMin, diagnosticsSampleIntervalMax) },
         invalidMessage = stringResource(R.string.config_error_out_of_range),
         disabledMessage = stringResource(R.string.settings_diagnostics_monitor_disabled),
         keyboardOptions = numericKeyboardOptions,
@@ -125,7 +130,7 @@ private fun DiagnosticsRetentionFields(
         title = stringResource(R.string.settings_diagnostics_retention_title),
         description = stringResource(R.string.settings_diagnostics_retention_body),
         value = uiState.diagnosticsHistoryRetentionDays.toString(),
-        validator = { validateIntRange(it, 1, 365) },
+        validator = { validateIntRange(it, 1, diagnosticsRetentionMaxDays) },
         invalidMessage = stringResource(R.string.config_error_out_of_range),
         keyboardOptions = numericKeyboardOptions,
         setting = AdvancedTextSetting.DiagnosticsHistoryRetentionDays,
@@ -231,6 +236,7 @@ internal fun LazyListScope.commandLineOverridesSection(
     }
 }
 
+@Suppress("LongMethod")
 internal fun LazyListScope.proxySection(
     uiState: SettingsUiState,
     visualEditorEnabled: Boolean,
@@ -296,7 +302,7 @@ internal fun LazyListScope.proxySection(
                     description = stringResource(R.string.config_buffer_helper),
                     value = uiState.proxy.bufferSize.toString(),
                     enabled = visualEditorEnabled,
-                    validator = { validateIntRange(it, 1, Int.MAX_VALUE / 4) },
+                    validator = { validateIntRange(it, 1, Int.MAX_VALUE / bufferSizeDiv) },
                     invalidMessage = stringResource(R.string.config_error_out_of_range),
                     disabledMessage = stringResource(R.string.advanced_settings_visual_controls_disabled),
                     keyboardOptions =

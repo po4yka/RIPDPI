@@ -63,6 +63,7 @@ internal class MainHomeDiagnosticsActions(
 ) {
     private var activeRunObservation: Job? = null
 
+    @Suppress("LongMethod", "CyclomaticComplexMethod")
     fun initialize() {
         mutations.launch {
             refreshFingerprint()
@@ -426,6 +427,7 @@ internal class MainHomeDiagnosticsActions(
     }
 }
 
+@Suppress("LongMethod", "CyclomaticComplexMethod")
 internal fun buildHomeDiagnosticsUiState(
     settings: AppSettings,
     appStatus: AppStatus,

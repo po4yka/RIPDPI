@@ -1,3 +1,5 @@
+@file:Suppress("TooManyFunctions")
+
 package com.poyka.ripdpi.activities
 
 import android.content.Context
@@ -18,6 +20,12 @@ import com.poyka.ripdpi.diagnostics.StrategyProbeProgressLane
 import java.util.Locale
 import com.poyka.ripdpi.data.displayLabel as displayNetworkLabel
 import com.poyka.ripdpi.diagnostics.displayLabel as displayStrategyLabel
+
+private const val FingerprintHashShortLength = 12
+private const val FingerprintHashPrefixLength = 6
+private const val FingerprintHashSuffixLength = 4
+private const val EtaMinFractionThreshold = 0.1f
+private const val SuccessRateHighThreshold = 0.75f
 
 internal fun DiagnosticsUiFactorySupport.toProfileOptionUiModel(
     profile: DiagnosticProfile,
@@ -91,7 +99,10 @@ internal fun DiagnosticsUiFactorySupport.toRememberedNetworkUiModel(
         id = policy.id,
         title =
             summary?.displayNetworkLabel()
-                ?: ctx.getString(R.string.diagnostics_network_fallback_title, policy.fingerprintHash.take(12)),
+                ?: ctx.getString(
+                    R.string.diagnostics_network_fallback_title,
+                    policy.fingerprintHash.take(FingerprintHashShortLength),
+                ),
         subtitle =
             listOf(
                 policy.mode.uppercase(Locale.US),
@@ -185,7 +196,7 @@ internal fun DiagnosticsUiFactorySupport.toProgressUiModel(
     val elapsedMs = (now - scanStartedAt).coerceAtLeast(0L)
     val elapsedLabel = formatDurationMs(elapsedMs)
     val etaLabel =
-        if (fraction >= 0.1f && elapsedMs > 0L) {
+        if (fraction >= EtaMinFractionThreshold && elapsedMs > 0L) {
             val etaMs = (elapsedMs / fraction * (1f - fraction)).toLong()
             context.getString(R.string.diagnostics_eta_remaining, formatDurationMs(etaMs))
         } else {
@@ -345,15 +356,15 @@ internal fun String?.shortFingerprintHash(): String? {
         return null
     }
     return when {
-        value.length <= 12 -> value
-        else -> "${value.take(6)}...${value.takeLast(4)}"
+        value.length <= FingerprintHashShortLength -> value
+        else -> "${value.take(FingerprintHashPrefixLength)}...${value.takeLast(FingerprintHashSuffixLength)}"
     }
 }
 
 internal fun BypassApproachSummary.toDiagnosticsTone(): DiagnosticsTone =
     when {
         verificationState.equals("unverified", ignoreCase = true) -> DiagnosticsTone.Neutral
-        (validatedSuccessRate ?: 0f) >= 0.75f -> DiagnosticsTone.Positive
+        (validatedSuccessRate ?: 0f) >= SuccessRateHighThreshold -> DiagnosticsTone.Positive
         (validatedSuccessRate ?: 0f) > 0f -> DiagnosticsTone.Warning
         else -> DiagnosticsTone.Negative
     }
@@ -368,7 +379,7 @@ internal fun BypassApproachSummary.toDiagnosticsTone(): DiagnosticsTone =
 internal fun BypassApproachSummary.successMetricTone(): DiagnosticsTone {
     val rate = validatedSuccessRate ?: return DiagnosticsTone.Neutral
     return when {
-        rate >= 0.75f -> DiagnosticsTone.Positive
+        rate >= SuccessRateHighThreshold -> DiagnosticsTone.Positive
         rate > 0f -> DiagnosticsTone.Warning
         else -> DiagnosticsTone.Neutral // 0 % -- not yet proven, not an error
     }

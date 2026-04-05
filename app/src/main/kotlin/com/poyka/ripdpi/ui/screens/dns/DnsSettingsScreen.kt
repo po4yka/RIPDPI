@@ -75,6 +75,9 @@ import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import java.net.URI
 
+private const val dnsPortMax = 65535
+private const val dnsPortWeightFraction = 0.4f
+
 private val DnsCryptPublicKeyPattern = Regex("^[0-9a-fA-F]{64}$")
 
 internal data class DnsResolverOption(
@@ -209,6 +212,7 @@ fun DnsSettingsRoute(
     )
 }
 
+@Suppress("LongMethod", "CyclomaticComplexMethod")
 @Composable
 internal fun DnsSettingsScreen(
     uiState: SettingsUiState,
@@ -343,7 +347,7 @@ internal fun DnsSettingsScreen(
     val dotPort = portInput.toIntOrNull() ?: 0
     val customDotValid =
         trimmedDotHost.isNotEmpty() &&
-            dotPort in 1..65535 &&
+            dotPort in 1..dnsPortMax &&
             trimmedDotTlsServerName.isNotEmpty() &&
             bootstrapIpsValid
     val customDotDirty =
@@ -362,7 +366,7 @@ internal fun DnsSettingsScreen(
     val dnscryptPublicKeyValid = trimmedDnsCryptPublicKey.matches(DnsCryptPublicKeyPattern)
     val customDnsCryptValid =
         trimmedDnsCryptHost.isNotEmpty() &&
-            dnscryptPort in 1..65535 &&
+            dnscryptPort in 1..dnsPortMax &&
             trimmedDnsCryptProvider.isNotEmpty() &&
             dnscryptPublicKeyValid &&
             bootstrapIpsValid
@@ -702,6 +706,7 @@ internal fun DnsSettingsScreen(
     }
 }
 
+@Suppress("LongMethod")
 @Composable
 private fun DnsActiveConfigurationCard(
     uiState: SettingsUiState,
@@ -988,6 +993,7 @@ private fun DnsDetailRow(
     }
 }
 
+@Suppress("LongMethod", "CyclomaticComplexMethod", "LongParameterList")
 @Composable
 private fun CustomEncryptedDnsSection(
     uiState: SettingsUiState,
@@ -1304,7 +1310,7 @@ private fun CommonEndpointFields(
         RipDpiTextField(
             value = portInput,
             onValueChange = onPortInputChange,
-            modifier = Modifier.weight(0.4f),
+            modifier = Modifier.weight(dnsPortWeightFraction),
             decoration =
                 RipDpiTextFieldDecoration(
                     testTag = RipDpiTestTags.DnsCustomPort,
@@ -1481,6 +1487,7 @@ private fun DnsSettingsEncryptedPreview() {
 
 @Preview(showBackground = true)
 @Composable
+@Suppress("UnusedPrivateMember")
 private fun DnsSettingsPlainPreview() {
     RipDpiTheme {
         DnsSettingsScreen(

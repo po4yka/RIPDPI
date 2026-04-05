@@ -48,6 +48,10 @@ import com.poyka.ripdpi.ui.components.ripDpiClickable
 import com.poyka.ripdpi.ui.theme.RipDpiIconSizes
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
+private const val primaryPressedLerp = 0.35f
+private const val secondaryPressedLerp = 0.5f
+private const val destructivePressedLerp = 0.3f
+
 enum class RipDpiButtonVariant {
     Primary,
     Secondary,
@@ -56,6 +60,7 @@ enum class RipDpiButtonVariant {
     Destructive,
 }
 
+@Suppress("LongMethod", "CyclomaticComplexMethod")
 @Composable
 fun RipDpiButton(
     text: String,
@@ -285,7 +290,7 @@ private fun buttonPalette(
         RipDpiButtonVariant.Primary -> {
             val base = colors.foreground
             RipDpiButtonPalette(
-                container = if (isPressed) lerp(base, pressedOverlay, 0.35f) else base,
+                container = if (isPressed) lerp(base, pressedOverlay, primaryPressedLerp) else base,
                 content = colors.background,
             )
         }
@@ -293,7 +298,7 @@ private fun buttonPalette(
         RipDpiButtonVariant.Secondary -> {
             val base = scheme.secondary
             RipDpiButtonPalette(
-                container = if (isPressed) lerp(base, scheme.surfaceVariant, 0.5f) else base,
+                container = if (isPressed) lerp(base, scheme.surfaceVariant, secondaryPressedLerp) else base,
                 content = scheme.onSecondary,
             )
         }
@@ -314,13 +319,19 @@ private fun buttonPalette(
 
         RipDpiButtonVariant.Destructive -> {
             RipDpiButtonPalette(
-                container = if (isPressed) lerp(colors.destructive, pressedOverlay, 0.3f) else colors.destructive,
+                container =
+                    if (isPressed) {
+                        lerp(colors.destructive, pressedOverlay, destructivePressedLerp)
+                    } else {
+                        colors.destructive
+                    },
                 content = colors.destructiveForeground,
             )
         }
     }
 }
 
+@Suppress("UnusedPrivateMember")
 @Preview(showBackground = true)
 @Composable
 private fun RipDpiButtonLightPreview() {
@@ -340,6 +351,7 @@ private fun RipDpiButtonLightPreview() {
     }
 }
 
+@Suppress("UnusedPrivateMember")
 @Preview(showBackground = true)
 @Composable
 private fun RipDpiButtonDarkPreview() {

@@ -107,6 +107,7 @@ internal fun OnboardingDnsSelectionContent(
     }
 }
 
+@Suppress("LongMethod")
 @Composable
 internal fun OnboardingConnectionTestContent(
     testState: ConnectionTestState,

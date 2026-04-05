@@ -90,6 +90,10 @@ import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 import java.util.Locale
 
+private const val liveEdgeScrollOffsetThreshold = 24
+private const val timingBreakdownDisplayCount = 4
+
+@Suppress("LongMethod", "CyclomaticComplexMethod")
 @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun DiagnosticsRoute(
@@ -254,6 +258,7 @@ fun DiagnosticsRoute(
     )
 }
 
+@Suppress("LongMethod", "LongParameterList", "UnusedParameter")
 @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun DiagnosticsScreen(
@@ -498,6 +503,7 @@ private fun DiagnosticsSectionSwitcher(
     }
 }
 
+@Suppress("LongMethod")
 @Composable
 private fun OverviewSection(
     overview: DiagnosticsOverviewUiModel,
@@ -789,6 +795,7 @@ private fun DiagnosticsHealthHero(
     }
 }
 
+@Suppress("LongMethod")
 @Composable
 private fun ToolsSection(
     approaches: DiagnosticsApproachesUiModel,
@@ -939,6 +946,7 @@ private fun ToolsSection(
     }
 }
 
+@Suppress("UnusedPrivateMember")
 @Composable
 private fun ApproachesSection(
     approaches: DiagnosticsApproachesUiModel,
@@ -1023,6 +1031,7 @@ private fun ApproachesSection(
     }
 }
 
+@Suppress("LongMethod", "UnusedPrivateMember")
 @Composable
 private fun EventsSection(
     uiState: DiagnosticsUiState,
@@ -1038,7 +1047,8 @@ private fun EventsSection(
     val listState = rememberLazyListState()
     val isAtLiveEdge by remember(listState) {
         derivedStateOf {
-            listState.firstVisibleItemIndex == 0 && listState.firstVisibleItemScrollOffset <= 24
+            listState.firstVisibleItemIndex == 0 &&
+                listState.firstVisibleItemScrollOffset <= liveEdgeScrollOffsetThreshold
         }
     }
 
@@ -1157,6 +1167,7 @@ private fun EventsSection(
     }
 }
 
+@Suppress("UnusedPrivateMember")
 @Composable
 private fun ShareSection(
     share: DiagnosticsShareUiModel,
@@ -1265,7 +1276,7 @@ private fun DiagnosticsPerformanceCard(
     val slowestStage = timingBreakdown.firstOrNull()
     val timingSummary =
         remember(timingBreakdown) {
-            timingBreakdown.take(4).joinToString("  ") { (label, duration) ->
+            timingBreakdown.take(timingBreakdownDisplayCount).joinToString("  ") { (label, duration) ->
                 "$label ${formatDuration(duration)}"
             }
         }

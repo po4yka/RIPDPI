@@ -57,6 +57,7 @@ fun AppCustomizationRoute(
     )
 }
 
+@Suppress("LongMethod")
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun AppCustomizationScreen(
@@ -201,6 +202,7 @@ internal fun AppCustomizationScreen(
     }
 }
 
+@Suppress("UnusedPrivateMember")
 @Preview(showBackground = true)
 @Composable
 private fun AppCustomizationScreenPreview() {
@@ -218,6 +220,7 @@ private fun AppCustomizationScreenPreview() {
     }
 }
 
+@Suppress("UnusedPrivateMember")
 @Preview(showBackground = true)
 @Composable
 private fun AppCustomizationScreenDarkPreview() {

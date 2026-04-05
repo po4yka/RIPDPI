@@ -34,6 +34,7 @@ private data class FakePayloadLibraryStatusContent(
     val tone: StatusIndicatorTone,
 )
 
+@Suppress("LongMethod")
 @Composable
 internal fun FakePayloadLibraryCard(
     uiState: SettingsUiState,

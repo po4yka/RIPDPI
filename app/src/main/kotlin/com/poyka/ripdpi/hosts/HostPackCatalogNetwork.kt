@@ -42,18 +42,18 @@ class DefaultHostPackCatalogDownloadService
         private fun api(): HostPackCatalogDownloadApi =
             Retrofit
                 .Builder()
-                .baseUrl(HOST_PACK_CATALOG_BASE_URL)
+                .baseUrl(hostPackCatalogBaseUrl)
                 .client(
                     tlsClientFactory.create {
-                        connectTimeout(20, TimeUnit.SECONDS)
-                        readTimeout(90, TimeUnit.SECONDS)
-                        callTimeout(120, TimeUnit.SECONDS)
+                        connectTimeout(connectTimeoutSeconds, TimeUnit.SECONDS)
+                        readTimeout(readTimeoutSeconds, TimeUnit.SECONDS)
+                        callTimeout(callTimeoutSeconds, TimeUnit.SECONDS)
                         addInterceptor { chain ->
                             chain.proceed(
                                 chain
                                     .request()
                                     .newBuilder()
-                                    .header("User-Agent", HOST_PACK_CATALOG_USER_AGENT)
+                                    .header("User-Agent", hostPackCatalogUserAgent)
                                     .build(),
                             )
                         }
@@ -72,5 +72,9 @@ abstract class HostPackCatalogNetworkModule {
     ): HostPackCatalogDownloadService
 }
 
-const val HOST_PACK_CATALOG_BASE_URL = "https://raw.githubusercontent.com/"
-const val HOST_PACK_CATALOG_USER_AGENT = "RIPDPI host-pack catalog"
+private const val connectTimeoutSeconds = 20L
+private const val readTimeoutSeconds = 90L
+private const val callTimeoutSeconds = 120L
+
+const val hostPackCatalogBaseUrl = "https://raw.githubusercontent.com/"
+const val hostPackCatalogUserAgent = "RIPDPI host-pack catalog"

@@ -23,12 +23,14 @@ internal fun hostPackApplyEnabled(uiState: SettingsUiState): Boolean = !uiState.
 
 internal fun hostPackRefreshEnabled(hostPackCatalog: HostPackCatalogUiState): Boolean = !hostPackCatalog.isRefreshing
 
+private const val gitShortHashLength = 7
+
 internal fun hostPackSourceSummary(preset: HostPackPreset): String =
     preset.sources.joinToString(separator = " · ") { source ->
         buildString {
             append(source.name)
             append(" @ ")
-            append(source.commit?.take(7) ?: source.ref)
+            append(source.commit?.take(gitShortHashLength) ?: source.ref)
         }
     }
 

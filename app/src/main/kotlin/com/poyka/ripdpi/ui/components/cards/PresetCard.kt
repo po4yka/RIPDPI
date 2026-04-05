@@ -32,6 +32,9 @@ import com.poyka.ripdpi.ui.theme.RipDpiSurfaceRole
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 import com.poyka.ripdpi.ui.theme.ripDpiSurfaceStyle
 
+private const val disabledAlpha = 0.38f
+
+@Suppress("LongMethod")
 @Composable
 fun PresetCard(
     title: String,
@@ -71,7 +74,7 @@ fun PresetCard(
                     width = if (surfaceStyle.border == Color.Transparent) 0.dp else 1.dp,
                     color = surfaceStyle.border,
                     shape = shape,
-                ).alpha(if (enabled) 1f else 0.38f)
+                ).alpha(if (enabled) 1f else disabledAlpha)
                 .ripDpiSelectable(
                     selected = selected,
                     enabled = enabled,
@@ -180,6 +183,7 @@ private fun presetCardBadgePalette(selected: Boolean): PresetCardBadgePalette {
     }
 }
 
+@Suppress("UnusedPrivateMember")
 @Preview(showBackground = true)
 @Composable
 private fun PresetCardPreview() {

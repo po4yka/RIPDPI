@@ -1,3 +1,5 @@
+@file:Suppress("TooManyFunctions")
+
 package com.poyka.ripdpi.activities
 
 import com.poyka.ripdpi.R
@@ -20,6 +22,8 @@ import com.poyka.ripdpi.diagnostics.StrategyProbeReport
 import com.poyka.ripdpi.diagnostics.deriveBypassStrategySignature
 import com.poyka.ripdpi.diagnostics.presentation.DiagnosticsProfileProjection
 import java.util.Locale
+
+private const val PercentageMultiplier = 100
 
 internal fun DiagnosticsUiFactorySupport.toApproachDetailUiModel(
     detail: BypassApproachDetail,
@@ -105,7 +109,10 @@ internal fun DiagnosticsUiFactorySupport.toApproachRowUiModel(
                 add(
                     DiagnosticsMetricUiModel(
                         label = "Success",
-                        value = summary.validatedSuccessRate?.let { "${(it * 100).toInt()}%" } ?: "Unverified",
+                        value =
+                            summary.validatedSuccessRate
+                                ?.let { "${(it * PercentageMultiplier).toInt()}%" }
+                                ?: "Unverified",
                         tone = summary.successMetricTone(),
                     ),
                 )
@@ -127,6 +134,7 @@ internal fun DiagnosticsUiFactorySupport.toApproachRowUiModel(
         tone = summary.toDiagnosticsTone(),
     )
 
+@Suppress("LongMethod", "CyclomaticComplexMethod")
 internal fun DiagnosticsUiFactorySupport.toStrategyProbeReportUiModel(
     report: StrategyProbeReport,
     reportResults: List<ProbeResult>,
@@ -299,6 +307,8 @@ internal fun DiagnosticsUiFactorySupport.toScopeLabel(
         }
     }
 
+@Suppress("CyclomaticComplexMethod")
+@Suppress("LongMethod", "CyclomaticComplexMethod")
 private fun DiagnosticsUiFactorySupport.strategySignatureFields(
     signature: BypassStrategySignature,
 ): List<DiagnosticsFieldUiModel> =

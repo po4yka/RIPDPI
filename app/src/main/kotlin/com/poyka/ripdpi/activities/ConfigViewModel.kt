@@ -53,6 +53,10 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
+private const val defaultTtlMax = 255
+private const val defaultRelayPort = 443
+private const val bufferSizeDiv = 4
+
 private val DefaultConfigDnsSeed = canonicalDefaultEncryptedDnsSettings()
 
 data class ConfigDraft(
@@ -247,6 +251,7 @@ internal fun buildConfigPresets(currentDraft: ConfigDraft): ImmutableList<Config
     )
 }
 
+@Suppress("LongMethod", "CyclomaticComplexMethod")
 internal fun validateConfigDraft(draft: ConfigDraft): ImmutableMap<String, String> =
     buildMap {
         if (!checkIp(draft.proxyIp)) {
@@ -261,11 +266,11 @@ internal fun validateConfigDraft(draft: ConfigDraft): ImmutableMap<String, Strin
             put(ConfigFieldMaxConnections, "out_of_range")
         }
 
-        if (!validateIntRange(draft.bufferSize, 1, Int.MAX_VALUE / 4)) {
+        if (!validateIntRange(draft.bufferSize, 1, Int.MAX_VALUE / bufferSizeDiv)) {
             put(ConfigFieldBufferSize, "out_of_range")
         }
 
-        if (draft.defaultTtl.isNotEmpty() && !validateIntRange(draft.defaultTtl, 0, 255)) {
+        if (draft.defaultTtl.isNotEmpty() && !validateIntRange(draft.defaultTtl, 0, defaultTtlMax)) {
             put(ConfigFieldDefaultTtl, "out_of_range")
         }
 
@@ -277,12 +282,12 @@ internal fun validateConfigDraft(draft: ConfigDraft): ImmutableMap<String, Strin
                 RelayKindVlessReality -> {
                     if (draft.relayServer.isBlank()) put(ConfigFieldRelayServer, "required")
                     if (!validatePort(draft.relayServerPort)) put(ConfigFieldRelayServerPort, "invalid_port")
-                    if (
+                    val isVlessRealityIncomplete =
                         draft.relayServerName.isBlank() ||
-                        draft.relayRealityPublicKey.isBlank() ||
-                        draft.relayRealityShortId.isBlank() ||
-                        draft.relayVlessUuid.isBlank()
-                    ) {
+                            draft.relayRealityPublicKey.isBlank() ||
+                            draft.relayRealityShortId.isBlank() ||
+                            draft.relayVlessUuid.isBlank()
+                    if (isVlessRealityIncomplete) {
                         put(ConfigFieldRelayCredentials, "required")
                     }
                 }
@@ -301,16 +306,16 @@ internal fun validateConfigDraft(draft: ConfigDraft): ImmutableMap<String, Strin
                     }
                     if (!validatePort(draft.relayChainEntryPort)) put(ConfigFieldRelayChainEntryPort, "invalid_port")
                     if (!validatePort(draft.relayChainExitPort)) put(ConfigFieldRelayChainExitPort, "invalid_port")
-                    if (
+                    val isChainRelayIncomplete =
                         draft.relayChainEntryServerName.isBlank() ||
-                        draft.relayChainEntryPublicKey.isBlank() ||
-                        draft.relayChainEntryShortId.isBlank() ||
-                        draft.relayChainEntryUuid.isBlank() ||
-                        draft.relayChainExitServerName.isBlank() ||
-                        draft.relayChainExitPublicKey.isBlank() ||
-                        draft.relayChainExitShortId.isBlank() ||
-                        draft.relayChainExitUuid.isBlank()
-                    ) {
+                            draft.relayChainEntryPublicKey.isBlank() ||
+                            draft.relayChainEntryShortId.isBlank() ||
+                            draft.relayChainEntryUuid.isBlank() ||
+                            draft.relayChainExitServerName.isBlank() ||
+                            draft.relayChainExitPublicKey.isBlank() ||
+                            draft.relayChainExitShortId.isBlank() ||
+                            draft.relayChainExitUuid.isBlank()
+                    if (isChainRelayIncomplete) {
                         put(ConfigFieldRelayCredentials, "required")
                     }
                 }
@@ -358,17 +363,17 @@ private fun AppSettings.Builder.applyConfigDraft(draft: ConfigDraft): AppSetting
         setRelayKind(draft.relayKind)
         setRelayProfileId(draft.relayProfileId.ifBlank { DefaultRelayProfileId })
         setRelayServer(draft.relayServer)
-        setRelayServerPort(draft.relayServerPort.toIntOrNull() ?: 443)
+        setRelayServerPort(draft.relayServerPort.toIntOrNull() ?: defaultRelayPort)
         setRelayServerName(draft.relayServerName)
         setRelayRealityPublicKey(draft.relayRealityPublicKey)
         setRelayRealityShortId(draft.relayRealityShortId)
         setRelayChainEntryServer(draft.relayChainEntryServer)
-        setRelayChainEntryPort(draft.relayChainEntryPort.toIntOrNull() ?: 443)
+        setRelayChainEntryPort(draft.relayChainEntryPort.toIntOrNull() ?: defaultRelayPort)
         setRelayChainEntryServerName(draft.relayChainEntryServerName)
         setRelayChainEntryPublicKey(draft.relayChainEntryPublicKey)
         setRelayChainEntryShortId(draft.relayChainEntryShortId)
         setRelayChainExitServer(draft.relayChainExitServer)
-        setRelayChainExitPort(draft.relayChainExitPort.toIntOrNull() ?: 443)
+        setRelayChainExitPort(draft.relayChainExitPort.toIntOrNull() ?: defaultRelayPort)
         setRelayChainExitServerName(draft.relayChainExitServerName)
         setRelayChainExitPublicKey(draft.relayChainExitPublicKey)
         setRelayChainExitShortId(draft.relayChainExitShortId)

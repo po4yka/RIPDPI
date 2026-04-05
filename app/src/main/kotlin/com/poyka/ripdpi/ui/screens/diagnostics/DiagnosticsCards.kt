@@ -80,12 +80,22 @@ import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 import kotlin.math.roundToInt
 
+private const val bytesPerMegabyte = 1_000_000L
+private const val bytesPerKilobyte = 1_000L
+
 private val SparklineChartHeight = 84.dp
 private val SparklineChipWidth = 64.dp
 private const val SparklineSelectedMarkerRadius = 5f
 private const val SparklineSelectedMarkerInnerRadius = 3f
 private const val SparklineStrokeWidth = 4f
 private const val SparklineDividerStrokeWidth = 1f
+private const val CollapsibleSectionAnimDurationMs = 200
+private const val ProbeRowMinHeightDp = 52
+private const val MonospaceThresholdChars = 18
+private const val MetricCardHorizontalPaddingDp = 14
+private const val MetricCardVerticalPaddingDp = 12
+private const val ProbeRowVerticalPaddingDp = 10
+private const val ProbeDetailMaxHeightDp = 260
 
 @Composable
 internal fun CollapsibleSection(
@@ -101,7 +111,7 @@ internal fun CollapsibleSection(
     var expanded by remember { mutableStateOf(defaultExpanded) }
     val rotationAngle by animateFloatAsState(
         targetValue = if (expanded) 180f else 0f,
-        animationSpec = tween(durationMillis = 200),
+        animationSpec = tween(durationMillis = CollapsibleSectionAnimDurationMs),
         label = "chevronRotation",
     )
 
@@ -152,8 +162,8 @@ internal fun CollapsibleSection(
         }
         AnimatedVisibility(
             visible = expanded,
-            enter = expandVertically(animationSpec = tween(200)),
-            exit = shrinkVertically(animationSpec = tween(200)),
+            enter = expandVertically(animationSpec = tween(CollapsibleSectionAnimDurationMs)),
+            exit = shrinkVertically(animationSpec = tween(CollapsibleSectionAnimDurationMs)),
         ) {
             Column(verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
                 content()
@@ -173,7 +183,7 @@ internal fun CompactProbeRow(
             modifier
                 .fillMaxWidth()
                 .clickable(onClick = onClick)
-                .heightIn(min = 52.dp)
+                .heightIn(min = ProbeRowMinHeightDp.dp)
                 .padding(horizontal = RipDpiThemeTokens.layout.cardPadding, vertical = 8.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
@@ -233,7 +243,7 @@ internal fun SnapshotCard(snapshot: DiagnosticsNetworkSnapshotUiModel) {
                 SettingsRow(
                     title = field.label,
                     value = field.value,
-                    monospaceValue = field.value.length > 18,
+                    monospaceValue = field.value.length > MonospaceThresholdChars,
                     showDivider = fieldIndex != visibleFields.lastIndex,
                 )
             }
@@ -302,7 +312,7 @@ internal fun TelemetryMetricCard(metric: DiagnosticsMetricUiModel) {
         Column(
             modifier =
                 Modifier
-                    .padding(horizontal = 14.dp, vertical = 12.dp),
+                    .padding(horizontal = MetricCardHorizontalPaddingDp.dp, vertical = MetricCardVerticalPaddingDp.dp),
             verticalArrangement = Arrangement.spacedBy(4.dp),
         ) {
             Text(
@@ -695,7 +705,7 @@ internal fun SessionRow(
         paddingValues =
             PaddingValues(
                 horizontal = RipDpiThemeTokens.layout.cardPadding,
-                vertical = 10.dp,
+                vertical = ProbeRowVerticalPaddingDp.dp,
             ),
     ) {
         Row(
@@ -843,6 +853,7 @@ internal fun TelegramResultCard(
     }
 }
 
+@Suppress("UnusedParameter")
 @Composable
 private fun TelegramTransferSection(
     label: String,
@@ -886,15 +897,15 @@ private fun TelegramTransferSection(
 
 private fun formatBps(bps: Long): String =
     when {
-        bps >= 1_000_000 -> String.format(java.util.Locale.US, "%.1f Mbps", bps / 1_000_000.0)
-        bps >= 1_000 -> String.format(java.util.Locale.US, "%.1f Kbps", bps / 1_000.0)
+        bps >= bytesPerMegabyte -> String.format(java.util.Locale.US, "%.1f Mbps", bps / bytesPerMegabyte.toDouble())
+        bps >= bytesPerKilobyte -> String.format(java.util.Locale.US, "%.1f Kbps", bps / bytesPerKilobyte.toDouble())
         else -> "$bps Bps"
     }
 
 private fun formatTransferBytes(bytes: Long): String =
     when {
-        bytes >= 1_000_000 -> String.format(java.util.Locale.US, "%.1f MB", bytes / 1_000_000.0)
-        bytes >= 1_000 -> String.format(java.util.Locale.US, "%.1f KB", bytes / 1_000.0)
+        bytes >= bytesPerMegabyte -> String.format(java.util.Locale.US, "%.1f MB", bytes / bytesPerMegabyte.toDouble())
+        bytes >= bytesPerKilobyte -> String.format(java.util.Locale.US, "%.1f KB", bytes / bytesPerKilobyte.toDouble())
         else -> "$bytes B"
     }
 
@@ -1075,7 +1086,7 @@ internal fun DiagnosticsPreviewCard(
                 modifier =
                     Modifier
                         .fillMaxWidth()
-                        .heightIn(max = 260.dp)
+                        .heightIn(max = ProbeDetailMaxHeightDp.dp)
                         .background(colors.inputBackground, RipDpiThemeTokens.shapes.md)
                         .horizontalScroll(rememberScrollState())
                         .padding(spacing.md),

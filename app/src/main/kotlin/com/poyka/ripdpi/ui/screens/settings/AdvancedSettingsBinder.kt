@@ -522,24 +522,6 @@ private fun AdvancedSettingsMutationWriter.updateWarpEndpointSelectionMode(value
     }
 }
 
-private fun AdvancedSettingsMutationWriter.updateTlsPreludeEnabled(
-    enabled: Boolean,
-    uiState: SettingsUiState,
-) {
-    val mode =
-        if (enabled) {
-            uiState.tlsPrelude.tlsPreludeMode.takeUnless { it == "disabled" } ?: TcpChainStepKind.TlsRec.wireName
-        } else {
-            "disabled"
-        }
-    updateTlsPreludeProfile(
-        uiState = uiState,
-        key = "tlsrecEnabled",
-        value = enabled.toString(),
-        mode = mode,
-    )
-}
-
 private fun AdvancedSettingsMutationWriter.updateUdpBurstCount(
     value: String,
     uiState: SettingsUiState,
@@ -562,6 +544,7 @@ private fun AdvancedSettingsMutationWriter.updateUdpBurstCount(
     }
 }
 
+@Suppress("ReturnCount")
 private fun AdvancedSettingsMutationWriter.updatePrimaryDesyncMethod(
     value: String,
     uiState: SettingsUiState,

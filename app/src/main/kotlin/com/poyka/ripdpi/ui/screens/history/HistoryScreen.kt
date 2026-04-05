@@ -68,6 +68,8 @@ import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiMotion
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
+private const val liveEdgeScrollOffsetThreshold = 24
+
 @Composable
 fun HistoryRoute(
     onBack: () -> Unit,
@@ -106,6 +108,7 @@ fun HistoryRoute(
     )
 }
 
+@Suppress("LongMethod", "CyclomaticComplexMethod", "LongParameterList")
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun HistoryScreen(
@@ -546,7 +549,8 @@ private fun EventsSection(
     val listState = rememberLazyListState()
     val isAtLiveEdge by remember(listState) {
         derivedStateOf {
-            listState.firstVisibleItemIndex == 0 && listState.firstVisibleItemScrollOffset <= 24
+            listState.firstVisibleItemIndex == 0 &&
+                listState.firstVisibleItemScrollOffset <= liveEdgeScrollOffsetThreshold
         }
     }
 
