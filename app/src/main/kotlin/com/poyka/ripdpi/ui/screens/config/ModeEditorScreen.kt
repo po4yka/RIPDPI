@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.imePadding
@@ -35,6 +36,12 @@ import com.poyka.ripdpi.activities.ConfigFieldBufferSize
 import com.poyka.ripdpi.activities.ConfigFieldDefaultTtl
 import com.poyka.ripdpi.activities.ConfigFieldDnsIp
 import com.poyka.ripdpi.activities.ConfigFieldMaxConnections
+import com.poyka.ripdpi.activities.ConfigFieldRelayChainEntryPort
+import com.poyka.ripdpi.activities.ConfigFieldRelayChainExitPort
+import com.poyka.ripdpi.activities.ConfigFieldRelayCredentials
+import com.poyka.ripdpi.activities.ConfigFieldRelayLocalSocksPort
+import com.poyka.ripdpi.activities.ConfigFieldRelayServer
+import com.poyka.ripdpi.activities.ConfigFieldRelayServerPort
 import com.poyka.ripdpi.activities.ConfigFieldProxyIp
 import com.poyka.ripdpi.activities.ConfigFieldProxyPort
 import com.poyka.ripdpi.activities.ConfigFieldStrategyChain
@@ -46,6 +53,11 @@ import com.poyka.ripdpi.activities.buildConfigPresets
 import com.poyka.ripdpi.activities.toConfigDraft
 import com.poyka.ripdpi.data.AppSettingsSerializer
 import com.poyka.ripdpi.data.Mode
+import com.poyka.ripdpi.data.RelayKindChainRelay
+import com.poyka.ripdpi.data.RelayKindHysteria2
+import com.poyka.ripdpi.data.RelayKindMasque
+import com.poyka.ripdpi.data.RelayKindOff
+import com.poyka.ripdpi.data.RelayKindVlessReality
 import com.poyka.ripdpi.ui.components.RipDpiHapticFeedback
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
@@ -55,6 +67,7 @@ import com.poyka.ripdpi.ui.components.feedback.RipDpiSnackbarTone
 import com.poyka.ripdpi.ui.components.feedback.WarningBanner
 import com.poyka.ripdpi.ui.components.feedback.WarningBannerTone
 import com.poyka.ripdpi.ui.components.feedback.showRipDpiSnackbar
+import com.poyka.ripdpi.ui.components.inputs.RipDpiChip
 import com.poyka.ripdpi.ui.components.inputs.RipDpiConfigTextField
 import com.poyka.ripdpi.ui.components.inputs.RipDpiSwitch
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextField
@@ -134,6 +147,34 @@ fun ModeEditorRoute(
         onDefaultTtlChanged = { viewModel.updateDraft { copy(defaultTtl = it) } },
         onCommandLineEnabledChanged = { viewModel.updateDraft { copy(useCommandLineSettings = it) } },
         onCommandLineArgsChanged = { viewModel.updateDraft { copy(commandLineArgs = it) } },
+        onRelayEnabledChanged = { viewModel.updateDraft { copy(relayEnabled = it) } },
+        onRelayKindChanged = { viewModel.updateDraft { copy(relayKind = it) } },
+        onRelayProfileIdChanged = { viewModel.updateDraft { copy(relayProfileId = it) } },
+        onRelayServerChanged = { viewModel.updateDraft { copy(relayServer = it) } },
+        onRelayServerPortChanged = { viewModel.updateDraft { copy(relayServerPort = it) } },
+        onRelayServerNameChanged = { viewModel.updateDraft { copy(relayServerName = it) } },
+        onRelayRealityPublicKeyChanged = { viewModel.updateDraft { copy(relayRealityPublicKey = it) } },
+        onRelayRealityShortIdChanged = { viewModel.updateDraft { copy(relayRealityShortId = it) } },
+        onRelayVlessUuidChanged = { viewModel.updateDraft { copy(relayVlessUuid = it) } },
+        onRelayHysteriaPasswordChanged = { viewModel.updateDraft { copy(relayHysteriaPassword = it) } },
+        onRelayHysteriaSalamanderKeyChanged = { viewModel.updateDraft { copy(relayHysteriaSalamanderKey = it) } },
+        onRelayChainEntryServerChanged = { viewModel.updateDraft { copy(relayChainEntryServer = it) } },
+        onRelayChainEntryPortChanged = { viewModel.updateDraft { copy(relayChainEntryPort = it) } },
+        onRelayChainEntryServerNameChanged = { viewModel.updateDraft { copy(relayChainEntryServerName = it) } },
+        onRelayChainEntryPublicKeyChanged = { viewModel.updateDraft { copy(relayChainEntryPublicKey = it) } },
+        onRelayChainEntryShortIdChanged = { viewModel.updateDraft { copy(relayChainEntryShortId = it) } },
+        onRelayChainEntryUuidChanged = { viewModel.updateDraft { copy(relayChainEntryUuid = it) } },
+        onRelayChainExitServerChanged = { viewModel.updateDraft { copy(relayChainExitServer = it) } },
+        onRelayChainExitPortChanged = { viewModel.updateDraft { copy(relayChainExitPort = it) } },
+        onRelayChainExitServerNameChanged = { viewModel.updateDraft { copy(relayChainExitServerName = it) } },
+        onRelayChainExitPublicKeyChanged = { viewModel.updateDraft { copy(relayChainExitPublicKey = it) } },
+        onRelayChainExitShortIdChanged = { viewModel.updateDraft { copy(relayChainExitShortId = it) } },
+        onRelayChainExitUuidChanged = { viewModel.updateDraft { copy(relayChainExitUuid = it) } },
+        onRelayMasqueUrlChanged = { viewModel.updateDraft { copy(relayMasqueUrl = it) } },
+        onRelayMasqueAuthTokenChanged = { viewModel.updateDraft { copy(relayMasqueAuthToken = it) } },
+        onRelayMasqueUseHttp2FallbackChanged = { viewModel.updateDraft { copy(relayMasqueUseHttp2Fallback = it) } },
+        onRelayMasqueCloudflareModeChanged = { viewModel.updateDraft { copy(relayMasqueCloudflareMode = it) } },
+        onRelayLocalSocksPortChanged = { viewModel.updateDraft { copy(relayLocalSocksPort = it) } },
         onSave = viewModel::saveDraft,
     )
 }
@@ -153,6 +194,34 @@ fun ModeEditorScreen(
     onDefaultTtlChanged: (String) -> Unit,
     onCommandLineEnabledChanged: (Boolean) -> Unit,
     onCommandLineArgsChanged: (String) -> Unit,
+    onRelayEnabledChanged: (Boolean) -> Unit,
+    onRelayKindChanged: (String) -> Unit,
+    onRelayProfileIdChanged: (String) -> Unit,
+    onRelayServerChanged: (String) -> Unit,
+    onRelayServerPortChanged: (String) -> Unit,
+    onRelayServerNameChanged: (String) -> Unit,
+    onRelayRealityPublicKeyChanged: (String) -> Unit,
+    onRelayRealityShortIdChanged: (String) -> Unit,
+    onRelayVlessUuidChanged: (String) -> Unit,
+    onRelayHysteriaPasswordChanged: (String) -> Unit,
+    onRelayHysteriaSalamanderKeyChanged: (String) -> Unit,
+    onRelayChainEntryServerChanged: (String) -> Unit,
+    onRelayChainEntryPortChanged: (String) -> Unit,
+    onRelayChainEntryServerNameChanged: (String) -> Unit,
+    onRelayChainEntryPublicKeyChanged: (String) -> Unit,
+    onRelayChainEntryShortIdChanged: (String) -> Unit,
+    onRelayChainEntryUuidChanged: (String) -> Unit,
+    onRelayChainExitServerChanged: (String) -> Unit,
+    onRelayChainExitPortChanged: (String) -> Unit,
+    onRelayChainExitServerNameChanged: (String) -> Unit,
+    onRelayChainExitPublicKeyChanged: (String) -> Unit,
+    onRelayChainExitShortIdChanged: (String) -> Unit,
+    onRelayChainExitUuidChanged: (String) -> Unit,
+    onRelayMasqueUrlChanged: (String) -> Unit,
+    onRelayMasqueAuthTokenChanged: (String) -> Unit,
+    onRelayMasqueUseHttp2FallbackChanged: (Boolean) -> Unit,
+    onRelayMasqueCloudflareModeChanged: (Boolean) -> Unit,
+    onRelayLocalSocksPortChanged: (String) -> Unit,
     onSave: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -341,6 +410,241 @@ fun ModeEditorScreen(
                 }
 
                 Column(verticalArrangement = Arrangement.spacedBy(spacing.md)) {
+                    SettingsCategoryHeader(title = stringResource(R.string.config_relay_section))
+                    RipDpiCard {
+                        Text(
+                            text = stringResource(R.string.config_relay_title),
+                            style = RipDpiThemeTokens.type.bodyEmphasis,
+                            color = colors.foreground,
+                        )
+                        Text(
+                            text = stringResource(R.string.config_relay_body),
+                            style = RipDpiThemeTokens.type.body,
+                            color = colors.mutedForeground,
+                        )
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(
+                                text = stringResource(R.string.config_relay_enable),
+                                style = RipDpiThemeTokens.type.body,
+                                color = colors.foreground,
+                                modifier = Modifier.weight(1f),
+                            )
+                            RipDpiSwitch(
+                                checked = draft.relayEnabled,
+                                onCheckedChange = onRelayEnabledChanged,
+                            )
+                        }
+                        if (draft.relayEnabled) {
+                            RipDpiTextField(
+                                value = draft.relayProfileId,
+                                onValueChange = onRelayProfileIdChanged,
+                                decoration =
+                                    RipDpiTextFieldDecoration(
+                                        label = stringResource(R.string.config_relay_profile_id),
+                                        helperText = stringResource(R.string.config_relay_profile_id_helper),
+                                    ),
+                            )
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(spacing.sm),
+                            ) {
+                                RelayKindChip(draft.relayKind, RelayKindVlessReality, R.string.config_relay_kind_vless, onRelayKindChanged)
+                                RelayKindChip(draft.relayKind, RelayKindHysteria2, R.string.config_relay_kind_hysteria2, onRelayKindChanged)
+                            }
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(spacing.sm),
+                            ) {
+                                RelayKindChip(draft.relayKind, RelayKindChainRelay, R.string.config_relay_kind_chain, onRelayKindChanged)
+                                RelayKindChip(draft.relayKind, RelayKindMasque, R.string.config_relay_kind_masque, onRelayKindChanged)
+                            }
+                            if (uiState.validationErrors[ConfigFieldRelayCredentials] != null) {
+                                WarningBanner(
+                                    title = stringResource(R.string.config_relay_credentials_title),
+                                    message = stringResource(R.string.config_relay_credentials_body),
+                                    tone = WarningBannerTone.Warning,
+                                )
+                            }
+                            when (draft.relayKind) {
+                                RelayKindVlessReality,
+                                RelayKindHysteria2,
+                                -> {
+                                    RipDpiTextField(
+                                        value = draft.relayServer,
+                                        onValueChange = onRelayServerChanged,
+                                        decoration =
+                                            RipDpiTextFieldDecoration(
+                                                label = stringResource(R.string.config_relay_server),
+                                                errorText = validationMessage(uiState.validationErrors[ConfigFieldRelayServer]),
+                                            ),
+                                    )
+                                    RipDpiTextField(
+                                        value = draft.relayServerPort,
+                                        onValueChange = onRelayServerPortChanged,
+                                        decoration =
+                                            RipDpiTextFieldDecoration(
+                                                label = stringResource(R.string.config_relay_server_port),
+                                                errorText = validationMessage(uiState.validationErrors[ConfigFieldRelayServerPort]),
+                                            ),
+                                        behavior = RipDpiTextFieldBehavior(keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)),
+                                    )
+                                    RipDpiTextField(
+                                        value = draft.relayServerName,
+                                        onValueChange = onRelayServerNameChanged,
+                                        decoration = RipDpiTextFieldDecoration(label = stringResource(R.string.config_relay_server_name)),
+                                    )
+                                }
+
+                                else -> Unit
+                            }
+                            when (draft.relayKind) {
+                                RelayKindVlessReality -> {
+                                    RipDpiTextField(
+                                        value = draft.relayRealityPublicKey,
+                                        onValueChange = onRelayRealityPublicKeyChanged,
+                                        decoration = RipDpiTextFieldDecoration(label = stringResource(R.string.config_relay_reality_public_key)),
+                                    )
+                                    RipDpiTextField(
+                                        value = draft.relayRealityShortId,
+                                        onValueChange = onRelayRealityShortIdChanged,
+                                        decoration = RipDpiTextFieldDecoration(label = stringResource(R.string.config_relay_reality_short_id)),
+                                    )
+                                    RipDpiTextField(
+                                        value = draft.relayVlessUuid,
+                                        onValueChange = onRelayVlessUuidChanged,
+                                        decoration = RipDpiTextFieldDecoration(label = stringResource(R.string.config_relay_vless_uuid)),
+                                    )
+                                }
+
+                                RelayKindHysteria2 -> {
+                                    RipDpiTextField(
+                                        value = draft.relayHysteriaPassword,
+                                        onValueChange = onRelayHysteriaPasswordChanged,
+                                        decoration = RipDpiTextFieldDecoration(label = stringResource(R.string.config_relay_hysteria_password)),
+                                    )
+                                    RipDpiTextField(
+                                        value = draft.relayHysteriaSalamanderKey,
+                                        onValueChange = onRelayHysteriaSalamanderKeyChanged,
+                                        decoration = RipDpiTextFieldDecoration(label = stringResource(R.string.config_relay_hysteria_salamander)),
+                                    )
+                                }
+
+                                RelayKindChainRelay -> {
+                                    RipDpiTextField(
+                                        value = draft.relayChainEntryServer,
+                                        onValueChange = onRelayChainEntryServerChanged,
+                                        decoration = RipDpiTextFieldDecoration(label = stringResource(R.string.config_relay_chain_entry_server)),
+                                    )
+                                    RipDpiTextField(
+                                        value = draft.relayChainEntryPort,
+                                        onValueChange = onRelayChainEntryPortChanged,
+                                        decoration =
+                                            RipDpiTextFieldDecoration(
+                                                label = stringResource(R.string.config_relay_chain_entry_port),
+                                                errorText = validationMessage(uiState.validationErrors[ConfigFieldRelayChainEntryPort]),
+                                            ),
+                                        behavior = RipDpiTextFieldBehavior(keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)),
+                                    )
+                                    RipDpiTextField(
+                                        value = draft.relayChainEntryServerName,
+                                        onValueChange = onRelayChainEntryServerNameChanged,
+                                        decoration = RipDpiTextFieldDecoration(label = stringResource(R.string.config_relay_chain_entry_sni)),
+                                    )
+                                    RipDpiTextField(
+                                        value = draft.relayChainEntryPublicKey,
+                                        onValueChange = onRelayChainEntryPublicKeyChanged,
+                                        decoration = RipDpiTextFieldDecoration(label = stringResource(R.string.config_relay_chain_entry_public_key)),
+                                    )
+                                    RipDpiTextField(
+                                        value = draft.relayChainEntryShortId,
+                                        onValueChange = onRelayChainEntryShortIdChanged,
+                                        decoration = RipDpiTextFieldDecoration(label = stringResource(R.string.config_relay_chain_entry_short_id)),
+                                    )
+                                    RipDpiTextField(
+                                        value = draft.relayChainEntryUuid,
+                                        onValueChange = onRelayChainEntryUuidChanged,
+                                        decoration = RipDpiTextFieldDecoration(label = stringResource(R.string.config_relay_chain_entry_uuid)),
+                                    )
+                                    RipDpiTextField(
+                                        value = draft.relayChainExitServer,
+                                        onValueChange = onRelayChainExitServerChanged,
+                                        decoration = RipDpiTextFieldDecoration(label = stringResource(R.string.config_relay_chain_exit_server)),
+                                    )
+                                    RipDpiTextField(
+                                        value = draft.relayChainExitPort,
+                                        onValueChange = onRelayChainExitPortChanged,
+                                        decoration =
+                                            RipDpiTextFieldDecoration(
+                                                label = stringResource(R.string.config_relay_chain_exit_port),
+                                                errorText = validationMessage(uiState.validationErrors[ConfigFieldRelayChainExitPort]),
+                                            ),
+                                        behavior = RipDpiTextFieldBehavior(keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)),
+                                    )
+                                    RipDpiTextField(
+                                        value = draft.relayChainExitServerName,
+                                        onValueChange = onRelayChainExitServerNameChanged,
+                                        decoration = RipDpiTextFieldDecoration(label = stringResource(R.string.config_relay_chain_exit_sni)),
+                                    )
+                                    RipDpiTextField(
+                                        value = draft.relayChainExitPublicKey,
+                                        onValueChange = onRelayChainExitPublicKeyChanged,
+                                        decoration = RipDpiTextFieldDecoration(label = stringResource(R.string.config_relay_chain_exit_public_key)),
+                                    )
+                                    RipDpiTextField(
+                                        value = draft.relayChainExitShortId,
+                                        onValueChange = onRelayChainExitShortIdChanged,
+                                        decoration = RipDpiTextFieldDecoration(label = stringResource(R.string.config_relay_chain_exit_short_id)),
+                                    )
+                                    RipDpiTextField(
+                                        value = draft.relayChainExitUuid,
+                                        onValueChange = onRelayChainExitUuidChanged,
+                                        decoration = RipDpiTextFieldDecoration(label = stringResource(R.string.config_relay_chain_exit_uuid)),
+                                    )
+                                }
+
+                                RelayKindMasque -> {
+                                    RipDpiTextField(
+                                        value = draft.relayMasqueUrl,
+                                        onValueChange = onRelayMasqueUrlChanged,
+                                        decoration = RipDpiTextFieldDecoration(label = stringResource(R.string.config_relay_masque_url)),
+                                    )
+                                    RipDpiTextField(
+                                        value = draft.relayMasqueAuthToken,
+                                        onValueChange = onRelayMasqueAuthTokenChanged,
+                                        decoration = RipDpiTextFieldDecoration(label = stringResource(R.string.config_relay_masque_token)),
+                                    )
+                                    RipDpiSwitch(
+                                        checked = draft.relayMasqueUseHttp2Fallback,
+                                        onCheckedChange = onRelayMasqueUseHttp2FallbackChanged,
+                                        label = stringResource(R.string.config_relay_masque_http2),
+                                    )
+                                    RipDpiSwitch(
+                                        checked = draft.relayMasqueCloudflareMode,
+                                        onCheckedChange = onRelayMasqueCloudflareModeChanged,
+                                        label = stringResource(R.string.config_relay_masque_cloudflare),
+                                    )
+                                }
+                            }
+                            RipDpiTextField(
+                                value = draft.relayLocalSocksPort,
+                                onValueChange = onRelayLocalSocksPortChanged,
+                                decoration =
+                                    RipDpiTextFieldDecoration(
+                                        label = stringResource(R.string.config_relay_local_port),
+                                        helperText = stringResource(R.string.config_relay_local_port_helper),
+                                        errorText = validationMessage(uiState.validationErrors[ConfigFieldRelayLocalSocksPort]),
+                                    ),
+                                behavior = RipDpiTextFieldBehavior(keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)),
+                            )
+                        }
+                    }
+                }
+
+                Column(verticalArrangement = Arrangement.spacedBy(spacing.md)) {
                     SettingsCategoryHeader(title = stringResource(R.string.config_engine_section))
                     RipDpiCard {
                         RipDpiTextField(
@@ -476,8 +780,24 @@ private fun validationMessage(errorKey: String?): String? =
         "invalid_port" -> stringResource(R.string.config_error_invalid_port)
         "out_of_range" -> stringResource(R.string.config_error_out_of_range)
         "invalid_chain" -> stringResource(R.string.config_error_invalid_chain)
+        "required" -> stringResource(R.string.config_error_required)
         else -> null
     }
+
+@Composable
+private fun RowScope.RelayKindChip(
+    selectedKind: String,
+    kind: String,
+    labelRes: Int,
+    onRelayKindChanged: (String) -> Unit,
+) {
+    RipDpiChip(
+        text = stringResource(labelRes),
+        selected = selectedKind == kind,
+        onClick = { onRelayKindChanged(kind) },
+        modifier = Modifier.weight(1f),
+    )
+}
 
 private fun editorPresetKind(uiState: ConfigUiState): ConfigPresetKind =
     uiState.editingPreset?.kind ?: ConfigPresetKind.Custom
@@ -520,6 +840,34 @@ private fun ModeEditorScreenPreview() {
             onDefaultTtlChanged = {},
             onCommandLineEnabledChanged = {},
             onCommandLineArgsChanged = {},
+            onRelayEnabledChanged = {},
+            onRelayKindChanged = {},
+            onRelayProfileIdChanged = {},
+            onRelayServerChanged = {},
+            onRelayServerPortChanged = {},
+            onRelayServerNameChanged = {},
+            onRelayRealityPublicKeyChanged = {},
+            onRelayRealityShortIdChanged = {},
+            onRelayVlessUuidChanged = {},
+            onRelayHysteriaPasswordChanged = {},
+            onRelayHysteriaSalamanderKeyChanged = {},
+            onRelayChainEntryServerChanged = {},
+            onRelayChainEntryPortChanged = {},
+            onRelayChainEntryServerNameChanged = {},
+            onRelayChainEntryPublicKeyChanged = {},
+            onRelayChainEntryShortIdChanged = {},
+            onRelayChainEntryUuidChanged = {},
+            onRelayChainExitServerChanged = {},
+            onRelayChainExitPortChanged = {},
+            onRelayChainExitServerNameChanged = {},
+            onRelayChainExitPublicKeyChanged = {},
+            onRelayChainExitShortIdChanged = {},
+            onRelayChainExitUuidChanged = {},
+            onRelayMasqueUrlChanged = {},
+            onRelayMasqueAuthTokenChanged = {},
+            onRelayMasqueUseHttp2FallbackChanged = {},
+            onRelayMasqueCloudflareModeChanged = {},
+            onRelayLocalSocksPortChanged = {},
             onSave = {},
         )
     }
@@ -572,6 +920,34 @@ private fun ModeEditorScreenDarkPreview() {
             onDefaultTtlChanged = {},
             onCommandLineEnabledChanged = {},
             onCommandLineArgsChanged = {},
+            onRelayEnabledChanged = {},
+            onRelayKindChanged = {},
+            onRelayProfileIdChanged = {},
+            onRelayServerChanged = {},
+            onRelayServerPortChanged = {},
+            onRelayServerNameChanged = {},
+            onRelayRealityPublicKeyChanged = {},
+            onRelayRealityShortIdChanged = {},
+            onRelayVlessUuidChanged = {},
+            onRelayHysteriaPasswordChanged = {},
+            onRelayHysteriaSalamanderKeyChanged = {},
+            onRelayChainEntryServerChanged = {},
+            onRelayChainEntryPortChanged = {},
+            onRelayChainEntryServerNameChanged = {},
+            onRelayChainEntryPublicKeyChanged = {},
+            onRelayChainEntryShortIdChanged = {},
+            onRelayChainEntryUuidChanged = {},
+            onRelayChainExitServerChanged = {},
+            onRelayChainExitPortChanged = {},
+            onRelayChainExitServerNameChanged = {},
+            onRelayChainExitPublicKeyChanged = {},
+            onRelayChainExitShortIdChanged = {},
+            onRelayChainExitUuidChanged = {},
+            onRelayMasqueUrlChanged = {},
+            onRelayMasqueAuthTokenChanged = {},
+            onRelayMasqueUseHttp2FallbackChanged = {},
+            onRelayMasqueCloudflareModeChanged = {},
+            onRelayLocalSocksPortChanged = {},
             onSave = {},
         )
     }

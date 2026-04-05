@@ -203,6 +203,12 @@ fun ConfigScreen(
                     title = stringResource(R.string.ripdpi_desync_method_setting),
                     subtitle = stringResource(R.string.config_desync_method_summary),
                     value = desyncSummary,
+                    showDivider = true,
+                )
+                SettingsRow(
+                    title = stringResource(R.string.config_relay_title),
+                    subtitle = stringResource(R.string.config_relay_body),
+                    value = uiState.draft.relaySummary,
                     showDivider = uiState.draft.defaultTtl.isNotBlank(),
                 )
                 if (uiState.draft.defaultTtl.isNotBlank()) {

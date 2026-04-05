@@ -369,7 +369,47 @@ class DefaultDiagnosticsHomeWorkflowService
                     add(DiagnosticsAppliedSetting(label = "DNS lane", value = it))
                 }
                 add(DiagnosticsAppliedSetting(label = "Chain", value = preferences.chainSummary))
+                addAll(buildDetectionResistanceAppliedSettings(preferences))
                 addAll(buildWarpAppliedSettings(preferences.warp))
+            }
+
+        private fun buildDetectionResistanceAppliedSettings(
+            preferences: RipDpiProxyUIPreferences,
+        ): List<DiagnosticsAppliedSetting> =
+            buildList {
+                if (preferences.fakePackets.entropyMode != "disabled") {
+                    add(
+                        DiagnosticsAppliedSetting(
+                            label = "Traffic morphing",
+                            value =
+                                "${preferences.fakePackets.entropyMode} · " +
+                                    "pad ${preferences.fakePackets.entropyPaddingTargetPermil} · " +
+                                    "shannon ${preferences.fakePackets.shannonEntropyTargetPermil}",
+                        ),
+                    )
+                    add(
+                        DiagnosticsAppliedSetting(
+                            label = "Morphing budget",
+                            value = "${preferences.fakePackets.entropyPaddingMax} bytes",
+                        ),
+                    )
+                }
+                if (preferences.adaptiveFallback.strategyEvolution) {
+                    add(
+                        DiagnosticsAppliedSetting(
+                            label = "Strategy evolution",
+                            value = "Epsilon ${"%.2f".format(preferences.adaptiveFallback.evolutionEpsilon)}",
+                        ),
+                    )
+                }
+                if (preferences.fakePackets.quicBindLowPort || preferences.fakePackets.quicMigrateAfterHandshake) {
+                    val quicSummary =
+                        buildList {
+                            if (preferences.fakePackets.quicBindLowPort) add("low-port bind")
+                            if (preferences.fakePackets.quicMigrateAfterHandshake) add("post-handshake migration")
+                        }.joinToString(separator = " · ")
+                    add(DiagnosticsAppliedSetting(label = "QUIC resistance", value = quicSummary))
+                }
             }
 
         private fun buildWarpAppliedSettings(warp: RipDpiWarpConfig): List<DiagnosticsAppliedSetting> =

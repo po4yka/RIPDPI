@@ -80,9 +80,42 @@ class AppSettingsJsonTest {
                 .setQuicSupportV2(false)
                 .setQuicFakeProfile(QuicFakeProfileRealisticInitial)
                 .setQuicFakeHost("video.example.test")
+                .setQuicBindLowPort(true)
+                .setQuicMigrateAfterHandshake(true)
+                .setStrategyEvolution(true)
+                .setEvolutionEpsilon(0.2)
+                .setEntropyPaddingTargetPermil(3500)
+                .setEntropyPaddingMax(384)
+                .setEntropyMode(entropyModeToProto(EntropyModeShannon))
+                .setShannonEntropyTargetPermil(7920)
                 .setHostAutolearnEnabled(true)
                 .setHostAutolearnPenaltyTtlHours(12)
                 .setHostAutolearnMaxHosts(2048)
+                .setRelayEnabled(true)
+                .setRelayKind(RelayKindMasque)
+                .setRelayProfileId("edge")
+                .setRelayServer("relay.example.test")
+                .setRelayServerPort(8443)
+                .setRelayServerName("cdn.example.test")
+                .setRelayRealityPublicKey("reality-public-key")
+                .setRelayRealityShortId("abcd1234")
+                .setRelayChainEntryServer("ru-hop.example.test")
+                .setRelayChainEntryPort(9443)
+                .setRelayChainEntryServerName("ru-hop.example.test")
+                .setRelayChainEntryPublicKey("entry-key")
+                .setRelayChainEntryShortId("entry01")
+                .setRelayChainExitServer("global-hop.example.test")
+                .setRelayChainExitPort(10443)
+                .setRelayChainExitServerName("global-hop.example.test")
+                .setRelayChainExitPublicKey("exit-key")
+                .setRelayChainExitShortId("exit01")
+                .setRelayMasqueUrl("https://masque.example.test/.well-known/masque/ip")
+                .setRelayMasqueUseHttp2Fallback(true)
+                .setRelayMasqueCloudflareMode(true)
+                .setRelayLocalSocksHost("127.0.0.5")
+                .setRelayLocalSocksPort(2090)
+                .setRelayUdpEnabled(true)
+                .setRelayTcpFallbackEnabled(true)
                 .setGroupActivationFilter(
                     ActivationFilter
                         .newBuilder()
@@ -170,10 +203,31 @@ class AppSettingsJsonTest {
         assertEquals(AppSettingsSerializer.defaultValue.quicSupportV2, decoded.quicSupportV2)
         assertEquals(AppSettingsSerializer.defaultValue.quicFakeProfile, decoded.quicFakeProfile)
         assertEquals(AppSettingsSerializer.defaultValue.quicFakeHost, decoded.quicFakeHost)
+        assertEquals(AppSettingsSerializer.defaultValue.quicBindLowPort, decoded.quicBindLowPort)
+        assertEquals(
+            AppSettingsSerializer.defaultValue.quicMigrateAfterHandshake,
+            decoded.quicMigrateAfterHandshake,
+        )
         assertEquals(AppSettingsSerializer.defaultValue.httpFakeProfile, decoded.httpFakeProfile)
         assertEquals(AppSettingsSerializer.defaultValue.tlsFakeProfile, decoded.tlsFakeProfile)
         assertEquals(AppSettingsSerializer.defaultValue.udpFakeProfile, decoded.udpFakeProfile)
         assertEquals(AppSettingsSerializer.defaultValue.adaptiveFakeTtlFallback, decoded.adaptiveFakeTtlFallback)
+        assertEquals(AppSettingsSerializer.defaultValue.strategyEvolution, decoded.strategyEvolution)
+        assertEquals(AppSettingsSerializer.defaultValue.evolutionEpsilon, decoded.evolutionEpsilon, 0.0)
+        assertEquals(
+            AppSettingsSerializer.defaultValue.entropyPaddingTargetPermil,
+            decoded.entropyPaddingTargetPermil,
+        )
+        assertEquals(AppSettingsSerializer.defaultValue.entropyPaddingMax, decoded.entropyPaddingMax)
+        assertEquals(AppSettingsSerializer.defaultValue.entropyMode, decoded.entropyMode)
+        assertEquals(
+            AppSettingsSerializer.defaultValue.shannonEntropyTargetPermil,
+            decoded.shannonEntropyTargetPermil,
+        )
+        assertEquals(AppSettingsSerializer.defaultValue.relayEnabled, decoded.relayEnabled)
+        assertEquals(AppSettingsSerializer.defaultValue.relayKind, decoded.relayKind)
+        assertEquals(AppSettingsSerializer.defaultValue.relayProfileId, decoded.relayProfileId)
+        assertEquals(AppSettingsSerializer.defaultValue.relayLocalSocksPort, decoded.relayLocalSocksPort)
         assertTrue(decoded.effectiveTcpChainSteps().isEmpty())
     }
 

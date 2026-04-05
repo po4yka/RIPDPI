@@ -700,6 +700,17 @@ private val toggleHandlers: Map<AdvancedToggleSetting, ToggleHandler> =
             { enabled -> updateBoolean("quicSupportV1", enabled) { setQuicSupportV1(enabled) } },
         AdvancedToggleSetting.QuicSupportV2 to
             { enabled -> updateBoolean("quicSupportV2", enabled) { setQuicSupportV2(enabled) } },
+        AdvancedToggleSetting.QuicBindLowPort to
+            { enabled -> updateBoolean("quicBindLowPort", enabled) { setQuicBindLowPort(enabled) } },
+        AdvancedToggleSetting.QuicMigrateAfterHandshake to
+            {
+                enabled ->
+                updateBoolean("quicMigrateAfterHandshake", enabled) {
+                    setQuicMigrateAfterHandshake(enabled)
+                }
+            },
+        AdvancedToggleSetting.StrategyEvolution to
+            { enabled -> updateBoolean("strategyEvolution", enabled) { setStrategyEvolution(enabled) } },
         AdvancedToggleSetting.WarpEnabled to
             { enabled -> updateBoolean("warpEnabled", enabled) { setWarpEnabled(enabled) } },
         AdvancedToggleSetting.WarpBuiltInRulesEnabled to
@@ -906,6 +917,31 @@ private val textHandlers: Map<AdvancedTextSetting, TextHandler> =
             { value, _ -> updateAdaptiveFallbackCacheTtlSeconds(value) },
         AdvancedTextSetting.AdaptiveFallbackCachePrefixV4 to
             { value, _ -> updateAdaptiveFallbackCachePrefixV4(value) },
+        AdvancedTextSetting.EvolutionEpsilon to
+            { value, _ ->
+                value.toDoubleOrNull()?.let { parsed ->
+                    val normalized = parsed.coerceIn(0.0, 1.0)
+                    updateValue("evolutionEpsilon", normalized.toString()) { setEvolutionEpsilon(normalized) }
+                }
+            },
+        AdvancedTextSetting.EntropyPaddingTargetPermil to
+            { value, _ ->
+                updateIntValue("entropyPaddingTargetPermil", value) { parsed ->
+                    { setEntropyPaddingTargetPermil(parsed.coerceAtLeast(0)) }
+                }
+            },
+        AdvancedTextSetting.EntropyPaddingMax to
+            { value, _ ->
+                updateIntValue("entropyPaddingMax", value) { parsed ->
+                    { setEntropyPaddingMax(parsed.coerceAtLeast(0)) }
+                }
+            },
+        AdvancedTextSetting.ShannonEntropyTargetPermil to
+            { value, _ ->
+                updateIntValue("shannonEntropyTargetPermil", value) { parsed ->
+                    { setShannonEntropyTargetPermil(parsed.coerceAtLeast(0)) }
+                }
+            },
         AdvancedTextSetting.HostsBlacklist to
             { value, _ -> updateValue("hostsBlacklist", value) { setHostsBlacklist(value) } },
         AdvancedTextSetting.HostsWhitelist to
@@ -1014,6 +1050,13 @@ private val optionHandlers: Map<AdvancedOptionSetting, OptionHandler> =
             { value, _ -> updateWarpEndpointSelectionMode(value) },
         AdvancedOptionSetting.QuicInitialMode to
             { value, _ -> updateValue("quicInitialMode", value) { setQuicInitialMode(value) } },
+        AdvancedOptionSetting.EntropyMode to
+            {
+                value, _ ->
+                updateValue("entropyMode", value) {
+                    setEntropyMode(com.poyka.ripdpi.data.entropyModeToProto(value))
+                }
+            },
         AdvancedOptionSetting.UdpFakeProfile to
             { value, _ -> updateValue("udpFakeProfile", value) { setUdpFakeProfile(value) } },
         AdvancedOptionSetting.QuicFakeProfile to

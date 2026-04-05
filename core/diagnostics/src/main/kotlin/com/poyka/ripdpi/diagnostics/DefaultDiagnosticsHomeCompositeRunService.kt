@@ -82,6 +82,22 @@ private fun stageTimeoutMs(spec: HomeCompositeStageSpec): Long =
         else -> DefaultStageTimeoutMs
     }
 
+private inline fun Map<String, DiagnosticsHomeCompositeProgress>.updatedRun(
+    runId: String,
+    transform: (DiagnosticsHomeCompositeProgress) -> DiagnosticsHomeCompositeProgress,
+): Map<String, DiagnosticsHomeCompositeProgress> {
+    val existing = this[runId] ?: return this
+    return this + (runId to transform(existing))
+}
+
+private inline fun List<DiagnosticsHomeCompositeStageSummary>.updated(
+    index: Int,
+    transform: (DiagnosticsHomeCompositeStageSummary) -> DiagnosticsHomeCompositeStageSummary,
+): List<DiagnosticsHomeCompositeStageSummary> =
+    mapIndexed { currentIndex, value ->
+        if (currentIndex == index) transform(value) else value
+    }
+
 @Singleton
 class DefaultDiagnosticsHomeCompositeRunService
     @Inject

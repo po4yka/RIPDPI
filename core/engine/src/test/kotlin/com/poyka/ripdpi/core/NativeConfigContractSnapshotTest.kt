@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.core
 
 import com.poyka.ripdpi.data.ActivationFilterModel
+import com.poyka.ripdpi.data.EntropyModeCombined
 import com.poyka.ripdpi.data.FakeTlsSniModeRandomized
 import com.poyka.ripdpi.data.HttpFakeProfileCloudflareGet
 import com.poyka.ripdpi.data.NumericRangeModel
@@ -136,6 +137,12 @@ class NativeConfigContractSnapshotTest {
                         fakeOffsetMarker = "endhost-1",
                         oobChar = 'Z',
                         dropSack = true,
+                        quicBindLowPort = true,
+                        quicMigrateAfterHandshake = true,
+                        entropyMode = EntropyModeCombined,
+                        entropyPaddingTargetPermil = 3600,
+                        entropyPaddingMax = 384,
+                        shannonEntropyTargetPermil = 7900,
                     ),
                 parserEvasions =
                     RipDpiParserEvasionConfig(
@@ -157,6 +164,8 @@ class NativeConfigContractSnapshotTest {
                         autoSort = false,
                         cacheTtlSeconds = 180,
                         cachePrefixV4 = 28,
+                        strategyEvolution = true,
+                        evolutionEpsilon = 0.2,
                     ),
                 quic =
                     RipDpiQuicConfig(
@@ -229,6 +238,12 @@ class NativeConfigContractSnapshotTest {
                             fakeOffsetMarker = "endhost-1",
                             oobChar = 'Z'.code,
                             dropSack = true,
+                            quicBindLowPort = true,
+                            quicMigrateAfterHandshake = true,
+                            entropyMode = EntropyModeCombined,
+                            entropyPaddingTargetPermil = 3600,
+                            entropyPaddingMax = 384,
+                            shannonEntropyTargetPermil = 7900,
                         ),
                     parserEvasions =
                         parserEvasionsExpected(
@@ -250,6 +265,8 @@ class NativeConfigContractSnapshotTest {
                             autoSort = false,
                             cacheTtlSeconds = 180,
                             cachePrefixV4 = 28,
+                            strategyEvolution = true,
+                            evolutionEpsilon = 0.2,
                         ),
                     quic =
                         quicExpected(
@@ -588,6 +605,7 @@ class NativeConfigContractSnapshotTest {
         adaptiveFallback: JsonObject = adaptiveFallbackExpected(),
         quic: JsonObject = quicExpected(),
         hosts: JsonObject = hostsExpected(),
+        upstreamRelay: JsonObject = relayExpected(),
         warp: JsonObject = warpExpected(),
         hostAutolearn: JsonObject = hostAutolearnExpected(),
         wsTunnel: JsonObject = wsTunnelExpected(),
@@ -603,6 +621,7 @@ class NativeConfigContractSnapshotTest {
             put("adaptiveFallback", adaptiveFallback)
             put("quic", quic)
             put("hosts", hosts)
+            put("upstreamRelay", upstreamRelay)
             put("warp", warp)
             put("hostAutolearn", hostAutolearn)
             put("wsTunnel", wsTunnel)
@@ -718,6 +737,12 @@ class NativeConfigContractSnapshotTest {
         fakeOffsetMarker: String = "0",
         oobChar: Int = 'a'.code,
         dropSack: Boolean = false,
+        quicBindLowPort: Boolean = false,
+        quicMigrateAfterHandshake: Boolean = false,
+        entropyMode: String = "disabled",
+        entropyPaddingTargetPermil: Int = 3400,
+        entropyPaddingMax: Int = 256,
+        shannonEntropyTargetPermil: Int = 7920,
     ): JsonObject =
         buildJsonObject {
             put("fakeTtl", JsonPrimitive(fakeTtl))
@@ -739,6 +764,12 @@ class NativeConfigContractSnapshotTest {
             put("fakeOffsetMarker", JsonPrimitive(fakeOffsetMarker))
             put("oobChar", JsonPrimitive(oobChar))
             put("dropSack", JsonPrimitive(dropSack))
+            put("quicBindLowPort", JsonPrimitive(quicBindLowPort))
+            put("quicMigrateAfterHandshake", JsonPrimitive(quicMigrateAfterHandshake))
+            put("entropyMode", JsonPrimitive(entropyMode))
+            put("entropyPaddingTargetPermil", JsonPrimitive(entropyPaddingTargetPermil))
+            put("entropyPaddingMax", JsonPrimitive(entropyPaddingMax))
+            put("shannonEntropyTargetPermil", JsonPrimitive(shannonEntropyTargetPermil))
         }
 
     private fun parserEvasionsExpected(
@@ -769,6 +800,8 @@ class NativeConfigContractSnapshotTest {
         autoSort: Boolean = true,
         cacheTtlSeconds: Int = 90,
         cachePrefixV4: Int = 24,
+        strategyEvolution: Boolean = false,
+        evolutionEpsilon: Double = 0.1,
     ): JsonObject =
         buildJsonObject {
             put("enabled", JsonPrimitive(enabled))
@@ -779,6 +812,8 @@ class NativeConfigContractSnapshotTest {
             put("autoSort", JsonPrimitive(autoSort))
             put("cacheTtlSeconds", JsonPrimitive(cacheTtlSeconds))
             put("cachePrefixV4", JsonPrimitive(cachePrefixV4))
+            put("strategyEvolution", JsonPrimitive(strategyEvolution))
+            put("evolutionEpsilon", JsonPrimitive(evolutionEpsilon))
         }
 
     private fun quicExpected(
@@ -803,6 +838,61 @@ class NativeConfigContractSnapshotTest {
         buildJsonObject {
             put("mode", JsonPrimitive(mode))
             put("entries", entries?.let(::JsonPrimitive) ?: JsonNull)
+        }
+
+    private fun relayExpected(
+        enabled: Boolean = false,
+        kind: String = "off",
+        profileId: String = "default",
+        server: String = "",
+        serverPort: Int = 443,
+        serverName: String = "",
+        realityPublicKey: String = "",
+        realityShortId: String = "",
+        chainEntryServer: String = "",
+        chainEntryPort: Int = 443,
+        chainEntryServerName: String = "",
+        chainEntryPublicKey: String = "",
+        chainEntryShortId: String = "",
+        chainExitServer: String = "",
+        chainExitPort: Int = 443,
+        chainExitServerName: String = "",
+        chainExitPublicKey: String = "",
+        chainExitShortId: String = "",
+        masqueUrl: String = "",
+        masqueUseHttp2Fallback: Boolean = true,
+        masqueCloudflareMode: Boolean = false,
+        localSocksHost: String = "127.0.0.1",
+        localSocksPort: Int = 11980,
+        udpEnabled: Boolean = false,
+        tcpFallbackEnabled: Boolean = true,
+    ): JsonObject =
+        buildJsonObject {
+            put("enabled", JsonPrimitive(enabled))
+            put("kind", JsonPrimitive(kind))
+            put("profileId", JsonPrimitive(profileId))
+            put("server", JsonPrimitive(server))
+            put("serverPort", JsonPrimitive(serverPort))
+            put("serverName", JsonPrimitive(serverName))
+            put("realityPublicKey", JsonPrimitive(realityPublicKey))
+            put("realityShortId", JsonPrimitive(realityShortId))
+            put("chainEntryServer", JsonPrimitive(chainEntryServer))
+            put("chainEntryPort", JsonPrimitive(chainEntryPort))
+            put("chainEntryServerName", JsonPrimitive(chainEntryServerName))
+            put("chainEntryPublicKey", JsonPrimitive(chainEntryPublicKey))
+            put("chainEntryShortId", JsonPrimitive(chainEntryShortId))
+            put("chainExitServer", JsonPrimitive(chainExitServer))
+            put("chainExitPort", JsonPrimitive(chainExitPort))
+            put("chainExitServerName", JsonPrimitive(chainExitServerName))
+            put("chainExitPublicKey", JsonPrimitive(chainExitPublicKey))
+            put("chainExitShortId", JsonPrimitive(chainExitShortId))
+            put("masqueUrl", JsonPrimitive(masqueUrl))
+            put("masqueUseHttp2Fallback", JsonPrimitive(masqueUseHttp2Fallback))
+            put("masqueCloudflareMode", JsonPrimitive(masqueCloudflareMode))
+            put("localSocksHost", JsonPrimitive(localSocksHost))
+            put("localSocksPort", JsonPrimitive(localSocksPort))
+            put("udpEnabled", JsonPrimitive(udpEnabled))
+            put("tcpFallbackEnabled", JsonPrimitive(tcpFallbackEnabled))
         }
 
     private fun warpExpected(

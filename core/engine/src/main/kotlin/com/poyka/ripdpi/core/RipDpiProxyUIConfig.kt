@@ -7,17 +7,25 @@ import com.poyka.ripdpi.data.DefaultAdaptiveFakeTtlMax
 import com.poyka.ripdpi.data.DefaultAdaptiveFakeTtlMin
 import com.poyka.ripdpi.data.DefaultAdaptiveFallbackCachePrefixV4
 import com.poyka.ripdpi.data.DefaultAdaptiveFallbackCacheTtlSeconds
+import com.poyka.ripdpi.data.DefaultEntropyPaddingMax
+import com.poyka.ripdpi.data.DefaultEntropyPaddingTargetPermil
+import com.poyka.ripdpi.data.DefaultEvolutionEpsilon
 import com.poyka.ripdpi.data.DefaultFakeOffsetMarker
 import com.poyka.ripdpi.data.DefaultFakeSni
 import com.poyka.ripdpi.data.DefaultHostAutolearnMaxHosts
 import com.poyka.ripdpi.data.DefaultHostAutolearnPenaltyTtlHours
+import com.poyka.ripdpi.data.DefaultRelayLocalSocksHost
+import com.poyka.ripdpi.data.DefaultRelayLocalSocksPort
+import com.poyka.ripdpi.data.DefaultShannonEntropyTargetPermil
 import com.poyka.ripdpi.data.DefaultWarpLocalSocksPort
 import com.poyka.ripdpi.data.DefaultWarpManualEndpointPort
 import com.poyka.ripdpi.data.DefaultWarpScannerMaxRttMs
 import com.poyka.ripdpi.data.DefaultWarpScannerParallelism
+import com.poyka.ripdpi.data.EntropyModeDisabled
 import com.poyka.ripdpi.data.FakePayloadProfileCompatDefault
 import com.poyka.ripdpi.data.QuicFakeProfileDisabled
 import com.poyka.ripdpi.data.QuicInitialModeRouteAndCache
+import com.poyka.ripdpi.data.RelayKindOff
 import com.poyka.ripdpi.data.TcpChainStepModel
 import com.poyka.ripdpi.data.UdpChainStepModel
 import com.poyka.ripdpi.data.WarpEndpointSelectionAutomatic
@@ -69,6 +77,12 @@ data class RipDpiFakePacketConfig(
     val fakeOffsetMarker: String = DefaultFakeOffsetMarker,
     val oobChar: Char = 'a',
     val dropSack: Boolean = false,
+    val quicBindLowPort: Boolean = false,
+    val quicMigrateAfterHandshake: Boolean = false,
+    val entropyMode: String = EntropyModeDisabled,
+    val entropyPaddingTargetPermil: Int = DefaultEntropyPaddingTargetPermil,
+    val entropyPaddingMax: Int = DefaultEntropyPaddingMax,
+    val shannonEntropyTargetPermil: Int = DefaultShannonEntropyTargetPermil,
 )
 
 data class RipDpiParserEvasionConfig(
@@ -90,6 +104,8 @@ data class RipDpiAdaptiveFallbackConfig(
     val autoSort: Boolean = true,
     val cacheTtlSeconds: Int = DefaultAdaptiveFallbackCacheTtlSeconds,
     val cachePrefixV4: Int = DefaultAdaptiveFallbackCachePrefixV4,
+    val strategyEvolution: Boolean = false,
+    val evolutionEpsilon: Double = DefaultEvolutionEpsilon,
 )
 
 data class RipDpiQuicConfig(
@@ -141,6 +157,35 @@ data class RipDpiHostAutolearnConfig(
 data class RipDpiWsTunnelConfig(
     val enabled: Boolean = false,
     val mode: String? = null,
+)
+
+@Serializable
+data class RipDpiRelayConfig(
+    val enabled: Boolean = false,
+    val kind: String = RelayKindOff,
+    val profileId: String = "",
+    val server: String = "",
+    val serverPort: Int = 443,
+    val serverName: String = "",
+    val realityPublicKey: String = "",
+    val realityShortId: String = "",
+    val chainEntryServer: String = "",
+    val chainEntryPort: Int = 443,
+    val chainEntryServerName: String = "",
+    val chainEntryPublicKey: String = "",
+    val chainEntryShortId: String = "",
+    val chainExitServer: String = "",
+    val chainExitPort: Int = 443,
+    val chainExitServerName: String = "",
+    val chainExitPublicKey: String = "",
+    val chainExitShortId: String = "",
+    val masqueUrl: String = "",
+    val masqueUseHttp2Fallback: Boolean = true,
+    val masqueCloudflareMode: Boolean = false,
+    val localSocksHost: String = DefaultRelayLocalSocksHost,
+    val localSocksPort: Int = DefaultRelayLocalSocksPort,
+    val udpEnabled: Boolean = false,
+    val tcpFallbackEnabled: Boolean = true,
 )
 
 @Serializable

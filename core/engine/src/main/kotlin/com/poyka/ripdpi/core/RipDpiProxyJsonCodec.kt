@@ -34,6 +34,7 @@ internal object RipDpiProxyJsonCodec {
             "adaptiveFallback",
             "quic",
             "hosts",
+            "upstreamRelay",
             "warp",
             "hostAutolearn",
             "wsTunnel",
@@ -146,6 +147,7 @@ internal object RipDpiProxyJsonCodec {
                 adaptiveFallback = AdaptiveCodec.toNative(preferences.adaptiveFallback),
                 quic = EndpointCodec.toNative(preferences.quic),
                 hosts = EndpointCodec.toNative(preferences.hosts),
+                upstreamRelay = EndpointCodec.toNative(preferences.relay),
                 warp = EndpointCodec.toNative(preferences.warp),
                 hostAutolearn = EndpointCodec.toNative(preferences.hostAutolearn),
                 wsTunnel = EndpointCodec.toNative(preferences.wsTunnel),
@@ -376,6 +378,12 @@ internal object RipDpiProxyJsonCodec {
         val fakeOffsetMarker: String = "0",
         val oobChar: Int = 'a'.code,
         val dropSack: Boolean = false,
+        val quicBindLowPort: Boolean = false,
+        val quicMigrateAfterHandshake: Boolean = false,
+        val entropyMode: String = "disabled",
+        val entropyPaddingTargetPermil: Int = 3400,
+        val entropyPaddingMax: Int = 256,
+        val shannonEntropyTargetPermil: Int = 7920,
     )
 
     @Serializable
@@ -399,6 +407,8 @@ internal object RipDpiProxyJsonCodec {
         val autoSort: Boolean = true,
         val cacheTtlSeconds: Int = 90,
         val cachePrefixV4: Int = 24,
+        val strategyEvolution: Boolean = false,
+        val evolutionEpsilon: Double = 0.1,
     )
 
     @Serializable
@@ -472,6 +482,35 @@ internal object RipDpiProxyJsonCodec {
     )
 
     @Serializable
+    private data class NativeRelayConfig(
+        val enabled: Boolean = false,
+        val kind: String = "off",
+        val profileId: String = "",
+        val server: String = "",
+        val serverPort: Int = 443,
+        val serverName: String = "",
+        val realityPublicKey: String = "",
+        val realityShortId: String = "",
+        val chainEntryServer: String = "",
+        val chainEntryPort: Int = 443,
+        val chainEntryServerName: String = "",
+        val chainEntryPublicKey: String = "",
+        val chainEntryShortId: String = "",
+        val chainExitServer: String = "",
+        val chainExitPort: Int = 443,
+        val chainExitServerName: String = "",
+        val chainExitPublicKey: String = "",
+        val chainExitShortId: String = "",
+        val masqueUrl: String = "",
+        val masqueUseHttp2Fallback: Boolean = true,
+        val masqueCloudflareMode: Boolean = false,
+        val localSocksHost: String = "127.0.0.1",
+        val localSocksPort: Int = 11980,
+        val udpEnabled: Boolean = false,
+        val tcpFallbackEnabled: Boolean = true,
+    )
+
+    @Serializable
     private sealed interface NativeProxyConfig {
         @Serializable
         @SerialName("command_line")
@@ -494,6 +533,7 @@ internal object RipDpiProxyJsonCodec {
             val adaptiveFallback: NativeAdaptiveFallbackConfig = NativeAdaptiveFallbackConfig(),
             val quic: NativeQuicConfig = NativeQuicConfig(),
             val hosts: NativeHostsConfig = NativeHostsConfig(),
+            val upstreamRelay: NativeRelayConfig = NativeRelayConfig(),
             val warp: NativeWarpConfig = NativeWarpConfig(),
             val hostAutolearn: NativeHostAutolearnConfig = NativeHostAutolearnConfig(),
             val wsTunnel: NativeWsTunnelConfig = NativeWsTunnelConfig(),
@@ -749,6 +789,12 @@ internal object RipDpiProxyJsonCodec {
                 fakeOffsetMarker = value.fakeOffsetMarker,
                 oobChar = value.oobChar.toChar(),
                 dropSack = value.dropSack,
+                quicBindLowPort = value.quicBindLowPort,
+                quicMigrateAfterHandshake = value.quicMigrateAfterHandshake,
+                entropyMode = value.entropyMode,
+                entropyPaddingTargetPermil = value.entropyPaddingTargetPermil,
+                entropyPaddingMax = value.entropyPaddingMax,
+                shannonEntropyTargetPermil = value.shannonEntropyTargetPermil,
             )
 
         fun toNative(value: RipDpiFakePacketConfig): NativeFakePacketConfig =
@@ -772,6 +818,12 @@ internal object RipDpiProxyJsonCodec {
                 fakeOffsetMarker = value.fakeOffsetMarker,
                 oobChar = value.oobChar.code,
                 dropSack = value.dropSack,
+                quicBindLowPort = value.quicBindLowPort,
+                quicMigrateAfterHandshake = value.quicMigrateAfterHandshake,
+                entropyMode = value.entropyMode,
+                entropyPaddingTargetPermil = value.entropyPaddingTargetPermil,
+                entropyPaddingMax = value.entropyPaddingMax,
+                shannonEntropyTargetPermil = value.shannonEntropyTargetPermil,
             )
 
         fun toModel(value: NativeParserEvasionConfig): RipDpiParserEvasionConfig =
@@ -808,6 +860,8 @@ internal object RipDpiProxyJsonCodec {
                 autoSort = value.autoSort,
                 cacheTtlSeconds = value.cacheTtlSeconds,
                 cachePrefixV4 = value.cachePrefixV4,
+                strategyEvolution = value.strategyEvolution,
+                evolutionEpsilon = value.evolutionEpsilon,
             )
 
         fun toNative(value: RipDpiAdaptiveFallbackConfig): NativeAdaptiveFallbackConfig =
@@ -820,6 +874,8 @@ internal object RipDpiProxyJsonCodec {
                 autoSort = value.autoSort,
                 cacheTtlSeconds = value.cacheTtlSeconds,
                 cachePrefixV4 = value.cachePrefixV4,
+                strategyEvolution = value.strategyEvolution,
+                evolutionEpsilon = value.evolutionEpsilon,
             )
     }
 
@@ -861,6 +917,35 @@ internal object RipDpiProxyJsonCodec {
                 maxHosts = value.maxHosts,
                 storePath = value.storePath,
                 networkScopeKey = value.networkScopeKey,
+            )
+
+        fun toModel(value: NativeRelayConfig): RipDpiRelayConfig =
+            RipDpiRelayConfig(
+                enabled = value.enabled,
+                kind = value.kind,
+                profileId = value.profileId,
+                server = value.server,
+                serverPort = value.serverPort,
+                serverName = value.serverName,
+                realityPublicKey = value.realityPublicKey,
+                realityShortId = value.realityShortId,
+                chainEntryServer = value.chainEntryServer,
+                chainEntryPort = value.chainEntryPort,
+                chainEntryServerName = value.chainEntryServerName,
+                chainEntryPublicKey = value.chainEntryPublicKey,
+                chainEntryShortId = value.chainEntryShortId,
+                chainExitServer = value.chainExitServer,
+                chainExitPort = value.chainExitPort,
+                chainExitServerName = value.chainExitServerName,
+                chainExitPublicKey = value.chainExitPublicKey,
+                chainExitShortId = value.chainExitShortId,
+                masqueUrl = value.masqueUrl,
+                masqueUseHttp2Fallback = value.masqueUseHttp2Fallback,
+                masqueCloudflareMode = value.masqueCloudflareMode,
+                localSocksHost = value.localSocksHost,
+                localSocksPort = value.localSocksPort,
+                udpEnabled = value.udpEnabled,
+                tcpFallbackEnabled = value.tcpFallbackEnabled,
             )
 
         fun toModel(value: NativeWarpConfig): RipDpiWarpConfig =
@@ -906,6 +991,35 @@ internal object RipDpiProxyJsonCodec {
                 maxHosts = value.maxHosts,
                 storePath = value.storePath,
                 networkScopeKey = value.networkScopeKey,
+            )
+
+        fun toNative(value: RipDpiRelayConfig): NativeRelayConfig =
+            NativeRelayConfig(
+                enabled = value.enabled,
+                kind = value.kind,
+                profileId = value.profileId,
+                server = value.server,
+                serverPort = value.serverPort,
+                serverName = value.serverName,
+                realityPublicKey = value.realityPublicKey,
+                realityShortId = value.realityShortId,
+                chainEntryServer = value.chainEntryServer,
+                chainEntryPort = value.chainEntryPort,
+                chainEntryServerName = value.chainEntryServerName,
+                chainEntryPublicKey = value.chainEntryPublicKey,
+                chainEntryShortId = value.chainEntryShortId,
+                chainExitServer = value.chainExitServer,
+                chainExitPort = value.chainExitPort,
+                chainExitServerName = value.chainExitServerName,
+                chainExitPublicKey = value.chainExitPublicKey,
+                chainExitShortId = value.chainExitShortId,
+                masqueUrl = value.masqueUrl,
+                masqueUseHttp2Fallback = value.masqueUseHttp2Fallback,
+                masqueCloudflareMode = value.masqueCloudflareMode,
+                localSocksHost = value.localSocksHost,
+                localSocksPort = value.localSocksPort,
+                udpEnabled = value.udpEnabled,
+                tcpFallbackEnabled = value.tcpFallbackEnabled,
             )
 
         fun toNative(value: RipDpiWarpConfig): NativeWarpConfig =
@@ -966,6 +1080,7 @@ internal object RipDpiProxyJsonCodec {
                 adaptiveFallback = AdaptiveCodec.toModel(value.adaptiveFallback),
                 quic = toModel(value.quic),
                 hosts = toModel(value.hosts),
+                relay = toModel(value.upstreamRelay),
                 warp = toModel(value.warp),
                 hostAutolearn = toModel(value.hostAutolearn),
                 wsTunnel = toModel(value.wsTunnel),

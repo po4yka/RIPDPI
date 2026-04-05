@@ -30,6 +30,7 @@ internal class ServiceStatusReporter(
         activePolicy: ActiveConnectionPolicy?,
         consumePendingNetworkHandoverClass: () -> String?,
         tunnelRecoveryRetryCount: Long,
+        relayTelemetry: NativeRuntimeSnapshot? = null,
         warpTelemetry: NativeRuntimeSnapshot? = null,
         failureReason: FailureReason? = null,
     ) {
@@ -49,6 +50,13 @@ internal class ServiceStatusReporter(
                 },
                 consumePendingNetworkHandoverClass,
             )
+        val effectiveRelayTelemetry =
+            relayTelemetry
+                ?: if (newStatus == ServiceStatus.Connected) {
+                    NativeRuntimeSnapshot.idle(source = "relay")
+                } else {
+                    currentTelemetry.relayTelemetry
+                }
         val effectiveWarpTelemetry =
             warpTelemetry
                 ?: if (newStatus == ServiceStatus.Connected) {
@@ -81,6 +89,7 @@ internal class ServiceStatusReporter(
                 status = appStatus,
                 tunnelStats = tunnelStatsFor(mode, proxyTelemetry, tunnelTelemetry),
                 proxyTelemetry = proxyTelemetry,
+                relayTelemetry = effectiveRelayTelemetry,
                 warpTelemetry = effectiveWarpTelemetry,
                 tunnelTelemetry = tunnelTelemetry,
                 runtimeFieldTelemetry =
@@ -104,6 +113,7 @@ internal class ServiceStatusReporter(
         activePolicy: ActiveConnectionPolicy?,
         consumePendingNetworkHandoverClass: () -> String?,
         proxyTelemetry: NativeRuntimeSnapshot,
+        relayTelemetry: NativeRuntimeSnapshot,
         warpTelemetry: NativeRuntimeSnapshot,
         tunnelTelemetry: NativeRuntimeSnapshot,
         tunnelRecoveryRetryCount: Long,
@@ -124,6 +134,7 @@ internal class ServiceStatusReporter(
                 status = AppStatus.Running,
                 tunnelStats = tunnelStatsFor(mode, proxyTelemetry, enrichedTunnelTelemetry),
                 proxyTelemetry = proxyTelemetry,
+                relayTelemetry = relayTelemetry,
                 warpTelemetry = warpTelemetry,
                 tunnelTelemetry = enrichedTunnelTelemetry,
                 runtimeFieldTelemetry =

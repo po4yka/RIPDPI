@@ -20,9 +20,10 @@ use crate::presets;
 use crate::types::{
     ProxyConfigError, ProxyConfigPayload, ProxyLogContext, ProxyRuntimeContext, ProxyUiActivationFilter, ProxyUiConfig,
     ProxyUiNumericRange, RuntimeConfigEnvelope, ADAPTIVE_FAKE_TTL_DEFAULT_FALLBACK, FAKE_TLS_SNI_MODE_FIXED,
-    FAKE_TLS_SNI_MODE_RANDOMIZED, HOSTS_BLACKLIST, HOSTS_DISABLE, HOSTS_WHITELIST, SEQOVL_DEFAULT_OVERLAP_SIZE,
-    SEQOVL_FAKE_MODE_PROFILE, SEQOVL_FAKE_MODE_RAND, TLS_RANDREC_DEFAULT_FRAGMENT_COUNT,
-    TLS_RANDREC_DEFAULT_MAX_FRAGMENT_SIZE, TLS_RANDREC_DEFAULT_MIN_FRAGMENT_SIZE, WARP_ROUTE_MODE_RULES,
+    FAKE_TLS_SNI_MODE_RANDOMIZED, HOSTS_BLACKLIST, HOSTS_DISABLE, HOSTS_WHITELIST, RELAY_KIND_OFF,
+    SEQOVL_DEFAULT_OVERLAP_SIZE, SEQOVL_FAKE_MODE_PROFILE, SEQOVL_FAKE_MODE_RAND,
+    TLS_RANDREC_DEFAULT_FRAGMENT_COUNT, TLS_RANDREC_DEFAULT_MAX_FRAGMENT_SIZE,
+    TLS_RANDREC_DEFAULT_MIN_FRAGMENT_SIZE, WARP_ROUTE_MODE_RULES,
 };
 
 const WARP_CONTROL_PLANE_HOSTS: &[&str] = &[
@@ -233,6 +234,7 @@ fn validate_ui_payload_shape(json: &str) -> Result<(), ProxyConfigError> {
         "adaptiveFallback",
         "quic",
         "hosts",
+        "upstreamRelay",
         "warp",
         "hostAutolearn",
         "wsTunnel",
@@ -479,6 +481,7 @@ pub fn runtime_config_from_ui(payload: ProxyUiConfig) -> Result<RuntimeConfig, P
         adaptive_fallback,
         quic,
         hosts,
+        upstream_relay,
         warp,
         host_autolearn,
         ws_tunnel,
@@ -588,6 +591,26 @@ pub fn runtime_config_from_ui(payload: ProxyUiConfig) -> Result<RuntimeConfig, P
         }
     }
 
+    let relay_upstream = if upstream_relay.enabled && upstream_relay.kind != RELAY_KIND_OFF {
+        let local_socks_ip = upstream_relay
+            .local_socks_host
+            .trim()
+            .parse::<IpAddr>()
+            .unwrap_or(IpAddr::V4(Ipv4Addr::LOCALHOST));
+        let local_socks_port = u16::try_from(upstream_relay.local_socks_port)
+            .map_err(|_| ProxyConfigError::InvalidConfig("Invalid upstreamRelay.localSocksPort".to_string()))?;
+        if local_socks_port == 0 {
+            return Err(ProxyConfigError::InvalidConfig(
+                "Invalid upstreamRelay.localSocksPort".to_string(),
+            ));
+        }
+        Some(UpstreamSocksConfig {
+            addr: SocketAddr::new(local_socks_ip, local_socks_port),
+        })
+    } else {
+        None
+    };
+
     let primary_group_index = groups.len();
     let mut group = DesyncGroup::new(groups.len());
     match hosts.mode.as_str() {
@@ -625,6 +648,18 @@ pub fn runtime_config_from_ui(payload: ProxyUiConfig) -> Result<RuntimeConfig, P
             u8::try_from(fake_packets.fake_ttl)
                 .map_err(|_| ProxyConfigError::InvalidConfig("Invalid fakeTtl".to_string()))?,
         );
+    }
+
+    if let Some(upstream) = relay_upstream {
+        for existing_group in &mut groups {
+            if existing_group.is_actionable() && existing_group.policy.ext_socks.is_none() {
+                existing_group.policy.ext_socks = Some(upstream);
+                if existing_group.policy.label.is_empty() {
+                    existing_group.policy.label = "relay_upstream".to_string();
+                }
+            }
+        }
+        group.policy.ext_socks = Some(upstream);
     }
     group.actions.http_fake_profile = parse_http_fake_profile(&fake_packets.http_fake_profile)?;
     group.actions.tls_fake_profile = parse_tls_fake_profile(&fake_packets.tls_fake_profile)?;

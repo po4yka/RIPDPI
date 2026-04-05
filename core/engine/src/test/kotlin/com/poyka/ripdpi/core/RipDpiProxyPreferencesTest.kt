@@ -3,10 +3,12 @@ package com.poyka.ripdpi.core
 import com.poyka.ripdpi.data.ActivationFilterModel
 import com.poyka.ripdpi.data.AdaptiveMarkerMethod
 import com.poyka.ripdpi.data.DefaultAdaptiveFakeTtlDelta
+import com.poyka.ripdpi.data.EntropyModeCombined
 import com.poyka.ripdpi.data.FakeTlsSniModeRandomized
 import com.poyka.ripdpi.data.HttpFakeProfileCloudflareGet
 import com.poyka.ripdpi.data.NumericRangeModel
 import com.poyka.ripdpi.data.QuicFakeProfileRealisticInitial
+import com.poyka.ripdpi.data.RelayKindVlessReality
 import com.poyka.ripdpi.data.TcpChainStepKind
 import com.poyka.ripdpi.data.TcpChainStepModel
 import com.poyka.ripdpi.data.TlsFakeProfileGoogleChrome
@@ -98,6 +100,12 @@ class RipDpiProxyPreferencesTest {
                         adaptiveFakeTtlMin = 3,
                         adaptiveFakeTtlMax = 12,
                         adaptiveFakeTtlFallback = 9,
+                        quicBindLowPort = true,
+                        quicMigrateAfterHandshake = true,
+                        entropyMode = EntropyModeCombined,
+                        entropyPaddingTargetPermil = 3600,
+                        entropyPaddingMax = 384,
+                        shannonEntropyTargetPermil = 7900,
                     ),
                 quic =
                     RipDpiQuicConfig(
@@ -136,6 +144,12 @@ class RipDpiProxyPreferencesTest {
         assertEquals(TlsFakeProfileGoogleChrome, fakePackets.string("tlsFakeProfile"))
         assertEquals(UdpFakeProfileDnsQuery, fakePackets.string("udpFakeProfile"))
         assertEquals(9, fakePackets.int("adaptiveFakeTtlFallback"))
+        assertEquals("true", fakePackets.string("quicBindLowPort"))
+        assertEquals("true", fakePackets.string("quicMigrateAfterHandshake"))
+        assertEquals(EntropyModeCombined, fakePackets.string("entropyMode"))
+        assertEquals(3600, fakePackets.int("entropyPaddingTargetPermil"))
+        assertEquals(384, fakePackets.int("entropyPaddingMax"))
+        assertEquals(7900, fakePackets.int("shannonEntropyTargetPermil"))
         assertEquals(QuicFakeProfileRealisticInitial, quic.string("fakeProfile"))
         assertEquals("video.example.test", quic.string("fakeHost"))
         assertEquals("true", hostAutolearn.string("enabled"))
@@ -226,6 +240,45 @@ class RipDpiProxyPreferencesTest {
         assertEquals("true", payload.string("hostRemoveSpaces"))
         assertEquals("true", payload.string("httpMethodEol"))
         assertEquals("true", payload.string("httpUnixEol"))
+    }
+
+    @Test
+    fun uiPreferencesEncodeAndRoundTripRelayConfig() {
+        val original =
+            RipDpiProxyUIPreferences(
+                relay =
+                    RipDpiRelayConfig(
+                        enabled = true,
+                        kind = RelayKindVlessReality,
+                        profileId = "edge",
+                        server = "relay.example.test",
+                        serverPort = 443,
+                        serverName = "cdn.example.test",
+                        realityPublicKey = "public-key",
+                        realityShortId = "short01",
+                        localSocksHost = "127.0.0.5",
+                        localSocksPort = 2090,
+                        udpEnabled = true,
+                        tcpFallbackEnabled = true,
+                    ),
+            )
+
+        val payload = original.toNativeConfigJson().parseJsonObject().objectAt("upstreamRelay")
+        val decoded = decodeRipDpiProxyUiPreferences(original.toNativeConfigJson())
+
+        assertEquals("true", payload.string("enabled"))
+        assertEquals(RelayKindVlessReality, payload.string("kind"))
+        assertEquals("edge", payload.string("profileId"))
+        assertEquals("relay.example.test", payload.string("server"))
+        assertEquals(443, payload.int("serverPort"))
+        assertEquals("cdn.example.test", payload.string("serverName"))
+        assertEquals("public-key", payload.string("realityPublicKey"))
+        assertEquals("short01", payload.string("realityShortId"))
+        assertEquals("127.0.0.5", payload.string("localSocksHost"))
+        assertEquals(2090, payload.int("localSocksPort"))
+        assertEquals("true", payload.string("udpEnabled"))
+        assertEquals("true", payload.string("tcpFallbackEnabled"))
+        assertEquals(original.relay, decoded?.relay)
     }
 
     @Test
@@ -434,6 +487,43 @@ class RipDpiProxyPreferencesTest {
         assertEquals(8, payload.int("adaptiveFakeTtlFallback"))
         assertEquals(true, decoded?.fakePackets?.adaptiveFakeTtlEnabled)
         assertEquals(DefaultAdaptiveFakeTtlDelta, decoded?.fakePackets?.adaptiveFakeTtlDelta)
+    }
+
+    @Test
+    fun uiPreferencesEncodeAndRoundTripDetectionResistanceFields() {
+        val original =
+            RipDpiProxyUIPreferences(
+                fakePackets =
+                    RipDpiFakePacketConfig(
+                        quicBindLowPort = true,
+                        quicMigrateAfterHandshake = true,
+                        entropyMode = EntropyModeCombined,
+                        entropyPaddingTargetPermil = 3600,
+                        entropyPaddingMax = 384,
+                        shannonEntropyTargetPermil = 7900,
+                    ),
+                adaptiveFallback =
+                    RipDpiAdaptiveFallbackConfig(
+                        strategyEvolution = true,
+                        evolutionEpsilon = 0.2,
+                    ),
+            )
+
+        val payload = original.toNativeConfigJson().parseJsonObject()
+        val fakePackets = payload.objectAt("fakePackets")
+        val adaptiveFallback = payload.objectAt("adaptiveFallback")
+        val decoded = decodeRipDpiProxyUiPreferences(original.toNativeConfigJson())
+
+        assertEquals("true", fakePackets.string("quicBindLowPort"))
+        assertEquals("true", fakePackets.string("quicMigrateAfterHandshake"))
+        assertEquals(EntropyModeCombined, fakePackets.string("entropyMode"))
+        assertEquals(3600, fakePackets.int("entropyPaddingTargetPermil"))
+        assertEquals(384, fakePackets.int("entropyPaddingMax"))
+        assertEquals(7900, fakePackets.int("shannonEntropyTargetPermil"))
+        assertEquals("true", adaptiveFallback.string("strategyEvolution"))
+        assertEquals(0.2, adaptiveFallback.double("evolutionEpsilon"), 0.0)
+        assertEquals(original.fakePackets, decoded?.fakePackets)
+        assertEquals(original.adaptiveFallback, decoded?.adaptiveFallback)
     }
 
     @Test
@@ -648,5 +738,7 @@ private fun JsonObject.objectAt(name: String): JsonObject = getValue(name).jsonO
 private fun JsonObject.string(name: String): String = (getValue(name) as JsonPrimitive).content
 
 private fun JsonObject.int(name: String): Int = (getValue(name) as JsonPrimitive).content.toInt()
+
+private fun JsonObject.double(name: String): Double = (getValue(name) as JsonPrimitive).content.toDouble()
 
 private fun JsonObject.array(name: String): JsonArray = getValue(name).jsonArray

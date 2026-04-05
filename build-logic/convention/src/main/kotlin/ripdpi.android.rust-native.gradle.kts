@@ -353,6 +353,7 @@ val rustNativeCargoProfile = resolvedNativeCargoProfile()
 val rustNativeArtifactSpecs =
     listOf(
         "ripdpi-android|libripdpi_android.so|libripdpi.so",
+        "ripdpi-relay-android|libripdpi_relay_android.so|libripdpi-relay.so",
         "ripdpi-warp-android|libripdpi_warp_android.so|libripdpi-warp.so",
         "ripdpi-tunnel-android|libripdpi_tunnel_android.so|libripdpi-tunnel.so",
     )
@@ -367,6 +368,7 @@ val rustNativePackageDirs =
     listOf(
         "android-support",
         "ripdpi-android",
+        "ripdpi-relay-android",
         "ripdpi-config",
         "ripdpi-desync",
         "ripdpi-dns-resolver",

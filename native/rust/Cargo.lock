@@ -2916,6 +2916,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "ripdpi-relay-android"
+version = "0.1.0"
+dependencies = [
+ "android-support",
+ "jni 0.22.4",
+ "once_cell",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "ripdpi-root-helper"
 version = "0.1.0"
 dependencies = [

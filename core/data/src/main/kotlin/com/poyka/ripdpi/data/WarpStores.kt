@@ -136,7 +136,7 @@ class SharedPreferencesWarpEndpointStore
         }
     }
 
-private class KeystoreEncryptedPreferences(
+internal class KeystoreEncryptedPreferences(
     private val preferences: SharedPreferences,
     private val keyAlias: String,
 ) {

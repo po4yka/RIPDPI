@@ -2,8 +2,14 @@ package com.poyka.ripdpi.core
 
 import com.poyka.ripdpi.data.ActiveDnsSettings
 import com.poyka.ripdpi.data.DefaultAdaptiveFakeTtlFallback
+import com.poyka.ripdpi.data.DefaultEntropyPaddingMax
+import com.poyka.ripdpi.data.DefaultEntropyPaddingTargetPermil
+import com.poyka.ripdpi.data.DefaultEvolutionEpsilon
 import com.poyka.ripdpi.data.DefaultFakeOffsetMarker
 import com.poyka.ripdpi.data.DefaultFakeSni
+import com.poyka.ripdpi.data.DefaultRelayLocalSocksHost
+import com.poyka.ripdpi.data.DefaultRelayLocalSocksPort
+import com.poyka.ripdpi.data.DefaultShannonEntropyTargetPermil
 import com.poyka.ripdpi.data.DefaultSplitMarker
 import com.poyka.ripdpi.data.DefaultTlsRecordMarker
 import com.poyka.ripdpi.data.DefaultWarpLocalSocksPort
@@ -11,6 +17,7 @@ import com.poyka.ripdpi.data.DefaultWarpManualEndpointPort
 import com.poyka.ripdpi.data.FakePayloadProfileCompatDefault
 import com.poyka.ripdpi.data.QuicFakeProfileDisabled
 import com.poyka.ripdpi.data.QuicInitialModeRouteAndCache
+import com.poyka.ripdpi.data.RelayKindOff
 import com.poyka.ripdpi.data.StrategyLaneFamilies
 import com.poyka.ripdpi.data.TcpChainStepKind
 import com.poyka.ripdpi.data.TcpChainStepModel
@@ -41,6 +48,7 @@ import com.poyka.ripdpi.data.normalizeAdaptiveFakeTtlDelta
 import com.poyka.ripdpi.data.normalizeAdaptiveFakeTtlFallback
 import com.poyka.ripdpi.data.normalizeAdaptiveFakeTtlMax
 import com.poyka.ripdpi.data.normalizeAdaptiveFakeTtlMin
+import com.poyka.ripdpi.data.normalizeEntropyMode
 import com.poyka.ripdpi.data.normalizeFakeTlsSniMode
 import com.poyka.ripdpi.data.normalizeHostAutolearnMaxHosts
 import com.poyka.ripdpi.data.normalizeHostAutolearnPenaltyTtlHours
@@ -49,12 +57,14 @@ import com.poyka.ripdpi.data.normalizeOffsetExpression
 import com.poyka.ripdpi.data.normalizeQuicFakeHost
 import com.poyka.ripdpi.data.normalizeQuicFakeProfile
 import com.poyka.ripdpi.data.normalizeQuicInitialMode
+import com.poyka.ripdpi.data.normalizeRelayKind
 import com.poyka.ripdpi.data.normalizeTcpChainStepModel
 import com.poyka.ripdpi.data.normalizeTlsFakeProfile
 import com.poyka.ripdpi.data.normalizeUdpChainStepModel
 import com.poyka.ripdpi.data.normalizeUdpFakeProfile
 import com.poyka.ripdpi.data.setGroupActivationFilterCompat
 import com.poyka.ripdpi.data.setStrategyChains
+import com.poyka.ripdpi.data.toRelaySettingsModel
 import com.poyka.ripdpi.data.toAdaptiveFallbackSettingsModel
 import com.poyka.ripdpi.data.toWarpSettingsModel
 import com.poyka.ripdpi.proto.AppSettings
@@ -69,6 +79,7 @@ class RipDpiProxyUIPreferences(
     fakePackets: RipDpiFakePacketConfig = RipDpiFakePacketConfig(),
     quic: RipDpiQuicConfig = RipDpiQuicConfig(),
     hosts: RipDpiHostsConfig = RipDpiHostsConfig(),
+    relay: RipDpiRelayConfig = RipDpiRelayConfig(),
     warp: RipDpiWarpConfig = RipDpiWarpConfig(),
     hostAutolearn: RipDpiHostAutolearnConfig = RipDpiHostAutolearnConfig(),
     nativeLogLevel: String? = null,
@@ -83,6 +94,7 @@ class RipDpiProxyUIPreferences(
     val adaptiveFallback: RipDpiAdaptiveFallbackConfig = normalizeAdaptiveFallbackConfig(adaptiveFallback)
     val quic: RipDpiQuicConfig = normalizeQuicConfig(quic)
     val hosts: RipDpiHostsConfig = normalizeHostsConfig(hosts)
+    val relay: RipDpiRelayConfig = normalizeRelayConfig(relay)
     val warp: RipDpiWarpConfig = normalizeWarpConfig(warp)
     val hostAutolearn: RipDpiHostAutolearnConfig = normalizeHostAutolearnConfig(hostAutolearn)
     val nativeLogLevel: String? = nativeLogLevel?.trim()?.takeIf { it.isNotEmpty() }
@@ -112,6 +124,7 @@ class RipDpiProxyUIPreferences(
             adaptiveFallback = adaptiveFallback,
             quic = quic,
             hosts = hosts,
+            relay = relay,
             warp = warp,
             hostAutolearn =
                 hostAutolearn.copy(
@@ -145,6 +158,7 @@ class RipDpiProxyUIPreferences(
                 adaptiveFallback = buildAdaptiveFallbackConfig(settings),
                 quic = buildQuicConfig(settings),
                 hosts = buildHostsConfig(settings),
+                relay = buildRelayConfig(settings),
                 warp = buildWarpConfig(settings),
                 hostAutolearn = buildHostAutolearnConfig(settings, hostAutolearnStorePath, networkScopeKey),
                 wsTunnel = buildWsTunnelConfig(settings),
@@ -202,6 +216,14 @@ class RipDpiProxyUIPreferences(
                 fakeOffsetMarker = settings.effectiveFakeOffsetMarker(),
                 oobChar = settings.oobData.firstOrNull() ?: 'a',
                 dropSack = settings.dropSack,
+                quicBindLowPort = settings.quicBindLowPort,
+                quicMigrateAfterHandshake = settings.quicMigrateAfterHandshake,
+                entropyMode = com.poyka.ripdpi.data.entropyModeFromProto(settings.entropyMode),
+                entropyPaddingTargetPermil =
+                    settings.entropyPaddingTargetPermil.takeIf { it > 0 } ?: DefaultEntropyPaddingTargetPermil,
+                entropyPaddingMax = settings.entropyPaddingMax.takeIf { it > 0 } ?: DefaultEntropyPaddingMax,
+                shannonEntropyTargetPermil =
+                    settings.shannonEntropyTargetPermil.takeIf { it > 0 } ?: DefaultShannonEntropyTargetPermil,
             )
 
         private fun buildParserEvasionConfig(settings: AppSettings): RipDpiParserEvasionConfig =
@@ -226,6 +248,8 @@ class RipDpiProxyUIPreferences(
                 autoSort = adaptive.autoSort,
                 cacheTtlSeconds = adaptive.cacheTtlSeconds,
                 cachePrefixV4 = adaptive.cachePrefixV4,
+                strategyEvolution = settings.strategyEvolution,
+                evolutionEpsilon = settings.evolutionEpsilon.takeIf { it in 0.0..1.0 } ?: DefaultEvolutionEpsilon,
             )
         }
 
@@ -286,6 +310,37 @@ class RipDpiProxyUIPreferences(
                         s4 = warp.amnezia.s4,
                     ),
                 localSocksPort = DefaultWarpLocalSocksPort,
+            )
+        }
+
+        private fun buildRelayConfig(settings: AppSettings): RipDpiRelayConfig {
+            val relay = settings.toRelaySettingsModel()
+            return RipDpiRelayConfig(
+                enabled = relay.enabled,
+                kind = relay.kind,
+                profileId = relay.profileId,
+                server = relay.profile.server,
+                serverPort = relay.profile.serverPort,
+                serverName = relay.profile.serverName,
+                realityPublicKey = relay.profile.realityPublicKey,
+                realityShortId = relay.profile.realityShortId,
+                chainEntryServer = relay.profile.chainEntryServer,
+                chainEntryPort = relay.profile.chainEntryPort,
+                chainEntryServerName = relay.profile.chainEntryServerName,
+                chainEntryPublicKey = relay.profile.chainEntryPublicKey,
+                chainEntryShortId = relay.profile.chainEntryShortId,
+                chainExitServer = relay.profile.chainExitServer,
+                chainExitPort = relay.profile.chainExitPort,
+                chainExitServerName = relay.profile.chainExitServerName,
+                chainExitPublicKey = relay.profile.chainExitPublicKey,
+                chainExitShortId = relay.profile.chainExitShortId,
+                masqueUrl = relay.profile.masqueUrl,
+                masqueUseHttp2Fallback = relay.profile.masqueUseHttp2Fallback,
+                masqueCloudflareMode = relay.profile.masqueCloudflareMode,
+                localSocksHost = relay.profile.localSocksHost,
+                localSocksPort = relay.profile.localSocksPort,
+                udpEnabled = relay.profile.udpEnabled,
+                tcpFallbackEnabled = relay.profile.tcpFallbackEnabled,
             )
         }
 
@@ -365,6 +420,12 @@ fun RipDpiProxyUIPreferences.applyToSettings(settings: AppSettings): AppSettings
             setFakeOffsetMarker(fakePackets.fakeOffsetMarker)
             setOobData(fakePackets.oobChar.toString())
             setDropSack(fakePackets.dropSack)
+            setQuicBindLowPort(fakePackets.quicBindLowPort)
+            setQuicMigrateAfterHandshake(fakePackets.quicMigrateAfterHandshake)
+            setEntropyMode(com.poyka.ripdpi.data.entropyModeToProto(fakePackets.entropyMode))
+            setEntropyPaddingTargetPermil(fakePackets.entropyPaddingTargetPermil.coerceAtLeast(0))
+            setEntropyPaddingMax(fakePackets.entropyPaddingMax.coerceAtLeast(0))
+            setShannonEntropyTargetPermil(fakePackets.shannonEntropyTargetPermil.coerceAtLeast(0))
             setHostMixedCase(parserEvasions.hostMixedCase)
             setDomainMixedCase(parserEvasions.domainMixedCase)
             setHostRemoveSpaces(parserEvasions.hostRemoveSpaces)
@@ -380,6 +441,8 @@ fun RipDpiProxyUIPreferences.applyToSettings(settings: AppSettings): AppSettings
             setAdaptiveFallbackAutoSort(adaptiveFallback.autoSort)
             setAdaptiveFallbackCacheTtlSeconds(adaptiveFallback.cacheTtlSeconds)
             setAdaptiveFallbackCachePrefixV4(adaptiveFallback.cachePrefixV4)
+            setStrategyEvolution(adaptiveFallback.strategyEvolution)
+            setEvolutionEpsilon(adaptiveFallback.evolutionEpsilon.coerceIn(0.0, 1.0))
             setQuicInitialMode(quic.initialMode)
             setQuicSupportV1(quic.supportV1)
             setQuicSupportV2(quic.supportV2)
@@ -402,6 +465,31 @@ fun RipDpiProxyUIPreferences.applyToSettings(settings: AppSettings): AppSettings
                     setHostsWhitelist(hosts.entries.orEmpty())
                 }
             }
+            setRelayEnabled(relay.enabled)
+            setRelayKind(relay.kind)
+            setRelayProfileId(relay.profileId)
+            setRelayServer(relay.server)
+            setRelayServerPort(relay.serverPort)
+            setRelayServerName(relay.serverName)
+            setRelayRealityPublicKey(relay.realityPublicKey)
+            setRelayRealityShortId(relay.realityShortId)
+            setRelayChainEntryServer(relay.chainEntryServer)
+            setRelayChainEntryPort(relay.chainEntryPort)
+            setRelayChainEntryServerName(relay.chainEntryServerName)
+            setRelayChainEntryPublicKey(relay.chainEntryPublicKey)
+            setRelayChainEntryShortId(relay.chainEntryShortId)
+            setRelayChainExitServer(relay.chainExitServer)
+            setRelayChainExitPort(relay.chainExitPort)
+            setRelayChainExitServerName(relay.chainExitServerName)
+            setRelayChainExitPublicKey(relay.chainExitPublicKey)
+            setRelayChainExitShortId(relay.chainExitShortId)
+            setRelayMasqueUrl(relay.masqueUrl)
+            setRelayMasqueUseHttp2Fallback(relay.masqueUseHttp2Fallback)
+            setRelayMasqueCloudflareMode(relay.masqueCloudflareMode)
+            setRelayLocalSocksHost(relay.localSocksHost)
+            setRelayLocalSocksPort(relay.localSocksPort)
+            setRelayUdpEnabled(relay.udpEnabled)
+            setRelayTcpFallbackEnabled(relay.tcpFallbackEnabled)
             setWarpEnabled(warp.enabled)
             setWarpRouteMode(warp.routeMode)
             setWarpRouteHosts(warp.routeHosts)
@@ -460,6 +548,13 @@ private fun normalizeFakePacketConfig(config: RipDpiFakePacketConfig): RipDpiFak
         tlsFakeProfile = normalizeTlsFakeProfile(config.tlsFakeProfile.ifBlank { FakePayloadProfileCompatDefault }),
         udpFakeProfile = normalizeUdpFakeProfile(config.udpFakeProfile.ifBlank { FakePayloadProfileCompatDefault }),
         fakeOffsetMarker = normalizeOffsetExpression(config.fakeOffsetMarker, DefaultFakeOffsetMarker),
+        quicBindLowPort = config.quicBindLowPort,
+        quicMigrateAfterHandshake = config.quicMigrateAfterHandshake,
+        entropyMode = normalizeEntropyMode(config.entropyMode),
+        entropyPaddingTargetPermil = config.entropyPaddingTargetPermil.takeIf { it > 0 } ?: DefaultEntropyPaddingTargetPermil,
+        entropyPaddingMax = config.entropyPaddingMax.takeIf { it > 0 } ?: DefaultEntropyPaddingMax,
+        shannonEntropyTargetPermil =
+            config.shannonEntropyTargetPermil.takeIf { it > 0 } ?: DefaultShannonEntropyTargetPermil,
     )
 }
 
@@ -474,6 +569,12 @@ private fun normalizeAdaptiveFallbackConfig(config: RipDpiAdaptiveFallbackConfig
     config.copy(
         cacheTtlSeconds = normalizeAdaptiveFallbackCacheTtlSeconds(config.cacheTtlSeconds),
         cachePrefixV4 = normalizeAdaptiveFallbackCachePrefixV4(config.cachePrefixV4),
+        strategyEvolution = config.strategyEvolution,
+        evolutionEpsilon =
+            config.evolutionEpsilon
+                .takeIf { !it.isNaN() }
+                ?.coerceIn(0.0, 1.0)
+                ?: DefaultEvolutionEpsilon,
     )
 
 private fun normalizeHostsConfig(config: RipDpiHostsConfig): RipDpiHostsConfig {
@@ -482,6 +583,33 @@ private fun normalizeHostsConfig(config: RipDpiHostsConfig): RipDpiHostsConfig {
     return RipDpiHostsConfig(
         mode = normalizedMode,
         entries = normalizedEntries.takeUnless { normalizedMode == RipDpiHostsConfig.Mode.Disable },
+    )
+}
+
+private fun normalizeRelayConfig(config: RipDpiRelayConfig): RipDpiRelayConfig {
+    val normalizedKind = normalizeRelayKind(config.kind)
+    return config.copy(
+        enabled = config.enabled && normalizedKind != RelayKindOff,
+        kind = normalizedKind,
+        profileId = config.profileId.trim().ifBlank { com.poyka.ripdpi.data.DefaultRelayProfileId },
+        server = config.server.trim(),
+        serverPort = config.serverPort.takeIf { it in 1..65535 } ?: 443,
+        serverName = config.serverName.trim(),
+        realityPublicKey = config.realityPublicKey.trim(),
+        realityShortId = config.realityShortId.trim(),
+        chainEntryServer = config.chainEntryServer.trim(),
+        chainEntryPort = config.chainEntryPort.takeIf { it in 1..65535 } ?: 443,
+        chainEntryServerName = config.chainEntryServerName.trim(),
+        chainEntryPublicKey = config.chainEntryPublicKey.trim(),
+        chainEntryShortId = config.chainEntryShortId.trim(),
+        chainExitServer = config.chainExitServer.trim(),
+        chainExitPort = config.chainExitPort.takeIf { it in 1..65535 } ?: 443,
+        chainExitServerName = config.chainExitServerName.trim(),
+        chainExitPublicKey = config.chainExitPublicKey.trim(),
+        chainExitShortId = config.chainExitShortId.trim(),
+        masqueUrl = config.masqueUrl.trim(),
+        localSocksHost = config.localSocksHost.ifBlank { DefaultRelayLocalSocksHost },
+        localSocksPort = config.localSocksPort.takeIf { it in 1..65535 } ?: DefaultRelayLocalSocksPort,
     )
 }
 
