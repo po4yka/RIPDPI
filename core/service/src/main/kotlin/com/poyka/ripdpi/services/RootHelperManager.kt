@@ -98,7 +98,9 @@ class RootHelperManager
                 if (!exited) {
                     process.destroyForcibly()
                 }
-            } catch (e: Exception) {
+            } catch (e: IOException) {
+                log.w(e) { "error stopping root helper" }
+            } catch (e: SecurityException) {
                 log.w(e) { "error stopping root helper" }
             }
             log.i { "root helper stopped" }
