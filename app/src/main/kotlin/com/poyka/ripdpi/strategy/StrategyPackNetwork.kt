@@ -1,11 +1,10 @@
 package com.poyka.ripdpi.strategy
 
+import com.poyka.ripdpi.services.OwnedTlsClientFactory
 import dagger.Binds
 import dagger.Module
-import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
-import okhttp3.OkHttpClient
 import okhttp3.ResponseBody
 import retrofit2.Response
 import retrofit2.Retrofit
@@ -17,6 +16,12 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 interface StrategyPackDownloadService {
+    suspend fun downloadManifest(url: String): Response<ResponseBody>
+
+    suspend fun downloadCatalog(url: String): Response<ResponseBody>
+}
+
+private interface StrategyPackDownloadApi {
     @GET
     suspend fun downloadManifest(
         @Url url: String,
@@ -53,6 +58,39 @@ class DefaultStrategyPackBuildProvenanceProvider
             )
     }
 
+@Singleton
+class DefaultStrategyPackDownloadService
+    @Inject
+    constructor(
+        private val tlsClientFactory: OwnedTlsClientFactory,
+    ) : StrategyPackDownloadService {
+        override suspend fun downloadManifest(url: String): Response<ResponseBody> = api().downloadManifest(url)
+
+        override suspend fun downloadCatalog(url: String): Response<ResponseBody> = api().downloadCatalog(url)
+
+        private fun api(): StrategyPackDownloadApi =
+            Retrofit
+                .Builder()
+                .baseUrl(STRATEGY_PACK_BASE_URL)
+                .client(
+                    tlsClientFactory.create {
+                        connectTimeout(20, TimeUnit.SECONDS)
+                        readTimeout(90, TimeUnit.SECONDS)
+                        callTimeout(120, TimeUnit.SECONDS)
+                        addInterceptor { chain ->
+                            chain.proceed(
+                                chain
+                                    .request()
+                                    .newBuilder()
+                                    .header("User-Agent", STRATEGY_PACK_USER_AGENT)
+                                    .build(),
+                            )
+                        }
+                    },
+                ).build()
+                .create(StrategyPackDownloadApi::class.java)
+    }
+
 @Module
 @InstallIn(SingletonComponent::class)
 abstract class StrategyPackProvenanceBindingsModule {
@@ -61,41 +99,12 @@ abstract class StrategyPackProvenanceBindingsModule {
     abstract fun bindStrategyPackBuildProvenanceProvider(
         provider: DefaultStrategyPackBuildProvenanceProvider,
     ): StrategyPackBuildProvenanceProvider
-}
 
-@Module
-@InstallIn(SingletonComponent::class)
-object StrategyPackNetworkModule {
-    @Provides
+    @Binds
     @Singleton
-    @javax.inject.Named("strategyPackCatalogClient")
-    fun provideStrategyPackCatalogOkHttpClient(): OkHttpClient =
-        OkHttpClient
-            .Builder()
-            .connectTimeout(20, TimeUnit.SECONDS)
-            .readTimeout(90, TimeUnit.SECONDS)
-            .callTimeout(120, TimeUnit.SECONDS)
-            .addInterceptor { chain ->
-                chain.proceed(
-                    chain
-                        .request()
-                        .newBuilder()
-                        .header("User-Agent", STRATEGY_PACK_USER_AGENT)
-                        .build(),
-                )
-            }.build()
-
-    @Provides
-    @Singleton
-    fun provideStrategyPackDownloadService(
-        @javax.inject.Named("strategyPackCatalogClient") client: OkHttpClient,
-    ): StrategyPackDownloadService =
-        Retrofit
-            .Builder()
-            .baseUrl(STRATEGY_PACK_BASE_URL)
-            .client(client)
-            .build()
-            .create(StrategyPackDownloadService::class.java)
+    abstract fun bindStrategyPackDownloadService(
+        service: DefaultStrategyPackDownloadService,
+    ): StrategyPackDownloadService
 }
 
 const val STRATEGY_PACK_BASE_URL = "https://raw.githubusercontent.com/"

@@ -15,6 +15,7 @@ import android.os.Build
 import android.telephony.ServiceState
 import android.telephony.TelephonyManager
 import androidx.core.content.ContextCompat
+import com.poyka.ripdpi.services.OwnedTlsClientFactory
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -25,9 +26,8 @@ import kotlinx.coroutines.withContext
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
-import java.net.HttpURLConnection
+import okhttp3.Request
 import java.net.InetAddress
-import java.net.URL
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -47,7 +47,9 @@ interface PublicIpInfoResolver {
 @Singleton
 class HttpPublicIpInfoResolver
     @Inject
-    constructor() : PublicIpInfoResolver {
+    constructor(
+        private val tlsClientFactory: OwnedTlsClientFactory,
+    ) : PublicIpInfoResolver {
         companion object {
             private const val PublicIpTimeoutMs = 3_000
         }
@@ -64,30 +66,52 @@ class HttpPublicIpInfoResolver
 
         private fun resolveFromIpInfo(): PublicIpInfo? =
             runCatching {
-                val connection =
-                    (URL("https://ipinfo.io/json").openConnection() as HttpURLConnection).apply {
-                        connectTimeout = PublicIpTimeoutMs
-                        readTimeout = PublicIpTimeoutMs
-                        requestMethod = "GET"
+                val request =
+                    Request
+                        .Builder()
+                        .url("https://ipinfo.io/json")
+                        .get()
+                        .build()
+                tlsClientFactory
+                    .create {
+                        connectTimeout(PublicIpTimeoutMs.toLong(), java.util.concurrent.TimeUnit.MILLISECONDS)
+                        readTimeout(PublicIpTimeoutMs.toLong(), java.util.concurrent.TimeUnit.MILLISECONDS)
+                        callTimeout(PublicIpTimeoutMs.toLong(), java.util.concurrent.TimeUnit.MILLISECONDS)
+                    }.newCall(request)
+                    .execute()
+                    .use { response ->
+                        if (!response.isSuccessful) {
+                            return@runCatching null
+                        }
+                        val body = response.body.string()
+                        val json = lenientJson.decodeFromString(IpInfoResponse.serializer(), body)
+                        PublicIpInfo(ip = json.ip, asn = formatAsn(json.org))
                     }
-                connection.inputStream.bufferedReader().use { reader ->
-                    val json = lenientJson.decodeFromString(IpInfoResponse.serializer(), reader.readText())
-                    PublicIpInfo(ip = json.ip, asn = formatAsn(json.org))
-                }
             }.getOrNull()
 
         private fun resolveFromIpify(): PublicIpInfo? =
             runCatching {
-                val connection =
-                    (URL("https://api.ipify.org?format=json").openConnection() as HttpURLConnection).apply {
-                        connectTimeout = PublicIpTimeoutMs
-                        readTimeout = PublicIpTimeoutMs
-                        requestMethod = "GET"
+                val request =
+                    Request
+                        .Builder()
+                        .url("https://api.ipify.org?format=json")
+                        .get()
+                        .build()
+                tlsClientFactory
+                    .create {
+                        connectTimeout(PublicIpTimeoutMs.toLong(), java.util.concurrent.TimeUnit.MILLISECONDS)
+                        readTimeout(PublicIpTimeoutMs.toLong(), java.util.concurrent.TimeUnit.MILLISECONDS)
+                        callTimeout(PublicIpTimeoutMs.toLong(), java.util.concurrent.TimeUnit.MILLISECONDS)
+                    }.newCall(request)
+                    .execute()
+                    .use { response ->
+                        if (!response.isSuccessful) {
+                            return@runCatching null
+                        }
+                        val body = response.body.string()
+                        val json = lenientJson.decodeFromString(PublicIpResponse.serializer(), body)
+                        PublicIpInfo(ip = json.ip, asn = null)
                     }
-                connection.inputStream.bufferedReader().use { reader ->
-                    val json = lenientJson.decodeFromString(PublicIpResponse.serializer(), reader.readText())
-                    PublicIpInfo(ip = json.ip, asn = null)
-                }
             }.getOrNull()
 
         private fun formatAsn(org: String?): String? {

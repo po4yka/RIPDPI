@@ -44,6 +44,7 @@ import com.poyka.ripdpi.data.QuicInitialModeRouteAndCache
 import com.poyka.ripdpi.data.SeqOverlapFakeModeProfile
 import com.poyka.ripdpi.data.TcpChainStepKind
 import com.poyka.ripdpi.data.TcpChainStepModel
+import com.poyka.ripdpi.data.TlsFingerprintProfileNativeDefault
 import com.poyka.ripdpi.data.UdpChainStepModel
 import com.poyka.ripdpi.data.WarpAccountKindConsumerFree
 import com.poyka.ripdpi.data.WarpEndpointSelectionAutomatic
@@ -136,6 +137,7 @@ data class DetectionResistanceUiState(
     val quicMigrateAfterHandshake: Boolean = false,
     val strategyEvolution: Boolean = false,
     val evolutionEpsilon: Double = DefaultEvolutionEpsilon,
+    val tlsFingerprintProfile: String = TlsFingerprintProfileNativeDefault,
     val entropyMode: String = EntropyModeDisabled,
     val entropyPaddingTargetPermil: Int = DefaultEntropyPaddingTargetPermil,
     val entropyPaddingMax: Int = DefaultEntropyPaddingMax,
@@ -143,6 +145,9 @@ data class DetectionResistanceUiState(
 ) {
     val entropyEnabled: Boolean
         get() = entropyMode != EntropyModeDisabled
+
+    val tlsFingerprintProfileActive: Boolean
+        get() = tlsFingerprintProfile != TlsFingerprintProfileNativeDefault
 }
 
 @Stable

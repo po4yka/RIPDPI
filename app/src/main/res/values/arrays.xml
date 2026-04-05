@@ -51,6 +51,17 @@
         <item name="route_and_cache">route_and_cache</item>
     </array>
 
+    <array name="tls_fingerprint_profiles">
+        <item name="native_default">Native default</item>
+        <item name="chrome_stable">Chrome stable</item>
+        <item name="firefox_stable">Firefox stable</item>
+    </array>
+    <array name="tls_fingerprint_profiles_entries">
+        <item name="native_default">native_default</item>
+        <item name="chrome_stable">chrome_stable</item>
+        <item name="firefox_stable">firefox_stable</item>
+    </array>
+
     <array name="entropy_modes">
         <item name="disabled">Disabled</item>
         <item name="popcount">Popcount shaping</item>

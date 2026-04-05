@@ -13,7 +13,6 @@ import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
-import okhttp3.ConnectionSpec
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -24,7 +23,6 @@ import java.time.Instant
 import java.util.Locale
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
-import javax.inject.Named
 import javax.inject.Singleton
 
 data class WarpRegisterDeviceRequest(
@@ -64,8 +62,7 @@ interface WarpProvisioningClient {
 class DefaultWarpProvisioningClient
     @Inject
     constructor(
-        @param:Named("warpProvisioningClient")
-        private val client: OkHttpClient,
+        private val tlsClientFactory: OwnedTlsClientFactory,
         private val json: Json,
     ) : WarpProvisioningClient {
         override suspend fun register(request: WarpRegisterDeviceRequest): WarpProvisioningResult =
@@ -126,6 +123,7 @@ class DefaultWarpProvisioningClient
             publicKey: String,
             endpointSource: String,
         ): WarpProvisioningResult {
+            val client = createProvisioningClient()
             client.newCall(request).execute().use { response ->
                 val body = response.body.string()
                 if (!response.isSuccessful) {
@@ -149,6 +147,15 @@ class DefaultWarpProvisioningClient
                 )
             }
         }
+
+        private fun createProvisioningClient(): OkHttpClient =
+            tlsClientFactory.create(
+                forcedTlsVersions = listOf(TlsVersion.TLS_1_2),
+            ) {
+                connectTimeout(20, TimeUnit.SECONDS)
+                readTimeout(30, TimeUnit.SECONDS)
+                callTimeout(45, TimeUnit.SECONDS)
+            }
     }
 
 internal fun reservedBytesFromClientId(clientId: String?): ByteArray {
@@ -327,24 +334,6 @@ internal object WarpProvisioningNetworkModule {
     @Provides
     @Singleton
     fun provideWarpProvisioningJson(): Json = Json { ignoreUnknownKeys = true }
-
-    @Provides
-    @Singleton
-    @Named("warpProvisioningClient")
-    fun provideWarpProvisioningOkHttpClient(): OkHttpClient =
-        OkHttpClient
-            .Builder()
-            .connectionSpecs(
-                listOf(
-                    ConnectionSpec
-                        .Builder(ConnectionSpec.MODERN_TLS)
-                        .tlsVersions(TlsVersion.TLS_1_2)
-                        .build(),
-                ),
-            ).connectTimeout(20, TimeUnit.SECONDS)
-            .readTimeout(30, TimeUnit.SECONDS)
-            .callTimeout(45, TimeUnit.SECONDS)
-            .build()
 }
 
 internal const val WarpRegistrationBaseUrl = "https://api.cloudflareclient.com/v0a4005/reg"

@@ -15,6 +15,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.SettingsUiState
 import com.poyka.ripdpi.data.EntropyModeDisabled
+import com.poyka.ripdpi.data.tlsFingerprintProfileSummary
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.cards.RipDpiCardVariant
 import com.poyka.ripdpi.ui.components.cards.SettingsRow
@@ -27,6 +28,7 @@ import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 internal fun LazyListScope.detectionResistanceSection(
     uiState: SettingsUiState,
     visualEditorEnabled: Boolean,
+    tlsFingerprintOptions: List<RipDpiDropdownOption<String>>,
     entropyModeOptions: List<RipDpiDropdownOption<String>>,
     onToggleChanged: (AdvancedToggleSetting, Boolean) -> Unit,
     onOptionSelected: (AdvancedOptionSetting, String) -> Unit,
@@ -43,6 +45,16 @@ internal fun LazyListScope.detectionResistanceSection(
                 modifier = Modifier.padding(bottom = spacing.sm),
             )
             RipDpiCard(variant = RipDpiCardVariant.Outlined) {
+                AdvancedDropdownSetting(
+                    title = stringResource(R.string.detection_resistance_tls_fingerprint_title),
+                    description = stringResource(R.string.detection_resistance_tls_fingerprint_body),
+                    value = uiState.detectionResistance.tlsFingerprintProfile,
+                    enabled = visualEditorEnabled,
+                    options = tlsFingerprintOptions,
+                    setting = AdvancedOptionSetting.TlsFingerprintProfile,
+                    onSelected = onOptionSelected,
+                    showDivider = true,
+                )
                 AdvancedDropdownSetting(
                     title = stringResource(R.string.detection_resistance_entropy_mode_title),
                     description = stringResource(R.string.detection_resistance_entropy_mode_body),
@@ -128,19 +140,37 @@ private fun DetectionResistanceSummaryCard(
     val resistance = uiState.detectionResistance
     val tone =
         when {
-            uiState.enableCmdSettings -> StatusIndicatorTone.Warning
-            resistance.entropyEnabled || resistance.strategyEvolution || resistance.quicMigrateAfterHandshake -> {
+            uiState.enableCmdSettings -> {
+                StatusIndicatorTone.Warning
+            }
+
+            resistance.tlsFingerprintProfileActive ||
+                resistance.entropyEnabled ||
+                resistance.strategyEvolution ||
+                resistance.quicMigrateAfterHandshake -> {
                 StatusIndicatorTone.Active
             }
-            else -> StatusIndicatorTone.Idle
+
+            else -> {
+                StatusIndicatorTone.Idle
+            }
         }
     val label =
         when {
-            uiState.enableCmdSettings -> stringResource(R.string.detection_resistance_cli_title)
-            resistance.entropyEnabled || resistance.strategyEvolution || resistance.quicMigrateAfterHandshake -> {
+            uiState.enableCmdSettings -> {
+                stringResource(R.string.detection_resistance_cli_title)
+            }
+
+            resistance.tlsFingerprintProfileActive ||
+                resistance.entropyEnabled ||
+                resistance.strategyEvolution ||
+                resistance.quicMigrateAfterHandshake -> {
                 stringResource(R.string.detection_resistance_active_title)
             }
-            else -> stringResource(R.string.detection_resistance_idle_title)
+
+            else -> {
+                stringResource(R.string.detection_resistance_idle_title)
+            }
         }
 
     RipDpiCard(modifier = modifier, variant = RipDpiCardVariant.Elevated) {
@@ -153,6 +183,9 @@ private fun DetectionResistanceSummaryCard(
         SummaryCapsuleFlow(
             items =
                 buildList {
+                    if (resistance.tlsFingerprintProfileActive) {
+                        add(tlsFingerprintProfileSummary(resistance.tlsFingerprintProfile) to SummaryCapsuleTone.Active)
+                    }
                     if (resistance.entropyEnabled) {
                         add(resistance.entropyMode to SummaryCapsuleTone.Active)
                     }
@@ -163,7 +196,10 @@ private fun DetectionResistanceSummaryCard(
                         add(stringResource(R.string.detection_resistance_badge_low_port) to SummaryCapsuleTone.Info)
                     }
                     if (resistance.quicMigrateAfterHandshake) {
-                        add(stringResource(R.string.detection_resistance_badge_quic_migrate) to SummaryCapsuleTone.Active)
+                        add(
+                            stringResource(R.string.detection_resistance_badge_quic_migrate) to
+                                SummaryCapsuleTone.Active,
+                        )
                     }
                     if (isEmpty()) {
                         add(stringResource(R.string.detection_resistance_badge_default) to SummaryCapsuleTone.Neutral)
@@ -171,6 +207,10 @@ private fun DetectionResistanceSummaryCard(
                 },
         )
         Column(verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
+            ProfileSummaryLine(
+                label = stringResource(R.string.detection_resistance_summary_tls),
+                value = tlsFingerprintProfileSummary(resistance.tlsFingerprintProfile),
+            )
             ProfileSummaryLine(
                 label = stringResource(R.string.detection_resistance_summary_entropy),
                 value =
@@ -203,10 +243,14 @@ private fun DetectionResistanceSummaryCard(
                         resistance.quicMigrateAfterHandshake -> {
                             stringResource(R.string.detection_resistance_summary_quic_migrate)
                         }
+
                         resistance.quicBindLowPort -> {
                             stringResource(R.string.detection_resistance_summary_quic_low_port)
                         }
-                        else -> stringResource(R.string.detection_resistance_summary_off)
+
+                        else -> {
+                            stringResource(R.string.detection_resistance_summary_off)
+                        }
                     },
             )
         }

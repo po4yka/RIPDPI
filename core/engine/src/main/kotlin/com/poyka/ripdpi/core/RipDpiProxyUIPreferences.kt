@@ -21,6 +21,7 @@ import com.poyka.ripdpi.data.RelayKindOff
 import com.poyka.ripdpi.data.StrategyLaneFamilies
 import com.poyka.ripdpi.data.TcpChainStepKind
 import com.poyka.ripdpi.data.TcpChainStepModel
+import com.poyka.ripdpi.data.TlsFingerprintProfileNativeDefault
 import com.poyka.ripdpi.data.deriveStrategyLaneFamilies
 import com.poyka.ripdpi.data.effectiveAdaptiveFakeTtlDelta
 import com.poyka.ripdpi.data.effectiveAdaptiveFakeTtlFallback
@@ -42,12 +43,12 @@ import com.poyka.ripdpi.data.effectiveUdpFakeProfile
 import com.poyka.ripdpi.data.formatChainSummary
 import com.poyka.ripdpi.data.isTlsPrelude
 import com.poyka.ripdpi.data.normalizeActivationFilter
-import com.poyka.ripdpi.data.normalizeAdaptiveFallbackCachePrefixV4
-import com.poyka.ripdpi.data.normalizeAdaptiveFallbackCacheTtlSeconds
 import com.poyka.ripdpi.data.normalizeAdaptiveFakeTtlDelta
 import com.poyka.ripdpi.data.normalizeAdaptiveFakeTtlFallback
 import com.poyka.ripdpi.data.normalizeAdaptiveFakeTtlMax
 import com.poyka.ripdpi.data.normalizeAdaptiveFakeTtlMin
+import com.poyka.ripdpi.data.normalizeAdaptiveFallbackCachePrefixV4
+import com.poyka.ripdpi.data.normalizeAdaptiveFallbackCacheTtlSeconds
 import com.poyka.ripdpi.data.normalizeEntropyMode
 import com.poyka.ripdpi.data.normalizeFakeTlsSniMode
 import com.poyka.ripdpi.data.normalizeHostAutolearnMaxHosts
@@ -60,12 +61,13 @@ import com.poyka.ripdpi.data.normalizeQuicInitialMode
 import com.poyka.ripdpi.data.normalizeRelayKind
 import com.poyka.ripdpi.data.normalizeTcpChainStepModel
 import com.poyka.ripdpi.data.normalizeTlsFakeProfile
+import com.poyka.ripdpi.data.normalizeTlsFingerprintProfile
 import com.poyka.ripdpi.data.normalizeUdpChainStepModel
 import com.poyka.ripdpi.data.normalizeUdpFakeProfile
 import com.poyka.ripdpi.data.setGroupActivationFilterCompat
 import com.poyka.ripdpi.data.setStrategyChains
-import com.poyka.ripdpi.data.toRelaySettingsModel
 import com.poyka.ripdpi.data.toAdaptiveFallbackSettingsModel
+import com.poyka.ripdpi.data.toRelaySettingsModel
 import com.poyka.ripdpi.data.toWarpSettingsModel
 import com.poyka.ripdpi.proto.AppSettings
 
@@ -218,12 +220,15 @@ class RipDpiProxyUIPreferences(
                 dropSack = settings.dropSack,
                 quicBindLowPort = settings.quicBindLowPort,
                 quicMigrateAfterHandshake = settings.quicMigrateAfterHandshake,
-                entropyMode = com.poyka.ripdpi.data.entropyModeFromProto(settings.entropyMode),
+                entropyMode =
+                    com.poyka.ripdpi.data
+                        .entropyModeFromProto(settings.entropyMode),
                 entropyPaddingTargetPermil =
                     settings.entropyPaddingTargetPermil.takeIf { it > 0 } ?: DefaultEntropyPaddingTargetPermil,
                 entropyPaddingMax = settings.entropyPaddingMax.takeIf { it > 0 } ?: DefaultEntropyPaddingMax,
                 shannonEntropyTargetPermil =
                     settings.shannonEntropyTargetPermil.takeIf { it > 0 } ?: DefaultShannonEntropyTargetPermil,
+                tlsFingerprintProfile = normalizeTlsFingerprintProfile(settings.tlsFingerprintProfile),
             )
 
         private fun buildParserEvasionConfig(settings: AppSettings): RipDpiParserEvasionConfig =
@@ -422,10 +427,14 @@ fun RipDpiProxyUIPreferences.applyToSettings(settings: AppSettings): AppSettings
             setDropSack(fakePackets.dropSack)
             setQuicBindLowPort(fakePackets.quicBindLowPort)
             setQuicMigrateAfterHandshake(fakePackets.quicMigrateAfterHandshake)
-            setEntropyMode(com.poyka.ripdpi.data.entropyModeToProto(fakePackets.entropyMode))
+            setEntropyMode(
+                com.poyka.ripdpi.data
+                    .entropyModeToProto(fakePackets.entropyMode),
+            )
             setEntropyPaddingTargetPermil(fakePackets.entropyPaddingTargetPermil.coerceAtLeast(0))
             setEntropyPaddingMax(fakePackets.entropyPaddingMax.coerceAtLeast(0))
             setShannonEntropyTargetPermil(fakePackets.shannonEntropyTargetPermil.coerceAtLeast(0))
+            setTlsFingerprintProfile(normalizeTlsFingerprintProfile(fakePackets.tlsFingerprintProfile))
             setHostMixedCase(parserEvasions.hostMixedCase)
             setDomainMixedCase(parserEvasions.domainMixedCase)
             setHostRemoveSpaces(parserEvasions.hostRemoveSpaces)
@@ -551,10 +560,17 @@ private fun normalizeFakePacketConfig(config: RipDpiFakePacketConfig): RipDpiFak
         quicBindLowPort = config.quicBindLowPort,
         quicMigrateAfterHandshake = config.quicMigrateAfterHandshake,
         entropyMode = normalizeEntropyMode(config.entropyMode),
-        entropyPaddingTargetPermil = config.entropyPaddingTargetPermil.takeIf { it > 0 } ?: DefaultEntropyPaddingTargetPermil,
+        entropyPaddingTargetPermil =
+            config.entropyPaddingTargetPermil.takeIf { it > 0 } ?: DefaultEntropyPaddingTargetPermil,
         entropyPaddingMax = config.entropyPaddingMax.takeIf { it > 0 } ?: DefaultEntropyPaddingMax,
         shannonEntropyTargetPermil =
             config.shannonEntropyTargetPermil.takeIf { it > 0 } ?: DefaultShannonEntropyTargetPermil,
+        tlsFingerprintProfile =
+            normalizeTlsFingerprintProfile(
+                config.tlsFingerprintProfile.ifBlank {
+                    TlsFingerprintProfileNativeDefault
+                },
+            ),
     )
 }
 

@@ -12,6 +12,7 @@ import com.poyka.ripdpi.data.RelayKindVlessReality
 import com.poyka.ripdpi.data.TcpChainStepKind
 import com.poyka.ripdpi.data.TcpChainStepModel
 import com.poyka.ripdpi.data.TlsFakeProfileGoogleChrome
+import com.poyka.ripdpi.data.TlsFingerprintProfileChromeStable
 import com.poyka.ripdpi.data.UdpFakeProfileDnsQuery
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
@@ -106,6 +107,7 @@ class RipDpiProxyPreferencesTest {
                         entropyPaddingTargetPermil = 3600,
                         entropyPaddingMax = 384,
                         shannonEntropyTargetPermil = 7900,
+                        tlsFingerprintProfile = TlsFingerprintProfileChromeStable,
                     ),
                 quic =
                     RipDpiQuicConfig(
@@ -150,6 +152,7 @@ class RipDpiProxyPreferencesTest {
         assertEquals(3600, fakePackets.int("entropyPaddingTargetPermil"))
         assertEquals(384, fakePackets.int("entropyPaddingMax"))
         assertEquals(7900, fakePackets.int("shannonEntropyTargetPermil"))
+        assertEquals(TlsFingerprintProfileChromeStable, fakePackets.string("tlsFingerprintProfile"))
         assertEquals(QuicFakeProfileRealisticInitial, quic.string("fakeProfile"))
         assertEquals("video.example.test", quic.string("fakeHost"))
         assertEquals("true", hostAutolearn.string("enabled"))

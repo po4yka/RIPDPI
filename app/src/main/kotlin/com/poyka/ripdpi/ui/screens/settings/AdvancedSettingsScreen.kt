@@ -153,6 +153,7 @@ internal enum class AdvancedOptionSetting {
     WarpRouteMode,
     WarpEndpointSelectionMode,
     QuicInitialMode,
+    TlsFingerprintProfile,
     EntropyMode,
     UdpFakeProfile,
     QuicFakeProfile,
@@ -223,6 +224,7 @@ private data class AdvancedSettingsContentState(
     val warpRouteModeOptions: List<RipDpiDropdownOption<String>>,
     val warpEndpointSelectionOptions: List<RipDpiDropdownOption<String>>,
     val quicModeOptions: List<RipDpiDropdownOption<String>>,
+    val tlsFingerprintOptions: List<RipDpiDropdownOption<String>>,
     val entropyModeOptions: List<RipDpiDropdownOption<String>>,
     val udpFakeProfileOptions: List<RipDpiDropdownOption<String>>,
     val adaptiveSplitPresetOptions: List<AdaptiveSplitPresetUiModel>,
@@ -335,6 +337,11 @@ private fun rememberAdvancedSettingsContentState(uiState: SettingsUiState): Adva
             rememberSettingsOptions(
                 labelArrayRes = R.array.quic_initial_modes,
                 valueArrayRes = R.array.quic_initial_modes_entries,
+            ),
+        tlsFingerprintOptions =
+            rememberSettingsOptions(
+                labelArrayRes = R.array.tls_fingerprint_profiles,
+                valueArrayRes = R.array.tls_fingerprint_profiles_entries,
             ),
         entropyModeOptions =
             rememberSettingsOptions(
@@ -522,6 +529,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.advancedSettingsSecon
     detectionResistanceSection(
         uiState = uiState,
         visualEditorEnabled = contentState.visualEditorEnabled,
+        tlsFingerprintOptions = contentState.tlsFingerprintOptions,
         entropyModeOptions = contentState.entropyModeOptions,
         onToggleChanged = actions.onToggleChanged,
         onOptionSelected = actions.onOptionSelected,

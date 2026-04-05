@@ -743,6 +743,7 @@ class NativeConfigContractSnapshotTest {
         entropyPaddingTargetPermil: Int = 3400,
         entropyPaddingMax: Int = 256,
         shannonEntropyTargetPermil: Int = 7920,
+        tlsFingerprintProfile: String = "native_default",
     ): JsonObject =
         buildJsonObject {
             put("fakeTtl", JsonPrimitive(fakeTtl))
@@ -770,6 +771,7 @@ class NativeConfigContractSnapshotTest {
             put("entropyPaddingTargetPermil", JsonPrimitive(entropyPaddingTargetPermil))
             put("entropyPaddingMax", JsonPrimitive(entropyPaddingMax))
             put("shannonEntropyTargetPermil", JsonPrimitive(shannonEntropyTargetPermil))
+            put("tlsFingerprintProfile", JsonPrimitive(tlsFingerprintProfile))
         }
 
     private fun parserEvasionsExpected(

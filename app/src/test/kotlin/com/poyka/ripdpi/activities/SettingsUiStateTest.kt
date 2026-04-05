@@ -41,6 +41,8 @@ import com.poyka.ripdpi.data.SeqOverlapFakeModeRand
 import com.poyka.ripdpi.data.TcpChainStepKind
 import com.poyka.ripdpi.data.TcpChainStepModel
 import com.poyka.ripdpi.data.TlsFakeProfileGoogleChrome
+import com.poyka.ripdpi.data.TlsFingerprintProfileChromeStable
+import com.poyka.ripdpi.data.TlsFingerprintProfileNativeDefault
 import com.poyka.ripdpi.data.UdpChainStepModel
 import com.poyka.ripdpi.data.UdpFakeProfileDnsQuery
 import com.poyka.ripdpi.data.WarpAccountKindConsumerFree
@@ -123,6 +125,8 @@ class SettingsUiStateTest {
         assertEquals(WarpAccountKindConsumerFree, state.warp.accountKind)
         assertEquals(WarpSetupStateNotConfigured, state.warp.setupState)
         assertEquals(WarpScannerModeAutomatic, state.warp.lastScannerMode)
+        assertEquals(TlsFingerprintProfileNativeDefault, state.detectionResistance.tlsFingerprintProfile)
+        assertFalse(state.detectionResistance.tlsFingerprintProfileActive)
         assertEquals(QuicFakeProfileCompatDefault, state.quic.quicFakeProfile)
         assertEquals("", state.quic.quicFakeHost)
         assertTrue(state.quic.quicFakeProfileActive)
@@ -237,6 +241,20 @@ class SettingsUiStateTest {
         assertTrue(state.httpParser.hasCustomHttpParserEvasions)
         assertTrue(state.showHttpParserProfile)
         assertFalse(state.canResetHttpParserEvasions)
+    }
+
+    @Test
+    fun `tls fingerprint profile round trips into detection resistance ui state`() {
+        val settings =
+            defaults
+                .toBuilder()
+                .setTlsFingerprintProfile(TlsFingerprintProfileChromeStable)
+                .build()
+
+        val state = settings.toUiState()
+
+        assertEquals(TlsFingerprintProfileChromeStable, state.detectionResistance.tlsFingerprintProfile)
+        assertTrue(state.detectionResistance.tlsFingerprintProfileActive)
     }
 
     @Test
