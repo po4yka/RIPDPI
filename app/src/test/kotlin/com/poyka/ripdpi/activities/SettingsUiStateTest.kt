@@ -23,6 +23,7 @@ import com.poyka.ripdpi.data.DefaultTlsRandRecFragmentCount
 import com.poyka.ripdpi.data.DefaultTlsRandRecMaxFragmentSize
 import com.poyka.ripdpi.data.DefaultTlsRandRecMinFragmentSize
 import com.poyka.ripdpi.data.DefaultTlsRecordMarker
+import com.poyka.ripdpi.data.DefaultWarpProfileId
 import com.poyka.ripdpi.data.DnsModeEncrypted
 import com.poyka.ripdpi.data.DnsProviderCustom
 import com.poyka.ripdpi.data.EncryptedDnsProtocolDnsCrypt
@@ -42,6 +43,9 @@ import com.poyka.ripdpi.data.TcpChainStepModel
 import com.poyka.ripdpi.data.TlsFakeProfileGoogleChrome
 import com.poyka.ripdpi.data.UdpChainStepModel
 import com.poyka.ripdpi.data.UdpFakeProfileDnsQuery
+import com.poyka.ripdpi.data.WarpAccountKindConsumerFree
+import com.poyka.ripdpi.data.WarpScannerModeAutomatic
+import com.poyka.ripdpi.data.WarpSetupStateNotConfigured
 import com.poyka.ripdpi.data.effectiveTcpChainSteps
 import com.poyka.ripdpi.data.effectiveUdpChainSteps
 import com.poyka.ripdpi.data.isTlsPrelude
@@ -115,6 +119,10 @@ class SettingsUiStateTest {
         assertFalse(state.canResetHttpParserEvasions)
         assertTrue(state.httpParserControlsRelevant)
         assertTrue(state.showHttpParserProfile)
+        assertEquals(DefaultWarpProfileId, state.warp.profileId)
+        assertEquals(WarpAccountKindConsumerFree, state.warp.accountKind)
+        assertEquals(WarpSetupStateNotConfigured, state.warp.setupState)
+        assertEquals(WarpScannerModeAutomatic, state.warp.lastScannerMode)
         assertEquals(QuicFakeProfileCompatDefault, state.quic.quicFakeProfile)
         assertEquals("", state.quic.quicFakeHost)
         assertTrue(state.quic.quicFakeProfileActive)

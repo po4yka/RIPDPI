@@ -142,6 +142,11 @@ internal data class AppSettingsSnapshot(
     val warpRouteMode: String = defaultSettings.warpRouteMode,
     val warpRouteHosts: String = defaultSettings.warpRouteHosts,
     val warpBuiltinRulesEnabled: Boolean = defaultSettings.warpBuiltinRulesEnabled,
+    val warpProfileId: String = defaultSettings.warpProfileId,
+    val warpAccountKind: String = defaultSettings.warpAccountKind,
+    val warpZeroTrustOrg: String = defaultSettings.warpZeroTrustOrg,
+    val warpSetupState: String = defaultSettings.warpSetupState,
+    val warpLastScannerMode: String = defaultSettings.warpLastScannerMode,
     val warpEndpointSelectionMode: String = defaultSettings.warpEndpointSelectionMode,
     val warpManualEndpointHost: String = defaultSettings.warpManualEndpointHost,
     val warpManualEndpointV4: String = defaultSettings.warpManualEndpointV4,
@@ -328,6 +333,11 @@ private fun AppSettings.toSnapshot(): AppSettingsSnapshot =
             warpRouteMode = normalizeWarpRouteMode(warpRouteMode),
             warpRouteHosts = warpRouteHosts,
             warpBuiltinRulesEnabled = warpBuiltinRulesEnabled,
+            warpProfileId = warpProfileId.ifBlank { DefaultWarpProfileId },
+            warpAccountKind = normalizeWarpAccountKind(warpAccountKind),
+            warpZeroTrustOrg = warpZeroTrustOrg,
+            warpSetupState = normalizeWarpSetupState(warpSetupState),
+            warpLastScannerMode = normalizeWarpScannerMode(warpLastScannerMode),
             warpEndpointSelectionMode = normalizeWarpEndpointSelectionMode(warpEndpointSelectionMode),
             warpManualEndpointHost = warpManualEndpointHost,
             warpManualEndpointV4 = warpManualEndpointV4,
@@ -505,6 +515,11 @@ private fun AppSettingsSnapshot.toAppSettings(): AppSettings {
         .setWarpRouteMode(normalizeWarpRouteMode(warpRouteMode))
         .setWarpRouteHosts(warpRouteHosts)
         .setWarpBuiltinRulesEnabled(warpBuiltinRulesEnabled)
+        .setWarpProfileId(warpProfileId.ifBlank { DefaultWarpProfileId })
+        .setWarpAccountKind(normalizeWarpAccountKind(warpAccountKind))
+        .setWarpZeroTrustOrg(warpZeroTrustOrg)
+        .setWarpSetupState(normalizeWarpSetupState(warpSetupState))
+        .setWarpLastScannerMode(normalizeWarpScannerMode(warpLastScannerMode))
         .setWarpEndpointSelectionMode(normalizeWarpEndpointSelectionMode(warpEndpointSelectionMode))
         .setWarpManualEndpointHost(warpManualEndpointHost)
         .setWarpManualEndpointV4(warpManualEndpointV4)
