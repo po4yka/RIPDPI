@@ -456,6 +456,7 @@ pub fn runtime_config_from_ui(payload: ProxyUiConfig) -> Result<RuntimeConfig, P
         ws_tunnel,
         native_log_level: _,
         root_mode,
+        root_helper_socket_path,
     } = payload;
 
     let listen_ip =
@@ -828,6 +829,7 @@ pub fn runtime_config_from_ui(payload: ProxyUiConfig) -> Result<RuntimeConfig, P
     }
 
     config.process.root_mode = root_mode;
+    config.process.root_helper_socket_path = root_helper_socket_path;
 
     Ok(config)
 }

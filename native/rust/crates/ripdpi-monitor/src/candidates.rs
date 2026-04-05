@@ -339,6 +339,24 @@ pub(crate) fn build_tcp_candidates(base: &ProxyUiConfig) -> Vec<StrategyCandidat
             vec!["VPN-only raw-socket TCP fragmentation of the first application-data segment"],
         ));
     }
+    // Root-only candidates: require TCP_REPAIR + SOCK_RAW via the root helper.
+    let tcp_repair_capable = probe_ip_fragmentation_capabilities().tcp_repair;
+    if tcp_repair_capable {
+        candidates.push(candidate_spec_with_notes(
+            "fake_rst",
+            "Fake RST (TTL trick)",
+            "fake_rst",
+            build_fake_rst_candidate(base),
+            vec!["Sends a fake RST with low TTL to clear DPI state; requires root"],
+        ));
+        candidates.push(candidate_spec_with_notes(
+            "multi_disorder",
+            "Multi-disorder (3+ segments)",
+            "multi_disorder",
+            build_multi_disorder_candidate(base),
+            vec!["3+ out-of-order TCP segments via TCP_REPAIR; requires root"],
+        ));
+    }
     candidates
 }
 
@@ -687,6 +705,20 @@ pub(crate) fn build_ipfrag_candidate(base: &ProxyUiConfig) -> ProxyUiConfig {
     config
 }
 
+fn build_fake_rst_candidate(base: &ProxyUiConfig) -> ProxyUiConfig {
+    let mut config = strategy_probe_base(base);
+    // FakeRst is a pre-send action, followed by a regular split to deliver the payload.
+    config.chains.tcp_steps = vec![tcp_step("fakerst", "host+2"), tcp_step("split", "host+2")];
+    config
+}
+
+fn build_multi_disorder_candidate(base: &ProxyUiConfig) -> ProxyUiConfig {
+    let mut config = strategy_probe_base(base);
+    // Multi-disorder splits the ClientHello into 3+ out-of-order segments.
+    config.chains.tcp_steps = vec![tcp_step("multidisorder", "host+2"), tcp_step("multidisorder", "midsld")];
+    config
+}
+
 pub(crate) fn build_quic_ipfrag_candidate(base_tcp: &ProxyUiConfig) -> ProxyUiConfig {
     let mut config = sanitize_current_probe_config(base_tcp);
     config.protocols.desync_udp = true;
@@ -955,6 +987,16 @@ mod tests {
 
         assert_eq!(tcp_candidates.iter().any(|candidate| candidate.id == "ipfrag2"), tcp_ipfrag_capable);
         assert_eq!(quic_candidates.iter().any(|candidate| candidate.id == "quic_ipfrag2"), udp_ipfrag_capable);
+    }
+
+    #[test]
+    fn root_only_candidates_follow_tcp_repair_capability() {
+        let base = minimal_ui_config();
+        let tcp_candidates = build_tcp_candidates(&base);
+        let tcp_repair_capable = probe_ip_fragmentation_capabilities().tcp_repair;
+
+        assert_eq!(tcp_candidates.iter().any(|c| c.id == "fake_rst"), tcp_repair_capable);
+        assert_eq!(tcp_candidates.iter().any(|c| c.id == "multi_disorder"), tcp_repair_capable);
     }
 
     #[test]

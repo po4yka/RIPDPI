@@ -564,6 +564,7 @@ pub struct RuntimeProcessSettings {
     pub daemonize: bool,
     pub pid_file: Option<String>,
     pub root_mode: bool,
+    pub root_helper_socket_path: Option<String>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -1016,6 +1017,8 @@ mod tests {
             protect_path: Some("protect.sock".to_string()),
             daemonize: true,
             pid_file: Some("ripdpi.pid".to_string()),
+            root_mode: false,
+            root_helper_socket_path: None,
         };
         let quic = RuntimeQuicSettings { initial_mode: QuicInitialMode::Route, support_v1: false, support_v2: true };
         let adaptive = RuntimeAdaptiveSettings {

@@ -66,6 +66,8 @@ class RipDpiProxyUIPreferences(
     nativeLogLevel: String? = null,
     runtimeContext: RipDpiRuntimeContext? = null,
     logContext: RipDpiLogContext? = null,
+    val rootMode: Boolean = false,
+    val rootHelperSocketPath: String? = null,
 ) : RipDpiProxyPreferences {
     val listen: RipDpiListenConfig = normalizeListenConfig(listen)
     val chains: RipDpiChainConfig = normalizeChainConfig(chains)
@@ -78,7 +80,12 @@ class RipDpiProxyUIPreferences(
     val logContext: RipDpiLogContext? = normalizeLogContext(logContext)
     val chainSummary: String = formatChainSummary(this.chains.tcpSteps, this.chains.udpSteps)
 
-    override fun toNativeConfigJson(): String = RipDpiProxyJsonCodec.encodeUiPreferences(this)
+    override fun toNativeConfigJson(): String =
+        RipDpiProxyJsonCodec.encodeUiPreferences(
+            this,
+            rootMode = rootMode,
+            rootHelperSocketPath = rootHelperSocketPath,
+        )
 
     fun withSessionOverrides(
         hostAutolearnStorePath: String? = hostAutolearn.storePath,
@@ -103,6 +110,8 @@ class RipDpiProxyUIPreferences(
             nativeLogLevel = nativeLogLevel,
             runtimeContext = runtimeContext ?: this.runtimeContext,
             logContext = logContext ?: this.logContext,
+            rootMode = rootMode,
+            rootHelperSocketPath = rootHelperSocketPath,
         )
 
     companion object {
@@ -112,6 +121,8 @@ class RipDpiProxyUIPreferences(
             networkScopeKey: String? = null,
             runtimeContext: RipDpiRuntimeContext? = null,
             logContext: RipDpiLogContext? = null,
+            rootMode: Boolean = false,
+            rootHelperSocketPath: String? = null,
         ): RipDpiProxyUIPreferences =
             RipDpiProxyUIPreferences(
                 listen = buildListenConfig(settings),
@@ -125,6 +136,8 @@ class RipDpiProxyUIPreferences(
                 wsTunnel = buildWsTunnelConfig(settings),
                 runtimeContext = runtimeContext,
                 logContext = logContext,
+                rootMode = rootMode,
+                rootHelperSocketPath = rootHelperSocketPath,
             )
 
         private fun buildListenConfig(settings: AppSettings): RipDpiListenConfig =

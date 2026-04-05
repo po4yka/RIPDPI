@@ -10,6 +10,10 @@ use socket2::{Domain, Protocol, Socket, Type};
 #[cfg(any(target_os = "linux", target_os = "android"))]
 pub(crate) mod linux;
 pub mod protect;
+#[cfg(any(target_os = "linux", target_os = "android"))]
+pub mod root_helper;
+#[cfg(any(target_os = "linux", target_os = "android"))]
+pub mod root_helper_client;
 
 pub type TcpStageWait = (bool, Duration);
 
@@ -156,6 +160,9 @@ pub fn set_rcvbuf(_fd: &impl AsRawFd, _size: u32) -> io::Result<()> {
 
 #[cfg(any(target_os = "linux", target_os = "android"))]
 pub fn send_fake_rst(stream: &TcpStream, default_ttl: u8, protect_path: Option<&str>) -> io::Result<()> {
+    if let Some(result) = root_helper::with_root_helper(|h| h.send_fake_rst(stream.as_raw_fd(), default_ttl)) {
+        return result;
+    }
     linux::send_fake_rst(stream, default_ttl, protect_path)
 }
 
@@ -212,6 +219,9 @@ pub fn send_fake_tcp(
 
 #[cfg(any(target_os = "linux", target_os = "android"))]
 pub fn probe_ip_fragmentation_capabilities(protect_path: Option<&str>) -> io::Result<IpFragmentationCapabilities> {
+    if let Some(result) = root_helper::with_root_helper(|h| h.probe_capabilities()) {
+        return result;
+    }
     linux::probe_ip_fragmentation_capabilities(protect_path)
 }
 
@@ -231,6 +241,11 @@ pub fn send_ip_fragmented_udp(
     disorder: bool,
     ipv6_ext: ripdpi_ipfrag::Ipv6ExtHeaders,
 ) -> io::Result<()> {
+    if let Some(result) = root_helper::with_root_helper(|h| {
+        h.send_ip_fragmented_udp(upstream.as_raw_fd(), target, payload, split_offset, default_ttl, disorder)
+    }) {
+        return result;
+    }
     linux::send_ip_fragmented_udp(
         upstream,
         target,
@@ -267,6 +282,15 @@ pub fn send_ip_fragmented_tcp(
     disorder: bool,
     ipv6_ext: ripdpi_ipfrag::Ipv6ExtHeaders,
 ) -> io::Result<()> {
+    if let Some(result) = root_helper::with_root_helper(|h| {
+        let res = h.send_ip_fragmented_tcp(stream.as_raw_fd(), payload, split_offset, default_ttl, disorder)?;
+        if let Some(replacement_fd) = res {
+            swap_replacement_fd(stream.as_raw_fd(), replacement_fd)?;
+        }
+        Ok(())
+    }) {
+        return result;
+    }
     linux::send_ip_fragmented_tcp(stream, payload, split_offset, default_ttl, protect_path, disorder, ipv6_ext)
 }
 
@@ -293,6 +317,22 @@ pub fn send_multi_disorder_tcp(
     inter_segment_delay_ms: u32,
     md5sig: bool,
 ) -> io::Result<()> {
+    if let Some(result) = root_helper::with_root_helper(|h| {
+        let res = h.send_multi_disorder_tcp(
+            stream.as_raw_fd(),
+            payload,
+            segments,
+            default_ttl,
+            inter_segment_delay_ms,
+            md5sig,
+        )?;
+        if let Some(replacement_fd) = res {
+            swap_replacement_fd(stream.as_raw_fd(), replacement_fd)?;
+        }
+        Ok(())
+    }) {
+        return result;
+    }
     linux::send_multi_disorder_tcp(stream, payload, segments, default_ttl, protect_path, inter_segment_delay_ms, md5sig)
 }
 
@@ -318,6 +358,15 @@ pub fn send_seqovl_tcp(
     protect_path: Option<&str>,
     md5sig: bool,
 ) -> io::Result<()> {
+    if let Some(result) = root_helper::with_root_helper(|h| {
+        let res = h.send_seqovl_tcp(stream.as_raw_fd(), real_chunk, fake_prefix, default_ttl, md5sig)?;
+        if let Some(replacement_fd) = res {
+            swap_replacement_fd(stream.as_raw_fd(), replacement_fd)?;
+        }
+        Ok(())
+    }) {
+        return result;
+    }
     linux::send_seqovl_tcp(stream, real_chunk, fake_prefix, default_ttl, protect_path, md5sig)
 }
 
@@ -331,6 +380,21 @@ pub fn send_seqovl_tcp(
     _md5sig: bool,
 ) -> io::Result<()> {
     Err(io::Error::new(io::ErrorKind::Unsupported, "only supported on Linux/Android"))
+}
+
+/// Atomically replace the target fd with a replacement fd received from the
+/// root helper. Uses `dup2` to swap and then closes the replacement.
+#[cfg(any(target_os = "linux", target_os = "android"))]
+fn swap_replacement_fd(target_fd: std::os::fd::RawFd, replacement_fd: std::os::fd::RawFd) -> io::Result<()> {
+    // Safety: both fds are valid — target is the app's TcpStream, replacement
+    // was received via SCM_RIGHTS from the root helper.
+    let ret = unsafe { libc::dup2(replacement_fd, target_fd) };
+    if ret < 0 {
+        return Err(io::Error::last_os_error());
+    }
+    // Close the now-duplicated replacement fd.
+    unsafe { libc::close(replacement_fd) };
+    Ok(())
 }
 
 #[cfg(any(target_os = "linux", target_os = "android"))]

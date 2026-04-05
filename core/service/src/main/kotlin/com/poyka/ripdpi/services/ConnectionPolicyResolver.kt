@@ -79,6 +79,7 @@ class DefaultConnectionPolicyResolver
         private val networkDnsPathPreferenceStore: NetworkDnsPathPreferenceStore,
         private val rememberedNetworkPolicyStore: RememberedNetworkPolicyStore,
         private val startupDnsProbe: VpnStartupDnsProbe,
+        private val rootHelperManager: RootHelperManager,
     ) : ConnectionPolicyResolver {
         override suspend fun resolve(
             mode: Mode,
@@ -181,6 +182,8 @@ class DefaultConnectionPolicyResolver
                     hostAutolearnStorePath = hostAutolearnStorePath,
                     networkScopeKey = networkScopeKey,
                     runtimeContext = effectiveRuntimeContext,
+                    rootMode = settings.rootModeEnabled,
+                    rootHelperSocketPath = rootHelperManager.socketPath,
                 )
             val appliedPolicy =
                 rememberedPolicy?.copy(
@@ -245,6 +248,8 @@ class DefaultConnectionPolicyResolver
                     hostAutolearnStorePath,
                     networkScopeKey,
                     runtimeContext,
+                    rootMode = settings.rootModeEnabled,
+                    rootHelperSocketPath = rootHelperManager.socketPath,
                 )
             }
 

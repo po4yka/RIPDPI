@@ -94,26 +94,27 @@ abstract class BuildRustNativeLibsTask
             pruneStaleAbiOutputs(outputRoot)
 
             // Validate all ABIs upfront before spawning parallel builds.
-            val abiConfigs = abiList.map { abi ->
-                val target = abiToRustTarget(abi)
-                val clangTarget = abiToClangTarget(abi)
-                if (target !in installedTargets) {
-                    throw GradleException(
-                        "Missing Rust target $target. Install it once with `rustup target add $target`.",
-                    )
-                }
+            val abiConfigs =
+                abiList.map { abi ->
+                    val target = abiToRustTarget(abi)
+                    val clangTarget = abiToClangTarget(abi)
+                    if (target !in installedTargets) {
+                        throw GradleException(
+                            "Missing Rust target $target. Install it once with `rustup target add $target`.",
+                        )
+                    }
 
-                val linker = hostBinDir.resolve("${clangTarget}${minSdk.get()}-clang")
-                if (!linker.isFile) {
-                    throw GradleException("Android linker not found: ${linker.absolutePath}")
-                }
-                val ar = hostBinDir.resolve("llvm-ar")
-                if (!ar.isFile) {
-                    throw GradleException("Android archiver not found: ${ar.absolutePath}")
-                }
+                    val linker = hostBinDir.resolve("${clangTarget}${minSdk.get()}-clang")
+                    if (!linker.isFile) {
+                        throw GradleException("Android linker not found: ${linker.absolutePath}")
+                    }
+                    val ar = hostBinDir.resolve("llvm-ar")
+                    if (!ar.isFile) {
+                        throw GradleException("Android archiver not found: ${ar.absolutePath}")
+                    }
 
-                AbiConfig(abi, target, linker, ar)
-            }
+                    AbiConfig(abi, target, linker, ar)
+                }
 
             // Build all ABIs in parallel (each ABI has its own CARGO_TARGET_DIR).
             // Cap thread count to available processors to avoid CPU contention.
@@ -122,15 +123,23 @@ abstract class BuildRustNativeLibsTask
             val cargoJobs = (availableCpus / abiConfigs.size).coerceAtLeast(1)
             val executor = Executors.newFixedThreadPool(threadCount)
             try {
-                val futures: List<Future<*>> = abiConfigs.map { config ->
-                    executor.submit {
-                        buildSingleAbi(
-                            config, manifest, packageNames, cargoExecutablePath,
-                            cargoProfileName, cargoTargetRoot, outputRoot,
-                            expectedOutputNames, artifacts, cargoJobs,
-                        )
+                val futures: List<Future<*>> =
+                    abiConfigs.map { config ->
+                        executor.submit {
+                            buildSingleAbi(
+                                config,
+                                manifest,
+                                packageNames,
+                                cargoExecutablePath,
+                                cargoProfileName,
+                                cargoTargetRoot,
+                                outputRoot,
+                                expectedOutputNames,
+                                artifacts,
+                                cargoJobs,
+                            )
+                        }
                     }
-                }
 
                 // Collect all results; report first failure.
                 val errors = mutableListOf<Throwable>()
@@ -142,7 +151,11 @@ abstract class BuildRustNativeLibsTask
                     }
                 }
                 if (errors.isNotEmpty()) {
-                    val combined = errors.drop(1).fold(errors.first()) { acc, e -> acc.addSuppressed(e); acc }
+                    val combined =
+                        errors.drop(1).fold(errors.first()) { acc, e ->
+                            acc.addSuppressed(e)
+                            acc
+                        }
                     throw combined
                 }
             } finally {
@@ -200,14 +213,18 @@ abstract class BuildRustNativeLibsTask
                     add(cargoJobs.toString())
                 }
 
-            execOperations.exec {
-                workingDir = manifest.parentFile
-                environment(cargoEnvironment)
-                commandLine(cargoCommand)
-            }.assertNormalExitValue()
+            execOperations
+                .exec {
+                    workingDir = manifest.parentFile
+                    environment(cargoEnvironment)
+                    commandLine(cargoCommand)
+                }.assertNormalExitValue()
 
             for (artifact in artifacts) {
-                val builtLibrary = abiCargoTargetDir.resolve("${config.target}/$cargoProfileName/${artifact.sourceName}")
+                val builtLibrary =
+                    abiCargoTargetDir.resolve(
+                        "${config.target}/$cargoProfileName/${artifact.sourceName}",
+                    )
                 if (!builtLibrary.isFile) {
                     throw GradleException(
                         "Expected native library was not produced: ${builtLibrary.absolutePath}",
@@ -238,12 +255,14 @@ abstract class BuildRustNativeLibsTask
 
         private fun installedRustTargets(rustupExecutablePath: String): Set<String> {
             val stdout = ByteArrayOutputStream()
-            execOperations.exec {
-                standardOutput = stdout
-                commandLine(rustupExecutablePath, "target", "list", "--installed")
-            }.assertNormalExitValue()
+            execOperations
+                .exec {
+                    standardOutput = stdout
+                    commandLine(rustupExecutablePath, "target", "list", "--installed")
+                }.assertNormalExitValue()
 
-            return stdout.toString()
+            return stdout
+                .toString()
                 .lineSequence()
                 .map(String::trim)
                 .filter(String::isNotEmpty)
@@ -266,13 +285,17 @@ abstract class BuildRustNativeLibsTask
             }
         }
 
-        private fun pruneStaleArtifactOutputs(abiOutputDir: File, expectedOutputNames: Set<String>) {
+        private fun pruneStaleArtifactOutputs(
+            abiOutputDir: File,
+            expectedOutputNames: Set<String>,
+        ) {
             if (!abiOutputDir.isDirectory) {
                 return
             }
 
             val stale =
-                abiOutputDir.listFiles()
+                abiOutputDir
+                    .listFiles()
                     ?.filter { candidate -> candidate.isFile && candidate.name !in expectedOutputNames }
                     .orEmpty()
             if (stale.isEmpty()) {
@@ -284,7 +307,10 @@ abstract class BuildRustNativeLibsTask
             }
         }
 
-        private fun copyIfChanged(source: File, target: File) {
+        private fun copyIfChanged(
+            source: File,
+            target: File,
+        ) {
             target.parentFile.mkdirs()
             if (target.isFile && Files.mismatch(source.toPath(), target.toPath()) == -1L) {
                 return
@@ -329,7 +355,10 @@ val rustNativeArtifactSpecs =
         "ripdpi-android|libripdpi_android.so|libripdpi.so",
         "ripdpi-tunnel-android|libripdpi_tunnel_android.so|libripdpi-tunnel.so",
     )
-val rustWorkspaceManifestFile = rootProject.layout.projectDirectory.file("native/rust/Cargo.toml").asFile
+val rustWorkspaceManifestFile =
+    rootProject.layout.projectDirectory
+        .file("native/rust/Cargo.toml")
+        .asFile
 val rustWorkspaceDir = rustWorkspaceManifestFile.parentFile
 // Keep this list aligned with `cargo tree -p ripdpi-android` and `cargo tree -p ripdpi-tunnel-android`
 // so unrelated workspace members do not invalidate the native build cache.
@@ -352,14 +381,22 @@ val rustNativePackageDirs =
         "ripdpi-tunnel-config",
         "ripdpi-tunnel-core",
         "ripdpi-ws-tunnel",
+        "ripdpi-ipfrag",
+        "ripdpi-root-helper",
     ).map { packageName ->
         rustWorkspaceDir.resolve("crates").resolve(packageName)
     }
 val generatedJniLibsDir = layout.buildDirectory.dir("generated/jniLibs")
+val generatedAssetsDir = layout.buildDirectory.dir("generated/rootHelperAssets")
 val rustNativeBuildDir = layout.buildDirectory.dir("intermediates/rust")
+val rustRootHelperArtifactSpecs =
+    listOf(
+        "ripdpi-root-helper|ripdpi-root-helper|ripdpi-root-helper",
+    )
 
 extensions.configure<LibraryExtension> {
     sourceSets["main"].jniLibs.directories.add(generatedJniLibsDir.get().asFile.absolutePath)
+    sourceSets["main"].assets.srcDirs(generatedAssetsDir.get().asFile.absolutePath)
 }
 
 val buildRustNativeLibs =
@@ -398,6 +435,49 @@ val buildRustNativeLibs =
         outputDir.set(generatedJniLibsDir)
     }
 
+val buildRustRootHelper =
+    tasks.register<BuildRustNativeLibsTask>("buildRustRootHelper") {
+        group = "build"
+        description = "Builds the Rust root helper binary into generated assets."
+
+        nativeSources.from(rustWorkspaceManifestFile)
+        nativeSources.from(
+            listOf("Cargo.lock", "rust-toolchain.toml")
+                .map(rustWorkspaceDir::resolve)
+                .filter { it.isFile },
+        )
+        nativeSources.from(
+            fileTree(rustWorkspaceDir.resolve(".cargo")) {
+                include("**/*")
+            },
+        )
+        nativeSources.from(
+            fileTree(rustWorkspaceDir.resolve("crates/ripdpi-root-helper")) {
+                exclude("**/target/**")
+            },
+        )
+        // The root helper depends on ripdpi-runtime and ripdpi-ipfrag sources.
+        nativeSources.from(
+            rustNativePackageDirs.map { packageDir ->
+                fileTree(packageDir) {
+                    exclude("**/target/**")
+                }
+            },
+        )
+        workspaceManifest.set(rustWorkspaceManifestFile)
+        sdkDir.set(resolveAndroidSdkDir())
+        cargoExecutable.set(resolveRustTool("cargo"))
+        rustupExecutable.set(resolveRustTool("rustup"))
+        ndkVersion.set(providers.gradleProperty("ripdpi.nativeNdkVersion"))
+        cargoProfile.set(rustNativeCargoProfile)
+        minSdk.set(providers.gradleProperty("ripdpi.minSdk").map(String::toInt))
+        abis.set(rustNativeAbis)
+        artifactSpecs.set(rustRootHelperArtifactSpecs)
+        cargoTargetDir.set(rustNativeBuildDir)
+        // Output to assets/bin/<abi>/ so Kotlin can extract at runtime.
+        outputDir.set(generatedAssetsDir.map { it.dir("bin") })
+    }
+
 // Wire the Rust build into the actual JNI packaging tasks so Rust-only source
 // changes cannot be skipped when the Android variants are otherwise up to date.
 tasks.configureEach {
@@ -408,8 +488,12 @@ tasks.configureEach {
     ) {
         dependsOn(buildRustNativeLibs)
     }
+    if (name.matches(Regex("^merge.+Assets$"))) {
+        dependsOn(buildRustRootHelper)
+    }
 }
 
 tasks.named("preBuild") {
     dependsOn(buildRustNativeLibs)
+    dependsOn(buildRustRootHelper)
 }
