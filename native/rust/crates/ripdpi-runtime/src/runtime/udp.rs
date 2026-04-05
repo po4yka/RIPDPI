@@ -51,7 +51,7 @@ fn bind_udp_socket(bind_addr: SocketAddr, protect_path: Option<&str>) -> io::Res
     let socket = Socket::new(domain, Type::DGRAM, Some(Protocol::UDP))?;
     socket.set_reuse_address(true)?;
     if let Some(path) = protect_path {
-        platform::protect_socket(&socket, path)?;
+        platform::protect_socket(&socket, Some(path))?;
     }
     socket.bind(&SockAddr::from(bind_addr))?;
     let socket: UdpSocket = socket.into();
@@ -72,7 +72,7 @@ fn build_udp_upstream_socket(
     let socket = Socket::new(domain, Type::DGRAM, Some(Protocol::UDP))?;
     socket.set_reuse_address(true)?;
     if let Some(path) = protect_path {
-        platform::protect_socket(&socket, path)?;
+        platform::protect_socket(&socket, Some(path))?;
     }
     let socket: UdpSocket = socket.into();
     socket.set_read_timeout(Some(Duration::from_millis(250)))?;
