@@ -26,6 +26,13 @@ pre-commit:
         { echo "error: potential secrets detected in staged changes"; exit 1; } ||
         true
 
+    no-detekt-baseline:
+      run: |
+        if git diff --cached --diff-filter=ACM --name-only | grep -q 'detekt-baseline\.xml'; then
+          echo "error: detekt-baseline.xml files are forbidden — fix violations in code instead"
+          exit 1
+        fi
+
     no-large-files:
       run: |
         large=""
