@@ -14,10 +14,12 @@ import com.poyka.ripdpi.data.WarpEndpointSelectionManual
 import com.poyka.ripdpi.data.WarpRouteModeRules
 import com.poyka.ripdpi.data.activeDnsSettings
 import com.poyka.ripdpi.data.diagnostics.BypassUsageHistoryStore
+import com.poyka.ripdpi.data.diagnostics.DiagnosticsArtifactQueryStore
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsArtifactReadStore
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsProfileCatalog
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsScanRecordStore
 import com.poyka.ripdpi.data.diagnostics.NetworkDnsPathPreferenceStore
+import com.poyka.ripdpi.data.diagnostics.ScanSessionEntity
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -74,7 +76,7 @@ class DefaultDiagnosticsDetailLoader
     @Inject
     constructor(
         private val scanRecordStore: DiagnosticsScanRecordStore,
-        private val artifactReadStore: DiagnosticsArtifactReadStore,
+        private val artifactQueryStore: DiagnosticsArtifactQueryStore,
         private val bypassUsageHistoryStore: BypassUsageHistoryStore,
         private val mapper: DiagnosticsBoundaryMapper,
         @param:Named("diagnosticsJson")
@@ -82,19 +84,19 @@ class DefaultDiagnosticsDetailLoader
     ) : DiagnosticsDetailLoader {
         constructor(
             scanRecordStore: DiagnosticsScanRecordStore,
-            artifactReadStore: DiagnosticsArtifactReadStore,
+            artifactQueryStore: DiagnosticsArtifactQueryStore,
             bypassUsageHistoryStore: BypassUsageHistoryStore,
             json: Json,
         ) : this(
             scanRecordStore = scanRecordStore,
-            artifactReadStore = artifactReadStore,
+            artifactQueryStore = artifactQueryStore,
             bypassUsageHistoryStore = bypassUsageHistoryStore,
             mapper = DiagnosticsBoundaryMapper(json),
             json = json,
         )
 
         override suspend fun loadSessionDetail(sessionId: String): DiagnosticSessionDetail =
-            DiagnosticsSessionQueries.loadSessionDetail(sessionId, scanRecordStore, artifactReadStore, mapper)
+            DiagnosticsSessionQueries.loadSessionDetail(sessionId, scanRecordStore, artifactQueryStore, mapper)
 
         override suspend fun loadApproachDetail(
             kind: BypassApproachKind,
@@ -116,6 +118,7 @@ class DefaultDiagnosticsShareService
     constructor(
         private val scanRecordStore: DiagnosticsScanRecordStore,
         private val artifactReadStore: DiagnosticsArtifactReadStore,
+        private val artifactQueryStore: DiagnosticsArtifactQueryStore,
         private val archiveExporter: DiagnosticsArchiveExporter,
         @param:Named("diagnosticsJson")
         private val json: Json,
@@ -126,6 +129,7 @@ class DefaultDiagnosticsShareService
                     sessionId = sessionId,
                     scanRecordStore = scanRecordStore,
                     artifactReadStore = artifactReadStore,
+                    artifactQueryStore = artifactQueryStore,
                     json = json,
                 )
             }
@@ -156,7 +160,7 @@ class DefaultDiagnosticsHomeWorkflowService
     constructor(
         private val appSettingsRepository: AppSettingsRepository,
         private val scanRecordStore: DiagnosticsScanRecordStore,
-        private val artifactReadStore: DiagnosticsArtifactReadStore,
+        private val artifactQueryStore: DiagnosticsArtifactQueryStore,
         private val networkFingerprintProvider: NetworkFingerprintProvider,
         private val resolverActions: DiagnosticsResolverActions,
         @param:Named("diagnosticsJson")
@@ -170,7 +174,7 @@ class DefaultDiagnosticsHomeWorkflowService
                 val report = session?.reportJson?.let { DiagnosticsSessionQueries.decodeScanReport(json, it) }
                 val fingerprintHash =
                     session?.triggerCurrentFingerprintHash
-                        ?: artifactReadStore
+                        ?: artifactQueryStore
                             .getNativeEventsForSession(sessionId, limit = 80)
                             .lastOrNull { !it.fingerprintHash.isNullOrBlank() }
                             ?.fingerprintHash
@@ -188,109 +192,141 @@ class DefaultDiagnosticsHomeWorkflowService
 
                 val strategyProbe = report.strategyProbeReport
                 val resolverRecommendation = report.resolverRecommendation
-                val strategyApplied =
-                    strategyProbe
-                        ?.takeIf {
-                            DiagnosticsScanWorkflow.evaluateBackgroundAutoPersistEligibility(it) ==
-                                DiagnosticsScanWorkflow.BackgroundAutoPersistEligibility.Eligible
-                        }?.recommendation
-                        ?.let { recommendation ->
-                            decodeRipDpiProxyUiPreferences(
-                                recommendation.recommendedProxyConfigJson,
-                            )?.let { preferences ->
-                                val settingsBefore = appSettingsRepository.snapshot()
-                                appSettingsRepository.replace(preferences.applyToSettings(settingsBefore))
-                                StrategyApplyResult(
-                                    recommendation = recommendation,
-                                    appliedSettings =
-                                        buildStrategyAppliedSettings(
-                                            recommendation = recommendation,
-                                            report = strategyProbe,
-                                            preferences = preferences,
-                                        ),
-                                )
-                            }
-                        }
                 val strategyRecommendation = report.strategyRecommendation
-                val resolverApplied =
-                    if (strategyApplied == null && resolverRecommendation?.persistable == true) {
-                        resolverActions.saveResolverRecommendation(sessionId)
-                        buildResolverAppliedSettings(resolverRecommendation)
-                    } else {
-                        emptyList()
-                    }
+                val strategyApplied = applyStrategyRecommendation(strategyProbe)
+                val resolverApplied = applyResolverRecommendation(sessionId, strategyApplied, resolverRecommendation)
                 val strategyRecommendationApplied =
                     if (strategyApplied == null && strategyRecommendation?.actionable == true) {
                         buildStrategyRecommendationAppliedSettings(strategyRecommendation)
                     } else {
                         emptyList()
                     }
-                val allApplied =
-                    strategyApplied?.appliedSettings
-                        ?: (resolverApplied + strategyRecommendationApplied)
-                val actionable =
-                    strategyApplied != null ||
-                        resolverApplied.isNotEmpty() ||
-                        strategyRecommendationApplied.isNotEmpty()
-                val assessment = strategyProbe?.auditAssessment
-                val strategyAdequacy =
-                    when {
-                        strategyApplied != null -> {
-                            StrategyAdequacy.STRATEGY_APPLIED
-                        }
 
-                        strategyRecommendationApplied.isNotEmpty() -> {
-                            StrategyAdequacy.STRATEGY_RECOMMENDED
-                        }
-
-                        strategyProbe != null && allTcpCandidatesFailed(strategyProbe) -> {
-                            StrategyAdequacy.ALL_CANDIDATES_FAILED
-                        }
-
-                        resolverApplied.isNotEmpty() -> {
-                            StrategyAdequacy.DNS_ONLY_APPLIED
-                        }
-
-                        strategyProbe == null -> {
-                            StrategyAdequacy.NO_STRATEGY_PROBE
-                        }
-
-                        else -> {
-                            null
-                        }
-                    }
-
-                DiagnosticsHomeAuditOutcome(
+                buildAuditOutcome(
                     sessionId = sessionId,
                     fingerprintHash = fingerprintHash,
-                    actionable = actionable,
-                    headline =
-                        buildAuditHeadline(
-                            strategyApplied,
-                            strategyAdequacy,
-                            actionable,
-                            resolverApplied,
-                            strategyProbe,
-                        ),
-                    summary = report.summary.ifBlank { session.summary },
-                    confidenceSummary =
-                        assessment?.let {
-                            "Confidence ${it.confidence.level.name.lowercase()} (${it.confidence.score})"
-                        },
-                    coverageSummary =
-                        assessment?.let {
-                            "Matrix ${it.coverage.matrixCoveragePercent}% · winners ${it.coverage.winnerCoveragePercent}%"
-                        },
-                    recommendationSummary =
-                        buildAuditRecommendationSummary(
-                            strategyApplied,
-                            strategyRecommendation,
-                            resolverRecommendation,
-                        ),
-                    appliedSettings = allApplied,
-                    strategyAdequacy = strategyAdequacy,
+                    session = session,
+                    report = report,
+                    strategyProbe = strategyProbe,
+                    strategyApplied = strategyApplied,
+                    strategyRecommendation = strategyRecommendation,
+                    resolverRecommendation = resolverRecommendation,
+                    resolverApplied = resolverApplied,
+                    strategyRecommendationApplied = strategyRecommendationApplied,
                 )
             }
+
+        private suspend fun applyStrategyRecommendation(strategyProbe: StrategyProbeReport?): StrategyApplyResult? =
+            strategyProbe
+                ?.takeIf {
+                    DiagnosticsScanWorkflow.evaluateBackgroundAutoPersistEligibility(it) ==
+                        DiagnosticsScanWorkflow.BackgroundAutoPersistEligibility.Eligible
+                }?.recommendation
+                ?.let { recommendation ->
+                    decodeRipDpiProxyUiPreferences(
+                        recommendation.recommendedProxyConfigJson,
+                    )?.let { preferences ->
+                        val settingsBefore = appSettingsRepository.snapshot()
+                        appSettingsRepository.replace(preferences.applyToSettings(settingsBefore))
+                        StrategyApplyResult(
+                            recommendation = recommendation,
+                            appliedSettings =
+                                buildStrategyAppliedSettings(
+                                    recommendation = recommendation,
+                                    report = strategyProbe,
+                                    preferences = preferences,
+                                ),
+                        )
+                    }
+                }
+
+        private suspend fun applyResolverRecommendation(
+            sessionId: String,
+            strategyApplied: StrategyApplyResult?,
+            resolverRecommendation: ResolverRecommendation?,
+        ): List<DiagnosticsAppliedSetting> =
+            if (strategyApplied == null && resolverRecommendation?.persistable == true) {
+                resolverActions.saveResolverRecommendation(sessionId)
+                buildResolverAppliedSettings(resolverRecommendation)
+            } else {
+                emptyList()
+            }
+
+        private fun resolveStrategyAdequacy(
+            strategyApplied: StrategyApplyResult?,
+            strategyRecommendationApplied: List<DiagnosticsAppliedSetting>,
+            resolverApplied: List<DiagnosticsAppliedSetting>,
+            strategyProbe: StrategyProbeReport?,
+        ): StrategyAdequacy? =
+            when {
+                strategyApplied != null -> StrategyAdequacy.STRATEGY_APPLIED
+                strategyRecommendationApplied.isNotEmpty() -> StrategyAdequacy.STRATEGY_RECOMMENDED
+                strategyProbe != null && allTcpCandidatesFailed(strategyProbe) -> StrategyAdequacy.ALL_CANDIDATES_FAILED
+                resolverApplied.isNotEmpty() -> StrategyAdequacy.DNS_ONLY_APPLIED
+                strategyProbe == null -> StrategyAdequacy.NO_STRATEGY_PROBE
+                else -> null
+            }
+
+        private fun resolveAppliedSettings(
+            strategyApplied: StrategyApplyResult?,
+            resolverApplied: List<DiagnosticsAppliedSetting>,
+            strategyRecommendationApplied: List<DiagnosticsAppliedSetting>,
+        ): List<DiagnosticsAppliedSetting> =
+            strategyApplied?.appliedSettings ?: (resolverApplied + strategyRecommendationApplied)
+
+        private fun buildAuditOutcome(
+            sessionId: String,
+            fingerprintHash: String?,
+            session: ScanSessionEntity,
+            report: ScanReport,
+            strategyProbe: StrategyProbeReport?,
+            strategyApplied: StrategyApplyResult?,
+            strategyRecommendation: StrategyRecommendation?,
+            resolverRecommendation: ResolverRecommendation?,
+            resolverApplied: List<DiagnosticsAppliedSetting>,
+            strategyRecommendationApplied: List<DiagnosticsAppliedSetting>,
+        ): DiagnosticsHomeAuditOutcome {
+            val allApplied = resolveAppliedSettings(strategyApplied, resolverApplied, strategyRecommendationApplied)
+            val actionable =
+                strategyApplied != null ||
+                    resolverApplied.isNotEmpty() ||
+                    strategyRecommendationApplied.isNotEmpty()
+            val assessment = strategyProbe?.auditAssessment
+            val strategyAdequacy =
+                resolveStrategyAdequacy(strategyApplied, strategyRecommendationApplied, resolverApplied, strategyProbe)
+            val coverageSummary =
+                assessment?.let {
+                    "Matrix ${it.coverage.matrixCoveragePercent}%" +
+                        " · winners ${it.coverage.winnerCoveragePercent}%"
+                }
+            return DiagnosticsHomeAuditOutcome(
+                sessionId = sessionId,
+                fingerprintHash = fingerprintHash,
+                actionable = actionable,
+                headline =
+                    buildAuditHeadline(
+                        strategyApplied,
+                        strategyAdequacy,
+                        actionable,
+                        resolverApplied,
+                        strategyProbe,
+                    ),
+                summary = report.summary.ifBlank { session.summary },
+                confidenceSummary =
+                    assessment?.let {
+                        "Confidence ${it.confidence.level.name.lowercase()} (${it.confidence.score})"
+                    },
+                coverageSummary = coverageSummary,
+                recommendationSummary =
+                    buildAuditRecommendationSummary(
+                        strategyApplied,
+                        strategyRecommendation,
+                        resolverRecommendation,
+                    ),
+                appliedSettings = allApplied,
+                strategyAdequacy = strategyAdequacy,
+            )
+        }
 
         override suspend fun summarizeVerification(sessionId: String): DiagnosticsHomeVerificationOutcome =
             withContext(Dispatchers.IO) {

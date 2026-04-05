@@ -110,7 +110,7 @@ class DiagnosticsDetailAndShareServicesTest {
                     privacyMode = "split_output",
                 )
             val archiveExporter = RecordingDiagnosticsArchiveExporter(expectedArchive)
-            val shareService = DefaultDiagnosticsShareService(stores, stores, archiveExporter, json)
+            val shareService = DefaultDiagnosticsShareService(stores, stores, stores, archiveExporter, json)
 
             val summary = shareService.buildShareSummary(session.id)
             val archive =
@@ -263,6 +263,7 @@ class DiagnosticsDetailAndShareServicesTest {
                 DefaultDiagnosticsShareService(
                     scanRecordStore = stores,
                     artifactReadStore = stores,
+                    artifactQueryStore = stores,
                     archiveExporter = RecordingDiagnosticsArchiveExporter(unusedArchive(selectedSession.id)),
                     json = json,
                 )
@@ -414,6 +415,7 @@ class DiagnosticsDetailAndShareServicesTest {
                 DefaultDiagnosticsShareService(
                     scanRecordStore = stores,
                     artifactReadStore = stores,
+                    artifactQueryStore = stores,
                     archiveExporter = RecordingDiagnosticsArchiveExporter(unusedArchive("session-2")),
                     json = json,
                 )

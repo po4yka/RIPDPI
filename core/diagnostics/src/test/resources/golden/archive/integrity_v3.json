@@ -21,11 +21,6 @@
             "sha256": "fae27766e18263e9223891a653fb29957d1cb69c3970a39638bec1afdff4bac0"
         },
         {
-            "byteCount": 229,
-            "name": "probe-results.csv",
-            "sha256": "83d8824108a030c98bd7ecc737e6437f81d5073b17a49325ae2d254e18cdc8c5"
-        },
-        {
             "byteCount": 973,
             "name": "archive-provenance.json",
             "sha256": "a2f7279d8b6334ba8b31e0c699479d1824f4fb663a24c3bec27cc568fcff62a0"
@@ -46,16 +41,6 @@
             "sha256": "3d42f8818304081b4626242398db40eb29d7a19832d26be8c8d305345bc934fc"
         },
         {
-            "byteCount": 228,
-            "name": "native-events.csv",
-            "sha256": "37ce8d8d0d007dae0924b291cfe39c6b8e09135ba4344c075673b764e95daf0e"
-        },
-        {
-            "byteCount": 580,
-            "name": "telemetry.csv",
-            "sha256": "e87896959a011dc5984cb698563d338cdd4940c5c184f19aa55079c05a25a4cc"
-        },
-        {
             "byteCount": 1553,
             "name": "network-snapshots.json",
             "sha256": "4072e3c982b82c6a77728a0bedc624ae81b59cee98849d1ef12fa26f4bdd7187"
@@ -64,6 +49,21 @@
             "byteCount": 3681,
             "name": "diagnostic-context.json",
             "sha256": "35dc2146179457a40375ef983928f2b75c1fad6fc7e4b456e61a4f13dd388303"
+        },
+        {
+            "byteCount": 229,
+            "name": "probe-results.csv",
+            "sha256": "83d8824108a030c98bd7ecc737e6437f81d5073b17a49325ae2d254e18cdc8c5"
+        },
+        {
+            "byteCount": 228,
+            "name": "native-events.csv",
+            "sha256": "37ce8d8d0d007dae0924b291cfe39c6b8e09135ba4344c075673b764e95daf0e"
+        },
+        {
+            "byteCount": 580,
+            "name": "telemetry.csv",
+            "sha256": "e87896959a011dc5984cb698563d338cdd4940c5c184f19aa55079c05a25a4cc"
         },
         {
             "byteCount": 47,

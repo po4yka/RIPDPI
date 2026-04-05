@@ -279,12 +279,12 @@ internal fun createDiagnosticsServices(
         detailLoader =
             DefaultDiagnosticsDetailLoader(
                 scanRecordStore = stores,
-                artifactReadStore = stores,
+                artifactQueryStore = stores,
                 bypassUsageHistoryStore = stores,
                 mapper = mapper,
                 json = json,
             ),
-        shareService = DefaultDiagnosticsShareService(stores, stores, archiveExporter, json),
+        shareService = DefaultDiagnosticsShareService(stores, stores, stores, archiveExporter, json),
         resolverActions =
             DefaultDiagnosticsResolverActions(
                 appSettingsRepository = appSettingsRepository,
