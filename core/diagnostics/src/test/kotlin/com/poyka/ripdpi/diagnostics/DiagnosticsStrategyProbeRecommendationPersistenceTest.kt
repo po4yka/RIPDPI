@@ -156,51 +156,8 @@ private fun preparedStrategyProbeScan(
     fingerprint: NetworkFingerprint,
 ): PreparedDiagnosticsScan {
     val contextSnapshot = FakeDiagnosticsContextProvider().captureContextForTest()
-    val intent =
-        DiagnosticsIntent(
-            profileId = "automatic-probing",
-            displayName = "Automatic probing",
-            settings = settings,
-            kind = ScanKind.STRATEGY_PROBE,
-            family = DiagnosticProfileFamily.AUTOMATIC_PROBING,
-            regionTag = null,
-            executionPolicy =
-                ExecutionPolicy(
-                    manualOnly = false,
-                    allowBackground = true,
-                    requiresRawPath = true,
-                    probePersistencePolicy = ProbePersistencePolicy.BACKGROUND_ONLY,
-                ),
-            packRefs = emptyList(),
-            domainTargets = emptyList(),
-            dnsTargets = emptyList(),
-            tcpTargets = emptyList(),
-            quicTargets = emptyList(),
-            serviceTargets = emptyList(),
-            circumventionTargets = emptyList(),
-            throughputTargets = emptyList(),
-            whitelistSni = emptyList(),
-            telegramTarget = null,
-            strategyProbe = StrategyProbeRequest(suiteId = "quick_v1"),
-            requestedPathMode = ScanPathMode.RAW_PATH,
-        )
-    val context =
-        ScanContext(
-            settings = settings,
-            pathMode = ScanPathMode.RAW_PATH,
-            networkFingerprint = fingerprint,
-            preferredDnsPath = null,
-            networkSnapshot = null,
-            serviceMode = Mode.VPN.name,
-            contextSnapshot = contextSnapshot,
-            approachSnapshot =
-                createStoredApproachSnapshot(
-                    json = diagnosticsTestJson(),
-                    settings = settings,
-                    profile = null,
-                    context = contextSnapshot,
-                ),
-        )
+    val intent = buildAutomaticProbingIntent(settings)
+    val context = buildScanContext(settings, fingerprint, contextSnapshot)
     val plan =
         ScanPlan(
             intent = intent,
@@ -237,32 +194,88 @@ private fun preparedStrategyProbeScan(
                 status = "running",
                 reportJson = null,
             ),
-        preScanSnapshot =
-            NetworkSnapshotEntity(
-                id = UUID.randomUUID().toString(),
-                sessionId = sessionId,
-                snapshotKind = "pre_scan",
-                payloadJson =
-                    diagnosticsTestJson().encodeToString(
-                        NetworkSnapshotModel.serializer(),
-                        networkSnapshotModelForTest(),
-                    ),
-                capturedAt = 1_000L,
-            ),
-        preScanContext =
-            DiagnosticContextEntity(
-                id = UUID.randomUUID().toString(),
-                sessionId = sessionId,
-                contextKind = "pre_scan",
-                payloadJson =
-                    diagnosticsTestJson().encodeToString(
-                        DiagnosticContextModel.serializer(),
-                        contextSnapshot,
-                    ),
-                capturedAt = 1_000L,
-            ),
+        preScanSnapshot = buildPreScanSnapshot(sessionId),
+        preScanContext = buildPreScanContext(sessionId, contextSnapshot),
     )
 }
+
+private fun buildAutomaticProbingIntent(settings: com.poyka.ripdpi.proto.AppSettings) =
+    DiagnosticsIntent(
+        profileId = "automatic-probing",
+        displayName = "Automatic probing",
+        settings = settings,
+        kind = ScanKind.STRATEGY_PROBE,
+        family = DiagnosticProfileFamily.AUTOMATIC_PROBING,
+        regionTag = null,
+        executionPolicy =
+            ExecutionPolicy(
+                manualOnly = false,
+                allowBackground = true,
+                requiresRawPath = true,
+                probePersistencePolicy = ProbePersistencePolicy.BACKGROUND_ONLY,
+            ),
+        packRefs = emptyList(),
+        domainTargets = emptyList(),
+        dnsTargets = emptyList(),
+        tcpTargets = emptyList(),
+        quicTargets = emptyList(),
+        serviceTargets = emptyList(),
+        circumventionTargets = emptyList(),
+        throughputTargets = emptyList(),
+        whitelistSni = emptyList(),
+        telegramTarget = null,
+        strategyProbe = StrategyProbeRequest(suiteId = "quick_v1"),
+        requestedPathMode = ScanPathMode.RAW_PATH,
+    )
+
+private fun buildScanContext(
+    settings: com.poyka.ripdpi.proto.AppSettings,
+    fingerprint: NetworkFingerprint,
+    contextSnapshot: DiagnosticContextModel,
+) = ScanContext(
+    settings = settings,
+    pathMode = ScanPathMode.RAW_PATH,
+    networkFingerprint = fingerprint,
+    preferredDnsPath = null,
+    networkSnapshot = null,
+    serviceMode = Mode.VPN.name,
+    contextSnapshot = contextSnapshot,
+    approachSnapshot =
+        createStoredApproachSnapshot(
+            json = diagnosticsTestJson(),
+            settings = settings,
+            profile = null,
+            context = contextSnapshot,
+        ),
+)
+
+private fun buildPreScanSnapshot(sessionId: String) =
+    NetworkSnapshotEntity(
+        id = UUID.randomUUID().toString(),
+        sessionId = sessionId,
+        snapshotKind = "pre_scan",
+        payloadJson =
+            diagnosticsTestJson().encodeToString(
+                NetworkSnapshotModel.serializer(),
+                networkSnapshotModelForTest(),
+            ),
+        capturedAt = 1_000L,
+    )
+
+private fun buildPreScanContext(
+    sessionId: String,
+    contextSnapshot: DiagnosticContextModel,
+) = DiagnosticContextEntity(
+    id = UUID.randomUUID().toString(),
+    sessionId = sessionId,
+    contextKind = "pre_scan",
+    payloadJson =
+        diagnosticsTestJson().encodeToString(
+            DiagnosticContextModel.serializer(),
+            contextSnapshot,
+        ),
+    capturedAt = 1_000L,
+)
 
 private fun strategyProbeReport(
     sessionId: String,

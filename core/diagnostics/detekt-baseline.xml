@@ -2,110 +2,22 @@
 <SmellBaseline>
   <ManuallySuppressedIssues/>
   <CurrentIssues>
-    <ID>ComplexCondition:DiagnosticsBoundaryMapper.kt$rememberedPolicyMatchedFingerprintHash == null &amp;&amp; rememberedPolicySource == null &amp;&amp; rememberedPolicyAppliedByExactMatch == null &amp;&amp; rememberedPolicyPreviousSuccessCount == null &amp;&amp; rememberedPolicyPreviousFailureCount == null &amp;&amp; rememberedPolicyPreviousConsecutiveFailureCount == null</ID>
-    <ID>ComplexCondition:DiagnosticsScanLaunchMetadata.kt$DiagnosticsScanLaunchTrigger.Companion$resolvedType == DiagnosticsScanTriggerType.UNKNOWN &amp;&amp; classification == null &amp;&amp; occurredAt == null &amp;&amp; previousFingerprintHash == null &amp;&amp; currentFingerprintHash == null</ID>
-    <ID>ComplexCondition:DiagnosticsScanOrchestrationServices.kt$ScanFinalizationService$shouldRemember &amp;&amp; passesBackgroundEligibilityGate &amp;&amp; strategyProbe != null &amp;&amp; prepared.networkFingerprint != null</ID>
-    <ID>ComplexCondition:RememberedPolicySessionTracker.kt$RememberedPolicySessionTracker$existing != null &amp;&amp; existing.usedRememberedPolicy == policy.usedRememberedPolicy &amp;&amp; existing.fingerprintHash == policy.fingerprintHash &amp;&amp; existing.policySignature == policy.policySignature</ID>
-    <ID>CyclomaticComplexMethod:ApproachAnalytics.kt$fun deriveBypassStrategySignature( preferences: RipDpiProxyUIPreferences, routeGroup: String?, modeOverride: Mode, ): BypassStrategySignature</ID>
     <ID>CyclomaticComplexMethod:ApproachAnalytics.kt$fun deriveBypassStrategySignature( settings: AppSettings, routeGroup: String?, modeOverride: Mode? = null, ): BypassStrategySignature</ID>
     <ID>CyclomaticComplexMethod:DiagnosticsArchiveRenderer.kt$DiagnosticsArchiveRenderer$private fun buildRuntimeConfig(selection: DiagnosticsArchiveSelection): DiagnosticsArchiveRuntimeConfigPayload</ID>
-    <ID>CyclomaticComplexMethod:DiagnosticsArchiveRenderer.kt$DiagnosticsArchiveRenderer$private fun buildSectionStatuses( selection: DiagnosticsArchiveSelection, ): Map&lt;String, DiagnosticsArchiveSectionStatus&gt;</ID>
-    <ID>CyclomaticComplexMethod:DiagnosticsArchiveSessionSelector.kt$DiagnosticsArchiveSessionSelector$@Suppress("LongMethod") internal suspend fun buildSelection( request: DiagnosticsArchiveRequest, primarySession: ScanSessionEntity?, primaryResults: List&lt;ProbeResultEntity&gt;, sourceData: DiagnosticsArchiveSourceData, compositeOutcome: DiagnosticsHomeCompositeOutcome? = null, compositeSessions: List&lt;ScanSessionEntity&gt; = emptyList(), loadProbeResults: suspend (String) -&gt; List&lt;ProbeResultEntity&gt;, ): DiagnosticsArchiveSelection</ID>
-    <ID>CyclomaticComplexMethod:DiagnosticsFindingProjector.kt$DiagnosticsFindingProjector$private fun collectDnsDiagnoses( dns: List&lt;DnsObservationFact&gt;, domains: List&lt;DomainObservationFact&gt;, diagnoses: MutableList&lt;Diagnosis&gt;, seen: MutableSet&lt;String&gt;, )</ID>
-    <ID>CyclomaticComplexMethod:DiagnosticsOutcomeTaxonomy.kt$DiagnosticsOutcomeTaxonomy$private fun bucketForProbeOutcome( probeType: String, pathMode: ScanPathMode, outcome: String, ): DiagnosticsOutcomeBucket</ID>
     <ID>CyclomaticComplexMethod:DiagnosticsServicesImpl.kt$DefaultDiagnosticsHomeWorkflowService$override suspend fun finalizeHomeAudit(sessionId: String): DiagnosticsHomeAuditOutcome</ID>
     <ID>CyclomaticComplexMethod:NetworkMetadataProvider.kt$AndroidNetworkMetadataProvider$@Suppress("DEPRECATION") // legacy CDMA/2G/3G constants: no replacement, networks are EOL private fun describeMobileNetworkType(type: Int): String</ID>
-    <ID>LargeClass:DiagnosticsArchiveComponentsTest.kt$DiagnosticsArchiveComponentsTest</ID>
     <ID>LargeClass:DiagnosticsArchiveRenderer.kt$DiagnosticsArchiveRenderer</ID>
     <ID>LargeClass:DiagnosticsFindingProjector.kt$DiagnosticsFindingProjector</ID>
-    <ID>LargeClass:DiagnosticsScanExecutionCoordinatorTest.kt$DiagnosticsScanExecutionCoordinatorTest</ID>
     <ID>LongMethod:ApproachAnalytics.kt$fun deriveBypassStrategySignature( preferences: RipDpiProxyUIPreferences, routeGroup: String?, modeOverride: Mode, ): BypassStrategySignature</ID>
     <ID>LongMethod:ApproachAnalytics.kt$fun deriveBypassStrategySignature( settings: AppSettings, routeGroup: String?, modeOverride: Mode? = null, ): BypassStrategySignature</ID>
-    <ID>LongMethod:DefaultDiagnosticsHomeCompositeRunService.kt$DefaultDiagnosticsHomeCompositeRunService$private suspend fun executeRun(runId: String)</ID>
-    <ID>LongMethod:DiagnosticsArchiveComponentsTest.kt$DiagnosticsArchiveComponentsTest$@Test fun `renderer emits redacted archive entries with manifest summaries`()</ID>
-    <ID>LongMethod:DiagnosticsArchiveComponentsTest.kt$DiagnosticsArchiveComponentsTest$@Test fun `renderer marks truncated collections and decode failures in completeness metadata`()</ID>
-    <ID>LongMethod:DiagnosticsArchiveExporterTest.kt$DiagnosticsArchiveExporterTest$@Test fun `createArchive persists requested session export and writes schema v3 archive`()</ID>
-    <ID>LongMethod:DiagnosticsArchiveExporterTest.kt$DiagnosticsArchiveExporterTest$@Test fun `createArchive writes composite home analysis bundle with staged files`()</ID>
-    <ID>LongMethod:DiagnosticsArchiveRenderer.kt$DiagnosticsArchiveRenderer$internal fun render( target: DiagnosticsArchiveTarget, selection: DiagnosticsArchiveSelection, ): List&lt;DiagnosticsArchiveEntry&gt;</ID>
-    <ID>LongMethod:DiagnosticsArchiveRenderer.kt$DiagnosticsArchiveRenderer$private fun buildSectionStatuses( selection: DiagnosticsArchiveSelection, ): Map&lt;String, DiagnosticsArchiveSectionStatus&gt;</ID>
-    <ID>LongMethod:DiagnosticsArchiveRenderer.kt$DiagnosticsArchiveRenderer$private fun buildStageEntries( stage: DiagnosticsArchiveCompositeStageSelection, selection: DiagnosticsArchiveSelection, ): List&lt;DiagnosticsArchiveEntry&gt;</ID>
-    <ID>LongMethod:DiagnosticsArchiveRenderer.kt$DiagnosticsArchiveRenderer$private fun encodeManifest( target: DiagnosticsArchiveTarget, selection: DiagnosticsArchiveSelection, sectionStatuses: Map&lt;String, DiagnosticsArchiveSectionStatus&gt;, ): String</ID>
-    <ID>LongMethod:DiagnosticsContextProvider.kt$AndroidDiagnosticsContextProvider$@SuppressLint("MissingPermission") override suspend fun captureContext(): DiagnosticContextModel</ID>
-    <ID>LongMethod:DiagnosticsDetailAndShareServicesTest.kt$DiagnosticsDetailAndShareServicesTest$@Test fun `share service builds summary and delegates archive creation`()</ID>
-    <ID>LongMethod:DiagnosticsDetailAndShareServicesTest.kt$DiagnosticsDetailAndShareServicesTest$@Test fun `share summary stays scoped to the requested session`()</ID>
-    <ID>LongMethod:DiagnosticsFindingProjector.kt$DiagnosticsFindingProjector$private fun collectDnsDiagnoses( dns: List&lt;DnsObservationFact&gt;, domains: List&lt;DomainObservationFact&gt;, diagnoses: MutableList&lt;Diagnosis&gt;, seen: MutableSet&lt;String&gt;, )</ID>
-    <ID>LongMethod:DiagnosticsOutcomeTaxonomy.kt$DiagnosticsOutcomeTaxonomy$private fun bucketForProbeOutcome( probeType: String, pathMode: ScanPathMode, outcome: String, ): DiagnosticsOutcomeBucket</ID>
-    <ID>LongMethod:DiagnosticsOutcomeTaxonomyTest.kt$DiagnosticsOutcomeTaxonomyTest$@Test fun `approach summaries require all healthy results for validated success`()</ID>
-    <ID>LongMethod:DiagnosticsScanControllerTest.kt$DiagnosticsScanControllerTest$@Test fun `wait resolution starts queued manual request from original snapshot`()</ID>
-    <ID>LongMethod:DiagnosticsScanExecutionCoordinatorTest.kt$DiagnosticsScanExecutionCoordinatorTest$@Test fun `completed execution applies temporary override and remembers preferred path`()</ID>
-    <ID>LongMethod:DiagnosticsScanRequestFactory.kt$DiagnosticsScanRequestFactory$suspend fun prepareReprobe(original: PreparedDiagnosticsScan): PreparedDiagnosticsScan</ID>
-    <ID>LongMethod:DiagnosticsScanRequestFactory.kt$DiagnosticsScanRequestFactory$suspend fun prepareScan( profile: DiagnosticProfileEntity, settings: com.poyka.ripdpi.proto.AppSettings, pathMode: ScanPathMode, scanOrigin: DiagnosticsScanOrigin, launchTrigger: DiagnosticsScanLaunchTrigger? = null, exposeProgress: Boolean, registerActiveBridge: Boolean, ): PreparedDiagnosticsScan</ID>
     <ID>LongMethod:DiagnosticsServicesImpl.kt$DefaultDiagnosticsHomeWorkflowService$override suspend fun finalizeHomeAudit(sessionId: String): DiagnosticsHomeAuditOutcome</ID>
-    <ID>LongMethod:DiagnosticsSessionQueries.kt$DiagnosticsSessionQueries$private fun aggregateApproachSummary( kind: BypassApproachKind, id: String, displayName: String, secondaryLabel: String, matchingSessions: List&lt;ScanSessionEntity&gt;, matchingUsage: List&lt;BypassUsageSessionEntity&gt;, json: Json, ): BypassApproachSummary</ID>
-    <ID>LongMethod:DiagnosticsShareSummaryBuilder.kt$DiagnosticsShareSummaryBuilder$@Suppress("CyclomaticComplexMethod") suspend fun build( sessionId: String?, scanRecordStore: DiagnosticsScanRecordStore, artifactReadStore: DiagnosticsArtifactReadStore, json: Json, projector: DiagnosticsSummaryProjector = DiagnosticsSummaryProjector(), ): ShareSummary</ID>
-    <ID>LongMethod:DiagnosticsStrategyProbeRecommendationPersistenceTest.kt$private fun preparedStrategyProbeScan( sessionId: String, settings: com.poyka.ripdpi.proto.AppSettings, fingerprint: NetworkFingerprint, ): PreparedDiagnosticsScan</ID>
-    <ID>LongMethod:DiagnosticsWireContractTest.kt$DiagnosticsWireContractTest$private fun extractReportFields(): Set&lt;String&gt;</ID>
-    <ID>LongMethod:RuntimeHistoryMonitorTest.kt$RuntimeHistoryMonitorTest$@Test fun `handover policy rotation keeps previous remembered policy neutral`()</ID>
-    <ID>LongMethod:RuntimeHistoryMonitorTest.kt$RuntimeHistoryMonitorTest$@Test fun `running session records sampled telemetry and deduplicated runtime events`()</ID>
-    <ID>LongParameterList:DiagnosticsServiceTestSupport.kt$( json: Json, profileId: String, displayName: String, kind: ScanKind = ScanKind.CONNECTIVITY, family: DiagnosticProfileFamily = DiagnosticProfileFamily.GENERAL, domainTargets: List&lt;DomainTarget&gt; = emptyList(), dnsTargets: List&lt;DnsTarget&gt; = emptyList(), tcpTargets: List&lt;TcpTarget&gt; = emptyList(), quicTargets: List&lt;QuicTarget&gt; = emptyList(), serviceTargets: List&lt;ServiceTarget&gt; = emptyList(), circumventionTargets: List&lt;CircumventionTarget&gt; = emptyList(), throughputTargets: List&lt;ThroughputTarget&gt; = emptyList(), whitelistSni: List&lt;String&gt; = emptyList(), telegramTarget: TelegramTarget? = null, strategyProbe: StrategyProbeRequest? = null, allowBackground: Boolean = false, requiresRawPath: Boolean = kind == ScanKind.STRATEGY_PROBE, manualOnly: Boolean = false, probePersistencePolicy: ProbePersistencePolicyWire = if (allowBackground) { ProbePersistencePolicyWire.BACKGROUND_ONLY } else { ProbePersistencePolicyWire.MANUAL_ONLY }, )</ID>
-    <ID>LoopWithTooManyJumpStatements:LogcatSnapshotCollector.kt$LogcatSnapshotCollector$while</ID>
-    <ID>MagicNumber:ApproachAnalytics.kt$6</ID>
-    <ID>MagicNumber:DiagnosticsArchiveRenderer.kt$5</ID>
-    <ID>MagicNumber:DiagnosticsFindingProjector.kt$DiagnosticsFindingProjector$10</ID>
-    <ID>MagicNumber:DiagnosticsFindingProjector.kt$DiagnosticsFindingProjector$3000</ID>
-    <ID>MagicNumber:DiagnosticsFindingProjector.kt$DiagnosticsFindingProjector$5</ID>
-    <ID>MagicNumber:DiagnosticsSessionQueries.kt$DiagnosticsSessionQueries$3</ID>
-    <ID>MagicNumber:DiagnosticsSessionQueries.kt$DiagnosticsSessionQueries$5</ID>
-    <ID>MagicNumber:DiagnosticsSessionQueries.kt$DiagnosticsSessionQueries$6</ID>
-    <ID>MagicNumber:DiagnosticsSessionQueries.kt$DiagnosticsSessionQueries$8</ID>
-    <ID>MagicNumber:DiagnosticsShareSummaryBuilder.kt$DiagnosticsShareSummaryBuilder$8</ID>
-    <ID>MagicNumber:LogcatSnapshotCollector.kt$LogcatSnapshotCollector$8192</ID>
-    <ID>MagicNumber:NetworkMetadataProvider.kt$AndroidNetworkMetadataProvider$0xff</ID>
-    <ID>MagicNumber:NetworkMetadataProvider.kt$AndroidNetworkMetadataProvider$127</ID>
-    <ID>MagicNumber:NetworkMetadataProvider.kt$AndroidNetworkMetadataProvider$16</ID>
-    <ID>MagicNumber:NetworkMetadataProvider.kt$AndroidNetworkMetadataProvider$24</ID>
-    <ID>MagicNumber:NetworkMetadataProvider.kt$AndroidNetworkMetadataProvider$2400</ID>
-    <ID>MagicNumber:NetworkMetadataProvider.kt$AndroidNetworkMetadataProvider$2500</ID>
-    <ID>MagicNumber:NetworkMetadataProvider.kt$AndroidNetworkMetadataProvider$3</ID>
-    <ID>MagicNumber:NetworkMetadataProvider.kt$AndroidNetworkMetadataProvider$4</ID>
-    <ID>MagicNumber:NetworkMetadataProvider.kt$AndroidNetworkMetadataProvider$4900</ID>
-    <ID>MagicNumber:NetworkMetadataProvider.kt$AndroidNetworkMetadataProvider$5</ID>
-    <ID>MagicNumber:NetworkMetadataProvider.kt$AndroidNetworkMetadataProvider$5900</ID>
-    <ID>MagicNumber:NetworkMetadataProvider.kt$AndroidNetworkMetadataProvider$5925</ID>
-    <ID>MagicNumber:NetworkMetadataProvider.kt$AndroidNetworkMetadataProvider$6</ID>
-    <ID>MagicNumber:NetworkMetadataProvider.kt$AndroidNetworkMetadataProvider$7</ID>
-    <ID>MagicNumber:NetworkMetadataProvider.kt$AndroidNetworkMetadataProvider$7125</ID>
-    <ID>MagicNumber:NetworkMetadataProvider.kt$AndroidNetworkMetadataProvider$8</ID>
-    <ID>MagicNumber:NetworkMetadataProvider.kt$HttpPublicIpInfoResolver$3_000</ID>
-    <ID>MaxLineLength:DiagnosticsArchiveRenderer.kt$DiagnosticsArchiveRenderer$"scope,sessionId,source,level,message,createdAt,runtimeId,mode,policySignature,fingerprintHash,subsystem"</ID>
-    <ID>MaxLineLength:DiagnosticsServicesImpl.kt$DefaultDiagnosticsHomeWorkflowService$"Matrix ${it.coverage.matrixCoveragePercent}% · winners ${it.coverage.winnerCoveragePercent}%"</ID>
-    <ID>MaxLineLength:DiagnosticsWireContractTest.kt$DiagnosticsWireContractTest$"Baseline DNS tampering short-circuited the audit before fallback candidates ran"</ID>
-    <ID>MaxLineLength:DiagnosticsWireContractTest.kt$DiagnosticsWireContractTest$"Baseline DNS tampering short-circuited the audit before fallback candidates ran."</ID>
-    <ID>NestedBlockDepth:DiagnosticsWireContractTest.kt$DiagnosticsWireContractTest$private fun extractFieldPaths( element: JsonElement, prefix: String = "", ): Set&lt;String&gt;</ID>
-    <ID>NestedBlockDepth:LogcatSnapshotCollector.kt$LogcatSnapshotCollector$protected open fun readLogcatOutput(): String</ID>
-    <ID>ReturnCount:AutomaticProbeCoordinator.kt$AutomaticProbeCoordinator$fun evaluateBaseEligibility( settings: com.poyka.ripdpi.proto.AppSettings, event: PolicyHandoverEvent, hasActiveScan: Boolean, recentRuns: Map&lt;String, Long&gt;, cooldownMs: Long, now: Long = System.currentTimeMillis(), ): Eligibility</ID>
-    <ID>ReturnCount:AutomaticProbeCoordinator.kt$AutomaticProbeCoordinator$private fun TelemetrySampleEntity.hasQualifyingFailureSignal(): Boolean</ID>
     <ID>ReturnCount:AutomaticProbeScheduler.kt$AutomaticProbeScheduler$private suspend fun launchIfEligible(event: PolicyHandoverEvent)</ID>
-    <ID>ReturnCount:ComparisonScanCoordinator.kt$ComparisonScanCoordinator$suspend fun compareReports( rawPathSessionId: String, inPathSessionId: String, ): PathComparisonResult</ID>
     <ID>ReturnCount:DiagnosticsContextProvider.kt$AndroidDiagnosticsContextProvider$@SuppressLint("MissingPermission") private fun roamingState(): String</ID>
-    <ID>ReturnCount:DiagnosticsScanRequestFactory.kt$internal fun selectStrategyProbeTargetsForSession( sessionId: String, intent: DiagnosticsIntent, ): DiagnosticsIntent</ID>
-    <ID>ReturnCount:DiagnosticsScanRequestFactory.kt$private fun EngineScanRequestWire.withStrategyProbeBaseConfig( settings: com.poyka.ripdpi.proto.AppSettings, preferredDnsPath: EncryptedDnsPathCandidate?, ): EngineScanRequestWire</ID>
-    <ID>ReturnCount:DiagnosticsScanWorkflow.kt$DiagnosticsScanWorkflow$fun buildRememberedNetworkPolicy( strategyProbe: StrategyProbeReport, settings: com.poyka.ripdpi.proto.AppSettings, fingerprint: NetworkFingerprint, hostAutolearnStorePath: String?, json: Json, ): RememberedNetworkPolicyJson?</ID>
-    <ID>ReturnCount:DiagnosticsScanWorkflow.kt$DiagnosticsScanWorkflow$fun evaluateBackgroundAutoPersistEligibility( strategyProbe: StrategyProbeReport, ): BackgroundAutoPersistEligibility</ID>
-    <ID>ReturnCount:DiagnosticsScanWorkflow.kt$DiagnosticsScanWorkflow$fun shouldReprobeWithCorrectedDns( report: ScanReport, pathMode: ScanPathMode, resolverOverrideApplied: Boolean, ): Boolean</ID>
     <ID>ReturnCount:DiagnosticsScanWorkflow.kt$DiagnosticsScanWorkflow$private fun resolveValidatedStrategyProbeRecommendation( strategyProbe: StrategyProbeReport, settings: com.poyka.ripdpi.proto.AppSettings, ): ValidatedStrategyProbeRecommendation</ID>
     <ID>ReturnCount:Models.kt$fun deriveProbeRetryCount(details: List&lt;ProbeDetail&gt;): Int?</ID>
     <ID>ReturnCount:NetworkMetadataProvider.kt$AndroidNetworkMetadataProvider$@SuppressLint("MissingPermission") private fun resolveCellularDetails(capabilities: NetworkCapabilities?): CellularNetworkDetails?</ID>
-    <ID>ReturnCount:RememberedPolicySessionTracker.kt$RememberedPolicySessionTracker$suspend fun sync( session: BypassUsageSessionEntity, activePolicy: ActiveConnectionPolicy?, ): BypassUsageSessionEntity</ID>
-    <ID>TooGenericExceptionCaught:DiagnosticsScanController.kt$DiagnosticsScanExecutionCoordinator$error: Throwable</ID>
-    <ID>TooGenericExceptionCaught:LogcatSnapshotCollector.kt$LogcatSnapshotCollector$error: Exception</ID>
     <ID>TooManyFunctions:DiagnosticsArchiveRenderer.kt$DiagnosticsArchiveRenderer</ID>
     <ID>TooManyFunctions:DiagnosticsFindingProjector.kt$DiagnosticsFindingProjector</ID>
     <ID>TooManyFunctions:NetworkMetadataProvider.kt$AndroidNetworkMetadataProvider : NetworkMetadataProvider</ID>
-    <ID>UnusedParameter:DiagnosticsScanExecutionCoordinatorTest.kt$settings: com.poyka.ripdpi.proto.AppSettings</ID>
-    <ID>UnusedPrivateProperty:DiagnosticsScanOrchestrationServices.kt$ScanFinalizationService$networkFingerprintProvider: NetworkFingerprintProvider</ID>
-    <ID>UnusedPrivateProperty:Models.kt$ProbeResult$createdAt: Long</ID>
-    <ID>UnusedPrivateProperty:Models.kt$ProbeResult$id: String</ID>
-    <ID>UnusedPrivateProperty:Models.kt$ProbeResult$sessionId: String</ID>
   </CurrentIssues>
 </SmellBaseline>

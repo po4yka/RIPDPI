@@ -47,61 +47,7 @@ class DiagnosticsArchiveExporterTest {
                     pathMode = ScanPathMode.IN_PATH.name,
                     summary = "Selected session",
                 ).copy(serviceMode = "vpn")
-            stores.sessionsState.value = listOf(session)
-            stores.replaceProbeResults(
-                sessionId = session.id,
-                results =
-                    listOf(
-                        ProbeResultEntity(
-                            id = UUID.randomUUID().toString(),
-                            sessionId = session.id,
-                            probeType = "dns",
-                            target = "blocked.example",
-                            outcome = "dns_blocked",
-                            detailJson = "[]",
-                            createdAt = 20L,
-                        ),
-                    ),
-            )
-            stores.snapshotsState.value =
-                listOf(
-                    NetworkSnapshotEntity(
-                        id = "snap-1",
-                        sessionId = session.id,
-                        snapshotKind = "post_scan",
-                        payloadJson =
-                            json.encodeToString(
-                                NetworkSnapshotModel.serializer(),
-                                networkSnapshotModelForTest(),
-                            ),
-                        capturedAt = 21L,
-                    ),
-                )
-            stores.contextsState.value =
-                listOf(
-                    DiagnosticContextEntity(
-                        id = "ctx-1",
-                        sessionId = session.id,
-                        contextKind = "post_scan",
-                        payloadJson =
-                            json.encodeToString(
-                                DiagnosticContextModel.serializer(),
-                                FakeDiagnosticsContextProvider().captureContextForTest(),
-                            ),
-                        capturedAt = 22L,
-                    ),
-                )
-            stores.nativeEventsState.value =
-                listOf(
-                    NativeSessionEventEntity(
-                        id = "event-1",
-                        sessionId = session.id,
-                        source = "proxy",
-                        level = "warn",
-                        message = "fallback",
-                        createdAt = 23L,
-                    ),
-                )
+            seedSingleSessionStore(stores, session)
             val exporter = createArchiveExporter(stores)
 
             val archive =
@@ -124,28 +70,95 @@ class DiagnosticsArchiveExporterTest {
             )
 
             ZipFile(archive.absolutePath).use { zip ->
-                val manifest =
-                    json.decodeFromString(
-                        DiagnosticsArchiveManifest.serializer(),
-                        zip.getInputStream(zip.getEntry("manifest.json")).bufferedReader().readText(),
-                    )
-                val provenance =
-                    json.decodeFromString(
-                        DiagnosticsArchiveProvenancePayload.serializer(),
-                        zip.getInputStream(zip.getEntry("archive-provenance.json")).bufferedReader().readText(),
-                    )
-
-                assertEquals(DiagnosticsArchiveReason.SHARE_ARCHIVE, manifest.archiveReason)
-                assertEquals(session.id, manifest.requestedSessionId)
-                assertEquals(session.id, manifest.selectedSessionId)
-                assertEquals(
-                    DiagnosticsArchiveSessionSelectionStatus.REQUESTED_SESSION,
-                    provenance.sessionSelectionStatus,
-                )
-                assertEquals(DiagnosticsArchiveFormat.includedFiles(logcatIncluded = false), manifest.includedFiles)
-                assertNull(zip.getEntry("logcat.txt"))
+                assertSingleSessionArchiveContents(zip, session.id)
             }
         }
+
+    private suspend fun seedSingleSessionStore(
+        stores: FakeDiagnosticsHistoryStores,
+        session: com.poyka.ripdpi.data.diagnostics.ScanSessionEntity,
+    ) {
+        stores.sessionsState.value = listOf(session)
+        stores.replaceProbeResults(
+            sessionId = session.id,
+            results =
+                listOf(
+                    ProbeResultEntity(
+                        id = UUID.randomUUID().toString(),
+                        sessionId = session.id,
+                        probeType = "dns",
+                        target = "blocked.example",
+                        outcome = "dns_blocked",
+                        detailJson = "[]",
+                        createdAt = 20L,
+                    ),
+                ),
+        )
+        stores.snapshotsState.value =
+            listOf(
+                NetworkSnapshotEntity(
+                    id = "snap-1",
+                    sessionId = session.id,
+                    snapshotKind = "post_scan",
+                    payloadJson =
+                        json.encodeToString(
+                            NetworkSnapshotModel.serializer(),
+                            networkSnapshotModelForTest(),
+                        ),
+                    capturedAt = 21L,
+                ),
+            )
+        stores.contextsState.value =
+            listOf(
+                DiagnosticContextEntity(
+                    id = "ctx-1",
+                    sessionId = session.id,
+                    contextKind = "post_scan",
+                    payloadJson =
+                        json.encodeToString(
+                            DiagnosticContextModel.serializer(),
+                            FakeDiagnosticsContextProvider().captureContextForTest(),
+                        ),
+                    capturedAt = 22L,
+                ),
+            )
+        stores.nativeEventsState.value =
+            listOf(
+                NativeSessionEventEntity(
+                    id = "event-1",
+                    sessionId = session.id,
+                    source = "proxy",
+                    level = "warn",
+                    message = "fallback",
+                    createdAt = 23L,
+                ),
+            )
+    }
+
+    private fun assertSingleSessionArchiveContents(
+        zip: java.util.zip.ZipFile,
+        sessionId: String,
+    ) {
+        val manifest =
+            json.decodeFromString(
+                DiagnosticsArchiveManifest.serializer(),
+                zip.getInputStream(zip.getEntry("manifest.json")).bufferedReader().readText(),
+            )
+        val provenance =
+            json.decodeFromString(
+                DiagnosticsArchiveProvenancePayload.serializer(),
+                zip.getInputStream(zip.getEntry("archive-provenance.json")).bufferedReader().readText(),
+            )
+        assertEquals(DiagnosticsArchiveReason.SHARE_ARCHIVE, manifest.archiveReason)
+        assertEquals(sessionId, manifest.requestedSessionId)
+        assertEquals(sessionId, manifest.selectedSessionId)
+        assertEquals(
+            DiagnosticsArchiveSessionSelectionStatus.REQUESTED_SESSION,
+            provenance.sessionSelectionStatus,
+        )
+        assertEquals(DiagnosticsArchiveFormat.includedFiles(logcatIncluded = false), manifest.includedFiles)
+        assertNull(zip.getEntry("logcat.txt"))
+    }
 
     @Test
     fun `createArchive records support bundle reason and fallback selection in provenance`() =
@@ -223,86 +236,8 @@ class DiagnosticsArchiveExporterTest {
     fun `createArchive writes composite home analysis bundle with staged files`() =
         runTest {
             val stores = FakeDiagnosticsHistoryStores()
-            val auditSession =
-                diagnosticsSession(
-                    id = "audit-session",
-                    profileId = "automatic-audit",
-                    pathMode = ScanPathMode.RAW_PATH.name,
-                    summary = "Audit complete",
-                ).copy(serviceMode = "vpn")
-            val defaultSession =
-                diagnosticsSession(
-                    id = "default-session",
-                    profileId = "default",
-                    pathMode = ScanPathMode.RAW_PATH.name,
-                    summary = "Default diagnostics complete",
-                ).copy(serviceMode = "vpn")
-            val dpiSession =
-                diagnosticsSession(
-                    id = "dpi-session",
-                    profileId = "ru-dpi-full",
-                    pathMode = ScanPathMode.RAW_PATH.name,
-                    summary = "DPI full diagnostics complete",
-                ).copy(serviceMode = "vpn")
-            stores.sessionsState.value = listOf(auditSession, defaultSession, dpiSession)
-            stores.replaceProbeResults("audit-session", listOf(probeResultEntity("audit-session", "blocked.example")))
-            stores.replaceProbeResults(
-                "default-session",
-                listOf(probeResultEntity("default-session", "default.example")),
-            )
-            stores.replaceProbeResults("dpi-session", listOf(probeResultEntity("dpi-session", "dpi.example")))
-
-            val outcome =
-                DiagnosticsHomeCompositeOutcome(
-                    runId = "home-run-1",
-                    fingerprintHash = "fp-home",
-                    actionable = true,
-                    headline = "Analysis complete and settings applied",
-                    summary = "Composite diagnostics finished.",
-                    recommendationSummary = "TCP split + QUIC fake",
-                    confidenceSummary = "Confidence high",
-                    coverageSummary = "Coverage 92%",
-                    appliedSettings = listOf(DiagnosticsAppliedSetting("TCP/TLS lane", "Split")),
-                    recommendedSessionId = "audit-session",
-                    stageSummaries =
-                        listOf(
-                            DiagnosticsHomeCompositeStageSummary(
-                                stageKey = "automatic_audit",
-                                stageLabel = "Automatic audit",
-                                profileId = "automatic-audit",
-                                pathMode = ScanPathMode.RAW_PATH,
-                                sessionId = "audit-session",
-                                status = DiagnosticsHomeCompositeStageStatus.COMPLETED,
-                                headline = "Audit complete",
-                                summary = "Found a reusable recommendation.",
-                                recommendationContributor = true,
-                            ),
-                            DiagnosticsHomeCompositeStageSummary(
-                                stageKey = "default_connectivity",
-                                stageLabel = "Default diagnostics",
-                                profileId = "default",
-                                pathMode = ScanPathMode.RAW_PATH,
-                                sessionId = "default-session",
-                                status = DiagnosticsHomeCompositeStageStatus.COMPLETED,
-                                headline = "Default diagnostics complete",
-                                summary = "General connectivity checks passed.",
-                            ),
-                            DiagnosticsHomeCompositeStageSummary(
-                                stageKey = "dpi_full",
-                                stageLabel = "DPI detector full",
-                                profileId = "ru-dpi-full",
-                                pathMode = ScanPathMode.RAW_PATH,
-                                sessionId = "dpi-session",
-                                status = DiagnosticsHomeCompositeStageStatus.FAILED,
-                                headline = "DPI full partial failure",
-                                summary = "Some extended checks were unavailable.",
-                            ),
-                        ),
-                    completedStageCount = 2,
-                    failedStageCount = 1,
-                    skippedStageCount = 0,
-                    bundleSessionIds = listOf("audit-session", "default-session", "dpi-session"),
-                )
+            seedCompositeSessionStores(stores)
+            val outcome = buildSampleCompositeOutcome()
             compositeRunService.putCompletedRun(outcome)
             val exporter = createArchiveExporter(stores)
 
@@ -318,42 +253,126 @@ class DiagnosticsArchiveExporterTest {
 
             assertEquals("audit-session", archive.sessionId)
             assertEquals(3, archive.schemaVersion)
-
             ZipFile(archive.absolutePath).use { zip ->
-                val manifest =
-                    json.decodeFromString(
-                        DiagnosticsArchiveManifest.serializer(),
-                        zip.getInputStream(zip.getEntry("manifest.json")).bufferedReader().readText(),
-                    )
-
-                assertEquals(DiagnosticsArchiveRunType.HOME_COMPOSITE, manifest.runType)
-                assertEquals(outcome.runId, manifest.homeRunId)
-                assertEquals(outcome.recommendedSessionId, manifest.recommendedSessionId)
-                assertNotNull(zip.getEntry("home-analysis.json"))
-                assertNotNull(zip.getEntry("stage-index.json"))
-                assertNotNull(zip.getEntry("stage-summaries.json"))
-                assertNotNull(zip.getEntry("stages/automatic_audit/report.json"))
-                assertNotNull(zip.getEntry("stages/default_connectivity/report.json"))
-                assertNotNull(zip.getEntry("stages/dpi_full/report.json"))
-
-                GoldenContractSupport.assertJsonGolden(
-                    "archive/manifest_home_composite_v3.json",
-                    zip.getInputStream(zip.getEntry("manifest.json")).bufferedReader().readText(),
-                )
-                GoldenContractSupport.assertJsonGolden(
-                    "archive/home_analysis_composite_v3.json",
-                    zip.getInputStream(zip.getEntry("home-analysis.json")).bufferedReader().readText(),
-                )
-                GoldenContractSupport.assertJsonGolden(
-                    "archive/stage_index_composite_v3.json",
-                    zip.getInputStream(zip.getEntry("stage-index.json")).bufferedReader().readText(),
-                )
-                GoldenContractSupport.assertJsonGolden(
-                    "archive/stage_summaries_composite_v3.json",
-                    zip.getInputStream(zip.getEntry("stage-summaries.json")).bufferedReader().readText(),
-                )
+                assertCompositeArchiveContents(zip, outcome)
             }
         }
+
+    private suspend fun seedCompositeSessionStores(stores: FakeDiagnosticsHistoryStores) {
+        val auditSession =
+            diagnosticsSession(
+                id = "audit-session",
+                profileId = "automatic-audit",
+                pathMode = ScanPathMode.RAW_PATH.name,
+                summary = "Audit complete",
+            ).copy(serviceMode = "vpn")
+        val defaultSession =
+            diagnosticsSession(
+                id = "default-session",
+                profileId = "default",
+                pathMode = ScanPathMode.RAW_PATH.name,
+                summary = "Default diagnostics complete",
+            ).copy(serviceMode = "vpn")
+        val dpiSession =
+            diagnosticsSession(
+                id = "dpi-session",
+                profileId = "ru-dpi-full",
+                pathMode = ScanPathMode.RAW_PATH.name,
+                summary = "DPI full diagnostics complete",
+            ).copy(serviceMode = "vpn")
+        stores.sessionsState.value = listOf(auditSession, defaultSession, dpiSession)
+        stores.replaceProbeResults("audit-session", listOf(probeResultEntity("audit-session", "blocked.example")))
+        stores.replaceProbeResults("default-session", listOf(probeResultEntity("default-session", "default.example")))
+        stores.replaceProbeResults("dpi-session", listOf(probeResultEntity("dpi-session", "dpi.example")))
+    }
+
+    private fun buildSampleCompositeOutcome(): DiagnosticsHomeCompositeOutcome =
+        DiagnosticsHomeCompositeOutcome(
+            runId = "home-run-1",
+            fingerprintHash = "fp-home",
+            actionable = true,
+            headline = "Analysis complete and settings applied",
+            summary = "Composite diagnostics finished.",
+            recommendationSummary = "TCP split + QUIC fake",
+            confidenceSummary = "Confidence high",
+            coverageSummary = "Coverage 92%",
+            appliedSettings = listOf(DiagnosticsAppliedSetting("TCP/TLS lane", "Split")),
+            recommendedSessionId = "audit-session",
+            stageSummaries =
+                listOf(
+                    DiagnosticsHomeCompositeStageSummary(
+                        stageKey = "automatic_audit",
+                        stageLabel = "Automatic audit",
+                        profileId = "automatic-audit",
+                        pathMode = ScanPathMode.RAW_PATH,
+                        sessionId = "audit-session",
+                        status = DiagnosticsHomeCompositeStageStatus.COMPLETED,
+                        headline = "Audit complete",
+                        summary = "Found a reusable recommendation.",
+                        recommendationContributor = true,
+                    ),
+                    DiagnosticsHomeCompositeStageSummary(
+                        stageKey = "default_connectivity",
+                        stageLabel = "Default diagnostics",
+                        profileId = "default",
+                        pathMode = ScanPathMode.RAW_PATH,
+                        sessionId = "default-session",
+                        status = DiagnosticsHomeCompositeStageStatus.COMPLETED,
+                        headline = "Default diagnostics complete",
+                        summary = "General connectivity checks passed.",
+                    ),
+                    DiagnosticsHomeCompositeStageSummary(
+                        stageKey = "dpi_full",
+                        stageLabel = "DPI detector full",
+                        profileId = "ru-dpi-full",
+                        pathMode = ScanPathMode.RAW_PATH,
+                        sessionId = "dpi-session",
+                        status = DiagnosticsHomeCompositeStageStatus.FAILED,
+                        headline = "DPI full partial failure",
+                        summary = "Some extended checks were unavailable.",
+                    ),
+                ),
+            completedStageCount = 2,
+            failedStageCount = 1,
+            skippedStageCount = 0,
+            bundleSessionIds = listOf("audit-session", "default-session", "dpi-session"),
+        )
+
+    private fun assertCompositeArchiveContents(
+        zip: java.util.zip.ZipFile,
+        outcome: DiagnosticsHomeCompositeOutcome,
+    ) {
+        val manifest =
+            json.decodeFromString(
+                DiagnosticsArchiveManifest.serializer(),
+                zip.getInputStream(zip.getEntry("manifest.json")).bufferedReader().readText(),
+            )
+        assertEquals(DiagnosticsArchiveRunType.HOME_COMPOSITE, manifest.runType)
+        assertEquals(outcome.runId, manifest.homeRunId)
+        assertEquals(outcome.recommendedSessionId, manifest.recommendedSessionId)
+        assertNotNull(zip.getEntry("home-analysis.json"))
+        assertNotNull(zip.getEntry("stage-index.json"))
+        assertNotNull(zip.getEntry("stage-summaries.json"))
+        assertNotNull(zip.getEntry("stages/automatic_audit/report.json"))
+        assertNotNull(zip.getEntry("stages/default_connectivity/report.json"))
+        assertNotNull(zip.getEntry("stages/dpi_full/report.json"))
+        GoldenContractSupport.assertJsonGolden(
+            "archive/manifest_home_composite_v3.json",
+            zip.getInputStream(zip.getEntry("manifest.json")).bufferedReader().readText(),
+        )
+        GoldenContractSupport.assertJsonGolden(
+            "archive/home_analysis_composite_v3.json",
+            zip.getInputStream(zip.getEntry("home-analysis.json")).bufferedReader().readText(),
+        )
+        GoldenContractSupport.assertJsonGolden(
+            "archive/stage_index_composite_v3.json",
+            zip.getInputStream(zip.getEntry("stage-index.json")).bufferedReader().readText(),
+        )
+        GoldenContractSupport.assertJsonGolden(
+            "archive/stage_summaries_composite_v3.json",
+            zip.getInputStream(zip.getEntry("stage-summaries.json")).bufferedReader().readText(),
+        )
+    }
 
     private fun createArchiveExporter(stores: FakeDiagnosticsHistoryStores): DefaultDiagnosticsArchiveExporter {
         val context = TestContext()

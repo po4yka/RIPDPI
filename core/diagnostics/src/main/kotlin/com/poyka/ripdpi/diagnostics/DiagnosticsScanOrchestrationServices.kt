@@ -477,7 +477,7 @@ class ScanFinalizationService
         private val scanRecordStore: DiagnosticsScanRecordStore,
         private val artifactWriteStore: DiagnosticsArtifactWriteStore,
         private val networkMetadataProvider: NetworkMetadataProvider,
-        networkFingerprintProvider: NetworkFingerprintProvider,
+        @Suppress("UnusedPrivateProperty") networkFingerprintProvider: NetworkFingerprintProvider,
         private val diagnosticsContextProvider: DiagnosticsContextProvider,
         private val serviceStateStore: ServiceStateStore,
         private val resolverOverrideStore: ResolverOverrideStore,
@@ -639,13 +639,13 @@ class ScanFinalizationService
                 } else {
                     true
                 }
-            val policy =
-                if (
-                    shouldRemember &&
+            val canBuildPolicy =
+                shouldRemember &&
                     passesBackgroundEligibilityGate &&
                     strategyProbe != null &&
                     prepared.networkFingerprint != null
-                ) {
+            val policy =
+                if (canBuildPolicy && strategyProbe != null && prepared.networkFingerprint != null) {
                     DiagnosticsScanWorkflow.buildRememberedNetworkPolicy(
                         strategyProbe = strategyProbe,
                         settings = prepared.settings,

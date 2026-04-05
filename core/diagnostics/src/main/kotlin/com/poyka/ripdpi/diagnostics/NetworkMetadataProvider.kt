@@ -46,6 +46,10 @@ interface PublicIpInfoResolver {
 class HttpPublicIpInfoResolver
     @Inject
     constructor() : PublicIpInfoResolver {
+        companion object {
+            private const val PublicIpTimeoutMs = 3_000
+        }
+
         private val lenientJson =
             Json {
                 ignoreUnknownKeys = true
@@ -60,8 +64,8 @@ class HttpPublicIpInfoResolver
             runCatching {
                 val connection =
                     (URL("https://ipinfo.io/json").openConnection() as HttpURLConnection).apply {
-                        connectTimeout = 3_000
-                        readTimeout = 3_000
+                        connectTimeout = PublicIpTimeoutMs
+                        readTimeout = PublicIpTimeoutMs
                         requestMethod = "GET"
                     }
                 connection.inputStream.bufferedReader().use { reader ->
@@ -74,8 +78,8 @@ class HttpPublicIpInfoResolver
             runCatching {
                 val connection =
                     (URL("https://api.ipify.org?format=json").openConnection() as HttpURLConnection).apply {
-                        connectTimeout = 3_000
-                        readTimeout = 3_000
+                        connectTimeout = PublicIpTimeoutMs
+                        readTimeout = PublicIpTimeoutMs
                         requestMethod = "GET"
                     }
                 connection.inputStream.bufferedReader().use { reader ->
@@ -212,7 +216,7 @@ class AndroidNetworkMetadataProvider
                 band = describeWifiBand(wifiInfo?.frequency),
                 channelWidth = describeWifiChannelWidth(wifiInfo),
                 wifiStandard = describeWifiStandard(wifiInfo),
-                rssiDbm = wifiInfo?.rssi?.takeIf { it in -127..0 },
+                rssiDbm = wifiInfo?.rssi?.takeIf { it in RssiMinDbm..RssiMaxDbm },
                 linkSpeedMbps = wifiInfo?.linkSpeed?.takeIf { it > 0 },
                 rxLinkSpeedMbps =
                     if (Build.VERSION.SDK_INT >=
@@ -243,10 +247,13 @@ class AndroidNetworkMetadataProvider
 
         @SuppressLint("MissingPermission")
         private fun resolveCellularDetails(capabilities: NetworkCapabilities?): CellularNetworkDetails? {
-            if (capabilities?.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) != true) {
-                return null
-            }
+            if (capabilities?.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) != true) return null
             val telephony = telephonyManager ?: return CellularNetworkDetails()
+            return resolveCellularDetailsFromTelephony(telephony)
+        }
+
+        @SuppressLint("MissingPermission")
+        private fun resolveCellularDetailsFromTelephony(telephony: TelephonyManager): CellularNetworkDetails {
             val canReadPhoneState = hasPhoneStatePermission()
             val canReadServiceState = hasServiceStatePermission()
             val serviceState =
@@ -336,21 +343,21 @@ class AndroidNetworkMetadataProvider
         private fun describeWifiBand(frequencyMhz: Int?): String =
             when {
                 frequencyMhz == null -> "unknown"
-                frequencyMhz in 2400..2500 -> "2.4 GHz"
-                frequencyMhz in 4900..5900 -> "5 GHz"
-                frequencyMhz in 5925..7125 -> "6 GHz"
+                frequencyMhz in WifiBand24GhzMin..WifiBand24GhzMax -> "2.4 GHz"
+                frequencyMhz in WifiBand5GhzMin..WifiBand5GhzMax -> "5 GHz"
+                frequencyMhz in WifiBand6GhzMin..WifiBand6GhzMax -> "6 GHz"
                 else -> "$frequencyMhz MHz"
             }
 
         private fun describeWifiChannelWidth(wifiInfo: WifiInfo?): String {
             val width = wifiInfo?.let { invokeInt(it, "getChannelWidth") } ?: return "unknown"
             return when (width) {
-                0 -> "20 MHz"
-                1 -> "40 MHz"
-                2 -> "80 MHz"
-                3 -> "160 MHz"
-                4 -> "80+80 MHz"
-                5 -> "320 MHz"
+                WifiChannelWidth20Mhz -> "20 MHz"
+                WifiChannelWidth40Mhz -> "40 MHz"
+                WifiChannelWidth80Mhz -> "80 MHz"
+                WifiChannelWidth160Mhz -> "160 MHz"
+                WifiChannelWidth80Plus80Mhz -> "80+80 MHz"
+                WifiChannelWidth320Mhz -> "320 MHz"
                 else -> "unknown"
             }
         }
@@ -358,12 +365,12 @@ class AndroidNetworkMetadataProvider
         private fun describeWifiStandard(wifiInfo: WifiInfo?): String {
             val standard = wifiInfo?.let { invokeInt(it, "getWifiStandard") } ?: return "unknown"
             return when (standard) {
-                1 -> "legacy"
-                4 -> "802.11n"
-                5 -> "802.11ac"
-                6 -> "802.11ax"
-                7 -> "802.11ad"
-                8 -> "802.11be"
+                WifiStandardLegacy -> "legacy"
+                WifiStandard80211n -> "802.11n"
+                WifiStandard80211ac -> "802.11ac"
+                WifiStandard80211ax -> "802.11ax"
+                WifiStandard80211ad -> "802.11ad"
+                WifiStandard80211be -> "802.11be"
                 else -> "unknown"
             }
         }
@@ -437,13 +444,49 @@ class AndroidNetworkMetadataProvider
             InetAddress
                 .getByAddress(
                     byteArrayOf(
-                        (value and 0xff).toByte(),
-                        ((value shr 8) and 0xff).toByte(),
-                        ((value shr 16) and 0xff).toByte(),
-                        ((value shr 24) and 0xff).toByte(),
+                        (value and ByteMask).toByte(),
+                        ((value shr BitsPerByte) and ByteMask).toByte(),
+                        ((value shr TwoBytesShift) and ByteMask).toByte(),
+                        ((value shr ThreeBytesShift) and ByteMask).toByte(),
                     ),
                 ).hostAddress
                 .orEmpty()
+
+        companion object {
+            // RSSI validity range
+            private const val RssiMinDbm = -127
+            private const val RssiMaxDbm = 0
+
+            // WiFi frequency bands (MHz)
+            private const val WifiBand24GhzMin = 2400
+            private const val WifiBand24GhzMax = 2500
+            private const val WifiBand5GhzMin = 4900
+            private const val WifiBand5GhzMax = 5900
+            private const val WifiBand6GhzMin = 5925
+            private const val WifiBand6GhzMax = 7125
+
+            // WiFi channel width codes (WifiInfo.CHANNEL_WIDTH_*)
+            private const val WifiChannelWidth20Mhz = 0
+            private const val WifiChannelWidth40Mhz = 1
+            private const val WifiChannelWidth80Mhz = 2
+            private const val WifiChannelWidth160Mhz = 3
+            private const val WifiChannelWidth80Plus80Mhz = 4
+            private const val WifiChannelWidth320Mhz = 5
+
+            // WiFi standard codes (WifiInfo.WIFI_STANDARD_*)
+            private const val WifiStandardLegacy = 1
+            private const val WifiStandard80211n = 4
+            private const val WifiStandard80211ac = 5
+            private const val WifiStandard80211ax = 6
+            private const val WifiStandard80211ad = 7
+            private const val WifiStandard80211be = 8
+
+            // IPv4 byte-extraction masks and shifts
+            private const val ByteMask = 0xff
+            private const val BitsPerByte = 8
+            private const val TwoBytesShift = 16
+            private const val ThreeBytesShift = 24
+        }
     }
 
 @Serializable

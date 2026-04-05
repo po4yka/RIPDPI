@@ -11,6 +11,12 @@ import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 
 internal object DiagnosticsSessionQueries {
+    private const val ApproachQueryLimit = 200
+    private const val RecentSessionsLimit = 6
+    private const val FailureNotesLimit = 8
+    private const val TopFailureOutcomesLimit = 3
+    private const val RecentUsageLimit = 5
+
     suspend fun loadSessionDetail(
         sessionId: String,
         scanRecordStore: DiagnosticsScanRecordStore,
@@ -47,8 +53,8 @@ internal object DiagnosticsSessionQueries {
         json: Json,
     ): BypassApproachDetail =
         withContext(Dispatchers.IO) {
-            val sessions = scanRecordStore.observeRecentScanSessions(limit = 200).first()
-            val usageSessions = bypassUsageHistoryStore.observeBypassUsageSessions(limit = 200).first()
+            val sessions = scanRecordStore.observeRecentScanSessions(limit = ApproachQueryLimit).first()
+            val usageSessions = bypassUsageHistoryStore.observeBypassUsageSessions(limit = ApproachQueryLimit).first()
             val summary =
                 buildApproachSummaries(scanSessions = sessions, usageSessions = usageSessions, json = json)
                     .firstOrNull { it.approachId.kind == kind && it.approachId.value == id }
@@ -82,7 +88,7 @@ internal object DiagnosticsSessionQueries {
                                         outcome = result.outcome,
                                     ).healthyEnoughForSummary
                             }.map { result -> "${result.probeType}:${result.target}=${result.outcome}" }
-                    }.take(8)
+                    }.take(FailureNotesLimit)
             val strategySignature =
                 when (kind) {
                     BypassApproachKind.Profile -> {
@@ -111,8 +117,14 @@ internal object DiagnosticsSessionQueries {
             BypassApproachDetail(
                 summary = summary,
                 strategySignature = strategySignature,
-                recentValidatedSessions = matchingSessions.take(6).map(mapper::toDiagnosticScanSession),
-                recentUsageSessions = matchingUsageSessions.take(6).map(mapper::toDiagnosticConnectionSession),
+                recentValidatedSessions =
+                    matchingSessions
+                        .take(RecentSessionsLimit)
+                        .map(mapper::toDiagnosticScanSession),
+                recentUsageSessions =
+                    matchingUsageSessions
+                        .take(RecentSessionsLimit)
+                        .map(mapper::toDiagnosticConnectionSession),
                 commonProbeFailures = summary.topFailureOutcomes,
                 recentFailureNotes = failureNotes,
             )
@@ -212,80 +224,16 @@ internal object DiagnosticsSessionQueries {
         json: Json,
     ): BypassApproachSummary {
         val validatedReports =
-            matchingSessions
-                .mapNotNull { session -> decodeScanReport(json, session.reportJson)?.let { session to it } }
-        val successfulReports =
-            validatedReports.count { (_, report) ->
-                report.results.isNotEmpty() &&
-                    report.results.all { result ->
-                        DiagnosticsOutcomeTaxonomy
-                            .classifyProbeOutcome(
-                                probeType = result.probeType,
-                                pathMode = report.pathMode,
-                                outcome = result.outcome,
-                            ).healthyEnoughForSummary
-                    }
-            }
-        val allResults =
-            validatedReports.flatMap { (_, report) ->
-                report.results.map { result ->
-                    ClassifiedReportResult(
-                        result = result,
-                        classification =
-                            DiagnosticsOutcomeTaxonomy.classifyProbeOutcome(
-                                probeType = result.probeType,
-                                pathMode = report.pathMode,
-                                outcome = result.outcome,
-                            ),
-                    )
-                }
-            }
-        val failureOutcomes =
-            allResults
-                .filterNot { it.classification.healthyEnoughForSummary }
-                .groupingBy { it.result.outcome }
-                .eachCount()
-                .entries
-                .sortedByDescending { it.value }
-                .map { "${it.key} (${it.value})" }
-                .take(3)
-        val outcomeBreakdown =
-            allResults
-                .groupBy { it.result.probeType }
-                .map { (probeType, results) ->
-                    val unhealthy = results.filterNot { it.classification.healthyEnoughForSummary }
-                    BypassOutcomeBreakdown(
-                        probeType = probeType,
-                        successCount =
-                            results.count { it.classification.bucket == DiagnosticsOutcomeBucket.Healthy },
-                        warningCount =
-                            results.count { it.classification.bucket == DiagnosticsOutcomeBucket.Attention },
-                        failureCount =
-                            results.count {
-                                it.classification.bucket == DiagnosticsOutcomeBucket.Failed ||
-                                    it.classification.bucket == DiagnosticsOutcomeBucket.Inconclusive
-                            },
-                        dominantFailureOutcome =
-                            unhealthy
-                                .groupingBy { it.result.outcome }
-                                .eachCount()
-                                .maxByOrNull { it.value }
-                                ?.key,
-                    )
-                }.sortedBy { it.probeType }
-        val totalRuntimeDurationMs =
-            matchingUsage.sumOf { usage ->
-                (usage.finishedAt ?: System.currentTimeMillis()) - usage.startedAt
-            }
-        val recentUsage = matchingUsage.sortedByDescending { it.startedAt }.take(5)
+            matchingSessions.mapNotNull { session -> decodeScanReport(json, session.reportJson)?.let { session to it } }
+        val allResults = classifyAllResults(validatedReports)
+        val successfulReports = countSuccessfulReports(validatedReports)
+        val recentUsage = matchingUsage.sortedByDescending { it.startedAt }.take(RecentUsageLimit)
         val latestValidated = validatedReports.maxByOrNull { it.first.startedAt }?.first
-        val verificationState = if (validatedReports.isEmpty()) "unverified" else "validated"
-
         return BypassApproachSummary(
             approachId = BypassApproachId(kind = kind, value = id),
             displayName = displayName,
             secondaryLabel = secondaryLabel,
-            verificationState = verificationState,
+            verificationState = if (validatedReports.isEmpty()) "unverified" else "validated",
             validatedScanCount = validatedReports.size,
             validatedSuccessCount = successfulReports,
             validatedSuccessRate =
@@ -294,7 +242,10 @@ internal object DiagnosticsSessionQueries {
                     ?.let { successfulReports.toFloat() / it.toFloat() },
             lastValidatedResult = latestValidated?.summary,
             usageCount = matchingUsage.size,
-            totalRuntimeDurationMs = totalRuntimeDurationMs,
+            totalRuntimeDurationMs =
+                matchingUsage.sumOf {
+                    (it.finishedAt ?: System.currentTimeMillis()) - it.startedAt
+                },
             recentRuntimeHealth =
                 BypassRuntimeHealthSummary(
                     totalErrors = recentUsage.sumOf { it.totalErrors },
@@ -303,10 +254,73 @@ internal object DiagnosticsSessionQueries {
                     lastEndedReason = recentUsage.firstOrNull { !it.endedReason.isNullOrBlank() }?.endedReason,
                 ),
             lastUsedAt = matchingUsage.maxOfOrNull { it.finishedAt ?: it.startedAt },
-            topFailureOutcomes = failureOutcomes,
-            outcomeBreakdown = outcomeBreakdown,
+            topFailureOutcomes = buildTopFailureOutcomes(allResults),
+            outcomeBreakdown = buildOutcomeBreakdown(allResults),
         )
     }
+
+    private fun classifyAllResults(
+        validatedReports: List<Pair<ScanSessionEntity, ScanReport>>,
+    ): List<ClassifiedReportResult> =
+        validatedReports.flatMap { (_, report) ->
+            report.results.map { result ->
+                ClassifiedReportResult(
+                    result = result,
+                    classification =
+                        DiagnosticsOutcomeTaxonomy.classifyProbeOutcome(
+                            probeType = result.probeType,
+                            pathMode = report.pathMode,
+                            outcome = result.outcome,
+                        ),
+                )
+            }
+        }
+
+    private fun countSuccessfulReports(validatedReports: List<Pair<ScanSessionEntity, ScanReport>>): Int =
+        validatedReports.count { (_, report) ->
+            report.results.isNotEmpty() &&
+                report.results.all { result ->
+                    DiagnosticsOutcomeTaxonomy
+                        .classifyProbeOutcome(
+                            probeType = result.probeType,
+                            pathMode = report.pathMode,
+                            outcome = result.outcome,
+                        ).healthyEnoughForSummary
+                }
+        }
+
+    private fun buildTopFailureOutcomes(allResults: List<ClassifiedReportResult>): List<String> =
+        allResults
+            .filterNot { it.classification.healthyEnoughForSummary }
+            .groupingBy { it.result.outcome }
+            .eachCount()
+            .entries
+            .sortedByDescending { it.value }
+            .map { "${it.key} (${it.value})" }
+            .take(TopFailureOutcomesLimit)
+
+    private fun buildOutcomeBreakdown(allResults: List<ClassifiedReportResult>): List<BypassOutcomeBreakdown> =
+        allResults
+            .groupBy { it.result.probeType }
+            .map { (probeType, results) ->
+                val unhealthy = results.filterNot { it.classification.healthyEnoughForSummary }
+                BypassOutcomeBreakdown(
+                    probeType = probeType,
+                    successCount = results.count { it.classification.bucket == DiagnosticsOutcomeBucket.Healthy },
+                    warningCount = results.count { it.classification.bucket == DiagnosticsOutcomeBucket.Attention },
+                    failureCount =
+                        results.count {
+                            it.classification.bucket == DiagnosticsOutcomeBucket.Failed ||
+                                it.classification.bucket == DiagnosticsOutcomeBucket.Inconclusive
+                        },
+                    dominantFailureOutcome =
+                        unhealthy
+                            .groupingBy { it.result.outcome }
+                            .eachCount()
+                            .maxByOrNull { it.value }
+                            ?.key,
+                )
+            }.sortedBy { it.probeType }
 }
 
 private data class ClassifiedReportResult(

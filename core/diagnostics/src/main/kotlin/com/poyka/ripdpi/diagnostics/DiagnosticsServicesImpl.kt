@@ -261,37 +261,13 @@ class DefaultDiagnosticsHomeWorkflowService
                     fingerprintHash = fingerprintHash,
                     actionable = actionable,
                     headline =
-                        when {
-                            strategyApplied != null -> {
-                                "Analysis complete and settings applied"
-                            }
-
-                            strategyAdequacy == StrategyAdequacy.ALL_CANDIDATES_FAILED &&
-                                resolverApplied.isNotEmpty() -> {
-                                "DNS settings applied, but all bypass strategies failed"
-                            }
-
-                            strategyAdequacy == StrategyAdequacy.ALL_CANDIDATES_FAILED -> {
-                                "All bypass strategies failed on this network"
-                            }
-
-                            actionable -> {
-                                "Analysis complete and settings applied"
-                            }
-
-                            strategyProbe?.completionKind == StrategyProbeCompletionKind.DNS_SHORT_CIRCUITED -> {
-                                "Analysis complete, but only DNS evidence was available"
-                            }
-
-                            strategyProbe?.completionKind ==
-                                StrategyProbeCompletionKind.DNS_TAMPERING_WITH_FALLBACK -> {
-                                "Analysis complete with DNS fallback"
-                            }
-
-                            else -> {
-                                "Analysis complete, but no settings were applied"
-                            }
-                        },
+                        buildAuditHeadline(
+                            strategyApplied,
+                            strategyAdequacy,
+                            actionable,
+                            resolverApplied,
+                            strategyProbe,
+                        ),
                     summary = report.summary.ifBlank { session.summary },
                     confidenceSummary =
                         assessment?.let {
@@ -302,24 +278,11 @@ class DefaultDiagnosticsHomeWorkflowService
                             "Matrix ${it.coverage.matrixCoveragePercent}% · winners ${it.coverage.winnerCoveragePercent}%"
                         },
                     recommendationSummary =
-                        when {
-                            strategyApplied != null -> {
-                                "${strategyApplied.recommendation.tcpCandidateLabel} + " +
-                                    strategyApplied.recommendation.quicCandidateLabel
-                            }
-
-                            strategyRecommendation != null -> {
-                                strategyRecommendation.rationale
-                            }
-
-                            resolverRecommendation != null -> {
-                                resolverRecommendation.rationale
-                            }
-
-                            else -> {
-                                null
-                            }
-                        },
+                        buildAuditRecommendationSummary(
+                            strategyApplied,
+                            strategyRecommendation,
+                            resolverRecommendation,
+                        ),
                     appliedSettings = allApplied,
                     strategyAdequacy = strategyAdequacy,
                 )
@@ -437,6 +400,67 @@ class DefaultDiagnosticsHomeWorkflowService
                 report.tcpCandidates.none { it.succeededTargets > 0 && !it.skipped }
 
         private fun String.toHumanLabel(): String = replace('_', ' ').replaceFirstChar { it.uppercase() }
+
+        private fun buildAuditHeadline(
+            strategyApplied: StrategyApplyResult?,
+            strategyAdequacy: StrategyAdequacy?,
+            actionable: Boolean,
+            resolverApplied: List<DiagnosticsAppliedSetting>,
+            strategyProbe: StrategyProbeReport?,
+        ): String =
+            when {
+                strategyApplied != null -> {
+                    "Analysis complete and settings applied"
+                }
+
+                strategyAdequacy == StrategyAdequacy.ALL_CANDIDATES_FAILED && resolverApplied.isNotEmpty() -> {
+                    "DNS settings applied, but all bypass strategies failed"
+                }
+
+                strategyAdequacy == StrategyAdequacy.ALL_CANDIDATES_FAILED -> {
+                    "All bypass strategies failed on this network"
+                }
+
+                actionable -> {
+                    "Analysis complete and settings applied"
+                }
+
+                strategyProbe?.completionKind == StrategyProbeCompletionKind.DNS_SHORT_CIRCUITED -> {
+                    "Analysis complete, but only DNS evidence was available"
+                }
+
+                strategyProbe?.completionKind == StrategyProbeCompletionKind.DNS_TAMPERING_WITH_FALLBACK -> {
+                    "Analysis complete with DNS fallback"
+                }
+
+                else -> {
+                    "Analysis complete, but no settings were applied"
+                }
+            }
+
+        private fun buildAuditRecommendationSummary(
+            strategyApplied: StrategyApplyResult?,
+            strategyRecommendation: StrategyRecommendation?,
+            resolverRecommendation: ResolverRecommendation?,
+        ): String? =
+            when {
+                strategyApplied != null -> {
+                    "${strategyApplied.recommendation.tcpCandidateLabel} + " +
+                        strategyApplied.recommendation.quicCandidateLabel
+                }
+
+                strategyRecommendation != null -> {
+                    strategyRecommendation.rationale
+                }
+
+                resolverRecommendation != null -> {
+                    resolverRecommendation.rationale
+                }
+
+                else -> {
+                    null
+                }
+            }
     }
 
 @Singleton

@@ -361,7 +361,9 @@ internal class DiagnosticsScanExecutionCoordinator
                     } else {
                         throw error
                     }
-                } catch (error: Throwable) {
+                } catch (
+                    @Suppress("TooGenericExceptionCaught") error: Exception,
+                ) {
                     error
                 }
             try {

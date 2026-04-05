@@ -442,7 +442,10 @@ class DiagnosticsScanRequestFactoryTargetSelectionTest {
                                 displayName = "Strategy probe",
                                 kind = ScanKind.STRATEGY_PROBE,
                                 family = DiagnosticProfileFamily.AUTOMATIC_PROBING,
-                                strategyProbe = StrategyProbeRequest(suiteId = suiteId),
+                                targets =
+                                    DiagnosticsProfileTargets(
+                                        strategyProbe = StrategyProbeRequest(suiteId = suiteId),
+                                    ),
                                 allowBackground = true,
                             ),
                         updatedAt = 1L,

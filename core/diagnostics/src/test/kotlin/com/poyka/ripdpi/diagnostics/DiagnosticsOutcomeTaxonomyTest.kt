@@ -57,66 +57,7 @@ class DiagnosticsOutcomeTaxonomyTest {
 
     @Test
     fun `approach summaries require all healthy results for validated success`() {
-        val sessions =
-            listOf(
-                diagnosticsSession(
-                    id = "scan-healthy",
-                    profileId = "profile-1",
-                    pathMode = ScanPathMode.RAW_PATH.name,
-                    summary = "healthy",
-                    reportJson =
-                        reportJson(
-                            sessionId = "scan-healthy",
-                            pathMode = ScanPathMode.RAW_PATH,
-                            results =
-                                listOf(
-                                    ProbeResult(
-                                        probeType = "dns_integrity",
-                                        target = "example.org",
-                                        outcome = "dns_match",
-                                    ),
-                                ),
-                        ),
-                ),
-                diagnosticsSession(
-                    id = "scan-attention",
-                    profileId = "profile-1",
-                    pathMode = ScanPathMode.RAW_PATH.name,
-                    summary = "attention",
-                    reportJson =
-                        reportJson(
-                            sessionId = "scan-attention",
-                            pathMode = ScanPathMode.RAW_PATH,
-                            results =
-                                listOf(
-                                    ProbeResult(
-                                        probeType = "dns_integrity",
-                                        target = "example.org",
-                                        outcome = "dns_expected_mismatch",
-                                    ),
-                                ),
-                        ),
-                ),
-                diagnosticsSession(
-                    id = "scan-failed",
-                    profileId = "profile-1",
-                    pathMode = ScanPathMode.RAW_PATH.name,
-                    summary = "failed",
-                    reportJson =
-                        reportJson(
-                            sessionId = "scan-failed",
-                            pathMode = ScanPathMode.RAW_PATH,
-                            results =
-                                listOf(
-                                    ProbeResult(
-                                        probeType = "tcp_fat_header",
-                                        target = "1.1.1.1:443 (Cloudflare)",
-                                        outcome = "whitelist_sni_failed",
-                                    ),
-                                ),
-                        ),
-                ),
-            )
+        val sessions = buildApproachSummarySessions()
 
         val summary =
             DiagnosticsSessionQueries
@@ -144,6 +85,67 @@ class DiagnosticsOutcomeTaxonomyTest {
         assertEquals(1, tcpBreakdown.failureCount)
         assertEquals("whitelist_sni_failed", tcpBreakdown.dominantFailureOutcome)
     }
+
+    private fun buildApproachSummarySessions() =
+        listOf(
+            diagnosticsSession(
+                id = "scan-healthy",
+                profileId = "profile-1",
+                pathMode = ScanPathMode.RAW_PATH.name,
+                summary = "healthy",
+                reportJson =
+                    reportJson(
+                        sessionId = "scan-healthy",
+                        pathMode = ScanPathMode.RAW_PATH,
+                        results =
+                            listOf(
+                                ProbeResult(
+                                    probeType = "dns_integrity",
+                                    target = "example.org",
+                                    outcome = "dns_match",
+                                ),
+                            ),
+                    ),
+            ),
+            diagnosticsSession(
+                id = "scan-attention",
+                profileId = "profile-1",
+                pathMode = ScanPathMode.RAW_PATH.name,
+                summary = "attention",
+                reportJson =
+                    reportJson(
+                        sessionId = "scan-attention",
+                        pathMode = ScanPathMode.RAW_PATH,
+                        results =
+                            listOf(
+                                ProbeResult(
+                                    probeType = "dns_integrity",
+                                    target = "example.org",
+                                    outcome = "dns_expected_mismatch",
+                                ),
+                            ),
+                    ),
+            ),
+            diagnosticsSession(
+                id = "scan-failed",
+                profileId = "profile-1",
+                pathMode = ScanPathMode.RAW_PATH.name,
+                summary = "failed",
+                reportJson =
+                    reportJson(
+                        sessionId = "scan-failed",
+                        pathMode = ScanPathMode.RAW_PATH,
+                        results =
+                            listOf(
+                                ProbeResult(
+                                    probeType = "tcp_fat_header",
+                                    target = "1.1.1.1:443 (Cloudflare)",
+                                    outcome = "whitelist_sni_failed",
+                                ),
+                            ),
+                    ),
+            ),
+        )
 
     @Test
     fun `persist scan report bridges taxonomy event levels`() =

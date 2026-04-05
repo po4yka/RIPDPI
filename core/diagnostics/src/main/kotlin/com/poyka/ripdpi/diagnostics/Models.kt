@@ -464,6 +464,7 @@ data class ProbeResult(
     val details: List<ProbeDetail> = emptyList(),
     val probeRetryCount: Int? = null,
 ) {
+    @Suppress("UnusedPrivateProperty") // secondary constructor parameters used for database deserialization
     constructor(
         id: String,
         sessionId: String,
@@ -835,8 +836,10 @@ data class BundledDiagnosticsCatalog(
 
 fun deriveProbeRetryCount(details: List<ProbeDetail>): Int? {
     val detailMap = details.associate { it.key to it.value }
-    detailMap["probeRetryCount"]?.toIntOrNull()?.takeIf { it >= 0 }?.let { return it }
-    detailMap["retryCount"]?.toIntOrNull()?.takeIf { it >= 0 }?.let { return it }
+    val fromExplicit =
+        detailMap["probeRetryCount"]?.toIntOrNull()?.takeIf { it >= 0 }
+            ?: detailMap["retryCount"]?.toIntOrNull()?.takeIf { it >= 0 }
+    if (fromExplicit != null) return fromExplicit
     val attempts =
         detailMap["attempts"]
             ?.split('|')
