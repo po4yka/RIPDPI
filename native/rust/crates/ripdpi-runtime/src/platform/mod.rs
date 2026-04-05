@@ -90,22 +90,26 @@ pub fn set_tcp_md5sig(_stream: &TcpStream, _key_len: u16) -> io::Result<()> {
 }
 
 #[cfg(any(target_os = "linux", target_os = "android"))]
-pub fn protect_socket<T: std::os::fd::AsRawFd>(socket: &T, path: &str) -> io::Result<()> {
+pub fn protect_socket<T: std::os::fd::AsRawFd>(socket: &T, path: Option<&str>) -> io::Result<()> {
     // Prefer JNI callback (no Unix socket server needed).
     if protect::has_protect_callback() {
         return protect::protect_socket_via_callback(socket.as_raw_fd());
     }
     // Fallback: Unix domain socket + SCM_RIGHTS.
-    linux::protect_socket(socket, path)
+    if let Some(p) = path {
+        linux::protect_socket(socket, p)
+    } else {
+        Ok(())
+    }
 }
 
 #[cfg(not(any(target_os = "linux", target_os = "android")))]
-pub fn protect_socket<T: std::os::fd::AsRawFd>(socket: &T, _path: &str) -> io::Result<()> {
+pub fn protect_socket<T: std::os::fd::AsRawFd>(socket: &T, _path: Option<&str>) -> io::Result<()> {
     // Prefer JNI callback on any platform.
     if protect::has_protect_callback() {
         return protect::protect_socket_via_callback(socket.as_raw_fd());
     }
-    Err(io::Error::new(io::ErrorKind::Unsupported, "only supported on Linux/Android"))
+    Ok(())
 }
 
 #[cfg(any(target_os = "linux", target_os = "android"))]
