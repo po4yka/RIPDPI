@@ -131,50 +131,57 @@ internal object DiagnosticsScanWorkflow {
         pathMode: ScanPathMode,
         resolverOverrideApplied: Boolean,
     ): Boolean {
-        if (!resolverOverrideApplied) return false
-        if (pathMode != ScanPathMode.RAW_PATH) return false
-        val strategyProbe = report.strategyProbeReport ?: return false
-        if (strategyProbe.completionKind == StrategyProbeCompletionKind.DNS_SHORT_CIRCUITED) {
-            return true
-        }
+        val strategyProbe = report.strategyProbeReport
         // Also reprobe when DNS was fixed but strategy recommendation indicates TCP blocking.
         // The strategy probe may have run with broken DNS and produced no useful winner.
-        if (strategyProbe.completionKind == StrategyProbeCompletionKind.DNS_TAMPERING_WITH_FALLBACK &&
-            report.strategyRecommendation?.actionable == true
-        ) {
-            return true
+        val dnsTamperingWithActionableRecommendation =
+            strategyProbe?.completionKind == StrategyProbeCompletionKind.DNS_TAMPERING_WITH_FALLBACK &&
+                report.strategyRecommendation?.actionable == true
+        return when {
+            !resolverOverrideApplied -> false
+            pathMode != ScanPathMode.RAW_PATH -> false
+            strategyProbe == null -> false
+            strategyProbe.completionKind == StrategyProbeCompletionKind.DNS_SHORT_CIRCUITED -> true
+            dnsTamperingWithActionableRecommendation -> true
+            else -> false
         }
-        return false
     }
 
     fun evaluateBackgroundAutoPersistEligibility(
         strategyProbe: StrategyProbeReport,
     ): BackgroundAutoPersistEligibility {
-        val assessment =
-            strategyProbe.auditAssessment ?: return BackgroundAutoPersistEligibility.Rejected(
-                BackgroundAutoPersistRejectionReason.MISSING_AUDIT_ASSESSMENT,
-            )
-        if (assessment.confidence.level != StrategyProbeAuditConfidenceLevel.HIGH) {
-            return BackgroundAutoPersistEligibility.Rejected(
-                BackgroundAutoPersistRejectionReason.LOW_CONFIDENCE,
-            )
+        val assessment = strategyProbe.auditAssessment
+        val rejectionReason =
+            when {
+                assessment == null -> {
+                    BackgroundAutoPersistRejectionReason.MISSING_AUDIT_ASSESSMENT
+                }
+
+                assessment.confidence.level != StrategyProbeAuditConfidenceLevel.HIGH -> {
+                    BackgroundAutoPersistRejectionReason.LOW_CONFIDENCE
+                }
+
+                assessment.coverage.matrixCoveragePercent < BackgroundAutoPersistMinMatrixCoveragePercent -> {
+                    BackgroundAutoPersistRejectionReason.INSUFFICIENT_MATRIX_COVERAGE
+                }
+
+                assessment.coverage.winnerCoveragePercent < BackgroundAutoPersistMinWinnerCoveragePercent -> {
+                    BackgroundAutoPersistRejectionReason.INSUFFICIENT_WINNER_COVERAGE
+                }
+
+                !hasWinningTargetSuccess(strategyProbe) -> {
+                    BackgroundAutoPersistRejectionReason.NO_WINNER_TARGET_SUCCESS
+                }
+
+                else -> {
+                    null
+                }
+            }
+        return if (rejectionReason != null) {
+            BackgroundAutoPersistEligibility.Rejected(rejectionReason)
+        } else {
+            BackgroundAutoPersistEligibility.Eligible
         }
-        if (assessment.coverage.matrixCoveragePercent < BackgroundAutoPersistMinMatrixCoveragePercent) {
-            return BackgroundAutoPersistEligibility.Rejected(
-                BackgroundAutoPersistRejectionReason.INSUFFICIENT_MATRIX_COVERAGE,
-            )
-        }
-        if (assessment.coverage.winnerCoveragePercent < BackgroundAutoPersistMinWinnerCoveragePercent) {
-            return BackgroundAutoPersistEligibility.Rejected(
-                BackgroundAutoPersistRejectionReason.INSUFFICIENT_WINNER_COVERAGE,
-            )
-        }
-        if (!hasWinningTargetSuccess(strategyProbe)) {
-            return BackgroundAutoPersistEligibility.Rejected(
-                BackgroundAutoPersistRejectionReason.NO_WINNER_TARGET_SUCCESS,
-            )
-        }
-        return BackgroundAutoPersistEligibility.Eligible
     }
 
     fun buildRememberedNetworkPolicy(
@@ -184,16 +191,12 @@ internal object DiagnosticsScanWorkflow {
         hostAutolearnStorePath: String?,
         json: Json,
     ): RememberedNetworkPolicyJson? {
-        if (strategyProbe.suiteId == StrategyProbeSuiteFullMatrixV1) {
-            return null
-        }
         val recommendation = resolveValidatedStrategyProbeRecommendation(strategyProbe, settings)
-        if (!recommendation.isValid) {
-            return null
-        }
-        if (!hasWinningTargetSuccess(strategyProbe)) {
-            return null
-        }
+        val isEligible =
+            strategyProbe.suiteId != StrategyProbeSuiteFullMatrixV1 &&
+                recommendation.isValid &&
+                hasWinningTargetSuccess(strategyProbe)
+        if (!isEligible) return null
         val activeDns = settings.activeDnsSettings()
         val networkScopeKey = fingerprint.scopeKey()
         val normalizedProxyConfigJson =
@@ -240,14 +243,17 @@ internal object DiagnosticsScanWorkflow {
         val winningQuicCandidate =
             strategyProbe.quicCandidates.firstOrNull { it.id == baseRecommendation.quicCandidateId }
         val preferences = decodeRipDpiProxyUiPreferences(baseRecommendation.recommendedProxyConfigJson)
-        if (preferences == null || winningTcpCandidate == null || winningQuicCandidate == null) {
-            return ValidatedStrategyProbeRecommendation(
+
+        fun invalid() =
+            ValidatedStrategyProbeRecommendation(
                 recommendation = baseRecommendation,
                 winningTcpCandidate = winningTcpCandidate,
                 winningQuicCandidate = winningQuicCandidate,
                 isValid = false,
             )
-        }
+
+        if (preferences == null || winningTcpCandidate == null || winningQuicCandidate == null) return invalid()
+
         val laneFamilies = preferences.deriveStrategyLaneFamilies(activeDns = activeDns)
         val familiesMatch =
             laneFamilyMatches(
@@ -260,14 +266,8 @@ internal object DiagnosticsScanWorkflow {
                     winningFamily = winningQuicCandidate.family,
                     derivableFamilies = DerivableQuicStrategyFamilies,
                 )
-        if (!familiesMatch) {
-            return ValidatedStrategyProbeRecommendation(
-                recommendation = baseRecommendation,
-                winningTcpCandidate = winningTcpCandidate,
-                winningQuicCandidate = winningQuicCandidate,
-                isValid = false,
-            )
-        }
+        if (!familiesMatch) return invalid()
+
         val strategySignature =
             deriveBypassStrategySignature(
                 preferences = preferences,

@@ -16,6 +16,7 @@ import javax.inject.Inject
 import javax.inject.Named
 
 private const val SuccessRatePercentScale = 100
+private const val TlsErrorSampleLimit = 5
 
 class DiagnosticsArchiveRenderer
     @Inject
@@ -29,7 +30,6 @@ class DiagnosticsArchiveRenderer
             target: DiagnosticsArchiveTarget,
             selection: DiagnosticsArchiveSelection,
         ): List<DiagnosticsArchiveEntry> {
-            val redactedPayload = buildRedactedPayload(selection)
             val snapshotPayload = buildSnapshotPayload(selection)
             val contextPayload = buildContextPayload(selection)
             val sectionStatuses = buildSectionStatuses(selection)
@@ -47,106 +47,15 @@ class DiagnosticsArchiveRenderer
                     emptyList()
                 }
             val baseEntries =
-                buildList {
-                    add(
-                        textEntry(
-                            name = "summary.txt",
-                            content = buildSummary(createdAt = target.createdAt, selection = selection),
-                        ),
-                    )
-                    add(
-                        DiagnosticsArchiveEntry(
-                            name = "manifest.json",
-                            bytes = encodeManifest(target, selection, sectionStatuses).toByteArray(),
-                        ),
-                    )
-                    add(
-                        jsonEntry(
-                            name = "report.json",
-                            serializer = DiagnosticsArchivePayload.serializer(),
-                            value = redactedPayload,
-                        ),
-                    )
-                    add(
-                        jsonEntry(
-                            name = "strategy-matrix.json",
-                            serializer = StrategyMatrixArchivePayload.serializer(),
-                            value =
-                                StrategyMatrixArchivePayload(
-                                    sessionId = selection.primarySession?.id,
-                                    profileId = selection.primarySession?.profileId,
-                                    strategyProbeReport = selection.primaryReport?.strategyProbeReport,
-                                ),
-                        ),
-                    )
-                    add(
-                        textEntry(
-                            name = "probe-results.csv",
-                            content = buildProbeResultsCsv(selection.primaryResults),
-                        ),
-                    )
-                    addAll(compositeEntries)
-                    add(
-                        jsonEntry(
-                            name = "archive-provenance.json",
-                            serializer = DiagnosticsArchiveProvenancePayload.serializer(),
-                            value = buildArchiveProvenance(target, selection),
-                        ),
-                    )
-                    add(
-                        jsonEntry(
-                            name = "runtime-config.json",
-                            serializer = DiagnosticsArchiveRuntimeConfigPayload.serializer(),
-                            value = buildRuntimeConfig(selection),
-                        ),
-                    )
-                    add(
-                        jsonEntry(
-                            name = "analysis.json",
-                            serializer = DiagnosticsArchiveAnalysisPayload.serializer(),
-                            value = buildAnalysis(selection),
-                        ),
-                    )
-                    add(
-                        jsonEntry(
-                            name = "completeness.json",
-                            serializer = DiagnosticsArchiveCompletenessPayload.serializer(),
-                            value = completeness,
-                        ),
-                    )
-                    add(
-                        textEntry(
-                            name = "native-events.csv",
-                            content = buildNativeEventsCsv(selection.primaryEvents, selection.globalEvents),
-                        ),
-                    )
-                    add(
-                        textEntry(
-                            name = "telemetry.csv",
-                            content = buildTelemetryCsv(selection.payload),
-                        ),
-                    )
-                    add(
-                        jsonEntry(
-                            name = "network-snapshots.json",
-                            serializer = DiagnosticsArchiveSnapshotPayload.serializer(),
-                            value = snapshotPayload,
-                        ),
-                    )
-                    add(
-                        jsonEntry(
-                            name = "diagnostic-context.json",
-                            serializer = DiagnosticsArchiveContextPayload.serializer(),
-                            value = contextPayload,
-                        ),
-                    )
-                    selection.logcatSnapshot?.let { snapshot ->
-                        add(DiagnosticsArchiveEntry(name = "logcat.txt", bytes = snapshot.content.toByteArray()))
-                    }
-                    selection.fileLogSnapshot?.let { content ->
-                        add(DiagnosticsArchiveEntry(name = "app-log.txt", bytes = content.toByteArray()))
-                    }
-                }
+                buildCoreEntries(
+                    target = target,
+                    selection = selection,
+                    sectionStatuses = sectionStatuses,
+                    snapshotPayload = snapshotPayload,
+                    contextPayload = contextPayload,
+                    completeness = completeness,
+                    compositeEntries = compositeEntries,
+                )
             return baseEntries +
                 jsonEntry(
                     name = "integrity.json",
@@ -154,6 +63,106 @@ class DiagnosticsArchiveRenderer
                     value = buildIntegrityPayload(target, baseEntries),
                 )
         }
+
+        private fun buildCoreEntries(
+            target: DiagnosticsArchiveTarget,
+            selection: DiagnosticsArchiveSelection,
+            sectionStatuses: Map<String, DiagnosticsArchiveSectionStatus>,
+            snapshotPayload: DiagnosticsArchiveSnapshotPayload,
+            contextPayload: DiagnosticsArchiveContextPayload,
+            completeness: DiagnosticsArchiveCompletenessPayload,
+            compositeEntries: List<DiagnosticsArchiveEntry>,
+        ): List<DiagnosticsArchiveEntry> =
+            buildList {
+                add(
+                    textEntry(
+                        name = "summary.txt",
+                        content = buildSummary(createdAt = target.createdAt, selection = selection),
+                    ),
+                )
+                add(
+                    DiagnosticsArchiveEntry(
+                        name = "manifest.json",
+                        bytes = encodeManifest(target, selection, sectionStatuses).toByteArray(),
+                    ),
+                )
+                add(
+                    jsonEntry(
+                        name = "report.json",
+                        serializer = DiagnosticsArchivePayload.serializer(),
+                        value = buildRedactedPayload(selection),
+                    ),
+                )
+                add(
+                    jsonEntry(
+                        name = "strategy-matrix.json",
+                        serializer = StrategyMatrixArchivePayload.serializer(),
+                        value =
+                            StrategyMatrixArchivePayload(
+                                sessionId = selection.primarySession?.id,
+                                profileId = selection.primarySession?.profileId,
+                                strategyProbeReport = selection.primaryReport?.strategyProbeReport,
+                            ),
+                    ),
+                )
+                add(textEntry(name = "probe-results.csv", content = buildProbeResultsCsv(selection.primaryResults)))
+                addAll(compositeEntries)
+                add(
+                    jsonEntry(
+                        name = "archive-provenance.json",
+                        serializer = DiagnosticsArchiveProvenancePayload.serializer(),
+                        value = buildArchiveProvenance(target, selection),
+                    ),
+                )
+                add(
+                    jsonEntry(
+                        name = "runtime-config.json",
+                        serializer = DiagnosticsArchiveRuntimeConfigPayload.serializer(),
+                        value = buildRuntimeConfig(selection),
+                    ),
+                )
+                add(
+                    jsonEntry(
+                        name = "analysis.json",
+                        serializer = DiagnosticsArchiveAnalysisPayload.serializer(),
+                        value = buildAnalysis(selection),
+                    ),
+                )
+                add(
+                    jsonEntry(
+                        name = "completeness.json",
+                        serializer = DiagnosticsArchiveCompletenessPayload.serializer(),
+                        value = completeness,
+                    ),
+                )
+                add(
+                    textEntry(
+                        name = "native-events.csv",
+                        content = buildNativeEventsCsv(selection.primaryEvents, selection.globalEvents),
+                    ),
+                )
+                add(textEntry(name = "telemetry.csv", content = buildTelemetryCsv(selection.payload)))
+                add(
+                    jsonEntry(
+                        name = "network-snapshots.json",
+                        serializer = DiagnosticsArchiveSnapshotPayload.serializer(),
+                        value = snapshotPayload,
+                    ),
+                )
+                add(
+                    jsonEntry(
+                        name = "diagnostic-context.json",
+                        serializer = DiagnosticsArchiveContextPayload.serializer(),
+                        value = contextPayload,
+                    ),
+                )
+                selection.logcatSnapshot?.let { snapshot ->
+                    add(DiagnosticsArchiveEntry(name = "logcat.txt", bytes = snapshot.content.toByteArray()))
+                }
+                selection.fileLogSnapshot?.let { content ->
+                    add(DiagnosticsArchiveEntry(name = "app-log.txt", bytes = content.toByteArray()))
+                }
+            }
 
         private fun buildRedactedPayload(selection: DiagnosticsArchiveSelection): DiagnosticsArchivePayload =
             selection.payload.copy(
@@ -212,6 +221,22 @@ class DiagnosticsArchiveRenderer
             selection: DiagnosticsArchiveSelection,
             sectionStatuses: Map<String, DiagnosticsArchiveSectionStatus>,
         ): String {
+            val manifest = buildManifest(target, selection, sectionStatuses)
+            val manifestElement = json.encodeToJsonElement(DiagnosticsArchiveManifest.serializer(), manifest)
+            val normalizedManifest =
+                if (selection.selectedApproachSummary == null && manifestElement is JsonObject) {
+                    JsonObject(manifestElement + ("selectedApproach" to JsonNull))
+                } else {
+                    manifestElement
+                }
+            return json.encodeToString(JsonElement.serializer(), normalizedManifest)
+        }
+
+        private fun buildManifest(
+            target: DiagnosticsArchiveTarget,
+            selection: DiagnosticsArchiveSelection,
+            sectionStatuses: Map<String, DiagnosticsArchiveSectionStatus>,
+        ): DiagnosticsArchiveManifest {
             val summaryDocument = buildSummaryDocument(selection)
             val allEvents = selection.primaryEvents + selection.globalEvents
             val runtimeId = allEvents.latestCorrelation { it.runtimeId }
@@ -223,78 +248,60 @@ class DiagnosticsArchiveRenderer
                     ?.telemetryNetworkFingerprintHash
                     ?: allEvents.latestCorrelation { it.fingerprintHash }
             val recentWarnings = allEvents.recentWarningPreview()
-            val manifest =
-                DiagnosticsArchiveManifest(
-                    fileName = target.fileName,
-                    createdAt = target.createdAt,
-                    schemaVersion = DiagnosticsArchiveFormat.schemaVersion,
-                    privacyMode = DiagnosticsArchiveFormat.privacyMode,
-                    scope = DiagnosticsArchiveFormat.scope,
-                    runType = selection.runType,
-                    homeRunId = selection.homeRunId,
-                    archiveReason = selection.request.reason,
-                    requestedSessionId =
-                        if (selection.runType == DiagnosticsArchiveRunType.SINGLE_SESSION) {
-                            selection.request.requestedSessionId
-                        } else {
-                            null
-                        },
-                    selectedSessionId =
-                        if (selection.runType == DiagnosticsArchiveRunType.SINGLE_SESSION) {
-                            selection.primarySession?.id
-                        } else {
-                            null
-                        },
-                    sessionSelectionStatus = selection.sessionSelectionStatus,
-                    recommendedSessionId = selection.homeCompositeOutcome?.recommendedSessionId,
-                    stageIndex = buildStageIndexEntries(selection),
-                    includedSessionId = selection.primarySession?.id,
-                    sessionResultCount = selection.primaryResults.size,
-                    sessionSnapshotCount = selection.primarySnapshots.size,
-                    contextSnapshotCount = selection.primaryContexts.size,
-                    sessionEventCount = selection.primaryEvents.size,
-                    telemetrySampleCount = selection.payload.telemetry.size,
-                    globalEventCount = selection.globalEvents.size,
-                    approachCount = selection.payload.approachSummaries.size,
-                    selectedApproach = selection.selectedApproachSummary,
-                    networkSummary = selection.latestSnapshotModel?.let(redactor::redact)?.toRedactedSummary(),
-                    contextSummary =
-                        (selection.sessionContextModel ?: selection.latestContextModel)
-                            ?.let(redactor::redact)
-                            ?.toRedactedSummary(),
-                    latestTelemetrySummary =
-                        selection.payload.telemetry
-                            .firstOrNull()
-                            ?.toArchiveTelemetrySummary(),
-                    runtimeId = runtimeId,
-                    mode = mode,
-                    policySignature = policySignature,
-                    fingerprintHash = fingerprintHash,
-                    networkScope = fingerprintHash,
-                    lastFailure = recentWarnings.firstOrNull(),
-                    lifecycleMilestones = allEvents.lifecycleMilestones(),
-                    recentNativeWarnings = recentWarnings,
-                    classifierVersion = summaryDocument.classifierVersion,
-                    diagnosisCount = summaryDocument.diagnoses.size,
-                    packVersions = summaryDocument.packVersions,
-                    buildProvenance = selection.buildProvenance.toSummary(),
-                    sectionStatusSummary = sectionStatuses,
-                    integrityAlgorithm = "sha256",
-                    includedFiles = selection.includedFiles,
-                    logcatIncluded = selection.logcatSnapshot != null,
-                    logcatCaptureScope =
-                        selection.logcatSnapshot?.captureScope ?: LogcatSnapshotCollector.AppVisibleSnapshotScope,
-                    logcatByteCount = selection.logcatSnapshot?.byteCount ?: 0,
-                )
-            val manifestElement =
-                json.encodeToJsonElement(DiagnosticsArchiveManifest.serializer(), manifest)
-            val normalizedManifest =
-                if (selection.selectedApproachSummary == null && manifestElement is JsonObject) {
-                    JsonObject(manifestElement + ("selectedApproach" to JsonNull))
-                } else {
-                    manifestElement
-                }
-            return json.encodeToString(JsonElement.serializer(), normalizedManifest)
+            val isSingleSession = selection.runType == DiagnosticsArchiveRunType.SINGLE_SESSION
+            return DiagnosticsArchiveManifest(
+                fileName = target.fileName,
+                createdAt = target.createdAt,
+                schemaVersion = DiagnosticsArchiveFormat.schemaVersion,
+                privacyMode = DiagnosticsArchiveFormat.privacyMode,
+                scope = DiagnosticsArchiveFormat.scope,
+                runType = selection.runType,
+                homeRunId = selection.homeRunId,
+                archiveReason = selection.request.reason,
+                requestedSessionId = if (isSingleSession) selection.request.requestedSessionId else null,
+                selectedSessionId = if (isSingleSession) selection.primarySession?.id else null,
+                sessionSelectionStatus = selection.sessionSelectionStatus,
+                recommendedSessionId = selection.homeCompositeOutcome?.recommendedSessionId,
+                stageIndex = buildStageIndexEntries(selection),
+                includedSessionId = selection.primarySession?.id,
+                sessionResultCount = selection.primaryResults.size,
+                sessionSnapshotCount = selection.primarySnapshots.size,
+                contextSnapshotCount = selection.primaryContexts.size,
+                sessionEventCount = selection.primaryEvents.size,
+                telemetrySampleCount = selection.payload.telemetry.size,
+                globalEventCount = selection.globalEvents.size,
+                approachCount = selection.payload.approachSummaries.size,
+                selectedApproach = selection.selectedApproachSummary,
+                networkSummary = selection.latestSnapshotModel?.let(redactor::redact)?.toRedactedSummary(),
+                contextSummary =
+                    (selection.sessionContextModel ?: selection.latestContextModel)
+                        ?.let(redactor::redact)
+                        ?.toRedactedSummary(),
+                latestTelemetrySummary =
+                    selection.payload.telemetry
+                        .firstOrNull()
+                        ?.toArchiveTelemetrySummary(),
+                runtimeId = runtimeId,
+                mode = mode,
+                policySignature = policySignature,
+                fingerprintHash = fingerprintHash,
+                networkScope = fingerprintHash,
+                lastFailure = recentWarnings.firstOrNull(),
+                lifecycleMilestones = allEvents.lifecycleMilestones(),
+                recentNativeWarnings = recentWarnings,
+                classifierVersion = summaryDocument.classifierVersion,
+                diagnosisCount = summaryDocument.diagnoses.size,
+                packVersions = summaryDocument.packVersions,
+                buildProvenance = selection.buildProvenance.toSummary(),
+                sectionStatusSummary = sectionStatuses,
+                integrityAlgorithm = "sha256",
+                includedFiles = selection.includedFiles,
+                logcatIncluded = selection.logcatSnapshot != null,
+                logcatCaptureScope =
+                    selection.logcatSnapshot?.captureScope
+                        ?: LogcatSnapshotCollector.AppVisibleSnapshotScope,
+                logcatByteCount = selection.logcatSnapshot?.byteCount ?: 0,
+            )
         }
 
         private fun buildArchiveProvenance(
@@ -403,15 +410,17 @@ class DiagnosticsArchiveRenderer
                 networkMeteredState = environment?.networkMeteredState ?: "unavailable",
                 roamingState = environment?.roamingState ?: "unavailable",
                 commandLineSettingsEnabled = selection.appSettings.enableCmdSettings,
-                commandLineArgsHash =
-                    selection.appSettings
-                        .takeIf { it.enableCmdSettings }
-                        ?.cmdArgs
-                        ?.takeIf { it.isNotBlank() }
-                        ?.let(::sha256Hex),
+                commandLineArgsHash = resolveCommandLineArgsHash(selection),
                 effectiveStrategySignature = selection.effectiveStrategySignature,
             )
         }
+
+        private fun resolveCommandLineArgsHash(selection: DiagnosticsArchiveSelection): String? =
+            selection.appSettings
+                .takeIf { it.enableCmdSettings }
+                ?.cmdArgs
+                ?.takeIf { it.isNotBlank() }
+                ?.let(::sha256Hex)
 
         private fun buildAnalysis(selection: DiagnosticsArchiveSelection): DiagnosticsArchiveAnalysisPayload {
             val telemetry = selection.payload.telemetry.sortedBy { it.createdAt }
@@ -562,112 +571,17 @@ class DiagnosticsArchiveRenderer
         private fun buildSectionStatuses(
             selection: DiagnosticsArchiveSelection,
         ): Map<String, DiagnosticsArchiveSectionStatus> {
-            val telemetryTruncated = selection.sourceCounts.telemetrySamples >= DiagnosticsArchiveFormat.telemetryLimit
-            val nativeEventsTruncated = selection.sourceCounts.nativeEvents >= DiagnosticsArchiveFormat.globalEventLimit
-            val snapshotsTruncated = selection.sourceCounts.snapshots >= DiagnosticsArchiveFormat.snapshotLimit
-            val contextsTruncated = selection.sourceCounts.contexts >= DiagnosticsArchiveFormat.snapshotLimit
-            val logcatTruncated =
-                (selection.logcatSnapshot?.byteCount ?: 0) >= LogcatSnapshotCollector.MAX_LOGCAT_BYTES
+            val truncationFlags =
+                SectionTruncationFlags(
+                    telemetry = selection.sourceCounts.telemetrySamples >= DiagnosticsArchiveFormat.telemetryLimit,
+                    nativeEvents = selection.sourceCounts.nativeEvents >= DiagnosticsArchiveFormat.globalEventLimit,
+                    snapshots = selection.sourceCounts.snapshots >= DiagnosticsArchiveFormat.snapshotLimit,
+                    contexts = selection.sourceCounts.contexts >= DiagnosticsArchiveFormat.snapshotLimit,
+                    logcat = (selection.logcatSnapshot?.byteCount ?: 0) >= LogcatSnapshotCollector.MAX_LOGCAT_BYTES,
+                )
             return buildMap {
                 selection.includedFiles.forEach { fileName ->
-                    put(
-                        fileName,
-                        when (fileName) {
-                            "summary.txt",
-                            "manifest.json",
-                            "report.json",
-                            "home-analysis.json",
-                            "stage-index.json",
-                            "stage-summaries.json",
-                            -> {
-                                DiagnosticsArchiveSectionStatus.REDACTED
-                            }
-
-                            "network-snapshots.json" -> {
-                                if (snapshotsTruncated) {
-                                    DiagnosticsArchiveSectionStatus.TRUNCATED
-                                } else {
-                                    DiagnosticsArchiveSectionStatus.REDACTED
-                                }
-                            }
-
-                            "diagnostic-context.json" -> {
-                                if (contextsTruncated) {
-                                    DiagnosticsArchiveSectionStatus.TRUNCATED
-                                } else {
-                                    DiagnosticsArchiveSectionStatus.REDACTED
-                                }
-                            }
-
-                            "telemetry.csv" -> {
-                                if (telemetryTruncated) {
-                                    DiagnosticsArchiveSectionStatus.TRUNCATED
-                                } else {
-                                    DiagnosticsArchiveSectionStatus.INCLUDED
-                                }
-                            }
-
-                            "native-events.csv" -> {
-                                if (nativeEventsTruncated) {
-                                    DiagnosticsArchiveSectionStatus.TRUNCATED
-                                } else {
-                                    DiagnosticsArchiveSectionStatus.INCLUDED
-                                }
-                            }
-
-                            "logcat.txt" -> {
-                                if (logcatTruncated) {
-                                    DiagnosticsArchiveSectionStatus.TRUNCATED
-                                } else {
-                                    DiagnosticsArchiveSectionStatus.INCLUDED
-                                }
-                            }
-
-                            else -> {
-                                when {
-                                    fileName.endsWith("/report.json") -> {
-                                        DiagnosticsArchiveSectionStatus.REDACTED
-                                    }
-
-                                    fileName.endsWith("/network-snapshots.json") -> {
-                                        if (snapshotsTruncated) {
-                                            DiagnosticsArchiveSectionStatus.TRUNCATED
-                                        } else {
-                                            DiagnosticsArchiveSectionStatus.REDACTED
-                                        }
-                                    }
-
-                                    fileName.endsWith("/diagnostic-context.json") -> {
-                                        if (contextsTruncated) {
-                                            DiagnosticsArchiveSectionStatus.TRUNCATED
-                                        } else {
-                                            DiagnosticsArchiveSectionStatus.REDACTED
-                                        }
-                                    }
-
-                                    fileName.endsWith("/telemetry.csv") -> {
-                                        if (telemetryTruncated) {
-                                            DiagnosticsArchiveSectionStatus.TRUNCATED
-                                        } else {
-                                            DiagnosticsArchiveSectionStatus.INCLUDED
-                                        }
-                                    }
-
-                                    fileName.endsWith("/native-events.csv") -> {
-                                        if (nativeEventsTruncated) {
-                                            DiagnosticsArchiveSectionStatus.TRUNCATED
-                                        } else {
-                                            DiagnosticsArchiveSectionStatus.INCLUDED
-                                        }
-                                    }
-
-                                    else -> {
-                                        DiagnosticsArchiveSectionStatus.INCLUDED
-                                    }
-                                }
-                            }
-                        },
-                    )
+                    put(fileName, sectionStatusForFileName(fileName, truncationFlags))
                 }
             }
         }
@@ -904,41 +818,9 @@ class DiagnosticsArchiveRenderer
             selection: DiagnosticsArchiveSelection,
         ): List<DiagnosticsArchiveEntry> {
             val prefix = "stages/${stage.stageSummary.stageKey}"
-            val snapshotPayload =
-                DiagnosticsArchiveSnapshotPayload(
-                    sessionSnapshots =
-                        stage.snapshots
-                            .mapNotNull(
-                                redactor::decodeNetworkSnapshot,
-                            ).map(redactor::redact),
-                    latestPassiveSnapshot = null,
-                )
-            val contextPayload =
-                DiagnosticsArchiveContextPayload(
-                    sessionContexts =
-                        stage.contexts
-                            .mapNotNull(
-                                redactor::decodeDiagnosticContext,
-                            ).map(redactor::redact),
-                    latestPassiveContext = null,
-                )
-            val stagePayload =
-                DiagnosticsArchivePayload(
-                    schemaVersion = DiagnosticsArchiveFormat.schemaVersion,
-                    scope = DiagnosticsArchiveFormat.scope,
-                    privacyMode = DiagnosticsArchiveFormat.privacyMode,
-                    session = stage.session,
-                    primaryReport = stage.report,
-                    results = stage.results,
-                    sessionSnapshots = stage.snapshots.map(redactor::redact),
-                    sessionContexts = stage.contexts.map(redactor::redact),
-                    sessionEvents = stage.events,
-                    latestPassiveSnapshot = null,
-                    latestPassiveContext = null,
-                    telemetry = selection.payload.telemetry,
-                    globalEvents = emptyList(),
-                    approachSummaries = selection.payload.approachSummaries,
-                )
+            val snapshotPayload = buildStageSnapshotPayload(stage)
+            val contextPayload = buildStageContextPayload(stage)
+            val stagePayload = buildStageArchivePayload(stage, selection)
             return buildList {
                 add(
                     jsonEntry(
@@ -983,6 +865,43 @@ class DiagnosticsArchiveRenderer
                 add(textEntry(name = "$prefix/telemetry.csv", content = buildTelemetryCsv(stagePayload)))
             }
         }
+
+        private fun buildStageSnapshotPayload(
+            stage: DiagnosticsArchiveCompositeStageSelection,
+        ): DiagnosticsArchiveSnapshotPayload =
+            DiagnosticsArchiveSnapshotPayload(
+                sessionSnapshots = stage.snapshots.mapNotNull(redactor::decodeNetworkSnapshot).map(redactor::redact),
+                latestPassiveSnapshot = null,
+            )
+
+        private fun buildStageContextPayload(
+            stage: DiagnosticsArchiveCompositeStageSelection,
+        ): DiagnosticsArchiveContextPayload =
+            DiagnosticsArchiveContextPayload(
+                sessionContexts = stage.contexts.mapNotNull(redactor::decodeDiagnosticContext).map(redactor::redact),
+                latestPassiveContext = null,
+            )
+
+        private fun buildStageArchivePayload(
+            stage: DiagnosticsArchiveCompositeStageSelection,
+            selection: DiagnosticsArchiveSelection,
+        ): DiagnosticsArchivePayload =
+            DiagnosticsArchivePayload(
+                schemaVersion = DiagnosticsArchiveFormat.schemaVersion,
+                scope = DiagnosticsArchiveFormat.scope,
+                privacyMode = DiagnosticsArchiveFormat.privacyMode,
+                session = stage.session,
+                primaryReport = stage.report,
+                results = stage.results,
+                sessionSnapshots = stage.snapshots.map(redactor::redact),
+                sessionContexts = stage.contexts.map(redactor::redact),
+                sessionEvents = stage.events,
+                latestPassiveSnapshot = null,
+                latestPassiveContext = null,
+                telemetry = selection.payload.telemetry,
+                globalEvents = emptyList(),
+                approachSummaries = selection.payload.approachSummaries,
+            )
 
         private fun DiagnosticsHomeCompositeStageSummary.toArchiveStageIndexEntry(): DiagnosticsArchiveStageIndexEntry =
             DiagnosticsArchiveStageIndexEntry(
@@ -1086,7 +1005,8 @@ class DiagnosticsArchiveRenderer
         ): String =
             buildString {
                 appendLine(
-                    "scope,sessionId,source,level,message,createdAt,runtimeId,mode,policySignature,fingerprintHash,subsystem",
+                    "scope,sessionId,source,level,message," +
+                        "createdAt,runtimeId,mode,policySignature,fingerprintHash,subsystem",
                 )
                 primaryEvents.forEach { event ->
                     appendLine(
@@ -1135,6 +1055,120 @@ class DiagnosticsArchiveRenderer
             runCatching {
                 json.decodeFromString(ListSerializer(ProbeDetail.serializer()), detailJson)
             }.getOrNull()?.let(::deriveProbeRetryCount)?.toString()
+    }
+
+private data class SectionTruncationFlags(
+    val telemetry: Boolean,
+    val nativeEvents: Boolean,
+    val snapshots: Boolean,
+    val contexts: Boolean,
+    val logcat: Boolean,
+)
+
+private fun sectionStatusForFileName(
+    fileName: String,
+    flags: SectionTruncationFlags,
+): DiagnosticsArchiveSectionStatus =
+    when (fileName) {
+        "summary.txt",
+        "manifest.json",
+        "report.json",
+        "home-analysis.json",
+        "stage-index.json",
+        "stage-summaries.json",
+        -> {
+            DiagnosticsArchiveSectionStatus.REDACTED
+        }
+
+        "network-snapshots.json" -> {
+            if (flags.snapshots) {
+                DiagnosticsArchiveSectionStatus.TRUNCATED
+            } else {
+                DiagnosticsArchiveSectionStatus.REDACTED
+            }
+        }
+
+        "diagnostic-context.json" -> {
+            if (flags.contexts) {
+                DiagnosticsArchiveSectionStatus.TRUNCATED
+            } else {
+                DiagnosticsArchiveSectionStatus.REDACTED
+            }
+        }
+
+        "telemetry.csv" -> {
+            if (flags.telemetry) {
+                DiagnosticsArchiveSectionStatus.TRUNCATED
+            } else {
+                DiagnosticsArchiveSectionStatus.INCLUDED
+            }
+        }
+
+        "native-events.csv" -> {
+            if (flags.nativeEvents) {
+                DiagnosticsArchiveSectionStatus.TRUNCATED
+            } else {
+                DiagnosticsArchiveSectionStatus.INCLUDED
+            }
+        }
+
+        "logcat.txt" -> {
+            if (flags.logcat) {
+                DiagnosticsArchiveSectionStatus.TRUNCATED
+            } else {
+                DiagnosticsArchiveSectionStatus.INCLUDED
+            }
+        }
+
+        else -> {
+            stageSectionStatusForFileName(fileName, flags)
+        }
+    }
+
+private fun stageSectionStatusForFileName(
+    fileName: String,
+    flags: SectionTruncationFlags,
+): DiagnosticsArchiveSectionStatus =
+    when {
+        fileName.endsWith("/report.json") -> {
+            DiagnosticsArchiveSectionStatus.REDACTED
+        }
+
+        fileName.endsWith("/network-snapshots.json") -> {
+            if (flags.snapshots) {
+                DiagnosticsArchiveSectionStatus.TRUNCATED
+            } else {
+                DiagnosticsArchiveSectionStatus.REDACTED
+            }
+        }
+
+        fileName.endsWith("/diagnostic-context.json") -> {
+            if (flags.contexts) {
+                DiagnosticsArchiveSectionStatus.TRUNCATED
+            } else {
+                DiagnosticsArchiveSectionStatus.REDACTED
+            }
+        }
+
+        fileName.endsWith("/telemetry.csv") -> {
+            if (flags.telemetry) {
+                DiagnosticsArchiveSectionStatus.TRUNCATED
+            } else {
+                DiagnosticsArchiveSectionStatus.INCLUDED
+            }
+        }
+
+        fileName.endsWith("/native-events.csv") -> {
+            if (flags.nativeEvents) {
+                DiagnosticsArchiveSectionStatus.TRUNCATED
+            } else {
+                DiagnosticsArchiveSectionStatus.INCLUDED
+            }
+        }
+
+        else -> {
+            DiagnosticsArchiveSectionStatus.INCLUDED
+        }
     }
 
 private fun List<NativeSessionEventEntity>.latestCorrelation(selector: (NativeSessionEventEntity) -> String?): String? =
@@ -1206,7 +1240,7 @@ private fun StrategyProbeCandidateSummary.toExecutionDetail(
         strategyFacts
             .flatMap { fact -> listOfNotNull(fact.tlsError, fact.tlsEchError) }
             .distinct()
-            .take(5)
+            .take(TlsErrorSampleLimit)
     return DiagnosticsArchiveCandidateExecutionDetail(
         lane = lane,
         id = id,

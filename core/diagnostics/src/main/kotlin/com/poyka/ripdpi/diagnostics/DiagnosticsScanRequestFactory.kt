@@ -108,67 +108,78 @@ internal class DiagnosticsScanRequestFactory
                 intent = intent,
                 context = scanContext,
                 plan = plan,
-                requestJson =
-                    json.encodeToString(
-                        EngineScanRequestWire.serializer(),
-                        engineRequest,
-                    ),
+                requestJson = json.encodeToString(EngineScanRequestWire.serializer(), engineRequest),
                 scanOrigin = DiagnosticsScanOrigin.DNS_CORRECTED_REPROBE,
                 launchTrigger = original.launchTrigger,
                 exposeProgress = false,
                 registerActiveBridge = false,
                 networkFingerprint = scanContext.networkFingerprint,
                 preferredDnsPath = scanContext.preferredDnsPath,
-                initialSession =
-                    ScanSessionEntity(
-                        id = sessionId,
-                        profileId = original.intent.profileId,
-                        approachProfileId = scanContext.approachSnapshot.profileId,
-                        approachProfileName = scanContext.approachSnapshot.profileName,
-                        strategyId = scanContext.approachSnapshot.strategyId,
-                        strategyLabel = scanContext.approachSnapshot.strategyLabel,
-                        strategyJson = scanContext.approachSnapshot.strategyJson,
-                        pathMode = pathMode.name,
-                        serviceMode = scanContext.serviceMode,
-                        status = "running",
-                        summary = "DNS-corrected re-probe for ${original.sessionId}",
-                        reportJson = null,
-                        startedAt = now,
-                        finishedAt = null,
-                        launchOrigin = DiagnosticsScanOrigin.DNS_CORRECTED_REPROBE.toLaunchOrigin().storageValue,
-                        triggerType = original.launchTrigger?.type?.storageValue,
-                        triggerClassification = original.launchTrigger?.classification,
-                        triggerOccurredAt = original.launchTrigger?.occurredAt,
-                        triggerPreviousFingerprintHash = original.launchTrigger?.previousFingerprintHash,
-                        triggerCurrentFingerprintHash = original.launchTrigger?.currentFingerprintHash,
-                    ),
-                preScanSnapshot =
-                    NetworkSnapshotEntity(
-                        id = UUID.randomUUID().toString(),
-                        sessionId = sessionId,
-                        snapshotKind = "pre_scan",
-                        payloadJson =
-                            json.encodeToString(
-                                NetworkSnapshotModel.serializer(),
-                                networkMetadataProvider.captureSnapshot(includePublicIp = false),
-                            ),
-                        capturedAt = now,
-                    ),
-                preScanContext =
-                    DiagnosticContextEntity(
-                        id = UUID.randomUUID().toString(),
-                        sessionId = sessionId,
-                        contextKind = "pre_scan",
-                        payloadJson =
-                            json.encodeToString(
-                                DiagnosticContextModel.serializer(),
-                                scanContext.contextSnapshot,
-                            ),
-                        capturedAt = now,
-                    ),
+                initialSession = buildReprobeSessionEntity(sessionId, pathMode, scanContext, original, now),
+                preScanSnapshot = buildReprobeSnapshotEntity(sessionId, now),
+                preScanContext = buildReprobeContextEntity(sessionId, scanContext, now),
                 reprobeForSessionId = original.sessionId,
             )
         }
+
+        private fun buildReprobeSessionEntity(
+            sessionId: String,
+            pathMode: ScanPathMode,
+            scanContext: ScanContext,
+            original: PreparedDiagnosticsScan,
+            now: Long,
+        ): ScanSessionEntity =
+            ScanSessionEntity(
+                id = sessionId,
+                profileId = original.intent.profileId,
+                approachProfileId = scanContext.approachSnapshot.profileId,
+                approachProfileName = scanContext.approachSnapshot.profileName,
+                strategyId = scanContext.approachSnapshot.strategyId,
+                strategyLabel = scanContext.approachSnapshot.strategyLabel,
+                strategyJson = scanContext.approachSnapshot.strategyJson,
+                pathMode = pathMode.name,
+                serviceMode = scanContext.serviceMode,
+                status = "running",
+                summary = "DNS-corrected re-probe for ${original.sessionId}",
+                reportJson = null,
+                startedAt = now,
+                finishedAt = null,
+                launchOrigin = DiagnosticsScanOrigin.DNS_CORRECTED_REPROBE.toLaunchOrigin().storageValue,
+                triggerType = original.launchTrigger?.type?.storageValue,
+                triggerClassification = original.launchTrigger?.classification,
+                triggerOccurredAt = original.launchTrigger?.occurredAt,
+                triggerPreviousFingerprintHash = original.launchTrigger?.previousFingerprintHash,
+                triggerCurrentFingerprintHash = original.launchTrigger?.currentFingerprintHash,
+            )
+
+        private suspend fun buildReprobeSnapshotEntity(
+            sessionId: String,
+            now: Long,
+        ): NetworkSnapshotEntity =
+            NetworkSnapshotEntity(
+                id = UUID.randomUUID().toString(),
+                sessionId = sessionId,
+                snapshotKind = "pre_scan",
+                payloadJson =
+                    json.encodeToString(
+                        NetworkSnapshotModel.serializer(),
+                        networkMetadataProvider.captureSnapshot(includePublicIp = false),
+                    ),
+                capturedAt = now,
+            )
+
+        private fun buildReprobeContextEntity(
+            sessionId: String,
+            scanContext: ScanContext,
+            now: Long,
+        ): DiagnosticContextEntity =
+            DiagnosticContextEntity(
+                id = UUID.randomUUID().toString(),
+                sessionId = sessionId,
+                contextKind = "pre_scan",
+                payloadJson = json.encodeToString(DiagnosticContextModel.serializer(), scanContext.contextSnapshot),
+                capturedAt = now,
+            )
 
         suspend fun prepareScan(
             profile: DiagnosticProfileEntity,

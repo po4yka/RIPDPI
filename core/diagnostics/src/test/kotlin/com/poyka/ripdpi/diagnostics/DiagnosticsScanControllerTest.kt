@@ -198,62 +198,25 @@ class DiagnosticsScanControllerTest {
                 FakeNetworkDiagnosticsBridgeFactory(json).apply {
                     bridge.autoCompleteOnStart = false
                 }
-            val services =
-                createDiagnosticsServices(
-                    context = TestContext(),
-                    appSettingsRepository = appSettingsRepository,
-                    stores = stores,
-                    networkMetadataProvider = FakeNetworkMetadataProvider(),
-                    diagnosticsContextProvider = FakeDiagnosticsContextProvider(),
-                    networkDiagnosticsBridgeFactory = bridgeFactory,
-                    runtimeCoordinator = FakeDiagnosticsRuntimeCoordinator(),
-                    serviceStateStore = FakeServiceStateStore(),
-                    scope = backgroundScope,
-                    controllerScope = this,
-                    json = json,
-                )
+            val services = createServicesWithHiddenProbeCapable(appSettingsRepository, stores, bridgeFactory)
 
             assertTrue(
                 services.scanController.launchAutomaticProbe(
                     settings = settings,
-                    event =
-                        PolicyHandoverEvent(
-                            mode = com.poyka.ripdpi.data.Mode.VPN,
-                            currentFingerprintHash = "network-a",
-                            classification = "transport_switch",
-                            currentNetworkValidated = true,
-                            currentCaptivePortalDetected = false,
-                            usedRememberedPolicy = false,
-                            policySignature = "baseline",
-                            occurredAt = 10L,
-                        ),
+                    event = transportSwitchHandoverEvent(),
                 ),
             )
             val conflict =
                 services.scanController.startScan(ScanPathMode.RAW_PATH)
                     as DiagnosticsManualScanStartResult.RequiresHiddenProbeResolution
 
-            appSettingsRepository.update {
-                diagnosticsActiveProfileId = "default"
-            }
+            appSettingsRepository.update { diagnosticsActiveProfileId = "default" }
 
             val hiddenSessionId =
                 stores.sessionsState.value
                     .single()
                     .id
-            bridgeFactory.bridge.enqueueProgress(
-                ScanProgress(
-                    sessionId = hiddenSessionId,
-                    phase = "complete",
-                    completedSteps = 1,
-                    totalSteps = 1,
-                    message = "complete",
-                    isFinished = true,
-                ),
-            )
-            bridgeFactory.bridge.enqueueReport(
-                controllerStrategyProbeReport(sessionId = hiddenSessionId, settings = settings),
-            )
+            completeHiddenScan(bridgeFactory, hiddenSessionId, settings)
             advanceUntilIdle()
 
             val resolution =
@@ -266,6 +229,56 @@ class DiagnosticsScanControllerTest {
             assertEquals("automatic-audit", stores.getScanSession(sessionId)?.profileId)
             assertFalse(services.scanController.hiddenAutomaticProbeActive.value)
         }
+
+    private fun kotlinx.coroutines.test.TestScope.createServicesWithHiddenProbeCapable(
+        appSettingsRepository: FakeAppSettingsRepository,
+        stores: FakeDiagnosticsHistoryStores,
+        bridgeFactory: FakeNetworkDiagnosticsBridgeFactory,
+    ) = createDiagnosticsServices(
+        context = TestContext(),
+        appSettingsRepository = appSettingsRepository,
+        stores = stores,
+        networkMetadataProvider = FakeNetworkMetadataProvider(),
+        diagnosticsContextProvider = FakeDiagnosticsContextProvider(),
+        networkDiagnosticsBridgeFactory = bridgeFactory,
+        runtimeCoordinator = FakeDiagnosticsRuntimeCoordinator(),
+        serviceStateStore = FakeServiceStateStore(),
+        scope = backgroundScope,
+        controllerScope = this,
+        json = json,
+    )
+
+    private fun transportSwitchHandoverEvent() =
+        PolicyHandoverEvent(
+            mode = com.poyka.ripdpi.data.Mode.VPN,
+            currentFingerprintHash = "network-a",
+            classification = "transport_switch",
+            currentNetworkValidated = true,
+            currentCaptivePortalDetected = false,
+            usedRememberedPolicy = false,
+            policySignature = "baseline",
+            occurredAt = 10L,
+        )
+
+    private fun completeHiddenScan(
+        bridgeFactory: FakeNetworkDiagnosticsBridgeFactory,
+        sessionId: String,
+        settings: com.poyka.ripdpi.proto.AppSettings,
+    ) {
+        bridgeFactory.bridge.enqueueProgress(
+            ScanProgress(
+                sessionId = sessionId,
+                phase = "complete",
+                completedSteps = 1,
+                totalSteps = 1,
+                message = "complete",
+                isFinished = true,
+            ),
+        )
+        bridgeFactory.bridge.enqueueReport(
+            controllerStrategyProbeReport(sessionId = sessionId, settings = settings),
+        )
+    }
 
     @Test
     fun `cancel and run cancels hidden probe with dedicated summary`() =
@@ -684,9 +697,12 @@ private fun FakeDiagnosticsHistoryStores.addAutomaticAuditProfile(json: kotlinx.
                     displayName = "Automatic audit",
                     kind = ScanKind.STRATEGY_PROBE,
                     family = DiagnosticProfileFamily.AUTOMATIC_AUDIT,
-                    domainTargets = listOf(DomainTarget(host = "example.org")),
-                    quicTargets = listOf(QuicTarget(host = "example.org")),
-                    strategyProbe = StrategyProbeRequest(suiteId = "full_matrix_v1"),
+                    targets =
+                        DiagnosticsProfileTargets(
+                            domainTargets = listOf(DomainTarget(host = "example.org")),
+                            quicTargets = listOf(QuicTarget(host = "example.org")),
+                            strategyProbe = StrategyProbeRequest(suiteId = "full_matrix_v1"),
+                        ),
                     requiresRawPath = true,
                     manualOnly = true,
                 ),

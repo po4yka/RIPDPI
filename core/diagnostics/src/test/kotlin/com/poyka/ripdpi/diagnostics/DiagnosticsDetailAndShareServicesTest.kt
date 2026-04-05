@@ -97,104 +97,8 @@ class DiagnosticsDetailAndShareServicesTest {
     fun `share service builds summary and delegates archive creation`() =
         runTest {
             val stores = FakeDiagnosticsHistoryStores()
-            val session =
-                diagnosticsSession(
-                    id = "session-1",
-                    profileId = "default",
-                    pathMode = ScanPathMode.IN_PATH.name,
-                    summary = "Blocked DNS",
-                ).copy(
-                    reportJson =
-                        json.encodeToString(
-                            ScanReport.serializer(),
-                            ScanReport(
-                                sessionId = "session-1",
-                                profileId = "default",
-                                pathMode = ScanPathMode.IN_PATH,
-                                startedAt = 10L,
-                                finishedAt = 15L,
-                                summary = "Blocked DNS",
-                                results = emptyList(),
-                                diagnoses =
-                                    listOf(
-                                        Diagnosis(
-                                            code = "dns_tampering",
-                                            summary = "DNS answers were substituted",
-                                            target = "blocked.example",
-                                        ),
-                                    ),
-                                classifierVersion = "ru_ooni_v1",
-                                packVersions = mapOf("ru-independent-media" to 1),
-                            ),
-                        ),
-                )
-            stores.sessionsState.value = listOf(session)
-            stores.replaceProbeResults(
-                sessionId = session.id,
-                results =
-                    listOf(
-                        ProbeResultEntity(
-                            id = "probe-1",
-                            sessionId = session.id,
-                            probeType = "dns",
-                            target = "blocked.example",
-                            outcome = "dns_blocked",
-                            detailJson = "[]",
-                            createdAt = 20L,
-                        ),
-                    ),
-            )
-            stores.snapshotsState.value =
-                listOf(
-                    NetworkSnapshotEntity(
-                        id = "snap-1",
-                        sessionId = session.id,
-                        snapshotKind = "post_scan",
-                        payloadJson =
-                            json.encodeToString(
-                                NetworkSnapshotModel.serializer(),
-                                networkSnapshotModelForTest(),
-                            ),
-                        capturedAt = 20L,
-                    ),
-                )
-            stores.contextsState.value =
-                listOf(
-                    DiagnosticContextEntity(
-                        id = "ctx-1",
-                        sessionId = session.id,
-                        contextKind = "post_scan",
-                        payloadJson = json.encodeToString(DiagnosticContextModel.serializer(), captureContextForTest()),
-                        capturedAt = 21L,
-                    ),
-                )
-            stores.telemetryState.value =
-                listOf(
-                    TelemetrySampleEntity(
-                        id = "telemetry-1",
-                        sessionId = session.id,
-                        activeMode = "VPN",
-                        connectionState = "Running",
-                        networkType = "wifi",
-                        publicIp = "198.51.100.8",
-                        txPackets = 1L,
-                        txBytes = 64L,
-                        rxPackets = 2L,
-                        rxBytes = 128L,
-                        createdAt = 22L,
-                    ),
-                )
-            stores.nativeEventsState.value =
-                listOf(
-                    NativeSessionEventEntity(
-                        id = "warn-1",
-                        sessionId = session.id,
-                        source = "dns",
-                        level = "warn",
-                        message = "substitution",
-                        createdAt = 23L,
-                    ),
-                )
+            val session = buildBlockedDnsSession()
+            seedShareServiceStores(stores, session)
             val expectedArchive =
                 DiagnosticsArchive(
                     fileName = "diagnostics.zip",
@@ -231,6 +135,111 @@ class DiagnosticsDetailAndShareServicesTest {
             assertEquals(DiagnosticsArchiveReason.SHARE_ARCHIVE, archiveExporter.requestedRequest?.reason)
         }
 
+    private fun buildBlockedDnsSession() =
+        diagnosticsSession(
+            id = "session-1",
+            profileId = "default",
+            pathMode = ScanPathMode.IN_PATH.name,
+            summary = "Blocked DNS",
+        ).copy(
+            reportJson =
+                json.encodeToString(
+                    ScanReport.serializer(),
+                    ScanReport(
+                        sessionId = "session-1",
+                        profileId = "default",
+                        pathMode = ScanPathMode.IN_PATH,
+                        startedAt = 10L,
+                        finishedAt = 15L,
+                        summary = "Blocked DNS",
+                        results = emptyList(),
+                        diagnoses =
+                            listOf(
+                                Diagnosis(
+                                    code = "dns_tampering",
+                                    summary = "DNS answers were substituted",
+                                    target = "blocked.example",
+                                ),
+                            ),
+                        classifierVersion = "ru_ooni_v1",
+                        packVersions = mapOf("ru-independent-media" to 1),
+                    ),
+                ),
+        )
+
+    private suspend fun seedShareServiceStores(
+        stores: FakeDiagnosticsHistoryStores,
+        session: com.poyka.ripdpi.data.diagnostics.ScanSessionEntity,
+    ) {
+        stores.sessionsState.value = listOf(session)
+        stores.replaceProbeResults(
+            sessionId = session.id,
+            results =
+                listOf(
+                    ProbeResultEntity(
+                        id = "probe-1",
+                        sessionId = session.id,
+                        probeType = "dns",
+                        target = "blocked.example",
+                        outcome = "dns_blocked",
+                        detailJson = "[]",
+                        createdAt = 20L,
+                    ),
+                ),
+        )
+        stores.snapshotsState.value =
+            listOf(
+                NetworkSnapshotEntity(
+                    id = "snap-1",
+                    sessionId = session.id,
+                    snapshotKind = "post_scan",
+                    payloadJson =
+                        json.encodeToString(
+                            NetworkSnapshotModel.serializer(),
+                            networkSnapshotModelForTest(),
+                        ),
+                    capturedAt = 20L,
+                ),
+            )
+        stores.contextsState.value =
+            listOf(
+                DiagnosticContextEntity(
+                    id = "ctx-1",
+                    sessionId = session.id,
+                    contextKind = "post_scan",
+                    payloadJson = json.encodeToString(DiagnosticContextModel.serializer(), captureContextForTest()),
+                    capturedAt = 21L,
+                ),
+            )
+        stores.telemetryState.value =
+            listOf(
+                TelemetrySampleEntity(
+                    id = "telemetry-1",
+                    sessionId = session.id,
+                    activeMode = "VPN",
+                    connectionState = "Running",
+                    networkType = "wifi",
+                    publicIp = "198.51.100.8",
+                    txPackets = 1L,
+                    txBytes = 64L,
+                    rxPackets = 2L,
+                    rxBytes = 128L,
+                    createdAt = 22L,
+                ),
+            )
+        stores.nativeEventsState.value =
+            listOf(
+                NativeSessionEventEntity(
+                    id = "warn-1",
+                    sessionId = session.id,
+                    source = "dns",
+                    level = "warn",
+                    message = "substitution",
+                    createdAt = 23L,
+                ),
+            )
+    }
+
     @Test
     fun `share summary stays scoped to the requested session`() =
         runTest {
@@ -249,94 +258,7 @@ class DiagnosticsDetailAndShareServicesTest {
                     pathMode = ScanPathMode.IN_PATH.name,
                     summary = "Newer session",
                 )
-            stores.sessionsState.value = listOf(newerSession, selectedSession)
-            stores.replaceProbeResults(
-                sessionId = selectedSession.id,
-                results =
-                    listOf(
-                        ProbeResultEntity(
-                            id = "probe-1",
-                            sessionId = selectedSession.id,
-                            probeType = "dns",
-                            target = "blocked.example",
-                            outcome = "dns_blocked",
-                            detailJson = "[]",
-                            createdAt = 20L,
-                        ),
-                    ),
-            )
-            stores.snapshotsState.value =
-                listOf(
-                    NetworkSnapshotEntity(
-                        id = "snap-1",
-                        sessionId = selectedSession.id,
-                        snapshotKind = "post_scan",
-                        payloadJson =
-                            json.encodeToString(
-                                NetworkSnapshotModel.serializer(),
-                                networkSnapshotModelForTest(),
-                            ),
-                        capturedAt = 20L,
-                    ),
-                )
-            stores.contextsState.value =
-                listOf(
-                    DiagnosticContextEntity(
-                        id = "ctx-1",
-                        sessionId = selectedSession.id,
-                        contextKind = "post_scan",
-                        payloadJson = json.encodeToString(DiagnosticContextModel.serializer(), captureContextForTest()),
-                        capturedAt = 21L,
-                    ),
-                )
-            stores.telemetryState.value =
-                listOf(
-                    TelemetrySampleEntity(
-                        id = "telemetry-new",
-                        sessionId = newerSession.id,
-                        activeMode = "VPN",
-                        connectionState = "Running",
-                        networkType = "cellular",
-                        publicIp = "198.51.100.9",
-                        txPackets = 9L,
-                        txBytes = 999L,
-                        rxPackets = 10L,
-                        rxBytes = 1111L,
-                        createdAt = 30L,
-                    ),
-                    TelemetrySampleEntity(
-                        id = "telemetry-selected",
-                        sessionId = selectedSession.id,
-                        activeMode = "VPN",
-                        connectionState = "Running",
-                        networkType = "wifi",
-                        publicIp = "198.51.100.8",
-                        txPackets = 1L,
-                        txBytes = 64L,
-                        rxPackets = 2L,
-                        rxBytes = 128L,
-                        createdAt = 22L,
-                    ),
-                )
-            stores.nativeEventsState.value =
-                listOf(
-                    NativeSessionEventEntity(
-                        id = "warn-new",
-                        sessionId = newerSession.id,
-                        source = "proxy",
-                        level = "warn",
-                        message = "newer warning",
-                        createdAt = 31L,
-                    ),
-                    NativeSessionEventEntity(
-                        id = "warn-selected",
-                        sessionId = selectedSession.id,
-                        source = "dns",
-                        level = "warn",
-                        message = "selected warning",
-                        createdAt = 23L,
-                    ),
-                )
+            seedScopedSessionStores(stores, selectedSession, newerSession)
             val shareService =
                 DefaultDiagnosticsShareService(
                     scanRecordStore = stores,
@@ -353,6 +275,109 @@ class DiagnosticsDetailAndShareServicesTest {
             assertTrue(summary.body.contains("dns: selected warning"))
             assertFalse(summary.body.contains("proxy: newer warning"))
         }
+
+    private suspend fun seedScopedSessionStores(
+        stores: FakeDiagnosticsHistoryStores,
+        selectedSession: com.poyka.ripdpi.data.diagnostics.ScanSessionEntity,
+        newerSession: com.poyka.ripdpi.data.diagnostics.ScanSessionEntity,
+    ) {
+        stores.sessionsState.value = listOf(newerSession, selectedSession)
+        stores.replaceProbeResults(
+            sessionId = selectedSession.id,
+            results =
+                listOf(
+                    ProbeResultEntity(
+                        id = "probe-1",
+                        sessionId = selectedSession.id,
+                        probeType = "dns",
+                        target = "blocked.example",
+                        outcome = "dns_blocked",
+                        detailJson = "[]",
+                        createdAt = 20L,
+                    ),
+                ),
+        )
+        stores.snapshotsState.value =
+            listOf(
+                NetworkSnapshotEntity(
+                    id = "snap-1",
+                    sessionId = selectedSession.id,
+                    snapshotKind = "post_scan",
+                    payloadJson =
+                        json.encodeToString(
+                            NetworkSnapshotModel.serializer(),
+                            networkSnapshotModelForTest(),
+                        ),
+                    capturedAt = 20L,
+                ),
+            )
+        stores.contextsState.value =
+            listOf(
+                DiagnosticContextEntity(
+                    id = "ctx-1",
+                    sessionId = selectedSession.id,
+                    contextKind = "post_scan",
+                    payloadJson = json.encodeToString(DiagnosticContextModel.serializer(), captureContextForTest()),
+                    capturedAt = 21L,
+                ),
+            )
+        seedTelemetryAndEvents(stores, selectedSession.id, newerSession.id)
+    }
+
+    private fun seedTelemetryAndEvents(
+        stores: FakeDiagnosticsHistoryStores,
+        selectedSessionId: String,
+        newerSessionId: String,
+    ) {
+        stores.telemetryState.value =
+            listOf(
+                telemetrySample("telemetry-new", newerSessionId, "cellular", "198.51.100.9", 9, 999, 10, 1111, 30),
+                telemetrySample("telemetry-selected", selectedSessionId, "wifi", "198.51.100.8", 1, 64, 2, 128, 22),
+            )
+        stores.nativeEventsState.value =
+            listOf(
+                NativeSessionEventEntity(
+                    id = "warn-new",
+                    sessionId = newerSessionId,
+                    source = "proxy",
+                    level = "warn",
+                    message = "newer warning",
+                    createdAt = 31L,
+                ),
+                NativeSessionEventEntity(
+                    id = "warn-selected",
+                    sessionId = selectedSessionId,
+                    source = "dns",
+                    level = "warn",
+                    message = "selected warning",
+                    createdAt = 23L,
+                ),
+            )
+    }
+
+    private fun telemetrySample(
+        id: String,
+        sessionId: String,
+        networkType: String,
+        publicIp: String,
+        txPackets: Long,
+        txBytes: Long,
+        rxPackets: Long,
+        rxBytes: Long,
+        createdAt: Long,
+    ) = TelemetrySampleEntity(
+        id = id,
+        sessionId = sessionId,
+        activeMode = "VPN",
+        connectionState = "Running",
+        networkType = networkType,
+        publicIp = publicIp,
+        txPackets = txPackets,
+        txBytes = txBytes,
+        rxPackets = rxPackets,
+        rxBytes = rxBytes,
+        createdAt = createdAt,
+    )
 
     @Test
     fun `share summary reports requested session as unavailable instead of falling back`() =

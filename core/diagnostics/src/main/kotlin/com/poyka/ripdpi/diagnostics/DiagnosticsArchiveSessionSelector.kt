@@ -2,8 +2,11 @@ package com.poyka.ripdpi.diagnostics
 
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.diagnostics.DiagnosticContextEntity
+import com.poyka.ripdpi.data.diagnostics.NativeSessionEventEntity
+import com.poyka.ripdpi.data.diagnostics.NetworkSnapshotEntity
 import com.poyka.ripdpi.data.diagnostics.ProbeResultEntity
 import com.poyka.ripdpi.data.diagnostics.ScanSessionEntity
+import com.poyka.ripdpi.diagnostics.contract.engine.EngineScanReportWire
 import kotlinx.serialization.json.Json
 import javax.inject.Inject
 import javax.inject.Named
@@ -32,7 +35,6 @@ class DiagnosticsArchiveSessionSelector
                 }
             }
 
-        @Suppress("LongMethod")
         internal suspend fun buildSelection(
             request: DiagnosticsArchiveRequest,
             primarySession: ScanSessionEntity?,
@@ -42,29 +44,100 @@ class DiagnosticsArchiveSessionSelector
             compositeSessions: List<ScanSessionEntity> = emptyList(),
             loadProbeResults: suspend (String) -> List<ProbeResultEntity>,
         ): DiagnosticsArchiveSelection {
-            val primaryReport =
+            val primary = buildPrimarySessionData(primarySession, primaryResults, sourceData)
+            val isComposite = compositeOutcome != null && request.homeRunId != null && request.sessionIds.isNotEmpty()
+            val compositeStages =
+                buildCompositeStages(isComposite, compositeOutcome, compositeSessions, sourceData, loadProbeResults)
+            val includedFiles = buildIncludedFiles(isComposite, compositeStages, sourceData)
+            val payload =
+                DiagnosticsArchivePayload(
+                    schemaVersion = DiagnosticsArchiveFormat.schemaVersion,
+                    scope = DiagnosticsArchiveFormat.scope,
+                    privacyMode = DiagnosticsArchiveFormat.privacyMode,
+                    session = primarySession,
+                    primaryReport = primary.report,
+                    results = primaryResults,
+                    sessionSnapshots = primary.snapshots,
+                    sessionContexts = primary.contexts,
+                    sessionEvents = primary.events,
+                    latestPassiveSnapshot = primary.latestPassiveSnapshot,
+                    latestPassiveContext = primary.latestPassiveContext,
+                    telemetry = sourceData.telemetry.take(DiagnosticsArchiveFormat.telemetryLimit),
+                    globalEvents = primary.globalEvents,
+                    approachSummaries = sourceData.approachSummaries,
+                )
+            return DiagnosticsArchiveSelection(
+                runType =
+                    if (isComposite) {
+                        DiagnosticsArchiveRunType.HOME_COMPOSITE
+                    } else {
+                        DiagnosticsArchiveRunType.SINGLE_SESSION
+                    },
+                request = request,
+                payload = payload,
+                primarySession = primarySession,
+                primaryReport = primary.report,
+                primaryResults = primaryResults,
+                primarySnapshots = primary.snapshots,
+                primaryContexts = primary.contexts,
+                primaryEvents = primary.events,
+                latestPassiveSnapshot = primary.latestPassiveSnapshot,
+                latestPassiveContext = primary.latestPassiveContext,
+                globalEvents = primary.globalEvents,
+                selectedApproachSummary = primary.selectedApproachSummary,
+                latestSnapshotModel = primary.latestSnapshotModel,
+                latestContextModel = primary.latestContextModel,
+                sessionContextModel = primary.sessionContextModel,
+                buildProvenance = sourceData.buildProvenance,
+                sessionSelectionStatus = resolveSessionSelectionStatus(request, isComposite, primarySession),
+                homeRunId = request.homeRunId,
+                homeCompositeOutcome = compositeOutcome,
+                compositeStages = compositeStages,
+                effectiveStrategySignature = primary.effectiveStrategySignature,
+                appSettings = sourceData.appSettings,
+                sourceCounts =
+                    DiagnosticsArchiveSourceCounts(
+                        telemetrySamples = sourceData.telemetry.size,
+                        nativeEvents = sourceData.events.size,
+                        snapshots = sourceData.snapshots.size,
+                        contexts = sourceData.contexts.size,
+                        sessionResults = primaryResults.size,
+                        sessionSnapshots = primary.snapshots.size,
+                        sessionContexts = primary.contexts.size,
+                        sessionEvents = primary.events.size,
+                    ),
+                collectionWarnings = sourceData.collectionWarnings,
+                includedFiles = includedFiles,
+                logcatSnapshot = sourceData.logcatSnapshot,
+                fileLogSnapshot = sourceData.fileLogSnapshot,
+            )
+        }
+
+        private fun buildPrimarySessionData(
+            primarySession: ScanSessionEntity?,
+            @Suppress("UnusedParameter") primaryResults: List<ProbeResultEntity>,
+            sourceData: DiagnosticsArchiveSourceData,
+        ): PrimarySessionData {
+            val report =
                 primarySession
                     ?.reportJson
                     ?.takeIf(String::isNotBlank)
                     ?.let(json::decodeEngineScanReportWire)
-            val primarySnapshots =
+            val snapshots =
                 primarySession
                     ?.id
-                    ?.let { sessionId ->
-                        sourceData.snapshots.filter { it.sessionId == sessionId }
-                    }.orEmpty()
-            val primaryContexts =
+                    ?.let { sessionId -> sourceData.snapshots.filter { it.sessionId == sessionId } }
+                    .orEmpty()
+            val contexts =
                 primarySession
                     ?.id
-                    ?.let { sessionId ->
-                        sourceData.contexts.filter { it.sessionId == sessionId }
-                    }.orEmpty()
-            val primaryEvents =
+                    ?.let { sessionId -> sourceData.contexts.filter { it.sessionId == sessionId } }
+                    .orEmpty()
+            val events =
                 primarySession
                     ?.id
-                    ?.let { sessionId ->
-                        sourceData.events.filter { it.sessionId == sessionId }
-                    }.orEmpty()
+                    ?.let { sessionId -> sourceData.events.filter { it.sessionId == sessionId } }
+                    .orEmpty()
             val latestPassiveSnapshot = sourceData.snapshots.firstOrNull { it.sessionId == null }
             val latestPassiveContext = sourceData.contexts.firstOrNull { it.sessionId == null }
             val globalEvents =
@@ -79,15 +152,13 @@ class DiagnosticsArchiveSessionSelector
                     }
                 }
             val latestPrimarySnapshotModel =
-                primarySnapshots.maxByOrNull { it.capturedAt }?.let(redactor::decodeNetworkSnapshot)
+                snapshots.maxByOrNull { it.capturedAt }?.let(redactor::decodeNetworkSnapshot)
             val latestSnapshotModel =
                 redactor.decodeNetworkSnapshot(latestPassiveSnapshot) ?: latestPrimarySnapshotModel
-            val latestContextModel =
-                redactor.decodeDiagnosticContext(latestPassiveContext)
+            val latestContextModel = redactor.decodeDiagnosticContext(latestPassiveContext)
             val sessionContextModel =
-                primaryContexts.maxByOrNull(DiagnosticContextEntity::capturedAt)?.let(redactor::decodeDiagnosticContext)
-            val routeGroup =
-                sessionContextModel?.service?.routeGroup ?: latestContextModel?.service?.routeGroup
+                contexts.maxByOrNull(DiagnosticContextEntity::capturedAt)?.let(redactor::decodeDiagnosticContext)
+            val routeGroup = sessionContextModel?.service?.routeGroup ?: latestContextModel?.service?.routeGroup
             val modeOverride =
                 primarySession
                     ?.serviceMode
@@ -101,90 +172,11 @@ class DiagnosticsArchiveSessionSelector
                         modeOverride = modeOverride,
                     )
                 }.getOrNull()
-            val payload =
-                DiagnosticsArchivePayload(
-                    schemaVersion = DiagnosticsArchiveFormat.schemaVersion,
-                    scope = DiagnosticsArchiveFormat.scope,
-                    privacyMode = DiagnosticsArchiveFormat.privacyMode,
-                    session = primarySession,
-                    primaryReport = primaryReport,
-                    results = primaryResults,
-                    sessionSnapshots = primarySnapshots,
-                    sessionContexts = primaryContexts,
-                    sessionEvents = primaryEvents,
-                    latestPassiveSnapshot = latestPassiveSnapshot,
-                    latestPassiveContext = latestPassiveContext,
-                    telemetry = sourceData.telemetry.take(DiagnosticsArchiveFormat.telemetryLimit),
-                    globalEvents = globalEvents,
-                    approachSummaries = sourceData.approachSummaries,
-                )
-            val isComposite = compositeOutcome != null && request.homeRunId != null && request.sessionIds.isNotEmpty()
-            val compositeStages =
-                if (isComposite) {
-                    compositeOutcome.stageSummaries.map { stageSummary ->
-                        val session = compositeSessions.firstOrNull { it.id == stageSummary.sessionId }
-                        val report =
-                            session
-                                ?.reportJson
-                                ?.takeIf(String::isNotBlank)
-                                ?.let(json::decodeEngineScanReportWire)
-                        DiagnosticsArchiveCompositeStageSelection(
-                            stageSummary = stageSummary,
-                            session = session,
-                            report = report,
-                            results =
-                                session
-                                    ?.id
-                                    ?.let { sessionId -> loadProbeResults(sessionId) }
-                                    .orEmpty(),
-                            snapshots = sourceData.snapshots.filter { it.sessionId == session?.id },
-                            contexts = sourceData.contexts.filter { it.sessionId == session?.id },
-                            events = sourceData.events.filter { it.sessionId == session?.id },
-                        )
-                    }
-                } else {
-                    emptyList()
-                }
-            val includedFiles =
-                if (isComposite) {
-                    DiagnosticsArchiveFormat.includedFiles(
-                        logcatIncluded = sourceData.logcatSnapshot != null,
-                        fileLogIncluded = sourceData.fileLogSnapshot != null,
-                        composite = true,
-                    ) +
-                        compositeStages.flatMap { stage ->
-                            val prefix = "stages/${stage.stageSummary.stageKey}"
-                            listOf(
-                                "$prefix/report.json",
-                                "$prefix/probe-results.csv",
-                                "$prefix/strategy-matrix.json",
-                                "$prefix/network-snapshots.json",
-                                "$prefix/diagnostic-context.json",
-                                "$prefix/native-events.csv",
-                                "$prefix/telemetry.csv",
-                            )
-                        }
-                } else {
-                    DiagnosticsArchiveFormat.includedFiles(
-                        logcatIncluded = sourceData.logcatSnapshot != null,
-                        fileLogIncluded = sourceData.fileLogSnapshot != null,
-                    )
-                }
-            return DiagnosticsArchiveSelection(
-                runType =
-                    if (isComposite) {
-                        DiagnosticsArchiveRunType.HOME_COMPOSITE
-                    } else {
-                        DiagnosticsArchiveRunType.SINGLE_SESSION
-                    },
-                request = request,
-                payload = payload,
-                primarySession = primarySession,
-                primaryReport = primaryReport,
-                primaryResults = primaryResults,
-                primarySnapshots = primarySnapshots,
-                primaryContexts = primaryContexts,
-                primaryEvents = primaryEvents,
+            return PrimarySessionData(
+                report = report,
+                snapshots = snapshots,
+                contexts = contexts,
+                events = events,
                 latestPassiveSnapshot = latestPassiveSnapshot,
                 latestPassiveContext = latestPassiveContext,
                 globalEvents = globalEvents,
@@ -192,49 +184,112 @@ class DiagnosticsArchiveSessionSelector
                 latestSnapshotModel = latestSnapshotModel,
                 latestContextModel = latestContextModel,
                 sessionContextModel = sessionContextModel,
-                buildProvenance = sourceData.buildProvenance,
-                sessionSelectionStatus =
-                    when {
-                        request.reason == DiagnosticsArchiveReason.SHARE_DEBUG_BUNDLE -> {
-                            DiagnosticsArchiveSessionSelectionStatus.SUPPORT_BUNDLE
-                        }
-
-                        isComposite -> {
-                            DiagnosticsArchiveSessionSelectionStatus.LATEST_COMPLETED_SESSION
-                        }
-
-                        request.requestedSessionId != null -> {
-                            DiagnosticsArchiveSessionSelectionStatus.REQUESTED_SESSION
-                        }
-
-                        primarySession?.reportJson != null -> {
-                            DiagnosticsArchiveSessionSelectionStatus.LATEST_COMPLETED_SESSION
-                        }
-
-                        else -> {
-                            DiagnosticsArchiveSessionSelectionStatus.LATEST_LIVE_STATE
-                        }
-                    },
-                homeRunId = request.homeRunId,
-                homeCompositeOutcome = compositeOutcome,
-                compositeStages = compositeStages,
                 effectiveStrategySignature = effectiveStrategySignature,
-                appSettings = sourceData.appSettings,
-                sourceCounts =
-                    DiagnosticsArchiveSourceCounts(
-                        telemetrySamples = sourceData.telemetry.size,
-                        nativeEvents = sourceData.events.size,
-                        snapshots = sourceData.snapshots.size,
-                        contexts = sourceData.contexts.size,
-                        sessionResults = primaryResults.size,
-                        sessionSnapshots = primarySnapshots.size,
-                        sessionContexts = primaryContexts.size,
-                        sessionEvents = primaryEvents.size,
-                    ),
-                collectionWarnings = sourceData.collectionWarnings,
-                includedFiles = includedFiles,
-                logcatSnapshot = sourceData.logcatSnapshot,
-                fileLogSnapshot = sourceData.fileLogSnapshot,
             )
         }
+
+        private suspend fun buildCompositeStages(
+            isComposite: Boolean,
+            compositeOutcome: DiagnosticsHomeCompositeOutcome?,
+            compositeSessions: List<ScanSessionEntity>,
+            sourceData: DiagnosticsArchiveSourceData,
+            loadProbeResults: suspend (String) -> List<ProbeResultEntity>,
+        ): List<DiagnosticsArchiveCompositeStageSelection> {
+            if (!isComposite || compositeOutcome == null) return emptyList()
+            return compositeOutcome.stageSummaries.map { stageSummary ->
+                val session = compositeSessions.firstOrNull { it.id == stageSummary.sessionId }
+                val report =
+                    session
+                        ?.reportJson
+                        ?.takeIf(String::isNotBlank)
+                        ?.let(json::decodeEngineScanReportWire)
+                DiagnosticsArchiveCompositeStageSelection(
+                    stageSummary = stageSummary,
+                    session = session,
+                    report = report,
+                    results =
+                        session
+                            ?.id
+                            ?.let { sessionId -> loadProbeResults(sessionId) }
+                            .orEmpty(),
+                    snapshots = sourceData.snapshots.filter { it.sessionId == session?.id },
+                    contexts = sourceData.contexts.filter { it.sessionId == session?.id },
+                    events = sourceData.events.filter { it.sessionId == session?.id },
+                )
+            }
+        }
+
+        private fun buildIncludedFiles(
+            isComposite: Boolean,
+            compositeStages: List<DiagnosticsArchiveCompositeStageSelection>,
+            sourceData: DiagnosticsArchiveSourceData,
+        ): List<String> {
+            val logcatIncluded = sourceData.logcatSnapshot != null
+            val fileLogIncluded = sourceData.fileLogSnapshot != null
+            if (!isComposite) {
+                return DiagnosticsArchiveFormat.includedFiles(
+                    logcatIncluded = logcatIncluded,
+                    fileLogIncluded = fileLogIncluded,
+                )
+            }
+            return DiagnosticsArchiveFormat.includedFiles(
+                logcatIncluded = logcatIncluded,
+                fileLogIncluded = fileLogIncluded,
+                composite = true,
+            ) +
+                compositeStages.flatMap { stage ->
+                    val prefix = "stages/${stage.stageSummary.stageKey}"
+                    listOf(
+                        "$prefix/report.json",
+                        "$prefix/probe-results.csv",
+                        "$prefix/strategy-matrix.json",
+                        "$prefix/network-snapshots.json",
+                        "$prefix/diagnostic-context.json",
+                        "$prefix/native-events.csv",
+                        "$prefix/telemetry.csv",
+                    )
+                }
+        }
+
+        private data class PrimarySessionData(
+            val report: EngineScanReportWire?,
+            val snapshots: List<NetworkSnapshotEntity>,
+            val contexts: List<DiagnosticContextEntity>,
+            val events: List<NativeSessionEventEntity>,
+            val latestPassiveSnapshot: NetworkSnapshotEntity?,
+            val latestPassiveContext: DiagnosticContextEntity?,
+            val globalEvents: List<NativeSessionEventEntity>,
+            val selectedApproachSummary: BypassApproachSummary?,
+            val latestSnapshotModel: NetworkSnapshotModel?,
+            val latestContextModel: DiagnosticContextModel?,
+            val sessionContextModel: DiagnosticContextModel?,
+            val effectiveStrategySignature: BypassStrategySignature?,
+        )
+
+        private fun resolveSessionSelectionStatus(
+            request: DiagnosticsArchiveRequest,
+            isComposite: Boolean,
+            primarySession: ScanSessionEntity?,
+        ): DiagnosticsArchiveSessionSelectionStatus =
+            when {
+                request.reason == DiagnosticsArchiveReason.SHARE_DEBUG_BUNDLE -> {
+                    DiagnosticsArchiveSessionSelectionStatus.SUPPORT_BUNDLE
+                }
+
+                isComposite -> {
+                    DiagnosticsArchiveSessionSelectionStatus.LATEST_COMPLETED_SESSION
+                }
+
+                request.requestedSessionId != null -> {
+                    DiagnosticsArchiveSessionSelectionStatus.REQUESTED_SESSION
+                }
+
+                primarySession?.reportJson != null -> {
+                    DiagnosticsArchiveSessionSelectionStatus.LATEST_COMPLETED_SESSION
+                }
+
+                else -> {
+                    DiagnosticsArchiveSessionSelectionStatus.LATEST_LIVE_STATE
+                }
+            }
     }

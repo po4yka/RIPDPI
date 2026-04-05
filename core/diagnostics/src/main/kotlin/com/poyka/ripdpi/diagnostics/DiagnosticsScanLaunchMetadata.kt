@@ -55,13 +55,12 @@ data class DiagnosticsScanLaunchTrigger(
             currentFingerprintHash: String?,
         ): DiagnosticsScanLaunchTrigger? {
             val resolvedType = DiagnosticsScanTriggerType.fromStorageValue(type)
-            return if (
+            val isEmptyTrigger =
                 resolvedType == DiagnosticsScanTriggerType.UNKNOWN &&
-                classification == null &&
-                occurredAt == null &&
-                previousFingerprintHash == null &&
-                currentFingerprintHash == null
-            ) {
+                    classification == null &&
+                    occurredAt == null
+            val hasNoFingerprints = previousFingerprintHash == null && currentFingerprintHash == null
+            return if (isEmptyTrigger && hasNoFingerprints) {
                 null
             } else {
                 DiagnosticsScanLaunchTrigger(

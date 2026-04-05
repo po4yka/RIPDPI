@@ -69,24 +69,21 @@ class AutomaticProbeScheduler
                     recentRuns = recentProbeRuns,
                     cooldownMs = effectiveCooldownMs,
                 )
-            if (baseEligibility is AutomaticProbeCoordinator.Eligibility.Rejected) {
-                return
-            }
+            if (baseEligibility is AutomaticProbeCoordinator.Eligibility.Rejected) return
 
-            if (!isStrategyFailure) {
-                val hasValidatedRememberedMatch =
-                    rememberedNetworkPolicyStore.findValidatedMatch(
-                        fingerprintHash = event.currentFingerprintHash,
-                        mode = event.mode,
-                    ) != null
-                val rememberedPolicyEligibility =
-                    AutomaticProbeCoordinator.evaluateRememberedPolicyEligibility(
-                        hasValidatedRememberedMatch = hasValidatedRememberedMatch,
-                    )
-                if (rememberedPolicyEligibility is AutomaticProbeCoordinator.Eligibility.Rejected) {
-                    return
-                }
-            }
+            val rememberedPolicyBlocks =
+                !isStrategyFailure &&
+                    run {
+                        val hasValidatedRememberedMatch =
+                            rememberedNetworkPolicyStore.findValidatedMatch(
+                                fingerprintHash = event.currentFingerprintHash,
+                                mode = event.mode,
+                            ) != null
+                        AutomaticProbeCoordinator.evaluateRememberedPolicyEligibility(
+                            hasValidatedRememberedMatch = hasValidatedRememberedMatch,
+                        ) is AutomaticProbeCoordinator.Eligibility.Rejected
+                    }
+            if (rememberedPolicyBlocks) return
 
             val now = System.currentTimeMillis()
             val latestTelemetrySample =
@@ -96,12 +93,9 @@ class AutomaticProbeScheduler
                     createdAfter = now - AutomaticProbeCoordinator.recentFailureLookbackMs(),
                 )
             val recentFailureEligibility =
-                AutomaticProbeCoordinator.evaluateRecentFailureSignal(
-                    sample = latestTelemetrySample,
-                )
-            if (recentFailureEligibility is AutomaticProbeCoordinator.Eligibility.Rejected) {
-                return
-            }
+                AutomaticProbeCoordinator.evaluateRecentFailureSignal(sample = latestTelemetrySample)
+            if (recentFailureEligibility is AutomaticProbeCoordinator.Eligibility.Rejected) return
+
             if (launcher.launchAutomaticProbe(settings, event)) {
                 recentProbeRuns[AutomaticProbeCoordinator.probeKey(event)] = now
             }

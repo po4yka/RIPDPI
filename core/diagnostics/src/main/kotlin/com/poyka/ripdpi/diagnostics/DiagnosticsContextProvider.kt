@@ -63,37 +63,16 @@ class AndroidDiagnosticsContextProvider
                     telemetry.proxyTelemetry.lastError?.takeIf { it.isNotBlank() },
                     telemetry.tunnelTelemetry.lastError?.takeIf { it.isNotBlank() },
                 ).firstOrNull() ?: "none"
-
             return DiagnosticContextModel(
                 service =
-                    ServiceContextModel(
-                        serviceStatus = serviceStatus.name,
-                        configuredMode = Mode.fromString(settings.ripdpiMode.ifEmpty { "vpn" }).name,
-                        activeMode = activeMode.name,
-                        selectedProfileId = settings.diagnosticsActiveProfileId.ifEmpty { "default" },
-                        selectedProfileName = profile?.name ?: "unknown",
-                        configSource = if (settings.enableCmdSettings) "command_line" else "ui",
-                        proxyEndpoint = "${settings.proxyIp.ifEmpty {
-                            "127.0.0.1"
-                        }}:${settings.proxyPort.takeIf { it > 0 } ?: 1080}",
-                        desyncMethod = primaryDesyncMethod(tcpSteps).ifEmpty { "none" },
-                        chainSummary = settings.effectiveChainSummary(),
-                        routeGroup = telemetry.proxyTelemetry.lastRouteGroup?.toString() ?: "unknown",
-                        sessionUptimeMs =
-                            telemetry.serviceStartedAt
-                                ?.takeIf { serviceStatus.name == "Running" }
-                                ?.let { System.currentTimeMillis() - it },
-                        lastNativeErrorHeadline = lastNativeError,
-                        restartCount = telemetry.restartCount,
-                        hostAutolearnEnabled = booleanState(telemetry.proxyTelemetry.autolearnEnabled),
-                        learnedHostCount = telemetry.proxyTelemetry.learnedHostCount,
-                        penalizedHostCount = telemetry.proxyTelemetry.penalizedHostCount,
-                        blockedHostCount = telemetry.proxyTelemetry.blockedHostCount,
-                        lastBlockSignal = telemetry.proxyTelemetry.lastBlockSignal ?: "none",
-                        lastBlockProvider = telemetry.proxyTelemetry.lastBlockProvider ?: "none",
-                        lastAutolearnHost = telemetry.proxyTelemetry.lastAutolearnHost ?: "none",
-                        lastAutolearnGroup = telemetry.proxyTelemetry.lastAutolearnGroup?.toString() ?: "none",
-                        lastAutolearnAction = telemetry.proxyTelemetry.lastAutolearnAction ?: "none",
+                    buildServiceContext(
+                        settings,
+                        profile,
+                        serviceStatus,
+                        activeMode,
+                        telemetry,
+                        tcpSteps,
+                        lastNativeError,
                     ),
                 permissions =
                     PermissionContextModel(
@@ -102,29 +81,7 @@ class AndroidDiagnosticsContextProvider
                         batteryOptimizationState = batteryOptimizationState(),
                         dataSaverState = dataSaverState(),
                     ),
-                device =
-                    DeviceContextModel(
-                        appVersionName = packageInfo.versionName ?: "unknown",
-                        appVersionCode = PackageInfoCompat.getLongVersionCode(packageInfo),
-                        buildType =
-                            if ((
-                                    context.applicationInfo.flags and
-                                        android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE
-                                ) !=
-                                0
-                            ) {
-                                "debug"
-                            } else {
-                                "release"
-                            },
-                        androidVersion = Build.VERSION.RELEASE ?: "unknown",
-                        apiLevel = Build.VERSION.SDK_INT,
-                        manufacturer = Build.MANUFACTURER ?: "unknown",
-                        model = Build.MODEL ?: "unknown",
-                        primaryAbi = Build.SUPPORTED_ABIS.firstOrNull() ?: "unknown",
-                        locale = Locale.getDefault().toLanguageTag(),
-                        timezone = TimeZone.getDefault().id,
-                    ),
+                device = buildDeviceContext(packageInfo),
                 environment =
                     EnvironmentContextModel(
                         batterySaverState = booleanState(powerManager.isPowerSaveMode),
@@ -134,6 +91,67 @@ class AndroidDiagnosticsContextProvider
                     ),
             )
         }
+
+        @Suppress("LongParameterList")
+        private fun buildServiceContext(
+            settings: com.poyka.ripdpi.proto.AppSettings,
+            profile: com.poyka.ripdpi.data.diagnostics.DiagnosticProfileEntity?,
+            serviceStatus: com.poyka.ripdpi.data.AppStatus,
+            activeMode: Mode,
+            telemetry: com.poyka.ripdpi.data.ServiceTelemetrySnapshot,
+            tcpSteps: List<com.poyka.ripdpi.data.TcpChainStepModel>,
+            lastNativeError: String,
+        ): ServiceContextModel =
+            ServiceContextModel(
+                serviceStatus = serviceStatus.name,
+                configuredMode = Mode.fromString(settings.ripdpiMode.ifEmpty { "vpn" }).name,
+                activeMode = activeMode.name,
+                selectedProfileId = settings.diagnosticsActiveProfileId.ifEmpty { "default" },
+                selectedProfileName = profile?.name ?: "unknown",
+                configSource = if (settings.enableCmdSettings) "command_line" else "ui",
+                proxyEndpoint =
+                    "${settings.proxyIp.ifEmpty { "127.0.0.1" }}" +
+                        ":${settings.proxyPort.takeIf { it > 0 } ?: 1080}",
+                desyncMethod = primaryDesyncMethod(tcpSteps).ifEmpty { "none" },
+                chainSummary = settings.effectiveChainSummary(),
+                routeGroup = telemetry.proxyTelemetry.lastRouteGroup?.toString() ?: "unknown",
+                sessionUptimeMs =
+                    telemetry.serviceStartedAt
+                        ?.takeIf { serviceStatus.name == "Running" }
+                        ?.let { System.currentTimeMillis() - it },
+                lastNativeErrorHeadline = lastNativeError,
+                restartCount = telemetry.restartCount,
+                hostAutolearnEnabled = booleanState(telemetry.proxyTelemetry.autolearnEnabled),
+                learnedHostCount = telemetry.proxyTelemetry.learnedHostCount,
+                penalizedHostCount = telemetry.proxyTelemetry.penalizedHostCount,
+                blockedHostCount = telemetry.proxyTelemetry.blockedHostCount,
+                lastBlockSignal = telemetry.proxyTelemetry.lastBlockSignal ?: "none",
+                lastBlockProvider = telemetry.proxyTelemetry.lastBlockProvider ?: "none",
+                lastAutolearnHost = telemetry.proxyTelemetry.lastAutolearnHost ?: "none",
+                lastAutolearnGroup = telemetry.proxyTelemetry.lastAutolearnGroup?.toString() ?: "none",
+                lastAutolearnAction = telemetry.proxyTelemetry.lastAutolearnAction ?: "none",
+            )
+
+        private fun buildDeviceContext(packageInfo: android.content.pm.PackageInfo): DeviceContextModel =
+            DeviceContextModel(
+                appVersionName = packageInfo.versionName ?: "unknown",
+                appVersionCode = PackageInfoCompat.getLongVersionCode(packageInfo),
+                buildType =
+                    if (
+                        (context.applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE) != 0
+                    ) {
+                        "debug"
+                    } else {
+                        "release"
+                    },
+                androidVersion = Build.VERSION.RELEASE ?: "unknown",
+                apiLevel = Build.VERSION.SDK_INT,
+                manufacturer = Build.MANUFACTURER ?: "unknown",
+                model = Build.MODEL ?: "unknown",
+                primaryAbi = Build.SUPPORTED_ABIS.firstOrNull() ?: "unknown",
+                locale = Locale.getDefault().toLanguageTag(),
+                timezone = TimeZone.getDefault().id,
+            )
 
         private fun notificationPermissionState(): String =
             if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
@@ -160,14 +178,14 @@ class AndroidDiagnosticsContextProvider
 
         @SuppressLint("MissingPermission")
         private fun roamingState(): String {
-            if (!hasPermission(Manifest.permission.ACCESS_NETWORK_STATE)) {
-                return "unknown"
-            }
+            if (!hasPermission(Manifest.permission.ACCESS_NETWORK_STATE)) return "unknown"
             val capabilities =
-                connectivityManager.getNetworkCapabilities(connectivityManager.activeNetwork) ?: return "unknown"
-            return when {
-                capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_ROAMING) -> "disabled"
-                else -> "enabled"
+                connectivityManager.getNetworkCapabilities(connectivityManager.activeNetwork)
+                    ?: return "unknown"
+            return if (capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_ROAMING)) {
+                "disabled"
+            } else {
+                "enabled"
             }
         }
 
