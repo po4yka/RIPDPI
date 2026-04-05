@@ -30,6 +30,7 @@ internal data class AppSettingsTcpChainSnapshot(
     val minFragmentSize: Int = 0,
     val maxFragmentSize: Int = 0,
     val activationFilter: ActivationFilterModel = ActivationFilterModel(),
+    val ipv6ExtensionProfile: String = StrategyIpv6ExtensionProfileNone,
 )
 
 @Serializable
@@ -38,6 +39,7 @@ internal data class AppSettingsUdpChainSnapshot(
     val count: Int,
     val splitBytes: Int = 0,
     val activationFilter: ActivationFilterModel = ActivationFilterModel(),
+    val ipv6ExtensionProfile: String = StrategyIpv6ExtensionProfileNone,
 )
 
 @Serializable
@@ -98,6 +100,8 @@ internal data class AppSettingsSnapshot(
     val hostRemoveSpaces: Boolean = defaultSettings.hostRemoveSpaces,
     val httpMethodEol: Boolean = defaultSettings.httpMethodEol,
     val httpUnixEol: Boolean = defaultSettings.httpUnixEol,
+    val httpMethodSpace: Boolean = defaultSettings.httpMethodSpace,
+    val httpHostPad: Boolean = defaultSettings.httpHostPad,
     val onboardingComplete: Boolean = defaultSettings.onboardingComplete,
     val webrtcProtectionEnabled: Boolean = defaultSettings.webrtcProtectionEnabled,
     val biometricEnabled: Boolean = defaultSettings.biometricEnabled,
@@ -116,6 +120,14 @@ internal data class AppSettingsSnapshot(
     val hostAutolearnPenaltyTtlHours: Int = defaultSettings.hostAutolearnPenaltyTtlHours,
     val hostAutolearnMaxHosts: Int = defaultSettings.hostAutolearnMaxHosts,
     val networkStrategyMemoryEnabled: Boolean = defaultSettings.networkStrategyMemoryEnabled,
+    val adaptiveFallbackEnabled: Boolean = defaultSettings.adaptiveFallbackEnabled,
+    val adaptiveFallbackTorst: Boolean = defaultSettings.adaptiveFallbackTorst,
+    val adaptiveFallbackTlsErr: Boolean = defaultSettings.adaptiveFallbackTlsErr,
+    val adaptiveFallbackHttpRedirect: Boolean = defaultSettings.adaptiveFallbackHttpRedirect,
+    val adaptiveFallbackConnectFailure: Boolean = defaultSettings.adaptiveFallbackConnectFailure,
+    val adaptiveFallbackAutoSort: Boolean = defaultSettings.adaptiveFallbackAutoSort,
+    val adaptiveFallbackCacheTtlSeconds: Int = defaultSettings.adaptiveFallbackCacheTtlSeconds,
+    val adaptiveFallbackCachePrefixV4: Int = defaultSettings.adaptiveFallbackCachePrefixV4,
     val wsTunnelEnabled: Boolean = defaultSettings.wsTunnelEnabled,
     val wsTunnelMode: String = defaultSettings.wsTunnelMode,
     val warpEnabled: Boolean = defaultSettings.warpEnabled,
@@ -211,6 +223,8 @@ private fun AppSettings.toSnapshot(): AppSettingsSnapshot =
             hostRemoveSpaces = hostRemoveSpaces,
             httpMethodEol = httpMethodEol,
             httpUnixEol = httpUnixEol,
+            httpMethodSpace = httpMethodSpace,
+            httpHostPad = httpHostPad,
             onboardingComplete = onboardingComplete,
             webrtcProtectionEnabled = webrtcProtectionEnabled,
             biometricEnabled = biometricEnabled,
@@ -234,6 +248,7 @@ private fun AppSettings.toSnapshot(): AppSettingsSnapshot =
                         maxFragmentSize = it.maxFragmentSize,
                         activationFilter =
                             if (it.hasActivationFilter()) it.activationFilter.toModel() else ActivationFilterModel(),
+                        ipv6ExtensionProfile = normalizeStrategyIpv6ExtensionProfile(it.ipv6ExtensionProfile),
                     )
                 },
             udpChainSteps =
@@ -244,6 +259,7 @@ private fun AppSettings.toSnapshot(): AppSettingsSnapshot =
                         splitBytes = it.splitBytes,
                         activationFilter =
                             if (it.hasActivationFilter()) it.activationFilter.toModel() else ActivationFilterModel(),
+                        ipv6ExtensionProfile = normalizeStrategyIpv6ExtensionProfile(it.ipv6ExtensionProfile),
                     )
                 },
             quicInitialMode = effectiveQuicInitialMode(),
@@ -255,6 +271,16 @@ private fun AppSettings.toSnapshot(): AppSettingsSnapshot =
             hostAutolearnPenaltyTtlHours = normalizeHostAutolearnPenaltyTtlHours(hostAutolearnPenaltyTtlHours),
             hostAutolearnMaxHosts = normalizeHostAutolearnMaxHosts(hostAutolearnMaxHosts),
             networkStrategyMemoryEnabled = networkStrategyMemoryEnabled,
+            adaptiveFallbackEnabled = adaptiveFallbackEnabled,
+            adaptiveFallbackTorst = adaptiveFallbackTorst,
+            adaptiveFallbackTlsErr = adaptiveFallbackTlsErr,
+            adaptiveFallbackHttpRedirect = adaptiveFallbackHttpRedirect,
+            adaptiveFallbackConnectFailure = adaptiveFallbackConnectFailure,
+            adaptiveFallbackAutoSort = adaptiveFallbackAutoSort,
+            adaptiveFallbackCacheTtlSeconds =
+                normalizeAdaptiveFallbackCacheTtlSeconds(adaptiveFallbackCacheTtlSeconds),
+            adaptiveFallbackCachePrefixV4 =
+                normalizeAdaptiveFallbackCachePrefixV4(adaptiveFallbackCachePrefixV4),
             wsTunnelEnabled = wsTunnelEnabled,
             wsTunnelMode = effectiveWsTunnelMode(),
             warpEnabled = warpEnabled,
@@ -375,6 +401,8 @@ private fun AppSettingsSnapshot.toAppSettings(): AppSettings {
         .setHostRemoveSpaces(hostRemoveSpaces)
         .setHttpMethodEol(httpMethodEol)
         .setHttpUnixEol(httpUnixEol)
+        .setHttpMethodSpace(httpMethodSpace)
+        .setHttpHostPad(httpHostPad)
         .setOnboardingComplete(onboardingComplete)
         .setWebrtcProtectionEnabled(webrtcProtectionEnabled)
         .setBiometricEnabled(biometricEnabled)
@@ -389,6 +417,14 @@ private fun AppSettingsSnapshot.toAppSettings(): AppSettings {
         .setHostAutolearnPenaltyTtlHours(normalizeHostAutolearnPenaltyTtlHours(hostAutolearnPenaltyTtlHours))
         .setHostAutolearnMaxHosts(normalizeHostAutolearnMaxHosts(hostAutolearnMaxHosts))
         .setNetworkStrategyMemoryEnabled(networkStrategyMemoryEnabled)
+        .setAdaptiveFallbackEnabled(adaptiveFallbackEnabled)
+        .setAdaptiveFallbackTorst(adaptiveFallbackTorst)
+        .setAdaptiveFallbackTlsErr(adaptiveFallbackTlsErr)
+        .setAdaptiveFallbackHttpRedirect(adaptiveFallbackHttpRedirect)
+        .setAdaptiveFallbackConnectFailure(adaptiveFallbackConnectFailure)
+        .setAdaptiveFallbackAutoSort(adaptiveFallbackAutoSort)
+        .setAdaptiveFallbackCacheTtlSeconds(normalizeAdaptiveFallbackCacheTtlSeconds(adaptiveFallbackCacheTtlSeconds))
+        .setAdaptiveFallbackCachePrefixV4(normalizeAdaptiveFallbackCachePrefixV4(adaptiveFallbackCachePrefixV4))
         .setWsTunnelEnabled(wsTunnelEnabled)
         .setWsTunnelMode(wsTunnelMode)
         .setWarpEnabled(warpEnabled)
@@ -430,6 +466,7 @@ private fun AppSettingsSnapshot.toAppSettings(): AppSettings {
                         .setFragmentCount(step.fragmentCount)
                         .setMinFragmentSize(step.minFragmentSize)
                         .setMaxFragmentSize(step.maxFragmentSize)
+                        .setIpv6ExtensionProfile(normalizeStrategyIpv6ExtensionProfile(step.ipv6ExtensionProfile))
                         .apply {
                             val normalizedFilter = normalizeActivationFilter(step.activationFilter)
                             if (!normalizedFilter.isEmpty) {
@@ -445,6 +482,7 @@ private fun AppSettingsSnapshot.toAppSettings(): AppSettings {
                         .setKind(step.kind)
                         .setCount(step.count)
                         .setSplitBytes(step.splitBytes)
+                        .setIpv6ExtensionProfile(normalizeStrategyIpv6ExtensionProfile(step.ipv6ExtensionProfile))
                         .apply {
                             val normalizedFilter = normalizeActivationFilter(step.activationFilter)
                             if (!normalizedFilter.isEmpty) {

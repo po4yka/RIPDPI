@@ -86,9 +86,19 @@ pub(super) fn connect_target_with_route(
     loop {
         match connect_target_via_group(target, state, route.group_index) {
             Ok(stream) => return Ok((stream, route)),
-            Err(err) => {
+            Err(mut err) => {
                 retries += 1;
-                let failure = classify_transport_error(FailureStage::Connect, &err.source);
+                let mut failure = classify_transport_error(FailureStage::Connect, &err.source);
+                if should_retry_without_tfo(state, &failure) {
+                    tracing::debug!(group_index = route.group_index, target = %target, "retrying connect without TCP Fast Open");
+                    match connect_target_via_group_with_tfo(target, state, route.group_index, false) {
+                        Ok(stream) => return Ok((stream, route)),
+                        Err(fallback_err) => {
+                            err = fallback_err;
+                            failure = classify_transport_error(FailureStage::Connect, &err.source);
+                        }
+                    }
+                }
                 note_block_signal_for_failure(state, host.as_deref(), &failure, err.tcp_total_retransmissions);
                 if retries > max_retries {
                     return Err(err.into_io_error());
@@ -336,6 +346,15 @@ pub(super) fn connect_target_via_group(
     state: &RuntimeState,
     group_index: usize,
 ) -> Result<TcpStream, ConnectAttemptError> {
+    connect_target_via_group_with_tfo(target, state, group_index, state.config.network.tfo)
+}
+
+fn connect_target_via_group_with_tfo(
+    target: SocketAddr,
+    state: &RuntimeState,
+    group_index: usize,
+    tfo_enabled: bool,
+) -> Result<TcpStream, ConnectAttemptError> {
     let started = std::time::Instant::now();
     let group = state.config.groups.get(group_index).ok_or_else(|| ConnectAttemptError {
         source: io::Error::new(io::ErrorKind::NotFound, "missing desync group"),
@@ -357,7 +376,7 @@ pub(super) fn connect_target_via_group(
             upstream.addr,
             unspecified_ip_for(upstream.addr),
             state.config.process.protect_path.as_deref(),
-            state.config.network.tfo,
+            tfo_enabled,
             connect_timeout,
         )
         .map_err(|source| ConnectAttemptError { source, tcp_total_retransmissions: None })
@@ -366,7 +385,7 @@ pub(super) fn connect_target_via_group(
             target,
             unspecified_ip_for(target),
             state.config.process.protect_path.as_deref(),
-            state.config.network.tfo,
+            tfo_enabled,
             connect_timeout,
             pre_connect_rcvbuf,
         )
@@ -599,6 +618,10 @@ fn is_unspecified(ip: IpAddr) -> bool {
     }
 }
 
+fn should_retry_without_tfo(state: &RuntimeState, failure: &ClassifiedFailure) -> bool {
+    state.config.network.tfo && matches!(failure.class, FailureClass::ConnectFailure | FailureClass::TcpReset)
+}
+
 pub(super) fn runtime_supports_trigger(state: &RuntimeState, trigger: u32) -> io::Result<bool> {
     let cache = state.cache.lock().map_err(|_| io::Error::other("cache mutex poisoned"))?;
     Ok(cache.supports_trigger(trigger))
@@ -617,12 +640,22 @@ pub(super) fn reconnect_target(
         super::retry::apply_retry_pacing_before_connect(state, target, &route, host.as_deref(), payload)?;
         match connect_target_via_group(target, state, route.group_index) {
             Ok(stream) => return Ok((stream, route)),
-            Err(err) => {
+            Err(mut err) => {
                 retries += 1;
                 if retries > max_retries {
                     return Err(err.into_io_error());
                 }
-                let failure = classify_transport_error(FailureStage::Connect, &err.source);
+                let mut failure = classify_transport_error(FailureStage::Connect, &err.source);
+                if should_retry_without_tfo(state, &failure) {
+                    tracing::debug!(group_index = route.group_index, target = %target, "retrying reconnect without TCP Fast Open");
+                    match connect_target_via_group_with_tfo(target, state, route.group_index, false) {
+                        Ok(stream) => return Ok((stream, route)),
+                        Err(fallback_err) => {
+                            err = fallback_err;
+                            failure = classify_transport_error(FailureStage::Connect, &err.source);
+                        }
+                    }
+                }
                 emit_failure_classified(state, target, &failure, host.as_deref());
                 let next = advance_route_for_failure(state, target, &route, host.clone(), payload, &failure)?;
                 let Some(next) = next else {

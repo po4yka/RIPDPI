@@ -1,4 +1,7 @@
-use crate::types::{HttpHost, HttpMarkerInfo, PacketMutation, MH_DMIX, MH_HMIX, MH_METHODEOL, MH_SPACE, MH_UNIXEOL};
+use crate::types::{
+    HttpHost, HttpMarkerInfo, PacketMutation, MH_DMIX, MH_HMIX, MH_HOSTPAD, MH_METHODEOL, MH_METHODSPACE, MH_SPACE,
+    MH_UNIXEOL,
+};
 use crate::util::{parse_u16_ascii, strncase_find};
 
 /// Return the byte offset just past the last header byte, before the blank
@@ -346,6 +349,28 @@ pub fn mod_http_like_c(input: &[u8], flags: u32) -> PacketMutation {
         Some(output)
     }
 
+    fn apply_http_method_space(input: &[u8]) -> Option<Vec<u8>> {
+        let layout = parse_http_request_layout(input)?;
+        let request_line = &input[layout.method_start..layout.request_line_end];
+        let space = request_line.iter().position(|&byte| byte == b' ')?;
+        let insert_at = layout.method_start + space;
+        let mut output = Vec::with_capacity(input.len() + 1);
+        output.extend_from_slice(&input[..insert_at]);
+        output.extend_from_slice(b"  ");
+        output.extend_from_slice(&input[insert_at + 1..]);
+        Some(output)
+    }
+
+    fn apply_http_host_pad(input: &[u8]) -> Option<Vec<u8>> {
+        let layout = parse_http_request_layout(input)?;
+        let header_insertion = layout.body_start.checked_sub(2)?;
+        let mut output = Vec::with_capacity(input.len() + 41);
+        output.extend_from_slice(&input[..header_insertion]);
+        output.extend_from_slice(b"X-Pad: 01234567890123456789012345678901\r\n");
+        output.extend_from_slice(&input[header_insertion..]);
+        Some(output)
+    }
+
     let mut output = input.to_vec();
     let mut modified = false;
 
@@ -375,6 +400,18 @@ pub fn mod_http_like_c(input: &[u8], flags: u32) -> PacketMutation {
     }
     if flags & MH_METHODEOL != 0 {
         if let Some(next) = apply_http_method_eol(&output) {
+            modified |= next != output;
+            output = next;
+        }
+    }
+    if flags & MH_METHODSPACE != 0 {
+        if let Some(next) = apply_http_method_space(&output) {
+            modified |= next != output;
+            output = next;
+        }
+    }
+    if flags & MH_HOSTPAD != 0 {
+        if let Some(next) = apply_http_host_pad(&output) {
             modified |= next != output;
             output = next;
         }
@@ -522,6 +559,26 @@ mod tests {
         assert!(output.starts_with("\r\nGET / HTTP/1.1\n"));
         assert!(output.contains("\nhOsT:ExAmPlE.CoM\t\n"));
         assert!(output.contains("\nUser-Agent: agent  \n\n"));
+    }
+
+    #[test]
+    fn mod_http_like_c_applies_method_space() {
+        let input = b"GET / HTTP/1.1\r\nHost: example.com\r\nUser-Agent: agent\r\n\r\n";
+        let mutation = mod_http_like_c(input, MH_METHODSPACE);
+        let output = std::str::from_utf8(&mutation.bytes).expect("http mutation utf8");
+
+        assert_eq!(mutation.rc, 0);
+        assert!(output.starts_with("GET  / HTTP/1.1\r\n"));
+    }
+
+    #[test]
+    fn mod_http_like_c_applies_host_pad() {
+        let input = b"GET / HTTP/1.1\r\nHost: example.com\r\nUser-Agent: agent\r\n\r\n";
+        let mutation = mod_http_like_c(input, MH_HOSTPAD);
+        let output = std::str::from_utf8(&mutation.bytes).expect("http mutation utf8");
+
+        assert_eq!(mutation.rc, 0);
+        assert!(output.contains("X-Pad: 01234567890123456789012345678901\r\n"));
     }
 
     #[test]

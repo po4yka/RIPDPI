@@ -9,6 +9,8 @@ import com.poyka.ripdpi.data.AdaptiveMarkerSniExt
 import com.poyka.ripdpi.data.AppSettingsSerializer
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.CanonicalDefaultSplitMarker
+import com.poyka.ripdpi.data.DefaultAdaptiveFallbackCachePrefixV4
+import com.poyka.ripdpi.data.DefaultAdaptiveFallbackCacheTtlSeconds
 import com.poyka.ripdpi.data.DefaultAdaptiveFakeTtlDelta
 import com.poyka.ripdpi.data.DefaultAdaptiveFakeTtlFallback
 import com.poyka.ripdpi.data.DefaultAdaptiveFakeTtlMax
@@ -124,14 +126,16 @@ data class HttpParserUiState(
     val hostMixedCase: Boolean = false,
     val domainMixedCase: Boolean = false,
     val hostRemoveSpaces: Boolean = false,
+    val httpHostPad: Boolean = false,
     val httpMethodEol: Boolean = false,
     val httpUnixEol: Boolean = false,
+    val httpMethodSpace: Boolean = false,
 ) {
     val httpParserSafeCount: Int
-        get() = listOf(hostMixedCase, domainMixedCase, hostRemoveSpaces).count { it }
+        get() = listOf(hostMixedCase, domainMixedCase, hostRemoveSpaces, httpHostPad).count { it }
 
     val httpParserAggressiveCount: Int
-        get() = listOf(httpMethodEol, httpUnixEol).count { it }
+        get() = listOf(httpMethodEol, httpUnixEol, httpMethodSpace).count { it }
 
     val hasSafeHttpParserTweaks: Boolean
         get() = httpParserSafeCount > 0
@@ -141,6 +145,35 @@ data class HttpParserUiState(
 
     val hasCustomHttpParserEvasions: Boolean
         get() = hasSafeHttpParserTweaks || hasAggressiveHttpParserEvasions
+}
+
+@Stable
+data class AdaptiveFallbackUiState(
+    val enabled: Boolean = true,
+    val torst: Boolean = true,
+    val tlsErr: Boolean = true,
+    val httpRedirect: Boolean = true,
+    val connectFailure: Boolean = true,
+    val autoSort: Boolean = true,
+    val cacheTtlSeconds: Int = DefaultAdaptiveFallbackCacheTtlSeconds,
+    val cachePrefixV4: Int = DefaultAdaptiveFallbackCachePrefixV4,
+) {
+    val triggerCount: Int
+        get() = listOf(torst, tlsErr, httpRedirect, connectFailure).count { it }
+
+    val hasAnyTrigger: Boolean
+        get() = triggerCount > 0
+
+    val usesDefaultProfile: Boolean
+        get() =
+            enabled &&
+                torst &&
+                tlsErr &&
+                httpRedirect &&
+                connectFailure &&
+                autoSort &&
+                cacheTtlSeconds == DefaultAdaptiveFallbackCacheTtlSeconds &&
+                cachePrefixV4 == DefaultAdaptiveFallbackCachePrefixV4
 }
 
 @Stable
@@ -425,6 +458,7 @@ data class SettingsUiState(
     val quic: QuicUiState = QuicUiState(),
     val warp: WarpUiState = WarpUiState(),
     val autolearn: HostAutolearnUiState = HostAutolearnUiState(),
+    val adaptiveFallback: AdaptiveFallbackUiState = AdaptiveFallbackUiState(),
     val httpParser: HttpParserUiState = HttpParserUiState(),
     val onboardingComplete: Boolean = false,
     val webrtcProtectionEnabled: Boolean = false,
@@ -544,6 +578,9 @@ data class SettingsUiState(
 
     val showHttpParserProfile: Boolean
         get() = enableCmdSettings || httpParserControlsRelevant || httpParser.hasCustomHttpParserEvasions
+
+    val adaptiveFallbackControlsRelevant: Boolean
+        get() = desyncEnabled
 
     val tlsPreludeControlsRelevant: Boolean
         get() = desyncHttpsEnabled

@@ -7,10 +7,13 @@ use ripdpi_config::{
     parse_udp_fake_profile as parse_udp_fake_profile_id, ActivationFilter, DesyncGroup, DesyncMode, EntropyMode,
     NumericRange, OffsetBase, OffsetExpr, QuicFakeProfile, QuicInitialMode, RuntimeConfig, SeqOverlapFakeMode,
     StartupEnv, TcpChainStep, TcpChainStepKind, UdpChainStep, UdpChainStepKind, UpstreamSocksConfig, WsizeConfig,
-    DETECT_CONNECT, FM_DUPSID, FM_ORIG, FM_PADENCAP, FM_RAND, FM_RNDSNI,
+    AUTO_RECONN, AUTO_SORT, DETECT_CONNECT, DETECT_HTTP_LOCAT, DETECT_TLS_ERR, DETECT_TORST, FM_DUPSID, FM_ORIG,
+    FM_PADENCAP, FM_RAND, FM_RNDSNI,
 };
 use ripdpi_packets::{HttpFakeProfile, TlsFakeProfile, UdpFakeProfile};
-use ripdpi_packets::{IS_HTTP, IS_HTTPS, IS_UDP, MH_DMIX, MH_HMIX, MH_METHODEOL, MH_SPACE, MH_UNIXEOL};
+use ripdpi_packets::{
+    IS_HTTP, IS_HTTPS, IS_UDP, MH_DMIX, MH_HMIX, MH_HOSTPAD, MH_METHODEOL, MH_METHODSPACE, MH_SPACE, MH_UNIXEOL,
+};
 use serde::de::{Deserializer, IgnoredAny, MapAccess, Visitor};
 
 use crate::presets;
@@ -227,6 +230,7 @@ fn validate_ui_payload_shape(json: &str) -> Result<(), ProxyConfigError> {
         "chains",
         "fakePackets",
         "parserEvasions",
+        "adaptiveFallback",
         "quic",
         "hosts",
         "warp",
@@ -271,7 +275,9 @@ fn validate_ui_payload_shape(json: &str) -> Result<(), ProxyConfigError> {
         "domainMixedCase",
         "hostRemoveSpaces",
         "httpMethodEol",
+        "httpMethodSpace",
         "httpUnixEol",
+        "httpHostPad",
         "tlsRecordSplit",
         "tlsRecordSplitMarker",
         "tlsRecordSplitPosition",
@@ -294,6 +300,14 @@ fn validate_ui_payload_shape(json: &str) -> Result<(), ProxyConfigError> {
         "hostAutolearnMaxHosts",
         "hostAutolearnStorePath",
         "networkScopeKey",
+        "adaptiveFallbackEnabled",
+        "adaptiveFallbackTorst",
+        "adaptiveFallbackTlsErr",
+        "adaptiveFallbackHttpRedirect",
+        "adaptiveFallbackConnectFailure",
+        "adaptiveFallbackAutoSort",
+        "adaptiveFallbackCacheTtlSeconds",
+        "adaptiveFallbackCachePrefixV4",
     ];
 
     let shape = serde_json::Deserializer::from_str(json)
@@ -462,6 +476,7 @@ pub fn runtime_config_from_ui(payload: ProxyUiConfig) -> Result<RuntimeConfig, P
         chains,
         fake_packets,
         parser_evasions,
+        adaptive_fallback,
         quic,
         hosts,
         warp,
@@ -519,6 +534,12 @@ pub fn runtime_config_from_ui(payload: ProxyUiConfig) -> Result<RuntimeConfig, P
         }
     };
     config.adaptive.ws_tunnel_fake_sni = ws_tunnel.fake_sni.filter(|s| !s.is_empty());
+    config.adaptive.auto_level = if adaptive_fallback.enabled { AUTO_RECONN } else { 0 };
+    if adaptive_fallback.enabled && adaptive_fallback.auto_sort {
+        config.adaptive.auto_level |= AUTO_SORT;
+    }
+    config.adaptive.cache_ttl = adaptive_fallback.cache_ttl_seconds.max(0);
+    config.adaptive.cache_prefix = adaptive_fallback.cache_prefix_v4.clamp(1, 32);
     if listen.custom_ttl {
         let ttl = u8::try_from(listen.default_ttl)
             .map_err(|_| ProxyConfigError::InvalidConfig("Invalid defaultTtl".to_string()))?;
@@ -662,7 +683,9 @@ pub fn runtime_config_from_ui(payload: ProxyUiConfig) -> Result<RuntimeConfig, P
         | (u32::from(parser_evasions.domain_mixed_case) * MH_DMIX)
         | (u32::from(parser_evasions.host_remove_spaces) * MH_SPACE)
         | (u32::from(parser_evasions.http_method_eol) * MH_METHODEOL)
-        | (u32::from(parser_evasions.http_unix_eol) * MH_UNIXEOL);
+        | (u32::from(parser_evasions.http_method_space) * MH_METHODSPACE)
+        | (u32::from(parser_evasions.http_unix_eol) * MH_UNIXEOL)
+        | (u32::from(parser_evasions.http_host_pad) * MH_HOSTPAD);
 
     for step in &chains.tcp_steps {
         let kind = parse_tcp_chain_step_kind(&step.kind)?;
@@ -730,6 +753,7 @@ pub fn runtime_config_from_ui(payload: ProxyUiConfig) -> Result<RuntimeConfig, P
         };
         let activation_filter =
             parse_proxy_activation_filter(step.activation_filter.as_ref(), "chains.tcpSteps.activationFilter")?;
+        let ipv6_ext = parse_ipv6_extension_profile(&step.ipv6_extension_profile);
         group.actions.tcp_chain.push(TcpChainStep {
             kind,
             offset,
@@ -743,9 +767,9 @@ pub fn runtime_config_from_ui(payload: ProxyUiConfig) -> Result<RuntimeConfig, P
             max_fragment_size,
             inter_segment_delay_ms: step.inter_segment_delay_ms.min(100),
             ip_frag_disorder: false,
-            ipv6_hop_by_hop: false,
-            ipv6_dest_opt: false,
-            ipv6_dest_opt2: false,
+            ipv6_hop_by_hop: ipv6_ext.hop_by_hop,
+            ipv6_dest_opt: ipv6_ext.dest_opt,
+            ipv6_dest_opt2: ipv6_ext.dest_opt2,
             ipv6_routing: false,
             ipv6_frag_next_override: None,
         });
@@ -774,6 +798,7 @@ pub fn runtime_config_from_ui(payload: ProxyUiConfig) -> Result<RuntimeConfig, P
                 "udpChainSteps splitBytes is only supported for kind=ipfrag2_udp".to_string(),
             ));
         }
+        let ipv6_ext = parse_ipv6_extension_profile(&step.ipv6_extension_profile);
         group.actions.udp_chain.push(UdpChainStep {
             kind,
             count: step.count,
@@ -783,9 +808,9 @@ pub fn runtime_config_from_ui(payload: ProxyUiConfig) -> Result<RuntimeConfig, P
                 "chains.udpSteps.activationFilter",
             )?,
             ip_frag_disorder: false,
-            ipv6_hop_by_hop: false,
-            ipv6_dest_opt: false,
-            ipv6_dest_opt2: false,
+            ipv6_hop_by_hop: ipv6_ext.hop_by_hop,
+            ipv6_dest_opt: ipv6_ext.dest_opt,
+            ipv6_dest_opt2: ipv6_ext.dest_opt2,
             ipv6_frag_next_override: None,
         });
     }
@@ -851,6 +876,15 @@ pub fn runtime_config_from_ui(payload: ProxyUiConfig) -> Result<RuntimeConfig, P
     }
 
     if has_tcp_proto || udp_enabled {
+        let adaptive_detect = adaptive_detect_mask(&adaptive_fallback);
+        if adaptive_fallback.enabled && adaptive_detect != 0 && has_tcp_proto {
+            let mut adaptive_direct = DesyncGroup::new(groups.len());
+            adaptive_direct.matches.detect = adaptive_detect;
+            adaptive_direct.matches.proto = tcp_proto;
+            adaptive_direct.policy.label = "adaptive_direct".to_string();
+            adaptive_direct.policy.cache_ttl = config.adaptive.cache_ttl;
+            groups.push(adaptive_direct);
+        }
         let mut fallback = DesyncGroup::new(groups.len());
         fallback.matches.detect = DETECT_CONNECT;
         groups.push(fallback);
@@ -875,6 +909,40 @@ pub fn runtime_config_from_ui(payload: ProxyUiConfig) -> Result<RuntimeConfig, P
     config.process.root_helper_socket_path = root_helper_socket_path;
 
     Ok(config)
+}
+
+#[derive(Clone, Copy)]
+struct ParsedIpv6ExtensionProfile {
+    hop_by_hop: bool,
+    dest_opt: bool,
+    dest_opt2: bool,
+}
+
+fn parse_ipv6_extension_profile(value: &str) -> ParsedIpv6ExtensionProfile {
+    match value.trim() {
+        "hopByHop" => ParsedIpv6ExtensionProfile { hop_by_hop: true, dest_opt: false, dest_opt2: false },
+        "hopByHop2" => ParsedIpv6ExtensionProfile { hop_by_hop: true, dest_opt: false, dest_opt2: true },
+        "destOpt" => ParsedIpv6ExtensionProfile { hop_by_hop: false, dest_opt: true, dest_opt2: false },
+        "hopByHopDestOpt" => ParsedIpv6ExtensionProfile { hop_by_hop: true, dest_opt: true, dest_opt2: false },
+        _ => ParsedIpv6ExtensionProfile { hop_by_hop: false, dest_opt: false, dest_opt2: false },
+    }
+}
+
+fn adaptive_detect_mask(config: &crate::types::ProxyUiAdaptiveFallbackConfig) -> u32 {
+    let mut detect = 0;
+    if config.torst {
+        detect |= DETECT_TORST;
+    }
+    if config.tls_err {
+        detect |= DETECT_TLS_ERR;
+    }
+    if config.http_redirect {
+        detect |= DETECT_HTTP_LOCAT;
+    }
+    if config.connect_failure {
+        detect |= DETECT_CONNECT;
+    }
+    detect
 }
 
 pub fn parse_tcp_chain_step_kind(value: &str) -> Result<TcpChainStepKind, ProxyConfigError> {

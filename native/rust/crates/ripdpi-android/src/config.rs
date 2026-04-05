@@ -85,11 +85,18 @@ mod tests {
             max_fragment_size: 0,
             inter_segment_delay_ms: 0,
             activation_filter: None,
+            ipv6_extension_profile: "none".to_string(),
         }
     }
 
     fn udp_step(kind: &str, count: i32) -> ProxyUiUdpChainStep {
-        ProxyUiUdpChainStep { kind: kind.to_string(), count, split_bytes: 0, activation_filter: None }
+        ProxyUiUdpChainStep {
+            kind: kind.to_string(),
+            count,
+            split_bytes: 0,
+            activation_filter: None,
+            ipv6_extension_profile: "none".to_string(),
+        }
     }
 
     fn minimal_ui_config() -> ProxyUiConfig {
@@ -264,6 +271,8 @@ mod tests {
                     host_remove_spaces,
                     http_method_eol,
                     http_unix_eol,
+                    http_method_space: false,
+                    http_host_pad: false,
                 };
                 config.hosts = ProxyUiHostsConfig { mode: hosts_mode, entries: hosts_entries };
                 config.quic = ProxyUiQuicConfig {

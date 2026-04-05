@@ -31,6 +31,7 @@ internal object RipDpiProxyJsonCodec {
             "chains",
             "fakePackets",
             "parserEvasions",
+            "adaptiveFallback",
             "quic",
             "hosts",
             "warp",
@@ -76,7 +77,9 @@ internal object RipDpiProxyJsonCodec {
             "domainMixedCase",
             "hostRemoveSpaces",
             "httpMethodEol",
+            "httpMethodSpace",
             "httpUnixEol",
+            "httpHostPad",
             "tlsRecordSplit",
             "tlsRecordSplitMarker",
             "tlsRecordSplitPosition",
@@ -99,6 +102,14 @@ internal object RipDpiProxyJsonCodec {
             "hostAutolearnMaxHosts",
             "hostAutolearnStorePath",
             "networkScopeKey",
+            "adaptiveFallbackEnabled",
+            "adaptiveFallbackTorst",
+            "adaptiveFallbackTlsErr",
+            "adaptiveFallbackHttpRedirect",
+            "adaptiveFallbackConnectFailure",
+            "adaptiveFallbackAutoSort",
+            "adaptiveFallbackCacheTtlSeconds",
+            "adaptiveFallbackCachePrefixV4",
         )
     private const val LegacyCommandLineProgram = "cia" + "dpi"
     private const val LegacyStrategyPreset = "bye" + "dpi_default"
@@ -132,6 +143,7 @@ internal object RipDpiProxyJsonCodec {
                 chains = ChainCodec.toNative(preferences.chains),
                 fakePackets = PacketCodec.toNative(preferences.fakePackets),
                 parserEvasions = PacketCodec.toNative(preferences.parserEvasions),
+                adaptiveFallback = AdaptiveCodec.toNative(preferences.adaptiveFallback),
                 quic = EndpointCodec.toNative(preferences.quic),
                 hosts = EndpointCodec.toNative(preferences.hosts),
                 warp = EndpointCodec.toNative(preferences.warp),
@@ -311,6 +323,7 @@ internal object RipDpiProxyJsonCodec {
         val minFragmentSize: Int,
         val maxFragmentSize: Int,
         val activationFilter: NativeActivationFilter? = null,
+        val ipv6ExtensionProfile: String = "none",
     )
 
     @Serializable
@@ -319,6 +332,7 @@ internal object RipDpiProxyJsonCodec {
         val count: Int,
         val splitBytes: Int = 0,
         val activationFilter: NativeActivationFilter? = null,
+        val ipv6ExtensionProfile: String = "none",
     )
 
     @Serializable
@@ -370,7 +384,21 @@ internal object RipDpiProxyJsonCodec {
         val domainMixedCase: Boolean = false,
         val hostRemoveSpaces: Boolean = false,
         val httpMethodEol: Boolean = false,
+        val httpMethodSpace: Boolean = false,
         val httpUnixEol: Boolean = false,
+        val httpHostPad: Boolean = false,
+    )
+
+    @Serializable
+    private data class NativeAdaptiveFallbackConfig(
+        val enabled: Boolean = true,
+        val torst: Boolean = true,
+        val tlsErr: Boolean = true,
+        val httpRedirect: Boolean = true,
+        val connectFailure: Boolean = true,
+        val autoSort: Boolean = true,
+        val cacheTtlSeconds: Int = 90,
+        val cachePrefixV4: Int = 24,
     )
 
     @Serializable
@@ -463,6 +491,7 @@ internal object RipDpiProxyJsonCodec {
             val chains: NativeChainConfig = NativeChainConfig(),
             val fakePackets: NativeFakePacketConfig = NativeFakePacketConfig(),
             val parserEvasions: NativeParserEvasionConfig = NativeParserEvasionConfig(),
+            val adaptiveFallback: NativeAdaptiveFallbackConfig = NativeAdaptiveFallbackConfig(),
             val quic: NativeQuicConfig = NativeQuicConfig(),
             val hosts: NativeHostsConfig = NativeHostsConfig(),
             val warp: NativeWarpConfig = NativeWarpConfig(),
@@ -648,6 +677,7 @@ internal object RipDpiProxyJsonCodec {
                             maxFragmentSize = step.maxFragmentSize,
                             activationFilter =
                                 step.activationFilter?.let(RangeCodec::toModel) ?: ActivationFilterModel(),
+                            ipv6ExtensionProfile = step.ipv6ExtensionProfile,
                         )
                     },
                 udpSteps =
@@ -659,6 +689,7 @@ internal object RipDpiProxyJsonCodec {
                             splitBytes = step.splitBytes,
                             activationFilter =
                                 step.activationFilter?.let(RangeCodec::toModel) ?: ActivationFilterModel(),
+                            ipv6ExtensionProfile = step.ipv6ExtensionProfile,
                         )
                     },
             )
@@ -680,6 +711,7 @@ internal object RipDpiProxyJsonCodec {
                             minFragmentSize = step.minFragmentSize,
                             maxFragmentSize = step.maxFragmentSize,
                             activationFilter = RangeCodec.toNative(step.activationFilter),
+                            ipv6ExtensionProfile = step.ipv6ExtensionProfile,
                         )
                     },
                 udpSteps =
@@ -689,6 +721,7 @@ internal object RipDpiProxyJsonCodec {
                             count = it.count,
                             splitBytes = it.splitBytes,
                             activationFilter = RangeCodec.toNative(it.activationFilter),
+                            ipv6ExtensionProfile = it.ipv6ExtensionProfile,
                         )
                     },
             )
@@ -747,7 +780,9 @@ internal object RipDpiProxyJsonCodec {
                 domainMixedCase = value.domainMixedCase,
                 hostRemoveSpaces = value.hostRemoveSpaces,
                 httpMethodEol = value.httpMethodEol,
+                httpMethodSpace = value.httpMethodSpace,
                 httpUnixEol = value.httpUnixEol,
+                httpHostPad = value.httpHostPad,
             )
 
         fun toNative(value: RipDpiParserEvasionConfig): NativeParserEvasionConfig =
@@ -756,7 +791,35 @@ internal object RipDpiProxyJsonCodec {
                 domainMixedCase = value.domainMixedCase,
                 hostRemoveSpaces = value.hostRemoveSpaces,
                 httpMethodEol = value.httpMethodEol,
+                httpMethodSpace = value.httpMethodSpace,
                 httpUnixEol = value.httpUnixEol,
+                httpHostPad = value.httpHostPad,
+            )
+    }
+
+    private object AdaptiveCodec {
+        fun toModel(value: NativeAdaptiveFallbackConfig): RipDpiAdaptiveFallbackConfig =
+            RipDpiAdaptiveFallbackConfig(
+                enabled = value.enabled,
+                torst = value.torst,
+                tlsErr = value.tlsErr,
+                httpRedirect = value.httpRedirect,
+                connectFailure = value.connectFailure,
+                autoSort = value.autoSort,
+                cacheTtlSeconds = value.cacheTtlSeconds,
+                cachePrefixV4 = value.cachePrefixV4,
+            )
+
+        fun toNative(value: RipDpiAdaptiveFallbackConfig): NativeAdaptiveFallbackConfig =
+            NativeAdaptiveFallbackConfig(
+                enabled = value.enabled,
+                torst = value.torst,
+                tlsErr = value.tlsErr,
+                httpRedirect = value.httpRedirect,
+                connectFailure = value.connectFailure,
+                autoSort = value.autoSort,
+                cacheTtlSeconds = value.cacheTtlSeconds,
+                cachePrefixV4 = value.cachePrefixV4,
             )
     }
 
@@ -900,6 +963,7 @@ internal object RipDpiProxyJsonCodec {
                 chains = ChainCodec.toModel(value.chains),
                 fakePackets = PacketCodec.toModel(value.fakePackets),
                 parserEvasions = PacketCodec.toModel(value.parserEvasions),
+                adaptiveFallback = AdaptiveCodec.toModel(value.adaptiveFallback),
                 quic = toModel(value.quic),
                 hosts = toModel(value.hosts),
                 warp = toModel(value.warp),

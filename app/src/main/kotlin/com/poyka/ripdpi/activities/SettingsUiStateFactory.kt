@@ -40,6 +40,7 @@ import com.poyka.ripdpi.data.normalizeHostAutolearnMaxHosts
 import com.poyka.ripdpi.data.normalizeHostAutolearnPenaltyTtlHours
 import com.poyka.ripdpi.data.primaryDesyncMethod
 import com.poyka.ripdpi.data.primaryTcpChainStep
+import com.poyka.ripdpi.data.toAdaptiveFallbackSettingsModel
 import com.poyka.ripdpi.data.tlsPreludeTcpChainStep
 import com.poyka.ripdpi.data.toWarpSettingsModel
 import com.poyka.ripdpi.data.usesSeqOverlapFakeProfile
@@ -261,9 +262,25 @@ private fun AppSettings.buildHttpParserUiState(): HttpParserUiState =
         hostMixedCase = hostMixedCase,
         domainMixedCase = domainMixedCase,
         hostRemoveSpaces = hostRemoveSpaces,
+        httpHostPad = httpHostPad,
         httpMethodEol = httpMethodEol,
         httpUnixEol = httpUnixEol,
+        httpMethodSpace = httpMethodSpace,
     )
+
+private fun AppSettings.buildAdaptiveFallbackUiState(): AdaptiveFallbackUiState {
+    val adaptive = toAdaptiveFallbackSettingsModel()
+    return AdaptiveFallbackUiState(
+        enabled = adaptive.enabled,
+        torst = adaptive.torst,
+        tlsErr = adaptive.tlsErr,
+        httpRedirect = adaptive.httpRedirect,
+        connectFailure = adaptive.connectFailure,
+        autoSort = adaptive.autoSort,
+        cacheTtlSeconds = adaptive.cacheTtlSeconds,
+        cachePrefixV4 = adaptive.cachePrefixV4,
+    )
+}
 
 internal fun AppSettings.toUiState(
     isHydrated: Boolean = true,
@@ -302,6 +319,7 @@ internal fun AppSettings.toUiState(
         quic = buildQuicUiState(),
         warp = buildWarpUiState(),
         autolearn = buildAutolearnUiState(proxyTelemetry, hostAutolearnStorePresent, rememberedNetworkCount),
+        adaptiveFallback = buildAdaptiveFallbackUiState(),
         httpParser = buildHttpParserUiState(),
         onboardingComplete = onboardingComplete,
         webrtcProtectionEnabled = webrtcProtectionEnabled,

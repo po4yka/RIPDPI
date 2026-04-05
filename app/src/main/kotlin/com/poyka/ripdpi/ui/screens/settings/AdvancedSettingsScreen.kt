@@ -55,8 +55,10 @@ internal enum class AdvancedToggleSetting {
     HostMixedCase,
     DomainMixedCase,
     HostRemoveSpaces,
+    HttpHostPad,
     HttpMethodEol,
     HttpUnixEol,
+    HttpMethodSpace,
     TlsrecEnabled,
     QuicSupportV1,
     QuicSupportV2,
@@ -66,6 +68,12 @@ internal enum class AdvancedToggleSetting {
     WarpAmneziaEnabled,
     HostAutolearnEnabled,
     NetworkStrategyMemoryEnabled,
+    AdaptiveFallbackEnabled,
+    AdaptiveFallbackTorst,
+    AdaptiveFallbackTlsErr,
+    AdaptiveFallbackHttpRedirect,
+    AdaptiveFallbackConnectFailure,
+    AdaptiveFallbackAutoSort,
 }
 
 internal enum class AdvancedTextSetting {
@@ -101,6 +109,8 @@ internal enum class AdvancedTextSetting {
     UdpFakeCount,
     HostAutolearnPenaltyTtlHours,
     HostAutolearnMaxHosts,
+    AdaptiveFallbackCacheTtlSeconds,
+    AdaptiveFallbackCachePrefixV4,
     HostsBlacklist,
     HostsWhitelist,
     WarpRouteHosts,
@@ -466,6 +476,12 @@ private fun androidx.compose.foundation.lazy.LazyListScope.advancedSettingsSecon
         uiState = uiState,
         visualEditorEnabled = contentState.visualEditorEnabled,
         onWsTunnelModeChanged = actions.onWsTunnelModeChanged,
+    )
+    adaptiveFallbackSection(
+        uiState = uiState,
+        visualEditorEnabled = contentState.visualEditorEnabled,
+        onToggleChanged = actions.onToggleChanged,
+        onTextConfirmed = actions.onTextConfirmed,
     )
     httpParserSection(
         uiState = uiState,

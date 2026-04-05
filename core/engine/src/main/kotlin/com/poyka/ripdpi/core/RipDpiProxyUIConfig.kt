@@ -5,6 +5,8 @@ import com.poyka.ripdpi.data.DefaultAdaptiveFakeTtlDelta
 import com.poyka.ripdpi.data.DefaultAdaptiveFakeTtlFallback
 import com.poyka.ripdpi.data.DefaultAdaptiveFakeTtlMax
 import com.poyka.ripdpi.data.DefaultAdaptiveFakeTtlMin
+import com.poyka.ripdpi.data.DefaultAdaptiveFallbackCachePrefixV4
+import com.poyka.ripdpi.data.DefaultAdaptiveFallbackCacheTtlSeconds
 import com.poyka.ripdpi.data.DefaultFakeOffsetMarker
 import com.poyka.ripdpi.data.DefaultFakeSni
 import com.poyka.ripdpi.data.DefaultHostAutolearnMaxHosts
@@ -74,7 +76,20 @@ data class RipDpiParserEvasionConfig(
     val domainMixedCase: Boolean = false,
     val hostRemoveSpaces: Boolean = false,
     val httpMethodEol: Boolean = false,
+    val httpMethodSpace: Boolean = false,
     val httpUnixEol: Boolean = false,
+    val httpHostPad: Boolean = false,
+)
+
+data class RipDpiAdaptiveFallbackConfig(
+    val enabled: Boolean = true,
+    val torst: Boolean = true,
+    val tlsErr: Boolean = true,
+    val httpRedirect: Boolean = true,
+    val connectFailure: Boolean = true,
+    val autoSort: Boolean = true,
+    val cacheTtlSeconds: Int = DefaultAdaptiveFallbackCacheTtlSeconds,
+    val cachePrefixV4: Int = DefaultAdaptiveFallbackCachePrefixV4,
 )
 
 data class RipDpiQuicConfig(

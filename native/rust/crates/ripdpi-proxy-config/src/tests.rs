@@ -30,6 +30,7 @@ fn tcp_step(kind: &str, marker: &str) -> ProxyUiTcpChainStep {
         max_fragment_size: 0,
         inter_segment_delay_ms: 0,
         activation_filter: None,
+        ipv6_extension_profile: "none".to_string(),
     }
 }
 
@@ -46,11 +47,18 @@ fn seqovl_step(marker: &str, overlap_size: i32, fake_mode: &str) -> ProxyUiTcpCh
         max_fragment_size: 0,
         inter_segment_delay_ms: 0,
         activation_filter: None,
+        ipv6_extension_profile: "none".to_string(),
     }
 }
 
 fn udp_step(kind: &str, count: i32) -> ProxyUiUdpChainStep {
-    ProxyUiUdpChainStep { kind: kind.to_string(), count, split_bytes: 0, activation_filter: None }
+    ProxyUiUdpChainStep {
+        kind: kind.to_string(),
+        count,
+        split_bytes: 0,
+        activation_filter: None,
+        ipv6_extension_profile: "none".to_string(),
+    }
 }
 
 fn ui_payload(config: ProxyUiConfig) -> ProxyConfigPayload {
