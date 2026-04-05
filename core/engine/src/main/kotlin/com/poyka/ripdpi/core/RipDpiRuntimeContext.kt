@@ -64,30 +64,28 @@ internal fun normalizeLogContext(logContext: RipDpiLogContext?): RipDpiLogContex
         }
     }
 
-internal fun normalizeRuntimeContext(runtimeContext: RipDpiRuntimeContext?): RipDpiRuntimeContext? {
-    runtimeContext ?: return null
-    val encryptedDns =
-        runtimeContext.encryptedDns?.let { value ->
-            val normalizedHost = value.host.trim()
-            if (normalizedHost.isEmpty()) {
-                return@let null
+internal fun normalizeRuntimeContext(runtimeContext: RipDpiRuntimeContext?): RipDpiRuntimeContext? =
+    runtimeContext?.let { ctx ->
+        val encryptedDns =
+            ctx.encryptedDns?.let { value ->
+                val normalizedHost = value.host.trim().takeIf { it.isNotEmpty() } ?: return@let null
+                RipDpiEncryptedDnsContext(
+                    resolverId = value.resolverId?.trim()?.takeIf { it.isNotEmpty() },
+                    protocol = value.protocol.trim().lowercase(),
+                    host = normalizedHost,
+                    port = value.port.takeIf { it > 0 } ?: 443,
+                    tlsServerName = value.tlsServerName?.trim()?.takeIf { it.isNotEmpty() },
+                    bootstrapIps = value.bootstrapIps.map(String::trim).filter { it.isNotEmpty() },
+                    dohUrl = value.dohUrl?.trim()?.takeIf { it.isNotEmpty() },
+                    dnscryptProviderName = value.dnscryptProviderName?.trim()?.takeIf { it.isNotEmpty() },
+                    dnscryptPublicKey = value.dnscryptPublicKey?.trim()?.takeIf { it.isNotEmpty() },
+                )
             }
-            RipDpiEncryptedDnsContext(
-                resolverId = value.resolverId?.trim()?.takeIf { it.isNotEmpty() },
-                protocol = value.protocol.trim().lowercase(),
-                host = normalizedHost,
-                port = value.port.takeIf { it > 0 } ?: 443,
-                tlsServerName = value.tlsServerName?.trim()?.takeIf { it.isNotEmpty() },
-                bootstrapIps = value.bootstrapIps.map(String::trim).filter { it.isNotEmpty() },
-                dohUrl = value.dohUrl?.trim()?.takeIf { it.isNotEmpty() },
-                dnscryptProviderName = value.dnscryptProviderName?.trim()?.takeIf { it.isNotEmpty() },
-                dnscryptPublicKey = value.dnscryptPublicKey?.trim()?.takeIf { it.isNotEmpty() },
-            )
+        val protectPath = ctx.protectPath?.trim()?.takeIf { it.isNotEmpty() }
+        RipDpiRuntimeContext(encryptedDns = encryptedDns, protectPath = protectPath).takeIf {
+            encryptedDns != null || protectPath != null
         }
-    val protectPath = runtimeContext.protectPath?.trim()?.takeIf { it.isNotEmpty() }
-    if (encryptedDns == null && protectPath == null) return null
-    return RipDpiRuntimeContext(encryptedDns = encryptedDns, protectPath = protectPath)
-}
+    }
 
 fun ActiveDnsSettings.toRipDpiRuntimeContext(): RipDpiRuntimeContext? {
     val normalizedHost = encryptedDnsHost.trim()

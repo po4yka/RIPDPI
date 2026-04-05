@@ -3,6 +3,7 @@ package com.poyka.ripdpi.services
 import com.poyka.ripdpi.data.AppSettingsSerializer
 import com.poyka.ripdpi.data.DnsModeEncrypted
 import com.poyka.ripdpi.data.DnsModePlainUdp
+import com.poyka.ripdpi.data.DnsProviderAdGuard
 import com.poyka.ripdpi.data.DnsProviderCloudflare
 import com.poyka.ripdpi.data.DnsProviderGoogle
 import com.poyka.ripdpi.data.EncryptedDnsProtocolDoh
@@ -115,7 +116,7 @@ class VpnResolverRefreshPlannerTest {
 
             assertFalse(plan.requiresTunnelRebuild)
             assertEquals(DnsProviderGoogle, plan.connectionPolicy?.activeDns?.providerId)
-            assertEquals(DnsProviderCloudflare, plan.resolution.activeDns.providerId)
+            assertEquals(DnsProviderAdGuard, plan.resolution.activeDns.providerId)
         }
 
     @Test

@@ -133,6 +133,7 @@ object DiagnosticsOutcomeTaxonomy {
 
                     "tcp_reset",
                     "tcp_timeout",
+                    "tcp_freeze_after_threshold",
                     "tls_handshake_failed",
                     -> DiagnosticsOutcomeBucket.Attention
 

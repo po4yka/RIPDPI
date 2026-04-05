@@ -75,27 +75,26 @@ open class LogcatSnapshotCollector
             val process = Runtime.getRuntime().exec(command.toTypedArray())
             try {
                 process.errorStream.close()
-                val output =
-                    process.inputStream.bufferedReader().use { reader ->
-                        val buffer = StringBuilder()
-                        val charBuf = CharArray(8192)
-                        var totalBytes = 0
-                        while (true) {
-                            val charsRead = reader.read(charBuf)
-                            if (charsRead == -1) break
-                            totalBytes += charsRead * 2 // conservative UTF-16 estimate
-                            if (totalBytes > MAX_LOGCAT_BYTES) {
-                                buffer.append(charBuf, 0, charsRead)
-                                break
-                            }
-                            buffer.append(charBuf, 0, charsRead)
-                        }
-                        buffer.toString()
-                    }
-                return output
+                return process.inputStream.bufferedReader().use { reader ->
+                    readBounded(reader)
+                }
             } finally {
                 process.destroy()
                 process.waitFor()
             }
+        }
+
+        private fun readBounded(reader: java.io.BufferedReader): String {
+            val buffer = StringBuilder()
+            val charBuf = CharArray(8192)
+            var totalBytes = 0
+            while (true) {
+                val charsRead = reader.read(charBuf)
+                if (charsRead == -1) break
+                totalBytes += charsRead * 2 // conservative UTF-16 estimate
+                buffer.append(charBuf, 0, charsRead)
+                if (totalBytes > MAX_LOGCAT_BYTES) break
+            }
+            return buffer.toString()
         }
     }

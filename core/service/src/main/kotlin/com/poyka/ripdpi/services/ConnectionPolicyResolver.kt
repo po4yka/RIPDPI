@@ -18,6 +18,7 @@ import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.NetworkFingerprint
 import com.poyka.ripdpi.data.NetworkFingerprintProvider
 import com.poyka.ripdpi.data.RememberedNetworkPolicyJson
+import com.poyka.ripdpi.data.StrategyLaneFamilies
 import com.poyka.ripdpi.data.TemporaryResolverOverride
 import com.poyka.ripdpi.data.VpnDnsPolicyJson
 import com.poyka.ripdpi.data.diagnostics.NetworkDnsPathPreferenceStore
@@ -101,64 +102,27 @@ class DefaultConnectionPolicyResolver
                     baseDns = dnsResolution.activeDns,
                     preferredPath = preferredVpnDnsPath,
                 )
-            val dnsRuntimeContext = baselineVpnDnsSelection.activeDns.toRipDpiRuntimeContext()
             val protectPath = resolveVpnProtectPath(context, mode)
-            val runtimeContext =
-                when {
-                    protectPath == null -> {
-                        dnsRuntimeContext
-                    }
-
-                    dnsRuntimeContext == null -> {
-                        RipDpiRuntimeContext(protectPath = protectPath)
-                    }
-
-                    else -> {
-                        dnsRuntimeContext.copy(protectPath = protectPath)
-                    }
-                }
+            val runtimeContext = mergeRuntimeContext(baselineVpnDnsSelection.activeDns, protectPath)
             val hostAutolearnStorePath = resolveHostAutolearnStorePath(context)
 
             val baselinePreferences =
-                if (settings.enableCmdSettings) {
-                    RipDpiProxyCmdPreferences(
-                        settings.cmdArgs,
-                        hostAutolearnStorePath = hostAutolearnStorePath,
-                        runtimeContext = runtimeContext,
-                    )
-                } else {
-                    RipDpiProxyUIPreferences.fromSettings(
-                        settings,
-                        hostAutolearnStorePath,
-                        networkScopeKey,
-                        runtimeContext,
-                    )
-                }
+                buildBaselinePreferences(settings, hostAutolearnStorePath, networkScopeKey, runtimeContext)
             val baselineLaneFamilies =
                 (baselinePreferences as? RipDpiProxyUIPreferences)?.deriveStrategyLaneFamilies(
                     activeDns = baselineVpnDnsSelection.activeDns,
                 )
 
             val baselinePolicy =
-                if (!settings.enableCmdSettings && fingerprintSnapshot != null && networkScopeKey != null) {
-                    RememberedNetworkPolicyJson(
-                        fingerprintHash = networkScopeKey,
-                        mode = mode.preferenceValue,
-                        summary = fingerprintSnapshot.summary(),
-                        proxyConfigJson = stripRipDpiRuntimeContext(baselinePreferences.toNativeConfigJson()),
-                        vpnDnsPolicy =
-                            if (mode == Mode.VPN) {
-                                baselineVpnDnsSelection.activeDns.toVpnDnsPolicyJson()
-                            } else {
-                                null
-                            },
-                        winningTcpStrategyFamily = baselineLaneFamilies?.tcpStrategyFamily,
-                        winningQuicStrategyFamily = baselineLaneFamilies?.quicStrategyFamily,
-                        winningDnsStrategyFamily = baselineLaneFamilies?.dnsStrategyFamily,
-                    )
-                } else {
-                    null
-                }
+                buildBaselinePolicy(
+                    settings,
+                    mode,
+                    fingerprintSnapshot,
+                    networkScopeKey,
+                    baselinePreferences,
+                    baselineVpnDnsSelection,
+                    baselineLaneFamilies,
+                )
             val baselinePolicySignature =
                 buildConnectionPolicySignature(
                     mode = mode,
@@ -169,19 +133,15 @@ class DefaultConnectionPolicyResolver
                 )
 
             if (settings.enableCmdSettings || !settings.networkStrategyMemoryEnabled || networkScopeKey == null) {
-                return ConnectionPolicyResolution(
-                    settings = settings,
-                    proxyPreferences = baselinePreferences,
-                    activeDns = baselineVpnDnsSelection.activeDns,
-                    vpnDnsOverride = null,
-                    matchedNetworkPolicy = null,
-                    rememberedPolicyAppliedByExactMatch = null,
-                    appliedPolicy = baselinePolicy,
-                    networkScopeKey = networkScopeKey,
-                    fingerprintHash = networkScopeKey,
-                    policySignature = baselinePolicySignature,
-                    resolverFallbackReason = dnsResolution.override?.reason,
-                    handoverClassification = handoverClassification,
+                return buildBaselineResolution(
+                    settings,
+                    baselinePreferences,
+                    baselineVpnDnsSelection,
+                    baselinePolicy,
+                    networkScopeKey,
+                    baselinePolicySignature,
+                    dnsResolution,
+                    handoverClassification,
                 )
             }
 
@@ -189,21 +149,16 @@ class DefaultConnectionPolicyResolver
                 rememberedNetworkPolicyStore.findValidatedMatch(
                     fingerprintHash = networkScopeKey,
                     mode = mode,
+                ) ?: return buildBaselineResolution(
+                    settings,
+                    baselinePreferences,
+                    baselineVpnDnsSelection,
+                    baselinePolicy,
+                    networkScopeKey,
+                    baselinePolicySignature,
+                    dnsResolution,
+                    handoverClassification,
                 )
-                    ?: return ConnectionPolicyResolution(
-                        settings = settings,
-                        proxyPreferences = baselinePreferences,
-                        activeDns = baselineVpnDnsSelection.activeDns,
-                        vpnDnsOverride = null,
-                        matchedNetworkPolicy = null,
-                        rememberedPolicyAppliedByExactMatch = null,
-                        appliedPolicy = baselinePolicy,
-                        networkScopeKey = networkScopeKey,
-                        fingerprintHash = networkScopeKey,
-                        policySignature = baselinePolicySignature,
-                        resolverFallbackReason = dnsResolution.override?.reason,
-                        handoverClassification = handoverClassification,
-                    )
 
             val rememberedPolicy = matchedPolicy.toPolicyJson()
             val rememberedLaneFamilies =
@@ -219,21 +174,7 @@ class DefaultConnectionPolicyResolver
                     resolverOverride = dnsResolution.override,
                 )
             val effectiveDns = vpnDnsSelection.activeDns
-            val effectiveDnsRuntimeContext = effectiveDns.toRipDpiRuntimeContext()
-            val effectiveRuntimeContext =
-                when {
-                    protectPath == null -> {
-                        effectiveDnsRuntimeContext
-                    }
-
-                    effectiveDnsRuntimeContext == null -> {
-                        RipDpiRuntimeContext(protectPath = protectPath)
-                    }
-
-                    else -> {
-                        effectiveDnsRuntimeContext.copy(protectPath = protectPath)
-                    }
-                }
+            val effectiveRuntimeContext = mergeRuntimeContext(effectiveDns, protectPath)
             val proxyPreferences =
                 RipDpiProxyJsonPreferences(
                     configJson = matchedPolicy.proxyConfigJson,
@@ -273,6 +214,91 @@ class DefaultConnectionPolicyResolver
                 handoverClassification = handoverClassification,
             )
         }
+
+        private fun mergeRuntimeContext(
+            activeDns: ActiveDnsSettings,
+            protectPath: String?,
+        ): RipDpiRuntimeContext? {
+            val dnsRuntimeContext = activeDns.toRipDpiRuntimeContext()
+            return when {
+                protectPath == null -> dnsRuntimeContext
+                dnsRuntimeContext == null -> RipDpiRuntimeContext(protectPath = protectPath)
+                else -> dnsRuntimeContext.copy(protectPath = protectPath)
+            }
+        }
+
+        private fun buildBaselinePreferences(
+            settings: AppSettings,
+            hostAutolearnStorePath: String,
+            networkScopeKey: String?,
+            runtimeContext: RipDpiRuntimeContext?,
+        ): RipDpiProxyPreferences =
+            if (settings.enableCmdSettings) {
+                RipDpiProxyCmdPreferences(
+                    settings.cmdArgs,
+                    hostAutolearnStorePath = hostAutolearnStorePath,
+                    runtimeContext = runtimeContext,
+                )
+            } else {
+                RipDpiProxyUIPreferences.fromSettings(
+                    settings,
+                    hostAutolearnStorePath,
+                    networkScopeKey,
+                    runtimeContext,
+                )
+            }
+
+        private fun buildBaselinePolicy(
+            settings: AppSettings,
+            mode: Mode,
+            fingerprintSnapshot: NetworkFingerprint?,
+            networkScopeKey: String?,
+            baselinePreferences: RipDpiProxyPreferences,
+            baselineVpnDnsSelection: VpnDnsSelection,
+            baselineLaneFamilies: StrategyLaneFamilies?,
+        ): RememberedNetworkPolicyJson? {
+            if (settings.enableCmdSettings || fingerprintSnapshot == null || networkScopeKey == null) return null
+            return RememberedNetworkPolicyJson(
+                fingerprintHash = networkScopeKey,
+                mode = mode.preferenceValue,
+                summary = fingerprintSnapshot.summary(),
+                proxyConfigJson = stripRipDpiRuntimeContext(baselinePreferences.toNativeConfigJson()),
+                vpnDnsPolicy =
+                    if (mode == Mode.VPN) {
+                        baselineVpnDnsSelection.activeDns.toVpnDnsPolicyJson()
+                    } else {
+                        null
+                    },
+                winningTcpStrategyFamily = baselineLaneFamilies?.tcpStrategyFamily,
+                winningQuicStrategyFamily = baselineLaneFamilies?.quicStrategyFamily,
+                winningDnsStrategyFamily = baselineLaneFamilies?.dnsStrategyFamily,
+            )
+        }
+
+        private fun buildBaselineResolution(
+            settings: AppSettings,
+            baselinePreferences: RipDpiProxyPreferences,
+            baselineVpnDnsSelection: VpnDnsSelection,
+            baselinePolicy: RememberedNetworkPolicyJson?,
+            networkScopeKey: String?,
+            baselinePolicySignature: String,
+            dnsResolution: EffectiveDnsResolution,
+            handoverClassification: String?,
+        ): ConnectionPolicyResolution =
+            ConnectionPolicyResolution(
+                settings = settings,
+                proxyPreferences = baselinePreferences,
+                activeDns = baselineVpnDnsSelection.activeDns,
+                vpnDnsOverride = null,
+                matchedNetworkPolicy = null,
+                rememberedPolicyAppliedByExactMatch = null,
+                appliedPolicy = baselinePolicy,
+                networkScopeKey = networkScopeKey,
+                fingerprintHash = networkScopeKey,
+                policySignature = baselinePolicySignature,
+                resolverFallbackReason = dnsResolution.override?.reason,
+                handoverClassification = handoverClassification,
+            )
 
         private suspend fun resolvePreferredVpnDnsPath(
             mode: Mode,
