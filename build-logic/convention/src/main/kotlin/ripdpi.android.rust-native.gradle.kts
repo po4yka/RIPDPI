@@ -353,6 +353,7 @@ val rustNativeCargoProfile = resolvedNativeCargoProfile()
 val rustNativeArtifactSpecs =
     listOf(
         "ripdpi-android|libripdpi_android.so|libripdpi.so",
+        "ripdpi-warp-android|libripdpi_warp_android.so|libripdpi-warp.so",
         "ripdpi-tunnel-android|libripdpi_tunnel_android.so|libripdpi-tunnel.so",
     )
 val rustWorkspaceManifestFile =
@@ -376,6 +377,7 @@ val rustNativePackageDirs =
         "ripdpi-runtime",
         "ripdpi-session",
         "ripdpi-telemetry",
+        "ripdpi-warp-android",
         "ripdpi-tun-driver",
         "ripdpi-tunnel-android",
         "ripdpi-tunnel-config",

@@ -41,6 +41,7 @@ import com.poyka.ripdpi.data.normalizeHostAutolearnPenaltyTtlHours
 import com.poyka.ripdpi.data.primaryDesyncMethod
 import com.poyka.ripdpi.data.primaryTcpChainStep
 import com.poyka.ripdpi.data.tlsPreludeTcpChainStep
+import com.poyka.ripdpi.data.toWarpSettingsModel
 import com.poyka.ripdpi.data.usesSeqOverlapFakeProfile
 import com.poyka.ripdpi.proto.AppSettings
 
@@ -225,6 +226,36 @@ private fun AppSettings.buildAutolearnUiState(
         hostAutolearnLastAction = proxyTelemetry.lastAutolearnAction,
     )
 
+private fun AppSettings.buildWarpUiState(): WarpUiState {
+    val warp = toWarpSettingsModel()
+    return WarpUiState(
+        enabled = warp.enabled,
+        routeMode = warp.routeMode,
+        routeHosts = warp.routeHosts,
+        builtInRulesEnabled = warp.builtInRulesEnabled,
+        endpointSelectionMode = warp.endpointSelectionMode,
+        manualEndpointHost = warp.manualEndpoint.host,
+        manualEndpointIpv4 = warp.manualEndpoint.ipv4,
+        manualEndpointIpv6 = warp.manualEndpoint.ipv6,
+        manualEndpointPort = warp.manualEndpoint.port,
+        scannerEnabled = warp.scannerEnabled,
+        scannerParallelism = warp.scannerParallelism,
+        scannerMaxRttMs = warp.scannerMaxRttMs,
+        amneziaEnabled = warp.amnezia.enabled,
+        amneziaJc = warp.amnezia.jc,
+        amneziaJmin = warp.amnezia.jmin,
+        amneziaJmax = warp.amnezia.jmax,
+        amneziaH1 = warp.amnezia.h1,
+        amneziaH2 = warp.amnezia.h2,
+        amneziaH3 = warp.amnezia.h3,
+        amneziaH4 = warp.amnezia.h4,
+        amneziaS1 = warp.amnezia.s1,
+        amneziaS2 = warp.amnezia.s2,
+        amneziaS3 = warp.amnezia.s3,
+        amneziaS4 = warp.amnezia.s4,
+    )
+}
+
 private fun AppSettings.buildHttpParserUiState(): HttpParserUiState =
     HttpParserUiState(
         hostMixedCase = hostMixedCase,
@@ -269,6 +300,7 @@ internal fun AppSettings.toUiState(
         hostsWhitelist = hostsWhitelist,
         tlsPrelude = buildTlsPreludeUiState(chain),
         quic = buildQuicUiState(),
+        warp = buildWarpUiState(),
         autolearn = buildAutolearnUiState(proxyTelemetry, hostAutolearnStorePresent, rememberedNetworkCount),
         httpParser = buildHttpParserUiState(),
         onboardingComplete = onboardingComplete,

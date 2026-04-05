@@ -1,8 +1,11 @@
 package com.poyka.ripdpi.services
 
+import com.poyka.ripdpi.core.RipDpiProxyUIPreferences
+import com.poyka.ripdpi.core.RipDpiWarpConfig
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.ServiceEvent
+import com.poyka.ripdpi.data.WarpRouteModeRules
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
@@ -23,6 +26,8 @@ class ProxyServiceRuntimeCoordinatorTest {
         val store: TestServiceStateStore,
         val host: TestProxyServiceHost,
         val factory: TestRipDpiProxyFactory,
+        val warpFactory: TestRipDpiWarpFactory,
+        val events: MutableList<String>,
         val runtimeRegistry: ServiceRuntimeRegistry,
         val handoverMonitor: TestNetworkHandoverMonitor,
         val handoverEvents: TestPolicyHandoverEventStore,
@@ -39,6 +44,36 @@ class ProxyServiceRuntimeCoordinatorTest {
 
             assertEquals(AppStatus.Running to Mode.Proxy, env.store.status.value)
             assertNotNull(env.runtimeRegistry.current(Mode.Proxy))
+            assertEquals(1, env.factory.runtimes.size)
+        }
+
+    @Test
+    fun successfulStartRunsWarpBeforeProxyWhenWarpRoutingEnabled() =
+        runTest {
+            val env =
+                newEnv(
+                    resolutions =
+                        listOf(
+                            sampleResolution(
+                                mode = Mode.Proxy,
+                                proxyPreferences =
+                                    RipDpiProxyUIPreferences(
+                                        warp =
+                                            RipDpiWarpConfig(
+                                                enabled = true,
+                                                routeMode = WarpRouteModeRules,
+                                                routeHosts = "example.com",
+                                            ),
+                                    ),
+                            ),
+                        ),
+                )
+
+            env.coordinator.start()
+            runCurrent()
+
+            assertEquals(listOf("warp:start", "proxy:start"), env.events.take(2))
+            assertEquals(1, env.warpFactory.runtimes.size)
             assertEquals(1, env.factory.runtimes.size)
         }
 
@@ -60,8 +95,8 @@ class ProxyServiceRuntimeCoordinatorTest {
         runTest {
             val env =
                 newEnv(
-                    runtimeFactory = {
-                        TestProxyRuntime().apply { startFailure = IOException("proxy boom") }
+                    runtimeFactory = { events ->
+                        TestProxyRuntime(events).apply { startFailure = IOException("proxy boom") }
                     },
                 )
 
@@ -175,12 +210,12 @@ class ProxyServiceRuntimeCoordinatorTest {
                             sampleResolution(mode = Mode.Proxy, policySignature = "initial"),
                             sampleResolution(mode = Mode.Proxy, policySignature = "handover"),
                         ),
-                    runtimeFactory = {
+                    runtimeFactory = { events ->
                         callCount += 1
                         if (callCount > 1) {
-                            TestProxyRuntime().apply { startFailure = IOException("restart boom") }
+                            TestProxyRuntime(events).apply { startFailure = IOException("restart boom") }
                         } else {
-                            TestProxyRuntime()
+                            TestProxyRuntime(events)
                         }
                     },
                 )
@@ -208,15 +243,17 @@ class ProxyServiceRuntimeCoordinatorTest {
         fingerprint: com.poyka.ripdpi.data.NetworkFingerprint? = sampleFingerprint(),
         resolutions: List<com.poyka.ripdpi.services.ConnectionPolicyResolution> =
             listOf(sampleResolution(mode = Mode.Proxy)),
-        runtimeFactory: () -> TestProxyRuntime = { TestProxyRuntime() },
+        runtimeFactory: (MutableList<String>) -> TestProxyRuntime = { events -> TestProxyRuntime(events) },
     ): Env {
         val dispatcher = StandardTestDispatcher(testScheduler)
+        val events = mutableListOf<String>()
         val store = TestServiceStateStore()
         val host = TestProxyServiceHost(backgroundScope)
         val resolver = TestConnectionPolicyResolver(resolutions.first())
         resolver.enqueue(*resolutions.toTypedArray())
         val fingerprintProvider = TestNetworkFingerprintProvider(fingerprint)
-        val factory = TestRipDpiProxyFactory(runtimeFactory)
+        val factory = TestRipDpiProxyFactory { runtimeFactory(events) }
+        val warpFactory = TestRipDpiWarpFactory { TestWarpRuntime(events) }
         val runtimeRegistry = DefaultServiceRuntimeRegistry()
         val handoverMonitor = TestNetworkHandoverMonitor()
         val handoverEvents = TestPolicyHandoverEventStore()
@@ -229,6 +266,12 @@ class ProxyServiceRuntimeCoordinatorTest {
                 networkHandoverMonitor = handoverMonitor,
                 policyHandoverEventStore = handoverEvents,
                 permissionWatchdog = TestPermissionWatchdog(),
+                warpRuntimeSupervisor =
+                    WarpRuntimeSupervisor(
+                        scope = backgroundScope,
+                        dispatcher = dispatcher,
+                        warpFactory = warpFactory,
+                    ),
                 proxyRuntimeSupervisor =
                     ProxyRuntimeSupervisor(
                         scope = backgroundScope,
@@ -254,6 +297,8 @@ class ProxyServiceRuntimeCoordinatorTest {
             store = store,
             host = host,
             factory = factory,
+            warpFactory = warpFactory,
+            events = events,
             runtimeRegistry = runtimeRegistry,
             handoverMonitor = handoverMonitor,
             handoverEvents = handoverEvents,

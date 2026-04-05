@@ -1,5 +1,7 @@
 package com.poyka.ripdpi.services
 
+import com.poyka.ripdpi.core.RipDpiProxyUIPreferences
+import com.poyka.ripdpi.core.RipDpiWarpConfig
 import com.poyka.ripdpi.data.AppSettingsSerializer
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.DnsModeEncrypted
@@ -9,6 +11,7 @@ import com.poyka.ripdpi.data.EncryptedDnsProtocolDoh
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
 import com.poyka.ripdpi.data.ServiceEvent
+import com.poyka.ripdpi.data.WarpRouteModeRules
 import com.poyka.ripdpi.data.activeDnsSettings
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -30,6 +33,7 @@ class VpnServiceRuntimeCoordinatorTest {
         val store: TestServiceStateStore,
         val host: TestVpnServiceHost,
         val factory: TestRipDpiProxyFactory,
+        val warpFactory: TestRipDpiWarpFactory,
         val bridgeFactory: TestTun2SocksBridgeFactory,
         val tunnelProvider: TestVpnTunnelSessionProvider,
         val runtimeRegistry: ServiceRuntimeRegistry,
@@ -53,6 +57,35 @@ class VpnServiceRuntimeCoordinatorTest {
             assertNotNull(env.runtimeRegistry.current(Mode.VPN))
             assertEquals(listOf("proxy:start", "vpn:establish", "tunnel:start"), env.events.take(3))
             assertEquals(1, env.host.underlyingNetworkSyncs)
+        }
+
+    @Test
+    fun successfulStartRunsWarpBeforeProxyBeforeTunnelWhenWarpRoutingEnabled() =
+        runTest {
+            val env =
+                newEnv(
+                    resolutions =
+                        listOf(
+                            sampleResolution(
+                                mode = Mode.VPN,
+                                proxyPreferences =
+                                    RipDpiProxyUIPreferences(
+                                        warp =
+                                            RipDpiWarpConfig(
+                                                enabled = true,
+                                                routeMode = WarpRouteModeRules,
+                                                routeHosts = "example.com",
+                                            ),
+                                    ),
+                            ),
+                        ),
+                )
+
+            env.coordinator.start()
+            runCurrent()
+
+            assertEquals(listOf("warp:start", "proxy:start", "vpn:establish", "tunnel:start"), env.events.take(4))
+            assertEquals(1, env.warpFactory.runtimes.size)
         }
 
     @Test
@@ -497,6 +530,7 @@ class VpnServiceRuntimeCoordinatorTest {
         resolver.enqueue(*resolutions.toTypedArray())
         val fingerprintProvider = TestNetworkFingerprintProvider(fingerprint)
         val factory = TestRipDpiProxyFactory { runtimeFactory(events) }
+        val warpFactory = TestRipDpiWarpFactory { TestWarpRuntime(events) }
         val bridgeFactory = TestTun2SocksBridgeFactory(TestTun2SocksBridge(events))
         val tunnelProvider =
             TestVpnTunnelSessionProvider(
@@ -540,6 +574,12 @@ class VpnServiceRuntimeCoordinatorTest {
                         networkFingerprintProvider = fingerprintProvider,
                         clock = clock,
                     ),
+                warpRuntimeSupervisor =
+                    WarpRuntimeSupervisor(
+                        scope = backgroundScope,
+                        dispatcher = dispatcher,
+                        warpFactory = warpFactory,
+                    ),
                 proxyRuntimeSupervisor =
                     ProxyRuntimeSupervisor(
                         scope = backgroundScope,
@@ -565,6 +605,7 @@ class VpnServiceRuntimeCoordinatorTest {
             store = store,
             host = host,
             factory = factory,
+            warpFactory = warpFactory,
             bridgeFactory = bridgeFactory,
             tunnelProvider = tunnelProvider,
             runtimeRegistry = runtimeRegistry,

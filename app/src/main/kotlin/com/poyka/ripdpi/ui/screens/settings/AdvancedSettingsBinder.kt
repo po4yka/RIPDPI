@@ -28,6 +28,8 @@ import com.poyka.ripdpi.data.normalizePayloadSizeRange
 import com.poyka.ripdpi.data.normalizeQuicFakeHost
 import com.poyka.ripdpi.data.normalizeRoundRange
 import com.poyka.ripdpi.data.normalizeStreamBytesRange
+import com.poyka.ripdpi.data.normalizeWarpEndpointSelectionMode
+import com.poyka.ripdpi.data.normalizeWarpRouteMode
 import com.poyka.ripdpi.data.parseStrategyChainDsl
 import com.poyka.ripdpi.data.primaryTcpChainStep
 import com.poyka.ripdpi.data.rewritePrimaryTcpMarker
@@ -41,6 +43,7 @@ private const val MinTtl = 1
 private const val MaxTtl = 255
 private const val AdaptiveTtlDeltaSentinel = -1
 private const val MaxOobDataLength = 1
+private const val MaxWarpEndpointPort = 65535
 
 private typealias ToggleHandler = AdvancedSettingsMutationWriter.(Boolean) -> Unit
 private typealias TextHandler = AdvancedSettingsMutationWriter.(String, SettingsUiState) -> Unit
@@ -485,6 +488,20 @@ private fun AdvancedSettingsMutationWriter.updateHostAutolearnMaxHosts(value: St
     }
 }
 
+private fun AdvancedSettingsMutationWriter.updateWarpRouteMode(value: String) {
+    val normalized = normalizeWarpRouteMode(value)
+    updateValue("warpRouteMode", normalized) {
+        setWarpRouteMode(normalized)
+    }
+}
+
+private fun AdvancedSettingsMutationWriter.updateWarpEndpointSelectionMode(value: String) {
+    val normalized = normalizeWarpEndpointSelectionMode(value)
+    updateValue("warpEndpointSelectionMode", normalized) {
+        setWarpEndpointSelectionMode(normalized)
+    }
+}
+
 private fun AdvancedSettingsMutationWriter.updateTlsPreludeEnabled(
     enabled: Boolean,
     uiState: SettingsUiState,
@@ -659,6 +676,18 @@ private val toggleHandlers: Map<AdvancedToggleSetting, ToggleHandler> =
             { enabled -> updateBoolean("quicSupportV1", enabled) { setQuicSupportV1(enabled) } },
         AdvancedToggleSetting.QuicSupportV2 to
             { enabled -> updateBoolean("quicSupportV2", enabled) { setQuicSupportV2(enabled) } },
+        AdvancedToggleSetting.WarpEnabled to
+            { enabled -> updateBoolean("warpEnabled", enabled) { setWarpEnabled(enabled) } },
+        AdvancedToggleSetting.WarpBuiltInRulesEnabled to
+            { enabled ->
+                updateBoolean("warpBuiltinRulesEnabled", enabled) {
+                    setWarpBuiltinRulesEnabled(enabled)
+                }
+            },
+        AdvancedToggleSetting.WarpScannerEnabled to
+            { enabled -> updateBoolean("warpScannerEnabled", enabled) { setWarpScannerEnabled(enabled) } },
+        AdvancedToggleSetting.WarpAmneziaEnabled to
+            { enabled -> updateBoolean("warpAmneziaEnabled", enabled) { setWarpAmneziaEnabled(enabled) } },
         AdvancedToggleSetting.HostAutolearnEnabled to
             { enabled -> updateBoolean("hostAutolearnEnabled", enabled) { setHostAutolearnEnabled(enabled) } },
         AdvancedToggleSetting.NetworkStrategyMemoryEnabled to
@@ -831,6 +860,70 @@ private val textHandlers: Map<AdvancedTextSetting, TextHandler> =
             { value, _ -> updateValue("hostsBlacklist", value) { setHostsBlacklist(value) } },
         AdvancedTextSetting.HostsWhitelist to
             { value, _ -> updateValue("hostsWhitelist", value) { setHostsWhitelist(value) } },
+        AdvancedTextSetting.WarpRouteHosts to
+            { value, _ -> updateValue("warpRouteHosts", value) { setWarpRouteHosts(value) } },
+        AdvancedTextSetting.WarpManualEndpointHost to
+            { value, _ -> updateValue("warpManualEndpointHost", value) { setWarpManualEndpointHost(value) } },
+        AdvancedTextSetting.WarpManualEndpointIpv4 to
+            { value, _ -> updateValue("warpManualEndpointV4", value) { setWarpManualEndpointV4(value) } },
+        AdvancedTextSetting.WarpManualEndpointIpv6 to
+            { value, _ -> updateValue("warpManualEndpointV6", value) { setWarpManualEndpointV6(value) } },
+        AdvancedTextSetting.WarpManualEndpointPort to
+            { value, _ ->
+                updateIntValue("warpManualEndpointPort", value) { port ->
+                    { setWarpManualEndpointPort(port.coerceIn(1, MaxWarpEndpointPort)) }
+                }
+            },
+        AdvancedTextSetting.WarpScannerParallelism to
+            { value, _ ->
+                updateIntValue("warpScannerParallelism", value) { parallelism ->
+                    { setWarpScannerParallelism(parallelism.coerceAtLeast(1)) }
+                }
+            },
+        AdvancedTextSetting.WarpScannerMaxRttMs to
+            { value, _ ->
+                updateIntValue("warpScannerMaxRttMs", value) { maxRttMs ->
+                    { setWarpScannerMaxRttMs(maxRttMs.coerceAtLeast(1)) }
+                }
+            },
+        AdvancedTextSetting.WarpAmneziaJc to
+            { value, _ -> updateIntValue("warpAmneziaJc", value) { jc -> { setWarpAmneziaJc(jc) } } },
+        AdvancedTextSetting.WarpAmneziaJmin to
+            { value, _ -> updateIntValue("warpAmneziaJmin", value) { jmin -> { setWarpAmneziaJmin(jmin) } } },
+        AdvancedTextSetting.WarpAmneziaJmax to
+            { value, _ -> updateIntValue("warpAmneziaJmax", value) { jmax -> { setWarpAmneziaJmax(jmax) } } },
+        AdvancedTextSetting.WarpAmneziaH1 to
+            { value, _ ->
+                value.toLongOrNull()?.let { parsed ->
+                    updateValue("warpAmneziaH1", parsed.toString()) { setWarpAmneziaH1(parsed) }
+                }
+            },
+        AdvancedTextSetting.WarpAmneziaH2 to
+            { value, _ ->
+                value.toLongOrNull()?.let { parsed ->
+                    updateValue("warpAmneziaH2", parsed.toString()) { setWarpAmneziaH2(parsed) }
+                }
+            },
+        AdvancedTextSetting.WarpAmneziaH3 to
+            { value, _ ->
+                value.toLongOrNull()?.let { parsed ->
+                    updateValue("warpAmneziaH3", parsed.toString()) { setWarpAmneziaH3(parsed) }
+                }
+            },
+        AdvancedTextSetting.WarpAmneziaH4 to
+            { value, _ ->
+                value.toLongOrNull()?.let { parsed ->
+                    updateValue("warpAmneziaH4", parsed.toString()) { setWarpAmneziaH4(parsed) }
+                }
+            },
+        AdvancedTextSetting.WarpAmneziaS1 to
+            { value, _ -> updateIntValue("warpAmneziaS1", value) { s1 -> { setWarpAmneziaS1(s1) } } },
+        AdvancedTextSetting.WarpAmneziaS2 to
+            { value, _ -> updateIntValue("warpAmneziaS2", value) { s2 -> { setWarpAmneziaS2(s2) } } },
+        AdvancedTextSetting.WarpAmneziaS3 to
+            { value, _ -> updateIntValue("warpAmneziaS3", value) { s3 -> { setWarpAmneziaS3(s3) } } },
+        AdvancedTextSetting.WarpAmneziaS4 to
+            { value, _ -> updateIntValue("warpAmneziaS4", value) { s4 -> { setWarpAmneziaS4(s4) } } },
     )
 
 private val optionHandlers: Map<AdvancedOptionSetting, OptionHandler> =
@@ -865,6 +958,10 @@ private val optionHandlers: Map<AdvancedOptionSetting, OptionHandler> =
             { value, _ -> updateValue("tlsFakeProfile", value) { setTlsFakeProfile(value) } },
         AdvancedOptionSetting.HostsMode to
             { value, _ -> updateValue("hostsMode", value) { setHostsMode(value) } },
+        AdvancedOptionSetting.WarpRouteMode to
+            { value, _ -> updateWarpRouteMode(value) },
+        AdvancedOptionSetting.WarpEndpointSelectionMode to
+            { value, _ -> updateWarpEndpointSelectionMode(value) },
         AdvancedOptionSetting.QuicInitialMode to
             { value, _ -> updateValue("quicInitialMode", value) { setQuicInitialMode(value) } },
         AdvancedOptionSetting.UdpFakeProfile to

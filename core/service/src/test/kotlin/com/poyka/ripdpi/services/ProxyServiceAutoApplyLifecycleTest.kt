@@ -165,6 +165,7 @@ class ProxyServiceAutoApplyLifecycleTest {
         val host = TestProxyServiceHost(backgroundScope)
         val stateStore = TestServiceStateStore()
         val factory = TestRipDpiProxyFactory(runtimeFactory)
+        val warpFactory = TestRipDpiWarpFactory { TestWarpRuntime() }
         val runtimeRegistry = DefaultServiceRuntimeRegistry()
         val resolver =
             DefaultConnectionPolicyResolver(
@@ -185,6 +186,12 @@ class ProxyServiceAutoApplyLifecycleTest {
                 networkHandoverMonitor = TestNetworkHandoverMonitor(),
                 policyHandoverEventStore = TestPolicyHandoverEventStore(),
                 permissionWatchdog = TestPermissionWatchdog(),
+                warpRuntimeSupervisor =
+                    WarpRuntimeSupervisor(
+                        scope = backgroundScope,
+                        dispatcher = dispatcher,
+                        warpFactory = warpFactory,
+                    ),
                 proxyRuntimeSupervisor =
                     ProxyRuntimeSupervisor(
                         scope = backgroundScope,

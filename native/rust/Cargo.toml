@@ -12,6 +12,7 @@ members = [
     "crates/ripdpi-runtime",
     "crates/ripdpi-telemetry",
     "crates/ripdpi-android",
+    "crates/ripdpi-warp-android",
     "crates/ripdpi-packets",
     "crates/ripdpi-ipfrag",
     "crates/ripdpi-session",

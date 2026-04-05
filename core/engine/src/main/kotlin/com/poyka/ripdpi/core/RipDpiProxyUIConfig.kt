@@ -9,12 +9,19 @@ import com.poyka.ripdpi.data.DefaultFakeOffsetMarker
 import com.poyka.ripdpi.data.DefaultFakeSni
 import com.poyka.ripdpi.data.DefaultHostAutolearnMaxHosts
 import com.poyka.ripdpi.data.DefaultHostAutolearnPenaltyTtlHours
+import com.poyka.ripdpi.data.DefaultWarpLocalSocksPort
+import com.poyka.ripdpi.data.DefaultWarpManualEndpointPort
+import com.poyka.ripdpi.data.DefaultWarpScannerMaxRttMs
+import com.poyka.ripdpi.data.DefaultWarpScannerParallelism
 import com.poyka.ripdpi.data.FakePayloadProfileCompatDefault
 import com.poyka.ripdpi.data.QuicFakeProfileDisabled
 import com.poyka.ripdpi.data.QuicInitialModeRouteAndCache
 import com.poyka.ripdpi.data.TcpChainStepModel
 import com.poyka.ripdpi.data.UdpChainStepModel
+import com.poyka.ripdpi.data.WarpEndpointSelectionAutomatic
+import com.poyka.ripdpi.data.WarpRouteModeOff
 import com.poyka.ripdpi.data.canonicalDefaultTcpChainSteps
+import kotlinx.serialization.Serializable
 
 data class RipDpiListenConfig(
     val ip: String = "127.0.0.1",
@@ -119,4 +126,44 @@ data class RipDpiHostAutolearnConfig(
 data class RipDpiWsTunnelConfig(
     val enabled: Boolean = false,
     val mode: String? = null,
+)
+
+@Serializable
+data class RipDpiWarpManualEndpointConfig(
+    val host: String = "",
+    val ipv4: String = "",
+    val ipv6: String = "",
+    val port: Int = DefaultWarpManualEndpointPort,
+)
+
+@Serializable
+data class RipDpiWarpAmneziaConfig(
+    val enabled: Boolean = false,
+    val jc: Int = 0,
+    val jmin: Int = 0,
+    val jmax: Int = 0,
+    val h1: Long = 0L,
+    val h2: Long = 0L,
+    val h3: Long = 0L,
+    val h4: Long = 0L,
+    val s1: Int = 0,
+    val s2: Int = 0,
+    val s3: Int = 0,
+    val s4: Int = 0,
+)
+
+@Serializable
+data class RipDpiWarpConfig(
+    val enabled: Boolean = false,
+    val routeMode: String = WarpRouteModeOff,
+    val routeHosts: String = "",
+    val builtInRulesEnabled: Boolean = true,
+    val endpointSelectionMode: String = WarpEndpointSelectionAutomatic,
+    val manualEndpoint: RipDpiWarpManualEndpointConfig = RipDpiWarpManualEndpointConfig(),
+    val scannerEnabled: Boolean = true,
+    val scannerParallelism: Int = DefaultWarpScannerParallelism,
+    val scannerMaxRttMs: Int = DefaultWarpScannerMaxRttMs,
+    val amnezia: RipDpiWarpAmneziaConfig = RipDpiWarpAmneziaConfig(),
+    val localSocksHost: String = "127.0.0.1",
+    val localSocksPort: Int = DefaultWarpLocalSocksPort,
 )

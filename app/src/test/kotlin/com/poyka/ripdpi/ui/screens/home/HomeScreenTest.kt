@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.ui.screens.home
 
+import androidx.compose.ui.test.assertExists
 import androidx.compose.ui.test.assertHasClickAction
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotEnabled
@@ -7,6 +8,7 @@ import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import com.poyka.ripdpi.activities.AnalysisProgressUiState
 import com.poyka.ripdpi.activities.AnalysisStageStatus
@@ -16,6 +18,7 @@ import com.poyka.ripdpi.activities.HomeDiagnosticsAnalysisSheetUiState
 import com.poyka.ripdpi.activities.HomeDiagnosticsUiState
 import com.poyka.ripdpi.activities.HomeDiagnosticsVerificationSheetUiState
 import com.poyka.ripdpi.activities.MainUiState
+import com.poyka.ripdpi.diagnostics.DiagnosticsAppliedSetting
 import com.poyka.ripdpi.permissions.BackgroundGuidanceUiState
 import com.poyka.ripdpi.permissions.PermissionIssueUiState
 import com.poyka.ripdpi.permissions.PermissionKind
@@ -230,6 +233,11 @@ class HomeScreenTest {
                                             runId = "home-run",
                                             headline = "Analysis complete",
                                             summary = "Settings were applied.",
+                                            appliedSettings =
+                                                listOf(
+                                                    DiagnosticsAppliedSetting("WARP routing", "Rules"),
+                                                    DiagnosticsAppliedSetting("WARP hostlist", "2 hosts"),
+                                                ),
                                         ),
                                     verificationSheet =
                                         HomeDiagnosticsVerificationSheetUiState(
@@ -251,6 +259,8 @@ class HomeScreenTest {
         }
 
         composeRule.onNodeWithTag(RipDpiTestTags.HomeDiagnosticsAnalysisSheet).assertIsDisplayed()
+        composeRule.onNodeWithText("WARP routing").assertExists()
+        composeRule.onNodeWithText("2 hosts").assertExists()
         composeRule.onNodeWithTag(RipDpiTestTags.HomeDiagnosticsShareAction).performClick()
         assertTrue(shared)
 

@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.services
 
 import co.touchlab.kermit.Logger
+import com.poyka.ripdpi.core.warpConfigOrNull
 import com.poyka.ripdpi.data.FailureReason
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.NativeNetworkSnapshotProvider
@@ -28,6 +29,7 @@ internal class ProxyServiceRuntimeCoordinator(
     networkHandoverMonitor: NetworkHandoverMonitor,
     policyHandoverEventStore: PolicyHandoverEventStore,
     permissionWatchdog: PermissionWatchdog,
+    private val warpRuntimeSupervisor: WarpRuntimeSupervisor,
     private val proxyRuntimeSupervisor: ProxyRuntimeSupervisor,
     private val statusReporter: ServiceStatusReporter,
     private val screenStateObserver: ScreenStateObserver,
@@ -98,6 +100,9 @@ internal class ProxyServiceRuntimeCoordinator(
         session: ProxyRuntimeSession,
         resolution: ConnectionPolicyResolution,
     ) {
+        resolution.proxyPreferences.warpConfigOrNull()?.let { warpConfig ->
+            warpRuntimeSupervisor.start(warpConfig, ::handleWarpExit)
+        }
         proxyRuntimeSupervisor.start(
             resolution.proxyPreferences.withLogContext(
                 session.buildLogContext(session.currentActiveConnectionPolicy),
@@ -108,9 +113,11 @@ internal class ProxyServiceRuntimeCoordinator(
 
     override suspend fun stopModeRuntime(skipRuntimeShutdown: Boolean) {
         if (skipRuntimeShutdown) {
+            warpRuntimeSupervisor.detach()
             proxyRuntimeSupervisor.detach()
         } else {
             proxyRuntimeSupervisor.stop()
+            warpRuntimeSupervisor.stop()
         }
     }
 
@@ -120,6 +127,9 @@ internal class ProxyServiceRuntimeCoordinator(
                 val proxyTelemetry =
                     proxyRuntimeSupervisor.pollTelemetry()
                         ?: NativeRuntimeSnapshot.idle(source = "proxy")
+                val warpTelemetry =
+                    warpRuntimeSupervisor.pollTelemetry()
+                        ?: NativeRuntimeSnapshot.idle(source = "warp")
                 val tunnelTelemetry =
                     consumePendingNetworkHandoverClass()
                         ?.let { classification ->
@@ -132,6 +142,7 @@ internal class ProxyServiceRuntimeCoordinator(
                     activePolicy = runtimeSession?.currentActiveConnectionPolicy,
                     consumePendingNetworkHandoverClass = { null },
                     proxyTelemetry = proxyTelemetry,
+                    warpTelemetry = warpTelemetry,
                     tunnelTelemetry = tunnelTelemetry,
                     tunnelRecoveryRetryCount = 0,
                 )
@@ -157,6 +168,7 @@ internal class ProxyServiceRuntimeCoordinator(
         resolution: ConnectionPolicyResolution,
         appliedAt: Long,
     ) {
+        warpRuntimeSupervisor.stop()
         proxyRuntimeSupervisor.stop()
         applyActiveConnectionPolicy(
             session = session,
@@ -164,6 +176,9 @@ internal class ProxyServiceRuntimeCoordinator(
             restartReason = "network_handover",
             appliedAt = appliedAt,
         )
+        resolution.proxyPreferences.warpConfigOrNull()?.let { warpConfig ->
+            warpRuntimeSupervisor.start(warpConfig, ::handleWarpExit)
+        }
         proxyRuntimeSupervisor.start(
             resolution.proxyPreferences.withLogContext(
                 session.buildLogContext(session.currentActiveConnectionPolicy),
@@ -222,6 +237,32 @@ internal class ProxyServiceRuntimeCoordinator(
         proxyRuntimeSupervisor.detach()
         host.serviceScope.launch(ioDispatcher) { stop(skipRuntimeShutdown = true) }
     }
+
+    private suspend fun handleWarpExit(result: Result<Int>) {
+        if (stopping) {
+            return
+        }
+
+        val failureReason =
+            result.exceptionOrNull()?.let { throwable ->
+                val error = throwable as? Exception ?: IllegalStateException("WARP runtime failed", throwable)
+                Logger.e(error) { "WARP failed" }
+                classifyFailureReason(error)
+            } ?: result
+                .getOrNull()
+                ?.takeIf { it != 0 }
+                ?.let { code ->
+                    Logger.e { "WARP stopped with code $code" }
+                    FailureReason.NativeError("WARP exited with code $code")
+                }
+
+        if (failureReason != null) {
+            updateStatus(ServiceStatus.Failed, failureReason)
+        }
+
+        warpRuntimeSupervisor.detach()
+        host.serviceScope.launch(ioDispatcher) { stop(skipRuntimeShutdown = true) }
+    }
 }
 
 internal class ProxyServiceRuntimeCoordinatorFactory
@@ -236,6 +277,7 @@ internal class ProxyServiceRuntimeCoordinatorFactory
         private val networkHandoverMonitor: NetworkHandoverMonitor,
         private val policyHandoverEventStore: PolicyHandoverEventStore,
         private val networkSnapshotProvider: NativeNetworkSnapshotProvider,
+        private val warpRuntimeSupervisorFactory: WarpRuntimeSupervisorFactory,
         private val proxyRuntimeSupervisorFactory: ProxyRuntimeSupervisorFactory,
         private val serviceStatusReporterFactory: ServiceStatusReporterFactory,
         private val permissionWatchdog: PermissionWatchdog,
@@ -250,6 +292,11 @@ internal class ProxyServiceRuntimeCoordinatorFactory
                 networkHandoverMonitor = networkHandoverMonitor,
                 policyHandoverEventStore = policyHandoverEventStore,
                 permissionWatchdog = permissionWatchdog,
+                warpRuntimeSupervisor =
+                    warpRuntimeSupervisorFactory.create(
+                        scope = host.serviceScope,
+                        dispatcher = Dispatchers.IO,
+                    ),
                 proxyRuntimeSupervisor =
                     proxyRuntimeSupervisorFactory.create(
                         scope = host.serviceScope,
