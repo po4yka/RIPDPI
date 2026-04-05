@@ -34,6 +34,7 @@ fun registerNotificationChannel(
     channel.enableVibration(false)
     channel.setShowBadge(false)
 
+    @Suppress("TooGenericExceptionCaught")
     try {
         manager.createNotificationChannel(channel)
     } catch (e: Exception) {

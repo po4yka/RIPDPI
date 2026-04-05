@@ -36,6 +36,7 @@ class DefaultServiceController
         private val serviceStateStore: ServiceStateStore,
         private val serviceAutomationController: Optional<ServiceAutomationController>,
     ) : ServiceController {
+        @Suppress("ReturnCount")
         override fun start(mode: Mode) {
             if (serviceAutomationController.map { it.interceptStart(mode) }.orElse(false)) {
                 return

@@ -56,7 +56,7 @@ internal class FileBackedTelemetryInstallSaltStoreDelegate(
                 return@synchronized existing
             }
 
-            val bytes = ByteArray(32)
+            val bytes = ByteArray(InstallSaltByteLength)
             secureRandom.nextBytes(bytes)
             val generated = bytes.toHexString()
             saltFile.parentFile?.mkdirs()
@@ -85,11 +85,15 @@ class DefaultTelemetryFingerprintHasher
         }
     }
 
+private const val HexRadix = 16
+private const val HexNibbleShift = 4
+private const val InstallSaltByteLength = 32
+
 private fun ByteArray.toHexString(): String =
     buildString(size * 2) {
         this@toHexString.forEach { byte ->
-            append(((byte.toInt() shr 4) and 0xF).toString(16))
-            append((byte.toInt() and 0xF).toString(16))
+            append(((byte.toInt() shr HexNibbleShift) and 0xF).toString(HexRadix))
+            append((byte.toInt() and 0xF).toString(HexRadix))
         }
     }
 

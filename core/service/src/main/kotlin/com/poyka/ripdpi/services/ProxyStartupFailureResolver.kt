@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.services
 
+@Suppress("ReturnCount")
 internal fun resolveProxyStartupFailure(
     readinessError: Exception,
     proxyStartWasActive: Boolean,

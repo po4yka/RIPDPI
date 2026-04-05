@@ -104,6 +104,7 @@ class RipDpiProxyService :
                 service = RipDpiProxyService::class.java,
                 whenTimestamp = startedAt,
             )
+        @Suppress("SwallowedException")
         try {
             getSystemService(NotificationManager::class.java)
                 ?.notify(FOREGROUND_SERVICE_ID, notification)

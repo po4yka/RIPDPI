@@ -77,6 +77,6 @@ class DefaultDiagnosticsRuntimeCoordinator
                 }
                 delay(waitDelayMs)
             }
-            throw IllegalStateException("Timed out waiting for service status $target")
+            error("Timed out waiting for service status $target")
         }
     }

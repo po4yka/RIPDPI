@@ -44,7 +44,7 @@ class DefaultVpnTunnelSessionProvider
         ): VpnTunnelSession {
             val descriptor =
                 host.createTunnelBuilder(dns, ipv6).establish()
-                    ?: throw IllegalStateException("VPN connection failed")
+                    ?: error("VPN connection failed")
             return descriptor
         }
     }

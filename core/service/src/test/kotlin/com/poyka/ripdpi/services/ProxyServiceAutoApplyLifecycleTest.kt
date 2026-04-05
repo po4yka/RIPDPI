@@ -142,6 +142,7 @@ class ProxyServiceAutoApplyLifecycleTest {
             assertEquals(manualPolicy.fingerprintHash, activePolicy.fingerprintHash)
         }
 
+    @Suppress("LongMethod")
     private fun TestScope.newEnv(
         fingerprint: com.poyka.ripdpi.data.NetworkFingerprint = sampleFingerprint(),
         runtimeFactory: () -> TestProxyRuntime = { TestProxyRuntime() },

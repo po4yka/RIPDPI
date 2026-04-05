@@ -57,6 +57,7 @@ class AppStateManagerStateMachineTest {
             }
         }
 
+    @Suppress("LongMethod")
     private fun applyCommand(
         store: DefaultServiceStateStore,
         model: ServiceModel,

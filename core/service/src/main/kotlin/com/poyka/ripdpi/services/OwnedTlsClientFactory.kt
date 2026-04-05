@@ -76,6 +76,7 @@ class DefaultOwnedTlsClientFactory
                 ).build()
     }
 
+@Suppress("SpreadOperator")
 internal fun OkHttpClient.Builder.applyTlsFingerprintProfile(
     profile: String,
     forcedTlsVersions: List<TlsVersion>? = null,

@@ -136,6 +136,7 @@ class BaseServiceRuntimeCoordinatorTest {
             assertEquals(1, env.handoverEvents.published.size)
         }
 
+    @Suppress("UnusedParameter")
     private fun TestScope.newEnv(fingerprint: NetworkFingerprint? = sampleFingerprint()): Env {
         val dispatcher = StandardTestDispatcher(testScheduler)
         val host = TestProxyServiceHost(backgroundScope)
@@ -246,7 +247,7 @@ private class TestCoordinator(
     ) {
         startCalls += 1
         if (failOnStart) {
-            throw IllegalStateException("boom")
+            error("boom")
         }
     }
 

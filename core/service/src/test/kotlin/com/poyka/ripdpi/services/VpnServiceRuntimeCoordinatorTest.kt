@@ -276,6 +276,7 @@ class VpnServiceRuntimeCoordinatorTest {
             )
         }
 
+    @Suppress("LongMethod")
     @Test
     fun dnsFailoverSuccessPersistsWinningPathWithoutRestartingProxy() =
         runTest {
@@ -516,6 +517,7 @@ class VpnServiceRuntimeCoordinatorTest {
         return sampleResolution(mode = Mode.VPN, settings = settings, activeDns = settings.activeDnsSettings())
     }
 
+    @Suppress("LongMethod")
     private fun TestScope.newEnv(
         fingerprint: com.poyka.ripdpi.data.NetworkFingerprint? = sampleFingerprint(),
         resolutions: List<com.poyka.ripdpi.services.ConnectionPolicyResolution> =

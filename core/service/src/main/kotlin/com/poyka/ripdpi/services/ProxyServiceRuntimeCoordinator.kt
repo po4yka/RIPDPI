@@ -306,6 +306,7 @@ internal class ProxyServiceRuntimeCoordinator(
     }
 }
 
+@Suppress("LongParameterList")
 internal class ProxyServiceRuntimeCoordinatorFactory
     @Inject
     constructor(
