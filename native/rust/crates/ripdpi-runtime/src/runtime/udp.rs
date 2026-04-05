@@ -245,8 +245,27 @@ pub(super) fn udp_associate_loop(
                         note_evolver_success(&state, 0);
                         entry.awaiting_response = false;
                     }
-                    // QUIC connection migration: on first short-header (post-handshake)
-                    // response, rebind to a new source port so DPI loses flow tracking.
+                    // UDP source-port rebind on post-handshake detection.
+                    //
+                    // NOTE: True RFC 9000 connection migration (§9) requires sending a
+                    // PATH_CHALLENGE frame (type 0x1a) inside an encrypted short-header
+                    // packet on the new path, then validating the server's PATH_RESPONSE
+                    // (type 0x1b) containing the same 8-byte echo data before migrating
+                    // traffic.  Short-header packets are encrypted with 1-RTT keys
+                    // derived during the handshake; this proxy has no access to those
+                    // keys and operates on opaque UDP datagrams.  Injecting or parsing
+                    // QUIC frames is therefore not feasible at this layer without a full
+                    // QUIC stack implementation.
+                    //
+                    // What the rebind below actually achieves: changing the UDP
+                    // source port/address forces ISP-level DPI to lose the 5-tuple
+                    // flow record, which is the intended desync effect.  It is NOT a
+                    // QUIC-layer migration: the server continues to associate traffic
+                    // with the original connection ID and will not acknowledge the new
+                    // path until it receives a valid PATH_CHALLENGE from the client
+                    // application.  Packets already in flight on the old socket are
+                    // not replayed on the new socket; the QUIC stack in the client
+                    // application is responsible for retransmission.
                     if !entry.quic_migrated
                         && n > 0
                         && (upstream_buffer[0] & 0x80) == 0
@@ -266,7 +285,7 @@ pub(super) fn udp_associate_loop(
                             tracing::debug!(
                                 target = %sender,
                                 round = entry.session.round_count,
-                                "QUIC UDP source-port rebind (not RFC 9000 connection migration)"
+                                "QUIC UDP source-port rebind (RFC 9000 migration requires QUIC-layer implementation)"
                             );
                         }
                     }
