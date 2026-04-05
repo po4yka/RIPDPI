@@ -24,6 +24,7 @@ message StrategyTcpStep {
   ActivationFilter activation_filter = 8;
   int32 overlap_size = 9;
   string fake_mode = 10;
+  string ipv6_extension_profile = 11;
 }
 
 message StrategyUdpStep {
@@ -31,6 +32,7 @@ message StrategyUdpStep {
   int32 count = 2;
   ActivationFilter activation_filter = 3;
   int32 split_bytes = 4;
+  string ipv6_extension_profile = 5;
 }
 
 message AppSettings {
@@ -208,4 +210,18 @@ message AppSettings {
   int32 warp_amnezia_s2 = 157;
   int32 warp_amnezia_s3 = 158;
   int32 warp_amnezia_s4 = 159;
+
+  // Tier 2 adaptive fallback
+  bool adaptive_fallback_enabled = 160;
+  bool adaptive_fallback_torst = 161;
+  bool adaptive_fallback_tls_err = 162;
+  bool adaptive_fallback_http_redirect = 163;
+  bool adaptive_fallback_connect_failure = 164;
+  bool adaptive_fallback_auto_sort = 165;
+  int32 adaptive_fallback_cache_ttl_seconds = 166;
+  int32 adaptive_fallback_cache_prefix_v4 = 167;
+
+  // Tier 2 HTTP parser evasions
+  bool http_method_space = 168;
+  bool http_host_pad = 169;
 }

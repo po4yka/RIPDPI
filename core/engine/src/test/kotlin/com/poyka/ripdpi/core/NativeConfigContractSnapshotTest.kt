@@ -142,8 +142,21 @@ class NativeConfigContractSnapshotTest {
                         hostMixedCase = true,
                         domainMixedCase = true,
                         hostRemoveSpaces = true,
+                        httpMethodSpace = true,
                         httpMethodEol = true,
+                        httpHostPad = true,
                         httpUnixEol = true,
+                    ),
+                adaptiveFallback =
+                    RipDpiAdaptiveFallbackConfig(
+                        enabled = true,
+                        torst = true,
+                        tlsErr = false,
+                        httpRedirect = true,
+                        connectFailure = false,
+                        autoSort = false,
+                        cacheTtlSeconds = 180,
+                        cachePrefixV4 = 28,
                     ),
                 quic =
                     RipDpiQuicConfig(
@@ -222,8 +235,21 @@ class NativeConfigContractSnapshotTest {
                             hostMixedCase = true,
                             domainMixedCase = true,
                             hostRemoveSpaces = true,
+                            httpMethodSpace = true,
                             httpMethodEol = true,
+                            httpHostPad = true,
                             httpUnixEol = true,
+                        ),
+                    adaptiveFallback =
+                        adaptiveFallbackExpected(
+                            enabled = true,
+                            torst = true,
+                            tlsErr = false,
+                            httpRedirect = true,
+                            connectFailure = false,
+                            autoSort = false,
+                            cacheTtlSeconds = 180,
+                            cachePrefixV4 = 28,
                         ),
                     quic =
                         quicExpected(
@@ -559,6 +585,7 @@ class NativeConfigContractSnapshotTest {
         chains: JsonObject = chainsExpected(),
         fakePackets: JsonObject = fakePacketsExpected(),
         parserEvasions: JsonObject = parserEvasionsExpected(),
+        adaptiveFallback: JsonObject = adaptiveFallbackExpected(),
         quic: JsonObject = quicExpected(),
         hosts: JsonObject = hostsExpected(),
         warp: JsonObject = warpExpected(),
@@ -573,6 +600,7 @@ class NativeConfigContractSnapshotTest {
             put("chains", chains)
             put("fakePackets", fakePackets)
             put("parserEvasions", parserEvasions)
+            put("adaptiveFallback", adaptiveFallback)
             put("quic", quic)
             put("hosts", hosts)
             put("warp", warp)
@@ -639,6 +667,7 @@ class NativeConfigContractSnapshotTest {
         minFragmentSize: Int = 0,
         maxFragmentSize: Int = 0,
         activationFilter: JsonObject? = null,
+        ipv6ExtensionProfile: String = "none",
     ): JsonObject =
         buildJsonObject {
             put("kind", JsonPrimitive(kind))
@@ -651,6 +680,7 @@ class NativeConfigContractSnapshotTest {
             put("minFragmentSize", JsonPrimitive(minFragmentSize))
             put("maxFragmentSize", JsonPrimitive(maxFragmentSize))
             put("activationFilter", activationFilter ?: JsonNull)
+            put("ipv6ExtensionProfile", JsonPrimitive(ipv6ExtensionProfile))
         }
 
     private fun udpStepExpected(
@@ -658,12 +688,14 @@ class NativeConfigContractSnapshotTest {
         count: Int,
         splitBytes: Int = 0,
         activationFilter: JsonObject? = null,
+        ipv6ExtensionProfile: String = "none",
     ): JsonObject =
         buildJsonObject {
             put("kind", JsonPrimitive(kind))
             put("count", JsonPrimitive(count))
             put("splitBytes", JsonPrimitive(splitBytes))
             put("activationFilter", activationFilter ?: JsonNull)
+            put("ipv6ExtensionProfile", JsonPrimitive(ipv6ExtensionProfile))
         }
 
     private fun fakePacketsExpected(
@@ -714,14 +746,39 @@ class NativeConfigContractSnapshotTest {
         domainMixedCase: Boolean = false,
         hostRemoveSpaces: Boolean = false,
         httpMethodEol: Boolean = false,
+        httpMethodSpace: Boolean = false,
         httpUnixEol: Boolean = false,
+        httpHostPad: Boolean = false,
     ): JsonObject =
         buildJsonObject {
             put("hostMixedCase", JsonPrimitive(hostMixedCase))
             put("domainMixedCase", JsonPrimitive(domainMixedCase))
             put("hostRemoveSpaces", JsonPrimitive(hostRemoveSpaces))
             put("httpMethodEol", JsonPrimitive(httpMethodEol))
+            put("httpMethodSpace", JsonPrimitive(httpMethodSpace))
             put("httpUnixEol", JsonPrimitive(httpUnixEol))
+            put("httpHostPad", JsonPrimitive(httpHostPad))
+        }
+
+    private fun adaptiveFallbackExpected(
+        enabled: Boolean = true,
+        torst: Boolean = true,
+        tlsErr: Boolean = true,
+        httpRedirect: Boolean = true,
+        connectFailure: Boolean = true,
+        autoSort: Boolean = true,
+        cacheTtlSeconds: Int = 90,
+        cachePrefixV4: Int = 24,
+    ): JsonObject =
+        buildJsonObject {
+            put("enabled", JsonPrimitive(enabled))
+            put("torst", JsonPrimitive(torst))
+            put("tlsErr", JsonPrimitive(tlsErr))
+            put("httpRedirect", JsonPrimitive(httpRedirect))
+            put("connectFailure", JsonPrimitive(connectFailure))
+            put("autoSort", JsonPrimitive(autoSort))
+            put("cacheTtlSeconds", JsonPrimitive(cacheTtlSeconds))
+            put("cachePrefixV4", JsonPrimitive(cachePrefixV4))
         }
 
     private fun quicExpected(

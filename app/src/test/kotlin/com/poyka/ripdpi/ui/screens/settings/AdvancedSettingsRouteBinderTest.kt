@@ -120,6 +120,23 @@ class AdvancedSettingsRouteBinderTest {
     }
 
     @Test
+    fun `binder normalizes adaptive fallback cache prefix`() {
+        val recorder = RecordingSettingsMutations()
+        val binder = AdvancedSettingsBinder(recorder::updateSetting)
+
+        binder.onTextConfirmed(
+            setting = AdvancedTextSetting.AdaptiveFallbackCachePrefixV4,
+            value = "64",
+            uiState = SettingsUiState(),
+        )
+
+        val update = recorder.singleUpdate()
+        assertEquals("adaptiveFallbackCachePrefixV4", update.key)
+        assertEquals("32", update.value)
+        assertEquals(32, update.settings.adaptiveFallbackCachePrefixV4)
+    }
+
+    @Test
     fun `binder ignores invalid numeric text input`() {
         val recorder = RecordingSettingsMutations()
         val binder = AdvancedSettingsBinder(recorder::updateSetting)

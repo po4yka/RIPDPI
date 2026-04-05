@@ -7,7 +7,7 @@ use rustls::client::danger::ServerCertVerifier;
 
 use crate::candidates::{
     build_quic_candidates_for_suite, build_strategy_probe_summary, candidate_pause_ms, probe_fake_ttl_capability,
-    CandidateEligibility, StrategyCandidateSpec,
+    probe_tcp_fast_open_capability, CandidateEligibility, StrategyCandidateSpec,
 };
 use crate::classification::{
     classified_failure_probe_result, classify_strategy_probe_baseline_observations, filter_quic_candidates_for_failure,
@@ -42,6 +42,9 @@ const ECH_ELIGIBILITY_RATIONALE: &str =
 
 const FAKE_TTL_ELIGIBILITY_RATIONALE: &str =
     "setsockopt(IP_TTL) is unavailable on this platform (Android VPN/tun mode); fake-packet strategies that rely on TTL manipulation are skipped";
+
+const TCP_FAST_OPEN_ELIGIBILITY_RATIONALE: &str =
+    "TCP Fast Open is unavailable on this device/kernel, so TFO probe variants are skipped";
 
 fn resolve_recommended_proxy_config_json(
     quic_candidate: &crate::types::StrategyProbeCandidateSummary,
@@ -580,9 +583,17 @@ impl ExecutionStageRunner for StrategyTcpRunner {
 
         let baseline_ech_capable = baseline_supports_ech_candidates(&baseline_execution.results);
         let fake_ttl_available = probe_fake_ttl_capability();
+        let tcp_fast_open_available = probe_tcp_fast_open_capability();
         tracing::info!(fake_ttl_available = fake_ttl_available, "strategy probe: TTL capability probed");
+        tracing::info!(
+            tcp_fast_open_available = tcp_fast_open_available,
+            "strategy probe: TCP Fast Open capability probed"
+        );
         if !fake_ttl_available {
             tracing::debug!("TTL capability probe failed — fake-packet candidates will be marked not_applicable");
+        }
+        if !tcp_fast_open_available {
+            tracing::debug!("TCP Fast Open capability probe failed — TFO candidates will be marked not_applicable");
         }
         if let Some(ref failure) = runtime.strategy.baseline_failure {
             if let Some(timeout) = compute_rst_adaptive_timeout(failure) {
@@ -621,7 +632,8 @@ impl ExecutionStageRunner for StrategyTcpRunner {
                 // Baseline always qualifies; not-applicable candidates pass through.
                 let pass_through = spec.id == "baseline_current"
                     || (spec.eligibility == CandidateEligibility::RequiresEchCapability && !baseline_ech_capable)
-                    || (spec.requires_fake_ttl && !fake_ttl_available);
+                    || (spec.requires_fake_ttl && !fake_ttl_available)
+                    || (spec.requires_tcp_fast_open && !tcp_fast_open_available);
                 if pass_through {
                     qualified_specs.push(spec);
                     continue;
@@ -774,6 +786,41 @@ impl ExecutionStageRunner for StrategyTcpRunner {
                         "strategy_probe",
                         "debug",
                         format!("Skipped execution for {} — TTL manipulation unavailable", spec.label),
+                    ),
+                );
+                runtime.strategy.tcp_candidates.push(execution.summary);
+                continue;
+            }
+            if spec.requires_tcp_fast_open && !tcp_fast_open_available {
+                tracing::debug!(
+                    candidate = spec.id,
+                    reason = TCP_FAST_OPEN_ELIGIBILITY_RATIONALE,
+                    "strategy probe: candidate not_applicable"
+                );
+                let execution = not_applicable_candidate_execution(
+                    &spec,
+                    domain_targets.len() * 2,
+                    3,
+                    TCP_FAST_OPEN_ELIGIBILITY_RATIONALE,
+                );
+                runtime.record_step(
+                    plan,
+                    self.phase(),
+                    format!("Marked {} as not applicable (no TCP Fast Open support)", spec.label),
+                    Some(spec.label.to_string()),
+                    Some(execution.summary.outcome.clone()),
+                    Some(strategy_probe_live_progress(
+                        StrategyProbeProgressLane::Tcp,
+                        candidate_index,
+                        tcp_candidate_total,
+                        spec.id,
+                        spec.label,
+                    )),
+                    RunnerArtifacts::from_results(
+                        execution.results.clone(),
+                        "strategy_probe",
+                        "debug",
+                        format!("Skipped execution for {} — TCP Fast Open unavailable", spec.label),
                     ),
                 );
                 runtime.strategy.tcp_candidates.push(execution.summary);

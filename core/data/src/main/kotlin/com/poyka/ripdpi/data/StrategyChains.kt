@@ -9,6 +9,35 @@ private const val TcpSection = "tcp"
 private const val UdpSection = "udp"
 private const val IpFragmentAlignmentBytes = 8
 
+const val StrategyIpv6ExtensionProfileNone = "none"
+const val StrategyIpv6ExtensionProfileHopByHop = "hopByHop"
+const val StrategyIpv6ExtensionProfileHopByHop2 = "hopByHop2"
+const val StrategyIpv6ExtensionProfileDestOpt = "destOpt"
+const val StrategyIpv6ExtensionProfileHopByHopDestOpt = "hopByHopDestOpt"
+
+@Serializable
+enum class StrategyIpv6ExtensionProfile(
+    val wireName: String,
+) {
+    None(StrategyIpv6ExtensionProfileNone),
+    HopByHop(StrategyIpv6ExtensionProfileHopByHop),
+    HopByHop2(StrategyIpv6ExtensionProfileHopByHop2),
+    DestOpt(StrategyIpv6ExtensionProfileDestOpt),
+    HopByHopDestOpt(StrategyIpv6ExtensionProfileHopByHopDestOpt),
+    ;
+
+    companion object {
+        fun fromWireName(value: String): StrategyIpv6ExtensionProfile? =
+            entries.firstOrNull { it.wireName.equals(value.trim(), ignoreCase = true) }
+    }
+}
+
+fun normalizeStrategyIpv6ExtensionProfile(value: String): String =
+    StrategyIpv6ExtensionProfile
+        .fromWireName(value)
+        ?.wireName
+        ?: StrategyIpv6ExtensionProfileNone
+
 @Serializable
 enum class TcpChainStepKind(
     val wireName: String,
@@ -76,6 +105,7 @@ data class TcpChainStepModel(
     val minFragmentSize: Int = 0,
     val maxFragmentSize: Int = 0,
     val activationFilter: ActivationFilterModel = ActivationFilterModel(),
+    val ipv6ExtensionProfile: String = StrategyIpv6ExtensionProfileNone,
 )
 
 @Serializable
@@ -101,6 +131,7 @@ data class UdpChainStepModel(
     val kind: UdpChainStepKind = UdpChainStepKind.FakeBurst,
     val splitBytes: Int = 0,
     val activationFilter: ActivationFilterModel = ActivationFilterModel(),
+    val ipv6ExtensionProfile: String = StrategyIpv6ExtensionProfileNone,
 )
 
 @Serializable
@@ -130,6 +161,16 @@ fun validateStrategyChainUsage(
         require(mode == Mode.VPN) { "ipfrag2 is only supported in VPN mode" }
         require(!useCommandLineSettings) { "ipfrag2 is not supported while command line settings are enabled" }
     }
+    require(
+        tcpSteps.none {
+            it.ipv6ExtensionProfile != StrategyIpv6ExtensionProfileNone && it.kind != TcpChainStepKind.IpFrag2
+        },
+    ) { "IPv6 extension profiles are only supported for tcp ipfrag2" }
+    require(
+        udpSteps.none {
+            it.ipv6ExtensionProfile != StrategyIpv6ExtensionProfileNone && it.kind != UdpChainStepKind.IpFrag2Udp
+        },
+    ) { "IPv6 extension profiles are only supported for udp ipfrag2_udp" }
 }
 
 fun AppSettings.effectiveTcpChainSteps(): List<TcpChainStepModel> =
@@ -277,10 +318,18 @@ fun parseStrategyChainDsl(source: String): Result<StrategyChainSet> =
                         }
                     }
                     var activationFilter = ActivationFilterModel()
+                    var ipv6ExtensionProfile = StrategyIpv6ExtensionProfileNone
                     tokens.drop(1).forEach { token ->
                         val (key, value) =
                             token.split('=', limit = 2).takeIf { it.size == 2 }
                                 ?: error("Invalid UDP step option '$token' on line ${index + 1}")
+                        if (key.equals("ipv6ext", ignoreCase = true)) {
+                            require(kind == UdpChainStepKind.IpFrag2Udp) {
+                                "ipv6ext is only supported for ipfrag2_udp on line ${index + 1}"
+                            }
+                            ipv6ExtensionProfile = normalizeStrategyIpv6ExtensionProfile(value)
+                            return@forEach
+                        }
                         activationFilter =
                             parseActivationToken(
                                 activationFilter = activationFilter,
@@ -296,6 +345,7 @@ fun parseStrategyChainDsl(source: String): Result<StrategyChainSet> =
                                 count = if (kind == UdpChainStepKind.IpFrag2Udp) 0 else primaryValue,
                                 splitBytes = if (kind == UdpChainStepKind.IpFrag2Udp) primaryValue else 0,
                                 activationFilter = activationFilter,
+                                ipv6ExtensionProfile = ipv6ExtensionProfile,
                             ),
                         )
                 }
@@ -343,6 +393,7 @@ private fun StrategyTcpStep.toModelOrNull(): TcpChainStepModel? {
             minFragmentSize = minFragmentSize,
             maxFragmentSize = maxFragmentSize,
             activationFilter = if (hasActivationFilter()) activationFilter.toModel() else ActivationFilterModel(),
+            ipv6ExtensionProfile = normalizeStrategyIpv6ExtensionProfile(ipv6ExtensionProfile),
         ),
     )
 }
@@ -355,6 +406,7 @@ private fun StrategyUdpStep.toModelOrNull(): UdpChainStepModel? {
             count = count,
             splitBytes = splitBytes,
             activationFilter = if (hasActivationFilter()) activationFilter.toModel() else ActivationFilterModel(),
+            ipv6ExtensionProfile = normalizeStrategyIpv6ExtensionProfile(ipv6ExtensionProfile),
         ),
     )
 }
@@ -372,6 +424,7 @@ private fun TcpChainStepModel.toProto(): StrategyTcpStep =
             .setFragmentCount(normalizeFragmentCount(step.kind, step.fragmentCount))
             .setMinFragmentSize(normalizeMinFragmentSize(step.kind, step.minFragmentSize))
             .setMaxFragmentSize(normalizeMaxFragmentSize(step.kind, step.maxFragmentSize))
+            .setIpv6ExtensionProfile(normalizeStrategyIpv6ExtensionProfile(step.ipv6ExtensionProfile))
             .apply {
                 if (!step.activationFilter.isEmpty) {
                     setActivationFilter(step.activationFilter.toProto())
@@ -386,6 +439,7 @@ private fun UdpChainStepModel.toProto(): StrategyUdpStep =
             .setKind(step.kind.wireName)
             .setCount(step.count.coerceAtLeast(0))
             .setSplitBytes(step.splitBytes.coerceAtLeast(0))
+            .setIpv6ExtensionProfile(normalizeStrategyIpv6ExtensionProfile(step.ipv6ExtensionProfile))
             .apply {
                 if (!step.activationFilter.isEmpty) {
                     setActivationFilter(step.activationFilter.toProto())
@@ -487,6 +541,10 @@ private fun formatTcpStepSummary(step: TcpChainStepModel): String =
             append(" max=")
             append(normalized.maxFragmentSize)
         }
+        if (normalized.ipv6ExtensionProfile != StrategyIpv6ExtensionProfileNone) {
+            append(" ipv6ext=")
+            append(normalized.ipv6ExtensionProfile)
+        }
         val filterSummary = formatActivationFilterSummary(normalized.activationFilter)
         if (filterSummary.isNotBlank()) {
             append(' ')
@@ -525,6 +583,10 @@ private fun formatTcpStepDsl(step: TcpChainStepModel): String =
             append(" max=")
             append(normalized.maxFragmentSize)
         }
+        if (normalized.ipv6ExtensionProfile != StrategyIpv6ExtensionProfileNone) {
+            append(" ipv6ext=")
+            append(normalized.ipv6ExtensionProfile)
+        }
         appendActivationDsl(this, normalized.activationFilter)
     }
 
@@ -537,6 +599,10 @@ private fun formatUdpStepSummary(step: UdpChainStepModel): String =
             append(normalized.splitBytes)
         } else {
             append(normalized.count.coerceAtLeast(0))
+        }
+        if (normalized.ipv6ExtensionProfile != StrategyIpv6ExtensionProfileNone) {
+            append(" ipv6ext=")
+            append(normalized.ipv6ExtensionProfile)
         }
         val filterSummary = formatActivationFilterSummary(normalized.activationFilter)
         if (filterSummary.isNotBlank()) {
@@ -555,6 +621,10 @@ private fun formatUdpStepDsl(step: UdpChainStepModel): String =
             append(normalized.splitBytes)
         } else {
             append(normalized.count.coerceAtLeast(0))
+        }
+        if (normalized.ipv6ExtensionProfile != StrategyIpv6ExtensionProfileNone) {
+            append(" ipv6ext=")
+            append(normalized.ipv6ExtensionProfile)
         }
         appendActivationDsl(this, normalized.activationFilter)
     }
@@ -580,6 +650,7 @@ private fun parseTcpStep(
     var fragmentCount = 0
     var minFragmentSize = 0
     var maxFragmentSize = 0
+    var ipv6ExtensionProfile = StrategyIpv6ExtensionProfileNone
     var activationFilter = ActivationFilterModel()
     tokens.drop(1).forEach { token ->
         val (key, value) =
@@ -663,6 +734,13 @@ private fun parseTcpStep(
                     )
             }
 
+            "ipv6ext" -> {
+                require(kind == TcpChainStepKind.IpFrag2) {
+                    "ipv6ext is only supported for ipfrag2 on line $lineNumber"
+                }
+                ipv6ExtensionProfile = normalizeStrategyIpv6ExtensionProfile(value)
+            }
+
             else -> {
                 error("Unknown TCP step option '$key' on line $lineNumber")
             }
@@ -690,6 +768,7 @@ private fun parseTcpStep(
             minFragmentSize = minFragmentSize,
             maxFragmentSize = maxFragmentSize,
             activationFilter = activationFilter,
+            ipv6ExtensionProfile = ipv6ExtensionProfile,
         ),
     )
 }
@@ -727,6 +806,9 @@ private fun validateTcpStepOptions(step: TcpChainStepModel) {
                 "tlsrandrec max must be between min and 4096"
             }
             require(step.overlapSize == 0) { "tlsrandrec must not declare overlapSize" }
+            require(step.ipv6ExtensionProfile == StrategyIpv6ExtensionProfileNone) {
+                "tlsrandrec must not declare ipv6ExtensionProfile"
+            }
         }
 
         else -> {
@@ -734,6 +816,9 @@ private fun validateTcpStepOptions(step: TcpChainStepModel) {
             require(step.fragmentCount == 0) { "${step.kind.wireName} must not declare fragmentCount" }
             require(step.minFragmentSize == 0) { "${step.kind.wireName} must not declare minFragmentSize" }
             require(step.maxFragmentSize == 0) { "${step.kind.wireName} must not declare maxFragmentSize" }
+            require(
+                step.kind == TcpChainStepKind.IpFrag2 || step.ipv6ExtensionProfile == StrategyIpv6ExtensionProfileNone,
+            ) { "${step.kind.wireName} must not declare ipv6ExtensionProfile" }
         }
     }
 }
@@ -774,6 +859,12 @@ fun normalizeTcpChainStepModel(step: TcpChainStepModel): TcpChainStepModel =
         minFragmentSize = normalizeMinFragmentSize(step.kind, step.minFragmentSize),
         maxFragmentSize = normalizeMaxFragmentSize(step.kind, step.maxFragmentSize),
         activationFilter = normalizeActivationFilter(step.activationFilter),
+        ipv6ExtensionProfile =
+            if (step.kind == TcpChainStepKind.IpFrag2) {
+                normalizeStrategyIpv6ExtensionProfile(step.ipv6ExtensionProfile)
+            } else {
+                StrategyIpv6ExtensionProfileNone
+            },
     )
 
 fun normalizeUdpChainStepModel(step: UdpChainStepModel): UdpChainStepModel =
@@ -786,6 +877,12 @@ fun normalizeUdpChainStepModel(step: UdpChainStepModel): UdpChainStepModel =
                 0
             },
         activationFilter = normalizeActivationFilter(step.activationFilter),
+        ipv6ExtensionProfile =
+            if (step.kind == UdpChainStepKind.IpFrag2Udp) {
+                normalizeStrategyIpv6ExtensionProfile(step.ipv6ExtensionProfile)
+            } else {
+                StrategyIpv6ExtensionProfileNone
+            },
     )
 
 val TcpChainStepKind.isTlsPrelude: Boolean
@@ -829,6 +926,9 @@ private fun validateUdpStepOptions(step: UdpChainStepModel) {
         UdpChainStepKind.FakeBurst -> {
             require(step.count >= 0) { "fake_burst count must be non-negative" }
             require(step.splitBytes == 0) { "fake_burst must not declare splitBytes" }
+            require(step.ipv6ExtensionProfile == StrategyIpv6ExtensionProfileNone) {
+                "fake_burst must not declare ipv6ExtensionProfile"
+            }
         }
 
         UdpChainStepKind.IpFrag2Udp -> {

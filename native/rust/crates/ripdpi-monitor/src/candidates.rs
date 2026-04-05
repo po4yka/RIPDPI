@@ -5,6 +5,7 @@ use ripdpi_proxy_config::{
     ProxyUiNumericRange, ProxyUiTcpChainStep, ProxyUiUdpChainStep, ADAPTIVE_FAKE_TTL_DEFAULT_DELTA,
     ADAPTIVE_FAKE_TTL_DEFAULT_FALLBACK, ADAPTIVE_FAKE_TTL_DEFAULT_MAX, ADAPTIVE_FAKE_TTL_DEFAULT_MIN,
 };
+use socket2::{Domain, Protocol, Socket, Type};
 
 use crate::dns::encrypted_dns_protocol;
 use crate::dns::parse_bootstrap_ips;
@@ -34,6 +35,7 @@ pub(crate) struct StrategyCandidateSpec {
     /// fakedsplit, fakeddisorder, hostfake without a follow-up split) must be
     /// skipped when TTL capability is unavailable.
     pub(crate) requires_fake_ttl: bool,
+    pub(crate) requires_tcp_fast_open: bool,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -239,6 +241,8 @@ pub(crate) fn build_tcp_candidates(base: &ProxyUiConfig) -> Vec<StrategyCandidat
     let parser_only = build_parser_only_candidate(base);
     let parser_unixeol = build_parser_unixeol_candidate(base);
     let parser_methodeol = build_parser_methodeol_candidate(base);
+    let parser_methodspace = build_parser_methodspace_candidate(base);
+    let parser_hostpad = build_parser_hostpad_candidate(base);
     let split_host = build_split_host_candidate(base);
     let disorder_host = build_disorder_host_candidate(base);
     let tlsrec_disorder = build_tlsrec_disorder_candidate(base);
@@ -254,7 +258,12 @@ pub(crate) fn build_tcp_candidates(base: &ProxyUiConfig) -> Vec<StrategyCandidat
 
     let mut candidates = vec![
         candidate_spec("baseline_current", "Current strategy", "baseline", baseline),
-        candidate_spec("tlsrec_split_host", "TLS record + split host", "tlsrec_split", tlsrec_split_host),
+        candidate_spec(
+            "tlsrec_split_host",
+            "TLS record + split host",
+            "tlsrec_split",
+            tlsrec_split_host.clone(),
+        ),
         candidate_spec_with_notes(
             "tlsrec_hostfake_split",
             "TLS record + hostfake split",
@@ -269,7 +278,7 @@ pub(crate) fn build_tcp_candidates(base: &ProxyUiConfig) -> Vec<StrategyCandidat
             tlsrec_fake_rich,
             vec!["Randomized fake TLS material with original ClientHello framing"],
         ),
-        candidate_spec("split_host", "Split Host", "split", split_host),
+        candidate_spec("split_host", "Split Host", "split", split_host.clone()),
         candidate_spec("disorder_host", "Disorder host", "disorder", disorder_host),
         candidate_spec("tlsrec_disorder", "TLS record + disorder", "tlsrec_disorder", tlsrec_disorder),
         candidate_spec("oob_host", "OOB host", "oob", build_oob_host_candidate(base)),
@@ -311,8 +320,10 @@ pub(crate) fn build_tcp_candidates(base: &ProxyUiConfig) -> Vec<StrategyCandidat
         candidate_spec("tlsrec_fakedsplit", "TLS record + fakedsplit", "fake_approx", tlsrec_fakedsplit),
         candidate_spec("tlsrec_hostfake", "TLS record + hostfake", "hostfake", tlsrec_hostfake),
         candidate_spec("parser_only", "Parser-only", "parser", parser_only),
+        candidate_spec("parser_hostpad", "Parser + Host Pad", "parser", parser_hostpad),
         candidate_spec("parser_unixeol", "Parser + Unix EOL", "parser_aggressive", parser_unixeol),
         candidate_spec("parser_methodeol", "Parser + Method EOL", "parser_aggressive", parser_methodeol),
+        candidate_spec("parser_methodspace", "Parser + Method Space", "parser_aggressive", parser_methodspace),
         candidate_spec_with_notes_and_eligibility(
             "ech_split",
             "ECH extension split",
@@ -330,6 +341,22 @@ pub(crate) fn build_tcp_candidates(base: &ProxyUiConfig) -> Vec<StrategyCandidat
             vec!["Runs only when the baseline proves an ECH-capable HTTPS path"],
         ),
     ];
+    if probe_tcp_fast_open_capability() {
+        candidates.push(candidate_spec_with_notes(
+            "tlsrec_split_host_tfo",
+            "TLS record + split host + TFO",
+            "tlsrec_split_tfo",
+            build_tfo_variant(&tlsrec_split_host),
+            vec!["Enables TCP Fast Open for the upstream connect path"],
+        ));
+        candidates.push(candidate_spec_with_notes(
+            "split_host_tfo",
+            "Split host + TFO",
+            "split_tfo",
+            build_tfo_variant(&split_host),
+            vec!["Enables TCP Fast Open for the upstream connect path"],
+        ));
+    }
     if ipfrag_capable {
         candidates.push(candidate_spec_with_notes(
             "ipfrag2",
@@ -338,6 +365,25 @@ pub(crate) fn build_tcp_candidates(base: &ProxyUiConfig) -> Vec<StrategyCandidat
             build_ipfrag_candidate(base),
             vec!["VPN-only raw-socket TCP fragmentation of the first application-data segment"],
         ));
+        for (id, label, profile, note) in [
+            ("ipfrag2_hopbyhop", "IP fragmentation + Hop-by-Hop", "hopByHop", "Adds one Hop-by-Hop header before fragmentation"),
+            ("ipfrag2_hopbyhop2", "IP fragmentation + Hop-by-Hop2", "hopByHop2", "Adds the double-header Tier 2 IPv6 extension profile"),
+            ("ipfrag2_destopt", "IP fragmentation + Dest Opt", "destOpt", "Adds one Destination Options header before fragmentation"),
+            (
+                "ipfrag2_hopbyhop_destopt",
+                "IP fragmentation + HBH + Dest Opt",
+                "hopByHopDestOpt",
+                "Adds both Hop-by-Hop and Destination Options headers before fragmentation",
+            ),
+        ] {
+            candidates.push(candidate_spec_with_notes(
+                id,
+                label,
+                "ipfrag2_ipv6_ext",
+                build_ipfrag_candidate_with_ipv6_ext(base, profile),
+                vec![note, "VPN-only raw-socket TCP fragmentation variant for IPv6-capable paths"],
+            ));
+        }
     }
     // Root-only candidates: require TCP_REPAIR + SOCK_RAW via the root helper.
     let tcp_repair_capable = probe_ip_fragmentation_capabilities().tcp_repair;
@@ -423,6 +469,40 @@ pub(crate) fn build_quic_candidates(base_tcp: &ProxyUiConfig) -> Vec<StrategyCan
             build_quic_ipfrag_candidate(base_tcp),
             vec!["VPN-only raw-socket fragmentation of the first QUIC Initial datagram"],
         ));
+        for (id, label, profile, note) in [
+            (
+                "quic_ipfrag2_hopbyhop",
+                "QUIC IP fragmentation + Hop-by-Hop",
+                "hopByHop",
+                "Adds one Hop-by-Hop header before fragmenting the QUIC Initial datagram",
+            ),
+            (
+                "quic_ipfrag2_hopbyhop2",
+                "QUIC IP fragmentation + Hop-by-Hop2",
+                "hopByHop2",
+                "Adds the double-header Tier 2 IPv6 extension profile before fragmentation",
+            ),
+            (
+                "quic_ipfrag2_destopt",
+                "QUIC IP fragmentation + Dest Opt",
+                "destOpt",
+                "Adds one Destination Options header before fragmenting the QUIC Initial datagram",
+            ),
+            (
+                "quic_ipfrag2_hopbyhop_destopt",
+                "QUIC IP fragmentation + HBH + Dest Opt",
+                "hopByHopDestOpt",
+                "Adds both Hop-by-Hop and Destination Options headers before fragmentation",
+            ),
+        ] {
+            candidates.push(candidate_spec_with_notes(
+                id,
+                label,
+                "quic_ipfrag2_ipv6_ext",
+                build_quic_ipfrag_candidate_with_ipv6_ext(base_tcp, profile),
+                vec![note, "VPN-only raw-socket QUIC fragmentation variant for IPv6-capable paths"],
+            ));
+        }
     }
     candidates
 }
@@ -455,6 +535,7 @@ pub(crate) fn candidate_spec_with_notes_and_eligibility(
     notes: Vec<&'static str>,
 ) -> StrategyCandidateSpec {
     let requires_fake_ttl = config_requires_fake_ttl(&config);
+    let requires_tcp_fast_open = config.listen.tcp_fast_open;
     StrategyCandidateSpec {
         id,
         label,
@@ -465,6 +546,7 @@ pub(crate) fn candidate_spec_with_notes_and_eligibility(
         preserve_adaptive_fake_ttl: false,
         warmup: CandidateWarmup::None,
         requires_fake_ttl,
+        requires_tcp_fast_open,
     }
 }
 
@@ -519,7 +601,9 @@ pub(crate) fn strategy_probe_base(base: &ProxyUiConfig) -> ProxyUiConfig {
     config.parser_evasions.host_mixed_case = false;
     config.parser_evasions.domain_mixed_case = false;
     config.parser_evasions.host_remove_spaces = false;
+    config.parser_evasions.http_method_space = false;
     config.parser_evasions.http_method_eol = false;
+    config.parser_evasions.http_host_pad = false;
     config.parser_evasions.http_unix_eol = false;
     config.quic.fake_profile = "disabled".to_string();
     config.quic.fake_host.clear();
@@ -543,6 +627,18 @@ pub(crate) fn build_parser_unixeol_candidate(base: &ProxyUiConfig) -> ProxyUiCon
 pub(crate) fn build_parser_methodeol_candidate(base: &ProxyUiConfig) -> ProxyUiConfig {
     let mut config = build_parser_only_candidate(base);
     config.parser_evasions.http_method_eol = true;
+    config
+}
+
+pub(crate) fn build_parser_methodspace_candidate(base: &ProxyUiConfig) -> ProxyUiConfig {
+    let mut config = build_parser_only_candidate(base);
+    config.parser_evasions.http_method_space = true;
+    config
+}
+
+pub(crate) fn build_parser_hostpad_candidate(base: &ProxyUiConfig) -> ProxyUiConfig {
+    let mut config = build_parser_only_candidate(base);
+    config.parser_evasions.http_host_pad = true;
     config
 }
 
@@ -652,6 +748,7 @@ pub(crate) fn build_tlsrec_hostfake_candidate(base: &ProxyUiConfig, with_split: 
             max_fragment_size: 0,
             activation_filter: None,
             inter_segment_delay_ms: 0,
+            ipv6_extension_profile: "none".to_string(),
         },
     ];
     if with_split {
@@ -681,6 +778,7 @@ pub(crate) fn build_tlsrec_seqovl_candidate(base: &ProxyUiConfig, marker: &str) 
                 stream_bytes: Some(ProxyUiNumericRange { start: Some(0), end: Some(1500) }),
             }),
             inter_segment_delay_ms: 0,
+            ipv6_extension_profile: "none".to_string(),
         },
     ];
     config
@@ -690,7 +788,13 @@ pub(crate) fn build_quic_candidate(base_tcp: &ProxyUiConfig, enabled: bool, prof
     let mut config = sanitize_current_probe_config(base_tcp);
     config.protocols.desync_udp = enabled;
     config.chains.udp_steps = if enabled {
-        vec![ProxyUiUdpChainStep { kind: "fake_burst".to_string(), count: 4, split_bytes: 0, activation_filter: None }]
+        vec![ProxyUiUdpChainStep {
+            kind: "fake_burst".to_string(),
+            count: 4,
+            split_bytes: 0,
+            activation_filter: None,
+            ipv6_extension_profile: "none".to_string(),
+        }]
     } else {
         Vec::new()
     };
@@ -702,6 +806,14 @@ pub(crate) fn build_quic_candidate(base_tcp: &ProxyUiConfig, enabled: bool, prof
 pub(crate) fn build_ipfrag_candidate(base: &ProxyUiConfig) -> ProxyUiConfig {
     let mut config = strategy_probe_base(base);
     config.chains.tcp_steps = vec![tcp_step("ipfrag2", "host+2")];
+    config
+}
+
+pub(crate) fn build_ipfrag_candidate_with_ipv6_ext(base: &ProxyUiConfig, profile: &str) -> ProxyUiConfig {
+    let mut config = build_ipfrag_candidate(base);
+    if let Some(step) = config.chains.tcp_steps.first_mut() {
+        step.ipv6_extension_profile = profile.to_string();
+    }
     config
 }
 
@@ -727,10 +839,25 @@ pub(crate) fn build_quic_ipfrag_candidate(base_tcp: &ProxyUiConfig) -> ProxyUiCo
         count: 0,
         split_bytes: 8,
         activation_filter: None,
+        ipv6_extension_profile: "none".to_string(),
     }];
     config.quic.fake_profile = "disabled".to_string();
     config.quic.fake_host.clear();
     config
+}
+
+pub(crate) fn build_quic_ipfrag_candidate_with_ipv6_ext(base_tcp: &ProxyUiConfig, profile: &str) -> ProxyUiConfig {
+    let mut config = build_quic_ipfrag_candidate(base_tcp);
+    if let Some(step) = config.chains.udp_steps.first_mut() {
+        step.ipv6_extension_profile = profile.to_string();
+    }
+    config
+}
+
+pub(crate) fn build_tfo_variant(config: &ProxyUiConfig) -> ProxyUiConfig {
+    let mut candidate = config.clone();
+    candidate.listen.tcp_fast_open = true;
+    candidate
 }
 
 fn build_quic_sni_split_candidate(base_tcp: &ProxyUiConfig) -> ProxyUiConfig {
@@ -741,6 +868,7 @@ fn build_quic_sni_split_candidate(base_tcp: &ProxyUiConfig) -> ProxyUiConfig {
         count: 1,
         split_bytes: 0,
         activation_filter: None,
+        ipv6_extension_profile: "none".to_string(),
     }];
     config.quic.fake_profile = "compat_default".to_string();
     config.quic.fake_host.clear();
@@ -755,6 +883,7 @@ fn build_quic_fake_version_candidate(base_tcp: &ProxyUiConfig) -> ProxyUiConfig 
         count: 1,
         split_bytes: 0,
         activation_filter: None,
+        ipv6_extension_profile: "none".to_string(),
     }];
     config.quic.fake_profile = "compat_default".to_string();
     config.quic.fake_host.clear();
@@ -769,6 +898,7 @@ fn build_quic_dummy_prepend_candidate(base_tcp: &ProxyUiConfig) -> ProxyUiConfig
         count: 3,
         split_bytes: 0,
         activation_filter: None,
+        ipv6_extension_profile: "none".to_string(),
     }];
     config.quic.fake_profile = "compat_default".to_string();
     config.quic.fake_host.clear();
@@ -795,8 +925,12 @@ fn supports_udp_ip_fragmentation() -> bool {
     supports_udp_ip_fragmentation_for(probe_ip_fragmentation_capabilities())
 }
 
-fn supports_seqovl() -> bool {
-    ripdpi_runtime::platform::seqovl_supported()
+pub(crate) fn probe_tcp_fast_open_capability() -> bool {
+    let socket = match Socket::new(Domain::IPV4, Type::STREAM, Some(Protocol::TCP)) {
+        Ok(value) => value,
+        Err(_) => return false,
+    };
+    ripdpi_runtime::platform::enable_tcp_fastopen_connect(&socket).is_ok()
 }
 
 pub(crate) fn build_activation_window_split_spec(base: &ProxyUiConfig) -> StrategyCandidateSpec {
@@ -844,6 +978,7 @@ pub(crate) fn build_adaptive_fake_ttl_spec(base: &ProxyUiConfig) -> StrategyCand
         preserve_adaptive_fake_ttl: true,
         warmup: CandidateWarmup::AdaptiveFakeTtl,
         requires_fake_ttl,
+        requires_tcp_fast_open: false,
     }
 }
 
@@ -882,6 +1017,7 @@ pub(crate) fn tcp_step(kind: &str, marker: &str) -> ProxyUiTcpChainStep {
         max_fragment_size: 0,
         activation_filter: None,
         inter_segment_delay_ms: 0,
+        ipv6_extension_profile: "none".to_string(),
     }
 }
 
