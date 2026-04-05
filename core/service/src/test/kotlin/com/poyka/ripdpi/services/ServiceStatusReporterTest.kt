@@ -104,6 +104,7 @@ class ServiceStatusReporterTest {
             activePolicy = policy,
             consumePendingNetworkHandoverClass = { "transport_switch" },
             proxyTelemetry = proxyTelemetry,
+            warpTelemetry = NativeRuntimeSnapshot.idle(source = "warp"),
             tunnelTelemetry = tunnelTelemetry,
             tunnelRecoveryRetryCount = 4L,
         )

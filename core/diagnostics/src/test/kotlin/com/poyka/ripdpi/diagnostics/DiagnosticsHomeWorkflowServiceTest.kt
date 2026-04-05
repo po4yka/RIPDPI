@@ -4,6 +4,11 @@ import com.poyka.ripdpi.core.RipDpiHostsConfig
 import com.poyka.ripdpi.core.RipDpiListenConfig
 import com.poyka.ripdpi.core.RipDpiProtocolConfig
 import com.poyka.ripdpi.core.RipDpiProxyUIPreferences
+import com.poyka.ripdpi.core.RipDpiWarpAmneziaConfig
+import com.poyka.ripdpi.core.RipDpiWarpConfig
+import com.poyka.ripdpi.core.RipDpiWarpManualEndpointConfig
+import com.poyka.ripdpi.data.WarpEndpointSelectionManual
+import com.poyka.ripdpi.data.WarpRouteModeRules
 import com.poyka.ripdpi.data.diagnostics.DefaultNetworkDnsPathPreferenceStore
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.encodeToString
@@ -63,6 +68,83 @@ class DiagnosticsHomeWorkflowServiceTest {
             assertEquals("blacklist", savedSettings.hostsMode)
             assertEquals("example.com", savedSettings.hostsBlacklist)
             assertTrue(outcome.appliedSettings.any { it.label == "TCP/TLS lane" })
+        }
+
+    @Test
+    fun `finalizeHomeAudit includes warp configuration in applied settings summary`() =
+        runTest {
+            val stores = FakeDiagnosticsHistoryStores()
+            val appSettingsRepository = FakeAppSettingsRepository()
+            stores.sessionsState.value =
+                listOf(
+                    diagnosticsSession(
+                        id = "warp-audit-session",
+                        profileId = "automatic-audit",
+                        pathMode = ScanPathMode.RAW_PATH.name,
+                        summary = "Audit complete",
+                        reportJson =
+                            json.encodeToString(
+                                ScanReport.serializer(),
+                                strategyAuditReport(
+                                    sessionId = "warp-audit-session",
+                                    recommendedProxyConfigJson =
+                                        RipDpiProxyUIPreferences(
+                                            warp =
+                                                RipDpiWarpConfig(
+                                                    enabled = true,
+                                                    routeMode = WarpRouteModeRules,
+                                                    routeHosts = "example.com\nexample.org",
+                                                    endpointSelectionMode = WarpEndpointSelectionManual,
+                                                    manualEndpoint =
+                                                        RipDpiWarpManualEndpointConfig(
+                                                            host = "engage.cloudflareclient.com",
+                                                            port = 2408,
+                                                        ),
+                                                    amnezia =
+                                                        RipDpiWarpAmneziaConfig(
+                                                            enabled = true,
+                                                            jc = 5,
+                                                            jmin = 40,
+                                                            jmax = 80,
+                                                        ),
+                                                ),
+                                        ).toNativeConfigJson(),
+                                ),
+                            ),
+                    ),
+                )
+
+            val outcome =
+                createHomeWorkflowService(
+                    stores = stores,
+                    appSettingsRepository = appSettingsRepository,
+                ).finalizeHomeAudit("warp-audit-session")
+
+            assertTrue(outcome.actionable)
+            assertTrue(
+                outcome.appliedSettings.any {
+                    it.label == "WARP routing" && it.value == "Rules"
+                },
+            )
+            assertTrue(
+                outcome.appliedSettings.any {
+                    it.label == "WARP hostlist" && it.value == "2 hosts"
+                },
+            )
+            assertTrue(
+                outcome.appliedSettings.any {
+                    it.label == "WARP endpoint" && it.value == "engage.cloudflareclient.com:2408"
+                },
+            )
+            assertTrue(
+                outcome.appliedSettings.any {
+                    it.label == "WARP AmneziaWG" && it.value.contains("JC 5")
+                },
+            )
+            val savedSettings = appSettingsRepository.snapshot()
+            assertTrue(savedSettings.warpEnabled)
+            assertEquals(WarpRouteModeRules, savedSettings.warpRouteMode)
+            assertEquals("example.com\nexample.org", savedSettings.warpRouteHosts)
         }
 
     @Test

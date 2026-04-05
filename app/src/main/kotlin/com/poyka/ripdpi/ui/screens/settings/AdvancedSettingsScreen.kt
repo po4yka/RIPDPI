@@ -19,6 +19,7 @@ import com.poyka.ripdpi.activities.HttpParserUiState
 import com.poyka.ripdpi.activities.ProxyNetworkUiState
 import com.poyka.ripdpi.activities.SettingsUiState
 import com.poyka.ripdpi.activities.TlsPreludeUiState
+import com.poyka.ripdpi.activities.WarpUiState
 import com.poyka.ripdpi.data.HostPackApplyModeMerge
 import com.poyka.ripdpi.data.HostPackCatalogSourceDownloaded
 import com.poyka.ripdpi.data.HostPackPreset
@@ -59,6 +60,10 @@ internal enum class AdvancedToggleSetting {
     TlsrecEnabled,
     QuicSupportV1,
     QuicSupportV2,
+    WarpEnabled,
+    WarpBuiltInRulesEnabled,
+    WarpScannerEnabled,
+    WarpAmneziaEnabled,
     HostAutolearnEnabled,
     NetworkStrategyMemoryEnabled,
 }
@@ -98,6 +103,24 @@ internal enum class AdvancedTextSetting {
     HostAutolearnMaxHosts,
     HostsBlacklist,
     HostsWhitelist,
+    WarpRouteHosts,
+    WarpManualEndpointHost,
+    WarpManualEndpointIpv4,
+    WarpManualEndpointIpv6,
+    WarpManualEndpointPort,
+    WarpScannerParallelism,
+    WarpScannerMaxRttMs,
+    WarpAmneziaJc,
+    WarpAmneziaJmin,
+    WarpAmneziaJmax,
+    WarpAmneziaH1,
+    WarpAmneziaH2,
+    WarpAmneziaH3,
+    WarpAmneziaH4,
+    WarpAmneziaS1,
+    WarpAmneziaS2,
+    WarpAmneziaS3,
+    WarpAmneziaS4,
 }
 
 internal enum class AdvancedOptionSetting {
@@ -110,6 +133,8 @@ internal enum class AdvancedOptionSetting {
     FakeTlsSniMode,
     TlsFakeProfile,
     HostsMode,
+    WarpRouteMode,
+    WarpEndpointSelectionMode,
     QuicInitialMode,
     UdpFakeProfile,
     QuicFakeProfile,
@@ -177,6 +202,8 @@ private data class AdvancedSettingsContentState(
     val fakeTlsSniModeOptions: List<RipDpiDropdownOption<String>>,
     val tlsFakeProfileOptions: List<RipDpiDropdownOption<String>>,
     val hostsOptions: List<RipDpiDropdownOption<String>>,
+    val warpRouteModeOptions: List<RipDpiDropdownOption<String>>,
+    val warpEndpointSelectionOptions: List<RipDpiDropdownOption<String>>,
     val quicModeOptions: List<RipDpiDropdownOption<String>>,
     val udpFakeProfileOptions: List<RipDpiDropdownOption<String>>,
     val adaptiveSplitPresetOptions: List<AdaptiveSplitPresetUiModel>,
@@ -274,6 +301,16 @@ private fun rememberAdvancedSettingsContentState(uiState: SettingsUiState): Adva
             rememberSettingsOptions(
                 labelArrayRes = R.array.ripdpi_hosts_modes,
                 valueArrayRes = R.array.ripdpi_hosts_modes_entries,
+            ),
+        warpRouteModeOptions =
+            rememberSettingsOptions(
+                labelArrayRes = R.array.warp_route_modes,
+                valueArrayRes = R.array.warp_route_modes_entries,
+            ),
+        warpEndpointSelectionOptions =
+            rememberSettingsOptions(
+                labelArrayRes = R.array.warp_endpoint_selection_modes,
+                valueArrayRes = R.array.warp_endpoint_selection_modes_entries,
             ),
         quicModeOptions =
             rememberSettingsOptions(
@@ -452,6 +489,15 @@ private fun androidx.compose.foundation.lazy.LazyListScope.advancedSettingsSecon
         onOptionSelected = actions.onOptionSelected,
         onTextConfirmed = actions.onTextConfirmed,
     )
+    warpSection(
+        uiState = uiState,
+        visualEditorEnabled = contentState.visualEditorEnabled,
+        routeModeOptions = contentState.warpRouteModeOptions,
+        endpointSelectionOptions = contentState.warpEndpointSelectionOptions,
+        onToggleChanged = actions.onToggleChanged,
+        onOptionSelected = actions.onOptionSelected,
+        onTextConfirmed = actions.onTextConfirmed,
+    )
     hostsSection(
         uiState = uiState,
         hostPackCatalog = hostPackCatalog,
@@ -505,6 +551,15 @@ private fun AdvancedSettingsScreenPreview() {
                             tlsrecEnabled = false,
                             tlsPreludeMode = TlsPreludeModeDisabled,
                             tlsPreludeStepCount = 0,
+                        ),
+                    warp =
+                        WarpUiState(
+                            enabled = true,
+                            routeMode = "rules",
+                            routeHosts = "chat.openai.com\nclaude.ai",
+                            scannerEnabled = true,
+                            scannerParallelism = 8,
+                            scannerMaxRttMs = 900,
                         ),
                     hostsMode = "disable",
                     autolearn =

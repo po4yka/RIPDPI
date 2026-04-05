@@ -22,6 +22,9 @@ import com.poyka.ripdpi.data.DefaultTlsRandRecFragmentCount
 import com.poyka.ripdpi.data.DefaultTlsRandRecMaxFragmentSize
 import com.poyka.ripdpi.data.DefaultTlsRandRecMinFragmentSize
 import com.poyka.ripdpi.data.DefaultTlsRecordMarker
+import com.poyka.ripdpi.data.DefaultWarpManualEndpointPort
+import com.poyka.ripdpi.data.DefaultWarpScannerMaxRttMs
+import com.poyka.ripdpi.data.DefaultWarpScannerParallelism
 import com.poyka.ripdpi.data.FakePayloadProfileCompatDefault
 import com.poyka.ripdpi.data.FakeTlsSniModeFixed
 import com.poyka.ripdpi.data.HostPackCatalogSnapshot
@@ -34,6 +37,10 @@ import com.poyka.ripdpi.data.SeqOverlapFakeModeProfile
 import com.poyka.ripdpi.data.TcpChainStepKind
 import com.poyka.ripdpi.data.TcpChainStepModel
 import com.poyka.ripdpi.data.UdpChainStepModel
+import com.poyka.ripdpi.data.WarpEndpointSelectionAutomatic
+import com.poyka.ripdpi.data.WarpEndpointSelectionManual
+import com.poyka.ripdpi.data.WarpRouteModeOff
+import com.poyka.ripdpi.data.WarpRouteModeRules
 import com.poyka.ripdpi.data.canonicalDefaultEncryptedDnsSettings
 import com.poyka.ripdpi.data.formatActivationFilterSummary
 import com.poyka.ripdpi.data.isAdaptiveOffsetExpression
@@ -155,6 +162,53 @@ data class HostAutolearnUiState(
     val hostAutolearnLastGroup: Int? = null,
     val hostAutolearnLastAction: String? = null,
 )
+
+@Stable
+data class WarpUiState(
+    val enabled: Boolean = false,
+    val routeMode: String = WarpRouteModeOff,
+    val routeHosts: String = "",
+    val builtInRulesEnabled: Boolean = true,
+    val endpointSelectionMode: String = WarpEndpointSelectionAutomatic,
+    val manualEndpointHost: String = "",
+    val manualEndpointIpv4: String = "",
+    val manualEndpointIpv6: String = "",
+    val manualEndpointPort: Int = DefaultWarpManualEndpointPort,
+    val scannerEnabled: Boolean = true,
+    val scannerParallelism: Int = DefaultWarpScannerParallelism,
+    val scannerMaxRttMs: Int = DefaultWarpScannerMaxRttMs,
+    val amneziaEnabled: Boolean = false,
+    val amneziaJc: Int = 0,
+    val amneziaJmin: Int = 0,
+    val amneziaJmax: Int = 0,
+    val amneziaH1: Long = 0L,
+    val amneziaH2: Long = 0L,
+    val amneziaH3: Long = 0L,
+    val amneziaH4: Long = 0L,
+    val amneziaS1: Int = 0,
+    val amneziaS2: Int = 0,
+    val amneziaS3: Int = 0,
+    val amneziaS4: Int = 0,
+) {
+    val routeRulesEnabled: Boolean
+        get() = enabled && routeMode == WarpRouteModeRules
+
+    val manualEndpointEnabled: Boolean
+        get() = enabled && endpointSelectionMode == WarpEndpointSelectionManual
+
+    val scannerControlsEnabled: Boolean
+        get() = enabled && scannerEnabled
+
+    val amneziaControlsEnabled: Boolean
+        get() = enabled && amneziaEnabled
+
+    val hasManualEndpointOverride: Boolean
+        get() =
+            manualEndpointHost.isNotBlank() ||
+                manualEndpointIpv4.isNotBlank() ||
+                manualEndpointIpv6.isNotBlank() ||
+                manualEndpointPort != DefaultWarpManualEndpointPort
+}
 
 @Stable
 data class TlsPreludeUiState(
@@ -369,6 +423,7 @@ data class SettingsUiState(
     val hostsWhitelist: String = "",
     val tlsPrelude: TlsPreludeUiState = TlsPreludeUiState(),
     val quic: QuicUiState = QuicUiState(),
+    val warp: WarpUiState = WarpUiState(),
     val autolearn: HostAutolearnUiState = HostAutolearnUiState(),
     val httpParser: HttpParserUiState = HttpParserUiState(),
     val onboardingComplete: Boolean = false,
@@ -427,6 +482,9 @@ data class SettingsUiState(
 
     val canResetActivationWindow: Boolean
         get() = !enableCmdSettings && desync.hasCustomActivationWindow
+
+    val warpUiAvailable: Boolean
+        get() = !enableCmdSettings
 
     val httpFakeProfileActiveInStrategy: Boolean
         get() = desyncHttpEnabled && (isFake || usesSeqOverlapFakeProfile)

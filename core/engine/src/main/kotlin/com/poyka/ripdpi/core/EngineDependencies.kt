@@ -50,6 +50,19 @@ class DefaultRipDpiProxyFactory
         override fun create(): RipDpiProxyRuntime = RipDpiProxy(nativeBindings)
     }
 
+interface RipDpiWarpFactory {
+    fun create(): RipDpiWarpRuntime
+}
+
+@Singleton
+class DefaultRipDpiWarpFactory
+    @Inject
+    constructor(
+        private val nativeBindings: RipDpiWarpBindings,
+    ) : RipDpiWarpFactory {
+        override fun create(): RipDpiWarpRuntime = RipDpiWarp(nativeBindings)
+    }
+
 interface Tun2SocksBridge {
     suspend fun start(
         config: Tun2SocksConfig,
@@ -134,6 +147,22 @@ abstract class RipDpiProxyFactoryModule {
     @Binds
     @Singleton
     abstract fun bindRipDpiProxyFactory(factory: DefaultRipDpiProxyFactory): RipDpiProxyFactory
+}
+
+@Module
+@InstallIn(SingletonComponent::class)
+abstract class RipDpiWarpBindingsModule {
+    @Binds
+    @Singleton
+    abstract fun bindRipDpiWarpBindings(bindings: RipDpiWarpNativeBindings): RipDpiWarpBindings
+}
+
+@Module
+@InstallIn(SingletonComponent::class)
+abstract class RipDpiWarpFactoryModule {
+    @Binds
+    @Singleton
+    abstract fun bindRipDpiWarpFactory(factory: DefaultRipDpiWarpFactory): RipDpiWarpFactory
 }
 
 @Module

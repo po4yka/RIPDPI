@@ -118,6 +118,30 @@ internal data class AppSettingsSnapshot(
     val networkStrategyMemoryEnabled: Boolean = defaultSettings.networkStrategyMemoryEnabled,
     val wsTunnelEnabled: Boolean = defaultSettings.wsTunnelEnabled,
     val wsTunnelMode: String = defaultSettings.wsTunnelMode,
+    val warpEnabled: Boolean = defaultSettings.warpEnabled,
+    val warpRouteMode: String = defaultSettings.warpRouteMode,
+    val warpRouteHosts: String = defaultSettings.warpRouteHosts,
+    val warpBuiltinRulesEnabled: Boolean = defaultSettings.warpBuiltinRulesEnabled,
+    val warpEndpointSelectionMode: String = defaultSettings.warpEndpointSelectionMode,
+    val warpManualEndpointHost: String = defaultSettings.warpManualEndpointHost,
+    val warpManualEndpointV4: String = defaultSettings.warpManualEndpointV4,
+    val warpManualEndpointV6: String = defaultSettings.warpManualEndpointV6,
+    val warpManualEndpointPort: Int = defaultSettings.warpManualEndpointPort,
+    val warpScannerEnabled: Boolean = defaultSettings.warpScannerEnabled,
+    val warpScannerParallelism: Int = defaultSettings.warpScannerParallelism,
+    val warpScannerMaxRttMs: Int = defaultSettings.warpScannerMaxRttMs,
+    val warpAmneziaEnabled: Boolean = defaultSettings.warpAmneziaEnabled,
+    val warpAmneziaJc: Int = defaultSettings.warpAmneziaJc,
+    val warpAmneziaJmin: Int = defaultSettings.warpAmneziaJmin,
+    val warpAmneziaJmax: Int = defaultSettings.warpAmneziaJmax,
+    val warpAmneziaH1: Long = defaultSettings.warpAmneziaH1,
+    val warpAmneziaH2: Long = defaultSettings.warpAmneziaH2,
+    val warpAmneziaH3: Long = defaultSettings.warpAmneziaH3,
+    val warpAmneziaH4: Long = defaultSettings.warpAmneziaH4,
+    val warpAmneziaS1: Int = defaultSettings.warpAmneziaS1,
+    val warpAmneziaS2: Int = defaultSettings.warpAmneziaS2,
+    val warpAmneziaS3: Int = defaultSettings.warpAmneziaS3,
+    val warpAmneziaS4: Int = defaultSettings.warpAmneziaS4,
     val groupActivationFilter: ActivationFilterModel = ActivationFilterModel(),
 )
 
@@ -233,6 +257,30 @@ private fun AppSettings.toSnapshot(): AppSettingsSnapshot =
             networkStrategyMemoryEnabled = networkStrategyMemoryEnabled,
             wsTunnelEnabled = wsTunnelEnabled,
             wsTunnelMode = effectiveWsTunnelMode(),
+            warpEnabled = warpEnabled,
+            warpRouteMode = normalizeWarpRouteMode(warpRouteMode),
+            warpRouteHosts = warpRouteHosts,
+            warpBuiltinRulesEnabled = warpBuiltinRulesEnabled,
+            warpEndpointSelectionMode = normalizeWarpEndpointSelectionMode(warpEndpointSelectionMode),
+            warpManualEndpointHost = warpManualEndpointHost,
+            warpManualEndpointV4 = warpManualEndpointV4,
+            warpManualEndpointV6 = warpManualEndpointV6,
+            warpManualEndpointPort = warpManualEndpointPort.takeIf { it > 0 } ?: DefaultWarpManualEndpointPort,
+            warpScannerEnabled = warpScannerEnabled,
+            warpScannerParallelism = warpScannerParallelism.takeIf { it > 0 } ?: DefaultWarpScannerParallelism,
+            warpScannerMaxRttMs = warpScannerMaxRttMs.takeIf { it > 0 } ?: DefaultWarpScannerMaxRttMs,
+            warpAmneziaEnabled = warpAmneziaEnabled,
+            warpAmneziaJc = warpAmneziaJc,
+            warpAmneziaJmin = warpAmneziaJmin,
+            warpAmneziaJmax = warpAmneziaJmax,
+            warpAmneziaH1 = warpAmneziaH1,
+            warpAmneziaH2 = warpAmneziaH2,
+            warpAmneziaH3 = warpAmneziaH3,
+            warpAmneziaH4 = warpAmneziaH4,
+            warpAmneziaS1 = warpAmneziaS1,
+            warpAmneziaS2 = warpAmneziaS2,
+            warpAmneziaS3 = warpAmneziaS3,
+            warpAmneziaS4 = warpAmneziaS4,
             groupActivationFilter =
                 if (hasGroupActivationFilter()) {
                     groupActivationFilter.toModel().let(
@@ -343,6 +391,30 @@ private fun AppSettingsSnapshot.toAppSettings(): AppSettings {
         .setNetworkStrategyMemoryEnabled(networkStrategyMemoryEnabled)
         .setWsTunnelEnabled(wsTunnelEnabled)
         .setWsTunnelMode(wsTunnelMode)
+        .setWarpEnabled(warpEnabled)
+        .setWarpRouteMode(normalizeWarpRouteMode(warpRouteMode))
+        .setWarpRouteHosts(warpRouteHosts)
+        .setWarpBuiltinRulesEnabled(warpBuiltinRulesEnabled)
+        .setWarpEndpointSelectionMode(normalizeWarpEndpointSelectionMode(warpEndpointSelectionMode))
+        .setWarpManualEndpointHost(warpManualEndpointHost)
+        .setWarpManualEndpointV4(warpManualEndpointV4)
+        .setWarpManualEndpointV6(warpManualEndpointV6)
+        .setWarpManualEndpointPort(warpManualEndpointPort.takeIf { it > 0 } ?: DefaultWarpManualEndpointPort)
+        .setWarpScannerEnabled(warpScannerEnabled)
+        .setWarpScannerParallelism(warpScannerParallelism.takeIf { it > 0 } ?: DefaultWarpScannerParallelism)
+        .setWarpScannerMaxRttMs(warpScannerMaxRttMs.takeIf { it > 0 } ?: DefaultWarpScannerMaxRttMs)
+        .setWarpAmneziaEnabled(warpAmneziaEnabled)
+        .setWarpAmneziaJc(warpAmneziaJc)
+        .setWarpAmneziaJmin(warpAmneziaJmin)
+        .setWarpAmneziaJmax(warpAmneziaJmax)
+        .setWarpAmneziaH1(warpAmneziaH1)
+        .setWarpAmneziaH2(warpAmneziaH2)
+        .setWarpAmneziaH3(warpAmneziaH3)
+        .setWarpAmneziaH4(warpAmneziaH4)
+        .setWarpAmneziaS1(warpAmneziaS1)
+        .setWarpAmneziaS2(warpAmneziaS2)
+        .setWarpAmneziaS3(warpAmneziaS3)
+        .setWarpAmneziaS4(warpAmneziaS4)
         .setGroupActivationFilterCompat(normalizeActivationFilter(groupActivationFilter))
         .also { builder ->
             tcpChainSteps.forEach { step ->

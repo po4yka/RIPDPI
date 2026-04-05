@@ -1,6 +1,8 @@
 package com.poyka.ripdpi.diagnostics
 
 import co.touchlab.kermit.Logger
+import com.poyka.ripdpi.core.RipDpiProxyUIPreferences
+import com.poyka.ripdpi.core.RipDpiWarpConfig
 import com.poyka.ripdpi.core.applyToSettings
 import com.poyka.ripdpi.core.decodeRipDpiProxyUiPreferences
 import com.poyka.ripdpi.data.AppSettingsRepository
@@ -8,6 +10,8 @@ import com.poyka.ripdpi.data.ApplicationIoScope
 import com.poyka.ripdpi.data.NetworkFingerprintProvider
 import com.poyka.ripdpi.data.PolicyHandoverEventStore
 import com.poyka.ripdpi.data.ResolverOverrideStore
+import com.poyka.ripdpi.data.WarpEndpointSelectionManual
+import com.poyka.ripdpi.data.WarpRouteModeRules
 import com.poyka.ripdpi.data.activeDnsSettings
 import com.poyka.ripdpi.data.diagnostics.BypassUsageHistoryStore
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsArtifactReadStore
@@ -202,7 +206,7 @@ class DefaultDiagnosticsHomeWorkflowService
                                         buildStrategyAppliedSettings(
                                             recommendation = recommendation,
                                             report = strategyProbe,
-                                            chainSummary = preferences.chainSummary,
+                                            preferences = preferences,
                                         ),
                                 )
                             }
@@ -339,7 +343,7 @@ class DefaultDiagnosticsHomeWorkflowService
         private fun buildStrategyAppliedSettings(
             recommendation: StrategyProbeRecommendation,
             report: StrategyProbeReport,
-            chainSummary: String,
+            preferences: RipDpiProxyUIPreferences,
         ): List<DiagnosticsAppliedSetting> =
             buildList {
                 val strategySignature = recommendation.strategySignature
@@ -364,8 +368,103 @@ class DefaultDiagnosticsHomeWorkflowService
                 recommendation.dnsStrategyLabel?.let {
                     add(DiagnosticsAppliedSetting(label = "DNS lane", value = it))
                 }
-                add(DiagnosticsAppliedSetting(label = "Chain", value = chainSummary))
+                add(DiagnosticsAppliedSetting(label = "Chain", value = preferences.chainSummary))
+                addAll(buildWarpAppliedSettings(preferences.warp))
             }
+
+        private fun buildWarpAppliedSettings(warp: RipDpiWarpConfig): List<DiagnosticsAppliedSetting> =
+            buildList {
+                if (!warp.enabled) {
+                    return@buildList
+                }
+                add(
+                    DiagnosticsAppliedSetting(
+                        label = "WARP routing",
+                        value =
+                            when (warp.routeMode) {
+                                WarpRouteModeRules -> "Rules"
+                                else -> "Off"
+                            },
+                    ),
+                )
+                summarizeWarpHostlist(warp.routeHosts)?.let { summary ->
+                    add(DiagnosticsAppliedSetting(label = "WARP hostlist", value = summary))
+                }
+                add(
+                    DiagnosticsAppliedSetting(
+                        label = "WARP control-plane",
+                        value =
+                            if (warp.builtInRulesEnabled) {
+                                "Built-in exclusions enabled"
+                            } else {
+                                "Off"
+                            },
+                    ),
+                )
+                add(
+                    DiagnosticsAppliedSetting(
+                        label = "WARP endpoint",
+                        value =
+                            if (warp.endpointSelectionMode == WarpEndpointSelectionManual) {
+                                buildManualWarpEndpointLabel(warp)
+                            } else {
+                                "Automatic"
+                            },
+                    ),
+                )
+                if (warp.endpointSelectionMode != WarpEndpointSelectionManual) {
+                    add(
+                        DiagnosticsAppliedSetting(
+                            label = "WARP scanner",
+                            value =
+                                if (warp.scannerEnabled) {
+                                    "${warp.scannerParallelism} parallel · ${warp.scannerMaxRttMs} ms max RTT"
+                                } else {
+                                    "Disabled"
+                                },
+                        ),
+                    )
+                }
+                if (warp.amnezia.enabled) {
+                    add(
+                        DiagnosticsAppliedSetting(
+                            label = "WARP AmneziaWG",
+                            value =
+                                "JC ${warp.amnezia.jc} · Jmin ${warp.amnezia.jmin} · " +
+                                    "Jmax ${warp.amnezia.jmax}",
+                        ),
+                    )
+                }
+            }
+
+        private fun summarizeWarpHostlist(routeHosts: String): String? {
+            val hosts =
+                routeHosts
+                    .lineSequence()
+                    .map { it.trim() }
+                    .filter { it.isNotEmpty() }
+                    .toList()
+            return when (hosts.size) {
+                0 -> null
+                1 -> hosts.first()
+                else -> "${hosts.size} hosts"
+            }
+        }
+
+        private fun buildManualWarpEndpointLabel(warp: RipDpiWarpConfig): String {
+            val address =
+                sequenceOf(
+                    warp.manualEndpoint.host,
+                    warp.manualEndpoint.ipv4,
+                    warp.manualEndpoint.ipv6,
+                ).map { it.trim() }
+                    .firstOrNull { it.isNotEmpty() }
+            return if (address != null) {
+                "$address:${warp.manualEndpoint.port}"
+            } else {
+                "Manual port ${warp.manualEndpoint.port}"
+            }
+        }
 
         private fun buildResolverAppliedSettings(
             recommendation: ResolverRecommendation,

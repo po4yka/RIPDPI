@@ -11,6 +11,21 @@ fun stripRipDpiRuntimeContext(configJson: String): String = RipDpiProxyJsonCodec
 fun decodeRipDpiProxyUiPreferences(configJson: String): RipDpiProxyUIPreferences? =
     RipDpiProxyJsonCodec.decodeUiPreferences(configJson)
 
+fun RipDpiProxyPreferences.warpConfigOrNull(): RipDpiWarpConfig? =
+    when (this) {
+        is RipDpiProxyUIPreferences -> {
+            warp.takeIf { it.enabled }
+        }
+
+        is RipDpiProxyJsonPreferences -> {
+            decodeRipDpiProxyUiPreferences(toNativeConfigJson())?.warp?.takeIf { it.enabled }
+        }
+
+        is RipDpiProxyCmdPreferences -> {
+            null
+        }
+    }
+
 class RipDpiProxyJsonPreferences(
     private val configJson: String,
     private val hostAutolearnStorePath: String? = null,

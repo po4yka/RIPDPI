@@ -4,6 +4,9 @@ import com.poyka.ripdpi.core.RipDpiProxyFactory
 import com.poyka.ripdpi.core.RipDpiProxyPreferences
 import com.poyka.ripdpi.core.RipDpiProxyRuntime
 import com.poyka.ripdpi.core.RipDpiProxyUIPreferences
+import com.poyka.ripdpi.core.RipDpiWarpConfig
+import com.poyka.ripdpi.core.RipDpiWarpFactory
+import com.poyka.ripdpi.core.RipDpiWarpRuntime
 import com.poyka.ripdpi.core.Tun2SocksBridge
 import com.poyka.ripdpi.core.Tun2SocksBridgeFactory
 import com.poyka.ripdpi.core.Tun2SocksConfig
@@ -420,6 +423,78 @@ internal class TestRipDpiProxyFactory(
         }
 }
 
+internal class TestWarpRuntime(
+    internal val events: MutableList<String> = mutableListOf(),
+) : RipDpiWarpRuntime {
+    private var exitCode = CompletableDeferred<Int>()
+    private val ready = CompletableDeferred<Unit>()
+
+    var startFailure: Throwable? = null
+    var awaitReadyFailure: Exception? = null
+    var stopFailure: Throwable? = null
+    var telemetryFailure: Throwable? = null
+    var telemetry: NativeRuntimeSnapshot =
+        NativeRuntimeSnapshot(
+            source = "warp",
+            state = "running",
+            health = "healthy",
+        )
+    var lastConfig: RipDpiWarpConfig? = null
+        private set
+    var stopCount: Int = 0
+        private set
+
+    override suspend fun start(config: RipDpiWarpConfig): Int {
+        lastConfig = config
+        events += "warp:start"
+        startFailure?.let {
+            ready.completeExceptionally(it)
+            throw it
+        }
+        ready.complete(Unit)
+        return exitCode.await()
+    }
+
+    override suspend fun awaitReady(timeoutMillis: Long) {
+        awaitReadyFailure?.let { throw it }
+        ready.await()
+    }
+
+    override suspend fun stop() {
+        stopCount += 1
+        events += "warp:stop"
+        stopFailure?.let { throw it }
+        if (!exitCode.isCompleted) {
+            exitCode.complete(0)
+        }
+    }
+
+    override suspend fun pollTelemetry(): NativeRuntimeSnapshot {
+        telemetryFailure?.let { throw it }
+        return telemetry
+    }
+
+    fun complete(code: Int) {
+        if (!exitCode.isCompleted) {
+            exitCode.complete(code)
+        }
+    }
+}
+
+internal class TestRipDpiWarpFactory(
+    private val runtimeFactory: () -> TestWarpRuntime = { TestWarpRuntime() },
+) : RipDpiWarpFactory {
+    val runtimes = mutableListOf<TestWarpRuntime>()
+
+    val lastRuntime: TestWarpRuntime
+        get() = runtimes.last()
+
+    override fun create(): RipDpiWarpRuntime =
+        runtimeFactory().also { runtime ->
+            runtimes += runtime
+        }
+}
+
 internal class TestTun2SocksBridge(
     internal val events: MutableList<String> = mutableListOf(),
 ) : Tun2SocksBridge {
@@ -599,6 +674,7 @@ internal fun sampleResolution(
     mode: Mode = Mode.Proxy,
     settings: AppSettings = AppSettingsSerializer.defaultValue,
     activeDns: ActiveDnsSettings = settings.activeDnsSettings(),
+    proxyPreferences: RipDpiProxyPreferences = RipDpiProxyUIPreferences(),
     policySignature: String = "policy-signature",
     appliedPolicy: RememberedNetworkPolicyJson? = sampleRememberedPolicyJson(mode),
     matchedPolicy: RememberedNetworkPolicyEntity? = null,
@@ -607,7 +683,7 @@ internal fun sampleResolution(
 ): ConnectionPolicyResolution =
     ConnectionPolicyResolution(
         settings = settings,
-        proxyPreferences = RipDpiProxyUIPreferences(),
+        proxyPreferences = proxyPreferences,
         activeDns = activeDns,
         matchedNetworkPolicy = matchedPolicy,
         appliedPolicy = appliedPolicy,

@@ -30,6 +30,7 @@ internal class ServiceStatusReporter(
         activePolicy: ActiveConnectionPolicy?,
         consumePendingNetworkHandoverClass: () -> String?,
         tunnelRecoveryRetryCount: Long,
+        warpTelemetry: NativeRuntimeSnapshot? = null,
         failureReason: FailureReason? = null,
     ) {
         val currentTelemetry = serviceStateStore.telemetry.value
@@ -48,6 +49,13 @@ internal class ServiceStatusReporter(
                 },
                 consumePendingNetworkHandoverClass,
             )
+        val effectiveWarpTelemetry =
+            warpTelemetry
+                ?: if (newStatus == ServiceStatus.Connected) {
+                    NativeRuntimeSnapshot.idle(source = "warp")
+                } else {
+                    currentTelemetry.warpTelemetry
+                }
         val (winningTcpStrategyFamily, winningQuicStrategyFamily, winningDnsStrategyFamily) =
             currentWinningFamilies(activePolicy, currentTelemetry.runtimeFieldTelemetry)
         val appStatus =
@@ -73,6 +81,7 @@ internal class ServiceStatusReporter(
                 status = appStatus,
                 tunnelStats = tunnelStatsFor(mode, proxyTelemetry, tunnelTelemetry),
                 proxyTelemetry = proxyTelemetry,
+                warpTelemetry = effectiveWarpTelemetry,
                 tunnelTelemetry = tunnelTelemetry,
                 runtimeFieldTelemetry =
                     deriveRuntimeFieldTelemetry(
@@ -95,6 +104,7 @@ internal class ServiceStatusReporter(
         activePolicy: ActiveConnectionPolicy?,
         consumePendingNetworkHandoverClass: () -> String?,
         proxyTelemetry: NativeRuntimeSnapshot,
+        warpTelemetry: NativeRuntimeSnapshot,
         tunnelTelemetry: NativeRuntimeSnapshot,
         tunnelRecoveryRetryCount: Long,
         failureReason: FailureReason? = null,
@@ -114,6 +124,7 @@ internal class ServiceStatusReporter(
                 status = AppStatus.Running,
                 tunnelStats = tunnelStatsFor(mode, proxyTelemetry, enrichedTunnelTelemetry),
                 proxyTelemetry = proxyTelemetry,
+                warpTelemetry = warpTelemetry,
                 tunnelTelemetry = enrichedTunnelTelemetry,
                 runtimeFieldTelemetry =
                     deriveRuntimeFieldTelemetry(

@@ -182,4 +182,30 @@ message AppSettings {
 
   // Root mode
   bool root_mode_enabled = 135;
+
+  // WARP integration
+  bool warp_enabled = 136;
+  string warp_route_mode = 137; // "off" | "rules"
+  string warp_route_hosts = 138;
+  bool warp_builtin_rules_enabled = 139;
+  string warp_endpoint_selection_mode = 140; // "automatic" | "manual"
+  string warp_manual_endpoint_host = 141;
+  string warp_manual_endpoint_v4 = 142;
+  string warp_manual_endpoint_v6 = 143;
+  int32 warp_manual_endpoint_port = 144;
+  bool warp_scanner_enabled = 145;
+  int32 warp_scanner_parallelism = 146;
+  int32 warp_scanner_max_rtt_ms = 147;
+  bool warp_amnezia_enabled = 148;
+  int32 warp_amnezia_jc = 149;
+  int32 warp_amnezia_jmin = 150;
+  int32 warp_amnezia_jmax = 151;
+  int64 warp_amnezia_h1 = 152;
+  int64 warp_amnezia_h2 = 153;
+  int64 warp_amnezia_h3 = 154;
+  int64 warp_amnezia_h4 = 155;
+  int32 warp_amnezia_s1 = 156;
+  int32 warp_amnezia_s2 = 157;
+  int32 warp_amnezia_s3 = 158;
+  int32 warp_amnezia_s4 = 159;
 }
