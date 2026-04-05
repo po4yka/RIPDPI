@@ -4,6 +4,7 @@ import kotlin.math.ceil
 import kotlin.math.floor
 import kotlin.math.max
 
+@Suppress("ReturnCount")
 internal fun interpolatedSeries(
     from: List<Float>,
     to: List<Float>,
@@ -32,6 +33,7 @@ internal fun interpolatedSeries(
     }
 }
 
+@Suppress("ReturnCount")
 internal fun sampleSeries(
     values: List<Float>,
     position: Float,

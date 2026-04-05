@@ -158,13 +158,6 @@ class HomeScreenTest {
                 .fetchSemanticsNode()
                 .boundsInRoot
                 .top
-        val historyTop =
-            composeRule
-                .onNodeWithTag(RipDpiTestTags.HomeHistoryCard)
-                .fetchSemanticsNode()
-                .boundsInRoot
-                .top
-
         assertTrue(diagnosticsTop > connectionTop)
     }
 

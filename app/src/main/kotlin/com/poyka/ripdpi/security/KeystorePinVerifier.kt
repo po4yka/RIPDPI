@@ -23,6 +23,7 @@ class KeystorePinVerifier
                 .joinToString("") { "%02x".format(it) }
         }
 
+        @Suppress("ReturnCount")
         override fun verify(
             candidatePin: String,
             storedHash: String,

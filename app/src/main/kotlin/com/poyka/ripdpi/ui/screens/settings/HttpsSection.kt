@@ -27,6 +27,11 @@ import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 import com.poyka.ripdpi.utility.validateIntRange
 
+private const val tlsRandRecFragmentCountMin = 2
+private const val tlsRandRecFragmentCountMax = 16
+private const val tlsRandRecFragmentSizeMax = 4096
+
+@Suppress("LongMethod")
 internal fun LazyListScope.httpsSection(
     uiState: SettingsUiState,
     visualEditorEnabled: Boolean,
@@ -93,7 +98,7 @@ internal fun LazyListScope.httpsSection(
                         description = stringResource(R.string.ripdpi_tlsrandrec_count_body),
                         value = uiState.tlsPrelude.tlsRandRecFragmentCount.toString(),
                         enabled = visualEditorEnabled,
-                        validator = { validateIntRange(it, 2, 16) },
+                        validator = { validateIntRange(it, tlsRandRecFragmentCountMin, tlsRandRecFragmentCountMax) },
                         invalidMessage = stringResource(R.string.config_error_out_of_range),
                         disabledMessage = stringResource(R.string.advanced_settings_visual_controls_disabled),
                         keyboardOptions =
@@ -110,7 +115,7 @@ internal fun LazyListScope.httpsSection(
                         description = stringResource(R.string.ripdpi_tlsrandrec_min_body),
                         value = uiState.tlsPrelude.tlsRandRecMinFragmentSize.toString(),
                         enabled = visualEditorEnabled,
-                        validator = { validateIntRange(it, 1, 4096) },
+                        validator = { validateIntRange(it, 1, tlsRandRecFragmentSizeMax) },
                         invalidMessage = stringResource(R.string.config_error_out_of_range),
                         disabledMessage = stringResource(R.string.advanced_settings_visual_controls_disabled),
                         keyboardOptions =
@@ -129,7 +134,7 @@ internal fun LazyListScope.httpsSection(
                         enabled = visualEditorEnabled,
                         validator = { input ->
                             input.toIntOrNull()?.let { value ->
-                                value in uiState.tlsPrelude.tlsRandRecMinFragmentSize..4096
+                                value in uiState.tlsPrelude.tlsRandRecMinFragmentSize..tlsRandRecFragmentSizeMax
                             } == true
                         },
                         invalidMessage = stringResource(R.string.ripdpi_tlsrandrec_max_error),
@@ -166,6 +171,7 @@ private data class TlsPreludePresetUiModel(
     val body: String,
 )
 
+@Suppress("LongMethod")
 @Composable
 private fun TlsPreludeProfileCard(
     uiState: SettingsUiState,

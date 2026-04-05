@@ -39,6 +39,7 @@ fun AboutRoute(
     )
 }
 
+@Suppress("LongMethod")
 @Composable
 internal fun AboutScreen(
     onBack: () -> Unit,
@@ -158,6 +159,7 @@ internal fun AboutScreen(
     }
 }
 
+@Suppress("UnusedPrivateMember")
 @Preview(showBackground = true)
 @Composable
 private fun AboutScreenPreview() {
@@ -166,6 +168,7 @@ private fun AboutScreenPreview() {
     }
 }
 
+@Suppress("UnusedPrivateMember")
 @Preview(showBackground = true)
 @Composable
 private fun AboutScreenDarkPreview() {

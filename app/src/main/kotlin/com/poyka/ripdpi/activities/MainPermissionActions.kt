@@ -516,13 +516,13 @@ internal fun buildPermissionSummary(
     batteryBannerDismissed: Boolean = false,
     backgroundGuidanceDismissed: Boolean = false,
 ): PermissionSummaryUiState {
-    val recommendedIssue =
-        if (
-            issue == null &&
+    val batteryOptimizationRecommended =
+        issue == null &&
             !batteryBannerDismissed &&
             snapshot.batteryOptimization != PermissionStatus.Granted &&
             snapshot.batteryOptimization != PermissionStatus.NotApplicable
-        ) {
+    val recommendedIssue =
+        if (batteryOptimizationRecommended) {
             createPermissionIssue(
                 kind = PermissionKind.BatteryOptimization,
                 status = snapshot.batteryOptimization,

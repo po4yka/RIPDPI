@@ -18,6 +18,7 @@ import com.poyka.ripdpi.ui.components.RipDpiHapticFeedback
 import com.poyka.ripdpi.ui.components.feedback.WarningBannerTone
 import com.poyka.ripdpi.ui.components.rememberRipDpiHapticPerformer
 
+@Suppress("LongMethod")
 @Composable
 fun AdvancedSettingsRoute(
     onBack: () -> Unit,

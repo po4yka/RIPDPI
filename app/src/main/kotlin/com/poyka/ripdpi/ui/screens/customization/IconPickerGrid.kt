@@ -34,6 +34,8 @@ import com.poyka.ripdpi.ui.theme.RipDpiIconSizes
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
+private const val iconGridColumns = 3
+
 @Composable
 fun IconPickerGrid(
     options: List<LauncherIconOption>,
@@ -47,7 +49,7 @@ fun IconPickerGrid(
         modifier = modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(spacing.lg),
     ) {
-        val rows = remember(options) { options.chunked(3) }
+        val rows = remember(options) { options.chunked(iconGridColumns) }
         rows.forEach { row ->
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -61,7 +63,7 @@ fun IconPickerGrid(
                         modifier = Modifier.weight(1f),
                     )
                 }
-                repeat(3 - row.size) {
+                repeat(iconGridColumns - row.size) {
                     Spacer(modifier = Modifier.weight(1f))
                 }
             }
@@ -146,6 +148,7 @@ private fun IconOptionCell(
     }
 }
 
+@Suppress("UnusedPrivateMember")
 @Preview(showBackground = true)
 @Composable
 private fun IconPickerGridPreview() {
@@ -158,6 +161,7 @@ private fun IconPickerGridPreview() {
     }
 }
 
+@Suppress("UnusedPrivateMember")
 @Preview(showBackground = true)
 @Composable
 private fun IconPickerGridDarkPreview() {

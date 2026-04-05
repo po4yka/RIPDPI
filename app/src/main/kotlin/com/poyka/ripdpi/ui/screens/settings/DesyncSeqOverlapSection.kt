@@ -20,6 +20,7 @@ private data class SeqOverlapStatusContent(
     val tone: StatusIndicatorTone,
 )
 
+@Suppress("LongMethod")
 @Composable
 internal fun SeqOverlapProfileCard(
     uiState: SettingsUiState,

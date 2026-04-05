@@ -35,6 +35,7 @@ private data class FakeTlsStatusContent(
     val tone: StatusIndicatorTone,
 )
 
+@Suppress("LongMethod")
 @Composable
 internal fun FakeTlsProfileCard(
     uiState: SettingsUiState,

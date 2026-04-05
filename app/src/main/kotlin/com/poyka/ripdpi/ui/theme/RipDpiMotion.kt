@@ -7,6 +7,8 @@ import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.platform.LocalInspectionMode
 
+private const val minReducedDurationMillis = 80
+
 @Immutable
 data class RipDpiMotion(
     val animationsEnabled: Boolean = true,
@@ -27,7 +29,7 @@ data class RipDpiMotion(
             }
 
             reducedMotion -> {
-                (baseDurationMillis / 2).coerceAtLeast(80)
+                (baseDurationMillis / 2).coerceAtLeast(minReducedDurationMillis)
             }
 
             else -> {

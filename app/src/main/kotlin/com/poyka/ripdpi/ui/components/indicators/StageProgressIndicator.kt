@@ -112,6 +112,7 @@ fun StageProgressIndicator(
     }
 }
 
+@Suppress("UnusedPrivateMember")
 @Preview(showBackground = true)
 @Composable
 private fun StageProgressIndicatorPreview() {

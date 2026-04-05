@@ -59,6 +59,8 @@ import com.poyka.ripdpi.ui.theme.RipDpiMotion
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
+private const val backupPinLength = 4
+
 @Composable
 fun SettingsRoute(
     onOpenDnsSettings: () -> Unit,
@@ -96,6 +98,7 @@ fun SettingsRoute(
     )
 }
 
+@Suppress("LongMethod", "LongParameterList")
 @Composable
 internal fun SettingsScreen(
     uiState: SettingsUiState,
@@ -131,7 +134,7 @@ internal fun SettingsScreen(
     var backupPinDraft by rememberSaveable { mutableStateOf("") }
     val pinErrorText =
         when {
-            backupPinDraft.isNotEmpty() && backupPinDraft.length < 4 -> {
+            backupPinDraft.isNotEmpty() && backupPinDraft.length < backupPinLength -> {
                 stringResource(R.string.settings_backup_pin_error)
             }
 
@@ -139,7 +142,7 @@ internal fun SettingsScreen(
                 null
             }
         }
-    val canSaveBackupPin = backupPinDraft.length == 4
+    val canSaveBackupPin = backupPinDraft.length == backupPinLength
     val showBackupPinEditor = uiState.biometricEnabled || uiState.hasBackupPin || backupPinDraft.isNotBlank()
 
     if (showPinRequiredDialog) {
@@ -318,7 +321,7 @@ internal fun SettingsScreen(
                             errorText = pinErrorText,
                             hasSavedPin = uiState.hasBackupPin,
                             onValueChange = { next ->
-                                backupPinDraft = next.filter(Char::isDigit).take(4)
+                                backupPinDraft = next.filter(Char::isDigit).take(backupPinLength)
                             },
                             onSave = { onSaveBackupPin(backupPinDraft) },
                             onClear = {
@@ -628,6 +631,7 @@ private fun BackupPinEditor(
     }
 }
 
+@Suppress("UnusedPrivateMember")
 @Preview(showBackground = true)
 @Composable
 private fun SettingsScreenPreview() {
@@ -656,6 +660,7 @@ private fun SettingsScreenPreview() {
     }
 }
 
+@Suppress("UnusedPrivateMember")
 @Preview(showBackground = true)
 @Composable
 private fun SettingsScreenDarkPreview() {

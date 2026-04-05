@@ -75,6 +75,7 @@ internal fun rememberAdaptiveFakeTtlModeOptions(
         }
     }
 
+@Suppress("LongMethod", "CyclomaticComplexMethod")
 @Composable
 internal fun AdaptiveFakeTtlProfileCard(
     uiState: SettingsUiState,

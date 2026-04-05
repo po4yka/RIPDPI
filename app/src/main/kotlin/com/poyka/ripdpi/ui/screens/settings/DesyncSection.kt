@@ -38,6 +38,10 @@ import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 import com.poyka.ripdpi.utility.validateIntRange
 
+private const val ttlMax = 255
+private const val ttlMin = 1
+
+@Suppress("LongMethod", "CyclomaticComplexMethod", "LongParameterList")
 internal fun LazyListScope.desyncSection(
     uiState: SettingsUiState,
     visualEditorEnabled: Boolean,
@@ -77,7 +81,7 @@ internal fun LazyListScope.desyncSection(
                     value = uiState.defaultTtlValue,
                     placeholder = stringResource(R.string.config_placeholder_default_ttl),
                     enabled = visualEditorEnabled,
-                    validator = { it.isEmpty() || validateIntRange(it, 0, 255) },
+                    validator = { it.isEmpty() || validateIntRange(it, 0, ttlMax) },
                     invalidMessage = stringResource(R.string.config_error_out_of_range),
                     disabledMessage = stringResource(R.string.advanced_settings_visual_controls_disabled),
                     keyboardOptions =
@@ -141,6 +145,8 @@ internal fun LazyListScope.desyncSection(
                 } else {
                     HorizontalDivider(color = colors.divider)
                 }
+                val showFakeOrOobSections =
+                    showFakeApproxSection || showAdaptiveFakeTtlSection || showFakeTlsSection || uiState.isOob
                 ChainEditorWithCollapsibleHelp(
                     uiState = uiState,
                     visualEditorEnabled = visualEditorEnabled,
@@ -148,17 +154,14 @@ internal fun LazyListScope.desyncSection(
                     showDivider =
                         showHostFakeSection ||
                             showSeqOverlapSection ||
-                            showFakeApproxSection ||
-                            showAdaptiveFakeTtlSection ||
-                            showFakeTlsSection ||
-                            uiState.isOob,
+                            showFakeOrOobSections,
                 )
                 if (showHostFakeSection) {
                     HostFakeProfileCard(
                         uiState = uiState,
                         modifier = Modifier.padding(top = spacing.xs, bottom = spacing.sm),
                     )
-                    if (showFakeApproxSection || showAdaptiveFakeTtlSection || showFakeTlsSection || uiState.isOob) {
+                    if (showFakeOrOobSections) {
                         HorizontalDivider(color = colors.divider)
                     }
                 }
@@ -167,7 +170,7 @@ internal fun LazyListScope.desyncSection(
                         uiState = uiState,
                         modifier = Modifier.padding(top = spacing.xs, bottom = spacing.sm),
                     )
-                    if (showFakeApproxSection || showAdaptiveFakeTtlSection || showFakeTlsSection || uiState.isOob) {
+                    if (showFakeOrOobSections) {
                         HorizontalDivider(color = colors.divider)
                     }
                 }
@@ -200,7 +203,7 @@ internal fun LazyListScope.desyncSection(
                             description = stringResource(R.string.adaptive_fake_ttl_fixed_body),
                             value = uiState.fake.fakeTtl.toString(),
                             enabled = visualEditorEnabled,
-                            validator = { validateIntRange(it, 1, 255) },
+                            validator = { validateIntRange(it, ttlMin, ttlMax) },
                             invalidMessage = stringResource(R.string.config_error_out_of_range),
                             disabledMessage = stringResource(R.string.advanced_settings_visual_controls_disabled),
                             keyboardOptions =
@@ -218,7 +221,7 @@ internal fun LazyListScope.desyncSection(
                             description = stringResource(R.string.adaptive_fake_ttl_min_body),
                             value = uiState.fake.adaptiveFakeTtlMin.toString(),
                             enabled = visualEditorEnabled,
-                            validator = { validateIntRange(it, 1, 255) },
+                            validator = { validateIntRange(it, ttlMin, ttlMax) },
                             invalidMessage = stringResource(R.string.config_error_out_of_range),
                             disabledMessage = stringResource(R.string.advanced_settings_visual_controls_disabled),
                             keyboardOptions =
@@ -235,7 +238,13 @@ internal fun LazyListScope.desyncSection(
                             description = stringResource(R.string.adaptive_fake_ttl_max_body),
                             value = uiState.fake.adaptiveFakeTtlMax.toString(),
                             enabled = visualEditorEnabled,
-                            validator = { validateIntRange(it, uiState.fake.adaptiveFakeTtlMin.coerceIn(1, 255), 255) },
+                            validator = {
+                                validateIntRange(
+                                    it,
+                                    uiState.fake.adaptiveFakeTtlMin.coerceIn(ttlMin, ttlMax),
+                                    ttlMax,
+                                )
+                            },
                             invalidMessage = stringResource(R.string.config_error_out_of_range),
                             disabledMessage = stringResource(R.string.advanced_settings_visual_controls_disabled),
                             keyboardOptions =
@@ -252,7 +261,7 @@ internal fun LazyListScope.desyncSection(
                             description = stringResource(R.string.adaptive_fake_ttl_fallback_body),
                             value = uiState.fake.adaptiveFakeTtlFallback.toString(),
                             enabled = visualEditorEnabled,
-                            validator = { validateIntRange(it, 1, 255) },
+                            validator = { validateIntRange(it, ttlMin, ttlMax) },
                             invalidMessage = stringResource(R.string.config_error_out_of_range),
                             disabledMessage = stringResource(R.string.advanced_settings_visual_controls_disabled),
                             keyboardOptions =

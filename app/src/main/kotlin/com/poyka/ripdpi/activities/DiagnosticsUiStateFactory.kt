@@ -21,6 +21,7 @@ import com.poyka.ripdpi.diagnostics.presentation.DiagnosticsSessionProjection
 import com.poyka.ripdpi.proto.AppSettings
 import javax.inject.Inject
 
+@Suppress("TooManyFunctions")
 internal class DiagnosticsUiStateFactory
     @Inject
     constructor(
@@ -29,6 +30,7 @@ internal class DiagnosticsUiStateFactory
     ) {
         private var buildSequence = 0L
 
+        @Suppress("LongMethod")
         fun buildUiState(input: DiagnosticsUiStateInput): DiagnosticsUiState {
             var eventMappingDurationNs = 0L
             var resolveDurationNs = 0L
@@ -172,6 +174,7 @@ internal class DiagnosticsUiStateFactory
                     },
             )
 
+        @Suppress("LongMethod")
         private fun resolveUiInput(
             input: DiagnosticsUiStateInput,
             eventModels: List<DiagnosticsEventUiModel>,
@@ -414,7 +417,7 @@ internal class DiagnosticsUiStateFactory
             (
                 support.buildContextWarnings(latestContext) +
                     eventModels.filter { it.tone == DiagnosticsTone.Negative || it.tone == DiagnosticsTone.Warning }
-            ).take(3)
+            ).take(MaxOverviewWarnings)
 
         private fun resolveSelectedStrategyProbeCandidate(
             candidate: DiagnosticsStrategyProbeCandidateDetailUiModel?,
@@ -467,7 +470,7 @@ internal class DiagnosticsUiStateFactory
             return block().also { record(System.nanoTime() - startedAt) }
         }
 
-        private fun nanosToMillis(durationNs: Long): Double = durationNs / 1_000_000.0
+        private fun nanosToMillis(durationNs: Long): Double = durationNs / NanosPerMillisecond.toDouble()
     }
 
 private data class ResolvedDiagnosticsUiInput(
@@ -577,5 +580,7 @@ private fun strategyProgressTone(outcome: String): DiagnosticsTone =
     }
 
 private const val ConnectionSampleArtifactKind = "connection_sample"
+private const val MaxOverviewWarnings = 3
+private const val NanosPerMillisecond = 1_000_000L
 
 private fun DiagnosticScanSession.sortTimestamp(): Long = finishedAt ?: startedAt

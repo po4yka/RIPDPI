@@ -20,7 +20,9 @@ fun checkNotLocalIp(ip: String): Boolean =
         true
     }
 
-fun validatePort(value: String): Boolean = value.toIntOrNull()?.let { it in 1..65535 } ?: false
+private const val MaxPortNumber = 65535
+
+fun validatePort(value: String): Boolean = value.toIntOrNull()?.let { it in 1..MaxPortNumber } ?: false
 
 fun validateIntRange(
     value: String,

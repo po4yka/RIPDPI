@@ -42,6 +42,7 @@ import com.poyka.ripdpi.ui.theme.RipDpiStroke
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
+@Suppress("LongMethod")
 @Composable
 fun BottomNavBar(
     currentRoute: String?,
@@ -230,6 +231,7 @@ private fun RowScope.BottomNavItem(
     }
 }
 
+@Suppress("UnusedPrivateMember")
 @Preview(showBackground = true)
 @Composable
 private fun BottomNavBarLightPreview() {
@@ -241,6 +243,7 @@ private fun BottomNavBarLightPreview() {
     }
 }
 
+@Suppress("UnusedPrivateMember")
 @Preview(showBackground = true)
 @Composable
 private fun BottomNavBarDarkPreview() {

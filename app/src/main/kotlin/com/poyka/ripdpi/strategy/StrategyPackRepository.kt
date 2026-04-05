@@ -150,7 +150,7 @@ class DefaultStrategyPackRepository
                 StrategyPackSnapshot(
                     catalog =
                         context.assets
-                            .open(STRATEGY_PACK_CATALOG_ASSET_PATH)
+                            .open(strategyPackCatalogAssetPath)
                             .bufferedReader()
                             .use { reader -> strategyPackCatalogFromJson(reader.readText()) },
                     source = StrategyPackCatalogSourceBundled,
@@ -180,11 +180,11 @@ class DefaultStrategyPackRepository
                 nativeVersion = buildProvenanceProvider.current().nativeVersion,
             )
 
-        private fun cacheFile(): File = File(context.filesDir, STRATEGY_PACK_CATALOG_CACHE_PATH)
+        private fun cacheFile(): File = File(context.filesDir, strategyPackCatalogCachePath)
     }
 
 internal fun strategyPackManifestUrl(channel: String): String =
-    "$STRATEGY_PACK_BASE_URL${STRATEGY_PACK_MANIFEST_PATH_PREFIX}/${normalizeStrategyPackChannel(
+    "$STRATEGY_PACK_BASE_URL$strategyPackManifestPathPrefix/${normalizeStrategyPackChannel(
         channel,
     )}/manifest.json"
 
@@ -227,7 +227,7 @@ internal fun InputStream.copyToAndDigest(output: java.io.OutputStream): String {
         output.write(buffer, 0, readCount)
     }
     return digest.digest().joinToString(separator = "") { byte ->
-        ((byte.toInt() and 0xff) + 0x100).toString(16).substring(1)
+        ((byte.toInt() and byteUnsignedMask) + hexByteBase).toString(hexRadix).substring(1)
     }
 }
 
@@ -243,6 +243,9 @@ abstract class StrategyPackBindingsModule {
     abstract fun bindStrategyPackClock(clock: SystemStrategyPackClock): StrategyPackClock
 }
 
-const val STRATEGY_PACK_CATALOG_ASSET_PATH = "strategy-packs/catalog.json"
-const val STRATEGY_PACK_CATALOG_CACHE_PATH = "strategy-packs/catalog.snapshot.json"
-const val STRATEGY_PACK_MANIFEST_PATH_PREFIX = "poyka/ripdpi-strategy-packs/main"
+private const val byteUnsignedMask = 0xff
+private const val hexByteBase = 0x100
+private const val hexRadix = 16
+const val strategyPackCatalogAssetPath = "strategy-packs/catalog.json"
+const val strategyPackCatalogCachePath = "strategy-packs/catalog.snapshot.json"
+const val strategyPackManifestPathPrefix = "poyka/ripdpi-strategy-packs/main"

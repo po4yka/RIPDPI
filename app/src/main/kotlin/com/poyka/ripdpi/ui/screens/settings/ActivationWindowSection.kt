@@ -94,6 +94,7 @@ private data class ActivationWindowStatusContent(
     val tone: StatusIndicatorTone,
 )
 
+@Suppress("LongMethod")
 @Composable
 private fun ActivationWindowProfileCard(
     uiState: SettingsUiState,

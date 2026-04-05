@@ -74,6 +74,7 @@ fun ConfigRoute(
     )
 }
 
+@Suppress("LongMethod")
 @Composable
 fun ConfigScreen(
     uiState: ConfigUiState,
@@ -271,6 +272,7 @@ internal fun modeLabelRes(mode: Mode): Int =
         Mode.Proxy -> R.string.home_mode_proxy
     }
 
+@Suppress("UnusedPrivateMember")
 @Preview(showBackground = true)
 @Composable
 private fun ConfigScreenPreview() {
@@ -290,6 +292,7 @@ private fun ConfigScreenPreview() {
     }
 }
 
+@Suppress("UnusedPrivateMember")
 @Preview(showBackground = true)
 @Composable
 private fun ConfigScreenDarkPreview() {

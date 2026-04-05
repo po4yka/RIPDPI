@@ -26,6 +26,8 @@ import com.poyka.ripdpi.ui.theme.RipDpiSurfaceRole
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 import com.poyka.ripdpi.ui.theme.ripDpiSurfaceStyle
 
+private const val disabledAlpha = 0.38f
+
 enum class RipDpiCardVariant {
     Outlined,
     Tonal,
@@ -60,7 +62,7 @@ fun RipDpiCard(
             .clip(shape)
             .background(surfaceStyle.container, shape)
             .border(if (surfaceStyle.border == Color.Transparent) 0.dp else 1.dp, surfaceStyle.border, shape)
-            .alpha(if (enabled) 1f else 0.38f)
+            .alpha(if (enabled) 1f else disabledAlpha)
             .then(
                 if (onClick != null) {
                     Modifier.ripDpiClickable(
@@ -81,6 +83,7 @@ fun RipDpiCard(
     )
 }
 
+@Suppress("UnusedPrivateMember")
 @Preview(showBackground = true)
 @Composable
 private fun RipDpiCardPreview() {

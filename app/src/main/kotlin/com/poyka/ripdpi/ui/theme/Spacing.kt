@@ -5,6 +5,9 @@ import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
+private const val expandedWidthBreakpointDp = 840
+private const val mediumWidthBreakpointDp = 600
+
 enum class RipDpiWidthClass {
     Compact,
     Medium,
@@ -96,8 +99,8 @@ val DefaultRipDpiComponentMetrics = RipDpiComponentMetrics()
 
 fun ripDpiWidthClassForWidth(screenWidthDp: Int): RipDpiWidthClass =
     when {
-        screenWidthDp >= 840 -> RipDpiWidthClass.Expanded
-        screenWidthDp >= 600 -> RipDpiWidthClass.Medium
+        screenWidthDp >= expandedWidthBreakpointDp -> RipDpiWidthClass.Expanded
+        screenWidthDp >= mediumWidthBreakpointDp -> RipDpiWidthClass.Medium
         else -> RipDpiWidthClass.Compact
     }
 

@@ -85,6 +85,7 @@ import com.poyka.ripdpi.diagnostics.DiagnosticScanSession as ScanSessionEntity
 import com.poyka.ripdpi.diagnostics.DiagnosticTelemetrySample as TelemetrySampleEntity
 import com.poyka.ripdpi.diagnostics.ProbeResult as ProbeResultEntity
 
+@Suppress("LongMethod", "MagicNumber", "LargeClass")
 @OptIn(ExperimentalCoroutinesApi::class)
 @RunWith(RobolectricTestRunner::class)
 class DiagnosticsViewModelTest {
@@ -1336,10 +1337,12 @@ class DiagnosticsViewModelTest {
                                                             level = StrategyProbeAuditConfidenceLevel.MEDIUM,
                                                             score = 75,
                                                             rationale =
-                                                                "The audit did not execute enough of the planned matrix to fully trust the winner",
+                                                                "The audit did not execute enough of the" +
+                                                                    " planned matrix to fully trust the winner",
                                                             warnings =
                                                                 listOf(
-                                                                    "TCP matrix coverage stayed below 75% of planned candidates.",
+                                                                    "TCP matrix coverage stayed" +
+                                                                        " below 75% of planned candidates.",
                                                                 ),
                                                         ),
                                                 ),
@@ -1941,7 +1944,8 @@ class DiagnosticsViewModelTest {
                             hostAutolearn = "enabled",
                             desyncMethod = "fake",
                             chainSummary =
-                                "tcp: tlsrec(extlen) -> hostfake(endhost+8 midhost=midsld host=googlevideo.com) -> split(midsld)",
+                                "tcp: tlsrec(extlen) -> hostfake(endhost+8 midhost=midsld" +
+                                    " host=googlevideo.com) -> split(midsld)",
                             protocolToggles = listOf("HTTP", "HTTPS"),
                             tlsRecordSplitEnabled = true,
                             tlsRecordMarker = "extlen",

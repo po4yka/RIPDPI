@@ -22,6 +22,9 @@ import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 import com.poyka.ripdpi.utility.validateIntRange
 
+private const val cacheTtlMaxSeconds = 3600
+private const val cachePrefixMaxV4 = 32
+
 internal fun LazyListScope.adaptiveFallbackSection(
     uiState: SettingsUiState,
     visualEditorEnabled: Boolean,
@@ -99,6 +102,7 @@ internal fun LazyListScope.adaptiveFallbackSection(
     }
 }
 
+@Suppress("LongMethod")
 @Composable
 private fun AdaptiveFallbackSummaryCard(
     uiState: SettingsUiState,
@@ -109,31 +113,45 @@ private fun AdaptiveFallbackSummaryCard(
     val spacing = RipDpiThemeTokens.spacing
     val status =
         when {
-            uiState.enableCmdSettings -> Triple(
-                stringResource(R.string.adaptive_fallback_cli_title),
-                stringResource(R.string.adaptive_fallback_cli_body),
-                StatusIndicatorTone.Warning,
-            )
-            !uiState.adaptiveFallback.enabled -> Triple(
-                stringResource(R.string.adaptive_fallback_disabled_title),
-                stringResource(R.string.adaptive_fallback_disabled_body),
-                StatusIndicatorTone.Idle,
-            )
-            !uiState.adaptiveFallback.hasAnyTrigger -> Triple(
-                stringResource(R.string.adaptive_fallback_no_triggers_title),
-                stringResource(R.string.adaptive_fallback_no_triggers_body),
-                StatusIndicatorTone.Warning,
-            )
-            uiState.isServiceRunning -> Triple(
-                stringResource(R.string.adaptive_fallback_restart_title),
-                stringResource(R.string.adaptive_fallback_restart_body),
-                StatusIndicatorTone.Warning,
-            )
-            else -> Triple(
-                stringResource(R.string.adaptive_fallback_ready_title),
-                stringResource(R.string.adaptive_fallback_ready_body),
-                StatusIndicatorTone.Active,
-            )
+            uiState.enableCmdSettings -> {
+                Triple(
+                    stringResource(R.string.adaptive_fallback_cli_title),
+                    stringResource(R.string.adaptive_fallback_cli_body),
+                    StatusIndicatorTone.Warning,
+                )
+            }
+
+            !uiState.adaptiveFallback.enabled -> {
+                Triple(
+                    stringResource(R.string.adaptive_fallback_disabled_title),
+                    stringResource(R.string.adaptive_fallback_disabled_body),
+                    StatusIndicatorTone.Idle,
+                )
+            }
+
+            !uiState.adaptiveFallback.hasAnyTrigger -> {
+                Triple(
+                    stringResource(R.string.adaptive_fallback_no_triggers_title),
+                    stringResource(R.string.adaptive_fallback_no_triggers_body),
+                    StatusIndicatorTone.Warning,
+                )
+            }
+
+            uiState.isServiceRunning -> {
+                Triple(
+                    stringResource(R.string.adaptive_fallback_restart_title),
+                    stringResource(R.string.adaptive_fallback_restart_body),
+                    StatusIndicatorTone.Warning,
+                )
+            }
+
+            else -> {
+                Triple(
+                    stringResource(R.string.adaptive_fallback_ready_title),
+                    stringResource(R.string.adaptive_fallback_ready_body),
+                    StatusIndicatorTone.Active,
+                )
+            }
         }
     val badges =
         buildList {
@@ -218,7 +236,7 @@ private fun AdaptiveFallbackNumericFields(
         description = stringResource(R.string.adaptive_fallback_cache_ttl_body),
         value = uiState.adaptiveFallback.cacheTtlSeconds.toString(),
         enabled = visualEditorEnabled && uiState.adaptiveFallback.enabled,
-        validator = { validateIntRange(it, 1, 3600) },
+        validator = { validateIntRange(it, 1, cacheTtlMaxSeconds) },
         invalidMessage = stringResource(R.string.config_error_out_of_range),
         disabledMessage = stringResource(R.string.advanced_settings_visual_controls_disabled),
         keyboardOptions = numericKeyboard,
@@ -231,7 +249,7 @@ private fun AdaptiveFallbackNumericFields(
         description = stringResource(R.string.adaptive_fallback_cache_prefix_body),
         value = uiState.adaptiveFallback.cachePrefixV4.toString(),
         enabled = visualEditorEnabled && uiState.adaptiveFallback.enabled,
-        validator = { validateIntRange(it, 1, 32) },
+        validator = { validateIntRange(it, 1, cachePrefixMaxV4) },
         invalidMessage = stringResource(R.string.config_error_out_of_range),
         disabledMessage = stringResource(R.string.advanced_settings_visual_controls_disabled),
         keyboardOptions = numericKeyboard,

@@ -138,6 +138,7 @@ private data class QuicFakePresetUiModel(
     val isRecommended: Boolean = false,
 )
 
+@Suppress("LongMethod")
 @Composable
 private fun QuicFakeProfileCard(
     uiState: SettingsUiState,

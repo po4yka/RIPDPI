@@ -5,6 +5,7 @@ import com.poyka.ripdpi.diagnostics.DiagnosticSessionDetail
 import javax.inject.Inject
 
 internal interface DiagnosticsSessionDetailUiMapper {
+    @Suppress("LongMethod")
     fun toSessionDetailUiModel(
         detail: DiagnosticSessionDetail,
         showSensitiveDetails: Boolean,
@@ -16,6 +17,7 @@ internal class DiagnosticsSessionDetailUiFactory
     constructor(
         private val support: DiagnosticsUiFactorySupport,
     ) : DiagnosticsSessionDetailUiMapper {
+        @Suppress("LongMethod")
         override fun toSessionDetailUiModel(
             detail: DiagnosticSessionDetail,
             showSensitiveDetails: Boolean,

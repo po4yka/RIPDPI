@@ -33,6 +33,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
+@Suppress("TooManyFunctions", "HiltViewModelApplicationContext")
 @HiltViewModel
 class DiagnosticsViewModel
     @Inject
@@ -44,7 +45,7 @@ class DiagnosticsViewModel
         diagnosticsShareService: DiagnosticsShareService,
         diagnosticsResolverActions: DiagnosticsResolverActions,
         appSettingsRepository: AppSettingsRepository,
-        @param:ApplicationContext private val appContext: Context,
+        @ApplicationContext private val appContext: Context,
         rememberedPolicySource: DiagnosticsRememberedPolicySource,
         activeConnectionPolicySource: DiagnosticsActiveConnectionPolicySource,
         serviceStateStore: ServiceStateStore,

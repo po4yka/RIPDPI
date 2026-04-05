@@ -83,6 +83,9 @@ private val DarkRestrictedContainerForeground = Color(0xFFE5E7EB)
 private val DarkDivider = Color(0xFF222222)
 private val DarkCardBorder = Color(0xFF2A2A2A)
 
+private val LightScrim = Color(0x99000000)
+private val DarkScrim = Color(0xCC000000)
+
 val RipDpiHairlineColor = Color(0xFF666666)
 
 @Immutable
@@ -213,7 +216,7 @@ fun ripDpiLightColorScheme(): ColorScheme =
         onSurfaceVariant = LightOnSurfaceVariant,
         outline = LightOutline,
         outlineVariant = LightOutlineVariant,
-        scrim = Color(0x99000000),
+        scrim = LightScrim,
         inverseSurface = DarkCard,
         inverseOnSurface = DarkForeground,
         inversePrimary = DarkPrimary,
@@ -246,7 +249,7 @@ fun ripDpiDarkColorScheme(): ColorScheme =
         onSurfaceVariant = DarkOnSurfaceVariant,
         outline = DarkOutline,
         outlineVariant = DarkOutlineVariant,
-        scrim = Color(0xCC000000),
+        scrim = DarkScrim,
         inverseSurface = LightCard,
         inverseOnSurface = LightForeground,
         inversePrimary = LightPrimary,

@@ -59,6 +59,86 @@ import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 import kotlin.math.absoluteValue
 
+// Animation / alpha keyframe fractions
+private const val alphaTextMin = 0.24f
+private const val alphaTextRange = 0.76f
+private const val alphaBodyMin = 0.18f
+private const val alphaBodyRange = 0.82f
+private const val alphaIllusMin = 0.4f
+private const val alphaIllusRange = 0.6f
+
+// Illustration scale keyframe fractions
+private const val scaleIllusBase = 0.88f
+private const val scaleIllusRange = 0.12f
+
+// Corner radius for pill-shaped rect (large value → fully rounded)
+private const val cornerRadiusPill = 99f
+
+// Shield path fractions (Permission illustration)
+private const val shieldCenterX = 0.5f
+private const val shieldTopY = 0.12f
+private const val shieldRightX = 0.78f
+private const val shieldShoulderY = 0.22f
+private const val shieldWaistY = 0.48f
+private const val shieldCurveY = 0.72f
+private const val shieldTipInnerX = 0.62f
+private const val shieldTipY = 0.86f
+private const val shieldBottomY = 0.92f
+private const val shieldLeftX = 0.22f
+private const val shieldLeftInnerX = 0.38f
+
+// Modes illustration fractions
+private const val modesBarLeftX = 0.12f
+private const val modesBarTopY = 0.18f
+private const val modesBarWidth = 0.76f
+private const val modesBarHeight = 0.16f
+private const val modesBarBottomY = 0.66f
+private const val modesLineXLeft = 0.34f
+private const val modesLineXRight = 0.66f
+private const val modesLineTopY = 0.34f
+
+// Diagnostics illustration fractions
+private const val diagLensCx = 0.42f
+private const val diagLensCy = 0.42f
+private const val diagHandleEnd = 0.82f
+
+// BypassModes illustration fractions
+private const val bypassSrcX = 0.1f
+private const val bypassDstX = 0.9f
+private const val bypassMidY = 0.5f
+private const val bypassTopY = 0.28f
+private const val bypassBotY = 0.72f
+private const val bypassCtrlXNear = 0.3f
+private const val bypassCtrlXFar = 0.7f
+private const val bypassDotRadius = 0.06f
+
+// Privacy (eye) illustration fractions
+private const val eyeLeftX = 0.08f
+private const val eyeRightX = 0.92f
+private const val eyeMidX = 0.5f
+private const val eyeCtrlInnerX = 0.25f
+private const val eyeCtrlOuterX = 0.75f
+private const val eyeUpperY = 0.2f
+private const val eyeLowerY = 0.8f
+private const val eyePupilRadius = 0.1f
+private const val eyeStrikeNear = 0.15f
+private const val eyeStrikeFar = 0.85f
+
+// LocalFirst illustration fraction
+private const val localFirstRadius = 0.33f
+
+// Diagnostics heartbeat wave fractions (relative to lens radius r)
+private const val diagLensRadius = 0.25f
+private const val diagHandleOffset = 0.7f
+private const val diagWaveFar = 0.6f
+private const val diagWaveNear = 0.2f
+private const val diagWavePeak = 0.5f
+private const val diagWaveTrough = 0.3f
+private const val diagWaveMidOut = 0.4f
+
+// Illustration travel fraction for entrance animation
+private const val illusTravelFraction = 0.55f
+
 @Composable
 fun OnboardingRoute(
     onComplete: () -> Unit,
@@ -95,6 +175,7 @@ fun OnboardingRoute(
     )
 }
 
+@Suppress("LongMethod")
 @Composable
 fun OnboardingScreen(
     uiState: OnboardingUiState,
@@ -231,7 +312,7 @@ private fun OnboardingInfoPageScene(
     val pageProgress = (1f - clampedOffset.absoluteValue).coerceIn(0f, 1f)
     val illustrationTravelPx =
         with(density) {
-            (introLayout.illustrationSize * 0.55f).toPx()
+            (introLayout.illustrationSize * illusTravelFraction).toPx()
         }
     val titleTravelPx =
         with(density) {
@@ -245,8 +326,8 @@ private fun OnboardingInfoPageScene(
         with(density) {
             12.dp.toPx()
         }
-    val textAlpha = (0.24f + (pageProgress * 0.76f)).coerceIn(0f, 1f)
-    val bodyAlpha = (0.18f + (pageProgress * 0.82f)).coerceIn(0f, 1f)
+    val textAlpha = (alphaTextMin + (pageProgress * alphaTextRange)).coerceIn(0f, 1f)
+    val bodyAlpha = (alphaBodyMin + (pageProgress * alphaBodyRange)).coerceIn(0f, 1f)
 
     Column(
         modifier = modifier,
@@ -262,9 +343,9 @@ private fun OnboardingInfoPageScene(
                         translationX = -clampedOffset * illustrationTravelPx
                         translationY = (1f - pageProgress) * illustrationLiftPx
                         rotationZ = clampedOffset * 2f
-                        scaleX = 0.88f + (pageProgress * 0.12f)
-                        scaleY = 0.88f + (pageProgress * 0.12f)
-                        alpha = (0.4f + (pageProgress * 0.6f)).coerceIn(0f, 1f)
+                        scaleX = scaleIllusBase + (pageProgress * scaleIllusRange)
+                        scaleY = scaleIllusBase + (pageProgress * scaleIllusRange)
+                        alpha = (alphaIllusMin + (pageProgress * alphaIllusRange)).coerceIn(0f, 1f)
                     },
         )
         Spacer(modifier = Modifier.height(introLayout.illustrationToTitleGap))
@@ -355,6 +436,7 @@ private fun OnboardingSetupPageScene(
     }
 }
 
+@Suppress("LongMethod")
 @Composable
 private fun OnboardingIllustrationBox(
     illustration: OnboardingIllustration,
@@ -386,7 +468,7 @@ private fun OnboardingIllustrationBox(
                 OnboardingIllustration.LocalFirst -> {
                     drawCircle(
                         color = colors.foreground,
-                        radius = size.minDimension * 0.33f,
+                        radius = size.minDimension * localFirstRadius,
                         style = Stroke(width = strokeWidth.toPx()),
                     )
                 }
@@ -394,26 +476,26 @@ private fun OnboardingIllustrationBox(
                 OnboardingIllustration.Permission -> {
                     val shield =
                         Path().apply {
-                            moveTo(size.width * 0.5f, size.height * 0.12f)
-                            lineTo(size.width * 0.78f, size.height * 0.22f)
-                            lineTo(size.width * 0.78f, size.height * 0.48f)
+                            moveTo(size.width * shieldCenterX, size.height * shieldTopY)
+                            lineTo(size.width * shieldRightX, size.height * shieldShoulderY)
+                            lineTo(size.width * shieldRightX, size.height * shieldWaistY)
                             cubicTo(
-                                size.width * 0.78f,
-                                size.height * 0.72f,
-                                size.width * 0.62f,
-                                size.height * 0.86f,
-                                size.width * 0.5f,
-                                size.height * 0.92f,
+                                size.width * shieldRightX,
+                                size.height * shieldCurveY,
+                                size.width * shieldTipInnerX,
+                                size.height * shieldTipY,
+                                size.width * shieldCenterX,
+                                size.height * shieldBottomY,
                             )
                             cubicTo(
-                                size.width * 0.38f,
-                                size.height * 0.86f,
-                                size.width * 0.22f,
-                                size.height * 0.72f,
-                                size.width * 0.22f,
-                                size.height * 0.48f,
+                                size.width * shieldLeftInnerX,
+                                size.height * shieldTipY,
+                                size.width * shieldLeftX,
+                                size.height * shieldCurveY,
+                                size.width * shieldLeftX,
+                                size.height * shieldWaistY,
                             )
-                            lineTo(size.width * 0.22f, size.height * 0.22f)
+                            lineTo(size.width * shieldLeftX, size.height * shieldShoulderY)
                             close()
                         }
                     drawPath(path = shield, color = colors.foreground, style = stroke)
@@ -423,29 +505,29 @@ private fun OnboardingIllustrationBox(
                     val modeStroke = Stroke(width = strokeWidth.toPx(), cap = StrokeCap.Round)
                     drawRoundRect(
                         color = colors.foreground,
-                        topLeft = Offset(size.width * 0.12f, size.height * 0.18f),
-                        size = Size(size.width * 0.76f, size.height * 0.16f),
-                        cornerRadius = CornerRadius(99f, 99f),
+                        topLeft = Offset(size.width * modesBarLeftX, size.height * modesBarTopY),
+                        size = Size(size.width * modesBarWidth, size.height * modesBarHeight),
+                        cornerRadius = CornerRadius(cornerRadiusPill, cornerRadiusPill),
                         style = modeStroke,
                     )
                     drawRoundRect(
                         color = colors.foreground,
-                        topLeft = Offset(size.width * 0.12f, size.height * 0.66f),
-                        size = Size(size.width * 0.76f, size.height * 0.16f),
-                        cornerRadius = CornerRadius(99f, 99f),
+                        topLeft = Offset(size.width * modesBarLeftX, size.height * modesBarBottomY),
+                        size = Size(size.width * modesBarWidth, size.height * modesBarHeight),
+                        cornerRadius = CornerRadius(cornerRadiusPill, cornerRadiusPill),
                         style = modeStroke,
                     )
                     drawLine(
                         color = colors.foreground,
-                        start = Offset(size.width * 0.34f, size.height * 0.34f),
-                        end = Offset(size.width * 0.34f, size.height * 0.66f),
+                        start = Offset(size.width * modesLineXLeft, size.height * modesLineTopY),
+                        end = Offset(size.width * modesLineXLeft, size.height * modesBarBottomY),
                         strokeWidth = strokeWidth.toPx(),
                         cap = StrokeCap.Round,
                     )
                     drawLine(
                         color = colors.foreground,
-                        start = Offset(size.width * 0.66f, size.height * 0.34f),
-                        end = Offset(size.width * 0.66f, size.height * 0.66f),
+                        start = Offset(size.width * modesLineXRight, size.height * modesLineTopY),
+                        end = Offset(size.width * modesLineXRight, size.height * modesBarBottomY),
                         strokeWidth = strokeWidth.toPx(),
                         cap = StrokeCap.Round,
                     )
@@ -453,9 +535,9 @@ private fun OnboardingIllustrationBox(
 
                 OnboardingIllustration.Diagnostics -> {
                     // Magnifying glass over heartbeat wave
-                    val cx = size.width * 0.42f
-                    val cy = size.height * 0.42f
-                    val r = size.minDimension * 0.25f
+                    val cx = size.width * diagLensCx
+                    val cy = size.height * diagLensCy
+                    val r = size.minDimension * diagLensRadius
                     drawCircle(
                         color = colors.foreground,
                         center = Offset(cx, cy),
@@ -464,80 +546,80 @@ private fun OnboardingIllustrationBox(
                     )
                     drawLine(
                         color = colors.foreground,
-                        start = Offset(cx + r * 0.7f, cy + r * 0.7f),
-                        end = Offset(size.width * 0.82f, size.height * 0.82f),
+                        start = Offset(cx + r * diagHandleOffset, cy + r * diagHandleOffset),
+                        end = Offset(size.width * diagHandleEnd, size.height * diagHandleEnd),
                         strokeWidth = strokeWidth.toPx(),
                         cap = StrokeCap.Round,
                     )
                     // Heartbeat wave inside lens
                     val wave =
                         Path().apply {
-                            moveTo(cx - r * 0.6f, cy)
-                            lineTo(cx - r * 0.2f, cy)
-                            lineTo(cx, cy - r * 0.5f)
-                            lineTo(cx + r * 0.2f, cy + r * 0.3f)
-                            lineTo(cx + r * 0.4f, cy)
-                            lineTo(cx + r * 0.6f, cy)
+                            moveTo(cx - r * diagWaveFar, cy)
+                            lineTo(cx - r * diagWaveNear, cy)
+                            lineTo(cx, cy - r * diagWavePeak)
+                            lineTo(cx + r * diagWaveNear, cy + r * diagWaveTrough)
+                            lineTo(cx + r * diagWaveMidOut, cy)
+                            lineTo(cx + r * diagWaveFar, cy)
                         }
                     drawPath(path = wave, color = colors.foreground, style = stroke)
                 }
 
                 OnboardingIllustration.BypassModes -> {
                     // Source dot -> two paths -> destination dot
-                    val srcX = size.width * 0.1f
-                    val dstX = size.width * 0.9f
-                    val midY = size.height * 0.5f
-                    val topY = size.height * 0.28f
-                    val botY = size.height * 0.72f
+                    val srcX = size.width * bypassSrcX
+                    val dstX = size.width * bypassDstX
+                    val midY = size.height * bypassMidY
+                    val topY = size.height * bypassTopY
+                    val botY = size.height * bypassBotY
                     // Source and destination dots
                     drawCircle(
                         color = colors.foreground,
                         center = Offset(srcX, midY),
-                        radius = size.minDimension * 0.06f,
+                        radius = size.minDimension * bypassDotRadius,
                     )
                     drawCircle(
                         color = colors.foreground,
                         center = Offset(dstX, midY),
-                        radius = size.minDimension * 0.06f,
+                        radius = size.minDimension * bypassDotRadius,
                     )
                     // Top path (VPN/shield)
                     val topPath =
                         Path().apply {
                             moveTo(srcX, midY)
-                            quadraticTo(size.width * 0.3f, topY, size.width * 0.5f, topY)
-                            quadraticTo(size.width * 0.7f, topY, dstX, midY)
+                            quadraticTo(size.width * bypassCtrlXNear, topY, size.width * bypassMidY, topY)
+                            quadraticTo(size.width * bypassCtrlXFar, topY, dstX, midY)
                         }
                     drawPath(path = topPath, color = colors.foreground, style = stroke)
                     // Bottom path (Proxy)
                     val botPath =
                         Path().apply {
                             moveTo(srcX, midY)
-                            quadraticTo(size.width * 0.3f, botY, size.width * 0.5f, botY)
-                            quadraticTo(size.width * 0.7f, botY, dstX, midY)
+                            quadraticTo(size.width * bypassCtrlXNear, botY, size.width * bypassMidY, botY)
+                            quadraticTo(size.width * bypassCtrlXFar, botY, dstX, midY)
                         }
                     drawPath(path = botPath, color = colors.foreground, style = stroke)
                 }
 
                 OnboardingIllustration.Privacy -> {
                     // Eye outline with strike-through
-                    val eyeY = size.height * 0.5f
+                    val eyeY = size.height * eyeMidX
                     val eyePath =
                         Path().apply {
-                            moveTo(size.width * 0.08f, eyeY)
+                            moveTo(size.width * eyeLeftX, eyeY)
                             cubicTo(
-                                size.width * 0.25f,
-                                size.height * 0.2f,
-                                size.width * 0.75f,
-                                size.height * 0.2f,
-                                size.width * 0.92f,
+                                size.width * eyeCtrlInnerX,
+                                size.height * eyeUpperY,
+                                size.width * eyeCtrlOuterX,
+                                size.height * eyeUpperY,
+                                size.width * eyeRightX,
                                 eyeY,
                             )
                             cubicTo(
-                                size.width * 0.75f,
-                                size.height * 0.8f,
-                                size.width * 0.25f,
-                                size.height * 0.8f,
-                                size.width * 0.08f,
+                                size.width * eyeCtrlOuterX,
+                                size.height * eyeLowerY,
+                                size.width * eyeCtrlInnerX,
+                                size.height * eyeLowerY,
+                                size.width * eyeLeftX,
                                 eyeY,
                             )
                             close()
@@ -546,15 +628,15 @@ private fun OnboardingIllustrationBox(
                     // Pupil
                     drawCircle(
                         color = colors.foreground,
-                        center = Offset(size.width * 0.5f, eyeY),
-                        radius = size.minDimension * 0.1f,
+                        center = Offset(size.width * eyeMidX, eyeY),
+                        radius = size.minDimension * eyePupilRadius,
                         style = stroke,
                     )
                     // Strike-through line
                     drawLine(
                         color = colors.foreground,
-                        start = Offset(size.width * 0.15f, size.height * 0.15f),
-                        end = Offset(size.width * 0.85f, size.height * 0.85f),
+                        start = Offset(size.width * eyeStrikeNear, size.height * eyeStrikeNear),
+                        end = Offset(size.width * eyeStrikeFar, size.height * eyeStrikeFar),
                         strokeWidth = strokeWidth.toPx(),
                         cap = StrokeCap.Round,
                     )
@@ -566,6 +648,7 @@ private fun OnboardingIllustrationBox(
 
 private fun PagerState.onboardingPageOffset(page: Int): Float = (currentPage - page) + currentPageOffsetFraction
 
+@Suppress("UnusedPrivateMember")
 @Preview(showBackground = true, widthDp = 360, heightDp = 800)
 @Composable
 private fun OnboardingScreenPreview() {
@@ -582,6 +665,7 @@ private fun OnboardingScreenPreview() {
     }
 }
 
+@Suppress("UnusedPrivateMember")
 @Preview(showBackground = true, widthDp = 360, heightDp = 800)
 @Composable
 private fun OnboardingScreenSetupPreview() {
@@ -602,6 +686,7 @@ private fun OnboardingScreenSetupPreview() {
     }
 }
 
+@Suppress("UnusedPrivateMember")
 @Preview(showBackground = true, widthDp = 360, heightDp = 800)
 @Composable
 private fun OnboardingScreenDarkPreview() {

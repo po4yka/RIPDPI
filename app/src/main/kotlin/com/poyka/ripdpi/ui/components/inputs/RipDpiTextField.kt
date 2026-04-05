@@ -38,6 +38,9 @@ import com.poyka.ripdpi.ui.components.RipDpiControlDensity
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
+private const val textFieldDisabledAlpha = 0.38f
+private const val textFieldContentSpacingDp = 8
+
 data class RipDpiTextFieldDecoration(
     val label: String? = null,
     val placeholder: String? = null,
@@ -139,7 +142,7 @@ fun RipDpiTextField(
                 text = it,
                 style = RipDpiThemeTokens.type.caption,
                 color = colors.helperColor,
-                modifier = Modifier.alpha(if (behavior.enabled) 1f else 0.38f),
+                modifier = Modifier.alpha(if (behavior.enabled) 1f else textFieldDisabledAlpha),
             )
         }
     }
@@ -210,8 +213,8 @@ private fun RipDpiTextFieldShell(
                 .background(colors.inputBackground, shape)
                 .border(borderWidth, borderColor, shape)
                 .padding(start = horizontalPadding, end = horizontalPadding)
-                .alpha(if (enabled) 1f else 0.38f),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                .alpha(if (enabled) 1f else textFieldDisabledAlpha),
+        horizontalArrangement = Arrangement.spacedBy(textFieldContentSpacingDp.dp),
         verticalAlignment = Alignment.CenterVertically,
         content = {
             content()
@@ -265,6 +268,7 @@ private fun resolveBorderWidth(
         else -> 1.dp
     }
 
+@Suppress("UnusedPrivateMember")
 @Preview(showBackground = true)
 @Composable
 private fun RipDpiTextFieldLightPreview() {
@@ -299,6 +303,7 @@ private fun RipDpiTextFieldLightPreview() {
     }
 }
 
+@Suppress("UnusedPrivateMember")
 @Preview(showBackground = true)
 @Composable
 private fun RipDpiTextFieldDarkPreview() {

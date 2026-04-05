@@ -139,6 +139,7 @@ private fun BulletItem(text: String) {
     }
 }
 
+@Suppress("UnusedPrivateMember")
 @Preview(showBackground = true)
 @Composable
 private fun DataTransparencyScreenPreview() {
@@ -147,6 +148,7 @@ private fun DataTransparencyScreenPreview() {
     }
 }
 
+@Suppress("UnusedPrivateMember")
 @Preview(showBackground = true)
 @Composable
 private fun DataTransparencyScreenDarkPreview() {

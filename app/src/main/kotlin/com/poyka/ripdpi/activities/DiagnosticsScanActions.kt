@@ -24,6 +24,7 @@ internal class DiagnosticsScanActions(
     private val appContext: Context,
     private val loadSessionDetail: suspend (sessionId: String, showSensitiveDetails: Boolean) -> Unit,
 ) {
+    @Suppress("LongMethod", "CyclomaticComplexMethod")
     fun initialize() {
         mutations.launch {
             var prevProgress: com.poyka.ripdpi.diagnostics.ScanProgress? = null
@@ -353,10 +354,10 @@ internal class DiagnosticsScanActions(
                         }
                     }
                 }
+            } catch (error: CancellationException) {
+                throw error
             } catch (error: Throwable) {
-                if (error is CancellationException) {
-                    throw error
-                }
+                @Suppress("TooGenericExceptionCaught")
                 handleStartFailure(error)
             }
         }
@@ -421,10 +422,9 @@ internal class DiagnosticsScanActions(
                     )
                 }
             }
+        } catch (error: CancellationException) {
+            throw error
         } catch (error: Throwable) {
-            if (error is CancellationException) {
-                throw error
-            }
             scanLifecycle.update {
                 it.copy(
                     scanStartedAt = null,

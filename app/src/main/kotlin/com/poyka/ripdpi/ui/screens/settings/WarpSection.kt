@@ -16,6 +16,11 @@ import com.poyka.ripdpi.utility.checkIp
 import com.poyka.ripdpi.utility.validateIntRange
 import com.poyka.ripdpi.utility.validatePort
 
+private const val warpScannerParallelismMax = 64
+private const val warpScannerRttMinMs = 50
+private const val warpScannerRttMaxMs = 10_000
+
+@Suppress("LongMethod")
 internal fun LazyListScope.warpSection(
     uiState: SettingsUiState,
     visualEditorEnabled: Boolean,
@@ -193,7 +198,7 @@ internal fun LazyListScope.warpSection(
                         description = stringResource(R.string.warp_scanner_parallelism_body),
                         value = uiState.warp.scannerParallelism.toString(),
                         enabled = sectionEnabled,
-                        validator = { validateIntRange(it, 1, 64) },
+                        validator = { validateIntRange(it, 1, warpScannerParallelismMax) },
                         invalidMessage = stringResource(R.string.config_error_out_of_range),
                         disabledMessage = disabledMessage,
                         keyboardOptions = numericKeyboardOptions,
@@ -206,7 +211,7 @@ internal fun LazyListScope.warpSection(
                         description = stringResource(R.string.warp_scanner_rtt_body),
                         value = uiState.warp.scannerMaxRttMs.toString(),
                         enabled = sectionEnabled,
-                        validator = { validateIntRange(it, 50, 10_000) },
+                        validator = { validateIntRange(it, warpScannerRttMinMs, warpScannerRttMaxMs) },
                         invalidMessage = stringResource(R.string.config_error_out_of_range),
                         disabledMessage = disabledMessage,
                         keyboardOptions = numericKeyboardOptions,

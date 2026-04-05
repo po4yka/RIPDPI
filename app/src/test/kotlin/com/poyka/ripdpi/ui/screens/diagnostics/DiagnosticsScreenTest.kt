@@ -64,6 +64,7 @@ import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 
+@Suppress("LargeClass")
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 @Config(sdk = [35])
@@ -71,6 +72,7 @@ class DiagnosticsScreenTest {
     @get:Rule
     val composeRule = createComposeRule()
 
+    @Suppress("LongMethod")
     @Test
     fun resolverRecommendationActionsAreRendered() {
         composeRule.setContent {
@@ -431,7 +433,8 @@ class DiagnosticsScreenTest {
                                                     winnerCoveragePercent = 48,
                                                     warnings =
                                                         listOf(
-                                                            "TCP matrix coverage stayed below 75% of planned candidates.",
+                                                            "TCP matrix coverage stayed" +
+                                                                " below 75% of planned candidates.",
                                                         ),
                                                 ),
                                         ),
@@ -539,7 +542,8 @@ class DiagnosticsScreenTest {
                                     winnerCoveragePercent = 0,
                                     warnings =
                                         listOf(
-                                            "Baseline DNS tampering short-circuited the audit before fallback candidates ran.",
+                                            "Baseline DNS tampering short-circuited" +
+                                                " the audit before fallback candidates ran.",
                                         ),
                                     dnsShortCircuited = true,
                                 ),
@@ -584,7 +588,8 @@ class DiagnosticsScreenTest {
                                                     winnerCoveragePercent = 100,
                                                     warnings =
                                                         listOf(
-                                                            "TCP matrix coverage stayed below 75% of planned candidates.",
+                                                            "TCP matrix coverage stayed" +
+                                                                " below 75% of planned candidates.",
                                                         ),
                                                 ),
                                         ),
@@ -1068,7 +1073,8 @@ class DiagnosticsScreenTest {
                     runRawEnabled = true,
                     runInPathEnabled = false,
                     runRawHint =
-                        "Automatic probing starts a temporary raw-path RIPDPI runtime and returns a manual recommendation.",
+                        "Automatic probing starts a temporary raw-path RIPDPI runtime" +
+                            " and returns a manual recommendation.",
                     runInPathHint =
                         "Automatic probing is raw-path only because it launches isolated temporary strategy trials.",
                 ),
@@ -1135,6 +1141,7 @@ class DiagnosticsScreenTest {
         composeRule.runOnIdle { assertEquals(1, vpnPermissionClicks) }
     }
 
+    @Suppress("LongMethod")
     private fun auditReport(
         candidateDetail: DiagnosticsStrategyProbeCandidateDetailUiModel,
         quicCandidateDetail: DiagnosticsStrategyProbeCandidateDetailUiModel = auditQuicCandidateDetail(),
@@ -1392,6 +1399,7 @@ class DiagnosticsScreenTest {
         }
     }
 
+    @Suppress("UnusedPrivateMember")
     private fun workflowRestriction(
         title: String,
         body: String,
@@ -1403,6 +1411,7 @@ class DiagnosticsScreenTest {
         actionKind = DiagnosticsWorkflowRestrictionActionKindUiModel.OPEN_ADVANCED_SETTINGS,
     )
 
+    @Suppress("UnusedPrivateMember")
     private fun vpnPermissionRestriction(
         title: String,
         body: String,

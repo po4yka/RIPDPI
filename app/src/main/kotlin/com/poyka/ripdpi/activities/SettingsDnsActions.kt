@@ -9,6 +9,8 @@ import com.poyka.ripdpi.data.EncryptedDnsProtocolDot
 import com.poyka.ripdpi.data.dnsProviderById
 import com.poyka.ripdpi.data.normalizeDnsBootstrapIps
 
+private const val defaultDnsPort = 443
+
 internal class SettingsDnsActions(
     private val mutations: SettingsMutationRunner,
 ) {
@@ -92,8 +94,8 @@ internal class SettingsDnsActions(
             val port =
                 runCatching {
                     val uri = java.net.URI(dohUrl.trim())
-                    if (uri.port > 0) uri.port else 443
-                }.getOrDefault(443)
+                    if (uri.port > 0) uri.port else defaultDnsPort
+                }.getOrDefault(defaultDnsPort)
             setDnsMode(DnsModeEncrypted)
             setDnsProviderId(DnsProviderCustom)
             setDnsIp(normalizedBootstrapIps.firstOrNull().orEmpty())

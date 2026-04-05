@@ -21,6 +21,7 @@ private data class FakeApproximationStatusContent(
     val tone: StatusIndicatorTone,
 )
 
+@Suppress("LongMethod", "CyclomaticComplexMethod")
 @Composable
 internal fun FakeApproximationProfileCard(
     uiState: SettingsUiState,

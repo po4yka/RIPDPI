@@ -92,6 +92,7 @@ fun LogsRoute(
     )
 }
 
+@Suppress("LongMethod")
 @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @Composable
 internal fun LogsScreen(
@@ -129,12 +130,9 @@ internal fun LogsScreen(
 
     LaunchedEffect(uiState.isAutoScroll, uiState.latestLog?.id, filteredLogs.size) {
         val latestLog = uiState.latestLog ?: return@LaunchedEffect
-        if (
-            uiState.isAutoScroll &&
-            latestLog in filteredLogs &&
-            filteredLogs.isNotEmpty() &&
-            isAtLiveEdge
-        ) {
+        val shouldAutoScroll =
+            uiState.isAutoScroll && latestLog in filteredLogs && filteredLogs.isNotEmpty() && isAtLiveEdge
+        if (shouldAutoScroll) {
             listState.animateScrollToItem(filteredLogs.lastIndex)
         }
     }
@@ -318,6 +316,7 @@ private fun <T> FilterChipRow(
     }
 }
 
+@Suppress("LongMethod")
 @Composable
 private fun LogsOverviewCard(
     uiState: LogsUiState,
@@ -625,6 +624,7 @@ private val previewLogs =
         ),
     )
 
+@Suppress("UnusedPrivateMember")
 @Preview(showBackground = true)
 @Composable
 private fun LogsScreenPreview() {
@@ -643,6 +643,7 @@ private fun LogsScreenPreview() {
     }
 }
 
+@Suppress("UnusedPrivateMember")
 @Preview(showBackground = true)
 @Composable
 private fun LogsScreenDarkPreview() {

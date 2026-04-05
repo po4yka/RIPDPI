@@ -20,6 +20,7 @@ private data class HostFakeStatusContent(
     val tone: StatusIndicatorTone,
 )
 
+@Suppress("LongMethod")
 @Composable
 internal fun HostFakeProfileCard(
     uiState: SettingsUiState,

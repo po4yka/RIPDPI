@@ -10,6 +10,12 @@ import com.poyka.ripdpi.BuildConfig
 import kotlinx.coroutines.delay
 import java.util.concurrent.ConcurrentHashMap
 
+private const val highRecompositionThresholdCount = 20
+private const val moderateRecompositionThresholdCount = 5
+private const val recompositionLogIntervalMs = 10
+
+private const val recompositionReportWidth = 60
+
 /**
  * Tracks recomposition counts per composable and periodically dumps a report.
  * All methods are no-ops when [BuildConfig.DEBUG] is false.
@@ -42,17 +48,17 @@ object RecompositionCounter {
         val sb = StringBuilder()
         sb.appendLine("--- Recomposition Report ---")
         sb.appendLine("%-40s %8s %8s".format("Composable", "Total", "Delta"))
-        sb.appendLine("-".repeat(60))
+        sb.appendLine("-".repeat(recompositionReportWidth))
         for ((tag, total, delta) in lines) {
             val marker =
                 when {
-                    delta > 20 -> " !!!"
-                    delta > 5 -> " !"
+                    delta > highRecompositionThresholdCount -> " !!!"
+                    delta > moderateRecompositionThresholdCount -> " !"
                     else -> ""
                 }
             sb.appendLine("%-40s %8d %8d%s".format(tag, total, delta, marker))
         }
-        sb.appendLine("-".repeat(60))
+        sb.appendLine("-".repeat(recompositionReportWidth))
         return sb.toString()
     }
 
@@ -76,11 +82,12 @@ object RecompositionCounter {
 @Composable
 fun TrackRecomposition(tag: String) {
     if (!BuildConfig.DEBUG) return
+    val recompositionLogInterval = recompositionLogIntervalMs
     val count = remember { mutableIntStateOf(0) }
     SideEffect {
         count.intValue++
         RecompositionCounter.record(tag)
-        if (count.intValue % 10 == 1) {
+        if (count.intValue % recompositionLogInterval == 1) {
             Logger.withTag("RecomposeTracker").d { "$tag recomposed (#${count.intValue})" }
         }
     }

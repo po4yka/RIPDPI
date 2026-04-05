@@ -36,6 +36,11 @@ import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 import com.poyka.ripdpi.utility.validateIntRange
 
+private const val hostAutolearnPenaltyTtlMaxHours = 24 * 30
+private const val hostAutolearnMaxHosts = 50_000
+private const val hostAutolearnShortAcronymMaxLength = 4
+
+@Suppress("LongMethod")
 internal fun LazyListScope.hostAutolearnSection(
     uiState: SettingsUiState,
     visualEditorEnabled: Boolean,
@@ -100,7 +105,7 @@ internal fun LazyListScope.hostAutolearnSection(
                         description = stringResource(R.string.host_autolearn_penalty_ttl_body),
                         value = uiState.autolearn.hostAutolearnPenaltyTtlHours.toString(),
                         enabled = visualEditorEnabled,
-                        validator = { validateIntRange(it, 1, 24 * 30) },
+                        validator = { validateIntRange(it, 1, hostAutolearnPenaltyTtlMaxHours) },
                         invalidMessage = stringResource(R.string.config_error_out_of_range),
                         disabledMessage = stringResource(R.string.advanced_settings_visual_controls_disabled),
                         keyboardOptions =
@@ -117,7 +122,7 @@ internal fun LazyListScope.hostAutolearnSection(
                         description = stringResource(R.string.host_autolearn_max_hosts_body),
                         value = uiState.autolearn.hostAutolearnMaxHosts.toString(),
                         enabled = visualEditorEnabled,
-                        validator = { validateIntRange(it, 1, 50_000) },
+                        validator = { validateIntRange(it, 1, hostAutolearnMaxHosts) },
                         invalidMessage = stringResource(R.string.config_error_out_of_range),
                         disabledMessage = stringResource(R.string.advanced_settings_visual_controls_disabled),
                         keyboardOptions =
@@ -163,6 +168,7 @@ private data class HostAutolearnStatusContent(
     val tone: StatusIndicatorTone,
 )
 
+@Suppress("LongMethod")
 @Composable
 private fun HostAutolearnStatusCard(
     uiState: SettingsUiState,
@@ -172,14 +178,15 @@ private fun HostAutolearnStatusCard(
     val spacing = RipDpiThemeTokens.spacing
     val type = RipDpiThemeTokens.type
     val status = rememberHostAutolearnStatus(uiState)
-    val runtimeSummary =
-        if (uiState.isServiceRunning &&
+    val hasRuntimeActivity =
+        uiState.isServiceRunning &&
             (
                 uiState.autolearn.hostAutolearnRuntimeEnabled ||
                     uiState.autolearn.hostAutolearnLearnedHostCount > 0 ||
                     uiState.autolearn.hostAutolearnBlockedHostCount > 0
             )
-        ) {
+    val runtimeSummary =
+        if (hasRuntimeActivity) {
             stringResource(
                 R.string.host_autolearn_runtime_summary,
                 uiState.autolearn.hostAutolearnLearnedHostCount,
@@ -402,12 +409,16 @@ private fun hostAutolearnBlockSignalLabel(signal: String): String =
         else -> signal.replace('_', ' ')
     }
 
+@Suppress("ReturnCount")
 private fun hostAutolearnBlockProviderLabel(provider: String): String {
     val normalized = provider.trim()
     if (normalized.isEmpty()) {
         return provider
     }
-    if (normalized.none { it == '_' || it == '-' || it == ' ' } && normalized.length <= 4) {
+    val isShortAcronym =
+        normalized.none { it == '_' || it == '-' || it == ' ' } &&
+            normalized.length <= hostAutolearnShortAcronymMaxLength
+    if (isShortAcronym) {
         return normalized.uppercase()
     }
     return normalized

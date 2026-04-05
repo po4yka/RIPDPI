@@ -78,7 +78,7 @@ class MainActivityPermissionTest {
 }
 
 @Implements(VpnService::class)
-class ShadowVpnPrepareService {
+class ShadowVpnPrepareService private constructor() {
     companion object {
         var prepareIntent: Intent? = Intent("shadow.vpn.permission")
 

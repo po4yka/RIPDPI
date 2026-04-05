@@ -105,6 +105,66 @@ import java.util.Locale
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.ZERO
 
+// Layout weights for expanded-width two-column layout
+private const val columnWeightPrimary = 1.08f
+private const val columnWeightSecondary = 0.92f
+
+// Alpha values for halo colors per connection state
+private const val haloAlphaConnected = 0.08f
+private const val haloAlphaConnecting = 0.14f
+private const val haloAlphaError = 0.12f
+
+// Alpha values for stage result row backgrounds
+private const val stageContainerAlpha = 0.06f
+
+// Mode label text alpha
+private const val modeLabelAlpha = 0.72f
+
+// Animation scale values for HomeConnectionButton
+private const val buttonScaleConnectingInitial = 0.98f
+private const val buttonScaleConnectingTarget = 1.03f
+private const val buttonScaleConnectedInitial = 1.08f
+private const val buttonScaleErrorInitial = 0.95f
+private const val haloScaleConnectingInitial = 0.88f
+private const val haloScaleConnectingTarget = 1.18f
+private const val haloScaleConnectingSettle = 1.08f
+private const val haloScaleConnectedInitial = 1.08f
+private const val haloScaleConnectedTarget = 1.22f
+private const val haloScaleConnectedSettle = 1.02f
+private const val haloScaleErrorInitial = 1.04f
+private const val haloScaleErrorTarget = 1.1f
+
+// Connecting halo pulse target alpha
+private const val connectingPulseAlphaTarget = 0.5f
+
+// Connecting halo translation fraction of shake offset
+private const val haloTranslationFraction = 0.2f
+
+// Icon transition scale for AnimatedContent
+private const val iconTransitionScale = 0.88f
+
+// Shake animation parameters
+private const val shakeDistanceDp = 12
+private const val shakeTotalDurationMs = 285
+private const val shakeKeyframeT1 = 50
+private const val shakeKeyframeT2 = 110
+private const val shakeKeyframeT3 = 165
+private const val shakeKeyframeT4 = 215
+private const val shakeFractionT2 = 0.8f
+private const val shakeFractionT3 = 0.5f
+private const val shakeFractionT4 = 0.25f
+
+// Connecting pulse animation duration in milliseconds
+private const val connectingPulseDurationMs = 1200
+
+// Spacer heights inside HomeConnectionButton (dp)
+private const val connectionButtonIconSpacerDp = 12
+private const val connectionButtonModeSpacerDp = 6
+
+// Time constants for formatConnectionDuration
+private const val secondsPerHour = 3_600
+private const val secondsPerMinute = 60
+
 @Composable
 fun HomeRoute(
     modifier: Modifier = Modifier,
@@ -132,6 +192,7 @@ fun HomeRoute(
     )
 }
 
+@Suppress("LongMethod", "CyclomaticComplexMethod")
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun HomeScreen(
@@ -277,7 +338,7 @@ fun HomeScreen(
                 verticalAlignment = Alignment.Top,
             ) {
                 Column(
-                    modifier = Modifier.weight(1.08f),
+                    modifier = Modifier.weight(columnWeightPrimary),
                     verticalArrangement = Arrangement.spacedBy(layout.groupGap),
                 ) {
                     HomeStatusCard(
@@ -299,7 +360,7 @@ fun HomeScreen(
                     HomeHistoryCard(onOpenHistory = onOpenHistory)
                 }
                 Column(
-                    modifier = Modifier.weight(0.92f),
+                    modifier = Modifier.weight(columnWeightSecondary),
                     verticalArrangement = Arrangement.spacedBy(spacing.md),
                 ) {
                     Text(
@@ -428,6 +489,7 @@ private fun HomeHistoryCard(onOpenHistory: () -> Unit) {
     }
 }
 
+@Suppress("LongMethod")
 @Composable
 private fun HomeDiagnosticsCard(
     uiState: MainUiState,
@@ -458,10 +520,12 @@ private fun HomeDiagnosticsCard(
         )
         uiState.homeDiagnostics.latestAudit?.let { result ->
             Spacer(modifier = Modifier.height(spacing.sm))
+            val allStagesCompleted =
+                result.completedStageCount == result.totalStageCount && result.totalStageCount > 0
             val headlineColor =
                 when {
                     result.failedStageCount > 0 -> colors.destructive
-                    result.completedStageCount == result.totalStageCount && result.totalStageCount > 0 -> colors.success
+                    allStagesCompleted -> colors.success
                     else -> colors.foreground
                 }
             Text(
@@ -557,6 +621,7 @@ private fun HomeDiagnosticsCard(
     }
 }
 
+@Suppress("LongMethod")
 @Composable
 @OptIn(ExperimentalMaterial3Api::class)
 private fun HomeDiagnosticsBottomSheetHost(
@@ -668,7 +733,7 @@ private fun HomeDiagnosticsBottomSheetHost(
                         Modifier
                             .fillMaxWidth()
                             .background(
-                                color = colors.muted.copy(alpha = 0.06f),
+                                color = colors.muted.copy(alpha = stageContainerAlpha),
                                 shape = RoundedCornerShape(12.dp),
                             ).padding(RipDpiThemeTokens.spacing.sm),
                     verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.xs),
@@ -733,8 +798,8 @@ private fun StageResultRow(
 
     val containerColor =
         when {
-            failed -> colors.destructive.copy(alpha = 0.06f)
-            recommendationContributor -> colors.accent.copy(alpha = 0.06f)
+            failed -> colors.destructive.copy(alpha = stageContainerAlpha)
+            recommendationContributor -> colors.accent.copy(alpha = stageContainerAlpha)
             else -> Color.Transparent
         }
     val statusIcon =
@@ -839,6 +904,7 @@ private fun HomeStatusCard(
     }
 }
 
+@Suppress("LongMethod", "CyclomaticComplexMethod")
 @Composable
 private fun HomeConnectionButton(
     state: ConnectionState,
@@ -873,7 +939,7 @@ private fun HomeConnectionButton(
     val previousState = remember { mutableStateOf(state) }
     val shakeDistance =
         with(density) {
-            12.dp.toPx()
+            shakeDistanceDp.dp.toPx()
         }
 
     val containerColor =
@@ -903,10 +969,10 @@ private fun HomeConnectionButton(
     val haloColor =
         remember(state, colors) {
             when (state) {
-                ConnectionState.Connected -> colors.foreground.copy(alpha = 0.08f)
-                ConnectionState.Connecting -> colors.foreground.copy(alpha = 0.14f)
+                ConnectionState.Connected -> colors.foreground.copy(alpha = haloAlphaConnected)
+                ConnectionState.Connecting -> colors.foreground.copy(alpha = haloAlphaConnecting)
                 ConnectionState.Disconnected -> colors.accent
-                ConnectionState.Error -> colors.destructive.copy(alpha = 0.12f)
+                ConnectionState.Error -> colors.destructive.copy(alpha = haloAlphaError)
             }
         }
     val borderColor =
@@ -959,10 +1025,14 @@ private fun HomeConnectionButton(
     val connectingHaloAlpha by (
         connectingPulse?.animateFloat(
             initialValue = 1f,
-            targetValue = 0.5f,
+            targetValue = connectingPulseAlphaTarget,
             animationSpec =
                 infiniteRepeatable(
-                    animation = tween(durationMillis = motion.duration(1200), easing = LinearEasing),
+                    animation =
+                        tween(
+                            durationMillis = motion.duration(connectingPulseDurationMs),
+                            easing = LinearEasing,
+                        ),
                     repeatMode = RepeatMode.Reverse,
                 ),
             label = "connectingHaloAlpha",
@@ -992,9 +1062,9 @@ private fun HomeConnectionButton(
             ConnectionState.Connecting -> {
                 coroutineScope {
                     launch {
-                        buttonScale.snapTo(0.98f)
+                        buttonScale.snapTo(buttonScaleConnectingInitial)
                         buttonScale.animateTo(
-                            targetValue = 1.03f,
+                            targetValue = buttonScaleConnectingTarget,
                             animationSpec = tween(durationMillis = motion.duration(motion.quickDurationMillis)),
                         )
                         buttonScale.animateTo(
@@ -1003,13 +1073,13 @@ private fun HomeConnectionButton(
                         )
                     }
                     launch {
-                        haloScale.snapTo(0.88f)
+                        haloScale.snapTo(haloScaleConnectingInitial)
                         haloScale.animateTo(
-                            targetValue = 1.18f,
+                            targetValue = haloScaleConnectingTarget,
                             animationSpec = tween(durationMillis = motion.duration(motion.emphasizedDurationMillis)),
                         )
                         haloScale.animateTo(
-                            targetValue = 1.08f,
+                            targetValue = haloScaleConnectingSettle,
                             animationSpec = tween(durationMillis = motion.duration(motion.stateDurationMillis)),
                         )
                     }
@@ -1023,20 +1093,20 @@ private fun HomeConnectionButton(
                 performHaptic(RipDpiHapticFeedback.Success)
                 coroutineScope {
                     launch {
-                        buttonScale.snapTo(1.08f)
+                        buttonScale.snapTo(buttonScaleConnectedInitial)
                         buttonScale.animateTo(
                             targetValue = motion.selectionScale,
                             animationSpec = tween(durationMillis = motion.duration(motion.emphasizedDurationMillis)),
                         )
                     }
                     launch {
-                        haloScale.snapTo(1.08f)
+                        haloScale.snapTo(haloScaleConnectedInitial)
                         haloScale.animateTo(
-                            targetValue = 1.22f,
+                            targetValue = haloScaleConnectedTarget,
                             animationSpec = tween(durationMillis = motion.duration(motion.emphasizedDurationMillis)),
                         )
                         haloScale.animateTo(
-                            targetValue = 1.02f,
+                            targetValue = haloScaleConnectedSettle,
                             animationSpec = tween(durationMillis = motion.duration(motion.stateDurationMillis)),
                         )
                     }
@@ -1053,16 +1123,16 @@ private fun HomeConnectionButton(
                 performHaptic(RipDpiHapticFeedback.Error)
                 coroutineScope {
                     launch {
-                        buttonScale.snapTo(0.95f)
+                        buttonScale.snapTo(buttonScaleErrorInitial)
                         buttonScale.animateTo(
                             targetValue = 1f,
                             animationSpec = tween(durationMillis = motion.duration(motion.stateDurationMillis)),
                         )
                     }
                     launch {
-                        haloScale.snapTo(1.04f)
+                        haloScale.snapTo(haloScaleErrorInitial)
                         haloScale.animateTo(
-                            targetValue = 1.1f,
+                            targetValue = haloScaleErrorTarget,
                             animationSpec = tween(durationMillis = motion.duration(motion.quickDurationMillis)),
                         )
                         haloScale.animateTo(
@@ -1072,16 +1142,20 @@ private fun HomeConnectionButton(
                     }
                     launch {
                         shakeOffset.snapTo(0f)
-                        val totalDuration = motion.duration(285)
+                        val totalDuration = motion.duration(shakeTotalDurationMs)
+                        val kf1 = totalDuration * shakeKeyframeT1 / shakeTotalDurationMs
+                        val kf2 = totalDuration * shakeKeyframeT2 / shakeTotalDurationMs
+                        val kf3 = totalDuration * shakeKeyframeT3 / shakeTotalDurationMs
+                        val kf4 = totalDuration * shakeKeyframeT4 / shakeTotalDurationMs
                         shakeOffset.animateTo(
                             targetValue = 0f,
                             animationSpec =
                                 keyframes {
                                     durationMillis = totalDuration
-                                    -shakeDistance at (totalDuration * 50 / 285)
-                                    (shakeDistance * 0.8f) at (totalDuration * 110 / 285)
-                                    (-shakeDistance * 0.5f) at (totalDuration * 165 / 285)
-                                    (shakeDistance * 0.25f) at (totalDuration * 215 / 285)
+                                    -shakeDistance at kf1
+                                    (shakeDistance * shakeFractionT2) at kf2
+                                    (-shakeDistance * shakeFractionT3) at kf3
+                                    (shakeDistance * shakeFractionT4) at kf4
                                 },
                         )
                     }
@@ -1128,7 +1202,7 @@ private fun HomeConnectionButton(
                         scaleX = haloScale.value
                         scaleY = haloScale.value
                         alpha = connectingHaloAlpha
-                        translationX = shakeOffset.value * 0.2f
+                        translationX = shakeOffset.value * haloTranslationFraction
                     }.background(animatedHaloColor, CircleShape),
         )
         Column(
@@ -1174,11 +1248,11 @@ private fun HomeConnectionButton(
                     (
                         fadeIn(
                             animationSpec = tween(durationMillis = motion.duration(motion.quickDurationMillis)),
-                        ) + scaleIn(initialScale = 0.88f)
+                        ) + scaleIn(initialScale = iconTransitionScale)
                     ) togetherWith (
                         fadeOut(
                             animationSpec = tween(durationMillis = motion.duration(motion.quickDurationMillis)),
-                        ) + scaleOut(targetScale = 0.88f)
+                        ) + scaleOut(targetScale = iconTransitionScale)
                     )
                 },
                 label = "homeConnectionIcon",
@@ -1190,7 +1264,7 @@ private fun HomeConnectionButton(
                     modifier = Modifier.size(homeChrome.connectionIconSize),
                 )
             }
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(connectionButtonIconSpacerDp.dp))
             AnimatedContent(
                 targetState = label,
                 transitionSpec = {
@@ -1210,7 +1284,7 @@ private fun HomeConnectionButton(
                     textAlign = TextAlign.Center,
                 )
             }
-            Spacer(modifier = Modifier.height(6.dp))
+            Spacer(modifier = Modifier.height(connectionButtonModeSpacerDp.dp))
             AnimatedContent(
                 targetState = modeLabel,
                 transitionSpec = {
@@ -1226,7 +1300,7 @@ private fun HomeConnectionButton(
                 Text(
                     text = currentModeLabel,
                     style = type.caption,
-                    color = animatedContentColor.copy(alpha = 0.72f),
+                    color = animatedContentColor.copy(alpha = modeLabelAlpha),
                     textAlign = TextAlign.Center,
                 )
             }
@@ -1392,12 +1466,13 @@ private fun currentMode(uiState: MainUiState): Mode =
 
 private fun formatConnectionDuration(duration: Duration): String {
     val totalSeconds = duration.inWholeSeconds.coerceAtLeast(0L)
-    val hours = totalSeconds / 3_600
-    val minutes = (totalSeconds % 3_600) / 60
-    val seconds = totalSeconds % 60
+    val hours = totalSeconds / secondsPerHour
+    val minutes = (totalSeconds % secondsPerHour) / secondsPerMinute
+    val seconds = totalSeconds % secondsPerMinute
     return String.format(Locale.US, "%02d:%02d:%02d", hours, minutes, seconds)
 }
 
+@Suppress("UnusedPrivateMember")
 @Preview(showBackground = true)
 @Composable
 private fun HomeScreenDisconnectedPreview() {
@@ -1413,6 +1488,7 @@ private fun HomeScreenDisconnectedPreview() {
     }
 }
 
+@Suppress("UnusedPrivateMember")
 @Preview(showBackground = true)
 @Composable
 private fun HomeScreenConnectedPreview() {
@@ -1440,6 +1516,7 @@ private fun HomeScreenConnectedPreview() {
     }
 }
 
+@Suppress("UnusedPrivateMember")
 @Preview(showBackground = true)
 @Composable
 private fun HomeScreenErrorPreview() {
