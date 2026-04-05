@@ -1,99 +1,18 @@
+mod vpn_protect;
+
 use std::collections::HashMap;
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
-use std::thread;
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use android_support::{init_android_logging, JNI_VERSION};
 use jni::objects::{JObject, JString};
+use jni::refs::Global;
 use jni::sys::{jint, jlong};
 use jni::{EnvUnowned, JavaVM, Outcome};
 use once_cell::sync::Lazy;
-use serde::{Deserialize, Serialize};
+use ripdpi_warp_core::{ResolvedWarpRuntimeConfig, WarpRuntime};
 
 static NEXT_HANDLE: Lazy<Mutex<u64>> = Lazy::new(|| Mutex::new(1));
-static SESSIONS: Lazy<Mutex<HashMap<u64, Arc<WarpSession>>>> = Lazy::new(|| Mutex::new(HashMap::new()));
-
-#[derive(Debug, Clone, Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct WarpConfig {
-    enabled: bool,
-    route_mode: String,
-    route_hosts: String,
-    built_in_rules_enabled: bool,
-    endpoint_selection_mode: String,
-    manual_endpoint: WarpManualEndpoint,
-    scanner_enabled: bool,
-    scanner_parallelism: i32,
-    scanner_max_rtt_ms: i32,
-    amnezia: WarpAmneziaConfig,
-    local_socks_host: String,
-    local_socks_port: i32,
-}
-
-#[derive(Debug, Clone, Deserialize, Default)]
-#[serde(rename_all = "camelCase")]
-struct WarpManualEndpoint {
-    host: String,
-    ipv4: String,
-    ipv6: String,
-    port: i32,
-}
-
-#[derive(Debug, Clone, Deserialize, Default)]
-#[serde(rename_all = "camelCase")]
-struct WarpAmneziaConfig {
-    enabled: bool,
-    jc: i32,
-    jmin: i32,
-    jmax: i32,
-    h1: i64,
-    h2: i64,
-    h3: i64,
-    h4: i64,
-    s1: i32,
-    s2: i32,
-    s3: i32,
-    s4: i32,
-}
-
-#[derive(Debug, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
-struct WarpTelemetry {
-    source: &'static str,
-    state: String,
-    health: String,
-    listener_address: Option<String>,
-    last_error: Option<String>,
-    captured_at: u64,
-}
-
-struct WarpSession {
-    config: WarpConfig,
-    running: AtomicBool,
-    stop_requested: AtomicBool,
-}
-
-impl WarpSession {
-    fn telemetry(&self) -> WarpTelemetry {
-        WarpTelemetry {
-            source: "warp",
-            state: if self.running.load(Ordering::SeqCst) {
-                "running".to_string()
-            } else {
-                "idle".to_string()
-            },
-            health: if self.running.load(Ordering::SeqCst) {
-                "running".to_string()
-            } else {
-                "idle".to_string()
-            },
-            listener_address: Some(format!("{}:{}", self.config.local_socks_host, self.config.local_socks_port)),
-            last_error: None,
-            captured_at: now_ms(),
-        }
-    }
-}
+static SESSIONS: Lazy<Mutex<HashMap<u64, Arc<WarpRuntime>>>> = Lazy::new(|| Mutex::new(HashMap::new()));
 
 /// # Safety
 #[unsafe(no_mangle)]
@@ -119,7 +38,7 @@ pub extern "system" fn Java_com_poyka_ripdpi_core_RipDpiWarpNativeBindings_jniCr
     match env
         .with_env(move |env| -> jni::errors::Result<jlong> {
             let config_json: String = env.get_string(&config_json)?.into();
-            let Ok(config) = serde_json::from_str::<WarpConfig>(&config_json) else {
+            let Ok(config) = serde_json::from_str::<ResolvedWarpRuntimeConfig>(&config_json) else {
                 return Ok(0);
             };
             let handle = {
@@ -128,14 +47,10 @@ pub extern "system" fn Java_com_poyka_ripdpi_core_RipDpiWarpNativeBindings_jniCr
                 *next += 1;
                 value
             };
-            SESSIONS.lock().expect("session mutex").insert(
-                handle,
-                Arc::new(WarpSession {
-                    config,
-                    running: AtomicBool::new(false),
-                    stop_requested: AtomicBool::new(false),
-                }),
-            );
+            SESSIONS
+                .lock()
+                .expect("session mutex")
+                .insert(handle, WarpRuntime::new(config));
             Ok(jlong::try_from(handle).unwrap_or(0))
         })
         .into_outcome()
@@ -154,12 +69,14 @@ pub extern "system" fn Java_com_poyka_ripdpi_core_RipDpiWarpNativeBindings_jniSt
     let Some(session) = session_from_handle(handle) else {
         return 1;
     };
-    session.running.store(true, Ordering::SeqCst);
-    while !session.stop_requested.load(Ordering::SeqCst) {
-        thread::sleep(Duration::from_millis(100));
+    match tokio::runtime::Builder::new_multi_thread()
+        .enable_all()
+        .build()
+        .and_then(|runtime| runtime.block_on(session.run()).map(|_| ()))
+    {
+        Ok(()) => 0,
+        Err(_) => 2,
     }
-    session.running.store(false, Ordering::SeqCst);
-    0
 }
 
 #[unsafe(no_mangle)]
@@ -169,7 +86,7 @@ pub extern "system" fn Java_com_poyka_ripdpi_core_RipDpiWarpNativeBindings_jniSt
     handle: jlong,
 ) {
     if let Some(session) = session_from_handle(handle) {
-        session.stop_requested.store(true, Ordering::SeqCst);
+        session.stop();
     }
 }
 
@@ -204,14 +121,30 @@ pub extern "system" fn Java_com_poyka_ripdpi_core_RipDpiWarpNativeBindings_jniDe
     }
 }
 
-fn session_from_handle(handle: jlong) -> Option<Arc<WarpSession>> {
-    let handle = u64::try_from(handle).ok()?;
-    SESSIONS.lock().expect("session mutex").get(&handle).cloned()
+#[unsafe(no_mangle)]
+pub extern "system" fn Java_com_poyka_ripdpi_core_RipDpiWarpNativeBindings_00024Companion_jniRegisterVpnProtect(
+    mut env: EnvUnowned<'_>,
+    _thiz: JObject,
+    vpn_service: JObject,
+) {
+    let _ =
+        env.with_env(|env| -> jni::errors::Result<()> {
+            let vm = env.get_java_vm()?;
+            let global_ref: Global<JObject<'static>> = env.new_global_ref(vpn_service)?;
+            vpn_protect::register_vpn_protect(&vm, global_ref);
+            Ok(())
+        });
 }
 
-fn now_ms() -> u64 {
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_millis() as u64
+#[unsafe(no_mangle)]
+pub extern "system" fn Java_com_poyka_ripdpi_core_RipDpiWarpNativeBindings_00024Companion_jniUnregisterVpnProtect(
+    _env: EnvUnowned<'_>,
+    _thiz: JObject,
+) {
+    vpn_protect::unregister_vpn_protect();
+}
+
+fn session_from_handle(handle: jlong) -> Option<Arc<WarpRuntime>> {
+    let handle = u64::try_from(handle).ok()?;
+    SESSIONS.lock().expect("session mutex").get(&handle).cloned()
 }

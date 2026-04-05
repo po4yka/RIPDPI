@@ -1,0 +1,24 @@
+[package]
+name = "ripdpi-warp-core"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+anyhow = { workspace = true }
+base64 = "0.13"
+boringtun = { version = "0.7.0", default-features = false }
+bytes = "1"
+ripdpi-native-protect = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+smoltcp = { version = "0.12", default-features = false, features = ["std", "medium-ip", "proto-ipv4", "proto-ipv6", "socket-udp", "socket-tcp"] }
+socket2 = { workspace = true }
+tokio = { workspace = true, features = ["io-util", "macros", "net", "rt-multi-thread", "sync", "time"] }
+tracing = { workspace = true }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["macros", "rt-multi-thread", "time"] }

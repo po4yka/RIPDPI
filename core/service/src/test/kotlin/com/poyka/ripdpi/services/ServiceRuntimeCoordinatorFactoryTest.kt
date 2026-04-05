@@ -133,7 +133,11 @@ class ServiceRuntimeCoordinatorFactoryTest {
         }
     }
 
-    private class RecordingWarpRuntimeSupervisorFactory : WarpRuntimeSupervisorFactory(TestRipDpiWarpFactory()) {
+    private class RecordingWarpRuntimeSupervisorFactory :
+        WarpRuntimeSupervisorFactory(
+            TestRipDpiWarpFactory(),
+            TestWarpRuntimeConfigResolver(),
+        ) {
         var createCalls: Int = 0
 
         override fun create(
@@ -145,6 +149,7 @@ class ServiceRuntimeCoordinatorFactoryTest {
                 scope = scope,
                 dispatcher = dispatcher,
                 warpFactory = TestRipDpiWarpFactory(),
+                runtimeConfigResolver = TestWarpRuntimeConfigResolver(),
             )
         }
     }

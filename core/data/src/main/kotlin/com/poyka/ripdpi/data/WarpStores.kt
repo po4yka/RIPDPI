@@ -45,6 +45,9 @@ data class WarpCredentials(
     val clientId: String? = null,
     val privateKey: String? = null,
     val publicKey: String? = null,
+    val peerPublicKey: String? = null,
+    val interfaceAddressV4: String? = null,
+    val interfaceAddressV6: String? = null,
     val updatedAtEpochMillis: Long = System.currentTimeMillis(),
 )
 
@@ -60,6 +63,8 @@ data class WarpEndpointCacheEntry(
     val rttMs: Long? = null,
     val updatedAtEpochMillis: Long = System.currentTimeMillis(),
 )
+
+const val GlobalWarpEndpointScopeKey: String = "__global__"
 
 interface WarpProfileStore {
     suspend fun load(profileId: String): WarpProfile?
@@ -283,9 +288,9 @@ class SharedPreferencesWarpEndpointStore
             profileId: String,
             networkScopeKey: String,
         ): WarpEndpointCacheEntry? =
-            preferences.getString(prefKey(profileId, networkScopeKey), null)?.let {
+            preferences.getString(prefKey(profileId, normalizeScopeKey(networkScopeKey)), null)?.let {
                 json.decodeFromString<WarpEndpointCacheEntry>(it)
-            } ?: loadLegacy(profileId, networkScopeKey)
+            } ?: loadLegacy(profileId, normalizeScopeKey(networkScopeKey))
 
         override suspend fun loadAll(profileId: String): List<WarpEndpointCacheEntry> =
             preferences.all.entries
@@ -300,13 +305,17 @@ class SharedPreferencesWarpEndpointStore
 
         override suspend fun save(entry: WarpEndpointCacheEntry) {
             val profileId = entry.profileId.ifBlank { DefaultWarpProfileId }
+            val networkScopeKey = normalizeScopeKey(entry.networkScopeKey)
             preferences
                 .edit()
                 .putString(
-                    prefKey(profileId, entry.networkScopeKey),
+                    prefKey(profileId, networkScopeKey),
                     json.encodeToString(
                         WarpEndpointCacheEntry.serializer(),
-                        entry.copy(profileId = profileId),
+                        entry.copy(
+                            profileId = profileId,
+                            networkScopeKey = networkScopeKey,
+                        ),
                     ),
                 ).apply()
         }
@@ -315,7 +324,7 @@ class SharedPreferencesWarpEndpointStore
             profileId: String,
             networkScopeKey: String,
         ) {
-            preferences.edit().remove(prefKey(profileId, networkScopeKey)).apply()
+            preferences.edit().remove(prefKey(profileId, normalizeScopeKey(networkScopeKey))).apply()
         }
 
         override suspend fun clearProfile(profileId: String) {
@@ -346,6 +355,9 @@ class SharedPreferencesWarpEndpointStore
             profileId: String,
             networkScopeKey: String,
         ): String = "endpoint:$profileId:$networkScopeKey"
+
+        private fun normalizeScopeKey(networkScopeKey: String): String =
+            networkScopeKey.takeIf(String::isNotBlank) ?: GlobalWarpEndpointScopeKey
 
         private fun legacyPrefKey(networkScopeKey: String): String = "endpoint:$networkScopeKey"
 
