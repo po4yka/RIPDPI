@@ -45,13 +45,7 @@ internal fun normalizeLogContext(logContext: RipDpiLogContext?): RipDpiLogContex
         val policySignature = value.policySignature?.trim()?.takeIf { it.isNotEmpty() }
         val fingerprintHash = value.fingerprintHash?.trim()?.takeIf { it.isNotEmpty() }
         val diagnosticsSessionId = value.diagnosticsSessionId?.trim()?.takeIf { it.isNotEmpty() }
-        if (
-            runtimeId == null &&
-            mode == null &&
-            policySignature == null &&
-            fingerprintHash == null &&
-            diagnosticsSessionId == null
-        ) {
+        if (listOfNotNull(runtimeId, mode, policySignature, fingerprintHash, diagnosticsSessionId).isEmpty()) {
             null
         } else {
             RipDpiLogContext(

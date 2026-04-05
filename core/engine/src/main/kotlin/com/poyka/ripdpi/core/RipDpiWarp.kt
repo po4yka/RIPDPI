@@ -19,14 +19,14 @@ import kotlin.coroutines.coroutineContext
 interface RipDpiWarpRuntime {
     suspend fun start(config: RipDpiWarpConfig): Int
 
-    suspend fun awaitReady(timeoutMillis: Long = DEFAULT_WARP_READY_TIMEOUT_MS)
+    suspend fun awaitReady(timeoutMillis: Long = defaultWarpReadyTimeoutMs)
 
     suspend fun stop()
 
     suspend fun pollTelemetry(): NativeRuntimeSnapshot
 }
 
-internal const val DEFAULT_WARP_READY_TIMEOUT_MS = 5_000L
+internal const val defaultWarpReadyTimeoutMs = 5_000L
 
 interface RipDpiWarpBindings {
     fun create(configJson: String): Long
@@ -40,14 +40,12 @@ interface RipDpiWarpBindings {
     fun destroy(handle: Long)
 }
 
-class RipDpiWarpNativeLoader {
-    companion object {
-        init {
-            System.loadLibrary("ripdpi-warp")
-        }
-
-        fun ensureLoaded() = Unit
+object RipDpiWarpNativeLoader {
+    init {
+        System.loadLibrary("ripdpi-warp")
     }
+
+    fun ensureLoaded() = Unit
 }
 
 class RipDpiWarpNativeBindings
@@ -114,6 +112,7 @@ class RipDpiWarp(
 
     @Volatile private var handle = 0L
 
+    @Suppress("TooGenericExceptionCaught")
     @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
     override suspend fun start(config: RipDpiWarpConfig): Int {
         val startupSignal = CompletableDeferred<Unit>()
@@ -211,7 +210,7 @@ class RipDpiWarp(
                 return
             }
             if (System.currentTimeMillis() >= deadline) {
-                throw IllegalStateException("WARP readiness timed out")
+                error("WARP readiness timed out")
             }
             delay(ReadyPollIntervalMs)
         }
@@ -234,14 +233,11 @@ class RipDpiWarp(
     }
 
     override suspend fun pollTelemetry(): NativeRuntimeSnapshot {
-        val activeHandle = handle
-        if (activeHandle == 0L) {
-            return NativeRuntimeSnapshot.idle(source = "warp")
-        }
-        val telemetryJson =
-            withContext(Dispatchers.IO) {
-                nativeBindings.pollTelemetry(activeHandle)
-            } ?: return NativeRuntimeSnapshot.idle(source = "warp")
-        return warpJson.decodeFromString(NativeRuntimeSnapshot.serializer(), telemetryJson)
+        if (handle == 0L) return NativeRuntimeSnapshot.idle(source = "warp")
+        val telemetryJson = withContext(Dispatchers.IO) { nativeBindings.pollTelemetry(handle) }
+        return telemetryJson
+            ?.takeIf { it.isNotBlank() }
+            ?.let { warpJson.decodeFromString(NativeRuntimeSnapshot.serializer(), it) }
+            ?: NativeRuntimeSnapshot.idle(source = "warp")
     }
 }

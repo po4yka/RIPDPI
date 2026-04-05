@@ -29,6 +29,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
 import org.junit.Test
 
+@Suppress("LargeClass")
 class RipDpiProxyPreferencesTest {
     private companion object {
         const val LegacyCommandLineProgram = "cia" + "dpi"
@@ -79,6 +80,7 @@ class RipDpiProxyPreferencesTest {
     }
 
     @Test
+    @Suppress("LongMethod")
     fun uiPreferencesEncodeGroupedSections() {
         val preferences =
             RipDpiProxyUIPreferences(

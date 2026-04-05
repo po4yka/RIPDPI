@@ -198,6 +198,7 @@ class NativeBinaryContractTest {
         return array.map { (it as JsonPrimitive).content }.toSet()
     }
 
+    @Suppress("LongMethod")
     private fun extractKotlinSnapshotFields(): Set<String> {
         val snapshot =
             NativeRuntimeSnapshot(
@@ -309,36 +310,33 @@ class NativeBinaryContractTest {
         element: JsonElement,
         prefix: String = "",
     ): Set<String> {
+        if (element !is JsonObject) return emptySet()
         val paths = mutableSetOf<String>()
-        when (element) {
-            is JsonObject -> {
-                for ((key, child) in element) {
-                    val path = if (prefix.isEmpty()) key else "$prefix.$key"
-                    when (child) {
-                        is JsonObject -> {
-                            paths.addAll(extractFieldPaths(child, path))
-                        }
-
-                        is JsonArray -> {
-                            val first = child.firstOrNull()
-                            if (first is JsonObject) {
-                                paths.addAll(extractFieldPaths(first, "$path[]"))
-                            } else {
-                                paths.add("$path[]")
-                            }
-                        }
-
-                        else -> {
-                            paths.add(path)
-                        }
-                    }
-                }
-            }
-
-            else -> {}
+        for ((key, child) in element) {
+            val path = if (prefix.isEmpty()) key else "$prefix.$key"
+            paths.addAll(extractChildPaths(child, path))
         }
         return paths
     }
+
+    private fun extractChildPaths(
+        child: JsonElement,
+        path: String,
+    ): Set<String> =
+        when (child) {
+            is JsonObject -> {
+                extractFieldPaths(child, path)
+            }
+
+            is JsonArray -> {
+                val first = child.firstOrNull()
+                if (first is JsonObject) extractFieldPaths(first, "$path[]") else setOf("$path[]")
+            }
+
+            else -> {
+                setOf(path)
+            }
+        }
 
     private fun extractKotlinNetworkSnapshotFields(): Set<String> {
         val snapshot =

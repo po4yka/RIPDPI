@@ -309,7 +309,7 @@ class FakeNetworkDiagnosticsBindings : NetworkDiagnosticsBindings {
         sessionId: String,
     ) {
         if (state == ScanState.SCANNING) {
-            throw IllegalStateException("diagnostics scan already running")
+            error("diagnostics scan already running")
         }
         lastStartedHandle = handle
         lastStartedRequestJson = requestJson

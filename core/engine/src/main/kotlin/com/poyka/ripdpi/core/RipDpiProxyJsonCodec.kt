@@ -147,10 +147,10 @@ internal object RipDpiProxyJsonCodec {
                 adaptiveFallback = AdaptiveCodec.toNative(preferences.adaptiveFallback),
                 quic = EndpointCodec.toNative(preferences.quic),
                 hosts = EndpointCodec.toNative(preferences.hosts),
-                upstreamRelay = EndpointCodec.toNative(preferences.relay),
+                upstreamRelay = RelayCodec.toNative(preferences.relay),
                 warp = EndpointCodec.toNative(preferences.warp),
                 hostAutolearn = EndpointCodec.toNative(preferences.hostAutolearn),
-                wsTunnel = EndpointCodec.toNative(preferences.wsTunnel),
+                wsTunnel = WsTunnelCodec.toNative(preferences.wsTunnel),
                 nativeLogLevel = preferences.nativeLogLevel,
                 rootMode = rootMode,
                 rootHelperSocketPath = rootHelperSocketPath,
@@ -882,6 +882,80 @@ internal object RipDpiProxyJsonCodec {
             )
     }
 
+    private object RelayCodec {
+        fun toModel(value: NativeRelayConfig): RipDpiRelayConfig =
+            RipDpiRelayConfig(
+                enabled = value.enabled,
+                kind = value.kind,
+                profileId = value.profileId,
+                server = value.server,
+                serverPort = value.serverPort,
+                serverName = value.serverName,
+                realityPublicKey = value.realityPublicKey,
+                realityShortId = value.realityShortId,
+                chainEntryServer = value.chainEntryServer,
+                chainEntryPort = value.chainEntryPort,
+                chainEntryServerName = value.chainEntryServerName,
+                chainEntryPublicKey = value.chainEntryPublicKey,
+                chainEntryShortId = value.chainEntryShortId,
+                chainExitServer = value.chainExitServer,
+                chainExitPort = value.chainExitPort,
+                chainExitServerName = value.chainExitServerName,
+                chainExitPublicKey = value.chainExitPublicKey,
+                chainExitShortId = value.chainExitShortId,
+                masqueUrl = value.masqueUrl,
+                masqueUseHttp2Fallback = value.masqueUseHttp2Fallback,
+                masqueCloudflareMode = value.masqueCloudflareMode,
+                localSocksHost = value.localSocksHost,
+                localSocksPort = value.localSocksPort,
+                udpEnabled = value.udpEnabled,
+                tcpFallbackEnabled = value.tcpFallbackEnabled,
+            )
+
+        fun toNative(value: RipDpiRelayConfig): NativeRelayConfig =
+            NativeRelayConfig(
+                enabled = value.enabled,
+                kind = value.kind,
+                profileId = value.profileId,
+                server = value.server,
+                serverPort = value.serverPort,
+                serverName = value.serverName,
+                realityPublicKey = value.realityPublicKey,
+                realityShortId = value.realityShortId,
+                chainEntryServer = value.chainEntryServer,
+                chainEntryPort = value.chainEntryPort,
+                chainEntryServerName = value.chainEntryServerName,
+                chainEntryPublicKey = value.chainEntryPublicKey,
+                chainEntryShortId = value.chainEntryShortId,
+                chainExitServer = value.chainExitServer,
+                chainExitPort = value.chainExitPort,
+                chainExitServerName = value.chainExitServerName,
+                chainExitPublicKey = value.chainExitPublicKey,
+                chainExitShortId = value.chainExitShortId,
+                masqueUrl = value.masqueUrl,
+                masqueUseHttp2Fallback = value.masqueUseHttp2Fallback,
+                masqueCloudflareMode = value.masqueCloudflareMode,
+                localSocksHost = value.localSocksHost,
+                localSocksPort = value.localSocksPort,
+                udpEnabled = value.udpEnabled,
+                tcpFallbackEnabled = value.tcpFallbackEnabled,
+            )
+    }
+
+    private object WsTunnelCodec {
+        fun toModel(value: NativeWsTunnelConfig): RipDpiWsTunnelConfig =
+            RipDpiWsTunnelConfig(
+                enabled = value.enabled,
+                mode = value.mode,
+            )
+
+        fun toNative(value: RipDpiWsTunnelConfig): NativeWsTunnelConfig =
+            NativeWsTunnelConfig(
+                enabled = value.enabled,
+                mode = value.mode,
+            )
+    }
+
     private object EndpointCodec {
         fun toModel(value: NativeQuicConfig): RipDpiQuicConfig =
             RipDpiQuicConfig(
@@ -922,33 +996,13 @@ internal object RipDpiProxyJsonCodec {
                 networkScopeKey = value.networkScopeKey,
             )
 
-        fun toModel(value: NativeRelayConfig): RipDpiRelayConfig =
-            RipDpiRelayConfig(
+        fun toNative(value: RipDpiHostAutolearnConfig): NativeHostAutolearnConfig =
+            NativeHostAutolearnConfig(
                 enabled = value.enabled,
-                kind = value.kind,
-                profileId = value.profileId,
-                server = value.server,
-                serverPort = value.serverPort,
-                serverName = value.serverName,
-                realityPublicKey = value.realityPublicKey,
-                realityShortId = value.realityShortId,
-                chainEntryServer = value.chainEntryServer,
-                chainEntryPort = value.chainEntryPort,
-                chainEntryServerName = value.chainEntryServerName,
-                chainEntryPublicKey = value.chainEntryPublicKey,
-                chainEntryShortId = value.chainEntryShortId,
-                chainExitServer = value.chainExitServer,
-                chainExitPort = value.chainExitPort,
-                chainExitServerName = value.chainExitServerName,
-                chainExitPublicKey = value.chainExitPublicKey,
-                chainExitShortId = value.chainExitShortId,
-                masqueUrl = value.masqueUrl,
-                masqueUseHttp2Fallback = value.masqueUseHttp2Fallback,
-                masqueCloudflareMode = value.masqueCloudflareMode,
-                localSocksHost = value.localSocksHost,
-                localSocksPort = value.localSocksPort,
-                udpEnabled = value.udpEnabled,
-                tcpFallbackEnabled = value.tcpFallbackEnabled,
+                penaltyTtlHours = value.penaltyTtlHours,
+                maxHosts = value.maxHosts,
+                storePath = value.storePath,
+                networkScopeKey = value.networkScopeKey,
             )
 
         fun toModel(value: NativeWarpConfig): RipDpiWarpConfig =
@@ -987,44 +1041,6 @@ internal object RipDpiProxyJsonCodec {
                 localSocksPort = value.localSocksPort,
             )
 
-        fun toNative(value: RipDpiHostAutolearnConfig): NativeHostAutolearnConfig =
-            NativeHostAutolearnConfig(
-                enabled = value.enabled,
-                penaltyTtlHours = value.penaltyTtlHours,
-                maxHosts = value.maxHosts,
-                storePath = value.storePath,
-                networkScopeKey = value.networkScopeKey,
-            )
-
-        fun toNative(value: RipDpiRelayConfig): NativeRelayConfig =
-            NativeRelayConfig(
-                enabled = value.enabled,
-                kind = value.kind,
-                profileId = value.profileId,
-                server = value.server,
-                serverPort = value.serverPort,
-                serverName = value.serverName,
-                realityPublicKey = value.realityPublicKey,
-                realityShortId = value.realityShortId,
-                chainEntryServer = value.chainEntryServer,
-                chainEntryPort = value.chainEntryPort,
-                chainEntryServerName = value.chainEntryServerName,
-                chainEntryPublicKey = value.chainEntryPublicKey,
-                chainEntryShortId = value.chainEntryShortId,
-                chainExitServer = value.chainExitServer,
-                chainExitPort = value.chainExitPort,
-                chainExitServerName = value.chainExitServerName,
-                chainExitPublicKey = value.chainExitPublicKey,
-                chainExitShortId = value.chainExitShortId,
-                masqueUrl = value.masqueUrl,
-                masqueUseHttp2Fallback = value.masqueUseHttp2Fallback,
-                masqueCloudflareMode = value.masqueCloudflareMode,
-                localSocksHost = value.localSocksHost,
-                localSocksPort = value.localSocksPort,
-                udpEnabled = value.udpEnabled,
-                tcpFallbackEnabled = value.tcpFallbackEnabled,
-            )
-
         fun toNative(value: RipDpiWarpConfig): NativeWarpConfig =
             NativeWarpConfig(
                 enabled = value.enabled,
@@ -1061,18 +1077,6 @@ internal object RipDpiProxyJsonCodec {
                 localSocksPort = value.localSocksPort,
             )
 
-        fun toModel(value: NativeWsTunnelConfig): RipDpiWsTunnelConfig =
-            RipDpiWsTunnelConfig(
-                enabled = value.enabled,
-                mode = value.mode,
-            )
-
-        fun toNative(value: RipDpiWsTunnelConfig): NativeWsTunnelConfig =
-            NativeWsTunnelConfig(
-                enabled = value.enabled,
-                mode = value.mode,
-            )
-
         fun toModel(value: NativeProxyConfig.Ui): RipDpiProxyUIPreferences =
             RipDpiProxyUIPreferences(
                 listen = ConfigSectionCodec.toModel(value.listen),
@@ -1083,10 +1087,10 @@ internal object RipDpiProxyJsonCodec {
                 adaptiveFallback = AdaptiveCodec.toModel(value.adaptiveFallback),
                 quic = toModel(value.quic),
                 hosts = toModel(value.hosts),
-                relay = toModel(value.upstreamRelay),
+                relay = RelayCodec.toModel(value.upstreamRelay),
                 warp = toModel(value.warp),
                 hostAutolearn = toModel(value.hostAutolearn),
-                wsTunnel = toModel(value.wsTunnel),
+                wsTunnel = WsTunnelCodec.toModel(value.wsTunnel),
                 nativeLogLevel = value.nativeLogLevel,
                 runtimeContext = ProxyRuntimeContextCodec.toModel(value.runtimeContext),
                 logContext = ProxyLogContextCodec.toModel(value.logContext),
