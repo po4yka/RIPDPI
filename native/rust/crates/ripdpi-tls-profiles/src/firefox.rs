@@ -14,6 +14,7 @@ pub const FIREFOX_LATEST: ProfileConfig = ProfileConfig {
               rsa_pkcs1_sha256:rsa_pkcs1_sha384:rsa_pkcs1_sha512",
     alpn: &[b"h2", b"http/1.1"],
     grease_enabled: false,
+    permute_extensions: false,
     min_version: SslVersion::TLS1_2,
     max_version: SslVersion::TLS1_3,
 };

@@ -4,35 +4,78 @@ use std::task::{Context, Poll};
 
 use tokio::io::{AsyncRead, AsyncWrite, ReadBuf};
 
-/// Threshold in bytes after which the inner TLS handshake is considered done.
-/// The vision filter monitors the first ~16KB of outbound data for TLS record
-/// boundaries. After this threshold, it switches to zero-copy pass-through mode.
-const HANDSHAKE_THRESHOLD: usize = 16_384;
+const TLS_RECORD_HEADER_LEN: usize = 5;
+const TLS_HANDSHAKE: u8 = 0x16;
+const TLS_APPLICATION_DATA: u8 = 0x17;
+const TLS_MAJOR_VERSION: u8 = 0x03;
 
 /// xtls-rprx-vision flow filter.
 ///
-/// Wraps an inner stream and tracks whether the initial TLS-in-TLS handshake has
-/// completed. Once the handshake threshold is reached, all further I/O is passed
-/// through without inspection.
-///
-/// This prevents the distinctive pattern of encrypted data inside encrypted data
-/// that DPI systems use to detect tunneled TLS connections.
+/// Monitors the write stream for the transition from inner TLS Handshake records
+/// (type 0x16) to Application Data records (type 0x17), which signals that the
+/// inner TLS handshake is complete. After that transition, switches to zero-copy
+/// pass-through mode.
 pub struct VisionStream<S> {
     inner: S,
     handshake_done: bool,
-    bytes_sent: usize,
+    /// Partial TLS record header buffer (up to 5 bytes) for boundary detection.
+    header_buf: [u8; TLS_RECORD_HEADER_LEN],
+    header_buf_len: usize,
+    saw_handshake: bool,
 }
 
 impl<S> VisionStream<S> {
-    /// Wrap a stream with the vision flow filter.
     pub fn new(inner: S) -> Self {
-        Self { inner, handshake_done: false, bytes_sent: 0 }
+        Self {
+            inner,
+            handshake_done: false,
+            header_buf: [0u8; TLS_RECORD_HEADER_LEN],
+            header_buf_len: 0,
+            saw_handshake: false,
+        }
+    }
+
+    /// Check a slice of data for TLS record headers.
+    /// Returns `true` if we should now switch to pass-through mode.
+    fn check_tls_records(&mut self, buf: &[u8]) -> bool {
+        let mut pos = 0;
+
+        // First drain any partial header we've been accumulating
+        while pos < buf.len() {
+            if self.header_buf_len < TLS_RECORD_HEADER_LEN {
+                self.header_buf[self.header_buf_len] = buf[pos];
+                self.header_buf_len += 1;
+                pos += 1;
+            }
+
+            if self.header_buf_len == TLS_RECORD_HEADER_LEN {
+                let content_type = self.header_buf[0];
+                let major = self.header_buf[1];
+                if major == TLS_MAJOR_VERSION {
+                    if content_type == TLS_HANDSHAKE {
+                        self.saw_handshake = true;
+                        // Skip past this record's payload
+                        let record_len = u16::from_be_bytes([self.header_buf[3], self.header_buf[4]]) as usize;
+                        pos = pos.saturating_add(record_len);
+                    } else if content_type == TLS_APPLICATION_DATA && self.saw_handshake {
+                        // Transition: inner handshake done
+                        return true;
+                    }
+                }
+                // Reset header buffer for next record
+                self.header_buf_len = 0;
+                self.header_buf = [0u8; TLS_RECORD_HEADER_LEN];
+            } else {
+                // Need more bytes to complete the header
+                break;
+            }
+        }
+        false
     }
 }
 
 impl<S: AsyncRead + Unpin> AsyncRead for VisionStream<S> {
     fn poll_read(self: Pin<&mut Self>, cx: &mut Context<'_>, buf: &mut ReadBuf<'_>) -> Poll<io::Result<()>> {
-        // Reads are always passed through -- vision only inspects writes.
         Pin::new(&mut self.get_mut().inner).poll_read(cx, buf)
     }
 }
@@ -42,12 +85,10 @@ impl<S: AsyncWrite + Unpin> AsyncWrite for VisionStream<S> {
         let this = self.get_mut();
 
         if !this.handshake_done {
-            this.bytes_sent += buf.len();
-            if this.bytes_sent >= HANDSHAKE_THRESHOLD {
+            if this.check_tls_records(buf) {
                 this.handshake_done = true;
                 tracing::trace!(
-                    bytes_sent = this.bytes_sent,
-                    "vision: inner TLS handshake threshold reached, switching to pass-through"
+                    "vision: inner TLS handshake complete (Application Data detected), switching to pass-through"
                 );
             }
         }

@@ -13,6 +13,7 @@ pub struct ProfileConfig {
     pub sigalgs: &'static str,
     pub alpn: &'static [&'static [u8]],
     pub grease_enabled: bool,
+    pub permute_extensions: bool,
     pub min_version: SslVersion,
     pub max_version: SslVersion,
 }

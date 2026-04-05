@@ -21,14 +21,8 @@ pub fn apply_profile(builder: &mut SslConnectorBuilder, config: &ProfileConfig) 
     }
     builder.set_alpn_protos(&alpn_wire)?;
 
-    if config.grease_enabled {
-        // SAFETY: `builder.as_ptr()` returns a valid `*mut SSL_CTX` owned by the
-        // builder (via Deref to SslContextBuilder). `SSL_CTX_set_grease_enabled`
-        // is a simple flag setter with no ownership transfer or memory allocation.
-        unsafe {
-            boring_sys::SSL_CTX_set_grease_enabled(builder.as_ptr(), 1);
-        }
-    }
+    builder.set_grease_enabled(config.grease_enabled);
+    builder.set_permute_extensions(config.permute_extensions);
 
     Ok(())
 }

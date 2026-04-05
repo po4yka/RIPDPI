@@ -33,12 +33,6 @@ pub fn build_connector(profile: &str, verify: bool) -> Result<SslConnector, Erro
     Ok(builder.build())
 }
 
-/// Returns a finalized `SslConnector` suitable for `tokio-boring` async connections.
-/// (Same as `build_connector` but named distinctly for clarity at call sites.)
-pub fn build_async_connector(profile: &str, verify: bool) -> Result<SslConnector, Error> {
-    build_connector(profile, verify)
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -6,7 +6,6 @@ license.workspace = true
 
 [dependencies]
 boring = { workspace = true }
-boring-sys = { version = "5", default-features = false }
 tokio-boring = { workspace = true }
 tracing = { workspace = true }
 thiserror = { workspace = true }

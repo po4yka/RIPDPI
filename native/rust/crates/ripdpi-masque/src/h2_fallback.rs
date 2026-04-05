@@ -41,7 +41,7 @@ pub async fn h2_connect_tcp(config: &MasqueConfig, target: &str) -> io::Result<i
     tcp.set_nodelay(true)?;
 
     // TLS with ALPN h2 via BoringSSL profile-aware connector
-    let connector = ripdpi_tls_profiles::build_async_connector("chrome_stable", true)
+    let connector = ripdpi_tls_profiles::build_connector("chrome_stable", true)
         .map_err(|e| io::Error::new(io::ErrorKind::Other, format!("TLS profile: {e}")))?;
     let config_ssl =
         connector.configure().map_err(|e| io::Error::new(io::ErrorKind::Other, format!("TLS configure: {e}")))?;

@@ -3265,7 +3265,6 @@ name = "ripdpi-tls-profiles"
 version = "0.1.0"
 dependencies = [
  "boring",
- "boring-sys",
  "rcgen",
  "thiserror 2.0.18",
  "tokio",
@@ -3354,6 +3353,7 @@ dependencies = [
  "aes",
  "base64 0.22.1",
  "boring",
+ "foreign-types-shared",
  "hex",
  "ring",
  "ripdpi-tls-profiles",
