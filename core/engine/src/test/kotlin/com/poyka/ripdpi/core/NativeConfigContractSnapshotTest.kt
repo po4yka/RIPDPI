@@ -576,6 +576,7 @@ class NativeConfigContractSnapshotTest {
             put("hosts", hosts)
             put("hostAutolearn", hostAutolearn)
             put("wsTunnel", wsTunnel)
+            put("rootMode", JsonPrimitive(false))
             put("logContext", JsonNull)
             put("runtimeContext", JsonNull)
         }

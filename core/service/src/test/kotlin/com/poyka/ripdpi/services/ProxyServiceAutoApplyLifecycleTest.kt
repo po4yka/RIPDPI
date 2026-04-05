@@ -174,6 +174,7 @@ class ProxyServiceAutoApplyLifecycleTest {
                 networkDnsPathPreferenceStore = TestNetworkDnsPathPreferenceStore(),
                 rememberedNetworkPolicyStore = rememberedPolicies,
                 startupDnsProbe = VpnStartupDnsProbe(),
+                rootHelperManager = RootHelperManager(),
             )
         val coordinator =
             ProxyServiceRuntimeCoordinator(
