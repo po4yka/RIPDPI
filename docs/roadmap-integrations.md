@@ -1,6 +1,6 @@
 # Integrations and Techniques Roadmap
 
-Prioritized list of integrations and path optimization techniques for RIPDPI, based on research across the Zapret community, NTC forums, GitHub projects, Cloudflare documentation, and academic papers (April 2025 -- June 2025 intelligence window).
+Prioritized list of integrations and path optimization techniques for RIPDPI, based on deep research across the Zapret community, NTC forums, GitHub projects, Cloudflare documentation, protocol specifications, and academic papers (April -- June 2025 intelligence window).
 
 ## Current Threat Landscape
 
@@ -8,11 +8,12 @@ Russian middlebox (technical censorship infrastructure) capabilities as of mid-2
 
 - Full TCP reassembly (basic fragmentation alone no longer sufficient)
 - TLS ClientHello inspection with SNI extraction across fragments
-- WireGuard protocol fingerprinting and active blocking
-- ECH (Encrypted Client Hello) blocking for Cloudflare SNI since November 2024
+- WireGuard protocol fingerprinting and active blocking (fixed 4-byte type headers + predictable sizes 148/92/64)
+- ECH (Encrypted Client Hello) blocking for Cloudflare SNI since November 2024 (triggers on SNI=`cloudflare-ech.com` + ECH extension combo; silent packet drop)
 - Volume-based throttling: connections exceeding 15--20 KB to foreign IPs frozen (not RST, silent drop)
 - Emerging **whitelist mode** on some mobile networks: only approved IPs/domains reachable
-- ML-based traffic classification by statistical properties (packet timing, sizes, entropy)
+- ML-based traffic classification: Random Forest and CNN models trained on flow features (packet size distributions, inter-arrival timing, byte entropy ~7.99 bits/byte for encrypted traffic, TLS record size distributions, upload/download packet count asymmetry)
+- JA4+ TLS fingerprinting at Cloudflare, AWS, and VirusTotal (sorts extensions alphabetically, includes ALPN and SNI, distinguishes TCP vs QUIC)
 
 ### What RIPDPI Already Implements
 
@@ -28,50 +29,160 @@ The primary gap is **tunnel/proxy protocol support** for when desync alone is in
 
 Embed a WireGuard tunnel to Cloudflare WARP endpoints as an alternative upstream path alongside the existing SOCKS5 proxy.
 
-**Registration flow:**
-1. Generate WireGuard keypair locally
-2. POST public key to `https://api.cloudflareclient.com/v0a737/reg`
-3. Receive peer public key, endpoint address, assigned IPv4/IPv6
-4. Configure WireGuard tunnel with assigned parameters
+#### Registration API
 
-**Endpoint:** `engage.cloudflareclient.com:2408` (UDP, standard WireGuard Noise_IK handshake)
+**Base URL:** `https://api.cloudflareclient.com/v0a4005/reg` (version varies: `v0a1922` in wgcf, `v0a4005` in warp-plus)
 
-**Architecture options:**
-- **VPN mode**: VpnService TUN fd -> tun2socks -> SOCKS5 proxy -> WireGuard tunnel -> WARP
-- **Hybrid mode**: RIPDPI desync for domestic sites + WARP tunnel for fully blocked sites with rule-based routing
-- **Proxy mode**: WireGuard tunnel exposed as local SOCKS5 upstream (no VpnService claim)
+**Required headers:**
+```
+User-Agent: okhttp/3.12.1
+CF-Client-Version: a-6.30-3596
+Content-Type: application/json; charset=UTF-8
+```
 
-**Critical detail:** `api.cloudflareclient.com` is DPI-blocked nationwide. RIPDPI must apply its own desync to the registration request. The existing `multidisorder --split-pos=2` technique works for this.
+**TLS requirement:** The API enforces TLS 1.2 exactly (`MinVersion: tls.VersionTLS12`, `MaxVersion: tls.VersionTLS12`). Mismatched TLS versions return 403/error 1020. The `warp-plus` project uses `refraction-networking/utls` with a custom `SNICurve` extension (0x15, 1200 bytes padding) to bypass Cloudflare CDN fingerprinting.
 
-**Reference projects:** wgcf (Go, registration API), wireproxy (Go, WG-as-SOCKS5), oblivion-android (Java/Go, full Android WARP client), WG Tunnel (Kotlin/Go, Android WireGuard + AmneziaWG)
+**Registration request (`POST /reg`):**
+```json
+{
+  "install_id": "",
+  "fcm_token": "",
+  "tos": "2026-04-05T12:00:00.000Z",
+  "key": "<base64 WireGuard public key>",
+  "type": "Android",
+  "model": "PC",
+  "locale": "en_US",
+  "warp_enabled": true
+}
+```
+
+**Registration response (full schema):**
+```json
+{
+  "id": "<device UUID>",
+  "token": "<bearer auth token for subsequent calls>",
+  "account": {
+    "id": "<account UUID>",
+    "account_type": "free",
+    "warp_plus": false,
+    "premium_data": 0,
+    "quota": 0,
+    "license": "<license key>"
+  },
+  "config": {
+    "client_id": "<base64 3-byte client ID>",
+    "interface": {
+      "addresses": {
+        "v4": "172.16.0.2/32",
+        "v6": "2606:4700:110:8a36::2/128"
+      }
+    },
+    "peers": [{
+      "public_key": "<Cloudflare WG peer public key>",
+      "endpoint": {
+        "host": "engage.cloudflareclient.com:2408",
+        "v4": "162.159.192.1",
+        "v6": "2606:4700:d0::a29f:c001"
+      }
+    }]
+  }
+}
+```
+
+The `config.client_id` (3 bytes, base64) maps to WireGuard's `Reserved` field: `peer.Reserved = [3]byte{clientID[0], clientID[1], clientID[2]}`. MTU is 1330 (single hop) or 1280 (WARP-in-WARP mode).
+
+#### WARP Endpoint IP Ranges
+
+**IPv4 prefixes:** `162.159.192.0/24`, `162.159.195.0/24`, `188.114.96.0/24`, `188.114.97.0/24`, `188.114.98.0/24`, `188.114.99.0/24`
+
+**IPv6 prefixes:** `2606:4700:d0::/64`, `2606:4700:d1::/64`
+
+**Valid UDP ports (54 total):**
+```
+500, 854, 859, 864, 878, 880, 890, 891, 894, 903, 908, 928, 934, 939,
+942, 943, 945, 946, 955, 968, 987, 988, 1002, 1010, 1014, 1018, 1070,
+1074, 1180, 1387, 1701, 1843, 2371, 2408, 2506, 3138, 3476, 3581,
+3854, 4177, 4198, 4233, 4500, 5279, 5956, 7103, 7152, 7156, 7281,
+7559, 8319, 8742, 8854, 8886
+```
+
+#### Architecture Options
+
+**Pattern A -- VPN mode (oblivion-android model):**
+```
+Android VpnService -> TUN fd -> tun2socks/LWIP -> SOCKS5 -> netstack -> WireGuard -> WARP
+```
+oblivion-android uses: `xjasonlyu/tun2socks/v2` + `golang.zx2c4.com/wireguard` + `gvisor.dev/gvisor/netstack`. VPN config: MTU 1500, IPv4 `172.19.0.1/30`, IPv6 `fdfe:dcba:9876::1/126`, DNS `1.1.1.1`. App excluded via `addDisallowedApplication()`.
+
+**Pattern B -- Proxy mode (wireproxy model):**
+```
+RIPDPI SOCKS5 proxy -> wireproxy SOCKS5 -> netstack virtual TUN -> WireGuard -> WARP
+```
+wireproxy uses `wireguard/tun/netstack` (gVisor netstack) to create a virtual network interface entirely in userspace. No kernel TUN, no root, no VpnService claim. SOCKS5 server dials through `Tnet.DialContext()` which routes TCP through the WireGuard tunnel.
+
+**Pattern C -- Hybrid mode:** RIPDPI desync for domestic sites + WARP tunnel for fully blocked sites with rule-based routing based on hostlists or diagnostics probe results.
+
+**Critical detail:** `api.cloudflareclient.com` is DPI-blocked nationwide. RIPDPI must apply its own desync (`multidisorder --split-pos=2`) to the registration request.
+
+**Reference projects:** [wgcf](https://github.com/ViRb3/wgcf) (Go, registration API), [warp-plus](https://github.com/bepass-org/warp-plus) (Go, full WARP with endpoint scanning), [wireproxy](https://github.com/pufferffish/wireproxy) (Go, WG-as-SOCKS5), [oblivion](https://github.com/bepass-org/oblivion) (Java/Go, Android WARP), [WG Tunnel](https://github.com/wgtunnel/wgtunnel) (Kotlin/Go, Android WG + AmneziaWG)
 
 **Root required:** No | **Effort:** High
+
+---
 
 ### 2. AmneziaWG Obfuscation Layer
 
 Add AmneziaWG parameters on top of the WARP WireGuard tunnel to defeat WireGuard protocol fingerprinting.
 
-Standard WireGuard is trivially detected by DPI: fixed 4-byte type headers (bytes 1--4), predictable packet sizes (148/92/64 bytes). AmneziaWG defeats this with:
+#### Obfuscation Parameters (UAPI)
 
-| Parameter | Purpose | Typical Values |
-|-----------|---------|----------------|
-| **Jc** | Junk packets before handshake | 3--10 |
-| **Jmin** | Minimum junk packet size | 50--64 bytes |
-| **Jmax** | Maximum junk packet size | 1000--1024 bytes |
-| **H1--H4** | Random message type headers (replace fixed bytes 1--4) | H1: 100K--800K, H2: 1M--8M, H3: 10M--80M, H4: 100M--800M |
-| **S1--S4** | Random padding per packet type | 0--64 bytes |
+| UAPI Key | Purpose | Typical Values |
+|----------|---------|----------------|
+| `jc` | Number of junk packets before handshake | 3--10 |
+| `jmin` | Minimum junk packet size (bytes) | 50--64 |
+| `jmax` | Maximum junk packet size (bytes) | 1000--1024 |
+| `h1` | Header range for Init packets (replaces byte `1`) | `100000-800000` |
+| `h2` | Header range for Response packets (replaces byte `2`) | `1000000-8000000` |
+| `h3` | Header range for Cookie packets (replaces byte `3`) | `10000000-80000000` |
+| `h4` | Header range for Transport packets (replaces byte `4`) | `100000000-800000000` |
+| `s1` | Padding bytes prepended to Init (148B base) | 0--64 |
+| `s2` | Padding bytes prepended to Response (92B base) | 0--64 |
+| `s3` | Padding bytes prepended to Cookie (64B base) | 0--64 |
+| `s4` | Padding bytes prepended to Transport data | 0--32 |
 
-**Constraint:** S1+56 must not equal S2 (avoids recreating original size relationship).
+**Constraint:** `S1 + 56 != S2` (avoids recreating original size relationship). H1--H4 ranges must not overlap.
 
-A standard WireGuard server works with an AmneziaWG client when only Jc/Jmin/Jmax are set (junk packets are ignored by the server).
+#### Header Replacement -- Byte Level
 
-**Reference:** amnezia-vpn/amneziawg-go (Go), AmneziaWG 2.0 spec
+On send: standard type byte (1--4) replaced with crypto-random uint32 in `[start, end]`. Random padding prepended before the actual WireGuard packet. On receive: `DeterminePacketTypeAndPadding()` reads uint32 at offset `padding`, validates against header ranges, identifies type by both header match AND expected size (Init: pad+148, Response: pad+92, Cookie: pad+64, Transport: pad+16+).
 
-**Root required:** No | **Effort:** Medium (extends WARP integration)
+#### Junk Packets
+
+Each junk packet: `rand(jmin, jmax)` bytes of `crypto/rand` data. No headers, no structure -- pure entropy. Sent as individual UDP datagrams before handshake. Receivers discard (fail all header validation). Performance overhead: ~3--7%.
+
+#### CPS Decoy Packets (AmneziaWG 2.0, I1--I5)
+
+Up to 5 decoy UDP packets before handshake using a template language:
+
+| Tag | Output |
+|-----|--------|
+| `<b 0xHEX>` | Fixed hex bytes |
+| `<r N>` | N random bytes |
+| `<rc N>` | N random ASCII letters `[a-zA-Z]` |
+| `<rd N>` | N random digit chars `[0-9]` |
+| `<t>` | 4-byte UNIX timestamp |
+
+Example: `i1 = <b 0xc700000001><rc 8><t><r 50>` produces 67-byte datagram mimicking QUIC Initial.
+
+**Reference:** [amneziawg-go](https://github.com/amnezia-vpn/amneziawg-go), [AmneziaWG 2.0 spec](https://docs.amnezia.org/documentation/amnezia-wg/)
+
+**Root required:** No | **Effort:** Medium
+
+---
 
 ### 3. WARP Domain Hostlist for DPI Desync
 
-Built-in hostlist for Cloudflare WARP domains that require DPI desync to unblock registration and connectivity:
+Built-in hostlist for Cloudflare WARP domains requiring DPI desync:
 
 ```
 api.cloudflareclient.com
@@ -83,13 +194,17 @@ pkg.cloudflareclient.com
 consumer-masque.cloudflareclient.com
 ```
 
+`api.cloudflareclient.com` TCP is consistently blocked during registration. Some regions also block `engage.cloudflareclient.com:2408`. Zero Trust needs all seven; standard WARP needs at minimum the first two.
+
 **Root required:** No | **Effort:** Low
+
+---
 
 ### 4. WARP Endpoint Scanner
 
-Built-in scanner to find working WARP endpoints per-network. Test connectivity to Cloudflare IP ranges with latency measurement. Mobile endpoints differ from WiFi -- per-network endpoint discovery is essential.
+Built-in scanner using actual WireGuard handshake probes (not just ICMP/TCP). Tests random `(IP, port)` pairs from 6 IPv4 prefixes x 54 ports. Measures RTT with 5000ms timeout, 200 iterations, 10 parallel threads. Returns sorted by latency, filtering under 1500ms.
 
-**Integration point:** RIPDPI's existing diagnostics infrastructure (strategy probe pipeline).
+Mobile vs WiFi endpoints differ (different ISP routing, different middlebox rules). Integrates with RIPDPI's per-network policy memory and network handover detection.
 
 **Root required:** No | **Effort:** Medium
 
@@ -99,51 +214,82 @@ Built-in scanner to find working WARP endpoints per-network. Test connectivity t
 
 ### 5. Auto-Strategy with Trigger-Based Fallback
 
-ByeDPI's `-A <trigger>` model: automatically cycle through strategy groups when connections fail during normal operation (not just diagnostics).
+ByeDPI's `-A <trigger>` model for real-time adaptive fallback during normal proxy operation.
 
-**Triggers:**
-- `torst` -- timeout or TCP RST received
-- `redirect` -- HTTP redirect to block page
-- `ssl_err` -- TLS handshake error
-- `none` -- unconditional
+#### Trigger System (from ByeDPI `extend.c`)
 
-Cache successful strategies per-destination with configurable TTL (default 28 hours). RIPDPI already has per-network policy memory; this adds real-time adaptive fallback within a single session.
+| Flag | Trigger | Detection Method |
+|------|---------|-----------------|
+| `DETECT_TORST` (8) | Timeout or RST | `ECONNRESET`, `ECONNREFUSED`, `ETIMEDOUT`; consecutive timeout count |
+| `DETECT_TLS_ERR` (2) | TLS failure | FIN during first round on TLS; non-ServerHello response; session ID mismatch |
+| `DETECT_HTTP_LOCAT` (1) | Block page redirect | HTTP 300--308 with `Location:` to different SLD |
+| `DETECT_CONNECT` (16) | TCP connect failure | `ECONNREFUSED`, `ETIMEDOUT`, `EHOSTUNREACH` |
+
+#### Strategy Cache
+
+Keyed by **IP + port** (KAVL tree). Supports **subnet-level matching** via configurable prefix bits (`params.cache_pre`). Cache entry: `dp_mask` (bitmask of tried groups), current group, last detection type, timestamp. Configurable TTL.
+
+#### Fallback Logic
+
+1. Mark current group as tried in `dp_mask`
+2. Walk linked list of groups: skip tried ones, skip non-matching trigger types
+3. If `AUTO_SORT`: promote successful strategies by reordering the list
+4. Update cache, reconnect if allowed
+5. No matching group: reset cache, drop connection
+
+**RIPDPI integration:** Extends existing per-network policy memory with real-time per-destination rotation.
 
 **Root required:** No | **Effort:** Medium
 
+---
+
 ### 6. HTTP Header Manipulation Steps
 
-Add chain steps for HTTP-layer evasion:
+Exact byte-level changes for HTTP-layer evasion:
 
-| Step | Description |
-|------|-------------|
-| `hostcase` | Lowercase `Host:` header (`Host:` -> `host:`) |
-| `domcase` | Randomize domain case (`TeSt.cOm`) |
-| `methodspace` | Add whitespace after HTTP method |
-| `methodeol` | Prepend newline before method line |
-| `hostremovespace` | Remove spaces around Host value |
+| Step | Before | After | Byte Change |
+|------|--------|-------|-------------|
+| `hostcase` | `Host: example.com` | `host: example.com` | 0x48 -> 0x68 |
+| `domcase` | `Host: test.com` | `Host: TeSt.cOm` | Even positions uppercased |
+| `methodspace` | `GET / HTTP/1.1` | `GET  / HTTP/1.1` | Extra space/tab after method |
+| `methodeol` | `GET / HTTP/1.1\r\n` | `\nGET / HTTP/1.1\r\n` | 0x0A prepended |
+| `hostnospace` | `Host: example.com` | `Host:example.com` | Remove 0x20 after colon |
+| `unixeol` | `...\r\n` | `...\n` | Remove 0x0D |
+| `hostpad` | `Host: ...` | `X-Pad: <N bytes>\r\nHost: ...` | Dummy headers before Host |
 
-Complements TLS-level desync for plaintext HTTP sites still in use by some blocked resources.
+Works because middlebox uses simplified HTTP parsers; real servers tolerate RFC 7230 deviations.
 
 **Root required:** No | **Effort:** Low
+
+---
 
 ### 7. SYN Data (TCP Fast Open Style)
 
-Embed payload data in the SYN packet itself using `TCP_FASTOPEN_CONNECT` socket option. Forces DPI to parse data from the first packet rather than waiting for the 3-way handshake.
+```c
+setsockopt(fd, IPPROTO_TCP, TCP_FASTOPEN_CONNECT, &1, sizeof(int));
+connect(fd, addr, addrlen);  // SYN carries TFO cookie
+send(fd, data, len, 0);      // data piggybacked on SYN
+```
+
+**Android support:** Requires kernel 4.11+ (`TCP_FASTOPEN_CONNECT`). Android 10+ (kernel 4.14+) = yes. Most ROMs ship with TFO enabled. Some Russian ISPs (Rostelecom, MTS) RST SYN+data packets. Implement as optional with automatic fallback.
 
 **Root required:** No | **Effort:** Low
 
+---
+
 ### 8. IPv6 Extension Header Injection
 
-Inject hop-by-hop options, destination options, or routing headers into IPv6 packets:
+#### Packet Format
 
-- `hopbyhop` -- single hop-by-hop extension header
-- `hopbyhop2` -- two hop-by-hop headers (violates RFC, triggers intermediate drops while DPI processes them)
-- `destopt` -- destination options header
+**Single hop-by-hop (`hopbyhop`):** Insert 8-byte extension header (Next Header = original, Hdr Ext Len = 0, 6 bytes padding). IPv6 Next Header = 0x00 (IPPROTO_HOPOPTS). Total added: 8 bytes.
 
-Effective on IPv6 networks where middlebox processes extension headers before dropping. Complementary to existing IPv6 fragmentation support in `ripdpi-ipfrag`.
+**Double hop-by-hop (`hopbyhop2`):** Two 8-byte HBH headers chained (1st -> 2nd -> TCP). Violates RFC 8200 Section 4.1. Conforming OS kernels discard. Ideal as **fake packets**: DPI processes them (poisoning state), destination drops them. Total added: 16 bytes.
 
-**Root required:** VPN mode (raw IP packet access through TUN) | **Effort:** Medium
+**Destination options (`destopt`):** Same as HBH but Next Header = 0x3C (IPPROTO_DSTOPTS). Combinable: `IPv6 -> HBH -> DSTOPT -> TCP`.
+
+**Android VPN TUN:** Full control over IP packets -- can insert extension headers before writing to TUN fd.
+
+**Root required:** VPN mode | **Effort:** Medium
 
 ---
 
@@ -151,56 +297,80 @@ Effective on IPv6 networks where middlebox processes extension headers before dr
 
 ### 9. VLESS + Reality Client
 
-Implement VLESS protocol with Reality transport as an upstream proxy option.
+#### VLESS Wire Format
 
-**Why Reality works:** It does not use self-signed certificates. Instead, it impersonates a real website (e.g., `microsoft.com`, `amazon.com`) using genuine TLS certificates obtained by proxying the TLS handshake to the real site. Only clients with the correct `shortID` and private key complete the handshake. To any observer (including middlebox), the server IS the target website. Detection rate under 5% with proper configuration.
+**Request:** `Version(1B) | UUID(16B) | AddonsLen(1B) | Addons(PB) | Cmd(1B) | Port(2B) | AddrType(1B) | Addr(var)`
 
-**Architecture:** RIPDPI SOCKS5 proxy -> VLESS+Reality upstream -> user's server -> internet
+- Version: `0x01`. UUID: sole auth token. Cmd: `0x01`=TCP, `0x02`=UDP. AddrType: `0x01`=IPv4, `0x02`=Domain, `0x03`=IPv6.
+- Addons: ProtoBuf-encoded `Flow="xtls-rprx-vision"` (prevents TLS-in-TLS detection).
+- Response: `Version(1B) | AddonsLen(1B) | Addons`. Then raw bidirectional data. Zero encryption -- transport handles it.
 
-**Why this matters:** When middlebox switches to whitelist mode, DPI desync fails entirely. VLESS+Reality through a domestic relay is the NTC community's #1 recommendation for 2025--2026.
+#### Reality TLS Mechanism
 
-**Reference:** sing-box (Go, full protocol implementation), v2rayNG (Android reference client)
+Server configured with `dest` (mask site, e.g., `www.microsoft.com`). Handshake:
+
+1. Client embeds auth in ClientHello `session_id`: `[version(3B)][reserved(1B)][timestamp(4B)][shortID(8-16B)]`
+2. Key derivation: `ECDH(client_private, server_public)` -> `HKDF-SHA256(shared_secret, ClientHello.random[20:], "REALITY")` -> AES-GCM encrypt first 16 bytes of SessionID
+3. Non-Reality clients (censors probing): server transparently proxies to real `dest` -- perfect camouflage
+4. Authenticated clients: temp ed25519 cert, verified via `HMAC-SHA512(auth_key, pubkey)`
+
+Detection rate under 5%. **Rust implementation:** [shoes](https://github.com/cfal/shoes) crate (VLESS + Reality + Hysteria2 + TUIC).
+
+**Min config:** `server`, `server_port`, `uuid`, `tls.reality.public_key`, `tls.reality.short_id`, `tls.server_name`
 
 **Root required:** No | **Effort:** High
+
+---
 
 ### 10. Hysteria2 with Salamander
 
-Implement Hysteria2 as a QUIC-based upstream tunnel option.
+#### Auth Flow (over QUIC)
 
-**Key features:**
-- Masquerades as standard HTTP/3 server
-- Authentication via HTTP POST; failed auth serves a real website (defeats active probing)
-- **Salamander obfuscation**: per-packet 8-byte random salt + BLAKE2b-256 hash XOR on payload
-- Uses QUIC unreliable datagrams for UDP proxying with built-in fragmentation
-- Currently working in Russia (confirmed mid-2025)
+Client HTTP/3 POST to `/auth` with `Hysteria-Auth: <password>`. Server returns status **233** on success (anything else = failure + serves real web page to defeat probing).
+
+#### Wire Formats
+
+**TCP:** Per-stream: `RequestID(varint=0x401) | AddrLen | Addr | PadLen | Pad` -> `Status(u8) | MsgLen | Msg | PadLen | Pad` -> raw data.
+
+**UDP (QUIC datagrams):** `SessionID(u32) | PacketID(u16) | FragID(u8) | FragCount(u8) | AddrLen | Addr | Payload`. Built-in fragmentation for oversized packets.
+
+#### Salamander Obfuscation
+
+```
+Wire: [Salt (8B)] [Obfuscated (NB)]
+hash = BLAKE2b-256(key || salt)
+obfuscated[i] = payload[i] XOR hash[i % 32]
+```
+
+Every packet appears as random bytes. No discernible QUIC headers. Confirmed working in Russia mid-2025.
+
+**Reference:** [Hysteria2 spec](https://v2.hysteria.network/docs/developers/Protocol/), [hysteria](https://github.com/apernet/hysteria)
 
 **Root required:** No | **Effort:** High
 
+---
+
 ### 11. Chain Relay Support
 
-Route traffic through a domestic relay before reaching the foreign proxy server.
-
 ```
-App -> domestic VPS (Russian IP) -> foreign VPS -> internet
+Client -> Russian VPS (Yandex.Cloud/VK Cloud) -> Foreign VPS -> Internet
 ```
 
-middlebox applies less scrutiny to domestic traffic. When whitelist mode is active on mobile networks, a domestic relay on an approved IP is the only escape path.
-
-**Implementation:** Multi-hop proxy chaining in the SOCKS5 upstream path. Could chain with any upstream protocol (VLESS, Hysteria2, plain SOCKS5).
+middlebox freezes sessions >15-20KB on international links but is lenient toward domestic traffic. Protocol per hop: VLESS+Reality on both. VLESS `xtls-rprx-vision` splices inner TLS, reducing double-encryption overhead to near-zero. Dominant cost is added RTT.
 
 **Root required:** No | **Effort:** Medium
 
+---
+
 ### 12. MASQUE Protocol (HTTP/3 + TCP Fallback)
 
-Implement Cloudflare's MASQUE (Connect-IP over QUIC/HTTP3) as the primary tunnel protocol to WARP.
+RFC 9484 Connect-IP over QUIC. Extended CONNECT with `:protocol = connect-ip`. IP packets encapsulated in QUIC datagrams: `[QuarterStreamID][ContextID][IPPacket]`.
 
-**Why:** MASQUE runs on port 443, blending with normal HTTPS/HTTP3 traffic. Cloudflare's WARP client v2025.4 added automatic HTTP/2 TCP fallback when UDP is blocked.
+Cloudflare uses `cf-connect-ip` variant with ECDSA P-256 auth. Port 443 (blends with HTTPS). HTTP/2 TCP fallback when UDP blocked (WARP v2025.4): IP packets in HTTP/2 stream frames, head-of-line blocking but connectivity maintained.
 
-**Note:** Cloudflare's implementation uses `cf-connect-ip` instead of standard RFC 9484 `connect-ip`.
+**Reference:** [usque](https://github.com/Diniboy1123/usque), [connect-ip-go](https://github.com/quic-go/connect-ip-go)
 
-**Reference:** usque (Go, open-source MASQUE reimplementation using quic-go)
-
-**Root required:** No | **Effort:** Very High (QUIC + HTTP/3 stack)
+**Root required:** No | **Effort:** Very High
 
 ---
 
@@ -208,42 +378,54 @@ Implement Cloudflare's MASQUE (Connect-IP over QUIC/HTTP3) as the primary tunnel
 
 ### 13. TLS Fingerprint Mimicry
 
-Construct TLS ClientHello to mimic popular browsers (Chrome, Firefox, Safari). JA4+ fingerprinting is now standard at Cloudflare and can distinguish proxy traffic from real browsers.
+JA4+ normalizes extensions into sorted order, defeating randomization.
 
-**Challenge:** rustls explicitly refuses to support ClientHello customization (issue #1932 closed as "not planned").
-
-**Options:**
-- Use BoringSSL (`boring` crate, already in RIPDPI dependencies) for customizable ClientHello
-- Manual ClientHello byte construction for the first flight only
-- Go uTLS via FFI (complex but proven, supports Chrome/Firefox/Safari mimicry)
+**Rust options:** rustls refuses customization (#1932). [craftls](https://github.com/3andne/craftls) = rustls fork with `.with_fingerprint()` (CHROME_108, FIREFOX_105 -- lags behind). `rquest` = BoringSSL-backed HTTP client with Chrome/Firefox impersonation. **BoringSSL (`boring` crate, already in RIPDPI)** = most flexible, full ClientHello control. Go uTLS via FFI = most up-to-date (Chrome 133 with ML-KEM, Firefox 148).
 
 **Root required:** No | **Effort:** High
+
+---
 
 ### 14. Adaptive Traffic Morphing
 
-Shape VPN/proxy traffic to match the user's normal browsing patterns:
-- Learn normal traffic patterns (timing, packet sizes, volume distribution)
-- Add padding to small packets to normalize size distribution
-- Introduce timing jitter to match browsing cadence
-- Cap bandwidth to avoid statistical outliers (64--128 Kbit/s for stealth mode)
-
-RIPDPI already has `EntropyMode` and adaptive infrastructure as a foundation.
-
-**Why:** Next-generation DPI uses ML classifiers that detect tunneled traffic by statistical properties, not just protocol signatures.
+Defeat ML classifiers by normalizing traffic statistics. TLS record padding (RFC 8446 Section 5.4, up to 2^14+256 bytes). Timing jitter (1--50ms Poisson-distributed). Target entropy: 7.5--7.95 bits/byte. RIPDPI foundation: `EntropyMode`, `RuntimeAdaptiveSettings`.
 
 **Root required:** No | **Effort:** High
 
+---
+
 ### 15. Updatable Strategy Packs
 
-Allow strategy configurations (desync chains, fake profiles, hostlists, endpoint lists) to be updated via downloadable packs without app updates.
+zapret2 uses Lua scripting: strategies as functions receiving `(ctx, desync)` with packet dissection + connection tracking. sing-box uses downloadable binary rule-sets with `update_interval`.
 
-**Why:** middlebox countermeasures evolve faster than app update cycles. The zapret community frequently publishes new configurations. zapret2 is exploring Lua scripting for runtime strategy definition.
+**Proposed RIPDPI format:**
+```json
+{
+  "version": 2,
+  "min_app_version": "0.0.5",
+  "strategies": [{
+    "id": "ru-tspu-tls-2026q1",
+    "tcp_chain": [
+      {"kind": "fake", "marker": "host+2", "ttl": 6},
+      {"kind": "disorder", "marker": "host+2"}
+    ],
+    "triggers": ["torst", "tls_err"]
+  }],
+  "hostlists": {"blocked": "https://example.com/lists/ru-blocked.txt"}
+}
+```
 
 **Root required:** No | **Effort:** Medium--High
 
+---
+
 ### 16. QUIC Connection Migration Exploitation
 
-Complete the QUIC handshake over a secure path (relay or CDN), then migrate to a direct connection. QUIC's connection migration changes the 4-tuple (src/dst IP:port) while maintaining the same connection ID, invisible to stateless DPI.
+QUIC connections identified by Connection IDs (encrypted in short header), not IP:port tuples. QUICstep (Princeton): handshake through proxy, data phase migrates to direct connection. Results: 84% latency reduction, 93% proxy load reduction, 12.8% of QUIC sites support migration.
+
+Additional techniques: Connection ID rotation (`NEW_CONNECTION_ID` encrypted), version negotiation (unsupported version triggers ignore), fake datagram prepend, token field tampering.
+
+**Reference:** [QUICstep paper](https://arxiv.org/html/2304.01073v2), [quic-censorship](https://github.com/kelmenhorst/quic-censorship/blob/main/evade.md)
 
 **Root required:** VPN mode | **Effort:** High
 
@@ -274,23 +456,35 @@ Complete the QUIC handshake over a secure path (relay or CDN), then migrate to a
 
 | Project | Language | Relevance |
 |---------|----------|-----------|
-| [wgcf](https://github.com/ViRb3/wgcf) | Go | WARP registration API client |
-| [wireproxy](https://github.com/windtf/wireproxy) | Go | WireGuard-as-SOCKS5 proxy |
-| [oblivion-android](https://github.com/bepass-org/oblivion) | Java/Go | Android WARP client |
+| [wgcf](https://github.com/ViRb3/wgcf) | Go | WARP registration API |
+| [warp-plus](https://github.com/bepass-org/warp-plus) | Go | Full WARP with endpoint scanning, TLS evasion |
+| [wireproxy](https://github.com/pufferffish/wireproxy) | Go | WireGuard-as-SOCKS5 via gVisor netstack |
+| [oblivion](https://github.com/bepass-org/oblivion) | Java/Go | Android WARP with VpnService + tun2socks |
 | [WG Tunnel](https://github.com/wgtunnel/wgtunnel) | Kotlin/Go | Android WireGuard + AmneziaWG |
 | [usque](https://github.com/Diniboy1123/usque) | Go | MASQUE reimplementation |
 | [amneziawg-go](https://github.com/amnezia-vpn/amneziawg-go) | Go | AmneziaWG implementation |
-| [ByeDPI](https://github.com/hufrea/byedpi) | C | DPI desync reference (auto-mode) |
-| [sing-box](https://github.com/SagerNet/sing-box) | Go | VLESS/Hysteria2/TUIC protocols |
+| [ByeDPI](https://github.com/hufrea/byedpi) | C | DPI desync (auto-mode, trigger system) |
+| [sing-box](https://github.com/SagerNet/sing-box) | Go | VLESS/Hysteria2/TUIC, rule-set system |
 | [hysteria](https://github.com/apernet/hysteria) | Go | Hysteria2 + Salamander |
+| [shoes](https://github.com/cfal/shoes) | Rust | VLESS + Reality + Hysteria2 + TUIC |
 | [uTLS](https://github.com/refraction-networking/utls) | Go | TLS fingerprint mimicry |
+| [craftls](https://github.com/3andne/craftls) | Rust | rustls fork with fingerprint API |
+| [connect-ip-go](https://github.com/quic-go/connect-ip-go) | Go | RFC 9484 Connect-IP |
 
 ## Sources
 
 - Zapret community forum (evgen-dev.ddns.net) -- Cloudflare WARP thread, 64+ posts
 - NTC party forum (ntc.party) -- bypass methods 2025--2026 discussions
 - net4people/bbs (GitHub) -- ECH blocking (#417), middlebox new methods (#490), mobile whitelists (#516)
-- Cloudflare blog -- MASQUE architecture, WARP protocol details
+- Cloudflare blog -- MASQUE architecture, WARP protocol details, Zero Trust WARP
 - USENIX Security 2025 -- QUIC censorship evasion paper
-- Habr -- adaptive traffic morphing research (March 2026)
-- zapret GitHub (bol-van/zapret) -- v72.12 changelog and documentation
+- QUICstep paper (Princeton/U. Michigan) -- QUIC connection migration exploitation
+- ByeDPI source (hufrea/byedpi) -- `extend.c`, `params.h`, `desync.c`, `mpool.h`
+- Zapret source (bol-van/zapret) -- `nfq/darkmagic.c`, `nfq/desync.c`
+- Zapret2 (bol-van/zapret2) -- Lua strategy engine
+- Hysteria2 protocol spec -- v2.hysteria.network
+- VLESS protocol spec (Project X) -- xtls.github.io
+- Reality source analysis -- objshadow.pages.dev
+- AmneziaWG 2.0 spec -- docs.amnezia.org
+- Habr -- chain relay guides, VLESS analysis, whitelist bypass techniques
+- RFC 9484 (Connect-IP), RFC 9000 (QUIC), RFC 8446 (TLS 1.3), RFC 8200 (IPv6)
