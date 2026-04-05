@@ -387,6 +387,11 @@ val rustNativePackageDirs =
         "ripdpi-ws-tunnel",
         "ripdpi-ipfrag",
         "ripdpi-root-helper",
+        "ripdpi-relay-core",
+        "ripdpi-warp-core",
+        "ripdpi-native-protect",
+        "ripdpi-vless",
+        "ripdpi-masque",
     ).map { packageName ->
         rustWorkspaceDir.resolve("crates").resolve(packageName)
     }

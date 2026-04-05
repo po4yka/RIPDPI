@@ -21,9 +21,8 @@ use crate::types::{
     ProxyConfigError, ProxyConfigPayload, ProxyLogContext, ProxyRuntimeContext, ProxyUiActivationFilter, ProxyUiConfig,
     ProxyUiNumericRange, RuntimeConfigEnvelope, ADAPTIVE_FAKE_TTL_DEFAULT_FALLBACK, FAKE_TLS_SNI_MODE_FIXED,
     FAKE_TLS_SNI_MODE_RANDOMIZED, HOSTS_BLACKLIST, HOSTS_DISABLE, HOSTS_WHITELIST, RELAY_KIND_OFF,
-    SEQOVL_DEFAULT_OVERLAP_SIZE, SEQOVL_FAKE_MODE_PROFILE, SEQOVL_FAKE_MODE_RAND,
-    TLS_RANDREC_DEFAULT_FRAGMENT_COUNT, TLS_RANDREC_DEFAULT_MAX_FRAGMENT_SIZE,
-    TLS_RANDREC_DEFAULT_MIN_FRAGMENT_SIZE, WARP_ROUTE_MODE_RULES,
+    SEQOVL_DEFAULT_OVERLAP_SIZE, SEQOVL_FAKE_MODE_PROFILE, SEQOVL_FAKE_MODE_RAND, TLS_RANDREC_DEFAULT_FRAGMENT_COUNT,
+    TLS_RANDREC_DEFAULT_MAX_FRAGMENT_SIZE, TLS_RANDREC_DEFAULT_MIN_FRAGMENT_SIZE, WARP_ROUTE_MODE_RULES,
 };
 
 const WARP_CONTROL_PLANE_HOSTS: &[&str] = &[
@@ -569,11 +568,7 @@ pub fn runtime_config_from_ui(payload: ProxyUiConfig) -> Result<RuntimeConfig, P
     }
 
     if warp.enabled && warp.route_mode == WARP_ROUTE_MODE_RULES {
-        let local_socks_ip = warp
-            .local_socks_host
-            .trim()
-            .parse::<IpAddr>()
-            .unwrap_or(IpAddr::V4(Ipv4Addr::LOCALHOST));
+        let local_socks_ip = warp.local_socks_host.trim().parse::<IpAddr>().unwrap_or(IpAddr::V4(Ipv4Addr::LOCALHOST));
         let local_socks_port = u16::try_from(warp.local_socks_port)
             .map_err(|_| ProxyConfigError::InvalidConfig("Invalid warp.localSocksPort".to_string()))?;
         if local_socks_port == 0 {
@@ -583,30 +578,22 @@ pub fn runtime_config_from_ui(payload: ProxyUiConfig) -> Result<RuntimeConfig, P
         if !route_hosts.is_empty() {
             let mut warp_group = DesyncGroup::new(groups.len());
             warp_group.matches.filters.hosts = route_hosts;
-            warp_group.policy.ext_socks = Some(UpstreamSocksConfig {
-                addr: SocketAddr::new(local_socks_ip, local_socks_port),
-            });
+            warp_group.policy.ext_socks =
+                Some(UpstreamSocksConfig { addr: SocketAddr::new(local_socks_ip, local_socks_port) });
             warp_group.policy.label = "warp_routed".to_string();
             groups.push(warp_group);
         }
     }
 
     let relay_upstream = if upstream_relay.enabled && upstream_relay.kind != RELAY_KIND_OFF {
-        let local_socks_ip = upstream_relay
-            .local_socks_host
-            .trim()
-            .parse::<IpAddr>()
-            .unwrap_or(IpAddr::V4(Ipv4Addr::LOCALHOST));
+        let local_socks_ip =
+            upstream_relay.local_socks_host.trim().parse::<IpAddr>().unwrap_or(IpAddr::V4(Ipv4Addr::LOCALHOST));
         let local_socks_port = u16::try_from(upstream_relay.local_socks_port)
             .map_err(|_| ProxyConfigError::InvalidConfig("Invalid upstreamRelay.localSocksPort".to_string()))?;
         if local_socks_port == 0 {
-            return Err(ProxyConfigError::InvalidConfig(
-                "Invalid upstreamRelay.localSocksPort".to_string(),
-            ));
+            return Err(ProxyConfigError::InvalidConfig("Invalid upstreamRelay.localSocksPort".to_string()));
         }
-        Some(UpstreamSocksConfig {
-            addr: SocketAddr::new(local_socks_ip, local_socks_port),
-        })
+        Some(UpstreamSocksConfig { addr: SocketAddr::new(local_socks_ip, local_socks_port) })
     } else {
         None
     };

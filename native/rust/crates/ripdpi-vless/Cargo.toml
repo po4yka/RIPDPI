@@ -1,0 +1,20 @@
+[package]
+name = "ripdpi-vless"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+boring = { workspace = true }
+tokio-boring = { workspace = true }
+ring = { workspace = true }
+aes = { workspace = true }
+x25519-dalek = { workspace = true }
+tokio = { workspace = true, features = ["io-util", "net", "time"] }
+tracing = { workspace = true }
+thiserror = { workspace = true }
+base64 = { workspace = true }
+hex = { workspace = true }
+
+[lints]
+workspace = true

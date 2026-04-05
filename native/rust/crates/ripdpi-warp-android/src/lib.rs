@@ -47,10 +47,7 @@ pub extern "system" fn Java_com_poyka_ripdpi_core_RipDpiWarpNativeBindings_jniCr
                 *next += 1;
                 value
             };
-            SESSIONS
-                .lock()
-                .expect("session mutex")
-                .insert(handle, WarpRuntime::new(config));
+            SESSIONS.lock().expect("session mutex").insert(handle, WarpRuntime::new(config));
             Ok(jlong::try_from(handle).unwrap_or(0))
         })
         .into_outcome()
@@ -100,7 +97,9 @@ pub extern "system" fn Java_com_poyka_ripdpi_core_RipDpiWarpNativeBindings_jniPo
         .with_env(move |env| -> jni::errors::Result<jni::sys::jstring> {
             let payload = session_from_handle(handle)
                 .and_then(|session| serde_json::to_string(&session.telemetry()).ok())
-                .unwrap_or_else(|| "{\"source\":\"warp\",\"state\":\"idle\",\"health\":\"idle\",\"capturedAt\":0}".to_string());
+                .unwrap_or_else(|| {
+                    "{\"source\":\"warp\",\"state\":\"idle\",\"health\":\"idle\",\"capturedAt\":0}".to_string()
+                });
             Ok(env.new_string(payload)?.into_raw())
         })
         .into_outcome()
@@ -127,13 +126,12 @@ pub extern "system" fn Java_com_poyka_ripdpi_core_RipDpiWarpNativeBindings_00024
     _thiz: JObject,
     vpn_service: JObject,
 ) {
-    let _ =
-        env.with_env(|env| -> jni::errors::Result<()> {
-            let vm = env.get_java_vm()?;
-            let global_ref: Global<JObject<'static>> = env.new_global_ref(vpn_service)?;
-            vpn_protect::register_vpn_protect(&vm, global_ref);
-            Ok(())
-        });
+    let _ = env.with_env(|env| -> jni::errors::Result<()> {
+        let vm = env.get_java_vm()?;
+        let global_ref: Global<JObject<'static>> = env.new_global_ref(vpn_service)?;
+        vpn_protect::register_vpn_protect(&vm, global_ref);
+        Ok(())
+    });
 }
 
 #[unsafe(no_mangle)]

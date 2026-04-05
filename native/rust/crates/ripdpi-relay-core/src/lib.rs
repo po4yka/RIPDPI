@@ -80,12 +80,15 @@ type BoxedIo = Box<dyn AsyncIo>;
 
 enum RelayBackend {
     Hysteria2(Hysteria2Backend),
+    VlessReality(VlessRealityBackend),
+    ChainRelay(ChainRelayBackend),
+    Masque(MasqueBackend),
     Unsupported { kind: String, fallback_mode: Option<String> },
 }
 
 impl RelayBackend {
     fn tcp_capable(&self) -> bool {
-        matches!(self, Self::Hysteria2(_))
+        matches!(self, Self::Hysteria2(_) | Self::VlessReality(_) | Self::ChainRelay(_) | Self::Masque(_))
     }
 
     fn udp_capable(&self) -> bool {
@@ -95,17 +98,19 @@ impl RelayBackend {
     fn fallback_mode(&self) -> Option<&str> {
         match self {
             Self::Unsupported { fallback_mode, .. } => fallback_mode.as_deref(),
-            Self::Hysteria2(_) => None,
+            _ => None,
         }
     }
 
     async fn connect_tcp(&self, target: &str) -> io::Result<BoxedIo> {
         match self {
             Self::Hysteria2(backend) => backend.connect_tcp(target).await,
-            Self::Unsupported { kind, .. } => Err(io::Error::new(
-                io::ErrorKind::Unsupported,
-                format!("relay backend {kind} is not implemented"),
-            )),
+            Self::VlessReality(backend) => backend.connect_tcp(target).await,
+            Self::ChainRelay(backend) => backend.connect_tcp(target).await,
+            Self::Masque(backend) => backend.connect_tcp(target).await,
+            Self::Unsupported { kind, .. } => {
+                Err(io::Error::new(io::ErrorKind::Unsupported, format!("relay backend {kind} is not implemented")))
+            }
         }
     }
 }
@@ -124,20 +129,102 @@ impl Hysteria2Backend {
             .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "missing hysteria password"))?;
         let config = hysteria2::config::Config::from_url(&format!(
             "hysteria2://{auth}@{}:{}/?sni={}",
-            self.config.server,
-            self.config.server_port,
-            self.config.server_name,
+            self.config.server, self.config.server_port, self.config.server_name,
         ))
         .map_err(|error| io::Error::new(io::ErrorKind::InvalidInput, error.to_string()))?;
-        let client =
-            hysteria2::connect(&config)
-                .await
-                .map_err(|error| io::Error::new(io::ErrorKind::ConnectionAborted, error.to_string()))?;
-        let stream =
-            client
-                .tcp_connect(target)
-                .await
-                .map_err(|error| io::Error::new(io::ErrorKind::ConnectionRefused, error.to_string()))?;
+        let client = hysteria2::connect(&config)
+            .await
+            .map_err(|error| io::Error::new(io::ErrorKind::ConnectionAborted, error.to_string()))?;
+        let stream = client
+            .tcp_connect(target)
+            .await
+            .map_err(|error| io::Error::new(io::ErrorKind::ConnectionRefused, error.to_string()))?;
+        Ok(Box::new(stream))
+    }
+}
+
+struct VlessRealityBackend {
+    config: ResolvedRelayRuntimeConfig,
+}
+
+impl VlessRealityBackend {
+    async fn connect_tcp(&self, target: &str) -> io::Result<BoxedIo> {
+        let uuid_str = self
+            .config
+            .vless_uuid
+            .as_ref()
+            .filter(|s| !s.is_empty())
+            .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "missing vless uuid"))?;
+        let cfg = ripdpi_vless::config::VlessRealityConfig::from_strings(
+            &self.config.server,
+            self.config.server_port,
+            uuid_str,
+            &self.config.server_name,
+            &self.config.reality_public_key,
+            &self.config.reality_short_id,
+        )
+        .map_err(|e| io::Error::new(io::ErrorKind::InvalidInput, e.to_string()))?;
+        let stream = ripdpi_vless::VlessRealityClient::connect(&cfg, target).await?;
+        Ok(Box::new(stream))
+    }
+}
+
+struct ChainRelayBackend {
+    config: ResolvedRelayRuntimeConfig,
+}
+
+impl ChainRelayBackend {
+    async fn connect_tcp(&self, target: &str) -> io::Result<BoxedIo> {
+        let entry_cfg = ripdpi_vless::config::VlessRealityConfig::from_strings(
+            &self.config.chain_entry_server,
+            self.config.chain_entry_port,
+            self.config.chain_entry_uuid.as_deref().unwrap_or(""),
+            &self.config.chain_entry_server_name,
+            &self.config.chain_entry_public_key,
+            &self.config.chain_entry_short_id,
+        )
+        .map_err(|e| io::Error::new(io::ErrorKind::InvalidInput, format!("chain entry config: {e}")))?;
+
+        let exit_cfg = ripdpi_vless::config::VlessRealityConfig::from_strings(
+            &self.config.chain_exit_server,
+            self.config.chain_exit_port,
+            self.config.chain_exit_uuid.as_deref().unwrap_or(""),
+            &self.config.chain_exit_server_name,
+            &self.config.chain_exit_public_key,
+            &self.config.chain_exit_short_id,
+        )
+        .map_err(|e| io::Error::new(io::ErrorKind::InvalidInput, format!("chain exit config: {e}")))?;
+
+        // First hop: connect to entry VPS, targeting exit VPS address
+        let exit_addr = format!("{}:{}", exit_cfg.server, exit_cfg.port);
+        let first_hop = ripdpi_vless::VlessRealityClient::connect(&entry_cfg, &exit_addr).await?;
+
+        // Second hop: VLESS+Reality over first hop, targeting the real destination
+        let second_hop = ripdpi_vless::VlessRealityClient::connect_over(&exit_cfg, first_hop, target).await?;
+
+        Ok(Box::new(second_hop))
+    }
+}
+
+struct MasqueBackend {
+    config: ResolvedRelayRuntimeConfig,
+}
+
+impl MasqueBackend {
+    async fn connect_tcp(&self, target: &str) -> io::Result<BoxedIo> {
+        let cfg = ripdpi_masque::config::MasqueConfig {
+            url: self.config.masque_url.clone(),
+            use_http2_fallback: self.config.masque_use_http2_fallback,
+            cloudflare_mode: self.config.masque_cloudflare_mode,
+            auth_mode: self.config.masque_auth_mode.clone(),
+            auth_token: self.config.masque_auth_token.clone(),
+            cf_client_id: self.config.masque_cloudflare_client_id.clone(),
+            cf_key_id: self.config.masque_cloudflare_key_id.clone(),
+            cf_private_key_pem: self.config.masque_cloudflare_private_key_pem.clone(),
+        };
+        let stream = ripdpi_masque::MasqueClient::connect(&cfg, target).await?;
+        // Re-box: MasqueClient returns Box<dyn masque::AsyncIo>, which implements
+        // our local AsyncIo trait, so we can wrap it in our BoxedIo.
         Ok(Box::new(stream))
     }
 }
@@ -175,10 +262,12 @@ impl RelayRuntime {
 
     pub fn telemetry(&self) -> RelayTelemetry {
         let backend = backend_from_config(&self.config);
+        let is_running = self.running.load(Ordering::SeqCst);
+        let state_str = if is_running { "running" } else { "idle" };
         RelayTelemetry {
             source: "relay",
-            state: if self.running.load(Ordering::SeqCst) { "running".to_string() } else { "idle".to_string() },
-            health: if self.running.load(Ordering::SeqCst) { "running".to_string() } else { "idle".to_string() },
+            state: state_str.to_string(),
+            health: state_str.to_string(),
             active_sessions: self.active_sessions.load(Ordering::SeqCst),
             total_sessions: self.total_sessions.load(Ordering::SeqCst),
             listener_address: self.listener_address.lock().expect("listener address").clone(),
@@ -191,8 +280,16 @@ impl RelayRuntime {
             udp_capable: Some(backend.udp_capable()),
             fallback_mode: backend.fallback_mode().map(ToOwned::to_owned),
             last_handshake_error: self.last_handshake_error.lock().expect("last handshake error").clone(),
-            chain_entry_state: if self.config.kind == "chain_relay" { Some("unavailable".to_string()) } else { None },
-            chain_exit_state: if self.config.kind == "chain_relay" { Some("unavailable".to_string()) } else { None },
+            chain_entry_state: if self.config.kind == "chain_relay" {
+                Some(if is_running { "connected" } else { "idle" }.to_string())
+            } else {
+                None
+            },
+            chain_exit_state: if self.config.kind == "chain_relay" {
+                Some(if is_running { "connected" } else { "idle" }.to_string())
+            } else {
+                None
+            },
             captured_at: now_ms(),
         }
     }
@@ -229,11 +326,7 @@ impl RelayRuntime {
         Ok(())
     }
 
-    async fn handle_client(
-        &self,
-        mut client: TcpStream,
-        backend: Arc<RelayBackend>,
-    ) -> io::Result<()> {
+    async fn handle_client(&self, mut client: TcpStream, backend: Arc<RelayBackend>) -> io::Result<()> {
         let mut greeting = [0u8; 2];
         client.read_exact(&mut greeting).await?;
         if greeting[0] != 0x05 {
@@ -283,25 +376,14 @@ impl RelayRuntime {
 fn backend_from_config(config: &ResolvedRelayRuntimeConfig) -> RelayBackend {
     match config.kind.as_str() {
         "hysteria2" => RelayBackend::Hysteria2(Hysteria2Backend { config: config.clone() }),
-        "masque" => RelayBackend::Unsupported {
-            kind: "masque".to_string(),
-            fallback_mode: Some(if config.masque_use_http2_fallback {
-                "http2_fallback".to_string()
-            } else {
-                "quic_only".to_string()
-            }),
-        },
-        other => RelayBackend::Unsupported {
-            kind: other.to_string(),
-            fallback_mode: None,
-        },
+        "vless_reality" => RelayBackend::VlessReality(VlessRealityBackend { config: config.clone() }),
+        "chain_relay" => RelayBackend::ChainRelay(ChainRelayBackend { config: config.clone() }),
+        "masque" => RelayBackend::Masque(MasqueBackend { config: config.clone() }),
+        other => RelayBackend::Unsupported { kind: other.to_string(), fallback_mode: None },
     }
 }
 
-async fn read_target(
-    client: &mut TcpStream,
-    address_type: u8,
-) -> io::Result<String> {
+async fn read_target(client: &mut TcpStream, address_type: u8) -> io::Result<String> {
     let address = match address_type {
         0x01 => {
             let mut octets = [0u8; 4];
@@ -313,8 +395,7 @@ async fn read_target(
             client.read_exact(&mut len).await?;
             let mut host = vec![0u8; usize::from(len[0])];
             client.read_exact(&mut host).await?;
-            String::from_utf8(host)
-                .map_err(|_| io::Error::new(io::ErrorKind::InvalidData, "invalid socks host"))?
+            String::from_utf8(host).map_err(|_| io::Error::new(io::ErrorKind::InvalidData, "invalid socks host"))?
         }
         0x04 => {
             let mut octets = [0u8; 16];
@@ -329,11 +410,7 @@ async fn read_target(
     Ok(format!("{address}:{port}"))
 }
 
-async fn write_reply(
-    client: &mut TcpStream,
-    reply_code: u8,
-    bound: SocketAddr,
-) -> io::Result<()> {
+async fn write_reply(client: &mut TcpStream, reply_code: u8, bound: SocketAddr) -> io::Result<()> {
     match bound {
         SocketAddr::V4(addr) => {
             let mut payload = vec![0x05, reply_code, 0x00, 0x01];
@@ -354,10 +431,7 @@ fn describe_upstream(config: &ResolvedRelayRuntimeConfig) -> String {
     match config.kind.as_str() {
         "chain_relay" => format!(
             "{}:{} -> {}:{}",
-            config.chain_entry_server,
-            config.chain_entry_port,
-            config.chain_exit_server,
-            config.chain_exit_port,
+            config.chain_entry_server, config.chain_entry_port, config.chain_exit_server, config.chain_exit_port,
         ),
         "masque" => config.masque_url.clone(),
         _ => format!("{}:{}", config.server, config.server_port),
@@ -365,8 +439,5 @@ fn describe_upstream(config: &ResolvedRelayRuntimeConfig) -> String {
 }
 
 fn now_ms() -> u64 {
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map(|duration| duration.as_millis() as u64)
-        .unwrap_or(0)
+    SystemTime::now().duration_since(UNIX_EPOCH).map(|duration| duration.as_millis() as u64).unwrap_or(0)
 }
