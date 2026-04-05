@@ -2,6 +2,7 @@ package com.poyka.ripdpi.services
 
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.DefaultWarpProfileId
+import com.poyka.ripdpi.data.GlobalWarpEndpointScopeKey
 import com.poyka.ripdpi.data.WarpAccountKindConsumerFree
 import com.poyka.ripdpi.data.WarpAccountKindConsumerPlus
 import com.poyka.ripdpi.data.WarpAccountKindZeroTrust
@@ -44,6 +45,9 @@ data class WarpZeroTrustImportRequest(
     val clientId: String? = null,
     val privateKey: String? = null,
     val publicKey: String? = null,
+    val peerPublicKey: String? = null,
+    val interfaceAddressV4: String? = null,
+    val interfaceAddressV6: String? = null,
 )
 
 interface WarpBootstrapProxyRunner {
@@ -220,6 +224,9 @@ class DefaultWarpEnrollmentOrchestrator
                         displayName = activeProfile.displayName,
                         zeroTrustOrg = activeProfile.zeroTrustOrg,
                         license = credentials.license ?: provisioning.license,
+                        peerPublicKey = provisioning.peerPublicKey,
+                        interfaceAddressV4 = provisioning.interfaceAddressV4,
+                        interfaceAddressV6 = provisioning.interfaceAddressV6,
                     )
                 val refreshedProfile =
                     activeProfile.copy(
@@ -294,6 +301,9 @@ class DefaultWarpEnrollmentOrchestrator
                         clientId = request.clientId,
                         privateKey = request.privateKey,
                         publicKey = request.publicKey,
+                        peerPublicKey = request.peerPublicKey,
+                        interfaceAddressV4 = request.interfaceAddressV4,
+                        interfaceAddressV6 = request.interfaceAddressV6,
                     )
                 profileStore.save(profile)
                 profileStore.setActiveProfileId(profileId)
@@ -318,7 +328,7 @@ class DefaultWarpEnrollmentOrchestrator
                 WarpEnrollmentSnapshot(
                     profile = updatedProfile,
                     credentials = updatedCredentials,
-                    endpoint = endpointStore.load(profileId, ""),
+                    endpoint = endpointStore.load(profileId, GlobalWarpEndpointScopeKey),
                 )
             }
 
@@ -348,7 +358,7 @@ class DefaultWarpEnrollmentOrchestrator
             networkScopeKey: String?,
             entry: WarpEndpointCacheEntry?,
         ): WarpEndpointCacheEntry? {
-            val normalizedScope = networkScopeKey?.takeIf(String::isNotBlank) ?: return entry
+            val normalizedScope = networkScopeKey?.takeIf(String::isNotBlank) ?: GlobalWarpEndpointScopeKey
             val normalizedEntry =
                 entry?.copy(
                     profileId = profileId,

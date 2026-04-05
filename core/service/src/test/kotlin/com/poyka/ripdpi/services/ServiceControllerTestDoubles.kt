@@ -546,12 +546,12 @@ internal class TestWarpRuntime(
             state = "running",
             health = "healthy",
         )
-    var lastConfig: RipDpiWarpConfig? = null
+    var lastConfig: com.poyka.ripdpi.core.ResolvedRipDpiWarpConfig? = null
         private set
     var stopCount: Int = 0
         private set
 
-    override suspend fun start(config: RipDpiWarpConfig): Int {
+    override suspend fun start(config: com.poyka.ripdpi.core.ResolvedRipDpiWarpConfig): Int {
         lastConfig = config
         events += "warp:start"
         startFailure?.let {
@@ -600,6 +600,47 @@ internal class TestRipDpiWarpFactory(
         runtimeFactory().also { runtime ->
             runtimes += runtime
         }
+}
+
+internal class TestWarpRuntimeConfigResolver : WarpRuntimeConfigResolver {
+    var lastConfig: RipDpiWarpConfig? = null
+        private set
+
+    override suspend fun resolve(config: RipDpiWarpConfig): com.poyka.ripdpi.core.ResolvedRipDpiWarpConfig {
+        lastConfig = config
+        return com.poyka.ripdpi.core.ResolvedRipDpiWarpConfig(
+            enabled = config.enabled,
+            profileId = "warp-test",
+            accountKind = "consumer_free",
+            deviceId = "device-1",
+            accessToken = "token-1",
+            clientId = "AQID",
+            privateKey = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+            publicKey = "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB=",
+            peerPublicKey = "CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC=",
+            interfaceAddressV4 = "172.16.0.2/32",
+            interfaceAddressV6 = null,
+            endpoint =
+                com.poyka.ripdpi.core.ResolvedRipDpiWarpEndpoint(
+                    host = "162.159.192.1",
+                    ipv4 = "162.159.192.1",
+                    ipv6 = null,
+                    port = 2408,
+                    source = "test",
+                ),
+            routeMode = config.routeMode,
+            routeHosts = config.routeHosts,
+            builtInRulesEnabled = config.builtInRulesEnabled,
+            endpointSelectionMode = config.endpointSelectionMode,
+            manualEndpoint = config.manualEndpoint,
+            scannerEnabled = config.scannerEnabled,
+            scannerParallelism = config.scannerParallelism,
+            scannerMaxRttMs = config.scannerMaxRttMs,
+            amnezia = config.amnezia,
+            localSocksHost = config.localSocksHost,
+            localSocksPort = config.localSocksPort,
+        )
+    }
 }
 
 internal class TestTun2SocksBridge(

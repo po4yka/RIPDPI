@@ -1,6 +1,6 @@
 package com.poyka.ripdpi.services
 
-import com.poyka.ripdpi.core.DEFAULT_TUN2SOCKS_TUNNEL_MTU
+import com.poyka.ripdpi.core.defaultTun2SocksTunnelMtu
 import com.poyka.ripdpi.data.ActiveDnsSettings
 import com.poyka.ripdpi.data.DnsModeEncrypted
 import com.poyka.ripdpi.data.DnsModePlainUdp
@@ -22,7 +22,7 @@ class RipDpiVpnServiceConfigTest {
 
         assertEquals("10.10.10.10/32", config.tunnelIpv4)
         assertEquals("fd00::1/128", config.tunnelIpv6)
-        assertEquals(DEFAULT_TUN2SOCKS_TUNNEL_MTU, config.tunnelMtu)
+        assertEquals(defaultTun2SocksTunnelMtu, config.tunnelMtu)
         assertEquals("udp", config.socks5Udp)
         assertEquals(1080, config.socks5Port)
         assertNull(config.mapdnsAddress)
@@ -40,7 +40,7 @@ class RipDpiVpnServiceConfigTest {
 
         assertEquals("10.10.10.10/32", config.tunnelIpv4)
         assertNull(config.tunnelIpv6)
-        assertEquals(DEFAULT_TUN2SOCKS_TUNNEL_MTU, config.tunnelMtu)
+        assertEquals(defaultTun2SocksTunnelMtu, config.tunnelMtu)
         assertEquals("udp", config.socks5Udp)
         assertEquals("198.18.0.53", config.mapdnsAddress)
         assertEquals(53, config.mapdnsPort)

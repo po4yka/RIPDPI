@@ -199,6 +199,7 @@ class ProxyServiceAutoApplyLifecycleTest {
                         scope = backgroundScope,
                         dispatcher = dispatcher,
                         warpFactory = warpFactory,
+                        runtimeConfigResolver = TestWarpRuntimeConfigResolver(),
                     ),
                 proxyRuntimeSupervisor =
                     ProxyRuntimeSupervisor(
