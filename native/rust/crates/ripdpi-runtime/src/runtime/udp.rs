@@ -263,10 +263,10 @@ pub(super) fn udp_associate_loop(
                         {
                             entry.upstream = new_socket;
                             entry.quic_migrated = true;
-                            tracing::info!(
+                            tracing::debug!(
                                 target = %sender,
                                 round = entry.session.round_count,
-                                "QUIC connection migrated to new source port"
+                                "QUIC UDP source-port rebind (not RFC 9000 connection migration)"
                             );
                         }
                     }

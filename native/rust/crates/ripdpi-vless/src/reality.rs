@@ -3,7 +3,9 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use aes::cipher::{BlockEncrypt, KeyInit};
 use aes::Aes128;
+use boring::rand::rand_bytes;
 use boring::ssl::SslVerifyMode;
+use foreign_types_shared::ForeignType;
 use ring::hkdf;
 use tokio::io::{AsyncRead, AsyncWrite};
 use tokio::net::TcpStream;
@@ -12,14 +14,40 @@ use x25519_dalek::{EphemeralSecret, PublicKey};
 
 use crate::config::VlessRealityConfig;
 
+// BoringSSL FFI functions not publicly re-exported by the boring crate.
+// boring-sys uses generated bindings; SSL_set_client_random, SSL_SESSION_new,
+// SSL_SESSION_set1_id are absent from those bindings, and SSL_set_session /
+// SSL_SESSION_free are present but only accessible via boring's private ffi alias.
+// Declaring all five here avoids a boring-sys direct dependency.
+// SAFETY: These are stable BoringSSL ABI with correct signatures per boringssl/ssl.h.
+extern "C" {
+    /// Forces the ClientHello random field to the provided bytes.
+    /// Returns 1 on success, 0 on failure.
+    fn SSL_set_client_random(ssl: *mut std::ffi::c_void, random: *const u8, random_len: usize) -> std::ffi::c_int;
+
+    /// Allocates a new SSL_SESSION object. Returns null on allocation failure.
+    fn SSL_SESSION_new() -> *mut std::ffi::c_void;
+
+    /// Sets the session ID on an SSL_SESSION. Returns 1 on success, 0 on failure.
+    fn SSL_SESSION_set1_id(session: *mut std::ffi::c_void, sid: *const u8, sid_len: u32) -> std::ffi::c_int;
+
+    /// Associates a session with an SSL object (increments session refcount).
+    /// Returns 1 on success, 0 on failure.
+    fn SSL_set_session(ssl: *mut std::ffi::c_void, session: *mut std::ffi::c_void) -> std::ffi::c_int;
+
+    /// Decrements the refcount of a session, freeing it when it reaches zero.
+    fn SSL_SESSION_free(session: *mut std::ffi::c_void);
+}
+
 /// Connect to a VLESS+Reality server over TCP, performing the Reality TLS handshake.
 ///
 /// The Reality protocol embeds authentication into the TLS ClientHello `session_id` field:
 /// 1. Generate ephemeral X25519 keypair
 /// 2. ECDH shared secret with server public key
-/// 3. Derive auth key via HKDF-SHA256
+/// 3. Derive auth key via HKDF-SHA256 (salt = client_random[20..])
 /// 4. Construct and encrypt session_id
-/// 5. Establish TLS with disabled cert verification (Reality uses its own auth model)
+/// 5. Inject client_random and session_id into the SSL object before handshake
+/// 6. Establish TLS with disabled cert verification (Reality uses its own auth model)
 pub async fn connect_reality_tls(tcp: TcpStream, config: &VlessRealityConfig) -> io::Result<SslStream<TcpStream>> {
     connect_reality_tls_inner(tcp, config).await
 }
@@ -40,8 +68,14 @@ async fn connect_reality_tls_inner<S>(stream: S, config: &VlessRealityConfig) ->
 where
     S: AsyncRead + AsyncWrite + Unpin,
 {
-    let _session_id = build_reality_session_id(config)?;
+    // 1. Generate 32-byte client_random that we will inject into the ClientHello.
+    let mut client_random = [0u8; 32];
+    rand_bytes(&mut client_random).map_err(|e| io::Error::new(io::ErrorKind::Other, format!("rand_bytes: {e}")))?;
 
+    // 2. Build session_id using client_random[20..] as HKDF salt (Reality spec).
+    let session_id = build_reality_session_id(config, &client_random)?;
+
+    // 3. Build the SSL connector with the chosen TLS fingerprint profile.
     let mut builder = ripdpi_tls_profiles::configure_builder("chrome_stable")
         .map_err(|e| io::Error::new(io::ErrorKind::Other, format!("TLS profile: {e}")))?;
 
@@ -53,7 +87,42 @@ where
         .configure()
         .map_err(|e| io::Error::new(io::ErrorKind::Other, format!("boring SSL configure: {e}")))?;
 
-    let tls_stream = tokio_boring::connect(config_ssl, &config.server_name, stream)
+    // 4. Obtain the Ssl object so we can mutate it before the handshake.
+    let ssl = config_ssl
+        .into_ssl(&config.server_name)
+        .map_err(|e| io::Error::new(io::ErrorKind::Other, format!("SSL configure: {e}")))?;
+
+    // 5. Inject client_random into the ClientHello random field.
+    // SAFETY: ssl.as_ptr() is valid for the lifetime of ssl; SSL_set_client_random
+    // copies the bytes internally and does not retain the pointer after return.
+    let ret = unsafe {
+        SSL_set_client_random(ssl.as_ptr().cast::<std::ffi::c_void>(), client_random.as_ptr(), client_random.len())
+    };
+    if ret != 1 {
+        return Err(io::Error::new(io::ErrorKind::Other, "SSL_set_client_random failed"));
+    }
+
+    // 6. Inject session_id: allocate a session, assign the ID, attach to the SSL object.
+    // SAFETY: all five FFI functions are called per their documented BoringSSL contract.
+    // SSL_SESSION_new returns an owned pointer; SSL_set_session increments its refcount;
+    // SSL_SESSION_free decrements it, so the session is freed on the next SSL_free.
+    unsafe {
+        let sess = SSL_SESSION_new();
+        if sess.is_null() {
+            return Err(io::Error::new(io::ErrorKind::Other, "SSL_SESSION_new failed"));
+        }
+        let id_ret = SSL_SESSION_set1_id(sess, session_id.as_ptr(), session_id.len() as u32);
+        let set_ret = SSL_set_session(ssl.as_ptr().cast::<std::ffi::c_void>(), sess);
+        SSL_SESSION_free(sess);
+        if id_ret != 1 || set_ret != 1 {
+            return Err(io::Error::new(io::ErrorKind::Other, "Reality session_id injection failed"));
+        }
+    }
+
+    // 7. Complete the TLS handshake.
+    let stream_builder = tokio_boring::SslStreamBuilder::new(ssl, stream);
+    let tls_stream = stream_builder
+        .connect()
         .await
         .map_err(|e| io::Error::new(io::ErrorKind::ConnectionRefused, format!("Reality TLS handshake: {e}")))?;
 
@@ -74,7 +143,11 @@ where
 ///
 /// The first 16 bytes are encrypted with AES-128-ECB using `auth_key[0..16]`
 /// derived from ECDH + HKDF.
-fn build_reality_session_id(config: &VlessRealityConfig) -> io::Result<[u8; 32]> {
+///
+/// `client_random` must be the 32-byte ClientHello random that was (or will be)
+/// injected into the TLS ClientHello. The HKDF salt is `client_random[20..]`
+/// (the last 12 bytes) per the xray-core Reality specification.
+fn build_reality_session_id(config: &VlessRealityConfig, client_random: &[u8; 32]) -> io::Result<[u8; 32]> {
     // 1. Generate ephemeral X25519 keypair
     let ephemeral_secret = EphemeralSecret::random();
     let ephemeral_public = PublicKey::from(&ephemeral_secret);
@@ -83,10 +156,10 @@ fn build_reality_session_id(config: &VlessRealityConfig) -> io::Result<[u8; 32]>
     let server_public = PublicKey::from(config.reality_public_key);
     let shared_secret = ephemeral_secret.diffie_hellman(&server_public);
 
-    // 3. Derive auth key via HKDF-SHA256
-    // We use the ephemeral public key bytes as salt (simplified from the full
-    // Reality protocol which uses ClientHello.random[20..]) and "REALITY" as info.
-    let salt = hkdf::Salt::new(hkdf::HKDF_SHA256, ephemeral_public.as_bytes());
+    // 3. Derive auth key via HKDF-SHA256.
+    // Salt = client_random[20..] (last 12 bytes of the 32-byte ClientHello random)
+    // per the xray-core Reality protocol specification.
+    let salt = hkdf::Salt::new(hkdf::HKDF_SHA256, &client_random[20..]);
     let prk = salt.extract(shared_secret.as_bytes());
     let info = [b"REALITY".as_slice()];
     let okm = prk.expand(&info, AuthKeyLen).map_err(|_| io::Error::new(io::ErrorKind::Other, "HKDF expand failed"))?;
@@ -147,7 +220,8 @@ mod tests {
             reality_short_id: vec![0xAB, 0xCD],
         };
 
-        let session_id = build_reality_session_id(&config).unwrap();
+        let client_random = [0u8; 32];
+        let session_id = build_reality_session_id(&config, &client_random).unwrap();
         assert_eq!(session_id.len(), 32);
         // The session_id should not be all zeros (it's encrypted + has timestamp)
         assert_ne!(session_id, [0u8; 32]);
@@ -164,9 +238,12 @@ mod tests {
             reality_short_id: vec![0x01],
         };
 
-        let id1 = build_reality_session_id(&config).unwrap();
-        let id2 = build_reality_session_id(&config).unwrap();
-        // Ephemeral keys differ each time, so session_ids should differ
+        // With the same client_random, each call still generates a fresh ephemeral
+        // X25519 keypair, so the encrypted content (positions 16..32) and the
+        // derived auth_key differ, producing distinct session_ids.
+        let client_random = [0u8; 32];
+        let id1 = build_reality_session_id(&config, &client_random).unwrap();
+        let id2 = build_reality_session_id(&config, &client_random).unwrap();
         assert_ne!(id1, id2);
     }
 }

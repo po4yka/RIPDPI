@@ -16,7 +16,7 @@ boring = { workspace = true }
 tokio-boring = { workspace = true }
 ripdpi-tls-profiles = { workspace = true }
 ring = { workspace = true }
-tokio = { workspace = true, features = ["io-util", "net", "time"] }
+tokio = { workspace = true, features = ["io-util", "macros", "net", "time"] }
 tracing = { workspace = true }
 thiserror = { workspace = true }
 webpki-roots = { workspace = true }
