@@ -1,10 +1,10 @@
 package com.poyka.ripdpi.services
 
+import com.poyka.ripdpi.core.ResolvedRipDpiRelayConfig
 import com.poyka.ripdpi.core.RipDpiProxyFactory
 import com.poyka.ripdpi.core.RipDpiProxyPreferences
 import com.poyka.ripdpi.core.RipDpiProxyRuntime
 import com.poyka.ripdpi.core.RipDpiProxyUIPreferences
-import com.poyka.ripdpi.core.RipDpiRelayConfig
 import com.poyka.ripdpi.core.RipDpiRelayFactory
 import com.poyka.ripdpi.core.RipDpiRelayRuntime
 import com.poyka.ripdpi.core.RipDpiWarpConfig
@@ -26,6 +26,10 @@ import com.poyka.ripdpi.data.NetworkFingerprint
 import com.poyka.ripdpi.data.NetworkFingerprintProvider
 import com.poyka.ripdpi.data.PolicyHandoverEvent
 import com.poyka.ripdpi.data.PolicyHandoverEventStore
+import com.poyka.ripdpi.data.RelayCredentialRecord
+import com.poyka.ripdpi.data.RelayCredentialStore
+import com.poyka.ripdpi.data.RelayProfileRecord
+import com.poyka.ripdpi.data.RelayProfileStore
 import com.poyka.ripdpi.data.RememberedNetworkPolicyJson
 import com.poyka.ripdpi.data.RememberedNetworkPolicySource
 import com.poyka.ripdpi.data.RuntimeFieldTelemetry
@@ -442,12 +446,12 @@ internal class TestRelayRuntime(
             state = "running",
             health = "healthy",
         )
-    var lastConfig: RipDpiRelayConfig? = null
+    var lastConfig: ResolvedRipDpiRelayConfig? = null
         private set
     var stopCount: Int = 0
         private set
 
-    override suspend fun start(config: RipDpiRelayConfig): Int {
+    override suspend fun start(config: ResolvedRipDpiRelayConfig): Int {
         lastConfig = config
         events += "relay:start"
         startFailure?.let {
@@ -496,6 +500,34 @@ internal class TestRipDpiRelayFactory(
         runtimeFactory().also { runtime ->
             runtimes += runtime
         }
+}
+
+internal class TestRelayProfileStore : RelayProfileStore {
+    val profiles = linkedMapOf<String, RelayProfileRecord>()
+
+    override suspend fun load(profileId: String): RelayProfileRecord? = profiles[profileId]
+
+    override suspend fun save(profile: RelayProfileRecord) {
+        profiles[profile.id] = profile
+    }
+
+    override suspend fun clear(profileId: String) {
+        profiles.remove(profileId)
+    }
+}
+
+internal class TestRelayCredentialStore : RelayCredentialStore {
+    val credentials = linkedMapOf<String, RelayCredentialRecord>()
+
+    override suspend fun load(profileId: String): RelayCredentialRecord? = credentials[profileId]
+
+    override suspend fun save(credentials: RelayCredentialRecord) {
+        this.credentials[credentials.profileId] = credentials
+    }
+
+    override suspend fun clear(profileId: String) {
+        credentials.remove(profileId)
+    }
 }
 
 internal class TestWarpRuntime(
