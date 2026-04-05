@@ -12,6 +12,9 @@ hyper = { workspace = true }
 hyper-util = { workspace = true }
 rustls = { workspace = true }
 tokio-rustls = { workspace = true }
+boring = { workspace = true }
+tokio-boring = { workspace = true }
+ripdpi-tls-profiles = { workspace = true }
 ring = { workspace = true }
 tokio = { workspace = true, features = ["io-util", "net", "time"] }
 tracing = { workspace = true }
