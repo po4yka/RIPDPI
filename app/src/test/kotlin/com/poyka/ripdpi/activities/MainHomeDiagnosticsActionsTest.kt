@@ -39,6 +39,7 @@ class MainHomeDiagnosticsActionsTest {
     @get:Rule
     val mainDispatcherRule = MainDispatcherRule()
 
+    @Suppress("LongMethod")
     @Test
     fun `verified vpn flow starts in-path verification scan`() =
         runTest {
@@ -603,6 +604,7 @@ class MainHomeDiagnosticsActionsTest {
             recommendationContributor = recommendationContributor,
         )
 
+    @Suppress("UnusedPrivateMember")
     private fun completedSession(
         id: String,
         summary: String = "Verification complete",

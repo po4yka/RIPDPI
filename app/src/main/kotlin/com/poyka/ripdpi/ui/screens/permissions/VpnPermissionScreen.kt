@@ -32,12 +32,55 @@ import com.poyka.ripdpi.ui.components.ripDpiClickable
 import com.poyka.ripdpi.ui.components.scaffold.RipDpiIntroScaffold
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
+// Corner radius for pill-shaped rect (large value → fully rounded)
+private const val cornerRadiusPill = 99f
+
+// Shield path fractions (Permission illustration)
+private const val shieldCenterX = 0.5f
+private const val shieldTopY = 0.12f
+private const val shieldRightX = 0.78f
+private const val shieldShoulderY = 0.22f
+private const val shieldWaistY = 0.48f
+private const val shieldCurveY = 0.72f
+private const val shieldTipInnerX = 0.62f
+private const val shieldTipY = 0.86f
+private const val shieldBottomY = 0.92f
+private const val shieldLeftX = 0.22f
+private const val shieldLeftInnerX = 0.38f
+
+// Biometric illustration fractions
+private const val bioArcLeftX = 0.22f
+private const val bioArcTopY = 0.08f
+private const val bioArcWidth = 0.56f
+private const val bioArcHeight = 0.54f
+private const val bioBodyLeftX = 0.24f
+private const val bioBodyTopY = 0.46f
+private const val bioBodyWidth = 0.52f
+private const val bioBodyHeight = 0.34f
+private const val bioDotRadius = 0.05f
+private const val bioDotCenterX = 0.5f
+private const val bioDotCenterY = 0.60f
+private const val bioPinLineTopY = 0.66f
+private const val bioPinLineBotY = 0.76f
+
+// Pin illustration fractions
+private const val pinDotRadius = 0.075f
+private const val pinDotLeftX = 0.28f
+private const val pinDotMidX = 0.5f
+private const val pinDotRightX = 0.72f
+private const val pinDotY = 0.34f
+private const val pinBarLeftX = 0.18f
+private const val pinBarTopY = 0.56f
+private const val pinBarWidth = 0.64f
+private const val pinBarHeight = 0.16f
+
 internal enum class AuthPromptIllustration {
     Permission,
     Biometric,
     Pin,
 }
 
+@Suppress("LongMethod")
 @Composable
 internal fun AuthPromptScaffold(
     title: String,
@@ -155,6 +198,7 @@ internal fun AuthPromptScaffold(
     }
 }
 
+@Suppress("LongMethod")
 @Composable
 private fun AuthPromptBadge(
     illustration: AuthPromptIllustration,
@@ -178,26 +222,26 @@ private fun AuthPromptBadge(
                 AuthPromptIllustration.Permission -> {
                     val shield =
                         Path().apply {
-                            moveTo(size.width * 0.5f, size.height * 0.12f)
-                            lineTo(size.width * 0.78f, size.height * 0.22f)
-                            lineTo(size.width * 0.78f, size.height * 0.48f)
+                            moveTo(size.width * shieldCenterX, size.height * shieldTopY)
+                            lineTo(size.width * shieldRightX, size.height * shieldShoulderY)
+                            lineTo(size.width * shieldRightX, size.height * shieldWaistY)
                             cubicTo(
-                                size.width * 0.78f,
-                                size.height * 0.72f,
-                                size.width * 0.62f,
-                                size.height * 0.86f,
-                                size.width * 0.5f,
-                                size.height * 0.92f,
+                                size.width * shieldRightX,
+                                size.height * shieldCurveY,
+                                size.width * shieldTipInnerX,
+                                size.height * shieldTipY,
+                                size.width * shieldCenterX,
+                                size.height * shieldBottomY,
                             )
                             cubicTo(
-                                size.width * 0.38f,
-                                size.height * 0.86f,
-                                size.width * 0.22f,
-                                size.height * 0.72f,
-                                size.width * 0.22f,
-                                size.height * 0.48f,
+                                size.width * shieldLeftInnerX,
+                                size.height * shieldTipY,
+                                size.width * shieldLeftX,
+                                size.height * shieldCurveY,
+                                size.width * shieldLeftX,
+                                size.height * shieldWaistY,
                             )
-                            lineTo(size.width * 0.22f, size.height * 0.22f)
+                            lineTo(size.width * shieldLeftX, size.height * shieldShoulderY)
                             close()
                         }
                     drawPath(
@@ -219,45 +263,45 @@ private fun AuthPromptBadge(
                         startAngle = 210f,
                         sweepAngle = 120f,
                         useCenter = false,
-                        topLeft = Offset(size.width * 0.22f, size.height * 0.08f),
-                        size = Size(size.width * 0.56f, size.height * 0.54f),
+                        topLeft = Offset(size.width * bioArcLeftX, size.height * bioArcTopY),
+                        size = Size(size.width * bioArcWidth, size.height * bioArcHeight),
                         style = stroke,
                     )
                     drawRoundRect(
                         color = colors.foreground,
-                        topLeft = Offset(size.width * 0.24f, size.height * 0.46f),
-                        size = Size(size.width * 0.52f, size.height * 0.34f),
+                        topLeft = Offset(size.width * bioBodyLeftX, size.height * bioBodyTopY),
+                        size = Size(size.width * bioBodyWidth, size.height * bioBodyHeight),
                         cornerRadius = CornerRadius(4.dp.toPx(), 4.dp.toPx()),
                         style = stroke,
                     )
                     drawCircle(
                         color = colors.foreground,
-                        radius = size.minDimension * 0.05f,
-                        center = Offset(size.width * 0.5f, size.height * 0.60f),
+                        radius = size.minDimension * bioDotRadius,
+                        center = Offset(size.width * bioDotCenterX, size.height * bioDotCenterY),
                     )
                     drawLine(
                         color = colors.foreground,
-                        start = Offset(size.width * 0.5f, size.height * 0.66f),
-                        end = Offset(size.width * 0.5f, size.height * 0.76f),
+                        start = Offset(size.width * bioDotCenterX, size.height * bioPinLineTopY),
+                        end = Offset(size.width * bioDotCenterX, size.height * bioPinLineBotY),
                         strokeWidth = strokeWidth.toPx(),
                         cap = StrokeCap.Round,
                     )
                 }
 
                 AuthPromptIllustration.Pin -> {
-                    val dotRadius = size.minDimension * 0.075f
-                    listOf(0.28f, 0.5f, 0.72f).forEach { fraction ->
+                    val dotRadius = size.minDimension * pinDotRadius
+                    listOf(pinDotLeftX, pinDotMidX, pinDotRightX).forEach { fraction ->
                         drawCircle(
                             color = colors.foreground,
                             radius = dotRadius,
-                            center = Offset(size.width * fraction, size.height * 0.34f),
+                            center = Offset(size.width * fraction, size.height * pinDotY),
                         )
                     }
                     drawRoundRect(
                         color = colors.foreground,
-                        topLeft = Offset(size.width * 0.18f, size.height * 0.56f),
-                        size = Size(size.width * 0.64f, size.height * 0.16f),
-                        cornerRadius = CornerRadius(99f, 99f),
+                        topLeft = Offset(size.width * pinBarLeftX, size.height * pinBarTopY),
+                        size = Size(size.width * pinBarWidth, size.height * pinBarHeight),
+                        cornerRadius = CornerRadius(cornerRadiusPill, cornerRadiusPill),
                         style = Stroke(width = strokeWidth.toPx(), cap = StrokeCap.Round),
                     )
                 }

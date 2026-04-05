@@ -43,6 +43,8 @@ import com.poyka.ripdpi.ui.theme.RipDpiIconSizes
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
+private const val pressedLerpFraction = 0.25f
+
 enum class RipDpiIconButtonStyle {
     Ghost,
     Tonal,
@@ -50,6 +52,7 @@ enum class RipDpiIconButtonStyle {
     Outline,
 }
 
+@Suppress("LongMethod", "CyclomaticComplexMethod")
 @Composable
 fun RipDpiIconButton(
     icon: ImageVector,
@@ -89,7 +92,7 @@ fun RipDpiIconButton(
         when {
             !isInteractive && style == RipDpiIconButtonStyle.Ghost -> Color.Transparent
             !isInteractive -> colors.border
-            isPressed -> lerp(baseContainer, scheme.onSurfaceVariant, 0.25f)
+            isPressed -> lerp(baseContainer, scheme.onSurfaceVariant, pressedLerpFraction)
             else -> baseContainer
         }
     val iconTint =
@@ -193,6 +196,7 @@ fun RipDpiIconButton(
     }
 }
 
+@Suppress("UnusedPrivateMember")
 @Preview(showBackground = true)
 @Composable
 private fun RipDpiIconButtonPreview() {
@@ -226,6 +230,7 @@ private fun RipDpiIconButtonPreview() {
     }
 }
 
+@Suppress("UnusedPrivateMember")
 @Preview(showBackground = true)
 @Composable
 private fun RipDpiIconButtonDarkPreview() {

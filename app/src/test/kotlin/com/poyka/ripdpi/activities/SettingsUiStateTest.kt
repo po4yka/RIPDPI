@@ -61,9 +61,11 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
+@Suppress("LargeClass")
 class SettingsUiStateTest {
     private val defaults = AppSettingsSerializer.defaultValue
 
+    @Suppress("LongMethod")
     @Test
     fun `default settings produce correct ui state`() {
         val state = defaults.toUiState()

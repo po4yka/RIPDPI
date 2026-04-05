@@ -40,6 +40,11 @@ import com.poyka.ripdpi.ui.components.ripDpiSelectable
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
+private const val chipDisabledAlpha = 0.38f
+
+private const val chipContentSpacingDp = 6
+
+@Suppress("LongMethod", "CyclomaticComplexMethod")
 @Composable
 fun RipDpiChip(
     text: String,
@@ -134,8 +139,8 @@ fun RipDpiChip(
                 ).padding(
                     horizontal = horizontalPadding,
                     vertical = verticalPadding,
-                ).alpha(if (enabled) 1f else 0.38f),
-        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                ).alpha(if (enabled) 1f else chipDisabledAlpha),
+        horizontalArrangement = Arrangement.spacedBy(chipContentSpacingDp.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         AnimatedVisibility(
@@ -160,6 +165,7 @@ fun RipDpiChip(
     }
 }
 
+@Suppress("UnusedPrivateMember")
 @Preview(showBackground = true)
 @Composable
 private fun RipDpiChipPreview() {
@@ -172,6 +178,7 @@ private fun RipDpiChipPreview() {
     }
 }
 
+@Suppress("UnusedPrivateMember")
 @Preview(showBackground = true)
 @Composable
 private fun RipDpiChipDarkPreview() {

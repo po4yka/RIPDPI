@@ -30,6 +30,13 @@ import com.poyka.ripdpi.ui.components.navigation.SettingsCategoryHeader
 import com.poyka.ripdpi.ui.debug.TrackRecomposition
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
+private const val liveHighlightsMaxCount = 4
+
+private const val HighlightCardHorizontalPaddingDp = 14
+private const val HighlightCardVerticalPaddingDp = 12
+private const val HighlightCardContentSpacingDp = 4
+private const val HighlightCardLabelAlpha = 0.72f
+
 @Composable
 internal fun LiveSection(live: DiagnosticsLiveUiModel) {
     TrackRecomposition("LiveSection")
@@ -104,6 +111,7 @@ private fun LiveSectionContent(live: DiagnosticsLiveUiModel) {
     }
 }
 
+@Suppress("LongMethod")
 @Composable
 internal fun LiveHeroCard(live: DiagnosticsLiveUiModel) {
     TrackRecomposition("LiveHeroCard")
@@ -160,7 +168,7 @@ internal fun LiveHeroCard(live: DiagnosticsLiveUiModel) {
                 color = colors.foreground.copy(alpha = 0.92f),
             )
             if (live.highlights.isNotEmpty()) {
-                LiveHighlightsGrid(highlights = live.highlights.take(4))
+                LiveHighlightsGrid(highlights = live.highlights.take(liveHighlightsMaxCount))
             }
             HorizontalDivider(color = animatedAccent.copy(alpha = 0.14f))
             Column(verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
@@ -235,13 +243,17 @@ internal fun LiveHighlightCard(
         shape = RipDpiThemeTokens.shapes.lg,
     ) {
         Column(
-            modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp),
+            modifier =
+                Modifier.padding(
+                    horizontal = HighlightCardHorizontalPaddingDp.dp,
+                    vertical = HighlightCardVerticalPaddingDp.dp,
+                ),
+            verticalArrangement = Arrangement.spacedBy(HighlightCardContentSpacingDp.dp),
         ) {
             Text(
                 text = metric.label.uppercase(),
                 style = RipDpiThemeTokens.type.sectionTitle,
-                color = animatedContent.copy(alpha = 0.72f),
+                color = animatedContent.copy(alpha = HighlightCardLabelAlpha),
             )
             Text(
                 text = metric.value,

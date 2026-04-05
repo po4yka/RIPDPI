@@ -6,6 +6,7 @@ import com.poyka.ripdpi.diagnostics.DiagnosticNetworkSnapshot
 import com.poyka.ripdpi.diagnostics.NetworkSnapshotModel
 import java.util.Locale
 
+@Suppress("LongMethod")
 internal fun DiagnosticsUiFactorySupport.toNetworkSnapshotUiModel(
     entity: DiagnosticNetworkSnapshot,
     showSensitiveDetails: Boolean,
@@ -144,6 +145,7 @@ internal fun DiagnosticsUiFactorySupport.toOverviewContextGroup(
             ),
     )
 
+@Suppress("LongMethod")
 internal fun DiagnosticsUiFactorySupport.toLiveContextGroups(
     context: DiagnosticContextModel,
 ): List<DiagnosticsContextGroupUiModel> =
@@ -282,6 +284,7 @@ internal fun DiagnosticsUiFactorySupport.buildContextWarnings(
     return warnings
 }
 
+@Suppress("LongMethod")
 internal fun DiagnosticsUiFactorySupport.toContextUiGroups(
     context: DiagnosticContextModel,
     showSensitiveDetails: Boolean,
@@ -479,6 +482,7 @@ private fun DiagnosticsUiFactorySupport.transportSectionHeader(snapshot: Network
         else -> context.getString(R.string.diagnostics_section_transport)
     }
 
+@Suppress("LongMethod", "CyclomaticComplexMethod")
 private fun DiagnosticsUiFactorySupport.transportSpecificFields(
     snapshot: NetworkSnapshotModel,
     showSensitiveDetails: Boolean,
@@ -732,11 +736,15 @@ private fun DiagnosticsUiFactorySupport.formatBlockSignal(value: String): String
         else -> value.replace('_', ' ').replaceFirstChar { it.uppercase(Locale.US) }
     }
 
+private const val ShortCodeMaxLength = 4
+
+@Suppress("ReturnCount")
 private fun DiagnosticsUiFactorySupport.formatBlockProvider(value: String): String {
     if (value.isBlank() || value == "none") {
         return context.getString(R.string.diagnostics_autolearn_none_yet)
     }
-    if (value.none { it == '_' || it == '-' || it == ' ' } && value.length <= 4) {
+    val isShortCodeLike = value.none { it == '_' || it == '-' || it == ' ' } && value.length <= ShortCodeMaxLength
+    if (isShortCodeLike) {
         return value.uppercase(Locale.US)
     }
     return value

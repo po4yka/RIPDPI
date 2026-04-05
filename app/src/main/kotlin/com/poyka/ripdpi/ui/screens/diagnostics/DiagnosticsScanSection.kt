@@ -81,6 +81,9 @@ private const val MaxVisibleEvidence = 3
 private const val LiveProbePreviewCount = 8
 private const val SparklineBarWidthPerTarget = 4
 private const val SparklineMaxBarWidth = 24
+private const val PhaseStepActiveAlpha = 1f
+private const val PhaseStepCompletedAlpha = 0.72f
+private const val PhaseStepPendingAlpha = 0.38f
 
 @Suppress("LongMethod", "CyclomaticComplexMethod")
 @Composable
@@ -347,6 +350,7 @@ internal fun ProfilePickerContent(
     }
 }
 
+@Suppress("LongMethod")
 @Composable
 private fun ScanProgressCard(
     progress: DiagnosticsProgressUiModel,
@@ -494,9 +498,9 @@ private fun PhaseChip(step: PhaseStepUiModel) {
         ) {
             val dotAlpha =
                 when (step.state) {
-                    PhaseState.Completed -> 0.72f
-                    PhaseState.Active -> 1f
-                    PhaseState.Pending -> 0.38f
+                    PhaseState.Completed -> PhaseStepCompletedAlpha
+                    PhaseState.Active -> PhaseStepActiveAlpha
+                    PhaseState.Pending -> PhaseStepPendingAlpha
                 }
             Text(
                 text =
@@ -1007,6 +1011,7 @@ private fun WorkflowRestrictionCard(
     }
 }
 
+@Suppress("LongMethod", "CyclomaticComplexMethod")
 @Composable
 private fun workflowStatus(
     scan: com.poyka.ripdpi.activities.DiagnosticsScanUiModel,
@@ -1381,6 +1386,7 @@ private fun com.poyka.ripdpi.diagnostics.DiagnosticProfileFamily.displayFamilyLa
         }
     }
 
+@Suppress("LongMethod", "CyclomaticComplexMethod")
 @Composable
 internal fun StrategyProbeReportCard(
     report: DiagnosticsStrategyProbeReportUiModel,

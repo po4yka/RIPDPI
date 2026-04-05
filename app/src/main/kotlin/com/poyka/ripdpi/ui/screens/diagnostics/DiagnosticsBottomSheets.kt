@@ -31,6 +31,9 @@ import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
+private const val SessionDetailMaxEvents = 6
+
+@Suppress("LongMethod", "CyclomaticComplexMethod")
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun DiagnosticsBottomSheetHost(
@@ -118,7 +121,7 @@ internal fun DiagnosticsBottomSheetHost(
                         style = RipDpiThemeTokens.type.bodyEmphasis,
                         color = colors.foreground,
                     )
-                    detail.events.take(6).forEach { event ->
+                    detail.events.take(SessionDetailMaxEvents).forEach { event ->
                         EventRow(
                             event = event,
                             onClick = { onSelectEvent(event.id) },

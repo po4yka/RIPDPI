@@ -73,7 +73,7 @@ class DefaultStrategyPackPublicKeyResolver
         private val keyFactory = KeyFactory.getInstance("EC")
         private val trustedKeys =
             mapOf(
-                DefaultStrategyPackSigningKeyId to loadPublicKey(STRATEGY_PACK_TRUSTED_P256_PUBLIC_KEY_PEM),
+                DefaultStrategyPackSigningKeyId to loadPublicKey(strategyPackTrustedP256PublicKeyPem),
             )
 
         override fun resolve(keyId: String): PublicKey =
@@ -155,7 +155,7 @@ abstract class StrategyPackVerifierBindingsModule {
     abstract fun bindStrategyPackVerifier(verifier: DefaultStrategyPackVerifier): StrategyPackVerifier
 }
 
-private const val STRATEGY_PACK_TRUSTED_P256_PUBLIC_KEY_PEM =
+private const val strategyPackTrustedP256PublicKeyPem =
     """
     -----BEGIN PUBLIC KEY-----
     MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE9+0bf9ytpyS3fg6NTQUlPwE9GgPm

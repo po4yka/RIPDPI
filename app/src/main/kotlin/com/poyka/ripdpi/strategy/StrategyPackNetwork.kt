@@ -71,18 +71,18 @@ class DefaultStrategyPackDownloadService
         private fun api(): StrategyPackDownloadApi =
             Retrofit
                 .Builder()
-                .baseUrl(STRATEGY_PACK_BASE_URL)
+                .baseUrl(strategyPackBaseUrl)
                 .client(
                     tlsClientFactory.create {
-                        connectTimeout(20, TimeUnit.SECONDS)
-                        readTimeout(90, TimeUnit.SECONDS)
-                        callTimeout(120, TimeUnit.SECONDS)
+                        connectTimeout(networkConnectTimeoutSeconds, TimeUnit.SECONDS)
+                        readTimeout(networkReadTimeoutSeconds, TimeUnit.SECONDS)
+                        callTimeout(networkCallTimeoutSeconds, TimeUnit.SECONDS)
                         addInterceptor { chain ->
                             chain.proceed(
                                 chain
                                     .request()
                                     .newBuilder()
-                                    .header("User-Agent", STRATEGY_PACK_USER_AGENT)
+                                    .header("User-Agent", strategyPackUserAgent)
                                     .build(),
                             )
                         }
@@ -107,5 +107,8 @@ abstract class StrategyPackProvenanceBindingsModule {
     ): StrategyPackDownloadService
 }
 
-const val STRATEGY_PACK_BASE_URL = "https://raw.githubusercontent.com/"
-const val STRATEGY_PACK_USER_AGENT = "RIPDPI strategy-pack catalog"
+private const val networkConnectTimeoutSeconds = 20L
+private const val networkReadTimeoutSeconds = 90L
+private const val networkCallTimeoutSeconds = 120L
+const val strategyPackBaseUrl = "https://raw.githubusercontent.com/"
+const val strategyPackUserAgent = "RIPDPI strategy-pack catalog"

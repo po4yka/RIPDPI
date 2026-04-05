@@ -44,6 +44,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
 
+@Suppress("LargeClass")
 @OptIn(ExperimentalCoroutinesApi::class)
 @RunWith(RobolectricTestRunner::class)
 class MainViewModelTest {
@@ -759,6 +760,7 @@ class MainViewModelTest {
                 ),
         )
 
+    @Suppress("UnusedPrivateMember")
     private fun completedSession(
         id: String,
         summary: String = "Completed",

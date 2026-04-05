@@ -121,6 +121,7 @@ internal fun AdvancedDropdownSetting(
     }
 }
 
+@Suppress("LongParameterList")
 @Composable
 internal fun AdvancedTextSetting(
     title: String,

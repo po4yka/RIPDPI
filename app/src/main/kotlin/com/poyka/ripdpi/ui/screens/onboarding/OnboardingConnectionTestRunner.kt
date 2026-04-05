@@ -7,6 +7,9 @@ import javax.inject.Inject
 import javax.inject.Singleton
 import kotlin.system.measureTimeMillis
 
+private const val httpSuccessCodeMin = 200
+private const val httpSuccessCodeMax = 399
+
 @Singleton
 class OnboardingConnectionTestRunner
     @Inject
@@ -36,7 +39,7 @@ class OnboardingConnectionTestRunner
                                 responseCode = response.code
                             }
                     }
-                if (responseCode in 200..399) {
+                if (responseCode in httpSuccessCodeMin..httpSuccessCodeMax) {
                     ConnectionTestState.Success(latencyMs = latencyMs)
                 } else {
                     ConnectionTestState.Failed(reason = "HTTP $responseCode")

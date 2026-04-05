@@ -99,6 +99,7 @@ internal fun rememberAdaptiveSplitPresetOptions(
         }
     }
 
+@Suppress("LongMethod", "CyclomaticComplexMethod")
 @Composable
 internal fun AdaptiveSplitProfileCard(
     uiState: SettingsUiState,
