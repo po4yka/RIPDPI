@@ -1267,6 +1267,16 @@ fakeddisorder endhost</string>
     <string name="command_line_arguments">Command line arguments</string>
     <string name="ripdpi_hosts_mode_setting">Hosts</string>
     <string name="warp_section_title">Cloudflare WARP</string>
+    <string name="warp_profile_id_title">Active profile</string>
+    <string name="warp_profile_id_body">The selected non-secret WARP profile reference used to bind secure credentials and endpoint cache entries.</string>
+    <string name="warp_account_kind_title">Account kind</string>
+    <string name="warp_account_kind_body">The active WARP identity type. Consumer Free, WARP+, and Zero Trust use different enrollment paths.</string>
+    <string name="warp_zero_trust_org_title">Zero Trust organization</string>
+    <string name="warp_zero_trust_org_body">Shown when the active profile belongs to a Zero Trust enrollment.</string>
+    <string name="warp_setup_state_title">Setup state</string>
+    <string name="warp_setup_state_body">Current enrollment/provisioning state for the active WARP profile.</string>
+    <string name="warp_last_scanner_mode_title">Last scanner mode</string>
+    <string name="warp_last_scanner_mode_body">How the current endpoint choice was obtained most recently.</string>
     <string name="warp_enabled_title">Enable WARP runtime</string>
     <string name="warp_enabled_body">Start a separate local WARP upstream and let RIPDPI chain selected traffic into it.</string>
     <string name="warp_route_mode_title">WARP routing mode</string>

@@ -574,6 +574,12 @@ class VpnServiceRuntimeCoordinatorTest {
                         networkFingerprintProvider = fingerprintProvider,
                         clock = clock,
                     ),
+                upstreamRelaySupervisor =
+                    UpstreamRelaySupervisor(
+                        scope = backgroundScope,
+                        dispatcher = dispatcher,
+                        relayFactory = TestRipDpiRelayFactory(),
+                    ),
                 warpRuntimeSupervisor =
                     WarpRuntimeSupervisor(
                         scope = backgroundScope,

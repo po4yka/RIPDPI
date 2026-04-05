@@ -251,4 +251,11 @@ message AppSettings {
   int32 relay_local_socks_port = 192;
   bool relay_udp_enabled = 193;
   bool relay_tcp_fallback_enabled = 194;
+
+  // WARP active profile metadata (non-secret)
+  string warp_profile_id = 195;
+  string warp_account_kind = 196; // "consumer_free" | "consumer_plus" | "zero_trust"
+  string warp_zero_trust_org = 197;
+  string warp_setup_state = 198; // "not_configured" | "provisioning" | "provisioned" | "needs_attention"
+  string warp_last_scanner_mode = 199; // "automatic" | "manual" | "rescan"
 }

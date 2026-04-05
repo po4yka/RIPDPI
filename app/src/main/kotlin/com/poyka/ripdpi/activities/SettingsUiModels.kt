@@ -9,12 +9,12 @@ import com.poyka.ripdpi.data.AdaptiveMarkerSniExt
 import com.poyka.ripdpi.data.AppSettingsSerializer
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.CanonicalDefaultSplitMarker
-import com.poyka.ripdpi.data.DefaultAdaptiveFallbackCachePrefixV4
-import com.poyka.ripdpi.data.DefaultAdaptiveFallbackCacheTtlSeconds
 import com.poyka.ripdpi.data.DefaultAdaptiveFakeTtlDelta
 import com.poyka.ripdpi.data.DefaultAdaptiveFakeTtlFallback
 import com.poyka.ripdpi.data.DefaultAdaptiveFakeTtlMax
 import com.poyka.ripdpi.data.DefaultAdaptiveFakeTtlMin
+import com.poyka.ripdpi.data.DefaultAdaptiveFallbackCachePrefixV4
+import com.poyka.ripdpi.data.DefaultAdaptiveFallbackCacheTtlSeconds
 import com.poyka.ripdpi.data.DefaultEntropyPaddingMax
 import com.poyka.ripdpi.data.DefaultEntropyPaddingTargetPermil
 import com.poyka.ripdpi.data.DefaultEvolutionEpsilon
@@ -29,6 +29,7 @@ import com.poyka.ripdpi.data.DefaultTlsRandRecMaxFragmentSize
 import com.poyka.ripdpi.data.DefaultTlsRandRecMinFragmentSize
 import com.poyka.ripdpi.data.DefaultTlsRecordMarker
 import com.poyka.ripdpi.data.DefaultWarpManualEndpointPort
+import com.poyka.ripdpi.data.DefaultWarpProfileId
 import com.poyka.ripdpi.data.DefaultWarpScannerMaxRttMs
 import com.poyka.ripdpi.data.DefaultWarpScannerParallelism
 import com.poyka.ripdpi.data.EntropyModeDisabled
@@ -44,10 +45,13 @@ import com.poyka.ripdpi.data.SeqOverlapFakeModeProfile
 import com.poyka.ripdpi.data.TcpChainStepKind
 import com.poyka.ripdpi.data.TcpChainStepModel
 import com.poyka.ripdpi.data.UdpChainStepModel
+import com.poyka.ripdpi.data.WarpAccountKindConsumerFree
 import com.poyka.ripdpi.data.WarpEndpointSelectionAutomatic
 import com.poyka.ripdpi.data.WarpEndpointSelectionManual
 import com.poyka.ripdpi.data.WarpRouteModeOff
 import com.poyka.ripdpi.data.WarpRouteModeRules
+import com.poyka.ripdpi.data.WarpScannerModeAutomatic
+import com.poyka.ripdpi.data.WarpSetupStateNotConfigured
 import com.poyka.ripdpi.data.canonicalDefaultEncryptedDnsSettings
 import com.poyka.ripdpi.data.formatActivationFilterSummary
 import com.poyka.ripdpi.data.isAdaptiveOffsetExpression
@@ -222,6 +226,11 @@ data class WarpUiState(
     val routeMode: String = WarpRouteModeOff,
     val routeHosts: String = "",
     val builtInRulesEnabled: Boolean = true,
+    val profileId: String = DefaultWarpProfileId,
+    val accountKind: String = WarpAccountKindConsumerFree,
+    val zeroTrustOrg: String = "",
+    val setupState: String = WarpSetupStateNotConfigured,
+    val lastScannerMode: String = WarpScannerModeAutomatic,
     val endpointSelectionMode: String = WarpEndpointSelectionAutomatic,
     val manualEndpointHost: String = "",
     val manualEndpointIpv4: String = "",
@@ -261,6 +270,9 @@ data class WarpUiState(
                 manualEndpointIpv4.isNotBlank() ||
                 manualEndpointIpv6.isNotBlank() ||
                 manualEndpointPort != DefaultWarpManualEndpointPort
+
+    val hasZeroTrustOrganization: Boolean
+        get() = zeroTrustOrg.isNotBlank()
 }
 
 @Stable

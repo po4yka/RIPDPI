@@ -186,6 +186,12 @@ class ProxyServiceAutoApplyLifecycleTest {
                 networkHandoverMonitor = TestNetworkHandoverMonitor(),
                 policyHandoverEventStore = TestPolicyHandoverEventStore(),
                 permissionWatchdog = TestPermissionWatchdog(),
+                upstreamRelaySupervisor =
+                    UpstreamRelaySupervisor(
+                        scope = backgroundScope,
+                        dispatcher = dispatcher,
+                        relayFactory = TestRipDpiRelayFactory(),
+                    ),
                 warpRuntimeSupervisor =
                     WarpRuntimeSupervisor(
                         scope = backgroundScope,
