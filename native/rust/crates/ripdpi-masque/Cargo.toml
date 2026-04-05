@@ -1,0 +1,26 @@
+[package]
+name = "ripdpi-masque"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+quinn = { workspace = true }
+h3 = { workspace = true }
+h3-quinn = { workspace = true }
+hyper = { workspace = true }
+hyper-util = { workspace = true }
+rustls = { workspace = true }
+tokio-rustls = { workspace = true }
+ring = { workspace = true }
+tokio = { workspace = true, features = ["io-util", "net", "time"] }
+tracing = { workspace = true }
+thiserror = { workspace = true }
+webpki-roots = { workspace = true }
+url = { workspace = true }
+bytes = { workspace = true }
+http = { workspace = true }
+http-body-util = { workspace = true }
+
+[lints]
+workspace = true

@@ -77,19 +77,12 @@ struct Bus {
 impl Bus {
     fn new() -> Self {
         let (tx, _) = broadcast::channel(1024);
-        Self {
-            counter: Arc::new(AtomicU64::new(0)),
-            tx,
-        }
+        Self { counter: Arc::new(AtomicU64::new(0)), tx }
     }
 
     fn new_endpoint(&self) -> BusEndpoint {
         let id = self.counter.fetch_add(1, Ordering::Relaxed);
-        BusEndpoint {
-            id,
-            tx: self.tx.clone(),
-            rx: self.tx.subscribe(),
-        }
+        BusEndpoint { id, tx: self.tx.clone(), rx: self.tx.subscribe() }
     }
 }
 
@@ -142,35 +135,27 @@ impl VirtualIpDevice {
                 }
             });
         }
-        Self {
-            max_transmission_unit,
-            bus_sender,
-            sender_id,
-            process_queue,
-        }
+        Self { max_transmission_unit, bus_sender, sender_id, process_queue }
     }
 }
 
 impl smoltcp::phy::Device for VirtualIpDevice {
-    type RxToken<'a> = DeviceRxToken where Self: 'a;
-    type TxToken<'a> = DeviceTxToken where Self: 'a;
+    type RxToken<'a>
+        = DeviceRxToken
+    where
+        Self: 'a;
+    type TxToken<'a>
+        = DeviceTxToken
+    where
+        Self: 'a;
 
     fn receive(&mut self, _timestamp: Instant) -> Option<(Self::RxToken<'_>, Self::TxToken<'_>)> {
         let next = self.process_queue.lock().expect("process queue").pop_front()?;
-        Some((
-            DeviceRxToken { buffer: next },
-            DeviceTxToken {
-                tx: self.bus_sender.clone(),
-                sender_id: self.sender_id,
-            },
-        ))
+        Some((DeviceRxToken { buffer: next }, DeviceTxToken { tx: self.bus_sender.clone(), sender_id: self.sender_id }))
     }
 
     fn transmit(&mut self, _timestamp: Instant) -> Option<Self::TxToken<'_>> {
-        Some(DeviceTxToken {
-            tx: self.bus_sender.clone(),
-            sender_id: self.sender_id,
-        })
+        Some(DeviceTxToken { tx: self.bus_sender.clone(), sender_id: self.sender_id })
     }
 
     fn capabilities(&self) -> DeviceCapabilities {
@@ -206,9 +191,7 @@ impl smoltcp::phy::TxToken for DeviceTxToken {
     {
         let mut buffer = vec![0u8; len];
         let result = f(&mut buffer);
-        let _ = self
-            .tx
-            .send((self.sender_id, Event::OutboundInternetPacket(Bytes::from(buffer))));
+        let _ = self.tx.send((self.sender_id, Event::OutboundInternetPacket(Bytes::from(buffer))));
         result
     }
 }
@@ -341,22 +324,22 @@ impl WarpRuntime {
         if !self.config.enabled {
             return Ok(());
         }
-        let source_peer_ip = parse_ipv4_cidr(self.config.interface_address_v4.as_deref())
-            .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "WARP runtime requires IPv4 interface address"))?;
+        let source_peer_ip = parse_ipv4_cidr(self.config.interface_address_v4.as_deref()).ok_or_else(|| {
+            io::Error::new(io::ErrorKind::InvalidInput, "WARP runtime requires IPv4 interface address")
+        })?;
         let endpoint = resolve_endpoint(&self.config.endpoint).await?;
         let reserved = reserved_bytes_from_client_id(self.config.client_id.as_deref());
-        let tunnel =
-            Arc::new(
-                WireGuardTunnel::new(
-                    &self.config.private_key,
-                    &self.config.peer_public_key,
-                    endpoint,
-                    reserved,
-                    source_peer_ip,
-                )
-                .await
-                .map_err(to_io_error)?,
-            );
+        let tunnel = Arc::new(
+            WireGuardTunnel::new(
+                &self.config.private_key,
+                &self.config.peer_public_key,
+                endpoint,
+                reserved,
+                source_peer_ip,
+            )
+            .await
+            .map_err(to_io_error)?,
+        );
         let bus = Bus::new();
         let tcp_pool = Arc::new(VirtualPortPool::new(PortProtocol::Tcp));
         let udp_pool = Arc::new(UdpAssociationPool::new());
@@ -376,13 +359,11 @@ impl WarpRuntime {
             tokio::spawn(async move { tunnel.routine_task().await });
         }
         {
-            let interface =
-                DynamicTcpInterface::new(bus.clone(), source_peer_ip, self.config.mtu.max(1280) as usize);
+            let interface = DynamicTcpInterface::new(bus.clone(), source_peer_ip, self.config.mtu.max(1280) as usize);
             tokio::spawn(async move { interface.run().await });
         }
         {
-            let interface =
-                DynamicUdpInterface::new(bus.clone(), source_peer_ip, self.config.mtu.max(1280) as usize);
+            let interface = DynamicUdpInterface::new(bus.clone(), source_peer_ip, self.config.mtu.max(1280) as usize);
             tokio::spawn(async move { interface.run().await });
         }
 
@@ -459,7 +440,11 @@ async fn handle_tcp_connect(
     target: SocketAddr,
 ) -> io::Result<()> {
     let virtual_port = tcp_pool.acquire().await?;
-    let port_forward = PortForwardConfig { source: SocketAddr::from((Ipv4Addr::LOCALHOST, 0)), destination: target, protocol: PortProtocol::Tcp };
+    let port_forward = PortForwardConfig {
+        source: SocketAddr::from((Ipv4Addr::LOCALHOST, 0)),
+        destination: target,
+        protocol: PortProtocol::Tcp,
+    };
     let mut endpoint = bus.new_endpoint();
     endpoint.send(Event::ClientConnectionInitiated(port_forward, virtual_port));
     write_reply(&mut client, 0x00, SocketAddr::from((Ipv4Addr::UNSPECIFIED, 0))).await?;
@@ -496,11 +481,7 @@ async fn handle_tcp_connect(
     Ok(())
 }
 
-async fn handle_udp_associate(
-    mut control: TcpStream,
-    bus: Bus,
-    udp_pool: Arc<UdpAssociationPool>,
-) -> io::Result<()> {
+async fn handle_udp_associate(mut control: TcpStream, bus: Bus, udp_pool: Arc<UdpAssociationPool>) -> io::Result<()> {
     let udp_socket = UdpSocket::bind(SocketAddr::from((Ipv4Addr::LOCALHOST, 0))).await?;
     let bind_addr = udp_socket.local_addr()?;
     write_reply(&mut control, 0x00, bind_addr).await?;
@@ -570,28 +551,25 @@ impl WireGuardTunnel {
     ) -> anyhow::Result<Self> {
         let private_key = decode_key(private_key).context("invalid WARP private key")?;
         let peer_public_key = decode_key(peer_public_key).context("invalid WARP peer public key")?;
-        let peer =
-            Box::new(Tunn::new(
-                boringtun::x25519::StaticSecret::from(private_key),
-                boringtun::x25519::PublicKey::from(peer_public_key),
-                None,
-                Some(25),
-                0,
-                None,
-            ));
-        let bind_addr = if endpoint.is_ipv4() { SocketAddr::from((Ipv4Addr::UNSPECIFIED, 0)) } else { "[::]:0".parse().expect("ipv6 bind addr") };
+        let peer = Box::new(Tunn::new(
+            boringtun::x25519::StaticSecret::from(private_key),
+            boringtun::x25519::PublicKey::from(peer_public_key),
+            None,
+            Some(25),
+            0,
+            None,
+        ));
+        let bind_addr = if endpoint.is_ipv4() {
+            SocketAddr::from((Ipv4Addr::UNSPECIFIED, 0))
+        } else {
+            "[::]:0".parse().expect("ipv6 bind addr")
+        };
         let socket = Socket::new(Domain::for_address(bind_addr), Type::DGRAM, Some(Protocol::UDP))?;
         socket.bind(&bind_addr.into())?;
         let _ = protect_socket_via_callback(socket.as_raw_fd());
         socket.set_nonblocking(true)?;
         let udp = UdpSocket::from_std(socket.into())?;
-        Ok(Self {
-            peer: tokio::sync::Mutex::new(peer),
-            udp,
-            endpoint,
-            source_peer_ip,
-            reserved,
-        })
+        Ok(Self { peer: tokio::sync::Mutex::new(peer), udp, endpoint, source_peer_ip, reserved })
     }
 
     async fn send_ip_packet(&self, packet: &[u8]) {
@@ -870,10 +848,7 @@ impl VirtualPortPool {
         for port in MIN_VIRTUAL_PORT..MAX_VIRTUAL_PORT {
             ports.push_back(port);
         }
-        Self {
-            protocol,
-            free_ports: Arc::new(RwLock::new(ports)),
-        }
+        Self { protocol, free_ports: Arc::new(RwLock::new(ports)) }
     }
 
     async fn acquire(&self) -> io::Result<VirtualPort> {
@@ -923,12 +898,11 @@ impl UdpAssociationPool {
         if let Some(port) = state.by_key.get(&key).copied() {
             return Ok(port);
         }
-        let port =
-            state
-                .free_ports
-                .pop_front()
-                .map(|raw| VirtualPort::new(raw, PortProtocol::Udp))
-                .ok_or_else(|| io::Error::new(io::ErrorKind::AddrNotAvailable, "udp virtual port pool exhausted"))?;
+        let port = state
+            .free_ports
+            .pop_front()
+            .map(|raw| VirtualPort::new(raw, PortProtocol::Udp))
+            .ok_or_else(|| io::Error::new(io::ErrorKind::AddrNotAvailable, "udp virtual port pool exhausted"))?;
         state.by_key.insert(key, port);
         state.by_port.insert(port.num(), key);
         Ok(port)
@@ -941,11 +915,7 @@ impl UdpAssociationPool {
     async fn release_association(&self, bind_port: u16) {
         let mut state = self.state.write().await;
         let ports: Vec<u16> =
-            state
-                .by_port
-                .iter()
-                .filter_map(|(port, key)| (key.bind_port == bind_port).then_some(*port))
-                .collect();
+            state.by_port.iter().filter_map(|(port, key)| (key.bind_port == bind_port).then_some(*port)).collect();
         for port in ports {
             if let Some(key) = state.by_port.remove(&port) {
                 state.by_key.remove(&key);
@@ -971,9 +941,7 @@ fn new_udp_client_socket(source_peer_ip: IpAddr, virtual_port: VirtualPort) -> a
     let udp_rx_buffer = udp::PacketBuffer::new(rx_meta, rx_data);
     let udp_tx_buffer = udp::PacketBuffer::new(tx_meta, tx_data);
     let mut socket = udp::Socket::new(udp_rx_buffer, udp_tx_buffer);
-    socket
-        .bind((IpAddress::from(source_peer_ip), virtual_port.num()))
-        .context("udp virtual client bind failed")?;
+    socket.bind((IpAddress::from(source_peer_ip), virtual_port.num())).context("udp virtual client bind failed")?;
     Ok(socket)
 }
 
@@ -996,8 +964,7 @@ async fn read_target(client: &mut TcpStream, address_type: u8) -> io::Result<Soc
             client.read_exact(&mut len).await?;
             let mut host = vec![0u8; usize::from(len[0])];
             client.read_exact(&mut host).await?;
-            String::from_utf8(host)
-                .map_err(|_| io::Error::new(io::ErrorKind::InvalidData, "invalid socks host"))?
+            String::from_utf8(host).map_err(|_| io::Error::new(io::ErrorKind::InvalidData, "invalid socks host"))?
         }
         0x04 => {
             return Err(io::Error::new(
@@ -1065,17 +1032,12 @@ async fn resolve_endpoint(endpoint: &ResolvedWarpRuntimeEndpoint) -> io::Result<
 }
 
 fn parse_ipv4_cidr(value: Option<&str>) -> Option<IpAddr> {
-    value
-        .and_then(|raw| raw.split('/').next())
-        .and_then(|addr| addr.parse::<Ipv4Addr>().ok())
-        .map(IpAddr::V4)
+    value.and_then(|raw| raw.split('/').next()).and_then(|addr| addr.parse::<Ipv4Addr>().ok()).map(IpAddr::V4)
 }
 
 fn decode_key(value: &str) -> anyhow::Result<[u8; 32]> {
     let bytes = decode(value).context("base64 decode failed")?;
-    bytes
-        .try_into()
-        .map_err(|_| anyhow!("expected 32-byte key"))
+    bytes.try_into().map_err(|_| anyhow!("expected 32-byte key"))
 }
 
 fn reserved_bytes_from_client_id(client_id: Option<&str>) -> [u8; 3] {
@@ -1140,10 +1102,7 @@ fn to_io_error(error: anyhow::Error) -> io::Error {
 }
 
 fn now_ms() -> u64 {
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_millis() as u64
+    SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_millis() as u64
 }
 
 #[cfg(test)]

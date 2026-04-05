@@ -31,6 +31,8 @@ members = [
     "crates/ripdpi-bench",
     "crates/ripdpi-io-uring",
     "crates/ripdpi-root-helper",
+    "crates/ripdpi-vless",
+    "crates/ripdpi-masque",
 ]
 
 [workspace.package]
@@ -60,6 +62,8 @@ ripdpi-config = { path = "crates/ripdpi-config" }
 ripdpi-desync = { path = "crates/ripdpi-desync" }
 ripdpi-cli = { path = "crates/ripdpi-cli" }
 ripdpi-io-uring = { path = "crates/ripdpi-io-uring" }
+ripdpi-vless = { path = "crates/ripdpi-vless" }
+ripdpi-masque = { path = "crates/ripdpi-masque" }
 criterion = { version = "0.8", features = ["html_reports"] }
 
 ripdpi-tun-driver = { path = "crates/ripdpi-tun-driver" }
@@ -113,6 +117,15 @@ tokio-boring = "5"
 webpki-roots = "1.0"
 io-uring = "=0.7.11"
 flume = "0.12"
+x25519-dalek = { version = "2", features = ["static_secrets", "getrandom"] }
+h3 = "0.0.8"
+h3-quinn = "0.0.10"
+hyper = { version = "1", features = ["client", "http1", "http2"] }
+hyper-util = { version = "0.1", features = ["tokio"] }
+bytes = "1"
+http = "1"
+base64 = "0.22"
+http-body-util = "0.1"
 
 [workspace.lints.clippy]
 # Correctness & suspicious (errors)

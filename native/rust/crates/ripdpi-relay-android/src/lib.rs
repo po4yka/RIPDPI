@@ -44,10 +44,7 @@ pub extern "system" fn Java_com_poyka_ripdpi_core_RipDpiRelayNativeBindings_jniC
                 *next += 1;
                 value
             };
-            SESSIONS
-                .lock()
-                .expect("session mutex")
-                .insert(handle, RelayRuntime::new(config));
+            SESSIONS.lock().expect("session mutex").insert(handle, RelayRuntime::new(config));
             Ok(jlong::try_from(handle).unwrap_or(0))
         })
         .into_outcome()
@@ -97,7 +94,9 @@ pub extern "system" fn Java_com_poyka_ripdpi_core_RipDpiRelayNativeBindings_jniP
         .with_env(move |env| -> jni::errors::Result<jni::sys::jstring> {
             let payload = session_from_handle(handle)
                 .and_then(|session| serde_json::to_string(&session.telemetry()).ok())
-                .unwrap_or_else(|| "{\"source\":\"relay\",\"state\":\"idle\",\"health\":\"idle\",\"capturedAt\":0}".to_string());
+                .unwrap_or_else(|| {
+                    "{\"source\":\"relay\",\"state\":\"idle\",\"health\":\"idle\",\"capturedAt\":0}".to_string()
+                });
             Ok(env.new_string(payload)?.into_raw())
         })
         .into_outcome()
