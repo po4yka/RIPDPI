@@ -66,6 +66,10 @@ graph TD
         PKT[ripdpi-packets<br/>protocol classification]
     end
 
+    subgraph Root Helper
+        RH[ripdpi-root-helper<br/>privileged raw sockets]
+    end
+
     APP --> SVC & DIAG & DATA & ENG
     SVC --> ENG
     DIAG --> ENG
@@ -75,6 +79,8 @@ graph TD
     JNI_P --> RT & MON
     JNI_T --> TC
     RT --> DSN & CFG & DNS & PKT
+    RT -.->|root mode IPC| RH
+    RH --> RT
     MON --> RT & CFG & DNS
     TC --> DNS
 ```
@@ -147,7 +153,7 @@ Implementation details and the native call path are documented in [docs/native/p
 
 ## FAQ
 
-**Does the application require root?** No.
+**Does the application require root?** No. On rooted devices an opt-in root mode unlocks additional evasion techniques (FakeRst, MultiDisorder, IP fragmentation, full SeqOverlap) via a privileged helper process.
 
 **Is this a VPN?** No. It uses Android's VPN mode to redirect traffic locally. It does not encrypt general app traffic or hide your IP address. When encrypted DNS is enabled, only DNS lookups are sent through DoH/DoT/DNSCrypt.
 
@@ -302,6 +308,7 @@ To enable signed release builds, configure these repository secrets:
 - `native/rust/crates/ripdpi-runtime`: shared proxy runtime layer used by `libripdpi.so`, protocol classification registry, and VPN socket protection callback registry
 - `native/rust/crates/ripdpi-packets`: protocol detection, packet mutation, protocol classification traits (`ProtocolClassifier`, `ProtocolField`, `FieldObserver`)
 - `native/rust/crates/ripdpi-failure-classifier`: response failure classification, blockpage fingerprinting, and field-based classification via `FieldCache`
+- `native/rust/crates/ripdpi-root-helper`: standalone privileged helper binary for rooted devices, enables raw socket operations (FakeRst, MultiDisorder, IpFrag2, full SeqOverlap) via Unix socket IPC with SCM_RIGHTS fd passing
 - `native/rust/crates/android-support`: Android logging, JNI support helpers, and generic data structures (`BoundedHeap`, `EnumMap`)
 
 Native integration details: [docs/native/README.md](docs/native/README.md)

@@ -198,7 +198,7 @@ fn connect_protected_tcp_socket(
         SocketAddr::V6(_) => Domain::IPV6,
     };
     let socket = Socket::new(domain, Type::STREAM, Some(Protocol::TCP))?;
-    platform::protect_socket(&socket, protect_path)?;
+    platform::protect_socket(&socket, Some(protect_path))?;
     socket.connect_timeout(&SockAddr::from(target), timeout)?;
     let stream: std::net::TcpStream = socket.into();
     stream.set_nodelay(true)?;
@@ -211,7 +211,7 @@ fn bind_protected_udp_socket(bind_addr: SocketAddr, protect_path: &str) -> io::R
         SocketAddr::V6(_) => Domain::IPV6,
     };
     let socket = Socket::new(domain, Type::DGRAM, Some(Protocol::UDP))?;
-    platform::protect_socket(&socket, protect_path)?;
+    platform::protect_socket(&socket, Some(protect_path))?;
     socket.bind(&SockAddr::from(bind_addr))?;
     let socket: std::net::UdpSocket = socket.into();
     socket.set_nonblocking(true)?;
