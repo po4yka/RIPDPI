@@ -307,7 +307,6 @@ internal fun DiagnosticsUiFactorySupport.toScopeLabel(
         }
     }
 
-@Suppress("CyclomaticComplexMethod")
 @Suppress("LongMethod", "CyclomaticComplexMethod")
 private fun DiagnosticsUiFactorySupport.strategySignatureFields(
     signature: BypassStrategySignature,

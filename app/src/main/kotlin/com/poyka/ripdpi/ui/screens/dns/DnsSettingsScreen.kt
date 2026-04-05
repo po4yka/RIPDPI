@@ -1452,6 +1452,7 @@ private fun isValidHttpsUrl(value: String): Boolean =
 
 @Preview(showBackground = true)
 @Composable
+@Suppress("UnusedPrivateMember")
 private fun DnsSettingsEncryptedPreview() {
     RipDpiTheme {
         DnsSettingsScreen(
