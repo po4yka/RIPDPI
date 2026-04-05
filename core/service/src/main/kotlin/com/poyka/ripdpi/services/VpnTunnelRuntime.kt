@@ -32,6 +32,7 @@ internal class VpnTunnelRuntime(
     val isRunning: Boolean
         get() = tunSession != null
 
+    @Suppress("TooGenericExceptionCaught")
     suspend fun start(
         activeDns: ActiveDnsSettings,
         overrideReason: String?,

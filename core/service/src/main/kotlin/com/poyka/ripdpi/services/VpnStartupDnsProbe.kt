@@ -33,6 +33,33 @@ class VpnStartupDnsProbe
             private const val REFERENCE_DNS_PORT = 53
             private const val PROBE_TIMEOUT_MS = 3_000L
             private const val UDP_TIMEOUT_MS = 2_000
+
+            // DNS protocol constants (RFC 1035)
+            private const val DnsHeaderId1: Byte = 0x12
+            private const val DnsHeaderId2: Byte = 0x34
+            private const val DnsHeaderLength = 12
+            private const val DnsMaxUdpPayload = 512
+            private const val DnsCompressionMask = 0xC0
+            private const val DnsOctetMask = 0xFF
+            private const val DnsTypeAValue = 1
+            private const val DnsRdataIpv4Length = 4
+            private const val DnsByteShift = 8
+            private const val DnsRcodeOffset = 3
+            private const val DnsRcodeMask = 0x0F
+            private const val DnsAnswerCountOffset = 6
+            private const val DnsAnswerCountOffset1 = 7
+            private const val DnsQuestionCountOffset = 4
+            private const val DnsQuestionCountOffset1 = 5
+            private const val DnsQTypeQClassLength = 4
+            private const val DnsRecordHeaderLength = 10
+            private const val DnsRecordTypeHighOffset = 0
+            private const val DnsRecordTypeLowOffset = 1
+            private const val DnsDataLenHighOffset = 8
+            private const val DnsDataLenLowOffset = 9
+            private const val DnsPointerSize = 2
+            private const val DnsIpOctet1Offset = 1
+            private const val DnsIpOctet2Offset = 2
+            private const val DnsIpOctet3Offset = 3
         }
 
         /**
@@ -78,7 +105,7 @@ class VpnStartupDnsProbe
                 DatagramSocket().use { socket ->
                     socket.soTimeout = UDP_TIMEOUT_MS
                     socket.send(DatagramPacket(query, query.size, serverAddr))
-                    val buf = ByteArray(512)
+                    val buf = ByteArray(DnsMaxUdpPayload)
                     val response = DatagramPacket(buf, buf.size)
                     socket.receive(response)
                     parseDnsResponseIps(buf, response.length)
@@ -87,8 +114,23 @@ class VpnStartupDnsProbe
 
         private fun buildDnsQuery(domain: String): ByteArray {
             val out = mutableListOf<Byte>()
-            // Header: ID=0x1234, flags=0x0100 (standard query), QDCOUNT=1
-            out.addAll(byteArrayOf(0x12, 0x34, 0x01, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00).toList())
+            // Header: ID, flags=standard-query, QDCOUNT=1, ANCOUNT=0, NSCOUNT=0, ARCOUNT=0
+            out.addAll(
+                byteArrayOf(
+                    DnsHeaderId1,
+                    DnsHeaderId2,
+                    0x01,
+                    0x00, // flags: standard query, recursion desired
+                    0x00,
+                    0x01, // QDCOUNT = 1
+                    0x00,
+                    0x00, // ANCOUNT = 0
+                    0x00,
+                    0x00, // NSCOUNT = 0
+                    0x00,
+                    0x00, // ARCOUNT = 0
+                ).toList(),
+            )
             // Question: domain labels
             for (label in domain.split('.')) {
                 out.add(label.length.toByte())
@@ -99,66 +141,79 @@ class VpnStartupDnsProbe
             return out.toByteArray()
         }
 
+        @Suppress("ReturnCount", "LoopWithTooManyJumpStatements")
         private fun parseDnsResponseIps(
             packet: ByteArray,
             length: Int,
         ): Set<String> {
-            if (length < 12) return emptySet()
-            val rcode = packet[3].toInt() and 0x0F
+            if (length < DnsHeaderLength) return emptySet()
+            val rcode = packet[DnsRcodeOffset].toInt() and DnsRcodeMask
             if (rcode != 0) return emptySet() // NXDOMAIN or error
-            val answerCount = ((packet[6].toInt() and 0xFF) shl 8) or (packet[7].toInt() and 0xFF)
-            val questionCount = ((packet[4].toInt() and 0xFF) shl 8) or (packet[5].toInt() and 0xFF)
-            var offset = 12
+            val answerCount =
+                ((packet[DnsAnswerCountOffset].toInt() and DnsOctetMask) shl DnsByteShift) or
+                    (packet[DnsAnswerCountOffset1].toInt() and DnsOctetMask)
+            val questionCount =
+                ((packet[DnsQuestionCountOffset].toInt() and DnsOctetMask) shl DnsByteShift) or
+                    (packet[DnsQuestionCountOffset1].toInt() and DnsOctetMask)
+            var offset = DnsHeaderLength
             // Skip questions
             repeat(questionCount) {
                 while (offset < length) {
-                    val b = packet[offset].toInt() and 0xFF
+                    val b = packet[offset].toInt() and DnsOctetMask
                     if (b == 0) {
                         offset++
                         break
                     }
-                    if (b >= 0xC0) {
-                        offset += 2
+                    if (b >= DnsCompressionMask) {
+                        offset += DnsPointerSize
                         break
                     }
                     offset += b + 1
                 }
-                offset += 4 // QTYPE + QCLASS
+                offset += DnsQTypeQClassLength // QTYPE + QCLASS
             }
             val ips = mutableSetOf<String>()
             repeat(answerCount) {
                 if (offset >= length) return ips
                 // Skip name (may be pointer)
-                val b = packet[offset].toInt() and 0xFF
+                val b = packet[offset].toInt() and DnsOctetMask
                 offset +=
-                    if (b >= 0xC0) {
-                        2
+                    if (b >= DnsCompressionMask) {
+                        DnsPointerSize
                     } else {
                         var o = offset
                         while (o < length) {
-                            val lb = packet[o].toInt() and 0xFF
+                            val lb = packet[o].toInt() and DnsOctetMask
                             if (lb == 0) {
                                 o++
                                 break
                             }
-                            if (lb >= 0xC0) {
-                                o += 2
+                            if (lb >= DnsCompressionMask) {
+                                o += DnsPointerSize
                                 break
                             }
                             o += lb + 1
                         }
                         o - offset
                     }
-                if (offset + 10 > length) return ips
-                val recordType = ((packet[offset].toInt() and 0xFF) shl 8) or (packet[offset + 1].toInt() and 0xFF)
-                val dataLen = ((packet[offset + 8].toInt() and 0xFF) shl 8) or (packet[offset + 9].toInt() and 0xFF)
-                offset += 10
-                if (recordType == 1 && dataLen == 4 && offset + 4 <= length) {
+                if (offset + DnsRecordHeaderLength > length) return ips
+                val recordType =
+                    ((packet[offset + DnsRecordTypeHighOffset].toInt() and DnsOctetMask) shl DnsByteShift) or
+                        (packet[offset + DnsRecordTypeLowOffset].toInt() and DnsOctetMask)
+                val dataLen =
+                    ((packet[offset + DnsDataLenHighOffset].toInt() and DnsOctetMask) shl DnsByteShift) or
+                        (packet[offset + DnsDataLenLowOffset].toInt() and DnsOctetMask)
+                offset += DnsRecordHeaderLength
+                val isIpv4Answer =
+                    recordType == DnsTypeAValue &&
+                        dataLen == DnsRdataIpv4Length &&
+                        offset + DnsRdataIpv4Length <= length
+                if (isIpv4Answer) {
                     ips.add(
-                        "${packet[offset].toInt() and 0xFF}." +
-                            "${packet[offset + 1].toInt() and 0xFF}." +
-                            "${packet[offset + 2].toInt() and 0xFF}." +
-                            "${packet[offset + 3].toInt() and 0xFF}",
+                        "${packet[offset].toInt() and DnsOctetMask}." +
+                            "${packet[offset + DnsIpOctet1Offset].toInt() and DnsOctetMask}." +
+                            "${packet[offset + DnsIpOctet2Offset].toInt() and DnsOctetMask}." +
+                            "${packet[offset + DnsIpOctet3Offset].toInt() and DnsOctetMask}",
                     )
                 }
                 offset += dataLen

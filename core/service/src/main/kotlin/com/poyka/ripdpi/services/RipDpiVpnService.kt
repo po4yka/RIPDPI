@@ -147,6 +147,7 @@ class RipDpiVpnService :
                 service = RipDpiVpnService::class.java,
                 whenTimestamp = startedAt,
             )
+        @Suppress("SwallowedException")
         try {
             getSystemService(NotificationManager::class.java)
                 ?.notify(FOREGROUND_SERVICE_ID, notification)
@@ -162,6 +163,7 @@ class RipDpiVpnService :
         }
     }
 
+    @Suppress("UnusedParameter")
     override fun createTunnelBuilder(
         dns: String,
         ipv6: Boolean,
@@ -207,6 +209,7 @@ class RipDpiVpnService :
             RipDpiVpnService::class.java,
         )
 
+    @Suppress("UnusedParameter")
     internal fun createBuilder(
         dns: String,
         ipv6: Boolean,
@@ -225,9 +228,9 @@ class RipDpiVpnService :
         )
 
         builder
-            .addAddress(TUNNEL_IPV4_ADDRESS, 32)
+            .addAddress(TUNNEL_IPV4_ADDRESS, TunnelIpv4PrefixLen)
             .addRoute("0.0.0.0", 0)
-            .addAddress(TUNNEL_IPV6_ADDRESS, 128)
+            .addAddress(TUNNEL_IPV6_ADDRESS, TunnelIpv6PrefixLen)
             .addRoute("::", 0)
 
         if (dns.isNotBlank()) {
@@ -253,6 +256,8 @@ class RipDpiVpnService :
     companion object {
         private const val FOREGROUND_SERVICE_ID: Int = 1
         private const val NOTIFICATION_CHANNEL_ID: String = "RIPDPIVpn"
+        private const val TunnelIpv4PrefixLen = 32
+        private const val TunnelIpv6PrefixLen = 128
         private const val TUNNEL_IPV4_ADDRESS = "10.10.10.10"
         private const val TUNNEL_IPV4_CIDR = "10.10.10.10/32"
         private const val TUNNEL_IPV6_ADDRESS = "fd00::1"

@@ -64,6 +64,7 @@ internal class VpnEncryptedDnsFailoverController(
         private val log = Logger.withTag("DnsFailover")
     }
 
+    @Suppress("CyclomaticComplexMethod", "LongMethod", "ReturnCount")
     suspend fun evaluate(
         state: VpnEncryptedDnsFailoverState,
         activeDns: ActiveDnsSettings?,

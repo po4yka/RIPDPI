@@ -28,6 +28,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.withLock
 import javax.inject.Inject
 
+@Suppress("TooManyFunctions", "LongParameterList")
 internal class VpnServiceRuntimeCoordinator(
     vpnHost: VpnCoordinatorHost,
     connectionPolicyResolver: ConnectionPolicyResolver,
@@ -518,6 +519,7 @@ internal class VpnServiceRuntimeCoordinatorFactory
             )
     }
 
+@Suppress("LongParameterList")
 internal class VpnServiceRuntimeRuntimeDependencies
     @Inject
     constructor(

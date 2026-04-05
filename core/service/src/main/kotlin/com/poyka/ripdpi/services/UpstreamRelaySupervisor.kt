@@ -56,6 +56,7 @@ internal class UpstreamRelaySupervisor(
             }
         relayJob = job
 
+        @Suppress("TooGenericExceptionCaught")
         try {
             runtime.awaitReady()
         } catch (readinessError: Exception) {

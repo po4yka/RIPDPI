@@ -48,6 +48,7 @@ internal class ProxyRuntimeSupervisor(
             }
         proxyJob = job
 
+        @Suppress("TooGenericExceptionCaught")
         try {
             proxyInstance.awaitReady()
         } catch (readinessError: Exception) {
