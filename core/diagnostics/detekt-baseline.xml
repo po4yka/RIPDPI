@@ -10,7 +10,10 @@
     <ID>LargeClass:DiagnosticsFindingProjector.kt$DiagnosticsFindingProjector</ID>
     <ID>LongMethod:ApproachAnalytics.kt$fun deriveBypassStrategySignature( preferences: RipDpiProxyUIPreferences, routeGroup: String?, modeOverride: Mode, ): BypassStrategySignature</ID>
     <ID>LongMethod:ApproachAnalytics.kt$fun deriveBypassStrategySignature( settings: AppSettings, routeGroup: String?, modeOverride: Mode? = null, ): BypassStrategySignature</ID>
+    <ID>LongMethod:DefaultDiagnosticsHomeCompositeRunService.kt$DefaultDiagnosticsHomeCompositeRunService$private suspend fun executeRun(runId: String)</ID>
+    <ID>LongMethod:DiagnosticsArchiveRenderer.kt$DiagnosticsArchiveRenderer$private fun buildCoreEntries( target: DiagnosticsArchiveTarget, selection: DiagnosticsArchiveSelection, sectionStatuses: Map&lt;String, DiagnosticsArchiveSectionStatus&gt;, snapshotPayload: DiagnosticsArchiveSnapshotPayload, contextPayload: DiagnosticsArchiveContextPayload, completeness: DiagnosticsArchiveCompletenessPayload, compositeEntries: List&lt;DiagnosticsArchiveEntry&gt;, ): List&lt;DiagnosticsArchiveEntry&gt;</ID>
     <ID>LongMethod:DiagnosticsServicesImpl.kt$DefaultDiagnosticsHomeWorkflowService$override suspend fun finalizeHomeAudit(sessionId: String): DiagnosticsHomeAuditOutcome</ID>
+    <ID>MaxLineLength:DiagnosticsServicesImpl.kt$DefaultDiagnosticsHomeWorkflowService$"Matrix ${it.coverage.matrixCoveragePercent}% · winners ${it.coverage.winnerCoveragePercent}%"</ID>
     <ID>ReturnCount:AutomaticProbeScheduler.kt$AutomaticProbeScheduler$private suspend fun launchIfEligible(event: PolicyHandoverEvent)</ID>
     <ID>ReturnCount:DiagnosticsContextProvider.kt$AndroidDiagnosticsContextProvider$@SuppressLint("MissingPermission") private fun roamingState(): String</ID>
     <ID>ReturnCount:DiagnosticsScanWorkflow.kt$DiagnosticsScanWorkflow$private fun resolveValidatedStrategyProbeRecommendation( strategyProbe: StrategyProbeReport, settings: com.poyka.ripdpi.proto.AppSettings, ): ValidatedStrategyProbeRecommendation</ID>

@@ -10,7 +10,7 @@
     <ID>LongMethod:VpnEncryptedDnsFailoverController.kt$VpnEncryptedDnsFailoverController$suspend fun evaluate( state: VpnEncryptedDnsFailoverState, activeDns: ActiveDnsSettings?, currentDnsSignature: String?, networkScopeKey: String?, telemetry: NativeRuntimeSnapshot, ): Boolean</ID>
     <ID>LongMethod:VpnServiceRuntimeCoordinatorTest.kt$VpnServiceRuntimeCoordinatorTest$@Test fun dnsFailoverSuccessPersistsWinningPathWithoutRestartingProxy()</ID>
     <ID>LongMethod:VpnServiceRuntimeCoordinatorTest.kt$VpnServiceRuntimeCoordinatorTest$private fun TestScope.newEnv( fingerprint: com.poyka.ripdpi.data.NetworkFingerprint? = sampleFingerprint(), resolutions: List&lt;com.poyka.ripdpi.services.ConnectionPolicyResolution&gt; = listOf(sampleResolution(mode = Mode.VPN)), runtimeFactory: (MutableList&lt;String&gt;) -&gt; TestProxyRuntime = { events -&gt; TestProxyRuntime(events) }, ): Env</ID>
-    <ID>LongParameterList:VpnServiceRuntimeCoordinator.kt$VpnServiceRuntimeCoordinator$( vpnHost: VpnCoordinatorHost, connectionPolicyResolver: ConnectionPolicyResolver, private val resolverOverrideStore: ResolverOverrideStore, serviceRuntimeRegistry: ServiceRuntimeRegistry, rememberedNetworkPolicyStore: RememberedNetworkPolicyStore, networkHandoverMonitor: NetworkHandoverMonitor, policyHandoverEventStore: PolicyHandoverEventStore, permissionWatchdog: PermissionWatchdog, private val vpnTunnelRuntime: VpnTunnelRuntime, private val resolverRefreshPlanner: VpnResolverRefreshPlanner, private val encryptedDnsFailoverController: VpnEncryptedDnsFailoverController, private val proxyRuntimeSupervisor: ProxyRuntimeSupervisor, private val statusReporter: ServiceStatusReporter, private val screenStateObserver: ScreenStateObserver, ioDispatcher: CoroutineDispatcher = Dispatchers.IO, clock: ServiceClock = SystemServiceClock, )</ID>
+    <ID>LongParameterList:VpnServiceRuntimeCoordinator.kt$VpnServiceRuntimeCoordinator$( vpnHost: VpnCoordinatorHost, connectionPolicyResolver: ConnectionPolicyResolver, private val resolverOverrideStore: ResolverOverrideStore, serviceRuntimeRegistry: ServiceRuntimeRegistry, rememberedNetworkPolicyStore: RememberedNetworkPolicyStore, networkHandoverMonitor: NetworkHandoverMonitor, policyHandoverEventStore: PolicyHandoverEventStore, permissionWatchdog: PermissionWatchdog, private val vpnTunnelRuntime: VpnTunnelRuntime, private val resolverRefreshPlanner: VpnResolverRefreshPlanner, private val encryptedDnsFailoverController: VpnEncryptedDnsFailoverController, private val warpRuntimeSupervisor: WarpRuntimeSupervisor, private val proxyRuntimeSupervisor: ProxyRuntimeSupervisor, private val statusReporter: ServiceStatusReporter, private val screenStateObserver: ScreenStateObserver, ioDispatcher: CoroutineDispatcher = Dispatchers.IO, clock: ServiceClock = SystemServiceClock, )</ID>
     <ID>LoopWithTooManyJumpStatements:VpnStartupDnsProbe.kt$VpnStartupDnsProbe$while</ID>
     <ID>MagicNumber:ConnectionPolicyResolver.kt$16</ID>
     <ID>MagicNumber:ConnectionPolicyResolver.kt$4</ID>
@@ -38,6 +38,10 @@
     <ID>MagicNumber:VpnStartupDnsProbe.kt$VpnStartupDnsProbe$7</ID>
     <ID>MagicNumber:VpnStartupDnsProbe.kt$VpnStartupDnsProbe$8</ID>
     <ID>MagicNumber:VpnStartupDnsProbe.kt$VpnStartupDnsProbe$9</ID>
+    <ID>MagicNumber:WarpProvisioningClient.kt$DefaultWarpProvisioningClient$256</ID>
+    <ID>MagicNumber:WarpProvisioningClient.kt$WarpProvisioningNetworkModule$20</ID>
+    <ID>MagicNumber:WarpProvisioningClient.kt$WarpProvisioningNetworkModule$30</ID>
+    <ID>MagicNumber:WarpProvisioningClient.kt$WarpProvisioningNetworkModule$45</ID>
     <ID>ReturnCount:ConnectionPolicyResolver.kt$DefaultConnectionPolicyResolver$override suspend fun resolve( mode: Mode, resolverOverride: TemporaryResolverOverride?, fingerprint: NetworkFingerprint?, handoverClassification: String?, ): ConnectionPolicyResolution</ID>
     <ID>ReturnCount:ConnectionPolicyResolver.kt$DefaultConnectionPolicyResolver$private suspend fun resolvePreferredVpnDnsPath( mode: Mode, dnsResolution: EffectiveDnsResolution, networkScopeKey: String?, ): EncryptedDnsPathCandidate?</ID>
     <ID>ReturnCount:ConnectionPolicyResolver.kt$internal fun resolveVpnDnsSelection( mode: Mode, baseDns: ActiveDnsSettings, preferredPath: EncryptedDnsPathCandidate? = null, rememberedVpnDnsPolicy: VpnDnsPolicyJson? = null, resolverOverride: TemporaryResolverOverride? = null, ): VpnDnsSelection</ID>
@@ -48,12 +52,14 @@
     <ID>ReturnCount:ServiceRuntimeCoordinator.kt$BaseServiceRuntimeCoordinator$private suspend fun handleNetworkHandover(event: NetworkHandoverEvent)</ID>
     <ID>ReturnCount:VpnEncryptedDnsFailoverController.kt$VpnEncryptedDnsFailoverController$suspend fun evaluate( state: VpnEncryptedDnsFailoverState, activeDns: ActiveDnsSettings?, currentDnsSignature: String?, networkScopeKey: String?, telemetry: NativeRuntimeSnapshot, ): Boolean</ID>
     <ID>ReturnCount:VpnStartupDnsProbe.kt$VpnStartupDnsProbe$private fun parseDnsResponseIps( packet: ByteArray, length: Int, ): Set&lt;String&gt;</ID>
+    <ID>ReturnCount:WarpProvisioningClient.kt$internal fun reservedBytesFromClientId(clientId: String?): ByteArray</ID>
     <ID>SwallowedException:RipDpiProxyService.kt$RipDpiProxyService$e: SecurityException</ID>
     <ID>SwallowedException:RipDpiVpnService.kt$RipDpiVpnService$e: SecurityException</ID>
     <ID>TooGenericExceptionCaught:NetworkFingerprintProvider.kt$AndroidNetworkFingerprintProvider$error: Exception</ID>
     <ID>TooGenericExceptionCaught:NotificationUtils.kt$e: Exception</ID>
     <ID>TooGenericExceptionCaught:ProxyRuntimeSupervisor.kt$ProxyRuntimeSupervisor$readinessError: Exception</ID>
     <ID>TooGenericExceptionCaught:VpnTunnelRuntime.kt$VpnTunnelRuntime$error: Exception</ID>
+    <ID>TooGenericExceptionCaught:WarpRuntimeSupervisor.kt$WarpRuntimeSupervisor$readinessError: Exception</ID>
     <ID>TooManyFunctions:ServiceRuntimeCoordinator.kt$BaseServiceRuntimeCoordinator&lt;TSession&gt;</ID>
     <ID>TooManyFunctions:VpnServiceRuntimeCoordinator.kt$VpnServiceRuntimeCoordinator : BaseServiceRuntimeCoordinator</ID>
     <ID>UnusedParameter:BaseServiceRuntimeCoordinatorTest.kt$BaseServiceRuntimeCoordinatorTest$fingerprint: NetworkFingerprint? = sampleFingerprint()</ID>
