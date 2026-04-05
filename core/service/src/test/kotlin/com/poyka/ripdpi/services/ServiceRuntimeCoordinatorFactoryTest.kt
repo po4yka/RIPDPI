@@ -17,6 +17,7 @@ class ServiceRuntimeCoordinatorFactoryTest {
     @Test
     fun proxyCoordinatorFactoryUsesInjectedFactories() =
         runTest {
+            val warpFactory = RecordingWarpRuntimeSupervisorFactory()
             val proxyFactory = RecordingProxyRuntimeSupervisorFactory()
             val statusFactory = RecordingServiceStatusReporterFactory()
             val host = TestProxyServiceHost(backgroundScope)
@@ -31,6 +32,7 @@ class ServiceRuntimeCoordinatorFactoryTest {
                     networkHandoverMonitor = TestNetworkHandoverMonitor(),
                     policyHandoverEventStore = TestPolicyHandoverEventStore(),
                     networkSnapshotProvider = TestNativeNetworkSnapshotProvider(),
+                    warpRuntimeSupervisorFactory = warpFactory,
                     proxyRuntimeSupervisorFactory = proxyFactory,
                     serviceStatusReporterFactory = statusFactory,
                     permissionWatchdog = TestPermissionWatchdog(),
@@ -40,6 +42,7 @@ class ServiceRuntimeCoordinatorFactoryTest {
             coordinatorFactory.create(host)
 
             assertEquals(1, proxyFactory.createCalls)
+            assertEquals(1, warpFactory.createCalls)
             assertEquals(Mode.Proxy, statusFactory.createdModes.single())
             assertEquals(Sender.Proxy, statusFactory.createdSenders.single())
         }
@@ -47,6 +50,7 @@ class ServiceRuntimeCoordinatorFactoryTest {
     @Test
     fun vpnCoordinatorFactoryUsesInjectedFactories() =
         runTest {
+            val warpFactory = RecordingWarpRuntimeSupervisorFactory()
             val proxyFactory = RecordingProxyRuntimeSupervisorFactory()
             val statusFactory = RecordingServiceStatusReporterFactory()
             val overrides = TestResolverOverrideStore()
@@ -74,6 +78,7 @@ class ServiceRuntimeCoordinatorFactoryTest {
                                     resolverOverrideStore = overrides,
                                 ),
                         ),
+                    warpRuntimeSupervisorFactory = warpFactory,
                     proxyRuntimeSupervisorFactory = proxyFactory,
                     screenStateObserver = TestScreenStateObserver(),
                 )
@@ -94,9 +99,26 @@ class ServiceRuntimeCoordinatorFactoryTest {
             coordinatorFactory.create(host)
 
             assertEquals(1, proxyFactory.createCalls)
+            assertEquals(1, warpFactory.createCalls)
             assertEquals(Mode.VPN, statusFactory.createdModes.single())
             assertEquals(Sender.VPN, statusFactory.createdSenders.single())
         }
+
+    private class RecordingWarpRuntimeSupervisorFactory : WarpRuntimeSupervisorFactory(TestRipDpiWarpFactory()) {
+        var createCalls: Int = 0
+
+        override fun create(
+            scope: CoroutineScope,
+            dispatcher: CoroutineDispatcher,
+        ): WarpRuntimeSupervisor {
+            createCalls += 1
+            return WarpRuntimeSupervisor(
+                scope = scope,
+                dispatcher = dispatcher,
+                warpFactory = TestRipDpiWarpFactory(),
+            )
+        }
+    }
 
     private class RecordingProxyRuntimeSupervisorFactory : ProxyRuntimeSupervisorFactory {
         var createCalls: Int = 0

@@ -561,6 +561,7 @@ class NativeConfigContractSnapshotTest {
         parserEvasions: JsonObject = parserEvasionsExpected(),
         quic: JsonObject = quicExpected(),
         hosts: JsonObject = hostsExpected(),
+        warp: JsonObject = warpExpected(),
         hostAutolearn: JsonObject = hostAutolearnExpected(),
         wsTunnel: JsonObject = wsTunnelExpected(),
     ): JsonObject =
@@ -574,6 +575,7 @@ class NativeConfigContractSnapshotTest {
             put("parserEvasions", parserEvasions)
             put("quic", quic)
             put("hosts", hosts)
+            put("warp", warp)
             put("hostAutolearn", hostAutolearn)
             put("wsTunnel", wsTunnel)
             put("rootMode", JsonPrimitive(false))
@@ -744,6 +746,73 @@ class NativeConfigContractSnapshotTest {
         buildJsonObject {
             put("mode", JsonPrimitive(mode))
             put("entries", entries?.let(::JsonPrimitive) ?: JsonNull)
+        }
+
+    private fun warpExpected(
+        enabled: Boolean = false,
+        routeMode: String = "off",
+        routeHosts: String = "",
+        builtInRulesEnabled: Boolean = true,
+        endpointSelectionMode: String = "automatic",
+        manualEndpointHost: String = "",
+        manualEndpointIpv4: String = "",
+        manualEndpointIpv6: String = "",
+        manualEndpointPort: Int = 2408,
+        scannerEnabled: Boolean = true,
+        scannerParallelism: Int = 10,
+        scannerMaxRttMs: Int = 1500,
+        amneziaEnabled: Boolean = false,
+        amneziaJc: Int = 0,
+        amneziaJmin: Int = 0,
+        amneziaJmax: Int = 0,
+        amneziaH1: Long = 0L,
+        amneziaH2: Long = 0L,
+        amneziaH3: Long = 0L,
+        amneziaH4: Long = 0L,
+        amneziaS1: Int = 0,
+        amneziaS2: Int = 0,
+        amneziaS3: Int = 0,
+        amneziaS4: Int = 0,
+        localSocksHost: String = "127.0.0.1",
+        localSocksPort: Int = 11888,
+    ): JsonObject =
+        buildJsonObject {
+            put("enabled", JsonPrimitive(enabled))
+            put("routeMode", JsonPrimitive(routeMode))
+            put("routeHosts", JsonPrimitive(routeHosts))
+            put("builtInRulesEnabled", JsonPrimitive(builtInRulesEnabled))
+            put("endpointSelectionMode", JsonPrimitive(endpointSelectionMode))
+            put(
+                "manualEndpoint",
+                buildJsonObject {
+                    put("host", JsonPrimitive(manualEndpointHost))
+                    put("ipv4", JsonPrimitive(manualEndpointIpv4))
+                    put("ipv6", JsonPrimitive(manualEndpointIpv6))
+                    put("port", JsonPrimitive(manualEndpointPort))
+                },
+            )
+            put("scannerEnabled", JsonPrimitive(scannerEnabled))
+            put("scannerParallelism", JsonPrimitive(scannerParallelism))
+            put("scannerMaxRttMs", JsonPrimitive(scannerMaxRttMs))
+            put(
+                "amnezia",
+                buildJsonObject {
+                    put("enabled", JsonPrimitive(amneziaEnabled))
+                    put("jc", JsonPrimitive(amneziaJc))
+                    put("jmin", JsonPrimitive(amneziaJmin))
+                    put("jmax", JsonPrimitive(amneziaJmax))
+                    put("h1", JsonPrimitive(amneziaH1))
+                    put("h2", JsonPrimitive(amneziaH2))
+                    put("h3", JsonPrimitive(amneziaH3))
+                    put("h4", JsonPrimitive(amneziaH4))
+                    put("s1", JsonPrimitive(amneziaS1))
+                    put("s2", JsonPrimitive(amneziaS2))
+                    put("s3", JsonPrimitive(amneziaS3))
+                    put("s4", JsonPrimitive(amneziaS4))
+                },
+            )
+            put("localSocksHost", JsonPrimitive(localSocksHost))
+            put("localSocksPort", JsonPrimitive(localSocksPort))
         }
 
     private fun hostAutolearnExpected(

@@ -1,4 +1,4 @@
-use std::net::IpAddr;
+use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::str::FromStr;
 use std::{fmt, mem};
 
@@ -6,8 +6,8 @@ use ripdpi_config::{
     parse_http_fake_profile as parse_http_fake_profile_id, parse_tls_fake_profile as parse_tls_fake_profile_id,
     parse_udp_fake_profile as parse_udp_fake_profile_id, ActivationFilter, DesyncGroup, DesyncMode, EntropyMode,
     NumericRange, OffsetBase, OffsetExpr, QuicFakeProfile, QuicInitialMode, RuntimeConfig, SeqOverlapFakeMode,
-    StartupEnv, TcpChainStep, TcpChainStepKind, UdpChainStep, UdpChainStepKind, WsizeConfig, DETECT_CONNECT, FM_DUPSID,
-    FM_ORIG, FM_PADENCAP, FM_RAND, FM_RNDSNI,
+    StartupEnv, TcpChainStep, TcpChainStepKind, UdpChainStep, UdpChainStepKind, UpstreamSocksConfig, WsizeConfig,
+    DETECT_CONNECT, FM_DUPSID, FM_ORIG, FM_PADENCAP, FM_RAND, FM_RNDSNI,
 };
 use ripdpi_packets::{HttpFakeProfile, TlsFakeProfile, UdpFakeProfile};
 use ripdpi_packets::{IS_HTTP, IS_HTTPS, IS_UDP, MH_DMIX, MH_HMIX, MH_METHODEOL, MH_SPACE, MH_UNIXEOL};
@@ -19,8 +19,18 @@ use crate::types::{
     ProxyUiNumericRange, RuntimeConfigEnvelope, ADAPTIVE_FAKE_TTL_DEFAULT_FALLBACK, FAKE_TLS_SNI_MODE_FIXED,
     FAKE_TLS_SNI_MODE_RANDOMIZED, HOSTS_BLACKLIST, HOSTS_DISABLE, HOSTS_WHITELIST, SEQOVL_DEFAULT_OVERLAP_SIZE,
     SEQOVL_FAKE_MODE_PROFILE, SEQOVL_FAKE_MODE_RAND, TLS_RANDREC_DEFAULT_FRAGMENT_COUNT,
-    TLS_RANDREC_DEFAULT_MAX_FRAGMENT_SIZE, TLS_RANDREC_DEFAULT_MIN_FRAGMENT_SIZE,
+    TLS_RANDREC_DEFAULT_MAX_FRAGMENT_SIZE, TLS_RANDREC_DEFAULT_MIN_FRAGMENT_SIZE, WARP_ROUTE_MODE_RULES,
 };
+
+const WARP_CONTROL_PLANE_HOSTS: &[&str] = &[
+    "api.cloudflareclient.com",
+    "connectivity.cloudflareclient.com",
+    "engage.cloudflareclient.com",
+    "downloads.cloudflareclient.com",
+    "zero-trust-client.cloudflareclient.com",
+    "pkg.cloudflareclient.com",
+    "consumer-masque.cloudflareclient.com",
+];
 
 fn trim_non_empty(opt: Option<String>) -> Option<String> {
     opt.map(|s| s.trim().to_string()).filter(|s| !s.is_empty())
@@ -219,6 +229,7 @@ fn validate_ui_payload_shape(json: &str) -> Result<(), ProxyConfigError> {
         "parserEvasions",
         "quic",
         "hosts",
+        "warp",
         "hostAutolearn",
         "wsTunnel",
     ];
@@ -337,6 +348,7 @@ impl<'de> Visitor<'de> for UiPayloadShapeVisitor {
             "parserEvasions",
             "quic",
             "hosts",
+            "warp",
             "hostAutolearn",
             "wsTunnel",
         ];
@@ -452,6 +464,7 @@ pub fn runtime_config_from_ui(payload: ProxyUiConfig) -> Result<RuntimeConfig, P
         parser_evasions,
         quic,
         hosts,
+        warp,
         host_autolearn,
         ws_tunnel,
         native_log_level: _,
@@ -519,12 +532,42 @@ pub fn runtime_config_from_ui(payload: ProxyUiConfig) -> Result<RuntimeConfig, P
     }
 
     let mut groups = Vec::new();
+    if warp.enabled && warp.built_in_rules_enabled {
+        let mut control_plane = DesyncGroup::new(groups.len());
+        control_plane.matches.filters.hosts = parse_hosts(Some(&WARP_CONTROL_PLANE_HOSTS.join("\n")))?;
+        control_plane.policy.label = "warp_control_plane".to_string();
+        groups.push(control_plane);
+    }
     if hosts.mode == HOSTS_WHITELIST {
-        let mut whitelist = DesyncGroup::new(0);
+        let mut whitelist = DesyncGroup::new(groups.len());
         whitelist.matches.filters.hosts = parse_hosts(hosts.entries.as_deref())?;
         groups.push(whitelist);
     }
 
+    if warp.enabled && warp.route_mode == WARP_ROUTE_MODE_RULES {
+        let local_socks_ip = warp
+            .local_socks_host
+            .trim()
+            .parse::<IpAddr>()
+            .unwrap_or(IpAddr::V4(Ipv4Addr::LOCALHOST));
+        let local_socks_port = u16::try_from(warp.local_socks_port)
+            .map_err(|_| ProxyConfigError::InvalidConfig("Invalid warp.localSocksPort".to_string()))?;
+        if local_socks_port == 0 {
+            return Err(ProxyConfigError::InvalidConfig("Invalid warp.localSocksPort".to_string()));
+        }
+        let route_hosts = parse_hosts(Some(warp.route_hosts.as_str()))?;
+        if !route_hosts.is_empty() {
+            let mut warp_group = DesyncGroup::new(groups.len());
+            warp_group.matches.filters.hosts = route_hosts;
+            warp_group.policy.ext_socks = Some(UpstreamSocksConfig {
+                addr: SocketAddr::new(local_socks_ip, local_socks_port),
+            });
+            warp_group.policy.label = "warp_routed".to_string();
+            groups.push(warp_group);
+        }
+    }
+
+    let primary_group_index = groups.len();
     let mut group = DesyncGroup::new(groups.len());
     match hosts.mode.as_str() {
         HOSTS_DISABLE | HOSTS_WHITELIST => {}
@@ -800,10 +843,10 @@ pub fn runtime_config_from_ui(payload: ProxyUiConfig) -> Result<RuntimeConfig, P
     if udp_enabled {
         let mut udp_group = DesyncGroup::new(groups.len());
         udp_group.matches.proto = IS_UDP;
-        udp_group.actions.udp_chain = groups[0].actions.udp_chain.clone();
-        udp_group.actions.quic_fake_profile = groups[0].actions.quic_fake_profile;
-        udp_group.actions.quic_fake_host = groups[0].actions.quic_fake_host.clone();
-        udp_group.matches.activation_filter = groups[0].matches.activation_filter;
+        udp_group.actions.udp_chain = groups[primary_group_index].actions.udp_chain.clone();
+        udp_group.actions.quic_fake_profile = groups[primary_group_index].actions.quic_fake_profile;
+        udp_group.actions.quic_fake_host = groups[primary_group_index].actions.quic_fake_host.clone();
+        udp_group.matches.activation_filter = groups[primary_group_index].matches.activation_filter;
         groups.push(udp_group);
     }
 

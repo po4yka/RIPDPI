@@ -22,6 +22,24 @@
         <item name="whitelist">whitelist</item>
     </array>
 
+    <array name="warp_route_modes">
+        <item name="off">Off</item>
+        <item name="rules">Route selected hosts</item>
+    </array>
+    <array name="warp_route_modes_entries">
+        <item name="off">off</item>
+        <item name="rules">rules</item>
+    </array>
+
+    <array name="warp_endpoint_selection_modes">
+        <item name="automatic">Automatic</item>
+        <item name="manual">Manual</item>
+    </array>
+    <array name="warp_endpoint_selection_modes_entries">
+        <item name="automatic">automatic</item>
+        <item name="manual">manual</item>
+    </array>
+
     <array name="quic_initial_modes">
         <item name="disabled">Disabled</item>
         <item name="route">Route by SNI</item>

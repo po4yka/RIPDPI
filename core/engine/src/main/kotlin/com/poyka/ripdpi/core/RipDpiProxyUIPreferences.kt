@@ -6,6 +6,8 @@ import com.poyka.ripdpi.data.DefaultFakeOffsetMarker
 import com.poyka.ripdpi.data.DefaultFakeSni
 import com.poyka.ripdpi.data.DefaultSplitMarker
 import com.poyka.ripdpi.data.DefaultTlsRecordMarker
+import com.poyka.ripdpi.data.DefaultWarpLocalSocksPort
+import com.poyka.ripdpi.data.DefaultWarpManualEndpointPort
 import com.poyka.ripdpi.data.FakePayloadProfileCompatDefault
 import com.poyka.ripdpi.data.QuicFakeProfileDisabled
 import com.poyka.ripdpi.data.QuicInitialModeRouteAndCache
@@ -51,6 +53,7 @@ import com.poyka.ripdpi.data.normalizeUdpChainStepModel
 import com.poyka.ripdpi.data.normalizeUdpFakeProfile
 import com.poyka.ripdpi.data.setGroupActivationFilterCompat
 import com.poyka.ripdpi.data.setStrategyChains
+import com.poyka.ripdpi.data.toWarpSettingsModel
 import com.poyka.ripdpi.proto.AppSettings
 
 class RipDpiProxyUIPreferences(
@@ -62,6 +65,7 @@ class RipDpiProxyUIPreferences(
     fakePackets: RipDpiFakePacketConfig = RipDpiFakePacketConfig(),
     quic: RipDpiQuicConfig = RipDpiQuicConfig(),
     hosts: RipDpiHostsConfig = RipDpiHostsConfig(),
+    warp: RipDpiWarpConfig = RipDpiWarpConfig(),
     hostAutolearn: RipDpiHostAutolearnConfig = RipDpiHostAutolearnConfig(),
     nativeLogLevel: String? = null,
     runtimeContext: RipDpiRuntimeContext? = null,
@@ -74,6 +78,7 @@ class RipDpiProxyUIPreferences(
     val fakePackets: RipDpiFakePacketConfig = normalizeFakePacketConfig(fakePackets)
     val quic: RipDpiQuicConfig = normalizeQuicConfig(quic)
     val hosts: RipDpiHostsConfig = normalizeHostsConfig(hosts)
+    val warp: RipDpiWarpConfig = normalizeWarpConfig(warp)
     val hostAutolearn: RipDpiHostAutolearnConfig = normalizeHostAutolearnConfig(hostAutolearn)
     val nativeLogLevel: String? = nativeLogLevel?.trim()?.takeIf { it.isNotEmpty() }
     val runtimeContext: RipDpiRuntimeContext? = normalizeRuntimeContext(runtimeContext)
@@ -101,6 +106,7 @@ class RipDpiProxyUIPreferences(
             parserEvasions = parserEvasions,
             quic = quic,
             hosts = hosts,
+            warp = warp,
             hostAutolearn =
                 hostAutolearn.copy(
                     storePath = hostAutolearnStorePath ?: hostAutolearn.storePath,
@@ -132,6 +138,7 @@ class RipDpiProxyUIPreferences(
                 parserEvasions = buildParserEvasionConfig(settings),
                 quic = buildQuicConfig(settings),
                 hosts = buildHostsConfig(settings),
+                warp = buildWarpConfig(settings),
                 hostAutolearn = buildHostAutolearnConfig(settings, hostAutolearnStorePath, networkScopeKey),
                 wsTunnel = buildWsTunnelConfig(settings),
                 runtimeContext = runtimeContext,
@@ -221,6 +228,43 @@ class RipDpiProxyUIPreferences(
                         else -> null
                     },
             )
+
+        private fun buildWarpConfig(settings: AppSettings): RipDpiWarpConfig {
+            val warp = settings.toWarpSettingsModel()
+            return RipDpiWarpConfig(
+                enabled = warp.enabled,
+                routeMode = warp.routeMode,
+                routeHosts = warp.routeHosts,
+                builtInRulesEnabled = warp.builtInRulesEnabled,
+                endpointSelectionMode = warp.endpointSelectionMode,
+                manualEndpoint =
+                    RipDpiWarpManualEndpointConfig(
+                        host = warp.manualEndpoint.host,
+                        ipv4 = warp.manualEndpoint.ipv4,
+                        ipv6 = warp.manualEndpoint.ipv6,
+                        port = warp.manualEndpoint.port,
+                    ),
+                scannerEnabled = warp.scannerEnabled,
+                scannerParallelism = warp.scannerParallelism,
+                scannerMaxRttMs = warp.scannerMaxRttMs,
+                amnezia =
+                    RipDpiWarpAmneziaConfig(
+                        enabled = warp.amnezia.enabled,
+                        jc = warp.amnezia.jc,
+                        jmin = warp.amnezia.jmin,
+                        jmax = warp.amnezia.jmax,
+                        h1 = warp.amnezia.h1,
+                        h2 = warp.amnezia.h2,
+                        h3 = warp.amnezia.h3,
+                        h4 = warp.amnezia.h4,
+                        s1 = warp.amnezia.s1,
+                        s2 = warp.amnezia.s2,
+                        s3 = warp.amnezia.s3,
+                        s4 = warp.amnezia.s4,
+                    ),
+                localSocksPort = DefaultWarpLocalSocksPort,
+            )
+        }
 
         private fun buildHostAutolearnConfig(
             settings: AppSettings,
@@ -325,6 +369,30 @@ fun RipDpiProxyUIPreferences.applyToSettings(settings: AppSettings): AppSettings
                     setHostsWhitelist(hosts.entries.orEmpty())
                 }
             }
+            setWarpEnabled(warp.enabled)
+            setWarpRouteMode(warp.routeMode)
+            setWarpRouteHosts(warp.routeHosts)
+            setWarpBuiltinRulesEnabled(warp.builtInRulesEnabled)
+            setWarpEndpointSelectionMode(warp.endpointSelectionMode)
+            setWarpManualEndpointHost(warp.manualEndpoint.host)
+            setWarpManualEndpointV4(warp.manualEndpoint.ipv4)
+            setWarpManualEndpointV6(warp.manualEndpoint.ipv6)
+            setWarpManualEndpointPort(warp.manualEndpoint.port)
+            setWarpScannerEnabled(warp.scannerEnabled)
+            setWarpScannerParallelism(warp.scannerParallelism)
+            setWarpScannerMaxRttMs(warp.scannerMaxRttMs)
+            setWarpAmneziaEnabled(warp.amnezia.enabled)
+            setWarpAmneziaJc(warp.amnezia.jc)
+            setWarpAmneziaJmin(warp.amnezia.jmin)
+            setWarpAmneziaJmax(warp.amnezia.jmax)
+            setWarpAmneziaH1(warp.amnezia.h1)
+            setWarpAmneziaH2(warp.amnezia.h2)
+            setWarpAmneziaH3(warp.amnezia.h3)
+            setWarpAmneziaH4(warp.amnezia.h4)
+            setWarpAmneziaS1(warp.amnezia.s1)
+            setWarpAmneziaS2(warp.amnezia.s2)
+            setWarpAmneziaS3(warp.amnezia.s3)
+            setWarpAmneziaS4(warp.amnezia.s4)
             setHostAutolearnEnabled(hostAutolearn.enabled)
             setHostAutolearnPenaltyTtlHours(hostAutolearn.penaltyTtlHours)
             setHostAutolearnMaxHosts(hostAutolearn.maxHosts)
@@ -377,6 +445,28 @@ private fun normalizeHostsConfig(config: RipDpiHostsConfig): RipDpiHostsConfig {
         entries = normalizedEntries.takeUnless { normalizedMode == RipDpiHostsConfig.Mode.Disable },
     )
 }
+
+private fun normalizeWarpConfig(config: RipDpiWarpConfig): RipDpiWarpConfig =
+    config.copy(
+        routeMode =
+            com.poyka.ripdpi.data
+                .normalizeWarpRouteMode(config.routeMode),
+        routeHosts = config.routeHosts.trim(),
+        endpointSelectionMode =
+            com.poyka.ripdpi.data
+                .normalizeWarpEndpointSelectionMode(config.endpointSelectionMode),
+        manualEndpoint =
+            config.manualEndpoint.copy(
+                host = config.manualEndpoint.host.trim(),
+                ipv4 = config.manualEndpoint.ipv4.trim(),
+                ipv6 = config.manualEndpoint.ipv6.trim(),
+                port = config.manualEndpoint.port.takeIf { it in 1..65535 } ?: DefaultWarpManualEndpointPort,
+            ),
+        scannerParallelism = config.scannerParallelism.coerceAtLeast(1),
+        scannerMaxRttMs = config.scannerMaxRttMs.coerceAtLeast(1),
+        localSocksHost = config.localSocksHost.ifBlank { "127.0.0.1" },
+        localSocksPort = config.localSocksPort.takeIf { it in 1..65535 } ?: DefaultWarpLocalSocksPort,
+    )
 
 private fun normalizeHostAutolearnConfig(config: RipDpiHostAutolearnConfig): RipDpiHostAutolearnConfig =
     config.copy(
