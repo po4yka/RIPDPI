@@ -169,7 +169,7 @@ class RipDpiWarp(
 
     @Volatile private var handle = 0L
 
-    @Suppress("TooGenericExceptionCaught")
+    @Suppress("TooGenericExceptionCaught", "LongMethod")
     @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
     override suspend fun start(config: ResolvedRipDpiWarpConfig): Int {
         val startupSignal = CompletableDeferred<Unit>()
