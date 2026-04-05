@@ -258,7 +258,7 @@ private fun normalizedEncryptedProtocol(encryptedDnsProtocol: String): String =
         else -> EncryptedDnsProtocolDoh
     }
 
-@Suppress("CyclomaticComplexMethod", "ReturnCount")
+@Suppress("CyclomaticComplexMethod", "ReturnCount", "LongMethod")
 fun activeDnsSettings(
     dnsMode: String,
     dnsProviderId: String,
