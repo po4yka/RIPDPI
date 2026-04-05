@@ -1,0 +1,22 @@
+[package]
+name = "ripdpi-root-helper"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "ripdpi-root-helper"
+path = "src/main.rs"
+
+[lints]
+workspace = true
+
+[dependencies]
+ripdpi-runtime = { workspace = true }
+ripdpi-ipfrag = { workspace = true }
+nix = { workspace = true }
+libc = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
