@@ -839,15 +839,12 @@ fun deriveProbeRetryCount(details: List<ProbeDetail>): Int? {
     val fromExplicit =
         detailMap["probeRetryCount"]?.toIntOrNull()?.takeIf { it >= 0 }
             ?: detailMap["retryCount"]?.toIntOrNull()?.takeIf { it >= 0 }
-    if (fromExplicit != null) return fromExplicit
-    val attempts =
-        detailMap["attempts"]
-            ?.split('|')
-            ?.map(String::trim)
-            ?.filter(String::isNotEmpty)
-            ?.size
-            ?: return null
-    return (attempts - 1).takeIf { it > 0 }
+    return fromExplicit ?: detailMap["attempts"]
+        ?.split('|')
+        ?.map(String::trim)
+        ?.filter(String::isNotEmpty)
+        ?.size
+        ?.let { attempts -> (attempts - 1).takeIf { it > 0 } }
 }
 
 fun ProbeResult.withDerivedProbeRetryCount(): ProbeResult =

@@ -4,7 +4,7 @@ import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.ApplicationIoScope
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.PolicyHandoverEvent
-import com.poyka.ripdpi.data.diagnostics.DiagnosticsArtifactReadStore
+import com.poyka.ripdpi.data.diagnostics.DiagnosticsArtifactQueryStore
 import com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyStore
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -31,7 +31,7 @@ class AutomaticProbeScheduler
     constructor(
         private val appSettingsRepository: AppSettingsRepository,
         private val rememberedNetworkPolicyStore: RememberedNetworkPolicyStore,
-        private val diagnosticsArtifactReadStore: DiagnosticsArtifactReadStore,
+        private val diagnosticsArtifactReadStore: DiagnosticsArtifactQueryStore,
         private val launcherProvider: Provider<AutomaticProbeLauncher>,
         @param:Named("automaticHandoverProbeDelayMs")
         private val automaticHandoverProbeDelayMs: Long,
@@ -59,6 +59,20 @@ class AutomaticProbeScheduler
                 event.classification == AutomaticProbeCoordinator.CLASSIFICATION_STRATEGY_FAILURE
             val settings = appSettingsRepository.snapshot()
             val launcher = launcherProvider.get()
+            val now = System.currentTimeMillis()
+            if (!isEligible(event, settings, launcher, isStrategyFailure, now)) return
+            if (launcher.launchAutomaticProbe(settings, event)) {
+                recentProbeRuns[AutomaticProbeCoordinator.probeKey(event)] = now
+            }
+        }
+
+        private suspend fun isEligible(
+            event: PolicyHandoverEvent,
+            settings: com.poyka.ripdpi.proto.AppSettings,
+            launcher: AutomaticProbeLauncher,
+            isStrategyFailure: Boolean,
+            now: Long,
+        ): Boolean {
             val effectiveCooldownMs =
                 if (isStrategyFailure) automaticStrategyFailureProbeCooldownMs else automaticHandoverProbeCooldownMs
             val baseEligibility =
@@ -69,10 +83,10 @@ class AutomaticProbeScheduler
                     recentRuns = recentProbeRuns,
                     cooldownMs = effectiveCooldownMs,
                 )
-            if (baseEligibility is AutomaticProbeCoordinator.Eligibility.Rejected) return
-
+            val baseAccepted = baseEligibility !is AutomaticProbeCoordinator.Eligibility.Rejected
             val rememberedPolicyBlocks =
-                !isStrategyFailure &&
+                baseAccepted &&
+                    !isStrategyFailure &&
                     run {
                         val hasValidatedRememberedMatch =
                             rememberedNetworkPolicyStore.findValidatedMatch(
@@ -83,9 +97,6 @@ class AutomaticProbeScheduler
                             hasValidatedRememberedMatch = hasValidatedRememberedMatch,
                         ) is AutomaticProbeCoordinator.Eligibility.Rejected
                     }
-            if (rememberedPolicyBlocks) return
-
-            val now = System.currentTimeMillis()
             val latestTelemetrySample =
                 diagnosticsArtifactReadStore.getLatestTelemetrySampleForFingerprint(
                     activeMode = event.mode.name,
@@ -94,10 +105,8 @@ class AutomaticProbeScheduler
                 )
             val recentFailureEligibility =
                 AutomaticProbeCoordinator.evaluateRecentFailureSignal(sample = latestTelemetrySample)
-            if (recentFailureEligibility is AutomaticProbeCoordinator.Eligibility.Rejected) return
-
-            if (launcher.launchAutomaticProbe(settings, event)) {
-                recentProbeRuns[AutomaticProbeCoordinator.probeKey(event)] = now
-            }
+            return baseAccepted &&
+                !rememberedPolicyBlocks &&
+                recentFailureEligibility !is AutomaticProbeCoordinator.Eligibility.Rejected
         }
     }

@@ -8,7 +8,10 @@ import com.poyka.ripdpi.data.FakeTlsSniModeFixed
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.QuicFakeProfileDisabled
 import com.poyka.ripdpi.data.QuicFakeProfileRealisticInitial
+import com.poyka.ripdpi.data.StrategyLaneFamilies
 import com.poyka.ripdpi.data.TcpChainStepKind
+import com.poyka.ripdpi.data.TcpChainStepModel
+import com.poyka.ripdpi.data.UdpChainStepModel
 import com.poyka.ripdpi.data.activeHttpParserEvasions
 import com.poyka.ripdpi.data.deriveStrategyLaneFamilies
 import com.poyka.ripdpi.data.effectiveAdaptiveFakeTtlDelta
@@ -163,100 +166,128 @@ fun deriveBypassStrategySignature(
     val udpSteps = settings.effectiveUdpChainSteps()
     val primaryTcpStep = primaryTcpChainStep(tcpSteps)
     val tlsRecStep = tlsPreludeTcpChainStep(tcpSteps)
-    val hasFakeStep =
-        tcpSteps.any {
-            it.kind == TcpChainStepKind.Fake || it.kind == TcpChainStepKind.FakeSplit ||
-                it.kind == TcpChainStepKind.FakeDisorder
-        }
-    val usesSeqOverlapFakeProfile = tcpSteps.any { it.usesSeqOverlapFakeProfile() }
-    val fakeTlsProfileActive =
-        (hasFakeStep || usesSeqOverlapFakeProfile) && settings.desyncHttps && settings.hasCustomFakeTlsProfile()
+    val fakeTlsProfileActive = resolveSettingsFakeTlsProfileActive(settings, tcpSteps)
     val quicFakeProfile = settings.effectiveQuicFakeProfile()
     val quicFakeProfileActive =
         !settings.enableCmdSettings && settings.desyncUdp && quicFakeProfile != QuicFakeProfileDisabled
     val adaptiveFakeTtlActive = !settings.enableCmdSettings && settings.adaptiveFakeTtlEnabled
     val adaptiveFakeTtlDelta = settings.effectiveAdaptiveFakeTtlDelta()
-    val fakeTtlMode = resolveSettingsFakeTtlMode(settings, adaptiveFakeTtlDelta)
-    val fakeTlsMods = resolveSettingsFakeTlsMods(settings)
     val laneFamilies = settings.deriveStrategyLaneFamilies()
     val activationFilter = settings.effectiveGroupActivationFilter()
     val activationFiltersActive = !settings.enableCmdSettings
-    val commandLineRawFakePayload = settings.enableCmdSettings && hasCommandLineRawFakePayload(settings.cmdArgs)
-    val fakeTlsSniMode = settings.effectiveFakeTlsSniMode()
-    val protocols = resolveSettingsProtocols(settings)
-    val httpParserEvasions = settings.activeHttpParserEvasions().takeIf { !settings.enableCmdSettings }.orEmpty()
 
     return BypassStrategySignature(
         mode = mode,
         configSource = if (settings.enableCmdSettings) "command_line" else "ui",
-        hostAutolearn =
-            when {
-                settings.enableCmdSettings -> "command_line"
-                settings.hostAutolearnEnabled -> "enabled"
-                else -> "disabled"
-            },
+        hostAutolearn = resolveSettingsHostAutolearn(settings),
         desyncMethod = primaryDesyncMethod(tcpSteps).ifEmpty { "none" },
         chainSummary = formatChainSummary(tcpSteps, udpSteps),
         tcpStrategyFamily = laneFamilies.tcpStrategyFamily,
         quicStrategyFamily = laneFamilies.quicStrategyFamily,
         dnsStrategyFamily = laneFamilies.dnsStrategyFamily,
         dnsStrategyLabel = laneFamilies.dnsStrategyLabel,
-        protocolToggles = protocols,
-        httpParserEvasions = httpParserEvasions,
+        protocolToggles = resolveSettingsProtocols(settings),
+        httpParserEvasions = settings.activeHttpParserEvasions().takeIf { !settings.enableCmdSettings }.orEmpty(),
         tlsRecordSplitEnabled = tlsRecStep != null,
         tlsRecordMarker = tlsRecStep?.marker,
         splitMarker = primaryTcpStep?.marker,
         activationRound = formatNumericRange(activationFilter.round).takeIf { activationFiltersActive },
         activationPayloadSize = formatNumericRange(activationFilter.payloadSize).takeIf { activationFiltersActive },
         activationStreamBytes = formatNumericRange(activationFilter.streamBytes).takeIf { activationFiltersActive },
-        fakeTtlMode = fakeTtlMode,
-        adaptiveFakeTtlWindow =
-            if (adaptiveFakeTtlActive) {
-                "${settings.effectiveAdaptiveFakeTtlMin()}-${settings.effectiveAdaptiveFakeTtlMax()}"
-            } else {
-                null
-            },
+        fakeTtlMode = resolveSettingsFakeTtlMode(settings, adaptiveFakeTtlDelta),
+        adaptiveFakeTtlWindow = resolveSettingsAdaptiveTtlWindow(settings, adaptiveFakeTtlActive),
         adaptiveFakeTtlFallback = settings.effectiveAdaptiveFakeTtlFallback().takeIf { adaptiveFakeTtlActive },
         adaptiveFakeTtlBias =
-            adaptiveFakeTtlDelta.takeIf {
-                adaptiveFakeTtlActive && it != DefaultAdaptiveFakeTtlDelta
-            },
-        fakeSniMode = fakeTlsSniMode.takeIf { fakeTlsProfileActive },
-        fakeSniValue =
-            settings.fakeSni
-                .ifBlank { null }
-                ?.takeIf { fakeTlsProfileActive && fakeTlsSniMode == FakeTlsSniModeFixed },
-        fakeTlsBaseMode =
-            if (fakeTlsProfileActive) {
-                if (settings.fakeTlsUseOriginal) "original" else "default"
-            } else {
-                null
-            },
-        fakeTlsMods = fakeTlsMods.takeIf { fakeTlsProfileActive }.orEmpty(),
+            adaptiveFakeTtlDelta.takeIf { adaptiveFakeTtlActive && it != DefaultAdaptiveFakeTtlDelta },
+        fakeSniMode = settings.effectiveFakeTlsSniMode().takeIf { fakeTlsProfileActive },
+        fakeSniValue = resolveSettingsFakeSniValue(settings, fakeTlsProfileActive),
+        fakeTlsBaseMode = resolveSettingsFakeTlsBaseMode(settings, fakeTlsProfileActive),
+        fakeTlsMods = resolveSettingsFakeTlsMods(settings).takeIf { fakeTlsProfileActive }.orEmpty(),
         fakeTlsSize = settings.fakeTlsSize.takeIf { fakeTlsProfileActive && it != 0 },
-        httpFakeProfile =
-            settings
-                .effectiveHttpFakeProfile()
-                .takeIf { !settings.enableCmdSettings && it != FakePayloadProfileCompatDefault },
-        tlsFakeProfile =
-            settings
-                .effectiveTlsFakeProfile()
-                .takeIf { !settings.enableCmdSettings && it != FakePayloadProfileCompatDefault },
-        udpFakeProfile =
-            settings
-                .effectiveUdpFakeProfile()
-                .takeIf { !settings.enableCmdSettings && it != FakePayloadProfileCompatDefault },
-        fakePayloadSource = "custom_raw".takeIf { commandLineRawFakePayload },
+        httpFakeProfile = resolveSettingsHttpFakeProfile(settings),
+        tlsFakeProfile = resolveSettingsTlsFakeProfile(settings),
+        udpFakeProfile = resolveSettingsUdpFakeProfile(settings),
+        fakePayloadSource =
+            "custom_raw".takeIf { settings.enableCmdSettings && hasCommandLineRawFakePayload(settings.cmdArgs) },
         quicFakeProfile = quicFakeProfile.takeIf { quicFakeProfileActive },
-        quicFakeHost =
-            settings.effectiveQuicFakeHost().takeIf {
-                quicFakeProfileActive && quicFakeProfile == QuicFakeProfileRealisticInitial && it.isNotBlank()
-            },
+        quicFakeHost = resolveSettingsQuicFakeHost(settings, quicFakeProfileActive, quicFakeProfile),
         fakeOffsetMarker = settings.effectiveFakeOffsetMarker().takeUnless { it == DefaultFakeOffsetMarker },
         routeGroup = routeGroup?.takeUnless { it.isBlank() || it == "unknown" },
         fallbackGroupFamilies = if (!settings.enableCmdSettings) DefaultFallbackGroupFamilies else emptyList(),
     )
 }
+
+private fun resolveSettingsFakeTlsProfileActive(
+    settings: AppSettings,
+    tcpSteps: List<TcpChainStepModel>,
+): Boolean {
+    val hasFakeStep =
+        tcpSteps.any {
+            it.kind == TcpChainStepKind.Fake || it.kind == TcpChainStepKind.FakeSplit ||
+                it.kind == TcpChainStepKind.FakeDisorder
+        }
+    val usesSeqOverlap = tcpSteps.any { it.usesSeqOverlapFakeProfile() }
+    return (hasFakeStep || usesSeqOverlap) && settings.desyncHttps && settings.hasCustomFakeTlsProfile()
+}
+
+private fun resolveSettingsHostAutolearn(settings: AppSettings): String =
+    when {
+        settings.enableCmdSettings -> "command_line"
+        settings.hostAutolearnEnabled -> "enabled"
+        else -> "disabled"
+    }
+
+private fun resolveSettingsAdaptiveTtlWindow(
+    settings: AppSettings,
+    adaptiveFakeTtlActive: Boolean,
+): String? =
+    if (adaptiveFakeTtlActive) {
+        "${settings.effectiveAdaptiveFakeTtlMin()}-${settings.effectiveAdaptiveFakeTtlMax()}"
+    } else {
+        null
+    }
+
+private fun resolveSettingsFakeSniValue(
+    settings: AppSettings,
+    fakeTlsProfileActive: Boolean,
+): String? =
+    settings.fakeSni
+        .ifBlank { null }
+        ?.takeIf { fakeTlsProfileActive && settings.effectiveFakeTlsSniMode() == FakeTlsSniModeFixed }
+
+private fun resolveSettingsFakeTlsBaseMode(
+    settings: AppSettings,
+    fakeTlsProfileActive: Boolean,
+): String? =
+    if (fakeTlsProfileActive) {
+        if (settings.fakeTlsUseOriginal) "original" else "default"
+    } else {
+        null
+    }
+
+private fun resolveSettingsHttpFakeProfile(settings: AppSettings): String? =
+    settings
+        .effectiveHttpFakeProfile()
+        .takeIf { !settings.enableCmdSettings && it != FakePayloadProfileCompatDefault }
+
+private fun resolveSettingsTlsFakeProfile(settings: AppSettings): String? =
+    settings
+        .effectiveTlsFakeProfile()
+        .takeIf { !settings.enableCmdSettings && it != FakePayloadProfileCompatDefault }
+
+private fun resolveSettingsUdpFakeProfile(settings: AppSettings): String? =
+    settings
+        .effectiveUdpFakeProfile()
+        .takeIf { !settings.enableCmdSettings && it != FakePayloadProfileCompatDefault }
+
+private fun resolveSettingsQuicFakeHost(
+    settings: AppSettings,
+    quicFakeProfileActive: Boolean,
+    quicFakeProfile: String,
+): String? =
+    settings.effectiveQuicFakeHost().takeIf {
+        quicFakeProfileActive && quicFakeProfile == QuicFakeProfileRealisticInitial && it.isNotBlank()
+    }
 
 private fun resolveSettingsProtocols(settings: AppSettings): List<String> =
     buildList {
@@ -293,43 +324,12 @@ fun deriveBypassStrategySignature(
     val udpSteps = preferences.chains.udpSteps
     val primaryTcpStep = primaryTcpChainStep(tcpSteps)
     val tlsRecStep = tlsPreludeTcpChainStep(tcpSteps)
-    val hasFakeStep =
-        tcpSteps.any {
-            it.kind == TcpChainStepKind.Fake || it.kind == TcpChainStepKind.FakeSplit ||
-                it.kind == TcpChainStepKind.FakeDisorder
-        }
-    val hasCustomFakeTlsProfile = resolvePreferencesHasCustomFakeTlsProfile(preferences)
-    val fakeTlsProfileActive = hasFakeStep && preferences.protocols.desyncHttps && hasCustomFakeTlsProfile
+    val fakeTlsProfileActive = resolvePreferencesFakeTlsProfileActive(preferences, tcpSteps)
     val quicFakeProfileActive =
         preferences.protocols.desyncUdp && preferences.quic.fakeProfile != QuicFakeProfileDisabled
     val adaptiveFakeTtlActive = preferences.fakePackets.adaptiveFakeTtlEnabled
     val adaptiveFakeTtlDelta = preferences.fakePackets.adaptiveFakeTtlDelta
-    val fakeTtlMode = resolvePreferencesFakeTtlMode(preferences, adaptiveFakeTtlDelta)
-    val fakeTlsMods = resolvePreferencesFakeTlsMods(preferences)
-    val laneFamilies =
-        deriveStrategyLaneFamilies(
-            tcpSteps = tcpSteps,
-            udpSteps = udpSteps,
-            desyncUdp = preferences.protocols.desyncUdp,
-            quicInitialMode = preferences.quic.initialMode,
-            quicFakeProfile = preferences.quic.fakeProfile,
-        )
-    val httpParserEvasions =
-        activeHttpParserEvasions(
-            hostMixedCase = preferences.parserEvasions.hostMixedCase,
-            domainMixedCase = preferences.parserEvasions.domainMixedCase,
-            hostRemoveSpaces = preferences.parserEvasions.hostRemoveSpaces,
-            httpMethodSpace = preferences.parserEvasions.httpMethodSpace,
-            httpMethodEol = preferences.parserEvasions.httpMethodEol,
-            httpHostPad = preferences.parserEvasions.httpHostPad,
-            httpUnixEol = preferences.parserEvasions.httpUnixEol,
-        )
-    val protocols =
-        buildList {
-            if (preferences.protocols.desyncHttp) add("HTTP")
-            if (preferences.protocols.desyncHttps) add("HTTPS")
-            if (preferences.protocols.desyncUdp) add("UDP")
-        }.ifEmpty { listOf("NONE") }
+    val laneFamilies = resolvePreferencesLaneFamilies(preferences, tcpSteps, udpSteps)
 
     return BypassStrategySignature(
         mode = modeOverride.name,
@@ -341,49 +341,29 @@ fun deriveBypassStrategySignature(
         quicStrategyFamily = laneFamilies.quicStrategyFamily,
         dnsStrategyFamily = laneFamilies.dnsStrategyFamily,
         dnsStrategyLabel = laneFamilies.dnsStrategyLabel,
-        protocolToggles = protocols,
-        httpParserEvasions = httpParserEvasions,
+        protocolToggles = resolvePreferencesProtocols(preferences),
+        httpParserEvasions = resolvePreferencesHttpParserEvasions(preferences),
         tlsRecordSplitEnabled = tlsRecStep != null,
         tlsRecordMarker = tlsRecStep?.marker,
         splitMarker = primaryTcpStep?.marker,
         activationRound = formatNumericRange(preferences.chains.groupActivationFilter.round),
         activationPayloadSize = formatNumericRange(preferences.chains.groupActivationFilter.payloadSize),
         activationStreamBytes = formatNumericRange(preferences.chains.groupActivationFilter.streamBytes),
-        fakeTtlMode = fakeTtlMode,
-        adaptiveFakeTtlWindow =
-            if (adaptiveFakeTtlActive) {
-                "${preferences.fakePackets.adaptiveFakeTtlMin}-${preferences.fakePackets.adaptiveFakeTtlMax}"
-            } else {
-                null
-            },
-        adaptiveFakeTtlFallback =
-            preferences.fakePackets.adaptiveFakeTtlFallback.takeIf { adaptiveFakeTtlActive },
+        fakeTtlMode = resolvePreferencesFakeTtlMode(preferences, adaptiveFakeTtlDelta),
+        adaptiveFakeTtlWindow = resolvePreferencesAdaptiveTtlWindow(preferences, adaptiveFakeTtlActive),
+        adaptiveFakeTtlFallback = preferences.fakePackets.adaptiveFakeTtlFallback.takeIf { adaptiveFakeTtlActive },
         adaptiveFakeTtlBias =
-            adaptiveFakeTtlDelta.takeIf {
-                adaptiveFakeTtlActive && it != DefaultAdaptiveFakeTtlDelta
-            },
+            adaptiveFakeTtlDelta.takeIf { adaptiveFakeTtlActive && it != DefaultAdaptiveFakeTtlDelta },
         fakeSniMode = preferences.fakePackets.fakeTlsSniMode.takeIf { fakeTlsProfileActive },
-        fakeSniValue =
-            preferences.fakePackets.fakeSni.takeIf {
-                fakeTlsProfileActive && preferences.fakePackets.fakeTlsSniMode == FakeTlsSniModeFixed
-            },
-        fakeTlsBaseMode =
-            if (fakeTlsProfileActive) {
-                if (preferences.fakePackets.fakeTlsUseOriginal) "original" else "default"
-            } else {
-                null
-            },
-        fakeTlsMods = fakeTlsMods.takeIf { fakeTlsProfileActive }.orEmpty(),
+        fakeSniValue = resolvePreferencesFakeSniValue(preferences, fakeTlsProfileActive),
+        fakeTlsBaseMode = resolvePreferencesFakeTlsBaseMode(preferences, fakeTlsProfileActive),
+        fakeTlsMods = resolvePreferencesFakeTlsMods(preferences).takeIf { fakeTlsProfileActive }.orEmpty(),
         fakeTlsSize = preferences.fakePackets.fakeTlsSize.takeIf { fakeTlsProfileActive && it != 0 },
         httpFakeProfile = preferences.fakePackets.httpFakeProfile.takeIf { it != FakePayloadProfileCompatDefault },
         tlsFakeProfile = preferences.fakePackets.tlsFakeProfile.takeIf { it != FakePayloadProfileCompatDefault },
         udpFakeProfile = preferences.fakePackets.udpFakeProfile.takeIf { it != FakePayloadProfileCompatDefault },
         quicFakeProfile = preferences.quic.fakeProfile.takeIf { quicFakeProfileActive },
-        quicFakeHost =
-            preferences.quic.fakeHost.takeIf {
-                quicFakeProfileActive && preferences.quic.fakeProfile == QuicFakeProfileRealisticInitial &&
-                    it.isNotBlank()
-            },
+        quicFakeHost = resolvePreferencesQuicFakeHost(preferences, quicFakeProfileActive),
         fakeOffsetMarker = preferences.fakePackets.fakeOffsetMarker.takeUnless { it == DefaultFakeOffsetMarker },
         routeGroup = routeGroup?.takeUnless { it.isBlank() || it == "unknown" },
         fallbackGroupFamilies = DefaultFallbackGroupFamilies,
@@ -418,6 +398,86 @@ private fun resolvePreferencesFakeTlsMods(preferences: RipDpiProxyUIPreferences)
         if (preferences.fakePackets.fakeTlsRandomize) add("rand")
         if (preferences.fakePackets.fakeTlsDupSessionId) add("dupsid")
         if (preferences.fakePackets.fakeTlsPadEncap) add("padencap")
+    }
+
+private fun resolvePreferencesFakeTlsProfileActive(
+    preferences: RipDpiProxyUIPreferences,
+    tcpSteps: List<TcpChainStepModel>,
+): Boolean {
+    val hasFakeStep =
+        tcpSteps.any {
+            it.kind == TcpChainStepKind.Fake || it.kind == TcpChainStepKind.FakeSplit ||
+                it.kind == TcpChainStepKind.FakeDisorder
+        }
+    return hasFakeStep && preferences.protocols.desyncHttps && resolvePreferencesHasCustomFakeTlsProfile(preferences)
+}
+
+private fun resolvePreferencesLaneFamilies(
+    preferences: RipDpiProxyUIPreferences,
+    tcpSteps: List<TcpChainStepModel>,
+    udpSteps: List<UdpChainStepModel>,
+): StrategyLaneFamilies =
+    deriveStrategyLaneFamilies(
+        tcpSteps = tcpSteps,
+        udpSteps = udpSteps,
+        desyncUdp = preferences.protocols.desyncUdp,
+        quicInitialMode = preferences.quic.initialMode,
+        quicFakeProfile = preferences.quic.fakeProfile,
+    )
+
+private fun resolvePreferencesProtocols(preferences: RipDpiProxyUIPreferences): List<String> =
+    buildList {
+        if (preferences.protocols.desyncHttp) add("HTTP")
+        if (preferences.protocols.desyncHttps) add("HTTPS")
+        if (preferences.protocols.desyncUdp) add("UDP")
+    }.ifEmpty { listOf("NONE") }
+
+private fun resolvePreferencesHttpParserEvasions(preferences: RipDpiProxyUIPreferences): List<String> =
+    activeHttpParserEvasions(
+        hostMixedCase = preferences.parserEvasions.hostMixedCase,
+        domainMixedCase = preferences.parserEvasions.domainMixedCase,
+        hostRemoveSpaces = preferences.parserEvasions.hostRemoveSpaces,
+        httpMethodSpace = preferences.parserEvasions.httpMethodSpace,
+        httpMethodEol = preferences.parserEvasions.httpMethodEol,
+        httpHostPad = preferences.parserEvasions.httpHostPad,
+        httpUnixEol = preferences.parserEvasions.httpUnixEol,
+    )
+
+private fun resolvePreferencesAdaptiveTtlWindow(
+    preferences: RipDpiProxyUIPreferences,
+    adaptiveFakeTtlActive: Boolean,
+): String? =
+    if (adaptiveFakeTtlActive) {
+        "${preferences.fakePackets.adaptiveFakeTtlMin}-${preferences.fakePackets.adaptiveFakeTtlMax}"
+    } else {
+        null
+    }
+
+private fun resolvePreferencesFakeSniValue(
+    preferences: RipDpiProxyUIPreferences,
+    fakeTlsProfileActive: Boolean,
+): String? =
+    preferences.fakePackets.fakeSni.takeIf {
+        fakeTlsProfileActive && preferences.fakePackets.fakeTlsSniMode == FakeTlsSniModeFixed
+    }
+
+private fun resolvePreferencesFakeTlsBaseMode(
+    preferences: RipDpiProxyUIPreferences,
+    fakeTlsProfileActive: Boolean,
+): String? =
+    if (fakeTlsProfileActive) {
+        if (preferences.fakePackets.fakeTlsUseOriginal) "original" else "default"
+    } else {
+        null
+    }
+
+private fun resolvePreferencesQuicFakeHost(
+    preferences: RipDpiProxyUIPreferences,
+    quicFakeProfileActive: Boolean,
+): String? =
+    preferences.quic.fakeHost.takeIf {
+        quicFakeProfileActive && preferences.quic.fakeProfile == QuicFakeProfileRealisticInitial &&
+            it.isNotBlank()
     }
 
 private const val StableIdHashPrefixBytes = 6

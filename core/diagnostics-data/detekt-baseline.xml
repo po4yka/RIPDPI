@@ -1,7 +1,5 @@
 <?xml version="1.0" ?>
 <SmellBaseline>
   <ManuallySuppressedIssues/>
-  <CurrentIssues>
-    <ID>TooManyFunctions:DiagnosticsHistoryStores.kt$DiagnosticsArtifactReadStore</ID>
-  </CurrentIssues>
+  <CurrentIssues/>
 </SmellBaseline>

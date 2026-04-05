@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.diagnostics
 
+import com.poyka.ripdpi.data.diagnostics.DiagnosticsArtifactQueryStore
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsArtifactReadStore
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsScanRecordStore
 import com.poyka.ripdpi.data.diagnostics.ScanSessionEntity
@@ -15,6 +16,7 @@ internal object DiagnosticsShareSummaryBuilder {
         sessionId: String?,
         scanRecordStore: DiagnosticsScanRecordStore,
         artifactReadStore: DiagnosticsArtifactReadStore,
+        artifactQueryStore: DiagnosticsArtifactQueryStore,
         json: Json,
         projector: DiagnosticsSummaryProjector = DiagnosticsSummaryProjector(),
     ): ShareSummary {
@@ -25,10 +27,10 @@ internal object DiagnosticsShareSummaryBuilder {
         }
         val selectedResults =
             selectedSession?.id?.let { id -> scanRecordStore.getProbeResults(id) }.orEmpty()
-        val latestSnapshotModel = loadLatestSnapshotModel(selectedSession, artifactReadStore, json)
-        val latestContextModel = loadLatestContextModel(selectedSession, artifactReadStore, json)
+        val latestSnapshotModel = loadLatestSnapshotModel(selectedSession, artifactReadStore, artifactQueryStore, json)
+        val latestContextModel = loadLatestContextModel(selectedSession, artifactReadStore, artifactQueryStore, json)
         val latestTelemetry = loadLatestTelemetry(selectedSession, artifactReadStore)
-        val latestWarnings = loadLatestWarnings(selectedSession, artifactReadStore)
+        val latestWarnings = loadLatestWarnings(selectedSession, artifactReadStore, artifactQueryStore)
         val selectedReport =
             selectedSession
                 ?.reportJson
@@ -85,13 +87,14 @@ internal object DiagnosticsShareSummaryBuilder {
     private suspend fun loadLatestSnapshotModel(
         selectedSession: ScanSessionEntity?,
         artifactReadStore: DiagnosticsArtifactReadStore,
+        artifactQueryStore: DiagnosticsArtifactQueryStore,
         json: Json,
     ): NetworkSnapshotModel? {
         val latestSnapshot =
             selectedSession
                 ?.id
                 ?.let { id ->
-                    artifactReadStore.getSnapshotsForSession(id, limit = SessionArtifactLimit).firstOrNull()
+                    artifactQueryStore.getSnapshotsForSession(id, limit = SessionArtifactLimit).firstOrNull()
                 }
                 ?: artifactReadStore.observeSnapshots(limit = 1).first().firstOrNull()
         return latestSnapshot
@@ -104,13 +107,14 @@ internal object DiagnosticsShareSummaryBuilder {
     private suspend fun loadLatestContextModel(
         selectedSession: ScanSessionEntity?,
         artifactReadStore: DiagnosticsArtifactReadStore,
+        artifactQueryStore: DiagnosticsArtifactQueryStore,
         json: Json,
     ): DiagnosticContextModel? {
         val latestContext =
             selectedSession
                 ?.id
                 ?.let { id ->
-                    artifactReadStore.getContextsForSession(id, limit = SessionArtifactLimit).firstOrNull()
+                    artifactQueryStore.getContextsForSession(id, limit = SessionArtifactLimit).firstOrNull()
                 }
                 ?: artifactReadStore.observeContexts(limit = 1).first().firstOrNull()
         return latestContext
@@ -135,8 +139,9 @@ internal object DiagnosticsShareSummaryBuilder {
     private suspend fun loadLatestWarnings(
         selectedSession: ScanSessionEntity?,
         artifactReadStore: DiagnosticsArtifactReadStore,
+        artifactQueryStore: DiagnosticsArtifactQueryStore,
     ) = if (selectedSession != null) {
-        artifactReadStore.getNativeEventsForSession(selectedSession.id, limit = WarningLimit)
+        artifactQueryStore.getNativeEventsForSession(selectedSession.id, limit = WarningLimit)
     } else {
         artifactReadStore.observeNativeEvents(limit = WarningLimit).first()
     }.filter { event ->
