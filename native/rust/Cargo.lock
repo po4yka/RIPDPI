@@ -3075,6 +3075,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "ripdpi-masque"
+version = "0.1.0"
+dependencies = [
+ "bytes",
+ "h3",
+ "h3-quinn",
+ "http",
+ "http-body-util",
+ "hyper",
+ "hyper-util",
+ "quinn",
+ "ring",
+ "rustls",
+ "thiserror 2.0.18",
+ "tokio",
+ "tokio-rustls",
+ "tracing",
+ "url",
+ "webpki-roots 1.0.6",
+]
+
+[[package]]
 name = "ripdpi-monitor"
 version = "0.1.0"
 dependencies = [
@@ -3155,9 +3177,12 @@ name = "ripdpi-relay-core"
 version = "0.1.0"
 dependencies = [
  "hysteria2",
+ "ripdpi-masque",
+ "ripdpi-vless",
  "serde",
  "socket2 0.6.3",
  "tokio",
+ "tracing",
 ]
 
 [[package]]
@@ -3298,6 +3323,22 @@ dependencies = [
  "tracing-subscriber",
  "tun-rs",
  "turmoil",
+]
+
+[[package]]
+name = "ripdpi-vless"
+version = "0.1.0"
+dependencies = [
+ "aes",
+ "base64 0.22.1",
+ "boring",
+ "hex",
+ "ring",
+ "thiserror 2.0.18",
+ "tokio",
+ "tokio-boring",
+ "tracing",
+ "x25519-dalek",
 ]
 
 [[package]]
@@ -4022,6 +4063,17 @@ dependencies = [
  "socket2 0.6.3",
  "tokio-macros",
  "windows-sys 0.61.2",
+]
+
+[[package]]
+name = "tokio-boring"
+version = "5.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "888f55b68689784b01b8625c9c1486080d8a790972355d45a1bef231b5f5aa83"
+dependencies = [
+ "boring",
+ "boring-sys",
+ "tokio",
 ]
 
 [[package]]

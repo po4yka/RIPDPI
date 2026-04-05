@@ -258,12 +258,7 @@ pub(crate) fn build_tcp_candidates(base: &ProxyUiConfig) -> Vec<StrategyCandidat
 
     let mut candidates = vec![
         candidate_spec("baseline_current", "Current strategy", "baseline", baseline),
-        candidate_spec(
-            "tlsrec_split_host",
-            "TLS record + split host",
-            "tlsrec_split",
-            tlsrec_split_host.clone(),
-        ),
+        candidate_spec("tlsrec_split_host", "TLS record + split host", "tlsrec_split", tlsrec_split_host.clone()),
         candidate_spec_with_notes(
             "tlsrec_hostfake_split",
             "TLS record + hostfake split",
@@ -366,9 +361,24 @@ pub(crate) fn build_tcp_candidates(base: &ProxyUiConfig) -> Vec<StrategyCandidat
             vec!["VPN-only raw-socket TCP fragmentation of the first application-data segment"],
         ));
         for (id, label, profile, note) in [
-            ("ipfrag2_hopbyhop", "IP fragmentation + Hop-by-Hop", "hopByHop", "Adds one Hop-by-Hop header before fragmentation"),
-            ("ipfrag2_hopbyhop2", "IP fragmentation + Hop-by-Hop2", "hopByHop2", "Adds the double-header Tier 2 IPv6 extension profile"),
-            ("ipfrag2_destopt", "IP fragmentation + Dest Opt", "destOpt", "Adds one Destination Options header before fragmentation"),
+            (
+                "ipfrag2_hopbyhop",
+                "IP fragmentation + Hop-by-Hop",
+                "hopByHop",
+                "Adds one Hop-by-Hop header before fragmentation",
+            ),
+            (
+                "ipfrag2_hopbyhop2",
+                "IP fragmentation + Hop-by-Hop2",
+                "hopByHop2",
+                "Adds the double-header Tier 2 IPv6 extension profile",
+            ),
+            (
+                "ipfrag2_destopt",
+                "IP fragmentation + Dest Opt",
+                "destOpt",
+                "Adds one Destination Options header before fragmentation",
+            ),
             (
                 "ipfrag2_hopbyhop_destopt",
                 "IP fragmentation + HBH + Dest Opt",
