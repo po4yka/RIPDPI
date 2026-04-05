@@ -25,6 +25,7 @@ members = [
     "crates/ripdpi-cli",
     "crates/ripdpi-bench",
     "crates/ripdpi-io-uring",
+    "crates/ripdpi-root-helper",
 ]
 
 [workspace.package]

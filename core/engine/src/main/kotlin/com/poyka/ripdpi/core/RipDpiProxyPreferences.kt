@@ -17,6 +17,8 @@ class RipDpiProxyJsonPreferences(
     private val networkScopeKey: String? = null,
     private val runtimeContext: RipDpiRuntimeContext? = null,
     private val logContext: RipDpiLogContext? = null,
+    private val rootMode: Boolean = false,
+    private val rootHelperSocketPath: String? = null,
 ) : RipDpiProxyPreferences {
     override fun toNativeConfigJson(): String =
         RipDpiProxyJsonCodec.rewriteJson(
@@ -25,6 +27,8 @@ class RipDpiProxyJsonPreferences(
             networkScopeKey = networkScopeKey,
             runtimeContext = runtimeContext,
             logContext = logContext,
+            rootMode = rootMode,
+            rootHelperSocketPath = rootHelperSocketPath,
         )
 }
 

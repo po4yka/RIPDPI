@@ -120,6 +120,8 @@ internal object RipDpiProxyJsonCodec {
     fun encodeUiPreferences(
         preferences: RipDpiProxyUIPreferences,
         strategyPreset: String? = null,
+        rootMode: Boolean = false,
+        rootHelperSocketPath: String? = null,
     ): String =
         encode(
             NativeProxyConfig.Ui(
@@ -134,6 +136,8 @@ internal object RipDpiProxyJsonCodec {
                 hostAutolearn = EndpointCodec.toNative(preferences.hostAutolearn),
                 wsTunnel = EndpointCodec.toNative(preferences.wsTunnel),
                 nativeLogLevel = preferences.nativeLogLevel,
+                rootMode = rootMode,
+                rootHelperSocketPath = rootHelperSocketPath,
                 runtimeContext = ProxyRuntimeContextCodec.toNative(preferences.runtimeContext),
                 logContext = ProxyLogContextCodec.toNative(preferences.logContext),
             ),
@@ -156,6 +160,8 @@ internal object RipDpiProxyJsonCodec {
         networkScopeKey: String?,
         runtimeContext: RipDpiRuntimeContext?,
         logContext: RipDpiLogContext?,
+        rootMode: Boolean = false,
+        rootHelperSocketPath: String? = null,
     ): String =
         when (val payload = decode(configJson)) {
             is NativeProxyConfig.CommandLine -> {
@@ -177,7 +183,12 @@ internal object RipDpiProxyJsonCodec {
                         runtimeContext = runtimeContext ?: ProxyRuntimeContextCodec.toModel(payload.runtimeContext),
                         logContext = logContext ?: ProxyLogContextCodec.toModel(payload.logContext),
                     )
-                encodeUiPreferences(preferences, strategyPreset = payload.strategyPreset)
+                encodeUiPreferences(
+                    preferences,
+                    strategyPreset = payload.strategyPreset,
+                    rootMode = rootMode,
+                    rootHelperSocketPath = rootHelperSocketPath,
+                )
             }
         }
 
@@ -416,6 +427,9 @@ internal object RipDpiProxyJsonCodec {
             val wsTunnel: NativeWsTunnelConfig = NativeWsTunnelConfig(),
             @EncodeDefault(EncodeDefault.Mode.NEVER)
             val nativeLogLevel: String? = null,
+            val rootMode: Boolean = false,
+            @EncodeDefault(EncodeDefault.Mode.NEVER)
+            val rootHelperSocketPath: String? = null,
             val runtimeContext: NativeRuntimeContext? = null,
             val logContext: NativeLogContext? = null,
         ) : NativeProxyConfig

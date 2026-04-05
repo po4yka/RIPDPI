@@ -429,6 +429,8 @@ pub struct ProxyUiConfig {
     pub native_log_level: Option<String>,
     #[serde(default)]
     pub root_mode: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub root_helper_socket_path: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
