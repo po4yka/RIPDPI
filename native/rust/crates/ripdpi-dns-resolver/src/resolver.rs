@@ -18,7 +18,6 @@ use tokio::net::TcpStream as TokioTcpStream;
 use tokio::runtime::Builder;
 use tokio::sync::Mutex as AsyncMutex;
 use tokio::time::timeout;
-use tokio_rustls::client::TlsStream as TokioTlsStream;
 use tokio_rustls::TlsConnector;
 use url::Url;
 
@@ -27,7 +26,7 @@ use crate::health::HealthRegistry;
 use crate::transport::*;
 use crate::types::*;
 
-type DotTlsStream = TokioTlsStream<TokioTcpStream>;
+type DotTlsStream = tokio_boring::SslStream<TokioTcpStream>;
 const MAX_POOLED_IDLE_DURATION: Duration = Duration::from_secs(20);
 const MAX_DOH_RESPONSE_BYTES: usize = 65_535;
 const MAX_DOH_HEADER_BYTES: usize = 8 * 1024;
@@ -113,6 +112,10 @@ struct ResolverInner {
     doh_client: Option<reqwest::Client>,
     connect_hooks: EncryptedDnsConnectHooks,
     dot_tls_config: Arc<ClientConfig>,
+    /// Extra CA certificates for DoT/DoH TLS verification (e.g., self-signed test certs).
+    dot_extra_roots: Vec<CertificateDer<'static>>,
+    /// When true, DoT skips certificate verification (custom verifier was provided).
+    dot_skip_verify: bool,
     /// Stored for `can_use_hickory()` fallback decisions. Only present when the
     /// hickory-backend feature is enabled; otherwise consumed only by the constructor.
     #[cfg(feature = "hickory-backend")]
@@ -251,6 +254,9 @@ impl EncryptedDnsResolver {
             None
         };
 
+        let dot_skip_verify = tls_verifier.is_some();
+        let dot_extra_roots = tls_roots.clone();
+
         Ok(Self {
             inner: Arc::new(ResolverInner {
                 endpoint: normalized,
@@ -259,6 +265,8 @@ impl EncryptedDnsResolver {
                 doh_client,
                 connect_hooks,
                 dot_tls_config,
+                dot_extra_roots,
+                dot_skip_verify,
                 #[cfg(feature = "hickory-backend")]
                 tls_roots,
                 #[cfg(feature = "hickory-backend")]
@@ -525,10 +533,24 @@ impl EncryptedDnsResolver {
     async fn connect_dot_session(&self) -> Result<DotTlsStream, EncryptedDnsError> {
         let tcp_stream = self.connect_plain_tcp().await?;
         let tls_name = self.inner.endpoint.tls_server_name.clone().unwrap_or_else(|| self.inner.endpoint.host.clone());
-        let server_name =
-            ServerName::try_from(tls_name.clone()).map_err(|err| EncryptedDnsError::Tls(err.to_string()))?;
-        let connector = TlsConnector::from(self.inner.dot_tls_config.clone());
-        match timeout(self.inner.timeout, connector.connect(server_name, tcp_stream)).await {
+        let verify = !self.inner.dot_skip_verify;
+        let mut builder = ripdpi_tls_profiles::configure_builder("chrome_stable")
+            .map_err(|e| EncryptedDnsError::Tls(format!("DoT TLS profile: {e}")))?;
+        if !verify {
+            builder.set_verify(boring::ssl::SslVerifyMode::NONE);
+        }
+        for root_der in &self.inner.dot_extra_roots {
+            let x509 = boring::x509::X509::from_der(root_der.as_ref())
+                .map_err(|e| EncryptedDnsError::Tls(format!("DoT extra root cert: {e}")))?;
+            builder
+                .cert_store_mut()
+                .add_cert(x509)
+                .map_err(|e| EncryptedDnsError::Tls(format!("DoT add root cert: {e}")))?;
+        }
+        let connector = builder.build();
+        let config_ssl =
+            connector.configure().map_err(|e| EncryptedDnsError::Tls(format!("DoT TLS configure: {e}")))?;
+        match timeout(self.inner.timeout, tokio_boring::connect(config_ssl, &tls_name, tcp_stream)).await {
             Ok(Ok(stream)) => Ok(stream),
             Ok(Err(err)) => Err(EncryptedDnsError::Tls(format!("DoT TLS handshake to {tls_name}: {err}"))),
             Err(_) => Err(EncryptedDnsError::Tls(format!("DoT TLS handshake to {tls_name} timed out"))),

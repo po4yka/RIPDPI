@@ -21,6 +21,9 @@ rustls = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true, features = ["io-util", "net", "rt", "sync", "time"] }
 tokio-rustls = { workspace = true }
+boring = { workspace = true }
+tokio-boring = { workspace = true }
+ripdpi-tls-profiles = { workspace = true }
 quinn = { workspace = true }
 url = { workspace = true }
 webpki-roots = { workspace = true }

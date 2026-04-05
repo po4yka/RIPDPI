@@ -1,7 +1,6 @@
 use std::io;
 use std::net::ToSocketAddrs;
 use std::pin::Pin;
-use std::sync::Arc;
 use std::task::{Context, Poll};
 
 use hyper::rt::{Read, Write};
@@ -41,21 +40,12 @@ pub async fn h2_connect_tcp(config: &MasqueConfig, target: &str) -> io::Result<i
         .map_err(|e| io::Error::new(e.kind(), format!("H2 fallback TCP connect to {addr}: {e}")))?;
     tcp.set_nodelay(true)?;
 
-    // TLS with ALPN h2
-    let mut root_store = rustls::RootCertStore::empty();
-    root_store.extend(webpki_roots::TLS_SERVER_ROOTS.iter().cloned());
-    let mut tls_config = rustls::ClientConfig::builder_with_provider(rustls::crypto::ring::default_provider().into())
-        .with_safe_default_protocol_versions()
-        .expect("ring provider supports default TLS versions")
-        .with_root_certificates(root_store)
-        .with_no_client_auth();
-    tls_config.alpn_protocols = vec![b"h2".to_vec()];
-
-    let connector = tokio_rustls::TlsConnector::from(Arc::new(tls_config));
-    let server_name = rustls::pki_types::ServerName::try_from(host.clone())
-        .map_err(|e| io::Error::new(io::ErrorKind::InvalidInput, format!("invalid server name: {e}")))?;
-    let tls = connector
-        .connect(server_name, tcp)
+    // TLS with ALPN h2 via BoringSSL profile-aware connector
+    let connector = ripdpi_tls_profiles::build_async_connector("chrome_stable", true)
+        .map_err(|e| io::Error::new(io::ErrorKind::Other, format!("TLS profile: {e}")))?;
+    let config_ssl =
+        connector.configure().map_err(|e| io::Error::new(io::ErrorKind::Other, format!("TLS configure: {e}")))?;
+    let tls = tokio_boring::connect(config_ssl, &host, tcp)
         .await
         .map_err(|e| io::Error::new(io::ErrorKind::ConnectionRefused, format!("H2 TLS handshake: {e}")))?;
 

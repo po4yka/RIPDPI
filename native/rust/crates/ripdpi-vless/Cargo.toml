@@ -7,6 +7,7 @@ license.workspace = true
 [dependencies]
 boring = { workspace = true }
 tokio-boring = { workspace = true }
+ripdpi-tls-profiles = { workspace = true }
 ring = { workspace = true }
 aes = { workspace = true }
 x25519-dalek = { workspace = true }

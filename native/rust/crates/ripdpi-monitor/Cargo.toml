@@ -19,6 +19,9 @@ ripdpi-proxy-config = { workspace = true }
 ripdpi-runtime = { workspace = true }
 ripdpi-telemetry = { workspace = true }
 ripdpi-ws-tunnel = { workspace = true }
+ripdpi-tls-profiles = { workspace = true }
+boring = { workspace = true }
+tokio-boring = { workspace = true }
 libc = { workspace = true }
 md5 = { workspace = true }
 metrics = { workspace = true }

@@ -4,21 +4,16 @@ edition.workspace = true
 version.workspace = true
 license.workspace = true
 
-[features]
-default = []
-chrome-fingerprint = ["dep:boring"]
-
 [dependencies]
 aes = { workspace = true }
-boring = { workspace = true, optional = true }
+boring = { workspace = true }
+ripdpi-tls-profiles = { workspace = true }
 ctr = "0.9"
 cipher = "0.4"
 tracing = { workspace = true }
 socket2 = { workspace = true }
 bytes = "1"
-tungstenite = { version = "0.29", default-features = false, features = ["handshake", "rustls-tls-webpki-roots"] }
-rustls = { workspace = true }
-webpki-roots = { workspace = true }
+tungstenite = { version = "0.29", default-features = false, features = ["handshake"] }
 
 [target.'cfg(any(target_os = "linux", target_os = "android"))'.dependencies]
 nix = { workspace = true }

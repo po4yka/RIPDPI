@@ -3,7 +3,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use aes::cipher::{BlockEncrypt, KeyInit};
 use aes::Aes128;
-use boring::ssl::{SslConnector, SslMethod, SslVerifyMode};
+use boring::ssl::SslVerifyMode;
 use ring::hkdf;
 use tokio::io::{AsyncRead, AsyncWrite};
 use tokio::net::TcpStream;
@@ -42,8 +42,8 @@ where
 {
     let _session_id = build_reality_session_id(config)?;
 
-    let mut builder = SslConnector::builder(SslMethod::tls())
-        .map_err(|e| io::Error::new(io::ErrorKind::Other, format!("boring SSL builder: {e}")))?;
+    let mut builder = ripdpi_tls_profiles::configure_builder("chrome_stable")
+        .map_err(|e| io::Error::new(io::ErrorKind::Other, format!("TLS profile: {e}")))?;
 
     // Reality uses its own auth model -- disable standard cert verification.
     builder.set_verify(SslVerifyMode::NONE);
