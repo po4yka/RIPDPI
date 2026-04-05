@@ -17,7 +17,7 @@ import javax.inject.Inject
 import kotlin.coroutines.coroutineContext
 
 interface RipDpiRelayRuntime {
-    suspend fun start(config: RipDpiRelayConfig): Int
+    suspend fun start(config: ResolvedRipDpiRelayConfig): Int
 
     suspend fun awaitReady(timeoutMillis: Long = DEFAULT_RELAY_READY_TIMEOUT_MS)
 
@@ -87,7 +87,7 @@ class RipDpiRelayNativeBindings
 private val relayJson = Json { ignoreUnknownKeys = true }
 
 @Serializable
-private data class RelayRuntimeNativeConfig(
+data class ResolvedRipDpiRelayConfig(
     val enabled: Boolean,
     val kind: String,
     val profileId: String,
@@ -113,6 +113,16 @@ private data class RelayRuntimeNativeConfig(
     val localSocksPort: Int,
     val udpEnabled: Boolean,
     val tcpFallbackEnabled: Boolean,
+    val vlessUuid: String? = null,
+    val chainEntryUuid: String? = null,
+    val chainExitUuid: String? = null,
+    val hysteriaPassword: String? = null,
+    val hysteriaSalamanderKey: String? = null,
+    val masqueAuthMode: String? = null,
+    val masqueAuthToken: String? = null,
+    val masqueCloudflareClientId: String? = null,
+    val masqueCloudflareKeyId: String? = null,
+    val masqueCloudflarePrivateKeyPem: String? = null,
 )
 
 class RipDpiRelay(
@@ -128,36 +138,8 @@ class RipDpiRelay(
     @Volatile private var handle = 0L
 
     @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
-    override suspend fun start(config: RipDpiRelayConfig): Int {
+    override suspend fun start(config: ResolvedRipDpiRelayConfig): Int {
         val startupSignal = CompletableDeferred<Unit>()
-        val nativeConfig =
-            RelayRuntimeNativeConfig(
-                enabled = config.enabled,
-                kind = config.kind,
-                profileId = config.profileId,
-                server = config.server,
-                serverPort = config.serverPort,
-                serverName = config.serverName,
-                realityPublicKey = config.realityPublicKey,
-                realityShortId = config.realityShortId,
-                chainEntryServer = config.chainEntryServer,
-                chainEntryPort = config.chainEntryPort,
-                chainEntryServerName = config.chainEntryServerName,
-                chainEntryPublicKey = config.chainEntryPublicKey,
-                chainEntryShortId = config.chainEntryShortId,
-                chainExitServer = config.chainExitServer,
-                chainExitPort = config.chainExitPort,
-                chainExitServerName = config.chainExitServerName,
-                chainExitPublicKey = config.chainExitPublicKey,
-                chainExitShortId = config.chainExitShortId,
-                masqueUrl = config.masqueUrl,
-                masqueUseHttp2Fallback = config.masqueUseHttp2Fallback,
-                masqueCloudflareMode = config.masqueCloudflareMode,
-                localSocksHost = config.localSocksHost,
-                localSocksPort = config.localSocksPort,
-                udpEnabled = config.udpEnabled,
-                tcpFallbackEnabled = config.tcpFallbackEnabled,
-            )
         val createdHandle =
             mutex.withLock {
                 if (handle != 0L) {
@@ -167,7 +149,7 @@ class RipDpiRelay(
                 try {
                     val newHandle =
                         withContext(Dispatchers.IO) {
-                            nativeBindings.create(relayJson.encodeToString(nativeConfig))
+                            nativeBindings.create(relayJson.encodeToString(config))
                         }
                     if (newHandle == 0L) {
                         throw NativeError.SessionCreationFailed("relay")

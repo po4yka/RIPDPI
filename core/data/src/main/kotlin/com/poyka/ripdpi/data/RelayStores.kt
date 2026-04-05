@@ -48,7 +48,11 @@ data class RelayCredentialRecord(
     val chainExitUuid: String? = null,
     val hysteriaPassword: String? = null,
     val hysteriaSalamanderKey: String? = null,
+    val masqueAuthMode: String? = null,
     val masqueAuthToken: String? = null,
+    val masqueCloudflareClientId: String? = null,
+    val masqueCloudflareKeyId: String? = null,
+    val masqueCloudflarePrivateKeyPem: String? = null,
     val updatedAtEpochMillis: Long = System.currentTimeMillis(),
 )
 

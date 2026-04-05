@@ -71,6 +71,7 @@ class WarpEnrollmentOrchestratorTest {
     @Test
     fun `warp plus attach and remove mutate active profile kind`() =
         runTest {
+            val consumerAccessValue = fixtureAccessValue("consumer")
             val appSettingsRepository = TestAppSettingsRepository()
             val profileStore = FakeWarpProfileStore()
             val credentialStore = FakeWarpCredentialStore()

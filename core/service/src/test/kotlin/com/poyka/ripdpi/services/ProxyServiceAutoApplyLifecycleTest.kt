@@ -191,6 +191,8 @@ class ProxyServiceAutoApplyLifecycleTest {
                         scope = backgroundScope,
                         dispatcher = dispatcher,
                         relayFactory = TestRipDpiRelayFactory(),
+                        relayProfileStore = TestRelayProfileStore(),
+                        relayCredentialStore = TestRelayCredentialStore(),
                     ),
                 warpRuntimeSupervisor =
                     WarpRuntimeSupervisor(

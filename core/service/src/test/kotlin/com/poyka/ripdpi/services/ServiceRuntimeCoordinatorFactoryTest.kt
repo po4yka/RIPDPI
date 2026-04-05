@@ -110,7 +110,12 @@ class ServiceRuntimeCoordinatorFactoryTest {
             assertEquals(Sender.VPN, statusFactory.createdSenders.single())
         }
 
-    private class RecordingUpstreamRelaySupervisorFactory : UpstreamRelaySupervisorFactory(TestRipDpiRelayFactory()) {
+    private class RecordingUpstreamRelaySupervisorFactory :
+        UpstreamRelaySupervisorFactory(
+            TestRipDpiRelayFactory(),
+            TestRelayProfileStore(),
+            TestRelayCredentialStore(),
+        ) {
         var createCalls: Int = 0
 
         override fun create(
@@ -122,6 +127,8 @@ class ServiceRuntimeCoordinatorFactoryTest {
                 scope = scope,
                 dispatcher = dispatcher,
                 relayFactory = TestRipDpiRelayFactory(),
+                relayProfileStore = TestRelayProfileStore(),
+                relayCredentialStore = TestRelayCredentialStore(),
             )
         }
     }
