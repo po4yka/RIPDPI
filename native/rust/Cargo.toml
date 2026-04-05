@@ -11,7 +11,9 @@ members = [
     "crates/ripdpi-monitor",
     "crates/ripdpi-runtime",
     "crates/ripdpi-telemetry",
+    "crates/ripdpi-native-protect",
     "crates/ripdpi-android",
+    "crates/ripdpi-relay-core",
     "crates/ripdpi-relay-android",
     "crates/ripdpi-warp-android",
     "crates/ripdpi-packets",
@@ -46,6 +48,8 @@ ripdpi-proxy-config = { path = "crates/ripdpi-proxy-config" }
 ripdpi-monitor = { path = "crates/ripdpi-monitor" }
 ripdpi-runtime = { path = "crates/ripdpi-runtime" }
 ripdpi-telemetry = { path = "crates/ripdpi-telemetry" }
+ripdpi-native-protect = { path = "crates/ripdpi-native-protect" }
+ripdpi-relay-core = { path = "crates/ripdpi-relay-core" }
 ripdpi-packets = { path = "crates/ripdpi-packets" }
 ripdpi-ipfrag = { path = "crates/ripdpi-ipfrag" }
 ripdpi-session = { path = "crates/ripdpi-session" }

@@ -12,7 +12,7 @@ use jni::objects::{JObject, JValue};
 use jni::refs::Global;
 use jni::JavaVM;
 
-use ripdpi_runtime::platform::protect::{register_protect_callback, unregister_protect_callback, ProtectCallback};
+use ripdpi_native_protect::{register_protect_callback, unregister_protect_callback, ProtectCallback};
 
 /// JNI-based socket protection callback.
 ///
