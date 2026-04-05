@@ -86,6 +86,7 @@ class Tun2SocksTunnel(
     private val mutex = Mutex()
     private var handle = 0L
 
+    @Suppress("ThrowsCount", "TooGenericExceptionCaught")
     suspend fun start(
         config: Tun2SocksConfig,
         tunFd: Int,
@@ -169,12 +170,12 @@ class Tun2SocksTunnel(
         }
 }
 
-const val DEFAULT_TUN2SOCKS_TUNNEL_MTU: Int = 1500
+const val defaultTun2SocksTunnelMtu: Int = 1500
 
 @Serializable
 data class Tun2SocksConfig(
     val tunnelName: String = "tun0",
-    val tunnelMtu: Int = DEFAULT_TUN2SOCKS_TUNNEL_MTU,
+    val tunnelMtu: Int = defaultTun2SocksTunnelMtu,
     val multiQueue: Boolean = false,
     val tunnelIpv4: String? = null,
     val tunnelIpv6: String? = null,

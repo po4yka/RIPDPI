@@ -71,6 +71,7 @@ import com.poyka.ripdpi.data.toRelaySettingsModel
 import com.poyka.ripdpi.data.toWarpSettingsModel
 import com.poyka.ripdpi.proto.AppSettings
 
+@Suppress("LongParameterList")
 class RipDpiProxyUIPreferences(
     val protocols: RipDpiProtocolConfig = RipDpiProtocolConfig(),
     val parserEvasions: RipDpiParserEvasionConfig = RipDpiParserEvasionConfig(),
@@ -170,26 +171,6 @@ class RipDpiProxyUIPreferences(
                 rootHelperSocketPath = rootHelperSocketPath,
             )
 
-        private fun buildListenConfig(settings: AppSettings): RipDpiListenConfig =
-            RipDpiListenConfig(
-                ip = settings.proxyIp.ifEmpty { "127.0.0.1" },
-                port = settings.proxyPort.takeIf { it > 0 } ?: 1080,
-                maxConnections = settings.maxConnections.takeIf { it > 0 } ?: 512,
-                bufferSize = settings.bufferSize.takeIf { it > 0 } ?: 16384,
-                tcpFastOpen = settings.tcpFastOpen,
-                defaultTtl = if (settings.customTtl) settings.defaultTtl else 0,
-                customTtl = settings.customTtl,
-                freezeDetectionEnabled = settings.freezeDetectionEnabled,
-            )
-
-        private fun buildProtocolConfig(settings: AppSettings): RipDpiProtocolConfig =
-            RipDpiProtocolConfig(
-                resolveDomains = !settings.noDomain,
-                desyncHttp = settings.desyncHttp,
-                desyncHttps = settings.desyncHttps,
-                desyncUdp = settings.desyncUdp,
-            )
-
         private fun buildChainConfig(settings: AppSettings): RipDpiChainConfig =
             RipDpiChainConfig(
                 groupActivationFilter = settings.effectiveGroupActivationFilter(),
@@ -229,17 +210,6 @@ class RipDpiProxyUIPreferences(
                 shannonEntropyTargetPermil =
                     settings.shannonEntropyTargetPermil.takeIf { it > 0 } ?: DefaultShannonEntropyTargetPermil,
                 tlsFingerprintProfile = normalizeTlsFingerprintProfile(settings.tlsFingerprintProfile),
-            )
-
-        private fun buildParserEvasionConfig(settings: AppSettings): RipDpiParserEvasionConfig =
-            RipDpiParserEvasionConfig(
-                hostMixedCase = settings.hostMixedCase,
-                domainMixedCase = settings.domainMixedCase,
-                hostRemoveSpaces = settings.hostRemoveSpaces,
-                httpMethodEol = settings.httpMethodEol,
-                httpMethodSpace = settings.httpMethodSpace,
-                httpUnixEol = settings.httpUnixEol,
-                httpHostPad = settings.httpHostPad,
             )
 
         private fun buildAdaptiveFallbackConfig(settings: AppSettings): RipDpiAdaptiveFallbackConfig {
@@ -361,18 +331,49 @@ class RipDpiProxyUIPreferences(
                 storePath = hostAutolearnStorePath,
                 networkScopeKey = networkScopeKey,
             )
-
-        private fun buildWsTunnelConfig(settings: AppSettings): RipDpiWsTunnelConfig {
-            val mode =
-                settings.wsTunnelMode.ifEmpty {
-                    if (settings.wsTunnelEnabled) "always" else "off"
-                }
-            return RipDpiWsTunnelConfig(
-                enabled = mode != "off",
-                mode = mode,
-            )
-        }
     }
+}
+
+private fun buildListenConfig(settings: AppSettings): RipDpiListenConfig =
+    RipDpiListenConfig(
+        ip = settings.proxyIp.ifEmpty { "127.0.0.1" },
+        port = settings.proxyPort.takeIf { it > 0 } ?: 1080,
+        maxConnections = settings.maxConnections.takeIf { it > 0 } ?: 512,
+        bufferSize = settings.bufferSize.takeIf { it > 0 } ?: 16384,
+        tcpFastOpen = settings.tcpFastOpen,
+        defaultTtl = if (settings.customTtl) settings.defaultTtl else 0,
+        customTtl = settings.customTtl,
+        freezeDetectionEnabled = settings.freezeDetectionEnabled,
+    )
+
+private fun buildProtocolConfig(settings: AppSettings): RipDpiProtocolConfig =
+    RipDpiProtocolConfig(
+        resolveDomains = !settings.noDomain,
+        desyncHttp = settings.desyncHttp,
+        desyncHttps = settings.desyncHttps,
+        desyncUdp = settings.desyncUdp,
+    )
+
+private fun buildParserEvasionConfig(settings: AppSettings): RipDpiParserEvasionConfig =
+    RipDpiParserEvasionConfig(
+        hostMixedCase = settings.hostMixedCase,
+        domainMixedCase = settings.domainMixedCase,
+        hostRemoveSpaces = settings.hostRemoveSpaces,
+        httpMethodEol = settings.httpMethodEol,
+        httpMethodSpace = settings.httpMethodSpace,
+        httpUnixEol = settings.httpUnixEol,
+        httpHostPad = settings.httpHostPad,
+    )
+
+private fun buildWsTunnelConfig(settings: AppSettings): RipDpiWsTunnelConfig {
+    val mode =
+        settings.wsTunnelMode.ifEmpty {
+            if (settings.wsTunnelEnabled) "always" else "off"
+        }
+    return RipDpiWsTunnelConfig(
+        enabled = mode != "off",
+        mode = mode,
+    )
 }
 
 fun RipDpiProxyUIPreferences.deriveStrategyLaneFamilies(activeDns: ActiveDnsSettings? = null): StrategyLaneFamilies =
@@ -385,6 +386,7 @@ fun RipDpiProxyUIPreferences.deriveStrategyLaneFamilies(activeDns: ActiveDnsSett
         activeDns = activeDns,
     )
 
+@Suppress("LongMethod")
 fun RipDpiProxyUIPreferences.applyToSettings(settings: AppSettings): AppSettings =
     settings
         .toBuilder()
@@ -530,6 +532,8 @@ fun RipDpiProxyUIPreferences.applyToSettings(settings: AppSettings): AppSettings
             setWsTunnelMode(wsTunnel.mode.orEmpty())
         }.build()
 
+private const val MaxValidPortNumber = 65535
+
 private fun normalizeListenConfig(config: RipDpiListenConfig): RipDpiListenConfig =
     config.copy(ip = config.ip.ifBlank { "127.0.0.1" })
 
@@ -609,23 +613,23 @@ private fun normalizeRelayConfig(config: RipDpiRelayConfig): RipDpiRelayConfig {
         kind = normalizedKind,
         profileId = config.profileId.trim().ifBlank { com.poyka.ripdpi.data.DefaultRelayProfileId },
         server = config.server.trim(),
-        serverPort = config.serverPort.takeIf { it in 1..65535 } ?: 443,
+        serverPort = config.serverPort.takeIf { it in 1..MaxValidPortNumber } ?: 443,
         serverName = config.serverName.trim(),
         realityPublicKey = config.realityPublicKey.trim(),
         realityShortId = config.realityShortId.trim(),
         chainEntryServer = config.chainEntryServer.trim(),
-        chainEntryPort = config.chainEntryPort.takeIf { it in 1..65535 } ?: 443,
+        chainEntryPort = config.chainEntryPort.takeIf { it in 1..MaxValidPortNumber } ?: 443,
         chainEntryServerName = config.chainEntryServerName.trim(),
         chainEntryPublicKey = config.chainEntryPublicKey.trim(),
         chainEntryShortId = config.chainEntryShortId.trim(),
         chainExitServer = config.chainExitServer.trim(),
-        chainExitPort = config.chainExitPort.takeIf { it in 1..65535 } ?: 443,
+        chainExitPort = config.chainExitPort.takeIf { it in 1..MaxValidPortNumber } ?: 443,
         chainExitServerName = config.chainExitServerName.trim(),
         chainExitPublicKey = config.chainExitPublicKey.trim(),
         chainExitShortId = config.chainExitShortId.trim(),
         masqueUrl = config.masqueUrl.trim(),
         localSocksHost = config.localSocksHost.ifBlank { DefaultRelayLocalSocksHost },
-        localSocksPort = config.localSocksPort.takeIf { it in 1..65535 } ?: DefaultRelayLocalSocksPort,
+        localSocksPort = config.localSocksPort.takeIf { it in 1..MaxValidPortNumber } ?: DefaultRelayLocalSocksPort,
     )
 }
 
@@ -643,12 +647,14 @@ private fun normalizeWarpConfig(config: RipDpiWarpConfig): RipDpiWarpConfig =
                 host = config.manualEndpoint.host.trim(),
                 ipv4 = config.manualEndpoint.ipv4.trim(),
                 ipv6 = config.manualEndpoint.ipv6.trim(),
-                port = config.manualEndpoint.port.takeIf { it in 1..65535 } ?: DefaultWarpManualEndpointPort,
+                port =
+                    config.manualEndpoint.port.takeIf { it in 1..MaxValidPortNumber }
+                        ?: DefaultWarpManualEndpointPort,
             ),
         scannerParallelism = config.scannerParallelism.coerceAtLeast(1),
         scannerMaxRttMs = config.scannerMaxRttMs.coerceAtLeast(1),
         localSocksHost = config.localSocksHost.ifBlank { "127.0.0.1" },
-        localSocksPort = config.localSocksPort.takeIf { it in 1..65535 } ?: DefaultWarpLocalSocksPort,
+        localSocksPort = config.localSocksPort.takeIf { it in 1..MaxValidPortNumber } ?: DefaultWarpLocalSocksPort,
     )
 
 private fun normalizeHostAutolearnConfig(config: RipDpiHostAutolearnConfig): RipDpiHostAutolearnConfig =
