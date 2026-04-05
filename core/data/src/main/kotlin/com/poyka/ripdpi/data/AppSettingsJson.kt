@@ -128,6 +128,7 @@ internal data class AppSettingsSnapshot(
     val entropyPaddingMax: Int = defaultSettings.entropyPaddingMax,
     val entropyMode: String = entropyModeFromProto(defaultSettings.entropyMode),
     val shannonEntropyTargetPermil: Int = defaultSettings.shannonEntropyTargetPermil,
+    val tlsFingerprintProfile: String = normalizeTlsFingerprintProfile(defaultSettings.tlsFingerprintProfile),
     val strategyPackChannel: String = defaultSettings.strategyPackChannel,
     val strategyPackPinnedId: String = defaultSettings.strategyPackPinnedId,
     val strategyPackPinnedVersion: String = defaultSettings.strategyPackPinnedVersion,
@@ -321,6 +322,7 @@ private fun AppSettings.toSnapshot(): AppSettingsSnapshot =
             entropyPaddingMax = entropyPaddingMax.takeIf { it > 0 } ?: DefaultEntropyPaddingMax,
             entropyMode = entropyModeFromProto(entropyMode),
             shannonEntropyTargetPermil = shannonEntropyTargetPermil.coerceAtLeast(0),
+            tlsFingerprintProfile = normalizeTlsFingerprintProfile(tlsFingerprintProfile),
             strategyPackChannel = normalizeStrategyPackChannel(strategyPackChannel),
             strategyPackPinnedId = strategyPackPinnedId,
             strategyPackPinnedVersion = strategyPackPinnedVersion,
@@ -509,6 +511,7 @@ private fun AppSettingsSnapshot.toAppSettings(): AppSettings {
         .setEntropyPaddingMax(entropyPaddingMax.takeIf { it > 0 } ?: DefaultEntropyPaddingMax)
         .setEntropyMode(entropyModeToProto(entropyMode))
         .setShannonEntropyTargetPermil(shannonEntropyTargetPermil.coerceAtLeast(0))
+        .setTlsFingerprintProfile(normalizeTlsFingerprintProfile(tlsFingerprintProfile))
         .setStrategyPackChannel(normalizeStrategyPackChannel(strategyPackChannel))
         .setStrategyPackPinnedId(strategyPackPinnedId)
         .setStrategyPackPinnedVersion(strategyPackPinnedVersion)

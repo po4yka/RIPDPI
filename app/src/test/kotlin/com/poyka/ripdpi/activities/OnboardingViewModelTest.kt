@@ -4,10 +4,13 @@ import app.cash.turbine.test
 import com.poyka.ripdpi.data.DnsProviderCloudflare
 import com.poyka.ripdpi.data.DnsProviderGoogle
 import com.poyka.ripdpi.data.Mode
+import com.poyka.ripdpi.services.OwnedTlsClientFactory
 import com.poyka.ripdpi.ui.screens.onboarding.OnboardingConnectionTestRunner
 import com.poyka.ripdpi.ui.screens.onboarding.OnboardingPages
 import com.poyka.ripdpi.util.MainDispatcherRule
 import kotlinx.coroutines.test.runTest
+import okhttp3.OkHttpClient
+import okhttp3.TlsVersion
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -19,7 +22,7 @@ class OnboardingViewModelTest {
 
     private fun createViewModel(
         repository: FakeAppSettingsRepository = FakeAppSettingsRepository(),
-        testRunner: OnboardingConnectionTestRunner = OnboardingConnectionTestRunner(),
+        testRunner: OnboardingConnectionTestRunner = OnboardingConnectionTestRunner(TestOwnedTlsClientFactory()),
     ) = OnboardingViewModel(repository, testRunner)
 
     @Test
@@ -159,4 +162,17 @@ class OnboardingViewModelTest {
             assertEquals(Mode.VPN.preferenceValue, settings.ripdpiMode)
             assertEquals(DnsProviderCloudflare, settings.dnsProviderId)
         }
+
+    private class TestOwnedTlsClientFactory : OwnedTlsClientFactory {
+        override fun currentProfile(): String = "native_default"
+
+        override fun create(
+            forcedTlsVersions: List<TlsVersion>?,
+            configure: OkHttpClient.Builder.() -> Unit,
+        ): OkHttpClient =
+            OkHttpClient
+                .Builder()
+                .apply(configure)
+                .build()
+    }
 }

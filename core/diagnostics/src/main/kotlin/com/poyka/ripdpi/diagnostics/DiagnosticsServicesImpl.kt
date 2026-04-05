@@ -10,6 +10,7 @@ import com.poyka.ripdpi.data.ApplicationIoScope
 import com.poyka.ripdpi.data.NetworkFingerprintProvider
 import com.poyka.ripdpi.data.PolicyHandoverEventStore
 import com.poyka.ripdpi.data.ResolverOverrideStore
+import com.poyka.ripdpi.data.TlsFingerprintProfileNativeDefault
 import com.poyka.ripdpi.data.WarpEndpointSelectionManual
 import com.poyka.ripdpi.data.WarpRouteModeRules
 import com.poyka.ripdpi.data.activeDnsSettings
@@ -20,6 +21,7 @@ import com.poyka.ripdpi.data.diagnostics.DiagnosticsProfileCatalog
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsScanRecordStore
 import com.poyka.ripdpi.data.diagnostics.NetworkDnsPathPreferenceStore
 import com.poyka.ripdpi.data.diagnostics.ScanSessionEntity
+import com.poyka.ripdpi.data.tlsFingerprintProfileSummary
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -413,6 +415,14 @@ class DefaultDiagnosticsHomeWorkflowService
             preferences: RipDpiProxyUIPreferences,
         ): List<DiagnosticsAppliedSetting> =
             buildList {
+                if (preferences.fakePackets.tlsFingerprintProfile != TlsFingerprintProfileNativeDefault) {
+                    add(
+                        DiagnosticsAppliedSetting(
+                            label = "TLS fingerprint",
+                            value = tlsFingerprintProfileSummary(preferences.fakePackets.tlsFingerprintProfile),
+                        ),
+                    )
+                }
                 if (preferences.fakePackets.entropyMode != "disabled") {
                     add(
                         DiagnosticsAppliedSetting(

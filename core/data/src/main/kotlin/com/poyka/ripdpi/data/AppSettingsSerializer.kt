@@ -74,6 +74,7 @@ object AppSettingsSerializer : Serializer<AppSettings> {
             .setEntropyPaddingMax(DefaultEntropyPaddingMax)
             .setEntropyMode(entropyModeToProto(EntropyModeDisabled))
             .setShannonEntropyTargetPermil(0)
+            .setTlsFingerprintProfile(TlsFingerprintProfileNativeDefault)
             .setStrategyPackChannel(DefaultStrategyPackChannel)
             .setStrategyPackPinnedId(DefaultStrategyPackPinnedId)
             .setStrategyPackPinnedVersion(DefaultStrategyPackPinnedVersion)

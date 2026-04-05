@@ -43,6 +43,7 @@ import com.poyka.ripdpi.data.formatStrategyChainDsl
 import com.poyka.ripdpi.data.isTlsPrelude
 import com.poyka.ripdpi.data.normalizeHostAutolearnMaxHosts
 import com.poyka.ripdpi.data.normalizeHostAutolearnPenaltyTtlHours
+import com.poyka.ripdpi.data.normalizeTlsFingerprintProfile
 import com.poyka.ripdpi.data.primaryDesyncMethod
 import com.poyka.ripdpi.data.primaryTcpChainStep
 import com.poyka.ripdpi.data.tlsPreludeTcpChainStep
@@ -214,6 +215,7 @@ private fun AppSettings.buildDetectionResistanceUiState(): DetectionResistanceUi
         quicMigrateAfterHandshake = quicMigrateAfterHandshake,
         strategyEvolution = strategyEvolution,
         evolutionEpsilon = evolutionEpsilon.takeIf { it in 0.0..1.0 } ?: DefaultEvolutionEpsilon,
+        tlsFingerprintProfile = normalizeTlsFingerprintProfile(tlsFingerprintProfile),
         entropyMode = entropyModeFromProto(entropyMode),
         entropyPaddingTargetPermil = entropyPaddingTargetPermil.takeIf { it > 0 } ?: DefaultEntropyPaddingTargetPermil,
         entropyPaddingMax = entropyPaddingMax.takeIf { it > 0 } ?: DefaultEntropyPaddingMax,

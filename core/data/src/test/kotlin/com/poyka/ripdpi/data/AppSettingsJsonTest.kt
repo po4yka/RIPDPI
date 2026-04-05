@@ -88,6 +88,7 @@ class AppSettingsJsonTest {
                 .setEntropyPaddingMax(384)
                 .setEntropyMode(entropyModeToProto(EntropyModeShannon))
                 .setShannonEntropyTargetPermil(7920)
+                .setTlsFingerprintProfile(TlsFingerprintProfileFirefoxStable)
                 .setStrategyPackChannel(StrategyPackChannelBeta)
                 .setStrategyPackPinnedId("ru-mobile")
                 .setStrategyPackPinnedVersion("2026.04.0")
@@ -256,6 +257,10 @@ class AppSettingsJsonTest {
         assertEquals(
             AppSettingsSerializer.defaultValue.shannonEntropyTargetPermil,
             decoded.shannonEntropyTargetPermil,
+        )
+        assertEquals(
+            AppSettingsSerializer.defaultValue.tlsFingerprintProfile,
+            decoded.tlsFingerprintProfile,
         )
         assertEquals(AppSettingsSerializer.defaultValue.strategyPackChannel, decoded.strategyPackChannel)
         assertEquals(AppSettingsSerializer.defaultValue.strategyPackPinnedId, decoded.strategyPackPinnedId)

@@ -24,6 +24,7 @@ dependencies {
     implementation(libs.kotlinx.coroutines.core)
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.kermit)
+    implementation(libs.okhttp)
 
     testImplementation(libs.bundles.unit.test)
 }

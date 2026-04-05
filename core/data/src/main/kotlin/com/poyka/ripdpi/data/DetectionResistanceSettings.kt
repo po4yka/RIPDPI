@@ -1,5 +1,9 @@
 package com.poyka.ripdpi.data
 
+const val TlsFingerprintProfileNativeDefault = "native_default"
+const val TlsFingerprintProfileChromeStable = "chrome_stable"
+const val TlsFingerprintProfileFirefoxStable = "firefox_stable"
+
 const val EntropyModeDisabled = "disabled"
 const val EntropyModePopcount = "popcount"
 const val EntropyModeShannon = "shannon"
@@ -9,6 +13,20 @@ const val DefaultEntropyPaddingTargetPermil = 3400
 const val DefaultEntropyPaddingMax = 256
 const val DefaultShannonEntropyTargetPermil = 7920
 const val DefaultEvolutionEpsilon = 0.1
+
+fun normalizeTlsFingerprintProfile(value: String): String =
+    when (value.trim().lowercase()) {
+        TlsFingerprintProfileChromeStable -> TlsFingerprintProfileChromeStable
+        TlsFingerprintProfileFirefoxStable -> TlsFingerprintProfileFirefoxStable
+        else -> TlsFingerprintProfileNativeDefault
+    }
+
+fun tlsFingerprintProfileSummary(value: String): String =
+    when (normalizeTlsFingerprintProfile(value)) {
+        TlsFingerprintProfileChromeStable -> "Chrome stable"
+        TlsFingerprintProfileFirefoxStable -> "Firefox stable"
+        else -> "Native default"
+    }
 
 fun normalizeEntropyMode(value: String): String =
     when (value.trim().lowercase()) {
@@ -33,4 +51,3 @@ fun entropyModeToProto(value: String): Int =
         EntropyModeCombined -> 3
         else -> 0
     }
-
