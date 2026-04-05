@@ -4,6 +4,7 @@ import com.poyka.ripdpi.core.ResolvedRipDpiWarpConfig
 import com.poyka.ripdpi.core.ResolvedRipDpiWarpEndpoint
 import com.poyka.ripdpi.core.RipDpiWarpConfig
 import com.poyka.ripdpi.core.RipDpiWarpFactory
+import com.poyka.ripdpi.core.RipDpiWarpManualEndpointConfig
 import com.poyka.ripdpi.core.RipDpiWarpRuntime
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.GlobalWarpEndpointScopeKey
@@ -38,17 +39,25 @@ internal class DefaultWarpRuntimeConfigResolver
     ) : WarpRuntimeConfigResolver {
         override suspend fun resolve(config: RipDpiWarpConfig): ResolvedRipDpiWarpConfig {
             require(config.enabled) { "WARP runtime requested while disabled" }
-            val profileId = appSettingsRepository.snapshot().warpProfileId.ifBlank { error("No active WARP profile configured") }
+            val profileId =
+                appSettingsRepository
+                    .snapshot()
+                    .warpProfileId
+                    .ifBlank { error("No active WARP profile configured") }
             val credentials =
                 credentialStore.load(profileId)
                     ?: error("Missing WARP credentials for profile $profileId")
             val endpoint =
                 when (config.endpointSelectionMode) {
-                    "manual" -> config.manualEndpoint.toResolvedEndpoint()
-                    else ->
+                    "manual" -> {
+                        config.manualEndpoint.toResolvedEndpoint()
+                    }
+
+                    else -> {
                         endpointStore
                             .load(profileId, GlobalWarpEndpointScopeKey)
                             ?.toResolvedEndpoint()
+                    }
                 } ?: error("Missing WARP endpoint for profile $profileId")
             val privateKey = credentials.privateKey?.takeIf(String::isNotBlank) ?: error("WARP private key missing")
             val publicKey = credentials.publicKey?.takeIf(String::isNotBlank) ?: error("WARP public key missing")
@@ -91,7 +100,7 @@ internal class DefaultWarpRuntimeConfigResolver
                 source = source,
             )
 
-        private fun com.poyka.ripdpi.core.RipDpiWarpManualEndpointConfig.toResolvedEndpoint(): ResolvedRipDpiWarpEndpoint {
+        private fun RipDpiWarpManualEndpointConfig.toResolvedEndpoint(): ResolvedRipDpiWarpEndpoint {
             val normalizedHost = host.ifBlank { ipv4.ifBlank { ipv6 } }
             require(normalizedHost.isNotBlank()) { "Manual WARP endpoint host is blank" }
             return ResolvedRipDpiWarpEndpoint(
@@ -139,6 +148,7 @@ internal class WarpRuntimeSupervisor(
             }
         warpJob = job
 
+        @Suppress("TooGenericExceptionCaught")
         try {
             runtime.awaitReady()
         } catch (readinessError: Exception) {
@@ -208,7 +218,5 @@ internal open class WarpRuntimeSupervisorFactory
 internal abstract class WarpRuntimeConfigResolverModule {
     @Binds
     @Singleton
-    abstract fun bindWarpRuntimeConfigResolver(
-        resolver: DefaultWarpRuntimeConfigResolver,
-    ): WarpRuntimeConfigResolver
+    abstract fun bindWarpRuntimeConfigResolver(resolver: DefaultWarpRuntimeConfigResolver): WarpRuntimeConfigResolver
 }

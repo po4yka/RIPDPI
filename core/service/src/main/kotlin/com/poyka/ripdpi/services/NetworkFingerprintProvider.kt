@@ -170,6 +170,7 @@ internal class DefaultAndroidNetworkSnapshotSource
             return runCatching { wifiManager?.dhcpInfo?.gateway?.takeIf { it != 0 } }.getOrNull()
         }
 
+        @Suppress("ReturnCount")
         @android.annotation.SuppressLint("MissingPermission")
         private fun captureCellularIdentity(transports: Set<CapturedTransport>?): CapturedCellularIdentity? {
             if (transports?.contains(CapturedTransport.Cellular) != true) {
@@ -210,6 +211,11 @@ internal class DefaultAndroidNetworkSnapshotSource
         private fun hasPermission(permission: String): Boolean =
             ContextCompat.checkSelfPermission(context, permission) == PackageManager.PERMISSION_GRANTED
     }
+
+private const val ByteMask = 0xFF
+private const val Byte1Shift = 8
+private const val Byte2Shift = 16
+private const val Byte3Shift = 24
 
 internal class NetworkFingerprintMapper
     @Inject
@@ -258,6 +264,7 @@ internal class NetworkFingerprintMapper
             )
         }
 
+        @Suppress("ReturnCount")
         private fun resolveCellularIdentity(snapshot: CapturedNetworkSnapshot): CellularNetworkIdentityTuple? {
             if (snapshot.transports?.contains(CapturedTransport.Cellular) != true) {
                 return null
@@ -285,7 +292,7 @@ internal class NetworkFingerprintMapper
         private fun sanitizeTelephonyValue(value: String?): String =
             value?.trim()?.takeIf { it.isNotBlank() }?.lowercase(Locale.US) ?: "unknown"
 
-        @Suppress("DEPRECATION")
+        @Suppress("DEPRECATION", "CyclomaticComplexMethod")
         private fun describeMobileNetworkType(type: Int): String =
             when (type) {
                 TelephonyManager.NETWORK_TYPE_GPRS -> "gprs"
@@ -314,10 +321,10 @@ internal class NetworkFingerprintMapper
             InetAddress
                 .getByAddress(
                     byteArrayOf(
-                        (value and 0xff).toByte(),
-                        ((value shr 8) and 0xff).toByte(),
-                        ((value shr 16) and 0xff).toByte(),
-                        ((value shr 24) and 0xff).toByte(),
+                        (value and ByteMask).toByte(),
+                        ((value shr Byte1Shift) and ByteMask).toByte(),
+                        ((value shr Byte2Shift) and ByteMask).toByte(),
+                        ((value shr Byte3Shift) and ByteMask).toByte(),
                     ),
                 ).hostAddress
                 .orEmpty()
@@ -330,6 +337,7 @@ internal class AndroidNetworkFingerprintProvider
         private val snapshotSource: AndroidNetworkSnapshotSource,
         private val mapper: NetworkFingerprintMapper,
     ) : NetworkFingerprintProvider {
+        @Suppress("TooGenericExceptionCaught")
         override fun capture(): NetworkFingerprint? =
             try {
                 snapshotSource.capture()?.let(mapper::map)

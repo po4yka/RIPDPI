@@ -43,6 +43,7 @@ internal interface HandoverAwareSession {
     var handoverRetryCount: Int
 }
 
+@Suppress("TooManyFunctions")
 internal abstract class BaseServiceRuntimeCoordinator<TSession>(
     private val mode: Mode,
     protected val host: ServiceCoordinatorHost,
@@ -237,6 +238,7 @@ internal abstract class BaseServiceRuntimeCoordinator<TSession>(
             }
     }
 
+    @Suppress("LongMethod", "ReturnCount")
     private suspend fun handleNetworkHandover(event: NetworkHandoverEvent) {
         val session = runtimeSession
         val currentFingerprint = event.currentFingerprint
@@ -309,7 +311,7 @@ internal abstract class BaseServiceRuntimeCoordinator<TSession>(
             if (retryCount < MaxHandoverRetries) {
                 session.handoverRetryCount = retryCount + 1
                 val backoffMs =
-                    (HandoverRetryBaseMs * (1L shl retryCount.coerceAtMost(4)))
+                    (HandoverRetryBaseMs * (1L shl retryCount.coerceAtMost(MaxHandoverRetries)))
                         .coerceAtMost(HandoverRetryMaxMs)
                 Logger.w {
                     "$serviceLabel handover failed (attempt ${retryCount + 1}/$MaxHandoverRetries), " +

@@ -81,6 +81,7 @@ class DefaultConnectionPolicyResolver
         private val startupDnsProbe: VpnStartupDnsProbe,
         private val rootHelperManager: RootHelperManager,
     ) : ConnectionPolicyResolver {
+        @Suppress("LongMethod", "ReturnCount")
         override suspend fun resolve(
             mode: Mode,
             resolverOverride: TemporaryResolverOverride?,
@@ -305,6 +306,7 @@ class DefaultConnectionPolicyResolver
                 handoverClassification = handoverClassification,
             )
 
+        @Suppress("ReturnCount")
         private suspend fun resolvePreferredVpnDnsPath(
             mode: Mode,
             dnsResolution: EffectiveDnsResolution,
@@ -328,6 +330,7 @@ class DefaultConnectionPolicyResolver
         }
     }
 
+@Suppress("ReturnCount")
 internal fun resolveVpnDnsSelection(
     mode: Mode,
     baseDns: ActiveDnsSettings,
@@ -379,12 +382,15 @@ internal fun buildConnectionPolicySignature(
         matchedPolicy?.id?.toString().orEmpty(),
     ).joinToString("|").encodeSha256()
 
+private const val HexRadix = 16
+private const val HexNibbleShift = 4
+
 private fun String.encodeSha256(): String {
     val bytes = MessageDigest.getInstance("SHA-256").digest(toByteArray())
     return buildString(bytes.size * 2) {
         bytes.forEach { byte ->
-            append(((byte.toInt() shr 4) and 0xF).toString(16))
-            append((byte.toInt() and 0xF).toString(16))
+            append(((byte.toInt() shr HexNibbleShift) and 0xF).toString(HexRadix))
+            append((byte.toInt() and 0xF).toString(HexRadix))
         }
     }
 }

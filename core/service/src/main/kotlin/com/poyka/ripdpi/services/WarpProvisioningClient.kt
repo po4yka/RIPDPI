@@ -65,6 +65,13 @@ class DefaultWarpProvisioningClient
         private val tlsClientFactory: OwnedTlsClientFactory,
         private val json: Json,
     ) : WarpProvisioningClient {
+        private companion object {
+            private const val ErrorBodyMaxLength = 256
+            private const val ConnectTimeoutSeconds = 20L
+            private const val ReadTimeoutSeconds = 30L
+            private const val CallTimeoutSeconds = 45L
+        }
+
         override suspend fun register(request: WarpRegisterDeviceRequest): WarpProvisioningResult =
             withContext(Dispatchers.IO) {
                 val httpRequest =
@@ -127,7 +134,7 @@ class DefaultWarpProvisioningClient
             client.newCall(request).execute().use { response ->
                 val body = response.body.string()
                 if (!response.isSuccessful) {
-                    val suffix = body.take(256).trim()
+                    val suffix = body.take(ErrorBodyMaxLength).trim()
                     throw IOException(
                         buildString {
                             append("WARP provisioning failed with HTTP ")
@@ -152,12 +159,13 @@ class DefaultWarpProvisioningClient
             tlsClientFactory.create(
                 forcedTlsVersions = listOf(TlsVersion.TLS_1_2),
             ) {
-                connectTimeout(20, TimeUnit.SECONDS)
-                readTimeout(30, TimeUnit.SECONDS)
-                callTimeout(45, TimeUnit.SECONDS)
+                connectTimeout(ConnectTimeoutSeconds, TimeUnit.SECONDS)
+                readTimeout(ReadTimeoutSeconds, TimeUnit.SECONDS)
+                callTimeout(CallTimeoutSeconds, TimeUnit.SECONDS)
             }
     }
 
+@Suppress("ReturnCount")
 internal fun reservedBytesFromClientId(clientId: String?): ByteArray {
     if (clientId.isNullOrBlank()) {
         return ByteArray(WarpReservedFieldLength)
