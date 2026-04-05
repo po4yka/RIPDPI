@@ -128,6 +128,10 @@ internal data class AppSettingsSnapshot(
     val entropyPaddingMax: Int = defaultSettings.entropyPaddingMax,
     val entropyMode: String = entropyModeFromProto(defaultSettings.entropyMode),
     val shannonEntropyTargetPermil: Int = defaultSettings.shannonEntropyTargetPermil,
+    val strategyPackChannel: String = defaultSettings.strategyPackChannel,
+    val strategyPackPinnedId: String = defaultSettings.strategyPackPinnedId,
+    val strategyPackPinnedVersion: String = defaultSettings.strategyPackPinnedVersion,
+    val strategyPackRefreshPolicy: String = defaultSettings.strategyPackRefreshPolicy,
     val adaptiveFallbackEnabled: Boolean = defaultSettings.adaptiveFallbackEnabled,
     val adaptiveFallbackTorst: Boolean = defaultSettings.adaptiveFallbackTorst,
     val adaptiveFallbackTlsErr: Boolean = defaultSettings.adaptiveFallbackTlsErr,
@@ -317,6 +321,10 @@ private fun AppSettings.toSnapshot(): AppSettingsSnapshot =
             entropyPaddingMax = entropyPaddingMax.takeIf { it > 0 } ?: DefaultEntropyPaddingMax,
             entropyMode = entropyModeFromProto(entropyMode),
             shannonEntropyTargetPermil = shannonEntropyTargetPermil.coerceAtLeast(0),
+            strategyPackChannel = normalizeStrategyPackChannel(strategyPackChannel),
+            strategyPackPinnedId = strategyPackPinnedId,
+            strategyPackPinnedVersion = strategyPackPinnedVersion,
+            strategyPackRefreshPolicy = normalizeStrategyPackRefreshPolicy(strategyPackRefreshPolicy),
             adaptiveFallbackEnabled = adaptiveFallbackEnabled,
             adaptiveFallbackTorst = adaptiveFallbackTorst,
             adaptiveFallbackTlsErr = adaptiveFallbackTlsErr,
@@ -501,6 +509,10 @@ private fun AppSettingsSnapshot.toAppSettings(): AppSettings {
         .setEntropyPaddingMax(entropyPaddingMax.takeIf { it > 0 } ?: DefaultEntropyPaddingMax)
         .setEntropyMode(entropyModeToProto(entropyMode))
         .setShannonEntropyTargetPermil(shannonEntropyTargetPermil.coerceAtLeast(0))
+        .setStrategyPackChannel(normalizeStrategyPackChannel(strategyPackChannel))
+        .setStrategyPackPinnedId(strategyPackPinnedId)
+        .setStrategyPackPinnedVersion(strategyPackPinnedVersion)
+        .setStrategyPackRefreshPolicy(normalizeStrategyPackRefreshPolicy(strategyPackRefreshPolicy))
         .setAdaptiveFallbackEnabled(adaptiveFallbackEnabled)
         .setAdaptiveFallbackTorst(adaptiveFallbackTorst)
         .setAdaptiveFallbackTlsErr(adaptiveFallbackTlsErr)

@@ -88,6 +88,10 @@ class AppSettingsJsonTest {
                 .setEntropyPaddingMax(384)
                 .setEntropyMode(entropyModeToProto(EntropyModeShannon))
                 .setShannonEntropyTargetPermil(7920)
+                .setStrategyPackChannel(StrategyPackChannelBeta)
+                .setStrategyPackPinnedId("ru-mobile")
+                .setStrategyPackPinnedVersion("2026.04.0")
+                .setStrategyPackRefreshPolicy(StrategyPackRefreshPolicyManual)
                 .setHostAutolearnEnabled(true)
                 .setHostAutolearnPenaltyTtlHours(12)
                 .setHostAutolearnMaxHosts(2048)
@@ -252,6 +256,16 @@ class AppSettingsJsonTest {
         assertEquals(
             AppSettingsSerializer.defaultValue.shannonEntropyTargetPermil,
             decoded.shannonEntropyTargetPermil,
+        )
+        assertEquals(AppSettingsSerializer.defaultValue.strategyPackChannel, decoded.strategyPackChannel)
+        assertEquals(AppSettingsSerializer.defaultValue.strategyPackPinnedId, decoded.strategyPackPinnedId)
+        assertEquals(
+            AppSettingsSerializer.defaultValue.strategyPackPinnedVersion,
+            decoded.strategyPackPinnedVersion,
+        )
+        assertEquals(
+            AppSettingsSerializer.defaultValue.strategyPackRefreshPolicy,
+            decoded.strategyPackRefreshPolicy,
         )
         assertEquals(AppSettingsSerializer.defaultValue.relayEnabled, decoded.relayEnabled)
         assertEquals(AppSettingsSerializer.defaultValue.relayKind, decoded.relayKind)
