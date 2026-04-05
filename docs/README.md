@@ -24,6 +24,10 @@ RIPDPI documentation index. For a quick start, see the main [README](../README.m
 - [Selector contract](automation/selector-contract.md)
 - [Appium readiness](automation/appium-readiness.md)
 
+## Roadmap
+
+- [Integrations and techniques roadmap](roadmap-integrations.md)
+
 ## User Manuals
 
 - [Diagnostics manual (Russian)](user-manual-diagnostics-ru.md)
