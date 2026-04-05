@@ -18,6 +18,8 @@ const val AdaptiveMarkerMethod = "auto(method)"
 const val AdaptiveMarkerSniExt = "auto(sniext)"
 const val AdaptiveMarkerExtLen = "auto(extlen)"
 
+private const val MaxOffsetExpressionParts = 3
+
 private val NumericOffsetPattern = Regex("^[+-]?\\d+$")
 private val NamedOffsetPattern = Regex("^(abs|host|endhost|sld|midsld|endsld|method|extlen|echext|sniext)([+-]\\d+)?$")
 private val EchOffsetPattern = Regex("^echext([+-]\\d+)?$")
@@ -39,6 +41,7 @@ fun normalizeOffsetExpression(
     defaultValue: String,
 ): String = value.trim().ifEmpty { defaultValue }
 
+@Suppress("ReturnCount")
 fun isValidOffsetExpression(value: String): Boolean {
     if (value.isBlank()) {
         return false
@@ -48,7 +51,7 @@ fun isValidOffsetExpression(value: String): Boolean {
     }
 
     val parts = value.trim().split(':')
-    if (parts.isEmpty() || parts.size > 3 || parts.any { it.isEmpty() }) {
+    if (parts.isEmpty() || parts.size > MaxOffsetExpressionParts || parts.any { it.isEmpty() }) {
         return false
     }
 
@@ -63,7 +66,7 @@ fun isValidOffsetExpression(value: String): Boolean {
         }
     }
 
-    if (parts.size == 3 && parts[2].toIntOrNull() == null) {
+    if (parts.size == MaxOffsetExpressionParts && parts[2].toIntOrNull() == null) {
         return false
     }
 

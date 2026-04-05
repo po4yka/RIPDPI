@@ -36,11 +36,13 @@ fun normalizeEntropyMode(value: String): String =
         else -> EntropyModeDisabled
     }
 
+private const val EntropyModeCombinedProto = 3
+
 fun entropyModeFromProto(value: Int): String =
     when (value) {
         1 -> EntropyModePopcount
         2 -> EntropyModeShannon
-        3 -> EntropyModeCombined
+        EntropyModeCombinedProto -> EntropyModeCombined
         else -> EntropyModeDisabled
     }
 
@@ -48,6 +50,6 @@ fun entropyModeToProto(value: String): Int =
     when (normalizeEntropyMode(value)) {
         EntropyModePopcount -> 1
         EntropyModeShannon -> 2
-        EntropyModeCombined -> 3
+        EntropyModeCombined -> EntropyModeCombinedProto
         else -> 0
     }

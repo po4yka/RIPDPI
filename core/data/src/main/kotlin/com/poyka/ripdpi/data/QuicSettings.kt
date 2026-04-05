@@ -10,6 +10,16 @@ const val QuicFakeProfileCompatDefault = "compat_default"
 const val QuicFakeProfileRealisticInitial = "realistic_initial"
 const val DefaultQuicFakeHost = "www.wikipedia.org"
 
+private const val MaxIpv4OctetValue = 255
+private const val MaxIpv4LabelCount = 4
+
+private fun hasInvalidHostnameStructure(trimmed: String): Boolean =
+    trimmed.isEmpty() || trimmed.contains(':') || trimmed.startsWith('.') ||
+        trimmed.endsWith('.') || trimmed.contains("..")
+
+private fun containsInvalidHostnameChar(trimmed: String): Boolean =
+    !trimmed.all { it.isLowerCase() || it.isDigit() || it == '-' || it == '.' }
+
 private val KnownQuicInitialModes =
     setOf(
         QuicInitialModeDisabled,
@@ -54,14 +64,13 @@ fun normalizeQuicFakeProfile(value: String): String {
     return normalized.takeIf { it in KnownQuicFakeProfiles } ?: QuicFakeProfileDisabled
 }
 
+@Suppress("ReturnCount")
 fun normalizeQuicFakeHost(value: String): String {
     val trimmed = value.trim().trimEnd('.').lowercase()
-    if (trimmed.isEmpty() || trimmed.contains(':') || trimmed.startsWith('.') || trimmed.endsWith('.') ||
-        trimmed.contains("..")
-    ) {
+    if (hasInvalidHostnameStructure(trimmed)) {
         return ""
     }
-    if (!trimmed.all { it.isLowerCase() || it.isDigit() || it == '-' || it == '.' }) {
+    if (containsInvalidHostnameChar(trimmed)) {
         return ""
     }
     if (trimmed.split('.').any { label -> label.isEmpty() || label.startsWith('-') || label.endsWith('-') }) {
@@ -69,9 +78,9 @@ fun normalizeQuicFakeHost(value: String): String {
     }
     val ipv4Parts = trimmed.split('.')
     val isIpv4Literal =
-        ipv4Parts.size == 4 &&
+        ipv4Parts.size == MaxIpv4LabelCount &&
             ipv4Parts.all { part ->
-                part.toIntOrNull()?.let { octet -> octet in 0..255 && octet.toString() == part } == true
+                part.toIntOrNull()?.let { octet -> octet in 0..MaxIpv4OctetValue && octet.toString() == part } == true
             }
     return if (isIpv4Literal) "" else trimmed
 }

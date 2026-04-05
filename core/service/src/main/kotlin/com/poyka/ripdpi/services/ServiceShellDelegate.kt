@@ -1,8 +1,8 @@
 package com.poyka.ripdpi.services
 
 import co.touchlab.kermit.Logger
-import com.poyka.ripdpi.data.START_ACTION
-import com.poyka.ripdpi.data.STOP_ACTION
+import com.poyka.ripdpi.data.startAction
+import com.poyka.ripdpi.data.stopAction
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -22,12 +22,12 @@ internal class ServiceShellDelegate(
     ): Int =
         when (action) {
             // null action indicates a sticky restart after process death.
-            null, START_ACTION -> {
+            null, startAction -> {
                 launchIo(onStart)
                 android.app.Service.START_STICKY
             }
 
-            STOP_ACTION -> {
+            stopAction -> {
                 launchIo { onStop(startId) }
                 android.app.Service.START_NOT_STICKY
             }

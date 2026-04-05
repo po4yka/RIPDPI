@@ -40,6 +40,7 @@ fun deriveStrategyLaneFamilies(
         dnsStrategyLabel = activeDns?.strategyLabel(),
     )
 
+@Suppress("CyclomaticComplexMethod")
 fun deriveTcpStrategyFamily(tcpSteps: List<TcpChainStepModel>): String? {
     val primary = primaryTcpChainStep(tcpSteps)
     val tlsPrelude = tlsPreludeTcpChainStep(tcpSteps)
@@ -98,6 +99,7 @@ fun deriveTcpStrategyFamily(tcpSteps: List<TcpChainStepModel>): String? {
     }
 }
 
+@Suppress("ReturnCount")
 fun deriveQuicStrategyFamily(
     udpSteps: List<UdpChainStepModel>,
     desyncUdp: Boolean,
@@ -138,6 +140,7 @@ fun ActiveDnsSettings.strategyLabel(): String =
         else -> summary()
     }
 
+@Suppress("CyclomaticComplexMethod")
 fun strategyLaneFamilyLabel(family: String): String =
     when (family.trim().lowercase()) {
         "hostfake" -> "Hostfake"

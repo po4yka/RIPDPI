@@ -56,6 +56,7 @@ fun normalizeActivationFilter(filter: ActivationFilterModel): ActivationFilterMo
         streamBytes = normalizeStreamBytesRange(filter.streamBytes.start, filter.streamBytes.end),
     )
 
+@Suppress("ReturnCount")
 fun formatNumericRange(range: NumericRangeModel): String? {
     val normalized = normalizeNumericRange(range.start, range.end, Long.MIN_VALUE)
     val start = normalized.start ?: return null
@@ -127,6 +128,7 @@ internal fun ActivationFilterModel.toProto(): ActivationFilter =
             }
         }.build()
 
+@Suppress("ReturnCount")
 private fun normalizeNumericRange(
     start: Long?,
     end: Long?,

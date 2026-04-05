@@ -100,6 +100,7 @@ fun hostPackCatalogSnapshotFromJson(payload: String): HostPackCatalogSnapshot =
 
 fun HostPackCatalogSnapshot.toJson(): String = hostPackCatalogJson.encodeToString(this)
 
+@Suppress("ReturnCount")
 fun normalizeHostSpecToken(token: String): String? {
     if (token.isBlank()) {
         return null
@@ -132,6 +133,7 @@ fun formatHostPackHosts(hosts: List<String>): String =
         .distinct()
         .joinToString(separator = "\n")
 
+@Suppress("ReturnCount")
 fun mergeHostPackHosts(
     existingText: String,
     presetHosts: List<String>,

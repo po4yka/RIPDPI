@@ -11,7 +11,7 @@ import androidx.core.app.NotificationCompat
 import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.core.service.R
 import com.poyka.ripdpi.data.LogTags
-import com.poyka.ripdpi.data.STOP_ACTION
+import com.poyka.ripdpi.data.stopAction
 
 fun registerNotificationChannel(
     context: Context,
@@ -60,7 +60,7 @@ fun createConnectionNotification(
             PendingIntent.getService(
                 context,
                 0,
-                Intent(context, service).setAction(STOP_ACTION),
+                Intent(context, service).setAction(stopAction),
                 PendingIntent.FLAG_IMMUTABLE,
             ),
         ).setContentIntent(
@@ -99,7 +99,7 @@ fun createDynamicConnectionNotification(
             PendingIntent.getService(
                 context,
                 0,
-                Intent(context, service).setAction(STOP_ACTION),
+                Intent(context, service).setAction(stopAction),
                 PendingIntent.FLAG_IMMUTABLE,
             ),
         ).setContentIntent(

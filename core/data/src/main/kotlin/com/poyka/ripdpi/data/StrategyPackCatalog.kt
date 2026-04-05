@@ -117,6 +117,7 @@ fun strategyPackManifestFromJson(payload: String): StrategyPackManifest = strate
 
 fun StrategyPackManifest.toJson(): String = strategyPackJson.encodeToString(this)
 
+@Suppress("ReturnCount")
 fun StrategyPackCatalog.checkCompatibility(
     appVersion: String,
     nativeVersion: String,

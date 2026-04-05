@@ -7,6 +7,7 @@ import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 
 private const val AppSettingsJsonFormatVersion = 1
+private const val DefaultHttpsPort = 443
 
 private val defaultSettings = AppSettingsSerializer.defaultValue
 
@@ -208,6 +209,7 @@ fun appSettingsFromJson(payload: String): AppSettings =
 private fun AppSettings.effectiveWsTunnelMode(): String =
     wsTunnelMode.ifEmpty { if (wsTunnelEnabled) "always" else "off" }
 
+@Suppress("LongMethod")
 private fun AppSettings.toSnapshot(): AppSettingsSnapshot =
     activeDnsSettings().let { activeDns ->
         AppSettingsSnapshot(
@@ -372,7 +374,7 @@ private fun AppSettings.toSnapshot(): AppSettingsSnapshot =
             relayKind = normalizeRelayKind(relayKind),
             relayProfileId = relayProfileId.ifBlank { DefaultRelayProfileId },
             relayServer = relayServer,
-            relayServerPort = relayServerPort.takeIf { it > 0 } ?: 443,
+            relayServerPort = relayServerPort.takeIf { it > 0 } ?: DefaultHttpsPort,
             relayServerName = relayServerName,
             relayRealityPublicKey = relayRealityPublicKey,
             relayRealityShortId = relayRealityShortId,
@@ -404,6 +406,7 @@ private fun AppSettings.toSnapshot(): AppSettingsSnapshot =
         )
     }
 
+@Suppress("LongMethod")
 private fun AppSettingsSnapshot.toAppSettings(): AppSettings {
     require(formatVersion == AppSettingsJsonFormatVersion) {
         "Unsupported app settings format version: $formatVersion"
@@ -559,17 +562,17 @@ private fun AppSettingsSnapshot.toAppSettings(): AppSettings {
         .setRelayKind(normalizeRelayKind(relayKind))
         .setRelayProfileId(relayProfileId.ifBlank { DefaultRelayProfileId })
         .setRelayServer(relayServer)
-        .setRelayServerPort(relayServerPort.takeIf { it > 0 } ?: 443)
+        .setRelayServerPort(relayServerPort.takeIf { it > 0 } ?: DefaultHttpsPort)
         .setRelayServerName(relayServerName)
         .setRelayRealityPublicKey(relayRealityPublicKey)
         .setRelayRealityShortId(relayRealityShortId)
         .setRelayChainEntryServer(relayChainEntryServer)
-        .setRelayChainEntryPort(relayChainEntryPort.takeIf { it > 0 } ?: 443)
+        .setRelayChainEntryPort(relayChainEntryPort.takeIf { it > 0 } ?: DefaultHttpsPort)
         .setRelayChainEntryServerName(relayChainEntryServerName)
         .setRelayChainEntryPublicKey(relayChainEntryPublicKey)
         .setRelayChainEntryShortId(relayChainEntryShortId)
         .setRelayChainExitServer(relayChainExitServer)
-        .setRelayChainExitPort(relayChainExitPort.takeIf { it > 0 } ?: 443)
+        .setRelayChainExitPort(relayChainExitPort.takeIf { it > 0 } ?: DefaultHttpsPort)
         .setRelayChainExitServerName(relayChainExitServerName)
         .setRelayChainExitPublicKey(relayChainExitPublicKey)
         .setRelayChainExitShortId(relayChainExitShortId)

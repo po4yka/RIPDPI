@@ -6,6 +6,10 @@ import java.net.URI
 const val DnsModePlainUdp = "plain_udp"
 const val DnsModeEncrypted = "encrypted"
 
+private const val DefaultHttpsPort = 443
+private const val DefaultHttpPort = 80
+private const val DefaultDoTPort = 853
+
 const val EncryptedDnsProtocolDoh = "doh"
 const val EncryptedDnsProtocolDot = "dot"
 const val EncryptedDnsProtocolDnsCrypt = "dnscrypt"
@@ -209,8 +213,8 @@ private fun parsePortFromUrl(value: String): Int =
             uri.port
         } else {
             when (uri.scheme?.lowercase()) {
-                "https" -> 443
-                "http" -> 80
+                "https" -> DefaultHttpsPort
+                "http" -> DefaultHttpPort
                 else -> 0
             }
         }
@@ -254,6 +258,7 @@ private fun normalizedEncryptedProtocol(encryptedDnsProtocol: String): String =
         else -> EncryptedDnsProtocolDoh
     }
 
+@Suppress("CyclomaticComplexMethod", "ReturnCount")
 fun activeDnsSettings(
     dnsMode: String,
     dnsProviderId: String,
@@ -304,12 +309,29 @@ fun activeDnsSettings(
     val effectiveHost = firstNonBlank(encryptedDnsHost, derivedHost)
     val effectivePort =
         when {
-            encryptedDnsPort > 0 -> encryptedDnsPort
-            builtIn != null && normalizedProtocol == EncryptedDnsProtocolDoh -> builtIn.port
-            normalizedProtocol == EncryptedDnsProtocolDoh -> parsePortFromUrl(effectiveDohUrl).takeIf { it > 0 } ?: 443
-            normalizedProtocol == EncryptedDnsProtocolDot -> 853
-            normalizedProtocol == EncryptedDnsProtocolDoq -> 853
-            else -> 443
+            encryptedDnsPort > 0 -> {
+                encryptedDnsPort
+            }
+
+            builtIn != null && normalizedProtocol == EncryptedDnsProtocolDoh -> {
+                builtIn.port
+            }
+
+            normalizedProtocol == EncryptedDnsProtocolDoh -> {
+                parsePortFromUrl(effectiveDohUrl).takeIf { it > 0 } ?: DefaultHttpsPort
+            }
+
+            normalizedProtocol == EncryptedDnsProtocolDot -> {
+                DefaultDoTPort
+            }
+
+            normalizedProtocol == EncryptedDnsProtocolDoq -> {
+                DefaultDoTPort
+            }
+
+            else -> {
+                DefaultHttpsPort
+            }
         }
     val effectiveTlsServerName =
         firstNonBlank(

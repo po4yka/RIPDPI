@@ -144,6 +144,7 @@ class HostPackCatalogTest {
         )
     }
 
+    @Suppress("LongMethod")
     @Test
     fun `curated geosite extraction keeps root and full domains only`() {
         val source =

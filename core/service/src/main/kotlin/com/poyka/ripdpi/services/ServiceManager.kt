@@ -10,9 +10,9 @@ import androidx.core.content.ContextCompat
 import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.data.DiagnosticsRuntimeCoordinator
 import com.poyka.ripdpi.data.Mode
-import com.poyka.ripdpi.data.START_ACTION
-import com.poyka.ripdpi.data.STOP_ACTION
 import com.poyka.ripdpi.data.ServiceStateStore
+import com.poyka.ripdpi.data.startAction
+import com.poyka.ripdpi.data.stopAction
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -60,7 +60,7 @@ class DefaultServiceController
                     Logger.i { "Starting VPN" }
                     val intent =
                         Intent(context, RipDpiVpnService::class.java).apply {
-                            action = START_ACTION
+                            action = startAction
                         }
                     ContextCompat.startForegroundService(context, intent)
                 }
@@ -69,7 +69,7 @@ class DefaultServiceController
                     Logger.i { "Starting proxy" }
                     val intent =
                         Intent(context, RipDpiProxyService::class.java).apply {
-                            action = START_ACTION
+                            action = startAction
                         }
                     ContextCompat.startForegroundService(context, intent)
                 }
@@ -86,7 +86,7 @@ class DefaultServiceController
                     Logger.i { "Stopping VPN" }
                     val intent =
                         Intent(context, RipDpiVpnService::class.java).apply {
-                            action = STOP_ACTION
+                            action = stopAction
                         }
                     ContextCompat.startForegroundService(context, intent)
                 }
@@ -95,7 +95,7 @@ class DefaultServiceController
                     Logger.i { "Stopping proxy" }
                     val intent =
                         Intent(context, RipDpiProxyService::class.java).apply {
-                            action = STOP_ACTION
+                            action = stopAction
                         }
                     ContextCompat.startForegroundService(context, intent)
                 }

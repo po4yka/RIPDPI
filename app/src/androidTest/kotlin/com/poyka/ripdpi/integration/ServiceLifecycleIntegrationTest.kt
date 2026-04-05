@@ -21,14 +21,14 @@ import com.poyka.ripdpi.data.AppSettingsRepositoryModule
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
-import com.poyka.ripdpi.data.START_ACTION
-import com.poyka.ripdpi.data.STOP_ACTION
 import com.poyka.ripdpi.data.Sender
 import com.poyka.ripdpi.data.ServiceEvent
 import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.data.ServiceStateStoreModule
 import com.poyka.ripdpi.data.diagnostics.ActiveConnectionPolicy
 import com.poyka.ripdpi.data.diagnostics.ActiveConnectionPolicyStore
+import com.poyka.ripdpi.data.startAction
+import com.poyka.ripdpi.data.stopAction
 import com.poyka.ripdpi.services.RipDpiProxyService
 import com.poyka.ripdpi.services.RipDpiVpnService
 import com.poyka.ripdpi.services.VpnTunnelSessionProvider
@@ -572,12 +572,12 @@ class ServiceLifecycleIntegrationTest {
     private fun startService(serviceClass: Class<*>) {
         ContextCompat.startForegroundService(
             appContext,
-            Intent(appContext, serviceClass).setAction(START_ACTION),
+            Intent(appContext, serviceClass).setAction(startAction),
         )
     }
 
     private fun stopService(serviceClass: Class<*>) {
-        appContext.startService(Intent(appContext, serviceClass).setAction(STOP_ACTION))
+        appContext.startService(Intent(appContext, serviceClass).setAction(stopAction))
     }
 
     private suspend fun awaitStatus(

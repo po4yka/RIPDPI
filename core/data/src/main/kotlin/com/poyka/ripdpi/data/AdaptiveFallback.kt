@@ -19,8 +19,10 @@ data class AdaptiveFallbackSettingsModel(
 fun normalizeAdaptiveFallbackCacheTtlSeconds(value: Int): Int =
     value.takeIf { it > 0 } ?: DefaultAdaptiveFallbackCacheTtlSeconds
 
+private const val MaxIpv4PrefixLength = 32
+
 fun normalizeAdaptiveFallbackCachePrefixV4(value: Int): Int =
-    value.coerceIn(1, 32).takeIf { value > 0 } ?: DefaultAdaptiveFallbackCachePrefixV4
+    value.coerceIn(1, MaxIpv4PrefixLength).takeIf { value > 0 } ?: DefaultAdaptiveFallbackCachePrefixV4
 
 fun AppSettings.toAdaptiveFallbackSettingsModel(): AdaptiveFallbackSettingsModel =
     AdaptiveFallbackSettingsModel(
