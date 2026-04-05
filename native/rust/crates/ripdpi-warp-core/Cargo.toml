@@ -11,6 +11,7 @@ workspace = true
 anyhow = { workspace = true }
 base64 = "0.13"
 boringtun = { version = "0.7.0", default-features = false }
+getrandom = "0.2"
 bytes = "1"
 ripdpi-native-protect = { workspace = true }
 serde = { workspace = true }

@@ -329,17 +329,6 @@ impl WarpRuntime {
         })?;
         let endpoint = resolve_endpoint(&self.config.endpoint).await?;
         let reserved = reserved_bytes_from_client_id(self.config.client_id.as_deref());
-        // AmneziaWG packet obfuscation is configured but the runtime byte-level
-        // obfuscation (header replacement, junk packets) is not yet implemented.
-        // The tunnel will function as standard WireGuard without obfuscation.
-        if self.config.amnezia.enabled {
-            tracing::warn!(
-                "AmneziaWG obfuscation parameters are configured (jc={}, h1-h4 ranges) \
-                 but runtime obfuscation is not yet implemented; \
-                 tunnel will use standard WireGuard framing",
-                self.config.amnezia.jc
-            );
-        }
         let tunnel = Arc::new(
             WireGuardTunnel::new(
                 &self.config.private_key,
@@ -347,10 +336,26 @@ impl WarpRuntime {
                 endpoint,
                 reserved,
                 source_peer_ip,
+                &self.config.amnezia,
             )
             .await
             .map_err(to_io_error)?,
         );
+
+        // AmneziaWG junk packets: send `jc` UDP datagrams of random bytes
+        // before the first WireGuard handshake to defeat protocol fingerprinting.
+        if self.config.amnezia.enabled {
+            let jc = self.config.amnezia.jc.max(0) as usize;
+            let jmin = (self.config.amnezia.jmin.max(1)) as usize;
+            let jmax = (self.config.amnezia.jmax.max(jmin as i32)) as usize;
+            for _ in 0..jc {
+                let range = (jmax - jmin + 1) as u32;
+                let size = jmin + (rand_u32() % range) as usize;
+                let mut junk = vec![0u8; size];
+                fill_random(&mut junk);
+                let _ = tunnel.udp.send_to(&junk, endpoint).await;
+            }
+        }
         let bus = Bus::new();
         let tcp_pool = Arc::new(VirtualPortPool::new(PortProtocol::Tcp));
         let udp_pool = Arc::new(UdpAssociationPool::new());
@@ -544,12 +549,97 @@ async fn handle_udp_associate(mut control: TcpStream, bus: Bus, udp_pool: Arc<Ud
     Ok(())
 }
 
+/// Fill `buf` with cryptographically random bytes using the OS CSPRNG.
+fn fill_random(buf: &mut [u8]) {
+    getrandom::getrandom(buf).expect("getrandom failed");
+}
+
+/// Read a random u32 from the OS CSPRNG.
+fn rand_u32() -> u32 {
+    let mut buf = [0u8; 4];
+    fill_random(&mut buf);
+    u32::from_le_bytes(buf)
+}
+
+/// AmneziaWG packet obfuscation codec.
+///
+/// On send: replaces the WireGuard type byte with the configured header value
+/// (hN) and prepends sN random padding bytes.
+/// On receive: reads the u32 at byte 0, matches against h1-h4 to identify
+/// the WireGuard type and padding length, strips padding, restores the type
+/// byte.
+struct AmneziaCodec {
+    /// Fixed replacement header values for WG types 1-4.
+    h: [u32; 4],
+    /// Padding lengths for WG types 1-4.
+    s: [usize; 4],
+}
+
+impl AmneziaCodec {
+    fn new(cfg: &WarpAmneziaConfig) -> Self {
+        Self {
+            h: [cfg.h1 as u32, cfg.h2 as u32, cfg.h3 as u32, cfg.h4 as u32],
+            s: [cfg.s1 as usize, cfg.s2 as usize, cfg.s3 as usize, cfg.s4 as usize],
+        }
+    }
+
+    /// Obfuscate a WireGuard packet for sending.
+    /// Returns a new `Vec<u8>` with padding prepended and type byte replaced.
+    fn encode(&self, packet: &[u8]) -> Vec<u8> {
+        if packet.is_empty() {
+            return packet.to_vec();
+        }
+        let wg_type = packet[0];
+        let idx = match wg_type {
+            1 => 0,
+            2 => 1,
+            3 => 2,
+            4 => 3,
+            _ => return packet.to_vec(),
+        };
+        let header = self.h[idx];
+        let pad_len = self.s[idx];
+        // Layout: [pad_len random bytes] [4-byte header LE] [packet[1..]]
+        let mut out = Vec::with_capacity(pad_len + 4 + packet.len() - 1);
+        let pad_start = out.len();
+        out.resize(pad_start + pad_len, 0u8);
+        fill_random(&mut out[pad_start..pad_start + pad_len]);
+        out.extend_from_slice(&header.to_le_bytes());
+        out.extend_from_slice(&packet[1..]);
+        out
+    }
+
+    /// Decode an AmneziaWG packet received from the peer.
+    /// Returns `(wg_type, payload_after_padding)` or `None` if unrecognized.
+    fn decode<'a>(&self, packet: &'a [u8]) -> Option<(u8, &'a [u8])> {
+        if packet.len() < 4 {
+            return None;
+        }
+        let header = u32::from_le_bytes([packet[0], packet[1], packet[2], packet[3]]);
+        for (idx, &h_val) in self.h.iter().enumerate() {
+            if header == h_val {
+                let pad_len = self.s[idx];
+                // After the 4-byte header comes pad_len bytes we skip, then the
+                // rest of the original WireGuard packet (starting at byte 1).
+                let payload_start = 4 + pad_len;
+                if payload_start > packet.len() {
+                    return None;
+                }
+                let wg_type = (idx + 1) as u8;
+                return Some((wg_type, &packet[payload_start..]));
+            }
+        }
+        None
+    }
+}
+
 struct WireGuardTunnel {
     peer: tokio::sync::Mutex<Box<Tunn>>,
     udp: UdpSocket,
     endpoint: SocketAddr,
     source_peer_ip: IpAddr,
     reserved: [u8; 3],
+    amnezia: Option<AmneziaCodec>,
 }
 
 impl WireGuardTunnel {
@@ -559,6 +649,7 @@ impl WireGuardTunnel {
         endpoint: SocketAddr,
         reserved: [u8; 3],
         source_peer_ip: IpAddr,
+        amnezia_cfg: &WarpAmneziaConfig,
     ) -> anyhow::Result<Self> {
         let private_key = decode_key(private_key).context("invalid WARP private key")?;
         let peer_public_key = decode_key(peer_public_key).context("invalid WARP peer public key")?;
@@ -580,7 +671,8 @@ impl WireGuardTunnel {
         let _ = protect_socket_via_callback(socket.as_raw_fd());
         socket.set_nonblocking(true)?;
         let udp = UdpSocket::from_std(socket.into())?;
-        Ok(Self { peer: tokio::sync::Mutex::new(peer), udp, endpoint, source_peer_ip, reserved })
+        let amnezia = amnezia_cfg.enabled.then(|| AmneziaCodec::new(amnezia_cfg));
+        Ok(Self { peer: tokio::sync::Mutex::new(peer), udp, endpoint, source_peer_ip, reserved, amnezia })
     }
 
     async fn send_ip_packet(&self, packet: &[u8]) {
@@ -592,7 +684,7 @@ impl WireGuardTunnel {
     async fn send_tunn_result<'a>(&self, result: TunnResult<'a>) {
         match result {
             TunnResult::WriteToNetwork(packet) => {
-                let mut payload = packet.to_vec();
+                let mut payload = if let Some(codec) = &self.amnezia { codec.encode(packet) } else { packet.to_vec() };
                 apply_reserved_bytes(&mut payload, self.reserved);
                 let _ = self.udp.send_to(&payload, self.endpoint).await;
             }
@@ -633,11 +725,39 @@ impl WireGuardTunnel {
                     continue;
                 }
             };
-            let data = &recv_buf[..size];
+            let raw = &recv_buf[..size];
+            // When AmneziaWG obfuscation is active, decode the incoming packet
+            // before passing it to boringtun.  Packets whose header does not
+            // match any of h1-h4 (e.g. junk injected by the remote peer during
+            // its own handshake setup) are silently discarded.
+            //
+            // `decoded_buf` holds the reconstructed WG packet (type byte +
+            // payload) when amnezia is active.  When inactive, `data` points
+            // directly into `recv_buf` and `decoded_buf` is unused.
+            let decoded_buf: Vec<u8> = if let Some(codec) = &self.amnezia {
+                match codec.decode(raw) {
+                    Some((wg_type, tail)) => {
+                        // Reconstruct [type byte | rest-of-wg-packet].
+                        std::iter::once(wg_type).chain(tail.iter().copied()).collect()
+                    }
+                    None => continue,
+                }
+            } else {
+                Vec::new()
+            };
+            let data: &[u8] = if self.amnezia.is_some() {
+                &decoded_buf
+            } else {
+                if raw.is_empty() {
+                    continue;
+                }
+                raw
+            };
             let result = { self.peer.lock().await.decapsulate(None, data, &mut send_buf) };
             match result {
                 TunnResult::WriteToNetwork(packet) => {
-                    let mut payload = packet.to_vec();
+                    let mut payload =
+                        if let Some(codec) = &self.amnezia { codec.encode(packet) } else { packet.to_vec() };
                     apply_reserved_bytes(&mut payload, self.reserved);
                     let _ = self.udp.send_to(&payload, self.endpoint).await;
                 }
@@ -1132,5 +1252,65 @@ mod tests {
         let mut packet = vec![1, 0, 0, 0, 9];
         apply_reserved_bytes(&mut packet, [7, 8, 9]);
         assert_eq!(&packet[..4], &[1, 7, 8, 9]);
+    }
+
+    fn test_amnezia_codec() -> AmneziaCodec {
+        AmneziaCodec { h: [100_000, 1_000_000, 10_000_000, 100_000_000], s: [8, 4, 0, 16] }
+    }
+
+    #[test]
+    fn amnezia_codec_encode_decode_roundtrip_init() {
+        let codec = test_amnezia_codec();
+        // WG Init packet: type byte 1 followed by 147 bytes payload.
+        let mut original = vec![0u8; 148];
+        original[0] = 1;
+        for (i, b) in original[1..].iter_mut().enumerate() {
+            *b = (i & 0xFF) as u8;
+        }
+
+        let encoded = codec.encode(&original);
+        // encoded = [8 pad bytes] [4-byte header LE = 100_000] [147 payload bytes]
+        assert_eq!(encoded.len(), 8 + 4 + 147);
+        let header = u32::from_le_bytes(encoded[8..12].try_into().unwrap());
+        assert_eq!(header, 100_000u32);
+
+        let (wg_type, tail) = codec.decode(&encoded).expect("decode failed");
+        assert_eq!(wg_type, 1);
+        // tail starts after the 4-byte header + 8 pad bytes = offset 12
+        let reconstructed: Vec<u8> = std::iter::once(wg_type).chain(tail.iter().copied()).collect();
+        assert_eq!(reconstructed, original);
+    }
+
+    #[test]
+    fn amnezia_codec_encode_decode_roundtrip_transport() {
+        let codec = test_amnezia_codec();
+        // WG Transport packet: type byte 4 followed by some data.
+        let mut original = vec![0xABu8; 64];
+        original[0] = 4;
+
+        let encoded = codec.encode(&original);
+        // s[3] = 16 padding, header = 100_000_000
+        assert_eq!(encoded.len(), 16 + 4 + 63);
+
+        let (wg_type, tail) = codec.decode(&encoded).expect("decode failed");
+        assert_eq!(wg_type, 4);
+        let reconstructed: Vec<u8> = std::iter::once(wg_type).chain(tail.iter().copied()).collect();
+        assert_eq!(reconstructed, original);
+    }
+
+    #[test]
+    fn amnezia_codec_decode_unknown_header_returns_none() {
+        let codec = test_amnezia_codec();
+        // A packet with a header value that doesn't match any hN.
+        let packet = vec![0x01, 0x02, 0x03, 0x04, 0xFF, 0xFF];
+        assert!(codec.decode(&packet).is_none());
+    }
+
+    #[test]
+    fn amnezia_codec_passthrough_non_wg_type() {
+        let codec = test_amnezia_codec();
+        // Type byte 0 is not a WG type — encode should return it unchanged.
+        let packet = vec![0u8, 1, 2, 3];
+        assert_eq!(codec.encode(&packet), packet);
     }
 }
