@@ -184,7 +184,7 @@ class DefaultStrategyPackRepository
     }
 
 internal fun strategyPackManifestUrl(channel: String): String =
-    "$STRATEGY_PACK_BASE_URL$strategyPackManifestPathPrefix/${normalizeStrategyPackChannel(
+    "$strategyPackBaseUrl$strategyPackManifestPathPrefix/${normalizeStrategyPackChannel(
         channel,
     )}/manifest.json"
 

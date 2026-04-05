@@ -241,6 +241,7 @@ data class WarpUiState(
     val manualEndpointIpv4: String = "",
     val manualEndpointIpv6: String = "",
     val manualEndpointPort: Int = DefaultWarpManualEndpointPort,
+    val scannerAvailable: Boolean = false,
     val scannerEnabled: Boolean = true,
     val scannerParallelism: Int = DefaultWarpScannerParallelism,
     val scannerMaxRttMs: Int = DefaultWarpScannerMaxRttMs,
@@ -264,7 +265,7 @@ data class WarpUiState(
         get() = enabled && endpointSelectionMode == WarpEndpointSelectionManual
 
     val scannerControlsEnabled: Boolean
-        get() = enabled && scannerEnabled
+        get() = scannerAvailable && enabled && scannerEnabled
 
     val amneziaControlsEnabled: Boolean
         get() = enabled && amneziaEnabled

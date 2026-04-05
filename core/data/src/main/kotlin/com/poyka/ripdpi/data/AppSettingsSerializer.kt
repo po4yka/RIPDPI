@@ -90,7 +90,7 @@ object AppSettingsSerializer : Serializer<AppSettings> {
             .setWarpLastScannerMode(WarpScannerModeAutomatic)
             .setWarpEndpointSelectionMode(WarpEndpointSelectionAutomatic)
             .setWarpManualEndpointPort(DefaultWarpManualEndpointPort)
-            .setWarpScannerEnabled(true)
+            .setWarpScannerEnabled(false)
             .setWarpScannerParallelism(DefaultWarpScannerParallelism)
             .setWarpScannerMaxRttMs(DefaultWarpScannerMaxRttMs)
             .setRelayEnabled(false)

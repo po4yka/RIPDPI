@@ -37,6 +37,7 @@ mod tests {
             cf_client_id: Some("client-123".to_owned()),
             cf_key_id: Some("key-456".to_owned()),
             cf_private_key_pem: None,
+            tls_fingerprint_profile: "chrome_stable".to_owned(),
         };
 
         let headers = cloudflare_auth_headers(&config);
@@ -57,6 +58,7 @@ mod tests {
             cf_client_id: None,
             cf_key_id: None,
             cf_private_key_pem: None,
+            tls_fingerprint_profile: "chrome_stable".to_owned(),
         };
 
         let headers = cloudflare_auth_headers(&config);

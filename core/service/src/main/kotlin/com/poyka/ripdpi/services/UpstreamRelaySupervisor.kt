@@ -14,6 +14,7 @@ import com.poyka.ripdpi.data.RelayKindMasque
 import com.poyka.ripdpi.data.RelayKindVlessReality
 import com.poyka.ripdpi.data.RelayProfileRecord
 import com.poyka.ripdpi.data.RelayProfileStore
+import com.poyka.ripdpi.data.TlsFingerprintProfileNativeDefault
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
@@ -29,6 +30,10 @@ internal class UpstreamRelaySupervisor(
     private val relayFactory: RipDpiRelayFactory,
     private val relayProfileStore: RelayProfileStore,
     private val relayCredentialStore: RelayCredentialStore,
+    private val tlsFingerprintProfileProvider: OwnedTlsFingerprintProfileProvider =
+        object : OwnedTlsFingerprintProfileProvider {
+            override fun currentProfile(): String = TlsFingerprintProfileNativeDefault
+        },
     private val stopTimeoutMillis: Long = 5_000L,
 ) {
     private var relayRuntime: RipDpiRelayRuntime? = null
@@ -139,6 +144,7 @@ internal class UpstreamRelaySupervisor(
             chainExitUuid = credentials?.chainExitUuid,
             hysteriaPassword = credentials?.hysteriaPassword,
             hysteriaSalamanderKey = credentials?.hysteriaSalamanderKey,
+            tlsFingerprintProfile = tlsFingerprintProfileProvider.currentProfile(),
             masqueAuthMode = credentials?.masqueAuthMode,
             masqueAuthToken = credentials?.masqueAuthToken,
             masqueCloudflareClientId = credentials?.masqueCloudflareClientId,
@@ -186,9 +192,8 @@ internal class UpstreamRelaySupervisor(
         credentials: RelayCredentialRecord?,
     ) {
         val hasMasqueCloudflareKeys =
-            !credentials?.masqueCloudflareClientId.isNullOrBlank() &&
-                !credentials?.masqueCloudflareKeyId.isNullOrBlank() &&
-                !credentials?.masqueCloudflarePrivateKeyPem.isNullOrBlank()
+            !credentials.masqueCloudflareClientId.isNullOrBlank() &&
+                !credentials.masqueCloudflareKeyId.isNullOrBlank()
         val isValid =
             when (relayKind) {
                 RelayKindVlessReality -> {
@@ -208,7 +213,7 @@ internal class UpstreamRelaySupervisor(
                     if (cloudflareMasqueMode) {
                         hasMasqueCloudflareKeys
                     } else {
-                        !credentials?.masqueAuthToken.isNullOrBlank()
+                        !credentials.masqueAuthToken.isNullOrBlank()
                     }
                 }
 
@@ -226,6 +231,10 @@ internal open class UpstreamRelaySupervisorFactory
         private val relayFactory: RipDpiRelayFactory,
         private val relayProfileStore: RelayProfileStore,
         private val relayCredentialStore: RelayCredentialStore,
+        private val tlsFingerprintProfileProvider: OwnedTlsFingerprintProfileProvider =
+            object : OwnedTlsFingerprintProfileProvider {
+                override fun currentProfile(): String = TlsFingerprintProfileNativeDefault
+            },
     ) {
         open fun create(
             scope: CoroutineScope,
@@ -237,5 +246,6 @@ internal open class UpstreamRelaySupervisorFactory
                 relayFactory = relayFactory,
                 relayProfileStore = relayProfileStore,
                 relayCredentialStore = relayCredentialStore,
+                tlsFingerprintProfileProvider = tlsFingerprintProfileProvider,
             )
     }

@@ -21,6 +21,7 @@ pub struct VlessRealityConfig {
     /// Parsed 16-byte UUID.
     pub uuid: [u8; 16],
     pub server_name: String,
+    pub tls_fingerprint_profile: String,
     /// Decoded 32-byte X25519 public key.
     pub reality_public_key: [u8; 32],
     /// Decoded short ID (0-8 bytes).
@@ -36,6 +37,7 @@ impl VlessRealityConfig {
         server_name: &str,
         reality_public_key_b64: &str,
         reality_short_id_hex: &str,
+        tls_fingerprint_profile: &str,
     ) -> Result<Self, ConfigError> {
         let port = u16::try_from(port).map_err(|_| ConfigError::InvalidPort(port))?;
 
@@ -65,6 +67,7 @@ impl VlessRealityConfig {
             port,
             uuid,
             server_name: server_name.to_owned(),
+            tls_fingerprint_profile: tls_fingerprint_profile.to_owned(),
             reality_public_key,
             reality_short_id,
         })
@@ -111,6 +114,7 @@ mod tests {
             "www.example.com",
             &key,
             "abcd1234",
+            "chrome_stable",
         )
         .unwrap();
         assert_eq!(cfg.port, 443);

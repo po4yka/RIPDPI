@@ -264,6 +264,7 @@ private fun AppSettings.buildWarpUiState(): WarpUiState {
         manualEndpointIpv4 = warp.manualEndpoint.ipv4,
         manualEndpointIpv6 = warp.manualEndpoint.ipv6,
         manualEndpointPort = warp.manualEndpoint.port,
+        scannerAvailable = false,
         scannerEnabled = warp.scannerEnabled,
         scannerParallelism = warp.scannerParallelism,
         scannerMaxRttMs = warp.scannerMaxRttMs,

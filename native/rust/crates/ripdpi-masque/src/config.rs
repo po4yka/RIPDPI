@@ -17,4 +17,6 @@ pub struct MasqueConfig {
     pub cf_key_id: Option<String>,
     /// Cloudflare ECDSA P-256 private key in PEM format.
     pub cf_private_key_pem: Option<String>,
+    /// TLS fingerprint profile used for HTTP/2 fallback handshakes.
+    pub tls_fingerprint_profile: String,
 }

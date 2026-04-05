@@ -76,7 +76,7 @@ where
     let session_id = build_reality_session_id(config, &client_random)?;
 
     // 3. Build the SSL connector with the chosen TLS fingerprint profile.
-    let mut builder = ripdpi_tls_profiles::configure_builder("chrome_stable")
+    let mut builder = ripdpi_tls_profiles::configure_builder(&config.tls_fingerprint_profile)
         .map_err(|e| io::Error::new(io::ErrorKind::Other, format!("TLS profile: {e}")))?;
 
     // Reality uses its own auth model -- disable standard cert verification.
@@ -216,6 +216,7 @@ mod tests {
             port: 443,
             uuid: [0; 16],
             server_name: "www.example.com".to_owned(),
+            tls_fingerprint_profile: "chrome_stable".to_owned(),
             reality_public_key: [0x42; 32],
             reality_short_id: vec![0xAB, 0xCD],
         };
@@ -234,6 +235,7 @@ mod tests {
             port: 443,
             uuid: [0; 16],
             server_name: "www.example.com".to_owned(),
+            tls_fingerprint_profile: "chrome_stable".to_owned(),
             reality_public_key: [0x42; 32],
             reality_short_id: vec![0x01],
         };

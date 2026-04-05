@@ -2,6 +2,7 @@ package com.poyka.ripdpi.core
 
 import com.poyka.ripdpi.data.NativeError
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
+import com.poyka.ripdpi.data.TlsFingerprintProfileNativeDefault
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -116,6 +117,7 @@ data class ResolvedRipDpiRelayConfig(
     val chainExitUuid: String? = null,
     val hysteriaPassword: String? = null,
     val hysteriaSalamanderKey: String? = null,
+    val tlsFingerprintProfile: String = TlsFingerprintProfileNativeDefault,
     val masqueAuthMode: String? = null,
     val masqueAuthToken: String? = null,
     val masqueCloudflareClientId: String? = null,
