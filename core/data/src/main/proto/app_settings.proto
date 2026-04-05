@@ -258,4 +258,10 @@ message AppSettings {
   string warp_zero_trust_org = 197;
   string warp_setup_state = 198; // "not_configured" | "provisioning" | "provisioned" | "needs_attention"
   string warp_last_scanner_mode = 199; // "automatic" | "manual" | "rescan"
+
+  // Tier 4 strategy packs
+  string strategy_pack_channel = 200; // "stable" | "beta"
+  string strategy_pack_pinned_id = 201;
+  string strategy_pack_pinned_version = 202;
+  string strategy_pack_refresh_policy = 203; // "manual" | "automatic"
 }

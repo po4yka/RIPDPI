@@ -1,0 +1,43 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-04-05T08:00:00Z",
+  "channel": "stable",
+  "minAppVersion": "0.0.4",
+  "minNativeVersion": "0.0.4",
+  "notes": "Bundled fallback strategy packs for offline compatibility and rollback safety.",
+  "packs": [
+    {
+      "id": "baseline-stable",
+      "version": "2026.04.0",
+      "title": "Baseline Stable",
+      "description": "Conservative default strategies for broad blocked-network coverage.",
+      "notes": "Bundled with the app as the rollback-safe default channel pack.",
+      "triggerMetadata": [
+        "torst",
+        "tls_err"
+      ],
+      "hostLists": [
+        {
+          "id": "video",
+          "title": "Blocked Video",
+          "description": "High-value video and CDN targets used during validation.",
+          "hosts": [
+            "youtube.com",
+            "googlevideo.com"
+          ]
+        }
+      ],
+      "strategies": [
+        {
+          "id": "tlsrec_split_host",
+          "label": "TLS record split + host",
+          "recommendedProxyConfigJson": "{\"strategyPackId\":\"baseline-stable\",\"strategy\":\"tlsrec_split_host\"}",
+          "candidateIds": [
+            "tlsrec_split_host"
+          ],
+          "notes": "Modern TLS record split path for standard HTTPS blocking."
+        }
+      ]
+    }
+  ]
+}

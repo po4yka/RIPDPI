@@ -1,0 +1,248 @@
+package com.poyka.ripdpi.strategy
+
+import android.content.Context
+import com.poyka.ripdpi.data.DefaultStrategyPackChannel
+import com.poyka.ripdpi.data.StrategyPackCatalog
+import com.poyka.ripdpi.data.StrategyPackCatalogSourceBundled
+import com.poyka.ripdpi.data.StrategyPackCatalogSourceDownloaded
+import com.poyka.ripdpi.data.StrategyPackManifest
+import com.poyka.ripdpi.data.StrategyPackSnapshot
+import com.poyka.ripdpi.data.checkCompatibility
+import com.poyka.ripdpi.data.normalizeStrategyPackChannel
+import com.poyka.ripdpi.data.strategyPackCatalogFromJson
+import com.poyka.ripdpi.data.strategyPackManifestFromJson
+import com.poyka.ripdpi.data.strategyPackSnapshotFromJson
+import com.poyka.ripdpi.data.toJson
+import dagger.Binds
+import dagger.Module
+import dagger.hilt.InstallIn
+import dagger.hilt.android.qualifiers.ApplicationContext
+import dagger.hilt.components.SingletonComponent
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import okhttp3.ResponseBody
+import retrofit2.Response
+import java.io.File
+import java.io.IOException
+import java.io.InputStream
+import java.security.MessageDigest
+import javax.inject.Inject
+import javax.inject.Singleton
+
+interface StrategyPackRepository {
+    suspend fun loadSnapshot(): StrategyPackSnapshot
+
+    suspend fun refreshSnapshot(channel: String = DefaultStrategyPackChannel): StrategyPackSnapshot
+}
+
+fun interface StrategyPackClock {
+    fun nowEpochMillis(): Long
+}
+
+fun interface StrategyPackTempFileFactory {
+    fun create(cacheDir: File): File
+}
+
+@Singleton
+class SystemStrategyPackClock
+    @Inject
+    constructor() : StrategyPackClock {
+        override fun nowEpochMillis(): Long = System.currentTimeMillis()
+    }
+
+@Singleton
+class DefaultStrategyPackTempFileFactory
+    @Inject
+    constructor() : StrategyPackTempFileFactory {
+        override fun create(cacheDir: File): File = File.createTempFile("strategy-pack-", ".json", cacheDir)
+    }
+
+@Singleton
+class DefaultStrategyPackRepository
+    @Inject
+    constructor(
+        @param:ApplicationContext private val context: Context,
+        private val service: StrategyPackDownloadService,
+        private val verifier: StrategyPackVerifier,
+        private val clock: StrategyPackClock,
+        private val tempFileFactory: StrategyPackTempFileFactory,
+        private val buildProvenanceProvider: StrategyPackBuildProvenanceProvider,
+    ) : StrategyPackRepository {
+        override suspend fun loadSnapshot(): StrategyPackSnapshot =
+            withContext(Dispatchers.IO) {
+                val provenance = buildProvenanceProvider.current()
+                loadCachedSnapshot()
+                    ?.takeIf { it.isCompatibleWith(provenance) }
+                    ?: loadBundledSnapshot().takeIf { it.isCompatibleWith(provenance) }
+                    ?: StrategyPackSnapshot()
+            }
+
+        override suspend fun refreshSnapshot(channel: String): StrategyPackSnapshot =
+            withContext(Dispatchers.IO) {
+                val normalizedChannel = normalizeStrategyPackChannel(channel)
+                val manifest = loadManifest(normalizedChannel)
+                val downloadedAtEpochMillis = clock.nowEpochMillis()
+                val tempFile = tempFileFactory.create(context.cacheDir)
+
+                try {
+                    val actualChecksum =
+                        service
+                            .downloadCatalog(manifest.catalogUrl)
+                            .writeToFileAndDigest(tempFile)
+                    val payload = tempFile.readBytes()
+                    verifier.verify(
+                        manifest = manifest,
+                        payload = payload,
+                        actualChecksumSha256 = actualChecksum,
+                    )
+
+                    val catalog = parseCatalog(payload)
+                    ensureCompatible(catalog)
+                    val snapshot =
+                        StrategyPackSnapshot(
+                            catalog = catalog,
+                            source = StrategyPackCatalogSourceDownloaded,
+                            lastFetchedAtEpochMillis = downloadedAtEpochMillis,
+                            manifestVersion = manifest.version,
+                            verifiedChecksumSha256 = manifest.catalogChecksumSha256.lowercase(),
+                            verifiedSignatureBase64 = manifest.catalogSignatureBase64,
+                        )
+                    cacheFile().let { file ->
+                        file.parentFile?.mkdirs()
+                        file.writeText(snapshot.toJson(), Charsets.UTF_8)
+                    }
+                    snapshot
+                } finally {
+                    tempFile.delete()
+                }
+            }
+
+        private suspend fun loadManifest(channel: String): StrategyPackManifest =
+            service
+                .downloadManifest(strategyPackManifestUrl(channel))
+                .requireBodyText()
+                .let { payload ->
+                    runCatching {
+                        strategyPackManifestFromJson(payload)
+                    }.getOrElse { error ->
+                        throw StrategyPackManifestParseException(error)
+                    }
+                }
+
+        private fun parseCatalog(payload: ByteArray): StrategyPackCatalog =
+            runCatching {
+                strategyPackCatalogFromJson(payload.toString(Charsets.UTF_8))
+            }.getOrElse { error ->
+                throw StrategyPackCatalogParseException(error)
+            }
+
+        private fun ensureCompatible(catalog: StrategyPackCatalog) {
+            val compatibility = catalog.checkCompatibilityVersions()
+            if (!compatibility.isCompatible) {
+                throw StrategyPackCompatibilityException(
+                    compatibility.reason ?: "The downloaded strategy pack catalog is incompatible.",
+                )
+            }
+        }
+
+        private fun loadBundledSnapshot(): StrategyPackSnapshot =
+            runCatching {
+                StrategyPackSnapshot(
+                    catalog =
+                        context.assets
+                            .open(STRATEGY_PACK_CATALOG_ASSET_PATH)
+                            .bufferedReader()
+                            .use { reader -> strategyPackCatalogFromJson(reader.readText()) },
+                    source = StrategyPackCatalogSourceBundled,
+                )
+            }.getOrDefault(StrategyPackSnapshot())
+
+        private fun loadCachedSnapshot(): StrategyPackSnapshot? =
+            runCatching {
+                val file = cacheFile()
+                if (!file.exists()) {
+                    null
+                } else {
+                    strategyPackSnapshotFromJson(file.readText(Charsets.UTF_8))
+                }
+            }.getOrNull()
+
+        private fun StrategyPackSnapshot.isCompatibleWith(provenance: StrategyPackBuildProvenance): Boolean =
+            catalog
+                .checkCompatibility(
+                    appVersion = provenance.appVersion,
+                    nativeVersion = provenance.nativeVersion,
+                ).isCompatible
+
+        private fun StrategyPackCatalog.checkCompatibilityVersions() =
+            checkCompatibility(
+                appVersion = buildProvenanceProvider.current().appVersion,
+                nativeVersion = buildProvenanceProvider.current().nativeVersion,
+            )
+
+        private fun cacheFile(): File = File(context.filesDir, STRATEGY_PACK_CATALOG_CACHE_PATH)
+    }
+
+internal fun strategyPackManifestUrl(channel: String): String =
+    "$STRATEGY_PACK_BASE_URL${STRATEGY_PACK_MANIFEST_PATH_PREFIX}/${normalizeStrategyPackChannel(
+        channel,
+    )}/manifest.json"
+
+internal fun Response<ResponseBody>.requireBodyText(): String {
+    val body =
+        if (isSuccessful) {
+            body()
+        } else {
+            null
+        }
+            ?: throw IOException("Remote request failed with HTTP ${code()} for ${raw().request.url}")
+    return body.use(ResponseBody::string)
+}
+
+internal fun Response<ResponseBody>.writeToFileAndDigest(target: File): String {
+    val body =
+        if (isSuccessful) {
+            body()
+        } else {
+            null
+        }
+            ?: throw IOException("Remote request failed with HTTP ${code()} for ${raw().request.url}")
+
+    return body.use { responseBody ->
+        target.outputStream().use { output ->
+            responseBody.byteStream().copyToAndDigest(output)
+        }
+    }
+}
+
+internal fun InputStream.copyToAndDigest(output: java.io.OutputStream): String {
+    val digest = MessageDigest.getInstance("SHA-256")
+    val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+    while (true) {
+        val readCount = read(buffer)
+        if (readCount <= 0) {
+            break
+        }
+        digest.update(buffer, 0, readCount)
+        output.write(buffer, 0, readCount)
+    }
+    return digest.digest().joinToString(separator = "") { byte ->
+        ((byte.toInt() and 0xff) + 0x100).toString(16).substring(1)
+    }
+}
+
+@Module
+@InstallIn(SingletonComponent::class)
+abstract class StrategyPackBindingsModule {
+    @Binds
+    @Singleton
+    abstract fun bindStrategyPackRepository(repository: DefaultStrategyPackRepository): StrategyPackRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindStrategyPackClock(clock: SystemStrategyPackClock): StrategyPackClock
+}
+
+const val STRATEGY_PACK_CATALOG_ASSET_PATH = "strategy-packs/catalog.json"
+const val STRATEGY_PACK_CATALOG_CACHE_PATH = "strategy-packs/catalog.snapshot.json"
+const val STRATEGY_PACK_MANIFEST_PATH_PREFIX = "poyka/ripdpi-strategy-packs/main"
