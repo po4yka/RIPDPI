@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.services
 
 import co.touchlab.kermit.Logger
+import com.poyka.ripdpi.core.relayConfigOrNull
 import com.poyka.ripdpi.core.warpConfigOrNull
 import com.poyka.ripdpi.data.FailureReason
 import com.poyka.ripdpi.data.Mode
@@ -29,6 +30,7 @@ internal class ProxyServiceRuntimeCoordinator(
     networkHandoverMonitor: NetworkHandoverMonitor,
     policyHandoverEventStore: PolicyHandoverEventStore,
     permissionWatchdog: PermissionWatchdog,
+    private val upstreamRelaySupervisor: UpstreamRelaySupervisor,
     private val warpRuntimeSupervisor: WarpRuntimeSupervisor,
     private val proxyRuntimeSupervisor: ProxyRuntimeSupervisor,
     private val statusReporter: ServiceStatusReporter,
@@ -100,6 +102,9 @@ internal class ProxyServiceRuntimeCoordinator(
         session: ProxyRuntimeSession,
         resolution: ConnectionPolicyResolution,
     ) {
+        resolution.proxyPreferences.relayConfigOrNull()?.let { relayConfig ->
+            upstreamRelaySupervisor.start(relayConfig, ::handleRelayExit)
+        }
         resolution.proxyPreferences.warpConfigOrNull()?.let { warpConfig ->
             warpRuntimeSupervisor.start(warpConfig, ::handleWarpExit)
         }
@@ -113,11 +118,13 @@ internal class ProxyServiceRuntimeCoordinator(
 
     override suspend fun stopModeRuntime(skipRuntimeShutdown: Boolean) {
         if (skipRuntimeShutdown) {
+            upstreamRelaySupervisor.detach()
             warpRuntimeSupervisor.detach()
             proxyRuntimeSupervisor.detach()
         } else {
             proxyRuntimeSupervisor.stop()
             warpRuntimeSupervisor.stop()
+            upstreamRelaySupervisor.stop()
         }
     }
 
@@ -127,6 +134,9 @@ internal class ProxyServiceRuntimeCoordinator(
                 val proxyTelemetry =
                     proxyRuntimeSupervisor.pollTelemetry()
                         ?: NativeRuntimeSnapshot.idle(source = "proxy")
+                val relayTelemetry =
+                    upstreamRelaySupervisor.pollTelemetry()
+                        ?: NativeRuntimeSnapshot.idle(source = "relay")
                 val warpTelemetry =
                     warpRuntimeSupervisor.pollTelemetry()
                         ?: NativeRuntimeSnapshot.idle(source = "warp")
@@ -142,6 +152,7 @@ internal class ProxyServiceRuntimeCoordinator(
                     activePolicy = runtimeSession?.currentActiveConnectionPolicy,
                     consumePendingNetworkHandoverClass = { null },
                     proxyTelemetry = proxyTelemetry,
+                    relayTelemetry = relayTelemetry,
                     warpTelemetry = warpTelemetry,
                     tunnelTelemetry = tunnelTelemetry,
                     tunnelRecoveryRetryCount = 0,
@@ -168,6 +179,7 @@ internal class ProxyServiceRuntimeCoordinator(
         resolution: ConnectionPolicyResolution,
         appliedAt: Long,
     ) {
+        upstreamRelaySupervisor.stop()
         warpRuntimeSupervisor.stop()
         proxyRuntimeSupervisor.stop()
         applyActiveConnectionPolicy(
@@ -176,6 +188,9 @@ internal class ProxyServiceRuntimeCoordinator(
             restartReason = "network_handover",
             appliedAt = appliedAt,
         )
+        resolution.proxyPreferences.relayConfigOrNull()?.let { relayConfig ->
+            upstreamRelaySupervisor.start(relayConfig, ::handleRelayExit)
+        }
         resolution.proxyPreferences.warpConfigOrNull()?.let { warpConfig ->
             warpRuntimeSupervisor.start(warpConfig, ::handleWarpExit)
         }
@@ -263,6 +278,32 @@ internal class ProxyServiceRuntimeCoordinator(
         warpRuntimeSupervisor.detach()
         host.serviceScope.launch(ioDispatcher) { stop(skipRuntimeShutdown = true) }
     }
+
+    private suspend fun handleRelayExit(result: Result<Int>) {
+        if (stopping) {
+            return
+        }
+
+        val failureReason =
+            result.exceptionOrNull()?.let { throwable ->
+                val error = throwable as? Exception ?: IllegalStateException("Relay runtime failed", throwable)
+                Logger.e(error) { "Relay failed" }
+                classifyFailureReason(error)
+            } ?: result
+                .getOrNull()
+                ?.takeIf { it != 0 }
+                ?.let { code ->
+                    Logger.e { "Relay stopped with code $code" }
+                    FailureReason.NativeError("Relay exited with code $code")
+                }
+
+        if (failureReason != null) {
+            updateStatus(ServiceStatus.Failed, failureReason)
+        }
+
+        upstreamRelaySupervisor.detach()
+        host.serviceScope.launch(ioDispatcher) { stop(skipRuntimeShutdown = true) }
+    }
 }
 
 internal class ProxyServiceRuntimeCoordinatorFactory
@@ -277,6 +318,7 @@ internal class ProxyServiceRuntimeCoordinatorFactory
         private val networkHandoverMonitor: NetworkHandoverMonitor,
         private val policyHandoverEventStore: PolicyHandoverEventStore,
         private val networkSnapshotProvider: NativeNetworkSnapshotProvider,
+        private val upstreamRelaySupervisorFactory: UpstreamRelaySupervisorFactory,
         private val warpRuntimeSupervisorFactory: WarpRuntimeSupervisorFactory,
         private val proxyRuntimeSupervisorFactory: ProxyRuntimeSupervisorFactory,
         private val serviceStatusReporterFactory: ServiceStatusReporterFactory,
@@ -292,6 +334,11 @@ internal class ProxyServiceRuntimeCoordinatorFactory
                 networkHandoverMonitor = networkHandoverMonitor,
                 policyHandoverEventStore = policyHandoverEventStore,
                 permissionWatchdog = permissionWatchdog,
+                upstreamRelaySupervisor =
+                    upstreamRelaySupervisorFactory.create(
+                        scope = host.serviceScope,
+                        dispatcher = Dispatchers.IO,
+                    ),
                 warpRuntimeSupervisor =
                     warpRuntimeSupervisorFactory.create(
                         scope = host.serviceScope,

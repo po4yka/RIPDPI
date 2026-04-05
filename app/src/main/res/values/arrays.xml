@@ -51,6 +51,19 @@
         <item name="route_and_cache">route_and_cache</item>
     </array>
 
+    <array name="entropy_modes">
+        <item name="disabled">Disabled</item>
+        <item name="popcount">Popcount shaping</item>
+        <item name="shannon">Shannon shaping</item>
+        <item name="combined">Combined shaping</item>
+    </array>
+    <array name="entropy_modes_entries">
+        <item name="disabled">disabled</item>
+        <item name="popcount">popcount</item>
+        <item name="shannon">shannon</item>
+        <item name="combined">combined</item>
+    </array>
+
     <array name="fake_tls_base_modes">
         <item name="default">Default fake ClientHello</item>
         <item name="original">Original ClientHello</item>

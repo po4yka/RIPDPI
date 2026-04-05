@@ -2,6 +2,7 @@ package com.poyka.ripdpi.services
 
 import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.core.Tun2SocksBridgeFactory
+import com.poyka.ripdpi.core.relayConfigOrNull
 import com.poyka.ripdpi.core.warpConfigOrNull
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.FailureReason
@@ -39,6 +40,7 @@ internal class VpnServiceRuntimeCoordinator(
     private val vpnTunnelRuntime: VpnTunnelRuntime,
     private val resolverRefreshPlanner: VpnResolverRefreshPlanner,
     private val encryptedDnsFailoverController: VpnEncryptedDnsFailoverController,
+    private val upstreamRelaySupervisor: UpstreamRelaySupervisor,
     private val warpRuntimeSupervisor: WarpRuntimeSupervisor,
     private val proxyRuntimeSupervisor: ProxyRuntimeSupervisor,
     private val statusReporter: ServiceStatusReporter,
@@ -115,6 +117,9 @@ internal class VpnServiceRuntimeCoordinator(
         resolution: ConnectionPolicyResolution,
     ) {
         val logContext = session.buildLogContext(session.currentActiveConnectionPolicy)
+        resolution.proxyPreferences.relayConfigOrNull()?.let { relayConfig ->
+            upstreamRelaySupervisor.start(relayConfig, ::handleRelayExit)
+        }
         resolution.proxyPreferences.warpConfigOrNull()?.let { warpConfig ->
             warpRuntimeSupervisor.start(warpConfig, ::handleWarpExit)
         }
@@ -133,11 +138,13 @@ internal class VpnServiceRuntimeCoordinator(
     override suspend fun stopModeRuntime(skipRuntimeShutdown: Boolean) {
         vpnTunnelRuntime.stop()
         if (skipRuntimeShutdown) {
+            upstreamRelaySupervisor.detach()
             warpRuntimeSupervisor.detach()
             proxyRuntimeSupervisor.detach()
         } else {
             proxyRuntimeSupervisor.stop()
             warpRuntimeSupervisor.stop()
+            upstreamRelaySupervisor.stop()
         }
     }
 
@@ -200,12 +207,14 @@ internal class VpnServiceRuntimeCoordinator(
 
     private suspend fun pollCurrentTelemetry(): VpnTelemetrySnapshot {
         val proxyTelemetry = proxyRuntimeSupervisor.pollTelemetry() ?: NativeRuntimeSnapshot.idle(source = "proxy")
+        val relayTelemetry = upstreamRelaySupervisor.pollTelemetry() ?: NativeRuntimeSnapshot.idle(source = "relay")
         val warpTelemetry = warpRuntimeSupervisor.pollTelemetry() ?: NativeRuntimeSnapshot.idle(source = "warp")
         val tunnelTelemetryResult = vpnTunnelRuntime.pollTelemetry()
         val tunnelTelemetry =
             tunnelTelemetryResult.getOrNull() ?: NativeRuntimeSnapshot.idle(source = "tunnel")
         return VpnTelemetrySnapshot(
             proxyTelemetry = proxyTelemetry,
+            relayTelemetry = relayTelemetry,
             warpTelemetry = warpTelemetry,
             tunnelTelemetry = applyPendingNetworkHandoverClass(tunnelTelemetry),
             tunnelTelemetryResult = tunnelTelemetryResult,
@@ -240,6 +249,7 @@ internal class VpnServiceRuntimeCoordinator(
             activePolicy = runtimeSession?.currentActiveConnectionPolicy,
             consumePendingNetworkHandoverClass = { null },
             proxyTelemetry = telemetry.proxyTelemetry,
+            relayTelemetry = telemetry.relayTelemetry,
             warpTelemetry = telemetry.warpTelemetry,
             tunnelTelemetry = telemetry.tunnelTelemetry,
             tunnelRecoveryRetryCount = vpnTunnelRuntime.tunnelRecoveryRetryCount,
@@ -267,6 +277,7 @@ internal class VpnServiceRuntimeCoordinator(
             activePolicy = runtimeSession?.currentActiveConnectionPolicy,
             consumePendingNetworkHandoverClass = { null },
             proxyTelemetry = telemetry.proxyTelemetry,
+            relayTelemetry = telemetry.relayTelemetry,
             warpTelemetry = telemetry.warpTelemetry,
             tunnelTelemetry = telemetry.tunnelTelemetry,
             tunnelRecoveryRetryCount = vpnTunnelRuntime.tunnelRecoveryRetryCount,
@@ -288,6 +299,7 @@ internal class VpnServiceRuntimeCoordinator(
         vpnTunnelRuntime.stop()
         proxyRuntimeSupervisor.stop()
         warpRuntimeSupervisor.stop()
+        upstreamRelaySupervisor.stop()
         applyActiveConnectionPolicy(
             session = session,
             resolution = resolution,
@@ -295,6 +307,9 @@ internal class VpnServiceRuntimeCoordinator(
             appliedAt = appliedAt,
         )
         val logContext = session.buildLogContext(session.currentActiveConnectionPolicy)
+        resolution.proxyPreferences.relayConfigOrNull()?.let { relayConfig ->
+            upstreamRelaySupervisor.start(relayConfig, ::handleRelayExit)
+        }
         resolution.proxyPreferences.warpConfigOrNull()?.let { warpConfig ->
             warpRuntimeSupervisor.start(warpConfig, ::handleWarpExit)
         }
@@ -383,6 +398,7 @@ internal class VpnServiceRuntimeCoordinator(
         }
 
         proxyRuntimeSupervisor.detach()
+        upstreamRelaySupervisor.detach()
         warpRuntimeSupervisor.detach()
         host.serviceScope.launch(ioDispatcher) { stop(skipRuntimeShutdown = true) }
     }
@@ -410,6 +426,32 @@ internal class VpnServiceRuntimeCoordinator(
         }
 
         warpRuntimeSupervisor.detach()
+        host.serviceScope.launch(ioDispatcher) { stop(skipRuntimeShutdown = true) }
+    }
+
+    private suspend fun handleRelayExit(result: Result<Int>) {
+        if (stopping) {
+            return
+        }
+
+        val failureReason =
+            result.exceptionOrNull()?.let { throwable ->
+                val error = throwable as? Exception ?: IllegalStateException("Relay runtime failed", throwable)
+                Logger.e(error) { "Relay failed" }
+                classifyFailureReason(error, isTunnelContext = true)
+            } ?: result
+                .getOrNull()
+                ?.takeIf { it != 0 }
+                ?.let { code ->
+                    Logger.e { "Relay stopped with code $code" }
+                    FailureReason.NativeError("Relay exited with code $code")
+                }
+
+        if (failureReason != null) {
+            updateStatus(ServiceStatus.Failed, failureReason)
+        }
+
+        upstreamRelaySupervisor.detach()
         host.serviceScope.launch(ioDispatcher) { stop(skipRuntimeShutdown = true) }
     }
 }
@@ -448,6 +490,11 @@ internal class VpnServiceRuntimeCoordinatorFactory
                             runtimeDependencies.dnsDependencies.networkDnsBlockedPathStore,
                         networkFingerprintProvider = statusDependencies.networkFingerprintProvider,
                     ),
+                upstreamRelaySupervisor =
+                    runtimeDependencies.upstreamRelaySupervisorFactory.create(
+                        scope = host.serviceScope,
+                        dispatcher = Dispatchers.IO,
+                    ),
                 warpRuntimeSupervisor =
                     runtimeDependencies.warpRuntimeSupervisorFactory.create(
                         scope = host.serviceScope,
@@ -485,6 +532,7 @@ internal class VpnServiceRuntimeRuntimeDependencies
         val policyHandoverEventStore: PolicyHandoverEventStore,
         val networkSnapshotProvider: NativeNetworkSnapshotProvider,
         val dnsDependencies: VpnServiceRuntimeDnsDependencies,
+        val upstreamRelaySupervisorFactory: UpstreamRelaySupervisorFactory,
         val warpRuntimeSupervisorFactory: WarpRuntimeSupervisorFactory,
         val proxyRuntimeSupervisorFactory: ProxyRuntimeSupervisorFactory,
         val screenStateObserver: ScreenStateObserver,
@@ -509,6 +557,7 @@ internal class VpnServiceRuntimeStatusDependencies
 
 private data class VpnTelemetrySnapshot(
     val proxyTelemetry: NativeRuntimeSnapshot,
+    val relayTelemetry: NativeRuntimeSnapshot,
     val warpTelemetry: NativeRuntimeSnapshot,
     val tunnelTelemetry: NativeRuntimeSnapshot,
     val tunnelTelemetryResult: Result<NativeRuntimeSnapshot?>,

@@ -7,6 +7,7 @@ pub(crate) const HOSTS_WHITELIST: &str = "whitelist";
 pub(crate) const WARP_ROUTE_MODE_OFF: &str = "off";
 pub(crate) const WARP_ROUTE_MODE_RULES: &str = "rules";
 pub(crate) const WARP_ENDPOINT_SELECTION_AUTOMATIC: &str = "automatic";
+pub(crate) const RELAY_KIND_OFF: &str = "off";
 pub(crate) const TLS_RANDREC_DEFAULT_FRAGMENT_COUNT: i32 = 4;
 pub(crate) const TLS_RANDREC_DEFAULT_MIN_FRAGMENT_SIZE: i32 = 16;
 pub(crate) const TLS_RANDREC_DEFAULT_MAX_FRAGMENT_SIZE: i32 = 96;
@@ -529,6 +530,93 @@ impl Default for ProxyUiWarpConfig {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
+pub struct ProxyUiRelayConfig {
+    #[serde(default)]
+    pub enabled: bool,
+    #[serde(default = "default_relay_kind")]
+    pub kind: String,
+    #[serde(default)]
+    pub profile_id: String,
+    #[serde(default)]
+    pub server: String,
+    #[serde(default = "default_relay_server_port")]
+    pub server_port: i32,
+    #[serde(default)]
+    pub server_name: String,
+    #[serde(default)]
+    pub reality_public_key: String,
+    #[serde(default)]
+    pub reality_short_id: String,
+    #[serde(default)]
+    pub chain_entry_server: String,
+    #[serde(default = "default_relay_server_port")]
+    pub chain_entry_port: i32,
+    #[serde(default)]
+    pub chain_entry_server_name: String,
+    #[serde(default)]
+    pub chain_entry_public_key: String,
+    #[serde(default)]
+    pub chain_entry_short_id: String,
+    #[serde(default)]
+    pub chain_exit_server: String,
+    #[serde(default = "default_relay_server_port")]
+    pub chain_exit_port: i32,
+    #[serde(default)]
+    pub chain_exit_server_name: String,
+    #[serde(default)]
+    pub chain_exit_public_key: String,
+    #[serde(default)]
+    pub chain_exit_short_id: String,
+    #[serde(default)]
+    pub masque_url: String,
+    #[serde(default = "default_true")]
+    pub masque_use_http2_fallback: bool,
+    #[serde(default)]
+    pub masque_cloudflare_mode: bool,
+    #[serde(default = "default_relay_local_socks_host")]
+    pub local_socks_host: String,
+    #[serde(default = "default_relay_local_socks_port")]
+    pub local_socks_port: i32,
+    #[serde(default)]
+    pub udp_enabled: bool,
+    #[serde(default = "default_true")]
+    pub tcp_fallback_enabled: bool,
+}
+
+impl Default for ProxyUiRelayConfig {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            kind: default_relay_kind(),
+            profile_id: String::new(),
+            server: String::new(),
+            server_port: default_relay_server_port(),
+            server_name: String::new(),
+            reality_public_key: String::new(),
+            reality_short_id: String::new(),
+            chain_entry_server: String::new(),
+            chain_entry_port: default_relay_server_port(),
+            chain_entry_server_name: String::new(),
+            chain_entry_public_key: String::new(),
+            chain_entry_short_id: String::new(),
+            chain_exit_server: String::new(),
+            chain_exit_port: default_relay_server_port(),
+            chain_exit_server_name: String::new(),
+            chain_exit_public_key: String::new(),
+            chain_exit_short_id: String::new(),
+            masque_url: String::new(),
+            masque_use_http2_fallback: true,
+            masque_cloudflare_mode: false,
+            local_socks_host: default_relay_local_socks_host(),
+            local_socks_port: default_relay_local_socks_port(),
+            udp_enabled: false,
+            tcp_fallback_enabled: true,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
 pub struct ProxyUiHostAutolearnConfig {
     #[serde(default)]
     pub enabled: bool,
@@ -573,6 +661,8 @@ pub struct ProxyUiConfig {
     pub quic: ProxyUiQuicConfig,
     #[serde(default)]
     pub hosts: ProxyUiHostsConfig,
+    #[serde(default)]
+    pub upstream_relay: ProxyUiRelayConfig,
     #[serde(default)]
     pub warp: ProxyUiWarpConfig,
     #[serde(default)]
@@ -779,6 +869,22 @@ fn default_warp_local_socks_host() -> String {
 
 fn default_warp_local_socks_port() -> i32 {
     11888
+}
+
+fn default_relay_kind() -> String {
+    RELAY_KIND_OFF.to_string()
+}
+
+fn default_relay_server_port() -> i32 {
+    443
+}
+
+fn default_relay_local_socks_host() -> String {
+    "127.0.0.1".to_string()
+}
+
+fn default_relay_local_socks_port() -> i32 {
+    11980
 }
 
 fn default_fake_payload_profile() -> String {
