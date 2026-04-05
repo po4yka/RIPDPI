@@ -52,3 +52,6 @@ docs/superpowers/
 # Test artifact: adaptive tuning state written by soak tests with random ephemeral ports
 native/rust/crates/ripdpi-monitor/adaptive-tuning-v1.json
 native/rust/crates/ripdpi-bench/adaptive-tuning-v1.json
+
+# Detekt baselines are forbidden — violations must be fixed in code
+detekt-baseline.xml
