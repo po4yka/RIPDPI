@@ -511,7 +511,7 @@ fn connect_socket_detailed(
     let socket = Socket::new(domain, Type::STREAM, Some(Protocol::TCP))
         .map_err(|source| ConnectAttemptError { source, tcp_total_retransmissions: None })?;
     if let Some(path) = protect_path {
-        platform::protect_socket(&socket, path)
+        platform::protect_socket(&socket, Some(path))
             .map_err(|source| ConnectAttemptError { source, tcp_total_retransmissions: None })?;
     }
     if tfo {
