@@ -3025,6 +3025,7 @@ dependencies = [
 name = "ripdpi-dns-resolver"
 version = "0.1.0"
 dependencies = [
+ "boring",
  "crypto_box",
  "hex",
  "hickory-proto",
@@ -3037,9 +3038,11 @@ dependencies = [
  "rcgen",
  "reqwest",
  "ring",
+ "ripdpi-tls-profiles",
  "rustls",
  "thiserror 2.0.18",
  "tokio",
+ "tokio-boring",
  "tokio-rustls",
  "turmoil",
  "url",
@@ -3078,6 +3081,7 @@ dependencies = [
 name = "ripdpi-masque"
 version = "0.1.0"
 dependencies = [
+ "boring",
  "bytes",
  "h3",
  "h3-quinn",
@@ -3087,9 +3091,11 @@ dependencies = [
  "hyper-util",
  "quinn",
  "ring",
+ "ripdpi-tls-profiles",
  "rustls",
  "thiserror 2.0.18",
  "tokio",
+ "tokio-boring",
  "tokio-rustls",
  "tracing",
  "url",
@@ -3101,6 +3107,7 @@ name = "ripdpi-monitor"
 version = "0.1.0"
 dependencies = [
  "android-support",
+ "boring",
  "golden-test-support",
  "hickory-proto",
  "hickory-resolver",
@@ -3120,12 +3127,14 @@ dependencies = [
  "ripdpi-proxy-config",
  "ripdpi-runtime",
  "ripdpi-telemetry",
+ "ripdpi-tls-profiles",
  "ripdpi-ws-tunnel",
  "rustls",
  "serde",
  "serde_json",
  "socket2 0.6.3",
  "tokio",
+ "tokio-boring",
  "tracing",
  "webpki-roots 1.0.6",
 ]
@@ -3252,6 +3261,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "ripdpi-tls-profiles"
+version = "0.1.0"
+dependencies = [
+ "boring",
+ "boring-sys",
+ "rcgen",
+ "thiserror 2.0.18",
+ "tokio",
+ "tokio-boring",
+ "tracing",
+]
+
+[[package]]
 name = "ripdpi-tun-driver"
 version = "0.1.0"
 dependencies = [
@@ -3334,6 +3356,7 @@ dependencies = [
  "boring",
  "hex",
  "ring",
+ "ripdpi-tls-profiles",
  "thiserror 2.0.18",
  "tokio",
  "tokio-boring",
@@ -3383,11 +3406,10 @@ dependencies = [
  "ctr",
  "nix 0.31.2",
  "rcgen",
- "rustls",
+ "ripdpi-tls-profiles",
  "socket2 0.6.3",
  "tracing",
  "tungstenite",
- "webpki-roots 1.0.6",
 ]
 
 [[package]]
@@ -4314,11 +4336,8 @@ dependencies = [
  "httparse",
  "log",
  "rand 0.9.2",
- "rustls",
- "rustls-pki-types",
  "sha1",
  "thiserror 2.0.18",
- "webpki-roots 0.26.11",
 ]
 
 [[package]]
