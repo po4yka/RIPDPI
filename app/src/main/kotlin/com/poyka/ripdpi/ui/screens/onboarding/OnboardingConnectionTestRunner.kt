@@ -16,6 +16,7 @@ class OnboardingConnectionTestRunner
     constructor(
         private val tlsClientFactory: OwnedTlsClientFactory,
     ) {
+        @Suppress("TooGenericExceptionCaught")
         suspend fun runTest(): ConnectionTestState =
             try {
                 var responseCode: Int
