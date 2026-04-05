@@ -29,6 +29,7 @@ internal class VpnProtectSocketServer(
 ) {
     private companion object {
         private val log = Logger.withTag("ProtectSocket")
+        private const val LISTEN_BACKLOG = 5
     }
 
     @Volatile private var serverSocket: LocalServerSocket? = null
@@ -47,7 +48,7 @@ internal class VpnProtectSocketServer(
         bindSocket = bound
 
         val fd: FileDescriptor = bound.fileDescriptor
-        Os.listen(fd, 5)
+        Os.listen(fd, LISTEN_BACKLOG)
 
         val server = LocalServerSocket(fd)
         serverSocket = server
@@ -78,30 +79,26 @@ internal class VpnProtectSocketServer(
     private fun handleClient(client: LocalSocket) {
         try {
             client.use { socket ->
-                val input = socket.inputStream
-                val output = socket.outputStream
-
-                val buf = ByteArray(1)
-                val bytesRead = input.read(buf)
+                val bytesRead = socket.inputStream.read(ByteArray(1))
                 if (bytesRead <= 0) return
-
-                val fds: Array<FileDescriptor>? = socket.ancillaryFileDescriptors
-                if (fds != null) {
-                    for (fd in fds) {
-                        val fdInt = extractFdInt(fd)
-                        if (fdInt >= 0) {
-                            vpnService.protect(fdInt)
-                            log.d { "protected fd=$fdInt" }
-                        }
-                        runCatching { Os.close(fd) }
-                    }
-                }
-
-                output.write(byteArrayOf(0))
-                output.flush()
+                protectAncillaryFds(socket)
+                socket.outputStream.write(byteArrayOf(0))
+                socket.outputStream.flush()
             }
-        } catch (e: Exception) {
+        } catch (e: IOException) {
             log.w(e) { "protect socket handle error" }
+        }
+    }
+
+    private fun protectAncillaryFds(socket: LocalSocket) {
+        val fds: Array<FileDescriptor> = socket.ancillaryFileDescriptors ?: return
+        for (fd in fds) {
+            val fdInt = extractFdInt(fd)
+            if (fdInt >= 0) {
+                vpnService.protect(fdInt)
+                log.d { "protected fd=$fdInt" }
+            }
+            runCatching { Os.close(fd) }
         }
     }
 
@@ -111,7 +108,10 @@ internal class VpnProtectSocketServer(
             val field = FileDescriptor::class.java.getDeclaredField("descriptor")
             field.isAccessible = true
             field.getInt(fd)
-        } catch (e: Exception) {
+        } catch (e: NoSuchFieldException) {
+            log.w(e) { "failed to extract fd int" }
+            -1
+        } catch (e: IllegalAccessException) {
             log.w(e) { "failed to extract fd int" }
             -1
         }

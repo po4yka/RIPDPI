@@ -79,6 +79,8 @@ import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
 private const val MaxVisibleEvidence = 3
 private const val LiveProbePreviewCount = 8
+private const val SparklineBarWidthPerTarget = 4
+private const val SparklineMaxBarWidth = 24
 
 @Suppress("LongMethod", "CyclomaticComplexMethod")
 @Composable
@@ -307,20 +309,6 @@ private fun CompactProfileRow(
                 variant = RipDpiButtonVariant.Outline,
             )
         }
-    }
-}
-
-@Composable
-private fun ScanProfilePickerCard(
-    scan: DiagnosticsScanUiModel,
-    onSelectProfile: (String) -> Unit,
-) {
-    RipDpiCard(variant = RipDpiCardVariant.Elevated) {
-        ProfilePickerContent(
-            profiles = scan.profiles,
-            selectedProfileId = scan.selectedProfileId,
-            onSelectProfile = onSelectProfile,
-        )
     }
 }
 
@@ -661,7 +649,7 @@ private fun CandidateSparkline(
     total: Int,
     color: androidx.compose.ui.graphics.Color,
 ) {
-    val barWidth = (total * 4).coerceAtMost(24)
+    val barWidth = (total * SparklineBarWidthPerTarget).coerceAtMost(SparklineMaxBarWidth)
     val fraction = if (total > 0) succeeded.toFloat() / total.toFloat() else 0f
     Canvas(
         modifier = Modifier.size(width = barWidth.dp, height = 6.dp),
@@ -1080,8 +1068,9 @@ private fun workflowStatus(
 
         isFullAudit && scan.strategyProbeReport?.completionKind == StrategyProbeCompletionKind.PARTIAL_RESULTS -> {
             val assessment = scan.strategyProbeReport.auditAssessment
-            val executed = (assessment?.tcpCandidatesExecuted ?: 0) + (assessment?.quicCandidatesExecuted ?: 0)
-            val planned = (assessment?.tcpCandidatesPlanned ?: 0) + (assessment?.quicCandidatesPlanned ?: 0)
+            val coverage = assessment?.coverage
+            val executed = (coverage?.tcpCandidatesExecuted ?: 0) + (coverage?.quicCandidatesExecuted ?: 0)
+            val planned = (coverage?.tcpCandidatesPlanned ?: 0) + (coverage?.quicCandidatesPlanned ?: 0)
             WorkflowStatusUiModel(
                 title = stringResource(R.string.diagnostics_audit_partial_results_title),
                 body = stringResource(R.string.diagnostics_profile_audit_partial_results_body, executed, planned),
@@ -1109,8 +1098,9 @@ private fun workflowStatus(
         strategyProbeSelected &&
             scan.strategyProbeReport?.completionKind == StrategyProbeCompletionKind.PARTIAL_RESULTS -> {
             val assessment = scan.strategyProbeReport.auditAssessment
-            val executed = (assessment?.tcpCandidatesExecuted ?: 0) + (assessment?.quicCandidatesExecuted ?: 0)
-            val planned = (assessment?.tcpCandidatesPlanned ?: 0) + (assessment?.quicCandidatesPlanned ?: 0)
+            val coverage = assessment?.coverage
+            val executed = (coverage?.tcpCandidatesExecuted ?: 0) + (coverage?.quicCandidatesExecuted ?: 0)
+            val planned = (coverage?.tcpCandidatesPlanned ?: 0) + (coverage?.quicCandidatesPlanned ?: 0)
             WorkflowStatusUiModel(
                 title = stringResource(R.string.diagnostics_probe_partial_results_title),
                 body = stringResource(R.string.diagnostics_profile_probe_partial_results_body, executed, planned),
@@ -1244,8 +1234,15 @@ private fun WorkflowActionRow(
     onRunInPathScan: () -> Unit,
 ) {
     if (strategyProbeSelected) {
+        val label =
+            when {
+                !scan.runRawEnabled && isFullAudit -> stringResource(R.string.diagnostics_action_audit_unavailable)
+                !scan.runRawEnabled -> stringResource(R.string.diagnostics_action_probe_unavailable)
+                isFullAudit -> stringResource(R.string.diagnostics_action_start_audit)
+                else -> stringResource(R.string.diagnostics_action_start_probe)
+            }
         RipDpiButton(
-            text = rawActionLabel(scan, isFullAudit),
+            text = label,
             onClick = onRunRawScan,
             modifier =
                 Modifier
@@ -1280,18 +1277,6 @@ private fun WorkflowActionRow(
         )
     }
 }
-
-@Composable
-private fun rawActionLabel(
-    scan: com.poyka.ripdpi.activities.DiagnosticsScanUiModel,
-    isFullAudit: Boolean,
-): String =
-    when {
-        !scan.runRawEnabled && isFullAudit -> stringResource(R.string.diagnostics_action_audit_unavailable)
-        !scan.runRawEnabled -> stringResource(R.string.diagnostics_action_probe_unavailable)
-        isFullAudit -> stringResource(R.string.diagnostics_action_start_audit)
-        else -> stringResource(R.string.diagnostics_action_start_probe)
-    }
 
 @Composable
 private fun DiagnosisSummaryCard(
@@ -1446,9 +1431,10 @@ internal fun StrategyProbeReportCard(
 
                     isPartialResults -> {
                         val assessment = report.auditAssessment
+                        val coverage = assessment?.coverage
                         val executed =
-                            (assessment?.tcpCandidatesExecuted ?: 0) + (assessment?.quicCandidatesExecuted ?: 0)
-                        val planned = (assessment?.tcpCandidatesPlanned ?: 0) + (assessment?.quicCandidatesPlanned ?: 0)
+                            (coverage?.tcpCandidatesExecuted ?: 0) + (coverage?.quicCandidatesExecuted ?: 0)
+                        val planned = (coverage?.tcpCandidatesPlanned ?: 0) + (coverage?.quicCandidatesPlanned ?: 0)
                         stringResource(R.string.diagnostics_partial_results_matrix_title, executed, planned)
                     }
 
@@ -1808,7 +1794,7 @@ private fun auditAssessmentMetrics(
     )
 
 @Composable
-internal fun StrategyProbeCandidateRow(
+private fun StrategyProbeCandidateRow(
     candidate: DiagnosticsStrategyProbeCandidateUiModel,
     onClick: (() -> Unit)? = null,
 ) {

@@ -2074,6 +2074,74 @@
       }
     },
     {
+      "id": "ru-dpi-strategy",
+      "name": "Russia DPI Strategy",
+      "version": 1,
+      "request": {
+        "profileId": "ru-dpi-strategy",
+        "displayName": "Russia DPI Strategy",
+        "kind": "STRATEGY_PROBE",
+        "family": "DPI_FULL",
+        "regionTag": "ru",
+        "executionPolicy": {
+          "manualOnly": false,
+          "allowBackground": true,
+          "requiresRawPath": true,
+          "probePersistencePolicy": "MANUAL_ONLY"
+        },
+        "packRefs": [],
+        "domainTargets": [
+          { "host": "www.youtube.com" },
+          { "host": "discord.com" },
+          { "host": "meduza.io" },
+          { "host": "signal.org" },
+          { "host": "www.torproject.org" },
+          { "host": "psiphon.ca" }
+        ],
+        "dnsTargets": [],
+        "tcpTargets": [],
+        "quicTargets": [
+          { "host": "www.youtube.com", "port": 443 },
+          { "host": "discord.com", "port": 443 },
+          { "host": "www.whatsapp.com", "port": 443 }
+        ],
+        "strategyProbeTargetCohorts": [
+          {
+            "id": "ru-blocked-core",
+            "label": "Russia blocked core",
+            "domainTargets": [
+              { "host": "www.youtube.com" },
+              { "host": "discord.com" },
+              { "host": "meduza.io" }
+            ],
+            "quicTargets": [
+              { "host": "www.youtube.com", "port": 443 },
+              { "host": "discord.com", "port": 443 }
+            ]
+          },
+          {
+            "id": "ru-messaging-circumvention",
+            "label": "Russia messaging and circumvention",
+            "domainTargets": [
+              { "host": "signal.org" },
+              { "host": "www.torproject.org" },
+              { "host": "psiphon.ca" }
+            ],
+            "quicTargets": [
+              { "host": "www.whatsapp.com", "port": 443 }
+            ]
+          }
+        ],
+        "serviceTargets": [],
+        "circumventionTargets": [],
+        "throughputTargets": [],
+        "whitelistSni": [],
+        "strategyProbe": {
+          "suiteId": "full_matrix_v1"
+        }
+      }
+    },
+    {
       "id": "path-comparison",
       "name": "Path comparison",
       "version": 1,

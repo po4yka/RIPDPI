@@ -289,28 +289,30 @@ internal class DiagnosticsUiStateFactory
             resolvedInput: ResolvedDiagnosticsUiInput,
         ): DiagnosticsScanUiModel =
             support.buildScanUiModel(
-                profiles = input.profiles,
-                activeProfile = resolvedInput.activeProfile,
-                activeProfileRequest = resolvedInput.activeProfileRequest,
-                latestProfileSession = resolvedInput.latestProfileSession,
-                activeScanPathMode = input.activeScanPathMode,
-                latestReportResults = resolvedInput.latestReportResults,
-                latestResolverRecommendation = resolvedInput.latestResolverRecommendation,
-                latestStrategyProbeReport = resolvedInput.latestStrategyProbeReport,
-                progress = input.progress,
-                rawArgsEnabled = input.settings.enableCmdSettings,
-                vpnPermissionDisabled =
-                    resolvedInput.latestContext
-                        ?.permissions
-                        ?.vpnPermissionState == "disabled",
-                scanStartedAt = input.scanStartedAt,
-                completedProbes = input.completedProbes,
-                candidateTimeline = input.candidateTimeline,
-                dnsBaselineStatus = input.dnsBaselineStatus,
-                dpiFailureClass = input.dpiFailureClass,
-                networkContext = buildScanNetworkContext(input.liveSnapshots.firstOrNull(), input.currentTelemetry),
-                hiddenProbeConflictDialog = input.hiddenProbeConflictDialog,
-                queuedManualScanRequest = input.queuedManualScanRequest,
+                BuildScanUiModelParams(
+                    profiles = input.profiles,
+                    activeProfile = resolvedInput.activeProfile,
+                    activeProfileRequest = resolvedInput.activeProfileRequest,
+                    latestProfileSession = resolvedInput.latestProfileSession,
+                    activeScanPathMode = input.activeScanPathMode,
+                    latestReportResults = resolvedInput.latestReportResults,
+                    latestResolverRecommendation = resolvedInput.latestResolverRecommendation,
+                    latestStrategyProbeReport = resolvedInput.latestStrategyProbeReport,
+                    progress = input.progress,
+                    rawArgsEnabled = input.settings.enableCmdSettings,
+                    vpnPermissionDisabled =
+                        resolvedInput.latestContext
+                            ?.permissions
+                            ?.vpnPermissionState == "disabled",
+                    scanStartedAt = input.scanStartedAt,
+                    completedProbes = input.completedProbes,
+                    candidateTimeline = input.candidateTimeline,
+                    dnsBaselineStatus = input.dnsBaselineStatus,
+                    dpiFailureClass = input.dpiFailureClass,
+                    networkContext = buildScanNetworkContext(input.liveSnapshots.firstOrNull(), input.currentTelemetry),
+                    hiddenProbeConflictDialog = input.hiddenProbeConflictDialog,
+                    queuedManualScanRequest = input.queuedManualScanRequest,
+                ),
             )
 
         private fun buildScanNetworkContext(

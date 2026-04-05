@@ -48,150 +48,145 @@ internal fun DiagnosticsUiFactorySupport.buildOverviewUiModel(
         rememberedNetworks = rememberedNetworkRows.take(6),
     )
 
-internal fun DiagnosticsUiFactorySupport.buildScanUiModel(
-    profiles: List<DiagnosticProfile>,
-    activeProfile: DiagnosticProfile?,
-    activeProfileRequest: DiagnosticsProfileProjection?,
-    latestProfileSession: DiagnosticScanSession?,
-    activeScanPathMode: ScanPathMode?,
-    latestReportResults: List<DiagnosticsProbeResultUiModel>,
-    latestResolverRecommendation: DiagnosticsResolverRecommendationUiModel?,
-    latestStrategyProbeReport: DiagnosticsStrategyProbeReportUiModel?,
-    progress: ScanProgress?,
-    rawArgsEnabled: Boolean,
-    scanStartedAt: Long?,
-    completedProbes: List<CompletedProbeUiModel> = emptyList(),
-    candidateTimeline: List<StrategyCandidateTimelineEntryUiModel> = emptyList(),
-    dnsBaselineStatus: DnsBaselineStatus? = null,
-    dpiFailureClass: DpiFailureClass? = null,
-    networkContext: ScanNetworkContextUiModel? = null,
-    vpnPermissionDisabled: Boolean = false,
-    hiddenProbeConflictDialog: HiddenProbeConflictDialogState? = null,
-    queuedManualScanRequest: QueuedManualScanRequest? = null,
-): DiagnosticsScanUiModel {
-    val selectedProfile = activeProfile?.let(::toProfileOptionUiModel)
+internal data class BuildScanUiModelParams(
+    val profiles: List<DiagnosticProfile>,
+    val activeProfile: DiagnosticProfile?,
+    val activeProfileRequest: DiagnosticsProfileProjection?,
+    val latestProfileSession: DiagnosticScanSession?,
+    val activeScanPathMode: ScanPathMode?,
+    val latestReportResults: List<DiagnosticsProbeResultUiModel>,
+    val latestResolverRecommendation: DiagnosticsResolverRecommendationUiModel?,
+    val latestStrategyProbeReport: DiagnosticsStrategyProbeReportUiModel?,
+    val progress: ScanProgress?,
+    val rawArgsEnabled: Boolean,
+    val scanStartedAt: Long?,
+    val completedProbes: List<CompletedProbeUiModel> = emptyList(),
+    val candidateTimeline: List<StrategyCandidateTimelineEntryUiModel> = emptyList(),
+    val dnsBaselineStatus: DnsBaselineStatus? = null,
+    val dpiFailureClass: DpiFailureClass? = null,
+    val networkContext: ScanNetworkContextUiModel? = null,
+    val vpnPermissionDisabled: Boolean = false,
+    val hiddenProbeConflictDialog: HiddenProbeConflictDialogState? = null,
+    val queuedManualScanRequest: QueuedManualScanRequest? = null,
+)
+
+internal fun DiagnosticsUiFactorySupport.buildScanUiModel(params: BuildScanUiModelParams): DiagnosticsScanUiModel {
+    val selectedProfile = params.activeProfile?.let(::toProfileOptionUiModel)
     val strategyProbeSelected = selectedProfile?.isStrategyProbe == true
-    val runRawEnabled = progress == null && !(strategyProbeSelected && rawArgsEnabled)
-    val runInPathEnabled = progress == null && !strategyProbeSelected
-    val workflowRestriction =
-        when {
-            strategyProbeSelected && rawArgsEnabled -> {
-                val workflowLabel =
-                    if (selectedProfile.isFullAudit) {
-                        context.getString(R.string.diagnostics_scan_automatic_audit)
-                    } else {
-                        context.getString(R.string.diagnostics_scan_automatic_probing)
-                    }
-                DiagnosticsWorkflowRestrictionUiModel(
-                    reason = DiagnosticsWorkflowRestrictionReasonUiModel.COMMAND_LINE_MODE_ACTIVE,
-                    title =
-                        if (selectedProfile.isFullAudit) {
-                            context.getString(R.string.diagnostics_audit_unavailable_title)
-                        } else {
-                            context.getString(R.string.diagnostics_probe_unavailable_title)
-                        },
-                    body =
-                        context.getString(
-                            R.string.diagnostics_scan_workflow_blocked_command_line_body_format,
-                            workflowLabel,
-                            context.getString(R.string.use_command_line_settings),
-                        ),
-                    actionLabel = context.getString(R.string.diagnostics_scan_open_advanced_settings),
-                    actionKind = DiagnosticsWorkflowRestrictionActionKindUiModel.OPEN_ADVANCED_SETTINGS,
-                )
-            }
-
-            strategyProbeSelected && vpnPermissionDisabled -> {
-                val vpnWorkflowLabel =
-                    if (selectedProfile.isFullAudit) {
-                        context.getString(R.string.diagnostics_scan_automatic_audit)
-                    } else {
-                        context.getString(R.string.diagnostics_scan_automatic_probing)
-                    }
-                DiagnosticsWorkflowRestrictionUiModel(
-                    reason = DiagnosticsWorkflowRestrictionReasonUiModel.VPN_PERMISSION_DISABLED,
-                    title = context.getString(R.string.diagnostics_scan_vpn_permission_warning_title),
-                    body =
-                        context.getString(
-                            R.string.diagnostics_scan_vpn_permission_warning_body_format,
-                            vpnWorkflowLabel,
-                        ),
-                    actionLabel = context.getString(R.string.diagnostics_scan_grant_vpn_permission),
-                    actionKind = DiagnosticsWorkflowRestrictionActionKindUiModel.OPEN_VPN_PERMISSION,
-                )
-            }
-
-            else -> {
-                null
-            }
-        }
-    val workflowLabel =
-        if (selectedProfile?.isFullAudit == true) {
-            context.getString(R.string.diagnostics_scan_automatic_audit)
-        } else {
-            context.getString(R.string.diagnostics_scan_automatic_probing)
-        }
+    val runRawEnabled = params.progress == null && !(strategyProbeSelected && params.rawArgsEnabled)
+    val runInPathEnabled = params.progress == null && !strategyProbeSelected
+    val workflowRestriction = buildWorkflowRestriction(params, selectedProfile, strategyProbeSelected)
+    val workflowLabel = buildWorkflowLabel(selectedProfile)
     val runRawHint =
-        when {
-            strategyProbeSelected -> {
-                context.getString(R.string.diagnostics_scan_raw_path_format, workflowLabel)
-            }
-
-            else -> {
-                null
-            }
+        if (strategyProbeSelected) {
+            context.getString(R.string.diagnostics_scan_raw_path_format, workflowLabel)
+        } else {
+            null
         }
     val runInPathHint =
-        when {
-            strategyProbeSelected -> {
-                context.getString(R.string.diagnostics_scan_raw_only_format, workflowLabel)
-            }
-
-            else -> {
-                null
-            }
+        if (strategyProbeSelected) {
+            context.getString(R.string.diagnostics_scan_raw_only_format, workflowLabel)
+        } else {
+            null
         }
 
     return DiagnosticsScanUiModel(
-        profiles = profiles.map(::toProfileOptionUiModel),
-        selectedProfileId = activeProfile?.id,
+        profiles = params.profiles.map(::toProfileOptionUiModel),
+        selectedProfileId = params.activeProfile?.id,
         selectedProfile = selectedProfile,
         activePathMode =
-            activeScanPathMode ?: latestProfileSession?.pathMode?.let(::parsePathMode) ?: ScanPathMode.RAW_PATH,
+            params.activeScanPathMode
+                ?: params.latestProfileSession?.pathMode?.let(::parsePathMode)
+                ?: ScanPathMode.RAW_PATH,
         activeProgress =
-            progress?.let { p ->
+            params.progress?.let { p ->
                 toProgressUiModel(
                     progress = p,
                     scanKind = selectedProfile?.kind ?: ScanKind.CONNECTIVITY,
                     isFullAudit = selectedProfile?.isFullAudit == true,
-                    scanStartedAt = scanStartedAt ?: System.currentTimeMillis(),
-                    completedProbes = completedProbes,
-                    candidateTimeline = candidateTimeline,
-                    dnsBaselineStatus = dnsBaselineStatus,
-                    dpiFailureClass = dpiFailureClass,
-                    networkContext = networkContext,
+                    scanStartedAt = params.scanStartedAt ?: System.currentTimeMillis(),
+                    completedProbes = params.completedProbes,
+                    candidateTimeline = params.candidateTimeline,
+                    dnsBaselineStatus = params.dnsBaselineStatus,
+                    dpiFailureClass = params.dpiFailureClass,
+                    networkContext = params.networkContext,
                 )
             },
-        latestSession = latestProfileSession?.let(::toSessionRowUiModel),
+        latestSession = params.latestProfileSession?.let(::toSessionRowUiModel),
         diagnoses =
-            latestProfileSession
+            params.latestProfileSession
                 ?.report
                 ?.diagnoses
                 ?.map(::toDiagnosisUiModel)
                 .orEmpty(),
-        latestResults = latestReportResults,
-        selectedProfileScopeLabel = toScopeLabel(activeProfileRequest, rawArgsEnabled),
+        latestResults = params.latestReportResults,
+        selectedProfileScopeLabel = toScopeLabel(params.activeProfileRequest, params.rawArgsEnabled),
         runRawEnabled = runRawEnabled,
         runInPathEnabled = runInPathEnabled,
         runRawHint = runRawHint,
         runInPathHint = runInPathHint,
         workflowRestriction = workflowRestriction,
-        resolverRecommendation = latestResolverRecommendation,
-        strategyProbeReport = latestStrategyProbeReport,
-        hiddenProbeConflictDialog = hiddenProbeConflictDialog,
-        queuedManualScanRequest = queuedManualScanRequest,
-        isBusy = progress != null,
+        resolverRecommendation = params.latestResolverRecommendation,
+        strategyProbeReport = params.latestStrategyProbeReport,
+        hiddenProbeConflictDialog = params.hiddenProbeConflictDialog,
+        queuedManualScanRequest = params.queuedManualScanRequest,
+        isBusy = params.progress != null,
     )
+}
+
+private fun DiagnosticsUiFactorySupport.buildWorkflowLabel(selectedProfile: DiagnosticsProfileOptionUiModel?): String =
+    if (selectedProfile?.isFullAudit == true) {
+        context.getString(R.string.diagnostics_scan_automatic_audit)
+    } else {
+        context.getString(R.string.diagnostics_scan_automatic_probing)
+    }
+
+private fun DiagnosticsUiFactorySupport.buildWorkflowRestriction(
+    params: BuildScanUiModelParams,
+    selectedProfile: DiagnosticsProfileOptionUiModel?,
+    strategyProbeSelected: Boolean,
+): DiagnosticsWorkflowRestrictionUiModel? {
+    if (!strategyProbeSelected) return null
+    val workflowLabel = buildWorkflowLabel(selectedProfile)
+    return when {
+        params.rawArgsEnabled -> {
+            DiagnosticsWorkflowRestrictionUiModel(
+                reason = DiagnosticsWorkflowRestrictionReasonUiModel.COMMAND_LINE_MODE_ACTIVE,
+                title =
+                    if (selectedProfile?.isFullAudit == true) {
+                        context.getString(R.string.diagnostics_audit_unavailable_title)
+                    } else {
+                        context.getString(R.string.diagnostics_probe_unavailable_title)
+                    },
+                body =
+                    context.getString(
+                        R.string.diagnostics_scan_workflow_blocked_command_line_body_format,
+                        workflowLabel,
+                        context.getString(R.string.use_command_line_settings),
+                    ),
+                actionLabel = context.getString(R.string.diagnostics_scan_open_advanced_settings),
+                actionKind = DiagnosticsWorkflowRestrictionActionKindUiModel.OPEN_ADVANCED_SETTINGS,
+            )
+        }
+
+        params.vpnPermissionDisabled -> {
+            DiagnosticsWorkflowRestrictionUiModel(
+                reason = DiagnosticsWorkflowRestrictionReasonUiModel.VPN_PERMISSION_DISABLED,
+                title = context.getString(R.string.diagnostics_scan_vpn_permission_warning_title),
+                body =
+                    context.getString(
+                        R.string.diagnostics_scan_vpn_permission_warning_body_format,
+                        workflowLabel,
+                    ),
+                actionLabel = context.getString(R.string.diagnostics_scan_grant_vpn_permission),
+                actionKind = DiagnosticsWorkflowRestrictionActionKindUiModel.OPEN_VPN_PERMISSION,
+            )
+        }
+
+        else -> {
+            null
+        }
+    }
 }
 
 internal fun DiagnosticsUiFactorySupport.buildLiveUiModel(

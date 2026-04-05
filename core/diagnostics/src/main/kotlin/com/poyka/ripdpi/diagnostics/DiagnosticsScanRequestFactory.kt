@@ -224,54 +224,76 @@ internal class DiagnosticsScanRequestFactory
                 networkFingerprint = scanContext.networkFingerprint,
                 preferredDnsPath = scanContext.preferredDnsPath,
                 initialSession =
-                    ScanSessionEntity(
-                        id = sessionId,
-                        profileId = profile.id,
-                        approachProfileId = scanContext.approachSnapshot.profileId,
-                        approachProfileName = scanContext.approachSnapshot.profileName,
-                        strategyId = scanContext.approachSnapshot.strategyId,
-                        strategyLabel = scanContext.approachSnapshot.strategyLabel,
-                        strategyJson = scanContext.approachSnapshot.strategyJson,
-                        pathMode = pathMode.name,
-                        serviceMode = scanContext.serviceMode,
-                        status = "running",
-                        summary = "Scan started",
-                        reportJson = null,
-                        startedAt = now,
-                        finishedAt = null,
-                        launchOrigin = scanOrigin.toLaunchOrigin().storageValue,
-                        triggerType = launchTrigger?.type?.storageValue,
-                        triggerClassification = launchTrigger?.classification,
-                        triggerOccurredAt = launchTrigger?.occurredAt,
-                        triggerPreviousFingerprintHash = launchTrigger?.previousFingerprintHash,
-                        triggerCurrentFingerprintHash = launchTrigger?.currentFingerprintHash,
-                    ),
-                preScanSnapshot =
-                    NetworkSnapshotEntity(
-                        id = UUID.randomUUID().toString(),
-                        sessionId = sessionId,
-                        snapshotKind = "pre_scan",
-                        payloadJson =
-                            json.encodeToString(
-                                NetworkSnapshotModel.serializer(),
-                                networkMetadataProvider.captureSnapshot(includePublicIp = true),
-                            ),
-                        capturedAt = now,
-                    ),
-                preScanContext =
-                    DiagnosticContextEntity(
-                        id = UUID.randomUUID().toString(),
-                        sessionId = sessionId,
-                        contextKind = "pre_scan",
-                        payloadJson =
-                            json.encodeToString(
-                                DiagnosticContextModel.serializer(),
-                                scanContext.contextSnapshot,
-                            ),
-                        capturedAt = now,
-                    ),
+                    buildInitialSession(sessionId, profile, scanContext, pathMode, scanOrigin, launchTrigger, now),
+                preScanSnapshot = buildPreScanSnapshot(sessionId, now),
+                preScanContext = buildPreScanContext(sessionId, scanContext, now),
             )
         }
+
+        private fun buildInitialSession(
+            sessionId: String,
+            profile: DiagnosticProfileEntity,
+            scanContext: ScanContext,
+            pathMode: ScanPathMode,
+            scanOrigin: DiagnosticsScanOrigin,
+            launchTrigger: DiagnosticsScanLaunchTrigger?,
+            now: Long,
+        ): ScanSessionEntity =
+            ScanSessionEntity(
+                id = sessionId,
+                profileId = profile.id,
+                approachProfileId = scanContext.approachSnapshot.profileId,
+                approachProfileName = scanContext.approachSnapshot.profileName,
+                strategyId = scanContext.approachSnapshot.strategyId,
+                strategyLabel = scanContext.approachSnapshot.strategyLabel,
+                strategyJson = scanContext.approachSnapshot.strategyJson,
+                pathMode = pathMode.name,
+                serviceMode = scanContext.serviceMode,
+                status = "running",
+                summary = "Scan started",
+                reportJson = null,
+                startedAt = now,
+                finishedAt = null,
+                launchOrigin = scanOrigin.toLaunchOrigin().storageValue,
+                triggerType = launchTrigger?.type?.storageValue,
+                triggerClassification = launchTrigger?.classification,
+                triggerOccurredAt = launchTrigger?.occurredAt,
+                triggerPreviousFingerprintHash = launchTrigger?.previousFingerprintHash,
+                triggerCurrentFingerprintHash = launchTrigger?.currentFingerprintHash,
+            )
+
+        private suspend fun buildPreScanSnapshot(
+            sessionId: String,
+            now: Long,
+        ): NetworkSnapshotEntity =
+            NetworkSnapshotEntity(
+                id = UUID.randomUUID().toString(),
+                sessionId = sessionId,
+                snapshotKind = "pre_scan",
+                payloadJson =
+                    json.encodeToString(
+                        NetworkSnapshotModel.serializer(),
+                        networkMetadataProvider.captureSnapshot(includePublicIp = true),
+                    ),
+                capturedAt = now,
+            )
+
+        private fun buildPreScanContext(
+            sessionId: String,
+            scanContext: ScanContext,
+            now: Long,
+        ): DiagnosticContextEntity =
+            DiagnosticContextEntity(
+                id = UUID.randomUUID().toString(),
+                sessionId = sessionId,
+                contextKind = "pre_scan",
+                payloadJson =
+                    json.encodeToString(
+                        DiagnosticContextModel.serializer(),
+                        scanContext.contextSnapshot,
+                    ),
+                capturedAt = now,
+            )
     }
 
 private fun EngineScanRequestWire.withStrategyProbeBaseConfig(
@@ -279,10 +301,10 @@ private fun EngineScanRequestWire.withStrategyProbeBaseConfig(
     preferredDnsPath: EncryptedDnsPathCandidate?,
     protectPath: String?,
 ): EngineScanRequestWire {
-    val strategyProbe = strategyProbe ?: return this
-    if (!strategyProbe.baseProxyConfigJson.isNullOrBlank()) {
-        return this
-    }
+    val strategyProbe =
+        strategyProbe
+            ?.takeIf { it.baseProxyConfigJson.isNullOrBlank() }
+            ?: return this
     return copy(
         strategyProbe =
             strategyProbe.copy(
@@ -334,12 +356,13 @@ internal fun selectStrategyProbeTargetsForSession(
             cohort.domainTargets.size == AutomaticAuditDomainTargetCount &&
                 cohort.quicTargets.size == AutomaticAuditQuicTargetCount
         }
-    if (strategyProbe == null) return intent
-    val isFullMatrixSuite = strategyProbe.suiteId == StrategyProbeSuiteFullMatrixV1
     val isApplicable =
-        isFullMatrixSuite &&
-            intent.profileId == AutomaticAuditProfileId && validCohorts.isNotEmpty()
+        strategyProbe != null &&
+            strategyProbe.suiteId == StrategyProbeSuiteFullMatrixV1 &&
+            intent.profileId == AutomaticAuditProfileId &&
+            validCohorts.isNotEmpty()
     if (!isApplicable) return intent
+    checkNotNull(strategyProbe)
     return if (isManual) {
         val allDomainTargets = validCohorts.flatMap { it.domainTargets }.distinctBy { it.host }
         val allQuicTargets = validCohorts.flatMap { it.quicTargets }.distinctBy { it.host }

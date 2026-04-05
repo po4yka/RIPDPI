@@ -894,15 +894,16 @@ mod tests {
     }
 
     #[test]
-    fn seqovl_candidates_follow_platform_capability_probe() {
+    fn seqovl_candidates_always_included() {
         let base = minimal_ui_config();
         let quick = build_strategy_probe_suite("quick_v1", &base).expect("quick_v1");
         let full = build_strategy_probe_suite("full_matrix_v1", &base).expect("full_matrix_v1");
-        let supported = supports_seqovl();
 
-        assert_eq!(quick.tcp_candidates.iter().any(|candidate| candidate.id == "tlsrec_seqovl_midsld"), supported);
-        assert_eq!(full.tcp_candidates.iter().any(|candidate| candidate.id == "tlsrec_seqovl_midsld"), supported);
-        assert_eq!(full.tcp_candidates.iter().any(|candidate| candidate.id == "tlsrec_seqovl_sniext"), supported);
+        // SeqOverlap candidates are now unconditionally included; the runtime
+        // falls back to split when TCP_REPAIR/CAP_NET_ADMIN is unavailable.
+        assert!(quick.tcp_candidates.iter().any(|candidate| candidate.id == "tlsrec_seqovl_midsld"));
+        assert!(full.tcp_candidates.iter().any(|candidate| candidate.id == "tlsrec_seqovl_midsld"));
+        assert!(full.tcp_candidates.iter().any(|candidate| candidate.id == "tlsrec_seqovl_sniext"));
     }
 
     #[test]
