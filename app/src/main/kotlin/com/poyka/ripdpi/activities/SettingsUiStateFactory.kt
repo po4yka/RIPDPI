@@ -4,16 +4,21 @@ import com.poyka.ripdpi.core.RipDpiPlatformCapabilities
 import com.poyka.ripdpi.data.ActiveDnsSettings
 import com.poyka.ripdpi.data.AppSettingsSerializer
 import com.poyka.ripdpi.data.AppStatus
+import com.poyka.ripdpi.data.DefaultEntropyPaddingMax
+import com.poyka.ripdpi.data.DefaultEntropyPaddingTargetPermil
+import com.poyka.ripdpi.data.DefaultEvolutionEpsilon
 import com.poyka.ripdpi.data.DefaultFakeSni
 import com.poyka.ripdpi.data.DefaultTlsRandRecFragmentCount
 import com.poyka.ripdpi.data.DefaultTlsRandRecMaxFragmentSize
 import com.poyka.ripdpi.data.DefaultTlsRandRecMinFragmentSize
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
+import com.poyka.ripdpi.data.DefaultShannonEntropyTargetPermil
 import com.poyka.ripdpi.data.TcpChainStepKind
 import com.poyka.ripdpi.data.TcpChainStepModel
 import com.poyka.ripdpi.data.UdpChainStepModel
 import com.poyka.ripdpi.data.activeDnsSettings
+import com.poyka.ripdpi.data.entropyModeFromProto
 import com.poyka.ripdpi.data.effectiveAdaptiveFakeTtlDelta
 import com.poyka.ripdpi.data.effectiveAdaptiveFakeTtlFallback
 import com.poyka.ripdpi.data.effectiveAdaptiveFakeTtlMax
@@ -203,6 +208,19 @@ private fun AppSettings.buildQuicUiState(): QuicUiState =
         quicFakeHost = effectiveQuicFakeHost(),
     )
 
+private fun AppSettings.buildDetectionResistanceUiState(): DetectionResistanceUiState =
+    DetectionResistanceUiState(
+        quicBindLowPort = quicBindLowPort,
+        quicMigrateAfterHandshake = quicMigrateAfterHandshake,
+        strategyEvolution = strategyEvolution,
+        evolutionEpsilon = evolutionEpsilon.takeIf { it in 0.0..1.0 } ?: DefaultEvolutionEpsilon,
+        entropyMode = entropyModeFromProto(entropyMode),
+        entropyPaddingTargetPermil = entropyPaddingTargetPermil.takeIf { it > 0 } ?: DefaultEntropyPaddingTargetPermil,
+        entropyPaddingMax = entropyPaddingMax.takeIf { it > 0 } ?: DefaultEntropyPaddingMax,
+        shannonEntropyTargetPermil =
+            shannonEntropyTargetPermil.takeIf { it > 0 } ?: DefaultShannonEntropyTargetPermil,
+    )
+
 private fun AppSettings.buildAutolearnUiState(
     proxyTelemetry: NativeRuntimeSnapshot,
     hostAutolearnStorePresent: Boolean,
@@ -317,6 +335,7 @@ internal fun AppSettings.toUiState(
         hostsWhitelist = hostsWhitelist,
         tlsPrelude = buildTlsPreludeUiState(chain),
         quic = buildQuicUiState(),
+        detectionResistance = buildDetectionResistanceUiState(),
         warp = buildWarpUiState(),
         autolearn = buildAutolearnUiState(proxyTelemetry, hostAutolearnStorePresent, rememberedNetworkCount),
         adaptiveFallback = buildAdaptiveFallbackUiState(),

@@ -29,6 +29,7 @@ data class ServiceTelemetrySnapshot(
     val status: AppStatus = AppStatus.Halted,
     val tunnelStats: TunnelStats = TunnelStats(),
     val proxyTelemetry: NativeRuntimeSnapshot = NativeRuntimeSnapshot.idle(source = "proxy"),
+    val relayTelemetry: NativeRuntimeSnapshot = NativeRuntimeSnapshot.idle(source = "relay"),
     val warpTelemetry: NativeRuntimeSnapshot = NativeRuntimeSnapshot.idle(source = "warp"),
     val tunnelTelemetry: NativeRuntimeSnapshot = NativeRuntimeSnapshot.idle(source = "tunnel"),
     val runtimeFieldTelemetry: RuntimeFieldTelemetry = RuntimeFieldTelemetry(),

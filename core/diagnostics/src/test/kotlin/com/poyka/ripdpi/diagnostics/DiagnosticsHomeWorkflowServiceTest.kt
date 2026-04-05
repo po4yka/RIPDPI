@@ -4,9 +4,12 @@ import com.poyka.ripdpi.core.RipDpiHostsConfig
 import com.poyka.ripdpi.core.RipDpiListenConfig
 import com.poyka.ripdpi.core.RipDpiProtocolConfig
 import com.poyka.ripdpi.core.RipDpiProxyUIPreferences
+import com.poyka.ripdpi.core.RipDpiAdaptiveFallbackConfig
+import com.poyka.ripdpi.core.RipDpiFakePacketConfig
 import com.poyka.ripdpi.core.RipDpiWarpAmneziaConfig
 import com.poyka.ripdpi.core.RipDpiWarpConfig
 import com.poyka.ripdpi.core.RipDpiWarpManualEndpointConfig
+import com.poyka.ripdpi.data.EntropyModeCombined
 import com.poyka.ripdpi.data.WarpEndpointSelectionManual
 import com.poyka.ripdpi.data.WarpRouteModeRules
 import com.poyka.ripdpi.data.diagnostics.DefaultNetworkDnsPathPreferenceStore
@@ -145,6 +148,76 @@ class DiagnosticsHomeWorkflowServiceTest {
             assertTrue(savedSettings.warpEnabled)
             assertEquals(WarpRouteModeRules, savedSettings.warpRouteMode)
             assertEquals("example.com\nexample.org", savedSettings.warpRouteHosts)
+        }
+
+    @Test
+    fun `finalizeHomeAudit includes detection resistance configuration in applied settings summary`() =
+        runTest {
+            val stores = FakeDiagnosticsHistoryStores()
+            val appSettingsRepository = FakeAppSettingsRepository()
+            stores.sessionsState.value =
+                listOf(
+                    diagnosticsSession(
+                        id = "tier4-audit-session",
+                        profileId = "automatic-audit",
+                        pathMode = ScanPathMode.RAW_PATH.name,
+                        summary = "Audit complete",
+                        reportJson =
+                            json.encodeToString(
+                                ScanReport.serializer(),
+                                strategyAuditReport(
+                                    sessionId = "tier4-audit-session",
+                                    recommendedProxyConfigJson =
+                                        RipDpiProxyUIPreferences(
+                                            fakePackets =
+                                                RipDpiFakePacketConfig(
+                                                    quicBindLowPort = true,
+                                                    quicMigrateAfterHandshake = true,
+                                                    entropyMode = EntropyModeCombined,
+                                                    entropyPaddingTargetPermil = 3600,
+                                                    entropyPaddingMax = 384,
+                                                    shannonEntropyTargetPermil = 7900,
+                                                ),
+                                            adaptiveFallback =
+                                                RipDpiAdaptiveFallbackConfig(
+                                                    strategyEvolution = true,
+                                                    evolutionEpsilon = 0.2,
+                                                ),
+                                        ).toNativeConfigJson(),
+                                ),
+                            ),
+                    ),
+                )
+
+            val outcome =
+                createHomeWorkflowService(
+                    stores = stores,
+                    appSettingsRepository = appSettingsRepository,
+                ).finalizeHomeAudit("tier4-audit-session")
+
+            assertTrue(outcome.actionable)
+            assertTrue(
+                outcome.appliedSettings.any {
+                    it.label == "Traffic morphing" &&
+                        it.value == "combined · pad 3600 · shannon 7900"
+                },
+            )
+            assertTrue(
+                outcome.appliedSettings.any {
+                    it.label == "Morphing budget" && it.value == "384 bytes"
+                },
+            )
+            assertTrue(
+                outcome.appliedSettings.any {
+                    it.label == "Strategy evolution" && it.value == "Epsilon 0.20"
+                },
+            )
+            assertTrue(
+                outcome.appliedSettings.any {
+                    it.label == "QUIC resistance" &&
+                        it.value == "low-port bind · post-handshake migration"
+                },
+            )
         }
 
     @Test

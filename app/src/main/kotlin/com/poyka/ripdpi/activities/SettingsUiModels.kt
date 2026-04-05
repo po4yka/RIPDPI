@@ -15,11 +15,15 @@ import com.poyka.ripdpi.data.DefaultAdaptiveFakeTtlDelta
 import com.poyka.ripdpi.data.DefaultAdaptiveFakeTtlFallback
 import com.poyka.ripdpi.data.DefaultAdaptiveFakeTtlMax
 import com.poyka.ripdpi.data.DefaultAdaptiveFakeTtlMin
+import com.poyka.ripdpi.data.DefaultEntropyPaddingMax
+import com.poyka.ripdpi.data.DefaultEntropyPaddingTargetPermil
+import com.poyka.ripdpi.data.DefaultEvolutionEpsilon
 import com.poyka.ripdpi.data.DefaultFakeSni
 import com.poyka.ripdpi.data.DefaultHostAutolearnMaxHosts
 import com.poyka.ripdpi.data.DefaultHostAutolearnPenaltyTtlHours
 import com.poyka.ripdpi.data.DefaultQuicFakeHost
 import com.poyka.ripdpi.data.DefaultSeqOverlapSize
+import com.poyka.ripdpi.data.DefaultShannonEntropyTargetPermil
 import com.poyka.ripdpi.data.DefaultTlsRandRecFragmentCount
 import com.poyka.ripdpi.data.DefaultTlsRandRecMaxFragmentSize
 import com.poyka.ripdpi.data.DefaultTlsRandRecMinFragmentSize
@@ -27,6 +31,7 @@ import com.poyka.ripdpi.data.DefaultTlsRecordMarker
 import com.poyka.ripdpi.data.DefaultWarpManualEndpointPort
 import com.poyka.ripdpi.data.DefaultWarpScannerMaxRttMs
 import com.poyka.ripdpi.data.DefaultWarpScannerParallelism
+import com.poyka.ripdpi.data.EntropyModeDisabled
 import com.poyka.ripdpi.data.FakePayloadProfileCompatDefault
 import com.poyka.ripdpi.data.FakeTlsSniModeFixed
 import com.poyka.ripdpi.data.HostPackCatalogSnapshot
@@ -119,6 +124,21 @@ data class QuicUiState(
             } else {
                 ""
             }
+}
+
+@Stable
+data class DetectionResistanceUiState(
+    val quicBindLowPort: Boolean = false,
+    val quicMigrateAfterHandshake: Boolean = false,
+    val strategyEvolution: Boolean = false,
+    val evolutionEpsilon: Double = DefaultEvolutionEpsilon,
+    val entropyMode: String = EntropyModeDisabled,
+    val entropyPaddingTargetPermil: Int = DefaultEntropyPaddingTargetPermil,
+    val entropyPaddingMax: Int = DefaultEntropyPaddingMax,
+    val shannonEntropyTargetPermil: Int = DefaultShannonEntropyTargetPermil,
+) {
+    val entropyEnabled: Boolean
+        get() = entropyMode != EntropyModeDisabled
 }
 
 @Stable
@@ -456,6 +476,7 @@ data class SettingsUiState(
     val hostsWhitelist: String = "",
     val tlsPrelude: TlsPreludeUiState = TlsPreludeUiState(),
     val quic: QuicUiState = QuicUiState(),
+    val detectionResistance: DetectionResistanceUiState = DetectionResistanceUiState(),
     val warp: WarpUiState = WarpUiState(),
     val autolearn: HostAutolearnUiState = HostAutolearnUiState(),
     val adaptiveFallback: AdaptiveFallbackUiState = AdaptiveFallbackUiState(),

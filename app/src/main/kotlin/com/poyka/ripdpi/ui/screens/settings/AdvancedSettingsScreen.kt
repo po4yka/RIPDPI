@@ -62,6 +62,9 @@ internal enum class AdvancedToggleSetting {
     TlsrecEnabled,
     QuicSupportV1,
     QuicSupportV2,
+    QuicBindLowPort,
+    QuicMigrateAfterHandshake,
+    StrategyEvolution,
     WarpEnabled,
     WarpBuiltInRulesEnabled,
     WarpScannerEnabled,
@@ -111,6 +114,10 @@ internal enum class AdvancedTextSetting {
     HostAutolearnMaxHosts,
     AdaptiveFallbackCacheTtlSeconds,
     AdaptiveFallbackCachePrefixV4,
+    EvolutionEpsilon,
+    EntropyPaddingTargetPermil,
+    EntropyPaddingMax,
+    ShannonEntropyTargetPermil,
     HostsBlacklist,
     HostsWhitelist,
     WarpRouteHosts,
@@ -146,6 +153,7 @@ internal enum class AdvancedOptionSetting {
     WarpRouteMode,
     WarpEndpointSelectionMode,
     QuicInitialMode,
+    EntropyMode,
     UdpFakeProfile,
     QuicFakeProfile,
 }
@@ -215,6 +223,7 @@ private data class AdvancedSettingsContentState(
     val warpRouteModeOptions: List<RipDpiDropdownOption<String>>,
     val warpEndpointSelectionOptions: List<RipDpiDropdownOption<String>>,
     val quicModeOptions: List<RipDpiDropdownOption<String>>,
+    val entropyModeOptions: List<RipDpiDropdownOption<String>>,
     val udpFakeProfileOptions: List<RipDpiDropdownOption<String>>,
     val adaptiveSplitPresetOptions: List<AdaptiveSplitPresetUiModel>,
     val adaptiveFakeTtlModeOptions: List<AdaptiveFakeTtlModeUiModel>,
@@ -326,6 +335,11 @@ private fun rememberAdvancedSettingsContentState(uiState: SettingsUiState): Adva
             rememberSettingsOptions(
                 labelArrayRes = R.array.quic_initial_modes,
                 valueArrayRes = R.array.quic_initial_modes_entries,
+            ),
+        entropyModeOptions =
+            rememberSettingsOptions(
+                labelArrayRes = R.array.entropy_modes,
+                valueArrayRes = R.array.entropy_modes_entries,
             ),
         udpFakeProfileOptions =
             rememberSettingsOptions(
@@ -501,6 +515,14 @@ private fun androidx.compose.foundation.lazy.LazyListScope.advancedSettingsSecon
         visualEditorEnabled = contentState.visualEditorEnabled,
         showQuicFakeSection = contentState.showQuicFakeSection,
         quicModeOptions = contentState.quicModeOptions,
+        onToggleChanged = actions.onToggleChanged,
+        onOptionSelected = actions.onOptionSelected,
+        onTextConfirmed = actions.onTextConfirmed,
+    )
+    detectionResistanceSection(
+        uiState = uiState,
+        visualEditorEnabled = contentState.visualEditorEnabled,
+        entropyModeOptions = contentState.entropyModeOptions,
         onToggleChanged = actions.onToggleChanged,
         onOptionSelected = actions.onOptionSelected,
         onTextConfirmed = actions.onTextConfirmed,

@@ -26,6 +26,21 @@ fun RipDpiProxyPreferences.warpConfigOrNull(): RipDpiWarpConfig? =
         }
     }
 
+fun RipDpiProxyPreferences.relayConfigOrNull(): RipDpiRelayConfig? =
+    when (this) {
+        is RipDpiProxyUIPreferences -> {
+            relay.takeIf { it.enabled }
+        }
+
+        is RipDpiProxyJsonPreferences -> {
+            decodeRipDpiProxyUiPreferences(toNativeConfigJson())?.relay?.takeIf { it.enabled }
+        }
+
+        is RipDpiProxyCmdPreferences -> {
+            null
+        }
+    }
+
 class RipDpiProxyJsonPreferences(
     private val configJson: String,
     private val hostAutolearnStorePath: String? = null,

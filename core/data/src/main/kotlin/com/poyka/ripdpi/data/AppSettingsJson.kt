@@ -116,10 +116,18 @@ internal data class AppSettingsSnapshot(
     val quicSupportV2: Boolean = defaultSettings.quicSupportV2,
     val quicFakeProfile: String = defaultSettings.quicFakeProfile,
     val quicFakeHost: String = defaultSettings.quicFakeHost,
+    val quicBindLowPort: Boolean = defaultSettings.quicBindLowPort,
+    val quicMigrateAfterHandshake: Boolean = defaultSettings.quicMigrateAfterHandshake,
     val hostAutolearnEnabled: Boolean = defaultSettings.hostAutolearnEnabled,
     val hostAutolearnPenaltyTtlHours: Int = defaultSettings.hostAutolearnPenaltyTtlHours,
     val hostAutolearnMaxHosts: Int = defaultSettings.hostAutolearnMaxHosts,
     val networkStrategyMemoryEnabled: Boolean = defaultSettings.networkStrategyMemoryEnabled,
+    val strategyEvolution: Boolean = defaultSettings.strategyEvolution,
+    val evolutionEpsilon: Double = defaultSettings.evolutionEpsilon,
+    val entropyPaddingTargetPermil: Int = defaultSettings.entropyPaddingTargetPermil,
+    val entropyPaddingMax: Int = defaultSettings.entropyPaddingMax,
+    val entropyMode: String = entropyModeFromProto(defaultSettings.entropyMode),
+    val shannonEntropyTargetPermil: Int = defaultSettings.shannonEntropyTargetPermil,
     val adaptiveFallbackEnabled: Boolean = defaultSettings.adaptiveFallbackEnabled,
     val adaptiveFallbackTorst: Boolean = defaultSettings.adaptiveFallbackTorst,
     val adaptiveFallbackTlsErr: Boolean = defaultSettings.adaptiveFallbackTlsErr,
@@ -154,6 +162,31 @@ internal data class AppSettingsSnapshot(
     val warpAmneziaS2: Int = defaultSettings.warpAmneziaS2,
     val warpAmneziaS3: Int = defaultSettings.warpAmneziaS3,
     val warpAmneziaS4: Int = defaultSettings.warpAmneziaS4,
+    val relayEnabled: Boolean = defaultSettings.relayEnabled,
+    val relayKind: String = defaultSettings.relayKind,
+    val relayProfileId: String = defaultSettings.relayProfileId,
+    val relayServer: String = defaultSettings.relayServer,
+    val relayServerPort: Int = defaultSettings.relayServerPort,
+    val relayServerName: String = defaultSettings.relayServerName,
+    val relayRealityPublicKey: String = defaultSettings.relayRealityPublicKey,
+    val relayRealityShortId: String = defaultSettings.relayRealityShortId,
+    val relayChainEntryServer: String = defaultSettings.relayChainEntryServer,
+    val relayChainEntryPort: Int = defaultSettings.relayChainEntryPort,
+    val relayChainEntryServerName: String = defaultSettings.relayChainEntryServerName,
+    val relayChainEntryPublicKey: String = defaultSettings.relayChainEntryPublicKey,
+    val relayChainEntryShortId: String = defaultSettings.relayChainEntryShortId,
+    val relayChainExitServer: String = defaultSettings.relayChainExitServer,
+    val relayChainExitPort: Int = defaultSettings.relayChainExitPort,
+    val relayChainExitServerName: String = defaultSettings.relayChainExitServerName,
+    val relayChainExitPublicKey: String = defaultSettings.relayChainExitPublicKey,
+    val relayChainExitShortId: String = defaultSettings.relayChainExitShortId,
+    val relayMasqueUrl: String = defaultSettings.relayMasqueUrl,
+    val relayMasqueUseHttp2Fallback: Boolean = defaultSettings.relayMasqueUseHttp2Fallback,
+    val relayMasqueCloudflareMode: Boolean = defaultSettings.relayMasqueCloudflareMode,
+    val relayLocalSocksHost: String = defaultSettings.relayLocalSocksHost,
+    val relayLocalSocksPort: Int = defaultSettings.relayLocalSocksPort,
+    val relayUdpEnabled: Boolean = defaultSettings.relayUdpEnabled,
+    val relayTcpFallbackEnabled: Boolean = defaultSettings.relayTcpFallbackEnabled,
     val groupActivationFilter: ActivationFilterModel = ActivationFilterModel(),
 )
 
@@ -267,10 +300,18 @@ private fun AppSettings.toSnapshot(): AppSettingsSnapshot =
             quicSupportV2 = effectiveQuicSupportV2(),
             quicFakeProfile = effectiveQuicFakeProfile(),
             quicFakeHost = effectiveQuicFakeHost(),
+            quicBindLowPort = quicBindLowPort,
+            quicMigrateAfterHandshake = quicMigrateAfterHandshake,
             hostAutolearnEnabled = hostAutolearnEnabled,
             hostAutolearnPenaltyTtlHours = normalizeHostAutolearnPenaltyTtlHours(hostAutolearnPenaltyTtlHours),
             hostAutolearnMaxHosts = normalizeHostAutolearnMaxHosts(hostAutolearnMaxHosts),
             networkStrategyMemoryEnabled = networkStrategyMemoryEnabled,
+            strategyEvolution = strategyEvolution,
+            evolutionEpsilon = evolutionEpsilon.takeIf { it in 0.0..1.0 } ?: DefaultEvolutionEpsilon,
+            entropyPaddingTargetPermil = entropyPaddingTargetPermil.coerceAtLeast(0),
+            entropyPaddingMax = entropyPaddingMax.takeIf { it > 0 } ?: DefaultEntropyPaddingMax,
+            entropyMode = entropyModeFromProto(entropyMode),
+            shannonEntropyTargetPermil = shannonEntropyTargetPermil.coerceAtLeast(0),
             adaptiveFallbackEnabled = adaptiveFallbackEnabled,
             adaptiveFallbackTorst = adaptiveFallbackTorst,
             adaptiveFallbackTlsErr = adaptiveFallbackTlsErr,
@@ -307,6 +348,31 @@ private fun AppSettings.toSnapshot(): AppSettingsSnapshot =
             warpAmneziaS2 = warpAmneziaS2,
             warpAmneziaS3 = warpAmneziaS3,
             warpAmneziaS4 = warpAmneziaS4,
+            relayEnabled = relayEnabled,
+            relayKind = normalizeRelayKind(relayKind),
+            relayProfileId = relayProfileId.ifBlank { DefaultRelayProfileId },
+            relayServer = relayServer,
+            relayServerPort = relayServerPort.takeIf { it > 0 } ?: 443,
+            relayServerName = relayServerName,
+            relayRealityPublicKey = relayRealityPublicKey,
+            relayRealityShortId = relayRealityShortId,
+            relayChainEntryServer = relayChainEntryServer,
+            relayChainEntryPort = relayChainEntryPort.takeIf { it > 0 } ?: 443,
+            relayChainEntryServerName = relayChainEntryServerName,
+            relayChainEntryPublicKey = relayChainEntryPublicKey,
+            relayChainEntryShortId = relayChainEntryShortId,
+            relayChainExitServer = relayChainExitServer,
+            relayChainExitPort = relayChainExitPort.takeIf { it > 0 } ?: 443,
+            relayChainExitServerName = relayChainExitServerName,
+            relayChainExitPublicKey = relayChainExitPublicKey,
+            relayChainExitShortId = relayChainExitShortId,
+            relayMasqueUrl = relayMasqueUrl,
+            relayMasqueUseHttp2Fallback = relayMasqueUseHttp2Fallback,
+            relayMasqueCloudflareMode = relayMasqueCloudflareMode,
+            relayLocalSocksHost = relayLocalSocksHost.ifBlank { DefaultRelayLocalSocksHost },
+            relayLocalSocksPort = relayLocalSocksPort.takeIf { it > 0 } ?: DefaultRelayLocalSocksPort,
+            relayUdpEnabled = relayUdpEnabled,
+            relayTcpFallbackEnabled = relayTcpFallbackEnabled,
             groupActivationFilter =
                 if (hasGroupActivationFilter()) {
                     groupActivationFilter.toModel().let(
@@ -413,10 +479,18 @@ private fun AppSettingsSnapshot.toAppSettings(): AppSettings {
         .setQuicSupportV2(quicSupportV2)
         .setQuicFakeProfile(normalizeQuicFakeProfile(quicFakeProfile))
         .setQuicFakeHost(normalizeQuicFakeHost(quicFakeHost))
+        .setQuicBindLowPort(quicBindLowPort)
+        .setQuicMigrateAfterHandshake(quicMigrateAfterHandshake)
         .setHostAutolearnEnabled(hostAutolearnEnabled)
         .setHostAutolearnPenaltyTtlHours(normalizeHostAutolearnPenaltyTtlHours(hostAutolearnPenaltyTtlHours))
         .setHostAutolearnMaxHosts(normalizeHostAutolearnMaxHosts(hostAutolearnMaxHosts))
         .setNetworkStrategyMemoryEnabled(networkStrategyMemoryEnabled)
+        .setStrategyEvolution(strategyEvolution)
+        .setEvolutionEpsilon(evolutionEpsilon.coerceIn(0.0, 1.0))
+        .setEntropyPaddingTargetPermil(entropyPaddingTargetPermil.coerceAtLeast(0))
+        .setEntropyPaddingMax(entropyPaddingMax.takeIf { it > 0 } ?: DefaultEntropyPaddingMax)
+        .setEntropyMode(entropyModeToProto(entropyMode))
+        .setShannonEntropyTargetPermil(shannonEntropyTargetPermil.coerceAtLeast(0))
         .setAdaptiveFallbackEnabled(adaptiveFallbackEnabled)
         .setAdaptiveFallbackTorst(adaptiveFallbackTorst)
         .setAdaptiveFallbackTlsErr(adaptiveFallbackTlsErr)
@@ -451,6 +525,31 @@ private fun AppSettingsSnapshot.toAppSettings(): AppSettings {
         .setWarpAmneziaS2(warpAmneziaS2)
         .setWarpAmneziaS3(warpAmneziaS3)
         .setWarpAmneziaS4(warpAmneziaS4)
+        .setRelayEnabled(relayEnabled)
+        .setRelayKind(normalizeRelayKind(relayKind))
+        .setRelayProfileId(relayProfileId.ifBlank { DefaultRelayProfileId })
+        .setRelayServer(relayServer)
+        .setRelayServerPort(relayServerPort.takeIf { it > 0 } ?: 443)
+        .setRelayServerName(relayServerName)
+        .setRelayRealityPublicKey(relayRealityPublicKey)
+        .setRelayRealityShortId(relayRealityShortId)
+        .setRelayChainEntryServer(relayChainEntryServer)
+        .setRelayChainEntryPort(relayChainEntryPort.takeIf { it > 0 } ?: 443)
+        .setRelayChainEntryServerName(relayChainEntryServerName)
+        .setRelayChainEntryPublicKey(relayChainEntryPublicKey)
+        .setRelayChainEntryShortId(relayChainEntryShortId)
+        .setRelayChainExitServer(relayChainExitServer)
+        .setRelayChainExitPort(relayChainExitPort.takeIf { it > 0 } ?: 443)
+        .setRelayChainExitServerName(relayChainExitServerName)
+        .setRelayChainExitPublicKey(relayChainExitPublicKey)
+        .setRelayChainExitShortId(relayChainExitShortId)
+        .setRelayMasqueUrl(relayMasqueUrl)
+        .setRelayMasqueUseHttp2Fallback(relayMasqueUseHttp2Fallback)
+        .setRelayMasqueCloudflareMode(relayMasqueCloudflareMode)
+        .setRelayLocalSocksHost(relayLocalSocksHost.ifBlank { DefaultRelayLocalSocksHost })
+        .setRelayLocalSocksPort(relayLocalSocksPort.takeIf { it > 0 } ?: DefaultRelayLocalSocksPort)
+        .setRelayUdpEnabled(relayUdpEnabled)
+        .setRelayTcpFallbackEnabled(relayTcpFallbackEnabled)
         .setGroupActivationFilterCompat(normalizeActivationFilter(groupActivationFilter))
         .also { builder ->
             tcpChainSteps.forEach { step ->
