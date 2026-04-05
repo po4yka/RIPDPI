@@ -19,14 +19,14 @@ import kotlin.coroutines.coroutineContext
 interface RipDpiRelayRuntime {
     suspend fun start(config: ResolvedRipDpiRelayConfig): Int
 
-    suspend fun awaitReady(timeoutMillis: Long = DEFAULT_RELAY_READY_TIMEOUT_MS)
+    suspend fun awaitReady(timeoutMillis: Long = defaultRelayReadyTimeoutMs)
 
     suspend fun stop()
 
     suspend fun pollTelemetry(): NativeRuntimeSnapshot
 }
 
-internal const val DEFAULT_RELAY_READY_TIMEOUT_MS = 5_000L
+internal const val defaultRelayReadyTimeoutMs = 5_000L
 
 interface RipDpiRelayBindings {
     fun create(configJson: String): Long
@@ -40,14 +40,12 @@ interface RipDpiRelayBindings {
     fun destroy(handle: Long)
 }
 
-class RipDpiRelayNativeLoader {
-    companion object {
-        init {
-            System.loadLibrary("ripdpi-relay")
-        }
-
-        fun ensureLoaded() = Unit
+object RipDpiRelayNativeLoader {
+    init {
+        System.loadLibrary("ripdpi-relay")
     }
+
+    fun ensureLoaded() = Unit
 }
 
 class RipDpiRelayNativeBindings
@@ -137,6 +135,7 @@ class RipDpiRelay(
 
     @Volatile private var handle = 0L
 
+    @Suppress("TooGenericExceptionCaught")
     @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
     override suspend fun start(config: ResolvedRipDpiRelayConfig): Int {
         val startupSignal = CompletableDeferred<Unit>()
@@ -219,7 +218,7 @@ class RipDpiRelay(
                 return
             }
             if (System.currentTimeMillis() >= deadline) {
-                throw IllegalStateException("Relay readiness timed out")
+                error("Relay readiness timed out")
             }
             delay(ReadyPollIntervalMs)
         }
@@ -242,14 +241,11 @@ class RipDpiRelay(
     }
 
     override suspend fun pollTelemetry(): NativeRuntimeSnapshot {
-        val activeHandle = handle
-        if (activeHandle == 0L) {
-            return NativeRuntimeSnapshot.idle(source = "relay")
-        }
-        val telemetryJson =
-            withContext(Dispatchers.IO) {
-                nativeBindings.pollTelemetry(activeHandle)
-            } ?: return NativeRuntimeSnapshot.idle(source = "relay")
-        return relayJson.decodeFromString(NativeRuntimeSnapshot.serializer(), telemetryJson)
+        if (handle == 0L) return NativeRuntimeSnapshot.idle(source = "relay")
+        val telemetryJson = withContext(Dispatchers.IO) { nativeBindings.pollTelemetry(handle) }
+        return telemetryJson
+            ?.takeIf { it.isNotBlank() }
+            ?.let { relayJson.decodeFromString(NativeRuntimeSnapshot.serializer(), it) }
+            ?: NativeRuntimeSnapshot.idle(source = "relay")
     }
 }

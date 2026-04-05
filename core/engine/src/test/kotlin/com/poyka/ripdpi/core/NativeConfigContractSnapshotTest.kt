@@ -25,6 +25,7 @@ import kotlinx.serialization.json.buildJsonObject
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
+@Suppress("LargeClass")
 class NativeConfigContractSnapshotTest {
     @Test
     fun proxyCommandLinePayloadMatchesSnapshot() {
@@ -80,6 +81,7 @@ class NativeConfigContractSnapshotTest {
     }
 
     @Test
+    @Suppress("LongMethod")
     fun proxyCustomUiPayloadMatchesSnapshot() {
         val payload =
             RipDpiProxyUIPreferences(
@@ -506,6 +508,7 @@ class NativeConfigContractSnapshotTest {
     }
 
     @Test
+    @Suppress("LongMethod")
     fun tunnelPayloadMatchesSnapshot() {
         val payload =
             Json.encodeToString(
@@ -717,6 +720,7 @@ class NativeConfigContractSnapshotTest {
             put("ipv6ExtensionProfile", JsonPrimitive(ipv6ExtensionProfile))
         }
 
+    @Suppress("LongParameterList")
     private fun fakePacketsExpected(
         fakeTtl: Int = 8,
         adaptiveFakeTtlEnabled: Boolean = false,
@@ -842,6 +846,7 @@ class NativeConfigContractSnapshotTest {
             put("entries", entries?.let(::JsonPrimitive) ?: JsonNull)
         }
 
+    @Suppress("LongParameterList")
     private fun relayExpected(
         enabled: Boolean = false,
         kind: String = "off",
@@ -897,6 +902,7 @@ class NativeConfigContractSnapshotTest {
             put("tcpFallbackEnabled", JsonPrimitive(tcpFallbackEnabled))
         }
 
+    @Suppress("LongParameterList")
     private fun warpExpected(
         enabled: Boolean = false,
         routeMode: String = "off",

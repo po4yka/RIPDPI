@@ -14,6 +14,7 @@ import org.junit.Test
 import java.io.IOException
 import kotlin.random.Random
 
+@Suppress("LargeClass")
 class NativeWrapperStateMachineTest {
     private val json = Json
 
@@ -150,6 +151,7 @@ class NativeWrapperStateMachineTest {
             }
         }
 
+    @Suppress("CyclomaticComplexMethod", "LongMethod")
     private suspend fun executeProxyCommand(
         command: ProxyCommand,
         state: ProxyState,
@@ -344,6 +346,7 @@ class NativeWrapperStateMachineTest {
         }
     }
 
+    @Suppress("CyclomaticComplexMethod", "LongMethod")
     private suspend fun executeTunnelCommand(
         command: TunnelCommand,
         state: TunnelState,
@@ -541,6 +544,7 @@ class NativeWrapperStateMachineTest {
         }
     }
 
+    @Suppress("CyclomaticComplexMethod", "LongMethod")
     private suspend fun executeDiagnosticsCommand(
         command: DiagnosticsCommand,
         state: DiagnosticsState,

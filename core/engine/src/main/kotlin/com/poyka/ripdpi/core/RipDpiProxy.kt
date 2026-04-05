@@ -19,7 +19,7 @@ import kotlin.coroutines.coroutineContext
 interface RipDpiProxyRuntime {
     suspend fun startProxy(preferences: RipDpiProxyPreferences): Int
 
-    suspend fun awaitReady(timeoutMillis: Long = DEFAULT_PROXY_READY_TIMEOUT_MS)
+    suspend fun awaitReady(timeoutMillis: Long = defaultProxyReadyTimeoutMs)
 
     suspend fun stopProxy()
 
@@ -28,7 +28,7 @@ interface RipDpiProxyRuntime {
     suspend fun updateNetworkSnapshot(snapshot: NativeNetworkSnapshot)
 }
 
-internal const val DEFAULT_PROXY_READY_TIMEOUT_MS = 5_000L
+internal const val defaultProxyReadyTimeoutMs = 5_000L
 private const val readyLogPollInterval = 20L
 
 interface RipDpiProxyBindings {
@@ -119,6 +119,7 @@ class RipDpiProxy(
     @Volatile private var handle = 0L
     private var readinessSignal: CompletableDeferred<Unit>? = null
 
+    @Suppress("TooGenericExceptionCaught")
     @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
     override suspend fun startProxy(preferences: RipDpiProxyPreferences): Int {
         val startupSignal = CompletableDeferred<Unit>()
