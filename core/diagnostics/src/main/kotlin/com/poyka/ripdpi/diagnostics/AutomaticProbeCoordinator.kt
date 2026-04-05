@@ -33,33 +33,30 @@ internal object AutomaticProbeCoordinator {
         cooldownMs: Long,
         now: Long = System.currentTimeMillis(),
     ): Eligibility {
-        if (!settings.networkStrategyMemoryEnabled) {
-            return Eligibility.Rejected(RejectionReason.SETTINGS_DISABLED)
-        }
-        if (settings.enableCmdSettings) {
-            return Eligibility.Rejected(RejectionReason.CMD_SETTINGS_ACTIVE)
-        }
-        if (event.usedRememberedPolicy && event.classification != CLASSIFICATION_STRATEGY_FAILURE) {
-            return Eligibility.Rejected(RejectionReason.USED_REMEMBERED_POLICY)
-        }
-        if (hasActiveScan) {
-            return Eligibility.Rejected(RejectionReason.ACTIVE_SCAN_RUNNING)
-        }
         val probeKey = probeKey(event)
         val lastRunAt = recentRuns[probeKey]
-        if (lastRunAt != null && now - lastRunAt < cooldownMs) {
-            return Eligibility.Rejected(RejectionReason.COOLDOWN_ACTIVE)
-        }
-        if (event.classification !in SupportedHandoverClassifications) {
-            return Eligibility.Rejected(RejectionReason.UNSUPPORTED_HANDOVER_CLASS)
-        }
-        if (event.currentCaptivePortalDetected) {
-            return Eligibility.Rejected(RejectionReason.CAPTIVE_NETWORK)
-        }
-        if (!event.currentNetworkValidated) {
-            return Eligibility.Rejected(RejectionReason.UNVALIDATED_NETWORK)
-        }
-        return Eligibility.Eligible
+        val rejectionReason =
+            when {
+                !settings.networkStrategyMemoryEnabled -> RejectionReason.SETTINGS_DISABLED
+
+                settings.enableCmdSettings -> RejectionReason.CMD_SETTINGS_ACTIVE
+
+                event.usedRememberedPolicy &&
+                    event.classification != CLASSIFICATION_STRATEGY_FAILURE -> RejectionReason.USED_REMEMBERED_POLICY
+
+                hasActiveScan -> RejectionReason.ACTIVE_SCAN_RUNNING
+
+                lastRunAt != null && now - lastRunAt < cooldownMs -> RejectionReason.COOLDOWN_ACTIVE
+
+                event.classification !in SupportedHandoverClassifications -> RejectionReason.UNSUPPORTED_HANDOVER_CLASS
+
+                event.currentCaptivePortalDetected -> RejectionReason.CAPTIVE_NETWORK
+
+                !event.currentNetworkValidated -> RejectionReason.UNVALIDATED_NETWORK
+
+                else -> null
+            }
+        return if (rejectionReason != null) Eligibility.Rejected(rejectionReason) else Eligibility.Eligible
     }
 
     fun evaluateRememberedPolicyEligibility(hasValidatedRememberedMatch: Boolean): Eligibility =
@@ -80,13 +77,11 @@ internal object AutomaticProbeCoordinator {
 
     private fun TelemetrySampleEntity.hasQualifyingFailureSignal(): Boolean {
         val failureClasses = listOfNotNull(failureClass, lastFailureClass)
-        if (failureClasses.any { it != NetworkHandoverFailureClass }) {
-            return true
+        return when {
+            failureClasses.any { it != NetworkHandoverFailureClass } -> true
+            failureClasses.isNotEmpty() -> false
+            else -> connectionState == FailedConnectionState
         }
-        if (failureClasses.isNotEmpty()) {
-            return false
-        }
-        return connectionState == FailedConnectionState
     }
 
     fun probeKey(event: PolicyHandoverEvent): String = "${event.mode.preferenceValue}|${event.currentFingerprintHash}"

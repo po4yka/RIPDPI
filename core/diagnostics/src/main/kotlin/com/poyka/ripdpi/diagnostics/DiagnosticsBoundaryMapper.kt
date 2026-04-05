@@ -232,15 +232,15 @@ class DiagnosticsBoundaryMapper
     }
 
 private fun BypassUsageSessionEntity.toRememberedPolicyApplicationAuditOrNull(): RememberedPolicyApplicationAudit? {
-    if (rememberedPolicyMatchedFingerprintHash == null &&
-        rememberedPolicySource == null &&
-        rememberedPolicyAppliedByExactMatch == null &&
+    val hasNoMatchData =
+        rememberedPolicyMatchedFingerprintHash == null &&
+            rememberedPolicySource == null &&
+            rememberedPolicyAppliedByExactMatch == null
+    val hasNoCountData =
         rememberedPolicyPreviousSuccessCount == null &&
-        rememberedPolicyPreviousFailureCount == null &&
-        rememberedPolicyPreviousConsecutiveFailureCount == null
-    ) {
-        return null
-    }
+            rememberedPolicyPreviousFailureCount == null &&
+            rememberedPolicyPreviousConsecutiveFailureCount == null
+    if (hasNoMatchData && hasNoCountData) return null
     return RememberedPolicyApplicationAudit(
         matchedFingerprintHash = rememberedPolicyMatchedFingerprintHash,
         source = RememberedNetworkPolicySource.fromStorageValue(rememberedPolicySource),

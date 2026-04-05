@@ -97,76 +97,7 @@ class RuntimeHistoryMonitorTest {
 
             monitor.start()
             serviceStateStore.setStatus(AppStatus.Running, Mode.VPN)
-            serviceStateStore.updateTelemetry(
-                ServiceTelemetrySnapshot(
-                    mode = Mode.VPN,
-                    status = AppStatus.Running,
-                    tunnelStats = TunnelStats(txPackets = 4, txBytes = 1_024, rxPackets = 5, rxBytes = 2_048),
-                    proxyTelemetry =
-                        NativeRuntimeSnapshot(
-                            source = "proxy",
-                            state = "running",
-                            health = "healthy",
-                            routeChanges = 2,
-                            lastFailureClass = "http_blockpage",
-                            lastFallbackAction = "retry_with_matching_group",
-                            nativeEvents =
-                                listOf(
-                                    NativeRuntimeEvent(
-                                        source = "proxy",
-                                        level = "info",
-                                        message = "accepted",
-                                        createdAt = 100L,
-                                    ),
-                                ),
-                        ),
-                    tunnelTelemetry =
-                        NativeRuntimeSnapshot(
-                            source = "tunnel",
-                            state = "running",
-                            health = "healthy",
-                            resolverId = "cloudflare",
-                            resolverProtocol = "doh",
-                            resolverEndpoint = "https://cloudflare-dns.com/dns-query",
-                            resolverLatencyMs = 38,
-                            dnsFailuresTotal = 2,
-                            resolverFallbackActive = true,
-                            resolverFallbackReason = "UDP DNS showed dns_substitution",
-                            networkHandoverClass = "transport_switch",
-                        ),
-                    runtimeFieldTelemetry =
-                        RuntimeFieldTelemetry(
-                            failureClass = FailureClass.DnsInterference,
-                            telemetryNetworkFingerprintHash = "v1:abc123",
-                            winningTcpStrategyFamily = "hostfake",
-                            winningQuicStrategyFamily = "quic_burst",
-                            proxyRttBand = RttBand.Between50And99,
-                            resolverRttBand = RttBand.Lt50,
-                            proxyRouteRetryCount = 2,
-                            tunnelRecoveryRetryCount = 1,
-                        ),
-                    serviceStartedAt = System.currentTimeMillis(),
-                    restartCount = 1,
-                    updatedAt = System.currentTimeMillis(),
-                ),
-            )
-            serviceStateStore.updateTelemetry(
-                serviceStateStore.telemetry.value.copy(
-                    proxyTelemetry =
-                        serviceStateStore.telemetry.value.proxyTelemetry.copy(
-                            nativeEvents =
-                                listOf(
-                                    NativeRuntimeEvent(
-                                        source = "proxy",
-                                        level = "info",
-                                        message = "accepted",
-                                        createdAt = 100L,
-                                    ),
-                                ),
-                        ),
-                    updatedAt = System.currentTimeMillis(),
-                ),
-            )
+            emitRunningTelemetryWithCloudflare(serviceStateStore)
 
             waitUntil(timeoutMillis = 8_000) {
                 stores.telemetryState.value.any { it.resolverId == "cloudflare" } &&
@@ -177,36 +108,8 @@ class RuntimeHistoryMonitorTest {
 
             val session = stores.usageSessionsState.value.single()
             val telemetrySample = stores.telemetryState.value.last { it.resolverId == "cloudflare" }
-            assertEquals("Running", session.connectionState)
-            assertEquals("VPN", session.serviceMode)
-            assertEquals(1_024L, session.txBytes)
-            assertEquals(2_048L, session.rxBytes)
-            assertEquals("dns_interference", session.failureClass)
-            assertEquals("v1:abc123", session.telemetryNetworkFingerprintHash)
-            assertEquals("hostfake", session.winningTcpStrategyFamily)
-            assertEquals("quic_burst", session.winningQuicStrategyFamily)
-            assertEquals("50_99", session.proxyRttBand)
-            assertEquals("lt50", session.resolverRttBand)
-            assertEquals(2L, session.proxyRouteRetryCount)
-            assertEquals(1L, session.tunnelRecoveryRetryCount)
-            assertEquals("cloudflare", telemetrySample.resolverId)
-            assertEquals("doh", telemetrySample.resolverProtocol)
-            assertEquals("https://cloudflare-dns.com/dns-query", telemetrySample.resolverEndpoint)
-            assertEquals(38L, telemetrySample.resolverLatencyMs)
-            assertEquals(2, telemetrySample.dnsFailuresTotal)
-            assertTrue(telemetrySample.resolverFallbackActive)
-            assertEquals("UDP DNS showed dns_substitution", telemetrySample.resolverFallbackReason)
-            assertEquals("transport_switch", telemetrySample.networkHandoverClass)
-            assertEquals("dns_interference", telemetrySample.failureClass)
-            assertEquals("http_blockpage", telemetrySample.lastFailureClass)
-            assertEquals("retry_with_matching_group", telemetrySample.lastFallbackAction)
-            assertEquals("v1:abc123", telemetrySample.telemetryNetworkFingerprintHash)
-            assertEquals("hostfake", telemetrySample.winningTcpStrategyFamily)
-            assertEquals("quic_burst", telemetrySample.winningQuicStrategyFamily)
-            assertEquals("50_99", telemetrySample.proxyRttBand)
-            assertEquals("lt50", telemetrySample.resolverRttBand)
-            assertEquals(2L, telemetrySample.proxyRouteRetryCount)
-            assertEquals(1L, telemetrySample.tunnelRecoveryRetryCount)
+            assertRunningSessionFields(session)
+            assertCloudflaretelemetrySampleFields(telemetrySample)
             assertEquals(1, stores.nativeEventsState.value.size)
             assertTrue(stores.snapshotsState.value.all { it.connectionSessionId == session.id })
             assertTrue(stores.contextsState.value.all { it.connectionSessionId == session.id })
@@ -235,6 +138,117 @@ class RuntimeHistoryMonitorTest {
             assertEquals(1_024L, stoppedTelemetrySample.txBytes)
             assertEquals(2_048L, stoppedTelemetrySample.rxBytes)
         }
+
+    private fun emitRunningTelemetryWithCloudflare(serviceStateStore: DefaultServiceStateStore) {
+        serviceStateStore.updateTelemetry(
+            ServiceTelemetrySnapshot(
+                mode = Mode.VPN,
+                status = AppStatus.Running,
+                tunnelStats = TunnelStats(txPackets = 4, txBytes = 1_024, rxPackets = 5, rxBytes = 2_048),
+                proxyTelemetry =
+                    NativeRuntimeSnapshot(
+                        source = "proxy",
+                        state = "running",
+                        health = "healthy",
+                        routeChanges = 2,
+                        lastFailureClass = "http_blockpage",
+                        lastFallbackAction = "retry_with_matching_group",
+                        nativeEvents =
+                            listOf(
+                                NativeRuntimeEvent(
+                                    source = "proxy",
+                                    level = "info",
+                                    message = "accepted",
+                                    createdAt = 100L,
+                                ),
+                            ),
+                    ),
+                tunnelTelemetry =
+                    NativeRuntimeSnapshot(
+                        source = "tunnel",
+                        state = "running",
+                        health = "healthy",
+                        resolverId = "cloudflare",
+                        resolverProtocol = "doh",
+                        resolverEndpoint = "https://cloudflare-dns.com/dns-query",
+                        resolverLatencyMs = 38,
+                        dnsFailuresTotal = 2,
+                        resolverFallbackActive = true,
+                        resolverFallbackReason = "UDP DNS showed dns_substitution",
+                        networkHandoverClass = "transport_switch",
+                    ),
+                runtimeFieldTelemetry =
+                    RuntimeFieldTelemetry(
+                        failureClass = FailureClass.DnsInterference,
+                        telemetryNetworkFingerprintHash = "v1:abc123",
+                        winningTcpStrategyFamily = "hostfake",
+                        winningQuicStrategyFamily = "quic_burst",
+                        proxyRttBand = RttBand.Between50And99,
+                        resolverRttBand = RttBand.Lt50,
+                        proxyRouteRetryCount = 2,
+                        tunnelRecoveryRetryCount = 1,
+                    ),
+                serviceStartedAt = System.currentTimeMillis(),
+                restartCount = 1,
+                updatedAt = System.currentTimeMillis(),
+            ),
+        )
+        serviceStateStore.updateTelemetry(
+            serviceStateStore.telemetry.value.copy(
+                proxyTelemetry =
+                    serviceStateStore.telemetry.value.proxyTelemetry.copy(
+                        nativeEvents =
+                            listOf(
+                                NativeRuntimeEvent(
+                                    source = "proxy",
+                                    level = "info",
+                                    message = "accepted",
+                                    createdAt = 100L,
+                                ),
+                            ),
+                    ),
+                updatedAt = System.currentTimeMillis(),
+            ),
+        )
+    }
+
+    private fun assertRunningSessionFields(session: com.poyka.ripdpi.data.diagnostics.BypassUsageSessionEntity) {
+        assertEquals("Running", session.connectionState)
+        assertEquals("VPN", session.serviceMode)
+        assertEquals(1_024L, session.txBytes)
+        assertEquals(2_048L, session.rxBytes)
+        assertEquals("dns_interference", session.failureClass)
+        assertEquals("v1:abc123", session.telemetryNetworkFingerprintHash)
+        assertEquals("hostfake", session.winningTcpStrategyFamily)
+        assertEquals("quic_burst", session.winningQuicStrategyFamily)
+        assertEquals("50_99", session.proxyRttBand)
+        assertEquals("lt50", session.resolverRttBand)
+        assertEquals(2L, session.proxyRouteRetryCount)
+        assertEquals(1L, session.tunnelRecoveryRetryCount)
+    }
+
+    private fun assertCloudflaretelemetrySampleFields(
+        telemetrySample: com.poyka.ripdpi.data.diagnostics.TelemetrySampleEntity,
+    ) {
+        assertEquals("cloudflare", telemetrySample.resolverId)
+        assertEquals("doh", telemetrySample.resolverProtocol)
+        assertEquals("https://cloudflare-dns.com/dns-query", telemetrySample.resolverEndpoint)
+        assertEquals(38L, telemetrySample.resolverLatencyMs)
+        assertEquals(2, telemetrySample.dnsFailuresTotal)
+        assertTrue(telemetrySample.resolverFallbackActive)
+        assertEquals("UDP DNS showed dns_substitution", telemetrySample.resolverFallbackReason)
+        assertEquals("transport_switch", telemetrySample.networkHandoverClass)
+        assertEquals("dns_interference", telemetrySample.failureClass)
+        assertEquals("http_blockpage", telemetrySample.lastFailureClass)
+        assertEquals("retry_with_matching_group", telemetrySample.lastFallbackAction)
+        assertEquals("v1:abc123", telemetrySample.telemetryNetworkFingerprintHash)
+        assertEquals("hostfake", telemetrySample.winningTcpStrategyFamily)
+        assertEquals("quic_burst", telemetrySample.winningQuicStrategyFamily)
+        assertEquals("50_99", telemetrySample.proxyRttBand)
+        assertEquals("lt50", telemetrySample.resolverRttBand)
+        assertEquals(2L, telemetrySample.proxyRouteRetryCount)
+        assertEquals(1L, telemetrySample.tunnelRecoveryRetryCount)
+    }
 
     @Test
     fun `handover policy rotation keeps previous remembered policy neutral`() =
@@ -271,45 +285,7 @@ class RuntimeHistoryMonitorTest {
             serviceStateStore.setStatus(AppStatus.Running, Mode.VPN)
             waitUntil { stores.usageSessionsState.value.isNotEmpty() }
 
-            activePolicyStore.set(
-                ActiveConnectionPolicy(
-                    mode = Mode.VPN,
-                    policy = rememberedPolicyJson("fingerprint-a", Mode.VPN),
-                    matchedPolicy = firstPolicy,
-                    usedRememberedPolicy = true,
-                    fingerprintHash = "fingerprint-a",
-                    policySignature = "policy-signature-a",
-                    appliedAt = 1_000L,
-                ),
-            )
-            waitUntil {
-                stores.rememberedPoliciesState.value.any {
-                    it.fingerprintHash == "fingerprint-a" &&
-                        it.mode == Mode.VPN.preferenceValue &&
-                        it.lastAppliedAt == 1_000L
-                }
-            }
-
-            activePolicyStore.set(
-                ActiveConnectionPolicy(
-                    mode = Mode.VPN,
-                    policy = rememberedPolicyJson("fingerprint-b", Mode.VPN),
-                    matchedPolicy = secondPolicy,
-                    usedRememberedPolicy = true,
-                    fingerprintHash = "fingerprint-b",
-                    policySignature = "policy-signature-b",
-                    appliedAt = 2_000L,
-                    restartReason = "network_handover",
-                    handoverClassification = "transport_switch",
-                ),
-            )
-            waitUntil {
-                stores.rememberedPoliciesState.value.any {
-                    it.fingerprintHash == "fingerprint-b" &&
-                        it.mode == Mode.VPN.preferenceValue &&
-                        it.lastAppliedAt == 2_000L
-                }
-            }
+            applyHandoverPolicies(activePolicyStore, stores, firstPolicy, secondPolicy)
 
             val firstPersisted =
                 requireNotNull(stores.getRememberedNetworkPolicy("fingerprint-a", Mode.VPN.preferenceValue))
@@ -331,6 +307,52 @@ class RuntimeHistoryMonitorTest {
             assertEquals(0, session.rememberedPolicyPreviousFailureCount)
             assertEquals(0, session.rememberedPolicyPreviousConsecutiveFailureCount)
         }
+
+    private fun applyHandoverPolicies(
+        activePolicyStore: FakeActiveConnectionPolicyStore,
+        stores: FakeDiagnosticsHistoryStores,
+        firstPolicy: com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyEntity,
+        secondPolicy: com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyEntity,
+    ) {
+        activePolicyStore.set(
+            ActiveConnectionPolicy(
+                mode = Mode.VPN,
+                policy = rememberedPolicyJson("fingerprint-a", Mode.VPN),
+                matchedPolicy = firstPolicy,
+                usedRememberedPolicy = true,
+                fingerprintHash = "fingerprint-a",
+                policySignature = "policy-signature-a",
+                appliedAt = 1_000L,
+            ),
+        )
+        waitUntil {
+            stores.rememberedPoliciesState.value.any {
+                it.fingerprintHash == "fingerprint-a" &&
+                    it.mode == Mode.VPN.preferenceValue &&
+                    it.lastAppliedAt == 1_000L
+            }
+        }
+        activePolicyStore.set(
+            ActiveConnectionPolicy(
+                mode = Mode.VPN,
+                policy = rememberedPolicyJson("fingerprint-b", Mode.VPN),
+                matchedPolicy = secondPolicy,
+                usedRememberedPolicy = true,
+                fingerprintHash = "fingerprint-b",
+                policySignature = "policy-signature-b",
+                appliedAt = 2_000L,
+                restartReason = "network_handover",
+                handoverClassification = "transport_switch",
+            ),
+        )
+        waitUntil {
+            stores.rememberedPoliciesState.value.any {
+                it.fingerprintHash == "fingerprint-b" &&
+                    it.mode == Mode.VPN.preferenceValue &&
+                    it.lastAppliedAt == 2_000L
+            }
+        }
+    }
 
     @Test
     fun `starting monitor twice does not duplicate failure handling`() =

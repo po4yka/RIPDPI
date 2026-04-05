@@ -21,12 +21,12 @@ class ComparisonScanCoordinator
             val rawSession = scanRecordStore.getScanSession(rawPathSessionId)
             val inPathSession = scanRecordStore.getScanSession(inPathSessionId)
 
-            val rawReport =
-                rawSession?.let { DiagnosticsSessionQueries.decodeScanReport(json, it.reportJson) }
-                    ?: return emptyComparison(rawPathSessionId, inPathSessionId)
-            val inPathReport =
-                inPathSession?.let { DiagnosticsSessionQueries.decodeScanReport(json, it.reportJson) }
-                    ?: return emptyComparison(rawPathSessionId, inPathSessionId)
+            val rawReport = rawSession?.let { DiagnosticsSessionQueries.decodeScanReport(json, it.reportJson) }
+            val inPathReport = inPathSession?.let { DiagnosticsSessionQueries.decodeScanReport(json, it.reportJson) }
+
+            if (rawReport == null || inPathReport == null) {
+                return emptyComparison(rawPathSessionId, inPathSessionId)
+            }
 
             val rawOutcomes = extractDomainOutcomes(rawReport)
             val inPathOutcomes = extractDomainOutcomes(inPathReport)

@@ -12,6 +12,9 @@ class DiagnosticsFindingProjector
             const val ClassifierVersion = "ru_ooni_kotlin_v2"
             private const val ThrottlingRatioThreshold = 0.25
             private const val ControlFloorBps = 5_000_000L
+            private const val DnsInjectionThresholdMs = 5
+            private const val DnsLatencySlowThresholdMs = 3000
+            private const val DnsEncryptedLatencyMultiplier = 10
             private val BlockedTransportFailures =
                 setOf(
                     TransportFailureKind.TIMEOUT,
@@ -78,6 +81,16 @@ class DiagnosticsFindingProjector
             diagnoses: MutableList<Diagnosis>,
             seen: MutableSet<String>,
         ) {
+            collectDnsTamperingDiagnoses(dns, diagnoses, seen)
+            collectDnsBlockpageDiagnoses(dns, domains, diagnoses, seen)
+            collectDnsLatencyDiagnoses(dns, diagnoses, seen)
+        }
+
+        private fun collectDnsTamperingDiagnoses(
+            dns: List<DnsObservationFact>,
+            diagnoses: MutableList<Diagnosis>,
+            seen: MutableSet<String>,
+        ) {
             dns
                 .filter {
                     it.status == DnsObservationStatus.SUBSTITUTION ||
@@ -89,7 +102,7 @@ class DiagnosticsFindingProjector
                     val isTampered =
                         observation.status == DnsObservationStatus.SUBSTITUTION ||
                             observation.status == DnsObservationStatus.NXDOMAIN
-                    val injectionSuspected = isTampered && udpMs != null && udpMs <= 5
+                    val injectionSuspected = isTampered && udpMs != null && udpMs <= DnsInjectionThresholdMs
                     val (mechanism, summary) =
                         when {
                             observation.status == DnsObservationStatus.NXDOMAIN -> {
@@ -122,7 +135,14 @@ class DiagnosticsFindingProjector
                         ),
                     )
                 }
+        }
 
+        private fun collectDnsBlockpageDiagnoses(
+            dns: List<DnsObservationFact>,
+            domains: List<DomainObservationFact>,
+            diagnoses: MutableList<Diagnosis>,
+            seen: MutableSet<String>,
+        ) {
             dns
                 .filter { it.status == DnsObservationStatus.SUBSTITUTION }
                 .forEach { observation ->
@@ -144,14 +164,20 @@ class DiagnosticsFindingProjector
                         )
                     }
                 }
+        }
 
+        private fun collectDnsLatencyDiagnoses(
+            dns: List<DnsObservationFact>,
+            diagnoses: MutableList<Diagnosis>,
+            seen: MutableSet<String>,
+        ) {
             dns.forEach { observation ->
                 val udpMs = observation.udpLatencyMs ?: return@forEach
                 val encMs = observation.encryptedLatencyMs ?: return@forEach
                 val isTampered =
                     observation.status == DnsObservationStatus.SUBSTITUTION ||
                         observation.status == DnsObservationStatus.NXDOMAIN
-                if (udpMs <= 5 && isTampered) {
+                if (udpMs <= DnsInjectionThresholdMs && isTampered) {
                     pushDiagnosis(
                         diagnoses,
                         seen,
@@ -175,7 +201,7 @@ class DiagnosticsFindingProjector
                         ),
                     )
                 }
-                if (udpMs > 3000 || (encMs > 0 && udpMs > encMs * 10)) {
+                if (udpMs > DnsLatencySlowThresholdMs || (encMs > 0 && udpMs > encMs * DnsEncryptedLatencyMultiplier)) {
                     pushDiagnosis(
                         diagnoses,
                         seen,

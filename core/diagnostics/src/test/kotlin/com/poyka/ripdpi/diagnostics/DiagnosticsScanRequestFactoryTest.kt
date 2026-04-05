@@ -179,7 +179,10 @@ class DiagnosticsScanRequestFactoryTest {
                                     displayName = "Strategy probe",
                                     kind = ScanKind.STRATEGY_PROBE,
                                     family = DiagnosticProfileFamily.AUTOMATIC_PROBING,
-                                    strategyProbe = StrategyProbeRequest(suiteId = "quick_v1"),
+                                    targets =
+                                        DiagnosticsProfileTargets(
+                                            strategyProbe = StrategyProbeRequest(suiteId = "quick_v1"),
+                                        ),
                                     allowBackground = true,
                                 ),
                             updatedAt = 1L,
@@ -256,7 +259,10 @@ class DiagnosticsScanRequestFactoryTest {
                                     displayName = "Strategy probe",
                                     kind = ScanKind.STRATEGY_PROBE,
                                     family = DiagnosticProfileFamily.AUTOMATIC_PROBING,
-                                    strategyProbe = StrategyProbeRequest(suiteId = "quick_v1"),
+                                    targets =
+                                        DiagnosticsProfileTargets(
+                                            strategyProbe = StrategyProbeRequest(suiteId = "quick_v1"),
+                                        ),
                                     allowBackground = true,
                                 ),
                             updatedAt = 1L,
@@ -335,7 +341,10 @@ class DiagnosticsScanRequestFactoryTest {
                                 displayName = "Strategy probe",
                                 kind = ScanKind.STRATEGY_PROBE,
                                 family = DiagnosticProfileFamily.AUTOMATIC_PROBING,
-                                strategyProbe = StrategyProbeRequest(suiteId = suiteId),
+                                targets =
+                                    DiagnosticsProfileTargets(
+                                        strategyProbe = StrategyProbeRequest(suiteId = suiteId),
+                                    ),
                                 allowBackground = true,
                             ),
                         updatedAt = 1L,
