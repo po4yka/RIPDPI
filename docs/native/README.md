@@ -13,6 +13,7 @@ This directory documents the in-repository Rust native modules used by RIPDPI an
 | `native/rust/crates/ripdpi-dns-resolver` | linked into existing native libraries | Diagnostics scans, VPN-mode encrypted DNS | none directly | `EncryptedDnsResolver::*` through `ripdpi-monitor` and `ripdpi-tunnel-core` for DoH/DoT/DNSCrypt/DoQ exchange, metadata collection, and IP answer extraction |
 | `native/rust/crates/ripdpi-packets` | linked into ripdpi-runtime, ripdpi-monitor, ripdpi-desync | Protocol detection, packet mutation, classification | none directly | `ProtocolClassifier` trait + `ClassifierRegistry` for unified protocol detection, `ProtocolField` + `FieldObserver` for callback-based field extraction, TLS/HTTP/QUIC marker info for desync offset resolution |
 | `native/rust/crates/ripdpi-failure-classifier` | linked into ripdpi-runtime, ripdpi-monitor | Failure analysis, block signal detection | none directly | `classify_from_fields()` uses `FieldCache` for response analysis without re-parsing, blockpage CSV fingerprints, TLS alert classification |
+| `native/rust/crates/ripdpi-root-helper` | `ripdpi-root-helper` binary | Rooted devices only (opt-in) | `core/service/.../RootHelperManager.kt` | Standalone privileged process spawned via `su`; Unix socket IPC with SCM_RIGHTS: `probe_capabilities`, `send_fake_rst`, `send_seqovl_tcp`, `send_multi_disorder_tcp`, `send_ip_fragmented_tcp`, `send_ip_fragmented_udp` |
 | `native/rust/crates/android-support` | linked into ripdpi-android, ripdpi-tunnel-android, ripdpi-tunnel-core, ripdpi-packets | Generic data structures, logging, JNI support | none directly | `BoundedHeap<T>` for bounded session eviction, `EnumMap<K,V>` for O(1) registry dispatch, `HandleRegistry<T>` for JNI handle management |
 
 ## Shared Strategy Bridge
@@ -52,6 +53,7 @@ flowchart LR
   J --> E
   K["ripdpi CLI (desktop)"] --> L["ripdpi-runtime"]
   L --> M["ripdpi-config"]
+  N["Root helper (uid 0)"] -.->|Unix socket IPC| D
 ```
 
 ## Diagnostics and Telemetry
@@ -216,6 +218,7 @@ Structured telemetry, diagnostics-event payloads, and strategy-probe progress/re
 - `native/rust/crates/ripdpi-bench` -- benchmarking tools
 - `native/rust/crates/ripdpi-packets` -- packet parsing utilities (TLS, HTTP, QUIC markers)
 - `native/rust/crates/ripdpi-tun-driver` -- raw TUN socket handling
+- `native/rust/crates/ripdpi-root-helper` -- standalone privileged helper binary for rooted devices (raw sockets, TCP_REPAIR, IP fragmentation via Unix socket IPC)
 - `native/rust/crates/android-support`
 
 ### Crate dependency graph
@@ -226,6 +229,7 @@ flowchart TD
         AND["ripdpi-android\nlibripdpi.so"]
         TAND["ripdpi-tunnel-android\nlibripdpi-tunnel.so"]
         CLI["ripdpi-cli\ndesktop binary"]
+        RH["ripdpi-root-helper\nprivileged binary"]
     end
 
     subgraph "Core runtime"
@@ -254,6 +258,7 @@ flowchart TD
     AND --> RT & MON & CFG
     TAND --> TC
     CLI --> RT & CFG & CCFG & TELEM
+    RH --> RT & FRAG
 
     RT --> DSN & DNS & WST & FRAG & SESS & FC & CFG & PKT
     TC --> DNS & TD
@@ -272,6 +277,7 @@ flowchart TD
 
 - `libripdpi.so` links against `libc.so`, `libdl.so`, and `liblog.so`.
 - `libripdpi-tunnel.so` links against `libc.so`, `libdl.so`, `liblog.so`, and `libm.so`.
+- `ripdpi-root-helper` is a standalone ELF binary (not a shared library), links against `libc.so`. Packaged in APK assets at `bin/<abi>/ripdpi-root-helper`, extracted to `filesDir` at runtime, and executed via `su` on rooted devices.
 
 ## Documents
 

@@ -138,6 +138,23 @@ The native Rust proxy calls `VpnService.protect(fd)` on upstream sockets so they
 - `core/service/.../VpnProtectSocketServer.kt` -- Unix socket fallback
 - `core/engine/.../RipDpiProxy.kt` -- `jniRegisterVpnProtect()` / `jniUnregisterVpnProtect()`
 
+### Root Helper IPC
+
+**Opt-in on rooted devices** (Magisk, KernelSU, APatch). When `root_mode_enabled` is set in AppSettings:
+
+- `RootHelperManager.kt` extracts `ripdpi-root-helper` from APK assets, starts via `su`, and polls the Unix socket for readiness
+- `root_helper_client.rs` connects per-operation, sends JSON command + fd via SCM_RIGHTS, receives response + optional replacement fd
+- `root_helper.rs` global `RwLock` registry (same pattern as `protect.rs`); registered from config at startup
+- `platform/mod.rs` dispatch: each privileged function checks `with_root_helper()` first, falls back to local linux calls
+- Replacement fds from TCP_REPAIR operations are swapped via `dup2()` in `swap_replacement_fd()`
+
+**Key files**:
+- `native/rust/crates/ripdpi-root-helper/` -- standalone binary crate (protocol, handlers, main)
+- `native/rust/.../platform/root_helper_client.rs` -- IPC client
+- `native/rust/.../platform/root_helper.rs` -- global registry
+- `core/service/.../RootHelperManager.kt` -- Kotlin lifecycle (extract, start, stop)
+- `core/service/.../RootDetector.kt` -- `su -c id` root access test
+
 ## Native Code
 
 Two native libraries are built from repo-owned Android adapter crates in the native workspace:
@@ -146,9 +163,11 @@ Two native libraries are built from repo-owned Android adapter crates in the nat
 |---------|-------------|--------|--------|
 | `libripdpi.so` | Cargo + Android NDK linker via `:core:engine:buildRustNativeLibs` | `native/rust/crates/ripdpi-android/` | `core/engine/build/generated/jniLibs/` |
 | `libripdpi-tunnel.so` | Cargo + Android NDK linker via `:core:engine:buildRustNativeLibs` | `native/rust/crates/ripdpi-tunnel-android/` | `core/engine/build/generated/jniLibs/` |
+| `ripdpi-root-helper` | Cargo + Android NDK linker via `:core:engine:buildRustRootHelper` | `native/rust/crates/ripdpi-root-helper/` | `core/engine/build/generated/rootHelperAssets/bin/` |
 
 - Kotlin bridge for `libripdpi.so`: `core/engine/src/main/kotlin/com/poyka/ripdpi/core/RipDpiProxy.kt`
 - Kotlin bridge for `libripdpi-tunnel.so`: `core/engine/src/main/kotlin/com/poyka/ripdpi/core/Tun2SocksTunnel.kt`
+- Kotlin lifecycle for `ripdpi-root-helper`: `core/service/src/main/kotlin/com/poyka/ripdpi/services/RootHelperManager.kt`
 - Supported ABIs: armeabi-v7a, arm64-v8a, x86, x86_64
 - Never edit `.so` files -- they are compiled from source
 - Local non-release builds default to `ripdpi.localNativeAbisDefault=arm64-v8a`.
@@ -161,6 +180,7 @@ Supporting crates providing shared traits, data structures, and classification:
 - **`ripdpi-packets`** -- protocol classification (`ProtocolClassifier` trait + `ClassifierRegistry` with `EnumMap` O(1) dispatch), protocol field extraction (`ProtocolField` + `FieldObserver` + `FieldCache`), TLS/HTTP/QUIC detection and mutation
 - **`ripdpi-failure-classifier`** -- failure classification from pre-extracted fields (`classify_from_fields()` via `FieldCache`), blockpage CSV fingerprints, TLS alert/HTTP blockpage/redirect detection
 - **`ripdpi-monitor`** -- DNS tampering detection (`dns_analysis.rs` with 8 anomaly signals + record-level comparison + compression pointer validation), response parser framework (`response_parser/` with HTTP/TLS/SSH parsers and `FieldObserver` emission)
+- **`ripdpi-root-helper`** -- standalone privileged binary for rooted devices; Unix socket IPC with SCM_RIGHTS fd passing for raw socket operations (`send_fake_rst`, `send_seqovl_tcp`, `send_multi_disorder_tcp`, `send_ip_fragmented_tcp/udp`, `probe_capabilities`); IPC client in `ripdpi-runtime/src/platform/root_helper_client.rs`
 - **`android-support`** -- generic data structures: `BoundedHeap<T>` (fixed-capacity min-heap for session eviction), `EnumMap<K,V>` (O(1) enum-keyed dispatch for registries)
 
 ## Build Logic

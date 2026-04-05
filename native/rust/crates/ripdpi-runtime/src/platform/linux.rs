@@ -810,17 +810,13 @@ fn probe_raw_socket(
     option_name: libc::c_int,
 ) -> io::Result<()> {
     let socket = Socket::new(domain, Type::RAW, Some(Protocol::from(protocol)))?;
-    if let Some(path) = protect_path {
-        protect_socket(&socket, path)?;
-    }
+    super::protect_socket(&socket, protect_path)?;
     unsafe { setsockopt_raw(socket.as_raw_fd(), level, option_name, &1i32) }
 }
 
 fn probe_tcp_repair(protect_path: Option<&str>) -> io::Result<()> {
     let socket = Socket::new(Domain::IPV4, Type::STREAM, Some(Protocol::TCP))?;
-    if let Some(path) = protect_path {
-        protect_socket(&socket, path)?;
-    }
+    super::protect_socket(&socket, protect_path)?;
     let fd = socket.as_raw_fd();
     set_tcp_repair(fd, TCP_REPAIR_ON)?;
     disable_tcp_repair(fd)
@@ -936,9 +932,7 @@ fn build_replacement_tcp_socket(
     let replacement = Socket::new(domain, Type::STREAM, Some(Protocol::TCP))?;
     replacement.set_reuse_address(true)?;
     let _ = replacement.set_reuse_port(true);
-    if let Some(path) = protect_path {
-        protect_socket(&replacement, path)?;
-    }
+    super::protect_socket(&replacement, protect_path)?;
 
     let fd = replacement.as_raw_fd();
     set_tcp_repair(fd, TCP_REPAIR_ON)?;
@@ -1036,17 +1030,13 @@ where
     let socket = match target {
         SocketAddr::V4(_) => {
             let socket = Socket::new(Domain::IPV4, Type::RAW, Some(Protocol::from(libc::IPPROTO_RAW)))?;
-            if let Some(path) = protect_path {
-                protect_socket(&socket, path)?;
-            }
+            super::protect_socket(&socket, protect_path)?;
             unsafe { setsockopt_raw(socket.as_raw_fd(), libc::IPPROTO_IP, libc::IP_HDRINCL, &1i32) }?;
             socket
         }
         SocketAddr::V6(_) => {
             let socket = Socket::new(Domain::IPV6, Type::RAW, Some(Protocol::from(libc::IPPROTO_RAW)))?;
-            if let Some(path) = protect_path {
-                protect_socket(&socket, path)?;
-            }
+            super::protect_socket(&socket, protect_path)?;
             unsafe { setsockopt_raw(socket.as_raw_fd(), libc::IPPROTO_IPV6, libc::IPV6_HDRINCL, &1i32) }?;
             socket
         }
@@ -1088,17 +1078,13 @@ fn open_raw_socket(target: SocketAddr, protect_path: Option<&str>) -> io::Result
     match target {
         SocketAddr::V4(_) => {
             let socket = Socket::new(Domain::IPV4, Type::RAW, Some(Protocol::from(libc::IPPROTO_RAW)))?;
-            if let Some(path) = protect_path {
-                protect_socket(&socket, path)?;
-            }
+            super::protect_socket(&socket, protect_path)?;
             unsafe { setsockopt_raw(socket.as_raw_fd(), libc::IPPROTO_IP, libc::IP_HDRINCL, &1i32) }?;
             Ok(socket)
         }
         SocketAddr::V6(_) => {
             let socket = Socket::new(Domain::IPV6, Type::RAW, Some(Protocol::from(libc::IPPROTO_RAW)))?;
-            if let Some(path) = protect_path {
-                protect_socket(&socket, path)?;
-            }
+            super::protect_socket(&socket, protect_path)?;
             unsafe { setsockopt_raw(socket.as_raw_fd(), libc::IPPROTO_IPV6, libc::IPV6_HDRINCL, &1i32) }?;
             Ok(socket)
         }
