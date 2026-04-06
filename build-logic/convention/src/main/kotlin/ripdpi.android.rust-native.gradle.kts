@@ -244,6 +244,12 @@ abstract class BuildRustNativeLibsTask
                     if (androidCmakePath != null) {
                         put("CMAKE", androidCmakePath)
                     }
+                    // Use static C++ STL so libripdpi.so (and siblings) do not depend on
+                    // libc++_shared.so at runtime.  With c++_shared the APK would need to
+                    // package libc++_shared.so separately; c++_static embeds the runtime into
+                    // each .so instead, which is safe because each library is independently
+                    // loaded and they do not share C++ STL state across JNI boundaries.
+                    put("BORING_BSSL_RUST_CPPLIB", "c++_static")
                 }
 
             val cargoCommand =
