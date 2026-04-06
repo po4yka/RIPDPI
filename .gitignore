@@ -34,6 +34,11 @@ target/
 
 # Vendored BoringSSL C source tree (checked in by cargo vendor but too large for git)
 native/rust/vendor/boring-sys/deps/
+# Reality patch: SSL_set_client_random added to vendored BoringSSL (tracked individually)
+!native/rust/vendor/boring-sys/deps/boringssl/include/openssl/ssl.h
+!native/rust/vendor/boring-sys/deps/boringssl/ssl/internal.h
+!native/rust/vendor/boring-sys/deps/boringssl/ssl/handshake_client.cc
+!native/rust/vendor/boring-sys/deps/boringssl/ssl/ssl_lib.cc
 
 # Generated documentation artifacts
 docs/manual-assets/
