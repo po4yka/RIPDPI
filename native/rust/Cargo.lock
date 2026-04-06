@@ -344,8 +344,6 @@ dependencies = [
 [[package]]
 name = "boring-sys"
 version = "5.0.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "71108e4d30f6275b216e78706b438d2880a4d1503fbc40f8616a3c69401ee2e6"
 dependencies = [
  "bindgen",
  "cmake",
@@ -1207,7 +1205,7 @@ dependencies = [
  "libc",
  "log",
  "rustversion",
- "windows-link 0.2.1",
+ "windows-link 0.1.3",
  "windows-result 0.4.1",
 ]
 
