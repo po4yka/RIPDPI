@@ -211,6 +211,53 @@ abstract class BuildRustNativeLibsTask
             abiOutputDir.mkdirs()
             pruneStaleArtifactOutputs(abiOutputDir, expectedOutputNames)
 
+            // Delete stale BoringSSL cmake build directories whose cached cmake binary,
+            // C compiler, or CXX compiler no longer matches the current toolchain.  When
+            // cmake detects changed variables it forces a re-configure, and on macOS the
+            // re-configure injects `-arch arm64 -isysroot MacOSX.sdk` before the Android
+            // toolchain file takes effect, breaking the cross-compilation.  A fresh
+            // configure (no existing CMakeCache.txt) works correctly because the toolchain
+            // file is applied from the very first cmake invocation.
+            if (abiCargoTargetDir.isDirectory) {
+                abiCargoTargetDir
+                    .walkTopDown()
+                    .filter { it.name == "CMakeCache.txt" }
+                    .forEach { cacheFile ->
+                        val lines = cacheFile.readLines()
+
+                        fun cachedValue(vararg keys: String): String? =
+                            lines
+                                .firstOrNull { line -> keys.any { line.startsWith("$it=") || line.startsWith("$it:") } }
+                                ?.substringAfter("=")
+                        val cachedCmake = cachedValue("CMAKE_COMMAND:INTERNAL")
+                        val cachedCc =
+                            cachedValue(
+                                "CMAKE_C_COMPILER:FILEPATH",
+                                "CMAKE_C_COMPILER:STRING",
+                            )
+                        val cachedCxx =
+                            cachedValue(
+                                "CMAKE_CXX_COMPILER:FILEPATH",
+                                "CMAKE_CXX_COMPILER:STRING",
+                            )
+                        val stale =
+                            (
+                                androidCmakePath != null && cachedCmake != null &&
+                                    cachedCmake != androidCmakePath
+                            ) ||
+                                (cachedCc != null && cachedCc != config.linker.absolutePath) ||
+                                (cachedCxx != null && cachedCxx != config.cxx.absolutePath)
+                        if (stale) {
+                            logger.warn(
+                                "Deleting stale BoringSSL cmake cache " +
+                                    "(cmake=$cachedCmake, cc=$cachedCc, cxx=$cachedCxx): " +
+                                    cacheFile.parentFile.absolutePath,
+                            )
+                            fileSystemOperations.delete { delete(cacheFile.parentFile) }
+                        }
+                    }
+            }
+
             val ndkHome = File(sdkDir.get()).resolve("ndk").resolve(ndkVersion.get())
             val appleHostEnvKeys =
                 listOf(
