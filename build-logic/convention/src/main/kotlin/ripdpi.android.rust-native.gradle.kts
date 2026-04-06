@@ -185,48 +185,37 @@ abstract class BuildRustNativeLibsTask
 
             val ndkHome = File(sdkDir.get()).resolve("ndk").resolve(ndkVersion.get())
 
-            // If the NDK linker path changed since the last build (e.g. after NDK upgrade),
-            // the boring-sys cmake cache will have a stale CMAKE_C_COMPILER entry.  CMake
-            // detects the change, attempts a re-configure, and fails because macOS injects
-            // `-arch arm64 -isysroot MacOSX.sdk` before the Android toolchain file takes
-            // effect.  Detect this mismatch and delete just the cmake build directory so
-            // that cargo will run a fresh cmake configure (BoringSSL object files are kept
-            // in the cargo build cache and are not recompiled from scratch).
-            if (abiCargoTargetDir.isDirectory) {
-                abiCargoTargetDir
-                    .walkTopDown()
-                    .filter { it.name == "CMakeCache.txt" }
-                    .forEach { cacheFile ->
-                        // cmake stores CMAKE_C_COMPILER as STRING or FILEPATH depending on version
-                        val cachedCompiler =
-                            cacheFile
-                                .readLines()
-                                .firstOrNull { line ->
-                                    line.startsWith("CMAKE_C_COMPILER:FILEPATH=") ||
-                                        line.startsWith("CMAKE_C_COMPILER:STRING=")
-                                }?.substringAfter("=")
-                        if (cachedCompiler != null && cachedCompiler != config.linker.absolutePath) {
-                            logger.warn(
-                                "Deleting stale BoringSSL cmake cache (compiler changed " +
-                                    "from $cachedCompiler to ${config.linker.absolutePath}): " +
-                                    cacheFile.parentFile.absolutePath,
-                            )
-                            fileSystemOperations.delete { delete(cacheFile.parentFile) }
-                        }
-                    }
-            }
+            // Use the Android SDK cmake binary instead of the system cmake (e.g. Homebrew on
+            // macOS).  The boring-sys build script invokes cmake via the `cmake` crate, which
+            // honours the CMAKE env var.  The system cmake on macOS injects `-arch arm64
+            // -isysroot MacOSX.sdk` during re-configure steps (e.g. when CMAKE_C_COMPILER
+            // changes), which the Android cross-compiler rejects.  The Android SDK cmake is
+            // built without macOS platform defaults, so cross-compilation works correctly even
+            // when a re-configure is triggered.
+            val androidCmakeBin =
+                File(sdkDir.get())
+                    .resolve("cmake")
+                    .takeIf { it.isDirectory }
+                    ?.listFiles()
+                    ?.filter { it.isDirectory }
+                    ?.maxByOrNull { it.name }
+                    ?.resolve("bin/cmake")
+                    ?.takeIf { it.isFile }
 
             val cargoEnvironment =
-                mapOf(
-                    "ANDROID_NDK_HOME" to ndkHome.absolutePath,
-                    "CC_$targetEnv" to config.linker.absolutePath,
-                    ccTargetKey to config.linker.absolutePath,
-                    "AR_$targetEnv" to config.ar.absolutePath,
-                    arTargetKey to config.ar.absolutePath,
-                    "CARGO_TARGET_${targetEnv}_LINKER" to config.linker.absolutePath,
-                    "CARGO_TARGET_${targetEnv}_AR" to config.ar.absolutePath,
-                    "CARGO_TARGET_DIR" to abiCargoTargetDir.absolutePath,
-                )
+                buildMap {
+                    put("ANDROID_NDK_HOME", ndkHome.absolutePath)
+                    put("CC_$targetEnv", config.linker.absolutePath)
+                    put(ccTargetKey, config.linker.absolutePath)
+                    put("AR_$targetEnv", config.ar.absolutePath)
+                    put(arTargetKey, config.ar.absolutePath)
+                    put("CARGO_TARGET_${targetEnv}_LINKER", config.linker.absolutePath)
+                    put("CARGO_TARGET_${targetEnv}_AR", config.ar.absolutePath)
+                    put("CARGO_TARGET_DIR", abiCargoTargetDir.absolutePath)
+                    if (androidCmakeBin != null) {
+                        put("CMAKE", androidCmakeBin.absolutePath)
+                    }
+                }
 
             val cargoCommand =
                 buildList {
