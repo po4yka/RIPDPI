@@ -3386,7 +3386,7 @@ dependencies = [
  "base64 0.13.1",
  "boringtun",
  "bytes",
- "getrandom 0.2.17",
+ "getrandom 0.4.2",
  "ripdpi-native-protect",
  "serde",
  "serde_json",
