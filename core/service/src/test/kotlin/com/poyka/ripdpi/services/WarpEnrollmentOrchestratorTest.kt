@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.services
 
+import com.poyka.ripdpi.core.RipDpiProxyUIPreferences
 import com.poyka.ripdpi.data.DefaultWarpProfileId
 import com.poyka.ripdpi.data.WarpAccountKindConsumerFree
 import com.poyka.ripdpi.data.WarpAccountKindConsumerPlus
@@ -17,6 +18,8 @@ import com.poyka.ripdpi.data.WarpSetupStateProvisioned
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Test
 
@@ -217,6 +220,37 @@ class WarpEnrollmentOrchestratorTest {
             assertEquals(WarpSetupStateNotConfigured, appSettingsRepository.snapshot().warpSetupState)
         }
 
+    @Test
+    fun `managed bootstrap proxy runner starts transient proxy for provisioning`() =
+        runTest {
+            val appSettingsRepository = TestAppSettingsRepository()
+            val proxyFactory = TestRipDpiProxyFactory()
+            val runner =
+                ManagedWarpBootstrapProxyRunner(
+                    appSettingsRepository = appSettingsRepository,
+                    proxyRuntimeSupervisorFactory = DefaultProxyRuntimeSupervisorFactory(proxyFactory),
+                    networkSnapshotProvider = TestNativeNetworkSnapshotProvider(),
+                    scope = backgroundScope,
+                )
+
+            var seenProxy: WarpBootstrapProxyConfig? = null
+            val result =
+                runner.withBootstrapProxy { proxy ->
+                    seenProxy = proxy
+                    "ok"
+                }
+
+            assertEquals("ok", result)
+            assertNotNull(seenProxy)
+            assertEquals("127.0.0.1", seenProxy?.host)
+            assertNotNull(proxyFactory.lastRuntime.lastPreferences)
+            val preferences = proxyFactory.lastRuntime.lastPreferences as RipDpiProxyUIPreferences
+            assertFalse(preferences.relay.enabled)
+            assertFalse(preferences.warp.enabled)
+            assertEquals(seenProxy?.port, preferences.listen.port)
+            assertEquals(1, proxyFactory.lastRuntime.stopCount)
+        }
+
     private fun sampleProvisioningResult(): WarpProvisioningResult =
         WarpProvisioningResult(
             credentials =
@@ -253,9 +287,15 @@ class WarpEnrollmentOrchestratorTest {
 private class FakeWarpProvisioningClient(
     private val registerResult: WarpProvisioningResult,
 ) : WarpProvisioningClient {
-    override suspend fun register(request: WarpRegisterDeviceRequest): WarpProvisioningResult = registerResult
+    override suspend fun register(
+        request: WarpRegisterDeviceRequest,
+        bootstrapProxy: java.net.Proxy?,
+    ): WarpProvisioningResult = registerResult
 
-    override suspend fun refresh(credentials: WarpCredentials): WarpProvisioningResult = registerResult
+    override suspend fun refresh(
+        credentials: WarpCredentials,
+        bootstrapProxy: java.net.Proxy?,
+    ): WarpProvisioningResult = registerResult
 }
 
 private class FakeWarpProfileStore : WarpProfileStore {

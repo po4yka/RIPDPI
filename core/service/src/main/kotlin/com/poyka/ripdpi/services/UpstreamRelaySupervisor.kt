@@ -113,6 +113,7 @@ internal class UpstreamRelaySupervisor(
         val effectiveConfig = mergeConfig(config, storedProfile)
         val credentials = relayCredentialStore.load(profileId)
         validateCredentials(profileId, effectiveConfig.kind, effectiveConfig.masqueCloudflareMode, credentials)
+        validateSupportedFeatures(profileId, effectiveConfig, credentials)
         return ResolvedRipDpiRelayConfig(
             enabled = effectiveConfig.enabled,
             kind = effectiveConfig.kind,
@@ -192,8 +193,9 @@ internal class UpstreamRelaySupervisor(
         credentials: RelayCredentialRecord?,
     ) {
         val hasMasqueCloudflareKeys =
-            !credentials.masqueCloudflareClientId.isNullOrBlank() &&
-                !credentials.masqueCloudflareKeyId.isNullOrBlank()
+            !credentials?.masqueCloudflareClientId.isNullOrBlank() &&
+                !credentials?.masqueCloudflareKeyId.isNullOrBlank() &&
+                !credentials?.masqueCloudflarePrivateKeyPem.isNullOrBlank()
         val isValid =
             when (relayKind) {
                 RelayKindVlessReality -> {
@@ -213,7 +215,7 @@ internal class UpstreamRelaySupervisor(
                     if (cloudflareMasqueMode) {
                         hasMasqueCloudflareKeys
                     } else {
-                        !credentials.masqueAuthToken.isNullOrBlank()
+                        !credentials?.masqueAuthToken.isNullOrBlank()
                     }
                 }
 
@@ -222,6 +224,24 @@ internal class UpstreamRelaySupervisor(
                 }
             }
         require(isValid) { "Relay credentials missing for profile $profileId" }
+    }
+
+    private fun validateSupportedFeatures(
+        profileId: String,
+        config: RipDpiRelayConfig,
+        credentials: RelayCredentialRecord?,
+    ) {
+        require(!config.udpEnabled) { "Relay UDP mode is not implemented for profile $profileId" }
+        if (config.kind == RelayKindHysteria2) {
+            require(credentials?.hysteriaSalamanderKey.isNullOrBlank()) {
+                "Hysteria2 Salamander obfuscation is not implemented for profile $profileId"
+            }
+        }
+        if (config.kind == RelayKindMasque) {
+            require(!config.masqueCloudflareMode) {
+                "Cloudflare MASQUE auth is not implemented for profile $profileId"
+            }
+        }
     }
 }
 

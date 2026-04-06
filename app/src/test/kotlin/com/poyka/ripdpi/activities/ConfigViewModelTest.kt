@@ -7,6 +7,8 @@ import com.poyka.ripdpi.data.DnsProviderCustom
 import com.poyka.ripdpi.data.EncryptedDnsProtocolDnsCrypt
 import com.poyka.ripdpi.data.EncryptedDnsProtocolDot
 import com.poyka.ripdpi.data.Mode
+import com.poyka.ripdpi.data.RelayKindHysteria2
+import com.poyka.ripdpi.data.RelayKindMasque
 import com.poyka.ripdpi.data.canonicalDefaultEncryptedDnsSettings
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -120,5 +122,32 @@ class ConfigViewModelTest {
 
         assertEquals("Plain DNS · 9.9.9.9", plainDraft.dnsSummary)
         assertEquals("Encrypted DNS · Custom resolver (DNSCrypt)", dnsCryptDraft.dnsSummary)
+    }
+
+    @Test
+    fun `relay validation rejects unsupported hysteria salamander and masque cloudflare modes`() {
+        val hysteriaErrors =
+            validateConfigDraft(
+                defaultDraft.copy(
+                    relayEnabled = true,
+                    relayKind = RelayKindHysteria2,
+                    relayServer = "relay.example",
+                    relayServerName = "relay.example",
+                    relayHysteriaPassword = "secret",
+                    relayHysteriaSalamanderKey = "salamander",
+                ),
+            )
+        val masqueErrors =
+            validateConfigDraft(
+                defaultDraft.copy(
+                    relayEnabled = true,
+                    relayKind = RelayKindMasque,
+                    relayMasqueUrl = "https://masque.example/",
+                    relayMasqueCloudflareMode = true,
+                ),
+            )
+
+        assertEquals("unsupported", hysteriaErrors[ConfigFieldRelayCredentials])
+        assertEquals("unsupported", masqueErrors[ConfigFieldRelayCredentials])
     }
 }

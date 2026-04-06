@@ -19,6 +19,7 @@ import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import okhttp3.TlsVersion
 import java.io.IOException
+import java.net.Proxy
 import java.time.Instant
 import java.util.Locale
 import java.util.concurrent.TimeUnit
@@ -53,9 +54,15 @@ data class WarpProvisioningResult(
 )
 
 interface WarpProvisioningClient {
-    suspend fun register(request: WarpRegisterDeviceRequest): WarpProvisioningResult
+    suspend fun register(
+        request: WarpRegisterDeviceRequest,
+        bootstrapProxy: Proxy? = null,
+    ): WarpProvisioningResult
 
-    suspend fun refresh(credentials: WarpCredentials): WarpProvisioningResult
+    suspend fun refresh(
+        credentials: WarpCredentials,
+        bootstrapProxy: Proxy? = null,
+    ): WarpProvisioningResult
 }
 
 @Singleton
@@ -72,7 +79,10 @@ class DefaultWarpProvisioningClient
             private const val CallTimeoutSeconds = 45L
         }
 
-        override suspend fun register(request: WarpRegisterDeviceRequest): WarpProvisioningResult =
+        override suspend fun register(
+            request: WarpRegisterDeviceRequest,
+            bootstrapProxy: Proxy?,
+        ): WarpProvisioningResult =
             withContext(Dispatchers.IO) {
                 val httpRequest =
                     Request
@@ -96,13 +106,17 @@ class DefaultWarpProvisioningClient
                         .build()
                 executeRequest(
                     request = httpRequest,
+                    bootstrapProxy = bootstrapProxy,
                     privateKey = request.privateKey,
                     publicKey = request.publicKey,
                     endpointSource = "registration",
                 )
             }
 
-        override suspend fun refresh(credentials: WarpCredentials): WarpProvisioningResult =
+        override suspend fun refresh(
+            credentials: WarpCredentials,
+            bootstrapProxy: Proxy?,
+        ): WarpProvisioningResult =
             withContext(Dispatchers.IO) {
                 val deviceId = credentials.deviceId.trim()
                 require(deviceId.isNotEmpty()) { "WARP credentials missing device id" }
@@ -118,6 +132,7 @@ class DefaultWarpProvisioningClient
                         .build()
                 executeRequest(
                     request = httpRequest,
+                    bootstrapProxy = bootstrapProxy,
                     privateKey = credentials.privateKey,
                     publicKey = credentials.publicKey.orEmpty(),
                     endpointSource = "refresh",
@@ -126,11 +141,12 @@ class DefaultWarpProvisioningClient
 
         private fun executeRequest(
             request: Request,
+            bootstrapProxy: Proxy?,
             privateKey: String?,
             publicKey: String,
             endpointSource: String,
         ): WarpProvisioningResult {
-            val client = createProvisioningClient()
+            val client = createProvisioningClient(bootstrapProxy)
             client.newCall(request).execute().use { response ->
                 val body = response.body.string()
                 if (!response.isSuccessful) {
@@ -155,10 +171,11 @@ class DefaultWarpProvisioningClient
             }
         }
 
-        private fun createProvisioningClient(): OkHttpClient =
+        private fun createProvisioningClient(bootstrapProxy: Proxy?): OkHttpClient =
             tlsClientFactory.create(
                 forcedTlsVersions = listOf(TlsVersion.TLS_1_2),
             ) {
+                bootstrapProxy?.let(::proxy)
                 connectTimeout(ConnectTimeoutSeconds, TimeUnit.SECONDS)
                 readTimeout(ReadTimeoutSeconds, TimeUnit.SECONDS)
                 callTimeout(CallTimeoutSeconds, TimeUnit.SECONDS)

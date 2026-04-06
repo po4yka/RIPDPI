@@ -3,6 +3,7 @@ package com.poyka.ripdpi.services
 import com.poyka.ripdpi.core.RipDpiRelayConfig
 import com.poyka.ripdpi.data.RelayCredentialRecord
 import com.poyka.ripdpi.data.RelayKindHysteria2
+import com.poyka.ripdpi.data.RelayKindMasque
 import com.poyka.ripdpi.data.RelayProfileRecord
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -36,7 +37,6 @@ class UpstreamRelaySupervisorTest {
                         RelayCredentialRecord(
                             profileId = "edge",
                             hysteriaPassword = "secret",
-                            hysteriaSalamanderKey = "salamander",
                         ),
                     )
                 }
@@ -93,6 +93,100 @@ class UpstreamRelaySupervisorTest {
                     onUnexpectedExit = {},
                 )
                 fail("Expected relay startup to fail without credentials")
+            } catch (_: IllegalArgumentException) {
+            }
+        }
+
+    @Test
+    fun `start fails fast when hysteria salamander is configured`() =
+        runTest {
+            val supervisor =
+                UpstreamRelaySupervisor(
+                    scope = backgroundScope,
+                    dispatcher = StandardTestDispatcher(testScheduler),
+                    relayFactory = TestRipDpiRelayFactory(),
+                    relayProfileStore =
+                        TestRelayProfileStore().apply {
+                            save(
+                                RelayProfileRecord(
+                                    id = "edge",
+                                    kind = RelayKindHysteria2,
+                                    server = "relay.example",
+                                    serverPort = 8443,
+                                    serverName = "relay-sni.example",
+                                ),
+                            )
+                        },
+                    relayCredentialStore =
+                        TestRelayCredentialStore().apply {
+                            save(
+                                RelayCredentialRecord(
+                                    profileId = "edge",
+                                    hysteriaPassword = "secret",
+                                    hysteriaSalamanderKey = "salamander",
+                                ),
+                            )
+                        },
+                )
+
+            try {
+                supervisor.start(
+                    config =
+                        RipDpiRelayConfig(
+                            enabled = true,
+                            kind = RelayKindHysteria2,
+                            profileId = "edge",
+                        ),
+                    onUnexpectedExit = {},
+                )
+                fail("Expected relay startup to fail when Salamander is configured")
+            } catch (_: IllegalArgumentException) {
+            }
+        }
+
+    @Test
+    fun `start fails fast when masque cloudflare mode is configured`() =
+        runTest {
+            val supervisor =
+                UpstreamRelaySupervisor(
+                    scope = backgroundScope,
+                    dispatcher = StandardTestDispatcher(testScheduler),
+                    relayFactory = TestRipDpiRelayFactory(),
+                    relayProfileStore =
+                        TestRelayProfileStore().apply {
+                            save(
+                                RelayProfileRecord(
+                                    id = "edge",
+                                    kind = RelayKindMasque,
+                                    masqueUrl = "https://masque.example/",
+                                    masqueCloudflareMode = true,
+                                ),
+                            )
+                        },
+                    relayCredentialStore =
+                        TestRelayCredentialStore().apply {
+                            save(
+                                RelayCredentialRecord(
+                                    profileId = "edge",
+                                    masqueCloudflareClientId = "client-id",
+                                    masqueCloudflareKeyId = "key-id",
+                                    masqueCloudflarePrivateKeyPem = "pem-data",
+                                ),
+                            )
+                        },
+                )
+
+            try {
+                supervisor.start(
+                    config =
+                        RipDpiRelayConfig(
+                            enabled = true,
+                            kind = RelayKindMasque,
+                            profileId = "edge",
+                        ),
+                    onUnexpectedExit = {},
+                )
+                fail("Expected relay startup to fail in Cloudflare MASQUE mode")
             } catch (_: IllegalArgumentException) {
             }
         }
