@@ -129,12 +129,16 @@ abstract class BuildRustNativeLibsTask
                     if (!linker.isFile) {
                         throw GradleException("Android linker not found: ${linker.absolutePath}")
                     }
+                    val cxx = hostBinDir.resolve("${clangTarget}${minSdk.get()}-clang++")
+                    if (!cxx.isFile) {
+                        throw GradleException("Android C++ linker not found: ${cxx.absolutePath}")
+                    }
                     val ar = hostBinDir.resolve("llvm-ar")
                     if (!ar.isFile) {
                         throw GradleException("Android archiver not found: ${ar.absolutePath}")
                     }
 
-                    AbiConfig(abi, target, linker, ar)
+                    AbiConfig(abi, target, linker, cxx, ar)
                 }
 
             // Build all ABIs in parallel (each ABI has its own CARGO_TARGET_DIR).
@@ -200,6 +204,7 @@ abstract class BuildRustNativeLibsTask
         ) {
             val targetEnv = config.target.replace('-', '_').uppercase()
             val ccTargetKey = "CC_${config.target.replace('-', '_')}"
+            val cxxTargetKey = "CXX_${config.target.replace('-', '_')}"
             val arTargetKey = "AR_${config.target.replace('-', '_')}"
             val abiCargoTargetDir = cargoTargetRoot.resolve(config.abi)
             val abiOutputDir = outputRoot.resolve(config.abi)
@@ -207,12 +212,27 @@ abstract class BuildRustNativeLibsTask
             pruneStaleArtifactOutputs(abiOutputDir, expectedOutputNames)
 
             val ndkHome = File(sdkDir.get()).resolve("ndk").resolve(ndkVersion.get())
+            val appleHostEnvKeys =
+                listOf(
+                    "SDKROOT",
+                    "MACOSX_DEPLOYMENT_TARGET",
+                    "IPHONEOS_DEPLOYMENT_TARGET",
+                    "TVOS_DEPLOYMENT_TARGET",
+                    "WATCHOS_DEPLOYMENT_TARGET",
+                    "XROS_DEPLOYMENT_TARGET",
+                    "ARCHFLAGS",
+                    "RC_ARCHS",
+                    "CMAKE_OSX_ARCHITECTURES",
+                    "CMAKE_OSX_SYSROOT",
+                )
 
             val cargoEnvironment =
                 buildMap {
                     put("ANDROID_NDK_HOME", ndkHome.absolutePath)
                     put("CC_$targetEnv", config.linker.absolutePath)
                     put(ccTargetKey, config.linker.absolutePath)
+                    put("CXX_$targetEnv", config.cxx.absolutePath)
+                    put(cxxTargetKey, config.cxx.absolutePath)
                     put("AR_$targetEnv", config.ar.absolutePath)
                     put(arTargetKey, config.ar.absolutePath)
                     put("CARGO_TARGET_${targetEnv}_LINKER", config.linker.absolutePath)
@@ -249,6 +269,10 @@ abstract class BuildRustNativeLibsTask
                 .exec {
                     workingDir = manifest.parentFile
                     environment(cargoEnvironment)
+                    // Prevent CMake-based Rust dependencies from inheriting macOS host SDK/arch
+                    // settings while cross-compiling for Android.  These must be removed instead
+                    // of blanked out, otherwise host rustc rejects empty deployment targets.
+                    appleHostEnvKeys.forEach(environment::remove)
                     commandLine(cargoCommand)
                 }.assertNormalExitValue()
 
@@ -272,6 +296,7 @@ abstract class BuildRustNativeLibsTask
             val abi: String,
             val target: String,
             val linker: File,
+            val cxx: File,
             val ar: File,
         )
 
@@ -430,7 +455,8 @@ val rustNativePackageDirs =
     }
 val generatedJniLibsDir = layout.buildDirectory.dir("generated/jniLibs")
 val generatedAssetsDir = layout.buildDirectory.dir("generated/rootHelperAssets")
-val rustNativeBuildDir = layout.buildDirectory.dir("intermediates/rust")
+val rustNativeLibsBuildDir = layout.buildDirectory.dir("intermediates/rust-native-libs")
+val rustRootHelperBuildDir = layout.buildDirectory.dir("intermediates/rust-root-helper")
 val rustRootHelperArtifactSpecs =
     listOf(
         "ripdpi-root-helper|ripdpi-root-helper|ripdpi-root-helper",
@@ -458,6 +484,11 @@ val buildRustNativeLibs =
             },
         )
         nativeSources.from(
+            fileTree(rustWorkspaceDir.resolve("vendor")) {
+                include("**/*")
+            },
+        )
+        nativeSources.from(
             rustNativePackageDirs.map { packageDir ->
                 fileTree(packageDir) {
                     exclude("**/target/**")
@@ -473,7 +504,7 @@ val buildRustNativeLibs =
         minSdk.set(providers.gradleProperty("ripdpi.minSdk").map(String::toInt))
         abis.set(rustNativeAbis)
         artifactSpecs.set(rustNativeArtifactSpecs)
-        cargoTargetDir.set(rustNativeBuildDir)
+        cargoTargetDir.set(rustNativeLibsBuildDir)
         outputDir.set(generatedJniLibsDir)
     }
 
@@ -490,6 +521,11 @@ val buildRustRootHelper =
         )
         nativeSources.from(
             fileTree(rustWorkspaceDir.resolve(".cargo")) {
+                include("**/*")
+            },
+        )
+        nativeSources.from(
+            fileTree(rustWorkspaceDir.resolve("vendor")) {
                 include("**/*")
             },
         )
@@ -515,7 +551,7 @@ val buildRustRootHelper =
         minSdk.set(providers.gradleProperty("ripdpi.minSdk").map(String::toInt))
         abis.set(rustNativeAbis)
         artifactSpecs.set(rustRootHelperArtifactSpecs)
-        cargoTargetDir.set(rustNativeBuildDir)
+        cargoTargetDir.set(rustRootHelperBuildDir)
         // Output to assets/bin/<abi>/ so Kotlin can extract at runtime.
         outputDir.set(generatedAssetsDir.map { it.dir("bin") })
     }
