@@ -7,7 +7,7 @@ use std::sync::{Arc, Mutex};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use anyhow::{anyhow, Context};
-use base64::decode;
+use base64::{engine::general_purpose::STANDARD, Engine as _};
 use boringtun::noise::{Tunn, TunnResult};
 use bytes::{Bytes, BytesMut};
 use ripdpi_native_protect::protect_socket_via_callback;
@@ -546,7 +546,7 @@ async fn handle_udp_associate(mut control: TcpStream, bus: Bus, udp_pool: Arc<Ud
 
 /// Fill `buf` with cryptographically random bytes using the OS CSPRNG.
 fn fill_random(buf: &mut [u8]) {
-    getrandom::getrandom(buf).expect("getrandom failed");
+    getrandom::fill(buf).expect("getrandom failed");
 }
 
 /// Read a random u32 from the OS CSPRNG.
@@ -1162,14 +1162,14 @@ fn parse_ipv4_cidr(value: Option<&str>) -> Option<IpAddr> {
 }
 
 fn decode_key(value: &str) -> anyhow::Result<[u8; 32]> {
-    let bytes = decode(value).context("base64 decode failed")?;
+    let bytes = STANDARD.decode(value).context("base64 decode failed")?;
     bytes.try_into().map_err(|_| anyhow!("expected 32-byte key"))
 }
 
 fn reserved_bytes_from_client_id(client_id: Option<&str>) -> [u8; 3] {
     let mut reserved = [0u8; 3];
     if let Some(client_id) = client_id {
-        if let Ok(decoded) = decode(client_id) {
+        if let Ok(decoded) = STANDARD.decode(client_id) {
             for (index, value) in decoded.iter().take(3).enumerate() {
                 reserved[index] = *value;
             }
