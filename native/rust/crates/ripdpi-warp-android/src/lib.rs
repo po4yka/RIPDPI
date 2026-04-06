@@ -120,8 +120,10 @@ pub extern "system" fn Java_com_poyka_ripdpi_core_RipDpiWarpNativeBindings_jniDe
     }
 }
 
+// @JvmStatic in a Kotlin companion object generates the JNI symbol on the
+// class itself (without $Companion / 00024Companion), not on the companion.
 #[unsafe(no_mangle)]
-pub extern "system" fn Java_com_poyka_ripdpi_core_RipDpiWarpNativeBindings_00024Companion_jniRegisterVpnProtect(
+pub extern "system" fn Java_com_poyka_ripdpi_core_RipDpiWarpNativeBindings_jniRegisterVpnProtect(
     mut env: EnvUnowned<'_>,
     _thiz: JObject,
     vpn_service: JObject,
@@ -135,7 +137,7 @@ pub extern "system" fn Java_com_poyka_ripdpi_core_RipDpiWarpNativeBindings_00024
 }
 
 #[unsafe(no_mangle)]
-pub extern "system" fn Java_com_poyka_ripdpi_core_RipDpiWarpNativeBindings_00024Companion_jniUnregisterVpnProtect(
+pub extern "system" fn Java_com_poyka_ripdpi_core_RipDpiWarpNativeBindings_jniUnregisterVpnProtect(
     _env: EnvUnowned<'_>,
     _thiz: JObject,
 ) {
