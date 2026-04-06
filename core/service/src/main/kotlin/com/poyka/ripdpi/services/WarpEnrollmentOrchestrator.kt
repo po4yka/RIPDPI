@@ -1,8 +1,13 @@
 package com.poyka.ripdpi.services
 
+import com.poyka.ripdpi.core.RipDpiProxyUIPreferences
+import com.poyka.ripdpi.core.RipDpiRelayConfig
+import com.poyka.ripdpi.core.RipDpiWarpConfig
 import com.poyka.ripdpi.data.AppSettingsRepository
+import com.poyka.ripdpi.data.ApplicationIoScope
 import com.poyka.ripdpi.data.DefaultWarpProfileId
 import com.poyka.ripdpi.data.GlobalWarpEndpointScopeKey
+import com.poyka.ripdpi.data.NativeNetworkSnapshotProvider
 import com.poyka.ripdpi.data.WarpAccountKindConsumerFree
 import com.poyka.ripdpi.data.WarpAccountKindConsumerPlus
 import com.poyka.ripdpi.data.WarpAccountKindZeroTrust
@@ -24,8 +29,13 @@ import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import java.net.InetSocketAddress
+import java.net.Proxy
+import java.net.ServerSocket
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -50,15 +60,75 @@ data class WarpZeroTrustImportRequest(
     val interfaceAddressV6: String? = null,
 )
 
+data class WarpBootstrapProxyConfig(
+    val host: String,
+    val port: Int,
+) {
+    fun asOkHttpProxy(): Proxy = Proxy(Proxy.Type.SOCKS, InetSocketAddress(host, port))
+}
+
 interface WarpBootstrapProxyRunner {
-    suspend fun <T> withBootstrapProxy(block: suspend () -> T): T
+    suspend fun <T> withBootstrapProxy(block: suspend (WarpBootstrapProxyConfig?) -> T): T
 }
 
 @Singleton
 class PassthroughWarpBootstrapProxyRunner
     @Inject
     constructor() : WarpBootstrapProxyRunner {
-        override suspend fun <T> withBootstrapProxy(block: suspend () -> T): T = block()
+        override suspend fun <T> withBootstrapProxy(block: suspend (WarpBootstrapProxyConfig?) -> T): T = block(null)
+    }
+
+@Singleton
+internal class ManagedWarpBootstrapProxyRunner
+    @Inject
+    constructor(
+        private val appSettingsRepository: AppSettingsRepository,
+        private val proxyRuntimeSupervisorFactory: ProxyRuntimeSupervisorFactory,
+        private val networkSnapshotProvider: NativeNetworkSnapshotProvider,
+        @param:ApplicationIoScope private val scope: CoroutineScope,
+    ) : WarpBootstrapProxyRunner {
+        override suspend fun <T> withBootstrapProxy(block: suspend (WarpBootstrapProxyConfig?) -> T): T {
+            val bootstrapPort = reserveLoopbackPort()
+            val basePreferences = RipDpiProxyUIPreferences.fromSettings(appSettingsRepository.snapshot())
+            val bootstrapPreferences =
+                RipDpiProxyUIPreferences(
+                    protocols = basePreferences.protocols,
+                    parserEvasions = basePreferences.parserEvasions,
+                    adaptiveFallback = basePreferences.adaptiveFallback,
+                    wsTunnel = basePreferences.wsTunnel,
+                    listen = basePreferences.listen.copy(ip = LoopbackHost, port = bootstrapPort),
+                    chains = basePreferences.chains,
+                    fakePackets = basePreferences.fakePackets,
+                    quic = basePreferences.quic,
+                    hosts = basePreferences.hosts,
+                    relay = RipDpiRelayConfig(enabled = false),
+                    warp = RipDpiWarpConfig(enabled = false),
+                    hostAutolearn = basePreferences.hostAutolearn,
+                    nativeLogLevel = basePreferences.nativeLogLevel,
+                    runtimeContext = basePreferences.runtimeContext,
+                    logContext = basePreferences.logContext,
+                    rootMode = basePreferences.rootMode,
+                    rootHelperSocketPath = basePreferences.rootHelperSocketPath,
+                )
+            val proxyRuntimeSupervisor =
+                proxyRuntimeSupervisorFactory.create(
+                    scope = scope,
+                    dispatcher = Dispatchers.IO,
+                    networkSnapshotProvider = networkSnapshotProvider,
+                )
+            proxyRuntimeSupervisor.start(preferences = bootstrapPreferences, onUnexpectedExit = {})
+            return try {
+                block(WarpBootstrapProxyConfig(host = LoopbackHost, port = bootstrapPort))
+            } finally {
+                proxyRuntimeSupervisor.stop()
+            }
+        }
+
+        private fun reserveLoopbackPort(): Int = ServerSocket(0).use { it.localPort }
+
+        private companion object {
+            private const val LoopbackHost = "127.0.0.1"
+        }
     }
 
 interface WarpEndpointScanner {
@@ -130,7 +200,7 @@ class DefaultWarpEnrollmentOrchestrator
                 val normalizedProfileId = profileId.normalizeProfileId(displayName)
                 val provisioning =
                     bootstrapProxyRunner.withBootstrapProxy {
-                        provisioningClient.register(request)
+                        provisioningClient.register(request, bootstrapProxy = it?.asOkHttpProxy())
                     }
                 val accountKind =
                     if (provisioning.warpPlus || !provisioning.license.isNullOrBlank()) {
@@ -214,7 +284,7 @@ class DefaultWarpEnrollmentOrchestrator
                         ?: error("No WARP credentials saved for profile ${activeProfile.id}")
                 val provisioning =
                     bootstrapProxyRunner.withBootstrapProxy {
-                        provisioningClient.refresh(credentials)
+                        provisioningClient.refresh(credentials, bootstrapProxy = it?.asOkHttpProxy())
                     }
                 val refreshedCredentials =
                     provisioning.credentials.copy(
@@ -389,7 +459,9 @@ class DefaultWarpEnrollmentOrchestrator
 abstract class WarpEnrollmentModule {
     @Binds
     @Singleton
-    abstract fun bindWarpBootstrapProxyRunner(runner: PassthroughWarpBootstrapProxyRunner): WarpBootstrapProxyRunner
+    internal abstract fun bindWarpBootstrapProxyRunner(
+        runner: ManagedWarpBootstrapProxyRunner,
+    ): WarpBootstrapProxyRunner
 
     @Binds
     @Singleton

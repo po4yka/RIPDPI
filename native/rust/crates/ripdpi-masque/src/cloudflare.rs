@@ -1,10 +1,17 @@
+use std::io;
+
 use crate::config::MasqueConfig;
 
 /// Construct Cloudflare-specific authentication headers.
 ///
-/// Returns a list of `(header_name, header_value)` pairs to attach to the
-/// Extended CONNECT request when `cloudflare_mode` is enabled.
-pub fn cloudflare_auth_headers(config: &MasqueConfig) -> Vec<(String, String)> {
+/// Cloudflare's MASQUE `cf-connect-ip` flow requires ECDSA-authenticated
+/// requests. Until that flow is implemented end-to-end, fail fast instead of
+/// emitting placeholder headers that make the mode look functional.
+pub fn cloudflare_auth_headers(config: &MasqueConfig) -> io::Result<Vec<(String, String)>> {
+    if config.cloudflare_mode {
+        return Err(io::Error::new(io::ErrorKind::Unsupported, "Cloudflare MASQUE auth is not implemented yet"));
+    }
+
     let mut headers = Vec::new();
 
     if let Some(ref client_id) = config.cf_client_id {
@@ -19,7 +26,7 @@ pub fn cloudflare_auth_headers(config: &MasqueConfig) -> Vec<(String, String)> {
         headers.push(("authorization".to_owned(), format!("Bearer {token}")));
     }
 
-    headers
+    Ok(headers)
 }
 
 #[cfg(test)]
@@ -27,7 +34,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn cloudflare_headers_present() {
+    fn cloudflare_headers_reject_unsupported_mode() {
         let config = MasqueConfig {
             url: "https://masque.example.com/".to_owned(),
             use_http2_fallback: false,
@@ -40,11 +47,8 @@ mod tests {
             tls_fingerprint_profile: "chrome_stable".to_owned(),
         };
 
-        let headers = cloudflare_auth_headers(&config);
-        assert_eq!(headers.len(), 3);
-        assert_eq!(headers[0], ("cf-client-id".to_owned(), "client-123".to_owned()));
-        assert_eq!(headers[1], ("cf-key-id".to_owned(), "key-456".to_owned()));
-        assert_eq!(headers[2], ("authorization".to_owned(), "Bearer test-token".to_owned()));
+        let error = cloudflare_auth_headers(&config).expect_err("Cloudflare auth should fail fast");
+        assert_eq!(error.kind(), io::ErrorKind::Unsupported);
     }
 
     #[test]
@@ -61,7 +65,7 @@ mod tests {
             tls_fingerprint_profile: "chrome_stable".to_owned(),
         };
 
-        let headers = cloudflare_auth_headers(&config);
+        let headers = cloudflare_auth_headers(&config).expect("non-Cloudflare mode should remain a no-op");
         assert!(headers.is_empty());
     }
 }

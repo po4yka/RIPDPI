@@ -806,6 +806,7 @@
     <string name="config_error_invalid_marker">Enter a valid marker expression.</string>
     <string name="config_error_required">This field is required.</string>
     <string name="config_error_invalid_chain">Enter a valid strategy chain DSL.</string>
+    <string name="config_error_unsupported">This option is not supported in the current build.</string>
     <string name="config_placeholder_split_marker">host</string>
     <string name="config_placeholder_fake_offset_marker">0</string>
     <string name="config_placeholder_fake_tls_size">0</string>

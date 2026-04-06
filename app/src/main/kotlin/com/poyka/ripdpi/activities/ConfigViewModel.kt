@@ -298,6 +298,9 @@ internal fun validateConfigDraft(draft: ConfigDraft): ImmutableMap<String, Strin
                     if (draft.relayServerName.isBlank() || draft.relayHysteriaPassword.isBlank()) {
                         put(ConfigFieldRelayCredentials, "required")
                     }
+                    if (draft.relayHysteriaSalamanderKey.isNotBlank()) {
+                        put(ConfigFieldRelayCredentials, "unsupported")
+                    }
                 }
 
                 RelayKindChainRelay -> {
@@ -321,7 +324,12 @@ internal fun validateConfigDraft(draft: ConfigDraft): ImmutableMap<String, Strin
                 }
 
                 RelayKindMasque -> {
-                    if (draft.relayMasqueUrl.isBlank() || draft.relayMasqueAuthToken.isBlank()) {
+                    if (draft.relayMasqueUrl.isBlank()) {
+                        put(ConfigFieldRelayCredentials, "required")
+                    }
+                    if (draft.relayMasqueCloudflareMode) {
+                        put(ConfigFieldRelayCredentials, "unsupported")
+                    } else if (draft.relayMasqueAuthToken.isBlank()) {
                         put(ConfigFieldRelayCredentials, "required")
                     }
                 }

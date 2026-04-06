@@ -560,9 +560,8 @@ fn rand_u32() -> u32 {
 ///
 /// On send: replaces the WireGuard type byte with the configured header value
 /// (hN) and prepends sN random padding bytes.
-/// On receive: reads the u32 at byte 0, matches against h1-h4 to identify
-/// the WireGuard type and padding length, strips padding, restores the type
-/// byte.
+/// On receive: reads the u32 after the configured padding, matches against
+/// h1-h4 to identify the WireGuard type and strips the Amnezia header.
 struct AmneziaCodec {
     /// Fixed replacement header values for WG types 1-4.
     h: [u32; 4],
@@ -579,9 +578,10 @@ impl AmneziaCodec {
     }
 
     /// Obfuscate a WireGuard packet for sending.
-    /// Returns a new `Vec<u8>` with padding prepended and type byte replaced.
+    /// Returns a new `Vec<u8>` with padding prepended and the WG type byte
+    /// replaced by the configured Amnezia header.
     fn encode(&self, packet: &[u8]) -> Vec<u8> {
-        if packet.is_empty() {
+        if packet.len() < 4 {
             return packet.to_vec();
         }
         let wg_type = packet[0];
@@ -605,21 +605,20 @@ impl AmneziaCodec {
     }
 
     /// Decode an AmneziaWG packet received from the peer.
-    /// Returns `(wg_type, payload_after_padding)` or `None` if unrecognized.
+    /// Returns `(wg_type, payload_after_header)` or `None` if unrecognized.
     fn decode<'a>(&self, packet: &'a [u8]) -> Option<(u8, &'a [u8])> {
         if packet.len() < 4 {
             return None;
         }
-        let header = u32::from_le_bytes([packet[0], packet[1], packet[2], packet[3]]);
         for (idx, &h_val) in self.h.iter().enumerate() {
+            let pad_len = self.s[idx];
+            let header_start = pad_len;
+            let payload_start = header_start + 4;
+            if payload_start > packet.len() {
+                continue;
+            }
+            let header = u32::from_le_bytes(packet[header_start..payload_start].try_into().ok()?);
             if header == h_val {
-                let pad_len = self.s[idx];
-                // After the 4-byte header comes pad_len bytes we skip, then the
-                // rest of the original WireGuard packet (starting at byte 1).
-                let payload_start = 4 + pad_len;
-                if payload_start > packet.len() {
-                    return None;
-                }
                 let wg_type = (idx + 1) as u8;
                 return Some((wg_type, &packet[payload_start..]));
             }
@@ -676,11 +675,25 @@ impl WireGuardTunnel {
         self.send_tunn_result(result).await;
     }
 
+    fn encode_outbound_packet(&self, packet: &[u8]) -> Vec<u8> {
+        match &self.amnezia {
+            Some(codec) => {
+                let mut wg_packet = packet.to_vec();
+                apply_reserved_bytes(&mut wg_packet, self.reserved);
+                codec.encode(&wg_packet)
+            }
+            None => {
+                let mut payload = packet.to_vec();
+                apply_reserved_bytes(&mut payload, self.reserved);
+                payload
+            }
+        }
+    }
+
     async fn send_tunn_result<'a>(&self, result: TunnResult<'a>) {
         match result {
             TunnResult::WriteToNetwork(packet) => {
-                let mut payload = if let Some(codec) = &self.amnezia { codec.encode(packet) } else { packet.to_vec() };
-                apply_reserved_bytes(&mut payload, self.reserved);
+                let payload = self.encode_outbound_packet(packet);
                 let _ = self.udp.send_to(&payload, self.endpoint).await;
             }
             TunnResult::Done => {}
@@ -751,9 +764,7 @@ impl WireGuardTunnel {
             let result = { self.peer.lock().await.decapsulate(None, data, &mut send_buf) };
             match result {
                 TunnResult::WriteToNetwork(packet) => {
-                    let mut payload =
-                        if let Some(codec) = &self.amnezia { codec.encode(packet) } else { packet.to_vec() };
-                    apply_reserved_bytes(&mut payload, self.reserved);
+                    let payload = self.encode_outbound_packet(packet);
                     let _ = self.udp.send_to(&payload, self.endpoint).await;
                 }
                 TunnResult::WriteToTunnelV4(packet, _) | TunnResult::WriteToTunnelV6(packet, _) => {
