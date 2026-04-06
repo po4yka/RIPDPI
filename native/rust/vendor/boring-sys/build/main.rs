@@ -285,30 +285,44 @@ fn get_boringssl_cmake_config(config: &Config) -> cmake::Config {
             // This causes the Android cross-compiler to receive "-arch arm64":
             //   clang: error: unsupported option '-arch' for target 'aarch64-linux-android'
             //
-            // Fix (both parts required):
+            // Critically, this also affects every cmake try_compile sub-project
+            // (ABI detection, check_include_file, find_package(Threads), etc.) —
+            // those inner cmake projects also hit Platform/Darwin.cmake, causing ABI
+            // info and system headers (pthread.h) to be reported as missing.
             //
-            // 1. Skip compiler tests — Platform/Darwin.cmake forces the arch flag
-            //    BEFORE the compiler test runs, so the test always fails on Apple Silicon.
-            //    We know the NDK clang works, so it is safe to assert this.
-            boringssl_cmake.define("CMAKE_C_COMPILER_WORKS", "1");
-            boringssl_cmake.define("CMAKE_CXX_COMPILER_WORKS", "1");
-            boringssl_cmake.define("CMAKE_ASM_COMPILER_WORKS", "1");
+            // Fix: CMAKE_USER_MAKE_RULES_OVERRIDE — a cmake file that:
+            //   a) runs AFTER Platform/Darwin.cmake (which forces arm64) but BEFORE
+            //      the compiler test, so compiler tests pass
+            //   b) is automatically forwarded to ALL try_compile sub-projects, fixing
+            //      ABI detection and check_include_file() in the same way
             //
-            // 2. Clear the forced OSX flags via CMAKE_PROJECT_INCLUDE, which runs at
-            //    the end of project() — after platform init (which forces arm64) but
-            //    before cmake writes the build rules — so boringssl targets are
-            //    compiled without -arch arm64.
+            // CMAKE_PROJECT_INCLUDE (belt-and-suspenders) additionally clears the
+            // arch vars at the end of project() before build rules are written.
             let out_dir = std::env::var("OUT_DIR").expect("OUT_DIR not set");
-            let clear_osx = std::path::Path::new(&out_dir).join("clear_osx_flags.cmake");
+            let no_arch = std::path::Path::new(&out_dir).join("no_osx_arch.cmake");
             std::fs::write(
-                &clear_osx,
-                "# Clear macOS host arch flags forced by Platform/Darwin.cmake.\n\
-                 # Runs as CMAKE_PROJECT_INCLUDE (end of project(), before build rules).\n\
-                 set(CMAKE_OSX_ARCHITECTURES \"\" CACHE STRING \"\" FORCE)\n\
-                 set(CMAKE_OSX_SYSROOT \"\" CACHE PATH \"\" FORCE)\n",
+                &no_arch,
+                concat!(
+                    "# Strip macOS host arch flags that Platform/Darwin.cmake injects.\n",
+                    "# Set as CMAKE_USER_MAKE_RULES_OVERRIDE: included after platform\n",
+                    "# modules but before compiler tests, and forwarded automatically\n",
+                    "# to all try_compile sub-projects (ABI detection, find_package, etc.).\n",
+                    "foreach(_lang C CXX ASM)\n",
+                    "  if(DEFINED CMAKE_${_lang}_FLAGS_INIT)\n",
+                    "    string(REGEX REPLACE \"(^| )-arch [^ ]+\" \" \"\n",
+                    "      _f \"${CMAKE_${_lang}_FLAGS_INIT}\")\n",
+                    "    string(STRIP \"${_f}\" _f)\n",
+                    "    set(CMAKE_${_lang}_FLAGS_INIT \"${_f}\" CACHE STRING \"\" FORCE)\n",
+                    "  endif()\n",
+                    "endforeach()\n",
+                    "set(CMAKE_OSX_ARCHITECTURES \"\" CACHE STRING \"\" FORCE)\n",
+                    "set(CMAKE_OSX_SYSROOT \"\" CACHE PATH \"\" FORCE)\n",
+                ),
             )
-            .expect("failed to write clear_osx_flags.cmake");
-            boringssl_cmake.define("CMAKE_PROJECT_INCLUDE", clear_osx.to_str().unwrap());
+            .expect("failed to write no_osx_arch.cmake");
+            let no_arch_path = no_arch.to_str().unwrap();
+            boringssl_cmake.define("CMAKE_USER_MAKE_RULES_OVERRIDE", no_arch_path);
+            boringssl_cmake.define("CMAKE_PROJECT_INCLUDE", no_arch_path);
         }
 
         "macos" => {
