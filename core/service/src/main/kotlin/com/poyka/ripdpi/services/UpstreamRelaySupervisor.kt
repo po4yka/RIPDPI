@@ -12,9 +12,13 @@ import com.poyka.ripdpi.data.RelayKindChainRelay
 import com.poyka.ripdpi.data.RelayKindHysteria2
 import com.poyka.ripdpi.data.RelayKindMasque
 import com.poyka.ripdpi.data.RelayKindVlessReality
+import com.poyka.ripdpi.data.RelayMasqueAuthModeBearer
+import com.poyka.ripdpi.data.RelayMasqueAuthModePreshared
+import com.poyka.ripdpi.data.RelayMasqueAuthModePrivacyPass
 import com.poyka.ripdpi.data.RelayProfileRecord
 import com.poyka.ripdpi.data.RelayProfileStore
 import com.poyka.ripdpi.data.TlsFingerprintProfileNativeDefault
+import com.poyka.ripdpi.data.normalizeRelayMasqueAuthMode
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
@@ -30,6 +34,7 @@ internal class UpstreamRelaySupervisor(
     private val relayFactory: RipDpiRelayFactory,
     private val relayProfileStore: RelayProfileStore,
     private val relayCredentialStore: RelayCredentialStore,
+    private val masquePrivacyPassProvider: MasquePrivacyPassProvider = NoopMasquePrivacyPassProvider(),
     private val tlsFingerprintProfileProvider: OwnedTlsFingerprintProfileProvider =
         object : OwnedTlsFingerprintProfileProvider {
             override fun currentProfile(): String = TlsFingerprintProfileNativeDefault
@@ -112,8 +117,15 @@ internal class UpstreamRelaySupervisor(
         val storedProfile = relayProfileStore.load(profileId)
         val effectiveConfig = mergeConfig(config, storedProfile)
         val credentials = relayCredentialStore.load(profileId)
-        validateCredentials(profileId, effectiveConfig.kind, effectiveConfig.masqueCloudflareMode, credentials)
-        validateSupportedFeatures(profileId, effectiveConfig, credentials)
+        val masqueAuthMode = resolveMasqueAuthMode(effectiveConfig, credentials)
+        val privacyPassRuntime =
+            if (effectiveConfig.kind == RelayKindMasque && masqueAuthMode == RelayMasqueAuthModePrivacyPass) {
+                masquePrivacyPassProvider.resolve(profileId, effectiveConfig, credentials)
+            } else {
+                null
+            }
+        validateCredentials(profileId, effectiveConfig.kind, masqueAuthMode, credentials)
+        validateSupportedFeatures(profileId, effectiveConfig, masqueAuthMode, privacyPassRuntime)
         return ResolvedRipDpiRelayConfig(
             enabled = effectiveConfig.enabled,
             kind = effectiveConfig.kind,
@@ -146,11 +158,13 @@ internal class UpstreamRelaySupervisor(
             hysteriaPassword = credentials?.hysteriaPassword,
             hysteriaSalamanderKey = credentials?.hysteriaSalamanderKey,
             tlsFingerprintProfile = tlsFingerprintProfileProvider.currentProfile(),
-            masqueAuthMode = credentials?.masqueAuthMode,
+            masqueAuthMode = masqueAuthMode,
             masqueAuthToken = credentials?.masqueAuthToken,
             masqueCloudflareClientId = credentials?.masqueCloudflareClientId,
             masqueCloudflareKeyId = credentials?.masqueCloudflareKeyId,
             masqueCloudflarePrivateKeyPem = credentials?.masqueCloudflarePrivateKeyPem,
+            masquePrivacyPassProviderUrl = privacyPassRuntime?.providerUrl,
+            masquePrivacyPassProviderAuthToken = privacyPassRuntime?.providerAuthToken,
         )
     }
 
@@ -189,13 +203,9 @@ internal class UpstreamRelaySupervisor(
     private fun validateCredentials(
         profileId: String,
         relayKind: String,
-        cloudflareMasqueMode: Boolean,
+        masqueAuthMode: String?,
         credentials: RelayCredentialRecord?,
     ) {
-        val hasMasqueCloudflareKeys =
-            !credentials?.masqueCloudflareClientId.isNullOrBlank() &&
-                !credentials?.masqueCloudflareKeyId.isNullOrBlank() &&
-                !credentials?.masqueCloudflarePrivateKeyPem.isNullOrBlank()
         val isValid =
             when (relayKind) {
                 RelayKindVlessReality -> {
@@ -212,10 +222,14 @@ internal class UpstreamRelaySupervisor(
                 }
 
                 RelayKindMasque -> {
-                    if (cloudflareMasqueMode) {
-                        hasMasqueCloudflareKeys
-                    } else {
-                        !credentials?.masqueAuthToken.isNullOrBlank()
+                    when (masqueAuthMode) {
+                        RelayMasqueAuthModeBearer,
+                        RelayMasqueAuthModePreshared,
+                        -> !credentials?.masqueAuthToken.isNullOrBlank()
+
+                        RelayMasqueAuthModePrivacyPass -> true
+
+                        else -> false
                     }
                 }
 
@@ -229,20 +243,31 @@ internal class UpstreamRelaySupervisor(
     private fun validateSupportedFeatures(
         profileId: String,
         config: RipDpiRelayConfig,
-        credentials: RelayCredentialRecord?,
+        masqueAuthMode: String?,
+        privacyPassRuntime: MasquePrivacyPassRuntimeConfig?,
     ) {
-        require(!config.udpEnabled) { "Relay UDP mode is not implemented for profile $profileId" }
-        if (config.kind == RelayKindHysteria2) {
-            require(credentials?.hysteriaSalamanderKey.isNullOrBlank()) {
-                "Hysteria2 Salamander obfuscation is not implemented for profile $profileId"
-            }
+        require(!config.udpEnabled || config.kind == RelayKindHysteria2 || config.kind == RelayKindMasque) {
+            "Relay UDP mode is only available for Hysteria2 and MASQUE profiles"
         }
-        if (config.kind == RelayKindMasque) {
-            require(!config.masqueCloudflareMode) {
-                "Cloudflare MASQUE auth is not implemented for profile $profileId"
+        if (config.kind == RelayKindMasque && masqueAuthMode == RelayMasqueAuthModePrivacyPass) {
+            requireNotNull(privacyPassRuntime) {
+                "MASQUE privacy_pass auth requires a configured token provider for profile $profileId"
             }
         }
     }
+
+    private fun resolveMasqueAuthMode(
+        config: RipDpiRelayConfig,
+        credentials: RelayCredentialRecord?,
+    ): String? =
+        normalizeRelayMasqueAuthMode(
+            value = credentials?.masqueAuthMode,
+            cloudflareMode = config.masqueCloudflareMode,
+        ) ?: if (!credentials?.masqueAuthToken.isNullOrBlank()) {
+            RelayMasqueAuthModeBearer
+        } else {
+            null
+        }
 }
 
 internal open class UpstreamRelaySupervisorFactory
@@ -251,6 +276,7 @@ internal open class UpstreamRelaySupervisorFactory
         private val relayFactory: RipDpiRelayFactory,
         private val relayProfileStore: RelayProfileStore,
         private val relayCredentialStore: RelayCredentialStore,
+        private val masquePrivacyPassProvider: MasquePrivacyPassProvider = NoopMasquePrivacyPassProvider(),
         private val tlsFingerprintProfileProvider: OwnedTlsFingerprintProfileProvider =
             object : OwnedTlsFingerprintProfileProvider {
                 override fun currentProfile(): String = TlsFingerprintProfileNativeDefault
@@ -266,6 +292,7 @@ internal open class UpstreamRelaySupervisorFactory
                 relayFactory = relayFactory,
                 relayProfileStore = relayProfileStore,
                 relayCredentialStore = relayCredentialStore,
+                masquePrivacyPassProvider = masquePrivacyPassProvider,
                 tlsFingerprintProfileProvider = tlsFingerprintProfileProvider,
             )
     }

@@ -14,6 +14,9 @@ import com.poyka.ripdpi.data.RelayKindHysteria2
 import com.poyka.ripdpi.data.RelayKindMasque
 import com.poyka.ripdpi.data.RelayKindOff
 import com.poyka.ripdpi.data.RelayKindVlessReality
+import com.poyka.ripdpi.data.RelayMasqueAuthModeBearer
+import com.poyka.ripdpi.data.RelayMasqueAuthModePreshared
+import com.poyka.ripdpi.data.RelayMasqueAuthModePrivacyPass
 import com.poyka.ripdpi.data.RelayProfileRecord
 import com.poyka.ripdpi.data.RelayProfileStore
 import com.poyka.ripdpi.data.StrategyChainSet
@@ -25,6 +28,7 @@ import com.poyka.ripdpi.data.effectiveTcpChainSteps
 import com.poyka.ripdpi.data.effectiveUdpChainSteps
 import com.poyka.ripdpi.data.formatChainSummary
 import com.poyka.ripdpi.data.formatStrategyChainDsl
+import com.poyka.ripdpi.data.normalizeRelayMasqueAuthMode
 import com.poyka.ripdpi.data.parseStrategyChainDsl
 import com.poyka.ripdpi.data.primaryDesyncMethod
 import com.poyka.ripdpi.data.setStrategyChains
@@ -98,9 +102,11 @@ data class ConfigDraft(
     val relayChainExitShortId: String = "",
     val relayChainExitUuid: String = "",
     val relayMasqueUrl: String = "",
+    val relayMasqueAuthMode: String = RelayMasqueAuthModeBearer,
     val relayMasqueAuthToken: String = "",
     val relayMasqueUseHttp2Fallback: Boolean = true,
     val relayMasqueCloudflareMode: Boolean = false,
+    val relayUdpEnabled: Boolean = false,
     val relayLocalSocksPort: String = DefaultRelayLocalSocksPort.toString(),
 ) {
     val chainSummary: String
@@ -213,8 +219,15 @@ internal fun AppSettings.toConfigDraft(): ConfigDraft =
             relayChainExitPublicKey = relay.profile.chainExitPublicKey,
             relayChainExitShortId = relay.profile.chainExitShortId,
             relayMasqueUrl = relay.profile.masqueUrl,
+            relayMasqueAuthMode =
+                if (relay.profile.masqueCloudflareMode) {
+                    RelayMasqueAuthModePrivacyPass
+                } else {
+                    RelayMasqueAuthModeBearer
+                },
             relayMasqueUseHttp2Fallback = relay.profile.masqueUseHttp2Fallback,
             relayMasqueCloudflareMode = relay.profile.masqueCloudflareMode,
+            relayUdpEnabled = relay.profile.udpEnabled,
             relayLocalSocksPort = relay.profile.localSocksPort.toString(),
         )
     }
@@ -298,9 +311,6 @@ internal fun validateConfigDraft(draft: ConfigDraft): ImmutableMap<String, Strin
                     if (draft.relayServerName.isBlank() || draft.relayHysteriaPassword.isBlank()) {
                         put(ConfigFieldRelayCredentials, "required")
                     }
-                    if (draft.relayHysteriaSalamanderKey.isNotBlank()) {
-                        put(ConfigFieldRelayCredentials, "unsupported")
-                    }
                 }
 
                 RelayKindChainRelay -> {
@@ -327,12 +337,32 @@ internal fun validateConfigDraft(draft: ConfigDraft): ImmutableMap<String, Strin
                     if (draft.relayMasqueUrl.isBlank()) {
                         put(ConfigFieldRelayCredentials, "required")
                     }
-                    if (draft.relayMasqueCloudflareMode) {
-                        put(ConfigFieldRelayCredentials, "unsupported")
-                    } else if (draft.relayMasqueAuthToken.isBlank()) {
-                        put(ConfigFieldRelayCredentials, "required")
+                    when (normalizeRelayMasqueAuthMode(draft.relayMasqueAuthMode, draft.relayMasqueCloudflareMode)) {
+                        RelayMasqueAuthModeBearer,
+                        RelayMasqueAuthModePreshared,
+                        -> {
+                            if (draft.relayMasqueAuthToken.isBlank()) {
+                                put(ConfigFieldRelayCredentials, "required")
+                            }
+                        }
+
+                        RelayMasqueAuthModePrivacyPass -> {
+                            Unit
+                        }
+
+                        else -> {
+                            put(ConfigFieldRelayCredentials, "required")
+                        }
                     }
                 }
+            }
+
+            if (
+                draft.relayUdpEnabled &&
+                draft.relayKind != RelayKindHysteria2 &&
+                draft.relayKind != RelayKindMasque
+            ) {
+                put(ConfigFieldRelayCredentials, "unsupported")
             }
         }
 
@@ -387,10 +417,13 @@ private fun AppSettings.Builder.applyConfigDraft(draft: ConfigDraft): AppSetting
         setRelayChainExitShortId(draft.relayChainExitShortId)
         setRelayMasqueUrl(draft.relayMasqueUrl)
         setRelayMasqueUseHttp2Fallback(draft.relayMasqueUseHttp2Fallback)
-        setRelayMasqueCloudflareMode(draft.relayMasqueCloudflareMode)
+        setRelayMasqueCloudflareMode(
+            normalizeRelayMasqueAuthMode(draft.relayMasqueAuthMode, draft.relayMasqueCloudflareMode) ==
+                RelayMasqueAuthModePrivacyPass,
+        )
         setRelayLocalSocksHost("127.0.0.1")
         setRelayLocalSocksPort(draft.relayLocalSocksPort.toIntOrNull() ?: DefaultRelayLocalSocksPort)
-        setRelayUdpEnabled(false)
+        setRelayUdpEnabled(draft.relayUdpEnabled)
         setRelayTcpFallbackEnabled(draft.relayMasqueUseHttp2Fallback)
     }
 
@@ -538,6 +571,11 @@ class ConfigViewModel
                                 relayHysteriaSalamanderKey = credentials?.hysteriaSalamanderKey.orEmpty(),
                                 relayChainEntryUuid = credentials?.chainEntryUuid.orEmpty(),
                                 relayChainExitUuid = credentials?.chainExitUuid.orEmpty(),
+                                relayMasqueAuthMode =
+                                    normalizeRelayMasqueAuthMode(
+                                        credentials?.masqueAuthMode,
+                                        (current.draft ?: draft).relayMasqueCloudflareMode,
+                                    ) ?: (current.draft ?: draft).relayMasqueAuthMode,
                                 relayMasqueAuthToken = credentials?.masqueAuthToken.orEmpty(),
                             ),
                     )
@@ -568,7 +606,11 @@ class ConfigViewModel
                     chainExitShortId = draft.relayChainExitShortId,
                     masqueUrl = draft.relayMasqueUrl,
                     masqueUseHttp2Fallback = draft.relayMasqueUseHttp2Fallback,
-                    masqueCloudflareMode = draft.relayMasqueCloudflareMode,
+                    masqueCloudflareMode =
+                        normalizeRelayMasqueAuthMode(draft.relayMasqueAuthMode, draft.relayMasqueCloudflareMode) ==
+                            RelayMasqueAuthModePrivacyPass,
+                    udpEnabled = draft.relayUdpEnabled,
+                    tcpFallbackEnabled = draft.relayMasqueUseHttp2Fallback,
                     localSocksPort = draft.relayLocalSocksPort.toIntOrNull() ?: DefaultRelayLocalSocksPort,
                 ),
             )
@@ -580,6 +622,8 @@ class ConfigViewModel
                     chainExitUuid = draft.relayChainExitUuid.ifBlank { null },
                     hysteriaPassword = draft.relayHysteriaPassword.ifBlank { null },
                     hysteriaSalamanderKey = draft.relayHysteriaSalamanderKey.ifBlank { null },
+                    masqueAuthMode =
+                        normalizeRelayMasqueAuthMode(draft.relayMasqueAuthMode, draft.relayMasqueCloudflareMode),
                     masqueAuthToken = draft.relayMasqueAuthToken.ifBlank { null },
                 ),
             )

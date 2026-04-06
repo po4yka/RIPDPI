@@ -5,11 +5,10 @@ edition.workspace = true
 license.workspace = true
 
 [dependencies]
-hysteria2 = "0.1.6"
+ripdpi-hysteria2 = { workspace = true }
 ripdpi-vless = { workspace = true }
 ripdpi-masque = { workspace = true }
 serde = { workspace = true }
-socket2 = { workspace = true }
 tokio = { workspace = true, features = ["io-util", "macros", "net", "rt-multi-thread", "sync", "time"] }
 tracing = { workspace = true }
 

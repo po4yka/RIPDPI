@@ -1,0 +1,23 @@
+[package]
+name = "ripdpi-hysteria2"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+blake2 = { workspace = true }
+bytes = { workspace = true }
+h3 = { workspace = true }
+h3-quinn = { workspace = true }
+http = { workspace = true }
+quinn = { workspace = true }
+rand = { workspace = true }
+rustls = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true, features = ["io-util", "macros", "net", "sync", "time"] }
+tracing = { workspace = true }
+url = { workspace = true }
+webpki-roots = { workspace = true }
+
+[lints]
+workspace = true

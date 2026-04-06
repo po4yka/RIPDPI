@@ -58,6 +58,9 @@ import com.poyka.ripdpi.data.RelayKindHysteria2
 import com.poyka.ripdpi.data.RelayKindMasque
 import com.poyka.ripdpi.data.RelayKindOff
 import com.poyka.ripdpi.data.RelayKindVlessReality
+import com.poyka.ripdpi.data.RelayMasqueAuthModeBearer
+import com.poyka.ripdpi.data.RelayMasqueAuthModePreshared
+import com.poyka.ripdpi.data.RelayMasqueAuthModePrivacyPass
 import com.poyka.ripdpi.ui.components.RipDpiHapticFeedback
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
@@ -172,9 +175,17 @@ fun ModeEditorRoute(
         onRelayChainExitShortIdChanged = { viewModel.updateDraft { copy(relayChainExitShortId = it) } },
         onRelayChainExitUuidChanged = { viewModel.updateDraft { copy(relayChainExitUuid = it) } },
         onRelayMasqueUrlChanged = { viewModel.updateDraft { copy(relayMasqueUrl = it) } },
+        onRelayMasqueAuthModeChanged = {
+            viewModel.updateDraft {
+                copy(
+                    relayMasqueAuthMode = it,
+                    relayMasqueCloudflareMode = it == RelayMasqueAuthModePrivacyPass,
+                )
+            }
+        },
         onRelayMasqueAuthTokenChanged = { viewModel.updateDraft { copy(relayMasqueAuthToken = it) } },
         onRelayMasqueUseHttp2FallbackChanged = { viewModel.updateDraft { copy(relayMasqueUseHttp2Fallback = it) } },
-        onRelayMasqueCloudflareModeChanged = { viewModel.updateDraft { copy(relayMasqueCloudflareMode = it) } },
+        onRelayUdpEnabledChanged = { viewModel.updateDraft { copy(relayUdpEnabled = it) } },
         onRelayLocalSocksPortChanged = { viewModel.updateDraft { copy(relayLocalSocksPort = it) } },
         onSave = viewModel::saveDraft,
     )
@@ -220,9 +231,10 @@ fun ModeEditorScreen(
     onRelayChainExitShortIdChanged: (String) -> Unit,
     onRelayChainExitUuidChanged: (String) -> Unit,
     onRelayMasqueUrlChanged: (String) -> Unit,
+    onRelayMasqueAuthModeChanged: (String) -> Unit,
     onRelayMasqueAuthTokenChanged: (String) -> Unit,
     onRelayMasqueUseHttp2FallbackChanged: (Boolean) -> Unit,
-    onRelayMasqueCloudflareModeChanged: (Boolean) -> Unit,
+    onRelayUdpEnabledChanged: (Boolean) -> Unit,
     onRelayLocalSocksPortChanged: (String) -> Unit,
     onSave: () -> Unit,
     modifier: Modifier = Modifier,
@@ -708,25 +720,49 @@ fun ModeEditorScreen(
                                                 label = stringResource(R.string.config_relay_masque_url),
                                             ),
                                     )
-                                    RipDpiTextField(
-                                        value = draft.relayMasqueAuthToken,
-                                        onValueChange = onRelayMasqueAuthTokenChanged,
-                                        decoration =
-                                            RipDpiTextFieldDecoration(
-                                                label = stringResource(R.string.config_relay_masque_token),
-                                            ),
-                                    )
+                                    Row(horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
+                                        MasqueAuthModeChip(
+                                            selectedMode = draft.relayMasqueAuthMode,
+                                            mode = RelayMasqueAuthModeBearer,
+                                            labelRes = R.string.config_relay_masque_auth_bearer,
+                                            onRelayMasqueAuthModeChanged = onRelayMasqueAuthModeChanged,
+                                        )
+                                        MasqueAuthModeChip(
+                                            selectedMode = draft.relayMasqueAuthMode,
+                                            mode = RelayMasqueAuthModePreshared,
+                                            labelRes = R.string.config_relay_masque_auth_preshared,
+                                            onRelayMasqueAuthModeChanged = onRelayMasqueAuthModeChanged,
+                                        )
+                                        MasqueAuthModeChip(
+                                            selectedMode = draft.relayMasqueAuthMode,
+                                            mode = RelayMasqueAuthModePrivacyPass,
+                                            labelRes = R.string.config_relay_masque_auth_privacy_pass,
+                                            onRelayMasqueAuthModeChanged = onRelayMasqueAuthModeChanged,
+                                        )
+                                    }
+                                    if (draft.relayMasqueAuthMode != RelayMasqueAuthModePrivacyPass) {
+                                        RipDpiTextField(
+                                            value = draft.relayMasqueAuthToken,
+                                            onValueChange = onRelayMasqueAuthTokenChanged,
+                                            decoration =
+                                                RipDpiTextFieldDecoration(
+                                                    label = stringResource(R.string.config_relay_masque_token),
+                                                ),
+                                        )
+                                    }
                                     RipDpiSwitch(
                                         checked = draft.relayMasqueUseHttp2Fallback,
                                         onCheckedChange = onRelayMasqueUseHttp2FallbackChanged,
                                         label = stringResource(R.string.config_relay_masque_http2),
                                     )
-                                    RipDpiSwitch(
-                                        checked = draft.relayMasqueCloudflareMode,
-                                        onCheckedChange = onRelayMasqueCloudflareModeChanged,
-                                        label = stringResource(R.string.config_relay_masque_cloudflare),
-                                    )
                                 }
+                            }
+                            if (draft.relayKind == RelayKindHysteria2 || draft.relayKind == RelayKindMasque) {
+                                RipDpiSwitch(
+                                    checked = draft.relayUdpEnabled,
+                                    onCheckedChange = onRelayUdpEnabledChanged,
+                                    label = stringResource(R.string.config_relay_udp),
+                                )
                             }
                             RipDpiTextField(
                                 value = draft.relayLocalSocksPort,
@@ -905,6 +941,21 @@ private fun RowScope.RelayKindChip(
     )
 }
 
+@Composable
+private fun RowScope.MasqueAuthModeChip(
+    selectedMode: String,
+    mode: String,
+    labelRes: Int,
+    onRelayMasqueAuthModeChanged: (String) -> Unit,
+) {
+    RipDpiChip(
+        text = stringResource(labelRes),
+        selected = selectedMode == mode,
+        onClick = { onRelayMasqueAuthModeChanged(mode) },
+        modifier = Modifier.weight(1f),
+    )
+}
+
 private fun editorPresetKind(uiState: ConfigUiState): ConfigPresetKind =
     uiState.editingPreset?.kind ?: ConfigPresetKind.Custom
 
@@ -971,9 +1022,10 @@ private fun ModeEditorScreenPreview() {
             onRelayChainExitShortIdChanged = {},
             onRelayChainExitUuidChanged = {},
             onRelayMasqueUrlChanged = {},
+            onRelayMasqueAuthModeChanged = {},
             onRelayMasqueAuthTokenChanged = {},
             onRelayMasqueUseHttp2FallbackChanged = {},
-            onRelayMasqueCloudflareModeChanged = {},
+            onRelayUdpEnabledChanged = {},
             onRelayLocalSocksPortChanged = {},
             onSave = {},
         )
@@ -1052,9 +1104,10 @@ private fun ModeEditorScreenDarkPreview() {
             onRelayChainExitShortIdChanged = {},
             onRelayChainExitUuidChanged = {},
             onRelayMasqueUrlChanged = {},
+            onRelayMasqueAuthModeChanged = {},
             onRelayMasqueAuthTokenChanged = {},
             onRelayMasqueUseHttp2FallbackChanged = {},
-            onRelayMasqueCloudflareModeChanged = {},
+            onRelayUdpEnabledChanged = {},
             onRelayLocalSocksPortChanged = {},
             onSave = {},
         )

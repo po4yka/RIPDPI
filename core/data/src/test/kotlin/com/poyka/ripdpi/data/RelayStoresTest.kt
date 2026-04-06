@@ -12,7 +12,7 @@ class RelayStoresTest {
         val record =
             RelayCredentialRecord(
                 profileId = "masque",
-                masqueAuthMode = "cloudflare_p256",
+                masqueAuthMode = RelayMasqueAuthModePrivacyPass,
                 masqueAuthToken = "bearer",
                 masqueCloudflareClientId = "client-id",
                 masqueCloudflareKeyId = "key-id",
