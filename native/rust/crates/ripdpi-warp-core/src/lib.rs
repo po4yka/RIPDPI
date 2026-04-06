@@ -39,7 +39,6 @@ enum PortProtocol {
 
 #[derive(Debug, Clone, Copy)]
 struct PortForwardConfig {
-    source: SocketAddr,
     destination: SocketAddr,
     protocol: PortProtocol,
 }
@@ -456,11 +455,7 @@ async fn handle_tcp_connect(
     target: SocketAddr,
 ) -> io::Result<()> {
     let virtual_port = tcp_pool.acquire().await?;
-    let port_forward = PortForwardConfig {
-        source: SocketAddr::from((Ipv4Addr::LOCALHOST, 0)),
-        destination: target,
-        protocol: PortProtocol::Tcp,
-    };
+    let port_forward = PortForwardConfig { destination: target, protocol: PortProtocol::Tcp };
     let mut endpoint = bus.new_endpoint();
     endpoint.send(Event::ClientConnectionInitiated(port_forward, virtual_port));
     write_reply(&mut client, 0x00, SocketAddr::from((Ipv4Addr::UNSPECIFIED, 0))).await?;
@@ -529,7 +524,7 @@ async fn handle_udp_associate(mut control: TcpStream, bus: Bus, udp_pool: Arc<Ud
                 let virtual_port = udp_pool.acquire(association_bind_port, peer_addr).await?;
                 known_ports.insert(virtual_port);
                 targets.insert(virtual_port, target);
-                let port_forward = PortForwardConfig { source: SocketAddr::from((Ipv4Addr::LOCALHOST, 0)), destination: target, protocol: PortProtocol::Udp };
+                let port_forward = PortForwardConfig { destination: target, protocol: PortProtocol::Udp };
                 endpoint.send(Event::LocalData(port_forward, virtual_port, payload));
             }
             event = endpoint.recv() => match event {

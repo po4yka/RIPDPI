@@ -37,7 +37,7 @@ pub extern "system" fn Java_com_poyka_ripdpi_core_RipDpiWarpNativeBindings_jniCr
 ) -> jlong {
     match env
         .with_env(move |env| -> jni::errors::Result<jlong> {
-            let config_json: String = env.get_string(&config_json)?.into();
+            let config_json: String = config_json.mutf8_chars(&env)?.to_str().into_owned();
             let Ok(config) = serde_json::from_str::<ResolvedWarpRuntimeConfig>(&config_json) else {
                 return Ok(0);
             };

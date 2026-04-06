@@ -183,8 +183,10 @@ abstract class BuildRustNativeLibsTask
             abiOutputDir.mkdirs()
             pruneStaleArtifactOutputs(abiOutputDir, expectedOutputNames)
 
+            val ndkHome = File(sdkDir.get()).resolve("ndk").resolve(ndkVersion.get())
             val cargoEnvironment =
                 mapOf(
+                    "ANDROID_NDK_HOME" to ndkHome.absolutePath,
                     "CC_$targetEnv" to config.linker.absolutePath,
                     ccTargetKey to config.linker.absolutePath,
                     "AR_$targetEnv" to config.ar.absolutePath,
