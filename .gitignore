@@ -29,6 +29,9 @@ captures/
 .cxx/
 target/
 
+# Vendor build scripts must be tracked despite the build/ ignore above
+!native/rust/vendor/**/build/
+
 # Vendored BoringSSL C source tree (checked in by cargo vendor but too large for git)
 native/rust/vendor/boring-sys/deps/
 
