@@ -184,6 +184,38 @@ abstract class BuildRustNativeLibsTask
             pruneStaleArtifactOutputs(abiOutputDir, expectedOutputNames)
 
             val ndkHome = File(sdkDir.get()).resolve("ndk").resolve(ndkVersion.get())
+
+            // If the NDK linker path changed since the last build (e.g. after NDK upgrade),
+            // the boring-sys cmake cache will have a stale CMAKE_C_COMPILER entry.  CMake
+            // detects the change, attempts a re-configure, and fails because macOS injects
+            // `-arch arm64 -isysroot MacOSX.sdk` before the Android toolchain file takes
+            // effect.  Detect this mismatch and delete just the cmake build directory so
+            // that cargo will run a fresh cmake configure (BoringSSL object files are kept
+            // in the cargo build cache and are not recompiled from scratch).
+            if (abiCargoTargetDir.isDirectory) {
+                abiCargoTargetDir
+                    .walkTopDown()
+                    .filter { it.name == "CMakeCache.txt" }
+                    .forEach { cacheFile ->
+                        // cmake stores CMAKE_C_COMPILER as STRING or FILEPATH depending on version
+                        val cachedCompiler =
+                            cacheFile
+                                .readLines()
+                                .firstOrNull { line ->
+                                    line.startsWith("CMAKE_C_COMPILER:FILEPATH=") ||
+                                        line.startsWith("CMAKE_C_COMPILER:STRING=")
+                                }?.substringAfter("=")
+                        if (cachedCompiler != null && cachedCompiler != config.linker.absolutePath) {
+                            logger.warn(
+                                "Deleting stale BoringSSL cmake cache (compiler changed " +
+                                    "from $cachedCompiler to ${config.linker.absolutePath}): " +
+                                    cacheFile.parentFile.absolutePath,
+                            )
+                            fileSystemOperations.delete { delete(cacheFile.parentFile) }
+                        }
+                    }
+            }
+
             val cargoEnvironment =
                 mapOf(
                     "ANDROID_NDK_HOME" to ndkHome.absolutePath,
