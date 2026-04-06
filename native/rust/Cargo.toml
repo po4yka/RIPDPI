@@ -5,6 +5,7 @@ members = [
     "crates/golden-test-support",
     "crates/ripdpi-dns-resolver",
     "crates/ripdpi-failure-classifier",
+    "crates/ripdpi-hysteria2",
     "crates/local-network-fixture",
     "crates/native-soak-support",
     "crates/ripdpi-proxy-config",
@@ -48,6 +49,7 @@ local-network-fixture = { path = "crates/local-network-fixture" }
 native-soak-support = { path = "crates/native-soak-support" }
 ripdpi-dns-resolver = { path = "crates/ripdpi-dns-resolver" }
 ripdpi-failure-classifier = { path = "crates/ripdpi-failure-classifier" }
+ripdpi-hysteria2 = { path = "crates/ripdpi-hysteria2" }
 ripdpi-proxy-config = { path = "crates/ripdpi-proxy-config" }
 ripdpi-monitor = { path = "crates/ripdpi-monitor" }
 ripdpi-runtime = { path = "crates/ripdpi-runtime" }
@@ -128,6 +130,10 @@ bytes = "1"
 http = "1"
 base64 = "0.22"
 http-body-util = "0.1"
+blake2 = "0.10"
+futures = "0.3"
+h3-datagram = "0.0.2"
+rand = "0.9"
 
 [workspace.lints.clippy]
 # Correctness & suspicious (errors)

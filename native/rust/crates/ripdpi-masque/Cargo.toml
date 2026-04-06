@@ -7,7 +7,8 @@ license.workspace = true
 [dependencies]
 quinn = { workspace = true }
 h3 = { workspace = true }
-h3-quinn = { workspace = true }
+h3-quinn = { workspace = true, features = ["datagram"] }
+h3-datagram = { workspace = true }
 hyper = { workspace = true }
 hyper-util = { workspace = true }
 rustls = { workspace = true }
@@ -16,7 +17,7 @@ boring = { workspace = true }
 tokio-boring = { workspace = true }
 ripdpi-tls-profiles = { workspace = true }
 ring = { workspace = true }
-tokio = { workspace = true, features = ["io-util", "macros", "net", "time"] }
+tokio = { workspace = true, features = ["io-util", "macros", "net", "rt-multi-thread", "sync", "time"] }
 tracing = { workspace = true }
 thiserror = { workspace = true }
 webpki-roots = { workspace = true }
@@ -24,6 +25,9 @@ url = { workspace = true }
 bytes = { workspace = true }
 http = { workspace = true }
 http-body-util = { workspace = true }
+reqwest = { workspace = true, features = ["json"] }
+serde = { workspace = true }
+serde_json = { workspace = true }
 
 [lints]
 workspace = true

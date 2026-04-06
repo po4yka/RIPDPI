@@ -7,6 +7,9 @@ const val RelayKindVlessReality = "vless_reality"
 const val RelayKindHysteria2 = "hysteria2"
 const val RelayKindChainRelay = "chain_relay"
 const val RelayKindMasque = "masque"
+const val RelayMasqueAuthModeBearer = "bearer"
+const val RelayMasqueAuthModePreshared = "preshared"
+const val RelayMasqueAuthModePrivacyPass = "privacy_pass"
 const val DefaultRelayProfileId = "default"
 const val DefaultRelayLocalSocksHost = "127.0.0.1"
 const val DefaultRelayLocalSocksPort = 11980
@@ -18,6 +21,26 @@ fun normalizeRelayKind(value: String): String =
         RelayKindChainRelay -> RelayKindChainRelay
         RelayKindMasque -> RelayKindMasque
         else -> RelayKindOff
+    }
+
+fun normalizeRelayMasqueAuthMode(
+    value: String?,
+    cloudflareMode: Boolean = false,
+): String? =
+    when (value?.trim()?.lowercase()) {
+        RelayMasqueAuthModeBearer,
+        "token",
+        -> RelayMasqueAuthModeBearer
+
+        RelayMasqueAuthModePreshared -> RelayMasqueAuthModePreshared
+
+        RelayMasqueAuthModePrivacyPass -> RelayMasqueAuthModePrivacyPass
+
+        null,
+        "",
+        -> if (cloudflareMode) RelayMasqueAuthModePrivacyPass else null
+
+        else -> null
     }
 
 data class RelayProfileModel(

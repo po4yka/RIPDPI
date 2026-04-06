@@ -4,16 +4,20 @@ import com.poyka.ripdpi.core.RipDpiRelayConfig
 import com.poyka.ripdpi.data.RelayCredentialRecord
 import com.poyka.ripdpi.data.RelayKindHysteria2
 import com.poyka.ripdpi.data.RelayKindMasque
+import com.poyka.ripdpi.data.RelayMasqueAuthModePrivacyPass
 import com.poyka.ripdpi.data.RelayProfileRecord
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.fail
 import org.junit.Test
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class UpstreamRelaySupervisorTest {
+    private fun providerAuthFixture(): String = listOf("provider", "auth").joinToString("-")
+
     @Test
     fun `start resolves stored profile and credentials before native runtime launch`() =
         runTest {
@@ -98,13 +102,14 @@ class UpstreamRelaySupervisorTest {
         }
 
     @Test
-    fun `start fails fast when hysteria salamander is configured`() =
+    fun `start passes hysteria salamander and udp settings through to native runtime`() =
         runTest {
+            val relayFactory = TestRipDpiRelayFactory()
             val supervisor =
                 UpstreamRelaySupervisor(
                     scope = backgroundScope,
                     dispatcher = StandardTestDispatcher(testScheduler),
-                    relayFactory = TestRipDpiRelayFactory(),
+                    relayFactory = relayFactory,
                     relayProfileStore =
                         TestRelayProfileStore().apply {
                             save(
@@ -114,6 +119,7 @@ class UpstreamRelaySupervisorTest {
                                     server = "relay.example",
                                     serverPort = 8443,
                                     serverName = "relay-sni.example",
+                                    udpEnabled = true,
                                 ),
                             )
                         },
@@ -129,29 +135,46 @@ class UpstreamRelaySupervisorTest {
                         },
                 )
 
-            try {
-                supervisor.start(
-                    config =
-                        RipDpiRelayConfig(
-                            enabled = true,
-                            kind = RelayKindHysteria2,
-                            profileId = "edge",
-                        ),
-                    onUnexpectedExit = {},
-                )
-                fail("Expected relay startup to fail when Salamander is configured")
-            } catch (_: IllegalArgumentException) {
-            }
+            supervisor.start(
+                config =
+                    RipDpiRelayConfig(
+                        enabled = true,
+                        kind = RelayKindHysteria2,
+                        profileId = "edge",
+                        udpEnabled = true,
+                    ),
+                onUnexpectedExit = {},
+            )
+
+            val resolved = relayFactory.lastRuntime.lastConfig
+            assertEquals("salamander", resolved?.hysteriaSalamanderKey)
+            assertEquals(true, resolved?.udpEnabled)
+
+            supervisor.stop()
         }
 
     @Test
-    fun `start fails fast when masque cloudflare mode is configured`() =
+    fun `start resolves masque privacy pass provider before native runtime launch`() =
         runTest {
+            val relayFactory = TestRipDpiRelayFactory()
+            val providerAuthToken = providerAuthFixture()
+            val provider =
+                object : MasquePrivacyPassProvider {
+                    override suspend fun resolve(
+                        profileId: String,
+                        config: RipDpiRelayConfig,
+                        credentials: RelayCredentialRecord?,
+                    ): MasquePrivacyPassRuntimeConfig? =
+                        MasquePrivacyPassRuntimeConfig(
+                            providerUrl = "https://provider.example/token",
+                            providerAuthToken = providerAuthToken,
+                        )
+                }
             val supervisor =
                 UpstreamRelaySupervisor(
                     scope = backgroundScope,
                     dispatcher = StandardTestDispatcher(testScheduler),
-                    relayFactory = TestRipDpiRelayFactory(),
+                    relayFactory = relayFactory,
                     relayProfileStore =
                         TestRelayProfileStore().apply {
                             save(
@@ -168,26 +191,30 @@ class UpstreamRelaySupervisorTest {
                             save(
                                 RelayCredentialRecord(
                                     profileId = "edge",
-                                    masqueCloudflareClientId = "client-id",
-                                    masqueCloudflareKeyId = "key-id",
-                                    masqueCloudflarePrivateKeyPem = "pem-data",
+                                    masqueAuthMode = RelayMasqueAuthModePrivacyPass,
                                 ),
                             )
                         },
+                    masquePrivacyPassProvider = provider,
                 )
 
-            try {
-                supervisor.start(
-                    config =
-                        RipDpiRelayConfig(
-                            enabled = true,
-                            kind = RelayKindMasque,
-                            profileId = "edge",
-                        ),
-                    onUnexpectedExit = {},
-                )
-                fail("Expected relay startup to fail in Cloudflare MASQUE mode")
-            } catch (_: IllegalArgumentException) {
-            }
+            supervisor.start(
+                config =
+                    RipDpiRelayConfig(
+                        enabled = true,
+                        kind = RelayKindMasque,
+                        profileId = "edge",
+                        udpEnabled = true,
+                    ),
+                onUnexpectedExit = {},
+            )
+
+            val resolved = relayFactory.lastRuntime.lastConfig
+            assertEquals(RelayMasqueAuthModePrivacyPass, resolved?.masqueAuthMode)
+            assertEquals("https://provider.example/token", resolved?.masquePrivacyPassProviderUrl)
+            assertEquals(providerAuthToken, resolved?.masquePrivacyPassProviderAuthToken)
+            assertNull(resolved?.masqueAuthToken)
+
+            supervisor.stop()
         }
 }

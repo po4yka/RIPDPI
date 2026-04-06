@@ -123,6 +123,8 @@ data class ResolvedRipDpiRelayConfig(
     val masqueCloudflareClientId: String? = null,
     val masqueCloudflareKeyId: String? = null,
     val masqueCloudflarePrivateKeyPem: String? = null,
+    val masquePrivacyPassProviderUrl: String? = null,
+    val masquePrivacyPassProviderAuthToken: String? = null,
 )
 
 class RipDpiRelay(
