@@ -886,6 +886,7 @@ private fun validationMessage(errorKey: String?): String? =
         "out_of_range" -> stringResource(R.string.config_error_out_of_range)
         "invalid_chain" -> stringResource(R.string.config_error_invalid_chain)
         "required" -> stringResource(R.string.config_error_required)
+        "unsupported" -> stringResource(R.string.config_error_unsupported)
         else -> null
     }
 

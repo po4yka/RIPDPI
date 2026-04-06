@@ -122,6 +122,12 @@ struct Hysteria2Backend {
 
 impl Hysteria2Backend {
     async fn connect_tcp(&self, target: &str) -> io::Result<BoxedIo> {
+        if self.config.hysteria_salamander_key.as_deref().is_some_and(|value| !value.trim().is_empty()) {
+            return Err(io::Error::new(
+                io::ErrorKind::Unsupported,
+                "Hysteria2 Salamander obfuscation is not implemented",
+            ));
+        }
         let auth = self
             .config
             .hysteria_password
@@ -300,11 +306,12 @@ impl RelayRuntime {
     }
 
     pub async fn run(self: Arc<Self>) -> io::Result<()> {
+        let backend = Arc::new(backend_from_config(&self.config));
+        validate_runtime_config(&self.config, &backend)?;
         let bind_addr = format!("{}:{}", self.config.local_socks_host, self.config.local_socks_port);
         let listener = TcpListener::bind(&bind_addr).await?;
         *self.listener_address.lock().expect("listener address") = Some(bind_addr);
         self.running.store(true, Ordering::SeqCst);
-        let backend = Arc::new(backend_from_config(&self.config));
 
         while !self.stop_requested.load(Ordering::SeqCst) {
             match timeout(ACCEPT_POLL_INTERVAL, listener.accept()).await {
@@ -443,6 +450,102 @@ fn describe_upstream(config: &ResolvedRelayRuntimeConfig) -> String {
     }
 }
 
+fn validate_runtime_config(config: &ResolvedRelayRuntimeConfig, backend: &RelayBackend) -> io::Result<()> {
+    if config.udp_enabled && !backend.udp_capable() {
+        return Err(io::Error::new(
+            io::ErrorKind::Unsupported,
+            format!("relay backend {} does not support UDP ASSOCIATE", config.kind),
+        ));
+    }
+
+    if config.kind == "hysteria2"
+        && config.hysteria_salamander_key.as_deref().is_some_and(|value| !value.trim().is_empty())
+    {
+        return Err(io::Error::new(io::ErrorKind::Unsupported, "Hysteria2 Salamander obfuscation is not implemented"));
+    }
+
+    if config.kind == "masque" && config.masque_cloudflare_mode {
+        return Err(io::Error::new(io::ErrorKind::Unsupported, "Cloudflare MASQUE auth is not implemented"));
+    }
+
+    Ok(())
+}
+
 fn now_ms() -> u64 {
     SystemTime::now().duration_since(UNIX_EPOCH).map(|duration| duration.as_millis() as u64).unwrap_or(0)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn sample_config(kind: &str) -> ResolvedRelayRuntimeConfig {
+        ResolvedRelayRuntimeConfig {
+            enabled: true,
+            kind: kind.to_string(),
+            profile_id: "default".to_string(),
+            server: "relay.example".to_string(),
+            server_port: 443,
+            server_name: "relay.example".to_string(),
+            reality_public_key: String::new(),
+            reality_short_id: String::new(),
+            chain_entry_server: String::new(),
+            chain_entry_port: 443,
+            chain_entry_server_name: String::new(),
+            chain_entry_public_key: String::new(),
+            chain_entry_short_id: String::new(),
+            chain_exit_server: String::new(),
+            chain_exit_port: 443,
+            chain_exit_server_name: String::new(),
+            chain_exit_public_key: String::new(),
+            chain_exit_short_id: String::new(),
+            masque_url: "https://masque.example/".to_string(),
+            masque_use_http2_fallback: true,
+            masque_cloudflare_mode: false,
+            local_socks_host: "127.0.0.1".to_string(),
+            local_socks_port: 1080,
+            udp_enabled: false,
+            tcp_fallback_enabled: true,
+            vless_uuid: Some("00000000-0000-0000-0000-000000000000".to_string()),
+            chain_entry_uuid: Some("00000000-0000-0000-0000-000000000000".to_string()),
+            chain_exit_uuid: Some("00000000-0000-0000-0000-000000000000".to_string()),
+            hysteria_password: Some("secret".to_string()),
+            hysteria_salamander_key: None,
+            tls_fingerprint_profile: "native_default".to_string(),
+            masque_auth_mode: Some("token".to_string()),
+            masque_auth_token: Some("token".to_string()),
+            masque_cloudflare_client_id: None,
+            masque_cloudflare_key_id: None,
+            masque_cloudflare_private_key_pem: None,
+        }
+    }
+
+    #[test]
+    fn relay_runtime_rejects_udp_enablement_without_backend_support() {
+        let mut config = sample_config("masque");
+        config.udp_enabled = true;
+
+        let error = validate_runtime_config(&config, &backend_from_config(&config)).expect_err("UDP must fail fast");
+        assert_eq!(error.kind(), io::ErrorKind::Unsupported);
+    }
+
+    #[test]
+    fn relay_runtime_rejects_hysteria_salamander() {
+        let mut config = sample_config("hysteria2");
+        config.hysteria_salamander_key = Some("salamander".to_string());
+
+        let error =
+            validate_runtime_config(&config, &backend_from_config(&config)).expect_err("Salamander must fail fast");
+        assert_eq!(error.kind(), io::ErrorKind::Unsupported);
+    }
+
+    #[test]
+    fn relay_runtime_rejects_masque_cloudflare_mode() {
+        let mut config = sample_config("masque");
+        config.masque_cloudflare_mode = true;
+
+        let error = validate_runtime_config(&config, &backend_from_config(&config))
+            .expect_err("Cloudflare mode must fail fast");
+        assert_eq!(error.kind(), io::ErrorKind::Unsupported);
+    }
 }

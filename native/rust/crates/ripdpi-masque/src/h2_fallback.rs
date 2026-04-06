@@ -68,7 +68,7 @@ pub async fn h2_connect_tcp(config: &MasqueConfig, target: &str) -> io::Result<i
     let mut builder = hyper::Request::builder().method("CONNECT").uri(target);
 
     if config.cloudflare_mode {
-        for (name, value) in cloudflare::cloudflare_auth_headers(config) {
+        for (name, value) in cloudflare::cloudflare_auth_headers(config)? {
             builder = builder.header(name, value);
         }
     } else if let Some(ref token) = config.auth_token {

@@ -84,7 +84,7 @@ async fn extended_connect(
 
     // Add auth headers
     if config.cloudflare_mode {
-        for (name, value) in cloudflare::cloudflare_auth_headers(config) {
+        for (name, value) in cloudflare::cloudflare_auth_headers(config)? {
             builder = builder.header(name, value);
         }
     } else if let Some(ref token) = config.auth_token {
