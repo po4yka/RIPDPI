@@ -9,6 +9,7 @@ import com.poyka.ripdpi.data.EncryptedDnsProtocolDot
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.RelayKindHysteria2
 import com.poyka.ripdpi.data.RelayKindMasque
+import com.poyka.ripdpi.data.RelayMasqueAuthModePrivacyPass
 import com.poyka.ripdpi.data.canonicalDefaultEncryptedDnsSettings
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -125,7 +126,7 @@ class ConfigViewModelTest {
     }
 
     @Test
-    fun `relay validation rejects unsupported hysteria salamander and masque cloudflare modes`() {
+    fun `relay validation accepts hysteria salamander and masque privacy pass`() {
         val hysteriaErrors =
             validateConfigDraft(
                 defaultDraft.copy(
@@ -135,6 +136,7 @@ class ConfigViewModelTest {
                     relayServerName = "relay.example",
                     relayHysteriaPassword = "secret",
                     relayHysteriaSalamanderKey = "salamander",
+                    relayUdpEnabled = true,
                 ),
             )
         val masqueErrors =
@@ -143,11 +145,13 @@ class ConfigViewModelTest {
                     relayEnabled = true,
                     relayKind = RelayKindMasque,
                     relayMasqueUrl = "https://masque.example/",
+                    relayMasqueAuthMode = RelayMasqueAuthModePrivacyPass,
                     relayMasqueCloudflareMode = true,
+                    relayUdpEnabled = true,
                 ),
             )
 
-        assertEquals("unsupported", hysteriaErrors[ConfigFieldRelayCredentials])
-        assertEquals("unsupported", masqueErrors[ConfigFieldRelayCredentials])
+        assertEquals(null, hysteriaErrors[ConfigFieldRelayCredentials])
+        assertEquals(null, masqueErrors[ConfigFieldRelayCredentials])
     }
 }

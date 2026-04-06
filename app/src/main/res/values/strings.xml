@@ -371,9 +371,13 @@
     <string name="config_relay_chain_exit_short_id">Exit hop short ID</string>
     <string name="config_relay_chain_exit_uuid">Exit hop UUID</string>
     <string name="config_relay_masque_url">MASQUE URL</string>
+    <string name="config_relay_masque_auth_bearer">Bearer</string>
+    <string name="config_relay_masque_auth_preshared">Preshared</string>
+    <string name="config_relay_masque_auth_privacy_pass">Privacy Pass</string>
     <string name="config_relay_masque_token">MASQUE auth token</string>
     <string name="config_relay_masque_http2">Allow HTTP/2 TCP fallback</string>
     <string name="config_relay_masque_cloudflare">Use Cloudflare auth mode</string>
+    <string name="config_relay_udp">Enable UDP relay</string>
     <string name="config_relay_local_port">Local relay SOCKS port</string>
     <string name="config_relay_local_port_helper">The main RIPDPI proxy chains to this loopback listener.</string>
     <string name="config_port_helper">Accepted range follows the current service port validation.</string>
