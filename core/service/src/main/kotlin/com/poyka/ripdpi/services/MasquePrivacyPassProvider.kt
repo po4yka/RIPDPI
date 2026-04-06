@@ -14,7 +14,11 @@ internal data class MasquePrivacyPassRuntimeConfig(
     val providerAuthToken: String? = null,
 )
 
-internal interface MasquePrivacyPassProvider {
+interface MasquePrivacyPassAvailability {
+    fun isAvailable(): Boolean
+}
+
+internal interface MasquePrivacyPassProvider : MasquePrivacyPassAvailability {
     suspend fun resolve(
         profileId: String,
         config: RipDpiRelayConfig,
@@ -25,7 +29,11 @@ internal interface MasquePrivacyPassProvider {
 @Singleton
 internal class NoopMasquePrivacyPassProvider
     @Inject
-    constructor() : MasquePrivacyPassProvider {
+    constructor() :
+    MasquePrivacyPassProvider,
+        MasquePrivacyPassAvailability {
+        override fun isAvailable(): Boolean = false
+
         override suspend fun resolve(
             profileId: String,
             config: RipDpiRelayConfig,
@@ -39,4 +47,10 @@ internal abstract class MasquePrivacyPassProviderModule {
     @Binds
     @Singleton
     abstract fun bindMasquePrivacyPassProvider(provider: NoopMasquePrivacyPassProvider): MasquePrivacyPassProvider
+
+    @Binds
+    @Singleton
+    abstract fun bindMasquePrivacyPassAvailability(
+        provider: NoopMasquePrivacyPassProvider,
+    ): MasquePrivacyPassAvailability
 }

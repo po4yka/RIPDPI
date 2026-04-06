@@ -8,6 +8,7 @@ RIPDPI documentation index. For a quick start, see the main [README](../README.m
 - [Proxy engine and strategy surface](native/proxy-engine.md)
 - [TUN-to-SOCKS bridge](native/tunnel.md)
 - [Debug a runtime issue](native/debug-runtime-issue.md)
+- [Relay transport status and MASQUE handoff notes](native/relay-masque-status.md)
 
 ## Testing & CI
 
