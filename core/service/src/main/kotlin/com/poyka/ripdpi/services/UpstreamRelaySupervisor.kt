@@ -218,7 +218,7 @@ internal class UpstreamRelaySupervisor(
 
                 RelayKindChainRelay -> {
                     !credentials?.chainEntryUuid.isNullOrBlank() &&
-                        !credentials?.chainExitUuid.isNullOrBlank()
+                        !credentials.chainExitUuid.isNullOrBlank()
                 }
 
                 RelayKindMasque -> {

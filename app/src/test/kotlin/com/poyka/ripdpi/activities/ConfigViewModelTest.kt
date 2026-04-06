@@ -9,6 +9,7 @@ import com.poyka.ripdpi.data.EncryptedDnsProtocolDot
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.RelayKindHysteria2
 import com.poyka.ripdpi.data.RelayKindMasque
+import com.poyka.ripdpi.data.RelayMasqueAuthModeBearer
 import com.poyka.ripdpi.data.RelayMasqueAuthModePrivacyPass
 import com.poyka.ripdpi.data.canonicalDefaultEncryptedDnsSettings
 import org.junit.Assert.assertEquals
@@ -126,7 +127,7 @@ class ConfigViewModelTest {
     }
 
     @Test
-    fun `relay validation accepts hysteria salamander and masque privacy pass`() {
+    fun `relay validation accepts hysteria salamander`() {
         val hysteriaErrors =
             validateConfigDraft(
                 defaultDraft.copy(
@@ -139,6 +140,12 @@ class ConfigViewModelTest {
                     relayUdpEnabled = true,
                 ),
             )
+
+        assertEquals(null, hysteriaErrors[ConfigFieldRelayCredentials])
+    }
+
+    @Test
+    fun `relay validation rejects masque privacy pass when provider is unavailable`() {
         val masqueErrors =
             validateConfigDraft(
                 defaultDraft.copy(
@@ -151,7 +158,42 @@ class ConfigViewModelTest {
                 ),
             )
 
-        assertEquals(null, hysteriaErrors[ConfigFieldRelayCredentials])
+        assertEquals("unsupported", masqueErrors[ConfigFieldRelayCredentials])
+    }
+
+    @Test
+    fun `relay validation accepts masque privacy pass when provider is available`() {
+        val masqueErrors =
+            validateConfigDraft(
+                draft =
+                    defaultDraft.copy(
+                        relayEnabled = true,
+                        relayKind = RelayKindMasque,
+                        relayMasqueUrl = "https://masque.example/",
+                        relayMasqueAuthMode = RelayMasqueAuthModePrivacyPass,
+                        relayMasqueCloudflareMode = true,
+                        relayUdpEnabled = true,
+                    ),
+                supportsMasquePrivacyPass = true,
+            )
+
         assertEquals(null, masqueErrors[ConfigFieldRelayCredentials])
+    }
+
+    @Test
+    fun `sanitize downgrades privacy pass draft when provider is unavailable`() {
+        val sanitized =
+            sanitizeMasqueAuthModeForCurrentBuild(
+                draft =
+                    defaultDraft.copy(
+                        relayKind = RelayKindMasque,
+                        relayMasqueAuthMode = RelayMasqueAuthModePrivacyPass,
+                        relayMasqueCloudflareMode = true,
+                    ),
+                supportsMasquePrivacyPass = false,
+            )
+
+        assertEquals(RelayMasqueAuthModeBearer, sanitized.relayMasqueAuthMode)
+        assertFalse(sanitized.relayMasqueCloudflareMode)
     }
 }
