@@ -91,6 +91,27 @@ abstract class BuildRustNativeLibsTask
             val cargoProfileName = cargoProfile.get()
             val abiList = abis.get()
 
+            // Resolve the Android SDK cmake binary on the Gradle task thread.  Gradle lazy
+            // property access (sdkDir.get()) is not safe from background threads, and the
+            // cmake crate reads the CMAKE env var to select the cmake binary.  Using the
+            // Android SDK cmake avoids macOS sysroot injection by Homebrew cmake.
+            val androidSdkCmake: String? =
+                File(sdkDir.get())
+                    .resolve("cmake")
+                    .takeIf { it.isDirectory }
+                    ?.listFiles()
+                    ?.filter { it.isDirectory }
+                    ?.maxByOrNull { it.name }
+                    ?.resolve("bin/cmake")
+                    ?.takeIf { it.isFile }
+                    ?.absolutePath
+
+            if (androidSdkCmake != null) {
+                logger.lifecycle("boring-sys cmake: $androidSdkCmake")
+            } else {
+                logger.warn("Android SDK cmake not found under ${File(sdkDir.get(), "cmake")} — using system cmake")
+            }
+
             pruneStaleAbiOutputs(outputRoot)
 
             // Validate all ABIs upfront before spawning parallel builds.
@@ -137,6 +158,7 @@ abstract class BuildRustNativeLibsTask
                                 expectedOutputNames,
                                 artifacts,
                                 cargoJobs,
+                                androidSdkCmake,
                             )
                         }
                     }
@@ -174,6 +196,7 @@ abstract class BuildRustNativeLibsTask
             expectedOutputNames: Set<String>,
             artifacts: List<RustNativeArtifact>,
             cargoJobs: Int,
+            androidCmakePath: String?,
         ) {
             val targetEnv = config.target.replace('-', '_').uppercase()
             val ccTargetKey = "CC_${config.target.replace('-', '_')}"
@@ -185,23 +208,6 @@ abstract class BuildRustNativeLibsTask
 
             val ndkHome = File(sdkDir.get()).resolve("ndk").resolve(ndkVersion.get())
 
-            // Use the Android SDK cmake binary instead of the system cmake (e.g. Homebrew on
-            // macOS).  The boring-sys build script invokes cmake via the `cmake` crate, which
-            // honours the CMAKE env var.  The system cmake on macOS injects `-arch arm64
-            // -isysroot MacOSX.sdk` during re-configure steps (e.g. when CMAKE_C_COMPILER
-            // changes), which the Android cross-compiler rejects.  The Android SDK cmake is
-            // built without macOS platform defaults, so cross-compilation works correctly even
-            // when a re-configure is triggered.
-            val androidCmakeBin =
-                File(sdkDir.get())
-                    .resolve("cmake")
-                    .takeIf { it.isDirectory }
-                    ?.listFiles()
-                    ?.filter { it.isDirectory }
-                    ?.maxByOrNull { it.name }
-                    ?.resolve("bin/cmake")
-                    ?.takeIf { it.isFile }
-
             val cargoEnvironment =
                 buildMap {
                     put("ANDROID_NDK_HOME", ndkHome.absolutePath)
@@ -212,8 +218,11 @@ abstract class BuildRustNativeLibsTask
                     put("CARGO_TARGET_${targetEnv}_LINKER", config.linker.absolutePath)
                     put("CARGO_TARGET_${targetEnv}_AR", config.ar.absolutePath)
                     put("CARGO_TARGET_DIR", abiCargoTargetDir.absolutePath)
-                    if (androidCmakeBin != null) {
-                        put("CMAKE", androidCmakeBin.absolutePath)
+                    // The cmake crate (used by boring-sys) reads CMAKE to select the cmake
+                    // binary.  The Android SDK cmake lacks macOS platform defaults, preventing
+                    // `-isysroot MacOSX.sdk` from being injected when cross-compiling for Android.
+                    if (androidCmakePath != null) {
+                        put("CMAKE", androidCmakePath)
                     }
                 }
 
