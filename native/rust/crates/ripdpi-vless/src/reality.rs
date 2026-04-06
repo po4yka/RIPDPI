@@ -25,8 +25,8 @@ extern "C" {
     /// Returns 1 on success, 0 on failure.
     fn SSL_set_client_random(ssl: *mut std::ffi::c_void, random: *const u8, random_len: usize) -> std::ffi::c_int;
 
-    /// Allocates a new SSL_SESSION object. Returns null on allocation failure.
-    fn SSL_SESSION_new() -> *mut std::ffi::c_void;
+    /// Allocates a new SSL_SESSION object. |ctx| must not be null. Returns null on allocation failure.
+    fn SSL_SESSION_new(ctx: *mut std::ffi::c_void) -> *mut std::ffi::c_void;
 
     /// Sets the session ID on an SSL_SESSION. Returns 1 on success, 0 on failure.
     fn SSL_SESSION_set1_id(session: *mut std::ffi::c_void, sid: *const u8, sid_len: u32) -> std::ffi::c_int;
@@ -37,6 +37,9 @@ extern "C" {
 
     /// Decrements the refcount of a session, freeing it when it reaches zero.
     fn SSL_SESSION_free(session: *mut std::ffi::c_void);
+
+    /// Returns the SSL_CTX associated with the given SSL object.
+    fn SSL_get_SSL_CTX(ssl: *const std::ffi::c_void) -> *mut std::ffi::c_void;
 }
 
 /// Connect to a VLESS+Reality server over TCP, performing the Reality TLS handshake.
@@ -107,7 +110,8 @@ where
     // SSL_SESSION_new returns an owned pointer; SSL_set_session increments its refcount;
     // SSL_SESSION_free decrements it, so the session is freed on the next SSL_free.
     unsafe {
-        let sess = SSL_SESSION_new();
+        let ssl_ctx = SSL_get_SSL_CTX(ssl.as_ptr().cast::<std::ffi::c_void>());
+        let sess = SSL_SESSION_new(ssl_ctx);
         if sess.is_null() {
             return Err(io::Error::new(io::ErrorKind::Other, "SSL_SESSION_new failed"));
         }
