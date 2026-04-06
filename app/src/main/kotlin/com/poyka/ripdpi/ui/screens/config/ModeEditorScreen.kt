@@ -733,11 +733,23 @@ fun ModeEditorScreen(
                                             labelRes = R.string.config_relay_masque_auth_preshared,
                                             onRelayMasqueAuthModeChanged = onRelayMasqueAuthModeChanged,
                                         )
-                                        MasqueAuthModeChip(
-                                            selectedMode = draft.relayMasqueAuthMode,
-                                            mode = RelayMasqueAuthModePrivacyPass,
-                                            labelRes = R.string.config_relay_masque_auth_privacy_pass,
-                                            onRelayMasqueAuthModeChanged = onRelayMasqueAuthModeChanged,
+                                        if (uiState.supportsMasquePrivacyPass) {
+                                            MasqueAuthModeChip(
+                                                selectedMode = draft.relayMasqueAuthMode,
+                                                mode = RelayMasqueAuthModePrivacyPass,
+                                                labelRes = R.string.config_relay_masque_auth_privacy_pass,
+                                                onRelayMasqueAuthModeChanged = onRelayMasqueAuthModeChanged,
+                                            )
+                                        }
+                                    }
+                                    if (!uiState.supportsMasquePrivacyPass) {
+                                        Text(
+                                            text =
+                                                stringResource(
+                                                    R.string.config_relay_masque_privacy_pass_unavailable,
+                                                ),
+                                            style = RipDpiThemeTokens.type.caption,
+                                            color = colors.mutedForeground,
                                         )
                                     }
                                     if (draft.relayMasqueAuthMode != RelayMasqueAuthModePrivacyPass) {

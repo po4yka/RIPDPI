@@ -35,6 +35,7 @@ import com.poyka.ripdpi.data.setStrategyChains
 import com.poyka.ripdpi.data.toRelaySettingsModel
 import com.poyka.ripdpi.data.validateStrategyChainUsage
 import com.poyka.ripdpi.proto.AppSettings
+import com.poyka.ripdpi.services.MasquePrivacyPassAvailability
 import com.poyka.ripdpi.utility.checkIp
 import com.poyka.ripdpi.utility.validateIntRange
 import com.poyka.ripdpi.utility.validatePort
@@ -156,6 +157,7 @@ data class ConfigUiState(
     val editingPreset: ConfigPreset? = null,
     val draft: ConfigDraft = AppSettingsSerializer.defaultValue.toConfigDraft(),
     val validationErrors: ImmutableMap<String, String> = persistentMapOf(),
+    val supportsMasquePrivacyPass: Boolean = false,
 )
 
 sealed interface ConfigEffect {
@@ -264,8 +266,24 @@ internal fun buildConfigPresets(currentDraft: ConfigDraft): ImmutableList<Config
     )
 }
 
+internal fun sanitizeMasqueAuthModeForCurrentBuild(
+    draft: ConfigDraft,
+    supportsMasquePrivacyPass: Boolean,
+): ConfigDraft =
+    if (!supportsMasquePrivacyPass && draft.relayMasqueAuthMode == RelayMasqueAuthModePrivacyPass) {
+        draft.copy(
+            relayMasqueAuthMode = RelayMasqueAuthModeBearer,
+            relayMasqueCloudflareMode = false,
+        )
+    } else {
+        draft
+    }
+
 @Suppress("LongMethod", "CyclomaticComplexMethod")
-internal fun validateConfigDraft(draft: ConfigDraft): ImmutableMap<String, String> =
+internal fun validateConfigDraft(
+    draft: ConfigDraft,
+    supportsMasquePrivacyPass: Boolean = false,
+): ImmutableMap<String, String> =
     buildMap {
         if (!checkIp(draft.proxyIp)) {
             put(ConfigFieldProxyIp, "invalid_proxy_ip")
@@ -347,7 +365,9 @@ internal fun validateConfigDraft(draft: ConfigDraft): ImmutableMap<String, Strin
                         }
 
                         RelayMasqueAuthModePrivacyPass -> {
-                            Unit
+                            if (!supportsMasquePrivacyPass) {
+                                put(ConfigFieldRelayCredentials, "unsupported")
+                            }
                         }
 
                         else -> {
@@ -434,8 +454,10 @@ class ConfigViewModel
         private val appSettingsRepository: AppSettingsRepository,
         private val relayProfileStore: RelayProfileStore,
         private val relayCredentialStore: RelayCredentialStore,
+        private val masquePrivacyPassAvailability: MasquePrivacyPassAvailability,
     ) : ViewModel() {
         private val editorSession = MutableStateFlow(ConfigEditorSession())
+        private val supportsMasquePrivacyPass = masquePrivacyPassAvailability.isAvailable()
 
         private val _effects = Channel<ConfigEffect>(Channel.BUFFERED)
         val effects: Flow<ConfigEffect> = _effects.receiveAsFlow()
@@ -445,8 +467,16 @@ class ConfigViewModel
                 appSettingsRepository.settings,
                 editorSession,
             ) { settings, session ->
-                val currentDraft = settings.toConfigDraft()
-                val draft = session.draft ?: currentDraft
+                val currentDraft =
+                    sanitizeMasqueAuthModeForCurrentBuild(
+                        draft = settings.toConfigDraft(),
+                        supportsMasquePrivacyPass = supportsMasquePrivacyPass,
+                    )
+                val draft =
+                    sanitizeMasqueAuthModeForCurrentBuild(
+                        draft = session.draft ?: currentDraft,
+                        supportsMasquePrivacyPass = supportsMasquePrivacyPass,
+                    )
                 val presets = buildConfigPresets(currentDraft)
                 val editingPreset =
                     session.presetId?.let { presetId ->
@@ -463,7 +493,8 @@ class ConfigViewModel
                     presets = presets,
                     editingPreset = editingPreset,
                     draft = draft,
-                    validationErrors = validateConfigDraft(draft),
+                    validationErrors = validateConfigDraft(draft, supportsMasquePrivacyPass),
+                    supportsMasquePrivacyPass = supportsMasquePrivacyPass,
                 )
             }.stateIn(
                 scope = viewModelScope,
@@ -528,7 +559,7 @@ class ConfigViewModel
 
         fun saveDraft() {
             val draft = editorSession.value.draft ?: uiState.value.draft
-            if (validateConfigDraft(draft).isNotEmpty()) {
+            if (validateConfigDraft(draft, supportsMasquePrivacyPass).isNotEmpty()) {
                 _effects.trySend(ConfigEffect.ValidationFailed)
                 return
             }

@@ -11,6 +11,7 @@ import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
 import org.junit.Test
 
@@ -160,6 +161,8 @@ class UpstreamRelaySupervisorTest {
             val providerAuthToken = providerAuthFixture()
             val provider =
                 object : MasquePrivacyPassProvider {
+                    override fun isAvailable(): Boolean = true
+
                     override suspend fun resolve(
                         profileId: String,
                         config: RipDpiRelayConfig,
@@ -216,5 +219,52 @@ class UpstreamRelaySupervisorTest {
             assertNull(resolved?.masqueAuthToken)
 
             supervisor.stop()
+        }
+
+    @Test
+    fun `start fails fast when masque privacy pass provider is unavailable`() =
+        runTest {
+            val supervisor =
+                UpstreamRelaySupervisor(
+                    scope = backgroundScope,
+                    dispatcher = StandardTestDispatcher(testScheduler),
+                    relayFactory = TestRipDpiRelayFactory(),
+                    relayProfileStore =
+                        TestRelayProfileStore().apply {
+                            save(
+                                RelayProfileRecord(
+                                    id = "edge",
+                                    kind = RelayKindMasque,
+                                    masqueUrl = "https://masque.example/",
+                                    masqueCloudflareMode = true,
+                                ),
+                            )
+                        },
+                    relayCredentialStore =
+                        TestRelayCredentialStore().apply {
+                            save(
+                                RelayCredentialRecord(
+                                    profileId = "edge",
+                                    masqueAuthMode = RelayMasqueAuthModePrivacyPass,
+                                ),
+                            )
+                        },
+                )
+
+            try {
+                supervisor.start(
+                    config =
+                        RipDpiRelayConfig(
+                            enabled = true,
+                            kind = RelayKindMasque,
+                            profileId = "edge",
+                            udpEnabled = true,
+                        ),
+                    onUnexpectedExit = {},
+                )
+                fail("Expected MASQUE privacy_pass startup to fail without a provider")
+            } catch (error: IllegalArgumentException) {
+                assertTrue(error.message?.contains("token provider") == true)
+            }
         }
 }
