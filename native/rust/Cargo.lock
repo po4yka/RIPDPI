@@ -1408,16 +1408,6 @@ dependencies = [
 
 [[package]]
 name = "heapless"
-version = "0.8.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0bfb9eb618601c89945a70e254898da93b13be0388091d42117462b265bb3fad"
-dependencies = [
- "hash32",
- "stable_deref_trait",
-]
-
-[[package]]
-name = "heapless"
 version = "0.9.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2af2455f757db2b292a9b1768c4b70186d443bcb3b316252d6b540aec1cd89ed"
@@ -3335,7 +3325,7 @@ dependencies = [
  "ripdpi-io-uring",
  "ripdpi-tun-driver",
  "ripdpi-tunnel-config",
- "smoltcp 0.13.0",
+ "smoltcp",
  "thiserror 2.0.18",
  "tokio",
  "tokio-test",
@@ -3390,7 +3380,7 @@ dependencies = [
  "ripdpi-native-protect",
  "serde",
  "serde_json",
- "smoltcp 0.12.0",
+ "smoltcp",
  "socket2 0.6.3",
  "tokio",
  "tracing",
@@ -3776,20 +3766,6 @@ checksum = "67b1b7a3b5fe4f1376887184045fcf45c69e92af734b7aaddc05fb777b6fbd03"
 
 [[package]]
 name = "smoltcp"
-version = "0.12.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dad095989c1533c1c266d9b1e8d70a1329dd3723c3edac6d03bbd67e7bf6f4bb"
-dependencies = [
- "bitflags 1.3.2",
- "byteorder",
- "cfg-if",
- "defmt 0.3.100",
- "heapless 0.8.0",
- "managed",
-]
-
-[[package]]
-name = "smoltcp"
 version = "0.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ac729b0a77bd092a3f06ddaddc59fe0d67f48ba0de45a9abe707c2842c7f8767"
@@ -3798,7 +3774,7 @@ dependencies = [
  "byteorder",
  "cfg-if",
  "defmt 0.3.100",
- "heapless 0.9.2",
+ "heapless",
  "managed",
 ]
 
