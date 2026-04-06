@@ -278,16 +278,37 @@ fn get_boringssl_cmake_config(config: &Config) -> cmake::Config {
             boringssl_cmake.define("CMAKE_SYSTEM_VERSION", "21");
             boringssl_cmake.define("CMAKE_ANDROID_STL_TYPE", "c++_shared");
 
-            // On macOS hosts, cmake's Platform/Darwin-Initialize.cmake runs
-            // xcrun and sets CMAKE_OSX_ARCHITECTURES to the host processor
-            // (arm64) and CMAKE_OSX_SYSROOT to the macOS SDK path.  These
-            // flags are then injected into the C compiler identification test,
-            // which the Android cross-compiler rejects with:
+            // On macOS hosts (especially Apple Silicon), cmake's Platform/Darwin.cmake
+            // forces CMAKE_OSX_ARCHITECTURES=arm64 using CACHE FORCE even when we pass
+            // -DCMAKE_OSX_ARCHITECTURES= on the command line, because it checks:
+            //   if(NOT CMAKE_OSX_ARCHITECTURES AND host_is_arm64)  <- true for ""
+            // This causes the Android cross-compiler to receive "-arch arm64":
             //   clang: error: unsupported option '-arch' for target 'aarch64-linux-android'
-            // Explicitly clearing them here prevents the macOS platform module
-            // from overriding the Android toolchain settings.
-            boringssl_cmake.define("CMAKE_OSX_ARCHITECTURES", "");
-            boringssl_cmake.define("CMAKE_OSX_SYSROOT", "");
+            //
+            // Fix (both parts required):
+            //
+            // 1. Skip compiler tests — Platform/Darwin.cmake forces the arch flag
+            //    BEFORE the compiler test runs, so the test always fails on Apple Silicon.
+            //    We know the NDK clang works, so it is safe to assert this.
+            boringssl_cmake.define("CMAKE_C_COMPILER_WORKS", "1");
+            boringssl_cmake.define("CMAKE_CXX_COMPILER_WORKS", "1");
+            boringssl_cmake.define("CMAKE_ASM_COMPILER_WORKS", "1");
+            //
+            // 2. Clear the forced OSX flags via CMAKE_PROJECT_INCLUDE, which runs at
+            //    the end of project() — after platform init (which forces arm64) but
+            //    before cmake writes the build rules — so boringssl targets are
+            //    compiled without -arch arm64.
+            let out_dir = std::env::var("OUT_DIR").expect("OUT_DIR not set");
+            let clear_osx = std::path::Path::new(&out_dir).join("clear_osx_flags.cmake");
+            std::fs::write(
+                &clear_osx,
+                "# Clear macOS host arch flags forced by Platform/Darwin.cmake.\n\
+                 # Runs as CMAKE_PROJECT_INCLUDE (end of project(), before build rules).\n\
+                 set(CMAKE_OSX_ARCHITECTURES \"\" CACHE STRING \"\" FORCE)\n\
+                 set(CMAKE_OSX_SYSROOT \"\" CACHE PATH \"\" FORCE)\n",
+            )
+            .expect("failed to write clear_osx_flags.cmake");
+            boringssl_cmake.define("CMAKE_PROJECT_INCLUDE", clear_osx.to_str().unwrap());
         }
 
         "macos" => {
