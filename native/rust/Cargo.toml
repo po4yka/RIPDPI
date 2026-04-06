@@ -192,3 +192,6 @@ inherits = "dev"
 panic = "unwind"
 opt-level = 1
 debug = "line-tables-only"
+
+[patch.crates-io]
+boring-sys = { path = "vendor/boring-sys" }

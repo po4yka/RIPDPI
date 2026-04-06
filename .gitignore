@@ -29,6 +29,9 @@ captures/
 .cxx/
 target/
 
+# Vendored BoringSSL C source tree (checked in by cargo vendor but too large for git)
+native/rust/vendor/boring-sys/deps/
+
 # Generated documentation artifacts
 docs/manual-assets/
 docs/*.pdf
