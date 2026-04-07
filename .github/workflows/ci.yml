@@ -343,6 +343,25 @@ jobs:
         with:
           tool: cargo-nextest
 
+      - name: Restore BoringSSL source for boring-sys
+        run: |
+          # boring-sys needs the full BoringSSL source tree to compile.
+          # The vendor directory only tracks 4 Reality-patch files; the rest
+          # of deps/boringssl/ is excluded from git to keep the repo small.
+          # Fetch the exact BoringSSL commit that boring-sys 5.0.2 pins, then
+          # restore our tracked Reality-patch files on top so the patched
+          # functions are present when boring-sys applies boring-pq.patch.
+          BORINGSSL_COMMIT="39acdfcaed06d01030e63df64a5d6a09aa0db821"
+          DEST="native/rust/vendor/boring-sys/deps/boringssl"
+          git init /tmp/boringssl
+          git -C /tmp/boringssl fetch --depth 1 \
+            https://boringssl.googlesource.com/boringssl "$BORINGSSL_COMMIT"
+          git -C /tmp/boringssl checkout FETCH_HEAD
+          cp -r /tmp/boringssl/. "$DEST/"
+          rm -rf "$DEST/.git" /tmp/boringssl
+          # Restore our Reality-patch modifications on top of the fresh source
+          git checkout -- "$DEST"
+
       - name: Run turmoil-backed deterministic network tests
         run: bash scripts/ci/run-rust-turmoil-tests.sh
 
