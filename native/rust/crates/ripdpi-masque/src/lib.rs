@@ -279,7 +279,7 @@ impl MasqueClientInner {
         }
 
         let mut cache = self.privacy_pass_cache.lock().await;
-        cache.entry(target.to_string()).or_default().extend(headers.drain(..).collect(), expires_at_epoch_ms);
+        cache.entry(target.to_string()).or_default().extend(std::mem::take(&mut headers), expires_at_epoch_ms);
         cache
             .entry(target.to_string())
             .or_default()

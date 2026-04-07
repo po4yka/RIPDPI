@@ -84,13 +84,11 @@ impl<S: AsyncWrite + Unpin> AsyncWrite for VisionStream<S> {
     fn poll_write(self: Pin<&mut Self>, cx: &mut Context<'_>, buf: &[u8]) -> Poll<io::Result<usize>> {
         let this = self.get_mut();
 
-        if !this.handshake_done {
-            if this.check_tls_records(buf) {
-                this.handshake_done = true;
-                tracing::trace!(
-                    "vision: inner TLS handshake complete (Application Data detected), switching to pass-through"
-                );
-            }
+        if !this.handshake_done && this.check_tls_records(buf) {
+            this.handshake_done = true;
+            tracing::trace!(
+                "vision: inner TLS handshake complete (Application Data detected), switching to pass-through"
+            );
         }
 
         Pin::new(&mut this.inner).poll_write(cx, buf)

@@ -36,7 +36,7 @@ pub struct MasqueConfig {
 impl MasqueConfig {
     pub fn effective_auth_mode(&self) -> MasqueAuthMode {
         match self.auth_mode.as_deref().map(str::trim).map(str::to_ascii_lowercase).as_deref() {
-            Some("bearer") | Some("token") => MasqueAuthMode::Bearer,
+            Some("bearer" | "token") => MasqueAuthMode::Bearer,
             Some("preshared") => MasqueAuthMode::Preshared,
             Some("privacy_pass") => MasqueAuthMode::PrivacyPass,
             Some(_) => MasqueAuthMode::None,
