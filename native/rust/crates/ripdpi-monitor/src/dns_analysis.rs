@@ -288,7 +288,6 @@ pub(crate) struct DnsRecordSet {
     pub rcode: u8,
     pub aa_flag: bool,
     pub has_edns0: bool,
-    pub response_size: usize,
 }
 
 /// Result of comparing UDP vs encrypted DNS responses.
@@ -320,7 +319,7 @@ fn rtype_name(rtype: u16) -> &'static str {
 
 /// Parse a raw DNS response into a structured [`DnsRecordSet`].
 pub(crate) fn parse_record_set(packet: &[u8]) -> DnsRecordSet {
-    let mut rs = DnsRecordSet { response_size: packet.len(), ..Default::default() };
+    let mut rs = DnsRecordSet::default();
 
     // Raw byte header.
     if packet.len() >= 12 {
