@@ -276,12 +276,23 @@ internal open class UpstreamRelaySupervisorFactory
         private val relayFactory: RipDpiRelayFactory,
         private val relayProfileStore: RelayProfileStore,
         private val relayCredentialStore: RelayCredentialStore,
-        private val masquePrivacyPassProvider: MasquePrivacyPassProvider = NoopMasquePrivacyPassProvider(),
-        private val tlsFingerprintProfileProvider: OwnedTlsFingerprintProfileProvider =
+        private val masquePrivacyPassProvider: MasquePrivacyPassProvider,
+        private val tlsFingerprintProfileProvider: OwnedTlsFingerprintProfileProvider,
+    ) {
+        constructor(
+            relayFactory: RipDpiRelayFactory,
+            relayProfileStore: RelayProfileStore,
+            relayCredentialStore: RelayCredentialStore,
+        ) : this(
+            relayFactory,
+            relayProfileStore,
+            relayCredentialStore,
+            NoopMasquePrivacyPassProvider(),
             object : OwnedTlsFingerprintProfileProvider {
                 override fun currentProfile(): String = TlsFingerprintProfileNativeDefault
             },
-    ) {
+        )
+
         open fun create(
             scope: CoroutineScope,
             dispatcher: CoroutineDispatcher,
