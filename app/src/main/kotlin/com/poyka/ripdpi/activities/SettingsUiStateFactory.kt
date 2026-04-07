@@ -350,6 +350,7 @@ internal fun AppSettings.toUiState(
         httpParser = buildHttpParserUiState(),
         onboardingComplete = onboardingComplete,
         webrtcProtectionEnabled = webrtcProtectionEnabled,
+        excludeRussianAppsEnabled = excludeRussianAppsEnabled,
         biometricEnabled = biometricEnabled,
         biometricAvailability = biometricAvailability,
         backupPinHash = backupPin,

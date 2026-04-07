@@ -1408,6 +1408,8 @@ Source: %2$s</string>
     <string name="settings_security_section">Privacy &amp; security</string>
     <string name="settings_webrtc_title">WebRTC protection</string>
     <string name="settings_webrtc_body">Reduce peer-discovery leaks that can bypass the local tunnel.</string>
+    <string name="settings_exclude_russian_apps_title">Exclude Russian apps</string>
+    <string name="settings_exclude_russian_apps_body">Banking, delivery, and government apps bypass the VPN to avoid detection issues</string>
     <string name="settings_biometric_title">Require authentication</string>
     <string name="settings_biometric_body_with_pin">Biometric unlock is enabled with a local backup PIN fallback.</string>
     <string name="settings_biometric_body_without_pin">Biometric unlock is enabled. Add a backup PIN for fallback access.</string>

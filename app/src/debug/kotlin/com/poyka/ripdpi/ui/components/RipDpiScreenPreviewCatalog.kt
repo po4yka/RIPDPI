@@ -200,6 +200,7 @@ internal fun RipDpiSettingsMediumPreviewScene() {
             onOpenVpnPermissionDialog = {},
             onThemeSelected = {},
             onWebRtcProtectionChanged = {},
+            onExcludeRussianAppsChanged = {},
             onBiometricChanged = {},
             onSaveBackupPin = {},
         )
@@ -248,6 +249,7 @@ internal fun RipDpiSettingsDarkPreviewScene() {
             onOpenVpnPermissionDialog = {},
             onThemeSelected = {},
             onWebRtcProtectionChanged = {},
+            onExcludeRussianAppsChanged = {},
             onBiometricChanged = {},
             onSaveBackupPin = {},
         )
