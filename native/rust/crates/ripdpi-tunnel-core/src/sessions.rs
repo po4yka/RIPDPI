@@ -25,6 +25,9 @@ pub struct SessionEntry {
     /// The upstream session has closed its write side; the smoltcp socket
     /// should half-close only after `pending_to_smoltcp` has been flushed.
     pub upstream_closed: bool,
+    /// The synthetic IPv4 address (host-byte-order u32) pinned in the DNS cache
+    /// for the duration of this session, if any. Unpinned when the session ends.
+    pub pinned_synthetic_ip: Option<u32>,
 }
 
 /// Eviction priority entry for the bounded heap.
@@ -169,6 +172,7 @@ mod tests {
             pending_to_session: Vec::new(),
             pending_to_smoltcp: Vec::new(),
             upstream_closed: false,
+            pinned_synthetic_ip: None,
         };
         (entry, child)
     }

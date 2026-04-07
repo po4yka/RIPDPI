@@ -113,7 +113,8 @@ pub(super) fn spawn_new_tcp_sessions(
     stats: &Arc<Stats>,
     dns_cache: &mut Option<DnsCache>,
 ) {
-    let mut new_sessions: Vec<(SocketHandle, SocketAddr)> = Vec::new();
+    // Each entry: (socket handle, resolved real target, synthetic IP to pin if any)
+    let mut new_sessions: Vec<(SocketHandle, SocketAddr, Option<u32>)> = Vec::new();
     let mut unresolvable: Vec<SocketHandle> = Vec::new();
 
     for (handle, socket) in socket_set.iter_mut() {
@@ -121,8 +122,26 @@ pub(super) fn spawn_new_tcp_sessions(
         if !tcp.may_send() || sessions.contains(handle) {
             continue;
         }
+
+        // Capture the raw TCP destination before DNS resolution so we can pin
+        // the synthetic IP if mapdns translated it.
+        let raw_dst = tcp_target_endpoint(tcp);
+        let synthetic_ip = raw_dst.and_then(|sa| {
+            let cache = dns_cache.as_ref()?;
+            if let IpAddr::V4(v4) = sa.ip() {
+                let ip = u32::from(v4);
+                if cache.contains_mapped_ip(ip) {
+                    Some(ip)
+                } else {
+                    None
+                }
+            } else {
+                None
+            }
+        });
+
         match tcp_session_target_addr(stats, dns_cache, tcp) {
-            Some(target) => new_sessions.push((handle, target)),
+            Some(target) => new_sessions.push((handle, target, synthetic_ip)),
             None => {
                 debug!("TCP socket {:?} has no resolvable target — aborting", handle);
                 tcp.abort();
@@ -142,8 +161,13 @@ pub(super) fn spawn_new_tcp_sessions(
         socket_set.remove(handle);
     }
 
-    for (handle, target_addr) in new_sessions {
+    for (handle, target_addr, synthetic_ip) in new_sessions {
         remove_pending(pending_listens, handle);
+
+        // Pin the synthetic IP in the DNS cache for the lifetime of this session.
+        if let (Some(cache), Some(ip)) = (dns_cache.as_mut(), synthetic_ip) {
+            cache.pin(ip);
+        }
 
         let (smoltcp_side, session_side) = tokio::io::duplex(DUPLEX_BUF);
         let child_cancel = cancel.child_token();
@@ -161,6 +185,7 @@ pub(super) fn spawn_new_tcp_sessions(
             pending_to_session: Vec::new(),
             pending_to_smoltcp: Vec::new(),
             upstream_closed: false,
+            pinned_synthetic_ip: synthetic_ip,
         };
         if let Some(evicted_handle) = sessions.insert(handle, entry) {
             socket_set.remove(evicted_handle);
