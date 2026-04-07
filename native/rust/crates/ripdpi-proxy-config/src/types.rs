@@ -183,6 +183,8 @@ pub struct ProxyUiListenConfig {
     pub custom_ttl: bool,
     #[serde(default)]
     pub freeze_detection_enabled: bool,
+    #[serde(default)]
+    pub auth_token: Option<String>,
 }
 
 impl Default for ProxyUiListenConfig {
@@ -196,6 +198,7 @@ impl Default for ProxyUiListenConfig {
             default_ttl: 0,
             custom_ttl: false,
             freeze_detection_enabled: false,
+            auth_token: None,
         }
     }
 }

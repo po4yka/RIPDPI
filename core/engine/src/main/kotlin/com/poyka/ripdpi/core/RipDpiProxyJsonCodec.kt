@@ -135,11 +135,12 @@ internal object RipDpiProxyJsonCodec {
         strategyPreset: String? = null,
         rootMode: Boolean = false,
         rootHelperSocketPath: String? = null,
+        localAuthToken: String? = null,
     ): String =
         encode(
             NativeProxyConfig.Ui(
                 strategyPreset = strategyPreset,
-                listen = ConfigSectionCodec.toNative(preferences.listen),
+                listen = ConfigSectionCodec.toNative(preferences.listen).copy(authToken = localAuthToken),
                 protocols = ConfigSectionCodec.toNative(preferences.protocols),
                 chains = ChainCodec.toNative(preferences.chains),
                 fakePackets = PacketCodec.toNative(preferences.fakePackets),
@@ -178,6 +179,7 @@ internal object RipDpiProxyJsonCodec {
         logContext: RipDpiLogContext?,
         rootMode: Boolean = false,
         rootHelperSocketPath: String? = null,
+        localAuthToken: String? = null,
     ): String =
         when (val payload = decode(configJson)) {
             is NativeProxyConfig.CommandLine -> {
@@ -204,6 +206,7 @@ internal object RipDpiProxyJsonCodec {
                     strategyPreset = payload.strategyPreset,
                     rootMode = rootMode,
                     rootHelperSocketPath = rootHelperSocketPath,
+                    localAuthToken = localAuthToken,
                 )
             }
         }
@@ -303,6 +306,7 @@ internal object RipDpiProxyJsonCodec {
         val defaultTtl: Int = 0,
         val customTtl: Boolean = false,
         val freezeDetectionEnabled: Boolean = false,
+        val authToken: String? = null,
     )
 
     @Serializable

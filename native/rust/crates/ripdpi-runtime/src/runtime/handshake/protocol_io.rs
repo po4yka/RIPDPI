@@ -4,7 +4,7 @@ use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, TcpStream};
 use ripdpi_config::RuntimeConfig;
 use ripdpi_session::{
     encode_http_connect_reply, encode_socks4_reply, encode_socks5_reply, SocketType, S_ATP_I4, S_ATP_I6, S_AUTH_BAD,
-    S_AUTH_NONE, S_VER5,
+    S_AUTH_NONE, S_AUTH_USERPASS, S_VER5,
 };
 
 use super::super::state::RuntimeState;
@@ -16,15 +16,43 @@ pub(super) enum HandshakeKind {
     HttpConnect,
 }
 
-pub(super) fn negotiate_socks5(client: &mut TcpStream) -> io::Result<()> {
+pub(super) fn negotiate_socks5(client: &mut TcpStream, auth_token: Option<&str>) -> io::Result<()> {
     let mut count = [0u8; 1];
     client.read_exact(&mut count)?;
     let mut methods = vec![0u8; count[0] as usize];
     client.read_exact(&mut methods)?;
-    let method = if methods.contains(&S_AUTH_NONE) { S_AUTH_NONE } else { S_AUTH_BAD };
-    client.write_all(&[S_VER5, method])?;
-    if method == S_AUTH_BAD {
-        return Err(io::Error::new(io::ErrorKind::PermissionDenied, "no supported socks auth method"));
+
+    if let Some(token) = auth_token {
+        let method = if methods.contains(&S_AUTH_USERPASS) { S_AUTH_USERPASS } else { S_AUTH_BAD };
+        client.write_all(&[S_VER5, method])?;
+        if method == S_AUTH_BAD {
+            return Err(io::Error::new(io::ErrorKind::PermissionDenied, "no supported socks5 auth method"));
+        }
+        // RFC 1929 sub-negotiation
+        let mut sub_ver = [0u8; 1];
+        client.read_exact(&mut sub_ver)?;
+        if sub_ver[0] != 0x01 {
+            return Err(io::Error::new(io::ErrorKind::InvalidData, "unsupported socks5 auth sub-negotiation version"));
+        }
+        let mut ulen = [0u8; 1];
+        client.read_exact(&mut ulen)?;
+        let mut username = vec![0u8; ulen[0] as usize];
+        client.read_exact(&mut username)?;
+        let mut plen = [0u8; 1];
+        client.read_exact(&mut plen)?;
+        let mut password = vec![0u8; plen[0] as usize];
+        client.read_exact(&mut password)?;
+        if password != token.as_bytes() {
+            client.write_all(&[0x01, 0x01])?;
+            return Err(io::Error::new(io::ErrorKind::PermissionDenied, "invalid socks5 credentials"));
+        }
+        client.write_all(&[0x01, 0x00])?;
+    } else {
+        let method = if methods.contains(&S_AUTH_NONE) { S_AUTH_NONE } else { S_AUTH_BAD };
+        client.write_all(&[S_VER5, method])?;
+        if method == S_AUTH_BAD {
+            return Err(io::Error::new(io::ErrorKind::PermissionDenied, "no supported socks auth method"));
+        }
     }
     Ok(())
 }

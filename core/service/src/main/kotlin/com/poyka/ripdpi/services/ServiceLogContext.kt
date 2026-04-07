@@ -26,3 +26,9 @@ internal fun RipDpiProxyPreferences.withLogContext(logContext: RipDpiLogContext?
             logContext = logContext,
         )
     }
+
+internal fun RipDpiProxyPreferences.withLocalAuthToken(token: String?): RipDpiProxyPreferences =
+    RipDpiProxyJsonPreferences(
+        configJson = toNativeConfigJson(),
+        localAuthToken = token,
+    )

@@ -275,6 +275,7 @@ class RipDpiVpnService :
             socks5Port: Int,
             ipv6Enabled: Boolean,
             logContext: RipDpiLogContext? = null,
+            localAuthToken: String? = null,
         ): Tun2SocksConfig =
             Tun2SocksConfig(
                 tunnelMtu = defaultTun2SocksTunnelMtu,
@@ -325,6 +326,8 @@ class RipDpiVpnService :
                 resolverFallbackActive = overrideReason != null,
                 resolverFallbackReason = overrideReason,
                 logContext = logContext,
+                username = if (localAuthToken != null) "ripdpi" else null,
+                password = localAuthToken,
             )
     }
 }

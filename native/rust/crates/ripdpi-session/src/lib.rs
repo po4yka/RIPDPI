@@ -9,6 +9,7 @@ const CLIENT_HELLO_PREFIX_CAP: usize = 76;
 
 pub const S_AUTH_NONE: u8 = 0x00;
 pub const S_AUTH_BAD: u8 = 0xff;
+pub const S_AUTH_USERPASS: u8 = 0x02;
 
 pub const S_ATP_I4: u8 = 0x01;
 pub const S_ATP_ID: u8 = 0x03;
