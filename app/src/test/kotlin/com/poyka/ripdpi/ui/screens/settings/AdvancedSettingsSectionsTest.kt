@@ -12,6 +12,7 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.unit.dp
+import com.poyka.ripdpi.activities.AdaptiveFallbackUiState
 import com.poyka.ripdpi.activities.HostAutolearnUiState
 import com.poyka.ripdpi.activities.ProxyNetworkUiState
 import com.poyka.ripdpi.activities.SettingsUiState
@@ -255,7 +256,7 @@ class AdvancedSettingsSectionsTest {
         setAdaptiveFallbackSection(
             uiState =
                 SettingsUiState(
-                    adaptiveFallback = com.poyka.ripdpi.activities.AdaptiveFallbackUiState(enabled = false),
+                    adaptiveFallback = AdaptiveFallbackUiState(enabled = false),
                 ),
         )
 
