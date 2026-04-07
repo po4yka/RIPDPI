@@ -32,13 +32,9 @@ target/
 # Vendor build scripts must be tracked despite the build/ ignore above
 !native/rust/vendor/**/build/
 
-# Vendored BoringSSL C source tree (checked in by cargo vendor but too large for git)
-native/rust/vendor/boring-sys/deps/
-# Reality patch: SSL_set_client_random added to vendored BoringSSL (tracked individually)
-!native/rust/vendor/boring-sys/deps/boringssl/include/openssl/ssl.h
-!native/rust/vendor/boring-sys/deps/boringssl/ssl/internal.h
-!native/rust/vendor/boring-sys/deps/boringssl/ssl/handshake_client.cc
-!native/rust/vendor/boring-sys/deps/boringssl/ssl/ssl_lib.cc
+# Vendored BoringSSL C source tree — tracked in full so CI cold builds succeed
+# without relying on Swatinem/rust-cache (boring-sys build script needs the
+# source to apply patches and compile; 52 MB uncompressed, ~15 MB in git)
 
 # Generated documentation artifacts
 docs/manual-assets/
