@@ -11,6 +11,7 @@ use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt, ReadBuf};
 use tracing::{debug, warn};
 use tun_rs::AsyncDevice;
 
+use crate::dns_cache::DnsCache;
 use crate::{ActiveSessions, Stats, TunDevice};
 
 use super::PUMP_CHUNK;
@@ -84,7 +85,11 @@ pub(super) fn enqueue_tun_packet(device: &mut TunDevice, raw: Vec<u8>, context: 
     device.tx_queue.push_back(raw);
 }
 
-pub(super) async fn pump_active_sessions(socket_set: &mut SocketSet<'static>, sessions: &mut ActiveSessions) {
+pub(super) async fn pump_active_sessions(
+    socket_set: &mut SocketSet<'static>,
+    sessions: &mut ActiveSessions,
+    dns_cache: &mut Option<DnsCache>,
+) {
     let mut to_remove: Vec<_> = Vec::new();
 
     for (handle, session) in sessions.iter_mut() {
@@ -182,6 +187,10 @@ pub(super) async fn pump_active_sessions(socket_set: &mut SocketSet<'static>, se
 
     for handle in to_remove.drain(..) {
         if let Some(mut entry) = sessions.remove(handle) {
+            // Release the DNS cache pin so this synthetic IP can be evicted.
+            if let (Some(cache), Some(ip)) = (dns_cache.as_mut(), entry.pinned_synthetic_ip) {
+                cache.unpin(ip);
+            }
             entry.smoltcp_side.shutdown().await.ok();
         }
         {
@@ -221,10 +230,19 @@ pub(super) async fn flush_device_tx_queue(
     Ok(())
 }
 
-pub(super) async fn shutdown_active_sessions(sessions: &mut ActiveSessions, socket_set: &mut SocketSet<'static>) {
+pub(super) async fn shutdown_active_sessions(
+    sessions: &mut ActiveSessions,
+    socket_set: &mut SocketSet<'static>,
+    dns_cache: &mut Option<DnsCache>,
+) {
     let handles: Vec<_> = sessions.iter_mut().map(|(handle, _)| handle).collect();
     for handle in handles {
         if let Some(mut entry) = sessions.remove(handle) {
+            // Release the DNS cache pin; the tunnel is shutting down so eviction
+            // correctness no longer matters, but keep state consistent.
+            if let (Some(cache), Some(ip)) = (dns_cache.as_mut(), entry.pinned_synthetic_ip) {
+                cache.unpin(ip);
+            }
             entry.cancel.cancel();
             entry.smoltcp_side.shutdown().await.ok();
             let _ = tokio::time::timeout(Duration::from_secs(5), entry.handle).await;
@@ -594,6 +612,7 @@ mod tests {
             pending_to_session: Vec::new(),
             pending_to_smoltcp: Vec::new(),
             upstream_closed: false,
+            pinned_synthetic_ip: None,
         };
         let mut sessions = ActiveSessions::new(8);
         sessions.insert(handle, entry);
@@ -613,7 +632,8 @@ mod tests {
         iface.poll(Instant::now(), &mut device, &mut socket_set);
 
         // Pump should forward data from smoltcp TCP recv buffer to session duplex
-        pump_active_sessions(&mut socket_set, &mut sessions).await;
+        let mut dns_cache = None;
+        pump_active_sessions(&mut socket_set, &mut sessions, &mut dns_cache).await;
 
         // Read from session side
         let mut buf = [0u8; 64];
@@ -660,6 +680,7 @@ mod tests {
             pending_to_session: Vec::new(),
             pending_to_smoltcp: Vec::new(),
             upstream_closed: false,
+            pinned_synthetic_ip: None,
         };
         let mut sessions = ActiveSessions::new(8);
         sessions.insert(handle, entry);
@@ -669,7 +690,8 @@ mod tests {
         tokio::task::yield_now().await;
 
         // Pump should forward from session duplex into smoltcp send buffer
-        pump_active_sessions(&mut socket_set, &mut sessions).await;
+        let mut dns_cache = None;
+        pump_active_sessions(&mut socket_set, &mut sessions, &mut dns_cache).await;
 
         // Poll smoltcp to produce the TCP packet
         iface.poll(Instant::now(), &mut device, &mut socket_set);
@@ -703,6 +725,7 @@ mod tests {
             pending_to_session: Vec::new(),
             pending_to_smoltcp: Vec::new(),
             upstream_closed: false,
+            pinned_synthetic_ip: None,
         };
         let mut sessions = ActiveSessions::new(8);
         sessions.insert(handle, entry);
@@ -712,7 +735,8 @@ mod tests {
         tokio::task::yield_now().await;
 
         // Pump should detect the closed duplex
-        pump_active_sessions(&mut socket_set, &mut sessions).await;
+        let mut dns_cache = None;
+        pump_active_sessions(&mut socket_set, &mut sessions, &mut dns_cache).await;
 
         // The session should have upstream_closed set to true, or be removed entirely
         // depending on whether the TCP socket is still active
@@ -738,6 +762,7 @@ mod tests {
             pending_to_session: Vec::new(),
             pending_to_smoltcp: Vec::new(),
             upstream_closed: false,
+            pinned_synthetic_ip: None,
         };
         let mut sessions = ActiveSessions::new(8);
         sessions.insert(handle, entry);
@@ -757,7 +782,8 @@ mod tests {
         iface.poll(Instant::now(), &mut device, &mut socket_set);
 
         // Pump -- the tiny buffer should cause pending_to_session accumulation
-        pump_active_sessions(&mut socket_set, &mut sessions).await;
+        let mut dns_cache = None;
+        pump_active_sessions(&mut socket_set, &mut sessions, &mut dns_cache).await;
 
         // The session should still exist (not errored out) -- data is either
         // in pending_to_session or was partially written
@@ -789,12 +815,14 @@ mod tests {
             pending_to_session: Vec::new(),
             pending_to_smoltcp: Vec::new(),
             upstream_closed: true, // Simulate upstream already closed
+            pinned_synthetic_ip: None,
         };
         let mut sessions = ActiveSessions::new(8);
         sessions.insert(handle, entry);
 
         // Pump should call tcp.close() since upstream_closed and pending empty
-        pump_active_sessions(&mut socket_set, &mut sessions).await;
+        let mut dns_cache = None;
+        pump_active_sessions(&mut socket_set, &mut sessions, &mut dns_cache).await;
 
         // Check that the TCP socket was closed (state should transition from Established)
         // The socket might be removed or in a closing state
@@ -837,13 +865,15 @@ mod tests {
             pending_to_session: Vec::new(),
             pending_to_smoltcp: Vec::new(),
             upstream_closed: false,
+            pinned_synthetic_ip: None,
         };
         let mut sessions = ActiveSessions::new(8);
         sessions.insert(handle, entry);
 
         assert!(!child_cancel.is_cancelled());
 
-        shutdown_active_sessions(&mut sessions, &mut socket_set).await;
+        let mut dns_cache = None;
+        shutdown_active_sessions(&mut sessions, &mut socket_set, &mut dns_cache).await;
 
         assert!(child_cancel.is_cancelled(), "session cancel token must be cancelled after shutdown");
         assert!(sessions.is_empty(), "all sessions should be removed after shutdown");

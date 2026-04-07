@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::net::Ipv4Addr;
 use std::num::NonZeroUsize;
 
@@ -7,6 +7,7 @@ use hickory_proto::rr::rdata::A;
 use hickory_proto::rr::RData;
 use lru::LruCache;
 use thiserror::Error;
+use tracing::debug;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DnsCacheEntry {
@@ -51,6 +52,8 @@ pub struct DnsCache {
     lru: LruCache<DnsCacheKey, usize>,
     rev: HashMap<u32, DnsCacheEntry>,
     records: Vec<Option<DnsCacheKey>>,
+    /// Synthetic IPs that must not be evicted while a TCP session is active.
+    pinned: HashSet<u32>,
     net: u32,
     mask: u32,
     max: usize,
@@ -66,6 +69,7 @@ impl DnsCache {
             lru: LruCache::new(capacity),
             rev: HashMap::new(),
             records: vec![None; max],
+            pinned: HashSet::new(),
             net,
             mask,
             max,
@@ -85,6 +89,16 @@ impl DnsCache {
 
     pub fn contains_mapped_ip(&self, ip: u32) -> bool {
         ip & self.mask == self.net
+    }
+
+    /// Pin a synthetic IP so it is not evicted while a TCP session is active.
+    pub fn pin(&mut self, ip: u32) {
+        self.pinned.insert(ip);
+    }
+
+    /// Release a pin on a synthetic IP.
+    pub fn unpin(&mut self, ip: u32) {
+        self.pinned.remove(&ip);
     }
 
     pub fn rewrite_response(&mut self, query: &[u8], upstream: &[u8]) -> Result<DnsRewriteResult, DnsCacheError> {
@@ -162,12 +176,34 @@ impl DnsCache {
             self.next_free += 1;
             idx
         } else {
-            let (evicted, evicted_idx) = self.lru.pop_lru().ok_or(DnsCacheError::EmptyCache)?;
-            let evicted_ip = self.net | evicted_idx as u32;
-            self.rev.remove(&evicted_ip);
-            self.records[evicted_idx] = None;
-            let _ = evicted;
-            evicted_idx
+            // Find the LRU candidate that is not pinned.
+            // Collect LRU order to find the first unpinned entry.
+            let candidate = self
+                .lru
+                .iter()
+                .rev()
+                .find(|(_, &slot)| {
+                    let candidate_ip = self.net | slot as u32;
+                    !self.pinned.contains(&candidate_ip)
+                })
+                .map(|(k, &slot)| (k.clone(), slot));
+
+            if let Some((evicted_key, evicted_idx)) = candidate {
+                let evicted_ip = self.net | evicted_idx as u32;
+                self.lru.pop(&evicted_key);
+                self.rev.remove(&evicted_ip);
+                self.records[evicted_idx] = None;
+                evicted_idx
+            } else {
+                // All candidates are pinned — fall back to evicting the true LRU
+                // to prevent unbounded growth.
+                debug!("mapdns LRU eviction: all cache slots are pinned; evicting LRU anyway");
+                let (_, evicted_idx) = self.lru.pop_lru().ok_or(DnsCacheError::EmptyCache)?;
+                let evicted_ip = self.net | evicted_idx as u32;
+                self.rev.remove(&evicted_ip);
+                self.records[evicted_idx] = None;
+                evicted_idx
+            }
         };
 
         let fake_ip = self.net | idx as u32;
