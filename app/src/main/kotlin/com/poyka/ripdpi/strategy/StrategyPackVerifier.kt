@@ -135,7 +135,11 @@ class DefaultStrategyPackVerifier
 
             signature.initVerify(keyResolver.resolve(manifest.keyId))
             signature.update(payload)
-            if (!signature.verify(signatureBytes)) {
+            val valid =
+                runCatching { signature.verify(signatureBytes) }.getOrElse {
+                    throw StrategyPackSignatureMismatchException()
+                }
+            if (!valid) {
                 throw StrategyPackSignatureMismatchException()
             }
         }
