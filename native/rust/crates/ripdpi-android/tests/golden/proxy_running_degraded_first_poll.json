@@ -4,6 +4,9 @@
   "blockedHostCount": 2,
   "candidateDiversificationCount": 0,
   "capturedAt": 0,
+  "chainEntryState": null,
+  "chainExitState": null,
+  "fallbackMode": null,
   "health": "degraded",
   "lastAutolearnAction": "host_promoted",
   "lastAutolearnGroup": 2,
@@ -13,6 +16,7 @@
   "lastError": "boom",
   "lastFailureClass": null,
   "lastFallbackAction": null,
+  "lastHandshakeError": null,
   "lastHost": "example.org",
   "lastRetryBackoffMs": null,
   "lastRetryReason": null,
@@ -69,11 +73,14 @@
   ],
   "networkErrors": 0,
   "penalizedHostCount": 1,
+  "profileId": null,
+  "protocolKind": null,
   "retryPacedCount": 0,
   "routeChanges": 1,
   "slotExhaustions": 0,
   "source": "proxy",
   "state": "running",
+  "tcpCapable": null,
   "totalErrors": 1,
   "totalSessions": 1,
   "tunnelStats": {
@@ -82,6 +89,7 @@
     "txBytes": 0,
     "txPackets": 0
   },
+  "udpCapable": null,
   "upstreamAddress": "203.0.113.10:443",
   "upstreamRttMs": 87
 }
