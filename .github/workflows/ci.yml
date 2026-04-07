@@ -193,23 +193,22 @@ jobs:
       - name: Populate BoringSSL source on cache miss
         if: steps.boringssl-source.outputs.cache-hit != 'true'
         run: |
-          boring_ver=$(grep '^version = ' native/rust/vendor/boring-sys/Cargo.toml \
-            | head -1 | grep -o '[0-9][0-9.]*')
-          curl -fsSL \
-            "https://static.crates.io/crates/boring-sys/boring-sys-${boring_ver}.crate" \
-            -o /tmp/boring-sys.crate
-          mkdir -p /tmp/boringssl-extract
-          tar -xzf /tmp/boring-sys.crate -C /tmp/boringssl-extract \
-            "boring-sys-${boring_ver}/deps/boringssl"
-          cp -r "/tmp/boringssl-extract/boring-sys-${boring_ver}/deps/boringssl/." \
-            native/rust/vendor/boring-sys/deps/boringssl/
-          rm -rf /tmp/boring-sys.crate /tmp/boringssl-extract
+          # boring-sys 5.0.2 pins boringssl at this exact commit.
+          # Download via GitHub archive — googlesource does not support shallow
+          # fetches by SHA, and crates.io packages omit git submodule content.
+          BORINGSSL_COMMIT="39acdfcaed06d01030e63df64a5d6a09aa0db821"
+          DEST="native/rust/vendor/boring-sys/deps/boringssl"
+          curl -fsSL "https://github.com/google/boringssl/archive/${BORINGSSL_COMMIT}.tar.gz" \
+            -o /tmp/boringssl.tar.gz
+          mkdir -p "$DEST"
+          tar -xzf /tmp/boringssl.tar.gz --strip-components=1 -C "$DEST"
+          rm /tmp/boringssl.tar.gz
           # Restore RIPDPI-patched files that override the upstream copies.
           git checkout -- \
-            native/rust/vendor/boring-sys/deps/boringssl/include/openssl/ssl.h \
-            native/rust/vendor/boring-sys/deps/boringssl/ssl/internal.h \
-            native/rust/vendor/boring-sys/deps/boringssl/ssl/handshake_client.cc \
-            native/rust/vendor/boring-sys/deps/boringssl/ssl/ssl_lib.cc
+            "$DEST/include/openssl/ssl.h" \
+            "$DEST/ssl/internal.h" \
+            "$DEST/ssl/handshake_client.cc" \
+            "$DEST/ssl/ssl_lib.cc"
 
       - name: Run Rust lint checks
         env:
@@ -374,22 +373,29 @@ jobs:
         with:
           tool: cargo-nextest
 
-      - name: Restore BoringSSL source for boring-sys
+      # The full BoringSSL source tree is gitignored (too large to track).
+      # Cache it separately keyed by boring-sys version so it survives
+      # build-script changes that otherwise invalidate the Rust artifact cache.
+      - name: Cache BoringSSL source tree
+        id: boringssl-source
+        uses: actions/cache@v4
+        with:
+          path: native/rust/vendor/boring-sys/deps/boringssl
+          key: boringssl-source-${{ hashFiles('native/rust/vendor/boring-sys/Cargo.toml') }}
+
+      - name: Populate BoringSSL source on cache miss
+        if: steps.boringssl-source.outputs.cache-hit != 'true'
         run: |
-          # boring-sys needs the full BoringSSL source tree to compile.
-          # The vendor directory only tracks 4 Reality-patch files; the rest
-          # of deps/boringssl/ is excluded from git to keep the repo small.
-          # Fetch the exact BoringSSL commit that boring-sys 5.0.2 pins, then
-          # restore our tracked Reality-patch files on top so the patched
-          # functions are present when boring-sys applies boring-pq.patch.
+          # boring-sys 5.0.2 pins boringssl at this exact commit.
+          # Download via GitHub archive — googlesource does not support shallow
+          # fetches by SHA, and crates.io packages omit git submodule content.
           BORINGSSL_COMMIT="39acdfcaed06d01030e63df64a5d6a09aa0db821"
           DEST="native/rust/vendor/boring-sys/deps/boringssl"
-          git init /tmp/boringssl
-          git -C /tmp/boringssl fetch --depth 1 \
-            https://boringssl.googlesource.com/boringssl "$BORINGSSL_COMMIT"
-          git -C /tmp/boringssl checkout FETCH_HEAD
-          cp -r /tmp/boringssl/. "$DEST/"
-          rm -rf "$DEST/.git" /tmp/boringssl
+          curl -fsSL "https://github.com/google/boringssl/archive/${BORINGSSL_COMMIT}.tar.gz" \
+            -o /tmp/boringssl.tar.gz
+          mkdir -p "$DEST"
+          tar -xzf /tmp/boringssl.tar.gz --strip-components=1 -C "$DEST"
+          rm /tmp/boringssl.tar.gz
           # Restore our Reality-patch modifications on top of the fresh source
           git checkout -- "$DEST"
 
