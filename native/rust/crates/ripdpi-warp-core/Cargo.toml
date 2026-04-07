@@ -16,7 +16,7 @@ bytes = "1"
 ripdpi-native-protect = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
-smoltcp = { version = "0.12", default-features = false, features = ["std", "medium-ip", "proto-ipv4", "proto-ipv6", "socket-udp", "socket-tcp"] }
+smoltcp = { version = "0.13", default-features = false, features = ["std", "medium-ip", "proto-ipv4", "proto-ipv6", "socket-udp", "socket-tcp"] }
 socket2 = { workspace = true }
 tokio = { workspace = true, features = ["io-util", "macros", "net", "rt-multi-thread", "sync", "time"] }
 tracing = { workspace = true }
