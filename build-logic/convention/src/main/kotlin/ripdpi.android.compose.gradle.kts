@@ -10,10 +10,14 @@ the<CommonExtension>().apply {
 }
 
 extensions.findByType<ComposeCompilerGradlePluginExtension>()?.apply {
-    stabilityConfigurationFile.set(project.rootProject.layout.projectDirectory.file("app/compose-stability.conf"))
+    stabilityConfigurationFiles.add(
+        project.rootProject.layout.projectDirectory
+            .file("app/compose-stability.conf"),
+    )
 
-    val generateReports = providers.environmentVariable("CI").isPresent ||
-        providers.gradleProperty("ripdpi.composeReports").map { it.toBoolean() }.getOrElse(false)
+    val generateReports =
+        providers.environmentVariable("CI").isPresent ||
+            providers.gradleProperty("ripdpi.composeReports").map { it.toBoolean() }.getOrElse(false)
 
     if (generateReports) {
         reportsDestination.set(layout.buildDirectory.dir("compose-reports"))
