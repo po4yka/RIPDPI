@@ -73,27 +73,23 @@ where
 {
     // 1. Generate 32-byte client_random that we will inject into the ClientHello.
     let mut client_random = [0u8; 32];
-    rand_bytes(&mut client_random).map_err(|e| io::Error::new(io::ErrorKind::Other, format!("rand_bytes: {e}")))?;
+    rand_bytes(&mut client_random).map_err(|e| io::Error::other(format!("rand_bytes: {e}")))?;
 
     // 2. Build session_id using client_random[20..] as HKDF salt (Reality spec).
     let session_id = build_reality_session_id(config, &client_random)?;
 
     // 3. Build the SSL connector with the chosen TLS fingerprint profile.
     let mut builder = ripdpi_tls_profiles::configure_builder(&config.tls_fingerprint_profile)
-        .map_err(|e| io::Error::new(io::ErrorKind::Other, format!("TLS profile: {e}")))?;
+        .map_err(|e| io::Error::other(format!("TLS profile: {e}")))?;
 
     // Reality uses its own auth model -- disable standard cert verification.
     builder.set_verify(SslVerifyMode::NONE);
 
     let connector = builder.build();
-    let config_ssl = connector
-        .configure()
-        .map_err(|e| io::Error::new(io::ErrorKind::Other, format!("boring SSL configure: {e}")))?;
+    let config_ssl = connector.configure().map_err(|e| io::Error::other(format!("boring SSL configure: {e}")))?;
 
     // 4. Obtain the Ssl object so we can mutate it before the handshake.
-    let ssl = config_ssl
-        .into_ssl(&config.server_name)
-        .map_err(|e| io::Error::new(io::ErrorKind::Other, format!("SSL configure: {e}")))?;
+    let ssl = config_ssl.into_ssl(&config.server_name).map_err(|e| io::Error::other(format!("SSL configure: {e}")))?;
 
     // 5. Inject client_random into the ClientHello random field.
     // SAFETY: ssl.as_ptr() is valid for the lifetime of ssl; SSL_set_client_random
@@ -102,7 +98,7 @@ where
         SSL_set_client_random(ssl.as_ptr().cast::<std::ffi::c_void>(), client_random.as_ptr(), client_random.len())
     };
     if ret != 1 {
-        return Err(io::Error::new(io::ErrorKind::Other, "SSL_set_client_random failed"));
+        return Err(io::Error::other("SSL_set_client_random failed"));
     }
 
     // 6. Inject session_id: allocate a session, assign the ID, attach to the SSL object.
@@ -113,13 +109,13 @@ where
         let ssl_ctx = SSL_get_SSL_CTX(ssl.as_ptr().cast::<std::ffi::c_void>());
         let sess = SSL_SESSION_new(ssl_ctx);
         if sess.is_null() {
-            return Err(io::Error::new(io::ErrorKind::Other, "SSL_SESSION_new failed"));
+            return Err(io::Error::other("SSL_SESSION_new failed"));
         }
         let id_ret = SSL_SESSION_set1_id(sess, session_id.as_ptr(), session_id.len() as u32);
         let set_ret = SSL_set_session(ssl.as_ptr().cast::<std::ffi::c_void>(), sess);
         SSL_SESSION_free(sess);
         if id_ret != 1 || set_ret != 1 {
-            return Err(io::Error::new(io::ErrorKind::Other, "Reality session_id injection failed"));
+            return Err(io::Error::other("Reality session_id injection failed"));
         }
     }
 
@@ -166,9 +162,9 @@ fn build_reality_session_id(config: &VlessRealityConfig, client_random: &[u8; 32
     let salt = hkdf::Salt::new(hkdf::HKDF_SHA256, &client_random[20..]);
     let prk = salt.extract(shared_secret.as_bytes());
     let info = [b"REALITY".as_slice()];
-    let okm = prk.expand(&info, AuthKeyLen).map_err(|_| io::Error::new(io::ErrorKind::Other, "HKDF expand failed"))?;
+    let okm = prk.expand(&info, AuthKeyLen).map_err(|_| io::Error::other("HKDF expand failed"))?;
     let mut auth_key = [0u8; 32];
-    okm.fill(&mut auth_key).map_err(|_| io::Error::new(io::ErrorKind::Other, "HKDF fill failed"))?;
+    okm.fill(&mut auth_key).map_err(|_| io::Error::other("HKDF fill failed"))?;
 
     // 4. Construct session_id plaintext
     let mut session_id = [0u8; 32];
