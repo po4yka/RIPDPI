@@ -56,7 +56,7 @@ fun createConnectionNotification(
         .setContentTitle(context.getString(title))
         .setContentText(context.getString(content))
         .addAction(
-            0,
+            R.drawable.ic_notification,
             context.getString(R.string.notification_stop),
             PendingIntent.getService(
                 context,
@@ -95,7 +95,7 @@ fun createDynamicConnectionNotification(
         .setShowWhen(true)
         .setUsesChronometer(true)
         .addAction(
-            0,
+            R.drawable.ic_notification,
             context.getString(R.string.notification_stop),
             PendingIntent.getService(
                 context,
