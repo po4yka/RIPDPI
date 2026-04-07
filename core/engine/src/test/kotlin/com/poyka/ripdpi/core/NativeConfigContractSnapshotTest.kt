@@ -642,6 +642,7 @@ class NativeConfigContractSnapshotTest {
         defaultTtl: Int = 0,
         customTtl: Boolean = false,
         freezeDetectionEnabled: Boolean = false,
+        authToken: String? = null,
     ): JsonObject =
         buildJsonObject {
             put("ip", JsonPrimitive(ip))
@@ -652,6 +653,7 @@ class NativeConfigContractSnapshotTest {
             put("defaultTtl", JsonPrimitive(defaultTtl))
             put("customTtl", JsonPrimitive(customTtl))
             put("freezeDetectionEnabled", JsonPrimitive(freezeDetectionEnabled))
+            put("authToken", authToken?.let(::JsonPrimitive) ?: JsonNull)
         }
 
     private fun protocolsExpected(
