@@ -218,6 +218,8 @@ fn process_client_job(job: ClientJob) {
             } else {
                 tracing::warn!("ripdpi client disconnected: {err}");
             }
+        } else if is_connection_timeout_error(err) {
+            tracing::warn!("ripdpi client timeout: {err}");
         } else {
             tracing::error!("ripdpi client error: {err}");
         }
@@ -241,6 +243,11 @@ fn is_connection_closed_error(err: &io::Error) -> bool {
             | io::ErrorKind::UnexpectedEof
             | io::ErrorKind::NotConnected
     )
+}
+
+/// Returns `true` for I/O errors that indicate a connection timed out.
+fn is_connection_timeout_error(err: &io::Error) -> bool {
+    matches!(err.kind(), io::ErrorKind::TimedOut)
 }
 
 fn detected_parallelism() -> usize {
