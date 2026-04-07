@@ -112,6 +112,11 @@
           "crate": "ripdpi_proxy_config",
           "name": "ripdpi_proxy_config::convert::runtime_config_from_ui",
           "size": 15661
+        },
+        {
+          "crate": "serde_json",
+          "name": "<&mut serde_json::de::Deserializer<R> as serde_core::de::Deserializer>::deserialize_struct",
+          "size": 15180
         }
       ],
       "crates": [
@@ -275,6 +280,11 @@
           "crate": "serde_json",
           "name": "<&mut serde_json::de::Deserializer<R> as serde_core::de::Deserializer>::deserialize_struct",
           "size": 17614
+        },
+        {
+          "crate": "quinn_proto",
+          "name": "quinn_proto::connection::Connection::handle_decode",
+          "size": 17525
         },
         {
           "crate": "aws_lc_sys",
