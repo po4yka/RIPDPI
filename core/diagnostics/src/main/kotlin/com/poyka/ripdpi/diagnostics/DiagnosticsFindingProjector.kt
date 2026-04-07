@@ -107,17 +107,9 @@ private fun collectDnsTamperingDiagnoses(
             val injectionSuspected = isTampered && udpMs != null && udpMs <= DnsInjectionThresholdMs
             val (mechanism, summary) =
                 when {
-                    observation.status == DnsObservationStatus.NXDOMAIN -> {
-                        "record_deletion" to "DNS records were deleted (NXDOMAIN)"
-                    }
-
-                    injectionSuspected -> {
-                        "injection" to "DNS response injected in under 5ms with substituted answers"
-                    }
-
-                    else -> {
-                        "substitution" to "DNS answers were substituted"
-                    }
+                    observation.status == DnsObservationStatus.NXDOMAIN -> "record_deletion" to "DNS records were deleted (NXDOMAIN)"
+                    injectionSuspected -> "injection" to "DNS response injected in under 5ms with substituted answers"
+                    else -> "substitution" to "DNS answers were substituted"
                 }
             pushDiagnosis(
                 diagnoses,
@@ -233,113 +225,28 @@ private fun collectDomainDiagnoses(
     diagnoses: MutableList<Diagnosis>,
     seen: MutableSet<String>,
 ) {
-    domains.forEach { observation ->
-        addTransportFailureDiagnosis(observation, diagnoses, seen)
-        addCertificateDiagnosis(observation, diagnoses, seen)
-        addHttpBlockpageDiagnosis(observation, diagnoses, seen)
-        addEchOnlyDiagnosis(observation, diagnoses, seen)
-        addSniInterferenceDiagnosis(observation, quic, diagnoses, seen)
-    }
-}
-
-private fun addTransportFailureDiagnosis(
-    observation: DomainObservationFact,
-    diagnoses: MutableList<Diagnosis>,
-    seen: MutableSet<String>,
-) {
-    val diagnosisCode =
-        when (observation.transportFailure) {
-            TransportFailureKind.TIMEOUT -> "tls_clienthello_timeout"
-            TransportFailureKind.RESET -> "tls_clienthello_rst"
-            TransportFailureKind.CLOSE -> "tls_clienthello_close"
-            TransportFailureKind.CERTIFICATE -> "tls_cert_mitm"
-            else -> null
+    domains.forEach { obs ->
+        val (code, summary) =
+            when (obs.transportFailure) {
+                TransportFailureKind.TIMEOUT -> "tls_clienthello_timeout" to "TLS handshake timed out after ClientHello"
+                TransportFailureKind.RESET -> "tls_clienthello_rst" to "TLS handshake was reset after ClientHello"
+                TransportFailureKind.CLOSE -> "tls_clienthello_close" to "TLS handshake was closed after ClientHello"
+                TransportFailureKind.CERTIFICATE -> "tls_cert_mitm" to "TLS certificate anomaly suggests interception"
+                else -> null to null
+            }
+        if (code != null && summary != null) {
+            pushDiagnosis(diagnoses, seen, Diagnosis(code = code, summary = summary, target = obs.host, evidence = listOf(obs.host)))
         }
-    val summary =
-        when (observation.transportFailure) {
-            TransportFailureKind.TIMEOUT -> "TLS handshake timed out after ClientHello"
-            TransportFailureKind.RESET -> "TLS handshake was reset after ClientHello"
-            TransportFailureKind.CLOSE -> "TLS handshake was closed after ClientHello"
-            TransportFailureKind.CERTIFICATE -> "TLS certificate anomaly suggests interception"
-            else -> null
+        if (obs.certificateAnomaly || obs.tls13Status == TlsProbeStatus.CERT_INVALID) {
+            pushDiagnosis(diagnoses, seen, Diagnosis(code = "tls_cert_mitm", summary = "TLS certificate anomaly suggests interception", target = obs.host, evidence = listOf(obs.host)))
         }
-    if (diagnosisCode != null && summary != null) {
-        pushDiagnosis(
-            diagnoses,
-            seen,
-            Diagnosis(
-                code = diagnosisCode,
-                summary = summary,
-                target = observation.host,
-                evidence = listOf(observation.host),
-            ),
-        )
-    }
-}
-
-private fun addCertificateDiagnosis(
-    observation: DomainObservationFact,
-    diagnoses: MutableList<Diagnosis>,
-    seen: MutableSet<String>,
-) {
-    if (observation.certificateAnomaly || observation.tls13Status == TlsProbeStatus.CERT_INVALID) {
-        pushDiagnosis(
-            diagnoses,
-            seen,
-            Diagnosis(
-                code = "tls_cert_mitm",
-                summary = "TLS certificate anomaly suggests interception",
-                target = observation.host,
-                evidence = listOf(observation.host),
-            ),
-        )
-    }
-}
-
-private fun addHttpBlockpageDiagnosis(
-    observation: DomainObservationFact,
-    diagnoses: MutableList<Diagnosis>,
-    seen: MutableSet<String>,
-) {
-    if (observation.httpStatus == HttpProbeStatus.BLOCKPAGE) {
-        pushDiagnosis(
-            diagnoses,
-            seen,
-            Diagnosis(
-                code = "http_blockpage",
-                summary = "HTTP response matched a blockpage",
-                target = observation.host,
-                evidence = listOf(observation.host),
-            ),
-        )
-    }
-}
-
-private fun addEchOnlyDiagnosis(
-    observation: DomainObservationFact,
-    diagnoses: MutableList<Diagnosis>,
-    seen: MutableSet<String>,
-) {
-    if (
-        observation.tlsEchStatus == TlsProbeStatus.OK &&
-        observation.tls13Status != TlsProbeStatus.OK &&
-        observation.tls12Status != TlsProbeStatus.OK
-    ) {
-        pushDiagnosis(
-            diagnoses,
-            seen,
-            Diagnosis(
-                code = "tls_ech_only",
-                summary = "Plain TLS is blocked, but ECH succeeds",
-                target = observation.host,
-                evidence =
-                    listOfNotNull(
-                        observation.host,
-                        observation.tlsEchVersion,
-                        observation.tlsEchError,
-                    ),
-            ),
-        )
+        if (obs.httpStatus == HttpProbeStatus.BLOCKPAGE) {
+            pushDiagnosis(diagnoses, seen, Diagnosis(code = "http_blockpage", summary = "HTTP response matched a blockpage", target = obs.host, evidence = listOf(obs.host)))
+        }
+        if (obs.tlsEchStatus == TlsProbeStatus.OK && obs.tls13Status != TlsProbeStatus.OK && obs.tls12Status != TlsProbeStatus.OK) {
+            pushDiagnosis(diagnoses, seen, Diagnosis(code = "tls_ech_only", summary = "Plain TLS is blocked, but ECH succeeds", target = obs.host, evidence = listOfNotNull(obs.host, obs.tlsEchVersion, obs.tlsEchError)))
+        }
+        addSniInterferenceDiagnosis(obs, quic, diagnoses, seen)
     }
 }
 
@@ -374,30 +281,21 @@ private fun collectTcpDiagnoses(
     seen: MutableSet<String>,
 ) {
     tcp.forEach { observation ->
-        val diagnosis =
-            when (observation.status) {
-                TcpProbeStatus.BLOCKED_16KB -> {
-                    Diagnosis(
-                        code = "tcp_16kb_cutoff",
-                        summary = "TCP flow failed around the 16 KiB threshold",
-                        target = observation.provider,
-                        evidence = listOfNotNull(observation.bytesSent?.toString()),
-                    )
-                }
-
-                TcpProbeStatus.WHITELIST_SNI_OK -> {
-                    Diagnosis(
-                        code = "whitelist_sni_bypassable",
-                        summary = "A whitelisted SNI restored TCP reachability",
-                        target = observation.provider,
-                        evidence = listOfNotNull(observation.selectedSni),
-                    )
-                }
-
-                else -> {
-                    null
-                }
-            }
+        val diagnosis = when (observation.status) {
+            TcpProbeStatus.BLOCKED_16KB -> Diagnosis(
+                code = "tcp_16kb_cutoff",
+                summary = "TCP flow failed around the 16 KiB threshold",
+                target = observation.provider,
+                evidence = listOfNotNull(observation.bytesSent?.toString()),
+            )
+            TcpProbeStatus.WHITELIST_SNI_OK -> Diagnosis(
+                code = "whitelist_sni_bypassable",
+                summary = "A whitelisted SNI restored TCP reachability",
+                target = observation.provider,
+                evidence = listOfNotNull(observation.selectedSni),
+            )
+            else -> null
+        }
         diagnosis?.let { pushDiagnosis(diagnoses, seen, it) }
     }
 }
@@ -407,20 +305,9 @@ private fun collectQuicDiagnoses(
     diagnoses: MutableList<Diagnosis>,
     seen: MutableSet<String>,
 ) {
-    quic
-        .filter { it.status in setOf(QuicProbeStatus.ERROR, QuicProbeStatus.EMPTY) }
-        .forEach { observation ->
-            pushDiagnosis(
-                diagnoses,
-                seen,
-                Diagnosis(
-                    code = "quic_blocked",
-                    summary = "QUIC traffic was blocked or suppressed",
-                    target = observation.host,
-                    evidence = listOf(observation.host),
-                ),
-            )
-        }
+    quic.filter { it.status in setOf(QuicProbeStatus.ERROR, QuicProbeStatus.EMPTY) }.forEach { obs ->
+        pushDiagnosis(diagnoses, seen, Diagnosis(code = "quic_blocked", summary = "QUIC traffic was blocked or suppressed", target = obs.host, evidence = listOf(obs.host)))
+    }
 }
 
 private fun collectServiceDiagnoses(
@@ -446,16 +333,7 @@ private fun collectServiceDiagnoses(
             seen,
         )
         if (observation.quicStatus in setOf(QuicProbeStatus.ERROR, QuicProbeStatus.EMPTY)) {
-            pushDiagnosis(
-                diagnoses,
-                seen,
-                Diagnosis(
-                    code = "quic_blocked",
-                    summary = "QUIC traffic was blocked or suppressed",
-                    target = observation.service,
-                    evidence = listOf(observation.service),
-                ),
-            )
+            pushDiagnosis(diagnoses, seen, Diagnosis(code = "quic_blocked", summary = "QUIC traffic was blocked or suppressed", target = observation.service, evidence = listOf(observation.service)))
         }
     }
 }
@@ -474,20 +352,8 @@ private fun collectCircumventionDiagnoses(
             diagnoses,
             seen,
         )
-        if (
-            observation.handshakeStatus != EndpointProbeStatus.OK &&
-            observation.handshakeStatus != EndpointProbeStatus.NOT_RUN
-        ) {
-            pushDiagnosis(
-                diagnoses,
-                seen,
-                Diagnosis(
-                    code = "circumvention_handshake_blocked",
-                    summary = "${observation.tool} handshake endpoint was blocked",
-                    target = observation.tool,
-                    evidence = listOf(observation.tool),
-                ),
-            )
+        if (observation.handshakeStatus != EndpointProbeStatus.OK && observation.handshakeStatus != EndpointProbeStatus.NOT_RUN) {
+            pushDiagnosis(diagnoses, seen, Diagnosis(code = "circumvention_handshake_blocked", summary = "${observation.tool} handshake endpoint was blocked", target = observation.tool, evidence = listOf(observation.tool)))
         }
     }
 }
@@ -501,16 +367,7 @@ private fun addServiceHttpDiagnosis(
     seen: MutableSet<String>,
 ) {
     if (status !in setOf(HttpProbeStatus.OK, HttpProbeStatus.NOT_RUN)) {
-        pushDiagnosis(
-            diagnoses,
-            seen,
-            Diagnosis(
-                code = code,
-                summary = summary,
-                target = target,
-                evidence = listOf(target),
-            ),
-        )
+        pushDiagnosis(diagnoses, seen, Diagnosis(code = code, summary = summary, target = target, evidence = listOf(target)))
     }
 }
 
