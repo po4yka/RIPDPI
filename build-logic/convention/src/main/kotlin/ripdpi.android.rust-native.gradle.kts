@@ -524,7 +524,7 @@ val rustRootHelperArtifactSpecs =
 
 extensions.configure<LibraryExtension> {
     sourceSets["main"].jniLibs.directories.add(generatedJniLibsDir.get().asFile.absolutePath)
-    sourceSets["main"].assets.srcDirs(generatedAssetsDir.get().asFile.absolutePath)
+    sourceSets["main"].assets.directories.add(generatedAssetsDir.get().asFile.absolutePath)
 }
 
 val buildRustNativeLibs =
