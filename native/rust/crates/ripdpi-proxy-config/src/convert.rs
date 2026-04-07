@@ -1093,9 +1093,9 @@ fn validate_tcp_chain(steps: &[TcpChainStep]) -> Result<(), ProxyConfigError> {
 pub fn parse_udp_chain_step_kind(value: &str) -> Result<UdpChainStepKind, ProxyConfigError> {
     match value {
         "fake_burst" => Ok(UdpChainStepKind::FakeBurst),
-        "dummyprepend" => Ok(UdpChainStepKind::DummyPrepend),
-        "quicsnisplit" => Ok(UdpChainStepKind::QuicSniSplit),
-        "quicfakeversion" => Ok(UdpChainStepKind::QuicFakeVersion),
+        "dummyprepend" | "dummy_prepend" => Ok(UdpChainStepKind::DummyPrepend),
+        "quicsnisplit" | "quic_sni_split" => Ok(UdpChainStepKind::QuicSniSplit),
+        "quicfakeversion" | "quic_fake_version" => Ok(UdpChainStepKind::QuicFakeVersion),
         "ipfrag2_udp" => Ok(UdpChainStepKind::IpFrag2Udp),
         _ => Err(ProxyConfigError::InvalidConfig(format!("Unknown udpChainSteps kind: {value}"))),
     }
