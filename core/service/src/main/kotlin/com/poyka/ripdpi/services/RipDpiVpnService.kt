@@ -244,6 +244,14 @@ class RipDpiVpnService :
             builder.addDisallowedApplication(applicationContext.packageName)
         }
 
+        for (pkg in vpnAppExclusionPolicy.russianAppsToExclude()) {
+            try {
+                builder.addDisallowedApplication(pkg)
+            } catch (_: PackageManager.NameNotFoundException) {
+                // App not installed, skip silently
+            }
+        }
+
         return builder
     }
 
@@ -275,6 +283,7 @@ class RipDpiVpnService :
             socks5Port: Int,
             ipv6Enabled: Boolean,
             logContext: RipDpiLogContext? = null,
+            localAuthToken: String? = null,
         ): Tun2SocksConfig =
             Tun2SocksConfig(
                 tunnelMtu = defaultTun2SocksTunnelMtu,
@@ -325,6 +334,8 @@ class RipDpiVpnService :
                 resolverFallbackActive = overrideReason != null,
                 resolverFallbackReason = overrideReason,
                 logContext = logContext,
+                username = if (localAuthToken != null) "ripdpi" else null,
+                password = localAuthToken,
             )
     }
 }

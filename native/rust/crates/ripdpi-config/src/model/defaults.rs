@@ -51,7 +51,12 @@ impl Default for RuntimeNetworkSettings {
         let ipv6 = TcpListener::bind((Ipv6Addr::LOCALHOST, 0)).is_ok();
         let bind_ip = if ipv6 { IpAddr::V6(Ipv6Addr::UNSPECIFIED) } else { IpAddr::V4(Ipv4Addr::UNSPECIFIED) };
         Self {
-            listen: ListenConfig { listen_ip: IpAddr::V4(Ipv4Addr::LOCALHOST), listen_port: 1080, bind_ip },
+            listen: ListenConfig {
+                listen_ip: IpAddr::V4(Ipv4Addr::LOCALHOST),
+                listen_port: 1080,
+                bind_ip,
+                auth_token: None,
+            },
             resolve: true,
             ipv6,
             udp: true,
