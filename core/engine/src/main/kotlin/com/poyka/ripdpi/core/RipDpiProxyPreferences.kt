@@ -4,6 +4,8 @@ import com.poyka.ripdpi.utility.shellSplit
 
 sealed interface RipDpiProxyPreferences {
     fun toNativeConfigJson(): String
+
+    val localAuthToken: String? get() = null
 }
 
 fun stripRipDpiRuntimeContext(configJson: String): String = RipDpiProxyJsonCodec.stripRuntimeContext(configJson)
@@ -49,6 +51,7 @@ class RipDpiProxyJsonPreferences(
     private val logContext: RipDpiLogContext? = null,
     private val rootMode: Boolean = false,
     private val rootHelperSocketPath: String? = null,
+    override val localAuthToken: String? = null,
 ) : RipDpiProxyPreferences {
     override fun toNativeConfigJson(): String =
         RipDpiProxyJsonCodec.rewriteJson(
@@ -59,6 +62,7 @@ class RipDpiProxyJsonPreferences(
             logContext = logContext,
             rootMode = rootMode,
             rootHelperSocketPath = rootHelperSocketPath,
+            localAuthToken = localAuthToken,
         )
 }
 
