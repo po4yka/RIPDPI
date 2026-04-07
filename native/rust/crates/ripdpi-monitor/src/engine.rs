@@ -90,7 +90,7 @@ pub(crate) fn run_engine_scan(
     );
 
     let mut runtime = ExecutionRuntime::new(shared.clone(), cancel);
-    let deadline_ms = plan.request.scan_deadline_ms.unwrap_or(270_000);
+    let deadline_ms = plan.request.scan_deadline_ms.unwrap_or(360_000);
     runtime.set_scan_deadline(std::time::Instant::now() + std::time::Duration::from_millis(deadline_ms));
     match coordinator.run(&plan, &mut runtime, tls_verifier.as_ref()) {
         RunnerOutcome::Cancelled => {
