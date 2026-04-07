@@ -149,7 +149,7 @@ pub(crate) fn open_ws_tunnel_with_timeout(
     // BoringSSL TLS handshake -- produces Chrome-native cipher suite ordering,
     // GREASE values, and extension layout for DPI fingerprint evasion.
     let connector = ripdpi_tls_profiles::build_connector("chrome_stable", fake_sni.is_none())
-        .map_err(|e| io::Error::new(io::ErrorKind::Other, format!("TLS profile: {e}")))?;
+        .map_err(|e| io::Error::other(format!("TLS profile: {e}")))?;
     let tls_stream = connector
         .connect(tls_host, tcp)
         .map_err(|e| io::Error::new(io::ErrorKind::ConnectionRefused, format!("boring TLS: {e}")))?;
