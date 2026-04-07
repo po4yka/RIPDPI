@@ -244,6 +244,7 @@ mod tests {
                             max_fragment_size: 0,
                             inter_segment_delay_ms: 0,
                             activation_filter: use_activation_filter.then_some(ProxyUiActivationFilter::default()),
+                            ipv6_extension_profile: "none".to_string(),
                         }]
                     },
                     udp_steps: if udp_fake_count > 0 {
@@ -353,6 +354,7 @@ mod tests {
             max_fragment_size: 0,
             inter_segment_delay_ms: 0,
             activation_filter: Some(ProxyUiActivationFilter::default()),
+            ipv6_extension_profile: "none".to_string(),
         }];
 
         let config = runtime_config_from_payload(ui_payload(ui)).expect("hostfake ui config");
