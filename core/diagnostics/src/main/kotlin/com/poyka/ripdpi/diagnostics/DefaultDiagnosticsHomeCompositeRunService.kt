@@ -34,14 +34,14 @@ private const val StrategyProbeStageTimeoutMs = 300_000L
 private const val DefaultStageTimeoutMs = 120_000L
 private const val StageRetryDelayMs = 2_000L
 
-private data class HomeCompositeStageSpec(
+internal data class HomeCompositeStageSpec(
     val key: String,
     val label: String,
     val profileId: String,
     val pathMode: ScanPathMode,
 )
 
-private val HomeCompositeStageSpecs =
+internal val HomeCompositeStageSpecs =
     listOf(
         HomeCompositeStageSpec(
             key = "automatic_audit",
