@@ -50,7 +50,7 @@ mod tests {
 
     impl ProtectCallback for TestCallback {
         fn protect(&self, fd: RawFd) -> io::Result<()> {
-            self.last_fd.store(fd as i32, Ordering::Relaxed);
+            self.last_fd.store(fd, Ordering::Relaxed);
             Ok(())
         }
     }
