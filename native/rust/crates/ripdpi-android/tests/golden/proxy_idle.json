@@ -4,6 +4,9 @@
   "blockedHostCount": 0,
   "candidateDiversificationCount": 0,
   "capturedAt": 0,
+  "chainEntryState": null,
+  "chainExitState": null,
+  "fallbackMode": null,
   "health": "idle",
   "lastAutolearnAction": null,
   "lastAutolearnGroup": null,
@@ -13,6 +16,7 @@
   "lastError": null,
   "lastFailureClass": null,
   "lastFallbackAction": null,
+  "lastHandshakeError": null,
   "lastHost": null,
   "lastRetryBackoffMs": null,
   "lastRetryReason": null,
@@ -23,11 +27,14 @@
   "nativeEvents": [],
   "networkErrors": 0,
   "penalizedHostCount": 0,
+  "profileId": null,
+  "protocolKind": null,
   "retryPacedCount": 0,
   "routeChanges": 0,
   "slotExhaustions": 0,
   "source": "proxy",
   "state": "idle",
+  "tcpCapable": null,
   "totalErrors": 0,
   "totalSessions": 0,
   "tunnelStats": {
@@ -36,6 +43,7 @@
     "txBytes": 0,
     "txPackets": 0
   },
+  "udpCapable": null,
   "upstreamAddress": null,
   "upstreamRttMs": null
 }
