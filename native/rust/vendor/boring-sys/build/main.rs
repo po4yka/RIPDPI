@@ -648,6 +648,8 @@ fn main() {
 
 fn emit_link_directives(config: &Config) {
     let bssl_dir = build_boringssl_or_get_prebuilt(config);
+    // Re-run if Gradle's stale-cmake cleanup deletes the cmake output directory.
+    println!("cargo:rerun-if-changed={}", bssl_dir.display());
     let msvc_lib_subdir = msvc_lib_subdir(config);
 
     let subdirs =
