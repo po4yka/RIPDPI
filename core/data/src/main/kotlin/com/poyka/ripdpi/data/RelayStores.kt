@@ -76,7 +76,7 @@ interface RelayCredentialStore {
 class SharedPreferencesRelayProfileStore
     @Inject
     constructor(
-        @param:ApplicationContext context: Context,
+        @ApplicationContext context: Context,
     ) : RelayProfileStore {
         private val preferences = context.getSharedPreferences(ProfilePrefsName, Context.MODE_PRIVATE)
         private val json = Json { ignoreUnknownKeys = true }
@@ -110,7 +110,7 @@ class SharedPreferencesRelayProfileStore
 class KeystoreRelayCredentialStore
     @Inject
     constructor(
-        @param:ApplicationContext context: Context,
+        @ApplicationContext context: Context,
     ) : RelayCredentialStore {
         private val json = Json { ignoreUnknownKeys = true }
         private val blobStore =

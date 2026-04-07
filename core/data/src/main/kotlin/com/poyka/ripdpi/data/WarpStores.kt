@@ -121,7 +121,7 @@ interface WarpEndpointStore {
 class SharedPreferencesWarpProfileStore
     @Inject
     constructor(
-        @param:ApplicationContext context: Context,
+        @ApplicationContext context: Context,
     ) : WarpProfileStore {
         private val preferences = context.getSharedPreferences(ProfilePrefsName, Context.MODE_PRIVATE)
         private val json = Json { ignoreUnknownKeys = true }
@@ -193,7 +193,7 @@ class SharedPreferencesWarpProfileStore
 class KeystoreWarpCredentialStore
     @Inject
     constructor(
-        @param:ApplicationContext context: Context,
+        @ApplicationContext context: Context,
     ) : WarpCredentialStore {
         private val json = Json { ignoreUnknownKeys = true }
         private val blobStore =
@@ -279,7 +279,7 @@ class KeystoreWarpCredentialStore
 class SharedPreferencesWarpEndpointStore
     @Inject
     constructor(
-        @param:ApplicationContext context: Context,
+        @ApplicationContext context: Context,
     ) : WarpEndpointStore {
         private val preferences = context.getSharedPreferences(EndpointPrefsName, Context.MODE_PRIVATE)
         private val json = Json { ignoreUnknownKeys = true }
