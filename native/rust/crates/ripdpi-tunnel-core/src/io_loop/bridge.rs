@@ -193,11 +193,9 @@ pub(super) async fn pump_active_sessions(
             }
             entry.smoltcp_side.shutdown().await.ok();
         }
-        {
-            let tcp = socket_set.get_mut::<TcpSocket>(handle);
-            if tcp.is_active() {
-                tcp.close();
-            }
+        let tcp = socket_set.get_mut::<TcpSocket>(handle);
+        if tcp.is_active() {
+            tcp.close();
         }
         socket_set.remove(handle);
     }

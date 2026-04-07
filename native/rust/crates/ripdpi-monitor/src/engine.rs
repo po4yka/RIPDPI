@@ -85,7 +85,7 @@ pub(crate) fn run_engine_scan(
             "Starting {} in {:?} transport={}",
             plan.request.display_name,
             plan.request.path_mode,
-            crate::transport::describe_transport(&plan.transport),
+            crate::transport::describe_transport(&plan.transport)
         ),
     );
 

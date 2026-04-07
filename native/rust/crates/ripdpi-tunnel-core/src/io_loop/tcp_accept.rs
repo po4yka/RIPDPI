@@ -72,10 +72,8 @@ pub(super) fn ensure_pending_listen_for_syn(
         return;
     };
     if let std::collections::hash_map::Entry::Vacant(entry) = pending_listens.entry(flow_key) {
-        let mut sock = TcpSocket::new(
-            tcp::SocketBuffer::new(vec![0u8; TCP_SOCKET_BUF]),
-            tcp::SocketBuffer::new(vec![0u8; TCP_SOCKET_BUF]),
-        );
+        let buf = || tcp::SocketBuffer::new(vec![0u8; TCP_SOCKET_BUF]);
+        let mut sock = TcpSocket::new(buf(), buf());
         if sock.listen(socketaddr_to_listen_endpoint(flow_key.dst)).is_ok() {
             let handle = socket_set.add(sock);
             entry.insert((handle, StdInstant::now()));
@@ -93,11 +91,15 @@ pub(super) fn gc_stale_pending_listens(
 ) {
     let now = StdInstant::now();
     pending_listens.retain(|flow_key, (handle, created_at)| {
-        let age = now.duration_since(*created_at);
-        if age <= timeout {
+        if now.duration_since(*created_at) <= timeout {
             return true;
         }
-        debug!("GC stale LISTEN socket for flow {} -> {} (age {age:?})", flow_key.src, flow_key.dst);
+        debug!(
+            "GC stale LISTEN socket for flow {} -> {} (age {:?})",
+            flow_key.src,
+            flow_key.dst,
+            now.duration_since(*created_at)
+        );
         socket_set.remove(*handle);
         false
     });
@@ -123,18 +125,11 @@ pub(super) fn spawn_new_tcp_sessions(
             continue;
         }
 
-        // Capture the raw TCP destination before DNS resolution so we can pin
-        // the synthetic IP if mapdns translated it.
-        let raw_dst = tcp_target_endpoint(tcp);
-        let synthetic_ip = raw_dst.and_then(|sa| {
+        let synthetic_ip = tcp_target_endpoint(tcp).and_then(|sa| {
             let cache = dns_cache.as_ref()?;
             if let IpAddr::V4(v4) = sa.ip() {
                 let ip = u32::from(v4);
-                if cache.contains_mapped_ip(ip) {
-                    Some(ip)
-                } else {
-                    None
-                }
+                cache.contains_mapped_ip(ip).then_some(ip)
             } else {
                 None
             }
@@ -150,21 +145,17 @@ pub(super) fn spawn_new_tcp_sessions(
         }
     }
 
-    let remove_pending = |pending_listens: &mut HashMap<TcpFlowKey, (SocketHandle, StdInstant)>, handle| {
+    for handle in unresolvable {
         if let Some(key) = pending_listens.iter().find_map(|(k, (h, _))| (*h == handle).then_some(*k)) {
             pending_listens.remove(&key);
         }
-    };
-
-    for handle in unresolvable {
-        remove_pending(pending_listens, handle);
         socket_set.remove(handle);
     }
 
     for (handle, target_addr, synthetic_ip) in new_sessions {
-        remove_pending(pending_listens, handle);
-
-        // Pin the synthetic IP in the DNS cache for the lifetime of this session.
+        if let Some(key) = pending_listens.iter().find_map(|(k, (h, _))| (*h == handle).then_some(*k)) {
+            pending_listens.remove(&key);
+        }
         if let (Some(cache), Some(ip)) = (dns_cache.as_mut(), synthetic_ip) {
             cache.pin(ip);
         }
@@ -174,8 +165,8 @@ pub(super) fn spawn_new_tcp_sessions(
         let session_inst = TcpSession::new(proxy_sockaddr, auth.clone(), TargetAddr::Ip(target_addr));
         let child_cancel_clone = child_cancel.clone();
         let join_handle = tokio::spawn(async move {
-            let mut session_side = session_side;
-            session_inst.run(&mut session_side, child_cancel_clone).await
+            let mut s = session_side;
+            session_inst.run(&mut s, child_cancel_clone).await
         });
 
         let entry = crate::SessionEntry {
