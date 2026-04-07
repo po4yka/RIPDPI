@@ -1,4 +1,3 @@
-use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::io;
 use std::net::SocketAddr;
@@ -23,7 +22,6 @@ pub(super) struct UdpAssociation {
     pub(super) worker: tokio::task::JoinHandle<()>,
 }
 
-#[derive(Debug)]
 pub(super) enum UdpEvent {
     Packet { src: SocketAddr, association_id: u64, raw: Vec<u8> },
     Closed { src: SocketAddr, association_id: u64 },
@@ -35,22 +33,10 @@ pub(super) const DEFAULT_MAX_UDP_ASSOCIATIONS: usize = 512;
 /// Eviction priority entry for UDP associations.
 ///
 /// Orders by `last_activity` (oldest first = smallest = evicted first).
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Debug, Eq, PartialEq, Ord, PartialOrd)]
 pub(super) struct UdpEvictionEntry {
+    pub last_activity_epoch: u64, // milliseconds since process start; primary sort key
     pub addr: SocketAddr,
-    pub last_activity_epoch: u64, // milliseconds since process start
-}
-
-impl Ord for UdpEvictionEntry {
-    fn cmp(&self, other: &Self) -> Ordering {
-        self.last_activity_epoch.cmp(&other.last_activity_epoch)
-    }
-}
-
-impl PartialOrd for UdpEvictionEntry {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        Some(self.cmp(other))
-    }
 }
 
 /// Evict the least-recently-active UDP association if the map exceeds capacity.
@@ -58,11 +44,8 @@ pub(super) fn evict_if_over_capacity(
     associations: &mut HashMap<SocketAddr, UdpAssociation>,
     eviction_heap: &mut BoundedHeap<UdpEvictionEntry>,
 ) {
-    if let Some(evicted) = eviction_heap.pop() {
-        if let Some(association) = associations.remove(&evicted.addr) {
-            debug!("UDP association {} evicted (idle eviction, capacity exceeded)", evicted.addr);
-            association.cancel.cancel();
-        }
+    if let Some(e) = eviction_heap.pop() {
+        remove_association(associations, e.addr);
     }
 }
 
@@ -73,7 +56,7 @@ pub(super) fn touch_udp_activity(last_activity: &Arc<Mutex<StdInstant>>) {
 }
 
 fn activity_epoch(last_activity: &Arc<Mutex<StdInstant>>) -> u64 {
-    last_activity.lock().map(|guard| guard.elapsed().as_millis() as u64).unwrap_or(u64::MAX)
+    last_activity.lock().map(|g| g.elapsed().as_millis() as u64).unwrap_or(u64::MAX)
 }
 
 fn udp_association_is_idle(last_activity: &Arc<Mutex<StdInstant>>, idle_timeout: Duration) -> bool {
@@ -92,35 +75,27 @@ pub(super) async fn create_udp_association(
 ) -> io::Result<UdpAssociation> {
     let session = UdpSession::connect(proxy_addr, auth).await?.with_recv_timeout(idle_timeout);
     let last_activity = Arc::new(Mutex::new(StdInstant::now()));
-    let worker_session = session.clone();
-    let worker_last_activity = Arc::clone(&last_activity);
-    let worker_cancel = cancel.clone();
-    let worker_udp_tx = udp_tx.clone();
+    let (w_session, w_activity, w_cancel, w_tx) =
+        (session.clone(), Arc::clone(&last_activity), cancel.clone(), udp_tx.clone());
     let worker = tokio::spawn(async move {
         loop {
-            match worker_session.recv_from(worker_cancel.clone()).await {
+            match w_session.recv_from(w_cancel.clone()).await {
                 Ok(Some((resp_payload, from))) => {
-                    touch_udp_activity(&worker_last_activity);
+                    touch_udp_activity(&w_activity);
                     let raw = build_udp_response(from, src, &resp_payload);
-                    if raw.is_empty() {
-                        continue;
-                    }
-                    if worker_udp_tx.send(UdpEvent::Packet { src, association_id, raw }).await.is_err() {
+                    if !raw.is_empty() && w_tx.send(UdpEvent::Packet { src, association_id, raw }).await.is_err() {
                         break;
                     }
                 }
                 Ok(None) => {
-                    if worker_cancel.is_cancelled() {
-                        break;
-                    }
-                    if udp_association_is_idle(&worker_last_activity, idle_timeout) {
-                        let _ = worker_udp_tx.send(UdpEvent::Closed { src, association_id }).await;
+                    if w_cancel.is_cancelled() || udp_association_is_idle(&w_activity, idle_timeout) {
+                        let _ = w_tx.send(UdpEvent::Closed { src, association_id }).await;
                         break;
                     }
                 }
                 Err(err) => {
                     debug!("UDP association {} for {} failed: {}", association_id, src, err);
-                    let _ = worker_udp_tx.send(UdpEvent::Closed { src, association_id }).await;
+                    let _ = w_tx.send(UdpEvent::Closed { src, association_id }).await;
                     break;
                 }
             }
@@ -132,19 +107,18 @@ pub(super) async fn create_udp_association(
 
 pub(super) fn handle_udp_event(
     device: &mut TunDevice,
-    udp_associations: &mut HashMap<SocketAddr, UdpAssociation>,
+    associations: &mut HashMap<SocketAddr, UdpAssociation>,
     event: UdpEvent,
 ) {
     match event {
         UdpEvent::Packet { src, association_id, raw } => {
-            let current_id = udp_associations.get(&src).map(|association| association.id);
-            if current_id == Some(association_id) {
+            if associations.get(&src).is_some_and(|a| a.id == association_id) {
                 enqueue_tun_packet(device, raw, "udp");
             }
         }
         UdpEvent::Closed { src, association_id } => {
-            if udp_associations.get(&src).is_some_and(|association| association.id == association_id) {
-                udp_associations.remove(&src);
+            if associations.get(&src).is_some_and(|a| a.id == association_id) {
+                associations.remove(&src);
             }
         }
     }
@@ -157,88 +131,74 @@ pub(super) async fn forward_udp_payload(
     src: SocketAddr,
     resolved_dst: SocketAddr,
     payload: &[u8],
-    udp_associations: &mut HashMap<SocketAddr, UdpAssociation>,
-    udp_eviction_heap: &mut BoundedHeap<UdpEvictionEntry>,
-    next_udp_association_id: &mut u64,
-    udp_idle_timeout: Duration,
+    associations: &mut HashMap<SocketAddr, UdpAssociation>,
+    eviction_heap: &mut BoundedHeap<UdpEvictionEntry>,
+    next_id: &mut u64,
+    idle_timeout: Duration,
     cancel: &CancellationToken,
     udp_tx: &tokio::sync::mpsc::Sender<UdpEvent>,
 ) {
     #[allow(clippy::map_entry)]
-    if !udp_associations.contains_key(&src) {
-        // Evict least-recently-active if at capacity.
-        if udp_eviction_heap.is_full() {
-            evict_if_over_capacity(udp_associations, udp_eviction_heap);
+    if !associations.contains_key(&src) {
+        if eviction_heap.is_full() {
+            evict_if_over_capacity(associations, eviction_heap);
         }
-
-        let association_id = *next_udp_association_id;
-        *next_udp_association_id = next_udp_association_id.wrapping_add(1);
-        match create_udp_association(
-            proxy_addr,
-            auth.clone(),
-            src,
-            association_id,
-            udp_idle_timeout,
-            cancel.child_token(),
-            udp_tx.clone(),
-        )
-        .await
-        {
+        match alloc_association(next_id, proxy_addr, auth.clone(), src, idle_timeout, cancel, udp_tx).await {
             Ok(association) => {
-                let epoch = activity_epoch(&association.last_activity);
-                udp_eviction_heap.push(UdpEvictionEntry { addr: src, last_activity_epoch: epoch });
-                udp_associations.insert(src, association);
+                eviction_heap.push(UdpEvictionEntry {
+                    addr: src,
+                    last_activity_epoch: activity_epoch(&association.last_activity),
+                });
+                associations.insert(src, association);
             }
             Err(err) => {
-                debug!("Failed to create UDP association for {}: {}", src, err);
+                debug!("Failed to create UDP association for {src}: {err}");
                 return;
             }
         }
     }
 
-    let Some((session, last_activity)) = udp_associations
-        .get(&src)
-        .map(|association| (association.session.clone(), Arc::clone(&association.last_activity)))
+    let Some((session, last_activity)) =
+        associations.get(&src).map(|a| (a.session.clone(), Arc::clone(&a.last_activity)))
     else {
         return;
     };
 
     touch_udp_activity(&last_activity);
-    if let Err(err) = session.send_to(resolved_dst, payload).await {
-        debug!("UDP association send to {} from {} failed: {}", resolved_dst, src, err);
-        if let Some(association) = udp_associations.remove(&src) {
-            association.cancel.cancel();
-        }
-
-        let association_id = *next_udp_association_id;
-        *next_udp_association_id = next_udp_association_id.wrapping_add(1);
-        match create_udp_association(
-            proxy_addr,
-            auth.clone(),
-            src,
-            association_id,
-            udp_idle_timeout,
-            cancel.child_token(),
-            udp_tx.clone(),
-        )
-        .await
-        {
-            Ok(association) => {
-                let retry_session = association.session.clone();
-                touch_udp_activity(&association.last_activity);
-                udp_associations.insert(src, association);
-                if let Err(retry_err) = retry_session.send_to(resolved_dst, payload).await {
-                    debug!("UDP association retry to {} from {} failed: {}", resolved_dst, src, retry_err);
-                    if let Some(association) = udp_associations.remove(&src) {
-                        association.cancel.cancel();
-                    }
-                }
-            }
-            Err(recreate_err) => {
-                debug!("Failed to recreate UDP association for {} after send error: {}", src, recreate_err);
-            }
-        }
+    if session.send_to(resolved_dst, payload).await.is_ok() {
+        return;
     }
+    remove_association(associations, src);
+    let Ok(assoc) = alloc_association(next_id, proxy_addr, auth.clone(), src, idle_timeout, cancel, udp_tx).await
+    else {
+        return;
+    };
+    let retry = assoc.session.clone();
+    touch_udp_activity(&assoc.last_activity);
+    associations.insert(src, assoc);
+    if retry.send_to(resolved_dst, payload).await.is_err() {
+        remove_association(associations, src);
+    }
+}
+
+fn remove_association(associations: &mut HashMap<SocketAddr, UdpAssociation>, src: SocketAddr) {
+    if let Some(a) = associations.remove(&src) {
+        a.cancel.cancel();
+    }
+}
+
+async fn alloc_association(
+    next_id: &mut u64,
+    proxy_addr: SocketAddr,
+    auth: Auth,
+    src: SocketAddr,
+    idle_timeout: Duration,
+    cancel: &CancellationToken,
+    udp_tx: &tokio::sync::mpsc::Sender<UdpEvent>,
+) -> io::Result<UdpAssociation> {
+    let id = *next_id;
+    *next_id = next_id.wrapping_add(1);
+    create_udp_association(proxy_addr, auth, src, id, idle_timeout, cancel.child_token(), udp_tx.clone()).await
 }
 
 pub(super) async fn shutdown_udp_associations(udp_associations: &mut HashMap<SocketAddr, UdpAssociation>) {

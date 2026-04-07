@@ -33,26 +33,6 @@ fn jni_on_load_impl() -> jint {
     JNI_VERSION
 }
 
-#[cfg(test)]
-pub(crate) fn shared_test_jvm() -> &'static JavaVM {
-    static TEST_JVM: OnceCell<JavaVM> = OnceCell::new();
-    TEST_JVM.get_or_init(|| {
-        let args = jni::InitArgsBuilder::new()
-            .version(jni::JNIVersion::V9)
-            .option("-Xcheck:jni")
-            .build()
-            .expect("build test JVM init args");
-        JavaVM::new(args).expect("create in-process test JVM")
-    })
-}
-
-#[cfg(test)]
-pub(crate) fn shared_jni_test_mutex() -> &'static std::sync::Mutex<()> {
-    static JNI_TEST_MUTEX: once_cell::sync::Lazy<std::sync::Mutex<()>> =
-        once_cell::sync::Lazy::new(|| std::sync::Mutex::new(()));
-    &JNI_TEST_MUTEX
-}
-
 /// # Safety
 /// Called by the JVM when the native library is loaded. Must not unwind across
 /// the FFI boundary -- a panic here would be UB (extern "system" + unwind).
@@ -74,60 +54,47 @@ macro_rules! export_diagnostics_jni {
         }
     };
 }
-#[unsafe(no_mangle)]
-pub extern "system" fn Java_com_poyka_ripdpi_core_RipDpiProxyNativeBindings_jniCreate(
-    env: EnvUnowned,
-    _thiz: JObject,
-    config_json: JString,
-) -> jlong {
-    proxy_create_entry(env, config_json)
-}
+export_diagnostics_jni!(
+    Java_com_poyka_ripdpi_core_RipDpiProxyNativeBindings_jniCreate,
+    (config_json: JString),
+    jlong,
+    proxy_create_entry
+);
 
-#[unsafe(no_mangle)]
-pub extern "system" fn Java_com_poyka_ripdpi_core_RipDpiProxyNativeBindings_jniStart(
-    env: EnvUnowned,
-    _thiz: JObject,
-    handle: jlong,
-) -> jint {
-    proxy_start_entry(env, handle)
-}
+export_diagnostics_jni!(
+    Java_com_poyka_ripdpi_core_RipDpiProxyNativeBindings_jniStart,
+    (handle: jlong),
+    jint,
+    proxy_start_entry
+);
 
-#[unsafe(no_mangle)]
-pub extern "system" fn Java_com_poyka_ripdpi_core_RipDpiProxyNativeBindings_jniStop(
-    env: EnvUnowned,
-    _thiz: JObject,
-    handle: jlong,
-) {
-    proxy_stop_entry(env, handle);
-}
+export_diagnostics_jni!(
+    Java_com_poyka_ripdpi_core_RipDpiProxyNativeBindings_jniStop,
+    (handle: jlong),
+    (),
+    proxy_stop_entry
+);
 
-#[unsafe(no_mangle)]
-pub extern "system" fn Java_com_poyka_ripdpi_core_RipDpiProxyNativeBindings_jniPollTelemetry(
-    env: EnvUnowned,
-    _thiz: JObject,
-    handle: jlong,
-) -> jstring {
-    proxy_poll_telemetry_entry(env, handle)
-}
+export_diagnostics_jni!(
+    Java_com_poyka_ripdpi_core_RipDpiProxyNativeBindings_jniPollTelemetry,
+    (handle: jlong),
+    jstring,
+    proxy_poll_telemetry_entry
+);
 
-#[unsafe(no_mangle)]
-pub extern "system" fn Java_com_poyka_ripdpi_core_RipDpiProxyNativeBindings_jniDestroy(
-    env: EnvUnowned,
-    _thiz: JObject,
-    handle: jlong,
-) {
-    proxy_destroy_entry(env, handle);
-}
+export_diagnostics_jni!(
+    Java_com_poyka_ripdpi_core_RipDpiProxyNativeBindings_jniDestroy,
+    (handle: jlong),
+    (),
+    proxy_destroy_entry
+);
 
-#[unsafe(no_mangle)]
-pub extern "system" fn Java_com_poyka_ripdpi_core_RipDpiProxyNativeBindings_jniUpdateNetworkSnapshot(
-    env: EnvUnowned,
-    _thiz: JObject,
-    handle: jlong,
-    snapshot_json: JString,
-) {
-    proxy_update_network_snapshot_entry(env, handle, snapshot_json);
-}
+export_diagnostics_jni!(
+    Java_com_poyka_ripdpi_core_RipDpiProxyNativeBindings_jniUpdateNetworkSnapshot,
+    (handle: jlong, snapshot_json: JString),
+    (),
+    proxy_update_network_snapshot_entry
+);
 
 #[unsafe(no_mangle)]
 pub extern "system" fn Java_com_poyka_ripdpi_core_RipDpiPlatformCapabilities_jniSeqovlSupported(
@@ -217,6 +184,24 @@ pub extern "system" fn Java_com_poyka_ripdpi_core_RipDpiProxyNativeBindings_jniU
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    pub(crate) fn shared_test_jvm() -> &'static JavaVM {
+        static TEST_JVM: OnceCell<JavaVM> = OnceCell::new();
+        TEST_JVM.get_or_init(|| {
+            let args = jni::InitArgsBuilder::new()
+                .version(jni::JNIVersion::V9)
+                .option("-Xcheck:jni")
+                .build()
+                .expect("build test JVM init args");
+            JavaVM::new(args).expect("create in-process test JVM")
+        })
+    }
+
+    pub(crate) fn shared_jni_test_mutex() -> &'static std::sync::Mutex<()> {
+        static JNI_TEST_MUTEX: once_cell::sync::Lazy<std::sync::Mutex<()>> =
+            once_cell::sync::Lazy::new(|| std::sync::Mutex::new(()));
+        &JNI_TEST_MUTEX
+    }
 
     #[test]
     fn jni_on_load_impl_returns_supported_jni_version() {
