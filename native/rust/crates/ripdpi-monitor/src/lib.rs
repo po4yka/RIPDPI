@@ -11,7 +11,6 @@ mod http;
 mod ja3;
 mod observations;
 mod platform_ttl;
-mod response_parser;
 mod strategy;
 mod telegram;
 mod tls;
