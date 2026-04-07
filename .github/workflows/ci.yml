@@ -180,36 +180,6 @@ jobs:
 
       - uses: mozilla-actions/sccache-action@v0.0.9
 
-      # The full BoringSSL source tree is gitignored (too large to track).
-      # Cache it separately keyed by boring-sys version so it survives
-      # build-script changes that otherwise invalidate the Rust artifact cache.
-      - name: Cache BoringSSL source tree
-        id: boringssl-source
-        uses: actions/cache@v4
-        with:
-          path: native/rust/vendor/boring-sys/deps/boringssl
-          key: boringssl-source-${{ hashFiles('native/rust/vendor/boring-sys/Cargo.toml') }}
-
-      - name: Populate BoringSSL source on cache miss
-        if: steps.boringssl-source.outputs.cache-hit != 'true'
-        run: |
-          # boring-sys 5.0.2 pins boringssl at this exact commit.
-          # Download via GitHub archive — googlesource does not support shallow
-          # fetches by SHA, and crates.io packages omit git submodule content.
-          BORINGSSL_COMMIT="39acdfcaed06d01030e63df64a5d6a09aa0db821"
-          DEST="native/rust/vendor/boring-sys/deps/boringssl"
-          curl -fsSL "https://github.com/google/boringssl/archive/${BORINGSSL_COMMIT}.tar.gz" \
-            -o /tmp/boringssl.tar.gz
-          mkdir -p "$DEST"
-          tar -xzf /tmp/boringssl.tar.gz --strip-components=1 -C "$DEST"
-          rm /tmp/boringssl.tar.gz
-          # Restore RIPDPI-patched files that override the upstream copies.
-          git checkout -- \
-            "$DEST/include/openssl/ssl.h" \
-            "$DEST/ssl/internal.h" \
-            "$DEST/ssl/handshake_client.cc" \
-            "$DEST/ssl/ssl_lib.cc"
-
       - name: Run Rust lint checks
         env:
           RUSTC_WRAPPER: sccache
@@ -372,32 +342,6 @@ jobs:
         uses: taiki-e/install-action@v2
         with:
           tool: cargo-nextest
-
-      # The full BoringSSL source tree is gitignored (too large to track).
-      # Cache it separately keyed by boring-sys version so it survives
-      # build-script changes that otherwise invalidate the Rust artifact cache.
-      - name: Cache BoringSSL source tree
-        id: boringssl-source
-        uses: actions/cache@v4
-        with:
-          path: native/rust/vendor/boring-sys/deps/boringssl
-          key: boringssl-source-${{ hashFiles('native/rust/vendor/boring-sys/Cargo.toml') }}
-
-      - name: Populate BoringSSL source on cache miss
-        if: steps.boringssl-source.outputs.cache-hit != 'true'
-        run: |
-          # boring-sys 5.0.2 pins boringssl at this exact commit.
-          # Download via GitHub archive — googlesource does not support shallow
-          # fetches by SHA, and crates.io packages omit git submodule content.
-          BORINGSSL_COMMIT="39acdfcaed06d01030e63df64a5d6a09aa0db821"
-          DEST="native/rust/vendor/boring-sys/deps/boringssl"
-          curl -fsSL "https://github.com/google/boringssl/archive/${BORINGSSL_COMMIT}.tar.gz" \
-            -o /tmp/boringssl.tar.gz
-          mkdir -p "$DEST"
-          tar -xzf /tmp/boringssl.tar.gz --strip-components=1 -C "$DEST"
-          rm /tmp/boringssl.tar.gz
-          # Restore our Reality-patch modifications on top of the fresh source
-          git checkout -- "$DEST"
 
       - name: Run turmoil-backed deterministic network tests
         run: bash scripts/ci/run-rust-turmoil-tests.sh
