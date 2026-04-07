@@ -709,8 +709,12 @@ jobs:
 
       - name: Capture emulator logcat
         if: always()
-        timeout-minutes: 1
-        run: adb logcat -d > android-logcat.txt || true
+        run: |
+          if adb devices | grep -q 'emulator'; then
+            adb logcat -d > android-logcat.txt || true
+          else
+            touch android-logcat.txt
+          fi
 
       - name: Stop local network fixture
         if: always()
