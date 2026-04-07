@@ -23,6 +23,15 @@ internal class SettingsCustomizationActions(
         }
     }
 
+    fun setExcludeRussianAppsEnabled(enabled: Boolean) {
+        mutations.updateSetting(
+            key = "excludeRussianAppsEnabled",
+            value = enabled.toString(),
+        ) {
+            setExcludeRussianAppsEnabled(enabled)
+        }
+    }
+
     fun setAppTheme(theme: String) {
         mutations.updateSetting(
             key = "appTheme",

@@ -244,6 +244,14 @@ class RipDpiVpnService :
             builder.addDisallowedApplication(applicationContext.packageName)
         }
 
+        for (pkg in vpnAppExclusionPolicy.russianAppsToExclude()) {
+            try {
+                builder.addDisallowedApplication(pkg)
+            } catch (_: PackageManager.NameNotFoundException) {
+                // App not installed, skip silently
+            }
+        }
+
         return builder
     }
 
