@@ -248,12 +248,19 @@ abstract class BuildRustNativeLibsTask
                                 (cachedCc != null && cachedCc != config.linker.absolutePath) ||
                                 (cachedCxx != null && cachedCxx != config.cxx.absolutePath)
                         if (stale) {
+                            // Delete the entire boring-sys OUT_DIR (cacheFile.parentFile is the
+                            // cmake build subdir; its parent is the Cargo OUT_DIR).  Deleting
+                            // just the cmake build subdir left libcrypto.a missing but Cargo's
+                            // build-script fingerprint still valid, so the link step failed.
+                            // Deleting OUT_DIR causes Cargo to re-run boring-sys's build script
+                            // on the next invocation, which rebuilds BoringSSL from scratch.
+                            val outDir = cacheFile.parentFile.parentFile
                             logger.warn(
-                                "Deleting stale BoringSSL cmake cache " +
+                                "Deleting stale BoringSSL OUT_DIR " +
                                     "(cmake=$cachedCmake, cc=$cachedCc, cxx=$cachedCxx): " +
-                                    cacheFile.parentFile.absolutePath,
+                                    outDir.absolutePath,
                             )
-                            fileSystemOperations.delete { delete(cacheFile.parentFile) }
+                            fileSystemOperations.delete { delete(outDir) }
                         }
                     }
             }
