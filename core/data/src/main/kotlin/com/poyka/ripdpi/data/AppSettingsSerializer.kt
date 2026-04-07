@@ -115,6 +115,7 @@ object AppSettingsSerializer : Serializer<AppSettings> {
             .setDiagnosticsHistoryRetentionDays(14)
             .setDiagnosticsExportIncludeHistory(true)
             .setCanonicalDefaultStrategyChains()
+            .setExcludeRussianAppsEnabled(true)
             .build()
 
     override suspend fun readFrom(input: InputStream): AppSettings {
