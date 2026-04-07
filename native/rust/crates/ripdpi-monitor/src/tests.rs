@@ -523,7 +523,7 @@ fn tcp_candidate_catalog_keeps_current_strategy_first() {
     let candidates = build_tcp_candidates(&minimal_ui_config());
 
     assert_eq!(candidates.first().map(|candidate| candidate.id), Some("baseline_current"));
-    assert_eq!(candidates.len(), 23);
+    assert_eq!(candidates.len(), 25);
     assert_eq!(candidates.get(1).map(|candidate| candidate.id), Some("tlsrec_split_host"));
     assert_eq!(candidates.get(2).map(|candidate| candidate.id), Some("tlsrec_hostfake_split"));
     assert_eq!(candidates.get(3).map(|candidate| candidate.id), Some("tlsrec_fake_rich"));
