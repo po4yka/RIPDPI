@@ -4,10 +4,13 @@
     "blockedHostCount": 0,
     "candidateDiversificationCount": 0,
     "capturedAt": 0,
+    "chainEntryState": null,
+    "chainExitState": null,
     "dnsCacheHits": 0,
     "dnsCacheMisses": 0,
     "dnsFailuresTotal": 0,
     "dnsQueriesTotal": 0,
+    "fallbackMode": null,
     "health": "idle",
     "lastAutolearnAction": null,
     "lastAutolearnGroup": null,
@@ -19,6 +22,7 @@
     "lastError": null,
     "lastFailureClass": null,
     "lastFallbackAction": null,
+    "lastHandshakeError": null,
     "lastHost": null,
     "lastRetryBackoffMs": null,
     "lastRetryReason": null,
@@ -31,6 +35,8 @@
     "networkErrors": 0,
     "networkHandoverClass": null,
     "penalizedHostCount": 0,
+    "profileId": null,
+    "protocolKind": null,
     "resolverEndpoint": null,
     "resolverFallbackActive": false,
     "resolverFallbackReason": null,
@@ -43,6 +49,7 @@
     "slotExhaustions": 0,
     "source": "tunnel",
     "state": "idle",
+    "tcpCapable": null,
     "totalErrors": 0,
     "totalSessions": 0,
     "tunnelStats": {
@@ -51,6 +58,7 @@
         "txBytes": 0,
         "txPackets": 0
     },
+    "udpCapable": null,
     "upstreamAddress": null,
     "upstreamRttMs": null
 }
