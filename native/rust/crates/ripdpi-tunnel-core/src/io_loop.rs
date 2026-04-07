@@ -266,7 +266,7 @@ pub async fn io_loop_task(
         );
 
         // ── Phase 4: pump duplex bridges (Decision A) ─────────────────────────
-        pump_active_sessions(&mut socket_set, &mut sessions).await;
+        pump_active_sessions(&mut socket_set, &mut sessions, &mut dns_cache).await;
 
         // ── Phase 5: flush smoltcp tx_queue -> TUN fd ─────────────────────────
         flush_device_tx_queue(tun, &stats, &mut device)
@@ -318,7 +318,7 @@ pub async fn io_loop_task(
     }
 
     // Graceful shutdown: cancel and clean up all active sessions.
-    shutdown_active_sessions(&mut sessions, &mut socket_set).await;
+    shutdown_active_sessions(&mut sessions, &mut socket_set, &mut dns_cache).await;
     shutdown_udp_associations(&mut udp_associations).await;
 
     info!("io_loop exited cleanly");
