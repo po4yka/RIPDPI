@@ -209,22 +209,19 @@ pub(super) async fn flush_device_tx_queue(
     while let Some(pkt) = device.tx_queue.pop_front() {
         loop {
             match tun.try_send(&pkt) {
-                Ok(_n) => {
+                Ok(_) => {
                     stats.rx_packets.fetch_add(1, Ordering::Relaxed);
                     stats.rx_bytes.fetch_add(pkt.len() as u64, Ordering::Relaxed);
                     break;
                 }
-                Err(err) if err.kind() == io::ErrorKind::WouldBlock => {
-                    tun.writable().await?;
-                }
+                Err(err) if err.kind() == io::ErrorKind::WouldBlock => tun.writable().await?,
                 Err(err) => {
-                    warn!("TUN write error: {} (packet dropped)", err);
+                    warn!("TUN write error: {err} (packet dropped)");
                     break;
                 }
             }
         }
     }
-
     Ok(())
 }
 
