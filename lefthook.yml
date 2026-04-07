@@ -21,6 +21,7 @@ pre-commit:
     no-secrets:
       run: |
         git diff --cached --diff-filter=ACM -z --name-only |
+        grep -z -v '^native/rust/vendor/boring-sys/deps/' |
         xargs -0 git diff --cached -- |
         grep -Ei '(AKIA[0-9A-Z]{16}|-----BEGIN (RSA |EC )?PRIVATE KEY-----|(password|secret|token|api_key)\s*=\s*"[^"]{8,}")' &&
         { echo "error: potential secrets detected in staged changes"; exit 1; } ||
@@ -37,7 +38,7 @@ pre-commit:
       run: |
         large=""
         for f in $(git diff --cached --diff-filter=ACM --name-only); do
-          case "$f" in */baseline-prof.txt) continue;; esac
+          case "$f" in */baseline-prof.txt | native/rust/vendor/boring-sys/deps/*) continue;; esac
           size=$(git cat-file -s ":$f" 2>/dev/null || echo 0)
           if [ "$size" -gt 524288 ]; then
             large="$large\n  $f ($(( size / 1024 ))KB)"
