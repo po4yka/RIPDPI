@@ -267,4 +267,6 @@ message AppSettings {
 
   // Tier 4 TLS fingerprint profile for app-owned TLS clients
   string tls_fingerprint_profile = 204; // "native_default" | "chrome_stable" | "firefox_stable"
+
+  bool exclude_russian_apps_enabled = 205;
 }

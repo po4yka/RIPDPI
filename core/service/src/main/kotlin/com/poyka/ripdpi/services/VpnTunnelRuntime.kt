@@ -37,6 +37,7 @@ internal class VpnTunnelRuntime(
         activeDns: ActiveDnsSettings,
         overrideReason: String?,
         logContext: RipDpiLogContext?,
+        localAuthToken: String? = null,
     ) {
         check(tunSession == null) { "VPN field not null" }
 
@@ -51,6 +52,7 @@ internal class VpnTunnelRuntime(
                 socks5Port = port,
                 ipv6Enabled = ipv6,
                 logContext = logContext,
+                localAuthToken = localAuthToken,
             )
 
         val tunnelSession = vpnTunnelSessionProvider.establish(vpnHost, dns, ipv6)

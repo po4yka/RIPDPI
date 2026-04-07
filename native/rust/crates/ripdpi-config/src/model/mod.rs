@@ -509,6 +509,7 @@ pub struct ListenConfig {
     pub listen_ip: IpAddr,
     pub listen_port: u16,
     pub bind_ip: IpAddr,
+    pub auth_token: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -986,6 +987,7 @@ mod tests {
                 listen_ip: IpAddr::from_str("127.0.0.1").expect("listen ip"),
                 listen_port: 2442,
                 bind_ip: IpAddr::from_str("::1").expect("bind ip"),
+                auth_token: None,
             },
             resolve: false,
             ipv6: true,

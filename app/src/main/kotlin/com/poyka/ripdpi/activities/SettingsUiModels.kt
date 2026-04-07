@@ -501,6 +501,7 @@ data class SettingsUiState(
     val httpParser: HttpParserUiState = HttpParserUiState(),
     val onboardingComplete: Boolean = false,
     val webrtcProtectionEnabled: Boolean = false,
+    val excludeRussianAppsEnabled: Boolean = true,
     val biometricEnabled: Boolean = false,
     val biometricAvailability: Int = androidx.biometric.BiometricManager.BIOMETRIC_SUCCESS,
     val backupPinHash: String = "",

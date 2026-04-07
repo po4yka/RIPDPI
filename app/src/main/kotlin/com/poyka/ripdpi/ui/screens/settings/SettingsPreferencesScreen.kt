@@ -92,6 +92,7 @@ fun SettingsRoute(
         onDismissBackgroundGuidance = onDismissBackgroundGuidance,
         onThemeSelected = viewModel::setAppTheme,
         onWebRtcProtectionChanged = viewModel::setWebRtcProtectionEnabled,
+        onExcludeRussianAppsChanged = viewModel::setExcludeRussianAppsEnabled,
         onBiometricChanged = viewModel::setBiometricEnabled,
         onSaveBackupPin = viewModel::setBackupPin,
         modifier = modifier,
@@ -115,6 +116,7 @@ internal fun SettingsScreen(
     onDismissBackgroundGuidance: () -> Unit = {},
     onThemeSelected: (String) -> Unit,
     onWebRtcProtectionChanged: (Boolean) -> Unit,
+    onExcludeRussianAppsChanged: (Boolean) -> Unit,
     onBiometricChanged: (Boolean) -> Unit,
     onSaveBackupPin: (String) -> Unit,
 ) {
@@ -262,6 +264,13 @@ internal fun SettingsScreen(
                         onCheckedChange = onWebRtcProtectionChanged,
                         showDivider = true,
                         testTag = RipDpiTestTags.SettingsWebRtcProtection,
+                    )
+                    SettingsRow(
+                        title = stringResource(R.string.settings_exclude_russian_apps_title),
+                        subtitle = stringResource(R.string.settings_exclude_russian_apps_body),
+                        checked = uiState.excludeRussianAppsEnabled,
+                        onCheckedChange = onExcludeRussianAppsChanged,
+                        showDivider = true,
                     )
                     SettingsRow(
                         title = stringResource(R.string.settings_biometric_title),
@@ -654,6 +663,7 @@ private fun SettingsScreenPreview() {
             onOpenVpnPermissionDialog = {},
             onThemeSelected = {},
             onWebRtcProtectionChanged = {},
+            onExcludeRussianAppsChanged = {},
             onBiometricChanged = {},
             onSaveBackupPin = {},
         )
@@ -685,6 +695,7 @@ private fun SettingsScreenDarkPreview() {
             onOpenVpnPermissionDialog = {},
             onThemeSelected = {},
             onWebRtcProtectionChanged = {},
+            onExcludeRussianAppsChanged = {},
             onBiometricChanged = {},
             onSaveBackupPin = {},
         )

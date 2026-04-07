@@ -182,6 +182,8 @@ class SettingsViewModel
 
         fun setWebRtcProtectionEnabled(enabled: Boolean) = customizationActions.setWebRtcProtectionEnabled(enabled)
 
+        fun setExcludeRussianAppsEnabled(enabled: Boolean) = customizationActions.setExcludeRussianAppsEnabled(enabled)
+
         fun setAppTheme(theme: String) = customizationActions.setAppTheme(theme)
 
         fun setAppIcon(iconKey: String) = customizationActions.setAppIcon(iconKey)
