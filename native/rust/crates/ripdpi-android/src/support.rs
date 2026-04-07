@@ -6,11 +6,11 @@ use jni::sys::jstring;
 use jni::{Env, EnvUnowned};
 
 pub(crate) fn lock_jni_tests() -> MutexGuard<'static, ()> {
-    crate::shared_jni_test_mutex().lock().unwrap_or_else(std::sync::PoisonError::into_inner)
+    crate::tests::shared_jni_test_mutex().lock().unwrap_or_else(std::sync::PoisonError::into_inner)
 }
 
 pub(crate) fn with_env<R>(f: impl for<'a> FnOnce(&mut Env<'a>) -> R) -> R {
-    crate::shared_test_jvm()
+    crate::tests::shared_test_jvm()
         .attach_current_thread(|env| Ok::<_, jni::errors::Error>(f(env)))
         .expect("attach current thread to test JVM")
 }

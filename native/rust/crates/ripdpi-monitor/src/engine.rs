@@ -11,9 +11,7 @@ use rustls::client::danger::ServerCertVerifier;
 use crate::connectivity::{push_event, set_progress, set_report};
 use crate::transport::transport_for_request;
 #[cfg(test)]
-use crate::types::ProbeResult;
-#[cfg(test)]
-use crate::types::ProbeTaskFamily;
+use crate::types::{ProbeResult, ProbeTaskFamily};
 use crate::types::{ScanKind, ScanProgress, ScanRequest, SharedState};
 
 use plan::build_execution_plan;

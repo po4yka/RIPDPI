@@ -63,12 +63,14 @@ fn record_not_applicable_tcp_candidate(
         format!("Marked {} as not applicable{}", spec.label, log_suffix),
         Some(spec.label.to_string()),
         Some(execution.summary.outcome.clone()),
-        Some(strategy_probe_live_progress(
+        Some(strategy_probe_live_progress_with_targets(
             StrategyProbeProgressLane::Tcp,
             candidate_index,
             candidate_total,
             spec.id,
             spec.label,
+            0,
+            0,
         )),
         RunnerArtifacts::from_results(
             execution.results.clone(),
@@ -89,24 +91,6 @@ fn resolve_recommended_proxy_config_json(
         .as_deref()
         .filter(|value| !value.trim().is_empty())
         .map_or_else(|| crate::candidates::strategy_probe_config_json(&fallback_quic_spec.config), str::to_owned)
-}
-
-fn strategy_probe_live_progress(
-    lane: StrategyProbeProgressLane,
-    candidate_index: usize,
-    candidate_total: usize,
-    candidate_id: &str,
-    candidate_label: &str,
-) -> StrategyProbeLiveProgress {
-    strategy_probe_live_progress_with_targets(
-        lane,
-        candidate_index,
-        candidate_total,
-        candidate_id,
-        candidate_label,
-        0,
-        0,
-    )
 }
 
 fn strategy_probe_live_progress_with_targets(
@@ -496,46 +480,27 @@ impl ExecutionStageRunner for StrategyDnsBaselineRunner {
             artifacts,
         );
         runtime.results.push(classified_failure_probe_result("Current strategy", &baseline.failure));
-
-        // Store baseline failure for downstream runners.
-        let class = baseline.failure.class;
-        let action = baseline.failure.action;
-        tracing::info!(failure_class = ?class, action = ?action, "strategy probe: baseline classified");
+        tracing::info!(failure_class = ?baseline.failure.class, action = ?baseline.failure.action, "strategy probe: baseline classified");
         runtime.strategy.baseline_failure = Some(baseline.failure);
 
         // If we have encrypted IP overrides, build override targets so TCP/QUIC
         // runners can probe using trusted IPs instead of poisoned system DNS.
         if !baseline.encrypted_ip_overrides.is_empty() {
-            let domain_overrides: Vec<_> = plan
-                .request
-                .domain_targets
-                .iter()
-                .map(|target| {
-                    let mut t = target.clone();
-                    if t.connect_ip.is_none() {
-                        if let Some((_, ip)) = baseline.encrypted_ip_overrides.iter().find(|(h, _)| h == &t.host) {
-                            t.connect_ip = Some(ip.to_string());
-                        }
-                    }
-                    t
-                })
-                .collect();
-            let quic_overrides: Vec<_> = plan
-                .request
-                .quic_targets
-                .iter()
-                .map(|target| {
-                    let mut t = target.clone();
-                    if t.connect_ip.is_none() {
-                        if let Some((_, ip)) = baseline.encrypted_ip_overrides.iter().find(|(h, _)| h == &t.host) {
-                            t.connect_ip = Some(ip.to_string());
-                        }
-                    }
-                    t
-                })
-                .collect();
-            runtime.strategy.dns_override_domain_targets = Some(domain_overrides);
-            runtime.strategy.dns_override_quic_targets = Some(quic_overrides);
+            let overrides = &baseline.encrypted_ip_overrides;
+            let mut domain_ov = plan.request.domain_targets.clone();
+            for t in &mut domain_ov {
+                if t.connect_ip.is_none() {
+                    t.connect_ip = overrides.iter().find(|(h, _)| h == &t.host).map(|(_, ip)| ip.to_string());
+                }
+            }
+            let mut quic_ov = plan.request.quic_targets.clone();
+            for t in &mut quic_ov {
+                if t.connect_ip.is_none() {
+                    t.connect_ip = overrides.iter().find(|(h, _)| h == &t.host).map(|(_, ip)| ip.to_string());
+                }
+            }
+            runtime.strategy.dns_override_domain_targets = Some(domain_ov);
+            runtime.strategy.dns_override_quic_targets = Some(quic_ov);
         }
 
         // Continue to TCP/QUIC runners instead of short-circuiting, so we get
@@ -650,39 +615,19 @@ impl ExecutionStageRunner for StrategyTcpRunner {
         let baseline_ech_capable = baseline_supports_ech_candidates(&baseline_execution.results);
         let fake_ttl_available = probe_fake_ttl_capability();
         let tcp_fast_open_available = probe_tcp_fast_open_capability();
-        tracing::info!(fake_ttl_available = fake_ttl_available, "strategy probe: TTL capability probed");
-        tracing::info!(
-            tcp_fast_open_available = tcp_fast_open_available,
-            "strategy probe: TCP Fast Open capability probed"
-        );
-        if !fake_ttl_available {
-            tracing::debug!("TTL capability probe failed — fake-packet candidates will be marked not_applicable");
-        }
-        if !tcp_fast_open_available {
-            tracing::debug!("TCP Fast Open capability probe failed — TFO candidates will be marked not_applicable");
-        }
+        tracing::info!(fake_ttl_available, tcp_fast_open_available, "strategy probe: capabilities probed");
         if let Some(ref failure) = runtime.strategy.baseline_failure {
             if let Some(timeout) = compute_rst_adaptive_timeout(failure) {
-                tracing::info!(
-                    adaptive_timeout_ms = timeout.as_millis(),
-                    reason = "rst_pattern",
-                    "strategy probe: using adaptive timeout"
-                );
+                tracing::info!(adaptive_timeout_ms = timeout.as_millis(), "strategy probe: adaptive timeout (rst)");
             }
         }
-        let ordered_tcp_specs = ordered_follow_up_tcp_candidates(
+        let mut pending_tcp_specs = ordered_follow_up_tcp_candidates(
             tcp_specs,
             runtime.strategy.baseline_failure.as_ref().map(|value| value.class),
             &baseline_execution.results,
             strategy_plan.probe_seed,
             fake_ttl_available,
         );
-        // TODO: Staggered 2-candidate parallelism (Psiphon-style) could reduce
-        // total scan time by ~1.5x. Deferred due to DPI correlation risk when two
-        // candidates probe the same blocked domain from different proxy ports
-        // simultaneously. Mitigation would require 500ms stagger + different domain
-        // ordering per candidate in the pair.
-        let mut pending_tcp_specs = ordered_tcp_specs;
         // Round 1 qualifier: test each candidate against 1 domain first.
         // Eliminates candidates that fail completely before the full-matrix run.
         if domain_targets.len() > 1 {
@@ -791,12 +736,18 @@ impl ExecutionStageRunner for StrategyTcpRunner {
                 );
                 continue;
             }
-            if spec.eligibility == CandidateEligibility::RequiresEchCapability && !baseline_ech_capable {
-                tracing::debug!(
-                    candidate = spec.id,
-                    reason = ECH_ELIGIBILITY_RATIONALE,
-                    "strategy probe: candidate not_applicable"
-                );
+            let na_check: Option<(&str, &str)> =
+                if spec.eligibility == CandidateEligibility::RequiresEchCapability && !baseline_ech_capable {
+                    Some((ECH_ELIGIBILITY_RATIONALE, ""))
+                } else if spec.requires_fake_ttl && !fake_ttl_available {
+                    Some((FAKE_TTL_ELIGIBILITY_RATIONALE, " — TTL manipulation unavailable"))
+                } else if spec.requires_tcp_fast_open && !tcp_fast_open_available {
+                    Some((TCP_FAST_OPEN_ELIGIBILITY_RATIONALE, " — TCP Fast Open unavailable"))
+                } else {
+                    None
+                };
+            if let Some((reason, suffix)) = na_check {
+                tracing::debug!(candidate = spec.id, reason, "strategy probe: candidate not_applicable");
                 record_not_applicable_tcp_candidate(
                     runtime,
                     plan,
@@ -804,44 +755,8 @@ impl ExecutionStageRunner for StrategyTcpRunner {
                     &spec,
                     candidate_index,
                     tcp_candidate_total,
-                    ECH_ELIGIBILITY_RATIONALE,
-                    "",
-                );
-                continue;
-            }
-            if spec.requires_fake_ttl && !fake_ttl_available {
-                tracing::debug!(
-                    candidate = spec.id,
-                    reason = FAKE_TTL_ELIGIBILITY_RATIONALE,
-                    "strategy probe: candidate not_applicable"
-                );
-                record_not_applicable_tcp_candidate(
-                    runtime,
-                    plan,
-                    self.phase(),
-                    &spec,
-                    candidate_index,
-                    tcp_candidate_total,
-                    FAKE_TTL_ELIGIBILITY_RATIONALE,
-                    " — TTL manipulation unavailable",
-                );
-                continue;
-            }
-            if spec.requires_tcp_fast_open && !tcp_fast_open_available {
-                tracing::debug!(
-                    candidate = spec.id,
-                    reason = TCP_FAST_OPEN_ELIGIBILITY_RATIONALE,
-                    "strategy probe: candidate not_applicable"
-                );
-                record_not_applicable_tcp_candidate(
-                    runtime,
-                    plan,
-                    self.phase(),
-                    &spec,
-                    candidate_index,
-                    tcp_candidate_total,
-                    TCP_FAST_OPEN_ELIGIBILITY_RATIONALE,
-                    " — TCP Fast Open unavailable",
+                    reason,
+                    suffix,
                 );
                 continue;
             }
@@ -936,17 +851,11 @@ impl ExecutionStageRunner for StrategyQuicRunner {
         let Some(strategy_plan) = plan.strategy.as_ref() else {
             return RunnerOutcome::Completed;
         };
-        let tcp_winner_spec = if runtime.strategy.tcp_candidates.is_empty() {
-            strategy_plan.suite.tcp_candidates.first()
-        } else {
-            let winning_tcp = winning_candidate_index(&runtime.strategy.tcp_candidates).unwrap_or(0);
-            strategy_plan
-                .suite
-                .tcp_candidates
-                .iter()
-                .find(|spec| spec.id == runtime.strategy.tcp_candidates[winning_tcp].id)
-                .or_else(|| strategy_plan.suite.tcp_candidates.first())
-        };
+        let tcp_winner_id = winning_candidate_index(&runtime.strategy.tcp_candidates)
+            .map(|i| runtime.strategy.tcp_candidates[i].id.as_str());
+        let tcp_winner_spec = tcp_winner_id
+            .and_then(|id| strategy_plan.suite.tcp_candidates.iter().find(|s| s.id == id))
+            .or_else(|| strategy_plan.suite.tcp_candidates.first());
         let Some(tcp_winner_spec) = tcp_winner_spec else {
             return RunnerOutcome::Completed;
         };
@@ -1086,32 +995,30 @@ impl ExecutionStageRunner for StrategyRecommendationRunner {
             runtime.strategy.summary = Some("Automatic probing finished".to_string());
             return RunnerOutcome::Completed;
         }
-        let winning_tcp = winning_candidate_index(&runtime.strategy.tcp_candidates).unwrap_or(0);
-        let winning_quic = winning_candidate_index(&runtime.strategy.quic_candidates).unwrap_or(0);
+        let wi_tcp = winning_candidate_index(&runtime.strategy.tcp_candidates).unwrap_or(0);
+        let wi_quic = winning_candidate_index(&runtime.strategy.quic_candidates).unwrap_or(0);
+        let tcp_w = &runtime.strategy.tcp_candidates[wi_tcp];
+        let quic_w = &runtime.strategy.quic_candidates[wi_quic];
         let Some(quic_winner_spec) = strategy_plan
             .suite
             .quic_candidates
             .iter()
-            .find(|spec| spec.id == runtime.strategy.quic_candidates[winning_quic].id)
+            .find(|spec| spec.id == quic_w.id)
             .or_else(|| strategy_plan.suite.quic_candidates.first())
         else {
             runtime.strategy.summary = Some("Automatic probing finished".to_string());
             return RunnerOutcome::Completed;
         };
-        let recommended_proxy_config_json =
-            resolve_recommended_proxy_config_json(&runtime.strategy.quic_candidates[winning_quic], quic_winner_spec);
         let recommendation = StrategyProbeRecommendation {
-            tcp_candidate_id: runtime.strategy.tcp_candidates[winning_tcp].id.clone(),
-            tcp_candidate_label: runtime.strategy.tcp_candidates[winning_tcp].label.clone(),
-            quic_candidate_id: runtime.strategy.quic_candidates[winning_quic].id.clone(),
-            quic_candidate_label: runtime.strategy.quic_candidates[winning_quic].label.clone(),
+            tcp_candidate_id: tcp_w.id.clone(),
+            tcp_candidate_label: tcp_w.label.clone(),
+            quic_candidate_id: quic_w.id.clone(),
+            quic_candidate_label: quic_w.label.clone(),
             rationale: format!(
                 "{} with {} weighted TCP success and {} weighted QUIC success",
-                runtime.strategy.tcp_candidates[winning_tcp].label,
-                runtime.strategy.tcp_candidates[winning_tcp].weighted_success_score,
-                runtime.strategy.quic_candidates[winning_quic].weighted_success_score,
+                tcp_w.label, tcp_w.weighted_success_score, quic_w.weighted_success_score,
             ),
-            recommended_proxy_config_json,
+            recommended_proxy_config_json: resolve_recommended_proxy_config_json(quic_w, quic_winner_spec),
         };
         let audit_assessment = resolve_strategy_probe_audit_assessment(
             &strategy_plan.suite_id,
@@ -1129,22 +1036,21 @@ impl ExecutionStageRunner for StrategyRecommendationRunner {
             &recommendation,
             audit_assessment.as_ref(),
         );
+        let is_dns_tampered = runtime.strategy.dns_override_domain_targets.is_some();
+        let is_partial = runtime.strategy.tcp_candidates.len() < strategy_plan.suite.tcp_candidates.len()
+            || runtime.strategy.quic_candidates.len() < strategy_plan.suite.quic_candidates.len();
         runtime.strategy.strategy_probe_report = Some(StrategyProbeReport {
             suite_id: strategy_plan.suite_id.clone(),
             tcp_candidates: runtime.strategy.tcp_candidates.clone(),
             quic_candidates: runtime.strategy.quic_candidates.clone(),
             recommendation,
-            completion_kind: if runtime.strategy.dns_override_domain_targets.is_some() {
-                StrategyProbeCompletionKind::DnsTamperingWithFallback
-            } else if runtime.strategy.tcp_candidates.len() < strategy_plan.suite.tcp_candidates.len()
-                || runtime.strategy.quic_candidates.len() < strategy_plan.suite.quic_candidates.len()
-            {
-                StrategyProbeCompletionKind::PartialResults
-            } else {
-                StrategyProbeCompletionKind::Normal
+            completion_kind: match () {
+                _ if is_dns_tampered => StrategyProbeCompletionKind::DnsTamperingWithFallback,
+                _ if is_partial => StrategyProbeCompletionKind::PartialResults,
+                _ => StrategyProbeCompletionKind::Normal,
             },
             audit_assessment,
-            target_selection: plan.request.strategy_probe.as_ref().and_then(|probe| probe.target_selection.clone()),
+            target_selection: plan.request.strategy_probe.as_ref().and_then(|p| p.target_selection.clone()),
         });
         runtime.strategy.summary = Some(summary);
         runtime.completed_steps += 1;

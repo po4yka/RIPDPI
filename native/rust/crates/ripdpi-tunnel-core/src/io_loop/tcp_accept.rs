@@ -35,14 +35,8 @@ pub(super) fn tcp_session_target_addr(
 
 pub(super) fn socketaddr_to_listen_endpoint(addr: SocketAddr) -> IpListenEndpoint {
     let ip = match addr.ip() {
-        IpAddr::V4(v4) => {
-            let [a, b, c, d] = v4.octets();
-            IpAddress::v4(a, b, c, d)
-        }
-        IpAddr::V6(v6) => {
-            let [a, b, c, d, e, f, g, h] = v6.segments();
-            IpAddress::v6(a, b, c, d, e, f, g, h)
-        }
+        IpAddr::V4(v4) => IpAddress::Ipv4(v4.octets().into()),
+        IpAddr::V6(v6) => IpAddress::Ipv6(v6.segments().into()),
     };
     IpListenEndpoint { addr: Some(ip), port: addr.port() }
 }
@@ -91,15 +85,11 @@ pub(super) fn gc_stale_pending_listens(
 ) {
     let now = StdInstant::now();
     pending_listens.retain(|flow_key, (handle, created_at)| {
-        if now.duration_since(*created_at) <= timeout {
+        let age = now.duration_since(*created_at);
+        if age <= timeout {
             return true;
         }
-        debug!(
-            "GC stale LISTEN socket for flow {} -> {} (age {:?})",
-            flow_key.src,
-            flow_key.dst,
-            now.duration_since(*created_at)
-        );
+        debug!("GC stale LISTEN socket for flow {} -> {} (age {age:?})", flow_key.src, flow_key.dst);
         socket_set.remove(*handle);
         false
     });
@@ -115,7 +105,6 @@ pub(super) fn spawn_new_tcp_sessions(
     stats: &Arc<Stats>,
     dns_cache: &mut Option<DnsCache>,
 ) {
-    // Each entry: (socket handle, resolved real target, synthetic IP to pin if any)
     let mut new_sessions: Vec<(SocketHandle, SocketAddr, Option<u32>)> = Vec::new();
     let mut unresolvable: Vec<SocketHandle> = Vec::new();
 
@@ -125,14 +114,12 @@ pub(super) fn spawn_new_tcp_sessions(
             continue;
         }
 
-        let synthetic_ip = tcp_target_endpoint(tcp).and_then(|sa| {
-            let cache = dns_cache.as_ref()?;
-            if let IpAddr::V4(v4) = sa.ip() {
+        let synthetic_ip = tcp_target_endpoint(tcp).and_then(|sa| match sa.ip() {
+            IpAddr::V4(v4) => {
                 let ip = u32::from(v4);
-                cache.contains_mapped_ip(ip).then_some(ip)
-            } else {
-                None
+                dns_cache.as_ref()?.contains_mapped_ip(ip).then_some(ip)
             }
+            _ => None,
         });
 
         match tcp_session_target_addr(stats, dns_cache, tcp) {
@@ -145,30 +132,27 @@ pub(super) fn spawn_new_tcp_sessions(
         }
     }
 
-    for handle in unresolvable {
+    let remove_pending = |pending_listens: &mut HashMap<TcpFlowKey, (SocketHandle, StdInstant)>, handle| {
         if let Some(key) = pending_listens.iter().find_map(|(k, (h, _))| (*h == handle).then_some(*k)) {
             pending_listens.remove(&key);
         }
+    };
+
+    for handle in unresolvable {
+        remove_pending(pending_listens, handle);
         socket_set.remove(handle);
     }
 
     for (handle, target_addr, synthetic_ip) in new_sessions {
-        if let Some(key) = pending_listens.iter().find_map(|(k, (h, _))| (*h == handle).then_some(*k)) {
-            pending_listens.remove(&key);
-        }
+        remove_pending(pending_listens, handle);
         if let (Some(cache), Some(ip)) = (dns_cache.as_mut(), synthetic_ip) {
             cache.pin(ip);
         }
-
-        let (smoltcp_side, session_side) = tokio::io::duplex(DUPLEX_BUF);
+        let (smoltcp_side, mut session_side) = tokio::io::duplex(DUPLEX_BUF);
         let child_cancel = cancel.child_token();
         let session_inst = TcpSession::new(proxy_sockaddr, auth.clone(), TargetAddr::Ip(target_addr));
-        let child_cancel_clone = child_cancel.clone();
-        let join_handle = tokio::spawn(async move {
-            let mut s = session_side;
-            session_inst.run(&mut s, child_cancel_clone).await
-        });
-
+        let cc = child_cancel.clone();
+        let join_handle = tokio::spawn(async move { session_inst.run(&mut session_side, cc).await });
         let entry = crate::SessionEntry {
             smoltcp_side,
             cancel: child_cancel,
