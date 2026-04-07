@@ -1,0 +1,321 @@
+package com.poyka.ripdpi.ui.screens.config
+
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.input.KeyboardType
+import com.poyka.ripdpi.R
+import com.poyka.ripdpi.activities.ConfigDraft
+import com.poyka.ripdpi.activities.ConfigFieldRelayChainEntryPort
+import com.poyka.ripdpi.activities.ConfigFieldRelayChainExitPort
+import com.poyka.ripdpi.activities.ConfigFieldRelayServer
+import com.poyka.ripdpi.activities.ConfigFieldRelayServerPort
+import com.poyka.ripdpi.activities.ConfigUiState
+import com.poyka.ripdpi.data.RelayKindChainRelay
+import com.poyka.ripdpi.data.RelayKindHysteria2
+import com.poyka.ripdpi.data.RelayKindMasque
+import com.poyka.ripdpi.data.RelayKindVlessReality
+import com.poyka.ripdpi.data.RelayMasqueAuthModeBearer
+import com.poyka.ripdpi.data.RelayMasqueAuthModePreshared
+import com.poyka.ripdpi.data.RelayMasqueAuthModePrivacyPass
+import com.poyka.ripdpi.ui.components.inputs.RipDpiChip
+import com.poyka.ripdpi.ui.components.inputs.RipDpiSwitch
+import com.poyka.ripdpi.ui.components.inputs.RipDpiTextField
+import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldBehavior
+import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldDecoration
+import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
+
+@Suppress("LongParameterList", "LongMethod")
+@Composable
+internal fun RelayKindFields(
+    draft: ConfigDraft,
+    uiState: ConfigUiState,
+    onRelayServerChanged: (String) -> Unit,
+    onRelayServerPortChanged: (String) -> Unit,
+    onRelayServerNameChanged: (String) -> Unit,
+    onRelayRealityPublicKeyChanged: (String) -> Unit,
+    onRelayRealityShortIdChanged: (String) -> Unit,
+    onRelayVlessUuidChanged: (String) -> Unit,
+    onRelayHysteriaPasswordChanged: (String) -> Unit,
+    onRelayHysteriaSalamanderKeyChanged: (String) -> Unit,
+    onRelayChainEntryServerChanged: (String) -> Unit,
+    onRelayChainEntryPortChanged: (String) -> Unit,
+    onRelayChainEntryServerNameChanged: (String) -> Unit,
+    onRelayChainEntryPublicKeyChanged: (String) -> Unit,
+    onRelayChainEntryShortIdChanged: (String) -> Unit,
+    onRelayChainEntryUuidChanged: (String) -> Unit,
+    onRelayChainExitServerChanged: (String) -> Unit,
+    onRelayChainExitPortChanged: (String) -> Unit,
+    onRelayChainExitServerNameChanged: (String) -> Unit,
+    onRelayChainExitPublicKeyChanged: (String) -> Unit,
+    onRelayChainExitShortIdChanged: (String) -> Unit,
+    onRelayChainExitUuidChanged: (String) -> Unit,
+    onRelayMasqueUrlChanged: (String) -> Unit,
+    onRelayMasqueAuthModeChanged: (String) -> Unit,
+    onRelayMasqueAuthTokenChanged: (String) -> Unit,
+    onRelayMasqueUseHttp2FallbackChanged: (Boolean) -> Unit,
+) {
+    val spacing = RipDpiThemeTokens.spacing
+    val colors = RipDpiThemeTokens.colors
+    if (draft.relayKind == RelayKindVlessReality || draft.relayKind == RelayKindHysteria2) {
+        RipDpiTextField(
+            value = draft.relayServer,
+            onValueChange = onRelayServerChanged,
+            decoration =
+                RipDpiTextFieldDecoration(
+                    label = stringResource(R.string.config_relay_server),
+                    errorText = validationMessage(uiState.validationErrors[ConfigFieldRelayServer]),
+                ),
+        )
+        RipDpiTextField(
+            value = draft.relayServerPort,
+            onValueChange = onRelayServerPortChanged,
+            decoration =
+                RipDpiTextFieldDecoration(
+                    label = stringResource(R.string.config_relay_server_port),
+                    errorText = validationMessage(uiState.validationErrors[ConfigFieldRelayServerPort]),
+                ),
+            behavior =
+                RipDpiTextFieldBehavior(
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                ),
+        )
+        RipDpiTextField(
+            value = draft.relayServerName,
+            onValueChange = onRelayServerNameChanged,
+            decoration = RipDpiTextFieldDecoration(label = stringResource(R.string.config_relay_server_name)),
+        )
+    }
+    when (draft.relayKind) {
+        RelayKindVlessReality -> {
+            RipDpiTextField(
+                value = draft.relayRealityPublicKey,
+                onValueChange = onRelayRealityPublicKeyChanged,
+                decoration =
+                    RipDpiTextFieldDecoration(
+                        label = stringResource(R.string.config_relay_reality_public_key),
+                    ),
+            )
+            RipDpiTextField(
+                value = draft.relayRealityShortId,
+                onValueChange = onRelayRealityShortIdChanged,
+                decoration = RipDpiTextFieldDecoration(label = stringResource(R.string.config_relay_reality_short_id)),
+            )
+            RipDpiTextField(
+                value = draft.relayVlessUuid,
+                onValueChange = onRelayVlessUuidChanged,
+                decoration = RipDpiTextFieldDecoration(label = stringResource(R.string.config_relay_vless_uuid)),
+            )
+        }
+
+        RelayKindHysteria2 -> {
+            RipDpiTextField(
+                value = draft.relayHysteriaPassword,
+                onValueChange = onRelayHysteriaPasswordChanged,
+                decoration = RipDpiTextFieldDecoration(label = stringResource(R.string.config_relay_hysteria_password)),
+            )
+            RipDpiTextField(
+                value = draft.relayHysteriaSalamanderKey,
+                onValueChange = onRelayHysteriaSalamanderKeyChanged,
+                decoration =
+                    RipDpiTextFieldDecoration(
+                        label = stringResource(R.string.config_relay_hysteria_salamander),
+                    ),
+            )
+        }
+
+        RelayKindChainRelay -> {
+            RelayChainFields(
+                draft = draft,
+                uiState = uiState,
+                onRelayChainEntryServerChanged = onRelayChainEntryServerChanged,
+                onRelayChainEntryPortChanged = onRelayChainEntryPortChanged,
+                onRelayChainEntryServerNameChanged = onRelayChainEntryServerNameChanged,
+                onRelayChainEntryPublicKeyChanged = onRelayChainEntryPublicKeyChanged,
+                onRelayChainEntryShortIdChanged = onRelayChainEntryShortIdChanged,
+                onRelayChainEntryUuidChanged = onRelayChainEntryUuidChanged,
+                onRelayChainExitServerChanged = onRelayChainExitServerChanged,
+                onRelayChainExitPortChanged = onRelayChainExitPortChanged,
+                onRelayChainExitServerNameChanged = onRelayChainExitServerNameChanged,
+                onRelayChainExitPublicKeyChanged = onRelayChainExitPublicKeyChanged,
+                onRelayChainExitShortIdChanged = onRelayChainExitShortIdChanged,
+                onRelayChainExitUuidChanged = onRelayChainExitUuidChanged,
+            )
+        }
+
+        RelayKindMasque -> {
+            RipDpiTextField(
+                value = draft.relayMasqueUrl,
+                onValueChange = onRelayMasqueUrlChanged,
+                decoration = RipDpiTextFieldDecoration(label = stringResource(R.string.config_relay_masque_url)),
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
+                MasqueAuthModeChip(
+                    draft.relayMasqueAuthMode,
+                    RelayMasqueAuthModeBearer,
+                    R.string.config_relay_masque_auth_bearer,
+                    onRelayMasqueAuthModeChanged,
+                )
+                MasqueAuthModeChip(
+                    draft.relayMasqueAuthMode,
+                    RelayMasqueAuthModePreshared,
+                    R.string.config_relay_masque_auth_preshared,
+                    onRelayMasqueAuthModeChanged,
+                )
+                if (uiState.supportsMasquePrivacyPass) {
+                    MasqueAuthModeChip(
+                        draft.relayMasqueAuthMode,
+                        RelayMasqueAuthModePrivacyPass,
+                        R.string.config_relay_masque_auth_privacy_pass,
+                        onRelayMasqueAuthModeChanged,
+                    )
+                }
+            }
+            if (!uiState.supportsMasquePrivacyPass) {
+                Text(
+                    text = stringResource(R.string.config_relay_masque_privacy_pass_unavailable),
+                    style = RipDpiThemeTokens.type.caption,
+                    color = colors.mutedForeground,
+                )
+            }
+            if (draft.relayMasqueAuthMode != RelayMasqueAuthModePrivacyPass) {
+                RipDpiTextField(
+                    value = draft.relayMasqueAuthToken,
+                    onValueChange = onRelayMasqueAuthTokenChanged,
+                    decoration = RipDpiTextFieldDecoration(label = stringResource(R.string.config_relay_masque_token)),
+                )
+            }
+            RipDpiSwitch(
+                checked = draft.relayMasqueUseHttp2Fallback,
+                onCheckedChange = onRelayMasqueUseHttp2FallbackChanged,
+                label = stringResource(R.string.config_relay_masque_http2),
+            )
+        }
+    }
+}
+
+@Suppress("LongParameterList")
+@Composable
+internal fun RelayChainFields(
+    draft: ConfigDraft,
+    uiState: ConfigUiState,
+    onRelayChainEntryServerChanged: (String) -> Unit,
+    onRelayChainEntryPortChanged: (String) -> Unit,
+    onRelayChainEntryServerNameChanged: (String) -> Unit,
+    onRelayChainEntryPublicKeyChanged: (String) -> Unit,
+    onRelayChainEntryShortIdChanged: (String) -> Unit,
+    onRelayChainEntryUuidChanged: (String) -> Unit,
+    onRelayChainExitServerChanged: (String) -> Unit,
+    onRelayChainExitPortChanged: (String) -> Unit,
+    onRelayChainExitServerNameChanged: (String) -> Unit,
+    onRelayChainExitPublicKeyChanged: (String) -> Unit,
+    onRelayChainExitShortIdChanged: (String) -> Unit,
+    onRelayChainExitUuidChanged: (String) -> Unit,
+) {
+    RipDpiTextField(
+        value = draft.relayChainEntryServer,
+        onValueChange = onRelayChainEntryServerChanged,
+        decoration = RipDpiTextFieldDecoration(label = stringResource(R.string.config_relay_chain_entry_server)),
+    )
+    RipDpiTextField(
+        value = draft.relayChainEntryPort,
+        onValueChange = onRelayChainEntryPortChanged,
+        decoration =
+            RipDpiTextFieldDecoration(
+                label = stringResource(R.string.config_relay_chain_entry_port),
+                errorText = validationMessage(uiState.validationErrors[ConfigFieldRelayChainEntryPort]),
+            ),
+        behavior = RipDpiTextFieldBehavior(keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)),
+    )
+    RipDpiTextField(
+        value = draft.relayChainEntryServerName,
+        onValueChange = onRelayChainEntryServerNameChanged,
+        decoration = RipDpiTextFieldDecoration(label = stringResource(R.string.config_relay_chain_entry_sni)),
+    )
+    RipDpiTextField(
+        value = draft.relayChainEntryPublicKey,
+        onValueChange = onRelayChainEntryPublicKeyChanged,
+        decoration = RipDpiTextFieldDecoration(label = stringResource(R.string.config_relay_chain_entry_public_key)),
+    )
+    RipDpiTextField(
+        value = draft.relayChainEntryShortId,
+        onValueChange = onRelayChainEntryShortIdChanged,
+        decoration = RipDpiTextFieldDecoration(label = stringResource(R.string.config_relay_chain_entry_short_id)),
+    )
+    RipDpiTextField(
+        value = draft.relayChainEntryUuid,
+        onValueChange = onRelayChainEntryUuidChanged,
+        decoration = RipDpiTextFieldDecoration(label = stringResource(R.string.config_relay_chain_entry_uuid)),
+    )
+    RipDpiTextField(
+        value = draft.relayChainExitServer,
+        onValueChange = onRelayChainExitServerChanged,
+        decoration = RipDpiTextFieldDecoration(label = stringResource(R.string.config_relay_chain_exit_server)),
+    )
+    RipDpiTextField(
+        value = draft.relayChainExitPort,
+        onValueChange = onRelayChainExitPortChanged,
+        decoration =
+            RipDpiTextFieldDecoration(
+                label = stringResource(R.string.config_relay_chain_exit_port),
+                errorText = validationMessage(uiState.validationErrors[ConfigFieldRelayChainExitPort]),
+            ),
+        behavior = RipDpiTextFieldBehavior(keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)),
+    )
+    RipDpiTextField(
+        value = draft.relayChainExitServerName,
+        onValueChange = onRelayChainExitServerNameChanged,
+        decoration = RipDpiTextFieldDecoration(label = stringResource(R.string.config_relay_chain_exit_sni)),
+    )
+    RipDpiTextField(
+        value = draft.relayChainExitPublicKey,
+        onValueChange = onRelayChainExitPublicKeyChanged,
+        decoration = RipDpiTextFieldDecoration(label = stringResource(R.string.config_relay_chain_exit_public_key)),
+    )
+    RipDpiTextField(
+        value = draft.relayChainExitShortId,
+        onValueChange = onRelayChainExitShortIdChanged,
+        decoration = RipDpiTextFieldDecoration(label = stringResource(R.string.config_relay_chain_exit_short_id)),
+    )
+    RipDpiTextField(
+        value = draft.relayChainExitUuid,
+        onValueChange = onRelayChainExitUuidChanged,
+        decoration = RipDpiTextFieldDecoration(label = stringResource(R.string.config_relay_chain_exit_uuid)),
+    )
+}
+
+@Composable
+internal fun RowScope.RelayKindChip(
+    selectedKind: String,
+    kind: String,
+    labelRes: Int,
+    onRelayKindChanged: (String) -> Unit,
+) {
+    RipDpiChip(
+        text = stringResource(labelRes),
+        selected = selectedKind == kind,
+        onClick = { onRelayKindChanged(kind) },
+        modifier = Modifier.weight(1f),
+    )
+}
+
+@Composable
+internal fun RowScope.MasqueAuthModeChip(
+    selectedMode: String,
+    mode: String,
+    labelRes: Int,
+    onRelayMasqueAuthModeChanged: (String) -> Unit,
+) {
+    RipDpiChip(
+        text = stringResource(labelRes),
+        selected = selectedMode == mode,
+        onClick = { onRelayMasqueAuthModeChanged(mode) },
+        modifier = Modifier.weight(1f),
+    )
+}
