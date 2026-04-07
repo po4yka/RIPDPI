@@ -511,16 +511,16 @@ fn ensure_patches_applied(config: &Config) -> io::Result<()> {
         run_command(Command::new("git").arg("init").current_dir(src_path))?;
     }
 
-    println!("cargo:rerun-if-changed=build/boring-pq.patch");
+    println!("cargo:warning=applying post quantum crypto patch to boringssl");
     apply_patch(config, "boring-pq.patch")?;
 
     if config.features.rpk {
-        println!("cargo:rerun-if-changed=build/rpk.patch");
+        println!("cargo:warning=applying RPK patch to boringssl");
         apply_patch(config, "rpk.patch")?;
     }
 
     if config.features.underscore_wildcards {
-        println!("cargo:rerun-if-changed=build/underscore-wildcards.patch");
+        println!("cargo:warning=applying underscore wildcards patch to boringssl");
         apply_patch(config, "underscore-wildcards.patch")?;
     }
 
