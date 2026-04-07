@@ -170,10 +170,12 @@ All markers support delta arithmetic: `sniext+1`, `echext+4`, `host-2`.
 
 #### UDP chain step kinds for QUIC DPI evasion
 
-- `DummyPrepend` -- random UDP datagram before QUIC Initial to reset GFW flow state
-- `QuicSniSplit` -- re-encrypt Initial with ClientHello split across CRYPTO frames
-- `QuicFakeVersion` -- replace QUIC version field to prevent DPI decryption
-- `IpFrag2Udp` -- IP-level fragmentation of QUIC Initial packet (8-byte aligned)
+- `DummyPrepend` (aliases: `dummy_prepend`) -- random UDP datagram before QUIC Initial to reset GFW flow state
+- `QuicSniSplit` (aliases: `quic_sni_split`) -- re-encrypt Initial with ClientHello split across CRYPTO frames
+- `QuicFakeVersion` (aliases: `quic_fake_version`) -- replace QUIC version field to prevent DPI decryption
+- `IpFrag2Udp` (aliases: `ip_frag2_udp`) -- IP-level fragmentation of QUIC Initial packet (8-byte aligned)
+
+Config parser accepts both PascalCase and snake_case for all UDP chain step kinds, so `quic_sni_split` and `QuicSniSplit` are equivalent.
 
 ### Packet-owned TCP techniques
 

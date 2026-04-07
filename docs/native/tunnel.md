@@ -45,6 +45,19 @@ flowchart TD
     M --> N["Return synthetic IP\nto app"]
 ```
 
+### LRU Eviction Protection for Active Sessions
+
+Active TCP sessions maintain stable synthetic IP mappings by pinning their cache entries against LRU eviction:
+
+- When a TCP session opens (`tcp_accept.rs`), the mapped synthetic IP is pinned in the DNS cache.
+- When the session closes (`bridge.rs` on stream completion), the entry is unpinned and becomes eligible for eviction.
+- This prevents DoT connections and other long-lived sessions from losing their synthetic IP when the cache fills and evicts older entries.
+
+Implementation:
+- `ripdpi-tunnel-core/src/dns_cache/mod.rs` -- pin/unpin API
+- `ripdpi-tunnel-core/src/io_loop/tcp_accept.rs` -- pin on session open
+- `ripdpi-tunnel-core/src/io_loop/bridge.rs` -- unpin on session close
+
 ## App Call Chain
 
 Start path:

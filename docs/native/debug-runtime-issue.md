@@ -90,6 +90,43 @@ The support bundle is the preferred artifact because it now includes:
 - recent native warnings and errors
 - correlated `native-events.csv` rows
 
+## Common Android Native Load-Time Failures
+
+When `libripdpi.so` or `libripdpi-tunnel.so` fail to load, check these issues:
+
+### Missing libc++_shared.so
+
+Error: `libripdpi.so: cannot find -lc++_shared.so.1` or undefined symbol related to C++ stdlib
+
+Solution: The native libraries use `c++_static` STL to avoid the additional runtime dependency. If you see this error:
+
+1. Verify gradle.properties includes `ripdpi.android.cppStl=c++_static`
+2. Rebuild with `./gradlew clean assembleDebug`
+3. Check the build log for "linking libc++abi for __gxx_personality_v0 when using c++_static"
+
+### Undefined Symbol at dlopen
+
+Error: `dlopen failed: cannot locate symbol "some_function_name"` 
+
+Diagnosis: Use `nm -D` to check what's actually exported:
+
+```bash
+adb pull /data/app/com.poyka.ripdpi-*/lib/arm64-v8a/libripdpi.so /tmp/
+nm -D /tmp/libripdpi.so | grep your_symbol
+```
+
+If the symbol is missing, the crate defining it was not linked or was compiled with visibility `#[visibility="hidden"]`.
+
+### JNI Symbol Mismatch with @JvmStatic Companion
+
+Error: `java.lang.UnsatisfiedLinkError: No implementation found for...`
+
+When using `@JvmStatic` on a companion object method in Kotlin, the exported JNI symbol is on the **class**, not the `$Companion` inner class. 
+
+- Kotlin: `class MyClass { companion object { @JvmStatic fun foo() {} } }`
+- JNI export: `Java_com_poyka_ripdpi_MyClass_foo` (not MyClass_$Companion_foo)
+- Verify with `nm -D libripdpi.so | grep Java_...`
+
 ## Build Notes
 
 - Debug builds install verbose app logging through Kermit's `platformLogWriter()`.
