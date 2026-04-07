@@ -1085,7 +1085,7 @@ fn new_udp_client_socket(source_peer_ip: IpAddr, virtual_port: VirtualPort) -> a
 fn resolve_sync_host(host: &str, port: u16) -> io::Result<SocketAddr> {
     (host, port)
         .to_socket_addrs()?
-        .find(|addr| addr.is_ipv4())
+        .find(SocketAddr::is_ipv4)
         .ok_or_else(|| io::Error::new(io::ErrorKind::AddrNotAvailable, "no IPv4 address resolved"))
 }
 
@@ -1121,7 +1121,7 @@ async fn read_target(client: &mut TcpStream, address_type: u8) -> io::Result<Soc
     } else {
         lookup_host((host.as_str(), port))
             .await?
-            .find(|addr| addr.is_ipv4())
+            .find(SocketAddr::is_ipv4)
             .ok_or_else(|| io::Error::new(io::ErrorKind::AddrNotAvailable, "unable to resolve IPv4 target"))
     }
 }
@@ -1235,7 +1235,7 @@ async fn write_reply(client: &mut TcpStream, code: u8, bind_addr: SocketAddr) ->
 }
 
 fn to_io_error(error: anyhow::Error) -> io::Error {
-    io::Error::new(io::ErrorKind::Other, error.to_string())
+    io::Error::other(error.to_string())
 }
 
 fn now_ms() -> u64 {
