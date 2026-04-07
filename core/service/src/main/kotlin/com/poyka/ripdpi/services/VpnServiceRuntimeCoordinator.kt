@@ -65,6 +65,8 @@ internal class VpnServiceRuntimeCoordinator(
         private const val TelemetryPollIntervalBackgroundMs = 5_000L
     }
 
+    private var currentProxyAuthToken: String? = null
+
     override val serviceLabel: String = "VPN"
 
     override fun createRuntimeSession(): VpnRuntimeSession = VpnRuntimeSession()
@@ -118,6 +120,12 @@ internal class VpnServiceRuntimeCoordinator(
         resolution: ConnectionPolicyResolution,
     ) {
         val logContext = session.buildLogContext(session.currentActiveConnectionPolicy)
+        val authToken =
+            java.util.UUID
+                .randomUUID()
+                .toString()
+                .replace("-", "")
+        currentProxyAuthToken = authToken
         resolution.proxyPreferences.relayConfigOrNull()?.let { relayConfig ->
             upstreamRelaySupervisor.start(relayConfig, ::handleRelayExit)
         }
@@ -125,13 +133,14 @@ internal class VpnServiceRuntimeCoordinator(
             warpRuntimeSupervisor.start(warpConfig, ::handleWarpExit)
         }
         proxyRuntimeSupervisor.start(
-            resolution.proxyPreferences.withLogContext(logContext),
+            resolution.proxyPreferences.withLogContext(logContext).withLocalAuthToken(authToken),
             ::handleProxyExit,
         )
         vpnTunnelRuntime.start(
             activeDns = resolution.activeDns,
             overrideReason = resolution.resolverFallbackReason,
             logContext = logContext,
+            localAuthToken = authToken,
         )
         updateRuntimeDnsState(session, resolution)
     }
@@ -201,6 +210,7 @@ internal class VpnServiceRuntimeCoordinator(
                 activeDns = latestResolution.activeDns,
                 overrideReason = latestResolution.resolverFallbackReason,
                 logContext = refreshSession.buildLogContext(refreshSession.currentActiveConnectionPolicy),
+                localAuthToken = currentProxyAuthToken,
             )
             updateRuntimeDnsState(refreshSession, latestResolution)
         }
@@ -308,6 +318,12 @@ internal class VpnServiceRuntimeCoordinator(
             appliedAt = appliedAt,
         )
         val logContext = session.buildLogContext(session.currentActiveConnectionPolicy)
+        val authToken =
+            java.util.UUID
+                .randomUUID()
+                .toString()
+                .replace("-", "")
+        currentProxyAuthToken = authToken
         resolution.proxyPreferences.relayConfigOrNull()?.let { relayConfig ->
             upstreamRelaySupervisor.start(relayConfig, ::handleRelayExit)
         }
@@ -315,13 +331,14 @@ internal class VpnServiceRuntimeCoordinator(
             warpRuntimeSupervisor.start(warpConfig, ::handleWarpExit)
         }
         proxyRuntimeSupervisor.start(
-            resolution.proxyPreferences.withLogContext(logContext),
+            resolution.proxyPreferences.withLogContext(logContext).withLocalAuthToken(authToken),
             ::handleProxyExit,
         )
         vpnTunnelRuntime.start(
             activeDns = resolution.activeDns,
             overrideReason = resolution.resolverFallbackReason,
             logContext = logContext,
+            localAuthToken = authToken,
         )
         updateRuntimeDnsState(session, resolution)
     }

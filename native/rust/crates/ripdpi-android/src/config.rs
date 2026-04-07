@@ -223,6 +223,7 @@ mod tests {
                     default_ttl,
                     custom_ttl,
                     freeze_detection_enabled: false,
+                    auth_token: None,
                 };
                 config.protocols = ProxyUiProtocolConfig { resolve_domains, desync_http, desync_https, desync_udp };
                 config.chains = ProxyUiChainConfig {
@@ -586,6 +587,7 @@ mod tests {
                 default_ttl: 64,
                 custom_ttl: true,
                 freeze_detection_enabled: false,
+                auth_token: None,
             };
             ui.fake_packets.drop_sack = drop_sack;
             ui.hosts.mode = hosts_mode;

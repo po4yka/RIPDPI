@@ -111,7 +111,7 @@ fn handle_socks5(mut client: TcpStream, state: &RuntimeState, version: u8) -> io
     if version != S_VER5 {
         return Err(io::Error::new(io::ErrorKind::InvalidData, "invalid socks version"));
     }
-    negotiate_socks5(&mut client)?;
+    negotiate_socks5(&mut client, state.config.network.listen.auth_token.as_deref())?;
     let request = read_socks5_request(&mut client)?;
     let session = SessionConfig { resolve: state.config.network.resolve, ipv6: state.config.network.ipv6 };
     let resolver = |host: &str, socket_type: SocketType| resolve_name(host, socket_type, state);
