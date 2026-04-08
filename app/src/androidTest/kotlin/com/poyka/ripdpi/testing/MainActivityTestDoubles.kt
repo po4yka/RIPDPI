@@ -234,6 +234,7 @@ class StubInstrumentedDiagnosticsScanController : DiagnosticsScanController {
         pathMode: com.poyka.ripdpi.diagnostics.ScanPathMode,
         selectedProfileId: String?,
         skipActiveScanCheck: Boolean,
+        scanDeadlineMs: Long?,
     ): com.poyka.ripdpi.diagnostics.DiagnosticsManualScanStartResult =
         com.poyka.ripdpi.diagnostics.DiagnosticsManualScanStartResult
             .Started("session")
