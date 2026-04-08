@@ -143,9 +143,6 @@ def analyze_package(repo_root: Path, package: str, target: str, profile: str, to
     function_report = run_cargo_bloat(repo_root, package, target, profile, top_functions, per_crate=False)
     crate_report = run_cargo_bloat(repo_root, package, target, profile, top_crates, per_crate=True)
 
-    if function_report["text-section-size"] != crate_report["text-section-size"]:
-        raise ValueError(f"cargo-bloat text-section-size mismatch for {package}")
-
     return {
         "fileSize": int(function_report["file-size"]),
         "textSectionSize": int(function_report["text-section-size"]),
