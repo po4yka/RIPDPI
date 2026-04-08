@@ -184,6 +184,8 @@ class SettingsViewModel
 
         fun setExcludeRussianAppsEnabled(enabled: Boolean) = customizationActions.setExcludeRussianAppsEnabled(enabled)
 
+        fun setFullTunnelMode(enabled: Boolean) = customizationActions.setFullTunnelMode(enabled)
+
         fun setAppTheme(theme: String) = customizationActions.setAppTheme(theme)
 
         fun setAppIcon(iconKey: String) = customizationActions.setAppIcon(iconKey)
