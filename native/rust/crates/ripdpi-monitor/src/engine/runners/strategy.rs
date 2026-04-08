@@ -1,4 +1,5 @@
-use std::sync::Arc;
+use std::sync::atomic::Ordering;
+use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
 
@@ -16,7 +17,7 @@ use crate::classification::{
 use crate::connectivity::set_progress;
 use crate::execution::{
     eliminated_candidate_summary, execute_quic_candidate, execute_tcp_candidate, not_applicable_candidate_execution,
-    skipped_candidate_summary, winning_candidate_index,
+    skipped_candidate_summary, winning_candidate_index, CandidateExecution,
 };
 use crate::observations::observations_for_results;
 use crate::strategy::detect_strategy_probe_dns_tampering;
@@ -630,49 +631,84 @@ impl ExecutionStageRunner for StrategyTcpRunner {
         );
         // Round 1 qualifier: test each candidate against 1 domain first.
         // Eliminates candidates that fail completely before the full-matrix run.
+        // Candidates are tested in parallel batches of up to 3 to reduce wall-clock time.
         if domain_targets.len() > 1 {
             let qualifier_targets = &domain_targets[..1];
             let mut qualified_specs: Vec<StrategyCandidateSpec> = Vec::with_capacity(pending_tcp_specs.len());
             let mut eliminated_count = 0usize;
+
+            // Partition into pass-through and testable candidates.
+            let mut testable_specs: Vec<StrategyCandidateSpec> = Vec::new();
             for spec in pending_tcp_specs.drain(..) {
-                if runtime.is_cancelled() || runtime.is_past_deadline() {
-                    // Don't eliminate untested candidates on cancellation/deadline.
-                    qualified_specs.push(spec);
-                    continue;
-                }
-                // Baseline always qualifies; not-applicable candidates pass through.
                 let pass_through = spec.id == "baseline_current"
                     || (spec.eligibility == CandidateEligibility::RequiresEchCapability && !baseline_ech_capable)
                     || (spec.requires_fake_ttl && !fake_ttl_available)
                     || (spec.requires_tcp_fast_open && !tcp_fast_open_available);
                 if pass_through {
                     qualified_specs.push(spec);
-                    continue;
-                }
-                let qualifier_execution = execute_tcp_candidate(
-                    &spec,
-                    qualifier_targets,
-                    strategy_plan.runtime_context.as_ref(),
-                    strategy_plan.probe_seed,
-                    tls_verifier,
-                    runtime.cancel_token(),
-                );
-                if qualifier_execution.cancelled {
-                    // Treat as pass-through so the main loop handles cancellation.
-                    qualified_specs.push(spec);
-                    continue;
-                }
-                if qualifier_execution.summary.succeeded_targets > 0 {
-                    qualified_specs.push(spec);
                 } else {
-                    let summary = eliminated_candidate_summary(
-                        &spec,
-                        qualifier_execution.summary.succeeded_targets,
-                        qualifier_execution.summary.total_targets,
-                        3,
-                    );
-                    runtime.strategy.tcp_candidates.push(summary);
-                    eliminated_count += 1;
+                    testable_specs.push(spec);
+                }
+            }
+
+            // Test in parallel batches of up to 3, grouped by family so each
+            // family gets at least one representative tested early.
+            const QUALIFIER_PARALLELISM: usize = 3;
+            for batch in testable_specs.chunks(QUALIFIER_PARALLELISM) {
+                if runtime.is_cancelled() || runtime.is_past_deadline() {
+                    // Don't eliminate untested candidates on cancellation/deadline.
+                    for spec in batch {
+                        qualified_specs.push(spec.clone());
+                    }
+                    continue;
+                }
+                let cancel_token = runtime.cancel_token();
+                let batch_results: Vec<(StrategyCandidateSpec, Option<CandidateExecution>)> = thread::scope(|s| {
+                    let handles: Vec<_> = batch
+                        .iter()
+                        .map(|spec| {
+                            let spec_clone = spec.clone();
+                            s.spawn(move || {
+                                if cancel_token.load(Ordering::Acquire) {
+                                    return (spec_clone, None);
+                                }
+                                let execution = execute_tcp_candidate(
+                                    &spec_clone,
+                                    qualifier_targets,
+                                    strategy_plan.runtime_context.as_ref(),
+                                    strategy_plan.probe_seed,
+                                    tls_verifier,
+                                    cancel_token,
+                                );
+                                (spec_clone, Some(execution))
+                            })
+                        })
+                        .collect();
+                    handles.into_iter().map(|h| h.join().expect("qualifier thread panicked")).collect()
+                });
+
+                for (spec, maybe_execution) in batch_results {
+                    let Some(execution) = maybe_execution else {
+                        // Cancelled before starting -- pass through.
+                        qualified_specs.push(spec);
+                        continue;
+                    };
+                    if execution.cancelled {
+                        qualified_specs.push(spec);
+                        continue;
+                    }
+                    if execution.summary.succeeded_targets > 0 {
+                        qualified_specs.push(spec);
+                    } else {
+                        let summary = eliminated_candidate_summary(
+                            &spec,
+                            execution.summary.succeeded_targets,
+                            execution.summary.total_targets,
+                            3,
+                        );
+                        runtime.strategy.tcp_candidates.push(summary);
+                        eliminated_count += 1;
+                    }
                 }
             }
             // Safety: if all candidates were eliminated (shouldn't happen since
@@ -690,13 +726,13 @@ impl ExecutionStageRunner for StrategyTcpRunner {
                 pending_tcp_specs = qualified_specs;
             }
         }
-        let mut tcp_failure_tracker = FamilyFailureTracker::new(strategy_plan.suite.family_failure_threshold);
+        let tcp_failure_tracker = Mutex::new(FamilyFailureTracker::new(strategy_plan.suite.family_failure_threshold));
         let planned_count = tcp_specs.len();
         let mut executed_count = 1usize; // baseline already executed
+
+        // Round 2: test up to 2 candidates concurrently to reduce wall-clock time.
+        const ROUND2_PARALLELISM: usize = 2;
         while !pending_tcp_specs.is_empty() {
-            let candidate_index = runtime.strategy.tcp_candidates.len() + 1;
-            let spec = pending_tcp_specs.remove(next_candidate_index(&pending_tcp_specs, tcp_failure_tracker.blocked));
-            tracing::debug!(candidate = spec.id, label = spec.label, "strategy probe: testing TCP candidate");
             if runtime.is_cancelled() || runtime.is_past_deadline() {
                 tracing::warn!(
                     executed = executed_count,
@@ -705,105 +741,160 @@ impl ExecutionStageRunner for StrategyTcpRunner {
                 );
                 break;
             }
-            runtime.publish_strategy_probe_candidate_started(
-                plan,
-                self.phase(),
-                StrategyProbeProgressLane::Tcp,
-                candidate_index,
-                tcp_candidate_total,
-                spec.id,
-                spec.label,
-                format!("Testing TCP candidate {}", spec.label),
-            );
-            if strategy_plan.suite.short_circuit_hostfake && spec.family == "hostfake" && hostfake_family_succeeded {
-                let summary = skipped_candidate_summary(
-                    &spec,
-                    domain_targets.len() * 2,
-                    6,
-                    "Earlier hostfake candidate already achieved full success",
-                );
-                runtime.strategy.tcp_candidates.push(summary.clone());
-                runtime.record_skipped_strategy_probe_candidate(
-                    plan,
-                    self.phase(),
-                    StrategyProbeProgressLane::Tcp,
-                    candidate_index,
-                    tcp_candidate_total,
-                    &summary.id,
-                    &summary.label,
-                    Some(summary.outcome.clone()),
-                    format!("Skipped {}", summary.label),
-                );
-                continue;
-            }
-            let na_check: Option<(&str, &str)> =
-                if spec.eligibility == CandidateEligibility::RequiresEchCapability && !baseline_ech_capable {
-                    Some((ECH_ELIGIBILITY_RATIONALE, ""))
-                } else if spec.requires_fake_ttl && !fake_ttl_available {
-                    Some((FAKE_TTL_ELIGIBILITY_RATIONALE, " — TTL manipulation unavailable"))
-                } else if spec.requires_tcp_fast_open && !tcp_fast_open_available {
-                    Some((TCP_FAST_OPEN_ELIGIBILITY_RATIONALE, " — TCP Fast Open unavailable"))
-                } else {
-                    None
-                };
-            if let Some((reason, suffix)) = na_check {
-                tracing::debug!(candidate = spec.id, reason, "strategy probe: candidate not_applicable");
-                record_not_applicable_tcp_candidate(
-                    runtime,
-                    plan,
-                    self.phase(),
-                    &spec,
-                    candidate_index,
-                    tcp_candidate_total,
-                    reason,
-                    suffix,
-                );
-                continue;
+
+            // Pick up to ROUND2_PARALLELISM candidates, skipping blocked families.
+            let mut batch: Vec<(usize, StrategyCandidateSpec)> = Vec::with_capacity(ROUND2_PARALLELISM);
+            {
+                let tracker = tcp_failure_tracker.lock().unwrap();
+                while batch.len() < ROUND2_PARALLELISM && !pending_tcp_specs.is_empty() {
+                    let idx = next_candidate_index(&pending_tcp_specs, tracker.blocked);
+                    let spec = pending_tcp_specs.remove(idx);
+                    let candidate_index = runtime.strategy.tcp_candidates.len() + batch.len() + 1;
+                    batch.push((candidate_index, spec));
+                }
             }
 
-            let execution = execute_tcp_candidate(
-                &spec,
-                &domain_targets,
-                strategy_plan.runtime_context.as_ref(),
-                strategy_plan.probe_seed,
-                tls_verifier,
-                runtime.cancel_token(),
-            );
-            if execution.cancelled {
-                return RunnerOutcome::Cancelled;
-            }
-            if execution.summary.family == "hostfake"
-                && execution.summary.succeeded_targets == execution.summary.total_targets
-            {
-                hostfake_family_succeeded = true;
-            }
-            let failed = execution.summary.outcome == "failed";
-            runtime.record_step(
-                plan,
-                self.phase(),
-                format!("Tested {}", spec.label),
-                Some(spec.label.to_string()),
-                Some(execution.summary.outcome.clone()),
-                Some(strategy_probe_live_progress_with_targets(
+            // Pre-filter: handle skip/not-applicable candidates synchronously,
+            // collect candidates that need actual execution for parallel testing.
+            let mut to_execute: Vec<(usize, StrategyCandidateSpec)> = Vec::new();
+            for (candidate_index, spec) in batch {
+                tracing::debug!(candidate = spec.id, label = spec.label, "strategy probe: testing TCP candidate");
+                runtime.publish_strategy_probe_candidate_started(
+                    plan,
+                    self.phase(),
                     StrategyProbeProgressLane::Tcp,
                     candidate_index,
                     tcp_candidate_total,
                     spec.id,
                     spec.label,
-                    execution.summary.succeeded_targets,
-                    execution.summary.total_targets,
-                )),
-                RunnerArtifacts::from_results(
-                    execution.results.clone(),
-                    "strategy_probe",
-                    if failed { "warn" } else { "info" },
                     format!("Testing TCP candidate {}", spec.label),
-                ),
-            );
-            runtime.strategy.tcp_candidates.push(execution.summary);
-            executed_count += 1;
-            // Break out with partial results if the scan deadline has passed,
-            // so the recommendation runner can still process completed candidates.
+                );
+                if strategy_plan.suite.short_circuit_hostfake && spec.family == "hostfake" && hostfake_family_succeeded
+                {
+                    let summary = skipped_candidate_summary(
+                        &spec,
+                        domain_targets.len() * 2,
+                        6,
+                        "Earlier hostfake candidate already achieved full success",
+                    );
+                    runtime.strategy.tcp_candidates.push(summary.clone());
+                    runtime.record_skipped_strategy_probe_candidate(
+                        plan,
+                        self.phase(),
+                        StrategyProbeProgressLane::Tcp,
+                        candidate_index,
+                        tcp_candidate_total,
+                        &summary.id,
+                        &summary.label,
+                        Some(summary.outcome.clone()),
+                        format!("Skipped {}", summary.label),
+                    );
+                    continue;
+                }
+                let na_check: Option<(&str, &str)> =
+                    if spec.eligibility == CandidateEligibility::RequiresEchCapability && !baseline_ech_capable {
+                        Some((ECH_ELIGIBILITY_RATIONALE, ""))
+                    } else if spec.requires_fake_ttl && !fake_ttl_available {
+                        Some((FAKE_TTL_ELIGIBILITY_RATIONALE, " — TTL manipulation unavailable"))
+                    } else if spec.requires_tcp_fast_open && !tcp_fast_open_available {
+                        Some((TCP_FAST_OPEN_ELIGIBILITY_RATIONALE, " — TCP Fast Open unavailable"))
+                    } else {
+                        None
+                    };
+                if let Some((reason, suffix)) = na_check {
+                    tracing::debug!(candidate = spec.id, reason, "strategy probe: candidate not_applicable");
+                    record_not_applicable_tcp_candidate(
+                        runtime,
+                        plan,
+                        self.phase(),
+                        &spec,
+                        candidate_index,
+                        tcp_candidate_total,
+                        reason,
+                        suffix,
+                    );
+                    continue;
+                }
+                to_execute.push((candidate_index, spec));
+            }
+
+            if to_execute.is_empty() {
+                continue;
+            }
+
+            // Execute candidates in parallel using thread::scope.
+            let cancel_token = runtime.cancel_token();
+            let domain_targets_ref = &domain_targets;
+            let exec_results: Vec<(usize, StrategyCandidateSpec, CandidateExecution)> = thread::scope(|s| {
+                let handles: Vec<_> = to_execute
+                    .into_iter()
+                    .map(|(candidate_index, spec)| {
+                        s.spawn(move || {
+                            let execution = execute_tcp_candidate(
+                                &spec,
+                                domain_targets_ref,
+                                strategy_plan.runtime_context.as_ref(),
+                                strategy_plan.probe_seed,
+                                tls_verifier,
+                                cancel_token,
+                            );
+                            (candidate_index, spec, execution)
+                        })
+                    })
+                    .collect();
+                handles.into_iter().map(|h| h.join().expect("tcp candidate thread panicked")).collect()
+            });
+
+            // Merge results back into the runtime sequentially.
+            let mut any_cancelled = false;
+            for (candidate_index, spec, execution) in exec_results {
+                if execution.cancelled {
+                    any_cancelled = true;
+                    continue;
+                }
+                if execution.summary.family == "hostfake"
+                    && execution.summary.succeeded_targets == execution.summary.total_targets
+                {
+                    hostfake_family_succeeded = true;
+                }
+                let failed = execution.summary.outcome == "failed";
+                runtime.record_step(
+                    plan,
+                    self.phase(),
+                    format!("Tested {}", spec.label),
+                    Some(spec.label.to_string()),
+                    Some(execution.summary.outcome.clone()),
+                    Some(strategy_probe_live_progress_with_targets(
+                        StrategyProbeProgressLane::Tcp,
+                        candidate_index,
+                        tcp_candidate_total,
+                        spec.id,
+                        spec.label,
+                        execution.summary.succeeded_targets,
+                        execution.summary.total_targets,
+                    )),
+                    RunnerArtifacts::from_results(
+                        execution.results.clone(),
+                        "strategy_probe",
+                        if failed { "warn" } else { "info" },
+                        format!("Testing TCP candidate {}", spec.label),
+                    ),
+                );
+                runtime.strategy.tcp_candidates.push(execution.summary);
+                executed_count += 1;
+                tcp_failure_tracker.lock().unwrap().record(spec.family, failed);
+                if tcp_failure_tracker.lock().unwrap().blocked.is_some() {
+                    tracing::debug!(
+                        candidate = spec.id,
+                        family = spec.family,
+                        "strategy probe: candidate skipped, family blocked"
+                    );
+                }
+            }
+            if any_cancelled {
+                return RunnerOutcome::Cancelled;
+            }
+            // Break out with partial results if the scan deadline has passed.
             if runtime.is_past_deadline() {
                 tracing::warn!(
                     executed = executed_count,
@@ -812,16 +903,14 @@ impl ExecutionStageRunner for StrategyTcpRunner {
                 );
                 break;
             }
-            tcp_failure_tracker.record(spec.family, failed);
-            if tcp_failure_tracker.blocked.is_some() {
-                tracing::debug!(
-                    candidate = spec.id,
-                    family = spec.family,
-                    "strategy probe: candidate skipped, family blocked"
-                );
-            }
             if !pending_tcp_specs.is_empty() {
-                thread::sleep(Duration::from_millis(candidate_pause_ms(strategy_plan.probe_seed, &spec, failed)));
+                // Brief pause between batches to avoid overwhelming the network.
+                thread::sleep(Duration::from_millis(candidate_pause_ms(
+                    strategy_plan.probe_seed,
+                    // Use the first spec's seed for pause calculation.
+                    tcp_specs.first().expect("tcp candidate"),
+                    false,
+                )));
             }
         }
         tracing::info!(executed = executed_count, planned = planned_count, "strategy probe: TCP suite completed");
