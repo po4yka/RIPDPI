@@ -53,9 +53,9 @@ impl RootHelperClient {
     pub fn probe_capabilities(&self) -> io::Result<IpFragmentationCapabilities> {
         let (resp, _fd) = self.send_command("probe_capabilities", serde_json::Value::Null, None)?;
         Ok(IpFragmentationCapabilities {
-            raw_ipv4: resp.data.get("raw_ipv4").and_then(|v| v.as_bool()).unwrap_or(false),
-            raw_ipv6: resp.data.get("raw_ipv6").and_then(|v| v.as_bool()).unwrap_or(false),
-            tcp_repair: resp.data.get("tcp_repair").and_then(|v| v.as_bool()).unwrap_or(false),
+            raw_ipv4: resp.data.get("raw_ipv4").and_then(serde_json::Value::as_bool).unwrap_or(false),
+            raw_ipv6: resp.data.get("raw_ipv6").and_then(serde_json::Value::as_bool).unwrap_or(false),
+            tcp_repair: resp.data.get("tcp_repair").and_then(serde_json::Value::as_bool).unwrap_or(false),
         })
     }
 
@@ -163,8 +163,7 @@ impl RootHelperClient {
         stream.set_write_timeout(Some(Duration::from_secs(10)))?;
 
         let request = HelperRequest { command: command.to_owned(), params };
-        let json = serde_json::to_vec(&request)
-            .map_err(|e| io::Error::new(io::ErrorKind::Other, format!("serialize request: {e}")))?;
+        let json = serde_json::to_vec(&request).map_err(|e| io::Error::other(format!("serialize request: {e}")))?;
 
         // Send request + optional fd via SCM_RIGHTS.
         send_with_fd(&stream, &json, fd)?;
@@ -177,7 +176,7 @@ impl RootHelperClient {
 
         if !response.ok {
             let msg = response.error.unwrap_or_else(|| "unknown helper error".into());
-            return Err(io::Error::new(io::ErrorKind::Other, msg));
+            return Err(io::Error::other(msg));
         }
 
         Ok((response, reply_fd))

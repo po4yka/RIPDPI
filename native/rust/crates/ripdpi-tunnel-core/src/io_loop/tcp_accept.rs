@@ -119,7 +119,7 @@ pub(super) fn spawn_new_tcp_sessions(
                 let ip = u32::from(v4);
                 dns_cache.as_ref()?.contains_mapped_ip(ip).then_some(ip)
             }
-            _ => None,
+            IpAddr::V6(_) => None,
         });
 
         match tcp_session_target_addr(stats, dns_cache, tcp) {
