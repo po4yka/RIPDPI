@@ -2,6 +2,7 @@ package com.poyka.ripdpi.activities
 
 import android.content.Intent
 import android.net.Uri
+import androidx.core.content.IntentCompat
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -21,7 +22,7 @@ class DiagnosticsShareIntentsTest {
         assertEquals(Intent.ACTION_SEND, intent.action)
         assertEquals("application/zip", intent.type)
         assertEquals("archive.zip", intent.getStringExtra(Intent.EXTRA_SUBJECT))
-        assertEquals(uri, intent.extras?.get(Intent.EXTRA_STREAM))
+        assertEquals(uri, IntentCompat.getParcelableExtra(intent, Intent.EXTRA_STREAM, Uri::class.java))
         assertTrue(intent.flags and Intent.FLAG_GRANT_READ_URI_PERMISSION != 0)
     }
 

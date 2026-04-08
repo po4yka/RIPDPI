@@ -117,6 +117,9 @@ class SettingsPreferencesScreenTest {
             .assertIsDisplayed()
             .assertHasNoClickAction()
         composeRule
+            .onNode(hasScrollToNodeAction())
+            .performScrollToNode(hasTestTag(RipDpiTestTags.settingsPermission(PermissionKind.BatteryOptimization)))
+        composeRule
             .onNodeWithTag(RipDpiTestTags.settingsPermission(PermissionKind.BatteryOptimization))
             .assertIsDisplayed()
     }
