@@ -223,7 +223,7 @@ pub fn send_fake_tcp(
 
 #[cfg(any(target_os = "linux", target_os = "android"))]
 pub fn probe_ip_fragmentation_capabilities(protect_path: Option<&str>) -> io::Result<IpFragmentationCapabilities> {
-    if let Some(result) = root_helper::with_root_helper(|h| h.probe_capabilities()) {
+    if let Some(result) = root_helper::with_root_helper(root_helper_client::RootHelperClient::probe_capabilities) {
         return result;
     }
     linux::probe_ip_fragmentation_capabilities(protect_path)
