@@ -645,7 +645,7 @@ class ScanFinalizationService
                     strategyProbe != null &&
                     prepared.networkFingerprint != null
             val policy =
-                if (canBuildPolicy && strategyProbe != null && prepared.networkFingerprint != null) {
+                if (canBuildPolicy) {
                     DiagnosticsScanWorkflow.buildRememberedNetworkPolicy(
                         strategyProbe = strategyProbe,
                         settings = prepared.settings,
