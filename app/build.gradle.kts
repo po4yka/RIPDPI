@@ -34,8 +34,8 @@ extensions.configure<ApplicationExtension> {
 
     defaultConfig {
         applicationId = "com.poyka.ripdpi"
-        versionCode = 4
-        versionName = "0.0.4"
+        versionCode = 6
+        versionName = "0.0.6"
 
         testInstrumentationRunner = "com.poyka.ripdpi.HiltTestRunner"
     }
