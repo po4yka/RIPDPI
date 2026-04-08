@@ -106,6 +106,7 @@ data class DetectionCheckResult(
     val dnsLeak: CategoryResult? = null,
     val webRtcLeak: CategoryResult? = null,
     val tlsFingerprint: CategoryResult? = null,
+    val timingAnalysis: CategoryResult? = null,
     val verdict: Verdict,
     val methodologyVersion: String = MethodologyVersion.CURRENT,
 )

@@ -88,6 +88,7 @@ class DetectionCheckScheduler
                         includeDnsLeakCheck = false,
                         includeWebRtcCheck = false,
                         includeTlsFingerprintCheck = false,
+                        includeTimingAnalysis = false,
                     )
                 val result = DetectionRunner.run(context = context, config = config)
                 val score = StealthScore.compute(result)

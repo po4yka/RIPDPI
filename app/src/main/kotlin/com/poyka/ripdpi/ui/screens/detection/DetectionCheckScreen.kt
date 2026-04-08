@@ -284,6 +284,9 @@ private fun DetectionCheckScreen(
                 result.tlsFingerprint?.let {
                     CategoryCard(stringResource(R.string.detection_check_category_tls), it)
                 }
+                result.timingAnalysis?.let {
+                    CategoryCard(stringResource(R.string.detection_check_category_timing), it)
+                }
             }
 
             if (uiState.history.isNotEmpty()) {

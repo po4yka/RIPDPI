@@ -23,6 +23,7 @@ object StealthScore {
     private const val ROUTING_ANOMALY_PENALTY = 8
     private const val NOT_VPN_MISSING_PENALTY = 8
     private const val LOCATION_MCC_MISMATCH_PENALTY = 10
+    private const val TIMING_ANOMALY_PENALTY = 10
 
     fun compute(result: DetectionCheckResult): Int {
         var penalty = 0
@@ -32,6 +33,7 @@ object StealthScore {
         penalty += computeIndirectPenalty(result)
         penalty += computeGeoIpPenalty(result)
         penalty += computeLocationPenalty(result)
+        penalty += computeTimingPenalty(result)
 
         return (MAX_SCORE - penalty).coerceIn(0, MAX_SCORE)
     }
@@ -140,6 +142,14 @@ object StealthScore {
     private fun computeLocationPenalty(result: DetectionCheckResult): Int {
         if (result.locationSignals.evidence.any { it.source == EvidenceSource.LOCATION_SIGNALS }) {
             return LOCATION_MCC_MISMATCH_PENALTY
+        }
+        return 0
+    }
+
+    private fun computeTimingPenalty(result: DetectionCheckResult): Int {
+        val timing = result.timingAnalysis ?: return 0
+        if (timing.detected || timing.evidence.isNotEmpty()) {
+            return TIMING_ANOMALY_PENALTY
         }
         return 0
     }

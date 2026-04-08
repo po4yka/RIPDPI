@@ -7,6 +7,7 @@ import com.poyka.ripdpi.core.detection.checker.DnsLeakChecker
 import com.poyka.ripdpi.core.detection.checker.GeoIpChecker
 import com.poyka.ripdpi.core.detection.checker.IndirectSignsChecker
 import com.poyka.ripdpi.core.detection.checker.LocationSignalsChecker
+import com.poyka.ripdpi.core.detection.checker.TimingAnalysisChecker
 import com.poyka.ripdpi.core.detection.checker.TlsFingerprintChecker
 import com.poyka.ripdpi.core.detection.checker.VerdictEngine
 import com.poyka.ripdpi.core.detection.checker.WebRtcLeakChecker
@@ -21,6 +22,7 @@ data class DetectionRunnerConfig(
     val includeDnsLeakCheck: Boolean = true,
     val includeWebRtcCheck: Boolean = true,
     val includeTlsFingerprintCheck: Boolean = true,
+    val includeTimingAnalysis: Boolean = true,
     val encryptedDnsEnabled: Boolean = false,
     val webRtcProtectionEnabled: Boolean = false,
     val tlsFingerprintProfile: String = "native_default",
@@ -35,6 +37,7 @@ enum class DetectionStage {
     DNS_LEAK,
     WEBRTC_LEAK,
     TLS_FINGERPRINT,
+    TIMING_ANALYSIS,
 }
 
 data class DetectionProgress(
@@ -251,9 +254,29 @@ object DetectionRunner {
                     detected = false,
                 )
 
+            val timingDeferred =
+                if (config.includeTimingAnalysis) {
+                    async {
+                        TimingAnalysisChecker.check().also {
+                            completed.add(DetectionStage.TIMING_ANALYSIS)
+                            onProgress?.invoke(
+                                DetectionProgress(
+                                    DetectionStage.TIMING_ANALYSIS,
+                                    "Timing Analysis",
+                                    "Done",
+                                    completedStages = completed.toSet(),
+                                ),
+                            )
+                        }
+                    }
+                } else {
+                    null
+                }
+
             val dnsLeak = dnsLeakDeferred?.await()
             val webRtcLeak = webRtcDeferred?.await()
             val tlsFingerprint = tlsFingerprintDeferred?.await()
+            val timingAnalysis = timingDeferred?.await()
 
             val verdict =
                 VerdictEngine.evaluate(
@@ -273,6 +296,7 @@ object DetectionRunner {
                 dnsLeak = dnsLeak,
                 webRtcLeak = webRtcLeak,
                 tlsFingerprint = tlsFingerprint,
+                timingAnalysis = timingAnalysis,
                 verdict = verdict,
             )
         }

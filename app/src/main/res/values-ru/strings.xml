@@ -1717,5 +1717,6 @@ fakeddisorder endhost</string>
     <string name="detection_check_category_dns_leak">Утечка DNS</string>
     <string name="detection_check_category_webrtc">Утечка WebRTC</string>
     <string name="detection_check_category_tls">TLS отпечаток</string>
+    <string name="detection_check_category_timing">Анализ таймингов</string>
 
 </resources>

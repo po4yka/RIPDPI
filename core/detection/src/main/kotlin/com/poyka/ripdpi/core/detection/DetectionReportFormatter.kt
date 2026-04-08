@@ -16,6 +16,7 @@ object DetectionReportFormatter {
             result.dnsLeak?.let { appendCategory("DNS Leak", it) }
             result.webRtcLeak?.let { appendCategory("WebRTC Leak", it) }
             result.tlsFingerprint?.let { appendCategory("TLS Fingerprint", it) }
+            result.timingAnalysis?.let { appendCategory("Timing Analysis", it) }
 
             appendLine("Methodology: ${result.methodologyVersion}")
 

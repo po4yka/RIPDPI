@@ -1948,4 +1948,5 @@ Source: %2$s</string>
     <string name="detection_check_category_dns_leak">DNS Leak</string>
     <string name="detection_check_category_webrtc">WebRTC Leak</string>
     <string name="detection_check_category_tls">TLS Fingerprint</string>
+    <string name="detection_check_category_timing">Timing Analysis</string>
 </resources>
