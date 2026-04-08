@@ -11,6 +11,7 @@ use super::stream_copy::{relay_streams, CONNECTION_FREEZE_MARKER};
 use super::stream_copy_uring;
 
 #[cfg(all(feature = "io-uring", any(target_os = "linux", target_os = "android")))]
+#[inline(never)]
 pub(super) fn relay_with_uring_if_available(
     client: TcpStream,
     upstream: TcpStream,
@@ -35,6 +36,7 @@ pub(super) fn relay_with_uring_if_available(
 }
 
 #[cfg(not(all(feature = "io-uring", any(target_os = "linux", target_os = "android"))))]
+#[inline(never)]
 pub(super) fn relay_with_uring_if_available(
     client: TcpStream,
     upstream: TcpStream,
@@ -46,6 +48,7 @@ pub(super) fn relay_with_uring_if_available(
     relay_streams(client, upstream, state, route.group_index, session_state, success_host)
 }
 
+#[inline(never)]
 pub(super) fn record_relay_result(
     relay_result: &io::Result<ripdpi_session::SessionState>,
     state: &RuntimeState,

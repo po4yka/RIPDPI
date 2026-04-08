@@ -15,6 +15,7 @@ use self::execution::{record_relay_result, relay_with_uring_if_available};
 use self::failure_retry::{prepare_relay, PreparedRelay};
 use super::state::RuntimeState;
 
+#[inline(never)]
 pub(super) fn relay(
     mut client: TcpStream,
     upstream: TcpStream,
