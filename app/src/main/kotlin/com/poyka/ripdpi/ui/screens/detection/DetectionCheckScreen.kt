@@ -52,12 +52,15 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.poyka.ripdpi.R
+import com.poyka.ripdpi.core.detection.AutoTuneFix
 import com.poyka.ripdpi.core.detection.CategoryResult
 import com.poyka.ripdpi.core.detection.DetectionCheckResult
+import com.poyka.ripdpi.core.detection.DetectionHistoryEntry
 import com.poyka.ripdpi.core.detection.DetectionPermissionPlanner
 import com.poyka.ripdpi.core.detection.DetectionStage
 import com.poyka.ripdpi.core.detection.Finding
 import com.poyka.ripdpi.core.detection.Recommendation
+import com.poyka.ripdpi.core.detection.StealthScore
 import com.poyka.ripdpi.core.detection.Verdict
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
@@ -86,6 +89,7 @@ internal fun DetectionCheckRoute(
         onStop = viewModel::stopCheck,
         onBack = onBack,
         onDismissOnboarding = viewModel::dismissOnboarding,
+        onApplyFixes = viewModel::applyAllFixes,
         onRequestPermissions = {
             when (uiState.permissionAction) {
                 DetectionPermissionPlanner.Action.REQUEST,
@@ -117,6 +121,7 @@ private fun DetectionCheckScreen(
     onStop: () -> Unit,
     onBack: () -> Unit,
     onDismissOnboarding: () -> Unit,
+    onApplyFixes: () -> Unit,
     onRequestPermissions: () -> Unit,
 ) {
     val context = LocalContext.current
@@ -202,7 +207,15 @@ private fun DetectionCheckScreen(
             }
 
             uiState.result?.let { result ->
+                uiState.stealthScore?.let { score ->
+                    StealthScoreCard(score = score, label = uiState.stealthLabel ?: "")
+                }
+
                 VerdictCard(result.verdict)
+
+                if (uiState.autoTuneFixes.isNotEmpty()) {
+                    AutoTuneCard(fixes = uiState.autoTuneFixes, onApplyAll = onApplyFixes)
+                }
 
                 if (uiState.recommendations.isNotEmpty()) {
                     RecommendationsCard(uiState.recommendations)
@@ -262,6 +275,10 @@ private fun DetectionCheckScreen(
                     result.locationSignals,
                 )
                 BypassCard(result)
+            }
+
+            if (uiState.history.isNotEmpty()) {
+                HistoryCard(uiState.history)
             }
 
             Spacer(modifier = Modifier.height(16.dp))
@@ -508,6 +525,132 @@ private fun BypassCard(result: DetectionCheckResult) {
             result.bypassResult.findings.forEach { finding -> FindingRow(finding) }
         }
     }
+}
+
+@Composable
+private fun StealthScoreCard(
+    score: Int,
+    label: String,
+) {
+    val color =
+        when {
+            score >= 90 -> colorOk
+            score >= 70 -> Color(0xFF8BC34A)
+            score >= 50 -> colorReview
+            score >= 30 -> Color(0xFFFF5722)
+            else -> colorDetected
+        }
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = color.copy(alpha = 0.12f)),
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp).fillMaxWidth(),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Text(
+                text = stringResource(R.string.detection_stealth_score),
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Text(
+                text = "$score",
+                style = MaterialTheme.typography.displaySmall,
+                fontWeight = FontWeight.Bold,
+                color = color,
+            )
+            Text(text = label, style = MaterialTheme.typography.titleMedium, color = color)
+            Spacer(modifier = Modifier.height(8.dp))
+            LinearProgressIndicator(
+                progress = { StealthScore.normalizedProgress(score) },
+                modifier = Modifier.fillMaxWidth(),
+                color = color,
+                trackColor = color.copy(alpha = 0.2f),
+            )
+        }
+    }
+}
+
+@Composable
+private fun AutoTuneCard(
+    fixes: List<AutoTuneFix>,
+    onApplyAll: () -> Unit,
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors =
+            CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f),
+            ),
+    ) {
+        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(
+                text = stringResource(R.string.detection_auto_tune_title),
+                style = MaterialTheme.typography.titleSmall,
+            )
+            for (fix in fixes) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        Icons.Filled.CheckCircle,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(16.dp),
+                    )
+                    Text(text = "  ${fix.title}", style = MaterialTheme.typography.bodySmall)
+                }
+            }
+            RipDpiButton(
+                text = stringResource(R.string.detection_auto_tune_apply),
+                onClick = onApplyAll,
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
+    }
+}
+
+@Composable
+private fun HistoryCard(entries: List<DetectionHistoryEntry>) {
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(
+                text = stringResource(R.string.detection_history_title),
+                style = MaterialTheme.typography.titleSmall,
+            )
+            for (entry in entries.take(5)) {
+                val scoreColor =
+                    when {
+                        entry.stealthScore >= 70 -> colorOk
+                        entry.stealthScore >= 40 -> colorReview
+                        else -> colorDetected
+                    }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(entry.networkSummary, style = MaterialTheme.typography.bodySmall, maxLines = 1)
+                        Text(
+                            formatTimestamp(entry.timestamp),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    Text(
+                        "${entry.stealthScore}",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = scoreColor,
+                    )
+                }
+            }
+        }
+    }
+}
+
+private fun formatTimestamp(millis: Long): String {
+    val sdf = java.text.SimpleDateFormat("dd MMM HH:mm", java.util.Locale.getDefault())
+    return sdf.format(java.util.Date(millis))
 }
 
 private fun statusIconAndTint(

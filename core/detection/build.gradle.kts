@@ -4,6 +4,7 @@ plugins {
     id("ripdpi.android.library")
     id("ripdpi.android.hilt")
     id("ripdpi.android.quality")
+    id("ripdpi.android.serialization")
 }
 
 extensions.configure<LibraryExtension> {
@@ -17,6 +18,7 @@ dependencies {
     implementation(libs.kotlinx.coroutines.core)
     implementation(libs.okhttp)
     implementation(libs.grpc.okhttp)
+    implementation(libs.kotlinx.serialization.json)
 
     testImplementation(libs.bundles.unit.test)
 }

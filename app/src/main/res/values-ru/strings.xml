@@ -1710,5 +1710,9 @@ fakeddisorder endhost</string>
     <string name="detection_permission_rationale">Дополнительные разрешения повышают точность проверки. Выдайте их для лучших результатов.</string>
     <string name="detection_permission_settings">Разрешения были отклонены. Откройте настройки, чтобы выдать их вручную.</string>
     <string name="detection_permission_open_settings">Открыть настройки</string>
+    <string name="detection_stealth_score">Оценка скрытности</string>
+    <string name="detection_auto_tune_title">Рекомендуемые исправления</string>
+    <string name="detection_auto_tune_apply">Применить все исправления</string>
+    <string name="detection_history_title">История</string>
 
 </resources>

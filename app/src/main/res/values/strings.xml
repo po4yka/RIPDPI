@@ -1941,4 +1941,8 @@ Source: %2$s</string>
     <string name="detection_permission_rationale">Optional permissions improve detection accuracy. Grant them for better results.</string>
     <string name="detection_permission_settings">Permissions were denied. Open settings to grant them manually.</string>
     <string name="detection_permission_open_settings">Open Settings</string>
+    <string name="detection_stealth_score">Stealth Score</string>
+    <string name="detection_auto_tune_title">Suggested fixes</string>
+    <string name="detection_auto_tune_apply">Apply all fixes</string>
+    <string name="detection_history_title">History</string>
 </resources>

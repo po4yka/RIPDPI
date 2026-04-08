@@ -7,15 +7,19 @@ import android.os.Build
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.poyka.ripdpi.core.detection.AutoTuneFix
+import com.poyka.ripdpi.core.detection.DetectionAutoTuner
 import com.poyka.ripdpi.core.detection.DetectionCheckResult
+import com.poyka.ripdpi.core.detection.DetectionHistoryEntry
+import com.poyka.ripdpi.core.detection.DetectionHistoryStore
 import com.poyka.ripdpi.core.detection.DetectionPermissionPlanner
 import com.poyka.ripdpi.core.detection.DetectionProgress
 import com.poyka.ripdpi.core.detection.DetectionRecommendations
 import com.poyka.ripdpi.core.detection.DetectionReportFormatter
 import com.poyka.ripdpi.core.detection.DetectionRunner
 import com.poyka.ripdpi.core.detection.DetectionRunnerConfig
-import com.poyka.ripdpi.core.detection.DetectionStage
 import com.poyka.ripdpi.core.detection.Recommendation
+import com.poyka.ripdpi.core.detection.StealthScore
 import com.poyka.ripdpi.data.AppSettingsRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
@@ -30,12 +34,16 @@ data class DetectionCheckUiState(
     val isRunning: Boolean = false,
     val progress: DetectionProgress? = null,
     val result: DetectionCheckResult? = null,
+    val stealthScore: Int? = null,
+    val stealthLabel: String? = null,
     val recommendations: List<Recommendation> = emptyList(),
+    val autoTuneFixes: List<AutoTuneFix> = emptyList(),
     val reportText: String? = null,
     val error: String? = null,
     val showOnboarding: Boolean = false,
     val permissionAction: DetectionPermissionPlanner.Action = DetectionPermissionPlanner.Action.NONE,
     val missingPermissions: List<String> = emptyList(),
+    val history: List<DetectionHistoryEntry> = emptyList(),
 )
 
 @HiltViewModel
@@ -52,6 +60,7 @@ class DetectionCheckViewModel
         private val prefs by lazy {
             application.getSharedPreferences("detection_check_prefs", android.content.Context.MODE_PRIVATE)
         }
+        private val historyStore by lazy { DetectionHistoryStore(application) }
 
         init {
             checkInitialState()
@@ -63,6 +72,14 @@ class DetectionCheckViewModel
                 _uiState.value = _uiState.value.copy(showOnboarding = true)
             }
             refreshPermissionState()
+            loadHistory()
+        }
+
+        private fun loadHistory() {
+            _uiState.value =
+                _uiState.value.copy(
+                    history = historyStore.latestEntries(),
+                )
         }
 
         fun dismissOnboarding() {
@@ -107,7 +124,10 @@ class DetectionCheckViewModel
                             isRunning = true,
                             progress = null,
                             result = null,
+                            stealthScore = null,
+                            stealthLabel = null,
                             recommendations = emptyList(),
+                            autoTuneFixes = emptyList(),
                             reportText = null,
                             error = null,
                         )
@@ -126,14 +146,32 @@ class DetectionCheckViewModel
                                     _uiState.value = _uiState.value.copy(progress = progress)
                                 },
                             )
+
+                        val score = StealthScore.compute(result)
+                        val label = StealthScore.label(score)
                         val recommendations = DetectionRecommendations.generate(result)
                         val reportText = DetectionReportFormatter.format(result)
+                        val fixes =
+                            DetectionAutoTuner.suggestFixes(
+                                result = result,
+                                tlsFingerprintEnabled = settings.tlsFingerprintProfile != "native_default",
+                                entropyPaddingEnabled = settings.entropyMode != 0,
+                                encryptedDnsEnabled = settings.dnsMode == "encrypted",
+                                fullTunnelEnabled = settings.fullTunnelMode,
+                                strategyEvolutionEnabled = settings.strategyEvolution,
+                            )
+
+                        saveToHistory(result, score)
+
                         _uiState.value =
                             _uiState.value.copy(
                                 isRunning = false,
                                 progress = null,
                                 result = result,
+                                stealthScore = score,
+                                stealthLabel = label,
                                 recommendations = recommendations,
+                                autoTuneFixes = fixes,
                                 reportText = reportText,
                             )
                     } catch (e: Exception) {
@@ -147,10 +185,70 @@ class DetectionCheckViewModel
                 }
         }
 
+        fun applyAllFixes() {
+            viewModelScope.launch {
+                appSettingsRepository.update {
+                    for (fix in _uiState.value.autoTuneFixes) {
+                        when (fix.id) {
+                            "tls_fingerprint" -> {
+                                tlsFingerprintProfile = "chrome_stable"
+                            }
+
+                            "entropy_padding" -> {
+                                entropyMode = 3
+                                entropyPaddingTargetPermil = 3400
+                                shannonEntropyTargetPermil = 7920
+                            }
+
+                            "encrypted_dns" -> {
+                                dnsMode = "encrypted"
+                            }
+
+                            "full_tunnel" -> {
+                                fullTunnelMode = true
+                            }
+
+                            "strategy_evolution" -> {
+                                strategyEvolution = true
+                                evolutionEpsilon = 0.1
+                            }
+                        }
+                    }
+                }
+                _uiState.value = _uiState.value.copy(autoTuneFixes = emptyList())
+            }
+        }
+
         fun stopCheck() {
             runJob?.cancel()
             runJob = null
             _uiState.value = _uiState.value.copy(isRunning = false, progress = null)
+        }
+
+        private fun saveToHistory(
+            result: DetectionCheckResult,
+            score: Int,
+        ) {
+            val entry =
+                DetectionHistoryEntry(
+                    networkFingerprint = "current",
+                    networkSummary =
+                        result.geoIp.findings
+                            .firstOrNull { it.description.startsWith("ISP:") }
+                            ?.description
+                            ?.removePrefix("ISP: ") ?: "Unknown",
+                    timestamp = System.currentTimeMillis(),
+                    verdict = result.verdict.name,
+                    stealthScore = score,
+                    evidenceCount =
+                        result.geoIp.evidence.size +
+                            result.directSigns.evidence.size +
+                            result.indirectSigns.evidence.size +
+                            result.locationSignals.evidence.size +
+                            result.bypassResult.evidence.size,
+                )
+            historyStore.save(entry)
+            loadHistory()
         }
 
         private fun markPermissionsRequested() {
