@@ -276,4 +276,8 @@ message AppSettings {
   // Detection check settings
   bool detection_check_include_bypass = 207;   // Include localhost proxy scanning (default true)
   bool detection_check_include_location = 208; // Include PLMN/BSSID checks (default true)
+
+  // Community comparison (anonymous opt-in)
+  bool community_comparison_enabled = 209;
+  string community_api_url = 210;
 }
