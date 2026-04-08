@@ -104,6 +104,7 @@ fun DiagnosticsRoute(
     modifier: Modifier = Modifier,
     onOpenAdvancedSettings: () -> Unit = {},
     onOpenDnsSettings: () -> Unit = {},
+    onOpenDetectionCheck: () -> Unit = {},
     onRequestVpnPermission: () -> Unit = {},
     onOpenHistory: () -> Unit,
     initialSection: DiagnosticsSection? = null,
@@ -252,6 +253,7 @@ fun DiagnosticsRoute(
         onSaveArchive = viewModel::saveArchive,
         onSaveLogs = onSaveLogs,
         onOpenAdvancedSettings = onOpenAdvancedSettings,
+        onOpenDetectionCheck = onOpenDetectionCheck,
         onRequestVpnPermission = onRequestVpnPermission,
         onOpenHistory = onOpenHistory,
         modifier = modifier,
@@ -299,6 +301,7 @@ fun DiagnosticsScreen(
     onSaveArchive: (String?) -> Unit,
     onSaveLogs: () -> Unit,
     onOpenAdvancedSettings: () -> Unit = {},
+    onOpenDetectionCheck: () -> Unit = {},
     onRequestVpnPermission: () -> Unit = {},
     onOpenHistory: () -> Unit,
 ) {
@@ -413,6 +416,7 @@ fun DiagnosticsScreen(
                                 onShareArchive = onShareArchive,
                                 onSaveArchive = onSaveArchive,
                                 onSaveLogs = onSaveLogs,
+                                onOpenDetectionCheck = onOpenDetectionCheck,
                             )
                         }
                     }
@@ -806,6 +810,7 @@ private fun ToolsSection(
     onShareArchive: (String?) -> Unit,
     onSaveArchive: (String?) -> Unit,
     onSaveLogs: () -> Unit,
+    onOpenDetectionCheck: () -> Unit = {},
 ) {
     TrackRecomposition("ToolsSection")
     val spacing = RipDpiThemeTokens.spacing
@@ -940,6 +945,16 @@ private fun ToolsSection(
                 onClick = onSaveLogs,
                 iconTint = RipDpiThemeTokens.colors.warning,
                 modifier = Modifier.ripDpiTestTag(RipDpiTestTags.DiagnosticsSaveLogs),
+                variant = RipDpiButtonVariant.Outline,
+            )
+        }
+        item {
+            ShareActionCard(
+                title = stringResource(R.string.title_detection_check),
+                body = stringResource(R.string.detection_check_subtitle),
+                buttonLabel = stringResource(R.string.detection_check_start),
+                onClick = onOpenDetectionCheck,
+                iconTint = RipDpiThemeTokens.colors.foreground,
                 variant = RipDpiButtonVariant.Outline,
             )
         }
