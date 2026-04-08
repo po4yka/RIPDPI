@@ -272,4 +272,8 @@ message AppSettings {
 
   // Anti-spy hardening: route all traffic through VPN with no app exclusions
   bool full_tunnel_mode = 206;
+
+  // Detection check settings
+  bool detection_check_include_bypass = 207;   // Include localhost proxy scanning (default true)
+  bool detection_check_include_location = 208; // Include PLMN/BSSID checks (default true)
 }

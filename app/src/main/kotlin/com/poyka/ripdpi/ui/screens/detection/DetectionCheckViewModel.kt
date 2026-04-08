@@ -4,8 +4,11 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.poyka.ripdpi.core.detection.DetectionCheckResult
+import com.poyka.ripdpi.core.detection.DetectionRecommendations
+import com.poyka.ripdpi.core.detection.DetectionReportFormatter
 import com.poyka.ripdpi.core.detection.DetectionRunner
 import com.poyka.ripdpi.core.detection.DetectionRunnerConfig
+import com.poyka.ripdpi.core.detection.Recommendation
 import com.poyka.ripdpi.data.AppSettingsRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
@@ -21,6 +24,8 @@ data class DetectionCheckUiState(
     val progressStage: String = "",
     val progressDetail: String = "",
     val result: DetectionCheckResult? = null,
+    val recommendations: List<Recommendation> = emptyList(),
+    val reportText: String? = null,
     val error: String? = null,
 )
 
@@ -60,10 +65,14 @@ class DetectionCheckViewModel
                                         )
                                 },
                             )
+                        val recommendations = DetectionRecommendations.generate(result)
+                        val reportText = DetectionReportFormatter.format(result)
                         _uiState.value =
                             _uiState.value.copy(
                                 isRunning = false,
                                 result = result,
+                                recommendations = recommendations,
+                                reportText = reportText,
                             )
                     } catch (e: Exception) {
                         _uiState.value =

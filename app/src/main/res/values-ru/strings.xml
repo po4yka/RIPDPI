@@ -1700,5 +1700,8 @@ fakeddisorder endhost</string>
     <string name="detection_check_category_indirect">Косвенные признаки</string>
     <string name="detection_check_category_location">Сигналы местоположения</string>
     <string name="detection_check_category_bypass">Обход</string>
+    <string name="detection_check_recommendations">Рекомендации</string>
+    <string name="detection_check_copy">Копировать</string>
+    <string name="detection_check_share">Поделиться</string>
 
 </resources>

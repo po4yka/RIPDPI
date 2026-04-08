@@ -1931,4 +1931,7 @@ Source: %2$s</string>
     <string name="detection_check_category_indirect">Indirect Signs</string>
     <string name="detection_check_category_location">Location Signals</string>
     <string name="detection_check_category_bypass">Bypass</string>
+    <string name="detection_check_recommendations">Recommendations</string>
+    <string name="detection_check_copy">Copy</string>
+    <string name="detection_check_share">Share</string>
 </resources>

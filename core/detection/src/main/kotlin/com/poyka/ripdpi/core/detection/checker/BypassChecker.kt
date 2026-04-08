@@ -6,6 +6,7 @@ import com.poyka.ripdpi.core.detection.EvidenceItem
 import com.poyka.ripdpi.core.detection.EvidenceSource
 import com.poyka.ripdpi.core.detection.Finding
 import com.poyka.ripdpi.core.detection.probe.IfconfigClient
+import com.poyka.ripdpi.core.detection.probe.KnownLocalServices
 import com.poyka.ripdpi.core.detection.probe.ProxyEndpoint
 import com.poyka.ripdpi.core.detection.probe.ProxyScanner
 import com.poyka.ripdpi.core.detection.probe.ScanMode
@@ -31,7 +32,7 @@ object BypassChecker {
             val findings = mutableListOf<Finding>()
             val evidence = mutableListOf<EvidenceItem>()
 
-            val scanner = ProxyScanner(excludePorts = excludePorts)
+            val scanner = ProxyScanner(excludePorts = KnownLocalServices.excludedPorts + excludePorts)
             val xrayScanner = XrayApiScanner()
 
             val proxyDeferred =

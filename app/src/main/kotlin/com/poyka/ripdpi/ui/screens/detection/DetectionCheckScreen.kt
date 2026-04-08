@@ -1,5 +1,9 @@
 package com.poyka.ripdpi.ui.screens.detection
 
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
+import android.content.Intent
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -28,6 +32,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -37,8 +42,10 @@ import com.poyka.ripdpi.R
 import com.poyka.ripdpi.core.detection.CategoryResult
 import com.poyka.ripdpi.core.detection.DetectionCheckResult
 import com.poyka.ripdpi.core.detection.Finding
+import com.poyka.ripdpi.core.detection.Recommendation
 import com.poyka.ripdpi.core.detection.Verdict
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
+import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 
 @Composable
 internal fun DetectionCheckRoute(
@@ -62,6 +69,7 @@ private fun DetectionCheckScreen(
     onStop: () -> Unit,
     onBack: () -> Unit,
 ) {
+    val context = LocalContext.current
     Scaffold(
         topBar = {
             TopAppBar(
@@ -125,6 +133,43 @@ private fun DetectionCheckScreen(
 
             uiState.result?.let { result ->
                 VerdictCard(result.verdict)
+
+                if (uiState.recommendations.isNotEmpty()) {
+                    RecommendationsCard(uiState.recommendations)
+                }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    RipDpiButton(
+                        text = stringResource(R.string.detection_check_copy),
+                        onClick = {
+                            uiState.reportText?.let { text ->
+                                val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                                clipboard.setPrimaryClip(ClipData.newPlainText("Detection Report", text))
+                            }
+                        },
+                        modifier = Modifier.weight(1f),
+                        variant = RipDpiButtonVariant.Outline,
+                    )
+                    RipDpiButton(
+                        text = stringResource(R.string.detection_check_share),
+                        onClick = {
+                            uiState.reportText?.let { text ->
+                                val intent =
+                                    Intent(Intent.ACTION_SEND).apply {
+                                        type = "text/plain"
+                                        putExtra(Intent.EXTRA_TEXT, text)
+                                    }
+                                context.startActivity(Intent.createChooser(intent, null))
+                            }
+                        },
+                        modifier = Modifier.weight(1f),
+                        variant = RipDpiButtonVariant.Outline,
+                    )
+                }
+
                 CategoryCard(stringResource(R.string.detection_check_category_geoip), result.geoIp)
                 CategoryCard(stringResource(R.string.detection_check_category_direct), result.directSigns)
                 CategoryCard(stringResource(R.string.detection_check_category_indirect), result.indirectSigns)
@@ -196,6 +241,38 @@ private fun VerdictCard(verdict: Verdict) {
                 fontWeight = FontWeight.Bold,
                 color = color,
             )
+        }
+    }
+}
+
+@Composable
+private fun RecommendationsCard(recommendations: List<Recommendation>) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors =
+            CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f),
+            ),
+    ) {
+        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(
+                text = stringResource(R.string.detection_check_recommendations),
+                style = MaterialTheme.typography.titleSmall,
+            )
+            for (rec in recommendations) {
+                Column {
+                    Text(
+                        text = rec.title,
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                    Text(
+                        text = rec.description,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
         }
     }
 }

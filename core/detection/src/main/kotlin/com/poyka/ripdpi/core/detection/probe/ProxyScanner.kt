@@ -24,7 +24,7 @@ class ProxyScanner(
     private val readTimeoutMs: Int = 30,
     private val maxConcurrency: Int = 512,
     private val progressUpdateEvery: Int = 256,
-    private val excludePorts: Set<Int> = emptySet(),
+    private val excludePorts: Set<Int> = KnownLocalServices.excludedPorts,
 ) {
     suspend fun findOpenProxyEndpoint(
         mode: ScanMode,
