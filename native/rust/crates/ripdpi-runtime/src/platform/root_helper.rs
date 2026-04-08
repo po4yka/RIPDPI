@@ -62,7 +62,7 @@ mod tests {
         let _lock = TEST_MUTEX.lock().unwrap();
         register_root_helper("/tmp/test_root_helper.sock".into());
         assert!(has_root_helper());
-        let result = with_root_helper(|client| client.socket_path());
+        let result = with_root_helper(super::super::root_helper_client::RootHelperClient::socket_path);
         assert_eq!(result, Some("/tmp/test_root_helper.sock".to_string()));
         unregister_root_helper();
         assert!(!has_root_helper());
