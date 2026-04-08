@@ -62,6 +62,7 @@ import com.poyka.ripdpi.core.detection.Finding
 import com.poyka.ripdpi.core.detection.Recommendation
 import com.poyka.ripdpi.core.detection.StealthScore
 import com.poyka.ripdpi.core.detection.Verdict
+import com.poyka.ripdpi.core.detection.community.CommunityStats
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 
@@ -291,6 +292,10 @@ private fun DetectionCheckScreen(
 
             if (uiState.history.isNotEmpty()) {
                 HistoryCard(uiState.history)
+            }
+
+            uiState.communityStats?.let { stats ->
+                CommunityStatsCard(stats = stats, enabled = uiState.communityEnabled)
             }
 
             Spacer(modifier = Modifier.height(16.dp))
@@ -663,6 +668,60 @@ private fun HistoryCard(entries: List<DetectionHistoryEntry>) {
 private fun formatTimestamp(millis: Long): String {
     val sdf = java.text.SimpleDateFormat("dd MMM HH:mm", java.util.Locale.getDefault())
     return sdf.format(java.util.Date(millis))
+}
+
+@Composable
+private fun CommunityStatsCard(
+    stats: CommunityStats,
+    enabled: Boolean,
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors =
+            CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+            ),
+    ) {
+        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(
+                text = stringResource(R.string.detection_community_title),
+                style = MaterialTheme.typography.titleSmall,
+            )
+            if (!enabled) {
+                Text(
+                    text = stringResource(R.string.detection_community_disabled),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            } else {
+                Text(
+                    text = stringResource(R.string.detection_community_reports, stats.totalReports),
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+                if (stats.averageStealthScore > 0) {
+                    Text(
+                        text =
+                            stringResource(
+                                R.string.detection_community_avg_score,
+                                stats.averageStealthScore.toInt(),
+                            ),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                val detected = stats.verdictDistribution["DETECTED"] ?: 0
+                if (stats.totalReports > 0) {
+                    val pct = (detected * 100.0 / stats.totalReports).toInt()
+                    Text(
+                        text = stringResource(R.string.detection_community_detected_pct, pct),
+                        style = MaterialTheme.typography.bodySmall,
+                        fontWeight = FontWeight.SemiBold,
+                        color = if (pct > 50) colorDetected else colorOk,
+                    )
+                }
+            }
+        }
+    }
 }
 
 private fun statusIconAndTint(

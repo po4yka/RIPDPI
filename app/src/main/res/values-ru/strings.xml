@@ -1718,5 +1718,12 @@ fakeddisorder endhost</string>
     <string name="detection_check_category_webrtc">Утечка WebRTC</string>
     <string name="detection_check_category_tls">TLS отпечаток</string>
     <string name="detection_check_category_timing">Анализ таймингов</string>
+    <string name="detection_community_title">Сообщество</string>
+    <string name="detection_community_disabled">Включите анонимный обмен в настройках для просмотра статистики сообщества.</string>
+    <string name="detection_community_reports">%d отчетов от сообщества</string>
+    <string name="detection_community_avg_score">Средняя оценка скрытности: %d/100</string>
+    <string name="detection_community_detected_pct">%d%% пользователей обнаружены</string>
+    <string name="detection_community_toggle">Анонимный обмен результатами</string>
+    <string name="detection_community_toggle_body">Делитесь анонимными результатами проверки для помощи сообществу.</string>
 
 </resources>
