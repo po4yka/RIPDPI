@@ -93,6 +93,7 @@ fun SettingsRoute(
         onThemeSelected = viewModel::setAppTheme,
         onWebRtcProtectionChanged = viewModel::setWebRtcProtectionEnabled,
         onExcludeRussianAppsChanged = viewModel::setExcludeRussianAppsEnabled,
+        onFullTunnelModeChanged = viewModel::setFullTunnelMode,
         onBiometricChanged = viewModel::setBiometricEnabled,
         onSaveBackupPin = viewModel::setBackupPin,
         modifier = modifier,
@@ -117,6 +118,7 @@ internal fun SettingsScreen(
     onThemeSelected: (String) -> Unit,
     onWebRtcProtectionChanged: (Boolean) -> Unit,
     onExcludeRussianAppsChanged: (Boolean) -> Unit,
+    onFullTunnelModeChanged: (Boolean) -> Unit,
     onBiometricChanged: (Boolean) -> Unit,
     onSaveBackupPin: (String) -> Unit,
 ) {
@@ -215,6 +217,19 @@ internal fun SettingsScreen(
                     title = stringResource(R.string.settings_security_section),
                 )
 
+                if (uiState.isVpn) {
+                    WarningBanner(
+                        title = stringResource(R.string.settings_vpn_flag_warning_title),
+                        message = stringResource(R.string.settings_vpn_flag_warning_body),
+                        tone = WarningBannerTone.Info,
+                    )
+                    WarningBanner(
+                        title = stringResource(R.string.settings_tethering_dns_warning_title),
+                        message = stringResource(R.string.settings_tethering_dns_warning_body),
+                        tone = WarningBannerTone.Warning,
+                    )
+                }
+
                 AnimatedVisibility(
                     visible = uiState.biometricEnabled && !uiState.hasBackupPin && backupPinDraft.isBlank(),
                     enter =
@@ -270,6 +285,14 @@ internal fun SettingsScreen(
                         subtitle = stringResource(R.string.settings_exclude_russian_apps_body),
                         checked = uiState.excludeRussianAppsEnabled,
                         onCheckedChange = onExcludeRussianAppsChanged,
+                        enabled = !uiState.fullTunnelMode,
+                        showDivider = true,
+                    )
+                    SettingsRow(
+                        title = stringResource(R.string.settings_full_tunnel_title),
+                        subtitle = stringResource(R.string.settings_full_tunnel_body),
+                        checked = uiState.fullTunnelMode,
+                        onCheckedChange = onFullTunnelModeChanged,
                         showDivider = true,
                     )
                     SettingsRow(
@@ -664,6 +687,7 @@ private fun SettingsScreenPreview() {
             onThemeSelected = {},
             onWebRtcProtectionChanged = {},
             onExcludeRussianAppsChanged = {},
+            onFullTunnelModeChanged = {},
             onBiometricChanged = {},
             onSaveBackupPin = {},
         )
@@ -696,6 +720,7 @@ private fun SettingsScreenDarkPreview() {
             onThemeSelected = {},
             onWebRtcProtectionChanged = {},
             onExcludeRussianAppsChanged = {},
+            onFullTunnelModeChanged = {},
             onBiometricChanged = {},
             onSaveBackupPin = {},
         )
