@@ -20,7 +20,9 @@ use crate::tls::{try_tls_handshake, TlsClientProfile};
 use crate::transport::{
     domain_connect_target, quic_connect_target, relay_udp_payload, wait_for_listener, TransportConfig,
 };
-use crate::types::{DomainTarget, ProbeDetail, ProbeResult, QuicTarget, StrategyProbeCandidateSummary};
+use crate::types::{
+    DomainTarget, ProbeDetail, ProbeResult, QuicTarget, StrategyProbeCandidateSummary, StrategyProbeDomainOutcome,
+};
 use crate::util::{now_ms, stable_probe_hash, CONNECT_TIMEOUT};
 
 use ripdpi_config::RuntimeConfig;
@@ -44,10 +46,21 @@ pub(crate) struct CandidateScore {
     pub(crate) quality_score: usize,
     pub(crate) latency_sum_ms: u64,
     pub(crate) latency_count: usize,
+    /// Per-domain success tracking for autolearn seeding.
+    /// Key: normalized domain, Value: number of successful probes for that domain.
+    pub(crate) domain_successes: std::collections::BTreeMap<String, usize>,
+    /// Per-domain total probe count for autolearn seeding.
+    pub(crate) domain_totals: std::collections::BTreeMap<String, usize>,
 }
 
 impl CandidateScore {
     pub(crate) fn add(&mut self, sample: ProbeSample) {
+        if let Some(ref domain) = sample.domain {
+            *self.domain_totals.entry(domain.clone()).or_default() += 1;
+            if sample.success {
+                *self.domain_successes.entry(domain.clone()).or_default() += 1;
+            }
+        }
         self.results.push(sample.result);
         self.total_targets += 1;
         self.total_weight += sample.weight;
@@ -67,6 +80,18 @@ impl CandidateScore {
     pub(crate) fn is_full_success(&self) -> bool {
         self.total_targets > 0 && self.succeeded_targets == self.total_targets
     }
+
+    /// Build per-domain outcome list. A domain is considered successful if all
+    /// of its probes (HTTP + HTTPS) passed.
+    pub(crate) fn domain_outcomes(&self) -> Vec<StrategyProbeDomainOutcome> {
+        self.domain_totals
+            .iter()
+            .map(|(domain, &total)| {
+                let successes = self.domain_successes.get(domain).copied().unwrap_or(0);
+                StrategyProbeDomainOutcome { domain: domain.clone(), succeeded: successes == total && total > 0 }
+            })
+            .collect()
+    }
 }
 
 pub(crate) struct ProbeSample {
@@ -75,6 +100,8 @@ pub(crate) struct ProbeSample {
     pub(crate) weight: usize,
     pub(crate) quality: usize,
     pub(crate) latency_ms: u64,
+    /// The domain this sample was probed against, for per-domain outcome tracking.
+    pub(crate) domain: Option<String>,
 }
 
 pub(crate) struct TemporaryProxyRuntime {
@@ -352,6 +379,7 @@ pub(crate) fn build_candidate_execution(
         "failed"
     };
     let rationale = format!("{} of {} targets succeeded", score.succeeded_targets, score.total_targets);
+    let domain_outcomes = score.domain_outcomes();
     CandidateExecution {
         summary: StrategyProbeCandidateSummary {
             id: spec.id.to_string(),
@@ -368,6 +396,7 @@ pub(crate) fn build_candidate_execution(
             notes: candidate_notes(spec, &[]),
             average_latency_ms: score.average_latency_ms(),
             skipped: false,
+            domain_outcomes,
         },
         results: score.results,
         cancelled: false,
@@ -406,6 +435,7 @@ pub(crate) fn failed_candidate_execution(
             notes: candidate_notes(spec, &[]),
             average_latency_ms: None,
             skipped: false,
+            domain_outcomes: vec![],
         },
         results: Vec::new(),
         cancelled: false,
@@ -434,6 +464,7 @@ pub(crate) fn not_applicable_candidate_execution(
             notes: candidate_notes(spec, &[rationale]),
             average_latency_ms: None,
             skipped: false,
+            domain_outcomes: vec![],
         },
         results: Vec::new(),
         cancelled: false,
@@ -461,6 +492,7 @@ pub(crate) fn skipped_candidate_summary(
         notes: candidate_notes(spec, &[rationale]),
         average_latency_ms: None,
         skipped: true,
+        domain_outcomes: vec![],
     }
 }
 
@@ -486,6 +518,7 @@ pub(crate) fn eliminated_candidate_summary(
         notes: candidate_notes(spec, &[&rationale]),
         average_latency_ms: None,
         skipped: false,
+        domain_outcomes: vec![],
     }
 }
 
@@ -588,6 +621,7 @@ pub(crate) fn run_http_strategy_probe(
         },
         success: outcome == "http_ok" || outcome == "http_redirect",
         weight: 1,
+        domain: Some(target.host.clone()),
         quality: if outcome == "http_ok" {
             3
         } else if outcome == "http_redirect" {
@@ -742,6 +776,7 @@ pub(crate) fn run_https_strategy_probe(
         },
         success: matches!(final_outcome.as_str(), "tls_ok" | "tls_version_split"),
         weight: 2,
+        domain: Some(target.host.clone()),
         quality: match final_outcome.as_str() {
             "tls_ok" => 4,
             "tls_version_split" => 3,
@@ -789,6 +824,7 @@ pub(crate) fn run_quic_strategy_probe(
         },
         success: matches!(outcome.as_str(), "quic_initial_response" | "quic_response"),
         weight: 2,
+        domain: Some(target.host.clone()),
         quality: match outcome.as_str() {
             "quic_initial_response" => 4,
             "quic_response" => 3,
@@ -866,6 +902,7 @@ mod tests {
             weight: 2,
             quality: 4,
             latency_ms: 50,
+            domain: None,
         });
         score.add(ProbeSample {
             result: ProbeResult {
@@ -878,6 +915,7 @@ mod tests {
             weight: 1,
             quality: 0,
             latency_ms: 100,
+            domain: None,
         });
 
         assert_eq!(score.succeeded_targets, 1);
@@ -903,6 +941,7 @@ mod tests {
             weight: 1,
             quality: 3,
             latency_ms: 100,
+            domain: None,
         });
 
         assert!(score.is_full_success());
@@ -1000,6 +1039,7 @@ mod tests {
             notes: vec![],
             average_latency_ms,
             skipped,
+            domain_outcomes: vec![],
         }
     }
 

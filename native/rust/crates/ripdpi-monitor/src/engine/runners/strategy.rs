@@ -948,6 +948,7 @@ impl ExecutionStageRunner for StrategyRecommendationRunner {
             },
             audit_assessment,
             target_selection: plan.request.strategy_probe.as_ref().and_then(|p| p.target_selection.clone()),
+            domain_strategy_seeds: Vec::new(),
         });
         runtime.strategy.summary = Some(summary);
         runtime.completed_steps += 1;

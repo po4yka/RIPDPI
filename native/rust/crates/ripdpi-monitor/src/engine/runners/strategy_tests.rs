@@ -74,6 +74,7 @@ fn quic_candidate_summary(proxy_config_json: Option<String>) -> StrategyProbeCan
         notes: Vec::new(),
         average_latency_ms: Some(220),
         skipped: false,
+        domain_outcomes: vec![],
     }
 }
 
@@ -102,6 +103,7 @@ fn strategy_candidate_summary(
         notes: Vec::new(),
         average_latency_ms: Some(200),
         skipped,
+        domain_outcomes: vec![],
     }
 }
 

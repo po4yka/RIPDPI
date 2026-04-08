@@ -1058,6 +1058,7 @@ fn strategy_probe_report_serializes_normal_completion_kind() {
         completion_kind: StrategyProbeCompletionKind::Normal,
         audit_assessment: None,
         target_selection: None,
+        domain_strategy_seeds: vec![],
     };
 
     let json = serde_json::to_string(&report).expect("serialize strategy probe report");
