@@ -1,7 +1,7 @@
 {
     "appliedLimits": {
         "logcatBytes": 524288,
-        "nativeEvents": 80,
+        "nativeEvents": 200,
         "snapshots": 250,
         "telemetrySamples": 120
     },

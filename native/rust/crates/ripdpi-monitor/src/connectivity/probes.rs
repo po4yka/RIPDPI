@@ -79,7 +79,9 @@ pub(crate) fn run_dns_probe(target: &DnsTarget, transport: &TransportConfig, pat
         target.encrypted_host.is_none() && target.encrypted_doh_url.is_none() && target.encrypted_protocol.is_none();
     if encrypted_result.is_err() && target_uses_default_resolver {
         let fallback_endpoints = build_fallback_encrypted_dns_endpoints(encrypted_endpoint.resolver_id.as_deref());
-        for fallback_ep in &fallback_endpoints {
+        // Cap fallback attempts to avoid flooding probe results when encrypted
+        // DNS is broadly blocked at the network level.
+        for fallback_ep in fallback_endpoints.iter().take(2) {
             let (result, raw) = resolve_via_encrypted_dns_with_raw(&target.domain, fallback_ep.clone(), transport);
             if result.is_ok() {
                 encrypted_result = result;
