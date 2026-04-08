@@ -12,9 +12,11 @@ extensions.configure<LibraryExtension> {
 
 dependencies {
     implementation(project(":core:data"))
+    implementation(project(":xray-protos"))
     implementation(libs.androidx.core.ktx)
     implementation(libs.kotlinx.coroutines.core)
     implementation(libs.okhttp)
+    implementation(libs.grpc.okhttp)
 
     testImplementation(libs.bundles.unit.test)
 }
