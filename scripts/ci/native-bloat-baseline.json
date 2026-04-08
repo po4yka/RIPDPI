@@ -11,7 +11,7 @@
   "packages": {
     "ripdpi-android": {
       "fileSize": 19500000,
-      "textSectionSize": 6637322,
+      "textSectionSize": 7790170,
       "functions": [
         {
           "crate": "aws_lc_sys",
@@ -130,11 +130,11 @@
         },
         {
           "name": "[Unknown]",
-          "size": 594630
+          "size": 682555
         },
         {
           "name": "boring_sys",
-          "size": 471619
+          "size": 699471
         },
         {
           "name": "ripdpi_monitor",
@@ -204,7 +204,7 @@
     },
     "ripdpi-tunnel-android": {
       "fileSize": 14000000,
-      "textSectionSize": 5405578,
+      "textSectionSize": 5721818,
       "functions": [
         {
           "crate": "aws_lc_sys",
@@ -298,8 +298,8 @@
         },
         {
           "crate": "boring_sys",
-          "name": "_ZN4bssl20ssl_client_handshakeEPNS_13SSL_HANDSHAKEE",
-          "size": 13116
+          "name": "_ZN4bssl20ssl_server_handshakeEPNS_13SSL_HANDSHAKEE",
+          "size": 13149
         },
         {
           "crate": "aws_lc_sys",
@@ -319,7 +319,7 @@
         },
         {
           "name": "[Unknown]",
-          "size": 592313
+          "size": 680238
         },
         {
           "name": "std",
@@ -327,7 +327,7 @@
         },
         {
           "name": "boring_sys",
-          "size": 471619
+          "size": 699471
         },
         {
           "name": "rustls",
