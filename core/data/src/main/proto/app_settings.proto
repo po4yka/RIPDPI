@@ -280,4 +280,8 @@ message AppSettings {
   // Community comparison (anonymous opt-in)
   bool community_comparison_enabled = 209;
   string community_api_url = 210;
+
+  // HTTP parser evasion: Host header manipulation
+  bool http_host_extra_space = 211;  // Insert space before colon: "Host : example.com"
+  bool http_host_tab = 212;          // Tab separator: "Host:\texample.com"
 }

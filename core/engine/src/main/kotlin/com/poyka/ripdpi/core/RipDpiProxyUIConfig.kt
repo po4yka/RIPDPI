@@ -95,6 +95,8 @@ data class RipDpiParserEvasionConfig(
     val httpMethodSpace: Boolean = false,
     val httpUnixEol: Boolean = false,
     val httpHostPad: Boolean = false,
+    val httpHostExtraSpace: Boolean = false,
+    val httpHostTab: Boolean = false,
 )
 
 data class RipDpiAdaptiveFallbackConfig(

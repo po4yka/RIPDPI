@@ -275,6 +275,8 @@ mod tests {
                     http_unix_eol,
                     http_method_space: false,
                     http_host_pad: false,
+                    http_host_extra_space: false,
+                    http_host_tab: false,
                 };
                 config.hosts = ProxyUiHostsConfig { mode: hosts_mode, entries: hosts_entries };
                 config.quic = ProxyUiQuicConfig {
