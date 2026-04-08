@@ -9,6 +9,7 @@ use rustls::{
     StreamOwned,
 };
 
+use crate::cdn_ech::opportunistic_ech_config_for_ip;
 use crate::dns::{resolve_https_ech_configs_via_encrypted_dns, EchResolutionOutcome};
 use crate::ja3::{self, RecordingStream};
 use crate::platform_ttl;
@@ -236,7 +237,7 @@ pub(crate) fn open_probe_stream(
     match tls_name {
         Some(name) if verify_certificates || port == 443 || !matches!(profile, TlsClientProfile::Auto) => {
             let config = match profile {
-                TlsClientProfile::Tls13WithEch => build_ech_client_config(name, transport, tls_verifier)?,
+                TlsClientProfile::Tls13WithEch => build_ech_client_config(name, target, transport, tls_verifier)?,
                 _ => build_standard_client_config(profile, tls_verifier),
             };
             let server_name = make_server_name(name, target)?;
@@ -442,14 +443,29 @@ fn build_standard_client_config(
 
 fn build_ech_client_config(
     server_name: &str,
+    target: &TargetAddress,
     transport: &TransportConfig,
     tls_verifier: Option<&Arc<dyn ServerCertVerifier>>,
 ) -> Result<Arc<ClientConfig>, String> {
     let ech_config_list = match resolve_https_ech_configs_via_encrypted_dns(server_name, transport) {
         EchResolutionOutcome::Available(bytes) => bytes,
-        EchResolutionOutcome::NotPublished => return Err(ECH_CONFIG_UNAVAILABLE_ERROR.to_string()),
-        EchResolutionOutcome::ResolutionFailed(err) => {
-            return Err(format!("ech_resolution_failed: {err}"));
+        dns_failure => {
+            // Opportunistic fallback: if the target IP belongs to a known CDN
+            // that supports ECH, use a hardcoded config instead of giving up.
+            if let Some(cdn_config) = resolve_opportunistic_ech(target) {
+                tracing::debug!(
+                    server_name,
+                    cdn = cdn_config.provider,
+                    "ECH DNS resolution unavailable; using opportunistic CDN config"
+                );
+                cdn_config.ech_config_list.to_vec()
+            } else {
+                return match dns_failure {
+                    EchResolutionOutcome::NotPublished => Err(ECH_CONFIG_UNAVAILABLE_ERROR.to_string()),
+                    EchResolutionOutcome::ResolutionFailed(err) => Err(format!("ech_resolution_failed: {err}")),
+                    EchResolutionOutcome::Available(_) => unreachable!(),
+                };
+            }
         }
     };
     let provider = rustls::crypto::aws_lc_rs::default_provider();
@@ -467,6 +483,15 @@ fn build_ech_client_config(
         Arc::new(builder.with_root_certificates(default_root_store()).with_no_client_auth())
     };
     Ok(config)
+}
+
+/// Attempt to find an opportunistic ECH config by checking if the target IP
+/// belongs to a known CDN provider.
+fn resolve_opportunistic_ech(target: &TargetAddress) -> Option<&'static crate::cdn_ech::CdnEchConfig> {
+    match target {
+        TargetAddress::Ip(ip) => opportunistic_ech_config_for_ip(*ip),
+        TargetAddress::Host(_) => None,
+    }
 }
 
 pub(crate) fn make_server_name(name: &str, target: &TargetAddress) -> Result<ServerName<'static>, String> {
