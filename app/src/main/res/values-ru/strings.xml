@@ -1731,4 +1731,11 @@ fakeddisorder endhost</string>
     <string name="detection_error_retry">Повторить</string>
     <string name="detection_permission_title">Разрешения</string>
 
+    <string name="detection_methodology_info">О методике</string>
+    <string name="detection_finding_detected">Обнаружено</string>
+    <string name="detection_finding_review">Требует проверки</string>
+    <string name="detection_finding_ok">ОК</string>
+    <string name="detection_score_improved">Оценка улучшилась</string>
+    <string name="detection_score_degraded">Оценка ухудшилась</string>
+
 </resources>
