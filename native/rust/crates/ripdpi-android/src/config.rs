@@ -292,6 +292,7 @@ mod tests {
                     max_hosts: host_autolearn_max_hosts,
                     store_path: host_autolearn_store_path,
                     network_scope_key: None,
+                    warmup_probe_enabled: true,
                 };
                 config
             },

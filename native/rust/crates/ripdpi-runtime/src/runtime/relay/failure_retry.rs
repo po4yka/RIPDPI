@@ -54,11 +54,10 @@ impl<'a> FirstOutboundCoordinator<'a> {
     pub(super) fn run(self, client: &mut TcpStream, mut upstream: TcpStream) -> io::Result<PreparedRelay> {
         let mut session_state = SessionState::default();
         let mut success_recorded = false;
-        let first_request = if let Some(seed) = self.seed_request {
-            Some(seed)
-        } else {
-            read_first_client_payload(client, self.state.config.network.buffer_size)?
-        };
+        let first_request = self.seed_request.map_or_else(
+            || read_first_client_payload(client, self.state.config.network.buffer_size),
+            |seed| Ok(Some(seed)),
+        )?;
         let mut success_host = first_request.as_ref().and_then(|payload| extract_host(&self.state.config, payload));
         let mut success_payload = first_request.clone();
         let mut route = self.route;
@@ -224,6 +223,7 @@ impl<'a> FirstOutboundCoordinator<'a> {
     }
 }
 
+#[inline(never)]
 pub(super) fn prepare_relay(
     client: &mut TcpStream,
     upstream: TcpStream,

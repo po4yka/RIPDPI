@@ -111,7 +111,7 @@ internal fun SettingsScreen(
     onOpenCustomization: () -> Unit,
     onOpenAbout: () -> Unit,
     onOpenDataTransparency: () -> Unit,
-    onOpenDetectionCheck: () -> Unit,
+    onOpenDetectionCheck: () -> Unit = {},
     onShareDebugBundle: () -> Unit,
     permissionSummary: PermissionSummaryUiState,
     onRepairPermission: (PermissionKind) -> Unit,
