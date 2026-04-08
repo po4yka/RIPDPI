@@ -109,7 +109,8 @@ mod tests {
         let uuid = [0xAA; 16];
         let buf = encode_request(&uuid, &[], "1.2.3.4:80");
 
-        let base = 1 + 16 + 1 + 0 + 1 + 2; // version+uuid+addonslen+cmd+port
+        // version(1) + uuid(16) + addonslen(1) + addons(0 bytes) + cmd(1) + port(2)
+        let base = 1 + 16 + 1 + 1 + 2;
         assert_eq!(buf[base], 0x01); // IPv4
         assert_eq!(&buf[base + 1..base + 5], &[1, 2, 3, 4]);
     }
@@ -119,7 +120,8 @@ mod tests {
         let uuid = [0xBB; 16];
         let buf = encode_request(&uuid, &[], "[::1]:8080");
 
-        let base = 1 + 16 + 1 + 0 + 1 + 2;
+        // version(1) + uuid(16) + addonslen(1) + addons(0 bytes) + cmd(1) + port(2)
+        let base = 1 + 16 + 1 + 1 + 2;
         assert_eq!(buf[base], 0x03); // IPv6
                                      // ::1 = 15 zeros + 0x01
         assert_eq!(buf[base + 16], 0x01);
