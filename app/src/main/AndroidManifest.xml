@@ -25,7 +25,8 @@
         android:supportsRtl="true"
         android:enableOnBackInvokedCallback="true"
         android:theme="@style/Theme.RIPDPI"
-        tools:targetApi="34">
+        tools:targetApi="34"
+        tools:ignore="MissingTvBanner">
         <activity
             android:name=".activities.MainActivity"
             android:exported="true"
