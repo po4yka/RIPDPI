@@ -46,6 +46,8 @@ jobs:
         run: sdkmanager --install "ndk;${{ steps.native-toolchain.outputs.ndk }}"
 
       - uses: mozilla-actions/sccache-action@v0.0.9
+        env:
+          FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
 
       - uses: gradle/actions/setup-gradle@v6
 
