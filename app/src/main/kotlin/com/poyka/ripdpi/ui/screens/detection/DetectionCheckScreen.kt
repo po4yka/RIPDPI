@@ -80,6 +80,12 @@ import com.poyka.ripdpi.ui.components.indicators.StatusIndicatorTone
 import com.poyka.ripdpi.ui.components.rememberRipDpiHapticPerformer
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
+private const val historyEntryLimit = 5
+private const val highStealthScoreThreshold = 70
+private const val mediumStealthScoreThreshold = 40
+private const val detectedPercentageAlertThreshold = 50
+private const val percentScale = 100.0
+
 @Composable
 internal fun DetectionCheckRoute(
     onBack: () -> Unit,
@@ -614,11 +620,11 @@ private fun HistoryCard(entries: List<DetectionHistoryEntry>) {
             style = type.sectionTitle,
             color = colors.mutedForeground,
         )
-        for (entry in entries.take(5)) {
+        for (entry in entries.take(historyEntryLimit)) {
             val scoreColor =
                 when {
-                    entry.stealthScore >= 70 -> colors.success
-                    entry.stealthScore >= 40 -> colors.warning
+                    entry.stealthScore >= highStealthScoreThreshold -> colors.success
+                    entry.stealthScore >= mediumStealthScoreThreshold -> colors.warning
                     else -> colors.destructive
                 }
             Row(
@@ -674,11 +680,11 @@ private fun CommunityStatsCard(stats: CommunityStats) {
         }
         val detected = stats.verdictDistribution["DETECTED"] ?: 0
         if (stats.totalReports > 0) {
-            val pct = (detected * 100.0 / stats.totalReports).toInt()
+            val pct = (detected * percentScale / stats.totalReports).toInt()
             Text(
                 text = stringResource(R.string.detection_community_detected_pct, pct),
                 style = type.bodyEmphasis,
-                color = if (pct > 50) colors.destructive else colors.success,
+                color = if (pct > detectedPercentageAlertThreshold) colors.destructive else colors.success,
             )
         }
     }

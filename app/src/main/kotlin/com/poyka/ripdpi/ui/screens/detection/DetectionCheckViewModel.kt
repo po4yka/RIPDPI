@@ -26,6 +26,7 @@ import com.poyka.ripdpi.core.detection.community.CommunityComparisonStore
 import com.poyka.ripdpi.core.detection.community.CommunityStats
 import com.poyka.ripdpi.data.AppSettingsRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -50,6 +51,11 @@ data class DetectionCheckUiState(
     val history: List<DetectionHistoryEntry> = emptyList(),
     val communityStats: CommunityStats? = null,
 )
+
+private const val entropyModeBalanced = 3
+private const val entropyPaddingTargetPermilValue = 3400
+private const val shannonEntropyTargetPermilValue = 7920
+private const val strategyEvolutionRecommendedEpsilon = 0.1
 
 @HiltViewModel
 class DetectionCheckViewModel
@@ -169,61 +175,67 @@ class DetectionCheckViewModel
                             reportText = null,
                             error = null,
                         )
-                    try {
-                        val settings = appSettingsRepository.settings.first()
-                        val config =
-                            DetectionRunnerConfig(
-                                ownProxyPort = settings.proxyPort.takeIf { it > 0 },
-                                ownPackageName = application.packageName,
-                                encryptedDnsEnabled = settings.dnsMode == "encrypted",
-                                webRtcProtectionEnabled = settings.webrtcProtectionEnabled,
-                                tlsFingerprintProfile =
-                                    settings.tlsFingerprintProfile
-                                        .ifEmpty { "native_default" },
-                            )
-                        val result =
-                            DetectionRunner.run(
-                                context = application,
-                                config = config,
-                                onProgress = { progress ->
-                                    _uiState.value = _uiState.value.copy(progress = progress)
-                                },
-                            )
+                    val outcome =
+                        runCatching {
+                            val settings = appSettingsRepository.settings.first()
+                            val config =
+                                DetectionRunnerConfig(
+                                    ownProxyPort = settings.proxyPort.takeIf { it > 0 },
+                                    ownPackageName = application.packageName,
+                                    encryptedDnsEnabled = settings.dnsMode == "encrypted",
+                                    webRtcProtectionEnabled = settings.webrtcProtectionEnabled,
+                                    tlsFingerprintProfile =
+                                        settings.tlsFingerprintProfile
+                                            .ifEmpty { "native_default" },
+                                )
+                            val result =
+                                DetectionRunner.run(
+                                    context = application,
+                                    config = config,
+                                    onProgress = { progress ->
+                                        _uiState.value = _uiState.value.copy(progress = progress)
+                                    },
+                                )
 
-                        val score = StealthScore.compute(result)
-                        val label = StealthScore.label(score)
-                        val recommendations = DetectionRecommendations.generate(result)
-                        val reportText = DetectionReportFormatter.format(result)
-                        val fixes =
-                            DetectionAutoTuner.suggestFixes(
-                                result = result,
-                                tlsFingerprintEnabled = settings.tlsFingerprintProfile != "native_default",
-                                entropyPaddingEnabled = settings.entropyMode != 0,
-                                encryptedDnsEnabled = settings.dnsMode == "encrypted",
-                                fullTunnelEnabled = settings.fullTunnelMode,
-                                strategyEvolutionEnabled = settings.strategyEvolution,
-                            )
+                            val score = StealthScore.compute(result)
+                            val label = StealthScore.label(score)
+                            val recommendations = DetectionRecommendations.generate(result)
+                            val reportText = DetectionReportFormatter.format(result)
+                            val fixes =
+                                DetectionAutoTuner.suggestFixes(
+                                    result = result,
+                                    tlsFingerprintEnabled = settings.tlsFingerprintProfile != "native_default",
+                                    entropyPaddingEnabled = settings.entropyMode != 0,
+                                    encryptedDnsEnabled = settings.dnsMode == "encrypted",
+                                    fullTunnelEnabled = settings.fullTunnelMode,
+                                    strategyEvolutionEnabled = settings.strategyEvolution,
+                                )
 
-                        saveToHistory(result, score)
-                        refreshCommunityStats()
+                            saveToHistory(result, score)
+                            refreshCommunityStats()
 
+                            _uiState.value =
+                                _uiState.value.copy(
+                                    isRunning = false,
+                                    progress = null,
+                                    result = result,
+                                    stealthScore = score,
+                                    stealthLabel = label,
+                                    recommendations = recommendations,
+                                    autoTuneFixes = fixes,
+                                    reportText = reportText,
+                                )
+                        }
+
+                    outcome.onFailure { error ->
+                        if (error is CancellationException) {
+                            throw error
+                        }
                         _uiState.value =
                             _uiState.value.copy(
                                 isRunning = false,
                                 progress = null,
-                                result = result,
-                                stealthScore = score,
-                                stealthLabel = label,
-                                recommendations = recommendations,
-                                autoTuneFixes = fixes,
-                                reportText = reportText,
-                            )
-                    } catch (e: Exception) {
-                        _uiState.value =
-                            _uiState.value.copy(
-                                isRunning = false,
-                                progress = null,
-                                error = e.message ?: "Unknown error",
+                                error = error.message ?: "Unknown error",
                             )
                     }
                 }
@@ -239,9 +251,9 @@ class DetectionCheckViewModel
                             }
 
                             "entropy_padding" -> {
-                                entropyMode = 3
-                                entropyPaddingTargetPermil = 3400
-                                shannonEntropyTargetPermil = 7920
+                                entropyMode = entropyModeBalanced
+                                entropyPaddingTargetPermil = entropyPaddingTargetPermilValue
+                                shannonEntropyTargetPermil = shannonEntropyTargetPermilValue
                             }
 
                             "encrypted_dns" -> {
@@ -254,7 +266,7 @@ class DetectionCheckViewModel
 
                             "strategy_evolution" -> {
                                 strategyEvolution = true
-                                evolutionEpsilon = 0.1
+                                evolutionEpsilon = strategyEvolutionRecommendedEpsilon
                             }
                         }
                     }

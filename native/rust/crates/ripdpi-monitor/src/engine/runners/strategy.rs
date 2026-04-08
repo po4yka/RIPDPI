@@ -1,9 +1,11 @@
+#[path = "strategy_support.rs"]
+mod strategy_support;
+
 use std::sync::atomic::Ordering;
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
 
-use ripdpi_failure_classifier::FailureClass;
 use rustls::client::danger::ServerCertVerifier;
 
 use crate::candidates::{
@@ -12,23 +14,31 @@ use crate::candidates::{
 };
 use crate::classification::{
     classified_failure_probe_result, classify_strategy_probe_baseline_observations, filter_quic_candidates_for_failure,
-    interleave_candidate_families, next_candidate_index, reorder_tcp_candidates_for_failure,
+    interleave_candidate_families, next_candidate_index,
 };
 use crate::connectivity::set_progress;
 use crate::execution::{
-    eliminated_candidate_summary, execute_quic_candidate, execute_tcp_candidate, not_applicable_candidate_execution,
-    skipped_candidate_summary, winning_candidate_index, CandidateExecution,
+    eliminated_candidate_summary, execute_quic_candidate, execute_tcp_candidate, skipped_candidate_summary,
+    winning_candidate_index, CandidateExecution,
 };
 use crate::observations::observations_for_results;
 use crate::strategy::detect_strategy_probe_dns_tampering;
 use crate::types::{
-    ProbeResult, ScanProgress, StrategyProbeAuditAssessment, StrategyProbeAuditConfidence,
-    StrategyProbeAuditConfidenceLevel, StrategyProbeAuditCoverage, StrategyProbeCandidateSummary,
-    StrategyProbeCompletionKind, StrategyProbeLiveProgress, StrategyProbeProgressLane, StrategyProbeRecommendation,
-    StrategyProbeReport,
+    ScanProgress, StrategyProbeAuditAssessment, StrategyProbeAuditConfidence, StrategyProbeAuditConfidenceLevel,
+    StrategyProbeAuditCoverage, StrategyProbeCandidateSummary, StrategyProbeCompletionKind, StrategyProbeProgressLane,
+    StrategyProbeRecommendation, StrategyProbeReport,
 };
 use crate::util::{stable_probe_hash, STRATEGY_PROBE_SUITE_FULL_MATRIX_V1};
 
+#[cfg(test)]
+use self::strategy_support::baseline_has_tls_ech_only;
+use self::strategy_support::{
+    baseline_supports_ech_candidates, compute_rst_adaptive_timeout, ordered_follow_up_tcp_candidates,
+    record_not_applicable_tcp_candidate, resolve_recommended_proxy_config_json, round_percent,
+    strategy_audit_lane_counts, strategy_probe_live_progress_with_targets, FamilyFailureTracker,
+    StrategyAuditLaneCounts, ECH_ELIGIBILITY_RATIONALE, FAKE_TTL_ELIGIBILITY_RATIONALE,
+    TCP_FAST_OPEN_ELIGIBILITY_RATIONALE,
+};
 use super::super::runtime::{
     ExecutionPlan, ExecutionRuntime, ExecutionStageId, ExecutionStageRunner, RunnerArtifacts, RunnerOutcome,
 };
@@ -37,208 +47,6 @@ pub(super) struct StrategyDnsBaselineRunner;
 pub(super) struct StrategyTcpRunner;
 pub(super) struct StrategyQuicRunner;
 pub(super) struct StrategyRecommendationRunner;
-
-const ECH_ELIGIBILITY_RATIONALE: &str =
-    "Baseline did not expose an ECH-capable HTTPS target, so ECH extension splitting would be a no-op";
-
-const FAKE_TTL_ELIGIBILITY_RATIONALE: &str =
-    "setsockopt(IP_TTL) is unavailable on this platform (Android VPN/tun mode); fake-packet strategies that rely on TTL manipulation are skipped";
-
-const TCP_FAST_OPEN_ELIGIBILITY_RATIONALE: &str =
-    "TCP Fast Open is unavailable on this device/kernel, so TFO probe variants are skipped";
-
-fn record_not_applicable_tcp_candidate(
-    runtime: &mut ExecutionRuntime,
-    plan: &ExecutionPlan,
-    phase: &str,
-    spec: &crate::candidates::StrategyCandidateSpec,
-    candidate_index: usize,
-    candidate_total: usize,
-    reason: &str,
-    log_suffix: &str,
-) {
-    let execution = not_applicable_candidate_execution(spec, plan.request.domain_targets.len() * 2, 3, reason);
-    runtime.record_step(
-        plan,
-        phase,
-        format!("Marked {} as not applicable{}", spec.label, log_suffix),
-        Some(spec.label.to_string()),
-        Some(execution.summary.outcome.clone()),
-        Some(strategy_probe_live_progress_with_targets(
-            StrategyProbeProgressLane::Tcp,
-            candidate_index,
-            candidate_total,
-            spec.id,
-            spec.label,
-            0,
-            0,
-        )),
-        RunnerArtifacts::from_results(
-            execution.results.clone(),
-            "strategy_probe",
-            "debug",
-            format!("Skipped execution for {}{}", spec.label, log_suffix),
-        ),
-    );
-    runtime.strategy.tcp_candidates.push(execution.summary);
-}
-
-fn resolve_recommended_proxy_config_json(
-    quic_candidate: &crate::types::StrategyProbeCandidateSummary,
-    fallback_quic_spec: &crate::candidates::StrategyCandidateSpec,
-) -> String {
-    quic_candidate
-        .proxy_config_json
-        .as_deref()
-        .filter(|value| !value.trim().is_empty())
-        .map_or_else(|| crate::candidates::strategy_probe_config_json(&fallback_quic_spec.config), str::to_owned)
-}
-
-fn strategy_probe_live_progress_with_targets(
-    lane: StrategyProbeProgressLane,
-    candidate_index: usize,
-    candidate_total: usize,
-    candidate_id: &str,
-    candidate_label: &str,
-    succeeded_targets: usize,
-    total_targets: usize,
-) -> StrategyProbeLiveProgress {
-    StrategyProbeLiveProgress {
-        lane,
-        candidate_index,
-        candidate_total,
-        candidate_id: candidate_id.to_string(),
-        candidate_label: candidate_label.to_string(),
-        succeeded_targets,
-        total_targets,
-    }
-}
-
-/// Tracks consecutive failures within a candidate family, blocking the family
-/// after `threshold` consecutive failures to avoid wasting probe budget.
-struct FamilyFailureTracker<'a> {
-    blocked: Option<&'a str>,
-    last_failed: Option<&'a str>,
-    consecutive: usize,
-    threshold: usize,
-}
-
-impl<'a> FamilyFailureTracker<'a> {
-    fn new(threshold: usize) -> Self {
-        Self { blocked: None, last_failed: None, consecutive: 0, threshold }
-    }
-
-    fn record(&mut self, family: &'a str, failed: bool) {
-        if failed {
-            if self.last_failed == Some(family) {
-                self.consecutive += 1;
-            } else {
-                self.last_failed = Some(family);
-                self.consecutive = 1;
-            }
-            if self.consecutive >= self.threshold {
-                self.blocked = Some(family);
-                self.consecutive = 0;
-            }
-        } else {
-            self.last_failed = None;
-            self.consecutive = 0;
-            self.blocked = None;
-        }
-        if self.blocked.is_some() && family != self.blocked.unwrap_or_default() {
-            self.blocked = None;
-        }
-    }
-}
-
-fn probe_detail_value<'a>(result: &'a ProbeResult, key: &str) -> Option<&'a str> {
-    result.details.iter().find(|detail| detail.key == key).map(|detail| detail.value.as_str())
-}
-
-/// If the baseline failure class is TcpReset, return a reduced connect timeout.
-/// RSTs arrive fast (the censorship device sends them actively), so waiting the
-/// full CONNECT_TIMEOUT is wasteful for subsequent strategy probes.
-/// Returns None when the failure class suggests silent drops (need full wait).
-fn compute_rst_adaptive_timeout(baseline_failure: &ripdpi_failure_classifier::ClassifiedFailure) -> Option<Duration> {
-    if !matches!(baseline_failure.class, FailureClass::TcpReset) {
-        return None;
-    }
-    Some(Duration::from_millis(1500))
-}
-
-fn baseline_has_tls_ech_only(results: &[ProbeResult]) -> bool {
-    results.iter().any(|result| result.probe_type == "strategy_https" && result.outcome == "tls_ech_only")
-}
-
-fn baseline_supports_ech_candidates(results: &[ProbeResult]) -> bool {
-    results.iter().any(|result| {
-        result.probe_type == "strategy_https"
-            && (result.outcome == "tls_ech_only"
-                || probe_detail_value(result, "tlsEchResolutionDetail") == Some("ech_config_available"))
-    })
-}
-
-fn ordered_follow_up_tcp_candidates(
-    tcp_specs: &[StrategyCandidateSpec],
-    failure_class: Option<FailureClass>,
-    baseline_results: &[ProbeResult],
-    probe_seed: u64,
-    fake_ttl_available: bool,
-) -> Vec<StrategyCandidateSpec> {
-    let reordered = reorder_tcp_candidates_for_failure(tcp_specs, failure_class, fake_ttl_available)
-        .into_iter()
-        .skip(1)
-        .collect::<Vec<_>>();
-    if !baseline_has_tls_ech_only(baseline_results) {
-        return interleave_candidate_families(reordered, probe_seed);
-    }
-
-    let mut ech_priority = Vec::new();
-    let mut remaining = Vec::new();
-    for spec in reordered {
-        if spec.eligibility == CandidateEligibility::RequiresEchCapability {
-            ech_priority.push(spec);
-        } else {
-            remaining.push(spec);
-        }
-    }
-    ech_priority.extend(interleave_candidate_families(remaining, probe_seed));
-    ech_priority
-}
-
-#[derive(Clone, Copy)]
-struct StrategyAuditLaneCounts {
-    planned: usize,
-    executed: usize,
-    skipped: usize,
-    not_applicable: usize,
-}
-
-impl StrategyAuditLaneCounts {
-    fn applicable_planned(self) -> usize {
-        self.planned.saturating_sub(self.not_applicable)
-    }
-}
-
-fn round_percent(numerator: usize, denominator: usize) -> usize {
-    if denominator == 0 {
-        0
-    } else {
-        (numerator.saturating_mul(100) + (denominator / 2)) / denominator
-    }
-}
-
-fn strategy_audit_lane_counts(candidates: &[StrategyProbeCandidateSummary], planned: usize) -> StrategyAuditLaneCounts {
-    StrategyAuditLaneCounts {
-        planned,
-        executed: candidates
-            .iter()
-            .filter(|candidate| !candidate.skipped && candidate.outcome != "not_applicable")
-            .count(),
-        skipped: candidates.iter().filter(|candidate| candidate.skipped).count(),
-        not_applicable: candidates.iter().filter(|candidate| candidate.outcome == "not_applicable").count(),
-    }
-}
 
 fn all_candidates_tied(candidates: &[StrategyProbeCandidateSummary]) -> bool {
     let eligible: Vec<_> = candidates.iter().filter(|c| !c.skipped && c.outcome != "not_applicable").collect();
@@ -747,7 +555,7 @@ impl ExecutionStageRunner for StrategyTcpRunner {
             {
                 let tracker = tcp_failure_tracker.lock().unwrap();
                 while batch.len() < ROUND2_PARALLELISM && !pending_tcp_specs.is_empty() {
-                    let idx = next_candidate_index(&pending_tcp_specs, tracker.blocked);
+                    let idx = next_candidate_index(&pending_tcp_specs, tracker.blocked_family());
                     let spec = pending_tcp_specs.remove(idx);
                     let candidate_index = runtime.strategy.tcp_candidates.len() + batch.len() + 1;
                     batch.push((candidate_index, spec));
@@ -883,7 +691,7 @@ impl ExecutionStageRunner for StrategyTcpRunner {
                 runtime.strategy.tcp_candidates.push(execution.summary);
                 executed_count += 1;
                 tcp_failure_tracker.lock().unwrap().record(spec.family, failed);
-                if tcp_failure_tracker.lock().unwrap().blocked.is_some() {
+                if tcp_failure_tracker.lock().unwrap().blocked_family().is_some() {
                     tracing::debug!(
                         candidate = spec.id,
                         family = spec.family,
@@ -967,8 +775,8 @@ impl ExecutionStageRunner for StrategyQuicRunner {
         let mut quic_failure_tracker = FamilyFailureTracker::new(strategy_plan.suite.family_failure_threshold);
         while !pending_quic_specs.is_empty() {
             let candidate_index = runtime.strategy.quic_candidates.len() + 1;
-            let spec =
-                pending_quic_specs.remove(next_candidate_index(&pending_quic_specs, quic_failure_tracker.blocked));
+            let spec = pending_quic_specs
+                .remove(next_candidate_index(&pending_quic_specs, quic_failure_tracker.blocked_family()));
             if runtime.is_cancelled() || runtime.is_past_deadline() {
                 tracing::warn!("strategy probe: QUIC suite terminated early");
                 break;
