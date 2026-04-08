@@ -611,11 +611,29 @@ fn assert_udp_low_source_port(run: &ScenarioRun, port: u16, upper_bound: u16) ->
 }
 
 fn assert_quic_version_present(run: &ScenarioRun, version: u32) -> Result<(), String> {
-    if run.packets.iter().any(|packet| field_u64(packet, "quic.version") == Some(u64::from(version))) {
+    if run.packets.iter().any(|packet| packet_has_quic_version(packet, version)) {
         Ok(())
     } else {
         Err(format!("expected captured QUIC version {version:#x} in {:?}", run.paths.capture_json))
     }
+}
+
+fn packet_has_quic_version(packet: &Value, version: u32) -> bool {
+    if field_u64(packet, "quic.version") == Some(u64::from(version)) {
+        return true;
+    }
+
+    for field in ["udp.payload", "data.data"] {
+        for value in collect_field_values(packet, field) {
+            if parse_hex_bytes_field(&value)
+                .is_some_and(|bytes| bytes.len() >= 5 && (bytes[0] & 0x80) != 0 && bytes[1..5] == version.to_be_bytes())
+            {
+                return true;
+            }
+        }
+    }
+
+    false
 }
 
 fn is_outbound_to_port(packet: &Value, port: u16) -> bool {
@@ -684,6 +702,36 @@ fn parse_numeric_field(value: &str) -> Option<u64> {
         return u64::from_str_radix(hex, 16).ok();
     }
     trimmed.parse::<u64>().ok()
+}
+
+fn parse_hex_bytes_field(value: &str) -> Option<Vec<u8>> {
+    let filtered: String = value.chars().filter(|ch| ch.is_ascii_hexdigit()).collect();
+    if filtered.len() < 2 || filtered.len() % 2 != 0 {
+        return None;
+    }
+
+    let mut bytes = Vec::with_capacity(filtered.len() / 2);
+    for idx in (0..filtered.len()).step_by(2) {
+        let byte = u8::from_str_radix(&filtered[idx..idx + 2], 16).ok()?;
+        bytes.push(byte);
+    }
+    Some(bytes)
+}
+
+#[test]
+fn packet_has_quic_version_accepts_unknown_version_from_raw_udp_payload() {
+    let packet = serde_json::json!({
+        "layers": {
+            "udp.payload": "c0:1a:2b:3c:4d:00:00:00"
+        }
+    });
+
+    assert!(packet_has_quic_version(&packet, 0x1a2b_3c4d));
+}
+
+#[test]
+fn parse_hex_bytes_field_handles_colon_separated_bytes() {
+    assert_eq!(parse_hex_bytes_field("c0:1a:2b:3c:4d"), Some(vec![0xc0, 0x1a, 0x2b, 0x3c, 0x4d]));
 }
 
 fn test_guard() -> MutexGuard<'static, ()> {
