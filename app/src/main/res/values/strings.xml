@@ -1954,4 +1954,11 @@ Source: %2$s</string>
     <string name="detection_community_reports">%d checks recorded</string>
     <string name="detection_community_avg_score">Average stealth score: %d/100</string>
     <string name="detection_community_detected_pct">%d%% of checks detected</string>
+    <string name="detection_verdict_label">Verdict</string>
+    <string name="detection_status_ok">OK</string>
+    <string name="detection_status_review">Review</string>
+    <string name="detection_status_detected">Detected</string>
+    <string name="detection_empty_history">No checks yet</string>
+    <string name="detection_error_retry">Retry</string>
+    <string name="detection_permission_title">Permissions</string>
 </resources>

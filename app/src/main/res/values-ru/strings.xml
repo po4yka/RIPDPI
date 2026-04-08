@@ -1723,5 +1723,12 @@ fakeddisorder endhost</string>
     <string name="detection_community_reports">%d проверок записано</string>
     <string name="detection_community_avg_score">Средняя оценка скрытности: %d/100</string>
     <string name="detection_community_detected_pct">%d%% проверок обнаружены</string>
+    <string name="detection_verdict_label">Вердикт</string>
+    <string name="detection_status_ok">ОК</string>
+    <string name="detection_status_review">Проверить</string>
+    <string name="detection_status_detected">Обнаружено</string>
+    <string name="detection_empty_history">Проверок пока нет</string>
+    <string name="detection_error_retry">Повторить</string>
+    <string name="detection_permission_title">Разрешения</string>
 
 </resources>
