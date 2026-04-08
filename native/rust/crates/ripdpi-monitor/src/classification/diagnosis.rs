@@ -437,8 +437,7 @@ pub(crate) fn classify_connectivity_diagnoses(request: &ScanRequest, results: &[
                     ),
                     recommendation: Some(format!(
                         "Port 443 is being specifically targeted by your ISP. \
-                         Switch to port {} or another non-standard HTTPS port to avoid policing.",
-                        alt_port
+                         Switch to port {alt_port} or another non-standard HTTPS port to avoid policing.",
                     )),
                     control_validated: None,
                 },
