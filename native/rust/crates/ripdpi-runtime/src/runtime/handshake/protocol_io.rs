@@ -123,10 +123,7 @@ fn read_until_nul(client: &mut TcpStream, out: &mut Vec<u8>) -> io::Result<()> {
 /// Expected encoding: `Basic base64("ripdpi:<token>")`.
 pub(super) fn validate_http_proxy_auth(request: &[u8], token: &str) -> bool {
     use base64::engine::{general_purpose::STANDARD, Engine};
-    let request_str = match std::str::from_utf8(request) {
-        Ok(s) => s,
-        Err(_) => return false,
-    };
+    let Ok(request_str) = std::str::from_utf8(request) else { return false };
     for line in request_str.lines() {
         if let Some(value) = line.strip_prefix("Proxy-Authorization:") {
             let value = value.trim();
