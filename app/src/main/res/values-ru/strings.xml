@@ -1687,4 +1687,18 @@ fakeddisorder endhost</string>
     <string name="confirm_reset_fake_tls_profile_confirm">Сбросить</string>
     <string name="confirm_reset_fake_tls_profile_dismiss">Отмена</string>
 
+    <string name="title_detection_check">Проверка обнаружения</string>
+    <string name="detection_check_subtitle">Проверьте, насколько заметна ваша настройка VPN/прокси</string>
+    <string name="detection_check_start">Запустить проверку</string>
+    <string name="detection_check_stop">Остановить</string>
+    <string name="detection_check_running">Выполняются проверки обнаружения\u2026</string>
+    <string name="detection_check_verdict_not_detected">Не обнаружено</string>
+    <string name="detection_check_verdict_needs_review">Требует проверки</string>
+    <string name="detection_check_verdict_detected">Обнаружено</string>
+    <string name="detection_check_category_geoip">GeoIP</string>
+    <string name="detection_check_category_direct">Прямые признаки</string>
+    <string name="detection_check_category_indirect">Косвенные признаки</string>
+    <string name="detection_check_category_location">Сигналы местоположения</string>
+    <string name="detection_check_category_bypass">Обход</string>
+
 </resources>

@@ -40,6 +40,7 @@ import com.poyka.ripdpi.ui.screens.config.ConfigRoute
 import com.poyka.ripdpi.ui.screens.config.ModeEditorRoute
 import com.poyka.ripdpi.ui.screens.customization.AboutRoute
 import com.poyka.ripdpi.ui.screens.customization.AppCustomizationRoute
+import com.poyka.ripdpi.ui.screens.detection.DetectionCheckRoute
 import com.poyka.ripdpi.ui.screens.diagnostics.DiagnosticsRoute
 import com.poyka.ripdpi.ui.screens.dns.DnsSettingsRoute
 import com.poyka.ripdpi.ui.screens.history.HistoryRoute
@@ -357,6 +358,7 @@ private fun NavGraphBuilder.addSettingsRoutes(
                 onOpenCustomization = { navController.navigate(Route.AppCustomization.route) },
                 onOpenAbout = { navController.navigate(Route.About.route) },
                 onOpenDataTransparency = { navController.navigate(Route.DataTransparency.route) },
+                onOpenDetectionCheck = { navController.navigate(Route.DetectionCheck.route) },
                 onShareDebugBundle = actions.onShareDebugBundle,
                 permissionSummary = mainUiState.permissionSummary,
                 onRepairPermission = actions.onRepairPermission,
@@ -382,6 +384,9 @@ private fun NavGraphBuilder.addSettingsRoutes(
         }
         composable(Route.DataTransparency.route) {
             DataTransparencyRoute(onBack = { navController.popBackStack() })
+        }
+        composable(Route.DetectionCheck.route) {
+            DetectionCheckRoute(onBack = { navController.popBackStack() })
         }
     }
 }
