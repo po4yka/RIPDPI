@@ -635,6 +635,14 @@ pub struct ProxyUiHostAutolearnConfig {
     pub store_path: Option<String>,
     #[serde(default)]
     pub network_scope_key: Option<String>,
+    /// When true (default), spawn a background warmup probe after VPN start to
+    /// pre-populate the autolearn table with commonly-blocked domains.
+    #[serde(default = "default_warmup_probe_enabled")]
+    pub warmup_probe_enabled: bool,
+}
+
+fn default_warmup_probe_enabled() -> bool {
+    true
 }
 
 impl Default for ProxyUiHostAutolearnConfig {
@@ -645,6 +653,7 @@ impl Default for ProxyUiHostAutolearnConfig {
             max_hosts: default_host_autolearn_max_hosts(),
             store_path: None,
             network_scope_key: None,
+            warmup_probe_enabled: default_warmup_probe_enabled(),
         }
     }
 }

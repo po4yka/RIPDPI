@@ -7,6 +7,7 @@ mod retry;
 mod routing;
 mod state;
 mod udp;
+mod warmup;
 
 use std::io;
 use std::net::TcpListener;

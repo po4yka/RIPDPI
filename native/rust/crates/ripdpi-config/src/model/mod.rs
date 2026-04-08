@@ -594,6 +594,11 @@ pub struct HostAutolearnSettings {
     pub penalty_ttl_secs: i64,
     pub max_hosts: usize,
     pub store_path: Option<String>,
+    /// When true (default), the runtime spawns a background warmup probe after
+    /// the proxy listener starts.  The probe attempts TLS connections to a small
+    /// set of commonly-blocked domains so that the autolearn table is populated
+    /// before user traffic arrives.
+    pub warmup_probe_enabled: bool,
 }
 
 impl RuntimeConfig {
@@ -1038,6 +1043,7 @@ mod tests {
             penalty_ttl_secs: 7200,
             max_hosts: 1024,
             store_path: Some("hosts.json".to_string()),
+            warmup_probe_enabled: true,
         };
 
         config.network = network.clone();

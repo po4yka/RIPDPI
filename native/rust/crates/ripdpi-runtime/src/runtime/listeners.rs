@@ -339,6 +339,8 @@ pub(super) fn run_proxy_with_listener_internal(
         flush_autolearn_updates(&state, &mut cache);
     }
 
+    super::warmup::spawn_warmup_thread(state.clone());
+
     let result = loop {
         let shutdown_requested =
             control.as_ref().map_or_else(process::shutdown_requested, |value| value.shutdown_requested());
