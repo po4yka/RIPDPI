@@ -351,6 +351,7 @@ internal fun AppSettings.toUiState(
         onboardingComplete = onboardingComplete,
         webrtcProtectionEnabled = webrtcProtectionEnabled,
         excludeRussianAppsEnabled = excludeRussianAppsEnabled,
+        fullTunnelMode = fullTunnelMode,
         biometricEnabled = biometricEnabled,
         biometricAvailability = biometricAvailability,
         backupPinHash = backupPin,

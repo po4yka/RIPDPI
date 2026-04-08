@@ -269,4 +269,7 @@ message AppSettings {
   string tls_fingerprint_profile = 204; // "native_default" | "chrome_stable" | "firefox_stable"
 
   bool exclude_russian_apps_enabled = 205;
+
+  // Anti-spy hardening: route all traffic through VPN with no app exclusions
+  bool full_tunnel_mode = 206;
 }

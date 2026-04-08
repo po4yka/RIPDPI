@@ -201,6 +201,7 @@ internal fun RipDpiSettingsMediumPreviewScene() {
             onThemeSelected = {},
             onWebRtcProtectionChanged = {},
             onExcludeRussianAppsChanged = {},
+            onFullTunnelModeChanged = {},
             onBiometricChanged = {},
             onSaveBackupPin = {},
         )
@@ -250,6 +251,7 @@ internal fun RipDpiSettingsDarkPreviewScene() {
             onThemeSelected = {},
             onWebRtcProtectionChanged = {},
             onExcludeRussianAppsChanged = {},
+            onFullTunnelModeChanged = {},
             onBiometricChanged = {},
             onSaveBackupPin = {},
         )

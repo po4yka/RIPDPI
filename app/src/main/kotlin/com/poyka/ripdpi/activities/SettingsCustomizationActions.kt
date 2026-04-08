@@ -32,6 +32,15 @@ internal class SettingsCustomizationActions(
         }
     }
 
+    fun setFullTunnelMode(enabled: Boolean) {
+        mutations.updateSetting(
+            key = "fullTunnelMode",
+            value = enabled.toString(),
+        ) {
+            setFullTunnelMode(enabled)
+        }
+    }
+
     fun setAppTheme(theme: String) {
         mutations.updateSetting(
             key = "appTheme",

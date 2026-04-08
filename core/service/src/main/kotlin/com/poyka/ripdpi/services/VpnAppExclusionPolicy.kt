@@ -24,8 +24,9 @@ class DefaultVpnAppExclusionPolicy
         override fun shouldExcludeOwnPackage(): Boolean = true
 
         override fun russianAppsToExclude(): List<String> {
-            val enabled = runBlocking { appSettingsRepository.snapshot().excludeRussianAppsEnabled }
-            return if (enabled) RUSSIAN_APP_PACKAGES else emptyList()
+            val settings = runBlocking { appSettingsRepository.snapshot() }
+            if (settings.fullTunnelMode) return emptyList()
+            return if (settings.excludeRussianAppsEnabled) RUSSIAN_APP_PACKAGES else emptyList()
         }
 
         companion object {

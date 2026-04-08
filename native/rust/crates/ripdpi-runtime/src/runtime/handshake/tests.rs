@@ -225,3 +225,34 @@ fn handle_client_sends_socks5_failure_reply_when_upstream_connect_fails() {
     assert_eq!(failure[0], S_VER5);
     assert_eq!(failure[1], S_ER_GEN);
 }
+
+#[test]
+fn validate_http_proxy_auth_valid() {
+    use base64::engine::{general_purpose::STANDARD, Engine};
+    let token = "abc123";
+    let encoded = STANDARD.encode(format!("ripdpi:{token}"));
+    let request = format!(
+        "CONNECT example.com:443 HTTP/1.1\r\nHost: example.com:443\r\nProxy-Authorization: Basic {encoded}\r\n\r\n"
+    );
+    assert!(validate_http_proxy_auth(request.as_bytes(), token));
+}
+
+#[test]
+fn validate_http_proxy_auth_missing_header() {
+    let request = b"CONNECT example.com:443 HTTP/1.1\r\nHost: example.com:443\r\n\r\n";
+    assert!(!validate_http_proxy_auth(request, "abc123"));
+}
+
+#[test]
+fn validate_http_proxy_auth_wrong_token() {
+    use base64::engine::{general_purpose::STANDARD, Engine};
+    let encoded = STANDARD.encode("ripdpi:wrong_token");
+    let request = format!("CONNECT example.com:443 HTTP/1.1\r\nProxy-Authorization: Basic {encoded}\r\n\r\n");
+    assert!(!validate_http_proxy_auth(request.as_bytes(), "correct_token"));
+}
+
+#[test]
+fn validate_http_proxy_auth_invalid_base64() {
+    let request = b"CONNECT example.com:443 HTTP/1.1\r\nProxy-Authorization: Basic !!!invalid!!!\r\n\r\n";
+    assert!(!validate_http_proxy_auth(request, "abc123"));
+}
