@@ -34,6 +34,14 @@ pub(crate) struct TlsObservation {
     pub(crate) observed_server_ttl: Option<u8>,
     pub(crate) estimated_hop_count: Option<u8>,
     pub(crate) ja3_fingerprint: Option<String>,
+    /// Numeric TLS alert code when the handshake fails with AlertReceived.
+    pub(crate) tls_alert_code: Option<u8>,
+    /// Human-readable alert description (e.g. "HandshakeFailure").
+    pub(crate) tls_alert_description: Option<String>,
+    /// Whether a ServerHello was received before the error occurred.
+    pub(crate) tls_server_hello_received: Option<bool>,
+    /// DPI firmware signature inferred from the alert code and timing.
+    pub(crate) tls_dpi_signature: Option<String>,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -172,6 +180,10 @@ pub(crate) fn try_tls_handshake(
                 observed_server_ttl,
                 estimated_hop_count,
                 ja3_fingerprint,
+                tls_alert_code: None,
+                tls_alert_description: None,
+                tls_server_hello_received: Some(true),
+                tls_dpi_signature: None,
             }
         }
         Err(err) => {
@@ -193,9 +205,16 @@ pub(crate) fn try_tls_handshake(
                     observed_server_ttl: None,
                     estimated_hop_count: None,
                     ja3_fingerprint: None,
+                    tls_alert_code: None,
+                    tls_alert_description: None,
+                    tls_server_hello_received: None,
+                    tls_dpi_signature: None,
                 };
             }
             let certificate_anomaly = is_certificate_error(&err);
+            let (tls_alert_code, tls_alert_description) = parse_alert_from_error(&err);
+            let tls_server_hello_received = Some(err.contains("AlertReceived"));
+            let tls_dpi_signature = tls_alert_code.and_then(|code| classify_tls_dpi_signature(code, None));
             TlsObservation {
                 status: if certificate_anomaly {
                     "tls_cert_invalid".to_string()
@@ -213,6 +232,10 @@ pub(crate) fn try_tls_handshake(
                 observed_server_ttl: None,
                 estimated_hop_count: None,
                 ja3_fingerprint: None,
+                tls_alert_code,
+                tls_alert_description,
+                tls_server_hello_received,
+                tls_dpi_signature,
             }
         }
     }
@@ -530,6 +553,75 @@ pub(crate) fn ech_status_label(status: EchStatus) -> String {
     }
 }
 
+/// Parse the TLS alert code and description from a stringified rustls error.
+/// Rustls formats `AlertReceived` as `"received fatal alert: {alert:?}"` where
+/// the alert Debug repr is the variant name (e.g. "HandshakeFailure").
+fn parse_alert_from_error(error: &str) -> (Option<u8>, Option<String>) {
+    const PREFIX: &str = "received fatal alert: ";
+    let Some(alert_name) = error.strip_prefix(PREFIX) else {
+        return (None, None);
+    };
+    let alert_name = alert_name.trim();
+    let code = match alert_name {
+        "CloseNotify" => 0x00,
+        "UnexpectedMessage" => 0x0a,
+        "BadRecordMac" => 0x14,
+        "DecryptionFailed" => 0x15,
+        "RecordOverflow" => 0x16,
+        "DecompressionFailure" => 0x1e,
+        "HandshakeFailure" => 0x28,
+        "NoCertificate" => 0x29,
+        "BadCertificate" => 0x2a,
+        "UnsupportedCertificate" => 0x2b,
+        "CertificateRevoked" => 0x2c,
+        "CertificateExpired" => 0x2d,
+        "CertificateUnknown" => 0x2e,
+        "IllegalParameter" => 0x2f,
+        "UnknownCA" => 0x30,
+        "AccessDenied" => 0x31,
+        "DecodeError" => 0x32,
+        "DecryptError" => 0x33,
+        "ExportRestriction" => 0x3c,
+        "ProtocolVersion" => 0x46,
+        "InsufficientSecurity" => 0x47,
+        "InternalError" => 0x50,
+        "InappropriateFallback" => 0x56,
+        "UserCanceled" => 0x5a,
+        "NoRenegotiation" => 0x64,
+        "MissingExtension" => 0x6d,
+        "UnsupportedExtension" => 0x6e,
+        "UnrecognisedName" => 0x70,
+        "BadCertificateStatusResponse" => 0x71,
+        "UnknownPSKIdentity" => 0x73,
+        "CertificateRequired" => 0x74,
+        "NoApplicationProtocol" => 0x78,
+        "EncryptedClientHelloRequired" => 0x79,
+        _ => return (None, Some(alert_name.to_string())),
+    };
+    (Some(code), Some(alert_name.to_string()))
+}
+
+/// Map a TLS alert code (with optional timing) to a DPI firmware signature.
+///
+/// Common patterns observed in Russian TSPU equipment:
+/// - Alert 0x28 (`HandshakeFailure`) with fast timing (<200ms) indicates a
+///   generic TSPU block injecting a TLS alert before the real server responds.
+/// - Alert 0x46 (`ProtocolVersion`) suggests the TSPU is performing a version
+///   downgrade attack, rejecting modern TLS versions.
+/// - Alert 0x70 (`UnrecognisedName`) indicates SNI-based blocking where the
+///   DPI device inspects the SNI extension and rejects blacklisted hostnames.
+fn classify_tls_dpi_signature(alert_code: u8, tls_handshake_ms: Option<u64>) -> Option<String> {
+    let fast_timing = tls_handshake_ms.is_some_and(|ms| ms < 200);
+    match alert_code {
+        0x28 if fast_timing => Some("tspu_generic_block".to_string()),
+        0x28 => Some("handshake_failure_slow".to_string()),
+        0x46 => Some("tspu_version_downgrade".to_string()),
+        0x70 => Some("sni_based_block".to_string()),
+        0x56 => Some("middlebox_fallback_reject".to_string()),
+        _ => None,
+    }
+}
+
 pub(crate) fn is_certificate_error(error: &str) -> bool {
     let lower = error.to_ascii_lowercase();
     lower.contains("certificate")
@@ -600,6 +692,10 @@ mod tests {
             observed_server_ttl: None,
             estimated_hop_count: None,
             ja3_fingerprint: None,
+            tls_alert_code: None,
+            tls_alert_description: None,
+            tls_server_hello_received: None,
+            tls_dpi_signature: None,
         }
     }
 
@@ -797,5 +893,65 @@ mod tests {
         let mut failed = obs("tls_handshake_failed", false);
         failed.error = Some("Connection reset by peer".to_string());
         assert!(!is_server_tls_version_rejection(&failed, &ok));
+    }
+
+    #[test]
+    fn parse_alert_handshake_failure() {
+        let (code, desc) = parse_alert_from_error("received fatal alert: HandshakeFailure");
+        assert_eq!(code, Some(0x28));
+        assert_eq!(desc.as_deref(), Some("HandshakeFailure"));
+    }
+
+    #[test]
+    fn parse_alert_protocol_version() {
+        let (code, desc) = parse_alert_from_error("received fatal alert: ProtocolVersion");
+        assert_eq!(code, Some(0x46));
+        assert_eq!(desc.as_deref(), Some("ProtocolVersion"));
+    }
+
+    #[test]
+    fn parse_alert_unrecognised_name() {
+        let (code, desc) = parse_alert_from_error("received fatal alert: UnrecognisedName");
+        assert_eq!(code, Some(0x70));
+        assert_eq!(desc.as_deref(), Some("UnrecognisedName"));
+    }
+
+    #[test]
+    fn parse_alert_returns_none_for_non_alert_error() {
+        let (code, desc) = parse_alert_from_error("connection timed out");
+        assert_eq!(code, None);
+        assert_eq!(desc, None);
+    }
+
+    #[test]
+    fn parse_alert_unknown_variant_returns_description_only() {
+        let (code, desc) = parse_alert_from_error("received fatal alert: SomeFutureAlert");
+        assert_eq!(code, None);
+        assert_eq!(desc.as_deref(), Some("SomeFutureAlert"));
+    }
+
+    #[test]
+    fn classify_dpi_signature_handshake_failure_fast() {
+        assert_eq!(classify_tls_dpi_signature(0x28, Some(50)), Some("tspu_generic_block".to_string()));
+    }
+
+    #[test]
+    fn classify_dpi_signature_handshake_failure_slow() {
+        assert_eq!(classify_tls_dpi_signature(0x28, Some(500)), Some("handshake_failure_slow".to_string()));
+    }
+
+    #[test]
+    fn classify_dpi_signature_protocol_version() {
+        assert_eq!(classify_tls_dpi_signature(0x46, None), Some("tspu_version_downgrade".to_string()));
+    }
+
+    #[test]
+    fn classify_dpi_signature_sni_block() {
+        assert_eq!(classify_tls_dpi_signature(0x70, None), Some("sni_based_block".to_string()));
+    }
+
+    #[test]
+    fn classify_dpi_signature_unknown_code() {
+        assert_eq!(classify_tls_dpi_signature(0x32, None), None);
     }
 }

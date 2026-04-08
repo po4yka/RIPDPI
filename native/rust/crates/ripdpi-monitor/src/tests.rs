@@ -329,6 +329,10 @@ fn tls_signal_reports_version_split_low_confidence() {
         observed_server_ttl: None,
         estimated_hop_count: None,
         ja3_fingerprint: None,
+        tls_alert_code: None,
+        tls_alert_description: None,
+        tls_server_hello_received: None,
+        tls_dpi_signature: None,
     };
     let tls12 = TlsObservation {
         status: "tls_ok".to_string(),
@@ -343,6 +347,10 @@ fn tls_signal_reports_version_split_low_confidence() {
         observed_server_ttl: None,
         estimated_hop_count: None,
         ja3_fingerprint: None,
+        tls_alert_code: None,
+        tls_alert_description: None,
+        tls_server_hello_received: None,
+        tls_dpi_signature: None,
     };
 
     assert_eq!(classify_tls_signal(&tls13, &tls12), "tls_version_split_low_confidence");

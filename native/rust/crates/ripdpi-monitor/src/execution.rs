@@ -692,6 +692,13 @@ pub(crate) fn run_https_strategy_probe(
     let estimated_hop_count = preferred.estimated_hop_count;
     let ja3_fingerprint = preferred.ja3_fingerprint.clone().or_else(|| tls12.ja3_fingerprint.clone());
 
+    // Extract TLS alert forensic fields from whichever observation has them (tls13 first).
+    let tls_alert_code = tls13.tls_alert_code.or(tls12.tls_alert_code);
+    let tls_alert_description = tls13.tls_alert_description.clone().or_else(|| tls12.tls_alert_description.clone());
+    let tls_server_hello_received = tls13.tls_server_hello_received.or(tls12.tls_server_hello_received);
+    let tls_dpi_signature = tls13.tls_dpi_signature.clone().or_else(|| tls12.tls_dpi_signature.clone());
+    let tls_negotiated_version = tls13.version.clone().or_else(|| tls12.version.clone());
+
     let mut details = vec![
         ProbeDetail { key: "candidateId".to_string(), value: candidate.id.to_string() },
         ProbeDetail { key: "candidateLabel".to_string(), value: candidate.label.to_string() },
@@ -739,6 +746,21 @@ pub(crate) fn run_https_strategy_probe(
     }
     if let Some(ja3) = ja3_fingerprint {
         details.push(ProbeDetail { key: "ja3Fingerprint".to_string(), value: ja3 });
+    }
+    if let Some(code) = tls_alert_code {
+        details.push(ProbeDetail { key: "tlsAlertCode".to_string(), value: code.to_string() });
+    }
+    if let Some(desc) = tls_alert_description {
+        details.push(ProbeDetail { key: "tlsAlertDescription".to_string(), value: desc });
+    }
+    if let Some(version) = tls_negotiated_version {
+        details.push(ProbeDetail { key: "tlsNegotiatedVersion".to_string(), value: version });
+    }
+    if let Some(server_hello) = tls_server_hello_received {
+        details.push(ProbeDetail { key: "tlsServerHelloReceived".to_string(), value: server_hello.to_string() });
+    }
+    if let Some(sig) = tls_dpi_signature {
+        details.push(ProbeDetail { key: "tlsDpiSignature".to_string(), value: sig });
     }
 
     // On total TLS failure, perform a single retry to distinguish consistent
