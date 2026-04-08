@@ -1714,5 +1714,8 @@ fakeddisorder endhost</string>
     <string name="detection_auto_tune_title">Рекомендуемые исправления</string>
     <string name="detection_auto_tune_apply">Применить все исправления</string>
     <string name="detection_history_title">История</string>
+    <string name="detection_check_category_dns_leak">Утечка DNS</string>
+    <string name="detection_check_category_webrtc">Утечка WebRTC</string>
+    <string name="detection_check_category_tls">TLS отпечаток</string>
 
 </resources>

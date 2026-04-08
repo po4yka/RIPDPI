@@ -13,6 +13,11 @@ object DetectionReportFormatter {
             appendCategory("Indirect Signs", result.indirectSigns)
             appendCategory("Location Signals", result.locationSignals)
             appendBypass(result.bypassResult)
+            result.dnsLeak?.let { appendCategory("DNS Leak", it) }
+            result.webRtcLeak?.let { appendCategory("WebRTC Leak", it) }
+            result.tlsFingerprint?.let { appendCategory("TLS Fingerprint", it) }
+
+            appendLine("Methodology: ${result.methodologyVersion}")
 
             val recommendations = DetectionRecommendations.generate(result)
             if (recommendations.isNotEmpty()) {

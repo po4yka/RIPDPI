@@ -3,10 +3,13 @@ package com.poyka.ripdpi.core.detection
 import android.content.Context
 import com.poyka.ripdpi.core.detection.checker.BypassChecker
 import com.poyka.ripdpi.core.detection.checker.DirectSignsChecker
+import com.poyka.ripdpi.core.detection.checker.DnsLeakChecker
 import com.poyka.ripdpi.core.detection.checker.GeoIpChecker
 import com.poyka.ripdpi.core.detection.checker.IndirectSignsChecker
 import com.poyka.ripdpi.core.detection.checker.LocationSignalsChecker
+import com.poyka.ripdpi.core.detection.checker.TlsFingerprintChecker
 import com.poyka.ripdpi.core.detection.checker.VerdictEngine
+import com.poyka.ripdpi.core.detection.checker.WebRtcLeakChecker
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 
@@ -15,6 +18,12 @@ data class DetectionRunnerConfig(
     val ownPackageName: String? = null,
     val includeBypassCheck: Boolean = true,
     val includeLocationCheck: Boolean = true,
+    val includeDnsLeakCheck: Boolean = true,
+    val includeWebRtcCheck: Boolean = true,
+    val includeTlsFingerprintCheck: Boolean = true,
+    val encryptedDnsEnabled: Boolean = false,
+    val webRtcProtectionEnabled: Boolean = false,
+    val tlsFingerprintProfile: String = "native_default",
 )
 
 enum class DetectionStage {
@@ -23,6 +32,9 @@ enum class DetectionStage {
     INDIRECT_SIGNS,
     LOCATION_SIGNALS,
     BYPASS,
+    DNS_LEAK,
+    WEBRTC_LEAK,
+    TLS_FINGERPRINT,
 }
 
 data class DetectionProgress(
@@ -163,6 +175,63 @@ object DetectionRunner {
                     null
                 }
 
+            val dnsLeakDeferred =
+                if (config.includeDnsLeakCheck) {
+                    async {
+                        DnsLeakChecker.check(context, config.encryptedDnsEnabled).also {
+                            completed.add(DetectionStage.DNS_LEAK)
+                            onProgress?.invoke(
+                                DetectionProgress(
+                                    DetectionStage.DNS_LEAK,
+                                    "DNS Leak",
+                                    "Done",
+                                    completedStages = completed.toSet(),
+                                ),
+                            )
+                        }
+                    }
+                } else {
+                    null
+                }
+
+            val webRtcDeferred =
+                if (config.includeWebRtcCheck) {
+                    async {
+                        WebRtcLeakChecker.check(config.webRtcProtectionEnabled).also {
+                            completed.add(DetectionStage.WEBRTC_LEAK)
+                            onProgress?.invoke(
+                                DetectionProgress(
+                                    DetectionStage.WEBRTC_LEAK,
+                                    "WebRTC Leak",
+                                    "Done",
+                                    completedStages = completed.toSet(),
+                                ),
+                            )
+                        }
+                    }
+                } else {
+                    null
+                }
+
+            val tlsFingerprintDeferred =
+                if (config.includeTlsFingerprintCheck) {
+                    async {
+                        TlsFingerprintChecker.check(config.tlsFingerprintProfile).also {
+                            completed.add(DetectionStage.TLS_FINGERPRINT)
+                            onProgress?.invoke(
+                                DetectionProgress(
+                                    DetectionStage.TLS_FINGERPRINT,
+                                    "TLS Fingerprint",
+                                    "Done",
+                                    completedStages = completed.toSet(),
+                                ),
+                            )
+                        }
+                    }
+                } else {
+                    null
+                }
+
             val geoIp = geoIpDeferred.await()
             val directSigns = directSignsDeferred.await()
             val indirectSigns = indirectSignsDeferred.await()
@@ -182,6 +251,10 @@ object DetectionRunner {
                     detected = false,
                 )
 
+            val dnsLeak = dnsLeakDeferred?.await()
+            val webRtcLeak = webRtcDeferred?.await()
+            val tlsFingerprint = tlsFingerprintDeferred?.await()
+
             val verdict =
                 VerdictEngine.evaluate(
                     geoIp = geoIp,
@@ -197,6 +270,9 @@ object DetectionRunner {
                 indirectSigns = indirectSigns,
                 locationSignals = locationSignals,
                 bypassResult = bypassResult,
+                dnsLeak = dnsLeak,
+                webRtcLeak = webRtcLeak,
+                tlsFingerprint = tlsFingerprint,
                 verdict = verdict,
             )
         }

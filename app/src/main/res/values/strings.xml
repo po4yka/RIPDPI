@@ -1945,4 +1945,7 @@ Source: %2$s</string>
     <string name="detection_auto_tune_title">Suggested fixes</string>
     <string name="detection_auto_tune_apply">Apply all fixes</string>
     <string name="detection_history_title">History</string>
+    <string name="detection_check_category_dns_leak">DNS Leak</string>
+    <string name="detection_check_category_webrtc">WebRTC Leak</string>
+    <string name="detection_check_category_tls">TLS Fingerprint</string>
 </resources>

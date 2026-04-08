@@ -103,5 +103,9 @@ data class DetectionCheckResult(
     val indirectSigns: CategoryResult,
     val locationSignals: CategoryResult,
     val bypassResult: BypassResult,
+    val dnsLeak: CategoryResult? = null,
+    val webRtcLeak: CategoryResult? = null,
+    val tlsFingerprint: CategoryResult? = null,
     val verdict: Verdict,
+    val methodologyVersion: String = MethodologyVersion.CURRENT,
 )

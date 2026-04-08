@@ -6,9 +6,11 @@ import android.content.Context
 import android.os.Build
 import androidx.core.app.NotificationCompat
 import com.poyka.ripdpi.data.AppStatus
+import com.poyka.ripdpi.data.NetworkFingerprintProvider
 import com.poyka.ripdpi.data.ServiceStateStore
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.distinctUntilChangedBy
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.launch
@@ -20,8 +22,10 @@ class DetectionCheckScheduler
     @Inject
     constructor(
         private val serviceStateStore: ServiceStateStore,
+        private val networkFingerprintProvider: NetworkFingerprintProvider,
     ) {
         private var observeJob: Job? = null
+        private var handoverJob: Job? = null
 
         fun startObserving(
             context: Context,
@@ -39,9 +43,39 @@ class DetectionCheckScheduler
                 }
         }
 
+        fun observeNetworkChanges(
+            context: Context,
+            scope: CoroutineScope,
+            handoverEvents: SharedFlow<*>,
+        ) {
+            if (handoverJob != null) return
+            handoverJob =
+                scope.launch {
+                    handoverEvents.collect {
+                        if (serviceStateStore.status.value.first == AppStatus.Running) {
+                            runQuickCheck(context)
+                        }
+                    }
+                }
+        }
+
         fun stopObserving() {
             observeJob?.cancel()
             observeJob = null
+            handoverJob?.cancel()
+            handoverJob = null
+        }
+
+        private fun currentNetworkFingerprint(): String {
+            val fingerprint = networkFingerprintProvider.capture()
+            return fingerprint?.scopeKey() ?: "unknown"
+        }
+
+        private fun currentNetworkSummary(): String {
+            val fingerprint = networkFingerprintProvider.capture()
+            return fingerprint?.summary()?.let { summary ->
+                "${summary.transport}/${summary.identityKind}"
+            } ?: "Unknown network"
         }
 
         private suspend fun runQuickCheck(context: Context) {
@@ -51,6 +85,9 @@ class DetectionCheckScheduler
                         ownPackageName = context.packageName,
                         includeBypassCheck = false,
                         includeLocationCheck = false,
+                        includeDnsLeakCheck = false,
+                        includeWebRtcCheck = false,
+                        includeTlsFingerprintCheck = false,
                     )
                 val result = DetectionRunner.run(context = context, config = config)
                 val score = StealthScore.compute(result)
@@ -62,8 +99,8 @@ class DetectionCheckScheduler
                 val historyStore = DetectionHistoryStore(context)
                 historyStore.save(
                     DetectionHistoryEntry(
-                        networkFingerprint = "auto_vpn_start",
-                        networkSummary = "VPN start check",
+                        networkFingerprint = currentNetworkFingerprint(),
+                        networkSummary = currentNetworkSummary(),
                         timestamp = System.currentTimeMillis(),
                         verdict = result.verdict.name,
                         stealthScore = score,

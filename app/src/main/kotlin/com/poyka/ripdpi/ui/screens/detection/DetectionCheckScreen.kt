@@ -275,6 +275,15 @@ private fun DetectionCheckScreen(
                     result.locationSignals,
                 )
                 BypassCard(result)
+                result.dnsLeak?.let {
+                    CategoryCard(stringResource(R.string.detection_check_category_dns_leak), it)
+                }
+                result.webRtcLeak?.let {
+                    CategoryCard(stringResource(R.string.detection_check_category_webrtc), it)
+                }
+                result.tlsFingerprint?.let {
+                    CategoryCard(stringResource(R.string.detection_check_category_tls), it)
+                }
             }
 
             if (uiState.history.isNotEmpty()) {

@@ -52,6 +52,7 @@ class DetectionCheckViewModel
     constructor(
         private val application: Application,
         private val appSettingsRepository: AppSettingsRepository,
+        private val networkFingerprintProvider: com.poyka.ripdpi.data.NetworkFingerprintProvider,
     ) : AndroidViewModel(application) {
         private val _uiState = MutableStateFlow(DetectionCheckUiState())
         val uiState: StateFlow<DetectionCheckUiState> = _uiState.asStateFlow()
@@ -137,6 +138,11 @@ class DetectionCheckViewModel
                             DetectionRunnerConfig(
                                 ownProxyPort = settings.proxyPort.takeIf { it > 0 },
                                 ownPackageName = application.packageName,
+                                encryptedDnsEnabled = settings.dnsMode == "encrypted",
+                                webRtcProtectionEnabled = settings.webrtcProtectionEnabled,
+                                tlsFingerprintProfile =
+                                    settings.tlsFingerprintProfile
+                                        .ifEmpty { "native_default" },
                             )
                         val result =
                             DetectionRunner.run(
@@ -231,9 +237,11 @@ class DetectionCheckViewModel
         ) {
             val entry =
                 DetectionHistoryEntry(
-                    networkFingerprint = "current",
+                    networkFingerprint = networkFingerprintProvider.capture()?.scopeKey() ?: "unknown",
                     networkSummary =
-                        result.geoIp.findings
+                        networkFingerprintProvider.capture()?.summary()?.let {
+                            "${it.transport}/${it.identityKind}"
+                        } ?: result.geoIp.findings
                             .firstOrNull { it.description.startsWith("ISP:") }
                             ?.description
                             ?.removePrefix("ISP: ") ?: "Unknown",
