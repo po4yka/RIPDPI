@@ -1934,4 +1934,11 @@ Source: %2$s</string>
     <string name="detection_check_recommendations">Recommendations</string>
     <string name="detection_check_copy">Copy</string>
     <string name="detection_check_share">Share</string>
+    <string name="detection_onboarding_title">Detection Check</string>
+    <string name="detection_onboarding_body">For best accuracy, this check needs additional permissions:\n\n\u2022 Phone state \u2014 determines the cellular operator country code for comparison with IP geolocation.\n\n\u2022 Location \u2014 reads the Wi-Fi access point identifier (BSSID) for location verification.\n\nThe check works without these permissions, but with reduced accuracy.</string>
+    <string name="detection_onboarding_allow">Allow</string>
+    <string name="detection_onboarding_skip">Skip</string>
+    <string name="detection_permission_rationale">Optional permissions improve detection accuracy. Grant them for better results.</string>
+    <string name="detection_permission_settings">Permissions were denied. Open settings to grant them manually.</string>
+    <string name="detection_permission_open_settings">Open Settings</string>
 </resources>

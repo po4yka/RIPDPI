@@ -17,34 +17,116 @@ data class DetectionRunnerConfig(
     val includeLocationCheck: Boolean = true,
 )
 
-object DetectionRunner {
-    data class Progress(
-        val stage: String,
-        val detail: String,
-    )
+enum class DetectionStage {
+    GEO_IP,
+    DIRECT_SIGNS,
+    INDIRECT_SIGNS,
+    LOCATION_SIGNALS,
+    BYPASS,
+}
 
+data class DetectionProgress(
+    val stage: DetectionStage,
+    val label: String,
+    val detail: String,
+    val completedStages: Set<DetectionStage> = emptySet(),
+)
+
+object DetectionRunner {
     suspend fun run(
         context: Context,
         config: DetectionRunnerConfig = DetectionRunnerConfig(),
-        onProgress: (suspend (Progress) -> Unit)? = null,
+        onProgress: (suspend (DetectionProgress) -> Unit)? = null,
     ): DetectionCheckResult =
         coroutineScope {
             val excludePackage = config.ownPackageName ?: context.packageName
             val excludePorts = setOfNotNull(config.ownProxyPort)
+            val completed = mutableSetOf<DetectionStage>()
 
-            onProgress?.invoke(Progress("GeoIP", "Checking IP geolocation..."))
-            val geoIpDeferred = async { GeoIpChecker.check() }
+            onProgress?.invoke(
+                DetectionProgress(DetectionStage.GEO_IP, "GeoIP", "Checking IP geolocation..."),
+            )
+            val geoIpDeferred =
+                async {
+                    GeoIpChecker.check().also {
+                        completed.add(DetectionStage.GEO_IP)
+                        onProgress?.invoke(
+                            DetectionProgress(
+                                DetectionStage.GEO_IP,
+                                "GeoIP",
+                                "Done",
+                                completedStages = completed.toSet(),
+                            ),
+                        )
+                    }
+                }
 
-            onProgress?.invoke(Progress("Direct signs", "Checking VPN transport and installed apps..."))
-            val directSignsDeferred = async { DirectSignsChecker.check(context, excludePackage) }
+            onProgress?.invoke(
+                DetectionProgress(
+                    DetectionStage.DIRECT_SIGNS,
+                    "Direct signs",
+                    "Checking VPN transport and installed apps...",
+                ),
+            )
+            val directSignsDeferred =
+                async {
+                    DirectSignsChecker.check(context, excludePackage).also {
+                        completed.add(DetectionStage.DIRECT_SIGNS)
+                        onProgress?.invoke(
+                            DetectionProgress(
+                                DetectionStage.DIRECT_SIGNS,
+                                "Direct signs",
+                                "Done",
+                                completedStages = completed.toSet(),
+                            ),
+                        )
+                    }
+                }
 
-            onProgress?.invoke(Progress("Indirect signs", "Checking network interfaces and DNS..."))
-            val indirectSignsDeferred = async { IndirectSignsChecker.check(context) }
+            onProgress?.invoke(
+                DetectionProgress(
+                    DetectionStage.INDIRECT_SIGNS,
+                    "Indirect signs",
+                    "Checking network interfaces and DNS...",
+                ),
+            )
+            val indirectSignsDeferred =
+                async {
+                    IndirectSignsChecker.check(context).also {
+                        completed.add(DetectionStage.INDIRECT_SIGNS)
+                        onProgress?.invoke(
+                            DetectionProgress(
+                                DetectionStage.INDIRECT_SIGNS,
+                                "Indirect signs",
+                                "Done",
+                                completedStages = completed.toSet(),
+                            ),
+                        )
+                    }
+                }
 
             val locationSignalsDeferred =
                 if (config.includeLocationCheck) {
-                    onProgress?.invoke(Progress("Location", "Checking cellular signals..."))
-                    async { LocationSignalsChecker.check(context) }
+                    onProgress?.invoke(
+                        DetectionProgress(
+                            DetectionStage.LOCATION_SIGNALS,
+                            "Location",
+                            "Checking cellular signals...",
+                        ),
+                    )
+                    async {
+                        LocationSignalsChecker.check(context).also {
+                            completed.add(DetectionStage.LOCATION_SIGNALS)
+                            onProgress?.invoke(
+                                DetectionProgress(
+                                    DetectionStage.LOCATION_SIGNALS,
+                                    "Location",
+                                    "Done",
+                                    completedStages = completed.toSet(),
+                                ),
+                            )
+                        }
+                    }
                 } else {
                     null
                 }
@@ -52,12 +134,30 @@ object DetectionRunner {
             val bypassDeferred =
                 if (config.includeBypassCheck) {
                     async {
-                        BypassChecker.check(
-                            excludePorts = excludePorts,
-                            onProgress = { progress ->
-                                onProgress?.invoke(Progress("Bypass: ${progress.phase}", progress.detail))
-                            },
-                        )
+                        BypassChecker
+                            .check(
+                                excludePorts = excludePorts,
+                                onProgress = { progress ->
+                                    onProgress?.invoke(
+                                        DetectionProgress(
+                                            DetectionStage.BYPASS,
+                                            "Bypass: ${progress.phase}",
+                                            progress.detail,
+                                            completedStages = completed.toSet(),
+                                        ),
+                                    )
+                                },
+                            ).also {
+                                completed.add(DetectionStage.BYPASS)
+                                onProgress?.invoke(
+                                    DetectionProgress(
+                                        DetectionStage.BYPASS,
+                                        "Bypass",
+                                        "Done",
+                                        completedStages = completed.toSet(),
+                                    ),
+                                )
+                            }
                     }
                 } else {
                     null

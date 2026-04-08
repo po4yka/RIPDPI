@@ -1703,5 +1703,12 @@ fakeddisorder endhost</string>
     <string name="detection_check_recommendations">Рекомендации</string>
     <string name="detection_check_copy">Копировать</string>
     <string name="detection_check_share">Поделиться</string>
+    <string name="detection_onboarding_title">Проверка обнаружения</string>
+    <string name="detection_onboarding_body">Для повышения точности проверке нужны дополнительные разрешения:\n\n\u2022 Состояние телефона \u2014 определяет страну сотового оператора для сравнения с IP-геолокацией.\n\n\u2022 Местоположение \u2014 считывает идентификатор Wi-Fi точки доступа (BSSID) для уточнения местоположения.\n\nБез этих разрешений проверка работает, но с меньшей точностью.</string>
+    <string name="detection_onboarding_allow">Разрешить</string>
+    <string name="detection_onboarding_skip">Пропустить</string>
+    <string name="detection_permission_rationale">Дополнительные разрешения повышают точность проверки. Выдайте их для лучших результатов.</string>
+    <string name="detection_permission_settings">Разрешения были отклонены. Откройте настройки, чтобы выдать их вручную.</string>
+    <string name="detection_permission_open_settings">Открыть настройки</string>
 
 </resources>
