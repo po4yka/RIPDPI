@@ -295,7 +295,9 @@ private fun DetectionCheckScreen(
             }
 
             uiState.communityStats?.let { stats ->
-                CommunityStatsCard(stats = stats, enabled = uiState.communityEnabled)
+                if (stats.totalReports > 0) {
+                    CommunityStatsCard(stats = stats)
+                }
             }
 
             Spacer(modifier = Modifier.height(16.dp))
@@ -671,10 +673,13 @@ private fun formatTimestamp(millis: Long): String {
 }
 
 @Composable
-private fun CommunityStatsCard(
-    stats: CommunityStats,
-    enabled: Boolean,
-) {
+private fun CommunityStatsCard(stats: CommunityStats) {
+    val title =
+        if (stats.isLocalOnly) {
+            stringResource(R.string.detection_community_local_title)
+        } else {
+            stringResource(R.string.detection_community_title)
+        }
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors =
@@ -683,42 +688,31 @@ private fun CommunityStatsCard(
             ),
     ) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(text = title, style = MaterialTheme.typography.titleSmall)
             Text(
-                text = stringResource(R.string.detection_community_title),
-                style = MaterialTheme.typography.titleSmall,
+                text = stringResource(R.string.detection_community_reports, stats.totalReports),
+                style = MaterialTheme.typography.bodyMedium,
             )
-            if (!enabled) {
+            if (stats.averageStealthScore > 0) {
                 Text(
-                    text = stringResource(R.string.detection_community_disabled),
+                    text =
+                        stringResource(
+                            R.string.detection_community_avg_score,
+                            stats.averageStealthScore.toInt(),
+                        ),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-            } else {
+            }
+            val detected = stats.verdictDistribution["DETECTED"] ?: 0
+            if (stats.totalReports > 0) {
+                val pct = (detected * 100.0 / stats.totalReports).toInt()
                 Text(
-                    text = stringResource(R.string.detection_community_reports, stats.totalReports),
-                    style = MaterialTheme.typography.bodyMedium,
+                    text = stringResource(R.string.detection_community_detected_pct, pct),
+                    style = MaterialTheme.typography.bodySmall,
+                    fontWeight = FontWeight.SemiBold,
+                    color = if (pct > 50) colorDetected else colorOk,
                 )
-                if (stats.averageStealthScore > 0) {
-                    Text(
-                        text =
-                            stringResource(
-                                R.string.detection_community_avg_score,
-                                stats.averageStealthScore.toInt(),
-                            ),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-                val detected = stats.verdictDistribution["DETECTED"] ?: 0
-                if (stats.totalReports > 0) {
-                    val pct = (detected * 100.0 / stats.totalReports).toInt()
-                    Text(
-                        text = stringResource(R.string.detection_community_detected_pct, pct),
-                        style = MaterialTheme.typography.bodySmall,
-                        fontWeight = FontWeight.SemiBold,
-                        color = if (pct > 50) colorDetected else colorOk,
-                    )
-                }
             }
         }
     }

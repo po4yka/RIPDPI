@@ -29,17 +29,6 @@ class CommunityComparisonStore(
             .apply()
     }
 
-    fun canSubmit(networkFingerprint: String): Boolean {
-        val lastSubmitKey = "$KEY_LAST_SUBMIT_PREFIX$networkFingerprint"
-        val lastSubmit = prefs.getLong(lastSubmitKey, 0)
-        return System.currentTimeMillis() - lastSubmit > SUBMIT_COOLDOWN_MS
-    }
-
-    fun markSubmitted(networkFingerprint: String) {
-        val lastSubmitKey = "$KEY_LAST_SUBMIT_PREFIX$networkFingerprint"
-        prefs.edit().putLong(lastSubmitKey, System.currentTimeMillis()).apply()
-    }
-
     fun clear() {
         prefs.edit().clear().apply()
     }
@@ -48,8 +37,6 @@ class CommunityComparisonStore(
         private const val PREFS_NAME = "community_comparison"
         private const val KEY_CACHED_STATS = "cached_stats"
         private const val KEY_STATS_CACHED_AT = "stats_cached_at"
-        private const val KEY_LAST_SUBMIT_PREFIX = "last_submit_"
         private const val CACHE_TTL_MS = 3600_000L
-        private const val SUBMIT_COOLDOWN_MS = 86400_000L
     }
 }

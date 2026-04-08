@@ -1950,10 +1950,8 @@ Source: %2$s</string>
     <string name="detection_check_category_tls">TLS Fingerprint</string>
     <string name="detection_check_category_timing">Timing Analysis</string>
     <string name="detection_community_title">Community</string>
-    <string name="detection_community_disabled">Enable anonymous sharing in Settings to see community stats.</string>
-    <string name="detection_community_reports">%d reports from the community</string>
+    <string name="detection_community_local_title">Your Stats</string>
+    <string name="detection_community_reports">%d checks recorded</string>
     <string name="detection_community_avg_score">Average stealth score: %d/100</string>
-    <string name="detection_community_detected_pct">%d%% of users detected</string>
-    <string name="detection_community_toggle">Anonymous detection sharing</string>
-    <string name="detection_community_toggle_body">Share anonymized detection results to help the community.</string>
+    <string name="detection_community_detected_pct">%d%% of checks detected</string>
 </resources>

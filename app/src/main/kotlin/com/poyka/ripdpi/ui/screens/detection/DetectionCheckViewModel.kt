@@ -24,7 +24,6 @@ import com.poyka.ripdpi.core.detection.StealthScore
 import com.poyka.ripdpi.core.detection.community.CommunityComparisonClient
 import com.poyka.ripdpi.core.detection.community.CommunityComparisonStore
 import com.poyka.ripdpi.core.detection.community.CommunityStats
-import com.poyka.ripdpi.core.detection.community.CommunitySubmission
 import com.poyka.ripdpi.data.AppSettingsRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
@@ -50,7 +49,6 @@ data class DetectionCheckUiState(
     val missingPermissions: List<String> = emptyList(),
     val history: List<DetectionHistoryEntry> = emptyList(),
     val communityStats: CommunityStats? = null,
-    val communityEnabled: Boolean = false,
 )
 
 @HiltViewModel
@@ -93,64 +91,31 @@ class DetectionCheckViewModel
         }
 
         private fun loadCommunityState() {
-            viewModelScope.launch {
-                val settings = appSettingsRepository.settings.first()
-                val enabled = settings.communityComparisonEnabled
-                val cached = communityStore.getCachedStats()
-                _uiState.value =
-                    _uiState.value.copy(
-                        communityEnabled = enabled,
-                        communityStats = cached,
-                    )
+            val cached = communityStore.getCachedStats()
+            if (cached != null) {
+                _uiState.value = _uiState.value.copy(communityStats = cached)
+            } else {
+                val localStats = CommunityComparisonClient.computeLocalStats(historyStore)
+                if (localStats.totalReports > 0) {
+                    _uiState.value = _uiState.value.copy(communityStats = localStats)
+                }
             }
         }
 
-        private fun submitToCommunity(
-            result: DetectionCheckResult,
-            score: Int,
-            fingerprint: String,
-        ) {
+        private fun refreshCommunityStats() {
             viewModelScope.launch {
+                val localStats = CommunityComparisonClient.computeLocalStats(historyStore)
+                _uiState.value = _uiState.value.copy(communityStats = localStats)
+
                 val settings = appSettingsRepository.settings.first()
-                if (!settings.communityComparisonEnabled) return@launch
-                val apiUrl = settings.communityApiUrl
-                if (apiUrl.isBlank()) return@launch
-                if (!communityStore.canSubmit(fingerprint)) return@launch
-
-                val countryCode =
-                    result.geoIp.findings
-                        .firstOrNull { it.description.contains("Country:") }
-                        ?.description
-                        ?.substringAfter("(")
-                        ?.substringBefore(")")
-                        ?: "unknown"
-
-                val ispCategory =
-                    when {
-                        result.geoIp.evidence.any { it.description.contains("hosting") } -> "hosting"
-                        result.geoIp.evidence.any { it.description.contains("proxy") } -> "proxy"
-                        else -> "residential"
+                val statsUrl =
+                    settings.communityApiUrl.ifBlank {
+                        CommunityComparisonClient.DEFAULT_STATS_URL
                     }
-
-                val submission =
-                    CommunitySubmission(
-                        fingerprintHash = fingerprint,
-                        verdict = result.verdict.name,
-                        stealthScore = score,
-                        countryCode = countryCode,
-                        ispCategory = ispCategory,
-                        methodologyVersion = result.methodologyVersion,
-                        checkerCount = MethodologyVersion.CHECKER_COUNT,
-                        timestamp = System.currentTimeMillis(),
-                    )
-
-                val client = CommunityComparisonClient(apiUrl)
-                client.submit(submission).onSuccess {
-                    communityStore.markSubmitted(fingerprint)
-                }
-                client.fetchStats().onSuccess { stats ->
-                    communityStore.cacheStats(stats)
-                    _uiState.value = _uiState.value.copy(communityStats = stats)
+                val client = CommunityComparisonClient()
+                client.fetchStats(statsUrl).onSuccess { remoteStats ->
+                    communityStore.cacheStats(remoteStats)
+                    _uiState.value = _uiState.value.copy(communityStats = remoteStats)
                 }
             }
         }
@@ -240,8 +205,7 @@ class DetectionCheckViewModel
                             )
 
                         saveToHistory(result, score)
-                        val fingerprint = networkFingerprintProvider.capture()?.scopeKey() ?: "unknown"
-                        submitToCommunity(result, score, fingerprint)
+                        refreshCommunityStats()
 
                         _uiState.value =
                             _uiState.value.copy(
