@@ -50,6 +50,7 @@ class SettingsPreferencesScreenTest {
                     onOpenVpnPermissionDialog = {},
                     onThemeSelected = {},
                     onWebRtcProtectionChanged = {},
+                    onExcludeRussianAppsChanged = {},
                     onBiometricChanged = {},
                     onSaveBackupPin = {},
                 )
@@ -99,6 +100,7 @@ class SettingsPreferencesScreenTest {
                     onOpenVpnPermissionDialog = {},
                     onThemeSelected = {},
                     onWebRtcProtectionChanged = {},
+                    onExcludeRussianAppsChanged = {},
                     onBiometricChanged = {},
                     onSaveBackupPin = {},
                 )
