@@ -104,8 +104,8 @@ fn handle_connection(stream: &std::os::unix::net::UnixStream) -> io::Result<()> 
         }
     }
 
-    let json = serde_json::to_vec(&response)
-        .map_err(|e| io::Error::new(io::ErrorKind::Other, format!("failed to serialize response: {e}")))?;
+    let json =
+        serde_json::to_vec(&response).map_err(|e| io::Error::other(format!("failed to serialize response: {e}")))?;
 
     protocol::send_message(stream, &json, reply_fd)?;
 
@@ -189,14 +189,11 @@ fn parse_args() -> String {
 
     let mut i = 1;
     while i < args.len() {
-        match args[i].as_str() {
-            "--socket" => {
-                i += 1;
-                if i < args.len() {
-                    socket_path = Some(args[i].clone());
-                }
+        if args[i].as_str() == "--socket" {
+            i += 1;
+            if i < args.len() {
+                socket_path = Some(args[i].clone());
             }
-            _ => {}
         }
         i += 1;
     }

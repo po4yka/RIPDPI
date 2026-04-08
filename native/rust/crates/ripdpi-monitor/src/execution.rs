@@ -161,9 +161,10 @@ pub(crate) fn execute_tcp_candidate(
                         .map(|target| {
                             let transport = transport.clone();
                             s.spawn(move || {
-                                let mut samples = Vec::new();
-                                samples.push(run_http_strategy_probe(&transport, target, spec));
-                                samples.push(run_https_strategy_probe(&transport, target, spec, tls_verifier));
+                                let samples = vec![
+                                    run_http_strategy_probe(&transport, target, spec),
+                                    run_https_strategy_probe(&transport, target, spec, tls_verifier),
+                                ];
                                 samples
                             })
                         })
@@ -272,7 +273,7 @@ pub(crate) fn probe_runtime_transport(
     })?;
     let _ = ripdpi_proxy_config::presets::apply_runtime_preset("ripdpi_default", &mut config);
     config.network.listen.listen_port = 0;
-    if let Some(ref ctx) = runtime_context {
+    if let Some(ctx) = runtime_context {
         if let Some(ref path) = ctx.protect_path {
             config.process.protect_path = Some(path.clone());
         }

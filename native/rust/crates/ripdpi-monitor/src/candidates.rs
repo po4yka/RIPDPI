@@ -575,10 +575,7 @@ fn config_requires_fake_ttl(config: &ProxyUiConfig) -> bool {
 /// this function returns `false` in that environment.
 pub(crate) fn probe_fake_ttl_capability() -> bool {
     use std::net::TcpListener;
-    let listener = match TcpListener::bind("127.0.0.1:0") {
-        Ok(l) => l,
-        Err(_) => return false,
-    };
+    let Ok(listener) = TcpListener::bind("127.0.0.1:0") else { return false };
     let result = listener.set_ttl(1);
     // Restore a sane TTL regardless of outcome — we borrowed the socket briefly.
     let _ = listener.set_ttl(64);
@@ -936,10 +933,7 @@ fn supports_udp_ip_fragmentation() -> bool {
 }
 
 pub(crate) fn probe_tcp_fast_open_capability() -> bool {
-    let socket = match Socket::new(Domain::IPV4, Type::STREAM, Some(Protocol::TCP)) {
-        Ok(value) => value,
-        Err(_) => return false,
-    };
+    let Ok(socket) = Socket::new(Domain::IPV4, Type::STREAM, Some(Protocol::TCP)) else { return false };
     ripdpi_runtime::platform::enable_tcp_fastopen_connect(&socket).is_ok()
 }
 

@@ -38,7 +38,7 @@ impl ProtectCallback for JniProtectCallback {
                     &self.vpn_service,
                     jni::jni_str!("protect"),
                     jni::jni_sig!("(I)Z"),
-                    &[JValue::Int(fd as i32)],
+                    &[JValue::Int(fd)],
                 )?;
                 ret.z()
             });
@@ -46,7 +46,7 @@ impl ProtectCallback for JniProtectCallback {
         match result {
             Ok(true) => Ok(()),
             Ok(false) => Err(io::Error::new(io::ErrorKind::PermissionDenied, "VpnService.protect() returned false")),
-            Err(e) => Err(io::Error::new(io::ErrorKind::Other, e.to_string())),
+            Err(e) => Err(io::Error::other(e.to_string())),
         }
     }
 }

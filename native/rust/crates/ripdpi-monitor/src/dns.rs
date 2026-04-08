@@ -268,7 +268,7 @@ pub(crate) fn build_fallback_encrypted_dns_endpoints(primary_resolver_id: Option
 
     candidates
         .into_iter()
-        .filter(|(id, ..)| primary_resolver_id.map_or(true, |primary| *id != primary))
+        .filter(|(id, ..)| primary_resolver_id != Some(*id))
         .filter_map(|(id, host, port, bootstrap_strs, doh_url)| {
             let bootstrap_ips: Vec<IpAddr> = bootstrap_strs.iter().filter_map(|s| s.parse::<IpAddr>().ok()).collect();
             if bootstrap_ips.is_empty() {
