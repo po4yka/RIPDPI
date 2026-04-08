@@ -599,6 +599,7 @@ pub struct HostAutolearnSettings {
     /// set of commonly-blocked domains so that the autolearn table is populated
     /// before user traffic arrives.
     pub warmup_probe_enabled: bool,
+    pub network_reprobe_enabled: bool,
 }
 
 impl RuntimeConfig {

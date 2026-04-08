@@ -3,6 +3,7 @@ mod desync;
 mod handshake;
 mod listeners;
 mod relay;
+mod reprobe;
 mod retry;
 mod routing;
 mod state;

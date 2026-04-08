@@ -643,9 +643,15 @@ pub struct ProxyUiHostAutolearnConfig {
     /// pre-populate the autolearn table with commonly-blocked domains.
     #[serde(default = "default_warmup_probe_enabled")]
     pub warmup_probe_enabled: bool,
+    #[serde(default = "default_network_reprobe_enabled")]
+    pub network_reprobe_enabled: bool,
 }
 
 fn default_warmup_probe_enabled() -> bool {
+    true
+}
+
+fn default_network_reprobe_enabled() -> bool {
     true
 }
 
@@ -658,6 +664,7 @@ impl Default for ProxyUiHostAutolearnConfig {
             store_path: None,
             network_scope_key: None,
             warmup_probe_enabled: default_warmup_probe_enabled(),
+            network_reprobe_enabled: default_network_reprobe_enabled(),
         }
     }
 }
