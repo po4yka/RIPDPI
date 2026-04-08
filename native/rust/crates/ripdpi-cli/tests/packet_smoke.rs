@@ -705,8 +705,8 @@ fn parse_numeric_field(value: &str) -> Option<u64> {
 }
 
 fn parse_hex_bytes_field(value: &str) -> Option<Vec<u8>> {
-    let filtered: String = value.chars().filter(|ch| ch.is_ascii_hexdigit()).collect();
-    if filtered.len() < 2 || filtered.len() % 2 != 0 {
+    let filtered: String = value.chars().filter(char::is_ascii_hexdigit).collect();
+    if filtered.len() < 2 || !filtered.len().is_multiple_of(2) {
         return None;
     }
 
