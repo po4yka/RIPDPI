@@ -3186,6 +3186,7 @@ version = "0.1.0"
 dependencies = [
  "aes",
  "arc-swap",
+ "base64 0.22.1",
  "ctr",
  "etherparse",
  "libc",

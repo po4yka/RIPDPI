@@ -9,6 +9,7 @@ workspace = true
 
 [dependencies]
 arc-swap = { workspace = true }
+base64 = { workspace = true }
 ripdpi-config = { workspace = true }
 ripdpi-desync = { workspace = true }
 ripdpi-packets = { workspace = true }
@@ -38,6 +39,7 @@ io-uring = ["dep:ripdpi-io-uring"]
 
 [dev-dependencies]
 aes = { workspace = true }
+base64 = { workspace = true }
 ctr = "0.9"
 ripdpi-config = { workspace = true }
 ripdpi-packets = { workspace = true }

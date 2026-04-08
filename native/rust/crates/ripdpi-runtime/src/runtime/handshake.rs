@@ -152,6 +152,13 @@ fn handle_socks5(mut client: TcpStream, state: &RuntimeState, version: u8) -> io
 
 fn handle_http_connect(mut client: TcpStream, state: &RuntimeState) -> io::Result<()> {
     let request = read_http_connect_request(&mut client)?;
+    if let Some(token) = state.config.network.listen.auth_token.as_deref() {
+        if !protocol_io::validate_http_proxy_auth(&request, token) {
+            let reply = b"HTTP/1.1 407 Proxy Authentication Required\r\nProxy-Authenticate: Basic realm=\"ripdpi\"\r\nContent-Length: 0\r\n\r\n";
+            let _ = client.write_all(reply);
+            return Err(io::Error::new(io::ErrorKind::PermissionDenied, "missing or invalid http proxy credentials"));
+        }
+    }
     let resolver = |host: &str, socket_type: SocketType| resolve_name(host, socket_type, state);
     match parse_http_connect_request(&request, &resolver) {
         Ok(ClientRequest::HttpConnect(target)) => {

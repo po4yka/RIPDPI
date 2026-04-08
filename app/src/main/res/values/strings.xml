@@ -1410,6 +1410,12 @@ Source: %2$s</string>
     <string name="settings_webrtc_body">Reduce peer-discovery leaks that can bypass the local tunnel.</string>
     <string name="settings_exclude_russian_apps_title">Exclude Russian apps</string>
     <string name="settings_exclude_russian_apps_body">Banking, delivery, and government apps bypass the VPN to avoid detection issues</string>
+    <string name="settings_full_tunnel_title">Full tunnel mode</string>
+    <string name="settings_full_tunnel_body">Route all traffic through VPN with no app exclusions. Prevents spyware modules from sending traffic directly, but Russian apps may detect the VPN</string>
+    <string name="settings_vpn_flag_warning_title">VPN flag is visible</string>
+    <string name="settings_vpn_flag_warning_body">Apps in all Android profiles (including Work Profile and Knox) can detect that a VPN is active. For full isolation, use a separate device for Russian apps</string>
+    <string name="settings_tethering_dns_warning_title">Tethering DNS leak risk</string>
+    <string name="settings_tethering_dns_warning_body">When tethering is active, Android runs a local DNS server that bypasses the VPN. Apps may use this to send tracking beacons outside the tunnel</string>
     <string name="settings_biometric_title">Require authentication</string>
     <string name="settings_biometric_body_with_pin">Biometric unlock is enabled with a local backup PIN fallback.</string>
     <string name="settings_biometric_body_without_pin">Biometric unlock is enabled. Add a backup PIN for fallback access.</string>

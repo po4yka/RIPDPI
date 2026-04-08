@@ -118,6 +118,28 @@ fn read_until_nul(client: &mut TcpStream, out: &mut Vec<u8>) -> io::Result<()> {
     }
 }
 
+/// Validate HTTP `Proxy-Authorization: Basic` header against the expected auth token.
+///
+/// Expected encoding: `Basic base64("ripdpi:<token>")`.
+pub(super) fn validate_http_proxy_auth(request: &[u8], token: &str) -> bool {
+    use base64::engine::{general_purpose::STANDARD, Engine};
+    let Ok(request_str) = std::str::from_utf8(request) else { return false };
+    for line in request_str.lines() {
+        if let Some(value) = line.strip_prefix("Proxy-Authorization:") {
+            let value = value.trim();
+            if let Some(encoded) = value.strip_prefix("Basic ") {
+                let encoded = encoded.trim();
+                if let Ok(decoded) = STANDARD.decode(encoded) {
+                    let expected = format!("ripdpi:{token}");
+                    return decoded == expected.as_bytes();
+                }
+            }
+            return false;
+        }
+    }
+    false
+}
+
 pub(super) fn read_http_connect_request(client: &mut TcpStream) -> io::Result<Vec<u8>> {
     let mut out = Vec::new();
     let mut chunk = [0u8; 512];

@@ -51,6 +51,7 @@ class SettingsPreferencesScreenTest {
                     onThemeSelected = {},
                     onWebRtcProtectionChanged = {},
                     onExcludeRussianAppsChanged = {},
+                    onFullTunnelModeChanged = {},
                     onBiometricChanged = {},
                     onSaveBackupPin = {},
                 )
@@ -101,6 +102,7 @@ class SettingsPreferencesScreenTest {
                     onThemeSelected = {},
                     onWebRtcProtectionChanged = {},
                     onExcludeRussianAppsChanged = {},
+                    onFullTunnelModeChanged = {},
                     onBiometricChanged = {},
                     onSaveBackupPin = {},
                 )

@@ -116,6 +116,7 @@ object AppSettingsSerializer : Serializer<AppSettings> {
             .setDiagnosticsExportIncludeHistory(true)
             .setCanonicalDefaultStrategyChains()
             .setExcludeRussianAppsEnabled(true)
+            .setFullTunnelMode(false)
             .build()
 
     override suspend fun readFrom(input: InputStream): AppSettings {
