@@ -179,6 +179,8 @@ jobs:
           save-if: ${{ github.ref == 'refs/heads/main' }}
 
       - uses: mozilla-actions/sccache-action@v0.0.9
+        env:
+          FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
 
       - name: Run Rust lint checks
         env:
@@ -220,6 +222,8 @@ jobs:
           save-if: ${{ github.ref == 'refs/heads/main' }}
 
       - uses: mozilla-actions/sccache-action@v0.0.9
+        env:
+          FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
 
       - name: Install cargo-nextest
         uses: taiki-e/install-action@v2

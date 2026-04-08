@@ -70,6 +70,8 @@ runs:
       run: sdkmanager --install "ndk;${{ steps.native-toolchain.outputs.ndk }}"
 
     - uses: mozilla-actions/sccache-action@v0.0.9
+      env:
+        FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
 
     - name: Configure shared Gradle build cache
       if: inputs.setup-gradle == 'true'
