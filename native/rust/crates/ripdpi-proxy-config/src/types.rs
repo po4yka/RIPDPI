@@ -814,20 +814,36 @@ fn default_true() -> bool {
 }
 
 fn default_tcp_chain_steps() -> Vec<ProxyUiTcpChainStep> {
-    vec![ProxyUiTcpChainStep {
-        kind: "disorder".to_string(),
-        marker: "1".to_string(),
-        midhost_marker: String::new(),
-        fake_host_template: String::new(),
-        overlap_size: 0,
-        fake_mode: default_seqovl_fake_mode(),
-        fragment_count: 0,
-        min_fragment_size: 0,
-        max_fragment_size: 0,
-        inter_segment_delay_ms: 0,
-        activation_filter: None,
-        ipv6_extension_profile: default_ipv6_extension_profile(),
-    }]
+    vec![
+        ProxyUiTcpChainStep {
+            kind: "tlsrec".to_string(),
+            marker: "extlen".to_string(),
+            midhost_marker: String::new(),
+            fake_host_template: String::new(),
+            overlap_size: 0,
+            fake_mode: String::new(),
+            fragment_count: 0,
+            min_fragment_size: 0,
+            max_fragment_size: 0,
+            inter_segment_delay_ms: 0,
+            activation_filter: None,
+            ipv6_extension_profile: default_ipv6_extension_profile(),
+        },
+        ProxyUiTcpChainStep {
+            kind: "fake".to_string(),
+            marker: "host+1".to_string(),
+            midhost_marker: String::new(),
+            fake_host_template: String::new(),
+            overlap_size: 0,
+            fake_mode: default_seqovl_fake_mode(),
+            fragment_count: 0,
+            min_fragment_size: 0,
+            max_fragment_size: 0,
+            inter_segment_delay_ms: 0,
+            activation_filter: None,
+            ipv6_extension_profile: default_ipv6_extension_profile(),
+        },
+    ]
 }
 
 fn default_seqovl_fake_mode() -> String {
