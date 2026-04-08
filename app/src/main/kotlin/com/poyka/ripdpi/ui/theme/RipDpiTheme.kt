@@ -7,6 +7,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.platform.LocalWindowInfo
 
 @Composable
@@ -21,14 +22,16 @@ fun RipDpiTheme(
             else -> isSystemInDarkTheme()
         }
 
-    LaunchedEffect(themePreference) {
-        val mode =
-            when (themePreference) {
-                "dark" -> AppCompatDelegate.MODE_NIGHT_YES
-                "light" -> AppCompatDelegate.MODE_NIGHT_NO
-                else -> AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM
-            }
-        AppCompatDelegate.setDefaultNightMode(mode)
+    if (!LocalInspectionMode.current) {
+        LaunchedEffect(themePreference) {
+            val mode =
+                when (themePreference) {
+                    "dark" -> AppCompatDelegate.MODE_NIGHT_YES
+                    "light" -> AppCompatDelegate.MODE_NIGHT_NO
+                    else -> AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM
+                }
+            AppCompatDelegate.setDefaultNightMode(mode)
+        }
     }
 
     val colorScheme = if (isDark) ripDpiDarkColorScheme() else ripDpiLightColorScheme()
