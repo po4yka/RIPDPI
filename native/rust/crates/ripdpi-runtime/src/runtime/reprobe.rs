@@ -288,7 +288,7 @@ fn probe_tls_handshake(target: SocketAddr, sni: &str, protect_path: Option<&str>
 fn build_minimal_client_hello(sni: &str) -> Vec<u8> {
     let sni_bytes = sni.as_bytes();
     let sni_list_len = (sni_bytes.len() + 3) as u16;
-    let sni_ext_len = (sni_list_len + 2) as u16;
+    let sni_ext_len = sni_list_len + 2;
 
     // --- Extensions block ---
     let mut extensions = Vec::new();

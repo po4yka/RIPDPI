@@ -98,6 +98,7 @@ fn strategy_probe_request_with_runtime_context(
                 .expect("serialize probe ui config"),
             ),
             target_selection: None,
+            max_candidates: None,
         }),
         network_snapshot: None,
         scan_deadline_ms: None,
@@ -519,6 +520,7 @@ fn strategy_probe_request_rejects_command_line_config_payload() {
             .expect("serialize command line payload"),
         ),
         target_selection: None,
+        max_candidates: None,
     });
 
     let err = validate_scan_request(&request.into()).expect_err("command line payload should fail");
