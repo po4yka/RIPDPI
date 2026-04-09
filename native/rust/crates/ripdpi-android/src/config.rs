@@ -293,6 +293,7 @@ mod tests {
                     store_path: host_autolearn_store_path,
                     network_scope_key: None,
                     warmup_probe_enabled: true,
+                    network_reprobe_enabled: true,
                 };
                 config
             },

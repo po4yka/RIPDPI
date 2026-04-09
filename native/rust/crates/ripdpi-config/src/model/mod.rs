@@ -1045,6 +1045,7 @@ mod tests {
             max_hosts: 1024,
             store_path: Some("hosts.json".to_string()),
             warmup_probe_enabled: true,
+            network_reprobe_enabled: true,
         };
 
         config.network = network.clone();
