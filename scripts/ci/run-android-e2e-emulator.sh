@@ -10,21 +10,37 @@ run_appium="${3:-false}"
 
 GRADLE_ABI="-Pripdpi.localNativeAbis=x86_64"
 
-./gradlew :app:connectedDebugAndroidTest \
-  "$GRADLE_ABI" \
-  -Pandroid.testInstrumentationRunnerArguments.package=com.poyka.ripdpi.integration || {
-  adb logcat -d > android-logcat.txt
-  exit 1
+bash scripts/ci/wait-for-android-package-manager.sh
+
+run_connected_tests() {
+  ./gradlew :app:connectedDebugAndroidTest \
+    "$GRADLE_ABI" \
+    -Pandroid.testInstrumentationRunnerArguments.package=com.poyka.ripdpi.integration
+
+  ./gradlew :app:connectedDebugAndroidTest \
+    "$GRADLE_ABI" \
+    -Pandroid.testInstrumentationRunnerArguments.package=com.poyka.ripdpi.e2e \
+    -Pandroid.testInstrumentationRunnerArguments.ripdpi.fixtureControlHost=10.0.2.2 \
+    -Pandroid.testInstrumentationRunnerArguments.ripdpi.fixtureControlPort=46090
 }
 
-./gradlew :app:connectedDebugAndroidTest \
-  "$GRADLE_ABI" \
-  -Pandroid.testInstrumentationRunnerArguments.package=com.poyka.ripdpi.e2e \
-  -Pandroid.testInstrumentationRunnerArguments.ripdpi.fixtureControlHost=10.0.2.2 \
-  -Pandroid.testInstrumentationRunnerArguments.ripdpi.fixtureControlPort=46090 || {
-  adb logcat -d > android-logcat.txt
+succeeded=false
+for attempt in 1 2 3; do
+  if run_connected_tests; then
+    succeeded=true
+    break
+  fi
+
+  adb logcat -d > android-logcat.txt || true
+  if [ "$attempt" -lt 3 ]; then
+    echo "::warning::Attempt $attempt failed, retrying..."
+    sleep 10
+  fi
+done
+
+if [ "$succeeded" != "true" ]; then
   exit 1
-}
+fi
 
 ./gradlew :app:createDebugAndroidTestCoverageReport "$GRADLE_ABI"
 

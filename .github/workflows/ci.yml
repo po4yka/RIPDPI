@@ -493,17 +493,7 @@ jobs:
           disk-size: 8G
           emulator-boot-timeout: 600
           emulator-options: -no-snapshot-save -no-window -noaudio -no-boot-anim -gpu swiftshader_indirect
-          script: |
-            # Health check: wait for package manager
-            attempt=0
-            while [ "$attempt" -lt 30 ]; do
-              adb shell pm list packages > /dev/null 2>&1 && break
-              attempt=$((attempt + 1))
-              echo "Waiting for package manager... ($attempt/30)"
-              sleep 2
-            done
-            adb shell pm list packages > /dev/null 2>&1 || { echo "::error::Package manager unresponsive after 60s"; exit 1; }
-            ./gradlew :baselineprofile:connectedAndroidTest -Pripdpi.localNativeAbis=x86_64 -Pandroid.testInstrumentationRunnerArguments.class=com.poyka.ripdpi.baselineprofile.StartupBenchmark
+          script: bash scripts/ci/run-android-macrobenchmark.sh
         env:
           RUSTC_WRAPPER: sccache
 
@@ -722,20 +712,7 @@ jobs:
           disk-size: 8G
           emulator-boot-timeout: 600
           emulator-options: -no-snapshot-save -no-window -noaudio -no-boot-anim -gpu swiftshader_indirect
-          script: |
-            # Health check: wait for package manager before running tests
-            for i in $(seq 1 30); do
-              adb shell pm list packages > /dev/null 2>&1 && break
-              echo "Waiting for package manager... ($i/30)"
-              sleep 2
-            done
-            adb shell pm list packages > /dev/null 2>&1 || { echo "::error::Package manager unresponsive after 60s"; exit 1; }
-            # Run with retry (emulator flakiness)
-            for attempt in 1 2 3; do
-              bash scripts/ci/run-android-e2e-emulator.sh "${{ github.event_name }}" "${{ github.event.inputs.run_maestro_smoke }}" "${{ github.event.inputs.run_appium_smoke }}" && break
-              echo "::warning::Attempt $attempt failed, retrying..."
-              [ "$attempt" -lt 3 ] && sleep 10
-            done
+          script: bash scripts/ci/run-android-e2e-emulator.sh "${{ github.event_name }}" "${{ github.event.inputs.run_maestro_smoke }}" "${{ github.event.inputs.run_appium_smoke }}"
 
       - name: Capture fixture state
         if: always()
