@@ -11,9 +11,6 @@ import com.poyka.ripdpi.core.detection.EvidenceSource
 import com.poyka.ripdpi.core.detection.Finding
 import com.poyka.ripdpi.core.detection.vpn.VpnAppCatalog
 import com.poyka.ripdpi.core.detection.vpn.VpnDumpsysParser
-import java.io.BufferedReader
-import java.io.File
-import java.io.FileReader
 import java.net.NetworkInterface
 
 object IndirectSignsChecker {
@@ -87,7 +84,7 @@ object IndirectSignsChecker {
 
         detected = checkNetworkInterfaces(findings, evidence) || detected
         detected = checkMtu(findings, evidence) || detected
-        detected = checkRoutingTable(findings, evidence) || detected
+        detected = checkRoutingTable(context, findings, evidence) || detected
 
         val dnsOutcome = checkDns(context, findings, evidence)
         detected = detected || dnsOutcome.detected
@@ -254,23 +251,21 @@ object IndirectSignsChecker {
             false
         }
 
-    @Suppress("NestedBlockDepth")
     private fun checkRoutingTable(
+        context: Context,
         findings: MutableList<Finding>,
         evidence: MutableList<EvidenceItem>,
     ): Boolean =
         try {
-            val routeFile = File("/proc/net/route")
-            if (!routeFile.exists()) {
-                findings.add(Finding("Routing table: /proc/net/route unavailable"))
+            val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+            val network = cm.activeNetwork
+            if (network == null) {
+                findings.add(Finding("Default route: no active network"))
                 false
             } else {
-                val lines = BufferedReader(FileReader(routeFile)).use { it.readLines() }
-                val defaultRoutes =
-                    lines.drop(1).filter { line ->
-                        val parts = line.trim().split("\\s+".toRegex())
-                        parts.size >= 2 && parts[1] == "00000000"
-                    }
+                val linkProps = cm.getLinkProperties(network)
+                val routes = linkProps?.routes.orEmpty()
+                val defaultRoutes = routes.filter { it.isDefaultRoute }
 
                 if (defaultRoutes.isEmpty()) {
                     findings.add(Finding("Default route: not found"))
@@ -278,8 +273,7 @@ object IndirectSignsChecker {
                 } else {
                     var detected = false
                     for (route in defaultRoutes) {
-                        val parts = route.trim().split("\\s+".toRegex())
-                        val iface = parts[0]
+                        val iface = route.`interface` ?: continue
                         val isStandard = STANDARD_INTERFACES.any { it.matches(iface) }
                         if (isStandard) {
                             findings.add(Finding("Default route: $iface (standard)"))
