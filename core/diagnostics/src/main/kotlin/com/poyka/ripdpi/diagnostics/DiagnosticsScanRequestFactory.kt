@@ -218,7 +218,7 @@ internal class DiagnosticsScanRequestFactory
                     .let { request ->
                         if (maxCandidates != null && request.strategyProbe != null) {
                             request.copy(
-                                strategyProbe = request.strategyProbe!!.copy(maxCandidates = maxCandidates),
+                                strategyProbe = request.strategyProbe.copy(maxCandidates = maxCandidates),
                             )
                         } else {
                             request

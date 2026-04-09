@@ -490,9 +490,9 @@ class DefaultDiagnosticsHomeCompositeRunService
                     runCatching {
                         probeResultCache.store(
                             CachedProbeOutcome(
-                                fingerprintHash = outcome.fingerprintHash!!,
+                                fingerprintHash = outcome.fingerprintHash,
                                 headline = outcome.headline,
-                                summary = outcome.summary ?: "",
+                                summary = outcome.summary,
                                 appliedSettings = outcome.appliedSettings,
                                 completedStageCount = outcome.completedStageCount,
                                 failedStageCount = outcome.failedStageCount,
