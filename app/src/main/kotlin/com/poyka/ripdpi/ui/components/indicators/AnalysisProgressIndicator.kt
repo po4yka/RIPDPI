@@ -59,6 +59,7 @@ private const val ParallelStageMinCount = 3
 private const val StrategyStageMinCount = 4
 private const val ParallelColumnWeight = 3f
 private const val OuterColumnWeight = 2f
+private const val FillOriginY = 0.5f
 
 @Composable
 fun AnalysisProgressIndicator(
@@ -332,7 +333,7 @@ private fun PipelineSegment(
                         .matchParentSize()
                         .graphicsLayer {
                             scaleX = fillFraction
-                            transformOrigin = TransformOrigin(0f, 0.5f)
+                            transformOrigin = TransformOrigin(0f, FillOriginY)
                         }.then(if (isActive) Modifier.alpha(pulseAlpha) else Modifier)
                         .background(animatedColor, segmentShape),
             )
