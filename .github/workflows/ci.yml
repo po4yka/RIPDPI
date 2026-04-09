@@ -495,9 +495,11 @@ jobs:
           emulator-options: -no-snapshot-save -no-window -noaudio -no-boot-anim -gpu swiftshader_indirect
           script: |
             # Health check: wait for package manager
-            for i in $(seq 1 30); do
+            attempt=0
+            while [ "$attempt" -lt 30 ]; do
               adb shell pm list packages > /dev/null 2>&1 && break
-              echo "Waiting for package manager... ($i/30)"
+              attempt=$((attempt + 1))
+              echo "Waiting for package manager... ($attempt/30)"
               sleep 2
             done
             adb shell pm list packages > /dev/null 2>&1 || { echo "::error::Package manager unresponsive after 60s"; exit 1; }
