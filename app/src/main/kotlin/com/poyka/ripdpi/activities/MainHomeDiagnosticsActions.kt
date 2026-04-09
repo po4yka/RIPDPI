@@ -36,6 +36,7 @@ internal data class HomeDiagnosticsRuntimeState(
     val activeRunProgress: DiagnosticsHomeCompositeProgress? = null,
     val activeRunStageProgress: String? = null,
     val quickScanActive: Boolean = false,
+    val activeStageStepProgress: Float = 0f,
     val latestCompositeOutcome: DiagnosticsHomeCompositeOutcome? = null,
     val analysisSheetVisible: Boolean = false,
     val shareBusy: Boolean = false,
@@ -73,6 +74,8 @@ internal class MainHomeDiagnosticsActions(
             diagnosticsTimelineSource.activeScanProgress.collect { progress ->
                 val progressSessionId = progress?.sessionId
                 val progressMessage = progress?.message
+                val isActiveRunSession =
+                    progressSessionId == homeDiagnosticsState.value.activeRunProgress?.activeSessionId
                 homeDiagnosticsState.update { current ->
                     current.copy(
                         activeRunStageProgress =
@@ -80,6 +83,14 @@ internal class MainHomeDiagnosticsActions(
                                 progressMessage
                             } else {
                                 current.activeRunStageProgress
+                            },
+                        activeStageStepProgress =
+                            if (isActiveRunSession && progress != null && progress.totalSteps > 0) {
+                                progress.completedSteps.toFloat() / progress.totalSteps
+                            } else if (!isActiveRunSession) {
+                                current.activeStageStepProgress
+                            } else {
+                                0f
                             },
                         verificationProgress =
                             when {
@@ -623,21 +634,31 @@ internal fun buildHomeDiagnosticsUiState(
             runtime.activeRunProgress?.takeIf { analysisBusy }?.let { progress ->
                 AnalysisProgressUiState(
                     stages =
-                        progress.stages.map { stage ->
+                        progress.stages.mapIndexed { stageIndex, stage ->
+                            val stageStatus =
+                                when (stage.status) {
+                                    DiagnosticsHomeCompositeStageStatus.PENDING -> AnalysisStageStatus.PENDING
+
+                                    DiagnosticsHomeCompositeStageStatus.RUNNING -> AnalysisStageStatus.RUNNING
+
+                                    DiagnosticsHomeCompositeStageStatus.COMPLETED,
+                                    DiagnosticsHomeCompositeStageStatus.SKIPPED,
+                                    -> AnalysisStageStatus.COMPLETED
+
+                                    DiagnosticsHomeCompositeStageStatus.FAILED,
+                                    DiagnosticsHomeCompositeStageStatus.UNAVAILABLE,
+                                    -> AnalysisStageStatus.FAILED
+                                }
                             AnalysisStageUiState(
-                                status =
-                                    when (stage.status) {
-                                        DiagnosticsHomeCompositeStageStatus.PENDING -> AnalysisStageStatus.PENDING
-
-                                        DiagnosticsHomeCompositeStageStatus.RUNNING -> AnalysisStageStatus.RUNNING
-
-                                        DiagnosticsHomeCompositeStageStatus.COMPLETED,
-                                        DiagnosticsHomeCompositeStageStatus.SKIPPED,
-                                        -> AnalysisStageStatus.COMPLETED
-
-                                        DiagnosticsHomeCompositeStageStatus.FAILED,
-                                        DiagnosticsHomeCompositeStageStatus.UNAVAILABLE,
-                                        -> AnalysisStageStatus.FAILED
+                                status = stageStatus,
+                                progress =
+                                    if (stageIndex == progress.activeStageIndex) {
+                                        runtime.activeStageStepProgress
+                                    } else {
+                                        when (stageStatus) {
+                                            AnalysisStageStatus.COMPLETED, AnalysisStageStatus.FAILED -> 1f
+                                            else -> 0f
+                                        }
                                     },
                             )
                         },

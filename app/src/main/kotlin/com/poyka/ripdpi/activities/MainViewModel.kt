@@ -112,6 +112,7 @@ enum class AnalysisStageStatus {
 @Immutable
 data class AnalysisStageUiState(
     val status: AnalysisStageStatus,
+    val progress: Float = 0f,
 )
 
 @Immutable
