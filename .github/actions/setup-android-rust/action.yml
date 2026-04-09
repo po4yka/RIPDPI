@@ -88,8 +88,18 @@ runs:
         }
         GRADLE
 
-    - name: Restore shared Gradle build cache
-      if: inputs.setup-gradle == 'true'
+    - name: Restore shared Gradle build cache (read-only)
+      if: inputs.setup-gradle == 'true' && inputs.gradle-cache-read-only == 'true'
+      uses: actions/cache/restore@v5
+      with:
+        path: ${{ runner.temp }}/gradle-build-cache
+        key: gradle-build-cache-${{ hashFiles('**/*.gradle*', 'gradle.properties', 'gradle/libs.versions.toml') }}-${{ github.sha }}
+        restore-keys: |
+          gradle-build-cache-${{ hashFiles('**/*.gradle*', 'gradle.properties', 'gradle/libs.versions.toml') }}-
+          gradle-build-cache-
+
+    - name: Shared Gradle build cache
+      if: inputs.setup-gradle == 'true' && inputs.gradle-cache-read-only != 'true'
       uses: actions/cache@v5
       with:
         path: ${{ runner.temp }}/gradle-build-cache
