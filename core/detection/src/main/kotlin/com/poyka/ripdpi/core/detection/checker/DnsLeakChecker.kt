@@ -128,11 +128,13 @@ object DnsLeakChecker {
     private fun getVpnDnsServers(context: Context): List<String> =
         try {
             val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
-            cm.allNetworks
-                .mapNotNull { cm.getLinkProperties(it) }
-                .flatMap { it.dnsServers }
-                .mapNotNull { it.hostAddress }
-                .distinct()
+            val activeNetwork = cm.activeNetwork
+            val linkProperties = activeNetwork?.let { cm.getLinkProperties(it) }
+            linkProperties
+                ?.dnsServers
+                ?.mapNotNull { it.hostAddress }
+                ?.distinct()
+                ?: emptyList()
         } catch (_: Exception) {
             emptyList()
         }

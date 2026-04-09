@@ -1,5 +1,6 @@
 plugins {
     `java-library`
+    id("com.android.lint")
     id("com.google.protobuf") version "0.9.6"
 }
 
@@ -38,8 +39,8 @@ protobuf {
 }
 
 dependencies {
-    api("io.grpc:grpc-stub:$grpcVersion")
-    api("io.grpc:grpc-protobuf-lite:$grpcVersion")
-    api("com.google.protobuf:protobuf-javalite:$protobufVersion")
-    compileOnly("javax.annotation:javax.annotation-api:1.3.2")
+    api(libs.grpc.stub)
+    api(libs.grpc.protobuf.lite)
+    api(libs.protobuf.javalite)
+    compileOnly(libs.javax.annotation.api)
 }

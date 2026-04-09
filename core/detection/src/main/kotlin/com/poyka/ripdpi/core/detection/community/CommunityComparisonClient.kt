@@ -35,9 +35,7 @@ class CommunityComparisonClient {
                 if (!response.isSuccessful) {
                     return@withContext Result.failure(Exception("HTTP ${response.code}"))
                 }
-                val body =
-                    response.body?.string()
-                        ?: return@withContext Result.failure(Exception("Empty response"))
+                val body = response.body.string()
                 Result.success(json.decodeFromString<CommunityStats>(body))
             } catch (e: Exception) {
                 Result.failure(e)
