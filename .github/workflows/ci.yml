@@ -41,6 +41,16 @@ on:
         required: false
         default: false
         type: boolean
+      run_rust_criterion_bench:
+        description: Run Rust criterion benchmarks
+        required: false
+        default: false
+        type: boolean
+      run_android_macrobenchmark:
+        description: Run Android macrobenchmark suite
+        required: false
+        default: false
+        type: boolean
       run_android_network_e2e:
         description: Run Android network E2E emulator suite
         required: false
@@ -422,9 +432,9 @@ jobs:
           retention-days: 7
 
   rust-criterion-bench:
-    if: github.event_name != 'schedule'
+    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && github.event.inputs.run_rust_criterion_bench == 'true')
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v6
 
@@ -481,9 +491,9 @@ jobs:
           retention-days: 7
 
   android-macrobenchmark:
-    if: github.event_name != 'schedule'
+    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && github.event.inputs.run_android_macrobenchmark == 'true')
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v6
 
@@ -538,7 +548,7 @@ jobs:
   android-integration-tests:
     if: github.event_name != 'schedule'
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v6
 
