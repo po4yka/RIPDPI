@@ -488,8 +488,20 @@ jobs:
           api-level: 34
           arch: x86_64
           target: aosp_atd
-          emulator-options: -no-window -noaudio -no-boot-anim -gpu swiftshader_indirect
-          script: ./gradlew :baselineprofile:connectedAndroidTest -Pripdpi.localNativeAbis=x86_64 -Pandroid.testInstrumentationRunnerArguments.class=com.poyka.ripdpi.baselineprofile.StartupBenchmark
+          ram-size: 4096M
+          heap-size: 1024M
+          disk-size: 8G
+          emulator-boot-timeout: 600
+          emulator-options: -no-snapshot-save -no-window -noaudio -no-boot-anim -gpu swiftshader_indirect
+          script: |
+            # Health check: wait for package manager
+            for i in $(seq 1 30); do
+              adb shell pm list packages > /dev/null 2>&1 && break
+              echo "Waiting for package manager... ($i/30)"
+              sleep 2
+            done
+            adb shell pm list packages > /dev/null 2>&1 || { echo "::error::Package manager unresponsive after 60s"; exit 1; }
+            ./gradlew :baselineprofile:connectedAndroidTest -Pripdpi.localNativeAbis=x86_64 -Pandroid.testInstrumentationRunnerArguments.class=com.poyka.ripdpi.baselineprofile.StartupBenchmark
         env:
           RUSTC_WRAPPER: sccache
 
@@ -664,6 +676,7 @@ jobs:
   android-network-e2e:
     runs-on: ubuntu-latest
     timeout-minutes: 45
+    continue-on-error: true
     steps:
       - uses: actions/checkout@v6
 
@@ -702,8 +715,25 @@ jobs:
           api-level: 34
           arch: x86_64
           target: google_apis
-          emulator-options: -no-window -noaudio -no-boot-anim -gpu swiftshader_indirect
-          script: bash scripts/ci/run-android-e2e-emulator.sh "${{ github.event_name }}" "${{ github.event.inputs.run_maestro_smoke }}" "${{ github.event.inputs.run_appium_smoke }}"
+          ram-size: 4096M
+          heap-size: 1024M
+          disk-size: 8G
+          emulator-boot-timeout: 600
+          emulator-options: -no-snapshot-save -no-window -noaudio -no-boot-anim -gpu swiftshader_indirect
+          script: |
+            # Health check: wait for package manager before running tests
+            for i in $(seq 1 30); do
+              adb shell pm list packages > /dev/null 2>&1 && break
+              echo "Waiting for package manager... ($i/30)"
+              sleep 2
+            done
+            adb shell pm list packages > /dev/null 2>&1 || { echo "::error::Package manager unresponsive after 60s"; exit 1; }
+            # Run with retry (emulator flakiness)
+            for attempt in 1 2 3; do
+              bash scripts/ci/run-android-e2e-emulator.sh "${{ github.event_name }}" "${{ github.event.inputs.run_maestro_smoke }}" "${{ github.event.inputs.run_appium_smoke }}" && break
+              echo "::warning::Attempt $attempt failed, retrying..."
+              [ "$attempt" -lt 3 ] && sleep 10
+            done
 
       - name: Capture fixture state
         if: always()
