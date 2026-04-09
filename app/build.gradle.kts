@@ -38,6 +38,8 @@ extensions.configure<ApplicationExtension> {
         versionName = "0.0.6"
 
         testInstrumentationRunner = "com.poyka.ripdpi.HiltTestRunner"
+        testInstrumentationRunnerArguments["clearPackageData"] =
+            providers.gradleProperty("ripdpi.androidTestClearPackageData").orElse("true").get()
     }
 
     signingConfigs {
@@ -53,6 +55,11 @@ extensions.configure<ApplicationExtension> {
 
     buildFeatures {
         buildConfig = true
+    }
+
+    testOptions {
+        execution = "ANDROIDX_TEST_ORCHESTRATOR"
+        animationsDisabled = true
     }
 
     val gitCommit: String =
@@ -152,6 +159,7 @@ dependencies {
     androidTestImplementation(libs.androidx.test.ext.junit)
     androidTestImplementation(libs.androidx.test.runner)
     androidTestImplementation(libs.androidx.test.rules)
+    androidTestUtil(libs.androidx.test.orchestrator)
     androidTestImplementation(libs.androidx.test.espresso.core)
     androidTestImplementation(libs.androidx.test.uiautomator)
     androidTestImplementation(platform(libs.androidx.compose.bom))

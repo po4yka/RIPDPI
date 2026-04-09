@@ -51,11 +51,9 @@ class NetworkPathE2ETest {
     @Before
     fun setUp() {
         hiltRule.inject()
-        ensureLocalNetworkAccessGranted(appContext)
-        fixtureClient = LocalFixtureClient.fromInstrumentationArgs()
-        fixture = selectReachableFixtureManifest(appContext, fixtureClient.manifest())
-        fixtureClient.resetEvents()
-        fixtureClient.resetFaults()
+        val environment = prepareE2eEnvironment(appContext)
+        fixtureClient = environment.fixtureClient
+        fixture = environment.fixture
         runBlocking {
             stopService(RipDpiProxyService::class.java)
             stopService(RipDpiVpnService::class.java)
@@ -122,7 +120,7 @@ class NetworkPathE2ETest {
         fixtureClient.resetEvents()
 
         startService(RipDpiProxyService::class.java)
-        awaitServiceStatus(AppStatus.Running, Mode.Proxy)
+        awaitServiceStatus(serviceStateStore, AppStatus.Running, Mode.Proxy, fixtureClient)
 
         val socksEcho = socksTcpRoundTrip(listenPort, fixture.androidHost, fixture.tcpEchoPort, socksPayload)
         assertEquals(socksPayload.decodeToString(), socksEcho.decodeToString())
@@ -152,7 +150,7 @@ class NetworkPathE2ETest {
         assertTrue(events.any { it.service == "tls_echo" && it.sni == fixture.fixtureDomain })
 
         stopService(RipDpiProxyService::class.java)
-        awaitServiceStatus(AppStatus.Halted, Mode.Proxy)
+        awaitServiceStatus(serviceStateStore, AppStatus.Halted, Mode.Proxy, fixtureClient)
     }
 
     @Test
@@ -169,7 +167,7 @@ class NetworkPathE2ETest {
         }
 
         startService(RipDpiVpnService::class.java)
-        awaitServiceStatus(AppStatus.Running, Mode.VPN)
+        awaitServiceStatus(serviceStateStore, AppStatus.Running, Mode.VPN, fixtureClient)
 
         val payload = httpEchoPayloadShellLiteral("vpn-e2e")
         val output = shellTcpRoundTrip(fixture.androidHost, fixture.tcpEchoPort, payload)
@@ -185,7 +183,7 @@ class NetworkPathE2ETest {
         }
 
         stopService(RipDpiVpnService::class.java)
-        awaitServiceStatus(AppStatus.Halted, Mode.VPN)
+        awaitServiceStatus(serviceStateStore, AppStatus.Halted, Mode.VPN, fixtureClient)
         awaitUntil {
             serviceStateStore.telemetry.value.status == AppStatus.Halted
         }
@@ -204,7 +202,7 @@ class NetworkPathE2ETest {
         }
 
         startService(RipDpiVpnService::class.java)
-        awaitServiceStatus(AppStatus.Running, Mode.VPN)
+        awaitServiceStatus(serviceStateStore, AppStatus.Running, Mode.VPN, fixtureClient)
 
         val baselineRestartCount = serviceStateStore.telemetry.value.restartCount
         val payload = httpEchoPayloadShellLiteral("vpn-hostname")
@@ -236,7 +234,22 @@ class NetworkPathE2ETest {
             events.any { it.service == "tcp_echo" && it.detail == "echo" },
         )
 
-        Thread.sleep(2_000L)
+        awaitStable(
+            timeoutMs = 5_000L,
+            pollMs = 200L,
+            stablePollCount = 5,
+            failureMessage = {
+                "VPN service did not remain stable after successful hostname traffic.\n" +
+                    serviceStateDebugSummary(serviceStateStore, fixtureClient)
+            },
+        ) {
+            val snapshot = serviceStateStore.telemetry.value
+            snapshot.status == AppStatus.Running &&
+                snapshot.mode == Mode.VPN &&
+                snapshot.tunnelTelemetry.dnsFailuresTotal == 0L &&
+                snapshot.tunnelTelemetry.lastDnsError.isNullOrBlank() &&
+                snapshot.restartCount == baselineRestartCount
+        }
         val stableSnapshot = serviceStateStore.telemetry.value
         assertEquals(AppStatus.Running, stableSnapshot.status)
         assertEquals(Mode.VPN, stableSnapshot.mode)
@@ -262,7 +275,7 @@ class NetworkPathE2ETest {
         }
 
         startService(RipDpiVpnService::class.java)
-        awaitServiceStatus(AppStatus.Running, Mode.VPN)
+        awaitServiceStatus(serviceStateStore, AppStatus.Running, Mode.VPN, fixtureClient)
         fixtureClient.setFault(
             FixtureFaultSpecDto(
                 target = FixtureFaultTargetDto.DNS_HTTP,
@@ -295,7 +308,7 @@ class NetworkPathE2ETest {
         }
 
         startService(RipDpiProxyService::class.java)
-        awaitServiceStatus(AppStatus.Running, Mode.Proxy)
+        awaitServiceStatus(serviceStateStore, AppStatus.Running, Mode.Proxy, fixtureClient)
         fixtureClient.setFault(
             FixtureFaultSpecDto(
                 target = FixtureFaultTargetDto.TCP_ECHO,
@@ -329,7 +342,7 @@ class NetworkPathE2ETest {
         }
 
         startService(RipDpiProxyService::class.java)
-        awaitServiceStatus(AppStatus.Running, Mode.Proxy)
+        awaitServiceStatus(serviceStateStore, AppStatus.Running, Mode.Proxy, fixtureClient)
         fixtureClient.setFault(
             FixtureFaultSpecDto(
                 target = FixtureFaultTargetDto.TLS_ECHO,
@@ -369,7 +382,7 @@ class NetworkPathE2ETest {
         }
 
         startService(RipDpiVpnService::class.java)
-        awaitServiceStatus(AppStatus.Running, Mode.VPN)
+        awaitServiceStatus(serviceStateStore, AppStatus.Running, Mode.VPN, fixtureClient)
         fixtureClient.setFault(
             FixtureFaultSpecDto(
                 target = FixtureFaultTargetDto.TCP_ECHO,
@@ -397,15 +410,6 @@ class NetworkPathE2ETest {
 
     private fun stopService(serviceClass: Class<*>) {
         appContext.startService(Intent(appContext, serviceClass).setAction(stopAction))
-    }
-
-    private fun awaitServiceStatus(
-        status: AppStatus,
-        mode: Mode,
-    ) {
-        awaitUntil {
-            serviceStateStore.status.value == status to mode
-        }
     }
 
     private fun shellTcpRoundTrip(
