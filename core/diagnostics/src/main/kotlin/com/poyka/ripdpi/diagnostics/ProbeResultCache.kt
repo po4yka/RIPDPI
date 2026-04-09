@@ -40,7 +40,7 @@ class DefaultProbeResultCache
     @Inject
     constructor(
         @ApplicationContext context: Context,
-        @Named("diagnosticsJson") private val json: Json,
+        @param:Named("diagnosticsJson") private val json: Json,
     ) : ProbeResultCache {
         private companion object {
             private const val MAX_ENTRIES = 10
