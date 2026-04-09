@@ -102,13 +102,13 @@ class ServiceLifecycleIntegrationTest {
 
     @Before
     fun setUp() {
-        IntegrationTestOverrides.reset()
-        appSettingsRepository = IntegrationTestOverrides.appSettingsRepository
-        proxyPreferencesResolver = IntegrationTestOverrides.proxyPreferencesResolver
-        proxyFactory = IntegrationTestOverrides.proxyFactory
-        tun2SocksBridgeFactory = IntegrationTestOverrides.tun2SocksBridgeFactory
-        serviceStateStore = IntegrationTestOverrides.serviceStateStore
-        vpnTunnelSessionProvider = IntegrationTestOverrides.vpnTunnelSessionProvider
+        val bindings = resetServiceLifecycleIntegrationBindings()
+        appSettingsRepository = bindings.appSettingsRepository
+        proxyPreferencesResolver = bindings.proxyPreferencesResolver
+        proxyFactory = bindings.proxyFactory
+        tun2SocksBridgeFactory = bindings.tun2SocksBridgeFactory
+        serviceStateStore = bindings.serviceStateStore
+        vpnTunnelSessionProvider = bindings.vpnTunnelSessionProvider
         hiltRule.inject()
         assertTrue(
             "VPN integration tests must use IntegrationTestOverrides.vpnTunnelSessionProvider and not platform consent UX.",
@@ -119,9 +119,7 @@ class ServiceLifecycleIntegrationTest {
     @After
     fun tearDown() =
         runBlocking {
-            stopService(RipDpiProxyService::class.java)
-            stopService(RipDpiVpnService::class.java)
-            delay(200)
+            stopIntegrationTestServices(appContext)
         }
 
     @Test

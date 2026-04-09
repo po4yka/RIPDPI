@@ -97,11 +97,9 @@ class DiagnosticsNetworkE2ETest {
     @Before
     fun setUp() {
         hiltRule.inject()
-        ensureLocalNetworkAccessGranted(appContext)
-        fixtureClient = LocalFixtureClient.fromInstrumentationArgs()
-        fixture = selectReachableFixtureManifest(appContext, fixtureClient.manifest())
-        fixtureClient.resetEvents()
-        fixtureClient.resetFaults()
+        val environment = prepareE2eEnvironment(appContext)
+        fixtureClient = environment.fixtureClient
+        fixture = environment.fixture
         runBlocking {
             stopService(RipDpiProxyService::class.java)
             stopService(RipDpiVpnService::class.java)
@@ -154,11 +152,11 @@ class DiagnosticsNetworkE2ETest {
         }
 
         startService(RipDpiProxyService::class.java)
-        awaitServiceStatus(AppStatus.Running, Mode.Proxy)
+        awaitServiceStatus(serviceStateStore, AppStatus.Running, Mode.Proxy, fixtureClient)
 
         val sessionId = runBlocking { startScanSessionId(ScanPathMode.RAW_PATH) }
         awaitCompletedSession(sessionId)
-        awaitServiceStatus(AppStatus.Running, Mode.Proxy)
+        awaitServiceStatus(serviceStateStore, AppStatus.Running, Mode.Proxy, fixtureClient)
     }
 
     @Test
@@ -172,7 +170,7 @@ class DiagnosticsNetworkE2ETest {
         }
 
         startService(RipDpiProxyService::class.java)
-        awaitServiceStatus(AppStatus.Running, Mode.Proxy)
+        awaitServiceStatus(serviceStateStore, AppStatus.Running, Mode.Proxy, fixtureClient)
 
         val sessionId = runBlocking { startScanSessionId(ScanPathMode.IN_PATH) }
         val detail = awaitCompletedSession(sessionId)
@@ -183,7 +181,7 @@ class DiagnosticsNetworkE2ETest {
             },
         )
         assertTrue(detail.results.any { it.outcome == "http_ok" })
-        awaitServiceStatus(AppStatus.Running, Mode.Proxy)
+        awaitServiceStatus(serviceStateStore, AppStatus.Running, Mode.Proxy, fixtureClient)
     }
 
     @Test
@@ -199,7 +197,7 @@ class DiagnosticsNetworkE2ETest {
         }
 
         startService(RipDpiVpnService::class.java)
-        awaitServiceStatus(AppStatus.Running, Mode.VPN)
+        awaitServiceStatus(serviceStateStore, AppStatus.Running, Mode.VPN, fixtureClient)
 
         val sessionId = runBlocking { startScanSessionId(ScanPathMode.IN_PATH) }
         val detail = awaitCompletedSession(sessionId)
@@ -210,7 +208,7 @@ class DiagnosticsNetworkE2ETest {
             },
         )
         assertTrue(detail.results.any { it.outcome == "http_ok" })
-        awaitServiceStatus(AppStatus.Running, Mode.VPN)
+        awaitServiceStatus(serviceStateStore, AppStatus.Running, Mode.VPN, fixtureClient)
     }
 
     @Test
@@ -478,7 +476,14 @@ class DiagnosticsNetworkE2ETest {
     }
 
     private fun awaitCompletedSession(sessionId: String): com.poyka.ripdpi.diagnostics.DiagnosticSessionDetail {
-        awaitUntil(timeoutMs = 45_000, pollMs = 100) {
+        awaitUntil(
+            timeoutMs = 45_000,
+            pollMs = 100,
+            failureMessage = {
+                "Diagnostics session $sessionId did not complete in time.\n" +
+                    serviceStateDebugSummary(serviceStateStore, fixtureClient)
+            },
+        ) {
             runBlocking {
                 when (val session = scanRecordStore.getScanSession(sessionId)) {
                     null -> {
@@ -542,8 +547,6 @@ class DiagnosticsNetworkE2ETest {
         status: AppStatus,
         mode: Mode,
     ) {
-        awaitUntil {
-            serviceStateStore.status.value == status to mode
-        }
+        awaitServiceStatus(serviceStateStore, status, mode, fixtureClient)
     }
 }
