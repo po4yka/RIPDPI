@@ -35,6 +35,7 @@ internal data class HomeDiagnosticsRuntimeState(
     val activeRunId: String? = null,
     val activeRunProgress: DiagnosticsHomeCompositeProgress? = null,
     val activeRunStageProgress: String? = null,
+    val quickScanActive: Boolean = false,
     val latestCompositeOutcome: DiagnosticsHomeCompositeOutcome? = null,
     val analysisSheetVisible: Boolean = false,
     val shareBusy: Boolean = false,
@@ -239,6 +240,7 @@ internal class MainHomeDiagnosticsActions(
                     activeRunId = null,
                     activeRunProgress = null,
                     activeRunStageProgress = null,
+                    quickScanActive = false,
                     latestCompositeOutcome = null,
                     analysisSheetVisible = false,
                     verificationSheet = null,
@@ -259,14 +261,11 @@ internal class MainHomeDiagnosticsActions(
                 activeRunObservation =
                     mutations.launch {
                         diagnosticsHomeCompositeRunService.observeHomeRun(started.runId).collect { progress ->
+                            val running = progress.status == DiagnosticsHomeCompositeRunStatus.RUNNING
                             homeDiagnosticsState.update { current ->
                                 current.copy(
-                                    activeRunId =
-                                        if (progress.status == DiagnosticsHomeCompositeRunStatus.RUNNING) {
-                                            progress.runId
-                                        } else {
-                                            null
-                                        },
+                                    activeRunId = if (running) progress.runId else null,
+                                    quickScanActive = if (running) current.quickScanActive else false,
                                     activeRunProgress = progress,
                                     latestCompositeOutcome = progress.outcome ?: current.latestCompositeOutcome,
                                     analysisSheetVisible =
@@ -306,6 +305,7 @@ internal class MainHomeDiagnosticsActions(
                     activeRunId = null,
                     activeRunProgress = null,
                     activeRunStageProgress = null,
+                    quickScanActive = true,
                     latestCompositeOutcome = null,
                     analysisSheetVisible = false,
                     verificationSheet = null,
@@ -326,14 +326,11 @@ internal class MainHomeDiagnosticsActions(
                 activeRunObservation =
                     mutations.launch {
                         diagnosticsHomeCompositeRunService.observeHomeRun(started.runId).collect { progress ->
+                            val running = progress.status == DiagnosticsHomeCompositeRunStatus.RUNNING
                             homeDiagnosticsState.update { current ->
                                 current.copy(
-                                    activeRunId =
-                                        if (progress.status == DiagnosticsHomeCompositeRunStatus.RUNNING) {
-                                            progress.runId
-                                        } else {
-                                            null
-                                        },
+                                    activeRunId = if (running) progress.runId else null,
+                                    quickScanActive = if (running) current.quickScanActive else false,
                                     activeRunProgress = progress,
                                     latestCompositeOutcome = progress.outcome ?: current.latestCompositeOutcome,
                                     analysisSheetVisible =
@@ -592,6 +589,7 @@ internal fun buildHomeDiagnosticsUiState(
             }
         }
 
+    val quickScanBusy = analysisBusy && runtime.quickScanActive
     return HomeDiagnosticsUiState(
         analysisAction =
             HomeDiagnosticsActionUiState(
@@ -600,6 +598,7 @@ internal fun buildHomeDiagnosticsUiState(
                 enabled = analysisEnabled,
                 busy = analysisBusy,
             ),
+        quickScanBusy = quickScanBusy,
         verifiedVpnAction =
             HomeDiagnosticsActionUiState(
                 label = stringResolver.getString(R.string.home_diagnostics_start_verified_vpn),

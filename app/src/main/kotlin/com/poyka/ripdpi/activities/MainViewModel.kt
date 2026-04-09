@@ -160,6 +160,7 @@ data class HomeDiagnosticsUiState(
     val verifiedVpnAction: HomeDiagnosticsActionUiState = HomeDiagnosticsActionUiState(),
     val latestAudit: HomeDiagnosticsLatestAuditUiState? = null,
     val analysisProgress: AnalysisProgressUiState? = null,
+    val quickScanBusy: Boolean = false,
     val analysisSheet: HomeDiagnosticsAnalysisSheetUiState? = null,
     val verificationSheet: HomeDiagnosticsVerificationSheetUiState? = null,
 )
