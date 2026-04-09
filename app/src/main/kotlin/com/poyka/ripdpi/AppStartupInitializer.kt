@@ -16,7 +16,7 @@ import javax.inject.Singleton
 class AppStartupInitializer
     @Inject
     constructor(
-        @ApplicationContext private val context: Context,
+        @param:ApplicationContext private val context: Context,
         private val appCompatibilityReset: AppCompatibilityReset,
         private val diagnosticsBootstrapperProvider: Provider<DiagnosticsBootstrapper>,
         private val detectionCheckScheduler: DetectionCheckScheduler,
