@@ -795,42 +795,30 @@ private fun HistoryCard(entries: List<DetectionHistoryEntry>) {
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     if (index > 0) {
-                        val prev = limited[index - 1].stealthScore
-                        val curr = entry.stealthScore
-                        when {
-                            curr > prev -> {
-                                Icon(
-                                    Icons.Filled.KeyboardArrowUp,
-                                    contentDescription =
-                                        stringResource(
-                                            R.string.detection_score_improved,
-                                        ),
-                                    modifier = Modifier.size(16.dp),
-                                    tint = colors.success,
-                                )
-                            }
+                        val diff = entry.stealthScore - limited[index - 1].stealthScore
+                        val (icon, desc, tint) =
+                            when {
+                                diff > 0 -> {
+                                    Triple(
+                                        Icons.Filled.KeyboardArrowUp,
+                                        stringResource(R.string.detection_score_improved),
+                                        colors.success,
+                                    )
+                                }
 
-                            curr < prev -> {
-                                Icon(
-                                    Icons.Filled.KeyboardArrowDown,
-                                    contentDescription =
-                                        stringResource(
-                                            R.string.detection_score_degraded,
-                                        ),
-                                    modifier = Modifier.size(16.dp),
-                                    tint = colors.destructive,
-                                )
-                            }
+                                diff < 0 -> {
+                                    Triple(
+                                        Icons.Filled.KeyboardArrowDown,
+                                        stringResource(R.string.detection_score_degraded),
+                                        colors.destructive,
+                                    )
+                                }
 
-                            else -> {
-                                Icon(
-                                    Icons.Filled.Remove,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(16.dp),
-                                    tint = colors.mutedForeground,
-                                )
+                                else -> {
+                                    Triple(Icons.Filled.Remove, null, colors.mutedForeground)
+                                }
                             }
-                        }
+                        Icon(icon, contentDescription = desc, modifier = Modifier.size(16.dp), tint = tint)
                     }
                     Text(
                         "${entry.stealthScore}",

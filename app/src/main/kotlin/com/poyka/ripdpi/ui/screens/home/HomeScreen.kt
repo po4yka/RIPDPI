@@ -193,7 +193,7 @@ fun HomeRoute(
     )
 }
 
-@Suppress("LongMethod", "CyclomaticComplexMethod")
+@Suppress("LongMethod", "CyclomaticComplexMethod", "LongParameterList")
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun HomeScreen(

@@ -32,9 +32,9 @@ import javax.inject.Singleton
 private const val DpiFullStageTimeoutMs = 240_000L
 private const val StrategyProbeStageTimeoutMs = 300_000L
 private const val DefaultStageTimeoutMs = 120_000L
-private const val StageRetryDelayMs = 2_000L
+internal const val StageRetryDelayMs = 2_000L
 private const val QuickScanStrategyProbeTimeoutMs = 90_000L
-private const val QuickScanMaxCandidates = 5
+internal const val QuickScanMaxCandidates = 5
 
 internal data class HomeCompositeStageSpec(
     val key: String,
@@ -221,139 +221,21 @@ class DefaultDiagnosticsHomeCompositeRunService
         }
 
         private suspend fun executeQuickRun(runId: String) {
-            log.i { "quick run started runId=$runId stages=${QuickScanStageSpecs.size}" }
-            val auditSpec = QuickScanStageSpecs[0]
-            val auditIndex = 0
-
-            val auditCompletedSession = executeStageWithTimeout(runId, auditIndex, auditSpec)
-            if (auditCompletedSession == null) {
-                val currentStageStatus =
+            val runner = DiagnosticsQuickScanRunner(scanRecordStore, diagnosticsHomeWorkflowService, json)
+            runner.execute(
+                runId = runId,
+                executeStage = ::executeStageWithTimeout,
+                markStageFailure = ::markStageFailure,
+                updateStage = ::updateStage,
+                isAuditRunning = {
                     progressState.value[runId]
                         ?.stages
-                        ?.getOrNull(auditIndex)
-                        ?.status
-                if (currentStageStatus == DiagnosticsHomeCompositeStageStatus.RUNNING) {
-                    markStageFailure(
-                        runId = runId,
-                        stageIndex = auditIndex,
-                        headline = "${auditSpec.label} timed out",
-                        summary = "The audit stage did not complete within the allowed time.",
-                    )
-                }
-                // Skip remaining stages
-                QuickScanStageSpecs.drop(1).forEachIndexed { i, spec ->
-                    val stageIndex = i + 1
-                    updateStage(runId, stageIndex) { current ->
-                        current.copy(
-                            status = DiagnosticsHomeCompositeStageStatus.SKIPPED,
-                            headline = "${spec.label} skipped",
-                            summary = "Skipped due to audit stage failure.",
-                        )
-                    }
-                }
-                finalizeRun(
-                    runId,
-                    auditOutcome = null,
-                    coverageNote = null,
-                    dnsIssuesDetected = false,
-                    networkChanged = false,
-                )
-                return
-            }
-
-            val auditSessionId = auditCompletedSession.first
-            val auditSession = auditCompletedSession.second
-            val auditSummary =
-                buildCompletedStageSummary(auditSpec, auditSessionId, auditSession, scanRecordStore, json)
-            updateStage(runId, auditIndex) { auditSummary }
-
-            if (auditSession.status != "completed") {
-                QuickScanStageSpecs.drop(1).forEachIndexed { i, spec ->
-                    val stageIndex = i + 1
-                    updateStage(runId, stageIndex) { current ->
-                        current.copy(
-                            status = DiagnosticsHomeCompositeStageStatus.SKIPPED,
-                            headline = "${spec.label} skipped",
-                            summary = "Skipped due to network unavailability.",
-                        )
-                    }
-                }
-                finalizeRun(
-                    runId,
-                    auditOutcome = null,
-                    coverageNote = null,
-                    dnsIssuesDetected = false,
-                    networkChanged = false,
-                )
-                return
-            }
-
-            val finalizedAuditOutcome = diagnosticsHomeWorkflowService.finalizeHomeAudit(auditSessionId)
-            updateStage(runId, auditIndex) { current ->
-                current.copy(
-                    headline = finalizedAuditOutcome.headline,
-                    summary = finalizedAuditOutcome.summary,
-                    recommendationContributor = finalizedAuditOutcome.actionable,
-                )
-            }
-
-            // Run strategy stage with maxCandidates
-            var auditOutcome: DiagnosticsHomeAuditOutcome? = finalizedAuditOutcome
-            val strategySpec = QuickScanStageSpecs[1]
-            val strategyIndex = 1
-            var strategyResult =
-                executeStageWithTimeout(
-                    runId,
-                    strategyIndex,
-                    strategySpec,
-                    quickScan = true,
-                    maxCandidates = QuickScanMaxCandidates,
-                )
-            if (strategyResult == null) {
-                delay(StageRetryDelayMs)
-                strategyResult =
-                    executeStageWithTimeout(
-                        runId,
-                        strategyIndex,
-                        strategySpec,
-                        quickScan = true,
-                        maxCandidates = QuickScanMaxCandidates,
-                    )
-            }
-            if (strategyResult != null) {
-                val (strategySessionId, strategySession) = strategyResult
-                val strategySummary =
-                    buildCompletedStageSummary(strategySpec, strategySessionId, strategySession, scanRecordStore, json)
-                updateStage(runId, strategyIndex) { strategySummary }
-                if (auditOutcome?.actionable != true && strategySession.status == "completed") {
-                    val strategyAuditOutcome =
-                        diagnosticsHomeWorkflowService.finalizeHomeAudit(strategySessionId)
-                    if (strategyAuditOutcome.actionable) {
-                        auditOutcome = strategyAuditOutcome
-                        updateStage(runId, strategyIndex) { current ->
-                            current.copy(
-                                headline = strategyAuditOutcome.headline,
-                                summary = strategyAuditOutcome.summary,
-                                recommendationContributor = true,
-                            )
-                        }
-                    }
-                }
-            }
-
-            finalizeRun(
-                runId,
-                auditOutcome = auditOutcome,
-                coverageNote = null,
-                dnsIssuesDetected = false,
-                networkChanged = false,
+                        ?.getOrNull(0)
+                        ?.status ==
+                        DiagnosticsHomeCompositeStageStatus.RUNNING
+                },
+                finalizeRun = ::finalizeRun,
             )
-            log.i {
-                val outcome = completedRuns[runId]
-                "quick run completed: completed=${outcome?.completedStageCount}" +
-                    " failed=${outcome?.failedStageCount}" +
-                    " skipped=${outcome?.skippedStageCount}"
-            }
         }
 
         private suspend fun executeRun(runId: String) {
