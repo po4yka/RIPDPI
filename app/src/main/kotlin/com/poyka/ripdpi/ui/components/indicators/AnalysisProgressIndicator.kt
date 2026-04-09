@@ -1,11 +1,13 @@
 package com.poyka.ripdpi.ui.components.indicators
 
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
@@ -17,6 +19,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -28,9 +31,12 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.activities.AnalysisStageStatus
@@ -84,15 +90,28 @@ fun AnalysisProgressIndicator(
             pulseAlpha = pulseAlpha,
             shimmerAlpha = shimmerAlpha,
         )
+        val twoLineHeight =
+            with(LocalDensity.current) {
+                (typeScale.secondaryBody.lineHeight * 2).toDp()
+            }
         AnimatedContent(
             targetState = stageLabel,
             transitionSpec = {
-                fadeIn(tween(durationMillis = motion.duration(motion.stateDurationMillis))) togetherWith
-                    fadeOut(tween(durationMillis = motion.duration(motion.quickDurationMillis)))
+                (
+                    fadeIn(tween(durationMillis = motion.duration(motion.stateDurationMillis))) togetherWith
+                        fadeOut(tween(durationMillis = motion.duration(motion.quickDurationMillis)))
+                ).using(SizeTransform(clip = false))
             },
+            modifier = Modifier.defaultMinSize(minHeight = twoLineHeight),
             label = "stageLabelCrossfade",
         ) { label ->
-            Text(text = label, style = typeScale.secondaryBody, color = colors.mutedForeground)
+            Text(
+                text = label,
+                style = typeScale.secondaryBody,
+                color = colors.mutedForeground,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+            )
         }
     }
 }
@@ -278,6 +297,16 @@ private fun PipelineSegment(
             }
         }
     }
+    val fillFraction by animateFloatAsState(
+        targetValue =
+            when {
+                isCompleted || stage.status == AnalysisStageStatus.FAILED -> 1f
+                isActive -> stage.progress.coerceIn(0f, 1f)
+                else -> 0f
+            },
+        animationSpec = tween(durationMillis = motion.duration(motion.stateDurationMillis)),
+        label = "segmentFill$index",
+    )
     Box(
         modifier =
             modifier
@@ -285,14 +314,30 @@ private fun PipelineSegment(
                 .graphicsLayer {
                     scaleX = completionScale.value
                     scaleY = completionScale.value
-                }.then(
-                    when {
-                        isActive -> Modifier.alpha(pulseAlpha)
-                        isPending -> Modifier.alpha(shimmerAlpha)
-                        else -> Modifier
-                    },
-                ).background(animatedColor, segmentShape),
-    )
+                },
+    ) {
+        // Background track
+        Box(
+            modifier =
+                Modifier
+                    .matchParentSize()
+                    .then(if (isPending) Modifier.alpha(shimmerAlpha) else Modifier)
+                    .background(colors.muted, segmentShape),
+        )
+        // Animated fill overlay
+        if (fillFraction > 0f) {
+            Box(
+                modifier =
+                    Modifier
+                        .matchParentSize()
+                        .graphicsLayer {
+                            scaleX = fillFraction
+                            transformOrigin = TransformOrigin(0f, 0.5f)
+                        }.then(if (isActive) Modifier.alpha(pulseAlpha) else Modifier)
+                        .background(animatedColor, segmentShape),
+            )
+        }
+    }
 }
 
 @Suppress("UnusedPrivateMember")
@@ -304,8 +349,8 @@ private fun AnalysisProgressIndicatorPreview() {
             AnalysisProgressIndicator(
                 stages =
                     listOf(
-                        AnalysisStageUiState(AnalysisStageStatus.COMPLETED),
-                        AnalysisStageUiState(AnalysisStageStatus.RUNNING),
+                        AnalysisStageUiState(AnalysisStageStatus.COMPLETED, progress = 1f),
+                        AnalysisStageUiState(AnalysisStageStatus.RUNNING, progress = 0.6f),
                         AnalysisStageUiState(AnalysisStageStatus.PENDING),
                         AnalysisStageUiState(AnalysisStageStatus.PENDING),
                     ),
@@ -315,10 +360,10 @@ private fun AnalysisProgressIndicatorPreview() {
             AnalysisProgressIndicator(
                 stages =
                     listOf(
-                        AnalysisStageUiState(AnalysisStageStatus.COMPLETED),
-                        AnalysisStageUiState(AnalysisStageStatus.FAILED),
-                        AnalysisStageUiState(AnalysisStageStatus.COMPLETED),
-                        AnalysisStageUiState(AnalysisStageStatus.RUNNING),
+                        AnalysisStageUiState(AnalysisStageStatus.COMPLETED, progress = 1f),
+                        AnalysisStageUiState(AnalysisStageStatus.FAILED, progress = 1f),
+                        AnalysisStageUiState(AnalysisStageStatus.COMPLETED, progress = 1f),
+                        AnalysisStageUiState(AnalysisStageStatus.RUNNING, progress = 0.3f),
                     ),
                 activeStageIndex = 3,
                 stageLabel = "Stage 4 of 4 \u00B7 Testing UDP candidate",
@@ -326,7 +371,7 @@ private fun AnalysisProgressIndicatorPreview() {
             AnalysisProgressIndicator(
                 stages =
                     listOf(
-                        AnalysisStageUiState(AnalysisStageStatus.RUNNING),
+                        AnalysisStageUiState(AnalysisStageStatus.RUNNING, progress = 0.15f),
                         AnalysisStageUiState(AnalysisStageStatus.PENDING),
                         AnalysisStageUiState(AnalysisStageStatus.PENDING),
                     ),
