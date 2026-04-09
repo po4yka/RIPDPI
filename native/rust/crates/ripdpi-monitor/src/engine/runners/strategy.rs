@@ -437,10 +437,18 @@ impl ExecutionStageRunner for StrategyTcpRunner {
             strategy_plan.probe_seed,
             fake_ttl_available,
         );
+        // Quick scan: truncate candidate list when max_candidates is set.
+        if let Some(max) = strategy_plan.max_candidates {
+            let remaining = max.saturating_sub(1); // baseline already counted
+            if pending_tcp_specs.len() > remaining {
+                pending_tcp_specs.truncate(remaining);
+            }
+        }
         // Round 1 qualifier: test each candidate against 1 domain first.
         // Eliminates candidates that fail completely before the full-matrix run.
         // Candidates are tested in parallel batches of up to 3 to reduce wall-clock time.
-        if domain_targets.len() > 1 {
+        // Skipped when max_candidates is set (quick scan) since the list is already small.
+        if strategy_plan.max_candidates.is_none() && domain_targets.len() > 1 {
             let qualifier_targets = &domain_targets[..1];
             let mut qualified_specs: Vec<StrategyCandidateSpec> = Vec::with_capacity(pending_tcp_specs.len());
             let mut eliminated_count = 0usize;
@@ -771,6 +779,11 @@ impl ExecutionStageRunner for StrategyQuicRunner {
         }
         let mut pending_quic_specs =
             interleave_candidate_families(quic_specs.clone(), stable_probe_hash(strategy_plan.probe_seed, "quic"));
+        if let Some(max) = strategy_plan.max_candidates {
+            if pending_quic_specs.len() > max {
+                pending_quic_specs.truncate(max);
+            }
+        }
         let mut quic_family_succeeded = false;
         let mut quic_failure_tracker = FamilyFailureTracker::new(strategy_plan.suite.family_failure_threshold);
         while !pending_quic_specs.is_empty() {

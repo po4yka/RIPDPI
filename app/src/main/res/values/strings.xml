@@ -295,6 +295,8 @@
     <string name="home_diagnostics_stage_results_label">Stage results</string>
     <string name="home_diagnostics_stage_recommendation_marker">active recommendation</string>
     <string name="home_diagnostics_stage_failed_marker">failed</string>
+    <string name="home_diagnostics_quick_scan">Quick Scan</string>
+    <string name="home_diagnostics_quick_scan_body">Strategy probe only, ~90 seconds</string>
     <string name="home_history_title">Review saved sessions and failures</string>
     <string name="home_history_body">History keeps durable connection sessions, sampled runtime diagnostics, and native failures outside the live Diagnostics tools.</string>
     <string name="home_history_cta">Open History</string>
