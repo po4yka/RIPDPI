@@ -4,21 +4,21 @@
   "maxTotalGrowthBytes": 262144,
   "libraries": {
     "arm64-v8a": {
-      "libripdpi.so": 9374336,
-      "libripdpi-tunnel.so": 7676536
+      "libripdpi.so": 9420800,
+      "libripdpi-tunnel.so": 7714816
     },
     "armeabi-v7a": {
-      "libripdpi.so": 5880556,
-      "libripdpi-tunnel.so": 4699556
+      "libripdpi.so": 5910528,
+      "libripdpi-tunnel.so": 4723712
     },
     "x86": {
-      "libripdpi.so": 8462664,
-      "libripdpi-tunnel.so": 6653448
+      "libripdpi.so": 8503296,
+      "libripdpi-tunnel.so": 6684672
     },
     "x86_64": {
-      "libripdpi.so": 11093128,
-      "libripdpi-tunnel.so": 9172576
+      "libripdpi.so": 11149312,
+      "libripdpi-tunnel.so": 9216000
     }
   },
-  "_comment": "Updated 2026-04-07 with CI release build sizes after ripdpi-tls-profiles integration. Local debug builds are ~10x larger due to unoptimized/unstripped symbols; CI values are authoritative."
+  "_comment": "Updated 2026-04-09 after diagnostics-driven improvements: cdn_ech, reprobe, warmup, tls_profiles rotation, DoH randomization, DNS injection profiling, TCP block differentiation, TLS alert codes."
 }

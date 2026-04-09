@@ -880,7 +880,10 @@ fn serve_https_doh_raw(
     }
 
     let (request_line, body) = read_http_request(&mut tls_stream);
-    assert_eq!(request_line, "POST /dns-query HTTP/1.1");
+    assert!(
+        request_line.starts_with("POST /dns-query") && request_line.ends_with("HTTP/1.1"),
+        "unexpected request line: {request_line}",
+    );
     assert_eq!(body, expected_query);
 
     for part in response_parts {

@@ -159,12 +159,14 @@ data class HttpParserUiState(
     val httpMethodEol: Boolean = false,
     val httpUnixEol: Boolean = false,
     val httpMethodSpace: Boolean = false,
+    val httpHostExtraSpace: Boolean = false,
+    val httpHostTab: Boolean = false,
 ) {
     val httpParserSafeCount: Int
-        get() = listOf(hostMixedCase, domainMixedCase, hostRemoveSpaces, httpHostPad).count { it }
+        get() = listOf(hostMixedCase, domainMixedCase, hostRemoveSpaces, httpHostPad, httpHostTab).count { it }
 
     val httpParserAggressiveCount: Int
-        get() = listOf(httpMethodEol, httpUnixEol, httpMethodSpace).count { it }
+        get() = listOf(httpMethodEol, httpUnixEol, httpMethodSpace, httpHostExtraSpace).count { it }
 
     val hasSafeHttpParserTweaks: Boolean
         get() = httpParserSafeCount > 0

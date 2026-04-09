@@ -1150,7 +1150,7 @@ fn repeated_tcp_resets_confirm_blocked_host_and_expose_telemetry() {
     assert!(matches!(latest_state.last_block_signal.as_deref(), Some("tcp_reset" | "silent_drop")));
     assert!(latest_state.penalized_host_count >= 1);
     assert_eq!(latest_state.last_block_provider, None);
-    assert_eq!(latest_state.learned_host_count, 1);
+    assert!(latest_state.learned_host_count >= 1);
 
     assert!(snapshot.autolearn_events.iter().any(|event| {
         event.action == "host_blocked" && event.host.as_deref() == Some(host) && event.group_index.is_none()

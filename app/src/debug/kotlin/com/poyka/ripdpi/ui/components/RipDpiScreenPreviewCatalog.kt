@@ -176,6 +176,7 @@ internal fun RipDpiSettingsMediumPreviewScene() {
             onOpenCustomization = {},
             onOpenAbout = {},
             onOpenDataTransparency = {},
+            onOpenDetectionCheck = {},
             onShareDebugBundle = {},
             permissionSummary =
                 PermissionSummaryUiState(
@@ -226,6 +227,7 @@ internal fun RipDpiSettingsDarkPreviewScene() {
             onOpenCustomization = {},
             onOpenAbout = {},
             onOpenDataTransparency = {},
+            onOpenDetectionCheck = {},
             onShareDebugBundle = {},
             permissionSummary =
                 PermissionSummaryUiState(

@@ -314,6 +314,7 @@ pub(super) fn run_proxy_with_listener_internal(
         runtime_context: control.as_ref().and_then(|value| value.runtime_context()),
         control: control.clone(),
         ttl_unavailable: Arc::new(AtomicBool::new(false)),
+        reprobe_tracker: std::sync::Arc::new(super::reprobe::ReprobeTracker::new()),
         #[cfg(all(feature = "io-uring", any(target_os = "linux", target_os = "android")))]
         io_uring: None,
     };
@@ -338,6 +339,12 @@ pub(super) fn run_proxy_with_listener_internal(
     if let Ok(mut cache) = state.cache.lock() {
         flush_autolearn_updates(&state, &mut cache);
     }
+
+    super::warmup::spawn_warmup_thread(state.clone());
+
+    // Check for network identity changes and trigger a lightweight reprobe
+    // if the network switched (e.g. WiFi -> cellular).
+    super::reprobe::maybe_spawn_reprobe(&state);
 
     let result = loop {
         let shutdown_requested =

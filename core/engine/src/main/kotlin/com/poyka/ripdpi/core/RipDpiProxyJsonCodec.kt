@@ -400,6 +400,8 @@ internal object RipDpiProxyJsonCodec {
         val httpMethodSpace: Boolean = false,
         val httpUnixEol: Boolean = false,
         val httpHostPad: Boolean = false,
+        val httpHostExtraSpace: Boolean = false,
+        val httpHostTab: Boolean = false,
     )
 
     @Serializable
@@ -842,6 +844,8 @@ internal object RipDpiProxyJsonCodec {
                 httpMethodSpace = value.httpMethodSpace,
                 httpUnixEol = value.httpUnixEol,
                 httpHostPad = value.httpHostPad,
+                httpHostExtraSpace = value.httpHostExtraSpace,
+                httpHostTab = value.httpHostTab,
             )
 
         fun toNative(value: RipDpiParserEvasionConfig): NativeParserEvasionConfig =
@@ -853,6 +857,8 @@ internal object RipDpiProxyJsonCodec {
                 httpMethodSpace = value.httpMethodSpace,
                 httpUnixEol = value.httpUnixEol,
                 httpHostPad = value.httpHostPad,
+                httpHostExtraSpace = value.httpHostExtraSpace,
+                httpHostTab = value.httpHostTab,
             )
     }
 

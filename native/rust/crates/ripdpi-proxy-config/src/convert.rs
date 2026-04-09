@@ -518,6 +518,8 @@ pub fn runtime_config_from_ui(payload: ProxyUiConfig) -> Result<RuntimeConfig, P
     config.host_autolearn.max_hosts = host_autolearn.max_hosts.max(1);
     config.host_autolearn.store_path =
         host_autolearn.store_path.as_deref().map(str::trim).filter(|value| !value.is_empty()).map(ToOwned::to_owned);
+    config.host_autolearn.warmup_probe_enabled = host_autolearn.warmup_probe_enabled;
+    config.host_autolearn.network_reprobe_enabled = host_autolearn.network_reprobe_enabled;
     config.adaptive.network_scope_key = host_autolearn
         .network_scope_key
         .as_deref()

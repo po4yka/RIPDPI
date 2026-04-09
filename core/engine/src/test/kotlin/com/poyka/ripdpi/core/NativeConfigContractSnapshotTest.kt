@@ -788,6 +788,8 @@ class NativeConfigContractSnapshotTest {
         httpMethodSpace: Boolean = false,
         httpUnixEol: Boolean = false,
         httpHostPad: Boolean = false,
+        httpHostExtraSpace: Boolean = false,
+        httpHostTab: Boolean = false,
     ): JsonObject =
         buildJsonObject {
             put("hostMixedCase", JsonPrimitive(hostMixedCase))
@@ -797,6 +799,8 @@ class NativeConfigContractSnapshotTest {
             put("httpMethodSpace", JsonPrimitive(httpMethodSpace))
             put("httpUnixEol", JsonPrimitive(httpUnixEol))
             put("httpHostPad", JsonPrimitive(httpHostPad))
+            put("httpHostExtraSpace", JsonPrimitive(httpHostExtraSpace))
+            put("httpHostTab", JsonPrimitive(httpHostTab))
         }
 
     private fun adaptiveFallbackExpected(

@@ -68,6 +68,7 @@ fun SettingsRoute(
     onOpenCustomization: () -> Unit,
     onOpenAbout: () -> Unit,
     onOpenDataTransparency: () -> Unit,
+    onOpenDetectionCheck: () -> Unit,
     onShareDebugBundle: () -> Unit,
     permissionSummary: PermissionSummaryUiState,
     onRepairPermission: (PermissionKind) -> Unit,
@@ -85,6 +86,7 @@ fun SettingsRoute(
         onOpenCustomization = onOpenCustomization,
         onOpenAbout = onOpenAbout,
         onOpenDataTransparency = onOpenDataTransparency,
+        onOpenDetectionCheck = onOpenDetectionCheck,
         onShareDebugBundle = onShareDebugBundle,
         permissionSummary = permissionSummary,
         onRepairPermission = onRepairPermission,
@@ -109,6 +111,7 @@ internal fun SettingsScreen(
     onOpenCustomization: () -> Unit,
     onOpenAbout: () -> Unit,
     onOpenDataTransparency: () -> Unit,
+    onOpenDetectionCheck: () -> Unit = {},
     onShareDebugBundle: () -> Unit,
     permissionSummary: PermissionSummaryUiState,
     onRepairPermission: (PermissionKind) -> Unit,
@@ -486,6 +489,12 @@ internal fun SettingsScreen(
                     testTag = RipDpiTestTags.SettingsSupportBundle,
                 )
                 SettingsRow(
+                    title = stringResource(R.string.title_detection_check),
+                    subtitle = stringResource(R.string.detection_check_subtitle),
+                    onClick = onOpenDetectionCheck,
+                    showDivider = true,
+                )
+                SettingsRow(
                     title = stringResource(R.string.title_data_transparency),
                     subtitle = stringResource(R.string.settings_data_transparency_body),
                     value = stringResource(R.string.settings_manage_action),
@@ -680,6 +689,7 @@ private fun SettingsScreenPreview() {
             onOpenCustomization = {},
             onOpenAbout = {},
             onOpenDataTransparency = {},
+            onOpenDetectionCheck = {},
             onShareDebugBundle = {},
             permissionSummary = PermissionSummaryUiState(),
             onRepairPermission = {},
@@ -713,6 +723,7 @@ private fun SettingsScreenDarkPreview() {
             onOpenCustomization = {},
             onOpenAbout = {},
             onOpenDataTransparency = {},
+            onOpenDetectionCheck = {},
             onShareDebugBundle = {},
             permissionSummary = PermissionSummaryUiState(),
             onRepairPermission = {},

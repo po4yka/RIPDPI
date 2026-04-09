@@ -42,6 +42,7 @@ fn runtime_state_with_context(config: RuntimeConfig, runtime_context: Option<Pro
         runtime_context,
         control: None,
         ttl_unavailable: Arc::new(AtomicBool::new(false)),
+        reprobe_tracker: std::sync::Arc::new(crate::runtime::reprobe::ReprobeTracker::new()),
         #[cfg(all(feature = "io-uring", any(target_os = "linux", target_os = "android")))]
         io_uring: None,
     }

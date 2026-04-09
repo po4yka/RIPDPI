@@ -1,6 +1,6 @@
 use crate::types::{
-    HttpHost, HttpMarkerInfo, PacketMutation, MH_DMIX, MH_HMIX, MH_HOSTPAD, MH_METHODEOL, MH_METHODSPACE, MH_SPACE,
-    MH_UNIXEOL,
+    HttpHost, HttpMarkerInfo, PacketMutation, MH_DMIX, MH_HMIX, MH_HOSTEXTRASPACE, MH_HOSTPAD, MH_HOSTTAB,
+    MH_METHODEOL, MH_METHODSPACE, MH_SPACE, MH_UNIXEOL,
 };
 use crate::util::{parse_u16_ascii, strncase_find};
 
@@ -371,6 +371,37 @@ pub fn mod_http_like_c(input: &[u8], flags: u32) -> PacketMutation {
         Some(output)
     }
 
+    /// Insert a space before the colon in the Host header: `Host : value`.
+    /// Many DPI parsers fail on the extra space but most HTTP servers accept it.
+    fn apply_host_extra_space(input: &[u8]) -> Option<Vec<u8>> {
+        let parts = parse_http_parts(input)?;
+        // header_name_start points at 'H' of "Host:", colon is at +4
+        let colon_pos = parts.header_name_start + 4;
+        if colon_pos >= input.len() || input[colon_pos] != b':' {
+            return None;
+        }
+        let mut output = Vec::with_capacity(input.len() + 1);
+        output.extend_from_slice(&input[..colon_pos]);
+        output.push(b' ');
+        output.extend_from_slice(&input[colon_pos..]);
+        Some(output)
+    }
+
+    /// Replace the space after `Host:` with a tab character: `Host:\tvalue`.
+    /// Valid HTTP per RFC 7230 but trips up simple DPI parsers that match on
+    /// `Host: ` with a literal space.
+    fn apply_host_tab(input: &[u8]) -> Option<Vec<u8>> {
+        let parts = parse_http_parts(input)?;
+        // header_name_start points at 'H' of "Host:", colon is at +4, space at +5
+        let space_pos = parts.header_name_start + 5;
+        if space_pos >= input.len() || input[space_pos] != b' ' {
+            return None;
+        }
+        let mut output = input.to_vec();
+        output[space_pos] = b'\t';
+        Some(output)
+    }
+
     let mut output = input.to_vec();
     let mut modified = false;
 
@@ -412,6 +443,18 @@ pub fn mod_http_like_c(input: &[u8], flags: u32) -> PacketMutation {
     }
     if flags & MH_HOSTPAD != 0 {
         if let Some(next) = apply_http_host_pad(&output) {
+            modified |= next != output;
+            output = next;
+        }
+    }
+    if flags & MH_HOSTEXTRASPACE != 0 {
+        if let Some(next) = apply_host_extra_space(&output) {
+            modified |= next != output;
+            output = next;
+        }
+    }
+    if flags & MH_HOSTTAB != 0 {
+        if let Some(next) = apply_host_tab(&output) {
             modified |= next != output;
             output = next;
         }
@@ -579,6 +622,26 @@ mod tests {
 
         assert_eq!(mutation.rc, 0);
         assert!(output.contains("X-Pad: 01234567890123456789012345678901\r\n"));
+    }
+
+    #[test]
+    fn mod_http_like_c_applies_host_extra_space() {
+        let input = b"GET / HTTP/1.1\r\nHost: example.com\r\n\r\n";
+        let mutation = mod_http_like_c(input, MH_HOSTEXTRASPACE);
+        let output = std::str::from_utf8(&mutation.bytes).expect("http mutation utf8");
+
+        assert_eq!(mutation.rc, 0);
+        assert!(output.contains("Host : example.com"));
+    }
+
+    #[test]
+    fn mod_http_like_c_applies_host_tab() {
+        let input = b"GET / HTTP/1.1\r\nHost: example.com\r\n\r\n";
+        let mutation = mod_http_like_c(input, MH_HOSTTAB);
+        let output = std::str::from_utf8(&mutation.bytes).expect("http mutation utf8");
+
+        assert_eq!(mutation.rc, 0);
+        assert!(output.contains("Host:\texample.com"));
     }
 
     #[test]

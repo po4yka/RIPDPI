@@ -65,6 +65,7 @@ class DiagnosticsHomeCompositeRunServiceTest {
                     scanRecordStore = stores,
                     networkHandoverMonitor = NoOpNetworkHandoverMonitor(),
                     serviceStateStore = FakeServiceStateStore(AppStatus.Running to Mode.VPN),
+                    probeResultCache = NoOpProbeResultCache(),
                     json = diagnosticsTestJson(),
                     scope = backgroundScope,
                 )
@@ -142,6 +143,7 @@ class DiagnosticsHomeCompositeRunServiceTest {
                     scanRecordStore = stores,
                     networkHandoverMonitor = NoOpNetworkHandoverMonitor(),
                     serviceStateStore = FakeServiceStateStore(AppStatus.Running to Mode.VPN),
+                    probeResultCache = NoOpProbeResultCache(),
                     json = diagnosticsTestJson(),
                     scope = backgroundScope,
                 )
@@ -209,6 +211,7 @@ class DiagnosticsHomeCompositeRunServiceTest {
                     scanRecordStore = stores,
                     networkHandoverMonitor = NoOpNetworkHandoverMonitor(),
                     serviceStateStore = FakeServiceStateStore(AppStatus.Running to Mode.VPN),
+                    probeResultCache = NoOpProbeResultCache(),
                     json = diagnosticsTestJson(),
                     scope = backgroundScope,
                 )
@@ -303,6 +306,7 @@ class DiagnosticsHomeCompositeRunServiceTest {
                     scanRecordStore = stores,
                     networkHandoverMonitor = monitor,
                     serviceStateStore = FakeServiceStateStore(AppStatus.Running to Mode.VPN),
+                    probeResultCache = NoOpProbeResultCache(),
                     json = diagnosticsTestJson(),
                     scope = backgroundScope,
                 )
@@ -334,6 +338,7 @@ class DiagnosticsHomeCompositeRunServiceTest {
                         selectedProfileId: String?,
                         skipActiveScanCheck: Boolean,
                         scanDeadlineMs: Long?,
+                        maxCandidates: Int?,
                     ): DiagnosticsManualScanStartResult {
                         val count = (attemptCounts[selectedProfileId] ?: 0) + 1
                         attemptCounts[selectedProfileId ?: ""] = count
@@ -399,6 +404,7 @@ class DiagnosticsHomeCompositeRunServiceTest {
                     scanRecordStore = stores,
                     networkHandoverMonitor = NoOpNetworkHandoverMonitor(),
                     serviceStateStore = FakeServiceStateStore(AppStatus.Running to Mode.VPN),
+                    probeResultCache = NoOpProbeResultCache(),
                     json = diagnosticsTestJson(),
                     scope = backgroundScope,
                 )
@@ -470,6 +476,7 @@ class DiagnosticsHomeCompositeRunServiceTest {
                     scanRecordStore = stores,
                     networkHandoverMonitor = NoOpNetworkHandoverMonitor(),
                     serviceStateStore = FakeServiceStateStore(AppStatus.Running to Mode.VPN),
+                    probeResultCache = NoOpProbeResultCache(),
                     json = json,
                     scope = backgroundScope,
                 )
@@ -615,6 +622,7 @@ class DiagnosticsHomeCompositeRunServiceTest {
                     scanRecordStore = stores,
                     networkHandoverMonitor = NoOpNetworkHandoverMonitor(),
                     serviceStateStore = FakeServiceStateStore(AppStatus.Running to Mode.VPN),
+                    probeResultCache = NoOpProbeResultCache(),
                     json = json,
                     scope = backgroundScope,
                 )
@@ -676,6 +684,7 @@ class DiagnosticsHomeCompositeRunServiceTest {
                     scanRecordStore = stores,
                     networkHandoverMonitor = NoOpNetworkHandoverMonitor(),
                     serviceStateStore = serviceStateStore,
+                    probeResultCache = NoOpProbeResultCache(),
                     json = diagnosticsTestJson(),
                     scope = backgroundScope,
                 )
@@ -739,6 +748,7 @@ private class RecordingHomeCompositeScanController(
         selectedProfileId: String?,
         skipActiveScanCheck: Boolean,
         scanDeadlineMs: Long?,
+        maxCandidates: Int?,
     ): DiagnosticsManualScanStartResult {
         nextId += 1
         val sessionId = "scan-$nextId"
@@ -755,6 +765,16 @@ private class RecordingHomeCompositeScanController(
     override suspend fun cancelActiveScan() = Unit
 
     override suspend fun setActiveProfile(profileId: String) = Unit
+}
+
+private class NoOpProbeResultCache : ProbeResultCache {
+    override suspend fun lookup(fingerprintHash: String): CachedProbeOutcome? = null
+
+    override suspend fun store(outcome: CachedProbeOutcome) = Unit
+
+    override suspend fun evict(fingerprintHash: String) = Unit
+
+    override suspend fun clear() = Unit
 }
 
 private class MutableDiagnosticsTimelineSource : DiagnosticsTimelineSource {

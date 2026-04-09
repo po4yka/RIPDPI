@@ -355,6 +355,10 @@ pub struct ProxyUiParserEvasionConfig {
     pub http_method_space: bool,
     #[serde(default)]
     pub http_host_pad: bool,
+    #[serde(default)]
+    pub http_host_extra_space: bool,
+    #[serde(default)]
+    pub http_host_tab: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -635,6 +639,20 @@ pub struct ProxyUiHostAutolearnConfig {
     pub store_path: Option<String>,
     #[serde(default)]
     pub network_scope_key: Option<String>,
+    /// When true (default), spawn a background warmup probe after VPN start to
+    /// pre-populate the autolearn table with commonly-blocked domains.
+    #[serde(default = "default_warmup_probe_enabled")]
+    pub warmup_probe_enabled: bool,
+    #[serde(default = "default_network_reprobe_enabled")]
+    pub network_reprobe_enabled: bool,
+}
+
+fn default_warmup_probe_enabled() -> bool {
+    true
+}
+
+fn default_network_reprobe_enabled() -> bool {
+    true
 }
 
 impl Default for ProxyUiHostAutolearnConfig {
@@ -645,6 +663,8 @@ impl Default for ProxyUiHostAutolearnConfig {
             max_hosts: default_host_autolearn_max_hosts(),
             store_path: None,
             network_scope_key: None,
+            warmup_probe_enabled: default_warmup_probe_enabled(),
+            network_reprobe_enabled: default_network_reprobe_enabled(),
         }
     }
 }
@@ -814,20 +834,36 @@ fn default_true() -> bool {
 }
 
 fn default_tcp_chain_steps() -> Vec<ProxyUiTcpChainStep> {
-    vec![ProxyUiTcpChainStep {
-        kind: "disorder".to_string(),
-        marker: "1".to_string(),
-        midhost_marker: String::new(),
-        fake_host_template: String::new(),
-        overlap_size: 0,
-        fake_mode: default_seqovl_fake_mode(),
-        fragment_count: 0,
-        min_fragment_size: 0,
-        max_fragment_size: 0,
-        inter_segment_delay_ms: 0,
-        activation_filter: None,
-        ipv6_extension_profile: default_ipv6_extension_profile(),
-    }]
+    vec![
+        ProxyUiTcpChainStep {
+            kind: "tlsrec".to_string(),
+            marker: "extlen".to_string(),
+            midhost_marker: String::new(),
+            fake_host_template: String::new(),
+            overlap_size: 0,
+            fake_mode: String::new(),
+            fragment_count: 0,
+            min_fragment_size: 0,
+            max_fragment_size: 0,
+            inter_segment_delay_ms: 0,
+            activation_filter: None,
+            ipv6_extension_profile: default_ipv6_extension_profile(),
+        },
+        ProxyUiTcpChainStep {
+            kind: "fake".to_string(),
+            marker: "host+1".to_string(),
+            midhost_marker: String::new(),
+            fake_host_template: String::new(),
+            overlap_size: 0,
+            fake_mode: default_seqovl_fake_mode(),
+            fragment_count: 0,
+            min_fragment_size: 0,
+            max_fragment_size: 0,
+            inter_segment_delay_ms: 0,
+            activation_filter: None,
+            ipv6_extension_profile: default_ipv6_extension_profile(),
+        },
+    ]
 }
 
 fn default_seqovl_fake_mode() -> String {

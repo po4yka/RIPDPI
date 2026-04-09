@@ -140,6 +140,16 @@ pub struct DnsObservationFact {
     pub record_type_mismatch: Option<bool>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub malformed_pointers: Option<bool>,
+    /// Ratio of encrypted_latency / udp_latency * 100 -- high values indicate injection.
+    /// Stored as fixed-point (e.g. 4000 means 40.00x ratio).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub injection_latency_ratio: Option<u64>,
+    /// UDP-returned IPs that differ from encrypted resolver answers (forged by DPI).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub forged_addresses: Option<Vec<String>>,
+    /// When multiple domains share the same forged IP, this marks a TSPU redirect pool.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub forged_address_pool: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -193,6 +203,22 @@ pub struct TcpObservationFact {
     pub alt_port: Option<u16>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub alt_port_status: Option<String>,
+    /// How the TCP connection was blocked: "rst_injection", "window_cap", "timeout",
+    /// "connection_refused", or "none".
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tcp_block_method: Option<String>,
+    /// Observed TCP window size from server (useful for window-cap detection).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub observed_window_size: Option<u32>,
+    /// Time from the last successful I/O to the RST/error, in milliseconds.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub rst_timing_ms: Option<u64>,
+    /// Time from SYN to SYN-ACK in milliseconds (baseline RTT).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub syn_ack_latency_ms: Option<u64>,
+    /// RST origin classification: "in_path_rst", "server_rst", or "unknown".
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub rst_origin: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]

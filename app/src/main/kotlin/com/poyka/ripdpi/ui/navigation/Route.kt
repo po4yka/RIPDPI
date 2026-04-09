@@ -94,6 +94,11 @@ sealed class Route(
         titleRes = R.string.title_data_transparency,
     )
 
+    data object DetectionCheck : Route(
+        route = "detection_check",
+        titleRes = R.string.title_detection_check,
+    )
+
     companion object {
         val topLevel: List<Route>
             get() = listOf(Home, Config, Diagnostics, Settings)
@@ -115,6 +120,7 @@ sealed class Route(
                     AppCustomization,
                     About,
                     DataTransparency,
+                    DetectionCheck,
                 )
     }
 }
