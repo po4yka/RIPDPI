@@ -33,6 +33,8 @@ private const val DpiFullStageTimeoutMs = 240_000L
 private const val StrategyProbeStageTimeoutMs = 300_000L
 private const val DefaultStageTimeoutMs = 120_000L
 private const val StageRetryDelayMs = 2_000L
+private const val QuickScanStrategyProbeTimeoutMs = 90_000L
+private const val QuickScanMaxCandidates = 5
 
 internal data class HomeCompositeStageSpec(
     val key: String,
@@ -69,6 +71,22 @@ internal val HomeCompositeStageSpecs =
         ),
     )
 
+internal val QuickScanStageSpecs =
+    listOf(
+        HomeCompositeStageSpec(
+            key = "automatic_audit",
+            label = "Automatic audit",
+            profileId = "automatic-audit",
+            pathMode = ScanPathMode.RAW_PATH,
+        ),
+        HomeCompositeStageSpec(
+            key = "dpi_strategy",
+            label = "DPI strategy probe",
+            profileId = "ru-dpi-strategy",
+            pathMode = ScanPathMode.RAW_PATH,
+        ),
+    )
+
 private sealed interface StageSessionSignal {
     data class Finished(
         val session: DiagnosticScanSession,
@@ -77,10 +95,14 @@ private sealed interface StageSessionSignal {
     data object VpnHalted : StageSessionSignal
 }
 
-private fun stageTimeoutMs(spec: HomeCompositeStageSpec): Long =
-    when (spec.profileId) {
-        "ru-dpi-full" -> DpiFullStageTimeoutMs
-        "automatic-audit", "ru-dpi-strategy" -> StrategyProbeStageTimeoutMs
+private fun stageTimeoutMs(
+    spec: HomeCompositeStageSpec,
+    quickScan: Boolean = false,
+): Long =
+    when {
+        quickScan && spec.profileId == "ru-dpi-strategy" -> QuickScanStrategyProbeTimeoutMs
+        spec.profileId == "ru-dpi-full" -> DpiFullStageTimeoutMs
+        spec.profileId in listOf("automatic-audit", "ru-dpi-strategy") -> StrategyProbeStageTimeoutMs
         else -> DefaultStageTimeoutMs
     }
 
@@ -105,6 +127,7 @@ class DefaultDiagnosticsHomeCompositeRunService
         private val scanRecordStore: DiagnosticsScanRecordStore,
         private val networkHandoverMonitor: NetworkHandoverMonitor,
         private val serviceStateStore: ServiceStateStore,
+        private val probeResultCache: ProbeResultCache,
         @param:Named("diagnosticsJson")
         private val json: Json,
         @param:ApplicationIoScope
@@ -161,6 +184,177 @@ class DefaultDiagnosticsHomeCompositeRunService
         }
 
         override suspend fun getCompletedRun(runId: String): DiagnosticsHomeCompositeOutcome? = completedRuns[runId]
+
+        override suspend fun lookupCachedOutcome(fingerprintHash: String): CachedProbeOutcome? =
+            probeResultCache.lookup(fingerprintHash)
+
+        override suspend fun evictCachedOutcome(fingerprintHash: String) = probeResultCache.evict(fingerprintHash)
+
+        override suspend fun startQuickAnalysis(): DiagnosticsHomeCompositeRunStarted {
+            val runId = UUID.randomUUID().toString()
+            progressState.update { current ->
+                current +
+                    (
+                        runId to
+                            DiagnosticsHomeCompositeProgress(
+                                runId = runId,
+                                fingerprintHash = diagnosticsHomeWorkflowService.currentFingerprintHash(),
+                                stages =
+                                    QuickScanStageSpecs.map { spec ->
+                                        DiagnosticsHomeCompositeStageSummary(
+                                            stageKey = spec.key,
+                                            stageLabel = spec.label,
+                                            profileId = spec.profileId,
+                                            pathMode = spec.pathMode,
+                                            status = DiagnosticsHomeCompositeStageStatus.PENDING,
+                                            headline = "${spec.label} pending",
+                                            summary = "Waiting to run.",
+                                        )
+                                    },
+                            )
+                    )
+            }
+            scope.launch {
+                executeQuickRun(runId)
+            }
+            return DiagnosticsHomeCompositeRunStarted(runId = runId)
+        }
+
+        private suspend fun executeQuickRun(runId: String) {
+            log.i { "quick run started runId=$runId stages=${QuickScanStageSpecs.size}" }
+            val auditSpec = QuickScanStageSpecs[0]
+            val auditIndex = 0
+
+            val auditCompletedSession = executeStageWithTimeout(runId, auditIndex, auditSpec)
+            if (auditCompletedSession == null) {
+                val currentStageStatus =
+                    progressState.value[runId]
+                        ?.stages
+                        ?.getOrNull(auditIndex)
+                        ?.status
+                if (currentStageStatus == DiagnosticsHomeCompositeStageStatus.RUNNING) {
+                    markStageFailure(
+                        runId = runId,
+                        stageIndex = auditIndex,
+                        headline = "${auditSpec.label} timed out",
+                        summary = "The audit stage did not complete within the allowed time.",
+                    )
+                }
+                // Skip remaining stages
+                QuickScanStageSpecs.drop(1).forEachIndexed { i, spec ->
+                    val stageIndex = i + 1
+                    updateStage(runId, stageIndex) { current ->
+                        current.copy(
+                            status = DiagnosticsHomeCompositeStageStatus.SKIPPED,
+                            headline = "${spec.label} skipped",
+                            summary = "Skipped due to audit stage failure.",
+                        )
+                    }
+                }
+                finalizeRun(
+                    runId,
+                    auditOutcome = null,
+                    coverageNote = null,
+                    dnsIssuesDetected = false,
+                    networkChanged = false,
+                )
+                return
+            }
+
+            val auditSessionId = auditCompletedSession.first
+            val auditSession = auditCompletedSession.second
+            val auditSummary =
+                buildCompletedStageSummary(auditSpec, auditSessionId, auditSession, scanRecordStore, json)
+            updateStage(runId, auditIndex) { auditSummary }
+
+            if (auditSession.status != "completed") {
+                QuickScanStageSpecs.drop(1).forEachIndexed { i, spec ->
+                    val stageIndex = i + 1
+                    updateStage(runId, stageIndex) { current ->
+                        current.copy(
+                            status = DiagnosticsHomeCompositeStageStatus.SKIPPED,
+                            headline = "${spec.label} skipped",
+                            summary = "Skipped due to network unavailability.",
+                        )
+                    }
+                }
+                finalizeRun(
+                    runId,
+                    auditOutcome = null,
+                    coverageNote = null,
+                    dnsIssuesDetected = false,
+                    networkChanged = false,
+                )
+                return
+            }
+
+            val finalizedAuditOutcome = diagnosticsHomeWorkflowService.finalizeHomeAudit(auditSessionId)
+            updateStage(runId, auditIndex) { current ->
+                current.copy(
+                    headline = finalizedAuditOutcome.headline,
+                    summary = finalizedAuditOutcome.summary,
+                    recommendationContributor = finalizedAuditOutcome.actionable,
+                )
+            }
+
+            // Run strategy stage with maxCandidates
+            var auditOutcome: DiagnosticsHomeAuditOutcome? = finalizedAuditOutcome
+            val strategySpec = QuickScanStageSpecs[1]
+            val strategyIndex = 1
+            var strategyResult =
+                executeStageWithTimeout(
+                    runId,
+                    strategyIndex,
+                    strategySpec,
+                    quickScan = true,
+                    maxCandidates = QuickScanMaxCandidates,
+                )
+            if (strategyResult == null) {
+                delay(StageRetryDelayMs)
+                strategyResult =
+                    executeStageWithTimeout(
+                        runId,
+                        strategyIndex,
+                        strategySpec,
+                        quickScan = true,
+                        maxCandidates = QuickScanMaxCandidates,
+                    )
+            }
+            if (strategyResult != null) {
+                val (strategySessionId, strategySession) = strategyResult
+                val strategySummary =
+                    buildCompletedStageSummary(strategySpec, strategySessionId, strategySession, scanRecordStore, json)
+                updateStage(runId, strategyIndex) { strategySummary }
+                if (auditOutcome?.actionable != true && strategySession.status == "completed") {
+                    val strategyAuditOutcome =
+                        diagnosticsHomeWorkflowService.finalizeHomeAudit(strategySessionId)
+                    if (strategyAuditOutcome.actionable) {
+                        auditOutcome = strategyAuditOutcome
+                        updateStage(runId, strategyIndex) { current ->
+                            current.copy(
+                                headline = strategyAuditOutcome.headline,
+                                summary = strategyAuditOutcome.summary,
+                                recommendationContributor = true,
+                            )
+                        }
+                    }
+                }
+            }
+
+            finalizeRun(
+                runId,
+                auditOutcome = auditOutcome,
+                coverageNote = null,
+                dnsIssuesDetected = false,
+                networkChanged = false,
+            )
+            log.i {
+                val outcome = completedRuns[runId]
+                "quick run completed: completed=${outcome?.completedStageCount}" +
+                    " failed=${outcome?.failedStageCount}" +
+                    " skipped=${outcome?.skippedStageCount}"
+            }
+        }
 
         private suspend fun executeRun(runId: String) {
             log.i { "started runId=$runId stages=${HomeCompositeStageSpecs.size}" }
@@ -409,6 +603,23 @@ class DefaultDiagnosticsHomeCompositeRunService
                     progressState,
                 )
             completedRuns[runId] = outcome
+            if (outcome.fingerprintHash != null && outcome.completedStageCount > 0) {
+                scope.launch {
+                    runCatching {
+                        probeResultCache.store(
+                            CachedProbeOutcome(
+                                fingerprintHash = outcome.fingerprintHash!!,
+                                headline = outcome.headline,
+                                summary = outcome.summary ?: "",
+                                appliedSettings = outcome.appliedSettings,
+                                completedStageCount = outcome.completedStageCount,
+                                failedStageCount = outcome.failedStageCount,
+                                cachedAtMs = System.currentTimeMillis(),
+                            ),
+                        )
+                    }
+                }
+            }
             progressState.update { current ->
                 current.updatedRun(runId) { progress ->
                     progress.copy(
@@ -427,6 +638,7 @@ class DefaultDiagnosticsHomeCompositeRunService
             runId: String,
             stageIndex: Int,
             spec: HomeCompositeStageSpec,
+            maxCandidates: Int? = null,
         ): Pair<String, DiagnosticScanSession>? {
             updateStage(runId, stageIndex) { stage ->
                 stage.copy(
@@ -436,7 +648,8 @@ class DefaultDiagnosticsHomeCompositeRunService
                 )
             }
             log.i { "stage ${spec.key} started (profile=${spec.profileId} timeout=${stageTimeoutMs(spec)}ms)" }
-            val stageSessionId = startStageSession(runId, stageIndex, spec) ?: return null
+            val stageSessionId =
+                startStageSession(runId, stageIndex, spec, maxCandidates = maxCandidates) ?: return null
             updateStage(runId, stageIndex) { current ->
                 current.copy(
                     sessionId = stageSessionId,
@@ -452,13 +665,16 @@ class DefaultDiagnosticsHomeCompositeRunService
             runId: String,
             stageIndex: Int,
             spec: HomeCompositeStageSpec,
+            quickScan: Boolean = false,
+            maxCandidates: Int? = null,
         ): String? =
             runCatching {
                 diagnosticsScanController.startScan(
                     pathMode = spec.pathMode,
                     selectedProfileId = spec.profileId,
                     skipActiveScanCheck = true,
-                    scanDeadlineMs = stageTimeoutMs(spec) - 30_000L,
+                    scanDeadlineMs = stageTimeoutMs(spec, quickScan) - 30_000L,
+                    maxCandidates = maxCandidates,
                 )
             }.fold(
                 onSuccess = { result ->
@@ -531,12 +747,14 @@ class DefaultDiagnosticsHomeCompositeRunService
             runId: String,
             stageIndex: Int,
             spec: HomeCompositeStageSpec,
+            quickScan: Boolean = false,
+            maxCandidates: Int? = null,
         ): Pair<String, DiagnosticScanSession>? =
-            withTimeoutOrNull(stageTimeoutMs(spec)) {
-                executeStage(runId, stageIndex, spec)
+            withTimeoutOrNull(stageTimeoutMs(spec, quickScan)) {
+                executeStage(runId, stageIndex, spec, maxCandidates = maxCandidates)
             }.also { result ->
                 if (result == null) {
-                    log.w { "stage ${spec.key} timed out after ${stageTimeoutMs(spec)}ms" }
+                    log.w { "stage ${spec.key} timed out after ${stageTimeoutMs(spec, quickScan)}ms" }
                     // Signal the native side to stop — otherwise the Rust probe thread
                     // runs orphaned until its own deadline or completion.
                     runCatching { diagnosticsScanController.cancelActiveScan() }

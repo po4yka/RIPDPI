@@ -31,6 +31,8 @@ private const val TestAutomaticHandoverProbeCooldownMs = 24L * 60L * 60L * 1_000
 private class FakeDiagnosticsHomeCompositeRunService : DiagnosticsHomeCompositeRunService {
     override suspend fun startHomeAnalysis(): DiagnosticsHomeCompositeRunStarted = error("unused")
 
+    override suspend fun startQuickAnalysis(): DiagnosticsHomeCompositeRunStarted = error("unused")
+
     override fun observeHomeRun(runId: String): StateFlow<DiagnosticsHomeCompositeProgress> =
         MutableStateFlow(
             DiagnosticsHomeCompositeProgress(
@@ -42,6 +44,10 @@ private class FakeDiagnosticsHomeCompositeRunService : DiagnosticsHomeCompositeR
     override suspend fun finalizeHomeRun(runId: String): DiagnosticsHomeCompositeOutcome = error("unused")
 
     override suspend fun getCompletedRun(runId: String): DiagnosticsHomeCompositeOutcome? = null
+
+    override suspend fun lookupCachedOutcome(fingerprintHash: String): CachedProbeOutcome? = null
+
+    override suspend fun evictCachedOutcome(fingerprintHash: String) = Unit
 }
 
 internal data class DiagnosticsServicesBundle(
