@@ -9,7 +9,41 @@ use crate::types::{
 pub(crate) const ENGINE_ANALYSIS_VERSION: &str = "observations_v1";
 
 pub(crate) fn observations_for_results(results: &[ProbeResult]) -> Vec<ProbeObservation> {
-    results.iter().filter_map(observation_for_probe).collect()
+    let mut observations: Vec<ProbeObservation> = results.iter().filter_map(observation_for_probe).collect();
+    annotate_dns_injection_pools(&mut observations);
+    observations
+}
+
+/// Cross-domain analysis: when 3+ domains share the same forged IP, mark
+/// them as belonging to a middlebox redirect pool (`dns_injection_pool_detected`).
+fn annotate_dns_injection_pools(observations: &mut [ProbeObservation]) {
+    use std::collections::HashMap;
+
+    // Collect forged IP -> list of domain indices.
+    let mut ip_to_indices: HashMap<String, Vec<usize>> = HashMap::new();
+    for (idx, obs) in observations.iter().enumerate() {
+        if let Some(dns) = &obs.dns {
+            if let Some(forged) = &dns.forged_addresses {
+                for ip in forged {
+                    ip_to_indices.entry(ip.clone()).or_default().push(idx);
+                }
+            }
+        }
+    }
+
+    // Any forged IP shared by 3+ domains is a middlebox pool.
+    for (pool_ip, indices) in &ip_to_indices {
+        if indices.len() >= 3 {
+            for &idx in indices {
+                if let Some(dns) = &mut observations[idx].dns {
+                    dns.forged_address_pool = Some(pool_ip.clone());
+                }
+                if !observations[idx].evidence.contains(&"dns_injection_pool_detected".to_string()) {
+                    observations[idx].evidence.push("dns_injection_pool_detected".to_string());
+                }
+            }
+        }
+    }
 }
 
 pub(crate) fn observation_for_probe(result: &ProbeResult) -> Option<ProbeObservation> {
@@ -43,6 +77,11 @@ pub(crate) fn observation_for_probe(result: &ProbeResult) -> Option<ProbeObserva
                 comparison_score: detail_value(result, "comparisonScore").and_then(|v| v.parse().ok()),
                 record_type_mismatch: detail_value(result, "recordTypeMismatch").and_then(|v| v.parse().ok()),
                 malformed_pointers: detail_value(result, "malformedPointers").and_then(|v| v.parse().ok()),
+                injection_latency_ratio: detail_value(result, "injectionLatencyRatio").and_then(|v| v.parse().ok()),
+                forged_addresses: detail_value(result, "forgedAddresses")
+                    .filter(|v| !v.is_empty())
+                    .map(|v| v.split(',').map(str::to_string).collect()),
+                forged_address_pool: None, // populated by cross-domain analysis
             }),
             domain: None,
             tcp: None,
@@ -114,6 +153,11 @@ pub(crate) fn observation_for_probe(result: &ProbeResult) -> Option<ProbeObserva
                 port: detail_value(result, "port").and_then(|v| v.parse::<u16>().ok()),
                 alt_port: detail_value(result, "altPort").and_then(|v| v.parse::<u16>().ok()),
                 alt_port_status: detail_value(result, "altPortStatus").map(str::to_string),
+                tcp_block_method: detail_value(result, "tcpBlockMethod").filter(|v| *v != "none").map(str::to_string),
+                observed_window_size: detail_value(result, "observedWindowSize").and_then(|v| v.parse::<u32>().ok()),
+                rst_timing_ms: detail_value(result, "rstTimingMs").and_then(|v| v.parse::<u64>().ok()),
+                syn_ack_latency_ms: detail_value(result, "synAckLatencyMs").and_then(|v| v.parse::<u64>().ok()),
+                rst_origin: detail_value(result, "rstOrigin").filter(|v| *v != "unknown").map(str::to_string),
             }),
             quic: None,
             service: None,
@@ -889,5 +933,59 @@ mod tests {
     fn unknown_probe_type_returns_none() {
         let result = probe("unknown_type", "target", "ok", &[]);
         assert!(observation_for_probe(&result).is_none());
+    }
+
+    // ── Injection profiling tests ───────────────────────────────────────
+
+    #[test]
+    fn dns_observation_populates_injection_fields() {
+        let result = probe(
+            "dns_integrity",
+            "example.com",
+            "dns_substitution",
+            &[("injectionLatencyRatio", "4000"), ("forgedAddresses", "1.2.3.4,5.6.7.8")],
+        );
+        let dns = observation_for_probe(&result).expect("obs").dns.expect("dns");
+        assert_eq!(dns.injection_latency_ratio, Some(4000));
+        assert_eq!(dns.forged_addresses, Some(vec!["1.2.3.4".to_string(), "5.6.7.8".to_string()]));
+        assert!(dns.forged_address_pool.is_none());
+    }
+
+    #[test]
+    fn dns_observation_skips_injection_fields_for_match() {
+        let result = probe("dns_integrity", "example.com", "dns_match", &[]);
+        let dns = observation_for_probe(&result).expect("obs").dns.expect("dns");
+        assert!(dns.injection_latency_ratio.is_none());
+        assert!(dns.forged_addresses.is_none());
+    }
+
+    #[test]
+    fn dns_injection_pool_detected_for_three_plus_domains() {
+        let results = vec![
+            probe("dns_integrity", "a.com", "dns_substitution", &[("forgedAddresses", "10.0.0.1")]),
+            probe("dns_integrity", "b.com", "dns_substitution", &[("forgedAddresses", "10.0.0.1")]),
+            probe("dns_integrity", "c.com", "dns_substitution", &[("forgedAddresses", "10.0.0.1")]),
+        ];
+        let observations = observations_for_results(&results);
+        assert_eq!(observations.len(), 3);
+        for obs in &observations {
+            let dns = obs.dns.as_ref().expect("dns");
+            assert_eq!(dns.forged_address_pool, Some("10.0.0.1".to_string()));
+            assert!(obs.evidence.contains(&"dns_injection_pool_detected".to_string()));
+        }
+    }
+
+    #[test]
+    fn dns_injection_pool_not_detected_for_two_domains() {
+        let results = vec![
+            probe("dns_integrity", "a.com", "dns_substitution", &[("forgedAddresses", "10.0.0.1")]),
+            probe("dns_integrity", "b.com", "dns_substitution", &[("forgedAddresses", "10.0.0.1")]),
+        ];
+        let observations = observations_for_results(&results);
+        for obs in &observations {
+            let dns = obs.dns.as_ref().expect("dns");
+            assert!(dns.forged_address_pool.is_none());
+            assert!(!obs.evidence.contains(&"dns_injection_pool_detected".to_string()));
+        }
     }
 }

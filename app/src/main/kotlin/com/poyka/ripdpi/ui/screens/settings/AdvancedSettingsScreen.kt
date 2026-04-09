@@ -59,6 +59,8 @@ internal enum class AdvancedToggleSetting {
     HttpMethodEol,
     HttpUnixEol,
     HttpMethodSpace,
+    HttpHostExtraSpace,
+    HttpHostTab,
     TlsrecEnabled,
     QuicSupportV1,
     QuicSupportV2,

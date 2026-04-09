@@ -371,6 +371,7 @@ mod tests {
                     notes: vec![],
                     average_latency_ms: None,
                     skipped: true,
+                    domain_outcomes: vec![],
                 }],
                 quic_candidates: vec![StrategyProbeCandidateSummary {
                     id: "quic_disabled".to_string(),
@@ -387,6 +388,7 @@ mod tests {
                     notes: vec![],
                     average_latency_ms: None,
                     skipped: true,
+                    domain_outcomes: vec![],
                 }],
                 recommendation: StrategyProbeRecommendation {
                     tcp_candidate_id: "baseline_current".to_string(),
@@ -436,6 +438,7 @@ mod tests {
                     domain_hosts: vec!["www.youtube.com".to_string(), "discord.com".to_string()],
                     quic_hosts: vec!["www.youtube.com".to_string()],
                 }),
+                domain_strategy_seeds: vec![],
             }),
             observations: vec![],
             engine_analysis_version: Some("1.0".to_string()),

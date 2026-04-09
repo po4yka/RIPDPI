@@ -76,6 +76,13 @@ open class LogcatSnapshotCollector
                         add("-T")
                         add(timestamp)
                     }
+                    // Filter out noisy framework tags (View, Choreographer) that
+                    // drown out diagnostic-relevant log lines.
+                    add("-s")
+                    add("ripdpi-native:V")
+                    add("ripdpi:V")
+                    add("AndroidRuntime:E")
+                    add("*:W")
                 }
             val process = Runtime.getRuntime().exec(command.toTypedArray())
             try {

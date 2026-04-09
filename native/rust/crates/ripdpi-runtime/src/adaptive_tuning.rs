@@ -221,6 +221,13 @@ impl AdaptivePlannerResolver {
         Self { states, last_persist_at_ms: 0, dirty: false, persist_error_logged_at_ms: 0 }
     }
 
+    /// Discard all cached per-flow adaptive state. Used when a network change
+    /// invalidates learned parameters.
+    pub fn clear_all(&mut self) {
+        self.states.clear();
+        self.dirty = true;
+    }
+
     pub fn resolve_tcp_hints(
         &mut self,
         network_scope_key: Option<&str>,

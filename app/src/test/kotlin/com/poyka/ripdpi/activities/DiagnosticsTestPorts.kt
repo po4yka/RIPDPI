@@ -181,6 +181,7 @@ internal class FakeDiagnosticsScanController : DiagnosticsScanController {
         selectedProfileId: String?,
         skipActiveScanCheck: Boolean,
         scanDeadlineMs: Long?,
+        maxCandidates: Int?,
     ): DiagnosticsManualScanStartResult =
         onStartScan?.invoke(pathMode, selectedProfileId) ?: DiagnosticsManualScanStartResult.Started("session")
 

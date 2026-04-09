@@ -67,6 +67,7 @@ interface DiagnosticsScanController {
         selectedProfileId: String? = null,
         skipActiveScanCheck: Boolean = false,
         scanDeadlineMs: Long? = null,
+        maxCandidates: Int? = null,
     ): DiagnosticsManualScanStartResult
 
     suspend fun resolveHiddenProbeConflict(
@@ -204,11 +205,17 @@ data class DiagnosticsHomeCompositeProgress(
 interface DiagnosticsHomeCompositeRunService {
     suspend fun startHomeAnalysis(): DiagnosticsHomeCompositeRunStarted
 
+    suspend fun startQuickAnalysis(): DiagnosticsHomeCompositeRunStarted
+
     fun observeHomeRun(runId: String): Flow<DiagnosticsHomeCompositeProgress>
 
     suspend fun finalizeHomeRun(runId: String): DiagnosticsHomeCompositeOutcome
 
     suspend fun getCompletedRun(runId: String): DiagnosticsHomeCompositeOutcome?
+
+    suspend fun lookupCachedOutcome(fingerprintHash: String): CachedProbeOutcome?
+
+    suspend fun evictCachedOutcome(fingerprintHash: String)
 }
 
 @Module
@@ -273,6 +280,10 @@ abstract class DiagnosticsManagerModule {
     abstract fun bindDiagnosticsHomeCompositeRunService(
         service: DefaultDiagnosticsHomeCompositeRunService,
     ): DiagnosticsHomeCompositeRunService
+
+    @Binds
+    @Singleton
+    abstract fun bindProbeResultCache(cache: DefaultProbeResultCache): ProbeResultCache
 
     @Binds
     @Singleton

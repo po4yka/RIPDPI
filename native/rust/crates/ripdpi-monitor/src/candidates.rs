@@ -243,6 +243,8 @@ pub(crate) fn build_tcp_candidates(base: &ProxyUiConfig) -> Vec<StrategyCandidat
     let parser_methodeol = build_parser_methodeol_candidate(base);
     let parser_methodspace = build_parser_methodspace_candidate(base);
     let parser_hostpad = build_parser_hostpad_candidate(base);
+    let parser_host_extra_space = build_parser_host_extra_space_candidate(base);
+    let parser_host_tab = build_parser_host_tab_candidate(base);
     let split_host = build_split_host_candidate(base);
     let disorder_host = build_disorder_host_candidate(base);
     let tlsrec_disorder = build_tlsrec_disorder_candidate(base);
@@ -319,6 +321,13 @@ pub(crate) fn build_tcp_candidates(base: &ProxyUiConfig) -> Vec<StrategyCandidat
         candidate_spec("parser_unixeol", "Parser + Unix EOL", "parser_aggressive", parser_unixeol),
         candidate_spec("parser_methodeol", "Parser + Method EOL", "parser_aggressive", parser_methodeol),
         candidate_spec("parser_methodspace", "Parser + Method Space", "parser_aggressive", parser_methodspace),
+        candidate_spec("parser_host_tab", "Parser + Host Tab", "parser", parser_host_tab),
+        candidate_spec(
+            "parser_host_extra_space",
+            "Parser + Host Extra Space",
+            "parser_aggressive",
+            parser_host_extra_space,
+        ),
         candidate_spec_with_notes_and_eligibility(
             "ech_split",
             "ECH extension split",
@@ -612,6 +621,8 @@ pub(crate) fn strategy_probe_base(base: &ProxyUiConfig) -> ProxyUiConfig {
     config.parser_evasions.http_method_eol = false;
     config.parser_evasions.http_host_pad = false;
     config.parser_evasions.http_unix_eol = false;
+    config.parser_evasions.http_host_extra_space = false;
+    config.parser_evasions.http_host_tab = false;
     config.quic.fake_profile = "disabled".to_string();
     config.quic.fake_host.clear();
     config
@@ -646,6 +657,18 @@ pub(crate) fn build_parser_methodspace_candidate(base: &ProxyUiConfig) -> ProxyU
 pub(crate) fn build_parser_hostpad_candidate(base: &ProxyUiConfig) -> ProxyUiConfig {
     let mut config = build_parser_only_candidate(base);
     config.parser_evasions.http_host_pad = true;
+    config
+}
+
+pub(crate) fn build_parser_host_extra_space_candidate(base: &ProxyUiConfig) -> ProxyUiConfig {
+    let mut config = build_parser_only_candidate(base);
+    config.parser_evasions.http_host_extra_space = true;
+    config
+}
+
+pub(crate) fn build_parser_host_tab_candidate(base: &ProxyUiConfig) -> ProxyUiConfig {
+    let mut config = build_parser_only_candidate(base);
+    config.parser_evasions.http_host_tab = true;
     config
 }
 

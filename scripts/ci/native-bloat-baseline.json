@@ -138,7 +138,7 @@
         },
         {
           "name": "ripdpi_monitor",
-          "size": 391018
+          "size": 424790
         },
         {
           "name": "ripdpi_runtime",
@@ -174,7 +174,7 @@
         },
         {
           "name": "ripdpi_dns_resolver",
-          "size": 102849
+          "size": 119416
         },
         {
           "name": "hickory_proto",

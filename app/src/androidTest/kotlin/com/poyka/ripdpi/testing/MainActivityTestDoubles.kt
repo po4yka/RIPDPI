@@ -235,6 +235,7 @@ class StubInstrumentedDiagnosticsScanController : DiagnosticsScanController {
         selectedProfileId: String?,
         skipActiveScanCheck: Boolean,
         scanDeadlineMs: Long?,
+        maxCandidates: Int?,
     ): com.poyka.ripdpi.diagnostics.DiagnosticsManualScanStartResult =
         com.poyka.ripdpi.diagnostics.DiagnosticsManualScanStartResult
             .Started("session")
@@ -411,6 +412,9 @@ class StubInstrumentedDiagnosticsHomeCompositeRunService : DiagnosticsHomeCompos
     override suspend fun startHomeAnalysis(): DiagnosticsHomeCompositeRunStarted =
         DiagnosticsHomeCompositeRunStarted(runId = "test-run")
 
+    override suspend fun startQuickAnalysis(): DiagnosticsHomeCompositeRunStarted =
+        DiagnosticsHomeCompositeRunStarted(runId = "test-quick-run")
+
     override fun observeHomeRun(runId: String): Flow<DiagnosticsHomeCompositeProgress> =
         MutableStateFlow(DiagnosticsHomeCompositeProgress(runId = runId))
 
@@ -423,4 +427,10 @@ class StubInstrumentedDiagnosticsHomeCompositeRunService : DiagnosticsHomeCompos
         )
 
     override suspend fun getCompletedRun(runId: String): DiagnosticsHomeCompositeOutcome? = null
+
+    override suspend fun lookupCachedOutcome(
+        fingerprintHash: String,
+    ): com.poyka.ripdpi.diagnostics.CachedProbeOutcome? = null
+
+    override suspend fun evictCachedOutcome(fingerprintHash: String) = Unit
 }

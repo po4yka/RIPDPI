@@ -275,6 +275,8 @@ mod tests {
                     http_unix_eol,
                     http_method_space: false,
                     http_host_pad: false,
+                    http_host_extra_space: false,
+                    http_host_tab: false,
                 };
                 config.hosts = ProxyUiHostsConfig { mode: hosts_mode, entries: hosts_entries };
                 config.quic = ProxyUiQuicConfig {
@@ -290,6 +292,8 @@ mod tests {
                     max_hosts: host_autolearn_max_hosts,
                     store_path: host_autolearn_store_path,
                     network_scope_key: None,
+                    warmup_probe_enabled: true,
+                    network_reprobe_enabled: true,
                 };
                 config
             },

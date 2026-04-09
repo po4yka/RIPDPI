@@ -3,10 +3,12 @@ mod desync;
 mod handshake;
 mod listeners;
 mod relay;
+mod reprobe;
 mod retry;
 mod routing;
 mod state;
 mod udp;
+mod warmup;
 
 use std::io;
 use std::net::TcpListener;
@@ -420,6 +422,7 @@ mod tests {
             runtime_context: None,
             control: None,
             ttl_unavailable: Arc::new(AtomicBool::new(false)),
+            reprobe_tracker: std::sync::Arc::new(crate::runtime::reprobe::ReprobeTracker::new()),
             #[cfg(all(feature = "io-uring", any(target_os = "linux", target_os = "android")))]
             io_uring: None,
         };

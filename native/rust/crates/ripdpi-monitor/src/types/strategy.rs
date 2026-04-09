@@ -34,6 +34,32 @@ pub struct StrategyProbeReport {
     pub audit_assessment: Option<StrategyProbeAuditAssessment>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub target_selection: Option<StrategyProbeTargetSelection>,
+    /// Per-domain strategy seeds derived from probe results.
+    /// Each entry records the best candidate for a domain that did NOT succeed
+    /// with the baseline candidate. Consumers can pass these to the autolearn
+    /// seeding API so each domain starts with its optimal strategy override.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub domain_strategy_seeds: Vec<StrategyDomainSeed>,
+}
+
+/// Records the best strategy probe candidate for a single domain.
+/// Used to seed the autolearn table so each domain starts with its
+/// optimal strategy override rather than discovering it at runtime.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct StrategyDomainSeed {
+    pub domain: String,
+    pub candidate_id: String,
+    pub candidate_label: String,
+    pub family: String,
+}
+
+/// Per-domain outcome within a single candidate's execution.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct StrategyProbeDomainOutcome {
+    pub domain: String,
+    pub succeeded: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -55,6 +81,10 @@ pub struct StrategyProbeCandidateSummary {
     pub notes: Vec<String>,
     pub average_latency_ms: Option<u64>,
     pub skipped: bool,
+    /// Per-domain outcomes for this candidate. Populated during strategy probe
+    /// execution so the recommendation phase can derive per-domain seeds.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub domain_outcomes: Vec<StrategyProbeDomainOutcome>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
