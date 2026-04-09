@@ -3,11 +3,12 @@ use crate::types::*;
 pub(crate) fn summarize_probe_event(probe: &ProbeResult) -> String {
     match probe.probe_type.as_str() {
         "dns_integrity" => format!(
-            "{} -> {} (udp={}, doh={})",
+            "{} -> {} (udp={}, encrypted={}, resolver={})",
             probe.target,
             probe.outcome,
             probe_detail_value(probe, "udpAddresses"),
-            probe_detail_value(probe, "dohAddresses"),
+            probe_detail_value(probe, "encryptedAddresses"),
+            probe_detail_value(probe, "encryptedResolverId"),
         ),
         "domain_reachability" => format!(
             "{} -> {} (tls13={}, tls12={}, ech={}, http={})",
