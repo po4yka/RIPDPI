@@ -403,10 +403,11 @@ impl EncryptedDnsResolver {
             .doh_client
             .as_ref()
             .ok_or_else(|| EncryptedDnsError::InvalidEndpoint("DoH client not initialized".to_string()))?;
-        let url = self.inner.endpoint.doh_url.as_ref().ok_or(EncryptedDnsError::MissingDohUrl)?;
+        let base_url = self.inner.endpoint.doh_url.as_ref().ok_or(EncryptedDnsError::MissingDohUrl)?;
+        let url = randomize_doh_url(base_url);
 
         let response = client
-            .post(url)
+            .post(&url)
             .header(CONTENT_TYPE, DNS_MESSAGE_MEDIA_TYPE)
             .header(ACCEPT, DNS_MESSAGE_MEDIA_TYPE)
             .body(query_bytes.to_vec())
@@ -422,8 +423,9 @@ impl EncryptedDnsResolver {
     }
 
     async fn exchange_doh_manually(&self, query_bytes: &[u8]) -> Result<Vec<u8>, EncryptedDnsError> {
-        let url = self.inner.endpoint.doh_url.as_ref().ok_or(EncryptedDnsError::MissingDohUrl)?;
-        let url = Url::parse(url).map_err(|err| EncryptedDnsError::InvalidUrl(err.to_string()))?;
+        let base_url = self.inner.endpoint.doh_url.as_ref().ok_or(EncryptedDnsError::MissingDohUrl)?;
+        let randomized = randomize_doh_url(base_url);
+        let url = Url::parse(&randomized).map_err(|err| EncryptedDnsError::InvalidUrl(err.to_string()))?;
         let mut tcp_stream = self.connect_plain_tcp().await?;
 
         if url.scheme().eq_ignore_ascii_case("https") {
@@ -967,6 +969,21 @@ fn doq_bind_addr(endpoint: &EncryptedDnsEndpoint) -> io::Result<SocketAddr> {
         std::net::IpAddr::V6(_) => std::net::IpAddr::V6(std::net::Ipv6Addr::UNSPECIFIED),
     };
     Ok(SocketAddr::new(bind_ip, 0))
+}
+
+/// Append a random cache-busting query parameter to a DoH URL.
+/// The `?_r=<8hex>` (or `&_r=...` if query params exist) makes each request
+/// URL unique, evading DPI that pattern-matches on `/dns-query`. DoH resolvers
+/// ignore unknown query parameters so DNS responses are unaffected.
+fn randomize_doh_url(url: &str) -> String {
+    let rng = SystemRandom::new();
+    let mut buf = [0u8; 4];
+    if rng.fill(&mut buf).is_err() {
+        return url.to_string();
+    }
+    let hex: String = buf.iter().map(|b| format!("{b:02x}")).collect();
+    let sep = if url.contains('?') { '&' } else { '?' };
+    format!("{url}{sep}_r={hex}")
 }
 
 fn doh_request_target(url: &Url) -> String {

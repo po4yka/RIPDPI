@@ -98,6 +98,7 @@ fn strategy_probe_request_with_runtime_context(
                 .expect("serialize probe ui config"),
             ),
             target_selection: None,
+            max_candidates: None,
         }),
         network_snapshot: None,
         scan_deadline_ms: None,
@@ -329,6 +330,10 @@ fn tls_signal_reports_version_split_low_confidence() {
         observed_server_ttl: None,
         estimated_hop_count: None,
         ja3_fingerprint: None,
+        tls_alert_code: None,
+        tls_alert_description: None,
+        tls_server_hello_received: None,
+        tls_dpi_signature: None,
     };
     let tls12 = TlsObservation {
         status: "tls_ok".to_string(),
@@ -343,6 +348,10 @@ fn tls_signal_reports_version_split_low_confidence() {
         observed_server_ttl: None,
         estimated_hop_count: None,
         ja3_fingerprint: None,
+        tls_alert_code: None,
+        tls_alert_description: None,
+        tls_server_hello_received: None,
+        tls_dpi_signature: None,
     };
 
     assert_eq!(classify_tls_signal(&tls13, &tls12), "tls_version_split_low_confidence");
@@ -511,6 +520,7 @@ fn strategy_probe_request_rejects_command_line_config_payload() {
             .expect("serialize command line payload"),
         ),
         target_selection: None,
+        max_candidates: None,
     });
 
     let err = validate_scan_request(&request.into()).expect_err("command line payload should fail");
@@ -1058,6 +1068,7 @@ fn strategy_probe_report_serializes_normal_completion_kind() {
         completion_kind: StrategyProbeCompletionKind::Normal,
         audit_assessment: None,
         target_selection: None,
+        domain_strategy_seeds: vec![],
     };
 
     let json = serde_json::to_string(&report).expect("serialize strategy probe report");

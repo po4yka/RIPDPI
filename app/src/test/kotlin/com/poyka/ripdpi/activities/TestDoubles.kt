@@ -263,6 +263,7 @@ class StubDiagnosticsScanController : DiagnosticsScanController {
         selectedProfileId: String?,
         skipActiveScanCheck: Boolean,
         scanDeadlineMs: Long?,
+        maxCandidates: Int?,
     ): DiagnosticsManualScanStartResult {
         startFailure?.let { throw it }
         lastStartedPathMode = pathMode
@@ -364,6 +365,27 @@ class StubDiagnosticsHomeCompositeRunService : DiagnosticsHomeCompositeRunServic
     var startFailure: Throwable? = null
     val startedRunIds = mutableListOf<String>()
     val runs = mutableMapOf<String, MutableStateFlow<DiagnosticsHomeCompositeProgress>>()
+
+    override suspend fun lookupCachedOutcome(
+        fingerprintHash: String,
+    ): com.poyka.ripdpi.diagnostics.CachedProbeOutcome? = null
+
+    override suspend fun evictCachedOutcome(fingerprintHash: String) = Unit
+
+    override suspend fun startQuickAnalysis(): DiagnosticsHomeCompositeRunStarted {
+        startFailure?.let { throw it }
+        val runId = nextRunId
+        startedRunIds += runId
+        runs.getOrPut(runId) {
+            MutableStateFlow(
+                DiagnosticsHomeCompositeProgress(
+                    runId = runId,
+                    stages = emptyList(),
+                ),
+            )
+        }
+        return DiagnosticsHomeCompositeRunStarted(runId)
+    }
 
     override suspend fun startHomeAnalysis(): DiagnosticsHomeCompositeRunStarted {
         startFailure?.let { throw it }

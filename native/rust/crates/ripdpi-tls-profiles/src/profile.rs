@@ -18,10 +18,15 @@ pub struct ProfileConfig {
     pub max_version: SslVersion,
 }
 
+/// All known profile names in selection order.
+pub const AVAILABLE_PROFILES: &[&str] = &["chrome_stable", "firefox_stable", "safari_stable", "edge_stable"];
+
 pub fn lookup_profile(name: &str) -> &'static ProfileConfig {
     match name {
         "chrome_stable" => &crate::chrome::CHROME_LATEST,
         "firefox_stable" => &crate::firefox::FIREFOX_LATEST,
+        "safari_stable" => &crate::safari::SAFARI_LATEST,
+        "edge_stable" => &crate::edge::EDGE_LATEST,
         _ => &crate::chrome::CHROME_LATEST,
     }
 }

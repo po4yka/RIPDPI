@@ -298,6 +298,73 @@ internal class MainHomeDiagnosticsActions(
         }
     }
 
+    fun runQuickAnalysis() {
+        mutations.launch {
+            activeRunObservation?.cancel()
+            homeDiagnosticsState.update {
+                it.copy(
+                    activeRunId = null,
+                    activeRunProgress = null,
+                    activeRunStageProgress = null,
+                    latestCompositeOutcome = null,
+                    analysisSheetVisible = false,
+                    verificationSheet = null,
+                    activeVerificationSessionId = null,
+                    waitingForVerifiedVpnStart = false,
+                    verificationProgress = null,
+                )
+            }
+            runCatching {
+                diagnosticsHomeCompositeRunService.startQuickAnalysis()
+            }.onSuccess { started ->
+                homeDiagnosticsState.update {
+                    it.copy(
+                        activeRunId = started.runId,
+                        activeRunStageProgress = stringResolver.getString(R.string.home_diagnostics_analysis_running),
+                    )
+                }
+                activeRunObservation =
+                    mutations.launch {
+                        diagnosticsHomeCompositeRunService.observeHomeRun(started.runId).collect { progress ->
+                            homeDiagnosticsState.update { current ->
+                                current.copy(
+                                    activeRunId =
+                                        if (progress.status == DiagnosticsHomeCompositeRunStatus.RUNNING) {
+                                            progress.runId
+                                        } else {
+                                            null
+                                        },
+                                    activeRunProgress = progress,
+                                    latestCompositeOutcome = progress.outcome ?: current.latestCompositeOutcome,
+                                    analysisSheetVisible =
+                                        if (progress.outcome != null) {
+                                            true
+                                        } else {
+                                            current.analysisSheetVisible
+                                        },
+                                )
+                            }
+                            progress.outcome?.let { outcome ->
+                                refreshFingerprint(outcome.fingerprintHash)
+                            }
+                        }
+                    }
+            }.onFailure { error ->
+                val message =
+                    when (error) {
+                        is DiagnosticsScanStartRejectedException -> {
+                            stringResolver.getString(R.string.diagnostics_error_start_failed)
+                        }
+
+                        else -> {
+                            stringResolver.getString(R.string.diagnostics_error_start_failed)
+                        }
+                    }
+                mutations.emit(MainEffect.ShowError(message))
+            }
+        }
+    }
+
     fun startVerifiedVpn() {
         mutations.launch {
             val latestOutcome = homeDiagnosticsState.value.latestCompositeOutcome ?: return@launch

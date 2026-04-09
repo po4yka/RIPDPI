@@ -108,6 +108,10 @@ pub struct StrategyProbeRequest {
     pub base_proxy_config_json: Option<String>,
     #[serde(default)]
     pub target_selection: Option<StrategyProbeTargetSelection>,
+    /// When set, limits the strategy probe to at most this many candidates
+    /// (including baseline). Used by quick scan mode.
+    #[serde(default)]
+    pub max_candidates: Option<usize>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

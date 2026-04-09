@@ -227,6 +227,56 @@ impl RuntimePolicy {
 
     /// Force-persist the host store, bypassing the debounce window.
     /// Call this on proxy shutdown to avoid losing recent state.
+    /// Seed the autolearn table from strategy probe results.
+    ///
+    /// Each entry is `(domain, group_index)` -- the domain that should prefer
+    /// the given group when the current config is active. Domains not in the
+    /// seed set are left for the normal runtime fallback escalation.
+    ///
+    /// Only domains that pass [`normalize_learned_host`] are recorded. Existing
+    /// autolearn entries for a domain are preserved; the seed merely adds a
+    /// success record so the preferred-group ordering is established.
+    ///
+    /// Returns the number of domains actually seeded.
+    pub fn seed_from_strategy_results(&mut self, config: &RuntimeConfig, seeds: &[(String, usize)]) -> usize {
+        if !config.host_autolearn.enabled || seeds.is_empty() {
+            return 0;
+        }
+        let now_ms = now_millis();
+        self.prune_expired_autolearn_state(now_ms);
+        let mut seeded = 0usize;
+        for (domain, group_index) in seeds {
+            if *group_index >= config.groups.len() {
+                continue;
+            }
+            let Some(host) = normalize_learned_host(domain) else {
+                continue;
+            };
+            let record = self.learned_hosts_mut(config).entry(host.clone()).or_default();
+            // Only seed if this group has not already been recorded for this host.
+            let stats = record.group_stats.entry(*group_index).or_default();
+            if stats.success_count == 0 {
+                stats.success_count = 1;
+                stats.last_success_at_ms = now_ms;
+                record.updated_at_ms = now_ms;
+                promote_group(record, *group_index);
+                seeded += 1;
+            }
+        }
+        if seeded > 0 {
+            self.enforce_autolearn_limit(config, now_ms);
+            self.persist_host_store(config);
+            self.autolearn_events.push_back(HostAutolearnEvent {
+                action: "autolearn_seeded",
+                host: None,
+                group_index: None,
+            });
+        }
+        seeded
+    }
+
+    /// Force-persist the host store, bypassing the debounce window.
+    /// Call this on proxy shutdown to avoid losing recent state.
     pub fn flush_host_store(&mut self, config: &RuntimeConfig) {
         match self.write_host_store(config) {
             Ok(()) => {

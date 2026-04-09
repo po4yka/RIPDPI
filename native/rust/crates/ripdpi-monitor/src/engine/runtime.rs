@@ -99,6 +99,7 @@ pub(super) struct StrategyExecutionPlan {
     pub(super) runtime_context: Option<ProxyRuntimeContext>,
     pub(super) suite: StrategyProbeSuite,
     pub(super) probe_seed: u64,
+    pub(super) max_candidates: Option<usize>,
 }
 
 #[derive(Default)]

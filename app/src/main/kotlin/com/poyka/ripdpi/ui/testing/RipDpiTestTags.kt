@@ -184,6 +184,13 @@ internal object RipDpiTestTags {
     const val CustomizationShapeInfoSheet = "customization-shape-info-sheet"
     const val CustomizationShapeInfoSheetConfirm = "customization-shape-info-sheet-confirm"
 
+    const val DetectionRunCheck = "detection_run_check"
+    const val DetectionStopCheck = "detection_stop_check"
+    const val DetectionVerdict = "detection_verdict"
+    const val DetectionCopy = "detection_copy"
+    const val DetectionShare = "detection_share"
+    const val DetectionApplyFixes = "detection_apply_fixes"
+
     const val HostPackApplyDialog = "host-pack-apply-dialog"
     const val HostPackApplyDismiss = "host-pack-apply-dismiss"
     const val HostPackApplyConfirm = "host-pack-apply-confirm"

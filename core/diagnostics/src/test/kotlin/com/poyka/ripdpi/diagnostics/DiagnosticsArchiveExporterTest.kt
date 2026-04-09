@@ -24,12 +24,18 @@ class DiagnosticsArchiveExporterTest {
 
             override suspend fun startHomeAnalysis(): DiagnosticsHomeCompositeRunStarted = error("unused")
 
+            override suspend fun startQuickAnalysis(): DiagnosticsHomeCompositeRunStarted = error("unused")
+
             override fun observeHomeRun(runId: String) = error("unused")
 
             override suspend fun finalizeHomeRun(runId: String): DiagnosticsHomeCompositeOutcome =
                 requireNotNull(completedRuns[runId]) { "Missing completed run $runId" }
 
             override suspend fun getCompletedRun(runId: String): DiagnosticsHomeCompositeOutcome? = completedRuns[runId]
+
+            override suspend fun lookupCachedOutcome(fingerprintHash: String): CachedProbeOutcome? = null
+
+            override suspend fun evictCachedOutcome(fingerprintHash: String) = Unit
 
             fun putCompletedRun(outcome: DiagnosticsHomeCompositeOutcome) {
                 completedRuns[outcome.runId] = outcome

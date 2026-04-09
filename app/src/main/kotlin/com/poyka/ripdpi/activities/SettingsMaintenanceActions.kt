@@ -299,6 +299,8 @@ internal class SettingsMaintenanceActions(
                 setHttpMethodEol(false)
                 setHttpUnixEol(false)
                 setHttpMethodSpace(false)
+                setHttpHostExtraSpace(false)
+                setHttpHostTab(false)
             }
             emit(
                 if (currentServiceStatus() == AppStatus.Running) {

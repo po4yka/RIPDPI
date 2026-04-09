@@ -190,6 +190,7 @@ internal class DiagnosticsScanRequestFactory
             exposeProgress: Boolean,
             registerActiveBridge: Boolean,
             scanDeadlineMs: Long? = null,
+            maxCandidates: Int? = null,
         ): PreparedDiagnosticsScan {
             val sessionId = UUID.randomUUID().toString()
             val intent =
@@ -214,6 +215,15 @@ internal class DiagnosticsScanRequestFactory
                         preferredDnsPath = scanContext.preferredDnsPath,
                         protectPath = resolveProtectPath(context),
                     ).copy(scanDeadlineMs = scanDeadlineMs)
+                    .let { request ->
+                        if (maxCandidates != null && request.strategyProbe != null) {
+                            request.copy(
+                                strategyProbe = request.strategyProbe.copy(maxCandidates = maxCandidates),
+                            )
+                        } else {
+                            request
+                        }
+                    }
             val now = System.currentTimeMillis()
             return PreparedDiagnosticsScan(
                 sessionId = sessionId,

@@ -295,6 +295,8 @@
     <string name="home_diagnostics_stage_results_label">Stage results</string>
     <string name="home_diagnostics_stage_recommendation_marker">active recommendation</string>
     <string name="home_diagnostics_stage_failed_marker">failed</string>
+    <string name="home_diagnostics_quick_scan">Quick Scan</string>
+    <string name="home_diagnostics_quick_scan_body">Strategy probe only, ~90 seconds</string>
     <string name="home_history_title">Review saved sessions and failures</string>
     <string name="home_history_body">History keeps durable connection sessions, sampled runtime diagnostics, and native failures outside the live Diagnostics tools.</string>
     <string name="home_history_cta">Open History</string>
@@ -1253,6 +1255,8 @@ fakeddisorder endhost</string>
     <string name="ripdpi_http_parser_probing_summary">Automatic probing can test the safe parser profile plus separate Host Pad, Unix EOL, Method EOL, and Method Space candidates.</string>
     <string name="ripdpi_http_host_pad_setting">Host Pad header</string>
     <string name="ripdpi_http_method_space_setting">Method extra space</string>
+    <string name="ripdpi_http_host_extra_space_setting">Host extra space</string>
+    <string name="ripdpi_http_host_tab_setting">Host tab separator</string>
     <string name="ripdpi_http_method_eol_setting">Method EOL shift</string>
     <string name="ripdpi_http_unix_eol_setting">Unix line endings</string>
     <string name="ripdpi_tlsrec_position_setting">TLS record marker</string>
@@ -1917,4 +1921,55 @@ Source: %2$s</string>
 
     <string name="copied_to_clipboard">Copied to clipboard</string>
     <string name="diagnostics_probe_copy_action">Copy result</string>
+
+    <string name="title_detection_check">Detection Check</string>
+    <string name="detection_check_subtitle">Check how visible your VPN/proxy setup is</string>
+    <string name="detection_check_start">Run Check</string>
+    <string name="detection_check_stop">Stop</string>
+    <string name="detection_check_running">Running detection checks\u2026</string>
+    <string name="detection_check_verdict_not_detected">Not Detected</string>
+    <string name="detection_check_verdict_needs_review">Needs Review</string>
+    <string name="detection_check_verdict_detected">Detected</string>
+    <string name="detection_check_category_geoip">GeoIP</string>
+    <string name="detection_check_category_direct">Direct Signs</string>
+    <string name="detection_check_category_indirect">Indirect Signs</string>
+    <string name="detection_check_category_location">Location Signals</string>
+    <string name="detection_check_category_bypass">Bypass</string>
+    <string name="detection_check_recommendations">Recommendations</string>
+    <string name="detection_check_copy">Copy</string>
+    <string name="detection_check_share">Share</string>
+    <string name="detection_onboarding_title">Detection Check</string>
+    <string name="detection_onboarding_body">Additional permissions improve check accuracy. Grant them for better results.</string>
+    <string name="detection_onboarding_allow">Allow</string>
+    <string name="detection_onboarding_skip">Skip</string>
+    <string name="detection_permission_rationale">Additional permissions improve check accuracy. Grant them for better results.</string>
+    <string name="detection_permission_settings">Permissions were denied. Open settings to grant them manually.</string>
+    <string name="detection_permission_open_settings">Open Settings</string>
+    <string name="detection_stealth_score">Stealth Score</string>
+    <string name="detection_auto_tune_title">Recommended Fixes</string>
+    <string name="detection_auto_tune_apply">Apply All Fixes</string>
+    <string name="detection_history_title">History</string>
+    <string name="detection_check_category_dns_leak">DNS Leak</string>
+    <string name="detection_check_category_webrtc">WebRTC Leak</string>
+    <string name="detection_check_category_tls">TLS Fingerprint</string>
+    <string name="detection_check_category_timing">Timing Analysis</string>
+    <string name="detection_community_title">Community</string>
+    <string name="detection_community_local_title">Your Statistics</string>
+    <string name="detection_community_reports">%d checks recorded</string>
+    <string name="detection_community_avg_score">Average stealth score: %d/100</string>
+    <string name="detection_community_detected_pct">%d%% of checks detected</string>
+    <string name="detection_verdict_label">Verdict</string>
+    <string name="detection_status_ok">OK</string>
+    <string name="detection_status_review">Review</string>
+    <string name="detection_status_detected">Detected</string>
+    <string name="detection_empty_history">No checks yet</string>
+    <string name="detection_error_retry">Retry</string>
+    <string name="detection_permission_title">Permissions</string>
+
+    <string name="detection_methodology_info">Methodology Info</string>
+    <string name="detection_finding_detected">Detected</string>
+    <string name="detection_finding_review">Needs review</string>
+    <string name="detection_finding_ok">OK</string>
+    <string name="detection_score_improved">Score improved</string>
+    <string name="detection_score_degraded">Score degraded</string>
 </resources>

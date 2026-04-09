@@ -110,7 +110,15 @@ internal fun LazyListScope.httpParserSection(
                     checked = uiState.httpParser.httpHostPad,
                     onCheckedChange = { onToggleChanged(AdvancedToggleSetting.HttpHostPad, it) },
                     enabled = visualEditorEnabled && uiState.desyncHttpEnabled,
+                    showDivider = true,
                     testTag = RipDpiTestTags.advancedToggle(AdvancedToggleSetting.HttpHostPad),
+                )
+                SettingsRow(
+                    title = stringResource(R.string.ripdpi_http_host_tab_setting),
+                    checked = uiState.httpParser.httpHostTab,
+                    onCheckedChange = { onToggleChanged(AdvancedToggleSetting.HttpHostTab, it) },
+                    enabled = visualEditorEnabled && uiState.desyncHttpEnabled,
+                    testTag = RipDpiTestTags.advancedToggle(AdvancedToggleSetting.HttpHostTab),
                 )
             }
             HttpParserToggleGroupCard(
@@ -171,7 +179,15 @@ internal fun LazyListScope.httpParserSection(
                     checked = uiState.httpParser.httpMethodSpace,
                     onCheckedChange = { onToggleChanged(AdvancedToggleSetting.HttpMethodSpace, it) },
                     enabled = visualEditorEnabled && uiState.desyncHttpEnabled,
+                    showDivider = true,
                     testTag = RipDpiTestTags.advancedToggle(AdvancedToggleSetting.HttpMethodSpace),
+                )
+                SettingsRow(
+                    title = stringResource(R.string.ripdpi_http_host_extra_space_setting),
+                    checked = uiState.httpParser.httpHostExtraSpace,
+                    onCheckedChange = { onToggleChanged(AdvancedToggleSetting.HttpHostExtraSpace, it) },
+                    enabled = visualEditorEnabled && uiState.desyncHttpEnabled,
+                    testTag = RipDpiTestTags.advancedToggle(AdvancedToggleSetting.HttpHostExtraSpace),
                 )
             }
         }
@@ -462,6 +478,9 @@ private fun formatHttpParserSafeSummary(uiState: SettingsUiState): String =
         if (uiState.httpParser.httpHostPad) {
             add(stringResource(R.string.ripdpi_http_host_pad_setting))
         }
+        if (uiState.httpParser.httpHostTab) {
+            add(stringResource(R.string.ripdpi_http_host_tab_setting))
+        }
     }.joinToString(separator = " · ")
         .ifBlank { stringResource(R.string.ripdpi_http_parser_safe_none) }
 
@@ -476,6 +495,9 @@ private fun formatHttpParserAggressiveSummary(uiState: SettingsUiState): String 
         }
         if (uiState.httpParser.httpMethodSpace) {
             add(stringResource(R.string.ripdpi_http_method_space_setting))
+        }
+        if (uiState.httpParser.httpHostExtraSpace) {
+            add(stringResource(R.string.ripdpi_http_host_extra_space_setting))
         }
     }.joinToString(separator = " · ")
         .ifBlank { stringResource(R.string.ripdpi_http_parser_aggressive_none) }

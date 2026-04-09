@@ -363,6 +363,8 @@ private fun buildParserEvasionConfig(settings: AppSettings): RipDpiParserEvasion
         httpMethodSpace = settings.httpMethodSpace,
         httpUnixEol = settings.httpUnixEol,
         httpHostPad = settings.httpHostPad,
+        httpHostExtraSpace = settings.httpHostExtraSpace,
+        httpHostTab = settings.httpHostTab,
     )
 
 private fun buildWsTunnelConfig(settings: AppSettings): RipDpiWsTunnelConfig {

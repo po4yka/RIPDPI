@@ -113,8 +113,8 @@ fn ui_payload_without_preset_still_gets_fallback_groups() {
         config.groups.len(),
     );
     let labels: Vec<&str> = config.groups.iter().map(|g| g.policy.label.as_str()).collect();
-    assert!(labels.contains(&"tlsrec_fake"), "missing tlsrec_fake fallback: {labels:?}");
     assert!(labels.contains(&"tlsrec_disorder"), "missing tlsrec_disorder fallback: {labels:?}");
+    assert!(labels.contains(&"disorder_host"), "missing disorder_host fallback: {labels:?}");
     assert!(labels.contains(&"split_host"), "missing split_host fallback: {labels:?}");
 }
 

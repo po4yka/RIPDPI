@@ -14,6 +14,23 @@ use crate::util::{now_ms, DEFAULT_DOH_BOOTSTRAP_IPS, DEFAULT_DOH_HOST, DEFAULT_D
 const DNS_RECORD_TYPE_A: u16 = 1;
 const DNS_RECORD_TYPE_HTTPS: u16 = 65;
 
+/// Returns hardcoded bootstrap IPs for well-known DoH resolver identifiers.
+///
+/// These IPs allow the DoH bootstrap connection to bypass tampered DNS entirely,
+/// eliminating the 4+ second delay caused by resolving the DoH host through
+/// censored DNS infrastructure.
+pub fn bootstrap_ips_for_resolver(resolver_id: &str) -> Vec<IpAddr> {
+    match resolver_id {
+        "cloudflare" => vec![IpAddr::V4(Ipv4Addr::new(1, 1, 1, 1)), IpAddr::V4(Ipv4Addr::new(1, 0, 0, 1))],
+        "adguard" => vec![IpAddr::V4(Ipv4Addr::new(94, 140, 14, 14)), IpAddr::V4(Ipv4Addr::new(94, 140, 15, 15))],
+        "google" | "google_ip" => vec![IpAddr::V4(Ipv4Addr::new(8, 8, 8, 8)), IpAddr::V4(Ipv4Addr::new(8, 8, 4, 4))],
+        "quad9" => vec![IpAddr::V4(Ipv4Addr::new(9, 9, 9, 9)), IpAddr::V4(Ipv4Addr::new(149, 112, 112, 112))],
+        "dnssb" => vec![IpAddr::V4(Ipv4Addr::new(185, 222, 222, 222)), IpAddr::V4(Ipv4Addr::new(45, 11, 45, 11))],
+        "mullvad" => vec![IpAddr::V4(Ipv4Addr::new(194, 242, 2, 2))],
+        _ => vec![],
+    }
+}
+
 #[derive(Clone, Debug)]
 pub(crate) enum EchResolutionOutcome {
     /// DoH succeeded and HTTPS record contained an EchConfigList.
@@ -52,10 +69,17 @@ pub(crate) fn encrypted_dns_endpoint_for_target(
     target: &DnsTarget,
 ) -> Result<(EncryptedDnsEndpoint, Vec<String>), String> {
     let protocol = encrypted_dns_protocol(target.encrypted_protocol.as_deref());
-    let bootstrap_strings = if target.encrypted_bootstrap_ips.is_empty() {
-        DEFAULT_DOH_BOOTSTRAP_IPS.iter().map(ToString::to_string).collect::<Vec<_>>()
-    } else {
+    let bootstrap_strings = if !target.encrypted_bootstrap_ips.is_empty() {
         target.encrypted_bootstrap_ips.clone()
+    } else if let Some(ref rid) = target.encrypted_resolver_id {
+        let pinned = bootstrap_ips_for_resolver(rid);
+        if !pinned.is_empty() {
+            pinned.iter().map(ToString::to_string).collect::<Vec<_>>()
+        } else {
+            DEFAULT_DOH_BOOTSTRAP_IPS.iter().map(ToString::to_string).collect::<Vec<_>>()
+        }
+    } else {
+        DEFAULT_DOH_BOOTSTRAP_IPS.iter().map(ToString::to_string).collect::<Vec<_>>()
     };
     let doh_url = target
         .encrypted_doh_url
@@ -485,6 +509,85 @@ mod tests {
     fn parse_url_host_returns_none_for_invalid() {
         assert_eq!(parse_url_host("no-scheme"), None);
         assert_eq!(parse_url_host("https:///path"), None);
+    }
+
+    #[test]
+    fn bootstrap_ips_for_known_resolvers() {
+        let cf = bootstrap_ips_for_resolver("cloudflare");
+        assert_eq!(cf.len(), 2);
+        assert_eq!(cf[0], "1.1.1.1".parse::<IpAddr>().unwrap());
+        assert_eq!(cf[1], "1.0.0.1".parse::<IpAddr>().unwrap());
+
+        let ag = bootstrap_ips_for_resolver("adguard");
+        assert_eq!(ag.len(), 2);
+        assert_eq!(ag[0], "94.140.14.14".parse::<IpAddr>().unwrap());
+
+        let g = bootstrap_ips_for_resolver("google");
+        assert_eq!(g.len(), 2);
+        assert_eq!(g[0], "8.8.8.8".parse::<IpAddr>().unwrap());
+
+        let g_ip = bootstrap_ips_for_resolver("google_ip");
+        assert_eq!(g_ip, g);
+
+        let q9 = bootstrap_ips_for_resolver("quad9");
+        assert_eq!(q9.len(), 2);
+        assert_eq!(q9[0], "9.9.9.9".parse::<IpAddr>().unwrap());
+
+        let dsb = bootstrap_ips_for_resolver("dnssb");
+        assert_eq!(dsb.len(), 2);
+
+        let mv = bootstrap_ips_for_resolver("mullvad");
+        assert_eq!(mv.len(), 1);
+        assert_eq!(mv[0], "194.242.2.2".parse::<IpAddr>().unwrap());
+    }
+
+    #[test]
+    fn bootstrap_ips_for_unknown_resolver_is_empty() {
+        assert!(bootstrap_ips_for_resolver("unknown-provider").is_empty());
+    }
+
+    #[test]
+    fn endpoint_for_target_uses_pinned_ips_when_resolver_known() {
+        let target = DnsTarget {
+            domain: "example.com".to_string(),
+            udp_server: None,
+            encrypted_resolver_id: Some("cloudflare".to_string()),
+            encrypted_protocol: Some("doh".to_string()),
+            encrypted_host: Some("cloudflare-dns.com".to_string()),
+            encrypted_port: Some(443),
+            encrypted_tls_server_name: None,
+            encrypted_bootstrap_ips: vec![], // empty -- should be filled from registry
+            encrypted_doh_url: Some("https://cloudflare-dns.com/dns-query".to_string()),
+            encrypted_dnscrypt_provider_name: None,
+            encrypted_dnscrypt_public_key: None,
+            expected_ips: vec![],
+        };
+        let (endpoint, bootstrap_strings) = encrypted_dns_endpoint_for_target(&target).unwrap();
+        assert_eq!(
+            endpoint.bootstrap_ips,
+            vec!["1.1.1.1".parse::<IpAddr>().unwrap(), "1.0.0.1".parse::<IpAddr>().unwrap(),]
+        );
+        assert_eq!(bootstrap_strings, vec!["1.1.1.1", "1.0.0.1"]);
+    }
+
+    #[test]
+    fn endpoint_for_target_respects_explicit_bootstrap_ips() {
+        let target = DnsTarget {
+            domain: "example.com".to_string(),
+            udp_server: None,
+            encrypted_resolver_id: Some("cloudflare".to_string()),
+            encrypted_protocol: Some("doh".to_string()),
+            encrypted_host: Some("cloudflare-dns.com".to_string()),
+            encrypted_port: Some(443),
+            encrypted_tls_server_name: None,
+            encrypted_bootstrap_ips: vec!["10.0.0.1".to_string()], // explicit -- should NOT be overridden
+            encrypted_doh_url: Some("https://cloudflare-dns.com/dns-query".to_string()),
+            encrypted_dnscrypt_provider_name: None,
+            encrypted_dnscrypt_public_key: None,
+            expected_ips: vec![],
+        };
+        let (endpoint, _) = encrypted_dns_endpoint_for_target(&target).unwrap();
+        assert_eq!(endpoint.bootstrap_ips, vec!["10.0.0.1".parse::<IpAddr>().unwrap()]);
     }
 
     #[test]

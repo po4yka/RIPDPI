@@ -292,6 +292,8 @@ private fun AppSettings.buildHttpParserUiState(): HttpParserUiState =
         httpMethodEol = httpMethodEol,
         httpUnixEol = httpUnixEol,
         httpMethodSpace = httpMethodSpace,
+        httpHostExtraSpace = httpHostExtraSpace,
+        httpHostTab = httpHostTab,
     )
 
 private fun AppSettings.buildAdaptiveFallbackUiState(): AdaptiveFallbackUiState {

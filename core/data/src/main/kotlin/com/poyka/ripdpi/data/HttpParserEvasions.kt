@@ -9,6 +9,8 @@ const val HttpParserEvasionMethodEol = "method_eol"
 const val HttpParserEvasionMethodSpace = "method_space"
 const val HttpParserEvasionUnixEol = "unix_eol"
 const val HttpParserEvasionHostPad = "host_pad"
+const val HttpParserEvasionHostExtraSpace = "host_extra_space"
+const val HttpParserEvasionHostTab = "host_tab"
 
 fun activeHttpParserEvasions(
     hostMixedCase: Boolean,
@@ -18,6 +20,8 @@ fun activeHttpParserEvasions(
     httpMethodSpace: Boolean,
     httpUnixEol: Boolean,
     httpHostPad: Boolean,
+    httpHostExtraSpace: Boolean = false,
+    httpHostTab: Boolean = false,
 ): List<String> =
     buildList {
         if (hostMixedCase) add(HttpParserEvasionHostMixedCase)
@@ -27,6 +31,8 @@ fun activeHttpParserEvasions(
         if (httpMethodEol) add(HttpParserEvasionMethodEol)
         if (httpMethodSpace) add(HttpParserEvasionMethodSpace)
         if (httpHostPad) add(HttpParserEvasionHostPad)
+        if (httpHostExtraSpace) add(HttpParserEvasionHostExtraSpace)
+        if (httpHostTab) add(HttpParserEvasionHostTab)
     }
 
 fun AppSettings.activeHttpParserEvasions(): List<String> =
@@ -38,4 +44,6 @@ fun AppSettings.activeHttpParserEvasions(): List<String> =
         httpMethodSpace = httpMethodSpace,
         httpUnixEol = httpUnixEol,
         httpHostPad = httpHostPad,
+        httpHostExtraSpace = httpHostExtraSpace,
+        httpHostTab = httpHostTab,
     )

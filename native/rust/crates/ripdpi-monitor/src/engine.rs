@@ -265,6 +265,7 @@ mod tests {
                 suite_id: "phase1".to_string(),
                 base_proxy_config_json: None,
                 target_selection: None,
+                max_candidates: None,
             }),
         );
 

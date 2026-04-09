@@ -7,9 +7,9 @@ use super::FamilyFailureTracker;
 fn family_tracker_blocks_after_threshold_2() {
     let mut tracker = FamilyFailureTracker::new(2);
     tracker.record("hostfake", true);
-    assert!(tracker.blocked != Some("hostfake"));
+    assert!(tracker.blocked_family() != Some("hostfake"));
     tracker.record("hostfake", true);
-    assert!(tracker.blocked == Some("hostfake"));
+    assert!(tracker.blocked_family() == Some("hostfake"));
 }
 
 #[test]
@@ -17,11 +17,11 @@ fn family_tracker_blocks_after_threshold_4() {
     let mut tracker = FamilyFailureTracker::new(4);
     tracker.record("hostfake", true);
     tracker.record("hostfake", true);
-    assert!(tracker.blocked != Some("hostfake"));
+    assert!(tracker.blocked_family() != Some("hostfake"));
     tracker.record("hostfake", true);
-    assert!(tracker.blocked != Some("hostfake"));
+    assert!(tracker.blocked_family() != Some("hostfake"));
     tracker.record("hostfake", true);
-    assert!(tracker.blocked == Some("hostfake"));
+    assert!(tracker.blocked_family() == Some("hostfake"));
 }
 
 #[test]
@@ -30,7 +30,7 @@ fn family_tracker_resets_on_success() {
     tracker.record("hostfake", true);
     tracker.record("hostfake", false); // success resets consecutive count and blocked
     tracker.record("hostfake", true);
-    assert!(tracker.blocked != Some("hostfake")); // only 1 consecutive failure after reset
+    assert!(tracker.blocked_family() != Some("hostfake")); // only 1 consecutive failure after reset
 }
 
 #[test]
@@ -39,7 +39,7 @@ fn family_tracker_resets_on_different_family() {
     tracker.record("hostfake", true);
     tracker.record("split", true); // different family resets hostfake consecutive counter
     tracker.record("hostfake", true);
-    assert!(tracker.blocked != Some("hostfake")); // only 1 consecutive for hostfake
+    assert!(tracker.blocked_family() != Some("hostfake")); // only 1 consecutive for hostfake
 }
 
 use super::{
@@ -74,6 +74,7 @@ fn quic_candidate_summary(proxy_config_json: Option<String>) -> StrategyProbeCan
         notes: Vec::new(),
         average_latency_ms: Some(220),
         skipped: false,
+        domain_outcomes: vec![],
     }
 }
 
@@ -102,6 +103,7 @@ fn strategy_candidate_summary(
         notes: Vec::new(),
         average_latency_ms: Some(200),
         skipped,
+        domain_outcomes: vec![],
     }
 }
 

@@ -11,6 +11,8 @@ pub const MH_UNIXEOL: u32 = 8;
 pub const MH_METHODEOL: u32 = 16;
 pub const MH_METHODSPACE: u32 = 32;
 pub const MH_HOSTPAD: u32 = 64;
+pub const MH_HOSTEXTRASPACE: u32 = 128;
+pub const MH_HOSTTAB: u32 = 256;
 
 pub const QUIC_V1_VERSION: u32 = 0x0000_0001;
 pub const QUIC_V2_VERSION: u32 = 0x6b33_43cf;

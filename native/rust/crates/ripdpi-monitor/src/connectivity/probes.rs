@@ -35,6 +35,13 @@ pub(crate) fn classify_dns_latency_quality(udp_latency_ms: &str, encrypted_laten
     if encrypted == 0 && udp == 0 {
         return "unknown".to_string();
     }
+    // When UDP is suspiciously fast relative to encrypted, flag as injected.
+    if udp > 0 {
+        let ratio = (encrypted as f64) / (udp as f64);
+        if ratio >= 20.0 {
+            return "injected".to_string();
+        }
+    }
     match encrypted {
         0..=99 => "fast".to_string(),
         100..=500 => "normal".to_string(),
@@ -79,7 +86,9 @@ pub(crate) fn run_dns_probe(target: &DnsTarget, transport: &TransportConfig, pat
         target.encrypted_host.is_none() && target.encrypted_doh_url.is_none() && target.encrypted_protocol.is_none();
     if encrypted_result.is_err() && target_uses_default_resolver {
         let fallback_endpoints = build_fallback_encrypted_dns_endpoints(encrypted_endpoint.resolver_id.as_deref());
-        for fallback_ep in &fallback_endpoints {
+        // Cap fallback attempts to avoid flooding probe results when encrypted
+        // DNS is broadly blocked at the network level.
+        for fallback_ep in fallback_endpoints.iter().take(2) {
             let (result, raw) = resolve_via_encrypted_dns_with_raw(&target.domain, fallback_ep.clone(), transport);
             if result.is_ok() {
                 encrypted_result = result;
@@ -178,6 +187,24 @@ pub(crate) fn run_dns_probe(target: &DnsTarget, transport: &TransportConfig, pat
             ProbeDetail { key: "resolverFallbackUsed".to_string(), value: fallback_resolver_used.unwrap_or_default() },
         ],
     };
+
+    // Injection profiling: only populated for substitution/nxdomain outcomes.
+    if matches!(result.outcome.as_str(), "dns_substitution" | "dns_nxdomain") {
+        let udp_ms: u64 = udp_latency_ms.parse().unwrap_or(0);
+        let enc_ms: u64 = encrypted_latency_ms.parse().unwrap_or(0);
+        // Fixed-point ratio * 100 (e.g. 4000 = 40.00x).
+        let ratio_x100: u64 = if udp_ms > 0 { (enc_ms * 100) / udp_ms } else { 0 };
+        result.details.push(ProbeDetail { key: "injectionLatencyRatio".to_string(), value: ratio_x100.to_string() });
+
+        // Collect forged addresses: UDP IPs that are absent from encrypted results.
+        let empty = vec![];
+        let udp_set = ip_set(udp_result.as_ref().unwrap_or(&empty));
+        let enc_set = ip_set(encrypted_result.as_ref().unwrap_or(&empty));
+        let forged: Vec<String> = udp_set.difference(&enc_set).cloned().collect();
+        if !forged.is_empty() {
+            result.details.push(ProbeDetail { key: "forgedAddresses".to_string(), value: forged.join(",") });
+        }
+    }
 
     // Append protocol-level analysis details from raw UDP response.
     if let Some(raw) = raw_udp_response.as_deref() {
@@ -416,6 +443,17 @@ pub(crate) fn run_tcp_probe(target: &TcpTarget, whitelist_sni: &[String], transp
         }
     }
 
+    let tcp_block_method = classify_tcp_block_method(&final_observation.status);
+    let rst_origin = classify_rst_origin(final_observation.syn_ack_latency_ms, final_observation.rst_timing_ms);
+    // For window-cap outcomes, use bytes_sent at cutoff as the observed window size
+    // since actual TCP window size is not available from userspace sockets.
+    let observed_window_size = match final_observation.status {
+        FatHeaderStatus::ThresholdCutoff | FatHeaderStatus::FreezeAfterThreshold => {
+            Some(final_observation.bytes_sent as u32)
+        }
+        _ => final_observation.observed_window_size,
+    };
+
     let mut details = vec![
         ProbeDetail { key: "provider".to_string(), value: target.provider.clone() },
         ProbeDetail { key: "attempts".to_string(), value: attempted_candidates.join("|") },
@@ -437,6 +475,20 @@ pub(crate) fn run_tcp_probe(target: &TcpTarget, whitelist_sni: &[String], transp
             value: final_observation.error.unwrap_or_else(|| "none".to_string()),
         },
         ProbeDetail { key: "probeRetryCount".to_string(), value: probe_retry_count.to_string() },
+        ProbeDetail { key: "tcpBlockMethod".to_string(), value: tcp_block_method.to_string() },
+        ProbeDetail {
+            key: "synAckLatencyMs".to_string(),
+            value: final_observation.syn_ack_latency_ms.map_or_else(String::new, |v| v.to_string()),
+        },
+        ProbeDetail {
+            key: "rstTimingMs".to_string(),
+            value: final_observation.rst_timing_ms.map_or_else(String::new, |v| v.to_string()),
+        },
+        ProbeDetail { key: "rstOrigin".to_string(), value: rst_origin.to_string() },
+        ProbeDetail {
+            key: "observedWindowSize".to_string(),
+            value: observed_window_size.map_or_else(String::new, |v| v.to_string()),
+        },
     ];
     details.push(ProbeDetail { key: "port".to_string(), value: target.port.to_string() });
     if final_observation.status == FatHeaderStatus::FreezeAfterThreshold {
@@ -695,11 +747,26 @@ mod tests {
 
     #[test]
     fn dns_latency_quality_slow_for_high_encrypted() {
-        assert_eq!(classify_dns_latency_quality("20", "600"), "slow");
+        // UDP 50ms, encrypted 600ms => ratio 12 (below injected threshold)
+        assert_eq!(classify_dns_latency_quality("50", "600"), "slow");
     }
 
     #[test]
     fn dns_latency_quality_unknown_for_zero() {
         assert_eq!(classify_dns_latency_quality("0", "0"), "unknown");
+    }
+
+    #[test]
+    fn dns_latency_quality_injected_for_high_ratio() {
+        // UDP 3ms, encrypted 200ms => ratio ~66.7 => "injected"
+        assert_eq!(classify_dns_latency_quality("3", "200"), "injected");
+        // UDP 5ms, encrypted 100ms => ratio 20.0 => "injected"
+        assert_eq!(classify_dns_latency_quality("5", "100"), "injected");
+    }
+
+    #[test]
+    fn dns_latency_quality_not_injected_below_threshold() {
+        // UDP 10ms, encrypted 99ms => ratio 9.9 => "fast" (below 20x)
+        assert_eq!(classify_dns_latency_quality("10", "99"), "fast");
     }
 }

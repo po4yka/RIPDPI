@@ -98,6 +98,7 @@ data class StrategyProbeRequest(
     val suiteId: String = "quick_v1",
     val baseProxyConfigJson: String? = null,
     val targetSelection: StrategyProbeTargetSelection? = null,
+    val maxCandidates: Int? = null,
 )
 
 @Serializable

@@ -64,15 +64,24 @@ fn apply_russia_mts_mobile(c: &mut ProxyUiConfig) -> Result<(), ProxyConfigError
     Ok(())
 }
 
-/// RIPDPI default -- broad Russian ISP compatibility using disorder (more
-/// reliable than split on modern middlebox) with adaptive fake TTL enabled.
+/// RIPDPI default -- TLS record split at extension-length boundary + fake
+/// packet with low TTL. Modern middlebox reassembles TCP segments before
+/// inspecting TLS ClientHello, so plain TCP split/disorder is no longer
+/// sufficient; splitting at the TLS record layer forces the DPI to see an
+/// incomplete record while the real server reassembles correctly.
 fn apply_ripdpi_default(c: &mut ProxyUiConfig) -> Result<(), ProxyConfigError> {
     c.protocols.desync_https = true;
     c.protocols.desync_http = true;
     c.protocols.desync_udp = true;
-    c.chains.tcp_steps = vec![tcp_step("disorder", "host")];
+    c.chains.tcp_steps = vec![tcp_step("tlsrec", "extlen"), tcp_step("fake", "host+1")];
     c.fake_packets.adaptive_fake_ttl_enabled = true;
     c.fake_packets.fake_ttl = 8;
+    c.fake_packets.fake_tls_use_original = true;
+    c.fake_packets.fake_tls_randomize = true;
+    c.fake_packets.fake_tls_dup_session_id = true;
+    c.fake_packets.fake_tls_pad_encap = true;
+    c.fake_packets.fake_tls_sni_mode = "randomized".to_string();
+    c.fake_packets.fake_offset_marker = "endhost-1".to_string();
     c.fake_packets.tls_fake_profile = FAKE_PAYLOAD_PROFILE_COMPAT_DEFAULT.to_string();
     c.quic.fake_profile = FAKE_PAYLOAD_PROFILE_COMPAT_DEFAULT.to_string();
     c.quic.initial_mode = "route_and_cache".to_string();
@@ -94,9 +103,9 @@ pub fn apply_runtime_preset(preset_id: &str, config: &mut RuntimeConfig) -> Resu
 /// can automatically cascade through strategies when DPI blocks the primary.
 ///
 /// Cascade order (field-tested against Russian middlebox):
-/// 1. Primary: disorder(host) -- current default, works on most ISPs
-/// 2. tlsrec(extlen) + fake(host+1) -- TLS record split + fake, proven combo
-/// 3. tlsrec(extlen) + disorder(host+1) -- TLS record + out-of-order delivery
+/// 1. Primary: tlsrec(extlen) + fake(host+1) -- TLS record split + fake, best middlebox bypass
+/// 2. tlsrec(extlen) + disorder(host+1) -- TLS record + out-of-order delivery
+/// 3. disorder(host) -- plain TCP disorder, legacy fallback for passive DPI
 /// 4. split(host+2) -- minimal split for passive DPI (MGTS-style)
 fn apply_ripdpi_default_fallback_groups(config: &mut RuntimeConfig) -> Result<(), ProxyConfigError> {
     let Some(primary) = config.groups.iter().find(|g| !g.actions.tcp_chain.is_empty()).cloned() else {
@@ -107,21 +116,18 @@ fn apply_ripdpi_default_fallback_groups(config: &mut RuntimeConfig) -> Result<()
     let fallback_groups = vec![
         build_fallback_group(
             0, // placeholder, reindex fixes it
-            "tlsrec_fake",
-            vec![
-                TcpChainStep::new(TcpChainStepKind::TlsRec, OffsetExpr::marker(OffsetBase::ExtLen, 0)),
-                TcpChainStep::new(TcpChainStepKind::Fake, OffsetExpr::marker(OffsetBase::Host, 1)),
-            ],
-            &primary,
-            true, // needs fake_mod
-        ),
-        build_fallback_group(
-            0,
             "tlsrec_disorder",
             vec![
                 TcpChainStep::new(TcpChainStepKind::TlsRec, OffsetExpr::marker(OffsetBase::ExtLen, 0)),
                 TcpChainStep::new(TcpChainStepKind::Disorder, OffsetExpr::marker(OffsetBase::Host, 1)),
             ],
+            &primary,
+            false,
+        ),
+        build_fallback_group(
+            0,
+            "disorder_host",
+            vec![TcpChainStep::new(TcpChainStepKind::Disorder, OffsetExpr::marker(OffsetBase::Host, 0))],
             &primary,
             false,
         ),

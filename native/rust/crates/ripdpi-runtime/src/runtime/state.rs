@@ -33,6 +33,8 @@ pub(super) struct RuntimeState {
     /// modification is rejected by the kernel (EROFS on Android), all
     /// subsequent connections skip TTL desync actions immediately.
     pub(super) ttl_unavailable: Arc<AtomicBool>,
+    /// Tracks network scope key changes for lightweight re-probing.
+    pub(super) reprobe_tracker: std::sync::Arc<super::reprobe::ReprobeTracker>,
     /// io_uring driver for zero-copy relay (Linux 6.0+, optional).
     #[cfg(all(feature = "io-uring", any(target_os = "linux", target_os = "android")))]
     pub(super) io_uring: Option<std::sync::Arc<ripdpi_io_uring::IoUringDriver>>,

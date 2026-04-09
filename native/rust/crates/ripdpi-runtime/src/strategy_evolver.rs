@@ -441,6 +441,14 @@ impl StrategyEvolver {
         }
     }
 
+    pub fn is_enabled(&self) -> bool {
+        self.enabled
+    }
+
+    pub fn epsilon(&self) -> f64 {
+        self.explore_epsilon
+    }
+
     /// Returns adaptive hints if the evolver wants to override the default planner.
     ///
     /// When `Some` is returned, the caller should use these hints **instead of**

@@ -185,6 +185,7 @@ fun HomeRoute(
         onDismissBatteryBanner = viewModel::onDismissBatteryBanner,
         onDismissBackgroundGuidance = viewModel::onDismissBackgroundGuidance,
         onRunFullAnalysis = viewModel::onRunHomeFullAnalysis,
+        onRunQuickAnalysis = viewModel::onRunHomeQuickAnalysis,
         onStartVerifiedVpn = viewModel::onStartVerifiedVpn,
         onShareAnalysis = viewModel::onShareHomeAnalysis,
         onDismissAnalysisSheet = viewModel::dismissHomeAnalysisSheet,
@@ -192,7 +193,7 @@ fun HomeRoute(
     )
 }
 
-@Suppress("LongMethod", "CyclomaticComplexMethod")
+@Suppress("LongMethod", "CyclomaticComplexMethod", "LongParameterList")
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun HomeScreen(
@@ -206,6 +207,7 @@ fun HomeScreen(
     onDismissBatteryBanner: () -> Unit = {},
     onDismissBackgroundGuidance: () -> Unit = {},
     onRunFullAnalysis: () -> Unit = {},
+    onRunQuickAnalysis: () -> Unit = {},
     onStartVerifiedVpn: () -> Unit = {},
     onShareAnalysis: () -> Unit = {},
     onDismissAnalysisSheet: () -> Unit = {},
@@ -348,6 +350,7 @@ fun HomeScreen(
                     HomeDiagnosticsCard(
                         uiState = uiState,
                         onRunFullAnalysis = onRunFullAnalysis,
+                        onRunQuickAnalysis = onRunQuickAnalysis,
                         onStartVerifiedVpn = onStartVerifiedVpn,
                     )
 
@@ -379,6 +382,7 @@ fun HomeScreen(
             HomeDiagnosticsCard(
                 uiState = uiState,
                 onRunFullAnalysis = onRunFullAnalysis,
+                onRunQuickAnalysis = onRunQuickAnalysis,
                 onStartVerifiedVpn = onStartVerifiedVpn,
             )
 
@@ -494,6 +498,7 @@ private fun HomeHistoryCard(onOpenHistory: () -> Unit) {
 private fun HomeDiagnosticsCard(
     uiState: MainUiState,
     onRunFullAnalysis: () -> Unit,
+    onRunQuickAnalysis: () -> Unit,
     onStartVerifiedVpn: () -> Unit,
 ) {
     val colors = RipDpiThemeTokens.colors
@@ -595,6 +600,20 @@ private fun HomeDiagnosticsCard(
                 Modifier
                     .fillMaxWidth()
                     .ripDpiTestTag(RipDpiTestTags.HomeDiagnosticsRunAnalysis),
+        )
+        Spacer(modifier = Modifier.height(spacing.sm))
+        Text(
+            text = stringResource(R.string.home_diagnostics_quick_scan_body),
+            style = RipDpiThemeTokens.type.secondaryBody,
+            color = colors.mutedForeground,
+        )
+        Spacer(modifier = Modifier.height(spacing.xs))
+        RipDpiButton(
+            text = stringResource(R.string.home_diagnostics_quick_scan),
+            onClick = onRunQuickAnalysis,
+            enabled = uiState.homeDiagnostics.analysisAction.enabled,
+            variant = RipDpiButtonVariant.Secondary,
+            modifier = Modifier.fillMaxWidth(),
         )
         Spacer(modifier = Modifier.height(spacing.md))
         Text(

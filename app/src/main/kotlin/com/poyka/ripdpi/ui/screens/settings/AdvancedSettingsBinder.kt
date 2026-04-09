@@ -677,6 +677,10 @@ private val toggleHandlers: Map<AdvancedToggleSetting, ToggleHandler> =
             { enabled -> updateBoolean("httpUnixEol", enabled) { setHttpUnixEol(enabled) } },
         AdvancedToggleSetting.HttpMethodSpace to
             { enabled -> updateBoolean("httpMethodSpace", enabled) { setHttpMethodSpace(enabled) } },
+        AdvancedToggleSetting.HttpHostExtraSpace to
+            { enabled -> updateBoolean("httpHostExtraSpace", enabled) { setHttpHostExtraSpace(enabled) } },
+        AdvancedToggleSetting.HttpHostTab to
+            { enabled -> updateBoolean("httpHostTab", enabled) { setHttpHostTab(enabled) } },
         AdvancedToggleSetting.TlsrecEnabled to
             { _ -> Unit },
         AdvancedToggleSetting.QuicSupportV1 to

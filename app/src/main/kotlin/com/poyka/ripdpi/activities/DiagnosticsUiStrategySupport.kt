@@ -723,6 +723,8 @@ private fun formatHttpParserEvasions(values: List<String>): String =
             "host_remove_spaces" -> "Host remove spaces"
             "method_eol" -> "Method EOL shift"
             "unix_eol" -> "Unix line endings"
+            "host_extra_space" -> "Host extra space"
+            "host_tab" -> "Host tab separator"
             else -> value
         }
     }
