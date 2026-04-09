@@ -5,7 +5,6 @@ import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.ApplicationIoScope
 import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsScanRecordStore
-import com.poyka.ripdpi.services.NetworkHandoverEvent
 import com.poyka.ripdpi.services.NetworkHandoverMonitor
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -215,38 +214,56 @@ class DefaultDiagnosticsHomeCompositeRunService
                     )
             }
             scope.launch {
-                executeQuickRun(runId)
+                DiagnosticsQuickScanRunner(scanRecordStore, diagnosticsHomeWorkflowService, json)
+                    .execute(
+                        runId = runId,
+                        executeStage = ::executeStageWithTimeout,
+                        markStageFailure = ::markStageFailure,
+                        updateStage = ::updateStage,
+                        isAuditRunning = {
+                            progressState.value[runId]
+                                ?.stages
+                                ?.getOrNull(0)
+                                ?.status ==
+                                DiagnosticsHomeCompositeStageStatus.RUNNING
+                        },
+                        finalizeRun = ::finalizeRun,
+                    )
             }
             return DiagnosticsHomeCompositeRunStarted(runId = runId)
-        }
-
-        private suspend fun executeQuickRun(runId: String) {
-            val runner = DiagnosticsQuickScanRunner(scanRecordStore, diagnosticsHomeWorkflowService, json)
-            runner.execute(
-                runId = runId,
-                executeStage = ::executeStageWithTimeout,
-                markStageFailure = ::markStageFailure,
-                updateStage = ::updateStage,
-                isAuditRunning = {
-                    progressState.value[runId]
-                        ?.stages
-                        ?.getOrNull(0)
-                        ?.status ==
-                        DiagnosticsHomeCompositeStageStatus.RUNNING
-                },
-                finalizeRun = ::finalizeRun,
-            )
         }
 
         private suspend fun executeRun(runId: String) {
             log.i { "started runId=$runId stages=${HomeCompositeStageSpecs.size}" }
             val auditSpec = HomeCompositeStageSpecs[0]
             val auditIndex = 0
-            val (eventCollector, networkEvents) = startNetworkEventCollector()
+            val networkEvents = mutableListOf<com.poyka.ripdpi.services.NetworkHandoverEvent>()
+            val eventCollector =
+                scope.launch {
+                    networkHandoverMonitor.events.collect { event ->
+                        if (event.isActionable) networkEvents += event
+                    }
+                }
 
             val auditCompletedSession = executeStageWithTimeout(runId, auditIndex, auditSpec)
             if (auditCompletedSession == null) {
-                handleAuditStageFailed(runId, auditIndex, auditSpec)
+                // Stage either timed out or was marked failed by VPN-halt detection inside
+                // executeStage. Ensure the stage is recorded as failed if it is still running
+                // (the VPN-halt path already calls markStageFailure; the timeout path does not).
+                val currentStageStatus =
+                    progressState.value[runId]
+                        ?.stages
+                        ?.getOrNull(auditIndex)
+                        ?.status
+                if (currentStageStatus == DiagnosticsHomeCompositeStageStatus.RUNNING) {
+                    markStageFailure(
+                        runId = runId,
+                        stageIndex = auditIndex,
+                        headline = "${auditSpec.label} timed out",
+                        summary = "The audit stage did not complete within the allowed time.",
+                    )
+                }
+                skipRemainingStages(runId, reason = "Skipped due to audit stage failure.")
                 eventCollector.cancel()
                 finalizeRun(
                     runId,
@@ -287,17 +304,6 @@ class DefaultDiagnosticsHomeCompositeRunService
             }
         }
 
-        private fun startNetworkEventCollector(): Pair<Job, MutableList<NetworkHandoverEvent>> {
-            val networkEvents = mutableListOf<com.poyka.ripdpi.services.NetworkHandoverEvent>()
-            val job =
-                scope.launch {
-                    networkHandoverMonitor.events.collect { event ->
-                        if (event.isActionable) networkEvents += event
-                    }
-                }
-            return job to networkEvents
-        }
-
         /**
          * Records the audit stage as completed and finalizes the home audit.
          * Returns the finalized [DiagnosticsHomeAuditOutcome], or null if the audit session
@@ -311,7 +317,23 @@ class DefaultDiagnosticsHomeCompositeRunService
         ): DiagnosticsHomeAuditOutcome? {
             val auditSessionId = auditCompletedSession.first
             val auditSession = auditCompletedSession.second
-            var auditOutcome = recordAuditStageCompleted(runId, auditIndex, auditSpec, auditSessionId, auditSession)
+            val completedSummary =
+                buildCompletedStageSummary(
+                    spec = auditSpec,
+                    sessionId = auditSessionId,
+                    session = auditSession,
+                    scanRecordStore = scanRecordStore,
+                    json = json,
+                )
+            var auditOutcome =
+                DiagnosticsHomeAuditOutcome(
+                    sessionId = completedSummary.sessionId.orEmpty(),
+                    fingerprintHash = diagnosticsHomeWorkflowService.currentFingerprintHash(),
+                    actionable = completedSummary.recommendationContributor,
+                    headline = completedSummary.headline,
+                    summary = completedSummary.summary,
+                )
+            updateStage(runId, auditIndex) { completedSummary }
             if (auditSession.status != "completed") {
                 skipRemainingStages(runId, reason = "Skipped due to network unavailability.")
                 return null
@@ -357,30 +379,6 @@ class DefaultDiagnosticsHomeCompositeRunService
             }
         }
 
-        private fun handleAuditStageFailed(
-            runId: String,
-            auditIndex: Int,
-            auditSpec: HomeCompositeStageSpec,
-        ) {
-            // Stage either timed out or was marked failed by VPN-halt detection inside
-            // executeStage. Ensure the stage is recorded as failed if it is still running
-            // (the VPN-halt path already calls markStageFailure; the timeout path does not).
-            val currentStageStatus =
-                progressState.value[runId]
-                    ?.stages
-                    ?.getOrNull(auditIndex)
-                    ?.status
-            if (currentStageStatus == DiagnosticsHomeCompositeStageStatus.RUNNING) {
-                markStageFailure(
-                    runId = runId,
-                    stageIndex = auditIndex,
-                    headline = "${auditSpec.label} timed out",
-                    summary = "The audit stage did not complete within the allowed time.",
-                )
-            }
-            skipRemainingStages(runId, reason = "Skipped due to audit stage failure.")
-        }
-
         private fun skipRemainingStages(
             runId: String,
             reason: String,
@@ -396,33 +394,6 @@ class DefaultDiagnosticsHomeCompositeRunService
                     )
                 }
             }
-        }
-
-        private suspend fun recordAuditStageCompleted(
-            runId: String,
-            auditIndex: Int,
-            auditSpec: HomeCompositeStageSpec,
-            auditSessionId: String,
-            auditSession: DiagnosticScanSession,
-        ): DiagnosticsHomeAuditOutcome {
-            val completedSummary =
-                buildCompletedStageSummary(
-                    spec = auditSpec,
-                    sessionId = auditSessionId,
-                    session = auditSession,
-                    scanRecordStore = scanRecordStore,
-                    json = json,
-                )
-            val outcome =
-                DiagnosticsHomeAuditOutcome(
-                    sessionId = completedSummary.sessionId.orEmpty(),
-                    fingerprintHash = diagnosticsHomeWorkflowService.currentFingerprintHash(),
-                    actionable = completedSummary.recommendationContributor,
-                    headline = completedSummary.headline,
-                    summary = completedSummary.summary,
-                )
-            updateStage(runId, auditIndex) { completedSummary }
-            return outcome
         }
 
         private suspend fun runDpiStrategyStage(
