@@ -565,8 +565,11 @@ private fun HomeDiagnosticsCard(
         HorizontalDivider(color = colors.divider)
         Spacer(modifier = Modifier.height(spacing.md))
         val analysisProgress = uiState.homeDiagnostics.analysisProgress
+        val isQuickScan = uiState.homeDiagnostics.quickScanBusy
+        val showFullAnalysisProgress =
+            uiState.homeDiagnostics.analysisAction.busy && analysisProgress != null && !isQuickScan
         Crossfade(
-            targetState = uiState.homeDiagnostics.analysisAction.busy && analysisProgress != null,
+            targetState = showFullAnalysisProgress,
             animationSpec =
                 tween(
                     durationMillis =
@@ -602,16 +605,38 @@ private fun HomeDiagnosticsCard(
                     .ripDpiTestTag(RipDpiTestTags.HomeDiagnosticsRunAnalysis),
         )
         Spacer(modifier = Modifier.height(spacing.sm))
-        Text(
-            text = stringResource(R.string.home_diagnostics_quick_scan_body),
-            style = RipDpiThemeTokens.type.secondaryBody,
-            color = colors.mutedForeground,
-        )
+        val showQuickScanProgress = isQuickScan && analysisProgress != null
+        Crossfade(
+            targetState = showQuickScanProgress,
+            animationSpec =
+                tween(
+                    durationMillis =
+                        RipDpiThemeTokens.motion.duration(
+                            RipDpiThemeTokens.motion.stateDurationMillis,
+                        ),
+                ),
+            label = "quickScanProgressSwitch",
+        ) { showProgress ->
+            if (showProgress && analysisProgress != null) {
+                AnalysisProgressIndicator(
+                    stages = analysisProgress.stages,
+                    activeStageIndex = analysisProgress.activeStageIndex,
+                    stageLabel = uiState.homeDiagnostics.analysisAction.supportingText,
+                )
+            } else {
+                Text(
+                    text = stringResource(R.string.home_diagnostics_quick_scan_body),
+                    style = RipDpiThemeTokens.type.secondaryBody,
+                    color = colors.mutedForeground,
+                )
+            }
+        }
         Spacer(modifier = Modifier.height(spacing.xs))
         RipDpiButton(
             text = stringResource(R.string.home_diagnostics_quick_scan),
             onClick = onRunQuickAnalysis,
             enabled = uiState.homeDiagnostics.analysisAction.enabled,
+            loading = isQuickScan,
             variant = RipDpiButtonVariant.Secondary,
             modifier = Modifier.fillMaxWidth(),
         )
