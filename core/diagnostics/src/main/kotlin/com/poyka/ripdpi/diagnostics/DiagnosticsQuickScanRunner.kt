@@ -29,7 +29,7 @@ internal class DiagnosticsQuickScanRunner(
             (DiagnosticsHomeCompositeStageSummary) -> DiagnosticsHomeCompositeStageSummary,
         ) -> Unit,
         isAuditRunning: () -> Boolean,
-        finalizeRun: (String, DiagnosticsHomeAuditOutcome?, String?, Boolean, Boolean) -> Unit,
+        finalizeRun: suspend (String, DiagnosticsHomeAuditOutcome?, String?, Boolean, Boolean) -> Unit,
     ) {
         val auditSpec = QuickScanStageSpecs[0]
         val auditResult = executeStage(runId, 0, auditSpec, false, null)
