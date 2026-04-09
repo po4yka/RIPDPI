@@ -17,6 +17,7 @@ import androidx.test.uiautomator.UiDevice
 import androidx.test.uiautomator.UiObject2
 import androidx.test.uiautomator.Until
 import com.poyka.ripdpi.data.AppSettingsRepository
+import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.DnsModeEncrypted
 import com.poyka.ripdpi.data.DnsModePlainUdp
 import com.poyka.ripdpi.data.DnsProviderCustom
@@ -24,6 +25,8 @@ import com.poyka.ripdpi.data.EncryptedDnsProtocolDnsCrypt
 import com.poyka.ripdpi.data.EncryptedDnsProtocolDoh
 import com.poyka.ripdpi.data.EncryptedDnsProtocolDoq
 import com.poyka.ripdpi.data.EncryptedDnsProtocolDot
+import com.poyka.ripdpi.data.Mode
+import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.data.ServiceTelemetrySnapshot
 import com.poyka.ripdpi.debug.DebugDnsPacketCodec
 import com.poyka.ripdpi.debug.PacketSmokeEncryptedDnsPreset
@@ -161,6 +164,11 @@ data class PacketSmokeTelemetryDelta(
     val rxBytes: Long,
     val dnsQueriesTotal: Long,
     val dnsFailuresTotal: Long,
+)
+
+data class E2eEnvironmentContext(
+    val fixtureClient: LocalFixtureClient,
+    val fixture: FixtureManifestDto,
 )
 
 enum class PacketSmokeDeviceProfile(
@@ -521,6 +529,28 @@ fun readPacketSmokeRunnerProbeResult(
         ?.readText(Charsets.UTF_8)
         ?.let(PacketSmokeRunnerProbeResult::fromJson)
 
+fun prepareE2eEnvironment(
+    context: Context,
+    requireVpnConsent: Boolean = false,
+): E2eEnvironmentContext {
+    ensureLocalNetworkAccessGranted(context)
+    val fixtureClient = LocalFixtureClient.fromInstrumentationArgs()
+    val fixture = selectReachableFixtureManifest(context, fixtureClient.manifest())
+    fixtureClient.resetEvents()
+    fixtureClient.resetFaults()
+    if (requireVpnConsent) {
+        ensureVpnConsentGranted(context)
+    }
+    println(
+        "e2e-preflight fixtureHost=${fixture.androidHost} " +
+            "tcp=${fixture.tcpEchoPort} tls=${fixture.tlsEchoPort} dnsHttp=${fixture.dnsHttpPort}",
+    )
+    return E2eEnvironmentContext(
+        fixtureClient = fixtureClient,
+        fixture = fixture,
+    )
+}
+
 fun capturePacketSmokePrepareState(
     scenarioId: String,
     deviceProfile: PacketSmokeDeviceProfile,
@@ -580,6 +610,7 @@ fun PacketSmokeRunnerProbeResult.toDnsProbeResult(): AppProcessDnsProbeResult =
 fun awaitUntil(
     timeoutMs: Long = 10_000,
     pollMs: Long = 50,
+    failureMessage: (() -> String)? = null,
     condition: () -> Boolean,
 ) {
     val deadline = SystemClock.elapsedRealtime() + timeoutMs
@@ -589,7 +620,40 @@ fun awaitUntil(
         }
         Thread.sleep(pollMs)
     }
-    throw AssertionError("Timed out after ${timeoutMs}ms")
+    val suffix = failureMessage?.invoke()?.takeIf(String::isNotBlank)
+    throw AssertionError(
+        buildString {
+            append("Timed out after ${timeoutMs}ms")
+            suffix?.let {
+                append('\n')
+                append(it)
+            }
+        },
+    )
+}
+
+fun awaitStable(
+    timeoutMs: Long = 10_000,
+    pollMs: Long = 50,
+    stablePollCount: Int = 5,
+    failureMessage: (() -> String)? = null,
+    condition: () -> Boolean,
+) {
+    require(stablePollCount > 0) { "stablePollCount must be > 0" }
+    var consecutiveSuccesses = 0
+    awaitUntil(
+        timeoutMs = timeoutMs,
+        pollMs = pollMs,
+        failureMessage = failureMessage,
+    ) {
+        if (condition()) {
+            consecutiveSuccesses += 1
+            consecutiveSuccesses >= stablePollCount
+        } else {
+            consecutiveSuccesses = 0
+            false
+        }
+    }
 }
 
 private data class VpnConsentUiObjectCandidate(
@@ -740,6 +804,72 @@ fun selectReachableFixtureManifest(
         fixture
     } else {
         fixture.copy(androidHost = reachable.host)
+    }
+}
+
+fun serviceStateDebugSummary(
+    serviceStateStore: ServiceStateStore,
+    fixtureClient: LocalFixtureClient? = null,
+): String {
+    val telemetry = serviceStateStore.telemetry.value
+    val recentFixtureEvents =
+        fixtureClient
+            ?.let { client ->
+                runCatching { client.events().takeLast(5) }
+                    .getOrElse { error ->
+                        listOf(
+                            FixtureEventDto(
+                                service = "fixture-client",
+                                protocol = "error",
+                                peer = "",
+                                target = "",
+                                detail = error.message ?: error::class.java.name,
+                                bytes = 0,
+                                createdAt = System.currentTimeMillis(),
+                            ),
+                        )
+                    }
+            }.orEmpty()
+    return buildString {
+        appendLine("serviceStatus=${serviceStateStore.status.value}")
+        appendLine(
+            "telemetry=" +
+                "mode=${telemetry.mode} status=${telemetry.status} restartCount=${telemetry.restartCount} " +
+                "proxySessions=${telemetry.proxyTelemetry.totalSessions} " +
+                "dnsFailures=${telemetry.tunnelTelemetry.dnsFailuresTotal} " +
+                "lastDnsError=${telemetry.tunnelTelemetry.lastDnsError.orEmpty()} " +
+                "txPackets=${telemetry.tunnelStats.txPackets} rxPackets=${telemetry.tunnelStats.rxPackets}",
+        )
+        if (recentFixtureEvents.isNotEmpty()) {
+            appendLine(
+                "recentFixtureEvents=" +
+                    recentFixtureEvents.joinToString(" | ") { event ->
+                        "${event.service}:${event.detail}"
+                    },
+            )
+        }
+    }.trim()
+}
+
+fun awaitServiceStatus(
+    serviceStateStore: ServiceStateStore,
+    status: AppStatus,
+    mode: Mode,
+    fixtureClient: LocalFixtureClient? = null,
+    timeoutMs: Long = 10_000,
+    pollMs: Long = 50,
+) {
+    awaitUntil(
+        timeoutMs = timeoutMs,
+        pollMs = pollMs,
+        failureMessage = {
+            serviceStateDebugSummary(
+                serviceStateStore = serviceStateStore,
+                fixtureClient = fixtureClient,
+            )
+        },
+    ) {
+        serviceStateStore.status.value == status to mode
     }
 }
 

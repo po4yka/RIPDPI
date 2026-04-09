@@ -67,14 +67,12 @@ class PacketSmokeInstrumentedTest {
     @Before
     fun setUp() {
         hiltRule.inject()
-        ensureLocalNetworkAccessGranted(appContext)
         if (packetSmokeUsesPhasedPhysicalRunner() && packetSmokePhase() == PacketSmokePhase.ASSERT) {
             return
         }
-        fixtureClient = LocalFixtureClient.fromInstrumentationArgs()
-        fixture = selectReachableFixtureManifest(appContext, fixtureClient.manifest())
-        fixtureClient.resetEvents()
-        fixtureClient.resetFaults()
+        val environment = prepareE2eEnvironment(appContext)
+        fixtureClient = environment.fixtureClient
+        fixture = environment.fixture
         if (packetSmokeUsesPhasedPhysicalRunner()) {
             clearPacketSmokeScenarioState(appContext, requirePacketSmokeScenarioId())
         }
@@ -1130,9 +1128,12 @@ class PacketSmokeInstrumentedTest {
         status: AppStatus,
         mode: Mode,
     ) {
-        awaitUntil {
-            serviceStateStore.status.value == status to mode
-        }
+        awaitServiceStatus(
+            serviceStateStore = serviceStateStore,
+            status = status,
+            mode = mode,
+            fixtureClient = if (this::fixtureClient.isInitialized) fixtureClient else null,
+        )
     }
 
     private fun shellTcpRoundTrip(

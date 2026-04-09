@@ -535,6 +535,63 @@ jobs:
             ${{ runner.temp }}/macrobenchmark-summary.md
           retention-days: 7
 
+  android-integration-tests:
+    if: github.event_name != 'schedule'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: ./.github/actions/setup-android-rust
+        with:
+          rust-components: ""
+          rust-targets: x86_64-linux-android
+          rust-cache-shared-key: rust-android
+          rust-cache-save: "false"
+          gradle-cache-read-only: ${{ github.event_name == 'pull_request' }}
+
+      - name: Enable KVM for emulator
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Run connected Android integration tests
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          arch: x86_64
+          target: aosp_atd
+          ram-size: 4096M
+          heap-size: 1024M
+          disk-size: 8G
+          emulator-boot-timeout: 600
+          emulator-options: -no-snapshot-save -no-window -noaudio -no-boot-anim -gpu swiftshader_indirect
+          script: bash scripts/ci/run-android-integration-emulator.sh
+
+      - name: Capture emulator logcat
+        if: always()
+        run: |
+          if adb devices | grep -q 'emulator'; then
+            adb logcat -d > android-logcat.txt || true
+          else
+            touch android-logcat.txt
+          fi
+
+      - name: Upload Android integration artifacts
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: android-integration-artifacts
+          path: |
+            android-logcat.txt
+            ${{ runner.temp }}/android-instrumented-target.txt
+            app/build/reports/androidTests/connected/
+            app/build/reports/coverage/
+            app/build/outputs/code_coverage/
+            app/build/outputs/androidTest-results/connected/
+          retention-days: 7
+
   rust-loom:
     if: github.event_name != 'schedule'
     runs-on: ubuntu-latest
@@ -688,7 +745,6 @@ jobs:
     if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && github.event.inputs.run_android_network_e2e == 'true') || (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'run-android-e2e'))
     runs-on: ubuntu-latest
     timeout-minutes: 45
-    continue-on-error: true
     steps:
       - uses: actions/checkout@v6
 
@@ -711,6 +767,12 @@ jobs:
           key: appium-deps-${{ hashFiles('appium/requirements.txt') }}
           restore-keys: |
             appium-deps-
+
+      - name: Enable KVM for emulator
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
 
       - name: Start local network fixture
         run: |
@@ -760,6 +822,7 @@ jobs:
           name: android-network-e2e-artifacts
           path: |
             android-logcat.txt
+            ${{ runner.temp }}/android-instrumented-target.txt
             app/build/reports/androidTests/connected/
             app/build/reports/coverage/
             app/build/outputs/code_coverage/

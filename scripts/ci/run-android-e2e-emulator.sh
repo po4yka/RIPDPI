@@ -9,36 +9,38 @@ run_maestro="${2:-false}"
 run_appium="${3:-false}"
 
 GRADLE_ABI="-Pripdpi.localNativeAbis=x86_64"
+TARGET_FILE="${RUNNER_TEMP:-/tmp}/android-instrumented-target.txt"
+PREFLIGHT_CLASS="com.poyka.ripdpi.e2e.EnvironmentPreflightE2ETest"
 
 bash scripts/ci/wait-for-android-package-manager.sh
 
-run_connected_tests() {
-  ./gradlew :app:connectedDebugAndroidTest \
-    "$GRADLE_ABI" \
-    -Pandroid.testInstrumentationRunnerArguments.package=com.poyka.ripdpi.integration
+run_target() {
+  local target="$1"
+  shift
+  echo "$target" | tee "$TARGET_FILE"
+  echo "Running Android instrumentation target: $target"
 
   ./gradlew :app:connectedDebugAndroidTest \
     "$GRADLE_ABI" \
-    -Pandroid.testInstrumentationRunnerArguments.package=com.poyka.ripdpi.e2e \
-    -Pandroid.testInstrumentationRunnerArguments.ripdpi.fixtureControlHost=10.0.2.2 \
-    -Pandroid.testInstrumentationRunnerArguments.ripdpi.fixtureControlPort=46090
+    "$@"
 }
 
-succeeded=false
-for attempt in 1 2 3; do
-  if run_connected_tests; then
-    succeeded=true
-    break
-  fi
-
+if ! run_target \
+  "$PREFLIGHT_CLASS" \
+  "-Pandroid.testInstrumentationRunnerArguments.class=$PREFLIGHT_CLASS" \
+  -Pandroid.testInstrumentationRunnerArguments.ripdpi.fixtureControlHost=10.0.2.2 \
+  -Pandroid.testInstrumentationRunnerArguments.ripdpi.fixtureControlPort=46090; then
   adb logcat -d > android-logcat.txt || true
-  if [ "$attempt" -lt 3 ]; then
-    echo "::warning::Attempt $attempt failed, retrying..."
-    sleep 10
-  fi
-done
+  exit 1
+fi
 
-if [ "$succeeded" != "true" ]; then
+if ! run_target \
+  "com.poyka.ripdpi.e2e" \
+  -Pandroid.testInstrumentationRunnerArguments.package=com.poyka.ripdpi.e2e \
+  "-Pandroid.testInstrumentationRunnerArguments.notClass=$PREFLIGHT_CLASS" \
+  -Pandroid.testInstrumentationRunnerArguments.ripdpi.fixtureControlHost=10.0.2.2 \
+  -Pandroid.testInstrumentationRunnerArguments.ripdpi.fixtureControlPort=46090; then
+  adb logcat -d > android-logcat.txt || true
   exit 1
 fi
 
