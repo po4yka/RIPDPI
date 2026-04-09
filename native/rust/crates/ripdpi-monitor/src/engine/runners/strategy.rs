@@ -729,7 +729,13 @@ impl ExecutionStageRunner for StrategyTcpRunner {
                 )));
             }
         }
-        tracing::info!(executed = executed_count, planned = planned_count, "strategy probe: TCP suite completed");
+        let skipped_count = planned_count.saturating_sub(executed_count);
+        tracing::info!(
+            executed = executed_count,
+            planned = planned_count,
+            skipped = skipped_count,
+            "strategy probe: TCP suite completed"
+        );
         RunnerOutcome::Completed
     }
 }
@@ -843,6 +849,9 @@ impl ExecutionStageRunner for StrategyQuicRunner {
                 quic_family_succeeded = true;
             }
             let failed = execution.summary.outcome == "failed";
+            // "QUIC disabled" is a baseline candidate: failure is the expected
+            // outcome (site unreachable without QUIC), so log at info, not warn.
+            let log_level = if failed && spec.id != "quic_disabled" { "warn" } else { "info" };
             runtime.record_step(
                 plan,
                 self.phase(),
@@ -861,7 +870,7 @@ impl ExecutionStageRunner for StrategyQuicRunner {
                 RunnerArtifacts::from_results(
                     execution.results.clone(),
                     "strategy_probe",
-                    if failed { "warn" } else { "info" },
+                    log_level,
                     format!("Testing QUIC candidate {}", spec.label),
                 ),
             );

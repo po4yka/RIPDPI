@@ -7,6 +7,7 @@ import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsScanRecordStore
 import com.poyka.ripdpi.services.NetworkHandoverMonitor
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
@@ -20,6 +21,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.serialization.json.Json
 import java.util.UUID
@@ -439,7 +441,7 @@ class DefaultDiagnosticsHomeCompositeRunService
             return auditOutcome
         }
 
-        private fun finalizeRun(
+        private suspend fun finalizeRun(
             runId: String,
             auditOutcome: DiagnosticsHomeAuditOutcome?,
             coverageNote: String?,
@@ -447,14 +449,16 @@ class DefaultDiagnosticsHomeCompositeRunService
             networkChanged: Boolean,
         ) {
             val outcome =
-                buildHomeCompositeOutcome(
-                    runId,
-                    auditOutcome,
-                    coverageNote,
-                    dnsIssuesDetected,
-                    networkChanged,
-                    progressState,
-                )
+                withContext(Dispatchers.Default) {
+                    buildHomeCompositeOutcome(
+                        runId,
+                        auditOutcome,
+                        coverageNote,
+                        dnsIssuesDetected,
+                        networkChanged,
+                        progressState,
+                    )
+                }
             completedRuns[runId] = outcome
             if (outcome.fingerprintHash != null && outcome.completedStageCount > 0) {
                 scope.launch {
