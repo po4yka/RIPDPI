@@ -312,7 +312,7 @@ mod tests {
         ProxyRuntimeContext {
             encrypted_dns: Some(fixture_encrypted_dns_context(dns_http_port)),
             protect_path: None,
-            preferred_edges: Default::default(),
+            preferred_edges: std::collections::BTreeMap::default(),
         }
     }
 
