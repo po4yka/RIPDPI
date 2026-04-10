@@ -106,6 +106,13 @@ internal fun RelayKindFields(
         RelayKindVlessReality,
         RelayKindCloudflareTunnel,
         -> {
+            if (draft.relayKind == RelayKindCloudflareTunnel) {
+                Text(
+                    text = stringResource(R.string.config_relay_cloudflare_tunnel_note),
+                    style = RipDpiThemeTokens.type.caption,
+                    color = colors.mutedForeground,
+                )
+            }
             if (draft.relayKind == RelayKindVlessReality) {
                 RipDpiTextField(
                     value = draft.relayRealityPublicKey,

@@ -361,6 +361,7 @@
     <string name="config_relay_vless_transport">VLESS transport</string>
     <string name="config_relay_vless_transport_reality_tcp">Reality TCP</string>
     <string name="config_relay_vless_transport_xhttp">xHTTP</string>
+    <string name="config_relay_cloudflare_tunnel_note">Use your user-managed Cloudflare Tunnel hostname here. P0 expects that hostname to front your own xHTTP/VLESS origin; RIPDPI does not manage cloudflared tokens or TryCloudflare setup.</string>
     <string name="config_relay_xhttp_path">xHTTP path</string>
     <string name="config_relay_xhttp_host">xHTTP host override</string>
     <string name="config_relay_vless_uuid">VLESS UUID</string>

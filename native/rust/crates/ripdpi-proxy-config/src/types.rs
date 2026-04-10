@@ -25,8 +25,6 @@ pub const ADAPTIVE_FAKE_TTL_DEFAULT_FALLBACK: i32 = 8;
 pub const ADAPTIVE_FALLBACK_DEFAULT_CACHE_TTL_SECS: i64 = 90;
 pub const ADAPTIVE_FALLBACK_DEFAULT_CACHE_PREFIX_V4: u8 = 24;
 pub const HOST_AUTOLEARN_DEFAULT_PENALTY_TTL_HOURS: i64 = 6;
-pub const TLS_FINGERPRINT_PROFILE_NATIVE_DEFAULT: &str = "native_default";
-
 #[derive(Debug, thiserror::Error, Clone, PartialEq, Eq)]
 pub enum ProxyConfigError {
     #[error("invalid configuration: {0}")]
