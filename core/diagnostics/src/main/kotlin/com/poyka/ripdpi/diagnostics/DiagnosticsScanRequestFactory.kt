@@ -1,9 +1,11 @@
 package com.poyka.ripdpi.diagnostics
 
 import android.content.Context
+import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.core.RipDpiLogContext
 import com.poyka.ripdpi.core.RipDpiProxyUIPreferences
 import com.poyka.ripdpi.core.RipDpiRuntimeContext
+import com.poyka.ripdpi.core.decodeRipDpiProxyUiPreferences
 import com.poyka.ripdpi.core.toRipDpiRuntimeContext
 import com.poyka.ripdpi.data.EncryptedDnsPathCandidate
 import com.poyka.ripdpi.data.activeDnsSettings
@@ -35,6 +37,7 @@ private const val AutomaticAuditProfileId = "automatic-audit"
 private const val StrategyProbeSuiteFullMatrixV1 = "full_matrix_v1"
 private const val AutomaticAuditDomainTargetCount = 3
 private const val AutomaticAuditQuicTargetCount = 2
+private val RequestFactoryLog = Logger.withTag("DiagnosticsScanRequestFactory")
 
 internal data class PreparedDiagnosticsScan(
     val sessionId: String,
@@ -70,7 +73,10 @@ internal class DiagnosticsScanRequestFactory
         @param:Named("diagnosticsJson")
         private val json: Json,
     ) {
-        suspend fun prepareReprobe(original: PreparedDiagnosticsScan): PreparedDiagnosticsScan {
+        suspend fun prepareReprobe(
+            original: PreparedDiagnosticsScan,
+            preferredDnsPathOverride: EncryptedDnsPathCandidate? = null,
+        ): PreparedDiagnosticsScan {
             val sessionId = UUID.randomUUID().toString()
             val pathMode = ScanPathMode.IN_PATH
             val intent =
@@ -84,7 +90,8 @@ internal class DiagnosticsScanRequestFactory
                             ).copy(settings = original.settings),
                     isManual = false,
                 )
-            val scanContext = scanContextCollector.collect(intent)
+            val scanContext = scanContextCollector.collect(intent).copy(pathMode = pathMode)
+            val effectivePreferredDnsPath = preferredDnsPathOverride ?: scanContext.preferredDnsPath
             val plan = diagnosticsPlanner.plan(intent, scanContext)
             val engineRequest =
                 engineRequestEncoder
@@ -97,7 +104,7 @@ internal class DiagnosticsScanRequestFactory
                             ),
                     ).withStrategyProbeBaseConfig(
                         settings = original.settings,
-                        preferredDnsPath = scanContext.preferredDnsPath,
+                        preferredDnsPath = effectivePreferredDnsPath,
                         protectPath = resolveProtectPath(context),
                     )
             val now = System.currentTimeMillis()
@@ -114,7 +121,7 @@ internal class DiagnosticsScanRequestFactory
                 exposeProgress = false,
                 registerActiveBridge = false,
                 networkFingerprint = scanContext.networkFingerprint,
-                preferredDnsPath = scanContext.preferredDnsPath,
+                preferredDnsPath = effectivePreferredDnsPath,
                 initialSession = buildReprobeSessionEntity(sessionId, pathMode, scanContext, original, now),
                 preScanSnapshot = buildReprobeSnapshotEntity(sessionId, now),
                 preScanContext = buildReprobeContextEntity(sessionId, scanContext, now),
@@ -322,24 +329,30 @@ private fun EngineScanRequestWire.withStrategyProbeBaseConfig(
     preferredDnsPath: EncryptedDnsPathCandidate?,
     protectPath: String?,
 ): EngineScanRequestWire {
-    val strategyProbe =
-        strategyProbe
-            ?.takeIf { it.baseProxyConfigJson.isNullOrBlank() }
-            ?: return this
+    val strategyProbe = strategyProbe ?: return this
+    val runtimeContext = resolveStrategyProbeRuntimeContext(settings, preferredDnsPath, protectPath)
+    val baseProxyConfigJson =
+        strategyProbe.baseProxyConfigJson
+            ?.takeIf { it.isNotBlank() }
+            ?.let { explicitBaseConfig ->
+                decodeRipDpiProxyUiPreferences(explicitBaseConfig)
+                    ?.withSessionOverrides(runtimeContext = runtimeContext)
+                    ?.toNativeConfigJson()
+                    ?: run {
+                        RequestFactoryLog.d {
+                            "Strategy probe base config was not decodable; keeping explicit baseProxyConfigJson unchanged"
+                        }
+                        explicitBaseConfig
+                    }
+            } ?: RipDpiProxyUIPreferences
+            .fromSettings(
+                settings = settings,
+                runtimeContext = runtimeContext,
+            ).toNativeConfigJson()
     return copy(
         strategyProbe =
             strategyProbe.copy(
-                baseProxyConfigJson =
-                    RipDpiProxyUIPreferences
-                        .fromSettings(
-                            settings = settings,
-                            runtimeContext =
-                                resolveStrategyProbeRuntimeContext(
-                                    settings,
-                                    preferredDnsPath,
-                                    protectPath,
-                                ),
-                        ).toNativeConfigJson(),
+                baseProxyConfigJson = baseProxyConfigJson,
             ),
     )
 }

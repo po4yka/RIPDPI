@@ -16,7 +16,7 @@ use crate::blockpage_fingerprints::{load_fingerprints, BlockpageFingerprint};
 use crate::candidates::target_probe_pause_ms;
 use crate::candidates::{CandidateWarmup, StrategyCandidateSpec};
 use crate::http::{classify_http_response_with_fingerprints, is_blockpage, try_http_request};
-use crate::tls::{try_tls_handshake, TlsClientProfile};
+use crate::tls::{try_tls_handshake, TlsClientProfile, TlsObservation};
 use crate::transport::{
     domain_connect_target, quic_connect_target, relay_udp_payload, wait_for_listener, TransportConfig,
 };
@@ -51,6 +51,21 @@ pub(crate) struct CandidateScore {
     pub(crate) domain_successes: std::collections::BTreeMap<String, usize>,
     /// Per-domain total probe count for autolearn seeding.
     pub(crate) domain_totals: std::collections::BTreeMap<String, usize>,
+}
+
+fn https_tls_error_detail(
+    outcome: &str,
+    tls13: &TlsObservation,
+    tls12: &TlsObservation,
+    tls_ech: &TlsObservation,
+) -> String {
+    let include_ech_error = !matches!(outcome, "tls_ok" | "tls_version_split");
+    tls13
+        .error
+        .clone()
+        .or_else(|| tls12.error.clone())
+        .or_else(|| include_ech_error.then(|| tls_ech.error.clone()).flatten())
+        .unwrap_or_else(|| "none".to_string())
 }
 
 impl CandidateScore {
@@ -698,6 +713,9 @@ pub(crate) fn run_https_strategy_probe(
     let tls_server_hello_received = tls13.tls_server_hello_received.or(tls12.tls_server_hello_received);
     let tls_dpi_signature = tls13.tls_dpi_signature.clone().or_else(|| tls12.tls_dpi_signature.clone());
     let tls_negotiated_version = tls13.version.clone().or_else(|| tls12.version.clone());
+    let tls_ech_error = tls_ech.error.clone().unwrap_or_else(|| "none".to_string());
+    let tls_ech_resolution_detail = tls_ech.ech_resolution_detail.clone().unwrap_or_else(|| "none".to_string());
+    let tls_error = https_tls_error_detail(&outcome, &tls13, &tls12, &tls_ech);
 
     let mut details = vec![
         ProbeDetail { key: "candidateId".to_string(), value: candidate.id.to_string() },
@@ -712,18 +730,9 @@ pub(crate) fn run_https_strategy_probe(
             key: "tlsEchVersion".to_string(),
             value: tls_ech.version.unwrap_or_else(|| "unknown".to_string()),
         },
-        ProbeDetail {
-            key: "tlsEchError".to_string(),
-            value: tls_ech.error.clone().unwrap_or_else(|| "none".to_string()),
-        },
-        ProbeDetail {
-            key: "tlsEchResolutionDetail".to_string(),
-            value: tls_ech.ech_resolution_detail.unwrap_or_else(|| "none".to_string()),
-        },
-        ProbeDetail {
-            key: "tlsError".to_string(),
-            value: tls13.error.or(tls12.error).or(tls_ech.error).unwrap_or_else(|| "none".to_string()),
-        },
+        ProbeDetail { key: "tlsEchError".to_string(), value: tls_ech_error },
+        ProbeDetail { key: "tlsEchResolutionDetail".to_string(), value: tls_ech_resolution_detail },
+        ProbeDetail { key: "tlsError".to_string(), value: tls_error },
     ];
 
     if let Some(ms) = tcp_connect_ms {
@@ -1038,6 +1047,28 @@ mod tests {
         assert!(execution.summary.notes.iter().any(|note| note == "No baseline HTTPS target exposed ECH capability"));
     }
 
+    #[test]
+    fn https_tls_error_detail_excludes_ech_resolution_failures_for_successful_https_outcomes() {
+        let tls13 = tls_observation("tls_ok", None);
+        let tls12 = tls_observation("tls_handshake_failed", Some("protocol version alert"));
+        let tls_ech = tls_observation("tls_handshake_failed", Some("ech_resolution_failed: timeout"));
+
+        assert_eq!(https_tls_error_detail("tls_version_split", &tls13, &tls12, &tls_ech), "protocol version alert");
+        assert_eq!(https_tls_error_detail("tls_ok", &tls13, &tls12, &tls_ech), "protocol version alert");
+    }
+
+    #[test]
+    fn https_tls_error_detail_preserves_ech_resolution_failures_for_failed_https_outcomes() {
+        let tls13 = tls_observation("tls_handshake_failed", None);
+        let tls12 = tls_observation("tls_handshake_failed", None);
+        let tls_ech = tls_observation("tls_handshake_failed", Some("ech_resolution_failed: timeout"));
+
+        assert_eq!(
+            https_tls_error_detail("tls_handshake_failed", &tls13, &tls12, &tls_ech),
+            "ech_resolution_failed: timeout"
+        );
+    }
+
     fn summary_with(
         id: &str,
         weighted_success_score: usize,
@@ -1093,6 +1124,27 @@ mod tests {
 
     fn test_spec() -> StrategyCandidateSpec {
         crate::candidates::candidate_spec("test_id", "Test Label", "test_family", test_ui_config())
+    }
+
+    fn tls_observation(status: &str, error: Option<&str>) -> TlsObservation {
+        TlsObservation {
+            status: status.to_string(),
+            version: None,
+            error: error.map(str::to_string),
+            certificate_anomaly: false,
+            ech_resolution_detail: None,
+            tcp_connect_ms: None,
+            tls_handshake_ms: None,
+            cert_chain_length: None,
+            cert_issuer: None,
+            observed_server_ttl: None,
+            estimated_hop_count: None,
+            ja3_fingerprint: None,
+            tls_alert_code: None,
+            tls_alert_description: None,
+            tls_server_hello_received: None,
+            tls_dpi_signature: None,
+        }
     }
 
     #[test]

@@ -1,8 +1,10 @@
 package com.poyka.ripdpi.diagnostics
 
 import com.poyka.ripdpi.data.AppSettingsRepository
+import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.ApplicationIoScope
 import com.poyka.ripdpi.data.DiagnosticsRuntimeCoordinator
+import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.PolicyHandoverEvent
 import com.poyka.ripdpi.data.diagnostics.DiagnosticProfileEntity
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsArtifactWriteStore
@@ -321,9 +323,11 @@ internal class DiagnosticsScanExecutionCoordinator
         private val bridgePollingService: BridgePollingService,
         private val scanFinalizationService: ScanFinalizationService,
         private val scanRequestFactory: DiagnosticsScanRequestFactory,
+        private val serviceStateStore: com.poyka.ripdpi.data.ServiceStateStore,
     ) {
         private companion object {
-            const val DnsCorrectedReprobeDelayMs = 2_000L
+            const val ServiceResumeWaitAttempts = 50
+            const val ServiceResumeWaitDelayMs = 200L
         }
 
         internal suspend fun execute(
@@ -385,36 +389,47 @@ internal class DiagnosticsScanExecutionCoordinator
             }
 
             if (failure == null && finalizationResult?.shouldReprobeWithCorrectedDns == true) {
-                runDnsCorrectedReprobe(prepared)
+                runDnsCorrectedReprobe(
+                    original = prepared,
+                    finalizationResult = requireNotNull(finalizationResult),
+                )
             }
         }
 
-        private suspend fun runDnsCorrectedReprobe(original: PreparedDiagnosticsScan) {
-            delay(DnsCorrectedReprobeDelayMs)
-            val reprobe = scanRequestFactory.prepareReprobe(original)
+        private suspend fun runDnsCorrectedReprobe(
+            original: PreparedDiagnosticsScan,
+            finalizationResult: ScanFinalizationResult,
+        ) {
+            val reprobe =
+                scanRequestFactory.prepareReprobe(
+                    original = original,
+                    preferredDnsPathOverride = finalizationResult.correctedDnsPath,
+                )
             activeScanRegistry.rememberPreparedScan(reprobe)
             scanRecordStore.upsertScanSession(reprobe.initialSession)
-            val reprobeHandle =
-                bridgeExecutionService.createHandle(
-                    sessionId = reprobe.sessionId,
-                    registerActiveBridge = false,
-                )
+            var reprobeHandle: BridgeSessionHandle? = null
             val reprobeFailure =
                 runCatching {
+                    waitForVpnServiceResume()
+                    reprobeHandle =
+                        bridgeExecutionService.createHandle(
+                            sessionId = reprobe.sessionId,
+                            registerActiveBridge = false,
+                        )
                     bridgeExecutionService.start(
-                        handle = reprobeHandle,
+                        handle = requireNotNull(reprobeHandle),
                         requestJson = reprobe.requestJson,
                     )
                     bridgePollingService.awaitCompletion(
                         prepared = reprobe,
-                        handle = reprobeHandle,
+                        handle = requireNotNull(reprobeHandle),
                         activeScanRegistry = activeScanRegistry,
                     ) { reportJson ->
                         scanFinalizationService.finalize(
                             prepared = reprobe,
                             reportJson = reportJson,
                         )
-                        bridgePollingService.persistPassiveEvents(reprobeHandle)
+                        bridgePollingService.persistPassiveEvents(requireNotNull(reprobeHandle))
                     }
                 }.exceptionOrNull()
             try {
@@ -427,8 +442,20 @@ internal class DiagnosticsScanExecutionCoordinator
                 }
             } finally {
                 activeScanRegistry.removePreparedScan(reprobe.sessionId)
-                runCatching { bridgeExecutionService.destroy(reprobeHandle) }
+                reprobeHandle?.let { handle ->
+                    runCatching { bridgeExecutionService.destroy(handle) }
+                }
             }
+        }
+
+        private suspend fun waitForVpnServiceResume() {
+            repeat(ServiceResumeWaitAttempts) {
+                if (serviceStateStore.status.value == AppStatus.Running to Mode.VPN) {
+                    return
+                }
+                delay(ServiceResumeWaitDelayMs)
+            }
+            error("Timed out waiting for VPN service to resume before DNS-corrected re-probe")
         }
     }
 

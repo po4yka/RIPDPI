@@ -33,7 +33,7 @@ class DiagnosticsSummaryProjector
             warnings: List<NativeSessionEventEntity>,
         ): DiagnosticsSummaryDocument =
             DiagnosticsSummaryDocument(
-                header = DiagnosticsSummarySection(title = "Header", lines = buildHeaderLines(session)),
+                header = DiagnosticsSummarySection(title = "Header", lines = buildHeaderLines(session, report)),
                 reportMetadata = DiagnosticsSummarySection(title = "Report", lines = buildMetadataLines(report)),
                 environment =
                     DiagnosticsSummarySection(
@@ -59,14 +59,17 @@ class DiagnosticsSummaryProjector
                 packVersions = report?.packVersions.orEmpty(),
             )
 
-        private fun buildHeaderLines(session: com.poyka.ripdpi.data.diagnostics.ScanSessionEntity?): List<String> =
+        private fun buildHeaderLines(
+            session: com.poyka.ripdpi.data.diagnostics.ScanSessionEntity?,
+            report: DiagnosticsSessionProjection?,
+        ): List<String> =
             buildList {
                 session?.let {
                     add("sessionId=${it.id}")
                     add("pathMode=${it.pathMode}")
                     add("serviceMode=${it.serviceMode ?: "unknown"}")
                     add("status=${it.status}")
-                    add("summary=${it.summary}")
+                    add("summary=${it.displaySummary(report)}")
                     add("startedAt=${it.startedAt}")
                     add("finishedAt=${it.finishedAt ?: "running"}")
                 }
