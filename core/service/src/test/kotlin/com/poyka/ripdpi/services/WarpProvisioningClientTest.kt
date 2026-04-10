@@ -1,12 +1,10 @@
 package com.poyka.ripdpi.services
 
+import com.poyka.ripdpi.core.RipDpiWarpProvisioningBindings
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.runTest
+import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
-import okhttp3.OkHttpClient
-import okhttp3.Protocol
-import okhttp3.Response
-import okhttp3.ResponseBody.Companion.toResponseBody
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
@@ -20,34 +18,11 @@ class WarpProvisioningClientTest {
     @Test
     fun registerUsesExpectedHeadersAndMapsProvisioningResponse() =
         runTest {
-            var capturedMethod: String? = null
-            var capturedUrl: String? = null
-            var capturedUserAgent: String? = null
-            var capturedClientVersion: String? = null
-            var capturedBody: String? = null
-            val client =
-                OkHttpClient
-                    .Builder()
-                    .addInterceptor { chain ->
-                        val request = chain.request()
-                        capturedMethod = request.method
-                        capturedUrl = request.url.toString()
-                        capturedUserAgent = request.header("User-Agent")
-                        capturedClientVersion = request.header("CF-Client-Version")
-                        capturedBody = request.bodyAsString()
-                        Response
-                            .Builder()
-                            .request(request)
-                            .protocol(Protocol.HTTP_1_1)
-                            .code(200)
-                            .message("OK")
-                            .body(sampleRegistrationResponse().toResponseBody())
-                            .build()
-                    }.build()
+            val bindings = RecordingProvisioningBindings(responseBody = sampleRegistrationResponse())
 
             val provisioningClient =
                 DefaultWarpProvisioningClient(
-                    tlsClientFactory = TestOwnedTlsClientFactory(client),
+                    nativeBindings = bindings,
                     json = json,
                 )
             val result =
@@ -58,16 +33,17 @@ class WarpProvisioningClientTest {
                         tos = "2026-04-05T12:00:00.000Z",
                     ),
                 )
+            val request = bindings.lastRequest
 
-            assertEquals("POST", capturedMethod)
-            assertEquals(WarpRegistrationBaseUrl, capturedUrl)
-            assertEquals(WarpProvisioningUserAgent, capturedUserAgent)
-            assertEquals(WarpProvisioningClientVersion, capturedClientVersion)
-            assertNotNull(capturedBody)
-            assertTrue(capturedBody.orEmpty().contains("\"warp_enabled\":true"))
-            assertTrue(capturedBody.orEmpty().contains("\"key\":\"base64-public-key\""))
+            assertEquals("POST", request?.method)
+            assertEquals(WarpRegistrationBaseUrl, request?.url)
+            assertEquals(WarpProvisioningUserAgent, request?.headers?.get("User-Agent"))
+            assertEquals(WarpProvisioningClientVersion, request?.headers?.get("CF-Client-Version"))
+            assertNotNull(request?.body)
+            assertTrue(request?.body.orEmpty().contains("\"warp_enabled\":true"))
+            assertTrue(request?.body.orEmpty().contains("\"key\":\"base64-public-key\""))
             assertEquals("device-123", result.credentials.deviceId)
-            assertEquals("token-123", result.credentials.accessToken)
+            assertEquals("sample-access-value", result.credentials.accessToken)
             assertEquals("base64-private-key", result.credentials.privateKey)
             assertEquals("base64-public-key", result.credentials.publicKey)
             assertEquals("free", result.accountType)
@@ -79,42 +55,23 @@ class WarpProvisioningClientTest {
     @Test
     fun refreshUsesBearerAuthorizationAndDevicePath() =
         runTest {
-            var capturedMethod: String? = null
-            var capturedUrl: String? = null
-            var capturedAuth: String? = null
-            val client =
-                OkHttpClient
-                    .Builder()
-                    .addInterceptor { chain ->
-                        val request = chain.request()
-                        capturedMethod = request.method
-                        capturedUrl = request.url.toString()
-                        capturedAuth = request.header(WarpAuthHeader)
-                        Response
-                            .Builder()
-                            .request(request)
-                            .protocol(Protocol.HTTP_1_1)
-                            .code(200)
-                            .message("OK")
-                            .body(sampleRegistrationResponse().toResponseBody())
-                            .build()
-                    }.build()
+            val accessValue = fixtureAccessValue("refresh")
+            val bindings = RecordingProvisioningBindings(responseBody = sampleRegistrationResponse())
 
             val provisioningClient =
                 DefaultWarpProvisioningClient(
-                    tlsClientFactory = TestOwnedTlsClientFactory(client),
+                    nativeBindings = bindings,
                     json = json,
                 )
             provisioningClient.refresh(
-                com.poyka.ripdpi.data.WarpCredentials(
-                    deviceId = "device-123",
-                    accessToken = "token-123",
-                ),
+                com.poyka.ripdpi.data
+                    .WarpCredentials(deviceId = "device-123", accessToken = accessValue),
             )
+            val request = bindings.lastRequest
 
-            assertEquals("GET", capturedMethod)
-            assertEquals("$WarpRegistrationBaseUrl/device-123", capturedUrl)
-            assertEquals("Bearer token-123", capturedAuth)
+            assertEquals("GET", request?.method)
+            assertEquals("$WarpRegistrationBaseUrl/device-123", request?.url)
+            assertEquals("Bearer $accessValue", request?.headers?.get(WarpAuthHeader))
         }
 
     @Test
@@ -125,18 +82,63 @@ class WarpProvisioningClientTest {
         assertArrayEquals(byteArrayOf(0, 0, 0), reservedBytesFromClientId(null))
     }
 
-    private fun okhttp3.Request.bodyAsString(): String? {
-        val body = body ?: return null
-        val buffer = okio.Buffer()
-        body.writeTo(buffer)
-        return buffer.readUtf8()
-    }
+    @Test
+    fun `refresh maps auth failures to provisioning auth exception`() =
+        runTest {
+            val accessValue = fixtureAccessValue("auth")
+            val provisioningClient =
+                DefaultWarpProvisioningClient(
+                    nativeBindings =
+                        RecordingProvisioningBindings(
+                            statusCode = 403,
+                            responseBody = """{"error":"forbidden"}""",
+                        ),
+                    json = json,
+                )
+
+            val error =
+                runCatching {
+                    provisioningClient.refresh(
+                        com.poyka.ripdpi.data
+                            .WarpCredentials(deviceId = "device-123", accessToken = accessValue),
+                    )
+                }.exceptionOrNull()
+
+            assertEquals("AuthFailure", error?.javaClass?.simpleName)
+            assertTrue(error?.message.orEmpty().contains("HTTP 403"))
+        }
+
+    @Test
+    fun `register maps malformed responses to provisioning malformed exception`() =
+        runTest {
+            val provisioningClient =
+                DefaultWarpProvisioningClient(
+                    nativeBindings =
+                        RecordingProvisioningBindings(
+                            responseBody = """{"id":"device-123"}""",
+                        ),
+                    json = json,
+                )
+
+            val error =
+                runCatching {
+                    provisioningClient.register(
+                        WarpRegisterDeviceRequest(
+                            publicKey = "base64-public-key",
+                            privateKey = "base64-private-key",
+                        ),
+                    )
+                }.exceptionOrNull()
+
+            assertEquals("MalformedResponse", error?.javaClass?.simpleName)
+            assertTrue(error?.message.orEmpty().contains("malformed"))
+        }
 
     private fun sampleRegistrationResponse(): String =
         """
         {
           "id": "device-123",
-          "token": "token-123",
+          "token": "sample-access-value",
           "account": {
             "id": "account-123",
             "account_type": "free",
@@ -167,14 +169,42 @@ class WarpProvisioningClientTest {
         }
         """.trimIndent()
 
-    private class TestOwnedTlsClientFactory(
-        private val client: OkHttpClient,
-    ) : OwnedTlsClientFactory {
-        override fun currentProfile(): String = "native_default"
+    private fun fixtureAccessValue(suffix: String): String = listOf("access", "value", suffix).joinToString("-")
 
-        override fun create(
-            forcedTlsVersions: List<okhttp3.TlsVersion>?,
-            configure: OkHttpClient.Builder.() -> Unit,
-        ): OkHttpClient = client
+    @Serializable
+    private data class NativeWarpProvisioningHttpRequest(
+        val method: String,
+        val url: String,
+        val headers: Map<String, String>,
+        val body: String? = null,
+    )
+
+    @Serializable
+    private data class NativeWarpProvisioningHttpResponse(
+        val statusCode: Int? = null,
+        val body: String? = null,
+        val error: String? = null,
+    )
+
+    private class RecordingProvisioningBindings(
+        private val statusCode: Int = 200,
+        private val responseBody: String,
+        private val error: String? = null,
+    ) : RipDpiWarpProvisioningBindings {
+        private val json = Json { ignoreUnknownKeys = true }
+
+        var lastRequest: NativeWarpProvisioningHttpRequest? = null
+
+        override fun executeProvisioning(requestJson: String): String? {
+            lastRequest = json.decodeFromString(NativeWarpProvisioningHttpRequest.serializer(), requestJson)
+            return json.encodeToString(
+                NativeWarpProvisioningHttpResponse.serializer(),
+                NativeWarpProvisioningHttpResponse(
+                    statusCode = statusCode,
+                    body = responseBody,
+                    error = error,
+                ),
+            )
+        }
     }
 }

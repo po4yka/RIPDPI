@@ -2,6 +2,15 @@
 
 Prioritized list of integrations and path optimization techniques for RIPDPI, based on deep research across the Zapret community, NTC forums, GitHub projects, Cloudflare documentation, protocol specifications, and academic papers (intelligence window: April 2025 -- April 10, 2026).
 
+## Phase Implementation Files
+
+This document remains the research and backlog source of truth. The actionable implementation splits live in separate phase files:
+
+- [Phase P0 implementation](roadmap-integrations-p0.md)
+- [Phase P1 implementation](roadmap-integrations-p1.md)
+- [Phase P2 implementation](roadmap-integrations-p2.md)
+- [Phase P3 implementation](roadmap-integrations-p3.md)
+
 ## Current Threat Landscape
 
 Russian middlebox (technical censorship infrastructure) capabilities as of mid-2025:
@@ -2018,6 +2027,419 @@ AmneziaWG is already item 2 in the roadmap. This item adds:
 
 ---
 
+## Tier 0 (new): Cloudflare Tunnel Transport (P0 — April 2026 Escalation)
+
+### 32. Cloudflare Tunnel (cloudflared) as Relay Transport
+
+sing-box v1.14.0-alpha.10 (April 10, 2026) introduced a `cloudflared` inbound that embeds Cloudflare Zero Trust Tunnel as a transport. Traffic flows client → CF PoP → CF tunnel → your server. From middlebox's perspective, traffic is indistinguishable from legitimate HTTPS to Cloudflare — no WireGuard fingerprint, no identifiable UDP, uses standard TLS on 443/TCP or QUIC.
+
+#### How Cloudflare Tunnel Works
+
+**Server side:** `cloudflared tunnel` daemon establishes an outbound QUIC/HTTP2 connection from your VPS to Cloudflare. The tunnel is identified by a JWT token (`CF_TUNNEL_TOKEN`), not by IP. You get a `*.trycloudflare.com` hostname (free, no account) or custom domain.
+
+**Client side:** Client connects to `<your-tunnel-id>.trycloudflare.com:443` over standard HTTPS. Cloudflare forwards to your VPS via the persistent tunnel connection.
+
+**Key property:** Cloudflare initiates the tunnel FROM your VPS — your VPS IP never appears in client DNS or TLS SNI. middlebox cannot block by VPS IP without blocking all of Cloudflare.
+
+#### Free Tier (trycloudflare.com)
+
+```bash
+# Server: one-line tunnel creation
+cloudflared tunnel --url http://localhost:8388
+
+# Output: assigned URL like https://abc123-def456.trycloudflare.com
+# No account required, no CF registration
+```
+
+#### Architecture with RIPDPI
+
+```
+Android (RIPDPI) → TLS → <id>.trycloudflare.com:443 (CF edge)
+                              ↓ Cloudflare internal tunnel (QUIC)
+                         Your VPS cloudflared daemon
+                              ↓ localhost
+                         Proxy inbound (VLESS / SOCKS5 / any)
+```
+
+**sing-box `cloudflared` inbound config (v1.14.0-alpha.10):**
+```json
+{
+  "type": "cloudflared",
+  "tag": "cloudflared-in",
+  "token": "<CF_TUNNEL_TOKEN>",
+  "network": "tcp"
+}
+```
+
+#### Blocking Resistance Analysis
+
+| Attack vector | Effect |
+|---------------|--------|
+| IP block of VPS | No effect — traffic goes through CF, VPS IP never seen |
+| SNI block of `trycloudflare.com` | Breaks, mitigatable with custom domain |
+| Custom domain SNI block | Mitigatable — rotate domains |
+| Block all Cloudflare ASN | Collateral damage to Cloudflare CDN, DNS, etc. — politically costly |
+| Rate limiting on CF tunnel | Possible but CF tunnel is same protocol as CF business traffic |
+
+#### RIPDPI Integration Path
+
+1. Add `cloudflared` relay type in `RelaySettings.kt` alongside VLESS/Hysteria2/MASQUE
+2. Implement `ripdpi-cf-tunnel` Rust crate: embed `cloudflared` library or use HTTP/2 CONNECT proxy protocol that cloudflared speaks
+3. Alternatively: use MASQUE (item 12) to connect through CF tunnel — cloudflared uses QUIC internally, overlap with MASQUE endpoint selection
+4. For free tier: integrate tunnel URL discovery via `api.trycloudflare.com`
+
+**Reference projects:**
+- [cloudflared](https://github.com/cloudflare/cloudflared) — official Go implementation
+- [sing-box v1.14.0-alpha.10](https://github.com/SagerNet/sing-box) — `cloudflared` inbound source
+
+**Root required:** No | **Effort:** High | **Priority:** P0
+
+---
+
+## Tier 2 (continued): DPI Desync Enhancements — April 2026 (P1)
+
+### 33. TCP Receive Window Reduction (wssize) — Force Server-Side Chunking
+
+middlebox's 16 KB volume threshold cuts TCP connections after 16 KB of payload transfer in either direction (confirmed by probe.trolling.website, zapret2 thread #71 observations). By announcing a very small TCP receive window in the client SYN, the server is forced to send responses in tiny segments — each individually far below the 16 KB threshold.
+
+#### Mechanism
+
+TCP receive window = how many bytes the sender may transmit before waiting for ACK. If client announces `window=64`, server sends at most 64 bytes → ACK → 64 more → etc. middlebox sees bursts of 64-byte segments, never an accumulation reaching 16 KB in one inspection window.
+
+**zapret2 syntax:**
+```
+--lua-desync=wssize:wsize=1:scale=6
+# wsize=1, scale=6 → effective window = 1 * 2^6 = 64 bytes
+# Must be FIRST in the desync chain; order is critical
+```
+
+#### RIPDPI Rust Implementation
+
+```rust
+// In ripdpi-desync: TCP SYN modification
+impl TcpSynMutator {
+    pub fn wssize(wsize: u16, scale: u8) -> TcpMutation {
+        TcpMutation::WindowScale {
+            advertised_window: wsize,
+            window_scale_option: scale,
+            // Effective window = wsize << scale
+        }
+    }
+}
+```
+
+**Critical detail:** `wssize` must be applied to the outgoing SYN (before connection establishes), not to data packets. On Android without root, modifying SYN requires VPN mode (TUN intercept at connection setup).
+
+#### When to Apply
+
+- Sites with server-side 16 KB blocking (not ClientHello-triggered)
+- When `split`/`disorder` on ClientHello succeeds (connection establishes) but data transfer is cut
+- As a fallback after standard desync techniques — added to failure-classifier's candidate list
+
+**Reference:** zapret2 thread #332 — wssize for 24 KB block; youtubeUnblock source `tcp_wsize.c`
+
+**Root required:** No (VPN mode) / Yes (raw socket) | **Effort:** Low | **Priority:** P1
+
+---
+
+### 34. DHT/BitTorrent UDP Trigger CIDR Detection and Mitigation
+
+ValdikSS (April 2026) documented a middlebox behavioral trigger: sending **any UDP packet** to BitTorrent DHT nodes in specific CIDRs arms the middlebox filter to block all TLS connections from that IP to datacenter ASNs for **10 minutes**.
+
+#### Trigger Mechanism
+
+1. Client sends UDP to `134.195.198.230:6881` (GLOBALTELEHOST, AS48282) or Scaleway DHT nodes
+2. middlebox marks client IP as "torrent user" → activates 517-byte TLS block rule
+3. All subsequent TLS ClientHello of exactly **517 bytes** to datacenter ASNs → 10-min block
+4. Block auto-lifts after ~10 min; re-triggers on next DHT heartbeat (~every 15 min in most clients)
+
+**Detection fingerprint** (middlebox matching rule):
+```
+TCP payload size == 517 bytes
+AND payload[0] == 0x16   (TLS handshake)
+AND payload[5] == 0x01   (ClientHello type)
+```
+
+The 517-byte size corresponds to TLS 1.3 ClientHello with Kyber/ML-KEM key share extension (Chrome/Firefox default).
+
+#### Trigger CIDRs
+
+```
+62.210.0.0/17     # Scaleway (AS12876)
+51.159.0.0/16     # Scaleway (AS12876)
+134.195.196.0/22  # Globaltelehost (AS48282)
+```
+
+#### Impact on VPN Users
+
+User runs torrent app → DHT heartbeat to Scaleway node → middlebox triggers → VPS on Hetzner/OVH/Cloudflare unreachable for 10 min → repeats indefinitely.
+
+#### RIPDPI Mitigation Strategies
+
+**Strategy A — Block trigger CIDRs in VPN mode:**
+```kotlin
+// In VpnService builder, add routes that exclude trigger CIDRs
+// Route trigger CIDRs directly (bypass VPN) so middlebox sees non-VPN-user UDP
+builder.addRoute("0.0.0.0", 0)           // catch-all through VPN
+builder.excludeRoute("62.210.0.0", 17)   // Scaleway → direct
+builder.excludeRoute("51.159.0.0", 16)   // Scaleway → direct
+builder.excludeRoute("134.195.196.0", 22) // Globaltelehost → direct
+// Or: DROP these UDP packets entirely in TUN
+```
+
+**Strategy B — 517-byte TLS ClientHello size avoidance:**
+ClientHello size is determined by TLS extensions. Removing or reordering extensions changes size. RIPDPI's TLS fingerprint mimicry (item 26) should ensure ClientHello ≠ 517 bytes specifically.
+
+```rust
+// In ripdpi-tls-profiles: ensure non-517 size
+fn apply_chrome_fingerprint(hello: &mut ClientHello) {
+    // If resulting size == 517, add 1 byte of padding via padding extension
+    if hello.encoded_len() == 517 {
+        hello.add_extension(Extension::Padding { len: 1 });
+    }
+}
+```
+
+**Strategy C — User warning:**
+Detect concurrent UDP to trigger CIDRs + TLS failures to datacenter ASNs → notify user "BitTorrent client may be interfering with VPN connectivity".
+
+**Reference:** ValdikSS, ntc.party thread #16713; [[tspu-dht-tls-517-byte-block]] (TechnicalVault)
+
+**Root required:** No (VPN mode) | **Effort:** Low–Medium | **Priority:** P1
+
+---
+
+### 35. Protocol-Agnostic Desync Mode (`any_protocol` Flag)
+
+Current RIPDPI desync is gated on protocol detection: strategies only apply when the traffic is classified as TLS, HTTP, or QUIC. Unclassified or unexpected protocol traffic (e.g., WARP registration API on `api.cloudflareclient.com`, non-standard TLS flows to Cloudflare Russian PoPs) bypasses all desync.
+
+**Observed failure:** middlebox at AS1299 (Arelion) peering points inside Russian Cloudflare PoPs (DME/KJA/LED) blocks traffic that doesn't match standard protocol patterns — including WARP registration, MASQUE setup, and CDN traffic with unusual TLS ClientHello. zapret's `--dpi-desync-any-protocol=1` flag fixes this by applying desync to all TCP traffic regardless of L7 protocol classification.
+
+#### Implementation
+
+```rust
+// In ripdpi-desync profile matching:
+pub struct DesyncProfile {
+    pub filter: ProtocolFilter,
+    pub any_protocol: bool,  // NEW: bypass protocol gate
+    pub strategies: Vec<DesyncStrategy>,
+}
+
+impl DesyncEngine {
+    fn should_apply(&self, flow: &Flow, profile: &DesyncProfile) -> bool {
+        if profile.any_protocol {
+            return true;  // apply regardless of L7 detection
+        }
+        self.protocol_filter_matches(flow, &profile.filter)
+    }
+}
+```
+
+**Config surface:**
+```kotlin
+data class DesyncConfig(
+    val anyProtocol: Boolean = false,  // apply to all TCP flows
+    val protocols: Set<L7Protocol> = setOf(TLS, HTTP, QUIC),
+)
+```
+
+#### When to Enable
+
+- WARP registration bypass (item 3 references `--dpi-desync-any-protocol`)
+- Cloudflare Russian PoP traffic (AS1299 peering blocks non-standard TLS)
+- Any relay connection to servers in `cfip` ranges where standard protocol detection fails
+- As a fallback after per-protocol strategies fail (auto-strategy item 5)
+
+**Reference:** zapret `params.h`: `dpi_desync_any_protocol` flag; [[cloudflare-russian-pop-tspu-blocking]] (TechnicalVault)
+
+**Root required:** No | **Effort:** Low | **Priority:** P1
+
+---
+
+## Tier 5 (continued): Android Platform — April 2026 Additions (P1)
+
+### 36. Cross-Origin Session Correlation Defense (Mintsifry Dual-Script Attack)
+
+The April 2026 Mintsifry VPN detection methodology includes a **dual-script correlation attack**: a Russian site loads a `.ru` CDN resource (using real IP) and a `.com` resource (going through VPN) with the **same session cookie or correlation ID**. The server correlates the two IPs → identifies VPN exit node → reports to blocklist.
+
+#### Attack Flow
+
+```
+Browser visits example.ru
+  → loads cdn.example.ru/analytics.js (real IP A.B.C.D visible)
+  → loads cdn-global.example.com/beacon.js (VPN IP X.Y.Z.W visible)
+  → server receives both requests with session_id=abc123
+  → correlates: session abc123 → real IP A.B.C.D + VPN IP X.Y.Z.W
+  → X.Y.Z.W is a VPN exit node → flagged
+```
+
+This affects **split-tunnel users** who route `.ru` traffic directly but `.com` through VPN — exactly RIPDPI's recommended configuration for mobile whitelist bypass (item 29).
+
+#### Mitigation Options
+
+**Option A — Route all traffic through VPN (no split tunnel):**
+Eliminates correlation. User's real IP never seen by Russian servers. Cost: domestic traffic routed internationally.
+
+**Option B — Domain-level split routing with CDN awareness:**
+Route traffic based on **effective destination ASN**, not just TLD. If `cdn-global.example.com` resolves to Cloudflare (AS13335), it's "international" regardless of domain — route through VPN. If `cdn.example.ru` resolves to Russian CDN (Qrator, G-Core, etc.) → direct.
+
+```kotlin
+// In ripdpi-dns-resolver: classify by resolved ASN
+fun classifyRoute(hostname: String, resolvedIp: InetAddress): RouteClass {
+    val asn = asnDatabase.lookup(resolvedIp)
+    return when {
+        asn.isRussianISP() -> RouteClass.DIRECT
+        asn.isGlobalCDN() -> RouteClass.VPN
+        hostname.endsWith(".ru") -> RouteClass.DIRECT
+        else -> RouteClass.VPN
+    }
+}
+```
+
+**Option C — Session ID isolation (partial mitigation):**
+Ensure `.ru` and `.com` subresources from the same page load use different TCP connections with no shared session markers. Not fully controllable from VPN layer.
+
+**Option D — Constant-IP mode:**
+All traffic (Russian + foreign) exits through the same VPN IP. No correlation possible. Requires always-on VPN.
+
+#### Recommendation for RIPDPI
+
+Expose "Anti-correlation mode" toggle:
+- OFF: standard split-tunnel (item 29)
+- ON: ASN-based routing where global CDNs serving Russian content are routed via VPN
+
+**Reference:** Mintsifry VPN detection guide (April 2026); [[mintsifry-vpn-detection-methodology]] (TechnicalVault), Habr article 1021392
+
+**Root required:** No | **Effort:** Medium | **Priority:** P1
+
+---
+
+### 37. Server-Capability-Aware Conditional Desync Strategy
+
+Current RIPDPI desync applies the same strategy to all connections matching a profile. Some desync techniques depend on server behavior:
+- `tcp_ts` (TCP timestamp faking, item 17) is only effective if the server supports TCP timestamps; if not, the modified timestamps cause incorrect PAWS rejection → connection reset
+- `seqovl` (sequence overlap) causes issues with servers using strict sequence number validation
+- `disorder` (TTL-trick) requires TTL calibration per-network hop count
+
+zapret2 solved this with `per_instance_condition`: a Lua hook that detects server behavior from the first few packets and switches strategy on subsequent connections to the same server.
+
+#### Detection Signals
+
+| Signal | Source | Detected from |
+|--------|--------|---------------|
+| TCP timestamps supported | Server SYN-ACK | `tcp_opt_kind=8` (TSval/TSecr) present |
+| Server window size | Server SYN-ACK | `tcp_window` field — if < ClientHello size, cancel reassembly |
+| TTL at server | ICMP TTL exceeded | Raw ICMP from intermediate hops |
+| TLS record size limit | First TLS record | Server's `max_fragment_length` extension |
+
+#### Implementation Pattern
+
+```rust
+// In ripdpi-failure-classifier: per-server strategy cache
+pub struct ServerCapabilities {
+    pub tcp_timestamps: bool,
+    pub min_window_size: u16,
+    pub estimated_hops: u8,
+    pub tls_max_fragment: Option<u16>,
+}
+
+pub struct ConditionalDesync {
+    pub primary: DesyncStrategy,
+    pub fallback: DesyncStrategy,
+    pub condition: ServerCapabilityCondition,
+}
+
+impl ConditionalDesync {
+    pub fn select(&self, caps: &ServerCapabilities) -> &DesyncStrategy {
+        if self.condition.evaluate(caps) {
+            &self.primary
+        } else {
+            &self.fallback
+        }
+    }
+}
+```
+
+**Config example:**
+```kotlin
+ConditionalDesyncConfig(
+    condition = ServerCapabilityCondition.TCP_TIMESTAMPS_SUPPORTED,
+    primary = DesyncStrategy.tcpTimestampFake(delta = -1000),
+    fallback = DesyncStrategy.ttlDisorder(ttl = 3),
+)
+```
+
+#### Per-Server Cache
+
+Cache `ServerCapabilities` keyed by `(host, /24 subnet)` with 5-min TTL. On first connection to a host, probe and store. On subsequent connections, skip probe → immediate strategy selection.
+
+**Reference:** zapret2 `per_instance_condition` API; zapret2 thread #657–662 (conditional ts→ttl fallback); youtubeUnblock `tcp_ts.c` server timestamp detection
+
+**Root required:** No | **Effort:** Medium | **Priority:** P2
+
+---
+
+## Tier 4 (continued): Detection Resistance — Pluggable Transports (P3)
+
+### 38. Snowflake / WebTunnel / obfs4 Pluggable Transports
+
+Last-resort transports for total whitelist/block scenarios where VLESS, Hysteria2, WARP, and Cloudflare Tunnel are all blocked. Tor pluggable transports were developed specifically to defeat DPI — obfs4 has F1 detection score < 0.1% in adversarial ML classifiers.
+
+#### Transport Comparison
+
+| Transport | Detection resistance | Latency | Throughput | Availability |
+|-----------|---------------------|---------|------------|-------------|
+| obfs4 | Very High (random-looking) | Medium | Medium | 1000+ public bridges |
+| WebTunnel | High (looks like HTTPS) | Low | High | Limited bridges |
+| Snowflake | High (WebRTC, ephemeral IPs) | High | Medium | Browser-based proxies |
+| meek-azure | High (domain fronting via Azure) | High | Low | CDN-dependent |
+
+#### Snowflake: CovertDTLS Patch (April 2026)
+
+Snowflake uses WebRTC DTLS. middlebox/GFW added JA3 fingerprinting of DTLS ClientHello in March 2026 (net4people/bbs #603). The **CovertDTLS** patch randomizes DTLS ClientHello extensions and session ID — same approach as uTLS but for DTLS. As of April 2026, CovertDTLS is in the Snowflake staging branch.
+
+**DTLS JA3 hash blocked (pre-fix):** `d0e5...` — specific Pion WebRTC fingerprint.
+
+#### obfs4: Protocol Details
+
+obfs4 uses Elligator2 to encode public key as uniform random-looking byte string. The handshake produces a MAC-keyed stream of random bytes — no fixed headers, no length fields.
+
+**Key parameters:**
+```
+Bridge obfs4 <ip>:<port> <fingerprint> cert=<base64> iat-mode=0
+```
+- `cert`: 52-byte base64 combining server public key + server ID hash
+- `iat-mode`: inter-arrival timing obfuscation (0=disabled, 1=enabled, 2=probabilistic)
+
+#### Rust Integration Path
+
+```toml
+# Cargo.toml
+[dependencies]
+# obfs4 (no production Rust crate exists; options):
+ptadapter = "0.3"          # Go PT via stdin/stdout protocol
+snowflake-client = { git = "https://gitlab.torproject.org/tpo/anti-censorship/pluggable-transports/snowflake" }
+```
+
+**Pragmatic path:** Run Go-compiled PT binary as child process, communicate over pluggable transport stdio protocol (PT spec: `ptadapter`). RIPDPI spawns `lyrebird` (obfs4) or `snowflake-client` as subprocess, connects via SOCKS5 on loopback.
+
+#### Android Considerations
+
+- Tor Browser and Orbot already ship PT binaries (lyrebird, snowflake) for Android (arm64-v8a, armeabi-v7a)
+- RIPDPI can extract + ship same binaries (~2 MB each compressed)
+- PT subprocess isolation: runs in app's private directory, no root needed
+- Battery impact: Snowflake's WebRTC ICE is expensive (signaling + P2P negotiation ~3-5s)
+
+**Reference projects:**
+- [lyrebird](https://gitlab.torproject.org/tpo/anti-censorship/pluggable-transports/lyrebird) — Go, obfs4 + WebTunnel
+- [snowflake](https://gitlab.torproject.org/tpo/anti-censorship/pluggable-transports/snowflake) — Go, WebRTC-based
+- [Orbot](https://github.com/guardianproject/orbot) — Android, PT subprocess management
+- [CovertDTLS](https://gitlab.torproject.org/tpo/anti-censorship/pluggable-transports/snowflake/-/issues/40317) — DTLS fingerprint fix, net4people/bbs #603
+
+**Root required:** No | **Effort:** Very High | **Priority:** P3
+
+---
+
 ## Summary Matrix
 
 | # | Feature | Root? | Effort | Impact | Priority |
@@ -2053,6 +2475,13 @@ AmneziaWG is already item 2 in the roadmap. This item adds:
 | 29 | Russian cloud relay preset | No | Medium | Very High | P1 |
 | 30 | xray-core Finalmask obfuscation | No | Low | High | P1 |
 | 31 | AmneziaWG PayloadGen protocol imitation | No | Low | Medium | P1 |
+| 32 | Cloudflare Tunnel (cloudflared) transport | No | High | Very High | P0 |
+| 33 | TCP receive window reduction (wssize) | No (VPN) | Low | High | P1 |
+| 34 | DHT/BitTorrent UDP trigger CIDR mitigation | No | Low–Medium | High | P1 |
+| 35 | Protocol-agnostic desync (any_protocol) | No | Low | High | P1 |
+| 36 | Cross-origin session correlation defense | No | Medium | High | P1 |
+| 37 | Server-capability conditional desync | No | Medium | Medium | P2 |
+| 38 | Snowflake/WebTunnel/obfs4 pluggable transports | No | Very High | Medium | P3 |
 
 ## Reference Projects
 
@@ -2125,4 +2554,14 @@ AmneziaWG is already item 2 in the roadmap. This item adds:
 - Zona.media: Russian internet censorship in 2026 -- three-tier blocking architecture, middlebox ML deployment
 - Xakep.ru: middlebox upgrade to 954 Tbit/s by 2030 -- 14.9B RUB budget, 2.5M+ rules, March 22-23 overload event
 - net4people/bbs #516 -- Beeline mobile whitelist IP-level filtering confirmed (TCP SYN pass, ClientHello drop)
+- ntc.party thread 16713 -- ValdikSS: DHT UDP trigger 517-byte TLS block of datacenter ASNs, 10-min duration
+- ntc.party thread 23589 -- probe.trolling.website middlebox tester: fetch no-cors, 16 KB threshold mechanics
+- ntc.party thread 22551 -- Cloudflare Russian PoP middlebox blocking via AS1299 peering; any_protocol desync fix
+- cloudflare/cloudflared GitHub -- Cloudflare Zero Trust tunnel; trycloudflare.com free tier
+- sing-box v1.14.0-alpha.10 (April 10, 2026) -- cloudflared inbound source
+- zapret2 thread 21161 posts 332, 559-562 -- wssize TCP window manipulation; slow-start edge cases
+- zapret2 thread 21161 posts 657-662 -- per_instance_condition server-capability conditional strategy
+- net4people/bbs #603 -- Snowflake DTLS JA3 fingerprinting (March 30, 2026) + CovertDTLS fix
+- lyrebird (Tor Project) -- obfs4/WebTunnel Go implementation for Android
+- snowflake (Tor Project) -- WebRTC-based PT; CovertDTLS patch (DTLS fingerprint randomization)
 - Meduza (April 7, 2026) -- Russian marketplaces (Wildberries, Ozon, Sber) begin blocking VPN users

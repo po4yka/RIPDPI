@@ -12,10 +12,19 @@ crate-type = ["cdylib"]
 
 [dependencies]
 android-support = { workspace = true }
+boring = { workspace = true }
+bytes = { workspace = true }
+http = { workspace = true }
+http-body-util = { workspace = true }
+hyper = { workspace = true }
+hyper-util = { workspace = true }
 jni = { workspace = true }
 once_cell = { workspace = true }
+ripdpi-native-protect = { workspace = true }
+ripdpi-tls-profiles = { workspace = true }
+ripdpi-warp-core = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
-ripdpi-warp-core = { workspace = true }
-tokio = { workspace = true, features = ["rt-multi-thread"] }
-ripdpi-native-protect = { workspace = true }
+tokio = { workspace = true, features = ["io-util", "net", "rt", "rt-multi-thread", "time"] }
+tokio-boring = { workspace = true }
+url = { workspace = true }

@@ -15,7 +15,7 @@ rand = { workspace = true }
 ripdpi-tls-profiles = { workspace = true }
 ripdpi-vless = { workspace = true }
 thiserror = { workspace = true }
-tokio = { workspace = true, features = ["io-util", "macros", "rt", "sync"] }
+tokio = { workspace = true, features = ["io-util", "macros", "net", "rt", "sync"] }
 tokio-boring = { workspace = true }
 tracing = { workspace = true }
 

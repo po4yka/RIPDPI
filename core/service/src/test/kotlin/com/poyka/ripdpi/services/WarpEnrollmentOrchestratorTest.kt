@@ -2,6 +2,7 @@ package com.poyka.ripdpi.services
 
 import com.poyka.ripdpi.core.RipDpiProxyUIPreferences
 import com.poyka.ripdpi.data.DefaultWarpProfileId
+import com.poyka.ripdpi.data.GlobalWarpEndpointScopeKey
 import com.poyka.ripdpi.data.WarpAccountKindConsumerFree
 import com.poyka.ripdpi.data.WarpAccountKindConsumerPlus
 import com.poyka.ripdpi.data.WarpAccountKindZeroTrust
@@ -53,7 +54,12 @@ class WarpEnrollmentOrchestratorTest {
                     endpointStore = endpointStore,
                     provisioningClient = provisioningClient,
                     bootstrapProxyRunner = PassthroughWarpBootstrapProxyRunner(),
-                    endpointScanner = DefaultWarpEndpointScanner(endpointStore),
+                    endpointScanner =
+                        DefaultWarpEndpointScanner(
+                            appSettingsRepository,
+                            endpointStore,
+                            FakeWarpEndpointProbe(),
+                        ),
                 )
 
             val snapshot =
@@ -107,7 +113,12 @@ class WarpEnrollmentOrchestratorTest {
                     endpointStore = endpointStore,
                     provisioningClient = FakeWarpProvisioningClient(registerResult = sampleProvisioningResult()),
                     bootstrapProxyRunner = PassthroughWarpBootstrapProxyRunner(),
-                    endpointScanner = DefaultWarpEndpointScanner(endpointStore),
+                    endpointScanner =
+                        DefaultWarpEndpointScanner(
+                            appSettingsRepository,
+                            endpointStore,
+                            FakeWarpEndpointProbe(),
+                        ),
                 )
 
             orchestrator.attachWarpPlusLicense(DefaultWarpProfileId, "license-123")
@@ -135,7 +146,12 @@ class WarpEnrollmentOrchestratorTest {
                     endpointStore = endpointStore,
                     provisioningClient = FakeWarpProvisioningClient(registerResult = sampleProvisioningResult()),
                     bootstrapProxyRunner = PassthroughWarpBootstrapProxyRunner(),
-                    endpointScanner = DefaultWarpEndpointScanner(endpointStore),
+                    endpointScanner =
+                        DefaultWarpEndpointScanner(
+                            appSettingsRepository,
+                            endpointStore,
+                            FakeWarpEndpointProbe(),
+                        ),
                 )
 
             val snapshot =
@@ -209,7 +225,12 @@ class WarpEnrollmentOrchestratorTest {
                     endpointStore = endpointStore,
                     provisioningClient = FakeWarpProvisioningClient(registerResult = sampleProvisioningResult()),
                     bootstrapProxyRunner = PassthroughWarpBootstrapProxyRunner(),
-                    endpointScanner = DefaultWarpEndpointScanner(endpointStore),
+                    endpointScanner =
+                        DefaultWarpEndpointScanner(
+                            appSettingsRepository,
+                            endpointStore,
+                            FakeWarpEndpointProbe(),
+                        ),
                 )
 
             orchestrator.resetProfile("corp")
@@ -306,7 +327,12 @@ class WarpEnrollmentOrchestratorTest {
                             refreshError = IOException("HTTP 403"),
                         ),
                     bootstrapProxyRunner = PassthroughWarpBootstrapProxyRunner(),
-                    endpointScanner = DefaultWarpEndpointScanner(endpointStore),
+                    endpointScanner =
+                        DefaultWarpEndpointScanner(
+                            appSettingsRepository,
+                            endpointStore,
+                            FakeWarpEndpointProbe(),
+                        ),
                 )
 
             val error =
@@ -319,6 +345,93 @@ class WarpEnrollmentOrchestratorTest {
             assertEquals(WarpSetupStateNeedsAttention, profileStore.load(DefaultWarpProfileId)?.setupState)
             assertEquals(WarpSetupStateNeedsAttention, appSettingsRepository.snapshot().warpSetupState)
             assertEquals(accessValue, credentialStore.load(DefaultWarpProfileId)?.accessToken)
+        }
+
+    @Test
+    fun `endpoint scanner clears stale scoped endpoint and falls back to healthy global endpoint`() =
+        runTest {
+            val appSettingsRepository = TestAppSettingsRepository()
+            val endpointStore = FakeWarpEndpointStore()
+            endpointStore.save(
+                WarpEndpointCacheEntry(
+                    profileId = DefaultWarpProfileId,
+                    networkScopeKey = "wifi:home",
+                    host = "engage.cloudflareclient.com",
+                    ipv4 = "162.159.192.1",
+                    port = 2408,
+                    source = "scanner",
+                ),
+            )
+            endpointStore.save(
+                WarpEndpointCacheEntry(
+                    profileId = DefaultWarpProfileId,
+                    networkScopeKey = GlobalWarpEndpointScopeKey,
+                    host = "engage.cloudflareclient.com",
+                    ipv4 = "188.114.96.7",
+                    port = 2408,
+                    source = "scanner",
+                ),
+            )
+            val scanner =
+                DefaultWarpEndpointScanner(
+                    appSettingsRepository = appSettingsRepository,
+                    endpointStore = endpointStore,
+                    endpointProbe =
+                        FakeWarpEndpointProbe(
+                            responders =
+                                mapOf(
+                                    "188.114.96.7" to 18L,
+                                ),
+                        ),
+                )
+
+            val resolved =
+                scanner.resolveEndpoint(
+                    profileId = DefaultWarpProfileId,
+                    networkScopeKey = "wifi:home",
+                    provisioned = null,
+                )
+
+            assertEquals("188.114.96.7", resolved?.ipv4)
+            assertEquals("wifi:home", resolved?.networkScopeKey)
+            assertEquals("188.114.96.7", endpointStore.load(DefaultWarpProfileId, "wifi:home")?.ipv4)
+        }
+
+    @Test
+    fun `endpoint scanner uses built in warp pool when no cache exists`() =
+        runTest {
+            val appSettingsRepository =
+                TestAppSettingsRepository(
+                    initial =
+                        com.poyka.ripdpi.data.AppSettingsSerializer.defaultValue
+                            .toBuilder()
+                            .setWarpScannerEnabled(true)
+                            .build(),
+                )
+            val endpointStore = FakeWarpEndpointStore()
+            val scanner =
+                DefaultWarpEndpointScanner(
+                    appSettingsRepository = appSettingsRepository,
+                    endpointStore = endpointStore,
+                    endpointProbe =
+                        FakeWarpEndpointProbe(
+                            responders =
+                                mapOf(
+                                    "188.114.99.1" to 11L,
+                                ),
+                        ),
+                )
+
+            val resolved =
+                scanner.resolveEndpoint(
+                    profileId = DefaultWarpProfileId,
+                    networkScopeKey = "wifi:travel",
+                    provisioned = null,
+                )
+
+            assertEquals("wifi:travel", resolved?.networkScopeKey)
+            assertEquals("188.114.99.1", resolved?.ipv4)
+            assertEquals("188.114.99.1", endpointStore.load(DefaultWarpProfileId, GlobalWarpEndpointScopeKey)?.ipv4)
         }
 
     private fun sampleProvisioningResult(): WarpProvisioningResult =
@@ -451,5 +564,22 @@ private class FakeWarpEndpointStore : WarpEndpointStore {
 
     override suspend fun clearAll() {
         entries.clear()
+    }
+}
+
+private class FakeWarpEndpointProbe(
+    private val responders: Map<String, Long> = emptyMap(),
+) : WarpEndpointProbe {
+    override suspend fun probe(
+        candidate: WarpEndpointCacheEntry,
+        timeoutMillis: Int,
+    ): WarpEndpointCacheEntry? {
+        val key = candidate.ipv4 ?: candidate.ipv6 ?: candidate.host.orEmpty()
+        val rttMs = responders[key] ?: return null
+        return candidate.copy(
+            source = "scanner",
+            rttMs = rttMs,
+            updatedAtEpochMillis = 1L,
+        )
     }
 }
