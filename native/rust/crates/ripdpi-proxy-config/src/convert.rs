@@ -75,8 +75,6 @@ fn sanitize_runtime_context(runtime_context: Option<ProxyRuntimeContext>) -> Opt
                 .filter_map(|mut edge| {
                     edge.ip = edge.ip.trim().to_string();
                     edge.transport_kind = edge.transport_kind.trim().to_ascii_lowercase();
-                    edge.ip_version = edge.ip_version.trim().to_ascii_lowercase();
-                    edge.cdn_provider = trim_non_empty(edge.cdn_provider);
                     if edge.ip.is_empty() || edge.transport_kind.is_empty() {
                         return None;
                     }
