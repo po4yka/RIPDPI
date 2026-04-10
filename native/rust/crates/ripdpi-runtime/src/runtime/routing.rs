@@ -24,6 +24,8 @@ use super::adaptive::{note_adaptive_fake_ttl_failure, note_adaptive_tcp_failure,
 use super::retry::{build_retry_selection_penalties, maybe_emit_candidate_diversification, note_retry_failure};
 use super::state::{flush_autolearn_updates, RuntimeState};
 
+const MAX_PREFERRED_EDGE_TARGETS: usize = 2;
+
 #[derive(Debug)]
 pub(super) struct ConnectAttemptError {
     source: io::Error,
@@ -74,7 +76,12 @@ pub(super) fn connect_target(
     connect_target_with_route(target, state, route, payload, host)
 }
 
-fn preferred_tcp_targets(state: &RuntimeState, original_target: SocketAddr, host: Option<&str>) -> Vec<SocketAddr> {
+pub(super) fn preferred_targets_for_transport(
+    state: &RuntimeState,
+    original_target: SocketAddr,
+    host: Option<&str>,
+    transport: TransportProtocol,
+) -> Vec<SocketAddr> {
     let mut targets = Vec::new();
     if let Some(host) = host {
         if let Some(runtime_context) = state.runtime_context.as_ref() {
@@ -82,7 +89,10 @@ fn preferred_tcp_targets(state: &RuntimeState, original_target: SocketAddr, host
             if let Some(edges) =
                 runtime_context.preferred_edges.get(&normalized).or_else(|| runtime_context.preferred_edges.get(host))
             {
-                for edge in edges.iter().filter(|edge| matches!(edge.transport_kind.as_str(), "tcp" | "throughput")) {
+                for edge in edges
+                    .iter()
+                    .filter(|edge| preferred_edge_matches_transport(edge.transport_kind.as_str(), transport))
+                {
                     let Ok(ip) = edge.ip.parse::<IpAddr>() else {
                         continue;
                     };
@@ -90,7 +100,7 @@ fn preferred_tcp_targets(state: &RuntimeState, original_target: SocketAddr, host
                     if !targets.contains(&candidate) {
                         targets.push(candidate);
                     }
-                    if targets.len() >= 2 {
+                    if targets.len() >= MAX_PREFERRED_EDGE_TARGETS {
                         break;
                     }
                 }
@@ -101,6 +111,13 @@ fn preferred_tcp_targets(state: &RuntimeState, original_target: SocketAddr, host
         targets.push(original_target);
     }
     targets
+}
+
+fn preferred_edge_matches_transport(transport_kind: &str, transport: TransportProtocol) -> bool {
+    match transport {
+        TransportProtocol::Tcp => matches!(transport_kind, "tcp" | "throughput"),
+        TransportProtocol::Udp => transport_kind == "quic",
+    }
 }
 
 fn connect_target_candidates_via_group(
@@ -132,7 +149,7 @@ pub(super) fn connect_target_with_route(
     let max_retries = state.config.max_route_retries;
     let mut retries: usize = 0;
     loop {
-        let attempt_targets = preferred_tcp_targets(state, target, host.as_deref());
+        let attempt_targets = preferred_targets_for_transport(state, target, host.as_deref(), TransportProtocol::Tcp);
         match connect_target_candidates_via_group(&attempt_targets, state, route.group_index, state.config.network.tfo)
         {
             Ok(stream) => return Ok((stream, route)),
@@ -680,7 +697,7 @@ pub(super) fn reconnect_target(
     let mut retries: usize = 0;
     loop {
         super::retry::apply_retry_pacing_before_connect(state, target, &route, host.as_deref(), payload)?;
-        let attempt_targets = preferred_tcp_targets(state, target, host.as_deref());
+        let attempt_targets = preferred_targets_for_transport(state, target, host.as_deref(), TransportProtocol::Tcp);
         match connect_target_candidates_via_group(&attempt_targets, state, route.group_index, state.config.network.tfo)
         {
             Ok(stream) => return Ok((stream, route)),
