@@ -126,14 +126,18 @@ class AppSettingsJsonTest {
                 .setWarpAmneziaS2(120)
                 .setWarpAmneziaS3(160)
                 .setWarpAmneziaS4(220)
+                .setWarpAmneziaPreset(WarpAmneziaPresetCustom)
                 .setRelayEnabled(true)
-                .setRelayKind(RelayKindMasque)
+                .setRelayKind(RelayKindCloudflareTunnel)
                 .setRelayProfileId("edge")
                 .setRelayServer("relay.example.test")
                 .setRelayServerPort(8443)
                 .setRelayServerName("cdn.example.test")
                 .setRelayRealityPublicKey("reality-public-key")
                 .setRelayRealityShortId("abcd1234")
+                .setRelayVlessTransport(RelayVlessTransportXhttp)
+                .setRelayXhttpPath("/xhttp")
+                .setRelayXhttpHost("origin.example.test")
                 .setRelayChainEntryServer("ru-hop.example.test")
                 .setRelayChainEntryPort(9443)
                 .setRelayChainEntryServerName("ru-hop.example.test")
@@ -260,7 +264,7 @@ class AppSettingsJsonTest {
             decoded.shannonEntropyTargetPermil,
         )
         assertEquals(
-            AppSettingsSerializer.defaultValue.tlsFingerprintProfile,
+            TlsFingerprintProfileChromeStable,
             decoded.tlsFingerprintProfile,
         )
         assertEquals(AppSettingsSerializer.defaultValue.strategyPackChannel, decoded.strategyPackChannel)
@@ -412,6 +416,21 @@ class AppSettingsJsonTest {
         assertEquals(canonicalDefaultEncryptedDnsSettings(), decoded.activeDnsSettings())
         assertEquals(AppSettingsSerializer.defaultValue.proxyPort, decoded.proxyPort)
         assertEquals("none", primaryDesyncMethod(decoded.effectiveTcpChainSteps()))
+    }
+
+    @Test
+    fun `native default tls fingerprint normalizes to chrome stable on decode`() {
+        val decoded =
+            appSettingsFromJson(
+                """
+                {
+                  "formatVersion": 1,
+                  "tlsFingerprintProfile": "native_default"
+                }
+                """.trimIndent(),
+            )
+
+        assertEquals(TlsFingerprintProfileChromeStable, decoded.tlsFingerprintProfile)
     }
 
     @Test

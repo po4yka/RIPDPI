@@ -31,7 +31,7 @@ object TlsFingerprintChecker {
             "okhttp_default",
         )
 
-    suspend fun check(tlsFingerprintProfile: String = "native_default"): CategoryResult =
+    suspend fun check(tlsFingerprintProfile: String = "chrome_stable"): CategoryResult =
         withContext(Dispatchers.IO) {
             val findings = mutableListOf<Finding>()
             val evidence = mutableListOf<EvidenceItem>()
@@ -114,6 +114,8 @@ object TlsFingerprintChecker {
                         description = "Default Android TLS fingerprint is distinguishable from browsers",
                     ),
                 )
+            } else if (tlsFingerprintProfile == "chrome_stable") {
+                findings.add(Finding("Using Chrome-stable TLS profile"))
             }
 
             val hasLegacyCiphers =

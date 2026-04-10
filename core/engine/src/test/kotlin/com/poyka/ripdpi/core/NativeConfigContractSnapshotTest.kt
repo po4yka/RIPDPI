@@ -749,7 +749,7 @@ class NativeConfigContractSnapshotTest {
         entropyPaddingTargetPermil: Int = 3400,
         entropyPaddingMax: Int = 256,
         shannonEntropyTargetPermil: Int = 7920,
-        tlsFingerprintProfile: String = "native_default",
+        tlsFingerprintProfile: String = "chrome_stable",
     ): JsonObject =
         buildJsonObject {
             put("fakeTtl", JsonPrimitive(fakeTtl))

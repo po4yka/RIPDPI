@@ -9,6 +9,9 @@ enum class FailureClass(
     val wireValue: String,
 ) {
     TunnelEstablish("tunnel_establish"),
+    WarpProvisioning("warp_provisioning"),
+    WarpEndpoint("warp_endpoint"),
+    FingerprintPolicy("fingerprint_policy"),
     DnsInterference("dns_interference"),
     TlsInterference("tls_interference"),
     Timeout("timeout"),
@@ -126,6 +129,22 @@ private fun classifyFailureReasonDirectly(failureReason: FailureReason?): Failur
 
         FailureReason.TunnelEstablishmentFailed -> {
             FailureClass.TunnelEstablish
+        }
+
+        is FailureReason.WarpProvisioningFailed -> {
+            FailureClass.WarpProvisioning
+        }
+
+        is FailureReason.WarpEndpointUnavailable -> {
+            FailureClass.WarpEndpoint
+        }
+
+        is FailureReason.WarpRuntimeFailed -> {
+            classifyFailureText(failureReason.message) ?: FailureClass.NativeIo
+        }
+
+        is FailureReason.RelayFingerprintPolicyRejected -> {
+            FailureClass.FingerprintPolicy
         }
 
         is FailureReason.NativeError -> {

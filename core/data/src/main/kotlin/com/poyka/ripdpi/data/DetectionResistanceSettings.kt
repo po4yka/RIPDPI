@@ -18,14 +18,15 @@ fun normalizeTlsFingerprintProfile(value: String): String =
     when (value.trim().lowercase()) {
         TlsFingerprintProfileChromeStable -> TlsFingerprintProfileChromeStable
         TlsFingerprintProfileFirefoxStable -> TlsFingerprintProfileFirefoxStable
-        else -> TlsFingerprintProfileNativeDefault
+        TlsFingerprintProfileNativeDefault -> TlsFingerprintProfileChromeStable
+        else -> TlsFingerprintProfileChromeStable
     }
 
 fun tlsFingerprintProfileSummary(value: String): String =
     when (normalizeTlsFingerprintProfile(value)) {
         TlsFingerprintProfileChromeStable -> "Chrome stable"
         TlsFingerprintProfileFirefoxStable -> "Firefox stable"
-        else -> "Native default"
+        else -> "Chrome stable"
     }
 
 fun normalizeEntropyMode(value: String): String =

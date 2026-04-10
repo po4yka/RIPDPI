@@ -7,10 +7,13 @@ import com.poyka.ripdpi.data.DnsProviderCustom
 import com.poyka.ripdpi.data.EncryptedDnsProtocolDnsCrypt
 import com.poyka.ripdpi.data.EncryptedDnsProtocolDot
 import com.poyka.ripdpi.data.Mode
+import com.poyka.ripdpi.data.RelayKindCloudflareTunnel
 import com.poyka.ripdpi.data.RelayKindHysteria2
 import com.poyka.ripdpi.data.RelayKindMasque
+import com.poyka.ripdpi.data.RelayKindVlessReality
 import com.poyka.ripdpi.data.RelayMasqueAuthModeBearer
 import com.poyka.ripdpi.data.RelayMasqueAuthModePrivacyPass
+import com.poyka.ripdpi.data.RelayVlessTransportXhttp
 import com.poyka.ripdpi.data.canonicalDefaultEncryptedDnsSettings
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -142,6 +145,44 @@ class ConfigViewModelTest {
             )
 
         assertEquals(null, hysteriaErrors[ConfigFieldRelayCredentials])
+    }
+
+    @Test
+    fun `relay validation rejects VLESS xHTTP with UDP enabled`() {
+        val errors =
+            validateConfigDraft(
+                defaultDraft.copy(
+                    relayEnabled = true,
+                    relayKind = RelayKindVlessReality,
+                    relayServer = "relay.example",
+                    relayServerPort = "443",
+                    relayServerName = "relay.example",
+                    relayRealityPublicKey = "public-key",
+                    relayRealityShortId = "abcd1234",
+                    relayVlessTransport = RelayVlessTransportXhttp,
+                    relayXhttpPath = "/xhttp",
+                    relayVlessUuid = "00000000-0000-0000-0000-000000000000",
+                    relayUdpEnabled = true,
+                ),
+            )
+
+        assertEquals("unsupported", errors[ConfigFieldRelayCredentials])
+    }
+
+    @Test
+    fun `relay validation rejects Cloudflare Tunnel UDP mode and missing uuid`() {
+        val errors =
+            validateConfigDraft(
+                defaultDraft.copy(
+                    relayEnabled = true,
+                    relayKind = RelayKindCloudflareTunnel,
+                    relayServer = "edge.example.com",
+                    relayVlessTransport = RelayVlessTransportXhttp,
+                    relayUdpEnabled = true,
+                ),
+            )
+
+        assertEquals("unsupported", errors[ConfigFieldRelayCredentials])
     }
 
     @Test

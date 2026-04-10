@@ -8,6 +8,8 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.SettingsUiState
+import com.poyka.ripdpi.data.WarpAmneziaPresetCustom
+import com.poyka.ripdpi.data.WarpAmneziaPresetOff
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.cards.SettingsRow
 import com.poyka.ripdpi.ui.components.inputs.RipDpiDropdownOption
@@ -26,6 +28,7 @@ internal fun LazyListScope.warpSection(
     visualEditorEnabled: Boolean,
     routeModeOptions: List<RipDpiDropdownOption<String>>,
     endpointSelectionOptions: List<RipDpiDropdownOption<String>>,
+    amneziaPresetOptions: List<RipDpiDropdownOption<String>>,
     onToggleChanged: (AdvancedToggleSetting, Boolean) -> Unit,
     onOptionSelected: (AdvancedOptionSetting, String) -> Unit,
     onTextConfirmed: (AdvancedTextSetting, String) -> Unit,
@@ -222,15 +225,27 @@ internal fun LazyListScope.warpSection(
                         showDivider = true,
                     )
                 }
-                SettingsRow(
-                    title = stringResource(R.string.warp_amnezia_enabled_title),
-                    subtitle = stringResource(R.string.warp_amnezia_enabled_body),
-                    checked = uiState.warp.amneziaEnabled,
+                AdvancedDropdownSetting(
+                    title = stringResource(R.string.warp_amnezia_preset_title),
+                    description = stringResource(R.string.warp_amnezia_preset_body),
+                    value = uiState.warp.amneziaPreset,
                     enabled = sectionEnabled && uiState.warp.enabled,
-                    onCheckedChange = { onToggleChanged(AdvancedToggleSetting.WarpAmneziaEnabled, it) },
-                    showDivider = uiState.warp.amneziaControlsEnabled,
-                    testTag = RipDpiTestTags.advancedToggle(AdvancedToggleSetting.WarpAmneziaEnabled),
+                    options = amneziaPresetOptions,
+                    setting = AdvancedOptionSetting.WarpAmneziaPreset,
+                    onSelected = onOptionSelected,
+                    showDivider = uiState.warp.amneziaEnabled,
                 )
+                if (uiState.warp.amneziaEnabled) {
+                    SettingsRow(
+                        title = stringResource(R.string.warp_amnezia_profile_title),
+                        subtitle = warpAmneziaSummary(uiState),
+                        value =
+                            amneziaPresetOptions
+                                .firstOrNull { it.value == uiState.warp.amneziaPreset }
+                                ?.label ?: uiState.warp.amneziaPreset,
+                        showDivider = uiState.warp.amneziaControlsEnabled,
+                    )
+                }
                 if (uiState.warp.amneziaControlsEnabled) {
                     warpAmneziaTextSetting(
                         title = stringResource(R.string.warp_amnezia_jc_title),
@@ -325,6 +340,32 @@ internal fun LazyListScope.warpSection(
         }
     }
 }
+
+@Composable
+private fun warpAmneziaSummary(uiState: SettingsUiState): String =
+    when (uiState.warp.amneziaPreset) {
+        WarpAmneziaPresetOff -> {
+            stringResource(R.string.warp_amnezia_preset_off_summary)
+        }
+
+        WarpAmneziaPresetCustom -> {
+            stringResource(
+                R.string.warp_amnezia_preset_custom_summary,
+                uiState.warp.amneziaJc,
+                uiState.warp.amneziaJmin,
+                uiState.warp.amneziaJmax,
+            )
+        }
+
+        else -> {
+            stringResource(
+                R.string.warp_amnezia_preset_profile_summary,
+                uiState.warp.amneziaJc,
+                uiState.warp.amneziaJmin,
+                uiState.warp.amneziaJmax,
+            )
+        }
+    }
 
 @Composable
 private fun warpAmneziaTextSetting(

@@ -10,6 +10,7 @@ import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.RelayCredentialRecord
 import com.poyka.ripdpi.data.RelayCredentialStore
 import com.poyka.ripdpi.data.RelayKindChainRelay
+import com.poyka.ripdpi.data.RelayKindCloudflareTunnel
 import com.poyka.ripdpi.data.RelayKindHysteria2
 import com.poyka.ripdpi.data.RelayKindMasque
 import com.poyka.ripdpi.data.RelayKindOff
@@ -19,6 +20,8 @@ import com.poyka.ripdpi.data.RelayMasqueAuthModePreshared
 import com.poyka.ripdpi.data.RelayMasqueAuthModePrivacyPass
 import com.poyka.ripdpi.data.RelayProfileRecord
 import com.poyka.ripdpi.data.RelayProfileStore
+import com.poyka.ripdpi.data.RelayVlessTransportRealityTcp
+import com.poyka.ripdpi.data.RelayVlessTransportXhttp
 import com.poyka.ripdpi.data.StrategyChainSet
 import com.poyka.ripdpi.data.TcpChainStepModel
 import com.poyka.ripdpi.data.UdpChainStepModel
@@ -87,6 +90,9 @@ data class ConfigDraft(
     val relayServerName: String = "",
     val relayRealityPublicKey: String = "",
     val relayRealityShortId: String = "",
+    val relayVlessTransport: String = RelayVlessTransportRealityTcp,
+    val relayXhttpPath: String = "",
+    val relayXhttpHost: String = "",
     val relayVlessUuid: String = "",
     val relayHysteriaPassword: String = "",
     val relayHysteriaSalamanderKey: String = "",
@@ -120,6 +126,7 @@ data class ConfigDraft(
                 relayKind == RelayKindChainRelay -> "Chain relay"
                 relayKind == RelayKindMasque -> "MASQUE"
                 relayKind == RelayKindHysteria2 -> "Hysteria2"
+                relayKind == RelayKindCloudflareTunnel -> "Cloudflare Tunnel"
                 else -> "VLESS + Reality"
             }
 
@@ -210,6 +217,9 @@ internal fun AppSettings.toConfigDraft(): ConfigDraft =
             relayServerName = relay.profile.serverName,
             relayRealityPublicKey = relay.profile.realityPublicKey,
             relayRealityShortId = relay.profile.realityShortId,
+            relayVlessTransport = relay.profile.vlessTransport,
+            relayXhttpPath = relay.profile.xhttpPath,
+            relayXhttpHost = relay.profile.xhttpHost,
             relayChainEntryServer = relay.profile.chainEntryServer,
             relayChainEntryPort = relay.profile.chainEntryPort.toString(),
             relayChainEntryServerName = relay.profile.chainEntryServerName,
@@ -321,6 +331,19 @@ internal fun validateConfigDraft(
                     if (isVlessRealityIncomplete) {
                         put(ConfigFieldRelayCredentials, "required")
                     }
+                    if (draft.relayVlessTransport == RelayVlessTransportXhttp && draft.relayUdpEnabled) {
+                        put(ConfigFieldRelayCredentials, "unsupported")
+                    }
+                }
+
+                RelayKindCloudflareTunnel -> {
+                    if (draft.relayServer.isBlank()) put(ConfigFieldRelayServer, "required")
+                    if (draft.relayVlessUuid.isBlank()) {
+                        put(ConfigFieldRelayCredentials, "required")
+                    }
+                    if (draft.relayUdpEnabled) {
+                        put(ConfigFieldRelayCredentials, "unsupported")
+                    }
                 }
 
                 RelayKindHysteria2 -> {
@@ -422,9 +445,17 @@ private fun AppSettings.Builder.applyConfigDraft(draft: ConfigDraft): AppSetting
         setRelayProfileId(draft.relayProfileId.ifBlank { DefaultRelayProfileId })
         setRelayServer(draft.relayServer)
         setRelayServerPort(draft.relayServerPort.toIntOrNull() ?: defaultRelayPort)
-        setRelayServerName(draft.relayServerName)
+        setRelayServerName(
+            when (draft.relayKind) {
+                RelayKindCloudflareTunnel -> draft.relayServerName.ifBlank { draft.relayServer }
+                else -> draft.relayServerName
+            },
+        )
         setRelayRealityPublicKey(draft.relayRealityPublicKey)
         setRelayRealityShortId(draft.relayRealityShortId)
+        setRelayVlessTransport(draft.relayVlessTransport)
+        setRelayXhttpPath(draft.relayXhttpPath)
+        setRelayXhttpHost(draft.relayXhttpHost)
         setRelayChainEntryServer(draft.relayChainEntryServer)
         setRelayChainEntryPort(draft.relayChainEntryPort.toIntOrNull() ?: defaultRelayPort)
         setRelayChainEntryServerName(draft.relayChainEntryServerName)
@@ -443,7 +474,7 @@ private fun AppSettings.Builder.applyConfigDraft(draft: ConfigDraft): AppSetting
         )
         setRelayLocalSocksHost("127.0.0.1")
         setRelayLocalSocksPort(draft.relayLocalSocksPort.toIntOrNull() ?: DefaultRelayLocalSocksPort)
-        setRelayUdpEnabled(draft.relayUdpEnabled)
+        setRelayUdpEnabled(draft.relayUdpEnabled && draft.relayKind != RelayKindCloudflareTunnel)
         setRelayTcpFallbackEnabled(draft.relayMasqueUseHttp2Fallback)
     }
 
@@ -625,6 +656,9 @@ class ConfigViewModel
                     serverName = draft.relayServerName,
                     realityPublicKey = draft.relayRealityPublicKey,
                     realityShortId = draft.relayRealityShortId,
+                    vlessTransport = draft.relayVlessTransport,
+                    xhttpPath = draft.relayXhttpPath,
+                    xhttpHost = draft.relayXhttpHost,
                     chainEntryServer = draft.relayChainEntryServer,
                     chainEntryPort = draft.relayChainEntryPort.toIntOrNull() ?: 443,
                     chainEntryServerName = draft.relayChainEntryServerName,
@@ -640,7 +674,7 @@ class ConfigViewModel
                     masqueCloudflareMode =
                         normalizeRelayMasqueAuthMode(draft.relayMasqueAuthMode, draft.relayMasqueCloudflareMode) ==
                             RelayMasqueAuthModePrivacyPass,
-                    udpEnabled = draft.relayUdpEnabled,
+                    udpEnabled = draft.relayUdpEnabled && draft.relayKind != RelayKindCloudflareTunnel,
                     tcpFallbackEnabled = draft.relayMasqueUseHttp2Fallback,
                     localSocksPort = draft.relayLocalSocksPort.toIntOrNull() ?: DefaultRelayLocalSocksPort,
                 ),

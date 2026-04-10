@@ -402,7 +402,7 @@ internal object RipDpiProxyJsonCodec {
         val entropyPaddingTargetPermil: Int = 3400,
         val entropyPaddingMax: Int = 256,
         val shannonEntropyTargetPermil: Int = 7920,
-        val tlsFingerprintProfile: String = "native_default",
+        val tlsFingerprintProfile: String = "chrome_stable",
     )
 
     @Serializable
@@ -482,6 +482,7 @@ internal object RipDpiProxyJsonCodec {
         val scannerEnabled: Boolean = true,
         val scannerParallelism: Int = 10,
         val scannerMaxRttMs: Int = 1500,
+        val amneziaPreset: String = "off",
         val amnezia: NativeWarpAmneziaConfig = NativeWarpAmneziaConfig(),
         val localSocksHost: String = "127.0.0.1",
         val localSocksPort: Int = 11888,
@@ -512,6 +513,9 @@ internal object RipDpiProxyJsonCodec {
         val serverName: String = "",
         val realityPublicKey: String = "",
         val realityShortId: String = "",
+        val vlessTransport: String = "reality_tcp",
+        val xhttpPath: String = "",
+        val xhttpHost: String = "",
         val chainEntryServer: String = "",
         val chainEntryPort: Int = 443,
         val chainEntryServerName: String = "",
@@ -949,6 +953,9 @@ internal object RipDpiProxyJsonCodec {
                 serverName = value.serverName,
                 realityPublicKey = value.realityPublicKey,
                 realityShortId = value.realityShortId,
+                vlessTransport = value.vlessTransport,
+                xhttpPath = value.xhttpPath,
+                xhttpHost = value.xhttpHost,
                 chainEntryServer = value.chainEntryServer,
                 chainEntryPort = value.chainEntryPort,
                 chainEntryServerName = value.chainEntryServerName,
@@ -978,6 +985,9 @@ internal object RipDpiProxyJsonCodec {
                 serverName = value.serverName,
                 realityPublicKey = value.realityPublicKey,
                 realityShortId = value.realityShortId,
+                vlessTransport = value.vlessTransport,
+                xhttpPath = value.xhttpPath,
+                xhttpHost = value.xhttpHost,
                 chainEntryServer = value.chainEntryServer,
                 chainEntryPort = value.chainEntryPort,
                 chainEntryServerName = value.chainEntryServerName,
@@ -1078,6 +1088,7 @@ internal object RipDpiProxyJsonCodec {
                 scannerEnabled = value.scannerEnabled,
                 scannerParallelism = value.scannerParallelism,
                 scannerMaxRttMs = value.scannerMaxRttMs,
+                amneziaPreset = value.amneziaPreset,
                 amnezia =
                     RipDpiWarpAmneziaConfig(
                         enabled = value.amnezia.enabled,
@@ -1114,6 +1125,7 @@ internal object RipDpiProxyJsonCodec {
                 scannerEnabled = value.scannerEnabled,
                 scannerParallelism = value.scannerParallelism,
                 scannerMaxRttMs = value.scannerMaxRttMs,
+                amneziaPreset = value.amneziaPreset,
                 amnezia =
                     NativeWarpAmneziaConfig(
                         enabled = value.amnezia.enabled,

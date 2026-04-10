@@ -268,6 +268,7 @@ private fun AppSettings.buildWarpUiState(): WarpUiState {
         scannerEnabled = warp.scannerEnabled,
         scannerParallelism = warp.scannerParallelism,
         scannerMaxRttMs = warp.scannerMaxRttMs,
+        amneziaPreset = warp.amneziaPreset,
         amneziaEnabled = warp.amnezia.enabled,
         amneziaJc = warp.amnezia.jc,
         amneziaJmin = warp.amnezia.jmin,

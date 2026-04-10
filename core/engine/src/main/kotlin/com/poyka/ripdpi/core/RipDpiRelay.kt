@@ -2,7 +2,8 @@ package com.poyka.ripdpi.core
 
 import com.poyka.ripdpi.data.NativeError
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
-import com.poyka.ripdpi.data.TlsFingerprintProfileNativeDefault
+import com.poyka.ripdpi.data.RelayVlessTransportRealityTcp
+import com.poyka.ripdpi.data.TlsFingerprintProfileChromeStable
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -95,6 +96,9 @@ data class ResolvedRipDpiRelayConfig(
     val serverName: String,
     val realityPublicKey: String,
     val realityShortId: String,
+    val vlessTransport: String = RelayVlessTransportRealityTcp,
+    val xhttpPath: String = "",
+    val xhttpHost: String = "",
     val chainEntryServer: String,
     val chainEntryPort: Int,
     val chainEntryServerName: String,
@@ -117,7 +121,7 @@ data class ResolvedRipDpiRelayConfig(
     val chainExitUuid: String? = null,
     val hysteriaPassword: String? = null,
     val hysteriaSalamanderKey: String? = null,
-    val tlsFingerprintProfile: String = TlsFingerprintProfileNativeDefault,
+    val tlsFingerprintProfile: String = TlsFingerprintProfileChromeStable,
     val masqueAuthMode: String? = null,
     val masqueAuthToken: String? = null,
     val masqueCloudflareClientId: String? = null,

@@ -4,7 +4,6 @@ import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.ApplicationIoScope
 import com.poyka.ripdpi.data.TlsFingerprintProfileChromeStable
 import com.poyka.ripdpi.data.TlsFingerprintProfileFirefoxStable
-import com.poyka.ripdpi.data.TlsFingerprintProfileNativeDefault
 import com.poyka.ripdpi.data.normalizeTlsFingerprintProfile
 import dagger.Binds
 import dagger.Module
@@ -42,7 +41,7 @@ class SettingsBackedOwnedTlsFingerprintProfileProvider
         appSettingsRepository: AppSettingsRepository,
         @ApplicationIoScope scope: CoroutineScope,
     ) : OwnedTlsFingerprintProfileProvider {
-        private val currentProfile = AtomicReference(TlsFingerprintProfileNativeDefault)
+        private val currentProfile = AtomicReference(TlsFingerprintProfileChromeStable)
 
         init {
             scope.launch {

@@ -944,7 +944,7 @@ fn default_fake_payload_profile() -> String {
 }
 
 fn default_tls_fingerprint_profile() -> String {
-    TLS_FINGERPRINT_PROFILE_NATIVE_DEFAULT.to_string()
+    "chrome_stable".to_string()
 }
 
 fn default_fake_offset_marker() -> String {

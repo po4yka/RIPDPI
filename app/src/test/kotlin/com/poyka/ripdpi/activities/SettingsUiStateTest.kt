@@ -42,10 +42,11 @@ import com.poyka.ripdpi.data.TcpChainStepKind
 import com.poyka.ripdpi.data.TcpChainStepModel
 import com.poyka.ripdpi.data.TlsFakeProfileGoogleChrome
 import com.poyka.ripdpi.data.TlsFingerprintProfileChromeStable
-import com.poyka.ripdpi.data.TlsFingerprintProfileNativeDefault
 import com.poyka.ripdpi.data.UdpChainStepModel
 import com.poyka.ripdpi.data.UdpFakeProfileDnsQuery
 import com.poyka.ripdpi.data.WarpAccountKindConsumerFree
+import com.poyka.ripdpi.data.WarpAmneziaPresetBalanced
+import com.poyka.ripdpi.data.WarpAmneziaPresetCustom
 import com.poyka.ripdpi.data.WarpScannerModeAutomatic
 import com.poyka.ripdpi.data.WarpSetupStateNotConfigured
 import com.poyka.ripdpi.data.effectiveTcpChainSteps
@@ -127,8 +128,8 @@ class SettingsUiStateTest {
         assertEquals(WarpAccountKindConsumerFree, state.warp.accountKind)
         assertEquals(WarpSetupStateNotConfigured, state.warp.setupState)
         assertEquals(WarpScannerModeAutomatic, state.warp.lastScannerMode)
-        assertEquals(TlsFingerprintProfileNativeDefault, state.detectionResistance.tlsFingerprintProfile)
-        assertFalse(state.detectionResistance.tlsFingerprintProfileActive)
+        assertEquals(TlsFingerprintProfileChromeStable, state.detectionResistance.tlsFingerprintProfile)
+        assertTrue(state.detectionResistance.tlsFingerprintProfileActive)
         assertEquals(QuicFakeProfileCompatDefault, state.quic.quicFakeProfile)
         assertEquals("", state.quic.quicFakeHost)
         assertTrue(state.quic.quicFakeProfileActive)
@@ -163,6 +164,36 @@ class SettingsUiStateTest {
         assertEquals(15, state.diagnosticsSampleIntervalSeconds)
         assertEquals(14, state.diagnosticsHistoryRetentionDays)
         assertTrue(state.diagnosticsExportIncludeHistory)
+    }
+
+    @Test
+    fun `warp amnezia preset is exposed and custom fields stay gated`() {
+        val balancedState =
+            defaults
+                .toBuilder()
+                .setWarpEnabled(true)
+                .setWarpAmneziaPreset(WarpAmneziaPresetBalanced)
+                .build()
+                .toUiState()
+
+        assertEquals(WarpAmneziaPresetBalanced, balancedState.warp.amneziaPreset)
+        assertTrue(balancedState.warp.amneziaEnabled)
+        assertFalse(balancedState.warp.amneziaControlsEnabled)
+
+        val customState =
+            defaults
+                .toBuilder()
+                .setWarpEnabled(true)
+                .setWarpAmneziaPreset(WarpAmneziaPresetCustom)
+                .setWarpAmneziaEnabled(true)
+                .setWarpAmneziaJc(4)
+                .build()
+                .toUiState()
+
+        assertEquals(WarpAmneziaPresetCustom, customState.warp.amneziaPreset)
+        assertTrue(customState.warp.amneziaEnabled)
+        assertTrue(customState.warp.amneziaControlsEnabled)
+        assertEquals(4, customState.warp.amneziaJc)
     }
 
     @Test

@@ -27,6 +27,9 @@ pub struct ResolvedRelayRuntimeConfig {
     pub server_name: String,
     pub reality_public_key: String,
     pub reality_short_id: String,
+    pub vless_transport: String,
+    pub xhttp_path: String,
+    pub xhttp_host: String,
     pub chain_entry_server: String,
     pub chain_entry_port: i32,
     pub chain_entry_server_name: String,
@@ -118,6 +121,7 @@ impl RelayUdpSession {
 enum RelayBackend {
     Hysteria2(Hysteria2Backend),
     VlessReality(VlessRealityBackend),
+    Xhttp(XhttpBackend),
     ChainRelay(ChainRelayBackend),
     Masque(MasqueBackend),
     Unsupported { kind: String },
@@ -132,6 +136,7 @@ impl RelayBackend {
         match self {
             Self::Hysteria2(backend) => backend.connect_tcp(target).await,
             Self::VlessReality(backend) => backend.connect_tcp(target).await,
+            Self::Xhttp(backend) => backend.connect_tcp(target).await,
             Self::ChainRelay(backend) => backend.connect_tcp(target).await,
             Self::Masque(backend) => backend.connect_tcp(target).await,
             Self::Unsupported { kind, .. } => {
@@ -144,7 +149,7 @@ impl RelayBackend {
         match self {
             Self::Hysteria2(backend) => backend.open_udp_session().await,
             Self::Masque(backend) => backend.open_udp_session().await,
-            Self::VlessReality(_) | Self::ChainRelay(_) => {
+            Self::VlessReality(_) | Self::Xhttp(_) | Self::ChainRelay(_) => {
                 Err(io::Error::new(io::ErrorKind::Unsupported, "relay backend does not support UDP ASSOCIATE"))
             }
             Self::Unsupported { kind, .. } => {
@@ -193,6 +198,54 @@ impl VlessRealityBackend {
         .map_err(|error| io::Error::new(io::ErrorKind::InvalidInput, error.to_string()))?;
         let stream = ripdpi_vless::VlessRealityClient::connect(&config, &target.to_connect_target()).await?;
         Ok(Box::new(stream))
+    }
+}
+
+struct XhttpBackend {
+    config: ResolvedRelayRuntimeConfig,
+}
+
+impl XhttpBackend {
+    async fn connect_tcp(&self, target: &RelayTargetAddr) -> io::Result<BoxedIo> {
+        match self.config.kind.as_str() {
+            "cloudflare_tunnel" => {
+                let config = ripdpi_xhttp::XhttpTlsConfig::from_strings(
+                    &self.config.server,
+                    self.config.server_port,
+                    &self.config.server_name,
+                    self.config.vless_uuid.as_deref().unwrap_or_default(),
+                    &self.config.xhttp_path,
+                    &self.config.xhttp_host,
+                    &self.config.tls_fingerprint_profile,
+                )
+                .map_err(|error| io::Error::new(io::ErrorKind::InvalidInput, error.to_string()))?;
+                let stream = ripdpi_xhttp::connect_tls(&config, &target.to_connect_target()).await?;
+                Ok(Box::new(stream))
+            }
+            _ => {
+                let vless = ripdpi_vless::config::VlessRealityConfig::from_strings(
+                    &self.config.server,
+                    self.config.server_port,
+                    self.config.vless_uuid.as_deref().unwrap_or_default(),
+                    &self.config.server_name,
+                    &self.config.reality_public_key,
+                    &self.config.reality_short_id,
+                    &self.config.tls_fingerprint_profile,
+                )
+                .map_err(|error| io::Error::new(io::ErrorKind::InvalidInput, error.to_string()))?;
+                let config = ripdpi_xhttp::XhttpRealityConfig {
+                    vless,
+                    path: self.config.xhttp_path.clone(),
+                    host: if self.config.xhttp_host.trim().is_empty() {
+                        None
+                    } else {
+                        Some(self.config.xhttp_host.trim().to_owned())
+                    },
+                };
+                let stream = ripdpi_xhttp::connect_reality(&config, &target.to_connect_target()).await?;
+                Ok(Box::new(stream))
+            }
+        }
     }
 }
 
@@ -479,7 +532,11 @@ async fn build_backend(config: &ResolvedRelayRuntimeConfig) -> io::Result<RelayB
             let client = ripdpi_hysteria2::connect(&client_config).await.map_err(to_io_error)?;
             Ok(RelayBackend::Hysteria2(Hysteria2Backend { client }))
         }
+        "vless_reality" if config.vless_transport == "xhttp" => {
+            Ok(RelayBackend::Xhttp(XhttpBackend { config: config.clone() }))
+        }
         "vless_reality" => Ok(RelayBackend::VlessReality(VlessRealityBackend { config: config.clone() })),
+        "cloudflare_tunnel" => Ok(RelayBackend::Xhttp(XhttpBackend { config: config.clone() })),
         "chain_relay" => Ok(RelayBackend::ChainRelay(ChainRelayBackend { config: config.clone() })),
         "masque" => Ok(RelayBackend::Masque(MasqueBackend {
             client: ripdpi_masque::MasqueClient::new(ripdpi_masque::config::MasqueConfig {
@@ -504,7 +561,7 @@ fn backend_capabilities(config: &ResolvedRelayRuntimeConfig) -> (bool, bool, Opt
     match config.kind.as_str() {
         "hysteria2" => (true, true, None),
         "masque" => (true, true, None),
-        "vless_reality" | "chain_relay" => (true, false, None),
+        "vless_reality" | "cloudflare_tunnel" | "chain_relay" => (true, false, None),
         other => (false, false, Some(format!("unsupported:{other}"))),
     }
 }
@@ -515,8 +572,21 @@ fn describe_upstream(config: &ResolvedRelayRuntimeConfig) -> String {
             "{}:{} -> {}:{}",
             config.chain_entry_server, config.chain_entry_port, config.chain_exit_server, config.chain_exit_port,
         ),
+        "vless_reality" if config.vless_transport == "xhttp" => {
+            format!("{}:{}{}", config.server, config.server_port, normalized_xhttp_path(config))
+        }
+        "cloudflare_tunnel" => format!("{}:{}{}", config.server, config.server_port, normalized_xhttp_path(config)),
         "masque" => config.masque_url.clone(),
         _ => format!("{}:{}", config.server, config.server_port),
+    }
+}
+
+fn normalized_xhttp_path(config: &ResolvedRelayRuntimeConfig) -> String {
+    let trimmed = config.xhttp_path.trim().trim_matches('/');
+    if trimmed.is_empty() {
+        "/".to_owned()
+    } else {
+        format!("/{}", trimmed)
     }
 }
 
@@ -553,6 +623,9 @@ mod tests {
             server_name: "relay.example".to_string(),
             reality_public_key: String::new(),
             reality_short_id: String::new(),
+            vless_transport: "reality_tcp".to_string(),
+            xhttp_path: String::new(),
+            xhttp_host: String::new(),
             chain_entry_server: String::new(),
             chain_entry_port: 443,
             chain_entry_server_name: String::new(),
@@ -575,7 +648,7 @@ mod tests {
             chain_exit_uuid: Some("00000000-0000-0000-0000-000000000000".to_string()),
             hysteria_password: Some("secret".to_string()),
             hysteria_salamander_key: None,
-            tls_fingerprint_profile: "native_default".to_string(),
+            tls_fingerprint_profile: "chrome_stable".to_string(),
             masque_auth_mode: Some("token".to_string()),
             masque_auth_token: Some("token".to_string()),
             masque_cloudflare_client_id: None,
@@ -636,5 +709,28 @@ mod tests {
             }),
         )
         .expect("MASQUE privacy pass should validate");
+    }
+
+    #[test]
+    fn relay_runtime_routes_vless_xhttp_through_tcp_only_backend() {
+        let mut config = sample_config("vless_reality");
+        config.vless_transport = "xhttp".to_string();
+        config.xhttp_path = "/api/v1/stream".to_string();
+
+        let capabilities = backend_capabilities(&config);
+        assert_eq!((true, false), (capabilities.0, capabilities.1));
+        assert_eq!("relay.example:443/api/v1/stream", describe_upstream(&config));
+    }
+
+    #[tokio::test]
+    async fn relay_runtime_routes_cloudflare_tunnel_through_xhttp_backend() {
+        let mut config = sample_config("cloudflare_tunnel");
+        config.server = "edge.example.com".to_string();
+        config.server_name = "edge.example.com".to_string();
+        config.xhttp_path = "/cdn/api".to_string();
+
+        let backend = build_backend(&config).await;
+        assert!(backend.is_ok(), "cloudflare tunnel backend should resolve");
+        assert_eq!("edge.example.com:443/cdn/api", describe_upstream(&config));
     }
 }

@@ -186,7 +186,7 @@ class DetectionCheckViewModel
                                     webRtcProtectionEnabled = settings.webrtcProtectionEnabled,
                                     tlsFingerprintProfile =
                                         settings.tlsFingerprintProfile
-                                            .ifEmpty { "native_default" },
+                                            .ifEmpty { "chrome_stable" },
                                 )
                             val result =
                                 DetectionRunner.run(
@@ -204,7 +204,7 @@ class DetectionCheckViewModel
                             val fixes =
                                 DetectionAutoTuner.suggestFixes(
                                     result = result,
-                                    tlsFingerprintEnabled = settings.tlsFingerprintProfile != "native_default",
+                                    tlsFingerprintEnabled = true,
                                     entropyPaddingEnabled = settings.entropyMode != 0,
                                     encryptedDnsEnabled = settings.dnsMode == "encrypted",
                                     fullTunnelEnabled = settings.fullTunnelMode,

@@ -5,10 +5,12 @@ import com.poyka.ripdpi.core.RipDpiRelayConfig
 import com.poyka.ripdpi.core.RipDpiRelayFactory
 import com.poyka.ripdpi.core.RipDpiRelayRuntime
 import com.poyka.ripdpi.data.DefaultRelayProfileId
+import com.poyka.ripdpi.data.FailureReason
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
 import com.poyka.ripdpi.data.RelayCredentialRecord
 import com.poyka.ripdpi.data.RelayCredentialStore
 import com.poyka.ripdpi.data.RelayKindChainRelay
+import com.poyka.ripdpi.data.RelayKindCloudflareTunnel
 import com.poyka.ripdpi.data.RelayKindHysteria2
 import com.poyka.ripdpi.data.RelayKindMasque
 import com.poyka.ripdpi.data.RelayKindVlessReality
@@ -17,8 +19,11 @@ import com.poyka.ripdpi.data.RelayMasqueAuthModePreshared
 import com.poyka.ripdpi.data.RelayMasqueAuthModePrivacyPass
 import com.poyka.ripdpi.data.RelayProfileRecord
 import com.poyka.ripdpi.data.RelayProfileStore
-import com.poyka.ripdpi.data.TlsFingerprintProfileNativeDefault
+import com.poyka.ripdpi.data.RelayVlessTransportXhttp
+import com.poyka.ripdpi.data.ServiceStartupRejectedException
+import com.poyka.ripdpi.data.TlsFingerprintProfileChromeStable
 import com.poyka.ripdpi.data.normalizeRelayMasqueAuthMode
+import com.poyka.ripdpi.data.normalizeTlsFingerprintProfile
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
@@ -37,7 +42,7 @@ internal class UpstreamRelaySupervisor(
     private val masquePrivacyPassProvider: MasquePrivacyPassProvider = NoopMasquePrivacyPassProvider(),
     private val tlsFingerprintProfileProvider: OwnedTlsFingerprintProfileProvider =
         object : OwnedTlsFingerprintProfileProvider {
-            override fun currentProfile(): String = TlsFingerprintProfileNativeDefault
+            override fun currentProfile(): String = TlsFingerprintProfileChromeStable
         },
     private val stopTimeoutMillis: Long = 5_000L,
 ) {
@@ -115,7 +120,33 @@ internal class UpstreamRelaySupervisor(
     private suspend fun resolveRuntimeConfig(config: RipDpiRelayConfig): ResolvedRipDpiRelayConfig {
         val profileId = config.profileId.ifBlank { DefaultRelayProfileId }
         val storedProfile = relayProfileStore.load(profileId)
-        val effectiveConfig = mergeConfig(config, storedProfile)
+        val requestedTlsProfile = normalizeTlsFingerprintProfile(tlsFingerprintProfileProvider.currentProfile())
+        val effectiveConfig =
+            mergeConfig(config, storedProfile).let { merged ->
+                when (merged.kind) {
+                    RelayKindCloudflareTunnel -> {
+                        merged.copy(
+                            vlessTransport = RelayVlessTransportXhttp,
+                            udpEnabled = false,
+                        )
+                    }
+
+                    RelayKindMasque -> {
+                        merged.copy(
+                            masqueUseHttp2Fallback =
+                                if (requestedTlsProfile == TlsFingerprintProfileChromeStable) {
+                                    true
+                                } else {
+                                    merged.masqueUseHttp2Fallback
+                                },
+                        )
+                    }
+
+                    else -> {
+                        merged
+                    }
+                }
+            }
         val credentials = relayCredentialStore.load(profileId)
         val masqueAuthMode = resolveMasqueAuthMode(effectiveConfig, credentials)
         val privacyPassRuntime =
@@ -125,7 +156,13 @@ internal class UpstreamRelaySupervisor(
                 null
             }
         validateCredentials(profileId, effectiveConfig.kind, masqueAuthMode, credentials)
-        validateSupportedFeatures(profileId, effectiveConfig, masqueAuthMode, privacyPassRuntime)
+        validateSupportedFeatures(profileId, effectiveConfig, masqueAuthMode, privacyPassRuntime, requestedTlsProfile)
+        val effectiveTlsProfile =
+            if (effectiveConfig.kind == RelayKindCloudflareTunnel) {
+                TlsFingerprintProfileChromeStable
+            } else {
+                requestedTlsProfile
+            }
         return ResolvedRipDpiRelayConfig(
             enabled = effectiveConfig.enabled,
             kind = effectiveConfig.kind,
@@ -135,6 +172,9 @@ internal class UpstreamRelaySupervisor(
             serverName = effectiveConfig.serverName,
             realityPublicKey = effectiveConfig.realityPublicKey,
             realityShortId = effectiveConfig.realityShortId,
+            vlessTransport = effectiveConfig.vlessTransport,
+            xhttpPath = effectiveConfig.xhttpPath,
+            xhttpHost = effectiveConfig.xhttpHost,
             chainEntryServer = effectiveConfig.chainEntryServer,
             chainEntryPort = effectiveConfig.chainEntryPort,
             chainEntryServerName = effectiveConfig.chainEntryServerName,
@@ -157,7 +197,7 @@ internal class UpstreamRelaySupervisor(
             chainExitUuid = credentials?.chainExitUuid,
             hysteriaPassword = credentials?.hysteriaPassword,
             hysteriaSalamanderKey = credentials?.hysteriaSalamanderKey,
-            tlsFingerprintProfile = tlsFingerprintProfileProvider.currentProfile(),
+            tlsFingerprintProfile = effectiveTlsProfile,
             masqueAuthMode = masqueAuthMode,
             masqueAuthToken = credentials?.masqueAuthToken,
             masqueCloudflareClientId = credentials?.masqueCloudflareClientId,
@@ -180,6 +220,9 @@ internal class UpstreamRelaySupervisor(
             serverName = profile.serverName.ifBlank { config.serverName },
             realityPublicKey = profile.realityPublicKey.ifBlank { config.realityPublicKey },
             realityShortId = profile.realityShortId.ifBlank { config.realityShortId },
+            vlessTransport = profile.vlessTransport.ifBlank { config.vlessTransport },
+            xhttpPath = profile.xhttpPath.ifBlank { config.xhttpPath },
+            xhttpHost = profile.xhttpHost.ifBlank { config.xhttpHost },
             chainEntryServer = profile.chainEntryServer.ifBlank { config.chainEntryServer },
             chainEntryPort = profile.chainEntryPort,
             chainEntryServerName = profile.chainEntryServerName.ifBlank { config.chainEntryServerName },
@@ -208,7 +251,9 @@ internal class UpstreamRelaySupervisor(
     ) {
         val isValid =
             when (relayKind) {
-                RelayKindVlessReality -> {
+                RelayKindVlessReality,
+                RelayKindCloudflareTunnel,
+                -> {
                     !credentials?.vlessUuid.isNullOrBlank()
                 }
 
@@ -245,9 +290,27 @@ internal class UpstreamRelaySupervisor(
         config: RipDpiRelayConfig,
         masqueAuthMode: String?,
         privacyPassRuntime: MasquePrivacyPassRuntimeConfig?,
+        tlsFingerprintProfile: String,
     ) {
         require(!config.udpEnabled || config.kind == RelayKindHysteria2 || config.kind == RelayKindMasque) {
             "Relay UDP mode is only available for Hysteria2 and MASQUE profiles"
+        }
+        require(!(config.vlessTransport == RelayVlessTransportXhttp && config.udpEnabled)) {
+            "xHTTP transport does not support UDP mode"
+        }
+        if (config.kind == RelayKindCloudflareTunnel && tlsFingerprintProfile != TlsFingerprintProfileChromeStable) {
+            throw ServiceStartupRejectedException(
+                FailureReason.RelayFingerprintPolicyRejected(
+                    "Cloudflare Tunnel requires the Chrome stable TLS fingerprint profile",
+                ),
+            )
+        }
+        if (config.kind == RelayKindHysteria2 && tlsFingerprintProfile == TlsFingerprintProfileChromeStable) {
+            throw ServiceStartupRejectedException(
+                FailureReason.RelayFingerprintPolicyRejected(
+                    "Hysteria2 is blocked until Chrome-like QUIC fingerprinting is implemented",
+                ),
+            )
         }
         if (config.kind == RelayKindMasque && masqueAuthMode == RelayMasqueAuthModePrivacyPass) {
             requireNotNull(privacyPassRuntime) {
@@ -289,7 +352,7 @@ internal open class UpstreamRelaySupervisorFactory
             relayCredentialStore,
             NoopMasquePrivacyPassProvider(),
             object : OwnedTlsFingerprintProfileProvider {
-                override fun currentProfile(): String = TlsFingerprintProfileNativeDefault
+                override fun currentProfile(): String = TlsFingerprintProfileChromeStable
             },
         )
 
