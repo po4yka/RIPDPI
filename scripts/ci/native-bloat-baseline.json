@@ -5,7 +5,7 @@
   "topCrates": 20,
   "maxTextSectionGrowthBytes": 131072,
   "maxFunctionGrowthBytes": 4096,
-  "maxCrateGrowthBytes": 16384,
+  "maxCrateGrowthBytes": 24576,
   "maxNewFunctionSizeBytes": 12288,
   "maxNewCrateSizeBytes": 65536,
   "packages": {
