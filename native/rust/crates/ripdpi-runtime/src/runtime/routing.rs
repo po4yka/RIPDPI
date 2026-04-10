@@ -74,6 +74,54 @@ pub(super) fn connect_target(
     connect_target_with_route(target, state, route, payload, host)
 }
 
+fn preferred_tcp_targets(state: &RuntimeState, original_target: SocketAddr, host: Option<&str>) -> Vec<SocketAddr> {
+    let mut targets = Vec::new();
+    if let Some(host) = host {
+        if let Some(runtime_context) = state.runtime_context.as_ref() {
+            let normalized = host.trim().to_lowercase();
+            if let Some(edges) =
+                runtime_context.preferred_edges.get(&normalized).or_else(|| runtime_context.preferred_edges.get(host))
+            {
+                for edge in edges.iter().filter(|edge| matches!(edge.transport_kind.as_str(), "tcp" | "throughput")) {
+                    let Ok(ip) = edge.ip.parse::<IpAddr>() else {
+                        continue;
+                    };
+                    let candidate = SocketAddr::new(ip, original_target.port());
+                    if !targets.contains(&candidate) {
+                        targets.push(candidate);
+                    }
+                    if targets.len() >= 2 {
+                        break;
+                    }
+                }
+            }
+        }
+    }
+    if !targets.contains(&original_target) {
+        targets.push(original_target);
+    }
+    targets
+}
+
+fn connect_target_candidates_via_group(
+    targets: &[SocketAddr],
+    state: &RuntimeState,
+    group_index: usize,
+    tfo_enabled: bool,
+) -> Result<TcpStream, ConnectAttemptError> {
+    let mut last_error = None;
+    for &candidate in targets {
+        match connect_target_via_group_with_tfo(candidate, state, group_index, tfo_enabled) {
+            Ok(stream) => return Ok(stream),
+            Err(err) => last_error = Some(err),
+        }
+    }
+    Err(last_error.unwrap_or_else(|| ConnectAttemptError {
+        source: io::Error::new(io::ErrorKind::AddrNotAvailable, "no target candidates available"),
+        tcp_total_retransmissions: None,
+    }))
+}
+
 pub(super) fn connect_target_with_route(
     target: SocketAddr,
     state: &RuntimeState,
@@ -84,14 +132,16 @@ pub(super) fn connect_target_with_route(
     let max_retries = state.config.max_route_retries;
     let mut retries: usize = 0;
     loop {
-        match connect_target_via_group(target, state, route.group_index) {
+        let attempt_targets = preferred_tcp_targets(state, target, host.as_deref());
+        match connect_target_candidates_via_group(&attempt_targets, state, route.group_index, state.config.network.tfo)
+        {
             Ok(stream) => return Ok((stream, route)),
             Err(mut err) => {
                 retries += 1;
                 let mut failure = classify_transport_error(FailureStage::Connect, &err.source);
                 if should_retry_without_tfo(state, &failure) {
                     tracing::debug!(group_index = route.group_index, target = %target, "retrying connect without TCP Fast Open");
-                    match connect_target_via_group_with_tfo(target, state, route.group_index, false) {
+                    match connect_target_candidates_via_group(&attempt_targets, state, route.group_index, false) {
                         Ok(stream) => return Ok((stream, route)),
                         Err(fallback_err) => {
                             err = fallback_err;
@@ -339,14 +389,6 @@ pub(super) fn note_route_success_for_transport(
     cache.note_route_success_for_transport(&state.config, target, route, host, transport)?;
     flush_autolearn_updates(state, &mut cache);
     Ok(())
-}
-
-pub(super) fn connect_target_via_group(
-    target: SocketAddr,
-    state: &RuntimeState,
-    group_index: usize,
-) -> Result<TcpStream, ConnectAttemptError> {
-    connect_target_via_group_with_tfo(target, state, group_index, state.config.network.tfo)
 }
 
 fn connect_target_via_group_with_tfo(
@@ -638,7 +680,9 @@ pub(super) fn reconnect_target(
     let mut retries: usize = 0;
     loop {
         super::retry::apply_retry_pacing_before_connect(state, target, &route, host.as_deref(), payload)?;
-        match connect_target_via_group(target, state, route.group_index) {
+        let attempt_targets = preferred_tcp_targets(state, target, host.as_deref());
+        match connect_target_candidates_via_group(&attempt_targets, state, route.group_index, state.config.network.tfo)
+        {
             Ok(stream) => return Ok((stream, route)),
             Err(mut err) => {
                 retries += 1;
@@ -648,7 +692,7 @@ pub(super) fn reconnect_target(
                 let mut failure = classify_transport_error(FailureStage::Connect, &err.source);
                 if should_retry_without_tfo(state, &failure) {
                     tracing::debug!(group_index = route.group_index, target = %target, "retrying reconnect without TCP Fast Open");
-                    match connect_target_via_group_with_tfo(target, state, route.group_index, false) {
+                    match connect_target_candidates_via_group(&attempt_targets, state, route.group_index, false) {
                         Ok(stream) => return Ok((stream, route)),
                         Err(fallback_err) => {
                             err = fallback_err;

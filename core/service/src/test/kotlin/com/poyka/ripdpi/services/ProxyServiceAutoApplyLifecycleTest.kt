@@ -174,6 +174,7 @@ class ProxyServiceAutoApplyLifecycleTest {
                 appSettingsRepository = appSettingsRepository,
                 networkFingerprintProvider = fingerprintProvider,
                 networkDnsPathPreferenceStore = TestNetworkDnsPathPreferenceStore(),
+                networkEdgePreferenceStore = TestNetworkEdgePreferenceStore(),
                 rememberedNetworkPolicyStore = rememberedPolicies,
                 startupDnsProbe = VpnStartupDnsProbe(),
                 rootHelperManager = RootHelperManager(),

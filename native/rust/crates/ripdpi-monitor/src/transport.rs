@@ -17,10 +17,22 @@ pub(crate) enum TransportConfig {
     Socks5 { host: String, port: u16 },
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) enum TargetAddress {
     Host(String),
     Ip(IpAddr),
+}
+
+#[derive(Debug)]
+pub(crate) struct TransportConnectResult {
+    pub(crate) stream: TcpStream,
+    pub(crate) connected_addr: Option<SocketAddr>,
+}
+
+#[derive(Debug)]
+pub(crate) struct UdpRelayResult {
+    pub(crate) payload: Vec<u8>,
+    pub(crate) connected_addr: Option<SocketAddr>,
 }
 
 #[derive(Debug)]
@@ -88,19 +100,50 @@ pub(crate) fn describe_transport(transport: &TransportConfig) -> String {
 // --- Address resolution ---
 
 pub(crate) fn domain_connect_target(target: &DomainTarget) -> TargetAddress {
-    target
-        .connect_ip
-        .as_ref()
-        .and_then(|ip| ip.parse::<IpAddr>().ok())
-        .map_or_else(|| TargetAddress::Host(target.host.clone()), TargetAddress::Ip)
+    domain_connect_targets(target).into_iter().next().unwrap_or_else(|| TargetAddress::Host(target.host.clone()))
 }
 
 pub(crate) fn quic_connect_target(target: &QuicTarget) -> TargetAddress {
-    target
-        .connect_ip
-        .as_ref()
-        .and_then(|ip| ip.parse::<IpAddr>().ok())
-        .map_or_else(|| TargetAddress::Host(target.host.clone()), TargetAddress::Ip)
+    quic_connect_targets(target).into_iter().next().unwrap_or_else(|| TargetAddress::Host(target.host.clone()))
+}
+
+pub(crate) fn domain_connect_targets(target: &DomainTarget) -> Vec<TargetAddress> {
+    ordered_connect_targets(Some(target.host.as_str()), target.connect_ip.as_deref(), &target.connect_ips)
+}
+
+pub(crate) fn quic_connect_targets(target: &QuicTarget) -> Vec<TargetAddress> {
+    ordered_connect_targets(Some(target.host.as_str()), target.connect_ip.as_deref(), &target.connect_ips)
+}
+
+pub(crate) fn throughput_connect_targets(
+    host: Option<&str>,
+    connect_ip: Option<&str>,
+    connect_ips: &[String],
+) -> Vec<TargetAddress> {
+    ordered_connect_targets(host, connect_ip, connect_ips)
+}
+
+fn ordered_connect_targets(host: Option<&str>, connect_ip: Option<&str>, connect_ips: &[String]) -> Vec<TargetAddress> {
+    let mut ordered = Vec::new();
+    for value in connect_ip.into_iter().chain(connect_ips.iter().map(String::as_str)) {
+        let trimmed = value.trim();
+        if trimmed.is_empty() {
+            continue;
+        }
+        if let Ok(ip) = trimmed.parse::<IpAddr>() {
+            let target = TargetAddress::Ip(ip);
+            if !ordered.contains(&target) {
+                ordered.push(target);
+            }
+        }
+    }
+    if let Some(host) = host.filter(|value| !value.trim().is_empty()) {
+        let fallback = TargetAddress::Host(host.to_string());
+        if !ordered.contains(&fallback) {
+            ordered.push(fallback);
+        }
+    }
+    ordered
 }
 
 /// DNS resolution timeout — caps blocking `getaddrinfo` calls so that poisoned
@@ -134,21 +177,99 @@ pub(crate) fn connect_transport(
     port: u16,
     transport: &TransportConfig,
 ) -> Result<TcpStream, String> {
+    Ok(connect_transport_observed(std::slice::from_ref(target), port, transport)?.stream)
+}
+
+pub(crate) fn connect_transport_observed(
+    targets: &[TargetAddress],
+    port: u16,
+    transport: &TransportConfig,
+) -> Result<TransportConnectResult, String> {
     match transport {
-        TransportConfig::Direct => connect_direct(target, port),
+        TransportConfig::Direct => connect_direct_observed(targets, port),
         TransportConfig::Socks5 { host, port: proxy_port } => {
-            let proxy = connect_direct(&TargetAddress::Host(host.clone()), *proxy_port)?;
-            negotiate_socks5(proxy, target, port)
+            connect_via_socks5_observed(targets, port, host, *proxy_port)
         }
     }
 }
 
 pub(crate) fn connect_direct(target: &TargetAddress, port: u16) -> Result<TcpStream, String> {
-    let addresses = resolve_addresses(target, port)?;
+    Ok(connect_direct_observed(std::slice::from_ref(target), port)?.stream)
+}
+
+fn connect_direct_observed(targets: &[TargetAddress], port: u16) -> Result<TransportConnectResult, String> {
+    let addresses = resolve_candidate_addresses(targets, port)?;
+    let (stream, connected_addr) = connect_addresses_with_race(&addresses)?;
+    Ok(TransportConnectResult { stream, connected_addr: Some(connected_addr) })
+}
+
+fn connect_via_socks5_observed(
+    targets: &[TargetAddress],
+    port: u16,
+    proxy_host: &str,
+    proxy_port: u16,
+) -> Result<TransportConnectResult, String> {
     let mut last_error = None;
-    for address in addresses {
+    for target in targets {
+        let proxy = connect_direct(&TargetAddress::Host(proxy_host.to_string()), proxy_port)?;
+        match negotiate_socks5(proxy, target, port) {
+            Ok(stream) => {
+                let connected_addr = match target {
+                    TargetAddress::Ip(ip) => Some(SocketAddr::new(*ip, port)),
+                    TargetAddress::Host(_) => None,
+                };
+                return Ok(TransportConnectResult { stream, connected_addr });
+            }
+            Err(err) => last_error = Some(err),
+        }
+    }
+    Err(last_error.unwrap_or_else(|| "no_target_candidates".to_string()))
+}
+
+fn resolve_candidate_addresses(targets: &[TargetAddress], port: u16) -> Result<Vec<SocketAddr>, String> {
+    let mut resolved = Vec::new();
+    for target in targets {
+        for address in resolve_addresses(target, port)? {
+            if !resolved.contains(&address) {
+                resolved.push(address);
+            }
+        }
+    }
+    if resolved.is_empty() {
+        return Err("no_socket_addrs".to_string());
+    }
+    Ok(resolved)
+}
+
+fn connect_addresses_with_race(addresses: &[SocketAddr]) -> Result<(TcpStream, SocketAddr), String> {
+    let initial_batch = addresses.iter().take(2).copied().collect::<Vec<_>>();
+    let mut last_error = None;
+    if !initial_batch.is_empty() {
+        let raced = thread::scope(|scope| {
+            let handles = initial_batch
+                .iter()
+                .map(|address| scope.spawn(move || (*address, TcpStream::connect_timeout(address, CONNECT_TIMEOUT))))
+                .collect::<Vec<_>>();
+            let mut winner = None;
+            let mut local_last_error = None;
+            for handle in handles {
+                let (address, result) = handle.join().map_err(|_| "connect_race_panicked".to_string())?;
+                match result {
+                    Ok(stream) if winner.is_none() => winner = Some((stream, address)),
+                    Ok(_) => {}
+                    Err(err) => local_last_error = Some(err.to_string()),
+                }
+            }
+            Ok::<_, String>((winner, local_last_error))
+        })?;
+        if let Some((stream, address)) = raced.0 {
+            return Ok((stream, address));
+        }
+        last_error = raced.1;
+    }
+    for address in addresses.iter().skip(initial_batch.len()).copied() {
         match TcpStream::connect_timeout(&address, CONNECT_TIMEOUT) {
-            Ok(stream) => return Ok(stream),
+            Ok(stream) => return Ok((stream, address)),
             Err(err) => last_error = Some(err.to_string()),
         }
     }
@@ -326,11 +447,50 @@ pub(crate) fn relay_udp_payload(
     transport: &TransportConfig,
     payload: &[u8],
 ) -> Result<Vec<u8>, String> {
-    let destination =
-        resolve_addresses(target, port)?.into_iter().next().ok_or_else(|| "no_socket_addrs".to_string())?;
+    Ok(relay_udp_payload_observed(std::slice::from_ref(target), port, transport, payload)?.payload)
+}
+
+pub(crate) fn relay_udp_payload_observed(
+    targets: &[TargetAddress],
+    port: u16,
+    transport: &TransportConfig,
+    payload: &[u8],
+) -> Result<UdpRelayResult, String> {
     match transport {
-        TransportConfig::Direct => relay_udp_direct(destination, payload),
-        TransportConfig::Socks5 { host, port } => relay_udp_via_socks5(host, *port, destination, payload),
+        TransportConfig::Direct => {
+            let destinations = resolve_candidate_addresses(targets, port)?;
+            let mut last_error = None;
+            for destination in destinations {
+                match relay_udp_direct(destination, payload) {
+                    Ok(bytes) => return Ok(UdpRelayResult { payload: bytes, connected_addr: Some(destination) }),
+                    Err(err) => last_error = Some(err),
+                }
+            }
+            Err(last_error.unwrap_or_else(|| "no_socket_addrs".to_string()))
+        }
+        TransportConfig::Socks5 { host, port: proxy_port } => {
+            let mut last_error = None;
+            for target in targets {
+                let destination = match target {
+                    TargetAddress::Ip(ip) => SocketAddr::new(*ip, port),
+                    TargetAddress::Host(host_name) => {
+                        let Some(address) =
+                            resolve_addresses(&TargetAddress::Host(host_name.clone()), port)?.into_iter().next()
+                        else {
+                            continue;
+                        };
+                        address
+                    }
+                };
+                match relay_udp_via_socks5(host, *proxy_port, destination, payload) {
+                    Ok(bytes) => {
+                        return Ok(UdpRelayResult { payload: bytes, connected_addr: Some(destination) });
+                    }
+                    Err(err) => last_error = Some(err),
+                }
+            }
+            Err(last_error.unwrap_or_else(|| "no_target_candidates".to_string()))
+        }
     }
 }
 
@@ -418,6 +578,7 @@ mod tests {
         let target = DomainTarget {
             host: "example.com".to_string(),
             connect_ip: Some("1.2.3.4".to_string()),
+            connect_ips: vec![],
             https_port: None,
             http_port: None,
             http_path: "/".to_string(),
@@ -434,6 +595,7 @@ mod tests {
         let target = DomainTarget {
             host: "example.com".to_string(),
             connect_ip: None,
+            connect_ips: vec![],
             https_port: None,
             http_port: None,
             http_path: "/".to_string(),
@@ -443,6 +605,30 @@ mod tests {
             TargetAddress::Host(host) => assert_eq!(host, "example.com"),
             TargetAddress::Ip(_) => panic!("expected Host"),
         }
+    }
+
+    #[test]
+    fn domain_connect_targets_keep_legacy_connect_ip_ahead_of_edge_list_and_host_fallback() {
+        let target = DomainTarget {
+            host: "example.com".to_string(),
+            connect_ip: Some("203.0.113.10".to_string()),
+            connect_ips: vec!["203.0.113.20".to_string(), "203.0.113.10".to_string()],
+            https_port: None,
+            http_port: None,
+            http_path: "/".to_string(),
+            is_control: false,
+        };
+
+        let targets = domain_connect_targets(&target);
+
+        assert_eq!(
+            targets,
+            vec![
+                TargetAddress::Ip("203.0.113.10".parse::<IpAddr>().unwrap()),
+                TargetAddress::Ip("203.0.113.20".parse::<IpAddr>().unwrap()),
+                TargetAddress::Host("example.com".to_string()),
+            ]
+        );
     }
 
     #[test]

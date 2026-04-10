@@ -157,6 +157,11 @@ class DiagnosticsExecutionPolicyTest {
                     diagnosticsContextProvider = FakeDiagnosticsContextProvider(),
                     networkDnsPathPreferenceStore =
                         DefaultNetworkDnsPathPreferenceStore(stores, TestDiagnosticsHistoryClock()),
+                    networkEdgePreferenceStore =
+                        com.poyka.ripdpi.data.diagnostics.DefaultNetworkEdgePreferenceStore(
+                            stores,
+                            TestDiagnosticsHistoryClock(),
+                        ),
                     serviceStateStore = FakeServiceStateStore(),
                     json = json,
                 )

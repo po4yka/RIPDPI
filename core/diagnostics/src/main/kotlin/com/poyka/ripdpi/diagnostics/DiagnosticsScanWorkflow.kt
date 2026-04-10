@@ -46,6 +46,17 @@ internal object DiagnosticsScanWorkflow {
             "quic_compat_burst",
             "quic_realistic_burst",
             "quic_burst",
+            "quic_multi_initial_realistic",
+            "quic_sni_split",
+            "quic_crypto_split",
+            "quic_padding_ladder",
+            "quic_cid_churn",
+            "quic_packet_number_gap",
+            "quic_version_negotiation_decoy",
+            "quic_fake_version",
+            "quic_dummy_prepend",
+            "quic_ipfrag2",
+            "quic_ipfrag2_ipv6_ext",
         )
 
     private data class ValidatedStrategyProbeRecommendation(

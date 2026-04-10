@@ -7,6 +7,11 @@ import com.poyka.ripdpi.data.EncryptedDnsPathCandidate
 import com.poyka.ripdpi.data.EncryptedDnsProtocolDoh
 import com.poyka.ripdpi.data.NetworkDnsPathPreferenceRetentionLimit
 import com.poyka.ripdpi.data.NetworkDnsPathPreferenceRetentionMaxAgeMs
+import com.poyka.ripdpi.data.NetworkEdgePreferenceRetentionLimit
+import com.poyka.ripdpi.data.NetworkEdgePreferenceRetentionMaxAgeMs
+import com.poyka.ripdpi.data.PreferredEdgeCandidate
+import com.poyka.ripdpi.data.PreferredEdgeIpVersionV4
+import com.poyka.ripdpi.data.PreferredEdgeTransportTcp
 import com.poyka.ripdpi.data.RememberedNetworkPolicyRetentionLimit
 import com.poyka.ripdpi.data.RememberedNetworkPolicyRetentionMaxAgeMs
 import com.poyka.ripdpi.data.RememberedNetworkPolicySource
@@ -310,10 +315,59 @@ class DiagnosticsHistoryStoresRoomTest {
         }
 
     @Test
+    fun `network edge preference store isolates records and prunes stale rows`() =
+        runTest {
+            val store = RoomNetworkEdgePreferenceRecordStore(dao, clock)
+
+            repeat(NetworkEdgePreferenceRetentionLimit + 2) { index ->
+                store.upsertNetworkEdgePreference(
+                    edgePreference(
+                        fingerprintHash = "fp-$index",
+                        host = "host-$index.example",
+                        transportKind = PreferredEdgeTransportTcp,
+                        updatedAt = clock.now() - 1_000L + index,
+                    ),
+                )
+            }
+            store.upsertNetworkEdgePreference(
+                edgePreference(
+                    fingerprintHash = "fp-stale",
+                    host = "stale.example",
+                    transportKind = PreferredEdgeTransportTcp,
+                    updatedAt = clock.now() - NetworkEdgePreferenceRetentionMaxAgeMs - 1L,
+                ),
+            )
+            store.upsertNetworkEdgePreference(
+                edgePreference(
+                    fingerprintHash = "fp-runtime",
+                    host = "alpha.example",
+                    transportKind = PreferredEdgeTransportTcp,
+                    updatedAt = clock.now(),
+                ),
+            )
+            store.upsertNetworkEdgePreference(
+                edgePreference(
+                    fingerprintHash = "fp-runtime",
+                    host = "alpha.example",
+                    transportKind = "quic",
+                    updatedAt = clock.now(),
+                ),
+            )
+
+            assertEquals(2, store.getNetworkEdgePreferencesForFingerprint("fp-runtime").size)
+
+            store.pruneNetworkEdgePreferences()
+
+            assertNull(store.getNetworkEdgePreference("fp-stale", "stale.example", PreferredEdgeTransportTcp))
+            assertEquals(NetworkEdgePreferenceRetentionLimit, rowCount("network_edge_preferences"))
+        }
+
+    @Test
     fun `clearing remembered network memory does not wipe diagnostics history`() =
         runTest {
             val rememberedStore = RoomRememberedNetworkPolicyRecordStore(dao, clock)
             val dnsStore = RoomNetworkDnsPathPreferenceRecordStore(dao, clock)
+            val edgeStore = RoomNetworkEdgePreferenceRecordStore(dao, clock)
             val artifactStore = RoomDiagnosticsArtifactStore(dao)
             val bypassStore = RoomBypassUsageHistoryStore(dao)
 
@@ -332,6 +386,14 @@ class DiagnosticsHistoryStoresRoomTest {
                     updatedAt = clock.now(),
                 ),
             )
+            edgeStore.upsertNetworkEdgePreference(
+                edgePreference(
+                    fingerprintHash = "fp-clear",
+                    host = "example.com",
+                    transportKind = PreferredEdgeTransportTcp,
+                    updatedAt = clock.now(),
+                ),
+            )
             artifactStore.upsertSnapshot(
                 snapshot(id = "snap-keep", sessionId = "scan-1", capturedAt = clock.now()),
             )
@@ -344,9 +406,11 @@ class DiagnosticsHistoryStoresRoomTest {
 
             rememberedStore.clearRememberedNetworkPolicies()
             dnsStore.clearNetworkDnsPathPreferences()
+            edgeStore.clearNetworkEdgePreferences()
 
             assertEquals(0, rowCount("remembered_network_policies"))
             assertEquals(0, rowCount("network_dns_path_preferences"))
+            assertEquals(0, rowCount("network_edge_preferences"))
             assertEquals(1, rowCount("network_snapshots"))
             assertEquals(1, rowCount("native_session_events"))
             assertEquals(1, rowCount("bypass_usage_sessions"))
@@ -697,6 +761,30 @@ private fun dnsPreference(
                 dohUrl = "https://cloudflare-dns.com/dns-query",
                 dnscryptProviderName = "",
                 dnscryptPublicKey = "",
+            ),
+        ),
+    updatedAt = updatedAt,
+)
+
+private fun edgePreference(
+    fingerprintHash: String,
+    host: String,
+    transportKind: String,
+    updatedAt: Long,
+) = NetworkEdgePreferenceEntity(
+    fingerprintHash = fingerprintHash,
+    host = host,
+    transportKind = transportKind,
+    summaryJson = "{}",
+    edgesJson =
+        kotlinx.serialization.json.Json.encodeToString(
+            kotlinx.serialization.builtins.ListSerializer(PreferredEdgeCandidate.serializer()),
+            listOf(
+                PreferredEdgeCandidate(
+                    ip = "203.0.113.10",
+                    transportKind = transportKind,
+                    ipVersion = PreferredEdgeIpVersionV4,
+                ),
             ),
         ),
     updatedAt = updatedAt,

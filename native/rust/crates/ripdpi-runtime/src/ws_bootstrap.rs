@@ -309,7 +309,11 @@ mod tests {
     }
 
     fn fixture_runtime_context(dns_http_port: u16) -> ProxyRuntimeContext {
-        ProxyRuntimeContext { encrypted_dns: Some(fixture_encrypted_dns_context(dns_http_port)), protect_path: None }
+        ProxyRuntimeContext {
+            encrypted_dns: Some(fixture_encrypted_dns_context(dns_http_port)),
+            protect_path: None,
+            preferred_edges: Default::default(),
+        }
     }
 
     fn fixture_encrypted_dns_context(dns_http_port: u16) -> ProxyEncryptedDnsContext {

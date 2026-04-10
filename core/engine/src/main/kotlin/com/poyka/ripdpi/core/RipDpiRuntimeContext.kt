@@ -4,6 +4,8 @@ import com.poyka.ripdpi.data.ActiveDnsSettings
 import com.poyka.ripdpi.data.DnsModeEncrypted
 import com.poyka.ripdpi.data.EncryptedDnsProtocolDnsCrypt
 import com.poyka.ripdpi.data.EncryptedDnsProtocolDoh
+import com.poyka.ripdpi.data.PreferredEdgeCandidate
+import com.poyka.ripdpi.data.normalizePreferredEdgeCandidates
 import kotlinx.serialization.Serializable
 
 @Serializable
@@ -32,6 +34,7 @@ data class RipDpiLogContext(
 data class RipDpiRuntimeContext(
     val encryptedDns: RipDpiEncryptedDnsContext? = null,
     val protectPath: String? = null,
+    val preferredEdges: Map<String, List<PreferredEdgeCandidate>> = emptyMap(),
 )
 
 internal fun normalizeLogContext(logContext: RipDpiLogContext?): RipDpiLogContext? =
@@ -76,8 +79,23 @@ internal fun normalizeRuntimeContext(runtimeContext: RipDpiRuntimeContext?): Rip
                 )
             }
         val protectPath = ctx.protectPath?.trim()?.takeIf { it.isNotEmpty() }
-        RipDpiRuntimeContext(encryptedDns = encryptedDns, protectPath = protectPath).takeIf {
-            encryptedDns != null || protectPath != null
+        val preferredEdges =
+            ctx.preferredEdges
+                .mapNotNull { (host, candidates) ->
+                    val normalizedHost = host.trim().lowercase().takeIf { it.isNotEmpty() }
+                    val normalizedCandidates = normalizePreferredEdgeCandidates(candidates)
+                    if (normalizedHost == null || normalizedCandidates.isEmpty()) {
+                        null
+                    } else {
+                        normalizedHost to normalizedCandidates
+                    }
+                }.toMap()
+        RipDpiRuntimeContext(
+            encryptedDns = encryptedDns,
+            protectPath = protectPath,
+            preferredEdges = preferredEdges,
+        ).takeIf {
+            encryptedDns != null || protectPath != null || preferredEdges.isNotEmpty()
         }
     }
 

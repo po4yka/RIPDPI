@@ -587,6 +587,9 @@ internal fun executionCoordinatorFixtures(
     serviceStateStore: FakeServiceStateStore,
     resolverOverrideStore: FakeResolverOverrideStore = FakeResolverOverrideStore(),
     networkFingerprintProvider: com.poyka.ripdpi.data.NetworkFingerprintProvider = FakeNetworkFingerprintProvider(),
+    networkEdgePreferenceStore: com.poyka.ripdpi.data.diagnostics.DefaultNetworkEdgePreferenceStore =
+        com.poyka.ripdpi.data.diagnostics
+            .DefaultNetworkEdgePreferenceStore(stores, TestDiagnosticsHistoryClock()),
     preferredPathStore: DefaultNetworkDnsPathPreferenceStore =
         DefaultNetworkDnsPathPreferenceStore(stores, TestDiagnosticsHistoryClock()),
     rememberedNetworkPolicyStore: DefaultRememberedNetworkPolicyStore =
@@ -614,6 +617,7 @@ internal fun executionCoordinatorFixtures(
             serviceStateStore = serviceStateStore,
             resolverOverrideStore = resolverOverrideStore,
             rememberedNetworkPolicyStore = rememberedNetworkPolicyStore,
+            networkEdgePreferenceStore = networkEdgePreferenceStore,
             networkDnsPathPreferenceStore = preferredPathStore,
             findingProjector = DiagnosticsFindingProjector(),
             json = json,
@@ -636,6 +640,7 @@ internal fun executionCoordinatorFixtures(
                         },
                     diagnosticsContextProvider = diagnosticsContextProvider,
                     networkDnsPathPreferenceStore = preferredPathStore,
+                    networkEdgePreferenceStore = networkEdgePreferenceStore,
                     serviceStateStore = serviceStateStore,
                     json = json,
                 ),

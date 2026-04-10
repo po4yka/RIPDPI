@@ -207,7 +207,25 @@ pub(crate) fn filter_quic_candidates_for_failure(
     if !matches!(failure_class, Some(FailureClass::QuicBreakage)) {
         return candidates;
     }
-    let allowed = ["quic_disabled", "quic_compat_burst", "quic_realistic_burst"];
+    let allowed = [
+        "quic_compat_burst",
+        "quic_realistic_burst",
+        "quic_multi_initial_realistic",
+        "quic_sni_split",
+        "quic_crypto_split",
+        "quic_padding_ladder",
+        "quic_cid_churn",
+        "quic_packet_number_gap",
+        "quic_version_negotiation_decoy",
+        "quic_fake_version",
+        "quic_dummy_prepend",
+        "quic_ipfrag2",
+        "quic_ipfrag2_hopbyhop",
+        "quic_ipfrag2_hopbyhop2",
+        "quic_ipfrag2_destopt",
+        "quic_ipfrag2_hopbyhop_destopt",
+        "quic_disabled",
+    ];
     candidates.into_iter().filter(|candidate| allowed.contains(&candidate.id)).collect()
 }
 

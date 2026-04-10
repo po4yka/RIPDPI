@@ -43,6 +43,8 @@ import com.poyka.ripdpi.data.WifiNetworkIdentityTuple
 import com.poyka.ripdpi.data.activeDnsSettings
 import com.poyka.ripdpi.data.diagnostics.NetworkDnsPathPreferenceEntity
 import com.poyka.ripdpi.data.diagnostics.NetworkDnsPathPreferenceStore
+import com.poyka.ripdpi.data.diagnostics.NetworkEdgePreferenceEntity
+import com.poyka.ripdpi.data.diagnostics.NetworkEdgePreferenceStore
 import com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyEntity
 import com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyStore
 import com.poyka.ripdpi.proto.AppSettings
@@ -272,6 +274,103 @@ internal class TestNetworkDnsBlockedPathStore : com.poyka.ripdpi.data.diagnostic
     override suspend fun clearAll() {
         blocked.clear()
         recorded.clear()
+    }
+}
+
+internal class TestNetworkEdgePreferenceStore : NetworkEdgePreferenceStore {
+    private val preferences =
+        linkedMapOf<Triple<String, String, String>, List<com.poyka.ripdpi.data.PreferredEdgeCandidate>>()
+
+    override suspend fun getPreferredEdges(
+        fingerprintHash: String,
+        host: String,
+        transportKind: String,
+    ): List<com.poyka.ripdpi.data.PreferredEdgeCandidate> =
+        preferences[Triple(fingerprintHash, host.lowercase(), transportKind.lowercase())].orEmpty()
+
+    override suspend fun getPreferredEdgesForRuntime(
+        fingerprintHash: String,
+    ): Map<String, List<com.poyka.ripdpi.data.PreferredEdgeCandidate>> =
+        preferences
+            .filterKeys { (storedFingerprintHash, _, _) -> storedFingerprintHash == fingerprintHash }
+            .entries
+            .groupBy({ it.key.second }, { it.value })
+            .mapValues { (_, value) -> value.flatten() }
+            .filterValues { it.isNotEmpty() }
+
+    override suspend fun clearAll() {
+        preferences.clear()
+    }
+
+    override suspend fun rememberPreferredEdges(
+        fingerprint: NetworkFingerprint,
+        host: String,
+        transportKind: String,
+        edges: List<com.poyka.ripdpi.data.PreferredEdgeCandidate>,
+        recordedAt: Long?,
+    ): NetworkEdgePreferenceEntity {
+        val key = Triple(fingerprint.scopeKey(), host.lowercase(), transportKind.lowercase())
+        preferences[key] = edges
+        return NetworkEdgePreferenceEntity(
+            fingerprintHash = key.first,
+            host = key.second,
+            transportKind = key.third,
+            summaryJson = Json.encodeToString(fingerprint.summary()),
+            edgesJson = Json.encodeToString(edges),
+            updatedAt = recordedAt ?: 0L,
+        )
+    }
+
+    override suspend fun recordEdgeResult(
+        fingerprint: NetworkFingerprint,
+        host: String,
+        transportKind: String,
+        ip: String,
+        success: Boolean,
+        recordedAt: Long?,
+        echCapable: Boolean,
+        cdnProvider: String?,
+    ): NetworkEdgePreferenceEntity {
+        val key = Triple(fingerprint.scopeKey(), host.lowercase(), transportKind.lowercase())
+        val existing = preferences[key].orEmpty()
+        val updated =
+            existing
+                .toMutableList()
+                .apply {
+                    val index = indexOfFirst { it.ip == ip }
+                    if (index >= 0) {
+                        this[index] =
+                            this[index].copy(
+                                successCount = this[index].successCount + if (success) 1 else 0,
+                                failureCount = this[index].failureCount + if (success) 0 else 1,
+                                lastValidatedAt = if (success) recordedAt else this[index].lastValidatedAt,
+                                lastFailedAt = if (success) this[index].lastFailedAt else recordedAt,
+                                echCapable = this[index].echCapable || echCapable,
+                                cdnProvider = cdnProvider ?: this[index].cdnProvider,
+                            )
+                    } else {
+                        add(
+                            com.poyka.ripdpi.data.PreferredEdgeCandidate(
+                                ip = ip,
+                                transportKind = key.third,
+                                ipVersion = if (ip.contains(':')) "ipv6" else "ipv4",
+                                successCount = if (success) 1 else 0,
+                                failureCount = if (success) 0 else 1,
+                                lastValidatedAt = if (success) recordedAt else null,
+                                lastFailedAt = if (success) null else recordedAt,
+                                echCapable = echCapable,
+                                cdnProvider = cdnProvider,
+                            ),
+                        )
+                    }
+                }
+        return rememberPreferredEdges(
+            fingerprint = fingerprint,
+            host = host,
+            transportKind = transportKind,
+            edges = updated,
+            recordedAt = recordedAt,
+        )
     }
 }
 

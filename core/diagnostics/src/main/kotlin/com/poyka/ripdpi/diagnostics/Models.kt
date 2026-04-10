@@ -34,6 +34,7 @@ enum class DiagnosticProfileFamily {
 data class DomainTarget(
     val host: String,
     val connectIp: String? = null,
+    val connectIps: List<String> = emptyList(),
     val httpsPort: Int? = null,
     val httpPort: Int? = null,
     val httpPath: String = "/",
@@ -72,6 +73,7 @@ data class TcpTarget(
 data class QuicTarget(
     val host: String,
     val connectIp: String? = null,
+    val connectIps: List<String> = emptyList(),
     val port: Int = 443,
 )
 
@@ -141,6 +143,7 @@ data class ThroughputTarget(
     val label: String,
     val url: String,
     val connectIp: String? = null,
+    val connectIps: List<String> = emptyList(),
     val port: Int? = null,
     val isControl: Boolean = false,
     val windowBytes: Int = 8_388_608,

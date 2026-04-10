@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.services
 
+import com.poyka.ripdpi.core.decodeRipDpiProxyUiPreferences
 import com.poyka.ripdpi.data.AppSettingsSerializer
 import com.poyka.ripdpi.data.DnsModeEncrypted
 import com.poyka.ripdpi.data.DnsModePlainUdp
@@ -10,14 +11,24 @@ import com.poyka.ripdpi.data.EncryptedDnsPathCandidate
 import com.poyka.ripdpi.data.EncryptedDnsProtocolDoh
 import com.poyka.ripdpi.data.EncryptedDnsProtocolDot
 import com.poyka.ripdpi.data.Mode
+import com.poyka.ripdpi.data.PreferredEdgeCandidate
+import com.poyka.ripdpi.data.PreferredEdgeIpVersionV4
+import com.poyka.ripdpi.data.PreferredEdgeTransportTcp
 import com.poyka.ripdpi.data.VpnDnsPolicyJson
 import com.poyka.ripdpi.data.toTemporaryResolverOverride
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.RuntimeEnvironment
+import org.robolectric.annotation.Config
 
+@RunWith(RobolectricTestRunner::class)
+@Config(sdk = [35])
 class ConnectionPolicyResolverTest {
     @Test
     fun `temporary override beats remembered vpn dns policy`() =
@@ -103,6 +114,52 @@ class ConnectionPolicyResolverTest {
             assertEquals(baseDns, selection.activeDns)
             assertNull(selection.preferredPath)
             assertNull(selection.rememberedVpnDnsPolicy)
+        }
+
+    @Test
+    fun `resolver injects preferred edges into runtime context for startup policy`() =
+        runTest {
+            val fingerprint = sampleFingerprint()
+            val edgeStore = TestNetworkEdgePreferenceStore()
+            edgeStore.rememberPreferredEdges(
+                fingerprint = fingerprint,
+                host = "example.org",
+                transportKind = PreferredEdgeTransportTcp,
+                edges =
+                    listOf(
+                        PreferredEdgeCandidate(
+                            ip = "203.0.113.10",
+                            transportKind = PreferredEdgeTransportTcp,
+                            ipVersion = PreferredEdgeIpVersionV4,
+                            successCount = 2,
+                        ),
+                    ),
+                recordedAt = 100L,
+            )
+            val resolver =
+                DefaultConnectionPolicyResolver(
+                    context = RuntimeEnvironment.getApplication(),
+                    appSettingsRepository = TestAppSettingsRepository(AppSettingsSerializer.defaultValue),
+                    networkFingerprintProvider = TestNetworkFingerprintProvider(fingerprint),
+                    networkDnsPathPreferenceStore = TestNetworkDnsPathPreferenceStore(),
+                    networkEdgePreferenceStore = edgeStore,
+                    rememberedNetworkPolicyStore = TestRememberedNetworkPolicyStore(),
+                    startupDnsProbe = VpnStartupDnsProbe(),
+                    rootHelperManager = RootHelperManager(),
+                )
+
+            val resolution = resolver.resolve(mode = Mode.Proxy)
+            val uiPreferences = decodeRipDpiProxyUiPreferences(resolution.proxyPreferences.toNativeConfigJson())
+
+            assertNotNull(uiPreferences)
+            assertEquals(
+                listOf("203.0.113.10"),
+                uiPreferences
+                    ?.runtimeContext
+                    ?.preferredEdges
+                    ?.get("example.org")
+                    ?.map { it.ip },
+            )
         }
 
     private fun encryptedGoogleSettings() =

@@ -5,6 +5,8 @@ import com.poyka.ripdpi.data.NetworkDnsBlockedPathRetentionLimit
 import com.poyka.ripdpi.data.NetworkDnsBlockedPathRetentionMaxAgeMs
 import com.poyka.ripdpi.data.NetworkDnsPathPreferenceRetentionLimit
 import com.poyka.ripdpi.data.NetworkDnsPathPreferenceRetentionMaxAgeMs
+import com.poyka.ripdpi.data.NetworkEdgePreferenceRetentionLimit
+import com.poyka.ripdpi.data.NetworkEdgePreferenceRetentionMaxAgeMs
 import com.poyka.ripdpi.data.RememberedNetworkPolicyRetentionLimit
 import com.poyka.ripdpi.data.RememberedNetworkPolicyRetentionMaxAgeMs
 import com.poyka.ripdpi.data.RememberedNetworkPolicyStatusValidated
@@ -176,6 +178,22 @@ interface NetworkDnsBlockedPathStore {
     )
 
     suspend fun clearAll()
+}
+
+interface NetworkEdgePreferenceRecordStore {
+    suspend fun getNetworkEdgePreference(
+        fingerprintHash: String,
+        host: String,
+        transportKind: String,
+    ): NetworkEdgePreferenceEntity?
+
+    suspend fun getNetworkEdgePreferencesForFingerprint(fingerprintHash: String): List<NetworkEdgePreferenceEntity>
+
+    suspend fun upsertNetworkEdgePreference(preference: NetworkEdgePreferenceEntity): Long
+
+    suspend fun clearNetworkEdgePreferences()
+
+    suspend fun pruneNetworkEdgePreferences()
 }
 
 interface DiagnosticsHistoryRetentionStore {
@@ -457,6 +475,42 @@ class RoomNetworkDnsBlockedPathStore
     }
 
 @Singleton
+class RoomNetworkEdgePreferenceRecordStore
+    @Inject
+    constructor(
+        private val dao: DiagnosticsDao,
+        private val clock: DiagnosticsHistoryClock,
+    ) : NetworkEdgePreferenceRecordStore {
+        override suspend fun getNetworkEdgePreference(
+            fingerprintHash: String,
+            host: String,
+            transportKind: String,
+        ): NetworkEdgePreferenceEntity? =
+            dao.getNetworkEdgePreference(
+                fingerprintHash = fingerprintHash,
+                host = host,
+                transportKind = transportKind,
+            )
+
+        override suspend fun getNetworkEdgePreferencesForFingerprint(
+            fingerprintHash: String,
+        ): List<NetworkEdgePreferenceEntity> = dao.getNetworkEdgePreferencesForFingerprint(fingerprintHash)
+
+        override suspend fun upsertNetworkEdgePreference(preference: NetworkEdgePreferenceEntity): Long =
+            dao.upsertNetworkEdgePreference(preference)
+
+        override suspend fun clearNetworkEdgePreferences() {
+            dao.clearNetworkEdgePreferences()
+        }
+
+        override suspend fun pruneNetworkEdgePreferences() {
+            val staleThreshold = clock.now() - NetworkEdgePreferenceRetentionMaxAgeMs
+            dao.deleteNetworkEdgePreferencesOlderThan(staleThreshold)
+            dao.trimNetworkEdgePreferencesToCount(NetworkEdgePreferenceRetentionLimit)
+        }
+    }
+
+@Singleton
 class RoomDiagnosticsHistoryRetentionStore
     @Inject
     constructor(
@@ -478,6 +532,7 @@ class RoomDiagnosticsHistoryRetentionStore
             dao.deleteBypassUsageSessionsOlderThan(threshold)
             dao.deleteNetworkDnsPathPreferencesOlderThan(threshold)
             dao.deleteBlockedPathsOlderThan(threshold)
+            dao.deleteNetworkEdgePreferencesOlderThan(threshold)
         }
     }
 
@@ -519,6 +574,12 @@ abstract class DiagnosticsHistoryStoresModule {
     abstract fun bindNetworkDnsPathPreferenceRecordStore(
         store: RoomNetworkDnsPathPreferenceRecordStore,
     ): NetworkDnsPathPreferenceRecordStore
+
+    @Binds
+    @Singleton
+    abstract fun bindNetworkEdgePreferenceRecordStore(
+        store: RoomNetworkEdgePreferenceRecordStore,
+    ): NetworkEdgePreferenceRecordStore
 
     @Binds
     @Singleton

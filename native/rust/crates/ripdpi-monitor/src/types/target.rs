@@ -10,6 +10,8 @@ pub struct DomainTarget {
     #[serde(default)]
     pub connect_ip: Option<String>,
     #[serde(default)]
+    pub connect_ips: Vec<String>,
+    #[serde(default)]
     pub https_port: Option<u16>,
     #[serde(default)]
     pub http_port: Option<u16>,
@@ -70,6 +72,8 @@ pub struct QuicTarget {
     pub host: String,
     #[serde(default)]
     pub connect_ip: Option<String>,
+    #[serde(default)]
+    pub connect_ips: Vec<String>,
     #[serde(default = "default_quic_port")]
     pub port: u16,
 }
@@ -165,6 +169,8 @@ pub struct ThroughputTarget {
     #[serde(default)]
     pub connect_ip: Option<String>,
     #[serde(default)]
+    pub connect_ips: Vec<String>,
+    #[serde(default)]
     pub port: Option<u16>,
     #[serde(default)]
     pub is_control: bool,
@@ -200,6 +206,7 @@ mod tests {
         let json = r#"{"host": "example.com"}"#;
         let target: QuicTarget = serde_json::from_str(json).expect("deserialize");
         assert_eq!(target.port, 443);
+        assert!(target.connect_ips.is_empty());
     }
 
     #[test]
@@ -221,5 +228,18 @@ mod tests {
         assert_eq!(target.window_bytes, 8 * 1024 * 1024);
         assert_eq!(target.runs, 2);
         assert!(!target.is_control);
+        assert!(target.connect_ips.is_empty());
+    }
+
+    #[test]
+    fn domain_target_accepts_ordered_connect_ips() {
+        let json = r#"{
+            "host": "example.com",
+            "connectIp": "1.1.1.1",
+            "connectIps": ["1.1.1.1", "1.0.0.1"]
+        }"#;
+        let target: DomainTarget = serde_json::from_str(json).expect("deserialize");
+        assert_eq!(target.connect_ip.as_deref(), Some("1.1.1.1"));
+        assert_eq!(target.connect_ips, vec!["1.1.1.1".to_string(), "1.0.0.1".to_string()]);
     }
 }

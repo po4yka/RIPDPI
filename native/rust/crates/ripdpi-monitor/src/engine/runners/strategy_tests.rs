@@ -130,6 +130,19 @@ fn baseline_https_result(outcome: &str, tls_ech_resolution_detail: &str) -> Prob
     }
 }
 
+fn baseline_https_result_with_cdn(outcome: &str, cdn_provider: &str) -> ProbeResult {
+    ProbeResult {
+        probe_type: s("strategy_https"),
+        target: s("baseline_current · example.com"),
+        outcome: s(outcome),
+        details: vec![
+            ProbeDetail { key: s("candidateId"), value: s("baseline_current") },
+            ProbeDetail { key: s("tlsEchResolutionDetail"), value: s("none") },
+            ProbeDetail { key: s("cdnProvider"), value: s(cdn_provider) },
+        ],
+    }
+}
+
 #[test]
 fn resolve_recommended_proxy_config_json_prefers_winning_quic_summary_config() {
     let mut composed_config = ProxyUiConfig::default();
@@ -186,6 +199,7 @@ fn resolve_recommended_proxy_config_json_falls_back_to_quic_winner_spec_config()
 fn baseline_ech_detection_recognizes_resolution_detail_and_tls_ech_only() {
     assert!(baseline_supports_ech_candidates(&[baseline_https_result("tls_ok", "ech_config_available")]));
     assert!(baseline_supports_ech_candidates(&[baseline_https_result("tls_ech_only", "none")]));
+    assert!(baseline_supports_ech_candidates(&[baseline_https_result_with_cdn("tls_ok", "Cloudflare")]));
     assert!(baseline_has_tls_ech_only(&[baseline_https_result("tls_ech_only", "none")]));
     assert!(!baseline_supports_ech_candidates(&[baseline_https_result("tls_ok", "none")]));
     assert!(!baseline_has_tls_ech_only(&[baseline_https_result("tls_ok", "ech_config_available")]));
@@ -212,7 +226,7 @@ fn ordered_follow_up_tcp_candidates_prioritize_ech_candidates_after_tls_ech_only
 }
 
 #[test]
-fn ordered_follow_up_tcp_candidates_keep_normal_order_without_tls_ech_only_baseline() {
+fn ordered_follow_up_tcp_candidates_keep_normal_order_without_ech_promotable_baseline() {
     let candidates = build_tcp_candidates(&ProxyUiConfig::default());
     let expected = interleave_candidate_families(
         reorder_tcp_candidates_for_failure(&candidates, Some(FailureClass::TlsAlert), true)
@@ -225,7 +239,7 @@ fn ordered_follow_up_tcp_candidates_keep_normal_order_without_tls_ech_only_basel
     let ordered = ordered_follow_up_tcp_candidates(
         &candidates,
         Some(FailureClass::TlsAlert),
-        &[baseline_https_result("tls_ok", "ech_config_available")],
+        &[baseline_https_result("tls_ok", "none")],
         7,
         true,
     );

@@ -105,6 +105,7 @@ internal class DiagnosticsScanRequestFactory
                     ).withStrategyProbeBaseConfig(
                         settings = original.settings,
                         preferredDnsPath = effectivePreferredDnsPath,
+                        preferredEdges = scanContext.preferredEdges,
                         protectPath = resolveProtectPath(context),
                     )
             val now = System.currentTimeMillis()
@@ -220,6 +221,7 @@ internal class DiagnosticsScanRequestFactory
                     ).withStrategyProbeBaseConfig(
                         settings = settings,
                         preferredDnsPath = scanContext.preferredDnsPath,
+                        preferredEdges = scanContext.preferredEdges,
                         protectPath = resolveProtectPath(context),
                     ).copy(scanDeadlineMs = scanDeadlineMs)
                     .let { request ->
@@ -327,10 +329,11 @@ internal class DiagnosticsScanRequestFactory
 private fun EngineScanRequestWire.withStrategyProbeBaseConfig(
     settings: com.poyka.ripdpi.proto.AppSettings,
     preferredDnsPath: EncryptedDnsPathCandidate?,
+    preferredEdges: Map<String, List<com.poyka.ripdpi.data.PreferredEdgeCandidate>>,
     protectPath: String?,
 ): EngineScanRequestWire {
     val strategyProbe = strategyProbe ?: return this
-    val runtimeContext = resolveStrategyProbeRuntimeContext(settings, preferredDnsPath, protectPath)
+    val runtimeContext = resolveStrategyProbeRuntimeContext(settings, preferredDnsPath, preferredEdges, protectPath)
     val baseProxyConfigJson =
         strategyProbe.baseProxyConfigJson
             ?.takeIf { it.isNotBlank() }
@@ -360,6 +363,7 @@ private fun EngineScanRequestWire.withStrategyProbeBaseConfig(
 private fun resolveStrategyProbeRuntimeContext(
     settings: com.poyka.ripdpi.proto.AppSettings,
     preferredDnsPath: EncryptedDnsPathCandidate?,
+    preferredEdges: Map<String, List<com.poyka.ripdpi.data.PreferredEdgeCandidate>>,
     protectPath: String?,
 ): RipDpiRuntimeContext? {
     // canonicalDefaultEncryptedDnsSettings always returns a valid context.
@@ -367,7 +371,7 @@ private fun resolveStrategyProbeRuntimeContext(
         settings.activeDnsSettings().toRipDpiRuntimeContext()
             ?: preferredDnsPath?.toActiveDnsSettings()?.toRipDpiRuntimeContext()
             ?: canonicalDefaultEncryptedDnsSettings().toRipDpiRuntimeContext()!!
-    return dnsContext.copy(protectPath = protectPath)
+    return dnsContext.copy(protectPath = protectPath, preferredEdges = preferredEdges)
 }
 
 /**

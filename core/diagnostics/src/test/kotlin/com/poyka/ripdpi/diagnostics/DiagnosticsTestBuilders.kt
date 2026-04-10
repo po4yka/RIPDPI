@@ -13,9 +13,11 @@ import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.data.diagnostics.ActiveConnectionPolicy
 import com.poyka.ripdpi.data.diagnostics.ActiveConnectionPolicyStore
 import com.poyka.ripdpi.data.diagnostics.DefaultNetworkDnsPathPreferenceStore
+import com.poyka.ripdpi.data.diagnostics.DefaultNetworkEdgePreferenceStore
 import com.poyka.ripdpi.data.diagnostics.DefaultRememberedNetworkPolicyStore
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsHistoryClock
 import com.poyka.ripdpi.data.diagnostics.NetworkDnsPathPreferenceStore
+import com.poyka.ripdpi.data.diagnostics.NetworkEdgePreferenceStore
 import com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyStore
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -74,6 +76,8 @@ internal fun createDiagnosticsServices(
     diagnosticsHistoryClock: DiagnosticsHistoryClock = TestDiagnosticsHistoryClock(),
     rememberedNetworkPolicyStore: RememberedNetworkPolicyStore =
         DefaultRememberedNetworkPolicyStore(stores, diagnosticsHistoryClock),
+    networkEdgePreferenceStore: NetworkEdgePreferenceStore =
+        DefaultNetworkEdgePreferenceStore(stores, diagnosticsHistoryClock),
     networkDnsPathPreferenceStore: NetworkDnsPathPreferenceStore =
         DefaultNetworkDnsPathPreferenceStore(stores, diagnosticsHistoryClock),
     networkFingerprintProvider: NetworkFingerprintProvider =
@@ -188,6 +192,7 @@ internal fun createDiagnosticsServices(
                     nativeNetworkSnapshotProvider = nativeNetworkSnapshotProvider,
                     diagnosticsContextProvider = diagnosticsContextProvider,
                     networkDnsPathPreferenceStore = networkDnsPathPreferenceStore,
+                    networkEdgePreferenceStore = networkEdgePreferenceStore,
                     serviceStateStore = serviceStateStore,
                     json = json,
                 ),
@@ -216,6 +221,7 @@ internal fun createDiagnosticsServices(
                     serviceStateStore = serviceStateStore,
                     resolverOverrideStore = resolverOverrideStore,
                     rememberedNetworkPolicyStore = rememberedNetworkPolicyStore,
+                    networkEdgePreferenceStore = networkEdgePreferenceStore,
                     networkDnsPathPreferenceStore = networkDnsPathPreferenceStore,
                     findingProjector = DiagnosticsFindingProjector(),
                     json = json,

@@ -3,6 +3,7 @@ package com.poyka.ripdpi.diagnostics.domain
 import com.poyka.ripdpi.data.EncryptedDnsPathCandidate
 import com.poyka.ripdpi.data.NativeNetworkSnapshot
 import com.poyka.ripdpi.data.NetworkFingerprint
+import com.poyka.ripdpi.data.PreferredEdgeCandidate
 import com.poyka.ripdpi.diagnostics.CircumventionTarget
 import com.poyka.ripdpi.diagnostics.DiagnosticContextModel
 import com.poyka.ripdpi.diagnostics.DiagnosticProfileFamily
@@ -79,6 +80,7 @@ internal data class ScanContext(
     val pathMode: ScanPathMode,
     val networkFingerprint: NetworkFingerprint?,
     val preferredDnsPath: EncryptedDnsPathCandidate?,
+    val preferredEdges: Map<String, List<PreferredEdgeCandidate>> = emptyMap(),
     val networkSnapshot: NativeNetworkSnapshot?,
     val serviceMode: String,
     val contextSnapshot: DiagnosticContextModel,
@@ -91,6 +93,9 @@ internal data class ScanPlan(
     val proxyHost: String?,
     val proxyPort: Int?,
     val dnsTargets: List<DnsTarget>,
+    val domainTargets: List<DomainTarget> = emptyList(),
+    val quicTargets: List<QuicTarget> = emptyList(),
+    val throughputTargets: List<ThroughputTarget> = emptyList(),
     val probeTasks: List<ProbeTask>,
 )
 

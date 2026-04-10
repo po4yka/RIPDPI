@@ -355,6 +355,31 @@ data class NetworkDnsBlockedPathEntity(
     val updatedAt: Long,
 )
 
+@Entity(
+    tableName = "network_edge_preferences",
+    indices = [
+        Index(
+            name = "index_network_edge_preferences_lookup",
+            value = ["fingerprintHash", "host", "transportKind"],
+            unique = true,
+        ),
+        Index(
+            name = "index_network_edge_preferences_updatedAt",
+            value = ["updatedAt"],
+        ),
+    ],
+)
+@Serializable
+data class NetworkEdgePreferenceEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0L,
+    val fingerprintHash: String,
+    val host: String,
+    val transportKind: String,
+    val summaryJson: String,
+    val edgesJson: String,
+    val updatedAt: Long,
+)
+
 @Suppress("TooManyFunctions")
 @Dao
 interface DiagnosticsDao {
@@ -663,6 +688,49 @@ interface DiagnosticsDao {
     )
     suspend fun trimBlockedPathsToCount(retainCount: Int)
 
+    @Query(
+        """
+        SELECT * FROM network_edge_preferences
+        WHERE fingerprintHash = :fingerprintHash AND host = :host AND transportKind = :transportKind
+        LIMIT 1
+        """,
+    )
+    suspend fun getNetworkEdgePreference(
+        fingerprintHash: String,
+        host: String,
+        transportKind: String,
+    ): NetworkEdgePreferenceEntity?
+
+    @Query(
+        """
+        SELECT * FROM network_edge_preferences
+        WHERE fingerprintHash = :fingerprintHash
+        ORDER BY updatedAt DESC
+        """,
+    )
+    suspend fun getNetworkEdgePreferencesForFingerprint(fingerprintHash: String): List<NetworkEdgePreferenceEntity>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertNetworkEdgePreference(preference: NetworkEdgePreferenceEntity): Long
+
+    @Query("DELETE FROM network_edge_preferences")
+    suspend fun clearNetworkEdgePreferences()
+
+    @Query("DELETE FROM network_edge_preferences WHERE updatedAt < :threshold")
+    suspend fun deleteNetworkEdgePreferencesOlderThan(threshold: Long)
+
+    @Query(
+        """
+        DELETE FROM network_edge_preferences
+        WHERE id NOT IN (
+            SELECT id FROM network_edge_preferences
+            ORDER BY updatedAt DESC
+            LIMIT :retainCount
+        )
+        """,
+    )
+    suspend fun trimNetworkEdgePreferencesToCount(retainCount: Int)
+
     @Query("DELETE FROM probe_results WHERE createdAt < :threshold")
     suspend fun deleteProbeResultsOlderThan(threshold: Long)
 
@@ -685,8 +753,9 @@ interface DiagnosticsDao {
         RememberedNetworkPolicyEntity::class,
         NetworkDnsPathPreferenceEntity::class,
         NetworkDnsBlockedPathEntity::class,
+        NetworkEdgePreferenceEntity::class,
     ],
-    version = 2,
+    version = 3,
     exportSchema = true,
 )
 abstract class DiagnosticsDatabase : RoomDatabase() {
@@ -770,6 +839,10 @@ object DiagnosticsDatabaseModule {
             )
             db.execSQL(
                 "DELETE FROM network_dns_blocked_paths WHERE updatedAt < ?",
+                arrayOf(now - THIRTY_DAYS_MS),
+            )
+            db.execSQL(
+                "DELETE FROM network_edge_preferences WHERE updatedAt < ?",
                 arrayOf(now - THIRTY_DAYS_MS),
             )
         }

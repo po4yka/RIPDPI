@@ -440,12 +440,6 @@ pub(crate) fn build_full_matrix_tcp_candidates(base: &ProxyUiConfig) -> Vec<Stra
 
 pub(crate) fn build_quic_candidates(base_tcp: &ProxyUiConfig) -> Vec<StrategyCandidateSpec> {
     let mut candidates = vec![
-        candidate_spec(
-            "quic_disabled",
-            "QUIC disabled",
-            "quic_disabled",
-            build_quic_candidate(base_tcp, false, "disabled"),
-        ),
         candidate_spec_with_notes(
             "quic_compat_burst",
             "QUIC compat burst",
@@ -460,6 +454,13 @@ pub(crate) fn build_quic_candidates(base_tcp: &ProxyUiConfig) -> Vec<StrategyCan
             build_quic_candidate(base_tcp, true, "realistic_initial"),
             vec!["Uses realistic QUIC Initial packets with the target SNI"],
         ),
+        candidate_spec_with_notes(
+            "quic_multi_initial_realistic",
+            "QUIC multi-initial realistic",
+            "quic_multi_initial_realistic",
+            build_quic_multi_initial_realistic_candidate(base_tcp),
+            vec!["Sends multiple realistic QUIC Initials to pressure parser state tracking"],
+        ),
     ];
     candidates.push(candidate_spec_with_notes(
         "quic_sni_split",
@@ -467,6 +468,41 @@ pub(crate) fn build_quic_candidates(base_tcp: &ProxyUiConfig) -> Vec<StrategyCan
         "quic_sni_split",
         build_quic_sni_split_candidate(base_tcp),
         vec!["Splits QUIC Initial at SNI boundary"],
+    ));
+    candidates.push(candidate_spec_with_notes(
+        "quic_crypto_split",
+        "QUIC CRYPTO split",
+        "quic_crypto_split",
+        build_quic_crypto_split_candidate(base_tcp),
+        vec!["Splits the QUIC CRYPTO payload into two application-visible pieces"],
+    ));
+    candidates.push(candidate_spec_with_notes(
+        "quic_padding_ladder",
+        "QUIC padding ladder",
+        "quic_padding_ladder",
+        build_quic_padding_ladder_candidate(base_tcp),
+        vec!["Adds multiple padded dummy packets before the real QUIC Initial"],
+    ));
+    candidates.push(candidate_spec_with_notes(
+        "quic_cid_churn",
+        "QUIC CID churn",
+        "quic_cid_churn",
+        build_quic_cid_churn_candidate(base_tcp),
+        vec!["Mutates QUIC connection ID state before the first real Initial"],
+    ));
+    candidates.push(candidate_spec_with_notes(
+        "quic_packet_number_gap",
+        "QUIC packet number gap",
+        "quic_packet_number_gap",
+        build_quic_packet_number_gap_candidate(base_tcp),
+        vec!["Injects short packets to force a packet-number discontinuity"],
+    ));
+    candidates.push(candidate_spec_with_notes(
+        "quic_version_negotiation_decoy",
+        "QUIC version negotiation decoy",
+        "quic_version_negotiation_decoy",
+        build_quic_version_negotiation_decoy_candidate(base_tcp),
+        vec!["Injects a fake version-negotiation style prelude before the Initial"],
     ));
     candidates.push(candidate_spec_with_notes(
         "quic_fake_version",
@@ -525,6 +561,12 @@ pub(crate) fn build_quic_candidates(base_tcp: &ProxyUiConfig) -> Vec<StrategyCan
             ));
         }
     }
+    candidates.push(candidate_spec(
+        "quic_disabled",
+        "QUIC disabled",
+        "quic_disabled",
+        build_quic_candidate(base_tcp, false, "disabled"),
+    ));
     candidates
 }
 
@@ -937,6 +979,51 @@ fn build_quic_dummy_prepend_candidate(base_tcp: &ProxyUiConfig) -> ProxyUiConfig
     config
 }
 
+fn build_quic_crypto_split_candidate(base_tcp: &ProxyUiConfig) -> ProxyUiConfig {
+    build_quic_step_candidate(base_tcp, "quic_crypto_split", 1, 0, "realistic_initial")
+}
+
+fn build_quic_padding_ladder_candidate(base_tcp: &ProxyUiConfig) -> ProxyUiConfig {
+    build_quic_step_candidate(base_tcp, "quic_padding_ladder", 4, 0, "compat_default")
+}
+
+fn build_quic_cid_churn_candidate(base_tcp: &ProxyUiConfig) -> ProxyUiConfig {
+    build_quic_step_candidate(base_tcp, "quic_cid_churn", 2, 0, "realistic_initial")
+}
+
+fn build_quic_packet_number_gap_candidate(base_tcp: &ProxyUiConfig) -> ProxyUiConfig {
+    build_quic_step_candidate(base_tcp, "quic_packet_number_gap", 2, 0, "realistic_initial")
+}
+
+fn build_quic_version_negotiation_decoy_candidate(base_tcp: &ProxyUiConfig) -> ProxyUiConfig {
+    build_quic_step_candidate(base_tcp, "quic_version_negotiation_decoy", 1, 0, "compat_default")
+}
+
+fn build_quic_multi_initial_realistic_candidate(base_tcp: &ProxyUiConfig) -> ProxyUiConfig {
+    build_quic_step_candidate(base_tcp, "quic_multi_initial_realistic", 3, 0, "realistic_initial")
+}
+
+fn build_quic_step_candidate(
+    base_tcp: &ProxyUiConfig,
+    kind: &str,
+    count: i32,
+    split_bytes: i32,
+    fake_profile: &str,
+) -> ProxyUiConfig {
+    let mut config = sanitize_current_probe_config(base_tcp);
+    config.protocols.desync_udp = true;
+    config.chains.udp_steps = vec![ProxyUiUdpChainStep {
+        kind: kind.to_string(),
+        count,
+        split_bytes,
+        activation_filter: None,
+        ipv6_extension_profile: "none".to_string(),
+    }];
+    config.quic.fake_profile = fake_profile.to_string();
+    config.quic.fake_host.clear();
+    config
+}
+
 fn probe_ip_fragmentation_capabilities() -> ripdpi_runtime::platform::IpFragmentationCapabilities {
     ripdpi_runtime::platform::probe_ip_fragmentation_capabilities(None).unwrap_or_default()
 }
@@ -1259,5 +1346,19 @@ mod tests {
         let base = minimal_ui_config();
         let suite = build_strategy_probe_suite("full_matrix_v1", &base).expect("full_matrix_v1 suite");
         assert_eq!(suite.family_failure_threshold, 4);
+    }
+
+    #[test]
+    fn build_quic_candidates_prioritize_active_techniques_and_keep_disabled_last() {
+        let candidates = build_quic_candidates(&minimal_ui_config());
+        let ids = candidates.iter().map(|candidate| candidate.id).collect::<Vec<_>>();
+
+        assert_eq!(ids.last().copied(), Some("quic_disabled"));
+        assert!(ids.contains(&"quic_crypto_split"));
+        assert!(ids.contains(&"quic_padding_ladder"));
+        assert!(ids.contains(&"quic_cid_churn"));
+        assert!(ids.contains(&"quic_packet_number_gap"));
+        assert!(ids.contains(&"quic_version_negotiation_decoy"));
+        assert!(ids.contains(&"quic_multi_initial_realistic"));
     }
 }
