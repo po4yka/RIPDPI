@@ -320,15 +320,63 @@ let fake_tsval = real_tsval.wrapping_sub(600_000_u32);
 buf[tsopt_offset..tsopt_offset + 4].copy_from_slice(&fake_tsval.to_be_bytes());
 ```
 
-youtubeUnblock v1.3.0 (January 31, 2026) introduced this as `--faking-strategy=timestamp`. Recommended combo: `--fake-sni=1 --faking-strategy=tcp_check,timestamp`. Provided a breakthrough specifically for YouTube slowdown on Keenetic/OpenWrt routers after the `pastseq` ban (December 27, 2025).
+youtubeUnblock v1.3.0 (January 31, 2026) introduced this as `--faking-strategy=timestamp`. Added because `pastseq` was banned by TSPU on 2024-12-27, and `tcp_check` alone fails on Cloudflare IPs (Cloudflare ignores bad checksums). Recommended: `--fake-sni=1 --faking-strategy=tcp_check,timestamp`.
+
+#### Exact Implementation (youtubeUnblock `src/utils.c` + `config.h`)
+
+Strategy bitmask (strategies are OR-combined, applied sequentially to the same fake packet):
+
+```c
+#define FAKE_STRAT_RAND_SEQ   (1 << 0)  // out-of-ack_seq sequence number
+#define FAKE_STRAT_TTL        (1 << 1)  // fake TTL dies before server
+#define FAKE_STRAT_PAST_SEQ   (1 << 2)  // BANNED by TSPU (2024-12-27)
+#define FAKE_STRAT_TCP_CHECK  (1 << 3)  // corrupt TCP checksum +1 (applied last)
+#define FAKE_STRAT_TCP_MD5SUM (1 << 4)  // inject invalid TCP MD5 option (kind=19)
+#define FAKE_STRAT_TCP_TS     (1 << 6)  // decrease TSval by N ticks
+// Default since v1.3.0:
+#define FAKING_STRATEGY (FAKE_STRAT_TCP_CHECK | FAKE_STRAT_TCP_TS)
+#define FAKING_TIMESTAMP_DECREASE_TTL 600000  // ~600 s at 1 kHz clock
+```
+
+TSOPT location walk + modification (from `fail_packet()`):
+
+```c
+// Walk TCP options to find kind=8 (TSOPT, len=10):
+while (optp_len && *optp != 0x00) {
+    if (*optp == 0x01) { optp_len--; optp++; continue; }  // NOP: skip 1 byte
+    if (optp_len < 2) break;
+    if (*optp == 0x08) { tcp_ts = optp; break; }           // found TSOPT
+    optp_len -= optp[1]; optp += optp[1];
+}
+if (tcp_ts) {
+    struct tcp_ts_opt *ts_opt = (void *)tcp_ts;
+    // TSval at offset +2, big-endian uint32 — decrease by configured amount
+    ts_opt->ts_val = htonl(ntohl(ts_opt->ts_val) - strategy.faking_timestamp_decrease);
+}
+// FAKE_STRAT_TCP_CHECK is applied after all other mods:
+if (CHECK_BITFIELD(strategy.strategy, FAKE_STRAT_TCP_CHECK))
+    tcph->th_sum = htons(ntohs(tcph->th_sum) + 1);  // intentional checksum break
+```
+
+Fake is sent first via `rawsend`, then the real packet follows (optionally fragmented). Fake SNI payload is a hardcoded 680-byte TLS ClientHello with SNI `www.google.com`.
+
+#### CLI Reference
+
+```
+--faking-strategy=tcp_check,timestamp   # recommended default since v1.3.0
+--faking-timestamp-decrease=600000      # TSval decrease in ticks (default)
+--fake-sni=1                            # send fake TLS ClientHello first
+--frag-origin-retries=2                 # retry count on fragmentation failure (v1.3.1+)
+```
 
 #### Constraints
 
-- Requires TCP Timestamps negotiated in SYN/SYN-ACK (not all connections use them; check `TCP_SAVESYNSYN` or inspect SYN-ACK options).
-- Windows does not enable TCP Timestamps by default (`HKLM\...\Tcpip\Parameters\Tcp1323Opts = 0`) → unreliable for Windows-originating traffic routed through the app.
-- No effect on QUIC (QUIC has its own ack delay mechanism, unrelated to TCP timestamps).
+- Requires `TCP_TIMESTAMPS` negotiated in SYN/SYN-ACK; if absent, modification silently skipped.
+- Windows: `Tcp1323Opts=0` by default → timestamps absent → strategy has no effect.
+- No effect on QUIC (QUIC uses its own ack delay, not TCP PAWS).
+- Designed for Cloudflare-CDN YouTube IPs; effectiveness varies by ISP DPI vendor.
 
-**Reference:** [youtubeUnblock v1.3.0 release notes](https://github.com/Waujito/youtubeUnblock/releases/tag/v1.3.0), [RFC 7323 Section 5 (PAWS)](https://datatracker.ietf.org/doc/html/rfc7323#section-5)
+**Reference:** [youtubeUnblock v1.3.0](https://github.com/Waujito/youtubeUnblock/releases/tag/v1.3.0), [RFC 7323 §5 PAWS](https://datatracker.ietf.org/doc/html/rfc7323#section-5)
 
 **Root required:** No | **Effort:** Low
 
@@ -362,11 +410,80 @@ Static fakes with rndsni/dupsid differ from the real connection in TLS version, 
 6. Send real ClientHello as the legitimate packet
 ```
 
+#### TLS ClientHello Byte Map (for Rust implementation)
+
+```
+TLS Record header (5 bytes):
+  +0:    record type  = 0x16 (Handshake)
+  +1..2: version      = 0x03 0x01 (TLS 1.0 compat)
+  +3..4: record length (u16 BE)
+
+Handshake header (4 bytes at +5):
+  +5:    handshake type = 0x01 (ClientHello)
+  +6..8: handshake length (u24 BE)
+
+ClientHello body (at +9):
+  +9..10:   legacy_version (0x03 0x03 = TLS 1.2 compat)
+  +11..42:  random (32 bytes)                 ← RND: fill with random
+  +43:      session_id length (u8, 0–32)
+  +44..N:   session_id (session_id_len bytes) ← DUPSID: copy from real CH here
+  After session_id:
+    cipher_suites_len (u16 BE)
+    cipher_suites (cipher_suites_len bytes)
+    compression_len (u8)
+    compression_methods (compression_len bytes)
+    extensions_total_len (u16 BE)            ← PADENCAP: add payload_len here
+    extensions list:
+      each extension: type(2) + len(2) + data(len)
+      SNI extension type = 0x0000            ← sni_del_ext: remove this entry
+      Padding extension type = 0x0015        ← PADENCAP: add payload_len to its len field
+```
+
+#### Runtime `tls_mod` Operations (from zapret2 desync.c `runtime_tls_mod`)
+
+| Flag | Constant | What it modifies |
+|------|----------|-----------------|
+| `rnd` | `FAKE_TLS_MOD_RND` | `random[11..42]` + `session_id[44..44+len]` — fill with random bytes |
+| `dupsid` | `FAKE_TLS_MOD_DUP_SID` | Copy `payload[44..44+session_id_len]` into fake (requires same session_id_len) |
+| `rndsni` | `FAKE_TLS_MOD_RND_SNI` | Replace SNI hostname bytes in fake with random bytes of same length |
+| `padencap` | `FAKE_TLS_MOD_PADENCAP` | Add `payload_len` to TLS record len (+3), handshake len (+6), extensions total len, padding ext len — makes fake appear same size as real CH |
+
+`padencap` requires a TLS padding extension (0x0015) to already be present in the fake blob. It expands that extension's length field, not the actual data — the fake is the same byte count as the hardcoded blob but the length fields claim it's larger.
+
+#### Reassembly Integration
+
+When ClientHello spans multiple TCP segments, `reasm_data` holds the complete reassembled payload. `dupsid` and `tls_client_hello_clone` must use `reasm_data` (not first-segment payload) to get the full session_id:
+
+```lua
+local data = desync.reasm_data or desync.dis.payload
+-- tls_client_hello_clone stores result in desync[blob_name]
+-- fake() checks replay_first(desync) to avoid acting on replay duplicates
+```
+
 #### ECH-Aware Variant
 
-When the real ClientHello contains an ECH extension (0xFE0D), the clone should preserve the ECH outer SNI (`public_name`) but zero the inner encrypted payload — the outer SNI is what TSPU reads, the inner is what the server decrypts.
+When the real ClientHello contains an ECH extension (0xFE0D), preserve the outer SNI (`public_name`) but zero the inner encrypted payload — outer SNI is what TSPU reads, inner is what the real server decrypts.
 
-**Reference:** [zapret2 zapret-antidpi.lua `tls_client_hello_clone`](https://deepwiki.com/bol-van/zapret2/3.3-anti-dpi-strategy-library-(zapret-antidpi.lua))
+#### Full Function Catalog (zapret-antidpi.lua)
+
+| Lua function | nfqws1 equivalent | Description |
+|---|---|---|
+| `drop` | `--drop` | Drop the intercepted packet |
+| `send` | `--dup` | Duplicate and send with fooling |
+| `pktmod` | (in-place) | Modify current packet, return MODIFY verdict |
+| `http_domcase` | `--domcase` | Alternate case in HTTP `Host:` value |
+| `http_hostcase` | `--hostcase` | Change `Host:` → `host:` header name |
+| `http_methodeol` | `--methodeol` | Prepend `\n` before HTTP method line |
+| `http_unixeol` | `--unixeol` | Convert `\r\n` → `\n` in HTTP headers |
+| `syndata` | `--dpi-desync=syndata` | Send fake data payload inside SYN packet |
+| `rst` | `--dpi-desync=rst/rstack` | Inject RST or RST+ACK to poison DPI state |
+| `fake` | `--dpi-desync=fake` | Send fake payload(s) with low TTL / bad checksum |
+| `multisplit` | `--dpi-desync=multisplit` | Split TCP payload at named position markers |
+| `multidisorder` | `--dpi-desync=multidisorder` | Split + send segments in reverse order |
+| `hostfakesplit` | `--dpi-desync=hostfakesplit` | Split at HTTP `Host` with fake hostname |
+| `tls_client_hello_clone` | (new in zapret2) | Clone real ClientHello → modify SNI/session_id → store as blob for `fake` |
+
+**Reference:** [zapret2 zapret-antidpi.lua](https://github.com/bol-van/zapret2), [zapret2 DeepWiki strategy library](https://deepwiki.com/bol-van/zapret2/3.3-anti-dpi-strategy-library-(zapret-antidpi.lua))
 
 **Root required:** No | **Effort:** Low
 
@@ -394,9 +511,82 @@ real:  valid TTL + valid checksum
 
 Flowseal zapret-discord-youtube added double fake to ALT/ALT4/ALT10/ALT11/SIMPLE FAKE strategies in v1.9.7 (February 23, 2026) and reported improved success rates on ISPs that adapted to single-fake strategies.
 
-#### Implementation
+#### How the Engine Sends Multiple Fakes (zapret2 `desync.c` DESYNC_FAKE case)
 
-Add an optional `fake_count: u8` parameter (default 1, max 3) to the `FakeStep` in the strategy chain. When `fake_count > 1`, the second fake's invalidation method is toggled (TTL→checksum or vice versa) to maximise coverage.
+Multiple fakes are implemented as a **linked list of blob items** iterated in the `DESYNC_FAKE` case. Each `--dpi-desync-fake-tls=<file>` argument appends one blob to the list:
+
+```c
+LIST_FOREACH(fake_item, fake, next) {
+    // Apply tls_mod to this blob (rnd/dupsid/rndsni/padencap)
+    if (l7proto == TLS && runtime_tls_mod(n, modcache, tls_mod,
+            fake_item->data, fake_item->size,
+            rdata_payload, rlen_payload, fake_data_buf)) {
+        fake_data = fake_data_buf;
+    } else {
+        fake_data = fake_item->data;
+    }
+    // Build and send fake TCP packet:
+    prepare_tcp_segment(..., htonl(sequence), DF, ttl_fake, ...,
+        dp->desync_fooling_mode, dp->desync_ts_increment,
+        dp->desync_badseq_increment, fake_data, fake_size, pkt1, &pkt1_len);
+    rawsend_rep(dp->desync_repeats, &dst, desync_fwmark, ifout, pkt1, pkt1_len);
+    // Optionally advance sequence number per fake:
+    if (dp->tcp_mod.seq) sequence += fake_size;
+}
+```
+
+All fakes share: same `ttl_fake`, same `desync_fooling_mode`, same `desync_badseq_increment`. They differ only in **payload blob**.
+
+#### Exact Flowseal Configurations (v1.9.7)
+
+**ALT strategy** (ts fooling, 2 fake blobs):
+```bat
+--dpi-desync=fake,fakedsplit --dpi-desync-repeats=6
+--dpi-desync-fooling=ts
+--dpi-desync-fake-tls="%BIN%stun.bin"
+--dpi-desync-fake-tls="%BIN%tls_clienthello_www_google_com.bin"
+```
+
+**ALT10 strategy** (2 blobs, 4pda instead of google):
+```bat
+--dpi-desync=fake --dpi-desync-repeats=6 --dpi-desync-fooling=ts
+--dpi-desync-fake-tls="%BIN%stun.bin"
+--dpi-desync-fake-tls="%BIN%tls_clienthello_4pda_to.bin"
+```
+
+**SIMPLE FAKE ALT2** (badseq fooling):
+```bat
+--dpi-desync=fake --dpi-desync-repeats=6
+--dpi-desync-fooling=badseq --dpi-desync-badseq-increment=2
+--dpi-desync-fake-tls="%BIN%stun.bin"
+--dpi-desync-fake-tls="%BIN%tls_clienthello_www_google_com.bin"
+```
+
+Fake blob types used: `stun.bin` (STUN binding request ≈ UDP-like payload), google/4pda/max.ru TLS ClientHello captures.
+
+#### Fooling Modes (`darkmagic.h`)
+
+| Flag | Value | Effect |
+|------|-------|--------|
+| `FOOL_MD5SIG` | 0x01 | TCP MD5 option (kind=19) — kernel drops on receive |
+| `FOOL_BADSUM` | 0x02 | Corrupt L4 checksum |
+| `FOOL_TS` | 0x04 | Add random/corrupt TCP timestamp value |
+| `FOOL_BADSEQ` | 0x08 | Add `badseq_increment` to `th_seq`, `badseq_ack_increment` to `th_ack` |
+| `FOOL_HOPBYHOP` | 0x10 | Add IPv6 hop-by-hop extension header |
+| `FOOL_HOPBYHOP2` | 0x20 | Second IPv6 hop-by-hop header (RFC violation — drops at destination) |
+| `FOOL_DESTOPT` | 0x40 | IPv6 destination options header |
+| `FOOL_IPFRAG1` | 0x80 | IPv6 fragmentation header on first fragment |
+| `FOOL_DATANOACK` | 0x100 | Send without ACK flag set |
+
+#### RIPDPI Implementation
+
+Store fakes as `Vec<Bytes>` per desync profile. For each blob in the list:
+1. Apply runtime mods (rnd/dupsid/rndsni/padencap)
+2. Construct TCP packet: seq=`original_seq` (shared), TTL=`fake_ttl`, fooling applied
+3. Send `desync_repeats` times via raw socket
+4. Then send the real packet (fragmented or whole)
+
+`seq_advance=true` shifts sequence number by each fake's payload size — use when DPI tracks sequence space; off by default.
 
 **Root required:** No | **Effort:** Low
 
@@ -963,7 +1153,31 @@ The `h2` crate (`hyperium/h2`) handles HTTP/2 framing directly without the overh
 
 **Interaction with item 23 (smux):** smux and XMUX are alternative multiplexing strategies; do not combine. Use XMUX when xHTTP transport is active.
 
-**Reference:** [xray-core xHTTP transport spec](https://xtls.github.io/en/config/transports/xhttp.html), [ntc.party thread 13855 — 426 replies, April 2026](https://ntc.party/t/13855)
+#### References and Implementation Resources
+
+**Protocol specification:**
+- [xray-core xHTTP transport spec](https://xtls.github.io/en/config/transports/xhttp.html) — official config reference, mode descriptions, xPaddingBytes semantics
+- [xray-core xHTTP source](https://github.com/XTLS/Xray-core/tree/main/transport/internet/xhttp) — Go reference implementation; `XmuxManager`, `XmuxSession`, padding injection
+- [xray-core XMUX source](https://github.com/XTLS/Xray-core/blob/main/transport/internet/xhttp/xmux.go) — connection pool design, `scMaxConcurrentPosts` enforcement, stream routing
+- [xray-core releases](https://github.com/XTLS/Xray-core/releases) — version-lock requirement; check `CHANGELOG.md` for xHTTP breaking changes per release; client/server must match
+
+**Rust crates:**
+- [`h2` crate](https://github.com/hyperium/h2) (`hyperium/h2` v0.4) — HTTP/2 framing; `SendRequest<Bytes>` for POST streams, `RecvStream` for chunked GET response
+- [`hyper` v1.x `conn::http2`](https://docs.rs/hyper/latest/hyper/client/conn/http2/index.html) — H2-only connection builder; `Builder::new(TokioExecutor)` for async H2 client
+- [`bytes` crate](https://github.com/tokio-rs/bytes) — zero-copy `Bytes`/`BytesMut` for padding injection without heap allocation
+
+**CDN and server setup:**
+- [chika0801/Xray-examples — VLESS-xHTTP-XTLS-Reality](https://github.com/chika0801/Xray-examples/tree/main/VLESS-xHTTP-XTLS-Reality) — canonical server + client configs for xHTTP+Reality+CDN; Nginx reverse proxy snippets
+- [Cloudflare Workers request size limits](https://developers.cloudflare.com/workers/platform/limits/) — 100 MB request body; set `scMaxEachPostBytes: "95mb"` to stay within free tier limit
+- [3x-ui xHTTP server setup](https://github.com/MHSanaei/3x-ui/wiki) — panel config for xHTTP transport inbound; relevant for users configuring their own VPS via GUI
+- [autoXRAY](https://github.com/iwatkot/autoxray) — one-command VLESS+xHTTP setup on clean Ubuntu VPS; Docker-based 3x-ui deployment
+
+**Community field reports:**
+- [ntc.party thread 13855](https://ntc.party/t/13855) — "Тестируем XHTTP", 426+ replies, April 2026; ISP-specific working configs, xPaddingBytes tuning, CDN fallback
+- [ntc.party thread 23924](https://ntc.party/t/23924) — xHTTP + Reality + Steal Oneself; when Reality overhead is unnecessary; Nginx `location` proxy_pass config
+- [ntc.party thread 23943](https://ntc.party/t/23943) — TCP Reality breaks multi-hop cascade; use gRPC or xHTTP transport for RU VPS → foreign VPS chains
+- [Habr: Как ТСПУ ловит VLESS (Mar 12, 2026)](https://habr.com/ru/articles/1009542/) — 4-layer detection model; xHTTP as Layer-4 mitigation; recommended `dest` sites and `xPaddingBytes` rationale
+- [Habr: Анатомия DPI (Mar 14, 2026)](https://habr.com/ru/articles/1009560/) — packet-level analysis; size distribution signals; timing features TSPU ML extracts
 
 **Root required:** No | **Effort:** High | **Priority:** P0
 
@@ -1074,6 +1288,33 @@ Chrome updates its TLS fingerprint approximately every 6 weeks with each major r
 2. **GREASE randomisation** — Chrome's GREASE values change per-session; BoringSSL `set_grease_enabled(true)` handles this automatically.
 3. **Fallback fingerprint rotation** — if current fingerprint starts failing diagnostics, rotate to next profile automatically.
 
+#### References and Implementation Resources
+
+**Protocol and specification:**
+- [TLS 1.3 RFC 8446](https://www.rfc-editor.org/rfc/rfc8446) — ClientHello structure, extension ordering
+- [JA3 fingerprinting paper](https://github.com/salesforce/ja3) — Salesforce original JA3 algorithm, hash computation
+- [JA4+ specification](https://github.com/FoxIO-LLC/ja4) — JA4, JA4S, JA4T fingerprint formats
+- [GREASE RFC 8701](https://www.rfc-editor.org/rfc/rfc8701) — Reserved values for GREASE extension slots
+- [ML-KEM (Kyber) NIST FIPS 203](https://csrc.nist.gov/pubs/fips/203/final) — Post-quantum key encapsulation (X25519MLKEM768)
+
+**Rust implementation:**
+- [`boring` crate](https://crates.io/crates/boring) — BoringSSL Rust bindings (already in RIPDPI via boringtun); `SslContextBuilder::set_curves_list`, `set_grease_enabled`
+- [`rustls`](https://crates.io/crates/rustls) — Pure-Rust TLS; does NOT support GREASE or ML-KEM by default — use boring crate for fingerprint-accurate TLS
+- [uTLS Go library](https://github.com/refraction-networking/utls) — Reference implementation of Chrome/Firefox TLS mimicry; study `ClientHelloSpec` structures for port to Rust
+- [tlsfingerprint.io](https://tlsfingerprint.io/) — Live JA3/JA4 database; test RIPDPI output here
+
+**Telegram block incident (April 2026):**
+- [ntc.party thread on Telegram JA3 block](https://ntc.party/t/telegram-blocking-ja3) — JA3 hash `f07cc269d9323c428b7297219bed6754` block confirmed; multi-connection "Siberian" trigger
+- [`/Users/po4yka/GitRep/obsidian/TechnicalVault/Censorship/telegram-ja3-blocking-2026.md`] — local analysis note
+
+**Chrome fingerprint sources:**
+- [Chrome TLS changelog](https://chromium.googlesource.com/chromium/src/+/refs/heads/main/net/socket/ssl_client_socket_impl.cc) — ClientHello construction in Chromium source
+- [Fingerprint Randomizer proposal](https://bugs.chromium.org/p/chromium/issues/detail?id=775438) — GREASE history in Chrome
+- [TLS Observatory](https://observatory.mozilla.org/) — Compare fingerprints across client versions
+
+**Fingerprint profile bundling:**
+- [Xray-core `fingerprint` field](https://xtls.github.io/en/config/transport.html#tlsobject) — How Xray/sing-box handle fingerprint profiles as JSON configs; reuse format for RIPDPI strategy packs (item 15)
+
 **Root required:** No | **Effort:** High | **Priority:** P0
 
 ---
@@ -1146,6 +1387,29 @@ RIPDPI should surface this as a configuration field in the relay setup wizard wi
 #### Relationship to Chain Relay (item 11)
 
 Chain relay (RU VPS → foreign VPS) provides equivalent protection: the spyware sees the Russian VPS's outbound IP, which is domestic and not directly linkable to a foreign proxy. Dual-IP VPS is the single-server alternative at lower cost.
+
+#### References and Implementation Resources
+
+**Threat research:**
+- [ntc.party thread 23690 — IP correlation deanonymization](https://ntc.party/t/23690) — 163 replies; MAX Messenger spyware IP reporting, ISP NAT log cross-reference mechanism
+- [`/Users/po4yka/GitRep/obsidian/TechnicalVault/Censorship/vps-ip-correlation-attack.md`] — local analysis note with attack flow diagram
+
+**Dual-IP VPS providers:**
+- [Hetzner additional IPs](https://docs.hetzner.com/cloud/servers/primary-ips/overview/) — €1.19/month per extra IP; simple failover setup
+- [Aeza.net](https://aeza.net/) — Russian-friendly VPS with additional IPs; low latency from Russia
+- [Vdsina.ru](https://vdsina.ru/) — Russian VPS provider, multiple IPs available
+
+**Linux IP routing for dual-IP outbound:**
+- [iproute2 policy routing](https://lartc.org/howto/lartc.rpdb.html) — `ip rule` / `ip route table` setup for source-based routing; exact commands for `ip route add default via <gw> src B.B.B.B table 200`
+- [Linux Advanced Routing & Traffic Control](https://lartc.org/howto/) — comprehensive reference for multi-homed server routing
+
+**Rust socket binding:**
+- [`tokio::net::TcpSocket::bind`](https://docs.rs/tokio/latest/tokio/net/struct.TcpSocket.html#method.bind) — bind before connect for source IP selection
+- [SO_BINDTODEVICE](https://man7.org/linux/man-pages/man7/socket.7.html) — bind socket to specific network interface (alternative approach)
+
+**sing-box reference:**
+- [sing-box `inet4_bind_address`](https://sing-box.sagernet.org/configuration/outbound/) — outbound bind IP field; adapt pattern for RIPDPI relay config schema
+- [ntc.party thread 24016](https://ntc.party/t/24016) — `package_name_regex` 1.14.0-alpha.10 discussion (also relevant to item 28)
 
 **Root required:** No (client-side config only) | **Effort:** Low | **Priority:** P1
 
@@ -1224,6 +1488,29 @@ Bundle common presets in `app-exclusion-list.json` (item 24's file):
 #### Interaction with May 2026 Billing Surcharge
 
 From May 1, 2026: mobile data usage >15 GB/month incurs 150 RUB/GB surcharge for international traffic. Apps that generate high-volume domestic traffic (streaming, cloud sync) must be routed direct to avoid billing through the VPN's international exit. The `^ru\.` preset directly addresses this.
+
+#### References and Implementation Resources
+
+**sing-box 1.14.0 `package_name_regex`:**
+- [ntc.party thread 24016](https://ntc.party/t/24016) — original discussion of `package_name_regex` feature, April 2026
+- [sing-box route rules documentation](https://sing-box.sagernet.org/configuration/route/rule/) — `package_name` and regex rule fields
+- [sing-box 1.14.0-alpha changelog](https://github.com/SagerNet/sing-box/releases) — release notes for the feature introduction
+
+**Android VpnService per-app routing:**
+- [VpnService.Builder.addDisallowedApplication](https://developer.android.com/reference/android/net/VpnService.Builder#addDisallowedApplication(java.lang.String)) — official API; resolves package name to UID at build time
+- [VpnService.Builder.addAllowedApplication](https://developer.android.com/reference/android/net/VpnService.Builder#addAllowedApplication(java.lang.String)) — allowlist variant (mutually exclusive with disallow list)
+- [PackageManager.getInstalledPackages](https://developer.android.com/reference/android/content/pm/PackageManager#getInstalledPackages(int)) — enumerate installed packages for regex resolution
+
+**Force-selected interface bypass (banking apps):**
+- [ConnectivityManager.requestNetwork](https://developer.android.com/reference/android/net/ConnectivityManager#requestNetwork(android.net.NetworkRequest,%20android.net.ConnectivityManager.NetworkCallback)) — how apps bypass VPN UID routing
+- [Android VPN bypass mechanisms](https://github.com/shadowsocks/shadowsocks-android/issues/2919) — shadowsocks-android issue tracking force-selected interface behavior
+
+**Russian app package name reference:**
+- [RuStore app catalog](https://www.rustore.ru/catalog) — authoritative source for Russian app package names
+- Common patterns: `ru.sberbank.spasibo`, `ru.tinkoff.banking`, `ru.vtb24.mobilebank.android`, `ru.alfabank.mobile.android`, `ru.gosuslugi.mobile`, `ru.nalog.www`
+
+**May 2026 billing surcharge source:**
+- [ntc.party discussion on mobile billing changes](https://ntc.party/t/23602) — operator surcharge for >15 GB international traffic context
 
 **Root required:** No | **Effort:** Low–Medium | **Priority:** P1
 
@@ -1311,6 +1598,34 @@ Integrate with the existing `host-autolearn-v2.json` per-network scoping: on mob
 | Static IP | ~120 RUB/month |
 | Foreign VPS (Aeza Stockholm) | ~€2/month (~200 RUB) |
 | **Total** | **~720 RUB/month (~$8)** |
+
+#### References and Implementation Resources
+
+**Mobile whitelist regime background:**
+- [`/Users/po4yka/GitRep/obsidian/TechnicalVault/Censorship/censorship-landscape-2026.md`] — whitelist mode activation timeline, operator coverage
+- [ntc.party — whitelist blocking discussions](https://ntc.party/c/censorship-research-publications/22) — ongoing field reports from operators in 57+ regions
+
+**Yandex.Cloud setup:**
+- [Yandex.Cloud Compute VM pricing](https://cloud.yandex.ru/en/prices#compute) — e1.micro preemptible: ~400 RUB/month; static IP: ~120 RUB/month
+- [Yandex.Cloud CLI quickstart](https://cloud.yandex.ru/en/docs/cli/quickstart) — `yc compute instance create` for automated provisioning
+- [Yandex.Cloud preemptible VM docs](https://cloud.yandex.ru/en/docs/compute/concepts/preemptible-vm) — interruption policy, max 24h uptime guarantees
+
+**VLESS+Reality on the entry hop:**
+- [XTLS Reality protocol spec](https://github.com/XTLS/REALITY) — SNI cover (`ya.ru`/`yandex.ru`), `publicKey`/`shortId` config
+- [3x-ui panel](https://github.com/MHSanaei/3x-ui) — web UI for Xray-core; simplest way to deploy the entry node on Yandex.Cloud VM
+- [autoXRAY](https://github.com/GFWFighter/autoXRAY) — automated Xray + Reality setup script; supports dual-hop configuration
+
+**xHTTP transport on the exit hop (item 25):**
+- [Xray xHTTP transport docs](https://xtls.github.io/en/config/transport.html#xhttptransportsettings) — `xPaddingBytes`, `mode: "packet-up"`, multiplexing config
+- [chika0801/Xray-examples — xHTTP](https://github.com/chika0801/Xray-examples) — ready-made server configs for xHTTP exit node
+
+**Aeza Stockholm as foreign exit:**
+- [Aeza.net Stockholm VPS](https://aeza.net/) — ~€2/month, low latency from Yandex.Cloud ru-central1
+- [Yandex.Cloud → Stockholm latency](https://cloudping.info/) — typically 30–50ms; acceptable for interactive use
+
+**Routing integration (item 4 WARP scanner adaptation):**
+- [sing-box outbound `default_interface`](https://sing-box.sagernet.org/configuration/outbound/) — force traffic through relay on mobile vs. direct on Wi-Fi
+- [RIPDPI item 4 — WARP endpoint scanner](../roadmap-integrations.md#4-warp-endpoint-scanner) — relay health probe can reuse same probe logic
 
 **Root required:** No | **Effort:** Medium | **Priority:** P1
 
