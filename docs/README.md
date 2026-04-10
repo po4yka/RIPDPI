@@ -28,6 +28,10 @@ RIPDPI documentation index. For a quick start, see the main [README](../README.m
 ## Roadmap
 
 - [Integrations and techniques roadmap](roadmap-integrations.md)
+- [Phase P0 implementation](roadmap-integrations-p0.md)
+- [Phase P1 implementation](roadmap-integrations-p1.md)
+- [Phase P2 implementation](roadmap-integrations-p2.md)
+- [Phase P3 implementation](roadmap-integrations-p3.md)
 
 ## User Manuals
 

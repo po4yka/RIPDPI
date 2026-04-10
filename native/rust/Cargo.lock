@@ -3343,13 +3343,22 @@ name = "ripdpi-warp-android"
 version = "0.1.0"
 dependencies = [
  "android-support",
+ "boring",
+ "bytes",
+ "http",
+ "http-body-util",
+ "hyper",
+ "hyper-util",
  "jni 0.22.4",
  "once_cell",
  "ripdpi-native-protect",
+ "ripdpi-tls-profiles",
  "ripdpi-warp-core",
  "serde",
  "serde_json",
  "tokio",
+ "tokio-boring",
+ "url",
 ]
 
 [[package]]

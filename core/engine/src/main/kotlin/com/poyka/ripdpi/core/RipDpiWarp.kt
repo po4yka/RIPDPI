@@ -40,6 +40,10 @@ interface RipDpiWarpBindings {
     fun destroy(handle: Long)
 }
 
+interface RipDpiWarpProvisioningBindings {
+    fun executeProvisioning(requestJson: String): String?
+}
+
 object RipDpiWarpNativeLoader {
     init {
         System.loadLibrary("ripdpi-warp")
@@ -50,7 +54,9 @@ object RipDpiWarpNativeLoader {
 
 class RipDpiWarpNativeBindings
     @Inject
-    constructor() : RipDpiWarpBindings {
+    constructor() :
+    RipDpiWarpBindings,
+        RipDpiWarpProvisioningBindings {
         companion object {
             init {
                 RipDpiWarpNativeLoader.ensureLoaded()
@@ -77,6 +83,8 @@ class RipDpiWarpNativeBindings
             jniDestroy(handle)
         }
 
+        override fun executeProvisioning(requestJson: String): String? = jniExecuteProvisioning(requestJson)
+
         private external fun jniCreate(configJson: String): Long
 
         private external fun jniStart(handle: Long): Int
@@ -86,6 +94,8 @@ class RipDpiWarpNativeBindings
         private external fun jniPollTelemetry(handle: Long): String?
 
         private external fun jniDestroy(handle: Long)
+
+        private external fun jniExecuteProvisioning(requestJson: String): String?
     }
 
 private val warpJson = Json { ignoreUnknownKeys = true }

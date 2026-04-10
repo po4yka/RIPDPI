@@ -2,6 +2,8 @@
 
 use std::io;
 use std::pin::Pin;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 use std::task::{Context, Poll};
 
 use bytes::Bytes;
@@ -15,21 +17,41 @@ use hyper_util::rt::{TokioExecutor, TokioIo};
 use rand::Rng;
 use ripdpi_vless::config::VlessRealityConfig;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt, DuplexStream, ReadBuf};
-use tokio::sync::mpsc;
+use tokio::sync::{mpsc, Mutex, OwnedSemaphorePermit, Semaphore};
 
 const STREAM_BUFFER_SIZE: usize = 64 * 1024;
 const BODY_CHUNK_SIZE: usize = 16 * 1024;
 const HEADER_PADDING_MIN: usize = 100;
 const HEADER_PADDING_MAX: usize = 1000;
+const DEFAULT_XMUX_MAX_CONNECTIONS: usize = 8;
+const DEFAULT_XMUX_MAX_CONCURRENT_STREAMS: usize = 32;
 
 pub trait AsyncIo: AsyncRead + AsyncWrite + Unpin + Send {}
 impl<T> AsyncIo for T where T: AsyncRead + AsyncWrite + Unpin + Send {}
+
+type XhttpBody = http_body_util::combinators::BoxBody<Bytes, io::Error>;
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct XmuxConfig {
+    pub max_connections: usize,
+    pub max_concurrent_streams: usize,
+}
+
+impl Default for XmuxConfig {
+    fn default() -> Self {
+        Self {
+            max_connections: DEFAULT_XMUX_MAX_CONNECTIONS,
+            max_concurrent_streams: DEFAULT_XMUX_MAX_CONCURRENT_STREAMS,
+        }
+    }
+}
 
 #[derive(Debug, Clone)]
 pub struct XhttpRealityConfig {
     pub vless: VlessRealityConfig,
     pub path: String,
     pub host: Option<String>,
+    pub xmux: XmuxConfig,
 }
 
 #[derive(Debug, Clone)]
@@ -41,6 +63,7 @@ pub struct XhttpTlsConfig {
     pub path: String,
     pub host: Option<String>,
     pub tls_fingerprint_profile: String,
+    pub xmux: XmuxConfig,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -51,34 +74,193 @@ pub enum ConfigError {
     InvalidPort(i32),
 }
 
+#[derive(Clone)]
+pub struct XhttpClient {
+    inner: Arc<XhttpClientInner>,
+}
+
+struct XhttpClientInner {
+    mode: XhttpMode,
+    max_connections: usize,
+    max_concurrent_streams: usize,
+    state: Mutex<PoolState>,
+}
+
+struct PoolState {
+    connections: Vec<Arc<PooledConnection>>,
+    creating_connections: usize,
+}
+
+struct PooledConnection {
+    sender: Mutex<http2::SendRequest<XhttpBody>>,
+    permits: Arc<Semaphore>,
+    closed: AtomicBool,
+}
+
+#[derive(Debug, Clone)]
+enum XhttpMode {
+    Reality(XhttpRealityConfig),
+    Tls(XhttpTlsConfig),
+}
+
 pub async fn connect_reality(config: &XhttpRealityConfig, target: &str) -> io::Result<impl AsyncIo> {
-    let tls = ripdpi_vless::reality::connect_reality_tls(
-        tokio::net::TcpStream::connect(format!("{}:{}", config.vless.server, config.vless.port)).await?,
-        &config.vless,
-    )
-    .await?;
-    connect_inner(
-        TokioIo::new(tls),
-        &config.vless.server_name,
-        &config.path,
-        config.host.as_deref(),
-        &config.vless.uuid,
-        target,
-    )
-    .await
+    XhttpClient::new_reality(config.clone()).connect(target).await
 }
 
 pub async fn connect_tls(config: &XhttpTlsConfig, target: &str) -> io::Result<impl AsyncIo> {
-    let tcp = tokio::net::TcpStream::connect(format!("{}:{}", config.server, config.port)).await?;
-    tcp.set_nodelay(true)?;
-    let connector = ripdpi_tls_profiles::build_connector(&config.tls_fingerprint_profile, true)
-        .map_err(|error| io::Error::other(format!("TLS profile: {error}")))?;
-    let ssl = connector.configure().map_err(|error| io::Error::other(format!("TLS configure: {error}")))?;
-    let tls = tokio_boring::connect(ssl, &config.server_name, tcp)
-        .await
-        .map_err(|error| io::Error::new(io::ErrorKind::ConnectionRefused, format!("xHTTP TLS handshake: {error}")))?;
-    connect_inner(TokioIo::new(tls), &config.server_name, &config.path, config.host.as_deref(), &config.uuid, target)
-        .await
+    XhttpClient::new_tls(config.clone()).connect(target).await
+}
+
+impl XhttpClient {
+    pub fn new_reality(config: XhttpRealityConfig) -> Self {
+        Self::new(XhttpMode::Reality(config.clone()), config.xmux)
+    }
+
+    pub fn new_tls(config: XhttpTlsConfig) -> Self {
+        Self::new(XhttpMode::Tls(config.clone()), config.xmux.clone())
+    }
+
+    pub async fn connect(&self, target: &str) -> io::Result<XhttpStream> {
+        let (connection, permit) = self.acquire_connection().await?;
+        connection.open_stream_from_mode(&self.inner.mode, target, permit).await
+    }
+
+    fn new(mode: XhttpMode, xmux: XmuxConfig) -> Self {
+        Self {
+            inner: Arc::new(XhttpClientInner {
+                mode,
+                max_connections: xmux.max_connections.max(1),
+                max_concurrent_streams: xmux.max_concurrent_streams.max(1),
+                state: Mutex::new(PoolState {
+                    connections: Vec::new(),
+                    creating_connections: 0,
+                }),
+            }),
+        }
+    }
+
+    async fn acquire_connection(&self) -> io::Result<(Arc<PooledConnection>, OwnedSemaphorePermit)> {
+        loop {
+            if let Some((connection, permit)) = self.try_acquire_existing().await {
+                return Ok((connection, permit));
+            }
+
+            let should_create = {
+                let mut state = self.inner.state.lock().await;
+                state.connections.retain(|connection| !connection.is_closed());
+                if state.connections.len() + state.creating_connections < self.inner.max_connections {
+                    state.creating_connections += 1;
+                    true
+                } else {
+                    false
+                }
+            };
+
+            if should_create {
+                match self.create_connection().await {
+                    Ok(connection) => {
+                        let permit = connection
+                            .permits
+                            .clone()
+                            .try_acquire_owned()
+                            .map_err(|_| io::Error::other("xHTTP connection created without stream capacity"))?;
+                        let mut state = self.inner.state.lock().await;
+                        state.creating_connections = state.creating_connections.saturating_sub(1);
+                        state.connections.push(connection.clone());
+                        return Ok((connection, permit));
+                    }
+                    Err(error) => {
+                        let mut state = self.inner.state.lock().await;
+                        state.creating_connections = state.creating_connections.saturating_sub(1);
+                        if state.connections.is_empty() {
+                            return Err(error);
+                        }
+                    }
+                }
+            }
+
+            let waiter = {
+                let state = self.inner.state.lock().await;
+                state
+                    .connections
+                    .iter()
+                    .find(|connection| !connection.is_closed())
+                    .map(|connection| (connection.clone(), connection.permits.clone()))
+            };
+            let Some((connection, permits)) = waiter else {
+                tokio::task::yield_now().await;
+                continue;
+            };
+            let permit = permits
+                .acquire_owned()
+                .await
+                .map_err(|_| io::Error::other("xHTTP stream permit channel closed"))?;
+            if connection.is_closed() {
+                drop(permit);
+                continue;
+            }
+            return Ok((connection, permit));
+        }
+    }
+
+    async fn try_acquire_existing(&self) -> Option<(Arc<PooledConnection>, OwnedSemaphorePermit)> {
+        let state = self.inner.state.lock().await;
+        state.connections.iter().find_map(|connection| {
+            if connection.is_closed() {
+                return None;
+            }
+            connection
+                .permits
+                .clone()
+                .try_acquire_owned()
+                .ok()
+                .map(|permit| (connection.clone(), permit))
+        })
+    }
+
+    async fn create_connection(&self) -> io::Result<Arc<PooledConnection>> {
+        let io = match &self.inner.mode {
+            XhttpMode::Reality(config) => {
+                let tls = ripdpi_vless::reality::connect_reality_tls(
+                    tokio::net::TcpStream::connect(format!("{}:{}", config.vless.server, config.vless.port)).await?,
+                    &config.vless,
+                )
+                .await?;
+                TokioIo::new(tls)
+            }
+            XhttpMode::Tls(config) => {
+                let tcp = tokio::net::TcpStream::connect(format!("{}:{}", config.server, config.port)).await?;
+                tcp.set_nodelay(true)?;
+                let connector = ripdpi_tls_profiles::build_connector(&config.tls_fingerprint_profile, true)
+                    .map_err(|error| io::Error::other(format!("TLS profile: {error}")))?;
+                let ssl =
+                    connector.configure().map_err(|error| io::Error::other(format!("TLS configure: {error}")))?;
+                let tls = tokio_boring::connect(ssl, &config.server_name, tcp).await.map_err(|error| {
+                    io::Error::new(io::ErrorKind::ConnectionRefused, format!("xHTTP TLS handshake: {error}"))
+                })?;
+                TokioIo::new(tls)
+            }
+        };
+
+        let (sender, connection) = http2::handshake(TokioExecutor::new(), io)
+            .await
+            .map_err(|error| io::Error::new(io::ErrorKind::ConnectionRefused, format!("xHTTP H2 handshake: {error}")))?;
+
+        let pooled = Arc::new(PooledConnection {
+            sender: Mutex::new(sender),
+            permits: Arc::new(Semaphore::new(self.inner.max_concurrent_streams)),
+            closed: AtomicBool::new(false),
+        });
+        let pooled_for_task = pooled.clone();
+        tokio::spawn(async move {
+            if let Err(error) = connection.await {
+                tracing::debug!(error = %error, "xHTTP H2 connection closed");
+            }
+            pooled_for_task.closed.store(true, Ordering::SeqCst);
+            pooled_for_task.permits.close();
+        });
+        Ok(pooled)
+    }
 }
 
 impl XhttpTlsConfig {
@@ -100,118 +282,29 @@ impl XhttpTlsConfig {
             path: normalize_path(path),
             host: if host.trim().is_empty() { None } else { Some(host.trim().to_owned()) },
             tls_fingerprint_profile: tls_fingerprint_profile.to_owned(),
+            xmux: XmuxConfig::default(),
         })
     }
 }
 
-async fn connect_inner<T>(
-    io: TokioIo<T>,
-    authority_host: &str,
-    path: &str,
-    host_override: Option<&str>,
-    uuid: &[u8; 16],
-    target: &str,
-) -> io::Result<impl AsyncIo>
-where
-    T: AsyncRead + AsyncWrite + Unpin + Send + 'static,
-{
-    type XhttpBody = http_body_util::combinators::BoxBody<Bytes, io::Error>;
-
-    let (mut sender, connection): (http2::SendRequest<XhttpBody>, _) = http2::handshake(TokioExecutor::new(), io)
-        .await
-        .map_err(|error| io::Error::new(io::ErrorKind::ConnectionRefused, format!("xHTTP H2 handshake: {error}")))?;
-    tokio::spawn(async move {
-        if let Err(error) = connection.await {
-            tracing::debug!(error = %error, "xHTTP H2 connection closed");
-        }
-    });
-
-    let session_id = random_session_id();
-    let stream_path = stream_up_path(path, &session_id);
-    let host_header = host_override.unwrap_or(authority_host);
-    let referer = referer_padding(host_header, path);
-
-    let get_request = build_get_request(&stream_path, host_header, &referer)?;
-    let get_response = sender.send_request(get_request).await.map_err(|error| {
-        io::Error::new(io::ErrorKind::ConnectionRefused, format!("xHTTP GET request failed: {error}"))
-    })?;
-    if get_response.status() != StatusCode::OK {
-        return Err(io::Error::new(
-            io::ErrorKind::ConnectionRefused,
-            format!("xHTTP GET rejected: {}", get_response.status()),
-        ));
+impl PooledConnection {
+    fn is_closed(&self) -> bool {
+        self.closed.load(Ordering::SeqCst)
     }
-
-    let (outgoing_tx, outgoing_rx) = mpsc::channel::<io::Result<Bytes>>(64);
-    let post_request = build_post_request(&stream_path, host_header, &referer, ChannelBody::new(outgoing_rx))?;
-    let post_response = sender.send_request(post_request).await.map_err(|error| {
-        io::Error::new(io::ErrorKind::ConnectionRefused, format!("xHTTP POST request failed: {error}"))
-    })?;
-    if !post_response.status().is_success() {
-        return Err(io::Error::new(
-            io::ErrorKind::ConnectionRefused,
-            format!("xHTTP POST rejected: {}", post_response.status()),
-        ));
-    }
-
-    let (mut user_upload, mut transport_upload) = tokio::io::duplex(STREAM_BUFFER_SIZE);
-    let (mut transport_download, user_download) = tokio::io::duplex(STREAM_BUFFER_SIZE);
-
-    tokio::spawn(async move {
-        let mut buffer = vec![0u8; BODY_CHUNK_SIZE];
-        loop {
-            match transport_upload.read(&mut buffer).await {
-                Ok(0) => break,
-                Ok(read) => {
-                    if outgoing_tx.send(Ok(Bytes::copy_from_slice(&buffer[..read]))).await.is_err() {
-                        break;
-                    }
-                }
-                Err(error) => {
-                    let _ = outgoing_tx.send(Err(error)).await;
-                    break;
-                }
-            }
-        }
-    });
-
-    tokio::spawn(async move {
-        let mut body = get_response.into_body();
-        while let Some(frame) = body.frame().await {
-            let frame = match frame {
-                Ok(frame) => frame,
-                Err(error) => {
-                    tracing::debug!(error = %error, "xHTTP GET stream failed");
-                    break;
-                }
-            };
-            if let Ok(data) = frame.into_data() {
-                if transport_download.write_all(&data).await.is_err() {
-                    break;
-                }
-            }
-        }
-        let _ = transport_download.shutdown().await;
-    });
-
-    let request = ripdpi_vless::wire::encode_request(uuid, &ripdpi_vless::addons::VISION_ADDONS, target);
-    user_upload.write_all(&request).await?;
-
-    let mut stream = XhttpStream { reader: user_download, writer: user_upload };
-    ripdpi_vless::wire::read_response(&mut stream).await?;
-    Ok(stream)
 }
 
 fn build_get_request(
     path: &str,
     host_header: &str,
     referer: &str,
-) -> io::Result<Request<http_body_util::combinators::BoxBody<Bytes, io::Error>>> {
+    header_padding: &str,
+) -> io::Result<Request<XhttpBody>> {
     let request = Request::builder()
         .method("GET")
         .uri(path)
         .header(HOST, host_header)
         .header(REFERER, referer)
+        .header("x-padding", header_padding)
         .body(Empty::<Bytes>::new().map_err(|never| match never {}).boxed())
         .map_err(|error| io::Error::new(io::ErrorKind::InvalidInput, format!("xHTTP GET request build: {error}")))?;
     Ok(request)
@@ -221,13 +314,15 @@ fn build_post_request(
     path: &str,
     host_header: &str,
     referer: &str,
+    header_padding: &str,
     body: ChannelBody,
-) -> io::Result<Request<http_body_util::combinators::BoxBody<Bytes, io::Error>>> {
+) -> io::Result<Request<XhttpBody>> {
     let request = Request::builder()
         .method("POST")
         .uri(path)
         .header(HOST, host_header)
         .header(REFERER, referer)
+        .header("x-padding", header_padding)
         .header(CONTENT_TYPE, "application/grpc")
         .body(body.boxed())
         .map_err(|error| io::Error::new(io::ErrorKind::InvalidInput, format!("xHTTP POST request build: {error}")))?;
@@ -237,6 +332,11 @@ fn build_post_request(
 fn random_session_id() -> String {
     let mut rng = rand::rng();
     format!("{:016x}{:016x}", rng.random::<u64>(), rng.random::<u64>())
+}
+
+fn random_padding_value() -> String {
+    let padding_len = rand::rng().random_range(HEADER_PADDING_MIN..=HEADER_PADDING_MAX);
+    "X".repeat(padding_len)
 }
 
 fn normalize_path(path: &str) -> String {
@@ -259,8 +359,7 @@ fn stream_up_path(path: &str, session_id: &str) -> String {
 
 fn referer_padding(host: &str, path: &str) -> String {
     let normalized = normalize_path(path);
-    let padding_len = rand::rng().random_range(HEADER_PADDING_MIN..=HEADER_PADDING_MAX);
-    let padding = "X".repeat(padding_len);
+    let padding = random_padding_value();
     format!("https://{host}{normalized}?x_padding={padding}")
 }
 
@@ -302,9 +401,10 @@ impl Body for ChannelBody {
     }
 }
 
-struct XhttpStream {
+pub struct XhttpStream {
     reader: DuplexStream,
     writer: DuplexStream,
+    _permit: OwnedSemaphorePermit,
 }
 
 impl AsyncRead for XhttpStream {
@@ -327,12 +427,132 @@ impl AsyncWrite for XhttpStream {
     }
 }
 
+trait StreamMetadata {
+    fn session_path(&self) -> String;
+    fn host_header(&self) -> String;
+    fn uuid(&self) -> &[u8; 16];
+}
+
+impl StreamMetadata for XhttpMode {
+    fn session_path(&self) -> String {
+        match self {
+            Self::Reality(config) => stream_up_path(&config.path, &random_session_id()),
+            Self::Tls(config) => stream_up_path(&config.path, &random_session_id()),
+        }
+    }
+
+    fn host_header(&self) -> String {
+        match self {
+            Self::Reality(config) => config.host.clone().unwrap_or_else(|| config.vless.server_name.clone()),
+            Self::Tls(config) => config.host.clone().unwrap_or_else(|| config.server_name.clone()),
+        }
+    }
+
+    fn uuid(&self) -> &[u8; 16] {
+        match self {
+            Self::Reality(config) => &config.vless.uuid,
+            Self::Tls(config) => &config.uuid,
+        }
+    }
+}
+
+impl PooledConnection {
+    async fn open_stream_from_mode(
+        &self,
+        mode: &XhttpMode,
+        target: &str,
+        permit: OwnedSemaphorePermit,
+    ) -> io::Result<XhttpStream> {
+        let stream_path = mode.session_path();
+        let host_header = mode.host_header();
+        let referer = referer_padding(&host_header, &stream_path);
+        let header_padding = random_padding_value();
+
+        let mut sender = self.sender.lock().await;
+        let get_request = build_get_request(&stream_path, &host_header, &referer, &header_padding)?;
+        let get_response = sender.send_request(get_request).await.map_err(|error| {
+            io::Error::new(io::ErrorKind::ConnectionRefused, format!("xHTTP GET request failed: {error}"))
+        })?;
+        if get_response.status() != StatusCode::OK {
+            return Err(io::Error::new(
+                io::ErrorKind::ConnectionRefused,
+                format!("xHTTP GET rejected: {}", get_response.status()),
+            ));
+        }
+
+        let (outgoing_tx, outgoing_rx) = mpsc::channel::<io::Result<Bytes>>(64);
+        let post_request =
+            build_post_request(&stream_path, &host_header, &referer, &header_padding, ChannelBody::new(outgoing_rx))?;
+        let post_response = sender.send_request(post_request).await.map_err(|error| {
+                io::Error::new(io::ErrorKind::ConnectionRefused, format!("xHTTP POST request failed: {error}"))
+            })?;
+        drop(sender);
+        if !post_response.status().is_success() {
+            return Err(io::Error::new(
+                io::ErrorKind::ConnectionRefused,
+                format!("xHTTP POST rejected: {}", post_response.status()),
+            ));
+        }
+
+        let (mut user_upload, mut transport_upload) = tokio::io::duplex(STREAM_BUFFER_SIZE);
+        let (mut transport_download, user_download) = tokio::io::duplex(STREAM_BUFFER_SIZE);
+
+        tokio::spawn(async move {
+            let mut buffer = vec![0u8; BODY_CHUNK_SIZE];
+            loop {
+                match transport_upload.read(&mut buffer).await {
+                    Ok(0) => break,
+                    Ok(read) => {
+                        if outgoing_tx.send(Ok(Bytes::copy_from_slice(&buffer[..read]))).await.is_err() {
+                            break;
+                        }
+                    }
+                    Err(error) => {
+                        let _ = outgoing_tx.send(Err(error)).await;
+                        break;
+                    }
+                }
+            }
+        });
+
+        tokio::spawn(async move {
+            let mut body = get_response.into_body();
+            while let Some(frame) = body.frame().await {
+                let frame = match frame {
+                    Ok(frame) => frame,
+                    Err(error) => {
+                        tracing::debug!(error = %error, "xHTTP GET stream failed");
+                        break;
+                    }
+                };
+                if let Ok(data) = frame.into_data() {
+                    if transport_download.write_all(&data).await.is_err() {
+                        break;
+                    }
+                }
+            }
+            let _ = transport_download.shutdown().await;
+        });
+
+        let request = ripdpi_vless::wire::encode_request(mode.uuid(), &ripdpi_vless::addons::VISION_ADDONS, target);
+        user_upload.write_all(&request).await?;
+
+        let mut stream = XhttpStream {
+            reader: user_download,
+            writer: user_upload,
+            _permit: permit,
+        };
+        ripdpi_vless::wire::read_response(&mut stream).await?;
+        Ok(stream)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
-    fn tls_config_normalizes_path_and_host() {
+    fn tls_config_normalizes_path_host_and_xmux_defaults() {
         let config = XhttpTlsConfig::from_strings(
             "edge.example",
             443,
@@ -346,6 +566,7 @@ mod tests {
 
         assert_eq!("/api/v1/stream", config.path);
         assert_eq!(Some("origin.example".to_owned()), config.host);
+        assert_eq!(XmuxConfig::default(), config.xmux);
     }
 
     #[test]
@@ -360,5 +581,12 @@ mod tests {
         let (_, padding) = referer.split_once("x_padding=").expect("padding");
         assert!((HEADER_PADDING_MIN..=HEADER_PADDING_MAX).contains(&padding.len()));
         assert!(padding.chars().all(|character| character == 'X'));
+    }
+
+    #[test]
+    fn random_padding_value_uses_expected_range() {
+        let value = random_padding_value();
+        assert!((HEADER_PADDING_MIN..=HEADER_PADDING_MAX).contains(&value.len()));
+        assert!(value.chars().all(|character| character == 'X'));
     }
 }
