@@ -1,6 +1,6 @@
 # Integrations and Techniques Roadmap
 
-Prioritized list of integrations and DPI bypass techniques for RIPDPI, based on deep research across the Zapret community, NTC forums, GitHub projects, Cloudflare documentation, protocol specifications, and academic papers (intelligence window: April 2025 -- April 2026).
+Prioritized list of integrations and DPI bypass techniques for RIPDPI, based on deep research across the Zapret community, NTC forums, GitHub projects, Cloudflare documentation, protocol specifications, and academic papers (intelligence window: April 2025 -- April 10, 2026).
 
 ## Current Threat Landscape
 
@@ -21,7 +21,12 @@ Russian TSPU (technical censorship infrastructure) capabilities as of mid-2025:
 - **Platform VPN detection deadline (April 15, 2026)**: RKN mandated Yandex, VK, Sber, major marketplaces to detect and restrict VPN users. Non-compliance = loss of whitelist status + IT accreditation. Partial Yandex.Cloud subnet exclusions from whitelist.
 - **Mobile international traffic surcharge (May 1, 2026)**: 150 RUB/GB over 15 GB/month threshold. VPN users generating international traffic on mobile data face automatic billing. Split routing (bypassing VPN for domestic traffic) becomes financially necessary.
 - **MTS commercial VPN detection (March 2026)**: MTS briefly advertised "VPN detection as a service" at 87 RUB/day (page deleted, behaviour observed ~1 day). Pattern-based: sustained high-volume sessions to single IP; WireGuard/OpenVPN/PPTP/L2TP detected; obfuscated protocols (AmneziaWG) not yet.
-- **App-level VPN detection (April 2026)**: Mintsifry published 3-stage technical guide. Wildberries, Ozon, MAX Messenger, ВкусВилл, Шоколадница implementing. Primary vector: Android `ConnectivityManager.getNetworkCapabilities().hasTransport(TRANSPORT_VPN)` — system-wide flag, requires no permissions, unaffected by per-app split tunneling.
+- **App-level VPN detection (April 2026)**: Mintsifry published 3-step technical guide distributed to 20+ platforms (Yandex, VK, Sber, Ozon, Wildberries, Avito, X5, HeadHunter). Three required detection steps: (1) IP database check against VPN/datacenter ASNs via MaxMind GeoIP2/IP2Proxy; (2) parallel HTTP requests to Russian + foreign domains to detect split tunneling; (3) OS fingerprint + GPS cross-reference for corporate users. Deadline: April 15, 2026. Primary vector: Android `ConnectivityManager.getNetworkCapabilities().hasTransport(TRANSPORT_VPN)` — system-wide flag, requires no permissions, unaffected by per-app split tunneling. Wildberries, Ozon, MAX Messenger, ВкусВилл, Шоколадница implementing.
+- **April 1, 2026 mass VPN drop event**: Coordinated TSPU rules update at 13:00 MSK — synchronized VPN connection drops observed across MTS, Beeline, Tele2. OpenVPN, WireGuard, L2TP/IPSec, PPTP fully blocked as of late March 2026. AmneziaWG survives as UDP obfuscation layer.
+- **Telegram blocked April 4, 2026**: FSB opened criminal investigation against Durov. TSPU blocked Telegram via TLS handshake fingerprinting — non-standard ECH extension codepoint `0xFE02` (standard is `0xFE0D`) was detection vector. Fixed in Telegram Desktop 6.7.2 / Android 12.6.4 (~April 4–6). JA3 hash: `f07cc269d9323c428b7297219bed6754`.
+- **ntc.party accessibility**: A-record removed from DNS ~April 2026. Workaround: direct IP `130.255.77.28` via `/etc/hosts`, or Tor/VPN. GitHub discussion: bol-van/zapret#1703.
+- **xray-core v26.3.27 (March 27, 2026)**: Major release — Finalmask obfuscation framework (header-custom/Sudoku/fragment/noise), XHTTP/3 with BBR + udpHop, Hysteria2 inbound + Salamander, WireGuard FullCone NAT + Finalmask, REALITY warnings for Apple/iCloud SNI targets.
+- **sing-box v1.13.7 stable + v1.14.0-alpha.10 (April 10, 2026)**: `cloudflared` inbound (Cloudflare Tunnel as bypass transport), `package_name_regex` route rules, `evaluate` DNS action, Hysteria2 BBR + hop interval randomization (alpha.8).
 
 ### What RIPDPI Already Implements
 
@@ -643,7 +648,29 @@ obfuscated[i] = payload[i] XOR hash[i % 32]
 
 Every packet appears as random bytes. No discernible QUIC headers. Confirmed working in Russia mid-2025.
 
-**Reference:** [Hysteria2 spec](https://v2.hysteria.network/docs/developers/Protocol/), [hysteria](https://github.com/apernet/hysteria)
+#### sing-box Hop Interval Randomization (alpha.8, March 30 2026)
+
+sing-box v1.14.0-alpha.8 added **BBR profile + hop interval randomization** for Hysteria2, directly countering TSPU UDP pattern detection:
+
+```json
+{
+  "type": "hysteria2",
+  "server": "relay.example.com",
+  "server_port": 443,
+  "password": "your-password",
+  "obfs": {
+    "type": "salamander",
+    "password": "obfs-password"
+  },
+  "congestion_control": "bbr",
+  "hop_interval": "30s",
+  "hop_ports": "20000-50000"
+}
+```
+
+`hop_interval` randomizes which UDP port is used every N seconds, making traffic correlation across time windows harder. TSPU detects persistent UDP flows to foreign IPs — port hopping breaks the flow signature.
+
+**Reference:** [Hysteria2 spec](https://v2.hysteria.network/docs/developers/Protocol/), [hysteria](https://github.com/apernet/hysteria), [sing-box v1.14.0-alpha.8](https://github.com/SagerNet/sing-box/releases/tag/v1.14.0-alpha.8)
 
 **Root required:** No | **Effort:** High
 
@@ -1835,6 +1862,162 @@ Integrate with the existing `host-autolearn-v2.json` per-network scoping: on mob
 
 ---
 
+
+---
+
+## Tier 2 (continued): Obfuscation Primitives (P1)
+
+### 30. xray-core Finalmask Obfuscation Framework
+
+**xray-core v26.3.27 (March 27, 2026)** introduced **Finalmask** — a unified obfuscation layer applied to all xray-generated proxy traffic before it reaches the wire. Unlike protocol-level mimicry (item 13, item 26), Finalmask operates at the byte-stream level, wrapping any transport.
+
+#### Finalmask Types
+
+| Type | Target | Effect |
+|------|--------|--------|
+| `header-custom` | TCP + UDP | Prepend/append custom byte sequences; `randRange` for size randomization |
+| `Sudoku` | TCP + UDP | Puzzle-based payload transformation — produces structured but non-repeating byte patterns |
+| `fragment` | TCP (from Freedom outbound) | Port-level fragmentation via `tcp_frag` parameters |
+| `noise` | UDP | Random noise injection between real packets; `randRange` controls noise size |
+
+#### Configuration Example (XHTTP + Finalmask)
+
+```json
+{
+  "transport": {
+    "type": "xhttp",
+    "mode": "auto",
+    "xPaddingBytes": "100-1000"
+  },
+  "finalmask": {
+    "type": "header-custom",
+    "header": "474554202f20485454502f312e310d0a",
+    "randRange": "0-64"
+  }
+}
+```
+
+`randRange` adds 0–64 random bytes after the header per packet — breaks size-distribution ML classifiers without fixed overhead.
+
+#### XHTTP/3 with BBR + udpHop
+
+xray-core v26.3.27 unified `quicParams` brings together congestion control, port hopping, and Finalmask for QUIC:
+
+```json
+{
+  "transport": { "type": "xhttp", "mode": "packet-up" },
+  "quicParams": {
+    "congestion": "bbr",
+    "udpHop": {
+      "ports": "20000-50000",
+      "interval": "30s"
+    }
+  },
+  "finalmask": { "type": "noise", "randRange": "16-128" }
+}
+```
+
+Port hopping every 30s breaks UDP flow tracking; noise injection randomizes inter-packet timing.
+
+#### WireGuard + Finalmask (FullCone NAT)
+
+v26.3.27 added full UDP FullCone NAT to WireGuard inbound + outbound, combined with Finalmask `noise`:
+
+```json
+{
+  "protocol": "wireguard",
+  "settings": { "fullcone": true },
+  "finalmask": {
+    "type": "noise",
+    "randRange": "8-32"
+  }
+}
+```
+
+This makes WireGuard traffic look like generic UDP noise. AmneziaWG provides similar junk injection at the WG protocol level; Finalmask adds an outer wrapper on top.
+
+#### REALITY Warnings (v26.3.27)
+
+- Warning printed at startup if using non-443 ports for REALITY (TSPU L3 detection: cert origin vs ASN mismatch)
+- Warning if using Apple/iCloud/`apple.com` as `dest` — Apple operates from AS714; Hetzner/Aeza IPs serving Apple certs are flagged at TSPU Layer 3
+- `maxUselessRecords` now auto-probed in 4 tiers on server startup (previously manual)
+
+#### RIPDPI Integration Path
+
+Finalmask is a server-side xray-core feature; RIPDPI as Android client does not implement Finalmask directly. Relevant for:
+- Documenting compatible server configurations in item 29 (Russian Cloud Relay)
+- Ensuring RIPDPI's xHTTP client (item 25) correctly negotiates with Finalmask-enabled servers
+
+**Reference:** [xray-core v26.3.27 changelog](https://github.com/XTLS/Xray-core/releases/tag/v26.3.27)
+
+**Root required:** No (server-side) | **Effort:** Low (config update) | **Priority:** P1
+
+---
+
+### 31. AmneziaWG PayloadGen — Protocol Imitation for Junk Packets
+
+AmneziaWG's junk-packet injection (`Jc` count, `Jmin`/`Jmax` size, `S1`/`S2`/`H1`/`H2` offsets) uses random bytes by default. **PayloadGen** (ntc.party thread #23602, April 9, 2026) is a community web tool that generates junk payloads that **mimic real protocol patterns**, making AmneziaWG traffic look like legitimate UDP traffic to ML classifiers.
+
+#### Protocol Imitation Modes
+
+| Mode | Mimics | Key details |
+|------|--------|-------------|
+| `QUIC v1` | RFC 9001-compliant QUIC Initial | Correct encryption key derivation (fixed April 2026), valid QUIC header structure |
+| `TLS 1.3 ClientHello` | Browser TLS ClientHello | Extension ordering, GREASE, SNI field |
+| `HTTP/2 HEADERS` | Chrome H2 HEADERS frame | HPACK-compressed pseudo-headers |
+| `DNS` | DNS query | Valid query structure; "AWG Split" mode randomizes QNAME bytes |
+| `MQTT CONNECT` | IoT MQTT CONNECT packet | Protocol name + client ID patterns |
+
+#### AmneziaWG Config with Protocol Imitation
+
+```ini
+[Interface]
+PrivateKey = <key>
+Address = 10.x.x.x/32
+DNS = 1.1.1.1
+
+# Junk injection parameters:
+Jc = 4          # number of junk packets before handshake
+Jmin = 40       # min junk packet size
+Jmax = 70       # max junk packet size
+S1 = 0          # byte offset for first substitution
+S2 = 0          # byte offset for second substitution
+H1 = 1          # header byte 1
+H2 = 4          # header byte 2
+
+[Peer]
+PublicKey = <server-key>
+Endpoint = <server-ip>:51820
+AllowedIPs = 0.0.0.0/0
+```
+
+PayloadGen outputs `S1`, `S2`, `H1`, `H2` values calibrated to make junk packets match the chosen protocol's byte patterns.
+
+#### April 2026 Bug Fixes in PayloadGen
+
+PayloadGen v0.x (April 2026) fixed:
+- Incorrect QUIC encryption key derivation (was using wrong initial salt)
+- Wrong hex payload lengths causing malformed packets
+- DNS "AWG Split" mode randomizing wrong byte offsets
+- Authentication tag corruption in mixed imitation modes
+
+#### Current Status
+
+PayloadGen is still in active development (alpha). Validate generated configs against real DPI before production use. The QUIC imitation mode is the most effective against TSPU ML classifiers (QUIC on port 443/UDP is whitelisted on some operators).
+
+#### RIPDPI Integration
+
+AmneziaWG is already item 2 in the roadmap. This item adds:
+- **Preset junk configurations** using PayloadGen protocol-imitation outputs (QUIC v1 mode recommended)
+- **Config field:** expose `Jc`, `Jmin`, `Jmax`, `S1`, `S2`, `H1`, `H2` in RIPDPI AmneziaWG settings with preset selector (Random / QUIC-imitation / TLS-imitation)
+- **Auto-selection:** detect operator from SIM card MCC/MNC → pick imitation mode known to work for that operator's DPI equipment
+
+**Reference:** [AmneziaWG PayloadGen tool](https://ntc.party/t/23602) — ntc.party thread #23602, April 9, 2026
+
+**Root required:** No | **Effort:** Low | **Priority:** P1
+
+---
+
 ## Summary Matrix
 
 | # | Feature | Root? | Effort | Impact | Priority |
@@ -1868,6 +2051,8 @@ Integrate with the existing `host-autolearn-v2.json` per-network scoping: on mob
 | 27 | IP correlation defense — dual-IP VPS | No | Low | High | P1 |
 | 28 | Per-app package name regex routing | No | Low–Medium | High | P1 |
 | 29 | Russian cloud relay preset | No | Medium | Very High | P1 |
+| 30 | xray-core Finalmask obfuscation | No | Low | High | P1 |
+| 31 | AmneziaWG PayloadGen protocol imitation | No | Low | Medium | P1 |
 
 ## Reference Projects
 
@@ -1894,6 +2079,10 @@ Integrate with the existing `host-autolearn-v2.json` per-network scoping: on mob
 | [xtaci/smux](https://github.com/xtaci/smux) | Go | smux stream multiplexing reference |
 | [zapret2](https://github.com/bol-van/zapret2) | C + Lua | tls_client_hello_clone, double fake, Lua strategy engine |
 | [flowseal/zapret-discord-youtube](https://github.com/Flowseal/zapret-discord-youtube) | BAT | Double fake strategy (ALT variants, v1.9.7) |
+| [xray-core](https://github.com/XTLS/Xray-core) | Go | Finalmask obfuscation, XHTTP/3 + udpHop, REALITY; v26.3.27 |
+| [amneziawg-android](https://github.com/amnezia-vpn/amneziawg-android) | Kotlin | AmneziaWG Android client; junk-packet parameters Jc/Jmin/Jmax |
+| [Psiphon tunnel-core](https://github.com/Psiphon-Labs/psiphon-tunnel-core) | Go | Obfuscated proxy tunnel; v2.0.37 (April 7, 2026) |
+| [sing-box](https://github.com/SagerNet/sing-box) | Go | v1.13.7 stable / v1.14.0-alpha.10; cloudflared inbound, package_name_regex |
 
 ## Sources
 
@@ -1926,3 +2115,14 @@ Integrate with the existing `host-autolearn-v2.json` per-network scoping: on mob
 - Mintsifry VPN detection technical guide (April 2026) -- 3-stage detection: IP-base → ConnectivityManager → geo-signal
 - Android ConnectivityManager API docs -- TRANSPORT_VPN system-wide flag, VpnService builder exclusion API
 - RFC 9484 (Connect-IP), RFC 9000 (QUIC), RFC 8446 (TLS 1.3), RFC 8200 (IPv6), RFC 7323 (TCP Timestamps / PAWS)
+- xray-core v26.3.27 changelog (March 27, 2026) -- Finalmask, XHTTP/3 quicParams, WireGuard FullCone NAT, REALITY warnings
+- sing-box v1.14.0-alpha.8 (March 30, 2026) -- Hysteria2 BBR + hop interval randomization
+- sing-box v1.14.0-alpha.10 (April 10, 2026) -- cloudflared inbound, evaluate DNS action, package_name_regex
+- sing-box v1.13.7 stable (April 10, 2026) -- current stable branch
+- ntc.party thread 23602 -- AmneziaWG PayloadGen protocol imitation tool (QUIC/TLS/HTTP2/DNS/MQTT modes), April 9, 2026
+- Telegram Desktop 6.7.2 / Android 12.6.4 -- ECH extension fix (0xFE02 → 0xFE0D), April 4-6, 2026
+- Psiphon tunnel-core v2.0.37 (April 7, 2026) -- active development, no public technical changelog
+- Zona.media: Russian internet censorship in 2026 -- three-tier blocking architecture, TSPU ML deployment
+- Xakep.ru: TSPU upgrade to 954 Tbit/s by 2030 -- 14.9B RUB budget, 2.5M+ rules, March 22-23 overload event
+- net4people/bbs #516 -- Beeline mobile whitelist IP-level filtering confirmed (TCP SYN pass, ClientHello drop)
+- Meduza (April 7, 2026) -- Russian marketplaces (Wildberries, Ozon, Sber) begin blocking VPN users
