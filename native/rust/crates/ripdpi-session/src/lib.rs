@@ -997,9 +997,9 @@ mod tests {
     #[test]
     fn client_request_variants_are_distinct() {
         let addr = TargetAddr { addr: SocketAddr::from(([1, 2, 3, 4], 80)), host: None };
-        let s4 = ClientRequest::Socks4Connect(addr);
-        let s5 = ClientRequest::Socks5Connect(addr);
-        let udp = ClientRequest::Socks5UdpAssociate(addr);
+        let s4 = ClientRequest::Socks4Connect(addr.clone());
+        let s5 = ClientRequest::Socks5Connect(addr.clone());
+        let udp = ClientRequest::Socks5UdpAssociate(addr.clone());
         let http = ClientRequest::HttpConnect(addr);
         assert_ne!(s4, s5);
         assert_ne!(s5, udp);

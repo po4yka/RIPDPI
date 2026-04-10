@@ -6,7 +6,9 @@ use std::thread;
 use std::time::{Duration, Instant};
 
 use crate::platform;
-use crate::runtime_policy::{extract_host_info, ConnectionRoute, HostSource, RouteAdvance, TransportProtocol};
+use crate::runtime_policy::{
+    extract_host_info, route_matches_payload, ConnectionRoute, HostSource, RouteAdvance, TransportProtocol,
+};
 use ripdpi_config::{QuicInitialMode, RuntimeConfig, DETECT_CONNECT};
 use ripdpi_desync::{plan_udp, ActivationTransport, DesyncAction};
 use ripdpi_session::{SessionState, SocketType, S_ATP_I4, S_ATP_I6};
@@ -178,8 +180,36 @@ pub(super) fn udp_associate_loop(
                     let entry = flow_state
                         .get_mut(&flow_key)
                         .ok_or_else(|| io::Error::other("udp flow entry missing after insert"))?;
+                    let host_changed = entry.host.as_deref() != host.as_deref();
                     entry.host = host.clone();
                     entry.cache_host = cache_host;
+                    if host_changed
+                        || !route_matches_payload(
+                            &state.config,
+                            entry.route.group_index,
+                            entry.current_target,
+                            payload,
+                            TransportProtocol::Udp,
+                        )
+                    {
+                        let Some(selection) = reselect_udp_flow_target(
+                            &state,
+                            protect_path.as_deref(),
+                            original_target,
+                            payload,
+                            host.as_deref(),
+                        )?
+                        else {
+                            continue;
+                        };
+                        entry.route = selection.route;
+                        entry.upstream = selection.upstream;
+                        entry.current_target = selection.target;
+                        entry.target_candidates = selection.target_candidates;
+                        entry.target_index = selection.target_index;
+                        entry.quic_migrated = false;
+                        store_udp_route_hint(&state, entry)?;
+                    }
                     let actions = plan_udp_flow_actions(&state, entry, payload, now)?;
                     execute_udp_actions(
                         &entry.upstream,
@@ -572,6 +602,36 @@ fn select_udp_flow_target(
     Ok(None)
 }
 
+fn reselect_udp_flow_target(
+    state: &RuntimeState,
+    protect_path: Option<&str>,
+    original_target: SocketAddr,
+    payload: &[u8],
+    host: Option<&str>,
+) -> io::Result<Option<UdpFlowSelectionWithCandidates>> {
+    let target_candidates = preferred_udp_targets(state, original_target, host);
+    let Some(selection) =
+        select_udp_flow_target(state, protect_path, host, payload, &target_candidates, 0, "payload_reselect")?
+    else {
+        return Ok(None);
+    };
+    Ok(Some(UdpFlowSelectionWithCandidates {
+        target: selection.target,
+        target_index: selection.target_index,
+        route: selection.route,
+        upstream: selection.upstream,
+        target_candidates,
+    }))
+}
+
+struct UdpFlowSelectionWithCandidates {
+    target: SocketAddr,
+    target_index: usize,
+    route: ConnectionRoute,
+    upstream: UdpSocket,
+    target_candidates: Vec<SocketAddr>,
+}
+
 fn store_udp_route_hint(state: &RuntimeState, entry: &UdpFlowActivationState) -> io::Result<()> {
     if let Some(host) = entry.host.clone().filter(|_| entry.cache_host) {
         let mut cache = state.cache.lock().map_err(|_| io::Error::other("cache mutex poisoned"))?;
@@ -704,7 +764,7 @@ mod tests {
                 dnscrypt_public_key: None,
             }),
             protect_path: None,
-            preferred_edges: Default::default(),
+            preferred_edges: std::collections::BTreeMap::default(),
         }
     }
 

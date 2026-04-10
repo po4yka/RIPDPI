@@ -19,6 +19,10 @@ internal data class BypassCombinationCandidate(
 )
 
 internal object BypassCombinationScorer {
+    private const val ConfidenceRankHigh = 3
+    private const val ConfidenceRankMedium = 2
+    private const val ConfidenceRankLow = 1
+
     fun chooseBest(candidates: List<BypassCombinationCandidate>): BypassCombinationCandidate? =
         candidates.maxWithOrNull(candidateComparator)
 
@@ -90,9 +94,9 @@ internal object BypassCombinationScorer {
 
     private fun confidenceRank(level: StrategyProbeAuditConfidenceLevel?): Int =
         when (level) {
-            StrategyProbeAuditConfidenceLevel.HIGH -> 3
-            StrategyProbeAuditConfidenceLevel.MEDIUM -> 2
-            StrategyProbeAuditConfidenceLevel.LOW -> 1
+            StrategyProbeAuditConfidenceLevel.HIGH -> ConfidenceRankHigh
+            StrategyProbeAuditConfidenceLevel.MEDIUM -> ConfidenceRankMedium
+            StrategyProbeAuditConfidenceLevel.LOW -> ConfidenceRankLow
             null -> 0
         }
 }

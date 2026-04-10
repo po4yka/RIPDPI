@@ -176,6 +176,7 @@ fn is_outcome_token(value: &str) -> bool {
         "none",
         "not_run",
         "tcp_connect_ok",
+        "ech_config_available",
     ];
     if EXCLUDED.contains(&value) {
         return false;
