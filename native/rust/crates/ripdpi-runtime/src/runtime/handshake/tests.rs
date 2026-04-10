@@ -66,7 +66,7 @@ fn fixture_runtime_context(dns_http_port: u16) -> ProxyRuntimeContext {
             dnscrypt_public_key: None,
         }),
         protect_path: None,
-        preferred_edges: Default::default(),
+        preferred_edges: std::collections::BTreeMap::default(),
     }
 }
 

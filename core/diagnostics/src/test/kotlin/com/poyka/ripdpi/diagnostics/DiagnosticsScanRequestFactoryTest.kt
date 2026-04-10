@@ -333,6 +333,7 @@ class DiagnosticsScanRequestFactoryTest {
             assertNull(prepared.initialSession.triggerCurrentFingerprintHash)
         }
 
+    @Suppress("LongMethod")
     @Test
     fun `prepare reprobe prefers explicit dns path override over collected preference`() =
         runTest {

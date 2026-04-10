@@ -114,60 +114,31 @@ fun deriveQuicStrategyFamily(
             step.kind == UdpChainStepKind.IpFrag2Udp || step.count > 0
         }
             ?: return "quic_disabled"
-    if (primaryStep.kind == UdpChainStepKind.IpFrag2Udp) {
-        return "quic_ipfrag2"
-    }
-    return when (primaryStep.kind) {
-        UdpChainStepKind.FakeBurst -> {
-            when (normalizeQuicFakeProfile(quicFakeProfile)) {
-                QuicFakeProfileDisabled -> "quic_disabled"
-                QuicFakeProfileCompatDefault -> "quic_compat_burst"
-                QuicFakeProfileRealisticInitial -> "quic_realistic_burst"
-                else -> "quic_burst"
-            }
-        }
-
-        UdpChainStepKind.DummyPrepend -> {
-            "quic_dummy_prepend"
-        }
-
-        UdpChainStepKind.QuicSniSplit -> {
-            "quic_sni_split"
-        }
-
-        UdpChainStepKind.QuicFakeVersion -> {
-            "quic_fake_version"
-        }
-
-        UdpChainStepKind.QuicCryptoSplit -> {
-            "quic_crypto_split"
-        }
-
-        UdpChainStepKind.QuicPaddingLadder -> {
-            "quic_padding_ladder"
-        }
-
-        UdpChainStepKind.QuicCidChurn -> {
-            "quic_cid_churn"
-        }
-
-        UdpChainStepKind.QuicPacketNumberGap -> {
-            "quic_packet_number_gap"
-        }
-
-        UdpChainStepKind.QuicVersionNegotiationDecoy -> {
-            "quic_version_negotiation_decoy"
-        }
-
-        UdpChainStepKind.QuicMultiInitialRealistic -> {
-            "quic_multi_initial_realistic"
-        }
-
-        UdpChainStepKind.IpFrag2Udp -> {
-            "quic_ipfrag2"
-        }
-    }
+    return primaryStep.kind.toQuicStrategyFamily(quicFakeProfile)
 }
+
+private fun UdpChainStepKind.toQuicStrategyFamily(quicFakeProfile: String): String =
+    when (this) {
+        UdpChainStepKind.FakeBurst -> quicBurstFamily(quicFakeProfile)
+        UdpChainStepKind.DummyPrepend -> "quic_dummy_prepend"
+        UdpChainStepKind.QuicSniSplit -> "quic_sni_split"
+        UdpChainStepKind.QuicFakeVersion -> "quic_fake_version"
+        UdpChainStepKind.QuicCryptoSplit -> "quic_crypto_split"
+        UdpChainStepKind.QuicPaddingLadder -> "quic_padding_ladder"
+        UdpChainStepKind.QuicCidChurn -> "quic_cid_churn"
+        UdpChainStepKind.QuicPacketNumberGap -> "quic_packet_number_gap"
+        UdpChainStepKind.QuicVersionNegotiationDecoy -> "quic_version_negotiation_decoy"
+        UdpChainStepKind.QuicMultiInitialRealistic -> "quic_multi_initial_realistic"
+        UdpChainStepKind.IpFrag2Udp -> "quic_ipfrag2"
+    }
+
+private fun quicBurstFamily(quicFakeProfile: String): String =
+    when (normalizeQuicFakeProfile(quicFakeProfile)) {
+        QuicFakeProfileDisabled -> "quic_disabled"
+        QuicFakeProfileCompatDefault -> "quic_compat_burst"
+        QuicFakeProfileRealisticInitial -> "quic_realistic_burst"
+        else -> "quic_burst"
+    }
 
 fun ActiveDnsSettings.strategyFamily(): String =
     when {

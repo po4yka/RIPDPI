@@ -145,9 +145,8 @@ pub(super) fn baseline_supports_ech_candidates(results: &[ProbeResult]) -> bool 
     results.iter().any(|result| {
         result.probe_type == "strategy_https"
             && (result.outcome == "tls_ech_only"
-                || probe_detail_value(result, "tlsEchResolutionDetail") == Some("ech_config_available"))
-            || (result.probe_type == "strategy_https"
-                && probe_detail_value(result, "cdnProvider").is_some_and(|value| !value.trim().is_empty()))
+                || probe_detail_value(result, "tlsEchResolutionDetail") == Some("ech_config_available")
+                || probe_detail_value(result, "cdnProvider").is_some_and(|value| !value.trim().is_empty()))
     })
 }
 

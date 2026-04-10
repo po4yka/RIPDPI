@@ -20,16 +20,10 @@ use plan::connectivity_stage_order;
 use report::{build_report, connectivity_summary};
 use runners::execution_coordinator;
 #[cfg(test)]
+use runtime::cancelled_run_summary;
+#[cfg(test)]
 use runtime::ExecutionStageId;
-use runtime::{ExecutionRuntime, RunnerOutcome};
-
-fn cancelled_run_summary(has_partial_results: bool) -> &'static str {
-    if has_partial_results {
-        "Scan completed with partial results"
-    } else {
-        "Scan cancelled"
-    }
-}
+use runtime::{publish_cancelled_run, ExecutionRuntime, RunnerOutcome};
 
 pub(crate) fn run_engine_scan(
     shared: Arc<Mutex<SharedState>>,
@@ -96,46 +90,12 @@ pub(crate) fn run_engine_scan(
     );
 
     let mut runtime = ExecutionRuntime::new(shared.clone(), cancel);
-    let deadline_ms = plan.request.scan_deadline_ms.unwrap_or(360_000);
-    runtime.set_scan_deadline(std::time::Instant::now() + std::time::Duration::from_millis(deadline_ms));
+    runtime.set_scan_deadline(
+        std::time::Instant::now() + std::time::Duration::from_millis(plan.request.scan_deadline_ms.unwrap_or(360_000)),
+    );
     match coordinator.run(&plan, &mut runtime, tls_verifier.as_ref()) {
         RunnerOutcome::Cancelled => {
-            let summary =
-                cancelled_run_summary(!runtime.results.is_empty() || !runtime.observations.is_empty()).to_string();
-            let report = build_report(
-                plan.session_id.clone(),
-                plan.request.clone(),
-                plan.started_at,
-                summary,
-                runtime.results,
-                runtime.observations,
-                None,
-                None,
-            );
-            set_report(&shared, report);
-            push_event(
-                &shared,
-                &plan.session_id,
-                &plan.request.profile_id,
-                &plan.request.path_mode,
-                "engine",
-                "warn",
-                "Diagnostics cancelled".to_string(),
-            );
-            set_progress(
-                &shared,
-                ScanProgress {
-                    session_id: plan.session_id,
-                    phase: "cancelled".to_string(),
-                    completed_steps: runtime.completed_steps,
-                    total_steps: plan.total_steps,
-                    message: "Diagnostics cancelled".to_string(),
-                    is_finished: true,
-                    latest_probe_target: None,
-                    latest_probe_outcome: None,
-                    strategy_probe_progress: None,
-                },
-            );
+            publish_cancelled_run(&plan, &shared, runtime);
         }
         RunnerOutcome::Finished => {
             if let Some(report) = runtime.final_report {

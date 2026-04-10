@@ -225,6 +225,7 @@ fn scan_request(manifest: &FixtureManifest, http_port: u16) -> ScanRequest {
         domain_targets: vec![DomainTarget {
             host: manifest.fixture_domain.clone(),
             connect_ip: Some("127.0.0.1".to_string()),
+            connect_ips: vec![],
             https_port: Some(free_port()),
             http_port: Some(http_port),
             http_path: "/".to_string(),

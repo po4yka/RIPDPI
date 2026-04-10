@@ -343,7 +343,8 @@ private fun EngineScanRequestWire.withStrategyProbeBaseConfig(
                     ?.toNativeConfigJson()
                     ?: run {
                         RequestFactoryLog.d {
-                            "Strategy probe base config was not decodable; keeping explicit baseProxyConfigJson unchanged"
+                            "Strategy probe base config was not decodable; " +
+                                "keeping explicit baseProxyConfigJson unchanged"
                         }
                         explicitBaseConfig
                     }
