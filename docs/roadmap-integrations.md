@@ -677,48 +677,99 @@ Cloudflare uses `cf-connect-ip` variant with ECDSA P-256 auth. Port 443 (blends 
 
 QUIC-based proxy protocol. Lighter than Hysteria2: no HTTP/3 auth ceremony, UUID-authenticated, native QUIC stream multiplexing (no smux layer needed), configurable congestion control.
 
-#### Wire Format (v5)
+#### Wire Format (v5) — All 5 Command Types
 
-**Connect request (client → server, over QUIC stream):**
+**Authenticate (client → server, first bidirectional stream after QUIC handshake):**
 ```
-[Version(1)=5][Type(1)][Token(32)][UUID(16)][AddrType(1)][Addr(var)][Port(2)]
-
-Type: 0x00 = TCP CONNECT | 0x01 = UDP ASSOCIATE | 0x02 = Dissociate | 0x03 = Heartbeat
+[Version(1)=5][Type(1)=0x00][Token(32)]
 ```
 
-**UDP packet (QUIC datagram frame):**
+**Connect (TCP proxy, client opens new QUIC stream per connection):**
+```
+[Version(1)=5][Type(1)=0x01][UUID(16)][AddrType(1)][Addr(var)][Port(2)]
+AddrType: 0xFF=Domain(1B len + bytes) | 0x00=IPv4(4B) | 0x01=IPv6(16B)
+```
+
+**Packet (UDP ASSOCIATE, QUIC unreliable datagram frame):**
 ```
 [AssocID(2)][PacketID(2)][FragTotal(1)][FragID(1)][Size(2)][AddrType(1)][Addr(var)][Port(2)][Payload]
 ```
+Built-in UDP fragmentation: `FragID=0..FragTotal-1`; receiver reassembles by `(AssocID, PacketID)`. Handles packets exceeding QUIC datagram MTU (~1200 bytes).
 
-Built-in UDP fragmentation for packets exceeding QUIC datagram MTU (~1200 bytes).
-
-#### Authentication Token
-
+**Dissociate (cancel UDP session):**
 ```
-token = HMAC-SHA256(password, unix_timestamp_secs / 8)[..32]
+[Version(1)=5][Type(1)=0x03][AssocID(2)]
 ```
 
-Timestamp window: ±4 seconds (server drift tolerance). Prevents replay within the 8-second epoch.
+**Heartbeat (bidirectional keepalive, prevents QUIC idle timeout):**
+```
+[Version(1)=5][Type(1)=0x04]
+```
+
+#### Authentication Token (TLS Keying Material Exporter, RFC 5705)
+
+TUIC v5 does **not** use HMAC over a timestamp. The 32-byte token is derived via the **TLS Keying Material Exporter** — tying the token cryptographically to the specific TLS session, making it non-replayable:
+
+```rust
+// After TLS handshake completes on the QUIC connection:
+let token: [u8; 32] = tls_conn.export_keying_material(
+    /* label   */ uuid.as_bytes(),          // 16-byte UUID as label
+    /* context */ Some(password.as_bytes()),
+    /* length  */ 32,
+).expect("TLS KME failed");
+
+// Send Authenticate command:
+stream.write_all(&[5, 0x00]).await?;        // Version=5, Type=Authenticate
+stream.write_all(&token).await?;            // 32-byte session-bound token
+```
+
+Server calls `ExportKeyingMaterial` with the same parameters and compares. The token is unique per TLS session — capturing it from one connection cannot authenticate another. No timestamp needed; QUIC's built-in anti-replay handles freshness.
+
+**Rust:** `rustls::ClientConnection::export_keying_material()` (rustls 0.23+)
+
+#### Congestion Control (quinn)
+
+```rust
+use quinn::congestion::{BbrConfig, CubicConfig};
+
+let mut transport = TransportConfig::default();
+
+// BBR — recommended for high-latency/jitter links (GPON 30–80ms jitter):
+transport.congestion_controller_factory(Arc::new(BbrConfig::default()));
+
+// Cubic — better under TSPU token-bucket rate limiting:
+transport.congestion_controller_factory(Arc::new(CubicConfig::default()));
+
+let mut server_config = ServerConfig::with_crypto(Arc::new(tls));
+server_config.transport_config(Arc::new(transport));
+```
+
+BBR3 (Google's latest) available via `quinn-bbr3` community crate. Choose BBR for high-RTT links; Cubic for steady-state throughput under ISP shaping.
 
 #### 0-RTT
 
-After the first connection, QUIC session tickets enable 0-RTT for subsequent handshakes. The connect request can be sent immediately in the 0-RTT QUIC Initial, reducing cold-start latency by ~1 RTT.
+```
+1st conn:  Full QUIC+TLS 1.3 handshake (1–2 RTT) → server issues session ticket
+Reconnect: Client sends 0-RTT QUIC Initial → Authenticate + Connect in same flight
+           → server validates KME token from 0-RTT data → tunnel ready in 0 RTT
+```
+QUIC `MAX_EARLY_DATA_SIZE` prevents 0-RTT replay at the transport layer.
 
 #### Comparison with Hysteria2
 
 | Aspect | TUIC v5 | Hysteria2 |
 |--------|---------|-----------|
-| Auth | UUID + HMAC token | HTTP/3 POST /auth (password) |
-| Obfuscation | None (relies on QUIC being allowed) | Salamander (XOR + BLAKE2b) |
-| Mux | Native QUIC streams | Separate smux over single stream |
-| Congestion | BBR / Cubic / NewReno (configurable) | BBR mandatory |
+| Auth | UUID + TLS KME token (session-bound) | HTTP/3 POST /auth (password) |
+| Obfuscation | None (QUIC must not be blocked) | Salamander (XOR + BLAKE2b, opaque bytes) |
+| Mux | Native QUIC streams (per-connection) | Separate smux over single QUIC stream |
+| Congestion | BBR / Cubic (configurable) | BBR mandatory |
 | UDP | Native datagrams with built-in frag | Custom datagrams + Hysteria framing |
-| Probing resistance | Low (QUIC headers readable) | High (Salamander = random bytes) |
+| Probing resistance | Low (QUIC headers visible) | High (Salamander = random bytes) |
 
-TUIC is preferable where QUIC is not blocked and Hysteria2's obfuscation overhead is undesirable.
+TUIC is preferable where QUIC is not blocked and Hysteria2's obfuscation overhead is undesirable. Under TSPU QUIC blocking (packets >1001 bytes), neither works without QUIC fragmentation (item 5).
 
-**Rust reference:** [shoes](https://github.com/cfal/shoes) — single Rust crate implementing VLESS + Reality + Hysteria2 + TUIC v5.
+**Rust reference:** [tuic](https://github.com/EAimTY/tuic) — reference impl; [shoes](https://github.com/cfal/shoes) — multi-protocol crate (VLESS + Reality + Hysteria2 + TUIC v5).
+**Spec:** [TUIC v5 protocol spec](https://github.com/EAimTY/tuic/blob/dev/SPEC.md)
 
 **Root required:** No | **Effort:** High
 
@@ -728,47 +779,91 @@ TUIC is preferable where QUIC is not blocked and Hysteria2's obfuscation overhea
 
 Camouflages proxy traffic as a legitimate TLS 1.3 handshake with a real website (e.g., `www.apple.com`). A censor observing the connection sees a complete, valid TLS handshake to Apple — not a proxy.
 
-#### Protocol Flow
+#### Protocol Flow (6 Stages)
 
 ```
-Client                  ShadowTLS Server           Real Destination
-  |--- TLS ClientHello -------->|                        |
-  |                             |--- TLS ClientHello --->|  (proxy to real site)
-  |<-- TLS ServerHello ---------|<-- TLS ServerHello ----|
-  |<-- Certificate -------------|<-- Certificate --------|
-  |<-- Finished ----------------|<-- Finished -----------|
-  |
-  | [TLS handshake complete: censor satisfied]
-  |
-  |--- TLS Application Data [HMAC-tagged] -->|
-  |   Server verifies HMAC → switches to tunnel mode
-  |<-- [Proxied application data] -----------|
+Stage 1  Client → ShadowTLS: TLS ClientHello (standard, no ShadowTLS marker)
+Stage 2  ShadowTLS → Real server: forwards ClientHello verbatim
+Stage 3  Real server → ShadowTLS → Client: ServerHello + Certificate + Finished
+         [ShadowTLS records ServerRandom from ServerHello for key derivation]
+Stage 4  Client → ShadowTLS: TLS Finished (ends legitimate handshake)
+         Client embeds a 4-byte HMAC-SHA1 tag in the SessionID field:
+           SessionID = [28 random bytes] + HMAC-SHA1(password, ServerRandom)[..4]
+Stage 5  ShadowTLS verifies the 4-byte tag using ServerRandom it captured in Stage 3.
+         - Tag matches → authenticated client, switch to tunnel mode (Stage 6)
+         - Tag fails  → forward all data to real server (active-probing safe)
+Stage 6  Data phase: client sends inner proxy data (e.g. shadowsocks AEAD) wrapped
+         in TLS Application Data records with a 4-byte chained HMAC prefix per record
 ```
 
-#### v3 Authentication (HMAC per-record)
+#### v3 Authentication — Exact HMAC Construction
 
-After each TLS application record, ShadowTLS appends a 8-byte HMAC tag:
+**Handshake authentication (SessionID tag):**
+```
+# Three HMAC-SHA1 instances, all keyed with ServerRandom:
+hmac_sr   = HMAC-SHA1(key=password, msg=ServerRandom)          # base
+hmac_sr_c = HMAC-SHA1(key=password, msg=ServerRandom || "C")   # client direction
+hmac_sr_s = HMAC-SHA1(key=password, msg=ServerRandom || "S")   # server direction
 
-```
-tag = HMAC-SHA256(derived_key, record_header || payload || seq_num_be64)[..8]
-```
-
-Key derivation:
-```
-pre_master = ECDH(client_ephemeral, server_static)
-derived_key = HKDF-SHA256(pre_master, "shadow-tls v3", password)
+# SessionID embedded in client's TLS Finished:
+SessionID = random_bytes(28) + hmac_sr.digest()[:4]            # 32 bytes total
 ```
 
-Server verifies tag on every record. First valid tag triggers tunnel mode switch. Unrecognized clients (censors) receive real website data — active-probing safe.
+**Data phase per-record authentication (chained HMAC):**
+```
+# XOR mask for entire record (hides inner proxy data from TLS layer):
+mask = SHA256(password || ServerRandom)   # 32 bytes, reused across records
+
+# Each TLS Application Data record:
+record_header = [content_type(1)][legacy_version(2)][length(2)]  # 5 bytes
+hmac_prefix   = HMAC-SHA1(hmac_sr_c, prev_hmac_prefix || payload)[:4]  # chained
+wire_record   = record_header + hmac_prefix + XOR(payload, mask[:len(payload)])
+```
+
+The 4-byte HMAC prefix chains across records (input includes previous prefix) — prevents record reordering and replay within a session. ShadowTLS does **not** add encryption; the inner protocol (e.g., shadowsocks AEAD) provides confidentiality.
+
+#### Key Material Summary
+
+| Variable | Algorithm | Purpose |
+|----------|-----------|---------|
+| `hmac_sr` | HMAC-SHA1(pw, ServerRandom) | Base HMAC, 20 bytes |
+| `hmac_sr_c` | HMAC-SHA1(pw, ServerRandom\|\|"C") | Client→server record auth |
+| `hmac_sr_s` | HMAC-SHA1(pw, ServerRandom\|\|"S") | Server→client record auth |
+| `mask` | SHA256(pw\|\|ServerRandom) | XOR obfuscation key, 32 bytes |
+| SessionID tag | `hmac_sr[:4]` | 4-byte handshake auth in SessionID |
+
+**Rust implementation key:**
+```rust
+// shadow-tls crate (ihciah/shadow-tls):
+use hmac::{Hmac, Mac};
+use sha1::Sha1;
+
+type HmacSha1 = Hmac<Sha1>;
+let mut mac = HmacSha1::new_from_slice(password.as_bytes()).unwrap();
+mac.update(server_random);
+let hmac_sr = mac.finalize().into_bytes();  // 20 bytes
+let tag = &hmac_sr[..4];                   // 4-byte SessionID suffix
+```
 
 #### Active Probing Resistance
 
-ShadowTLS v3 is specifically hardened against active probing:
-- No unique port signatures (listens on 443)
-- Replays a real TLS session if HMAC fails consistently
-- Sequence number prevents replay across sessions
+- No unique port signatures (standard 443)
+- Failed HMAC → all data forwarded to real destination transparently
+- SessionID tag changes per-session (ServerRandom is fresh each handshake)
+- No static fingerprint: outer TLS is from a real server's certificate chain
 
-**Rust reference:** [shadow-tls](https://github.com/ihciah/shadow-tls) — Rust client/server implementation
+#### Detection Vectors
+
+| Vector | Mitigated? | Notes |
+|--------|------------|-------|
+| JA3 fingerprint | Yes | Client's own TLS stack used |
+| Certificate validity | Yes | Real cert from real server |
+| Active probing (replay) | Yes | ServerRandom changes each session |
+| Traffic shape (data phase) | Partial | Depends on inner protocol padding |
+| Timing correlation | No | Not addressed by ShadowTLS |
+
+**Rust reference:** [shadow-tls](https://github.com/ihciah/shadow-tls) — Rust client/server reference implementation
+**Spec:** [ShadowTLS v3 protocol design](https://github.com/ihciah/shadow-tls/blob/master/docs/protocol-en.md)
 
 **Root required:** No | **Effort:** Medium
 
@@ -780,41 +875,100 @@ HTTP/2 CONNECT proxy where the client TLS fingerprint is indistinguishable from 
 
 #### What Makes It Undetectable
 
-Chromium `net/` produces exact TLS fingerprints including:
-- GREASE values (RFC 8701 — pseudo-random extension/cipher/group IDs)
+Chromium `net/` (Chrome **147.0.7727.49**, as of April 2026) produces exact TLS fingerprints:
+- GREASE values (RFC 8701 — pseudo-random extension/cipher/group IDs per session)
 - ML-KEM 768 key share (post-quantum, Chrome 131+)
-- Exact extension ordering and parameters
-- HTTP/2 SETTINGS frame values matching Chrome's defaults
+- Exact extension ordering and parameters matching Chrome build
+- HTTP/2 SETTINGS frame values: `HEADER_TABLE_SIZE=65536`, `ENABLE_PUSH=0`, `INITIAL_WINDOW_SIZE=6291456`, `MAX_HEADER_LIST_SIZE=262144`
 
-JA4+ fingerprint: matches Chrome 133 exactly. No known classifier distinguishes NaiveProxy traffic from Chrome.
+JA4+ fingerprint: matches Chrome 147 exactly. No known classifier distinguishes NaiveProxy traffic from real Chrome browsing.
 
 #### Wire Protocol
 
+**CONNECT request (client → server, HTTP/2 stream):**
 ```
-Client → Server: CONNECT target:port HTTP/2
-  :method: CONNECT
-  :authority: target:port
-  proxy-authorization: basic <base64(user:pass)>
-  padding: <random ASCII, 16-64 bytes>   ← anti-length-fingerprinting
+:method: CONNECT
+:authority: target.host:443
+:scheme: https
+proxy-authorization: basic <base64(user:pass)>
+padding: <non-Huffman random ASCII, 16–32 bytes>   ← header size anti-fingerprinting
+```
 
+**HPACK note:** `proxy-authorization` value is HPACK-compressed; wire bytes show only Huffman-coded opaque bytes, not plaintext credentials.
+
+```
 Server → Client:
   :status: 200
-  [bidirectional HTTP/2 stream for TCP tunneling]
+  [bidirectional HTTP/2 DATA frames — raw TCP tunnel]
 ```
 
-HTTP/2 header compression (HPACK) hides the `proxy-authorization` header from plaintext observation.
+#### Payload Padding Protocol (`kFirstPaddings = 8`)
 
-#### Padding Layer
+NaiveProxy pads the **first 8 DATA frames** (constant `kFirstPaddings`) of each stream with a random 3-byte frame prepended to the actual payload:
 
-Client pads request headers and data frames with random bytes to prevent traffic-shape fingerprinting. Server strips padding. `AUTH_DATA` pseudo-header carries obfuscated credentials for servers that inspect headers.
+```
+For frames 0..7 (kFirstPaddings):
+  [pad_length(1B)][pad_data(pad_length B)][actual_payload]
+  pad_length = random(0, 255)
+
+For frames 8+:
+  [actual_payload]  (no padding)
+```
+
+This matches Chrome's `WINDOW_UPDATE` burst pattern during stream establishment and prevents length-distribution fingerprinting on connection setup.
+
+**`AUTH_DATA` pseudo-header:** On servers that inspect H2 headers for auth (not just HTTP Basic), NaiveProxy encodes credentials as a custom pseudo-header using a challenge-response derived from the TLS session — avoids Basic auth pattern detection.
+
+#### Known Weaknesses
+
+| Weakness | Detectability | Notes |
+|----------|---------------|-------|
+| Fast-open burst | Medium | First 8 frames sent rapidly before server ACK — differs from browser pacing |
+| H2 recv window | Medium | Default 128 MB (`INITIAL_WINDOW_SIZE=134217728`); real Chrome uses 6 MB |
+| Caddy server fingerprint | Low | Must use Caddy + forwardproxy; NGINX/Apache H2 SETTINGS differ |
+| Connection count | Low | Chrome opens max 6 H2 conns per domain; NaiveProxy may open more |
+
+H2 recv window mismatch (128 MB vs Chrome's 6 MB) is the primary remaining distinguisher in lab conditions (≤3% FP rate in GFW classifiers as of 2025).
 
 #### Deployment Requirement
 
 Server must run `caddy` with `forward_proxy` plugin (not NGINX/haproxy — Caddy preserves the HTTP/2 server fingerprint Chrome expects). Without matching server fingerprint, active probing reveals the proxy.
 
-**Android:** No dedicated Android NaiveProxy client; available indirectly via Clash.Meta (`naive` outbound type). Native RIPDPI integration requires embedding Chromium `net/` via JNI — high effort, large binary size (+20 MB).
+```json
+{
+  "apps": {
+    "http": {
+      "servers": {
+        "srv0": {
+          "routes": [{
+            "handle": [{
+              "handler": "forward_proxy",
+              "hide_ip": true,
+              "hide_via": true,
+              "auth_user_id": "user",
+              "auth_pass": "pass",
+              "probe_resistance": { "domain": "www.example.com" }
+            }]
+          }]
+        }
+      }
+    }
+  }
+}
+```
+
+`probe_resistance.domain` makes unauthenticated requests return a real website (like ShadowTLS) — active-probing safe.
+
+#### Android
+
+No dedicated Android NaiveProxy client. Available indirectly via:
+- **Clash.Meta** (`naive` outbound type in config)
+- **sing-box** (naive outbound, wraps subprocess)
+
+Native RIPDPI integration requires embedding Chromium `net/` via JNI — impractical (+20 MB binary, complex build). Recommended path: bundle `naiveproxy` binary as subprocess (similar to how sing-box handles it), invoke via `Command::new()`.
 
 **Reference:** [naiveproxy](https://github.com/klzgrad/naiveproxy), [forwardproxy Caddy plugin](https://github.com/klzgrad/forwardproxy)
+**Chrome version tracking:** [naiveproxy releases](https://github.com/klzgrad/naiveproxy/releases) — updated with every Chrome stable release
 
 **Root required:** No | **Effort:** Very High
 
@@ -840,38 +994,88 @@ With smux over single QUIC stream:
       └── smux frame sid=3 → TCP to third.com
 ```
 
-#### smux Frame Format (v1)
+#### smux Frame Format
 
+**v1 (8-byte header, Little Endian):**
 ```
-[Version(1)][Cmd(1)][Length(2)][StreamID(4)][Data(Length)]
+[Version(1)=1][Cmd(1)][Length(2)][StreamID(4)][Data(Length)]
 
 Cmd: 0x00=SYN | 0x01=FIN | 0x02=PSH | 0x03=NOP
 ```
 
+**v2 (8-byte header, Little Endian — adds per-stream flow control):**
+```
+[Version(1)=2][Cmd(1)][Length(2)][StreamID(4)][Data(Length)]
+
+Additional cmd: 0x04=UPD (flow control update)
+```
+
+**v2 cmdUPD frame (flow control):**
+```
+[Version(1)=2][Cmd(1)=0x04][Length(2)=8][StreamID(4)]
+[Consumed(4)][Window(4)]   ← absolute counters, Little Endian
+```
+`Consumed` = total bytes consumed by receiver since stream open (monotonically increasing).
+`Window` = receiver's current receive buffer size. Sender may transmit up to `Window - (sent - Consumed)` bytes. Prevents head-of-line blocking between streams.
+
+#### yamux Frame Format (12-byte header, Big Endian)
+
+```
+[Type(1)][Flags(1)][StreamID(4)][Length(4)]   = 8 bytes (v0 — SYN/FIN/DATA/PING/GO_AWAY)
+
+Window update frame:
+[Type(1)=0x01][Flags(2)][StreamID(4)][Delta(4)]  ← Delta = window increment (not absolute)
+```
+yamux uses **delta** window increments (like TCP), unlike smux v2's absolute consumed+window model. Big Endian byte order is the key difference from smux.
+
+#### h2mux (HTTP/2 CONNECT over existing connection)
+
+```
+h2mux opens a single TCP/TLS connection and sends:
+  SETTINGS [HEADER_TABLE_SIZE=65536, INITIAL_WINDOW_SIZE=1073741823]
+  WINDOW_UPDATE [stream=0, increment=1073741823]
+
+Per multiplexed stream:
+  HEADERS [:method=CONNECT, :authority=target:port]  → opens stream
+  DATA [payload]                                      → bidirectional data
+  RST_STREAM                                          → closes stream
+```
+h2mux is the best choice when the upstream server is behind a CDN that requires HTTP/2 (Cloudflare, Fastly) — the mux traffic is indistinguishable from HTTP/2 CONNECT proxy traffic.
+
 #### sing-box Implementation Reference
 
-sing-box `multiplex` field for VLESS/Shadowsocks/Trojan outbounds:
 ```json
 {
   "multiplex": {
     "enabled": true,
-    "protocol": "smux",       // "smux" | "yamux" | "h2mux"
-    "max_connections": 4,
-    "min_streams": 4,
-    "max_streams": 0,
-    "padding": false,
-    "brutal": { "enabled": false }
+    "protocol": "smux",         // "smux" | "yamux" | "h2mux"
+    "max_connections": 4,       // max parallel mux connections to relay
+    "min_streams": 4,           // open new connection when existing has <N streams
+    "max_streams": 0,           // 0 = unlimited streams per connection
+    "padding": false,           // add random padding frames (anti-traffic-shape)
+    "brutal": {
+      "enabled": false,         // Hysteria2 bandwidth-limit bypass (TCP only)
+      "up_mbps": 100,
+      "down_mbps": 100
+    }
   }
 }
 ```
 
+**Protocol selection guidance:**
+- `smux v2` — default, best for Rust/Go implementations; per-stream flow control avoids buffer bloat
+- `yamux` — HashiCorp standard; use when relay speaks yamux (e.g., Consul, Vault tunnels)
+- `h2mux` — use when CDN fronting required (Cloudflare Workers, Fastly)
+
 #### Impact for RIPDPI
 
-Relevant when VLESS (item 9) or Hysteria2 (item 10) relay is active and users open many parallel connections. Reduces: QUIC handshake CPU cost on relay server, observable connection-establishment burst, per-connection QUIC overhead (~1300 bytes min per Initial packet).
+Relevant when VLESS (item 9) or Hysteria2 (item 10) relay is active and users open many parallel connections. Reduces: observable connection-establishment burst (many QUIC Initials → single connection), relay CPU cost per connection, per-connection QUIC overhead (~1300 bytes min per Initial packet).
 
 TUIC v5 (item 20) uses native QUIC stream multiplexing and does not require smux.
 
-**Reference:** [xtaci/smux](https://github.com/xtaci/smux), [sing-box multiplex docs](https://sing-box.sagernet.org/configuration/shared/multiplex/)
+**Rust implementation:** [smux](https://github.com/black-binary/async-smux) (`async-smux` crate, tokio-based), [yamux](https://github.com/libp2p/rust-yamux) (`libp2p-yamux`), [h2](https://github.com/hyperium/h2) for h2mux mode.
+
+**Reference:** [xtaci/smux](https://github.com/xtaci/smux) (Go reference), [sing-box multiplex docs](https://sing-box.sagernet.org/configuration/shared/multiplex/)
 
 **Root required:** No | **Effort:** Medium
 
