@@ -168,6 +168,10 @@ abstract class RipDpiWarpBindingsModule {
     @Binds
     @Singleton
     abstract fun bindRipDpiWarpBindings(bindings: RipDpiWarpNativeBindings): RipDpiWarpBindings
+
+    @Binds
+    @Singleton
+    abstract fun bindRipDpiWarpProvisioningBindings(bindings: RipDpiWarpNativeBindings): RipDpiWarpProvisioningBindings
 }
 
 @Module

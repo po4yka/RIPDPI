@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.services
 
+import com.poyka.ripdpi.core.RipDpiWarpProvisioningBindings
 import com.poyka.ripdpi.data.WarpCredentials
 import com.poyka.ripdpi.data.WarpEndpointCacheEntry
 import dagger.Binds
@@ -13,16 +14,10 @@ import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
-import okhttp3.MediaType.Companion.toMediaType
-import okhttp3.OkHttpClient
-import okhttp3.Request
-import okhttp3.RequestBody.Companion.toRequestBody
-import okhttp3.TlsVersion
 import java.io.IOException
 import java.net.Proxy
 import java.time.Instant
 import java.util.Locale
-import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -84,14 +79,11 @@ sealed class WarpProvisioningException(
 class DefaultWarpProvisioningClient
     @Inject
     constructor(
-        private val tlsClientFactory: OwnedTlsClientFactory,
+        private val nativeBindings: RipDpiWarpProvisioningBindings,
         private val json: Json,
     ) : WarpProvisioningClient {
         private companion object {
             private const val ErrorBodyMaxLength = 256
-            private const val ConnectTimeoutSeconds = 20L
-            private const val ReadTimeoutSeconds = 30L
-            private const val CallTimeoutSeconds = 45L
         }
 
         override suspend fun register(
@@ -99,13 +91,14 @@ class DefaultWarpProvisioningClient
             bootstrapProxy: Proxy?,
         ): WarpProvisioningResult =
             withContext(Dispatchers.IO) {
-                val httpRequest =
-                    Request
-                        .Builder()
-                        .url(WarpRegistrationBaseUrl)
-                        .post(
-                            json
-                                .encodeToString(
+                executeRequest(
+                    request =
+                        NativeWarpProvisioningHttpRequest(
+                            method = "POST",
+                            url = WarpRegistrationBaseUrl,
+                            headers = defaultRequestHeaders(),
+                            body =
+                                json.encodeToString(
                                     CloudflareWarpRegisterRequest(
                                         installId = request.installId,
                                         fcmToken = request.fcmToken,
@@ -116,12 +109,9 @@ class DefaultWarpProvisioningClient
                                         locale = request.locale,
                                         warpEnabled = request.warpEnabled,
                                     ),
-                                ).toRequestBody(WarpJsonMediaType),
-                        ).applyDefaultHeaders()
-                        .build()
-                executeRequest(
-                    request = httpRequest,
-                    bootstrapProxy = bootstrapProxy,
+                                ),
+                            proxy = bootstrapProxy.asNativeProxy(),
+                        ),
                     privateKey = request.privateKey,
                     publicKey = request.publicKey,
                     endpointSource = "registration",
@@ -137,17 +127,14 @@ class DefaultWarpProvisioningClient
                 require(deviceId.isNotEmpty()) { "WARP credentials missing device id" }
                 val token = credentials.accessToken.trim()
                 require(token.isNotEmpty()) { "WARP credentials missing access token" }
-                val httpRequest =
-                    Request
-                        .Builder()
-                        .url("$WarpRegistrationBaseUrl/$deviceId")
-                        .get()
-                        .applyDefaultHeaders()
-                        .header(WarpAuthHeader, "Bearer $token")
-                        .build()
                 executeRequest(
-                    request = httpRequest,
-                    bootstrapProxy = bootstrapProxy,
+                    request =
+                        NativeWarpProvisioningHttpRequest(
+                            method = "GET",
+                            url = "$WarpRegistrationBaseUrl/$deviceId",
+                            headers = defaultRequestHeaders() + (WarpAuthHeader to "Bearer $token"),
+                            proxy = bootstrapProxy.asNativeProxy(),
+                        ),
                     privateKey = credentials.privateKey,
                     publicKey = credentials.publicKey.orEmpty(),
                     endpointSource = "refresh",
@@ -155,57 +142,56 @@ class DefaultWarpProvisioningClient
             }
 
         private fun executeRequest(
-            request: Request,
-            bootstrapProxy: Proxy?,
+            request: NativeWarpProvisioningHttpRequest,
             privateKey: String?,
             publicKey: String,
             endpointSource: String,
         ): WarpProvisioningResult {
-            val client = createProvisioningClient(bootstrapProxy)
-            client.newCall(request).execute().use { response ->
-                val body = response.body.string()
-                if (!response.isSuccessful) {
-                    val suffix = body.take(ErrorBodyMaxLength).trim()
-                    val message =
-                        buildString {
-                            append("WARP provisioning failed with HTTP ")
-                            append(response.code)
-                            if (suffix.isNotEmpty()) {
-                                append(": ")
-                                append(suffix)
-                            }
-                        }
-                    if (response.code == 401 || response.code == 403) {
-                        throw WarpProvisioningException.AuthFailure(message)
-                    }
-                    throw IOException(message)
+            val payload =
+                nativeBindings.executeProvisioning(json.encodeToString(request))
+                    ?: throw IOException("WARP provisioning bridge returned no response")
+            val response =
+                try {
+                    json.decodeFromString(NativeWarpProvisioningHttpResponse.serializer(), payload)
+                } catch (error: Exception) {
+                    throw IOException("WARP provisioning bridge returned malformed response", error)
                 }
-                val parsed =
-                    try {
-                        json.decodeFromString(CloudflareWarpRegistrationResponse.serializer(), body)
-                    } catch (error: Exception) {
-                        throw WarpProvisioningException.MalformedResponse(
-                            "WARP provisioning returned malformed registration data",
-                            error,
-                        )
+            response.error?.takeIf(String::isNotBlank)?.let { message ->
+                throw IOException(message)
+            }
+            val statusCode = response.statusCode ?: throw IOException("WARP provisioning bridge missing status code")
+            val responseBody = response.body.orEmpty()
+            if (statusCode !in 200..299) {
+                val suffix = responseBody.take(ErrorBodyMaxLength).trim()
+                val message =
+                    buildString {
+                        append("WARP provisioning failed with HTTP ")
+                        append(statusCode)
+                        if (suffix.isNotEmpty()) {
+                            append(": ")
+                            append(suffix)
+                        }
                     }
-                return parsed.toProvisioningResult(
-                    privateKey = privateKey,
-                    publicKey = publicKey,
-                    endpointSource = endpointSource,
-                )
+                if (statusCode == 401 || statusCode == 403) {
+                    throw WarpProvisioningException.AuthFailure(message)
+                }
+                throw IOException(message)
             }
+            val parsed =
+                try {
+                    json.decodeFromString(CloudflareWarpRegistrationResponse.serializer(), responseBody)
+                } catch (error: Exception) {
+                    throw WarpProvisioningException.MalformedResponse(
+                        "WARP provisioning returned malformed registration data",
+                        error,
+                    )
+                }
+            return parsed.toProvisioningResult(
+                privateKey = privateKey,
+                publicKey = publicKey,
+                endpointSource = endpointSource,
+            )
         }
-
-        private fun createProvisioningClient(bootstrapProxy: Proxy?): OkHttpClient =
-            tlsClientFactory.create(
-                forcedTlsVersions = listOf(TlsVersion.TLS_1_2),
-            ) {
-                bootstrapProxy?.let(::proxy)
-                connectTimeout(ConnectTimeoutSeconds, TimeUnit.SECONDS)
-                readTimeout(ReadTimeoutSeconds, TimeUnit.SECONDS)
-                callTimeout(CallTimeoutSeconds, TimeUnit.SECONDS)
-            }
     }
 
 @Suppress("ReturnCount")
@@ -299,10 +285,42 @@ private fun parseEndpoint(
     )
 }
 
-private fun Request.Builder.applyDefaultHeaders(): Request.Builder =
-    header("User-Agent", WarpProvisioningUserAgent)
-        .header("CF-Client-Version", WarpProvisioningClientVersion)
-        .header("Content-Type", WarpJsonMediaType.toString())
+private fun defaultRequestHeaders(): Map<String, String> =
+    linkedMapOf(
+        "User-Agent" to WarpProvisioningUserAgent,
+        "CF-Client-Version" to WarpProvisioningClientVersion,
+        "Content-Type" to WarpJsonMediaType,
+    )
+
+private fun Proxy?.asNativeProxy(): NativeWarpProvisioningProxyConfig? {
+    val socketAddress = (this?.address() as? java.net.InetSocketAddress) ?: return null
+    return NativeWarpProvisioningProxyConfig(
+        host = socketAddress.hostString,
+        port = socketAddress.port,
+    )
+}
+
+@Serializable
+private data class NativeWarpProvisioningHttpRequest(
+    val method: String,
+    val url: String,
+    val headers: Map<String, String>,
+    val body: String? = null,
+    val proxy: NativeWarpProvisioningProxyConfig? = null,
+)
+
+@Serializable
+private data class NativeWarpProvisioningProxyConfig(
+    val host: String,
+    val port: Int,
+)
+
+@Serializable
+private data class NativeWarpProvisioningHttpResponse(
+    val statusCode: Int? = null,
+    val body: String? = null,
+    val error: String? = null,
+)
 
 @Serializable
 private data class CloudflareWarpRegisterRequest(
@@ -402,4 +420,4 @@ internal const val WarpClientModelPc = "PC"
 internal val WarpClientLocale: String = Locale.US.toLanguageTag().replace('-', '_')
 internal const val WarpAuthHeader = "Authorization"
 internal const val WarpReservedFieldLength = 3
-private val WarpJsonMediaType = "application/json; charset=UTF-8".toMediaType()
+internal const val WarpJsonMediaType = "application/json; charset=UTF-8"

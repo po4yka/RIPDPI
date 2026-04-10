@@ -202,50 +202,13 @@ impl VlessRealityBackend {
 }
 
 struct XhttpBackend {
-    config: ResolvedRelayRuntimeConfig,
+    client: ripdpi_xhttp::XhttpClient,
 }
 
 impl XhttpBackend {
     async fn connect_tcp(&self, target: &RelayTargetAddr) -> io::Result<BoxedIo> {
-        match self.config.kind.as_str() {
-            "cloudflare_tunnel" => {
-                let config = ripdpi_xhttp::XhttpTlsConfig::from_strings(
-                    &self.config.server,
-                    self.config.server_port,
-                    &self.config.server_name,
-                    self.config.vless_uuid.as_deref().unwrap_or_default(),
-                    &self.config.xhttp_path,
-                    &self.config.xhttp_host,
-                    &self.config.tls_fingerprint_profile,
-                )
-                .map_err(|error| io::Error::new(io::ErrorKind::InvalidInput, error.to_string()))?;
-                let stream = ripdpi_xhttp::connect_tls(&config, &target.to_connect_target()).await?;
-                Ok(Box::new(stream))
-            }
-            _ => {
-                let vless = ripdpi_vless::config::VlessRealityConfig::from_strings(
-                    &self.config.server,
-                    self.config.server_port,
-                    self.config.vless_uuid.as_deref().unwrap_or_default(),
-                    &self.config.server_name,
-                    &self.config.reality_public_key,
-                    &self.config.reality_short_id,
-                    &self.config.tls_fingerprint_profile,
-                )
-                .map_err(|error| io::Error::new(io::ErrorKind::InvalidInput, error.to_string()))?;
-                let config = ripdpi_xhttp::XhttpRealityConfig {
-                    vless,
-                    path: self.config.xhttp_path.clone(),
-                    host: if self.config.xhttp_host.trim().is_empty() {
-                        None
-                    } else {
-                        Some(self.config.xhttp_host.trim().to_owned())
-                    },
-                };
-                let stream = ripdpi_xhttp::connect_reality(&config, &target.to_connect_target()).await?;
-                Ok(Box::new(stream))
-            }
-        }
+        let stream = self.client.connect(&target.to_connect_target()).await?;
+        Ok(Box::new(stream))
     }
 }
 
@@ -533,10 +496,44 @@ async fn build_backend(config: &ResolvedRelayRuntimeConfig) -> io::Result<RelayB
             Ok(RelayBackend::Hysteria2(Hysteria2Backend { client }))
         }
         "vless_reality" if config.vless_transport == "xhttp" => {
-            Ok(RelayBackend::Xhttp(XhttpBackend { config: config.clone() }))
+            let vless = ripdpi_vless::config::VlessRealityConfig::from_strings(
+                &config.server,
+                config.server_port,
+                config.vless_uuid.as_deref().unwrap_or_default(),
+                &config.server_name,
+                &config.reality_public_key,
+                &config.reality_short_id,
+                &config.tls_fingerprint_profile,
+            )
+            .map_err(|error| io::Error::new(io::ErrorKind::InvalidInput, error.to_string()))?;
+            Ok(RelayBackend::Xhttp(XhttpBackend {
+                client: ripdpi_xhttp::XhttpClient::new_reality(ripdpi_xhttp::XhttpRealityConfig {
+                    vless,
+                    path: config.xhttp_path.clone(),
+                    host: if config.xhttp_host.trim().is_empty() {
+                        None
+                    } else {
+                        Some(config.xhttp_host.trim().to_owned())
+                    },
+                    xmux: ripdpi_xhttp::XmuxConfig::default(),
+                }),
+            }))
         }
         "vless_reality" => Ok(RelayBackend::VlessReality(VlessRealityBackend { config: config.clone() })),
-        "cloudflare_tunnel" => Ok(RelayBackend::Xhttp(XhttpBackend { config: config.clone() })),
+        "cloudflare_tunnel" => Ok(RelayBackend::Xhttp(XhttpBackend {
+            client: ripdpi_xhttp::XhttpClient::new_tls(
+                ripdpi_xhttp::XhttpTlsConfig::from_strings(
+                    &config.server,
+                    config.server_port,
+                    &config.server_name,
+                    config.vless_uuid.as_deref().unwrap_or_default(),
+                    &config.xhttp_path,
+                    &config.xhttp_host,
+                    &config.tls_fingerprint_profile,
+                )
+                .map_err(|error| io::Error::new(io::ErrorKind::InvalidInput, error.to_string()))?,
+            ),
+        })),
         "chain_relay" => Ok(RelayBackend::ChainRelay(ChainRelayBackend { config: config.clone() })),
         "masque" => Ok(RelayBackend::Masque(MasqueBackend {
             client: ripdpi_masque::MasqueClient::new(ripdpi_masque::config::MasqueConfig {

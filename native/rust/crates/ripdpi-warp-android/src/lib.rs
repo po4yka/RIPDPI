@@ -1,3 +1,4 @@
+mod provisioning;
 mod vpn_protect;
 
 use std::collections::HashMap;
@@ -117,6 +118,30 @@ pub extern "system" fn Java_com_poyka_ripdpi_core_RipDpiWarpNativeBindings_jniDe
 ) {
     if let Ok(handle) = u64::try_from(handle) {
         SESSIONS.lock().expect("session mutex").remove(&handle);
+    }
+}
+
+#[unsafe(no_mangle)]
+pub extern "system" fn Java_com_poyka_ripdpi_core_RipDpiWarpNativeBindings_jniExecuteProvisioning(
+    mut env: EnvUnowned<'_>,
+    _thiz: JObject,
+    request_json: JString,
+) -> jni::sys::jstring {
+    match env
+        .with_env(move |env| -> jni::errors::Result<jni::sys::jstring> {
+            let request_json: String = request_json.mutf8_chars(env)?.to_str().into_owned();
+            let payload = provisioning::execute(&request_json).unwrap_or_else(|error| {
+                serde_json::json!({
+                    "error": error.to_string(),
+                })
+                .to_string()
+            });
+            Ok(env.new_string(payload)?.into_raw())
+        })
+        .into_outcome()
+    {
+        Outcome::Ok(value) => value,
+        _ => std::ptr::null_mut(),
     }
 }
 

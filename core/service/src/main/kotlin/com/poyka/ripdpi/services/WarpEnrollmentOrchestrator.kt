@@ -8,6 +8,8 @@ import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.ApplicationIoScope
 import com.poyka.ripdpi.data.BuiltInWarpControlPlaneHosts
 import com.poyka.ripdpi.data.DefaultWarpProfileId
+import com.poyka.ripdpi.data.DefaultWarpScannerMaxRttMs
+import com.poyka.ripdpi.data.DefaultWarpScannerParallelism
 import com.poyka.ripdpi.data.GlobalWarpEndpointScopeKey
 import com.poyka.ripdpi.data.NativeNetworkSnapshotProvider
 import com.poyka.ripdpi.data.WarpAccountKindConsumerFree
@@ -33,14 +35,24 @@ import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import java.io.IOException
+import java.net.DatagramPacket
+import java.net.DatagramSocket
+import java.net.Inet4Address
+import java.net.Inet6Address
+import java.net.InetAddress
 import java.net.InetSocketAddress
 import java.net.Proxy
 import java.net.ServerSocket
+import java.net.SocketTimeoutException
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlin.math.max
 
 data class WarpEnrollmentSnapshot(
     val profile: WarpProfile,
@@ -146,11 +158,97 @@ interface WarpEndpointScanner {
     ): WarpEndpointCacheEntry?
 }
 
+private val BuiltInWarpEndpointPoolV4: List<String> =
+    listOf(
+        "162.159.192.1",
+        "162.159.193.1",
+        "162.159.195.1",
+        "188.114.96.1",
+        "188.114.97.1",
+        "188.114.98.1",
+        "188.114.99.1",
+    )
+
+private val BuiltInWarpEndpointPoolV6: List<String> =
+    listOf(
+        "2606:4700:d0::a29f:c001",
+        "2606:4700:d0::a29f:c101",
+        "2606:4700:d0::a29f:c201",
+        "2606:4700:d0::a29f:c301",
+    )
+
+interface WarpEndpointProbe {
+    suspend fun probe(
+        candidate: WarpEndpointCacheEntry,
+        timeoutMillis: Int,
+    ): WarpEndpointCacheEntry?
+}
+
+@Singleton
+class DefaultWarpEndpointProbe
+    @Inject
+    constructor() : WarpEndpointProbe {
+        override suspend fun probe(
+            candidate: WarpEndpointCacheEntry,
+            timeoutMillis: Int,
+        ): WarpEndpointCacheEntry? =
+            kotlinx.coroutines.withContext(Dispatchers.IO) {
+                runCatching { probeBlocking(candidate, timeoutMillis.coerceAtLeast(250)) }.getOrNull()
+            }
+
+        private fun probeBlocking(
+            candidate: WarpEndpointCacheEntry,
+            timeoutMillis: Int,
+        ): WarpEndpointCacheEntry? {
+            val address = resolveSocketAddress(candidate) ?: return null
+            val startedAtNanos = System.nanoTime()
+            DatagramSocket().use { socket ->
+                socket.soTimeout = timeoutMillis
+                socket.connect(address)
+                val payload = byteArrayOf(0x01, 0x03, 0x03, 0x07)
+                socket.send(DatagramPacket(payload, payload.size))
+                try {
+                    val response = DatagramPacket(ByteArray(64), 64)
+                    socket.receive(response)
+                } catch (_: SocketTimeoutException) {
+                    // WARP UDP endpoints typically stay silent; a clean send is still a usable signal.
+                }
+            }
+            val resolvedAddress = address.address
+            val elapsedMillis = max(1L, (System.nanoTime() - startedAtNanos) / 1_000_000L)
+            return candidate.copy(
+                host = candidate.host?.ifBlank { address.hostString } ?: address.hostString,
+                ipv4 = candidate.ipv4 ?: (resolvedAddress as? Inet4Address)?.hostAddress,
+                ipv6 = candidate.ipv6 ?: (resolvedAddress as? Inet6Address)?.hostAddress,
+                source = "scanner",
+                rttMs = elapsedMillis,
+                updatedAtEpochMillis = System.currentTimeMillis(),
+            )
+        }
+
+        private fun resolveSocketAddress(candidate: WarpEndpointCacheEntry): InetSocketAddress? {
+            val port = candidate.port.takeIf { it > 0 } ?: return null
+            candidate.ipv4?.takeIf(String::isNotBlank)?.let { value ->
+                return InetSocketAddress(value, port)
+            }
+            candidate.ipv6?.takeIf(String::isNotBlank)?.let { value ->
+                return InetSocketAddress(value, port)
+            }
+            val host = candidate.host?.takeIf(String::isNotBlank) ?: return null
+            val resolved =
+                runCatching { InetAddress.getAllByName(host).firstOrNull() }.getOrNull()
+                    ?: return null
+            return InetSocketAddress(resolved, port)
+        }
+    }
+
 @Singleton
 class DefaultWarpEndpointScanner
     @Inject
     constructor(
+        private val appSettingsRepository: AppSettingsRepository,
         private val endpointStore: WarpEndpointStore,
+        private val endpointProbe: WarpEndpointProbe,
     ) : WarpEndpointScanner {
         override suspend fun resolveEndpoint(
             profileId: String,
@@ -158,29 +256,210 @@ class DefaultWarpEndpointScanner
             provisioned: WarpEndpointCacheEntry?,
         ): WarpEndpointCacheEntry? {
             val normalizedScope = networkScopeKey.takeIf(String::isNotBlank) ?: GlobalWarpEndpointScopeKey
-            val scoped = endpointStore.load(profileId, normalizedScope)
-            if (scoped != null) {
-                return scoped
-            }
-            val global = endpointStore.load(profileId, GlobalWarpEndpointScopeKey)
-            if (global != null) {
-                return global
-            }
-            val resolved =
-                provisioned?.copy(
+            val settings = appSettingsRepository.snapshot()
+            val scannerEnabled = settings.warpScannerEnabled
+            val parallelism =
+                settings.warpScannerParallelism
+                    .takeIf { it > 0 }
+                    ?: DefaultWarpScannerParallelism
+            val timeoutMillis =
+                settings.warpScannerMaxRttMs
+                    .takeIf { it > 0 }
+                    ?: DefaultWarpScannerMaxRttMs
+
+            endpointStore.load(profileId, normalizedScope)?.let { cached ->
+                probeCachedEntry(
                     profileId = profileId,
                     networkScopeKey = normalizedScope,
-                )
-            if (resolved != null) {
-                endpointStore.save(resolved)
-                endpointStore.save(
-                    resolved.copy(
-                        networkScopeKey = GlobalWarpEndpointScopeKey,
-                    ),
+                    entry = cached,
+                    timeoutMillis = timeoutMillis,
+                )?.let { return it }
+            }
+
+            endpointStore.load(profileId, GlobalWarpEndpointScopeKey)?.let { cached ->
+                probeCachedEntry(
+                    profileId = profileId,
+                    networkScopeKey = GlobalWarpEndpointScopeKey,
+                    entry = cached,
+                    timeoutMillis = timeoutMillis,
+                )?.let { global ->
+                    return persistBestCandidate(
+                        profileId = profileId,
+                        networkScopeKey = normalizedScope,
+                        candidate = global,
+                    )
+                }
+            }
+
+            if (scannerEnabled) {
+                val bestCandidate =
+                    scanCandidatePool(
+                        candidates = buildCandidatePool(profileId, provisioned),
+                        timeoutMillis = timeoutMillis,
+                        parallelism = parallelism,
+                    )
+                if (bestCandidate != null) {
+                    return persistBestCandidate(
+                        profileId = profileId,
+                        networkScopeKey = normalizedScope,
+                        candidate = bestCandidate,
+                    )
+                }
+            }
+
+            return provisioned?.let { fallback ->
+                persistBestCandidate(
+                    profileId = profileId,
+                    networkScopeKey = normalizedScope,
+                    candidate = fallback,
                 )
             }
-            return resolved
         }
+
+        private suspend fun probeCachedEntry(
+            profileId: String,
+            networkScopeKey: String,
+            entry: WarpEndpointCacheEntry,
+            timeoutMillis: Int,
+        ): WarpEndpointCacheEntry? {
+            val probed =
+                endpointProbe.probe(
+                    candidate = entry.copy(profileId = profileId, networkScopeKey = networkScopeKey),
+                    timeoutMillis = timeoutMillis,
+                )
+            if (probed == null) {
+                endpointStore.clear(profileId, networkScopeKey)
+            }
+            return probed
+        }
+
+        private suspend fun scanCandidatePool(
+            candidates: List<WarpEndpointCacheEntry>,
+            timeoutMillis: Int,
+            parallelism: Int,
+        ): WarpEndpointCacheEntry? =
+            coroutineScope {
+                var best: WarpEndpointCacheEntry? = null
+                for (batch in candidates.chunked(parallelism.coerceAtLeast(1))) {
+                    val batchBest =
+                        batch
+                            .map { candidate ->
+                                async {
+                                    endpointProbe.probe(candidate, timeoutMillis)
+                                }
+                            }.awaitAll()
+                            .filterNotNull()
+                            .minWithOrNull(compareBy<WarpEndpointCacheEntry> { it.rttMs ?: Long.MAX_VALUE })
+                    if (batchBest != null &&
+                        (best == null || candidateScore(batchBest) < candidateScore(best))
+                    ) {
+                        best = batchBest
+                    }
+                }
+                best
+            }
+
+        private suspend fun buildCandidatePool(
+            profileId: String,
+            provisioned: WarpEndpointCacheEntry?,
+        ): List<WarpEndpointCacheEntry> {
+            val remembered = endpointStore.loadAll(profileId)
+            val expanded =
+                buildList {
+                    remembered.forEach { addAll(expandCandidate(it)) }
+                    provisioned?.let { addAll(expandCandidate(it)) }
+                    addAll(
+                        builtInPoolCandidates(
+                            profileId = profileId,
+                            provisioned = provisioned,
+                        ),
+                    )
+                }
+            return expanded.distinctBy { it.candidateIdentity() }
+        }
+
+        private suspend fun expandCandidate(candidate: WarpEndpointCacheEntry): List<WarpEndpointCacheEntry> =
+            kotlinx.coroutines.withContext(Dispatchers.IO) {
+                val normalizedPort = candidate.port.takeIf { it > 0 } ?: 2408
+                val expanded =
+                    linkedMapOf<String, WarpEndpointCacheEntry>().apply {
+                        put(
+                            candidate.copy(port = normalizedPort).candidateIdentity(),
+                            candidate.copy(port = normalizedPort),
+                        )
+                    }
+                val host = candidate.host?.takeIf(String::isNotBlank)
+                if (host != null) {
+                    runCatching { InetAddress.getAllByName(host).toList() }
+                        .getOrDefault(emptyList())
+                        .forEach { address ->
+                            val resolvedCandidate =
+                                candidate.copy(
+                                    host = host,
+                                    ipv4 = (address as? Inet4Address)?.hostAddress,
+                                    ipv6 = (address as? Inet6Address)?.hostAddress,
+                                    port = normalizedPort,
+                                    source = "scanner_dns",
+                                )
+                            expanded.putIfAbsent(resolvedCandidate.candidateIdentity(), resolvedCandidate)
+                        }
+                }
+                expanded.values.toList()
+            }
+
+        private fun builtInPoolCandidates(
+            profileId: String,
+            provisioned: WarpEndpointCacheEntry?,
+        ): List<WarpEndpointCacheEntry> {
+            val host = provisioned?.host?.takeIf(String::isNotBlank) ?: "engage.cloudflareclient.com"
+            val port = provisioned?.port?.takeIf { it > 0 } ?: 2408
+            return buildList {
+                BuiltInWarpEndpointPoolV4.forEach { ipv4 ->
+                    add(
+                        WarpEndpointCacheEntry(
+                            profileId = profileId,
+                            networkScopeKey = "",
+                            host = host,
+                            ipv4 = ipv4,
+                            port = port,
+                            source = "scanner_builtin",
+                        ),
+                    )
+                }
+                BuiltInWarpEndpointPoolV6.forEach { ipv6 ->
+                    add(
+                        WarpEndpointCacheEntry(
+                            profileId = profileId,
+                            networkScopeKey = "",
+                            host = host,
+                            ipv6 = ipv6,
+                            port = port,
+                            source = "scanner_builtin",
+                        ),
+                    )
+                }
+            }
+        }
+
+        private suspend fun persistBestCandidate(
+            profileId: String,
+            networkScopeKey: String,
+            candidate: WarpEndpointCacheEntry,
+        ): WarpEndpointCacheEntry {
+            val scoped =
+                candidate.copy(
+                    profileId = profileId,
+                    networkScopeKey = networkScopeKey,
+                )
+            endpointStore.save(scoped)
+            endpointStore.save(scoped.copy(networkScopeKey = GlobalWarpEndpointScopeKey))
+            return scoped
+        }
+
+        private fun WarpEndpointCacheEntry.candidateIdentity(): String =
+            listOf(host.orEmpty(), ipv4.orEmpty(), ipv6.orEmpty(), port.toString()).joinToString("|")
+
+        private fun candidateScore(candidate: WarpEndpointCacheEntry?): Long = candidate?.rttMs ?: Long.MAX_VALUE
     }
 
 interface WarpEnrollmentOrchestrator {
@@ -258,7 +537,12 @@ class DefaultWarpEnrollmentOrchestrator
                 profileStore.save(profile)
                 profileStore.setActiveProfileId(normalizedProfileId)
                 credentialStore.save(normalizedProfileId, credentials)
-                val endpoint = saveEndpoint(normalizedProfileId, networkScopeKey, provisioning.endpoint)
+                val endpoint =
+                    endpointScanner.resolveEndpoint(
+                        profileId = normalizedProfileId,
+                        networkScopeKey = networkScopeKey.orEmpty(),
+                        provisioned = provisioning.endpoint,
+                    )
                 activateProfile(profile = profile, scannerMode = WarpScannerModeAutomatic)
                 WarpEnrollmentSnapshot(profile = profile, credentials = credentials, endpoint = endpoint)
             }
@@ -529,6 +813,10 @@ abstract class WarpEnrollmentModule {
     @Binds
     @Singleton
     abstract fun bindWarpEndpointScanner(scanner: DefaultWarpEndpointScanner): WarpEndpointScanner
+
+    @Binds
+    @Singleton
+    abstract fun bindWarpEndpointProbe(probe: DefaultWarpEndpointProbe): WarpEndpointProbe
 
     @Binds
     @Singleton
