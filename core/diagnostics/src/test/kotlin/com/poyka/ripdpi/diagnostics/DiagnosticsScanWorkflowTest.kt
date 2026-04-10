@@ -393,6 +393,7 @@ class DiagnosticsScanWorkflowTest {
                 settings = plainUdpSettings,
                 serviceStatus = AppStatus.Running,
                 serviceMode = Mode.VPN,
+                pathMode = ScanPathMode.RAW_PATH,
             ),
         )
     }
@@ -414,6 +415,7 @@ class DiagnosticsScanWorkflowTest {
                 settings = plainUdpSettings,
                 serviceStatus = AppStatus.Running,
                 serviceMode = Mode.VPN,
+                pathMode = ScanPathMode.RAW_PATH,
             ),
         )
     }
@@ -435,6 +437,29 @@ class DiagnosticsScanWorkflowTest {
                 settings = plainUdpSettings,
                 serviceStatus = AppStatus.Running,
                 serviceMode = Mode.VPN,
+                pathMode = ScanPathMode.RAW_PATH,
+            ),
+        )
+    }
+
+    @Test
+    fun `temporary resolver override applied on raw path when service is halted`() {
+        val report =
+            scanReportWithStrategyProbe(
+                proxyConfigJson = validRecommendedProxyConfigJson(),
+                tcpFamily = "hostfake",
+                quicFamily = "quic_realistic_burst",
+                completionKind = StrategyProbeCompletionKind.DNS_TAMPERING_WITH_FALLBACK,
+            ).copy(resolverRecommendation = resolverRecommendation())
+        val plainUdpSettings = settingsWithPlainUdpDns()
+
+        assertTrue(
+            DiagnosticsScanWorkflow.shouldApplyTemporaryResolverOverride(
+                report = report,
+                settings = plainUdpSettings,
+                serviceStatus = AppStatus.Halted,
+                serviceMode = Mode.VPN,
+                pathMode = ScanPathMode.RAW_PATH,
             ),
         )
     }
@@ -456,6 +481,7 @@ class DiagnosticsScanWorkflowTest {
                 settings = plainUdpSettings,
                 serviceStatus = AppStatus.Running,
                 serviceMode = Mode.VPN,
+                pathMode = ScanPathMode.RAW_PATH,
             ),
         )
     }
@@ -468,6 +494,25 @@ class DiagnosticsScanWorkflowTest {
                 tcpFamily = "hostfake",
                 quicFamily = "quic_realistic_burst",
                 completionKind = StrategyProbeCompletionKind.DNS_SHORT_CIRCUITED,
+            )
+
+        assertTrue(
+            DiagnosticsScanWorkflow.shouldReprobeWithCorrectedDns(
+                report = report,
+                pathMode = ScanPathMode.RAW_PATH,
+                resolverOverrideApplied = true,
+            ),
+        )
+    }
+
+    @Test
+    fun `reprobe recommended when DNS fallback completed and override applied on RAW_PATH`() {
+        val report =
+            scanReportWithStrategyProbe(
+                proxyConfigJson = validRecommendedProxyConfigJson(),
+                tcpFamily = "hostfake",
+                quicFamily = "quic_realistic_burst",
+                completionKind = StrategyProbeCompletionKind.DNS_TAMPERING_WITH_FALLBACK,
             )
 
         assertTrue(

@@ -4,20 +4,24 @@ import com.poyka.ripdpi.core.RipDpiChainConfig
 import com.poyka.ripdpi.core.RipDpiProtocolConfig
 import com.poyka.ripdpi.core.RipDpiProxyUIPreferences
 import com.poyka.ripdpi.core.RipDpiQuicConfig
+import com.poyka.ripdpi.core.decodeRipDpiProxyUiPreferences
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.DnsModePlainUdp
+import com.poyka.ripdpi.data.DnsProviderCustom
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.TcpChainStepKind
 import com.poyka.ripdpi.data.TcpChainStepModel
 import com.poyka.ripdpi.data.UdpChainStepModel
 import com.poyka.ripdpi.data.diagnostics.DefaultNetworkDnsPathPreferenceStore
 import com.poyka.ripdpi.data.diagnostics.DefaultRememberedNetworkPolicyStore
+import com.poyka.ripdpi.diagnostics.contract.engine.EngineScanRequestWire
 import com.poyka.ripdpi.diagnostics.domain.DiagnosticsIntent
 import com.poyka.ripdpi.diagnostics.domain.ExecutionPolicy
 import com.poyka.ripdpi.diagnostics.domain.ScanContext
 import com.poyka.ripdpi.diagnostics.domain.ScanPlan
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
@@ -94,6 +98,189 @@ class DiagnosticsScanExecutionCoordinatorTest {
             assertNull(timelineSource.activeScanProgress.value)
         }
 
+    @Test
+    fun `finalization applies raw path dns fallback override while service is halted and returns corrected dns path`() =
+        runTest {
+            val stores = FakeDiagnosticsHistoryStores()
+            val clock = TestDiagnosticsHistoryClock()
+            val timelineSource = timelineSource(stores, backgroundScope)
+            val resolverOverrideStore = FakeResolverOverrideStore()
+            val serviceStateStore = FakeServiceStateStore(initialStatus = AppStatus.Halted to Mode.VPN)
+            val fixtures =
+                executionCoordinatorFixtures(
+                    stores = stores,
+                    timelineSource = timelineSource,
+                    serviceStateStore = serviceStateStore,
+                    resolverOverrideStore = resolverOverrideStore,
+                    preferredPathStore = DefaultNetworkDnsPathPreferenceStore(stores, clock),
+                    rememberedNetworkPolicyStore = DefaultRememberedNetworkPolicyStore(stores, clock),
+                    json = json,
+                )
+            val settings =
+                defaultDiagnosticsAppSettings()
+                    .toBuilder()
+                    .setDnsMode(DnsModePlainUdp)
+                    .setDnsProviderId(DnsProviderCustom)
+                    .setDnsIp("8.8.8.8")
+                    .build()
+            val prepared =
+                preparedDiagnosticsScan(
+                    sessionId = "session-dns-fallback",
+                    settings = settings,
+                    exposeProgress = false,
+                    registerActiveBridge = false,
+                    kind = ScanKind.STRATEGY_PROBE,
+                    profileId = "automatic-probing",
+                    family = DiagnosticProfileFamily.AUTOMATIC_PROBING,
+                    strategyProbeRequest = StrategyProbeRequest(suiteId = "quick_v1"),
+                )
+            seedPreparedScan(stores, prepared)
+            val report =
+                scanReportWithDnsFallbackResolverRecommendation(
+                    sessionId = prepared.sessionId,
+                    settings = settings,
+                )
+
+            val finalization =
+                fixtures.finalizationService.finalize(
+                    prepared = prepared,
+                    reportJson =
+                        json.encodeToString(
+                            com.poyka.ripdpi.diagnostics.contract.engine.EngineScanReportWire
+                                .serializer(),
+                            report.toEngineScanReportWire(),
+                        ),
+                )
+            val persisted =
+                diagnosticsTestJson()
+                    .decodeEngineScanReportWire(requireNotNull(stores.getScanSession(prepared.sessionId)?.reportJson))
+                    .toScanReport()
+
+            assertTrue(finalization.shouldReprobeWithCorrectedDns)
+            assertEquals("cloudflare", finalization.correctedDnsPath?.resolverId)
+            assertEquals("cloudflare", resolverOverrideStore.override.value?.resolverId)
+            assertTrue(requireNotNull(persisted.resolverRecommendation).appliedTemporarily)
+        }
+
+    @Test
+    fun `dns corrected reprobe waits for vpn auto resume before starting`() =
+        runTest {
+            val stores = FakeDiagnosticsHistoryStores().apply { seedStrategyProbeProfile(json) }
+            val clock = TestDiagnosticsHistoryClock()
+            val timelineSource = timelineSource(stores, backgroundScope)
+            val serviceStateStore = FakeServiceStateStore(initialStatus = AppStatus.Halted to Mode.VPN)
+            val fixtures =
+                executionCoordinatorFixtures(
+                    stores = stores,
+                    timelineSource = timelineSource,
+                    serviceStateStore = serviceStateStore,
+                    preferredPathStore = DefaultNetworkDnsPathPreferenceStore(stores, clock),
+                    rememberedNetworkPolicyStore = DefaultRememberedNetworkPolicyStore(stores, clock),
+                    json = json,
+                )
+            val settings =
+                defaultDiagnosticsAppSettings()
+                    .toBuilder()
+                    .setDnsMode(DnsModePlainUdp)
+                    .setDnsProviderId(DnsProviderCustom)
+                    .setDnsIp("8.8.8.8")
+                    .build()
+            val prepared =
+                preparedDiagnosticsScan(
+                    sessionId = "session-reprobe",
+                    settings = settings,
+                    exposeProgress = false,
+                    registerActiveBridge = false,
+                    kind = ScanKind.STRATEGY_PROBE,
+                    profileId = "automatic-probing",
+                    family = DiagnosticProfileFamily.AUTOMATIC_PROBING,
+                    strategyProbeRequest = StrategyProbeRequest(suiteId = "quick_v1"),
+                )
+            seedPreparedScan(stores, prepared)
+            fixtures.activeScanRegistry.rememberPreparedScan(prepared)
+            val originalBridge = buildDnsFallbackBridge(prepared.sessionId, settings)
+            fixtures.activeScanRegistry.registerBridge(
+                originalBridge,
+                prepared.sessionId,
+                prepared.registerActiveBridge,
+            )
+            val handle = BridgeSessionHandle(originalBridge, prepared.sessionId, prepared.registerActiveBridge)
+
+            backgroundScope.launch {
+                delay(50)
+                serviceStateStore.setStatus(AppStatus.Running, Mode.VPN)
+            }
+
+            fixtures.coordinator.execute(prepared, handle, rawPathRunner = { block -> block() })
+
+            val reprobeRequestJson = requireNotNull(fixtures.bridgeFactory.bridge.startedRequestJson)
+            val reprobeRequest = json.decodeFromString(EngineScanRequestWire.serializer(), reprobeRequestJson)
+            val reprobeRuntimeDns = decodeRuntimeDns(reprobeRequest)
+
+            assertEquals("cloudflare", reprobeRuntimeDns.resolverId)
+            assertTrue(
+                stores.sessionsState.value.any { session ->
+                    session.pathMode == ScanPathMode.IN_PATH.name && session.status == "completed"
+                },
+            )
+        }
+
+    @Test
+    fun `dns corrected reprobe records failure when vpn service never resumes`() =
+        runTest {
+            val stores = FakeDiagnosticsHistoryStores().apply { seedStrategyProbeProfile(json) }
+            val clock = TestDiagnosticsHistoryClock()
+            val timelineSource = timelineSource(stores, backgroundScope)
+            val serviceStateStore = FakeServiceStateStore(initialStatus = AppStatus.Halted to Mode.VPN)
+            val fixtures =
+                executionCoordinatorFixtures(
+                    stores = stores,
+                    timelineSource = timelineSource,
+                    serviceStateStore = serviceStateStore,
+                    preferredPathStore = DefaultNetworkDnsPathPreferenceStore(stores, clock),
+                    rememberedNetworkPolicyStore = DefaultRememberedNetworkPolicyStore(stores, clock),
+                    json = json,
+                )
+            val settings =
+                defaultDiagnosticsAppSettings()
+                    .toBuilder()
+                    .setDnsMode(DnsModePlainUdp)
+                    .setDnsProviderId(DnsProviderCustom)
+                    .setDnsIp("8.8.8.8")
+                    .build()
+            val prepared =
+                preparedDiagnosticsScan(
+                    sessionId = "session-reprobe-timeout",
+                    settings = settings,
+                    exposeProgress = false,
+                    registerActiveBridge = false,
+                    kind = ScanKind.STRATEGY_PROBE,
+                    profileId = "automatic-probing",
+                    family = DiagnosticProfileFamily.AUTOMATIC_PROBING,
+                    strategyProbeRequest = StrategyProbeRequest(suiteId = "quick_v1"),
+                )
+            seedPreparedScan(stores, prepared)
+            fixtures.activeScanRegistry.rememberPreparedScan(prepared)
+            val originalBridge = buildDnsFallbackBridge(prepared.sessionId, settings)
+            fixtures.activeScanRegistry.registerBridge(
+                originalBridge,
+                prepared.sessionId,
+                prepared.registerActiveBridge,
+            )
+            val handle = BridgeSessionHandle(originalBridge, prepared.sessionId, prepared.registerActiveBridge)
+
+            fixtures.coordinator.execute(prepared, handle, rawPathRunner = { block -> block() })
+
+            val reprobeSession =
+                stores.sessionsState.value.first { session ->
+                    session.pathMode == ScanPathMode.IN_PATH.name
+                }
+
+            assertNull(fixtures.bridgeFactory.bridge.startedRequestJson)
+            assertEquals("failed", reprobeSession.status)
+            assertTrue(reprobeSession.summary.contains("Timed out waiting for VPN service to resume"))
+        }
+
     private fun buildResolverRecommendationBridge(sessionId: String): FakeNetworkDiagnosticsBridge =
         FakeNetworkDiagnosticsBridge(json).apply {
             autoCompleteOnStart = false
@@ -130,6 +317,30 @@ class DiagnosticsScanExecutionCoordinatorTest {
                 ),
             )
             enqueueReport(scanReportWithResolverRecommendation(sessionId))
+        }
+
+    private fun buildDnsFallbackBridge(
+        sessionId: String,
+        settings: com.poyka.ripdpi.proto.AppSettings,
+    ): FakeNetworkDiagnosticsBridge =
+        FakeNetworkDiagnosticsBridge(json).apply {
+            autoCompleteOnStart = false
+            enqueueProgress(
+                ScanProgress(
+                    sessionId = sessionId,
+                    phase = "complete",
+                    completedSteps = 1,
+                    totalSteps = 1,
+                    message = "complete",
+                    isFinished = true,
+                ),
+            )
+            enqueueReport(
+                scanReportWithDnsFallbackResolverRecommendation(
+                    sessionId = sessionId,
+                    settings = settings,
+                ),
+            )
         }
 
     @Test
@@ -366,6 +577,8 @@ internal fun coordinatorTimelineSource(
 internal data class ExecutionCoordinatorFixtures(
     val coordinator: DiagnosticsScanExecutionCoordinator,
     val activeScanRegistry: ActiveScanRegistry,
+    val bridgeFactory: FakeNetworkDiagnosticsBridgeFactory,
+    val finalizationService: ScanFinalizationService,
 )
 
 internal fun executionCoordinatorFixtures(
@@ -379,11 +592,12 @@ internal fun executionCoordinatorFixtures(
     rememberedNetworkPolicyStore: DefaultRememberedNetworkPolicyStore =
         DefaultRememberedNetworkPolicyStore(stores, TestDiagnosticsHistoryClock()),
     json: kotlinx.serialization.json.Json = diagnosticsTestJson(),
+    bridgeFactory: FakeNetworkDiagnosticsBridgeFactory = FakeNetworkDiagnosticsBridgeFactory(json),
 ): ExecutionCoordinatorFixtures {
     val activeScanRegistry = ActiveScanRegistry(timelineSource)
     val bridgeExecutionService =
         BridgeExecutionService(
-            networkDiagnosticsBridgeFactory = FakeNetworkDiagnosticsBridgeFactory(json),
+            networkDiagnosticsBridgeFactory = bridgeFactory,
             activeScanRegistry = activeScanRegistry,
         )
     val passiveEventPersistenceService = PassiveEventPersistenceService(stores, json)
@@ -438,8 +652,11 @@ internal fun executionCoordinatorFixtures(
                 bridgePollingService = BridgePollingService(passiveEventPersistenceService, json),
                 scanFinalizationService = scanFinalizationService,
                 scanRequestFactory = scanRequestFactory,
+                serviceStateStore = serviceStateStore,
             ),
         activeScanRegistry = activeScanRegistry,
+        bridgeFactory = bridgeFactory,
+        finalizationService = scanFinalizationService,
     )
 }
 
@@ -650,6 +867,19 @@ internal fun scanReportWithResolverRecommendation(sessionId: String) =
             ),
     )
 
+internal fun scanReportWithDnsFallbackResolverRecommendation(
+    sessionId: String,
+    settings: com.poyka.ripdpi.proto.AppSettings,
+): ScanReport =
+    scanReportWithStrategyProbe(
+        sessionId = sessionId,
+        settings = settings,
+        completionKind = StrategyProbeCompletionKind.DNS_TAMPERING_WITH_FALLBACK,
+        resolverRecommendation = resolverRecommendationForCoordinator(),
+    ).copy(
+        results = scanReportWithResolverRecommendation(sessionId).results,
+    )
+
 @Suppress("UnusedParameter")
 internal fun scanReportWithStrategyProbe(
     sessionId: String,
@@ -657,8 +887,10 @@ internal fun scanReportWithStrategyProbe(
     profileId: String = "automatic-probing",
     suiteId: String = "quick_v1",
     auditAssessment: StrategyProbeAuditAssessment? = strategyProbeAuditAssessmentForCoordinator(),
+    completionKind: StrategyProbeCompletionKind = StrategyProbeCompletionKind.NORMAL,
     tcpSucceededTargets: Int = 1,
     quicSucceededTargets: Int = 1,
+    resolverRecommendation: ResolverRecommendation? = null,
 ): ScanReport =
     ScanReport(
         sessionId = sessionId,
@@ -667,6 +899,7 @@ internal fun scanReportWithStrategyProbe(
         startedAt = 10L,
         finishedAt = 20L,
         summary = "strategy probe",
+        resolverRecommendation = resolverRecommendation,
         results =
             listOf(
                 ProbeResult(
@@ -717,6 +950,7 @@ internal fun scanReportWithStrategyProbe(
                         rationale = "best path",
                         recommendedProxyConfigJson = validRecommendedProxyConfigJsonForCoordinator(),
                     ),
+                completionKind = completionKind,
                 auditAssessment = auditAssessment,
             ),
     )
@@ -769,6 +1003,22 @@ internal fun validRecommendedProxyConfigJsonForCoordinator(): String =
             ),
         quic = RipDpiQuicConfig(fakeProfile = "realistic_initial"),
     ).toNativeConfigJson()
+
+internal fun resolverRecommendationForCoordinator(): ResolverRecommendation =
+    ResolverRecommendation(
+        triggerOutcome = "dns_substitution",
+        selectedResolverId = "cloudflare",
+        selectedProtocol = "doh",
+        selectedEndpoint = "https://cloudflare-dns.com/dns-query",
+        rationale = "DNS tampering detected",
+    )
+
+internal fun decodeRuntimeDns(request: EngineScanRequestWire) =
+    requireNotNull(
+        requireNotNull(
+            decodeRipDpiProxyUiPreferences(requireNotNull(request.strategyProbe?.baseProxyConfigJson)),
+        ).runtimeContext?.encryptedDns,
+    )
 
 internal fun strategyProbeFingerprint(
     ssid: String,

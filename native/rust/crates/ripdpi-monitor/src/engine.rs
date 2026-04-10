@@ -23,6 +23,14 @@ use runners::execution_coordinator;
 use runtime::ExecutionStageId;
 use runtime::{ExecutionRuntime, RunnerOutcome};
 
+fn cancelled_run_summary(has_partial_results: bool) -> &'static str {
+    if has_partial_results {
+        "Scan completed with partial results"
+    } else {
+        "Scan cancelled"
+    }
+}
+
 pub(crate) fn run_engine_scan(
     shared: Arc<Mutex<SharedState>>,
     cancel: Arc<AtomicBool>,
@@ -92,11 +100,13 @@ pub(crate) fn run_engine_scan(
     runtime.set_scan_deadline(std::time::Instant::now() + std::time::Duration::from_millis(deadline_ms));
     match coordinator.run(&plan, &mut runtime, tls_verifier.as_ref()) {
         RunnerOutcome::Cancelled => {
+            let summary =
+                cancelled_run_summary(!runtime.results.is_empty() || !runtime.observations.is_empty()).to_string();
             let report = build_report(
                 plan.session_id.clone(),
                 plan.request.clone(),
                 plan.started_at,
-                "Scan cancelled".to_string(),
+                summary,
                 runtime.results,
                 runtime.observations,
                 None,
@@ -281,6 +291,16 @@ mod tests {
         assert_eq!(progress.completed_steps, 1);
         assert_eq!(progress.total_steps, 1);
         assert!(progress.is_finished);
+    }
+
+    #[test]
+    fn cancelled_run_summary_reports_partial_results_when_probe_data_exists() {
+        assert_eq!(cancelled_run_summary(true), "Scan completed with partial results");
+    }
+
+    #[test]
+    fn cancelled_run_summary_reports_cancelled_when_probe_data_is_empty() {
+        assert_eq!(cancelled_run_summary(false), "Scan cancelled");
     }
 
     fn probe(probe_type: &str, target: impl Into<String>, outcome: &str) -> ProbeResult {

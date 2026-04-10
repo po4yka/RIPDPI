@@ -221,6 +221,7 @@ internal fun createDiagnosticsServices(
                     json = json,
                 ),
             scanRequestFactory = requestFactory,
+            serviceStateStore = serviceStateStore,
         )
     val scheduler =
         AutomaticProbeScheduler(

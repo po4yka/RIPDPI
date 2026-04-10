@@ -313,7 +313,7 @@ class DefaultDiagnosticsHomeWorkflowService
                         resolverApplied,
                         strategyProbe,
                     ),
-                summary = report.summary.ifBlank { session.summary },
+                summary = session.displaySummary(report),
                 confidenceSummary =
                     assessment?.let {
                         "Confidence ${it.confidence.level.name.lowercase()} (${it.confidence.score})"
@@ -368,7 +368,7 @@ class DefaultDiagnosticsHomeWorkflowService
                         } else {
                             "VPN started, but access is still limited"
                         },
-                    summary = report.summary.ifBlank { session.summary },
+                    summary = session.displaySummary(report),
                     detail = report.diagnoses.firstOrNull()?.summary,
                 )
             }

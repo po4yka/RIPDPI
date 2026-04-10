@@ -106,6 +106,7 @@ internal object DiagnosticsScanWorkflow {
         settings: com.poyka.ripdpi.proto.AppSettings,
         serviceStatus: com.poyka.ripdpi.data.AppStatus,
         serviceMode: Mode,
+        pathMode: ScanPathMode,
     ): Boolean {
         if (report.resolverRecommendation == null) return false
         return (
@@ -114,7 +115,10 @@ internal object DiagnosticsScanWorkflow {
                 report.strategyProbeReport.completionKind == StrategyProbeCompletionKind.DNS_TAMPERING_WITH_FALLBACK
         ) &&
             serviceMode == Mode.VPN &&
-            serviceStatus == com.poyka.ripdpi.data.AppStatus.Running &&
+            (
+                serviceStatus == com.poyka.ripdpi.data.AppStatus.Running ||
+                    (pathMode == ScanPathMode.RAW_PATH && serviceStatus == com.poyka.ripdpi.data.AppStatus.Halted)
+            ) &&
             settings.activeDnsSettings().mode == DnsModePlainUdp
     }
 
@@ -132,17 +136,12 @@ internal object DiagnosticsScanWorkflow {
         resolverOverrideApplied: Boolean,
     ): Boolean {
         val strategyProbe = report.strategyProbeReport
-        // Also reprobe when DNS was fixed but strategy recommendation indicates TCP blocking.
-        // The strategy probe may have run with broken DNS and produced no useful winner.
-        val dnsTamperingWithActionableRecommendation =
-            strategyProbe?.completionKind == StrategyProbeCompletionKind.DNS_TAMPERING_WITH_FALLBACK &&
-                report.strategyRecommendation?.actionable == true
         return when {
             !resolverOverrideApplied -> false
             pathMode != ScanPathMode.RAW_PATH -> false
             strategyProbe == null -> false
             strategyProbe.completionKind == StrategyProbeCompletionKind.DNS_SHORT_CIRCUITED -> true
-            dnsTamperingWithActionableRecommendation -> true
+            strategyProbe.completionKind == StrategyProbeCompletionKind.DNS_TAMPERING_WITH_FALLBACK -> true
             else -> false
         }
     }

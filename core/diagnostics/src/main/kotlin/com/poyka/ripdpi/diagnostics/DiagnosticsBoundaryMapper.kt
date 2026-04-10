@@ -42,31 +42,33 @@ class DiagnosticsBoundaryMapper
             )
 
         fun toDiagnosticScanSession(entity: ScanSessionEntity): DiagnosticScanSession =
-            DiagnosticScanSession(
-                id = entity.id,
-                profileId = entity.profileId,
-                approachProfileId = entity.approachProfileId,
-                approachProfileName = entity.approachProfileName,
-                strategyId = entity.strategyId,
-                strategyLabel = entity.strategyLabel,
-                strategySignature = decodeStrategySignature(json, entity.strategyJson),
-                pathMode = entity.pathMode,
-                serviceMode = entity.serviceMode,
-                status = entity.status,
-                summary = entity.summary,
-                report = decodeScanProjection(json, entity.reportJson),
-                startedAt = entity.startedAt,
-                finishedAt = entity.finishedAt,
-                launchOrigin = DiagnosticsScanLaunchOrigin.fromStorageValue(entity.launchOrigin),
-                launchTrigger =
-                    DiagnosticsScanLaunchTrigger.fromStorage(
-                        type = entity.triggerType,
-                        classification = entity.triggerClassification,
-                        occurredAt = entity.triggerOccurredAt,
-                        previousFingerprintHash = entity.triggerPreviousFingerprintHash,
-                        currentFingerprintHash = entity.triggerCurrentFingerprintHash,
-                    ),
-            )
+            decodeScanProjection(json, entity.reportJson).let { report ->
+                DiagnosticScanSession(
+                    id = entity.id,
+                    profileId = entity.profileId,
+                    approachProfileId = entity.approachProfileId,
+                    approachProfileName = entity.approachProfileName,
+                    strategyId = entity.strategyId,
+                    strategyLabel = entity.strategyLabel,
+                    strategySignature = decodeStrategySignature(json, entity.strategyJson),
+                    pathMode = entity.pathMode,
+                    serviceMode = entity.serviceMode,
+                    status = entity.status,
+                    summary = entity.displaySummary(report),
+                    report = report,
+                    startedAt = entity.startedAt,
+                    finishedAt = entity.finishedAt,
+                    launchOrigin = DiagnosticsScanLaunchOrigin.fromStorageValue(entity.launchOrigin),
+                    launchTrigger =
+                        DiagnosticsScanLaunchTrigger.fromStorage(
+                            type = entity.triggerType,
+                            classification = entity.triggerClassification,
+                            occurredAt = entity.triggerOccurredAt,
+                            previousFingerprintHash = entity.triggerPreviousFingerprintHash,
+                            currentFingerprintHash = entity.triggerCurrentFingerprintHash,
+                        ),
+                )
+            }
 
         fun toProbeResult(entity: ProbeResultEntity): ProbeResult {
             val details = decodeProbeDetails(json, entity.detailJson)
