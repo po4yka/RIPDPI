@@ -60,6 +60,7 @@ fun normalizeRelayMasqueAuthMode(
 data class RelayProfileModel(
     val id: String = DefaultRelayProfileId,
     val kind: String = RelayKindOff,
+    val outboundBindIp: String = "",
     val server: String = "",
     val serverPort: Int = 443,
     val serverName: String = "",
@@ -105,6 +106,7 @@ fun AppSettings.toRelaySettingsModel(): RelaySettingsModel {
             RelayProfileModel(
                 id = profileId,
                 kind = kind,
+                outboundBindIp = relayOutboundBindIp,
                 server = relayServer,
                 serverPort = relayServerPort.takeIf { it > 0 } ?: 443,
                 serverName = relayServerName,

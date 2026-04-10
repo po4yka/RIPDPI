@@ -288,4 +288,14 @@ message AppSettings {
   // HTTP parser evasion: Host header manipulation
   bool http_host_extra_space = 211;  // Insert space before colon: "Host : example.com"
   bool http_host_tab = 212;          // Tab separator: "Host:\texample.com"
+  string fake_tls_source = 217;      // "profile" | "captured_client_hello"
+  string fake_tls_secondary_profile = 218;
+  bool fake_tcp_timestamp_enabled = 219;
+  int32 fake_tcp_timestamp_delta_ticks = 220;
+  bool desync_any_protocol = 221;
+  string relay_outbound_bind_ip = 222;
+  string app_routing_policy_mode = 223; // "off" | "prompt"
+  repeated string app_routing_enabled_preset_ids = 224;
+  bool anti_correlation_enabled = 225;
+  string dht_mitigation_mode = 226; // "off" | "bypass" | "drop_warn"
 }

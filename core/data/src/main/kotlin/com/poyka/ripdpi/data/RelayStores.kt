@@ -16,6 +16,8 @@ import javax.inject.Singleton
 data class RelayProfileRecord(
     val id: String = DefaultRelayProfileId,
     val kind: String = RelayKindOff,
+    val presetId: String = "",
+    val outboundBindIp: String = "",
     val server: String = "",
     val serverPort: Int = 443,
     val serverName: String = "",

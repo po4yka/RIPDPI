@@ -693,6 +693,7 @@ pub fn runtime_config_from_ui(payload: ProxyUiConfig) -> Result<RuntimeConfig, P
     let tcp_proto = (u32::from(protocols.desync_http) * IS_HTTP) | (u32::from(protocols.desync_https) * IS_HTTPS);
     let udp_enabled = protocols.desync_udp;
     group.matches.proto = tcp_proto;
+    group.matches.any_protocol = chains.any_protocol;
     if let Some(filter) =
         parse_proxy_activation_filter(chains.group_activation_filter.as_ref(), "chains.groupActivationFilter")?
     {
@@ -976,6 +977,7 @@ fn adaptive_detect_mask(config: &crate::types::ProxyUiAdaptiveFallbackConfig) ->
 pub fn parse_tcp_chain_step_kind(value: &str) -> Result<TcpChainStepKind, ProxyConfigError> {
     match value {
         "split" => Ok(TcpChainStepKind::Split),
+        "syndata" => Ok(TcpChainStepKind::SynData),
         "seqovl" => Ok(TcpChainStepKind::SeqOverlap),
         "disorder" => Ok(TcpChainStepKind::Disorder),
         "multidisorder" => Ok(TcpChainStepKind::MultiDisorder),
