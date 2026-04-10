@@ -1,10 +1,12 @@
 package com.poyka.ripdpi.services
 
+import com.poyka.ripdpi.core.RipDpiHostsConfig
 import com.poyka.ripdpi.core.RipDpiProxyUIPreferences
 import com.poyka.ripdpi.core.RipDpiRelayConfig
 import com.poyka.ripdpi.core.RipDpiWarpConfig
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.ApplicationIoScope
+import com.poyka.ripdpi.data.BuiltInWarpControlPlaneHosts
 import com.poyka.ripdpi.data.DefaultWarpProfileId
 import com.poyka.ripdpi.data.GlobalWarpEndpointScopeKey
 import com.poyka.ripdpi.data.NativeNetworkSnapshotProvider
@@ -33,6 +35,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import java.io.IOException
 import java.net.InetSocketAddress
 import java.net.Proxy
 import java.net.ServerSocket
@@ -100,7 +103,11 @@ internal class ManagedWarpBootstrapProxyRunner
                     chains = basePreferences.chains,
                     fakePackets = basePreferences.fakePackets,
                     quic = basePreferences.quic,
-                    hosts = basePreferences.hosts,
+                    hosts =
+                        RipDpiHostsConfig(
+                            mode = RipDpiHostsConfig.Mode.Whitelist,
+                            entries = BuiltInWarpControlPlaneHosts.joinToString(separator = "\n"),
+                        ),
                     relay = RipDpiRelayConfig(enabled = false),
                     warp = RipDpiWarpConfig(enabled = false),
                     hostAutolearn = basePreferences.hostAutolearn,
@@ -149,7 +156,31 @@ class DefaultWarpEndpointScanner
             profileId: String,
             networkScopeKey: String,
             provisioned: WarpEndpointCacheEntry?,
-        ): WarpEndpointCacheEntry? = endpointStore.load(profileId, networkScopeKey) ?: provisioned
+        ): WarpEndpointCacheEntry? {
+            val normalizedScope = networkScopeKey.takeIf(String::isNotBlank) ?: GlobalWarpEndpointScopeKey
+            val scoped = endpointStore.load(profileId, normalizedScope)
+            if (scoped != null) {
+                return scoped
+            }
+            val global = endpointStore.load(profileId, GlobalWarpEndpointScopeKey)
+            if (global != null) {
+                return global
+            }
+            val resolved =
+                provisioned?.copy(
+                    profileId = profileId,
+                    networkScopeKey = normalizedScope,
+                )
+            if (resolved != null) {
+                endpointStore.save(resolved)
+                endpointStore.save(
+                    resolved.copy(
+                        networkScopeKey = GlobalWarpEndpointScopeKey,
+                    ),
+                )
+            }
+            return resolved
+        }
     }
 
 interface WarpEnrollmentOrchestrator {
@@ -283,8 +314,23 @@ class DefaultWarpEnrollmentOrchestrator
                     credentialStore.load(activeProfile.id)
                         ?: error("No WARP credentials saved for profile ${activeProfile.id}")
                 val provisioning =
-                    bootstrapProxyRunner.withBootstrapProxy {
-                        provisioningClient.refresh(credentials, bootstrapProxy = it?.asOkHttpProxy())
+                    try {
+                        bootstrapProxyRunner.withBootstrapProxy {
+                            provisioningClient.refresh(credentials, bootstrapProxy = it?.asOkHttpProxy())
+                        }
+                    } catch (error: WarpProvisioningException.AuthFailure) {
+                        markProfileNeedsAttention(activeProfile)
+                        throw error
+                    } catch (error: WarpProvisioningException.MalformedResponse) {
+                        markProfileNeedsAttention(activeProfile)
+                        throw error
+                    } catch (error: IOException) {
+                        if (error.message.orEmpty().contains("HTTP 401") ||
+                            error.message.orEmpty().contains("HTTP 403")
+                        ) {
+                            markProfileNeedsAttention(activeProfile)
+                        }
+                        throw error
                     }
                 val refreshedCredentials =
                     provisioning.credentials.copy(
@@ -415,6 +461,23 @@ class DefaultWarpEnrollmentOrchestrator
                 setWarpLastScannerMode(normalizeWarpScannerMode(scannerMode))
             }
         }
+
+        private suspend fun markProfileNeedsAttention(profile: WarpProfile) {
+            val updatedProfile = profile.copy(setupState = WarpSetupStateNeedsAttention)
+            profileStore.save(updatedProfile)
+            if (profileStore.activeProfileId() == profile.id ||
+                appSettingsRepository.snapshot().warpProfileId == profile.id
+            ) {
+                activateProfile(profile = updatedProfile, scannerMode = profile.lastScannerModeOrAutomatic())
+            }
+        }
+
+        private fun WarpProfile.lastScannerModeOrAutomatic(): String =
+            if (accountKind == WarpAccountKindZeroTrust) {
+                WarpScannerModeManual
+            } else {
+                WarpScannerModeAutomatic
+            }
 
         private suspend fun requireActiveProfile(): WarpProfile {
             val settingsProfileId = appSettingsRepository.snapshot().warpProfileId

@@ -26,9 +26,11 @@ import com.poyka.ripdpi.data.FakePayloadProfileCompatDefault
 import com.poyka.ripdpi.data.QuicFakeProfileDisabled
 import com.poyka.ripdpi.data.QuicInitialModeRouteAndCache
 import com.poyka.ripdpi.data.RelayKindOff
+import com.poyka.ripdpi.data.RelayVlessTransportRealityTcp
 import com.poyka.ripdpi.data.TcpChainStepModel
-import com.poyka.ripdpi.data.TlsFingerprintProfileNativeDefault
+import com.poyka.ripdpi.data.TlsFingerprintProfileChromeStable
 import com.poyka.ripdpi.data.UdpChainStepModel
+import com.poyka.ripdpi.data.WarpAmneziaPresetOff
 import com.poyka.ripdpi.data.WarpEndpointSelectionAutomatic
 import com.poyka.ripdpi.data.WarpRouteModeOff
 import com.poyka.ripdpi.data.canonicalDefaultTcpChainSteps
@@ -84,7 +86,7 @@ data class RipDpiFakePacketConfig(
     val entropyPaddingTargetPermil: Int = DefaultEntropyPaddingTargetPermil,
     val entropyPaddingMax: Int = DefaultEntropyPaddingMax,
     val shannonEntropyTargetPermil: Int = DefaultShannonEntropyTargetPermil,
-    val tlsFingerprintProfile: String = TlsFingerprintProfileNativeDefault,
+    val tlsFingerprintProfile: String = TlsFingerprintProfileChromeStable,
 )
 
 data class RipDpiParserEvasionConfig(
@@ -173,6 +175,9 @@ data class RipDpiRelayConfig(
     val serverName: String = "",
     val realityPublicKey: String = "",
     val realityShortId: String = "",
+    val vlessTransport: String = RelayVlessTransportRealityTcp,
+    val xhttpPath: String = "",
+    val xhttpHost: String = "",
     val chainEntryServer: String = "",
     val chainEntryPort: Int = 443,
     val chainEntryServerName: String = "",
@@ -227,6 +232,7 @@ data class RipDpiWarpConfig(
     val scannerEnabled: Boolean = true,
     val scannerParallelism: Int = DefaultWarpScannerParallelism,
     val scannerMaxRttMs: Int = DefaultWarpScannerMaxRttMs,
+    val amneziaPreset: String = WarpAmneziaPresetOff,
     val amnezia: RipDpiWarpAmneziaConfig = RipDpiWarpAmneziaConfig(),
     val localSocksHost: String = "127.0.0.1",
     val localSocksPort: Int = DefaultWarpLocalSocksPort,

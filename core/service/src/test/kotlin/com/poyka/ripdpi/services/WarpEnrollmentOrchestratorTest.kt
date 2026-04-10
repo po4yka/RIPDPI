@@ -13,6 +13,7 @@ import com.poyka.ripdpi.data.WarpProfile
 import com.poyka.ripdpi.data.WarpProfileStore
 import com.poyka.ripdpi.data.WarpScannerModeAutomatic
 import com.poyka.ripdpi.data.WarpScannerModeManual
+import com.poyka.ripdpi.data.WarpSetupStateNeedsAttention
 import com.poyka.ripdpi.data.WarpSetupStateNotConfigured
 import com.poyka.ripdpi.data.WarpSetupStateProvisioned
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -21,7 +22,9 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.io.IOException
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class WarpEnrollmentOrchestratorTest {
@@ -247,8 +250,75 @@ class WarpEnrollmentOrchestratorTest {
             val preferences = proxyFactory.lastRuntime.lastPreferences as RipDpiProxyUIPreferences
             assertFalse(preferences.relay.enabled)
             assertFalse(preferences.warp.enabled)
+            assertTrue(
+                preferences.hosts.entries
+                    .orEmpty()
+                    .contains("api.cloudflareclient.com"),
+            )
             assertEquals(seenProxy?.port, preferences.listen.port)
             assertEquals(1, proxyFactory.lastRuntime.stopCount)
+        }
+
+    @Test
+    fun `refresh marks active profile needs attention when auth fails and keeps credentials`() =
+        runTest {
+            val accessValue = fixtureAccessValue("refresh")
+            val appSettingsRepository =
+                TestAppSettingsRepository(
+                    initial =
+                        com.poyka.ripdpi.data.AppSettingsSerializer.defaultValue
+                            .toBuilder()
+                            .setWarpProfileId(DefaultWarpProfileId)
+                            .build(),
+                )
+            val profileStore = FakeWarpProfileStore()
+            val credentialStore = FakeWarpCredentialStore()
+            val endpointStore = FakeWarpEndpointStore()
+            profileStore.save(
+                WarpProfile(
+                    id = DefaultWarpProfileId,
+                    accountKind = WarpAccountKindConsumerFree,
+                    displayName = "Default",
+                    setupState = WarpSetupStateProvisioned,
+                ),
+            )
+            profileStore.setActiveProfileId(DefaultWarpProfileId)
+            credentialStore.save(
+                DefaultWarpProfileId,
+                WarpCredentials(
+                    profileId = DefaultWarpProfileId,
+                    deviceId = "device-1",
+                    accessToken = accessValue,
+                    privateKey = "private-key",
+                    publicKey = "public-key",
+                    peerPublicKey = "peer-key",
+                ),
+            )
+            val orchestrator =
+                DefaultWarpEnrollmentOrchestrator(
+                    appSettingsRepository = appSettingsRepository,
+                    profileStore = profileStore,
+                    credentialStore = credentialStore,
+                    endpointStore = endpointStore,
+                    provisioningClient =
+                        FakeWarpProvisioningClient(
+                            registerResult = sampleProvisioningResult(),
+                            refreshError = IOException("HTTP 403"),
+                        ),
+                    bootstrapProxyRunner = PassthroughWarpBootstrapProxyRunner(),
+                    endpointScanner = DefaultWarpEndpointScanner(endpointStore),
+                )
+
+            val error =
+                runCatching {
+                    orchestrator.refreshActiveProfile("wifi:home")
+                }.exceptionOrNull()
+
+            assertEquals("IOException", error?.javaClass?.simpleName)
+            assertEquals("HTTP 403", error?.message)
+            assertEquals(WarpSetupStateNeedsAttention, profileStore.load(DefaultWarpProfileId)?.setupState)
+            assertEquals(WarpSetupStateNeedsAttention, appSettingsRepository.snapshot().warpSetupState)
+            assertEquals(accessValue, credentialStore.load(DefaultWarpProfileId)?.accessToken)
         }
 
     private fun sampleProvisioningResult(): WarpProvisioningResult =
@@ -286,6 +356,7 @@ class WarpEnrollmentOrchestratorTest {
 
 private class FakeWarpProvisioningClient(
     private val registerResult: WarpProvisioningResult,
+    private val refreshError: Exception? = null,
 ) : WarpProvisioningClient {
     override suspend fun register(
         request: WarpRegisterDeviceRequest,
@@ -295,7 +366,10 @@ private class FakeWarpProvisioningClient(
     override suspend fun refresh(
         credentials: WarpCredentials,
         bootstrapProxy: java.net.Proxy?,
-    ): WarpProvisioningResult = registerResult
+    ): WarpProvisioningResult {
+        refreshError?.let { throw it }
+        return registerResult
+    }
 }
 
 private class FakeWarpProfileStore : WarpProfileStore {

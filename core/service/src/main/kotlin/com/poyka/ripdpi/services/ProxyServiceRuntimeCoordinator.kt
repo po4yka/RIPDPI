@@ -268,7 +268,7 @@ internal class ProxyServiceRuntimeCoordinator(
                 ?.takeIf { it != 0 }
                 ?.let { code ->
                     Logger.e { "WARP stopped with code $code" }
-                    FailureReason.NativeError("WARP exited with code $code")
+                    FailureReason.WarpRuntimeFailed("WARP exited with code $code")
                 }
 
         if (failureReason != null) {

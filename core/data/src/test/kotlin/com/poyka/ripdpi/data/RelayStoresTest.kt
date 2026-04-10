@@ -24,4 +24,25 @@ class RelayStoresTest {
 
         assertEquals(record, decoded)
     }
+
+    @Test
+    fun `relay profile record preserves xHTTP and Cloudflare tunnel fields`() {
+        val json = Json { ignoreUnknownKeys = true }
+        val record =
+            RelayProfileRecord(
+                id = "cf-tunnel",
+                kind = RelayKindCloudflareTunnel,
+                server = "edge.example.com",
+                serverName = "edge.example.com",
+                vlessTransport = RelayVlessTransportXhttp,
+                xhttpPath = "/xhttp",
+                xhttpHost = "origin.example.com",
+                udpEnabled = false,
+            )
+
+        val encoded = json.encodeToString(RelayProfileRecord.serializer(), record)
+        val decoded = json.decodeFromString(RelayProfileRecord.serializer(), encoded)
+
+        assertEquals(record, decoded)
+    }
 }

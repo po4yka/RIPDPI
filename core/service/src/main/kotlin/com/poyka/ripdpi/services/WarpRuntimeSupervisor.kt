@@ -7,8 +7,10 @@ import com.poyka.ripdpi.core.RipDpiWarpFactory
 import com.poyka.ripdpi.core.RipDpiWarpManualEndpointConfig
 import com.poyka.ripdpi.core.RipDpiWarpRuntime
 import com.poyka.ripdpi.data.AppSettingsRepository
+import com.poyka.ripdpi.data.FailureReason
 import com.poyka.ripdpi.data.GlobalWarpEndpointScopeKey
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
+import com.poyka.ripdpi.data.ServiceStartupRejectedException
 import com.poyka.ripdpi.data.WarpCredentialStore
 import com.poyka.ripdpi.data.WarpEndpointStore
 import dagger.Binds
@@ -36,6 +38,7 @@ internal class DefaultWarpRuntimeConfigResolver
         private val appSettingsRepository: AppSettingsRepository,
         private val credentialStore: WarpCredentialStore,
         private val endpointStore: WarpEndpointStore,
+        private val enrollmentOrchestrator: WarpEnrollmentOrchestrator,
     ) : WarpRuntimeConfigResolver {
         override suspend fun resolve(config: RipDpiWarpConfig): ResolvedRipDpiWarpConfig {
             require(config.enabled) { "WARP runtime requested while disabled" }
@@ -44,9 +47,41 @@ internal class DefaultWarpRuntimeConfigResolver
                     .snapshot()
                     .warpProfileId
                     .ifBlank { error("No active WARP profile configured") }
+            val initialCredentials = credentialStore.load(profileId)
+            val initialEndpoint =
+                if (config.endpointSelectionMode == "manual") {
+                    null
+                } else {
+                    endpointStore.load(profileId, GlobalWarpEndpointScopeKey)
+                }
+            if (needsRefresh(initialCredentials, initialEndpoint)) {
+                try {
+                    enrollmentOrchestrator.refreshActiveProfile(GlobalWarpEndpointScopeKey)
+                } catch (error: WarpProvisioningException.AuthFailure) {
+                    throw ServiceStartupRejectedException(
+                        FailureReason.WarpProvisioningFailed(
+                            error.message ?: "WARP provisioning authentication failed",
+                        ),
+                    )
+                } catch (error: WarpProvisioningException.MalformedResponse) {
+                    throw ServiceStartupRejectedException(
+                        FailureReason.WarpProvisioningFailed(
+                            error.message ?: "WARP provisioning returned malformed data",
+                        ),
+                    )
+                } catch (error: Exception) {
+                    throw ServiceStartupRejectedException(
+                        FailureReason.WarpProvisioningFailed(
+                            error.message ?: "WARP provisioning refresh failed",
+                        ),
+                    )
+                }
+            }
             val credentials =
                 credentialStore.load(profileId)
-                    ?: error("Missing WARP credentials for profile $profileId")
+                    ?: throw ServiceStartupRejectedException(
+                        FailureReason.WarpProvisioningFailed("Missing WARP credentials for profile $profileId"),
+                    )
             val endpoint =
                 when (config.endpointSelectionMode) {
                     "manual" -> {
@@ -58,12 +93,24 @@ internal class DefaultWarpRuntimeConfigResolver
                             .load(profileId, GlobalWarpEndpointScopeKey)
                             ?.toResolvedEndpoint()
                     }
-                } ?: error("Missing WARP endpoint for profile $profileId")
-            val privateKey = credentials.privateKey?.takeIf(String::isNotBlank) ?: error("WARP private key missing")
-            val publicKey = credentials.publicKey?.takeIf(String::isNotBlank) ?: error("WARP public key missing")
+                } ?: throw ServiceStartupRejectedException(
+                    FailureReason.WarpEndpointUnavailable("Missing WARP endpoint for profile $profileId"),
+                )
+            val privateKey =
+                credentials.privateKey?.takeIf(String::isNotBlank)
+                    ?: throw ServiceStartupRejectedException(
+                        FailureReason.WarpProvisioningFailed("WARP private key missing"),
+                    )
+            val publicKey =
+                credentials.publicKey?.takeIf(String::isNotBlank)
+                    ?: throw ServiceStartupRejectedException(
+                        FailureReason.WarpProvisioningFailed("WARP public key missing"),
+                    )
             val peerPublicKey =
                 credentials.peerPublicKey?.takeIf(String::isNotBlank)
-                    ?: error("WARP peer public key missing")
+                    ?: throw ServiceStartupRejectedException(
+                        FailureReason.WarpProvisioningFailed("WARP peer public key missing"),
+                    )
             return ResolvedRipDpiWarpConfig(
                 enabled = config.enabled,
                 profileId = profileId,
@@ -90,6 +137,16 @@ internal class DefaultWarpRuntimeConfigResolver
                 localSocksPort = config.localSocksPort,
             )
         }
+
+        private fun needsRefresh(
+            credentials: com.poyka.ripdpi.data.WarpCredentials?,
+            endpoint: com.poyka.ripdpi.data.WarpEndpointCacheEntry?,
+        ): Boolean =
+            credentials == null ||
+                credentials.privateKey.isNullOrBlank() ||
+                credentials.publicKey.isNullOrBlank() ||
+                credentials.peerPublicKey.isNullOrBlank() ||
+                endpoint == null
 
         private fun com.poyka.ripdpi.data.WarpEndpointCacheEntry.toResolvedEndpoint(): ResolvedRipDpiWarpEndpoint =
             ResolvedRipDpiWarpEndpoint(

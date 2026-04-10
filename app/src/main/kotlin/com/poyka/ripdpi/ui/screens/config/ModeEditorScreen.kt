@@ -54,12 +54,14 @@ import com.poyka.ripdpi.activities.toConfigDraft
 import com.poyka.ripdpi.data.AppSettingsSerializer
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.RelayKindChainRelay
+import com.poyka.ripdpi.data.RelayKindCloudflareTunnel
 import com.poyka.ripdpi.data.RelayKindHysteria2
 import com.poyka.ripdpi.data.RelayKindMasque
 import com.poyka.ripdpi.data.RelayKindVlessReality
 import com.poyka.ripdpi.data.RelayMasqueAuthModeBearer
 import com.poyka.ripdpi.data.RelayMasqueAuthModePreshared
 import com.poyka.ripdpi.data.RelayMasqueAuthModePrivacyPass
+import com.poyka.ripdpi.data.RelayVlessTransportXhttp
 import com.poyka.ripdpi.ui.components.RipDpiHapticFeedback
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
@@ -150,13 +152,32 @@ fun ModeEditorRoute(
         onCommandLineEnabledChanged = { viewModel.updateDraft { copy(useCommandLineSettings = it) } },
         onCommandLineArgsChanged = { viewModel.updateDraft { copy(commandLineArgs = it) } },
         onRelayEnabledChanged = { viewModel.updateDraft { copy(relayEnabled = it) } },
-        onRelayKindChanged = { viewModel.updateDraft { copy(relayKind = it) } },
+        onRelayKindChanged = {
+            viewModel.updateDraft {
+                when (it) {
+                    RelayKindCloudflareTunnel -> {
+                        copy(
+                            relayKind = it,
+                            relayVlessTransport = RelayVlessTransportXhttp,
+                            relayUdpEnabled = false,
+                        )
+                    }
+
+                    else -> {
+                        copy(relayKind = it)
+                    }
+                }
+            }
+        },
         onRelayProfileIdChanged = { viewModel.updateDraft { copy(relayProfileId = it) } },
         onRelayServerChanged = { viewModel.updateDraft { copy(relayServer = it) } },
         onRelayServerPortChanged = { viewModel.updateDraft { copy(relayServerPort = it) } },
         onRelayServerNameChanged = { viewModel.updateDraft { copy(relayServerName = it) } },
         onRelayRealityPublicKeyChanged = { viewModel.updateDraft { copy(relayRealityPublicKey = it) } },
         onRelayRealityShortIdChanged = { viewModel.updateDraft { copy(relayRealityShortId = it) } },
+        onRelayVlessTransportChanged = { viewModel.updateDraft { copy(relayVlessTransport = it) } },
+        onRelayXhttpPathChanged = { viewModel.updateDraft { copy(relayXhttpPath = it) } },
+        onRelayXhttpHostChanged = { viewModel.updateDraft { copy(relayXhttpHost = it) } },
         onRelayVlessUuidChanged = { viewModel.updateDraft { copy(relayVlessUuid = it) } },
         onRelayHysteriaPasswordChanged = { viewModel.updateDraft { copy(relayHysteriaPassword = it) } },
         onRelayHysteriaSalamanderKeyChanged = { viewModel.updateDraft { copy(relayHysteriaSalamanderKey = it) } },
@@ -213,6 +234,9 @@ fun ModeEditorScreen(
     onRelayServerNameChanged: (String) -> Unit,
     onRelayRealityPublicKeyChanged: (String) -> Unit,
     onRelayRealityShortIdChanged: (String) -> Unit,
+    onRelayVlessTransportChanged: (String) -> Unit,
+    onRelayXhttpPathChanged: (String) -> Unit,
+    onRelayXhttpHostChanged: (String) -> Unit,
     onRelayVlessUuidChanged: (String) -> Unit,
     onRelayHysteriaPasswordChanged: (String) -> Unit,
     onRelayHysteriaSalamanderKeyChanged: (String) -> Unit,
@@ -483,6 +507,17 @@ fun ModeEditorScreen(
                             ) {
                                 RelayKindChip(
                                     draft.relayKind,
+                                    RelayKindCloudflareTunnel,
+                                    R.string.config_relay_kind_cloudflare_tunnel,
+                                    onRelayKindChanged,
+                                )
+                            }
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(spacing.sm),
+                            ) {
+                                RelayKindChip(
+                                    draft.relayKind,
                                     RelayKindChainRelay,
                                     R.string.config_relay_kind_chain,
                                     onRelayKindChanged,
@@ -509,6 +544,9 @@ fun ModeEditorScreen(
                                 onRelayServerNameChanged = onRelayServerNameChanged,
                                 onRelayRealityPublicKeyChanged = onRelayRealityPublicKeyChanged,
                                 onRelayRealityShortIdChanged = onRelayRealityShortIdChanged,
+                                onRelayVlessTransportChanged = onRelayVlessTransportChanged,
+                                onRelayXhttpPathChanged = onRelayXhttpPathChanged,
+                                onRelayXhttpHostChanged = onRelayXhttpHostChanged,
                                 onRelayVlessUuidChanged = onRelayVlessUuidChanged,
                                 onRelayHysteriaPasswordChanged = onRelayHysteriaPasswordChanged,
                                 onRelayHysteriaSalamanderKeyChanged = onRelayHysteriaSalamanderKeyChanged,
@@ -729,6 +767,9 @@ private fun ModeEditorScreenWithNoOpCallbacks(
             onRelayServerNameChanged = {},
             onRelayRealityPublicKeyChanged = {},
             onRelayRealityShortIdChanged = {},
+            onRelayVlessTransportChanged = {},
+            onRelayXhttpPathChanged = {},
+            onRelayXhttpHostChanged = {},
             onRelayVlessUuidChanged = {},
             onRelayHysteriaPasswordChanged = {},
             onRelayHysteriaSalamanderKeyChanged = {},

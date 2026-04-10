@@ -8,6 +8,7 @@ license.workspace = true
 ripdpi-hysteria2 = { workspace = true }
 ripdpi-vless = { workspace = true }
 ripdpi-masque = { workspace = true }
+ripdpi-xhttp = { workspace = true }
 serde = { workspace = true }
 tokio = { workspace = true, features = ["io-util", "macros", "net", "rt-multi-thread", "sync", "time"] }
 tracing = { workspace = true }

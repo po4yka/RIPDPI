@@ -25,7 +25,7 @@ data class DetectionRunnerConfig(
     val includeTimingAnalysis: Boolean = true,
     val encryptedDnsEnabled: Boolean = false,
     val webRtcProtectionEnabled: Boolean = false,
-    val tlsFingerprintProfile: String = "native_default",
+    val tlsFingerprintProfile: String = "chrome_stable",
 )
 
 enum class DetectionStage {

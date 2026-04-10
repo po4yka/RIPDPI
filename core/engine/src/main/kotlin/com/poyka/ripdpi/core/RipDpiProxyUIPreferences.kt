@@ -17,11 +17,13 @@ import com.poyka.ripdpi.data.DefaultWarpManualEndpointPort
 import com.poyka.ripdpi.data.FakePayloadProfileCompatDefault
 import com.poyka.ripdpi.data.QuicFakeProfileDisabled
 import com.poyka.ripdpi.data.QuicInitialModeRouteAndCache
+import com.poyka.ripdpi.data.RelayKindCloudflareTunnel
 import com.poyka.ripdpi.data.RelayKindOff
 import com.poyka.ripdpi.data.StrategyLaneFamilies
 import com.poyka.ripdpi.data.TcpChainStepKind
 import com.poyka.ripdpi.data.TcpChainStepModel
-import com.poyka.ripdpi.data.TlsFingerprintProfileNativeDefault
+import com.poyka.ripdpi.data.TlsFingerprintProfileChromeStable
+import com.poyka.ripdpi.data.WarpAmneziaPresetOff
 import com.poyka.ripdpi.data.deriveStrategyLaneFamilies
 import com.poyka.ripdpi.data.effectiveAdaptiveFakeTtlDelta
 import com.poyka.ripdpi.data.effectiveAdaptiveFakeTtlFallback
@@ -59,6 +61,7 @@ import com.poyka.ripdpi.data.normalizeQuicFakeHost
 import com.poyka.ripdpi.data.normalizeQuicFakeProfile
 import com.poyka.ripdpi.data.normalizeQuicInitialMode
 import com.poyka.ripdpi.data.normalizeRelayKind
+import com.poyka.ripdpi.data.normalizeRelayVlessTransport
 import com.poyka.ripdpi.data.normalizeTcpChainStepModel
 import com.poyka.ripdpi.data.normalizeTlsFakeProfile
 import com.poyka.ripdpi.data.normalizeTlsFingerprintProfile
@@ -269,6 +272,7 @@ class RipDpiProxyUIPreferences(
                 scannerEnabled = warp.scannerEnabled,
                 scannerParallelism = warp.scannerParallelism,
                 scannerMaxRttMs = warp.scannerMaxRttMs,
+                amneziaPreset = warp.amneziaPreset,
                 amnezia =
                     RipDpiWarpAmneziaConfig(
                         enabled = warp.amnezia.enabled,
@@ -299,6 +303,9 @@ class RipDpiProxyUIPreferences(
                 serverName = relay.profile.serverName,
                 realityPublicKey = relay.profile.realityPublicKey,
                 realityShortId = relay.profile.realityShortId,
+                vlessTransport = relay.profile.vlessTransport,
+                xhttpPath = relay.profile.xhttpPath,
+                xhttpHost = relay.profile.xhttpHost,
                 chainEntryServer = relay.profile.chainEntryServer,
                 chainEntryPort = relay.profile.chainEntryPort,
                 chainEntryServerName = relay.profile.chainEntryServerName,
@@ -486,6 +493,9 @@ fun RipDpiProxyUIPreferences.applyToSettings(settings: AppSettings): AppSettings
             setRelayServerName(relay.serverName)
             setRelayRealityPublicKey(relay.realityPublicKey)
             setRelayRealityShortId(relay.realityShortId)
+            setRelayVlessTransport(normalizeRelayVlessTransport(relay.vlessTransport, relay.kind))
+            setRelayXhttpPath(relay.xhttpPath)
+            setRelayXhttpHost(relay.xhttpHost)
             setRelayChainEntryServer(relay.chainEntryServer)
             setRelayChainEntryPort(relay.chainEntryPort)
             setRelayChainEntryServerName(relay.chainEntryServerName)
@@ -515,6 +525,7 @@ fun RipDpiProxyUIPreferences.applyToSettings(settings: AppSettings): AppSettings
             setWarpScannerEnabled(warp.scannerEnabled)
             setWarpScannerParallelism(warp.scannerParallelism)
             setWarpScannerMaxRttMs(warp.scannerMaxRttMs)
+            setWarpAmneziaPreset(warp.amneziaPreset)
             setWarpAmneziaEnabled(warp.amnezia.enabled)
             setWarpAmneziaJc(warp.amnezia.jc)
             setWarpAmneziaJmin(warp.amnezia.jmin)
@@ -574,7 +585,7 @@ private fun normalizeFakePacketConfig(config: RipDpiFakePacketConfig): RipDpiFak
         tlsFingerprintProfile =
             normalizeTlsFingerprintProfile(
                 config.tlsFingerprintProfile.ifBlank {
-                    TlsFingerprintProfileNativeDefault
+                    TlsFingerprintProfileChromeStable
                 },
             ),
     )
@@ -619,6 +630,9 @@ private fun normalizeRelayConfig(config: RipDpiRelayConfig): RipDpiRelayConfig {
         serverName = config.serverName.trim(),
         realityPublicKey = config.realityPublicKey.trim(),
         realityShortId = config.realityShortId.trim(),
+        vlessTransport = normalizeRelayVlessTransport(config.vlessTransport, normalizedKind),
+        xhttpPath = config.xhttpPath.trim(),
+        xhttpHost = config.xhttpHost.trim(),
         chainEntryServer = config.chainEntryServer.trim(),
         chainEntryPort = config.chainEntryPort.takeIf { it in 1..MaxValidPortNumber } ?: 443,
         chainEntryServerName = config.chainEntryServerName.trim(),
@@ -632,6 +646,7 @@ private fun normalizeRelayConfig(config: RipDpiRelayConfig): RipDpiRelayConfig {
         masqueUrl = config.masqueUrl.trim(),
         localSocksHost = config.localSocksHost.ifBlank { DefaultRelayLocalSocksHost },
         localSocksPort = config.localSocksPort.takeIf { it in 1..MaxValidPortNumber } ?: DefaultRelayLocalSocksPort,
+        udpEnabled = if (normalizedKind == RelayKindCloudflareTunnel) false else config.udpEnabled,
     )
 }
 
@@ -655,6 +670,7 @@ private fun normalizeWarpConfig(config: RipDpiWarpConfig): RipDpiWarpConfig =
             ),
         scannerParallelism = config.scannerParallelism.coerceAtLeast(1),
         scannerMaxRttMs = config.scannerMaxRttMs.coerceAtLeast(1),
+        amneziaPreset = config.amneziaPreset.trim().ifBlank { WarpAmneziaPresetOff },
         localSocksHost = config.localSocksHost.ifBlank { "127.0.0.1" },
         localSocksPort = config.localSocksPort.takeIf { it in 1..MaxValidPortNumber } ?: DefaultWarpLocalSocksPort,
     )

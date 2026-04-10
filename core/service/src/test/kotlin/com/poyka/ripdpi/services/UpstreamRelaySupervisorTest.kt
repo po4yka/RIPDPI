@@ -1,11 +1,17 @@
 package com.poyka.ripdpi.services
 
 import com.poyka.ripdpi.core.RipDpiRelayConfig
+import com.poyka.ripdpi.data.FailureReason
 import com.poyka.ripdpi.data.RelayCredentialRecord
+import com.poyka.ripdpi.data.RelayKindCloudflareTunnel
 import com.poyka.ripdpi.data.RelayKindHysteria2
 import com.poyka.ripdpi.data.RelayKindMasque
+import com.poyka.ripdpi.data.RelayKindVlessReality
 import com.poyka.ripdpi.data.RelayMasqueAuthModePrivacyPass
 import com.poyka.ripdpi.data.RelayProfileRecord
+import com.poyka.ripdpi.data.RelayVlessTransportXhttp
+import com.poyka.ripdpi.data.ServiceStartupRejectedException
+import com.poyka.ripdpi.data.TlsFingerprintProfileChromeStable
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.runTest
@@ -28,10 +34,12 @@ class UpstreamRelaySupervisorTest {
                     save(
                         RelayProfileRecord(
                             id = "edge",
-                            kind = RelayKindHysteria2,
+                            kind = RelayKindVlessReality,
                             server = "relay.example",
                             serverPort = 8443,
                             serverName = "relay-sni.example",
+                            realityPublicKey = "public-key",
+                            realityShortId = "abcd1234",
                             localSocksPort = 1091,
                         ),
                     )
@@ -41,7 +49,7 @@ class UpstreamRelaySupervisorTest {
                     save(
                         RelayCredentialRecord(
                             profileId = "edge",
-                            hysteriaPassword = "secret",
+                            vlessUuid = "00000000-0000-0000-0000-000000000000",
                         ),
                     )
                 }
@@ -58,7 +66,7 @@ class UpstreamRelaySupervisorTest {
                 config =
                     RipDpiRelayConfig(
                         enabled = true,
-                        kind = RelayKindHysteria2,
+                        kind = RelayKindVlessReality,
                         profileId = "edge",
                     ),
                 onUnexpectedExit = {},
@@ -67,7 +75,7 @@ class UpstreamRelaySupervisorTest {
             val resolved = relayFactory.lastRuntime.lastConfig
             assertEquals("edge", resolved?.profileId)
             assertEquals("relay.example", resolved?.server)
-            assertEquals("secret", resolved?.hysteriaPassword)
+            assertEquals("00000000-0000-0000-0000-000000000000", resolved?.vlessUuid)
 
             supervisor.stop()
         }
@@ -103,7 +111,7 @@ class UpstreamRelaySupervisorTest {
         }
 
     @Test
-    fun `start passes hysteria salamander and udp settings through to native runtime`() =
+    fun `start passes VLESS xhttp settings through to native runtime`() =
         runTest {
             val relayFactory = TestRipDpiRelayFactory()
             val supervisor =
@@ -116,11 +124,15 @@ class UpstreamRelaySupervisorTest {
                             save(
                                 RelayProfileRecord(
                                     id = "edge",
-                                    kind = RelayKindHysteria2,
+                                    kind = RelayKindVlessReality,
                                     server = "relay.example",
                                     serverPort = 8443,
                                     serverName = "relay-sni.example",
-                                    udpEnabled = true,
+                                    realityPublicKey = "public-key",
+                                    realityShortId = "abcd1234",
+                                    vlessTransport = RelayVlessTransportXhttp,
+                                    xhttpPath = "/xhttp",
+                                    xhttpHost = "origin.example",
                                 ),
                             )
                         },
@@ -129,8 +141,7 @@ class UpstreamRelaySupervisorTest {
                             save(
                                 RelayCredentialRecord(
                                     profileId = "edge",
-                                    hysteriaPassword = "secret",
-                                    hysteriaSalamanderKey = "salamander",
+                                    vlessUuid = "00000000-0000-0000-0000-000000000000",
                                 ),
                             )
                         },
@@ -140,16 +151,16 @@ class UpstreamRelaySupervisorTest {
                 config =
                     RipDpiRelayConfig(
                         enabled = true,
-                        kind = RelayKindHysteria2,
+                        kind = RelayKindVlessReality,
                         profileId = "edge",
-                        udpEnabled = true,
                     ),
                 onUnexpectedExit = {},
             )
 
             val resolved = relayFactory.lastRuntime.lastConfig
-            assertEquals("salamander", resolved?.hysteriaSalamanderKey)
-            assertEquals(true, resolved?.udpEnabled)
+            assertEquals(RelayVlessTransportXhttp, resolved?.vlessTransport)
+            assertEquals("/xhttp", resolved?.xhttpPath)
+            assertEquals("origin.example", resolved?.xhttpHost)
 
             supervisor.stop()
         }
@@ -265,6 +276,107 @@ class UpstreamRelaySupervisorTest {
                 fail("Expected MASQUE privacy_pass startup to fail without a provider")
             } catch (error: IllegalArgumentException) {
                 assertTrue(error.message?.contains("token provider") == true)
+            }
+        }
+
+    @Test
+    fun `cloudflare tunnel resolves to xhttp transport and disables udp`() =
+        runTest {
+            val relayFactory = TestRipDpiRelayFactory()
+            val supervisor =
+                UpstreamRelaySupervisor(
+                    scope = backgroundScope,
+                    dispatcher = StandardTestDispatcher(testScheduler),
+                    relayFactory = relayFactory,
+                    relayProfileStore =
+                        TestRelayProfileStore().apply {
+                            save(
+                                RelayProfileRecord(
+                                    id = "cf",
+                                    kind = RelayKindCloudflareTunnel,
+                                    server = "edge.example.com",
+                                    serverName = "edge.example.com",
+                                    vlessTransport = RelayVlessTransportXhttp,
+                                    xhttpPath = "/xhttp",
+                                    xhttpHost = "origin.example.com",
+                                    udpEnabled = true,
+                                ),
+                            )
+                        },
+                    relayCredentialStore =
+                        TestRelayCredentialStore().apply {
+                            save(
+                                RelayCredentialRecord(
+                                    profileId = "cf",
+                                    vlessUuid = "00000000-0000-0000-0000-000000000000",
+                                ),
+                            )
+                        },
+                )
+
+            supervisor.start(
+                config =
+                    RipDpiRelayConfig(
+                        enabled = true,
+                        kind = RelayKindCloudflareTunnel,
+                        profileId = "cf",
+                        udpEnabled = true,
+                    ),
+                onUnexpectedExit = {},
+            )
+
+            val resolved = relayFactory.lastRuntime.lastConfig
+            assertEquals(RelayKindCloudflareTunnel, resolved?.kind)
+            assertEquals(RelayVlessTransportXhttp, resolved?.vlessTransport)
+            assertEquals(false, resolved?.udpEnabled)
+            assertEquals(TlsFingerprintProfileChromeStable, resolved?.tlsFingerprintProfile)
+            supervisor.stop()
+        }
+
+    @Test
+    fun `strict chrome fingerprint rejects hysteria2 startup`() =
+        runTest {
+            val supervisor =
+                UpstreamRelaySupervisor(
+                    scope = backgroundScope,
+                    dispatcher = StandardTestDispatcher(testScheduler),
+                    relayFactory = TestRipDpiRelayFactory(),
+                    relayProfileStore =
+                        TestRelayProfileStore().apply {
+                            save(
+                                RelayProfileRecord(
+                                    id = "edge",
+                                    kind = RelayKindHysteria2,
+                                    server = "relay.example",
+                                    serverPort = 8443,
+                                    serverName = "relay-sni.example",
+                                ),
+                            )
+                        },
+                    relayCredentialStore =
+                        TestRelayCredentialStore().apply {
+                            save(
+                                RelayCredentialRecord(
+                                    profileId = "edge",
+                                    hysteriaPassword = "secret",
+                                ),
+                            )
+                        },
+                )
+
+            try {
+                supervisor.start(
+                    config =
+                        RipDpiRelayConfig(
+                            enabled = true,
+                            kind = RelayKindHysteria2,
+                            profileId = "edge",
+                        ),
+                    onUnexpectedExit = {},
+                )
+                fail("Expected strict TLS policy to reject Hysteria2")
+            } catch (error: ServiceStartupRejectedException) {
+                assertTrue(error.reason is FailureReason.RelayFingerprintPolicyRejected)
             }
         }
 }

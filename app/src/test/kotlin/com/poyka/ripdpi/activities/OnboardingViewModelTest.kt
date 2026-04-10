@@ -164,7 +164,7 @@ class OnboardingViewModelTest {
         }
 
     private class TestOwnedTlsClientFactory : OwnedTlsClientFactory {
-        override fun currentProfile(): String = "native_default"
+        override fun currentProfile(): String = "chrome_stable"
 
         override fun create(
             forcedTlsVersions: List<TlsVersion>?,

@@ -173,6 +173,7 @@ internal data class AppSettingsSnapshot(
     val warpAmneziaS2: Int = defaultSettings.warpAmneziaS2,
     val warpAmneziaS3: Int = defaultSettings.warpAmneziaS3,
     val warpAmneziaS4: Int = defaultSettings.warpAmneziaS4,
+    val warpAmneziaPreset: String = defaultSettings.warpAmneziaPreset,
     val relayEnabled: Boolean = defaultSettings.relayEnabled,
     val relayKind: String = defaultSettings.relayKind,
     val relayProfileId: String = defaultSettings.relayProfileId,
@@ -181,6 +182,9 @@ internal data class AppSettingsSnapshot(
     val relayServerName: String = defaultSettings.relayServerName,
     val relayRealityPublicKey: String = defaultSettings.relayRealityPublicKey,
     val relayRealityShortId: String = defaultSettings.relayRealityShortId,
+    val relayVlessTransport: String = defaultSettings.relayVlessTransport,
+    val relayXhttpPath: String = defaultSettings.relayXhttpPath,
+    val relayXhttpHost: String = defaultSettings.relayXhttpHost,
     val relayChainEntryServer: String = defaultSettings.relayChainEntryServer,
     val relayChainEntryPort: Int = defaultSettings.relayChainEntryPort,
     val relayChainEntryServerName: String = defaultSettings.relayChainEntryServerName,
@@ -370,6 +374,11 @@ private fun AppSettings.toSnapshot(): AppSettingsSnapshot =
             warpAmneziaS2 = warpAmneziaS2,
             warpAmneziaS3 = warpAmneziaS3,
             warpAmneziaS4 = warpAmneziaS4,
+            warpAmneziaPreset =
+                inferWarpAmneziaPreset(
+                    warpAmneziaPreset,
+                    rawWarpAmneziaSettings(this),
+                ),
             relayEnabled = relayEnabled,
             relayKind = normalizeRelayKind(relayKind),
             relayProfileId = relayProfileId.ifBlank { DefaultRelayProfileId },
@@ -378,6 +387,9 @@ private fun AppSettings.toSnapshot(): AppSettingsSnapshot =
             relayServerName = relayServerName,
             relayRealityPublicKey = relayRealityPublicKey,
             relayRealityShortId = relayRealityShortId,
+            relayVlessTransport = normalizeRelayVlessTransport(relayVlessTransport, relayKind),
+            relayXhttpPath = relayXhttpPath,
+            relayXhttpHost = relayXhttpHost,
             relayChainEntryServer = relayChainEntryServer,
             relayChainEntryPort = relayChainEntryPort.takeIf { it > 0 } ?: 443,
             relayChainEntryServerName = relayChainEntryServerName,
@@ -558,7 +570,25 @@ private fun AppSettingsSnapshot.toAppSettings(): AppSettings {
         .setWarpAmneziaS2(warpAmneziaS2)
         .setWarpAmneziaS3(warpAmneziaS3)
         .setWarpAmneziaS4(warpAmneziaS4)
-        .setRelayEnabled(relayEnabled)
+        .setWarpAmneziaPreset(
+            inferWarpAmneziaPreset(
+                warpAmneziaPreset,
+                WarpAmneziaSettings(
+                    enabled = warpAmneziaEnabled,
+                    jc = warpAmneziaJc,
+                    jmin = warpAmneziaJmin,
+                    jmax = warpAmneziaJmax,
+                    h1 = warpAmneziaH1,
+                    h2 = warpAmneziaH2,
+                    h3 = warpAmneziaH3,
+                    h4 = warpAmneziaH4,
+                    s1 = warpAmneziaS1,
+                    s2 = warpAmneziaS2,
+                    s3 = warpAmneziaS3,
+                    s4 = warpAmneziaS4,
+                ),
+            ),
+        ).setRelayEnabled(relayEnabled)
         .setRelayKind(normalizeRelayKind(relayKind))
         .setRelayProfileId(relayProfileId.ifBlank { DefaultRelayProfileId })
         .setRelayServer(relayServer)
@@ -566,6 +596,9 @@ private fun AppSettingsSnapshot.toAppSettings(): AppSettings {
         .setRelayServerName(relayServerName)
         .setRelayRealityPublicKey(relayRealityPublicKey)
         .setRelayRealityShortId(relayRealityShortId)
+        .setRelayVlessTransport(normalizeRelayVlessTransport(relayVlessTransport, relayKind))
+        .setRelayXhttpPath(relayXhttpPath)
+        .setRelayXhttpHost(relayXhttpHost)
         .setRelayChainEntryServer(relayChainEntryServer)
         .setRelayChainEntryPort(relayChainEntryPort.takeIf { it > 0 } ?: DefaultHttpsPort)
         .setRelayChainEntryServerName(relayChainEntryServerName)

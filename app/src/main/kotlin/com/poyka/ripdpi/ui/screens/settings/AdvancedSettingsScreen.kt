@@ -154,6 +154,7 @@ internal enum class AdvancedOptionSetting {
     HostsMode,
     WarpRouteMode,
     WarpEndpointSelectionMode,
+    WarpAmneziaPreset,
     QuicInitialMode,
     TlsFingerprintProfile,
     EntropyMode,
@@ -225,6 +226,7 @@ private data class AdvancedSettingsContentState(
     val hostsOptions: List<RipDpiDropdownOption<String>>,
     val warpRouteModeOptions: List<RipDpiDropdownOption<String>>,
     val warpEndpointSelectionOptions: List<RipDpiDropdownOption<String>>,
+    val warpAmneziaPresetOptions: List<RipDpiDropdownOption<String>>,
     val quicModeOptions: List<RipDpiDropdownOption<String>>,
     val tlsFingerprintOptions: List<RipDpiDropdownOption<String>>,
     val entropyModeOptions: List<RipDpiDropdownOption<String>>,
@@ -334,6 +336,11 @@ private fun rememberAdvancedSettingsContentState(uiState: SettingsUiState): Adva
             rememberSettingsOptions(
                 labelArrayRes = R.array.warp_endpoint_selection_modes,
                 valueArrayRes = R.array.warp_endpoint_selection_modes_entries,
+            ),
+        warpAmneziaPresetOptions =
+            rememberSettingsOptions(
+                labelArrayRes = R.array.warp_amnezia_presets,
+                valueArrayRes = R.array.warp_amnezia_presets_entries,
             ),
         quicModeOptions =
             rememberSettingsOptions(
@@ -542,6 +549,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.advancedSettingsSecon
         visualEditorEnabled = contentState.visualEditorEnabled,
         routeModeOptions = contentState.warpRouteModeOptions,
         endpointSelectionOptions = contentState.warpEndpointSelectionOptions,
+        amneziaPresetOptions = contentState.warpAmneziaPresetOptions,
         onToggleChanged = actions.onToggleChanged,
         onOptionSelected = actions.onOptionSelected,
         onTextConfirmed = actions.onTextConfirmed,

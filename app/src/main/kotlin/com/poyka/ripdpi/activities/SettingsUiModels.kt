@@ -44,9 +44,10 @@ import com.poyka.ripdpi.data.QuicInitialModeRouteAndCache
 import com.poyka.ripdpi.data.SeqOverlapFakeModeProfile
 import com.poyka.ripdpi.data.TcpChainStepKind
 import com.poyka.ripdpi.data.TcpChainStepModel
-import com.poyka.ripdpi.data.TlsFingerprintProfileNativeDefault
+import com.poyka.ripdpi.data.TlsFingerprintProfileChromeStable
 import com.poyka.ripdpi.data.UdpChainStepModel
 import com.poyka.ripdpi.data.WarpAccountKindConsumerFree
+import com.poyka.ripdpi.data.WarpAmneziaPresetCustom
 import com.poyka.ripdpi.data.WarpEndpointSelectionAutomatic
 import com.poyka.ripdpi.data.WarpEndpointSelectionManual
 import com.poyka.ripdpi.data.WarpRouteModeOff
@@ -137,7 +138,7 @@ data class DetectionResistanceUiState(
     val quicMigrateAfterHandshake: Boolean = false,
     val strategyEvolution: Boolean = false,
     val evolutionEpsilon: Double = DefaultEvolutionEpsilon,
-    val tlsFingerprintProfile: String = TlsFingerprintProfileNativeDefault,
+    val tlsFingerprintProfile: String = TlsFingerprintProfileChromeStable,
     val entropyMode: String = EntropyModeDisabled,
     val entropyPaddingTargetPermil: Int = DefaultEntropyPaddingTargetPermil,
     val entropyPaddingMax: Int = DefaultEntropyPaddingMax,
@@ -147,7 +148,7 @@ data class DetectionResistanceUiState(
         get() = entropyMode != EntropyModeDisabled
 
     val tlsFingerprintProfileActive: Boolean
-        get() = tlsFingerprintProfile != TlsFingerprintProfileNativeDefault
+        get() = true
 }
 
 @Stable
@@ -247,6 +248,7 @@ data class WarpUiState(
     val scannerEnabled: Boolean = true,
     val scannerParallelism: Int = DefaultWarpScannerParallelism,
     val scannerMaxRttMs: Int = DefaultWarpScannerMaxRttMs,
+    val amneziaPreset: String = "off",
     val amneziaEnabled: Boolean = false,
     val amneziaJc: Int = 0,
     val amneziaJmin: Int = 0,
@@ -270,7 +272,7 @@ data class WarpUiState(
         get() = scannerAvailable && enabled && scannerEnabled
 
     val amneziaControlsEnabled: Boolean
-        get() = enabled && amneziaEnabled
+        get() = enabled && amneziaPreset == WarpAmneziaPresetCustom && amneziaEnabled
 
     val hasManualEndpointOverride: Boolean
         get() =

@@ -347,6 +347,7 @@
     <string name="config_relay_profile_id">Profile ID</string>
     <string name="config_relay_profile_id_helper">Used to bind secure credentials to the saved relay profile.</string>
     <string name="config_relay_kind_vless">VLESS</string>
+    <string name="config_relay_kind_cloudflare_tunnel">Cloudflare Tunnel</string>
     <string name="config_relay_kind_hysteria2">Hysteria2</string>
     <string name="config_relay_kind_chain">Chain relay</string>
     <string name="config_relay_kind_masque">MASQUE</string>
@@ -357,6 +358,11 @@
     <string name="config_relay_server_name">TLS server name</string>
     <string name="config_relay_reality_public_key">Reality public key</string>
     <string name="config_relay_reality_short_id">Reality short ID</string>
+    <string name="config_relay_vless_transport">VLESS transport</string>
+    <string name="config_relay_vless_transport_reality_tcp">Reality TCP</string>
+    <string name="config_relay_vless_transport_xhttp">xHTTP</string>
+    <string name="config_relay_xhttp_path">xHTTP path</string>
+    <string name="config_relay_xhttp_host">xHTTP host override</string>
     <string name="config_relay_vless_uuid">VLESS UUID</string>
     <string name="config_relay_hysteria_password">Hysteria password</string>
     <string name="config_relay_hysteria_salamander">Salamander key</string>
@@ -1311,8 +1317,12 @@ fakeddisorder endhost</string>
     <string name="warp_scanner_parallelism_body">Maximum number of endpoint probes allowed at the same time.</string>
     <string name="warp_scanner_rtt_title">Maximum endpoint RTT</string>
     <string name="warp_scanner_rtt_body">Discard scanner candidates whose measured latency exceeds this budget in milliseconds.</string>
-    <string name="warp_amnezia_enabled_title">Enable AmneziaWG shaping</string>
-    <string name="warp_amnezia_enabled_body">Apply Amnezia WireGuard obfuscation parameters to the WARP transport only.</string>
+    <string name="warp_amnezia_preset_title">AmneziaWG shaping profile</string>
+    <string name="warp_amnezia_preset_body">Choose a built-in WARP obfuscation preset or switch to custom to edit raw AmneziaWG values.</string>
+    <string name="warp_amnezia_profile_title">Applied AmneziaWG profile</string>
+    <string name="warp_amnezia_preset_off_summary">AmneziaWG shaping is disabled for WARP.</string>
+    <string name="warp_amnezia_preset_profile_summary">Built-in profile. JC %1$d, Jmin %2$d, Jmax %3$d.</string>
+    <string name="warp_amnezia_preset_custom_summary">Custom profile. JC %1$d, Jmin %2$d, Jmax %3$d.</string>
     <string name="warp_amnezia_jc_title">Amnezia JC</string>
     <string name="warp_amnezia_jmin_title">Amnezia Jmin</string>
     <string name="warp_amnezia_jmax_title">Amnezia Jmax</string>
