@@ -74,19 +74,6 @@ pub struct ProxyRuntimeContext {
 pub struct ProxyPreferredEdge {
     pub ip: String,
     pub transport_kind: String,
-    pub ip_version: String,
-    #[serde(default)]
-    pub success_count: i32,
-    #[serde(default)]
-    pub failure_count: i32,
-    #[serde(default)]
-    pub last_validated_at: Option<i64>,
-    #[serde(default)]
-    pub last_failed_at: Option<i64>,
-    #[serde(default)]
-    pub ech_capable: bool,
-    #[serde(default)]
-    pub cdn_provider: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]

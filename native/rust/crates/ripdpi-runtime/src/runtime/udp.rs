@@ -21,7 +21,10 @@ use super::adaptive::{
 use super::retry::{
     build_retry_selection_penalties, maybe_emit_candidate_diversification, note_retry_failure, note_retry_success,
 };
-use super::routing::{note_block_signal_for_failure, note_route_success_for_transport, select_route_for_transport};
+use super::routing::{
+    note_block_signal_for_failure, note_route_success_for_transport, preferred_targets_for_transport,
+    select_route_for_transport,
+};
 use super::state::{flush_autolearn_updates, RuntimeState, UDP_FLOW_IDLE_TIMEOUT};
 
 pub(super) struct UdpRelaySockets {
@@ -147,7 +150,12 @@ pub(super) fn udp_associate_loop(
                         continue;
                     }
                     if let std::collections::hash_map::Entry::Vacant(e) = flow_state.entry(flow_key) {
-                        let target_candidates = preferred_udp_targets(&state, original_target, host.as_deref());
+                        let target_candidates = preferred_targets_for_transport(
+                            &state,
+                            original_target,
+                            host.as_deref(),
+                            TransportProtocol::Udp,
+                        );
                         let Some(selection) = select_udp_flow_target(
                             &state,
                             protect_path.as_deref(),
@@ -546,35 +554,6 @@ fn should_cache_udp_host(config: &RuntimeConfig, host: Option<&crate::runtime_po
     }
 }
 
-fn preferred_udp_targets(state: &RuntimeState, target: SocketAddr, host: Option<&str>) -> Vec<SocketAddr> {
-    let mut targets = Vec::new();
-    if let Some(host) = host {
-        if let Some(runtime_context) = state.runtime_context.as_ref() {
-            let normalized = host.trim().to_lowercase();
-            if let Some(edges) =
-                runtime_context.preferred_edges.get(&normalized).or_else(|| runtime_context.preferred_edges.get(host))
-            {
-                for edge in edges.iter().filter(|edge| edge.transport_kind == "quic") {
-                    let Ok(ip) = edge.ip.parse::<IpAddr>() else {
-                        continue;
-                    };
-                    let candidate = SocketAddr::new(ip, target.port());
-                    if !targets.contains(&candidate) {
-                        targets.push(candidate);
-                    }
-                    if targets.len() >= 2 {
-                        break;
-                    }
-                }
-            }
-        }
-    }
-    if !targets.contains(&target) {
-        targets.push(target);
-    }
-    targets
-}
-
 fn select_udp_flow_target(
     state: &RuntimeState,
     protect_path: Option<&str>,
@@ -609,7 +588,7 @@ fn reselect_udp_flow_target(
     payload: &[u8],
     host: Option<&str>,
 ) -> io::Result<Option<UdpFlowSelectionWithCandidates>> {
-    let target_candidates = preferred_udp_targets(state, original_target, host);
+    let target_candidates = preferred_targets_for_transport(state, original_target, host, TransportProtocol::Udp);
     let Some(selection) =
         select_udp_flow_target(state, protect_path, host, payload, &target_candidates, 0, "payload_reselect")?
     else {
@@ -895,7 +874,7 @@ mod tests {
     }
 
     #[test]
-    fn preferred_udp_targets_return_two_quic_edges_then_original_target() {
+    fn preferred_targets_for_transport_return_two_quic_edges_then_original_target() {
         let mut runtime_context = fixture_runtime_context(443);
         runtime_context.preferred_edges.insert(
             "example.org".to_string(),
@@ -903,42 +882,21 @@ mod tests {
                 ripdpi_proxy_config::ProxyPreferredEdge {
                     ip: "203.0.113.10".to_string(),
                     transport_kind: "quic".to_string(),
-                    ip_version: "ipv4".to_string(),
-                    success_count: 2,
-                    failure_count: 0,
-                    last_validated_at: None,
-                    last_failed_at: None,
-                    ech_capable: true,
-                    cdn_provider: Some("cloudflare".to_string()),
                 },
                 ripdpi_proxy_config::ProxyPreferredEdge {
                     ip: "203.0.113.20".to_string(),
                     transport_kind: "quic".to_string(),
-                    ip_version: "ipv4".to_string(),
-                    success_count: 1,
-                    failure_count: 0,
-                    last_validated_at: None,
-                    last_failed_at: None,
-                    ech_capable: false,
-                    cdn_provider: None,
                 },
                 ripdpi_proxy_config::ProxyPreferredEdge {
                     ip: "203.0.113.30".to_string(),
                     transport_kind: "quic".to_string(),
-                    ip_version: "ipv4".to_string(),
-                    success_count: 0,
-                    failure_count: 0,
-                    last_validated_at: None,
-                    last_failed_at: None,
-                    ech_capable: false,
-                    cdn_provider: None,
                 },
             ],
         );
         let state = test_runtime_state_with_context(RuntimeConfig::default(), Some(runtime_context));
         let original = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(198, 51, 100, 40)), 443);
 
-        let targets = preferred_udp_targets(&state, original, Some("example.org"));
+        let targets = preferred_targets_for_transport(&state, original, Some("example.org"), TransportProtocol::Udp);
 
         assert_eq!(
             targets,
