@@ -1,6 +1,6 @@
 # Integrations and Techniques Roadmap
 
-Prioritized list of integrations and path optimization techniques for RIPDPI, based on deep research across the Zapret community, NTC forums, GitHub projects, Cloudflare documentation, protocol specifications, and academic papers (April -- June 2025 intelligence window).
+Prioritized list of integrations and path optimization techniques for RIPDPI, based on deep research across the Zapret community, NTC forums, GitHub projects, Cloudflare documentation, protocol specifications, and academic papers (intelligence window: April 2025 -- April 2026).
 
 ## Current Threat Landscape
 
@@ -14,6 +14,14 @@ Russian middlebox (technical censorship infrastructure) capabilities as of mid-2
 - Emerging **whitelist mode** on some mobile networks: only approved IPs/domains reachable
 - ML-based traffic classification: Random Forest and CNN models trained on flow features (packet size distributions, inter-arrival timing, byte entropy ~7.99 bits/byte for encrypted traffic, TLS record size distributions, upload/download packet count asymmetry)
 - JA4+ TLS fingerprinting at Cloudflare, AWS, and VirusTotal (sorts extensions alphabetically, includes ALPN and SNI, distinguishes TCP vs QUIC)
+
+### April 2026 Escalation
+
+- **Mobile whitelist regime**: 100+ resources in 13 approved categories; Beeline confirmed IP-level filtering (TCP SYN accepted, TLS ClientHello dropped for non-whitelisted IPs); Tele2 similar. Foreign VPS IPs unreachable on mobile data.
+- **Platform VPN detection deadline (April 15, 2026)**: RKN mandated Yandex, VK, Sber, major marketplaces to detect and restrict VPN users. Non-compliance = loss of whitelist status + IT accreditation. Partial Yandex.Cloud subnet exclusions from whitelist.
+- **Mobile international traffic surcharge (May 1, 2026)**: 150 RUB/GB over 15 GB/month threshold. VPN users generating international traffic on mobile data face automatic billing. Split routing (bypassing VPN for domestic traffic) becomes financially necessary.
+- **MTS commercial VPN detection (March 2026)**: MTS briefly advertised "VPN detection as a service" at 87 RUB/day (page deleted, behaviour observed ~1 day). Pattern-based: sustained high-volume sessions to single IP; WireGuard/OpenVPN/PPTP/L2TP detected; obfuscated protocols (AmneziaWG) not yet.
+- **App-level VPN detection (April 2026)**: Mintsifry published 3-stage technical guide. Wildberries, Ozon, MAX Messenger, ВкусВилл, Шоколадница implementing. Primary vector: Android `ConnectivityManager.getNetworkCapabilities().hasTransport(TRANSPORT_VPN)` — system-wide flag, requires no permissions, unaffected by per-app split tunneling.
 
 ### What RIPDPI Already Implements
 
@@ -293,6 +301,107 @@ send(fd, data, len, 0);      // data piggybacked on SYN
 
 ---
 
+### 17. TCP Timestamp Faking
+
+Exploit the difference between how middlebox inspects timestamps and how the destination server validates them via PAWS (Protection Against Wrapped Sequence Numbers, RFC 7323).
+
+#### Mechanism
+
+Standard TCP TSOPT format in options:
+```
+Kind=8 | Len=10 | TSval(4B) | TSecr(4B)
+```
+
+Attack: fabricate a fake packet whose `TSval` is decreased by 600,000 relative to the current monotonic counter (~10 minutes behind for 100 Hz tick). The destination server rejects the fake via PAWS (outdated timestamp). middlebox processes the fake first and updates its state machine — then the real packet arrives with a valid timestamp and passes through.
+
+```rust
+// In fake packet builder, after locating TCP timestamp option:
+let fake_tsval = real_tsval.wrapping_sub(600_000_u32);
+buf[tsopt_offset..tsopt_offset + 4].copy_from_slice(&fake_tsval.to_be_bytes());
+```
+
+youtubeUnblock v1.3.0 (January 31, 2026) introduced this as `--faking-strategy=timestamp`. Recommended combo: `--fake-sni=1 --faking-strategy=tcp_check,timestamp`. Provided a breakthrough specifically for YouTube slowdown on Keenetic/OpenWrt routers after the `pastseq` ban (December 27, 2025).
+
+#### Constraints
+
+- Requires TCP Timestamps negotiated in SYN/SYN-ACK (not all connections use them; check `TCP_SAVESYNSYN` or inspect SYN-ACK options).
+- Windows does not enable TCP Timestamps by default (`HKLM\...\Tcpip\Parameters\Tcp1323Opts = 0`) → unreliable for Windows-originating traffic routed through the app.
+- No effect on QUIC (QUIC has its own ack delay mechanism, unrelated to TCP timestamps).
+
+**Reference:** [youtubeUnblock v1.3.0 release notes](https://github.com/Waujito/youtubeUnblock/releases/tag/v1.3.0), [RFC 7323 Section 5 (PAWS)](https://datatracker.ietf.org/doc/html/rfc7323#section-5)
+
+**Root required:** No | **Effort:** Low
+
+---
+
+### 18. ClientHello Clone for Fake Packets
+
+Current RIPDPI fakes use static or template-generated TLS payloads. A more fingerprint-resistant approach: clone the real TLS ClientHello from the proxied client connection, apply targeted modifications, and send the clone as the fake.
+
+#### Why Superior to Static Fakes
+
+Static fakes with rndsni/dupsid differ from the real connection in TLS version, cipher suite order, extension set, and GREASE values. JA4+ and ML classifiers can distinguish them from real ClientHellos. A cloned fake inherits the exact fingerprint of the real connection.
+
+#### Implementation Steps
+
+```
+1. Buffer incoming TLS records until full ClientHello received
+   (may span multiple TLS record layer chunks if >16 KB)
+
+2. Clone the ClientHello byte slice
+
+3. Apply modifications to the clone:
+   - SNI extension (type 0x0000): clear the hostname, zero-fill or remove
+   - session_id: randomize (first 32 bytes after legacy_version)
+   - Re-compute ClientHello.length fields (2 bytes each level)
+
+4. Wrap clone in TLS Record layer: [0x16][0x03 0x01][len16][clone]
+
+5. Send clone as fake: low TTL (auto_ttl - delta) or bad checksum
+
+6. Send real ClientHello as the legitimate packet
+```
+
+#### ECH-Aware Variant
+
+When the real ClientHello contains an ECH extension (0xFE0D), the clone should preserve the ECH outer SNI (`public_name`) but zero the inner encrypted payload — the outer SNI is what middlebox reads, the inner is what the server decrypts.
+
+**Reference:** [zapret2 zapret-antidpi.lua `tls_client_hello_clone`](https://deepwiki.com/bol-van/zapret2/3.3-anti-dpi-strategy-library-(zapret-antidpi.lua))
+
+**Root required:** No | **Effort:** Low
+
+---
+
+### 19. Double Fake Strategy
+
+Send two fake packets before the real payload instead of one. Each fake uses a different invalidation method, saturating DPI state machines that may recover from a single malformed packet.
+
+#### Variants
+
+**Homogeneous double fake** (same invalidation, incremented sequence numbers):
+```
+fake1: bad TTL (auto_ttl - delta), seq = real_seq - 10000
+fake2: bad TTL (auto_ttl - delta), seq = real_seq - 5000
+real:  correct TTL, seq = real_seq
+```
+
+**Heterogeneous double fake** (complementary invalidation):
+```
+fake1: bad TTL, valid checksum     → defeats checksum-aware DPI that filters bad-checksum fakes
+fake2: bad checksum, valid TTL     → defeats TTL-aware DPI that filters low-TTL fakes
+real:  valid TTL + valid checksum
+```
+
+Flowseal zapret-discord-youtube added double fake to ALT/ALT4/ALT10/ALT11/SIMPLE FAKE strategies in v1.9.7 (February 23, 2026) and reported improved success rates on ISPs that adapted to single-fake strategies.
+
+#### Implementation
+
+Add an optional `fake_count: u8` parameter (default 1, max 3) to the `FakeStep` in the strategy chain. When `fake_count > 1`, the second fake's invalidation method is toggled (TTL→checksum or vice versa) to maximise coverage.
+
+**Root required:** No | **Effort:** Low
+
+---
+
 ## Tier 3: Proxy Protocol Support (P2)
 
 ### 9. VLESS + Reality Client
@@ -374,6 +483,275 @@ Cloudflare uses `cf-connect-ip` variant with ECDSA P-256 auth. Port 443 (blends 
 
 ---
 
+### 20. TUIC v5 Protocol
+
+QUIC-based proxy protocol. Lighter than Hysteria2: no HTTP/3 auth ceremony, UUID-authenticated, native QUIC stream multiplexing (no smux layer needed), configurable congestion control.
+
+#### Wire Format (v5)
+
+**Connect request (client → server, over QUIC stream):**
+```
+[Version(1)=5][Type(1)][Token(32)][UUID(16)][AddrType(1)][Addr(var)][Port(2)]
+
+Type: 0x00 = TCP CONNECT | 0x01 = UDP ASSOCIATE | 0x02 = Dissociate | 0x03 = Heartbeat
+```
+
+**UDP packet (QUIC datagram frame):**
+```
+[AssocID(2)][PacketID(2)][FragTotal(1)][FragID(1)][Size(2)][AddrType(1)][Addr(var)][Port(2)][Payload]
+```
+
+Built-in UDP fragmentation for packets exceeding QUIC datagram MTU (~1200 bytes).
+
+#### Authentication Token
+
+```
+token = HMAC-SHA256(password, unix_timestamp_secs / 8)[..32]
+```
+
+Timestamp window: ±4 seconds (server drift tolerance). Prevents replay within the 8-second epoch.
+
+#### 0-RTT
+
+After the first connection, QUIC session tickets enable 0-RTT for subsequent handshakes. The connect request can be sent immediately in the 0-RTT QUIC Initial, reducing cold-start latency by ~1 RTT.
+
+#### Comparison with Hysteria2
+
+| Aspect | TUIC v5 | Hysteria2 |
+|--------|---------|-----------|
+| Auth | UUID + HMAC token | HTTP/3 POST /auth (password) |
+| Obfuscation | None (relies on QUIC being allowed) | Salamander (XOR + BLAKE2b) |
+| Mux | Native QUIC streams | Separate smux over single stream |
+| Congestion | BBR / Cubic / NewReno (configurable) | BBR mandatory |
+| UDP | Native datagrams with built-in frag | Custom datagrams + Hysteria framing |
+| Probing resistance | Low (QUIC headers readable) | High (Salamander = random bytes) |
+
+TUIC is preferable where QUIC is not blocked and Hysteria2's obfuscation overhead is undesirable.
+
+**Rust reference:** [shoes](https://github.com/cfal/shoes) — single Rust crate implementing VLESS + Reality + Hysteria2 + TUIC v5.
+
+**Root required:** No | **Effort:** High
+
+---
+
+### 21. ShadowTLS v3
+
+Camouflages proxy traffic as a legitimate TLS 1.3 handshake with a real website (e.g., `www.apple.com`). A censor observing the connection sees a complete, valid TLS handshake to Apple — not a proxy.
+
+#### Protocol Flow
+
+```
+Client                  ShadowTLS Server           Real Destination
+  |--- TLS ClientHello -------->|                        |
+  |                             |--- TLS ClientHello --->|  (proxy to real site)
+  |<-- TLS ServerHello ---------|<-- TLS ServerHello ----|
+  |<-- Certificate -------------|<-- Certificate --------|
+  |<-- Finished ----------------|<-- Finished -----------|
+  |
+  | [TLS handshake complete: censor satisfied]
+  |
+  |--- TLS Application Data [HMAC-tagged] -->|
+  |   Server verifies HMAC → switches to tunnel mode
+  |<-- [Proxied application data] -----------|
+```
+
+#### v3 Authentication (HMAC per-record)
+
+After each TLS application record, ShadowTLS appends a 8-byte HMAC tag:
+
+```
+tag = HMAC-SHA256(derived_key, record_header || payload || seq_num_be64)[..8]
+```
+
+Key derivation:
+```
+pre_master = ECDH(client_ephemeral, server_static)
+derived_key = HKDF-SHA256(pre_master, "shadow-tls v3", password)
+```
+
+Server verifies tag on every record. First valid tag triggers tunnel mode switch. Unrecognized clients (censors) receive real website data — active-probing safe.
+
+#### Active Probing Resistance
+
+ShadowTLS v3 is specifically hardened against active probing:
+- No unique port signatures (listens on 443)
+- Replays a real TLS session if HMAC fails consistently
+- Sequence number prevents replay across sessions
+
+**Rust reference:** [shadow-tls](https://github.com/ihciah/shadow-tls) — Rust client/server implementation
+
+**Root required:** No | **Effort:** Medium
+
+---
+
+### 22. NaiveProxy
+
+HTTP/2 CONNECT proxy where the client TLS fingerprint is indistinguishable from Chrome or Firefox. Unlike BoringSSL mimicry (which replicates cipher suites/extensions), NaiveProxy runs Chromium's actual `net/` stack.
+
+#### What Makes It Undetectable
+
+Chromium `net/` produces exact TLS fingerprints including:
+- GREASE values (RFC 8701 — pseudo-random extension/cipher/group IDs)
+- ML-KEM 768 key share (post-quantum, Chrome 131+)
+- Exact extension ordering and parameters
+- HTTP/2 SETTINGS frame values matching Chrome's defaults
+
+JA4+ fingerprint: matches Chrome 133 exactly. No known classifier distinguishes NaiveProxy traffic from Chrome.
+
+#### Wire Protocol
+
+```
+Client → Server: CONNECT target:port HTTP/2
+  :method: CONNECT
+  :authority: target:port
+  proxy-authorization: basic <base64(user:pass)>
+  padding: <random ASCII, 16-64 bytes>   ← anti-length-fingerprinting
+
+Server → Client:
+  :status: 200
+  [bidirectional HTTP/2 stream for TCP tunneling]
+```
+
+HTTP/2 header compression (HPACK) hides the `proxy-authorization` header from plaintext observation.
+
+#### Padding Layer
+
+Client pads request headers and data frames with random bytes to prevent traffic-shape fingerprinting. Server strips padding. `AUTH_DATA` pseudo-header carries obfuscated credentials for servers that inspect headers.
+
+#### Deployment Requirement
+
+Server must run `caddy` with `forward_proxy` plugin (not NGINX/haproxy — Caddy preserves the HTTP/2 server fingerprint Chrome expects). Without matching server fingerprint, active probing reveals the proxy.
+
+**Android:** No dedicated Android NaiveProxy client; available indirectly via Clash.Meta (`naive` outbound type). Native RIPDPI integration requires embedding Chromium `net/` via JNI — high effort, large binary size (+20 MB).
+
+**Reference:** [naiveproxy](https://github.com/klzgrad/naiveproxy), [forwardproxy Caddy plugin](https://github.com/klzgrad/forwardproxy)
+
+**Root required:** No | **Effort:** Very High
+
+---
+
+### 23. Multiplexed Connections (smux / yamux)
+
+Without multiplexing, each proxied TCP connection requires a separate QUIC connection (or separate TCP stream to the relay server). For users with many concurrent tabs/requests, this means many individual QUIC handshakes — visible as a burst of connection-establishment events to DPI.
+
+#### Architecture
+
+```
+Without mux:
+  Tab 1 → QUIC connection #1 → relay → example.com
+  Tab 2 → QUIC connection #2 → relay → another.com
+  Tab 3 → QUIC connection #3 → relay → third.com
+
+With smux over single QUIC stream:
+  QUIC connection #1 (persistent)
+  └── QUIC stream 0
+      ├── smux frame sid=1 → TCP to example.com
+      ├── smux frame sid=2 → TCP to another.com
+      └── smux frame sid=3 → TCP to third.com
+```
+
+#### smux Frame Format (v1)
+
+```
+[Version(1)][Cmd(1)][Length(2)][StreamID(4)][Data(Length)]
+
+Cmd: 0x00=SYN | 0x01=FIN | 0x02=PSH | 0x03=NOP
+```
+
+#### sing-box Implementation Reference
+
+sing-box `multiplex` field for VLESS/Shadowsocks/Trojan outbounds:
+```json
+{
+  "multiplex": {
+    "enabled": true,
+    "protocol": "smux",       // "smux" | "yamux" | "h2mux"
+    "max_connections": 4,
+    "min_streams": 4,
+    "max_streams": 0,
+    "padding": false,
+    "brutal": { "enabled": false }
+  }
+}
+```
+
+#### Impact for RIPDPI
+
+Relevant when VLESS (item 9) or Hysteria2 (item 10) relay is active and users open many parallel connections. Reduces: QUIC handshake CPU cost on relay server, observable connection-establishment burst, per-connection QUIC overhead (~1300 bytes min per Initial packet).
+
+TUIC v5 (item 20) uses native QUIC stream multiplexing and does not require smux.
+
+**Reference:** [xtaci/smux](https://github.com/xtaci/smux), [sing-box multiplex docs](https://sing-box.sagernet.org/configuration/shared/multiplex/)
+
+**Root required:** No | **Effort:** Medium
+
+---
+
+## Tier 5: Android Platform Hardening (P1--P2)
+
+### 24. Per-app UID Exclusion for VPN Detection Bypass
+
+**Context (April 2026):** Apps implementing VPN detection via `ConnectivityManager.getNetworkCapabilities().hasTransport(TRANSPORT_VPN)` return `true` system-wide — this flag is set for the entire device when any VPN profile is active, regardless of per-app split tunneling. However, **server-side IP-based detection** (the most common vector for Wildberries/Ozon) *is* defeated by excluding the app from the VPN: the app's traffic bypasses the RIPDPI tunnel and uses the real ISP IP.
+
+#### Android VpnService API
+
+```kotlin
+// In VpnService.Builder, before establish():
+
+// Denylist mode — these apps bypass the VPN tunnel entirely
+listOf(
+    "com.wildberries.ru",           // IP-base detection
+    "ru.ozon.app.android",          // IP-base + ConnectivityManager
+    "ru.mail.group.superapp",       // MAX Messenger: ConnectivityManager
+    "ru.vkusvill.android",          // IP-base detection
+    "com.chocolatefactory.android", // IP-base detection (Шоколадница)
+    "ru.yandex.taxi",               // geo-signal detection
+).forEach { pkg ->
+    try { builder.addDisallowedApplication(pkg) }
+    catch (e: PackageManager.NameNotFoundException) { /* not installed, skip */ }
+}
+```
+
+#### Detection Method Matrix
+
+| App | TRANSPORT_VPN | IP-base | Geo-signal | Excluded app result |
+|-----|:---:|:---:|:---:|---|
+| Wildberries | No | Yes | No | ✅ Fully fixed |
+| Ozon | Yes | Yes | No | ⚠️ IP fixed, API still true |
+| MAX Messenger | Yes | No | No | ⚠️ API still true |
+| ВкусВилл | No | Yes | No | ✅ Fully fixed |
+| Шоколадница | No | Yes | No | ✅ Fully fixed |
+| Yandex Taxi | No | No | Yes | ⚠️ Partial (depends on location) |
+
+#### What Exclusion Does NOT Fix
+
+`hasTransport(TRANSPORT_VPN)` returns `true` system-wide even for excluded apps. The only non-root approach to hide the VPN at OS level is Android Work Profile (separate profile with no VPN configured). RIPDPI should display this distinction clearly in UI.
+
+#### Implementation Details
+
+- Maintain `app-exclusion-list.json` (bundled, updateable via strategy packs, item 15):
+  ```json
+  {
+    "version": 3,
+    "entries": [
+      {
+        "package": "com.wildberries.ru",
+        "name": "Wildberries",
+        "detection_methods": ["ip_base"],
+        "exclusion_fixes": ["ip_base"],
+        "added": "2026-04-01"
+      }
+    ]
+  }
+  ```
+- **UI:** "App Compatibility Mode" section in Settings → show list of detected installed apps from the exclusion list with toggle per-app and explanation of what is/isn't fixed.
+- **Auto-detect:** On VPN start, scan installed packages against exclusion list → prompt user if known-detection apps found.
+- **Limitation disclosure:** For apps with `TRANSPORT_VPN` detection (Ozon, MAX), show: "VPN presence cannot be fully hidden from this app without Work Profile."
+
+**Root required:** No | **Effort:** Medium
+
+---
+
 ## Tier 4: Detection Resistance (P3)
 
 ### 13. TLS Fingerprint Mimicry
@@ -451,6 +829,14 @@ Additional techniques: Connection ID rotation (`NEW_CONNECTION_ID` encrypted), v
 | 14 | Adaptive traffic morphing | No | High | High | P3 |
 | 15 | Updatable strategy packs | No | Medium--High | High | P3 |
 | 16 | QUIC connection migration | VPN | High | Medium | P3 |
+| 17 | TCP timestamp faking | No | Low | High | P1 |
+| 18 | ClientHello clone for fakes | No | Low | Medium | P1 |
+| 19 | Double fake strategy | No | Low | Medium | P1 |
+| 20 | TUIC v5 protocol | No | High | High | P2 |
+| 21 | ShadowTLS v3 | No | Medium | High | P2 |
+| 22 | NaiveProxy | No | Very High | Medium | P2 |
+| 23 | Multiplexed connections (smux) | No | Medium | Medium | P2 |
+| 24 | Per-app UID exclusion | No | Medium | High | P1 |
 
 ## Reference Projects
 
@@ -464,27 +850,40 @@ Additional techniques: Connection ID rotation (`NEW_CONNECTION_ID` encrypted), v
 | [usque](https://github.com/Diniboy1123/usque) | Go | MASQUE reimplementation |
 | [amneziawg-go](https://github.com/amnezia-vpn/amneziawg-go) | Go | AmneziaWG implementation |
 | [ByeDPI](https://github.com/hufrea/byedpi) | C | DPI desync (auto-mode, trigger system) |
-| [sing-box](https://github.com/SagerNet/sing-box) | Go | VLESS/Hysteria2/TUIC, rule-set system |
+| [sing-box](https://github.com/SagerNet/sing-box) | Go | VLESS/Hysteria2/TUIC, rule-set system, smux multiplex |
 | [hysteria](https://github.com/apernet/hysteria) | Go | Hysteria2 + Salamander |
-| [shoes](https://github.com/cfal/shoes) | Rust | VLESS + Reality + Hysteria2 + TUIC |
+| [shoes](https://github.com/cfal/shoes) | Rust | VLESS + Reality + Hysteria2 + TUIC v5 |
 | [uTLS](https://github.com/refraction-networking/utls) | Go | TLS fingerprint mimicry |
 | [craftls](https://github.com/3andne/craftls) | Rust | rustls fork with fingerprint API |
 | [connect-ip-go](https://github.com/quic-go/connect-ip-go) | Go | RFC 9484 Connect-IP |
+| [youtubeUnblock](https://github.com/Waujito/youtubeUnblock) | C | TCP timestamp faking (v1.3.0), SNI fake strategies |
+| [shadow-tls](https://github.com/ihciah/shadow-tls) | Rust | ShadowTLS v3 client/server |
+| [naiveproxy](https://github.com/klzgrad/naiveproxy) | C++ | HTTP/2 CONNECT with Chrome TLS fingerprint |
+| [forwardproxy](https://github.com/klzgrad/forwardproxy) | Go | Caddy plugin for NaiveProxy server |
+| [xtaci/smux](https://github.com/xtaci/smux) | Go | smux stream multiplexing reference |
+| [zapret2](https://github.com/bol-van/zapret2) | C + Lua | tls_client_hello_clone, double fake, Lua strategy engine |
+| [flowseal/zapret-discord-youtube](https://github.com/Flowseal/zapret-discord-youtube) | BAT | Double fake strategy (ALT variants, v1.9.7) |
 
 ## Sources
 
 - Zapret community forum (evgen-dev.ddns.net) -- Cloudflare WARP thread, 64+ posts
-- NTC party forum (ntc.party) -- bypass methods 2025--2026 discussions
+- NTC party forum (ntc.party) -- bypass methods 2025--2026 discussions, thread 22584 (MAX surveillance), thread 22880 (MTS VPN detection), thread 21161 (zapret2 discussion, 805+ replies)
 - net4people/bbs (GitHub) -- ECH blocking (#417), middlebox new methods (#490), mobile whitelists (#516)
 - Cloudflare blog -- MASQUE architecture, WARP protocol details, Zero Trust WARP
 - USENIX Security 2025 -- QUIC censorship evasion paper
 - QUICstep paper (Princeton/U. Michigan) -- QUIC connection migration exploitation
 - ByeDPI source (hufrea/byedpi) -- `extend.c`, `params.h`, `desync.c`, `mpool.h`
 - Zapret source (bol-van/zapret) -- `nfq/darkmagic.c`, `nfq/desync.c`
-- Zapret2 (bol-van/zapret2) -- Lua strategy engine
+- Zapret2 (bol-van/zapret2) -- Lua strategy engine, zapret-antidpi.lua (tls_client_hello_clone, position markers)
+- youtubeUnblock v1.3.0 release notes -- TCP timestamp faking strategy, Aho-Corasick SNI matching
+- Flowseal zapret-discord-youtube v1.9.7 -- double fake strategy addition (ALT/SIMPLE FAKE variants)
 - Hysteria2 protocol spec -- v2.hysteria.network
+- TUIC v5 protocol spec -- github.com/EAimTY/tuic
+- ShadowTLS v3 spec -- github.com/ihciah/shadow-tls
 - VLESS protocol spec (Project X) -- xtls.github.io
 - Reality source analysis -- objshadow.pages.dev
 - AmneziaWG 2.0 spec -- docs.amnezia.org
-- Habr -- chain relay guides, VLESS analysis, whitelist bypass techniques
-- RFC 9484 (Connect-IP), RFC 9000 (QUIC), RFC 8446 (TLS 1.3), RFC 8200 (IPv6)
+- Habr articles 1021160, 1021392 -- 4-layer whitelist bypass architecture, app-level VPN detection
+- Mintsifry VPN detection technical guide (April 2026) -- 3-stage detection: IP-base → ConnectivityManager → geo-signal
+- Android ConnectivityManager API docs -- TRANSPORT_VPN system-wide flag, VpnService builder exclusion API
+- RFC 9484 (Connect-IP), RFC 9000 (QUIC), RFC 8446 (TLS 1.3), RFC 8200 (IPv6), RFC 7323 (TCP Timestamps / PAWS)
