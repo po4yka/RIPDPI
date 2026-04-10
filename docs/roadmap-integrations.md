@@ -809,6 +809,513 @@ Additional techniques: Connection ID rotation (`NEW_CONNECTION_ID` encrypted), v
 
 ---
 
+---
+
+## Tier 3 (continued): xHTTP Transport (P0 — April 2026 Escalation)
+
+### 25. xHTTP Transport for VLESS
+
+Layer-4 ML behavioral classifiers deployed in TSPU in Q1 2026 defeat VLESS+Reality-over-TCP: a persistent bidirectional TLS stream to a foreign IP with symmetric packet size distribution and no characteristic application-layer request patterns is flagged within seconds. xHTTP defeats this by restructuring the tunnel as discrete HTTP transactions indistinguishable from browser API calls.
+
+> **Status:** VLESS (item 9) is implemented; xHTTP is the missing transport layer. Without it, Reality-only VLESS will be blocked with increasing reliability as ML rulesets improve. WebSocket and gRPC are deprecated in xray-core in favour of xHTTP.
+
+#### How TSPU Detects Reality-Only TCP
+
+Four-layer classification pipeline (Habr, March 2026):
+
+| Layer | Bytes | Signal |
+|-------|-------|--------|
+| L1 | 0–5 | Protocol byte signature — already defeated by Reality |
+| L2 | 6–300 | JA3/JA4 fingerprint + SNI vs ASN mismatch |
+| L3 | 300–3000 | Certificate origin vs ASN (Apple cert from Hetzner IP) |
+| L4 | 3000–16000 | **Behavioral ML**: packet size distribution, upload/download ratio, connection duration, absence of legitimate API request patterns |
+
+Reality closes L1–L3. xHTTP closes L4.
+
+#### Wire Protocol
+
+xHTTP encapsulates tunnel traffic as HTTP/2 (or HTTP/3) transactions. Each upstream "message" is a `POST` request body; each downstream "message" is a streaming `GET` response body. From an observer's perspective: ordinary browser-to-CDN API traffic.
+
+**Four modes:**
+
+| Mode | Upstream | Downstream | CDN compatible |
+|------|----------|------------|----------------|
+| `packet-up` | Multiple short POST requests | Single chunked GET response | Yes |
+| `stream-up` | One persistent POST stream | Single chunked GET response | Partial |
+| `stream-one` | Single bidirectional stream | Same stream | No (XTLS-Vision only) |
+| `auto` | Client-selected per-capability | — | Yes |
+
+**Request structure (packet-up, client → server):**
+```
+POST /<path> HTTP/2
+Host: <destination>
+Content-Type: application/grpc
+X-Padding: <random bytes, 100–1000>   ← anti-size-fingerprinting
+
+[VLESS payload chunk]
+```
+
+**Response structure (server → client):**
+```
+HTTP/2 200
+Content-Type: application/grpc
+Transfer-Encoding: chunked
+
+[streaming VLESS response data]
+```
+
+#### XMUX Multiplexing
+
+Without multiplexing, each TCP connection through the tunnel becomes a separate HTTP/2 stream, and the number of concurrent streams to a single CDN domain becomes a detection signal. XMUX batches multiple VLESS flows into one HTTP/2 connection.
+
+```
+XMUX session (persistent H2 connection to CDN)
+├── H2 stream 1 → VLESS flow for tab 1
+├── H2 stream 2 → VLESS flow for tab 2
+└── H2 stream 3 → VLESS flow for tab 3
+```
+
+Config:
+```json
+{
+  "xmux": {
+    "max_connections": 8,
+    "max_concurrent_streams": 32,
+    "c_down_min_kbps": 0,
+    "c_up_min_kbps": 0
+  }
+}
+```
+
+#### xPaddingBytes — Defeating Size-Distribution Classifiers
+
+TSPU ML models extract packet size histograms. Proxy tunnels show MTU-clustered distributions (1400–1500 byte packets dominate). Browser traffic shows wide variance. `xPaddingBytes` adds a random number of padding bytes to each request:
+
+```json
+{
+  "xPaddingBytes": "100-1000"
+}
+```
+
+Each POST request body length = `payload_length + random(100, 1000)`. The server strips the padding. The resulting size distribution matches browser API calls.
+
+**Mandatory:** Without padding, size-distribution ML achieves 95–99% classification accuracy in lab conditions.
+
+#### Recommended Server Config (April 2026)
+
+```json
+{
+  "transport": {
+    "type": "xhttp",
+    "path": "/api/v1/stream",
+    "mode": "auto",
+    "xPaddingBytes": "100-1000",
+    "host": "www.microsoft.com",
+    "scMaxConcurrentPosts": 0,
+    "scMaxEachPostBytes": "1mb-2mb",
+    "scMinPostsIntervalMs": "10-50"
+  },
+  "tls": {
+    "enabled": true,
+    "server_name": "www.microsoft.com",
+    "fingerprint": "chrome",
+    "reality": {
+      "enabled": true,
+      "public_key": "...",
+      "short_id": "..."
+    }
+  }
+}
+```
+
+**Preferred mask sites:** `github.com`, `twitch.tv`, `discord.com`. Avoid `apple.com` — Apple operates from AS714; Hetzner/Aeza IPs in Apple's name are flagged at L3.
+
+**Version constraint:** Client and server Xray-core versions must match. XMUX protocol is under active development; mismatched versions cause silent connection failure.
+
+#### CDN Deployment (xHTTP + Cloudflare)
+
+When targeting `packet-up` mode through Cloudflare CDN:
+
+```
+Client → Cloudflare edge (CDN, whitelisted IP) → VPS (xHTTP server)
+```
+
+- Cloudflare acts as TCP/TLS terminator; VLESS payload rides in the CDN-proxied HTTP/2 body
+- Client connects to Cloudflare IP (not blocked); Cloudflare forwards to VPS via HTTP/2 upstream
+- **Cloudflare free tier limit:** 100 MB request body → `scMaxEachPostBytes` must stay under 95 MB
+- CDN fronting defeats mobile whitelist blocking (Cloudflare IPs remain accessible)
+- Requires `fingerprint: "chrome"` on client TLS to Cloudflare (see item 26)
+
+#### Rust Implementation Notes
+
+The existing `ripdpi-vless` crate handles VLESS framing; xHTTP is a transport-layer addition:
+
+```
+ripdpi-vless (VLESS framing)
+  └── ripdpi-xhttp (new) — HTTP/2 transport
+        ├── hyper 1.x + h2 crate (H2 framing)
+        ├── xPaddingBytes PRNG (thread_rng range)
+        ├── XMUX session manager (connection pool + stream counter)
+        └── CDN TLS (boring crate, fingerprint: chrome — see item 26)
+```
+
+The `h2` crate (`hyperium/h2`) handles HTTP/2 framing directly without the overhead of full `hyper`. XMUX requires a connection pool: maintain N persistent H2 connections, route new VLESS flows to least-loaded connection.
+
+**Interaction with item 23 (smux):** smux and XMUX are alternative multiplexing strategies; do not combine. Use XMUX when xHTTP transport is active.
+
+**Reference:** [xray-core xHTTP transport spec](https://xtls.github.io/en/config/transports/xhttp.html), [ntc.party thread 13855 — 426 replies, April 2026](https://ntc.party/t/13855)
+
+**Root required:** No | **Effort:** High | **Priority:** P0
+
+---
+
+## Tier 4 (continued): JA3 Fingerprint — All TLS Origins (P0)
+
+### 26. JA3/JA4 Chrome Fingerprint for All Client-Originated TLS
+
+Item 13 covers fingerprint mimicry conceptually. This item specifies the implementation scope triggered by the April 2026 escalation: **every** TLS connection originated by RIPDPI must present a Chrome-compatible JA3/JA4 fingerprint. Scope is broader than just TSPU-facing connections.
+
+#### April 2026 Trigger Event
+
+On April 1, 2026, TSPU began blocking Telegram by JA3 fingerprinting the Telegram client's own TLS ClientHello:
+
+- **Telegram JA3:** `f07cc269d9323c428b7297219bed6754`
+- **Detection:** Non-standard extension ordering, absent ECH, non-browser ALPN, MTProto-characteristic cipher suite order
+- **Blocking scope:** Client-to-proxy TLS connections, not just server IP blocking
+- **MTProxy/FakeTLS ineffective:** These change the server destination but not the client's own TLS fingerprint
+
+Consequence: any component of RIPDPI that opens a TLS connection with Go's `crypto/tls` default or Rust `rustls` default fingerprint is now detectable and blockable by the same mechanism.
+
+#### Scope of TLS Connections Requiring Chrome JA3
+
+| Connection | Current library | Risk |
+|-----------|----------------|------|
+| VLESS+Reality outbound | BoringSSL via `boring` crate | Low — Reality handles server-side; client Hello to real site uses boring defaults |
+| xHTTP to CDN (item 25) | TBD | **High** — Cloudflare-facing Hello is DPI-visible |
+| Hysteria2 over QUIC | `rustls` / `quinn` | **High** — QUIC Initial carries TLS ClientHello |
+| DoH resolver (dns-over-https) | `reqwest` / `rustls` | Medium — DNS query TLS visible |
+| WARP registration API (item 1) | Custom TLS, already uses SNICurve extension | Medium |
+| ShadowTLS v3 (item 21) | BoringSSL | Low — mirrors real site Hello by design |
+| MASQUE/Cloudflare (item 12) | TBD | **High** — HTTP/3 QUIC Initial visible |
+
+#### Chrome JA3 Fingerprint Spec (Chrome 133, April 2026)
+
+```
+TLS version: TLS 1.3
+Cipher suites (order matters):
+  0x1301 (TLS_AES_128_GCM_SHA256)
+  0x1302 (TLS_AES_256_GCM_SHA384)
+  0x1303 (TLS_CHACHA20_POLY1305_SHA256)
+  0xC02B, 0xC02F, 0xC02C, 0xC030 (ECDHE-AESGCM variants)
+  0xCCA9, 0xCCA8 (ECDHE-CHACHA20)
+  0xC013, 0xC014, 0x009C, 0x009D, 0x002F, 0x0035 (legacy, for fallback)
+
+Extensions (order matters for JA4, sorted for JA4+):
+  0x0000 SNI
+  0x0017 extended_master_secret
+  0xFF01 renegotiation_info
+  0x000A supported_groups: [X25519MLKEM768(0x11EC), X25519(0x001D), P256(0x0017), P384(0x0018)]
+  0x000B ec_point_formats: [uncompressed]
+  0x0010 ALPN: [h2, http/1.1]
+  0x0016 encrypt_then_mac (empty)
+  0x0023 session_ticket (empty)
+  0x0012 signed_cert_timestamps (empty)
+  0x0033 key_share: [X25519MLKEM768, X25519]
+  0x002B supported_versions: [TLS 1.3, TLS 1.2]
+  0x000D signature_algorithms: [ECDSA_P256_SHA256, RSA_PSS_SHA256, RSA_PKCS1_SHA256, ...]
+  0x0015 padding (variable, to target ~512 byte ClientHello)
+  GREASE values at start/end of cipher list and extension list
+```
+
+**ML-KEM 768 key share** (`X25519MLKEM768`, extension 0x11EC) was added in Chrome 131 and is a strong differentiator — Go `crypto/tls` and `rustls` do not include it by default.
+
+#### Implementation via BoringSSL (`boring` crate)
+
+RIPDPI already links BoringSSL via the `boring` crate (for `boringtun`). Extend this to control ClientHello construction:
+
+```rust
+use boring::ssl::{SslConnector, SslMethod, SslVersion};
+
+fn build_chrome_connector() -> SslConnector {
+    let mut builder = SslConnector::builder(SslMethod::tls_client()).unwrap();
+
+    // TLS 1.3 only for modern connections
+    builder.set_min_proto_version(Some(SslVersion::TLS1_2)).unwrap();
+
+    // Set cipher list matching Chrome 133
+    builder.set_cipher_list(
+        "TLS_AES_128_GCM_SHA256:TLS_AES_256_GCM_SHA384:TLS_CHACHA20_POLY1305_SHA256:\
+         ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:..."
+    ).unwrap();
+
+    // Enable GREASE (BoringSSL extension)
+    builder.set_grease_enabled(true);
+
+    // Add ML-KEM 768 key share group
+    builder.set_curves(&[
+        boring::nid::Nid::X25519MLKEM768,
+        boring::nid::Nid::X25519,
+        SslCurve::SECP256R1,
+        SslCurve::SECP384R1,
+    ]).unwrap();
+
+    // Padding extension — target ~512 byte ClientHello
+    builder.set_record_padding_cb(...);
+
+    builder.build()
+}
+```
+
+#### JA3 Fingerprint Staleness Problem
+
+Chrome updates its TLS fingerprint approximately every 6 weeks with each major release. RIPDPI hardcoding Chrome 133 will drift. Options:
+
+1. **Bundled fingerprint profiles** — JSON file with per-version Chrome/Firefox fingerprints, updated via strategy packs (item 15). App selects the most recent profile.
+2. **GREASE randomisation** — Chrome's GREASE values change per-session; BoringSSL `set_grease_enabled(true)` handles this automatically.
+3. **Fallback fingerprint rotation** — if current fingerprint starts failing diagnostics, rotate to next profile automatically.
+
+**Root required:** No | **Effort:** High | **Priority:** P0
+
+---
+
+## Tier 5 (continued): Android Platform (P1–P2)
+
+### 27. IP Correlation Deanonymization Defense — Dual-IP VPS Support
+
+**Threat model (April 2026, ntc.party thread 23690, 163 replies):**
+
+Spyware embedded in Russian apps (MAX Messenger, potentially others) detects the VPN exit IP and transmits it to servers. Authorities cross-reference with ISP NAT logs to deanonymize users. This attack works regardless of VPN protocol quality — it targets the *exit IP*, not the VPN detection.
+
+```
+Attack flow:
+[User device] ──VLESS──▶ [VPS: inbound=A, outbound=A] ──▶ [Internet]
+                                        ▲
+              MAX Messenger sees IP A, reports to servers
+                                        ▼
+              [ISP NAT log: IP A ↔ user's home IP]
+              → user identified
+```
+
+#### Defence: Separate Inbound and Outbound IPs
+
+With two IPs on the relay VPS:
+
+```
+[User device] ──VLESS──▶ [VPS: inbound=A (secret), outbound=B (public)] ──▶ [Internet]
+                                                        ▲
+                                  Spyware sees IP B, reports it
+                                                        ▼
+                            [ISP NAT: IP B ↔ ???]  ← no match (B is not the listening addr)
+```
+
+The user connects to IP A (not advertised publicly). Traffic exits through IP B. The spyware reports B but ISP logs only show connections *to* A.
+
+#### Client-Side Configuration
+
+Add `outbound_bind_ip` field to relay/chain configuration:
+
+```json
+{
+  "relay": {
+    "entry": {
+      "server": "A.A.A.A",
+      "port": 443,
+      "protocol": "vless-reality"
+    },
+    "outbound_bind_ip": "B.B.B.B"
+  }
+}
+```
+
+In Rust relay code (`ripdpi-relay-core`), bind outbound sockets explicitly:
+
+```rust
+let socket = TcpSocket::new_v4()?;
+socket.bind(SocketAddr::new(outbound_ip, 0))?;
+let stream = socket.connect(remote_addr).await?;
+```
+
+On the VPS, the secondary IP must be configured as a routing source:
+```bash
+ip route add default via <gateway> dev eth0 src B.B.B.B table 200
+ip rule add from B.B.B.B table 200
+```
+
+RIPDPI should surface this as a configuration field in the relay setup wizard with a documentation link explaining the VPS-side route configuration.
+
+#### Relationship to Chain Relay (item 11)
+
+Chain relay (RU VPS → foreign VPS) provides equivalent protection: the spyware sees the Russian VPS's outbound IP, which is domestic and not directly linkable to a foreign proxy. Dual-IP VPS is the single-server alternative at lower cost.
+
+**Root required:** No (client-side config only) | **Effort:** Low | **Priority:** P1
+
+---
+
+### 28. Per-App Package Name Regex Routing
+
+**Extends item 24 (per-app UID exclusion)** with regex-based matching introduced by sing-box 1.14.0-alpha.10 (ntc.party thread 24016, April 2026).
+
+#### Problem with UID-Based Exclusion
+
+Android VpnService `addDisallowedApplication(pkg)` requires exact package names and is resolved to UIDs at VPN startup. Two failure modes:
+
+1. **Force-selected interface:** Some apps (Sberbank, certain Russian government apps) call `Network.bindSocket()` or use `ConnectivityManager.requestNetwork()` to bypass UID-based routing entirely — they select the underlying network interface directly, circumventing the VPN. UID exclusion does not help.
+
+2. **Package name enumeration:** The exact-match exclusion list requires constant maintenance as new detection-implementing apps appear.
+
+#### Solution: Regex-Based Routing Rules
+
+Resolve patterns at config parse time to UID lists, then apply at runtime:
+
+```json
+{
+  "route": {
+    "rules": [
+      {
+        "package_name_regex": ["^ru\\.sberbank", "^ru\\.tinkoff", "^ru\\.vtb", "^ru\\.alfabank"],
+        "outbound": "direct",
+        "comment": "Banking apps — route direct to avoid VPN detection flags"
+      },
+      {
+        "package_name_regex": ["^ru\\.gosuslugi", "^ru\\.nalog", "^com\\.fns"],
+        "outbound": "direct",
+        "comment": "Government apps — route direct, often have mandatory real-IP checks"
+      },
+      {
+        "package_name_regex": [".+"],
+        "invert": true,
+        "outbound": "block",
+        "comment": "Block unidentified packages (anti-leak for unknown apps)"
+      }
+    ]
+  }
+}
+```
+
+#### Android Implementation
+
+```kotlin
+// At VPN config build time — resolve regex to package list
+fun resolvePackageRegex(pm: PackageManager, pattern: String): List<String> {
+    val regex = Regex(pattern)
+    return pm.getInstalledPackages(0)
+        .map { it.packageName }
+        .filter { regex.containsMatchIn(it) }
+}
+
+// Apply to VpnService.Builder
+resolvedPackages.forEach { pkg ->
+    try { builder.addDisallowedApplication(pkg) }
+    catch (e: PackageManager.NameNotFoundException) { /* not installed */ }
+}
+```
+
+#### Preset Rule Sets
+
+Bundle common presets in `app-exclusion-list.json` (item 24's file):
+
+| Preset | Pattern | Rationale |
+|--------|---------|-----------|
+| Russian banking | `^ru\\.sberbank`, `^ru\\.tinkoff`, `^ru\\.vtb`, `^ru\\.alfabank` | Use domestic IP for auth; geo-checks on login |
+| Russian government | `^ru\\.gosuslugi`, `^ru\\.nalog`, `^com\\.fns` | Real IP required; often have VPN detection |
+| Russian marketplaces | `^ru\\.wildberries`, `^ru\\.ozon`, `^ru\\.avito` | IP-based geo-check on checkout |
+| All Russian namespace | `^ru\\.` | Aggressive — routes all `ru.*` apps direct |
+
+#### Interaction with May 2026 Billing Surcharge
+
+From May 1, 2026: mobile data usage >15 GB/month incurs 150 RUB/GB surcharge for international traffic. Apps that generate high-volume domestic traffic (streaming, cloud sync) must be routed direct to avoid billing through the VPN's international exit. The `^ru\.` preset directly addresses this.
+
+**Root required:** No | **Effort:** Low–Medium | **Priority:** P1
+
+---
+
+### 29. Russian Cloud Relay Preset for Mobile Whitelist Bypass
+
+**Extends item 11 (chain relay)** with a purpose-built preset for the mobile whitelist regime active since September 2025 on all four major Russian operators.
+
+#### Problem: Foreign VPS Unreachable on Mobile Data
+
+Mobile whitelist mode blocks all TCP/TLS connections to non-approved IP ranges at the SYN+ClientHello level. Hetzner, DigitalOcean, Vultr, OVH, Aeza — all blocked. Even Cloudflare CDN IPs are partially blocked for mobile users (operator-specific).
+
+#### Solution: Russian Cloud as First Hop
+
+Russian cloud providers (Yandex.Cloud, VK Cloud, Selectel within Russia) are implicitly whitelisted — blocking them would break Yandex services and trigger regulatory liability. Traffic Yandex.Cloud → foreign VPS exits Russia on a domestic-origin connection, bypassing TSPU international-traffic inspection.
+
+```
+[Mobile device] ──VLESS+Reality──▶ [Yandex.Cloud preemptible VM, ru-central1]
+                                              │
+                                     VLESS+xHTTP tunnel
+                                              │
+                                              ▼
+                                   [Foreign VPS, e.g. Aeza Stockholm]
+                                              │
+                                              ▼
+                                         [Internet]
+```
+
+#### Yandex.Cloud Specifics
+
+- **Preemptible VMs:** 400–500 RUB/month (e1.micro, 2 vCPU / 1 GB RAM), interrupted max 24h/day
+- **Static IPs:** 108–120 RUB/month for a dedicated external IP
+- **Connectivity:** Yandex.Cloud → Hetzner/Aeza/Vultr has 30–50ms added latency vs direct
+- **SNI cover:** Use `ya.ru` or `yandex.ru` as outer SNI on the client→relay hop (both are whitelisted)
+
+#### RIPDPI Config Preset
+
+```json
+{
+  "preset": "ru-relay-mobile",
+  "description": "Russian Cloud Relay for mobile whitelist bypass",
+  "hops": [
+    {
+      "role": "entry",
+      "server": "<yandex-cloud-vm-ip>",
+      "port": 443,
+      "protocol": "vless-reality",
+      "tls": {
+        "server_name": "ya.ru",
+        "fingerprint": "chrome"
+      }
+    },
+    {
+      "role": "exit",
+      "server": "<foreign-vps-ip>",
+      "port": 443,
+      "protocol": "vless-xhttp",
+      "transport": {
+        "mode": "packet-up",
+        "xPaddingBytes": "100-1000"
+      }
+    }
+  ],
+  "routing": {
+    "domestic_direct": true,
+    "whitelist_domains_direct": true
+  }
+}
+```
+
+#### Routing Logic
+
+- **Domestic traffic direct:** RU IPs bypass the relay entirely (improves latency for domestic services)
+- **Whitelisted domains direct:** Gosuslugi, Sberbank, etc. use ISP connection (avoids double-hop overhead)
+- **Everything else:** Relay chain
+
+Integrate with the existing `host-autolearn-v2.json` per-network scoping: on mobile networks, auto-activate the Russian relay preset when diagnostics detect whitelist-mode blocking (item 4 of the WARP endpoint scanner can be adapted for relay health probing).
+
+#### Cost Estimate
+
+| Component | Cost |
+|-----------|------|
+| Yandex.Cloud e1.micro preemptible | ~400 RUB/month |
+| Static IP | ~120 RUB/month |
+| Foreign VPS (Aeza Stockholm) | ~€2/month (~200 RUB) |
+| **Total** | **~720 RUB/month (~$8)** |
+
+**Root required:** No | **Effort:** Medium | **Priority:** P1
+
+---
+
 ## Summary Matrix
 
 | # | Feature | Root? | Effort | Impact | Priority |
@@ -837,6 +1344,11 @@ Additional techniques: Connection ID rotation (`NEW_CONNECTION_ID` encrypted), v
 | 22 | NaiveProxy | No | Very High | Medium | P2 |
 | 23 | Multiplexed connections (smux) | No | Medium | Medium | P2 |
 | 24 | Per-app UID exclusion | No | Medium | High | P1 |
+| 25 | xHTTP transport for VLESS | No | High | Very High | P0 |
+| 26 | JA3/JA4 Chrome fingerprint — all TLS | No | High | Very High | P0 |
+| 27 | IP correlation defense — dual-IP VPS | No | Low | High | P1 |
+| 28 | Per-app package name regex routing | No | Low–Medium | High | P1 |
+| 29 | Russian cloud relay preset | No | Medium | Very High | P1 |
 
 ## Reference Projects
 
@@ -871,6 +1383,14 @@ Additional techniques: Connection ID rotation (`NEW_CONNECTION_ID` encrypted), v
 - net4people/bbs (GitHub) -- ECH blocking (#417), TSPU new methods (#490), mobile whitelists (#516)
 - Cloudflare blog -- MASQUE architecture, WARP protocol details, Zero Trust WARP
 - USENIX Security 2025 -- QUIC censorship evasion paper
+- Habr (March 12, 2026) -- [Как ТСПУ ловит VLESS: 4-слойная классификация и xHTTP](https://habr.com/ru/articles/1009542/)
+- Habr (March 14, 2026) -- [Анатомия DPI: первые 16 КБ пакета](https://habr.com/ru/articles/1009560/)
+- Habr (April 9, 2026) -- [4-слойная VPN архитектура против вайтлиста](https://habr.com/ru/articles/1021160/)
+- ntc.party thread 23605 -- Telegram TLS JA3 fingerprint blocking, 142 replies, April 2026
+- ntc.party thread 23690 -- IP correlation deanonymization attack + sing-box dual-IP mitigation, 163 replies
+- ntc.party thread 24016 -- sing-box 1.14.0 package_name_regex Android routing, April 2026
+- ntc.party thread 13855 -- xHTTP transport field testing, 426+ replies, active April 2026
+- net4people/bbs #603 -- Snowflake DTLS JA3 filtering (March 30, 2026) + CovertDTLS fix
 - QUICstep paper (Princeton/U. Michigan) -- QUIC connection migration exploitation
 - ByeDPI source (hufrea/byedpi) -- `extend.c`, `params.h`, `desync.c`, `mpool.h`
 - Zapret source (bol-van/zapret) -- `nfq/darkmagic.c`, `nfq/desync.c`
