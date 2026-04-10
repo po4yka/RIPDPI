@@ -31,6 +31,14 @@ This file translates the highest-priority roadmap work into repo-specific implem
 
 5. Add Cloudflare Tunnel only after the TLS and xHTTP substrate is stable. Integrate it through the existing relay model instead of adding a one-off service path, and prefer the lowest-risk client architecture that gets a working transport into the app quickly.
 
+## P0 Cloudflare Tunnel Topology
+
+- P0 ships `cloudflare_tunnel` as an xHTTP-backed relay specialization, not as an embedded `cloudflared` client.
+- The relay `server` and `serverName` fields must point at a user-managed Cloudflare Tunnel hostname.
+- That hostname is expected to front a user-managed xHTTP/VLESS origin.
+- RIPDPI does not provision tunnel tokens, launch `cloudflared`, or offer TryCloudflare onboarding in Phase 0.
+- UDP is always off for this relay kind, and Chrome TLS fingerprinting is mandatory.
+
 ## Repo Touchpoints
 
 - Data and persistence: `core/data/src/main/kotlin/com/poyka/ripdpi/data/WarpSettings.kt`, `core/data/src/main/kotlin/com/poyka/ripdpi/data/WarpStores.kt`, `core/data/src/main/kotlin/com/poyka/ripdpi/data/RelaySettings.kt`, `core/data/src/main/kotlin/com/poyka/ripdpi/data/AppSettingsJson.kt`

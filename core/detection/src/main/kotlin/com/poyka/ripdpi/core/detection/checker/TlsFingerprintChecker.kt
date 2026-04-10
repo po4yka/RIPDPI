@@ -5,6 +5,8 @@ import com.poyka.ripdpi.core.detection.EvidenceConfidence
 import com.poyka.ripdpi.core.detection.EvidenceItem
 import com.poyka.ripdpi.core.detection.EvidenceSource
 import com.poyka.ripdpi.core.detection.Finding
+import com.poyka.ripdpi.data.TlsFingerprintProfileChromeStable
+import com.poyka.ripdpi.data.normalizeTlsFingerprintProfile
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.security.MessageDigest
@@ -25,18 +27,13 @@ object TlsFingerprintChecker {
             "TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256",
         )
 
-    private val KNOWN_ANDROID_FINGERPRINTS =
-        setOf(
-            "android_default",
-            "okhttp_default",
-        )
-
     suspend fun check(tlsFingerprintProfile: String = "chrome_stable"): CategoryResult =
         withContext(Dispatchers.IO) {
             val findings = mutableListOf<Finding>()
             val evidence = mutableListOf<EvidenceItem>()
             var detected = false
             var needsReview = false
+            val normalizedProfile = normalizeTlsFingerprintProfile(tlsFingerprintProfile)
 
             val localCiphers = getLocalCipherSuites()
             val localProtocols = getLocalProtocols()
@@ -47,7 +44,7 @@ object TlsFingerprintChecker {
             val fingerprintHash = computeFingerprint(localCiphers, localProtocols)
             findings.add(Finding("TLS fingerprint hash: ${fingerprintHash.take(16)}..."))
 
-            findings.add(Finding("Fingerprint profile: $tlsFingerprintProfile"))
+            findings.add(Finding("Fingerprint profile: $normalizedProfile"))
 
             val hasTls13 = localProtocols.any { it == "TLSv1.3" }
             if (!hasTls13) {
@@ -96,25 +93,7 @@ object TlsFingerprintChecker {
                 )
             }
 
-            if (tlsFingerprintProfile == "native_default") {
-                needsReview = true
-                findings.add(
-                    Finding(
-                        description = "Using default Android TLS profile - detectable as non-browser",
-                        needsReview = true,
-                        source = EvidenceSource.NETWORK_CAPABILITIES,
-                        confidence = EvidenceConfidence.LOW,
-                    ),
-                )
-                evidence.add(
-                    EvidenceItem(
-                        source = EvidenceSource.NETWORK_CAPABILITIES,
-                        detected = true,
-                        confidence = EvidenceConfidence.LOW,
-                        description = "Default Android TLS fingerprint is distinguishable from browsers",
-                    ),
-                )
-            } else if (tlsFingerprintProfile == "chrome_stable") {
+            if (normalizedProfile == TlsFingerprintProfileChromeStable) {
                 findings.add(Finding("Using Chrome-stable TLS profile"))
             }
 

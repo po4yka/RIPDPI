@@ -131,10 +131,7 @@ impl XhttpClient {
                 mode,
                 max_connections: xmux.max_connections.max(1),
                 max_concurrent_streams: xmux.max_concurrent_streams.max(1),
-                state: Mutex::new(PoolState {
-                    connections: Vec::new(),
-                    creating_connections: 0,
-                }),
+                state: Mutex::new(PoolState { connections: Vec::new(), creating_connections: 0 }),
             }),
         }
     }
@@ -191,10 +188,8 @@ impl XhttpClient {
                 tokio::task::yield_now().await;
                 continue;
             };
-            let permit = permits
-                .acquire_owned()
-                .await
-                .map_err(|_| io::Error::other("xHTTP stream permit channel closed"))?;
+            let permit =
+                permits.acquire_owned().await.map_err(|_| io::Error::other("xHTTP stream permit channel closed"))?;
             if connection.is_closed() {
                 drop(permit);
                 continue;
@@ -209,12 +204,7 @@ impl XhttpClient {
             if connection.is_closed() {
                 return None;
             }
-            connection
-                .permits
-                .clone()
-                .try_acquire_owned()
-                .ok()
-                .map(|permit| (connection.clone(), permit))
+            connection.permits.clone().try_acquire_owned().ok().map(|permit| (connection.clone(), permit))
         })
     }
 
@@ -233,8 +223,7 @@ impl XhttpClient {
                 tcp.set_nodelay(true)?;
                 let connector = ripdpi_tls_profiles::build_connector(&config.tls_fingerprint_profile, true)
                     .map_err(|error| io::Error::other(format!("TLS profile: {error}")))?;
-                let ssl =
-                    connector.configure().map_err(|error| io::Error::other(format!("TLS configure: {error}")))?;
+                let ssl = connector.configure().map_err(|error| io::Error::other(format!("TLS configure: {error}")))?;
                 let tls = tokio_boring::connect(ssl, &config.server_name, tcp).await.map_err(|error| {
                     io::Error::new(io::ErrorKind::ConnectionRefused, format!("xHTTP TLS handshake: {error}"))
                 })?;
@@ -242,9 +231,9 @@ impl XhttpClient {
             }
         };
 
-        let (sender, connection) = http2::handshake(TokioExecutor::new(), io)
-            .await
-            .map_err(|error| io::Error::new(io::ErrorKind::ConnectionRefused, format!("xHTTP H2 handshake: {error}")))?;
+        let (sender, connection) = http2::handshake(TokioExecutor::new(), io).await.map_err(|error| {
+            io::Error::new(io::ErrorKind::ConnectionRefused, format!("xHTTP H2 handshake: {error}"))
+        })?;
 
         let pooled = Arc::new(PooledConnection {
             sender: Mutex::new(sender),
@@ -484,8 +473,8 @@ impl PooledConnection {
         let post_request =
             build_post_request(&stream_path, &host_header, &referer, &header_padding, ChannelBody::new(outgoing_rx))?;
         let post_response = sender.send_request(post_request).await.map_err(|error| {
-                io::Error::new(io::ErrorKind::ConnectionRefused, format!("xHTTP POST request failed: {error}"))
-            })?;
+            io::Error::new(io::ErrorKind::ConnectionRefused, format!("xHTTP POST request failed: {error}"))
+        })?;
         drop(sender);
         if !post_response.status().is_success() {
             return Err(io::Error::new(
@@ -537,11 +526,7 @@ impl PooledConnection {
         let request = ripdpi_vless::wire::encode_request(mode.uuid(), &ripdpi_vless::addons::VISION_ADDONS, target);
         user_upload.write_all(&request).await?;
 
-        let mut stream = XhttpStream {
-            reader: user_download,
-            writer: user_upload,
-            _permit: permit,
-        };
+        let mut stream = XhttpStream { reader: user_download, writer: user_upload, _permit: permit };
         ripdpi_vless::wire::read_response(&mut stream).await?;
         Ok(stream)
     }

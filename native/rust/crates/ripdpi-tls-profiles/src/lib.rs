@@ -95,6 +95,7 @@ fn weighted_pick(candidates: &[(&str, u32)], hash: u64) -> &'static str {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use boring::ssl::SslVersion;
 
     #[test]
     fn chrome_builder_succeeds() {
@@ -119,5 +120,23 @@ mod tests {
         let mut builder = configure_builder("chrome_stable").unwrap();
         builder.set_verify(SslVerifyMode::NONE);
         let _ = builder.build();
+    }
+
+    #[test]
+    fn unknown_profile_lookup_uses_chrome_profile() {
+        let profile = profile::lookup_profile("native_default");
+        assert_eq!("chrome_stable", profile.name);
+    }
+
+    #[test]
+    fn chrome_profile_matches_phase_zero_invariants() {
+        let profile = profile::lookup_profile("chrome_stable");
+
+        assert_eq!("chrome_stable", profile.name);
+        assert_eq!(SslVersion::TLS1_2, profile.min_version);
+        assert_eq!(SslVersion::TLS1_3, profile.max_version);
+        assert_eq!(&[b"h2".as_slice(), b"http/1.1".as_slice()], profile.alpn);
+        assert!(profile.grease_enabled);
+        assert!(profile.permute_extensions);
     }
 }

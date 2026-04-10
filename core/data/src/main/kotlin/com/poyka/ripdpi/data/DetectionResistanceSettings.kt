@@ -1,6 +1,5 @@
 package com.poyka.ripdpi.data
 
-const val TlsFingerprintProfileNativeDefault = "native_default"
 const val TlsFingerprintProfileChromeStable = "chrome_stable"
 const val TlsFingerprintProfileFirefoxStable = "firefox_stable"
 
@@ -18,7 +17,7 @@ fun normalizeTlsFingerprintProfile(value: String): String =
     when (value.trim().lowercase()) {
         TlsFingerprintProfileChromeStable -> TlsFingerprintProfileChromeStable
         TlsFingerprintProfileFirefoxStable -> TlsFingerprintProfileFirefoxStable
-        TlsFingerprintProfileNativeDefault -> TlsFingerprintProfileChromeStable
+        "native_default" -> TlsFingerprintProfileChromeStable
         else -> TlsFingerprintProfileChromeStable
     }
 
