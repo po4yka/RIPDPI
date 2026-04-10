@@ -364,7 +364,7 @@ abstract class BuildRustNativeLibsTask
             val ndkDir = File(sdkDir.get()).resolve("ndk").resolve(ndkVersion.get())
             val toolchainsDir = ndkDir.resolve("toolchains/llvm/prebuilt")
             val hostTag =
-                listOf("linux-x86_64", "darwin-arm64", "darwin-x86_64")
+                listOf("linux-aarch64", "linux-x86_64", "darwin-arm64", "darwin-x86_64")
                     .firstOrNull { toolchainsDir.resolve(it).isDirectory }
                     ?: throw GradleException("Unsupported NDK host toolchain layout in ${toolchainsDir.absolutePath}")
             return toolchainsDir.resolve(hostTag).resolve("bin")
