@@ -9,8 +9,8 @@ mod tests;
 // Public API re-exports -- types
 pub use types::{
     CellularSnapshot, NetworkSnapshot, ProxyConfigError, ProxyConfigPayload, ProxyEncryptedDnsContext, ProxyLogContext,
-    ProxyRuntimeContext, ProxyUiActivationFilter, ProxyUiChainConfig, ProxyUiConfig, ProxyUiFakePacketConfig,
-    ProxyUiHostAutolearnConfig, ProxyUiHostsConfig, ProxyUiListenConfig, ProxyUiNumericRange,
+    ProxyPreferredEdge, ProxyRuntimeContext, ProxyUiActivationFilter, ProxyUiChainConfig, ProxyUiConfig,
+    ProxyUiFakePacketConfig, ProxyUiHostAutolearnConfig, ProxyUiHostsConfig, ProxyUiListenConfig, ProxyUiNumericRange,
     ProxyUiParserEvasionConfig, ProxyUiProtocolConfig, ProxyUiQuicConfig, ProxyUiTcpChainStep, ProxyUiUdpChainStep,
     RuntimeConfigEnvelope, WifiSnapshot, ADAPTIVE_FAKE_TTL_DEFAULT_DELTA, ADAPTIVE_FAKE_TTL_DEFAULT_FALLBACK,
     ADAPTIVE_FAKE_TTL_DEFAULT_MAX, ADAPTIVE_FAKE_TTL_DEFAULT_MIN, FAKE_PAYLOAD_PROFILE_COMPAT_DEFAULT,

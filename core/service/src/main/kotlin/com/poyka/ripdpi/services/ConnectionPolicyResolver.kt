@@ -22,6 +22,7 @@ import com.poyka.ripdpi.data.StrategyLaneFamilies
 import com.poyka.ripdpi.data.TemporaryResolverOverride
 import com.poyka.ripdpi.data.VpnDnsPolicyJson
 import com.poyka.ripdpi.data.diagnostics.NetworkDnsPathPreferenceStore
+import com.poyka.ripdpi.data.diagnostics.NetworkEdgePreferenceStore
 import com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyEntity
 import com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyStore
 import com.poyka.ripdpi.data.diagnostics.toPolicyJson
@@ -77,6 +78,7 @@ class DefaultConnectionPolicyResolver
         private val appSettingsRepository: AppSettingsRepository,
         private val networkFingerprintProvider: NetworkFingerprintProvider,
         private val networkDnsPathPreferenceStore: NetworkDnsPathPreferenceStore,
+        private val networkEdgePreferenceStore: NetworkEdgePreferenceStore,
         private val rememberedNetworkPolicyStore: RememberedNetworkPolicyStore,
         private val startupDnsProbe: VpnStartupDnsProbe,
         private val rootHelperManager: RootHelperManager,
@@ -105,7 +107,8 @@ class DefaultConnectionPolicyResolver
                     preferredPath = preferredVpnDnsPath,
                 )
             val protectPath = resolveVpnProtectPath(context, mode)
-            val runtimeContext = mergeRuntimeContext(baselineVpnDnsSelection.activeDns, protectPath)
+            val preferredEdges = resolvePreferredEdges(networkScopeKey)
+            val runtimeContext = mergeRuntimeContext(baselineVpnDnsSelection.activeDns, protectPath, preferredEdges)
             val hostAutolearnStorePath = resolveHostAutolearnStorePath(context)
 
             val baselinePreferences =
@@ -176,7 +179,7 @@ class DefaultConnectionPolicyResolver
                     resolverOverride = dnsResolution.override,
                 )
             val effectiveDns = vpnDnsSelection.activeDns
-            val effectiveRuntimeContext = mergeRuntimeContext(effectiveDns, protectPath)
+            val effectiveRuntimeContext = mergeRuntimeContext(effectiveDns, protectPath, preferredEdges)
             val proxyPreferences =
                 RipDpiProxyJsonPreferences(
                     configJson = matchedPolicy.proxyConfigJson,
@@ -222,14 +225,34 @@ class DefaultConnectionPolicyResolver
         private fun mergeRuntimeContext(
             activeDns: ActiveDnsSettings,
             protectPath: String?,
+            preferredEdges: Map<String, List<com.poyka.ripdpi.data.PreferredEdgeCandidate>>,
         ): RipDpiRuntimeContext? {
             val dnsRuntimeContext = activeDns.toRipDpiRuntimeContext()
             return when {
-                protectPath == null -> dnsRuntimeContext
-                dnsRuntimeContext == null -> RipDpiRuntimeContext(protectPath = protectPath)
-                else -> dnsRuntimeContext.copy(protectPath = protectPath)
+                protectPath == null && dnsRuntimeContext == null && preferredEdges.isEmpty() -> {
+                    null
+                }
+
+                dnsRuntimeContext == null -> {
+                    RipDpiRuntimeContext(
+                        protectPath = protectPath,
+                        preferredEdges = preferredEdges,
+                    )
+                }
+
+                else -> {
+                    dnsRuntimeContext.copy(protectPath = protectPath, preferredEdges = preferredEdges)
+                }
             }
         }
+
+        private suspend fun resolvePreferredEdges(
+            networkScopeKey: String?,
+        ): Map<String, List<com.poyka.ripdpi.data.PreferredEdgeCandidate>> =
+            networkScopeKey
+                ?.let { fingerprintHash ->
+                    networkEdgePreferenceStore.getPreferredEdgesForRuntime(fingerprintHash)
+                }.orEmpty()
 
         private fun buildBaselinePreferences(
             settings: AppSettings,

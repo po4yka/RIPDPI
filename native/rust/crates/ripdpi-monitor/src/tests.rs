@@ -73,6 +73,7 @@ fn strategy_probe_request_with_runtime_context(
         domain_targets: vec![DomainTarget {
             host: "127.0.0.1".to_string(),
             connect_ip: None,
+            connect_ips: vec![],
             https_port: Some(9),
             http_port: Some(8080),
             http_path: "/".to_string(),
@@ -305,6 +306,7 @@ fn domain_probe_reports_tls_certificate_anomaly() {
     let target = DomainTarget {
         host: "localhost".to_string(),
         connect_ip: None,
+        connect_ips: vec![],
         https_port: Some(server.port()),
         http_port: Some(9),
         http_path: "/".to_string(),
@@ -334,6 +336,8 @@ fn tls_signal_reports_version_split_low_confidence() {
         tls_alert_description: None,
         tls_server_hello_received: None,
         tls_dpi_signature: None,
+        connected_addr: None,
+        cdn_provider: None,
     };
     let tls12 = TlsObservation {
         status: "tls_ok".to_string(),
@@ -352,6 +356,8 @@ fn tls_signal_reports_version_split_low_confidence() {
         tls_alert_description: None,
         tls_server_hello_received: None,
         tls_dpi_signature: None,
+        connected_addr: None,
+        cdn_provider: None,
     };
 
     assert_eq!(classify_tls_signal(&tls13, &tls12), "tls_version_split_low_confidence");
@@ -399,6 +405,7 @@ fn domain_probe_reports_http_blockpage() {
     let target = DomainTarget {
         host: "127.0.0.1".to_string(),
         connect_ip: None,
+        connect_ips: vec![],
         https_port: Some(9),
         http_port: Some(server.port()),
         http_path: "/".to_string(),
@@ -732,12 +739,14 @@ fn baseline_dns_tampering_uses_runtime_context_before_candidate_trials() {
             dnscrypt_public_key: None,
         }),
         protect_path: None,
+        preferred_edges: Default::default(),
     };
 
     let baseline = detect_strategy_probe_dns_tampering(
         &[DomainTarget {
             host: "blocked.example".to_string(),
             connect_ip: Some("203.0.113.10".to_string()),
+            connect_ips: vec![],
             https_port: Some(443),
             http_port: Some(80),
             http_path: "/".to_string(),
@@ -833,6 +842,7 @@ fn monitor_session_strategy_probe_marks_dns_short_circuit_completion_kind() {
             dnscrypt_public_key: None,
         }),
         protect_path: None,
+        preferred_edges: Default::default(),
     };
     let mut request = strategy_probe_request_with_runtime_context(
         minimal_ui_config(),
@@ -844,6 +854,7 @@ fn monitor_session_strategy_probe_marks_dns_short_circuit_completion_kind() {
     request.domain_targets = vec![DomainTarget {
         host: "blocked.example".to_string(),
         connect_ip: Some("203.0.113.10".to_string()),
+        connect_ips: vec![],
         https_port: Some(443),
         http_port: Some(80),
         http_path: "/".to_string(),
@@ -868,6 +879,7 @@ fn monitor_session_full_matrix_strategy_probe_reports_audit_assessment() {
         DomainTarget {
             host: "www.youtube.com".to_string(),
             connect_ip: Some("127.0.0.1".to_string()),
+            connect_ips: vec![],
             https_port: Some(9),
             http_port: Some(server.port()),
             http_path: "/".to_string(),
@@ -876,6 +888,7 @@ fn monitor_session_full_matrix_strategy_probe_reports_audit_assessment() {
         DomainTarget {
             host: "discord.com".to_string(),
             connect_ip: Some("127.0.0.1".to_string()),
+            connect_ips: vec![],
             https_port: Some(9),
             http_port: Some(server.port()),
             http_path: "/".to_string(),
@@ -884,6 +897,7 @@ fn monitor_session_full_matrix_strategy_probe_reports_audit_assessment() {
         DomainTarget {
             host: "proton.me".to_string(),
             connect_ip: Some("127.0.0.1".to_string()),
+            connect_ips: vec![],
             https_port: Some(9),
             http_port: Some(server.port()),
             http_path: "/".to_string(),
@@ -891,8 +905,18 @@ fn monitor_session_full_matrix_strategy_probe_reports_audit_assessment() {
         },
     ];
     request.quic_targets = vec![
-        QuicTarget { host: "www.youtube.com".to_string(), connect_ip: Some("127.0.0.1".to_string()), port: 9 },
-        QuicTarget { host: "discord.com".to_string(), connect_ip: Some("127.0.0.1".to_string()), port: 9 },
+        QuicTarget {
+            host: "www.youtube.com".to_string(),
+            connect_ip: Some("127.0.0.1".to_string()),
+            connect_ips: vec![],
+            port: 9,
+        },
+        QuicTarget {
+            host: "discord.com".to_string(),
+            connect_ip: Some("127.0.0.1".to_string()),
+            connect_ips: vec![],
+            port: 9,
+        },
     ];
     request.strategy_probe.as_mut().expect("strategy probe").target_selection = Some(StrategyProbeTargetSelection {
         cohort_id: "global-core".to_string(),
@@ -950,6 +974,7 @@ fn monitor_session_full_matrix_marks_dns_short_circuit_completion_kind() {
             dnscrypt_public_key: None,
         }),
         protect_path: None,
+        preferred_edges: Default::default(),
     };
     let mut request = strategy_probe_request_with_runtime_context(
         minimal_ui_config(),
@@ -961,13 +986,18 @@ fn monitor_session_full_matrix_marks_dns_short_circuit_completion_kind() {
     request.domain_targets = vec![DomainTarget {
         host: "blocked.example".to_string(),
         connect_ip: Some("127.0.0.1".to_string()),
+        connect_ips: vec![],
         https_port: Some(9),
         http_port: Some(9),
         http_path: "/".to_string(),
         is_control: false,
     }];
-    request.quic_targets =
-        vec![QuicTarget { host: "blocked.example".to_string(), connect_ip: Some("127.0.0.1".to_string()), port: 9 }];
+    request.quic_targets = vec![QuicTarget {
+        host: "blocked.example".to_string(),
+        connect_ip: Some("127.0.0.1".to_string()),
+        connect_ips: vec![],
+        port: 9,
+    }];
     let session = MonitorSession::new();
 
     session.start_scan("session-audit-dns-short".to_string(), request.into()).expect("start automatic audit");
@@ -1095,6 +1125,7 @@ fn monitor_session_drains_passive_events_with_probe_details() {
         domain_targets: vec![DomainTarget {
             host: "127.0.0.1".to_string(),
             connect_ip: None,
+            connect_ips: vec![],
             https_port: Some(9),
             http_port: Some(server.port()),
             http_path: "/".to_string(),
@@ -1212,6 +1243,7 @@ fn monitor_json_contracts_match_goldens() {
         domain_targets: vec![DomainTarget {
             host: "127.0.0.1".to_string(),
             connect_ip: None,
+            connect_ips: vec![],
             https_port: Some(9),
             http_port: Some(server.port()),
             http_path: "/".to_string(),

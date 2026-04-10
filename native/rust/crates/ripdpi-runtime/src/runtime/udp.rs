@@ -35,6 +35,17 @@ struct UdpFlowActivationState {
     awaiting_response: bool,
     upstream: UdpSocket,
     quic_migrated: bool,
+    current_target: SocketAddr,
+    target_candidates: Vec<SocketAddr>,
+    target_index: usize,
+    cache_host: bool,
+}
+
+struct UdpFlowSelection {
+    target: SocketAddr,
+    target_index: usize,
+    route: ConnectionRoute,
+    upstream: UdpSocket,
 }
 
 pub(super) fn build_udp_relay_sockets(ip: IpAddr, _protect_path: Option<&str>) -> io::Result<UdpRelaySockets> {
@@ -104,7 +115,7 @@ pub(super) fn udp_associate_loop(
     let flow_limit = udp_flow_limit(&state.config);
 
     while running.load(Ordering::Relaxed) {
-        expire_udp_flows(&state, &mut flow_state, Instant::now())?;
+        expire_udp_flows(&state, &mut flow_state, protect_path.as_deref(), Instant::now())?;
         let mut made_progress = false;
         match client_relay.recv_from(&mut client_buffer) {
             Ok((n, sender)) => {
@@ -113,14 +124,17 @@ pub(super) fn udp_associate_loop(
                 let known_client = udp_client_addr;
                 if known_client.is_none() || known_client == Some(sender) {
                     udp_client_addr = Some(sender);
-                    let Some((target, payload)) = parse_socks5_udp_packet(&client_buffer[..n], &state) else {
+                    let Some((original_target, payload)) = parse_socks5_udp_packet(&client_buffer[..n], &state) else {
                         continue;
                     };
-                    let flow_key = (sender, target);
+                    let host_info = extract_host_info(&state.config, payload);
+                    let host = host_info.as_ref().map(|value| value.host.clone());
+                    let cache_host = should_cache_udp_host(&state.config, host_info.as_ref());
+                    let flow_key = (sender, original_target);
                     if udp_flow_at_capacity(&flow_state, flow_key, flow_limit) {
                         tracing::warn!(
                             client = %sender,
-                            %target,
+                            target = %original_target,
                             flows = flow_state.len(),
                             limit = flow_limit,
                             "UDP flow rejected: at capacity"
@@ -130,78 +144,46 @@ pub(super) fn udp_associate_loop(
                         }
                         continue;
                     }
-                    let host_info = extract_host_info(&state.config, payload);
-                    let host = host_info.as_ref().map(|value| value.host.clone());
-                    let Ok(route) = select_route_for_transport(
-                        &state,
-                        target,
-                        Some(payload),
-                        host.as_deref(),
-                        false,
-                        TransportProtocol::Udp,
-                    ) else {
-                        continue;
-                    };
-                    if let Some(telemetry) = &state.telemetry {
-                        telemetry.on_route_selected(target, route.group_index, host.as_deref(), "initial");
-                    }
-                    if let Some(host) =
-                        host.clone().filter(|_| should_cache_udp_host(&state.config, host_info.as_ref()))
-                    {
-                        if let Ok(mut cache) = state.cache.lock() {
-                            cache.store(&state.config, target, route.group_index, route.attempted_mask, Some(host));
-                        }
-                    }
-                    let Some(group) = state.config.groups.get(route.group_index) else {
-                        continue;
-                    };
-                    let bind_low_port = group.actions.quic_bind_low_port;
-                    let activation = {
-                        let adaptive_hints = resolve_udp_hints_with_evolver(
+                    if let std::collections::hash_map::Entry::Vacant(e) = flow_state.entry(flow_key) {
+                        let target_candidates = preferred_udp_targets(&state, original_target, host.as_deref());
+                        let Some(selection) = select_udp_flow_target(
                             &state,
-                            target,
-                            route.group_index,
-                            group,
+                            protect_path.as_deref(),
                             host.as_deref(),
                             payload,
-                        )?;
-                        if let std::collections::hash_map::Entry::Vacant(e) = flow_state.entry(flow_key) {
-                            e.insert(UdpFlowActivationState {
-                                session: SessionState::default(),
-                                last_used: now,
-                                route: route.clone(),
-                                host: host.clone(),
-                                payload: payload.to_vec(),
-                                awaiting_response: true,
-                                upstream: build_udp_upstream_socket(target, protect_path.as_deref(), bind_low_port)?,
-                                quic_migrated: false,
-                            });
-                        }
-                        let entry = flow_state
-                            .get_mut(&flow_key)
-                            .ok_or_else(|| io::Error::other("udp flow entry missing after insert"))?;
-                        entry.last_used = now;
-                        entry.route = route.clone();
-                        entry.host = host.clone();
-                        entry.payload.clear();
-                        entry.payload.extend_from_slice(payload);
-                        entry.awaiting_response = true;
-                        let progress = entry.session.observe_datagram_outbound(payload);
-                        super::desync::activation_context_from_progress(
-                            progress,
-                            ActivationTransport::Udp,
-                            None,
-                            None,
-                            adaptive_hints,
-                        )
-                    };
-                    let actions = plan_udp(group, payload, state.config.network.default_ttl, activation);
+                            &target_candidates,
+                            0,
+                            "initial",
+                        )?
+                        else {
+                            continue;
+                        };
+                        let entry = UdpFlowActivationState {
+                            session: SessionState::default(),
+                            last_used: now,
+                            route: selection.route,
+                            host: host.clone(),
+                            payload: Vec::new(),
+                            awaiting_response: true,
+                            upstream: selection.upstream,
+                            quic_migrated: false,
+                            current_target: selection.target,
+                            target_candidates,
+                            target_index: selection.target_index,
+                            cache_host,
+                        };
+                        store_udp_route_hint(&state, &entry)?;
+                        e.insert(entry);
+                    }
                     let entry = flow_state
-                        .get(&(sender, target))
+                        .get_mut(&flow_key)
                         .ok_or_else(|| io::Error::other("udp flow entry missing after insert"))?;
+                    entry.host = host.clone();
+                    entry.cache_host = cache_host;
+                    let actions = plan_udp_flow_actions(&state, entry, payload, now)?;
                     execute_udp_actions(
                         &entry.upstream,
-                        target,
+                        entry.current_target,
                         &actions,
                         state.config.network.default_ttl,
                         protect_path.as_deref(),
@@ -212,7 +194,7 @@ pub(super) fn udp_associate_loop(
             Err(err) => return Err(err),
         }
 
-        for (&(client_addr, sender), entry) in &mut flow_state {
+        for (&(client_addr, _logical_target), entry) in &mut flow_state {
             match entry.upstream.recv(&mut upstream_buffer) {
                 Ok(n) => {
                     made_progress = true;
@@ -222,14 +204,14 @@ pub(super) fn udp_associate_loop(
                     if entry.awaiting_response {
                         note_adaptive_udp_success(
                             &state,
-                            sender,
+                            entry.current_target,
                             entry.route.group_index,
                             entry.host.as_deref(),
                             &entry.payload,
                         )?;
                         note_retry_success(
                             &state,
-                            sender,
+                            entry.current_target,
                             entry.route.group_index,
                             entry.host.as_deref(),
                             Some(&entry.payload),
@@ -237,7 +219,7 @@ pub(super) fn udp_associate_loop(
                         )?;
                         note_route_success_for_transport(
                             &state,
-                            sender,
+                            entry.current_target,
                             &entry.route,
                             entry.host.as_deref(),
                             TransportProtocol::Udp,
@@ -278,18 +260,18 @@ pub(super) fn udp_associate_loop(
                             .get(entry.route.group_index)
                             .is_some_and(|group| group.actions.quic_bind_low_port);
                         if let Ok(new_socket) =
-                            build_udp_upstream_socket(sender, protect_path.as_deref(), bind_low_port)
+                            build_udp_upstream_socket(entry.current_target, protect_path.as_deref(), bind_low_port)
                         {
                             entry.upstream = new_socket;
                             entry.quic_migrated = true;
                             tracing::debug!(
-                                target = %sender,
+                                target = %entry.current_target,
                                 round = entry.session.round_count,
                                 "QUIC UDP source-port rebind (RFC 9000 migration requires QUIC-layer implementation)"
                             );
                         }
                     }
-                    let packet = encode_socks5_udp_packet(sender, &upstream_buffer[..n]);
+                    let packet = encode_socks5_udp_packet(entry.current_target, &upstream_buffer[..n]);
                     client_relay.send_to(&packet, client_addr)?;
                 }
                 Err(err) if matches!(err.kind(), io::ErrorKind::WouldBlock | io::ErrorKind::TimedOut) => {}
@@ -303,7 +285,7 @@ pub(super) fn udp_associate_loop(
         }
     }
 
-    expire_udp_flows(&state, &mut flow_state, Instant::now())?;
+    expire_udp_flows(&state, &mut flow_state, protect_path.as_deref(), Instant::now())?;
     Ok(())
 }
 
@@ -322,6 +304,7 @@ fn udp_flow_at_capacity<T>(
 fn expire_udp_flows(
     state: &RuntimeState,
     flow_state: &mut HashMap<(SocketAddr, SocketAddr), UdpFlowActivationState>,
+    protect_path: Option<&str>,
     now: Instant,
 ) -> io::Result<()> {
     let expired = flow_state
@@ -331,10 +314,14 @@ fn expire_udp_flows(
         .collect::<Vec<_>>();
 
     for (client_addr, target) in expired {
-        let Some(entry) = flow_state.remove(&(client_addr, target)) else {
+        let Some(mut entry) = flow_state.remove(&(client_addr, target)) else {
             continue;
         };
         if !entry.awaiting_response {
+            continue;
+        }
+        if try_advance_udp_preferred_target(state, protect_path, &mut entry, now)? {
+            flow_state.insert((client_addr, target), entry);
             continue;
         }
         if let Some(failure) = ripdpi_failure_classifier::classify_quic_probe(
@@ -343,19 +330,26 @@ fn expire_udp_flows(
         ) {
             note_block_signal_for_failure(state, entry.host.as_deref(), &failure, None);
         }
+        let failed_target = entry.current_target;
         let _ = note_retry_failure(
             state,
-            target,
+            failed_target,
             entry.route.group_index,
             entry.host.as_deref(),
             Some(entry.payload.as_slice()),
             TransportProtocol::Udp,
         )?;
-        note_adaptive_udp_failure(state, target, entry.route.group_index, entry.host.as_deref(), &entry.payload)?;
+        note_adaptive_udp_failure(
+            state,
+            failed_target,
+            entry.route.group_index,
+            entry.host.as_deref(),
+            &entry.payload,
+        )?;
         note_evolver_failure(state, ripdpi_failure_classifier::FailureClass::SilentDrop);
         let retry_penalties = build_retry_selection_penalties(
             state,
-            target,
+            failed_target,
             entry.host.as_deref(),
             Some(entry.payload.as_slice()),
             TransportProtocol::Udp,
@@ -366,7 +360,7 @@ fn expire_udp_flows(
                 &state.config,
                 &entry.route,
                 RouteAdvance {
-                    dest: target,
+                    dest: failed_target,
                     payload: Some(entry.payload.as_slice()),
                     transport: TransportProtocol::Udp,
                     trigger: DETECT_CONNECT,
@@ -380,11 +374,11 @@ fn expire_udp_flows(
             next
         };
         if let Some(next_route) = next.as_ref() {
-            maybe_emit_candidate_diversification(state, target, next_route, &retry_penalties);
+            maybe_emit_candidate_diversification(state, failed_target, next_route, &retry_penalties);
         }
         if let (Some(telemetry), Some(next)) = (&state.telemetry, next) {
             telemetry.on_route_advanced(
-                target,
+                failed_target,
                 entry.route.group_index,
                 next.group_index,
                 DETECT_CONNECT,
@@ -522,6 +516,140 @@ fn should_cache_udp_host(config: &RuntimeConfig, host: Option<&crate::runtime_po
     }
 }
 
+fn preferred_udp_targets(state: &RuntimeState, target: SocketAddr, host: Option<&str>) -> Vec<SocketAddr> {
+    let mut targets = Vec::new();
+    if let Some(host) = host {
+        if let Some(runtime_context) = state.runtime_context.as_ref() {
+            let normalized = host.trim().to_lowercase();
+            if let Some(edges) =
+                runtime_context.preferred_edges.get(&normalized).or_else(|| runtime_context.preferred_edges.get(host))
+            {
+                for edge in edges.iter().filter(|edge| edge.transport_kind == "quic") {
+                    let Ok(ip) = edge.ip.parse::<IpAddr>() else {
+                        continue;
+                    };
+                    let candidate = SocketAddr::new(ip, target.port());
+                    if !targets.contains(&candidate) {
+                        targets.push(candidate);
+                    }
+                    if targets.len() >= 2 {
+                        break;
+                    }
+                }
+            }
+        }
+    }
+    if !targets.contains(&target) {
+        targets.push(target);
+    }
+    targets
+}
+
+fn select_udp_flow_target(
+    state: &RuntimeState,
+    protect_path: Option<&str>,
+    host: Option<&str>,
+    payload: &[u8],
+    target_candidates: &[SocketAddr],
+    start_index: usize,
+    phase: &'static str,
+) -> io::Result<Option<UdpFlowSelection>> {
+    for (target_index, &target) in target_candidates.iter().enumerate().skip(start_index) {
+        let Ok(route) = select_route_for_transport(state, target, Some(payload), host, false, TransportProtocol::Udp)
+        else {
+            continue;
+        };
+        if let Some(telemetry) = &state.telemetry {
+            telemetry.on_route_selected(target, route.group_index, host, phase);
+        }
+        let bind_low_port =
+            state.config.groups.get(route.group_index).is_some_and(|group| group.actions.quic_bind_low_port);
+        let Ok(upstream) = build_udp_upstream_socket(target, protect_path, bind_low_port) else {
+            continue;
+        };
+        return Ok(Some(UdpFlowSelection { target, target_index, route, upstream }));
+    }
+    Ok(None)
+}
+
+fn store_udp_route_hint(state: &RuntimeState, entry: &UdpFlowActivationState) -> io::Result<()> {
+    if let Some(host) = entry.host.clone().filter(|_| entry.cache_host) {
+        let mut cache = state.cache.lock().map_err(|_| io::Error::other("cache mutex poisoned"))?;
+        cache.store(
+            &state.config,
+            entry.current_target,
+            entry.route.group_index,
+            entry.route.attempted_mask,
+            Some(host),
+        );
+    }
+    Ok(())
+}
+
+fn plan_udp_flow_actions(
+    state: &RuntimeState,
+    entry: &mut UdpFlowActivationState,
+    payload: &[u8],
+    now: Instant,
+) -> io::Result<Vec<DesyncAction>> {
+    let group =
+        state.config.groups.get(entry.route.group_index).ok_or_else(|| io::Error::other("missing udp route group"))?;
+    let adaptive_hints = resolve_udp_hints_with_evolver(
+        state,
+        entry.current_target,
+        entry.route.group_index,
+        group,
+        entry.host.as_deref(),
+        payload,
+    )?;
+    entry.last_used = now;
+    entry.payload.clear();
+    entry.payload.extend_from_slice(payload);
+    entry.awaiting_response = true;
+    let progress = entry.session.observe_datagram_outbound(payload);
+    let activation =
+        super::desync::activation_context_from_progress(progress, ActivationTransport::Udp, None, None, adaptive_hints);
+    Ok(plan_udp(group, payload, state.config.network.default_ttl, activation))
+}
+
+fn try_advance_udp_preferred_target(
+    state: &RuntimeState,
+    protect_path: Option<&str>,
+    entry: &mut UdpFlowActivationState,
+    now: Instant,
+) -> io::Result<bool> {
+    let payload = entry.payload.clone();
+    let mut next_index = entry.target_index + 1;
+    while let Some(selection) = select_udp_flow_target(
+        state,
+        protect_path,
+        entry.host.as_deref(),
+        payload.as_slice(),
+        &entry.target_candidates,
+        next_index,
+        "edge_fallback",
+    )? {
+        entry.route = selection.route;
+        entry.upstream = selection.upstream;
+        entry.current_target = selection.target;
+        entry.target_index = selection.target_index;
+        entry.quic_migrated = false;
+        store_udp_route_hint(state, entry)?;
+        let actions = plan_udp_flow_actions(state, entry, payload.as_slice(), now)?;
+        match execute_udp_actions(
+            &entry.upstream,
+            entry.current_target,
+            &actions,
+            state.config.network.default_ttl,
+            protect_path,
+        ) {
+            Ok(()) => return Ok(true),
+            Err(_) => next_index = entry.target_index + 1,
+        }
+    }
+    Ok(false)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -576,6 +704,7 @@ mod tests {
                 dnscrypt_public_key: None,
             }),
             protect_path: None,
+            preferred_edges: Default::default(),
         }
     }
 
@@ -703,6 +832,62 @@ mod tests {
             build_udp_upstream_socket(SocketAddr::new(IpAddr::V4(Ipv4Addr::new(192, 0, 2, 10)), 443), None, false)
                 .expect("udp upstream socket");
         assert!(upstream.local_addr().expect("upstream relay addr").is_ipv4());
+    }
+
+    #[test]
+    fn preferred_udp_targets_return_two_quic_edges_then_original_target() {
+        let mut runtime_context = fixture_runtime_context(443);
+        runtime_context.preferred_edges.insert(
+            "example.org".to_string(),
+            vec![
+                ripdpi_proxy_config::ProxyPreferredEdge {
+                    ip: "203.0.113.10".to_string(),
+                    transport_kind: "quic".to_string(),
+                    ip_version: "ipv4".to_string(),
+                    success_count: 2,
+                    failure_count: 0,
+                    last_validated_at: None,
+                    last_failed_at: None,
+                    ech_capable: true,
+                    cdn_provider: Some("cloudflare".to_string()),
+                },
+                ripdpi_proxy_config::ProxyPreferredEdge {
+                    ip: "203.0.113.20".to_string(),
+                    transport_kind: "quic".to_string(),
+                    ip_version: "ipv4".to_string(),
+                    success_count: 1,
+                    failure_count: 0,
+                    last_validated_at: None,
+                    last_failed_at: None,
+                    ech_capable: false,
+                    cdn_provider: None,
+                },
+                ripdpi_proxy_config::ProxyPreferredEdge {
+                    ip: "203.0.113.30".to_string(),
+                    transport_kind: "quic".to_string(),
+                    ip_version: "ipv4".to_string(),
+                    success_count: 0,
+                    failure_count: 0,
+                    last_validated_at: None,
+                    last_failed_at: None,
+                    ech_capable: false,
+                    cdn_provider: None,
+                },
+            ],
+        );
+        let state = test_runtime_state_with_context(RuntimeConfig::default(), Some(runtime_context));
+        let original = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(198, 51, 100, 40)), 443);
+
+        let targets = preferred_udp_targets(&state, original, Some("example.org"));
+
+        assert_eq!(
+            targets,
+            vec![
+                SocketAddr::new(IpAddr::V4(Ipv4Addr::new(203, 0, 113, 10)), 443),
+                SocketAddr::new(IpAddr::V4(Ipv4Addr::new(203, 0, 113, 20)), 443),
+                original,
+            ]
+        );
     }
 
     #[test]

@@ -5,10 +5,14 @@ import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.NativeNetworkSnapshotProvider
 import com.poyka.ripdpi.data.NetworkFingerprintProvider
+import com.poyka.ripdpi.data.PreferredEdgeTransportQuic
+import com.poyka.ripdpi.data.PreferredEdgeTransportTcp
+import com.poyka.ripdpi.data.PreferredEdgeTransportThroughput
 import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.data.activeDnsSettings
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsProfileCatalog
 import com.poyka.ripdpi.data.diagnostics.NetworkDnsPathPreferenceStore
+import com.poyka.ripdpi.data.diagnostics.NetworkEdgePreferenceStore
 import com.poyka.ripdpi.diagnostics.contract.engine.EngineScanRequestWire
 import com.poyka.ripdpi.diagnostics.domain.DiagnosticsIntent
 import com.poyka.ripdpi.diagnostics.domain.ExecutionPolicy
@@ -118,6 +122,7 @@ internal class DefaultScanContextCollector
         private val nativeNetworkSnapshotProvider: NativeNetworkSnapshotProvider,
         private val diagnosticsContextProvider: DiagnosticsContextProvider,
         private val networkDnsPathPreferenceStore: NetworkDnsPathPreferenceStore,
+        private val networkEdgePreferenceStore: NetworkEdgePreferenceStore,
         private val serviceStateStore: ServiceStateStore,
         @param:Named("diagnosticsJson")
         private val json: Json,
@@ -128,6 +133,11 @@ internal class DefaultScanContextCollector
                 networkFingerprint
                     ?.scopeKey()
                     ?.let { fingerprintHash -> networkDnsPathPreferenceStore.getPreferredPath(fingerprintHash) }
+            val preferredEdges =
+                networkFingerprint
+                    ?.scopeKey()
+                    ?.let { fingerprintHash -> networkEdgePreferenceStore.getPreferredEdgesForRuntime(fingerprintHash) }
+                    .orEmpty()
             val contextSnapshot = diagnosticsContextProvider.captureContext()
             val profile = profileCatalog.getProfile(intent.profileId)
             val pathMode =
@@ -153,6 +163,7 @@ internal class DefaultScanContextCollector
                 pathMode = pathMode,
                 networkFingerprint = networkFingerprint,
                 preferredDnsPath = preferredDnsPath,
+                preferredEdges = preferredEdges,
                 networkSnapshot = networkSnapshot,
                 serviceMode = serviceStatus.second.name,
                 contextSnapshot = contextSnapshot,
@@ -175,16 +186,39 @@ internal class DefaultDiagnosticsPlanner
                     activeDns = intent.settings.activeDnsSettings(),
                     preferredPath = context.preferredDnsPath,
                 )
+            val domainTargets =
+                intent.domainTargets.map { target ->
+                    target.withPreferredEdges(
+                        context.preferredEdges[target.host.lowercase()].orEmpty(),
+                        PreferredEdgeTransportTcp,
+                    )
+                }
+            val quicTargets =
+                intent.quicTargets.map { target ->
+                    target.withPreferredEdges(
+                        context.preferredEdges[target.host.lowercase()].orEmpty(),
+                        PreferredEdgeTransportQuic,
+                    )
+                }
+            val throughputTargets =
+                intent.throughputTargets.map { target ->
+                    target.hostFromUrl()?.let { host ->
+                        target.withPreferredEdges(
+                            context.preferredEdges[host.lowercase()].orEmpty(),
+                            PreferredEdgeTransportThroughput,
+                        )
+                    } ?: target
+                }
             val probeTasks =
                 buildList {
                     dnsTargets.forEach { add(ProbeTask(ProbeFamily.DNS, it.domain, it.domain)) }
-                    intent.domainTargets.forEach { add(ProbeTask(ProbeFamily.WEB, it.host, it.host)) }
-                    intent.quicTargets.forEach { add(ProbeTask(ProbeFamily.QUIC, it.host, it.host)) }
+                    domainTargets.forEach { add(ProbeTask(ProbeFamily.WEB, it.host, it.host)) }
+                    quicTargets.forEach { add(ProbeTask(ProbeFamily.QUIC, it.host, it.host)) }
                     intent.tcpTargets.forEach { add(ProbeTask(ProbeFamily.TCP, it.id, it.provider)) }
                     intent.serviceTargets.forEach { add(ProbeTask(ProbeFamily.SERVICE, it.id, it.service)) }
                     intent.circumventionTargets.forEach { add(ProbeTask(ProbeFamily.CIRCUMVENTION, it.id, it.tool)) }
                     intent.telegramTarget?.let { add(ProbeTask(ProbeFamily.TELEGRAM, "telegram", "Telegram")) }
-                    intent.throughputTargets.forEach { add(ProbeTask(ProbeFamily.THROUGHPUT, it.id, it.label)) }
+                    throughputTargets.forEach { add(ProbeTask(ProbeFamily.THROUGHPUT, it.id, it.label)) }
                 }
             return ScanPlan(
                 intent = intent,
@@ -192,6 +226,9 @@ internal class DefaultDiagnosticsPlanner
                 proxyHost = intent.settings.proxyHostFor(context.pathMode),
                 proxyPort = intent.settings.proxyPortFor(context.pathMode),
                 dnsTargets = dnsTargets,
+                domainTargets = domainTargets,
+                quicTargets = quicTargets,
+                throughputTargets = throughputTargets,
                 probeTasks = probeTasks,
             )
         }
@@ -237,3 +274,35 @@ internal fun com.poyka.ripdpi.proto.AppSettings.proxyPortFor(pathMode: ScanPathM
     } else {
         null
     }
+
+private fun DomainTarget.withPreferredEdges(
+    edges: List<com.poyka.ripdpi.data.PreferredEdgeCandidate>,
+    transportKind: String,
+): DomainTarget {
+    val ordered = edges.filter { it.transportKind == transportKind }.map { it.ip }
+    return copy(connectIps = ordered, connectIp = ordered.firstOrNull() ?: connectIp)
+}
+
+private fun QuicTarget.withPreferredEdges(
+    edges: List<com.poyka.ripdpi.data.PreferredEdgeCandidate>,
+    transportKind: String,
+): QuicTarget {
+    val ordered = edges.filter { it.transportKind == transportKind }.map { it.ip }
+    return copy(connectIps = ordered, connectIp = ordered.firstOrNull() ?: connectIp)
+}
+
+private fun ThroughputTarget.withPreferredEdges(
+    edges: List<com.poyka.ripdpi.data.PreferredEdgeCandidate>,
+    transportKind: String,
+): ThroughputTarget {
+    val ordered = edges.filter { it.transportKind == transportKind }.map { it.ip }
+    return copy(connectIps = ordered, connectIp = ordered.firstOrNull() ?: connectIp)
+}
+
+private fun ThroughputTarget.hostFromUrl(): String? =
+    runCatching {
+        java.net
+            .URI(url)
+            .host
+            ?.takeIf { it.isNotBlank() }
+    }.getOrNull()

@@ -46,9 +46,10 @@ pub enum SocketType {
     Datagram,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TargetAddr {
     pub addr: SocketAddr,
+    pub host: Option<String>,
 }
 
 impl TargetAddr {
@@ -257,10 +258,10 @@ pub fn parse_socks4_request(
         let domain = std::str::from_utf8(&buffer[domain_start..domain_end]).map_err(|_| SessionError::generic())?;
         resolver
             .resolve(domain, SocketType::Stream)
-            .map(|addr| TargetAddr { addr: SocketAddr::new(addr.ip(), port) })
+            .map(|addr| TargetAddr { addr: SocketAddr::new(addr.ip(), port), host: Some(domain.to_string()) })
             .ok_or_else(SessionError::generic)?
     } else {
-        TargetAddr { addr: SocketAddr::new(IpAddr::V4(ip), port) }
+        TargetAddr { addr: SocketAddr::new(IpAddr::V4(ip), port), host: None }
     };
     Ok(ClientRequest::Socks4Connect(target))
 }
@@ -281,7 +282,7 @@ pub fn parse_socks5_request(
                 return Err(SessionError::socks5(S_ER_GEN));
             }
             let ip = Ipv4Addr::new(buffer[4], buffer[5], buffer[6], buffer[7]);
-            (TargetAddr { addr: SocketAddr::new(IpAddr::V4(ip), 0) }, S_SIZE_I4)
+            (TargetAddr { addr: SocketAddr::new(IpAddr::V4(ip), 0), host: None }, S_SIZE_I4)
         }
         S_ATP_ID => {
             let name_len = *buffer.get(4).ok_or_else(|| SessionError::socks5(S_ER_GEN))? as usize;
@@ -297,7 +298,7 @@ pub fn parse_socks5_request(
             }
             let domain = std::str::from_utf8(&buffer[5..5 + name_len]).map_err(|_| SessionError::socks5(S_ER_HOST))?;
             let resolved = resolver.resolve(domain, socket_type).ok_or_else(|| SessionError::socks5(S_ER_HOST))?;
-            (TargetAddr { addr: SocketAddr::new(resolved.ip(), 0) }, offset)
+            (TargetAddr { addr: SocketAddr::new(resolved.ip(), 0), host: Some(domain.to_string()) }, offset)
         }
         S_ATP_I6 => {
             if !config.ipv6 {
@@ -308,12 +309,12 @@ pub fn parse_socks5_request(
             }
             let mut raw = [0u8; 16];
             raw.copy_from_slice(&buffer[4..20]);
-            (TargetAddr { addr: SocketAddr::new(IpAddr::V6(Ipv6Addr::from(raw)), 0) }, S_SIZE_I6)
+            (TargetAddr { addr: SocketAddr::new(IpAddr::V6(Ipv6Addr::from(raw)), 0), host: None }, S_SIZE_I6)
         }
         _ => return Err(SessionError::socks5(S_ER_GEN)),
     };
     let port = read_be_u16(buffer, offset - 2).ok_or_else(|| SessionError::socks5(S_ER_GEN))?;
-    let target = TargetAddr { addr: SocketAddr::new(target.addr.ip(), port) };
+    let target = TargetAddr { addr: SocketAddr::new(target.addr.ip(), port), host: target.host };
     match buffer[1] {
         S_CMD_CONN => Ok(ClientRequest::Socks5Connect(target)),
         S_CMD_AUDP if socket_type == SocketType::Datagram => Ok(ClientRequest::Socks5UdpAssociate(target)),
@@ -337,7 +338,7 @@ pub fn parse_http_connect_request(buffer: &[u8], resolver: &dyn NameResolver) ->
         .resolve(name, SocketType::Stream)
         .map(|resolved| SocketAddr::new(resolved.ip(), port))
         .ok_or_else(SessionError::generic)?;
-    Ok(ClientRequest::HttpConnect(TargetAddr { addr }))
+    Ok(ClientRequest::HttpConnect(TargetAddr { addr, host: Some(name.to_string()) }))
 }
 
 fn split_host_port(value: &str) -> Option<(&str, u16)> {
@@ -406,7 +407,10 @@ mod tests {
 
         assert_eq!(
             parsed,
-            ClientRequest::Socks4Connect(TargetAddr { addr: SocketAddr::from(([198, 51, 100, 10], 443)) })
+            ClientRequest::Socks4Connect(TargetAddr {
+                addr: SocketAddr::from(([198, 51, 100, 10], 443)),
+                host: Some("example.com".to_string()),
+            })
         );
     }
 
@@ -421,7 +425,10 @@ mod tests {
 
         assert_eq!(
             parsed,
-            ClientRequest::Socks5UdpAssociate(TargetAddr { addr: SocketAddr::from(([198, 51, 100, 20], 8080)) })
+            ClientRequest::Socks5UdpAssociate(TargetAddr {
+                addr: SocketAddr::from(([198, 51, 100, 20], 8080)),
+                host: Some("example.net".to_string()),
+            })
         );
     }
 
@@ -432,7 +439,10 @@ mod tests {
 
         assert_eq!(
             parsed,
-            ClientRequest::HttpConnect(TargetAddr { addr: SocketAddr::from(([198, 51, 100, 10], 8443)) })
+            ClientRequest::HttpConnect(TargetAddr {
+                addr: SocketAddr::from(([198, 51, 100, 10], 8443)),
+                host: Some("example.com".to_string()),
+            })
         );
     }
 
@@ -497,7 +507,10 @@ mod tests {
             .expect("parse socks5 ipv6");
 
         let expected_ip = IpAddr::V6(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1));
-        assert_eq!(parsed, ClientRequest::Socks5Connect(TargetAddr { addr: SocketAddr::new(expected_ip, 443) }));
+        assert_eq!(
+            parsed,
+            ClientRequest::Socks5Connect(TargetAddr { addr: SocketAddr::new(expected_ip, 443), host: None })
+        );
     }
 
     #[test]
@@ -620,13 +633,13 @@ mod tests {
 
     #[test]
     fn target_addr_family_v4() {
-        let target = TargetAddr { addr: SocketAddr::from(([1, 2, 3, 4], 80)) };
+        let target = TargetAddr { addr: SocketAddr::from(([1, 2, 3, 4], 80)), host: None };
         assert_eq!(target.family(), "ipv4");
     }
 
     #[test]
     fn target_addr_family_v6() {
-        let target = TargetAddr { addr: SocketAddr::new(IpAddr::V6(Ipv6Addr::LOCALHOST), 443) };
+        let target = TargetAddr { addr: SocketAddr::new(IpAddr::V6(Ipv6Addr::LOCALHOST), 443), host: None };
         assert_eq!(target.family(), "ipv6");
     }
 
@@ -674,7 +687,10 @@ mod tests {
         // IP > 0.0.0.255 means direct IP, no domain resolution
         let request = vec![S_VER4, S_CMD_CONN, 0x00, 0x50, 10, 0, 0, 1, 0];
         let parsed = parse_socks4_request(&request, SessionConfig::default(), &resolver).expect("direct ip");
-        assert_eq!(parsed, ClientRequest::Socks4Connect(TargetAddr { addr: SocketAddr::from(([10, 0, 0, 1], 80)) }));
+        assert_eq!(
+            parsed,
+            ClientRequest::Socks4Connect(TargetAddr { addr: SocketAddr::from(([10, 0, 0, 1], 80)), host: None })
+        );
     }
 
     #[test]
@@ -749,7 +765,7 @@ mod tests {
 
         assert_eq!(
             parsed,
-            ClientRequest::Socks5Connect(TargetAddr { addr: SocketAddr::from(([192, 168, 1, 1], 443)) })
+            ClientRequest::Socks5Connect(TargetAddr { addr: SocketAddr::from(([192, 168, 1, 1], 443)), host: None })
         );
     }
 
@@ -980,7 +996,7 @@ mod tests {
 
     #[test]
     fn client_request_variants_are_distinct() {
-        let addr = TargetAddr { addr: SocketAddr::from(([1, 2, 3, 4], 80)) };
+        let addr = TargetAddr { addr: SocketAddr::from(([1, 2, 3, 4], 80)), host: None };
         let s4 = ClientRequest::Socks4Connect(addr);
         let s5 = ClientRequest::Socks5Connect(addr);
         let udp = ClientRequest::Socks5UdpAssociate(addr);

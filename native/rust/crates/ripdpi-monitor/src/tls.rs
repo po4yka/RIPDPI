@@ -9,11 +9,11 @@ use rustls::{
     StreamOwned,
 };
 
-use crate::cdn_ech::opportunistic_ech_config_for_ip;
+use crate::cdn_ech::{opportunistic_ech_config_for_ip, opportunistic_ech_provider_for_ip};
 use crate::dns::{resolve_https_ech_configs_via_encrypted_dns, EchResolutionOutcome};
 use crate::ja3::{self, RecordingStream};
 use crate::platform_ttl;
-use crate::transport::{connect_transport, ConnectionStream, TargetAddress, TransportConfig};
+use crate::transport::{connect_transport_observed, ConnectionStream, TargetAddress, TransportConfig};
 use crate::util::IO_TIMEOUT;
 
 const ECH_CONFIG_UNAVAILABLE_ERROR: &str = "ech_config_unavailable";
@@ -42,6 +42,8 @@ pub(crate) struct TlsObservation {
     pub(crate) tls_server_hello_received: Option<bool>,
     /// DPI firmware signature inferred from the alert code and timing.
     pub(crate) tls_dpi_signature: Option<String>,
+    pub(crate) connected_addr: Option<std::net::SocketAddr>,
+    pub(crate) cdn_provider: Option<String>,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -122,6 +124,8 @@ pub(crate) struct ProbeStreamResult {
     pub(crate) observed_server_ttl: Option<u8>,
     pub(crate) estimated_hop_count: Option<u8>,
     pub(crate) ja3_fingerprint: Option<String>,
+    pub(crate) connected_addr: Option<std::net::SocketAddr>,
+    pub(crate) cdn_provider: Option<String>,
 }
 
 // --- TLS helper functions ---
@@ -135,7 +139,35 @@ pub(crate) fn try_tls_handshake(
     profile: TlsClientProfile,
     tls_verifier: Option<&Arc<dyn ServerCertVerifier>>,
 ) -> TlsObservation {
-    match open_probe_stream(target, port, transport, Some(server_name), verify_certificates, profile, tls_verifier) {
+    try_tls_handshake_targets(
+        std::slice::from_ref(target),
+        port,
+        transport,
+        server_name,
+        verify_certificates,
+        profile,
+        tls_verifier,
+    )
+}
+
+pub(crate) fn try_tls_handshake_targets(
+    targets: &[TargetAddress],
+    port: u16,
+    transport: &TransportConfig,
+    server_name: &str,
+    verify_certificates: bool,
+    profile: TlsClientProfile,
+    tls_verifier: Option<&Arc<dyn ServerCertVerifier>>,
+) -> TlsObservation {
+    match open_probe_stream_targets(
+        targets,
+        port,
+        transport,
+        Some(server_name),
+        verify_certificates,
+        profile,
+        tls_verifier,
+    ) {
         Ok(result) => {
             let tcp_connect_ms = Some(result.tcp_connect_ms);
             let tls_handshake_ms = Some(result.tls_handshake_ms);
@@ -144,6 +176,8 @@ pub(crate) fn try_tls_handshake(
             let observed_server_ttl = result.observed_server_ttl;
             let estimated_hop_count = result.estimated_hop_count;
             let ja3_fingerprint = result.ja3_fingerprint;
+            let connected_addr = result.connected_addr;
+            let cdn_provider = result.cdn_provider;
             let mut stream = result.stream;
             let (status, version, error, ech_resolution_detail) = match &mut stream {
                 ConnectionStream::Plain(_) => ("tls_ok".to_string(), None, None, None),
@@ -184,6 +218,8 @@ pub(crate) fn try_tls_handshake(
                 tls_alert_description: None,
                 tls_server_hello_received: Some(true),
                 tls_dpi_signature: None,
+                connected_addr,
+                cdn_provider,
             }
         }
         Err(err) => {
@@ -209,6 +245,8 @@ pub(crate) fn try_tls_handshake(
                     tls_alert_description: None,
                     tls_server_hello_received: None,
                     tls_dpi_signature: None,
+                    connected_addr: None,
+                    cdn_provider: None,
                 };
             }
             let certificate_anomaly = is_certificate_error(&err);
@@ -236,6 +274,8 @@ pub(crate) fn try_tls_handshake(
                 tls_alert_description,
                 tls_server_hello_received,
                 tls_dpi_signature,
+                connected_addr: None,
+                cdn_provider: None,
             }
         }
     }
@@ -250,15 +290,39 @@ pub(crate) fn open_probe_stream(
     profile: TlsClientProfile,
     tls_verifier: Option<&Arc<dyn ServerCertVerifier>>,
 ) -> Result<ProbeStreamResult, String> {
+    open_probe_stream_targets(
+        std::slice::from_ref(target),
+        port,
+        transport,
+        tls_name,
+        verify_certificates,
+        profile,
+        tls_verifier,
+    )
+}
+
+pub(crate) fn open_probe_stream_targets(
+    targets: &[TargetAddress],
+    port: u16,
+    transport: &TransportConfig,
+    tls_name: Option<&str>,
+    verify_certificates: bool,
+    profile: TlsClientProfile,
+    tls_verifier: Option<&Arc<dyn ServerCertVerifier>>,
+) -> Result<ProbeStreamResult, String> {
     let tcp_start = Instant::now();
-    let socket = connect_transport(target, port, transport)?;
+    let transport_result = connect_transport_observed(targets, port, transport)?;
     let tcp_connect_ms = tcp_start.elapsed().as_millis() as u64;
+    let connected_addr = transport_result.connected_addr;
+    let cdn_provider = connected_addr.and_then(|addr| opportunistic_ech_provider_for_ip(addr.ip()).map(str::to_string));
+    let socket = transport_result.stream;
 
     socket.set_read_timeout(Some(IO_TIMEOUT)).map_err(|err| err.to_string())?;
     socket.set_write_timeout(Some(IO_TIMEOUT)).map_err(|err| err.to_string())?;
 
     match tls_name {
         Some(name) if verify_certificates || port == 443 || !matches!(profile, TlsClientProfile::Auto) => {
+            let target = targets.first().ok_or_else(|| "no_tls_targets".to_string())?;
             let config = match profile {
                 TlsClientProfile::Tls13WithEch => build_ech_client_config(name, target, transport, tls_verifier)?,
                 _ => build_standard_client_config(profile, tls_verifier),
@@ -296,6 +360,8 @@ pub(crate) fn open_probe_stream(
                 observed_server_ttl,
                 estimated_hop_count,
                 ja3_fingerprint,
+                connected_addr,
+                cdn_provider,
             })
         }
         _ => {
@@ -310,6 +376,8 @@ pub(crate) fn open_probe_stream(
                 observed_server_ttl,
                 estimated_hop_count,
                 ja3_fingerprint: None,
+                connected_addr,
+                cdn_provider,
             })
         }
     }
@@ -696,6 +764,8 @@ mod tests {
             tls_alert_description: None,
             tls_server_hello_received: None,
             tls_dpi_signature: None,
+            connected_addr: None,
+            cdn_provider: None,
         }
     }
 

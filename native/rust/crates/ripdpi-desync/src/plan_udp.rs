@@ -52,6 +52,24 @@ pub fn plan_udp(group: &DesyncGroup, payload: &[u8], default_ttl: u8, context: A
                 UdpChainStepKind::QuicFakeVersion => {
                     build_quic_fake_version_packets(group, payload, parsed_quic.as_ref(), step.count)
                 }
+                UdpChainStepKind::QuicCryptoSplit => {
+                    build_quic_crypto_split_packets(payload, parsed_quic.as_ref(), step.count)
+                }
+                UdpChainStepKind::QuicPaddingLadder => {
+                    build_quic_padding_ladder_packets(payload, parsed_quic.as_ref(), step.count)
+                }
+                UdpChainStepKind::QuicCidChurn => {
+                    build_quic_cid_churn_packets(payload, parsed_quic.as_ref(), step.count)
+                }
+                UdpChainStepKind::QuicPacketNumberGap => {
+                    build_quic_packet_number_gap_packets(payload, parsed_quic.as_ref(), step.count)
+                }
+                UdpChainStepKind::QuicVersionNegotiationDecoy => {
+                    build_quic_version_negotiation_decoy_packets(payload, parsed_quic.as_ref(), step.count)
+                }
+                UdpChainStepKind::QuicMultiInitialRealistic => {
+                    build_quic_multi_initial_realistic_packets(group, payload, parsed_quic.as_ref(), step.count)
+                }
                 UdpChainStepKind::IpFrag2Udp => {
                     if context.round == 1 && parsed_quic.is_some() && step.split_bytes > 0 {
                         actions.push(DesyncAction::WriteIpFragmentedUdp {
@@ -135,6 +153,110 @@ fn build_quic_fake_version_packets(
         return Vec::new();
     };
     vec![packet; count as usize]
+}
+
+fn build_quic_crypto_split_packets(payload: &[u8], parsed_quic: Option<&QuicInitialInfo>, count: i32) -> Vec<Vec<u8>> {
+    let Some(parsed_quic) = parsed_quic else {
+        return Vec::new();
+    };
+    let split_at = (parsed_quic.client_hello.len() / 2).max(1);
+    let Some(packet) = tamper_quic_initial_split_sni(payload, split_at) else {
+        return Vec::new();
+    };
+    vec![packet; count.max(1) as usize]
+}
+
+fn build_quic_padding_ladder_packets(
+    payload: &[u8],
+    parsed_quic: Option<&QuicInitialInfo>,
+    count: i32,
+) -> Vec<Vec<u8>> {
+    if parsed_quic.is_none() {
+        return Vec::new();
+    }
+    (0..count.max(1) as usize)
+        .map(|idx| {
+            let mut packet = payload.to_vec();
+            packet.extend(std::iter::repeat_n(0u8, 8 * (idx + 1)));
+            packet
+        })
+        .collect()
+}
+
+fn build_quic_cid_churn_packets(payload: &[u8], parsed_quic: Option<&QuicInitialInfo>, count: i32) -> Vec<Vec<u8>> {
+    let Some(parsed_quic) = parsed_quic else {
+        return Vec::new();
+    };
+    let base_offset = 6usize.min(payload.len().saturating_sub(1));
+    (0..count.max(1) as usize)
+        .map(|idx| {
+            let mut packet = payload.to_vec();
+            let mutate_at = base_offset.min(packet.len().saturating_sub(1));
+            if !packet.is_empty() {
+                packet[mutate_at] ^= (idx as u8).wrapping_add(parsed_quic.version as u8).max(1);
+            }
+            packet
+        })
+        .collect()
+}
+
+fn build_quic_packet_number_gap_packets(
+    payload: &[u8],
+    parsed_quic: Option<&QuicInitialInfo>,
+    count: i32,
+) -> Vec<Vec<u8>> {
+    if parsed_quic.is_none() || payload.is_empty() {
+        return Vec::new();
+    }
+    (0..count.max(1) as usize)
+        .map(|idx| {
+            let mut packet = payload.to_vec();
+            let last = packet.len() - 1;
+            packet[last] = packet[last].wrapping_add(16u8.wrapping_mul((idx as u8).wrapping_add(1)));
+            packet
+        })
+        .collect()
+}
+
+fn build_quic_version_negotiation_decoy_packets(
+    payload: &[u8],
+    parsed_quic: Option<&QuicInitialInfo>,
+    count: i32,
+) -> Vec<Vec<u8>> {
+    let Some(parsed_quic) = parsed_quic else {
+        return Vec::new();
+    };
+    let version = parsed_quic.version ^ 0x0f0f_0f0f;
+    let Some(packet) = tamper_quic_version(payload, version) else {
+        return Vec::new();
+    };
+    vec![packet; count.max(1) as usize]
+}
+
+fn build_quic_multi_initial_realistic_packets(
+    group: &DesyncGroup,
+    payload: &[u8],
+    parsed_quic: Option<&QuicInitialInfo>,
+    count: i32,
+) -> Vec<Vec<u8>> {
+    let Some(parsed_quic) = parsed_quic else {
+        return Vec::new();
+    };
+    let fake_host = group.actions.quic_fake_host.as_deref();
+    let realistic = build_realistic_quic_initial(parsed_quic.version, fake_host).unwrap_or_else(|| payload.to_vec());
+    (0..count.max(2) as usize)
+        .map(|idx| {
+            if idx % 2 == 0 {
+                realistic.clone()
+            } else {
+                let mut packet = realistic.clone();
+                if let Some(last) = packet.last_mut() {
+                    *last ^= idx as u8;
+                }
+                packet
+            }
+        })
+        .collect()
 }
 
 fn udp_fake_payload(

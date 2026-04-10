@@ -24,19 +24,19 @@ struct ParsedHttpTarget {
     path: String,
     port: u16,
     secure: bool,
-    connect_target: TargetAddress,
+    connect_targets: Vec<TargetAddress>,
 }
 
 pub(super) fn measure_throughput_window(target: &ThroughputTarget, transport: &TransportConfig) -> ThroughputSample {
-    let parsed = match parse_http_target(&target.url, target.connect_ip.as_deref(), target.port) {
+    let parsed = match parse_http_target(&target.url, target.connect_ip.as_deref(), &target.connect_ips, target.port) {
         Ok(parsed) => parsed,
         Err(err) => {
             return ThroughputSample { status: "invalid_target".to_string(), bytes_read: 0, bps: 0, error: err }
         }
     };
     let started = std::time::Instant::now();
-    let mut stream = match open_probe_stream(
-        &parsed.connect_target,
+    let mut stream = match open_probe_stream_targets(
+        &parsed.connect_targets,
         parsed.port,
         transport,
         if parsed.secure { Some(parsed.host.as_str()) } else { None },
@@ -113,13 +113,19 @@ pub(super) fn measure_throughput_window(target: &ThroughputTarget, transport: &T
 pub(super) fn probe_http_url(
     url: &str,
     connect_ip: Option<&str>,
+    connect_ips: &[String],
     port_override: Option<u16>,
     transport: &TransportConfig,
 ) -> HttpObservation {
-    match parse_http_target(url, connect_ip, port_override) {
-        Ok(parsed) => {
-            try_http_request(&parsed.connect_target, parsed.port, transport, &parsed.host, &parsed.path, parsed.secure)
-        }
+    match parse_http_target(url, connect_ip, connect_ips, port_override) {
+        Ok(parsed) => try_http_request_targets(
+            &parsed.connect_targets,
+            parsed.port,
+            transport,
+            &parsed.host,
+            &parsed.path,
+            parsed.secure,
+        ),
         Err(err) => HttpObservation { status: "http_unreachable".to_string(), response: None, error: Some(err) },
     }
 }
@@ -174,6 +180,7 @@ pub(super) fn run_quic_endpoint_probe(
 fn parse_http_target(
     url: &str,
     connect_ip: Option<&str>,
+    connect_ips: &[String],
     port_override: Option<u16>,
 ) -> Result<ParsedHttpTarget, String> {
     let secure = url.starts_with("https://");
@@ -190,9 +197,8 @@ fn parse_http_target(
         return Err("missing_url_host".to_string());
     }
     let port = port_override.or(parsed_port).unwrap_or(if secure { 443 } else { 80 });
-    let connect_target =
-        connect_target_from_parts(Some(host.as_str()), connect_ip).unwrap_or_else(|| TargetAddress::Host(host.clone()));
-    Ok(ParsedHttpTarget { host, path, port, secure, connect_target })
+    let connect_targets = throughput_connect_targets(Some(host.as_str()), connect_ip, connect_ips);
+    Ok(ParsedHttpTarget { host, path, port, secure, connect_targets })
 }
 
 fn split_host_and_port(authority: &str) -> (String, Option<u16>) {

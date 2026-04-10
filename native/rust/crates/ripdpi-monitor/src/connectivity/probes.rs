@@ -566,8 +566,8 @@ pub(crate) fn run_service_probe(
     transport: &TransportConfig,
     tls_verifier: Option<&Arc<dyn ServerCertVerifier>>,
 ) -> ProbeResult {
-    let bootstrap = target.bootstrap_url.as_ref().map(|url| probe_http_url(url, None, None, transport));
-    let media = target.media_url.as_ref().map(|url| probe_http_url(url, None, None, transport));
+    let bootstrap = target.bootstrap_url.as_ref().map(|url| probe_http_url(url, None, &[], None, transport));
+    let media = target.media_url.as_ref().map(|url| probe_http_url(url, None, &[], None, transport));
     let (gateway_status, gateway_error) = run_endpoint_probe(
         target.tcp_endpoint_host.as_deref(),
         target.tcp_endpoint_ip.as_deref(),
@@ -632,7 +632,7 @@ pub(crate) fn run_circumvention_probe(
     transport: &TransportConfig,
     tls_verifier: Option<&Arc<dyn ServerCertVerifier>>,
 ) -> ProbeResult {
-    let bootstrap = target.bootstrap_url.as_ref().map(|url| probe_http_url(url, None, None, transport));
+    let bootstrap = target.bootstrap_url.as_ref().map(|url| probe_http_url(url, None, &[], None, transport));
     let (handshake_status, handshake_error) = run_endpoint_probe(
         target.handshake_host.as_deref(),
         target.handshake_ip.as_deref(),
@@ -649,7 +649,7 @@ pub(crate) fn run_circumvention_probe(
     let (bootstrap_status, circumvention_retry_count) = if is_probe_failure(&initial_bootstrap_status)
         && initial_bootstrap_status != "not_run"
     {
-        let retry = target.bootstrap_url.as_ref().map(|url| probe_http_url(url, None, None, transport));
+        let retry = target.bootstrap_url.as_ref().map(|url| probe_http_url(url, None, &[], None, transport));
         let retry_status = retry.as_ref().map_or_else(|| initial_bootstrap_status.clone(), |obs| obs.status.clone());
         (retry_status, 1usize)
     } else {

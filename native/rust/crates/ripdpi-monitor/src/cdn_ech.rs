@@ -176,6 +176,10 @@ pub(crate) fn opportunistic_ech_config_for_ip(ip: IpAddr) -> Option<&'static Cdn
     CDN_ECH_CONFIGS.iter().find(|cfg| cfg.contains_ip(ip)).copied()
 }
 
+pub(crate) fn opportunistic_ech_provider_for_ip(ip: IpAddr) -> Option<&'static str> {
+    opportunistic_ech_config_for_ip(ip).map(|config| config.provider)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
