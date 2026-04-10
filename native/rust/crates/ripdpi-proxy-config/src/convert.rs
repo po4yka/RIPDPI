@@ -62,28 +62,6 @@ fn sanitize_runtime_context(runtime_context: Option<ProxyRuntimeContext>) -> Opt
         Some(value)
     });
     runtime_context.protect_path = trim_non_empty(runtime_context.protect_path);
-    runtime_context.preferred_edges = runtime_context
-        .preferred_edges
-        .into_iter()
-        .filter_map(|(host, edges)| {
-            let host = host.trim().to_ascii_lowercase();
-            if host.is_empty() {
-                return None;
-            }
-            let edges = edges
-                .into_iter()
-                .filter_map(|mut edge| {
-                    edge.ip = edge.ip.trim().to_string();
-                    edge.transport_kind = edge.transport_kind.trim().to_ascii_lowercase();
-                    if edge.ip.is_empty() || edge.transport_kind.is_empty() {
-                        return None;
-                    }
-                    Some(edge)
-                })
-                .collect::<Vec<_>>();
-            (!edges.is_empty()).then_some((host, edges))
-        })
-        .collect();
     if runtime_context.encrypted_dns.is_none()
         && runtime_context.protect_path.is_none()
         && runtime_context.preferred_edges.is_empty()

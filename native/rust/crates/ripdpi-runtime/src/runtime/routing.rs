@@ -83,17 +83,16 @@ pub(super) fn preferred_targets_for_transport(
     transport: TransportProtocol,
 ) -> Vec<SocketAddr> {
     let mut targets = Vec::new();
-    if let Some(host) = host {
+    if let Some(host) = host.map(str::trim).filter(|host| !host.is_empty()) {
         if let Some(runtime_context) = state.runtime_context.as_ref() {
-            let normalized = host.trim().to_lowercase();
+            let normalized = host.to_ascii_lowercase();
             if let Some(edges) =
-                runtime_context.preferred_edges.get(&normalized).or_else(|| runtime_context.preferred_edges.get(host))
+                runtime_context.preferred_edges.get(host).or_else(|| runtime_context.preferred_edges.get(&normalized))
             {
-                for edge in edges
-                    .iter()
-                    .filter(|edge| preferred_edge_matches_transport(edge.transport_kind.as_str(), transport))
+                for edge in
+                    edges.iter().filter(|edge| preferred_edge_matches_transport(edge.transport_kind.trim(), transport))
                 {
-                    let Ok(ip) = edge.ip.parse::<IpAddr>() else {
+                    let Ok(ip) = edge.ip.trim().parse::<IpAddr>() else {
                         continue;
                     };
                     let candidate = SocketAddr::new(ip, original_target.port());
@@ -115,8 +114,10 @@ pub(super) fn preferred_targets_for_transport(
 
 fn preferred_edge_matches_transport(transport_kind: &str, transport: TransportProtocol) -> bool {
     match transport {
-        TransportProtocol::Tcp => matches!(transport_kind, "tcp" | "throughput"),
-        TransportProtocol::Udp => transport_kind == "quic",
+        TransportProtocol::Tcp => {
+            transport_kind.eq_ignore_ascii_case("tcp") || transport_kind.eq_ignore_ascii_case("throughput")
+        }
+        TransportProtocol::Udp => transport_kind.eq_ignore_ascii_case("quic"),
     }
 }
 
