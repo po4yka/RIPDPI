@@ -466,6 +466,7 @@ class BridgePollingService
 internal data class ScanFinalizationResult(
     val derived: com.poyka.ripdpi.diagnostics.domain.DerivedScanReport,
     val shouldReprobeWithCorrectedDns: Boolean,
+    val correctedDnsPath: EncryptedDnsPathCandidate?,
 )
 
 @Singleton
@@ -514,7 +515,11 @@ class ScanFinalizationService
                     preferredDnsPath = prepared.preferredDnsPath,
                 )
             val (finalReport, overrideApplied) =
-                maybeApplyTemporaryResolverOverride(enrichedReport, prepared.settings)
+                maybeApplyTemporaryResolverOverride(
+                    report = enrichedReport,
+                    settings = prepared.settings,
+                    pathMode = prepared.pathMode,
+                )
             val derived =
                 com.poyka.ripdpi.diagnostics.domain
                     .DerivedScanReport(finalReport.toEngineScanReportWire())
@@ -531,6 +536,10 @@ class ScanFinalizationService
                 report = finalReport,
             )
             persistPostScanArtifacts(prepared.sessionId)
+            val correctedDnsPath =
+                with(ResolverRecommendationEngine) {
+                    finalReport.resolverRecommendation?.toEncryptedDnsPathCandidate()
+                }
             val shouldReprobe =
                 DiagnosticsScanWorkflow.shouldReprobeWithCorrectedDns(
                     report = finalReport,
@@ -540,6 +549,7 @@ class ScanFinalizationService
             return ScanFinalizationResult(
                 derived = derived,
                 shouldReprobeWithCorrectedDns = shouldReprobe,
+                correctedDnsPath = correctedDnsPath,
             )
         }
 
@@ -576,11 +586,18 @@ class ScanFinalizationService
         private suspend fun maybeApplyTemporaryResolverOverride(
             report: ScanReport,
             settings: com.poyka.ripdpi.proto.AppSettings,
+            pathMode: ScanPathMode,
         ): Pair<ScanReport, Boolean> {
             val recommendation = report.resolverRecommendation ?: return report to false
             val (status, mode) = serviceStateStore.status.value
             val shouldApply =
-                DiagnosticsScanWorkflow.shouldApplyTemporaryResolverOverride(report, settings, status, mode)
+                DiagnosticsScanWorkflow.shouldApplyTemporaryResolverOverride(
+                    report = report,
+                    settings = settings,
+                    serviceStatus = status,
+                    serviceMode = mode,
+                    pathMode = pathMode,
+                )
             return if (shouldApply) {
                 resolverOverrideStore.setTemporaryOverride(
                     DiagnosticsScanWorkflow.buildTemporaryResolverOverride(recommendation),

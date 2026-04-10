@@ -228,7 +228,7 @@ internal object DiagnosticsSessionQueries {
         val allResults = classifyAllResults(validatedReports)
         val successfulReports = countSuccessfulReports(validatedReports)
         val recentUsage = matchingUsage.sortedByDescending { it.startedAt }.take(RecentUsageLimit)
-        val latestValidated = validatedReports.maxByOrNull { it.first.startedAt }?.first
+        val latestValidated = validatedReports.maxByOrNull { it.first.startedAt }
         return BypassApproachSummary(
             approachId = BypassApproachId(kind = kind, value = id),
             displayName = displayName,
@@ -240,7 +240,7 @@ internal object DiagnosticsSessionQueries {
                 validatedReports.size
                     .takeIf { it > 0 }
                     ?.let { successfulReports.toFloat() / it.toFloat() },
-            lastValidatedResult = latestValidated?.summary,
+            lastValidatedResult = latestValidated?.let { (session, report) -> session.displaySummary(report) },
             usageCount = matchingUsage.size,
             totalRuntimeDurationMs =
                 matchingUsage.sumOf {

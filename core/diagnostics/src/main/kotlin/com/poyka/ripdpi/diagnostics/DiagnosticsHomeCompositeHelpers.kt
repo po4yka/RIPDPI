@@ -23,7 +23,7 @@ internal suspend fun buildCompletedStageSummary(
         } else {
             DiagnosticsHomeCompositeStageStatus.FAILED
         }
-    val summary = report?.summary?.ifBlank { session.summary } ?: session.summary
+    val summary = persistedSession?.displaySummary(report) ?: session.summary
     val headline =
         when {
             status == DiagnosticsHomeCompositeStageStatus.FAILED -> "${spec.label} failed"

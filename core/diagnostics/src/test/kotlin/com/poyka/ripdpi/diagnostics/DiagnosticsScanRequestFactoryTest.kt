@@ -1,6 +1,9 @@
 package com.poyka.ripdpi.diagnostics
 
+import com.poyka.ripdpi.core.RipDpiProxyUIPreferences
+import com.poyka.ripdpi.core.RipDpiRuntimeContext
 import com.poyka.ripdpi.core.decodeRipDpiProxyUiPreferences
+import com.poyka.ripdpi.core.toRipDpiRuntimeContext
 import com.poyka.ripdpi.data.DnsModeEncrypted
 import com.poyka.ripdpi.data.DnsModePlainUdp
 import com.poyka.ripdpi.data.DnsProviderCloudflare
@@ -13,6 +16,7 @@ import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.PolicyHandoverEvent
 import com.poyka.ripdpi.data.canonicalDefaultEncryptedDnsSettings
 import com.poyka.ripdpi.data.diagnostics.DiagnosticProfileEntity
+import com.poyka.ripdpi.data.toActiveDnsSettings
 import com.poyka.ripdpi.diagnostics.contract.engine.EngineScanRequestWire
 import com.poyka.ripdpi.diagnostics.domain.DiagnosticsIntent
 import com.poyka.ripdpi.diagnostics.domain.ExecutionPolicy
@@ -125,7 +129,54 @@ class DiagnosticsScanRequestFactoryTest {
         }
 
     @Test
-    fun `strategy probe preserves explicit base proxy config json`() =
+    fun `strategy probe injects runtime context into decodable explicit base proxy config json`() =
+        runTest {
+            val settings =
+                defaultDiagnosticsAppSettings()
+                    .toBuilder()
+                    .setDnsMode(DnsModePlainUdp)
+                    .setDnsProviderId(DnsProviderCustom)
+                    .setDnsIp("9.9.9.9")
+                    .build()
+            val explicitPreferences =
+                RipDpiProxyUIPreferences(
+                    runtimeContext =
+                        RipDpiRuntimeContext(
+                            encryptedDns =
+                                EncryptedDnsPathCandidate(
+                                    resolverId = DnsProviderCloudflare,
+                                    resolverLabel = "Cloudflare",
+                                    protocol = EncryptedDnsProtocolDoh,
+                                    host = "cloudflare-dns.com",
+                                    port = 443,
+                                    tlsServerName = "cloudflare-dns.com",
+                                    bootstrapIps = listOf("1.1.1.1", "1.0.0.1"),
+                                    dohUrl = "https://cloudflare-dns.com/dns-query",
+                                ).toActiveDnsSettings().toRipDpiRuntimeContext()?.encryptedDns,
+                        ),
+                )
+
+            val request =
+                prepareStrategyProbeRequest(
+                    settings = settings,
+                    baseProxyConfigJson = explicitPreferences.toNativeConfigJson(),
+                )
+            val decoded =
+                requireNotNull(
+                    decodeRipDpiProxyUiPreferences(requireNotNull(request.strategyProbe?.baseProxyConfigJson)),
+                )
+            val runtimeDns = requireNotNull(decoded.runtimeContext?.encryptedDns)
+            val defaultDns = canonicalDefaultEncryptedDnsSettings()
+
+            assertEquals(explicitPreferences.chains.tcpSteps, decoded.chains.tcpSteps)
+            assertEquals(explicitPreferences.quic.fakeProfile, decoded.quic.fakeProfile)
+            assertEquals(defaultDns.providerId, runtimeDns.resolverId)
+            assertEquals(defaultDns.encryptedDnsProtocol, runtimeDns.protocol)
+            assertEquals(defaultDns.encryptedDnsHost, runtimeDns.host)
+        }
+
+    @Test
+    fun `strategy probe leaves undecodable explicit base proxy config json unchanged`() =
         runTest {
             val explicitBaseConfigJson = "already-set"
 
@@ -280,6 +331,99 @@ class DiagnosticsScanRequestFactoryTest {
             assertNull(prepared.initialSession.triggerOccurredAt)
             assertNull(prepared.initialSession.triggerPreviousFingerprintHash)
             assertNull(prepared.initialSession.triggerCurrentFingerprintHash)
+        }
+
+    @Test
+    fun `prepare reprobe prefers explicit dns path override over collected preference`() =
+        runTest {
+            val settings =
+                defaultDiagnosticsAppSettings()
+                    .toBuilder()
+                    .setDnsMode(DnsModePlainUdp)
+                    .setDnsProviderId(DnsProviderCustom)
+                    .setDnsIp("9.9.9.9")
+                    .build()
+            val collectedPreference =
+                EncryptedDnsPathCandidate(
+                    resolverId = DnsProviderCloudflare,
+                    resolverLabel = "Cloudflare",
+                    protocol = EncryptedDnsProtocolDoh,
+                    host = "cloudflare-dns.com",
+                    port = 443,
+                    tlsServerName = "cloudflare-dns.com",
+                    bootstrapIps = listOf("1.1.1.1", "1.0.0.1"),
+                    dohUrl = "https://cloudflare-dns.com/dns-query",
+                )
+            val overridePath =
+                EncryptedDnsPathCandidate(
+                    resolverId = DnsProviderGoogle,
+                    resolverLabel = "Google Public DNS",
+                    protocol = EncryptedDnsProtocolDot,
+                    host = "dns.google",
+                    port = 853,
+                    tlsServerName = "dns.google",
+                    bootstrapIps = listOf("8.8.8.8", "8.8.4.4"),
+                )
+            val intent = strategyProbeIntent(settings = settings, baseProxyConfigJson = null)
+            val context = strategyProbeContext(settings = settings, preferredDnsPath = collectedPreference)
+            val factory =
+                DiagnosticsScanRequestFactory(
+                    context = TestContext(),
+                    networkMetadataProvider = FakeNetworkMetadataProvider(),
+                    intentResolver =
+                        object : DiagnosticsIntentResolver {
+                            override suspend fun resolve(
+                                profileId: String,
+                                pathMode: ScanPathMode,
+                            ): DiagnosticsIntent = intent
+                        },
+                    scanContextCollector =
+                        object : ScanContextCollector {
+                            override suspend fun collect(intent: DiagnosticsIntent): ScanContext = context
+                        },
+                    diagnosticsPlanner = DefaultDiagnosticsPlanner(),
+                    engineRequestEncoder = DefaultEngineRequestEncoder(),
+                    json = json,
+                )
+            val original =
+                factory.prepareScan(
+                    profile =
+                        DiagnosticProfileEntity(
+                            id = "strategy-probe",
+                            name = "Strategy probe",
+                            source = "test",
+                            version = 1,
+                            requestJson =
+                                diagnosticsProfileRequestJson(
+                                    json = json,
+                                    profileId = "strategy-probe",
+                                    displayName = "Strategy probe",
+                                    kind = ScanKind.STRATEGY_PROBE,
+                                    family = DiagnosticProfileFamily.AUTOMATIC_PROBING,
+                                    targets =
+                                        DiagnosticsProfileTargets(
+                                            strategyProbe = StrategyProbeRequest(suiteId = "quick_v1"),
+                                        ),
+                                    allowBackground = true,
+                                ),
+                            updatedAt = 1L,
+                        ),
+                    settings = settings,
+                    pathMode = ScanPathMode.RAW_PATH,
+                    scanOrigin = DiagnosticsScanOrigin.USER_INITIATED,
+                    exposeProgress = false,
+                    registerActiveBridge = false,
+                )
+
+            val reprobe = factory.prepareReprobe(original, preferredDnsPathOverride = overridePath)
+            val request = json.decodeFromString(EngineScanRequestWire.serializer(), reprobe.requestJson)
+            val runtimeDns = decodeRuntimeDns(request)
+
+            assertEquals(overridePath, reprobe.preferredDnsPath)
+            assertEquals(overridePath.resolverId, runtimeDns.resolverId)
+            assertEquals(overridePath.protocol, runtimeDns.protocol)
+            assertEquals(overridePath.host, runtimeDns.host)
+            assertEquals(overridePath.port, runtimeDns.port)
         }
 
     private suspend fun prepareStrategyProbeRequest(
