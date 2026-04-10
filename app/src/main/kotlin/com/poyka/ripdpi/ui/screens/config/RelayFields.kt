@@ -18,12 +18,15 @@ import com.poyka.ripdpi.activities.ConfigFieldRelayServer
 import com.poyka.ripdpi.activities.ConfigFieldRelayServerPort
 import com.poyka.ripdpi.activities.ConfigUiState
 import com.poyka.ripdpi.data.RelayKindChainRelay
+import com.poyka.ripdpi.data.RelayKindCloudflareTunnel
 import com.poyka.ripdpi.data.RelayKindHysteria2
 import com.poyka.ripdpi.data.RelayKindMasque
 import com.poyka.ripdpi.data.RelayKindVlessReality
 import com.poyka.ripdpi.data.RelayMasqueAuthModeBearer
 import com.poyka.ripdpi.data.RelayMasqueAuthModePreshared
 import com.poyka.ripdpi.data.RelayMasqueAuthModePrivacyPass
+import com.poyka.ripdpi.data.RelayVlessTransportRealityTcp
+import com.poyka.ripdpi.data.RelayVlessTransportXhttp
 import com.poyka.ripdpi.ui.components.inputs.RipDpiChip
 import com.poyka.ripdpi.ui.components.inputs.RipDpiSwitch
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextField
@@ -41,6 +44,9 @@ internal fun RelayKindFields(
     onRelayServerNameChanged: (String) -> Unit,
     onRelayRealityPublicKeyChanged: (String) -> Unit,
     onRelayRealityShortIdChanged: (String) -> Unit,
+    onRelayVlessTransportChanged: (String) -> Unit,
+    onRelayXhttpPathChanged: (String) -> Unit,
+    onRelayXhttpHostChanged: (String) -> Unit,
     onRelayVlessUuidChanged: (String) -> Unit,
     onRelayHysteriaPasswordChanged: (String) -> Unit,
     onRelayHysteriaSalamanderKeyChanged: (String) -> Unit,
@@ -63,7 +69,11 @@ internal fun RelayKindFields(
 ) {
     val spacing = RipDpiThemeTokens.spacing
     val colors = RipDpiThemeTokens.colors
-    if (draft.relayKind == RelayKindVlessReality || draft.relayKind == RelayKindHysteria2) {
+    if (
+        draft.relayKind == RelayKindVlessReality ||
+        draft.relayKind == RelayKindCloudflareTunnel ||
+        draft.relayKind == RelayKindHysteria2
+    ) {
         RipDpiTextField(
             value = draft.relayServer,
             onValueChange = onRelayServerChanged,
@@ -93,20 +103,56 @@ internal fun RelayKindFields(
         )
     }
     when (draft.relayKind) {
-        RelayKindVlessReality -> {
-            RipDpiTextField(
-                value = draft.relayRealityPublicKey,
-                onValueChange = onRelayRealityPublicKeyChanged,
-                decoration =
-                    RipDpiTextFieldDecoration(
-                        label = stringResource(R.string.config_relay_reality_public_key),
-                    ),
+        RelayKindVlessReality,
+        RelayKindCloudflareTunnel,
+        -> {
+            if (draft.relayKind == RelayKindVlessReality) {
+                RipDpiTextField(
+                    value = draft.relayRealityPublicKey,
+                    onValueChange = onRelayRealityPublicKeyChanged,
+                    decoration =
+                        RipDpiTextFieldDecoration(
+                            label = stringResource(R.string.config_relay_reality_public_key),
+                        ),
+                )
+                RipDpiTextField(
+                    value = draft.relayRealityShortId,
+                    onValueChange = onRelayRealityShortIdChanged,
+                    decoration =
+                        RipDpiTextFieldDecoration(label = stringResource(R.string.config_relay_reality_short_id)),
+                )
+            }
+            Text(
+                text = stringResource(R.string.config_relay_vless_transport),
+                style = RipDpiThemeTokens.type.caption,
+                color = colors.mutedForeground,
             )
-            RipDpiTextField(
-                value = draft.relayRealityShortId,
-                onValueChange = onRelayRealityShortIdChanged,
-                decoration = RipDpiTextFieldDecoration(label = stringResource(R.string.config_relay_reality_short_id)),
-            )
+            Row(horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
+                VlessTransportChip(
+                    selectedTransport = draft.relayVlessTransport,
+                    transport = RelayVlessTransportRealityTcp,
+                    labelRes = R.string.config_relay_vless_transport_reality_tcp,
+                    onRelayVlessTransportChanged = onRelayVlessTransportChanged,
+                )
+                VlessTransportChip(
+                    selectedTransport = draft.relayVlessTransport,
+                    transport = RelayVlessTransportXhttp,
+                    labelRes = R.string.config_relay_vless_transport_xhttp,
+                    onRelayVlessTransportChanged = onRelayVlessTransportChanged,
+                )
+            }
+            if (draft.relayKind == RelayKindCloudflareTunnel || draft.relayVlessTransport == RelayVlessTransportXhttp) {
+                RipDpiTextField(
+                    value = draft.relayXhttpPath,
+                    onValueChange = onRelayXhttpPathChanged,
+                    decoration = RipDpiTextFieldDecoration(label = stringResource(R.string.config_relay_xhttp_path)),
+                )
+                RipDpiTextField(
+                    value = draft.relayXhttpHost,
+                    onValueChange = onRelayXhttpHostChanged,
+                    decoration = RipDpiTextFieldDecoration(label = stringResource(R.string.config_relay_xhttp_host)),
+                )
+            }
             RipDpiTextField(
                 value = draft.relayVlessUuid,
                 onValueChange = onRelayVlessUuidChanged,
@@ -316,6 +362,21 @@ internal fun RowScope.MasqueAuthModeChip(
         text = stringResource(labelRes),
         selected = selectedMode == mode,
         onClick = { onRelayMasqueAuthModeChanged(mode) },
+        modifier = Modifier.weight(1f),
+    )
+}
+
+@Composable
+private fun RowScope.VlessTransportChip(
+    selectedTransport: String,
+    transport: String,
+    labelRes: Int,
+    onRelayVlessTransportChanged: (String) -> Unit,
+) {
+    RipDpiChip(
+        text = stringResource(labelRes),
+        selected = selectedTransport == transport,
+        onClick = { onRelayVlessTransportChanged(transport) },
         modifier = Modifier.weight(1f),
     )
 }

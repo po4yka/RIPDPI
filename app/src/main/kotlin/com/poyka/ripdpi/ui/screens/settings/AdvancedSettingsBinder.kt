@@ -18,6 +18,9 @@ import com.poyka.ripdpi.data.NumericRangeModel
 import com.poyka.ripdpi.data.TcpChainStepKind
 import com.poyka.ripdpi.data.TcpChainStepModel
 import com.poyka.ripdpi.data.UdpChainStepModel
+import com.poyka.ripdpi.data.WarpAmneziaPresetCustom
+import com.poyka.ripdpi.data.WarpAmneziaPresetOff
+import com.poyka.ripdpi.data.WarpAmneziaSettings
 import com.poyka.ripdpi.data.isAdaptiveOffsetExpression
 import com.poyka.ripdpi.data.isTlsPrelude
 import com.poyka.ripdpi.data.normalizeActivationFilter
@@ -30,10 +33,12 @@ import com.poyka.ripdpi.data.normalizePayloadSizeRange
 import com.poyka.ripdpi.data.normalizeQuicFakeHost
 import com.poyka.ripdpi.data.normalizeRoundRange
 import com.poyka.ripdpi.data.normalizeStreamBytesRange
+import com.poyka.ripdpi.data.normalizeWarpAmneziaPreset
 import com.poyka.ripdpi.data.normalizeWarpEndpointSelectionMode
 import com.poyka.ripdpi.data.normalizeWarpRouteMode
 import com.poyka.ripdpi.data.parseStrategyChainDsl
 import com.poyka.ripdpi.data.primaryTcpChainStep
+import com.poyka.ripdpi.data.resolveWarpAmneziaProfile
 import com.poyka.ripdpi.data.rewritePrimaryTcpMarker
 import com.poyka.ripdpi.data.setGroupActivationFilterCompat
 import com.poyka.ripdpi.data.setStrategyChains
@@ -519,6 +524,54 @@ private fun AdvancedSettingsMutationWriter.updateWarpEndpointSelectionMode(value
     val normalized = normalizeWarpEndpointSelectionMode(value)
     updateValue("warpEndpointSelectionMode", normalized) {
         setWarpEndpointSelectionMode(normalized)
+    }
+}
+
+private fun AdvancedSettingsMutationWriter.updateWarpAmneziaPreset(
+    value: String,
+    uiState: SettingsUiState,
+) {
+    val normalized = normalizeWarpAmneziaPreset(value)
+    val rawSettings =
+        WarpAmneziaSettings(
+            enabled = uiState.warp.amneziaEnabled,
+            jc = uiState.warp.amneziaJc,
+            jmin = uiState.warp.amneziaJmin,
+            jmax = uiState.warp.amneziaJmax,
+            h1 = uiState.warp.amneziaH1,
+            h2 = uiState.warp.amneziaH2,
+            h3 = uiState.warp.amneziaH3,
+            h4 = uiState.warp.amneziaH4,
+            s1 = uiState.warp.amneziaS1,
+            s2 = uiState.warp.amneziaS2,
+            s3 = uiState.warp.amneziaS3,
+            s4 = uiState.warp.amneziaS4,
+        )
+    val resolved =
+        resolveWarpAmneziaProfile(
+            preset = normalized,
+            rawSettings =
+                if (normalized == WarpAmneziaPresetCustom) {
+                    rawSettings.copy(enabled = true)
+                } else {
+                    rawSettings
+                },
+        ).settings
+
+    updateValue("warpAmneziaPreset", normalized) {
+        setWarpAmneziaPreset(normalized)
+        setWarpAmneziaEnabled(normalized != WarpAmneziaPresetOff)
+        setWarpAmneziaJc(resolved.jc)
+        setWarpAmneziaJmin(resolved.jmin)
+        setWarpAmneziaJmax(resolved.jmax)
+        setWarpAmneziaH1(resolved.h1)
+        setWarpAmneziaH2(resolved.h2)
+        setWarpAmneziaH3(resolved.h3)
+        setWarpAmneziaH4(resolved.h4)
+        setWarpAmneziaS1(resolved.s1)
+        setWarpAmneziaS2(resolved.s2)
+        setWarpAmneziaS3(resolved.s3)
+        setWarpAmneziaS4(resolved.s4)
     }
 }
 
@@ -1032,6 +1085,8 @@ private val optionHandlers: Map<AdvancedOptionSetting, OptionHandler> =
             { value, _ -> updateWarpRouteMode(value) },
         AdvancedOptionSetting.WarpEndpointSelectionMode to
             { value, _ -> updateWarpEndpointSelectionMode(value) },
+        AdvancedOptionSetting.WarpAmneziaPreset to
+            { value, uiState -> updateWarpAmneziaPreset(value, uiState) },
         AdvancedOptionSetting.QuicInitialMode to
             { value, _ -> updateValue("quicInitialMode", value) { setQuicInitialMode(value) } },
         AdvancedOptionSetting.TlsFingerprintProfile to

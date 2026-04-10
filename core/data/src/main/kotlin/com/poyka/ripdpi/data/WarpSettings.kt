@@ -21,6 +21,10 @@ const val DefaultWarpLocalSocksPort = 11888
 const val DefaultWarpScannerParallelism = 10
 const val DefaultWarpScannerMaxRttMs = 1_500
 const val DefaultWarpManualEndpointPort = 2408
+const val WarpAmneziaPresetOff = "off"
+const val WarpAmneziaPresetBalanced = "balanced"
+const val WarpAmneziaPresetAggressive = "aggressive"
+const val WarpAmneziaPresetCustom = "custom"
 
 val BuiltInWarpControlPlaneHosts: List<String> =
     listOf(
@@ -55,6 +59,11 @@ data class WarpAmneziaSettings(
     val s4: Int = 0,
 )
 
+data class WarpAmneziaPresetProfile(
+    val preset: String,
+    val settings: WarpAmneziaSettings,
+)
+
 data class WarpProfileMetadata(
     val profileId: String = DefaultWarpProfileId,
     val accountKind: String = WarpAccountKindConsumerFree,
@@ -74,6 +83,7 @@ data class WarpSettingsModel(
     val scannerEnabled: Boolean = true,
     val scannerParallelism: Int = DefaultWarpScannerParallelism,
     val scannerMaxRttMs: Int = DefaultWarpScannerMaxRttMs,
+    val amneziaPreset: String = WarpAmneziaPresetOff,
     val amnezia: WarpAmneziaSettings = WarpAmneziaSettings(),
 )
 
@@ -111,44 +121,171 @@ fun normalizeWarpScannerMode(value: String): String =
         else -> WarpScannerModeAutomatic
     }
 
-fun AppSettings.toWarpSettingsModel(): WarpSettingsModel =
-    WarpSettingsModel(
-        enabled = warpEnabled,
-        routeMode = normalizeWarpRouteMode(warpRouteMode),
-        routeHosts = warpRouteHosts,
-        builtInRulesEnabled = warpBuiltinRulesEnabled,
-        profile =
-            WarpProfileMetadata(
-                profileId = warpProfileId.ifBlank { DefaultWarpProfileId },
-                accountKind = normalizeWarpAccountKind(warpAccountKind),
-                zeroTrustOrg = warpZeroTrustOrg,
-                setupState = normalizeWarpSetupState(warpSetupState),
-                lastScannerMode = normalizeWarpScannerMode(warpLastScannerMode),
-            ),
-        endpointSelectionMode = normalizeWarpEndpointSelectionMode(warpEndpointSelectionMode),
-        manualEndpoint =
-            WarpManualEndpoint(
-                host = warpManualEndpointHost,
-                ipv4 = warpManualEndpointV4,
-                ipv6 = warpManualEndpointV6,
-                port = warpManualEndpointPort.takeIf { it > 0 } ?: DefaultWarpManualEndpointPort,
-            ),
-        scannerEnabled = warpScannerEnabled,
-        scannerParallelism = warpScannerParallelism.takeIf { it > 0 } ?: DefaultWarpScannerParallelism,
-        scannerMaxRttMs = warpScannerMaxRttMs.takeIf { it > 0 } ?: DefaultWarpScannerMaxRttMs,
-        amnezia =
-            WarpAmneziaSettings(
-                enabled = warpAmneziaEnabled,
-                jc = warpAmneziaJc,
-                jmin = warpAmneziaJmin,
-                jmax = warpAmneziaJmax,
-                h1 = warpAmneziaH1,
-                h2 = warpAmneziaH2,
-                h3 = warpAmneziaH3,
-                h4 = warpAmneziaH4,
-                s1 = warpAmneziaS1,
-                s2 = warpAmneziaS2,
-                s3 = warpAmneziaS3,
-                s4 = warpAmneziaS4,
-            ),
+fun normalizeWarpAmneziaPreset(value: String): String =
+    when (value.trim().lowercase()) {
+        WarpAmneziaPresetBalanced -> WarpAmneziaPresetBalanced
+        WarpAmneziaPresetAggressive -> WarpAmneziaPresetAggressive
+        WarpAmneziaPresetCustom -> WarpAmneziaPresetCustom
+        else -> WarpAmneziaPresetOff
+    }
+
+private fun balancedWarpAmneziaSettings(): WarpAmneziaSettings =
+    WarpAmneziaSettings(
+        enabled = true,
+        jc = 3,
+        jmin = 50,
+        jmax = 400,
+        h1 = 1L,
+        h2 = 3L,
+        h3 = 5L,
+        h4 = 7L,
+        s1 = 32,
+        s2 = 120,
+        s3 = 260,
+        s4 = 520,
     )
+
+private fun aggressiveWarpAmneziaSettings(): WarpAmneziaSettings =
+    WarpAmneziaSettings(
+        enabled = true,
+        jc = 6,
+        jmin = 64,
+        jmax = 900,
+        h1 = 2L,
+        h2 = 4L,
+        h3 = 6L,
+        h4 = 8L,
+        s1 = 48,
+        s2 = 160,
+        s3 = 512,
+        s4 = 960,
+    )
+
+internal fun rawWarpAmneziaSettings(appSettings: AppSettings): WarpAmneziaSettings =
+    WarpAmneziaSettings(
+        enabled = appSettings.warpAmneziaEnabled,
+        jc = appSettings.warpAmneziaJc,
+        jmin = appSettings.warpAmneziaJmin,
+        jmax = appSettings.warpAmneziaJmax,
+        h1 = appSettings.warpAmneziaH1,
+        h2 = appSettings.warpAmneziaH2,
+        h3 = appSettings.warpAmneziaH3,
+        h4 = appSettings.warpAmneziaH4,
+        s1 = appSettings.warpAmneziaS1,
+        s2 = appSettings.warpAmneziaS2,
+        s3 = appSettings.warpAmneziaS3,
+        s4 = appSettings.warpAmneziaS4,
+    )
+
+internal fun inferWarpAmneziaPreset(
+    storedPreset: String,
+    rawSettings: WarpAmneziaSettings,
+): String {
+    val normalizedPreset = normalizeWarpAmneziaPreset(storedPreset)
+    if (normalizedPreset != WarpAmneziaPresetOff || storedPreset.isNotBlank()) {
+        return normalizedPreset
+    }
+    return if (
+        rawSettings.enabled ||
+        rawSettings.jc != 0 ||
+        rawSettings.jmin != 0 ||
+        rawSettings.jmax != 0 ||
+        rawSettings.h1 != 0L ||
+        rawSettings.h2 != 0L ||
+        rawSettings.h3 != 0L ||
+        rawSettings.h4 != 0L ||
+        rawSettings.s1 != 0 ||
+        rawSettings.s2 != 0 ||
+        rawSettings.s3 != 0 ||
+        rawSettings.s4 != 0
+    ) {
+        WarpAmneziaPresetCustom
+    } else {
+        WarpAmneziaPresetOff
+    }
+}
+
+fun resolveWarpAmneziaProfile(
+    preset: String,
+    rawSettings: WarpAmneziaSettings,
+): WarpAmneziaPresetProfile {
+    val normalizedPreset = normalizeWarpAmneziaPreset(preset)
+    return when (normalizedPreset) {
+        WarpAmneziaPresetBalanced -> WarpAmneziaPresetProfile(normalizedPreset, balancedWarpAmneziaSettings())
+        WarpAmneziaPresetAggressive -> WarpAmneziaPresetProfile(normalizedPreset, aggressiveWarpAmneziaSettings())
+        WarpAmneziaPresetCustom -> WarpAmneziaPresetProfile(normalizedPreset, normalizeWarpAmneziaSettings(rawSettings))
+        else -> WarpAmneziaPresetProfile(WarpAmneziaPresetOff, WarpAmneziaSettings())
+    }
+}
+
+fun normalizeWarpAmneziaSettings(settings: WarpAmneziaSettings): WarpAmneziaSettings {
+    val normalizedJmin = settings.jmin.coerceAtLeast(0)
+    val normalizedJmax = settings.jmax.coerceAtLeast(normalizedJmin)
+    val normalizedHeaders =
+        listOf(settings.h1, settings.h2, settings.h3, settings.h4)
+            .mapIndexed { index, value ->
+                value.takeIf { it > 0L } ?: (index + 1).toLong()
+            }.fold(mutableListOf<Long>()) { acc, value ->
+                var candidate = value
+                while (acc.contains(candidate)) {
+                    candidate += 1L
+                }
+                acc += candidate
+                acc
+            }
+    val normalizedS1 = settings.s1.coerceAtLeast(0)
+    var normalizedS2 = settings.s2.coerceAtLeast(0)
+    if (normalizedS1 + 56 == normalizedS2) {
+        normalizedS2 += 1
+    }
+    return settings.copy(
+        enabled = settings.enabled,
+        jc = settings.jc.coerceIn(0, 10),
+        jmin = normalizedJmin,
+        jmax = normalizedJmax.coerceAtMost(1024),
+        h1 = normalizedHeaders[0],
+        h2 = normalizedHeaders[1],
+        h3 = normalizedHeaders[2],
+        h4 = normalizedHeaders[3],
+        s1 = normalizedS1,
+        s2 = normalizedS2,
+        s3 = settings.s3.coerceAtLeast(0),
+        s4 = settings.s4.coerceAtLeast(0),
+    )
+}
+
+fun AppSettings.toWarpSettingsModel(): WarpSettingsModel =
+    rawWarpAmneziaSettings(this).let { rawAmnezia ->
+        val amneziaProfile =
+            resolveWarpAmneziaProfile(
+                inferWarpAmneziaPreset(warpAmneziaPreset, rawAmnezia),
+                rawAmnezia,
+            )
+        WarpSettingsModel(
+            enabled = warpEnabled,
+            routeMode = normalizeWarpRouteMode(warpRouteMode),
+            routeHosts = warpRouteHosts,
+            builtInRulesEnabled = warpBuiltinRulesEnabled,
+            profile =
+                WarpProfileMetadata(
+                    profileId = warpProfileId.ifBlank { DefaultWarpProfileId },
+                    accountKind = normalizeWarpAccountKind(warpAccountKind),
+                    zeroTrustOrg = warpZeroTrustOrg,
+                    setupState = normalizeWarpSetupState(warpSetupState),
+                    lastScannerMode = normalizeWarpScannerMode(warpLastScannerMode),
+                ),
+            endpointSelectionMode = normalizeWarpEndpointSelectionMode(warpEndpointSelectionMode),
+            manualEndpoint =
+                WarpManualEndpoint(
+                    host = warpManualEndpointHost,
+                    ipv4 = warpManualEndpointV4,
+                    ipv6 = warpManualEndpointV6,
+                    port = warpManualEndpointPort.takeIf { it > 0 } ?: DefaultWarpManualEndpointPort,
+                ),
+            scannerEnabled = warpScannerEnabled,
+            scannerParallelism = warpScannerParallelism.takeIf { it > 0 } ?: DefaultWarpScannerParallelism,
+            scannerMaxRttMs = warpScannerMaxRttMs.takeIf { it > 0 } ?: DefaultWarpScannerMaxRttMs,
+            amneziaPreset = amneziaProfile.preset,
+            amnezia = amneziaProfile.settings,
+        )
+    }

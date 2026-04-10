@@ -35,6 +35,7 @@ members = [
     "crates/ripdpi-vless",
     "crates/ripdpi-masque",
     "crates/ripdpi-tls-profiles",
+    "crates/ripdpi-xhttp",
 ]
 
 [workspace.package]
@@ -68,6 +69,7 @@ ripdpi-io-uring = { path = "crates/ripdpi-io-uring" }
 ripdpi-vless = { path = "crates/ripdpi-vless" }
 ripdpi-masque = { path = "crates/ripdpi-masque" }
 ripdpi-tls-profiles = { path = "crates/ripdpi-tls-profiles" }
+ripdpi-xhttp = { path = "crates/ripdpi-xhttp" }
 criterion = { version = "0.8", features = ["html_reports"] }
 
 ripdpi-tun-driver = { path = "crates/ripdpi-tun-driver" }

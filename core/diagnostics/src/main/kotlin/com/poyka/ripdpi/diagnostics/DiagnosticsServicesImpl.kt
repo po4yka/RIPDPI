@@ -10,7 +10,7 @@ import com.poyka.ripdpi.data.ApplicationIoScope
 import com.poyka.ripdpi.data.NetworkFingerprintProvider
 import com.poyka.ripdpi.data.PolicyHandoverEventStore
 import com.poyka.ripdpi.data.ResolverOverrideStore
-import com.poyka.ripdpi.data.TlsFingerprintProfileNativeDefault
+import com.poyka.ripdpi.data.TlsFingerprintProfileChromeStable
 import com.poyka.ripdpi.data.WarpEndpointSelectionManual
 import com.poyka.ripdpi.data.WarpRouteModeRules
 import com.poyka.ripdpi.data.activeDnsSettings
@@ -415,7 +415,7 @@ class DefaultDiagnosticsHomeWorkflowService
             preferences: RipDpiProxyUIPreferences,
         ): List<DiagnosticsAppliedSetting> =
             buildList {
-                if (preferences.fakePackets.tlsFingerprintProfile != TlsFingerprintProfileNativeDefault) {
+                if (preferences.fakePackets.tlsFingerprintProfile != TlsFingerprintProfileChromeStable) {
                     add(
                         DiagnosticsAppliedSetting(
                             label = "TLS fingerprint",

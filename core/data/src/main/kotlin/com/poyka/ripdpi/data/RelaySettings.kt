@@ -7,6 +7,9 @@ const val RelayKindVlessReality = "vless_reality"
 const val RelayKindHysteria2 = "hysteria2"
 const val RelayKindChainRelay = "chain_relay"
 const val RelayKindMasque = "masque"
+const val RelayKindCloudflareTunnel = "cloudflare_tunnel"
+const val RelayVlessTransportRealityTcp = "reality_tcp"
+const val RelayVlessTransportXhttp = "xhttp"
 const val RelayMasqueAuthModeBearer = "bearer"
 const val RelayMasqueAuthModePreshared = "preshared"
 const val RelayMasqueAuthModePrivacyPass = "privacy_pass"
@@ -20,7 +23,18 @@ fun normalizeRelayKind(value: String): String =
         RelayKindHysteria2 -> RelayKindHysteria2
         RelayKindChainRelay -> RelayKindChainRelay
         RelayKindMasque -> RelayKindMasque
+        RelayKindCloudflareTunnel -> RelayKindCloudflareTunnel
         else -> RelayKindOff
+    }
+
+fun normalizeRelayVlessTransport(
+    value: String,
+    relayKind: String? = null,
+): String =
+    when {
+        normalizeRelayKind(relayKind.orEmpty()) == RelayKindCloudflareTunnel -> RelayVlessTransportXhttp
+        value.trim().lowercase() == RelayVlessTransportXhttp -> RelayVlessTransportXhttp
+        else -> RelayVlessTransportRealityTcp
     }
 
 fun normalizeRelayMasqueAuthMode(
@@ -51,6 +65,9 @@ data class RelayProfileModel(
     val serverName: String = "",
     val realityPublicKey: String = "",
     val realityShortId: String = "",
+    val vlessTransport: String = RelayVlessTransportRealityTcp,
+    val xhttpPath: String = "",
+    val xhttpHost: String = "",
     val chainEntryServer: String = "",
     val chainEntryPort: Int = 443,
     val chainEntryServerName: String = "",
@@ -93,6 +110,9 @@ fun AppSettings.toRelaySettingsModel(): RelaySettingsModel {
                 serverName = relayServerName,
                 realityPublicKey = relayRealityPublicKey,
                 realityShortId = relayRealityShortId,
+                vlessTransport = normalizeRelayVlessTransport(relayVlessTransport, kind),
+                xhttpPath = relayXhttpPath,
+                xhttpHost = relayXhttpHost,
                 chainEntryServer = relayChainEntryServer,
                 chainEntryPort = relayChainEntryPort.takeIf { it > 0 } ?: 443,
                 chainEntryServerName = relayChainEntryServerName,
