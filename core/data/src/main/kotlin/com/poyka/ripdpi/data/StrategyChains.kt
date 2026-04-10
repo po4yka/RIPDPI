@@ -57,6 +57,7 @@ enum class TcpChainStepKind(
     val wireName: String,
 ) {
     Split("split"),
+    SynData("syndata"),
     SeqOverlap("seqovl"),
     Disorder("disorder"),
     MultiDisorder("multidisorder"),
@@ -93,6 +94,7 @@ val TcpChainStepKind.supportsAdaptiveMarker: Boolean
 fun TcpChainStepKind.desyncMethodLabel(): String? =
     when (this) {
         TcpChainStepKind.Split -> "split"
+        TcpChainStepKind.SynData -> "syndata"
         TcpChainStepKind.SeqOverlap -> "seqovl"
         TcpChainStepKind.Disorder -> "disorder"
         TcpChainStepKind.MultiDisorder -> "multidisorder"

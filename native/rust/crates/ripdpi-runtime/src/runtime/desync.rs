@@ -254,7 +254,7 @@ fn primary_tcp_strategy_family(group: &DesyncGroup) -> Option<&'static str> {
     let chain = group.effective_tcp_chain();
     let has_tls_prelude = chain.iter().any(|step| step.kind.is_tls_prelude());
     chain.into_iter().find(|step| !step.kind.is_tls_prelude()).map(|step| match step.kind {
-        TcpChainStepKind::Split => "split",
+        TcpChainStepKind::Split | TcpChainStepKind::SynData => "split",
         TcpChainStepKind::SeqOverlap => {
             if has_tls_prelude {
                 "tlsrec_seqovl"
@@ -716,7 +716,7 @@ fn execute_tcp_plan(
         let chunk = &plan.tampered[start..end];
         let configured_step = &send_steps[index];
         let step_family = match step.kind {
-            TcpChainStepKind::Split => "split",
+            TcpChainStepKind::Split | TcpChainStepKind::SynData => "split",
             TcpChainStepKind::SeqOverlap => strategy_family.unwrap_or("seqovl"),
             TcpChainStepKind::MultiDisorder => strategy_family.unwrap_or("multidisorder"),
             TcpChainStepKind::Oob => "oob",
@@ -733,7 +733,7 @@ fn execute_tcp_plan(
         let step_fallback = strategy_fallback_family(step_family);
 
         match step.kind {
-            TcpChainStepKind::Split => {
+            TcpChainStepKind::Split | TcpChainStepKind::SynData => {
                 bytes_committed = write_strategy_payload_named(
                     writer,
                     chunk,

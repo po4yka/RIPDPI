@@ -1,6 +1,7 @@
 #![forbid(unsafe_code)]
 
 use std::io;
+use std::net::{IpAddr, SocketAddr, ToSocketAddrs};
 use std::pin::Pin;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
@@ -17,6 +18,7 @@ use hyper_util::rt::{TokioExecutor, TokioIo};
 use rand::Rng;
 use ripdpi_vless::config::VlessRealityConfig;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt, DuplexStream, ReadBuf};
+use tokio::net::{TcpSocket, TcpStream};
 use tokio::sync::{mpsc, Mutex, OwnedSemaphorePermit, Semaphore};
 
 const STREAM_BUFFER_SIZE: usize = 64 * 1024;
@@ -51,6 +53,7 @@ pub struct XhttpRealityConfig {
     pub vless: VlessRealityConfig,
     pub path: String,
     pub host: Option<String>,
+    pub bind_ip: Option<IpAddr>,
     pub xmux: XmuxConfig,
 }
 
@@ -62,6 +65,7 @@ pub struct XhttpTlsConfig {
     pub uuid: [u8; 16],
     pub path: String,
     pub host: Option<String>,
+    pub bind_ip: Option<IpAddr>,
     pub tls_fingerprint_profile: String,
     pub xmux: XmuxConfig,
 }
@@ -212,14 +216,14 @@ impl XhttpClient {
         let io = match &self.inner.mode {
             XhttpMode::Reality(config) => {
                 let tls = ripdpi_vless::reality::connect_reality_tls(
-                    tokio::net::TcpStream::connect(format!("{}:{}", config.vless.server, config.vless.port)).await?,
+                    connect_tcp_stream(&config.vless.server, config.vless.port, config.bind_ip).await?,
                     &config.vless,
                 )
                 .await?;
                 TokioIo::new(tls)
             }
             XhttpMode::Tls(config) => {
-                let tcp = tokio::net::TcpStream::connect(format!("{}:{}", config.server, config.port)).await?;
+                let tcp = connect_tcp_stream(&config.server, config.port, config.bind_ip).await?;
                 tcp.set_nodelay(true)?;
                 let connector = ripdpi_tls_profiles::build_connector(&config.tls_fingerprint_profile, true)
                     .map_err(|error| io::Error::other(format!("TLS profile: {error}")))?;
@@ -270,6 +274,7 @@ impl XhttpTlsConfig {
             uuid: parse_uuid(uuid).map_err(|_| ConfigError::InvalidUuid(uuid.to_owned()))?,
             path: normalize_path(path),
             host: if host.trim().is_empty() { None } else { Some(host.trim().to_owned()) },
+            bind_ip: None,
             tls_fingerprint_profile: tls_fingerprint_profile.to_owned(),
             xmux: XmuxConfig::default(),
         })
@@ -361,6 +366,45 @@ fn parse_uuid(value: &str) -> Result<[u8; 16], ()> {
     let mut uuid = [0u8; 16];
     uuid.copy_from_slice(&bytes);
     Ok(uuid)
+}
+
+async fn connect_tcp_stream(server: &str, port: u16, bind_ip: Option<IpAddr>) -> io::Result<TcpStream> {
+    let target = resolve_server_addr(server, port, bind_ip)?;
+    let socket = match target {
+        SocketAddr::V4(_) => TcpSocket::new_v4()?,
+        SocketAddr::V6(_) => TcpSocket::new_v6()?,
+    };
+    if let Some(bind_ip) = bind_ip {
+        let bind_addr = match (bind_ip, target) {
+            (IpAddr::V4(ip), SocketAddr::V4(_)) => SocketAddr::new(IpAddr::V4(ip), 0),
+            (IpAddr::V6(ip), SocketAddr::V6(_)) => SocketAddr::new(IpAddr::V6(ip), 0),
+            _ => {
+                return Err(io::Error::new(
+                    io::ErrorKind::InvalidInput,
+                    "outbound bind IP family does not match xHTTP server address family",
+                ));
+            }
+        };
+        socket.bind(bind_addr)?;
+    }
+    let stream = socket.connect(target).await?;
+    stream.set_nodelay(true)?;
+    Ok(stream)
+}
+
+fn resolve_server_addr(server: &str, port: u16, bind_ip: Option<IpAddr>) -> io::Result<SocketAddr> {
+    let mut candidates = (server, port)
+        .to_socket_addrs()
+        .map_err(|error| io::Error::new(error.kind(), format!("resolve {server}:{port}: {error}")))?;
+    if let Some(bind_ip) = bind_ip {
+        candidates.find(|address| address.is_ipv4() == bind_ip.is_ipv4()).ok_or_else(|| {
+            io::Error::new(io::ErrorKind::InvalidInput, "xHTTP server has no address matching outbound bind IP family")
+        })
+    } else {
+        candidates
+            .next()
+            .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "xHTTP server resolved to no addresses"))
+    }
 }
 
 struct ChannelBody {

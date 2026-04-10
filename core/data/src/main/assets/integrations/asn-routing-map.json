@@ -1,0 +1,16 @@
+{
+  "entries": [
+    {
+      "asn": 13238,
+      "label": "Yandex",
+      "country": "RU",
+      "cdn": true
+    },
+    {
+      "asn": 3216,
+      "label": "VEON",
+      "country": "RU",
+      "cdn": false
+    }
+  ]
+}

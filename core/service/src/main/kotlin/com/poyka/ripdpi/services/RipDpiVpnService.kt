@@ -9,6 +9,7 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.content.pm.ServiceInfo
 import android.net.ConnectivityManager
+import android.net.IpPrefix
 import android.os.Build
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
@@ -40,6 +41,9 @@ class RipDpiVpnService :
 
     @Inject
     lateinit var vpnAppExclusionPolicy: VpnAppExclusionPolicy
+
+    @Inject
+    lateinit var vpnDhtMitigationPolicy: VpnDhtMitigationPolicy
 
     @Inject
     internal lateinit var coordinatorFactory: VpnServiceRuntimeCoordinatorFactory
@@ -252,7 +256,29 @@ class RipDpiVpnService :
             }
         }
 
+        applyDhtMitigation(builder)
         return builder
+    }
+
+    private fun applyDhtMitigation(builder: Builder) {
+        val supportsRouteExclusion = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
+        val plan = vpnDhtMitigationPolicy.buildPlan(supportsRouteExclusion = supportsRouteExclusion)
+
+        if (supportsRouteExclusion) {
+            plan.excludedRoutes.forEach { route ->
+                runCatching {
+                    builder.excludeRoute(IpPrefix(java.net.InetAddress.getByName(route.address), route.prefixLength))
+                }.onFailure { error ->
+                    Logger.w(error) {
+                        "Failed to exclude DHT trigger route ${route.address}/${route.prefixLength}"
+                    }
+                }
+            }
+        }
+
+        plan.warningMessage?.let { warning ->
+            Logger.w { warning }
+        }
     }
 
     private class AndroidVpnTunnelBuilder(
