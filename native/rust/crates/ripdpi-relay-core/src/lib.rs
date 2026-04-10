@@ -1,7 +1,7 @@
 mod socks5;
 
 use std::io;
-use std::net::{Ipv4Addr, SocketAddr};
+use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
@@ -22,6 +22,7 @@ pub struct ResolvedRelayRuntimeConfig {
     pub enabled: bool,
     pub kind: String,
     pub profile_id: String,
+    pub outbound_bind_ip: String,
     pub server: String,
     pub server_port: i32,
     pub server_name: String,
@@ -176,6 +177,7 @@ impl Hysteria2Backend {
 
 struct VlessRealityBackend {
     config: ResolvedRelayRuntimeConfig,
+    outbound_bind_ip: Option<IpAddr>,
 }
 
 impl VlessRealityBackend {
@@ -196,7 +198,13 @@ impl VlessRealityBackend {
             &self.config.tls_fingerprint_profile,
         )
         .map_err(|error| io::Error::new(io::ErrorKind::InvalidInput, error.to_string()))?;
-        let stream = ripdpi_vless::VlessRealityClient::connect(&config, &target.to_connect_target()).await?;
+        let stream = match self.outbound_bind_ip {
+            Some(bind_ip) => {
+                ripdpi_vless::VlessRealityClient::connect_with_bind(&config, bind_ip, &target.to_connect_target())
+                    .await?
+            }
+            None => ripdpi_vless::VlessRealityClient::connect(&config, &target.to_connect_target()).await?,
+        };
         Ok(Box::new(stream))
     }
 }
@@ -214,6 +222,7 @@ impl XhttpBackend {
 
 struct ChainRelayBackend {
     config: ResolvedRelayRuntimeConfig,
+    outbound_bind_ip: Option<IpAddr>,
 }
 
 impl ChainRelayBackend {
@@ -240,7 +249,12 @@ impl ChainRelayBackend {
         .map_err(|error| io::Error::new(io::ErrorKind::InvalidInput, format!("chain exit: {error}")))?;
 
         let exit_target = format!("{}:{}", exit_config.server, exit_config.port);
-        let first_hop = ripdpi_vless::VlessRealityClient::connect(&entry_config, &exit_target).await?;
+        let first_hop = match self.outbound_bind_ip {
+            Some(bind_ip) => {
+                ripdpi_vless::VlessRealityClient::connect_with_bind(&entry_config, bind_ip, &exit_target).await?
+            }
+            None => ripdpi_vless::VlessRealityClient::connect(&entry_config, &exit_target).await?,
+        };
         let second_hop =
             ripdpi_vless::VlessRealityClient::connect_over(&exit_config, first_hop, &target.to_connect_target())
                 .await?;
@@ -478,6 +492,7 @@ impl RelayRuntime {
 }
 
 async fn build_backend(config: &ResolvedRelayRuntimeConfig) -> io::Result<RelayBackend> {
+    let outbound_bind_ip = parse_outbound_bind_ip(&config.outbound_bind_ip)?;
     match config.kind.as_str() {
         "hysteria2" => {
             let password = config
@@ -515,14 +530,17 @@ async fn build_backend(config: &ResolvedRelayRuntimeConfig) -> io::Result<RelayB
                     } else {
                         Some(config.xhttp_host.trim().to_owned())
                     },
+                    bind_ip: outbound_bind_ip,
                     xmux: ripdpi_xhttp::XmuxConfig::default(),
                 }),
             }))
         }
-        "vless_reality" => Ok(RelayBackend::VlessReality(VlessRealityBackend { config: config.clone() })),
+        "vless_reality" => {
+            Ok(RelayBackend::VlessReality(VlessRealityBackend { config: config.clone(), outbound_bind_ip }))
+        }
         "cloudflare_tunnel" => Ok(RelayBackend::Xhttp(XhttpBackend {
-            client: ripdpi_xhttp::XhttpClient::new_tls(
-                ripdpi_xhttp::XhttpTlsConfig::from_strings(
+            client: ripdpi_xhttp::XhttpClient::new_tls({
+                let mut tls = ripdpi_xhttp::XhttpTlsConfig::from_strings(
                     &config.server,
                     config.server_port,
                     &config.server_name,
@@ -531,10 +549,12 @@ async fn build_backend(config: &ResolvedRelayRuntimeConfig) -> io::Result<RelayB
                     &config.xhttp_host,
                     &config.tls_fingerprint_profile,
                 )
-                .map_err(|error| io::Error::new(io::ErrorKind::InvalidInput, error.to_string()))?,
-            ),
+                .map_err(|error| io::Error::new(io::ErrorKind::InvalidInput, error.to_string()))?;
+                tls.bind_ip = outbound_bind_ip;
+                tls
+            }),
         })),
-        "chain_relay" => Ok(RelayBackend::ChainRelay(ChainRelayBackend { config: config.clone() })),
+        "chain_relay" => Ok(RelayBackend::ChainRelay(ChainRelayBackend { config: config.clone(), outbound_bind_ip })),
         "masque" => Ok(RelayBackend::Masque(MasqueBackend {
             client: ripdpi_masque::MasqueClient::new(ripdpi_masque::config::MasqueConfig {
                 url: config.masque_url.clone(),
@@ -588,6 +608,7 @@ fn normalized_xhttp_path(config: &ResolvedRelayRuntimeConfig) -> String {
 }
 
 fn validate_runtime_config(config: &ResolvedRelayRuntimeConfig, backend: &RelayBackend) -> io::Result<()> {
+    let outbound_bind_ip = parse_outbound_bind_ip(&config.outbound_bind_ip)?;
     if config.udp_enabled && !backend.udp_capable() {
         return Err(io::Error::new(
             io::ErrorKind::Unsupported,
@@ -595,7 +616,24 @@ fn validate_runtime_config(config: &ResolvedRelayRuntimeConfig, backend: &RelayB
         ));
     }
 
+    if outbound_bind_ip.is_some() && matches!(config.kind.as_str(), "hysteria2" | "masque") {
+        return Err(io::Error::new(
+            io::ErrorKind::Unsupported,
+            format!("relay backend {} does not support outbound bind IP", config.kind),
+        ));
+    }
+
     Ok(())
+}
+
+fn parse_outbound_bind_ip(value: &str) -> io::Result<Option<IpAddr>> {
+    let trimmed = value.trim();
+    if trimmed.is_empty() {
+        return Ok(None);
+    }
+    trimmed.parse::<IpAddr>().map(Some).map_err(|error| {
+        io::Error::new(io::ErrorKind::InvalidInput, format!("invalid relay outbound_bind_ip {trimmed}: {error}"))
+    })
 }
 
 fn to_io_error(error: impl std::fmt::Display) -> io::Error {
@@ -615,6 +653,7 @@ mod tests {
             enabled: true,
             kind: kind.to_string(),
             profile_id: "default".to_string(),
+            outbound_bind_ip: String::new(),
             server: "relay.example".to_string(),
             server_port: 443,
             server_name: "relay.example".to_string(),
@@ -669,7 +708,10 @@ mod tests {
     fn relay_runtime_rejects_udp_without_backend_support() {
         let mut config = sample_config("vless_reality");
         config.udp_enabled = true;
-        let backend = RelayBackend::VlessReality(VlessRealityBackend { config: sample_config("vless_reality") });
+        let backend = RelayBackend::VlessReality(VlessRealityBackend {
+            config: sample_config("vless_reality"),
+            outbound_bind_ip: None,
+        });
 
         let error = validate_runtime_config(&config, &backend).expect_err("UDP must fail fast");
         assert_eq!(error.kind(), io::ErrorKind::Unsupported);
@@ -729,5 +771,28 @@ mod tests {
         let backend = build_backend(&config).await;
         assert!(backend.is_ok(), "cloudflare tunnel backend should resolve");
         assert_eq!("edge.example.com:443/cdn/api", describe_upstream(&config));
+    }
+
+    #[test]
+    fn relay_runtime_rejects_invalid_outbound_bind_ip() {
+        let mut config = sample_config("vless_reality");
+        config.outbound_bind_ip = "not-an-ip".to_string();
+        let backend = RelayBackend::VlessReality(VlessRealityBackend {
+            config: sample_config("vless_reality"),
+            outbound_bind_ip: None,
+        });
+
+        let error = validate_runtime_config(&config, &backend).expect_err("invalid bind ip must fail");
+        assert_eq!(error.kind(), io::ErrorKind::InvalidInput);
+    }
+
+    #[test]
+    fn relay_runtime_rejects_bind_ip_for_unsupported_backend() {
+        let mut config = sample_config("hysteria2");
+        config.outbound_bind_ip = "203.0.113.10".to_string();
+        let backend = RelayBackend::Unsupported { kind: "hysteria2".to_string() };
+
+        let error = validate_runtime_config(&config, &backend).expect_err("unsupported bind ip must fail");
+        assert_eq!(error.kind(), io::ErrorKind::Unsupported);
     }
 }

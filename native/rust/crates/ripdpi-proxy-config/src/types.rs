@@ -13,6 +13,8 @@ pub(crate) const TLS_RANDREC_DEFAULT_MIN_FRAGMENT_SIZE: i32 = 16;
 pub(crate) const TLS_RANDREC_DEFAULT_MAX_FRAGMENT_SIZE: i32 = 96;
 pub const FAKE_TLS_SNI_MODE_FIXED: &str = "fixed";
 pub const FAKE_TLS_SNI_MODE_RANDOMIZED: &str = "randomized";
+pub const FAKE_TLS_SOURCE_PROFILE: &str = "profile";
+pub const FAKE_TLS_SOURCE_CAPTURED_CLIENT_HELLO: &str = "captured_client_hello";
 pub const QUIC_FAKE_PROFILE_DISABLED: &str = "disabled";
 pub const FAKE_PAYLOAD_PROFILE_COMPAT_DEFAULT: &str = "compat_default";
 pub const SEQOVL_FAKE_MODE_PROFILE: &str = "profile";
@@ -235,11 +237,18 @@ pub struct ProxyUiChainConfig {
     pub udp_steps: Vec<ProxyUiUdpChainStep>,
     #[serde(default)]
     pub group_activation_filter: Option<ProxyUiActivationFilter>,
+    #[serde(default)]
+    pub any_protocol: bool,
 }
 
 impl Default for ProxyUiChainConfig {
     fn default() -> Self {
-        Self { tcp_steps: default_tcp_chain_steps(), udp_steps: Vec::new(), group_activation_filter: None }
+        Self {
+            tcp_steps: default_tcp_chain_steps(),
+            udp_steps: Vec::new(),
+            group_activation_filter: None,
+            any_protocol: false,
+        }
     }
 }
 
@@ -260,6 +269,14 @@ pub struct ProxyUiFakePacketConfig {
     pub fake_sni: String,
     #[serde(default = "default_fake_payload_profile")]
     pub http_fake_profile: String,
+    #[serde(default = "default_fake_tls_source")]
+    pub fake_tls_source: String,
+    #[serde(default)]
+    pub fake_tls_secondary_profile: String,
+    #[serde(default)]
+    pub fake_tcp_timestamp_enabled: bool,
+    #[serde(default)]
+    pub fake_tcp_timestamp_delta_ticks: i32,
     #[serde(default)]
     pub fake_tls_use_original: bool,
     #[serde(default)]
@@ -321,6 +338,10 @@ impl Default for ProxyUiFakePacketConfig {
             adaptive_fake_ttl_fallback: default_adaptive_fake_ttl_fallback(),
             fake_sni: "www.iana.org".to_string(),
             http_fake_profile: default_fake_payload_profile(),
+            fake_tls_source: default_fake_tls_source(),
+            fake_tls_secondary_profile: String::new(),
+            fake_tcp_timestamp_enabled: false,
+            fake_tcp_timestamp_delta_ticks: 0,
             fake_tls_use_original: false,
             fake_tls_randomize: false,
             fake_tls_dup_session_id: false,
@@ -556,6 +577,8 @@ pub struct ProxyUiRelayConfig {
     #[serde(default)]
     pub profile_id: String,
     #[serde(default)]
+    pub outbound_bind_ip: String,
+    #[serde(default)]
     pub server: String,
     #[serde(default = "default_relay_server_port")]
     pub server_port: i32,
@@ -607,6 +630,7 @@ impl Default for ProxyUiRelayConfig {
             enabled: false,
             kind: default_relay_kind(),
             profile_id: String::new(),
+            outbound_bind_ip: String::new(),
             server: String::new(),
             server_port: default_relay_server_port(),
             server_name: String::new(),
@@ -879,6 +903,10 @@ fn default_seqovl_fake_mode() -> String {
 
 fn default_fake_tls_sni_mode() -> String {
     FAKE_TLS_SNI_MODE_FIXED.to_string()
+}
+
+fn default_fake_tls_source() -> String {
+    FAKE_TLS_SOURCE_PROFILE.to_string()
 }
 
 fn default_quic_initial_mode() -> String {

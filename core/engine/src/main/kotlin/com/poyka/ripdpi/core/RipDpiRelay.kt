@@ -91,6 +91,7 @@ data class ResolvedRipDpiRelayConfig(
     val enabled: Boolean,
     val kind: String,
     val profileId: String,
+    val outboundBindIp: String = "",
     val server: String,
     val serverPort: Int,
     val serverName: String,

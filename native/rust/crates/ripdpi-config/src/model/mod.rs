@@ -153,6 +153,7 @@ pub struct PartSpec {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TcpChainStepKind {
     Split,
+    SynData,
     SeqOverlap,
     Disorder,
     MultiDisorder,
@@ -182,6 +183,7 @@ impl TcpChainStepKind {
     pub const fn as_mode(self) -> Option<DesyncMode> {
         match self {
             Self::Split => Some(DesyncMode::Split),
+            Self::SynData => Some(DesyncMode::Split),
             Self::SeqOverlap => Some(DesyncMode::Split),
             Self::Disorder => Some(DesyncMode::Disorder),
             Self::MultiDisorder => None,
@@ -392,6 +394,7 @@ pub struct DesyncGroup {
 pub struct DesyncGroupMatchSettings {
     pub detect: u32,
     pub proto: u32,
+    pub any_protocol: bool,
     pub filters: FilterSet,
     pub port_filter: Option<(u16, u16)>,
     pub activation_filter: Option<ActivationFilter>,

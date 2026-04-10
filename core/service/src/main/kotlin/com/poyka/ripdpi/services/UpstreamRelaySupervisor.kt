@@ -167,6 +167,7 @@ internal class UpstreamRelaySupervisor(
             enabled = effectiveConfig.enabled,
             kind = effectiveConfig.kind,
             profileId = profileId,
+            outboundBindIp = effectiveConfig.outboundBindIp,
             server = effectiveConfig.server,
             serverPort = effectiveConfig.serverPort,
             serverName = effectiveConfig.serverName,
@@ -215,6 +216,7 @@ internal class UpstreamRelaySupervisor(
         if (profile == null) return config
         return config.copy(
             kind = profile.kind.ifBlank { config.kind },
+            outboundBindIp = profile.outboundBindIp.ifBlank { config.outboundBindIp },
             server = profile.server.ifBlank { config.server },
             serverPort = profile.serverPort,
             serverName = profile.serverName.ifBlank { config.serverName },

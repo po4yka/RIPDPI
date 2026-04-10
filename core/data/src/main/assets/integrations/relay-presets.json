@@ -1,0 +1,12 @@
+{
+  "presets": [
+    {
+      "id": "ru-mobile-relay",
+      "title": "Russian mobile relay",
+      "entryCountry": "RU",
+      "exitCountry": "EU",
+      "antiCorrelationSuggested": true,
+      "routeMode": "direct_for_domestic"
+    }
+  ]
+}

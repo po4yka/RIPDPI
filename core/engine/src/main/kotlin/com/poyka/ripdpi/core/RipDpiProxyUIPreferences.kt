@@ -179,6 +179,7 @@ class RipDpiProxyUIPreferences(
                 groupActivationFilter = settings.effectiveGroupActivationFilter(),
                 tcpSteps = settings.effectiveTcpChainSteps(),
                 udpSteps = settings.effectiveUdpChainSteps(),
+                anyProtocol = settings.desyncAnyProtocol,
             )
 
         private fun buildFakePacketConfig(settings: AppSettings): RipDpiFakePacketConfig =
@@ -191,6 +192,12 @@ class RipDpiProxyUIPreferences(
                 adaptiveFakeTtlFallback = settings.effectiveAdaptiveFakeTtlFallback(),
                 fakeSni = settings.fakeSni.ifEmpty { DefaultFakeSni },
                 httpFakeProfile = settings.effectiveHttpFakeProfile(),
+                fakeTlsSource =
+                    com.poyka.ripdpi.data
+                        .normalizeFakeTlsSource(settings.fakeTlsSource),
+                fakeTlsSecondaryProfile = settings.fakeTlsSecondaryProfile,
+                fakeTcpTimestampEnabled = settings.fakeTcpTimestampEnabled,
+                fakeTcpTimestampDeltaTicks = settings.fakeTcpTimestampDeltaTicks,
                 fakeTlsUseOriginal = settings.fakeTlsUseOriginal,
                 fakeTlsRandomize = settings.fakeTlsRandomize,
                 fakeTlsDupSessionId = settings.fakeTlsDupSessionId,
@@ -202,6 +209,10 @@ class RipDpiProxyUIPreferences(
                 fakeOffsetMarker = settings.effectiveFakeOffsetMarker(),
                 oobChar = settings.oobData.firstOrNull() ?: 'a',
                 dropSack = settings.dropSack,
+                windowClamp = settings.windowClamp.takeIf { it > 0 },
+                wsizeWindow = settings.wsizeWindow.takeIf { it > 0 },
+                wsizeScale = settings.wsizeScale.takeIf { it >= -1 },
+                stripTimestamps = settings.stripTimestamps,
                 quicBindLowPort = settings.quicBindLowPort,
                 quicMigrateAfterHandshake = settings.quicMigrateAfterHandshake,
                 entropyMode =
@@ -298,6 +309,7 @@ class RipDpiProxyUIPreferences(
                 enabled = relay.enabled,
                 kind = relay.kind,
                 profileId = relay.profileId,
+                outboundBindIp = relay.profile.outboundBindIp,
                 server = relay.profile.server,
                 serverPort = relay.profile.serverPort,
                 serverName = relay.profile.serverName,
@@ -417,6 +429,7 @@ fun RipDpiProxyUIPreferences.applyToSettings(settings: AppSettings): AppSettings
                 tcpSteps = chains.tcpSteps,
                 udpSteps = chains.udpSteps,
             )
+            setDesyncAnyProtocol(chains.anyProtocol)
             setFakeTtl(fakePackets.fakeTtl)
             setAdaptiveFakeTtlEnabled(fakePackets.adaptiveFakeTtlEnabled)
             setAdaptiveFakeTtlDelta(fakePackets.adaptiveFakeTtlDelta)
@@ -424,6 +437,13 @@ fun RipDpiProxyUIPreferences.applyToSettings(settings: AppSettings): AppSettings
             setAdaptiveFakeTtlMax(fakePackets.adaptiveFakeTtlMax)
             setAdaptiveFakeTtlFallback(fakePackets.adaptiveFakeTtlFallback)
             setFakeSni(fakePackets.fakeSni)
+            setFakeTlsSource(
+                com.poyka.ripdpi.data
+                    .normalizeFakeTlsSource(fakePackets.fakeTlsSource),
+            )
+            setFakeTlsSecondaryProfile(fakePackets.fakeTlsSecondaryProfile)
+            setFakeTcpTimestampEnabled(fakePackets.fakeTcpTimestampEnabled)
+            setFakeTcpTimestampDeltaTicks(fakePackets.fakeTcpTimestampDeltaTicks)
             setHttpFakeProfile(fakePackets.httpFakeProfile)
             setFakeTlsUseOriginal(fakePackets.fakeTlsUseOriginal)
             setFakeTlsRandomize(fakePackets.fakeTlsRandomize)
@@ -436,6 +456,10 @@ fun RipDpiProxyUIPreferences.applyToSettings(settings: AppSettings): AppSettings
             setFakeOffsetMarker(fakePackets.fakeOffsetMarker)
             setOobData(fakePackets.oobChar.toString())
             setDropSack(fakePackets.dropSack)
+            setWindowClamp(fakePackets.windowClamp ?: 0)
+            setWsizeWindow(fakePackets.wsizeWindow ?: 0)
+            setWsizeScale(fakePackets.wsizeScale ?: 0)
+            setStripTimestamps(fakePackets.stripTimestamps)
             setQuicBindLowPort(fakePackets.quicBindLowPort)
             setQuicMigrateAfterHandshake(fakePackets.quicMigrateAfterHandshake)
             setEntropyMode(
@@ -488,6 +512,7 @@ fun RipDpiProxyUIPreferences.applyToSettings(settings: AppSettings): AppSettings
             setRelayEnabled(relay.enabled)
             setRelayKind(relay.kind)
             setRelayProfileId(relay.profileId)
+            setRelayOutboundBindIp(relay.outboundBindIp)
             setRelayServer(relay.server)
             setRelayServerPort(relay.serverPort)
             setRelayServerName(relay.serverName)
@@ -555,6 +580,7 @@ private fun normalizeChainConfig(config: RipDpiChainConfig): RipDpiChainConfig =
         groupActivationFilter = normalizeActivationFilter(config.groupActivationFilter),
         tcpSteps = config.tcpSteps.map(::normalizeTcpChainStep),
         udpSteps = config.udpSteps.map(::normalizeUdpChainStepModel),
+        anyProtocol = config.anyProtocol,
     )
 
 private fun normalizeFakePacketConfig(config: RipDpiFakePacketConfig): RipDpiFakePacketConfig {
@@ -570,10 +596,23 @@ private fun normalizeFakePacketConfig(config: RipDpiFakePacketConfig): RipDpiFak
             ),
         fakeSni = config.fakeSni.ifBlank { DefaultFakeSni },
         httpFakeProfile = normalizeHttpFakeProfile(config.httpFakeProfile.ifBlank { FakePayloadProfileCompatDefault }),
+        fakeTlsSource =
+            com.poyka.ripdpi.data
+                .normalizeFakeTlsSource(config.fakeTlsSource),
+        fakeTlsSecondaryProfile =
+            config.fakeTlsSecondaryProfile
+                .trim()
+                .takeIf(String::isNotEmpty)
+                ?.let(::normalizeTlsFakeProfile)
+                .orEmpty(),
         fakeTlsSniMode = normalizeFakeTlsSniMode(config.fakeTlsSniMode),
         tlsFakeProfile = normalizeTlsFakeProfile(config.tlsFakeProfile.ifBlank { FakePayloadProfileCompatDefault }),
         udpFakeProfile = normalizeUdpFakeProfile(config.udpFakeProfile.ifBlank { FakePayloadProfileCompatDefault }),
         fakeOffsetMarker = normalizeOffsetExpression(config.fakeOffsetMarker, DefaultFakeOffsetMarker),
+        windowClamp = config.windowClamp?.takeIf { it > 0 },
+        wsizeWindow = config.wsizeWindow?.takeIf { it > 0 },
+        wsizeScale = config.wsizeScale?.takeIf { it in -1..14 },
+        stripTimestamps = config.stripTimestamps,
         quicBindLowPort = config.quicBindLowPort,
         quicMigrateAfterHandshake = config.quicMigrateAfterHandshake,
         entropyMode = normalizeEntropyMode(config.entropyMode),
@@ -625,6 +664,7 @@ private fun normalizeRelayConfig(config: RipDpiRelayConfig): RipDpiRelayConfig {
         enabled = config.enabled && normalizedKind != RelayKindOff,
         kind = normalizedKind,
         profileId = config.profileId.trim().ifBlank { com.poyka.ripdpi.data.DefaultRelayProfileId },
+        outboundBindIp = config.outboundBindIp.trim(),
         server = config.server.trim(),
         serverPort = config.serverPort.takeIf { it in 1..MaxValidPortNumber } ?: 443,
         serverName = config.serverName.trim(),

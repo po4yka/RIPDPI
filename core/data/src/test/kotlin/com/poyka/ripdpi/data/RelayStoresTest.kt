@@ -32,6 +32,8 @@ class RelayStoresTest {
             RelayProfileRecord(
                 id = "cf-tunnel",
                 kind = RelayKindCloudflareTunnel,
+                presetId = "ru-mobile-relay",
+                outboundBindIp = "192.0.2.15",
                 server = "edge.example.com",
                 serverName = "edge.example.com",
                 vlessTransport = RelayVlessTransportXhttp,

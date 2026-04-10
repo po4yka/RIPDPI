@@ -232,7 +232,7 @@ pub fn plan_tcp(
                 lp = tampered.bytes.len() as i64;
                 continue;
             }
-            TcpChainStepKind::Split => {
+            TcpChainStepKind::Split | TcpChainStepKind::SynData => {
                 push_split_actions(&mut actions, chunk);
             }
             TcpChainStepKind::SeqOverlap => {

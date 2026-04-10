@@ -5,13 +5,15 @@ pub mod vision;
 pub mod wire;
 
 use std::io;
+use std::net::{IpAddr, SocketAddr, ToSocketAddrs};
 
 use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt};
-use tokio::net::TcpStream;
+use tokio::net::{TcpSocket, TcpStream};
 
 use crate::addons::VISION_ADDONS;
 use crate::config::VlessRealityConfig;
 use crate::vision::VisionStream;
+use tokio_boring::SslStream;
 
 /// Trait alias for an async bidirectional stream that is `Send`.
 pub trait AsyncIo: AsyncRead + AsyncWrite + Unpin + Send {}
@@ -26,15 +28,29 @@ pub struct VlessRealityClient;
 
 impl VlessRealityClient {
     /// Open `TCP -> Reality TLS -> VLESS handshake -> VisionStream`.
-    pub async fn connect(config: &VlessRealityConfig, target: &str) -> io::Result<impl AsyncIo> {
+    pub async fn connect(config: &VlessRealityConfig, target: &str) -> io::Result<VisionStream<SslStream<TcpStream>>> {
+        Self::connect_with_optional_bind(config, None, target).await
+    }
+
+    /// Open `TCP -> Reality TLS -> VLESS handshake -> VisionStream` while binding
+    /// the underlying TCP socket to a specific local IP.
+    pub async fn connect_with_bind(
+        config: &VlessRealityConfig,
+        bind_ip: IpAddr,
+        target: &str,
+    ) -> io::Result<VisionStream<SslStream<TcpStream>>> {
+        Self::connect_with_optional_bind(config, Some(bind_ip), target).await
+    }
+
+    async fn connect_with_optional_bind(
+        config: &VlessRealityConfig,
+        bind_ip: Option<IpAddr>,
+        target: &str,
+    ) -> io::Result<VisionStream<SslStream<TcpStream>>> {
         let addr = format!("{}:{}", config.server, config.port);
-        tracing::debug!(server = %addr, target, "VLESS+Reality: connecting");
+        tracing::debug!(server = %addr, target, ?bind_ip, "VLESS+Reality: connecting");
 
-        let tcp = TcpStream::connect(&addr)
-            .await
-            .map_err(|e| io::Error::new(e.kind(), format!("VLESS TCP connect to {addr}: {e}")))?;
-        tcp.set_nodelay(true)?;
-
+        let tcp = connect_tcp(config, bind_ip).await?;
         let tls = reality::connect_reality_tls(tcp, config).await?;
         Self::vless_handshake_and_wrap(tls, config, target).await
     }
@@ -63,7 +79,7 @@ impl VlessRealityClient {
         mut tls: S,
         config: &VlessRealityConfig,
         target: &str,
-    ) -> io::Result<impl AsyncIo>
+    ) -> io::Result<VisionStream<S>>
     where
         S: AsyncIo + 'static,
     {
@@ -78,5 +94,47 @@ impl VlessRealityClient {
 
         // Wrap in VisionStream for TLS-in-TLS detection avoidance
         Ok(VisionStream::new(tls))
+    }
+}
+
+async fn connect_tcp(config: &VlessRealityConfig, bind_ip: Option<IpAddr>) -> io::Result<TcpStream> {
+    let address = resolve_server_addr(config, bind_ip)?;
+    let socket = match address {
+        SocketAddr::V4(_) => TcpSocket::new_v4()?,
+        SocketAddr::V6(_) => TcpSocket::new_v6()?,
+    };
+    if let Some(bind_ip) = bind_ip {
+        let bind_addr = match (bind_ip, address) {
+            (IpAddr::V4(ip), SocketAddr::V4(_)) => SocketAddr::new(IpAddr::V4(ip), 0),
+            (IpAddr::V6(ip), SocketAddr::V6(_)) => SocketAddr::new(IpAddr::V6(ip), 0),
+            _ => {
+                return Err(io::Error::new(
+                    io::ErrorKind::InvalidInput,
+                    "outbound bind IP family does not match relay server address family",
+                ));
+            }
+        };
+        socket.bind(bind_addr)?;
+    }
+    let stream = socket
+        .connect(address)
+        .await
+        .map_err(|e| io::Error::new(e.kind(), format!("VLESS TCP connect to {address}: {e}")))?;
+    stream.set_nodelay(true)?;
+    Ok(stream)
+}
+
+fn resolve_server_addr(config: &VlessRealityConfig, bind_ip: Option<IpAddr>) -> io::Result<SocketAddr> {
+    let mut candidates = (config.server.as_str(), config.port)
+        .to_socket_addrs()
+        .map_err(|e| io::Error::new(e.kind(), format!("resolve {}:{}: {e}", config.server, config.port)))?;
+    if let Some(bind_ip) = bind_ip {
+        candidates.find(|address| address.is_ipv4() == bind_ip.is_ipv4()).ok_or_else(|| {
+            io::Error::new(io::ErrorKind::InvalidInput, "relay server has no address matching outbound bind IP family")
+        })
+    } else {
+        candidates
+            .next()
+            .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "relay server resolved to no addresses"))
     }
 }

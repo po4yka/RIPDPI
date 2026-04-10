@@ -373,6 +373,7 @@ internal object RipDpiProxyJsonCodec {
                 ),
             ),
         val udpSteps: List<NativeUdpChainStep> = emptyList(),
+        val anyProtocol: Boolean = false,
     )
 
     @Serializable
@@ -385,6 +386,10 @@ internal object RipDpiProxyJsonCodec {
         val adaptiveFakeTtlFallback: Int = 8,
         val fakeSni: String = "www.iana.org",
         val httpFakeProfile: String = "compat_default",
+        val fakeTlsSource: String = "profile",
+        val fakeTlsSecondaryProfile: String = "",
+        val fakeTcpTimestampEnabled: Boolean = false,
+        val fakeTcpTimestampDeltaTicks: Int = 0,
         val fakeTlsUseOriginal: Boolean = false,
         val fakeTlsRandomize: Boolean = false,
         val fakeTlsDupSessionId: Boolean = false,
@@ -396,6 +401,10 @@ internal object RipDpiProxyJsonCodec {
         val fakeOffsetMarker: String = "0",
         val oobChar: Int = 'a'.code,
         val dropSack: Boolean = false,
+        val windowClamp: Int? = null,
+        val wsizeWindow: Int? = null,
+        val wsizeScale: Int? = null,
+        val stripTimestamps: Boolean = false,
         val quicBindLowPort: Boolean = false,
         val quicMigrateAfterHandshake: Boolean = false,
         val entropyMode: String = "disabled",
@@ -508,6 +517,7 @@ internal object RipDpiProxyJsonCodec {
         val enabled: Boolean = false,
         val kind: String = "off",
         val profileId: String = "",
+        val outboundBindIp: String = "",
         val server: String = "",
         val serverPort: Int = 443,
         val serverName: String = "",
@@ -789,6 +799,7 @@ internal object RipDpiProxyJsonCodec {
                             ipv6ExtensionProfile = step.ipv6ExtensionProfile,
                         )
                     },
+                anyProtocol = value.anyProtocol,
             )
 
         fun toNative(value: RipDpiChainConfig): NativeChainConfig =
@@ -821,6 +832,7 @@ internal object RipDpiProxyJsonCodec {
                             ipv6ExtensionProfile = it.ipv6ExtensionProfile,
                         )
                     },
+                anyProtocol = value.anyProtocol,
             )
     }
 
@@ -835,6 +847,10 @@ internal object RipDpiProxyJsonCodec {
                 adaptiveFakeTtlFallback = value.adaptiveFakeTtlFallback,
                 fakeSni = value.fakeSni,
                 httpFakeProfile = value.httpFakeProfile,
+                fakeTlsSource = value.fakeTlsSource,
+                fakeTlsSecondaryProfile = value.fakeTlsSecondaryProfile,
+                fakeTcpTimestampEnabled = value.fakeTcpTimestampEnabled,
+                fakeTcpTimestampDeltaTicks = value.fakeTcpTimestampDeltaTicks,
                 fakeTlsUseOriginal = value.fakeTlsUseOriginal,
                 fakeTlsRandomize = value.fakeTlsRandomize,
                 fakeTlsDupSessionId = value.fakeTlsDupSessionId,
@@ -846,6 +862,10 @@ internal object RipDpiProxyJsonCodec {
                 fakeOffsetMarker = value.fakeOffsetMarker,
                 oobChar = value.oobChar.toChar(),
                 dropSack = value.dropSack,
+                windowClamp = value.windowClamp,
+                wsizeWindow = value.wsizeWindow,
+                wsizeScale = value.wsizeScale,
+                stripTimestamps = value.stripTimestamps,
                 quicBindLowPort = value.quicBindLowPort,
                 quicMigrateAfterHandshake = value.quicMigrateAfterHandshake,
                 entropyMode = value.entropyMode,
@@ -865,6 +885,10 @@ internal object RipDpiProxyJsonCodec {
                 adaptiveFakeTtlFallback = value.adaptiveFakeTtlFallback,
                 fakeSni = value.fakeSni,
                 httpFakeProfile = value.httpFakeProfile,
+                fakeTlsSource = value.fakeTlsSource,
+                fakeTlsSecondaryProfile = value.fakeTlsSecondaryProfile,
+                fakeTcpTimestampEnabled = value.fakeTcpTimestampEnabled,
+                fakeTcpTimestampDeltaTicks = value.fakeTcpTimestampDeltaTicks,
                 fakeTlsUseOriginal = value.fakeTlsUseOriginal,
                 fakeTlsRandomize = value.fakeTlsRandomize,
                 fakeTlsDupSessionId = value.fakeTlsDupSessionId,
@@ -876,6 +900,10 @@ internal object RipDpiProxyJsonCodec {
                 fakeOffsetMarker = value.fakeOffsetMarker,
                 oobChar = value.oobChar.code,
                 dropSack = value.dropSack,
+                windowClamp = value.windowClamp,
+                wsizeWindow = value.wsizeWindow,
+                wsizeScale = value.wsizeScale,
+                stripTimestamps = value.stripTimestamps,
                 quicBindLowPort = value.quicBindLowPort,
                 quicMigrateAfterHandshake = value.quicMigrateAfterHandshake,
                 entropyMode = value.entropyMode,
@@ -948,6 +976,7 @@ internal object RipDpiProxyJsonCodec {
                 enabled = value.enabled,
                 kind = value.kind,
                 profileId = value.profileId,
+                outboundBindIp = value.outboundBindIp,
                 server = value.server,
                 serverPort = value.serverPort,
                 serverName = value.serverName,
@@ -980,6 +1009,7 @@ internal object RipDpiProxyJsonCodec {
                 enabled = value.enabled,
                 kind = value.kind,
                 profileId = value.profileId,
+                outboundBindIp = value.outboundBindIp,
                 server = value.server,
                 serverPort = value.serverPort,
                 serverName = value.serverName,

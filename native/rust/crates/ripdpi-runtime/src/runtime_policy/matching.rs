@@ -59,7 +59,7 @@ pub(super) fn group_matches(
 }
 
 fn payload_proto_known(group: &DesyncGroup) -> bool {
-    group.matches.proto == 0 || (group.matches.proto & (IS_HTTP | IS_HTTPS)) == 0
+    group.matches.any_protocol || group.matches.proto == 0 || (group.matches.proto & (IS_HTTP | IS_HTTPS)) == 0
 }
 
 fn matches_l34(group: &DesyncGroup, dest: SocketAddr, transport: TransportProtocol) -> bool {
@@ -85,6 +85,12 @@ fn matches_l34(group: &DesyncGroup, dest: SocketAddr, transport: TransportProtoc
 }
 
 fn matches_payload(config: &RuntimeConfig, group: &DesyncGroup, payload: &[u8]) -> bool {
+    if group.matches.any_protocol {
+        if group.matches.filters.hosts.is_empty() {
+            return true;
+        }
+        return extract_host(config, payload).as_deref().is_some_and(|host| group.matches.filters.hosts_match(host));
+    }
     if group.matches.proto != 0 {
         let l7 = group.matches.proto & !(IS_TCP | IS_UDP | IS_IPV4);
         if l7 != 0 {
@@ -156,6 +162,8 @@ mod tests {
         assert!(payload_proto_known(&group));
         group.matches.proto = IS_HTTP;
         assert!(!payload_proto_known(&group));
+        group.matches.any_protocol = true;
+        assert!(payload_proto_known(&group));
     }
 
     #[test]
@@ -176,6 +184,16 @@ mod tests {
         let tls_payload = ripdpi_packets::DEFAULT_FAKE_TLS;
         assert!(matches_payload(&config, &group, http_payload));
         assert!(!matches_payload(&config, &group, tls_payload));
+    }
+
+    #[test]
+    fn matches_payload_allows_any_protocol_groups() {
+        let mut group = DesyncGroup::new(0);
+        group.matches.any_protocol = true;
+        group.matches.proto = IS_TCP | IS_HTTP;
+        let config = RuntimeConfig::default();
+
+        assert!(matches_payload(&config, &group, b"opaque payload"));
     }
 
     #[test]

@@ -79,6 +79,10 @@ internal data class AppSettingsSnapshot(
     val fakeSni: String = defaultSettings.fakeSni,
     val fakeOffset: Int = defaultSettings.fakeOffset,
     val fakeOffsetMarker: String = defaultSettings.fakeOffsetMarker,
+    val fakeTlsSource: String = defaultSettings.fakeTlsSource,
+    val fakeTlsSecondaryProfile: String = defaultSettings.fakeTlsSecondaryProfile,
+    val fakeTcpTimestampEnabled: Boolean = defaultSettings.fakeTcpTimestampEnabled,
+    val fakeTcpTimestampDeltaTicks: Int = defaultSettings.fakeTcpTimestampDeltaTicks,
     val fakeTlsUseOriginal: Boolean = defaultSettings.fakeTlsUseOriginal,
     val fakeTlsRandomize: Boolean = defaultSettings.fakeTlsRandomize,
     val fakeTlsDupSessionId: Boolean = defaultSettings.fakeTlsDupSessionId,
@@ -177,6 +181,7 @@ internal data class AppSettingsSnapshot(
     val relayEnabled: Boolean = defaultSettings.relayEnabled,
     val relayKind: String = defaultSettings.relayKind,
     val relayProfileId: String = defaultSettings.relayProfileId,
+    val relayOutboundBindIp: String = defaultSettings.relayOutboundBindIp,
     val relayServer: String = defaultSettings.relayServer,
     val relayServerPort: Int = defaultSettings.relayServerPort,
     val relayServerName: String = defaultSettings.relayServerName,
@@ -202,6 +207,11 @@ internal data class AppSettingsSnapshot(
     val relayLocalSocksPort: Int = defaultSettings.relayLocalSocksPort,
     val relayUdpEnabled: Boolean = defaultSettings.relayUdpEnabled,
     val relayTcpFallbackEnabled: Boolean = defaultSettings.relayTcpFallbackEnabled,
+    val desyncAnyProtocol: Boolean = defaultSettings.desyncAnyProtocol,
+    val appRoutingPolicyMode: String = defaultSettings.appRoutingPolicyMode,
+    val appRoutingEnabledPresetIds: List<String> = defaultSettings.appRoutingEnabledPresetIdsList,
+    val antiCorrelationEnabled: Boolean = defaultSettings.antiCorrelationEnabled,
+    val dhtMitigationMode: String = defaultSettings.dhtMitigationMode,
     val groupActivationFilter: ActivationFilterModel = ActivationFilterModel(),
 )
 
@@ -250,6 +260,10 @@ private fun AppSettings.toSnapshot(): AppSettingsSnapshot =
             fakeSni = fakeSni,
             fakeOffset = fakeOffset,
             fakeOffsetMarker = fakeOffsetMarker,
+            fakeTlsSource = normalizeFakeTlsSource(fakeTlsSource),
+            fakeTlsSecondaryProfile = fakeTlsSecondaryProfile,
+            fakeTcpTimestampEnabled = fakeTcpTimestampEnabled,
+            fakeTcpTimestampDeltaTicks = fakeTcpTimestampDeltaTicks,
             fakeTlsUseOriginal = fakeTlsUseOriginal,
             fakeTlsRandomize = fakeTlsRandomize,
             fakeTlsDupSessionId = fakeTlsDupSessionId,
@@ -382,6 +396,7 @@ private fun AppSettings.toSnapshot(): AppSettingsSnapshot =
             relayEnabled = relayEnabled,
             relayKind = normalizeRelayKind(relayKind),
             relayProfileId = relayProfileId.ifBlank { DefaultRelayProfileId },
+            relayOutboundBindIp = relayOutboundBindIp,
             relayServer = relayServer,
             relayServerPort = relayServerPort.takeIf { it > 0 } ?: DefaultHttpsPort,
             relayServerName = relayServerName,
@@ -407,6 +422,11 @@ private fun AppSettings.toSnapshot(): AppSettingsSnapshot =
             relayLocalSocksPort = relayLocalSocksPort.takeIf { it > 0 } ?: DefaultRelayLocalSocksPort,
             relayUdpEnabled = relayUdpEnabled,
             relayTcpFallbackEnabled = relayTcpFallbackEnabled,
+            desyncAnyProtocol = desyncAnyProtocol,
+            appRoutingPolicyMode = normalizeAppRoutingPolicyMode(appRoutingPolicyMode),
+            appRoutingEnabledPresetIds = effectiveAppRoutingEnabledPresetIds(),
+            antiCorrelationEnabled = antiCorrelationEnabled,
+            dhtMitigationMode = normalizeDhtMitigationMode(dhtMitigationMode),
             groupActivationFilter =
                 if (hasGroupActivationFilter()) {
                     groupActivationFilter.toModel().let(
@@ -480,6 +500,10 @@ private fun AppSettingsSnapshot.toAppSettings(): AppSettings {
         ).setFakeSni(fakeSni)
         .setFakeOffset(fakeOffset)
         .setFakeOffsetMarker(fakeOffsetMarker)
+        .setFakeTlsSource(normalizeFakeTlsSource(fakeTlsSource))
+        .setFakeTlsSecondaryProfile(fakeTlsSecondaryProfile)
+        .setFakeTcpTimestampEnabled(fakeTcpTimestampEnabled)
+        .setFakeTcpTimestampDeltaTicks(fakeTcpTimestampDeltaTicks)
         .setFakeTlsUseOriginal(fakeTlsUseOriginal)
         .setFakeTlsRandomize(fakeTlsRandomize)
         .setFakeTlsDupSessionId(fakeTlsDupSessionId)
@@ -591,6 +615,7 @@ private fun AppSettingsSnapshot.toAppSettings(): AppSettings {
         ).setRelayEnabled(relayEnabled)
         .setRelayKind(normalizeRelayKind(relayKind))
         .setRelayProfileId(relayProfileId.ifBlank { DefaultRelayProfileId })
+        .setRelayOutboundBindIp(relayOutboundBindIp)
         .setRelayServer(relayServer)
         .setRelayServerPort(relayServerPort.takeIf { it > 0 } ?: DefaultHttpsPort)
         .setRelayServerName(relayServerName)
@@ -616,6 +641,15 @@ private fun AppSettingsSnapshot.toAppSettings(): AppSettings {
         .setRelayLocalSocksPort(relayLocalSocksPort.takeIf { it > 0 } ?: DefaultRelayLocalSocksPort)
         .setRelayUdpEnabled(relayUdpEnabled)
         .setRelayTcpFallbackEnabled(relayTcpFallbackEnabled)
+        .setDesyncAnyProtocol(desyncAnyProtocol)
+        .setAppRoutingPolicyMode(normalizeAppRoutingPolicyMode(appRoutingPolicyMode))
+        .clearAppRoutingEnabledPresetIds()
+        .addAllAppRoutingEnabledPresetIds(
+            appRoutingEnabledPresetIds
+                .map(String::trim)
+                .filter(String::isNotEmpty),
+        ).setAntiCorrelationEnabled(antiCorrelationEnabled)
+        .setDhtMitigationMode(normalizeDhtMitigationMode(dhtMitigationMode))
         .setGroupActivationFilterCompat(normalizeActivationFilter(groupActivationFilter))
         .also { builder ->
             tcpChainSteps.forEach { step ->
