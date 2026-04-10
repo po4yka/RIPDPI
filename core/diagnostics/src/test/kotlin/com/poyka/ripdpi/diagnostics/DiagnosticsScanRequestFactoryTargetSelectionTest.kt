@@ -1,6 +1,11 @@
 package com.poyka.ripdpi.diagnostics
 
 import com.poyka.ripdpi.data.Mode
+import com.poyka.ripdpi.data.PreferredEdgeCandidate
+import com.poyka.ripdpi.data.PreferredEdgeIpVersionV4
+import com.poyka.ripdpi.data.PreferredEdgeTransportQuic
+import com.poyka.ripdpi.data.PreferredEdgeTransportTcp
+import com.poyka.ripdpi.data.PreferredEdgeTransportThroughput
 import com.poyka.ripdpi.data.diagnostics.DiagnosticProfileEntity
 import com.poyka.ripdpi.diagnostics.contract.engine.EngineScanRequestWire
 import com.poyka.ripdpi.diagnostics.domain.DiagnosticsIntent
@@ -320,6 +325,58 @@ class DiagnosticsScanRequestFactoryTargetSelectionTest {
         assertNull(selected.strategyProbe?.targetSelection)
     }
 
+    @Test
+    fun `preferred edges populate ordered connect ips for planner targets`() =
+        runTest {
+            val request =
+                prepareStrategyProbeRequest(
+                    settings = defaultDiagnosticsAppSettings(),
+                    domainTargets = listOf(DomainTarget(host = "example.org")),
+                    quicTargets = listOf(QuicTarget(host = "example.org")),
+                    throughputTargets =
+                        listOf(
+                            ThroughputTarget(
+                                id = "throughput",
+                                label = "Throughput",
+                                url = "https://example.org/file.bin",
+                            ),
+                        ),
+                    preferredEdges =
+                        mapOf(
+                            "example.org" to
+                                listOf(
+                                    PreferredEdgeCandidate(
+                                        ip = "203.0.113.10",
+                                        transportKind = PreferredEdgeTransportTcp,
+                                        ipVersion = PreferredEdgeIpVersionV4,
+                                    ),
+                                    PreferredEdgeCandidate(
+                                        ip = "203.0.113.20",
+                                        transportKind = PreferredEdgeTransportTcp,
+                                        ipVersion = PreferredEdgeIpVersionV4,
+                                    ),
+                                    PreferredEdgeCandidate(
+                                        ip = "203.0.113.30",
+                                        transportKind = PreferredEdgeTransportQuic,
+                                        ipVersion = PreferredEdgeIpVersionV4,
+                                    ),
+                                    PreferredEdgeCandidate(
+                                        ip = "203.0.113.40",
+                                        transportKind = PreferredEdgeTransportThroughput,
+                                        ipVersion = PreferredEdgeIpVersionV4,
+                                    ),
+                                ),
+                        ),
+                )
+
+            assertEquals(listOf("203.0.113.10", "203.0.113.20"), request.domainTargets.single().connectIps)
+            assertEquals("203.0.113.10", request.domainTargets.single().connectIp)
+            assertEquals(listOf("203.0.113.30"), request.quicTargets.single().connectIps)
+            assertEquals("203.0.113.30", request.quicTargets.single().connectIp)
+            assertEquals(listOf("203.0.113.40"), request.throughputTargets.single().connectIps)
+            assertEquals("203.0.113.40", request.throughputTargets.single().connectIp)
+        }
+
     private fun strategyProbeIntent(
         settings: com.poyka.ripdpi.proto.AppSettings,
         baseProxyConfigJson: String?,
@@ -328,6 +385,7 @@ class DiagnosticsScanRequestFactoryTargetSelectionTest {
         suiteId: String = "quick_v1",
         domainTargets: List<DomainTarget> = listOf(DomainTarget(host = "example.org")),
         quicTargets: List<QuicTarget> = listOf(QuicTarget(host = "example.org")),
+        throughputTargets: List<ThroughputTarget> = emptyList(),
         strategyProbeTargetCohorts: List<StrategyProbeTargetCohortSpec> = emptyList(),
     ) = DiagnosticsIntent(
         profileId = profileId,
@@ -350,7 +408,7 @@ class DiagnosticsScanRequestFactoryTargetSelectionTest {
         quicTargets = quicTargets,
         serviceTargets = emptyList(),
         circumventionTargets = emptyList(),
-        throughputTargets = emptyList(),
+        throughputTargets = throughputTargets,
         whitelistSni = emptyList(),
         telegramTarget = null,
         strategyProbe = StrategyProbeRequest(suiteId = suiteId, baseProxyConfigJson = baseProxyConfigJson),
@@ -379,6 +437,8 @@ class DiagnosticsScanRequestFactoryTargetSelectionTest {
         suiteId: String = "quick_v1",
         domainTargets: List<DomainTarget> = listOf(DomainTarget(host = "example.org")),
         quicTargets: List<QuicTarget> = listOf(QuicTarget(host = "example.org")),
+        throughputTargets: List<ThroughputTarget> = emptyList(),
+        preferredEdges: Map<String, List<PreferredEdgeCandidate>> = emptyMap(),
         strategyProbeTargetCohorts: List<StrategyProbeTargetCohortSpec> = emptyList(),
         scanOrigin: DiagnosticsScanOrigin = DiagnosticsScanOrigin.USER_INITIATED,
     ): com.poyka.ripdpi.diagnostics.contract.engine.EngineScanRequestWire {
@@ -392,6 +452,7 @@ class DiagnosticsScanRequestFactoryTargetSelectionTest {
                 suiteId = suiteId,
                 domainTargets = domainTargets,
                 quicTargets = quicTargets,
+                throughputTargets = throughputTargets,
                 strategyProbeTargetCohorts = strategyProbeTargetCohorts,
             )
         val contextProvider = FakeDiagnosticsContextProvider()
@@ -402,6 +463,7 @@ class DiagnosticsScanRequestFactoryTargetSelectionTest {
                 pathMode = ScanPathMode.RAW_PATH,
                 networkFingerprint = null,
                 preferredDnsPath = preferredDnsPath,
+                preferredEdges = preferredEdges,
                 networkSnapshot = null,
                 serviceMode = com.poyka.ripdpi.data.Mode.VPN.name,
                 contextSnapshot = contextSnapshot,

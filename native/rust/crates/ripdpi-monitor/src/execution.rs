@@ -15,10 +15,11 @@ use ripdpi_runtime::{runtime, EmbeddedProxyControl};
 use crate::blockpage_fingerprints::{load_fingerprints, BlockpageFingerprint};
 use crate::candidates::target_probe_pause_ms;
 use crate::candidates::{CandidateWarmup, StrategyCandidateSpec};
-use crate::http::{classify_http_response_with_fingerprints, is_blockpage, try_http_request};
-use crate::tls::{try_tls_handshake, TlsClientProfile, TlsObservation};
+use crate::http::{classify_http_response_with_fingerprints, is_blockpage, try_http_request, try_http_request_targets};
+use crate::tls::{try_tls_handshake, try_tls_handshake_targets, TlsClientProfile, TlsObservation};
 use crate::transport::{
-    domain_connect_target, quic_connect_target, relay_udp_payload, wait_for_listener, TransportConfig,
+    domain_connect_target, domain_connect_targets, quic_connect_targets, relay_udp_payload_observed, wait_for_listener,
+    TransportConfig,
 };
 use crate::types::{
     DomainTarget, ProbeDetail, ProbeResult, QuicTarget, StrategyProbeCandidateSummary, StrategyProbeDomainOutcome,
@@ -574,8 +575,9 @@ pub(crate) fn run_http_strategy_probe(
 ) -> ProbeSample {
     let started = now_ms();
     let http_port = target.http_port.unwrap_or(80);
+    let connect_targets = domain_connect_targets(target);
     let observation =
-        try_http_request(&domain_connect_target(target), http_port, transport, &target.host, &target.http_path, false);
+        try_http_request_targets(&connect_targets, http_port, transport, &target.host, &target.http_path, false);
     let latency_ms = now_ms().saturating_sub(started);
     // Try fingerprint-based classification first, then fall back to heuristics.
     let (outcome, fingerprint_name) = if let Some(response) = &observation.response {
@@ -658,8 +660,9 @@ pub(crate) fn run_https_strategy_probe(
 ) -> ProbeSample {
     let started = now_ms();
     let https_port = target.https_port.unwrap_or(443);
-    let tls13 = try_tls_handshake(
-        &domain_connect_target(target),
+    let connect_targets = domain_connect_targets(target);
+    let tls13 = try_tls_handshake_targets(
+        &connect_targets,
         https_port,
         transport,
         &target.host,
@@ -667,8 +670,8 @@ pub(crate) fn run_https_strategy_probe(
         TlsClientProfile::Tls13Only,
         tls_verifier,
     );
-    let tls12 = try_tls_handshake(
-        &domain_connect_target(target),
+    let tls12 = try_tls_handshake_targets(
+        &connect_targets,
         https_port,
         transport,
         &target.host,
@@ -676,8 +679,8 @@ pub(crate) fn run_https_strategy_probe(
         TlsClientProfile::Tls12Only,
         tls_verifier,
     );
-    let tls_ech = try_tls_handshake(
-        &domain_connect_target(target),
+    let tls_ech = try_tls_handshake_targets(
+        &connect_targets,
         https_port,
         transport,
         &target.host,
@@ -716,6 +719,9 @@ pub(crate) fn run_https_strategy_probe(
     let tls_ech_error = tls_ech.error.clone().unwrap_or_else(|| "none".to_string());
     let tls_ech_resolution_detail = tls_ech.ech_resolution_detail.clone().unwrap_or_else(|| "none".to_string());
     let tls_error = https_tls_error_detail(&outcome, &tls13, &tls12, &tls_ech);
+    let connected_addr = tls13.connected_addr.or(tls12.connected_addr).or(tls_ech.connected_addr);
+    let cdn_provider =
+        tls13.cdn_provider.clone().or_else(|| tls12.cdn_provider.clone()).or_else(|| tls_ech.cdn_provider.clone());
 
     let mut details = vec![
         ProbeDetail { key: "candidateId".to_string(), value: candidate.id.to_string() },
@@ -734,6 +740,17 @@ pub(crate) fn run_https_strategy_probe(
         ProbeDetail { key: "tlsEchResolutionDetail".to_string(), value: tls_ech_resolution_detail },
         ProbeDetail { key: "tlsError".to_string(), value: tls_error },
     ];
+    if let Some(addr) = connected_addr {
+        details.push(ProbeDetail { key: "connectedIp".to_string(), value: addr.ip().to_string() });
+    }
+    if let Some(provider) = cdn_provider {
+        details.push(ProbeDetail { key: "cdnProvider".to_string(), value: provider });
+    }
+    details.push(ProbeDetail {
+        key: "echCapable".to_string(),
+        value: (outcome == "tls_ech_only" || tls_ech.ech_resolution_detail.as_deref() == Some("ech_config_available"))
+            .to_string(),
+    });
 
     if let Some(ms) = tcp_connect_ms {
         details.push(ProbeDetail { key: "tcpConnectMs".to_string(), value: ms.to_string() });
@@ -823,35 +840,45 @@ pub(crate) fn run_quic_strategy_probe(
     candidate: &StrategyCandidateSpec,
 ) -> ProbeSample {
     let started = now_ms();
-    let connect_target = quic_connect_target(target);
+    let connect_targets = quic_connect_targets(target);
     let payload = build_realistic_quic_initial(QUIC_V1_VERSION, Some(target.host.as_str())).unwrap_or_default();
-    let response = relay_udp_payload(&connect_target, target.port, transport, &payload);
+    let response = relay_udp_payload_observed(&connect_targets, target.port, transport, &payload);
     let latency_ms = now_ms().saturating_sub(started);
-    let (outcome, status, error) = match response {
-        Ok(bytes) if parse_quic_initial(&bytes).is_some() => {
-            ("quic_initial_response".to_string(), "quic_initial_response".to_string(), "none".to_string())
+    let (outcome, status, error, connected_addr) = match response {
+        Ok(result) if parse_quic_initial(&result.payload).is_some() => (
+            "quic_initial_response".to_string(),
+            "quic_initial_response".to_string(),
+            "none".to_string(),
+            result.connected_addr,
+        ),
+        Ok(result) if !result.payload.is_empty() => {
+            ("quic_response".to_string(), "quic_response".to_string(), "none".to_string(), result.connected_addr)
         }
-        Ok(bytes) if !bytes.is_empty() => {
-            ("quic_response".to_string(), "quic_response".to_string(), "none".to_string())
-        }
-        Ok(_) => ("quic_empty".to_string(), "quic_empty".to_string(), "none".to_string()),
-        Err(err) => ("quic_error".to_string(), "quic_error".to_string(), err),
+        Ok(result) => ("quic_empty".to_string(), "quic_empty".to_string(), "none".to_string(), result.connected_addr),
+        Err(err) => ("quic_error".to_string(), "quic_error".to_string(), err, None),
     };
+    let mut details = vec![
+        ProbeDetail { key: "candidateId".to_string(), value: candidate.id.to_string() },
+        ProbeDetail { key: "candidateLabel".to_string(), value: candidate.label.to_string() },
+        ProbeDetail { key: "candidateFamily".to_string(), value: candidate.family.to_string() },
+        ProbeDetail { key: "protocol".to_string(), value: "QUIC".to_string() },
+        ProbeDetail { key: "latencyMs".to_string(), value: latency_ms.to_string() },
+        ProbeDetail { key: "port".to_string(), value: target.port.to_string() },
+        ProbeDetail { key: "status".to_string(), value: status },
+        ProbeDetail { key: "error".to_string(), value: error },
+    ];
+    if let Some(addr) = connected_addr {
+        details.push(ProbeDetail { key: "connectedIp".to_string(), value: addr.ip().to_string() });
+        if let Some(provider) = crate::cdn_ech::opportunistic_ech_provider_for_ip(addr.ip()) {
+            details.push(ProbeDetail { key: "cdnProvider".to_string(), value: provider.to_string() });
+        }
+    }
     ProbeSample {
         result: ProbeResult {
             probe_type: "strategy_quic".to_string(),
             target: format!("{} · {}", candidate.label, target.host),
             outcome: outcome.clone(),
-            details: vec![
-                ProbeDetail { key: "candidateId".to_string(), value: candidate.id.to_string() },
-                ProbeDetail { key: "candidateLabel".to_string(), value: candidate.label.to_string() },
-                ProbeDetail { key: "candidateFamily".to_string(), value: candidate.family.to_string() },
-                ProbeDetail { key: "protocol".to_string(), value: "QUIC".to_string() },
-                ProbeDetail { key: "latencyMs".to_string(), value: latency_ms.to_string() },
-                ProbeDetail { key: "port".to_string(), value: target.port.to_string() },
-                ProbeDetail { key: "status".to_string(), value: status },
-                ProbeDetail { key: "error".to_string(), value: error },
-            ],
+            details,
         },
         success: matches!(outcome.as_str(), "quic_initial_response" | "quic_response"),
         weight: 2,
@@ -1144,6 +1171,8 @@ mod tests {
             tls_alert_description: None,
             tls_server_hello_received: None,
             tls_dpi_signature: None,
+            connected_addr: None,
+            cdn_provider: None,
         }
     }
 

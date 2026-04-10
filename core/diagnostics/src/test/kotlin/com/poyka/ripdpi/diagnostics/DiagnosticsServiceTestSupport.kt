@@ -39,6 +39,8 @@ import com.poyka.ripdpi.data.diagnostics.ExportRecordEntity
 import com.poyka.ripdpi.data.diagnostics.NativeSessionEventEntity
 import com.poyka.ripdpi.data.diagnostics.NetworkDnsPathPreferenceEntity
 import com.poyka.ripdpi.data.diagnostics.NetworkDnsPathPreferenceRecordStore
+import com.poyka.ripdpi.data.diagnostics.NetworkEdgePreferenceEntity
+import com.poyka.ripdpi.data.diagnostics.NetworkEdgePreferenceRecordStore
 import com.poyka.ripdpi.data.diagnostics.NetworkSnapshotEntity
 import com.poyka.ripdpi.data.diagnostics.ProbeResultEntity
 import com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyEntity
@@ -119,6 +121,7 @@ internal class FakeDiagnosticsHistoryStores :
     BypassUsageHistoryStore,
     RememberedNetworkPolicyRecordStore,
     NetworkDnsPathPreferenceRecordStore,
+    NetworkEdgePreferenceRecordStore,
     DiagnosticsHistoryRetentionStore {
     val profilesState = MutableStateFlow<List<DiagnosticProfileEntity>>(emptyList())
     val sessionsState = MutableStateFlow<List<ScanSessionEntity>>(emptyList())
@@ -130,6 +133,7 @@ internal class FakeDiagnosticsHistoryStores :
     val usageSessionsState = MutableStateFlow<List<BypassUsageSessionEntity>>(emptyList())
     val rememberedPoliciesState = MutableStateFlow<List<RememberedNetworkPolicyEntity>>(emptyList())
     val networkDnsPathPreferencesState = MutableStateFlow<List<NetworkDnsPathPreferenceEntity>>(emptyList())
+    val networkEdgePreferencesState = MutableStateFlow<List<NetworkEdgePreferenceEntity>>(emptyList())
     var currentTime: Long = Long.MAX_VALUE
     private val packVersions = mutableMapOf<String, TargetPackVersionEntity>()
     private val probeResults = mutableMapOf<String, List<ProbeResultEntity>>()
@@ -232,6 +236,22 @@ internal class FakeDiagnosticsHistoryStores :
     override suspend fun getNetworkDnsPathPreference(fingerprintHash: String): NetworkDnsPathPreferenceEntity? =
         networkDnsPathPreferencesState.value.find { it.fingerprintHash == fingerprintHash }
 
+    override suspend fun getNetworkEdgePreference(
+        fingerprintHash: String,
+        host: String,
+        transportKind: String,
+    ): NetworkEdgePreferenceEntity? =
+        networkEdgePreferencesState.value.find { preference ->
+            preference.fingerprintHash == fingerprintHash &&
+                preference.host == host &&
+                preference.transportKind == transportKind
+        }
+
+    override suspend fun getNetworkEdgePreferencesForFingerprint(
+        fingerprintHash: String,
+    ): List<NetworkEdgePreferenceEntity> =
+        networkEdgePreferencesState.value.filter { it.fingerprintHash == fingerprintHash }
+
     override suspend fun findValidatedRememberedNetworkPolicy(
         fingerprintHash: String,
         mode: String,
@@ -310,6 +330,17 @@ internal class FakeDiagnosticsHistoryStores :
         return persisted.id
     }
 
+    override suspend fun upsertNetworkEdgePreference(preference: NetworkEdgePreferenceEntity): Long {
+        val persisted =
+            if (preference.id == 0L) {
+                preference.copy(id = (networkEdgePreferencesState.value.maxOfOrNull { it.id } ?: 0L) + 1L)
+            } else {
+                preference
+            }
+        networkEdgePreferencesState.value = networkEdgePreferencesState.value.upsertById(persisted) { it.id }
+        return persisted.id
+    }
+
     override suspend fun clearRememberedNetworkPolicies() {
         rememberedPoliciesState.value = emptyList()
     }
@@ -318,9 +349,15 @@ internal class FakeDiagnosticsHistoryStores :
         networkDnsPathPreferencesState.value = emptyList()
     }
 
+    override suspend fun clearNetworkEdgePreferences() {
+        networkEdgePreferencesState.value = emptyList()
+    }
+
     override suspend fun pruneRememberedNetworkPolicies() = Unit
 
     override suspend fun pruneNetworkDnsPathPreferences() = Unit
+
+    override suspend fun pruneNetworkEdgePreferences() = Unit
 
     override suspend fun trimOldData(retentionDays: Int) = Unit
 

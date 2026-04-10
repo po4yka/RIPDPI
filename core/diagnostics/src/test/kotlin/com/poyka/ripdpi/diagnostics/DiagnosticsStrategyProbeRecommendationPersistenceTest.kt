@@ -145,6 +145,9 @@ private fun scanFinalizationService(
         serviceStateStore = FakeServiceStateStore(initialStatus = AppStatus.Running to Mode.VPN),
         resolverOverrideStore = FakeResolverOverrideStore(),
         rememberedNetworkPolicyStore = DefaultRememberedNetworkPolicyStore(stores, clock),
+        networkEdgePreferenceStore =
+            com.poyka.ripdpi.data.diagnostics
+                .DefaultNetworkEdgePreferenceStore(stores, clock),
         networkDnsPathPreferenceStore = DefaultNetworkDnsPathPreferenceStore(stores, clock),
         findingProjector = DiagnosticsFindingProjector(),
         json = diagnosticsTestJson(),

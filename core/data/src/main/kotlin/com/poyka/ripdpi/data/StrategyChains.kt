@@ -127,6 +127,15 @@ enum class UdpChainStepKind(
     val wireName: String,
 ) {
     FakeBurst("fake_burst"),
+    DummyPrepend("dummy_prepend"),
+    QuicSniSplit("quic_sni_split"),
+    QuicFakeVersion("quic_fake_version"),
+    QuicCryptoSplit("quic_crypto_split"),
+    QuicPaddingLadder("quic_padding_ladder"),
+    QuicCidChurn("quic_cid_churn"),
+    QuicPacketNumberGap("quic_packet_number_gap"),
+    QuicVersionNegotiationDecoy("quic_version_negotiation_decoy"),
+    QuicMultiInitialRealistic("quic_multi_initial_realistic"),
     IpFrag2Udp("ipfrag2_udp"),
     ;
 
@@ -946,6 +955,23 @@ private fun validateUdpStepOptions(step: UdpChainStepModel) {
             require(step.splitBytes == 0) { "fake_burst must not declare splitBytes" }
             require(step.ipv6ExtensionProfile == StrategyIpv6ExtensionProfileNone) {
                 "fake_burst must not declare ipv6ExtensionProfile"
+            }
+        }
+
+        UdpChainStepKind.DummyPrepend,
+        UdpChainStepKind.QuicSniSplit,
+        UdpChainStepKind.QuicFakeVersion,
+        UdpChainStepKind.QuicCryptoSplit,
+        UdpChainStepKind.QuicPaddingLadder,
+        UdpChainStepKind.QuicCidChurn,
+        UdpChainStepKind.QuicPacketNumberGap,
+        UdpChainStepKind.QuicVersionNegotiationDecoy,
+        UdpChainStepKind.QuicMultiInitialRealistic,
+        -> {
+            require(step.count >= 0) { "${step.kind.wireName} count must be non-negative" }
+            require(step.splitBytes == 0) { "${step.kind.wireName} must not declare splitBytes" }
+            require(step.ipv6ExtensionProfile == StrategyIpv6ExtensionProfileNone) {
+                "${step.kind.wireName} must not declare ipv6ExtensionProfile"
             }
         }
 

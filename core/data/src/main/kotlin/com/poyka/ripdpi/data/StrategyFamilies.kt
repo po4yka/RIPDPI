@@ -109,17 +109,63 @@ fun deriveQuicStrategyFamily(
     if (!desyncUdp || !quicInitialModeUsesRouting(quicInitialMode)) {
         return "quic_disabled"
     }
-    if (udpSteps.any { it.kind == UdpChainStepKind.IpFrag2Udp }) {
+    val primaryStep =
+        udpSteps.firstOrNull { step ->
+            step.kind == UdpChainStepKind.IpFrag2Udp || step.count > 0
+        }
+            ?: return "quic_disabled"
+    if (primaryStep.kind == UdpChainStepKind.IpFrag2Udp) {
         return "quic_ipfrag2"
     }
-    if (udpSteps.none { it.kind == UdpChainStepKind.FakeBurst && it.count > 0 }) {
-        return "quic_disabled"
-    }
-    return when (normalizeQuicFakeProfile(quicFakeProfile)) {
-        QuicFakeProfileDisabled -> "quic_disabled"
-        QuicFakeProfileCompatDefault -> "quic_compat_burst"
-        QuicFakeProfileRealisticInitial -> "quic_realistic_burst"
-        else -> "quic_burst"
+    return when (primaryStep.kind) {
+        UdpChainStepKind.FakeBurst -> {
+            when (normalizeQuicFakeProfile(quicFakeProfile)) {
+                QuicFakeProfileDisabled -> "quic_disabled"
+                QuicFakeProfileCompatDefault -> "quic_compat_burst"
+                QuicFakeProfileRealisticInitial -> "quic_realistic_burst"
+                else -> "quic_burst"
+            }
+        }
+
+        UdpChainStepKind.DummyPrepend -> {
+            "quic_dummy_prepend"
+        }
+
+        UdpChainStepKind.QuicSniSplit -> {
+            "quic_sni_split"
+        }
+
+        UdpChainStepKind.QuicFakeVersion -> {
+            "quic_fake_version"
+        }
+
+        UdpChainStepKind.QuicCryptoSplit -> {
+            "quic_crypto_split"
+        }
+
+        UdpChainStepKind.QuicPaddingLadder -> {
+            "quic_padding_ladder"
+        }
+
+        UdpChainStepKind.QuicCidChurn -> {
+            "quic_cid_churn"
+        }
+
+        UdpChainStepKind.QuicPacketNumberGap -> {
+            "quic_packet_number_gap"
+        }
+
+        UdpChainStepKind.QuicVersionNegotiationDecoy -> {
+            "quic_version_negotiation_decoy"
+        }
+
+        UdpChainStepKind.QuicMultiInitialRealistic -> {
+            "quic_multi_initial_realistic"
+        }
+
+        UdpChainStepKind.IpFrag2Udp -> {
+            "quic_ipfrag2"
+        }
     }
 }
 
@@ -167,6 +213,15 @@ fun strategyLaneFamilyLabel(family: String): String =
         "quic_compat_burst" -> "QUIC compat burst"
         "quic_realistic_burst" -> "QUIC realistic burst"
         "quic_burst" -> "QUIC burst"
+        "quic_dummy_prepend" -> "QUIC dummy prepend"
+        "quic_sni_split" -> "QUIC SNI split"
+        "quic_fake_version" -> "QUIC fake version"
+        "quic_crypto_split" -> "QUIC CRYPTO split"
+        "quic_padding_ladder" -> "QUIC padding ladder"
+        "quic_cid_churn" -> "QUIC CID churn"
+        "quic_packet_number_gap" -> "QUIC packet number gap"
+        "quic_version_negotiation_decoy" -> "QUIC version negotiation decoy"
+        "quic_multi_initial_realistic" -> "QUIC multi-initial realistic"
         "dns_plain_udp" -> "Plain DNS"
         "dns_encrypted_doh" -> "Encrypted DNS (DoH)"
         "dns_encrypted_dot" -> "Encrypted DNS (DoT)"

@@ -268,6 +268,12 @@ pub enum UdpChainStepKind {
     DummyPrepend,
     QuicSniSplit,
     QuicFakeVersion,
+    QuicCryptoSplit,
+    QuicPaddingLadder,
+    QuicCidChurn,
+    QuicPacketNumberGap,
+    QuicVersionNegotiationDecoy,
+    QuicMultiInitialRealistic,
     IpFrag2Udp,
 }
 

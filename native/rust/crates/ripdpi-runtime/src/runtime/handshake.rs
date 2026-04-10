@@ -91,7 +91,8 @@ fn handle_socks4(mut client: TcpStream, state: &RuntimeState, version: u8) -> io
                 }
                 telegram_dc_host(dc)
             });
-            match connect_and_relay(&mut client, target.addr, state, dc_host, SuccessReply::Socks4) {
+            let host_hint = target.host.or(dc_host);
+            match connect_and_relay(&mut client, target.addr, state, host_hint, SuccessReply::Socks4) {
                 Ok(()) => Ok(()),
                 Err(err) => handle_socks4_connect_error(&mut client, err),
             }
@@ -124,7 +125,8 @@ fn handle_socks5(mut client: TcpStream, state: &RuntimeState, version: u8) -> io
                 }
                 telegram_dc_host(dc)
             });
-            match connect_and_relay(&mut client, target.addr, state, dc_host, SuccessReply::Socks5) {
+            let host_hint = target.host.or(dc_host);
+            match connect_and_relay(&mut client, target.addr, state, host_hint, SuccessReply::Socks5) {
                 Ok(()) => Ok(()),
                 Err(err) => handle_socks5_connect_error(&mut client, err),
             }
@@ -168,7 +170,8 @@ fn handle_http_connect(mut client: TcpStream, state: &RuntimeState) -> io::Resul
                 }
                 telegram_dc_host(dc)
             });
-            match connect_and_relay(&mut client, target.addr, state, dc_host, SuccessReply::HttpConnect) {
+            let host_hint = target.host.or(dc_host);
+            match connect_and_relay(&mut client, target.addr, state, host_hint, SuccessReply::HttpConnect) {
                 Ok(()) => Ok(()),
                 Err(err) => handle_http_connect_error(&mut client, err),
             }

@@ -106,14 +106,14 @@ pub(super) fn connect_and_relay(
     client: &mut TcpStream,
     target: SocketAddr,
     state: &RuntimeState,
-    dc_host: Option<String>,
+    host_hint: Option<String>,
     reply: SuccessReply,
 ) -> Result<(), ConnectRelayError> {
     connect_and_relay_with(
         client,
         target,
         state,
-        dc_host,
+        host_hint,
         reply,
         write_success_reply,
         run_ws_tunnel,
@@ -138,7 +138,7 @@ fn connect_and_relay_with<
     client: &mut TcpStream,
     target: SocketAddr,
     state: &RuntimeState,
-    dc_host: Option<String>,
+    host_hint: Option<String>,
     reply: SuccessReply,
     mut write_success_reply_fn: WriteSuccessReply,
     mut run_ws_tunnel_fn: RunWsTunnel,
@@ -179,7 +179,7 @@ where
             WsTunnelResult::ValidatedMtproto { .. } => return Ok(()),
             WsTunnelResult::NotMtproto { seed_request } => {
                 tracing::debug!("WS tunnel Always mode: first request is not MTProto, falling back to desync");
-                return connect_after_ws_attempt_fn(client, target, state, dc_host, seed_request);
+                return connect_after_ws_attempt_fn(client, target, state, host_hint, seed_request);
             }
             WsTunnelResult::UnmappableDc { raw_dc, dc, seed_request } => {
                 tracing::info!(
@@ -187,11 +187,11 @@ where
                     raw_dc,
                     dc
                 );
-                return connect_after_ws_attempt_fn(client, target, state, dc_host, seed_request);
+                return connect_after_ws_attempt_fn(client, target, state, host_hint, seed_request);
             }
             WsTunnelResult::ShortInit { seed_request, error } => {
                 tracing::debug!("WS tunnel Always mode: short init while sniffing MTProto: {error}");
-                return connect_after_ws_attempt_fn(client, target, state, dc_host, seed_request);
+                return connect_after_ws_attempt_fn(client, target, state, host_hint, seed_request);
             }
             WsTunnelResult::BootstrapFailed { dc, seed_request, error } => {
                 tracing::warn!(
@@ -199,7 +199,7 @@ where
                     dc.raw(),
                     dc.class()
                 );
-                return connect_after_ws_attempt_fn(client, target, state, dc_host, seed_request);
+                return connect_after_ws_attempt_fn(client, target, state, host_hint, seed_request);
             }
             WsTunnelResult::WsOpenOrRelayFailed { dc, seed_request, error } => {
                 tracing::warn!(
@@ -207,7 +207,7 @@ where
                     dc.raw(),
                     dc.class()
                 );
-                return connect_after_ws_attempt_fn(client, target, state, dc_host, seed_request);
+                return connect_after_ws_attempt_fn(client, target, state, host_hint, seed_request);
             }
         }
     }
@@ -221,14 +221,14 @@ where
 
     let desync_result = match handshake_kind {
         Some(kind) => match maybe_delay_connect_fn(client, state, target, kind)? {
-            DelayConnect::Immediate => immediate_connect_relay_fn(client, target, state, dc_host, &reply),
+            DelayConnect::Immediate => immediate_connect_relay_fn(client, target, state, host_hint, &reply),
             DelayConnect::Delayed { route, payload } => {
-                delayed_connect_relay_fn(client, target, state, dc_host, route, payload)
+                delayed_connect_relay_fn(client, target, state, host_hint, route, payload)
             }
             DelayConnect::Closed => Ok(()),
         },
         // Transparent proxy: no delay_conn, always immediate
-        None => immediate_connect_relay_fn(client, target, state, dc_host, &reply),
+        None => immediate_connect_relay_fn(client, target, state, host_hint, &reply),
     };
 
     match desync_result {
@@ -329,10 +329,10 @@ fn immediate_connect_relay(
     client: &mut TcpStream,
     target: SocketAddr,
     state: &RuntimeState,
-    dc_host: Option<String>,
+    host_hint: Option<String>,
     reply: &SuccessReply,
 ) -> Result<(), ConnectRelayError> {
-    let (upstream, route) = super::super::routing::connect_target(target, state, None, false, dc_host)
+    let (upstream, route) = super::super::routing::connect_target(target, state, None, false, host_hint)
         .map_err(|err| ConnectRelayError::new(err, false))?;
     write_success_reply(client, reply, Some(&upstream)).map_err(|err| ConnectRelayError::new(err, false))?;
     super::super::relay::relay(
@@ -350,11 +350,11 @@ fn delayed_connect_relay(
     client: &mut TcpStream,
     target: SocketAddr,
     state: &RuntimeState,
-    dc_host: Option<String>,
+    host_hint: Option<String>,
     route: crate::runtime_policy::ConnectionRoute,
     payload: Vec<u8>,
 ) -> Result<(), ConnectRelayError> {
-    let host = extract_host(&state.config, &payload).or(dc_host);
+    let host = extract_host(&state.config, &payload).or(host_hint);
     let (upstream, route) =
         super::super::routing::connect_target_with_route(target, state, route, Some(&payload), host)
             .map_err(|err| ConnectRelayError::with_seed_request(err, true, Some(payload.clone())))?;
@@ -373,12 +373,12 @@ fn connect_after_ws_attempt(
     client: &mut TcpStream,
     target: SocketAddr,
     state: &RuntimeState,
-    dc_host: Option<String>,
+    host_hint: Option<String>,
     seed_request: Vec<u8>,
 ) -> Result<(), ConnectRelayError> {
     let seed_request = (!seed_request.is_empty()).then_some(seed_request);
     let (upstream, route) =
-        super::super::routing::connect_target(target, state, seed_request.as_deref(), true, dc_host)
+        super::super::routing::connect_target(target, state, seed_request.as_deref(), true, host_hint)
             .map_err(|err| ConnectRelayError::new(err, true))?;
     super::super::relay::relay(
         client.try_clone().map_err(|err| ConnectRelayError::new(err, true))?,

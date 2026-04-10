@@ -62,7 +62,34 @@ fn sanitize_runtime_context(runtime_context: Option<ProxyRuntimeContext>) -> Opt
         Some(value)
     });
     runtime_context.protect_path = trim_non_empty(runtime_context.protect_path);
-    if runtime_context.encrypted_dns.is_none() && runtime_context.protect_path.is_none() {
+    runtime_context.preferred_edges = runtime_context
+        .preferred_edges
+        .into_iter()
+        .filter_map(|(host, edges)| {
+            let host = host.trim().to_ascii_lowercase();
+            if host.is_empty() {
+                return None;
+            }
+            let edges = edges
+                .into_iter()
+                .filter_map(|mut edge| {
+                    edge.ip = edge.ip.trim().to_string();
+                    edge.transport_kind = edge.transport_kind.trim().to_ascii_lowercase();
+                    edge.ip_version = edge.ip_version.trim().to_ascii_lowercase();
+                    edge.cdn_provider = trim_non_empty(edge.cdn_provider);
+                    if edge.ip.is_empty() || edge.transport_kind.is_empty() {
+                        return None;
+                    }
+                    Some(edge)
+                })
+                .collect::<Vec<_>>();
+            (!edges.is_empty()).then_some((host, edges))
+        })
+        .collect();
+    if runtime_context.encrypted_dns.is_none()
+        && runtime_context.protect_path.is_none()
+        && runtime_context.preferred_edges.is_empty()
+    {
         return None;
     }
     Some(runtime_context)
@@ -1099,6 +1126,14 @@ pub fn parse_udp_chain_step_kind(value: &str) -> Result<UdpChainStepKind, ProxyC
         "dummyprepend" | "dummy_prepend" => Ok(UdpChainStepKind::DummyPrepend),
         "quicsnisplit" | "quic_sni_split" => Ok(UdpChainStepKind::QuicSniSplit),
         "quicfakeversion" | "quic_fake_version" => Ok(UdpChainStepKind::QuicFakeVersion),
+        "quiccryptosplit" | "quic_crypto_split" => Ok(UdpChainStepKind::QuicCryptoSplit),
+        "quicpaddingladder" | "quic_padding_ladder" => Ok(UdpChainStepKind::QuicPaddingLadder),
+        "quiccidchurn" | "quic_cid_churn" => Ok(UdpChainStepKind::QuicCidChurn),
+        "quicpacketnumbergap" | "quic_packet_number_gap" => Ok(UdpChainStepKind::QuicPacketNumberGap),
+        "quicversionnegotiationdecoy" | "quic_version_negotiation_decoy" => {
+            Ok(UdpChainStepKind::QuicVersionNegotiationDecoy)
+        }
+        "quicmultiinitialrealistic" | "quic_multi_initial_realistic" => Ok(UdpChainStepKind::QuicMultiInitialRealistic),
         "ipfrag2_udp" => Ok(UdpChainStepKind::IpFrag2Udp),
         _ => Err(ProxyConfigError::InvalidConfig(format!("Unknown udpChainSteps kind: {value}"))),
     }

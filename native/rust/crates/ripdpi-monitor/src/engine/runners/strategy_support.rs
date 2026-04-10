@@ -136,6 +136,7 @@ pub(super) fn compute_rst_adaptive_timeout(baseline_failure: &ClassifiedFailure)
     Some(Duration::from_millis(1500))
 }
 
+#[cfg(test)]
 pub(super) fn baseline_has_tls_ech_only(results: &[ProbeResult]) -> bool {
     results.iter().any(|result| result.probe_type == "strategy_https" && result.outcome == "tls_ech_only")
 }
@@ -145,6 +146,8 @@ pub(super) fn baseline_supports_ech_candidates(results: &[ProbeResult]) -> bool 
         result.probe_type == "strategy_https"
             && (result.outcome == "tls_ech_only"
                 || probe_detail_value(result, "tlsEchResolutionDetail") == Some("ech_config_available"))
+            || (result.probe_type == "strategy_https"
+                && probe_detail_value(result, "cdnProvider").is_some_and(|value| !value.trim().is_empty()))
     })
 }
 
@@ -159,7 +162,7 @@ pub(super) fn ordered_follow_up_tcp_candidates(
         .into_iter()
         .skip(1)
         .collect::<Vec<_>>();
-    if !baseline_has_tls_ech_only(baseline_results) {
+    if !baseline_supports_ech_candidates(baseline_results) {
         return interleave_candidate_families(reordered, probe_seed);
     }
 

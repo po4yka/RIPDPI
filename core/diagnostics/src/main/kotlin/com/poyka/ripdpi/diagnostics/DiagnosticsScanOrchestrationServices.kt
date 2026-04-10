@@ -5,15 +5,19 @@ import com.poyka.ripdpi.core.NetworkDiagnosticsBridge
 import com.poyka.ripdpi.core.NetworkDiagnosticsBridgeFactory
 import com.poyka.ripdpi.core.resolveHostAutolearnStorePath
 import com.poyka.ripdpi.data.EncryptedDnsPathCandidate
+import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.NetworkFingerprint
 import com.poyka.ripdpi.data.NetworkFingerprintProvider
 import com.poyka.ripdpi.data.RememberedNetworkPolicySource
 import com.poyka.ripdpi.data.ResolverOverrideStore
 import com.poyka.ripdpi.data.ServiceStateStore
+import com.poyka.ripdpi.data.activeDnsSettings
+import com.poyka.ripdpi.data.deriveStrategyLaneFamilies
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsArtifactWriteStore
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsProfileCatalog
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsScanRecordStore
 import com.poyka.ripdpi.data.diagnostics.NetworkDnsPathPreferenceStore
+import com.poyka.ripdpi.data.diagnostics.NetworkEdgePreferenceStore
 import com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyStore
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Job
@@ -483,6 +487,7 @@ class ScanFinalizationService
         private val serviceStateStore: ServiceStateStore,
         private val resolverOverrideStore: ResolverOverrideStore,
         private val rememberedNetworkPolicyStore: RememberedNetworkPolicyStore,
+        private val networkEdgePreferenceStore: NetworkEdgePreferenceStore,
         private val networkDnsPathPreferenceStore: NetworkDnsPathPreferenceStore,
         private val findingProjector: DiagnosticsFindingProjector,
         @param:Named("diagnosticsJson")
@@ -520,6 +525,17 @@ class ScanFinalizationService
                     settings = prepared.settings,
                     pathMode = prepared.pathMode,
                 )
+            val winningCombination =
+                resolveWinningCombination(
+                    prepared = prepared,
+                    report = finalReport,
+                )
+            prepared.networkFingerprint?.let { fingerprint ->
+                rememberEdgeProbeResults(
+                    fingerprint = fingerprint,
+                    report = finalReport,
+                )
+            }
             val derived =
                 com.poyka.ripdpi.diagnostics.domain
                     .DerivedScanReport(finalReport.toEngineScanReportWire())
@@ -530,11 +546,13 @@ class ScanFinalizationService
                 serviceStateStore = serviceStateStore,
                 json = json,
             )
-            rememberNetworkDnsPathPreference(prepared.networkFingerprint, finalReport.resolverRecommendation)
-            rememberStrategyProbeRecommendation(
-                prepared = prepared,
-                report = finalReport,
-            )
+            if (winningCombination?.id != "remembered") {
+                rememberNetworkDnsPathPreference(prepared.networkFingerprint, finalReport.resolverRecommendation)
+                rememberStrategyProbeRecommendation(
+                    prepared = prepared,
+                    report = finalReport,
+                )
+            }
             persistPostScanArtifacts(prepared.sessionId)
             val correctedDnsPath =
                 with(ResolverRecommendationEngine) {
@@ -551,6 +569,66 @@ class ScanFinalizationService
                 shouldReprobeWithCorrectedDns = shouldReprobe,
                 correctedDnsPath = correctedDnsPath,
             )
+        }
+
+        private suspend fun resolveWinningCombination(
+            prepared: PreparedDiagnosticsScan,
+            report: ScanReport,
+        ): BypassCombinationCandidate? {
+            val fingerprintHash = prepared.networkFingerprint?.scopeKey() ?: return null
+            val mode = Mode.fromString(prepared.settings.ripdpiMode.ifEmpty { Mode.VPN.preferenceValue })
+            val remembered =
+                rememberedNetworkPolicyStore.findValidatedMatch(
+                    fingerprintHash = fingerprintHash,
+                    mode = mode,
+                )
+            val preferredEdges = networkEdgePreferenceStore.getPreferredEdgesForRuntime(fingerprintHash)
+            val laneFamilies = prepared.settings.deriveStrategyLaneFamilies()
+            val fresh =
+                BypassCombinationScorer.freshCandidate(
+                    report = report,
+                    resolverPath =
+                        with(ResolverRecommendationEngine) {
+                            report.resolverRecommendation?.toEncryptedDnsPathCandidate()
+                        },
+                    currentDnsProtocol = prepared.settings.activeDnsSettings().encryptedDnsProtocol,
+                    currentTcpFamily = laneFamilies.tcpStrategyFamily,
+                    currentQuicFamily = laneFamilies.quicStrategyFamily,
+                    preferredEdges = preferredEdges,
+                )
+            return BypassCombinationScorer.chooseBest(
+                buildList {
+                    add(fresh)
+                    if (remembered != null) {
+                        add(
+                            BypassCombinationScorer.rememberedCandidate(
+                                resolverPath = prepared.preferredDnsPath,
+                                strategyRecommendation = null,
+                            ),
+                        )
+                    }
+                },
+            )
+        }
+
+        private suspend fun rememberEdgeProbeResults(
+            fingerprint: NetworkFingerprint,
+            report: ScanReport,
+        ) {
+            report.results.forEach { result ->
+                val connectedIp = result.detailValue("connectedIp")?.takeIf { it.isNotBlank() } ?: return@forEach
+                val host = result.detailValue("targetHost") ?: result.inferEdgeHost() ?: return@forEach
+                val transportKind = result.edgeTransportKind() ?: return@forEach
+                networkEdgePreferenceStore.recordEdgeResult(
+                    fingerprint = fingerprint,
+                    host = host,
+                    transportKind = transportKind,
+                    ip = connectedIp,
+                    success = result.edgeSuccess(),
+                    echCapable = result.edgeEchCapable(),
+                    cdnProvider = result.detailValue("cdnProvider"),
+                )
+            }
         }
 
         private suspend fun persistPostScanArtifacts(sessionId: String) {
@@ -685,3 +763,41 @@ class ScanFinalizationService
             }
         }
     }
+
+private fun ProbeResult.detailValue(key: String): String? = details.firstOrNull { it.key == key }?.value
+
+private fun ProbeResult.inferEdgeHost(): String? =
+    target
+        .substringAfterLast(
+            " · ",
+            missingDelimiterValue = target,
+        ).substringBefore(' ')
+        .trim()
+        .takeIf { it.isNotEmpty() }
+
+private fun ProbeResult.edgeTransportKind(): String? =
+    when (probeType) {
+        "strategy_quic" -> {
+            com.poyka.ripdpi.data.PreferredEdgeTransportQuic
+        }
+
+        "strategy_http", "strategy_https", "service_handshake", "service_gateway", "throughput" -> {
+            com.poyka.ripdpi.data.PreferredEdgeTransportTcp
+        }
+
+        else -> {
+            null
+        }
+    }
+
+private fun ProbeResult.edgeSuccess(): Boolean =
+    when (probeType) {
+        "strategy_quic" -> outcome == "quic_initial_response" || outcome == "quic_response"
+        "strategy_http" -> outcome == "http_ok" || outcome == "http_redirect"
+        "strategy_https" -> outcome == "tls_ok" || outcome == "tls_version_split" || outcome == "tls_ech_only"
+        "service_handshake", "service_gateway", "throughput" -> !outcome.contains("unreachable", ignoreCase = true)
+        else -> false
+    }
+
+private fun ProbeResult.edgeEchCapable(): Boolean =
+    detailValue("echCapable") == "true" || detailValue("tlsEchResolutionDetail") == "ech_config_available"

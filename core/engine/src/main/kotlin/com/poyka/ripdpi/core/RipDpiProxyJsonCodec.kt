@@ -282,9 +282,23 @@ internal object RipDpiProxyJsonCodec {
     )
 
     @Serializable
+    private data class NativePreferredEdge(
+        val ip: String,
+        val transportKind: String,
+        val ipVersion: String,
+        val successCount: Int = 0,
+        val failureCount: Int = 0,
+        val lastValidatedAt: Long? = null,
+        val lastFailedAt: Long? = null,
+        val echCapable: Boolean = false,
+        val cdnProvider: String? = null,
+    )
+
+    @Serializable
     private data class NativeRuntimeContext(
         val encryptedDns: NativeEncryptedDnsContext? = null,
         val protectPath: String? = null,
+        val preferredEdges: Map<String, List<NativePreferredEdge>> = emptyMap(),
     )
 
     @Serializable
@@ -610,6 +624,22 @@ internal object RipDpiProxyJsonCodec {
                                 )
                             },
                         protectPath = it.protectPath,
+                        preferredEdges =
+                            it.preferredEdges.mapValues { (_, candidates) ->
+                                candidates.map { edge ->
+                                    com.poyka.ripdpi.data.PreferredEdgeCandidate(
+                                        ip = edge.ip,
+                                        transportKind = edge.transportKind,
+                                        ipVersion = edge.ipVersion,
+                                        successCount = edge.successCount,
+                                        failureCount = edge.failureCount,
+                                        lastValidatedAt = edge.lastValidatedAt,
+                                        lastFailedAt = edge.lastFailedAt,
+                                        echCapable = edge.echCapable,
+                                        cdnProvider = edge.cdnProvider,
+                                    )
+                                }
+                            },
                     )
                 },
             )
@@ -632,6 +662,22 @@ internal object RipDpiProxyJsonCodec {
                             )
                         },
                     protectPath = context.protectPath,
+                    preferredEdges =
+                        context.preferredEdges.mapValues { (_, candidates) ->
+                            candidates.map { edge ->
+                                NativePreferredEdge(
+                                    ip = edge.ip,
+                                    transportKind = edge.transportKind,
+                                    ipVersion = edge.ipVersion,
+                                    successCount = edge.successCount,
+                                    failureCount = edge.failureCount,
+                                    lastValidatedAt = edge.lastValidatedAt,
+                                    lastFailedAt = edge.lastFailedAt,
+                                    echCapable = edge.echCapable,
+                                    cdnProvider = edge.cdnProvider,
+                                )
+                            }
+                        },
                 )
             }
     }
