@@ -26,11 +26,15 @@ import com.poyka.ripdpi.data.RelayKindShadowTlsV3
 import com.poyka.ripdpi.data.RelayKindTuicV5
 import com.poyka.ripdpi.data.RelayKindVlessReality
 import com.poyka.ripdpi.data.RelayMasqueAuthModeBearer
+import com.poyka.ripdpi.data.RelayMasqueAuthModeCloudflareMtls
 import com.poyka.ripdpi.data.RelayMasqueAuthModePreshared
 import com.poyka.ripdpi.data.RelayMasqueAuthModePrivacyPass
 import com.poyka.ripdpi.data.RelayVlessTransportRealityTcp
 import com.poyka.ripdpi.data.RelayVlessTransportXhttp
 import com.poyka.ripdpi.services.MasquePrivacyPassBuildStatus
+import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
+import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
+import com.poyka.ripdpi.ui.components.inputs.RipDpiConfigTextField
 import com.poyka.ripdpi.ui.components.inputs.RipDpiChip
 import com.poyka.ripdpi.ui.components.inputs.RipDpiSwitch
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextField
@@ -59,7 +63,13 @@ internal fun RelayKindFields(
     onRelayMasqueUrlChanged: (String) -> Unit,
     onRelayMasqueAuthModeChanged: (String) -> Unit,
     onRelayMasqueAuthTokenChanged: (String) -> Unit,
+    onRelayMasqueClientCertificateChainPemChanged: (String) -> Unit,
+    onRelayMasqueClientPrivateKeyPemChanged: (String) -> Unit,
     onRelayMasqueUseHttp2FallbackChanged: (Boolean) -> Unit,
+    onRelayMasqueCloudflareGeohashEnabledChanged: (Boolean) -> Unit,
+    onRelayMasqueImportCertificateChainClicked: () -> Unit,
+    onRelayMasqueImportPrivateKeyClicked: () -> Unit,
+    onRelayMasqueImportPkcs12Clicked: () -> Unit,
     onRelayTuicUuidChanged: (String) -> Unit,
     onRelayTuicPasswordChanged: (String) -> Unit,
     onRelayTuicZeroRttChanged: (Boolean) -> Unit,
@@ -252,6 +262,12 @@ internal fun RelayKindFields(
                     R.string.config_relay_masque_auth_preshared,
                     onRelayMasqueAuthModeChanged,
                 )
+                MasqueAuthModeChip(
+                    draft.relayMasqueAuthMode,
+                    RelayMasqueAuthModeCloudflareMtls,
+                    R.string.config_relay_masque_auth_cloudflare_direct,
+                    onRelayMasqueAuthModeChanged,
+                )
                 if (uiState.supportsMasquePrivacyPass) {
                     MasqueAuthModeChip(
                         draft.relayMasqueAuthMode,
@@ -287,11 +303,69 @@ internal fun RelayKindFields(
                     color = colors.mutedForeground,
                 )
             }
-            if (draft.relayMasqueAuthMode != RelayMasqueAuthModePrivacyPass) {
+            if (
+                draft.relayMasqueAuthMode != RelayMasqueAuthModePrivacyPass &&
+                draft.relayMasqueAuthMode != RelayMasqueAuthModeCloudflareMtls
+            ) {
                 RipDpiTextField(
                     value = draft.relayMasqueAuthToken,
                     onValueChange = onRelayMasqueAuthTokenChanged,
                     decoration = RipDpiTextFieldDecoration(label = stringResource(R.string.config_relay_masque_token)),
+                )
+            }
+            if (draft.relayMasqueAuthMode == RelayMasqueAuthModeCloudflareMtls) {
+                RipDpiConfigTextField(
+                    value = draft.relayMasqueClientCertificateChainPem,
+                    onValueChange = onRelayMasqueClientCertificateChainPemChanged,
+                    decoration =
+                        RipDpiTextFieldDecoration(
+                            label = stringResource(R.string.config_relay_masque_client_certificate_chain),
+                            helperText = stringResource(R.string.config_relay_masque_client_certificate_chain_helper),
+                        ),
+                    multiline = true,
+                )
+                RipDpiConfigTextField(
+                    value = draft.relayMasqueClientPrivateKeyPem,
+                    onValueChange = onRelayMasqueClientPrivateKeyPemChanged,
+                    decoration =
+                        RipDpiTextFieldDecoration(
+                            label = stringResource(R.string.config_relay_masque_client_private_key),
+                            helperText = stringResource(R.string.config_relay_masque_client_private_key_helper),
+                        ),
+                    multiline = true,
+                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(spacing.sm),
+                ) {
+                    RipDpiButton(
+                        text = stringResource(R.string.config_relay_masque_import_certificate_chain),
+                        onClick = onRelayMasqueImportCertificateChainClicked,
+                        modifier = Modifier.weight(1f),
+                        variant = RipDpiButtonVariant.Outline,
+                    )
+                    RipDpiButton(
+                        text = stringResource(R.string.config_relay_masque_import_private_key),
+                        onClick = onRelayMasqueImportPrivateKeyClicked,
+                        modifier = Modifier.weight(1f),
+                        variant = RipDpiButtonVariant.Outline,
+                    )
+                }
+                RipDpiButton(
+                    text = stringResource(R.string.config_relay_masque_import_pkcs12),
+                    onClick = onRelayMasqueImportPkcs12Clicked,
+                    modifier = Modifier.fillMaxWidth(),
+                    variant = RipDpiButtonVariant.Outline,
+                )
+                RipDpiSwitch(
+                    checked = draft.relayMasqueCloudflareGeohashEnabled,
+                    onCheckedChange = onRelayMasqueCloudflareGeohashEnabledChanged,
+                    label = stringResource(R.string.config_relay_masque_cloudflare_geohash_enabled),
+                )
+                Text(
+                    text = stringResource(R.string.config_relay_masque_cloudflare_geohash_helper),
+                    style = RipDpiThemeTokens.type.caption,
+                    color = colors.mutedForeground,
                 )
             }
             RipDpiSwitch(

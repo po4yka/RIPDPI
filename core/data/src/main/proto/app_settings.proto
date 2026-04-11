@@ -258,6 +258,7 @@ message AppSettings {
   string relay_tuic_congestion_control = 230; // "bbr" | "cubic"
   string relay_shadowtls_inner_profile_id = 231;
   string relay_naive_path = 232;
+  bool relay_masque_cloudflare_geohash_enabled = 233;
   string relay_vless_transport = 214; // "reality_tcp" | "xhttp"
   string relay_xhttp_path = 215;
   string relay_xhttp_host = 216;

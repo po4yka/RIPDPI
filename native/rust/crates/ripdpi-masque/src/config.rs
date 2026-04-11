@@ -4,6 +4,7 @@ pub enum MasqueAuthMode {
     Bearer,
     Preshared,
     PrivacyPass,
+    CloudflareMtls,
 }
 
 /// Configuration for a MASQUE proxy connection.
@@ -17,6 +18,12 @@ pub struct MasqueConfig {
     pub auth_mode: Option<String>,
     /// Shared secret used by bearer and preshared auth modes.
     pub auth_token: Option<String>,
+    /// Client certificate chain used by Cloudflare direct mTLS mode.
+    pub client_certificate_chain_pem: Option<String>,
+    /// Client private key used by Cloudflare direct mTLS mode.
+    pub client_private_key_pem: Option<String>,
+    /// Optional sec-ch-geohash header resolved on the Android side.
+    pub cloudflare_geohash_header: Option<String>,
     /// Deployer-supplied Privacy Pass provider endpoint.
     pub privacy_pass_provider_url: Option<String>,
     /// Optional bearer token used to authenticate to the deployer-supplied Privacy Pass provider.
@@ -31,6 +38,7 @@ impl MasqueConfig {
             Some("bearer" | "token") => MasqueAuthMode::Bearer,
             Some("preshared") => MasqueAuthMode::Preshared,
             Some("privacy_pass") => MasqueAuthMode::PrivacyPass,
+            Some("cloudflare_mtls") => MasqueAuthMode::CloudflareMtls,
             Some(_) => MasqueAuthMode::None,
             None if self.auth_token.as_deref().is_some_and(|value| !value.trim().is_empty()) => MasqueAuthMode::Bearer,
             None => MasqueAuthMode::None,

@@ -1,5 +1,9 @@
 [
   "activeSessions",
+  "adaptiveLastTrigger",
+  "adaptiveOverrideActive",
+  "adaptiveOverrideReason",
+  "adaptiveTriggerMask",
   "autolearnEnabled",
   "blockedHostCount",
   "candidateDiversificationCount",

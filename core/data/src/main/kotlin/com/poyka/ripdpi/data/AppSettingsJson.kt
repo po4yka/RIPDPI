@@ -204,6 +204,7 @@ internal data class AppSettingsSnapshot(
     val relayChainExitProfileId: String = defaultSettings.relayChainExitProfileId,
     val relayMasqueUrl: String = defaultSettings.relayMasqueUrl,
     val relayMasqueUseHttp2Fallback: Boolean = defaultSettings.relayMasqueUseHttp2Fallback,
+    val relayMasqueCloudflareGeohashEnabled: Boolean = defaultSettings.relayMasqueCloudflareGeohashEnabled,
     val relayTuicZeroRtt: Boolean = defaultSettings.relayTuicZeroRtt,
     val relayTuicCongestionControl: String = defaultSettings.relayTuicCongestionControl,
     val relayShadowTlsInnerProfileId: String = defaultSettings.relayShadowtlsInnerProfileId,
@@ -424,6 +425,7 @@ private fun AppSettings.toSnapshot(): AppSettingsSnapshot =
             relayChainExitProfileId = relayChainExitProfileId,
             relayMasqueUrl = relayMasqueUrl,
             relayMasqueUseHttp2Fallback = relayMasqueUseHttp2Fallback,
+            relayMasqueCloudflareGeohashEnabled = relayMasqueCloudflareGeohashEnabled,
             relayTuicZeroRtt = relayTuicZeroRtt,
             relayTuicCongestionControl = normalizeRelayCongestionControl(relayTuicCongestionControl),
             relayShadowTlsInnerProfileId = relayShadowtlsInnerProfileId,
@@ -648,6 +650,7 @@ private fun AppSettingsSnapshot.toAppSettings(): AppSettings {
         .setRelayChainExitProfileId(relayChainExitProfileId)
         .setRelayMasqueUrl(relayMasqueUrl)
         .setRelayMasqueUseHttp2Fallback(relayMasqueUseHttp2Fallback)
+        .setRelayMasqueCloudflareGeohashEnabled(relayMasqueCloudflareGeohashEnabled)
         .setRelayTuicZeroRtt(relayTuicZeroRtt)
         .setRelayTuicCongestionControl(normalizeRelayCongestionControl(relayTuicCongestionControl))
         .setRelayShadowtlsInnerProfileId(relayShadowTlsInnerProfileId)

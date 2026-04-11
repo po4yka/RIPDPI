@@ -72,7 +72,8 @@ impl PrivacyPassProviderResponse {
 }
 
 pub fn build_static_auth_header(config: &MasqueConfig) -> io::Result<Option<AuthHeader>> {
-    match config.effective_auth_mode() {
+    let auth_mode = config.effective_auth_mode();
+    match auth_mode {
         MasqueAuthMode::Bearer | MasqueAuthMode::Preshared => {
             let secret = config
                 .auth_token
@@ -80,15 +81,17 @@ pub fn build_static_auth_header(config: &MasqueConfig) -> io::Result<Option<Auth
                 .filter(|value| !value.trim().is_empty())
                 .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "missing MASQUE auth secret"))?;
 
-            Ok(Some(match config.effective_auth_mode() {
+            Ok(Some(match auth_mode {
                 MasqueAuthMode::Bearer => AuthHeader { name: "authorization", value: format!("Bearer {secret}") },
                 MasqueAuthMode::Preshared => {
                     AuthHeader { name: "proxy-authorization", value: format!("Preshared {secret}") }
                 }
-                MasqueAuthMode::None | MasqueAuthMode::PrivacyPass => unreachable!("handled above"),
+                MasqueAuthMode::None | MasqueAuthMode::PrivacyPass | MasqueAuthMode::CloudflareMtls => {
+                    unreachable!("handled above")
+                }
             }))
         }
-        MasqueAuthMode::None | MasqueAuthMode::PrivacyPass => Ok(None),
+        MasqueAuthMode::None | MasqueAuthMode::PrivacyPass | MasqueAuthMode::CloudflareMtls => Ok(None),
     }
 }
 
@@ -140,6 +143,9 @@ mod tests {
             use_http2_fallback: true,
             auth_mode: Some("preshared".to_string()),
             auth_token: Some("secret".to_string()),
+            client_certificate_chain_pem: None,
+            client_private_key_pem: None,
+            cloudflare_geohash_header: None,
             privacy_pass_provider_url: None,
             privacy_pass_provider_auth_token: None,
             tls_fingerprint_profile: "native_default".to_string(),
@@ -157,7 +163,31 @@ mod tests {
             use_http2_fallback: false,
             auth_mode: Some("privacy_pass".to_string()),
             auth_token: None,
+            client_certificate_chain_pem: None,
+            client_private_key_pem: None,
+            cloudflare_geohash_header: None,
             privacy_pass_provider_url: Some("https://provider.example/token".to_string()),
+            privacy_pass_provider_auth_token: None,
+            tls_fingerprint_profile: "native_default".to_string(),
+        })
+        .expect("header");
+
+        assert!(header.is_none());
+    }
+
+    #[test]
+    fn cloudflare_mtls_mode_does_not_emit_static_auth_headers() {
+        let header = build_static_auth_header(&MasqueConfig {
+            url: "https://masque.example/".to_string(),
+            use_http2_fallback: true,
+            auth_mode: Some("cloudflare_mtls".to_string()),
+            auth_token: None,
+            client_certificate_chain_pem: Some(
+                "-----BEGIN CERTIFICATE-----\nZm9v\n-----END CERTIFICATE-----".to_string(),
+            ),
+            client_private_key_pem: Some("-----BEGIN PRIVATE KEY-----\nZm9v\n-----END PRIVATE KEY-----".to_string()),
+            cloudflare_geohash_header: Some("u4pruyd-GB".to_string()),
+            privacy_pass_provider_url: None,
             privacy_pass_provider_auth_token: None,
             tls_fingerprint_profile: "native_default".to_string(),
         })

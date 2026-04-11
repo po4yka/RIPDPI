@@ -898,6 +898,7 @@ class NativeConfigContractSnapshotTest {
         chainExitProfileId: String = "",
         masqueUrl: String = "",
         masqueUseHttp2Fallback: Boolean = true,
+        masqueCloudflareGeohashEnabled: Boolean = false,
         tuicZeroRtt: Boolean = false,
         tuicCongestionControl: String = "bbr",
         shadowTlsInnerProfileId: String = "",
@@ -934,6 +935,7 @@ class NativeConfigContractSnapshotTest {
             put("chainExitProfileId", JsonPrimitive(chainExitProfileId))
             put("masqueUrl", JsonPrimitive(masqueUrl))
             put("masqueUseHttp2Fallback", JsonPrimitive(masqueUseHttp2Fallback))
+            put("masqueCloudflareGeohashEnabled", JsonPrimitive(masqueCloudflareGeohashEnabled))
             put("tuicZeroRtt", JsonPrimitive(tuicZeroRtt))
             put("tuicCongestionControl", JsonPrimitive(tuicCongestionControl))
             put("shadowTlsInnerProfileId", JsonPrimitive(shadowTlsInnerProfileId))

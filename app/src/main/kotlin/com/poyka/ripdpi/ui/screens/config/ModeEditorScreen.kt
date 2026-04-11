@@ -1,6 +1,11 @@
 package com.poyka.ripdpi.ui.screens.config
 
+import android.Manifest
+import android.content.pm.PackageManager
+import android.net.Uri
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -15,16 +20,21 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.Preview
@@ -87,8 +97,15 @@ import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
+import androidx.core.content.ContextCompat
 import kotlinx.collections.immutable.persistentMapOf
 import kotlinx.coroutines.flow.collectLatest
+
+private enum class MasqueImportAction {
+    CertificateChain,
+    PrivateKey,
+    Pkcs12,
+}
 
 @Suppress("LongMethod")
 @Composable
@@ -100,6 +117,10 @@ fun ModeEditorRoute(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
     val validationMessage = stringResource(R.string.config_validation_fix)
+    val context = LocalContext.current
+    var pendingMasqueImportAction by remember { mutableStateOf<MasqueImportAction?>(null) }
+    var pendingPkcs12Uri by remember { mutableStateOf<Uri?>(null) }
+    var pkcs12Password by rememberSaveable { mutableStateOf("") }
     val handleBack = {
         viewModel.cancelEditing()
         onBack()
@@ -115,6 +136,23 @@ fun ModeEditorRoute(
 
     val currentOnBack by rememberUpdatedState(onBack)
     val performHaptic = rememberRipDpiHapticPerformer()
+    val documentLauncher =
+        rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+            val action = pendingMasqueImportAction
+            pendingMasqueImportAction = null
+            when {
+                uri == null || action == null -> Unit
+                action == MasqueImportAction.CertificateChain -> viewModel.importRelayMasqueCertificateChain(uri)
+                action == MasqueImportAction.PrivateKey -> viewModel.importRelayMasquePrivateKey(uri)
+                action == MasqueImportAction.Pkcs12 -> pendingPkcs12Uri = uri
+            }
+        }
+    val coarseLocationPermissionLauncher =
+        rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+            if (granted) {
+                viewModel.updateDraft { copy(relayMasqueCloudflareGeohashEnabled = true) }
+            }
+        }
 
     LaunchedEffect(Unit) {
         viewModel.effects.collectLatest { effect ->
@@ -133,8 +171,57 @@ fun ModeEditorRoute(
                         testTag = RipDpiTestTags.ModeEditorValidationSnackbar,
                     )
                 }
+
+                is ConfigEffect.Message -> {
+                    snackbarHostState.showRipDpiSnackbar(
+                        message = effect.text,
+                        tone = RipDpiSnackbarTone.Warning,
+                        duration = SnackbarDuration.Short,
+                    )
+                }
             }
         }
+    }
+
+    pendingPkcs12Uri?.let { uri ->
+        AlertDialog(
+            onDismissRequest = {
+                pendingPkcs12Uri = null
+                pkcs12Password = ""
+            },
+            title = { Text(text = stringResource(R.string.config_relay_masque_pkcs12_dialog_title)) },
+            text = {
+                RipDpiTextField(
+                    value = pkcs12Password,
+                    onValueChange = { pkcs12Password = it },
+                    decoration =
+                        RipDpiTextFieldDecoration(
+                            label = stringResource(R.string.config_relay_masque_pkcs12_password),
+                            helperText = stringResource(R.string.config_relay_masque_pkcs12_password_helper),
+                        ),
+                )
+            },
+            confirmButton = {
+                RipDpiButton(
+                    text = stringResource(R.string.config_relay_import),
+                    onClick = {
+                        viewModel.importRelayMasquePkcs12(uri, pkcs12Password)
+                        pendingPkcs12Uri = null
+                        pkcs12Password = ""
+                    },
+                )
+            },
+            dismissButton = {
+                RipDpiButton(
+                    text = stringResource(R.string.config_cancel),
+                    onClick = {
+                        pendingPkcs12Uri = null
+                        pkcs12Password = ""
+                    },
+                    variant = RipDpiButtonVariant.Outline,
+                )
+            },
+        )
     }
 
     ModeEditorScreen(
@@ -197,7 +284,38 @@ fun ModeEditorRoute(
         onRelayMasqueUrlChanged = { viewModel.updateDraft { copy(relayMasqueUrl = it) } },
         onRelayMasqueAuthModeChanged = { viewModel.updateDraft { copy(relayMasqueAuthMode = it) } },
         onRelayMasqueAuthTokenChanged = { viewModel.updateDraft { copy(relayMasqueAuthToken = it) } },
+        onRelayMasqueClientCertificateChainPemChanged = {
+            viewModel.updateDraft { copy(relayMasqueClientCertificateChainPem = it) }
+        },
+        onRelayMasqueClientPrivateKeyPemChanged = {
+            viewModel.updateDraft { copy(relayMasqueClientPrivateKeyPem = it) }
+        },
         onRelayMasqueUseHttp2FallbackChanged = { viewModel.updateDraft { copy(relayMasqueUseHttp2Fallback = it) } },
+        onRelayMasqueCloudflareGeohashEnabledChanged = { enabled ->
+            if (!enabled) {
+                viewModel.updateDraft { copy(relayMasqueCloudflareGeohashEnabled = false) }
+            } else {
+                val permissionState =
+                    ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION)
+                if (permissionState == PackageManager.PERMISSION_GRANTED) {
+                    viewModel.updateDraft { copy(relayMasqueCloudflareGeohashEnabled = true) }
+                } else {
+                    coarseLocationPermissionLauncher.launch(Manifest.permission.ACCESS_COARSE_LOCATION)
+                }
+            }
+        },
+        onRelayMasqueImportCertificateChainClicked = {
+            pendingMasqueImportAction = MasqueImportAction.CertificateChain
+            documentLauncher.launch(arrayOf("*/*"))
+        },
+        onRelayMasqueImportPrivateKeyClicked = {
+            pendingMasqueImportAction = MasqueImportAction.PrivateKey
+            documentLauncher.launch(arrayOf("*/*"))
+        },
+        onRelayMasqueImportPkcs12Clicked = {
+            pendingMasqueImportAction = MasqueImportAction.Pkcs12
+            documentLauncher.launch(arrayOf("*/*"))
+        },
         onRelayTuicUuidChanged = { viewModel.updateDraft { copy(relayTuicUuid = it) } },
         onRelayTuicPasswordChanged = { viewModel.updateDraft { copy(relayTuicPassword = it) } },
         onRelayTuicZeroRttChanged = { viewModel.updateDraft { copy(relayTuicZeroRtt = it) } },
@@ -249,7 +367,13 @@ fun ModeEditorScreen(
     onRelayMasqueUrlChanged: (String) -> Unit,
     onRelayMasqueAuthModeChanged: (String) -> Unit,
     onRelayMasqueAuthTokenChanged: (String) -> Unit,
+    onRelayMasqueClientCertificateChainPemChanged: (String) -> Unit,
+    onRelayMasqueClientPrivateKeyPemChanged: (String) -> Unit,
     onRelayMasqueUseHttp2FallbackChanged: (Boolean) -> Unit,
+    onRelayMasqueCloudflareGeohashEnabledChanged: (Boolean) -> Unit,
+    onRelayMasqueImportCertificateChainClicked: () -> Unit,
+    onRelayMasqueImportPrivateKeyClicked: () -> Unit,
+    onRelayMasqueImportPkcs12Clicked: () -> Unit,
     onRelayTuicUuidChanged: (String) -> Unit,
     onRelayTuicPasswordChanged: (String) -> Unit,
     onRelayTuicZeroRttChanged: (Boolean) -> Unit,
@@ -608,7 +732,15 @@ fun ModeEditorScreen(
                                 onRelayMasqueUrlChanged = onRelayMasqueUrlChanged,
                                 onRelayMasqueAuthModeChanged = onRelayMasqueAuthModeChanged,
                                 onRelayMasqueAuthTokenChanged = onRelayMasqueAuthTokenChanged,
+                                onRelayMasqueClientCertificateChainPemChanged =
+                                    onRelayMasqueClientCertificateChainPemChanged,
+                                onRelayMasqueClientPrivateKeyPemChanged = onRelayMasqueClientPrivateKeyPemChanged,
                                 onRelayMasqueUseHttp2FallbackChanged = onRelayMasqueUseHttp2FallbackChanged,
+                                onRelayMasqueCloudflareGeohashEnabledChanged =
+                                    onRelayMasqueCloudflareGeohashEnabledChanged,
+                                onRelayMasqueImportCertificateChainClicked = onRelayMasqueImportCertificateChainClicked,
+                                onRelayMasqueImportPrivateKeyClicked = onRelayMasqueImportPrivateKeyClicked,
+                                onRelayMasqueImportPkcs12Clicked = onRelayMasqueImportPkcs12Clicked,
                                 onRelayTuicUuidChanged = onRelayTuicUuidChanged,
                                 onRelayTuicPasswordChanged = onRelayTuicPasswordChanged,
                                 onRelayTuicZeroRttChanged = onRelayTuicZeroRttChanged,
@@ -835,7 +967,13 @@ private fun ModeEditorScreenWithNoOpCallbacks(
             onRelayMasqueUrlChanged = {},
             onRelayMasqueAuthModeChanged = {},
             onRelayMasqueAuthTokenChanged = {},
+            onRelayMasqueClientCertificateChainPemChanged = {},
+            onRelayMasqueClientPrivateKeyPemChanged = {},
             onRelayMasqueUseHttp2FallbackChanged = {},
+            onRelayMasqueCloudflareGeohashEnabledChanged = {},
+            onRelayMasqueImportCertificateChainClicked = {},
+            onRelayMasqueImportPrivateKeyClicked = {},
+            onRelayMasqueImportPkcs12Clicked = {},
             onRelayTuicUuidChanged = {},
             onRelayTuicPasswordChanged = {},
             onRelayTuicZeroRttChanged = {},

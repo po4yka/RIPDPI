@@ -12,8 +12,9 @@ class RelayStoresTest {
         val record =
             RelayCredentialRecord(
                 profileId = "masque",
-                masqueAuthMode = RelayMasqueAuthModePrivacyPass,
-                masqueAuthToken = "bearer",
+                masqueAuthMode = RelayMasqueAuthModeCloudflareMtls,
+                masqueClientCertificateChainPem = "-----BEGIN CERTIFICATE-----\nfixture\n-----END CERTIFICATE-----",
+                masqueClientPrivateKeyPem = "-----BEGIN PRIVATE KEY-----\nfixture\n-----END PRIVATE KEY-----",
             )
 
         val encoded = json.encodeToString(RelayCredentialRecord.serializer(), record)
@@ -73,6 +74,7 @@ class RelayStoresTest {
                 kind = RelayKindTuicV5,
                 chainEntryProfileId = "entry",
                 chainExitProfileId = "exit",
+                masqueCloudflareGeohashEnabled = true,
                 tuicZeroRtt = true,
                 tuicCongestionControl = RelayCongestionControlCubic,
                 shadowTlsInnerProfileId = "inner",

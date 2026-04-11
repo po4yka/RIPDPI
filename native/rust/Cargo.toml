@@ -144,6 +144,7 @@ blake2 = "0.10"
 futures = "0.3"
 h3-datagram = "0.0.2"
 rand = "0.9"
+rustls-pemfile = "2"
 
 [workspace.lints.clippy]
 # Correctness & suspicious (errors)

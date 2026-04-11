@@ -338,6 +338,7 @@ class RipDpiProxyUIPreferences(
                 chainExitProfileId = relay.profile.chainExitProfileId,
                 masqueUrl = relay.profile.masqueUrl,
                 masqueUseHttp2Fallback = relay.profile.masqueUseHttp2Fallback,
+                masqueCloudflareGeohashEnabled = relay.profile.masqueCloudflareGeohashEnabled,
                 tuicZeroRtt = relay.profile.tuicZeroRtt,
                 tuicCongestionControl = relay.profile.tuicCongestionControl,
                 shadowTlsInnerProfileId = relay.profile.shadowTlsInnerProfileId,
@@ -546,6 +547,7 @@ fun RipDpiProxyUIPreferences.applyToSettings(settings: AppSettings): AppSettings
             setRelayChainExitProfileId(if (relay.kind == "chain_relay") relay.chainExitProfileId else "")
             setRelayMasqueUrl(relay.masqueUrl)
             setRelayMasqueUseHttp2Fallback(relay.masqueUseHttp2Fallback)
+            setRelayMasqueCloudflareGeohashEnabled(relay.masqueCloudflareGeohashEnabled)
             setRelayLocalSocksHost(relay.localSocksHost)
             setRelayLocalSocksPort(relay.localSocksPort)
             setRelayUdpEnabled(relay.udpEnabled)

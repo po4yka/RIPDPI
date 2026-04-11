@@ -6,6 +6,7 @@ pub mod config;
 use std::collections::HashMap;
 use std::future::poll_fn;
 use std::io;
+use std::io::Cursor;
 use std::net::{SocketAddr, ToSocketAddrs};
 use std::sync::Arc;
 use std::time::Duration;
@@ -14,6 +15,7 @@ use bytes::{Buf, Bytes, BytesMut};
 use h3_datagram::datagram_handler::{DatagramSender, HandleDatagramsExt};
 use http::{HeaderMap, Request, StatusCode};
 use hyper_util::rt::TokioIo;
+use rustls::pki_types::{CertificateDer, PrivateKeyDer};
 use rustls::RootCertStore;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use tokio::net::TcpStream;
@@ -299,7 +301,7 @@ async fn attempt_h3_connect_tcp(
         .uri(format!("/{target}"))
         .header(":protocol", "connect-tcp")
         .header(":authority", target);
-    let request = apply_auth_header(request, auth_header)?.body(()).map_err(|error| {
+    let request = apply_request_headers(request, config, auth_header)?.body(()).map_err(|error| {
         io::Error::new(io::ErrorKind::InvalidInput, format!("invalid H3 CONNECT-TCP request: {error}"))
     })?;
 
@@ -336,7 +338,7 @@ async fn attempt_h3_connect_udp(
         .header(":authority", proxy_origin.authority)
         .header(":scheme", "https")
         .header("capsule-protocol", "?1");
-    let request = apply_auth_header(request, auth_header)?.body(()).map_err(|error| {
+    let request = apply_request_headers(request, config, auth_header)?.body(()).map_err(|error| {
         io::Error::new(io::ErrorKind::InvalidInput, format!("invalid H3 CONNECT-UDP request: {error}"))
     })?;
 
@@ -402,8 +404,10 @@ async fn attempt_h2_connect_tcp(
         .map_err(|error| io::Error::new(error.kind(), format!("failed to connect to MASQUE proxy: {error}")))?;
     tcp.set_nodelay(true)?;
 
-    let connector = ripdpi_tls_profiles::build_connector(&config.tls_fingerprint_profile, true)
+    let mut connector_builder = ripdpi_tls_profiles::configure_builder(&config.tls_fingerprint_profile)
         .map_err(|error| io::Error::other(format!("failed to build H2 TLS profile: {error}")))?;
+    apply_h2_client_auth(&mut connector_builder, config)?;
+    let connector = connector_builder.build();
     let ssl = connector
         .configure()
         .map_err(|error| io::Error::other(format!("failed to configure H2 TLS profile: {error}")))?;
@@ -422,7 +426,7 @@ async fn attempt_h2_connect_tcp(
         }
     });
 
-    let request = apply_auth_header(hyper::Request::builder().method("CONNECT").uri(target), auth_header)?
+    let request = apply_request_headers(hyper::Request::builder().method("CONNECT").uri(target), config, auth_header)?
         .body(http_body_util::Empty::<Bytes>::new())
         .map_err(|error| io::Error::new(io::ErrorKind::InvalidInput, format!("invalid H2 CONNECT request: {error}")))?;
     let response = sender.send_request(request).await.map_err(|error| {
@@ -446,11 +450,17 @@ async fn connect_h3_transport(
     let proxy_origin = parse_proxy_origin(config)?;
     let mut roots = RootCertStore::empty();
     roots.extend(webpki_roots::TLS_SERVER_ROOTS.iter().cloned());
-    let mut tls_config = rustls::ClientConfig::builder_with_provider(rustls::crypto::ring::default_provider().into())
+    let tls_config = rustls::ClientConfig::builder_with_provider(rustls::crypto::ring::default_provider().into())
         .with_safe_default_protocol_versions()
         .expect("ring provider supports default TLS versions")
-        .with_root_certificates(roots)
-        .with_no_client_auth();
+        .with_root_certificates(roots);
+    let mut tls_config = if let Some((certificates, private_key)) = load_client_identity(config)? {
+        tls_config
+            .with_client_auth_cert(certificates, private_key)
+            .map_err(|error| io::Error::other(format!("failed to configure MASQUE client identity: {error}")))?
+    } else {
+        tls_config.with_no_client_auth()
+    };
     tls_config.alpn_protocols = vec![b"h3".to_vec()];
 
     let quic_config = quinn::ClientConfig::new(Arc::new(
@@ -476,14 +486,78 @@ async fn connect_h3_transport(
     })
 }
 
-fn apply_auth_header(
+fn apply_request_headers(
     mut builder: http::request::Builder,
+    config: &MasqueConfig,
     auth_header: Option<&AuthHeader>,
 ) -> io::Result<http::request::Builder> {
     if let Some(header) = auth_header {
         builder = builder.header(header.name, header.value.as_str());
     }
+    if let Some(geohash) = config.cloudflare_geohash_header.as_deref().filter(|value| !value.trim().is_empty()) {
+        builder = builder.header("sec-ch-geohash", geohash);
+    }
     Ok(builder)
+}
+
+fn load_client_identity(
+    config: &MasqueConfig,
+) -> io::Result<Option<(Vec<CertificateDer<'static>>, PrivateKeyDer<'static>)>> {
+    let certificate_chain = config.client_certificate_chain_pem.as_deref().filter(|value| !value.trim().is_empty());
+    let private_key = config.client_private_key_pem.as_deref().filter(|value| !value.trim().is_empty());
+    match (certificate_chain, private_key) {
+        (Some(certificate_chain), Some(private_key)) => {
+            let certificates: Vec<CertificateDer<'static>> = rustls_pemfile::certs(&mut Cursor::new(certificate_chain))
+                .collect::<Result<Vec<_>, _>>()
+                .map_err(|error| {
+                    io::Error::new(io::ErrorKind::InvalidInput, format!("invalid client certificate PEM: {error}"))
+                })?;
+            let private_key = rustls_pemfile::private_key(&mut Cursor::new(private_key))
+                .map_err(|error| {
+                    io::Error::new(io::ErrorKind::InvalidInput, format!("invalid client private key PEM: {error}"))
+                })?
+                .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "missing client private key in PEM data"))?;
+            Ok(Some((certificates, private_key)))
+        }
+        (None, None) => Ok(None),
+        _ => Err(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            "MASQUE client identity requires both a certificate chain and a private key",
+        )),
+    }
+}
+
+fn apply_h2_client_auth(builder: &mut boring::ssl::SslConnectorBuilder, config: &MasqueConfig) -> io::Result<()> {
+    let Some(certificate_chain_pem) =
+        config.client_certificate_chain_pem.as_deref().filter(|value| !value.trim().is_empty())
+    else {
+        return Ok(());
+    };
+    let private_key_pem =
+        config.client_private_key_pem.as_deref().filter(|value| !value.trim().is_empty()).ok_or_else(|| {
+            io::Error::new(io::ErrorKind::InvalidInput, "MASQUE client identity requires a private key")
+        })?;
+    let mut certificates = boring::x509::X509::stack_from_pem(certificate_chain_pem.as_bytes()).map_err(|error| {
+        io::Error::new(io::ErrorKind::InvalidInput, format!("invalid client certificate PEM: {error}"))
+    })?;
+    let leaf = certificates.first().cloned().ok_or_else(|| {
+        io::Error::new(io::ErrorKind::InvalidInput, "missing leaf certificate in client certificate chain")
+    })?;
+    let private_key = boring::pkey::PKey::private_key_from_pem(private_key_pem.as_bytes()).map_err(|error| {
+        io::Error::new(io::ErrorKind::InvalidInput, format!("invalid client private key PEM: {error}"))
+    })?;
+    builder
+        .set_certificate(&leaf)
+        .map_err(|error| io::Error::other(format!("failed to configure H2 client certificate: {error}")))?;
+    builder
+        .set_private_key(&private_key)
+        .map_err(|error| io::Error::other(format!("failed to configure H2 client private key: {error}")))?;
+    for certificate in certificates.drain(1..) {
+        builder
+            .add_extra_chain_cert(certificate)
+            .map_err(|error| io::Error::other(format!("failed to configure H2 client certificate chain: {error}")))?;
+    }
+    Ok(())
 }
 
 fn validate_proxy_response(status: StatusCode, headers: &HeaderMap) -> Result<(), AttemptError> {
@@ -649,6 +723,9 @@ mod tests {
             use_http2_fallback: false,
             auth_mode: Some("privacy_pass".to_string()),
             auth_token: None,
+            client_certificate_chain_pem: None,
+            client_private_key_pem: None,
+            cloudflare_geohash_header: None,
             privacy_pass_provider_url: Some(provider_url),
             privacy_pass_provider_auth_token: provider_auth_token.map(ToOwned::to_owned),
             tls_fingerprint_profile: "native_default".to_string(),
@@ -756,6 +833,33 @@ mod tests {
         let ipv6 = parse_target("[2001:db8::1]:443").expect("ipv6");
         assert_eq!(ipv6.host, "2001:db8::1");
         assert_eq!(ipv6.port, 443);
+    }
+
+    #[test]
+    fn apply_request_headers_adds_geohash_without_auth() {
+        let config = MasqueConfig {
+            url: "https://masque.example/".to_string(),
+            use_http2_fallback: true,
+            auth_mode: Some("cloudflare_mtls".to_string()),
+            auth_token: None,
+            client_certificate_chain_pem: Some(
+                "-----BEGIN CERTIFICATE-----\nZm9v\n-----END CERTIFICATE-----".to_string(),
+            ),
+            client_private_key_pem: Some("-----BEGIN PRIVATE KEY-----\nZm9v\n-----END PRIVATE KEY-----".to_string()),
+            cloudflare_geohash_header: Some("u4pruyd-GB".to_string()),
+            privacy_pass_provider_url: None,
+            privacy_pass_provider_auth_token: None,
+            tls_fingerprint_profile: "native_default".to_string(),
+        };
+
+        let request = apply_request_headers(Request::builder().method("CONNECT").uri("example.com:443"), &config, None)
+            .expect("builder")
+            .body(())
+            .expect("request");
+
+        assert_eq!(request.headers().get("sec-ch-geohash").unwrap(), "u4pruyd-GB");
+        assert!(request.headers().get("authorization").is_none());
+        assert!(request.headers().get("proxy-authorization").is_none());
     }
 
     #[tokio::test]

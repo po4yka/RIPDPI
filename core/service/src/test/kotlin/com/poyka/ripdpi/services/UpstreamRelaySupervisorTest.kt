@@ -8,6 +8,7 @@ import com.poyka.ripdpi.data.RelayKindCloudflareTunnel
 import com.poyka.ripdpi.data.RelayKindHysteria2
 import com.poyka.ripdpi.data.RelayKindMasque
 import com.poyka.ripdpi.data.RelayKindVlessReality
+import com.poyka.ripdpi.data.RelayMasqueAuthModeCloudflareMtls
 import com.poyka.ripdpi.data.RelayMasqueAuthModePrivacyPass
 import com.poyka.ripdpi.data.RelayProfileRecord
 import com.poyka.ripdpi.data.RelayVlessTransportXhttp
@@ -78,6 +79,63 @@ class UpstreamRelaySupervisorTest {
             assertEquals("edge", resolved?.profileId)
             assertEquals("relay.example", resolved?.server)
             assertEquals("00000000-0000-0000-0000-000000000000", resolved?.vlessUuid)
+
+            supervisor.stop()
+        }
+
+    @Test
+    fun `start resolves masque cloudflare direct identity and optional geohash`() =
+        runTest {
+            val relayFactory = TestRipDpiRelayFactory()
+            val supervisor =
+                UpstreamRelaySupervisor(
+                    scope = backgroundScope,
+                    dispatcher = StandardTestDispatcher(testScheduler),
+                    relayFactory = relayFactory,
+                    naiveProxyRuntimeFactory = TestNaiveProxyRuntimeFactory(),
+                    relayProfileStore =
+                        TestRelayProfileStore().apply {
+                            save(
+                                RelayProfileRecord(
+                                    id = "cf-masque",
+                                    kind = RelayKindMasque,
+                                    masqueUrl = "https://masque.example/",
+                                    masqueCloudflareGeohashEnabled = true,
+                                ),
+                            )
+                        },
+                    relayCredentialStore =
+                        TestRelayCredentialStore().apply {
+                            save(
+                                RelayCredentialRecord(
+                                    profileId = "cf-masque",
+                                    masqueAuthMode = RelayMasqueAuthModeCloudflareMtls,
+                                    masqueClientCertificateChainPem = "cert-chain",
+                                    masqueClientPrivateKeyPem = "private-key",
+                                ),
+                            )
+                        },
+                    cloudflareMasqueGeohashResolver =
+                        object : CloudflareMasqueGeohashResolver {
+                            override suspend fun resolveHeaderValue(): String? = "u4pruyd-GB"
+                        },
+                )
+
+            supervisor.start(
+                config =
+                    RipDpiRelayConfig(
+                        enabled = true,
+                        kind = RelayKindMasque,
+                        profileId = "cf-masque",
+                    ),
+                onUnexpectedExit = {},
+            )
+
+            val resolved = relayFactory.lastRuntime.lastConfig
+            assertEquals(RelayMasqueAuthModeCloudflareMtls, resolved?.masqueAuthMode)
+            assertEquals("cert-chain", resolved?.masqueClientCertificateChainPem)
+            assertEquals("private-key", resolved?.masqueClientPrivateKeyPem)
+            assertEquals("u4pruyd-GB", resolved?.masqueCloudflareGeohashHeader)
 
             supervisor.stop()
         }
