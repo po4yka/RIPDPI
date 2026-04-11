@@ -17,6 +17,7 @@ import com.poyka.ripdpi.security.BiometricAuthManager
 import com.poyka.ripdpi.security.PinLockoutManager
 import com.poyka.ripdpi.security.PinVerifier
 import com.poyka.ripdpi.security.PinVerifyResult
+import com.poyka.ripdpi.services.RoutingProtectionCatalogService
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
@@ -24,6 +25,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -42,6 +44,7 @@ class SettingsViewModel
         private val stringResolver: StringResolver,
         private val hostAutolearnStoreController: HostAutolearnStoreController,
         private val telemetrySaltStore: com.poyka.ripdpi.services.TelemetryInstallSaltStore,
+        private val routingProtectionCatalogService: RoutingProtectionCatalogService,
         private val pinVerifier: PinVerifier,
         private val pinLockoutManager: PinLockoutManager,
         private val application: Application,
@@ -61,13 +64,15 @@ class SettingsViewModel
                 serviceStateStore.telemetry,
                 hostAutolearnStoreRefresh,
                 rememberedPolicySource.observePolicies(limit = 64),
-            ) { settings, telemetry, _, rememberedPolicies ->
+                flow { emit(routingProtectionCatalogService.snapshot()) },
+            ) { settings, telemetry, _, rememberedPolicies, routingProtectionSnapshot ->
                 settings.toUiState(
                     serviceStatus = telemetry.status,
                     proxyTelemetry = telemetry.proxyTelemetry,
                     hostAutolearnStorePresent = hostAutolearnStoreController.hasStore(),
                     rememberedNetworkCount = rememberedPolicies.size,
                     biometricAvailability = biometricAuthManager.canAuthenticate(application),
+                    routingProtectionSnapshot = routingProtectionSnapshot,
                 )
             }.stateIn(
                 scope = viewModelScope,
@@ -80,6 +85,7 @@ class SettingsViewModel
                         hostAutolearnStorePresent = hostAutolearnStoreController.hasStore(),
                         rememberedNetworkCount = 0,
                         biometricAvailability = biometricAuthManager.canAuthenticate(application),
+                        routingProtectionSnapshot = routingProtectionCatalogService.snapshot(),
                     ),
             )
 

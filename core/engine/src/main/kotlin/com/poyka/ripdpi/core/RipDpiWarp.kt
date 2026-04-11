@@ -44,6 +44,10 @@ interface RipDpiWarpProvisioningBindings {
     fun executeProvisioning(requestJson: String): String?
 }
 
+interface RipDpiWarpEndpointProbeBindings {
+    fun probeEndpoint(requestJson: String): String?
+}
+
 object RipDpiWarpNativeLoader {
     init {
         System.loadLibrary("ripdpi-warp")
@@ -56,7 +60,8 @@ class RipDpiWarpNativeBindings
     @Inject
     constructor() :
     RipDpiWarpBindings,
-        RipDpiWarpProvisioningBindings {
+        RipDpiWarpProvisioningBindings,
+        RipDpiWarpEndpointProbeBindings {
         companion object {
             init {
                 RipDpiWarpNativeLoader.ensureLoaded()
@@ -85,6 +90,8 @@ class RipDpiWarpNativeBindings
 
         override fun executeProvisioning(requestJson: String): String? = jniExecuteProvisioning(requestJson)
 
+        override fun probeEndpoint(requestJson: String): String? = jniProbeEndpoint(requestJson)
+
         private external fun jniCreate(configJson: String): Long
 
         private external fun jniStart(handle: Long): Int
@@ -96,6 +103,8 @@ class RipDpiWarpNativeBindings
         private external fun jniDestroy(handle: Long)
 
         private external fun jniExecuteProvisioning(requestJson: String): String?
+
+        private external fun jniProbeEndpoint(requestJson: String): String?
     }
 
 private val warpJson = Json { ignoreUnknownKeys = true }
@@ -135,6 +144,25 @@ data class ResolvedRipDpiWarpConfig(
     val localSocksHost: String,
     val localSocksPort: Int,
     val mtu: Int = DefaultWarpTunnelMtu,
+)
+
+@Serializable
+data class WarpEndpointProbeNativeRequest(
+    val endpoint: ResolvedRipDpiWarpEndpoint,
+    val privateKey: String,
+    val peerPublicKey: String,
+    val clientId: String? = null,
+    val amnezia: RipDpiWarpAmneziaConfig = RipDpiWarpAmneziaConfig(),
+    val timeoutMs: Long,
+)
+
+@Serializable
+data class WarpEndpointProbeNativeResult(
+    val host: String,
+    val ipv4: String? = null,
+    val ipv6: String? = null,
+    val port: Int,
+    val rttMs: Long,
 )
 
 internal const val DefaultWarpTunnelMtu = 1330

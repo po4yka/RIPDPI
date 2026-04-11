@@ -211,6 +211,17 @@ private fun AdaptiveFallbackSummaryCard(
                         uiState.adaptiveFallback.cachePrefixV4,
                     ),
             )
+            uiState.adaptiveFallback.runtimeOverrideSummary?.let { summary ->
+                ProfileSummaryLine(
+                    label = stringResource(R.string.adaptive_fallback_summary_label_runtime_override),
+                    value =
+                        if (uiState.adaptiveFallback.runtimeOverrideRememberedPolicy) {
+                            stringResource(R.string.adaptive_fallback_runtime_override_remembered, summary)
+                        } else {
+                            summary
+                        },
+                )
+            }
         }
         Text(
             text = stringResource(R.string.adaptive_fallback_section_body),

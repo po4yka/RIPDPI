@@ -175,6 +175,13 @@ class ProxyServiceAutoApplyLifecycleTest {
                 networkFingerprintProvider = fingerprintProvider,
                 networkDnsPathPreferenceStore = TestNetworkDnsPathPreferenceStore(),
                 networkEdgePreferenceStore = TestNetworkEdgePreferenceStore(),
+                antiCorrelationRoutingPolicy =
+                    object : AntiCorrelationRoutingPolicy {
+                        override fun apply(
+                            settings: com.poyka.ripdpi.proto.AppSettings,
+                            preferredEdges: Map<String, List<com.poyka.ripdpi.data.PreferredEdgeCandidate>>,
+                        ): Map<String, List<com.poyka.ripdpi.data.PreferredEdgeCandidate>> = preferredEdges
+                    },
                 rememberedNetworkPolicyStore = rememberedPolicies,
                 startupDnsProbe = VpnStartupDnsProbe(),
                 rootHelperManager = RootHelperManager(),

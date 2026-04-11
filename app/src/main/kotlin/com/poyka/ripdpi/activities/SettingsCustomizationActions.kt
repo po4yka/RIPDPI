@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.activities
 
+import com.poyka.ripdpi.data.DefaultAppRoutingRussianPresetId
 import com.poyka.ripdpi.platform.LauncherIconController
 import com.poyka.ripdpi.security.PinLockoutManager
 import com.poyka.ripdpi.security.PinVerifier
@@ -28,7 +29,17 @@ internal class SettingsCustomizationActions(
             key = "excludeRussianAppsEnabled",
             value = enabled.toString(),
         ) {
+            val updatedPresetIds = currentUiState().routingProtection.enabledPresetIds.toMutableSet()
+            if (enabled) {
+                updatedPresetIds += DefaultAppRoutingRussianPresetId
+            } else {
+                updatedPresetIds -= DefaultAppRoutingRussianPresetId
+            }
             setExcludeRussianAppsEnabled(enabled)
+            clearAppRoutingEnabledPresetIds()
+            if (updatedPresetIds.isNotEmpty()) {
+                addAllAppRoutingEnabledPresetIds(updatedPresetIds.sorted())
+            }
         }
     }
 

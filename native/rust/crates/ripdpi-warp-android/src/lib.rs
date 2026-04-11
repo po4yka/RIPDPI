@@ -10,7 +10,7 @@ use jni::refs::Global;
 use jni::sys::{jint, jlong};
 use jni::{EnvUnowned, JavaVM, Outcome};
 use once_cell::sync::Lazy;
-use ripdpi_warp_core::{ResolvedWarpRuntimeConfig, WarpRuntime};
+use ripdpi_warp_core::{ResolvedWarpRuntimeConfig, WarpEndpointProbeRequest, WarpRuntime};
 
 static NEXT_HANDLE: Lazy<Mutex<u64>> = Lazy::new(|| Mutex::new(1));
 static SESSIONS: Lazy<Mutex<HashMap<u64, Arc<WarpRuntime>>>> = Lazy::new(|| Mutex::new(HashMap::new()));
@@ -137,6 +137,36 @@ pub extern "system" fn Java_com_poyka_ripdpi_core_RipDpiWarpNativeBindings_jniEx
                 .to_string()
             });
             Ok(env.new_string(payload)?.into_raw())
+        })
+        .into_outcome()
+    {
+        Outcome::Ok(value) => value,
+        _ => std::ptr::null_mut(),
+    }
+}
+
+#[unsafe(no_mangle)]
+pub extern "system" fn Java_com_poyka_ripdpi_core_RipDpiWarpNativeBindings_jniProbeEndpoint(
+    mut env: EnvUnowned<'_>,
+    _thiz: JObject,
+    request_json: JString,
+) -> jni::sys::jstring {
+    match env
+        .with_env(move |env| -> jni::errors::Result<jni::sys::jstring> {
+            let request_json: String = request_json.mutf8_chars(env)?.to_str().into_owned();
+            let Ok(request) = serde_json::from_str::<WarpEndpointProbeRequest>(&request_json) else {
+                return Ok(std::ptr::null_mut());
+            };
+            let payload = tokio::runtime::Builder::new_current_thread()
+                .enable_all()
+                .build()
+                .ok()
+                .and_then(|runtime| runtime.block_on(ripdpi_warp_core::probe_endpoint(request)).ok())
+                .and_then(|result| serde_json::to_string(&result).ok());
+            match payload {
+                Some(value) => Ok(env.new_string(value)?.into_raw()),
+                None => Ok(std::ptr::null_mut()),
+            }
         })
         .into_outcome()
     {

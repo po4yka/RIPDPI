@@ -2,6 +2,8 @@ package com.poyka.ripdpi.services
 
 import com.poyka.ripdpi.core.decodeRipDpiProxyUiPreferences
 import com.poyka.ripdpi.data.AppSettingsSerializer
+import com.poyka.ripdpi.data.AsnRoutingMapCatalog
+import com.poyka.ripdpi.data.AsnRoutingMapEntry
 import com.poyka.ripdpi.data.DnsModeEncrypted
 import com.poyka.ripdpi.data.DnsModePlainUdp
 import com.poyka.ripdpi.data.DnsProviderCloudflare
@@ -143,6 +145,7 @@ class ConnectionPolicyResolverTest {
                     networkFingerprintProvider = TestNetworkFingerprintProvider(fingerprint),
                     networkDnsPathPreferenceStore = TestNetworkDnsPathPreferenceStore(),
                     networkEdgePreferenceStore = edgeStore,
+                    antiCorrelationRoutingPolicy = antiCorrelationRoutingPolicy(),
                     rememberedNetworkPolicyStore = TestRememberedNetworkPolicyStore(),
                     startupDnsProbe = VpnStartupDnsProbe(),
                     rootHelperManager = RootHelperManager(),
@@ -158,6 +161,66 @@ class ConnectionPolicyResolverTest {
                     ?.runtimeContext
                     ?.preferredEdges
                     ?.get("example.org")
+                    ?.map { it.ip },
+            )
+        }
+
+    @Test
+    fun `resolver boosts global CDN preferred edges when anti correlation is enabled`() =
+        runTest {
+            val fingerprint = sampleFingerprint()
+            val edgeStore = TestNetworkEdgePreferenceStore()
+            edgeStore.rememberPreferredEdges(
+                fingerprint = fingerprint,
+                host = "video.example.org",
+                transportKind = PreferredEdgeTransportTcp,
+                edges =
+                    listOf(
+                        PreferredEdgeCandidate(
+                            ip = "203.0.113.10",
+                            transportKind = PreferredEdgeTransportTcp,
+                            ipVersion = PreferredEdgeIpVersionV4,
+                            successCount = 1,
+                            cdnProvider = "Yandex",
+                        ),
+                        PreferredEdgeCandidate(
+                            ip = "203.0.113.11",
+                            transportKind = PreferredEdgeTransportTcp,
+                            ipVersion = PreferredEdgeIpVersionV4,
+                            successCount = 1,
+                            cdnProvider = "Cloudflare",
+                        ),
+                    ),
+                recordedAt = 100L,
+            )
+            val settings =
+                AppSettingsSerializer.defaultValue
+                    .toBuilder()
+                    .setAntiCorrelationEnabled(true)
+                    .build()
+            val resolver =
+                DefaultConnectionPolicyResolver(
+                    context = RuntimeEnvironment.getApplication(),
+                    appSettingsRepository = TestAppSettingsRepository(settings),
+                    networkFingerprintProvider = TestNetworkFingerprintProvider(fingerprint),
+                    networkDnsPathPreferenceStore = TestNetworkDnsPathPreferenceStore(),
+                    networkEdgePreferenceStore = edgeStore,
+                    antiCorrelationRoutingPolicy = antiCorrelationRoutingPolicy(),
+                    rememberedNetworkPolicyStore = TestRememberedNetworkPolicyStore(),
+                    startupDnsProbe = VpnStartupDnsProbe(),
+                    rootHelperManager = RootHelperManager(),
+                )
+
+            val resolution = resolver.resolve(mode = Mode.Proxy)
+            val uiPreferences = decodeRipDpiProxyUiPreferences(resolution.proxyPreferences.toNativeConfigJson())
+
+            assertNotNull(uiPreferences)
+            assertEquals(
+                listOf("203.0.113.11", "203.0.113.10"),
+                uiPreferences
+                    ?.runtimeContext
+                    ?.preferredEdges
+                    ?.get("video.example.org")
                     ?.map { it.ip },
             )
         }
@@ -206,5 +269,24 @@ class ConnectionPolicyResolverTest {
             port = 853,
             tlsServerName = "dns.quad9.net",
             bootstrapIps = listOf("9.9.9.9", "149.112.112.112"),
+        )
+
+    private fun antiCorrelationRoutingPolicy(): AntiCorrelationRoutingPolicy =
+        DefaultAntiCorrelationRoutingPolicy(
+            asnRoutingCatalogProvider =
+                object : AsnRoutingCatalogProvider {
+                    override fun load(): AsnRoutingMapCatalog =
+                        AsnRoutingMapCatalog(
+                            entries =
+                                listOf(
+                                    AsnRoutingMapEntry(
+                                        asn = 13238,
+                                        label = "Yandex",
+                                        country = "RU",
+                                        cdn = true,
+                                    ),
+                                ),
+                        )
+                },
         )
 }

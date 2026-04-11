@@ -499,6 +499,8 @@
     <string name="adaptive_fallback_summary_label_scope">Scope</string>
     <string name="adaptive_fallback_summary_label_triggers">Triggers</string>
     <string name="adaptive_fallback_summary_label_cache">Cache</string>
+    <string name="adaptive_fallback_summary_label_runtime_override">Runtime override</string>
+    <string name="adaptive_fallback_runtime_override_remembered">%1$s while remembered-network routing is active.</string>
     <string name="adaptive_fallback_scope_cli">Command line settings choose the active fallback behavior.</string>
     <string name="adaptive_fallback_scope_active">Used when the current UI-managed desync chain runs into a configured failure trigger.</string>
     <string name="adaptive_fallback_scope_idle">Saved for the next UI-managed session. No active desync chain is using adaptive fallback right now.</string>
@@ -1983,4 +1985,22 @@ Source: %2$s</string>
     <string name="detection_finding_ok">OK</string>
     <string name="detection_score_improved">Score improved</string>
     <string name="detection_score_degraded">Score degraded</string>
+    <string name="routing_protection_section_title">App Routing Protection</string>
+    <string name="routing_protection_summary_title">Routing suggestions use installed-app matches only</string>
+    <string name="routing_protection_summary_body">%1$d risky apps detected across %2$d enabled presets.</string>
+    <string name="routing_protection_full_tunnel_active">Full tunnel mode is active, so app exclusions and anti-correlation hints are currently suppressed.</string>
+    <string name="routing_protection_policy_title">Suggestion mode</string>
+    <string name="routing_protection_policy_body">Suggestions never auto-apply. Prompt mode keeps routing advice visible when risky apps are installed.</string>
+    <string name="routing_protection_policy_prompt_title">Prompt</string>
+    <string name="routing_protection_policy_prompt_body">Show routing suggestions when risky apps are present.</string>
+    <string name="routing_protection_policy_off_title">Off</string>
+    <string name="routing_protection_policy_off_body">Hide routing suggestions and leave policy unchanged.</string>
+    <string name="routing_protection_anti_correlation_title">Anti-correlation mode</string>
+    <string name="routing_protection_anti_correlation_body">Intended for mobile whitelist pressure. It keeps domestic destinations direct while pushing CDN-heavy paths through VPN or relay.</string>
+    <string name="routing_protection_dht_title">DHT trigger mitigation</string>
+    <string name="routing_protection_dht_body">Controls how known trigger CIDRs are handled when split routing is active.</string>
+    <string name="routing_protection_dht_off_title">Off</string>
+    <string name="routing_protection_dht_bypass_title">Direct bypass</string>
+    <string name="routing_protection_dht_drop_warn_title">Drop and warn</string>
+    <string name="routing_protection_detected_packages">Detected packages: %1$s</string>
 </resources>
