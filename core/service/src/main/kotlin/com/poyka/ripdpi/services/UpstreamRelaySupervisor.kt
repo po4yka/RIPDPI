@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.services
 
 import com.poyka.ripdpi.core.ResolvedRipDpiRelayConfig
+import com.poyka.ripdpi.core.ResolvedShadowTlsInnerRelayConfig
 import com.poyka.ripdpi.core.RipDpiRelayConfig
 import com.poyka.ripdpi.core.RipDpiRelayFactory
 import com.poyka.ripdpi.core.RipDpiRelayRuntime
@@ -22,6 +23,7 @@ import com.poyka.ripdpi.data.RelayMasqueAuthModePreshared
 import com.poyka.ripdpi.data.RelayMasqueAuthModePrivacyPass
 import com.poyka.ripdpi.data.RelayProfileRecord
 import com.poyka.ripdpi.data.RelayProfileStore
+import com.poyka.ripdpi.data.RelayVlessTransportRealityTcp
 import com.poyka.ripdpi.data.RelayVlessTransportXhttp
 import com.poyka.ripdpi.data.ServiceStartupRejectedException
 import com.poyka.ripdpi.data.TlsFingerprintProfileChromeStable
@@ -166,6 +168,15 @@ internal class UpstreamRelaySupervisor(
             }
         validateCredentials(profileId, effectiveConfig.kind, masqueAuthMode, credentials)
         validateSupportedFeatures(profileId, effectiveConfig, masqueAuthMode, privacyPassRuntime, requestedTlsProfile)
+        val shadowTlsInner =
+            if (effectiveConfig.kind == RelayKindShadowTlsV3) {
+                resolveShadowTlsInnerConfig(
+                    outerProfileId = profileId,
+                    innerProfileId = effectiveConfig.shadowTlsInnerProfileId,
+                )
+            } else {
+                null
+            }
         val effectiveTlsProfile =
             if (effectiveConfig.kind == RelayKindCloudflareTunnel) {
                 TlsFingerprintProfileChromeStable
@@ -203,6 +214,7 @@ internal class UpstreamRelaySupervisor(
             tuicZeroRtt = effectiveConfig.tuicZeroRtt,
             tuicCongestionControl = effectiveConfig.tuicCongestionControl,
             shadowTlsInnerProfileId = effectiveConfig.shadowTlsInnerProfileId,
+            shadowTlsInner = shadowTlsInner,
             naivePath = effectiveConfig.naivePath,
             localSocksHost = effectiveConfig.localSocksHost,
             localSocksPort = effectiveConfig.localSocksPort,
@@ -348,6 +360,9 @@ internal class UpstreamRelaySupervisor(
             require(config.shadowTlsInnerProfileId.isNotBlank()) {
                 "ShadowTLS v3 requires an inner profile reference"
             }
+            require(config.vlessTransport == RelayVlessTransportRealityTcp) {
+                "ShadowTLS outer profile must use direct TCP transport"
+            }
         }
         if (config.kind == RelayKindNaiveProxy) {
             require(!config.udpEnabled) {
@@ -377,6 +392,52 @@ internal class UpstreamRelaySupervisor(
             throw ServiceStartupRejectedException(
                 FailureReason.RelayConfigRejected("ShadowTLS inner profile cannot reference itself"),
             )
+        }
+    }
+
+    private suspend fun resolveShadowTlsInnerConfig(
+        outerProfileId: String,
+        innerProfileId: String,
+    ): ResolvedShadowTlsInnerRelayConfig {
+        val innerProfile =
+            relayProfileStore.load(innerProfileId)
+                ?: throw ServiceStartupRejectedException(
+                    FailureReason.RelayConfigRejected("ShadowTLS inner profile $innerProfileId was not found"),
+                )
+        if (innerProfile.id == outerProfileId) {
+            throw ServiceStartupRejectedException(
+                FailureReason.RelayConfigRejected("ShadowTLS inner profile cannot reference itself"),
+            )
+        }
+        val innerCredentials = relayCredentialStore.load(innerProfileId)
+        return when (innerProfile.kind) {
+            RelayKindVlessReality -> {
+                require(innerProfile.vlessTransport != RelayVlessTransportXhttp) {
+                    "ShadowTLS currently supports only VLESS Reality TCP as an inner profile"
+                }
+                require(!innerCredentials?.vlessUuid.isNullOrBlank()) {
+                    "Relay credentials missing for profile $innerProfileId"
+                }
+                ResolvedShadowTlsInnerRelayConfig(
+                    kind = innerProfile.kind,
+                    profileId = innerProfile.id,
+                    server = innerProfile.server,
+                    serverPort = innerProfile.serverPort,
+                    serverName = innerProfile.serverName,
+                    realityPublicKey = innerProfile.realityPublicKey,
+                    realityShortId = innerProfile.realityShortId,
+                    vlessTransport = innerProfile.vlessTransport.ifBlank { RelayVlessTransportRealityTcp },
+                    vlessUuid = innerCredentials.vlessUuid,
+                )
+            }
+
+            else -> {
+                throw ServiceStartupRejectedException(
+                    FailureReason.RelayConfigRejected(
+                        "ShadowTLS inner profile kind ${innerProfile.kind} is not supported yet",
+                    ),
+                )
+            }
         }
     }
 
