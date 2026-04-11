@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "sources": [
+    {
+      "id": "snowflake",
+      "repoUrl": "https://gitlab.torproject.org/tpo/anti-censorship/pluggable-transports/snowflake.git",
+      "commit": "cc1fbc86e0247ab4e527190061ccafe9882c2718",
+      "goToolchain": "go1.25.4",
+      "packagePath": "./client",
+      "sourceBinaryName": "snowflake-client",
+      "outputNames": [
+        "ripdpi-snowflake"
+      ]
+    },
+    {
+      "id": "lyrebird",
+      "repoUrl": "https://gitlab.torproject.org/tpo/anti-censorship/pluggable-transports/lyrebird.git",
+      "commit": "fc105a03c0e0acc2479301c361c012ffed359c43",
+      "goToolchain": "go1.22.12",
+      "packagePath": "./cmd/lyrebird",
+      "sourceBinaryName": "lyrebird",
+      "outputNames": [
+        "ripdpi-webtunnel",
+        "ripdpi-obfs4"
+      ]
+    }
+  ]
+}
