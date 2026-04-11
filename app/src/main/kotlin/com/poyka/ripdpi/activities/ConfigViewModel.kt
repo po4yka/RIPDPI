@@ -4,10 +4,12 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.AppSettingsSerializer
+import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.DefaultRelayLocalSocksPort
 import com.poyka.ripdpi.data.DefaultRelayProfileId
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.NativeNetworkSnapshotProvider
+import com.poyka.ripdpi.data.NativeRuntimeSnapshot
 import com.poyka.ripdpi.data.RelayCredentialRecord
 import com.poyka.ripdpi.data.RelayCredentialStore
 import com.poyka.ripdpi.data.RelayKindChainRelay
@@ -25,6 +27,8 @@ import com.poyka.ripdpi.data.RelayProfileRecord
 import com.poyka.ripdpi.data.RelayProfileStore
 import com.poyka.ripdpi.data.RelayVlessTransportRealityTcp
 import com.poyka.ripdpi.data.RelayVlessTransportXhttp
+import com.poyka.ripdpi.data.ServiceStateStore
+import com.poyka.ripdpi.data.ServiceTelemetrySnapshot
 import com.poyka.ripdpi.data.StrategyChainSet
 import com.poyka.ripdpi.data.TcpChainStepModel
 import com.poyka.ripdpi.data.UdpChainStepModel
@@ -63,6 +67,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+import com.poyka.ripdpi.data.FailureClass as RuntimeFailureClass
 
 private const val defaultTtlMax = 255
 private const val defaultRelayPort = 443
@@ -507,6 +512,7 @@ class ConfigViewModel
         private val masquePrivacyPassAvailability: MasquePrivacyPassAvailability,
         private val relayPresetCatalog: RelayPresetCatalog,
         private val networkSnapshotProvider: NativeNetworkSnapshotProvider,
+        private val serviceStateStore: ServiceStateStore,
     ) : ViewModel() {
         private val editorSession = MutableStateFlow(ConfigEditorSession())
         private val supportsMasquePrivacyPass = masquePrivacyPassAvailability.isAvailable()
@@ -518,7 +524,8 @@ class ConfigViewModel
             combine(
                 appSettingsRepository.settings,
                 editorSession,
-            ) { settings, session ->
+                serviceStateStore.telemetry,
+            ) { settings, session, serviceTelemetry ->
                 val relayPresets = relayPresetCatalog.all()
                 val networkSnapshot = runCatching { networkSnapshotProvider.capture() }.getOrNull()
                 val currentDraft =
@@ -557,7 +564,11 @@ class ConfigViewModel
                                     selected = draft.relayPresetId == preset.id,
                                 )
                             }.toImmutableList(),
-                    relayPresetSuggestion = relayPresetCatalog.suggestFor(networkSnapshot).toUiState(draft),
+                    relayPresetSuggestion =
+                        resolveRelayPresetSuggestion(
+                            heuristicSuggestion = relayPresetCatalog.suggestFor(networkSnapshot),
+                            serviceTelemetry = serviceTelemetry,
+                        ).toUiState(draft),
                     supportsMasquePrivacyPass = supportsMasquePrivacyPass,
                 )
             }.stateIn(
@@ -753,4 +764,69 @@ private fun RelayPresetSuggestion?.toUiState(draft: ConfigDraft): RelayPresetSug
         title = suggestion.preset.title,
         reason = suggestion.reason,
     )
+}
+
+internal fun resolveRelayPresetSuggestion(
+    heuristicSuggestion: RelayPresetSuggestion?,
+    serviceTelemetry: ServiceTelemetrySnapshot,
+): RelayPresetSuggestion? {
+    val suggestion = heuristicSuggestion ?: return null
+    val evidence = relayPresetEvidenceReason(serviceTelemetry) ?: return null
+    return suggestion.copy(reason = evidence)
+}
+
+private fun relayPresetEvidenceReason(serviceTelemetry: ServiceTelemetrySnapshot): String? {
+    if (serviceTelemetry.status != AppStatus.Running) {
+        return null
+    }
+    if (serviceTelemetry.hasWhitelistPressureEvidence()) {
+        return "Recent runtime diagnostics show whitelist-style routing pressure on this cellular network. " +
+            "Use the Russian mobile relay preset to keep domestic traffic direct while shifting foreign relay paths."
+    }
+    if (serviceTelemetry.hasRelayOrWarpDegradation()) {
+        return "Recent relay or WARP control-plane telemetry is degraded on this cellular network. " +
+            "Use the Russian mobile relay preset before foreign relay reachability collapses."
+    }
+    return null
+}
+
+private fun ServiceTelemetrySnapshot.hasWhitelistPressureEvidence(): Boolean =
+    recentPressureTexts().any { text ->
+        text.contains("whitelist_sni") ||
+            text.contains("transport_vpn") ||
+            text.contains("fingerprint policy") ||
+            text.contains("split tunnel")
+    } ||
+        runtimeFieldTelemetry.failureClass == RuntimeFailureClass.FingerprintPolicy
+
+private fun ServiceTelemetrySnapshot.hasRelayOrWarpDegradation(): Boolean =
+    relayTelemetry.isDegradedControlPlane() ||
+        warpTelemetry.isDegradedControlPlane() ||
+        runtimeFieldTelemetry.failureClass in
+        setOf(
+            RuntimeFailureClass.TlsInterference,
+            RuntimeFailureClass.Timeout,
+            RuntimeFailureClass.ResetAbort,
+            RuntimeFailureClass.WarpEndpoint,
+            RuntimeFailureClass.FingerprintPolicy,
+        )
+
+private fun ServiceTelemetrySnapshot.recentPressureTexts(): List<String> =
+    listOf(
+        proxyTelemetry.lastFailureClass,
+        proxyTelemetry.lastError,
+        relayTelemetry.lastFailureClass,
+        relayTelemetry.lastError,
+        warpTelemetry.lastFailureClass,
+        warpTelemetry.lastError,
+    ).mapNotNull { value ->
+        value?.trim()?.lowercase()?.takeIf(String::isNotEmpty)
+    }
+
+private fun NativeRuntimeSnapshot.isDegradedControlPlane(): Boolean {
+    val healthState = health.trim().lowercase()
+    return healthState == "degraded" ||
+        healthState == "failed" ||
+        lastFailureClass?.isNotBlank() == true ||
+        lastError?.isNotBlank() == true
 }

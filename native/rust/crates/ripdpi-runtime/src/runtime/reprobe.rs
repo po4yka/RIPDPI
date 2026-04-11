@@ -20,6 +20,7 @@ use std::time::Duration;
 use ripdpi_proxy_config::NetworkSnapshot;
 
 use super::routing::connect_socket;
+use super::state::flush_autolearn_updates;
 use super::state::RuntimeState;
 use crate::strategy_evolver::StrategyEvolver;
 
@@ -128,6 +129,14 @@ pub(super) fn maybe_spawn_reprobe(state: &RuntimeState) {
 
     if !state.reprobe_tracker.check_snapshot(&snapshot) {
         return;
+    }
+
+    if let Ok(mut cache) = state.cache.lock() {
+        let cleared = cache.clear_connection_cache(&state.config);
+        flush_autolearn_updates(state, &mut cache);
+        if cleared > 0 {
+            tracing::info!("network_reprobe: cleared {cleared} adaptive route cache entries after network handover");
+        }
     }
 
     tracing::info!("network_reprobe: network identity changed, scheduling reprobe");

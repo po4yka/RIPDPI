@@ -15,6 +15,7 @@ import com.poyka.ripdpi.data.DefaultTlsRandRecMinFragmentSize
 import com.poyka.ripdpi.data.DhtMitigationModeOff
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
+import com.poyka.ripdpi.data.ServiceTelemetrySnapshot
 import com.poyka.ripdpi.data.TcpChainStepKind
 import com.poyka.ripdpi.data.TcpChainStepModel
 import com.poyka.ripdpi.data.UdpChainStepModel
@@ -309,7 +310,7 @@ private fun AppSettings.buildHttpParserUiState(): HttpParserUiState =
 
 private fun AppSettings.buildAdaptiveFallbackUiState(
     proxyTelemetry: NativeRuntimeSnapshot,
-    rememberedNetworkCount: Int,
+    runtimeOverrideRememberedPolicy: Boolean,
 ): AdaptiveFallbackUiState {
     val adaptive = toAdaptiveFallbackSettingsModel()
     return AdaptiveFallbackUiState(
@@ -322,7 +323,7 @@ private fun AppSettings.buildAdaptiveFallbackUiState(
         cacheTtlSeconds = adaptive.cacheTtlSeconds,
         cachePrefixV4 = adaptive.cachePrefixV4,
         runtimeOverrideActive = proxyTelemetry.adaptiveOverrideActive,
-        runtimeOverrideRememberedPolicy = proxyTelemetry.adaptiveOverrideActive && rememberedNetworkCount > 0,
+        runtimeOverrideRememberedPolicy = proxyTelemetry.adaptiveOverrideActive && runtimeOverrideRememberedPolicy,
         runtimeRouteGroup = proxyTelemetry.lastRouteGroup,
         runtimeTriggerMask = proxyTelemetry.adaptiveTriggerMask,
         runtimeLastTrigger = proxyTelemetry.adaptiveLastTrigger,
@@ -332,6 +333,7 @@ private fun AppSettings.buildAdaptiveFallbackUiState(
 
 private fun AppSettings.buildRoutingProtectionUiState(
     snapshot: RoutingProtectionCatalogSnapshot,
+    serviceTelemetry: ServiceTelemetrySnapshot,
 ): RoutingProtectionUiState {
     val enabledPresetIds = effectiveAppRoutingEnabledPresetIds().toSet()
     val presets =
@@ -380,14 +382,18 @@ private fun AppSettings.buildRoutingProtectionUiState(
             }
             if (!fullTunnelMode &&
                 normalizeDhtMitigationMode(dhtMitigationMode) == DhtMitigationModeOff &&
-                (presets.any { it.enabled } || antiCorrelationEnabled)
+                (presets.any { it.enabled } || antiCorrelationEnabled || serviceTelemetry.hasRecentRoutingPressure())
             ) {
                 add(
                     RoutingProtectionSuggestionUiState(
                         id = "dht_mitigation",
                         title = "Suggest DHT trigger mitigation",
                         body =
-                            "Split-routing protection is active, but DHT mitigation is still off. Known trigger CIDRs can destabilize WARP, relay, or control-plane paths on mobile networks.",
+                            if (serviceTelemetry.hasRecentRoutingPressure()) {
+                                "Recent runtime failures suggest control-plane instability while split routing is active. Known DHT trigger CIDRs can destabilize WARP, relay, or control-plane paths on mobile networks."
+                            } else {
+                                "Split-routing protection is active, but DHT mitigation is still off. Known trigger CIDRs can destabilize WARP, relay, or control-plane paths on mobile networks."
+                            },
                     ),
                 )
             }
@@ -416,8 +422,10 @@ internal fun AppSettings.toUiState(
     isHydrated: Boolean = true,
     serviceStatus: AppStatus = AppStatus.Halted,
     proxyTelemetry: NativeRuntimeSnapshot = NativeRuntimeSnapshot.idle(source = "proxy"),
+    serviceTelemetry: ServiceTelemetrySnapshot = ServiceTelemetrySnapshot(),
     hostAutolearnStorePresent: Boolean = false,
     rememberedNetworkCount: Int = 0,
+    runtimeOverrideRememberedPolicy: Boolean = false,
     biometricAvailability: Int = androidx.biometric.BiometricManager.BIOMETRIC_SUCCESS,
     routingProtectionSnapshot: RoutingProtectionCatalogSnapshot = RoutingProtectionCatalogSnapshot(),
     suggestedWarpAmneziaPresetId: String = "",
@@ -452,9 +460,9 @@ internal fun AppSettings.toUiState(
         quic = buildQuicUiState(),
         detectionResistance = buildDetectionResistanceUiState(),
         warp = buildWarpUiState(suggestedWarpAmneziaPresetId, suggestedWarpAmneziaPresetLabel),
-        routingProtection = buildRoutingProtectionUiState(routingProtectionSnapshot),
+        routingProtection = buildRoutingProtectionUiState(routingProtectionSnapshot, serviceTelemetry),
         autolearn = buildAutolearnUiState(proxyTelemetry, hostAutolearnStorePresent, rememberedNetworkCount),
-        adaptiveFallback = buildAdaptiveFallbackUiState(proxyTelemetry, rememberedNetworkCount),
+        adaptiveFallback = buildAdaptiveFallbackUiState(proxyTelemetry, runtimeOverrideRememberedPolicy),
         httpParser = buildHttpParserUiState(),
         onboardingComplete = onboardingComplete,
         webrtcProtectionEnabled = webrtcProtectionEnabled,
@@ -493,3 +501,8 @@ internal fun AppSettings.toUiState(
         isHydrated = isHydrated,
     )
 }
+
+private fun ServiceTelemetrySnapshot.hasRecentRoutingPressure(): Boolean =
+    listOf(proxyTelemetry, relayTelemetry, warpTelemetry).any { telemetry ->
+        telemetry.lastFailureClass?.isNotBlank() == true || telemetry.lastError?.isNotBlank() == true
+    }

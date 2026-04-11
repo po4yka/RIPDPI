@@ -1,7 +1,13 @@
 package com.poyka.ripdpi.activities
 
+import com.poyka.ripdpi.data.AppSettingsSerializer
+import com.poyka.ripdpi.data.AppStatus
+import com.poyka.ripdpi.data.NativeRuntimeSnapshot
+import com.poyka.ripdpi.data.ServiceTelemetrySnapshot
 import com.poyka.ripdpi.data.canonicalDefaultEncryptedDnsSettings
+import com.poyka.ripdpi.services.RoutingProtectionCatalogSnapshot
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -34,5 +40,59 @@ class SettingsUiModelsTest {
         assertTrue(state.autoSort)
         assertEquals(4, state.triggerCount)
         assertTrue(state.usesDefaultProfile)
+    }
+
+    @Test
+    fun `routing protection suggests dht mitigation when split routing is active`() {
+        val state =
+            AppSettingsSerializer.defaultValue
+                .toBuilder()
+                .setAntiCorrelationEnabled(true)
+                .build()
+                .toUiState(routingProtectionSnapshot = RoutingProtectionCatalogSnapshot())
+
+        assertTrue(state.routingProtection.suggestions.any { it.id == "dht_mitigation" })
+    }
+
+    @Test
+    fun `adaptive fallback only flags remembered override when exact policy was reused`() {
+        val proxyTelemetry =
+            NativeRuntimeSnapshot(
+                source = "proxy",
+                adaptiveOverrideActive = true,
+            )
+
+        val exactState =
+            AppSettingsSerializer.defaultValue.toUiState(
+                proxyTelemetry = proxyTelemetry,
+                runtimeOverrideRememberedPolicy = true,
+            )
+        val inferredState =
+            AppSettingsSerializer.defaultValue.toUiState(
+                proxyTelemetry = proxyTelemetry,
+                runtimeOverrideRememberedPolicy = false,
+            )
+
+        assertTrue(exactState.adaptiveFallback.runtimeOverrideRememberedPolicy)
+        assertFalse(inferredState.adaptiveFallback.runtimeOverrideRememberedPolicy)
+    }
+
+    @Test
+    fun `routing protection uses runtime pressure for dht suggestion`() {
+        val state =
+            AppSettingsSerializer.defaultValue.toUiState(
+                serviceTelemetry =
+                    ServiceTelemetrySnapshot(
+                        status = AppStatus.Running,
+                        relayTelemetry =
+                            NativeRuntimeSnapshot(
+                                source = "relay",
+                                lastFailureClass = "tls_alert",
+                            ),
+                    ),
+                routingProtectionSnapshot = RoutingProtectionCatalogSnapshot(),
+            )
+
+        assertTrue(state.routingProtection.suggestions.any { it.id == "dht_mitigation" })
     }
 }

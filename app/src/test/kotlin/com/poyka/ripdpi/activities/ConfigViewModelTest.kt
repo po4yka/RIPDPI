@@ -1,24 +1,31 @@
 package com.poyka.ripdpi.activities
 
 import com.poyka.ripdpi.data.AppSettingsSerializer
+import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.DnsModeEncrypted
 import com.poyka.ripdpi.data.DnsModePlainUdp
 import com.poyka.ripdpi.data.DnsProviderCustom
 import com.poyka.ripdpi.data.EncryptedDnsProtocolDnsCrypt
 import com.poyka.ripdpi.data.EncryptedDnsProtocolDot
 import com.poyka.ripdpi.data.Mode
+import com.poyka.ripdpi.data.NativeRuntimeSnapshot
 import com.poyka.ripdpi.data.RelayKindCloudflareTunnel
 import com.poyka.ripdpi.data.RelayKindHysteria2
 import com.poyka.ripdpi.data.RelayKindMasque
 import com.poyka.ripdpi.data.RelayKindVlessReality
 import com.poyka.ripdpi.data.RelayMasqueAuthModeBearer
 import com.poyka.ripdpi.data.RelayMasqueAuthModePrivacyPass
+import com.poyka.ripdpi.data.RelayPresetDefinition
+import com.poyka.ripdpi.data.RelayPresetSuggestion
 import com.poyka.ripdpi.data.RelayVlessTransportXhttp
+import com.poyka.ripdpi.data.RuntimeFieldTelemetry
+import com.poyka.ripdpi.data.ServiceTelemetrySnapshot
 import com.poyka.ripdpi.data.canonicalDefaultEncryptedDnsSettings
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import com.poyka.ripdpi.data.FailureClass as RuntimeFailureClass
 
 class ConfigViewModelTest {
     private val defaultDraft = AppSettingsSerializer.defaultValue.toConfigDraft()
@@ -236,5 +243,47 @@ class ConfigViewModelTest {
 
         assertEquals(RelayMasqueAuthModeBearer, sanitized.relayMasqueAuthMode)
         assertFalse(sanitized.relayMasqueCloudflareMode)
+    }
+
+    @Test
+    fun `relay preset suggestion requires runtime evidence`() {
+        val suggestion =
+            resolveRelayPresetSuggestion(
+                heuristicSuggestion =
+                    RelayPresetSuggestion(
+                        preset = RelayPresetDefinition(id = "ru-mobile-relay", title = "Russian mobile relay"),
+                        reason = "heuristic only",
+                    ),
+                serviceTelemetry = ServiceTelemetrySnapshot(),
+            )
+
+        assertEquals(null, suggestion)
+    }
+
+    @Test
+    fun `relay preset suggestion uses whitelist pressure evidence`() {
+        val suggestion =
+            resolveRelayPresetSuggestion(
+                heuristicSuggestion =
+                    RelayPresetSuggestion(
+                        preset = RelayPresetDefinition(id = "ru-mobile-relay", title = "Russian mobile relay"),
+                        reason = "heuristic only",
+                    ),
+                serviceTelemetry =
+                    ServiceTelemetrySnapshot(
+                        status = AppStatus.Running,
+                        runtimeFieldTelemetry =
+                            RuntimeFieldTelemetry(
+                                failureClass = RuntimeFailureClass.FingerprintPolicy,
+                            ),
+                        proxyTelemetry =
+                            NativeRuntimeSnapshot(
+                                source = "proxy",
+                                lastError = "whitelist_sni_failed",
+                            ),
+                    ),
+            )
+
+        assertTrue(suggestion?.reason?.contains("whitelist-style routing pressure") == true)
     }
 }

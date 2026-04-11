@@ -2,6 +2,7 @@ package com.poyka.ripdpi.services
 
 import android.content.Context
 import com.poyka.ripdpi.data.AsnRoutingMapCatalog
+import com.poyka.ripdpi.data.AsnRoutingMapEntry
 import com.poyka.ripdpi.data.PreferredEdgeCandidate
 import com.poyka.ripdpi.data.asnRoutingMapCatalogFromJson
 import com.poyka.ripdpi.data.normalizePreferredEdgeCandidates
@@ -63,36 +64,87 @@ class DefaultAntiCorrelationRoutingPolicy
                 return preferredEdges
             }
 
-            val domesticProviders =
+            val providerCatalog =
                 asnRoutingCatalogProvider
                     .load()
                     .entries
+                    .asSequence()
+                    .mapNotNull { entry ->
+                        entry.label
+                            .trim()
+                            .lowercase()
+                            .takeIf(String::isNotEmpty)
+                            ?.let { label -> label to entry }
+                    }.toMap()
+            val domesticProviders =
+                providerCatalog
+                    .values
                     .asSequence()
                     .filter { entry -> entry.country.equals("RU", ignoreCase = true) }
                     .map { entry -> entry.label.trim().lowercase() }
                     .filter(String::isNotEmpty)
                     .toSet()
-            if (domesticProviders.isEmpty()) {
+            if (providerCatalog.isEmpty() || domesticProviders.isEmpty()) {
                 return preferredEdges
             }
 
             return preferredEdges
                 .mapValues { (_, candidates) ->
-                    normalizePreferredEdgeCandidates(
-                        candidates.map { candidate ->
-                            if (candidate.shouldPromoteForAntiCorrelation(domesticProviders)) {
-                                candidate.copy(successCount = candidate.successCount + AntiCorrelationPromotionBonus)
-                            } else {
-                                candidate
-                            }
-                        },
-                    )
+                    candidates.applyAntiCorrelationRouting(providerCatalog, domesticProviders)
                 }.filterValues { it.isNotEmpty() }
         }
 
-        private fun PreferredEdgeCandidate.shouldPromoteForAntiCorrelation(domesticProviders: Set<String>): Boolean {
+        private fun List<PreferredEdgeCandidate>.applyAntiCorrelationRouting(
+            providerCatalog: Map<String, AsnRoutingMapEntry>,
+            domesticProviders: Set<String>,
+        ): List<PreferredEdgeCandidate> {
+            val normalized = normalizePreferredEdgeCandidates(this)
+            val nonDomesticCandidates =
+                normalized.filterNot { candidate ->
+                    candidate.isDomesticCdnCandidate(providerCatalog, domesticProviders)
+                }
+            val foreignCdnCandidates =
+                nonDomesticCandidates.filter { candidate ->
+                    candidate.isForeignCdnCandidate(providerCatalog, domesticProviders)
+                }
+            if (foreignCdnCandidates.isEmpty()) {
+                return if (nonDomesticCandidates.size == normalized.size) {
+                    normalized
+                } else {
+                    // Do not keep a domestic CDN edge pinned when anti-correlation is on.
+                    normalizePreferredEdgeCandidates(nonDomesticCandidates)
+                }
+            }
+            val retained =
+                foreignCdnCandidates.map { candidate ->
+                    candidate.copy(successCount = candidate.successCount + AntiCorrelationPromotionBonus)
+                } +
+                    nonDomesticCandidates.filterNot { candidate ->
+                        candidate.isForeignCdnCandidate(providerCatalog, domesticProviders)
+                    }
+            return normalizePreferredEdgeCandidates(retained)
+        }
+
+        private fun PreferredEdgeCandidate.isForeignCdnCandidate(
+            providerCatalog: Map<String, AsnRoutingMapEntry>,
+            domesticProviders: Set<String>,
+        ): Boolean {
             val provider = cdnProvider?.trim()?.lowercase().orEmpty()
-            return provider.isNotEmpty() && provider !in domesticProviders
+            if (provider.isEmpty() || provider in domesticProviders) {
+                return false
+            }
+            return providerCatalog[provider]?.cdn != false
+        }
+
+        private fun PreferredEdgeCandidate.isDomesticCdnCandidate(
+            providerCatalog: Map<String, AsnRoutingMapEntry>,
+            domesticProviders: Set<String>,
+        ): Boolean {
+            val provider = cdnProvider?.trim()?.lowercase().orEmpty()
+            if (provider.isEmpty() || provider !in domesticProviders) {
+                return false
+            }
+            return providerCatalog[provider]?.cdn != false
         }
     }
 

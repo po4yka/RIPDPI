@@ -168,12 +168,69 @@ interface WarpEndpointScanner {
 private val BuiltInWarpEndpointPoolV4: List<String> =
     listOf(
         "162.159.192.1",
-        "162.159.193.1",
         "162.159.195.1",
         "188.114.96.1",
         "188.114.97.1",
         "188.114.98.1",
         "188.114.99.1",
+    )
+
+private val BuiltInWarpEndpointPorts: List<Int> =
+    listOf(
+        500,
+        854,
+        859,
+        864,
+        878,
+        880,
+        890,
+        891,
+        894,
+        903,
+        908,
+        928,
+        934,
+        939,
+        942,
+        943,
+        945,
+        946,
+        955,
+        968,
+        987,
+        988,
+        1002,
+        1010,
+        1014,
+        1018,
+        1070,
+        1074,
+        1180,
+        1387,
+        1701,
+        1843,
+        2371,
+        2408,
+        2506,
+        3138,
+        3476,
+        3581,
+        3854,
+        4177,
+        4198,
+        4233,
+        4500,
+        5279,
+        5956,
+        7103,
+        7152,
+        7156,
+        7281,
+        7559,
+        8319,
+        8742,
+        8854,
+        8886,
     )
 
 private val BuiltInWarpEndpointPoolV6: List<String> =
@@ -427,9 +484,10 @@ class DefaultWarpEndpointScanner
             parallelism: Int,
         ): WarpEndpointCacheEntry? =
             coroutineScope {
-                var best: WarpEndpointCacheEntry? = null
+                var bestWithinBudget: WarpEndpointCacheEntry? = null
+                var bestOverall: WarpEndpointCacheEntry? = null
                 for (batch in candidates.chunked(parallelism.coerceAtLeast(1))) {
-                    val batchBest =
+                    val batchResults =
                         batch
                             .map { candidate ->
                                 async {
@@ -437,14 +495,26 @@ class DefaultWarpEndpointScanner
                                 }
                             }.awaitAll()
                             .filterNotNull()
-                            .minWithOrNull(compareBy<WarpEndpointCacheEntry> { it.rttMs ?: Long.MAX_VALUE })
-                    if (batchBest != null &&
-                        (best == null || candidateScore(batchBest) < candidateScore(best))
+                    val batchBestOverall = batchResults.minByOrNull(::candidateScore)
+                    if (batchBestOverall != null &&
+                        (bestOverall == null || candidateScore(batchBestOverall) < candidateScore(bestOverall))
                     ) {
-                        best = batchBest
+                        bestOverall = batchBestOverall
+                    }
+                    val batchBestWithinBudget =
+                        batchResults
+                            .filter { candidateScore(it) <= timeoutMillis.toLong() }
+                            .minByOrNull(::candidateScore)
+                    if (batchBestWithinBudget != null &&
+                        (
+                            bestWithinBudget == null ||
+                                candidateScore(batchBestWithinBudget) < candidateScore(bestWithinBudget)
+                        )
+                    ) {
+                        bestWithinBudget = batchBestWithinBudget
                     }
                 }
-                best
+                bestWithinBudget ?: bestOverall
             }
 
         private suspend fun buildCandidatePool(
@@ -500,19 +570,21 @@ class DefaultWarpEndpointScanner
             provisioned: WarpEndpointCacheEntry?,
         ): List<WarpEndpointCacheEntry> {
             val host = provisioned?.host?.takeIf(String::isNotBlank) ?: "engage.cloudflareclient.com"
-            val port = provisioned?.port?.takeIf { it > 0 } ?: 2408
+            val ipv6Port = provisioned?.port?.takeIf { it > 0 } ?: 2408
             return buildList {
                 BuiltInWarpEndpointPoolV4.forEach { ipv4 ->
-                    add(
-                        WarpEndpointCacheEntry(
-                            profileId = profileId,
-                            networkScopeKey = "",
-                            host = host,
-                            ipv4 = ipv4,
-                            port = port,
-                            source = "scanner_builtin",
-                        ),
-                    )
+                    BuiltInWarpEndpointPorts.forEach { port ->
+                        add(
+                            WarpEndpointCacheEntry(
+                                profileId = profileId,
+                                networkScopeKey = "",
+                                host = host,
+                                ipv4 = ipv4,
+                                port = port,
+                                source = "scanner_builtin",
+                            ),
+                        )
+                    }
                 }
                 BuiltInWarpEndpointPoolV6.forEach { ipv6 ->
                     add(
@@ -521,7 +593,7 @@ class DefaultWarpEndpointScanner
                             networkScopeKey = "",
                             host = host,
                             ipv6 = ipv6,
-                            port = port,
+                            port = ipv6Port,
                             source = "scanner_builtin",
                         ),
                     )
